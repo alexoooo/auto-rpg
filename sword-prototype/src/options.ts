@@ -172,7 +172,7 @@ const attachedHand = (view: FighterView, name: HandName) => {
  * silent redirection tactic v2 exists to kill: an option asked for the off hand
  * of a bow is refused by name instead of being executed by the bow hand, and
  * `punch` stops being advertised on a body whose only empty hand is welded to a
- * haft. The look-ahead schedule already knew this -- `actionsFor` in
+ * haft. The look-ahead schedule already knew this -- `LOADOUT_TACTICS` in
  * `scripts/train-lookahead.mjs` has never offered `punch` for a bow cell -- so
  * this is the runtime mask catching up with the training one rather than a new
  * rule.
@@ -181,7 +181,7 @@ const attachedHand = (view: FighterView, name: HandName) => {
  * the time.** That same schedule also withheld `punch` from `sword+empty` and
  * `axe+empty`, where the off hand is genuinely free and this function answers
  * null -- so on those two the *schedule* was the wrong one and the runtime was
- * right. It was corrected there rather than here; `LOADOUT_ACTIONS` carries the
+ * right. It was corrected there rather than here; `LOADOUT_TACTICS` carries the
  * argument.
  */
 const twoHandedHolder = (view: FighterView): HandName | null => {

@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { behaviourRecord, recordBehaviourSample, recordCombatEvent, recordIntentAttack } from "../src/options.ts";
 import { blankIntent } from "../src/policies.ts";
-import { EngagementTracker, attackOpportunity } from "../src/learning/engagement.ts";
+import { EngagementTracker, attackOpportunity, opportunityForAction } from "../src/learning/engagement.ts";
 import { INTENT_FIELDS, intentNumbers } from "../src/learning/evaluation.ts";
 import { fitnessComponents, noveltyScore } from "../src/learning/meta.ts";
 import { SplitReader } from "../src/learning/research.ts";
@@ -133,6 +133,45 @@ test("natural_attack_reach_prevents_false_retreat_and_bite_is_an_attack_attempt"
   recordBehaviourSample(record, sample, "bite", 0.1, previous);
   assert.equal(record.engagement.retreatOutsideReachSeconds, 0);
   assert.equal(record.attackAttempts.bite, 1); assert.equal(record.engagement.attacksInWindow, 1);
+});
+
+test("an_attack_opportunity_names_its_effector_and_a_decision_is_attributed_to_that_hand", () => {
+  // `opportunitiesForAction` had one caller, zero tests, and read the weapon
+  // without ever reading the hand -- so on a two-fisted body every `punch`,
+  // whichever fist it named, was attributed to whichever fist the enumeration
+  // reached first. Both fists here, because a body with one punchable hand cannot
+  // exhibit it: that is the fixture rule this directory learned from the
+  // schedule/mask test.
+  const fists = view(0.5);
+  fists.self.hands.primary.weapon = "empty"; fists.self.hands.primary.reach = 0.6;
+  // The whole row list against a freshly built one, not the field under test:
+  // `effector` is new and the key already carried the same fact, so a row where
+  // the two disagree is the failure worth catching.
+  assert.deepEqual(attackOpportunity(fists).map((row) => [row.key, row.effector, row.viable]),
+    [["hand:primary:empty", "primary", true], ["hand:secondary:empty", "secondary", true]]);
+  // Each hand answers itself, and the row is the row -- identity against the
+  // enumeration rather than a re-derived key, so a picker that rebuilt the record
+  // would still have to rebuild it correctly.
+  for (const effector of ["primary", "secondary"]) {
+    assert.deepEqual(opportunityForAction(fists, "punch", effector),
+      attackOpportunity(fists).find((row) => row.effector === effector));
+  }
+  // A hand that cannot perform the action, a hand that does not exist, and a hand
+  // out of its own range: three ways to have no opportunity, and none of them may
+  // fall through to the other hand's.
+  assert.equal(opportunityForAction(fists, "cut", "primary"), null);
+  assert.equal(opportunityForAction(fists, "punch", "natural"), null);
+  const far = view(1.2); far.self.hands.primary.weapon = "empty"; far.self.hands.primary.reach = 0.6;
+  assert.equal(opportunityForAction(far, "punch", "secondary"), null);
+  assert.equal(opportunityForAction(far, "cut", "primary"), null);
+  // The natural channel is an effector too, and it is `natural` rather than the
+  // attack's own name.
+  const jaws = view(0.55); jaws.self.hands = {};
+  jaws.self.naturalAttacks = { bite: { reach: 0.4, ready: true, active: false } };
+  jaws.opponent.collisionRadius = 0.2; jaws.self.facing = 0;
+  assert.deepEqual(attackOpportunity(jaws).map((row) => [row.key, row.effector]), [["natural:bite", "natural"]]);
+  assert.equal(opportunityForAction(jaws, "bite", "natural").key, "natural:bite");
+  assert.equal(opportunityForAction(jaws, "bite", "primary"), null);
 });
 
 test("every_candidate_and_control_receives_the_exact_same_seed_matrix", () => {

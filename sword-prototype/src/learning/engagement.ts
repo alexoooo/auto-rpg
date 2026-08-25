@@ -4,6 +4,19 @@ import { OPPORTUNITY_WINDOW_SECONDS, STALL_WINDOW_SECONDS } from "./tournament.t
 
 export interface AttackOpportunity {
   readonly key: string;
+  /**
+   * Which effector this row belongs to, as a field rather than as a substring of
+   * `key`.
+   *
+   * The key has carried it since the tracker was written -- `hand:${hand}:${weapon}`
+   * -- and one caller was parsing it back out while a second dropped the hand
+   * entirely. `tactical-teacher.ts`'s `rowEffector` split on `":"`;
+   * `opportunitiesForAction` did not look at the hand at all and answered a list its
+   * one caller took `[0]` of. Naming the field is what lets a caller ask for *the*
+   * opportunity a decision names instead of the first one that happens to hold the
+   * right weapon.
+   */
+  readonly effector: string;
   readonly striker: Striker | string;
   readonly viable: boolean;
   readonly rangeMargin: number;
@@ -51,13 +64,13 @@ export function attackOpportunity(view: FighterView): readonly AttackOpportunity
     const minimum = shooting ? view.self.collisionRadius + bodyMargin : 0;
     const maximum = shooting ? Number.POSITIVE_INFINITY : capability.reach + (capability.weapon === "empty" ? 0 : bodyMargin);
     const rangeMargin = Math.min(view.measure - minimum, maximum - view.measure);
-    rows.push(Object.freeze({ key: `hand:${hand}:${capability.weapon}`, striker: capability.weapon,
+    rows.push(Object.freeze({ key: `hand:${hand}:${capability.weapon}`, effector: hand, striker: capability.weapon,
       viable: rangeMargin >= 0 && Math.abs(error) <= (shooting ? 0.18 : 0.55), rangeMargin, facingError: error }));
   }
   const natural = (view.self as typeof view.self & UnlikeBodyView).naturalAttacks ?? {};
   for (const [name, capability] of Object.entries(natural)) {
     const rangeMargin = capability.reach + Math.max(0, view.opponent.collisionRadius) - view.measure;
-    rows.push(Object.freeze({ key: `natural:${name}`, striker: name,
+    rows.push(Object.freeze({ key: `natural:${name}`, effector: "natural", striker: name,
       viable: capability.ready && rangeMargin >= 0 && Math.abs(error) <= 0.60, rangeMargin, facingError: error }));
   }
   return Object.freeze(rows);
@@ -72,11 +85,42 @@ export function engagementRecord(): EngagementRecord {
 
 interface OpenOpportunity { readonly key: string; readonly openedAt: number; attackedAt: number | null; contacted: boolean }
 
-export function opportunitiesForAction(view: FighterView, action: string): readonly AttackOpportunity[] {
-  return attackOpportunity(view).filter((row) => row.viable && (action === "shoot" ? row.striker === "bow"
-    : action === "bite" ? row.key === "natural:bite" : action === "punch" ? row.striker === "empty"
-      : action === "cut" ? row.striker !== "empty" && row.striker !== "bow"
-        : action === "thrust" ? row.striker === "sword" : false));
+/**
+ * The one opportunity a decision names -- an action *and* an effector -- or null.
+ *
+ * **It was `opportunitiesForAction(view, action)` and its one caller took `[0]`,
+ * and that pair silently deleted damaging contacts.** The filter read the weapon
+ * and never the hand, so on `warrior/empty+empty` every `punch` decision, whichever
+ * fist it named, was attributed to whichever fist `attackOpportunity` enumerates
+ * first: measured over a real 2,400-step bout, `hand:primary:empty` in **98 of 98**
+ * samples where a punch was viable. A `punch|secondary` therefore set `attackedAt`
+ * on the primary fist's opportunity; the contact then arrived keyed
+ * `hand:secondary:empty`, whose `attackedAt` was still null, and
+ * `EngagementTracker.contact` returned early. The window counts that feed NEAT-QD's
+ * feasibility gate, DAgger's engagement floor and the frozen tournament row were
+ * then a record of a hand that had not attacked. Measured on that bout at 0.10 s
+ * persistence, the harness credited **2** damaging contacts where the named hand
+ * landed **1**.
+ *
+ * The mechanism predates the stage that made it reachable -- `DaggerLabel` has
+ * carried `effector` since stage C2b -- but until the look-ahead beam named a hand,
+ * every producer of a `punch` on that body happened to name the same hand `[0]` did:
+ * `chooseEffector` answers `primary` there.
+ *
+ * It answers one row or none rather than a list, because with the effector named
+ * there is at most one -- a hand appears once in `attackOpportunity` and so does a
+ * natural attack. A caller taking `[0]` of a list is the shape this defect had.
+ *
+ * The action/striker arm stays, because an effector alone does not say whether what
+ * that hand holds can perform the action; `viable` stays, because an opportunity out
+ * of range is not one.
+ */
+export function opportunityForAction(view: FighterView, action: string, effector: string): AttackOpportunity | null {
+  return attackOpportunity(view).find((row) => row.viable && row.effector === effector &&
+    (action === "shoot" ? row.striker === "bow"
+      : action === "bite" ? row.key === "natural:bite" : action === "punch" ? row.striker === "empty"
+        : action === "cut" ? row.striker !== "empty" && row.striker !== "bow"
+          : action === "thrust" ? row.striker === "sword" : false)) ?? null;
 }
 
 export function opportunityKeyForContact(hand: string, striker: string): string {

@@ -20,6 +20,8 @@ import { STRIKER_KINDS, WEAPON_KINDS } from "../src/hands.ts";
 import { trainDaggerModel } from "../src/learning/dagger.ts";
 import { GRU_UNITS } from "../src/learning/recurrent-network.ts";
 import { TACTICAL_TEACHER_VERSION, tacticalTeacher } from "../src/learning/tactical-teacher.ts";
+import { fitTacticalModel } from "../src/learning/tactical-model.ts";
+import { plannedTacticKey } from "../src/learning/lookahead.ts";
 import { partitionIndexed, restoreIndexed } from "../src/learning/jobs.ts";
 import { Network } from "../src/learning/network.ts";
 import { SeededRng } from "../src/learning/rng.ts";
@@ -751,13 +753,24 @@ const sealed = (algorithm, model) => decodeResearchArtifact(new ResearchArtifact
  * against the one list rather than against each other.
  *
  * The same construct as `COMBAT_FIELDS`, and it exists because the same defect
- * happened one level up: `DaggerLabel` widened, and the four things that build
- * one -- the teacher, a trained DAgger model, the NEAT decoder and the PPO
- * decoder -- are in four files with no shared declaration between them. Three of
- * the four go through `deployedResearchMind` here rather than being called
- * directly, because that is the seam a tournament actually runs, and a label
- * that is right in the decoder and wrong at the seam is the failure this cannot
- * be allowed to miss.
+ * happened one level up: `DaggerLabel` widened, and the things that build one are
+ * in as many files with no shared declaration between them.
+ *
+ * **Five, and this said four.** The teacher, a trained DAgger model, the NEAT
+ * decoder, the PPO decoder -- and the look-ahead beam, which became a producer the
+ * moment stage C2c gave it an effector and an aim of its own to name. Four of the
+ * five go through `deployedResearchMind` here rather than being called directly,
+ * because that is the seam a tournament actually runs, and a label that is right in
+ * the decoder and wrong at the seam is the failure this cannot be allowed to miss.
+ * The teacher is the fifth and is called directly, because nothing deploys it.
+ *
+ * The look-ahead payload is a model whose every cell carries one row with an
+ * identical before and after: the delta is zero, so every cell ties and the beam's
+ * frozen tie-break picks the first -- and a one-row cell calibrates to 0/0/0 in all
+ * three columns, which is what gets it past `LOOKAHEAD_CALIBRATION_LIMITS`. That
+ * degeneracy is a real property of the trainer at low budgets and
+ * `docs/measurements.md` records it; here it is what makes a synthetic artifact
+ * deployable without a Havok trace.
  */
 test("every_producer_of_a_research_label_writes_the_same_six_fields", () => {
   const view = learningView("sword", "empty");
@@ -777,13 +790,19 @@ test("every_producer_of_a_research_label_writes_the_same_six_fields", () => {
     ...Object.fromEntries(Object.entries(HEAD_TABLES).map(([name, table]) => [name, layer(table.length, GRU_UNITS)])),
     value: layer(1, GRU_UNITS) } };
 
+  const flat = { reachMargin: -0.2, facingError: 0.1, threatAlignment: 0, contactProbability: 0, vitalityPotential: 0 };
+  const lookahead = fitTacticalModel(MOVEMENT_NAMES.flatMap((movement) =>
+    deployableTactics(view).map((tactic) => ({ tactic: plannedTacticKey({ movement, ...tactic }),
+      bodyLoadout: "warrior/sword+empty", before: flat, after: flat, contact: false }))));
+
   for (const [algorithm, payload] of [["dagger", model], ["ppo", ppo],
-    ["neat-qd", constantGenome(outputVector({ action: [0, 1, 0, 0, 0, 0, 0], persistence: 0.2 }))]]) {
+    ["neat-qd", constantGenome(outputVector({ action: [0, 1, 0, 0, 0, 0, 0], persistence: 0.2 }))],
+    ["lookahead", lookahead]]) {
     const mind = deployedResearchMind(sealed(algorithm, payload), "warrior/sword+empty",
       (_view, _features, label) => { seen[algorithm] = { ...label }; });
     mind.decide(learningView("sword", "empty"), 1 / 240);
   }
-  assert.deepEqual(Object.keys(seen).sort(), ["dagger", "neat-qd", "ppo", "teacher"],
+  assert.deepEqual(Object.keys(seen).sort(), ["dagger", "lookahead", "neat-qd", "ppo", "teacher"],
     "every producer was actually reached");
   for (const [name, label] of Object.entries(seen)) {
     assert.deepEqual(Object.keys(label).sort(), [...RESEARCH_LABEL_FIELDS], name);

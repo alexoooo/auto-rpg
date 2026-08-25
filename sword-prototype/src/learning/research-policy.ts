@@ -76,14 +76,20 @@ export function researchLabelMind(name: string, labeler: ResearchLabeler,
         // seven times. It also refuses more usefully: `a punch target of vital,
         // high, not "low"` names the part that was wrong.
         //
-        // `TacticAim` rather than `TargetName`, and that is what keeps stage
-        // C2c's look-ahead unwidened: `"as-measured"` is deliberately outside
-        // `TARGET_NAMES`, so no learned output can name it and
-        // `deployableTactics` has no row for it -- but `collectTacticalTrace` in
-        // `scripts/train-lookahead.mjs` names it explicitly, because a
-        // look-ahead model is keyed on `(movement, action)` and has no aim head
-        // to read. Refusing it here would have moved every look-ahead trace off
-        // the line all of its figures were taken at.
+        // `TacticAim` rather than `TargetName`: `"as-measured"` is deliberately
+        // outside `TARGET_NAMES`, so no learned output can name it and
+        // `deployableTactics` has no row for it, while a *scripted* labeler may
+        // still ask for the opponent's own shoulder line. The readers are
+        // `probeLabel` in `tests/fixtures/label.mjs`, `randomMetaMind` and
+        // `scriptedMetaMind`, all through `asMeasured`.
+        //
+        // **This said the aim was widened for look-ahead's sake and that
+        // `collectTacticalTrace` names `"as-measured"` explicitly, and stage C2c
+        // made both false.** The look-ahead model is keyed on the effector and the
+        // aim now, so the schedule enumerates the aim and `"as-measured"` has left
+        // that path entirely -- the trace is taken at the aim the planner will
+        // name. The type stays for the scripted readers above; the reason it was
+        // written down for does not.
         option = handActionOption(action, { effector: label.effector as EffectorName,
           target: label.target as TacticAim, stance: label.stance as StanceName });
         option.enter(view); writer.setTactic(movement, action, view.clock);

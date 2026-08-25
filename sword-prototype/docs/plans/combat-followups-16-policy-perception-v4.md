@@ -50,15 +50,18 @@ them would have shipped a per-frame allocation into the physics loop.
 `FEATURE_VERSION` is not compared generically everywhere. Bumping it to 4 without these two
 edits produces a failure whose message reads backwards:
 
-- ~~`src/learning/meta.ts#L150` hardcodes
+- ~~`src/learning/meta.ts` hardcoded
   `if (checkpoint.featureVersion !== 3) throw ... "cannot run as feature v3"`. Every freshly
   written v4 checkpoint is refused, by a message claiming v4 is the stale one.~~
   **Superseded 2026-08-25.** That check no longer exists: `grep featureVersion
   src/learning/meta.ts` returns nothing, so the sentence is false in the present tense and the
-  line number pointed at nothing. The anchor is deleted rather than re-pointed -- stage C2b's
-  repair pass moved it from `#L154` to `#L150` while its own record said it was being left
-  alone as knowingly dead, which makes a dead anchor read as a freshly verified one. The
-  underlying job was done: `meta.ts` no longer compares a feature version at all.
+  line number pointed at nothing. **The anchor is now actually deleted, and this is the third
+  time it has been moved instead.** Stage C2b's repair pass moved it from `#L154` to `#L150`
+  while its own record said it was being left alone as knowingly dead; stage C2c's anchor sweep
+  then moved it to `#L202` -- prose, in a docstring -- which re-published a dead number as
+  freshly verified for the second time. A struck-through sentence with a live-looking `#Lnnn` in
+  it is a trap, because the next sweep re-points it rather than reading the paragraph under it.
+  The underlying job was done: `meta.ts` no longer compares a feature version at all.
 - `src/learning/promotion.ts#L97` hardcodes `row.featureVersion !== 2` -- already stale by one
   version before this session starts. (`promotion.ts` has since been deleted; this line is
   history, and the plan set's own supersession note for that file carries it.)

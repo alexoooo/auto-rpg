@@ -182,7 +182,7 @@ Baseline taken before any of this work, from `sword-prototype/`, commit `a095877
 | --- | --- | --- |
 | 15 host command boundary | **landed** | `f789ea4`, 459 tests |
 | 16 policy perception v4 | **landed** | `d44fc3e`, 484 tests |
-| 17 tactic output v2 | A, B, C1, C2a, C2b landed; C2c is the last | `3674e06`, `caec629`, 524 tests |
+| 17 tactic output v2 | A, B, C1, C2a, C2b **landed**; C2c **implemented and remediated, not yet committed** | `3674e06`, `caec629`, `4dfc12f` (C2b's progress log); C2c has no hash yet, 532 tests |
 | 18 human gate feasibility | not started | -- |
 | 19 run legibility | not started | -- |
 | 20 throughput and ceilings | not started | -- |
@@ -335,6 +335,13 @@ column and the factor move, and the multiplier is nearer twenty than twenty-two:
 | minimum solver steps | **46,080** | ~893,000--950,000 | **~19--21x** |
 | beam nodes per replan, worst cell | 1,075 | ~20,600 | ~19x |
 
+**Superseded on 2026-08-25 by stage C2c, which measured the projection and paid a fifth of it.**
+The tactic-v2 column enumerates all five fields. Stage C2c measured the stance to be worth under
+0.8 % of the calibration limits at a fixed budget -- and worse than useless on one of the three
+columns -- and left it out of the key, so what landed is **775** tasks a split, **148,800**
+minimum solver steps and **3,440** nodes per replan: **3.23x**. The projection stays as the
+record of what was priced; "Session 17, stage C2c as landed" below carries the measurement.
+
 The worst-cell beam figure is unaffected: `lookaheadMind` plans over the runtime mask, which
 already offered `punch` on `sword+empty`, so its 25 pairs and `43P = 1,075` nodes were never the
 schedule's number.
@@ -369,7 +376,7 @@ readers want "which hand is acting", which is also what a person's mouse hand me
 renamed to `actingHand` and widened to `HandName | null` for a body whose striker is not a
 hand; the host/policy difference is a *narrowing* in `Controls.state`'s type rather than a
 second field. The six key-set assertions did move, which is what they are for. PPO needs **four** new heads, not three -- it
-has no persistence output at all and `deployment.ts:153` hardcodes `0.4` -- and its reported
+has no persistence output at all and `meta.ts:28` hardcodes `0.4` -- and its reported
 entropy is divided by a hardcoded head count of 2 that no test pins. The DAgger expert returns
 only `{movement, action, persistence}` and cannot label an effector or an aim height, so
 teaching it is unstated work. There is no output mirror to extend, and the plan's effector-mirror
@@ -538,15 +545,16 @@ deployment path.
   being wrong, because that off hand is genuinely free. `lookaheadMind` threw
   `tactic "close+punch" has no calibrated model` on those two -- **pre-existing, verified at
   `da025f2`**, reproduced and then fixed in stage C1. The schedule is 240 tasks per split
-  against 220, and its minimum budget 46,080 steps against 42,240; session 20's tuple expansion
-  supersedes both by roughly twentyfold.
+  against 220, and its minimum budget 46,080 steps against 42,240. **Stage C2c superseded both
+  at 3.23x rather than the twentyfold projected here**: 775 tasks a split and 148,800 minimum
+  steps, with the stance measured out of the key.
 - **Closing the rows did not close the crash, and sessions 20 and 21 need to know why.** A
   per-loadout schedule row cannot describe a mask that depends on live body state: the row keys
   on the loadout a body started with, the mask keys on what is still attached, and severing the
   bow hand of a `bow+empty` frees the welded empty hand so the mask offers `punch` against a row
   that says `cover, shoot, recover`. `lookaheadMind` threw again, on a body state that occurs 10
   times in 120 null-control bouts. The fix is not more rows -- there are more states than
-  loadouts, and the tuple expansion multiplies both. `calibratedTacticPairs` filters the search
+  loadouts, and the tuple expansion multiplies both. `calibratedPlannedTactics` filters the search
   to cells the model holds a calibration for and refuses by name when none survives, which is
   the shape session 20's much larger and necessarily sparser cell table will need: a fitted model
   that misses cells is now a narrower search rather than a dead run.
@@ -671,8 +679,10 @@ needs measurement.
   refuse a stale-width model explicitly, every end-relative slice is routed through the table, and
   the (action, effector, target) tuple is selected jointly by summed logits, masked before the
   argmax and never repaired after. No trainer is touched. The null control must not move.
-- **C2b -- the four trainers.** NEAT-QD, DAgger and its new teacher, PPO's four new heads, and the
-  look-ahead tuple enumeration that carries the measured ~21x cost into sessions 20 and 21.
+- **C2b -- the four trainers.** NEAT-QD, DAgger and its new teacher, PPO's four new heads. The
+  look-ahead tuple enumeration became **C2c**, because its cost is the thing that had to be
+  measured rather than assumed: the ~21x priced here was measured at **3.23x** once the stance
+  was measured out of the key.
 
 The hazard C2a exists to close is a silent one. `deployment.ts` decodes action logits with
 `values.slice(MOVEMENT_NAMES.length, -1)` -- "everything but the last number". At 13 wide that is
@@ -684,7 +694,8 @@ that a width refusal alone does not catch.
 
 The four research trainers moved onto the widened contract, and the DAgger teacher gained real
 opinions about aim rather than three columns of constants. Look-ahead is deliberately not here --
-it carries a measured ~19x compute cost and is stage C2c.
+it carries a projected ~19x compute cost and is stage C2c, which measured that projection down
+to 3.23x.
 
 **The number this stage is judged by is the label histogram, and the first version of it was a
 flat zero.** Over 268 decisions at 2400 solver steps: effector `primary` 84.3 %, `natural` 15.7 %,
@@ -755,6 +766,89 @@ and no empty mask; the PPO gradients under a finite-difference check at worst re
 neighbour could not hide; thirty malformed `DaggerModel`s each refused by a sentence naming the
 head; and a byte-identical look-ahead trace digest proving C2c's files did not move.
 
+### Session 17, stage C2c as landed
+
+The look-ahead planner and its training schedule carry the tuple. The cell key is
+`movement+action+effector+target`; **the stance is not in it, on measured evidence**, and that
+decision is the whole difference between the ~19x this plan priced and the 3.23x it cost. 528
+tests, `npx tsc --noEmit` and `npm run build` clean, null control identical for the sixth stage
+running. Everything is in `sword-prototype/docs/measurements.md` under "Session 17 Stage C2c",
+with four measurements, an 18-row mutation table and a per-test list of what each test does not
+catch.
+
+| quantity | this overview projected | landed |
+| --- | ---: | ---: |
+| schedule tasks per split | ~4,650--4,950 | **775** |
+| minimum solver steps | ~893,000--950,000 | **148,800** |
+| beam nodes per replan, worst cell | ~20,600 | **3,440** |
+| ms per replan, worst cell | not projected | **4.28** (26.35 with the stance) |
+
+**The twentyfold was real and was declined, not absorbed.** Enumerating the stance is exactly
+6x on every row of that table, and what it buys was measured on real Havok bodies: at a fixed
+budget, six stance-keyed cells against one stance-free cell score 0.0081 / 0.1387 / 0.0241
+against 0.0099 / 0.1390 / 0.0230 on the three calibration columns -- every gap under 0.8 % of
+the 0.25 limit each is refused at, and the vitality column *worse* with the stance in. The whole
+stance effect on that column is smaller than the cost of fitting from one seed instead of two.
+The same question asked of the effector and the aim answers differently -- 24x the Brier gain --
+which is why those two are in the key and the stance is not.
+
+**What session 20 inherits, in one place:**
+
+- **`43 x cells` nodes a replan, at roughly 750-825 expanded nodes per millisecond** from 430
+  nodes to 20,640. So milliseconds per replan is `43 x cells / 800` **to about ten per cent**, on
+  this host, in the headless bench. (This read "a flat 780-825 ... to about five per cent" and the
+  band excluded two of its own thirteen rows; two independent re-runs landed at 766-789 and
+  732-778. Use the rule of thumb, not the band.) **No page reading exists** and one is owed.
+- **3.36 replans a simulated second per planning fighter**, one every 71.5 solver steps, from a
+  real 45-second bout. At 4.28 ms that is 21.6 % of that bout's wall clock; with the stance it
+  would be more than the entire bout costs today, and a single replan would exceed a 16.7 ms
+  frame on its own.
+- **Calibration survival is not a quality measure at low row counts.** 100 % at the minimum
+  budget is degenerate -- one row a cell fits itself exactly in all three columns, and at 48
+  solver steps the train and validation bouts are bit-identical. The shipped
+  `session18-minimum` artifact reports 0/0/0 for all 220 of its keys, so
+  `LOOKAHEAD_CALIBRATION_LIMITS` has never refused anything in a shipped run. Real survival is
+  99.6 % at 3 rows a key, 98.6 % at 6 and **85.0 % at 15**, and the quality cliff is between 8
+  and 15 held-out rows. **60 rows a cell is 4,464,000 solver steps**, roughly 17 minutes in one
+  process.
+- **Only `contactBrier` ever refuses a cell.** Worst `signedReachError` observed 0.0618 and worst
+  `vitalityDeltaError` 0.1037, against limits of 0.25.
+- **A long budget must be spent as many short jobs.** At 480 steps a job the trainer dies because
+  a fighter loses a hand mid-window and the forced tuple leaves the runtime mask: **1 of 775 tasks
+  on seed 310013, 0 of 775 on the other two fit seeds.** This said "pre-existing: the action-level
+  guard throws at the same budget", and a sweep says otherwise -- the dying cell is
+  `warrior/axe+empty hold+punch+secondary+high`, `+high` is an aim the widening added, and the
+  HEAD-equivalent replay at the measured shoulder line dies **0 of 5** on all three fit seeds. So
+  the widening *did* add one trainer failure mode. What is true is that the guard is not more
+  sensitive: on `axe+empty` the action mask and the tuple mask lose `punch` in the same instant.
+- **The stance is not in the beam because the model cannot see it, not because searching it is
+  dear.** `TACTICAL_STATE_COLUMNS` is `reachMargin, facingError, threatAlignment,
+  contactProbability, vitalityPotential` -- no posture, no crouch, no lean, no twist, though
+  `BodyView` publishes the last three -- and the fitted model is a constant mean delta per cell
+  that reads no state at all. Meanwhile stance moves realised damage several-fold -- 4.6x between
+  the best and worst stance over six seeds, though *within* one stance the seed-to-seed spread is
+  larger than that, so the only robust ranking is "`slip-right` is worst". **So "stance is
+  not worth searching" is a fact about the current five columns and nothing else**, and the first
+  session to give the tactical model a column that can see a posture inherits the question, not
+  the answer. (The 6x cost of enumerating it is real and is the *second* reason.)
+- **Engagement counts are only as good as the hand they were attributed to, and until 2026-08-25
+  they were not.** `scripts/research-havok.mjs` opened every attack window on the first hand
+  holding the right weapon rather than on the hand the label named, so on a two-fisted body the
+  named hand's damaging contact was dropped and the other hand's was credited.
+  `attacksInWindow` and `damagingContactsInWindow` feed the feasibility gate, the engagement floor
+  and the frozen tournament row, so **any engagement row taken by a hand-naming labeler before
+  that date is suspect** and none should be carried into a comparison. `docs/measurements.md`
+  carries the measurement and the two tests that now hold it.
+- **One body state in twenty-eight loses its whole search space** -- a `bow+empty` that loses its
+  bow hand, whose every trained cell names the primary. **And the other half, which was missing:**
+  HEAD silently executed a primary-hand model on the *other arm* on the minus-primary state of
+  **all six** humanoid loadouts, and on **five of the six** C2c both refuses that redirection and
+  keeps a searchable capability, because the schedule trains the secondary tuples. Severance runs
+  at 10 in 120 null-control bouts, so a tournament will meet both halves.
+
+Still owed and not this stage's: behaviour records counting effectors, targets and stances, and
+a page-side reading of the replan cost.
+
 ### Findings from the implementation pass that change the plan
 
 Recorded as they were found, with the evidence. A plan that survives contact unchanged was
@@ -763,7 +857,7 @@ not specific enough to be wrong; these are the places this one was.
 1. **"At least twenty-four rows" is not reachable by choosing `N`.** Session 19 sets the
    cadence with `--checkpoint-every-jobs N` and session 21 accepts a rung only if it produced
    twenty-four rows. At the granularity each runner actually checkpoints at, the *whole run*
-   offers fewer units than that: look-ahead 960 (`train-lookahead.mjs#L147`), NEAT-QD 80
+   offers fewer units than that: look-ahead **3,100** (`train-lookahead.mjs#L200`), NEAT-QD 80
    generations (`train-neat-qd.mjs#L20`), DAgger **5** iterations (`collect-dagger.mjs#L18`),
    PPO **2** arms -- `equalBudgetPpoArms` returns exactly `["random", "dagger"]`
    (`src/learning/ppo.ts#L96-L100`). No `N` divides five into twenty-four.
@@ -800,8 +894,8 @@ not specific enough to be wrong; these are the places this one was.
 5. **Look-ahead has no resume, no state file and no coherent mid-run checkpoint.**
    `--stop-after-jobs` exists only in `train-ppo.mjs#L180`; the handoff's claim that it and
    `--resume` are general is wrong. Worse, a look-ahead `TacticalModel` first exists only after
-   a complete train sweep (`train-lookahead.mjs#L156`) and is uncalibrated until the validation
-   sweep (`#L161`), so a champion-so-far at row *k* is a computation the run does not otherwise
+   a complete train sweep (`train-lookahead.mjs#L209`) and is uncalibrated until the validation
+   sweep (`#L214`), so a champion-so-far at row *k* is a computation the run does not otherwise
    perform -- and one `LOOKAHEAD_CALIBRATION_LIMITS` would likely refuse at deploy time.
    **Updated 2026-08-25:** it would no longer refuse outright. `lookaheadMind` now searches the
    cells it holds a calibration for and refuses only when a body has none, so a partial model is
@@ -810,7 +904,7 @@ not specific enough to be wrong; these are the places this one was.
    whatever session 19 builds should report the pair count it actually searched.
 6. **`configDigest` is two incompatible formats.** NEAT-QD and DAgger use 16 hex characters of
    SHA-256 (`train-neat-qd.mjs#L50`, `collect-dagger.mjs#L36`); PPO and look-ahead use 8 hex
-   characters of FNV-1a (`train-ppo.mjs#L190`, `train-lookahead.mjs#L166`). The artifact
+   characters of FNV-1a (`train-ppo.mjs#L190`, `train-lookahead.mjs#L219`). The artifact
    validator only requires a non-empty string (`artifact.ts#L165`). Preflight normalizes this
    before it can compare anything.
 7. **A SHA-256 contract digest cannot live in `src/learning/`.** That tree is browser-imported
@@ -836,7 +930,7 @@ Findings that change session 18 specifically:
     once.** `scripts/evaluate-options.mjs` called `recordBehaviourSample` (the *labelled* path)
     and, three lines later, `recordIntentAttack` (the *label-free* path) on the same
     `behaviourRecord`, in the same `onSample`, against one shared `_engagement`.
-    `EngagementTracker.attack` (`engagement.ts#L137`) returns early when an opportunity has
+    `EngagementTracker.attack` (`engagement.ts#L179`) returns early when an opportunity has
     already been attacked, so it is first-writer-wins and the two silently blend.
     `scripts/training-evaluator.mjs` did the same.
     **Consequence:** the frozen 0.2282 and 0.2031 rows are a *mixture*, and a human -- who has
@@ -850,14 +944,21 @@ Findings that change session 18 specifically:
     described rather than linked because there is nothing left to link to.
 12. **The two attack paths disagree in four measurable ways**, so the planned test
     `a_label_free_mind_and_a_labelled_mind_agree_on_attack_intent_for_the_same_commands` fails
-    as written and must be scoped: `opportunitiesForAction` requires `striker === "sword"` for
-    `thrust` (`engagement.ts#L79`) where the inline matcher falls through to `true`
-    (`options.ts#L966`); `research-havok.mjs#L36` credits only `[0]`, the first matching row,
-    where `options.ts#L967` credits every match, which systematically depresses dual-wield
-    opportunity conversion; the labelled paths fire on an option-change edge while the
+    as written and must be scoped: `opportunityForAction` requires `striker === "sword"` for
+    `thrust` (`engagement.ts#L118-L123`) where the inline matcher falls through to `true`
+    (`options.ts#L966`); `research-havok.mjs#L46` credits exactly one row -- **the hand the label
+    named** -- where `options.ts#L967` credits every viable match, which systematically depresses
+    dual-wield opportunity conversion; the labelled paths fire on an option-change edge while the
     label-free path fires on a button edge at 240 Hz; and only the label-free path counts a
     *guard release* as an attack (`options.ts#L950`), which inflates the numerator of
     opportunity-attack and deflates attack-contact for a defensive player.
+    **Corrected 2026-08-25.** This read "credits only `[0]`, the first matching row", which was
+    an accurate description of a **defect**: the filter did not read the hand, so `[0]` was the
+    *primary* fist on 98 of 98 viable punch samples on `warrior/empty+empty`, whichever hand the
+    label named, and the named hand's damaging contact was dropped. The disagreement with
+    `options.ts` survives the fix and is now a real difference of intent -- one path knows which
+    effector was chosen and the other does not -- rather than an arbitrary first-row pick.
+    `docs/measurements.md` carries the measurement.
 13. **The page's clock is wall-clock derived and the bench's is synthetic.**
     `src/main.ts#L936` takes `dt = min(engine.getDeltaTime()/1000, CONFIG.world.maxFrameSeconds)`
     with the cap at `1/20` (`config.ts#L38`) and feeds it to `combat.advance(dt)` (`#L946`);
@@ -870,7 +971,7 @@ Findings that change session 18 specifically:
 14. **`onSample` does not emit the shape session 18 says it does.** `runBout` emits
     `{ left, right, dt, clock }` where `left`/`right` are `Combatant`s (`measure.mjs#L283`);
     `{ view, dt, clock }` is `runResearchBout`'s hook re-projection one layer up
-    (`research-havok.mjs#L55-L56`). The recorder takes the per-fighter `{ view, dt, clock }` --
+    (`research-havok.mjs#L65-L66`). The recorder takes the per-fighter `{ view, dt, clock }` --
     that is what makes it side-agnostic and page-drivable -- and the bench call sites adapt.
 15. **The page never sees an `Intent`, and a wrapper is not enough.** `Fighter.update` calls
     `this.mind.decide` internally and keeps the result (`fighter.ts#L1381`); every bench

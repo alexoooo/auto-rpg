@@ -1,4 +1,22 @@
-export const TACTICAL_MODEL_VERSION = 1;
+/**
+ * The model contract, which is the state columns **and the cell key grammar**.
+ *
+ * **2 since stage C2c widened the key**, and the bump is what makes a stale
+ * artifact say so. `cells` is a plain string-keyed map, so a model fitted under
+ * the two-field `movement+action` grammar decodes perfectly against the
+ * four-field `movement+action+effector+target` one and then matches nothing:
+ * `calibratedPlannedTactics` would filter every cell out and `lookaheadMind`
+ * would report `no calibrated model for any tactic on [...]`, which reads as an
+ * under-spent training budget rather than as an artifact from the wrong
+ * grammar. `deployedResearchMind` refuses it by version instead, before a mind
+ * is built.
+ *
+ * Nothing checked in is affected, confirmed rather than assumed: the one
+ * committed look-ahead artifact (`asset-src/learning/research/session18-minimum`)
+ * is already refused one layer up, at `featureVersion` 3 against runtime 4, and
+ * carries the pre-C1 220-cell table.
+ */
+export const TACTICAL_MODEL_VERSION = 2;
 export const TACTICAL_STATE_COLUMNS = Object.freeze([
   "reachMargin", "facingError", "threatAlignment", "contactProbability", "vitalityPotential",
 ] as const);

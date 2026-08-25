@@ -22,8 +22,8 @@ research direction by twenty.
 ### The legal-tuple table makes a handless body illegal, and that was a fixed bug
 
 `cover`/`recover` are specified here as needing "either selected attached hand". Today
-`supportedOptions` adds `recover` **unconditionally** (`src/learning/meta.ts:20`) and adds
-`cover` only when a hand is attached (`:21`), and `handActionOption` carries a dedicated
+`supportedOptions` in `src/learning/meta.ts` adds `recover` **unconditionally** and adds
+`cover` only when a hand is attached, and `handActionOption` carries a dedicated
 handless `recover` branch (`src/options.ts:585-599`). That separation is not an accident:
 `docs/measurements.md:1801-1803` records it as the fix that came out of the last exhaustive
 look-ahead run -- *"its first full attempt exposed a hand-only recovery path in Centipede;
@@ -31,8 +31,10 @@ after capability-neutral recovery and hand-required cover were separated..."*.
 
 Under this plan's rule a centipede, and any fighter that has lost both arms, has an **empty**
 legal set, and `maskedArgmax` throws `"action has no supported tactic"`
-(`src/learning/recurrent-network.ts:74`). `tests/learning.test.mjs:173-176` pins the current
-behaviour for all three meta minds.
+(`src/learning/recurrent-network.ts:74`).
+`a_learned_policy_can_repeat_one_completed_option_and_goes_inert_after_last_hand_loss` in
+`tests/learning.test.mjs` pins the current behaviour. Named rather than anchored: the line range
+here was already pointing two tests short of it before an import moved it again.
 
 **`recover` stays legal with no hand at all.** It is the one action whose effector may be
 absent; give it the `natural` effector or an explicit no-effector case, and keep `cover`
@@ -45,7 +47,7 @@ The plan replaces `supportedOptions`. There are two more:
 - `actionsFor`, then a `startsWith` chain in `scripts/train-lookahead.mjs`, omits `punch` for
   sword/axe/bow cells, so the look-ahead schedule trains 220 keys while the runtime asks for up
   to 250. **Closed by stage C1**: the bow row was the runtime's to fix and stage B fixed it; the
-  sword and axe rows were the schedule's, and `LOADOUT_ACTIONS` (`scripts/train-lookahead.mjs:105-113`)
+  sword and axe rows were the schedule's, and `LOADOUT_TACTICS` in `scripts/train-lookahead.mjs`
   now trains 240 keys per split;
 - `neatLabeler` in `research-rollout-worker.mjs` is a third, hand-inlined copy that tests
   `hand.weapon === "sword"` for thrust instead of `hasPoint`, and an **exclusion list**
@@ -115,13 +117,20 @@ The beam row is the one that did *not* move, and the reason is worth keeping: `l
 plans over the runtime mask rather than the schedule, and the runtime always offered five
 actions on `sword+empty`, so its 25 pairs and 1,075 nodes were never a schedule figure.
 
-`exactLookaheadNodeBudget` is exactly `43P` for `P >= 6` (`src/learning/lookahead.ts:67-73`),
-the beam saturates immediately at `width=6`, and so there is no pruning relief -- the whole
-increase is linear in the tuple count. The calibration check runs once per tuple per replan, now
-as `calibratedTacticPairs` rather than a throw.
+`exactLookaheadNodeBudget` is exactly `43P` for `P >= 6`, the beam saturates immediately at
+`width=6`, and so there is no pruning relief -- the whole increase is linear in the tuple count.
+The calibration check runs once per tuple per replan, now as `calibratedPlannedTactics` rather
+than a throw.
+
+**Superseded by stage C2c, which measured the stance out of the key.** The tactic-v2 column above
+assumed all five fields would be enumerated. What landed enumerates four: **775** tasks a split,
+**3,100** groups, **148,800** minimum solver steps and **3,440** nodes per replan on
+`sword+empty` -- **3.23x**, not ~19x. The projection stays as the record of what the plan priced;
+"Stage C2c, as landed" below and `docs/measurements.md` carry the measurement that declined the
+other 6x.
 
 There is a statistical cost riding on the compute one: `fitTacticalModel` fits **per cell**, so
-20x the cells on a fixed budget is 20x fewer rows each, and `train-lookahead.mjs:136` throws if
+20x the cells on a fixed budget is 20x fewer rows each, and `collectTacticalBudget` throws if
 any single cell collects none. Session 20 derives ceilings from these numbers and session 21
 spends them. **Implement the full enumeration, measure the real cost, and record it in
 `docs/measurements.md`** -- do not quietly narrow the enumeration to keep the number small. If
@@ -140,8 +149,8 @@ No literal `220` exists anywhere in the tree. The assertions that actually break
 `tests/lookahead.test.mjs` -- `the_training_schedule_covers_every_body_loadout_and_only_compatible_natural_attacks`
 (thirteen cells, and the centipede's `MOVEMENT_NAMES.length * 2` tasks),
 `every_scheduled_centipede_tactic_runs_a_complete_havok_trace_window` (ten tasks) and
-`lookahead_respects_the_exact_depth_width_and_node_budget` (74 nodes) -- plus the exact-budget
-throw at `lookahead.ts:93-94`. Named rather than anchored by line, because every one of these
+`lookahead_respects_the_exact_depth_width_and_node_budget` (74 nodes) -- plus `boundedLookahead`'s
+own exact-budget throw. Named rather than anchored by line, because every one of these
 anchors was already stale: this file's own +67 lines and stage C1's insertions moved them, and a
 line number in a plan is a fact with no test.
 `every_scheduled_centipede_tactic_runs_a_complete_havok_trace_window` runs a real Havok trace per
@@ -214,7 +223,7 @@ centipede task, 10 today at 292 ms; that becomes 90 tasks and roughly 2.6 s.
   `the_reported_entropy_is_a_mean_over_rows_as_well_as_over_heads` pins the `rows.length` half
   separately. The fourth head -- persistence -- was deliberately **not** added: it is a
   continuous action with its own log-probability in the ratio, and `UNLEARNED_PERSISTENCE`
-  (`deployment.ts:153`) is the shared constant that stands in until somebody means it.
+  (`meta.ts:28`) is the shared constant that stands in until somebody means it.
 - **Nobody can write the DAgger labels.** The expert is `tacticalTeacher`
   (`src/learning/tactical-teacher.ts:295-340`), it returned only `{movement, action,
   persistence}`, and it never named a hand or an aim height. Teaching it to label
@@ -238,7 +247,7 @@ centipede task, 10 today at 292 ms; that becomes 90 tasks and roughly 2.6 s.
   (`src/learning/artifact.ts:109-112,124`), so the refusal must be an explicit check beside
   `:87`. The contract literal is also duplicated inline in **five** producers plus a test
   fixture, none of which import `RESEARCH_ARTIFACT_CONTRACT`.
-  The model to copy is `tests/tournament-executor.test.mjs:96-125`, which already does exactly
+  The model to copy is `tests/tournament-executor.test.mjs:106-135`, which already does exactly
   the requested thing for the *feature* header. Note `tests/artifact.test.mjs` does not exist.
 - **`behaviourRecord` does not feed the tournament gates.** `MIN_ACTION_SHARE` and
   `MIN_DIVERSE_ACTIONS` read `actionCounts`, produced at `scripts/research-havok.mjs:29,33`
@@ -533,7 +542,7 @@ and `npm run build` clean; the `duelist-swinger` null control identical to the d
    loadout of seven -- `punch` on `bow+empty`, which is two of the thirteen cells. That row was
    a **live abort**: the rollout mask labelled `punch`, `researchLabelMind` refused it by name
    one call later, and the bout died.
-3. **One schedule.** `LOADOUT_ACTIONS` trains `punch` on `sword+empty` and `axe+empty`, which
+3. **One schedule.** `LOADOUT_TACTICS` trains `punch` on `sword+empty` and `axe+empty`, which
    the runtime always offered and this schedule never did -- so `lookaheadMind` threw
    `tactic "close+punch" has no calibrated model` on the first replan for those two cells.
    240 tasks per split against 220, 960 groups against 880, 46,080 minimum solver steps against
@@ -569,14 +578,14 @@ tests before, **495** after.
   the runtime mask keys on what is still attached, so severing the bow hand of a `bow+empty`
   drops the two-handed weld, frees the empty hand, and puts `punch` in a mask whose row says
   `cover, shoot, recover` -- and `lookaheadMind` threw again. Severance is routine: 10 in 120
-  bouts on the null control. `calibratedTacticPairs` in `src/learning/lookahead.ts` now filters
+  bouts on the null control. `calibratedPlannedTactics` in `src/learning/lookahead.ts` now filters
   the pair set to cells the model holds a calibration for and refuses by name only when nothing
-  survives, which also stops an armless body throwing `lookahead has no supported tactic pairs`
+  survives, which also stops an armless body throwing `lookahead has no supported tactic cells`
   mid-bout -- it goes inert there, as `researchLabelMind` already did. Tested on bodies with a
   hand taken off, and both halves watched fail first.
 - **The schedule/mask test was described as what stops the two coming apart.** It cannot be: 48
   solver steps on intact bodies is what it runs, and that is all a per-loadout row can be checked
-  against. Corrected on `LOADOUT_ACTIONS` and in `docs/measurements.md`.
+  against. Corrected on `LOADOUT_TACTICS` and in `docs/measurements.md`.
 - **"One row of thirteen" counted two things at once**, here and in four other places. Seven
   loadouts, thirteen cells.
 
@@ -750,9 +759,144 @@ Four things this stage found that the brief did not say:
   contravariant. Neither changes a number.
 
 Still Stage C2c's: `src/learning/lookahead.ts`, `src/learning/tactical-model.ts` and
-`scripts/train-lookahead.mjs`'s schedule, which carry a measured ~19x compute cost. Still owed
-and not this stage's: **behaviour records counting effectors, targets and stances**, which the
-C2a note listed beside the trainers and this stage's brief did not ask for.
+`scripts/train-lookahead.mjs`'s schedule, which carry a measured ~19x compute cost -- **which
+C2c then measured down to 3.23x by leaving the stance out of the key; see the section below.**
+Still owed and not this stage's: **behaviour records counting effectors, targets and stances**,
+which the C2a note listed beside the trainers and this stage's brief did not ask for.
+
+## Stage C2c, as landed -- 2026-08-25
+
+**The look-ahead cell key is `movement+action+effector+target`, and the stance is deliberately
+not in it.** 524 tests before, **528** after; `npx tsc --noEmit` and `npm run build` clean; the
+`duelist-swinger` null control identical to the digit for the sixth stage running -- 66/120 =
+55.0 %, 3.52 (1.42-8.98), damage 176.17, 10 severs, 1496/1670 scoring contacts. Every figure
+below, its harness, an 18-row mutation table and a per-test list of what each test does **not**
+catch are in `docs/measurements.md` under "Session 17 Stage C2c".
+
+**The ~19x this plan priced was measured and declined; the real cost is 3.23x.** The table above
+projected 4,650--4,950 tasks a split. What landed is **775**, because the stance was measured out
+of the key rather than enumerated into it:
+
+| quantity | this plan's projection | landed |
+| --- | ---: | ---: |
+| schedule tasks per split | ~4,650--4,950 | **775** |
+| groups (`3 x train + validation`) | ~18,600--19,800 | **3,100** |
+| minimum solver steps | ~893,000--950,000 | **148,800** |
+| nodes per replan, `sword+empty` | ~20,600 | **3,440** |
+| ms per replan, `sword+empty` | not projected | **4.28** (26.35 with the stance) |
+
+1. **The stance was measured, not assumed.** Nine `(cell, movement, action, effector, target)`
+   tuples, six stances each, three seeds each, 4,800 solver steps a bout on real Havok bodies.
+   At a **fixed** budget, six stance-keyed cells against one stance-free cell scored on the same
+   held-out rows come to `signedReachError` 0.0081 against 0.0099, `contactBrier` 0.1387 against
+   0.1390 and `vitalityDeltaError` 0.0241 against 0.0230 -- the last being stance-keying *worse*.
+   Every gap is under 0.8 % of the 0.25 limit each column is refused at, and the whole stance
+   effect on the vitality column is smaller than the cost of fitting from one seed instead of
+   two. The harness has a control that must read zero and does: a centipede's six stances come
+   back **byte-identical**, because `Centipede.update` never reads `input.posture`.
+2. **The stance moves the fight and not these five columns**, which is a statement about
+   `TACTICAL_STATE_COLUMNS`. Same runs: `hold+cover+primary+threat` dealt **182 damage over three
+   bouts** under `slip-right` and 751 over three under `upright`, and `extended` survived the full
+   4,800-step window where `action-default` was dead by roughly 1,500. **Both figures are sums of
+   three bouts and this said "a bout"** -- corrected 2026-08-25; `.review/c2c/stance.mjs`
+   accumulates across its three seeds before printing. Re-asked at six seeds the spread survives
+   (4.6x on totals, 4.7x on medians, `slip-right` robustly worst) and the specific pair does not:
+   the best stance is `upright` on three seeds, `action-default` on two and `compact` on one, and
+   **one stance's own spread across seeds is larger than the spread between stances**
+   (`action-default` 41.9 to 313.3, `slip-left` 2.6 to 214.3). Whoever gives the tactical model a
+   column that can see a posture gets to ask this question again; the measurement is written down
+   so it can be re-run rather than re-derived, and at more than three bouts a cell.
+3. **The effector and the aim were asked the same question and answered differently**, which is
+   what keeps them in the key. Six families, same harness: keying is worth 0.0025 / 0.0072 /
+   -0.0011 -- **24x the stance's Brier gain**, and it is the Brier that matters, because every
+   cell that fell out of calibration at every budget measured fell out on the Brier and none on
+   the other two. `punch` on `empty+empty` carries it: 0.1665 keyed against 0.2013 pooled.
+4. **A replan is affordable at 3.23x and not at 19x.** 4.2759 ms for `sword+empty` (80 cells,
+   3,440 nodes) against 1.3244 at 25 cells **in the same bracketed run**, at roughly 750-825
+   expanded nodes per millisecond across every count from 430 to 20,640 -- so `43 x cells / 800`
+   is a usable ceiling for session 20, to about ten per cent. (This said "a flat 780-825" and
+   quoted HEAD's 1.3031, which is from a separate process with no recorded harness output; the
+   host's run-to-run drift on an identical variant is 6.4 %, so a cross-run comparison of two
+   builds says nothing at that resolution.) A real 45-second bout replans **151** times, 3.36 a simulated second,
+   which is 646 ms and 21.6 % of that bout's 2.99 s of wall clock. With the stance it would be
+   3,979 ms -- more than the whole bout costs -- and a single 26.35 ms replan **exceeds a 16.7 ms
+   frame on its own**, 3.36 times a second per fighter. Both are bench figures; the page has
+   taken none.
+5. **"How many cells survive calibration" was 100 % and meant nothing.** At the minimum budget
+   every cell carries one row, a one-row cell fits itself exactly in all three columns, and the
+   train and validation bouts are **bit-identical** for the first 0.2 s -- the split seeds differ
+   but 48 solver steps is not long enough for two fighters to diverge. The shipped
+   `session18-minimum` artifact reports 0/0/0 for all 220 of its keys, so
+   `LOOKAHEAD_CALIBRATION_LIMITS` has never refused anything in a shipped run. Real survival:
+   99.6 % at 3 rows a key, 98.6 % at 6, **85.0 % at 15**. The quality curve says the cliff is
+   between 8 and 15 held-out rows, so the budget worth asking for is 60 rows a cell --
+   **4,464,000 solver steps**, about 17 minutes in one process.
+6. **The exact node budget is kept, enforced and now pinned on both sides of the beam
+   saturation.** `[1, 2, 3, 5, 6, 7, 16, 80] -> [8, 74, 120, 210, 258, 301, 688, 3440]`; only
+   from six up is it `43P`, and a test that checked only counts at or above six would have passed
+   for `43P` as well.
+
+Four things this stage found that the brief did not say:
+
+- **The widening costs exactly one body state in twenty-eight, and it is a `bow+empty` that loses
+  its bow hand.** Enumerated exhaustively -- seven loadouts, every combination of lost hands --
+  twenty-six states keep every tuple the schedule trained. On that one, every trained cell names
+  the primary (a bow welds the other hand), the free hand after the severance is the secondary,
+  and `calibratedPlannedTactics` filters all six of the mask's tuples out, so `lookaheadMind`
+  refuses by name. **HEAD "kept" 2 of 3 actions there by planning them on a hand the model had
+  never seen** and letting `chooseEffector` execute them on the other arm -- the silent
+  redirection tactic v2 exists to remove. Session 20 has to decide what a tournament entry does
+  when that refusal fires; severance is routine, at 10 in 120 null-control bouts.
+  **And the gain half, added 2026-08-25:** HEAD's redirection was not confined to the bow. On the
+  minus-primary state it ran a primary-hand model against the secondary arm on **all six**
+  humanoid loadouts -- `cover` and `recover` everywhere, plus `punch` on `empty+empty` -- and on
+  **five of the six** C2c refuses the redirection *and* keeps a searchable capability, because
+  the schedule spends budget on the secondary tuples of every loadout but the bow's. So the
+  ledger is one state of twenty-eight losing its search against five of six loadouts stopping.
+- **The trainer cannot spend a long budget as few long jobs.** At 480 solver steps a job the run
+  dies with `lookahead schedule chose unsupported warrior/axe+empty tactic
+  hold+punch+secondary+high`: the fighter loses its empty hand mid-window. **1 of 775 tasks on
+  seed 310013, 0 of 775 on each of the other two fit seeds.** This said "the widening did not
+  cause it -- HEAD's action-level guard throws at the same budget", and **that is false**,
+  corrected 2026-08-25 by sweep: the dying cell's aim is `+high`, which the widening added, and
+  the HEAD-equivalent replay at the measured shoulder line dies 0 of 5 movements on all three fit
+  seeds. What is true is that the guard is no more *sensitive* -- on `axe+empty` the only empty
+  hand is the secondary, so `punch` leaves the action mask and every `punch|...` leaves the tuple
+  mask in the same instant. `collectTacticalBudget` already loops, so what session 20 needs
+  is a per-job cap, not a new mechanism.
+- **The capability signature had to widen with the key, and an action set cannot see a lost
+  effector.** A `sword+shield` that loses its shield hand still offers `cover`, `cut`, `thrust`
+  and `recover` to the name while four of its fourteen tuples have gone.
+  `a_lost_effector_is_a_capability_change_even_when_every_action_survives` is the test; without
+  the widening the plan stays committed until the skill finishes on its own.
+- **`"as-measured"` has left the look-ahead path entirely.** Stage B kept every look-ahead trace
+  on the measured shoulder line because a model keyed on `(movement, action)` could not honestly
+  claim an aim; the schedule now enumerates the aim, so the trace is taken at the aim the planner
+  will name. `asMeasured` keeps `scriptedMetaMind` and `randomMetaMind` as readers. The stage C2b
+  note that called this "what keeps stage C2c's look-ahead unwidened" is superseded rather than
+  wrong -- it was true for the stage it described.
+
+Housekeeping this stage did, none of it changing a number: `UNLEARNED_PERSISTENCE` moved from
+`deployment.ts` to `meta.ts` (importing it back into `lookahead.ts` would have been a cycle, which
+is why the literal `0.4` was spelled twice) and `UNLEARNED_STANCE` joined it;
+`DeployedDecisionLabel` widened from three fields to `DaggerLabel`'s six, which is the promise its
+own note made; `TACTICAL_MODEL_VERSION` went 1 to 2 because the key grammar is part of that
+contract; `tests/tournament-executor.test.mjs`'s lookahead fixture stopped spelling the model
+version as a literal, and its dead `SeededRng` import went with the edit.
+
+The remediation pass of 2026-08-25 then **deleted `DeployedDecisionLabel`**: once look-ahead had
+widened it was `DaggerLabel` spelled twice with zero importers, so the assignment it existed to
+guard could not fail and its contravariance argument was vacuous. The argument moved onto
+`deployedResearchMind`'s own docstring. That pass also unified
+`tacticalStateFromPublishedView` into `lookahead.ts`'s `tacticalStateFromView` -- two verbatim
+copies of one rule, agreeing on 1,449 real published states, kept apart only by an import
+obstacle this stage removed -- and fixed a real attribution defect in
+`scripts/research-havok.mjs` that this stage made reachable. `docs/measurements.md` carries all
+three.
+
+Still owed and not this stage's: **behaviour records counting effectors, targets and stances**,
+which the C2a note listed beside the trainers; and a **page** reading of the replan cost, which
+only a person at a visible browser can take.
 
 ## Frozen vocabulary
 

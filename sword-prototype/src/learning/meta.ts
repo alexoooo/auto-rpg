@@ -9,6 +9,71 @@ import { SeededRng } from "./rng.ts";
 
 export const MIN_PERSISTENCE = 0.10;
 export const MAX_PERSISTENCE = 0.80;
+
+/**
+ * The persistence PPO and look-ahead both hardcode, in one place.
+ *
+ * PPO produces **25 of the 26 outputs** and this is the missing one. Making it
+ * learned means a continuous action -- a Gaussian or Beta parameterisation with
+ * its own log-probability in the ratio -- which `PPO_POLICY_HEADS`' own note
+ * records as an algorithm change rather than a contract one.
+ *
+ * **It lived in `deployment.ts` until stage C2c and could not stay there.**
+ * `lookahead.ts` kept its own literal `0.4` because `deployment.ts` imports
+ * `lookaheadMind`, so importing back would have been a cycle -- and a cycle is
+ * how a constant ends up spelled twice. This module is below both of them and
+ * already owns `MIN_PERSISTENCE` and `MAX_PERSISTENCE`, which is the window this
+ * number has to sit inside, so it is where the number belongs.
+ */
+export const UNLEARNED_PERSISTENCE = 0.4;
+
+/**
+ * The stance the look-ahead planner holds, and the measurement that chose it.
+ *
+ * Stage C2c widened the planner's cell key from `(movement, action)` to
+ * `(movement, action, effector, target)` and **deliberately stopped short of the
+ * stance**, on evidence rather than on cost. Stance is unmasked -- six on every
+ * body -- so enumerating it is a flat 6x on the schedule, the beam and the
+ * calibrated cell count: 775 tasks a split become 4,650, and a `sword+empty`
+ * replan goes from 3,440 expanded nodes to 20,640.
+ *
+ * What that buys, measured on real Havok bodies (`docs/measurements.md`, "Session
+ * 17 Stage C2c"): nine (cell, movement, action, effector, target) tuples, six
+ * stances each, three seeds each, 4,800 solver steps a bout. At a **fixed** total
+ * budget, six stance-keyed cells against one stance-free cell scored on the same
+ * held-out rows come to `|signedReachError|` 0.0081 against 0.0099, `contactBrier`
+ * 0.1387 against 0.1390, and `vitalityDeltaError` 0.0241 against 0.0230 -- the
+ * last of which is stance-keying being *worse*. Every one of those gaps is under
+ * 0.8 % of the 0.25 `LOOKAHEAD_CALIBRATION_LIMITS` each column is refused at, and
+ * the whole stance effect on `vitalityDeltaError` is smaller than the cost of
+ * fitting from one seed instead of two.
+ *
+ * **Stance moves the fight and does not move these five columns**, which is a
+ * statement about `TACTICAL_STATE_COLUMNS` rather than about stance: over the
+ * same runs `hold+cover+primary+threat` dealt 182 damage under `slip-right`
+ * against 751 under `upright`, and `extended` ran the full 4,800 steps where
+ * `action-default` was dead by 1,500.
+ *
+ * **Those two figures are sums of three bouts, and this said "a bout".**
+ * Corrected 2026-08-25 against the harness, which accumulates across its three
+ * seeds. Re-asked at six seeds the spread survives -- 4.6x on totals, 4.7x on
+ * medians, `slip-right` worst on both -- and the specific pair does not: the best
+ * stance is `upright` on three seeds, `action-default` on two and `compact` on
+ * one. **One stance's own spread across seeds is larger than the spread between
+ * stances** (`action-default` 41.9 to 313.3 damage, `slip-left` 2.6 to 214.3), so
+ * three bouts a cell can separate "`slip-right` is bad" from the rest and cannot
+ * rank the other five. `docs/measurements.md` carries the table and the seeds.
+ *
+ * Whoever gives the tactical model a column that can see a posture gets to ask
+ * this question again -- and note that the reason the stance is out of the beam
+ * is *this*, a fact about the five columns, rather than the 6x enumeration cost.
+ *
+ * `"action-default"` and not one of the five named poses, because that is the
+ * name for "whatever the skill established" -- `applyTacticStance` returns the
+ * intent untouched for it -- so the planner claims no posture it did not decide.
+ */
+export const UNLEARNED_STANCE: StanceName = "action-default";
+
 export type MetaOutputName = MovementName | HandActionName | EffectorName | TargetName | StanceName | "persistence";
 /**
  * The ordered output contract every learned controller writes into.
@@ -214,12 +279,12 @@ export function readMetaOutput(values: readonly number[]): MetaOutput {
  * **"One row of thirteen" is two units of measure**, and this note used to say
  * it. There are seven loadouts and thirteen cells -- six loadouts on each of two
  * humanoid units, plus the centipede's bite -- so `bow+empty` is one *loadout*
- * of seven and two *cells* of thirteen. `LOADOUT_ACTIONS` has a row per loadout;
+ * of seven and two *cells* of thirteen. `LOADOUT_TACTICS` has a row per loadout;
  * `the_training_schedule_offers_exactly_what_the_runtime_mask_offers` reads this
  * mask off real bodies and compares all thirteen cells against those seven rows.
  * It compares **intact** bodies: a row keys on the loadout a body started with
  * and this mask keys on what is still attached, so severing a hand takes them
- * apart and no row can say otherwise. `calibratedTacticPairs` in `lookahead.ts`
+ * apart and no row can say otherwise. `calibratedPlannedTactics` in `lookahead.ts`
  * is what answers that.
  */
 export function supportedOptions(view: FighterView): ReadonlySet<OptionName> {

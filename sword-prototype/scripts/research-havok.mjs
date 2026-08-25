@@ -1,7 +1,7 @@
 import { CONFIG } from "../src/config.ts";
-import { EngagementTracker, opportunitiesForAction, opportunityKeyForContact } from "../src/learning/engagement.ts";
+import { EngagementTracker, opportunityForAction, opportunityKeyForContact } from "../src/learning/engagement.ts";
 import { randomMetaMind } from "../src/learning/meta.ts";
-import { scriptedMetaMind } from "../src/options.ts";
+import { ATTACK_OPTION_NAMES, scriptedMetaMind } from "../src/options.ts";
 import { policyMind } from "../src/mind.ts";
 
 process.env.SWORD_MEASURE_LIBRARY = "1";
@@ -31,9 +31,19 @@ export async function runResearchBout(job, makeActorMind, solverStepLimit, makeO
   const actorMind = makeActorMind((view, _features, label) => {
     decisions += 1; latestView = view;
     actionCounts[label.action] = (actionCounts[label.action] ?? 0) + 1;
-    if (["cut", "thrust", "punch", "shoot", "bite"].includes(label.action)) {
+    // **The hand the label named, not the first hand holding the right weapon.**
+    // This read `label.action` alone and took `[0]` of the matching rows, which on
+    // a two-fisted body attributed every `punch|secondary` to the primary fist and
+    // dropped the secondary's damaging contact on the floor -- `opportunityForAction`
+    // carries the measurement. `label` has carried `effector` since stage C2b; the
+    // fix is to read the field rather than to re-derive the hand.
+    //
+    // `ATTACK_OPTION_NAMES` rather than the same five names spelled again: the
+    // list was a verbatim copy of that constant, and a sixth attack added to the
+    // vocabulary would have been counted by the option layer and not here.
+    if (ATTACK_OPTION_NAMES.includes(label.action)) {
       attacks += 1;
-      const opportunity = opportunitiesForAction(view, label.action)[0];
+      const opportunity = opportunityForAction(view, label.action, label.effector);
       if (opportunity) tracker.attack(opportunity.key, view.clock);
     }
   });

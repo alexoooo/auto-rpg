@@ -187,12 +187,12 @@ const tacticalStance = (view: FighterView, threatened: boolean, crowded: boolean
  * The effector, recovered from the row the teacher already chose rather than
  * invented beside it.
  *
- * `attackOpportunity` keys its rows `hand:${hand}:${weapon}` and
- * `natural:${name}`, so the hand that produced the opportunity is in the key and
- * parsing it is reading the decision back rather than taking it twice.
+ * It parsed `key` -- `hand:${hand}:${weapon}` or `natural:${name}` -- until the
+ * row grew an `effector` field, which is the same fact without the split. The
+ * field exists because a *second* reader of that key dropped the hand entirely;
+ * `opportunityForAction` carries that measurement.
  */
-const rowEffector = (row: AttackOpportunity): EffectorName =>
-  row.key.startsWith("natural:") ? "natural" : row.key.split(":")[1] as EffectorName;
+const rowEffector = (row: AttackOpportunity): EffectorName => row.effector as EffectorName;
 
 /**
  * How well the thing in a hand covers, smaller being better.

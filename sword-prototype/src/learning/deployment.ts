@@ -3,10 +3,11 @@ import { EFFECTOR_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TACTIC
   tacticEffectors, tacticTargets, type EffectorName, type HandActionName, type MovementName, type StanceName,
   type TargetName } from "../options.ts";
 import { ResearchArtifact, type ResearchArtifactContract } from "./artifact.ts";
-import { DAGGER_HEAD_NAMES, predictDagger, type DaggerModel } from "./dagger.ts";
+import { DAGGER_HEAD_NAMES, predictDagger, type DaggerLabel, type DaggerModel } from "./dagger.ts";
 import { FEATURE_COLUMNS, FEATURE_VERSION } from "./features.ts";
 import { lookaheadMind, LOOKAHEAD_DEPTH, LOOKAHEAD_WIDTH } from "./lookahead.ts";
-import { META_OUTPUT_LAYOUT, deployableActions, readMetaOutput, selectDeployableTactic } from "./meta.ts";
+import { META_OUTPUT_LAYOUT, UNLEARNED_PERSISTENCE, deployableActions, readMetaOutput,
+  selectDeployableTactic } from "./meta.ts";
 import { RecurrentNeatNetwork } from "./recurrent-neat.ts";
 import { PPO_POLICY_HEADS } from "./ppo.ts";
 import { RecurrentPolicy, maskedArgmax, type RecurrentPolicyWeights, type RecurrentStep } from "./recurrent-network.ts";
@@ -139,50 +140,47 @@ export function recurrentTactic(view: FighterView, step: RecurrentStep, pick: Ta
 export const argmaxHeadPick: TacticHeadPick = (logits, supported, label) =>
   Object.freeze({ index: maskedArgmax(logits, supported, label), probability: 1 });
 
-/**
- * The persistence PPO and look-ahead both hardcode, in one place.
- *
- * PPO produces **25 of the 26 outputs** and this is the missing one. Making it
- * learned means a continuous action -- a Gaussian or Beta parameterisation with
- * its own log-probability in the ratio -- which `PPO_POLICY_HEADS`' own note
- * records as an algorithm change rather than a contract one. The constant was
- * spelled out at five call sites; it is spelled here and at `lookahead.ts:171`,
- * which keeps its own because `src/learning/lookahead.ts` is stage C2c's and is
- * deliberately untouched.
- */
-export const UNLEARNED_PERSISTENCE = 0.4;
-
 /** Decode the shared envelope before any algorithm-specific payload is trusted. */
 export function decodeResearchArtifact(bytes: Uint8Array): ResearchArtifact {
   return ResearchArtifact.fromBytes(bytes, RESEARCH_ARTIFACT_CONTRACT);
 }
 
 /**
- * The narrowest label any of the four algorithms promises a decision hook.
+ * The sole deployment dispatcher used by the blind tournament and learned league
+ * entries.
  *
- * **Three fields, and that is a statement about look-ahead rather than about the
- * contract.** `researchLabelMind`'s hook takes a whole `DaggerLabel` since stage
- * C2b, and DAgger, NEAT-QD and PPO all hand it one -- but `lookaheadMind`
- * (`src/learning/lookahead.ts:142`) declares its own hook over `{ movement,
- * action, persistence }` and calls it with exactly that, and look-ahead is stage
- * C2c's with a measured ~19x compute cost attached. This parameter was
- * `Parameters<typeof researchLabelMind>[2]`, which is contravariant the wrong way
- * for that: a hook demanding six fields cannot be handed to a producer that
- * supplies three, so widening the shared alias makes `tsc` reach into C2c's file.
+ * **The hook's label is `DaggerLabel`, all six fields, from every one of the four
+ * algorithms** -- and it was three for exactly one stage. The narrowing was a
+ * statement about look-ahead rather than about the contract: `lookaheadMind`
+ * declared its own hook over `{ movement, action, persistence }`, and a hook
+ * demanding six fields cannot be handed to a producer that supplies three, because
+ * function parameters are contravariant. Look-ahead decides four of the six itself
+ * now and names the other two by constant (`UNLEARNED_STANCE`,
+ * `UNLEARNED_PERSISTENCE`), so the intersection is the whole label.
  *
- * Naming the intersection here keeps the widening out of that file and keeps the
- * promise true: a caller of `deployedResearchMind` does not know which algorithm
- * it decoded, so three fields is genuinely all it may rely on until C2c lands.
- * The three algorithms that do more still pass the whole record at run time --
- * `scripts/research-rollout-worker.mjs` and the label histogram harness both read
- * `label.effector` off it -- and those are `.mjs`, which `tsconfig.json`'s
- * `include` does not cover anyway.
+ * **It said that through a `DeployedDecisionLabel` alias, and the alias is gone.**
+ * Once look-ahead widened it was `DaggerLabel` spelled twice with no importer, so
+ * the assignment it was meant to guard could not fail and the contravariance
+ * argument it carried was vacuous -- a name with no reader, which this directory
+ * has a rule about. The argument survives here, where it is about a signature
+ * somebody reads.
+ *
+ * Spelled as `DaggerLabel` and not a fresh literal because that is the record
+ * `researchLabelMind`'s own hook takes, and two spellings of one label is how the
+ * `.mjs` readers of `label.effector` -- which `tsconfig.json`'s `include` does not
+ * cover -- would have gone unnoticed if a field moved. **Counted rather than
+ * remembered, twice wrong before this**: `grep -ro "label\.effector" --include=*.mjs`
+ * answers **nine occurrences on eight lines in four files** --
+ * `scripts/research-havok.mjs`, `tests/dagger.test.mjs`, `tests/learning.test.mjs`
+ * and `tests/lookahead.test.mjs`. Re-count it rather than quoting this.
+ *
+ * **The label is uniform across the four algorithms and the feature vector is
+ * not.** Three of the four reach the hook through `researchLabelMind`, which passes
+ * a real `FeatureWriter` vector; the look-ahead branch passes `[]`, because that
+ * seam owns no writer. `lookaheadMind`'s own note carries it.
  */
-export type DeployedDecisionLabel = Readonly<{ movement: string; action: string; persistence: number }>;
-
-/** The sole deployment dispatcher used by the blind tournament and learned league entries. */
 export function deployedResearchMind(artifact: ResearchArtifact, bodyLoadout: string,
-  onDecision?: (view: FighterView, features: readonly number[], label: DeployedDecisionLabel) => void): Mind {
+  onDecision?: (view: FighterView, features: readonly number[], label: DaggerLabel) => void): Mind {
   const decoded = recordObject(payloadJson(artifact), artifact.data.algorithm);
   if (artifact.data.algorithm === "dagger") {
     const model = decoded as unknown as DaggerModel;

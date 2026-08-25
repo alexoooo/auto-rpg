@@ -142,11 +142,19 @@ export interface PpoHeadLayer { readonly rows: number; readonly columns: number;
  * and a different clipping story. That is an algorithm change wearing a contract
  * change's clothes, and PPO emits a *label* rather than a raw 26-vector, so the
  * width contract does not bind it. The constant is `UNLEARNED_PERSISTENCE` in
- * `deployment.ts`, which `train-ppo.mjs` reads at both its decode sites;
- * `lookahead.ts` and `train-lookahead.mjs` still spell `0.4` out, because those
- * are stage C2c's files and this stage touched them only where a type check
- * forced it. The artifact records `producedOutputs: 25` beside its provenance so
- * a reader of the artifact does not have to know any of that.
+ * `meta.ts`, which `train-ppo.mjs` reads at both its decode sites and which
+ * `lookahead.ts` and `train-lookahead.mjs` import as well.
+ *
+ * **This said it lived in `deployment.ts` and that the two look-ahead files still
+ * spelled `0.4` out, and all three claims went stale in the commit after they were
+ * written.** Stage C2c moved it down to `meta.ts` -- `deployment.ts` imports
+ * `lookaheadMind`, so importing back would have been a cycle -- and pointed both
+ * look-ahead files at it. `ppo.ts` was not in that diff, which is how a comment
+ * describing three other files came to be wrong about all three: a note about where
+ * somebody *else* keeps a constant is a note with no test.
+ *
+ * The artifact records `producedOutputs: 25` beside its provenance so a reader of
+ * the artifact does not have to know any of that.
  */
 export const PPO_POLICY_HEADS = Object.freeze(["movement", "action", "effector", "target", "stance"] as const);
 export type PpoPolicyHeadName = typeof PPO_POLICY_HEADS[number];

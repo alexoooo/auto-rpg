@@ -105,7 +105,7 @@ for a structural reason and a gate missed by a controller must never format the 
 | NEAT-QD | real validation worst-cell, `research-rollout-worker.mjs#L87` | higher is better |
 | PPO | `macro: reward, worstCell: reward` -- the same scalar, `train-ppo.mjs#L174` | higher is better |
 | DAgger | `validationLoss`, `collect-dagger.mjs#L57-L59` | **lower is better** |
-| look-ahead | summed calibration error, `train-lookahead.mjs#L162-L164` | **lower is better** |
+| look-ahead | summed calibration error, `train-lookahead.mjs#L215-L217` | **lower is better** |
 
 So the plateau rule is declared over a named per-direction **objective** carrying its own
 direction of improvement, and the ledger records both. A rule that assumes higher-is-better

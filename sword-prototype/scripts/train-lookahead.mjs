@@ -6,54 +6,72 @@ import { ResearchArtifact, artifactChecksum, canonicalJson } from "../src/learni
 import { calibrateTacticalModel, fitTacticalModel, TACTICAL_STATE_COLUMNS } from "../src/learning/tactical-model.ts";
 import { researchMatrix } from "../src/learning/research-matrix.ts";
 import { researchLabelMind } from "../src/learning/research-policy.ts";
-import { deployableActions } from "../src/learning/meta.ts";
+import { UNLEARNED_PERSISTENCE, UNLEARNED_STANCE, deployableTactics } from "../src/learning/meta.ts";
+import { plannedTacticKey, tacticalStateFromView } from "../src/learning/lookahead.ts";
 import { RESEARCH_ARTIFACT_CONTRACT } from "../src/learning/deployment.ts";
-import { asMeasured, chooseEffector, HAND_ACTION_NAMES, MOVEMENT_NAMES } from "../src/options.ts";
+import { HAND_ACTION_NAMES, MOVEMENT_NAMES, tacticTargets } from "../src/options.ts";
 import { runResearchBout } from "./research-havok.mjs";
 
-const wrapAngle = (value) => { while (value > Math.PI) value -= Math.PI * 2; while (value < -Math.PI) value += Math.PI * 2; return value; };
-export function tacticalStateFromPublishedView(view, contactProbability = 0) {
-  const bearing = Math.atan2(view.opponent.ground.x - view.self.ground.x, view.opponent.ground.z - view.self.ground.z);
-  const threats = Object.values(view.opponent.hands).filter((hand) => !hand.lost).sort((a, b) => b.tipSpeed - a.tipSpeed);
-  const threat = threats[0]; const offensiveReach = Math.max(view.self.reach,
-    ...Object.values(view.self.hands).filter((hand) => !hand.lost).map((hand) => hand.reach));
-  return Object.freeze({ reachMargin: offensiveReach + view.opponent.collisionRadius - view.measure,
-    facingError: wrapAngle(bearing - view.self.facing),
-    threatAlignment: threat ? Math.min(1, threat.tipSpeed / 30) : 0,
-    contactProbability, vitalityPotential: view.self.vitality - view.opponent.vitality });
-}
-
-/** Indexed 0.10 s deltas from actual Havok, with only FighterView and contact publication retained. */
-export async function collectTacticalTrace({ seed, solverSteps, split = "train", jobIndex = 0, forcedPair = null }) {
-  const job = researchMatrix(split, seed)[jobIndex % researchMatrix(split, seed).length]; let selected = { movement: "hold", action: "cover" };
+/**
+ * **The training state and the deployment state are one function, and were two.**
+ *
+ * `tacticalStateFromPublishedView` was a verbatim second copy of
+ * `tacticalStateFromView` in `src/learning/lookahead.ts` -- the same five columns
+ * off the same published fields, down to the angle wrap. It existed because this
+ * script did not import from that file at all, and nothing in `tests/` imported
+ * this copy, so the two could have drifted with nobody to notice: a trace fitted
+ * on one rule and a beam predicting from another is a model calibrated for a body
+ * that never fights, and it fails as a quiet loss of accuracy rather than as an
+ * error. Measured before the merge, on 1,449 real published states across
+ * `sword+empty`, `bow+empty` and `empty+empty`: **0 differ**.
+ *
+ * Stage C2c removed the obstacle -- this file already imports `plannedTacticKey`
+ * from exactly that module -- so what was left was `AGENTS.md`'s rule about a
+ * caller holding its own copy of a rule with the reason for the copy gone.
+ *
+ * Indexed 0.10 s deltas from actual Havok, with only `FighterView` and contact
+ * publication retained.
+ */
+export async function collectTacticalTrace({ seed, solverSteps, split = "train", jobIndex = 0, forcedTactic = null }) {
+  const job = researchMatrix(split, seed)[jobIndex % researchMatrix(split, seed).length];
+  let selected = { movement: "hold", action: "cover", effector: "primary", target: "threat" };
   let decision = 0; const mind = researchLabelMind("lookahead-trace", (view) => {
-    // The deployment mask, asked for rather than rebuilt. This line was
+    // The deployment mask, asked for rather than rebuilt -- and since stage C2c
+    // the whole tuple mask rather than the action half of it. This line was
     // `supportedOptions(view).has(action) && (action !== "cover" || hasHand)`,
     // which is `deployableActions` spelled out -- a fifth copy of the rule, and
     // one that would have had to be found and edited by hand every time the
-    // fourth one moved.
-    const supported = HAND_ACTION_NAMES.filter((action) => deployableActions(view).has(action));
-    if (forcedPair && !supported.includes(forcedPair.action)) throw new Error(`lookahead schedule chose unsupported ${job.unit}/${job.loadout} tactic ${forcedPair.movement}+${forcedPair.action}`);
-    const action = forcedPair?.action ?? supported[decision % supported.length];
-    const movement = forcedPair?.movement ?? MOVEMENT_NAMES[decision % MOVEMENT_NAMES.length]; decision += 1; selected = { movement, action };
-    // **The one line stage C2c owes the widened label, and it is deliberately
-    // the stage-B execution written out rather than a new decision.**
-    // `researchLabelMind` used to default these three -- `asMeasured(chooseEffector(view, action))`,
-    // inside the seam -- and a labeler that produces six fields is what took the
-    // default away. Naming exactly what the default was keeps every look-ahead
-    // trace on the aim its calibration was measured at: `"as-measured"` is the
-    // opponent's shoulder line, is deliberately outside `TARGET_NAMES`, and is
-    // the only aim a model keyed on `(movement, action)` alone can honestly
-    // claim. `lookaheadMind` already spells the same tuple at its own call site.
-    const effector = chooseEffector(view, action);
-    if (effector === null) throw new Error(`lookahead trace cannot perform "${action}" on ${job.unit}/${job.loadout}`);
-    return { movement, action, ...asMeasured(effector), persistence: 0.4 };
+    // fourth one moved. `deployableTactics` is that same rule carried down to
+    // the effector and the aim, and it is what the schedule table below is a
+    // per-loadout claim about.
+    const supported = deployableTactics(view);
+    if (forcedTactic && !supported.some((tactic) => tactic.action === forcedTactic.action &&
+        tactic.effector === forcedTactic.effector && tactic.target === forcedTactic.target)) {
+      throw new Error(`lookahead schedule chose unsupported ${job.unit}/${job.loadout} tactic ${plannedTacticKey(forcedTactic)}`);
+    }
+    const chosen = forcedTactic ?? { ...supported[decision % supported.length],
+      movement: MOVEMENT_NAMES[decision % MOVEMENT_NAMES.length] };
+    decision += 1;
+    selected = { movement: chosen.movement, action: chosen.action, effector: chosen.effector, target: chosen.target };
+    // **The two fields the plan does not decide, named rather than defaulted.**
+    // Stage B spelled `asMeasured(chooseEffector(view, action))` here because a
+    // model keyed on `(movement, action)` alone could not honestly claim an aim,
+    // so every trace had to stay on the measured shoulder line. Stage C2c keys
+    // the model on the effector and the aim as well, so the schedule enumerates
+    // them and `"as-measured"` leaves the look-ahead path entirely: the trace is
+    // now taken at the aim the planner will actually name. What is left
+    // unlearned is the stance and the persistence, and both are the same
+    // constants `lookaheadMind` spells at its own call site -- which is the
+    // point of naming them, because a trace collected under a different stance
+    // from the one the runtime holds is a model calibrated for a body that never
+    // fights.
+    return { ...selected, stance: UNLEARNED_STANCE, persistence: UNLEARNED_PERSISTENCE };
   });
   const raw = []; let samples = 0; let contacted = false;
   const result = await runResearchBout({ ...job, index: jobIndex }, () => mind, solverSteps, null, {
     onEvent() { contacted = true; },
     onSample({ view }) { samples += 1; if (samples % 24 !== 0) return;
-      raw.push({ state: tacticalStateFromPublishedView(view, 0), tactic: `${selected.movement}+${selected.action}`, contact: contacted }); contacted = false; },
+      raw.push({ state: tacticalStateFromView(view, 0), tactic: plannedTacticKey(selected), contact: contacted }); contacted = false; },
   });
   const bodyLoadout = `${job.unit}/${job.loadout}`; const rows = [];
   for (let index = 1; index < raw.length; index += 1) rows.push({ tactic: raw[index - 1].tactic, before: raw[index - 1].state,
@@ -63,7 +81,8 @@ export async function collectTacticalTrace({ seed, solverSteps, split = "train",
 }
 
 /**
- * What each loadout's budget is spent on, in `HAND_ACTION_NAMES` order.
+ * Which effectors each loadout can perform each action with, in
+ * `HAND_ACTION_NAMES` order and then in hand order.
  *
  * One row per `ResearchLoadout`, and the schedule refuses a loadout with no row
  * rather than falling through to a sword's: this was a chain of `startsWith`
@@ -74,47 +93,79 @@ export async function collectTacticalTrace({ seed, solverSteps, split = "train",
  * **These rows are a claim about the runtime, and the claim was false on two of
  * them.** `sword+empty` and `axe+empty` leave a genuinely free empty hand, the
  * runtime mask offers `punch` on it, and this table did not -- so
- * `lookaheadMind`, which plans over the runtime mask and calls
- * `requireCalibration` on every pair it plans, asked for a `close+punch` cell
+ * `lookaheadMind`, which plans over the runtime mask and called
+ * `requireCalibration` on every pair it planned, asked for a `close+punch` cell
  * that no budget had ever been spent on and threw
  * `tactic "close+punch" has no calibrated model` on the first replan. The
  * runtime is right and this was wrong: unlike a two-hander's trailing hand,
  * which is welded to the haft and excluded from the strikers list, that hand can
  * actually throw the punch.
  *
+ * **Stage C2c grew the second column and deliberately not a third.** The aim is
+ * not here, because it is not a property of a loadout at all:
+ * `tacticTargets(action)` reads `AIMED_TARGETS` in `src/options.ts`, which is
+ * keyed on the action alone and consults no body. Writing the aims out here
+ * would have been that table copied thirteen times, which is precisely the
+ * defect the second column exists to avoid on the effector side -- and the
+ * effector genuinely does depend on the loadout, because a two-hander welds one
+ * hand to its haft and an empty hand cannot hold a point. So the row is a claim
+ * about what the loadout *has*, and the aim comes from the one table that owns
+ * it.
+ *
  * **What the test beside this covers is intact bodies, and nothing here can
  * cover more than that.**
  * `the_training_schedule_offers_exactly_what_the_runtime_mask_offers` reads the
  * mask off real published bodies over 48 solver steps and compares the whole
- * thirteen-row table, which is what keeps a *starting* loadout's row honest. It
- * is not what stops the two coming apart, because a row keys on the loadout a
- * body started with and the mask keys on what is still attached: sever the bow
- * hand of a `bow+empty` and the two-handed weld goes with it, the empty hand
- * starts offering `punch`, and this row cannot describe that without describing
- * every combination of losses as well. Capability loss is answered one layer
- * down instead, by `calibratedTacticPairs` in `src/learning/lookahead.ts`, which
- * searches only the cells a budget was actually spent on --
+ * thirteen-cell table against `deployableTactics`, which is what keeps a
+ * *starting* loadout's row honest. It is not what stops the two coming apart,
+ * because a row keys on the loadout a body started with and the mask keys on
+ * what is still attached: sever the bow hand of a `bow+empty` and the two-handed
+ * weld goes with it, the empty hand is free, and `punch` appears in a mask whose
+ * row is `cover, shoot, recover`. This row cannot describe that without
+ * describing every combination of losses as well. Capability loss is answered
+ * one layer down instead, by `calibratedPlannedTactics` in
+ * `src/learning/lookahead.ts`, which searches only the cells a budget was
+ * actually spent on --
  * `a_severed_hand_moves_the_mask_and_the_lookahead_plans_over_what_it_can_predict`
  * is the test that exercises it, on bodies with a hand taken off.
  *
- * The cost is 240 tasks per split against 220, and a minimum budget of 46,080
- * solver steps against 42,240. That is the figure **today**; session 20's tuple
- * expansion supersedes it by roughly twentyfold and is where the real ceiling
- * gets decided.
+ * The cost is **775 tasks per split against 240**, and a minimum budget of
+ * **148,800 solver steps against 46,080** -- 3.23x, measured in
+ * `docs/measurements.md` under "Session 17 Stage C2c", where the 19x the plan
+ * priced is also recorded along with the measurement that declined it.
  */
-const LOADOUT_ACTIONS = Object.freeze({
-  "sword+empty": Object.freeze(["cover", "cut", "thrust", "punch", "recover"]),
-  "sword+shield": Object.freeze(["cover", "cut", "thrust", "recover"]),
-  "sword+buckler": Object.freeze(["cover", "cut", "thrust", "recover"]),
-  "axe+empty": Object.freeze(["cover", "cut", "punch", "recover"]),
-  "bow+empty": Object.freeze(["cover", "shoot", "recover"]),
-  "empty+empty": Object.freeze(["cover", "punch", "recover"]),
-  "natural:bite": Object.freeze(["bite", "recover"]),
+const LOADOUT_TACTICS = Object.freeze({
+  "sword+empty": Object.freeze({ cover: ["primary", "secondary"], cut: ["primary"], thrust: ["primary"],
+    punch: ["secondary"], recover: ["primary", "secondary"] }),
+  "sword+shield": Object.freeze({ cover: ["primary", "secondary"], cut: ["primary"], thrust: ["primary"],
+    recover: ["primary", "secondary"] }),
+  "sword+buckler": Object.freeze({ cover: ["primary", "secondary"], cut: ["primary"], thrust: ["primary"],
+    recover: ["primary", "secondary"] }),
+  "axe+empty": Object.freeze({ cover: ["primary", "secondary"], cut: ["primary"], punch: ["secondary"],
+    recover: ["primary", "secondary"] }),
+  "bow+empty": Object.freeze({ cover: ["primary"], shoot: ["primary"], recover: ["primary"] }),
+  "empty+empty": Object.freeze({ cover: ["primary", "secondary"], punch: ["primary", "secondary"],
+    recover: ["primary", "secondary"] }),
+  "natural:bite": Object.freeze({ bite: ["natural"], recover: ["natural"] }),
 });
-export const actionsFor = (loadout) => {
-  const actions = Object.hasOwn(LOADOUT_ACTIONS, loadout) ? LOADOUT_ACTIONS[loadout] : null;
-  if (!actions) throw new Error(`lookahead schedule has no tactic row for loadout "${loadout}"`);
-  return actions;
+const rowFor = (loadout) => {
+  // `Object.hasOwn` and not `in`: `"toString"` reaches the prototype through the
+  // latter and answers a function, so a loadout that does not exist would have
+  // become a row of one non-iterable value rather than a refusal.
+  const row = Object.hasOwn(LOADOUT_TACTICS, loadout) ? LOADOUT_TACTICS[loadout] : null;
+  if (!row) throw new Error(`lookahead schedule has no tactic row for loadout "${loadout}"`);
+  return row;
+};
+/** The action half of a loadout's row, in `HAND_ACTION_NAMES` order. */
+export const actionsFor = (loadout) => HAND_ACTION_NAMES.filter((action) => Object.hasOwn(rowFor(loadout), action));
+/**
+ * Every legal `(action, effector, target)` a loadout can perform, in exactly
+ * `deployableTactics`' enumeration order so the two can be compared as lists.
+ */
+export const tacticsFor = (loadout) => {
+  const row = rowFor(loadout);
+  return Object.freeze(actionsFor(loadout).flatMap((action) => row[action].flatMap((effector) =>
+    tacticTargets(action).map((target) => Object.freeze({ action, effector, target })))));
 };
 /** Every compatible body/loadout/tactic cell, in fixed matrix and option-table order. */
 export function lookaheadTacticCellSchedule(split, seed) {
@@ -122,18 +173,20 @@ export function lookaheadTacticCellSchedule(split, seed) {
   matrix.forEach((job, jobIndex) => { const cell = `${job.unit}/${job.loadout}`; if (!seen.has(cell)) {
     seen.add(cell); cells.push({ cell, unit: job.unit, loadout: job.loadout, jobIndex }); } });
   return Object.freeze(cells.flatMap((cell) => MOVEMENT_NAMES.flatMap((movement) =>
-    actionsFor(cell.loadout).map((action) => Object.freeze({ ...cell, movement, action })))));
+    tacticsFor(cell.loadout).map((tactic) => Object.freeze({ ...cell, movement, ...tactic })))));
 }
 
 async function collectTacticalBudget(task, seed, solverSteps, split) {
   let consumed = 0; const rows = []; let bout = null; let iteration = 0;
+  const key = plannedTacticKey(task);
   while (consumed < solverSteps) {
     const trace = await collectTacticalTrace({ seed: seed ^ iteration, solverSteps: solverSteps - consumed, split,
-      jobIndex: task.jobIndex, forcedPair: { movement: task.movement, action: task.action } });
-    if (trace.solverSteps <= 0) throw new Error(`lookahead ${task.cell} ${task.movement}+${task.action} made no solver-step progress`);
+      jobIndex: task.jobIndex, forcedTactic: { movement: task.movement, action: task.action,
+        effector: task.effector, target: task.target } });
+    if (trace.solverSteps <= 0) throw new Error(`lookahead ${task.cell} ${key} made no solver-step progress`);
     consumed += trace.solverSteps; rows.push(...trace.rows); bout = trace.bout; iteration += 1;
   }
-  if (!rows.length) throw new Error(`lookahead ${split} ${task.cell} ${task.movement}+${task.action} collected no complete 0.10-second rows`);
+  if (!rows.length) throw new Error(`lookahead ${split} ${task.cell} ${key} collected no complete 0.10-second rows`);
   return { rows, solverSteps: consumed, bout };
 }
 

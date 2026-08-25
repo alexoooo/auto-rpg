@@ -8,8 +8,7 @@ import { FEATURE_COLUMNS, FEATURE_VERSION } from "../src/learning/features.ts";
 import { initialPopulation } from "../src/learning/genome.ts";
 import { META_OUTPUT_LAYOUT } from "../src/learning/meta.ts";
 import { GRU_UNITS } from "../src/learning/recurrent-network.ts";
-import { SeededRng } from "../src/learning/rng.ts";
-import { TACTICAL_STATE_COLUMNS } from "../src/learning/tactical-model.ts";
+import { TACTICAL_MODEL_VERSION, TACTICAL_STATE_COLUMNS } from "../src/learning/tactical-model.ts";
 import { freezeTournamentManifest } from "../src/learning/tournament.ts";
 import { EFFECTOR_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TACTIC_VERSION, TARGET_NAMES } from "../src/options.ts";
 import { executeNextTournamentRows, loadFrozenArtifacts } from "../scripts/tournament-executor.mjs";
@@ -41,7 +40,18 @@ const dagger = () => ({ featureCount: FEATURE_COLUMNS.length, hiddenCount: 1,
   hiddenWeights: Array(FEATURE_COLUMNS.length).fill(0), hiddenBias: [0],
   ...headEntries((table) => ({ labels: table, weights: Array(table.length).fill(0), bias: Array(table.length).fill(0) })),
   persistenceWeights: [0], persistenceBias: 0 });
-const lookahead = () => ({ version: 1, featureNames: TACTICAL_STATE_COLUMNS, tactics: {}, cells: {}, digest: "synthetic" });
+/**
+ * The model header, taken from the runtime constant and not written out.
+ *
+ * It was the literal `1` and stage C2c bumped `TACTICAL_MODEL_VERSION` to 2 for
+ * the widened cell key, which turned this whole test red on a fixture rather
+ * than on a defect. The version is not what this file is about -- the envelope
+ * is -- so spelling it out bought nothing and cost a false failure, which is the
+ * opposite trade from `staleContract` below, where the stale value *is* the
+ * subject.
+ */
+const lookahead = () => ({ version: TACTICAL_MODEL_VERSION, featureNames: TACTICAL_STATE_COLUMNS,
+  tactics: {}, cells: {}, digest: "synthetic" });
 const bytes = new Map([
   ["neat", artifact("neat-qd", initialPopulation(1, FEATURE_COLUMNS.length, META_OUTPUT_LAYOUT.width, 9)[0])], ["dagger", artifact("dagger", dagger())], ["ppo", artifact("ppo", ppo())], ["lookahead", artifact("lookahead", lookahead())],
 ]);
@@ -241,4 +251,55 @@ test("a_version_header_of_the_right_value_and_the_wrong_type_is_refused_by_type"
   assert.throws(() => decodeResearchArtifact(older),
     new RegExp(`research artifact tactic version ${TACTIC_VERSION - 1} does not match runtime ${TACTIC_VERSION}`));
   assert.doesNotThrow(() => decodeResearchArtifact(current.toBytes()));
+});
+
+/**
+ * The third version gate, and the only one nothing exercised.
+ *
+ * `featureVersion` and `tacticVersion` live in the envelope and each has a
+ * refusal test above. `TACTICAL_MODEL_VERSION` lives in the **payload**, so the
+ * envelope accepts a stale look-ahead model outright and the refusal is
+ * `deployment.ts`'s alone -- and it had no reader: the one literal in this file
+ * that would have gone red on a bump was `version: 1` in the fixture, which stage
+ * C2c correctly replaced with the constant, leaving the gate with nothing at all
+ * watching it.
+ *
+ * It is worth a test rather than an assumption because of what a miss looks like.
+ * `cells` is a plain string-keyed map, so a model fitted under the two-field
+ * `movement+action` grammar decodes cleanly and then matches no cell the beam asks
+ * for: `calibratedPlannedTactics` filters every cell out and `lookaheadMind`
+ * reports `no calibrated model for any tactic on [...]`, which reads as an
+ * under-spent training budget rather than as the wrong artifact. The version is
+ * what turns a silent misdiagnosis into a sentence naming the artifact.
+ *
+ * Both directions, because a gate written `<` rather than `!==` would pass a model
+ * from a *newer* grammar -- which is the artifact a session that has already moved
+ * on hands to a runtime that has not.
+ */
+test("a_lookahead_model_from_another_key_grammar_is_refused_by_model_version", () => {
+  for (const version of [TACTICAL_MODEL_VERSION - 1, TACTICAL_MODEL_VERSION + 1]) {
+    const decoded = decodeResearchArtifact(artifact("lookahead", { ...lookahead(), version }));
+    // The envelope is current on both halves, so there is nothing else for the
+    // refusal to be about: this is the payload gate or it is nothing.
+    assert.equal(decoded.data.featureVersion, FEATURE_VERSION);
+    assert.equal(decoded.data.tacticVersion, TACTIC_VERSION);
+    assert.throws(() => deployedResearchMind(decoded, "warrior/sword+empty"),
+      new RegExp(`lookahead artifact model version ${version} is unsupported`), `version ${version}`);
+    // And not by the column table, which is the other thing this branch checks.
+    // "tactical feature output table does not match" would send whoever reads the
+    // log to edit `TACTICAL_STATE_COLUMNS`, which is the wrong repair.
+    assert.throws(() => deployedResearchMind(decoded, "warrior/sword+empty"), (error) => {
+      assert.doesNotMatch(error.message, /tactical feature|feature version|tactic version|checksum/);
+      return true;
+    }, `version ${version}`);
+  }
+  // The columns are a separate refusal at the current version, so the two checks
+  // are not standing in for each other.
+  const wrongColumns = decodeResearchArtifact(artifact("lookahead",
+    { ...lookahead(), featureNames: TACTICAL_STATE_COLUMNS.slice(0, 4) }));
+  assert.throws(() => deployedResearchMind(wrongColumns, "warrior/sword+empty"),
+    /lookahead tactical feature output table does not match the frozen runtime table/);
+  // And the same payload at the runtime version deploys, so nothing above was
+  // about the model body.
+  assert.doesNotThrow(() => deployedResearchMind(decodeResearchArtifact(bytes.get("lookahead")), "warrior/sword+empty"));
 });

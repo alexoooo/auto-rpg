@@ -5,13 +5,13 @@ import { pathToFileURL } from "node:url";
 import { FEATURE_COLUMNS } from "../src/learning/features.ts";
 import { ResearchArtifact, artifactChecksum, canonicalJson } from "../src/learning/artifact.ts";
 import { GRU_UNITS, RecurrentPolicy, maskedCategorical, seededRandom } from "../src/learning/recurrent-network.ts";
-import { META_OUTPUT_LAYOUT } from "../src/learning/meta.ts";
+import { META_OUTPUT_LAYOUT, UNLEARNED_PERSISTENCE } from "../src/learning/meta.ts";
 import { decodePpoResume, encodePpoResume, equalBudgetPpoArms, freezeOpponentLeague, generalizedAdvantages,
   indexedLeagueOpponent, ppoHeadUpdate, PPO_POLICY_HEADS, selectPpoArm, tacticalBoundaryReward } from "../src/learning/ppo.ts";
 import { researchMatrix } from "../src/learning/research-matrix.ts";
 import { researchLabelMind } from "../src/learning/research-policy.ts";
 import { predictDagger } from "../src/learning/dagger.ts";
-import { argmaxHeadPick, recurrentTactic, RESEARCH_ARTIFACT_CONTRACT, UNLEARNED_PERSISTENCE } from "../src/learning/deployment.ts";
+import { argmaxHeadPick, recurrentTactic, RESEARCH_ARTIFACT_CONTRACT } from "../src/learning/deployment.ts";
 import { EFFECTOR_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TARGET_NAMES } from "../src/options.ts";
 import { runResearchBout } from "./research-havok.mjs";
 

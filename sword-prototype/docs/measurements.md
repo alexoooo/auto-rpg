@@ -2571,7 +2571,9 @@ Reproduced on this tree by reverting the two rows and fitting a model from the s
 the rows restored, all five plan.
 
 The nested `startsWith` chain became `LOADOUT_ACTIONS`, one row per `ResearchLoadout`, and an
-unknown loadout is refused by name instead of falling through to the sword row.
+unknown loadout is refused by name instead of falling through to the sword row. (Stage C2c gave
+that table a second column and renamed it `LOADOUT_TACTICS`; the name here is the one C1 used
+and is kept so this record still reads as what happened.)
 
 **The new figures, and they are not final.** Measured by expanding the real schedule:
 
@@ -2584,6 +2586,11 @@ unknown loadout is refused by name instead of falling through to the sword row.
 The 42,240-step exhaustive run recorded earlier in this document was taken under the old
 schedule and stays as the record of that run. **This is a small increase that session 20's
 tuple expansion supersedes by roughly twentyfold**; it is the current figure, not a ceiling.
+
+**Superseded by stage C2c, and the twentyfold was declined rather than paid.** The schedule is
+775 tasks a split, 3,100 groups and 148,800 minimum solver steps -- **3.23x**, not the ~19x this
+table priced, because the stance was measured out of the key. See "Session 17 Stage C2c" below;
+the numbers here stay as the record of what C1 measured.
 
 `the_training_schedule_offers_exactly_what_the_runtime_mask_offers` (`tests/lookahead.test.mjs`,
 734 ms) is the pin on the rows: one short Havok bout per cell, the mask read off the **real
@@ -2617,7 +2624,8 @@ reports 10 severs in 120 bouts. Both masks below were read off real published bo
 The sword body survives only because its row already trains `punch`; the bow body does not, and
 adding a row for it chases *states* rather than loadouts -- there are two hands, each of which
 can be lost, times every loadout, and the mask also folds the two-handed holder rule. So the fix
-is not another row. `calibratedTacticPairs` (`src/learning/lookahead.ts`) filters the pair set to
+is not another row. `calibratedTacticPairs` -- `calibratedPlannedTactics` since stage C2c
+widened the cell key -- (`src/learning/lookahead.ts`) filters the pair set to
 the cells the model has a calibration for and `lookaheadMind` refuses by name only when nothing
 survives. That is not the silent repair the plan forbids: repairing an *illegal* action would
 substitute a name the body cannot perform, whereas this narrows the search by the search's own
@@ -3509,6 +3517,12 @@ stays true -- a caller of `deployedResearchMind` does not know which algorithm i
 three fields is genuinely all it may rely on until C2c lands. The three widened algorithms still
 pass the whole record at run time, and every consumer of it is `.mjs`.
 
+**Superseded 2026-08-25: the alias no longer exists.** C2c widened look-ahead to name four fields
+itself, which made `DeployedDecisionLabel` an identity alias for `DaggerLabel` with no importer --
+so the assignment its contravariance argument was about could not fail. The reasoning above is
+still exactly why the narrowing was right *for one stage*, which is why it stays here; the
+argument itself moved onto `deployedResearchMind`'s docstring, where it is about a live signature.
+
 **`collectTacticalTrace` names its tuple.** It was `{ movement, action, persistence: 0.4 }` and
 relied on `researchLabelMind` defaulting the other three to
 `asMeasured(chooseEffector(view, action))`. That default is gone, so the line names exactly what
@@ -3784,3 +3798,725 @@ duelist-swinger --bouts 120`, seed 20260823, re-run after every edit here: dueli
 the scripted policies never enter the option layer, and `isHeldStriker` replaced
 `isStriking(kind) && kind !== "empty"` in `accepts("cut")` with a predicate that agrees on every
 member of `WeaponKind`.
+
+## Session 17 Stage C2c: the look-ahead planner carries the tuple -- 2026-08-25
+
+The look-ahead cell key went from `movement+action` to `movement+action+effector+target`, in the
+beam, in the calibration filter and in the training schedule. **The stance stayed out, on
+evidence**, and that is the whole of the difference between the ~19x the plan priced and the
+3.23x it cost. 524 tests before, **528** after; `npx tsc --noEmit` and `npm run build` clean;
+`git diff --numstat` and `git diff --ignore-cr-at-eol --numstat` md5-identical.
+
+Everything below names its harness. There are four: the headless research bench
+(`scripts/research-havok.mjs` over `scripts/measure.mjs`'s `NullEngine` plus Havok), the real
+trainer (`scripts/train-lookahead.mjs`), an in-process beam bench, and an exhaustive capability
+sweep. **The page took no reading in this stage and no figure here is a page figure.**
+
+### The null control did not move, for the sixth stage running
+
+`npm run measure -- --only duelist-swinger --bouts 120`, seed 20260823: duelist 66/120 =
+**55.0 %**, bout length **3.52 s (1.42-8.98)**, damage **176.17**, **10** severs, **1496** and
+**1670** scoring contacts. Identical to C1, C2a and C2b to the digit. It must be: the scripted
+policies never enter the option layer, and the only shared file this stage moved is
+`src/learning/meta.ts`, which gained two constants and no behaviour.
+
+### The schedule, the beam and the budget, as they now stand
+
+| quantity | HEAD (`movement+action`) | C2c (`+effector+target`) | with the stance as well |
+| --- | ---: | ---: | ---: |
+| schedule tasks per split | 240 | **775** | 4,650 |
+| groups (`3 x train + validation`) | 960 | **3,100** | 18,600 |
+| minimum solver steps (`groups * 48`) | 46,080 | **148,800** | 892,800 |
+| `TacticalModel.cells` keys | 240 | **775** | 4,650 |
+| beam cells, `sword+empty` | 25 | **80** | 480 |
+| nodes per replan, `sword+empty` | 1,075 | **3,440** | 20,640 |
+| factor | 1x | **3.23x** | 19.4x |
+
+Per loadout: legal `(action, effector, target)` tuples, beam cells (`x 5` movements) and the
+exact node budget at depth 8, width 6.
+`the_widened_schedule_costs_exactly_what_sessions_20_and_21_will_budget_from` pins the whole
+table, and `trainLookahead`'s own refusal at 148,796 steps pins the 3,100 groups.
+
+| loadout | tuples | cells | nodes/replan |
+| --- | ---: | ---: | ---: |
+| `sword+empty` | 16 | 80 | 3,440 |
+| `sword+shield` | 14 | 70 | 3,010 |
+| `sword+buckler` | 14 | 70 | 3,010 |
+| `axe+empty` | 13 | 65 | 2,795 |
+| `bow+empty` | 7 | 35 | 1,505 |
+| `empty+empty` | 12 | 60 | 2,580 |
+| `natural:bite` | 3 | 15 | 645 |
+
+### 1. The stance does not move what the tactical model predicts, and it moves the fight a lot
+
+Harness: `.review/c2c/stance.mjs` (the research bench) and `.review/c2c/stance-folds.mjs` (the
+analysis, over the rows that script caches). Nine
+`(cell, movement, action, effector, target)` tuples, all six stances on each, three seeds on
+each, **4,800 solver steps a bout** -- 162 bouts, **70.2 s** of wall clock.
+
+**The harness has a control that must read exactly zero, and does.** `Centipede.update` reads
+the movement axes and the two natural buttons and never touches `input.posture`, so a
+centipede's six stances have to be indistinguishable. They are **byte-identical** -- the same
+rows, the same 15 contacts, the same 138.46 damage, the same final vitality -- for both
+`close+bite+natural+vital` and `hold+recover+natural+vital`. A probe that could not tell "no
+effect" from "small effect" would have shown noise there. (`upright` comes back byte-identical
+to `action-default` on a warrior's `hold+recover+primary+vital` as well, for a different reason:
+`applyActionPosture("recover")` already leaves all three axes at zero, so zeroing them again
+changes nothing.)
+
+**Leave-one-seed-out, warrior cells only** -- the centipede excluded, because its zeros would
+dilute the very comparison they are a control for. Each row is the mean absolute calibration of
+a delta fitted on one source and scored on held-out rows, against limits of **0.25 / 0.25 /
+0.25**. Columns are `signedReachError` (absolute), `contactBrier`, `vitalityDeltaError`:
+
+| delta fitted on | reach | Brier | vitality | n |
+| --- | ---: | ---: | ---: | ---: |
+| the same stance, two seeds | **0.0081** | **0.1387** | **0.0241** | 126 |
+| the same stance, **one** seed -- the noise floor | 0.0092 | 0.1400 | 0.0245 | 252 |
+| **another** stance, two seeds | 0.0121 | 0.1410 | 0.0244 | 630 |
+
+Knowing the stance is worth 0.0040 of reach error, 0.0023 of Brier and 0.0003 of vitality error.
+**Halving the fitting seeds costs 0.0011, 0.0013 and 0.0004** -- so on the vitality column the
+whole stance effect is smaller than one seed of noise, and on the other two it is about three
+seeds' worth. Every figure is under 1.6 % of the limit its column is refused at.
+
+**At a fixed budget it buys nothing at all**, which is the comparison that decides it: six
+stance-keyed cells on a sixth of the rows each, against one stance-free cell on all of them,
+scored on the same held-out rows.
+
+| | reach | Brier | vitality |
+| --- | ---: | ---: | ---: |
+| six stance-keyed cells (warrior, n=126) | 0.0081 | 0.1387 | 0.0241 |
+| one stance-free cell (warrior, n=126) | 0.0099 | 0.1390 | **0.0230** |
+| six stance-keyed cells (all nine, n=162) | 0.0064 | 0.1095 | 0.0188 |
+| one stance-free cell (all nine, n=162) | 0.0077 | 0.1098 | **0.0180** |
+
+Two columns are a wash and the third is *worse* with the stance in the key.
+
+**Per action, because the answer could have differed and the brief asked.** Own stance against
+another stance, two seeds each, same three columns:
+
+| cell and tuple | own | another |
+| --- | --- | --- |
+| `sword+empty hold+cut+primary+vital` | 0.0095 / 0.1260 / 0.0450 | 0.0136 / 0.1280 / 0.0453 |
+| `sword+empty close+thrust+primary+vital` | 0.0015 / 0.1927 / 0.0068 | 0.0026 / 0.1955 / 0.0068 |
+| `sword+empty hold+cover+primary+threat` | 0.0087 / 0.1042 / 0.0214 | 0.0136 / 0.1064 / 0.0215 |
+| `sword+empty hold+punch+secondary+vital` | 0.0124 / 0.1152 / 0.0263 | **0.0120** / 0.1154 / 0.0265 |
+| `sword+empty hold+recover+primary+vital` | 0.0102 / 0.0438 / 0.0216 | 0.0170 / 0.0444 / 0.0221 |
+| `bow+empty hold+shoot+primary+vital` | 0.0050 / 0.1623 / 0.0216 | 0.0106 / 0.1665 / 0.0218 |
+| `bow+empty hold+cover+primary+threat` | 0.0098 / 0.2268 / 0.0260 | 0.0150 / 0.2309 / 0.0265 |
+| `centipede close+bite+natural+vital` | 0.0000 / 0.0149 / 0.0006 | 0.0000 / 0.0149 / 0.0006 |
+| `centipede hold+recover+natural+vital` | 0.0002 / 0.0000 / 0.0000 | 0.0002 / 0.0000 / 0.0000 |
+
+No action shows the stance worth more than about 2 % of a limit, and on `punch` the stance-keyed
+model is fractionally *worse* on reach error than the pooled one. The largest relative gap is
+`shoot`, 0.0050 against 0.0106 -- and 0.0106 is 4 % of the limit.
+
+**The stance moves the fight, and that is a statement about `TACTICAL_STATE_COLUMNS` rather than
+about the stance.** Over the same runs, on `warrior/sword+empty`. **Every number in this table is
+a sum over three bouts, not one bout**, and two of the three places that quoted it said "a bout
+scored 182 damage" -- corrected 2026-08-25 in `src/learning/meta.ts` and in plan 17, and the
+harness re-read: `.review/c2c/stance.mjs` accumulates `damage` and `rows` across its three seeds
+before printing. A "rows survived" of 594 against a 4,800-step window that holds 199 rows is the
+tell, and nobody read it.
+
+| tuple and quantity, summed over three bouts | worst stance | best stance | spread |
+| --- | --- | --- | ---: |
+| `hold+cover+primary+threat`, damage dealt | 182.13 (`slip-right`) | 751.23 (`upright`) | **4.1x** |
+| `hold+cover+primary+threat`, rows survived | 153 (`compact`) | 594 (`extended`) | **3.9x** |
+| `hold+cut+primary+vital`, own final vitality | 0.328 (`slip-left`) | 0.817 (`extended`) | 2.5x |
+| `close+thrust+primary+vital`, contacts | 606 (`slip-left`) | 795 (`slip-right`) | 1.3x |
+
+`extended` survived the full 4,800-step window on the cover tuples where `action-default` was
+dead by roughly 1,500 steps -- a per-bout reading of the same summed row, 594/3 against 189/3.
+
+**Asked again at six seeds, the effect survives and the pair does not.** Harness
+`.review/rem/stance6.mjs`: the same tuple, six stances, six seeds, 4,800 steps a bout, seeds
+`310013` xor `0`, `0x9e3779b9`, `0x51f15e`, `0x7f4a7c15`, `0x2545f491`, `0x1b873593`. Its first
+three seeds reproduce the table above to the digit -- 342.28 / 751.23 / 657.53 / 245.18 / 489.41
+/ 182.13 -- which is what settles that the row is a sum.
+
+| stance | per-seed damage | total | median |
+| --- | --- | ---: | ---: |
+| `action-default` | 41.9 / 99.2 / 201.2 / 233.5 / 217.3 / 313.3 | 1106.3 | 209.2 |
+| `upright` | 194.3 / 252.2 / 304.7 / 403.3 / 65.9 / 176.6 | 1397.1 | 223.3 |
+| `compact` | 129.1 / 402.0 / 126.4 / 204.9 / 106.9 / 154.3 | 1123.7 | 141.7 |
+| `extended` | 56.7 / 96.1 / 92.4 / 96.7 / 126.1 / 182.1 | 650.0 | 96.4 |
+| `slip-left` | 164.0 / 189.5 / 135.9 / 2.6 / 214.3 / 166.1 | 872.4 | 165.1 |
+| `slip-right` | 65.9 / 98.7 / 17.5 / 28.9 / 0.0 / 89.9 | 300.9 | 47.4 |
+
+**The spread survives: 4.6x on totals and 4.7x on medians.** So does `slip-right` being worst --
+lowest total, lowest median, and the worst stance on three of the six seeds individually.
+
+**The rest of the ranking is noise, and the specific pair the table quotes is inside it.** The
+best stance per seed is `upright` three times, `action-default` twice and `compact` once; on
+totals `upright` leads `compact` by 1397 to 1124 and on medians `action-default` overtakes
+`compact` -- three different orderings out of the same 36 bouts depending on the summary. An
+independent six-seed set taken during review, on other seeds, put `compact` ahead of `upright`.
+
+**And the within-stance seed spread is larger than the between-stance spread**, which nothing in
+this record said. Across these six seeds one stance's own damage ranges 41.9 to 313.3
+(`action-default`, 7.5x), 2.6 to 214.3 (`slip-left`, 81x) and 0.0 to 98.7 (`slip-right`, from
+nothing at all) -- against a 4.6x spread between stances on totals. **A reader deciding whether
+to chase the stance needs that noise floor**: at three bouts a cell this measurement can separate
+"`slip-right` is bad" from the rest and cannot rank the other five.
+
+A planner that could see any of it would want it. The five columns the tactical model publishes
+-- reach margin, facing error, threat alignment, contact probability and vitality potential --
+cannot. **Whoever gives the model a column that can see a posture gets to ask this question
+again**, and this section is the measurement to re-run, at more than three bouts a cell.
+
+`UNLEARNED_STANCE` in `src/learning/meta.ts` carries the short form of this, and
+`the_widened_schedule_costs_exactly_what_sessions_20_and_21_will_budget_from` pins both the 775
+and the constant's literal value -- so putting the stance back multiplies every figure in that
+test by six.
+
+### 1b. What the effector and the aim are worth, asked exactly the same way
+
+Not in the brief, and worth having: the two fields C2c *did* put in the key deserve the test that
+kept the third one out. Harness `.review/c2c/variant.mjs` -- six families that share a cell, a
+movement and an action and differ only in the effector or the aim; 4,800 steps, three seeds, 63
+held-out evaluations a side.
+
+| | reach | Brier | vitality |
+| --- | ---: | ---: | ---: |
+| keyed on the effector and the aim | **0.0094** | **0.1394** | 0.0213 |
+| one seed of the same variant -- the noise floor | 0.0105 | 0.1406 | 0.0218 |
+| pooled into one aim-free, effector-free cell | 0.0119 | 0.1466 | **0.0202** |
+
+Keying is worth 0.0025 / 0.0072 / -0.0011. That is **24x the stance's Brier gain** and 1.4x its
+reach gain -- and it is the Brier that matters, because at every training budget measured below,
+**every** cell that fell out of calibration fell out on the Brier and none on the other two. Per
+family, keyed against pooled:
+
+| family | keyed | pooled |
+| --- | --- | --- |
+| `sword+empty hold+cut` (3 aims) | 0.0060 / 0.1380 / 0.0337 | 0.0153 / 0.1369 / 0.0318 |
+| `sword+empty close+thrust` (3 aims) | 0.0017 / 0.2134 / 0.0049 | 0.0017 / **0.2194** / 0.0040 |
+| `sword+empty hold+cover` (2 hands x 2 aims) | 0.0083 / 0.1003 / 0.0250 | 0.0083 / 0.1011 / 0.0249 |
+| `sword+empty hold+recover` (2 hands x 2 aims) | 0.0171 / 0.0927 / 0.0191 | 0.0182 / 0.0913 / 0.0179 |
+| `empty+empty hold+punch` (2 hands x 2 aims) | 0.0119 / **0.1665** / 0.0228 | 0.0168 / **0.2013** / 0.0203 |
+| `bow+empty hold+shoot` (3 aims) | 0.0082 / 0.1451 / 0.0215 | 0.0083 / 0.1450 / 0.0212 |
+
+`punch` is the family that carries it -- 0.035 of Brier, 14 % of the limit -- and it is the one
+where the two hands genuinely differ, because on `empty+empty` the primary and secondary fists
+have different reach and opposite outboard sides. `shoot` and `cover` are almost flat, so the
+gain is not uniform and a future session narrowing the key should narrow it per action rather
+than wholesale.
+
+### 2. Wall clock per replan, and whether one still fits in a bout
+
+Harness `.review/c2c/replan.mjs`: the beam run in process against a `TacticalState` taken from a
+**real published Havok body**, 9 rounds of 200 replans, median of the per-round means with the
+across-round range in brackets. The "today's cell count" row is the new code expanding exactly as
+many cells as HEAD expanded.
+
+**The C2c rows have their harness output in `.review/c2c/replan-c2c.txt`. The four HEAD rows do
+not**, and that is the one measurement in this stage with no recorded output beside it -- they
+were taken from a HEAD checkout in a separate process and only the drafted table survived. Read
+them as an anecdote rather than as evidence, for the reason the next paragraph measures.
+
+| cell | variant | cells | nodes/replan | ms/replan | nodes/ms |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `warrior/sword+empty` | HEAD `4dfc12f`, 2-field key | 25 | 1,075 | 1.3031 (1.2984-1.3728) | 825 |
+| `warrior/sword+empty` | C2c, today's cell count | 25 | 1,075 | 1.3244 (1.3122-1.3477) | 812 |
+| `warrior/sword+empty` | **C2c, widened** | 80 | 3,440 | **4.2759 (4.2706-4.3140)** | 805 |
+| `warrior/sword+empty` | with the stance | 480 | 20,640 | 26.3525 (26.0250-26.5505) | 783 |
+| `warrior/sword+shield` | HEAD | 20 | 860 | 1.0600 (1.0571-1.1093) | 811 |
+| `warrior/sword+shield` | **C2c, widened** | 70 | 3,010 | **3.8484 (3.7999-3.8970)** | 782 |
+| `warrior/sword+shield` | with the stance | 420 | 18,060 | 22.9788 (22.8454-23.1956) | 786 |
+| `warrior/bow+empty` | HEAD | 15 | 645 | 0.7856 (0.7799-0.7924) | 821 |
+| `warrior/bow+empty` | **C2c, widened** | 35 | 1,505 | **1.8568 (1.8534-1.8694)** | 811 |
+| `warrior/bow+empty` | with the stance | 210 | 9,030 | 11.6562 (11.4415-11.9775) | 775 |
+| `centipede/natural:bite` | HEAD | 10 | 430 | 0.5199 (0.5180-0.5371) | 827 |
+| `centipede/natural:bite` | **C2c, widened** | 15 | 645 | **0.7911 (0.7870-0.8143)** | 815 |
+| `centipede/natural:bite` | with the stance | 90 | 3,870 | 4.9155 (4.8725-5.0597) | 787 |
+
+**The longer key costs nothing measurable, and "nothing measurable" is the honest half of that
+sentence rather than a hedge.** 1.3244 ms against HEAD's 1.3031 at the same cell count is +1.6 %
+and the round-ranges overlap -- but **+1.6 % is below this host's run-to-run noise floor**, so
+the comparison cannot say more than "not visibly worse". Measured 2026-08-25 with
+`.review/rem/drift.mjs`, five separate invocations of one identical 25-cell variant: medians
+1.3813, 1.3817, 1.3993, 1.4056 and 1.4693 ms, a **6.4 % spread** with nothing changed between
+runs. A cross-process comparison of two builds is at that noise floor by construction, which is
+why the ratio that matters -- 4.2759 against 1.3244, both from one bracketed run in one process
+-- is the figure session 20 should use and the HEAD column is not.
+
+**Throughput is roughly 750-825 expanded nodes per millisecond, and the earlier "flat 780-825"
+was tighter than its own table.** Two of the thirteen rows above fall outside it -- 775 for
+`bow+empty` with the stance and 827 for the centipede at HEAD -- and two independent re-runs
+landed lower still: 766-789 during review and **732-778** in the drift sweep above, on a host
+whose absolute times had drifted up about 5 % that day. So keep `43 x cells / 800` as the rule of
+thumb for session 20's ceilings and drop the tightness: it is good to within about ten per cent,
+on this host, in this bench, and the constant moves with machine load.
+
+**How often a replan happens**, harness `.review/c2c/replan-rate.mjs`: a full 45-second research
+bout with `lookaheadMind` driving `warrior/sword+empty` -- 10,803 solver steps, **151 replans**,
+which is **3.36 a simulated second** and one every **71.5 solver steps**. `bow+empty` returns the
+same 151. The rate is a property of when skills finish and when capability moves, not of what the
+model predicts, which is why a synthetic model answers it as well as a trained one would.
+
+**So: affordable at 3.23x, and not at 19x.**
+
+- *In the headless bench.* That bout costs **2.99 s** of wall clock for 45 s simulated -- 15.1x
+  real time with the planner in it. 151 replans at 4.2759 ms is **646 ms, 21.6 % of the bout**.
+  At HEAD's 1.3031 ms it was 197 ms, 6.6 % -- the table's own figure, where this said 1.32 ms,
+  199 ms and 6.7 % from a rounded reading of it. With the stance it would be **3,979 ms**, more than the
+  entire bout costs today: the planner would cost more than the physics.
+- *At a keyboard.* Control runs on the physics clock, so a replan lands inside one rendered
+  frame. 3.36 replans a second at 4.2759 ms is **14.4 ms of planning per second per planning
+  fighter**, and a single replan is a quarter of a 16.7 ms frame -- two fighters replanning on the
+  same substep is 8.6 ms and still fits. With the stance a single replan is **26.35 ms, which
+  exceeds a whole frame on its own**, 3.36 times a second per fighter. That is a dropped frame per
+  replan, and it is the sharper half of the answer.
+
+**Both figures are bench figures.** The two harnesses in this directory disagree by about 9 % on
+transients, nothing here was measured in a browser, and a person watching a bout driven by a
+deployed look-ahead is owed that reading.
+
+### 3. How many cells survive calibration at a fixed budget
+
+Harness `.review/c2c/calibration.mjs`: the real `trainLookahead` end to end, then
+`calibrationRefusal` -- the same function `calibratedPlannedTactics` filters with -- against the
+real `LOOKAHEAD_CALIBRATION_LIMITS` of 0.25 / 0.25 / 0.25. Seed 310013 throughout.
+
+| solver steps | steps/job | train rows/key | survived | refused | worst Brier | wall clock |
+| ---: | ---: | ---: | --- | ---: | ---: | ---: |
+| 148,800 (the minimum) | 48 | 1.00 | **775/775 = 100.0 %** | 0 | 0.0000 | 91.0 s |
+| 297,600 | 96 | 3.00 | 772/775 = 99.6 % | 3 | 0.3333 | 117.6 s |
+| 595,200 | 192 | 6.00 | 764/775 = 98.6 % | 11 | 0.3333 | 164.6 s |
+| 1,190,400 | 384 | 14.99 | **659/775 = 85.0 %** | 116 | 0.4089 | 275.0 s |
+| 1,488,000 | 480 | -- | the run dies; see below | | | |
+
+At 85 % the loss is not uniform: `warrior/axe+empty` keeps 49 of 65 and `warrior/sword+empty` 74
+of 80, while the centipede keeps all 15.
+
+**Every single refusal at every budget is `contactBrier`.** Across all four runs the worst
+`signedReachError` seen was 0.0618 and the worst `vitalityDeltaError` 0.1037, against limits of
+0.25 -- neither has ever refused a cell. If session 20 wants to tighten a limit, the Brier is the
+only one doing any work and the other two are set about four times looser than anything observed.
+
+**Survival goes *down* as the budget goes *up*, and the 100 % is a defect in the evidence rather
+than a good result.** Two things produce it and both were true before this stage:
+
+- **A one-row cell fits itself exactly, in all three columns.** `signedReachError` and
+  `vitalityDeltaError` are residuals about a mean taken over the same single row; `contactBrier`
+  is zero because a trace row always publishes `before.contactProbability = 0`, so
+  `delta.contactProbability` *is* the realised contact and the clamp reproduces it exactly.
+  `.review/c2c/valprobe.mjs` shows all three at 0 for one train row, and all three non-zero the
+  moment a second, differing row is used as validation.
+- **At 48 steps a job the train and validation bouts are bit-identical.** The split seeds really
+  do differ -- `actorSeed` 64139 against 158984 -- but 48 solver steps is 0.2 s, and 0.2 s is not
+  long enough for two fighters starting from the same pose to diverge. `calibrateTacticalModel`
+  therefore replaces the in-sample zeros with the same zeros. `.review/c2c/valprobe2.mjs` prints
+  the two rows side by side; they match to the last digit.
+
+**The shipped artifact shows the same, confirmed rather than assumed.**
+`asset-src/learning/research/session18-minimum/report.json` reports
+`contactBrier: 0, signedReachError: 0, vitalityDeltaError: 0` for **all 220** of its keys. So
+`LOOKAHEAD_CALIBRATION_LIMITS` has never refused anything in a shipped run, and "100 % of cells
+survive calibration" has never meant what it reads as. That artifact never reaches a runtime
+anyway -- `decodeResearchArtifact` throws `research artifact feature version 3 does not match
+runtime 4` -- and it carries the pre-C1 220-cell table. Both checked rather than assumed.
+
+**What actually degrades with fewer rows**, which is the quality question survival cannot answer.
+Harness `.review/c2c/stance-folds.mjs`, warrior tuples, a delta fitted on the first `n` rows of
+the pooled fit set and scored on held-out rows -- 126 folds at every row count of 250 and below.
+(The 1,000 and 2,000-row points are excluded: only the longest bouts reach them, so they are 66
+and 18 folds and a different sample.)
+
+| rows per cell | reach | Brier | vitality |
+| ---: | ---: | ---: | ---: |
+| 250 | 0.0111 | 0.1395 | 0.0261 |
+| 120 | 0.0129 | 0.1407 | 0.0266 |
+| 60 | 0.0207 | 0.1605 | 0.0283 |
+| 30 | 0.0266 | 0.1833 | 0.0261 |
+| 15 | 0.0703 | 0.1715 | 0.0280 |
+| 8 | 0.1872 | 0.2427 | 0.0257 |
+| 4 | **0.3236** | **0.5326** | 0.0181 |
+
+**The cliff is between 8 and 15 rows.** At 8 the Brier is 0.2427 against a 0.25 limit, inside by a
+hair; at 4 both it and the reach error are past it. Above about 60 rows the curve is flat. So the
+budget worth asking for is the one that puts **at least 60 rows in each of the 775 cells**, and a
+row is one 0.10-second window: 60 rows is 1,440 solver steps a cell a split, which over 3,100
+groups is **4,464,000 solver steps** -- 30x the minimum, and at the rate the 1,190,400-step run
+ran (275 s) about **17 minutes** in one process.
+
+**The trainer cannot currently spend that much on any one job.** At 480 steps a job the run dies
+with `lookahead schedule chose unsupported warrior/axe+empty tactic hold+punch+secondary+high`:
+the fighter loses its empty hand inside the window and the forced tuple leaves the runtime mask.
+
+**This said "the widening did not cause this -- HEAD's action-level guard throws at the same
+budget on the same job", and measurement says otherwise.** Corrected 2026-08-25, swept rather
+than reasoned. Harnesses `.review/rem/sweep480.mjs` (every task in the schedule) and
+`.review/head480b.mjs` (the HEAD-equivalent replay: action-level guard, `as-measured` aim, every
+movement):
+
+| at 480 steps a job | seed 310013 | the other two fit seeds |
+| --- | --- | --- |
+| C2c schedule, all **775** tasks | **1 dies** -- `warrior/axe+empty hold+punch+secondary+high` | 0 of 775, both |
+| HEAD-equivalent, action guard, as-measured aim | 0 of 5 movements | 0 of 5, both |
+
+**The dying cell is `+high`, and `+high` is an aim the widening added.** HEAD's look-ahead trace
+was collected through `asMeasured(chooseEffector(view, action))` -- the opponent's own shoulder
+line -- because a model keyed on `(movement, action)` had no aim head to honour; C2c enumerates
+`tacticTargets("punch")`, which is `vital` and `high`. The corresponding HEAD cell at the measured
+shoulder line survives 480 steps on all three fit seeds. So the widening did introduce one trainer
+failure mode, on one cell of 775, at a budget nothing has yet run at.
+
+**The half that is true is that the guard is not more *sensitive*.** On `axe+empty` the only empty
+hand is the secondary, so `punch` leaves `deployableActions` and every `punch|...` leaves
+`deployableTactics` in the same instant -- verified exhaustively in `.review/c2c/severance.mjs`.
+The tuple-level guard fires at exactly the moment the action-level one would have; what differs is
+that C2c has a cell there to fire *on*.
+
+**So a long budget has to be spent as many short jobs rather than as few long ones**, which
+survives unchanged and is the practical half. The trainer already supports it:
+`collectTacticalBudget` loops `collectTacticalTrace` until the budget is consumed, so what is
+needed is a per-job cap and not a new mechanism.
+
+### What the widening costs a damaged body, exactly
+
+Harness `.review/c2c/severance.mjs`: one published body per loadout, then every combination of
+lost hands stated on it. Exhaustive rather than sampled, because a bout only reaches some of
+these states and the question is what happens when it does. 28 states, in
+intact / minus-secondary / minus-primary / minus-both order.
+
+| loadout | HEAD actions kept | C2c tuples kept | C2c cells searchable |
+| --- | --- | --- | --- |
+| `sword+empty` | 5/5, 4/4, 3/3, 0/0 | 16/16, 10/10, 6/6, 0/0 | 80, 50, 30, 0 |
+| `sword+shield` | 4/4, 4/4, 2/2, 0/0 | 14/14, 10/10, 4/4, 0/0 | 70, 50, 20, 0 |
+| `sword+buckler` | 4/4, 4/4, 2/2, 0/0 | 14/14, 10/10, 4/4, 0/0 | 70, 50, 20, 0 |
+| `axe+empty` | 4/4, 3/3, 3/3, 0/0 | 13/13, 7/7, 6/6, 0/0 | 65, 35, 30, 0 |
+| `bow+empty` | 3/3, 3/3, **2/3**, 0/0 | 7/7, 7/7, **0/6**, 0/0 | 35, 35, **0**, 0 |
+| `empty+empty` | 3/3, 3/3, 3/3, 0/0 | 12/12, 6/6, 6/6, 0/0 | 60, 30, 30, 0 |
+| `natural:bite` | 2/2 in all four | 3/3 in all four | 15 in all four |
+
+**Twenty-six of the twenty-eight states lose nothing**: every tuple a damaged body can still
+perform is one the schedule trained. The exception is a `bow+empty` that loses its **bow** hand,
+and it is the one place the widening is strictly less capable than HEAD. A bow welds the other
+hand to the stave, so every cell trained for that loadout names the primary; cut the bow hand off
+and the free hand is the *secondary*, which no budget was ever spent on, and
+`calibratedPlannedTactics` filters all six of the mask's tuples out. `lookaheadMind` then refuses
+by name.
+
+**HEAD kept 2 of 3 actions there by planning them on a hand the model had never seen.** Its key
+carried no effector, so `close+recover` matched a cell fitted entirely on the bow hand, and
+`chooseEffector` then quietly executed it on the other arm. That is the silent redirection tactic
+v2 exists to remove, and C2c converts it into a refusal at a cost of one body state in
+twenty-eight. Severance is routine -- the null control reports 10 in 120 bouts -- so **session 20
+must expect `lookahead refuses warrior/bow+empty: no calibrated model for any tactic on [cover,
+punch, recover]` to appear in a tournament** and decide whether that entry forfeits, goes inert,
+or earns a second schedule row for the damaged state.
+`a_severed_hand_moves_the_mask_and_the_lookahead_plans_over_what_it_can_predict` asserts all
+three of the outcomes as one record.
+
+**The tally above is the cost half, and it was the only half written down.** HEAD's silent
+redirection was much wider than the bow, and on almost all of it C2c both refuses the redirection
+*and* keeps the capability. Harness `.review/rem/severboth.mjs`, minus-primary state, per humanoid
+loadout:
+
+| loadout | HEAD: trained on -> executed on | C2c on the same state |
+| --- | --- | --- |
+| `sword+empty` | `cover`, `recover`: primary -> secondary | keeps `cover`, `punch`, `recover` |
+| `sword+shield` | `cover`, `recover`: primary -> secondary | keeps `cover`, `recover` |
+| `sword+buckler` | `cover`, `recover`: primary -> secondary | keeps `cover`, `recover` |
+| `axe+empty` | `cover`, `recover`: primary -> secondary | keeps `cover`, `punch`, `recover` |
+| `bow+empty` | `cover`, `recover`: primary -> secondary | **nothing left to search** |
+| `empty+empty` | `cover`, `punch`, `recover`: primary -> secondary | keeps `cover`, `punch`, `recover` |
+
+**Six of six humanoid loadouts, not one.** Every one of them, having lost the primary, was running
+a model fitted on the primary hand against the secondary arm -- and `HandView.outboard` mirrors the
+stroke geometry and the wrist roll for the other side, so this is not a small difference of degree.
+C2c refuses the redirection on all six and **keeps a searchable capability on five**, because the
+schedule spends real budget on the secondary tuples of every loadout except the bow's, whose stave
+welds the trailing hand out of the strikers list. So the ledger is: one state of twenty-eight loses
+its search, and five of six loadouts stop executing a guard with an arm the model has never seen.
+
+(Review put this at five of six redirecting and four kept. Measured here it is **six and five** --
+`empty+empty` redirects `punch` as well as the two guards, and is the sixth.)
+
+### 4. The exact node budget is still enforced, and now pinned on both sides of the saturation
+
+`boundedLookahead` still throws when `expandedNodes !== exactLookaheadNodeBudget(...)`, and the
+budget is still computed rather than approximated. What was untested is that the formula is *not*
+simply `43P`: the beam saturates on the first level only for `P >= width`, and below that the
+budget is smaller. `lookahead_respects_the_exact_depth_width_and_node_budget` now pins
+
+`[1, 2, 3, 5, 6, 7, 16, 80] -> [8, 74, 120, 210, 258, 301, 688, 3440]`
+
+which is the only spelling that separates the real formula from `43P` -- a test checking only
+counts at or above six passes for both. Two mutations were watched: dropping the first level's
+expansion (`3440 -> 3120`) and removing the saturation cap (`3440 -> 323623638092040`). Both take
+nine tests red rather than one, because every beam test runs through the assertion.
+
+### The two constants nothing has learned, and where they now live
+
+`UNLEARNED_PERSISTENCE` moved from `src/learning/deployment.ts` to `src/learning/meta.ts` and
+`UNLEARNED_STANCE` joined it. The move was forced rather than chosen: `deployment.ts` imports
+`lookaheadMind`, so importing back would have been a cycle -- and that cycle is why the literal
+`0.4` came to be spelled in both files in the first place. `meta.ts` sits below both and already
+owns `MIN_PERSISTENCE` and `MAX_PERSISTENCE`, which is the window this number has to sit inside.
+`scripts/train-ppo.mjs` was re-pointed with it.
+
+`DeployedDecisionLabel` went from three fields to `DaggerLabel`'s six, which is the promise its
+own note made: it was narrowed for exactly one stage because look-ahead supplied three fields and
+function parameters are contravariant. Look-ahead decides four of the six now and names the other
+two by constant. **The alias itself was deleted in the remediation pass below** -- at six fields
+it was `DaggerLabel` spelled twice with no importer, so nothing could fail the check it existed
+to make. `src/learning/ppo.ts`'s note about where `UNLEARNED_PERSISTENCE` lives went stale in the
+same move and was corrected there.
+
+`TACTICAL_MODEL_VERSION` went 1 to 2. The cell key grammar is part of the model contract, and a
+model fitted under `movement+action` decodes cleanly against `movement+action+effector+target`
+and then matches nothing -- which would surface as `no calibrated model for any tactic`, reading
+exactly like an under-spent budget rather than like the wrong artifact.
+
+### The mutation table
+
+Harness `.review/c2c/mutate.mjs`: patch one line, run `tests/lookahead.test.mjs` and
+`tests/tournament-executor.test.mjs`, restore, report. It reads and writes bytes, so no file's
+line endings move. **Eighteen mutations, all eighteen red.**
+
+| # | mutation | tests red | what it said |
+| --- | --- | ---: | --- |
+| M1 | the cell key drops the effector | 9 | `'close+cover+vital'` |
+| M2 | the cell key swaps the effector and the aim | 8 | `'close+cover+vital+secondary'` |
+| M3 | the cross product loops tuples outermost | 1 | deep-equal diff on the second element's `action` |
+| M4 | the schedule keeps only the first aim per action | 6 | missing `recover-natural-vital` from the centipede's tuples |
+| M5 | a missing loadout row falls through to the sword's | 1 | `Missing expected exception` |
+| M6 | the row lookup uses `in` rather than `Object.hasOwn` | 1 | `Missing expected exception`, the `toString` case |
+| M7 | the axe punches with the axe hand | 1 | whole-mask deep-equal diff, both humanoid units |
+| M8 | the node budget forgets the first level | 9 | `nodesPerReplan: 3120` |
+| M9 | the beam never saturates | 9 | `nodesPerReplan: 323623638092040` |
+| M10 | the seam prefers the primary hand over the one it planned | 1 | `actingHand: 'primary'` |
+| M11 | the seam keeps the measured aim | 1 | `pointerY: 0` against the aimed pose |
+| M12b | the capability signature is the action set again | 1 | the second `'close+cut+primary+vital'` never arrives |
+| M13 | `UNLEARNED_STANCE` becomes a real pose | 1 -> **2** | `'compact'` |
+| M14 | `TACTICAL_MODEL_VERSION` stays at 1 | 1 | strict-equality diff |
+| M15 | the calibration filter filters nothing | 2 | `tactic "close+cover+secondary+threat" has no fitted model` |
+| M16 | a body that can do nothing refuses instead of going inert | 1 | `planned: 'inert'` |
+| M17 | the trace keys a row on the action alone | 2 | strict-equality diff on the row's `tactic` |
+| M18 | the schedule's shield hand may cut | 2 | whole-mask deep-equal diff |
+| M19 | the artifact fixture pins the model version by hand | 1 -> **2** | `Got unwanted exception` |
+
+The two arrows are the remediation pass of 2026-08-25 re-running this whole battery unchanged:
+every one of the nineteen is still red, and two are caught by one more test each --
+`the_trace_and_the_runtime_hold_one_stance_and_one_persistence_by_name` on M13 and
+`a_lookahead_model_from_another_key_grammar_is_refused_by_model_version` on M19. M12 still reports
+GREEN and is still not a miss, for the reason below. Output in `.review/rem/mutations-after.txt`.
+
+**M12 is not in the table, and that is worth recording.** The first attempt at the
+capability-signature mutation added an unused variable and left the signature intact, so the
+harness reported GREEN -- correctly, because nothing had been mutated. **A mutation battery
+reports "the test did not notice" and "there was nothing to notice" the same way**, and the only
+defence is reading the patch. M12b is the real one.
+
+**What each test does not catch**, because a mutation table with no misses is a table nobody
+looked at hard enough:
+
+| test | a mutation it does **not** catch |
+| --- | --- |
+| `the_tactical_model_uses_only_published_versioned_features` | any change to the *cell* key grammar; it reads `model.tactics`, the loadout-free map |
+| `one_key_grammar_is_spelled_once...` | a third file spelling the grammar out by hand -- it scans two files by name, not the tree |
+| `lookahead_expands_every_legal_tuple_in_fixed_order` | an illegal tuple in its input; the function no longer filters and this asserts that it does not |
+| `the_training_schedule_covers_every_body_loadout...` | a wrong effector on a humanoid row; only the centipede's tuples are named here |
+| `the_widened_schedule_costs...` | a change to `LOOKAHEAD_DEPTH` or `LOOKAHEAD_WIDTH` that leaves `43P` intact for every loadout |
+| `the_training_schedule_offers_exactly_what_the_runtime_mask_offers` | anything about a body with a hand missing -- 48 steps on intact bodies, by construction |
+| `a_severed_hand_moves_the_mask...` | a wrong tie-break among equally scored tuples; the fixture makes `punch` strictly best |
+| `the_plan_executes_the_effector_and_the_aim_it_searched` | the trace collector naming a different stance from the runtime's; both read one constant and so does this test |
+| `a_lost_effector_is_a_capability_change...` | a capability change that *adds* tuples rather than removing them |
+| `every_scheduled_centipede_tactic_runs_a_complete_havok_trace_window` | a wrong `bodyLoadout` on a humanoid cell |
+| `lookahead_respects_the_exact_depth_width_and_node_budget` | a wrong *score*, which decides which cell wins rather than how many are expanded |
+| `the_trace_and_the_runtime_hold_one_stance_and_one_persistence_by_name` | a *third* file holding its own stance -- it reads two files by name, and `research-policy.ts` is where a labeler's stance actually reaches the executor |
+| `an_attack_opportunity_names_its_effector...` | a wrong `viable` rule; it fixes the geometry so both fists are in range and never asks what puts them there |
+| `a_bout_credits_a_window_to_the_hand_the_decision_named` | an attribution that is wrong for *both* trackers in the same way -- it compares two rules, so a defect in `EngagementTracker` itself cancels |
+| `a_lookahead_model_from_another_key_grammar_is_refused_by_model_version` | `TACTICAL_MODEL_VERSION` moving; both sides of every comparison are relative to it, which is why `the_tactical_model_uses_only_published_versioned_features` pins the literal 2 |
+
+**One gap was named as a real gap, and it was overstated in one direction and closed in the
+other.** Corrected and closed 2026-08-25.
+
+The gap: `scripts/train-lookahead.mjs` and `src/learning/lookahead.ts` naming *different* stances
+or persistences. A trace collected at one stance and executed at another is a model calibrated for
+a body that never fights. This section said **nothing** would catch it. Measured over the whole
+suite, one mutation at a time (`.review/rem/e3.mjs`):
+
+| mutation | before 2026-08-25 | now |
+| --- | --- | --- |
+| the trainer collects at `stance: "compact"` | 530 pass, nothing noticed | 1 red |
+| the trainer collects at `persistence: 0.8` | 530 pass, nothing noticed | 1 red |
+| the runtime executes at `stance: "compact"` | 1 red, `the_plan_executes_the_effector_and_the_aim_it_searched` | 2 red |
+
+So the *trainer* half was invisible and the *runtime* half was already caught -- half a gap, stated
+as a whole one.
+
+"The obvious test is not available" was also too strong. The behavioural one is genuinely
+unavailable: `researchLabelMind` re-decides on a persistence timer and `lookaheadMind` on skill
+boundaries, so the two seams produce different bouts by design even when they agree about the
+tuple. But the same **source-text pin** the key grammar already gets two tests earlier in the same
+file closes it in three lines, and now does:
+`the_trace_and_the_runtime_hold_one_stance_and_one_persistence_by_name` reads both files and
+asserts that every `stance:` and every `persistence:` in either names the constant. The constants'
+literal values stay pinned in `the_widened_schedule_costs...`, because a pin that compares two
+files through one symbol cannot see the symbol move.
+
+### What did not move
+
+- The five `TACTICAL_STATE_COLUMNS`, the beam's scoring function, `LOOKAHEAD_DEPTH` 8,
+  `LOOKAHEAD_WIDTH` 6, and `LOOKAHEAD_CALIBRATION_LIMITS` at 0.25 / 0.25 / 0.25.
+- `deployableTactics`, `tacticEffectors` and `tacticTargets`. The widening *consumes* the legality
+  rule rather than restating it, which is why the schedule table grew an effector column and not
+  an aim column: an aim is a property of the action alone (`AIMED_TARGETS` reads no body), while an
+  effector genuinely depends on the loadout, because a two-hander welds one hand to its haft and an
+  empty hand cannot hold a point.
+- The four research trainers other than look-ahead. `scripts/train-ppo.mjs` changed one import line
+  and nothing else.
+- The dead `Color3` import in `tests/materials.test.mjs`, which stage C2b recorded and left alone.
+  The other one it recorded, `SeededRng` in `tests/tournament-executor.test.mjs`, went with this
+  stage's edit to that file. `.review/c2c/imports.mjs` re-swept all eight touched files: clean.
+
+### The remediation pass -- 2026-08-25
+
+An adversarial review of stage C2c reproduced the schedule arithmetic, the eight node-budget
+pairs, the 28-state severance table, the calibration degeneracy and the whole mutation table
+exactly. What it found was **one defect in behaviour**, one framing that measurement falsifies,
+one finding missing from the one place session 20 will look, a table of sums labelled as bouts,
+three evidence gaps, ten record defects and three cleanups. This pass found two more of its own,
+both stale source comments in files no stage had touched. The behaviour one is the only one that
+had corrupted data, and it is first.
+
+#### The research harness attributed every attack to the wrong hand
+
+`scripts/research-havok.mjs` is the decision hook every `deployedResearchMind` caller supplies. It
+read `label.action` and nothing else, and attributed the attack with
+`opportunitiesForAction(view, label.action)[0]` -- a filter on the **weapon**, never on the hand,
+whose one caller took the first row.
+
+**Measured on `warrior/empty+empty` over a real 2,400-step bout** (`.review/rem/repro2.mjs`): of
+2,399 samples, 98 had a punch in range, **both fists were in range in all 98**, and the first row
+was `hand:primary:empty` in **98 of 98**. So a `punch|secondary` decision opened its window on the
+*primary* fist. The contact then arrived keyed `opportunityKeyForContact("secondary", "empty")` =
+`hand:secondary:empty`, whose `attackedAt` was still null, and `EngagementTracker.contact` returned
+early: **the damaging contact was silently dropped, and a contact from a fist that had not attacked
+was credited instead.** At 0.10 s persistence on that bout the harness reported
+`damagingContactsInWindow: 2` where the named hand landed **1**.
+
+Those counts feed NEAT-QD's feasibility gate (`fitnessComponents`), DAgger's engagement floor and
+the frozen tournament row. This is training data, not a report.
+
+**It was written down, twice, and read as a design difference.** Finding 12 of the overview and
+the same paragraph in plan 18 both said "`research-havok.mjs` credits only `[0]`, the first
+matching row, where `options.ts` credits every match, which systematically depresses dual-wield
+opportunity conversion" -- an accurate description of the mechanism, filed under *how the two
+attack paths differ* rather than under *one of them is wrong*. Nobody asked which row `[0]` is.
+Both places are corrected.
+
+**The mechanism predates C2c and this diff is what made it reachable.** `DaggerLabel` has carried
+`effector` since stage C2b, but HEAD's `lookaheadMind` executed `chooseEffector(view, action)`,
+which answers `primary` for `punch` on `empty+empty` -- the same hand `[0]` names -- so no producer
+could exhibit it there. C2c's beam names the hand and `scripts/train-lookahead.mjs` schedules
+`"empty+empty": { punch: ["primary", "secondary"] }`, which makes `punch+secondary+*` a calibrated
+cell the beam can win with.
+
+The fix reads the field the label already carries. `AttackOpportunity` grew an `effector` -- the
+same fact the key has always spelled, which one caller was parsing back out of the string and a
+second ignored -- and `opportunitiesForAction` became `opportunityForAction(view, action, effector)`,
+answering **one row or null** rather than a list, because with the effector named there is at most
+one and a caller taking `[0]` of a list is the shape this defect had. `tactical-teacher.ts`'s
+`rowEffector`, which split the key on `":"`, reads the field now.
+
+Two tests, neither of which existed: `an_attack_opportunity_names_its_effector_and_a_decision_is_attributed_to_that_hand`
+(a two-fisted body, both fists in range, each hand answering itself, and the three ways to have no
+opportunity), and `a_bout_credits_a_window_to_the_hand_the_decision_named` -- a **real 2,400-step
+Havok bout** on `empty+empty` whose engagement record is asserted whole against one built beside it
+from a rule written the other way round. It also asserts the fixture can exhibit the defect: both
+fists viable together in every viable sample, and both fists landing damaging contacts.
+
+| mutation | red | what it said |
+| --- | --- | --- |
+| the picker stops filtering on the effector | 2 | `effector: 'primary'` against `'secondary'` |
+| every hand row claims the primary | 1 | whole-row deep-equal diff |
+| a natural row is keyed by its own name | 1 | `'bite'` against `'natural'` |
+| the harness names the primary rather than the label's hand | 1 | `damagingContactsInWindow: 2` against `1` |
+
+#### Everything else this pass changed
+
+- **`lookaheadMind` passes `[]` where the other three algorithms pass a real `FeatureWriter`
+  vector**, and neither the signature nor its docstring said so. Not currently reachable -- the one
+  row-writing hook is on the DAgger path -- but the widening made the *label* uniform across all
+  four algorithms while the features silently are not. Stated in the signature's own note rather
+  than repaired, because giving that seam a `FeatureWriter` is untested plumbing for a reader that
+  does not exist yet.
+- **`DeployedDecisionLabel` is gone.** Once look-ahead widened it was `DaggerLabel` spelled twice
+  with zero importers, so the assignment it guarded could not fail and its contravariance argument
+  was vacuous -- a name with no reader. The argument moved onto `deployedResearchMind`, where it is
+  about a signature somebody reads. The `.mjs` readers of `label.effector` it names were counted
+  rather than remembered: **nine occurrences on eight lines in four files**
+  (`grep -ro "label\.effector" --include=*.mjs`). That count had been written down wrong twice.
+- **`tacticalStateFromPublishedView` is gone too**, and the trainer imports `tacticalStateFromView`
+  from `src/learning/lookahead.ts`. They were verbatim copies of one rule -- agreeing on **1,449**
+  real published states, `.review/stateeq.mjs` -- kept apart only because the trainer did not
+  import from that module, and stage C2c removed that obstacle by importing `plannedTacticKey` from
+  exactly there.
+- **Two stale source comments, neither file in the C2c diff.** `src/learning/ppo.ts` said
+  `UNLEARNED_PERSISTENCE` lives in `deployment.ts` and that `lookahead.ts` and
+  `train-lookahead.mjs` "still spell `0.4` out"; all three claims were false the moment C2c landed.
+  `src/learning/research-policy.ts` said `TacticAim` is widened for look-ahead's sake and that
+  `collectTacticalTrace` names `"as-measured"` explicitly; C2c took `"as-measured"` off that path
+  entirely. The type is still right -- `probeLabel`, `randomMetaMind` and `scriptedMetaMind` are
+  its readers -- and the reason written beside it was not.
+- **`boundedLookahead`'s tie-break has a stated ceiling now.** `order` is a base-`cells` numeral one
+  digit per level, exact only while `cells^depth <= Number.MAX_SAFE_INTEGER`, which at depth 8 is
+  **cells <= 98**: 98^8 is 8.51e15 and 99^8 is 9.23e15 against a limit of 9.01e15. Shipped counts
+  top out at 80, so this is not a defect -- but the record hands session 20 a **480**-cell
+  stance-keyed column as a live option, and there the tie-break silently stops being total.
+- **`every_producer_of_a_research_label_writes_the_same_six_fields` said four producers and there
+  are five.** Look-ahead became one the moment it named an effector and an aim, and it now runs
+  through `deployedResearchMind` in that test beside the other three. Its payload is a model whose
+  every cell carries one identical-before-and-after row, which calibrates to 0/0/0 and so deploys
+  without a Havok trace. Watched red under a look-ahead label that drops the stance:
+  `- 'stance'` in the sorted key list. **What it does not catch:** a *wrong* field value from any
+  producer -- it checks membership in the frozen tables, so a look-ahead that named the wrong legal
+  effector passes here and is caught by `the_plan_executes_the_effector_and_the_aim_it_searched`.
+- **The `TACTICAL_MODEL_VERSION` refusal had no test.** It is the third version gate and the only
+  one in the *payload* rather than the envelope, and this diff replaced the one literal that would
+  have gone red on a bump. `a_lookahead_model_from_another_key_grammar_is_refused_by_model_version`
+  exercises it in both directions; a gate written `<` rather than `!==` passes a model from a
+  *newer* grammar and is now caught.
+
+#### What the review got wrong
+
+Checked rather than assumed, because a review is evidence about the code and not about itself.
+Three of its claims did not survive re-measurement.
+
+- **The severance breadth.** Review put HEAD's silent redirection at "five of six humanoid loadouts,
+  and on four of those five C2c keeps the capability". Measured (`.review/rem/severboth.mjs`) it is
+  **six and five**: `empty+empty` redirects `punch` as well as the two guards. The table above
+  carries the enumeration.
+- **The six-seed stance figures.** Review reported totals 665 / 1108 / 1197 / 569 / 688 / 253 with
+  `compact` ahead of `upright`, and `action-default` ranging 3.2 to 238.7. Re-run here on a stated
+  seed list the totals are 1106 / 1397 / 1124 / 650 / 872 / 301 with `upright` ahead, and
+  `action-default` ranges 41.9 to 313.3. **Both conclusions survive and neither seed set is
+  reproducible from the other**, which is the finding: the ranking below "`slip-right` is worst" is
+  noise, and quoting either set as *the* numbers would repeat the mistake this section is about.
+- **The wall-clock noise floor.** Review measured +2.9 % run-to-run drift on an identical variant.
+  Re-measured here across five separate invocations it is **6.4 %**. The direction of the conclusion
+  is unchanged and stronger.
+
+The 480-steps-a-job sweep, the "98 of 98" attribution figure, the E3 mutation results, the eight
+node-budget pairs and the whole nineteen-row mutation table reproduced exactly.
+
+#### What the pass cost the null control: nothing
+
+`npm run measure -- --only duelist-swinger --bouts 120 --seed 20260823`, re-run after every edit:
+duelist **66/120 = 55.0 %**, bout length **3.52 s (1.42-8.98)**, damage **176.17**, **10** severs,
+**1496** and **1670** scoring contacts. Identical to C1, C2a, C2b and C2c to the digit, for the
+seventh stage running -- which it must be: the scripted policies never enter the option layer, and
+the only behaviour this pass changed is which opportunity key a *research* harness writes.
+
+The gate: `npx tsc --noEmit` clean, `npm test` **532 passed** (528 at C2c plus four -- the
+opportunity picker, the real-bout engagement record, the stance/persistence source pin and the
+model-version refusal), `npm run build` clean, and `git diff --numstat` byte-identical to
+`git diff --ignore-cr-at-eol --numstat` across the whole directory, so no file's line endings
+moved. `scripts/` is not type-checked and was swept by hand: `node --check` on every script, and
+a grep for the two renamed exports across `scripts/` and `tests/`.

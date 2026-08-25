@@ -38,7 +38,7 @@ tracker and one absence.
    consumes exactly `onSample({ view, dt, clock })` and `onEvent(event)`. **That is not the
    shape `runBout` emits.** `runBout` emits `{ left, right, dt, clock }` carrying `Combatant`s
    (`scripts/measure.mjs#L283`); `{ view, dt, clock }` is `runResearchBout`'s per-fighter hook
-   re-projection one layer up (`scripts/research-havok.mjs#L55-L56`). Take the per-fighter
+   re-projection one layer up (`scripts/research-havok.mjs#L65-L66`). Take the per-fighter
    shape and adapt at the bench call sites: a side-agnostic recorder is the whole point, and
    the page has no pair-shaped event to give it. It calls the existing
    `recordBehaviourSample`, `recordCombatEvent` and `recordIntentAttack`; it reimplements none
@@ -75,7 +75,7 @@ tracker and one absence.
    0.2282 and 0.2031 baseline rows were produced with *both* detectors running into one shared
    `_engagement`: the deleted `evaluate-options.mjs` recorded the labelled path through
    `recordBehaviourSample` and the label-free one through `recordIntentAttack` in the same
-   `onSample`, and `EngagementTracker.attack` (`engagement.ts#L137`) is first-writer-wins, so
+   `onSample`, and `EngagementTracker.attack` (`engagement.ts#L179`) is first-writer-wins, so
    the two blended silently. **The file is gone and the rows cannot be re-derived from it**, so
    the comparison has to be built fresh here rather than diffed against a rerun. A human has no labels and cannot reproduce a mixture, so the
    only honest comparison is label-free on both sides. Re-take the controls that way, report
@@ -183,13 +183,16 @@ behaviour exists on the other side of it, and a search has something to find.
   `a_label_free_mind_and_a_labelled_mind_agree_on_attack_intent_for_a_single_weapon_cut` --
   this is the one that decides whether a human row is comparable to a specialist row at all,
   and it is deliberately scoped, because **the two paths are already known to disagree in four
-  ways** and a test asserting general agreement would simply fail. `opportunitiesForAction`
-  requires `striker === "sword"` for `thrust` (`engagement.ts#L79`) where the inline matcher
-  falls through to `true` (`options.ts#L966`); `research-havok.mjs#L36` credits only the first
-  matching row where `options.ts#L967` credits every match, which depresses dual-wield
-  conversion; the labelled paths fire on an option-change edge and the label-free path on a
-  button edge at 240 Hz; and only the label-free path counts a guard *release* as an attack
-  (`options.ts#L950`). Add `the_four_known_attack_path_disagreements_are_measured_not_assumed`
+  ways** and a test asserting general agreement would simply fail. `opportunityForAction`
+  requires `striker === "sword"` for `thrust` (`engagement.ts#L118-L123`) where the inline matcher
+  falls through to `true` (`options.ts#L966`); `research-havok.mjs#L46` credits exactly one row,
+  **the hand the label named**, where `options.ts#L967` credits every viable match, which
+  depresses dual-wield conversion; the labelled paths fire on an option-change edge and the
+  label-free path on a button edge at 240 Hz; and only the label-free path counts a guard
+  *release* as an attack (`options.ts#L950`). (This said "credits only the first matching row",
+  which was the defect fixed on 2026-08-25 -- the first row was the primary fist whichever hand
+  the label named. The disagreement survives; its cause changed.)
+  Add `the_four_known_attack_path_disagreements_are_measured_not_assumed`
   beside it, pinning each one with a fixture, so the limit is a number in the report rather
   than a caveat in prose.
 - `tests/engagement.test.mjs`: `the_gate_table_formatter_is_shared_by_page_and_report` --
