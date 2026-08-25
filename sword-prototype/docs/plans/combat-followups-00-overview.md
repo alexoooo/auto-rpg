@@ -182,7 +182,7 @@ Baseline taken before any of this work, from `sword-prototype/`, commit `a095877
 | --- | --- | --- |
 | 15 host command boundary | **landed** | `f789ea4`, 459 tests |
 | 16 policy perception v4 | **landed** | `d44fc3e`, 484 tests |
-| 17 tactic output v2 | stages A and B landed, C to come | stage A: 484 -> **474**; stage B: 474 -> **488** |
+| 17 tactic output v2 | stages A and B landed, C in progress | `da025f2`, `e4ac199`, 488 tests |
 | 18 human gate feasibility | not started | -- |
 | 19 run legibility | not started | -- |
 | 20 throughput and ceilings | not started | -- |
@@ -372,6 +372,111 @@ session and the plan never mentions it; deleting `networkMetaMind` silently remo
 browser's only window into what a learned controller is thinking, in the session immediately
 before the one that puts a person at that keyboard; and `selectValidationChampion` exists twice
 with different signatures, one live.
+
+### Session 17, stages A and B as landed
+
+Split into three commits rather than one, so that the half which can move the balance lands
+alone and can be measured against a control without contract churn mixed in.
+
+**Stage A, `da025f2`** -- the superseded learning stack deleted: the standalone NEAT checkpoint
+codec, a trainer that turned out to be dead on arrival, two evaluators, the corpus runner, the
+promotion gate built on the old vocabulary, and three checked-in fixtures whose conclusions are
+now in `docs/measurements.md`. 484 tests to 474: ten died with their fixtures, six moved onto a
+research mind, three were added. +880 / -17,833. Behaviour-neutral by construction rather than
+by sampling -- every behaviour-carrying diff is a comment, an identifier rename or a deletion.
+
+**Stage B, `e4ac199`** -- one canonical skill replaces the option/wrapper pair; a request for a
+hand executes on that hand or is refused by name; targets are body regions derived from
+published heights; stance is bounded and applied after the action's safe base pose; natural
+attacks get their own channel. 474 to 488 tests.
+
+**The null control did not move, which was the point.** The scripted policies never enter the
+option layer -- `policies.ts` does not import `options.ts` -- so `duelist-swinger` is the proof
+that nothing leaked into a shared primitive: 66/120 = 55.0 %, 3.52 s, 176.17 damage,
+1496/1670 scoring contacts, identical to the digit before and after, re-run independently by
+the coordinator.
+
+### What the two adversarial passes caught
+
+Both stages were green before review. Both were concealing something.
+
+**A person driving a centipede could not bite.** Giving natural attacks their own channel was
+right -- the bite had been borrowing the primary hand's button on a body that publishes no
+hands at all. But only the policy half was wired: `Controls.state.natural` was initialised once
+and never written again, and `splitMind` then read the channel from the wrong side. Two broken
+wires, not one. It is a command channel a policy can press and a person cannot, which is a
+house-rule violation, and it landed one session before the session whose entire purpose is
+putting a person at the keyboard. No test could see it, because `main.ts` touches the DOM at
+module scope and Node cannot load it -- so the rule now lives in `buttons.ts`, where a test can
+reach it.
+
+**The target rule is not general, and the docs claimed it was.** Measured per action on the
+contacted limb in real bouts:
+
+| action | `high` head share | against the aim it replaced |
+| --- | ---: | ---: |
+| thrust | 0.484 | 0.090 |
+| cut | 0.045 | 0.071 |
+| punch | 0.121 | 0.200 |
+
+A thrust obeys. A cut and a punch do not, and a cut is what the duelist uses most. The cause is
+structural: those two share a stroke branch where the aim seeds only the **centre of an arc**
+sweeping far wider than the gap between a named region and the aim it replaces, so naming a
+region drops the whole arc rather than pointing it. Four per-action tables are published
+instead of one general claim. Changing the stroke envelope to fix it would be a balance change,
+which is precisely what this stage is not allowed to do, so it goes to session 23 as an open
+question with numbers attached.
+
+**And, twice in a row, a test that asserted the reachable quantity instead of the one it was
+named for.** Stage A shipped a test called "goes inert" that checked 2 of 19 command leaves --
+a fighter turning at 0.9, crouched, holding a button satisfies it. Stage B shipped one whose
+message promised "no hand slot is written on the way" while reading three booleans; the suite
+stayed green when the bite wrote a guard, a pointer and the off hand. This is the same failure
+session 16 shipped and it has now recurred in two consecutive stages, which makes it a property
+of how these tests get written rather than an accident. **The rule that catches it: assert the
+whole record against a fresh one, not a sample of it.**
+
+### Two claims this pass put into the durable record and had to take back
+
+Recorded because the plan set's own rule is to supersede a wrong note rather than delete it.
+
+**`npm run ai:options` was reported red, and the invocation named in the handoff was green.**
+The runner compared its whole document against the checked-in baseline **only when the two base
+seeds agreed**, and the handoff's `--seed 20260824` does not match the baseline's `20260827`,
+so the comparison -- the only check the stale `featureVersion: 2` could trip -- was skipped and
+the command exited 0. The twelve parity rows really did match. It is the *default* seed that
+compares and throws. Two true statements about two different invocations, conflated into one
+false one, which then propagated into `docs/measurements.md` and deleted a correct line on the
+way.
+
+**Deleting the learned meta-mind was said to kill the browser's HUD readout. The panel was
+already dark.** No policy the page can build publishes a diagnostic -- `idle`, `swinger`,
+`duelist`, `archer` and `crawler` all answer `undefined` -- and the deleted controller had no
+constructor outside two headless CLIs. The name-based gate was wrong on its own terms and was
+fixed on those terms; the readout becomes reachable when session 19 builds the page-side
+deployment path.
+
+### Findings from stages A and B that change later sessions
+
+- **The training legality table is still not the deployed one.** Three divergent copies existed;
+  the three in `src/` are now one, but `research-rollout-worker.mjs` keeps a fourth that is not
+  equivalent -- it tests `weapon === "sword"` for thrust and an exclusion list for cut. A
+  network is still trained under one mask and deployed under another. Stage C's.
+- **Only one of the three loadout rows closed.** `bow+empty` now agrees with the look-ahead
+  schedule; `sword+empty` and `axe+empty` still offer a runtime `punch` that schedule never
+  trains. Consequently `lookaheadMind` on those two throws `tactic "close+punch" has no
+  calibrated model` -- **pre-existing, verified at `da025f2`**, and not live only because the
+  one checked-in look-ahead champion is v3 against a v4 runtime and is refused at decode. It
+  goes live the moment a v4 look-ahead artifact runs a tournament.
+- **`punch` was being advertised on a body that could never throw one.** A two-hander welds the
+  trailing hand to the haft and the fighter excludes that hand's fist from the strikers list, so
+  the punch was posed and could not connect. Closing it moves `randomMetaMind`'s action draw on
+  `bow+empty` only; nothing pinned moves, because the research control opponent always holds
+  `sword+empty`.
+- **`extended` is a near-duplicate of the existing commit posture** (0.10/0.30/0.55 against
+  0.12/0.30/0.68), so during a committing action the six-name stance head offers five
+  distinguishable choices. Session 23 decides whether these constants earn their place; it
+  should decide knowing that.
 
 ### Findings from the implementation pass that change the plan
 
