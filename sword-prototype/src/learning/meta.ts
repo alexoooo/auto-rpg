@@ -28,84 +28,22 @@ export const MAX_PERSISTENCE = 0.80;
 export const UNLEARNED_PERSISTENCE = 0.4;
 
 /**
- * The dwell times PPO's sixth head chooses between, in seconds.
+ * The dwell grid PPO's sixth head chooses between, re-exported from the leaf
+ * that owns it.
  *
- * **A binned categorical, and the objection `PPO_POLICY_HEADS` raises against a
- * learned persistence does not reach one.** That note declines a continuous
- * action as "a Gaussian or Beta parameterisation with a different
- * log-probability in the importance ratio, a different entropy term and a
- * different clipping story". A grid reuses all three unchanged: the same
- * categorical log-probability, the same ratio, the same clipped surrogate, and
- * an entropy bounded by `log k`. A differential entropy is bounded by nothing
- * and can be negative, which would silently change what the pinned mean
- * per-head entropy in `tests/ppo.test.mjs` is a number about.
- *
- * **Eight, and two constraints plus one preference get there.** The two
- * constraints are real. The grid must reach `MIN_PERSISTENCE` and
- * `MAX_PERSISTENCE`, because those are the clamp `research-policy.ts` applies to
- * a label: a bin outside them would name a dwell the runtime silently replaces,
- * which is an importance ratio evaluated at an action nobody took. And it must
- * contain `UNLEARNED_PERSISTENCE` exactly, so a learned dwell can be compared
- * with the constant -- though **note what that does not mean**: no PPO artifact
- * is checked in (`asset-src/learning/` holds `neat-qd`, `dagger` and
- * `lookahead`), and `deployedResearchMind`'s shape guard refuses a five-head PPO
- * payload outright, so nothing existing re-decodes and no digest moves. The
- * comparison is one a future run can make, not one this change performs.
- *
- * **Uniformity is a preference, and this said it was a constraint.** The entropy
- * bonus is flat over *bins*, which is true under any grid, so an uneven grid is
- * not unfair in the term -- it spends exploration unevenly per second of dwell,
- * and only measuring behaviour in dwell-seconds makes that a defect. Uniform is
- * chosen because it pre-judges nothing about where the resolution should sit,
- * and its cost is measured below and real: three of the eight bins buy under
- * 0.007 s of mean dwell between them. A grid denser at the bottom would fit the
- * measured behaviour better and was declined for one reason -- that saturation
- * is a property of the current skill durations against the current opponents,
- * and baking one sweep's coverage space into the output contract is the trap
- * this file keeps records about.
- *
- * Given uniform, eight follows: a step reaching 0.10 and 0.80 and landing on
- * 0.40 must divide both 0.70 and 0.30, so it is at most `gcd(0.70, 0.30) = 0.10`
- * and eight is the **coarsest** such grid. The finer ones are `1 + 7k` points
- * for a step of `0.10 / k` -- 15, 22, 29, 36 and so on, an infinite family and
- * not the three values an earlier note listed as though it were the set. 0.10 s
- * is 24 solver steps at `CONFIG.world.physicsHz` and six decision steps at the
- * 60 Hz the decision loop runs at.
- *
- * **Spelled as literals, and a generated grid really does miss two of them.**
- * `Array.from({ length: 8 }, (_, i) => 0.10 + i * 0.10)` differs from the
- * literal at `i = 2` and `i = 6`: 0.30000000000000004 and 0.7000000000000001.
- * It does *not* differ at 0.40 -- `0.1 + 3 * 0.1 === 0.4` is true, which is one
- * float claim that turned out not to be the trap it reads as -- and `(i + 1) / 10`
- * reproduces all eight exactly. Literals rather than either, because
- * `decodeMetaPersistence`'s own note is what happens when a spelling that looks
- * like a derivation moves a decoded dwell in its last bit.
- *
- * **The top half of the grid barely separates, and that is a fact about the
- * bodies rather than about the grid.** `researchLabelMind` re-decides at
- * `min(persistence, the skill finishing)`, so a long request is only spent when
- * the skill outlasts it. Measured with the persistence forced to each bin over
- * every one of the 90 jobs of `researchMatrix("train", 310013)`, 1200 solver
- * steps each, an untrained randomly-initialised recurrent policy, the league
- * opponent `indexedLeagueOpponent` picks per index (`.review/persist/sweep.mjs`;
- * `docs/measurements.md` carries the table): mean real dwell runs 0.109 s at the
- * 0.10 bin to 0.359 s at the 0.80 bin, and the share of boundaries the timer
- * rather than the skill ended runs 97.6 % to 4.8 %. The last three bins are
- * within 0.007 s of each other in mean dwell -- under half a decision step --
- * while still differing in the tail, because only a long request can hold a
- * decision for 0.82 s. So the head's real resolution is in the lower half, which
- * is the half a policy would use to decide *faster* than the constant.
- *
- * **Those numbers were measured twice and the first set was wrong.** The sweep
- * that produced them drove all of one decision's heads from one seeded stream,
- * so adding this head changed the number of draws per decision and every bout
- * diverged -- and because the sweep *forces* the persistence, nothing in it
- * could notice it was reporting the tree from before the change.
- * `.review/persist/sweep.mjs` gives each head its own stream;
- * `docs/measurements.md` records both sets and what moved.
+ * **One binding under two addresses, not two tables.** The grid belongs beside
+ * the constant above, which it has to contain -- and it also has to be reachable
+ * from `learning/tournament.ts`, which validates the behaviour record that names
+ * a dwell. `tournament.ts` cannot import this module: `options.ts` imports
+ * `learning/engagement.ts`, which imports `tournament.ts`, and this module's
+ * body reads `options.ts`'s frozen tables at module scope, so the edge would
+ * close a cycle through a partially-initialised binding.
+ * `learning/persistence.ts` is the leaf both sides can reach, and it carries the
+ * grid, why it is eight, the measured dwell-per-bin table, and the names a
+ * record gives the bins. Importing the grid from here still works and every
+ * existing caller does.
  */
-export const PERSISTENCE_SECONDS: readonly number[] =
-  Object.freeze([0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80]);
+export { PERSISTENCE_SECONDS } from "./persistence.ts";
 
 /**
  * The stance the look-ahead planner holds, and the measurement that chose it.

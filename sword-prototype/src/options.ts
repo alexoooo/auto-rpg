@@ -134,8 +134,9 @@ export function parseTacticCountKey(key: string): TacticTuple {
 }
 
 /**
- * The one head whose free set a behaviour record has to *carry*, because it is
- * the only one that cannot be recovered from the joint map.
+ * The one head **of the five** whose free set a behaviour record has to *carry*,
+ * being the only one of them the joint map cannot answer for. (The dwell cannot
+ * either and is carried beside this: `learning/persistence.ts` owns that record.)
  *
  * Checked head by head against the executor rather than assumed, because a
  * second would change what a behaviour record has to carry.

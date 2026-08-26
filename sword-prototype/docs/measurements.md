@@ -2149,7 +2149,7 @@ coverage**, recorded here so the gap is known rather than invisible:
 | Synthetic 520-sample archer shot parity, specialist against scripted meta, at limits of 0.01 duty and 1 edge | `specialists_and_options_share_the_full_stroke_and_shot_timeline` compares both controllers' held, released and edge counts exactly. It previously ran only the meta archer and never compared. |
 | Every numeric leaf of an `Intent`, cross-checked against `INTENT_FIELDS` | `intentNumbers` moved from `promotion-evaluator.mjs` into `evaluation.ts`; `the_finiteness_sweep_covers_every_combat_number_and_nothing_else` is the cross-check that caught the `zoom` regression. |
 | **Lost:** real-solver twelve-row paired parity at zero damage/seconds/action-rate limits, with a specialist-repeat control proving the limits are achievable | Nothing. Every surviving parity test is fixture-only. This needs minutes of real Havok and cannot live in `npm test`; whoever wants it back needs a slow command outside the suite. |
-| **Lost:** the unscored warm-up and fresh-Havok-per-bout discipline, which is the encoding of the session-11 finding that a shared Havok module flips winners after disposal | Partly. `freshHavok()` is still called -- by `measure.mjs --selftest`, by `scripts/research-havok.mjs:8` for every research bout, and four times in `tests/integration.test.mjs`. What is lost is the *bracket*: an unscored warm-up followed by subject, control and control-repeat in one round, which is the part that made two controllers comparable. Nothing runs that. |
+| **Lost:** the unscored warm-up and fresh-Havok-per-bout discipline, which is the encoding of the session-11 finding that a shared Havok module flips winners after disposal | Partly. `freshHavok()` is still called -- by `measure.mjs --selftest`, by `scripts/research-havok.mjs:172` for every research bout, and three times in `tests/integration.test.mjs`. What is lost is the *bracket*: an unscored warm-up followed by subject, control and control-repeat in one round, which is the part that made two controllers comparable. Nothing runs that. |
 | **Lost:** the `--calibrate` discrete gate, the procedure that produced the parity limits | Nothing. The limits themselves are recorded above; the way to regenerate them is not. |
 | **Lost:** the corpus cells `duelist-club` and `idle-control` | `RESEARCH_STRATA` does not cover either, so no command now fights a club duelist or an idle control. |
 
@@ -6005,7 +6005,7 @@ hundred correct anchors at the nearest `export` above them: worse prose, and no 
 
 **A symbol-proximity heuristic was tried and rejected as an assertion too, after it was falsified.**
 It asked whether an identifier-like code span in the surrounding prose appears within four lines of
-the anchor's target, and reported roughly 45 rotted anchors. `src/learning/tournament.ts:232` names
+the anchor's target, and reported roughly 45 rotted anchors. `src/learning/tournament.ts:253` names
 `lookaheadMind` and anchors `lookahead.ts:294`; the heuristic called it stale because
 `lookaheadMind` is declared at `lookahead.ts:255`. Both anchors are right — line 294 is the
 `onDecision` call and `:291` is the `option.enter(view)` before it. The prose names the caller and
@@ -6141,7 +6141,7 @@ It sees an anchor that runs off the end of a file and an anchor naming a file th
 **cannot** see an anchor that still lands inside its file and now points at the wrong line -- which
 is what every line-shifting edit above an anchor produces. Re-pointing `sword.ts` in `src/main.ts`
 took a four-line comment to five, and that moved three plan anchors by one:
-`combat-followups-00-overview.md:1194` and `combat-followups-17-tactic-output-v2.md:345` and `:349`
+`combat-followups-00-overview.md:1386` and `combat-followups-17-tactic-output-v2.md:345` and `:349`
 all pointed one line short. **The suite stayed green**, because a shift of one changes neither the
 range verdict nor the resolution verdict and therefore does not move the pinned plan record.
 
@@ -6541,7 +6541,9 @@ first named shape both times:
   the grid, the log-probability, the discount arithmetic. The only honest check of a dwell
   distribution moving is a real training run.
 - **The record cannot see a collapsed dwell head.** `headUtilisation` reads the five-name joint tuple
-  key and the persistence is not in it. Register entry 14.
+  key and the persistence is not in it. Register entry 14. **Closed 2026-08-26** by the dwell
+  marginal below — the sentence stands as what this session left owed, which is the point of writing
+  it down.
 - **The progress-clip bias is unfixed**, at 0.72 a bout. Register entry 18.
 - **`valueEpsilon` was never re-derived** against a horizon that moved, and already clips 53.4 % of
   updates. Register entry 19.
@@ -6597,3 +6599,204 @@ now, find the construct the prose names, and refuse any target that is not uniqu
 `meta.ts:28` was kept on `UNLEARNED_PERSISTENCE` by rewriting that docstring line-for-line rather
 than letting it grow, and `docs/design.md` was kept line-neutral through the second pass for the same
 reason.
+
+## The dwell marginal: telling a collapsed head from a head that is not there — 2026-08-26
+
+PPO learned its persistence one commit earlier and the behaviour record could not see it. Three
+defects in one, and the third is the largest:
+
+1. `headUtilisation` reads the five-name joint tuple key, and the dwell is not one of its fields. So
+   **no row the tournament printed was about the persistence at all**, for any algorithm -- a
+   candidate whose dwell head settled on one bin printed byte-for-byte what one sweeping the whole
+   grid printed.
+2. `lookaheadMind` hardcodes `UNLEARNED_PERSISTENCE` and its re-decision condition carries no clock
+   term, so even a correct dwell marginal would print a one-bin spike from it meaning "no head"
+   rather than "collapsed".
+3. Register entry 14 said the fix was a *marginal* carried beside the joint map. It is, and it is two
+   maps rather than one, which is the part the entry did not have.
+
+### The shape, and the two alternatives that were refused
+
+`src/learning/persistence.ts` owns the grid, the eight names a record gives it, the binning, the
+record's grammar and its failure reader. `PersistenceCounts` is `{ bins, freeBins }`: `bins` is every
+decision keyed by the dwell it asked for, `freeBins` the subset where the controller could have named
+a different dwell. `headUtilisation` grows a sixth row over the pair, through the same seven lines the
+other five use, so `UtilisationHead` is `keyof TacticTuple | "persistence"`.
+
+**Not a sixth field on `TacticTuple`.** Register entry 17's first bullet measures the joint key at 555
+occupied cells of 2,520 at 2.39 counts each, a third of them singletons; eight dwell bins multiply
+that into a table of ones. The dwell reaches the record as a marginal, exactly the way
+`freeChoiceCounts.effector` does and for the same stated reason -- a fact about a decision that no
+projection of the key can recover.
+
+**Not one map.** A marginal alone cannot answer the entry's actual point. `{bins: {"0.40": n}}` is
+what a look-ahead candidate writes and what a collapsed PPO head writes, and they mean opposite
+things. `freeBins` empty means the controller declared one dwell; `freeBins` equal to `bins` with
+`chosen: 1` means a head that had all eight and used one.
+
+**The declaration is a declaration and says so.** `persistenceOptions` is stated by the mind at the
+site that produces its dwell, and `research-havok.mjs` reads it off the controller rather than off a
+table of algorithm names. `ppo` declares `weights.persistence.rows` -- the decoded artifact's own head
+width, the one branch where the number is evidence; `dagger` and `neat-qd` declare
+`PERSISTENCE_SECONDS.length`, because both answer a *continuous* dwell and the honest width is how
+many the record can distinguish them naming; `lookahead` declares 1. Silence means 1, which
+under-claims rather than claiming a head nobody declared, and every probe in the suite that hardcodes
+a dwell is a controller with exactly one. Three inferences were available and all three are the defect
+being fixed: counting the bins a bout used cannot separate collapse from a constant, reading the
+algorithm name is what `evaluate-ai.mjs` already did, and asking the seam which function built the
+mind is inference from a call site rather than from a dwell.
+
+### Keying the bins: what a round trip actually survives
+
+`PERSISTENCE_SECONDS` is eight literals because a generated grid is not the same eight doubles.
+Measured directly:
+
+| spelling | over the literal grid | over `0.10 + i * 0.10` |
+| --- | --- | --- |
+| `indexOf(seconds)` | 0..7 | `0, 1, -1, 3, 4, 5, -1, 7` |
+| `String(seconds)` | `0.1 .. 0.8` | `0.1, 0.2, 0.30000000000000004, ..., 0.7000000000000001, 0.8` |
+| `seconds.toFixed(2)` | `0.10 .. 0.80` | `0.10 .. 0.80` |
+| `Number(key) === literal` | true, all eight | -- |
+
+So `indexOf` loses two of eight bins and `String` is worse than it looks: **not one** of its eight
+names is a bin key, because a record spells every dwell to two places and `String(0.1)` is `"0.1"`.
+`persistenceBin` chooses by distance, which answers all eight for either grid and also answers for a
+dwell on no bin at all -- which is what `dagger` and `neat-qd` produce on every decision. Because
+`researchLabelMind` clamps a label into `[MIN_PERSISTENCE, MAX_PERSISTENCE]` and those are the grid's
+own endpoints, nearest-by-distance over the raw label and over the clamped dwell are always the same
+bin, so the record names the dwell the runtime used. A dwell exactly between two bins takes the lower:
+0.45 is bin 3, every time.
+
+### Why the grid moved to a leaf module
+
+`tournament.ts` validates the record and cannot import `meta.ts`. Measured rather than assumed
+(`.review/dwell/cycle.mjs`, which adds the edge, loads `options.ts` first the way every test does, and
+puts the file back):
+
+    with the edge   exit 1   ReferenceError: Cannot access 'MOVEMENT_NAMES' before initialization
+                             at src/learning/meta.ts:150, which is META_OUTPUT_NAMES
+    without it      exit 0   loaded 5
+
+`options.ts` imports `learning/engagement.ts`, which imports `tournament.ts`; `meta.ts` builds
+`META_OUTPUT_NAMES` out of `options.ts`'s tables at module scope. So the edge closes the cycle through
+a partially-initialised binding. `learning/persistence.ts` is a leaf with no imports at all, and
+`meta.ts` re-exports `PERSISTENCE_SECONDS` from it so that no existing caller moved. This is the same
+resolution `TACTIC_KEY_DELIMITER` already carries in `options.ts`, and its note is the precedent.
+
+### What a bout actually writes
+
+`warrior/sword+empty`, `researchMatrix("train", 310013)`, 2400 solver steps, every decision a `cut`
+with the sword hand, the probe cycling or holding its dwell (`.review/dwell/count.mjs`):
+
+| probe | decisions | bout seconds | `bins` |
+| --- | ---: | ---: | --- |
+| cycles all eight | 27 | 9.75 | `0.10:4 0.20:4 0.30:4 0.40:3 0.50:3 0.60:3 0.70:3 0.80:3` |
+| holds 0.40 | 20 | 8.22 | `0.40:20` |
+
+Both bouts end on a verdict rather than on the step limit, so 3600 steps produce the identical two
+rows. **1200 steps do not**: a probe sweeping the grid holds a decision for 0.45 s on average against
+`MIN_PERSISTENCE`'s 0.10 and took **14** decisions in five seconds, fewer than twice the eight bins it
+has to be seen using. The dwell is the one quantity here whose own value sets the sample size, which
+is why its test runs at 2400 where the tests beside it run at 1200, and why its floor is 16 --
+under the smallest real sample and over twice the grid width.
+
+The pair the record exists for, taken off two real bouts rather than off a literal: `holds 0.40`
+declaring eight options and the same bout declaring one produce **identical** `bins`, and differ only
+in `freeBins` -- `{"0.40": 20}` against `{}`.
+
+### The mutation battery
+
+Nineteen mutations, one at a time, against the two suites that carry the record
+(`.review/dwell/mutate.mjs`). **Every one was caught**, and each is listed with the test that caught
+it rather than with a count:
+
+| id | mutation | caught by |
+| --- | --- | --- |
+| M1 | `persistenceBinKey` keys by `String` | the round-trip test, and the real-bout test |
+| M2 | `persistenceBin` binds by `indexOf` | the round-trip test |
+| M3 | `PERSISTENCE_BIN_KEYS` built with `String` | eleven tests, including both validators |
+| M4 | `headUtilisation` reads `bins` for the free distribution | the collapsed-versus-absent test |
+| M5 | the producer counts `freeBins` unconditionally | the real-bout test |
+| M6 | `persistenceOptionsOf` always answers 1 | the refusal test and the real-bout test |
+| M7 | `lookaheadMind` declares 8 dwell options | the per-algorithm declaration test |
+| M8 | the PPO branch declares 1 | the per-algorithm declaration test |
+| M9 | the decision-total check is disabled | the refusal test |
+| M10 | the bin-name check is disabled | the refusal test |
+| M11 | the free-subset check is disabled | the refusal test |
+| M12 | the whole-count check is disabled | the refusal test |
+| M13 | `mergePersistenceCounts` keeps the first row | the aggregation test |
+| M14 | the row builder writes an empty record | the executor row test |
+| M15 | the producer bins a constant | the real-bout test |
+| M16 | `mergeBehaviourRecord` drops the half | the aggregation test |
+| M17 | `validateTacticRecord` skips the dwell | the refusal test |
+| M18 | `headUtilisation` omits the row entirely | four tests |
+| M19 | the producer counts the decision rather than the dwell | the real-bout test |
+
+Two shapes were designed against on purpose, both named in `AGENTS.md`. **"The marginal has some
+spread" is self-satisfying here**, because the sweeping probe cycles the grid by construction; what is
+asserted instead is the exact histogram of the dwells the labeler asked for, keyed through a
+hand-written mirror of `PERSISTENCE_BIN_KEYS` rather than through the function under test -- so a
+producer and a checker that agree on a wrong spelling still fail, which is what M1 and M3 demonstrate.
+**And a clamped head has to be red, not green**: `holds 0.40` declaring eight options is a collapsed
+head, and it reads differently from both a swept head and a controller with none. M4 and M6 are the
+two mutations that make those readings collapse into each other.
+
+### The gate
+
+`npm run check` clean. `npm test` **593 passed, 0 failed** -- 588 before, plus **five** new tests:
+`a_dwell_bin_key_survives_a_round_trip_through_json_on_every_bin`,
+`a_collapsed_dwell_head_and_a_head_that_does_not_exist_are_different_records`,
+`a_dwell_record_that_could_not_have_come_from_a_bout_is_refused_by_the_part_that_is_wrong`,
+`a_real_bout_records_the_dwell_every_decision_asked_for` and
+`every_deployed_algorithm_declares_whether_it_has_a_dwell_head`. No test was deleted and none was
+renamed; six existing tests grew assertions over the new half of the record. `npm run build` clean.
+`node tools/check_docs.js` from the repository root stays at its 29 known pre-existing problems,
+**none of them matching "sword-prototype"**.
+
+Null control, `node scripts/measure.mjs --only duelist-swinger --bouts 120`, seed 20260823: duelist
+66/120 = 55.0 %, 3.52 s (1.42-8.98), 176.17 damage, 10 severs, 1496/1670 scoring contacts --
+identical to the pin, and for the reason register entry 16 gives, that is a regression check which
+passed rather than evidence the change is safe.
+
+### The line-anchor pass, and the rot it found rather than caused
+
+Two files were kept **line-neutral above every anchor** instead of being re-pointed:
+`src/learning/research-policy.ts` (`:54-56`, `:95`, `:98` verified byte-identical to `HEAD`),
+`src/learning/lookahead.ts` (`:255`, `:294`), `src/options.ts` (four docstring lines rewritten
+four-for-four) and `scripts/research-havok.mjs`, whose new import took the blank line between the
+import block and `process.env` so that all seven of its anchored lines stayed put. `src/learning/meta.ts`
+lost 79 lines *below* `:28`, which is its only anchored line.
+
+Four anchors were re-pointed by locating the construct the prose names:
+
+| anchor | was | now | names |
+| --- | --- | ---: | --- |
+| `src/learning/tournament.ts` | `:232` | `:253` | the sentence anchoring `lookahead.ts:294` |
+| `src/learning/tournament.ts` | `:274-277` | `:718-721` | the `safety` conjunction fold |
+| `scripts/tournament-executor.mjs` | `:35` | `:36` | `mindFactoryForTournament`'s control branch |
+| `scripts/tournament-executor.mjs` | `:49-50` | `:64-65` | the `safety` object literal |
+| `tests/tournament-executor.test.mjs` | `:110-139` | `:160-197` | the stale-*feature*-header test |
+
+**Six anchors were already wrong before this change and are left alone**, because repairing an
+anchor means deciding what somebody else's prose meant and three of these are historical findings
+about code that no longer exists. Written down rather than swept:
+
+- `tournament.ts:11` (`combat-followups-17`) says `MAX_SPECIALIST_GAP` "is redeclared at" it. The
+  declaration was line 25 at `HEAD` and is 31 now; line 11 is inside the header comment.
+- `tournament.ts#L197-L221` (overview, `-18`) names `assessTournamentCandidate`, which was at 339 and
+  is at 375.
+- `tournament.ts#L241-L245` (overview, `-18`) names the `+Infinity` a never-attacked cell maps to,
+  which is `percentile`, at 607 and now 686.
+- `research-havok.mjs#L46` (overview, `-18`) names the row that credits "the hand the label named",
+  which is the `opportunityForAction` call, at 126 and now 149.
+- `research-havok.mjs#L65-L66` (overview, `-18`) names `runResearchBout`'s `{ view, dt, clock }`
+  re-projection, which was at 145-146 and is at 173-174.
+- `scripts/research-havok.mjs:29,33` (`-17`) names `actionCounts`, which the tuple key replaced. There
+  is no line to point it at; the finding is closed and the sentence is history.
+
+The fifth row of the table above is a **correction of the previous session's own re-point**, and it is
+the instructive one. That session moved this anchor `:106-135 -> :110-139` and labelled it "the
+empty-maps test" in this file -- but the prose that carries it says "the model to copy ... does
+exactly the requested thing for the *feature* header", which is a different test forty lines further
+down. Following the anchor rather than the sentence moved it correctly and pointed it at the wrong
+thing, which is the failure mode the method in that session's own note exists to prevent.

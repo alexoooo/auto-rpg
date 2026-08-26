@@ -89,6 +89,10 @@ const boutRecord = () => ({
   tacticCounts: { [tacticCountKey({ movement: "close", action: "cut", effector: "primary", target: "vital", stance: "action-default" })]: 3,
     [tacticCountKey({ movement: "hold", action: "cover", effector: "secondary", target: "threat", stance: "upright" })]: 2 },
   freeChoiceCounts: { effector: { primary: 1, secondary: 2 } },
+  // Five decisions, two dwell bins, every one of them free -- a controller that
+  // declared a dwell head. `bins` sums to the joint map's own total because every
+  // decision names exactly one dwell, which is what the row validator checks.
+  persistenceCounts: { bins: { "0.10": 3, "0.40": 2 }, freeBins: { "0.10": 3, "0.40": 2 } },
 });
 test("the_executor_runs_only_the_next_frozen_indices_and_returns_mergeable_raw_rows", async () => {
   const loaded = loadFrozenArtifacts(manifest, bytes); const called = [];
@@ -103,6 +107,7 @@ test("the_executor_runs_only_the_next_frozen_indices_and_returns_mergeable_raw_r
   for (const row of rows) {
     assert.deepEqual(row.tacticCounts, boutRecord().tacticCounts);
     assert.deepEqual(row.freeChoiceCounts, boutRecord().freeChoiceCounts);
+    assert.deepEqual(row.persistenceCounts, boutRecord().persistenceCounts);
   }
   const resumed = await executeNextTournamentRows({ manifest, rows, artifacts: loaded, maximum: 1, runResearchBout: mock });
   assert.equal(resumed.at(-1).candidate, "ppo");
@@ -124,6 +129,10 @@ test("a_bout_that_recorded_nothing_still_produces_a_row_the_validator_accepts", 
   const rows = await executeNextTournamentRows({ manifest, rows: [], artifacts: loaded, maximum: 1, runResearchBout: mock });
   assert.deepEqual(rows[0].tacticCounts, {});
   assert.deepEqual(rows[0].freeChoiceCounts, { effector: {} });
+  // The dwell half too: a control took no decision, so an empty pair is the
+  // record it has, and `freezePersistenceCounts` is what turns a mock that omits
+  // the field entirely into one rather than into `undefined`.
+  assert.deepEqual(rows[0].persistenceCounts, { bins: {}, freeBins: {} });
 });
 
 test("a_payload_shape_mismatch_refuses_before_the_mocked_bout_opens", () => {
@@ -347,4 +356,40 @@ test("a_lookahead_model_from_another_key_grammar_is_refused_by_model_version", (
   // And the same payload at the runtime version deploys, so nothing above was
   // about the model body.
   assert.doesNotThrow(() => deployedResearchMind(decodeResearchArtifact(bytes.get("lookahead")), "warrior/sword+empty"));
+});
+
+/**
+ * Which of the four deployed algorithms has a dwell head, declared by the branch
+ * that decodes it rather than inferred from a bout.
+ *
+ * **This is the half of the dwell record that a marginal cannot supply.**
+ * `lookaheadMind` writes `UNLEARNED_PERSISTENCE` at its own call site and its
+ * re-decision condition carries no clock term to spend it with, so a look-ahead
+ * candidate's dwell marginal is a one-bin spike at 0.40 that means "no head" --
+ * byte for byte what a PPO candidate whose head collapsed onto that bin writes.
+ * `persistenceOptions` is what separates them, and because it is a declaration
+ * rather than a measurement it needs a reader that fails when a branch stops
+ * telling the truth about itself.
+ *
+ * The whole record is asserted against a freshly stated one, not four
+ * assertions: an algorithm added without a declaration is red here rather than
+ * silently reporting `1` through `persistenceOptionsOf`'s default, and so is a
+ * branch that stops declaring one it has.
+ *
+ * `ppo`'s number is the sharp one -- it is read off the decoded weights, so it
+ * is the artifact's evidence and not this file's expectation, which the second
+ * assertion says by comparing against the fixture's own head rather than against
+ * `PERSISTENCE_SECONDS.length`.
+ */
+test("every_deployed_algorithm_declares_whether_it_has_a_dwell_head", () => {
+  const loaded = loadFrozenArtifacts(manifest, bytes);
+  const declared = Object.fromEntries([...bytes.keys()].map((name) =>
+    [name, deployedResearchMind(loaded.get(name), "warrior/sword+empty").persistenceOptions]));
+  assert.deepEqual(declared, { neat: 8, dagger: 8, ppo: 8, lookahead: 1 });
+  assert.equal(declared.ppo, ppo().weights.persistence.rows, "ppo declares its own decoded head width");
+  assert.equal(PERSISTENCE_SECONDS.length, 8, "the three continuous or binned heads declare the grid width");
+  // Said the other way round, because the count is the part that carries meaning
+  // and `1` is the only value that means "there is no head here".
+  assert.deepEqual(Object.entries(declared).filter(([, options]) => options === 1).map(([name]) => name),
+    ["lookahead"]);
 });

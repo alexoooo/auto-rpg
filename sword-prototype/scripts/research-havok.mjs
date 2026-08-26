@@ -3,7 +3,7 @@ import { EngagementTracker, opportunityForAction, opportunityKeyForContact } fro
 import { randomMetaMind } from "../src/learning/meta.ts";
 import { ATTACK_OPTION_NAMES, scriptedMetaMind, tacticCountKey, tacticEffectors } from "../src/options.ts";
 import { policyMind } from "../src/mind.ts";
-
+import { persistenceBinKey, persistenceOptionsOf } from "../src/learning/persistence.ts";
 process.env.SWORD_MEASURE_LIBRARY = "1";
 const { freshHavok, runBout } = await import("./measure.mjs");
 
@@ -97,11 +97,34 @@ export async function runResearchBout(job, makeActorMind, solverStepLimit, makeO
   // coverage space of the two sweeps behind it, and the one unbuildable body
   // shape that would break it.
   const freeChoiceCounts = { effector: {} };
+  // **The sixth head, which is not in the tuple key and never will be.** The
+  // dwell is a decision like the other five and the joint map cannot hold it:
+  // eight bins multiply a 2,520-cell key that is already 555 occupied cells at
+  // 2.39 counts each. So it is a marginal carried beside the map, exactly as
+  // `freeChoiceCounts.effector` is, and `learning/persistence.ts` owns the
+  // grid, the bin names and the two-map shape.
+  //
+  // `freeBins` is the half that answers the question a marginal alone cannot:
+  // whether the controller *had* a dwell to decide. `lookaheadMind` writes the
+  // constant `UNLEARNED_PERSISTENCE` and has no clock term in its re-decision
+  // condition at all, so a one-bin spike from it means "no head" while the same
+  // spike from PPO means "a head that collapsed" -- and until this pair the two
+  // printed nothing whatever, because `headUtilisation` reads the five-name
+  // tuple key and the dwell is not one of its fields.
+  const persistenceCounts = { bins: {}, freeBins: {} };
+  let dwellOptions = 1;
   let latestView = null;
   const actorMind = makeActorMind((view, _features, label) => {
     decisions += 1; latestView = view;
     const key = tacticCountKey(label);
     tacticCounts[key] = (tacticCounts[key] ?? 0) + 1;
+    // Binned by distance rather than by equality, and keyed by the canonical
+    // two-place name: `persistenceBin` carries why `indexOf` and `String()` both
+    // lose two of the eight bins. Two of the four algorithms answer a continuous
+    // dwell that is on no bin at all.
+    const bin = persistenceBinKey(label.persistence);
+    persistenceCounts.bins[bin] = (persistenceCounts.bins[bin] ?? 0) + 1;
+    if (dwellOptions > 1) persistenceCounts.freeBins[bin] = (persistenceCounts.freeBins[bin] ?? 0) + 1;
     // **Conditioned on the action the policy just chose, which makes this
     // denominator a post-treatment variable.** A body's second hand is offered
     // for `cover` and `recover` and withheld from `cut` and `thrust`, so a
@@ -127,6 +150,11 @@ export async function runResearchBout(job, makeActorMind, solverStepLimit, makeO
       if (opportunity) tracker.attack(opportunity.key, view.clock);
     }
   });
+  // Read off the controller after it exists and before a decision can fire, so a
+  // hook closing over it sees the declaration rather than the seed. Silence is
+  // one, which is the direction that under-claims: `PersistenceHead` in
+  // `learning/persistence.ts` carries why a declaration and not an inference.
+  dwellOptions = persistenceOptionsOf(actorMind);
   const opponent = makeOpponentMind ? makeOpponentMind() : opponentMind(job.opponent, job.opponentSeed);
   const actorLeft = job.actorSide === "left"; const actorLoadout = LOADOUTS[job.loadout];
   if (!actorLoadout) throw new Error(`research harness has no loadout "${job.loadout}"`);
@@ -152,7 +180,7 @@ export async function runResearchBout(job, makeActorMind, solverStepLimit, makeO
       },
     });
     const solverSteps = Math.min(solverStepLimit, Math.round(result.seconds * CONFIG.world.physicsHz));
-    return { index: job.index, solverSteps, result, decisions, attacks, contacts, damage, tacticCounts, freeChoiceCounts,
+    return { index: job.index, solverSteps, result, decisions, attacks, contacts, damage, tacticCounts, freeChoiceCounts, persistenceCounts,
       engagement: tracker.record, lastClock: latestView?.clock ?? 0,
       lastPublished: latestView ? { selfVitality: latestView.self.vitality, opponentVitality: latestView.opponent.vitality,
         measure: latestView.measure } : null };

@@ -254,11 +254,11 @@ export function tacticalStateFromView(view: FighterView, contactProbability = 0)
  */
 export function lookaheadMind(model: TacticalModel, bodyLoadout: string, limits: CalibrationLimits,
   depth = LOOKAHEAD_DEPTH, width = LOOKAHEAD_WIDTH,
-  onDecision?: (view: FighterView, features: readonly number[], label: DaggerLabel) => void): Mind {
+  onDecision?: (view: FighterView, features: readonly number[], label: DaggerLabel) => void): Mind & { readonly persistenceOptions: number } {
   let movement: MovementName = "hold"; let action: HandActionName = "recover";
   let planned: PlannedTactic | null = null; let option: CombatOption | null = null;
   let capability = "";
-  return { name: `lookahead-${bodyLoadout}`, decide(view: FighterView, dt: number): Intent {
+  return { name: `lookahead-${bodyLoadout}`, persistenceOptions: 1, decide(view: FighterView, dt: number): Intent {
     // A body with no attached hand and no jaws can perform nothing, which is a
     // fact about the body rather than about the model, so it is inert and not a
     // refusal -- the same answer `researchLabelMind` gives on the same empty
@@ -284,8 +284,8 @@ export function lookaheadMind(model: TacticalModel, bodyLoadout: string, limits:
       // Four of the six fields are the plan's own; the other two are named
       // constants and say so. `UNLEARNED_STANCE` carries the measurement that
       // kept the stance out of the beam, and `UNLEARNED_PERSISTENCE` is the same
-      // 0.4 PPO writes -- both were literals here for exactly as long as this
-      // file was another stage's.
+      // 0.4 PPO writes -- which is why this seam declares one dwell option: the
+      // re-decision condition above carries no clock term to spend it with.
       option = handActionOption(action, { effector: selected.effector as EffectorName,
         target: selected.target as TargetName, stance: UNLEARNED_STANCE });
       option.enter(view); capability = nextCapability;

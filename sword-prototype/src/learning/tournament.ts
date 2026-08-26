@@ -13,6 +13,12 @@
 import { FREE_CHOICE_HEADS, FREE_CHOICE_TABLES, TACTIC_KEY_HEADS, parseTacticCountKey, tacticKeyFailure,
   tacticTargets, type FreeChoiceHead, type TacticTuple } from "../options.ts";
 import { RESEARCH_ALGORITHMS, artifactChecksum, canonicalJson, type ResearchAlgorithm } from "./artifact.ts";
+// The dwell record, from a leaf with no imports of its own. It cannot come from
+// `meta.ts`, which owns the grid's other reader: this file is already cyclic
+// with `options.ts`, and `meta.ts` reads `options.ts`'s tables at module scope,
+// so that edge would close the cycle through a partially-initialised binding.
+import { emptyPersistenceCounts, mergePersistenceCounts, persistenceRecordFailure,
+  type PersistenceCounts } from "./persistence.ts";
 import type { ResearchMatrixJob } from "./research-matrix.ts";
 
 export const OPPORTUNITY_WINDOW_SECONDS = 0.75;
@@ -62,6 +68,14 @@ export const MIN_DIVERSE_ACTIONS = 3;
  * with the key format and its delimiter. The effector is the one head a joint
  * map cannot answer for, because a key names the hand that acted and no key says
  * how many were offered.
+ *
+ * **The sixth head is not in this key and is not going to be.** A decision names
+ * a dwell as well as a tuple, and adding it would multiply a key that entry 17
+ * of the found-not-fixed register already measures as too sparse for joint
+ * questions -- 555 occupied cells of 2,520 at 2.39 counts each -- by eight. The
+ * dwell is a *marginal* carried beside this map, in `PersistenceCounts`, which is
+ * the shape `freeChoiceCounts` already is and for the same reason: it is a fact
+ * about a decision that no projection of the joint key can recover.
  */
 export type TacticCounts = Readonly<Record<string, number>>;
 export type FreeChoiceCounts = Readonly<Record<FreeChoiceHead, Readonly<Record<string, number>>>>;
@@ -88,8 +102,8 @@ export function tacticMarginal(counts: TacticCounts, head: keyof TacticTuple): R
  * cell, which `candidateFromRawRows` cannot answer because it folds the cell
  * keys away.
  */
-export function mergeBehaviourRecord(rows: readonly Pick<TournamentRawRow, "tacticCounts" | "freeChoiceCounts">[]):
-  { readonly tacticCounts: TacticCounts; readonly freeChoiceCounts: FreeChoiceCounts } {
+export function mergeBehaviourRecord(rows: readonly Pick<TournamentRawRow, "tacticCounts" | "freeChoiceCounts" | "persistenceCounts">[]):
+  { readonly tacticCounts: TacticCounts; readonly freeChoiceCounts: FreeChoiceCounts; readonly persistenceCounts: PersistenceCounts } {
   const tacticCounts: Record<string, number> = {};
   const freeChoiceCounts: Record<FreeChoiceHead, Record<string, number>> = { effector: {} };
   for (const row of rows) {
@@ -101,7 +115,12 @@ export function mergeBehaviourRecord(rows: readonly Pick<TournamentRawRow, "tact
     }
   }
   return Object.freeze({ tacticCounts: Object.freeze(tacticCounts),
-    freeChoiceCounts: Object.freeze({ effector: Object.freeze(freeChoiceCounts.effector) }) });
+    freeChoiceCounts: Object.freeze({ effector: Object.freeze(freeChoiceCounts.effector) }),
+    // The third half of the record, folded by the module that owns its shape.
+    // Deleting this line leaves every candidate reporting an empty dwell
+    // marginal, which reads exactly like a tournament in which nobody decided --
+    // the same failure the free-choice fold's own note records, one head over.
+    persistenceCounts: mergePersistenceCounts(rows.map((row) => row.persistenceCounts)) });
 }
 
 export interface TournamentCell {
@@ -128,6 +147,7 @@ export interface TournamentCandidate {
   readonly cells: readonly TournamentCell[];
   readonly tacticCounts: TacticCounts;
   readonly freeChoiceCounts: FreeChoiceCounts;
+  readonly persistenceCounts: PersistenceCounts;
   readonly safety: {
     readonly finiteAnatomical: boolean;
     readonly capabilities: boolean;
@@ -162,6 +182,7 @@ export interface TournamentRawRow {
   };
   readonly tacticCounts: TacticCounts;
   readonly freeChoiceCounts: FreeChoiceCounts;
+  readonly persistenceCounts: PersistenceCounts;
   readonly safety: TournamentCandidate["safety"];
 }
 
@@ -243,8 +264,15 @@ const controllersFor = (manifest: FrozenTournamentManifest): readonly string[] =
  * a producer that counted a free choice on a decision it did not record, or that
  * recorded the tuple against a different option name than it credited the free
  * choice to.
+ *
+ * The dwell record is refused by `persistenceRecordFailure` on the same terms,
+ * with one check the tuple half cannot make: every decision names exactly one
+ * dwell, so its `bins` map must sum to the joint map's own total. A row whose
+ * dwell map folded nothing is therefore refused rather than read as a candidate
+ * that never varied -- which is the failure `AGENTS.md` names as "a digest that
+ * folds nothing reads exactly like a digest that folds everything".
  */
-function validateTacticRecord(identity: string, row: Pick<TournamentRawRow, "tacticCounts" | "freeChoiceCounts">): void {
+function validateTacticRecord(identity: string, row: Pick<TournamentRawRow, "tacticCounts" | "freeChoiceCounts" | "persistenceCounts">): void {
   if (!row.tacticCounts || typeof row.tacticCounts !== "object") throw new Error(`${identity} has no tactic counts`);
   if (!row.freeChoiceCounts || typeof row.freeChoiceCounts !== "object") throw new Error(`${identity} has no free-choice counts`);
   for (const [key, count] of Object.entries(row.tacticCounts)) {
@@ -267,6 +295,14 @@ function validateTacticRecord(identity: string, row: Pick<TournamentRawRow, "tac
       }
     }
   }
+  // The dwell half, refused by the module that owns its grammar. Its arithmetic
+  // check is **stronger** than the free-choice one above: every decision names
+  // exactly one dwell, so this map has to sum to the joint map's own total, and
+  // a dwell record that folded nothing cannot pass as a candidate that never
+  // varied its dwell.
+  const dwellFailure = persistenceRecordFailure(row.persistenceCounts,
+    Object.values(row.tacticCounts).reduce((sum, count) => sum + count, 0));
+  if (dwellFailure) throw new Error(`${identity} requires ${dwellFailure}`);
 }
 
 function validatePartialTournamentRows(rows: readonly TournamentRawRow[], manifest: FrozenTournamentManifest): void {
@@ -382,11 +418,24 @@ export function assessTournamentCandidate(candidate: TournamentCandidate): Candi
 }
 
 /**
+ * The six heads a utilisation record answers for: the five names of the joint
+ * tuple key, plus the dwell, which is not one of them and is carried beside it.
+ *
+ * **A union and not `keyof TacticTuple`, because widening the tuple is the wrong
+ * fix and entry 17 of the found-not-fixed register measured why.** The joint key
+ * is 555 occupied cells of 2,520 at 2.39 counts each over a 39-job sweep, a third
+ * of them singletons; multiplying it by eight dwell bins makes a table of ones.
+ * The dwell is a marginal in `PersistenceCounts` and reaches this record through
+ * `persistenceCounts`, not through `tacticCountKey`.
+ */
+export type UtilisationHead = keyof TacticTuple | "persistence";
+
+/**
  * Five numbers over two different denominators, and which is which is the whole
  * point -- so every field says so rather than the type leaving it to be guessed.
  */
 export interface HeadUtilisation {
-  /** Every decision the candidate took. The same number for all five heads. */
+  /** Every decision the candidate took. The same number for all six heads. */
   readonly decisions: number;
   /** Of those, the ones where this head had two or more legal options. */
   readonly freeChoiceDecisions: number;
@@ -425,12 +474,22 @@ export interface HeadUtilisation {
  *
  * `freeChoiceDecisions` is what makes the statistic worth printing at all,
  * because it separates the two readings of a modal share of 1.0. Four of the
- * five free sets are *derived* and only the effector's is recorded: movement and
- * stance are legal on every body, `tacticTargets` is a table lookup on the
- * action so a key naming `bite` had one legal target and every other action had
- * at least two, and every body that can decide offers two or more actions (the
- * theorem beside `FREE_CHOICE_HEADS`). The effector is the one a joint map
- * cannot answer for.
+ * five tuple heads' free sets are *derived* and only the effector's is recorded:
+ * movement and stance are legal on every body, `tacticTargets` is a table lookup
+ * on the action so a key naming `bite` had one legal target and every other
+ * action had at least two, and every body that can decide offers two or more
+ * actions (the theorem beside `FREE_CHOICE_HEADS`). The effector is the one a
+ * joint map cannot answer for.
+ *
+ * **The dwell's is recorded too, and for a different reason worth keeping
+ * separate.** The effector's free set varies per decision, with the body and
+ * with the action just chosen. The dwell's does not vary at all today: it is one
+ * for a controller that names a constant and the grid width for one with a head,
+ * so `freeChoiceDecisions` on this row is either zero or every decision. That is
+ * the whole discrimination the row exists for, and `PersistenceHead` in
+ * `learning/persistence.ts` carries who declares it and why it cannot be
+ * inferred. It is recorded per decision anyway, so a masked dwell head -- the
+ * obvious next thing to build here -- needs no schema change.
  *
  * **`modal`/`modalShare` and `freeModal`/`freeModalShare` can name different
  * options, and the second pair is the one this record exists to produce.**
@@ -529,24 +588,33 @@ export interface HeadUtilisation {
  * reason not to quote them. The table is the part that does not move.
  *
  * **A head some algorithms do not have prints exactly like a head that
- * collapsed.** `lookaheadMind` writes the constant `UNLEARNED_STANCE` and has no
- * stance head at all, so a lookahead candidate's `stance` row is
+ * collapsed, and the `stance` row still does it.** `lookaheadMind` writes the
+ * constant `UNLEARNED_STANCE` and has no stance head at all, so a lookahead
+ * candidate's `stance` row is
  * `{chosen: 1, modal: "action-default", modalShare: 1, freeModalShare: 1}` --
  * indistinguishable from a learned stance head that settled on one option.
  * Nothing in this record can say which, so `scripts/evaluate-ai.mjs` puts
- * `algorithm` on every utilisation row and a reader has to use it.
+ * `algorithm` on every utilisation row and a reader has to use it. The stance
+ * head is unmasked on every body, so there is no free set to record for it; what
+ * it would take is the same declaration the dwell now carries.
  *
- * **PPO was the second instance of that and no longer is**: it wrote
- * `UNLEARNED_PERSISTENCE` one field over until the sixth head landed, and now
- * chooses a dwell from `PERSISTENCE_SECONDS`. Look-ahead still names the
- * constant, so the trap survives one field over from where it was -- and note
- * that no head here is the persistence head. `TacticTuple` is the five-name
- * joint key, so a collapsed *dwell* is invisible to this record whichever
- * algorithm produced it; that is registered rather than fixed, in
- * `docs/plans/combat-followups-99-found-not-fixed.md`.
+ * **The `persistence` row is that defect fixed rather than described, and it was
+ * two defects.** PPO wrote `UNLEARNED_PERSISTENCE` one field over until its sixth
+ * head landed and chooses a dwell from `PERSISTENCE_SECONDS` now; look-ahead
+ * still names the constant. On top of that, until this row existed **no head here
+ * was the persistence head at all** -- `TacticTuple` is the five-name joint key
+ * and the dwell is not one of its fields, so a candidate whose dwell collapsed
+ * onto one bin printed byte for byte what one sweeping the grid printed, for
+ * every algorithm including the two that learn it. Both are answered by the same
+ * pair of maps: `persistenceCounts.bins` is the marginal the joint key cannot
+ * project, and `persistenceCounts.freeBins` is empty exactly when the controller
+ * declared no dwell head. So `{chosen: 1, freeChoiceDecisions: 0}` is
+ * "constant by construction" and `{chosen: 1, freeChoiceDecisions: n}` is "a head
+ * that had the whole grid and used one bin of it", and a reader needs neither the
+ * algorithm name nor its source to tell them apart.
  */
-export function headUtilisation(candidate: Pick<TournamentCandidate, "tacticCounts" | "freeChoiceCounts">):
-  Readonly<Record<keyof TacticTuple, HeadUtilisation>> {
+export function headUtilisation(candidate: Pick<TournamentCandidate, "tacticCounts" | "freeChoiceCounts" | "persistenceCounts">):
+  Readonly<Record<UtilisationHead, HeadUtilisation>> {
   const counts = candidate.tacticCounts;
   const decisions = Object.values(counts).reduce((sum, count) => sum + count, 0);
   // The free *distribution*, not its sum: a head's free options and how often
@@ -573,17 +641,28 @@ export function headUtilisation(candidate: Pick<TournamentCandidate, "tacticCoun
   const top = (distribution: Readonly<Record<string, number>>): readonly [string, number] | undefined =>
     Object.entries(distribution).filter(([, count]) => count > 0)
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
-  const rows = TACTIC_KEY_HEADS.map(([head]) => {
-    const marginal = Object.entries(tacticMarginal(counts, head)).filter(([, count]) => count > 0);
-    const free = freeMarginal(head);
+  // One row from two distributions, so the sixth head is read by the same seven
+  // lines as the other five rather than by a second copy of them that could
+  // drift. `all` is over every decision and `free` over the ones this head could
+  // decide; for the five tuple heads they come from the joint map, for the dwell
+  // from the marginal carried beside it.
+  const utilisation = (all: Readonly<Record<string, number>>, free: Readonly<Record<string, number>>): HeadUtilisation => {
+    const marginal = Object.entries(all).filter(([, count]) => count > 0);
     const freeChoiceDecisions = Object.values(free).reduce((sum, count) => sum + count, 0);
     const overall = top(Object.fromEntries(marginal)); const freeTop = top(free);
-    return [head, Object.freeze({ decisions, freeChoiceDecisions, chosen: marginal.length,
+    return Object.freeze({ decisions, freeChoiceDecisions, chosen: marginal.length,
       modal: overall ? overall[0] : null, modalShare: overall && decisions > 0 ? overall[1] / decisions : 0,
       freeModal: freeTop ? freeTop[0] : null,
-      freeModalShare: freeTop && freeChoiceDecisions > 0 ? freeTop[1] / freeChoiceDecisions : 0 })] as const;
-  });
-  return Object.freeze(Object.fromEntries(rows) as Record<keyof TacticTuple, HeadUtilisation>);
+      freeModalShare: freeTop && freeChoiceDecisions > 0 ? freeTop[1] / freeChoiceDecisions : 0 });
+  };
+  const rows = TACTIC_KEY_HEADS.map(([head]) => [head, utilisation(tacticMarginal(counts, head), freeMarginal(head))] as const);
+  // `?? emptyPersistenceCounts()` and not a throw: this is the reporter and the
+  // deserialization guard is `validateTacticRecord`, which refuses a row with no
+  // dwell record by name. The same split is already here one head over --
+  // `candidate.freeChoiceCounts.effector ?? {}` above.
+  const dwell = candidate.persistenceCounts ?? emptyPersistenceCounts();
+  return Object.freeze(Object.fromEntries([...rows,
+    ["persistence", utilisation(dwell.bins, dwell.freeBins)] as const]) as Record<UtilisationHead, HeadUtilisation>);
 }
 
 export function tournamentVerdict(candidates: readonly TournamentCandidate[]): TournamentVerdict {

@@ -247,7 +247,7 @@ centipede task, 10 today at 292 ms; that becomes 90 tasks and roughly 2.6 s.
   (`src/learning/artifact.ts:109-112,124`), so the refusal must be an explicit check beside
   `:87`. The contract literal is also duplicated inline in **five** producers plus a test
   fixture, none of which import `RESEARCH_ARTIFACT_CONTRACT`.
-  The model to copy is `tests/tournament-executor.test.mjs:110-139`, which already does exactly
+  The model to copy is `tests/tournament-executor.test.mjs:160-197`, which already does exactly
   the requested thing for the *feature* header. Note `tests/artifact.test.mjs` does not exist.
 - **`behaviourRecord` does not feed the tournament gates.** `MIN_ACTION_SHARE` and
   `MIN_DIVERSE_ACTIONS` read `actionCounts`, produced at `scripts/research-havok.mjs:29,33`

@@ -4,6 +4,7 @@ import { deployedResearchMind, decodeResearchArtifact } from "../src/learning/de
 import { randomMetaMind } from "../src/learning/meta.ts";
 import { policyMind } from "../src/mind.ts";
 import { scriptedMetaMind } from "../src/options.ts";
+import { freezePersistenceCounts } from "../src/learning/persistence.ts";
 import { mergeTournamentRows, nextTournamentBatch, validateTournamentManifest } from "../src/learning/tournament.ts";
 
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
@@ -54,6 +55,12 @@ export function tournamentRawRow(manifest, scheduled, bout) {
     // -- `assessTournamentCandidate` runs over `manifest.candidates` alone.
     tacticCounts: Object.freeze({ ...bout.tacticCounts }),
     freeChoiceCounts: Object.freeze({ effector: Object.freeze({ ...bout.freeChoiceCounts?.effector }) }),
+    // The dwell half, through the same shared freezer the validator's failure
+    // reader is beside. A row that carried it under a different shape would be
+    // refused at *run* time and not at check time, because nothing under
+    // `scripts/` is type-checked -- which is why this is one function and not a
+    // second spelling of `{ bins, freeBins }` on this side of the JSON.
+    persistenceCounts: freezePersistenceCounts(bout.persistenceCounts),
     safety: Object.freeze({ finiteAnatomical: true,
       capabilities: true, postVerdict: true, stuckActions: true, lifecycle: true }) });
 }

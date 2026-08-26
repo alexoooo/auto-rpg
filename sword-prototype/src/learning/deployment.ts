@@ -6,8 +6,9 @@ import { ResearchArtifact, type ResearchArtifactContract } from "./artifact.ts";
 import { DAGGER_HEAD_NAMES, predictDagger, type DaggerLabel, type DaggerModel } from "./dagger.ts";
 import { FEATURE_COLUMNS, FEATURE_VERSION } from "./features.ts";
 import { lookaheadMind, LOOKAHEAD_DEPTH, LOOKAHEAD_WIDTH } from "./lookahead.ts";
-import { META_OUTPUT_LAYOUT, PERSISTENCE_SECONDS, deployableActions, readMetaOutput,
+import { META_OUTPUT_LAYOUT, deployableActions, readMetaOutput,
   selectDeployableTactic } from "./meta.ts";
+import { PERSISTENCE_SECONDS, type PersistenceHead } from "./persistence.ts";
 import { RecurrentNeatNetwork } from "./recurrent-neat.ts";
 import { PPO_POLICY_HEADS } from "./ppo.ts";
 import { RecurrentPolicy, maskedArgmax, type RecurrentPolicyWeights, type RecurrentStep } from "./recurrent-network.ts";
@@ -335,7 +336,7 @@ export function decodeResearchArtifact(bytes: Uint8Array): ResearchArtifact {
  * seam owns no writer. `lookaheadMind`'s own note carries it.
  */
 export function deployedResearchMind(artifact: ResearchArtifact, bodyLoadout: string,
-  onDecision?: (view: FighterView, features: readonly number[], label: DaggerLabel) => void): Mind {
+  onDecision?: (view: FighterView, features: readonly number[], label: DaggerLabel) => void): Mind & PersistenceHead {
   const decoded = recordObject(payloadJson(artifact), artifact.data.algorithm);
   if (artifact.data.algorithm === "dagger") {
     const model = decoded as unknown as DaggerModel;
@@ -354,7 +355,12 @@ export function deployedResearchMind(artifact: ResearchArtifact, bodyLoadout: st
         !STANCE_NAMES.includes(probe.stance as never) || !Number.isFinite(probe.persistence)) {
       throw new Error("dagger artifact produced an invalid deployment probe");
     }
-    return researchLabelMind("dagger", (_view, features) => predictDagger(model, features), onDecision);
+    // A continuous head declared at the width of the grid the record bins it
+    // into, which is the honest reading of "how many dwells can it name": the
+    // dwell is a sigmoid on `persistenceWeights`, so it reaches every bin and
+    // lands on one only by accident. `PersistenceHead` in `learning/persistence.ts`
+    // carries why this is declared here rather than inferred from a bout.
+    return researchLabelMind("dagger", (_view, features) => predictDagger(model, features), onDecision, PERSISTENCE_SECONDS.length);
   }
   if (artifact.data.algorithm === "ppo") {
     const weights = decoded.weights as unknown as RecurrentPolicyWeights;
@@ -372,7 +378,12 @@ export function deployedResearchMind(artifact: ResearchArtifact, bodyLoadout: st
       return { movement: tactic.movement, action: tactic.action, effector: tactic.effector,
         target: tactic.target, stance: tactic.stance, persistence: tactic.persistenceSeconds };
     };
-    return researchLabelMind("ppo", labeler, onDecision);
+    // **The head's own row count, off the decoded artifact** -- the one branch
+    // where the dwell width is evidence rather than a claim. It is checked equal
+    // to `PERSISTENCE_SECONDS.length` four lines up; reading it from the weights
+    // anyway is what makes a future artifact with a narrower dwell head report
+    // the width it actually has instead of the width this file expected.
+    return researchLabelMind("ppo", labeler, onDecision, weights.persistence.rows);
   }
   if (artifact.data.algorithm === "neat-qd") {
     // This probe **shadows `readMetaOutput`'s width refusal** rather than being
@@ -402,7 +413,10 @@ export function deployedResearchMind(artifact: ResearchArtifact, bodyLoadout: st
       const tactic = selectDeployableTactic(view, values);
       return { movement, action: tactic.action, effector: tactic.effector, target: tactic.target,
         stance: tactic.stance, persistence: values.persistence }; };
-    return researchLabelMind("neat-qd", labeler, onDecision);
+    // Continuous, like `dagger`: `decodeMetaPersistence` maps one trailing scalar
+    // onto `[MIN_PERSISTENCE, MAX_PERSISTENCE]`, so the grid width is again how
+    // many dwells this record can distinguish it naming.
+    return researchLabelMind("neat-qd", labeler, onDecision, PERSISTENCE_SECONDS.length);
   }
   if (artifact.data.algorithm === "lookahead") {
     const model = decoded as unknown as TacticalModel;

@@ -4,7 +4,9 @@ import test from "node:test";
 import { ATTACK_OPTION_NAMES, EFFECTOR_NAMES, FREE_CHOICE_HEADS, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES,
   TACTIC_KEY_DELIMITER, TARGET_NAMES, chooseEffector, parseTacticCountKey, tacticCountKey,
   tacticEffectors } from "../src/options.ts";
-import { deployableActions } from "../src/learning/meta.ts";
+import { UNLEARNED_PERSISTENCE, deployableActions } from "../src/learning/meta.ts";
+import { PERSISTENCE_BIN_KEYS, PERSISTENCE_SECONDS, persistenceBin, persistenceBinFailure, persistenceBinKey,
+  persistenceOptionsOf } from "../src/learning/persistence.ts";
 import { researchLabelMind } from "../src/learning/research-policy.ts";
 import { runResearchBout } from "../scripts/research-havok.mjs";
 import { RESEARCH_STRATA, researchMatrix } from "../src/learning/research-matrix.ts";
@@ -40,7 +42,27 @@ const safety = Object.freeze({ finiteAnatomical: true, capabilities: true, postV
  */
 const key = (movement, action, effector = "primary", target = "vital", stance = "action-default") =>
   tacticCountKey({ movement, action, effector, target, stance });
-const behaviour = (scale = 1) => ({
+/**
+ * The dwell half of a behaviour record, sized to the tuple half beside it.
+ *
+ * Every decision names exactly one dwell, so `bins` has to sum to the joint
+ * map's own total, and `persistenceRecordFailure` refuses a row where it does
+ * not -- the one arithmetic check the tuple half cannot make. Deriving it from
+ * `tacticCounts` here rather than writing counts out is what keeps a fixture
+ * that overrides the tuple half from silently disagreeing with itself.
+ *
+ * `free` is the whole discrimination this record was added for: a controller
+ * that declared a dwell head counts every decision into `freeBins` and one that
+ * named a constant counts none, so the *same* `bins` map means two different
+ * things depending on what is beside it.
+ */
+const dwellRecord = (tacticCounts, { bin = "0.40", free = true } = {}) => {
+  const decisions = Object.values(tacticCounts).reduce((sum, count) => sum + count, 0);
+  const bins = decisions ? { [bin]: decisions } : {};
+  return { bins, freeBins: free ? { ...bins } : {} };
+};
+const withDwell = (record, options) => ({ persistenceCounts: dwellRecord(record.tacticCounts, options), ...record });
+const behaviour = (scale = 1) => withDwell({
   tacticCounts: { [key("close", "cut")]: 10 * scale, [key("hold", "cover", "secondary", "threat")]: 10 * scale,
     [key("circle-left", "thrust", "primary", "high", "slip-left")]: 10 * scale },
   // Both hands are attached in this fixture, so every decision had a real
@@ -212,7 +234,7 @@ test("a_tuple_key_round_trips_through_the_builder_and_the_parser", () => {
  * point here because it is the one every resume path goes through and it
  * validates before it schedules.
  */
-const rowWith = (behaviour) => [{ ...row(candidates[0].name, jobs[0], 0), ...behaviour }];
+const rowWith = (behaviour) => [{ ...row(candidates[0].name, jobs[0], 0), ...withDwell(behaviour) }];
 test("a_malformed_behaviour_record_is_refused_by_the_part_that_is_wrong", () => {
   const frozen = manifest();
   const counts = (written) => ({ tacticCounts: { [written]: 4 }, freeChoiceCounts: { effector: {} } });
@@ -407,8 +429,8 @@ test("the_action_share_floor_and_the_recover_exclusion_are_both_load_bearing", (
  */
 test("head_utilisation_separates_a_head_that_never_varied_from_one_that_never_had_a_choice", () => {
   const counts = { [key("close", "cut")]: 20, [key("hold", "thrust")]: 20 };
-  const confounded = { tacticCounts: counts, freeChoiceCounts: { effector: {} } };
-  const free = { tacticCounts: counts, freeChoiceCounts: { effector: { primary: 40 } } };
+  const confounded = withDwell({ tacticCounts: counts, freeChoiceCounts: { effector: {} } });
+  const free = withDwell({ tacticCounts: counts, freeChoiceCounts: { effector: { primary: 40 } } });
   const expected = (effectorFree) => ({
     movement: { decisions: 40, freeChoiceDecisions: 40, chosen: 2, modal: "close", modalShare: 0.5, freeModal: "close", freeModalShare: 0.5 },
     action: { decisions: 40, freeChoiceDecisions: 40, chosen: 2, modal: "cut", modalShare: 0.5, freeModal: "cut", freeModalShare: 0.5 },
@@ -417,13 +439,18 @@ test("head_utilisation_separates_a_head_that_never_varied_from_one_that_never_ha
     target: { decisions: 40, freeChoiceDecisions: 40, chosen: 1, modal: "vital", modalShare: 1, freeModal: "vital", freeModalShare: 1 },
     stance: { decisions: 40, freeChoiceDecisions: 40, chosen: 1, modal: "action-default", modalShare: 1,
       freeModal: "action-default", freeModalShare: 1 },
+    // The sixth row, which is not a projection of the joint key: both fixtures
+    // carry the same declared-head dwell record, so this row is identical in
+    // them and cannot stand in for the effector distinction being made here.
+    persistence: { decisions: 40, freeChoiceDecisions: 40, chosen: 1, modal: "0.40", modalShare: 1,
+      freeModal: "0.40", freeModalShare: 1 },
   });
   assert.deepEqual(headUtilisation(confounded), expected(0));
   assert.deepEqual(headUtilisation(free), expected(40));
   assert.notDeepEqual(headUtilisation(confounded), headUtilisation(free));
   // `bite` is the only action with a single legal target, so it is the only
   // thing that can move the *derived* target denominator off the decision count.
-  const jaws = headUtilisation({ tacticCounts: { [key("hold", "bite", "natural")]: 7 }, freeChoiceCounts: { effector: {} } });
+  const jaws = headUtilisation(withDwell({ tacticCounts: { [key("hold", "bite", "natural")]: 7 }, freeChoiceCounts: { effector: {} } }));
   assert.equal(jaws.target.freeChoiceDecisions, 0);
   assert.equal(jaws.target.freeModal, null);
   assert.equal(jaws.target.freeModalShare, 0);
@@ -431,7 +458,7 @@ test("head_utilisation_separates_a_head_that_never_varied_from_one_that_never_ha
   // record made only of punches has a free target denominator equal to its
   // decisions. Without this control the derived denominator could be a constant
   // zero and the assertion above would still pass.
-  const fists = headUtilisation({ tacticCounts: { [key("hold", "punch", "primary", "high")]: 7 }, freeChoiceCounts: { effector: {} } });
+  const fists = headUtilisation(withDwell({ tacticCounts: { [key("hold", "punch", "primary", "high")]: 7 }, freeChoiceCounts: { effector: {} } }));
   assert.equal(fists.target.freeChoiceDecisions, 7);
   assert.equal(fists.target.freeModal, "high");
 });
@@ -467,6 +494,11 @@ test("the_free_choice_modal_and_the_all_decision_modal_can_name_different_option
     tacticCounts: { [key("close", "cut", "primary", "vital")]: 69,
       [key("close", "cover", "secondary", "threat")]: 27 },
     freeChoiceCounts: { effector: { secondary: 27 } },
+    // Two bins rather than one, so the `persistence` row in the record below is
+    // a real distribution and not a singleton that any implementation produces.
+    // The probe held its cuts for 0.10 s and its covers for 0.40, which is the
+    // shape a dwell head is for; the counts are the same 69/27 the bout took.
+    persistenceCounts: { bins: { "0.10": 69, "0.40": 27 }, freeBins: { "0.10": 69, "0.40": 27 } },
   };
   const heads = headUtilisation(measured);
   assert.deepEqual(heads, {
@@ -477,6 +509,8 @@ test("the_free_choice_modal_and_the_all_decision_modal_can_name_different_option
     target: { decisions: 96, freeChoiceDecisions: 96, chosen: 2, modal: "vital", modalShare: 69 / 96, freeModal: "vital", freeModalShare: 69 / 96 },
     stance: { decisions: 96, freeChoiceDecisions: 96, chosen: 1, modal: "action-default", modalShare: 1,
       freeModal: "action-default", freeModalShare: 1 },
+    persistence: { decisions: 96, freeChoiceDecisions: 96, chosen: 2, modal: "0.10", modalShare: 69 / 96,
+      freeModal: "0.10", freeModalShare: 69 / 96 },
   });
   // The inversion said out loud, so a reader of the failure sees which claim broke.
   assert.notEqual(heads.effector.modal, heads.effector.freeModal);
@@ -534,19 +568,28 @@ test("the_modal_option_is_the_most_used_one_and_not_the_least", () => {
 test("an_aggregated_candidate_carries_the_free_choice_counts_its_rows_recorded", () => {
   const mine = candidates[0].name;
   const first = row(mine, jobs[0], 0, { tacticCounts: { [key("close", "cut")]: 6, [key("hold", "cover", "secondary", "threat")]: 4 },
-    freeChoiceCounts: { effector: { secondary: 4 } } });
+    freeChoiceCounts: { effector: { secondary: 4 } },
+    persistenceCounts: { bins: { "0.10": 6, "0.40": 4 }, freeBins: { "0.10": 6, "0.40": 4 } } });
   const second = row(mine, jobs[1], 1, { tacticCounts: { [key("close", "cut")]: 1, [key("hold", "cover", "primary", "threat")]: 9 },
-    freeChoiceCounts: { effector: { primary: 9 } } });
+    freeChoiceCounts: { effector: { primary: 9 } },
+    persistenceCounts: { bins: { "0.40": 1, "0.80": 9 }, freeBins: { "0.40": 1, "0.80": 9 } } });
   const others = rows().filter((entry) => entry.candidate !== mine);
   const aggregate = candidateFromRawRows(candidates[0], [first, second, ...others]);
   assert.deepEqual(aggregate.tacticCounts, { [key("close", "cut")]: 7,
     [key("hold", "cover", "secondary", "threat")]: 4, [key("hold", "cover", "primary", "threat")]: 9 });
   assert.deepEqual(aggregate.freeChoiceCounts, { effector: { secondary: 4, primary: 9 } });
+  // The dwell half beside them, summed bin by bin across two rows that share one
+  // bin and differ on the other -- so a fold that kept the first row, kept the
+  // last, or dropped the map is red, and the shared 0.40 bin is what a fold
+  // overwriting rather than adding gets wrong.
+  assert.deepEqual(aggregate.persistenceCounts,
+    { bins: { "0.10": 6, "0.40": 5, "0.80": 9 }, freeBins: { "0.10": 6, "0.40": 5, "0.80": 9 } });
   // The same fold, reached through the exported helper the per-cell reader in
   // `scripts/evaluate-ai.mjs` calls -- so the grouping that report does is the
   // aggregation this test covers and not a second copy of it.
   assert.deepEqual(mergeBehaviourRecord([first, second]),
-    { tacticCounts: aggregate.tacticCounts, freeChoiceCounts: aggregate.freeChoiceCounts });
+    { tacticCounts: aggregate.tacticCounts, freeChoiceCounts: aggregate.freeChoiceCounts,
+      persistenceCounts: aggregate.persistenceCounts });
   // And it reaches `headUtilisation`, which is what the report prints: 13 of the
   // 20 decisions had an effector choice, and the free modal is the primary.
   const heads = headUtilisation(aggregate);
@@ -742,4 +785,254 @@ test("every_body_that_can_decide_offers_two_or_more_legal_actions", async () => 
   // The centipede publishes no hands at all, so `{bite, recover}` is its entire
   // action set and it is exactly two -- the tight case, not a comfortable one.
   assert.equal(await smallest("centipede", "natural:bite", "bite", "natural"), 2);
+});
+
+/**
+ * The eight names a record gives the dwell grid, and both directions of the
+ * round trip they have to survive.
+ *
+ * **The literals below are a hand-written mirror of `PERSISTENCE_BIN_KEYS`, on
+ * purpose**, and the first assertion is what stops it being a second table: the
+ * mirror is pinned to the derived one here, and
+ * `a_real_bout_records_the_dwell_every_decision_asked_for` then uses the mirror
+ * rather than the function, so a producer and a checker that agree on a *wrong*
+ * spelling still fail. Same construct, same reason, as `RESEARCH_LABEL_FIELDS`
+ * in `tests/fixtures/label.mjs`.
+ *
+ * The trap is measured rather than described. `PERSISTENCE_SECONDS` is eight
+ * literals because `0.10 + i * 0.10` differs from them at `i = 2` and `i = 6`,
+ * so a record keyed by value loses two bins to `indexOf` and a record keyed by
+ * `String(seconds)` writes names no reader looks for -- and `String` turns out
+ * to be worse than that: over a generated grid **not one** of its eight names is
+ * a bin key, because `String(0.1)` is `"0.1"` and a record spells every dwell to
+ * two places.
+ */
+test("a_dwell_bin_key_survives_a_round_trip_through_json_on_every_bin", () => {
+  assert.deepEqual([...PERSISTENCE_BIN_KEYS], ["0.10", "0.20", "0.30", "0.40", "0.50", "0.60", "0.70", "0.80"]);
+  for (const [index, seconds] of PERSISTENCE_SECONDS.entries()) {
+    const written = persistenceBinKey(seconds);
+    const [returned] = Object.keys(JSON.parse(JSON.stringify({ [written]: 1 })));
+    assert.equal(returned, written, `bin ${index} did not survive JSON`);
+    assert.equal(Number(returned), seconds, `bin ${index} does not parse back to the dwell it names`);
+    assert.equal(persistenceBin(Number(returned)), index);
+    assert.equal(persistenceBinFailure(returned), null);
+  }
+  const generated = Array.from({ length: 8 }, (_, index) => 0.10 + index * 0.10);
+  assert.deepEqual(generated.map((seconds) => PERSISTENCE_SECONDS.indexOf(seconds)), [0, 1, -1, 3, 4, 5, -1, 7],
+    "a generated grid is two values away from the literal one, which is why nothing keys by equality");
+  assert.deepEqual(generated.map((seconds) => persistenceBinFailure(String(seconds)) === null), Array(8).fill(false),
+    "String() writes eight names and not one of them is a bin key");
+  // Binning by distance answers all eight anyway, which is what the producer rests on.
+  assert.deepEqual(generated.map(persistenceBin), [0, 1, 2, 3, 4, 5, 6, 7]);
+  assert.deepEqual(generated.map(persistenceBinKey), [...PERSISTENCE_BIN_KEYS]);
+  // A dwell on no bin at all is what `dagger` and `neat-qd` answer every time,
+  // and one outside the window is what `researchLabelMind` clamps to an endpoint:
+  // nearest-by-distance names the bin the runtime will have used either way.
+  // 0.45 sits exactly between two and takes the lower one, every time.
+  assert.deepEqual([0.03, 0.449, 0.45, 0.55, 0.99].map(persistenceBinKey), ["0.10", "0.40", "0.40", "0.60", "0.80"]);
+  assert.throws(() => persistenceBinKey(Number.NaN), /finite number of seconds/);
+});
+
+/**
+ * The discrimination this record exists for: a head that collapsed onto one bin
+ * and a controller with no dwell head at all write the **same** marginal, and
+ * the record has to separate them without naming an algorithm.
+ *
+ * All three fixtures below carry identical joint maps and therefore identical
+ * rows for all five tuple heads -- asserted, so the separation cannot be coming
+ * from anywhere else. `noHead` and `collapsed` additionally carry identical
+ * dwell *marginals*: forty decisions, every one of them at 0.40. Before
+ * `freeBins` existed there was nothing whatever to tell them apart, and before
+ * `persistenceCounts` existed neither of them printed a dwell row at all.
+ *
+ * `swept` is the third leg, and it is the control that stops the pair being
+ * satisfied by `chosen` alone: a head that used its grid reads differently from
+ * one that collapsed, on the same denominator.
+ */
+test("a_collapsed_dwell_head_and_a_head_that_does_not_exist_are_different_records", () => {
+  const counts = { [key("close", "cut")]: 20, [key("hold", "thrust")]: 20 };
+  const spike = { "0.40": 40 };
+  const sweep = Object.fromEntries(PERSISTENCE_BIN_KEYS.map((bin) => [bin, 5]));
+  const record = (persistenceCounts) => ({ tacticCounts: counts, freeChoiceCounts: { effector: {} }, persistenceCounts });
+  const noHead = record({ bins: { ...spike }, freeBins: {} });
+  const collapsed = record({ bins: { ...spike }, freeBins: { ...spike } });
+  const swept = record({ bins: { ...sweep }, freeBins: { ...sweep } });
+
+  assert.deepEqual(headUtilisation(noHead).persistence, { decisions: 40, freeChoiceDecisions: 0, chosen: 1,
+    modal: "0.40", modalShare: 1, freeModal: null, freeModalShare: 0 });
+  assert.deepEqual(headUtilisation(collapsed).persistence, { decisions: 40, freeChoiceDecisions: 40, chosen: 1,
+    modal: "0.40", modalShare: 1, freeModal: "0.40", freeModalShare: 1 });
+  assert.deepEqual(headUtilisation(swept).persistence, { decisions: 40, freeChoiceDecisions: 40, chosen: 8,
+    modal: "0.10", modalShare: 5 / 40, freeModal: "0.10", freeModalShare: 5 / 40 });
+
+  // The separations said out loud, so a failure names which one broke -- and the
+  // equality beside them, which is the half that makes the point: the two
+  // records agree on every number a marginal alone can produce.
+  assert.notDeepEqual(headUtilisation(noHead).persistence, headUtilisation(collapsed).persistence);
+  assert.notDeepEqual(headUtilisation(collapsed).persistence, headUtilisation(swept).persistence);
+  assert.equal(headUtilisation(noHead).persistence.modal, headUtilisation(collapsed).persistence.modal);
+  assert.equal(headUtilisation(noHead).persistence.modalShare, headUtilisation(collapsed).persistence.modalShare);
+  assert.equal(headUtilisation(noHead).persistence.chosen, headUtilisation(collapsed).persistence.chosen);
+  // ...and that nothing else moved: every tuple head is identical across all
+  // three, which is what makes this a claim about the dwell row.
+  const tupleRows = (candidate) => Object.fromEntries(Object.entries(headUtilisation(candidate))
+    .filter(([head]) => head !== "persistence"));
+  assert.deepEqual(tupleRows(noHead), tupleRows(collapsed));
+  assert.deepEqual(tupleRows(noHead), tupleRows(swept));
+});
+
+/**
+ * The refusals a malformed dwell record earns, each naming the offending part,
+ * and the two well-formed shapes that must not be refused.
+ *
+ * This is the deserialization guard for the half of the record the producer
+ * gained last, and it earns the same argument `validateTacticRecord`'s docstring
+ * makes for the other half: every record written in this process is legal by
+ * construction, and a *row* is JSON a previous run wrote and a person may have
+ * edited.
+ *
+ * The sum check is the one that is not a spelling test, and it is stronger than
+ * anything the free-choice half can do: every decision names exactly one dwell,
+ * so a record that folded nothing is refused rather than read as a candidate
+ * that never varied. The two controls at the bottom are what keep it from
+ * refusing the honest empty case -- a controller that declared no dwell head has
+ * a full `bins` and an empty `freeBins`, and that is not a malformation.
+ */
+test("a_dwell_record_that_could_not_have_come_from_a_bout_is_refused_by_the_part_that_is_wrong", () => {
+  const frozen = manifest(); const legal = key("close", "cut");
+  const dwelled = (persistenceCounts) =>
+    rowWith({ tacticCounts: { [legal]: 4 }, freeChoiceCounts: { effector: {} }, persistenceCounts });
+  const refused = (persistenceCounts, pattern) =>
+    assert.throws(() => nextTournamentBatch(dwelled(persistenceCounts), frozen, 1), pattern);
+
+  refused(undefined, /requires a dwell record with a bins and a freeBins map/);
+  refused(null, /requires a dwell record with a bins and a freeBins map/);
+  refused([], /requires a dwell record with a bins and a freeBins map/);
+  refused({ bins: { "0.40": 4 }, freeBins: {}, freeChoices: {} }, /a dwell record of bins and freeBins, not "freeChoices"/);
+  refused({ bins: { "0.40": 4 } }, /requires a dwell freeBins map/);
+  refused({ bins: [4], freeBins: {} }, /requires a dwell bins map/);
+  refused({ bins: { "0.4": 4 }, freeBins: {} }, /a dwell bin of 0\.10, .*, not "0\.4" in its dwell bins/);
+  refused({ bins: { "0.40": 4 }, freeBins: { "0.35": 1 } }, /not "0\.35" in its dwell freeBins/);
+  for (const bad of [1.5, -4, Number.NaN, Number.POSITIVE_INFINITY, 2 ** 53]) {
+    refused({ bins: { "0.40": bad }, freeBins: {} },
+      new RegExp(`a whole non-negative dwell bins count for "0\\.40", not ${String(bad).replace(".", "\\.")}`));
+  }
+  // The arithmetic pair: a record that counted fewer decisions than the joint
+  // map, and one that counted more.
+  refused({ bins: { "0.40": 3 }, freeBins: {} }, /one dwell for each of its 4 decisions, not 3/);
+  refused({ bins: { "0.40": 2, "0.10": 3 }, freeBins: {} }, /one dwell for each of its 4 decisions, not 5/);
+  // A free choice is a subset of the choices of the same bin, both ways it fails.
+  refused({ bins: { "0.40": 4 }, freeBins: { "0.40": 5 } }, /no more free dwell choices of "0\.40" than the 4 it recorded, not 5/);
+  refused({ bins: { "0.40": 4 }, freeBins: { "0.10": 1 } }, /no more free dwell choices of "0\.10" than the 0 it recorded, not 1/);
+
+  // Both well-formed readings are accepted: a declared head, and a controller
+  // that declared none. The second is the one an over-eager check would break,
+  // and it is the reading a whole look-ahead candidate produces.
+  assert.doesNotThrow(() => nextTournamentBatch(dwelled({ bins: { "0.40": 4 }, freeBins: { "0.40": 4 } }), frozen, 1));
+  assert.doesNotThrow(() => nextTournamentBatch(dwelled({ bins: { "0.40": 4 }, freeBins: {} }), frozen, 1));
+
+  // Silence means one dwell, which is the direction that under-claims rather
+  // than claiming a head nobody declared -- and a declaration that is not a
+  // count of options is refused instead of being rounded into one.
+  assert.equal(persistenceOptionsOf({}), 1);
+  assert.equal(persistenceOptionsOf(null), 1);
+  assert.equal(persistenceOptionsOf(undefined), 1);
+  assert.equal(researchLabelMind("undeclared", () => null).persistenceOptions, 1);
+  assert.equal(persistenceOptionsOf({ persistenceOptions: PERSISTENCE_SECONDS.length }), 8);
+  for (const bad of [0, -1, 2.5, Number.NaN, "8"]) {
+    assert.throws(() => persistenceOptionsOf({ persistenceOptions: bad }),
+      /dwell options; the contract is a whole number of at least 1/, `${bad}`);
+  }
+});
+
+/**
+ * The producer, end to end through real Havok bouts: the record has to name the
+ * dwell each decision actually asked for, and `freeBins` has to follow the
+ * controller's declaration rather than what the bout happened to use.
+ *
+ * **Coverage space: one warrior cell of the fifteen -- `sword+empty` -- three
+ * train bouts at seed 310013, mirror as the matrix gives it, 2400 solver steps
+ * (10 s) each, every decision a `cut` with the sword hand.** One cell rather
+ * than fifteen because the subject is the dwell and not the body; three bouts
+ * because the three readings that have to differ are a head that used its grid,
+ * a head that collapsed onto one bin of it, and a controller with no head at
+ * all.
+ *
+ * **2400 and not the 1200 the tests above use, and the reason is the subject.**
+ * A probe sweeping the whole grid holds a decision for 0.45 s on average against
+ * `MIN_PERSISTENCE`'s 0.10, so five seconds bought **14** decisions -- fewer
+ * than twice the eight bins it has to be seen using. The dwell is the one thing
+ * measured here whose own value sets the sample size. At 2400 the sweeping bout
+ * takes 27 decisions in 9.75 s and the two constant bouts take 20 in 8.22, both
+ * of them ending on a verdict rather than on the step limit, so raising it
+ * further buys nothing -- measured at 3600 and the numbers do not move
+ * (`.review/dwell/count.mjs`). The floor below is 16 for that reason: under the
+ * smallest real sample and over twice the grid width.
+ *
+ * **The assertion is the labeler's own sequence and not "there is some
+ * spread".** A spread assertion would be satisfied by construction here, because
+ * the sweeping probe cycles the grid on purpose. What cannot be satisfied by
+ * construction is the exact histogram: the probe keeps the raw dwell it asked
+ * for, the expectation is built through the hand-written key mirror rather than
+ * through `persistenceBinKey`, and the record has to match it count for count. A
+ * producer that binned the clamped constant, binned by `String`, or counted the
+ * decision rather than the dwell fails on the counts.
+ *
+ * `collapsed` and `constant` ask for the identical dwell on the identical bout,
+ * so their `bins` maps are equal by construction -- that is the point. The
+ * declaration is the only thing that differs between them, and it is the only
+ * thing that moves the record.
+ */
+test("a_real_bout_records_the_dwell_every_decision_asked_for", async () => {
+  const NAMES = ["0.10", "0.20", "0.30", "0.40", "0.50", "0.60", "0.70", "0.80"];
+  const matrix = researchMatrix("train", 310013);
+  const at = matrix.findIndex((entry) => entry.unit === "warrior" && entry.loadout === "sword+empty");
+  assert.ok(at >= 0, "no train job for warrior/sword+empty");
+  const boutFor = async (dwells, persistenceOptions) => {
+    const asked = []; let step = 0;
+    const bout = await runResearchBout({ ...matrix[at], index: at }, (onDecision) =>
+      researchLabelMind("dwell-probe", (view) => {
+        const persistence = dwells[step % dwells.length]; step += 1; asked.push(persistence);
+        return { movement: "close", action: "cut", effector: chooseEffector(view, "cut"),
+          target: "vital", stance: "action-default", persistence };
+      }, onDecision, persistenceOptions), 2400);
+    // Keyed through the mirror above rather than through the function under
+    // test, so a producer and a checker that agree on a wrong spelling still fail.
+    const expected = {};
+    for (const seconds of asked) {
+      const name = NAMES[PERSISTENCE_SECONDS.indexOf(seconds)];
+      assert.ok(name, `the probe asked for ${seconds}, which is not a grid member`);
+      expected[name] = (expected[name] ?? 0) + 1;
+    }
+    return { bout, expected, asked };
+  };
+
+  const swept = await boutFor([...PERSISTENCE_SECONDS], PERSISTENCE_SECONDS.length);
+  const collapsed = await boutFor([UNLEARNED_PERSISTENCE], PERSISTENCE_SECONDS.length);
+  const constant = await boutFor([UNLEARNED_PERSISTENCE], 1);
+
+  for (const [name, probe] of [["swept", swept], ["collapsed", collapsed], ["constant", constant]]) {
+    assert.ok(probe.bout.decisions >= 16, `${name} took only ${probe.bout.decisions} decisions`);
+    assert.equal(probe.asked.length, probe.bout.decisions, `${name} asked for a dwell on every decision`);
+    // Every decision names exactly one dwell, which is the invariant the row
+    // validator refuses on, against the joint map's own total as denominator.
+    assert.equal(Object.values(probe.bout.persistenceCounts.bins).reduce((sum, count) => sum + count, 0),
+      Object.values(probe.bout.tacticCounts).reduce((sum, count) => sum + count, 0), `${name} dwell total`);
+    assert.deepEqual(probe.bout.persistenceCounts.bins, probe.expected, `${name} recorded a dwell it was not asked for`);
+  }
+
+  // The sweeping head used its grid, and the record says how much of it.
+  assert.equal(headUtilisation(swept.bout).persistence.chosen, PERSISTENCE_SECONDS.length);
+  assert.equal(headUtilisation(swept.bout).persistence.freeChoiceDecisions, swept.bout.decisions);
+
+  // The pair the whole record exists for, taken off two real bouts rather than
+  // off a literal: identical marginals, and only the declaration separating a
+  // head that collapsed from a controller that has none.
+  assert.deepEqual(collapsed.bout.persistenceCounts.bins, constant.bout.persistenceCounts.bins);
+  assert.deepEqual(Object.keys(collapsed.bout.persistenceCounts.bins), ["0.40"]);
+  assert.deepEqual(collapsed.bout.persistenceCounts.freeBins, collapsed.bout.persistenceCounts.bins);
+  assert.deepEqual(constant.bout.persistenceCounts.freeBins, {});
+  assert.equal(headUtilisation(collapsed.bout).persistence.freeChoiceDecisions, collapsed.bout.decisions);
+  assert.equal(headUtilisation(constant.bout).persistence.freeChoiceDecisions, 0);
+  assert.notDeepEqual(headUtilisation(collapsed.bout).persistence, headUtilisation(constant.bout).persistence);
 });

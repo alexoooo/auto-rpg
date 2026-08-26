@@ -76,11 +76,22 @@ summary the ledger does -- rows completed, rows remaining, elapsed -- on the sam
   head utilisation is reported and never gated, and `headUtilisation`'s own docstring carries
   the reason.
 
-  Two readings that will otherwise be wrong. **A look-ahead candidate has no stance head at
-  all** -- `lookaheadMind` hardcodes `UNLEARNED_STANCE` -- so it prints a free choice on every
-  decision, one option chosen, modal share 1.0: the exact signature of a collapsed head, by
-  design. PPO's persistence is likewise the constant `0.4`. Cross-reference the `algorithm`
-  field on each utilisation row before concluding anything about either.
+  One reading that will otherwise be wrong, and it is now the only one. **A look-ahead candidate
+  has no stance head at all** -- `lookaheadMind` hardcodes `UNLEARNED_STANCE` -- so it prints a
+  free choice on every decision, one option chosen, modal share 1.0: the exact signature of a
+  collapsed head, by design. Cross-reference the `algorithm` field on each utilisation row before
+  concluding anything about a `stance` row.
+
+  **The `persistence` row needs no such cross-reference and is the model for what the stance row
+  is still missing.** It was the second instance of the same trap -- PPO wrote the constant `0.4`
+  and there was no dwell row at all, because the joint tuple key has five names and the dwell is
+  not one of them. There is a row now, over `persistenceCounts`, and it separates the two
+  readings on its own: `freeChoiceDecisions: 0` means the controller declared no dwell head
+  (today only `lookahead`, whose re-decision condition has no clock term either), and
+  `freeChoiceDecisions` equal to `decisions` with `chosen: 1` means a head that had all eight
+  bins and used one of them. Apply the same `n >= 29` floor to it: at the 0.40 bin a look-ahead
+  or PPO candidate takes about 20 decisions in a 10-second bout, so the floor is a real gate on
+  the sentence rather than a formality.
 - **State what the matrix could not ask.** `sword+axe` **is** in the strata as of 2026-08-25, so
   `cut` names two hands on two of the fifteen cells and an attacking action has an effector
   choice on four. Of the other eleven, eight offer a choice on `cover` and `recover` alone -- so

@@ -24,9 +24,9 @@ it. The reason a thing was left alone is worth as much as the fix.
 
 ### 1. All five tournament safety flags are hardcoded `true`
 
-`scripts/tournament-executor.mjs:49-50` is the sole producer of the `safety` object and writes
+`scripts/tournament-executor.mjs:64-65` is the sole producer of the `safety` object and writes
 `{finiteAnatomical: true, capabilities: true, postVerdict: true, stuckActions: true, lifecycle: true}`
-unconditionally. The aggregate fold at `src/learning/tournament.ts:274-277` is a conjunction seeded
+unconditionally. The aggregate fold at `src/learning/tournament.ts:718-721` is a conjunction seeded
 all-`true`, so it cannot answer anything else. The five `if (!safety.X) failures.push(...)` branches
 in `assessTournamentCandidate` are therefore **dead in production**, reachable only from test
 literals.
@@ -48,16 +48,16 @@ so one of the five has a head start; the other four do not.
 
 **Cost to close.** One session. Natural home is session 23, which already lists *"common cells,
 mirrors, controls, safety evidence"* as a verification item
-(`combat-followups-23-held-out-ai-tournament.md:51`) without wiring any computation.
+(`combat-followups-23-held-out-ai-tournament.md:69`) without wiring any computation.
 
 ### 2. `decisionsPerSecond` in the tournament report is systematically under-reported
 
 **Closed 2026-08-25, and the entry had found the smaller of two defects.** See the Closed
 section at the bottom.
 
-`scripts/evaluate-ai.mjs:76` sums the per-decision counts across **all** raw rows, including the
+`scripts/evaluate-ai.mjs:88` sums the per-decision counts across **all** raw rows, including the
 three controls. The controls contribute exactly zero, because `mindFactoryForTournament` returns
-`() => control` for them (`scripts/tournament-executor.mjs:35`) and discards the `onDecision`
+`() => control` for them (`scripts/tournament-executor.mjs:36`) and discards the `onDecision`
 callback the harness passes -- so `randomMetaMind`, `scriptedMetaMind` and `policyMind` never
 report a decision. With three controls and *N* candidates the throughput figure is low by a factor
 of `(3 + N) / N`.
@@ -91,7 +91,7 @@ whatever session next revisits the teacher.
 
 ### 4. A bite's target head is untrainable, in three independent ways
 
-`tacticTargets("bite")` offers only `vital` (`src/options.ts:398`), so the target head has one legal
+`tacticTargets("bite")` offers only `vital` (`src/options.ts:458`), so the target head has one legal
 option on a biting body and the mask leaves nothing to choose. `handActionOption`'s bite branch
 never reads `target` at all. And the aim would not matter if it did: a centipede's bite measured
 over four seed pairs produced **232 contacts -- 172 left shin, 60 right shin, zero head, zero
@@ -166,7 +166,7 @@ letting a retired arithmetic argument look like support.
 file; the rest are `initialPopulation` in `genome.ts`, both of `jobs.ts`, `Network` in `network.ts`,
 and three fitness/novelty functions in `meta.ts`. `behaviourRecord` and its three writers in
 `options.ts` are in the same state, kept explicitly because session 18's `BoutRecorder` is built on
-them (`src/options.ts:1079-1089`).
+them (`src/options.ts:1254-1262`).
 
 **Why not fixed.** Deleting them is only correct if session 18 lands without them. The note beside
 each already says "if that session lands without them, they go", which is the right trigger.
@@ -286,21 +286,37 @@ condition carries no clock term, yet it reports `UNLEARNED_PERSISTENCE` on every
 
 **PPO's half of this is closed and the entry's real point survived it.** PPO's persistence was the
 constant `0.4` when this was written and is a learned categorical over `PERSISTENCE_SECONDS` now, so
-one of the two algorithms named here moved. What did not move is the thing that made the entry worth
-writing: **the record still cannot tell a head that collapsed from a head that does not exist.**
+one of the two algorithms named here moved.
 
-And there is now a third case, which is larger than either: **no head in the record is the
-persistence head at all.** `headUtilisation` reads the five-name joint tuple key, and the dwell is
-not one of its fields, so a PPO candidate whose persistence head settled on a single bin prints
-byte-for-byte what one sweeping the whole grid prints -- for every algorithm, including the two that
-learn it. That is the same defect one head further out, and it is not covered by putting `algorithm`
-on the utilisation row, because the algorithm no longer distinguishes the cases.
+**The dwell half of this entry is closed too, and the third case with it.** The record carried no
+persistence head at all -- `headUtilisation` read the five-name joint tuple key and the dwell is not
+one of its fields -- so a PPO candidate whose persistence head settled on a single bin printed
+byte-for-byte what one sweeping the whole grid printed, for every algorithm including the two that
+learn it. `src/learning/persistence.ts` is the fix: `PersistenceCounts` is a **marginal** over the
+eight bins carried beside the joint map, the way `freeChoiceCounts.effector` is, and it is two maps
+rather than one. `bins` is every decision by dwell bin; `freeBins` is the subset where the controller
+could have named a different dwell, from a `persistenceOptions` a mind declares at the site that
+produces its dwell (`PersistenceHead`). So `{chosen: 1, freeChoiceDecisions: 0}` reads
+"constant by construction" and `{chosen: 1, freeChoiceDecisions: n}` reads "a head that had the whole
+grid and used one bin of it", and a reader needs neither the algorithm name nor its source to tell
+them apart. `a_collapsed_dwell_head_and_a_head_that_does_not_exist_are_different_records` and
+`a_real_bout_records_the_dwell_every_decision_asked_for` are the readers;
+`every_deployed_algorithm_declares_whether_it_has_a_dwell_head` pins the four declarations, which is
+what a declaration needs and a measurement would not.
 
-**Why not fixed.** Adding the dwell to `TacticTuple` widens the joint key by eight, and entry 17's
-first bullet already measures that key as too sparse for joint questions at 2,520 cells. The useful
-version is a *marginal* over the eight bins carried beside the joint map, the way
-`freeChoiceCounts.effector` is -- a schema change to the row record and its two validators, which is
-a session rather than a fix.
+**The tuple was not widened, and entry 17's first bullet is why.** Adding the dwell to `TacticTuple`
+multiplies a joint key already measured at 555 occupied cells of 2,520 by eight. `UtilisationHead` is
+`keyof TacticTuple | "persistence"` for exactly that reason, and the schema change is the row record
+plus its two validators -- `validateTacticRecord` in TypeScript and the row builder in
+`scripts/tournament-executor.mjs`, which gets no static check at all (entry 15).
+
+**What is still open here is the stance, and it is now the only one.** `lookaheadMind` still writes
+`UNLEARNED_STANCE` and the stance head is unmasked on every body, so there is no free set to record
+for it: the `stance` row of a look-ahead candidate is still indistinguishable from a learned stance
+head that settled on one option, and `scripts/evaluate-ai.mjs`'s `algorithm` column is still the only
+thing that separates them. Closing it needs the same declaration the dwell now carries -- a
+`stanceOptions` beside `persistenceOptions`, six for a controller with a stance head and one for
+look-ahead -- which is a smaller job than this one was, because the shape now exists.
 
 Separately, **a centipede consumes no posture.** `src/bodies/centipede.ts` publishes crouch, trunk
 lean and trunk twist as zero and never reads `input.posture`, so on the three centipede cells -- 6 of
