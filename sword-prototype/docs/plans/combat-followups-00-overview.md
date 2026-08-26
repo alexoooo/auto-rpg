@@ -185,6 +185,7 @@ Baseline taken before any of this work, from `sword-prototype/`, commit `a095877
 | 17 tactic output v2 | landed, all stages | `da025f2` `e4ac199` `c149e8c` `7597eb4` `3674e06` `caec629` `c7497af`, 532 tests |
 | -- owner follow-ups | 3 of 4 landed | `4d461ea` `ab52947` `e601824`, 564 tests |
 | -- research matrix | `sword+axe`, 15 cells | 45 strata, 90 jobs, digest `a011a028`, 565 tests |
+| -- doc pointers | landed, gated | `81030fb`, 15 tests, 580 total |
 | 18 human gate feasibility | not started | -- |
 | 19 run legibility | not started | -- |
 | 20 throughput and ceilings | not started | -- |
@@ -1038,6 +1039,73 @@ three training scripts; none of them calls it. But the pass that caught it was i
 `research-rollout-worker.mjs` **does** wire the decision hook on both its NEAT and DAgger paths, so
 it writes these maps on every training bout and discards them. The conclusion survived both
 corrections; the evidence under it was replaced twice.
+
+### A check for the pointers, and an item that was not about what it said
+
+`81030fb`, 580 tests. The item on the list was "doc anchors under a real check". Measured, this
+prototype has **1,830 code-span file references and 206 line anchors, 197 of them in
+`docs/plans/`** -- a directory AGENTS.md says is deleted wholesale in the commit that finishes the
+topic. The durable surface had nine. So the item was almost entirely about *file references*, and
+the anchors it names live in the one place worth counting rather than gating.
+
+**The register is derived, not curated.** A reference passes if it resolves in the tree, the repo
+root or `node_modules`, or if it names a path `git log --no-renames --diff-filter=D` says was
+deleted and that does not exist now. That explained **112 of 143** stale references with no
+allowlist, and nobody can add a line to make a test green: an entry not in the deletion log fails.
+`--no-renames` is load-bearing -- rename detection reports 49 paths against 56 and loses the old
+names that are exactly what a stale reference cites. The separation is the whole design problem,
+because most stale references are *correct*: `src/learning/evaluation.ts:5-7` names deleted scripts
+in order to say they were deleted, and a checker demanding they resolve would force falsifying
+accurate history.
+
+**Three pointers were wrong, and the residue after the mechanical rules was exactly those three.**
+No file named kinds.ts has ever existed anywhere in this repository's history -- `git log --all` has
+no row for it, and it is written here without backticks because the gate refuses a code span naming
+a file that never existed, which is this design's one real cost. The kinds are in `hands.ts`, which
+`weapon.ts` re-exports ten lines under a comment naming the other file, while `mind.ts` made the
+same claim about the same file under two names three lines apart. `TARGET_SPAN_FRACTION`'s argument
+is in `measurements.md`, not `DESIGN.md`. The two `sword.ts`
+references were re-pointed at `weapon.ts` by hand, because the register passes them -- that file
+really was deleted -- and **cannot tell "deleted" from "go and read it"**. That limit is written into
+`deleted-paths.md` rather than left implicit, along with the one a step further out: a reference to
+the *wrong existing* file resolves and is invisible to any check of this shape, which is how
+`DESIGN.md` survived.
+
+**Two rules from the repository root were rejected with their numbers.** `tools/check_docs.js`
+requires an anchor to land on a declaration; **149 of 254** resolving anchors here land
+mid-statement and almost all are correct, because this prototype points at the line that does the
+thing rather than at the `export` above it. And a symbol-proximity heuristic -- does the identifier
+the prose names sit within four lines? -- was rejected as an assertion after it called
+`tournament.ts:232` stale: that comment names `lookaheadMind` and anchors its *call*, which is
+right. It is reported, never gated, and no pinned number derives from it.
+
+**The gate cannot see a line-shifting edit above an anchor, and this change proved it.** Adding one
+comment line to `src/main.ts` rotted three plan anchors by one and the suite stayed green, because a
+shift of one moves neither `lineOutOfRange` nor `noSuchFile`. Every source edit here is line-neutral
+and the limit is in the test's header. Three controls demonstrate the limits rather than asserting
+them: the line shift, the `sword.ts` reference, and a reference to a wrong-but-existing file all stay
+green on purpose.
+
+**Six corrections the work produced, each measured.** Line counts were `split(/\r?\n/)` pieces,
+lenient by exactly one -- no live anchor sat there, so the mutation that would have caught it found
+nothing to catch, and a composed mutation was needed to show the fix is load-bearing. Two records
+booked as out-of-range were continuations whose carrier was guessed wrong; the guess is wrong **nine
+times of seventeen** and seven are silent, one of them against a 6,107-line carrier that absorbs any
+line number a plan will ever write, so the field is renamed to what it measures. The register's own
+`sort -u` was locale-dependent against a JS `.sort()`. `RESOLVE_SKIP` was unenforced on the
+exact-path branch it claimed to guard. **166 durable references resolve only inside the gitignored
+`.review/`**, so a clean checkout cannot verify any of them -- excused by shape and share, with the
+premise asked of `git check-ignore` rather than of `.gitignore`'s text. And a proposed rule of mine,
+that a bare `:nnn` continuation naming a `.md` carrier must be a wrong guess, was **falsified**:
+`combat-followups-16-policy-perception-v4.md:226` writes `#L84` against `docs/design.md` correctly.
+
+**The sixth exact sweep over the wrong space in this effort, and the fourth that was mine.** The
+frame 206 / 197 / 9 was handed down as measured fact without its grammar. It reproduces over the
+seven scanned extensions with a **two-spelling** grammar; under the four spellings the gate actually
+parses, the same tree has 258, and the tree that ships the sentence has 290 -- because this change's
+own new prose adds durable anchors. Every count now names its grammar and its extension set and is
+taken at the state that commits. An adversarial pass placed the narrowness in the extension set
+rather than the grammar, and that correction was itself corrected by measurement.
 
 ### The one still owed
 
