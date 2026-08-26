@@ -199,6 +199,144 @@ which is the most direct evidence available that the check is live on this direc
 That covers Markdown. It does nothing for the 602 code-span references inside source comments, which
 cannot be Markdown links and would need a prototype-side test.
 
+### 11. The research matrix contains no loadout where an attacking action has two legal effectors
+
+Measured over all 13 research strata, sampling the legal-effector set per action at every physics
+sample of a real bout (39 bouts, mirror 0, split `train`, seed 310013):
+
+| loadout | actions with two or more legal effectors | actions with exactly one |
+| --- | --- | --- |
+| `sword+empty` | cover, recover | cut, thrust, punch |
+| `sword+shield`, `sword+buckler` | cover, recover | cut, thrust |
+| `axe+empty` | cover, recover | cut, punch |
+| `bow+empty` | **none** | cover, shoot, recover |
+| `empty+empty` | cover, punch, recover | none |
+| `natural:bite` | **none** | bite, recover |
+
+`broot` is identical to `warrior`. **Only `cover` and `recover` ever have an effector choice on a
+weapon-bearing body.** So the question "did this candidate's effector head learn anything?" is
+answerable on **2 of 13 cells, and both are the weaponless ones**. 41 % of pooled decision mass comes
+from the three cells where the head can never have a choice, and 73 % of the free-effector decisions
+come from the two `empty+empty` cells.
+
+The perverse consequence: **the better a candidate is at attacking, the less the record can say
+about its effector head**, because the free-effector denominator on 8 of 13 cells is exactly "how
+often did it choose `cover` or `recover`" -- and the tournament's other gates reward the opposite.
+Under an attack-heavy policy 11 of 13 cells fall below the sample size needed to call a
+100 %-modal head collapsed; under a defensive one all but bow and centipede clear it.
+
+**The fix that creates the evidence rather than documenting its absence is a two-striker loadout.**
+`docs/measurements.md` already identifies `sword+axe` as the loadout where "the effector head
+decided" is separable from "the loadout decided", and already uses it for exactly that in a unit
+test. The tournament matrix simply does not contain it.
+
+**Decided: add it, now.** The cost is real -- +2 cells (13 to 15), +12 jobs (about +15 % tournament
+wall clock), a new `LOADOUTS` row and `LOADOUT_TACTICS` row, a moved curriculum digest, a moved
+look-ahead preflight tuple count, and session 22 plan text that pins "all 13 body/loadout cells" and
+"240" -- and it is paid before any compute is spent rather than after, which is the whole reason to
+decide it now. Spending a 24-hour training window on a contract whose effector head cannot be tested
+on an armed body is the more expensive mistake.
+
+**Status: owner decision taken, implementation owed.** It lands as its own commit, after the record
+remediation, because it touches the same two files.
+
+### 12. There is no control baseline for the effector, target or stance heads, and the schema forbids one
+
+The three tournament controls produce empty behaviour records, because `mindFactoryForTournament`
+returns `() => control` and discards the decision hook. Wiring it is not a plumbing change: both meta
+controls hand `handActionOption` an `asMeasured(...)` execution whose target is `"as-measured"`,
+deliberately outside `TARGET_NAMES`, so **100 % of their keys would be refused by the row validator**
+-- measured, 675 decisions for `scripted-meta-control` and 1,346 for `random-meta-control`, every one
+of them.
+
+**And the baseline would be a known constant even if it were recorded.** The controls have no
+effector head; they call `chooseEffector(view, action, "primary")`, which returns `primary` whenever
+`primary` is legal -- and per item 11 `primary` is legal for every free-effector action on every
+cell. So on free decisions both controls are 100 % `primary` with probability 1, by construction.
+
+**What that costs the conclusion.** A free-choice denominator answers "could the body have done
+otherwise?". The question session 23 actually needs is "would any policy have done otherwise, and did
+it help?" -- and that needs an **ablation arm**: the same artifact with the head clamped to
+`chooseEffector`, run as a fourth controller. Without it, "the effector head is 100 % primary on 120
+free decisions" cannot distinguish a dead head from one that rediscovered `chooseEffector`'s hand
+search.
+
+**Decided: build it into session 23.** The plan now carries it under *Freeze* as a per-candidate
+ablation binding, with the reason written beside it and an explicit note that the arm is not a gate
+-- it decides what may be *written* about why a candidate won, not which candidate is promoted.
+Manifest schema grows a binding per candidate; the job list grows by one controller's worth of rows.
+
+### 13. A sample-size floor exists for the sentence session 23 wants to write, and nothing states it
+
+To call a head "collapsed" when all *n* of its free choices picked the same option -- rejecting "it
+picks the other option at least 10 % of the time" at 95 % -- needs `0.9^n <= 0.05`, so **n >= 29**.
+This gates nothing about a candidate; it gates whether a sentence about the candidate may be
+written, and it bites: measured, 11 of 13 cells fall below it for an attack-heavy candidate.
+
+**Landed** into session 23's *Decide* list beside the head-utilisation reader, together with the two
+readings that would otherwise be wrong (a look-ahead candidate has no stance head; PPO's persistence
+is a constant) and an instruction to name the cells where the question was unanswerable rather than
+folding them into a pooled share.
+
+### 14. Two of the four algorithms have heads they cannot move, and nothing in the record says so
+
+`lookaheadMind` hardcodes `UNLEARNED_STANCE` and has no stance head at all, so a look-ahead candidate
+prints the exact signature of a collapsed head -- free on every decision, one option chosen, modal
+share 1.0 -- by design. PPO's persistence is likewise the constant `0.4`, and `lookaheadMind` has no
+persistence window at all: its re-decision condition carries no clock term, yet it reports
+`UNLEARNED_PERSISTENCE` on every label.
+
+Separately, **a centipede consumes no posture.** `src/bodies/centipede.ts` publishes crouch, trunk
+lean and trunk twist as zero and never reads `input.posture`, so on the three centipede cells -- 6 of
+26 tournament jobs -- the stance head reports a free choice on every decision while all six names are
+behaviourally identical. `applyTacticStance`'s own note records that during any committing action
+`extended` is a near-duplicate of the commit posture, so it is five distinguishable names elsewhere,
+not six.
+
+### 15. `scripts/` and `tests/` have no static check at all
+
+`tsconfig.json`'s `include` is `["src", "vite.config.ts"]`, and everything under `scripts/` and
+`tests/` is `.mjs`. So `npm run check` covers `src/` only -- for a change spanning ten files, five of
+them were outside it. Widening `include` would not help on its own, because these are JavaScript;
+covering them means `allowJs` plus `checkJs` plus whatever that turns red.
+
+Worth knowing when a report says "`tsc` clean": it means half the harness compiled, not that it was
+checked.
+
+### 16. What the null control does and does not prove
+
+`npm run measure -- --only duelist-swinger --bouts 120` is cited throughout this effort as the guard
+that nothing leaked into a shared primitive, and for changes to the execution layer it earns that.
+**For a change that only adds exports it is structurally incapable of moving**: `scripts/measure.mjs`
+imports nothing from `research-havok.mjs`, `learning/tournament.ts` or `learning/meta.ts`, and
+`duelist-swinger` runs `policyMind`, which never enters a `CombatOption`.
+
+So it is a regression check that passed, not evidence the change is safe. A guard that passes is not
+evidence until somebody has made it fail on purpose -- and the discipline this repo already applies
+to tests applies to its controls.
+
+### 17. Smaller things, each with its measurement
+
+- **The joint map is too sparse for joint questions.** Measured over 39-job sweeps: 555 occupied keys
+  of 2,520 at 2.39 counts each, 34 % of them singletons (uniform policy); 427 keys at 2.48, 46 %
+  singletons (attack-heavy). Per row it is 21 to 65 distinct keys over about 27 decisions. The
+  marginals carry the signal; the joint structure is a table of ones and twos. That is not an
+  argument to key it differently -- the marginals are what was missing -- but the joint-versus-marginal
+  argument in the docstring should not be read as a claim that joint questions are now answerable.
+- **Rows-file IO roughly doubles.** The per-row record grows 16 to 39 times (77-89 bytes to
+  1,201-3,449). `executeNextTournamentRows`' `onRow` rewrites and renames the whole array after every
+  row, so total write volume for a 4-candidate run lands near 280 MB.
+- **`mergeTournamentRows` revalidates every previously merged row**, so a 130-row resume is O(N^2)
+  validations and each is now more expensive -- two `tacticMarginal` passes per row, each parsing
+  every key. Estimated ~2M `parseTacticCountKey` calls for a full run, which is negligible, but it
+  was estimated rather than measured.
+- **A DAgger artifact can name a target outside `TARGET_NAMES`.** `predictDagger` returns
+  `head.labels[...]` -- strings decoded from artifact bytes -- and `validateDaggerRow` checks only
+  that the label fields are truthy, never that they are in the frozen tables, while
+  `handActionOption`'s `knownAim` accepts `"as-measured"`. A hand-built artifact could therefore
+  drive an unparseable key into a row. Narrow, pre-existing, and refused at the first
+  `mergeTournamentRows`, which is the intended behaviour.
+
 ---
 
 ## Closed

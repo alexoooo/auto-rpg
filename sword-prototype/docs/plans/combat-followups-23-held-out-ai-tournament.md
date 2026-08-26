@@ -23,8 +23,26 @@ rows. Fewer than four candidates is normal. It is valid for no controller to pas
    digest and the balance-config digest, calls `freezeTournamentManifest`, and writes
    `asset-src/learning/tournament-v1.json`. It must refuse an existing manifest rather than
    overwrite it, and it must refuse a champion-so-far artifact by header.
-5. Create `asset-src/learning/tournament-v1.rows.json` containing an empty JSON array. From
-   this point, thresholds, candidates, job order and the base seed are immutable.
+5. **Bind one ablation arm per candidate.** For each frozen artifact, register a fourth
+   controller that runs *the same artifact* with its effector head clamped to the scripted
+   `chooseEffector(view, action, "primary")` search. The manifest grows an ablation binding
+   beside each candidate; the job list grows by one controller's worth of rows.
+
+   **Why this is a controller and not a report field.** Head utilisation describes what a head
+   did; it cannot say whether doing it mattered. Measured, both meta controls call
+   `chooseEffector`, which returns `primary` whenever `primary` is legal -- and `primary` is
+   legal for every free-effector action on every cell in the matrix. So on free decisions the
+   scripted baseline is 100 % `primary` with probability 1, by construction. A candidate
+   reporting "100 % `primary` on 120 free decisions" is therefore indistinguishable from one
+   that rediscovered the scripted hand search, and neither is distinguishable from a dead head.
+   The ablation arm is the only thing in this plan set that can tell the three apart, and
+   "did the widened 26-output contract earn its width" is exactly the question it answers.
+
+   The arm is not a gate. It does not decide promotion; it decides what may be *written* about
+   why a candidate won.
+6. Create `asset-src/learning/tournament-v1.rows.json` containing an empty JSON array. From
+   this point, thresholds, candidates, ablation bindings, job order and the base seed are
+   immutable.
 
 Add tests for the freezer's no-overwrite rule, its champion-so-far refusal, and its
 mixed-digest refusal. Make each fail once by removing its guard.
@@ -50,6 +68,23 @@ summary the ledger does -- rows completed, rows remaining, elapsed -- on the sam
 
 - Verify artifact digest, size and direction; common cells, mirrors, controls, safety evidence,
   confidence intervals and every frozen gate.
+- **Read `report.utilisation`, per cell and not only pooled, and apply the sample-size floor
+  before writing any sentence about a head.** To call a head collapsed when all *n* of its free
+  choices picked the same option -- rejecting "it picks another option at least 10 % of the
+  time" at 95 % -- needs `0.9^n <= 0.05`, so **n >= 29**. Below that the honest verdict line is
+  "insufficient evidence", not "the head did not vary". This gates a sentence, not a candidate:
+  head utilisation is reported and never gated, and `headUtilisation`'s own docstring carries
+  the reason.
+
+  Two readings that will otherwise be wrong. **A look-ahead candidate has no stance head at
+  all** -- `lookaheadMind` hardcodes `UNLEARNED_STANCE` -- so it prints a free choice on every
+  decision, one option chosen, modal share 1.0: the exact signature of a collapsed head, by
+  design. PPO's persistence is likewise the constant `0.4`. Cross-reference the `algorithm`
+  field on each utilisation row before concluding anything about either.
+- **State what the matrix could not ask.** Only `cover` and `recover` offer an effector choice
+  on a weapon-bearing body unless `sword+axe` is in the strata; on a `bow+empty` or a centipede
+  cell the effector head has no choice at any time. Name the cells where the question was
+  unanswerable rather than folding them into a pooled share.
 - If one or more candidates pass, the pure verdict chooses the smallest statistically tied
   artifact, then direction and name order. Continue to session 24.
 - If none passes, write the negative result into `docs/measurements.md` with each candidate's
