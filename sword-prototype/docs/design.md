@@ -285,16 +285,26 @@ striking weapon in the off hand, which is true for `cut` and was not the cause f
 cover rule took the first legal hand, and hands come in a fixed order, so no schedule could have
 changed it. `secondary` is 13.8 % now.
 
-**PPO produces 25 of the 26 outputs, and that is a decision.** It gained effector, target and
-stance heads and did not gain a persistence one: a learned persistence is a *continuous* action
-with a different log-probability in the importance ratio, which is an algorithm change rather
-than a contract change. PPO emits a label rather than a raw 26-vector, so the width contract
-does not bind it; the artifact records `producedOutputs` 25 beside `contractOutputs` 26. Its
-masks are **conditioned in contract order** rather than joint -- effector on the action just
-sampled, aim on the same -- because a factorized policy's update has to be able to rebuild the
-distribution each head was sampled from. NEAT-QD, which writes a raw vector and no
-log-probabilities, takes the joint `selectDeployableTactic` sum instead, on both halves of its
-decoder seam at once.
+**PPO produces all 26 outputs, and the twenty-sixth is a binned dwell rather than a continuous
+one.** It gained effector, target and stance heads and then a sixth over `PERSISTENCE_SECONDS`:
+eight dwell times spanning the persistence window with the old constant 0.4 among them. A grid
+keeps the categorical log-probability, ratio, clipping and `log k` entropy bound that a Gaussian
+would each change, so the algorithm change that was declined is not what shipped. The artifact
+records `producedOutputs` 26 and `producedLogits` 33 against `contractOutputs` 26, because a
+head's logits stopped equalling its contract slots. Its masks are **conditioned in contract
+order** rather than joint -- effector on the action just sampled, aim on the same -- because a
+factorized policy's update has to be able to rebuild the distribution each head was sampled
+from. NEAT-QD writes a raw vector and takes the joint `selectDeployableTactic` sum instead.
+
+**Learning the dwell made a flat discount wrong, and that is the change the head really forced.**
+GAE discounted once per option boundary, which was exact for exactly as long as every boundary was
+the same length. Learn it and a bout reaching the same terminal in fewer boundaries is weighted
+differently for nothing to do with tactics: measured, a terminal is worth **34.7 %** more at the
+0.80 bin than at the 0.10 bin. The discount is per second now and the trace decay stays per
+decision; the reference is the 0.4 s constant, which leaves the *rates* exact there and the
+trajectories 2.6 % apart, because a boundary requested at 0.4 s lasts 0.31 s. It does not fix the
+progress term, which is clipped per boundary, does not telescope, and is worth about three times as
+much a bout in the other direction -- an independent bias, registered with its coverage space.
 
 **The quality-diversity descriptor deliberately did not follow the widening.** Three outcome
 measures at five bins is 125 cells; adding the chosen tuple would make it 9,000-10,500 against

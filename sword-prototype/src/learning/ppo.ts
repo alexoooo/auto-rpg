@@ -1,10 +1,79 @@
+import { UNLEARNED_PERSISTENCE } from "./meta.ts";
+
 export interface AdvantageStep {
   readonly reward: number;
   readonly value: number;
   readonly nextValue: number;
   readonly terminal: boolean;
+  /**
+   * How long this step lasted, in seconds. **Required, and not defaulted to 1.**
+   *
+   * A default would be a silent unit: a caller that forgot it would get exactly
+   * the flat per-step discount this signature exists to remove, and nothing
+   * would say so. It is refused by name beside the three numbers above instead.
+   */
+  readonly durationSeconds: number;
 }
 
+/**
+ * Generalized advantage estimation over a **semi-MDP**: gamma and lambda are
+ * rates per second, and each step is discounted by the time it took.
+ *
+ * **This was flat per boundary, and while persistence was the constant
+ * `UNLEARNED_PERSISTENCE` that was exactly right.** Every boundary lasted the
+ * same requested time, so per-boundary and per-second discounting differ by a
+ * constant and the constant cancels. Learning the persistence breaks that, and
+ * the failure is the quiet kind: a bout reaching the same terminal reward in
+ * fewer boundaries is discounted less, so a persistence head trained under a
+ * flat gamma learns to hold a decision for reasons that have nothing to do with
+ * whether holding it is tactically good, and the training curve goes up.
+ *
+ * **Measured on the tree that ships** (`.review/persist/sweep.mjs`;
+ * `docs/measurements.md` carries the tables and the coverage space, and records
+ * that the first version of this measurement was taken on the tree *before* the
+ * sixth head and had to be thrown away). Boundaries per bout run **42.50** at
+ * the 0.10 bin to **12.83** at the 0.80 bin over a bout clock that stays within
+ * 4.61-4.79 s, so a flat 0.99 weights a bout-end terminal by `0.99 ** (n - 1)` =
+ * **0.6590** against **0.8879**: a **34.7 %** spread in what a terminal is worth,
+ * decided by dwell and by nothing tactical. Against the 0.40 bin alone it is
+ * 2.6 %, not the 4.5 % a boundary count of `bout / requested` predicts, because
+ * a request above 0.5 s is mostly not spent -- `researchLabelMind` re-decides at
+ * `min(persistence, the skill finishing)`.
+ *
+ * **The spread is a magnitude and its sign follows the terminal's.** An earlier
+ * version of this note called it "a 35 % return advantage to maximal
+ * persistence", which is only true where terminals are net positive. On this
+ * coverage space they are not: wins against losses run 14/20, 3/15, 11/13, 9/10,
+ * 9/16, 8/14, 8/12 and 10/13 across the eight bins, net-negative in all of them,
+ * so a flat gamma *penalises* long dwell here. An untrained policy losing is not
+ * a surprise and a trained one may flip it. What is invariant is that the weight
+ * on a terminal moves by a third with the dwell, for a reason that is not about
+ * the fight.
+ *
+ * **Like for like, per bout, it is the smaller of the two biases.** Only 18-34
+ * of 90 bouts reach a terminal at this budget, so the weight spread is worth at
+ * most `4 * 0.2289 * (34 / 90) = 0.35` a bout and about 0.23 at the median bin
+ * -- against **0.72** a bout for the progress term below. Roughly 3x apart, not
+ * the same order, and this note claimed otherwise.
+ *
+ * **What the change is worth as measured is small, and it is taken on principle
+ * rather than on effect size.** Mean discounted return per bout, this recursion
+ * against the flat one over the same 90 bouts: -0.048, -0.048, -0.002, -0.004,
+ * -0.003, -0.003, -0.006, -0.006. Non-monotone, largest magnitude 0.048. The
+ * argument for it is that a discount per boundary is not a discount at all once
+ * boundary length is a learned quantity; the argument is *not* that it moves the
+ * numbers, because it barely does at this budget.
+ *
+ * **What it does not fix.** The progress term of `tacticalBoundaryReward` is
+ * clipped per boundary and therefore does not telescope, so more boundaries
+ * accrue more of it: clipped progress per bout tracks boundary count at
+ * 0.0221-0.0263 per boundary across the whole grid, which is 1.054 a bout at the
+ * 0.10 bin against 0.336 at the 0.80 bin. That bias exists with or without this
+ * change and is independent of it -- an earlier note said fixing the discount
+ * "unmasks" it, which is a claim about interaction that the measurement does not
+ * support. It is registered in
+ * `docs/plans/combat-followups-99-found-not-fixed.md` with its coverage space.
+ */
 export function generalizedAdvantages(steps: readonly AdvantageStep[], gamma: number, lambda: number): number[] {
   if (![gamma, lambda].every((value) => Number.isFinite(value) && value >= 0 && value <= 1)) {
     throw new Error("GAE gamma and lambda must be finite within 0..1");
@@ -13,12 +82,82 @@ export function generalizedAdvantages(steps: readonly AdvantageStep[], gamma: nu
   for (let index = steps.length - 1; index >= 0; index -= 1) {
     const step = steps[index] as AdvantageStep;
     if (![step.reward, step.value, step.nextValue].every(Number.isFinite)) throw new Error(`GAE step ${index} is non-finite`);
+    // Zero is legal and one boundary in every trajectory can be it: the last
+    // decision may land on the final published sample, and no elapsed time is
+    // `gamma ** 0 === 1`, which is the right answer rather than a special case.
+    if (!Number.isFinite(step.durationSeconds) || step.durationSeconds < 0) {
+      throw new Error(`GAE step ${index} has a duration of ${step.durationSeconds} seconds`);
+    }
     const continuation = step.terminal ? 0 : 1;
-    const delta = step.reward + gamma * step.nextValue * continuation - step.value;
-    next = delta + gamma * lambda * continuation * next; advantages[index] = next;
+    // **`gamma ** dt * lambda`, and not `(gamma * lambda) ** dt`.** Both are
+    // valid GAE families -- at `lambda = 1` they are the same expression, which
+    // is what makes the estimator telescope to the Monte-Carlo advantage under
+    // either -- and they differ in what `lambda` is a rate *of*.
+    //
+    // `gamma` is physical: it is a statement about reward arriving later in
+    // seconds, so it belongs in the exponent. `lambda` is not. It interpolates
+    // between TD(0) and Monte Carlo over *n-step returns*, and n counts
+    // decisions; a boundary is one decision however long it took. Put it in the
+    // exponent and the credit-assignment window becomes a function of the dwell
+    // the sixth head is learning: over ten boundaries the trace decays by
+    // `0.9405` at the 0.10 bin and by `0.9405 ** 8 = 0.605` at the 0.80 bin, so
+    // a long-dwell policy is scored with a shorter horizon in decisions for
+    // reasons that are not about bias and variance. That is the same coupling
+    // this function's own docstring is about, reintroduced one term over.
+    //
+    // The two coincide at the reference as well: `gamma ** 0.4 * 0.95` is
+    // exactly `0.99 * 0.95`. `the_trace_decays_per_decision_and_the_discount_per_second`
+    // is the pin, at a lambda and a duration where they come apart.
+    const delta = step.reward + gamma ** step.durationSeconds * step.nextValue * continuation - step.value;
+    next = delta + gamma ** step.durationSeconds * lambda * continuation * next; advantages[index] = next;
   }
   return advantages;
 }
+
+/**
+ * The discount PPO trains under, per **second** of bout clock, and the trace
+ * decay, per **decision**.
+ *
+ * Only one of the two is converted, which is the whole content of the pair.
+ * `PPO_GAMMA_PER_SECOND` is the per-second rate whose effect over one
+ * `UNLEARNED_PERSISTENCE` boundary is exactly the 0.99 the flat scheme used.
+ * `PPO_TRACE_LAMBDA` is the same 0.95 as before with no conversion at all,
+ * because `generalizedAdvantages`' note argues lambda is a per-decision knob;
+ * `gamma ** 0.4 * 0.95` is exactly `0.99 * 0.95`, so the reference boundary is
+ * unchanged in both terms.
+ *
+ * **The exactness is real and the reason once written here was not.** This said
+ * it followed from `1 / 0.4 === 2.5`. It does not: `(0.99 ** (1 / p)) ** p`
+ * returns 0.99 exactly for all eight grid values, including 0.3, 0.6 and 0.7
+ * where `1 / p` has no exact double, and for arbitrary `p` in `(0, 1]` -- one
+ * miss in 4,000 sampled for gamma, four for lambda. It is the exponent being at
+ * or below one that does it: raising by `p <= 1` contracts the relative error of
+ * the first power rather than amplifying it. Above one it fails 91 % of the
+ * time. **So exactness here is a checked property, not a derived one**, and the
+ * check is two-sided in
+ * `the_per_second_rate_reproduces_the_flat_discount_at_the_unlearned_persistence`.
+ *
+ * That also removes a wrinkle the old spelling had: `(gamma * lambda) ** p` is
+ * *not* exact at 0.2, 0.3 and 0.6, so a trace factor built as a product would
+ * have been exact at five of eight grid values and not at three. Multiplying by
+ * a plain 0.95 has no such seam.
+ *
+ * **The reference is the requested 0.4 s, a boundary requested at 0.4 s does not
+ * last 0.4 s, and the discounting therefore does move.** Measured mean dwell at
+ * that bin is 0.307 s, so the effective horizon lengthens from `100 * 0.307 =
+ * 30.7` s to `1 / (1 - PPO_GAMMA_PER_SECOND) = 40.3` s, and a bout-end terminal
+ * at that bin is weighted 0.8879 under the new rate against 0.8653 under the old
+ * flat one -- **2.6 % apart**. This paragraph used to say "the discounting does
+ * not move at all", which was an inference from exact *constants* to unchanged
+ * *trajectories* and is the kind of claim this file exists to stop.
+ *
+ * The named constant is the reference rather than the measured mean dwell
+ * because a mean dwell is a measurement whose coverage space drifts with the
+ * skills, and pinning an algorithm's horizon to one is the trap this repository
+ * has a rule about. The cost of that choice is the 2.6 % above, stated.
+ */
+export const PPO_GAMMA_PER_SECOND = 0.99 ** (1 / UNLEARNED_PERSISTENCE);
+export const PPO_TRACE_LAMBDA = 0.95;
 
 export function clippedPolicyTerm(oldProbability: number, newProbability: number, advantage: number, epsilon: number): number {
   if (!(oldProbability > 0) || !Number.isFinite(newProbability) || !Number.isFinite(advantage) || epsilon < 0) {
@@ -60,7 +199,28 @@ export interface TacticalBoundary {
   readonly endVitalityPotential: number;
   readonly nearRangeProgress: number;
   readonly terminal: -1 | 0 | 1;
-  /** Diagnostic only. Time alive is intentionally absent from reward. */
+  /**
+   * Absent from **reward** on purpose -- time alive pays a healthy runner --
+   * and read by the **discount**, which is not the same thing.
+   *
+   * **It had no producer at all until the persistence head landed.** The field
+   * was declared, `collectPpoTrajectory` never wrote it, and its only appearance
+   * in the tree was `tests/ppo.test.mjs` passing `durationSeconds: 600` to prove
+   * the reward ignores it -- a declared optional nothing writes, which is the
+   * same defect as a field nothing reads pointed the other way. It is written
+   * now, and `generalizedAdvantages` is what reads it.
+   *
+   * **Optional here and required on `AdvantageStep`, which is not an
+   * inconsistency but is worth naming.** This interface is the *reward's* view
+   * of a boundary and `tacticalBoundaryReward` genuinely ignores the field, so
+   * demanding it would make every reward test carry a number the function throws
+   * away. The collector's record is a superset -- it also carries `startClock`,
+   * `value`, `hidden` and the six per-head triples -- and it is a plain object in
+   * `scripts/`, which `tsconfig.json`'s `include` does not cover, so **no static
+   * check sees any of those fields.** `generalizedAdvantages`' refusal by name is
+   * the only guard on the duration, and it is the reason that refusal exists
+   * rather than a default of 1.
+   */
   readonly durationSeconds?: number;
 }
 
@@ -127,8 +287,9 @@ export interface PpoHeadLayer { readonly rows: number; readonly columns: number;
 /**
  * The categorical heads PPO trains, in output-contract order.
  *
- * **Five, and every size, offset and divisor below is derived from this array
- * rather than written beside it.** The entropy report was `entropy /
+ * **Six, and every size, offset and divisor below is derived from this array
+ * rather than written beside it -- with one stated exception, which is the whole
+ * trap the sixth head sets.** The entropy report was `entropy /
  * (rows.length * 2)` -- the head count spelled as a literal, correct for exactly
  * as long as `headGradient` was called twice per row -- and the only assertion
  * on it anywhere in the tree was `report.entropy > 0`, which any positive
@@ -136,27 +297,30 @@ export interface PpoHeadLayer { readonly rows: number; readonly columns: number;
  * two and a half times the mean per-head entropy under a name that says
  * otherwise, and nothing would have gone red.
  *
- * **Persistence is deliberately not here, and PPO therefore produces 25 of the
- * 26 outputs.** It is a *continuous* action: a Gaussian or Beta head with a
- * different log-probability in the importance ratio, a different entropy term
- * and a different clipping story. That is an algorithm change wearing a contract
- * change's clothes, and PPO emits a *label* rather than a raw 26-vector, so the
- * width contract does not bind it. The constant is `UNLEARNED_PERSISTENCE` in
- * `meta.ts`, which `train-ppo.mjs` reads at both its decode sites and which
- * `lookahead.ts` and `train-lookahead.mjs` import as well.
+ * **The exception is any count of *contract outputs*.** For the five heads above
+ * `persistence`, a head's logit count and its share of the 26-wide output
+ * contract are the same number, because a categorical over n options occupies n
+ * contract slots. The persistence head breaks the coincidence: eight logits over
+ * `PERSISTENCE_SECONDS`, one contract slot. `train-ppo.mjs` therefore keeps
+ * `HEAD_LOGITS` and `HEAD_CONTRACT_SLOTS` as two named tables, and a single one
+ * summed over this array would have recorded `producedOutputs: 33` against a
+ * contract of 26 while looking exactly as derived as it did at 25.
  *
- * **This said it lived in `deployment.ts` and that the two look-ahead files still
- * spelled `0.4` out, and all three claims went stale in the commit after they were
- * written.** Stage C2c moved it down to `meta.ts` -- `deployment.ts` imports
- * `lookaheadMind`, so importing back would have been a cycle -- and pointed both
- * look-ahead files at it. `ppo.ts` was not in that diff, which is how a comment
- * describing three other files came to be wrong about all three: a note about where
- * somebody *else* keeps a constant is a note with no test.
+ * **Persistence used to be excluded here, and the reason given was that it is a
+ * *continuous* action** -- "a Gaussian or Beta head with a different
+ * log-probability in the importance ratio, a different entropy term and a
+ * different clipping story". That objection is sound and none of it reaches a
+ * binned head, which reuses the categorical log-probability, the same ratio, the
+ * same clipping and a `log k` entropy bound. `PERSISTENCE_SECONDS` in `meta.ts`
+ * is the grid and carries why it is eight; `UNLEARNED_PERSISTENCE` stays, on the
+ * grid, because `lookahead.ts` and `train-lookahead.mjs` still name it.
  *
- * The artifact records `producedOutputs: 25` beside its provenance so a reader of
- * the artifact does not have to know any of that.
+ * **The reason the constant was safe was not the reason that was written down.**
+ * A single persistence also made every boundary the same length, which is what
+ * made a flat per-boundary gamma correct; `generalizedAdvantages` above carries
+ * the measurement and what learning the persistence does to it.
  */
-export const PPO_POLICY_HEADS = Object.freeze(["movement", "action", "effector", "target", "stance"] as const);
+export const PPO_POLICY_HEADS = Object.freeze(["movement", "action", "effector", "target", "stance", "persistence"] as const);
 export type PpoPolicyHeadName = typeof PPO_POLICY_HEADS[number];
 
 export interface PpoTrainableHeads extends Record<PpoPolicyHeadName, PpoHeadLayer> { value: PpoHeadLayer }
@@ -178,13 +342,13 @@ export interface PpoPolicyBoundary {
   readonly input?: readonly number[]; readonly previousHidden?: readonly number[];
   readonly hidden: readonly number[];
   readonly movement: number; readonly action: number; readonly effector: number;
-  readonly target: number; readonly stance: number;
+  readonly target: number; readonly stance: number; readonly persistence: number;
   readonly movementSupported: readonly number[]; readonly actionSupported: readonly number[];
   readonly effectorSupported: readonly number[]; readonly targetSupported: readonly number[];
-  readonly stanceSupported: readonly number[];
+  readonly stanceSupported: readonly number[]; readonly persistenceSupported: readonly number[];
   readonly oldMovementProbability: number; readonly oldActionProbability: number;
   readonly oldEffectorProbability: number; readonly oldTargetProbability: number;
-  readonly oldStanceProbability: number;
+  readonly oldStanceProbability: number; readonly oldPersistenceProbability: number;
   readonly oldValue: number; readonly valueTarget: number; readonly advantage: number;
 }
 /** What one head contributed to one boundary, read by name so a typo is a compile error. */
@@ -195,6 +359,12 @@ Readonly<{ index: number; supported: readonly number[]; oldProbability: number }
   effector: (row) => ({ index: row.effector, supported: row.effectorSupported, oldProbability: row.oldEffectorProbability }),
   target: (row) => ({ index: row.target, supported: row.targetSupported, oldProbability: row.oldTargetProbability }),
   stance: (row) => ({ index: row.stance, supported: row.stanceSupported, oldProbability: row.oldStanceProbability }),
+  // The index into `PERSISTENCE_SECONDS`, never the dwell in seconds: this is
+  // the sample a categorical log-probability is taken at, and a head whose
+  // "index" was a duration would renormalize over a support of eight numbers
+  // that are not the eight indices its logits are.
+  persistence: (row) => ({ index: row.persistence, supported: row.persistenceSupported,
+    oldProbability: row.oldPersistenceProbability }),
 });
 export interface PpoUpdateReport { readonly policyLoss: number; readonly valueLoss: number;
   readonly entropy: number; readonly recurrentGradientNorm: number;

@@ -118,8 +118,16 @@ const boutSeconds = measured.reduce((sum, row) => sum + row.seconds, 0);
 // `UNLEARNED_STANCE` at its own call site, so a lookahead candidate prints
 // `stance: {chosen: 1, modal: "action-default", modalShare: 1, freeModalShare: 1}`
 // -- byte for byte what a learned stance head collapsed onto one option prints.
-// PPO writes the constant `UNLEARNED_PERSISTENCE` (0.4) for the same reason one
-// field over. `dagger` and `neat-qd` decide all five heads and a persistence.
+// PPO wrote the constant `UNLEARNED_PERSISTENCE` (0.4) for the same reason one
+// field over until its sixth head landed; it decides a dwell from
+// `PERSISTENCE_SECONDS` now, and `lookahead` is the one algorithm left naming
+// that constant. `dagger` and `neat-qd` decide all five heads and a persistence.
+//
+// **No row printed here is about the persistence at all**, whichever algorithm
+// produced it: `headUtilisation` reads the five-name joint tuple key and the
+// dwell is not in it. A candidate whose dwell head collapsed onto one bin prints
+// identically to one that sweeps the grid, which is the same defect this comment
+// is about, one head further out, and is registered rather than fixed.
 //
 // A reader holding the algorithm name can tell "never varied" from "cannot
 // vary". Without it there is no way to, and the mistake runs in the direction

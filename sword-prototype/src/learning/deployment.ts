@@ -6,7 +6,7 @@ import { ResearchArtifact, type ResearchArtifactContract } from "./artifact.ts";
 import { DAGGER_HEAD_NAMES, predictDagger, type DaggerLabel, type DaggerModel } from "./dagger.ts";
 import { FEATURE_COLUMNS, FEATURE_VERSION } from "./features.ts";
 import { lookaheadMind, LOOKAHEAD_DEPTH, LOOKAHEAD_WIDTH } from "./lookahead.ts";
-import { META_OUTPUT_LAYOUT, UNLEARNED_PERSISTENCE, deployableActions, readMetaOutput,
+import { META_OUTPUT_LAYOUT, PERSISTENCE_SECONDS, deployableActions, readMetaOutput,
   selectDeployableTactic } from "./meta.ts";
 import { RecurrentNeatNetwork } from "./recurrent-neat.ts";
 import { PPO_POLICY_HEADS } from "./ppo.ts";
@@ -190,18 +190,29 @@ Readonly<{ index: number; probability: number }>;
 export interface RecurrentTactic {
   readonly movement: MovementName; readonly action: HandActionName; readonly effector: EffectorName;
   readonly target: TargetName; readonly stance: StanceName;
+  /**
+   * Already in seconds, and already a member of `PERSISTENCE_SECONDS`.
+   *
+   * The five names above are decoded from their frozen tables here so that no
+   * caller indexes one, and this is the same rule for the sixth head: a caller
+   * holding `indices.persistence` and its own copy of the grid is a caller that
+   * can disagree with the grid the sample was drawn from. `indices.persistence`
+   * remains beside it because that -- and not the dwell -- is what the update's
+   * categorical log-probability is taken at.
+   */
+  readonly persistenceSeconds: number;
   readonly indices: Readonly<Record<typeof PPO_POLICY_HEADS[number], number>>;
   readonly supported: Readonly<Record<typeof PPO_POLICY_HEADS[number], readonly number[]>>;
   readonly probabilities: Readonly<Record<typeof PPO_POLICY_HEADS[number], number>>;
 }
 
 /**
- * A recurrent policy's five heads read as one legal tactic, with the masks
- * **conditioned in contract order**.
+ * A recurrent policy's six heads read as one legal tactic and one dwell, with
+ * the masks **conditioned in contract order**.
  *
  * This is the shape PPO needs and `selectDeployableTactic`'s joint sum is not,
  * and the difference is about the algorithm rather than about taste. PPO's
- * policy is a product of five categorical conditionals: the importance ratio,
+ * policy is a product of six categorical conditionals: the importance ratio,
  * the entropy term and the clipped surrogate are all per head, so each head has
  * to be sampled from a distribution the update can *rebuild*. A joint argmax over
  * the legal tuples is a single categorical over a different support and would need
@@ -227,7 +238,7 @@ export interface RecurrentTactic {
  * Havok as well as synthetically -- `.review/sa27/cells.mjs` accumulates the
  * published mask at every physics sample of 45 bouts and reaches the same 27. The argument does not rest
  * on the number: a categorical over 21 joint outcomes still has a different
- * log-probability from a product of five conditionals, and it is that, not the
+ * log-probability from a product of per-head conditionals, and it is that, not the
  * width, that makes it an algorithm change.
  *
  * **Legality is by construction rather than by refusal.** The action mask is
@@ -241,6 +252,16 @@ export interface RecurrentTactic {
  * sampled under.
  *
  * The stance is unmasked. Every stance is legal on every body.
+ *
+ * **So is the persistence, and for a different reason worth keeping separate.**
+ * The stance is unmasked because every stance is legal on every body; the dwell
+ * is unmasked because `PERSISTENCE_SECONDS` is inside `[MIN_PERSISTENCE,
+ * MAX_PERSISTENCE]` by construction, so the clamp `researchLabelMind` applies to
+ * a label cannot move a bin. Were a bin ever outside that window, this head
+ * would go on reporting a log-probability for a dwell the runtime silently
+ * replaced -- an importance ratio evaluated at an action that was not taken --
+ * which is why the grid's endpoints are pinned to the window rather than merely
+ * chosen inside it.
  */
 export function recurrentTactic(view: FighterView, step: RecurrentStep, pick: TacticHeadPick): RecurrentTactic {
   const movement = pick(step.movementLogits, new Set(MOVEMENT_NAMES.map((_, index) => index)), "movement");
@@ -253,13 +274,17 @@ export function recurrentTactic(view: FighterView, step: RecurrentStep, pick: Ta
   const target = pick(step.targetLogits, targetSupported, "target");
   const stanceSupported = new Set(STANCE_NAMES.map((_, index) => index));
   const stance = pick(step.stanceLogits, stanceSupported, "stance");
-  const picks = { movement, action, effector, target, stance };
+  const persistenceSupported = new Set(PERSISTENCE_SECONDS.map((_, index) => index));
+  const persistence = pick(step.persistenceLogits, persistenceSupported, "persistence");
+  const picks = { movement, action, effector, target, stance, persistence };
   const supported = { movement: [...MOVEMENT_NAMES.keys()], action: [...actionSupported],
-    effector: [...effectorSupported], target: [...targetSupported], stance: [...stanceSupported] };
+    effector: [...effectorSupported], target: [...targetSupported], stance: [...stanceSupported],
+    persistence: [...persistenceSupported] };
   return Object.freeze({
     movement: MOVEMENT_NAMES[movement.index] as MovementName, action: actionName,
     effector: EFFECTOR_NAMES[effector.index] as EffectorName, target: TARGET_NAMES[target.index] as TargetName,
     stance: STANCE_NAMES[stance.index] as StanceName,
+    persistenceSeconds: PERSISTENCE_SECONDS[persistence.index] as number,
     indices: Object.freeze(Object.fromEntries(PPO_POLICY_HEADS.map((name) => [name, picks[name].index]))) as RecurrentTactic["indices"],
     supported: Object.freeze(Object.fromEntries(PPO_POLICY_HEADS.map((name) => [name, Object.freeze(supported[name])]))) as RecurrentTactic["supported"],
     probabilities: Object.freeze(Object.fromEntries(PPO_POLICY_HEADS.map((name) => [name, picks[name].probability]))) as RecurrentTactic["probabilities"],
@@ -333,8 +358,10 @@ export function deployedResearchMind(artifact: ResearchArtifact, bodyLoadout: st
   }
   if (artifact.data.algorithm === "ppo") {
     const weights = decoded.weights as unknown as RecurrentPolicyWeights;
+    // The sixth entry is `PERSISTENCE_SECONDS.length` and not a name table's,
+    // which is the one place this shape guard stops reading like the other five.
     const rows = { movement: MOVEMENT_NAMES.length, action: HAND_ACTION_NAMES.length, effector: EFFECTOR_NAMES.length,
-      target: TARGET_NAMES.length, stance: STANCE_NAMES.length } as const;
+      target: TARGET_NAMES.length, stance: STANCE_NAMES.length, persistence: PERSISTENCE_SECONDS.length } as const;
     if (!weights || weights.inputSize !== FEATURE_COLUMNS.length ||
         PPO_POLICY_HEADS.some((name) => weights[name]?.rows !== rows[name])) {
       throw new Error("ppo artifact has the wrong recurrent feature/action shape");
@@ -343,7 +370,7 @@ export function deployedResearchMind(artifact: ResearchArtifact, bodyLoadout: st
     const labeler: ResearchLabeler = (view, features) => {
       const tactic = recurrentTactic(view, policy.step(features), argmaxHeadPick);
       return { movement: tactic.movement, action: tactic.action, effector: tactic.effector,
-        target: tactic.target, stance: tactic.stance, persistence: UNLEARNED_PERSISTENCE };
+        target: tactic.target, stance: tactic.stance, persistence: tactic.persistenceSeconds };
     };
     return researchLabelMind("ppo", labeler, onDecision);
   }

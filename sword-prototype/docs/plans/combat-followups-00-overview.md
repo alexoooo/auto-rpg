@@ -1157,20 +1157,20 @@ not specific enough to be wrong; these are the places this one was.
    offers fewer units than that: look-ahead **3,100** (`train-lookahead.mjs#L364`), NEAT-QD 80
    generations (`train-neat-qd.mjs#L20`), DAgger **5** iterations (`collect-dagger.mjs#L18`),
    PPO **2** arms -- `equalBudgetPpoArms` returns exactly `["random", "dagger"]`
-   (`src/learning/ppo.ts#L96-L100`). No `N` divides five into twenty-four.
+   (`src/learning/ppo.ts#L256-L260`). No `N` divides five into twenty-four.
    **Consequence:** the unit of work is re-cut before the cadence is chosen. DAgger checkpoints
    at the eight shards inside `collect()` (`collect-dagger.mjs#L64`), PPO at the boundary loop
-   inside `collectPpoTrajectory` (`train-ppo.mjs#L98-L127`). Both are already index-addressed,
+   inside `collectPpoTrajectory` (`train-ppo.mjs#L125-L162`). Both are already index-addressed,
    so the job-index cadence rule survives intact. The requirement was always legibility, not
    the number twenty-four; the number is what legibility costs at a one-hour spacing.
 2. **PPO spends twice its stated budget.** `equalBudgetPpoArms` assigns the full `solverSteps`
-   to *both* arms (`ppo.ts#L98-L99`), and `tests/ppo.test.mjs#L64-L66` pins that deliberately.
+   to *both* arms (`ppo.ts#L258-L259`), and `tests/ppo.test.mjs#L115-L117` pins that deliberately.
    Every ceiling derived for PPO in session 20 is therefore a per-arm ceiling and the run costs
    2x. PPO is also the only direction with no exact-budget assertion, so it under-spends as
    well; the ledger's `stepsConsumed` is the only honest figure.
 3. **Validation worst-cell exists in one direction of four.** NEAT-QD computes it for real
    (`research-rollout-worker.mjs#L87`). PPO writes `macro: reward, worstCell: reward` -- the
-   same scalar (`train-ppo.mjs#L174`). DAgger has only `validationLoss`, and look-ahead only a
+   same scalar (`train-ppo.mjs#L238`). DAgger has only `validationLoss`, and look-ahead only a
    summed calibration **severity** -- each column as a fraction of its deployed limit
    (`train-lookahead.mjs#L295-L297`), which since session 19 is what `calibrationScore` sums
    rather than three raw quantities in three units; both are **lower-is-better**, which inverts the
@@ -1191,7 +1191,7 @@ not specific enough to be wrong; these are the places this one was.
    `train-lookahead.mjs` never read `result.engagement` at all. The signed-margin gate table is
    net-new plumbing in three directions, not a formatting change.
 5. **Look-ahead has no resume, no state file and no coherent mid-run checkpoint.**
-   `--stop-after-jobs` exists only in `train-ppo.mjs#L180`; the handoff's claim that it and
+   `--stop-after-jobs` exists only in `train-ppo.mjs#L244`; the handoff's claim that it and
    `--resume` are general is wrong. Worse, a look-ahead `TacticalModel` first exists only after
    a complete train sweep (`train-lookahead.mjs#L373`) and is uncalibrated until the validation
    sweep (`train-lookahead.mjs#L378`), so a champion-so-far at row *k* is a computation the run does not otherwise
@@ -1203,7 +1203,7 @@ not specific enough to be wrong; these are the places this one was.
    whatever session 19 builds should report the pair count it actually searched.
 6. **`configDigest` is two incompatible formats.** NEAT-QD and DAgger use 16 hex characters of
    SHA-256 (`train-neat-qd.mjs#L50`, `collect-dagger.mjs#L36`); PPO and look-ahead use 8 hex
-   characters of FNV-1a (`train-ppo.mjs#L190`, `train-lookahead.mjs#L388-L389`). The artifact
+   characters of FNV-1a (`train-ppo.mjs#L254`, `train-lookahead.mjs#L388-L389`). The artifact
    validator only requires a non-empty string (`artifact.ts#L165`). Preflight normalizes this
    before it can compare anything.
 7. **A SHA-256 contract digest cannot live in `src/learning/`.** That tree is browser-imported

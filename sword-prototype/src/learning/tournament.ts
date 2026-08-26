@@ -532,10 +532,18 @@ export interface HeadUtilisation {
  * collapsed.** `lookaheadMind` writes the constant `UNLEARNED_STANCE` and has no
  * stance head at all, so a lookahead candidate's `stance` row is
  * `{chosen: 1, modal: "action-default", modalShare: 1, freeModalShare: 1}` --
- * indistinguishable from a learned stance head that settled on one option. PPO
- * writes the constant `UNLEARNED_PERSISTENCE` one field over. Nothing in this
- * record can say which, so `scripts/evaluate-ai.mjs` puts `algorithm` on every
- * utilisation row and a reader has to use it.
+ * indistinguishable from a learned stance head that settled on one option.
+ * Nothing in this record can say which, so `scripts/evaluate-ai.mjs` puts
+ * `algorithm` on every utilisation row and a reader has to use it.
+ *
+ * **PPO was the second instance of that and no longer is**: it wrote
+ * `UNLEARNED_PERSISTENCE` one field over until the sixth head landed, and now
+ * chooses a dwell from `PERSISTENCE_SECONDS`. Look-ahead still names the
+ * constant, so the trap survives one field over from where it was -- and note
+ * that no head here is the persistence head. `TacticTuple` is the five-name
+ * joint key, so a collapsed *dwell* is invisible to this record whichever
+ * algorithm produced it; that is registered rather than fixed, in
+ * `docs/plans/combat-followups-99-found-not-fixed.md`.
  */
 export function headUtilisation(candidate: Pick<TournamentCandidate, "tacticCounts" | "freeChoiceCounts">):
   Readonly<Record<keyof TacticTuple, HeadUtilisation>> {

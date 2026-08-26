@@ -6,7 +6,7 @@ import { ResearchArtifact, artifactChecksum, canonicalJson } from "../src/learni
 import { RESEARCH_ARTIFACT_CONTRACT, decodeResearchArtifact, deployedResearchMind } from "../src/learning/deployment.ts";
 import { FEATURE_COLUMNS, FEATURE_VERSION } from "../src/learning/features.ts";
 import { initialPopulation } from "../src/learning/genome.ts";
-import { META_OUTPUT_LAYOUT } from "../src/learning/meta.ts";
+import { META_OUTPUT_LAYOUT, PERSISTENCE_SECONDS } from "../src/learning/meta.ts";
 import { GRU_UNITS } from "../src/learning/recurrent-network.ts";
 import { TACTICAL_MODEL_VERSION, TACTICAL_STATE_COLUMNS } from "../src/learning/tactical-model.ts";
 import { freezeTournamentManifest } from "../src/learning/tournament.ts";
@@ -36,7 +36,11 @@ const headEntries = (build) => Object.fromEntries(Object.entries(HEAD_TABLES).ma
 const ppo = () => ({ weights: { inputSize: FEATURE_COLUMNS.length, units: GRU_UNITS,
   update: layer(GRU_UNITS, FEATURE_COLUMNS.length + GRU_UNITS), reset: layer(GRU_UNITS, FEATURE_COLUMNS.length + GRU_UNITS),
   candidate: layer(GRU_UNITS, FEATURE_COLUMNS.length + GRU_UNITS),
-  ...headEntries((table) => layer(table.length, GRU_UNITS)), value: layer(1, GRU_UNITS) } });
+  // Six heads for PPO against `HEAD_TABLES`' five: the persistence head is a
+  // categorical over `PERSISTENCE_SECONDS`, which is not a name table, and
+  // `dagger()` below regresses the same quantity with a sigmoid instead.
+  ...headEntries((table) => layer(table.length, GRU_UNITS)),
+  persistence: layer(PERSISTENCE_SECONDS.length, GRU_UNITS), value: layer(1, GRU_UNITS) } });
 const dagger = () => ({ featureCount: FEATURE_COLUMNS.length, hiddenCount: 1,
   hiddenWeights: Array(FEATURE_COLUMNS.length).fill(0), hiddenBias: [0],
   ...headEntries((table) => ({ labels: table, weights: Array(table.length).fill(0), bias: Array(table.length).fill(0) })),

@@ -31,7 +31,7 @@ all-`true`, so it cannot answer anything else. The five `if (!safety.X) failures
 in `assessTournamentCandidate` are therefore **dead in production**, reachable only from test
 literals.
 
-`docs/design.md:325` documents the five as a registration requirement -- *"and five safety flags --
+`docs/design.md:339` documents the five as a registration requirement -- *"and five safety flags --
 finite/anatomical commands, capability masking, no post-verdict action, no stuck action, and
 lifecycle"* -- with nothing behind them. No separate harness computes them and is merely unwired;
 there is no producer at all.
@@ -281,9 +281,26 @@ folding them into a pooled share.
 
 `lookaheadMind` hardcodes `UNLEARNED_STANCE` and has no stance head at all, so a look-ahead candidate
 prints the exact signature of a collapsed head -- free on every decision, one option chosen, modal
-share 1.0 -- by design. PPO's persistence is likewise the constant `0.4`, and `lookaheadMind` has no
-persistence window at all: its re-decision condition carries no clock term, yet it reports
-`UNLEARNED_PERSISTENCE` on every label.
+share 1.0 -- by design. `lookaheadMind` has no persistence window at all either: its re-decision
+condition carries no clock term, yet it reports `UNLEARNED_PERSISTENCE` on every label.
+
+**PPO's half of this is closed and the entry's real point survived it.** PPO's persistence was the
+constant `0.4` when this was written and is a learned categorical over `PERSISTENCE_SECONDS` now, so
+one of the two algorithms named here moved. What did not move is the thing that made the entry worth
+writing: **the record still cannot tell a head that collapsed from a head that does not exist.**
+
+And there is now a third case, which is larger than either: **no head in the record is the
+persistence head at all.** `headUtilisation` reads the five-name joint tuple key, and the dwell is
+not one of its fields, so a PPO candidate whose persistence head settled on a single bin prints
+byte-for-byte what one sweeping the whole grid prints -- for every algorithm, including the two that
+learn it. That is the same defect one head further out, and it is not covered by putting `algorithm`
+on the utilisation row, because the algorithm no longer distinguishes the cases.
+
+**Why not fixed.** Adding the dwell to `TacticTuple` widens the joint key by eight, and entry 17's
+first bullet already measures that key as too sparse for joint questions at 2,520 cells. The useful
+version is a *marginal* over the eight bins carried beside the joint map, the way
+`freeChoiceCounts.effector` is -- a schema change to the row record and its two validators, which is
+a session rather than a fix.
 
 Separately, **a centipede consumes no posture.** `src/bodies/centipede.ts` publishes crouch, trunk
 lean and trunk twist as zero and never reads `input.posture`, so on the three centipede cells -- 6 of
@@ -335,6 +352,81 @@ to tests applies to its controls.
   `handActionOption`'s `knownAim` accepts `"as-measured"`. A hand-built artifact could therefore
   drive an unparseable key into a row. Narrow, pre-existing, and refused at the first
   `mergeTournamentRows`, which is the intended behaviour.
+
+### 18. The boundary progress reward does not telescope, and the persistence head can farm it
+
+`tacticalBoundaryReward` in `src/learning/ppo.ts` is
+`terminal * 4 + (endVitalityPotential - startVitalityPotential) + clamp(nearRangeProgress, +-0.2)`.
+The vitality term telescopes across boundaries -- consecutive boundaries share an endpoint, so a
+whole bout sums to its total vitality change however it was cut up. **The progress term is clipped
+per boundary and therefore does not.** Cutting a bout into more boundaries clips less of the same
+closure, so more boundaries accrue more progress reward, and the number of boundaries is now a thing
+a learned head decides.
+
+**Measured.** Coverage: the persistence forced to each of the eight bins of `PERSISTENCE_SECONDS`,
+every one of the 90 jobs of `researchMatrix("train", 310013)`, 1200 solver steps each, an untrained
+randomly-initialised recurrent policy with a per-head RNG, the league opponent
+`indexedLeagueOpponent` picks per index (`.review/persist/sweep.mjs`; `docs/measurements.md` carries
+the table and the story of the first, invalid, version of this measurement). Clipped progress per
+bout is **1.054** at the 0.10 bin against **0.336** at the 0.80 bin, while the *unclipped* sum moves
+only 152.9 to 127.6 over the same 90 bouts. So the clip is doing it, and the gap is **0.72 of reward
+a bout** to minimal persistence -- against a terminal reward whose whole magnitude is 4.
+
+**The mechanism is boundary count, and it is checkable rather than asserted.** Clipped progress per
+bout divided by boundaries per bout is 0.0221 to 0.0263 across all eight bins -- flat to within
+9 % -- so the term really is "about 0.025 per boundary, however many there are". The requested bin
+controls boundary count steeply in the lower half and barely in the upper, which is why the raw
+sums are not monotone in the bin and an earlier version of this entry read them as though they were.
+
+**It is not the discounting defect and is independent of it.** The flat-gamma bias -- a 34.7 %
+spread in what a terminal is worth, decided by dwell -- is closed by making `generalizedAdvantages`
+discount by elapsed time. An earlier version of this entry said the two were "partly cancelling"
+and that fixing one **unmasks** the other. That is a claim about interaction and the measurement
+does not support it: the progress bias is a property of the reward function and is present, at the
+same size, with either discount. The two are also not the same size. The terminal spread is worth
+at most `4 * 0.2289 * (34 / 90) = 0.35` a bout and about 0.23 at the median bin, because only 18-34
+of 90 bouts reach a terminal at all -- roughly **3x smaller** than the progress term, not "the same
+order". And its *sign* follows the terminal's: wins against losses run 14/20, 3/15, 11/13, 9/10,
+9/16, 8/14, 8/12 and 10/13 across the bins, net-negative in every one, so on this coverage space a
+flat gamma penalises long dwell rather than rewarding it.
+
+**Why not fixed.** Every candidate repair changes the reward function every existing PPO artifact
+was trained under, and each has its own argument: clip the progress over the *bout* rather than the
+boundary (needs a per-bout accumulator the boundary record does not have); scale the clip by the
+boundary's duration (couples reward to the thing being learned, which is how a shaping term becomes
+a dwell incentive of the opposite sign); or drop the clip and rely on the telescoping (which is what
+the clip was added to prevent -- `telescoping_progress_cannot_be_farmed_by_crossing_one_range_boundary_repeatedly`
+in `tests/ppo.test.mjs` is the test that would go red, and it is right).
+
+**Cost to close.** One session, and it should be taken together with a training run: this is a
+number about what a policy is paid, so the only honest verification is a trained head whose dwell
+distribution is compared before and after, which no test in this tree can stand in for.
+
+### 19. `valueEpsilon` was never re-derived against the horizon that changed under it
+
+`ppoHeadUpdate`'s `valueEpsilon = 0.2` is an **absolute** clip on how far the value prediction may
+move in one update. It was chosen against a flat per-boundary gamma whose effective horizon was
+about 30 s of bout; the discount is per second now with a horizon of 40.3 s, so the return the value
+head is asked to predict has changed both its scale and its meaning -- it is a time-discounted
+return over unevenly spaced boundaries, where before it was a step-discounted one over even ones.
+
+**Measured, on the tree that ships.** `|valueTarget - oldValue|` -- which is `|advantage|`, exactly
+the distance the clip bounds -- over four `collectPpoTrajectory` runs at seed 310013, 1200 solver
+steps each, jobs 0-3, untrained random initialisation: n = 73 boundaries, mean **0.292**, p50
+**0.223**, p90 **0.626**, p99 **1.230**, max **1.308**. **53.4 %** of updates are already past the
+0.2 clip. So the clip is not a rare guard on outliers, it is the common case, and it was the common
+case before this change too.
+
+**Why not fixed.** Re-deriving it means choosing a number against a distribution from a *trained*
+policy, and the one above is untrained: an untrained value head predicts near zero, so almost the
+whole advantage shows up as target movement. A number chosen from this distribution would be a
+number about initialisation. The honest fix is a bracketed sweep during a real training run,
+which is a compute decision rather than an edit.
+
+**What is safe to say now.** The clip's behaviour is unchanged by this session -- it clipped a
+majority of updates before and after -- so nothing here made it worse. It is written down because
+"an absolute epsilon against a horizon that moved" is the kind of thing that goes unexamined
+precisely because it did not break.
 
 ---
 
@@ -398,9 +490,9 @@ Three live pointers were genuinely wrong and are fixed: `kinds.ts` at `src/mind.
 `src/hands.ts`, and `src/weapon.ts` re-exports them from there ten lines below the comment that said
 otherwise; and `DESIGN.md` at `src/options.ts:530`, whose `TARGET_SPAN_FRACTION` argument is in
 `docs/measurements.md` and is not in the repository-root `DESIGN.md` at all. Two more were fixed that
-no register of this shape can catch: `sword.ts` at `src/main.ts:670` and `docs/design.md:584` both
+no register of this shape can catch: `sword.ts` at `src/main.ts:670` and `docs/design.md:594` both
 read "go and read it", and `src/sword.ts` really was deleted, so the register passes them forever.
 `docs/deleted-paths.md` says so in place rather than hiding it.
 
 The entry's line numbers had rotted too, which is the defect describing itself: it wrote
-`docs/design.md:579` for a pointer at 584 and `src/options.ts:357` for one at 530.
+`docs/design.md:579` for a pointer at 594 and `src/options.ts:357` for one at 530.

@@ -1,4 +1,5 @@
 import { EFFECTOR_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TARGET_NAMES } from "../options.ts";
+import { PERSISTENCE_SECONDS } from "./meta.ts";
 
 export const GRU_UNITS = 32;
 
@@ -10,7 +11,7 @@ export interface DenseLayer {
 }
 
 /**
- * The five categorical heads and the row count each one owes the runtime.
+ * The six categorical heads and the row count each one owes the runtime.
  *
  * Written as a table rather than as five arguments because `finiteLayer` used to
  * be handed `weights.movement.rows` as the row count it was checking
@@ -21,10 +22,18 @@ export interface DenseLayer {
  * whatever `dense` produced for the six rows it had -- with `HAND_ACTION_NAMES[6]`
  * unreachable. `tests/ppo.test.mjs`'s own fixture was that artifact, and had been
  * since the file was written.
+ *
+ * **`persistence` is the one row count that is not a name table's length**, and
+ * that is the seam the sixth head introduces everywhere it touches: five heads
+ * own one contract output per logit, and the persistence head owns eight logits
+ * over one contract output. `PERSISTENCE_SECONDS` is the grid, `meta.ts` carries
+ * why it is eight, and `train-ppo.mjs` keeps the logit count and the contract
+ * slot count as two named tables because a single one was 25 of 26 by
+ * coincidence and would silently have become 33 of 26.
  */
 const HEAD_ROWS = Object.freeze([
   ["movement", MOVEMENT_NAMES.length], ["action", HAND_ACTION_NAMES.length], ["effector", EFFECTOR_NAMES.length],
-  ["target", TARGET_NAMES.length], ["stance", STANCE_NAMES.length],
+  ["target", TARGET_NAMES.length], ["stance", STANCE_NAMES.length], ["persistence", PERSISTENCE_SECONDS.length],
 ] as const);
 export type RecurrentHeadName = typeof HEAD_ROWS[number][0];
 
@@ -43,6 +52,8 @@ export interface RecurrentStep {
   readonly effectorLogits: readonly number[];
   readonly targetLogits: readonly number[];
   readonly stanceLogits: readonly number[];
+  /** Over `PERSISTENCE_SECONDS`, not over seconds: `recurrentTactic` is what turns an index into a dwell. */
+  readonly persistenceLogits: readonly number[];
   readonly value: number;
   readonly hidden: readonly number[];
 }
@@ -129,6 +140,7 @@ export class RecurrentPolicy {
       effectorLogits: Object.freeze(dense(this.weights.effector, this.state)),
       targetLogits: Object.freeze(dense(this.weights.target, this.state)),
       stanceLogits: Object.freeze(dense(this.weights.stance, this.state)),
+      persistenceLogits: Object.freeze(dense(this.weights.persistence, this.state)),
       value: dense(this.weights.value, this.state)[0] as number, hidden: Object.freeze([...this.state]) });
   }
   snapshot(): readonly number[] { return Object.freeze([...this.state]); }

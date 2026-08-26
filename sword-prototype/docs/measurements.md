@@ -3120,7 +3120,7 @@ masks it and there is nothing to trade it against.
   stale-anchor complaint as well. The checker reaches these files and validates exactly this.
 
   It cannot see the plan set's anchors because they are written as **inline code spans** with
-  bare file names -- `` `train-ppo.mjs#L182` `` -- and `checkGlobalInternalLinks` only inspects
+  bare file names -- `` `train-ppo.mjs#L246` `` -- and `checkGlobalInternalLinks` only inspects
   the `href` of a Markdown link or image. So the cheap fix is not a change to the checker: it is
   to write each anchor as a Markdown link whose href is a real relative path ending in the same
   `#Lnnn`, at which point the existing gate
@@ -6170,7 +6170,7 @@ Three were live and named a file that is not where the argument lives:
 
 Two more were fixed that **no register of this shape can catch**, and that limit is written into
 `docs/deleted-paths.md` rather than left implicit. `src/main.ts:670` said "for the reason `sword.ts`
-gives at length" and `docs/design.md:584` said "because `sword.ts` adds three shapes for five
+gives at length" and `docs/design.md:594` said "because `sword.ts` adds three shapes for five
 meshes". `src/sword.ts` really was deleted — in `c80a59d`, the commit that added `src/weapon.ts` —
 so the register passes both forever, while a reader can follow neither. The register answers "was
 this path deleted", not "did the writer mean go and read it". The same hole sits one step further
@@ -6209,3 +6209,391 @@ matters because that checker does walk `sword-prototype/docs/**`, `docs/plans/` 
 3.52 s (1.42–8.98), 176.17 damage, 10 severs, 1496/1670 scoring contacts, identical to the pin. For
 a change that edits comments and prose it is structurally incapable of moving, and the discipline
 this file applies to tests applies to its controls.
+
+## The sixth PPO head, and the discount that made a flat gamma wrong — 2026-08-26
+
+PPO produced 25 of the output contract's 26 columns. The 26th, persistence, was the constant
+`UNLEARNED_PERSISTENCE = 0.4`. It is a learned categorical over eight dwell times now, and the change
+that made that honest is not the head — it is `generalizedAdvantages`, which discounted per boundary
+and now discounts per second.
+
+**Harness for every number in this section: the headless research bench.** `runResearchBout` in
+`scripts/research-havok.mjs`, which is `scripts/measure.mjs`'s bout loop under a research matrix job.
+Nothing here was taken from the page, and AGENTS.md's rule about not putting two harnesses in one
+column applies.
+
+### The first version of this section was measured on the wrong tree
+
+**Read this before any number below.** The sweep scripts that produced the first draft
+(`.review/persist/dwell.mjs` and `.review/persist/reward.mjs`, both deleted) drove every head of one
+decision from a single `seededRandom(SEED ^ jobIndex)`. `recurrentTactic` draws once per head, so
+**the sixth head changed the number of draws per decision**, shifted the stream, and made every bout
+diverge from the one the pre-change tree would have run. Because the sweeps *force* the persistence
+rather than reading it, nothing in them could notice.
+
+The published table matched `HEAD` — the tree before the change — column for column, and matched the
+tree that ships in no column at all. Found by an adversarial review that ran the unmodified script in
+two sandboxes:
+
+| | published | HEAD | shipped tree |
+| --- | ---: | ---: | ---: |
+| 0.10 boundaries/bout | 43.80 | **43.80** | 43.13 |
+| 0.10 clipped progress | 101.169 | **101.169** | 94.746 |
+| 0.10 unclipped | 161.440 | **161.440** | 147.177 |
+| 0.80 clipped progress | 30.026 | **30.026** | 36.432 |
+
+`.review/persist/sweep.mjs` replaces both, gives each head its own stream so the *existence* of a
+head cannot move another head's draws, and is what every number below was taken with. **What that
+does not remove, and what belongs in the coverage space:** forcing a different dwell changes how
+many decisions a bout takes, so the bins consume different numbers of draws and their trajectories
+differ. That is the thing being measured.
+
+The dwell table's conclusions survived the correction. The reward table's did not, and one of them
+was wrong in sign; both are restated below rather than silently replaced.
+
+### The coverage space, stated once
+
+- every one of the **90** jobs of `researchMatrix("train", 310013)` — 15 cells × 3 opponents × 2
+  mirrors — with `indexedLeagueOpponent`'s pick substituted for the matrix's own opponent, which is
+  what `collectPpoTrajectory` does;
+- **1200 solver steps** a job, which is 5.0 s of bout at `CONFIG.world.physicsHz` = 240 and comes out
+  at 4.61–4.79 s of clock actually advanced;
+- an **untrained**, randomly-initialised recurrent policy (`initialPpoWeights(310013, "random")`)
+  deciding all six heads by seeded categorical sampling, one stream per head;
+- the persistence **forced** to each grid value in turn, so this measures what a request buys rather
+  than what a trained head would ask for.
+
+**What it does not cover, and all three matter.** One seed and one initialisation, so nothing here
+separates the policy from the bodies. The *train* split only. And an **untrained** policy, which is
+load-bearing for the sign of one finding below and is named again where it is.
+
+### A requested dwell is a ceiling, and mostly not reached
+
+`researchLabelMind` re-decides when the persistence timer expires **or** the skill finishes, so a
+long request is only spent when the skill outlasts it.
+
+| requested | boundaries | /bout | sim s | mean dwell | p10 | median | p90 | max | timer-ended |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.10 | 3825 | 42.50 | 4.65 | 0.1093 | 0.1000 | 0.1167 | 0.1167 | 0.1167 | 97.6 % |
+| 0.20 | 2114 | 23.49 | 4.79 | 0.2038 | 0.1833 | 0.2167 | 0.2167 | 0.2167 | 82.9 % |
+| 0.30 | 1576 | 17.51 | 4.73 | 0.2699 | 0.1833 | 0.3000 | 0.3167 | 0.3167 | 57.6 % |
+| 0.40 | 1385 | 15.39 | 4.73 | 0.3072 | 0.1833 | 0.3000 | 0.4167 | 0.4167 | 35.7 % |
+| 0.50 | 1228 | 13.64 | 4.64 | 0.3400 | 0.1833 | 0.3000 | 0.5167 | 0.5167 | 34.4 % |
+| 0.60 | 1192 | 13.24 | 4.67 | 0.3526 | 0.1833 | 0.3000 | 0.5333 | 0.6167 | 5.9 % |
+| 0.70 | 1187 | 13.19 | 4.70 | 0.3560 | 0.1833 | 0.3000 | 0.5333 | 0.7167 | 5.3 % |
+| 0.80 | 1155 | 12.83 | 4.61 | 0.3594 | 0.1833 | 0.3000 | 0.5333 | 0.8167 | 4.8 % |
+
+"timer-ended" is the share of boundaries whose real dwell reached the request. The dwell quantum is
+1/60 s, which is why a 0.40 request tops out at 0.4167: the timer is read on the decision step after
+it expires.
+
+**The head's effective range is 3.3x, not 8x.** Mean dwell spans 0.109 to 0.359 while the request
+spans 0.10 to 0.80. The four lowest bins separate cleanly (+0.095, +0.066, +0.037, +0.033 per step);
+the top three are within 0.007 s of each other, under half a decision step. They are still not the
+same bin — only a 0.80 request can hold a decision for 0.8167 s, and the `max` column is where that
+shows. **So the resolution a learned head actually has is in the lower half**, which is the half a
+policy would use to decide *faster* than the constant it replaced. This is a property of the current
+skill durations against these opponents, not of the grid, and is worth re-taking when the option
+layer's timings move.
+
+### The two reward terms, and the terminal column that decides a sign
+
+| requested | clipped progress | /bout | unclipped | clipped rows | vitality | wins | losses |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.10 | 94.825 | 1.0536 | 152.910 | 21.65 % | -15.660 | 14 | 20 |
+| 0.20 | 51.828 | 0.5759 | 143.057 | 41.53 % | -14.173 | 3 | 15 |
+| 0.30 | 38.660 | 0.4296 | 139.288 | 46.26 % | -3.778 | 11 | 13 |
+| 0.40 | 30.608 | 0.3401 | 136.415 | 47.51 % | -0.868 | 9 | 10 |
+| 0.50 | 31.545 | 0.3505 | 132.904 | 49.19 % | -7.831 | 9 | 16 |
+| 0.60 | 31.315 | 0.3479 | 129.238 | 49.24 % | -4.735 | 8 | 14 |
+| 0.70 | 30.074 | 0.3342 | 128.382 | 47.85 % | -6.497 | 8 | 12 |
+| 0.80 | 30.263 | 0.3363 | 127.563 | 48.23 % | -3.978 | 10 | 13 |
+
+Sums are over all 90 bouts; `/bout` divides by 90.
+
+**The progress term tracks boundary count, and that is checkable rather than assertable.** Clipped
+progress per bout divided by boundaries per bout is 0.0248, 0.0245, 0.0245, 0.0221, 0.0257, 0.0263,
+0.0253 and 0.0262 — flat to within 9 % across a grid whose boundary count varies 3.3x. So the term
+really is "about 0.025 a boundary, however many there are", the requested bin controls that count
+steeply in the lower half and barely in the upper, and **the raw sums are therefore not monotone in
+the bin.** The first draft of this section quoted them as though they were and read a monotone
+mechanism off them; the mechanism was right and the reading was not.
+
+The *unclipped* sum moves 152.9 to 127.6 while the clipped one moves 94.8 to 30.3, so the clip is
+what does it.
+
+**The terminals are net-negative in every bin**, which the first draft never printed and which
+decides the sign of the next section: wins against losses run 14/20, 3/15, 11/13, 9/10, 9/16, 8/14,
+8/12 and 10/13, and 18–34 of the 90 bouts reach a terminal at all. An untrained policy losing to the
+league is not a surprise; it is load-bearing anyway, because a claim has to match its own evidence.
+
+### The flat-gamma bias: a 34.7 % spread in what a terminal is worth
+
+| requested | `0.99^(n-1)` | flat return/bout | per-second return/bout | delta | flat terminal/bout |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.10 | 0.6590 | 0.6849 | 0.6366 | -0.0482 | -0.1968 |
+| 0.20 | 0.7977 | -0.0092 | -0.0567 | -0.0475 | -0.4443 |
+| 0.30 | 0.8471 | 0.3117 | 0.3102 | -0.0015 | -0.0757 |
+| 0.40 | 0.8654 | 0.3028 | 0.2992 | -0.0036 | -0.0361 |
+| 0.50 | 0.8807 | -0.0146 | -0.0177 | -0.0032 | -0.2846 |
+| 0.60 | 0.8842 | 0.0573 | 0.0540 | -0.0034 | -0.2432 |
+| 0.70 | 0.8847 | 0.1122 | 0.1065 | -0.0057 | -0.1558 |
+| 0.80 | 0.8879 | 0.1839 | 0.1783 | -0.0056 | -0.1132 |
+
+Bout length is flat across the sweep — 4.61 to 4.79 s, a 4 % spread — and boundary count is not: 42.5
+against 12.8. Under a gamma applied once per boundary, a terminal reached at the end of a bout is
+weighted `0.99^(n-1)`, so it counts for 0.6590 at the 0.10 bin and 0.8879 at the 0.80 bin: a
+**34.7 %** spread in what the same outcome is worth, decided by dwell.
+
+**That is a magnitude, and the sign follows the terminal's.** The first draft called it "a 35 %
+return advantage to maximal persistence", which is only true where terminals are net positive. Here
+they are net negative in all eight bins, so a flat gamma *penalises* long dwell on this coverage
+space. A trained policy may flip it. What does not flip is that the weight on a terminal moves by a
+third with a quantity that is not about the fight.
+
+**Like for like, per bout, it is the smaller of the two biases.** Only 18–34 of 90 bouts reach a
+terminal, so the spread is worth at most `4 × 0.2289 × (34 / 90) = 0.35` a bout and about 0.23 at the
+median bin — against **0.72** a bout for the progress term (1.0536 − 0.3363). Roughly 3x apart. The
+first draft compared 0.91 — a weight gap times the *maximum possible* |terminal| — against 0.79, an
+unconditional per-bout mean, which is not a comparison.
+
+**And the two are independent.** The first draft said fixing the discount "unmasks" the progress
+bias. That is a claim about interaction and nothing measured supports it: the progress term is a
+property of the reward function and is present, at the same size, under either discount.
+
+### What the change is worth, measured, and why it lands anyway
+
+The `delta` column above is the quantity the change actually changes: mean discounted return per
+bout under this recursion minus the flat one, over the same 90 bouts. It runs −0.048, −0.048, −0.002,
+−0.004, −0.003, −0.003, −0.006, −0.006. Non-monotone, largest magnitude **0.048**.
+
+So the change is **taken on principle, not on effect size**: a discount applied once per boundary is
+not a discount at all once boundary length is a learned quantity, and at 4.7 s of bout there is
+barely any discounting to get wrong either way. Anyone reading this section for a performance
+argument will not find one.
+
+### The grid: eight, from two constraints and one preference
+
+`PERSISTENCE_SECONDS` is `[0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80]`.
+
+Two constraints. It must reach `MIN_PERSISTENCE` and `MAX_PERSISTENCE`, because those are the clamp
+`researchLabelMind` applies and a bin outside them would name a dwell the runtime replaces — an
+importance ratio evaluated at an action nobody took. And it must contain `UNLEARNED_PERSISTENCE`
+exactly, so a learned dwell is comparable with the constant.
+
+**Uniformity is a preference and the first draft called it a constraint.** The entropy bonus is flat
+over *bins* under any grid, so an uneven grid is not unfair in the term; it spends exploration
+unevenly per second of dwell, and only measuring behaviour in dwell-seconds makes that a defect. Its
+measured cost is real: three of the eight bins buy under 0.007 s of mean dwell between them. A grid
+denser at the bottom would fit the measured behaviour better, and was declined because that
+saturation is a property of the current skills against the current opponents and baking one sweep's
+coverage space into the output contract is the trap this file keeps records about.
+
+Given uniform, eight follows: a step reaching 0.10 and 0.80 and landing on 0.40 divides both 0.70
+and 0.30, so it is at most `gcd(0.70, 0.30) = 0.10` and **eight is the coarsest such grid**. The
+finer ones are `1 + 7k` points for a step of `0.10 / k` — 15, 22, 29, 36, 43 and so on, an infinite
+family. The first draft wrote "the finer ones are 15, 36 and 71", which are `k = 2, 5, 10`, presented
+as though it were the set.
+
+**A binned head is not the continuous head `PPO_POLICY_HEADS` declined.** A grid reuses the
+categorical log-probability, the importance ratio, the clipped surrogate and the `log k` entropy
+bound unchanged. A Gaussian or Beta changes all four, and its differential entropy can be negative
+and is bounded by nothing — which would have made the pinned mean-per-head entropy in
+`tests/ppo.test.mjs` a number about something else without moving it.
+
+**Nothing checked in re-decodes.** `asset-src/learning/` holds `neat-qd`, `dagger` and `lookahead`
+champions and no PPO artifact, and `deployedResearchMind`'s shape guard refuses a five-head PPO
+payload outright. So no digest moves and no frozen champion changes behaviour; the comparability the
+grid buys is for future runs.
+
+**One float claim in the sketch is wrong and the caution behind it is right.** `0.1 + 3 * 0.1` is
+**not** `0.4000000000000001`; it is exactly `0.4`. What a generated grid gets wrong is `i = 2` and
+`i = 6` — `0.30000000000000004` and `0.7000000000000001` — and `(i + 1) / 10` reproduces all eight
+exactly. The literals stay, and
+`the_persistence_grid_pins_the_window_the_unlearned_constant_and_a_uniform_step` asserts against both
+spellings so the table cannot be tidied into either without being told which values move.
+
+### The discount rate, the trace decay, and why only one is converted
+
+```
+PPO_GAMMA_PER_SECOND = 0.99 ** (1 / UNLEARNED_PERSISTENCE) = 0.9751871871081982   per second
+PPO_TRACE_LAMBDA     = 0.95                                                        per decision
+```
+
+**Gamma is physical and lambda is not.** Gamma states that reward arriving later in *seconds* is
+worth less, so it belongs in the exponent. Lambda interpolates between TD(0) and Monte Carlo over
+n-step returns, and n counts **decisions**; a boundary is one decision however long it took. Put
+lambda in the exponent as well — the `(gamma * lambda) ** dt` spelling — and the credit-assignment
+window becomes a function of the dwell the sixth head is learning: over ten boundaries the trace
+decays by 0.9405 at the 0.10 bin and by `0.9405^8 = 0.605` at the 0.80 bin. That is the same coupling
+the change exists to remove, one term over. At `lambda = 1` the two spellings are one expression,
+which is why the composition test could not tell them apart and why
+`the_trace_decays_per_decision_and_the_discount_per_second` exists at `lambda = 0.5`.
+
+**The exactness is checked, not derived, and the reason first written down was wrong.** It said the
+round trip is exact because `1 / 0.4 === 2.5`. It is exact for all eight grid values, including 0.3,
+0.6 and 0.7 where `1 / p` has no exact double, and for essentially every exponent at or below one:
+sampling `p` at 4,000 points in `(0, 1]` gives **3,999** exact round trips for gamma, and sampling
+4,000 points in `(1, 41]` gives **376**. Raising by `p <= 1` contracts the first power's relative
+error; above one it amplifies it. The exceptions above one are the powers of two — 2 and 8 round trip
+and 3, 5 and 9 do not.
+
+The old product spelling had a seam this one does not: `(gamma * lambda) ** p` is exact at 0.10,
+0.40, 0.50, 0.70 and 0.80 and **not** at 0.20, 0.30 or 0.60. Multiplying by a plain 0.95 has no such
+case. Both facts are asserted.
+
+**"The discounting does not move at all" was false and is now stated correctly.** A boundary
+*requested* at 0.4 s does not *last* 0.4 s — measured mean dwell at that bin is 0.307 s and only
+35.7 % reach the request. So the effective horizon lengthens from `100 × 0.307 = 30.7` s to
+`1 / (1 - gamma) = 40.3` s, and a bout-end terminal at that bin is weighted 0.8879 under the new rate
+against 0.8653 under the old flat one — **2.6 % apart**. The rates are exact at the reference; the
+trajectories are not. Inferring the second from the first is the defect, and it sat three paragraphs
+from a passage that stated the difference correctly.
+
+### The two counts an artifact records, which were one number by coincidence
+
+`producedOutputs` was `PPO_POLICY_HEADS.reduce((sum, name) => sum + HEAD_ROWS[name], 0)` = 25, against
+`contractOutputs: META_OUTPUT_LAYOUT.width` = 26. `HEAD_ROWS` is a count of **logits**, and for five
+categorical-over-a-name-table heads that equals the count of **contract slots**, because a categorical
+over n names occupies n columns of the contract.
+
+The persistence head ends the coincidence: eight logits, one contract slot. Left alone the same sum
+records **33 of 26** — a number larger than the contract it is compared against, and no less
+derived-from-the-frozen-tables in appearance. `scripts/train-ppo.mjs` keeps `HEAD_LOGITS` and
+`HEAD_CONTRACT_SLOTS` as two named tables, `PPO_POLICY_HEADS`' docstring says where its own "every
+size, offset and divisor is derived from this array" stops being true, and
+`an_artifact_counts_contract_slots_rather_than_logits` asserts 26 and 33 separately off a real
+artifact rather than off the two exports.
+
+### The mutation table
+
+Every test added or touched, watched failing under a deliberate mutation of the line it is about.
+Each mutation was applied with binary I/O, the affected suites run, and the original bytes restored
+(`.review/persist/mutate.mjs`); `git diff --numstat` and `git diff --ignore-cr-at-eol --numstat` agree
+afterwards, so no line ending was rewritten on the way past. Suites run: `ppo`, `learning`,
+`lookahead`, `tournament-executor`, `neat-qd` — 111 tests.
+
+**The mutation column is written without backticks on purpose**, following the convention `81030fb`
+set: these are literal edits, and a code span here is a live reference the docs gate judges.
+
+| # | mutation, verbatim | goes red |
+| --- | --- | --- |
+| M1 | ppo.ts: gamma ** step.durationSeconds becomes gamma in the delta | the discount pin; the trace pin |
+| M2 | ppo.ts: gamma ** step.durationSeconds * lambda becomes gamma * lambda in the trace | the discount pin; the trace pin |
+| M3 | ppo.ts: PPO_GAMMA_PER_SECOND = 0.99 ** (1 / UNLEARNED_PERSISTENCE) becomes 0.99 | the_per_second_rate_reproduces_the_flat_discount_at_the_unlearned_persistence |
+| M4 | ppo.ts: PPO_TRACE_LAMBDA = 0.95 becomes 0.95 ** (1 / UNLEARNED_PERSISTENCE) | the same |
+| M5 | meta.ts: the grid's 0.40 becomes 0.45, so it no longer contains the constant | the grid pin; the rate pin |
+| M6 | meta.ts: the literal grid becomes Array.from({ length: 8 }, (\_, index) => 0.10 + index \* 0.10) | the grid pin; the rate pin; the league champion |
+| M7 | train-ppo.mjs: HEAD_CONTRACT_SLOTS' persistence: 1 becomes persistence: PERSISTENCE_SECONDS.length | an_artifact_counts_contract_slots_rather_than_logits |
+| M8 | train-ppo.mjs: the mid-bout duration becomes the requested 0.4 instead of the elapsed clock | every_boundary_a_ppo_trajectory_records_carries_the_time_it_actually_lasted |
+| M9 | ppo.ts: the entropy divisor's PPO_POLICY_HEADS.length becomes 5 | ppo_updates_policy_weights_value_head_and_reports_clipping_and_entropy |
+| M10 | deployment.ts: PERSISTENCE_SECONDS[persistence.index] becomes PERSISTENCE_SECONDS[0] | three tests, including the conditional-mask sweep |
+| M11 | deployment.ts: the persistence head is picked from step.stanceLogits | three tests, including the stored-conditionals test |
+| M12 | ppo.ts: the duration guard becomes if (false), so a missing duration is silently NaN | ppo_clipping_and_advantages_match_the_pinned_hand_calculation |
+| M13 | deployment.ts: the PPO labeler's persistence becomes the literal 0.4 again | every_producer_of_a_research_label_writes_the_same_six_fields |
+| M14 | recurrent-network.ts: persistenceLogits is computed from this.weights.stance | two tests, including the stored-conditionals test |
+| M15 | train-ppo.mjs: the GAE call site passes 0.99, 0.95 instead of the two constants | the boundary-duration test |
+| M16 | train-ppo.mjs: the final boundary's duration becomes 0 | the boundary-duration test |
+| U5 | train-ppo.mjs: collectPpoTrajectory's label persistence becomes the literal 0.4 | the boundary-duration test |
+| U6 | ppo.ts: the trace becomes (gamma \* lambda) ** step.durationSeconds | the_trace_decays_per_decision_and_the_discount_per_second |
+| U7 | train-ppo.mjs: ppoUpdateRows' valueTarget becomes row.oldValue | the boundary-duration test |
+| U8 | ppo.ts: PPO_POLICY_HEADS is reversed | the_policy_heads_are_in_output_contract_order_and_the_flat_layout_follows_it |
+
+**Seven mutations were green when first run, and every one was a hole rather than a finding about
+the mutation.** Three were caught by this session's own battery (C1–C3) and four by an adversarial
+review (U5–U8). All seven are red above. This is the table's most useful column and it is the one
+that had to be produced twice:
+
+| # | what stayed green | what it meant |
+| --- | --- | --- |
+| C1 | the artifact's gammaPerSecond and traceLambda both set to 0 | no number in a PPO artifact's provenance was asserted anywhere |
+| C2 | the frozen-league champion's persistence set to the literal 0.4 | the third decode site fought at somebody else's dwell |
+| C3 | producedOutputs and producedLogits both set to 99 | the same hole as C1, on the two counts this change is about |
+| U5 | collectPpoTrajectory's label persistence set to 0.4 | **the training data need not have run at the sampled dwell** — the head samples a bin, stores its index and its probability, and is trained on a bout that ran at a constant |
+| U6 | the trace raised to the duration as well | the pinned recursion used lambda = 1 and dt = 1, where the two spellings coincide, so it could not see the choice it was pinning |
+| U7 | the value target set to the prediction it already makes | the value head learning nothing was invisible |
+| U8 | PPO_POLICY_HEADS reversed | the flat weight layout the resume and the payload depend on had no pin, while "in output-contract order" was in the docstring |
+
+**Two controls stayed green and both are "there was nothing to mutate" rather than "nothing
+noticed".** The distinction is the point of running them:
+
+| # | control, verbatim | result |
+| --- | --- | --- |
+| C4 | train-ppo.mjs: the final boundary's Math.max(0, ...) clamp is removed | **green** — the clamp guards a case the bout loop cannot produce; `lastClock` is never before the last decision |
+| C5 | ppo.ts: 0.99 \*\* (1 / UNLEARNED_PERSISTENCE) becomes 0.99 \*\* (1 / 0.4) | **green** — the same double, so nothing changed to be caught |
+
+**Two tests were rewritten because a mutation found them self-satisfying**, which is AGENTS.md's
+first named shape both times:
+
+- the boundary-duration test compared the sum of durations against the last boundary's own
+  `startClock + durationSeconds`. Forcing the final duration to zero shrinks both sides equally, so
+  M16 was green. It compares against `result.lastClock` — the bout's own reading — now.
+- the same test asserted "the durations are not all equal, so the sixth head decided something".
+  Durations vary under a *constant* dwell too, because the skill ends a boundary as often as the
+  timer does — only 35.7 % of boundaries at the 0.40 bin reach their request. The setup satisfied the
+  assertion. What replaced it is a bound tying each boundary's realised dwell to the bin **its own
+  recorded index names**, with a non-zero count of boundaries that reached it so the bound is not
+  vacuous.
+
+### What is still not tested, named rather than left to be found
+
+- **Nothing here shows the head learning anything.** Every test is about the mechanism — the decode,
+  the grid, the log-probability, the discount arithmetic. The only honest check of a dwell
+  distribution moving is a real training run.
+- **The record cannot see a collapsed dwell head.** `headUtilisation` reads the five-name joint tuple
+  key and the persistence is not in it. Register entry 14.
+- **The progress-clip bias is unfixed**, at 0.72 a bout. Register entry 18.
+- **`valueEpsilon` was never re-derived** against a horizon that moved, and already clips 53.4 % of
+  updates. Register entry 19.
+- **One seed, one initialisation, one split, one untrained policy** for the whole sweep.
+
+### The gate
+
+`npm run check` clean. `npm test` **588 passed, 0 failed** — 580 before, plus **eight** new tests.
+Counted rather than added up: the five suites the battery runs were 103 at `HEAD` and are 111 now.
+An earlier version of this line read "585, plus six: five new and one rewritten in place", which was
+wrong twice — a rewritten test adds nothing to a count, and the arithmetic did not match the number
+the runner printed. `npm run build` clean. `node tools/check_docs.js` from the repository root stays at its 29 known
+pre-existing problems, **none of them matching "sword-prototype"**.
+
+Null control, `node scripts/measure.mjs --only duelist-swinger --bouts 120`, seed 20260823: duelist
+66/120 = 55.0 %, 3.52 s (1.42–8.98), 176.17 damage, 10 severs, 1496/1670 scoring contacts —
+identical to the pin. **It is a regression check that passed and it is not evidence this change is
+safe**, for the reason register entry 16 gives: `scripts/measure.mjs` imports nothing from
+`src/learning/` — checked, not quoted — and `duelist-swinger` runs `policyMind`, which never enters a
+`CombatOption`.
+
+### Anchors re-pointed, and the method that got it wrong the first time
+
+`tests/docs.test.mjs` cannot see an anchor that still lands inside its file and now points at the
+wrong line, so every anchor into a file whose length moved has to be re-pointed by hand. **The first
+pass did that by arithmetic — add the file's net line delta — and it was wrong in three ways**: it
+missed `src/learning/ppo.ts` and `tests/ppo.test.mjs` entirely, the two largest movers, leaving six
+anchors rotted and green; it carried a pre-existing off-by-eight forward as though verified
+(`ppo.ts:319` named a divisor that was at 327, and +102 produced 421 for a line at 429); and a net
+delta is the wrong number anyway, because the insertions are not all above the anchor.
+
+The method that works, and what `.review/persist/anchors.mjs` does: print what each anchor lands on
+now, find the construct the prose names, and refuse any target that is not unique.
+
+| anchor | was | now | names |
+| --- | ---: | ---: | --- |
+| `src/learning/ppo.ts` | `#L96-L100` | `#L256-L260` | `equalBudgetPpoArms` |
+| `src/learning/ppo.ts` | `#L98-L99` | `#L258-L259` | both arms get the full budget |
+| `src/learning/ppo.ts` | `:319` | `:497` | the entropy divisor — was already eight lines off |
+| `tests/ppo.test.mjs` | `#L64-L66` | `#L115-L117` | the equal-budget pin |
+| `scripts/train-ppo.mjs` | `#L98-L127` | `#L125-L162` | `collectPpoTrajectory`'s boundary loop |
+| `scripts/train-ppo.mjs` | `#L174` | `#L238` | `macro: reward, worstCell: reward` |
+| `scripts/train-ppo.mjs` | `#L180` | `#L244` | `--stop-after-jobs` |
+| `scripts/train-ppo.mjs` | `#L182` | `#L246` | a bare file-name example |
+| `scripts/train-ppo.mjs` | `#L190` | `#L254` | the `configDigest` fold |
+| `scripts/train-ppo.mjs` | `#L217` | `#L284` | `--resume-from` |
+| `src/learning/recurrent-network.ts` | `:74` | `:85` | `maskedArgmax`'s refusal |
+| `src/learning/recurrent-network.ts` | `:31-38` | `:40-47` | `RecurrentPolicyWeights` |
+| `tests/tournament-executor.test.mjs` | `:106-135` | `:110-139` | the empty-maps test |
+| `docs/design.md` | `:325` | `:339` | the five safety flags — was already four lines off |
+| `docs/design.md` | `:584` | `:594` | the sword's three boxes |
+
+`meta.ts:28` was kept on `UNLEARNED_PERSISTENCE` by rewriting that docstring line-for-line rather
+than letting it grow, and `docs/design.md` was kept line-neutral through the second pass for the same
+reason.

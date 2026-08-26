@@ -23,7 +23,7 @@ a reference to a live file that had rotted would sail through.
 path deleted", not "did the writer mean go and read it". `src/sword.ts` really was deleted,
 so a reference to `sword.ts` passes -- and both of the ones this prototype had were
 instructions to a reader (`src/main.ts:670` "for the reason `sword.ts` gives at length",
-`docs/design.md:584` "because `sword.ts` adds"), which no reader can follow. Both were
+`docs/design.md:594` "because `sword.ts` adds"), which no reader can follow. Both were
 re-pointed by hand on 2026-08-25. The register would have passed them forever. The same
 hole exists one step further out: a reference that names the *wrong existing* file resolves
 and is invisible to any check of this shape -- `src/options.ts:530` named `DESIGN.md` for an

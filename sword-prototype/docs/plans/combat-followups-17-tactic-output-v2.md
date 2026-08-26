@@ -31,7 +31,7 @@ after capability-neutral recovery and hand-required cover were separated..."*.
 
 Under this plan's rule a centipede, and any fighter that has lost both arms, has an **empty**
 legal set, and `maskedArgmax` throws `"action has no supported tactic"`
-(`src/learning/recurrent-network.ts:74`).
+(`src/learning/recurrent-network.ts:85`).
 `a_learned_policy_can_repeat_one_completed_option_and_goes_inert_after_last_hand_loss` in
 `tests/learning.test.mjs` pins the current behaviour. Named rather than anchored: the line range
 here was already pointing two tests short of it before an import moved it again.
@@ -216,8 +216,8 @@ centipede task, 10 today at 292 ms; that becomes 90 tasks and roughly 2.6 s.
   **Superseded 2026-08-25, and the anchors are struck rather than re-pointed** -- the lines they
   named do not exist any more, so a number would be a fresh-looking pointer at nothing. Stage
   C2b gave PPO its five categorical heads (`RecurrentPolicyWeights` now extends
-  `Record<RecurrentHeadName, DenseLayer>`, `recurrent-network.ts:31-38`) and fixed the divisor
-  to `rows.length * PPO_POLICY_HEADS.length` (`ppo.ts:319`). **"No test pins the divisor" is now
+  `Record<RecurrentHeadName, DenseLayer>`, `recurrent-network.ts:40-47`) and fixed the divisor
+  to `rows.length * PPO_POLICY_HEADS.length` (`ppo.ts:497`). **"No test pins the divisor" is now
   false in two ways**: `ppo_updates_policy_weights_value_head_and_reports_clipping_and_entropy`
   pins its value on a fixture whose five heads have deliberately unequal supports, and
   `the_reported_entropy_is_a_mean_over_rows_as_well_as_over_heads` pins the `rows.length` half
@@ -247,7 +247,7 @@ centipede task, 10 today at 292 ms; that becomes 90 tasks and roughly 2.6 s.
   (`src/learning/artifact.ts:109-112,124`), so the refusal must be an explicit check beside
   `:87`. The contract literal is also duplicated inline in **five** producers plus a test
   fixture, none of which import `RESEARCH_ARTIFACT_CONTRACT`.
-  The model to copy is `tests/tournament-executor.test.mjs:106-135`, which already does exactly
+  The model to copy is `tests/tournament-executor.test.mjs:110-139`, which already does exactly
   the requested thing for the *feature* header. Note `tests/artifact.test.mjs` does not exist.
 - **`behaviourRecord` does not feed the tournament gates.** `MIN_ACTION_SHARE` and
   `MIN_DIVERSE_ACTIONS` read `actionCounts`, produced at `scripts/research-havok.mjs:29,33`

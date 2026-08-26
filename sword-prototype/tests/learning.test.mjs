@@ -5,9 +5,9 @@ import { freshIntent } from "../src/action-primitives.ts";
 import { FEATURE_COLUMNS, FEATURE_VERSION } from "../src/learning/features.ts";
 import { SEED_RANGES, forcedOptionEvaluationMind, mirroredEvaluationJobs, validateSeedRanges } from "../src/learning/evaluation.ts";
 import { InnovationTracker, addEdgeMutation, addNodeMutation, breedGeneration, crossover, hasCycle, initialPopulation, innovationTrackerFor, speciate, speciesSelectionWeights } from "../src/learning/genome.ts";
-import { MAX_PERSISTENCE, META_OUTPUT_LAYOUT, META_OUTPUT_NAMES, MIN_PERSISTENCE, decodeMetaPersistence,
-  deployableActions, deployableTactics, fitnessComponents, noveltyDescriptor, randomMetaMind, readMetaOutput,
-  selectDeployableTactic, supportedOptions } from "../src/learning/meta.ts";
+import { MAX_PERSISTENCE, META_OUTPUT_LAYOUT, META_OUTPUT_NAMES, MIN_PERSISTENCE, PERSISTENCE_SECONDS,
+  decodeMetaPersistence, deployableActions, deployableTactics, fitnessComponents, noveltyDescriptor,
+  randomMetaMind, readMetaOutput, selectDeployableTactic, supportedOptions } from "../src/learning/meta.ts";
 import { RESEARCH_ARTIFACT_CONTRACT, decodeResearchArtifact, deployedResearchMind, supportedActionIndices } from "../src/learning/deployment.ts";
 import { ResearchArtifact, canonicalJson } from "../src/learning/artifact.ts";
 import { neatLabeler } from "../scripts/research-rollout-worker.mjs";
@@ -800,7 +800,11 @@ test("every_producer_of_a_research_label_writes_the_same_six_fields", () => {
   const ppo = { weights: { inputSize: FEATURE_COLUMNS.length, units: GRU_UNITS,
     update: layer(GRU_UNITS, FEATURE_COLUMNS.length + GRU_UNITS), reset: layer(GRU_UNITS, FEATURE_COLUMNS.length + GRU_UNITS),
     candidate: layer(GRU_UNITS, FEATURE_COLUMNS.length + GRU_UNITS),
+    // `HEAD_TABLES` is DAgger's five heads and PPO has six: the persistence head
+    // is a categorical over `PERSISTENCE_SECONDS`, and DAgger regresses the same
+    // quantity with a sigmoid instead. One table cannot size both.
     ...Object.fromEntries(Object.entries(HEAD_TABLES).map(([name, table]) => [name, layer(table.length, GRU_UNITS)])),
+    persistence: layer(PERSISTENCE_SECONDS.length, GRU_UNITS),
     value: layer(1, GRU_UNITS) } };
 
   const flat = { reachMargin: -0.2, facingError: 0.1, threatAlignment: 0, contactProbability: 0, vitalityPotential: 0 };
@@ -826,10 +830,20 @@ test("every_producer_of_a_research_label_writes_the_same_six_fields", () => {
     assert.ok(STANCE_NAMES.includes(label.stance), `${name} stance ${label.stance}`);
     assert.ok(Number.isFinite(label.persistence), `${name} persistence ${label.persistence}`);
   }
-  // PPO produces 25 of the 26 outputs: its persistence is the shared constant
-  // rather than a head, which is recorded here as a number so a session that
-  // adds the sixth head has to come and delete this line.
-  assert.equal(seen.ppo.persistence, 0.4);
+  // **PPO produces all 26 now, and this line is the one the previous note said
+  // a session adding the sixth head would have to come and delete.** It read
+  // `assert.equal(seen.ppo.persistence, 0.4)` -- the shared constant, written
+  // one field over -- and it is a grid member chosen by an argmax instead. The
+  // all-zero fixture makes every persistence logit zero, so `maskedArgmax`
+  // answers the first index and the dwell is `MIN_PERSISTENCE`; that is a
+  // statement about the tie-break, which is why the membership check is beside
+  // it rather than replaced by it.
+  assert.ok(PERSISTENCE_SECONDS.includes(seen.ppo.persistence), seen.ppo.persistence);
+  assert.equal(seen.ppo.persistence, PERSISTENCE_SECONDS[0]);
+  // The four algorithms do not agree about this field and are not meant to:
+  // look-ahead names the constant, so a reader comparing them is comparing a
+  // learned head against an unlearned one.
+  assert.equal(seen.lookahead.persistence, 0.4);
 });
 
 /**

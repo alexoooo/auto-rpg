@@ -16,9 +16,9 @@ real time.
 
 Two claims this plan made about the current code are wrong, and both change the work.
 
-**`--stop-after-jobs` is not general.** It exists only in `train-ppo.mjs#L180`. `--resume` is a
+**`--stop-after-jobs` is not general.** It exists only in `train-ppo.mjs#L244`. `--resume` is a
 bare flag reading a fixed `state.json` in `train-neat-qd.mjs#L66` and `collect-dagger.mjs#L45`,
-and in `train-ppo.mjs#L217` it is `--resume-from <path>` while `--resume <path>` is the *output*
+and in `train-ppo.mjs#L284` it is `--resume-from <path>` while `--resume <path>` is the *output*
 path. **`train-lookahead.mjs` has neither, and no state file at all.** Stop-and-resume for
 look-ahead is built here, before it can be checkpointed.
 
@@ -65,7 +65,7 @@ checkpoints at today, the whole run offers fewer units than one day of rows requ
 | look-ahead | 960 | `train-lookahead.mjs`'s `groups` (3 x 240 train + 240 validation) |
 | NEAT-QD | 80 generations | `train-neat-qd.mjs#L20` |
 | DAgger | **5** iterations | `collect-dagger.mjs#L18` |
-| PPO | **2** arms | `equalBudgetPpoArms` returns exactly `["random","dagger"]`, `ppo.ts#L96-L100` |
+| PPO | **2** arms | `equalBudgetPpoArms` returns exactly `["random","dagger"]`, `ppo.ts#L256-L260` |
 
 No `N` divides five into twenty-four. So the unit is re-cut first, and only then is the cadence
 chosen:
@@ -73,15 +73,15 @@ chosen:
 - **DAgger** checkpoints at the eight shards inside `collect()` (`collect-dagger.mjs#L64`),
   giving 5 x 2 x 8 = 80 units.
 - **PPO** checkpoints at the boundary loop inside `collectPpoTrajectory`
-  (`train-ppo.mjs#L98-L127`), which is today one uninterruptible Havok bout per arm.
+  (`train-ppo.mjs#L125-L162`), which is today one uninterruptible Havok bout per arm.
 - **NEAT-QD** may drop from every fifth generation to every generation; the population sweep at
   `train-neat-qd.mjs#L92-L97` is already the finer unit if 80 proves too few.
 - **Look-ahead** is already fine-grained; what it lacks is resume, above.
 
 Both re-cut boundaries are already index-addressed, so the job-index rule below survives intact
 and resume stays byte-identical. **Also note PPO spends twice its stated budget** -- both arms
-receive the full `solverSteps` (`ppo.ts#L98-L99`), pinned deliberately by
-`tests/ppo.test.mjs#L64-L66` -- so every PPO ceiling in session 20 is a per-arm ceiling.
+receive the full `solverSteps` (`ppo.ts#L258-L259`), pinned deliberately by
+`tests/ppo.test.mjs#L115-L117` -- so every PPO ceiling in session 20 is a per-arm ceiling.
 
 ## What a row can honestly contain
 
@@ -105,7 +105,7 @@ for a structural reason and a gate missed by a controller must never format the 
 | direction | quantity | direction of improvement |
 | --- | --- | --- |
 | NEAT-QD | real validation worst-cell, `research-rollout-worker.mjs#L87` | higher is better |
-| PPO | `macro: reward, worstCell: reward` -- the same scalar, `train-ppo.mjs#L174` | higher is better |
+| PPO | `macro: reward, worstCell: reward` -- the same scalar, `train-ppo.mjs#L238` | higher is better |
 | DAgger | `validationLoss`, `collect-dagger.mjs#L57-L59` | **lower is better** |
 | look-ahead | summed calibration **severity** -- each column as a fraction of its deployed limit, `train-lookahead.mjs#L295-L302` | **lower is better** |
 
