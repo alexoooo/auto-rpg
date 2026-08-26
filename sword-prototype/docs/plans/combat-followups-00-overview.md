@@ -69,7 +69,8 @@ Two further standing rules follow from those.
 
 | session | remaining result | depends on |
 | --- | --- | --- |
-| [18](combat-followups-18-human-gate-feasibility.md) | measure a person on the promotion instrument; settle the open feel questions | 17 |
+| [18a](combat-followups-18a-engagement-instrument.md) | build the engagement recorder and the shared gate table, so a person can be measured at all | 17, 19 |
+| [18b](combat-followups-18-human-gate-feasibility.md) | measure a person on the promotion instrument; settle the open feel questions | 18a |
 | [19](combat-followups-19-run-legibility.md) **complete** | checkpoint ledger, gate table per row, plateau rule, watchable champion-so-far | 17 |
 | [20](combat-followups-20-throughput-and-ceilings.md) | measure real throughput for all four directions and derive every ceiling | 18, 19 |
 | [21](combat-followups-21-research-ladder.md) | one seed per direction under a one-day ceiling, then advance or kill each | 20 |
@@ -78,10 +79,12 @@ Two further standing rules follow from those.
 | [24](combat-followups-24-promoted-ai-integration.md) | integrate one passing artifact, or record the negative result | 23 |
 | [25](combat-followups-25-integration-and-playtest.md) | full lifecycle gate, confirming playtest and durable close-out | 24 |
 
-Sessions 18 and 19 both depended on 17, which has landed, and are independent of each other --
-18 is a person at a keyboard, 19 is the runners -- so run them in whichever order suits the day.
-**Session 19 is no longer only instrumentation**: see what it inherits, below. Session 20 needs
-both.
+**Session 19 has landed, so 18 is the only session left before the compute phase**, and it has
+split. 18 was written as one session and reads as a play-test; four fifths of it is software
+that does not exist, because a human bout produces no engagement row at all today. **18a builds
+the instrument, 18b is the person using it, and 18a lands first.** 18a also depends on 19,
+which shipped the gate-table formatter 18 assumed nobody had written. Session 20 needs both
+halves.
 Session 22 needs 21's verdict. Session 23 does not begin until every surviving direction has a
 complete report and artifact.
 

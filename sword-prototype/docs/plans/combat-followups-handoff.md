@@ -7,6 +7,15 @@
 > automated session is 20 after the human gate work in 18; no held-out tournament or promotion has
 > occurred.
 
+> **The next session is 18a, and it is code.** Session 18 was written as one session and reads
+> as "go and play the game", which is not startable: `behaviourRecord()` has no non-test caller,
+> `src/main.ts` builds no recorder, and a human bout produces no engagement row at all. It has
+> split on session 19's own pattern -- **18a builds the instrument, 18b is the person using it,
+> and 18a lands first.** See `docs/plans/combat-followups-18a-engagement-instrument.md`, which
+> also records the two items session 19 has already done or decided: the gate-table formatter
+> exists in `scripts/research-ledger.mjs` and needs moving rather than writing, and the
+> never-attacked cell's `Infinity` is a landed contract rather than an open choice.
+
 ## Read these three things first
 
 1. **`AGENTS.md`** at the prototype root. The working contract: commands, determinism rules,
@@ -110,9 +119,10 @@ against; it can falsify the whole compute phase for a day's work, which is the a
 
 | session | result | depends on |
 | --- | --- | --- |
-| 18 | measure a person on the promotion instrument; settle the open feel questions | -- |
-| 19 | a run that can be run, then a ledger, plateau rule and watchable champion-so-far | -- |
-| 20 | measure real throughput and derive every ceiling, **in updates** | 18, 19 |
+| 18a | build the engagement recorder and the shared gate table; take no readings | 19 |
+| 18b | measure a person on the promotion instrument; settle the open feel questions | 18a |
+| 19 | **complete** -- a run that can be run, a ledger, plateau rule, watchable champion-so-far | -- |
+| 20 | measure real throughput and derive every ceiling, **in updates** | 18b, 19 |
 | 21 | one seed per direction under a one-day ceiling, then advance or kill each | 20 |
 | 22 | remaining seeds and declared ablations for surviving directions only | 21 |
 | 23 | freeze one selection per surviving direction and execute the test matrix once | 22 |

@@ -1,4 +1,22 @@
-# Session 18 -- point the promotion instrument at a person
+# Session 18b -- point the promotion instrument at a person
+
+> **Split, 2026-08-26. Read `docs/plans/combat-followups-18a-engagement-instrument.md`
+> first, and do not start this file until it has landed.**
+>
+> This session was written as one and reads as "go and play the game". Four fifths of it is
+> software that does not exist: **a human bout produces no engagement row at all today**, so
+> the sitting below cannot be started. The code half is now 18a; what remains here is the
+> person, the readings and the verdicts, unchanged in what they ask for.
+>
+> The filename keeps its `-18-` stem because `src/options.ts` names it in a docstring that
+> has to resolve. The heading is 18b; the path is not.
+>
+> **Three claims below are superseded by session 19 and are struck rather than rewritten.**
+> "No such formatter exists and none of the four current derivations produces a margin" is
+> false -- `scripts/research-ledger.mjs` ships one, and moving it into the TypeScript program
+> is 18a's item 7. The instruction to replace the never-attacked cell's `+Infinity` now
+> re-opens a landed, tested ledger contract; only its human-facing rendering is still open.
+> And items 7 and 10 remain the same optional HUD panel written twice.
 
 > **Corrections, 2026-08-26.** Measured against the tree at `86b74c8`.
 >

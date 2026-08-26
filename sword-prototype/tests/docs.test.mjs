@@ -263,12 +263,21 @@ const SCRATCH_SHARE_OF_DURABLE = { min: 0.02, max: 0.25 };
 // `tests/engagement.test.mjs`, `scripts/freeze-tournament.mjs` and `ledger.jsonl` do
 // not exist because nobody has run sessions 18 and 20 through 23 yet. Session 19 added
 // `tests/ledger.test.mjs`, `tests/plateau.test.mjs` and `tests/deployment.test.mjs`, so
-// `noSuchFile: 10` is
+// `noSuchFile` is
 // now a count of unbuilt work, and it should fall as those sessions land rather than
 // stay put -- which is the opposite of what this pin meant a day ago, and is why the
 // reason is written here instead of only the number.
+//
+// **It rises when a session is split, and 13 -> 10 -> 15 is the whole story of that.**
+// Session 19 took it to 10 by building three of the named files. Splitting session 18 then
+// took it to 15: `combat-followups-18a-engagement-instrument.md` names `src/recorder.ts`,
+// `src/learning/gates.ts` and `scripts/measure-engagement.mjs`, none of which exist, and
+// names `tests/recorder.test.mjs` and `tests/engagement.test.mjs` a second time each --
+// this tally counts occurrences, not distinct paths. So a rise here means a plan got more
+// specific about what it will create, and a fall means somebody created it. Both are
+// correct; neither is a repair.
 const PLAN_SURFACE = {
-  noSuchFile: 10,
+  noSuchFile: 15,
   ambiguousFile: 0,
   anchorIntoDeletedFile: 0,
   orphanContinuation: 0,
