@@ -183,6 +183,7 @@ Baseline taken before any of this work, from `sword-prototype/`, commit `a095877
 | 15 host command boundary | **landed** | `f789ea4`, 459 tests |
 | 16 policy perception v4 | **landed** | `d44fc3e`, 484 tests |
 | 17 tactic output v2 | landed, all stages | `da025f2` `e4ac199` `c149e8c` `7597eb4` `3674e06` `caec629` `c7497af`, 532 tests |
+| -- owner follow-ups | 2 of 4 landed | `4d461ea` `ab52947`, 550 tests |
 | 18 human gate feasibility | not started | -- |
 | 19 run legibility | not started | -- |
 | 20 throughput and ceilings | not started | -- |
@@ -881,6 +882,100 @@ which is why those two are in the key and the stance is not.
 
 Still owed and not this stage's: behaviour records counting effectors, targets and stances, and
 a page-side reading of the replan cost.
+
+### Four things the owner asked to be fixed, after session 17 closed
+
+Session 17 ended with a list of places where the widened contract promised more than the code
+delivered. The owner picked four and asked for the motor pair measured rather than argued. Two have
+landed; the other two are named at the end of this section.
+
+**The aim that points the cut, and the cover hand that means something** (`4d461ea`, 538 tests).
+The stroke arc set the aim as the *centre* of a sweep running a fixed +/-0.50 vertically, so a named
+`high` and a named `low` were the same stroke measured twice. `NAMED_STROKE_SPAN` makes a named
+stroke sweep half a published region spacing; `"as-measured"` keeps the old +/-0.50 so parity is
+preserved by construction rather than by hope. On the defensive side both skills covered with both
+hands *identically*, because neither write knew which hand had been named -- `ACTION_TUNING.guardSpread`
+now keeps the named hand on the covering line and steps the supporting hand outboard, and
+`isHeldStriker` in `hands.ts`, derived from the `GRIPS` table rather than a list of weapon names,
+gives cover three tiers: shield, then held weapon, then bare forearm.
+
+**Six dead writes, and the sweep that could not see five of them.** A 230-cell command surface had
+declared one write dead. Widening the same sweep to 408 cells found it *live* on 8 of them -- the
+230 never built the loadout it fires on -- and turned up two more that really were dead. So the
+count is six dead writes rather than five, and one of the original five was a false positive. This
+is the third time in this effort that an exact sweep over the wrong space produced a confident wrong
+answer, which is why every brief now has to state its coverage space before it states its result.
+
+### A gate that measured nothing, and a limit that was a dial for one movement
+
+`ab52947`, 550 tests. The look-ahead calibration gate is the thing that decides which trained
+artifact becomes the champion. It was measuring its own arithmetic.
+
+**In sample, two of its four columns are identically constant.** `signedReachError` is zero to
+5.489e-17 across every group -- against a worst-group mean absolute error of 0.1617 m, which is the
+quantity somebody reading the gate would think it reported. `contactBrier` in sample is *exactly*
+`p(1-p)`, which is bounded above by 0.25, compared against a threshold of 0.25 with a strict `>`.
+Out of sample the Brier correlated **0.9959** with the base-rate variance of the cell rather than
+with anything the model got right. `calibrationScore` -- which picks the champion -- was 94 % that
+quantity. Fixing it moved no champion at any budget, which is the honest version of the result: the
+gate was not wrong about the winner, it simply was not the reason.
+
+**`close` is the one movement a constant delta cannot represent, and the reason is not the one that
+looks obvious.** The tempting story is that reach margin moves too much during an approach for a
+constant to describe it. `disengage` moves reach margin just as much and is the **best**-fitting
+movement of all five -- 0.0902 against `close`'s 0.2915. The cause is that `close` *terminates*: a
+constant delta can describe a fighter still closing and cannot describe one that has arrived. Non-`close`
+`reachError` maxes at 0.2259, so every scalar threshold between 0.23 and 0.40 refuses exactly zero
+non-`close` keys -- it was never a calibration limit, it was a dial for one movement wearing a
+general name. Split into `reachError: 0.20` with `approachReachError: 0.35` as an explicit
+gross-failure ceiling, whole-gate survival goes **706/775 to 766/775** and no body loses its
+approach planning at any budget.
+
+**A fail-open guard documented as unreachable, and the arithmetic that hid it.** The `max(0, ...)`
+clamp inside `contactRateError` fires on **497 of 2,325** real records, every one of them with
+`p === q` exactly, at -8.3e-17. Without the clamp `sqrt` returns `NaN`, `NaN > 0.25` is false, and
+the gate admits the row. It survived because it fires at the 8x budget *only* -- at the other three
+the row counts make the arithmetic exact -- so a sweep that happened to sample the other budgets
+would have reported the clamp as dead code with complete confidence.
+
+**Six places the adversarial review was itself wrong**, and they are worth more than the confirmations.
+The claim that a revert cost "0.003 % against a 1.393 % margin" conflated two different scores; the
+revert actually changes no ranking at any budget. A "662 cases" figure was not reproducible -- the
+re-measurement finds 976 over an enumeration range the review never stated. The stance figures were
+taken under the limits this commit replaced; re-run under the new ones they hold in direction and
+magnitude (warrior 0.73597 keyed against 0.73751 free; all nine, 0.63847 against 0.63967), which is
+still "under a tenth of a percent", but the numbers on the record are now the ones from the tree as
+it stands.
+
+### The two still owed, and one figure already corrected
+
+- **Behaviour records name the tuple.** `actionCounts` is keyed on `label.action` alone, so a
+  tournament cannot tell a learned effector head from a body that only ever offered one hand. This
+  is the item that decides what a session 22 tournament is able to conclude, so it goes first.
+- **PPO learns its persistence.** Twenty-five of twenty-six outputs are learned; the twenty-sixth is
+  the constant `0.4`. It needs a continuous-action head with a different log-probability in the
+  ratio, which is a change to the update rather than to the contract.
+
+And one number from the earlier list is already wrong. The doc-anchor item was recorded as
+"~35 stale colon-form anchors". Measured over every `.ts`, `.mjs`, `.js` and `.md` file in the
+prototype outside `node_modules`, `dist`, `asset-src` and the gitignored `.review`: there are
+**1,511 code-span file references, of which 123 name a file that does not exist**. Only 67 carry a
+line anchor at all, and none of those points past the end of its file -- so the failure mode is not
+drifting line numbers, it is references to files that session 17 stage A **deleted**
+(`evaluate-options.mjs` 18 times, `promotion.ts` 14, `checkpoint.ts` 12, `training-evaluator.mjs` 11,
+`promotion-evaluator.mjs` 10, `train-meta.mjs` 8, counting every spelling of each path as one file).
+Twenty-one of the 123 sit in live source and
+durable docs rather than in dated plan records, including five in one comment block in
+`src/learning/evaluation.ts` -- and those are the ones that mislead a reader today. The rest are in
+`docs/measurements.md` and `docs/plans/`, where a reference to a script that has since been deleted
+is a correct record of how a measurement was taken and must not be rewritten to pretend otherwise.
+That distinction is the actual design problem in the item, and it is not the one the original note
+described.
+
+The count is measured at `ab52947` and deliberately not re-run against this paragraph, which is
+itself six more of them: naming a deleted script inside backticks is how a record says which script
+took a measurement, and a checker that cannot tell that from a live reference will spend the rest of
+its life being argued with.
 
 ### Findings from the implementation pass that change the plan
 
