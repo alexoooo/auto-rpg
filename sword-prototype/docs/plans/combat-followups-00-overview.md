@@ -186,6 +186,7 @@ Baseline taken before any of this work, from `sword-prototype/`, commit `a095877
 | -- owner follow-ups | 4 of 4 landed | `4d461ea` `ab52947` `e601824` `ab7875f`, 588 tests |
 | -- research matrix | `sword+axe`, 15 cells | 45 strata, 90 jobs, digest `a011a028`, 565 tests |
 | -- doc pointers | landed, gated | `81030fb`, 15 tests, 580 total |
+| -- dwell legibility | landed, gated | `593 tests`, the sixth head is readable |
 | 18 human gate feasibility | not started | -- |
 | 19 run legibility | not started | -- |
 | 20 throughput and ceilings | not started | -- |
@@ -1076,7 +1077,7 @@ requires an anchor to land on a declaration; **149 of 254** resolving anchors he
 mid-statement and almost all are correct, because this prototype points at the line that does the
 thing rather than at the `export` above it. And a symbol-proximity heuristic -- does the identifier
 the prose names sit within four lines? -- was rejected as an assertion after it called
-`tournament.ts:232` stale: that comment names `lookaheadMind` and anchors its *call*, which is
+`tournament.ts:253` stale: that comment names `lookaheadMind` and anchors its *call*, which is
 right. It is reported, never gated, and no pinned number derives from it.
 
 **The gate cannot see a line-shifting edit above an anchor, and this change proved it.** Adding one
@@ -1166,9 +1167,108 @@ ends the rest.
 
 **Eleven line anchors were re-pointed and the pass was arithmetic rather than verification**, which
 carried two pre-existing errors forward as though freshly checked -- an off-by-eight into
-`ppo.ts` and an off-by-four into `docs/design.md`. Six more anchors were missed entirely, all in the
-two largest movers, and all of them still land inside their files, so the gate `81030fb` added stays
-green. That is the blind spot that commit's own header names, arriving one commit later.
+`ppo.ts` and an off-by-four into `docs/design.md`. Six more were missed entirely, all in the two
+largest movers, and all of them still land inside their files, so the gate `81030fb` added stayed
+green. That is the blind spot that commit's own header names, arriving one commit later. **All
+eight were repaired before `908354d`, and the report that listed them as outstanding was wrong** --
+see the next section, which also records that the repair targets proposed for them were arithmetic
+and would have introduced fresh errors had they been applied.
+
+### The dwell the record could not see, and a pointer sweep that read what it landed on
+
+`593 tests`, +5. `ab7875f` made persistence a learned head; nothing could read it. `TacticTuple` has
+five fields, `FREE_CHOICE_TABLES` carries only `effector`, and `headUtilisation` reads the five-name
+joint key -- so a PPO candidate whose dwell head **collapsed to one bin** printed byte for byte what
+one **sweeping the whole grid** printed. The head was learnable and its result was invisible, which
+is the worst order to do those two in.
+
+**Two maps rather than one, and rather than a wider key.** `bins` counts every decision by the dwell
+it asked for; `freeBins` counts the subset where the controller had two or more dwells to name.
+`freeChoiceDecisions: 0` reads "declared no dwell head"; equal to `decisions` with `chosen: 1` reads
+"had all eight bins and used one". Widening `TacticTuple` was rejected on entry 17's measurement --
+555 of 2,520 cells at 2.39 counts each, times eight is a table of ones. Inferring the head from the
+algorithm name is what `evaluate-ai.mjs` already did and what entry 14 rejects, so each mind
+**declares** its `persistenceOptions` where its dwell is produced.
+
+**The keying trap was worse than the brief said.** Verified independently: over the grid spelled as
+literals every bin survives a JSON round trip, but `String()` produces **zero** valid keys for any
+bin (`String(0.1)` is `"0.1"`, not `"0.10"`), and on a regenerated grid `indexOf` finds six of
+eight. Nearest-bin-by-distance maps all eight correctly under either spelling. The brief said
+"generated grids differ"; the sharper fact is that the obvious spelling fails on the literal grid
+too.
+
+**The eight anchors reported as outstanding were already repaired, and the proposed fixes were
+wrong.** Each was checked against the shipped tree by reading the line it lands on:
+`ppo.ts#L256-L260` is `equalBudgetPpoArms`, `#L258-L259` the return that gives both arms
+`solverSteps`, `ppo.test.mjs#L115-L117` the arms assertions, `ppo.ts:497` the entropy divisor,
+`design.md:339` the five safety flags. The remediation had located the constructs. The review that
+called them outstanding proposed `#L188-L192`, which is `+92` arithmetic on a file that grew by
+`102`, and applying it would have introduced the class of error it was reporting. **A finding
+repeated without being re-checked is the same defect as an anchor re-pointed without being read.**
+
+**The sweep that followed read every anchor against its prose.** 245 anchors under the four-spelling
+grammar; 33 of 37 durable ones correct, and roughly 78 of 208 plan-set ones not matching what their
+sentence claims. Three durable defects were repaired. The sharpest is that
+`docs/measurements.md`'s section *"What this gate cannot see, which cost three anchors during this
+change"* **rotted through that exact blind spot**: it pointed into this file at a line 92 lower than
+the content it names, because this file grows. Its two siblings into `combat-followups-17-tactic-output-v2.md` are
+still correct -- the general rule is that a line anchor into a *living* document is structurally
+unstable in a way one into a finished document is not. `src/main.ts#L936` was repaired to `#L940`
+and was **never right at any commit**: the `dt` line has been at 940 since `f789ea4` and at 937
+before that. `scripts/research-havok.mjs:8` named the import where the prose says "for every
+research bout"; the only call is at `:172`, and the same sentence's "four times in
+`tests/integration.test.mjs`" counted an import as a call -- there are three.
+
+**One reported defect was rejected on reading the passage.** `options.ts:190` and `options.ts:461`
+in the re-point table are quotations *of stale anchors*, left alone for the reason the `bout.ts:207`
+bullet three lines above states outright: correcting a quotation destroys the evidence it exists to
+be. The finding read "because they are correct" as a claim that they resolve. They do not, and that
+is the point.
+
+**A class judgement, made rather than escalated.** Roughly 55 of the 78 plan-set mismatches are in
+sessions 15, 16 and 17 -- **landed** sessions whose anchors are instructions written against the
+pre-change tree ("In `src/input.ts#L51-L73`, type `Controls.state` as `Intent`"). Re-pointing a
+completed instruction makes a dated record read as freshly verified, which this file already calls
+worse than leaving it. Those stay. The mismatches in living documents -- this file, sessions 18, 19
+and 23, the register and the handoff -- were repaired by locating each construct and refusing any
+target that was not unique.
+
+**And the tool that found them had the bug it was looking for.** The inventory script written for
+the sweep flattens a comma anchor to `min..max`, so `options.ts:106,143` printed lines 106-110 and
+never showed 143 -- half of every gapped anchor invisible. It also cannot see a bare continuation,
+which the gate does parse: 40 more durable pointers than it counted, so the durable surface is 77
+rather than 37. The count was right for its grammar and its grammar was too narrow, which is the
+fifth time in this effort a number was exact over the wrong space.
+
+### What a long run cannot yet tell anybody, measured before spending one
+
+Sessions 21 and 22 are the compute. Three things about the runners were measured while checking
+whether the tree was ready for them, and none of them is a defect in what landed -- they are the
+work sessions 19 and 20 exist to do, stated with numbers rather than assumed.
+
+**PPO performs exactly two gradient updates per invocation, at any budget.** `ppoHeadUpdate` is
+called once per arm, outside any loop, and `equalBudgetPpoArms` returns exactly two arms; there is
+no `--iterations`, `--epochs` or `--updates` flag. Confirmed by running it at `--solver-steps 64`:
+two rows, two updates. Buying more solver steps buys a **larger single batch**, not more learning.
+NEAT-QD loops `generations` and DAgger loops `iterations`, so three of the four directions scale by
+turning a knob that exists and PPO does not. The sixth head that `ab7875f` added is currently
+trained by two updates. `--workers` on PPO refuses any value but 1 -- honestly, with a throw rather
+than by ignoring it, but that is one thread of the host's 32.
+
+**Three of the four runners emit nothing at all while they run** -- zero write sites in PPO,
+NEAT-QD and DAgger, three in look-ahead. There is no checkpoint ledger, no plateau rule and no
+champion-so-far in the tree; `train-lookahead.mjs` has no state file and cannot be resumed at all,
+and PPO's resume granularity is one arm, so a whole run has two checkpoints. That is session 19,
+whose own text says it exists to do this "before any of them is authorized to spend real time", and
+it is the standing rule from this document's opening restated as a measurement.
+
+**Two open register entries would corrupt a long PPO run specifically, and one of them is now
+visible.** Entry 18's progress term pays **0.72 of reward a bout** to minimal dwell against a
+terminal worth 4 that only 20-34 of 90 bouts reach -- on an untrained policy, so treat the size as
+indicative and the sign as the finding. Entry 19's `valueEpsilon` already clips 53.4 % of updates
+against a horizon that moved from about 30 s to 40.3 s. Both say their honest fix needs a training
+run. What changed here is that the farm is now **legible**: the dwell marginal is what a run would
+show it in, and before this change it would not have shown in anything.
 
 ### Findings from the implementation pass that change the plan
 
@@ -1283,7 +1383,7 @@ Findings that change session 18 specifically:
     effector was chosen and the other does not -- rather than an arbitrary first-row pick.
     `docs/measurements.md` carries the measurement.
 13. **The page's clock is wall-clock derived and the bench's is synthetic.**
-    `src/main.ts#L936` takes `dt = min(engine.getDeltaTime()/1000, CONFIG.world.maxFrameSeconds)`
+    `src/main.ts#L940` takes `dt = min(engine.getDeltaTime()/1000, CONFIG.world.maxFrameSeconds)`
     with the cap at `1/20` (`config.ts#L38`) and feeds it to `combat.advance(dt)` (`#L946`);
     the bench advances by an exact `1/60` (`measure.mjs#L348`). The control step is `1/240` in
     both, so every *duration* accumulator is harness-identical -- but `attack`/`contact` window
@@ -1297,7 +1397,7 @@ Findings that change session 18 specifically:
     (`research-havok.mjs#L65-L66`). The recorder takes the per-fighter `{ view, dt, clock }` --
     that is what makes it side-agnostic and page-drivable -- and the bench call sites adapt.
 15. **The page never sees an `Intent`, and a wrapper is not enough.** `Fighter.update` calls
-    `this.mind.decide` internally and keeps the result (`fighter.ts#L1381`); every bench
+    `this.mind.decide` internally and keeps the result (`fighter.ts#L1458`); every bench
     evaluator captures intent by wrapping the mind. The page's construction site is `mindFor`
     (`main.ts#L314-L317`), but `fighter.mind` is **reassigned at runtime by takeover**
     (`main.ts#L601`, `#L619`), so a wrapper installed once is discarded the first time anybody

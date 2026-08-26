@@ -56,7 +56,7 @@ tracker and one absence.
    with a test.
 4. **Two page-side costs the plan originally missed, both load-bearing.** The page never sees
    an `Intent` -- `Fighter.update` calls `this.mind.decide` and keeps the result
-   (`src/fighter.ts#L1381`) -- so intent must be captured by wrapping the mind, and
+   (`src/fighter.ts#L1458`) -- so intent must be captured by wrapping the mind, and
    `fighter.mind` is **reassigned by takeover** (`src/main.ts#L601`, `#L619`). A wrapper
    installed only in `mindFor` is discarded the first time a person takes a body over, which
    is the only case this session exists to measure; `handOver` (`#L560`) must re-wrap. And
@@ -117,7 +117,7 @@ There is now a second, *named* mechanism for a gate offset, and it is specific t
 The control step is `1/240` in both harnesses, so every duration accumulator -- stall, drought,
 retreat -- is harness-identical. But `attack` and `contact` window arithmetic reads
 `view.clock`, and the page advances that clock by a wall-clock delta capped at `1/20`
-(`src/main.ts#L936`, `src/config.ts#L38`) where the bench advances it by an exact `1/60`
+(`src/main.ts#L940`, `src/config.ts#L38`) where the bench advances it by an exact `1/60`
 (`scripts/measure.mjs#L348`). Under frame drops the page's clock therefore runs fast against
 simulated motion and the 0.75 s opportunity window closes early, which depresses
 opportunity-attack for reasons that have nothing to do with how anybody played. **Record frame
