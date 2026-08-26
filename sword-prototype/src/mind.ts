@@ -7,10 +7,10 @@ import type { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 // the graph a headless harness loads; the two below them are real, and
 // everything they reach is `config.ts`, which reaches nothing.
 import type { HumanOwnership } from "./input.ts";
-// A type, so it erases; and `kinds.ts` imports nothing anyway, which is the
-// property that let the kinds move there in the first place.
-// `hands.ts` imports nothing, so this one is a real import rather than a type
-// one and still costs a headless harness nothing.
+// `hands.ts` imports nothing, which is the property that let the kinds move
+// there in the first place. It is also why this one can be a real import rather
+// than a type-only one and still cost a headless harness nothing: there is no
+// graph behind it to pull in.
 import { HANDS, otherHand, type HandName, type WeaponKind } from "./hands.ts";
 // The dependency on `policies.ts` runs one way only: `policies.ts` takes
 // `Intent`, `Mind` and `FighterView` from here and all three of them are types,

@@ -667,7 +667,7 @@ async function boot(): Promise<void> {
   const settlePending = (): void => {
     for (const read of pending) {
       read.reading.commandMm = poseShiftMm(read.pose, read.fighter.armAngles());
-      // `tipPositionToRef` rather than `tipPosition`, for the reason `sword.ts`
+      // `tipPositionToRef` rather than `tipPosition`, for the reason `weapon.ts`
       // gives at length: the matrix-backed accessor stamps the render id as a
       // side effect and converts every later reader that frame into a reader of
       // this sample. A measurement must not move the thing it measures.

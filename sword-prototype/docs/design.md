@@ -581,7 +581,7 @@ were the capsules Havok held. An authored warrior destroys that property, and th
 knight covers those capsules "is that a hit?" stops being answerable by eye. Building the
 costume first and the x-ray second is how a feel prototype quietly becomes a thing you tune
 through a costume -- so the overlay landed first, and the sharpest check on it is still that
-the sword draws as **three** boxes with the pommel protruding, because `sword.ts` adds
+the sword draws as **three** boxes with the pommel protruding, because `weapon.ts` adds
 three shapes for five meshes. If it draws as five, the overlay is showing render meshes and
 is worthless.
 

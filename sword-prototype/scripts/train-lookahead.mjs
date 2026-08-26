@@ -239,7 +239,7 @@ const writeAtomic = async (path, bytes) => { const target = resolve(path); await
  * fixed by widening the offset and this is not.
  *
  * Measured on real Havok at seed 310013, per (cell, tactic) key,
- * **on the 775-key thirteen-cell schedule** (`.review/calgate`, `p4-sweep.mjs`):
+ * **on the 775-key thirteen-cell schedule** (`.review/calgate/p4-sweep.mjs`):
  *
  * | steps/job | budget then | keys whose held-out rows are bit-identical |
  * | ---: | ---: | ---: |

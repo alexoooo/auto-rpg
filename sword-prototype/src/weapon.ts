@@ -23,7 +23,7 @@ import {
 } from "./hands.ts";
 
 /**
- * The kinds, and the questions about a kind, forwarded from `kinds.ts`.
+ * The kinds, and the questions about a kind, forwarded from `hands.ts`.
  *
  * They are declared over there because they have to be answerable without
  * Babylon: a policy plans a hand by what is in it, and `policies.ts` keeps an

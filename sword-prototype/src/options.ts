@@ -527,8 +527,8 @@ export const TARGET_SPAN_FRACTION = 0.75;
  * asymmetric about the aim, and correctly so.
  *
  * **"A broot, which is a 1.18x warrior" is the whole of the portability this was
- * checked over, and `TARGET_SPAN_FRACTION`'s own argument in `DESIGN.md` reaches
- * a 0.38 m centipede. Here is what happens down there.** A centipede publishes
+ * checked over, and `TARGET_SPAN_FRACTION`'s own argument in `measurements.md`
+ * reaches a 0.38 m centipede. Here is what happens down there.** A centipede publishes
  * `crownHeight` 0.38 and `vitalHeight` 0.209, so a region spacing is 128 mm and
  * a half-spacing is 64 mm. Measured from a warrior's shoulder
  * (`.review/rem2/smallbody.mjs`), the resulting arc is **0.041 to 0.057 cursor

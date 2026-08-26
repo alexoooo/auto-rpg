@@ -621,6 +621,24 @@ single file. `docs/measurements.md` is every number that has been taken, the har
 took it, and the list of what is still owed -- all of which is a judgement about how the
 game feels and needs somebody to play it.
 
+`docs/deleted-paths.md` is generated rather than written: every path that once existed here
+and does not now, taken from `git log --no-renames --diff-filter=D`. It is what lets a comment
+name a deleted script *in order to say it was deleted* without a checker demanding that
+accurate history be falsified. **Regenerate it in the same change that deletes a file** -- the
+command is in its own header, and `tests/docs.test.mjs` fails with the exact difference if you
+forget. That test also gates every backticked file reference and line anchor outside
+`docs/plans/`, so a pointer that stops resolving, or an anchor that runs off the end of its
+file, is a red test rather than a reader's wasted afternoon. It does **not** require an anchor
+to land on a declaration, the way the repository root's `tools/check_docs.js` does: measured over
+this tree, **149 of the 254 anchors that resolve to a source file land mid-statement**, and almost
+all of them are right, because the house style here points at the line that does the thing. That
+ratio holds over every grammar it has been taken under -- it was 101 of 206 under the two-spelling
+sweep that decided it -- and `docs/measurements.md` names the space for each.
+
+**A line-shifting edit is invisible to that gate**, which is its one real limit: an anchor that
+still lands inside its file but now points one line off is neither out of range nor unresolvable.
+Keep an edit above an anchor line-neutral, or re-point what it moved.
+
 Everything else is written beside the code it decides. `src/config.ts` is the tuning
 surface a person reaches, and it is deliberately mutable: the page exposes `window.__sword`, so
 `__sword.config.arm.stiffness = 1600` takes effect on the next frame.

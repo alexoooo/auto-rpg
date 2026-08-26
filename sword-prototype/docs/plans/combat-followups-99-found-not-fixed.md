@@ -173,34 +173,8 @@ each already says "if that session lands without them, they go", which is the ri
 
 ### 10. Roughly 114 code-span file references name a file that does not exist
 
-Measured at `ab52947` over every `.ts`, `.mjs`, `.js` and `.md` file in the prototype outside
-`node_modules`, `dist`, `.deps-stage`, `public` and the gitignored `.review`, resolving each
-reference against the whole tree by path suffix: **1,520 code-span file references, 114 stale, 20 of
-them in live source and durable docs.** Only 67 carry a line anchor at all, and none of those points
-past the end of its file -- so the failure mode is not drifting line numbers, it is references to
-scripts session 17 stage A deleted (`evaluate-options.mjs` 19 times, `promotion.ts` 15,
-`checkpoint.ts` 13, `training-evaluator.mjs` 12, `promotion-evaluator.mjs` 11, `train-meta.mjs` 9).
-
-**The design problem is not the count.** Most of the 114 are *correct*: `src/learning/evaluation.ts:5-7`
-and `src/options.ts:1082-1084` name deleted scripts in order to say they were deleted, and a checker
-that demands they resolve would force falsifying accurate history. A handful are genuinely wrong
-live pointers -- `kinds.ts` at `src/mind.ts:10` and `src/weapon.ts:26`, `sword.ts` at
-`src/main.ts:670` and `docs/design.md:579`, `DESIGN.md` at `src/options.ts:357`. Separating the two
-is the work.
-
-**What is already known about the fix.** `tools/check_docs.js` **does** walk
-`sword-prototype/docs/**`, verified by probe. It catches a missing file and an out-of-range line;
-it checks that a named symbol sits within four lines of the anchor **only when the link text is the
-backticked symbol**; and it separately requires the anchor to point at the start of a declaration,
-a comment block, or the file. Prose link text gets no symbol check. So the conversion that puts an
-anchor under a real check is a Markdown link whose text is the backticked symbol and whose href is
-the source path with an `#L` line fragment, aimed at a declaration. Written out here as prose rather
-than as an example, because `tools/check_docs.js` reads examples too -- the first draft of this
-paragraph spelled the recipe as a real link and the checker refused it for naming a missing file,
-which is the most direct evidence available that the check is live on this directory.
-
-That covers Markdown. It does nothing for the 602 code-span references inside source comments, which
-cannot be Markdown links and would need a prototype-side test.
+**Closed 2026-08-25, and the entry's own numbers were wrong in both directions.** See the Closed
+section at the bottom, and the durable record in `docs/measurements.md`.
 
 ### 11. The research matrix contains no loadout where an attacking action has two legal effectors
 
@@ -392,3 +366,41 @@ Recorded during session 17 stage C2a: the constant had three readers and all thr
 bumping it refused exactly zero rows and a row labelled by teacher 1 was indistinguishable from one
 labelled by teacher 2. Closed in stage C2b -- `validateDaggerRow` now compares it
 (`src/learning/dagger.ts:68`) and `tests/dagger.test.mjs:382-391` watches the refusal fire.
+
+### The stale-reference count was wrong in both directions, and three pointers were genuinely wrong
+
+Entry 10 above put it at "1,520 code-span file references, 114 stale, 20 of them in live source and
+durable docs", and said no anchor points past the end of its file. Re-measured 2026-08-25 at
+`503bd0a` over a wider space -- `.tsx`, `.cjs` and `.jsx` added, the four anchor spellings parsed
+instead of one, and code spans quoted inside code spans made visible: **1,887 references, 50 the
+exact rule cannot verify -- 19 of them outside `docs/plans/`.**
+
+**The 145 in the sentence above belongs to a different sweep and this entry gave it to the wrong
+one.** It is the first sweep's count of file-ish references resolving nowhere out of 1,830, taken
+with a resolver that searched `.review/` and `dist/`; `docs/measurements.md` carries the table that
+keeps the three sweeps apart. That resolver is also why 146 durable references which exist only on
+the machine that wrote them counted as resolving.
+
+**On the anchors the entry was right, and this section said otherwise for an afternoon.** It read
+"two anchors *do* point past the end of their file". They do not. Both were bare `:nnn`
+continuations whose carrier the new checker had to guess and guessed wrong -- the guess is the
+nearest preceding file name, and the prose meant a file named further up. `docs/measurements.md`
+carries the two, with the file, the line and the true carrier. **No anchor in this tree names a
+line past the end of its file**, which is what entry 10 said.
+
+Closed by `tests/docs.test.mjs`, which gates the durable surface -- everything scanned except
+`docs/plans/` -- and pins the plan surface from both sides rather than repairing anchors that are
+deleted when the topic closes. `docs/deleted-paths.md` is the generated register that lets an
+accurate reference to a deleted file pass without anybody hand-maintaining a list of excuses.
+
+Three live pointers were genuinely wrong and are fixed: `kinds.ts` at `src/mind.ts:10` and
+`src/weapon.ts:26`, which named a file that has never existed in this repository -- the kinds are in
+`src/hands.ts`, and `src/weapon.ts` re-exports them from there ten lines below the comment that said
+otherwise; and `DESIGN.md` at `src/options.ts:530`, whose `TARGET_SPAN_FRACTION` argument is in
+`docs/measurements.md` and is not in the repository-root `DESIGN.md` at all. Two more were fixed that
+no register of this shape can catch: `sword.ts` at `src/main.ts:670` and `docs/design.md:584` both
+read "go and read it", and `src/sword.ts` really was deleted, so the register passes them forever.
+`docs/deleted-paths.md` says so in place rather than hiding it.
+
+The entry's line numbers had rotted too, which is the defect describing itself: it wrote
+`docs/design.md:579` for a pointer at 584 and `src/options.ts:357` for one at 530.

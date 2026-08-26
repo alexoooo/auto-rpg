@@ -5426,7 +5426,7 @@ split at every budget.**
 **The recorded sweep is not exactly reproducible, and the disagreement is provenance rather than
 this change.** The shipped-gate column above comes out 100.0 / 99.6 / **98.7** / **84.8** against
 the recorded 100.0 / 99.6 / 98.6 / 85.0 -- one key of 775 and two of 775. My own runs *are*
-bit-reproducible: two runs of `p11-sweep2.mjs` at 595,200, one alone and one four-way parallel,
+bit-reproducible: two runs of `.review/calgate/p11-sweep2.mjs` at 595,200, one alone and one four-way parallel,
 agree to **0.000e+0** on every one of 775 keys in all three candidates. My 148,800 and 297,600
 dumps reproduce the recorded ones to **0.00e+0** as well; 595,200 and 1,190,400 do not (worst
 disagreement 3.01e-2 and 8.51e-2 on the reach column, `.review/calgate/p18-repro.mjs`), and at 8x
@@ -5536,7 +5536,7 @@ identically zero in-sample. It deserved re-stating, and it **strengthens**.
 
 `.review/calgate/p12-stance.mjs`, session 17's own 18,494 Havok rows, three-fold, every number
 produced by calling `fitTacticalModel` and `calibrateTacticalModel` rather than re-implementing
-them -- which is the correction over `p10-stance-recheck.mjs`, a probe holding its own copy of
+them -- which is the correction over `.review/calgate/p10-stance-recheck.mjs`, a probe holding its own copy of
 the rule it was asking about:
 
 | column | stance-keyed | stance-free | keyed minus free |
@@ -5844,18 +5844,18 @@ bodies and derives its cell list from `RESEARCH_STRATA`.
 
 | quantity | before | after | measured by |
 | --- | ---: | ---: | --- |
-| distinct (unit, loadout) cells | 13 | **15** | `schedule.mjs` |
-| distinct loadouts | 7 | **8** | `schedule.mjs` |
-| `RESEARCH_STRATA` rows | 39 | **45** | `schedule.mjs` |
-| `researchMatrix` jobs per split | 78 | **90** | `schedule.mjs` |
-| `lookaheadTacticCellSchedule` tasks per split | 775 | **945** | `schedule.mjs` |
-| its groups (`3 x train + validation`) | 3,100 | **3,780** | `schedule.mjs` |
-| its minimum solver-step budget | 148,800 | **181,440** | `schedule.mjs` |
-| pre-C2c `(movement, action)` tasks per split | 240 | **280** | `schedule.mjs` |
-| widest tuple set over the research cells | 16 (`sword+empty`) | **17 (`sword+axe`)** | `tuplespace.mjs` |
-| union of `deployableTactics` over the research cells | 24 | **27** | `tuplespace.mjs`, and `cells.mjs` on real bouts |
-| widest over the whole body space | 21 | 21 | `tuplespace.mjs` |
-| union over the whole body space | 33 | 33 | `tuplespace.mjs` |
+| distinct (unit, loadout) cells | 13 | **15** | `.review/sa27/schedule.mjs` |
+| distinct loadouts | 7 | **8** | `.review/sa27/schedule.mjs` |
+| `RESEARCH_STRATA` rows | 39 | **45** | `.review/sa27/schedule.mjs` |
+| `researchMatrix` jobs per split | 78 | **90** | `.review/sa27/schedule.mjs` |
+| `lookaheadTacticCellSchedule` tasks per split | 775 | **945** | `.review/sa27/schedule.mjs` |
+| its groups (`3 x train + validation`) | 3,100 | **3,780** | `.review/sa27/schedule.mjs` |
+| its minimum solver-step budget | 148,800 | **181,440** | `.review/sa27/schedule.mjs` |
+| pre-C2c `(movement, action)` tasks per split | 240 | **280** | `.review/sa27/schedule.mjs` |
+| widest tuple set over the research cells | 16 (`sword+empty`) | **17 (`sword+axe`)** | `.review/sa27/tuplespace.mjs` |
+| union of `deployableTactics` over the research cells | 24 | **27** | `.review/sa27/tuplespace.mjs`, and `.review/sa27/cells.mjs` on real bouts |
+| widest over the whole body space | 21 | 21 | `.review/sa27/tuplespace.mjs` |
+| union over the whole body space | 33 | 33 | `.review/sa27/tuplespace.mjs` |
 | `curriculumDigest()` | `f9d5c046` | **`a011a028`** | `curriculumDigest()` |
 | QD arithmetic, 125 x union | 3,000 cells, 3.4 per evaluation | **3,375, 3.0** | arithmetic on the union |
 | `sword+axe` nodes per replan | -- | **3,655** | `exactLookaheadNodeBudget(85)` |
@@ -5901,3 +5901,311 @@ modules** -- 25 sources plus `asset-src/textures.json` -- and **none of them is 
 on the physics and scoring rather than evidence about this one. (The figure was written down as 29
 elsewhere; that count included four extensionless specifiers the walker failed to resolve and so
 treated as leaves. `existsSync` with a `.ts` fallback is the fix, and the conclusion is unchanged.)
+
+## The file references and the line anchors, under a check — 2026-08-25
+
+`tests/docs.test.mjs` gates every backticked file reference and line anchor outside `docs/plans/`,
+and pins the plan set from both sides instead of repairing it. `docs/deleted-paths.md` is the
+generated register that lets an accurate reference to a deleted file pass without anybody
+hand-maintaining a list of excuses.
+
+**Coverage space.** Every `.ts`, `.tsx`, `.mjs`, `.cjs`, `.js`, `.jsx` and `.md` file under
+`sword-prototype/`, excluding `node_modules`, `dist`, `.deps-stage`, `public`, `asset-src`, `.git`
+and the gitignored `.review` — plus one more exclusion, `tests/docs.test.mjs` itself, because a
+checker has to quote every spelling it parses including the deliberately broken ones, and sweeping
+the grammar documentation would make it fail its own grammar.
+
+### Three sweeps of the same tree, reconciled rather than picked between
+
+Every row names its extension set and its grammar, because the first four numbers taken in this
+effort were each exact over a space nobody had written down.
+
+| sweep | files scanned | anchor grammar | resolver | references | that the rule could not verify |
+| --- | --- | --- | --- | ---: | --- |
+| register entry 10, at `ab52947` | `.ts` `.mjs` `.js` `.md` | `path#Lnnn` and `path:nnn` only | whole tree, `.review` and `dist` included | 1,520 | 114 |
+| the pre-work sweep, at `503bd0a` | the same four | the same two | the same | 1,830 | 145; 112 explained by the git deletion log, 33 residue |
+| this gate, at `503bd0a` | seven: `.ts` `.tsx` `.mjs` `.cjs` `.js` `.jsx` `.md` | four spellings, and spans quoted inside spans | tree without `.review` or `dist`, then the repository root, then `node_modules`, then the register | 1,887 | 50: **19 durable**, 31 in `docs/plans/` |
+| this gate, at the commit that lands it | the same seven | the same four | the same, and three more extensions judged | 2,043 | 33 in `docs/plans/`, 0 durable |
+
+**The +57 is grammar, not drift, and it splits exactly**: 41 bare `:nnn` continuations carrying the
+preceding file name, 5 more continuations with no file name to carry, 3 spans quoted inside a wider
+span, and 8 comma lists and multi-range anchors. The bare continuation is live in source, not just
+quoted in prose — `src/learning/tournament.ts` writes `research-policy.ts:98`, then `:95` and
+`:54-56` on the two lines after it, and `lookahead.ts:294` then `:291`.
+
+**A fourth count, 143, is the same measurement with brace expansions dropped.** An adversarial
+re-measure produced 143 stale and 15 durable residue against 145 and 17. The whole difference is
+`asset-src/learning/{baseline,engagement-baseline,unpromoted}-v1.json` and
+`.review/rem2/cutseeds-{before,after}.json`, which name two and three files in one span. This gate
+excludes them by rule — a brace expansion is not a path — rather than by counting them either way.
+
+### The anchor counts, and the space each one is exact over
+
+**206 / 197 / 9 seeded this whole effort and is exact over a space that was never stated.** It is
+the two-spelling grammar — `path#Lnnn` and `path:nnn`, comma lists dropped because a trailing
+`,151` defeats the regex — over the seven extensions, at `503bd0a`. Restricting it to `.md` files
+gives **204 / 197 / 7**, not 206: the missing two are the live continuations in
+`src/learning/tournament.ts`, and they are exactly the pair that makes the durable half 9 rather
+than 7. So the narrow thing was the grammar, not the extension set.
+
+| grammar | extensions | tree | anchors | in `docs/plans/` | durable |
+| --- | --- | --- | ---: | ---: | ---: |
+| two spellings | `.md` only | at `503bd0a` | 204 | 197 | 7 |
+| two spellings | seven | at `503bd0a` | **206** | 197 | 9 |
+| four spellings, orphans excluded | seven | at `503bd0a` | 258 | 242 | 16 |
+| four spellings, orphans included | seven | at `503bd0a` | 263 | 247 | 16 |
+| four spellings, orphans excluded | seven | **at the commit that lands this** | 290 | 242 | 48 |
+| four spellings, orphans included | seven | **at the commit that lands this** | 295 | 247 | 48 |
+
+An orphan is a bare `:nnn` with no file name within five lines to continue; it carries a line
+number and no file, so whether it is an anchor is a definition rather than a measurement. Both
+definitions are given because two independent sweeps of this tree chose differently and agreed
+everywhere else.
+
+**This change is itself the largest single mover of the durable half**, which is the reason to take
+the number at the state that commits rather than at `503bd0a`: the section you are reading writes
+anchors of its own, and the durable count goes 16 to 48 because of it. A sentence stating
+"the durable surface has nine anchors" would have shipped false in the commit that made it false.
+
+### The first sweep's resolver searched two directories that do not survive a clone
+
+`.review/` is gitignored and `dist/` is build output, and the first sweep resolved bare file names
+against both. **At `503bd0a`, 146 durable references named a target under `.review/`** and therefore
+resolved only on the machine that wrote them.
+
+**145 and 146 are two populations and this file used one number for both, which is the same defect
+one level down.** 146 is every durable span whose target begins `.review/`; 145 is how many of them
+reach the scratch rule, because `.review/rem2/cutseeds-{before,after}.json` is a brace expansion and
+the shape rule takes it first. The live figure is 166: 146, plus the sixteen short forms
+completed below, plus the mentions this section adds writing it all down. They are not defects: AGENTS.md asks for a number's provenance and the
+provenance of most numbers in this file is a throwaway probe. They are excluded by a stated rule,
+and the rule's premise — that `.review/` is gitignored — is asserted against `.gitignore` rather
+than assumed, so un-ignoring it turns the exclusion red instead of leaving it silently unearned.
+
+Sixteen references were the same provenance written as a bare basename with no directory — eight of
+schedule.mjs and four of tuplespace.mjs in the session-27 table, plus cells.mjs, p11-sweep2.mjs,
+p10-stance-recheck.mjs and p4-sweep.mjs, all written here without backticks for the reason given two
+sections down. Each now carries its directory (`.review/sa27/schedule.mjs`,
+`.review/calgate/p4-sweep.mjs`), which is strictly better prose: a reader who saw the bare name
+could not tell that no such file was ever checked in.
+
+### Why the repository's own anchor rule was rejected for this tree
+
+`tools/check_docs.js` requires an anchor to land on a declaration, an attribute or the first line of
+a comment block. Run over the 206 anchors the two-spelling grammar finds at `503bd0a` it splits
+**94 accepted, 101 mid-statement, 11 into files that no longer exist, 0 out of range**. Re-run under
+the four-spelling grammar this gate uses, over anchors that resolve to a source file — the only ones
+the rule can be asked about — it is **135 mid-statement of 233 at `503bd0a`, and 149 of 254
+at the commit that lands this**. The ratio is the finding and it holds over every one of those
+spaces; the 101/206 spelling is kept because it is what the decision was taken on. Almost all of
+them are correct,
+because this prototype's house style points at the line that *does the thing*. `measure.mjs:348` is
+`for (const side of sides) side.combat.advance(FRAME);`. Adopting the rule would mean re-pointing a
+hundred correct anchors at the nearest `export` above them: worse prose, and no more durable.
+
+**A symbol-proximity heuristic was tried and rejected as an assertion too, after it was falsified.**
+It asked whether an identifier-like code span in the surrounding prose appears within four lines of
+the anchor's target, and reported roughly 45 rotted anchors. `src/learning/tournament.ts:232` names
+`lookaheadMind` and anchors `lookahead.ts:294`; the heuristic called it stale because
+`lookaheadMind` is declared at `lookahead.ts:255`. Both anchors are right — line 294 is the
+`onDecision` call and `:291` is the `option.enter(view)` before it. The prose names the caller and
+the anchor points at the call. `tools/check_docs.js` documents the same asymmetry from the other
+side: it accepts an anchor landing on a call of the symbol it names, "which is why the gate is a rot
+detector and not a symbol resolver". So 45 is an upper bound of unknown tightness, it is not a
+defect count, and nothing in the gate is pinned to it.
+
+What is gated is the exact rule: the file resolves, and every line the span names is inside it.
+
+### The durable anchors needed nothing, and that is a finding
+
+Under the exact rule, **zero** durable anchors fail — at `503bd0a`, where there were 16 of them
+under the four-spelling grammar, and at the commit that lands this, where there are 48. One is
+excluded rather than checked: this file's own quotation of the deliberately out-of-range probe href
+two sections above, which the base-dependent rule takes and which is pinned as one of exactly two
+such spans. The rest are range-checked and pass, including
+`node_modules/@babylonjs/core/Physics/v2/Plugins/havokPlugin.js:1210` against a 2,753-line file.
+Nothing to notice is different from not noticed, and the difference is that there is now a test.
+
+Four of the sixteen at `503bd0a` were candidates for re-pointing and each was decided rather than
+swept:
+
+- **`bout.ts:207` and `combat.ts:265` are left exactly as they are.** They are rows in a dated
+  findings table recording what six lookups did with a weapon kind they had never heard of, and
+  those anchors were true when the measurement was taken. Line 207 is now a parameter of
+  `withEquipment` and line 265 is `Combat.stop`, so both have rotted — and re-pointing them would
+  make a dated record read as freshly verified, which this file already calls worse than leaving it.
+  A dated row is a record, not a pointer.
+- **`options.ts:190` and `options.ts:461` are left exactly as they are** because they are correct:
+  the passage above quotes them *as examples of stale anchors*, and a quotation that has been
+  silently corrected is no longer evidence of anything.
+
+### The two anchors that looked stale, and were the checker guessing wrong
+
+The bare `:nnn` continuation is the one spelling with no file name of its own, so the checker has
+to decide which file it continues, and the rule it uses is the nearest preceding file name within
+five lines. **That rule is a guess, and this tree contains two places where it guesses wrong.**
+Both were first reported as anchors pointing past the end of their file, and both survived a
+review pass before being read properly:
+
+| written at | span | carrier the rule guessed | its length | the carrier the prose means |
+| --- | --- | --- | ---: | --- |
+| `combat-followups-17-tactic-output-v2.md:339` | `:118` | `quality-diversity.ts` | 108 | `src/learning/promotion.ts`, the bolded subject of the bullet five lines up |
+| `combat-followups-17-tactic-output-v2.md:395` | `:118-130,324` | `evaluation.ts` | 172 | `evaluate-options.mjs`, named in the section heading fourteen lines up |
+
+The first sits in a bullet whose subject is `src/learning/promotion.ts` and whose sentence
+attributes both offsets to **it** -- the bullet's subject -- while the file name in between belongs
+to a different clause. The second sits in a numbered list under the heading "What
+`evaluate-options.mjs` knows that nothing else does", where every bare anchor in the list is an
+offset into that deleted script. Both true carriers are deleted files, so both anchors are
+`anchorIntoDeletedFile` and neither is stale.
+
+**So no anchor in this tree names a line past the end of its file**, and the found-not-fixed
+register was right to say so. An independent sweep of the other three spellings -- expanding every
+range and comma list, resolving by unique path suffix, checking each line against its file's
+length -- also found zero. The two disagreed only on the spelling that sweep did not implement.
+
+Widening the window does not fix it: a section heading is in no window at all, and the first case
+has two intervening file names inside five lines. So the checker reports a range failure on a
+continuation as `continuationCarrierUnverified` rather than as a stale anchor, and puts the carrier
+it guessed into the record so the next reader can check it in one step. `lineOutOfRange` is pinned
+at **0** on both surfaces and means only what it says.
+
+**One more off-by-one was found taking this measurement.** The rule counted a file's lines by
+splitting on the newline pattern and taking the number of pieces, which is one too many for a
+newline-terminated file -- so it was lenient by exactly one and would have passed an anchor one
+line past the end. Corrected to the
+last line's number; `quality-diversity.ts` is 108 and `evaluation.ts` is 172, both agreeing with
+`wc -l`.
+
+### Every test, watched failing
+
+**Show the test failing, or you have not written one.** Section 10's rule applied to this change:
+every one of the fifteen tests was watched going red under a deliberate mutation, and three controls
+were run to show that a documented blind spot is real rather than argued.
+
+**The mutation column is written without backticks on purpose.** These are literal edits, and a code
+span here would be a live reference this gate judges — three of them are deliberately broken
+pointers, and one is an anchor deliberately past the end of its file.
+
+| # | mutation, verbatim | goes red |
+| --- | --- | --- |
+| M1 | ANCHOR loses its comma-list branch: :((?:\d+(?:-\d+)?)(?:,\d+(?:-\d+)?)*) becomes :(\d+(?:-\d+)?) | the scanner self-test; the plan pin |
+| M2 | CONTINUATION_LINES = 5 becomes CONTINUATION_LINES = 0 | the continuation test; durable references; the plan pin |
+| M3 | .gitignore: .review/ becomes .reviewX/ | the scratch premise |
+| M4 | docs/deleted-paths.md gains a registry line naming src/never-existed.ts, which git never deleted | the register |
+| M5 | docs/deleted-paths.md gains a registry line naming scripts/fetch-textures.mjs, the path that was deleted and re-added | the register; the re-added trap |
+| M6 | src/mind.ts: hands.ts becomes kinds.ts in the import comment | durable references |
+| M7 | src/learning/tournament.ts: lookahead.ts:294 becomes lookahead.ts:2940 | durable anchors |
+| M8 | docs/design.md gains a span (../src/weapon.ts) | the base-dependent pin |
+| M9 | combat-followups-23: asset-src/learning/tournament-v1.json becomes tournament-vONE.json | the plan-promise justification |
+| M10 | combat-followups-00-overview.md gains a span config.ts:99999 | the plan pin |
+| M11 | PROMISED_BY_A_PLAN is emptied | durable references |
+| M12 | asset-src/learning/tournament-v1.json is created, so the excuse is stale | the plan-promise justification; the plan pin |
+| M13 | src/learning/tournament.ts: the bare continuation :291 becomes :2910 | the continuation test; durable anchors |
+| M14 | src/learning/tournament.ts: research-policy.ts:98 becomes research-policy.ts:104, exactly one past a 103-line file | durable anchors |
+| M15 | NAMED_OUTSIDE_THE_PROTOTYPE drops DESIGN.md | the outside-the-prototype pin |
+| M16 | RESOLVED_IN_NODE_MODULES drops HavokPhysics.wasm | the dependency-tree pin |
+| M17 | NOT_A_PATH_TARGETS drops tests/\*.mjs | the not-a-path pin |
+| M18 | docs/design.md gains a span src/nope-\*.ts, the smuggling route the pin exists to bound | the not-a-path pin |
+| M19 | SCRATCH_SHARE_OF_DURABLE.max becomes 0.10, below the measured 11.7 % | the scratch bound |
+| M20 | docs/design.md gains a span .review/../src/weapon.ts, a scratch target that is not a plain path | the base-dependent pin **and** the scratch bound — the .. segment is taken first |
+| M21 | FILE_EXT drops glb | the extension whitelist |
+| M22 | the line count reverts to counting split pieces rather than the last line | **nothing** — see below |
+| M22+M14 | both together: the off-by-one reverted *and* an anchor placed exactly one past the end | **nothing** — which is what proves the fix is load-bearing |
+
+Three controls, each showing a limit this gate states rather than one it hides:
+
+| # | control, verbatim | result |
+| --- | --- | --- |
+| C0 | the src/main.ts comment is rewrapped from four lines to five, shifting three plan anchors by one | **all green** — a line-shifting edit is invisible here |
+| C1 | src/main.ts points at sword.ts again | **all green** — the register cannot tell "deleted" from "go and read it" |
+| C2 | src/options.ts:530 points at DESIGN.md, or at any other wrong-but-existing file | **all green** — a wrong existing file resolves |
+
+**M22 is the one mutation nothing noticed, and the distinction matters.** Reverting the line count
+to counting split pieces changes no verdict on its own, because no live anchor in this tree sits
+exactly one past the end of its file -- there was nothing to mutate, not a test that failed to
+notice. The composed mutation is what settles it: M14 places an anchor on that boundary and goes
+red, and M14 with the off-by-one reverted goes **green**. So the correction earns its place, and it
+is a live reference away from mattering rather than a tidy-up.
+
+An adversarial review reproduced this independently with its own tokenizer, anchor parser and
+resolver, in a `git clone --local` sandbox, and ran 23 mutations of its own construction against the
+ten tests that existed then. It could not make any of them pass while broken. It reproduced M6 and
+C2 directly. The five tests added after that review — the two pins on resolution branches, the
+not-a-path pin, the scratch bound and the extension whitelist — are M15 through M21 here and were
+watched failing the same way.
+
+### What this gate cannot see, which cost three anchors during this change
+
+It sees an anchor that runs off the end of a file and an anchor naming a file that is not there. It
+**cannot** see an anchor that still lands inside its file and now points at the wrong line -- which
+is what every line-shifting edit above an anchor produces. Re-pointing `sword.ts` in `src/main.ts`
+took a four-line comment to five, and that moved three plan anchors by one:
+`combat-followups-00-overview.md:1194` and `combat-followups-17-tactic-output-v2.md:345` and `:349`
+all pointed one line short. **The suite stayed green**, because a shift of one changes neither the
+range verdict nor the resolution verdict and therefore does not move the pinned plan record.
+
+The edit was rewrapped to four lines and the three anchors are back on their original targets;
+every source and prose edit in this change is line-neutral, checked file by file against `HEAD`.
+The limit is written into the test's header rather than papered over: **an edit that changes a
+file's line count is invisible to this gate.** `tools/check_docs.js` catches it for a Markdown link
+because it compares the link's text against its target; nothing catches it for a code span. This is
+AGENTS.md's "inserting one import breaks every anchor below it" arriving in a directory where the
+thing that was supposed to catch it does not.
+
+### Five wrong pointers, and the two kinds of wrong a register cannot tell apart
+
+Three were live and named a file that is not where the argument lives:
+
+- `src/weapon.ts:26` and `src/mind.ts:10` both named a file called kinds.ts. **No file of that name
+  has ever existed in this repository** — `git log --all --no-renames --diff-filter=D` has no row
+  for it anywhere. The kinds are in `src/hands.ts`, and `src/weapon.ts` re-exports them from there
+  ten lines below the comment that said otherwise; `src/mind.ts` made the same claim about the same
+  file under two names three lines apart. (Written here without backticks on purpose: this gate
+  refuses a code span naming a file that never existed, which is the one thing it costs — a durable
+  document cannot say "it used to be called X" in the repository's usual voice.)
+- `src/options.ts:530` sent a reader to `DESIGN.md` for `TARGET_SPAN_FRACTION`'s argument. That
+  constant does not appear in the repository-root `DESIGN.md` at all; its argument is the section
+  above, in this file.
+
+Two more were fixed that **no register of this shape can catch**, and that limit is written into
+`docs/deleted-paths.md` rather than left implicit. `src/main.ts:670` said "for the reason `sword.ts`
+gives at length" and `docs/design.md:584` said "because `sword.ts` adds three shapes for five
+meshes". `src/sword.ts` really was deleted — in `c80a59d`, the commit that added `src/weapon.ts` —
+so the register passes both forever, while a reader can follow neither. The register answers "was
+this path deleted", not "did the writer mean go and read it". The same hole sits one step further
+out and swallowed the `DESIGN.md` pointer above: a reference that names the *wrong existing* file
+resolves, and only reading it finds that.
+
+### What is pinned, and why the plan set is not gated
+
+`docs/plans/` holds 197 of the 206 anchors, and AGENTS.md says the whole plan set is deleted in the
+commit that finishes the topic. Repairing them is work about to be thrown away and redone every
+session, so the plan surface is counted and the counts are pinned from both sides — a session that
+rots more is told, and a session that repairs some is told to re-pin. The field names say what the
+rule measured; none of them says "stale", because this rule can see absence and range and nothing
+else.
+
+Three smaller records are pinned whole rather than counted, because each is a hole in the gate and a
+hole that can silently grow is the defect this effort keeps removing: the two base-dependent `../`
+spans, the one durable reference excused by a live plan, and the one path that was deleted and added
+back. That last one is `scripts/fetch-textures.mjs`, and it is why resolution consults the working
+tree before the register and why the register is the deletion log *minus* what exists. A register
+that assumed "in the deletion log" meant "absent now" would answer "deleted, fine" for a live file.
+
+`--no-renames` is not optional on the log that generates it: with rename detection on git reports 49
+paths instead of 56 and drops 7 old names this tree still references, because a rename is recorded
+as one modification rather than as a deletion plus an addition.
+
+### The gate
+
+`npm run check` clean, `npm run build` clean, `npm test` **575 passed, 0 failed** — 565 before, plus
+this file's ten. `node tools/check_docs.js` from the repository root stays at its 29 known
+pre-existing problems, all of them root `docs/` anchors into `crates/`; this change adds none, which
+matters because that checker does walk `sword-prototype/docs/**`, `docs/plans/` included.
+
+**The null control is a regression check that passed and is not evidence this change is safe.**
+`npm run measure -- --only duelist-swinger --bouts 120`, seed 20260823: duelist 66/120 = 55.0 %,
+3.52 s (1.42–8.98), 176.17 damage, 10 severs, 1496/1670 scoring contacts, identical to the pin. For
+a change that edits comments and prose it is structurally incapable of moving, and the discipline
+this file applies to tests applies to its controls.
