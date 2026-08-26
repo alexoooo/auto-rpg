@@ -17,6 +17,12 @@ Do **not** start any research job yet. Two reviews changed the order:
    before touching any research plan; those three replacements are standing rules, not a
    one-time correction.
 
+Measured findings that were deliberately left alone are in
+[Found but not fixed](combat-followups-99-found-not-fixed.md). Read it before starting any session
+that touches the tournament, the teacher or the option layer -- three of its entries change what a
+session can conclude, and one of them (the five hardcoded tournament safety flags) sits directly
+under sessions 23--25.
+
 ## Last verified state
 
 From `sword-prototype/` before the new interface work:

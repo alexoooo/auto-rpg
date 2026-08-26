@@ -193,6 +193,12 @@ Baseline taken before any of this work, from `sword-prototype/`, commit `a095877
 | 24 promoted integration | not started | -- |
 | 25 integration and playtest | not started | -- |
 
+Findings that were measured and deliberately left alone live in
+[Found but not fixed](combat-followups-99-found-not-fixed.md), one entry each with its evidence,
+the reason it was not closed, and what closing it would cost. It is a register, not a backlog:
+several of its entries are decisions rather than debts and say so. Anything discovered mid-session
+that is real but out of scope belongs there rather than in a report nobody re-reads.
+
 ### Session 17 Stage A, as landed
 
 484 tests before, **474** after: nine of the ten deleted tests were the standalone checkpoint
