@@ -959,12 +959,12 @@ it stands.
 And one number from the earlier list is already wrong. The doc-anchor item was recorded as
 "~35 stale colon-form anchors". Measured over every `.ts`, `.mjs`, `.js` and `.md` file in the
 prototype outside `node_modules`, `dist`, `asset-src` and the gitignored `.review`: there are
-**1,511 code-span file references, of which 123 name a file that does not exist**. Only 67 carry a
+**1,520 code-span file references, of which 114 name a file that does not exist**. Only 67 carry a
 line anchor at all, and none of those points past the end of its file -- so the failure mode is not
 drifting line numbers, it is references to files that session 17 stage A **deleted**
-(`evaluate-options.mjs` 18 times, `promotion.ts` 14, `checkpoint.ts` 12, `training-evaluator.mjs` 11,
-`promotion-evaluator.mjs` 10, `train-meta.mjs` 8, counting every spelling of each path as one file).
-Twenty-one of the 123 sit in live source and
+(`evaluate-options.mjs` 19 times, `promotion.ts` 15, `checkpoint.ts` 13, `training-evaluator.mjs` 12,
+`promotion-evaluator.mjs` 11, `train-meta.mjs` 9, counting every spelling of each path as one file).
+Twenty of the 114 sit in live source and
 durable docs rather than in dated plan records, including five in one comment block in
 `src/learning/evaluation.ts` -- and those are the ones that mislead a reader today. The rest are in
 `docs/measurements.md` and `docs/plans/`, where a reference to a script that has since been deleted
@@ -973,9 +973,21 @@ That distinction is the actual design problem in the item, and it is not the one
 described.
 
 The count is measured at `ab52947` and deliberately not re-run against this paragraph, which is
-itself six more of them: naming a deleted script inside backticks is how a record says which script
-took a measurement, and a checker that cannot tell that from a live reference will spend the rest of
-its life being argued with.
+itself several more of them: naming a deleted script inside backticks is how a record says which
+script took a measurement, and a checker that cannot tell that from a live reference will spend the
+rest of its life being argued with.
+
+> **Superseded within the hour, by the failure mode the paragraph above it names.** The figures
+> first published here were 1,511 references and 123 stale. They came from a resolver that tried a
+> **fixed list of seven directories** -- the prototype root, `src`, `src/learning`, `scripts`,
+> `tests`, `tests/fixtures`, `docs` -- and `src/bodies/` was not one of them, so every reference to
+> `centipede.ts` was counted as naming a missing file. Re-measured with a resolver that walks the
+> whole tree and matches by path suffix, at the same commit: **1,520 code-span references, 114
+> stale, 20 of them in live source and durable docs.** The conclusion is unchanged and every
+> named-file count above moves by one or two. What changed is who made the mistake: this is the
+> fourth exact-sweep-over-the-wrong-space in this effort and the first one that was mine, in the
+> very paragraph arguing that every sweep must state its coverage space. The rule is not that
+> other people's sweeps need the discipline.
 
 ### Findings from the implementation pass that change the plan
 
