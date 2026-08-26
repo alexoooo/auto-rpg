@@ -569,7 +569,7 @@ npm run dev             # http://localhost:5180, strictPort
 
 ## House rules
 
-Six, and each one was paid for.
+Seven, and each one was paid for.
 
 - **A policy plays with the controller a person plays with.** `Mind.decide` returns an
   `Intent`, and `Controls.state` is annotated as one -- so the person and the AI hand a
@@ -614,6 +614,18 @@ Six, and each one was paid for.
   and neither had been committed. It is the cheapest rule here and the one that has already
   cost the most.
 
+- **A change to shared execution-layer code gets a bout either side of it, and the null
+  control is not optional because it is a null.** `npm run measure -- --only duelist-swinger
+  --bouts 120` at seed 20260823 is the established one, and `src/policies.ts` does not import
+  `src/options.ts`, so a tactic-layer change *cannot* reach it -- which is the point. The four
+  functions both layers share -- `applyActionPosture`, `actionCoverAt`, `actionAimAt`,
+  `actionArcherAim` -- are the leak path, and this bout is the cheapest thing that would say
+  so. The real control for an option-layer change is the zero-delta parity sweep,
+  `the_scripted_meta_controller_matches_the_policy_it_replaces`. Session 16 shipped green at
+  474 tests, took the duelist from 40.8 % to 28.3 % against the swinger, and nobody knew until
+  the next session went looking -- about 2.5 standard deviations at 120 bouts. `docs/measurements.md`
+  under "What that is worth in bouts" carries the table.
+
 ## Where the design lives
 
 `docs/design.md` is the map: what each subsystem is, and the decisions that belong to no
@@ -638,6 +650,20 @@ sweep that decided it -- and `docs/measurements.md` names the space for each.
 **A line-shifting edit is invisible to that gate**, which is its one real limit: an anchor that
 still lands inside its file but now points one line off is neither out of range nor unresolvable.
 Keep an edit above an anchor line-neutral, or re-point what it moved.
+
+**Name the construct; a line number is a fact with no test.** That gate checks an anchor lands
+*inside* its file, not that it lands on what the prose means -- so "`selectValidationChampion` in
+`quality-diversity.ts`" survives every edit above it and "`quality-diversity.ts:93`" survives only
+until somebody adds an import. Prefer the name. When a line number is genuinely wanted, re-point it
+by **locating the construct the prose names and refusing any target that is not unique** -- never by
+adding the file's line delta, which has produced wrong anchors here twice, once while repairing the
+very defect it introduced.
+
+**Never re-point an anchor inside a superseded sentence.** A struck-through claim with a live-looking
+`#Lnnn` in it reads to the next sweep as a live anchor, so it gets moved rather than read: one dead
+anchor into `src/learning/meta.ts` was re-pointed from 154 to 150 *in the same hunk that said it was
+being left alone*, re-publishing a number for a line that exists at no number at all. Strike the
+number, date the supersession, keep the sentence. `docs/measurements.md` carries that account.
 
 Everything else is written beside the code it decides. `src/config.ts` is the tuning
 surface a person reaches, and it is deliberately mutable: the page exposes `window.__sword`, so

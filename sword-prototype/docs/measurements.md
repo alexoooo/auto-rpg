@@ -17,6 +17,18 @@ peak transient with identical code** -- 264.97 mm in the page against 242.88 mm 
 bench -- and why is not established. See "The arm's parity" below for what was eliminated.
 Neither is wrong. Putting them in one column is.
 
+**And a reading is only worth what its coverage space is worth, so every figure below
+names the space before it names the result.** This is the second rule and it was paid for
+seven times in one effort. An exact sweep over the wrong space does not read as an error --
+it reads as a confident answer, because the arithmetic is right and only the population is
+wrong. The seven were not sloppy; each was a correct computation over a set that did not
+answer the question asked, and the worst of them was a 90-job sweep taken on the tree
+*without* the change it existed to justify, which matched `HEAD` bit for bit and the shipped
+code in no column. So: name the harness, the seed, the job set, the number of bouts, and
+what was held fixed -- before the number. A count additionally names its grammar, because
+"how many references are there" has three different right answers here depending on which
+spellings you parse.
+
 ## Taking a reading in the page
 
 `window.__sword` is the whole surface, and these are the handles the readings below were
@@ -544,6 +556,29 @@ the numbered list here now carries only playtest history and judgements that rem
    it needs four constants mirrored into `ACTION_TUNING` and their tables re-taken through the
    option layer, which is a balance change of its own. Everything a learned controller does with
    a shield is priced against the wrong placement until it is done.
+
+19. **Open: the behaviour record counts action names, and the tournament stopped needing it
+to.** `tacticCounts` and `headUtilisation` read the whole `movement|action|effector|target|stance`
+tuple, so the blind tournament sees all five heads, and a sixth row now reports the dwell.
+`BehaviourRecord` -- the separate structure NEAT's `fitnessComponents` and `noveltyDescriptor`
+read -- does not: `options`, `attackAttempts` and `transitions` are keyed by `OptionName` and
+`contacts` by `HandName`, so a controller that varies its action name while using one arm, one
+aim and one pose scores identically to one that has learned four heads. It is worth more than
+when it was first written down: the teacher histogram is `primary` 70.5 %, `natural` 15.7 %,
+`secondary` 13.8 % *after* the cover-effector fix, and `primary` 84.3 % with `secondary` at
+**zero** before it -- a run in which NEAT's novelty descriptor could not have told an effector
+head from a loadout. `BiteStrike.hand = "primary"` in `src/bodies/centipede.ts` is the last
+surviving hand alias and is held there until `contacts` widens. Its comment named a session-17
+stage as the owner; that plan is deleted, so the owner is this entry.
+
+20. **Open, and owed to a person rather than a bench: the perception change moved the duelist
+14.2 points and nobody has played it.** The table under "What that is worth in bouts" records
+40.8 % at `f789ea4`, 28.3 % at v4.0 as shipped, and 55.0 % after the threat reconciliation --
+about 2.5 standard deviations at 120 bouts for the first move. Every one of those numbers is a
+bench win rate. Whether the fight *reads* better at 55.0 % than it did at 40.8 %, or merely
+differently, is the judgement no harness can be pointed at, and it arrived as a side effect of
+a feature-vector change rather than as a balance decision anybody took. Session 18 is the
+sitting where it gets asked.
 
 ## The bow, and the four defects it found on the way in
 
@@ -3103,11 +3138,12 @@ masks it and there is nothing to trade it against.
   alone, which is the worst of both and is now decided.** Re-pointing a knowingly dead anchor
   makes it read as freshly verified by whoever moved it. `grep featureVersion src/learning/meta.ts`
   returns nothing, so the line the anchor names does not exist at any number, and the number was
-  therefore noise. The anchor is **gone**, and the sentence it sat in is superseded in place at
-  `docs/plans/combat-followups-16-policy-perception-v4.md`, which stated in the present tense
-  that `meta.ts` "hardcodes `if (checkpoint.featureVersion !== 3)`". That was true when the plan
-  was written and is false now; the plan carries a dated supersession rather than a new line
-  number, because there is no line to point at.
+  therefore noise. The anchor is **gone**. The sentence it sat in was superseded in place in the
+  session-16 plan, which had stated in the present tense that `meta.ts` "hardcodes
+  `if (checkpoint.featureVersion !== 3)`" -- true when the plan was written, false now. That plan
+  file has since been deleted with the rest of the landed set, so the supersession is recorded
+  here rather than there: the claim was retired, not re-pointed, because there is no line to
+  point at.
 
   **Why nothing catches this, measured rather than assumed.** The obvious answer -- that
   `../tools/check_docs.js` skips `docs/plans/` -- is wrong twice over: its walker starts at the
@@ -6049,8 +6085,8 @@ review pass before being read properly:
 
 | written at | span | carrier the rule guessed | its length | the carrier the prose means |
 | --- | --- | --- | ---: | --- |
-| `combat-followups-17-tactic-output-v2.md:339` | `:118` | `quality-diversity.ts` | 108 | `src/learning/promotion.ts`, the bolded subject of the bullet five lines up |
-| `combat-followups-17-tactic-output-v2.md:395` | `:118-130,324` | `evaluation.ts` | 172 | `evaluate-options.mjs`, named in the section heading fourteen lines up |
+| the session-17 plan, the bullet whose subject is `src/learning/promotion.ts` | :118 | `quality-diversity.ts` | 108 | `src/learning/promotion.ts`, the bolded subject of the bullet five lines up |
+| the session-17 plan, under the `evaluate-options.mjs` heading | :118-130,324 | `evaluation.ts` | 172 | `evaluate-options.mjs`, named in the section heading fourteen lines up |
 
 The first sits in a bullet whose subject is `src/learning/promotion.ts` and whose sentence
 attributes both offsets to **it** -- the bullet's subject -- while the file name in between belongs
@@ -6134,6 +6170,29 @@ ten tests that existed then. It could not make any of them pass while broken. It
 C2 directly. The five tests added after that review — the two pins on resolution branches, the
 not-a-path pin, the scratch bound and the extension whitelist — are M15 through M21 here and were
 watched failing the same way.
+
+**The two spans in the second column are written as plain text rather than as code spans.**
+They are a record of what a continuation looked like in a file that no longer exists, and a
+live code span here would be handed to the same nearest-preceding-file-name rule the row is
+about -- which now guesses `src/learning/promotion.ts`, a deleted file, and turns the gate red.
+A dated record of a pointer is not a pointer.
+
+**Both rows are quoted by construct rather than by line, because the plan file they were written
+in has been deleted.** An anchor into it would resolve as `anchorIntoDeletedFile` and turn this
+document's own gate red -- which is the argument this section makes, arriving on the section that
+makes it.
+
+**The one cheap catch that was measured and rejected, kept here because its counterexample went
+with the plan set.** "A bare continuation never legitimately carries a `.md` file, so a `.md`
+carrier is wrong by construction" would have caught both rows above. It is false: the session-16
+plan wrote *"Update the perception and learning sections of `docs/design.md` -- `#L84` documents
+the 66-column v3 `FighterView` feature table"*, which is a correct `.md` carrier, and this
+document holds three more of the same shape. The heuristic would have been wrong four times to
+catch one. The coverage space it was measured over -- 17 of the tree's 48 continuations at the
+time, all in one plan file, hand-checked one at a time, nine of them guessing a file the prose
+does not mean and seven of those nine silent -- **is not re-takeable now** and is recorded here
+rather than re-derived. The count is dated for that reason: deleting the landed plan set removed
+32 continuations from the population, so any later total is over a different space.
 
 ### What this gate cannot see, which cost three anchors during this change
 
@@ -6800,3 +6859,95 @@ empty-maps test" in this file -- but the prose that carries it says "the model t
 exactly the requested thing for the *feature* header", which is a different test forty lines further
 down. Following the anchor rather than the sentence moved it correctly and pointed it at the wrong
 thing, which is the failure mode the method in that session's own note exists to prevent.
+
+## What a long run cannot yet tell anybody, and what PPO cannot spend -- 2026-08-26
+
+Coverage space, stated first: the four research runners as they stand at `86b74c8`, read
+directly and then exercised. The one live measurement is a single `train-ppo.mjs` invocation
+at `--solver-steps 400000`, seed 310013, the shipped league, on the 16C/32T desktop -- one
+unbracketed run, because the result does not need a tight interval to be decisive. Everything
+else here is a property of the source, checked by reading every call site rather than by
+sampling.
+
+### PPO cannot spend a step budget, and this is the hard one
+
+**Asked for 400,000 solver steps an arm -- 800,000 across the two -- a PPO invocation consumed
+5,508.** Seven tenths of one per cent. It is not a slow run; it is a run that finishes.
+
+The mechanism is three facts multiplying. `runResearchBout` clamps the bout to
+`min(job.boutCapSeconds, solverStepLimit / physicsHz)` and every stratum sets
+`boutCapSeconds: 45` against a `physicsHz` of 240, so **10,800 steps is the ceiling on one
+bout** however large the budget. It then reports `min(solverStepLimit, round(seconds * 240))`,
+and a bout ends when somebody dies rather than at the cap, so a real bout costs far less than
+its ceiling -- about 1,400 steps here. And `trainPpo` runs exactly four bouts: two arms from
+`equalBudgetPpoArms`, each collecting one training trajectory and one validation trajectory.
+
+Four bouts is the whole run. The theoretical wall is 43,200 steps; the observed cost is an
+eighth of that. **No assertion notices**, because PPO has no exact-budget check -- the two
+runners that do have one are the two that cannot trip it.
+
+**Two gradient updates, also at any budget.** `ppoHeadUpdate` has one call site, inside
+`for (const arm of arms)`, and `arms` has two elements. There is no `--iterations`,
+`--epochs` or `--updates` flag. So a larger budget cannot buy more descent either; it would
+buy a larger single batch if the bout cap allowed a larger batch, and it does not.
+
+**What this costs the plan set.** Sessions 20, 21 and 22 derive a step ceiling from measured
+throughput, run a 24-hour rung against it, and then scale to 72-hour seeds. For PPO none of
+that is expressible: a 24-hour PPO rung completes in about twenty seconds, a plateau is not
+observable across two updates, and there is no curve for a report to carry. PPO needs an
+outer loop -- iterations of collect-then-update -- before any of that arithmetic means
+anything, and no session in the set owns building one.
+
+### A step budget is not a learning budget for three of the four
+
+Only look-ahead turns more steps into more fitted rows. NEAT-QD's `generations` and DAgger's
+`iterations` are real knobs -- 80 and 5 by default -- but `--solver-steps` does not move
+either: the rollout worker re-runs the same job list `while (remaining > 0)`, so a larger
+budget lengthens the bouts inside a fixed number of updates. **The unit that buys learning is
+an update, and steps are a derived column.** Session 20 currently derives the wrong one.
+
+### A look-ahead budget that leaves cells unfitted is a choice to search less, and nothing says so
+
+The filter that stopped a severed hand throwing mid-bout -- `calibratedPlannedTactics`, which
+keeps only the cells the model holds a calibration for and refuses by name only when *nothing*
+survives -- makes a partial loss and a full fit look identical from outside. Under the shipped
+gate that is 5 cells of 775 gone at 6 rows a key and 9 at 15, and the plan runs either way, one
+search narrower, with no line in the report naming which cells went. The survival table above is
+the only place it is visible and it is taken offline.
+
+So a budget below the 60-rows-a-cell figure is not a *cheaper* look-ahead, it is a **narrower**
+one, and whoever picks it owes the run record the count. The trainer already reports
+`identicalCalibrationKeys` for the adjacent failure -- a split that is not a split -- and this is
+the second quantity of that shape.
+
+### No runner emits progress, and two already keep most of a ledger
+
+All four are silent for the whole run. Each has exactly one terminal write -- `train-ppo.mjs`,
+`train-neat-qd.mjs` and `collect-dagger.mjs` one `process.stdout.write` apiece, and
+look-ahead's two both inside `writeLookaheadOutput` -- and every one of them fires after the
+run returns. An earlier reading of this recorded "three of four emit nothing, three write
+sites in look-ahead", which made look-ahead sound legible; it is not, and the true statement
+is the stronger one.
+
+**But the ledger is half-built already, and the opposite claim was also wrong.**
+`train-neat-qd.mjs` pushes a row per generation carrying `species`, `archiveCoverage`,
+`validationScore`, `validationWorstCellScore`, `validationCells` and `solverSteps`, and
+flushes the array into `state.json` every five generations; `collect-dagger.mjs` pushes a
+validation row every iteration and flushes each time. What they lack is the gate table, wall
+clock, digests, and an append-only file. Session 19 generalises a working cadence rather than
+inventing one, exactly as its own plan says.
+
+**PPO alone has no mid-run persistence at all.** Its three `writeAtomic` calls are after
+`trainPpo` returns, and `--stop-after-jobs` *returns* the resume bytes rather than writing
+them, so a killed PPO run loses everything. `train-lookahead.mjs` has no state file and cannot
+resume at all.
+
+### Two assertions make a plateau rule illegal today
+
+`train-neat-qd.mjs` and `collect-dagger.mjs` both throw unless
+`consumedSolverSteps === solverSteps` exactly. A plateau rule stops a run early by
+construction, so it cannot land in either direction without removing or conditioning those
+throws -- and no session mentions them. Both files also still report
+`fullBudgetCompleted: solverSteps === 1_800_000_000`: the frozen accept criterion the plan
+set's opening rules exist to abolish, alive in the report schema. `src/learning/research.ts`
+still declares `RESEARCH_SOLVER_STEP_BUDGET = 1_800_000_000` with no consumer.
