@@ -1,5 +1,32 @@
 # Session 20 -- measure throughput, derive every ceiling, freeze the contract
 
+> **Corrections, 2026-08-26.** Measured against the tree at `86b74c8`.
+>
+> - **The ceiling this session derives is a count of *updates* per direction, with steps as
+>   a derived column.** A step budget is not a learning budget for three of the four:
+>   PPO cannot spend one at all (5,508 consumed against 800,000 requested), and NEAT-QD and
+>   DAgger scale by `--generations` and `--iterations` while `--solver-steps` only lengthens
+>   the bouts inside a fixed number of updates. Only look-ahead turns steps into fitted rows.
+>   Deriving a step ceiling and handing it to sessions 21 and 22 schedules a quantity that
+>   does not move three of the four directions.
+> - **"PPO is the direction most likely to dominate the schedule" is inverted.** On today's
+>   runner PPO is the *cheapest* by two orders of magnitude -- four bouts, about twenty
+>   seconds. Measuring it first is still right, for the opposite reason: it is the direction
+>   that will reveal it cannot run.
+> - **`--rung` does not exist anywhere in the tree**, and sessions 21 and 22 both require it
+>   ("resolve these from the frozen contract via `--rung 2`, never from the command line").
+>   This session or 21 must own building it.
+> - **`configDigest` is two incompatible formats**: 16-hex SHA-256 in `train-neat-qd.mjs` and
+>   `collect-dagger.mjs`, 8-hex FNV-1a in `train-ppo.mjs` and `train-lookahead.mjs`. Preflight
+>   compares a contract digest across all four, so the *Freeze* step has to reconcile them.
+>   Note also that a SHA-256 digest cannot live in `src/learning/`: `node:crypto` is
+>   unavailable in the page and `crypto.subtle` is async, as `src/learning/artifact.ts` says.
+> - **Worth bracketing early.** The null control runs 120 bouts of 3.52 s in 16.3 s of wall
+>   clock -- about 26x real time on one thread, one unbracketed reading, bench harness. If
+>   NEAT's rate is within a factor of two of that, the 86- and 125-hour extrapolations in
+>   `docs/measurements.md` are out by roughly an order of magnitude. They are already
+>   suspect: they came from a 0.0017 % smoke.
+
 ## Outcome
 
 Replace the extrapolated schedule with a measured one. Establish steady-state throughput for

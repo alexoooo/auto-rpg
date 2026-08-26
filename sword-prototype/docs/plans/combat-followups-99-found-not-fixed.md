@@ -277,7 +277,7 @@ readings that would otherwise be wrong (a look-ahead candidate has no stance hea
 is a constant) and an instruction to name the cells where the question was unanswerable rather than
 folding them into a pooled share.
 
-### 14. Two of the four algorithms have heads they cannot move, and nothing in the record says so
+### 14. The stance head is the last one the record cannot tell from an absent head
 
 `lookaheadMind` hardcodes `UNLEARNED_STANCE` and has no stance head at all, so a look-ahead candidate
 prints the exact signature of a collapsed head -- free on every decision, one option chosen, modal
@@ -443,6 +443,50 @@ which is a compute decision rather than an edit.
 majority of updates before and after -- so nothing here made it worse. It is written down because
 "an absolute epsilon against a horizon that moved" is the kind of thing that goes unexamined
 precisely because it did not break.
+
+### 20. PPO cannot spend a step budget, and no session owns giving it one
+
+Asked for 400,000 solver steps an arm -- 800,000 across the two -- a `train-ppo.mjs`
+invocation consumed **5,508**. `runResearchBout` clamps a bout to
+`min(boutCapSeconds, limit/physicsHz)` with every stratum at 45 s against 240 Hz, so 10,800
+steps is the ceiling on one bout; a bout ends when somebody dies, so a real one costs about
+1,400; and `trainPpo` runs exactly four bouts, two arms by two splits. It also performs exactly
+two gradient updates at any budget -- `ppoHeadUpdate` has one call site inside a two-element
+loop and there is no `--iterations` flag.
+
+**Why it matters.** Sessions 20, 21 and 22 derive a step ceiling, run a 24-hour rung and scale
+to 72-hour seeds. A 24-hour PPO rung completes in about twenty seconds. More generally a step
+budget is not a learning budget for three of the four directions: NEAT-QD and DAgger scale by
+`--generations` and `--iterations`, and `--solver-steps` only lengthens the bouts inside a fixed
+number of updates. Only look-ahead turns steps into fitted rows.
+
+**Why not fixed.** Giving PPO an outer loop is a session's work, not an edit, and it changes
+what every existing PPO artifact means. It is written into session 19's corrections as the thing
+that must land before any ledger row is designed.
+
+### 21. Two runners make a plateau rule illegal, and both still carry the retired 1.8 B
+
+`train-neat-qd.mjs` and `collect-dagger.mjs` throw unless `consumedSolverSteps === solverSteps`
+exactly. A plateau rule stops a run early by construction, so it cannot land in either without
+removing or conditioning that assertion, and no session mentions it. Both also still report
+`fullBudgetCompleted: solverSteps === 1_800_000_000`, and `src/learning/research.ts` still
+declares `RESEARCH_SOLVER_STEP_BUDGET = 1_800_000_000` with no consumer -- the frozen accept
+criterion this plan set's standing rules exist to abolish, alive in three places.
+
+**Why not fixed.** It belongs with session 19's plateau rule; removing the assertion before the
+rule that needs it removed would leave a runner that silently under-spends with nothing to say
+so.
+
+### 22. Three commands the plan set invokes do not exist, and none has an owner
+
+`--rung` appears nowhere in the tree and sessions 21 and 22 both require it. `--run-id` exists
+in `train-neat-qd.mjs` and `collect-dagger.mjs` and **not** in `train-ppo.mjs` or
+`train-lookahead.mjs`, which ignore it silently. `--verify-promoted` appears nowhere and
+sessions 24 and 25 both invoke it as a verification step.
+
+**Why it matters more than a missing flag.** Each is written into a plan as though it were a
+command somebody could run, so the first session to reach it discovers the gap at the point of
+use rather than at planning time. Assign each to 20, 21 or 23.
 
 ---
 

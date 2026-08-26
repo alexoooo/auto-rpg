@@ -1,5 +1,14 @@
 # Session 25 -- final integration, visible playtest and close-out
 
+> **Corrections, 2026-08-26.**
+>
+> - **`npm run ai:preflight -- --seed ...` takes a contract digest, not a seed**, per session
+>   20's specification. Nothing gives preflight a seed.
+> - **The coverage lists omit the axe.** It is a `WEAPON_KINDS` entry the picker offers and
+>   `sword+axe` is now a research loadout carried by 15 cells. Add the weapon to the playtest
+>   list and the loadout to the matrix line.
+> - **`--verify-promoted` does not exist**; see session 24.
+
 ## Entry gate
 
 Session 24 is complete and adaptive-v1 is backed by the exact passing tournament artifact.

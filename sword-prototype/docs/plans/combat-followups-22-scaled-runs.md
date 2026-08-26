@@ -1,5 +1,19 @@
 # Session 22 -- scale out only what survived the ladder
 
+> **Corrections, 2026-08-26.** Measured against the tree at `86b74c8`.
+>
+> - **The look-ahead schedule key has four names, not five.** Stage C2c measured the stance
+>   out of it: `lookaheadTacticCellSchedule` enumerates `cell x movement x (action, effector,
+>   target)` and the stance is left at `UNLEARNED_STANCE`. The phrase "the exact compatible
+>   `(movement, action, effector, target, stance)` count" names one head the key does not
+>   carry.
+> - **Six policy-head entropy diagnostics, not five.**
+> - **The DAgger report lists macro-F1 for five heads and omits the dwell.**
+>   `DAGGER_HEAD_NAMES` is five and the selection loss adds the persistence term separately;
+>   say what the sixth head is scored on.
+> - **The ceilings inherit session 20's step-as-budget error.** See its corrections: the unit
+>   is updates.
+
 ## Entry gate
 
 At least one direction advanced in session 21 under its four declared criteria. Killed

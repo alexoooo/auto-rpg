@@ -1,5 +1,22 @@
 # Session 21 -- the ladder: one seed per direction, then advance or kill
 
+> **Corrections, 2026-08-26.** Measured against the tree at `86b74c8`.
+>
+> - **The four commands in this file cannot run as written.** `--rung` exists nowhere.
+>   `--run-id` exists in `train-neat-qd.mjs` and `collect-dagger.mjs` and **not** in
+>   `train-ppo.mjs` or `train-lookahead.mjs`, which would silently ignore it. `ai:research`
+>   reads only `--idea` and delegates the rest of argv.
+> - **"Resume an interrupted rung with `--resume`" is wrong for PPO**, where `--resume` is
+>   the *output* path and `--resume-from` takes the input. Passing `--resume` to resume
+>   writes a file and resumes nothing. Session 19 records this inversion; this file repeats
+>   the error it corrects.
+> - **A look-ahead rung as written produces no files.** `train-lookahead.mjs` writes an
+>   artifact or report only when `--artifact` / `--report` are given; with only `--run-id`
+>   it prints to stdout and exits.
+> - **"Every rung produced a ledger with at least twenty-four rows" is unreachable for PPO**
+>   under any cadence until it grows an outer loop -- it runs four bouts and two updates
+>   whatever the budget. See session 19's corrections.
+
 ## Outcome
 
 Run one seed of each direction under the 24-hour ceiling derived in session 20, watch each

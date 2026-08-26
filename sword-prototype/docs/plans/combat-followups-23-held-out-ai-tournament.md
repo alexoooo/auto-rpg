@@ -1,5 +1,18 @@
 # Session 23 -- freeze and execute the blind tournament
 
+> **Corrections, 2026-08-26.** This is the most current file in the set; two additions.
+>
+> - **The manifest's `controls` field is a frozen three-tuple** and `freezeTournamentManifest`
+>   hard-codes it. Binding the per-candidate ablation controller this plan calls for touches
+>   `TOURNAMENT_CONTROLS` or the candidate shape, `validateTournamentManifest`,
+>   `controllersFor`, `mindFactoryForTournament` and `nextTournamentBatch`. Name those five so
+>   the freezer's tests are written against them.
+> - **The stroke-envelope question inherited from session 17 is closed.** `4d461ea` took a
+>   cut's `high` reach to 0.166 against `low`'s 0.019 via `NAMED_STROKE_SPAN`.
+> - **`npm run ai:evaluate -- --verify-promoted` does not exist** -- zero occurrences in the
+>   tree -- and sessions 24 and 25 both invoke it. Either this session or 24 must own building
+>   it.
+
 ## Outcome
 
 Freeze exactly one validation-selected artifact per **surviving** direction, materialize the

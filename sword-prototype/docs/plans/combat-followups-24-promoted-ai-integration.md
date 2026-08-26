@@ -1,5 +1,14 @@
 # Session 24 -- integrate a passing controller
 
+> **Corrections, 2026-08-26.**
+>
+> - **`npm run ai:evaluate -- --verify-promoted` does not exist.** `evaluate-ai.mjs` throws on
+>   a missing `--manifest` before reading any other flag. No session owns building this; it
+>   belongs to 23 or here.
+> - **Step 3 silently depends on session 19 having built a page-side deployment path**, which
+>   does not exist today -- `src/main.ts` has zero `artifact` references and all nine
+>   `deployment.ts` importers are Node-side. Say so.
+
 ## Entry gate
 
 Begin only when session 23 names a passing artifact. A null verdict blocks this session; see

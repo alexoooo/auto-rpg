@@ -1,5 +1,32 @@
 # Session 18 -- point the promotion instrument at a person
 
+> **Corrections, 2026-08-26.** Measured against the tree at `86b74c8`.
+>
+> - **Eight anchors in this file pointed at the wrong line** and have been re-pointed by
+>   locating the construct each sentence names: `assessTournamentCandidate` is at
+>   `tournament.ts:375`, the never-attacked cell's `Number.POSITIVE_INFINITY` at `:712` (there
+>   is no `Infinity` anywhere near the old `:241-245`), the inline matcher at
+>   `options.ts:1331`, the credit loop at `:1332`, the guard-release branch at `:1315`, the
+>   engagement tracker at `research-havok.mjs:32`, the `opportunityForAction` call at `:149`
+>   and the `onSample` re-projection at `:174`. `tests/docs.test.mjs` could not see any of
+>   these: it checks that an anchor lands *inside* its file, not that it lands on what the
+>   prose means.
+> - **"None of the four current derivations produces a margin" is a stale count.** Since
+>   session 17A there is **one** derivation over the frozen thresholds,
+>   `assessTournamentCandidate`; the other two threshold comparisons in the tree are ad-hoc
+>   floors on different constants. This file's own later sentence already calls it "the only
+>   derivation" -- the two halves contradict each other.
+> - **The bundle cost is overstated.** `research-matrix.ts` is a type-only import in
+>   `tournament.ts` and erases; the real cost is `artifact.ts` and `persistence.ts`. The fix
+>   is still right.
+> - **Items 7 and 10 are the same item** (the optional HUD panel), written twice. Delete one.
+> - **The session numbering collides.** `docs/measurements.md` already carries headings for
+>   "Session 18", "Session 19" and "Session 27" that are *owner follow-ups*, not these plan
+>   sessions. Say which numbering a new heading uses before writing one.
+> - The axe and the `sword+axe` loadout are playable now and are missing from the feel-question
+>   list. So is the 14.2-point duelist swing session 16 shipped, which
+>   `docs/measurements.md` now carries as an owed item.
+
 ## Outcome
 
 Establish whether the engagement gates are reachable at all, by measuring a human player on
@@ -23,7 +50,7 @@ And the instrument has never been pointed at a person. There is no shared record
 deleted `scripts/evaluate-options.mjs` and `scripts/training-evaluator.mjs`, which were its
 only two callers, and the note now beside it in `src/options.ts` names this session as the
 reader it is being kept for. The research path builds its own `EngagementTracker` by hand in
-`scripts/research-havok.mjs#L28` on top of `runBout`'s `onSample`/`onEvent` callbacks, and
+`scripts/research-havok.mjs#L32` on top of `runBout`'s `onSample`/`onEvent` callbacks, and
 `src/main.ts`'s render loop builds nothing at all. A human bout currently produces no
 engagement row. A gate that no player can clear is a mis-specified
 gate, and months of compute chasing it would be the most expensive possible way to find out.
@@ -38,7 +65,7 @@ tracker and one absence.
    consumes exactly `onSample({ view, dt, clock })` and `onEvent(event)`. **That is not the
    shape `runBout` emits.** `runBout` emits `{ left, right, dt, clock }` carrying `Combatant`s
    (`scripts/measure.mjs#L283`); `{ view, dt, clock }` is `runResearchBout`'s per-fighter hook
-   re-projection one layer up (`scripts/research-havok.mjs#L65-L66`). Take the per-fighter
+   re-projection one layer up (`scripts/research-havok.mjs#L174`). Take the per-fighter
    shape and adapt at the bench call sites: a side-agnostic recorder is the whole point, and
    the page has no pair-shaped event to give it. It calls the existing
    `recordBehaviourSample`, `recordCombatEvent` and `recordIntentAttack`; it reimplements none
@@ -89,10 +116,10 @@ tracker and one absence.
    margin, pass/fail. Same column names, same order, same derivation as the headless report,
    produced by a single shared formatter. **No such formatter exists and none of the four
    current derivations produces a margin** -- `assessTournamentCandidate`
-   (`tournament.ts#L197-L221`) emits threshold strings with no achieved value. Build one over
+   (`tournament.ts#L375-L395`) emits threshold strings with no achieved value. Build one over
    `TOURNAMENT_THRESHOLDS`, and rewrite `assessTournamentCandidate` to consume its rows, or
    the count of independent derivations goes from four to five. Fix one meaning for a
-   never-attacked cell while you are there: `tournament.ts#L241-L245` says `+Infinity`, and it
+   never-attacked cell while you are there: `tournament.ts#L712` says `+Infinity`, and it
    is now the **only** derivation -- session 17 stage A deleted the `evaluate-ai.mjs` helper
    that answered `null` for the same cell, so this is a choice to make rather than a
    disagreement to settle. It is exactly the cell a bad human bout makes, and `+Infinity` in a
@@ -185,11 +212,11 @@ behaviour exists on the other side of it, and a search has something to find.
   and it is deliberately scoped, because **the two paths are already known to disagree in four
   ways** and a test asserting general agreement would simply fail. `opportunityForAction`
   requires `striker === "sword"` for `thrust` (`engagement.ts#L118-L123`) where the inline matcher
-  falls through to `true` (`options.ts#L1157`); `research-havok.mjs#L46` credits exactly one row,
-  **the hand the label named**, where `options.ts#L1158` credits every viable match, which
+  falls through to `true` (`options.ts#L1331`); `research-havok.mjs#L149` credits exactly one row,
+  **the hand the label named**, where `options.ts#L1332` credits every viable match, which
   depresses dual-wield conversion; the labelled paths fire on an option-change edge and the
   label-free path on a button edge at 240 Hz; and only the label-free path counts a guard
-  *release* as an attack (`options.ts#L1141`). (This said "credits only the first matching row",
+  *release* as an attack (`options.ts#L1315`). (This said "credits only the first matching row",
   which was the defect fixed on 2026-08-25 -- the first row was the primary fist whichever hand
   the label named. The disagreement survives; its cause changed.)
   Add `the_four_known_attack_path_disagreements_are_measured_not_assumed`

@@ -1,5 +1,44 @@
 # Session 19 -- make a long run legible while it runs
 
+> **Corrections, 2026-08-26.** Measured against the tree at `86b74c8`; the evidence is in
+> `docs/measurements.md` under "What a long run cannot yet tell anybody".
+>
+> - **This session is no longer only instrumentation, and the order matters: make a run
+>   runnable, then make it legible.** PPO cannot spend a step budget. Asked for 400,000
+>   solver steps an arm it consumed **5,508** across both, because `runResearchBout` clamps
+>   a bout to `min(boutCapSeconds, limit/physicsHz)` with every stratum at 45 s and 240 Hz,
+>   a bout ends when somebody dies rather than at the cap, and `trainPpo` runs exactly four
+>   bouts. It also does exactly two gradient updates at any budget. **Giving PPO an outer
+>   loop -- iterations of collect-then-update -- is the highest-value change in this plan
+>   set and no session owns it.** Instrumenting a four-bout run tells nobody anything, so it
+>   belongs at the front of this session. If that makes the session too large, split it:
+>   **19a "a run that can be run", 19b "a run that can be watched"**, and 19a lands first.
+> - **A plateau rule is illegal in two runners today.** `train-neat-qd.mjs` and
+>   `collect-dagger.mjs` both throw unless `consumedSolverSteps === solverSteps` exactly, and
+>   a plateau stops a run early by construction. Remove or condition both, and retire
+>   `fullBudgetCompleted: solverSteps === 1_800_000_000` from both report schemas along with
+>   `RESEARCH_SOLVER_STEP_BUDGET` in `src/learning/research.ts`, which has no consumer.
+> - **Two runners already keep most of a ledger row**, which this plan says and the
+>   overview previously denied. `train-neat-qd.mjs` pushes a per-generation row with
+>   `species`, `archiveCoverage`, `validationScore`, `validationWorstCellScore`,
+>   `validationCells` and `solverSteps`, flushed every five generations;
+>   `collect-dagger.mjs` pushes one per iteration, flushed each time. What is missing is the
+>   gate table, wall clock, digests and an append-only file. Generalise, do not invent.
+> - **No runner emits progress at all**, look-ahead included -- its two writes are inside
+>   `writeLookaheadOutput`, after the run returns.
+> - **The look-ahead unit count is 3,780, not 960.** `lookaheadTacticCellSchedule` returns
+>   **945** tasks a split, so `3 x 945 + 945 = 3,780` and the minimum budget is 181,440. The
+>   960 is the retired action-v1 schedule.
+> - **Six head entropies, not five.** `PPO_POLICY_HEADS` has carried `persistence` since
+>   `ab7875f`, and the entropy divisor is derived from that array.
+> - **`champion-so-far` is not pure instrumentation.** It needs a page-side deployment path
+>   that does not exist, and for look-ahead a model that exists only after the whole train
+>   sweep and is uncalibrated until the validation sweep.
+> - Two counts in this file are stale and their conclusions survive: `deployment.ts` has
+>   **nine** importers, not two (all still Node-side, so "no page-side deployment path"
+>   holds -- `src/main.ts` has zero `artifact` references), and `AGENTS.md` is **667** lines,
+>   not 572.
+
 ## Outcome
 
 No research command may run longer than one hour without saying, in gate terms, what it has
