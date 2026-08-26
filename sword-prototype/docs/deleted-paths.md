@@ -85,9 +85,12 @@ at `503bd0a`.
 - `docs/plans/combat-followups-13-ai-evaluation-contract.md`
 - `docs/plans/combat-followups-13-integration-and-playtest.md`
 - `docs/plans/combat-followups-14-factorized-ai-contract.md`
+- `docs/plans/combat-followups-15-host-command-boundary.md`
 - `docs/plans/combat-followups-15-neat-qd-curriculum.md`
 - `docs/plans/combat-followups-16-dagger-imitation.md`
+- `docs/plans/combat-followups-16-policy-perception-v4.md`
 - `docs/plans/combat-followups-17-ppo-self-play.md`
+- `docs/plans/combat-followups-17-tactic-output-v2.md`
 - `docs/plans/combat-followups-18-bounded-lookahead.md`
 - `docs/plans/combat-followups-18-compute-contract-preflight.md`
 - `docs/plans/combat-followups-19-held-out-ai-tournament.md`

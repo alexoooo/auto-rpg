@@ -120,13 +120,15 @@ const ANCHOR = /^(.*?)(?::((?:\d+(?:-\d+)?)(?:,\d+(?:-\d+)?)*)|#L(\d+)(?:-L?(\d+
 // continuation in this tree is within two lines; five is slack, not a search.
 //
 // **The nearest preceding file name is a guess, and it is wrong far more often than
-// the verdicts show.** Hand-checked one at a time over
-// `combat-followups-17-tactic-output-v2.md`, which holds 17 of the tree's 48
-// continuations: **nine** guess a file the prose does not mean. Two of the nine
-// produce a verdict, because the wrongly-guessed carrier also happened to be too
-// short. The other seven are silent, and the clearest is line 392's `` `:310` ``,
-// which guesses `docs/measurements.md` -- six thousand lines, so it will absorb any
-// line number a plan ever writes.
+// the verdicts show.** Hand-checked one at a time over the session-17 plan, which held
+// 17 of the tree's 48 continuations when the check was taken on 2026-08-25: **nine**
+// guessed a file the prose does not mean. Two of the nine produced a verdict, because
+// the wrongly-guessed carrier also happened to be too short. The other seven were
+// silent, and the clearest guessed `docs/measurements.md` -- six thousand lines, so it
+// absorbs any line number a plan will ever write. **That file was deleted with the
+// landed plan set on 2026-08-26 and the count is not re-takeable**; it is dated rather
+// than restated, because the deletion removed 32 continuations and any later total is
+// over a different population. `docs/measurements.md` carries the evidence.
 //
 // So the verdict below measures "the guess was wrong **and** out of range", not "the
 // carrier is unverified", and it is named for the former. **The silent class is
@@ -137,10 +139,11 @@ const ANCHOR = /^(.*?)(?::((?:\d+(?:-\d+)?)(?:,\d+(?:-\d+)?)*)|#L(\d+)(?:-L?(\d+
 // lines up in three cases, and a bolded bullet subject past two intervening file
 // names in three more. One cheap catch was proposed and **measured, then rejected** --
 // "a bare continuation never legitimately carries a `.md` file, so a `.md` carrier is
-// wrong by construction". It does: `combat-followups-16-policy-perception-v4.md:226`
-// writes "Update the perception and learning sections of `docs/design.md` -- `#L84`
-// documents ...", which is a correct `.md` carrier, and `docs/measurements.md` has
-// three more. The heuristic would have been wrong four times to catch one.
+// wrong by construction". It does: the session-16 plan wrote "Update the perception and
+// learning sections of `docs/design.md` -- `#L84` documents ...", a correct `.md`
+// carrier, and `docs/measurements.md` has three more of the same shape -- which is what
+// keeps the heuristic falsified now that the plan file is deleted. It would have been
+// wrong four times to catch one.
 //
 // The record carries the carrier it guessed, so checking one takes a single step.
 const CONTINUATION_LINES = 5;
@@ -244,24 +247,31 @@ const NOT_A_PATH_TARGETS = [
 // Measured 2026-08-25 on the working tree that adds this test: 165 / 1,409 = 11.7 %.
 const SCRATCH_SHARE_OF_DURABLE = { min: 0.02, max: 0.25 };
 
-// `docs/plans/` holds 197 of this tree's 206 `path:line` anchors, and AGENTS.md says
-// the whole plan set is deleted in the commit that finishes the topic. Repairing them
-// is work that is about to be thrown away and that every session would redo, so the
-// plan surface is counted rather than gated -- and the count is pinned from both
-// sides, so a session that rots more anchors is told, and a session that repairs some
-// is told to re-pin. The field names say what the rule actually measured; none of
-// them means "stale", because this rule cannot see staleness, only absence and range.
-// Measured 2026-08-25 on the working tree that adds this test, by its own scanner.
-// `noSuchFile` went 13 -> 15 when `jsonl` joined the extension whitelist: the two
-// `ledger.jsonl` references in `combat-followups-19-run-legibility.md` had been
-// outside the judged population entirely, which is the hole that whitelist test
-// closes.
+// `docs/plans/` is deleted in the commit that finishes the topic, so repairing its
+// anchors is work about to be thrown away and that every session would redo. The plan
+// surface is counted rather than gated, and pinned from both sides: a session that
+// rots more is told, and a session that repairs some is told to re-pin. The field
+// names say what the rule actually measured; none of them means "stale", because this
+// rule cannot see staleness, only absence and range.
+//
+// **Re-measured 2026-08-26, and the population changed character rather than size.**
+// The three landed session plans -- 15, 16 and 17 -- were deleted and the overview was
+// slimmed from 1,526 lines to 231, which took 98 anchored spans and 32 bare
+// continuations out of the judged set. Five of the six fields went to zero as a result,
+// and the survivors are all one thing: **a plan naming a file it intends to create.**
+// `tests/recorder.test.mjs`, `tests/ledger.test.mjs`, `tests/plateau.test.mjs`,
+// `tests/deployment.test.mjs`, `tests/preflight.test.mjs`, `tests/ceilings.test.mjs`,
+// `tests/engagement.test.mjs`, `scripts/freeze-tournament.mjs` and `ledger.jsonl` do
+// not exist because nobody has run sessions 18 through 23 yet. So `noSuchFile: 13` is
+// now a count of unbuilt work, and it should fall as those sessions land rather than
+// stay put -- which is the opposite of what this pin meant a day ago, and is why the
+// reason is written here instead of only the number.
 const PLAN_SURFACE = {
-  noSuchFile: 15,
+  noSuchFile: 13,
   ambiguousFile: 0,
-  anchorIntoDeletedFile: 11,
-  orphanContinuation: 5,
-  continuationOutsideGuessedCarrier: 2,
+  anchorIntoDeletedFile: 0,
+  orphanContinuation: 0,
+  continuationOutsideGuessedCarrier: 0,
   lineOutOfRange: 0,
 };
 
@@ -746,9 +756,10 @@ test("the_extension_whitelist_covers_every_path_shaped_span", () => {
 });
 
 test("the_plan_sets_unverifiable_references_are_pinned_from_both_sides", () => {
-  // Not gated: `docs/plans/` holds 197 of 206 anchors and the whole set is deleted
-  // when the topic closes, so repairing them is work about to be thrown away. Pinned
-  // so that rotting more is reported and repairing some forces a re-pin.
+  // Not gated: the whole plan set is deleted when the topic closes, so repairing its
+  // anchors is work about to be thrown away. Pinned so that rotting more is reported
+  // and repairing some forces a re-pin. Every entry today is a plan naming a file it
+  // intends to create; see PLAN_SURFACE for why that makes the pin read differently.
   const records = all.filter((r) => !durable(r)).map(judge).filter(Boolean);
   assert.deepEqual(tally(records), PLAN_SURFACE, `plan surface moved:\n${JSON.stringify(records, null, 2)}`);
 });

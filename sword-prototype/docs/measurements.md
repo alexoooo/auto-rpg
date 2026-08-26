@@ -6199,10 +6199,13 @@ rather than re-derived. The count is dated for that reason: deleting the landed 
 It sees an anchor that runs off the end of a file and an anchor naming a file that is not there. It
 **cannot** see an anchor that still lands inside its file and now points at the wrong line -- which
 is what every line-shifting edit above an anchor produces. Re-pointing `sword.ts` in `src/main.ts`
-took a four-line comment to five, and that moved three plan anchors by one:
-`combat-followups-00-overview.md:1386` and `combat-followups-17-tactic-output-v2.md:345` and `:349`
-all pointed one line short. **The suite stayed green**, because a shift of one changes neither the
-range verdict nor the resolution verdict and therefore does not move the pinned plan record.
+took a four-line comment to five, and that moved three plan anchors by one -- one in the overview
+and two in the session-17 plan, all pointing one line short. **The suite stayed green**, because a
+shift of one changes neither the range verdict nor the resolution verdict and therefore does not
+move the pinned plan record. **The three are named by document rather than by line here on
+purpose**: this passage has now rotted twice through the very blind spot it describes -- once when
+the overview grew 92 lines under it, and again when the overview was slimmed to 230 and the
+session-17 plan was deleted. A pointer into a living document is a pointer with a half-life.
 
 The edit was rewrapped to four lines and the three anchors are back on their original targets;
 every source and prose edit in this change is line-neutral, checked file by file against `HEAD`.
