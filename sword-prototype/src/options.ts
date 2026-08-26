@@ -53,6 +53,173 @@ export const STANCE_NAMES: readonly StanceName[] = Object.freeze([
 ]);
 
 /**
+ * One decision written as one string, and the one place that spelling lives.
+ *
+ * The tournament's behaviour record keys on this (`learning/tournament.ts`), the
+ * bout harness writes keys with `tacticCountKey` (`scripts/research-havok.mjs`)
+ * and the row validator reads them back with `parseTacticCountKey` after a
+ * round trip through JSON. Producer and validator are in different files and
+ * different languages' worth of type checking, so a second spelling of the key
+ * format is exactly the "caller holding its own copy of a rule" defect this
+ * directory has a written rule about. There is one.
+ *
+ * **It lives here rather than beside its reader, and the reason is an import
+ * cycle rather than taste.** `options.ts` imports `learning/engagement.ts`,
+ * which imports `OPPORTUNITY_WINDOW_SECONDS` from `learning/tournament.ts`, so
+ * those two modules are cyclic; a frozen table built at `tournament.ts`'s module
+ * scope out of `MOVEMENT_NAMES` threw `Cannot access 'MOVEMENT_NAMES' before
+ * initialization` from every test whose first import was `options.ts`. Here, the
+ * table is beside the five it is over and there is no cycle to lose a race with.
+ *
+ * **The delimiter is `"|"` and it is not a free choice.** Three of the
+ * twenty-five names contain a hyphen -- `circle-left`, `slip-left`,
+ * `action-default` -- so a hyphen cannot separate them unambiguously, and none
+ * contains a vertical bar. `the_tuple_key_delimiter_appears_in_no_option_name`
+ * reads all five tables and says so, so a name added with a bar in it fails
+ * rather than silently splitting a key into six parts. It is also what
+ * `meta.ts`'s `tacticKey` and `lookahead.ts`'s `legalTacticKey` already use for
+ * the three-field tuple, which makes this that spelling widened rather than a
+ * fourth convention.
+ */
+export const TACTIC_KEY_DELIMITER = "|";
+
+export interface TacticTuple {
+  readonly movement: MovementName;
+  readonly action: HandActionName;
+  readonly effector: EffectorName;
+  readonly target: TargetName;
+  readonly stance: StanceName;
+}
+
+/** The five frozen tables in contract order -- the order `META_OUTPUT_LAYOUT` lays its 26 outputs in. */
+export const TACTIC_KEY_HEADS: readonly (readonly [keyof TacticTuple, readonly string[]])[] = Object.freeze([
+  ["movement", MOVEMENT_NAMES], ["action", HAND_ACTION_NAMES], ["effector", EFFECTOR_NAMES],
+  ["target", TARGET_NAMES], ["stance", STANCE_NAMES],
+] as const);
+const TACTIC_KEY_ORDER = TACTIC_KEY_HEADS.map(([head]) => head).join(TACTIC_KEY_DELIMITER);
+
+export const tacticCountKey = (tuple: Readonly<Record<keyof TacticTuple, string>>): string =>
+  TACTIC_KEY_HEADS.map(([head]) => tuple[head]).join(TACTIC_KEY_DELIMITER);
+
+/**
+ * Why this key is not a tactic, or null when it is.
+ *
+ * A phrase and not a boolean, in the shape `unsupportedTactic` below already
+ * uses and for the same reason: `a movement of close, hold, circle-left,
+ * circle-right, disengage, not "cover"` and `5 names in
+ * movement|action|effector|target|stance order, not 4` are different repairs, and
+ * a record refused from a file somebody has to fix by hand has to say which.
+ */
+export function tacticKeyFailure(key: string): string | null {
+  const parts = key.split(TACTIC_KEY_DELIMITER);
+  if (parts.length !== TACTIC_KEY_HEADS.length) {
+    return `${TACTIC_KEY_HEADS.length} names in ${TACTIC_KEY_ORDER} order, not ${parts.length}`;
+  }
+  for (let at = 0; at < TACTIC_KEY_HEADS.length; at += 1) {
+    const [head, table] = TACTIC_KEY_HEADS[at] as readonly [keyof TacticTuple, readonly string[]];
+    if (!table.includes(parts[at] as string)) return `${headArticle(head)} of ${table.join(", ")}, not "${parts[at]}"`;
+  }
+  return null;
+}
+
+/** `an action`, `a movement`. Two of the five head names begin with a vowel. */
+export const headArticle = (head: string): string => `${"aeiou".includes(head[0] as string) ? "an" : "a"} ${head}`;
+
+export function parseTacticCountKey(key: string): TacticTuple {
+  const failure = tacticKeyFailure(key);
+  if (failure) throw new Error(`tactic key "${key}" requires ${failure}`);
+  const [movement, action, effector, target, stance] = key.split(TACTIC_KEY_DELIMITER) as
+    [MovementName, HandActionName, EffectorName, TargetName, StanceName];
+  return Object.freeze({ movement, action, effector, target, stance });
+}
+
+/**
+ * The one head whose free set a behaviour record has to *carry*, because it is
+ * the only one that cannot be recovered from the joint map.
+ *
+ * Checked head by head against the executor rather than assumed, because a
+ * second would change what a behaviour record has to carry.
+ *
+ * - `movement`: `movementIntent`'s only gate is `knownMovement`, a name test,
+ *   and `deployableTactics` does not enumerate movement at all. All five are
+ *   legal on every body that can decide anything.
+ * - `stance`: `handActionOption`'s only gate is `knownStance`, and
+ *   `applyTacticStance` is total over the six names on every body -- `extended`
+ *   falls back to body-relative +1 when no hand is acting, which is the branch a
+ *   `bite` and an armless `recover` take.
+ * - `target`: `unsupportedTactic` reads `AIMED_TARGETS[action]`, which takes no
+ *   view. Pure lookup on the action, so how many targets were legal is
+ *   recoverable from the recorded action and needs no separate map. (`bite` is
+ *   the only action with a single row, so it is the only one with no choice.)
+ * - `action`: **free on every recorded decision -- see the theorem below.**
+ * - `effector`: body-dependent, through `tacticEffectors(view, action)`, and the
+ *   only head of the five a joint map cannot answer for. `cut` reaches one hand
+ *   on a `sword+shield` body and two on nothing at all; the key names the hand
+ *   that was used and no key says how many were offered.
+ *
+ * **How much that last one is worth is smaller than it sounds**, and the measured
+ * per-loadout table is in `headUtilisation`'s docstring in
+ * `learning/tournament.ts`: no armed loadout in the research matrix gives an
+ * *attacking* action two legal effectors, so on 8 of the 13 cells this count is
+ * "how often did it choose `cover` or `recover`" and on 3 more it is
+ * structurally zero. It is also conditioned on the action just chosen, which
+ * makes it post-treatment. Read that docstring before drawing a conclusion from
+ * this map.
+ *
+ * ## The action head is free on every decision that can be recorded
+ *
+ * **Claim.** Every body for which `onDecision` can fire has two or more legal
+ * hand actions, so a `freeChoiceCounts.action` map would be identically
+ * `tacticMarginal(tacticCounts, "action")` -- a second copy of a projection of
+ * the joint map. It was carried for one session and is deleted.
+ *
+ * **Proof sketch.** `supportedOptions` (`learning/meta.ts`) answers the empty
+ * set for a body with no attached hand *and* no natural attack, and on the empty
+ * mask `researchLabelMind` (`learning/research-policy.ts`) and `lookaheadMind`
+ * (`learning/lookahead.ts`) both return `freshIntent()` **without calling
+ * `onDecision`**. So every recorded decision comes from a body in one of two
+ * states. With at least one attached hand: `accepts` answers `() => true` for
+ * both `cover` and `recover`, so `tacticEffectors` is non-empty for both and
+ * `deployableActions` deletes `cover` only when no hand is attached -- two.
+ * With no hand and a published bite: `tacticEffectors` answers the natural
+ * effector for `bite` and, by its no-hand branch, for `recover` -- two.
+ *
+ * **Measured 2026-08-25, and the coverage space is stated because the review
+ * that proposed the deletion had one sweep that was exact over the wrong
+ * space** -- 288 synthetic bodies varying "bite on/off", which is the one axis
+ * that cannot reach the counterexample below.
+ * `.review/rem26/theorem.mjs` enumerates all 7 `WEAPON_KINDS` in each hand,
+ * ordered, x attached/lost for each hand, x bite present/absent = 392 synthetic
+ * bodies, plus 8 edge shapes (`hands: {}` with and without a bite, an armless
+ * warrior with and without one, `naturalAttacks` absent entirely, and the two
+ * below). 348 of the 400 can decide. `.review/rem26/cells.mjs` runs 39 real
+ * Havok bouts -- all 13 (unit, loadout) cells x all 3 `RESEARCH_OPPONENTS`,
+ * seed 310013, 1200 solver steps each, 1771 decisions -- and samples the mask at
+ * every one: the smallest legal-action count seen is 2, and the free-action map
+ * came out byte-identical to the action marginal on all 39. Neither sweep is in
+ * `npm test` -- one needs a hand-rolled body table and the other 39 Havok bouts
+ * -- so `every_body_that_can_decide_offers_two_or_more_legal_actions` is the
+ * cheap live reader, on the two bodies closest to the boundary.
+ *
+ * **The boundary, which is the part a future edit has to read.** Two of the 400
+ * shapes *do* decide with exactly one legal action, and both are the same shape:
+ * a body with no attached hand whose only entry in `naturalAttacks` is **not**
+ * named `bite`. `supportedOptions` gates on `Object.keys(naturalAttacks).length`
+ * -- any natural attack means "this body can decide" -- while `tacticEffectors`
+ * hardcodes the name `bite`, so such a body is offered `recover` and nothing
+ * else. Nothing in the tree can build one: the only two writers of the field are
+ * `NO_NATURAL_ATTACKS` in `fighter.ts` and the centipede's `{ bite }`. A review
+ * that swept "bite on/off" cannot see it, because the axis that breaks the
+ * theorem is the *name* and not the presence. **Add a second natural attack and
+ * this map has to come back** -- and the larger bug to fix first is that a body
+ * would then be able to decide without being able to perform its own attack.
+ */
+export const FREE_CHOICE_HEADS = Object.freeze(["effector"] as const);
+export type FreeChoiceHead = (typeof FREE_CHOICE_HEADS)[number];
+export const FREE_CHOICE_TABLES: Readonly<Record<FreeChoiceHead, readonly string[]>> =
+  Object.freeze({ effector: EFFECTOR_NAMES });
+
+/**
  * Where an aimed skill points: a named body region, or the line the scripted
  * specialists were measured against.
  *

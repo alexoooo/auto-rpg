@@ -9,6 +9,7 @@ import { fitnessComponents, noveltyScore } from "../src/learning/meta.ts";
 import { SplitReader } from "../src/learning/research.ts";
 import { researchMatrix } from "../src/learning/research-matrix.ts";
 import { assessTournamentCandidate } from "../src/learning/tournament.ts";
+import { tacticCountKey } from "../src/options.ts";
 import { assertCompleteView } from "./fixtures/view.mjs";
 
 const hand = (weapon = "sword", reach = 1.2, outboard = 1) => ({ weapon, reach, lost: false, outboard,
@@ -184,7 +185,15 @@ const passingCandidate = () => ({ name: "candidate", algorithm: "dagger", artifa
   cells: [{ name: "warrior/sword", meaningfulEngagement: 1, opportunityAttackRate: 0.8,
     attackContactRate: 0.4, nearRangeStallShare: 0.1, firstAttackP90Seconds: 2,
     symmetricTimeCapRate: 0, score: 0.7, specialistScore: 0.8 }],
-  actionCounts: { close: 20, cover: 20, cut: 20, recover: 1 }, safety: { finiteAnatomical: true,
+  // Was `{ close: 20, cover: 20, cut: 20, recover: 1 }`, and `close` is a
+  // movement -- a record no producer could write, counted as a diverse action by
+  // a gate that validated no names. Three real hand actions now.
+  tacticCounts: { [tacticCountKey({ movement: "close", action: "cover", effector: "secondary", target: "threat", stance: "action-default" })]: 20,
+    [tacticCountKey({ movement: "close", action: "cut", effector: "primary", target: "vital", stance: "action-default" })]: 20,
+    [tacticCountKey({ movement: "circle-right", action: "thrust", effector: "primary", target: "low", stance: "slip-right" })]: 20,
+    [tacticCountKey({ movement: "hold", action: "recover", effector: "primary", target: "vital", stance: "upright" })]: 1 },
+  freeChoiceCounts: { effector: { primary: 41, secondary: 20 } },
+  safety: { finiteAnatomical: true,
     capabilities: true, postVerdict: true, stuckActions: true, lifecycle: true } });
 
 test("a_good_mean_cannot_hide_a_completely_failed_loadout_or_unit", () => {

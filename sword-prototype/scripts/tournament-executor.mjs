@@ -46,7 +46,15 @@ export function tournamentRawRow(manifest, scheduled, bout) {
     engagement: Object.freeze({ opportunities: bout.engagement.viableOpportunities, attacks: bout.engagement.attacksInWindow,
       contacts: bout.engagement.damagingContactsInWindow, nearRangeStallSeconds: bout.engagement.nearRangeStallSeconds,
       firstAttackSeconds: bout.engagement.firstAttackSeconds, meaningful: bout.engagement.damagingContactsInWindow }),
-    actionCounts: Object.freeze({ ...bout.actionCounts }), safety: Object.freeze({ finiteAnatomical: true,
+    // Both halves of the behaviour record, and the empty-map default is
+    // load-bearing rather than defensive: `mindFactoryForTournament` returns
+    // `() => control` for the three controls, which discards the `onDecision`
+    // argument outright, so a control row's maps are genuinely `{}` and the
+    // validator has to accept that. Nothing downstream reads a control's counts
+    // -- `assessTournamentCandidate` runs over `manifest.candidates` alone.
+    tacticCounts: Object.freeze({ ...bout.tacticCounts }),
+    freeChoiceCounts: Object.freeze({ effector: Object.freeze({ ...bout.freeChoiceCounts?.effector }) }),
+    safety: Object.freeze({ finiteAnatomical: true,
       capabilities: true, postVerdict: true, stuckActions: true, lifecycle: true }) });
 }
 

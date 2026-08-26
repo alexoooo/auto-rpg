@@ -1,3 +1,17 @@
+// **Every one of these is used inside a function body and none at module level,
+// and that is a constraint rather than a habit.** `options.ts` imports
+// `learning/engagement.ts`, which imports the two window constants at the top of
+// this file, so `tournament.ts` and `options.ts` are in an import cycle. Which
+// module wins the race depends on what the entry point reached first: a test
+// that imports `options.ts` before this file leaves every binding below in its
+// temporal dead zone while this module's body runs. A frozen lookup table built
+// here from `HAND_ACTION_NAMES` therefore threw
+// `Cannot access 'MOVEMENT_NAMES' before initialization` from four test files at
+// once, which is why the tuple-key vocabulary itself lives in `options.ts` beside
+// the five tables it is over, and why nothing here may evaluate one of these at
+// module scope.
+import { FREE_CHOICE_HEADS, FREE_CHOICE_TABLES, TACTIC_KEY_HEADS, parseTacticCountKey, tacticKeyFailure,
+  tacticTargets, type FreeChoiceHead, type TacticTuple } from "../options.ts";
 import { RESEARCH_ALGORITHMS, artifactChecksum, canonicalJson, type ResearchAlgorithm } from "./artifact.ts";
 import type { ResearchMatrixJob } from "./research-matrix.ts";
 
@@ -11,6 +25,84 @@ export const MAX_SYMMETRIC_TIME_CAP_RATE = 0.10;
 export const MAX_SPECIALIST_GAP = 0.15;
 export const MIN_ACTION_SHARE = 0.08;
 export const MIN_DIVERSE_ACTIONS = 3;
+
+/**
+ * The behaviour record names the whole tuple, and it is one joint map rather
+ * than five marginal ones.
+ *
+ * The record counted `label.action` alone from the day it was written, which was
+ * the whole decision while the output contract was thirteen wide. It is 26 now
+ * -- movement x action x effector x target x stance, plus a scalar persistence
+ * -- and an action-only count says nothing whatever about the other four heads,
+ * which is reason enough on its own to key on the tuple.
+ *
+ * **It was written down as "this now separates a learned effector head from a
+ * body that only offered one hand", and that is an overclaim.** The separation
+ * exists, but only where the body offers a second hand for the action chosen,
+ * and `headUtilisation`'s docstring carries the measured table: 2 of the 13
+ * research cells, both of them the weaponless ones. No armed loadout gives an
+ * attacking action two legal effectors. What the tuple key buys unconditionally
+ * is the other four heads and the joint structure -- whether the low cuts and
+ * the left slips were the same decisions -- and that is the claim to make for it.
+ *
+ * The joint map *is* the five marginals: `tacticMarginal` projects any head out
+ * of it, and nothing is recoverable from five separate maps that is not
+ * recoverable from this one, while the converse is false -- five marginals
+ * cannot say whether the low cuts and the left slips were the same decisions. It
+ * also carries the target head's legality denominator for free, because
+ * `tacticTargets` is a pure table lookup on the *action*: a key that names its
+ * action names how many targets were legal when it was chosen.
+ *
+ * **Four of the five heads therefore need no map of their own, and `action` is
+ * the one that stopped needing one.** Movement and stance are legal on every
+ * body; target is derived from the action; and every body that can decide at all
+ * offers two or more actions, so a free-action count is exactly the action
+ * marginal. `FREE_CHOICE_HEADS` in `options.ts` carries that theorem, the
+ * coverage space of the sweeps behind it, and the head-by-head check -- along
+ * with the key format and its delimiter. The effector is the one head a joint
+ * map cannot answer for, because a key names the hand that acted and no key says
+ * how many were offered.
+ */
+export type TacticCounts = Readonly<Record<string, number>>;
+export type FreeChoiceCounts = Readonly<Record<FreeChoiceHead, Readonly<Record<string, number>>>>;
+
+/** One head projected out of the joint record. Every marginal sums to the same total. */
+export function tacticMarginal(counts: TacticCounts, head: keyof TacticTuple): Readonly<Record<string, number>> {
+  const marginal: Record<string, number> = {};
+  for (const [key, count] of Object.entries(counts)) {
+    const name = parseTacticCountKey(key)[head];
+    marginal[name] = (marginal[name] ?? 0) + count;
+  }
+  return Object.freeze(marginal);
+}
+
+/**
+ * Both halves of the behaviour record, summed over a set of rows.
+ *
+ * **The only production aggregation of the free-choice statistic**, which is why
+ * it is a named function with a test rather than four lines inside
+ * `candidateFromRawRows`: deleting the free-choice half leaves every candidate
+ * reporting `freeChoiceDecisions: 0` on every head, and a report saying "the
+ * body never offered a second hand" for a whole tournament is indistinguishable
+ * from a true one. It is also what `scripts/evaluate-ai.mjs` calls to group by
+ * cell, which `candidateFromRawRows` cannot answer because it folds the cell
+ * keys away.
+ */
+export function mergeBehaviourRecord(rows: readonly Pick<TournamentRawRow, "tacticCounts" | "freeChoiceCounts">[]):
+  { readonly tacticCounts: TacticCounts; readonly freeChoiceCounts: FreeChoiceCounts } {
+  const tacticCounts: Record<string, number> = {};
+  const freeChoiceCounts: Record<FreeChoiceHead, Record<string, number>> = { effector: {} };
+  for (const row of rows) {
+    for (const [key, count] of Object.entries(row.tacticCounts)) tacticCounts[key] = (tacticCounts[key] ?? 0) + count;
+    for (const head of FREE_CHOICE_HEADS) {
+      for (const [name, count] of Object.entries(row.freeChoiceCounts[head] ?? {})) {
+        freeChoiceCounts[head][name] = (freeChoiceCounts[head][name] ?? 0) + count;
+      }
+    }
+  }
+  return Object.freeze({ tacticCounts: Object.freeze(tacticCounts),
+    freeChoiceCounts: Object.freeze({ effector: Object.freeze(freeChoiceCounts.effector) }) });
+}
 
 export interface TournamentCell {
   readonly name: string;
@@ -34,7 +126,8 @@ export interface TournamentCandidate {
   readonly scriptedScore: number;
   readonly randomScore: number;
   readonly cells: readonly TournamentCell[];
-  readonly actionCounts: Readonly<Record<string, number>>;
+  readonly tacticCounts: TacticCounts;
+  readonly freeChoiceCounts: FreeChoiceCounts;
   readonly safety: {
     readonly finiteAnatomical: boolean;
     readonly capabilities: boolean;
@@ -67,7 +160,8 @@ export interface TournamentRawRow {
     readonly nearRangeStallSeconds: number; readonly firstAttackSeconds: number | null;
     readonly meaningful: number;
   };
-  readonly actionCounts: Readonly<Record<string, number>>;
+  readonly tacticCounts: TacticCounts;
+  readonly freeChoiceCounts: FreeChoiceCounts;
   readonly safety: TournamentCandidate["safety"];
 }
 
@@ -127,6 +221,54 @@ const jobSignature = (job: ResearchMatrixJob): string => canonicalJson(job);
 const controllersFor = (manifest: FrozenTournamentManifest): readonly string[] =>
   Object.freeze([...manifest.candidates.map((candidate) => candidate.name), ...manifest.controls]);
 
+/**
+ * The behaviour record of one row, refused by name when it is malformed.
+ *
+ * **This is the deserialization guard, and that is why legality-by-construction
+ * on the producer side does not make it redundant.** Every tuple that reaches
+ * the record in this process is legal by construction -- `researchLabelMind`
+ * calls `onDecision` (`research-policy.ts:98`) after `option.enter(view)` at
+ * `:95` and after the `research policy produced unsupported action` throw at
+ * `:54-56`, and `lookaheadMind` calls it (`lookahead.ts:294`) after its own
+ * `option.enter(view)` at `:291` on a tuple drawn from `deployableTactics`. But
+ * a row does not arrive from a live mind. It arrives as JSON a previous run
+ * wrote and a person may have edited, resumed across a manifest freeze, and
+ * merged; the producer's invariants say nothing about that file. So the counts
+ * are checked here against the same five frozen tables the executor refuses by.
+ *
+ * The third check is the one that is not a spelling test. A free choice is a
+ * *subset* of all choices of the same option, so a free-choice count can never
+ * exceed that option's marginal in the joint map -- and two maps written by one
+ * producer that disagree on that are two maps one of which is wrong. It catches
+ * a producer that counted a free choice on a decision it did not record, or that
+ * recorded the tuple against a different option name than it credited the free
+ * choice to.
+ */
+function validateTacticRecord(identity: string, row: Pick<TournamentRawRow, "tacticCounts" | "freeChoiceCounts">): void {
+  if (!row.tacticCounts || typeof row.tacticCounts !== "object") throw new Error(`${identity} has no tactic counts`);
+  if (!row.freeChoiceCounts || typeof row.freeChoiceCounts !== "object") throw new Error(`${identity} has no free-choice counts`);
+  for (const [key, count] of Object.entries(row.tacticCounts)) {
+    if (!Number.isSafeInteger(count) || count < 0) throw new Error(`${identity} has an invalid tactic count for "${key}"`);
+    const failure = tacticKeyFailure(key);
+    if (failure) throw new Error(`${identity} has tactic key "${key}", which requires ${failure}`);
+  }
+  for (const head of Object.keys(row.freeChoiceCounts)) {
+    if (!(FREE_CHOICE_HEADS as readonly string[]).includes(head)) {
+      throw new Error(`${identity} has free-choice head "${head}", not ${FREE_CHOICE_HEADS.join(" or ")}`);
+    }
+  }
+  for (const head of FREE_CHOICE_HEADS) {
+    const table = FREE_CHOICE_TABLES[head]; const marginal = tacticMarginal(row.tacticCounts, head);
+    for (const [name, count] of Object.entries(row.freeChoiceCounts[head] ?? {})) {
+      if (!Number.isSafeInteger(count) || count < 0) throw new Error(`${identity} has an invalid free-choice ${head} count for "${name}"`);
+      if (!table.includes(name)) throw new Error(`${identity} has a free-choice ${head} of ${table.join(", ")}, not "${name}"`);
+      if (count > (marginal[name] ?? 0)) {
+        throw new Error(`${identity} recorded ${count} free ${head} choices of "${name}" against a tactic marginal of ${marginal[name] ?? 0}`);
+      }
+    }
+  }
+}
+
 function validatePartialTournamentRows(rows: readonly TournamentRawRow[], manifest: FrozenTournamentManifest): void {
   validateTournamentManifest(manifest); const allowed = new Set(controllersFor(manifest)); const seen = new Set<string>();
   for (const row of rows) {
@@ -147,7 +289,7 @@ function validatePartialTournamentRows(rows: readonly TournamentRawRow[], manife
         engagement.nearRangeStallSeconds > row.seconds + 1e-9) throw new Error(`${identity} has invalid stall seconds`);
     if (engagement.firstAttackSeconds !== null && (!Number.isFinite(engagement.firstAttackSeconds) ||
         engagement.firstAttackSeconds < 0 || engagement.firstAttackSeconds > row.seconds + 1e-9)) throw new Error(`${identity} has invalid first attack time`);
-    if (Object.values(row.actionCounts).some((count) => !Number.isSafeInteger(count) || count < 0)) throw new Error(`${identity} has invalid action count`);
+    validateTacticRecord(identity, row);
     if (Object.values(row.safety).some((value) => typeof value !== "boolean")) throw new Error(`${identity} has invalid safety evidence`);
   }
 }
@@ -213,11 +355,209 @@ export function assessTournamentCandidate(candidate: TournamentCandidate): Candi
     if (cell.symmetricTimeCapRate > MAX_SYMMETRIC_TIME_CAP_RATE) failures.push(`${cell.name}: symmetric cap rate above ${MAX_SYMMETRIC_TIME_CAP_RATE}`);
     if (cell.specialistScore - cell.score > MAX_SPECIALIST_GAP + Number.EPSILON) failures.push(`${cell.name}: specialist gap above ${MAX_SPECIALIST_GAP}`);
   }
-  const total = Object.values(candidate.actionCounts).reduce((sum, count) => sum + count, 0);
-  const diverse = Object.entries(candidate.actionCounts).filter(([name, count]) =>
+  // **The action marginal, which keeps this gate's exact former meaning, and the
+  // share is deliberately not fragmented across effectors.** A fighter that only
+  // cuts, split across every tuple a cut can reach, is one action and must still
+  // fail --
+  // `a_cut_only_fighter_split_across_every_tuple_it_can_reach_still_fails_the_diversity_gate`
+  // is the reader that says so, and it is named for the tuples rather than for
+  // three effectors because `tacticEffectors(view, "cut")` reaches at most two.
+  // The denominator is the total over the marginal,
+  // which equals the total decision count because every decision names exactly
+  // one action.
+  //
+  // `recover` is excluded by name, as it always was, and under tuple keying that
+  // name means exactly one thing: the `recover` member of `HAND_ACTION_NAMES`.
+  // It used to mean "whatever key was not the literal `recover`", and three test
+  // fixtures put `close` -- a *movement* -- into the old map and were counted as
+  // a diverse action by it. Nothing in production ever did: the producer keyed on
+  // `label.action`, which is a `HandActionName`. So this is the fixtures being
+  // corrected to a record that can exist, not the gate changing its answer.
+  const actionMarginal = tacticMarginal(candidate.tacticCounts, "action");
+  const total = Object.values(actionMarginal).reduce((sum, count) => sum + count, 0);
+  const diverse = Object.entries(actionMarginal).filter(([name, count]) =>
     name !== "recover" && total > 0 && count / total >= MIN_ACTION_SHARE);
   if (diverse.length < MIN_DIVERSE_ACTIONS) failures.push("fewer than three non-recover actions occupy at least 8% of decisions");
   return Object.freeze({ name: candidate.name, passed: failures.length === 0, failures: Object.freeze(failures) });
+}
+
+/**
+ * Five numbers over two different denominators, and which is which is the whole
+ * point -- so every field says so rather than the type leaving it to be guessed.
+ */
+export interface HeadUtilisation {
+  /** Every decision the candidate took. The same number for all five heads. */
+  readonly decisions: number;
+  /** Of those, the ones where this head had two or more legal options. */
+  readonly freeChoiceDecisions: number;
+  /** Distinct options of this head chosen over **all** `decisions`. */
+  readonly chosen: number;
+  /** The most-used option over **all** `decisions`, or null when there were none. */
+  readonly modal: string | null;
+  /** The modal option's share of `decisions` -- **not** of `freeChoiceDecisions`. */
+  readonly modalShare: number;
+  /** The most-used option over the `freeChoiceDecisions` alone. Null when there were none. */
+  readonly freeModal: string | null;
+  /** `freeModal`'s share of `freeChoiceDecisions` -- **not** of `decisions`. */
+  readonly freeModalShare: number;
+}
+
+/**
+ * Per head: how many decisions there were, how many of them this head could
+ * actually decide, how many of its options were used, and how concentrated the
+ * use was.
+ *
+ * **This is reported and never gated, and the measurement at the bottom of this
+ * docstring is why.** A head that always picks the same option may simply be
+ * right -- a `sword+shield` body's only cutting hand is the primary, so picking
+ * it a thousand times is correct rather than lazy, and a stance head that
+ * settles on `compact` may have found the best stance. Turning any of these into
+ * a threshold would be a *balance* claim: it would refuse a candidate for
+ * insufficient variety without anything having established that variety is worth
+ * what it costs. Worse, the measured table below shows what it would actually
+ * refuse a candidate for -- **its action mix**, because on 8 of the 13 cells the
+ * free-effector denominator is exactly "how often did it choose `cover` or
+ * `recover`", and the tournament's other gates reward the opposite.
+ * `MIN_ACTION_SHARE` earns its place because a controller that only ever cuts is
+ * not playing the game at all; "the effector head is 100% primary" has no such
+ * argument behind it. This directory has just finished removing one decorative
+ * gate. **Do not "fix" this into a threshold.**
+ *
+ * `freeChoiceDecisions` is what makes the statistic worth printing at all,
+ * because it separates the two readings of a modal share of 1.0. Four of the
+ * five free sets are *derived* and only the effector's is recorded: movement and
+ * stance are legal on every body, `tacticTargets` is a table lookup on the
+ * action so a key naming `bite` had one legal target and every other action had
+ * at least two, and every body that can decide offers two or more actions (the
+ * theorem beside `FREE_CHOICE_HEADS`). The effector is the one a joint map
+ * cannot answer for.
+ *
+ * **`modal`/`modalShare` and `freeModal`/`freeModalShare` can name different
+ * options, and the second pair is the one this record exists to produce.**
+ * Measured on a real `warrior/sword+shield` bout (`.review/rem26/inverted.mjs`;
+ * seed 310013, opponent `specialist`, 2400 solver steps, a policy that cuts with
+ * the sword hand on 7 of every 10 decisions and covers with the shield hand on
+ * the other 3):
+ *
+ *     effector marginal  {"primary":69,"secondary":27}
+ *     freeChoiceCounts   {"secondary":27}
+ *     modal  primary   modalShare      0.719   -- over all 96 decisions
+ *     freeModal secondary  freeModalShare 1.0  -- over the 27 it could decide
+ *
+ * Reporting only the first pair says the effector head favours the primary hand.
+ * On every decision where it had a choice it took the secondary, every time. The
+ * sum alone -- which is all this reported before -- cannot say that, because it
+ * throws the per-option split away.
+ *
+ * **The free-choice denominator is conditioned on the action the policy just
+ * chose, which makes it a post-treatment variable and not a property of the
+ * body.** A second hand is offered for `cover` and `recover` and withheld from
+ * `cut` and `thrust`, so the action mix moves the denominator on its own.
+ * Measured on one `warrior/sword+shield` body with an effector rule that
+ * strictly alternates over whatever is legal -- the effector head doing exactly
+ * the same thing in all four rows, only the action mix varied
+ * (`.review/rem26/posttreatment.mjs`, same seed and cell, 2400 solver steps):
+ *
+ *     all cut        free denominator   0/96    0.0%   modalShare 1.000
+ *     7 cut / 3 cover                  27/96   28.1%   modalShare 0.813
+ *     5 cut / 5 cover                  45/90   50.0%   modalShare 0.700
+ *     all cover                        96/96  100.0%   modalShare 0.500
+ *
+ * So do not read a low `freeChoiceDecisions` as "this body is one-handed". Read
+ * it as "this policy spent its decisions on actions only one hand can do", which
+ * is a fact about the candidate and the loadout jointly.
+ *
+ * ## What the effector head can actually be measured on, which is less than the
+ * ## first version of this docstring claimed
+ *
+ * This file and `options.ts` both said the record "separates a learned effector
+ * head from a body that only offered one hand". Measured over the whole matrix,
+ * that separation is available on **2 of the 13 cells, and both are the
+ * weaponless ones**. Coverage space: `.review/rem26/cells.mjs`, 39 real Havok
+ * bouts -- all 13 (unit, loadout) cells x all 3 `RESEARCH_OPPONENTS`, mirror 0,
+ * seed 310013, 1200 solver steps each, 1771 decisions -- reading
+ * `tacticEffectors` for every action at every physics sample, so a hand severed
+ * mid-bout is inside the space. `broot` is identical to `warrior` row for row.
+ *
+ *     loadout          actions with >=2 legal effectors   with exactly 1
+ *     sword+empty      cover, recover                     cut, thrust, punch
+ *     sword+shield     cover, recover                     cut, thrust
+ *     sword+buckler    cover, recover                     cut, thrust
+ *     axe+empty        cover, recover                     cut, punch
+ *     bow+empty        (none)                             cover, shoot, recover
+ *     empty+empty      cover, punch, recover              (none)
+ *     natural:bite     (none)                             bite, recover
+ *
+ * **No loadout in the matrix gives an *attacking* action two legal effectors**
+ * except `punch` on two empty fists. On 8 of the 13 cells the free-effector
+ * denominator is exactly "how often did it choose `cover` or `recover`", and on
+ * 3 more it is structurally zero -- `bow+empty` twice and the centipede -- so no
+ * effector statement about those three is available at any sample size.
+ *
+ * The consequence is the uncomfortable half: **for a candidate that fights well,
+ * this record says LESS about its effector head, not more.** Winning means
+ * attacking, attacking means `cut`/`thrust`/`shoot`/`bite`, and every one of
+ * those is single-effector on every armed loadout. That is also the argument
+ * against ever gating on this: a floor on effector variety would refuse a
+ * candidate for its *action mix*, and the tournament's other gates actively
+ * reward the mix that drives this denominator to zero.
+ *
+ * Two shares that used to be quoted here are deliberately absent, because they
+ * are properties of the probing policy rather than of the matrix: the pooled
+ * decision mass sitting in the three effector-blind cells, and the share of
+ * free-effector decisions coming from the two `empty+empty` cells. An earlier
+ * review measured 41% and 73%; the round-robin probe above measures 23.4% and
+ * 28.5% on the same 13 cells. Both are right about their own harness. The table
+ * is the part that does not move.
+ *
+ * **A head some algorithms do not have prints exactly like a head that
+ * collapsed.** `lookaheadMind` writes the constant `UNLEARNED_STANCE` and has no
+ * stance head at all, so a lookahead candidate's `stance` row is
+ * `{chosen: 1, modal: "action-default", modalShare: 1, freeModalShare: 1}` --
+ * indistinguishable from a learned stance head that settled on one option. PPO
+ * writes the constant `UNLEARNED_PERSISTENCE` one field over. Nothing in this
+ * record can say which, so `scripts/evaluate-ai.mjs` puts `algorithm` on every
+ * utilisation row and a reader has to use it.
+ */
+export function headUtilisation(candidate: Pick<TournamentCandidate, "tacticCounts" | "freeChoiceCounts">):
+  Readonly<Record<keyof TacticTuple, HeadUtilisation>> {
+  const counts = candidate.tacticCounts;
+  const decisions = Object.values(counts).reduce((sum, count) => sum + count, 0);
+  // The free *distribution*, not its sum: a head's free options and how often
+  // each was taken. Derived from the joint map wherever the free set is a
+  // function of the key -- which is four heads of five -- and read off the
+  // recorded map for the effector.
+  const freeMarginal = (head: keyof TacticTuple): Readonly<Record<string, number>> => {
+    if (head === "effector") return candidate.freeChoiceCounts.effector ?? {};
+    if (head === "target") {
+      const free: Record<string, number> = {};
+      for (const [key, count] of Object.entries(counts)) {
+        const tuple = parseTacticCountKey(key);
+        if (tacticTargets(tuple.action).length > 1) free[tuple.target] = (free[tuple.target] ?? 0) + count;
+      }
+      return free;
+    }
+    return tacticMarginal(counts, head);
+  };
+  // Sorted by count and then by name, so a tie between two equally-used options
+  // reports the same modal option every time rather than whichever key iteration
+  // happened to reach first. `b[1] - a[1]` and not `a[1] - b[1]`: this answers
+  // the MOST-used option, and every fixture in the suite was a two-way tie or a
+  // singleton until `the_modal_option_is_the_most_used_one_and_not_the_least`.
+  const top = (distribution: Readonly<Record<string, number>>): readonly [string, number] | undefined =>
+    Object.entries(distribution).filter(([, count]) => count > 0)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
+  const rows = TACTIC_KEY_HEADS.map(([head]) => {
+    const marginal = Object.entries(tacticMarginal(counts, head)).filter(([, count]) => count > 0);
+    const free = freeMarginal(head);
+    const freeChoiceDecisions = Object.values(free).reduce((sum, count) => sum + count, 0);
+    const overall = top(Object.fromEntries(marginal)); const freeTop = top(free);
+    return [head, Object.freeze({ decisions, freeChoiceDecisions, chosen: marginal.length,
+      modal: overall ? overall[0] : null, modalShare: overall && decisions > 0 ? overall[1] / decisions : 0,
+      freeModal: freeTop ? freeTop[0] : null,
+      freeModalShare: freeTop && freeChoiceDecisions > 0 ? freeTop[1] / freeChoiceDecisions : 0 })] as const;
+  });
+  return Object.freeze(Object.fromEntries(rows) as Record<keyof TacticTuple, HeadUtilisation>);
 }
 
 export function tournamentVerdict(candidates: readonly TournamentCandidate[]): TournamentVerdict {
@@ -269,8 +609,7 @@ export function candidateFromRawRows(candidate: FrozenTournamentManifest["candid
       score: cellRows.filter((row) => row.outcome === "win").length / cellRows.length,
       specialistScore: scoreFor("specialist-control", name) });
   });
-  const actionCounts: Record<string, number> = {};
-  for (const row of mine) for (const [name, count] of Object.entries(row.actionCounts)) actionCounts[name] = (actionCounts[name] ?? 0) + count;
+  const behaviour = mergeBehaviourRecord(mine);
   const safety = mine.reduce((value, row) => ({ finiteAnatomical: value.finiteAnatomical && row.safety.finiteAnatomical,
     capabilities: value.capabilities && row.safety.capabilities, postVerdict: value.postVerdict && row.safety.postVerdict,
     stuckActions: value.stuckActions && row.safety.stuckActions, lifecycle: value.lifecycle && row.safety.lifecycle }),
@@ -282,7 +621,7 @@ export function candidateFromRawRows(candidate: FrozenTournamentManifest["candid
   return Object.freeze({ name: candidate.name, algorithm: candidate.algorithm, artifactBytes: candidate.artifactBytes,
     meanScore, confidenceLow: Math.max(0, centre - margin), confidenceHigh: Math.min(1, centre + margin),
     scriptedScore: scoreFor("scripted-meta-control"), randomScore: scoreFor("random-meta-control"),
-    cells: Object.freeze(cells), actionCounts: Object.freeze(actionCounts), safety: Object.freeze(safety) });
+    cells: Object.freeze(cells), ...behaviour, safety: Object.freeze(safety) });
 }
 
 export function recomputeTournamentReport(report: { readonly manifest: FrozenTournamentManifest; readonly rawRows: readonly TournamentRawRow[] }): TournamentVerdict {

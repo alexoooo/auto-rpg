@@ -7,6 +7,7 @@ import { QualityArchive, qualityCell } from "../src/learning/quality-diversity.t
 import { indexedResearchJobs, resumeResearch, SplitReader, stableResearchReport } from "../src/learning/research.ts";
 import { RESEARCH_CURRICULUM, RESEARCH_STRATA, curriculumStage, researchMatrix } from "../src/learning/research-matrix.ts";
 import { tournamentVerdict } from "../src/learning/tournament.ts";
+import { tacticCountKey } from "../src/options.ts";
 import { assertCompleteView } from "./fixtures/view.mjs";
 
 // Synthetic on both halves of the header, and deliberately not the runtime
@@ -100,7 +101,15 @@ const passing = (name, overrides = {}) => ({
   cells: [{ name: "warrior/sword", meaningfulEngagement: 1, opportunityAttackRate: 0.8,
     attackContactRate: 0.4, nearRangeStallShare: 0.1, firstAttackP90Seconds: 4,
     symmetricTimeCapRate: 0.05, score: 0.6, specialistScore: 0.7 }],
-  actionCounts: { close: 20, cover: 20, cut: 20, recover: 10 },
+  // `close` was one of the four counts here and `close` is a MOVEMENT: the old
+  // action-keyed map counted it toward the three-diverse-actions gate, which no
+  // producer could ever have written. Three real hand actions plus `recover`,
+  // keyed on the whole tuple through the one key builder.
+  tacticCounts: { [tacticCountKey({ movement: "close", action: "cover", effector: "secondary", target: "threat", stance: "action-default" })]: 20,
+    [tacticCountKey({ movement: "close", action: "cut", effector: "primary", target: "vital", stance: "action-default" })]: 20,
+    [tacticCountKey({ movement: "hold", action: "thrust", effector: "primary", target: "high", stance: "compact" })]: 20,
+    [tacticCountKey({ movement: "disengage", action: "recover", effector: "primary", target: "vital", stance: "upright" })]: 10 },
+  freeChoiceCounts: { effector: { primary: 50, secondary: 20 } },
   safety: { finiteAnatomical: true, capabilities: true, postVerdict: true, stuckActions: true, lifecycle: true },
   ...overrides,
 });

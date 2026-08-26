@@ -10,7 +10,8 @@ import { META_OUTPUT_LAYOUT } from "../src/learning/meta.ts";
 import { GRU_UNITS } from "../src/learning/recurrent-network.ts";
 import { TACTICAL_MODEL_VERSION, TACTICAL_STATE_COLUMNS } from "../src/learning/tactical-model.ts";
 import { freezeTournamentManifest } from "../src/learning/tournament.ts";
-import { EFFECTOR_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TACTIC_VERSION, TARGET_NAMES } from "../src/options.ts";
+import { EFFECTOR_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TACTIC_VERSION, TARGET_NAMES,
+  tacticCountKey } from "../src/options.ts";
 import { executeNextTournamentRows, loadFrozenArtifacts } from "../scripts/tournament-executor.mjs";
 
 const payload = (value) => [...new TextEncoder().encode(canonicalJson(value))];
@@ -69,16 +70,56 @@ test("every_frozen_research_artifact_has_one_strict_deployment_runtime", () => {
   assert.throws(() => loadFrozenArtifacts(manifest, changed), /digest changed/);
 });
 
+/**
+ * The row builder carries the bout's behaviour record across, both halves.
+ *
+ * **The free-choice half had no assertion until 2026-08-25 and the omission was
+ * invisible**, because this test *supplied* the field and then said nothing
+ * about it: replacing the executor's construction with a frozen `{}` left all
+ * 556 tests green, while dropping `tacticCounts` at the same seam went red. That
+ * asymmetry is the shape this directory calls a green test asserting nothing.
+ * Both maps are asserted whole against the mock's own record now, so either
+ * deletion is red.
+ */
+const boutRecord = () => ({
+  tacticCounts: { [tacticCountKey({ movement: "close", action: "cut", effector: "primary", target: "vital", stance: "action-default" })]: 3,
+    [tacticCountKey({ movement: "hold", action: "cover", effector: "secondary", target: "threat", stance: "upright" })]: 2 },
+  freeChoiceCounts: { effector: { primary: 1, secondary: 2 } },
+});
 test("the_executor_runs_only_the_next_frozen_indices_and_returns_mergeable_raw_rows", async () => {
   const loaded = loadFrozenArtifacts(manifest, bytes); const called = [];
   const mock = async (indexedJob, makeMind) => { called.push(indexedJob.index); makeMind(() => {});
     return { result: { winner: "left", seconds: 1 }, engagement: { viableOpportunities: 2, attacksInWindow: 1,
-      damagingContactsInWindow: 1, nearRangeStallSeconds: 0, firstAttackSeconds: 0.2 }, actionCounts: { cut: 1 } }; };
+      damagingContactsInWindow: 1, nearRangeStallSeconds: 0, firstAttackSeconds: 0.2 }, ...boutRecord() }; };
   const rows = await executeNextTournamentRows({ manifest, rows: [], artifacts: loaded, maximum: 2, runResearchBout: mock });
   assert.deepEqual(called, [0, 0]); assert.deepEqual(rows.map((row) => row.candidate), ["neat", "dagger"]);
   assert.ok(rows.every((row) => row.manifestDigest === manifest.digest)); assert.deepEqual(rows[0].job, job);
+  // The whole behaviour record, on every row, against the record the mock
+  // returned -- not a field name or a key count.
+  for (const row of rows) {
+    assert.deepEqual(row.tacticCounts, boutRecord().tacticCounts);
+    assert.deepEqual(row.freeChoiceCounts, boutRecord().freeChoiceCounts);
+  }
   const resumed = await executeNextTournamentRows({ manifest, rows, artifacts: loaded, maximum: 1, runResearchBout: mock });
   assert.equal(resumed.at(-1).candidate, "ppo");
+});
+
+/**
+ * A control's maps are genuinely empty, and the row builder has to survive it.
+ *
+ * `mindFactoryForTournament` returns `() => control` for the three controls,
+ * which discards `onDecision`, so `runResearchBout` returns `{}` for both halves.
+ * The `?.` on `bout.freeChoiceCounts` is what makes an older row -- or a mock
+ * that omits the field -- come through as an empty map rather than a throw.
+ */
+test("a_bout_that_recorded_nothing_still_produces_a_row_the_validator_accepts", async () => {
+  const loaded = loadFrozenArtifacts(manifest, bytes);
+  const mock = async (indexedJob, makeMind) => { makeMind(() => {});
+    return { result: { winner: null, seconds: 1 }, engagement: { viableOpportunities: 0, attacksInWindow: 0,
+      damagingContactsInWindow: 0, nearRangeStallSeconds: 0, firstAttackSeconds: null }, tacticCounts: {} }; };
+  const rows = await executeNextTournamentRows({ manifest, rows: [], artifacts: loaded, maximum: 1, runResearchBout: mock });
+  assert.deepEqual(rows[0].tacticCounts, {});
+  assert.deepEqual(rows[0].freeChoiceCounts, { effector: {} });
 });
 
 test("a_payload_shape_mismatch_refuses_before_the_mocked_bout_opens", () => {

@@ -256,6 +256,37 @@ centipede task, 10 today at 292 ms; that becomes 90 tasks and roughly 2.6 s.
   `_engagement` and friends are defined **non-writable** (`options.ts:906`), so new
   counters cannot be assigned onto an existing record.
 
+  **Superseded 2026-08-25, and the last sentence was wrong in both halves.** The tournament
+  half is done: `actionCounts` is `tacticCounts` (the whole `movement|action|effector|target|stance`
+  tuple as one key, built by `tacticCountKey` in `options.ts`) plus `freeChoiceCounts`, which
+  counts the chosen `effector` only on decisions where the body offered two or more hands.
+  `MIN_ACTION_SHARE`/`MIN_DIVERSE_ACTIONS` now read the action *marginal* and
+  keep their exact former meaning; `headUtilisation` reports the rest and gates nothing.
+  The `behaviourRecord` half is untouched and still has no non-test caller.
+
+  **`freeChoiceCounts` carried an `action` map for the length of one session and it is gone.**
+  It was provably constant: every body that can decide at all has two or more legal hand
+  actions, so the map was identically `tacticMarginal(tacticCounts, "action")` -- a second copy
+  of a projection of the joint map, which is the same decorative-quantity defect stage A removed
+  a gate for. The theorem, its proof sketch, the coverage space of the two sweeps behind it (400
+  synthetic body shapes; 39 real Havok bouts over all 13 cells x 3 opponents, 1771 decisions) and
+  the one *unbuildable* body shape that breaks it are written beside `FREE_CHOICE_HEADS` in
+  `options.ts`. `every_body_that_can_decide_offers_two_or_more_legal_actions` is the live reader.
+
+  **And what the effector map buys is smaller than this entry claimed.** "Separates a learned
+  effector head from a body that only offered one hand" is true on 2 of the 13 research cells,
+  both weaponless: no armed loadout gives an *attacking* action two legal effectors. The measured
+  per-loadout table is in `headUtilisation`'s docstring, along with the demonstration that the
+  denominator is post-treatment -- it swings 0% to 100% on one body when only the action mix
+  moves. This is reported and must not become a gate.
+
+  On the last sentence: the citation is stale -- the `Object.defineProperties` call moved, and
+  only the three underscore-prefixed fields are non-writable, because `defineProperties` with
+  `value` and `enumerable` alone defaults `writable` to false. The record object itself is a
+  plain literal, never frozen or sealed, and every public counter is ordinary and writable. The
+  only barrier to a new counter there is the TypeScript interface, which is a compile-time edit.
+  Nobody should design around a runtime prohibition that does not exist.
+
 ## Sequence: three commits, not one -- and stage C then split again
 
 The plan puts the deletions last. Do them **first**, and split the rest in two. The reason is

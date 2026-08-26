@@ -52,6 +52,9 @@ mirrors, controls, safety evidence"* as a verification item
 
 ### 2. `decisionsPerSecond` in the tournament report is systematically under-reported
 
+**Closed 2026-08-25, and the entry had found the smaller of two defects.** See the Closed
+section at the bottom.
+
 `scripts/evaluate-ai.mjs:76` sums the per-decision counts across **all** raw rows, including the
 three controls. The controls contribute exactly zero, because `mindFactoryForTournament` returns
 `() => control` for them (`scripts/tournament-executor.mjs:35`) and discards the `onDecision`
@@ -340,6 +343,26 @@ to tests applies to its controls.
 ---
 
 ## Closed
+
+### `decisionsPerSecond` was not under-reported, it was not a rate at all
+
+Entry 2 above found that the numerator summed control rows that contribute zero decisions, and
+put the error at a factor of `(3 + N) / N`. That was right and it was the smaller half. **The
+denominator was `wallSeconds` -- the wall clock of the *reporting* invocation**, which parses two
+JSON files and aggregates them and runs no bout: when `--run-next` executes bouts the process
+exits before that line is ever reached. So the figure was inversely proportional to how fast the
+reporting machine was and carried no term for how long the fights took, and re-reporting a
+finished tournament on a faster machine "improved" the throughput of bouts that had already run.
+Measured on a two-cell synthetic report: 0.024 s, 192 decisions, 7,900 "decisions/sec"; an
+adversarial review measured 0.064 s and 66,682 on a real one -- two numbers an order of magnitude
+apart off records containing the same fights.
+
+Closed 2026-08-25 by deleting it. `boutSeconds` and `decisionsPerBoutSecond` replace it, summed
+over the manifest's candidate rows on **both** sides of the ratio -- which closes the control
+dilution entry 2 named at the same time -- and `row.seconds` is the bout's own simulated clock, so
+the number is comparable across candidates and across machines. The unsettled question entry 2
+raised, whether the controls should record their decisions at all, is untouched and still open:
+this makes the rate honest about what it measures rather than widening what it measures.
 
 ### `TACTICAL_TEACHER_VERSION` was never compared to anything
 

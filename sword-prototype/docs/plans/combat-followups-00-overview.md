@@ -183,7 +183,7 @@ Baseline taken before any of this work, from `sword-prototype/`, commit `a095877
 | 15 host command boundary | **landed** | `f789ea4`, 459 tests |
 | 16 policy perception v4 | **landed** | `d44fc3e`, 484 tests |
 | 17 tactic output v2 | landed, all stages | `da025f2` `e4ac199` `c149e8c` `7597eb4` `3674e06` `caec629` `c7497af`, 532 tests |
-| -- owner follow-ups | 2 of 4 landed | `4d461ea` `ab52947`, 550 tests |
+| -- owner follow-ups | 3 of 4 landed | `4d461ea` `ab52947` + the tuple record, 564 tests |
 | 18 human gate feasibility | not started | -- |
 | 19 run legibility | not started | -- |
 | 20 throughput and ceilings | not started | -- |
@@ -953,16 +953,89 @@ magnitude (warrior 0.73597 keyed against 0.73751 free; all nine, 0.63847 against
 still "under a tenth of a percent", but the numbers on the record are now the ones from the tree as
 it stands.
 
-### The two still owed, and one figure already corrected
+### The behaviour record names the tuple, and the claim it was given had to be cut in half
 
-- **Behaviour records name the tuple.** `actionCounts` is keyed on `label.action` alone, so a
-  tournament cannot tell a learned effector head from a body that only ever offered one hand. This
-  is the item that decides what a session 22 tournament is able to conclude, so it goes first.
+`actionCounts` counted `label.action` alone. It is replaced by `tacticCounts`, keyed on the whole
+tuple in contract order, plus a free-choice map for the one head whose legality the body decides.
+The diversity gate keeps its exact former meaning, computed from the action marginal.
+
+**The claim the change was built on is true on 2 of 13 cells.** It was meant to separate "the policy
+never varied its effector" from "the body only ever offered one hand". Measured over all 13 research
+strata, sampling the legal-effector set at every physics sample of a real bout, `broot` identical to
+`warrior` throughout:
+
+| loadout | actions with two or more legal effectors | actions with exactly one |
+| --- | --- | --- |
+| `sword+empty` | cover, recover | cut, thrust, punch |
+| `sword+shield`, `sword+buckler` | cover, recover | cut, thrust |
+| `axe+empty` | cover, recover | cut, punch |
+| `bow+empty` | **none** | cover, shoot, recover |
+| `empty+empty` | cover, punch, recover | none |
+| `natural:bite` | **none** | bite, recover |
+
+**No loadout in the matrix gives an attacking action two legal effectors.** So the better a candidate
+is at attacking, the less this record can say about its effector head -- the free-effector
+denominator on eight of the thirteen cells is exactly "how often did it choose `cover`", and the
+tournament's other gates reward the opposite. The overclaiming docstrings now carry that table. The
+owner's answer is `sword+axe` in the strata, which is the only change that creates the evidence
+rather than documenting its absence, and it lands next.
+
+**Two shares that were quoted as facts about the matrix are not.** An adversarial pass measured 41 %
+of decision mass in the choiceless cells and 73 % of free-effector decisions in `empty+empty`; the
+remediation measured 23.4 % and 28.5 % on the same thirteen cells. Neither is wrong. Both are
+readouts of the *policy* that was run, because the denominator is conditioned on the action the
+policy just chose -- so the table above, which is policy-independent, is what the record carries, and
+the shares are named with their harnesses or not at all.
+
+**Half the new record was decorative and is gone.** `freeChoiceCounts.action` was identically equal
+to the action marginal on every record any run can produce: a body with an attached hand has `cover`
+and `recover` both legal, a handless body with a bite has `bite` and `recover`, and a body with
+neither returns the empty set and never reaches the decision hook at all. Measured three ways -- 400
+synthetic shapes, 39 real bouts over 1,771 decisions, and 78 bouts where it came out byte-identical.
+A quantity that cannot come out any other way is the same defect this effort removed from the
+calibration gate two commits earlier.
+
+**And the theorem has a boundary that three sweeps missed, including mine.** There *is* a body that
+decides with exactly one legal action: handless, with a natural attack whose key is not `bite`.
+`supportedOptions` gates on `Object.keys(naturalAttacks).length` -- any natural attack means "can
+decide" -- while `tacticEffectors` hardcodes the name `bite`, so such a body is offered `recover` and
+nothing else. It is unbuildable today, because the only two writers of the field are
+`NO_NATURAL_ATTACKS` and the centipede's `{bite}`, and the map was deleted on that ground with the
+boundary written into the code. **The reason all three sweeps missed it is the same reason**: each
+varied whether a natural attack was *present* and never what it was *called*. Mine was 288 bodies
+over six weapon kinds; the real table has seven, and `club` was not in it.
+
+**The reported statistic could name the option the head never freely chose.** `headUtilisation`
+computed its modal over every decision while reporting a free-choice count as a bare sum. On a real
+`warrior/sword+shield` bout with a policy that cuts seven of ten decisions with the sword hand and
+covers the other three with the shield hand, it printed `modal=primary, share=0.719` about a head
+that chose `secondary` on **all twenty-seven decisions where it had a choice**. Not a less useful
+number -- the opposite conclusion. Every field now names its denominator and `freeModal` /
+`freeModalShare` sit beside the old pair.
+
+**Three seams had no test that could fail**, each deleted outright with the full suite green: the
+free-choice merge in `candidateFromRawRows`, which is the only production aggregation of the
+statistic and whose removal makes every candidate report "the body never offered a second option"
+for a whole tournament; the executor's row construction; and the modal ordering, which reported the
+*least*-used option without complaint because every fixture marginal was a two-way tie or a
+singleton. `MIN_ACTION_SHARE` was pinned only to `[0, 0.286]` and is now bounded from both sides at
+`(0.04, 0.09]`, and the `recover` exclusion is load-bearing in a test for the first time.
+
+**Three comments named things that did not exist**, and the corrections went in both directions. Two
+cited tests that were never written or had been renamed. The third claimed `asMeasured` was used by
+three training scripts; none of them calls it. But the pass that caught it was itself wrong twice --
+`train-lookahead.mjs` does contain the literal, in a comment saying it left that path, and
+`research-rollout-worker.mjs` **does** wire the decision hook on both its NEAT and DAgger paths, so
+it writes these maps on every training bout and discards them. The conclusion survived both
+corrections; the evidence under it was replaced twice.
+
+### The one still owed
+
 - **PPO learns its persistence.** Twenty-five of twenty-six outputs are learned; the twenty-sixth is
   the constant `0.4`. It needs a continuous-action head with a different log-probability in the
   ratio, which is a change to the update rather than to the contract.
 
-And one number from the earlier list is already wrong. The doc-anchor item was recorded as
+And one number from the earlier list was already wrong. The doc-anchor item was recorded as
 "~35 stale colon-form anchors". Measured over every `.ts`, `.mjs`, `.js` and `.md` file in the
 prototype outside `node_modules`, `dist`, `asset-src` and the gitignored `.review`: there are
 **1,520 code-span file references, of which 114 name a file that does not exist**. Only 67 carry a
