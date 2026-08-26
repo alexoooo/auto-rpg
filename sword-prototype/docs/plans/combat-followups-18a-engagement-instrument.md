@@ -1,5 +1,11 @@
 # Session 18a -- build the instrument before anybody plays
 
+> **Complete 2026-08-26.** The common recorder, page and bench wiring, shared gate table,
+> human-safe rendering, specialist bench command and resume-version boundary are implemented.
+> No engagement reading was taken and no threshold or feel constant moved. Session 18b is next.
+> The completed tree passes 652 tests, type-check and production build; the 120-bout null control
+> remains 66/120 at seed 20260823 with 176.17 damage, 10 severs and 1496/1670 scoring contacts.
+
 > **This file is code. Nothing is measured here.**
 >
 > Session 18 was written as one session and reads as "go and play the game". Four fifths of

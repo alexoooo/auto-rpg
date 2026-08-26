@@ -15,6 +15,8 @@ import { Takeover, Targeting } from "./targeting";
 import { RigView } from "./rigview";
 import { Blood } from "./blood";
 import { advanceFight, FightEnd } from "./fight-end";
+import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, combatRecorder, sampleBoutRecorder,
+  wireBoutRecorder } from "./recorder";
 import { pauseHost, restartHost, resumeHost, runActiveHostFrame, type RunningHost } from "./host-run";
 import { SetupScreen } from "./setup";
 import type { Side } from "./physics";
@@ -31,6 +33,7 @@ import {
 } from "./mind";
 import { isArticulatedCombatant, loadoutForUnit, policyForUnit, unitDefinition, type Combatant } from "./units";
 import { metaDiagnostic } from "./learning/meta";
+import { engagementGates, engagementMetrics, formatEngagementGateTable } from "./learning/gates";
 import { loadChampionSoFarMind, requireLiveResearchBout, type ChampionSource } from "./learning/deployment";
 import {
   begin,
@@ -364,9 +367,11 @@ async function boot(): Promise<void> {
       });
     const leftStrikers = left.strikers;
     const rightStrikers = right.strikers;
+    const recorder = new BoutRecorder();
+    wireBoutRecorder(recorder, left, right);
     const sides = [
-      { fighter: left, combat: new Combat("left", leftStrikers) },
-      { fighter: right, combat: new Combat("right", rightStrikers) },
+      { fighter: left, combat: new Combat("left", leftStrikers, combatRecorder(recorder, "left")) },
+      { fighter: right, combat: new Combat("right", rightStrikers, combatRecorder(recorder, "right")) },
     ];
     // Each blade is pointed at the other body. The collision layers already say
     // the same thing in the solver; this says it again in the scoring.
@@ -389,7 +394,7 @@ async function boot(): Promise<void> {
         { point: striker.tracePoints[striker.tracePoints.length - 1], active: traced },
       );
     }
-    return { left, right, sides, ending: new FightEnd(sides), occlusionTargets };
+    return { left, right, sides, recorder, ending: new FightEnd(sides), occlusionTargets };
   };
 
   let bout = buildBout(state.matchup);
@@ -708,6 +713,8 @@ async function boot(): Promise<void> {
     // that wants to know how long ago it was hit can subtract.
     if (bout.ending.isActive) {
       stepPair(bout.left, bout.right, FIXED_STEP, bout.sides[0].combat.now);
+      const clock = bout.sides[0].combat.now;
+      sampleBoutRecorder(bout.recorder, bout.left, bout.right, FIXED_STEP, clock);
     } else {
       // A projectile already away belongs to the world after the verdict. The
       // arms no longer pose or shoot, but the pool must still age and recycle.
@@ -1100,6 +1107,16 @@ async function boot(): Promise<void> {
       },
       get combats() {
         return bout.sides.map((side) => side.combat);
+      },
+      /** Raw records, exact gate rows and human-facing tables for the current bout. */
+      get engagement() {
+        const side = (name: Side) => {
+          const record = bout.recorder.records[name];
+          const gates = engagementGates(engagementMetrics(record.engagement, record.seconds));
+          return Object.freeze({ record, gates, table: formatEngagementGateTable(gates) });
+        };
+        return Object.freeze({ engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION,
+          left: side("left"), right: side("right") });
       },
       /** Phase, matchup, clock and outcome -- the whole of what `bout.ts` owns. */
       get state() {

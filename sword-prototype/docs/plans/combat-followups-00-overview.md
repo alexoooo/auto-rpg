@@ -69,7 +69,7 @@ Two further standing rules follow from those.
 
 | session | remaining result | depends on |
 | --- | --- | --- |
-| [18a](combat-followups-18a-engagement-instrument.md) | build the engagement recorder and the shared gate table, so a person can be measured at all | 17, 19 |
+| [18a](combat-followups-18a-engagement-instrument.md) **complete** | shared page/bench engagement recorder, gate table and specialist bench command | 17, 19 |
 | [18b](combat-followups-18-human-gate-feasibility.md) | measure a person on the promotion instrument; settle the open feel questions | 18a |
 | [19](combat-followups-19-run-legibility.md) **complete** | checkpoint ledger, gate table per row, plateau rule, watchable champion-so-far | 17 |
 | [20](combat-followups-20-throughput-and-ceilings.md) | measure real throughput for all four directions and derive every ceiling | 18, 19 |
@@ -79,12 +79,10 @@ Two further standing rules follow from those.
 | [24](combat-followups-24-promoted-ai-integration.md) | integrate one passing artifact, or record the negative result | 23 |
 | [25](combat-followups-25-integration-and-playtest.md) | full lifecycle gate, confirming playtest and durable close-out | 24 |
 
-**Session 19 has landed, so 18 is the only session left before the compute phase**, and it has
-split. 18 was written as one session and reads as a play-test; four fifths of it is software
-that does not exist, because a human bout produces no engagement row at all today. **18a builds
-the instrument, 18b is the person using it, and 18a lands first.** 18a also depends on 19,
-which shipped the gate-table formatter 18 assumed nobody had written. Session 20 needs both
-halves.
+**Sessions 19 and 18a have landed, so 18b is the only session left before the compute phase.**
+The page and bench now share the versioned recorder and gate table; 18b is the person using that
+instrument, taking the first readings and settling the predeclared feasibility questions. Session
+20 still needs that human verdict as well as session 19's run lifecycle.
 Session 22 needs 21's verdict. Session 23 does not begin until every surviving direction has a
 complete report and artifact.
 
@@ -220,11 +218,11 @@ unless another file is named.
 
 Sessions 15, 16 and 17 landed, plus seven follow-up commits; their plan files are deleted under
 this repository's rule that durable results belong in an architecture, design, reference or
-performance document rather than in a plan. `npm test` is **593 passed**, `npm run check` clean,
+performance document rather than in a plan. `npm test` is **652 passed**, `npm run check` clean,
 and the null control is unmoved at 66/120 = 55.0 %, 176.17 damage, 10 severs, 1496/1670 scoring
 contacts at seed 20260823.
 
-Sessions 18 through 25 have not started.
+Sessions 18a and 19 are complete. Session 18b and sessions 20 through 25 have not started.
 
 Findings that were measured and deliberately left alone live in
 [Found but not fixed](combat-followups-99-found-not-fixed.md), one entry each with its evidence,

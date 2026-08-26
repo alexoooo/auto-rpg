@@ -19,6 +19,7 @@ import { researchMatrix } from "../src/learning/research-matrix.ts";
 import { researchLabelMind } from "../src/learning/research-policy.ts";
 import { HAND_ACTION_NAMES, MOVEMENT_NAMES, composeTactic, handActionOption, movementIntent } from "../src/options.ts";
 import { freshIntent } from "../src/action-primitives.ts";
+import { ENGAGEMENT_INSTRUMENT_VERSION } from "../src/recorder.ts";
 import { probeLabel } from "./fixtures/label.mjs";
 import { RESEARCH_LABEL_FIELDS } from "./fixtures/label.mjs";
 import { assertCompleteView, publishedFixture } from "./fixtures/view.mjs";
@@ -598,6 +599,8 @@ test("lookahead_resume_refuses_a_different_run_identity_before_spending_another_
   const stopped = await trainLookahead({ seed: 310013, solverSteps: 181_440, runId: "first-run",
     stopAfterJobs: 1, collectBudget });
   assert.equal(calls, 1);
+  assert.equal(lookaheadRunConfig({ seed: 310013, solverSteps: 181_440,
+    runId: "first-run" }).engagementInstrumentVersion, ENGAGEMENT_INSTRUMENT_VERSION);
   await assert.rejects(() => trainLookahead({ seed: 310013, solverSteps: 181_440, runId: "other-run",
     resumeBytes: stopped.resume, collectBudget }),
   /lookahead resume refused: run id, seed, budget, or indexed schedule changed/);
@@ -607,6 +610,12 @@ test("lookahead_resume_refuses_a_different_run_identity_before_spending_another_
     resumeBytes: new TextEncoder().encode(canonicalJson(corrupt)), collectBudget }),
   /lookahead resume has invalid progress state/);
   assert.equal(calls, 1, "corrupt prefix accounting is refused before another bout");
+  const retiredInstrument = JSON.parse(new TextDecoder().decode(stopped.resume));
+  retiredInstrument.config.engagementInstrumentVersion = ENGAGEMENT_INSTRUMENT_VERSION - 1;
+  await assert.rejects(() => trainLookahead({ seed: 310013, solverSteps: 181_440, runId: "first-run",
+    resumeBytes: new TextEncoder().encode(canonicalJson(retiredInstrument)), collectBudget }),
+  /lookahead resume refused: run id, seed, budget, or indexed schedule changed/);
+  assert.equal(calls, 1, "a stale engagement instrument is refused before another bout");
   assert.throws(() => lookaheadRunConfig({ seed: 310013, solverSteps: 181_440, runId: "not/a/run" }), /invalid --run-id/);
   assert.equal(lookaheadRunConfig({ seed: 310013, solverSteps: 181_440, runId: "first-run" }).configDigest,
     lookaheadRunConfig({ seed: 310013, solverSteps: 181_440, runId: "other-run" }).configDigest,

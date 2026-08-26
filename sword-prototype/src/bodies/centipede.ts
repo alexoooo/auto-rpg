@@ -83,6 +83,7 @@ export class Centipede implements Combatant {
   readonly kind = "centipede";
   readonly side: Side;
   mind: Mind;
+  intentObserver: ((view: FighterView, intent: Intent) => void) | null = null;
   readonly limbs: Limb[] = [];
   readonly costume: AbstractMesh[] = [];
   readonly view: FighterView = {
@@ -257,6 +258,7 @@ export class Centipede implements Combatant {
   update(dt: number): void {
     if (this.dead) return;
     const input = this.mind.decide(this.view, dt);
+    this.intentObserver?.(this.view, input);
     this.phaseClock += dt;
     // The natural channel. This read `input.primary.thrust` on a body whose
     // published `hands` is an empty object, so the creature's whole control

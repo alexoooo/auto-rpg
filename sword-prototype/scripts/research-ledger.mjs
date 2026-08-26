@@ -4,28 +4,20 @@ import { basename, dirname, join } from "node:path";
 
 import { canonicalJson } from "../src/learning/artifact.ts";
 import {
-  MAX_FIRST_ATTACK_P90_SECONDS,
-  MAX_NEAR_RANGE_STALL_SHARE,
-  MIN_ACTION_SHARE,
-  MIN_ATTACK_CONTACT_RATE,
-  MIN_DIVERSE_ACTIONS,
-  MIN_OPPORTUNITY_ATTACK_RATE,
-} from "../src/learning/tournament.ts";
+  GATE_CONTRACT,
+  RESEARCH_GATE_NAMES,
+  engagementGates,
+  measuredGate,
+  unavailableGate,
+} from "../src/learning/gates.ts";
+export { GATE_CONTRACT, RESEARCH_GATE_NAMES, engagementGates, measuredGate, unavailableGate,
+  MAX_FIRST_ATTACK_P90_SECONDS, MAX_NEAR_RANGE_STALL_SHARE, MAX_SPECIALIST_GAP,
+  MAX_SYMMETRIC_TIME_CAP_RATE, MIN_ACTION_SHARE, MIN_ATTACK_CONTACT_RATE, MIN_DIVERSE_ACTIONS,
+  MIN_OPPORTUNITY_ATTACK_RATE } from "../src/learning/gates.ts";
 
 export const LEDGER_SCHEMA = 1;
 export const DEFAULT_PLATEAU_EPSILON = 0.01;
 export const DEFAULT_PLATEAU_ROWS = 6;
-export const RESEARCH_GATE_NAMES = Object.freeze(["opportunityAttackRate", "attackContactRate",
-  "nearRangeStallShare", "firstAttackP90Seconds", "symmetricTimeCapRate", "specialistGap",
-  "minimumActionShare", "diverseActions"]);
-const GATE_CONTRACT = Object.freeze({
-  opportunityAttackRate: [MIN_OPPORTUNITY_ATTACK_RATE, "at-least"],
-  attackContactRate: [MIN_ATTACK_CONTACT_RATE, "at-least"],
-  nearRangeStallShare: [MAX_NEAR_RANGE_STALL_SHARE, "at-most"],
-  firstAttackP90Seconds: [MAX_FIRST_ATTACK_P90_SECONDS, "at-most"],
-  symmetricTimeCapRate: [0.10, "at-most"], specialistGap: [0.15, "at-most"],
-  minimumActionShare: [MIN_ACTION_SHARE, "at-least"], diverseActions: [MIN_DIVERSE_ACTIONS, "at-least"],
-});
 const OBJECTIVE_CONTRACT = Object.freeze({
   "neat-qd": ["validationWorstCellScore", "higher"], dagger: ["validationLoss", "lower"],
   ppo: ["validationMacroReward", "higher"], lookahead: ["calibrationSeverity", "lower"],
@@ -45,65 +37,6 @@ export const checkpointJobDue = (completedJobs, everyJobs) => {
   }
   return completedJobs % everyJobs === 0;
 };
-
-export function measuredGate(name, value, threshold, comparison) {
-  const unbounded = value === "Infinity" || value === "-Infinity";
-  if (!unbounded) finite(value, `${name} gate value`);
-  finite(threshold, `${name} gate threshold`);
-  if (comparison !== "at-least" && comparison !== "at-most") {
-    throw new Error(`${name} gate comparison must be at-least or at-most`);
-  }
-  const margin = value === "Infinity" ? (comparison === "at-least" ? "Infinity" : "-Infinity")
-    : value === "-Infinity" ? (comparison === "at-least" ? "-Infinity" : "Infinity")
-    : comparison === "at-least" ? value - threshold : threshold - value;
-  return Object.freeze({ name, status: "measured", value, threshold, comparison, margin });
-}
-
-export function unavailableGate(name, reason) {
-  if (!reason) throw new Error(`${name} unavailable gate must say why`);
-  return Object.freeze({ name, status: "unavailable", value: null, threshold: null,
-    comparison: null, margin: null, reason });
-}
-
-const percentile = (values, fraction) => {
-  if (values.length === 0) return null;
-  const ordered = [...values].sort((a, b) => a - b);
-  return ordered[Math.min(ordered.length - 1, Math.ceil(ordered.length * fraction) - 1)];
-};
-
-/** Promotion gates a research direction can honestly reconstruct before the held-out tournament. */
-export function engagementGates(metrics) {
-  const opportunities = metrics?.opportunities;
-  const attacks = metrics?.attacksInWindow;
-  const contacts = metrics?.contactsInWindow;
-  const stallSeconds = metrics?.nearRangeStallSeconds;
-  const seconds = metrics?.seconds;
-  const firstAttacks = metrics?.firstAttackSeconds;
-  const gates = [];
-  gates.push(Number.isFinite(opportunities) && Number.isFinite(attacks)
-    ? measuredGate("opportunityAttackRate", opportunities ? attacks / opportunities : 0,
-      MIN_OPPORTUNITY_ATTACK_RATE, "at-least")
-    : unavailableGate("opportunityAttackRate", "this direction did not retain engagement opportunities"));
-  gates.push(Number.isFinite(attacks) && Number.isFinite(contacts)
-    ? measuredGate("attackContactRate", attacks ? contacts / attacks : 0,
-      MIN_ATTACK_CONTACT_RATE, "at-least")
-    : unavailableGate("attackContactRate", "this direction did not retain engagement contacts"));
-  gates.push(Number.isFinite(stallSeconds) && Number.isFinite(seconds)
-    ? measuredGate("nearRangeStallShare", Math.min(1, stallSeconds / Math.max(0.001, seconds)),
-      MAX_NEAR_RANGE_STALL_SHARE, "at-most")
-    : unavailableGate("nearRangeStallShare", "this direction did not retain bout duration and stall time"));
-  const firstAttackP90 = Array.isArray(firstAttacks) && firstAttacks.length > 0
-    ? percentile(firstAttacks.map((value) => value === null ? Number.POSITIVE_INFINITY : value), 0.90) : null;
-  gates.push(firstAttackP90 !== null
-    ? measuredGate("firstAttackP90Seconds", Number.isFinite(firstAttackP90) ? firstAttackP90 : "Infinity",
-      MAX_FIRST_ATTACK_P90_SECONDS, "at-most")
-    : unavailableGate("firstAttackP90Seconds", "no finite first attack was observed in this checkpoint"));
-  gates.push(unavailableGate("symmetricTimeCapRate", "research rollouts do not run mirrored tournament pairs"));
-  gates.push(unavailableGate("specialistGap", "research rollouts do not execute the specialist control on the same cells"));
-  gates.push(unavailableGate("minimumActionShare", "research checkpoints do not retain the tournament tactic marginal"));
-  gates.push(unavailableGate("diverseActions", "research checkpoints do not retain the tournament tactic marginal"));
-  return Object.freeze(gates);
-}
 
 const betterBy = (direction, candidate, reference) => direction === "higher"
   ? candidate - reference : reference - candidate;

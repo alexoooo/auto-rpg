@@ -17,6 +17,7 @@ import { argmaxHeadPick, decodeResearchArtifact, inProgressResearchArtifact, rec
   refuseInProgressResearchRegistration,
   RESEARCH_ARTIFACT_CONTRACT } from "../src/learning/deployment.ts";
 import { EFFECTOR_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TARGET_NAMES } from "../src/options.ts";
+import { ENGAGEMENT_INSTRUMENT_VERSION } from "../src/recorder.ts";
 import { runResearchBout } from "./research-havok.mjs";
 import { checkpointJobDue, checkpointRun, DEFAULT_PLATEAU_EPSILON, DEFAULT_PLATEAU_ROWS, digestContract, engagementGates,
   finalizeRun, ledgerStopDecision, makeLedgerRow, readLedger, runIsFinalized } from "./research-ledger.mjs";
@@ -242,6 +243,7 @@ export function ppoIterationBudget(remainingSolverSteps) {
 
 const rowRank = (a, b) => b.macro - a.macro || a.index - b.index;
 const resumeTrainingState = (armWeights, champions) => ({
+  engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION,
   armWeights: [...armWeights].sort(([a], [b]) => a - b).map(([armIndex, fullWeights]) =>
     ({ armIndex, fullWeights: snapshotPpoWeights(fullWeights) })),
   champions: [...champions.values()].sort((a, b) => a.armIndex - b.armIndex)
@@ -265,7 +267,7 @@ export async function trainPpo(config, runtime = {}) {
   const champions = new Map(); const armWeights = new Map();
   const leagueDigest = artifactChecksum(canonicalJson(config.league ?? PPO_LEAGUE));
   const configDigest = artifactChecksum(canonicalJson({ seed: config.seed, solverSteps: config.solverSteps,
-    league: config.league ?? PPO_LEAGUE }));
+    league: config.league ?? PPO_LEAGUE, engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION }));
   if (config.resumeBytes) {
     const resumed = decodePpoResume(config.resumeBytes);
     rows = [...resumed.rows];
@@ -279,8 +281,9 @@ export async function trainPpo(config, runtime = {}) {
       throw new Error("PPO resume update accounting does not match its rows");
     }
     if (!resumed.training || typeof resumed.training !== "object" || Array.isArray(resumed.training) ||
+        resumed.training.engagementInstrumentVersion !== ENGAGEMENT_INSTRUMENT_VERSION ||
         !Array.isArray(resumed.training.armWeights) || !Array.isArray(resumed.training.champions)) {
-      throw new Error("PPO resume is missing its indexed training state");
+      throw new Error("PPO resume is missing or predates the current engagement instrument");
     }
     for (const entry of resumed.training.armWeights) {
       if (!entry || !arms.some((arm) => arm.index === entry.armIndex) || !entry.fullWeights || armWeights.has(entry.armIndex)) {
@@ -348,7 +351,8 @@ export async function trainPpo(config, runtime = {}) {
     return new ResearchArtifact({ algorithm: "ppo", ...RESEARCH_ARTIFACT_CONTRACT, payload,
       provenance: { seed: config.seed, runId: config.runId ?? null, solverSteps: selected.armSolverSteps,
         selectedIteration: selected.iteration, trainingSplit: "train", validationSplit: "validation",
-        configDigest, producedOutputs: PPO_PRODUCED_OUTPUTS, producedLogits: PPO_PRODUCED_LOGITS,
+        configDigest, engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION,
+        producedOutputs: PPO_PRODUCED_OUTPUTS, producedLogits: PPO_PRODUCED_LOGITS,
         contractOutputs: META_OUTPUT_LAYOUT.width, persistenceSeconds: [...PERSISTENCE_SECONDS],
         gammaPerSecond: PPO_GAMMA_PER_SECOND, traceLambda: PPO_TRACE_LAMBDA } }, RESEARCH_ARTIFACT_CONTRACT).toBytes();
   };
@@ -443,6 +447,7 @@ export async function trainPpo(config, runtime = {}) {
   const state = resumeBytes();
   return { complete: true, artifact: artifactFor(selected, selectedChampion), resume: state.bytes,
     report: new TextEncoder().encode(canonicalJson({ algorithm: "ppo", runId: config.runId ?? null, configDigest,
+      engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION,
       rows, selected: selected.initialization, selectedIteration: selected.iteration,
       ledgerFile: "ledger.jsonl", stopping: { plateauEpsilon: config.plateauEpsilon ?? DEFAULT_PLATEAU_EPSILON,
         plateauRows: config.plateauRows ?? DEFAULT_PLATEAU_ROWS, stepCeiling: config.solverSteps * 2 }, stopped })) };
@@ -492,7 +497,8 @@ export async function runPpoCli() {
   if (!Number.isFinite(plateauEpsilon) || plateauEpsilon < 0) throw new Error("--plateau-epsilon must be a non-negative number");
   if (!Number.isSafeInteger(plateauRows) || plateauRows <= 0) throw new Error("--plateau-rows must be a positive integer");
   config.plateauEpsilon = plateauEpsilon; config.plateauRows = plateauRows;
-  const configDigest = artifactChecksum(canonicalJson({ seed: config.seed, solverSteps: config.solverSteps, league: config.league }));
+  const configDigest = artifactChecksum(canonicalJson({ seed: config.seed, solverSteps: config.solverSteps,
+    league: config.league, engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION }));
   config.runId ??= `ppo-${config.seed}-${configDigest}`;
   const runDir = new URL(`../asset-src/learning/research/${config.runId}/`, import.meta.url);
   const runPath = fileURLToPath(runDir); await mkdir(runPath, { recursive: true });

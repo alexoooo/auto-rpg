@@ -41,6 +41,8 @@ import { policyMind } from "../src/mind.ts";
 import { blankIntent } from "../src/policies.ts";
 import { ACTION_TUNING } from "../src/action-primitives.ts";
 import { advance, begin, selectScreen } from "../src/bout.ts";
+import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, combatRecorder, sampleBoutRecorder,
+  wireBoutRecorder } from "../src/recorder.ts";
 
 const FIXED = 1 / CONFIG.world.physicsHz;
 const FRAME = 1 / 60;
@@ -241,13 +243,17 @@ export function runBout({
 
   const leftRecord = sideRecord(leftPolicy);
   const rightRecord = sideRecord(rightPolicy);
+  const recorder = new BoutRecorder();
+  wireBoutRecorder(recorder, left, right);
   const sides = [
     // `weapons`, not `sword`: a fighter has two hands and `Combat` watches all
     // of what is in them. This said `left.sword` until the hands were split, and
     // a `Combat` handed one weapon where it wanted a list threw on construction
     // -- which is to say `npm run measure` has not run since.
-    { fighter: left, combat: new Combat("left", left.strikers, (event) => onEvent?.({ side: "left", ...event })), record: leftRecord, last: null },
-    { fighter: right, combat: new Combat("right", right.strikers, (event) => onEvent?.({ side: "right", ...event })), record: rightRecord, last: null },
+    { fighter: left, combat: new Combat("left", left.strikers,
+      combatRecorder(recorder, "left", (event) => onEvent?.({ side: "left", ...event }))), record: leftRecord, last: null },
+    { fighter: right, combat: new Combat("right", right.strikers,
+      combatRecorder(recorder, "right", (event) => onEvent?.({ side: "right", ...event }))), record: rightRecord, last: null },
   ];
   sides[0].combat.attach(right);
   sides[1].combat.attach(left);
@@ -279,6 +285,7 @@ export function runBout({
       right.stepProjectiles(FIXED);
     } else {
       stepPair(left, right, FIXED, now);
+      sampleBoutRecorder(recorder, left, right, FIXED, now);
     }
     if (onSample) onSample({ left, right, dt: FIXED, clock: now });
     const struck = Math.max(
@@ -320,10 +327,6 @@ export function runBout({
     for (const hit of fresh) {
       side.record.hits += 1;
       if (hit.weapon === "empty" && hit.damage > 0) side.record.punches += 1;
-      if (hit.key === "block:empty") {
-        const defender = side === sides[0] ? sides[1] : sides[0];
-        defender.record.blocks += 1;
-      }
       side.record.damage += hit.damage;
       if (hit.severed) side.record.severs += 1;
       // `weak` is a contact below `combat.minCutSpeed`, which the model does not
@@ -370,6 +373,8 @@ export function runBout({
   }
 
   const outcome = state.outcome ?? { winner: null, ending: "time", text: "unfinished" };
+  leftRecord.blocks = recorder.records.left.blocks;
+  rightRecord.blocks = recorder.records.right.blocks;
   const result = {
     winner: outcome.winner,
     ending: outcome.ending,
@@ -378,6 +383,8 @@ export function runBout({
     seconds: state.clock,
     left: sides[0].record,
     right: sides[1].record,
+    behaviour: recorder.records,
+    engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION,
   };
 
   for (const side of sides) side.combat.dispose();

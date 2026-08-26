@@ -11,6 +11,7 @@ import { researchMatrix } from "../src/learning/research-matrix.ts";
 import { inProgressResearchArtifact, RESEARCH_ARTIFACT_CONTRACT } from "../src/learning/deployment.ts";
 import { TACTICAL_TEACHER_VERSION } from "../src/learning/tactical-teacher.ts";
 import { EFFECTOR_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TACTIC_VERSION, TARGET_NAMES } from "../src/options.ts";
+import { ENGAGEMENT_INSTRUMENT_VERSION } from "../src/recorder.ts";
 import { checkpointJobDue, checkpointRun, DEFAULT_PLATEAU_EPSILON, DEFAULT_PLATEAU_ROWS, digestContract,
   engagementGates, finalizeRun, ledgerStopDecision, makeLedgerRow, readLedger, runIsFinalized } from "./research-ledger.mjs";
 
@@ -36,6 +37,7 @@ const extraJobs = quanta % evaluationJobs; if (baseQuanta < 1) throw new Error("
 // `runId` and goes into artifact provenance -- cannot tell the two runs apart.
 const config = { version: 1, algorithm: "dagger", seed, solverSteps, iterations,
   budgetAllocation: { evaluationJobs, baseQuanta, extraJobs }, teacherVersion: TACTICAL_TEACHER_VERSION,
+  engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION,
   teacherEngagementFloor: 0.05, featureVersion: FEATURE_VERSION, featureNames: FEATURE_COLUMNS,
   tacticVersion: TACTIC_VERSION, movementNames: MOVEMENT_NAMES, actionNames: HAND_ACTION_NAMES,
   effectorNames: EFFECTOR_NAMES, targetNames: TARGET_NAMES, stanceNames: STANCE_NAMES,

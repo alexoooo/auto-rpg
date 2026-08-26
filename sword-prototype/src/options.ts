@@ -1251,15 +1251,11 @@ export interface BehaviourRecord {
   _engagement: EngagementTracker; _lastBlockAt: Record<string, number>; _blocksSeen: Set<string>;
 }
 /**
- * No non-test caller, and the reader is named rather than assumed.
+ * The durable record owned by `BoutRecorder` in both the page and bench loops.
  *
- * `evaluate-options.mjs` and `training-evaluator.mjs` were the two construction
- * sites and session 17 deleted both; the research path hand-rolls its own
- * `EngagementTracker` in `scripts/research-havok.mjs` instead. This survives
- * because session 18's `BoutRecorder` is built on exactly these three
- * recorders and drives them from both bout loops, which is the whole of that
- * session -- see `docs/plans/combat-followups-18-human-gate-feasibility.md`. If
- * that session lands without them, they go.
+ * Its three writers remain separate because geometry samples, selected intent
+ * and combat resolution arrive on three different seams. `BoutRecorder` owns
+ * their ordering and side attribution; this module owns what each fact means.
  */
 export function behaviourRecord(): BehaviourRecord {
   const engagement = engagementRecord();

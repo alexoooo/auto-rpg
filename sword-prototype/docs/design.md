@@ -1291,6 +1291,22 @@ live fight for manual debugging, but setup and ended bouts refuse it because the
 fight again. Policy, PPO-league and tournament registration refuse it. Only the terminal champion
 is eligible for later promotion work.
 
+## Engagement instrument
+
+Page and bench bouts feed one `BoutRecorder` at the 240 Hz control boundary. It owns one label-free
+behaviour record per side, queues the intent observed immediately after each body's `Mind.decide`,
+opens the geometry opportunity before consuming that intent edge, and owns the striker-to-defender
+flip for contact and block reports. `Fighter` and `Centipede` expose the same observer seam, so a
+mind pointer swap cannot bypass recording and natural attacks are not a special harness path.
+
+The eight ordered promotion rows and their thresholds live in `learning/gates.ts`. The research
+ledger and tournament re-export or consume that table; the page and `measure:engagement` use the
+same adapter, verdict predicate and human formatter, including the specialist gap's subtraction
+tolerance at its exact boundary. A never-attacked bout remains wire `"Infinity"` with margin
+`"-Infinity"`, while the human table says "never attacked". Changed recorder semantics bump
+`ENGAGEMENT_INSTRUMENT_VERSION`; NEAT-QD, DAgger, PPO and look-ahead include it in resume identity
+before a worker or collector can spend a solver step.
+
 ## The house rules this work was done under
 
 The full list is in `AGENTS.md`. The three that shaped the code rather than the process:

@@ -27,7 +27,10 @@ export function loadFrozenArtifacts(manifest, candidateBytes) {
   return loaded;
 }
 
-const specialist = (job) => policyMind(job.unit === "centipede" ? "crawler" : job.loadout === "bow+empty" ? "archer" : "duelist", job.actorSeed);
+/** The specialist control for a research cell, shared with the engagement bench. */
+export const specialistPolicyName = (job) => job.unit === "centipede" ? "crawler" :
+  job.loadout === "bow+empty" ? "archer" : "duelist";
+const specialist = (job) => policyMind(specialistPolicyName(job), job.actorSeed);
 const controlMind = (name, job) => name === "random-meta-control" ? randomMetaMind(job.actorSeed) :
   name === "scripted-meta-control" ? scriptedMetaMind(job.loadout === "bow+empty" ? "archer" : "duelist", job.actorSeed) :
     name === "specialist-control" ? specialist(job) : null;

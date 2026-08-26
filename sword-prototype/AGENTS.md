@@ -642,6 +642,11 @@ severity. A progress-only row has an unavailable objective and does not advance 
 is either measured with a signed margin or unavailable with a reason; safety remains unavailable
 until the held-out tournament actually runs.
 
+The page and bench share `BoutRecorder`; engagement is label-free on both. Any change to opportunity,
+intent-edge or contact-attribution semantics bumps `ENGAGEMENT_INSTRUMENT_VERSION` and keeps that
+version in all four research resume identities: NEAT-QD, DAgger, PPO and look-ahead. A stale state
+must be refused before its first worker or collector call.
+
 **Checkpoint cadence is a job-index rule, never elapsed time.** Wall time is a reported fact and
 may not decide when a row is written, which job runs next, or when plateau is reached.
 `npm run ai:watch -- --run <run-directory>` is read-only. `champion-so-far.artifact` may be loaded

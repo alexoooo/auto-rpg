@@ -145,6 +145,18 @@ test("an_indexed_arm_boundary_resume_is_byte_identical_to_an_uninterrupted_havok
   for (const name of ["artifact", "report", "resume"]) assert.deepEqual(resumed[name], uninterrupted[name]);
 });
 
+test("a_ppo_resume_from_the_previous_engagement_instrument_is_refused_before_collection", async () => {
+  const config = { seed: 310013, solverSteps: 24, workers: 1 };
+  const interrupted = await trainPpo({ ...config, stopAfterJobs: 1 }, syntheticPpoRuntime());
+  const stale = decodePpoResume(interrupted.resume);
+  const staleBytes = encodePpoResume(stale.weights, stale.optimizer, stale.rows,
+    { ...stale.training, engagementInstrumentVersion: 0 });
+  const calls = [];
+  await assert.rejects(trainPpo({ ...config, resumeBytes: staleBytes }, syntheticPpoRuntime(calls)),
+    /predates the current engagement instrument/);
+  assert.deepEqual(calls, [], "resume identity is checked before the first collector call");
+});
+
 test("larger_solver_step_ceilings_buy_more_indexed_ppo_updates_for_both_arms", async () => {
   const shortCalls = []; const longCalls = [];
   const short = await trainPpo({ seed: 310013, solverSteps: 24, workers: 1 }, syntheticPpoRuntime(shortCalls));

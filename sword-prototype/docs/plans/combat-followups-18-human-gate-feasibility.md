@@ -132,22 +132,22 @@ tracker and one absence.
    restart must **reconstruct** the recorder, not reset it in place.
 9. At verdict, print one gate table per fighter: each threshold, the achieved value, the signed
    margin, pass/fail. Same column names, same order, same derivation as the headless report,
-   produced by a single shared formatter. **No such formatter exists and none of the four
-   current derivations produces a margin** -- `assessTournamentCandidate`
-   (`tournament.ts#L375-L395`) emits threshold strings with no achieved value. Build one over
-   `TOURNAMENT_THRESHOLDS`, and rewrite `assessTournamentCandidate` to consume its rows, or
-   the count of independent derivations goes from four to five. Fix one meaning for a
-   never-attacked cell while you are there: `tournament.ts#L712` says `+Infinity`, and it
-   is now the **only** derivation -- session 17 stage A deleted the `evaluate-ai.mjs` helper
-   that answered `null` for the same cell, so this is a choice to make rather than a
-   disagreement to settle. It is exactly the cell a bad human bout makes, and `+Infinity` in a
-   report a person reads is not the choice.
+   produced by a single shared formatter. ~~**No such formatter exists and none of the four
+   current derivations produces a margin** -- `assessTournamentCandidate` emits threshold strings
+   with no achieved value. Build one over `TOURNAMENT_THRESHOLDS`, and rewrite
+   `assessTournamentCandidate` to consume its rows, or the count of independent derivations goes
+   from four to five.~~ **Superseded 2026-08-26 by session 18a:** `learning/gates.ts` is the one
+   derivation and all three consumers use it. ~~Fix one meaning for a never-attacked cell while you
+   are there: the tournament says `+Infinity`, so this is a choice to make rather than a
+   disagreement to settle.~~ **Superseded 2026-08-26 by sessions 19 and 18a:** wire Infinity stays;
+   the shared human table renders it as “never attacked”.
 10. Optional and worth the hour: a HUD panel behind an existing toggle showing the two or three
    gates that move fastest, so a mistake is visible during the bout rather than after it. The
    rig and learned-options panels in `src/hud.ts` are the pattern; it rides the existing Tab
    toggle for free.
-7. Optional and worth the hour: a HUD panel behind an existing toggle showing the two or three
-   gates that move fastest, so a mistake is visible during the bout rather than after it.
+~~7. Optional and worth the hour: a HUD panel behind an existing toggle showing the two or three
+gates that move fastest, so a mistake is visible during the bout rather than after it.~~
+**Superseded 2026-08-26:** this duplicated item 10; item 10 is the sole optional HUD task.
 
 ## Take the readings
 

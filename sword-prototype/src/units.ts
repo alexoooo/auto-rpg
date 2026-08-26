@@ -7,7 +7,7 @@ import { CONFIG } from "./config.ts";
 import { BROOT_PROFILE, Fighter, type FighterMaterials, type Limb } from "./fighter.ts";
 import type { Striking } from "./combat.ts";
 import { isWeaponKind, WEAPON_KINDS, type WeaponKind } from "./hands.ts";
-import type { HandName, Mind } from "./mind.ts";
+import type { FighterView, HandName, Intent, Mind } from "./mind.ts";
 import type { Side } from "./physics.ts";
 import { Centipede, CENTIPEDE_BITE_REACH, CENTIPEDE_CROWN, CENTIPEDE_RADIUS, CENTIPEDE_SEGMENTS } from "./bodies/centipede.ts";
 
@@ -38,6 +38,8 @@ export interface Combatant {
   readonly kind: UnitKind;
   readonly side: Side;
   mind: Mind;
+  /** A read-only tap on the command actually handed to this body. */
+  intentObserver: ((view: FighterView, intent: Intent) => void) | null;
   readonly view: import("./mind.ts").FighterView;
   readonly limbs: Limb[];
   readonly strikers: Striking[];

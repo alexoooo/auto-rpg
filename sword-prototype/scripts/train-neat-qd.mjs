@@ -14,6 +14,7 @@ import { META_OUTPUT_LAYOUT } from "../src/learning/meta.ts";
 import { inProgressResearchArtifact, RESEARCH_ARTIFACT_CONTRACT } from "../src/learning/deployment.ts";
 import { SeededRng } from "../src/learning/rng.ts";
 import { EFFECTOR_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TACTIC_VERSION, TARGET_NAMES } from "../src/options.ts";
+import { ENGAGEMENT_INSTRUMENT_VERSION } from "../src/recorder.ts";
 import { checkpointJobDue, checkpointRun, DEFAULT_PLATEAU_EPSILON, DEFAULT_PLATEAU_ROWS, digestContract, engagementGates,
   finalizeRun, ledgerStopDecision, makeLedgerRow, readLedger, runIsFinalized } from "./research-ledger.mjs";
 
@@ -51,6 +52,7 @@ if (baseQuanta < 1) throw new Error(`--solver-steps needs at least ${evaluationJ
 // version 3 against runtime 4.
 const config = { version: 1, algorithm: "neat-qd", seed, solverSteps,
   populationSize, generations, ablation, budgetAllocation: { evaluationJobs, baseQuanta, extraJobs }, featureVersion: FEATURE_VERSION, featureNames: FEATURE_COLUMNS,
+  engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION,
   tacticVersion: TACTIC_VERSION, movementNames: MOVEMENT_NAMES, actionNames: HAND_ACTION_NAMES,
   effectorNames: EFFECTOR_NAMES, targetNames: TARGET_NAMES, stanceNames: STANCE_NAMES, curriculumDigest: curriculumDigest(),
   ablations: ["without-curriculum", "without-qd", "fixed-species-threshold"], plateauEpsilon, plateauRows };

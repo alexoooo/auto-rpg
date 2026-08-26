@@ -1,18 +1,16 @@
-// **Every one of these is used inside a function body and none at module level,
-// and that is a constraint rather than a habit.** `options.ts` imports
-// `learning/engagement.ts`, which imports the two window constants at the top of
-// this file, so `tournament.ts` and `options.ts` are in an import cycle. Which
-// module wins the race depends on what the entry point reached first: a test
-// that imports `options.ts` before this file leaves every binding below in its
-// temporal dead zone while this module's body runs. A frozen lookup table built
-// here from `HAND_ACTION_NAMES` therefore threw
-// `Cannot access 'MOVEMENT_NAMES' before initialization` from four test files at
-// once, which is why the tuple-key vocabulary itself lives in `options.ts` beside
-// the five tables it is over, and why nothing here may evaluate one of these at
-// module scope.
+// The tuple-key vocabulary lives in `options.ts` beside the five tables it is
+// over. Keeping one owner matters more than saving this import: the frozen
+// tournament reader and the option executor must parse exactly the same rows.
 import { FREE_CHOICE_HEADS, FREE_CHOICE_TABLES, TACTIC_KEY_HEADS, parseTacticCountKey, tacticKeyFailure,
   tacticTargets, type FreeChoiceHead, type TacticTuple } from "../options.ts";
 import { RESEARCH_ALGORITHMS, artifactChecksum, canonicalJson, type ResearchAlgorithm } from "./artifact.ts";
+import { OPPORTUNITY_WINDOW_SECONDS, STALL_WINDOW_SECONDS } from "./engagement.ts";
+import { MAX_FIRST_ATTACK_P90_SECONDS, MAX_NEAR_RANGE_STALL_SHARE, MAX_SPECIALIST_GAP,
+  MAX_SYMMETRIC_TIME_CAP_RATE, MIN_ACTION_SHARE, MIN_ATTACK_CONTACT_RATE, MIN_DIVERSE_ACTIONS,
+  MIN_OPPORTUNITY_ATTACK_RATE, engagementGates, gatePassed, type GateRow } from "./gates.ts";
+export { MAX_FIRST_ATTACK_P90_SECONDS, MAX_NEAR_RANGE_STALL_SHARE, MAX_SPECIALIST_GAP,
+  MAX_SYMMETRIC_TIME_CAP_RATE, MIN_ACTION_SHARE, MIN_ATTACK_CONTACT_RATE, MIN_DIVERSE_ACTIONS,
+  MIN_OPPORTUNITY_ATTACK_RATE } from "./gates.ts";
 // The dwell record, from a leaf with no imports of its own. It cannot come from
 // `meta.ts`, which owns the grid's other reader: this file is already cyclic
 // with `options.ts`, and `meta.ts` reads `options.ts`'s tables at module scope,
@@ -21,17 +19,7 @@ import { emptyPersistenceCounts, mergePersistenceCounts, persistenceRecordFailur
   type PersistenceCounts } from "./persistence.ts";
 import type { ResearchMatrixJob } from "./research-matrix.ts";
 
-export const OPPORTUNITY_WINDOW_SECONDS = 0.75;
-export const STALL_WINDOW_SECONDS = 2.0;
-export const MAX_NEAR_RANGE_STALL_SHARE = 0.15;
-export const MIN_OPPORTUNITY_ATTACK_RATE = 0.65;
-export const MIN_ATTACK_CONTACT_RATE = 0.20;
-export const MAX_FIRST_ATTACK_P90_SECONDS = 6.0;
-export const MAX_SYMMETRIC_TIME_CAP_RATE = 0.10;
-export const MAX_SPECIALIST_GAP = 0.15;
-export const MIN_ACTION_SHARE = 0.08;
-export const MIN_DIVERSE_ACTIONS = 3;
-
+export { OPPORTUNITY_WINDOW_SECONDS, STALL_WINDOW_SECONDS } from "./engagement.ts";
 /**
  * The behaviour record names the whole tuple, and it is one joint map rather
  * than five marginal ones.
@@ -382,14 +370,19 @@ export function assessTournamentCandidate(candidate: TournamentCandidate): Candi
   if (!safety.lifecycle) failures.push("lifecycle failure");
   if (!(candidate.meanScore > candidate.scriptedScore)) failures.push("macro held-out score did not beat scripted meta");
   if (!(candidate.meanScore > candidate.randomScore)) failures.push("macro held-out score did not beat random meta");
+  const failed = (gate: GateRow): boolean => gatePassed(gate) === false;
   for (const cell of candidate.cells) {
     if (cell.meaningfulEngagement <= 0) failures.push(`${cell.name}: zero meaningful engagement`);
-    if (cell.opportunityAttackRate < MIN_OPPORTUNITY_ATTACK_RATE) failures.push(`${cell.name}: opportunity attack rate below ${MIN_OPPORTUNITY_ATTACK_RATE}`);
-    if (cell.attackContactRate < MIN_ATTACK_CONTACT_RATE) failures.push(`${cell.name}: attack contact rate below ${MIN_ATTACK_CONTACT_RATE}`);
-    if (cell.nearRangeStallShare > MAX_NEAR_RANGE_STALL_SHARE) failures.push(`${cell.name}: near-range stall share above ${MAX_NEAR_RANGE_STALL_SHARE}`);
-    if (cell.firstAttackP90Seconds > MAX_FIRST_ATTACK_P90_SECONDS) failures.push(`${cell.name}: first-attack p90 above ${MAX_FIRST_ATTACK_P90_SECONDS}s`);
-    if (cell.symmetricTimeCapRate > MAX_SYMMETRIC_TIME_CAP_RATE) failures.push(`${cell.name}: symmetric cap rate above ${MAX_SYMMETRIC_TIME_CAP_RATE}`);
-    if (cell.specialistScore - cell.score > MAX_SPECIALIST_GAP + Number.EPSILON) failures.push(`${cell.name}: specialist gap above ${MAX_SPECIALIST_GAP}`);
+    const gates = new Map(engagementGates({ opportunityAttackRate: cell.opportunityAttackRate,
+      attackContactRate: cell.attackContactRate, nearRangeStallShare: cell.nearRangeStallShare,
+      firstAttackP90Seconds: cell.firstAttackP90Seconds, symmetricTimeCapRate: cell.symmetricTimeCapRate,
+      specialistGap: cell.specialistScore - cell.score }).map((gate) => [gate.name, gate]));
+    if (failed(gates.get("opportunityAttackRate")!)) failures.push(`${cell.name}: opportunity attack rate below ${MIN_OPPORTUNITY_ATTACK_RATE}`);
+    if (failed(gates.get("attackContactRate")!)) failures.push(`${cell.name}: attack contact rate below ${MIN_ATTACK_CONTACT_RATE}`);
+    if (failed(gates.get("nearRangeStallShare")!)) failures.push(`${cell.name}: near-range stall share above ${MAX_NEAR_RANGE_STALL_SHARE}`);
+    if (failed(gates.get("firstAttackP90Seconds")!)) failures.push(`${cell.name}: first-attack p90 above ${MAX_FIRST_ATTACK_P90_SECONDS}s`);
+    if (failed(gates.get("symmetricTimeCapRate")!)) failures.push(`${cell.name}: symmetric cap rate above ${MAX_SYMMETRIC_TIME_CAP_RATE}`);
+    if (failed(gates.get("specialistGap")!)) failures.push(`${cell.name}: specialist gap above ${MAX_SPECIALIST_GAP}`);
   }
   // **The action marginal, which keeps this gate's exact former meaning, and the
   // share is deliberately not fragmented across effectors.** A fighter that only
@@ -411,9 +404,14 @@ export function assessTournamentCandidate(candidate: TournamentCandidate): Candi
   // corrected to a record that can exist, not the gate changing its answer.
   const actionMarginal = tacticMarginal(candidate.tacticCounts, "action");
   const total = Object.values(actionMarginal).reduce((sum, count) => sum + count, 0);
-  const diverse = Object.entries(actionMarginal).filter(([name, count]) =>
-    name !== "recover" && total > 0 && count / total >= MIN_ACTION_SHARE);
-  if (diverse.length < MIN_DIVERSE_ACTIONS) failures.push("fewer than three non-recover actions occupy at least 8% of decisions");
+  const actionShares = Object.entries(actionMarginal).filter(([name]) => name !== "recover")
+    .map(([, count]) => total > 0 ? count / total : 0).sort((a, b) => b - a);
+  const diverse = actionShares.filter((share) => share >= MIN_ACTION_SHARE).length;
+  const diversityGates = engagementGates({ minimumActionShare: actionShares[MIN_DIVERSE_ACTIONS - 1] ?? 0,
+    diverseActions: diverse });
+  if (diversityGates.some((gate) => (gate.name === "minimumActionShare" || gate.name === "diverseActions") && failed(gate))) {
+    failures.push("fewer than three non-recover actions occupy at least 8% of decisions");
+  }
   return Object.freeze({ name: candidate.name, passed: failures.length === 0, failures: Object.freeze(failures) });
 }
 

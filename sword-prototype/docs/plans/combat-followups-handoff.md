@@ -1,20 +1,9 @@
 # Combat follow-ups handoff -- 2026-08-26
 
-> **Session 19 has landed.** The PPO outer loop, all four resume/checkpoint paths, the common
-> append-only ledger, deterministic plateau/ceiling stops, watcher, crash-safe finalization and
-> page-side champion-so-far debugging are implemented. The pre-session findings retained below are
-> historical and are superseded by `docs/measurements.md` under "Session 19 supersession". The next
-> automated session is 20 after the human gate work in 18; no held-out tournament or promotion has
-> occurred.
-
-> **The next session is 18a, and it is code.** Session 18 was written as one session and reads
-> as "go and play the game", which is not startable: `behaviourRecord()` has no non-test caller,
-> `src/main.ts` builds no recorder, and a human bout produces no engagement row at all. It has
-> split on session 19's own pattern -- **18a builds the instrument, 18b is the person using it,
-> and 18a lands first.** See `docs/plans/combat-followups-18a-engagement-instrument.md`, which
-> also records the two items session 19 has already done or decided: the gate-table formatter
-> exists in `scripts/research-ledger.mjs` and needs moving rather than writing, and the
-> never-attacked cell's `Infinity` is a landed contract rather than an open choice.
+> **Sessions 19 and 18a have landed.** Long research runs are resumable and legible, and the page
+> and bench now produce the same versioned, label-free engagement records and shared gate tables.
+> The next session is **18b, a person using the instrument**. No human reading, held-out tournament
+> or promotion has occurred, and session 20 remains blocked on 18b's gate-feasibility verdict.
 
 ## Read these three things first
 
@@ -44,11 +33,11 @@ compressed rules are in `AGENTS.md`.
 
 ## Last verified state
 
-At `HEAD`, from `sword-prototype/`:
+For this Session 18a working tree, from `sword-prototype/`:
 
-- `npm test` -- **593 passed, 0 failed**
+- `npm test` -- **652 passed, 0 failed**
 - `npm run check` -- clean
-- `npm run build` -- clean, ~615 ms
+- `npm run build` -- clean, ~640 ms
 - `node scripts/measure.mjs --only duelist-swinger --bouts 120` at seed 20260823 --
   **66/120 = 55.0 %**, 176.17 damage, 10 severs, 1496/1670 scoring contacts. This is the null
   control; it has not moved across any of the last twelve commits and it must not move under a
@@ -80,46 +69,17 @@ a long run cannot yet tell anybody*.
 
 ## First action for the next session
 
-**Session 19, with its scope widened to "make a run runnable, then make it legible", in that
-order.** Its plan file carries the corrections; read them before its body, because they change
-what the session is.
-
-Concretely, before any ledger row is designed:
-
-1. **Give PPO an outer loop** -- iterations of collect-then-update -- so `--solver-steps` buys
-   gradient steps rather than one oversized batch, and so four bouts stops being the whole run.
-   This is the single highest-value change in the plan set and **no session owned it**.
-2. **Condition or remove the exact-budget throws** in `train-neat-qd.mjs` and
-   `collect-dagger.mjs`, which throw unless `consumedSolverSteps === solverSteps` exactly. A
-   plateau rule stops a run early by construction, so it cannot land while they stand. Retire
-   `fullBudgetCompleted: solverSteps === 1_800_000_000` from both report schemas and
-   `RESEARCH_SOLVER_STEP_BUDGET` from `src/learning/research.ts` at the same time.
-3. **Give `train-lookahead.mjs` a state file and resume.** It has neither.
-
-Then the ledger, the plateau rule and the champion-so-far are what session 19 says they are.
-**If that looks like more than one session, split it: 19a "a run that can be run", 19b "a run
-that can be watched", and 19a lands first** -- everything from session 20 onward is arithmetic
-over a machine that currently stops after about 180 simulated seconds.
-
-Two things that make 19 cheaper than it reads: **two of the four runners already keep most of a
-ledger row** (`train-neat-qd.mjs` pushes a per-generation row with `validationWorstCellScore`
-and `archiveCoverage`, flushed every five generations; `collect-dagger.mjs` pushes one per
-iteration), so this generalises a working cadence rather than inventing a schema. And its
-nineteen line anchors were checked one at a time and **all nineteen resolve and match their
-prose** -- the cleanest file in the set.
-
-**The alternative, if 19a looks too large for the day: session 18.** It is a person at a
-keyboard, it needs no runner at all, and it is the only session that can invalidate the
-promotion gates -- opportunity-attack 0.65 has never been shown reachable by a controller *or*
-a player. It also has an unpaid debt waiting: the perception change moved the duelist 14.2
-points against the swinger and nobody has played it. It unblocks nothing, which is the argument
-against; it can falsify the whole compute phase for a day's work, which is the argument for.
+Run session 18b exactly as `combat-followups-18-human-gate-feasibility.md` specifies. Before
+playing, declare the opponent set and exact cell/mirror/repeat coverage; the page does not offer
+the two meta controls, and ninety jobs is not a plausible human sitting. Then take human and
+specialist page rows plus the matching bench specialist rows. Record every row and frame rate,
+and do not move a threshold after any research result has been seen.
 
 ## What remains
 
 | session | result | depends on |
 | --- | --- | --- |
-| 18a | build the engagement recorder and the shared gate table; take no readings | 19 |
+| 18a | **complete** -- versioned shared recorder, gate table and bench command; no readings | 19 |
 | 18b | measure a person on the promotion instrument; settle the open feel questions | 18a |
 | 19 | **complete** -- a run that can be run, a ledger, plateau rule, watchable champion-so-far | -- |
 | 20 | measure real throughput and derive every ceiling, **in updates** | 18b, 19 |

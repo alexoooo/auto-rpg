@@ -1,6 +1,8 @@
 import { isShooting, isStriking, type Striker } from "../hands.ts";
 import type { FighterView } from "../mind.ts";
-import { OPPORTUNITY_WINDOW_SECONDS, STALL_WINDOW_SECONDS } from "./tournament.ts";
+
+export const OPPORTUNITY_WINDOW_SECONDS = 0.75;
+export const STALL_WINDOW_SECONDS = 2.0;
 
 export interface AttackOpportunity {
   readonly key: string;

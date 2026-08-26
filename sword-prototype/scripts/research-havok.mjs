@@ -1,5 +1,4 @@
 import { CONFIG } from "../src/config.ts";
-import { EngagementTracker, opportunityForAction, opportunityKeyForContact } from "../src/learning/engagement.ts";
 import { randomMetaMind } from "../src/learning/meta.ts";
 import { ATTACK_OPTION_NAMES, scriptedMetaMind, tacticCountKey, tacticEffectors } from "../src/options.ts";
 import { policyMind } from "../src/mind.ts";
@@ -29,7 +28,7 @@ export async function runResearchBout(job, makeActorMind, solverStepLimit, makeO
   if (!Number.isSafeInteger(solverStepLimit) || solverStepLimit < 4 || solverStepLimit % 4 !== 0) {
     throw new Error("research bout solver-step limit must be a positive multiple of four");
   }
-  const tracker = new EngagementTracker(); let decisions = 0; let attacks = 0; let contacts = 0; let damage = 0;
+  let decisions = 0; let attacks = 0; let contacts = 0; let damage = 0;
   // **The whole tuple.** This was `actionCounts[label.action] += 1` -- the whole
   // decision while the output contract was thirteen wide, and a quarter of it
   // since it became 26. An action-only count says nothing at all about the other
@@ -134,20 +133,13 @@ export async function runResearchBout(job, makeActorMind, solverStepLimit, makeO
     if (tacticEffectors(view, label.action).length > 1) {
       freeChoiceCounts.effector[label.effector] = (freeChoiceCounts.effector[label.effector] ?? 0) + 1;
     }
-    // **The hand the label named, not the first hand holding the right weapon.**
-    // This read `label.action` alone and took `[0]` of the matching rows, which on
-    // a two-fisted body attributed every `punch|secondary` to the primary fist and
-    // dropped the secondary's damaging contact on the floor -- `opportunityForAction`
-    // carries the measurement. `label` has carried `effector` since stage C2b; the
-    // fix is to read the field rather than to re-derive the hand.
-    //
     // `ATTACK_OPTION_NAMES` rather than the same five names spelled again: the
     // list was a verbatim copy of that constant, and a sixth attack added to the
-    // vocabulary would have been counted by the option layer and not here.
+    // vocabulary would have been counted by the option layer and not here. This
+    // is a decision-count diagnostic only; factual attack windows are recorded
+    // from the command edge by `BoutRecorder` inside `runBout`.
     if (ATTACK_OPTION_NAMES.includes(label.action)) {
       attacks += 1;
-      const opportunity = opportunityForAction(view, label.action, label.effector);
-      if (opportunity) tracker.attack(opportunity.key, view.clock);
     }
   });
   // Read off the controller after it exists and before a decision can fire, so a
@@ -170,18 +162,19 @@ export async function runResearchBout(job, makeActorMind, solverStepLimit, makeO
       leftMind: actorLeft ? actorMind : opponent,
       rightMind: actorLeft ? opponent : actorMind,
       physics: await freshHavok(),
-      onSample({ left, right, dt, clock }) { latestView = (actorLeft ? left : right).view; tracker.sample(latestView, dt);
+      onSample({ left, right, dt, clock }) { latestView = (actorLeft ? left : right).view;
         hooks.onSample?.({ view: latestView, dt, clock }); },
       onEvent(event) {
         hooks.onEvent?.({ actorEvent: (event.side === "left") === actorLeft, event });
         if ((event.side === "left") !== actorLeft) return;
         contacts += 1; damage += event.report.damage;
-        tracker.contact(opportunityKeyForContact(event.hand, event.report.weapon), event.report.at, event.report.damage);
       },
     });
     const solverSteps = Math.min(solverStepLimit, Math.round(result.seconds * CONFIG.world.physicsHz));
     return { index: job.index, solverSteps, result, decisions, attacks, contacts, damage, tacticCounts, freeChoiceCounts, persistenceCounts,
-      engagement: tracker.record, lastClock: latestView?.clock ?? 0,
+      engagement: result.behaviour[job.actorSide].engagement,
+      engagementInstrumentVersion: result.engagementInstrumentVersion,
+      lastClock: latestView?.clock ?? 0,
       lastPublished: latestView ? { selfVitality: latestView.self.vitality, opponentVitality: latestView.opponent.vitality,
         measure: latestView.measure } : null };
   } finally { CONFIG.bout.capSeconds = oldCap; }

@@ -18,6 +18,7 @@ import "@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent.js";
 import { CONFIG } from "../src/config.ts";
 import { CAMERA_ZOOM_NOTCHES, orbitFraming, slewCameraZoom } from "../src/camera.ts";
 import { blankIntent } from "../src/policies.ts";
+import { BoutRecorder } from "../src/recorder.ts";
 import { COMBAT_FIELDS } from "./fixtures/intent.mjs";
 import { attachPhysics, COLLIDES, LAYER } from "../src/physics.ts";
 import { FIGURE_SIDE_COLOURS } from "../src/figure.ts";
@@ -66,6 +67,45 @@ const setup = async () => {
 
 const bodies = (scene) => scene.getPhysicsEngine().getBodies().length;
 const rounded = (values) => values.map((value) => Math.round(value * 1e6) / 1e6);
+
+test("restart_resets_both_engagement_records_to_a_fresh_bout", async () => {
+  const source = await readFile(new URL("../src/main.ts", import.meta.url), "utf8");
+  const build = source.slice(source.indexOf("const buildBout"), source.indexOf("let bout = buildBout"));
+  const rebuild = source.slice(source.indexOf("const rebuild"), source.indexOf("const handOver"));
+  assert.match(build, /const recorder = new BoutRecorder\(\)/);
+  assert.match(build, /wireBoutRecorder\(recorder, left, right\)/,
+    "the page attaches both bodies to the shared intent adapter");
+  assert.match(build, /combatRecorder\(recorder, "left"\)/,
+    "the page records left-side combat through the shared adapter");
+  assert.match(build, /combatRecorder\(recorder, "right"\)/,
+    "the page records right-side combat through the shared adapter");
+  assert.match(build, /return \{ left, right, sides, recorder,/);
+  assert.match(rebuild, /bout = buildBout\(state\.matchup\)/,
+    "restart replaces the recorder with the rest of the bout");
+  assert.match(source, /engagementGates\(engagementMetrics\(record\.engagement, record\.seconds\)\)/,
+    "the page derives its ordered gate rows through the shared adapter");
+  assert.match(source, /table: formatEngagementGateTable\(gates\)/,
+    "the console handle exposes the shared human-facing rendering");
+  assert.match(source, /sampleBoutRecorder\(bout\.recorder, bout\.left, bout\.right, FIXED_STEP, clock\)/,
+    "the page samples both published views at the shared control boundary");
+
+  let bout = { recorder: new BoutRecorder() };
+  const previous = bout.recorder;
+  previous.records.left.engagement.viableOpportunities = 7;
+  previous.records.right.engagement.attacksInWindow = 3;
+  bout = { recorder: new BoutRecorder() };
+  assert.notStrictEqual(bout.recorder, previous);
+  assert.deepEqual(bout.recorder.engagement, {
+    left: { viableOpportunities: 0, attacksInWindow: 0, damagingContactsInWindow: 0,
+      firstAttackSeconds: null, nearRangeStallSeconds: 0, longestProgressDroughtSeconds: 0,
+      radialClosingMetres: 0, tangentialTravelMetres: 0, accumulatedBearingRadians: 0,
+      retreatOutsideReachSeconds: 0 },
+    right: { viableOpportunities: 0, attacksInWindow: 0, damagingContactsInWindow: 0,
+      firstAttackSeconds: null, nearRangeStallSeconds: 0, longestProgressDroughtSeconds: 0,
+      radialClosingMetres: 0, tangentialTravelMetres: 0, accumulatedBearingRadians: 0,
+      retreatOutsideReachSeconds: 0 },
+  });
+});
 
 /**
  * The wheel, end to end, and the thing it is not allowed to touch.

@@ -486,6 +486,9 @@ export class Fighter {
    */
   mind: Mind;
 
+  /** Observes the command selected for this body without wrapping its mutable mind. */
+  intentObserver: ((view: FighterView, intent: Intent) => void) | null = null;
+
   /**
    * What this fighter can see, republished in place by `observe`.
    *
@@ -1456,6 +1459,7 @@ export class Fighter {
     // first because a headless one does not.
     if (this.dead || !this.fighting) return;
     const intent = this.mind.decide(this.view, dt);
+    this.intentObserver?.(this.view, intent);
     this.steer(dt, intent);
     this.poseTrunk(dt, intent);
     this.walk(dt);

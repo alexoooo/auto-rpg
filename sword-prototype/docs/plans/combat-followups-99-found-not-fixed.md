@@ -164,12 +164,14 @@ letting a retired arithmetic argument look like support.
 
 `src/learning/evaluation.ts:1-14` carries the one note about it. Eight of the nineteen are in that
 file; the rest are `initialPopulation` in `genome.ts`, both of `jobs.ts`, `Network` in `network.ts`,
-and three fitness/novelty functions in `meta.ts`. `behaviourRecord` and its three writers in
-`options.ts` are in the same state, kept explicitly because session 18's `BoutRecorder` is built on
-them (`src/options.ts:1254-1262`).
+and three fitness/novelty functions in `meta.ts`.
 
-**Why not fixed.** Deleting them is only correct if session 18 lands without them. The note beside
-each already says "if that session lands without them, they go", which is the right trigger.
+**Session 18a closed the adjacent four-function question.** `behaviourRecord` and its three writers
+in `options.ts` now have one production owner, `BoutRecorder`, shared by the page and bench. They
+are no longer part of this test-only export count.
+
+**Why not fixed.** The nineteen remaining exports still have no production owner; removing them is
+a separate cleanup whose callers and test value have to be audited together.
 
 ### 10. Roughly 114 code-span file references name a file that does not exist
 

@@ -12,6 +12,7 @@ import { plannedTacticKey, tacticalStateFromView } from "../src/learning/lookahe
 import { decodeResearchArtifact, inProgressResearchArtifact, LOOKAHEAD_CALIBRATION_LIMITS,
   RESEARCH_ARTIFACT_CONTRACT } from "../src/learning/deployment.ts";
 import { HAND_ACTION_NAMES, MOVEMENT_NAMES, tacticTargets } from "../src/options.ts";
+import { ENGAGEMENT_INSTRUMENT_VERSION } from "../src/recorder.ts";
 import { runResearchBout } from "./research-havok.mjs";
 import { checkpointRun, DEFAULT_PLATEAU_EPSILON, DEFAULT_PLATEAU_ROWS, digestContract, engagementGates,
   finalizeRun, ledgerStopDecision, makeLedgerRow, readLedger, runIsFinalized } from "./research-ledger.mjs";
@@ -429,7 +430,8 @@ export function lookaheadRunConfig({ seed, solverSteps, runId = null }) {
     digest: artifactChecksum(canonicalJson({ train: trainTasks, validation: validationTasks })) };
   const allocation = { perJob, extraJobs: (solverSteps - perJob * groups) / 4 };
   const identity = { version: LOOKAHEAD_RESUME_VERSION, algorithm: "lookahead", seed,
-    requestedSolverSteps: solverSteps, fitSeeds, columns: TACTICAL_STATE_COLUMNS, schedule, allocation };
+    requestedSolverSteps: solverSteps, fitSeeds, columns: TACTICAL_STATE_COLUMNS,
+    engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION, schedule, allocation };
   const defaultRunId = `lookahead-${seed}-${artifactChecksum(canonicalJson(identity))}`;
   const chosenRunId = String(runId ?? defaultRunId);
   if (!LOOKAHEAD_RUN_ID.test(chosenRunId)) throw new Error("invalid --run-id");
@@ -624,12 +626,14 @@ export async function trainLookahead({ seed, solverSteps, runId = null, resumeBy
   const payload = [...new TextEncoder().encode(canonicalJson(model))];
   const artifact = new ResearchArtifact({ algorithm: "lookahead", ...RESEARCH_ARTIFACT_CONTRACT, payload,
     provenance: { runId: config.runId, seed, solverSteps: state.consumedSolverSteps,
-      trainingSplit: "train", validationSplit: "validation", configDigest } },
+      trainingSplit: "train", validationSplit: "validation", configDigest,
+      engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION } },
     RESEARCH_ARTIFACT_CONTRACT);
   const report = { runId: config.runId, ...lookaheadReport({ configDigest, requestedSolverSteps: solverSteps,
     solverSteps: state.consumedSolverSteps,
     traceRows: trainRows.length, model, selectedSeed: selected.seed, stepsPerJob: config.allocation.perJob,
-    calibrationKeys, identicalCalibrationKeys }), ledgerFile: "ledger.jsonl",
+    calibrationKeys, identicalCalibrationKeys }), engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION,
+    ledgerFile: "ledger.jsonl",
     stopping: { plateauEpsilon, plateauRows, stepCeiling: solverSteps } };
   return { complete: true, artifact: artifact.toBytes(), report: textEncoder.encode(canonicalJson(report)),
     resume: encodeLookaheadResume(config, state), model, record: report };
