@@ -159,12 +159,15 @@ export function parseTacticCountKey(key: string): TacticTuple {
  *
  * **How much that last one is worth is smaller than it sounds**, and the measured
  * per-loadout table is in `headUtilisation`'s docstring in
- * `learning/tournament.ts`: no armed loadout in the research matrix gives an
- * *attacking* action two legal effectors, so on 8 of the 13 cells this count is
- * "how often did it choose `cover` or `recover`" and on 3 more it is
- * structurally zero. It is also conditioned on the action just chosen, which
- * makes it post-treatment. Read that docstring before drawing a conclusion from
- * this map.
+ * `learning/tournament.ts`: exactly one armed loadout gives an *attacking*
+ * action two legal effectors, so on 8 of the 15 cells this count is "how often
+ * did it choose `cover` or `recover`" and on 3 more it is structurally zero. It
+ * is also conditioned on the action just chosen, which makes it post-treatment.
+ * Read that docstring before drawing a conclusion from this map. (It read "no
+ * armed loadout" and "8 of the 13" until `sword+axe` was added to the strata for
+ * precisely this reason -- `cut` in either hand, `thrust` in only the sword one.
+ * Note the numerator did not fall: eight cells are still cover-or-recover-only,
+ * and two cells were added beside them.)
  *
  * ## The action head is free on every decision that can be recorded
  *
@@ -192,14 +195,17 @@ export function parseTacticCountKey(key: string): TacticTuple {
  * ordered, x attached/lost for each hand, x bite present/absent = 392 synthetic
  * bodies, plus 8 edge shapes (`hands: {}` with and without a bite, an armless
  * warrior with and without one, `naturalAttacks` absent entirely, and the two
- * below). 348 of the 400 can decide. `.review/rem26/cells.mjs` runs 39 real
- * Havok bouts -- all 13 (unit, loadout) cells x all 3 `RESEARCH_OPPONENTS`,
- * seed 310013, 1200 solver steps each, 1771 decisions -- and samples the mask at
- * every one: the smallest legal-action count seen is 2, and the free-action map
- * came out byte-identical to the action marginal on all 39. Neither sweep is in
- * `npm test` -- one needs a hand-rolled body table and the other 39 Havok bouts
- * -- so `every_body_that_can_decide_offers_two_or_more_legal_actions` is the
- * cheap live reader, on the two bodies closest to the boundary.
+ * below). 348 of the 400 can decide. `.review/sa27/cells.mjs` runs 45 real
+ * Havok bouts -- all 15 (unit, loadout) cells x all 3 `RESEARCH_OPPONENTS`,
+ * seed 310013, 1200 solver steps each, 2058 decisions -- and samples the mask at
+ * every one: the smallest legal-action count seen is 2. **Re-measured after
+ * `sword+axe` joined the strata**, which is why the figures are not the 39/13/1771
+ * the `sword+axe` commit superseded; `.review/rem26/cells.mjs` is its ancestor
+ * and no longer runs, because it still reads the `freeChoiceCounts.action` map
+ * this theorem deleted. Neither sweep is in `npm test` -- one needs a
+ * hand-rolled body table and the other 45 Havok bouts -- so
+ * `every_body_that_can_decide_offers_two_or_more_legal_actions` is the cheap
+ * live reader, on the two bodies closest to the boundary.
  *
  * **The boundary, which is the part a future edit has to read.** Two of the 400
  * shapes *do* decide with exactly one legal action, and both are the same shape:

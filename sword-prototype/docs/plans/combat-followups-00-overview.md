@@ -183,7 +183,8 @@ Baseline taken before any of this work, from `sword-prototype/`, commit `a095877
 | 15 host command boundary | **landed** | `f789ea4`, 459 tests |
 | 16 policy perception v4 | **landed** | `d44fc3e`, 484 tests |
 | 17 tactic output v2 | landed, all stages | `da025f2` `e4ac199` `c149e8c` `7597eb4` `3674e06` `caec629` `c7497af`, 532 tests |
-| -- owner follow-ups | 3 of 4 landed | `4d461ea` `ab52947` + the tuple record, 564 tests |
+| -- owner follow-ups | 3 of 4 landed | `4d461ea` `ab52947` `e601824`, 564 tests |
+| -- research matrix | `sword+axe`, 15 cells | 45 strata, 90 jobs, digest `a011a028`, 565 tests |
 | 18 human gate feasibility | not started | -- |
 | 19 run legibility | not started | -- |
 | 20 throughput and ceilings | not started | -- |
@@ -979,6 +980,15 @@ denominator on eight of the thirteen cells is exactly "how often did it choose `
 tournament's other gates reward the opposite. The overclaiming docstrings now carry that table. The
 owner's answer is `sword+axe` in the strata, which is the only change that creates the evidence
 rather than documenting its absence, and it lands next.
+
+**Landed 2026-08-25, and the table above is superseded by the one in `docs/measurements.md` under
+"Session 27".** With `sword+axe` in, the strata are 8 loadouts over 15 cells; `cut` names both hands
+there and `thrust` only the sword one, so an attacking action has an effector choice on **4 of 15**
+cells, 2 of them weapon-bearing. **The eight cover-or-recover-only cells are still eight** -- the
+widening added two answerable cells rather than repairing any existing one -- so the sentence above
+survives as "8 of 15" on the same eight bodies. The shares moved with the denominator: 20.1 % and
+24.4 % on the fifteen cells against 23.4 % and 28.5 % on the thirteen, which is the third reading of
+those two numbers and the reason they are not carried anywhere a program can read.
 
 **Two shares that were quoted as facts about the matrix are not.** An adversarial pass measured 41 %
 of decision mass in the choiceless cells and 73 % of free-effector decisions in `empty+empty`; the

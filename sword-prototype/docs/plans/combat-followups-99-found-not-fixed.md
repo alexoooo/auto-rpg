@@ -240,8 +240,30 @@ look-ahead preflight tuple count, and session 22 plan text that pins "all 13 bod
 decide it now. Spending a 24-hour training window on a contract whose effector head cannot be tested
 on an armed body is the more expensive mistake.
 
-**Status: owner decision taken, implementation owed.** It lands as its own commit, after the record
-remediation, because it touches the same two files.
+**Status: landed 2026-08-25.** `HUMANOID_RESEARCH_LOADOUTS` carries the decision and its cost;
+`an_attacking_action_names_two_hands_on_exactly_one_armed_research_loadout` in
+`tests/ai-tournament.test.mjs` is what stops the row being removed by accident.
+
+**Two things the decision note above got wrong, both found by measuring rather than by reading.**
+
+- **`thrust` reaches one hand on `sword+axe`, not two.** `isHeldStriker` accepts an axe and
+  `hasPoint` refuses it, so `cut` names both hands and `thrust` names only the sword one. That is
+  better than the note assumed rather than worse: an action that names the hand beside an action
+  that cannot is exactly what separates "the effector head decided" from "the loadout decided",
+  and it is why `sword+axe` rather than `sword+sword`.
+- **The count of cover-or-recover-only cells did not fall.** Re-measured with the row in
+  (`.review/sa27/cells.mjs`, 45 bouts, all 15 cells x 3 opponents, mirror 0, seed 310013, 1200
+  solver steps each, 2058 decisions), an attacking action has two legal effectors on **4 of 15**
+  cells against 2 of 13 before -- but the same eight cells are still cover-or-recover-only and the
+  same three are still structurally zero. The widening *added* two answerable cells; it did not
+  repair any existing one, and "8 of 15" rather than "8 of 13" is the whole of the difference on
+  that line.
+
+The cost, re-derived rather than taken from the estimate above (`.review/sa27/schedule.mjs`):
++2 cells, +12 tournament jobs, `lookaheadTacticCellSchedule` 775 tasks a split to **945** and its
+minimum budget 148,800 solver steps to **181,440** -- 22 %, not the ~15 % the cell count predicts,
+because `sword+axe` is the widest row in the table at 17 tuples. `curriculumDigest` moved
+`f9d5c046` to `a011a028`, and the `deployableTactics` union over the research cells 24 to 27.
 
 ### 12. There is no control baseline for the effector, target or stance heads, and the schema forbids one
 

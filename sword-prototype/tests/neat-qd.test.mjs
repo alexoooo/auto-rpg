@@ -202,11 +202,15 @@ test("the_quality_archive_stays_a_125_cell_outcome_map_keyed_on_nothing_a_contro
   // `128 * 80 < 125 * HAND_ACTION_NAMES.length * EFFECTOR_NAMES.length * TARGET_NAMES.length`
   // -- 10,240 < 10,500 -- which is the *nominal* 7 x 3 x 4 = 84 product and not
   // a count of legal tuples. Measured, `|deployableTactics|` peaks at 21 on any
-  // body and the union over the thirteen research cells is 24, so the widened
-  // archive would be 125 x 24 = 3,000 cells against 10,240 evaluations: 3.4 per
+  // body and the union over the fifteen research cells is 27, so the widened
+  // archive would be 125 x 27 = 3,375 cells against 10,240 evaluations: 3.0 per
   // cell, and the "fewer than one elite per cell" sentence it was carrying is
-  // false. `quality-diversity.ts` re-takes the decision on the true figures and
-  // records that the outcome-descriptor argument is now the only reason.
+  // false. It read 24, 3,000 and 3.4 until `sword+axe` joined the strata and
+  // brought `cut+secondary+{high,low,vital}` with it -- which is the second time
+  // this arithmetic has moved without the decision moving, and the reason the
+  // decision does not rest on it. `quality-diversity.ts` re-takes it on the true
+  // figures and records that the outcome-descriptor argument is now the only
+  // reason.
   //
   // What is asserted instead is that argument itself, and asserted so that it
   // can fail: the cell key is a function of the three outcome measures **and of

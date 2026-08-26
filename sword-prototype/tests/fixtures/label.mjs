@@ -37,7 +37,7 @@ export const RESEARCH_LABEL_FIELDS = Object.freeze(
  *
  * The effector is asked for rather than written out because a probe that
  * hard-coded `"primary"` would break on a centipede, which is one of the
- * thirteen cells `tests/lookahead.test.mjs` sweeps.
+ * fifteen cells `tests/lookahead.test.mjs` sweeps.
  */
 export const probeLabel = (view, movement, action, persistence = 0.4) => {
   const effector = chooseEffector(view, action);

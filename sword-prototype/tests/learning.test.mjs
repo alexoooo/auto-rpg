@@ -439,9 +439,16 @@ test("the_training_decoder_and_the_deployment_decoder_answer_the_same_label", ()
   // hold. On `sword+empty` these same twenty-six values give the joint rule
   // `thrust+primary+low` -- 0.30 + 1.00 + 1.00 = 2.30 against
   // `punch+secondary+high`'s 0.90 + 0.10 + 0.30 -- while a bare argmax over the
-  // action block answers `punch`. Two of the seven loadouts diverge; one is
-  // enough, and the whole table is written out so that a change which quietly
-  // reduces it to zero is a failure rather than a silently weaker test.
+  // action block answers `punch`. Two of the seven loadouts in `views` diverge;
+  // one is enough, and the whole table is written out so that a change which
+  // quietly reduces it to zero is a failure rather than a silently weaker test.
+  //
+  // **Seven is this fixture's count and no longer the matrix's**, which is eight
+  // loadouts over fifteen cells since `sword+axe` landed. That row is absent
+  // here on purpose rather than by oversight: this test is about two decoders
+  // agreeing, and the loadout that would strengthen it -- the only one where the
+  // effector term can move an *attacking* answer -- is already covered against
+  // both of its counterfactuals in `tests/ppo.test.mjs`.
   const bare = Object.fromEntries(Object.entries(views).map(([loadout, view]) =>
     [loadout, HAND_ACTION_NAMES[maskedArgmax(actionLogits, supportedActionIndices(view), "action")]]));
   assert.deepEqual(bare, { "sword+empty": "punch", "sword+shield": "thrust", "sword+buckler": "thrust",

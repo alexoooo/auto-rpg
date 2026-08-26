@@ -3251,6 +3251,11 @@ the thirteen research loadouts (`sword+empty`), at most **21** on any body in th
 body space **33**. Multiplying by the six stances, which the tuple set does not enumerate, the
 thirteen cells reach 24 x 6 = 144 stance-bearing tuples and this run visits 15 of them.
 
+**The three cell figures were superseded by `sword+axe` joining the strata**: widest research
+loadout 16 -> **17** (`sword+axe`, not `sword+empty`), union over the research cells 24 -> **27**,
+stance-bearing 144 -> **162**. The two whole-body figures did not move and could not have, because
+that space already enumerated every ordered weapon pair. See "Session 27" at the end of this file.
+
 A second run at 9600 solver steps a cell (418 decisions) moves the shares -- the humanoid bouts
 end on their own and only the centipede and `broot/empty+empty` keep going -- and produces the
 **same fifteen tuples**, so the shape is the rule rather than the sample. Its own shares, again
@@ -3491,7 +3496,8 @@ union over the thirteen research cells -- which is the space an archive built fr
 `researchMatrix` would index -- is **24**.
 
 So the true arithmetic is `125 x 24` = **3,000 cells** against 10,240 evaluations: **3.4
-evaluations per cell, not 0.9**. That is thin for MAP-Elites, whose whole mechanism is
+evaluations per cell, not 0.9** -- `125 x 27` = **3,375** and **3.0** since `sword+axe` joined the
+strata, which is the second time this arithmetic has moved without the decision moving. That is thin for MAP-Elites, whose whole mechanism is
 competition inside a cell, but thin is a tuning objection rather than a refusal, and the
 sentence the number was carrying is false. **The arithmetic no longer decides this.**
 
@@ -5566,7 +5572,10 @@ Three spaces, and they disagree, which is the finding in sections 3 and 13.
 
 - **The schedule sweep** is the surface the gate judges: 13 body/loadout cells times every legal
   `(action, effector, target)` times 5 movements = **775 keys**, four budgets, three fit seeds
-  each. It covers every movement, every action a body can perform, and both units. It does
+  each. (**15 cells and 945 keys since `sword+axe` joined the strata.** The sweep itself was not
+  re-taken -- it is a dump of particular bouts and re-running it is 1,451,520 solver steps -- so
+  every figure in this session is "of the 775 measured" and none of them has seen a
+  `cut+secondary+*` key.) It covers every movement, every action a body can perform, and both units. It does
   **not** cover a severed body -- every bout starts intact, see section 14 -- and it does not
   vary the stance, which is held at `UNLEARNED_STANCE` throughout. **It is one bout length per
   budget**, and the longest of the four is 1.6 s.
@@ -5768,3 +5777,127 @@ pins a digest value -- `tests/lookahead.test.mjs` asserts only `/^[0-9a-f]{8}$/`
 committed look-ahead artifact, `asset-src/learning/research/session18-minimum`, is refused a
 layer up at `featureVersion` 3 against runtime 4 and carries no `tacticVersion` at all. Both
 verified by reading the artifact's bytes.
+
+## Session 27: a loadout where an attacking action names two hands -- 2026-08-25
+
+The tactic contract is 26 outputs, one head of which chooses the effector. A tournament is
+supposed to be able to tell "the policy's effector head learned something" from "the body only
+ever offered one hand". It could not, and this is the measurement that says why and the one that
+says what changed.
+
+### 1. The legal-effector table, before and after
+
+Harness `.review/sa27/cells.mjs`, descended from `.review/rem26/cells.mjs` -- which no longer
+runs, because it still reads the `freeChoiceCounts.action` map the `FREE_CHOICE_HEADS` theorem
+deleted.
+
+**Coverage space, stated exactly.** One bout per (unit, loadout) x every `RESEARCH_OPPONENTS`,
+mirror 0 only, split `train`, base seed 310013, 1200 solver steps (5 s) each -- 39 bouts and 1771
+decisions before, 45 bouts and 2058 after. The actor is a `researchLabelMind` walking
+`deployableTactics` round-robin at `MIN_PERSISTENCE`, so it names every legal tuple the body
+offers. `tacticEffectors` is read for **every** action at **every physics sample**, not only at
+decisions, so a hand severed mid-bout is inside the space. **What it cannot see:** mirror 1, any
+seed but 310013, any bout longer than five seconds, and any stance -- `deployableTactics` does not
+enumerate stances. It also cannot see a loadout that is not in the strata, which is the whole
+point: the table below is a fact about the matrix and not about the body space.
+
+| loadout | actions with two or more legal effectors | actions with exactly one |
+| --- | --- | --- |
+| `sword+empty` | cover, recover | cut, thrust, punch |
+| `sword+shield`, `sword+buckler` | cover, recover | cut, thrust |
+| **`sword+axe`** | **cover, cut, recover** | **thrust** |
+| `axe+empty` | cover, recover | cut, punch |
+| `bow+empty` | **none** | cover, shoot, recover |
+| `empty+empty` | cover, punch, recover | none |
+| `natural:bite` | **none** | bite, recover |
+
+`broot` is identical to `warrior` row for row, before and after.
+
+| question | before (13 cells) | after (15 cells) |
+| --- | ---: | ---: |
+| cells where an **attacking** action has two or more legal effectors | 2 | **4** |
+| ... of which are weapon-bearing | 0 | **2** |
+| cells whose only free-effector actions are `cover`/`recover` | 8 | **8** |
+| cells where the effector head never has a choice | 3 | 3 |
+| pooled decisions | 1771 | 2058 |
+| pooled free-effector decisions | 889 (50.2 %) | 1130 (54.9 %) |
+| decision mass in the effector-blind cells | 23.4 % | **20.1 %** |
+| free-effector decisions from the two `empty+empty` cells | 28.5 % | **24.4 %** |
+
+**The count of cover-or-recover-only cells did not fall, and "8 of 15" rather than "8 of 13" is
+the whole of the difference on that line.** The widening *added* two answerable cells; it repaired
+none of the eight. That is as much as one loadout can buy, and saying so is the difference between
+a record and an advertisement.
+
+**`thrust` reaches one hand on `sword+axe`, not two, and the decision note that asked for this
+change said two.** `isHeldStriker` accepts an axe, so `cut` names both hands; `hasPoint` refuses
+it, so `thrust` names only the sword one; `punch` needs an empty hand and both are full. That is
+better than the note assumed rather than worse -- an action that names the hand beside an action
+that cannot is what separates "the effector head decided" from "the loadout decided", and it is
+why `sword+axe` and not `sword+sword`, where no action distinguishes the hands at all.
+
+### 2. What the strata change cost, re-derived from the live tables
+
+`.review/sa27/schedule.mjs` reads `lookaheadTacticCellSchedule`, `actionsFor` and `tacticsFor`
+rather than multiplying a cell count; `.review/sa27/tuplespace.mjs` enumerates 393 synthetic
+bodies and derives its cell list from `RESEARCH_STRATA`.
+
+| quantity | before | after | measured by |
+| --- | ---: | ---: | --- |
+| distinct (unit, loadout) cells | 13 | **15** | `schedule.mjs` |
+| distinct loadouts | 7 | **8** | `schedule.mjs` |
+| `RESEARCH_STRATA` rows | 39 | **45** | `schedule.mjs` |
+| `researchMatrix` jobs per split | 78 | **90** | `schedule.mjs` |
+| `lookaheadTacticCellSchedule` tasks per split | 775 | **945** | `schedule.mjs` |
+| its groups (`3 x train + validation`) | 3,100 | **3,780** | `schedule.mjs` |
+| its minimum solver-step budget | 148,800 | **181,440** | `schedule.mjs` |
+| pre-C2c `(movement, action)` tasks per split | 240 | **280** | `schedule.mjs` |
+| widest tuple set over the research cells | 16 (`sword+empty`) | **17 (`sword+axe`)** | `tuplespace.mjs` |
+| union of `deployableTactics` over the research cells | 24 | **27** | `tuplespace.mjs`, and `cells.mjs` on real bouts |
+| widest over the whole body space | 21 | 21 | `tuplespace.mjs` |
+| union over the whole body space | 33 | 33 | `tuplespace.mjs` |
+| `curriculumDigest()` | `f9d5c046` | **`a011a028`** | `curriculumDigest()` |
+| QD arithmetic, 125 x union | 3,000 cells, 3.4 per evaluation | **3,375, 3.0** | arithmetic on the union |
+| `sword+axe` nodes per replan | -- | **3,655** | `exactLookaheadNodeBudget(85)` |
+
+**The schedule cost is 22 %, not the ~15 % the cell count predicts**, because the two columns do
+not scale together: `sword+axe` has four actions -- ordinary -- and 17 tuples, which is the widest
+row in the table. A cell-count multiplier applied to either figure gets the other wrong. The three
+whole-body-space figures did not move and could not have: that enumeration already contained every
+ordered weapon pair, `sword+axe` included.
+
+**What was superseded and deliberately not renumbered.** The 775-key calibration record in
+`tests/fixtures/calibration-record.mjs` and every figure session 19 reads off it are measurements
+of particular bouts on a schedule that no longer exists. They stay as they are; re-taking them
+costs 1,451,520 solver steps at the 8x budget, which is a compute decision. None of them has seen
+a `cut+secondary+*` key, and `sword+axe` contributes **170** new (cell, tactic) keys of which 15
+spell a tactic no cell of the old schedule could.
+
+### 3. Where the loadout lands in the curriculum, decided rather than inherited
+
+Two of the five stage filters could have taken it and one does.
+
+- **`moving-unguarded`: out.** Its filter names one loadout and that is what the stage is -- the
+  second rung, teaching approach against `random-meta` on the body with the least tactical
+  surface. `sword+axe` is literally unguarded, so the stage's *name* admits it, and it has
+  strictly more surface than `sword+empty`. The effector head is not what this stage is about.
+- **`guarding-specialist`: in.** That filter is a negation -- everything but `bow+empty` -- and
+  the exclusion is *ranged*, not *unnamed*. `sword+axe` covers with either hand and fights in
+  measure, so it belongs by the same property the bow is refused by, and it is the first rung on
+  which the effector head has a choice while attacking.
+
+Stage sizes after: stationary 1, moving-unguarded 2, guarding-specialist 13, mixed 42, complete 45.
+
+### 4. The null control did not move
+
+`npm run measure -- --only duelist-swinger --bouts 120`, seed 20260823: duelist **66/120 =
+55.0 %**, bout length **3.52 s (1.42-8.98)**, damage **176.17**, **10** severs, **1496** and
+**1670** scoring contacts. Identical to the pin.
+
+**What that proves is less than it looks, and the closure is the reason.** Measured at
+`.review/sa27/closure.mjs`, the transitive import closure of `scripts/measure.mjs` is **26 local
+modules** -- 25 sources plus `asset-src/textures.json` -- and **none of them is under
+`src/learning/`**. So the null control cannot move for a strata change and is a regression check
+on the physics and scoring rather than evidence about this one. (The figure was written down as 29
+elsewhere; that count included four extensionless specifiers the walker failed to resolve and so
+treated as leaves. `existsSync` with a `.ts` fallback is the fix, and the conclusion is unchanged.)

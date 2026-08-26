@@ -106,7 +106,7 @@ export async function collectTacticalTrace({ seed, solverSteps, split = "train",
  * not here, because it is not a property of a loadout at all:
  * `tacticTargets(action)` reads `AIMED_TARGETS` in `src/options.ts`, which is
  * keyed on the action alone and consults no body. Writing the aims out here
- * would have been that table copied thirteen times, which is precisely the
+ * would have been that table copied once per loadout, which is precisely the
  * defect the second column exists to avoid on the effector side -- and the
  * effector genuinely does depend on the loadout, because a two-hander welds one
  * hand to its haft and an empty hand cannot hold a point. So the row is a claim
@@ -117,7 +117,7 @@ export async function collectTacticalTrace({ seed, solverSteps, split = "train",
  * cover more than that.**
  * `the_training_schedule_offers_exactly_what_the_runtime_mask_offers` reads the
  * mask off real published bodies over 48 solver steps and compares the whole
- * thirteen-cell table against `deployableTactics`, which is what keeps a
+ * fifteen-cell table against `deployableTactics`, which is what keeps a
  * *starting* loadout's row honest. It is not what stops the two coming apart,
  * because a row keys on the loadout a body started with and the mask keys on
  * what is still attached: sever the bow hand of a `bow+empty` and the two-handed
@@ -130,10 +130,22 @@ export async function collectTacticalTrace({ seed, solverSteps, split = "train",
  * `a_severed_hand_moves_the_mask_and_the_lookahead_plans_over_what_it_can_predict`
  * is the test that exercises it, on bodies with a hand taken off.
  *
- * The cost is **775 tasks per split against 240**, and a minimum budget of
- * **148,800 solver steps against 46,080** -- 3.23x, measured in
+ * The cost of the widening is **945 tasks per split against 280**, and a minimum
+ * budget of **181,440 solver steps against 53,760** -- 3.375x, measured in
  * `docs/measurements.md` under "Session 17 Stage C2c", where the 19x the plan
  * priced is also recorded along with the measurement that declined it.
+ *
+ * **Both columns moved when `sword+axe` joined the strata, and the ratio moved
+ * with them**: 775/240 = 3.23x became 945/280 = 3.375x. Re-derived rather than
+ * scaled (`.review/sa27/schedule.mjs`, which reads
+ * `lookaheadTacticCellSchedule` and `actionsFor` rather than multiplying by a
+ * cell count), because the two columns do not scale by the same factor. The
+ * (movement, action) column counts *actions* -- `sword+axe` has four, the same
+ * as `sword+shield` -- while the tuple column counts (action, effector, target),
+ * and `sword+axe`'s `cut` is the one row in the table with two effectors, so it
+ * is the widest row in the tuple column at 17 tuples and an ordinary one in the
+ * action column. A cell-count multiplier applied to either figure gets the other
+ * wrong.
  */
 const LOADOUT_TACTICS = Object.freeze({
   "sword+empty": Object.freeze({ cover: ["primary", "secondary"], cut: ["primary"], thrust: ["primary"],
@@ -142,6 +154,15 @@ const LOADOUT_TACTICS = Object.freeze({
     recover: ["primary", "secondary"] }),
   "sword+buckler": Object.freeze({ cover: ["primary", "secondary"], cut: ["primary"], thrust: ["primary"],
     recover: ["primary", "secondary"] }),
+  // **The row this table was widened for, and the only one whose `cut` names two
+  // hands.** `isHeldStriker` accepts both a sword and an axe, so `cut` reaches
+  // either; `hasPoint` refuses the axe, so `thrust` reaches only the sword hand;
+  // `punch` reaches neither, because a punching hand must be empty and both are
+  // full. That asymmetry is the point of the loadout rather than an accident of
+  // it -- an action that names the hand and an action beside it that cannot is
+  // what separates "the effector head decided" from "the loadout decided".
+  "sword+axe": Object.freeze({ cover: ["primary", "secondary"], cut: ["primary", "secondary"],
+    thrust: ["primary"], recover: ["primary", "secondary"] }),
   "axe+empty": Object.freeze({ cover: ["primary", "secondary"], cut: ["primary"], punch: ["secondary"],
     recover: ["primary", "secondary"] }),
   "bow+empty": Object.freeze({ cover: ["primary"], shoot: ["primary"], recover: ["primary"] }),
@@ -205,8 +226,11 @@ const writeAtomic = async (path, bytes) => { const target = resolve(path); await
  * not what runs. `trainLookahead` collects train rows under base `seed` and
  * validation rows under base `seed ^ 0x7f4a7c15`, and `collectTacticalTrace`
  * rebuilds the matrix from the base it is handed, so the two bouts start from
- * seeds that differ by 12,613 to 180,739 across the 78 jobs (39 distinct
- * differences at seed 310013; `.review/rem20/an3.mjs`). The rows come back
+ * seeds that differ by 12,613 to 180,739 across the 78 jobs of the thirteen-cell
+ * matrix (39 distinct differences at seed 310013; `.review/rem20/an3.mjs`; the
+ * matrix is 90 jobs since `sword+axe` and the spread has not been re-taken --
+ * nothing in the argument turns on it, because the conclusion is that the seed
+ * does not matter). The rows come back
  * bit-identical anyway, and the reason is the interesting one: **the opening of
  * a bout is seed-insensitive.** Two fighters start from the same pose at the
  * same separation, and 48 solver steps is 0.2 s, which is not long enough for
@@ -214,26 +238,43 @@ const writeAtomic = async (path, bytes) => { const target = resolve(path); await
  * mechanism -- and the mechanism matters, because "adjacent seeds" would be
  * fixed by widening the offset and this is not.
  *
- * Measured on real Havok at seed 310013,
- * per (cell, tactic) key out of 775 (`.review/calgate`, `p4-sweep.mjs`):
+ * Measured on real Havok at seed 310013, per (cell, tactic) key,
+ * **on the 775-key thirteen-cell schedule** (`.review/calgate`, `p4-sweep.mjs`):
  *
- * | steps/job | budget | keys whose held-out rows are bit-identical |
+ * | steps/job | budget then | keys whose held-out rows are bit-identical |
  * | ---: | ---: | ---: |
- * | 48 | 148,800 -- the shipped minimum | **775 / 775** |
+ * | 48 | 148,800 -- the minimum then | **775 / 775** |
  * | 96 | 297,600 | 651 / 775 |
  * | 192 | 595,200 | 164 / 775 |
  * | 384 | 1,190,400 | 3 / 775 |
+ *
+ * **Deliberately not renumbered for the fifteen-cell schedule.** The schedule is
+ * 945 keys and its minimum budget 181,440 since `sword+axe` joined the strata,
+ * so the *budget* column is superseded and every figure in it is 3,780/3,100 =
+ * 1.219x low. The *keys* column is a measurement and cannot be rescaled: it
+ * counts how many keys got a bit-identical held-out sample, which is a fact
+ * about 775 particular bouts and not a proportion. Re-taking it costs a
+ * 1,451,520-step run, which is a compute decision. What survives unchanged is
+ * the thing the floor is about, because **the axis is steps per job and not the
+ * key count**: every key gets its own bouts at `perJob` steps whatever the
+ * schedule's length, so the 48/96/192/384 column means the same thing on 945
+ * keys as on 775. The proportions are the honest reading -- 100 %, 84 %, 21 %,
+ * 0.4 % -- and nothing has established that they carry across, because
+ * `sword+axe`'s two-effector `cut` is a *new kind* of key rather than more of
+ * the same.
  *
  * So **most** of the split becomes real somewhere between 96 and 192, and this
  * is a warning rather than a floor because the *model* fitted at the minimum
  * budget is fine -- it is the evidence about the model that is not evidence.
  * `calibrateTacticalModel` genuinely rescores against the validation rows and
- * genuinely covers all 775 keys; the rows just happen to be the same rows. The
+ * genuinely covers every key; the rows just happen to be the same rows. The
  * report says which it got, measured rather than inferred, in
- * `identicalCalibrationKeys`.
+ * `identicalCalibrationKeys` -- which is the field that makes the stale table
+ * above safe to leave standing, because a run reports its own count rather than
+ * reading one from here.
  *
  * **192 is not where the split becomes a split, and the sentence used to say it
- * was.** 164 of 775 keys are still bit-identical there -- 21 % of the
+ * was.** 164 of 775 keys were still bit-identical there -- 21 % of the
  * calibration record in-sample -- against 3 of 775 at 384. A run at exactly 192
  * gets no warning, which is why the *measured* count is emitted beside the
  * warning by `lookaheadNotices` rather than left in the report for somebody to
@@ -244,13 +285,14 @@ export const MIN_SPLIT_STEPS_PER_JOB = 192;
 
 /**
  * The sentence, or null. Returned rather than printed, and exported rather than
- * inlined, so that a test can assert it without spending 148,800 solver steps to
+ * inlined, so that a test can assert it without spending 181,440 solver steps to
  * reach the line that builds it.
  */
 export const splitWarningFor = (solverSteps, stepsPerJob) => stepsPerJob >= MIN_SPLIT_STEPS_PER_JOB ? null :
   `lookahead budget ${solverSteps} gives ${stepsPerJob} solver steps per job, under the ${MIN_SPLIT_STEPS_PER_JOB} ` +
   "at which most of the validation split becomes real: the two bouts open identically whatever their seeds, and " +
-  "measured at seed 310013 all 775 keys came back bit-identical at 48 steps per job, 651 at 96, 164 at 192 and 3 at 384. " +
+  "measured at seed 310013 on the then-775-key schedule all 775 keys came back bit-identical at 48 steps per job, " +
+  "651 at 96, 164 at 192 and 3 at 384. " +
   "Calibration below this is in-sample; read identicalCalibrationKeys in the report rather than trusting the label";
 
 /**
@@ -307,7 +349,7 @@ export const selectCalibratedCandidate = (candidates, limits) =>
  * Every field here survived deletion silently -- `identicalCalibrationKeys` and
  * `splitWarning` both, and `splitWarningFor` could be handed a constant 384
  * instead of the run's own `perJob` -- because the only thing that built a
- * report spent 148,800 solver steps first.
+ * report spent 181,440 solver steps first.
  * `the_lookahead_report_carries_the_whole_record_a_run_is_judged_by` asserts the
  * whole record against a freshly stated one, which is the shape that grows with
  * the report instead of listing the field names somebody remembered.

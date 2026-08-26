@@ -93,10 +93,14 @@ Seeds 310019 and 310031, both initialization arms per seed, equal budget across 
 
 Seeds 310019 and 310031.
 
-- The schedule covers all 13 body/loadout cells and the exact compatible
+- The schedule covers all 15 body/loadout cells and the exact compatible
   `(movement, action, effector, target, stance)` count measured by preflight. The obsolete
   action-v1 cell count is gone -- 220 before session 17 stage C1, 240 after it trained the
-  `punch` the runtime already offered on `sword+empty` and `axe+empty`.
+  `punch` the runtime already offered on `sword+empty` and `axe+empty`, and **280** since
+  `sword+axe` joined the strata. Read the tuple count from
+  `lookaheadTacticCellSchedule` rather than from either: it is 945 a split now against 775
+  before the loadout, and the two columns do not scale together, because `sword+axe` is an
+  ordinary row in the action count and the widest row in the tuple count.
 - Every cell has train and validation calibration rows; no failed cell silently borrows another
   body's model.
 - The artifact reloads and its runtime mind refuses each absent or over-threshold cell **by

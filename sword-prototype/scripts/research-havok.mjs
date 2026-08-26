@@ -11,6 +11,10 @@ const LOADOUTS = Object.freeze({
   "sword+empty": { primary: "sword", secondary: "empty" },
   "sword+shield": { primary: "sword", secondary: "shield" },
   "sword+buckler": { primary: "sword", secondary: "buckler" },
+  // Two one-handed strikers of different kinds: the one loadout in the matrix
+  // where an attacking action reaches both hands. `HUMANOID_RESEARCH_LOADOUTS`
+  // carries the measurement and the reason.
+  "sword+axe": { primary: "sword", secondary: "axe" },
   "axe+empty": { primary: "axe", secondary: "empty" },
   "bow+empty": { primary: "bow", secondary: "empty" },
   "empty+empty": { primary: "empty", secondary: "empty" },
@@ -34,8 +38,11 @@ export async function runResearchBout(job, makeActorMind, solverStepLimit, makeO
   // It was written down here as "an action-only count cannot tell a learned
   // effector head from a body that only ever offered one hand". True, but a much
   // smaller claim than it reads as: `headUtilisation`'s docstring carries the
-  // measured table, and that distinction is available on 2 of the 13 research
-  // cells, both weaponless. Do not put weight on it without reading that table.
+  // measured table, and that distinction is available on 4 of the 15 research
+  // cells -- the two `empty+empty` and, since it was added to the strata for
+  // exactly this, the two `sword+axe`. It read "2 of the 13 cells, both
+  // weaponless", which was the measurement that decided the widening. Do not put
+  // weight on it without reading that table.
   //
   // `tacticCounts` is the joint record, keyed by `tacticCountKey` in
   // `options.ts` -- imported rather than spelled here, because the validator on

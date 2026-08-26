@@ -402,7 +402,11 @@ const WARRIOR = { unit: "warrior", reach: 0.45, crownHeight: 1.77, vitalHeight: 
 const CENTIPEDE = { unit: "centipede", reach: 0.62, crownHeight: 0.52, vitalHeight: 0.29, collisionRadius: 0.22 };
 
 /**
- * A body carrying one of the seven research loadouts.
+ * A body carrying one of the eight research loadouts.
+ *
+ * Derived from `RESEARCH_STRATA` at the call site rather than from a list here,
+ * which is why `sword+axe` needed no edit: `loadout.split("+")` fills both hands
+ * from the name and `hand` is total over `WEAPON_KINDS`.
  *
  * `toward` is which way it looks, `side` is which world it is in. Only `side`
  * flips under a mirror, and the two are separate arguments precisely so that the
@@ -679,7 +683,7 @@ test("feature_v4_is_finite_for_every_research_cell", () => {
     return index;
   };
   const cells = new Set(RESEARCH_STRATA.map((row) => `${row.unit}/${row.loadout}`));
-  assert.equal(cells.size, 13, "thirteen body-and-loadout cells, which is what the ladder runs");
+  assert.equal(cells.size, 15, "fifteen body-and-loadout cells, which is what the ladder runs");
   // How many cells put the threat somewhere the local frame can state exactly.
   // Counted rather than assumed: every column of that triple saturates at 2 m,
   // and a fixture that drifted past it would skip the round trip in silence.

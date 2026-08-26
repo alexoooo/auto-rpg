@@ -81,10 +81,13 @@ summary the ledger does -- rows completed, rows remaining, elapsed -- on the sam
   decision, one option chosen, modal share 1.0: the exact signature of a collapsed head, by
   design. PPO's persistence is likewise the constant `0.4`. Cross-reference the `algorithm`
   field on each utilisation row before concluding anything about either.
-- **State what the matrix could not ask.** Only `cover` and `recover` offer an effector choice
-  on a weapon-bearing body unless `sword+axe` is in the strata; on a `bow+empty` or a centipede
-  cell the effector head has no choice at any time. Name the cells where the question was
-  unanswerable rather than folding them into a pooled share.
+- **State what the matrix could not ask.** `sword+axe` **is** in the strata as of 2026-08-25, so
+  `cut` names two hands on two of the fifteen cells and an attacking action has an effector
+  choice on four. Of the other eleven, eight offer a choice on `cover` and `recover` alone -- so
+  the denominator there is "how often did it defend" -- and three offer none at any time, the two
+  `bow+empty` cells and the centipede. Name the cells where the question was unanswerable rather
+  than folding them into a pooled share; the pooled share moved from 23.4 % to 20.1 % on this
+  change alone, which is what a pooled share does.
 - If one or more candidates pass, the pure verdict chooses the smallest statistically tied
   artifact, then direction and name order. Continue to session 24.
 - If none passes, write the negative result into `docs/measurements.md` with each candidate's

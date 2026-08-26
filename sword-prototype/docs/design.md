@@ -205,10 +205,15 @@ namable:
   action named on the trailing hand is refused rather than posed and discarded. `punch` therefore
   stopped being advertised on a bow body, where it had always been posed onto an arm nothing
   reads; the look-ahead training schedule had never offered it there, so **the `bow+empty` row of
-  the runtime mask now agrees with the training one**. That was one loadout of seven -- two of
-  the thirteen cells, one on each humanoid unit -- and the traffic went the other way as well:
+  the runtime mask now agrees with the training one**. That was one loadout of seven then -- two
+  of the thirteen cells, one on each humanoid unit -- and the traffic went the other way as well:
   `sword+empty` and `axe+empty` leave a genuinely free off hand, so there the *schedule* was
-  wrong and it was corrected there. All seven loadouts agree as of stage C1. **What that
+  wrong and it was corrected there. All seven loadouts agreed as of stage C1, and all **eight**
+  do now: `sword+axe` was added to the strata afterwards, because with it absent no loadout in
+  the matrix gave an *attacking* action two legal effectors and the tuple contract's effector
+  head could only be judged on the two weaponless cells. Seven loadouts became eight and thirteen
+  cells became fifteen -- the two counts do not move together, which is a distinction this
+  paragraph got wrong once already. **What that
   agreement covers is intact bodies**, because a schedule row keys on the loadout a body started
   with while the mask keys on what is still attached; capability loss is answered a layer down,
   by the look-ahead searching only cells it has a calibration for. The loadout table, the

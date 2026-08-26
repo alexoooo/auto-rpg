@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { EFFECTOR_NAMES, FREE_CHOICE_HEADS, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TACTIC_KEY_DELIMITER,
-  TARGET_NAMES, chooseEffector, parseTacticCountKey, tacticCountKey } from "../src/options.ts";
+import { ATTACK_OPTION_NAMES, EFFECTOR_NAMES, FREE_CHOICE_HEADS, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES,
+  TACTIC_KEY_DELIMITER, TARGET_NAMES, chooseEffector, parseTacticCountKey, tacticCountKey,
+  tacticEffectors } from "../src/options.ts";
 import { deployableActions } from "../src/learning/meta.ts";
 import { researchLabelMind } from "../src/learning/research-policy.ts";
 import { runResearchBout } from "../scripts/research-havok.mjs";
-import { researchMatrix } from "../src/learning/research-matrix.ts";
+import { RESEARCH_STRATA, researchMatrix } from "../src/learning/research-matrix.ts";
+import { tacticsFor } from "../scripts/train-lookahead.mjs";
 import { assertCommonTournamentMatrix, assessTournamentCandidate, candidateFromRawRows, freezeTournamentManifest,
   headUtilisation, mergeBehaviourRecord, recomputeTournamentReport, tacticMarginal,
   mergeTournamentRows, nextTournamentBatch, resumeTournament, tournamentVerdict, validateTournamentManifest } from "../src/learning/tournament.ts";
@@ -556,14 +558,16 @@ test("an_aggregated_candidate_carries_the_free_choice_counts_its_rows_recorded",
 /**
  * The producer, end to end through real Havok bouts.
  *
- * **Coverage space: two warrior cells of the thirteen -- `empty+empty` and
+ * **Coverage space: two warrior cells of the fifteen -- `empty+empty` and
  * `sword+empty` -- one train bout each at seed 310013, 1200 solver steps (5 s)
- * per bout, every decision at `MIN_PERSISTENCE`.** Two rather than thirteen, and
+ * per bout, every decision at `MIN_PERSISTENCE`.** Two rather than fifteen, and
  * these two rather than any others, because the thing this test is about needs a
  * body where the recorded head had a choice and a body where it did not, and
  * these are the pair that differ in exactly that and nothing else: two empty
  * fists can both `punch`, and only the sword hand can `cut`. Sweeping all
- * thirteen would cost eleven more bouts to make the same distinction twice.
+ * fifteen would cost thirteen more bouts to make the same distinction twice.
+ * The third cell worth a bout is `sword+axe`, where the choice is on an
+ * *attacking* action, and it has its own test below.
  *
  * `MIN_PERSISTENCE` for the reason `tests/lookahead.test.mjs` gives for the same
  * choice: at the 0.4 s a planner holds, five seconds is about a dozen decisions,
@@ -617,6 +621,82 @@ test("a_real_bout_produces_a_behaviour_record_that_is_internally_consistent", as
 });
 
 /**
+ * The reason `sword+axe` is in the strata, asserted rather than written down.
+ *
+ * The effector head is the one head of five whose free set a joint map cannot
+ * recover, and it can only be *judged* on a cell where the body offered two
+ * hands. Measured over every stratum before this loadout existed
+ * (`.review/sa27/cells.mjs`, 39 bouts then), the only actions that ever offered
+ * two legal effectors on an armed body were `cover` and `recover` -- so the
+ * question "did this head learn anything?" was answerable on 2 cells of 13, both
+ * of them the weaponless `empty+empty` pair, and the better a candidate was at
+ * attacking the less its record could say. `sword+axe` is the loadout that
+ * breaks that, and this test is what stops it being removed by accident.
+ *
+ * **Two halves, because either one alone is satisfied by its own setup.** The
+ * first is a real Havok bout on the cell: what the body actually publishes,
+ * sampled at every physics step, so a hand lost mid-bout is inside the space. It
+ * would pass against a `tacticEffectors` that answered both hands for
+ * everything. The second is the whole matrix projected onto "which attacking
+ * actions name two hands", asserted as a complete record against a freshly
+ * stated one -- which fails if `sword+axe` leaves `HUMANOID_RESEARCH_LOADOUTS`,
+ * fails if a second loadout quietly acquires the property, and fails if the
+ * rule that gives it the property changes for everybody.
+ *
+ * `thrust` is the half of this the decision note got wrong, and it is the more
+ * interesting half. It reaches **one** hand here, not two: `isHeldStriker`
+ * accepts an axe and `hasPoint` refuses it. So the loadout does not merely offer
+ * a choice, it offers a choice on one attack and withholds it on the attack
+ * beside it -- which is what separates "the effector head decided" from "the
+ * loadout decided", and is why this row rather than `sword+sword`.
+ *
+ * Coverage space of the bout: one `warrior/sword+axe` train job at seed 310013,
+ * mirror 0, 1200 solver steps (5 s), every decision at 0.1 s persistence. It
+ * cannot see `broot`, mirror 1, another seed, or a bout long enough for the axe
+ * hand to come off -- the second half is what covers the other fourteen cells,
+ * and `the_training_schedule_offers_exactly_what_the_runtime_mask_offers` in
+ * `tests/lookahead.test.mjs` is what pins the table it reads to real bodies on
+ * all fifteen.
+ */
+test("an_attacking_action_names_two_hands_on_exactly_one_armed_research_loadout", async () => {
+  const matrix = researchMatrix("train", 310013);
+  const at = matrix.findIndex((entry) => entry.unit === "warrior" && entry.loadout === "sword+axe");
+  assert.ok(at >= 0, "the research matrix has no warrior/sword+axe cell, so no armed body can exercise the effector head");
+  const seen = new Set();
+  const bout = await runResearchBout({ ...matrix[at], index: at }, (onDecision) =>
+    researchLabelMind("two-striker-probe", (view) => ({ movement: "close", action: "cut",
+      effector: chooseEffector(view, "cut"), target: "vital", stance: "action-default", persistence: 0.1 }),
+    onDecision), 1200, null, {
+      onSample({ view }) {
+        for (const action of HAND_ACTION_NAMES) seen.add(`${action}=${tacticEffectors(view, action).join("|")}`);
+      },
+    });
+  assert.ok(bout.decisions > 20, `sword+axe took only ${bout.decisions} decisions`);
+  // Every distinct answer the published body gave over the whole bout, not the
+  // first: a set with two members for one action would mean the capability moved
+  // mid-probe, which is a fact worth failing on rather than sampling past.
+  assert.deepEqual([...seen].sort(), ["bite=", "cover=primary|secondary", "cut=primary|secondary",
+    "punch=", "recover=primary|secondary", "shoot=", "thrust=primary"]);
+  // The consequence for the record the tournament reads: a candidate that spends
+  // every decision attacking still has a free-effector denominator, which is
+  // exactly what no armed cell could offer before.
+  assert.equal(headUtilisation(bout).effector.freeChoiceDecisions, bout.decisions,
+    "every cut decision on a two-striker body had a second hand available");
+
+  // The matrix-wide half. `tacticsFor` reads `LOADOUT_TACTICS`, which
+  // `the_training_schedule_offers_exactly_what_the_runtime_mask_offers` pins to
+  // real published bodies on every cell, so this is the runtime rule asked once
+  // per loadout rather than a second copy of it.
+  const twoHanded = Object.fromEntries([...new Set(RESEARCH_STRATA.map((row) => row.loadout))].map((loadout) => {
+    const rows = tacticsFor(loadout);
+    return [loadout, ATTACK_OPTION_NAMES.filter((action) =>
+      new Set(rows.filter((row) => row.action === action).map((row) => row.effector)).size > 1)];
+  }));
+  assert.deepEqual(twoHanded, { "sword+empty": [], "sword+shield": [], "sword+buckler": [],
+    "sword+axe": ["cut"], "axe+empty": [], "bow+empty": [], "empty+empty": ["punch"], "natural:bite": [] });
+});
+
+/**
  * The theorem behind `FREE_CHOICE_HEADS`, asserted on live bodies rather than
  * only written down.
  *
@@ -634,9 +714,12 @@ test("a_real_bout_produces_a_behaviour_record_that_is_internally_consistent", as
  * the boundary: no hands at all, and its whole action set is `{bite, recover}`.
  * Seed 310013, 1200 solver steps each, `MIN_PERSISTENCE`. The exhaustive
  * synthetic sweep behind the same claim is `.review/rem26/theorem.mjs` (400
- * shapes) and the 39-bout sweep is `.review/rem26/cells.mjs`; neither is in the
- * suite because both take real bouts or a hand-rolled body table, and this is
- * the cheap live reader for the one property the deletion rests on.
+ * shapes) and the every-cell sweep is `.review/sa27/cells.mjs` (45 bouts, and 39
+ * before `sword+axe` joined the strata; its ancestor `.review/rem26/cells.mjs`
+ * no longer runs, because it still reads the free-action map this theorem
+ * deleted). Neither is in the suite because both take real bouts or a
+ * hand-rolled body table, and this is the cheap live reader for the one property
+ * the deletion rests on.
  */
 test("every_body_that_can_decide_offers_two_or_more_legal_actions", async () => {
   const matrix = researchMatrix("train", 310013);

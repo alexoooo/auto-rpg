@@ -34,8 +34,11 @@ export const UNLEARNED_PERSISTENCE = 0.4;
  * `(movement, action, effector, target)` and **deliberately stopped short of the
  * stance**, on evidence rather than on cost. Stance is unmasked -- six on every
  * body -- so enumerating it is a flat 6x on the schedule, the beam and the
- * calibrated cell count: 775 tasks a split become 4,650, and a `sword+empty`
- * replan goes from 3,440 expanded nodes to 20,640.
+ * calibrated cell count: 945 tasks a split become 5,670, and a `sword+axe`
+ * replan -- the widest row in the table since it joined the strata -- goes from
+ * 3,655 expanded nodes to 21,930. (It read 775 and `sword+empty`'s 3,440/20,640
+ * before that; the 6x is what the argument rests on and 6 is a table width, so
+ * the conclusion does not move with the schedule.)
  *
  * What that buys, measured on real Havok bodies (`docs/measurements.md`, "Session
  * 17 Stage C2c"): nine (cell, movement, action, effector, target) tuples, six
@@ -302,11 +305,14 @@ export function readMetaOutput(values: readonly number[]): MetaOutput {
  * the wrong side of it. Both were corrected in the schedule.
  *
  * **"One row of thirteen" is two units of measure**, and this note used to say
- * it. There are seven loadouts and thirteen cells -- six loadouts on each of two
- * humanoid units, plus the centipede's bite -- so `bow+empty` is one *loadout*
- * of seven and two *cells* of thirteen. `LOADOUT_TACTICS` has a row per loadout;
+ * it. There are eight loadouts and fifteen cells -- seven loadouts on each of
+ * two humanoid units, plus the centipede's bite -- so `bow+empty` is one
+ * *loadout* of eight and two *cells* of fifteen. The two counts do not move
+ * together and that is the trap: adding `sword+axe` took loadouts 7 -> 8 and
+ * cells 13 -> 15, because a humanoid loadout is worth two cells and
+ * `natural:bite` is worth one. `LOADOUT_TACTICS` has a row per loadout;
  * `the_training_schedule_offers_exactly_what_the_runtime_mask_offers` reads this
- * mask off real bodies and compares all thirteen cells against those seven rows.
+ * mask off real bodies and compares all fifteen cells against those eight rows.
  * It compares **intact** bodies: a row keys on the loadout a body started with
  * and this mask keys on what is still attached, so severing a hand takes them
  * apart and no row can say otherwise. `calibratedPlannedTactics` in `lookahead.ts`

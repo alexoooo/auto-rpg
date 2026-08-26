@@ -49,10 +49,19 @@ export const RESEARCH_ARTIFACT_CONTRACT: ResearchArtifactContract = Object.freez
  * probability and a fraction of a health bar. Two of the three could not fire at
  * all -- `TacticalCalibration` carries why -- and the third was four times above
  * anything ever observed. Every number here is read off the held-out
- * distribution of the **775-key schedule the gate actually judges**, at the 8x
- * budget where 772 of 775 splits are real (`.review/calgate/p11-sweep2.mjs`,
- * recomputed from its raw ingredients at `.review/rem20/an1.mjs`; 1,190,400
- * solver steps, seed 310013).
+ * distribution of the schedule the gate judges, at the 8x budget where 772 of
+ * 775 splits are real (`.review/calgate/p11-sweep2.mjs`, recomputed from its raw
+ * ingredients at `.review/rem20/an1.mjs`; 1,190,400 solver steps, seed 310013).
+ * **That was a 775-key, thirteen-cell schedule and the gate now judges 945 keys
+ * over fifteen**, because `sword+axe` joined the strata. The limits are not
+ * renumbered and must not be: they are quantiles of a measured distribution over
+ * particular bouts, not a function of how many keys there were. What is owed is
+ * a re-take covering `sword+axe`'s **170** new (cell, tactic) keys, 15 of which
+ * spell a tactic no cell of the old schedule could --
+ * `cut+secondary+{high,low,vital}` on each of the five movements. The loadout is
+ * the only one whose `cut` names two hands, so those are a new *kind* of key
+ * rather than more of the same, and no quantile here has seen one. That is a
+ * compute decision: 1,451,520 solver steps at the 8x budget.
  * The record itself is checked in at `tests/fixtures/calibration-record.mjs` and
  * every claim below is computed from it by
  * `each_deployed_limit_is_bounded_by_what_it_does_to_the_measured_record`.
@@ -71,12 +80,13 @@ export const RESEARCH_ARTIFACT_CONTRACT: ResearchArtifactContract = Object.freez
  * off a peak, which is the conservative direction for a bound and the wrong
  * direction for a quantile.
  *
- * And **no shipped budget reaches any of them.** At 148,800 solver steps every
- * column of all 775 keys is exactly zero; at 297,600 the reach column tops out
- * at 0.114. Any reach limit from 0.12 upwards refuses nothing at either, so the
- * reach number below is a decision about budgets nobody currently runs. The
- * "thirteen bodies lose their approach" catastrophe is real and belongs to the
- * 4x and 8x budgets alone.
+ * And **no shipped budget reaches any of them.** At 148,800 solver steps -- the
+ * schedule minimum then, 181,440 now -- every column of all 775 keys is exactly
+ * zero; at 297,600 the reach column tops out at 0.114. Any reach limit from 0.12
+ * upwards refuses nothing at either, so the reach number below is a decision
+ * about budgets nobody currently runs. The "thirteen bodies lose their approach"
+ * catastrophe is real, is a count of the bodies in *that* record rather than of
+ * the strata, and belongs to the 4x and 8x budgets alone.
  *
  * | column | mean | p90 | p99 | max | limit | refuses at 8x |
  * | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -203,10 +213,19 @@ export interface RecurrentTactic {
  * It is `3 x 4 x 6`, the nominal per-action multiplier, which `dagger.ts` uses
  * correctly for "grew about seventy-twofold" and which is wrong as a width.
  * Measured over the whole body space -- every ordered weapon pair, both loss
- * flags on each hand, with and without a bite, plus the centipede --
- * `|deployableTactics|` peaks at **21**, on `sword+sword+bite`; the union over
- * every body is 33 and the union over the thirteen research cells is 24. So the
- * argmax this paragraph declines is at most 21 wide. The argument does not rest
+ * flags on each hand, with and without a bite, plus the centipede, 393 bodies
+ * (`.review/sa27/tuplespace.mjs`) -- `|deployableTactics|` peaks at **21**, on
+ * `sword+sword+bite`; the union over every body is 33 and the union over the
+ * fifteen research cells is **27**. So the argmax this paragraph declines is at
+ * most 21 wide.
+ *
+ * **The cell union was 24 and the widest research cell was `sword+empty` at 16
+ * until `sword+axe` joined the strata**, which added `cut+secondary+{high,
+ * low,vital}` and nothing else, and made `sword+axe` the widest row at 17. The
+ * whole-body figures did not move and could not have: that space already
+ * contained every ordered weapon pair, `sword+axe` included. Re-measured on real
+ * Havok as well as synthetically -- `.review/sa27/cells.mjs` accumulates the
+ * published mask at every physics sample of 45 bouts and reaches the same 27. The argument does not rest
  * on the number: a categorical over 21 joint outcomes still has a different
  * log-probability from a product of five conditionals, and it is that, not the
  * width, that makes it an algorithm change.

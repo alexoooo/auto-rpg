@@ -14,9 +14,18 @@
  * So the record is here instead, and the assertions are computed from it.
  *
  * **What this record is, exactly.** The held-out calibration of the champion
- * candidate over the 775-key `lookaheadTacticCellSchedule`, at 1,190,400 solver
- * steps and base seed 310013, taken by `.review/calgate/p11-sweep2.mjs` on real
- * Havok. The statistics here are recomputed from that dump's raw ingredients --
+ * candidate over the then-775-key `lookaheadTacticCellSchedule`, at 1,190,400
+ * solver steps and base seed 310013, taken by `.review/calgate/p11-sweep2.mjs`
+ * on real Havok.
+ *
+ * **The schedule is 945 keys over 15 cells since `sword+axe` joined the strata,
+ * and this record is deliberately not regenerated.** It is a dump of particular
+ * bouts, so the only honest way to widen it is to spend 1,451,520 solver steps,
+ * which is a compute decision and not a code one. What that costs the
+ * assertions computed from it: every claim about *what a limit refuses* is a
+ * claim about these 775 keys and stays true of them, and none of them has seen a
+ * `cut+secondary+*` key, which no cell of the old schedule could produce. Read a
+ * refusal count here as "of the 775 measured", never as "of the schedule". The statistics here are recomputed from that dump's raw ingredients --
  * per-key residuals, Brier and contact rates -- at `.review/rem20/an1.mjs`, not
  * copied from its calibration record, so a statistic that had drifted from the
  * ingredients would show. Three numbers
@@ -54,7 +63,8 @@ export const CALIBRATION_BUDGETS = Object.freeze([
 
 /**
  * `[reachError, contactRateError, vitalityDeltaError]` per (body/loadout,
- * tactic) key, 775 keys over 13 cells, at the 1,190,400-step budget.
+ * tactic) key, 775 keys over the 13 cells the schedule had when it was taken, at
+ * the 1,190,400-step budget.
  */
 const CELLS_8X = {
   "broot/axe+empty": {

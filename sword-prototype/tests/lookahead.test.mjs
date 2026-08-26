@@ -30,7 +30,8 @@ const state = (overrides = {}) => ({ reachMargin: -0.5, facingError: 0.2, threat
 const row = (tactic, delta, contact = false) => { const before = state(); return { tactic, before,
   after: Object.fromEntries(TACTICAL_STATE_COLUMNS.map((name) => [name, before[name] + (delta[name] ?? 0)])), contact }; };
 const cell = (movement, action, effector, target) => Object.freeze({ movement, action, effector, target });
-const LOADOUTS = ["sword+empty", "sword+shield", "sword+buckler", "axe+empty", "bow+empty", "empty+empty", "natural:bite"];
+const LOADOUTS = ["sword+empty", "sword+shield", "sword+buckler", "sword+axe", "axe+empty", "bow+empty",
+  "empty+empty", "natural:bite"];
 
 test("the_tactical_model_uses_only_published_versioned_features", () => {
   const model = fitTacticalModel([row("close+cover+primary+threat", { reachMargin: 0.1 })]);
@@ -117,7 +118,7 @@ test("the_training_schedule_covers_every_body_loadout_and_only_compatible_natura
   const train = lookaheadTacticCellSchedule("train", 310013); const validation = lookaheadTacticCellSchedule("validation", 310013);
   assert.deepEqual(train.map((task) => [task.cell, plannedTacticKey(task)]),
     validation.map((task) => [task.cell, plannedTacticKey(task)]));
-  assert.equal(new Set(train.map((task) => task.cell)).size, 13);
+  assert.equal(new Set(train.map((task) => task.cell)).size, 15);
   const units = new Set(train.map((task) => task.unit)); assert.deepEqual([...units], ["warrior", "broot", "centipede"]);
   const centipede = train.filter((task) => task.unit === "centipede");
   // The whole tuple list, because "only compatible natural attacks" is now a
@@ -150,7 +151,7 @@ test("the_widened_schedule_costs_exactly_what_sessions_20_and_21_will_budget_fro
   // that measurement, and this test is what would notice it being put back,
   // because every figure here would be multiplied by six.
   const train = lookaheadTacticCellSchedule("train", 310013);
-  assert.equal(train.length, 775);
+  assert.equal(train.length, 945);
   assert.ok(train.every((task) => !("stance" in task)), "the schedule enumerates no stance");
   // The two fields the plan does not decide, as literals rather than as the
   // symbols the rest of this file compares through: a test that reads the same
@@ -165,6 +166,12 @@ test("the_widened_schedule_costs_exactly_what_sessions_20_and_21_will_budget_fro
     "sword+empty": { tuples: 16, cells: 80, nodesPerReplan: 3440 },
     "sword+shield": { tuples: 14, cells: 70, nodesPerReplan: 3010 },
     "sword+buckler": { tuples: 14, cells: 70, nodesPerReplan: 3010 },
+    // The widest row in the table, and the reason it is: `cut` names both hands
+    // here and one everywhere else, so it is three tuples above `sword+empty`
+    // despite having one fewer action (`punch` needs an empty hand and both are
+    // full). A cell-count multiplier gets this row wrong in both directions --
+    // ordinary in the action column, widest in the tuple column.
+    "sword+axe": { tuples: 17, cells: 85, nodesPerReplan: 3655 },
     "axe+empty": { tuples: 13, cells: 65, nodesPerReplan: 2795 },
     "bow+empty": { tuples: 7, cells: 35, nodesPerReplan: 1505 },
     "empty+empty": { tuples: 12, cells: 60, nodesPerReplan: 2580 },
@@ -173,8 +180,12 @@ test("the_widened_schedule_costs_exactly_what_sessions_20_and_21_will_budget_fro
   // The trainer's own arithmetic rather than this test's: `groups` is
   // `3 x train + validation` and the floor is 48 steps a group. It refuses
   // before it runs a single bout, which is why this costs no Havok.
-  assert.rejects(() => trainLookahead({ seed: 310013, solverSteps: 148_796 }),
-    /lookahead budget 148796 cannot cover 3100 indexed tactic-cell jobs; minimum is 148800/);
+  //
+  // 3,100 groups and 148,800 steps until `sword+axe` joined the strata. Both
+  // moved by 1.219x rather than by the 15 % the cell count alone predicts,
+  // because the new row is the widest one.
+  assert.rejects(() => trainLookahead({ seed: 310013, solverSteps: 181_436 }),
+    /lookahead budget 181436 cannot cover 3780 indexed tactic-cell jobs; minimum is 181440/);
 });
 
 test("the_training_schedule_offers_exactly_what_the_runtime_mask_offers", async () => {
@@ -193,7 +204,7 @@ test("the_training_schedule_offers_exactly_what_the_runtime_mask_offers", async 
   const seen = new Set(); const cells = [];
   researchMatrix("train", 310013).forEach((job, jobIndex) => { const key = `${job.unit}/${job.loadout}`;
     if (!seen.has(key)) { seen.add(key); cells.push({ cell: key, job, jobIndex }); } });
-  assert.equal(cells.length, 13);
+  assert.equal(cells.length, 15);
   const runtime = {}; const scheduled = {};
   for (const { cell: key, job, jobIndex } of cells) {
     // Every distinct mask the body publishes across the window, not the first
@@ -931,6 +942,10 @@ test("each_deployed_limit_is_bounded_by_what_it_does_to_the_measured_record", ()
   const admitted = admittedByLimits(calibrationRefusal, L);
   assert.equal(admitted.length, 766);
   const cells = [...new Set(calibrationRecordRows().map((row) => row.cell))];
+  // 13 is a property of the checked-in record and **not** of the strata, which
+  // are 15 cells since `sword+axe`. Every "all thirteen bodies" below counts
+  // this record's bodies. Renumbering it to 15 would be asserting that a dump
+  // taken before the loadout existed contains it.
   assert.equal(cells.length, 13);
   assert.deepEqual(cells.filter((cell) => !admitted.some((row) => row.cell === cell)), []);
   assert.deepEqual(cells.filter((cell) => !admitted.some((row) => row.cell === cell && row.movement === "close")), []);

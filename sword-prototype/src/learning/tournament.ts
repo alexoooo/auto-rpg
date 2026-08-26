@@ -415,7 +415,7 @@ export interface HeadUtilisation {
  * a threshold would be a *balance* claim: it would refuse a candidate for
  * insufficient variety without anything having established that variety is worth
  * what it costs. Worse, the measured table below shows what it would actually
- * refuse a candidate for -- **its action mix**, because on 8 of the 13 cells the
+ * refuse a candidate for -- **its action mix**, because on 8 of the 15 cells the
  * free-effector denominator is exactly "how often did it choose `cover` or
  * `recover`", and the tournament's other gates reward the opposite.
  * `MIN_ACTION_SHARE` earns its place because a controller that only ever cuts is
@@ -451,8 +451,11 @@ export interface HeadUtilisation {
  *
  * **The free-choice denominator is conditioned on the action the policy just
  * chose, which makes it a post-treatment variable and not a property of the
- * body.** A second hand is offered for `cover` and `recover` and withheld from
- * `cut` and `thrust`, so the action mix moves the denominator on its own.
+ * body.** On this loadout a second hand is offered for `cover` and `recover` and
+ * withheld from `cut` and `thrust`, so the action mix moves the denominator on
+ * its own. (`sword+axe` is the one armed loadout in the matrix where that is not
+ * wholly true -- `cut` reaches both hands there -- and the denominator is still
+ * post-treatment on it, because `thrust` reaches one.)
  * Measured on one `warrior/sword+shield` body with an effector rule that
  * strictly alternates over whatever is legal -- the effector head doing exactly
  * the same thing in all four rows, only the action mix varied
@@ -472,43 +475,58 @@ export interface HeadUtilisation {
  *
  * This file and `options.ts` both said the record "separates a learned effector
  * head from a body that only offered one hand". Measured over the whole matrix,
- * that separation is available on **2 of the 13 cells, and both are the
- * weaponless ones**. Coverage space: `.review/rem26/cells.mjs`, 39 real Havok
- * bouts -- all 13 (unit, loadout) cells x all 3 `RESEARCH_OPPONENTS`, mirror 0,
- * seed 310013, 1200 solver steps each, 1771 decisions -- reading
+ * that separation is available on **4 of the 15 cells, and 2 of the 4 are
+ * weapon-bearing**. Coverage space: `.review/sa27/cells.mjs`, 45 real Havok
+ * bouts -- all 15 (unit, loadout) cells x all 3 `RESEARCH_OPPONENTS`, mirror 0,
+ * split "train", seed 310013, 1200 solver steps each, 2058 decisions -- reading
  * `tacticEffectors` for every action at every physics sample, so a hand severed
- * mid-bout is inside the space. `broot` is identical to `warrior` row for row.
+ * mid-bout is inside the space. What it cannot see: mirror 1, seeds other than
+ * 310013, and any body state a 5-second bout does not reach. `broot` is
+ * identical to `warrior` row for row.
  *
  *     loadout          actions with >=2 legal effectors   with exactly 1
  *     sword+empty      cover, recover                     cut, thrust, punch
  *     sword+shield     cover, recover                     cut, thrust
  *     sword+buckler    cover, recover                     cut, thrust
+ *     sword+axe        cover, cut, recover                thrust
  *     axe+empty        cover, recover                     cut, punch
  *     bow+empty        (none)                             cover, shoot, recover
  *     empty+empty      cover, punch, recover              (none)
  *     natural:bite     (none)                             bite, recover
  *
- * **No loadout in the matrix gives an *attacking* action two legal effectors**
- * except `punch` on two empty fists. On 8 of the 13 cells the free-effector
- * denominator is exactly "how often did it choose `cover` or `recover`", and on
- * 3 more it is structurally zero -- `bow+empty` twice and the centipede -- so no
- * effector statement about those three is available at any sample size.
+ * **`sword+axe` is the only armed loadout that gives an *attacking* action two
+ * legal effectors, and it was added to the strata for that**; the other
+ * two-effector attack in the table is `punch` on two empty fists.
+ * `HUMANOID_RESEARCH_LOADOUTS` in `research-matrix.ts` carries the decision and
+ * what it cost. The row is the sharp one rather than `sword+sword` because
+ * `cut` reaches both hands and `thrust` only the sword hand, so the counterfactual
+ * "would the answer have been the same with the other hand" has a negative case
+ * beside its positive one.
  *
- * The consequence is the uncomfortable half: **for a candidate that fights well,
- * this record says LESS about its effector head, not more.** Winning means
- * attacking, attacking means `cut`/`thrust`/`shoot`/`bite`, and every one of
- * those is single-effector on every armed loadout. That is also the argument
- * against ever gating on this: a floor on effector variety would refuse a
- * candidate for its *action mix*, and the tournament's other gates actively
- * reward the mix that drives this denominator to zero.
+ * **The count of cover-or-recover-only cells did not fall, and saying "8 of 15"
+ * rather than "8 of 13" is the whole of the honest difference.** The same eight
+ * cells still have a denominator that is exactly "how often did it choose
+ * `cover` or `recover`", and three more -- `bow+empty` twice and the centipede
+ * -- are still structurally zero, so no effector statement about those three is
+ * available at any sample size. What changed is that two cells were *added* on
+ * which the question is answerable while the candidate is attacking.
+ *
+ * The consequence used to be stated as the uncomfortable half: **for a candidate
+ * that fights well, this record says LESS about its effector head, not more.**
+ * That is still true on eight cells of fifteen and is now false on two, which is
+ * exactly as much as one loadout can buy. It remains the argument against ever
+ * gating on this: a floor on effector variety would refuse a candidate for its
+ * *action mix* on the eight, and the tournament's other gates actively reward
+ * the mix that drives their denominator to zero.
  *
  * Two shares that used to be quoted here are deliberately absent, because they
  * are properties of the probing policy rather than of the matrix: the pooled
  * decision mass sitting in the three effector-blind cells, and the share of
  * free-effector decisions coming from the two `empty+empty` cells. An earlier
- * review measured 41% and 73%; the round-robin probe above measures 23.4% and
- * 28.5% on the same 13 cells. Both are right about their own harness. The table
- * is the part that does not move.
+ * review measured 41% and 73%; the round-robin probe above measured 23.4% and
+ * 28.5% on the 13 cells and measures 20.1% and 24.4% on the 15. Both are right
+ * about their own harness, and the drift across a strata change is the second
+ * reason not to quote them. The table is the part that does not move.
  *
  * **A head some algorithms do not have prints exactly like a head that
  * collapsed.** `lookaheadMind` writes the constant `UNLEARNED_STANCE` and has no

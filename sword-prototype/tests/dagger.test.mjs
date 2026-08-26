@@ -82,6 +82,13 @@ test("the_teacher_names_the_hand_whose_opportunity_it_took", () => {
  * **133 of them**, 121 `cover` and 12 `punch`. A reversed-loadout stratum could
  * not have moved one of the covers.
  *
+ * **`RESEARCH_STRATA` now does put a striking weapon in an off hand, and the
+ * diagnosis above is still wrong.** `sword+axe` was added for the effector head,
+ * so `cut` reaches the secondary on two of the fifteen cells -- which changes
+ * what the histogram would have looked like and changes nothing about why it
+ * looked the way it did. The bug was `[0]`, and 133 of 268 is the measurement
+ * that says so.
+ *
  * Both directions on every tier, so a rule that answered a constant hand -- or
  * one that ranked backwards -- fails. The equal-standing rows at the bottom are
  * the counterfactual for the tie-break: they are the bodies whose answer must

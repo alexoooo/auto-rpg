@@ -12,18 +12,26 @@ export const QD_BINS = 5;
  * before a single cell is ever revisited". **The 72 was wrong.** It is
  * `3 effectors x 4 targets x 6 stances`, the nominal per-action multiplier that
  * `dagger.ts` uses correctly for "grew about seventy-twofold", and it is not a
- * count of legal tuples. Measured: `|deployableTactics|` peaks at **21** on any
- * body at all (`sword+sword+bite`), the union over the whole body space is 33,
- * and the union over the thirteen research cells -- which is the space an
- * archive built from `researchMatrix` would actually index -- is **24**. So the
- * true figure is `125 x 24` = 3,000 cells against 10,240 evaluations, which is
- * **3.4 evaluations per cell, not 0.9**, and the sentence it was carrying is
- * simply false.
+ * count of legal tuples. Measured (`.review/sa27/tuplespace.mjs`, 393 synthetic
+ * bodies): `|deployableTactics|` peaks at **21** on any body at all
+ * (`sword+sword+bite`), the union over the whole body space is 33, and the union
+ * over the fifteen research cells -- which is the space an archive built from
+ * `researchMatrix` would actually index -- is **27**. So the true figure is
+ * `125 x 27` = 3,375 cells against 10,240 evaluations, which is **3.0
+ * evaluations per cell, not 0.9**, and the sentence it was carrying is simply
+ * false.
  *
- * Re-taken on the true numbers: 3.4 is thin for MAP-Elites, whose whole
+ * Re-taken on the true numbers: 3.0 is thin for MAP-Elites, whose whole
  * mechanism is competition inside a cell, but "thin" is a tuning objection and
  * not a refusal. **The arithmetic no longer decides this, and the outcome
  * argument below is now the only reason.**
+ *
+ * **This read `125 x 24` = 3,000 and 3.4 per cell until `sword+axe` joined the
+ * strata**, which is the second time this paragraph's arithmetic has moved
+ * without its conclusion moving -- and that is the argument for the paragraph
+ * being written this way. A refusal resting on a cell count would have had to be
+ * re-decided by a change to `HUMANOID_RESEARCH_LOADOUTS`; the one resting on
+ * what the archive is a map *of* does not.
  *
  * It survives any budget, which is why it is enough on its own: these are
  * **outcome** measures and the chosen tuple is an input to them.
