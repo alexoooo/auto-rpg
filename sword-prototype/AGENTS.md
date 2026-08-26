@@ -626,6 +626,28 @@ Seven, and each one was paid for.
   the next session went looking -- about 2.5 standard deviations at 120 bouts. `docs/measurements.md`
   under "What that is worth in bouts" carries the table.
 
+## Research runs
+
+Every long research run writes `state.json`, an append-only ledger named **ledger.jsonl**,
+`champion-so-far.artifact`, and, after a terminal row, `champion.artifact`, `report.json` and a
+**finalized.json** marker. The ledger is canonical observational evidence; deterministic reports carry
+`ledgerFile: "ledger.jsonl"` and the frozen stopping contract, never wall telemetry. A missing
+final newline may be a killed append and is ignored; a complete malformed or contract-changing row
+is refused. A stopped ledger without the finalization marker must rebuild final outputs without spending
+another job. A marked run refuses resume.
+
+The objectives are fixed: NEAT-QD maximizes validation worst-cell score, DAgger minimizes validation
+loss, PPO maximizes fair-round validation macro reward, and look-ahead minimizes calibration
+severity. A progress-only row has an unavailable objective and does not advance plateau. Every gate
+is either measured with a signed margin or unavailable with a reason; safety remains unavailable
+until the held-out tournament actually runs.
+
+**Checkpoint cadence is a job-index rule, never elapsed time.** Wall time is a reported fact and
+may not decide when a row is written, which job runs next, or when plateau is reached.
+`npm run ai:watch -- --run <run-directory>` is read-only. `champion-so-far.artifact` may be loaded
+into a live arena fight through `__sword.research.load(...)`, but its in-progress provenance is
+refused by policy, league and tournament registration.
+
 ## Where the design lives
 
 `docs/design.md` is the map: what each subsystem is, and the decisions that belong to no

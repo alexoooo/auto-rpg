@@ -261,7 +261,7 @@ export function equalBudgetPpoArms(seed: number, solverSteps: number): readonly 
 
 export interface PpoOptimizerState { readonly update: number; readonly firstMoment: readonly number[];
   readonly secondMoment: readonly number[]; readonly consumedSolverSteps: number }
-export function encodePpoResume(weights: readonly number[], optimizer: PpoOptimizerState, rows: readonly unknown[]): Uint8Array {
+export function encodePpoResume(weights: readonly number[], optimizer: PpoOptimizerState, rows: readonly unknown[], training: unknown = null): Uint8Array {
   const finite = [...weights, ...optimizer.firstMoment, ...optimizer.secondMoment];
   if (finite.some((value) => !Number.isFinite(value)) || !Number.isSafeInteger(optimizer.update) || optimizer.update < 0 ||
       !Number.isSafeInteger(optimizer.consumedSolverSteps) || optimizer.consumedSolverSteps < 0) throw new Error("invalid PPO resume state");
@@ -271,15 +271,15 @@ export function encodePpoResume(weights: readonly number[], optimizer: PpoOptimi
     return `{${Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b))
       .map(([key, entry]) => `${JSON.stringify(key)}:${stable(entry)}`).join(",")}}`;
   };
-  return new TextEncoder().encode(stable({ optimizer, rows, weights }));
+  return new TextEncoder().encode(stable({ optimizer, rows, training, weights }));
 }
 
 export function selectPpoArm(rows: readonly { readonly split: string; readonly arm: PpoInitialization;
-  readonly macro: number; readonly worstCell: number }[]): PpoInitialization {
+  readonly macro: number }[]): PpoInitialization {
   if (rows.some((row) => row.split === "test")) throw new Error("PPO arm selection cannot read test rows");
   const validation = rows.filter((row) => row.split === "validation");
   if (!validation.length) throw new Error("PPO arm selection requires validation rows");
-  return [...validation].sort((a, b) => b.worstCell - a.worstCell || b.macro - a.macro || a.arm.localeCompare(b.arm))[0]!.arm;
+  return [...validation].sort((a, b) => b.macro - a.macro || a.arm.localeCompare(b.arm))[0]!.arm;
 }
 
 export interface PpoHeadLayer { readonly rows: number; readonly columns: number; weights: number[]; bias: number[] }
@@ -367,7 +367,8 @@ Readonly<{ index: number; supported: readonly number[]; oldProbability: number }
     oldProbability: row.oldPersistenceProbability }),
 });
 export interface PpoUpdateReport { readonly policyLoss: number; readonly valueLoss: number;
-  readonly entropy: number; readonly recurrentGradientNorm: number;
+  readonly entropy: number; readonly headEntropies: Readonly<Record<PpoPolicyHeadName, number>>;
+  readonly recurrentGradientNorm: number;
   readonly unclippedGradientNorm: number; readonly clippedGradientNorm: number }
 
 const distribution = (layer: PpoHeadLayer, hidden: readonly number[], supported: readonly number[]): number[] => {
@@ -397,13 +398,14 @@ export function ppoHeadUpdate(heads: PpoTrainableNetwork, rows: readonly PpoPoli
   const gradient = Array(valueOffset + valueSize).fill(0);
   const hiddenGradient = rows.map((row) => Array(row.hidden.length).fill(0));
   let policyLoss = 0; let valueLoss = 0; let entropy = 0;
+  const headEntropyTotals = Object.fromEntries(PPO_POLICY_HEADS.map((name) => [name, 0])) as Record<PpoPolicyHeadName, number>;
   const headGradient = (layer: PpoHeadLayer, probabilities: readonly number[], supported: readonly number[], selected: number,
-    oldProbability: number, advantage: number, offset: number): void => {
+    oldProbability: number, advantage: number, offset: number, name: PpoPolicyHeadName): void => {
     const probability = probabilities[selected] as number; const ratio = probability / oldProbability;
     const clipped = Math.max(1 - epsilon, Math.min(1 + epsilon, ratio)); const usePolicyGradient = ratio * advantage <= clipped * advantage;
     policyLoss -= Math.min(ratio * advantage, clipped * advantage);
     const headEntropy = -supported.reduce((sum, index) => sum + (probabilities[index] as number) * Math.log(Math.max(1e-12, probabilities[index] as number)), 0);
-    entropy += headEntropy;
+    entropy += headEntropy; headEntropyTotals[name] += headEntropy;
     for (const output of supported) {
       const probabilityOutput = probabilities[output] as number;
       const policyDerivative = usePolicyGradient ? -advantage * ratio * ((output === selected ? 1 : 0) - probabilityOutput) : 0;
@@ -423,7 +425,7 @@ export function ppoHeadUpdate(heads: PpoTrainableNetwork, rows: readonly PpoPoli
     PPO_POLICY_HEADS.forEach((name, head) => {
       const layer = heads[name]; const sample = HEAD_SAMPLE[name](row);
       const probabilities = distribution(layer, row.hidden, sample.supported);
-      headGradient(layer, probabilities, sample.supported, sample.index, sample.oldProbability, row.advantage, offsets[head] as number);
+      headGradient(layer, probabilities, sample.supported, sample.index, sample.oldProbability, row.advantage, offsets[head] as number, name);
     });
     let prediction = heads.value.bias[0] as number;
     for (let column = 0; column < heads.value.columns; column += 1) prediction += (heads.value.weights[column] as number) * (row.hidden[column] as number);
@@ -493,21 +495,25 @@ export function ppoHeadUpdate(heads: PpoTrainableNetwork, rows: readonly PpoPoli
   // `PPO_POLICY_HEADS.length` is exactly the number of `headGradient` calls per
   // row, which is what makes this the *mean per-head* entropy the field name
   // claims. It was a literal `2`.
+  const headEntropies = Object.freeze(Object.fromEntries(PPO_POLICY_HEADS.map((name) =>
+    [name, headEntropyTotals[name] / rows.length])) as Record<PpoPolicyHeadName, number>);
   return Object.freeze({ policyLoss: policyLoss / rows.length, valueLoss: valueLoss / rows.length,
-    entropy: entropy / (rows.length * PPO_POLICY_HEADS.length), recurrentGradientNorm,
+    entropy: entropy / (rows.length * PPO_POLICY_HEADS.length), headEntropies, recurrentGradientNorm,
     unclippedGradientNorm, clippedGradientNorm: Math.hypot(...clippedGradient) });
 }
 
-export function decodePpoResume(bytes: Uint8Array): Readonly<{ weights: readonly number[]; optimizer: PpoOptimizerState; rows: readonly unknown[] }> {
+export function decodePpoResume(bytes: Uint8Array): Readonly<{ weights: readonly number[]; optimizer: PpoOptimizerState;
+  rows: readonly unknown[]; training: unknown }> {
   let parsed: unknown; try { parsed = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)); }
   catch (error) { throw new Error("PPO resume is not valid UTF-8 JSON", { cause: error }); }
   if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") throw new Error("PPO resume root must be an object");
-  const state = parsed as { weights?: unknown; optimizer?: unknown; rows?: unknown };
+  const state = parsed as { weights?: unknown; optimizer?: unknown; rows?: unknown; training?: unknown };
   if (!Array.isArray(state.weights) || !state.optimizer || typeof state.optimizer !== "object" || !Array.isArray(state.rows)) {
     throw new Error("PPO resume is missing weights, optimizer or report rows");
   }
   const optimizer = state.optimizer as PpoOptimizerState;
-  encodePpoResume(state.weights as number[], optimizer, state.rows);
+  encodePpoResume(state.weights as number[], optimizer, state.rows, state.training ?? null);
   return Object.freeze({ weights: Object.freeze([...(state.weights as number[])]), optimizer: Object.freeze({ ...optimizer,
-    firstMoment: Object.freeze([...optimizer.firstMoment]), secondMoment: Object.freeze([...optimizer.secondMoment]) }), rows: Object.freeze([...state.rows]) });
+    firstMoment: Object.freeze([...optimizer.firstMoment]), secondMoment: Object.freeze([...optimizer.secondMoment]) }),
+    rows: Object.freeze([...state.rows]), training: state.training ?? null });
 }

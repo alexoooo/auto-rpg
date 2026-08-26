@@ -1,5 +1,18 @@
 # Session 19 -- make a long run legible while it runs
 
+> **Completed 2026-08-26.** All four directions now own indexed resume state, an append-only
+> ledger, deterministic plateau/ceiling stops, a page-loadable but non-registerable
+> `champion-so-far.artifact`, and a terminal finalization marker. PPO now spends its ceiling
+> through repeated collect/update/validation jobs; DAgger checkpoints its shards; look-ahead
+> checkpoints its 3,780-job schedule. Deterministic reports point to that ledger instead of
+> embedding wall-clock rows. That resolves a contradiction in the draft: a wall-bearing ledger
+> cannot both live inside a byte-identical report and vary with checkpoint cadence.
+>
+> Progress rows whose objective is not yet observable do not advance the plateau window, and
+> look-ahead publishes no champion until its complete fit and calibration exist. Numeric promotion
+> gates carry signed margins; safety or tournament-only gates are unavailable with a reason rather
+> than inferred. Session 20 is the next automated dependency; no tournament or promotion ran here.
+
 > **Corrections, 2026-08-26.** Measured against the tree at `86b74c8`; the evidence is in
 > `docs/measurements.md` under "What a long run cannot yet tell anybody".
 >

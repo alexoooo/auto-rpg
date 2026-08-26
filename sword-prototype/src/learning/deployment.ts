@@ -301,6 +301,44 @@ export function decodeResearchArtifact(bytes: Uint8Array): ResearchArtifact {
   return ResearchArtifact.fromBytes(bytes, RESEARCH_ARTIFACT_CONTRACT);
 }
 
+/** A complete controller that is reloadable during training but is not a promotion candidate. */
+export function inProgressResearchArtifact(artifact: ResearchArtifact, runId: string): ResearchArtifact {
+  if (!runId) throw new Error("an in-progress research artifact must name its run id");
+  return new ResearchArtifact({ ...artifact.data,
+    provenance: { ...artifact.data.provenance, status: "in-progress", runId } }, RESEARCH_ARTIFACT_CONTRACT);
+}
+
+/** The page may deploy this for a fight; policy/tournament registration may not. */
+export function refuseInProgressResearchRegistration(artifact: ResearchArtifact): void {
+  if (artifact.data.provenance.status === "in-progress") {
+    throw new Error("in-progress research artifact cannot be registered as a policy or tournament candidate");
+  }
+}
+
+export function requireLiveResearchBout(phase: "select" | "fight" | "over"): void {
+  if (phase !== "fight") throw new Error(`research champion load refused during ${phase}; start or restart the bout first`);
+}
+
+export function decodeChampionSoFar(bytes: Uint8Array): ResearchArtifact {
+  const artifact = decodeResearchArtifact(bytes);
+  if (artifact.data.provenance.status !== "in-progress") {
+    throw new Error("champion-so-far loader requires an in-progress research artifact");
+  }
+  return artifact;
+}
+
+export type ChampionSource = Blob | ArrayBuffer | Uint8Array;
+export async function loadChampionSoFarMind(source: ChampionSource, bodyLoadout: string):
+Promise<Readonly<{ artifact: ResearchArtifact; mind: Mind & PersistenceHead; digest: string }>> {
+  const bytes = source instanceof Uint8Array ? source
+    : source instanceof ArrayBuffer ? new Uint8Array(source) : new Uint8Array(await source.arrayBuffer());
+  const artifact = decodeChampionSoFar(bytes);
+  const digestInput = Uint8Array.from(bytes).buffer;
+  const digest = [...new Uint8Array(await crypto.subtle.digest("SHA-256", digestInput))]
+    .map((value) => value.toString(16).padStart(2, "0")).join("");
+  return Object.freeze({ artifact, mind: deployedResearchMind(artifact, bodyLoadout), digest });
+}
+
 /**
  * The sole deployment dispatcher used by the blind tournament and learned league
  * entries.

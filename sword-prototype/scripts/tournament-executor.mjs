@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import { deployedResearchMind, decodeResearchArtifact } from "../src/learning/deployment.ts";
+import { deployedResearchMind, decodeResearchArtifact, refuseInProgressResearchRegistration } from "../src/learning/deployment.ts";
 import { randomMetaMind } from "../src/learning/meta.ts";
 import { policyMind } from "../src/mind.ts";
 import { scriptedMetaMind } from "../src/options.ts";
@@ -17,7 +17,7 @@ export function loadFrozenArtifacts(manifest, candidateBytes) {
     if (!(bytes instanceof Uint8Array)) throw new Error(`frozen candidate "${candidate.name}" has no artifact bytes`);
     if (bytes.byteLength !== candidate.artifactBytes) throw new Error(`frozen candidate "${candidate.name}" artifact byte size changed`);
     if (sha256(bytes) !== candidate.artifactDigest) throw new Error(`frozen candidate "${candidate.name}" artifact digest changed`);
-    const artifact = decodeResearchArtifact(bytes);
+    const artifact = decodeResearchArtifact(bytes); refuseInProgressResearchRegistration(artifact);
     if (artifact.data.algorithm !== candidate.algorithm) throw new Error(`frozen candidate "${candidate.name}" algorithm changed from ${candidate.algorithm} to ${artifact.data.algorithm}`);
     loaded.set(candidate.name, artifact);
   }

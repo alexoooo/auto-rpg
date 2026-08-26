@@ -65,7 +65,7 @@ async function neat() {
   const { jobs, job, budget, genome, opponentGenome } = workerData; const jobList = jobs ?? [job];
   let remaining = budget; let opportunityCount = 0;
   let attacksInWindow = 0; let contactsInWindow = 0; let stallSeconds = 0; let seconds = 0;
-  let damage = 0; let attacks = 0; let wins = 0; let bouts = 0; const cells = new Map();
+  let damage = 0; let attacks = 0; let wins = 0; let bouts = 0; const firstAttackSeconds = []; const cells = new Map();
   while (remaining > 0) { const activeJob = jobList[bouts % jobList.length];
     const result = await runResearchBout({ ...activeJob, index: activeJob.index + bouts * jobList.length },
     (onDecision) => researchLabelMind("neat-qd", neatLabeler(genome), onDecision), remaining,
@@ -74,6 +74,7 @@ async function neat() {
     remaining -= result.solverSteps; bouts += 1; opportunityCount += result.engagement.viableOpportunities;
     attacksInWindow += result.engagement.attacksInWindow; contactsInWindow += result.engagement.damagingContactsInWindow;
     stallSeconds += result.engagement.nearRangeStallSeconds; seconds += result.result.seconds; damage += result.damage;
+    firstAttackSeconds.push(result.engagement.firstAttackSeconds);
     attacks += result.attacks; const won = result.result.winner === activeJob.actorSide ? 1 : 0; wins += won;
     const key = `${activeJob.unit}/${activeJob.loadout}/${activeJob.opponent}/${activeJob.mirror}`;
     const cell = cells.get(key) ?? { key, wins: 0, damage: 0, attacks: 0, stallSeconds: 0, seconds: 0 };
@@ -88,12 +89,15 @@ async function neat() {
   return { solverSteps: budget, bout: { result: { winner: wins > 0 ? jobList[0].actorSide : null }, damage, attacks, bouts },
     descriptor: { opportunityConversion: opportunity, contactConversion: contact, nearRangeStallShare: stall },
     score: macroScore, macroScore, worstCellScore, cellScores,
+    engagement: { opportunities: opportunityCount, attacksInWindow, contactsInWindow,
+      nearRangeStallSeconds: stallSeconds, seconds, firstAttackSeconds },
     feasible: opportunity >= 0.2 && stall <= 0.5 };
 }
 
 async function dagger() {
   const { jobs, budget, deployed, iteration } = workerData; let remaining = budget; let boutIndex = 0; const rows = [];
   let opportunities = 0; let attacksInWindow = 0; let contactsInWindow = 0; let damage = 0;
+  let nearRangeStallSeconds = 0; let seconds = 0; const firstAttackSeconds = [];
   while (remaining > 0) { const job = jobs[boutIndex % jobs.length]; let sourceStep = 0;
     const result = await runResearchBout({ ...job, index: job.index + boutIndex }, (harnessDecision) => {
       const deployedLabeler = deployed ? (_view, features) => predictDagger(deployed, features) : (view) => tacticalTeacher(view);
@@ -104,8 +108,11 @@ async function dagger() {
     }, remaining);
     if (result.solverSteps <= 0 || result.solverSteps > remaining) throw new Error("DAgger worker returned invalid solver-step accounting");
     remaining -= result.solverSteps; boutIndex += 1; opportunities += result.engagement.viableOpportunities;
-    attacksInWindow += result.engagement.attacksInWindow; contactsInWindow += result.engagement.damagingContactsInWindow; damage += result.damage; }
+    attacksInWindow += result.engagement.attacksInWindow; contactsInWindow += result.engagement.damagingContactsInWindow; damage += result.damage;
+    nearRangeStallSeconds += result.engagement.nearRangeStallSeconds; seconds += result.result.seconds;
+    firstAttackSeconds.push(result.engagement.firstAttackSeconds); }
   return { solverSteps: budget, rows, metrics: { opportunities, attacksInWindow, contactsInWindow, damage,
+    nearRangeStallSeconds, seconds, firstAttackSeconds,
     opportunityConversion: opportunities ? attacksInWindow / opportunities : 0,
     contactConversion: attacksInWindow ? contactsInWindow / attacksInWindow : 0 } };
 }

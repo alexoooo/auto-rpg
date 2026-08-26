@@ -1,5 +1,12 @@
 # Combat follow-ups handoff -- 2026-08-26
 
+> **Session 19 has landed.** The PPO outer loop, all four resume/checkpoint paths, the common
+> append-only ledger, deterministic plateau/ceiling stops, watcher, crash-safe finalization and
+> page-side champion-so-far debugging are implemented. The pre-session findings retained below are
+> historical and are superseded by `docs/measurements.md` under "Session 19 supersession". The next
+> automated session is 20 after the human gate work in 18; no held-out tournament or promotion has
+> occurred.
+
 ## Read these three things first
 
 1. **`AGENTS.md`** at the prototype root. The working contract: commands, determinism rules,

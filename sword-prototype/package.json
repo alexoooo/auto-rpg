@@ -15,6 +15,7 @@
     "measure": "node scripts/measure.mjs",
     "ai:evaluate": "node scripts/evaluate-ai.mjs",
     "ai:research": "node scripts/research-runner.mjs",
+    "ai:watch": "node scripts/watch-research.mjs",
     "asset:build": "node scripts/run-blender.mjs",
     "asset:verify": "node scripts/run-blender.mjs --verify",
     "asset:dimensions": "node scripts/run-blender.mjs --dimensions",

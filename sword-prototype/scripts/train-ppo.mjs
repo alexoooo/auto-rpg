@@ -1,8 +1,9 @@
 import { readFile, rename, writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { FEATURE_COLUMNS } from "../src/learning/features.ts";
+import { CONFIG } from "../src/config.ts";
 import { ResearchArtifact, artifactChecksum, canonicalJson } from "../src/learning/artifact.ts";
 import { GRU_UNITS, RecurrentPolicy, maskedCategorical, seededRandom } from "../src/learning/recurrent-network.ts";
 import { META_OUTPUT_LAYOUT, PERSISTENCE_SECONDS } from "../src/learning/meta.ts";
@@ -12,9 +13,13 @@ import { decodePpoResume, encodePpoResume, equalBudgetPpoArms, freezeOpponentLea
 import { researchMatrix } from "../src/learning/research-matrix.ts";
 import { researchLabelMind } from "../src/learning/research-policy.ts";
 import { predictDagger } from "../src/learning/dagger.ts";
-import { argmaxHeadPick, recurrentTactic, RESEARCH_ARTIFACT_CONTRACT } from "../src/learning/deployment.ts";
+import { argmaxHeadPick, decodeResearchArtifact, inProgressResearchArtifact, recurrentTactic,
+  refuseInProgressResearchRegistration,
+  RESEARCH_ARTIFACT_CONTRACT } from "../src/learning/deployment.ts";
 import { EFFECTOR_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TARGET_NAMES } from "../src/options.ts";
 import { runResearchBout } from "./research-havok.mjs";
+import { checkpointJobDue, checkpointRun, DEFAULT_PLATEAU_EPSILON, DEFAULT_PLATEAU_ROWS, digestContract, engagementGates,
+  finalizeRun, ledgerStopDecision, makeLedgerRow, readLedger, runIsFinalized } from "./research-ledger.mjs";
 
 const layer = (rows, columns, random, scale = 0.08) => ({ rows, columns,
   weights: Array.from({ length: rows * columns }, () => (random() * 2 - 1) * scale), bias: Array(rows).fill(0) });
@@ -79,6 +84,7 @@ export async function loadLeagueArtifacts(paths) {
   const loaded = [];
   for (const path of paths) {
     const bytes = new Uint8Array(await readFile(resolve(path))); const artifact = ResearchArtifact.fromBytes(bytes, RESEARCH_ARTIFACT_CONTRACT);
+    refuseInProgressResearchRegistration(artifact, "league registration");
     if (artifact.data.algorithm !== "dagger" && artifact.data.algorithm !== "ppo") {
       throw new Error(`league artifact "${path}" uses ${artifact.data.algorithm}, expected dagger or ppo`);
     }
@@ -206,54 +212,227 @@ export const ppoUpdateRows = (trajectory) => trajectory.boundaries.map((row, ind
 const writeAtomic = async (path, bytes) => { const target = resolve(path); await mkdir(dirname(target), { recursive: true });
   const temporary = `${target}.tmp-${process.pid}`; await writeFile(temporary, bytes); await rename(temporary, target); };
 
-export async function trainPpo(config) {
+const snapshotPpoWeights = (weights) => ({ ...weights,
+  ...Object.fromEntries(["update", "reset", "candidate", ...PPO_POLICY_HEADS, "value"].map((name) => [name,
+    { ...weights[name], weights: [...weights[name].weights], bias: [...weights[name].bias] }])) });
+
+/**
+ * PPO spends an arm's ceiling through repeated collect-update-validation jobs.
+ *
+ * A research bout may end on death long before the requested limit. Passing the
+ * whole remaining ceiling to one bout therefore cannot spend it; the caller has
+ * to keep scheduling independently indexed bouts until their *actual* solver
+ * steps add up to the ceiling. The split keeps four steps available for
+ * validation, and the one-quantum tail is validation-only because another
+ * collect-update-validation pair cannot honestly fit in it.
+ */
+export function ppoIterationBudget(remainingSolverSteps) {
+  if (!Number.isSafeInteger(remainingSolverSteps) || remainingSolverSteps < 4 || remainingSolverSteps % 4) {
+    throw new Error(`invalid PPO remaining arm budget ${remainingSolverSteps}`);
+  }
+  if (remainingSolverSteps === 4) return Object.freeze({ train: 0, validation: 4 });
+  // The research matrix's largest bout is 45 seconds and the harness advances
+  // 240 solver steps a second. Making that existing physical cap explicit here
+  // guarantees a ceiling larger than one bout buys another gradient update even
+  // when neither fighter dies early.
+  const iterationSteps = Math.min(remainingSolverSteps, 2 * PPO_TRAJECTORY_SOLVER_STEP_CAP);
+  const train = Math.max(4, Math.floor(iterationSteps / 8) * 4);
+  return Object.freeze({ train, validation: iterationSteps - train });
+}
+
+const rowRank = (a, b) => b.macro - a.macro || a.index - b.index;
+const resumeTrainingState = (armWeights, champions) => ({
+  armWeights: [...armWeights].sort(([a], [b]) => a - b).map(([armIndex, fullWeights]) =>
+    ({ armIndex, fullWeights: snapshotPpoWeights(fullWeights) })),
+  champions: [...champions.values()].sort((a, b) => a.armIndex - b.armIndex)
+    .map((entry) => ({ ...entry, fullWeights: snapshotPpoWeights(entry.fullWeights) })) });
+
+const researchBoutCaps = ["train", "validation"].flatMap((split) => researchMatrix(split, 0).map((job) => job.boutCapSeconds));
+/** The actual largest matrix bout at the actual solver frequency used by `runResearchBout`. */
+export const PPO_TRAJECTORY_SOLVER_STEP_CAP = Math.max(...researchBoutCaps) * CONFIG.world.physicsHz;
+if (!Number.isSafeInteger(PPO_TRAJECTORY_SOLVER_STEP_CAP) || PPO_TRAJECTORY_SOLVER_STEP_CAP < 4 ||
+    PPO_TRAJECTORY_SOLVER_STEP_CAP % 4) throw new Error("PPO research-matrix bout cap is not a solver-step quantum");
+
+export async function trainPpo(config, runtime = {}) {
   if (config.workers !== undefined && config.workers !== 1) throw new Error("PPO --workers currently supports exactly 1; refusing ignored parallelism");
+  if (!Number.isSafeInteger(config.solverSteps) || config.solverSteps < 8 || config.solverSteps % 4) {
+    throw new Error("PPO per-arm budget must be at least eight solver steps and divisible by four");
+  }
+  if (config.runId !== undefined && !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(config.runId)) throw new Error("invalid PPO --run-id");
+  const collectTrajectory = runtime.collectTrajectory ?? collectPpoTrajectory;
+  const updateHeads = runtime.updateHeads ?? ppoHeadUpdate;
   const arms = equalBudgetPpoArms(config.seed, config.solverSteps); let rows = [];
+  const champions = new Map(); const armWeights = new Map();
   const leagueDigest = artifactChecksum(canonicalJson(config.league ?? PPO_LEAGUE));
+  const configDigest = artifactChecksum(canonicalJson({ seed: config.seed, solverSteps: config.solverSteps,
+    league: config.league ?? PPO_LEAGUE }));
   if (config.resumeBytes) {
     const resumed = decodePpoResume(config.resumeBytes);
     rows = [...resumed.rows];
     if (rows.some((row, index) => row.index !== index || row.seed !== config.seed ||
-        row.requestedSolverSteps !== config.solverSteps || row.leagueDigest !== leagueDigest))
+        row.requestedSolverSteps !== config.solverSteps || row.leagueDigest !== leagueDigest ||
+        row.runId !== (config.runId ?? null)))
       throw new Error("PPO resume does not match this seed, budget, or indexed arm prefix");
     const consumed = rows.reduce((sum, row) => sum + row.solverSteps, 0);
     if (consumed !== resumed.optimizer.consumedSolverSteps) throw new Error("PPO resume solver-step accounting does not match its rows");
-    if (rows.length >= arms.length) throw new Error("PPO resume is already complete; refusing to spend the fixed budget twice");
+    if (resumed.optimizer.update !== rows.filter((row) => row.update !== null).length) {
+      throw new Error("PPO resume update accounting does not match its rows");
+    }
+    if (!resumed.training || typeof resumed.training !== "object" || Array.isArray(resumed.training) ||
+        !Array.isArray(resumed.training.armWeights) || !Array.isArray(resumed.training.champions)) {
+      throw new Error("PPO resume is missing its indexed training state");
+    }
+    for (const entry of resumed.training.armWeights) {
+      if (!entry || !arms.some((arm) => arm.index === entry.armIndex) || !entry.fullWeights || armWeights.has(entry.armIndex)) {
+        throw new Error("PPO resume has invalid per-arm weights");
+      }
+      armWeights.set(entry.armIndex, snapshotPpoWeights(entry.fullWeights));
+    }
+    for (const champion of resumed.training.champions) {
+      if (!champion || !Number.isSafeInteger(champion.armIndex) || !Number.isSafeInteger(champion.rowIndex) ||
+          !Number.isFinite(champion.macro) || !champion.fullWeights || champions.has(champion.armIndex)) {
+        throw new Error("PPO resume has an invalid arm champion");
+      }
+      champions.set(champion.armIndex, { ...champion, fullWeights: snapshotPpoWeights(champion.fullWeights) });
+    }
+    const lastWeights = armWeights.get(rows.at(-1)?.armIndex);
+    if (!lastWeights) throw new Error("PPO resume has no weights for its last indexed row");
+    const activeFlat = flattenHeads(lastWeights);
+    if (activeFlat.length !== resumed.weights.length || activeFlat.some((value, index) => value !== resumed.weights[index])) {
+      throw new Error("PPO resume flat weights do not match its active network");
+    }
+    for (const arm of arms) {
+      const armRows = rows.filter((row) => row.armIndex === arm.index);
+      if (armRows.some((row, iteration) => row.initialization !== arm.initialization || row.iteration !== iteration)) {
+        throw new Error("PPO resume does not match this seed, budget, or indexed arm prefix");
+      }
+      let armPrefix = 0;
+      if (armRows.some((row) => { armPrefix += row.solverSteps; return row.armSolverSteps !== armPrefix; })) {
+        throw new Error("PPO resume cumulative arm steps do not match its rows");
+      }
+      if (armRows.reduce((sum, row) => sum + row.solverSteps, 0) > arm.solverSteps) {
+        throw new Error("PPO resume exceeds its per-arm solver-step ceiling");
+      }
+    }
+    for (const arm of arms) if (!armWeights.has(arm.index)) throw new Error("PPO resume is missing one arm's active weights");
+    for (const champion of champions.values()) {
+      const row = rows[champion.rowIndex];
+      if (!row || row.armIndex !== champion.armIndex || row.macro !== champion.macro) {
+        throw new Error("PPO resume champion does not match its indexed row");
+      }
+    }
+    if (!runtime.terminalStop && arms.every((arm) => rows.filter((row) => row.armIndex === arm.index)
+        .reduce((sum, row) => sum + row.solverSteps, 0) === arm.solverSteps)) {
+      throw new Error("PPO resume is already complete; refusing to spend the fixed budget twice");
+    }
+  } else for (const arm of arms) armWeights.set(arm.index, initialPpoWeights(arm.seed, arm.initialization));
+
+  const armRows = arms.map((arm) => rows.filter((row) => row.armIndex === arm.index));
+  const armConsumed = arms.map((arm) => armRows[arm.index].reduce((sum, row) => sum + row.solverSteps, 0));
+  const resumeBytes = () => {
+    const lastWeights = armWeights.get(rows.at(-1).armIndex); const flat = flattenHeads(lastWeights);
+    const optimizer = { update: rows.filter((row) => row.update !== null).length,
+      firstMoment: flat.map(() => 0), secondMoment: flat.map(() => 0),
+      consumedSolverSteps: rows.reduce((sum, row) => sum + row.solverSteps, 0) };
+    return { optimizer, bytes: encodePpoResume(flat, optimizer, rows, resumeTrainingState(armWeights, champions)) };
+  };
+  const selectedSoFar = () => {
+    const selectedArm = selectPpoArm(rows.map((row) => ({ split: row.split, arm: row.initialization, macro: row.macro })));
+    const selected = rows.filter((row) => row.initialization === selectedArm).sort(rowRank)[0];
+    const champion = champions.get(selected.armIndex);
+    if (!champion || champion.rowIndex !== selected.index) throw new Error("PPO selected row has no matching weight snapshot");
+    return { selected, champion };
+  };
+  const artifactFor = (selected, champion) => {
+    const payload = [...new TextEncoder().encode(canonicalJson({ initialization: selected.initialization, weights: champion.fullWeights }))];
+    return new ResearchArtifact({ algorithm: "ppo", ...RESEARCH_ARTIFACT_CONTRACT, payload,
+      provenance: { seed: config.seed, runId: config.runId ?? null, solverSteps: selected.armSolverSteps,
+        selectedIteration: selected.iteration, trainingSplit: "train", validationSplit: "validation",
+        configDigest, producedOutputs: PPO_PRODUCED_OUTPUTS, producedLogits: PPO_PRODUCED_LOGITS,
+        contractOutputs: META_OUTPUT_LAYOUT.width, persistenceSeconds: [...PERSISTENCE_SECONDS],
+        gammaPerSecond: PPO_GAMMA_PER_SECOND, traceLambda: PPO_TRACE_LAMBDA } }, RESEARCH_ARTIFACT_CONTRACT).toBytes();
+  };
+
+  if (runtime.terminalStop != null && !["stopped: plateau", "stopped: ceiling"].includes(runtime.terminalStop)) {
+    throw new Error(`PPO terminal reconstruction received invalid stop reason "${runtime.terminalStop}"`);
   }
-  let completedThisRun = 0;
-  for (const arm of arms.slice(rows.length)) {
-    const trainSteps = Math.floor(arm.solverSteps / 8) * 4; const validationSteps = arm.solverSteps - trainSteps;
-    if (trainSteps < 4 || validationSteps < 4) throw new Error("PPO per-arm budget must be at least eight solver steps");
-    const trajectory = await collectPpoTrajectory({ ...arm, solverSteps: trainSteps, split: "train",
-      league: config.league ?? PPO_LEAGUE, controllers: config.controllers ?? new Map() });
-    const update = ppoHeadUpdate(trajectory.weights, ppoUpdateRows(trajectory), config.seed ^ arm.index);
-    const validation = await collectPpoTrajectory({ ...arm, solverSteps: validationSteps, jobIndex: arm.index,
-      weights: trajectory.weights, split: "validation", league: config.league ?? PPO_LEAGUE,
-      controllers: config.controllers ?? new Map() });
-    const reward = validation.rewards.reduce((a, b) => a + b, 0);
-    rows.push({ index: arm.index, seed: config.seed, requestedSolverSteps: config.solverSteps, leagueDigest,
-      initialization: arm.initialization, split: "validation",
-      solverSteps: trajectory.result.solverSteps + validation.result.solverSteps,
-      trainSolverSteps: trajectory.result.solverSteps, validationSolverSteps: validation.result.solverSteps,
-      boundaries: trajectory.boundaries.length, reward, macro: reward, worstCell: reward,
-      rewardComponents: { terminal: validation.boundaries.reduce((sum, row) => sum + row.terminal * 4, 0),
-        vitalityDamage: validation.boundaries.reduce((sum, row) => sum + row.endVitalityPotential - row.startVitalityPotential, 0),
-        nearProgress: validation.boundaries.reduce((sum, row) => sum + row.nearRangeProgress, 0), duration: 0, attempts: 0, contacts: 0,
-      rangeOccupancy: 0 }, opponent: validation.opponent, update, fullWeights: trajectory.weights, weights: flattenHeads(trajectory.weights) });
-    completedThisRun += 1;
-    if (config.stopAfterJobs && completedThisRun >= config.stopAfterJobs && rows.length < arms.length) {
-      const last = rows.at(-1); const optimizer = { update: rows.length, firstMoment: last.weights.map(() => 0),
-        secondMoment: last.weights.map(() => 0), consumedSolverSteps: rows.reduce((sum, row) => sum + row.solverSteps, 0) };
-      return { complete: false, resume: encodePpoResume(last.weights, optimizer, rows),
-        report: new TextEncoder().encode(canonicalJson({ algorithm: "ppo", status: "interrupted", completedJobs: rows.length,
-          solverSteps: optimizer.consumedSolverSteps })) };
+  let completedThisRun = 0; let stopped = runtime.terminalStop ?? null; let pendingStop = null;
+  while (arms.some((arm) => armConsumed[arm.index] < arm.solverSteps) && !stopped) {
+    // Resume may land between the two arms in a round. The shorter prefix goes
+    // first so re-entry completes that round before starting another one.
+    const scheduled = [...arms].sort((a, b) => armRows[a.index].length - armRows[b.index].length || a.index - b.index);
+    for (const arm of scheduled) {
+      if (armConsumed[arm.index] >= arm.solverSteps) continue;
+      const weights = armWeights.get(arm.index); const iteration = armRows[arm.index].length;
+      const index = rows.length; const budget = ppoIterationBudget(arm.solverSteps - armConsumed[arm.index]);
+      let trajectory = null; let update = null;
+      if (budget.train) {
+        trajectory = await collectTrajectory({ ...arm, solverSteps: budget.train, jobIndex: index, weights, split: "train",
+          league: config.league ?? PPO_LEAGUE, controllers: config.controllers ?? new Map() });
+        if (!Number.isSafeInteger(trajectory.result.solverSteps) || trajectory.result.solverSteps < 4 ||
+            trajectory.result.solverSteps > budget.train || trajectory.result.solverSteps % 4) {
+          throw new Error(`PPO train job ${index} reported invalid solver-step consumption ${trajectory.result.solverSteps}`);
+        }
+        armWeights.set(arm.index, trajectory.weights);
+        update = updateHeads(trajectory.weights, ppoUpdateRows(trajectory), config.seed ^ index);
+      }
+      const updatedWeights = armWeights.get(arm.index);
+      const validation = await collectTrajectory({ ...arm, solverSteps: budget.validation, jobIndex: index,
+        weights: updatedWeights, split: "validation", league: config.league ?? PPO_LEAGUE,
+        controllers: config.controllers ?? new Map() });
+      if (!Number.isSafeInteger(validation.result.solverSteps) || validation.result.solverSteps < 4 ||
+          validation.result.solverSteps > budget.validation || validation.result.solverSteps % 4) {
+        throw new Error(`PPO validation job ${index} reported invalid solver-step consumption ${validation.result.solverSteps}`);
+      }
+      const reward = validation.rewards.reduce((a, b) => a + b, 0);
+      const solverSteps = (trajectory?.result.solverSteps ?? 0) + validation.result.solverSteps;
+      const fullWeights = snapshotPpoWeights(updatedWeights); const cumulativeArmSteps = armConsumed[arm.index] + solverSteps;
+      const engagement = validation.result.engagement;
+      const row = { index, armIndex: arm.index, iteration, seed: config.seed, requestedSolverSteps: config.solverSteps,
+        leagueDigest, runId: config.runId ?? null, initialization: arm.initialization, split: "validation", solverSteps,
+        armSolverSteps: cumulativeArmSteps,
+        requestedTrainSolverSteps: budget.train, requestedValidationSolverSteps: budget.validation,
+        trainSolverSteps: trajectory?.result.solverSteps ?? 0, validationSolverSteps: validation.result.solverSteps,
+        boundaries: trajectory?.boundaries.length ?? 0, reward, macro: reward,
+        rewardComponents: { terminal: validation.boundaries.reduce((sum, row) => sum + row.terminal * 4, 0),
+          vitalityDelta: validation.boundaries.reduce((sum, row) => sum + row.endVitalityPotential - row.startVitalityPotential, 0),
+          nearRangeProgress: validation.boundaries.reduce((sum, row) => sum + row.nearRangeProgress, 0) },
+        engagement: engagement ? { opportunities: engagement.viableOpportunities,
+          attacksInWindow: engagement.attacksInWindow, contactsInWindow: engagement.damagingContactsInWindow,
+          nearRangeStallSeconds: engagement.nearRangeStallSeconds, seconds: validation.result.result.seconds,
+          firstAttackSeconds: [engagement.firstAttackSeconds] } : null,
+        opponent: validation.opponent, update };
+      const champion = champions.get(arm.index);
+      if (!champion || reward > champion.macro) champions.set(arm.index,
+        { armIndex: arm.index, rowIndex: index, macro: reward, fullWeights });
+      rows.push(row); armRows[arm.index].push(row); armConsumed[arm.index] = cumulativeArmSteps; completedThisRun += 1;
+      const state = resumeBytes(); const { selected: checkpointSelected, champion: checkpointChampion } = selectedSoFar();
+      const fairRound = armRows.every((entries) => entries.length === armRows[0].length);
+      if (runtime.onCheckpoint) {
+        const requestedStop = await runtime.onCheckpoint({ row, resume: state.bytes,
+          championArtifact: artifactFor(checkpointSelected, checkpointChampion),
+          champion: { armIndex: checkpointSelected.armIndex, initialization: checkpointSelected.initialization,
+            iteration: checkpointSelected.iteration, rowIndex: checkpointSelected.index, macro: checkpointSelected.macro },
+          progress: { completedJobs: rows.length, completedUpdates: state.optimizer.update,
+            consumedSolverSteps: state.optimizer.consumedSolverSteps,
+            armSolverSteps: Object.fromEntries(arms.map((entry) => [entry.initialization, armConsumed[entry.index]])), fairRound } });
+        if (requestedStop !== undefined && requestedStop !== null && requestedStop !== "stopped: plateau") {
+          throw new Error(`PPO checkpoint returned invalid stop reason "${requestedStop}"`);
+        }
+        pendingStop = requestedStop ?? pendingStop;
+      }
+      if (config.stopAfterJobs && completedThisRun >= config.stopAfterJobs &&
+          arms.some((entry) => armConsumed[entry.index] < entry.solverSteps)) {
+        return { complete: false, resume: state.bytes,
+          report: new TextEncoder().encode(canonicalJson({ algorithm: "ppo", runId: config.runId ?? null,
+            status: "interrupted", completedJobs: rows.length, completedUpdates: state.optimizer.update,
+            solverSteps: state.optimizer.consumedSolverSteps })) };
+      }
+      if (pendingStop && fairRound) { stopped = pendingStop; break; }
     }
   }
-  const selectedArm = selectPpoArm(rows.map((row) => ({ split: row.split, arm: row.initialization,
-    macro: row.macro, worstCell: row.worstCell }))); const selected = rows.find((row) => row.initialization === selectedArm);
-  const configDigest = artifactChecksum(canonicalJson({ seed: config.seed, solverSteps: config.solverSteps,
-    league: config.league ?? PPO_LEAGUE }));
-  const payload = [...new TextEncoder().encode(canonicalJson({ initialization: selected.initialization, weights: selected.fullWeights }))];
+  stopped = stopped ?? "stopped: ceiling";
+  const { selected, champion: selectedChampion } = selectedSoFar();
   // `producedOutputs` is all 26 of the contract now, and it is **not** the sum
   // of the six heads' logits -- that is `producedLogits`, and it is 33. Both are
   // recorded because a single number was right by coincidence while every head
@@ -261,17 +440,36 @@ export async function trainPpo(config) {
   // ends the coincidence: eight logits, one contract slot. `persistenceSeconds`
   // is the grid the eighth of those was drawn from, so a reader of the artifact
   // can tell which dwells the champion was ever able to name.
-  const artifact = new ResearchArtifact({ algorithm: "ppo", ...RESEARCH_ARTIFACT_CONTRACT, payload,
-    provenance: { seed: config.seed, solverSteps: selected.solverSteps, trainingSplit: "train", validationSplit: "validation",
-      configDigest, producedOutputs: PPO_PRODUCED_OUTPUTS, producedLogits: PPO_PRODUCED_LOGITS,
-      contractOutputs: META_OUTPUT_LAYOUT.width, persistenceSeconds: [...PERSISTENCE_SECONDS],
-      gammaPerSecond: PPO_GAMMA_PER_SECOND, traceLambda: PPO_TRACE_LAMBDA } },
-    RESEARCH_ARTIFACT_CONTRACT);
-  const optimizer = { update: 1, firstMoment: selected.weights.map(() => 0), secondMoment: selected.weights.map(() => 0),
-    consumedSolverSteps: rows.reduce((sum, row) => sum + row.solverSteps, 0) };
-  return { complete: true, artifact: artifact.toBytes(), resume: encodePpoResume(selected.weights, optimizer, rows),
-    report: new TextEncoder().encode(canonicalJson({ algorithm: "ppo", configDigest, rows: rows.map(({ weights: _, fullWeights: __, ...row }) => row),
-      selected: selected.initialization })) };
+  const state = resumeBytes();
+  return { complete: true, artifact: artifactFor(selected, selectedChampion), resume: state.bytes,
+    report: new TextEncoder().encode(canonicalJson({ algorithm: "ppo", runId: config.runId ?? null, configDigest,
+      rows, selected: selected.initialization, selectedIteration: selected.iteration,
+      ledgerFile: "ledger.jsonl", stopping: { plateauEpsilon: config.plateauEpsilon ?? DEFAULT_PLATEAU_EPSILON,
+        plateauRows: config.plateauRows ?? DEFAULT_PLATEAU_ROWS, stepCeiling: config.solverSteps * 2 }, stopped })) };
+}
+
+export function assertPpoLedgerPrefix(resumeBytes, ledgerRows) {
+  const resumed = decodePpoResume(resumeBytes); const last = ledgerRows.at(-1);
+  if (!last) return;
+  const matched = resumed.rows.find((row) => row.index === last.jobIndex);
+  const consumedAtMatch = resumed.rows.filter((row) => row.index <= last.jobIndex)
+    .reduce((sum, row) => sum + row.solverSteps, 0);
+  if (!matched || last.stepsConsumed !== consumedAtMatch) {
+    throw new Error("PPO resume state does not match the run ledger prefix");
+  }
+}
+
+export function assertPpoStoppingContract(ledgerRows, plateauEpsilon, plateauRows) {
+  const frozen = ledgerRows[0]?.stopping;
+  if (frozen && (frozen.plateauEpsilon !== plateauEpsilon || frozen.plateauRows !== plateauRows)) {
+    throw new Error("PPO resume refused: plateau contract changed");
+  }
+}
+
+export function ppoPendingAction(pending, ledgerRows) {
+  if (ledgerRows.length === pending.row.row) return "append";
+  if (JSON.stringify(ledgerRows.at(-1)) === JSON.stringify(pending.row)) return "already-appended";
+  throw new Error("PPO pending ledger row does not match the complete ledger prefix");
 }
 
 export async function runPpoCli() {
@@ -279,12 +477,91 @@ export async function runPpoCli() {
   const leaguePaths = process.argv.flatMap((value, index) => value === "--league-artifact" ? [process.argv[index + 1]] : []).filter(Boolean);
   const loaded = await loadLeagueArtifacts(leaguePaths);
   const config = { seed: Number(arg("seed", 310013)), solverSteps: Number(arg("solver-steps", 960)), workers: Number(arg("workers", 1)),
-    stopAfterJobs: Number(arg("stop-after-jobs", 0)), league: loaded.league, controllers: loaded.controllers };
-  if (!Number.isSafeInteger(config.solverSteps) || config.solverSteps < 4 || config.solverSteps % 4) throw new Error("--solver-steps must be a positive multiple of four");
-  const resumeFrom = arg("resume-from", ""); if (resumeFrom) config.resumeBytes = new Uint8Array(await readFile(resolve(resumeFrom)));
-  const output = await trainPpo(config);
+    stopAfterJobs: Number(arg("stop-after-jobs", 0)), runId: arg("run-id", undefined),
+    league: loaded.league, controllers: loaded.controllers };
+  if (!Number.isSafeInteger(config.solverSteps) || config.solverSteps < 8 || config.solverSteps % 4) {
+    throw new Error("--solver-steps must be at least eight and divisible by four");
+  }
+  if (!Number.isSafeInteger(config.stopAfterJobs) || config.stopAfterJobs < 0) throw new Error("--stop-after-jobs must be a non-negative integer");
+  const checkpointEveryJobs = Number(arg("checkpoint-every-jobs", 1));
+  if (!Number.isSafeInteger(checkpointEveryJobs) || checkpointEveryJobs <= 0) {
+    throw new Error("--checkpoint-every-jobs must be a positive integer");
+  }
+  const plateauEpsilon = Number(arg("plateau-epsilon", DEFAULT_PLATEAU_EPSILON));
+  const plateauRows = Number(arg("plateau-rows", DEFAULT_PLATEAU_ROWS));
+  if (!Number.isFinite(plateauEpsilon) || plateauEpsilon < 0) throw new Error("--plateau-epsilon must be a non-negative number");
+  if (!Number.isSafeInteger(plateauRows) || plateauRows <= 0) throw new Error("--plateau-rows must be a positive integer");
+  config.plateauEpsilon = plateauEpsilon; config.plateauRows = plateauRows;
+  const configDigest = artifactChecksum(canonicalJson({ seed: config.seed, solverSteps: config.solverSteps, league: config.league }));
+  config.runId ??= `ppo-${config.seed}-${configDigest}`;
+  const runDir = new URL(`../asset-src/learning/research/${config.runId}/`, import.meta.url);
+  const runPath = fileURLToPath(runDir); await mkdir(runPath, { recursive: true });
+  const statePath = resolve(arg("resume", fileURLToPath(new URL("state.json", runDir))));
+  const encodeCliState = (resume, pending = null) => new TextEncoder().encode(canonicalJson({ version: 1,
+    plateauEpsilon, plateauRows,
+    resume: Buffer.from(resume).toString("base64"), pending: pending ? { row: pending.row,
+      champion: Buffer.from(pending.champion).toString("base64") } : null }));
+  const decodeCliState = (bytes) => { let value; try { value = JSON.parse(new TextDecoder().decode(bytes)); } catch { return { resume: bytes, pending: null }; }
+    if (value?.version !== 1 || typeof value.resume !== "string") return { resume: bytes, pending: null };
+    if (value.plateauEpsilon !== plateauEpsilon || value.plateauRows !== plateauRows) {
+      throw new Error("PPO resume refused: plateau contract changed");
+    }
+    return { resume: new Uint8Array(Buffer.from(value.resume, "base64")), pending: value.pending ? {
+      row: value.pending.row, champion: new Uint8Array(Buffer.from(value.pending.champion, "base64")) } : null }; };
+  const resumeFrom = arg("resume-from", ""); let cliState = null;
+  if (resumeFrom) { cliState = decodeCliState(new Uint8Array(await readFile(resolve(resumeFrom)))); config.resumeBytes = cliState.resume; }
+  let ledgerRows = await readLedger(resolve(runPath, "ledger.jsonl"));
+  if (!config.resumeBytes && ledgerRows.length) throw new Error(`PPO run "${config.runId}" already has a ledger; use --resume-from or a new --run-id`);
+  if (cliState?.pending) {
+    const action = ppoPendingAction(cliState.pending, ledgerRows);
+    if (action === "append") {
+      await checkpointRun({ runDir: runPath, row: cliState.pending.row, championBytes: cliState.pending.champion });
+      ledgerRows.push(cliState.pending.row);
+    }
+    await writeAtomic(statePath, encodeCliState(cliState.resume));
+  }
+  if (config.resumeBytes) assertPpoLedgerPrefix(config.resumeBytes, ledgerRows);
+  if (config.resumeBytes) assertPpoStoppingContract(ledgerRows, plateauEpsilon, plateauRows);
+  const terminalStop = ledgerStopDecision(ledgerRows);
+  if (config.resumeBytes && terminalStop && await runIsFinalized(runPath)) throw new Error(`PPO resume refused: ${terminalStop}`);
+  const contractDigest = digestContract(RESEARCH_ARTIFACT_CONTRACT);
+  const baseWallSeconds = ledgerRows.at(-1)?.wallSeconds ?? 0; const started = performance.now();
+  const output = await trainPpo(config, { terminalStop, onCheckpoint: async (checkpoint) => {
+    const terminalBoundary = checkpoint.progress.consumedSolverSteps >= config.solverSteps * 2 ||
+      config.stopAfterJobs > 0 && checkpoint.progress.completedJobs >= config.stopAfterJobs;
+    if (!checkpointJobDue(checkpoint.progress.completedJobs, checkpointEveryJobs) && !terminalBoundary) {
+      await writeAtomic(statePath, encodeCliState(checkpoint.resume)); return null;
+    }
+    const championBytes = inProgressResearchArtifact(decodeResearchArtifact(checkpoint.championArtifact), config.runId).toBytes();
+    const wallSeconds = baseWallSeconds + (performance.now() - started) / 1000;
+    const update = checkpoint.row.update;
+    const ppoRows = decodePpoResume(checkpoint.resume).rows;
+    const objectiveValue = checkpoint.progress.fairRound
+      ? ["random", "dagger"].map((name) => [...ppoRows].reverse().find((entry) => entry.initialization === name).macro)
+        .reduce((sum, value) => sum + value, 0) / 2 : null;
+    const row = makeLedgerRow({ previousRows: ledgerRows, direction: "ppo", jobIndex: checkpoint.row.index,
+      stepsConsumed: checkpoint.progress.consumedSolverSteps, wallSeconds,
+      stepsPerSecond: (checkpoint.progress.consumedSolverSteps - (ledgerRows.at(-1)?.stepsConsumed ?? 0)) /
+        Math.max(0.001, wallSeconds - (ledgerRows.at(-1)?.wallSeconds ?? baseWallSeconds)),
+      configDigest, contractDigest, validationMacro: objectiveValue, validationWorstCell: null,
+      objective: { name: "validationMacroReward", direction: "higher",
+        observed: checkpoint.progress.fairRound, value: objectiveValue },
+      gates: engagementGates(checkpoint.row.engagement), gateScope: "checkpoint-observation",
+      directionData: { initialization: checkpoint.row.initialization, iteration: checkpoint.row.iteration,
+        championMacro: checkpoint.champion.macro,
+        rewardComponents: checkpoint.row.rewardComponents,
+        headEntropies: update ? update.headEntropies : { status: "unavailable", reason: "validation-only tail has no policy update" },
+        armSolverSteps: checkpoint.progress.armSolverSteps, fairRound: checkpoint.progress.fairRound },
+      championBytes, championMetric: { name: "championMacroReward", value: checkpoint.champion.macro },
+      stepCeiling: config.solverSteps * 2, plateauEpsilon, plateauRows });
+    await writeAtomic(statePath, encodeCliState(checkpoint.resume, { row, champion: championBytes }));
+    await checkpointRun({ runDir: runPath, row, championBytes }); ledgerRows.push(row);
+    await writeAtomic(statePath, encodeCliState(checkpoint.resume)); process.stdout.write(`${row.summary}\n`);
+    return ledgerStopDecision(ledgerRows) === "stopped: plateau" ? "stopped: plateau" : null;
+  } });
+  if (output.artifact) await finalizeRun({ runDir: runPath, championBytes: output.artifact, reportBytes: output.report });
+  await writeAtomic(statePath, encodeCliState(output.resume));
   if (arg("artifact", "") && output.artifact) await writeAtomic(arg("artifact", ""), output.artifact);
-  if (arg("resume", "")) await writeAtomic(arg("resume", ""), output.resume);
   if (arg("report", "")) await writeAtomic(arg("report", ""), output.report);
   process.stdout.write(new TextDecoder().decode(output.report) + "\n");
 }

@@ -1,7 +1,6 @@
 import { canonicalJson, type ResearchAlgorithm } from "./artifact.ts";
 import type { EvaluationSplit } from "./evaluation.ts";
 
-export const RESEARCH_SOLVER_STEP_BUDGET = 1_800_000_000;
 export const ABLATION_SOLVER_STEP_BUDGET = 180_000_000;
 export const RESEARCH_SEEDS = Object.freeze([310013, 310019, 310031] as const);
 

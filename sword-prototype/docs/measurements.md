@@ -6954,3 +6954,29 @@ throws -- and no session mentions them. Both files also still report
 `fullBudgetCompleted: solverSteps === 1_800_000_000`: the frozen accept criterion the plan
 set's opening rules exist to abolish, alive in the report schema. `src/learning/research.ts`
 still declares `RESEARCH_SOLVER_STEP_BUDGET = 1_800_000_000` with no consumer.
+
+### Session 19 supersession -- 2026-08-26
+
+The observations above are retained as the pre-change measurement, not as the current contract.
+Session 19 corrected every named execution defect:
+
+- PPO repeats indexed collect/update/validation jobs until both arms reach their solver-step
+  ceiling. Larger synthetic ceilings produced more updates on both arms; cadence 1 versus 3 changed
+  checkpoint indices but not artifact, resume or deterministic report bytes.
+- NEAT-QD and DAgger no longer require exact ceiling consumption. The two
+  `fullBudgetCompleted` fields and the unused 1.8-billion-step constant are gone.
+- look-ahead resumes its exact 3,780-job schedule and exposes progress without claiming a model or
+  champion before the complete fit and calibration exist.
+- all four runners append the common ledger and print every checkpoint, including "No new
+  champion". Reports point to that ledger and record epsilon, plateau window and ceiling without
+  embedding wall-bearing rows.
+- a no-attack bout remains in first-attack p90 as positive infinity and therefore a
+  negative-infinity signed margin. Tournament and safety measurements a checkpoint cannot
+  reconstruct are explicitly unavailable.
+
+The added tests cover state/ledger and terminal/final-output kill recovery, stale-state refusal,
+higher- and lower-is-better exact-epsilon boundaries, cadence independence, schema and gate-margin
+tampering, in-progress registration refusal, and the page-loader lifecycle. Deliberate production
+mutations to the outer loop, resume cursor, exact budget, gate sign, plateau direction,
+no-improvement append and registration seams each made a named test red before restoration. This
+session ran no held-out tournament and promoted no policy.

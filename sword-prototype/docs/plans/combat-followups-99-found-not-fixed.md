@@ -446,6 +446,9 @@ precisely because it did not break.
 
 ### 20. PPO cannot spend a step budget, and no session owns giving it one
 
+**Closed by session 19.** PPO now repeats indexed collect/update/validation jobs until each arm's
+declared ceiling or a fair-round plateau stop.
+
 Asked for 400,000 solver steps an arm -- 800,000 across the two -- a `train-ppo.mjs`
 invocation consumed **5,508**. `runResearchBout` clamps a bout to
 `min(boutCapSeconds, limit/physicsHz)` with every stratum at 45 s against 240 Hz, so 10,800
@@ -466,6 +469,9 @@ that must land before any ledger row is designed.
 
 ### 21. Two runners make a plateau rule illegal, and both still carry the retired 1.8 B
 
+**Closed by session 19.** The exact-budget assertions, both report flags and the unused constant
+were removed; the common ledger now distinguishes plateau from ceiling.
+
 `train-neat-qd.mjs` and `collect-dagger.mjs` throw unless `consumedSolverSteps === solverSteps`
 exactly. A plateau rule stops a run early by construction, so it cannot land in either without
 removing or conditioning that assertion, and no session mentions it. Both also still report
@@ -478,6 +484,9 @@ rule that needs it removed would leave a runner that silently under-spends with 
 so.
 
 ### 22. Three commands the plan set invokes do not exist, and none has an owner
+
+**Partly closed by session 19.** PPO and look-ahead now honor `--run-id`; `--rung` and
+`--verify-promoted` remain assigned to later sessions.
 
 `--rung` appears nowhere in the tree and sessions 21 and 22 both require it. `--run-id` exists
 in `train-neat-qd.mjs` and `collect-dagger.mjs` and **not** in `train-ppo.mjs` or

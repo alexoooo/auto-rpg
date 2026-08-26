@@ -1267,6 +1267,30 @@ counts plus the named visual/collider pairs. Repeated calls update private count
 one frozen stable getter view and allocate no result or Babylon resource. Foreign scene resources do not enter its
 census, and disposal unregisters every owned shadow caster.
 
+## Research-run lifecycle
+
+The four directions keep their own search state but share one append-only evidence contract.
+NEAT-QD maximizes validation worst-cell score, DAgger minimizes validation loss, PPO maximizes a
+fair-round macro reward across its two initialization arms, and look-ahead minimizes calibration
+severity. Their common **ledger.jsonl** records indexed work, cumulative solver steps, configuration
+and artifact-contract digests, validation, direction telemetry, champion identity, and gates.
+
+Numeric gates carry achieved values and signed margins. Anything not measured at that checkpoint is
+`unavailable` with a reason; absence never becomes a pass. Progress-only rows remain visible but do
+not count toward plateau. Improvement equal to epsilon resets the counter in either direction, while
+a champion change smaller than epsilon is still reported as a new champion.
+
+Cadence depends only on completed job indices. Wall time observes the run and cannot steer it, so a
+deterministic report points to the ledger rather than embedding wall-bearing rows. State records
+a pending boundary before publication, and a candidate row is checked against the ledger prefix
+before the champion may change. A terminal row is followed by final artifact and report publication,
+then a **finalized.json** marker; death in that window is recovered without another search job.
+
+`champion-so-far.artifact` carries in-progress provenance. The arena can load it into an existing
+live fight for manual debugging, but setup and ended bouts refuse it because their body will not
+fight again. Policy, PPO-league and tournament registration refuse it. Only the terminal champion
+is eligible for later promotion work.
+
 ## The house rules this work was done under
 
 The full list is in `AGENTS.md`. The three that shaped the code rather than the process:

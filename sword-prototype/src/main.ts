@@ -31,6 +31,7 @@ import {
 } from "./mind";
 import { isArticulatedCombatant, loadoutForUnit, policyForUnit, unitDefinition, type Combatant } from "./units";
 import { metaDiagnostic } from "./learning/meta";
+import { loadChampionSoFarMind, requireLiveResearchBout, type ChampionSource } from "./learning/deployment";
 import {
   begin,
   defaultMatchup,
@@ -1145,6 +1146,20 @@ async function boot(): Promise<void> {
       },
       controls,
       setup,
+      /** Load a complete in-progress champion into one live body without registering a policy. */
+      research: {
+        load: async (source: ChampionSource, side: Side = "right") => {
+          if (side !== "left" && side !== "right") throw new Error(`research champion side "${side}" is unknown`);
+          requireLiveResearchBout(state.phase);
+          const selected = state.matchup[side];
+          const loadout = selected.unit === "centipede" ? "natural:bite" : `${selected.handA}+${selected.handB}`;
+          const loaded = await loadChampionSoFarMind(source, `${selected.unit}/${loadout}`);
+          bout[side].mind = loaded.mind;
+          return Object.freeze({ side, algorithm: loaded.artifact.data.algorithm,
+            runId: loaded.artifact.data.provenance.runId, status: loaded.artifact.data.provenance.status,
+            championDigest: loaded.digest });
+        },
+      },
       // `__sword.rigview.audit()` is where the overlay's central boundary is
       // pinned -- that it creates no body, no shape and no constraint. It cannot
       // be pinned in `tests/`, which has no Babylon to run.

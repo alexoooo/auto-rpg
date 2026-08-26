@@ -7,7 +7,8 @@ import { LOOKAHEAD_DEPTH, LOOKAHEAD_WIDTH, LookaheadController, boundedLookahead
 import { APPROACH_MOVEMENTS, TACTICAL_MODEL_VERSION, TACTICAL_STATE_COLUMNS, calibrateTacticalModel, calibrationRefusal,
   calibrationSeverity, fitTacticalModel, reachLimitFor, requireCalibration } from "../src/learning/tactical-model.ts";
 import { MIN_SPLIT_STEPS_PER_JOB, actionsFor, collectTacticalTrace, identicalSampleKeys,
-  lookaheadNotices, lookaheadReport, lookaheadTacticCellSchedule, modelCalibrationScore,
+  assertLookaheadLedgerPrefix, decodeLookaheadResume, finalLookaheadReport, lookaheadNotices, lookaheadReport, lookaheadRunConfig,
+  lookaheadTacticCellSchedule, makeLookaheadPartialLedgerRow, modelCalibrationScore, reconcileLookaheadCheckpoint,
   selectCalibratedCandidate, splitWarningFor, tacticsFor, trainLookahead,
   writeLookaheadOutput } from "../scripts/train-lookahead.mjs";
 import { runResearchBout } from "../scripts/research-havok.mjs";
@@ -23,7 +24,7 @@ import { RESEARCH_LABEL_FIELDS } from "./fixtures/label.mjs";
 import { assertCompleteView, publishedFixture } from "./fixtures/view.mjs";
 import { CALIBRATION_BUDGETS, CALIBRATION_RECORD_8X, admittedByLimits,
   calibrationRecordRows } from "./fixtures/calibration-record.mjs";
-import { LOOKAHEAD_CALIBRATION_LIMITS } from "../src/learning/deployment.ts";
+import { decodeResearchArtifact, LOOKAHEAD_CALIBRATION_LIMITS } from "../src/learning/deployment.ts";
 
 const state = (overrides = {}) => ({ reachMargin: -0.5, facingError: 0.2, threatAlignment: 0.1,
   contactProbability: 0.05, vitalityPotential: 0, ...overrides });
@@ -538,6 +539,121 @@ const traceRow = (tactic, loadout, split, contact, delta = {}) => {
       contactProbability: contact ? 1 : 0 } };
 };
 const round = (record) => Object.fromEntries(Object.entries(record).map(([key, value]) => [key, Number(value.toFixed(12))]));
+
+test("an_indexed_lookahead_job_resume_is_byte_identical_and_never_deploys_a_partial_controller", async () => {
+  // One deterministic row per real scheduled task keeps this a test of the
+  // 3,780-boundary orchestration rather than a second Havok endurance run. The
+  // task, split, fit seed and assigned budget all enter the row or accounting,
+  // so skipping or replaying any boundary changes the final bytes.
+  const calls = [];
+  const collectBudget = async (task, fitSeed, budget, split, { jobIndex }) => {
+    calls.push({ task: `${task.cell} ${plannedTacticKey(task)}`, fitSeed, budget, split, jobIndex });
+    return { solverSteps: budget, rows: [traceRow(plannedTacticKey(task), task.cell, split,
+      (jobIndex + (fitSeed >>> 0)) % 7 === 0, { reachMargin: ((fitSeed >>> 0) % 5) / 100 })] };
+  };
+  const config = { seed: 310013, solverSteps: 181_440, runId: "resume-proof", collectBudget };
+  const uninterrupted = await trainLookahead(config);
+  const uninterruptedCalls = calls.splice(0);
+  const checkpoints = [];
+  const interrupted = await trainLookahead({ ...config, stopAfterJobs: 947, checkpointEveryJobs: 701,
+    onCheckpoint(bytes, progress) { checkpoints.push({ bytes, progress }); } });
+  const interruptedCalls = calls.splice(0);
+  assert.equal(interrupted.complete, false);
+  assert.equal(interrupted.jobsCompleted, 947);
+  assert.deepEqual({ champion: interrupted.champion, artifact: interrupted.artifact,
+    objective: interrupted.objective }, { champion: null, artifact: null,
+    objective: { name: "calibrationSeverity", direction: "lower", value: null } });
+  assert.equal("model" in interrupted, false, "a resumable prefix is not a narrowed model");
+  const frozen = lookaheadRunConfig(config);
+  const saved = decodeLookaheadResume(interrupted.resume, frozen);
+  assert.equal(saved.nextJobIndex, 947);
+  assert.equal(frozen.schedule.groups, 3_780);
+  assert.equal(saved.candidates.reduce((sum, candidate) => sum + candidate.rows.length, 0), 947);
+  assert.equal(saved.validation.rows.length, 0, "the state preserves the later validation schedule instead of fitting early");
+  assert.deepEqual(checkpoints.map(({ progress }) => progress.jobsCompleted), [701, 947]);
+  assert.ok(checkpoints.every(({ progress }) => progress.champion === null && progress.artifact === null &&
+    progress.cellsFitted === 0 && progress.collectedKeys > 0));
+
+  const resumed = await trainLookahead({ ...config, resumeBytes: interrupted.resume });
+  const resumedCalls = calls.splice(0);
+  assert.equal(resumed.complete, true);
+  assert.equal(interruptedCalls.length + resumedCalls.length, 3_780);
+  assert.deepEqual([...interruptedCalls, ...resumedCalls], uninterruptedCalls);
+  for (const name of ["artifact", "report", "resume"]) assert.deepEqual(resumed[name], uninterrupted[name], name);
+  assert.equal(resumed.record.runId, "resume-proof");
+  assert.equal(decodeResearchArtifact(resumed.artifact).data.provenance.runId, "resume-proof");
+  const completeState = decodeLookaheadResume(resumed.resume, frozen);
+  const ceilingRow = makeLookaheadPartialLedgerRow({ config: frozen, state: completeState, ledgerRows: [],
+    contractDigest: "0".repeat(64), wallSeconds: 1, stepsPerSecond: 181_440, plateauEpsilon: 0.01, plateauRows: 6 });
+  const durable = finalLookaheadReport(resumed.record, [ceilingRow]);
+  assert.equal(durable.stopped, "stopped: ceiling");
+  assert.equal(durable.ledgerFile, "ledger.jsonl");
+  assert.equal("ledger" in durable, false);
+});
+
+test("lookahead_resume_refuses_a_different_run_identity_before_spending_another_job", async () => {
+  let calls = 0;
+  const collectBudget = async (task, fitSeed, budget, split) => { calls += 1;
+    return { solverSteps: budget, rows: [traceRow(plannedTacticKey(task), task.cell, split, false)] }; };
+  const stopped = await trainLookahead({ seed: 310013, solverSteps: 181_440, runId: "first-run",
+    stopAfterJobs: 1, collectBudget });
+  assert.equal(calls, 1);
+  await assert.rejects(() => trainLookahead({ seed: 310013, solverSteps: 181_440, runId: "other-run",
+    resumeBytes: stopped.resume, collectBudget }),
+  /lookahead resume refused: run id, seed, budget, or indexed schedule changed/);
+  assert.equal(calls, 1, "a mismatched resume is refused before another bout");
+  const corrupt = JSON.parse(new TextDecoder().decode(stopped.resume)); corrupt.state.consumedSolverSteps += 4;
+  await assert.rejects(() => trainLookahead({ seed: 310013, solverSteps: 181_440, runId: "first-run",
+    resumeBytes: new TextEncoder().encode(canonicalJson(corrupt)), collectBudget }),
+  /lookahead resume has invalid progress state/);
+  assert.equal(calls, 1, "corrupt prefix accounting is refused before another bout");
+  assert.throws(() => lookaheadRunConfig({ seed: 310013, solverSteps: 181_440, runId: "not/a/run" }), /invalid --run-id/);
+  assert.equal(lookaheadRunConfig({ seed: 310013, solverSteps: 181_440, runId: "first-run" }).configDigest,
+    lookaheadRunConfig({ seed: 310013, solverSteps: 181_440, runId: "other-run" }).configDigest,
+  "a directory label is not part of the search config digest");
+});
+
+test("a_lookahead_job_must_spend_exactly_its_assigned_solver_steps", async () => {
+  let assigned = 0;
+  await assert.rejects(() => trainLookahead({ seed: 310013, solverSteps: 181_440, stopAfterJobs: 1,
+    collectBudget: async (task, fitSeed, budget, split) => { assigned = budget;
+      return { solverSteps: budget + 4, rows: [traceRow(plannedTacticKey(task), task.cell, split, false)] }; } }),
+  /lookahead indexed job 0 must consume exactly its assigned 48 solver steps and return rows/);
+  assert.equal(assigned, 48);
+});
+
+test("a_state_checkpoint_that_landed_before_its_ledger_row_is_replayed_once", async () => {
+  let persisted = null;
+  await assert.rejects(() => trainLookahead({ seed: 310013, solverSteps: 181_440, runId: "crash-proof",
+    checkpointEveryJobs: 1, collectBudget: async (task, fitSeed, budget, split) => ({ solverSteps: budget,
+      rows: [traceRow(plannedTacticKey(task), task.cell, split, false)] }),
+    onCheckpoint(bytes) { persisted = bytes; throw new Error("killed after state rename"); } }), /killed after state rename/);
+  const config = lookaheadRunConfig({ seed: 310013, solverSteps: 181_440, runId: "crash-proof" });
+  const state = decodeLookaheadResume(persisted, config);
+  assert.deepEqual(state.pendingCheckpoint, { jobIndex: 0, stepsConsumed: 48 });
+  const recovered = reconcileLookaheadCheckpoint({ config, state, ledgerRows: [], contractDigest: "0".repeat(64),
+    plateauEpsilon: 0.01, plateauRows: 6 });
+  assert.equal(recovered.jobIndex, 0);
+  assert.equal(recovered.stepsConsumed, 48);
+  assert.deepEqual({ cellsFitted: recovered.directionData.cellsFitted,
+    collectedKeys: recovered.directionData.collectedKeys }, { cellsFitted: 0, collectedKeys: 1 });
+  assert.equal(reconcileLookaheadCheckpoint({ config, state, ledgerRows: [recovered], contractDigest: "0".repeat(64),
+    plateauEpsilon: 0.01, plateauRows: 6 }), null, "an appended recovery row is not duplicated");
+});
+
+test("a_stale_lookahead_state_is_refused_against_a_newer_run_ledger", () => {
+  assert.throws(() => assertLookaheadLedgerPrefix({ nextJobIndex: 3, consumedSolverSteps: 12 },
+    [{ jobIndex: 3, stepsConsumed: 16 }]), /does not match the run ledger prefix/);
+});
+
+test("terminal_lookahead_publication_keeps_pending_state_until_the_final_row", () => {
+  const state = { nextJobIndex: 3_780, consumedSolverSteps: 181_440,
+    pendingCheckpoint: { jobIndex: 3_779, stepsConsumed: 181_440 } };
+  const prefix = [{ jobIndex: 3_778, stepsConsumed: 181_392 }];
+  assert.doesNotThrow(() => assertLookaheadLedgerPrefix(state, prefix));
+  assert.throws(() => assertLookaheadLedgerPrefix({ ...state, pendingCheckpoint: null }, prefix),
+    /does not match the run ledger prefix/);
+});
 
 // The gate fixture, and every part of it is load-bearing.
 //

@@ -37,9 +37,9 @@ three ways. Each replacement below is a standing rule for this plan set, not a o
   acceptable report.
   **Replacement:** a step budget is a *ceiling*. The accept criterion is a declared plateau
   rule read off a checkpoint ledger, and the report carries the curve that justifies the stop.
-  **The number itself is still in the tree**: `RESEARCH_SOLVER_STEP_BUDGET = 1_800_000_000` in
-  `src/learning/research.ts` with no consumer, and `fullBudgetCompleted: solverSteps ===
-  1_800_000_000` in two report schemas. Retiring all three belongs to session 19.
+  **Session 19 retired the number from the tree**: the unused
+  `RESEARCH_SOLVER_STEP_BUDGET` and both `fullBudgetCompleted` report fields are gone, and the
+  runners now report a declared ceiling plus the ledger-derived stop.
 - **A search that outranked the game.** The protected-surface rule forbade changing `POLICIES`,
   normalization, threat selection or any runtime balance constant for the duration, and
   invalidated every in-progress run if one moved. Against the measured half of the old schedule
@@ -70,7 +70,7 @@ Two further standing rules follow from those.
 | session | remaining result | depends on |
 | --- | --- | --- |
 | [18](combat-followups-18-human-gate-feasibility.md) | measure a person on the promotion instrument; settle the open feel questions | 17 |
-| [19](combat-followups-19-run-legibility.md) | checkpoint ledger, gate table per row, plateau rule, watchable champion-so-far | 17 |
+| [19](combat-followups-19-run-legibility.md) **complete** | checkpoint ledger, gate table per row, plateau rule, watchable champion-so-far | 17 |
 | [20](combat-followups-20-throughput-and-ceilings.md) | measure real throughput for all four directions and derive every ceiling | 18, 19 |
 | [21](combat-followups-21-research-ladder.md) | one seed per direction under a one-day ceiling, then advance or kill each | 20 |
 | [22](combat-followups-22-scaled-runs.md) | remaining seeds and declared ablations for surviving directions only | 21 |

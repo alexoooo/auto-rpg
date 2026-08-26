@@ -259,15 +259,16 @@ const SCRATCH_SHARE_OF_DURABLE = { min: 0.02, max: 0.25 };
 // slimmed from 1,526 lines to 231, which took 98 anchored spans and 32 bare
 // continuations out of the judged set. Five of the six fields went to zero as a result,
 // and the survivors are all one thing: **a plan naming a file it intends to create.**
-// `tests/recorder.test.mjs`, `tests/ledger.test.mjs`, `tests/plateau.test.mjs`,
-// `tests/deployment.test.mjs`, `tests/preflight.test.mjs`, `tests/ceilings.test.mjs`,
+// `tests/recorder.test.mjs`, `tests/preflight.test.mjs`, `tests/ceilings.test.mjs`,
 // `tests/engagement.test.mjs`, `scripts/freeze-tournament.mjs` and `ledger.jsonl` do
-// not exist because nobody has run sessions 18 through 23 yet. So `noSuchFile: 13` is
+// not exist because nobody has run sessions 18 and 20 through 23 yet. Session 19 added
+// `tests/ledger.test.mjs`, `tests/plateau.test.mjs` and `tests/deployment.test.mjs`, so
+// `noSuchFile: 10` is
 // now a count of unbuilt work, and it should fall as those sessions land rather than
 // stay put -- which is the opposite of what this pin meant a day ago, and is why the
 // reason is written here instead of only the number.
 const PLAN_SURFACE = {
-  noSuchFile: 13,
+  noSuchFile: 10,
   ambiguousFile: 0,
   anchorIntoDeletedFile: 0,
   orphanContinuation: 0,

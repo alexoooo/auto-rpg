@@ -5,18 +5,22 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { GRU_UNITS, RecurrentPolicy, maskedArgmax, maskedCategorical } from "../src/learning/recurrent-network.ts";
+import { CONFIG } from "../src/config.ts";
 import { clippedPolicyTerm, clippedValueLoss, deterministicMinibatchOrder, generalizedAdvantages,
-  tacticalBoundaryReward, encodePpoResume, equalBudgetPpoArms, freezeOpponentLeague, indexedLeagueOpponent,
+  tacticalBoundaryReward, decodePpoResume, encodePpoResume, equalBudgetPpoArms, freezeOpponentLeague, indexedLeagueOpponent,
   ppoHeadUpdate, PPO_GAMMA_PER_SECOND, PPO_POLICY_HEADS, PPO_TRACE_LAMBDA, selectPpoArm } from "../src/learning/ppo.ts";
 import { EFFECTOR_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TARGET_NAMES,
   handActionOption, tacticTargets } from "../src/options.ts";
 import { ResearchArtifact, canonicalJson } from "../src/learning/artifact.ts";
-import { argmaxHeadPick, decodeResearchArtifact, recurrentTactic,
+import { argmaxHeadPick, decodeResearchArtifact, inProgressResearchArtifact, recurrentTactic,
   RESEARCH_ARTIFACT_CONTRACT } from "../src/learning/deployment.ts";
 import { MAX_PERSISTENCE, META_OUTPUT_LAYOUT, MIN_PERSISTENCE, PERSISTENCE_SECONDS, UNLEARNED_PERSISTENCE,
   deployableTactics } from "../src/learning/meta.ts";
-import { collectPpoTrajectory, flattenHeads, initialPpoWeights, loadLeagueArtifacts, opponentRoute,
-  ppoUpdateRows, trainPpo, PPO_PRODUCED_LOGITS, PPO_PRODUCED_OUTPUTS } from "../scripts/train-ppo.mjs";
+import { assertPpoLedgerPrefix, assertPpoStoppingContract, collectPpoTrajectory, flattenHeads, initialPpoWeights, loadLeagueArtifacts, opponentRoute,
+  ppoPendingAction,
+  ppoIterationBudget, ppoUpdateRows, trainPpo, PPO_PRODUCED_LOGITS, PPO_PRODUCED_OUTPUTS,
+  PPO_TRAJECTORY_SOLVER_STEP_CAP } from "../scripts/train-ppo.mjs";
+import { researchMatrix } from "../src/learning/research-matrix.ts";
 import { assertCompleteView } from "./fixtures/view.mjs";
 
 const layer = (rows, columns, bias = 0) => ({ rows, columns, weights: Array(rows * columns).fill(0), bias: Array(rows).fill(bias) });
@@ -43,6 +47,26 @@ const weights = () => ({ inputSize: 3, units: GRU_UNITS,
   candidate: layer(GRU_UNITS, GRU_UNITS + 3),
   ...Object.fromEntries(Object.entries(HEAD_TABLES).map(([name, table]) => [name, layer(table.length, GRU_UNITS)])),
   value: layer(1, GRU_UNITS) });
+
+const syntheticPpoRuntime = (calls = [], consume = () => 4,
+  reward = (request) => request.weights.movement.bias[0]) => ({
+  async collectTrajectory(request) {
+    calls.push({ split: request.split, jobIndex: request.jobIndex, initialization: request.initialization,
+      requested: request.solverSteps, learned: request.weights.movement.bias[0] });
+    const boundary = { oldValue: 0, terminal: 0, startVitalityPotential: 0, endVitalityPotential: 0,
+      nearRangeProgress: 0 };
+    return { result: { solverSteps: consume(request), result: { seconds: 0.5 }, engagement: { viableOpportunities: 2,
+      attacksInWindow: 1, damagingContactsInWindow: 1, nearRangeStallSeconds: 0.25, firstAttackSeconds: null } },
+      weights: request.weights, boundaries: [boundary], rewards: [reward(request)],
+      advantages: [0], opponent: { id: "synthetic", kind: "specialist", digest: "synthetic-v1" } };
+  },
+  updateHeads(heads) {
+    heads.movement.bias[0] += 1;
+    return { policyLoss: 0, valueLoss: 0, entropy: 0,
+      headEntropies: Object.fromEntries(PPO_POLICY_HEADS.map((name) => [name, 0])), recurrentGradientNorm: 0,
+      unclippedGradientNorm: 0, clippedGradientNorm: 0 };
+  },
+});
 
 test("masked_policy_heads_never_sample_or_argmax_an_unsupported_tactic", () => {
   assert.equal(maskedArgmax([100, 4, 3], new Set([1, 2]), "movement"), 1);
@@ -103,6 +127,16 @@ test("a_frozen_league_champion_holds_the_dwell_its_own_head_chose", async () => 
   assert.notEqual(mind.diagnostic().persistenceSeconds, UNLEARNED_PERSISTENCE);
 });
 
+test("an_in_progress_champion_cannot_enter_the_frozen_ppo_league", async () => {
+  const base = new ResearchArtifact({ algorithm: "dagger", ...RESEARCH_ARTIFACT_CONTRACT,
+    payload: [...new TextEncoder().encode("{}")], provenance: { seed: 7, solverSteps: 4,
+      trainingSplit: "train", validationSplit: "validation", configDigest: "synthetic" } },
+  RESEARCH_ARTIFACT_CONTRACT);
+  const path = join(mkdtempSync(join(tmpdir(), "ppo-league-progress-")), "champion.bin");
+  writeFileSync(path, inProgressResearchArtifact(base, "still-running").toBytes());
+  await assert.rejects(loadLeagueArtifacts([path]), /in-progress research artifact cannot be registered/);
+});
+
 test("an_indexed_arm_boundary_resume_is_byte_identical_to_an_uninterrupted_havok_run", async () => {
   const config = { seed: 310013, solverSteps: 8, workers: 1 };
   const uninterrupted = await trainPpo(config); const interrupted = await trainPpo({ ...config, stopAfterJobs: 1 });
@@ -111,11 +145,167 @@ test("an_indexed_arm_boundary_resume_is_byte_identical_to_an_uninterrupted_havok
   for (const name of ["artifact", "report", "resume"]) assert.deepEqual(resumed[name], uninterrupted[name]);
 });
 
+test("larger_solver_step_ceilings_buy_more_indexed_ppo_updates_for_both_arms", async () => {
+  const shortCalls = []; const longCalls = [];
+  const short = await trainPpo({ seed: 310013, solverSteps: 24, workers: 1 }, syntheticPpoRuntime(shortCalls));
+  const long = await trainPpo({ seed: 310013, solverSteps: 40, workers: 1 }, syntheticPpoRuntime(longCalls));
+  const shortReport = JSON.parse(new TextDecoder().decode(short.report));
+  const longReport = JSON.parse(new TextDecoder().decode(long.report));
+  const updatesFor = (report, initialization) => report.rows
+    .filter((row) => row.initialization === initialization && row.update !== null).length;
+  for (const initialization of ["random", "dagger"]) {
+    assert.equal(updatesFor(shortReport, initialization), 3);
+    assert.equal(updatesFor(longReport, initialization), 5);
+    assert.equal(longReport.rows.filter((row) => row.initialization === initialization)
+      .reduce((sum, row) => sum + row.solverSteps, 0), 40,
+    `${initialization} received its own complete per-arm ceiling`);
+  }
+  assert.equal(longCalls.length, 20, "five train/validation pairs were run for each arm");
+  for (let at = 0; at < longCalls.length; at += 2) {
+    assert.deepEqual(longCalls.slice(at, at + 2).map((call) => call.split), ["train", "validation"]);
+    assert.equal(longCalls[at].jobIndex, at / 2);
+    assert.equal(longCalls[at + 1].jobIndex, at / 2);
+  }
+  assert.ok(longReport.rows.every((row, index) => row.index === index), "checkpoint boundaries are an indexed prefix");
+  assert.ok(longReport.rows.every((row) => row.requestedTrainSolverSteps >= row.trainSolverSteps));
+  assert.ok(longReport.rows.every((row) => !("worstCell" in row)), "PPO has no cell objective to duplicate its macro into");
+});
+
+test("ppo_job_index_checkpoint_cadence_does_not_change_search_outputs", async () => {
+  const run = async (cadence) => { const checkpoints = []; const runtime = syntheticPpoRuntime();
+    runtime.onCheckpoint = ({ progress }) => { if (progress.completedJobs % cadence === 0) checkpoints.push(progress.completedJobs); return null; };
+    const output = await trainPpo({ seed: 310013, solverSteps: 40, workers: 1 }, runtime);
+    return { checkpoints, artifact: output.artifact, report: output.report, resume: output.resume }; };
+  const every = await run(1); const sparse = await run(3);
+  assert.notDeepEqual(every.checkpoints, sparse.checkpoints);
+  for (const name of ["artifact", "report", "resume"]) assert.deepEqual(every[name], sparse[name]);
+});
+
+test("a_cap_surviving_bout_cannot_swallow_a_large_ceiling_before_it_buys_another_update", async () => {
+  const calls = []; const report = JSON.parse(new TextDecoder().decode((await trainPpo(
+    { seed: 310013, solverSteps: 64_800, workers: 1 }, syntheticPpoRuntime(calls, (request) => request.solverSteps))).report));
+  for (const initialization of ["random", "dagger"]) {
+    const rows = report.rows.filter((row) => row.initialization === initialization);
+    assert.equal(rows.length, 3, `${initialization} got one update for each 21,600-step collect/validation pair`);
+    assert.equal(rows.reduce((sum, row) => sum + row.solverSteps, 0), 64_800);
+  }
+  assert.ok(calls.every((call) => call.requested <= 10_800), "one trajectory never asks beyond the physical 45-second bout cap");
+});
+
+test("a_resume_inside_one_ppo_arm_restores_the_learned_weights_and_indexed_update_prefix", async () => {
+  const config = { seed: 310013, solverSteps: 24, workers: 1, runId: "resume-proof" };
+  const uninterrupted = await trainPpo(config, syntheticPpoRuntime());
+  const interrupted = await trainPpo({ ...config, stopAfterJobs: 1 }, syntheticPpoRuntime());
+  assert.equal(interrupted.complete, false);
+  const state = decodePpoResume(interrupted.resume);
+  assert.ok(state.rows.every((row) => !("weights" in row) && !("fullWeights" in row)),
+    "history stays weight-free instead of growing by a network snapshot per update");
+  assert.equal(state.training.champions.length, 1, "the one arm seen so far has one best snapshot");
+  assert.deepEqual(state.training.armWeights.map((entry) => entry.armIndex), [0, 1]);
+  const resumed = await trainPpo({ ...config, resumeBytes: interrupted.resume }, syntheticPpoRuntime());
+  for (const name of ["artifact", "report", "resume"]) assert.deepEqual(resumed[name], uninterrupted[name]);
+  const report = JSON.parse(new TextDecoder().decode(resumed.report));
+  assert.equal(report.runId, "resume-proof");
+  assert.deepEqual(report.rows.filter((row) => row.initialization === "random")
+    .map((row) => row.iteration), [0, 1, 2]);
+  assert.deepEqual(report.rows.filter((row) => row.initialization === "random")
+    .map((row) => row.update === null ? null : row.update.policyLoss), [0, 0, 0]);
+});
+
+test("terminal_ppo_recovery_rebuilds_final_outputs_without_spending_another_job", async () => {
+  const config = { seed: 310013, solverSteps: 24, workers: 1 };
+  const interrupted = await trainPpo({ ...config, stopAfterJobs: 2 }, syntheticPpoRuntime());
+  const calls = [];
+  const recovered = await trainPpo({ ...config, resumeBytes: interrupted.resume }, {
+    ...syntheticPpoRuntime(calls), terminalStop: "stopped: plateau",
+  });
+  assert.equal(recovered.complete, true); assert.deepEqual(calls, []);
+  const report = JSON.parse(new TextDecoder().decode(recovered.report));
+  assert.equal(report.stopped, "stopped: plateau"); assert.equal(report.ledgerFile, "ledger.jsonl");
+});
+
+test("a_stale_ppo_state_is_refused_against_a_newer_run_ledger", async () => {
+  const config = { seed: 310013, solverSteps: 24, workers: 1 };
+  const older = await trainPpo({ ...config, stopAfterJobs: 1 }, syntheticPpoRuntime());
+  const newer = await trainPpo({ ...config, stopAfterJobs: 2 }, syntheticPpoRuntime());
+  const newerState = decodePpoResume(newer.resume);
+  assert.throws(() => assertPpoLedgerPrefix(older.resume, [{ jobIndex: newerState.rows.at(-1).index,
+    stepsConsumed: newerState.optimizer.consumedSolverSteps }]), /does not match the run ledger prefix/);
+});
+
+test("a_changed_ppo_plateau_contract_is_refused_before_a_collector_can_run", () => {
+  let collectorCalls = 0; const ledger = [{ stopping: { plateauEpsilon: 0.01, plateauRows: 6 } }];
+  assert.throws(() => assertPpoStoppingContract(ledger, 0.02, 6), /PPO resume refused: plateau contract changed/);
+  assert.equal(collectorCalls, 0);
+});
+
+test("a_due_ppo_row_persisted_as_pending_is_replayed_exactly_once", () => {
+  const row = { row: 1, jobIndex: 5 }; const pending = { row, champion: new Uint8Array([1]) };
+  const prefix = [{ row: 0, jobIndex: 2 }];
+  assert.equal(ppoPendingAction(pending, prefix), "append");
+  prefix.push(row);
+  assert.equal(ppoPendingAction(pending, prefix), "already-appended");
+});
+
+test("a_four_step_tail_is_validation_only_instead_of_claiming_an_update_it_cannot_fit", () => {
+  assert.deepEqual(ppoIterationBudget(4), { train: 0, validation: 4 });
+  assert.deepEqual(ppoIterationBudget(12), { train: 4, validation: 8 });
+  assert.deepEqual(ppoIterationBudget(21_600), { train: 10_800, validation: 10_800 });
+  assert.deepEqual(ppoIterationBudget(21_604), { train: 10_800, validation: 10_800 });
+  assert.throws(() => ppoIterationBudget(6), /invalid PPO remaining arm budget 6/);
+});
+
+test("the_ppo_trajectory_cap_is_derived_from_the_largest_frozen_matrix_bout", () => {
+  const seconds = Math.max(...["train", "validation"].flatMap((split) =>
+    researchMatrix(split, 0).map((job) => job.boutCapSeconds)));
+  assert.equal(seconds, 45);
+  assert.equal(CONFIG.world.physicsHz, 240);
+  assert.equal(PPO_TRAJECTORY_SOLVER_STEP_CAP, seconds * CONFIG.world.physicsHz);
+  assert.equal(PPO_TRAJECTORY_SOLVER_STEP_CAP, 10_800);
+});
+
+test("ppo_interleaves_arms_and_defers_a_plateau_stop_until_the_round_is_fair", async () => {
+  const checkpoints = []; const runtime = syntheticPpoRuntime();
+  runtime.onCheckpoint = async (checkpoint) => {
+    checkpoints.push(checkpoint);
+    return checkpoint.row.index === 0 ? "stopped: plateau" : undefined;
+  };
+  const trained = await trainPpo({ seed: 310013, solverSteps: 24, workers: 1 }, runtime);
+  const report = JSON.parse(new TextDecoder().decode(trained.report));
+  assert.equal(report.stopped, "stopped: plateau");
+  assert.deepEqual(report.rows.map((row) => [row.armIndex, row.iteration]), [[0, 0], [1, 0]]);
+  assert.deepEqual(checkpoints.map((checkpoint) => checkpoint.progress.fairRound), [false, true]);
+  assert.deepEqual(checkpoints.at(-1).progress.armSolverSteps, { random: 8, dagger: 8 });
+  assert.ok(checkpoints.every((checkpoint) => checkpoint.resume instanceof Uint8Array));
+  assert.ok(checkpoints.every((checkpoint) => checkpoint.championArtifact instanceof Uint8Array));
+});
+
+test("an_unchanged_early_ppo_champion_keeps_its_artifact_and_provenance_prefix", async () => {
+  const artifacts = []; const runtime = syntheticPpoRuntime([], (request) => request.solverSteps,
+    (request) => -request.weights.movement.bias[0]);
+  runtime.onCheckpoint = ({ championArtifact }) => { artifacts.push(championArtifact); };
+  const trained = await trainPpo({ seed: 310013, solverSteps: 64_800, workers: 1 }, runtime);
+  const report = JSON.parse(new TextDecoder().decode(trained.report));
+  assert.equal(report.selected, "random"); assert.equal(report.selectedIteration, 0);
+  assert.equal(report.stopped, "stopped: ceiling");
+  assert.ok(artifacts.slice(1).every((artifact) => Buffer.from(artifact).equals(Buffer.from(artifacts[0]))),
+    "later worse rows do not rewrite an unchanged champion artifact");
+  const { provenance } = decodeResearchArtifact(trained.artifact).data;
+  assert.equal(provenance.selectedIteration, 0);
+  assert.equal(provenance.solverSteps, 21_600, "the champion claims only its own arm prefix, not later training");
+  assert.deepEqual(report.rows[0].engagement, { opportunities: 2, attacksInWindow: 1, contactsInWindow: 1,
+    nearRangeStallSeconds: 0.25, seconds: 0.5, firstAttackSeconds: [null] });
+  assert.deepEqual(report.rows.filter((row) => row.armIndex === 0).map((row) => row.armSolverSteps),
+    [21_600, 43_200, 64_800]);
+});
+
 test("random_and_dagger_initializations_receive_the_same_solver_step_budget", () => {
   const arms = equalBudgetPpoArms(310013, 1800);
   assert.deepEqual(arms.map((arm) => arm.initialization), ["random", "dagger"]);
   assert.deepEqual(arms.map((arm) => arm.solverSteps), [1800, 1800]);
-  assert.throws(() => selectPpoArm([{ split: "test", arm: "random", macro: 1, worstCell: 1 }]), /cannot read test rows/);
+  assert.equal(selectPpoArm([{ split: "validation", arm: "random", macro: 1 },
+    { split: "validation", arm: "dagger", macro: 2 }]), "dagger");
+  assert.throws(() => selectPpoArm([{ split: "test", arm: "random", macro: 1 }]), /cannot read test rows/);
 });
 
 test("ppo_resume_reproduces_weights_optimizer_state_and_report_bytes", () => {
@@ -365,6 +555,11 @@ test("ppo_updates_policy_weights_value_head_and_reports_clipping_and_entropy", (
   const expected = (2 * Math.log(2) + Math.log(3) + Math.log(4) + Math.log(6) + Math.log(8)) / PPO_POLICY_HEADS.length;
   assert.ok(Math.abs(report.entropy - expected) < 1e-12,
     `entropy ${report.entropy} against ${expected}`);
+  assert.deepEqual(Object.keys(report.headEntropies), [...PPO_POLICY_HEADS]);
+  for (const name of PPO_POLICY_HEADS) {
+    assert.ok(Math.abs(report.headEntropies[name] - Math.log(supportedCounts[name])) < 1e-12,
+      `${name} entropy ${report.headEntropies[name]} against log(${supportedCounts[name]})`);
+  }
   // And the two divisors it is not, written out so this cannot be satisfied by
   // an accident of arithmetic. Re-derived at six heads: `rows.length * 2` is a
   // divisor of 2 against the true 6, so it reports 3x; `rows.length` alone is a
