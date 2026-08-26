@@ -183,7 +183,7 @@ Baseline taken before any of this work, from `sword-prototype/`, commit `a095877
 | 15 host command boundary | **landed** | `f789ea4`, 459 tests |
 | 16 policy perception v4 | **landed** | `d44fc3e`, 484 tests |
 | 17 tactic output v2 | landed, all stages | `da025f2` `e4ac199` `c149e8c` `7597eb4` `3674e06` `caec629` `c7497af`, 532 tests |
-| -- owner follow-ups | 3 of 4 landed | `4d461ea` `ab52947` `e601824`, 564 tests |
+| -- owner follow-ups | 4 of 4 landed | `4d461ea` `ab52947` `e601824` `ab7875f`, 588 tests |
 | -- research matrix | `sword+axe`, 15 cells | 45 strata, 90 jobs, digest `a011a028`, 565 tests |
 | -- doc pointers | landed, gated | `81030fb`, 15 tests, 580 total |
 | 18 human gate feasibility | not started | -- |
@@ -1107,44 +1107,68 @@ own new prose adds durable anchors. Every count now names its grammar and its ex
 taken at the state that commits. An adversarial pass placed the narrowness in the extension set
 rather than the grammar, and that correction was itself corrected by measurement.
 
-### The one still owed
+### The twenty-sixth output, and a discount that stopped being exact
 
-- **PPO learns its persistence.** Twenty-five of twenty-six outputs are learned; the twenty-sixth is
-  the constant `0.4`. It needs a continuous-action head with a different log-probability in the
-  ratio, which is a change to the update rather than to the contract.
+`ab7875f`, 588 tests. The last of the four. PPO's persistence was the constant
+`UNLEARNED_PERSISTENCE`; it is a sixth categorical head over `PERSISTENCE_SECONDS` now, eight dwell
+times spanning the window with the old constant among them.
 
-And one number from the earlier list was already wrong. The doc-anchor item was recorded as
-"~35 stale colon-form anchors". Measured over every `.ts`, `.mjs`, `.js` and `.md` file in the
-prototype outside `node_modules`, `dist`, `asset-src` and the gitignored `.review`: there are
-**1,520 code-span file references, of which 114 name a file that does not exist**. Only 67 carry a
-line anchor at all, and none of those points past the end of its file -- so the failure mode is not
-drifting line numbers, it is references to files that session 17 stage A **deleted**
-(`evaluate-options.mjs` 19 times, `promotion.ts` 15, `checkpoint.ts` 13, `training-evaluator.mjs` 12,
-`promotion-evaluator.mjs` 11, `train-meta.mjs` 9, counting every spelling of each path as one file).
-Twenty of the 114 sit in live source and
-durable docs rather than in dated plan records, including five in one comment block in
-`src/learning/evaluation.ts` -- and those are the ones that mislead a reader today. The rest are in
-`docs/measurements.md` and `docs/plans/`, where a reference to a script that has since been deleted
-is a correct record of how a measurement was taken and must not be rewritten to pretend otherwise.
-That distinction is the actual design problem in the item, and it is not the one the original note
-described.
+**A grid rather than the Gaussian the docstring described.** That docstring was the argument
+*against* the continuous route -- "a different log-probability in the importance ratio, a different
+entropy term and a different clipping story ... an algorithm change wearing a contract change's
+clothes" -- and none of it touches a binned head, which reuses the categorical log-probability, the
+ratio, the clipping and the `log k` bound. A differential entropy can be negative and is not
+bounded by `log k`, which would have quietly changed what the pinned entropy test asserts.
 
-The count is measured at `ab52947` and deliberately not re-run against this paragraph, which is
-itself several more of them: naming a deleted script inside backticks is how a record says which
-script took a measurement, and a checker that cannot tell that from a live reference will spend the
-rest of its life being argued with.
+**Learning the dwell is what made the discount wrong, and that is the change the head really
+forced.** GAE discounted once per option boundary, which was exact for exactly as long as every
+boundary lasted the same requested time. Vary it and a bout reaching the same terminal in fewer
+boundaries is discounted less, so the head learns the discounting and the training curve goes up --
+the same defect class as the calibration gate that measured its own arithmetic. `durationSeconds`
+is required rather than defaulted to 1, because a default is a silent unit that hands a forgetful
+caller the flat discount the signature exists to remove.
 
-> **Superseded within the hour, by the failure mode the paragraph above it names.** The figures
-> first published here were 1,511 references and 123 stale. They came from a resolver that tried a
-> **fixed list of seven directories** -- the prototype root, `src`, `src/learning`, `scripts`,
-> `tests`, `tests/fixtures`, `docs` -- and `src/bodies/` was not one of them, so every reference to
-> `centipede.ts` was counted as naming a missing file. Re-measured with a resolver that walks the
-> whole tree and matches by path suffix, at the same commit: **1,520 code-span references, 114
-> stale, 20 of them in live source and durable docs.** The conclusion is unchanged and every
-> named-file count above moves by one or two. What changed is who made the mistake: this is the
-> fourth exact-sweep-over-the-wrong-space in this effort and the first one that was mine, in the
-> very paragraph arguing that every sweep must state its coverage space. The rule is not that
-> other people's sweeps need the discipline.
+**`lambda` is not raised to `dt`, and the choice needed an argument rather than a spelling.** Gamma
+is physical; lambda is a per-decision bias/variance knob, and in the exponent the credit window
+becomes a function of the learned dwell -- over ten boundaries the trace would decay 0.9405 at the
+shortest bin against 0.605 at the longest, the same coupling the change exists to remove. The
+mutation that swaps the two spellings was invisible **by construction**: the pinned test used
+`lambda = 1`, where they agree, and the control used a unit duration, where they also agree. Three
+wrong recursions were enumerated beside it and the only one a reader would seriously consider was
+not among them.
+
+**The measurement taken to justify all of this was taken on the tree without it.** Adding a sixth
+`pick` draws a sixth `random()`, and both sweeps shared one stream across every head, so six draws
+per decision shifted it and every bout diverged -- while the sweeps *forced* the persistence and
+therefore never noticed they were measuring a different trajectory set. The published table matched
+`HEAD` bit-for-bit and the shipped tree in no column. Confirmed three ways: by the adversarial pass
+in two sandboxes, by re-running the sweep unmodified here, and by the mechanism in the source. It
+is the seventh exact sweep over the wrong space in this effort and the first where the sweep was
+invalidated by the very code it existed to measure. The sweeps use a per-head RNG now and the
+record opens with the story rather than replacing the numbers quietly.
+
+**Two claims did not survive the re-measurement.** The discount artifact was quoted as "a 35 %
+return advantage to maximal persistence" worth 0.911 a bout. It is a spread in what a terminal is
+*worth*, only 20-23 of 90 bouts have a terminal at all, and those terminals are net **losses** in
+all eight bins -- so on this coverage space a flat gamma *penalised* long dwell. Restated as a
+magnitude whose sign follows the terminal's, at most 0.35 a bout. And the progress term, first
+recorded as monotone in the bin, is flat per *boundary* to 9 % while boundary count varies 3.3x:
+it does not telescope, it is roughly three times the discount term rather than the same order, and
+it is **independent** of it rather than unmasked by fixing it.
+
+**Four tests could not fail and now can.** The collector's dwell -- the site that decides whether
+the training data reflects the sampled bin, and the only one of three that had no pin. The value
+target, where the head learning nothing at all left every test green. The head order, which this
+change is what made matter to a 26-column contract. And the trace spelling above. One of the new
+tests was itself self-satisfying until a mutation caught it: "durations vary, so the sixth head
+decided something" is false, because only a third of boundaries reach their request and the skill
+ends the rest.
+
+**Eleven line anchors were re-pointed and the pass was arithmetic rather than verification**, which
+carried two pre-existing errors forward as though freshly checked -- an off-by-eight into
+`ppo.ts` and an off-by-four into `docs/design.md`. Six more anchors were missed entirely, all in the
+two largest movers, and all of them still land inside their files, so the gate `81030fb` added stays
+green. That is the blind spot that commit's own header names, arriving one commit later.
 
 ### Findings from the implementation pass that change the plan
 
