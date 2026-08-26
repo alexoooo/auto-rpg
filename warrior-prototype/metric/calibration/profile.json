@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "profile": "rigid-v2-provisional",
+  "componentWeights": {
+    "silhouette": 0.15,
+    "structure": 0.25,
+    "landmarks": 0.10,
+    "global_neural": 0.15,
+    "region_neural": 0.20,
+    "material_appearance": 0.15
+  },
+  "aggregation": {"meanWeight": 0.80, "twoWorstMeanWeight": 0.20},
+  "globalAcceptanceMargin": 0.002,
+  "affectedRegionMinimum": 0.005,
+  "unaffectedRegionMaximumRegression": 0.003,
+  "absoluteStoppingBand": null,
+  "promotionStatus": "provisional-human-calibration-required",
+  "minimumHumanLabels": 24,
+  "minimumHeldOutAgreement": 0.75,
+  "minimumImprovementOverV1": 0.05
+}

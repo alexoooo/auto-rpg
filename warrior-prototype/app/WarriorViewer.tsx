@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { initialTurntableState, resetTurntable, toggleTurntable } from "./turntable-state";
+import { isViewerVisible, stageMessage, VIEWER_STAGE_MESSAGES } from "./viewer-readiness";
+import { warriorAsset } from "./warrior-assets";
 import type { WarriorSceneHandle } from "./warrior-scene";
 
 export function WarriorViewer() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<WarriorSceneHandle | null>(null);
-  const [status, setStatus] = useState("Forging the warrior...");
+  const [status, setStatus] = useState(VIEWER_STAGE_MESSAGES.loading);
   const [error, setError] = useState(false);
   const [playing, setPlaying] = useState(false);
 
@@ -17,13 +19,15 @@ export function WarriorViewer() {
     let cancelled = false;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const initial = initialTurntableState(reducedMotion);
+    const asset = warriorAsset(new URLSearchParams(window.location.search).get("asset"));
     setPlaying(initial.playing);
 
     void import("./warrior-scene").then(({ createWarriorScene }) =>
       createWarriorScene(canvas, {
         playing: initial.playing,
+        asset,
         onInspection: () => setPlaying(false),
-        onProgress: setStatus,
+        onStage: (stage) => setStatus(isViewerVisible(stage) ? "" : stageMessage(stage)),
       }),
     ).then((handle) => {
       if (cancelled) {

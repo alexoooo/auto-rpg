@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "authority": "asset-src/v3/export_warrior_v3.py with warrior_v3_torso.py and warrior_v3_plates.py, plus the generated warrior-v3.blend",
+  "license": "Original project-authored geometry; repository license",
+  "units": "meters",
+  "sourceUpAxis": "Z",
+  "exportUpAxis": "Y",
+  "requiredRoot": "Warrior",
+  "variants": ["forged-cuirass", "lamellar-waist", "battleworn-plate"],
+  "primaryVariant": "lamellar-waist",
+  "authoredSubsystem": "torso_waist",
+  "requiredExtras": ["warrior_region", "warrior_material_class"],
+  "requiredAuthoredNodes": [
+    "torso_underlayer", "cuirass_breastplate", "cuirass_backplate",
+    "belt", "belt_buckle", "fauld_lame_0", "fauld_mail_skirt"
+  ],
+  "retiredControlNodes": [
+    "padded_torso", "cuirass_mass", "breastplate", "breastplate_shadow",
+    "cuirass_ridge_0", "cuirass_ridge_1", "cuirass_ridge_2", "cuirass_ridge_3",
+    "fauld_0", "fauld_1", "fauld_2"
+  ],
+  "requiredRegions": [
+    "head_skin", "hair_beard", "collar", "torso", "left_pauldron", "right_pauldron",
+    "left_upper_arm", "right_upper_arm", "left_vambrace", "right_vambrace", "left_hand",
+    "right_hand", "waist", "left_thigh", "right_thigh", "left_knee", "right_knee",
+    "left_greave_boot", "right_greave_boot", "shield_field", "shield_rim_boss",
+    "sword_blade", "sword_hilt", "ignored_cloth"
+  ],
+  "requiredMaterialClasses": [
+    "dark_plate", "bright_edge", "mail_underlayer", "leather", "cloth", "skin",
+    "hair", "shield", "blade"
+  ],
+  "requiredMaterialSlots": [
+    "worn_dark_steel", "polished_steel_edges", "blackened_iron", "aged_brass",
+    "worn_leather", "burgundy_cloth", "warm_skin", "hair_and_beard"
+  ],
+  "requiredSockets": ["sword_grip", "shield_grip", "neck"],
+  "maximumGlbBytes": 4000000,
+  "maximumTriangles": 100000,
+  "bounds": {
+    "space": "glTF Y-up meters",
+    "note": "The accepted control measures min -0.606,0.053,-0.300 to max 0.718,2.038,0.418. This envelope leaves room for authored plate without letting one escape the review frame.",
+    "minimum": [-0.75, 0.0, -0.5],
+    "maximum": [0.9, 2.15, 0.55]
+  }
+}

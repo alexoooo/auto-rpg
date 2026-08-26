@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "family": "pauldron-curved-shell-readiness",
+  "status": "rejected-before-formal-experiment",
+  "screenSourceSha256": "9f6b459b539bb311a5ff24f4958e86c5c88f34bd88d88a3cfded8b9ee19c4d99",
+  "minimumMeanRgbDistance": 0.0015,
+  "variants": {
+    "compact": {
+      "radiusX": 0.135,
+      "radiusY": 0.122,
+      "radiusZ": 0.105,
+      "bottomDegrees": -38.0,
+      "spanDegrees": 96.0,
+      "thickness": 0.012
+    },
+    "forged": {
+      "radiusX": 0.145,
+      "radiusY": 0.130,
+      "radiusZ": 0.112,
+      "bottomDegrees": -34.0,
+      "spanDegrees": 102.0,
+      "thickness": 0.013
+    },
+    "swept": {
+      "radiusX": 0.150,
+      "radiusY": 0.122,
+      "radiusZ": 0.105,
+      "bottomDegrees": -27.0,
+      "spanDegrees": 110.0,
+      "thickness": 0.011
+    }
+  },
+  "result": {
+    "compactForgedMeanRgbDistance": 0.000683206955299658,
+    "compactSweptMeanRgbDistance": 0.0006938253255451426,
+    "forgedSweptMeanRgbDistance": 0.0006446646562978333,
+    "decision": "All pairs fail perceptual separation; no variant may be preregistered as experiment 0085."
+  }
+}

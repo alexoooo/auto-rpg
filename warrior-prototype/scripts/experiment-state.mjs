@@ -86,25 +86,37 @@ export function validatePreregistration(record) {
   }
 }
 
-export function validateReviewOutputs(root) {
-  const review = resolve(root, ".review");
-  const reportPath = resolve(review, "similarity/report.json");
+export function validateReviewOutputs(root, state = readJson(resolve(root, "experiments/accepted-state.json"))) {
+  const review = resolve(root, state.reviewDirectory ?? ".review");
+  const reportDirectory = state.formulaVersion === 2 ? "similarity-v2" : "similarity";
+  const reportPath = resolve(review, reportDirectory, "report.json");
   if (!existsSync(reportPath)) throw new Error("no canonical similarity report exists");
   const report = readJson(reportPath);
   if (report.canonical !== true) throw new Error("experiment snapshots require a canonical report");
+  const expectedProfile = state.phaseBaseline?.referenceProfile;
+  if (expectedProfile && report.referenceProfile !== expectedProfile) {
+    throw new Error(`similarity report uses ${report.referenceProfile}; active phase requires ${expectedProfile}`);
+  }
   if (!report.inputs?.candidate || !report.inputs.candidateLandmarksSha256) {
     throw new Error("similarity report does not identify its candidate inputs");
   }
   for (const view of VIEWS) {
     const inputs = report.inputs.candidate[view];
     if (!inputs) throw new Error(`similarity report lacks candidate hashes for ${view}`);
-    assertHash(resolve(review, `${view}.png`), inputs.beautySha256, `${view} beauty render`);
-    assertHash(resolve(review, `${view}.parts.png`), inputs.partsSha256, `${view} parts render`);
-    requireFile(resolve(review, "similarity", `${view}-mask-overlay.png`));
+    if (state.formulaVersion === 2) {
+      assertHash(resolve(review, `${view}.scoring.png`), inputs.beautySha256, `${view} scoring beauty render`);
+      assertHash(resolve(review, `${view}.regions.png`), inputs.regionsSha256, `${view} region render`);
+      assertHash(resolve(review, `${view}.materials.png`), inputs.materialsSha256, `${view} material render`);
+      requireFile(resolve(review, reportDirectory, `${view}-boundary.png`));
+    } else {
+      assertHash(resolve(review, `${view}.png`), inputs.beautySha256, `${view} beauty render`);
+      assertHash(resolve(review, `${view}.parts.png`), inputs.partsSha256, `${view} parts render`);
+      requireFile(resolve(review, reportDirectory, `${view}-mask-overlay.png`));
+    }
   }
   assertHash(resolve(review, "landmarks.json"), report.inputs.candidateLandmarksSha256, "candidate landmarks");
-  requireFile(resolve(review, "similarity/report.html"));
-  return { report, reportPath };
+  requireFile(resolve(review, reportDirectory, state.formulaVersion === 2 ? "atlas.html" : "report.html"));
+  return { report, reportPath, review, reportDirectory };
 }
 
 export function snapshotExperiment(root, experimentId, stage) {
@@ -120,7 +132,7 @@ export function snapshotExperiment(root, experimentId, stage) {
     throw new Error(`${experimentId} must be the next sequential experiment ${pad(expectedNumber)}`);
   }
 
-  const sourcePath = resolve(root, "asset-src/build_warrior.py");
+  const sourcePath = resolve(root, state.assetSourcePath ?? "asset-src/build_warrior.py");
   const sourceHash = sourceSha256(sourcePath);
   const experimentDirectory = resolve(root, ".review/experiments", experimentId);
   const destination = resolve(experimentDirectory, stage);
@@ -142,19 +154,28 @@ export function snapshotExperiment(root, experimentId, stage) {
   const { report, reportPath } = validateReviewOutputs(root);
   const temporary = `${destination}.tmp`;
   if (existsSync(temporary)) rmSync(temporary, { recursive: true, force: true });
-  mkdirSync(resolve(temporary, "similarity"), { recursive: true });
+  const evidenceDirectory = state.formulaVersion === 2 ? "similarity-v2" : "similarity";
+  mkdirSync(resolve(temporary, evidenceDirectory), { recursive: true });
   try {
-    const review = resolve(root, ".review");
+    const review = resolve(root, state.reviewDirectory ?? ".review");
     for (const view of VIEWS) {
       copyFileSync(resolve(review, `${view}.png`), resolve(temporary, `${view}.png`));
       copyFileSync(resolve(review, `${view}.parts.png`), resolve(temporary, `${view}.parts.png`));
-      copyFileSync(resolve(review, "similarity", `${view}-mask-overlay.png`), resolve(temporary, "similarity", `${view}-mask-overlay.png`));
+      if (state.formulaVersion === 2) {
+        for (const suffix of ["regions", "materials", "scoring"]) {
+          copyFileSync(resolve(review, `${view}.${suffix}.png`), resolve(temporary, `${view}.${suffix}.png`));
+        }
+        copyFileSync(resolve(review, evidenceDirectory, `${view}-boundary.png`), resolve(temporary, evidenceDirectory, `${view}-boundary.png`));
+      } else {
+        copyFileSync(resolve(review, evidenceDirectory, `${view}-mask-overlay.png`), resolve(temporary, evidenceDirectory, `${view}-mask-overlay.png`));
+      }
     }
     copyFileSync(resolve(review, "landmarks.json"), resolve(temporary, "landmarks.json"));
-    copyFileSync(reportPath, resolve(temporary, "similarity/report.json"));
-    copyFileSync(resolve(review, "similarity/report.html"), resolve(temporary, "similarity/report.html"));
+    copyFileSync(reportPath, resolve(temporary, evidenceDirectory, "report.json"));
+    copyFileSync(resolve(review, evidenceDirectory, state.formulaVersion === 2 ? "atlas.html" : "report.html"),
+      resolve(temporary, evidenceDirectory, state.formulaVersion === 2 ? "atlas.html" : "report.html"));
     copyFileSync(sourcePath, resolve(temporary, "asset-source.py"));
-    const summary = makeSummary(experimentId, stage, report, sourceHash, sha256(reportPath));
+    const summary = makeSummary(experimentId, stage, report, sourceHash, sha256(reportPath), evidenceDirectory);
     writeFileSync(resolve(temporary, "summary.json"), `${JSON.stringify(summary, null, 2)}\n`, "utf8");
     const finalReview = validateReviewOutputs(root);
     if (sourceSha256(sourcePath) !== sourceHash || sha256(finalReview.reportPath) !== summary.hashes.reportSha256) {
@@ -193,9 +214,10 @@ export function decideExperiment(root, experimentId, decision) {
   const baseline = readJson(resolve(directory, "baseline/summary.json"));
   const candidate = readJson(resolve(directory, "candidate/summary.json"));
   const comparison = readJson(resolve(directory, "comparison.json"));
-  const sourceHash = sourceSha256(resolve(root, "asset-src/build_warrior.py"));
+  const sourceHash = sourceSha256(resolve(root, state.assetSourcePath ?? "asset-src/build_warrior.py"));
   if (decision === "accepted") {
-    if (comparison.delta > -0.001) throw new Error(`accepted experiment needs a delta of at most -0.001; got ${comparison.delta}`);
+    const margin = state.acceptanceMargin ?? 0.001;
+    if (comparison.delta > -margin) throw new Error(`accepted experiment needs a delta of at most -${margin}; got ${comparison.delta}`);
     if (sourceHash !== candidate.hashes.assetSourceSha256) throw new Error("accepted source no longer matches the captured candidate");
   } else if (sourceHash !== baseline.hashes.assetSourceSha256) {
     throw new Error("rejected experiment must be reverted to its captured baseline before deciding");
@@ -255,9 +277,9 @@ export function auditExperiments(root) {
   const historyStart = archived ? firstActiveNumber : experimentNumber(state.continuityEnforcedAfter);
   const startRecord = archived ? undefined : records[historyStart - 1];
   const startCandidate = archived ? undefined : stageSummary(root, startRecord.id, "candidate");
-  let acceptedHash = archived?.acceptedCheckpoint.assetSourceSha256
+  let acceptedHash = state.phaseBaseline?.assetSourceSha256 ?? archived?.acceptedCheckpoint.assetSourceSha256
     ?? startCandidate.hashes.assetSourceSha256;
-  let acceptedDistance = archived?.acceptedCheckpoint.distance ?? startCandidate.distance;
+  let acceptedDistance = state.phaseBaseline?.distance ?? archived?.acceptedCheckpoint.distance ?? startCandidate.distance;
   let acceptedExperiment = archived?.acceptedCheckpoint.experimentId ?? startRecord.id;
   for (const record of records) {
     if (record.number > closedNumber) continue;
@@ -265,10 +287,13 @@ export function auditExperiments(root) {
     const candidate = stageSummary(root, record.id, "candidate");
     const comparison = readJson(resolve(root, ".review/experiments", record.id, "comparison.json"));
     verifyComparison(baseline, candidate, comparison);
-    assertHash(resolve(root, ".review/experiments", record.id, "baseline/similarity/report.json"), baseline.hashes.reportSha256, `${record.id} baseline report`);
-    assertHash(resolve(root, ".review/experiments", record.id, "candidate/similarity/report.json"), candidate.hashes.reportSha256, `${record.id} candidate report`);
+    assertHash(resolve(root, ".review/experiments", record.id, `baseline/${baseline.reportDirectory ?? "similarity"}/report.json`), baseline.hashes.reportSha256, `${record.id} baseline report`);
+    assertHash(resolve(root, ".review/experiments", record.id, `candidate/${candidate.reportDirectory ?? "similarity"}/report.json`), candidate.hashes.reportSha256, `${record.id} candidate report`);
     requireFile(resolve(root, "experiments/progress", `${record.id}.png`));
-    if (record.number > historyStart) {
+    const participatesInReplay = archived
+      ? record.number >= historyStart
+      : record.number > historyStart;
+    if (participatesInReplay) {
       if (baseline.hashes.assetSourceSha256 !== acceptedHash) throw new Error(`${record.id} baseline does not continue from the accepted source`);
       if (record.status === "accepted") {
         acceptedHash = candidate.hashes.assetSourceSha256;
@@ -280,7 +305,7 @@ export function auditExperiments(root) {
   if (acceptedHash !== state.assetSourceSha256 || acceptedDistance !== state.distance || acceptedExperiment !== state.latestAcceptedExperiment) {
     throw new Error("accepted-state checkpoint disagrees with experiment history");
   }
-  if (sourceSha256(resolve(root, "asset-src/build_warrior.py")) !== state.assetSourceSha256) {
+  if (sourceSha256(resolve(root, state.assetSourcePath ?? "asset-src/build_warrior.py")) !== state.assetSourceSha256) {
     throw new Error("current asset source differs from the accepted-state checkpoint");
   }
   const gallery = readFileSync(resolve(root, "experiments/progress/README.md"), "utf8");
@@ -299,7 +324,7 @@ export function writeProgressGallery(root) {
   const records = listRecords(root).filter(({ status }) => status !== "proposed");
   const state = readJson(resolve(root, "experiments/accepted-state.json"));
   const archived = state.archivedPhases?.at(-1);
-  const initial = archived?.acceptedCheckpoint.distance
+  const initial = state.phaseBaseline?.distance ?? archived?.acceptedCheckpoint.distance
     ?? stageSummary(root, records[0].id, "baseline").distance;
   let acceptedDistance = initial;
   const rows = records.map((record) => {
@@ -355,7 +380,7 @@ function verifyArchivedPhases(root, state) {
   };
 }
 
-function makeSummary(experimentId, stage, report, sourceHash, reportHash) {
+function makeSummary(experimentId, stage, report, sourceHash, reportHash, reportDirectory = "similarity") {
   const componentMeans = Object.fromEntries(Object.keys(report.componentWeights).map((component) => [
     component,
     mean(Object.values(report.views).map((view) => view.components[component])),
@@ -367,6 +392,8 @@ function makeSummary(experimentId, stage, report, sourceHash, reportHash) {
     distance: report.distance,
     componentMeans,
     views: Object.fromEntries(Object.entries(report.views).map(([name, view]) => [name, view.distance])),
+    formulaVersion: report.formulaVersion,
+    reportDirectory,
     hashes: { assetSourceSha256: sourceHash, reportSha256: reportHash },
   };
 }
@@ -426,10 +453,6 @@ function experimentNumber(id) {
   const match = /^(\d{4})-/.exec(id ?? "");
   if (!match) throw new Error(`invalid checkpoint experiment ID: ${id}`);
   return Number(match[1]);
-}
-
-function escapeRegex(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function mean(values) {

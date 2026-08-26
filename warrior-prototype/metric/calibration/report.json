@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "comparisonCount": 0,
+  "targetSimilarityLabels": 0,
+  "productionCoherenceLabels": 0,
+  "promotionStatus": "provisional-human-calibration-required",
+  "reason": "The phase-01 pixel evidence was intentionally pruned before v2 existed; collect digest-pinned v2 A/B labels rather than reconstructing preferences from accept/reject status.",
+  "acceptanceMargin": 0.002,
+  "absoluteStoppingBand": null
+}

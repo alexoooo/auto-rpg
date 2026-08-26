@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "authority": "asset-src/v2/build_warrior_v2.py plus generated warrior-v2.blend",
+  "license": "Original project-authored geometry; repository license",
+  "units": "meters",
+  "sourceUpAxis": "Z",
+  "exportUpAxis": "Y",
+  "requiredRoot": "Warrior",
+  "requiredExtras": ["warrior_region", "warrior_material_class"],
+  "requiredRegions": [
+    "head_skin", "hair_beard", "collar", "torso", "left_pauldron", "right_pauldron",
+    "left_upper_arm", "right_upper_arm", "left_vambrace", "right_vambrace", "left_hand",
+    "right_hand", "waist", "left_thigh", "right_thigh", "left_knee", "right_knee",
+    "left_greave_boot", "right_greave_boot", "shield_field", "shield_rim_boss",
+    "sword_blade", "sword_hilt", "ignored_cloth"
+  ],
+  "maximumGlbBytes": 4000000,
+  "maximumTriangles": 100000,
+  "bounds": {"minimum": [-1.0, -0.6, -0.1], "maximum": [1.0, 0.6, 2.0]}
+}

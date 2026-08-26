@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "views": {
+    "front": {
+      "confidence": "high",
+      "note": "Cardinal-sheet visible surfaces."
+    },
+    "front_left": {
+      "confidence": "medium",
+      "note": "Diagonal sheet is independently generated; equipment and small details are directional, not orthographic truth."
+    },
+    "left": {
+      "confidence": "medium",
+      "note": "Diagonal sheet is independently generated; equipment and small details are directional, not orthographic truth."
+    },
+    "back_left": {
+      "confidence": "medium",
+      "note": "Diagonal sheet is independently generated; equipment and small details are directional, not orthographic truth."
+    },
+    "back": {
+      "confidence": "high",
+      "note": "Cardinal-sheet visible surfaces."
+    },
+    "back_right": {
+      "confidence": "medium",
+      "note": "Diagonal sheet is independently generated; equipment and small details are directional, not orthographic truth."
+    },
+    "right": {
+      "confidence": "medium",
+      "note": "Diagonal sheet is independently generated; equipment and small details are directional, not orthographic truth."
+    },
+    "front_right": {
+      "confidence": "medium",
+      "note": "Diagonal sheet is independently generated; equipment and small details are directional, not orthographic truth."
+    }
+  }
+}

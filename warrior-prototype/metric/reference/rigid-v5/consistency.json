@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "profile": "rigid-v5",
+  "parentProfile": "rigid-v4",
+  "status": "frozen-consistent-ontology",
+  "reviewedViews": [
+    "front",
+    "front_left",
+    "left",
+    "back_left",
+    "back",
+    "back_right",
+    "right",
+    "front_right"
+  ],
+  "sourceBoundary": "imagegen proposals plus target annotations only",
+  "knownLimits": [
+    "proposals are coarse and do not establish exact mail links or fingers",
+    "independently generated sheets are directional rather than orthographic truth"
+  ],
+  "views": {
+    "front": {
+      "confidence": "medium",
+      "note": "Explicit cardinal or diagonal sheet with shared limb ontology."
+    },
+    "front_left": {
+      "confidence": "medium",
+      "note": "Explicit cardinal or diagonal sheet with shared limb ontology."
+    },
+    "left": {
+      "confidence": "medium",
+      "note": "Explicit cardinal or diagonal sheet with shared limb ontology."
+    },
+    "back_left": {
+      "confidence": "medium",
+      "note": "Explicit cardinal or diagonal sheet with shared limb ontology."
+    },
+    "back": {
+      "confidence": "medium",
+      "note": "Explicit cardinal or diagonal sheet with shared limb ontology."
+    },
+    "back_right": {
+      "confidence": "medium",
+      "note": "Explicit cardinal or diagonal sheet with shared limb ontology."
+    },
+    "right": {
+      "confidence": "medium",
+      "note": "Explicit cardinal or diagonal sheet with shared limb ontology."
+    },
+    "front_right": {
+      "confidence": "medium",
+      "note": "Explicit cardinal or diagonal sheet with shared limb ontology."
+    }
+  }
+}

@@ -1,11 +1,24 @@
 {
   "schemaVersion": 2,
-  "latestClosedExperiment": "0073-layered-plate-gauntlets",
-  "latestAcceptedExperiment": "0032-ablate-pauldron-hoops",
-  "distance": 0.6740783861195763,
-  "assetSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
-  "reportSha256": "b21b2749febb4942f818874f483eb9d6e3764bc7a2ca3463e9bd4822f746022a",
-  "activePhase": "phase-02",
+  "latestClosedExperiment": "0087-hand-pivoted-shield-yaw",
+  "latestAcceptedExperiment": "0085-tall-narrow-proportion-model",
+  "distance": 0.858135742034491,
+  "assetSourceSha256": "f377cb5093ecb68b35d98fbe4e43cb83062bde61ec9ead0be4bf8d396a628b92",
+  "reportSha256": "1073cd52c174c9b82b6b24a22380cd3add86ad67fa7a43717ebd00aadc1b18bc",
+  "activePhase": "phase-05",
+  "formulaVersion": 2,
+  "acceptanceMargin": 0.002,
+  "stoppingBand": null,
+  "assetSourcePath": "asset-src/build_warrior.py",
+  "reviewDirectory": ".review",
+  "phaseBaseline": {
+    "formulaVersion": 2,
+    "distance": 0.858135742034491,
+    "assetSourceSha256": "f377cb5093ecb68b35d98fbe4e43cb83062bde61ec9ead0be4bf8d396a628b92",
+    "reportSha256": "1073cd52c174c9b82b6b24a22380cd3add86ad67fa7a43717ebd00aadc1b18bc",
+    "referenceProfile": "rigid-v5",
+    "status": "frozen-consistent-ontology"
+  },
   "archivedPhases": [
     {
       "phaseId": "phase-01",
@@ -18,6 +31,32 @@
         "distance": 0.6740783861195763,
         "assetSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
         "reportSha256": "b21b2749febb4942f818874f483eb9d6e3764bc7a2ca3463e9bd4822f746022a"
+      }
+    },
+    {
+      "phaseId": "phase-02",
+      "firstExperiment": "0074-dark-mail-upper-arms",
+      "lastExperiment": "0084-fitted-elliptical-belt-v2",
+      "recordCount": 11,
+      "manifestSha256": "12675fa68e6eb3711f3e60a03f74c29690f7647f75b37e79b18dd7272c3b9325",
+      "acceptedCheckpoint": {
+        "experimentId": "0032-ablate-pauldron-hoops",
+        "distance": 0.621632684510433,
+        "assetSourceSha256": "e8f29c02b81763acd97aba33cd7f7c6d534054ac99b899f8191a2c3fbcad2488",
+        "reportSha256": "b75b85b05855656450ebfc3419779d5c82c6b0e1c2f92595d25e7c5f6628cfb2"
+      }
+    },
+    {
+      "phaseId": "phase-04",
+      "firstExperiment": "0085-tall-narrow-proportion-model",
+      "lastExperiment": "0086-longline-torso-shell",
+      "recordCount": 2,
+      "manifestSha256": "96c1487692584e258050fe60d79232f0f9caf0c7a24fafc13447f901a5b5b3a9",
+      "acceptedCheckpoint": {
+        "experimentId": "0085-tall-narrow-proportion-model",
+        "distance": 0.8642787573879791,
+        "assetSourceSha256": "f377cb5093ecb68b35d98fbe4e43cb83062bde61ec9ead0be4bf8d396a628b92",
+        "reportSha256": "0298c1dac6aa763a31fc97c06c029f6b344f137245d350f47afc6ca8f08255f1"
       }
     }
   ]

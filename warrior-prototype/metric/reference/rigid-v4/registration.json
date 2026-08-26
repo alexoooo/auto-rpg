@@ -1,0 +1,293 @@
+{
+  "canvas": [
+    512,
+    640
+  ],
+  "ownershipCorrection": "shield field versus rim/boss only",
+  "parentProfile": "rigid-v3",
+  "profile": "rigid-v4",
+  "schemaVersion": 1,
+  "views": {
+    "back": {
+      "basis": "phase-01 accepted foreground; frozen for all candidates",
+      "candidate": {
+        "sourceBox": [
+          62,
+          106,
+          533,
+          690
+        ],
+        "targetOffset": [
+          25,
+          37
+        ],
+        "targetSize": [
+          461,
+          571
+        ]
+      },
+      "reference": {
+        "sourceBox": [
+          17,
+          23,
+          386,
+          768
+        ],
+        "targetOffset": [
+          113,
+          32
+        ],
+        "targetSize": [
+          285,
+          576
+        ]
+      }
+    },
+    "back_left": {
+      "basis": "phase-01 accepted foreground; frozen for all candidates",
+      "candidate": {
+        "sourceBox": [
+          36,
+          107,
+          465,
+          717
+        ],
+        "targetOffset": [
+          53,
+          32
+        ],
+        "targetSize": [
+          405,
+          576
+        ]
+      },
+      "reference": {
+        "sourceBox": [
+          20,
+          29,
+          332,
+          769
+        ],
+        "targetOffset": [
+          134,
+          32
+        ],
+        "targetSize": [
+          243,
+          576
+        ]
+      }
+    },
+    "back_right": {
+      "basis": "phase-01 accepted foreground; frozen for all candidates",
+      "candidate": {
+        "sourceBox": [
+          179,
+          106,
+          556,
+          716
+        ],
+        "targetOffset": [
+          78,
+          32
+        ],
+        "targetSize": [
+          356,
+          576
+        ]
+      },
+      "reference": {
+        "sourceBox": [
+          14,
+          29,
+          343,
+          769
+        ],
+        "targetOffset": [
+          128,
+          32
+        ],
+        "targetSize": [
+          256,
+          576
+        ]
+      }
+    },
+    "front": {
+      "basis": "phase-01 accepted foreground; frozen for all candidates",
+      "candidate": {
+        "sourceBox": [
+          94,
+          113,
+          609,
+          731
+        ],
+        "targetOffset": [
+          25,
+          55
+        ],
+        "targetSize": [
+          461,
+          553
+        ]
+      },
+      "reference": {
+        "sourceBox": [
+          18,
+          24,
+          419,
+          769
+        ],
+        "targetOffset": [
+          101,
+          32
+        ],
+        "targetSize": [
+          310,
+          576
+        ]
+      }
+    },
+    "front_left": {
+      "basis": "phase-01 accepted foreground; frozen for all candidates",
+      "candidate": {
+        "sourceBox": [
+          102,
+          113,
+          481,
+          731
+        ],
+        "targetOffset": [
+          79,
+          32
+        ],
+        "targetSize": [
+          353,
+          576
+        ]
+      },
+      "reference": {
+        "sourceBox": [
+          22,
+          31,
+          391,
+          779
+        ],
+        "targetOffset": [
+          114,
+          32
+        ],
+        "targetSize": [
+          284,
+          576
+        ]
+      }
+    },
+    "front_right": {
+      "basis": "phase-01 accepted foreground; frozen for all candidates",
+      "candidate": {
+        "sourceBox": [
+          151,
+          112,
+          568,
+          739
+        ],
+        "targetOffset": [
+          64,
+          32
+        ],
+        "targetSize": [
+          383,
+          576
+        ]
+      },
+      "reference": {
+        "sourceBox": [
+          22,
+          28,
+          356,
+          773
+        ],
+        "targetOffset": [
+          127,
+          32
+        ],
+        "targetSize": [
+          258,
+          576
+        ]
+      }
+    },
+    "left": {
+      "basis": "phase-01 accepted foreground; frozen for all candidates",
+      "candidate": {
+        "sourceBox": [
+          159,
+          110,
+          421,
+          728
+        ],
+        "targetOffset": [
+          134,
+          32
+        ],
+        "targetSize": [
+          244,
+          576
+        ]
+      },
+      "reference": {
+        "sourceBox": [
+          13,
+          24,
+          311,
+          773
+        ],
+        "targetOffset": [
+          141,
+          32
+        ],
+        "targetSize": [
+          229,
+          576
+        ]
+      }
+    },
+    "right": {
+      "basis": "phase-01 accepted foreground; frozen for all candidates",
+      "candidate": {
+        "sourceBox": [
+          219,
+          109,
+          452,
+          726
+        ],
+        "targetOffset": [
+          147,
+          32
+        ],
+        "targetSize": [
+          218,
+          576
+        ]
+      },
+      "reference": {
+        "sourceBox": [
+          21,
+          24,
+          307,
+          769
+        ],
+        "targetOffset": [
+          145,
+          32
+        ],
+        "targetSize": [
+          221,
+          576
+        ]
+      }
+    }
+  },
+  "ownershipSource": "vision proposal plus original polygons and landmarks"
+}

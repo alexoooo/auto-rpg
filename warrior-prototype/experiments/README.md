@@ -17,6 +17,13 @@ they form one indivisible feature, such as mirroring the complete sword and
 shield assembly. Do not combine unrelated shape, material, lighting, and camera
 changes just because they fit in one edit.
 
+Formal IDs are confirmation evidence, not modeling scratch space. Before
+preregistering a representation-level candidate, screen at least three
+materially different variants through all eight low-cost structural renders,
+contact checks, and full-resolution production review. Neural scoring is for the
+shortlist. A scalar edit to a representation family already closed by two
+failures is not a new hypothesis.
+
 ## One iteration
 
 1. Create `experiments/NNNN-short-name.md` from `TEMPLATE.md`. Before editing,
@@ -111,3 +118,39 @@ An archive closes evidence storage, not intellectual responsibility. If an old
 candidate becomes relevant under a new ruler, cite its archived ID and rerun it
 as a newly preregistered experiment. Never retroactively change its decision or
 splice a formula-v2 score into the formula-v1 ledger.
+
+## Phase-02 evidence
+
+Phase 02 uses rigid-v2 as its primary diagnostic report. Each experiment records
+the global result, affected-region movement, unaffected spill, contacts, and an
+all-eight-view production review. Formula v1 is still run as a historical
+diagnostic but its number is not compared directly to the v2 phase baseline.
+
+Rigid-v2 remains provisionally calibrated. Acceptance therefore requires the
+global margin from `metric/calibration/profile.json`, the preregistered affected
+region gain, bounded unaffected spill, coherent neural movement, and an explicit
+production-coherence pass. Ambiguous results additionally use the digest-pinned
+blinded A/B tool, which records target similarity and production coherence
+separately.
+
+The current contracts are [similarity v2](../docs/reference/similarity-v2.md)
+and [authored asset v2](../docs/reference/authored-asset-v2.md).
+
+Experiments 0075–0084 confirmed that isolated scalar edits remain stalled under
+the better ruler. Their durable interpretation is the
+[phase-02 first-ten debrief](../docs/analysis/phase-02-first-ten-debrief.md).
+The next block follows the
+[authored-search plan](../docs/plans/warrior-authored-search-00-overview.md).
+Its ruler transition is recorded in the
+[rigid-v4 target-segmentation audit](../docs/analysis/rigid-v4-target-segmentation-audit.md),
+and experiment 0085 must still cross a representation boundary.
+
+The active phase now uses `rigid-v5`. The v5 transition corrects exact
+cardinal/diagonal source routing and freezes a consistent eight-view ontology;
+it does not credit the resulting baseline movement as asset progress. The
+[rigid-v5 cardinal audit and sprint record](../docs/analysis/rigid-v5-cardinal-segmentation-and-sprint.md)
+owns the rationale, limitations, and experiments 0086-0087. No new formal
+record may start until the authored-subsystem readiness gate is restored. The
+[next-agent handoff](../docs/plans/warrior-authored-search-05-next-agent-handoff.md)
+pins the exact checkpoint and owns the implementation sequence for experiment
+0088.

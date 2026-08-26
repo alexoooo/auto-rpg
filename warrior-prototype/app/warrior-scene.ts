@@ -17,6 +17,8 @@ import { PointerEventTypes } from "@babylonjs/core/Events/pointerEvents.js";
 import { Scene } from "@babylonjs/core/scene.js";
 
 import { advanceAngle } from "./turntable-state";
+import { WARRIOR_ASSETS, type WarriorAsset } from "./warrior-assets";
+import { advanceStage, type ViewerStage } from "./viewer-readiness";
 
 const INITIAL_ALPHA = -Math.PI / 2.7;
 const INITIAL_BETA = 1.22;
@@ -30,8 +32,9 @@ export type WarriorSceneHandle = {
 
 type SceneOptions = {
   playing: boolean;
+  asset?: WarriorAsset;
   onInspection(): void;
-  onProgress(message: string): void;
+  onStage(stage: ViewerStage): void;
 };
 
 export async function createWarriorScene(
@@ -86,14 +89,20 @@ export async function createWarriorScene(
   groundMaterial.roughness = 0.96;
   ground.material = groundMaterial;
 
-  options.onProgress("Loading forged steel and leather...");
-  const container = await LoadAssetContainerAsync("/assets/warrior.glb", scene, {
+  let stage: ViewerStage = "loading";
+  const reached = (event: Parameters<typeof advanceStage>[1]) => {
+    stage = advanceStage(stage, event);
+    options.onStage(stage);
+  };
+  reached("scene-built");
+  const assetName = WARRIOR_ASSETS[options.asset ?? "v1"];
+  const container = await LoadAssetContainerAsync(`/assets/${assetName}`, scene, {
     pluginExtension: ".glb",
-    name: "warrior.glb",
+    name: assetName,
   });
   container.addAllToScene();
   const warriorRoot = container.transformNodes.find((node) => node.name === "Warrior");
-  if (warriorRoot === undefined) throw new Error("warrior.glb has no Warrior scene root");
+  if (warriorRoot === undefined) throw new Error(`${assetName} has no Warrior scene root`);
 
   const shadows = new ShadowGenerator(2048, key);
   shadows.useBlurExponentialShadowMap = true;
@@ -119,6 +128,19 @@ export async function createWarriorScene(
   });
   const resize = () => engine.resize();
   window.addEventListener("resize", resize);
+  // Everything is in the scene, but nothing has been drawn yet. Wait for the
+  // materials and shaders, then for a frame to actually reach the canvas, before
+  // handing back a handle. Returning earlier is what made a working viewer look
+  // like a dead black rectangle.
+  reached("assets-ready");
+  await scene.whenReadyAsync();
+
+  const firstFrame = new Promise<void>((resolve) => {
+    const observer = scene.onAfterRenderObservable.add(() => {
+      scene.onAfterRenderObservable.remove(observer);
+      resolve();
+    });
+  });
   engine.runRenderLoop(() => {
     const now = performance.now();
     angle = advanceAngle(angle, Math.min(0.1, (now - lastFrame) / 1000), playing);
@@ -127,6 +149,8 @@ export async function createWarriorScene(
     warriorRoot.rotation.y = angle;
     scene.render();
   });
+  await firstFrame;
+  reached("frame-rendered");
 
   return {
     setPlaying(next): void {

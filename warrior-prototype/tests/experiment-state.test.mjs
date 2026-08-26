@@ -98,6 +98,21 @@ test("an_archived_phase_bootstraps_the_next_sequential_experiment", () => {
 
     writeReview(root, "baseline", state.distance);
     snapshotExperiment(root, "0002-second", "baseline");
+    writeFileSync(resolve(root, "asset-src/build_warrior.py"), "candidate\n");
+    writeReview(root, "candidate", state.distance - 0.1);
+    snapshotExperiment(root, "0002-second", "candidate");
+    const recordPath = resolve(root, "experiments/0002-second.md");
+    writeFileSync(recordPath, `${readFileSync(recordPath, "utf8")}
+
+## Result
+
+- Decision: accept the reviewed candidate.
+
+## Diagnostics and visual review
+
+All eight views were inspected and changed as expected.
+`);
+    decideExperiment(root, "0002-second", "accepted");
     assert.equal(auditExperiments(root).experiments, 2);
   } finally {
     rmSync(root, { recursive: true, force: true });

@@ -31,18 +31,17 @@ function digest(directory) {
 }
 
 function metricSummary(directory) {
-  const candidates = [resolve(directory, "similarity/report.json"), resolve(directory, "report.json")];
+  const candidates = [resolve(directory, "similarity-v2/report.json"), resolve(directory, "similarity/report.json"), resolve(directory, "report.json")];
   const reportPath = candidates.find((value) => existsSync(value));
   if (!reportPath) return null;
   const report = JSON.parse(readFileSync(reportPath, "utf8"));
-  const components = {};
-  for (const component of Object.keys(report.componentWeights)) {
-    const values = views.map((view) => report.views[view].components[component]);
-    if (values.some((value) => typeof value !== "number")) continue;
-    components[component] = 0.75 * values.reduce((sum, value) => sum + value, 0) / values.length
-      + 0.25 * Math.max(...values);
-  }
-  return { formulaVersion: report.formulaVersion, distance: report.distance, components };
+  return {
+    formulaVersion: report.formulaVersion,
+    distance: report.distance,
+    componentWeights: report.componentWeights,
+    aggregation: report.aggregation,
+    views: report.views,
+  };
 }
 
 function page() {
@@ -53,8 +52,9 @@ function page() {
   return `<!doctype html><html lang="en"><meta charset="utf-8"><title>Warrior A/B comparison</title>
   <style>body{margin:1.5rem;background:#15110f;color:#eee;font:16px system-ui}.pair{display:grid;grid-template-columns:1fr 1fr;gap:2rem}.views{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}figure{margin:0}img{width:100%}button{font:inherit;padding:.8rem 1.4rem;margin:.6rem}</style>
   <body><h1>Which candidate is closer to the concept warrior?</h1><div class="pair">${columns}</div>
-  <p><button data-choice="left">Left is closer</button><button data-choice="tie">Tie</button><button data-choice="right">Right is closer</button></p>
-  <output></output><script>for(const button of document.querySelectorAll('button'))button.onclick=async()=>{const response=await fetch('/choice',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({choice:button.dataset.choice})});document.querySelector('output').textContent=await response.text()}</script></body></html>`;
+  <h3>Target similarity</h3><p><button data-kind="target" data-choice="left">Left</button><button data-kind="target" data-choice="tie">Tie</button><button data-kind="target" data-choice="right">Right</button></p>
+  <h3>Production coherence</h3><p><button data-kind="production" data-choice="left">Left</button><button data-kind="production" data-choice="tie">Tie</button><button data-kind="production" data-choice="right">Right</button></p>
+  <p><button id="submit" disabled>Record both judgments</button></p><output></output><script>const choices={};for(const button of document.querySelectorAll('[data-kind]'))button.onclick=()=>{choices[button.dataset.kind]=button.dataset.choice;button.parentElement.querySelectorAll('button').forEach(value=>value.disabled=false);button.disabled=true;document.querySelector('#submit').disabled=!choices.target||!choices.production};document.querySelector('#submit').onclick=async()=>{const response=await fetch('/choice',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(choices)});document.querySelector('output').textContent=await response.text()}</script></body></html>`;
 }
 
 const server = createServer((request, response) => {
@@ -73,20 +73,21 @@ const server = createServer((request, response) => {
     let body = "";
     request.on("data", (chunk) => { body += chunk; });
     request.on("end", () => {
-      const choice = JSON.parse(body).choice;
-      if (!["left", "right", "tie"].includes(choice)) {
-        response.writeHead(400).end("invalid choice");
+      const choices = JSON.parse(body);
+      if (![choices.target, choices.production].every((choice) => ["left", "right", "tie"].includes(choice))) {
+        response.writeHead(400).end("invalid target or production choice");
         return;
       }
       const record = {
-        schemaVersion: 1,
-        choice,
+        schemaVersion: 2,
+        targetChoice: choices.target,
+        productionChoice: choices.production,
         left: { path: displayed[0], sha256: digest(displayed[0]), metric: metricSummary(displayed[0]) },
         right: { path: displayed[1], sha256: digest(displayed[1]), metric: metricSummary(displayed[1]) },
       };
       appendFileSync(output, `${JSON.stringify(record)}\n`);
       response.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
-      response.end(`Recorded ${choice}. Stop this server with Ctrl+C.`);
+      response.end(`Recorded target=${choices.target}, production=${choices.production}. Stop this server with Ctrl+C.`);
     });
     return;
   }

@@ -52,6 +52,48 @@ PART_COLOURS = {
     "tabard": (1.0, 0.0, 1.0, 1.0),
 }
 
+# V2 review IDs are deliberately independent of mesh topology. The palette is
+# also a publication contract: score_v2.py refuses unknown opaque colours rather
+# than silently folding a new object into body armour.
+REGION_COLOURS = {
+    "head_skin": (1.0, 0.20, 0.20, 1.0),
+    "hair_beard": (0.55, 0.10, 0.85, 1.0),
+    "collar": (1.0, 0.55, 0.05, 1.0),
+    "torso": (0.85, 0.05, 0.05, 1.0),
+    "left_pauldron": (0.95, 0.35, 0.10, 1.0),
+    "right_pauldron": (0.95, 0.65, 0.10, 1.0),
+    "left_upper_arm": (0.55, 0.85, 0.10, 1.0),
+    "right_upper_arm": (0.20, 0.80, 0.20, 1.0),
+    "left_vambrace": (0.05, 0.75, 0.55, 1.0),
+    "right_vambrace": (0.05, 0.70, 0.85, 1.0),
+    "left_hand": (0.10, 0.35, 1.0, 1.0),
+    "right_hand": (0.30, 0.15, 1.0, 1.0),
+    "waist": (0.75, 0.10, 0.75, 1.0),
+    "left_thigh": (0.95, 0.15, 0.55, 1.0),
+    "right_thigh": (1.0, 0.30, 0.70, 1.0),
+    "left_knee": (0.75, 0.45, 0.90, 1.0),
+    "right_knee": (0.55, 0.35, 0.80, 1.0),
+    "left_greave_boot": (0.35, 0.25, 0.70, 1.0),
+    "right_greave_boot": (0.20, 0.15, 0.55, 1.0),
+    "shield_field": (0.10, 0.45, 0.95, 1.0),
+    "shield_rim_boss": (0.10, 0.75, 1.0, 1.0),
+    "sword_blade": (0.95, 0.95, 0.15, 1.0),
+    "sword_hilt": (0.80, 0.55, 0.05, 1.0),
+    "ignored_cloth": (1.0, 0.0, 1.0, 1.0),
+}
+
+MATERIAL_COLOURS = {
+    "dark_plate": (0.85, 0.10, 0.10, 1.0),
+    "bright_edge": (1.0, 0.55, 0.10, 1.0),
+    "mail_underlayer": (0.75, 0.10, 0.75, 1.0),
+    "leather": (0.45, 0.25, 0.05, 1.0),
+    "cloth": (1.0, 0.0, 1.0, 1.0),
+    "skin": (1.0, 0.45, 0.35, 1.0),
+    "hair": (0.30, 0.10, 0.05, 1.0),
+    "shield": (0.10, 0.40, 1.0, 1.0),
+    "blade": (0.80, 0.90, 1.0, 1.0),
+}
+
 
 def arguments():
     parser = argparse.ArgumentParser(allow_abbrev=False)
@@ -335,6 +377,68 @@ def part_group(name):
     return "body_armour"
 
 
+def region_group(name):
+    if hasattr(name, "name"):
+        name = name.name
+    if name in {"head", "nose"} or name.endswith("_eye_socket"):
+        return "head_skin"
+    if name in {"beard", "hair_back"} or name.startswith("hair_tuft_"):
+        return "hair_beard"
+    if name == "gorget":
+        return "collar"
+    if name.startswith("shield_"):
+        return "shield_rim_boss" if name == "shield_boss" else "shield_field"
+    if name == "kite_shield":
+        return "shield_rim_boss"
+    if name == "sword_blade":
+        return "sword_blade"
+    if name.startswith("sword_"):
+        return "sword_hilt"
+    if name in {"tabard", "tabard_badge", "rear_tabard"}:
+        return "ignored_cloth"
+    if name == "belt" or name == "belt_buckle" or name.startswith("fauld_"):
+        return "waist"
+    for side in ("left", "right"):
+        if name.startswith(side + "_pauldron"):
+            return side + "_pauldron"
+        if name == side + "_upper_arm":
+            return side + "_upper_arm"
+        if name == side + "_vambrace":
+            return side + "_vambrace"
+        if name.startswith(side + "_gauntlet"):
+            return side + "_hand"
+        if name == side + "_thigh":
+            return side + "_thigh"
+        if name.startswith(side + "_knee"):
+            return side + "_knee"
+        if (name == side + "_shin" or name == side + "_greave"
+                or name.startswith(side + "_greave_band_") or name == side + "_boot"):
+            return side + "_greave_boot"
+    return "torso"
+
+
+def material_group(obj):
+    name = obj.name
+    if name in {"tabard", "rear_tabard"}:
+        return "cloth"
+    if name in {"head", "nose"}:
+        return "skin"
+    if name in {"beard", "hair_back"} or name.startswith("hair_tuft_"):
+        return "hair"
+    if name == "sword_blade":
+        return "blade"
+    if name.startswith("shield_") or name == "kite_shield":
+        return "shield"
+    material_name = obj.data.materials[0].name if obj.data.materials else ""
+    if material_name == "polished_steel_edges":
+        return "bright_edge"
+    if material_name == "worn_leather":
+        return "leather"
+    if material_name == "blackened_iron":
+        return "mail_underlayer"
+    return "dark_plate"
+
+
 def render_part_mask(scene, ground, root, filepath):
     engine = scene.render.engine
     film_transparent = scene.render.film_transparent
@@ -361,6 +465,44 @@ def render_part_mask(scene, ground, root, filepath):
     scene.render.engine = engine
     scene.render.film_transparent = film_transparent
     scene.display.shading.show_shadows = transparent
+
+
+def render_id_mask(scene, ground, root, filepath, colours, classifier):
+    engine = scene.render.engine
+    film_transparent = scene.render.film_transparent
+    colour_type = scene.display.shading.color_type
+    light = scene.display.shading.light
+    shadows = scene.display.shading.show_shadows
+    cavity = scene.display.shading.show_cavity
+    object_colours = {}
+    for child in root.children_recursive:
+        if child.type != "MESH":
+            continue
+        object_colours[child.name] = tuple(child.color)
+        child.color = colours[classifier(child)]
+    ground.hide_render = True
+    scene.render.engine = "BLENDER_WORKBENCH"
+    scene.display.shading.light = "FLAT"
+    scene.display.shading.color_type = "OBJECT"
+    scene.display.shading.show_shadows = False
+    scene.display.shading.show_cavity = False
+    scene.render.film_transparent = True
+    scene.view_settings.view_transform = "Standard"
+    scene.view_settings.look = "Medium High Contrast"
+    scene.render.filepath = str(filepath)
+    bpy.ops.render.render(write_still=True)
+    for child in root.children_recursive:
+        if child.type == "MESH":
+            child.color = object_colours[child.name]
+    ground.hide_render = False
+    scene.render.engine = engine
+    scene.render.film_transparent = film_transparent
+    scene.display.shading.color_type = colour_type
+    scene.display.shading.light = light
+    scene.display.shading.show_shadows = shadows
+    scene.display.shading.show_cavity = cavity
+    scene.view_settings.view_transform = "AgX"
+    scene.view_settings.look = "AgX - Medium High Contrast"
 
 
 def projected_landmarks(scene, camera):
@@ -402,6 +544,19 @@ def render_reviews(review, root):
         scene.render.filepath = str(review / f"{name}.png")
         bpy.ops.render.render(write_still=True)
         render_part_mask(scene, ground, root, review / f"{name}.parts.png")
+        render_id_mask(scene, ground, root, review / f"{name}.regions.png",
+                       REGION_COLOURS, region_group)
+        render_id_mask(scene, ground, root, review / f"{name}.materials.png",
+                       MATERIAL_COLOURS, material_group)
+        ignored = []
+        for child in root.children_recursive:
+            if child.type == "MESH" and region_group(child.name) == "ignored_cloth":
+                ignored.append((child, child.hide_render))
+                child.hide_render = True
+        scene.render.filepath = str(review / f"{name}.scoring.png")
+        bpy.ops.render.render(write_still=True)
+        for child, hidden in ignored:
+            child.hide_render = hidden
         landmarks["views"][name] = projected_landmarks(scene, camera)
     (review / "landmarks.json").write_text(json.dumps(landmarks, indent=2) + "\n", encoding="utf-8")
 
@@ -409,6 +564,9 @@ def render_reviews(review, root):
 def main():
     args = arguments()
     root = make_warrior()
+    root.scale.x = .91
+    root.scale.z = 1.10
+    root.location.z = .05 * (1.0 - 1.10)
     if not args.review_only:
         export(root, args.output)
     render_reviews(args.review, root)

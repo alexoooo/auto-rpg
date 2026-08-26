@@ -1,7 +1,6 @@
 import {
   existsSync,
   mkdirSync,
-  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -137,6 +136,14 @@ writeJsonAtomic(statePath, {
   ...state,
   schemaVersion: 2,
   activePhase: nextPhase,
+  phaseBaseline: {
+    formulaVersion: state.formulaVersion,
+    distance: state.distance,
+    assetSourceSha256: state.assetSourceSha256,
+    reportSha256: state.reportSha256,
+    referenceProfile: state.phaseBaseline?.referenceProfile,
+    status: "archived-terminal-checkpoint",
+  },
   archivedPhases: [...(state.archivedPhases ?? []), archivedPhase],
 });
 

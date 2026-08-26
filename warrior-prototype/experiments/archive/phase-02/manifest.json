@@ -1,0 +1,391 @@
+{
+  "schemaVersion": 1,
+  "phaseId": "phase-02",
+  "firstExperiment": "0074-dark-mail-upper-arms",
+  "lastExperiment": "0084-fitted-elliptical-belt-v2",
+  "recordCount": 11,
+  "initialDistance": 0.621632684510433,
+  "acceptedCheckpoint": {
+    "experimentId": "0032-ablate-pauldron-hoops",
+    "distance": 0.621632684510433,
+    "assetSourceSha256": "e8f29c02b81763acd97aba33cd7f7c6d534054ac99b899f8191a2c3fbcad2488",
+    "reportSha256": "b75b85b05855656450ebfc3419779d5c82c6b0e1c2f92595d25e7c5f6628cfb2"
+  },
+  "contactSheetSha256": "26ea558a4128579e85055fa7a99088c20be20b897c25bd4f2796e8514cf06948",
+  "experiments": [
+    {
+      "id": "0074-dark-mail-upper-arms",
+      "title": "Dedicated dark-mail upper-arm material",
+      "status": "rejected",
+      "baselineDistance": 0.621632684510433,
+      "candidateDistance": 0.6222940270611355,
+      "delta": 0.0006613425507024928,
+      "componentDeltas": {
+        "global_neural": 0.0039859339594841,
+        "landmarks": 0,
+        "material_appearance": 0.002255492011719762,
+        "region_neural": -0.0012969337403774261,
+        "silhouette": 0,
+        "structure": 0
+      },
+      "viewDeltas": {
+        "back": 0.0006967541855884551,
+        "back_left": 0.0005020541405957868,
+        "back_right": 0.0014915478798154247,
+        "front": 0.0008665955997891883,
+        "front_left": 0.0005325615448190102,
+        "front_right": 0.00028283244687576925,
+        "left": 0.001271087291762285,
+        "right": -0.00022881590840517774
+      },
+      "hashes": {
+        "recordSha256": "3f3f6591d3c664863d9606956fa8ccb0de42bdf2663bbbfdabd3e69a7deb33b6",
+        "progressSha256": "84802ea988dfefa27c3b62d299ae1c43aa9d5220682cfb2dcb00335422c78606",
+        "baselineSourceSha256": "e8f29c02b81763acd97aba33cd7f7c6d534054ac99b899f8191a2c3fbcad2488",
+        "candidateSourceSha256": "5438943dcd61c1081f8c136c70c4288c2b7d113050c79d3ac02d857f66b458de",
+        "baselineReportSha256": "b75b85b05855656450ebfc3419779d5c82c6b0e1c2f92595d25e7c5f6628cfb2",
+        "candidateReportSha256": "66e5f6eba70a6440bbded345ed27aa818bbd5f937346be06d4e26a49f5a4c89c"
+      }
+    },
+    {
+      "id": "0075-compact-adult-head-assembly",
+      "title": "Compact the complete head assembly",
+      "status": "rejected",
+      "baselineDistance": 0.6216320174221142,
+      "candidateDistance": 0.6213719593483316,
+      "delta": -0.0002600580737825986,
+      "componentDeltas": {
+        "global_neural": -0.004488766193389893,
+        "landmarks": 0,
+        "material_appearance": -0.000816832298176362,
+        "region_neural": -0.01674601063132286,
+        "silhouette": 0.003849187562153078,
+        "structure": 0.011769446393139371
+      },
+      "viewDeltas": {
+        "back": 0.0015283196957845968,
+        "back_left": 0.0008735169055217318,
+        "back_right": -0.002703617781467882,
+        "front": 0.003365832206769004,
+        "front_left": -0.0002922985073431361,
+        "front_right": -0.0001891210065769755,
+        "left": -0.0037877296983935826,
+        "right": -0.003797319153427292
+      },
+      "hashes": {
+        "recordSha256": "8a8605dd555ad8aa4bd58fd18ed8967c1e786f34d5d51f72d2b95571e5a1cb0e",
+        "progressSha256": "deb7878d4b6b1c22f7381f266aa3b47cff72ac690d10be45dce9f388cd4d62c7",
+        "baselineSourceSha256": "e8f29c02b81763acd97aba33cd7f7c6d534054ac99b899f8191a2c3fbcad2488",
+        "candidateSourceSha256": "6574d74a1a67917c1cb7aba9fa0b0e2fa011cf162f03d53031bc73463086004e",
+        "baselineReportSha256": "a4e6b40829bc2b7a6e104f58f70fb4d3f324aec80dd3142f1dcb7180f261efee",
+        "candidateReportSha256": "848d3ff0b82cb721032380c12d57680705ab145153b135e996da6ae84ce055f8"
+      }
+    },
+    {
+      "id": "0076-lengthen-lower-body-proportion",
+      "title": "Lengthen the lower-body proportion",
+      "status": "rejected",
+      "baselineDistance": 0.6216320147399053,
+      "candidateDistance": 0.6961405383287107,
+      "delta": 0.07450852358880544,
+      "componentDeltas": {
+        "global_neural": 0.0170125849545002,
+        "landmarks": 0,
+        "material_appearance": 0.005120261405935134,
+        "region_neural": 0.002489320933818817,
+        "silhouette": 0.05830948463812635,
+        "structure": 0.2560789855811296
+      },
+      "viewDeltas": {
+        "back": 0.06018250754770438,
+        "back_left": 0.07223104648570688,
+        "back_right": 0.0903332700004531,
+        "front": 0.07696888686416214,
+        "front_left": 0.1056333746362143,
+        "front_right": 0.07320021772110441,
+        "left": 0.05719369438752919,
+        "right": 0.0769286842117689
+      },
+      "hashes": {
+        "recordSha256": "56c96adc0bddfe01cfd4676607b78c2958f23a921e5a50916bfc90736e484c62",
+        "progressSha256": "7a6e9d5e603fa3c3a7e80af22a7e8e45d2685cf7ea64e2c86bfe1e533a1fb197",
+        "baselineSourceSha256": "e8f29c02b81763acd97aba33cd7f7c6d534054ac99b899f8191a2c3fbcad2488",
+        "candidateSourceSha256": "50f9281a847cb6861077c954c4a7da21c16ba4dbf1db775f8e90e66a66fe4f38",
+        "baselineReportSha256": "1ec961389d9c95205a3e6e68075854c9526193dd6c79dd5b033ddbfcf9b31ae0",
+        "candidateReportSha256": "69fc86d76497d6025cf4a935caff1f5e96520f196bb40d731317559031a13406"
+      }
+    },
+    {
+      "id": "0077-narrow-torso-core",
+      "title": "Narrow the torso core",
+      "status": "rejected",
+      "baselineDistance": 0.6216320147399053,
+      "candidateDistance": 0.63016311976638,
+      "delta": 0.008531105026474695,
+      "componentDeltas": {
+        "global_neural": 0.005693070590496063,
+        "landmarks": 0,
+        "material_appearance": 0.0002697583388168723,
+        "region_neural": 0.013740923255681992,
+        "silhouette": 0.0014108291309838372,
+        "structure": 0.023223053721910136
+      },
+      "viewDeltas": {
+        "back": 0.004993575432490016,
+        "back_left": 0.0030375005069896988,
+        "back_right": 0.0077749178804099595,
+        "front": 0.014789516653722079,
+        "front_left": 0.0220301553968672,
+        "front_right": 0.006113868327244476,
+        "left": 0.014746660711936421,
+        "right": 0.0037937794156076565
+      },
+      "hashes": {
+        "recordSha256": "c1e995029677e37fce79f78947eabd0c54364f02aa07c752ca94285e0d1b377d",
+        "progressSha256": "cde6010337e96f878ac5a792c05896e857f1c1650100d13121a7296f9b4bab89",
+        "baselineSourceSha256": "e8f29c02b81763acd97aba33cd7f7c6d534054ac99b899f8191a2c3fbcad2488",
+        "candidateSourceSha256": "28d55d6beb6dbe4ac90ee6ff922cbfc1593dae4a7f553c3dd8f419637ada0b10",
+        "baselineReportSha256": "1ec961389d9c95205a3e6e68075854c9526193dd6c79dd5b033ddbfcf9b31ae0",
+        "candidateReportSha256": "1b6ef7ec33f6cb35721bb425f767fa2363112179dccf5c808b67a7ccd9bd58bd"
+      }
+    },
+    {
+      "id": "0078-reduce-torso-depth",
+      "title": "Reduce torso depth behind the breastplate",
+      "status": "rejected",
+      "baselineDistance": 0.6216320147399053,
+      "candidateDistance": 0.6268116036598551,
+      "delta": 0.005179588919949851,
+      "componentDeltas": {
+        "global_neural": 0.002202935516834259,
+        "landmarks": 0,
+        "material_appearance": -0.00044231424270702036,
+        "region_neural": -0.0009719990193843842,
+        "silhouette": 0.003467578969414853,
+        "structure": 0.017765666285418202
+      },
+      "viewDeltas": {
+        "back": 0.006702365702763835,
+        "back_left": 0.004843549064663444,
+        "back_right": 0.0045537135196079825,
+        "front": 0.00817715789021256,
+        "front_left": -0.00026595761605102686,
+        "front_right": -0.0011445674808481243,
+        "left": 0.009737014474019756,
+        "right": 0.007646698877703084
+      },
+      "hashes": {
+        "recordSha256": "aec054d99b8254b28dd7282c3260de9ee74d5d52e2dc711aeb9d8421d8742e14",
+        "progressSha256": "eaca3983b1bd43bf8ec14d47f653dc307a14a181123a1360d247b9bbd321263d",
+        "baselineSourceSha256": "e8f29c02b81763acd97aba33cd7f7c6d534054ac99b899f8191a2c3fbcad2488",
+        "candidateSourceSha256": "37dab45250e80e75688ee8d95507786c77bb6e93256158b14fb57a7572bd27eb",
+        "baselineReportSha256": "1ec961389d9c95205a3e6e68075854c9526193dd6c79dd5b033ddbfcf9b31ae0",
+        "candidateReportSha256": "ebb72d27b7dc7af6931e53dad2c036af67ccc2e6950a6fdcf309148903f34eca"
+      }
+    },
+    {
+      "id": "0079-narrow-shield-outline",
+      "title": "Narrow the complete shield outline",
+      "status": "rejected",
+      "baselineDistance": 0.6216320147399053,
+      "candidateDistance": 0.6219558139093994,
+      "delta": 0.0003237991694940989,
+      "componentDeltas": {
+        "global_neural": -0.000014953315258026123,
+        "landmarks": 0,
+        "material_appearance": 0.000028798338232938203,
+        "region_neural": 0.0010683462023735046,
+        "silhouette": -0.00609849199081175,
+        "structure": 0.006875843536701343
+      },
+      "viewDeltas": {
+        "back": -0.002735131323104767,
+        "back_left": -0.0021863416177499984,
+        "back_right": -0.0011402718101442,
+        "front": 0.003526932809394201,
+        "front_left": 0.0028956741496213856,
+        "front_right": 0.0017842296931991353,
+        "left": 0.006980717806209236,
+        "right": -0.0009663450716288491
+      },
+      "hashes": {
+        "recordSha256": "ef3a5c6369ab24f88111c63d4ac74ede1a7085ed11cf5813e33195c89ee7bf8f",
+        "progressSha256": "3496cf9b69949fa8ea314f5a7c9351e90d0130e8bcd7f9d6edf4951a4e5d3db8",
+        "baselineSourceSha256": "e8f29c02b81763acd97aba33cd7f7c6d534054ac99b899f8191a2c3fbcad2488",
+        "candidateSourceSha256": "8073430f87e14127d51357f6a0ff1060e9df9a23c1210e267523334bd9b4cee5",
+        "baselineReportSha256": "1ec961389d9c95205a3e6e68075854c9526193dd6c79dd5b033ddbfcf9b31ae0",
+        "candidateReportSha256": "c1b5711c16cc16b5b71c97ff25b70466d90fc6c303f63177953c5ff27a109732"
+      }
+    },
+    {
+      "id": "0080-narrow-sword-blade",
+      "title": "Narrow the sword blade",
+      "status": "rejected",
+      "baselineDistance": 0.6216320147399053,
+      "candidateDistance": 0.6225541178257226,
+      "delta": 0.0009221030858173052,
+      "componentDeltas": {
+        "global_neural": 0.00016409531235694885,
+        "landmarks": 0,
+        "material_appearance": -0.00039051615236729287,
+        "region_neural": 0.00009181350469589233,
+        "silhouette": -0.0008376760914609593,
+        "structure": 0.005038741605347008
+      },
+      "viewDeltas": {
+        "back": 0.00021959841210505981,
+        "back_left": 0.00005396394562673379,
+        "back_right": 0.0008061673193124896,
+        "front": 0.0026779879465370637,
+        "front_left": -0.00041451937915132353,
+        "front_right": 0.005746886504550575,
+        "left": -0.0006144211919332232,
+        "right": 0.0004718049433942717
+      },
+      "hashes": {
+        "recordSha256": "f0a6c79905aca95a217015487fca602d6184b013eff9e876f8e545139791c5df",
+        "progressSha256": "5023614589f5b5ca814e4616e471bd1662fc76a37bba51f6e85558fdd8cb9aaa",
+        "baselineSourceSha256": "e8f29c02b81763acd97aba33cd7f7c6d534054ac99b899f8191a2c3fbcad2488",
+        "candidateSourceSha256": "81229dc361a307f0fdda5867ca33e2bd9d862d64fdf6511f75ab8e2b97991ac2",
+        "baselineReportSha256": "1ec961389d9c95205a3e6e68075854c9526193dd6c79dd5b033ddbfcf9b31ae0",
+        "candidateReportSha256": "58092aa816949aca84f3ed082c6957c31a3349f6e0d4f94c9043a6f6457df834"
+      }
+    },
+    {
+      "id": "0081-reduce-pauldron-width",
+      "title": "Reduce pauldron width",
+      "status": "rejected",
+      "baselineDistance": 0.6216320147399053,
+      "candidateDistance": 0.6204503342172984,
+      "delta": -0.0011816805226068094,
+      "componentDeltas": {
+        "global_neural": -0.007976233959197998,
+        "landmarks": 0,
+        "material_appearance": -0.0003147591726345711,
+        "region_neural": -0.006381131708621979,
+        "silhouette": -0.000644505644174842,
+        "structure": 0.0068795900599155635
+      },
+      "viewDeltas": {
+        "back": -0.002511107593558548,
+        "back_left": -0.002132468487335837,
+        "back_right": 0.0014010931813026595,
+        "front": -0.0016124781930514365,
+        "front_left": -0.0007535825475058489,
+        "front_right": -0.0010484267553364512,
+        "left": -0.002001482616009187,
+        "right": 0.00148522386632155
+      },
+      "hashes": {
+        "recordSha256": "18dfdbdf683a547f147ce4202606663d08923daab43a686164c9004b99630d0c",
+        "progressSha256": "d04974dd8022fa68a9d8906754adb227172697f74a6b8abe9e0fdf3241e63676",
+        "baselineSourceSha256": "e8f29c02b81763acd97aba33cd7f7c6d534054ac99b899f8191a2c3fbcad2488",
+        "candidateSourceSha256": "5c768dc244d8f8be498c8883e1f4d1e4e38d570fc39bb11a37e1b511c7bac0d9",
+        "baselineReportSha256": "1ec961389d9c95205a3e6e68075854c9526193dd6c79dd5b033ddbfcf9b31ae0",
+        "candidateReportSha256": "f0e63508d447ce7d7435c2daf7814639994263b1a5e83ab8a44786b94a606fe0"
+      }
+    },
+    {
+      "id": "0082-compact-gauntlet-mass",
+      "title": "Compact the spherical gauntlet mass",
+      "status": "rejected",
+      "baselineDistance": 0.6216320147399053,
+      "candidateDistance": 0.6230492617320431,
+      "delta": 0.001417246992137855,
+      "componentDeltas": {
+        "global_neural": -0.001718968152999878,
+        "landmarks": 0,
+        "material_appearance": 0.003728732978775795,
+        "region_neural": -0.0006918162107467651,
+        "silhouette": 0.0005475791939362762,
+        "structure": 0.005006187807540474
+      },
+      "viewDeltas": {
+        "back": 0.0012769184820078383,
+        "back_left": 0.0009212689378301775,
+        "back_right": 0.0013272144848263112,
+        "front": 0.0008064295827228118,
+        "front_left": 0.0013158982764460148,
+        "front_right": 0.0004877513257530719,
+        "left": 0.004008229184274903,
+        "right": 0.0018305722276797942
+      },
+      "hashes": {
+        "recordSha256": "f0fca977b3c3c1a7a24a27497623cbbde0e0fe5c570bd4e02de94577b04ea87c",
+        "progressSha256": "b0b6f73962def061cb542f600a3571ebf81d55c979e28f425248cd69aa001a1d",
+        "baselineSourceSha256": "e8f29c02b81763acd97aba33cd7f7c6d534054ac99b899f8191a2c3fbcad2488",
+        "candidateSourceSha256": "9be77cbae71009a84bf59b94038d9c3ea25de7fe8d995d5066750699a6ba65f2",
+        "baselineReportSha256": "1ec961389d9c95205a3e6e68075854c9526193dd6c79dd5b033ddbfcf9b31ae0",
+        "candidateReportSha256": "735ded50551719d02721d567b7cc295abe5435cd29197e55a6e7367dd13f9d7c"
+      }
+    },
+    {
+      "id": "0083-compact-knee-mass",
+      "title": "Compact the knee masses",
+      "status": "rejected",
+      "baselineDistance": 0.6216320147399053,
+      "candidateDistance": 0.6292748381360981,
+      "delta": 0.007642823396192822,
+      "componentDeltas": {
+        "global_neural": 0.003917492926120758,
+        "landmarks": 0,
+        "material_appearance": -0.0005699661941301337,
+        "region_neural": -0.00003968924283981323,
+        "silhouette": 0.00019310420431795094,
+        "structure": 0.029326615177122872
+      },
+      "viewDeltas": {
+        "back": 0.004043434620803588,
+        "back_left": 0.009546314651852295,
+        "back_right": 0.006587478011328862,
+        "front": 0.007298017117783218,
+        "front_left": 0.007638281123396984,
+        "front_right": 0.0074476522494598685,
+        "left": 0.010846515162653891,
+        "right": 0.009430791751993461
+      },
+      "hashes": {
+        "recordSha256": "050b8c5d388d65ac8b763b0892dbf82e15059a2ed99d9c03f57faf20f5869782",
+        "progressSha256": "7c74f7e49c59464ab02e4c9a0442c9d1e1fd3c1b7c9d5023c379c13443dcc9c6",
+        "baselineSourceSha256": "e8f29c02b81763acd97aba33cd7f7c6d534054ac99b899f8191a2c3fbcad2488",
+        "candidateSourceSha256": "735391d060d7098820268fdc8a0c571505fd3dd17c78cbeccf1d4648dff46b80",
+        "baselineReportSha256": "1ec961389d9c95205a3e6e68075854c9526193dd6c79dd5b033ddbfcf9b31ae0",
+        "candidateReportSha256": "987c256199525373db2ed1f8d7426a43cb62694e5d232c4088be4faa810d2a60"
+      }
+    },
+    {
+      "id": "0084-fitted-elliptical-belt-v2",
+      "title": "Re-evaluate the fitted elliptical belt under rigid-v2",
+      "status": "rejected",
+      "baselineDistance": 0.6216320147399053,
+      "candidateDistance": 0.6242053818060631,
+      "delta": 0.00257336706615785,
+      "componentDeltas": {
+        "global_neural": -0.0057480670511722565,
+        "landmarks": 0,
+        "material_appearance": 0.0016807651490363673,
+        "region_neural": 0.0005732476711273193,
+        "silhouette": -0.00016131884176645572,
+        "structure": 0.01023434624706876
+      },
+      "viewDeltas": {
+        "back": 0.004836100836980051,
+        "back_left": 0.004586025949341321,
+        "back_right": 0.002508038445234062,
+        "front": 0.0011992949815896603,
+        "front_left": 0.0035474406919837054,
+        "front_right": 0.0018445563000478726,
+        "left": -0.00009405715912158552,
+        "right": -0.0021158561707967927
+      },
+      "hashes": {
+        "recordSha256": "92ad1f6e8273d88a4b65511f1dfbd46946a7c0868a3a4ee57fbf27b15127dca1",
+        "progressSha256": "99d79a2514f4f772abb55574bab97f4e3354e8e595c56fc7176d321bb9bc7054",
+        "baselineSourceSha256": "e8f29c02b81763acd97aba33cd7f7c6d534054ac99b899f8191a2c3fbcad2488",
+        "candidateSourceSha256": "e8ac370572d0da42bbdb8ab7531a5892c4dca29852b6889702bd6b983d886f44",
+        "baselineReportSha256": "1ec961389d9c95205a3e6e68075854c9526193dd6c79dd5b033ddbfcf9b31ae0",
+        "candidateReportSha256": "695f16cafac39bd0ffa2afe44dbd2a359e78ed8e3b1f08234668f38b7d5f071f"
+      }
+    }
+  ]
+}

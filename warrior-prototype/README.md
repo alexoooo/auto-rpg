@@ -61,11 +61,12 @@ browser, make the choice, and stop it with Ctrl+C:
 npm run similarity:compare -- path\to\candidate-a path\to\candidate-b
 ```
 
-The comparison tool randomizes the two sides and records only `left`, `right`, or
-`tie`. It never asks for a numerical human score. Candidate directories containing
-a `similarity/report.json` also contribute their component vectors; inspect current
-agreement and, after 30 non-tied choices, a regularized weight proposal with
-`npm run similarity:compare:report`. A proposal never changes the formula silently.
+The comparison tool randomizes the two sides and records separate `left`, `right`,
+or `tie` judgments for target similarity and production coherence. It never asks
+for a numerical human score. Candidate directories retain their complete formula
+report tensors and image digests; `npm run similarity:v2:calibrate` reports when
+there are enough labels for a held-out fit. A proposal never changes the formula
+silently.
 The eight references substantially reduce the blind spots between cardinal views.
 They still measure fixed projections rather than the complete 3D surface, so animation,
 lighting changes, and unseen geometry need separate review.
@@ -80,6 +81,30 @@ exposed, and the successor direction are summarized in the
 [phase-01 similarity debrief](docs/analysis/phase-01-similarity-debrief.md). Completed
 phases are compacted under `experiments/archive/`; active records alone remain at the
 top of `experiments/`.
+
+The [first rigid-v2 experiment block](docs/analysis/phase-02-first-ten-debrief.md)
+records why ten further scalar edits produced no accepted progress. The
+[similarity-v2 implementation record](docs/analysis/similarity-v2-implementation-record.md)
+separates the infrastructure that was delivered from the authored geometry that
+still does not exist. Current work is governed by the
+[authored-search plan](docs/plans/warrior-authored-search-00-overview.md).
+The phase-04 ruler correction and its broad-form falsification are recorded in
+the [rigid-v4 target-segmentation audit](docs/analysis/rigid-v4-target-segmentation-audit.md).
+
+Phase 02 uses the [region-aware similarity-v2 contract](docs/reference/similarity-v2.md)
+and a [parallel authored/PBR asset path](docs/reference/authored-asset-v2.md).
+Open the standalone viewer with `?asset=v2` to compare the parallel GLB without
+replacing the phase-01 control. `?asset=v3` shows the authored torso-to-waist
+subsystem, and `?asset=basemesh` shows the CC0 Blender human base mesh spike.
+Every one of them loads beside the untouched control rather than replacing it.
+
+The base mesh spike needs its bundle vendored first. It is CC0, it lives under
+the ignored `.tools/`, and nothing about it is committed:
+
+```powershell
+curl.exe -L -o ..\.tools\human-base-meshes\bundle.zip https://download.blender.org/demo/asset-bundles/human-base-meshes/human-base-meshes-bundle-v1.4.1.zip
+npm run asset:v3:spike:basemesh
+```
 
 ```powershell
 npm test

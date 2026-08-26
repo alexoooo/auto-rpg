@@ -1,0 +1,51 @@
+{
+  "parentProfile": "rigid-v3",
+  "profile": "rigid-v4",
+  "schemaVersion": 1,
+  "views": {
+    "back": {
+      "confidence": "high",
+      "note": "Cardinal-sheet visible surfaces."
+    },
+    "back_left": {
+      "confidence": "medium",
+      "note": "Diagonal sheet is independently generated; equipment and small details are directional, not orthographic truth."
+    },
+    "back_right": {
+      "confidence": "medium",
+      "note": "Diagonal sheet is independently generated; equipment and small details are directional, not orthographic truth."
+    },
+    "front": {
+      "confidence": "high",
+      "note": "Cardinal-sheet visible surfaces."
+    },
+    "front_left": {
+      "confidence": "medium",
+      "note": "Diagonal sheet is independently generated; equipment and small details are directional, not orthographic truth."
+    },
+    "front_right": {
+      "confidence": "medium",
+      "note": "Diagonal sheet is independently generated; equipment and small details are directional, not orthographic truth."
+    },
+    "left": {
+      "confidence": "medium",
+      "note": "Diagonal sheet is independently generated; equipment and small details are directional, not orthographic truth."
+    },
+    "right": {
+      "confidence": "medium",
+      "note": "Diagonal sheet is independently generated; equipment and small details are directional, not orthographic truth."
+    }
+  },
+  "status": "frozen-target-derived-coarse",
+  "reviewedViews": [
+    "front",
+    "front_left",
+    "left",
+    "back_left",
+    "back",
+    "back_right",
+    "right",
+    "front_right"
+  ],
+  "sourceBoundary": "imagegen proposals plus target annotations only"
+}
