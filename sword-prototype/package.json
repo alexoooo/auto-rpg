@@ -20,6 +20,7 @@
     "ai:measure-ppo-workers": "node scripts/measure-ppo-workers.mjs",
     "ai:watch": "node scripts/watch-research.mjs",
     "asset:build": "node scripts/run-blender.mjs",
+    "asset:review": "node scripts/run-blender.mjs --review",
     "asset:verify": "node scripts/run-blender.mjs --verify",
     "asset:dimensions": "node scripts/run-blender.mjs --dimensions",
     "asset:fetch": "node scripts/fetch-polyhaven.mjs",

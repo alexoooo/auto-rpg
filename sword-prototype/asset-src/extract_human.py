@@ -32,7 +32,41 @@ SEGMENTS = {
     "human-head.obj": {*range(2, 9), 17},
     "human-hand-r.obj": {10, *range(84, 104)},
     "human-hand-l.obj": {9, *range(64, 84)},
+    # The body is authored in a relaxed A-pose. These eight regions complete
+    # the same anatomy under the Ranger sleeves, trousers and boot shafts; the
+    # build rotates and fits them to the prototype's upright physics bind pose.
+    "human-upper-arm-r.obj": {20},
+    "human-upper-arm-l.obj": {21},
+    "human-forearm-r.obj": {11},
+    "human-forearm-l.obj": {12},
+    "human-thigh-r.obj": {23},
+    "human-thigh-l.obj": {24},
+    "human-shin-r.obj": {16},
+    "human-shin-l.obj": {15},
 }
+
+
+def connected_components(triangles):
+    """Triangle islands joined by a source vertex, largest first."""
+    by_vertex = {}
+    for index, triangle in enumerate(triangles):
+        for vertex in triangle.vertices:
+            by_vertex.setdefault(vertex, []).append(index)
+    unseen = set(range(len(triangles)))
+    components = []
+    while unseen:
+        pending = [unseen.pop()]
+        component = []
+        while pending:
+            index = pending.pop()
+            component.append(triangles[index])
+            for vertex in triangles[index].vertices:
+                for neighbour in by_vertex[vertex]:
+                    if neighbour in unseen:
+                        unseen.remove(neighbour)
+                        pending.append(neighbour)
+        components.append(component)
+    return sorted(components, key=len, reverse=True)
 
 
 def arguments():
@@ -47,6 +81,20 @@ def write_segment(mesh, labels, wanted, target):
     mesh.calc_loop_triangles()
     triangles = [triangle for triangle in mesh.loop_triangles
                  if labels[triangle.polygon_index] in wanted]
+    if target.name == "human-torso.obj":
+        # Face set 1 in v1.4.1 contains the real 1,400-triangle trunk and four
+        # stray two-triangle facial islands. Including those islands raised the
+        # fitted source top from the shoulders to the face, shortened the torso
+        # by 114 mm and left 52 mm of air below the neck. The exact five-island,
+        # eight-face shape is pinned so a changed source cannot be "cleaned" by
+        # silently throwing away anatomy.
+        components = connected_components(triangles)
+        discarded = sum(len(component) for component in components[1:])
+        if len(components) != 5 or discarded != 8:
+            raise RuntimeError(
+                f"human torso has {len(components)} islands and {discarded} non-body faces; expected 5 and 8"
+            )
+        triangles = components[0]
     used = sorted({index for triangle in triangles for index in triangle.vertices})
     remap = {old: new + 1 for new, old in enumerate(used)}
     rows = [

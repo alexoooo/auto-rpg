@@ -64,22 +64,31 @@
       "archiveSha256": "811f43accbb31a88266d932f8f5563b2d13586fca0ba2693aad1f5fe582b3515",
       "selectedObjects": [
         "GEO-body_male_realistic at Multires level 0: torso, pelvis, neck and face-set-defined head",
-        "GEO-body_male_realistic at Multires level 0: both face-set-defined hands"
+        "GEO-body_male_realistic at Multires level 0: both upper arms, forearms, hands, thighs and shins"
       ],
       "extracts": {
         "SOURCE.txt": "48370d8633e1585af9c782d63486c3a12abec8b5e3e218fe357c7bdb0228002f",
+        "human-forearm-l.obj": "32f122621d4539fa137c4f03549d69cb0566511731afe1a4f57099819f19a87a",
+        "human-forearm-r.obj": "4006dde183edcb5f84b4001b6ea633b5f4122cab41cf2f3b98adda7e1a87f0f3",
         "human-hand-l.obj": "483a0839da61fa99a0725624ca95d859dc02ba9f3e2047edae9566ad5b2aa43c",
         "human-hand-r.obj": "634afe18292dea58ae1cfda61d5b86cd027526bd62694ea8ff0355301f400e3a",
         "human-head.obj": "13f03e59f97267cad18a1189122006714ef6283b0da6a03eca29f62f00d7085c",
         "human-neck.obj": "c6c08c414529de8d1ba93a969feb7a6298d70fd097d5f99242fb3ae7f8409d1e",
         "human-pelvis.obj": "6a25fac82cd89e9013d10cf6f75a78ab06872ae027a7d1b9f97795cfc16df837",
-        "human-torso.obj": "bebe51515f58e17da01f03dd05c2d9042bbe2b967feb5a02362cafaea1455442"
+        "human-shin-l.obj": "a3226fe173a209ee6dc5a65805da379c39da58ec79b11e9cf0f252ee21c302d3",
+        "human-shin-r.obj": "a18d9f58ed08110e68106d6f36e8215062e87b4f5fc70c1f04034d998a6bd054",
+        "human-thigh-l.obj": "abf80babe00a7b31908a552a91ea5ceb5704a1e6feecf50f1a2340c09140baa0",
+        "human-thigh-r.obj": "effd80b051a6369c168c5309f158d54dfe03d14b8d86f5caa7fd9a8c3fe20af0",
+        "human-torso.obj": "a7a1ca24c7a9f67835e4350a6e2fe431af4088e68c3c40781dd521e5c38d92cf",
+        "human-upper-arm-l.obj": "de7ea04eb5be7932f29cd382489b8da2ab3fba737b9ac66b5b433d786c78abf9",
+        "human-upper-arm-r.obj": "9a826949cf77492753d399794a1da08aa617cd1c6c4642dc4f1260c1bdb22e69"
       },
       "adaptations": [
-        "the remembered realistic body is restored from the official Blender source rather than copied from the earlier experiment",
-        "face sets split the source at the prototype's rigid physics-bone boundaries",
+        "the official Blender body supplies a complete anatomical underlayer rather than isolated head, torso and hand fragments",
+        "face sets split the source at every one of the prototype's rigid physics-bone boundaries",
+        "the torso extractor removes four stray two-triangle facial islands before fitting body landmarks",
         "the level-zero cage is used so two fighters remain suitable for realtime rendering",
-        "the authored hands are fitted upward into the rigid bracers so the source remains one hand per arm",
+        "anatomical segments form a fitted cloth and leather underlayer beneath garment cuffs so joint motion does not expose skin islands",
         "armature, multires detail, skinning, animation and source materials are discarded",
         "all imported geometry remains render-only"
       ]

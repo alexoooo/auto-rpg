@@ -47,6 +47,59 @@ test("every_imported_character_source_has_a_pinned_cc0_license_record", async ()
   }
 });
 
+const objComponentCount = (source) => {
+  const vertices = [];
+  const faces = [];
+  for (const raw of source.split(/\r?\n/)) {
+    const fields = raw.trim().split(/\s+/);
+    if (fields[0] === "v") vertices.push(vertices.length);
+    if (fields[0] === "f") faces.push(fields.slice(1).map((field) => Number(field.split("/")[0]) - 1));
+  }
+  const neighbours = vertices.map(() => new Set());
+  for (const face of faces) {
+    for (let index = 1; index < face.length; index += 1) {
+      neighbours[face[0]].add(face[index]);
+      neighbours[face[index]].add(face[0]);
+    }
+  }
+  const seen = new Set();
+  let components = 0;
+  for (const vertex of vertices) {
+    if (seen.has(vertex) || neighbours[vertex].size === 0) continue;
+    components += 1;
+    const pending = [vertex];
+    seen.add(vertex);
+    while (pending.length > 0) {
+      for (const next of neighbours[pending.pop()]) {
+        if (seen.has(next)) continue;
+        seen.add(next);
+        pending.push(next);
+      }
+    }
+  }
+  return components;
+};
+
+test("the_human_torso_is_one_connected_body_without_landmark_poison", async () => {
+  const human = provenance.sources.find((source) => source.id === "blender-human-base-meshes-1.4.1");
+  const torso = await readFile(resolve(ROOT, human.extractRoot, "human-torso.obj"), "utf8");
+  assert.equal(objComponentCount(torso), 1,
+    "the torso extract cannot carry stray face islands that poison its fitting landmarks");
+});
+
+test("the_human_source_covers_every_articulated_limb", () => {
+  const human = provenance.sources.find((source) => source.id === "blender-human-base-meshes-1.4.1");
+  const required = [
+    "human-forearm-l.obj", "human-forearm-r.obj",
+    "human-upper-arm-l.obj", "human-upper-arm-r.obj",
+    "human-thigh-l.obj", "human-thigh-r.obj",
+    "human-shin-l.obj", "human-shin-r.obj",
+  ];
+  for (const filename of required) {
+    assert.ok(filename in human.extracts, `${filename} is part of the selected continuous anatomy`);
+  }
+});
+
 test("the_shipping_warrior_is_built_only_from_pinned_source_meshes", async () => {
   const source = await readFile(resolve(ROOT, "asset-src/build_warrior.py"), "utf8");
   assert.deepEqual(checkWarriorBuilder(source, provenance), []);
@@ -130,6 +183,47 @@ test("the_authored_hands_meet_their_bracers_without_a_block_or_gap", () => {
   });
   const failures = checkWarrior(separated, dimensions).failures;
   assert.ok(failures.some((failure) => failure.includes('"handR" wrist seam opens')), failures.join("\n"));
+});
+
+test("the_anatomical_underlayer_overlaps_every_joint_in_the_bind_pose", () => {
+  assert.deepEqual(checkWarrior(warrior, dimensions).failures.filter((failure) =>
+    /anatomy does not cross|do not overlap enough/.test(failure)), []);
+
+  const separated = mutateJson(warrior, (json) => {
+    const arm = json.nodes.find((node) => node.name === "upperArmSkinR");
+    const position = json.accessors[json.meshes[arm.mesh].primitives[0].attributes.POSITION];
+    position.min[1] = -0.005;
+  });
+  assert.ok(checkWarrior(separated, dimensions).failures.some((failure) =>
+    failure.includes('"upperArmSkinR"') && failure.includes("does not cross the joint")));
+
+  const uncovered = mutateJson(warrior, (json) => {
+    const cover = json.nodes.find((node) => node.name === "elbowCoverR");
+    const position = json.accessors[json.meshes[cover.mesh].primitives[0].attributes.POSITION];
+    position.max[2] = -0.100;
+  });
+  assert.ok(checkWarrior(uncovered, dimensions).failures.some((failure) =>
+    failure.includes('"elbowCoverR"') && failure.includes("does not surround the elbow pivot")));
+});
+
+test("the_human_underlayer_is_dressed_instead_of_erupting_through_the_outfit", () => {
+  assert.deepEqual(checkWarrior(warrior, dimensions).failures.filter((failure) =>
+    /expected fitted|must not rotate behind/.test(failure)), []);
+
+  const fleshSleeve = structuredClone(dimensions);
+  fleshSleeve.pieces.find((piece) => piece.name === "upperArmSkinR").material = "flesh";
+  assert.ok(checkWarrior(warrior, fleshSleeve).failures.some((failure) =>
+    failure.includes('"upperArmSkinR"') && failure.includes("expected fitted cloth underlayer")));
+
+  const fixedCuff = structuredClone(dimensions);
+  fixedCuff.pieces.find((piece) => piece.name === "elbowCoverR").bone = "swordUpperArm";
+  assert.ok(checkWarrior(warrior, fixedCuff).failures.some((failure) =>
+    failure.includes('"elbowCoverR"') && failure.includes("must follow swordForearm")));
+
+  const loosePlate = structuredClone(dimensions);
+  loosePlate.pieces.find((piece) => piece.name === "pauldronR").bone = "swordUpperArm";
+  assert.ok(checkWarrior(warrior, loosePlate).failures.some((failure) =>
+    failure.includes('"pauldronR"') && failure.includes("must not rotate behind")));
 });
 
 const accessorOffset = (json, accessorIndex, element = 0) => {

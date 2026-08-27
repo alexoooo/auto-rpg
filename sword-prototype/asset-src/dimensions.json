@@ -373,12 +373,42 @@
       ]
     },
     {
+      "name": "upperArmSkinR",
+      "bone": "swordUpperArm",
+      "material": "cloth",
+      "at": [
+        0.21,
+        1.27,
+        0.02
+      ]
+    },
+    {
       "name": "upperArmR",
       "bone": "swordUpperArm",
       "material": "cloth",
       "at": [
         0.21,
         1.27,
+        0.02
+      ]
+    },
+    {
+      "name": "elbowCoverR",
+      "bone": "swordForearm",
+      "material": "cloth",
+      "at": [
+        0.21,
+        1.1199999999999999,
+        0.02
+      ]
+    },
+    {
+      "name": "forearmSkinR",
+      "bone": "swordForearm",
+      "material": "leather",
+      "at": [
+        0.21,
+        0.9849999999999999,
         0.02
       ]
     },
@@ -393,12 +423,32 @@
       ]
     },
     {
+      "name": "wristCoverR",
+      "bone": "swordForearm",
+      "material": "leather",
+      "at": [
+        0.21,
+        0.8499999999999999,
+        0.02
+      ]
+    },
+    {
       "name": "handR",
       "bone": "swordHand",
       "material": "flesh",
       "at": [
         0.21,
         0.7899999999999998,
+        0.02
+      ]
+    },
+    {
+      "name": "upperArmSkinL",
+      "bone": "offUpperArm",
+      "material": "cloth",
+      "at": [
+        -0.21,
+        1.27,
         0.02
       ]
     },
@@ -413,12 +463,42 @@
       ]
     },
     {
+      "name": "elbowCoverL",
+      "bone": "offForearm",
+      "material": "cloth",
+      "at": [
+        -0.21,
+        1.1199999999999999,
+        0.02
+      ]
+    },
+    {
+      "name": "forearmSkinL",
+      "bone": "offForearm",
+      "material": "leather",
+      "at": [
+        -0.21,
+        0.9849999999999999,
+        0.02
+      ]
+    },
+    {
       "name": "forearmL",
       "bone": "offForearm",
       "material": "leather",
       "at": [
         -0.21,
         0.9849999999999999,
+        0.02
+      ]
+    },
+    {
+      "name": "wristCoverL",
+      "bone": "offForearm",
+      "material": "leather",
+      "at": [
+        -0.21,
+        0.8499999999999999,
         0.02
       ]
     },
@@ -433,12 +513,32 @@
       ]
     },
     {
+      "name": "thighSkinL",
+      "bone": "thighLeft",
+      "material": "cloth",
+      "at": [
+        -0.105,
+        0.68,
+        0
+      ]
+    },
+    {
       "name": "thighL",
       "bone": "thighLeft",
       "material": "cloth",
       "at": [
         -0.105,
         0.68,
+        0
+      ]
+    },
+    {
+      "name": "shinSkinL",
+      "bone": "shinLeft",
+      "material": "leather",
+      "at": [
+        -0.105,
+        0.25,
         0
       ]
     },
@@ -463,12 +563,32 @@
       ]
     },
     {
+      "name": "thighSkinR",
+      "bone": "thighRight",
+      "material": "cloth",
+      "at": [
+        0.105,
+        0.68,
+        0
+      ]
+    },
+    {
       "name": "thighR",
       "bone": "thighRight",
       "material": "cloth",
       "at": [
         0.105,
         0.68,
+        0
+      ]
+    },
+    {
+      "name": "shinSkinR",
+      "bone": "shinRight",
+      "material": "leather",
+      "at": [
+        0.105,
+        0.25,
         0
       ]
     },

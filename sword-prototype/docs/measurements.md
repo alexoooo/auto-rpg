@@ -274,10 +274,10 @@ angular motor at 40 000 N.m -- over a thousand times the shipped 34 -- moved the
 - `__sword.rigview.audit()`: **45 bodies and 104 meshes, unchanged across 10 cycles**, and
   the body count holds over 50. The overlay creates no physics object, which is its central
   promise.
-- `public/assets/warrior.glb`: 22 nodes, **37 575 triangles per fighter** after the
-  2026-08-27 CC0 body-and-clothing adaptation, up from 33 379 for the Ranger-plus-generated
-  hybrid. Both fighters carry 75 150 triangles in 44 costume meshes; `G` strips and
-  restores all 44. The committed GLB is 2.04 MiB. Every shipping piece is source-derived:
+- `public/assets/warrior.glb`: 34 nodes, **43 262 triangles per fighter** after the
+  corrected 2026-08-27 CC0 anatomy-and-clothing adaptation, up from 33 379 for the
+  Ranger-plus-generated hybrid. Both fighters carry 86 524 triangles in 68 costume meshes;
+  `G` strips and restores all 68. The committed GLB is 2.28 MiB. Every shipping form is source-derived:
   Blender Studio anatomy, Quaternius clothing or the rounded Poly Haven boot foot.
 - Dimensional check (`npm run asset:verify`): floor 0.0 mm, crown 1.800 m against a
   `fighter.height` of 1.800. The digest is pinned in `scripts/run-blender.mjs`; it pins the
@@ -296,6 +296,7 @@ Session 08's static asset/material audit, not a visible-browser GPU capture:
 | + room wall/timber/banner | **15 712** | **48 for two fighters** | **16.97 MiB / 33 maps** | **176.0 MiB** |
 | + CC0 Ranger modular clothing | **33 379** | **48 for two fighters** | **16.97 MiB / 33 maps** | **176.0 MiB** |
 | + CC0 anatomy fragments and rounded boot feet | **37 575** | **44 for two fighters** | **16.97 MiB / 33 maps** | **176.0 MiB** |
+| + complete articulated CC0 garment underlayer and joint covers | **43 262** | **68 for two fighters** | **16.97 MiB / 33 maps** | **176.0 MiB** |
 
 The draw count is the mesh count -- no piece was split or merged -- and the memory column is
 the conservative decoded RGBA8 mip-chain calculation, not a driver reading. Three Terlenka
@@ -452,16 +453,22 @@ the numbered list here now carries only playtest history and judgements that rem
    changing the first-guess constants; the automated browser rendered at 1--2 fps and is not
    performance or feel evidence.
 
-9. **Character surfaces implemented; current static clothing review passed.** The welded
+9. **Character surfaces implemented; the corrected articulated clothing review passed.** The welded
    articulated-piece contract remains, but creator-authored Ranger modules now supply the
    tunic, coat-skirts, belts, hood, sleeves, bracers, pauldrons, trousers and boot shafts;
-   the restored Blender Studio human supplies the face, hands and body underlayer; and
+   the restored Blender Studio human supplies the face, hands, complete limb/trunk underlayer
+   and compact elbow/wrist joint covers; and
    rounded Poly Haven LOD1 boot feet replace the square Ranger foot sections. No generated
-   geometry contributes to any healthy-load piece. Cloth, skin detail, leather and worked
+   primitive form contributes to any healthy-load piece. Cloth, skin detail, leather and worked
    steel retain separate CC0 PBR families, consistent authored texel density and total
    piece-to-family mapping. The earlier disappearing-map failure is closed by delayed
-   attachment and colour fallback. Front/back/side static renders on 2026-08-27 resolved the
-   cardboard tabard, hoop-skirt and open-rear-helmet defects found by adversarial art review.
+   attachment and colour fallback. The first front/back/side static verdict on 2026-08-27 was
+   false: four stray facial islands shortened the fitted torso by 114 mm and left 52 mm of air
+   below the neck, while an upright pose could not expose rigid elbow seams. The corrected
+   eight-view loop rejects that five-island torso and exercises guard, reach, crouch and an
+   explicit 120-degree elbow bend. Its first two elbow-cover candidates were also rejected for
+   a visible gap and then a bulbous rosette; the accepted compact forearm-derived band leaves a
+   garment seam rather than daylight or a detached stump.
    Both camera presets, the two zoom clamps and motion comparison remain owed, so this closes
    the static adaptation review rather than the whole art-direction verdict.
 10. **Done.** This entry recorded that no policy knew what a shield was for, and that an

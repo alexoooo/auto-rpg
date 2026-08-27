@@ -102,7 +102,7 @@ export interface BoneFrame {
 }
 
 /**
- * The nine bones, in the fighter's upright frame, straight off `config.ts`.
+ * The thirteen bones, in the fighter's upright frame, straight off `config.ts`.
  *
  * A function rather than a constant because `config.ts` is deliberately mutable
  * -- `?tune` writes into it live -- and a table snapshotted at module load would
@@ -192,6 +192,13 @@ export function costumePieces(): CostumePiece[] {
       (suffix === "R" ? `sword${part}` : `off${part}`) as BoneName;
     return [
       {
+        name: `upperArmSkin${suffix}`,
+        bone: bone("UpperArm"),
+        material: "cloth",
+        at: [x, F.shoulderHeight - A.upperLength / 2, z],
+        primitive: { kind: "capsule", height: A.upperLength + 0.02, radius: A.upperRadius * 0.82 },
+      },
+      {
         name: `upperArm${suffix}`,
         bone: bone("UpperArm"),
         material: "cloth",
@@ -199,11 +206,32 @@ export function costumePieces(): CostumePiece[] {
         primitive: { kind: "capsule", height: A.upperLength, radius: A.upperRadius },
       },
       {
+        name: `elbowCover${suffix}`,
+        bone: bone("Forearm"),
+        material: "cloth",
+        at: [x, elbow, z],
+        primitive: { kind: "sphere", diameter: A.foreRadius * 2.1 },
+      },
+      {
+        name: `forearmSkin${suffix}`,
+        bone: bone("Forearm"),
+        material: "leather",
+        at: [x, elbow - A.foreLength / 2, z],
+        primitive: { kind: "capsule", height: A.foreLength + 0.02, radius: A.foreRadius * 0.82 },
+      },
+      {
         name: `forearm${suffix}`,
         bone: bone("Forearm"),
         material: "leather",
         at: [x, elbow - A.foreLength / 2, z],
         primitive: { kind: "capsule", height: A.foreLength, radius: A.foreRadius },
+      },
+      {
+        name: `wristCover${suffix}`,
+        bone: bone("Forearm"),
+        material: "leather",
+        at: [x, wrist, z],
+        primitive: { kind: "sphere", diameter: A.handRadius * 2.1 },
       },
       {
         name: `hand${suffix}`,
@@ -221,11 +249,25 @@ export function costumePieces(): CostumePiece[] {
     const shin = suffix === "L" ? "shinLeft" : "shinRight";
     return [
       {
+        name: `thighSkin${suffix}`,
+        bone: thigh,
+        material: "cloth",
+        at: [x, B.thighCentre, 0],
+        primitive: { kind: "capsule", height: B.thighLength + 0.02, radius: B.thighRadius * 0.82 },
+      },
+      {
         name: `thigh${suffix}`,
         bone: thigh,
         material: "cloth",
         at: [x, B.thighCentre, 0],
         primitive: { kind: "capsule", height: 0.44, radius: 0.085 },
+      },
+      {
+        name: `shinSkin${suffix}`,
+        bone: shin,
+        material: "leather",
+        at: [x, B.shinCentre, 0],
+        primitive: { kind: "capsule", height: B.shinLength + 0.02, radius: B.shinRadius * 0.82 },
       },
       {
         name: `shin${suffix}`,

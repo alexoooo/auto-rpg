@@ -1235,9 +1235,12 @@ The current character silhouette is adapted rather than invented from primitives
 `asset-src/armour-sources.json` pins three creator-published CC0 sources. Quaternius supplies
 the Ranger tunic, coat-skirts, two belts, hood, sleeves and bracers, pauldron, trousers and
 boot shafts. Blender Studio's Human Base Meshes v1.4.1 supplies the remembered realistic
-male body: face sets split its level-zero cage into torso, pelvis, neck, head and both hands
-at the existing rigid physics boundaries. These are selected anatomy fragments under the
-clothing, not a second complete body. Poly Haven's clean LOD1 boots supply only the rounded
+male body: face sets split its level-zero cage into torso, pelvis, neck, head, upper arms,
+forearms, hands, thighs and shins at every rigid physics boundary. Compact donor-derived
+elbow and wrist bands tuck beneath adjoining garments so those rigid boundaries remain
+dressed while they bend. Covered body shells use
+cloth or leather as a fitted underlayer rather than letting flesh-coloured geometry erupt
+through an armhole; only the exposed head, neck and hands use skin. Poly Haven's clean LOD1 boots supply only the rounded
 foot and heel below the Ranger shaft; their modern rubber surface and textures are
 discarded, so the fitted silhouette reads through the game's worn-leather family instead.
 Their exact source objects and digests are part of the record. `npm run armour:extract`
@@ -1248,7 +1251,21 @@ adapted meshes inherit the runtime palette and remain render-only. The builder m
 imported object with its extract and the piece welder refuses an unmarked part, while a
 mutation-proven source check rejects a generated primitive call in `build()`. This preserves
 severability and the cosmetics/no-authority contract without pretending any imported rig is
-the simulated one.
+the simulated one. The torso owns both pauldrons over a continuous cloth shoulder; making a
+plate inherit the whole upper-arm rotation sent it behind the body in guard and was rejected
+by the articulated review.
+
+The first 2026-08-27 front/back/side review was a false PASS. It examined only the upright
+GLB, while four stray facial islands in the torso face set raised its fitted landmark,
+shortened the actual trunk by 114 mm and left 52 mm of air below the neck. It also never asked
+an elbow, wrist, hip or knee to rotate. `npm run asset:review` is the correction: eight views
+include guard, full reach and crouch poses built from the same thirteen-body hierarchy as the
+game, plus front and side views of an elbow flexed to 120 degrees. Source tests reject the
+five-island torso and an incomplete limb manifest. The asset
+checker separately enforces the fitted cloth/leather underlayer, forearm-following elbow
+covers and torso-mounted pauldrons;
+the rendered images remain the art-direction judgement rather than receiving an automated
+PASS from upright bounding boxes.
 
 A nominally CC0 plate-armour candidate was rejected during adversarial provenance review:
 its source blend packed a distinctive third-party armour concept as a reference, so the

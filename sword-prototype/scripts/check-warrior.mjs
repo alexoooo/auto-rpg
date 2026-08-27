@@ -379,6 +379,10 @@ const AUTHORED_TRIANGLE_FLOORS = {
   footR: 2400,
   forearmL: 900,
   forearmR: 900,
+  forearmSkinL: 500,
+  forearmSkinR: 500,
+  elbowCoverL: 60,
+  elbowCoverR: 60,
   handL: 1250,
   handR: 1250,
   head: 6300,
@@ -389,12 +393,20 @@ const AUTHORED_TRIANGLE_FLOORS = {
   pelvis: 300,
   shinL: 3500,
   shinR: 3500,
+  shinSkinL: 750,
+  shinSkinR: 750,
   skirt: 500,
   surcoat: 1900,
   thighL: 180,
   thighR: 180,
+  thighSkinL: 350,
+  thighSkinR: 350,
   upperArmL: 450,
   upperArmR: 450,
+  upperArmSkinL: 540,
+  upperArmSkinR: 540,
+  wristCoverL: 200,
+  wristCoverR: 200,
 };
 
 function checkAuthoredGeometry(json, found, fail) {
@@ -460,6 +472,88 @@ function checkWristSeams(actual, fail) {
     const gap = forearm.min[1] - hand.max[1];
     if (gap > 0.005) {
       fail(`"hand${suffix}" wrist seam opens ${Math.round(gap * 1000)} mm below its bracer`);
+    }
+  }
+}
+
+function checkAnatomicalContinuity(actual, dimensions, fail) {
+  const body = dimensions.body;
+  const arm = dimensions.arm;
+  const elbow = dimensions.fighter.shoulderHeight - arm.upperLength;
+  const wrist = elbow - arm.foreLength;
+  const requireBelow = (name, joint, margin, label) => {
+    const node = actual.get(name);
+    if (node && node.min[1] > joint - margin) {
+      fail(`"${name}" stops above the ${label}; its anatomy does not cross the joint`);
+    }
+  };
+  const requireAbove = (name, joint, margin, label) => {
+    const node = actual.get(name);
+    if (node && node.max[1] < joint + margin) {
+      fail(`"${name}" stops below the ${label}; its anatomy does not cross the joint`);
+    }
+  };
+  const requirePivotCover = (name, x, y, z, radius, label) => {
+    const node = actual.get(name);
+    if (!node) return;
+    const point = [x, y, z];
+    for (let axis = 0; axis < 3; axis += 1) {
+      if (node.min[axis] > point[axis] - radius || node.max[axis] < point[axis] + radius) {
+        fail(`"${name}" does not surround the ${label} pivot on ${"xyz"[axis]}`);
+      }
+    }
+  };
+
+  for (const suffix of ["L", "R"]) {
+    const side = suffix === "L" ? -1 : 1;
+    requireBelow(`upperArmSkin${suffix}`, elbow, 0.020, "elbow");
+    requireAbove(`forearmSkin${suffix}`, elbow, 0.020, "elbow");
+    requireBelow(`forearmSkin${suffix}`, wrist, 0.015, "wrist");
+    requireAbove(`hand${suffix}`, wrist, 0.015, "wrist");
+    requirePivotCover(`elbowCover${suffix}`, side * (dimensions.fighter.shoulderSide + 0.001),
+      elbow, dimensions.fighter.shoulderFront - 0.010, 0.013, "elbow");
+    requirePivotCover(`wristCover${suffix}`, side * (dimensions.fighter.shoulderSide - 0.010),
+      wrist, dimensions.fighter.shoulderFront, 0.025, "wrist");
+    requireAbove(`thighSkin${suffix}`, body.hip, 0.010, "hip");
+    requireBelow(`thighSkin${suffix}`, body.knee, 0.015, "knee");
+    requireAbove(`shinSkin${suffix}`, body.knee, 0.015, "knee");
+  }
+
+  const chest = actual.get("chest");
+  const neck = actual.get("neck");
+  const head = actual.get("head");
+  if (chest && neck && chest.max[1] - neck.min[1] < 0.025) {
+    fail('"chest" and "neck" do not overlap enough at the bind seam');
+  }
+  if (neck && head && neck.max[1] - head.min[1] < 0.025) {
+    fail('"neck" and "head" do not overlap enough at the bind seam');
+  }
+}
+
+function checkGarmentUnderlayer(dimensions, fail) {
+  const pieces = new Map(dimensions.pieces.map((piece) => [piece.name, piece]));
+  const expected = new Map([
+    ["chest", "cloth"], ["pelvis", "cloth"],
+    ["upperArmSkinL", "cloth"], ["upperArmSkinR", "cloth"],
+    ["forearmSkinL", "leather"], ["forearmSkinR", "leather"],
+    ["thighSkinL", "cloth"], ["thighSkinR", "cloth"],
+    ["shinSkinL", "leather"], ["shinSkinR", "leather"],
+  ]);
+  for (const [name, material] of expected) {
+    const piece = pieces.get(name);
+    if (piece && piece.material !== material) {
+      fail(`"${name}" exposes ${piece.material} beneath the outfit; expected fitted ${material} underlayer`);
+    }
+  }
+  for (const suffix of ["L", "R"]) {
+    const elbowCover = pieces.get(`elbowCover${suffix}`);
+    const forearmBone = suffix === "R" ? "swordForearm" : "offForearm";
+    if (elbowCover && elbowCover.bone !== forearmBone) {
+      fail(`"elbowCover${suffix}" rides ${elbowCover.bone}; its cuff must follow ${forearmBone} under the sleeve`);
+    }
+    const pauldron = pieces.get(`pauldron${suffix}`);
+    if (pauldron && pauldron.bone !== "torso") {
+      fail(`"pauldron${suffix}" rides ${pauldron.bone}; torso armour must not rotate behind a raised shoulder`);
     }
   }
 }
@@ -584,6 +678,8 @@ export function checkWarrior(buffer, dimensions) {
     if (!expected.has(name)) fail(`"${name}" is in the asset and is not a piece figure.ts dresses`);
   }
   checkWristSeams(actual, fail);
+  checkAnatomicalContinuity(actual, dimensions, fail);
+  checkGarmentUnderlayer(dimensions, fail);
 
   // ---- every piece cut at its own joint, and reaching no further than a limb ----
   for (const piece of dimensions.pieces) {

@@ -2,6 +2,7 @@
 //
 //     node scripts/run-blender.mjs            rebuild the glb (needs Blender)
 //     node scripts/run-blender.mjs --verify   check the committed one (needs nothing)
+//     node scripts/run-blender.mjs --review   render upright and articulated review views
 //
 // or, through npm, `npm run asset:build` and `npm run asset:verify`. Note that
 // `npm run asset:build --verify` is *not* the second of those: npm eats a bare
@@ -54,7 +55,7 @@ const DIMENSIONS = "asset-src/dimensions.json";
  *
  * Re-record it in the same commit that rebuilds the asset, and only then.
  */
-const PIN = "250904819073e9ca4ac32aa9a5db4a58ee8db6857203a0bb8102373b4da8ad94";
+const PIN = "c08f09fa564b6b84b24a2b25442f3c51fd167d20f0c8d4f777e5bd25943c1afd";
 
 /**
  * Everything the Blender script is allowed to know about this rig.
@@ -231,6 +232,18 @@ async function build() {
   process.exit(ok ? 0 : 1);
 }
 
+async function review() {
+  mkdirSync(resolve(ROOT, ".review"), { recursive: true });
+  const status = runBlender([
+    "--background",
+    "--factory-startup",
+    "--python",
+    resolve(ROOT, "asset-src/render_warrior_review.py"),
+  ]);
+  if (status !== 0) process.exit(status);
+  console.log("wrote eight Warrior review renders to .review/");
+}
+
 /**
  * Rewrite the dimensions file, and nothing else.
  *
@@ -251,6 +264,8 @@ async function rewrite() {
 
 const main = process.argv.includes("--verify")
   ? verify
+  : process.argv.includes("--review")
+    ? review
   : process.argv.includes("--dimensions")
     ? rewrite
     : build;

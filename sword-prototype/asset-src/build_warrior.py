@@ -27,12 +27,15 @@ see -- it puts a nose on the back of a head -- which is why
 ``scripts/check-warrior.mjs`` asserts every piece's bounds in all three axes
 rather than in the height alone.
 
-**No generated geometry.** Every sub-object welded into the shipping GLB must
+**No generated forms.** Every sub-object welded into the shipping GLB must
 carry the name of a pinned source extract. The welder refuses anything else,
 and the source test mutates an imported call into a box call to prove the guard.
+The one derived operation is closing the open rings where the selected human
+source is cut at a rigid joint: those caps inherit the donor boundary exactly
+and prevent a rotated elbow from rendering as a hollow tube.
 
 **No skinning, no skeleton, no armature.** The hierarchy already exists as
-eleven physics bodies with motorised joints between them, and ``figure.ts``
+thirteen physics bodies with motorised joints between them, and ``figure.ts``
 parents each piece to the body it covers. A skinned mesh would add a second
 opinion about where a shoulder is, and the two would disagree the moment
 somebody retuned the first one.
@@ -176,6 +179,15 @@ def imported_obj(path, name, transform, keep_face=lambda _centre, _material: Tru
     cleaned = bmesh.new()
     cleaned.from_mesh(mesh)
     bmesh.ops.dissolve_degenerate(cleaned, dist=cleanup_distance, edges=list(cleaned.edges))
+    anatomical_limb = any(part in path.stem for part in (
+        "upper-arm", "forearm", "hand", "thigh", "shin",
+    ))
+    if anatomical_limb:
+        boundary = [edge for edge in cleaned.edges if edge.is_boundary]
+        if not boundary:
+            raise RuntimeError(f'"{path}" has no rigid-joint boundary to close')
+        filled = bmesh.ops.holes_fill(cleaned, edges=boundary, sides=0)
+        bmesh.ops.triangulate(cleaned, faces=filled["faces"])
     cleaned.to_mesh(mesh)
     cleaned.free()
     mesh.update(calc_edges=True)
@@ -227,6 +239,11 @@ def piece(name, joint, parts, surface, root):
     bmesh.ops.triangulate(welded, faces=list(welded.faces))
     mesh = bpy.data.meshes.new(name + "_mesh")
     welded.to_mesh(mesh)
+    # Boundary caps can inherit duplicate corner records from the donor's
+    # sculpt face-set seam. Blender's exporter warns and guesses if those are
+    # left in place; validate removes only invalid topology records before UVs
+    # and tangents are authored, never a visible source surface.
+    mesh.validate(clean_customdata=True)
     mesh.update(calc_edges=True)
     welded.free()
     for part in parts:
@@ -389,21 +406,21 @@ def build(dimensions):
     # the same X/right, Y/back, Z/up convention as the Ranger extracts.
     def human_torso(point):
         x, source_back, up = point
-        return (x * 0.93,
-                waist + (up - 1.0475227) * (torso_top - waist) / (1.5550888 - 1.0475227),
-                -source_back * 0.76)
+        return (x * 0.86,
+                waist + (up - 1.0475227) * (torso_top - waist) / (1.4348141 - 1.0475227),
+                -source_back * 0.68)
 
     def human_pelvis(point):
         x, source_back, up = point
-        return (x * 0.94,
+        return (x * 0.86,
                 pelvis_bottom + (up - 0.7524507) * (pelvis_top - pelvis_bottom) / (0.9620752 - 0.7524507),
-                -source_back * 0.72)
+                -source_back * 0.66)
 
     def human_neck(point):
         x, source_back, up = point
-        return (x * 0.78,
+        return (x * 0.96,
                 neck - 0.072 + (up - 1.4490762) * 0.132 / (1.5300004 - 1.4490762),
-                -(source_back + 0.105) * 0.76)
+                -(source_back + 0.105) * 0.90)
 
     def human_head(point):
         x, source_back, up = point
@@ -433,6 +450,105 @@ def build(dimensions):
         # region on top; the three-angle review caught that apparent duplicate.
         return (fitted.x, fitted.y + 0.060, shoulder_front - (source_back + 0.090) * 0.70)
 
+    def human_segment(point, source_start, source_end, target_start, target_end,
+                      across_scale, depth_scale, depth_centre=0.0):
+        """Straighten one anatomical shell onto one simulated bone.
+
+        The source is an A-pose, while the prototype's authoring frame hangs
+        every limb vertically. Mapping the source's X/Z axis onto the physics
+        joint axis preserves the donor's real silhouette instead of replacing
+        it with another capsule. Target ends deliberately overlap their
+        neighbouring joints beneath sleeves, bracers, trouser cuffs and boot
+        shafts. The elbow overlap is wider than its cuff so an ordinary guard
+        cannot expose the closed source boundary.
+        """
+        x, source_back, up = point
+        source_axis = Vector(source_end) - Vector(source_start)
+        source_length = source_axis.length
+        source_direction = source_axis / source_length
+        source_perpendicular = Vector((-source_direction.y, source_direction.x))
+        relative = Vector((x, up)) - Vector(source_start)
+        along = relative.dot(source_direction) / source_length
+        across = relative.dot(source_perpendicular) * across_scale
+        target_axis = Vector(target_end) - Vector(target_start)
+        target_direction = target_axis.normalized()
+        target_perpendicular = Vector((-target_direction.y, target_direction.x))
+        fitted = Vector(target_start) + target_axis * along + target_perpendicular * across
+        return (fitted.x, fitted.y, shoulder_front - (source_back - depth_centre) * depth_scale)
+
+    def segment_fraction(point, source_start, source_end):
+        """Where a donor face centre sits along one anatomical segment."""
+        x, _source_back, up = point
+        axis = Vector(source_end) - Vector(source_start)
+        return (Vector((x, up)) - Vector(source_start)).dot(axis) / axis.length_squared
+
+    def human_upper_arm(point, side):
+        return human_segment(
+            point,
+            (side * 0.10385, 1.38833), (side * 0.32670, 1.06608),
+            (side * shoulder_side, shoulder_height + 0.032),
+            (side * shoulder_side, arm_elbow - 0.070),
+            0.80, 0.70, 0.010,
+        )
+
+    def human_forearm(point, side):
+        return human_segment(
+            point,
+            (side * 0.25550, 1.10985), (side * 0.39615, 0.86164),
+            (side * (shoulder_side - 0.010), arm_elbow + 0.070),
+            (side * (shoulder_side - 0.010), arm_wrist - 0.050),
+            0.58, 0.56, -0.018,
+        )
+
+    def human_elbow_cover(point, side):
+        """A narrow proximal-forearm band crossing the shared elbow pivot.
+
+        Lengthwise overlap cannot cover a bend: two straight shells that cross
+        in the bind pose rotate apart around their common endpoint. This band
+        follows the forearm into the upper sleeve, while both of its capped ends
+        remain buried under existing garments. Using the donor's proximal
+        forearm avoids turning the much broader upper-arm end into a rosette.
+        """
+        source_start = Vector((side * 0.25550, 1.10985))
+        source_end = Vector((side * 0.39615, 0.86164))
+        source_cut = source_start.lerp(source_end, 0.22)
+        return human_segment(
+            point, source_start, source_cut,
+            (side * (shoulder_side - 0.010), arm_elbow + 0.053),
+            (side * (shoulder_side - 0.010), arm_elbow - 0.030),
+            0.71, 0.62, -0.018,
+        )
+
+    def human_wrist_cover(point, side):
+        """The same pivot cover at the bracer-to-hand seam."""
+        source_start = Vector((side * 0.25550, 1.10985))
+        source_end = Vector((side * 0.39615, 0.86164))
+        source_cut = source_start.lerp(source_end, 0.68)
+        return human_segment(
+            point, source_cut, source_end,
+            (side * (shoulder_side - 0.010), arm_wrist + 0.028),
+            (side * (shoulder_side - 0.010), arm_wrist - 0.048),
+            0.76, 0.66, -0.046,
+        )
+
+    def human_thigh(point, side):
+        return human_segment(
+            point,
+            (side * 0.055, 0.82565), (side * 0.174, 0.43330),
+            (side * (hip_side - 0.030), hip + 0.060),
+            (side * (hip_side - 0.030), knee - 0.032),
+            0.38, 0.42, -0.008,
+        )
+
+    def human_shin(point, side):
+        return human_segment(
+            point,
+            (side * 0.105, 0.45874), (side * 0.185, 0.05208),
+            (side * (hip_side - 0.030), knee + 0.032),
+            (side * (hip_side - 0.030), 0.020),
+            0.38, 0.42, 0.025,
+        )
+
     def poly_boot(point, side):
         x, source_back, up = point
         return (side * hip_side + x * 1.27, up * 0.95,
@@ -446,9 +562,10 @@ def build(dimensions):
             raise RuntimeError(f'this script builds "{name}" and figure.ts does not dress it')
         made[name] = piece(name, bones[wanted[name]]["joint"], parts, surfaces[surface], root)
 
-    # Authored anatomy fills the visible gaps under the clothes. It remains part
-    # of Figure and `G` hides it with the costume; the overlay, not a second
-    # cosmetic body, is the instrument underneath.
+    # Authored anatomy supplies the shape of a fitted gambeson, leggings and
+    # gauntlets beneath the Ranger modules. Only the exposed head, neck and
+    # hands use skin; a flesh-coloured inner shell erupting through an armhole
+    # is not anatomy, it is visibly broken layering.
     add("pelvis", [imported_obj(human_root / "human-pelvis.obj", "blender_human_pelvis", human_pelvis)], "cloth")
 
     skirt_top = waist + 0.09
@@ -465,7 +582,7 @@ def build(dimensions):
 
     def ranger_belt(point):
         x, source_back, up = point
-        return (x, waist + 0.015 + (up - 1.1253091), -(source_back + 0.008))
+        return (x * 0.92, waist + 0.015 + (up - 1.1253091), -(source_back + 0.008) * 0.86)
 
     add("skirt", [imported_obj(clothing_root / "ranger-body.obj", "quaternius_ranger_skirt",
                               ranger_skirt, lambda centre, _material: centre[2] <= ranger_skirt_top)], "side")
@@ -488,17 +605,43 @@ def build(dimensions):
     add("helm", [imported_obj(clothing_root / "ranger-hood.obj", "quaternius_ranger_hood", ranger_hood)], "cloth")
 
     for suffix, side in (("R", 1), ("L", -1)):
+        add("upperArmSkin" + suffix, [imported_obj(
+            human_root / ("human-upper-arm-r.obj" if side > 0 else "human-upper-arm-l.obj"),
+            "blender_human_upperArmSkin" + suffix,
+            lambda point, side=side: human_upper_arm(point, side),
+        )], "cloth")
         add("upperArm" + suffix, [imported_obj(
             clothing_root / "ranger-arms.obj", "quaternius_ranger_upperArm" + suffix, ranger_arm,
             lambda centre, source_material, side=side:
                 source_material == "MI_Ranger"
                 and centre[0] * side > 0 and ranger_arm(centre)[1] >= arm_elbow,
         )], "cloth")
+        add("elbowCover" + suffix, [imported_obj(
+            human_root / ("human-forearm-r.obj" if side > 0 else "human-forearm-l.obj"),
+            "blender_human_elbowCover" + suffix,
+            lambda point, side=side: human_elbow_cover(point, side),
+            lambda centre, _material, side=side: segment_fraction(
+                centre, (side * 0.25550, 1.10985), (side * 0.39615, 0.86164),
+            ) <= 0.22,
+        )], "cloth")
+        add("forearmSkin" + suffix, [imported_obj(
+            human_root / ("human-forearm-r.obj" if side > 0 else "human-forearm-l.obj"),
+            "blender_human_forearmSkin" + suffix,
+            lambda point, side=side: human_forearm(point, side),
+        )], "leather")
         add("forearm" + suffix, [imported_obj(
             clothing_root / "ranger-arms.obj", "quaternius_ranger_forearm" + suffix, ranger_arm,
             lambda centre, source_material, side=side:
                 source_material == "MI_Ranger"
                 and centre[0] * side > 0 and arm_wrist <= ranger_arm(centre)[1] < arm_elbow,
+        )], "leather")
+        add("wristCover" + suffix, [imported_obj(
+            human_root / ("human-forearm-r.obj" if side > 0 else "human-forearm-l.obj"),
+            "blender_human_wristCover" + suffix,
+            lambda point, side=side: human_wrist_cover(point, side),
+            lambda centre, _material, side=side: segment_fraction(
+                centre, (side * 0.25550, 1.10985), (side * 0.39615, 0.86164),
+            ) >= 0.68,
         )], "leather")
         add("hand" + suffix, [imported_obj(
             human_root / ("human-hand-r.obj" if side > 0 else "human-hand-l.obj"),
@@ -506,11 +649,21 @@ def build(dimensions):
         )], "flesh")
 
     for suffix, side in (("L", -1), ("R", 1)):
+        add("thighSkin" + suffix, [imported_obj(
+            human_root / ("human-thigh-r.obj" if side > 0 else "human-thigh-l.obj"),
+            "blender_human_thighSkin" + suffix,
+            lambda point, side=side: human_thigh(point, side),
+        )], "cloth")
         add("thigh" + suffix, [imported_obj(
             clothing_root / "ranger-legs.obj", "quaternius_ranger_thigh" + suffix, ranger_legs,
             lambda centre, _material, side=side:
                 centre[0] * side > 0 and ranger_legs(centre)[1] >= knee,
         )], "cloth")
+        add("shinSkin" + suffix, [imported_obj(
+            human_root / ("human-shin-r.obj" if side > 0 else "human-shin-l.obj"),
+            "blender_human_shinSkin" + suffix,
+            lambda point, side=side: human_shin(point, side),
+        )], "leather")
         add("shin" + suffix, [
             imported_obj(clothing_root / "ranger-legs.obj", "quaternius_ranger_shin_cloth" + suffix,
                          ranger_legs, lambda centre, _material, side=side:
