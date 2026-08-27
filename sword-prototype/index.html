@@ -14,13 +14,11 @@
       <label><input id="own-posture" type="checkbox" /> direct posture</label>
       <label><input id="own-wrist" type="checkbox" /> direct wrist</label>
     </div>
-    <!-- One curtain, two screens. Which one is showing is `data-screen`, set by
-         `showScreen` in src/main.ts and by nothing else. It used to be derived
-         from the bout's phase, which is how a pause turned into the character
-         selector with the fight still running behind it. -->
-    <div id="curtain" data-screen="setup">
+    <!-- Setup replaces the arena because no bout exists yet. Pause does not:
+         its compact sibling below leaves the frozen arena visible. -->
+    <div id="curtain">
       <div class="panel">
-        <section class="screen" data-screen="setup">
+        <section>
           <h1>Sword prototype</h1>
           <p class="lede">
             The blade is a physical object. There is no attack button &mdash; you swing by
@@ -48,23 +46,24 @@
           <p class="note">No setup or developer tools required: it chooses each matchup, records it, and saves your progress.</p>
           <p class="note" id="boot-note">Loading Havok&hellip;</p>
         </section>
-
-        <!-- The pause. It says one thing and offers three, and it deliberately
-             carries none of the setup screen's furniture: a curtain that shows
-             the character pickers over a fight that is still standing reads as
-             the fight having been thrown away, which is exactly what it used to
-             mean here. -->
-        <section class="screen" data-screen="paused">
-          <h1>Paused</h1>
-          <p class="lede">The arena is still standing behind this. Nothing has been thrown away.</p>
-          <button id="resume" class="action" type="button">Resume</button>
-          <button id="restart" class="action quiet" type="button">Restart this bout</button>
-          <button id="leave" class="action quiet" type="button">Leave &mdash; back to the setup screen</button>
-        </section>
-
         <p class="note keys-hint"><b>?</b> for the controls</p>
       </div>
     </div>
+    <!-- Real-time-with-pause mode: a control surface in the game view, not a
+         second screen. Focus loss (including a screenshot tool taking focus)
+         freezes the world and reveals this without covering the composition. -->
+    <aside id="pause-menu" class="gone" aria-label="Game paused">
+      <div class="pause-copy">
+        <strong>PAUSED</strong>
+        <span>Arena frozen &middot; Space or Esc resumes</span>
+      </div>
+      <div class="pause-actions">
+        <button id="resume" class="action" type="button">Resume</button>
+        <button id="restart" class="action quiet" type="button">Restart bout</button>
+        <button id="leave" class="action quiet" type="button">Setup</button>
+      </div>
+      <span class="pause-help"><b>?</b> controls</span>
+    </aside>
     <!-- The controls, on their own overlay rather than on the curtain.
          Seventeen rows above the Fight button pushed it off the bottom of a
          laptop window and had to be scrolled past every time a bout was

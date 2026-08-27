@@ -25,6 +25,8 @@ interface Wound {
   killIn: number;
 }
 
+const PARTICLE_UPDATE_SPEED = 0.01;
+
 /**
  * Blood, which is a cosmetic and therefore knows nothing.
  *
@@ -53,6 +55,7 @@ export class Blood {
   private readonly scene: Scene;
   private readonly texture: Texture;
   private readonly wounds: Wound[] = [];
+  private paused = false;
 
   constructor(scene: Scene, texture: Texture = droplet(scene)) {
     this.scene = scene;
@@ -167,6 +170,22 @@ export class Blood {
   }
 
   /**
+   * Keep rendering droplets at their last positions without ageing them.
+   *
+   * `scene.render()` must continue during pause so the canvas remains useful
+   * for screenshots, but Babylon advances particle systems from render rather
+   * than from `update`. Zero update speed is its supported frozen state: the
+   * existing particles remain visible and resume from the same instant.
+   */
+  setPaused(paused: boolean): void {
+    if (this.paused === paused) return;
+    this.paused = paused;
+    for (const wound of this.wounds) {
+      wound.system.updateSpeed = paused ? 0 : PARTICLE_UPDATE_SPEED;
+    }
+  }
+
+  /**
    * Take every emitter out of the world at once.
    *
    * Called on a rebuild, and it must run *before* the fighters are disposed: a
@@ -202,6 +221,7 @@ export class Blood {
     system.minEmitPower = 1;
     system.maxEmitPower = 1;
     system.emitRate = 0;
+    system.updateSpeed = this.paused ? 0 : PARTICLE_UPDATE_SPEED;
     system.blendMode = ParticleSystem.BLENDMODE_STANDARD;
     return system;
   }

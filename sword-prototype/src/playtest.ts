@@ -358,7 +358,7 @@ export class GuidedPlaytest {
     window.alert("The guided playtest is open. Use Start next bout, or Exit to normal setup from its panel.");
   }
 
-  /** One guard for the R key and every paused-screen route to a rebuild. */
+  /** One guard for the R key and the pause overlay's restart route. */
   permitRestart(): boolean {
     if (!this.workflowIsOpen) return true;
     if (this.running) this.refuseAbandon();

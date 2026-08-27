@@ -14,11 +14,10 @@ import type { Side } from "./physics";
 /**
  * The screen before the fight.
  *
- * It lives inside the curtain that was already there rather than in a second
- * overlay of its own, which is the plan's instruction and is also the only way
- * the pause key keeps working: `Esc` has always raised `#curtain`, and a setup
- * screen somewhere else would have meant two things that cover the arena and a
- * rule about which of them wins.
+ * It is the only thing inside `#curtain`, because setup genuinely replaces the
+ * arena: there is no bout to look at yet. Pause is a compact sibling in the game
+ * view and never routes through this class, so focusing a screenshot tool cannot
+ * turn a standing fight into character selection.
  *
  * The two corners are generated from `UNITS` and `POLICIES` rather than written
  * out in `index.html`, so an option that exists is selectable and an option that

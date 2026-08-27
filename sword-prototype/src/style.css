@@ -364,10 +364,8 @@ body {
   color: var(--dim);
 }
 
-/* Was `#begin`. The pause screen has three of these and they have to read as
-   the same control the setup screen's one is, so the look is a class and the id
-   is only an address. `.quiet` is the secondary pair -- present, pressable, and
-   visibly not the thing you came here to press. */
+/* Setup and the compact pause overlay share this control language. The id is
+   only an address; `.quiet` marks a secondary action. */
 .action {
   width: 100%;
   padding: 11px;
@@ -673,25 +671,6 @@ body {
   margin: 0 0 20px;
 }
 
-/* The screen router. One curtain, one `data-screen`, and exactly one section
-   showing.
-
-   This replaces a rule that hid `#matchup` and `#policies` when the curtain
-   carried `.paused` -- which meant a pause was the setup screen with two blocks
-   taken out of it, still carrying the title, the lede inviting you to choose who
-   drives each fighter, and a seventeen-row key list. It read as the fight having
-   been thrown away, and the class was set from the bout's *phase*, so anything
-   that moved the phase silently changed which screen you were looking at. A
-   screen is now a thing `main.ts` states rather than a thing anything infers. */
-.screen {
-  display: none;
-}
-
-#curtain[data-screen="setup"] .screen[data-screen="setup"],
-#curtain[data-screen="paused"] .screen[data-screen="paused"] {
-  display: block;
-}
-
 /* Tucked up under the two corners it describes, and set ragged rather than
    centred: it is three sentences about three things, and centring it makes the
    eye hunt for where each one starts. */
@@ -783,11 +762,80 @@ body {
   overflow-y: auto;
 }
 
+/* ---------- pause inside the arena ---------- */
+
+/* Bottom-left stays clear of the centred fighters, the top HUD and the direct
+   controls at bottom-right. This is deliberately not `inset: 0`: pause must
+   leave the frame visible so focus-loss screenshots can show the thing that
+   caused the report. */
+#pause-menu {
+  position: fixed;
+  left: 18px;
+  bottom: 18px;
+  z-index: 12;
+  width: min(430px, calc(100vw - 36px));
+  padding: 12px 13px 11px;
+  border: 1px solid rgba(232, 180, 90, 0.42);
+  border-radius: 7px;
+  background: rgba(12, 13, 16, 0.82);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.32);
+  transition: opacity 140ms ease, visibility 140ms;
+}
+
+#pause-menu.gone {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.pause-copy {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+
+.pause-copy strong {
+  color: var(--hot);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+}
+
+.pause-copy span,
+.pause-help {
+  color: var(--dim);
+  font-size: 10.5px;
+}
+
+.pause-actions {
+  display: flex;
+  gap: 7px;
+}
+
+#pause-menu .action {
+  width: auto;
+  padding: 7px 10px;
+  font-size: 10.5px;
+}
+
+#pause-menu .action + .action {
+  margin-top: 0;
+}
+
+.pause-help {
+  display: block;
+  margin-top: 8px;
+}
+
+.pause-help b {
+  color: var(--hot);
+}
+
 /* ---------- the controls, on their own overlay ---------- */
 
-/* Above the curtain, because `?` is meant to work from the pause screen as well
-   as from a fight, and a help sheet that opens behind the thing you opened it
-   from is a help sheet nobody can read. */
+/* Above setup and the pause overlay, because `?` is meant to work in every mode
+   and a help sheet that opens behind its caller is a help sheet nobody can read. */
 #help {
   position: fixed;
   inset: 0;

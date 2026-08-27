@@ -488,7 +488,7 @@ instead of quietly giving it no effect. This is why arrows and fists can finish 
 being allowed to sever, and why local damage remains meaningful after the HUD stopped showing
 twelve competing life bars.
 
-## The curtain, which is two screens and used to be one
+## Setup is a screen; pause is a mode
 
 `Space` paused a fight and then, from the state pausing had put you in, did something else
 entirely. Three faults, and they chained:
@@ -505,29 +505,38 @@ entirely. Three faults, and they chained:
 - **From `select`, the resume branch was unreachable.** It was written `phase === "fight"`,
   so every later press just re-paused something already paused. *"Pause doesn't un-pause."*
 
-Underneath all three was one design fault: **the screen was inferred from the phase.**
+Underneath all three was one design fault: **presentation was inferred from the phase.**
 `showCurtain(show: boolean)` derived which controls to show *and* what to write on the
 button from `phase === "select"`, and a pause was the setup screen with two blocks hidden by
 a class. So anything that moved the phase silently changed what you were looking at.
 
-Two phases can want the same screen and one phase can want either, so a `Screen` is now
-stated -- `showScreen("setup" | "paused" | null)`, and `#curtain[data-screen]` is the whole
-of the CSS. The pause is its own section carrying a heading, Resume, Restart and Leave and
-none of the setup screen's furniture, because a curtain offering to change the matchup over
-a live fight reads as the fight having been discarded, which is what it used to mean.
+The first repair stated two curtain screens explicitly. That fixed the state transition,
+but a full-screen pause still replaced the game view and made a screenshot of a visual bug
+impossible: the act of focusing the capture tool hid the evidence. Pause is therefore no
+longer a screen at all. `ArenaPresentation` owns two independent targets: `#curtain`
+replaces the arena only for setup, while its compact `#pause-menu` sibling sits inside the
+visible game view. It has Resume, Restart and Setup actions, occupies no viewport backdrop,
+and leaves the frozen canvas, HUD and composition readable.
 
 The rule itself went to `bout.ts` as `pauseAction(phase, running)`, with a test, for the
 reason everything else in that file is there: it is a rule, it was wrong, and it was wrong
 in a way that could only be found by starting a browser and waiting sixty seconds. It
 returns `pause`, `resume` or `nothing` and **never a phase** -- a key that pauses and a key
-that abandons must not be the same key. Leaving is `R`'s, and the pause screen's Leave
-button, and they are one function.
+that leaves for setup must not be the same key. `R` restarts the same matchup; Setup in the
+pause controls is the explicit exit.
+
+The render loop keeps painting while paused, because a frozen frame that disappears cannot
+be inspected. One host gate owns every game-time mutation, including presentation notices;
+physics is disabled and blood particles use Babylon's zero-update-speed frozen state. Focus
+loss and hidden visibility are idempotent pause edges and focus return never resumes. A
+manual pause is refused during the timed portion of a guided playtest, but safety blur still
+freezes it and the report records that lost focus integrity.
 
 The cap that ships is now a safety net at 600 s, and `scripts/measure.mjs` sets its own 60
 at the top, where the argument for 60 lives.
 
-The seventeen-row key list went with it, to a `?` overlay. It was on the curtain, above the
-Fight button, on both screens -- `style.css` already capped the panel height and scrolled it
+The seventeen-row key list went with it, to a `?` overlay. It was on the curtain above the
+Fight button -- `style.css` already capped the panel height and scrolled it
 because the list plus the matchup overflowed a laptop window, which is a Fight button below
 the fold. A controls sheet is also something you want mid-fight, which a curtain cannot be.
 

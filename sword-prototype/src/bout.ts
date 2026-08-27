@@ -47,36 +47,26 @@ import type { HitKind } from "./scoring.ts";
  */
 export type Phase = "select" | "fight" | "over";
 
-/**
- * Whether the curtain is a setup screen or a pause over a live arena.
- *
- * A screen is not a `Phase` and deriving one from the other is what broke the
- * pause. `showScreen` in `main.ts` used to read `phase === "select"` to decide
- * both which controls to show and what to write on the button -- so the moment
- * anything moved the phase to `select`, a pause silently became the character
- * selector, with the fight behind it about to be disposed by the only button on
- * offer. Two phases can want the same screen and one phase can want either.
- */
-export type Screen = "setup" | "paused";
-
 /** What `Space` (and `Esc`, and the Resume button) does from where you are. */
 export type PauseAction = "pause" | "resume" | "nothing";
 
 /**
  * The pause rule, which is a rule and therefore lives here.
  *
- * It is a **toggle over a live arena**, and the only question worth asking is
+ * It is a **mode inside a live arena**, and the only question worth asking is
  * whether there is an arena and whether it is running. Both `fight` and `over`
  * have one -- `over` does not stop the world, see `Phase` -- so both pause and
- * both resume. `select` has no bodies behind the curtain at all, so `Space`
+ * both resume. `select` has no bodies in an arena at all, so `Space`
  * there is honestly nothing rather than a no-op that pretends.
  *
  * **It never returns a phase.** The bug this replaces was a hook that changed
  * the phase on its way past: from `over`, `Space` ran `toSelect`, which put you
  * on the selector -- "the game is gone" -- and from `select` the resume branch
  * was then unreachable forever, so `Space` was dead -- "pause doesn't un-pause".
- * Leaving a bout is `R`'s job and has been since `Space` became the pause;
- * a key that pauses and a key that abandons must not be the same key.
+ * The host now presents that state as a compact overlay while continuing to
+ * render the frozen arena; presentation still never changes this rule.
+ * Leaving a bout is the pause overlay's Setup action; a key that pauses and an
+ * action that abandons must not be the same action.
  */
 export function pauseAction(phase: Phase, running: boolean): PauseAction {
   if (phase === "select") return "nothing";
@@ -482,8 +472,8 @@ export function restart(state: BoutState): BoutState {
  * Back to the screen with the same matchup selected, because the thing you want
  * after a bout is usually the same bout again.
  *
- * Reached by `R`, and by the Leave button on the pause screen. **Not by
- * `Space`**, which it used to be: a decided bout still has two bodies standing
+ * Reached by the Setup button in the pause overlay. **Not by `Space`**, which it
+ * used to be: a decided bout still has two bodies standing
  * in an arena, so it has something to pause, and a `Space` that threw them away
  * instead is the pause bug. See `pauseAction`.
  */

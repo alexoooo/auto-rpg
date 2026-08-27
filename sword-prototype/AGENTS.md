@@ -294,10 +294,12 @@ npm run dev             # http://localhost:5180, strictPort
   repository root's `node_modules`. Reaching up into it is exactly what the boundary rule at
   the top of this file forbids, and it would check the wrong thing anyway: what can go wrong
   in an authored asset here is dimensional, not structural.
-- **A pause mid-stride still slides.** `Controls.pause()` stops the control loop, so the
-  keyframed torso keeps the linear velocity `steer` last gave it and the fighter drifts
-  behind the curtain. True since the hero, and `R` from a decided bout is a second door
-  onto it.
+- **Stopping input is not pausing a physics game.** `Controls.pause()` alone leaves the
+  keyframed torso carrying the velocity `steer` last gave it. `pauseHost` therefore disables
+  scene physics before it stops controls, and `resumeHost` enables physics immediately
+  before controls. The render loop still paints the frozen frame; blood particle update
+  speed and every game-time notice are frozen separately because both otherwise advance
+  from presentation work outside the solver.
 - **A screen inferred from a state machine changes when the state machine does, and nobody
   wrote that transition.** `showCurtain(show: boolean)` derived which curtain you were
   looking at from `state.phase === "select"`, so a *pause* was the setup screen with two
@@ -306,9 +308,12 @@ npm run dev             # http://localhost:5180, strictPort
   became the character pickers over a live arena, with the only button on offer wired to
   dispose both fighters. The resume branch was `phase === "fight"`, so from there the key
   was dead for the rest of the session. Two bugs, one report ("pause doesn't un-pause, the
-  game is gone"), and one cause. A screen is now an argument (`showScreen`), the rule is
-  `pauseAction` in `bout.ts` with a test, and **a key that pauses must never also be the key
-  that abandons.**
+  game is gone"), and one cause. The first repair made the curtain screen an explicit
+  argument, but it still covered the evidence when a screenshot tool took focus. The
+  current boundary is `ArenaPresentation`: setup owns `#curtain`, pause owns the compact
+  sibling `#pause-menu`, and neither method can toggle the other's target. The rule remains
+  `pauseAction` in `bout.ts`, and **a key that pauses must never also be the key that leaves
+  for setup.**
 - **A constant tuned for the bench does not become a player's by being in `config.ts`.**
   `bout.capSeconds` was 60 and every word of the argument beside it was about running a
   hundred bouts headlessly at 250x real time. Nothing in it was about somebody at a

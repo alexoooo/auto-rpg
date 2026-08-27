@@ -70,8 +70,8 @@ export interface ControlHooks {
    * `Space` and `Esc`: stop the world, or start it again.
    *
    * One hook for both directions rather than a pause and a resume, because the
-   * key is a toggle and the thing it toggles -- the curtain and the controller
-   * together -- is one state. `main.ts` decides which way it is going, through
+   * key is a toggle and the thing it toggles -- the in-arena pause mode and the
+   * controller together -- is one state. `main.ts` decides which way it is going, through
    * `pauseAction` in `bout.ts`, which is where the rule lives and is tested.
    */
   onPause: () => void;
@@ -283,11 +283,11 @@ export class Controls {
         return;
       case "KeyR":
         // Restart, which `Space` used to be. Not gated on `active`: it is
-        // meaningful behind the curtain during a fight -- "this bout again" is
+        // meaningful from the pause overlay -- "this bout again" is
         // exactly what you want after pausing a mess -- and `main.ts` refuses
-        // it from the setup screen, where there is no bout to rebuild. From a
-        // decided bout it is the way back to the setup screen, and it is the
-        // only way: `Space` used to agree with it there and that was the bug.
+        // it from the setup screen, where there is no bout to rebuild. A decided
+        // bout restarts too; Setup is an explicit button rather than a second
+        // meaning hidden behind the same key.
         this.hooks.onReset();
         return;
       case "Slash":
@@ -304,15 +304,14 @@ export class Controls {
         return;
       case "KeyG":
         // Gated on `active` like the lock, and for the same reason: the overlay
-        // reads live rig state, and while the fight is paused the curtain is
-        // over the arena anyway, so there is nothing behind it to look at.
+        // reads live rig state. It remains a running-mode control even though
+        // the frozen arena is now visible behind the compact pause overlay.
         if (this.active) this.hooks.onToggleRig();
         return;
       case "KeyV":
         // Gated on `active` like `G` and `L`. Nothing about the camera is
-        // dangerous to change behind the curtain, but the curtain is over the
-        // arena, so a switch taken there is a switch you cannot see -- and the
-        // whole of what the key is for is watching the change happen.
+        // dangerous to change while paused, but this key remains part of the
+        // running control set; the pause overlay changes presentation, not input ownership.
         if (this.active) this.hooks.onToggleCamera();
         return;
       case "BracketLeft":
@@ -329,10 +328,9 @@ export class Controls {
         return;
       case "KeyC":
         // Gated on `active` like `G`, `V` and `L`, and for the strongest version
-        // of the same reason: the whole gesture is a click on a body, and behind
-        // the curtain there is a curtain where the bodies are. Which fighter is
-        // yours is editable there anyway, by the radio buttons on the setup
-        // screen, so nothing is lost by the mode not existing.
+        // of the same reason: the whole gesture is a click on a live body. The
+        // frozen arena remains visible, but pause deliberately accepts only its
+        // own menu controls and the resume keys.
         if (this.active) this.hooks.onToggleTakeover();
         return;
       case "KeyF":
@@ -470,7 +468,7 @@ export class Controls {
   private applyButtons(event: PointerEvent, swallowed = 0): void {
     if (!this.active) {
       // Paused, so the hand is not the player's to hold. Pressing a button over
-      // the curtain must not be waiting in the pose when the fight resumes.
+      // the pause overlay must not be waiting in the pose when the fight resumes.
       this.openHand();
       return;
     }

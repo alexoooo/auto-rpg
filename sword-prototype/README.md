@@ -61,9 +61,11 @@ taskkill /F /PID <the pid>
 ```
 
 **Black screen, but the overlay updates**
-Chrome does not paint WebGL in a hidden or unfocused tab. The DOM overlay keeps
-compositing, so it looks exactly like a broken renderer. Bring the window to the front.
-`document.visibilityState` in the console tells you which it is.
+Chrome does not paint WebGL in a genuinely hidden or backgrounded tab. The DOM overlay
+keeps compositing, so it looks exactly like a broken renderer. Bring the window to the
+front; `document.visibilityState` in the console tells you which it is. A screenshot tool
+that merely takes focus is different: the game intentionally pauses, keeps the last arena
+frame visible, and raises only the small pause controls.
 
 **`EBADENGINE` during install**
 Node is older than 22.13.0.
@@ -97,7 +99,7 @@ the arm drifted, centre was unrecoverable, and you could not get your mouse back
 | V | camera — Overhead behind the fighter, or Fixed on a world bearing |
 | `[` / `]` | swing the Fixed camera round the arena, 45 degrees at a time |
 | Space / Esc | pause, and resume — the same key both ways, in a decided bout as much as a live one |
-| R | the same bout again — both fighters, from nothing; and the setup screen once one has been decided |
+| R | the same bout again — both fighters, from nothing |
 | Tab | toggle the readout |
 | G | the rig — collision shapes, anchors, joints and contacts, with the costume off |
 | ? | the controls — this list, over whatever is on screen |
@@ -108,14 +110,19 @@ command — locomotion, posture, and two hands — and how the arena is framed i
 That is why taking a body mid-bout changes nothing about the view, and why no policy can
 zoom out to see further than you can.
 
-**Pausing never throws a fight away.** The curtain has two screens and says which one you
-are looking at: the setup screen before a bout, and a pause over one that is standing.
-Leaving is `R`, and only `R`. That distinction is new, and its absence was a bug — `Space`
-used to mean "pause" in a live bout and "abandon this and go back to the pickers" in a
-decided one, and the bout cap that decided bouts was sixty seconds, chosen for a headless
-harness that runs a hundred of them. So a fight you were still having ended underneath you
-after a minute, the next `Space` put the character selector over it, and from there the key
-was dead for the rest of the session.
+**Pause is a mode in the arena, not another screen.** Space, Esc, focus loss and a
+screenshot tool taking focus freeze physics, fighters, projectiles, blood and game-time
+notices at the same instant. The canvas and HUD stay visible and a small control panel sits
+at bottom-left; Space, Esc or Resume continues from that exact frame. Restart starts the
+same bout again, while Setup is the explicit way back to the pickers. Returning focus never
+resumes on its own, so preparing a screenshot cannot restart the fight behind the capture
+tool.
+
+This distinction exists because pause once reused the character-select curtain. A bout
+could end underneath the player, the next Space put the pickers over a fight that was still
+standing, and the key was dead from there. Separating the two screens fixed the state bug
+but still obscured the very frame somebody wanted to show; the compact in-arena mode fixes
+that presentation failure too.
 
 A bout is chosen before it is fought. The curtain carries a left corner and a right corner —
 a unit, a policy, and whether that side is driven by a mind or by you — and the Fight button

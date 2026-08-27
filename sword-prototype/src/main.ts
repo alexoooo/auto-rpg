@@ -17,7 +17,8 @@ import { Blood } from "./blood";
 import { advanceFight, FightEnd } from "./fight-end";
 import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, combatRecorder, sampleBoutRecorder,
   wireBoutRecorder } from "./recorder";
-import { pauseHost, restartHost, resumeHost, runActiveHostFrame, type RunningHost } from "./host-run";
+import { advanceActiveHostTimers, ArenaPresentation, pauseHost, restartHost, resumeHost,
+  runActiveHostFrame, type RunningHost } from "./host-run";
 import { SetupScreen } from "./setup";
 import { GuidedPlaytest } from "./playtest";
 import type { Side } from "./physics";
@@ -46,7 +47,6 @@ import {
   toSelect,
   type Matchup,
   type Ring,
-  type Screen,
   type SideSetup,
 } from "./bout";
 
@@ -144,6 +144,7 @@ interface TakeoverReading {
 async function boot(): Promise<void> {
   const canvas = need<HTMLCanvasElement>("stage");
   const curtain = need("curtain");
+  const pauseMenu = need("pause-menu");
   const beginButton = need<HTMLButtonElement>("begin");
   const resumeButton = need<HTMLButtonElement>("resume");
   const restartButton = need<HTMLButtonElement>("restart");
@@ -197,14 +198,10 @@ async function boot(): Promise<void> {
   let playtest: GuidedPlaytest | null = null;
   const controls = new Controls(canvas, {
     onReset: () => {
-      // `R` means "this bout again", and what that costs depends on where you
-      // are. Behind the screen it means nothing, because there is no bout yet.
-      // During one it rebuilds both fighters, which is the key you press after
-      // making a mess of a limb you wanted to cut properly. After one has been
-      // decided it opens the screen, with the same matchup still selected,
-      // because the thing you want after a bout is the same bout again -- and
-      // because a decided fight rebuilt in place would give you no chance to
-      // change your mind about it.
+      // `R` means "this bout again" in both live and decided arenas. Behind the
+      // setup screen it means nothing because there is no bout to rebuild. Setup
+      // is an explicit pause-overlay action, not a phase-dependent second
+      // meaning for this key.
       restartBout({ resume: true });
     },
     onToggleReadout: () => hud.toggle(),
@@ -234,9 +231,8 @@ async function boot(): Promise<void> {
       announceCamera();
     },
     onPause: () => {
-      // A toggle, and the same one the Resume button is: a paused fight is a
-      // curtain over a live arena, and the two ways of lifting it must not be
-      // able to disagree about what lifting it means.
+      // A toggle, and the same one the Resume button is: pause is an in-arena
+      // mode, and the two ways of leaving it must agree about what resume means.
       //
       // The *rule* is `pauseAction` in `bout.ts`, with a test, because this hook
       // used to carry it inline and got it wrong in a way no test could see:
@@ -747,29 +743,21 @@ async function boot(): Promise<void> {
     physicsMs += (performance.now() - physicsStart - physicsMs) * 0.1;
   });
 
-  /**
-   * Which screen the curtain is showing, or `null` to take it away.
-   *
-   * **Stated, never inferred.** This used to be `showCurtain(show: boolean)`,
-   * which derived both the screen and the button's label from
-   * `state.phase === "select"` -- and that is the pause bug, all of it. A pause
-   * was the setup screen with two blocks hidden by a class, so anything that
-   * moved the phase to `select` silently turned a pause into the character
-   * pickers, over a fight that was still standing, with the only button on
-   * offer wired to dispose both fighters. Two phases can want the same screen
-   * and one phase can want either, so the screen is now an argument.
-   */
-  const showScreen = (screen: Screen | null): void => {
-    curtain.classList.toggle("gone", screen === null);
-    if (screen) curtain.dataset.screen = screen;
-  };
+  // Setup is a screen in place of the arena. Pause is a small control surface
+  // inside the arena. Keeping their elements behind a tested presentation
+  // boundary is what makes a screenshot-triggered blur freeze the visible
+  // fight instead of replacing it with another screen.
+  const presentation = new ArenaPresentation(curtain, pauseMenu);
 
   const runningHost: RunningHost = {
     get active() { return controls.isActive; },
     setPhysics: (enabled) => { arena.scene.physicsEnabled = enabled; },
     startControls: () => controls.start(),
     pauseControls: () => controls.pause(),
-    showPaused: (paused) => showScreen(paused ? "paused" : null),
+    showPaused: (paused) => {
+      blood.setPaused(paused);
+      presentation.showPaused(paused);
+    },
     rebuild,
   };
 
@@ -807,7 +795,8 @@ async function boot(): Promise<void> {
     arena.scene.physicsEnabled = false;
     takeover.cancel();
     setup.show(state.matchup);
-    showScreen("setup");
+    presentation.showPaused(false);
+    presentation.showSetup(true);
   };
 
   beginButton.addEventListener("click", () => {
@@ -822,6 +811,7 @@ async function boot(): Promise<void> {
       state = begin(state, setup.selection);
       rebuild();
     }
+    presentation.showSetup(false);
     resume();
   });
 
@@ -846,6 +836,7 @@ async function boot(): Promise<void> {
       } finally {
         guidedPolicySeeds = null;
       }
+      presentation.showSetup(false);
       resume();
     },
     exitToSetup: () => {
@@ -1013,8 +1004,8 @@ async function boot(): Promise<void> {
       blood.update(dt);
       // The rules get the rendered frame's delta, which is the same clock
       // `Combat` counts on, so the cap and a report's timestamp are comparable.
-      // Only while the fight is actually running: a bout paused behind the curtain
-      // must not quietly run out its sixty seconds.
+      // Only while the fight is actually running: an arena paused in place
+      // must not quietly run out its ten-minute safety cap.
       const previousPhase = state.phase;
       state = advanceFight(state, ring(), dt, bout.ending);
       if (previousPhase === "fight" && state.phase === "over" && state.outcome) {
@@ -1044,19 +1035,20 @@ async function boot(): Promise<void> {
     });
     arena.scene.render();
 
-    if (noticeLeft > 0) {
-      noticeLeft -= dt;
-      if (noticeLeft <= 0) cameraNotice = "";
-    }
-    if (hintLeft > 0) hintLeft -= dt;
-    if (handLeft > 0) {
-      handLeft -= dt;
-      if (handLeft <= 0) handNotice = "";
-    }
+    const timers = advanceActiveHostTimers(runningHost, {
+      camera: noticeLeft,
+      hint: hintLeft,
+      hand: handLeft,
+    }, dt);
+    noticeLeft = timers.camera;
+    hintLeft = timers.hint;
+    handLeft = timers.hand;
+    if (noticeLeft === 0) cameraNotice = "";
+    if (handLeft === 0) handNotice = "";
 
     const decided = state.outcome;
     const banner = [
-      decided ? `BOUT OVER &mdash; ${decided.text} &mdash; R for the setup screen` : "",
+      decided ? `BOUT OVER &mdash; ${decided.text} &mdash; R to restart` : "",
       // Ahead of the lock's own line, because it is the mode you just entered and
       // the one a click is about to be spent on.
       takeover.isArmed ? TAKE_TEXT : "",
@@ -1264,7 +1256,8 @@ async function boot(): Promise<void> {
 
   bootNote.textContent = "Havok ready.";
   beginButton.disabled = false;
-  showScreen("setup");
+  presentation.showSetup(true);
+  presentation.showPaused(false);
 }
 
 /**
