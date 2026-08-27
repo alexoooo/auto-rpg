@@ -13,12 +13,11 @@ are still wrong, and only the first was known when this plan set was written.
    controllers could not choose an acting hand, aim region or body stance, and no policy could
    observe an arrow in flight. Sessions 15--17 landed and their plan files are deleted; what
    they measured is in `docs/measurements.md` and what they decided is in `docs/design.md`.
-2. The promotion gates were frozen against an instrument that has never been pointed at a
-   person, and there is no shared recorder to point: `behaviourRecord`'s only two callers were
-   headless evaluators and session 17 deleted both, the research path hand-rolls its own
-   `EngagementTracker`, and the render loop in `src/main.ts` builds nothing. Opportunity-attack
-   0.65 has never been shown reachable by a controller *or* a player. Session 18 finds out
-   first.
+2. **Instrument corrected; human reading still owed.** The promotion gates were frozen before
+   the instrument had ever been pointed at a person. Session 18a landed one shared label-free
+   `BoutRecorder`, and the guided page flow now owns the declared human/control schedule,
+   autosave and report. Opportunity-attack 0.65 still has never been shown reachable by a
+   controller *or* a player; the 18b sitting finds out before compute begins.
 3. The compute phase as first drafted repeated the failure this directory exists to escape.
    Sessions 19--22 replace it.
 
@@ -218,11 +217,12 @@ unless another file is named.
 
 Sessions 15, 16 and 17 landed, plus seven follow-up commits; their plan files are deleted under
 this repository's rule that durable results belong in an architecture, design, reference or
-performance document rather than in a plan. `npm test` is **652 passed**, `npm run check` clean,
+performance document rather than in a plan. `npm test` is **678 passed**, `npm run check` clean,
 and the null control is unmoved at 66/120 = 55.0 %, 176.17 damage, 10 severs, 1496/1670 scoring
 contacts at seed 20260823.
 
-Sessions 18a and 19 are complete. Session 18b and sessions 20 through 25 have not started.
+Sessions 18a and 19 are complete. Session 18b's player-facing acquisition flow is implemented,
+but the human sitting and its verdicts have not happened; sessions 20 through 25 have not started.
 
 Findings that were measured and deliberately left alone live in
 [Found but not fixed](combat-followups-99-found-not-fixed.md), one entry each with its evidence,

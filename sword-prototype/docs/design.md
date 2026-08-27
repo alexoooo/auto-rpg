@@ -1307,6 +1307,18 @@ tolerance at its exact boundary. A never-attacked bout remains wire `"Infinity"`
 `ENGAGEMENT_INSTRUMENT_VERSION`; NEAT-QD, DAgger, PPO and look-ahead include it in resume identity
 before a worker or collector can spend a solver step.
 
+The human-feasibility acquisition is also a game screen. `GuidedPlaytest` owns a versioned,
+digest-pinned schedule: one excluded shakedown, four human repeats on both sides of six declared
+cells, then one page-specialist control on both sides of those cells. It leases the 45-second cap
+only while the workflow is open, passes the validation seeds into both policy minds, and captures
+the actual matchup, cap and verdict on the fight-to-over edge before a rebuild can erase them.
+Rows and explicit reload aborts autosave locally; incompatible saves are refused, and the report
+carries the complete protocol and missing-assignment list. The player chooses only when to start
+the next bout and what qualitative observations to add -- no developer console or manual seed and
+matchup bookkeeping is part of the measurement. The panel derives the actor's eight ordered gates
+and human table directly from the captured behaviour record, then prints achieved value, threshold,
+signed margin and verdict after every bout; record and verdict cannot drift as independent payloads.
+
 ## The house rules this work was done under
 
 The full list is in `AGENTS.md`. The three that shaped the code rather than the process:

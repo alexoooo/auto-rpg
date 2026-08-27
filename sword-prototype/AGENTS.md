@@ -647,6 +647,12 @@ intent-edge or contact-attribution semantics bumps `ENGAGEMENT_INSTRUMENT_VERSIO
 version in all four research resume identities: NEAT-QD, DAgger, PPO and look-ahead. A stale state
 must be refused before its first worker or collector call.
 
+The human feasibility sitting is a player-facing game flow, not a console recipe. Its immutable
+assignment manifest, seeds and protocol digest live in `src/playtest.ts`; a protocol change bumps
+the report/storage version. Capture happens on the fight-to-over edge before rebuild, every started
+attempt either earns a verdict row or an explicit abort, and a stale or malformed save is refused
+rather than silently repaired.
+
 **Checkpoint cadence is a job-index rule, never elapsed time.** Wall time is a reported fact and
 may not decide when a row is written, which job runs next, or when plateau is reached.
 `npm run ai:watch -- --run <run-directory>` is read-only. `champion-so-far.artifact` may be loaded

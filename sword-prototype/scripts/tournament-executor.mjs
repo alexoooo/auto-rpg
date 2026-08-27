@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { deployedResearchMind, decodeResearchArtifact, refuseInProgressResearchRegistration } from "../src/learning/deployment.ts";
 import { randomMetaMind } from "../src/learning/meta.ts";
+import { specialistPolicyName } from "../src/learning/specialist.ts";
 import { policyMind } from "../src/mind.ts";
 import { scriptedMetaMind } from "../src/options.ts";
 import { freezePersistenceCounts } from "../src/learning/persistence.ts";
@@ -27,9 +28,8 @@ export function loadFrozenArtifacts(manifest, candidateBytes) {
   return loaded;
 }
 
-/** The specialist control for a research cell, shared with the engagement bench. */
-export const specialistPolicyName = (job) => job.unit === "centipede" ? "crawler" :
-  job.loadout === "bow+empty" ? "archer" : "duelist";
+/** The specialist control for a research cell, shared with the page and engagement bench. */
+export { specialistPolicyName };
 const specialist = (job) => policyMind(specialistPolicyName(job), job.actorSeed);
 const controlMind = (name, job) => name === "random-meta-control" ? randomMetaMind(job.actorSeed) :
   name === "scripted-meta-control" ? scriptedMetaMind(job.loadout === "bow+empty" ? "archer" : "duelist", job.actorSeed) :

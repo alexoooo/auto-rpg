@@ -129,6 +129,16 @@ runs out. Zero head or torso health is fatal by itself; serious combined wounds 
 can spend the same bar without erasing the local health that drives severing and disability.
 The banner names the winner and the blow that did it.
 
+### Guided playtest
+
+The setup screen's **Guided playtest** button runs the current human-feasibility protocol as
+part of the game. It chooses every matchup and side, applies the 45-second research cap,
+records the verdict, engagement gates, frame timing and focus integrity, and autosaves after
+each bout. There is no console setup and no seed or file handling. The full sitting is one
+excluded practice bout, 48 bouts you play and 12 hands-off specialist controls; allow about
+an hour, or exit between bouts and resume later in the same browser. When finished, use
+**Copy results for Codex** (or **Download report**) in the panel.
+
 There is no hidden learned policy in that picker. Three full population experiments were
 run, and the validation-selected candidate then lost every held-out promotion bout across
 sword, shield, axe, bow and bare hands. It spent 88% of its decisions disengaging and

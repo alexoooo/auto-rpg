@@ -3,10 +3,10 @@
 > **Split, 2026-08-26. Read `docs/plans/combat-followups-18a-engagement-instrument.md`
 > first, and do not start this file until it has landed.**
 >
-> This session was written as one and reads as "go and play the game". Four fifths of it is
-> software that does not exist: **a human bout produces no engagement row at all today**, so
-> the sitting below cannot be started. The code half is now 18a; what remains here is the
-> person, the readings and the verdicts, unchanged in what they ask for.
+> This session was written as one and reads as "go and play the game". Its recorder half landed
+> as 18a, and the page now has a **Guided playtest** flow that owns the declared schedule, capture,
+> autosave and report. What remains here is the person, the readings and the verdicts, unchanged
+> in what they ask for. No human row or gate-feasibility verdict exists yet.
 >
 > The filename keeps its `-18-` stem because `src/options.ts` names it in a docstring that
 > has to resolve. The heading is 18b; the path is not.
@@ -63,14 +63,11 @@ honesty and the wrong order for feasibility. Nothing has ever been shown to reac
 scripted meta at **0.2031**, against a **0.65** gate -- the binding gate is roughly 3x away and
 has never been cleared by anything.
 
-And the instrument has never been pointed at a person. There is no shared recorder to point.
-`behaviourRecord()` is constructed by **nothing outside the tests** -- session 17 Stage A
-deleted `scripts/evaluate-options.mjs` and `scripts/training-evaluator.mjs`, which were its
-only two callers, and the note now beside it in `src/options.ts` names this session as the
-reader it is being kept for. The research path builds its own `EngagementTracker` by hand in
-`scripts/research-havok.mjs#L32` on top of `runBout`'s `onSample`/`onEvent` callbacks, and
-`src/main.ts`'s render loop builds nothing at all. A human bout currently produces no
-engagement row. A gate that no player can clear is a mis-specified
+Before 18a, the instrument had never been pointed at a person: there was no shared recorder,
+`behaviourRecord()` was constructed by nothing outside tests, the research path hand-built an
+`EngagementTracker`, and `src/main.ts` produced no engagement row. **That condition is
+superseded.** The shared `BoutRecorder` and guided page acquisition now exist; what has still
+never happened is the human sitting itself. A gate that no player can clear is a mis-specified
 gate, and months of compute chasing it would be the most expensive possible way to find out.
 
 ## One recorder, two loops
@@ -141,6 +138,10 @@ tracker and one absence.
    are there: the tournament says `+Infinity`, so this is a choice to make rather than a
    disagreement to settle.~~ **Superseded 2026-08-26 by sessions 19 and 18a:** wire Infinity stays;
    the shared human table renders it as “never attacked”.
+   **Superseded for 18b acquisition, 2026-08-26:** the guided panel prints and exports the complete
+   shared table for the scheduled actor, which is the subject of the human/specialist comparison.
+   It does not present the fixed Swinger opponent as a second research row. Both underlying
+   `BoutRecorder` records remain available through the ordinary diagnostic seam.
 10. Optional and worth the hour: a HUD panel behind an existing toggle showing the two or three
    gates that move fastest, so a mistake is visible during the bout rather than after it. The
    rig and learned-options panels in `src/hud.ts` are the pattern; it rides the existing Tab
@@ -150,6 +151,23 @@ gates that move fastest, so a mistake is visible during the bout rather than aft
 **Superseded 2026-08-26:** this duplicated item 10; item 10 is the sole optional HUD task.
 
 ## Take the readings
+
+### Player-facing procedure
+
+Click **Guided playtest** on the ordinary setup screen. Do not use DevTools, paste code, enter
+seeds or manually rebuild matchups: `src/playtest.ts` pins the validation base seed 310013 and an
+immutable 61-assignment protocol. It runs one excluded shakedown, then four human repeats on both
+sides of six cells (48 official human rows), followed by one page-specialist control on both sides
+of those cells (12 rows). Every assignment faces Warrior/sword+empty/Swinger. The human controller
+is reported honestly as `human+idle-spare`: the player drives the selected hand while the existing
+Idle policy owns the unused hand, and `F` changes which hand is driven.
+
+The panel autosaves after each verdict and may be exited between bouts; reopening resumes the same
+assignment. Reloading during a bout records an explicit aborted attempt and retries it rather than
+advancing the schedule. At the end, **Copy results for Codex** or **Download report** produces the
+complete protocol, rows, missing assignments, frame/focus integrity and feel answers. The player
+hands that single report to the implementer, who takes the matching bench specialist rows and makes
+the verdicts below.
 
 Every measurement names its harness, and this one has a trap in it. The baseline rows in
 `docs/measurements.md` were taken in the **bench** harness (`scripts/measure.mjs`, NullEngine

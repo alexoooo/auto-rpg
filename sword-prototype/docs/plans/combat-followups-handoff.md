@@ -1,9 +1,10 @@
 # Combat follow-ups handoff -- 2026-08-26
 
-> **Sessions 19 and 18a have landed.** Long research runs are resumable and legible, and the page
-> and bench now produce the same versioned, label-free engagement records and shared gate tables.
-> The next session is **18b, a person using the instrument**. No human reading, held-out tournament
-> or promotion has occurred, and session 20 remains blocked on 18b's gate-feasibility verdict.
+> **Sessions 19 and 18a have landed, and 18b's player-facing acquisition flow is ready.** Long
+> research runs are resumable and legible, and the page and bench produce the same versioned,
+> label-free engagement records and shared gate tables. The next action is still **a person using
+> the instrument**. No human reading, held-out tournament or promotion has occurred, and session
+> 20 remains blocked on 18b's gate-feasibility verdict.
 
 ## Read these three things first
 
@@ -33,11 +34,11 @@ compressed rules are in `AGENTS.md`.
 
 ## Last verified state
 
-For this Session 18a working tree, from `sword-prototype/`:
+For the guided-acquisition working tree, from `sword-prototype/`:
 
-- `npm test` -- **652 passed, 0 failed**
+- `npm test` -- **678 passed, 0 failed**
 - `npm run check` -- clean
-- `npm run build` -- clean, ~640 ms
+- `npm run build` -- clean, ~650 ms
 - `node scripts/measure.mjs --only duelist-swinger --bouts 120` at seed 20260823 --
   **66/120 = 55.0 %**, 176.17 damage, 10 severs, 1496/1670 scoring contacts. This is the null
   control; it has not moved across any of the last twelve commits and it must not move under a
@@ -69,18 +70,21 @@ a long run cannot yet tell anybody*.
 
 ## First action for the next session
 
-Run session 18b exactly as `combat-followups-18-human-gate-feasibility.md` specifies. Before
-playing, declare the opponent set and exact cell/mirror/repeat coverage; the page does not offer
-the two meta controls, and ninety jobs is not a plausible human sitting. Then take human and
-specialist page rows plus the matching bench specialist rows. Record every row and frame rate,
-and do not move a threshold after any research result has been seen.
+Open the game and click **Guided playtest** on the setup screen. The page now owns the declaration:
+validation base seed 310013; six cells; both sides; one excluded shakedown; four human repeats per
+side (48 official human rows); and one page-specialist control per side (12 rows), always against
+Warrior/sword+empty/Swinger. It chooses each matchup, records every verdict and frame/focus fact,
+and autosaves between bouts. The person only plays and adds observations, then uses **Copy results
+for Codex** or **Download report**. After those page readings exist, take the matching bench
+specialist rows and make the three gate-feasibility verdicts. Do not move a threshold after any
+research result has been seen.
 
 ## What remains
 
 | session | result | depends on |
 | --- | --- | --- |
 | 18a | **complete** -- versioned shared recorder, gate table and bench command; no readings | 19 |
-| 18b | measure a person on the promotion instrument; settle the open feel questions | 18a |
+| 18b | **acquisition UI ready; no readings yet** -- measure a person on the promotion instrument; settle the open feel questions | 18a |
 | 19 | **complete** -- a run that can be run, a ledger, plateau rule, watchable champion-so-far | -- |
 | 20 | measure real throughput and derive every ceiling, **in updates** | 18b, 19 |
 | 21 | one seed per direction under a one-day ceiling, then advance or kill each | 20 |

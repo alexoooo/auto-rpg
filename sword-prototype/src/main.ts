@@ -19,6 +19,7 @@ import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, combatRecorder, sampleBout
   wireBoutRecorder } from "./recorder";
 import { pauseHost, restartHost, resumeHost, runActiveHostFrame, type RunningHost } from "./host-run";
 import { SetupScreen } from "./setup";
+import { GuidedPlaytest } from "./playtest";
 import type { Side } from "./physics";
 import {
   HANDS,
@@ -151,6 +152,8 @@ async function boot(): Promise<void> {
   const helpClose = need<HTMLButtonElement>("help-close");
   const bootNote = need("boot-note");
   const modeLine = need("mode");
+  const playtestLaunch = need<HTMLButtonElement>("guided-playtest");
+  const playtestHost = need("playtest");
 
   beginButton.disabled = true;
 
@@ -188,7 +191,10 @@ async function boot(): Promise<void> {
    */
   let state = selectScreen(defaultMatchup());
   const setup = new SetupScreen(need("matchup"), state.matchup);
+  let guidedPolicySeeds: Readonly<Record<Side, number>> | null = null;
+  let guidedOriginalMatchup: Matchup | null = null;
 
+  let playtest: GuidedPlaytest | null = null;
   const controls = new Controls(canvas, {
     onReset: () => {
       // `R` means "this bout again", and what that costs depends on where you
@@ -238,7 +244,9 @@ async function boot(): Promise<void> {
       // selector over a fight that was still standing, and from `select` the
       // resume branch was then unreachable, so the key was dead. Both bugs were
       // the same mistake -- a key that pauses deciding to also abandon.
-      switch (pauseAction(state.phase, controls.isActive)) {
+      const action = pauseAction(state.phase, controls.isActive);
+      if (action === "pause" && playtest && !playtest.permitManualPause()) return;
+      switch (action) {
         case "resume":
           resume();
           break;
@@ -272,6 +280,10 @@ async function boot(): Promise<void> {
       handLeft = CONFIG.camera.noticeSeconds;
     },
     onToggleTakeover: () => {
+      if (playtest?.boutIsRunning) {
+        playtest.refuseTakeover();
+        return;
+      }
       // Arming the takeover drops a target choice that was still open. Two armed
       // modes would be two breathing rings under one cursor and a click that had
       // to decide which of them it belonged to, and the honest answer to that is
@@ -315,10 +327,12 @@ async function boot(): Promise<void> {
    * the moment you step out of it. So the spare hand fights the way the whole
    * body would, and there is nothing new to choose on the screen.
    */
-  const mindFor = (side: SideSetup): Mind =>
-    side.control === "you"
-      ? splitMind(you, policyMind(policyForUnit(side.unit, side.policy)), controls.ownership)
-      : policyMind(policyForUnit(side.unit, side.policy));
+  const mindFor = (sideName: Side, side: SideSetup): Mind => {
+    const seed = guidedPolicySeeds?.[sideName];
+    return side.control === "you"
+      ? splitMind(you, policyMind(policyForUnit(side.unit, side.policy), seed), controls.ownership)
+      : policyMind(policyForUnit(side.unit, side.policy), seed);
+  };
 
   /**
    * What a corner's two pickers mean to a body.
@@ -352,7 +366,7 @@ async function boot(): Promise<void> {
         side: "left",
         origin: Vector3.Zero(),
         facing: 0,
-        mind: mindFor(matchup.left),
+        mind: mindFor("left", matchup.left),
         loadout: loadoutFor(matchup.left),
         materials: arena.materials,
       });
@@ -361,7 +375,7 @@ async function boot(): Promise<void> {
         side: "right",
         origin: new Vector3(0, 0, F.separation),
         facing: Math.PI,
-        mind: mindFor(matchup.right),
+        mind: mindFor("right", matchup.right),
         loadout: loadoutFor(matchup.right),
         materials: arena.materials,
       });
@@ -404,12 +418,15 @@ async function boot(): Promise<void> {
    *
    * Asked as a question every time rather than held, because both answers move:
    * the bout is rebuilt on every start, and which side is yours is a property of
-   * the matchup rather than of the arena. With two policies fighting, the camera
-   * takes the left one and the aim indicator draws where its policy is pointing,
-   * which is the most useful thing to be watching when nobody is playing.
+   * the matchup rather than of the arena. A guided policy control follows the
+   * recorded actor even when it is on the right; otherwise that mirror would put
+   * the page clock and frame evidence behind a different camera workload from
+   * the matching human row. Outside the instrument, two policies still default
+   * to the left one.
    */
-  const yours = (): Combatant => (humanSide(state.matchup) === "right" ? bout.right : bout.left);
-  const theirs = (): Combatant => (humanSide(state.matchup) === "right" ? bout.left : bout.right);
+  const observedSide = (): Side => playtest?.recordingSide ?? humanSide(state.matchup) ?? "left";
+  const yours = (): Combatant => (observedSide() === "right" ? bout.right : bout.left);
+  const theirs = (): Combatant => (observedSide() === "right" ? bout.left : bout.right);
 
   const ownPosture = need<HTMLInputElement>("own-posture");
   const ownWrist = need<HTMLInputElement>("own-wrist");
@@ -766,6 +783,7 @@ async function boot(): Promise<void> {
   };
 
   const restartBout = ({ resume: shouldResume }: { resume: boolean }): void => {
+    if (playtest && !playtest.permitRestart()) return;
     state = restartHost(state, runningHost, shouldResume);
   };
 
@@ -779,6 +797,11 @@ async function boot(): Promise<void> {
    * on `active` so it could not be cancelled by hand.
    */
   const leave = (): void => {
+    if (playtest?.workflowIsOpen) {
+      if (playtest.boutIsRunning) playtest.refuseAbandon();
+      else playtest.refuseWorkflowNavigation();
+      return;
+    }
     state = toSelect(state);
     controls.pause();
     arena.scene.physicsEnabled = false;
@@ -788,6 +811,10 @@ async function boot(): Promise<void> {
   };
 
   beginButton.addEventListener("click", () => {
+    if (playtest?.workflowIsOpen) {
+      playtest.refuseWorkflowNavigation();
+      return;
+    }
     // `begin` refuses anywhere but the screen, so this phase test decides
     // whether a fresh bout has to be built rather than whether the transition is
     // allowed -- the rule and the wiring answer separately and agree.
@@ -803,6 +830,30 @@ async function boot(): Promise<void> {
     restartBout({ resume: true });
   });
   leaveButton.addEventListener("click", leave);
+
+  playtest = new GuidedPlaytest(playtestHost, playtestLaunch, {
+    startBout: (matchup, policySeeds) => {
+      // Guided bouts are fresh bouts, never a mutation of the setup screen's
+      // selection or of the bodies still standing after the previous verdict.
+      controls.pause();
+      arena.scene.physicsEnabled = false;
+      takeover.cancel();
+      if (guidedOriginalMatchup === null) guidedOriginalMatchup = structuredClone(setup.selection);
+      state = begin(selectScreen(matchup), matchup);
+      guidedPolicySeeds = policySeeds;
+      try {
+        rebuild();
+      } finally {
+        guidedPolicySeeds = null;
+      }
+      resume();
+    },
+    exitToSetup: () => {
+      if (guidedOriginalMatchup) state = { ...state, matchup: guidedOriginalMatchup };
+      guidedOriginalMatchup = null;
+      leave();
+    },
+  });
 
   /**
    * The controls sheet.
@@ -945,8 +996,10 @@ async function boot(): Promise<void> {
   };
 
   engine.runRenderLoop(() => {
-    const dt = Math.min(engine.getDeltaTime() / 1000, CONFIG.world.maxFrameSeconds);
+    const rawDeltaMs = engine.getDeltaTime();
+    const dt = Math.min(rawDeltaMs / 1000, CONFIG.world.maxFrameSeconds);
     if (dt <= 0) return;
+    if (controls.isActive) playtest?.frame(rawDeltaMs, dt);
 
     runActiveHostFrame(runningHost, () => {
       controls.sample(dt);
@@ -958,11 +1011,23 @@ async function boot(): Promise<void> {
       // After `advance`, so a report filed this frame is already timestamped.
       drawBlood();
       blood.update(dt);
-    // The rules get the rendered frame's delta, which is the same clock
-    // `Combat` counts on, so the cap and a report's timestamp are comparable.
-    // Only while the fight is actually running: a bout paused behind the curtain
-    // must not quietly run out its sixty seconds.
+      // The rules get the rendered frame's delta, which is the same clock
+      // `Combat` counts on, so the cap and a report's timestamp are comparable.
+      // Only while the fight is actually running: a bout paused behind the curtain
+      // must not quietly run out its sixty seconds.
+      const previousPhase = state.phase;
       state = advanceFight(state, ring(), dt, bout.ending);
+      if (previousPhase === "fight" && state.phase === "over" && state.outcome) {
+        const actorSide = playtest?.recordingSide;
+        if (actorSide) {
+          const record = bout.recorder.records[actorSide];
+          playtest.completeBout(state.outcome, {
+            engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION,
+            matchup: state.matchup,
+            record,
+          });
+        }
+      }
       // The per-bout coordinator owns the one-shot edge and is rebuilt with the
       // bodies. Observers remain installed: blood, corpse integration,
       // rendering and camera all continue after attack authority has ended.
