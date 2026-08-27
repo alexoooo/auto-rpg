@@ -186,7 +186,10 @@ const PROMISED_BY_A_PLAN = [
 // deletion log *minus* what exists. Pinned from both sides: a second re-added path
 // has to be looked at, and if this one stops being re-added somebody has to re-pin.
 // Measured 2026-08-25 at 503bd0a.
-const DELETED_AND_BACK = ["scripts/fetch-textures.mjs"];
+const DELETED_AND_BACK = [
+  "asset-src/armour/quaternius-knight/Helmet3.obj",
+  "scripts/fetch-textures.mjs",
+];
 
 // The two files outside this prototype that a durable reference may name. The
 // prototype is standalone and may not import from `../client`, `../crates`,

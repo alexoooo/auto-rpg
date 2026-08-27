@@ -34,7 +34,10 @@ for (const source of sources) {
   if (actual !== source.archiveSha256) {
     throw new Error(`${source.title} digest ${actual}; expected ${source.archiveSha256}`);
   }
-  if (!source.extractor) throw new Error(`selected appearance source "${source.id}" names no extractor`);
+  // Some selected sources are consumed directly from their digest-pinned
+  // archive by the final Blender build. They still have a committed provenance
+  // extract, but there is no intermediate geometry to regenerate here.
+  if (!source.extractor) continue;
 
   let status = null;
   for (const executable of candidates) {

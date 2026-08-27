@@ -2,8 +2,7 @@
   "schema": 2,
   "selected": [
     "quaternius-modular-character-outfits-fantasy-standard-2026",
-    "blender-human-base-meshes-1.4.1",
-    "poly-haven-rubber-boots-1k-2026"
+    "quaternius-animated-knight-2018"
   ],
   "sources": [
     {
@@ -21,15 +20,18 @@
       "retrieved": "2026-08-27",
       "archiveSha256": "c3468b18871cc8c8f05ab14df7712baf22cb9f389cbd870babf130e595187f70",
       "selectedObjects": [
+        "Outfits/Male_Ranger.gltf: complete skinned Ranger with native finger rig",
         "Modular Parts/Male_Ranger_Body.gltf: body and both belts",
         "Modular Parts/Male_Ranger_Arms.gltf: sleeves and bracers",
-        "Modular Parts/Male_Ranger_Acc_Pauldron.gltf: right pauldron, mirrored for the left",
+        "Modular Parts/Male_Ranger_Acc_Pauldron.gltf: authored asymmetric pauldron source study",
         "Modular Parts/Male_Ranger_Feet_Boots.gltf: both tall boot shafts",
         "Modular Parts/Male_Ranger_Head_Hood.gltf: open hood",
         "Modular Parts/Male_Ranger_Legs.gltf: both trouser legs"
       ],
       "extracts": {
         "LICENSE.txt": "9eddea33ca29a6d3918a2a6fa62e0441e6ecc4626c73a18d752e2a35ae4bb22f",
+        "ranger-source.bin": "5bbb0d42cb324c6c27ce00417e68a876d92978f07d161f83590f0d7c0570eff6",
+        "ranger-source.gltf": "9647969f306ca905a4be7fd0903e55ad6db35a30d4ed8ad77758d53d61ad11b8",
         "ranger-arms.obj": "9bc8b17272811c1925505a51ab3e935fea6e4315f94a150beec24c1550dea94e",
         "ranger-belt-lower.obj": "a1dc76822cbbf8233cf511efbe822cc51025012f8294f2a0ff0633bd5807c4af",
         "ranger-belt-upper.obj": "d1a66f7e0d69c078cea1036ecddcf8374c91700d3b0459ff77c99db8644bf710",
@@ -40,11 +42,40 @@
         "ranger-pauldron.obj": "e8451799499fe9ac3e625d12c7e54d915109879a960737ac41dc670086b67d47"
       },
       "adaptations": [
-        "the authored tunic, coat-skirts, belts, hood, sleeves, bracers, pauldron, trousers and boot shafts are selected",
-        "armature, animation, donor body, donor hands and textures are discarded",
-        "modular pieces are fitted and split at the prototype's rigid costume-piece boundaries",
-        "piece origins are baked to the existing physics-bone joints",
-        "runtime materials replace source materials and preserve side colour",
+        "the complete authored tunic, coat-skirts, belts, hood, sleeves, bracers, pauldron, trousers, boots and hands are selected",
+        "native skinning is retargeted onto the prototype's exact thirteen physics-bone names, centre origins and hierarchy",
+        "native finger bones are posed into closed grips and baked before their weights collapse onto each hand bone",
+        "faces are split by dominant remapped bone while coincident boundary vertices retain cross-cut weights",
+        "authored material roles and UVs are retained without embedding the source-resolution textures",
+        "all imported geometry remains render-only"
+      ]
+    },
+    {
+      "id": "quaternius-animated-knight-2018",
+      "title": "Animated Knight Pack",
+      "author": "Quaternius",
+      "officialPage": "https://quaternius.com/packs/knightcharacter.html",
+      "archiveMirror": "https://opengameart.org/sites/default/files/Knight%20Character%20by%20%40Quaternius.zip",
+      "reviewFile": ".review/knight/source.zip",
+      "extractRoot": "asset-src/armour/quaternius-knight",
+      "extractor": "asset-src/extract_helmet.py",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "licenseEvidence": "official-page",
+      "retrieved": "2026-08-24",
+      "archiveSha256": "36aed14d0e27282bd006982e00206a852b1d8c00fc72f95c2437d9b4b5dccdb9",
+      "selectedObjects": [
+        "Blends/Helmet3.blend: Helmet3"
+      ],
+      "extracts": {
+        "SOURCE.txt": "c01443503521a1710cfa7b7e89388155ecb5c59072fb857470f3acbe42096106",
+        "Helmet3.obj": "f9ff269b4d606e2c4e95fd5f04ab0ed26d5f57110ae5045da6c79bdcbaa7bf2f",
+        "Helmet3.mtl": "fdfd97e432fc9e83877877c2efaf5855b390286558d6b3273cff5d1154e022ba"
+      },
+      "adaptations": [
+        "Helmet3 is uniformly fitted inside the Ranger hood and weighted rigidly to the visual head bone",
+        "the steel, brass and black eye-slit material roles are preserved",
+        "the body, weapons, shoulder pads, animation and other helmets are discarded",
         "all imported geometry remains render-only"
       ]
     },

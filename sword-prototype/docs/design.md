@@ -700,14 +700,21 @@ measures the commanded jump, not a comment.
 
 ## The costume
 
-`figure.ts` wears `public/assets/warrior.glb` by **swapping authored vertex data in
-underneath the same mesh**, not by cloning nodes. `Fighter` snapshots the costume's meshes
-into the set that answers `owns()`, `main.ts` snapshots them into the shadow map's render
-list, and the rig overlay hides them by reference and puts back exactly what it hid -- all
-three snapshots taken before an asynchronous load can have finished. A costume made of
-*new* meshes would have arrived unpickable, shadowless and invisible to `G`. The fallback
-falls out of that for free: a piece the asset does not name is simply never re-skinned, so a
-missing, corrupt or 404'd asset leaves primitives standing and nothing throws.
+`figure.ts` wears `public/assets/warrior.glb` as one skinned graph. `main.ts` awaits the
+container before constructing either fighter, so the cloned meshes exist before `Fighter`
+snapshots ownership, the shadow list records casters, or the rig overlay records what `G`
+hides. A late skin swap is forbidden: it would publish one mesh identity and render another.
+A missing, corrupt or structurally wrong asset therefore fails closed to the primitive
+diagnostic figure before a bout begins.
+
+The visual skeleton has exactly the thirteen authoritative body names and hierarchy. It is
+not authoritative state. Each render caches the authored bone bind `B0` and physics-part
+bind `P0`, reads the current part pose `P`, and drives the skin with
+`B0 * inverse(P0) * P`. Preserving the authored basis this way matters: copying a physics
+quaternion directly into a Blender joint can be numerically tidy and anatomically inside
+out. The twenty-nine mesh regions name the bone that owns their triangles. On severance,
+weights that cross the cut are redirected to the nearest retained or detached root and
+renormalized from the original weights, so a second cut does not inherit the first rewrite.
 
 No dimension is written down twice. `asset-src/dimensions.json` is generated from
 `src/config.ts` and `figure.ts`'s exported `costumePieces()`, committed so the numbers the
@@ -715,10 +722,12 @@ committed `.glb` was cut to are on the record beside it, and recomputed by
 `npm run asset:verify` -- so a `config.ts` edit that moves a bone without a rebuild fails a
 check instead of stretching a warrior.
 
-`scripts/check-warrior.mjs` asserts **distances in metres**, not glTF structure. Structural
-validity is not what can go wrong here, because a container Blender cannot write is a build
-that failed loudly; a crown 90 mm too high loads perfectly, validates perfectly, and is
-wrong.
+`scripts/check-warrior.mjs` asserts both structure and **distances in metres**: one skin,
+the exact hierarchy, finite normalized weights, meaningful influence from all thirteen
+bones, region ownership, joint origins at physics centres, adult-sized hands and grip-marker
+alignment. Mutation fixtures move a forearm origin and reject the old disconnected asset
+digest. Those checks still cannot award an art-direction PASS; a crown 90 mm too high can
+remain structurally valid and visibly wrong.
 
 Per-side colour is applied in `figure.ts` rather than authored into the asset, because
 there is one asset and two fighters, so an authored colour could only ever have been one of
@@ -1219,8 +1228,8 @@ map registry and pins CC0 source, digest, colour space, tangent basis and consum
 runtime builds the old PBR colour first and attaches a decoded map only from its success
 callback; failure therefore leaves a drawable fallback. The GLB carries UVs and tangent
 frames but no authoritative textures, and `scripts/check-warrior.mjs` refuses a node whose
-exported family disagrees with `costumePieces()` or whose embedded material competes with
-the runtime palette.
+material role is outside the authored costume set or whose embedded image competes with the
+runtime palette.
 
 Steel, neutral cloth, brown leather and subtle skin detail now have separate
 albedo/normal/ORM families. The side colour is one per-Figure material derived from neutral cloth:
@@ -1232,53 +1241,46 @@ colours, open faces and waist join readable. It did not judge the Ranger geometr
 those still-open camera, zoom and motion judgements live only in `docs/measurements.md`.
 
 The current character silhouette is adapted rather than invented from primitives.
-`asset-src/armour-sources.json` pins three creator-published CC0 sources. Quaternius supplies
-the Ranger tunic, coat-skirts, two belts, hood, sleeves and bracers, pauldron, trousers and
-boot shafts. Blender Studio's Human Base Meshes v1.4.1 supplies the remembered realistic
-male body: face sets split its level-zero cage into torso, pelvis, neck, head, upper arms,
-forearms, hands, thighs and shins at every rigid physics boundary. Compact donor-derived
-elbow and wrist bands tuck beneath adjoining garments so those rigid boundaries remain
-dressed while they bend. Covered body shells use
-cloth or leather as a fitted underlayer rather than letting flesh-coloured geometry erupt
-through an armhole; only the exposed head, neck and hands use skin. Poly Haven's clean LOD1 boots supply only the rounded
-foot and heel below the Ranger shaft; their modern rubber surface and textures are
-discarded, so the fitted silhouette reads through the game's worn-leather family instead.
-Their exact source objects and digests are part of the record. `npm run armour:extract`
-rebuilds the deterministic OBJ extracts with Blender and `npm run armour:verify` checks the
-original files and every selected extract before `asset-src/build_warrior.py` fits them.
-Armatures, animation, multires detail, textures and source materials are discarded; the
-adapted meshes inherit the runtime palette and remain render-only. The builder marks every
-imported object with its extract and the piece welder refuses an unmarked part, while a
-mutation-proven source check rejects a generated primitive call in `build()`. This preserves
-severability and the cosmetics/no-authority contract without pretending any imported rig is
-the simulated one. The torso owns both pauldrons over a continuous cloth shoulder; making a
-plate inherit the whole upper-arm rotation sent it behind the body in guard and was rejected
-by the articulated review.
+`asset-src/armour-sources.json` pins two selected creator-published CC0 sources. Quaternius's
+complete Ranger supplies the continuous tunic, coat-skirts, belts, hood, sleeves, bracers,
+asymmetric pauldron, trousers, boots, arms and hands. Its native deformation and finger rig
+are retained long enough to lower the arms and bake closed grips, then its weights are
+remapped onto the thirteen physics-named visual bones. Quaternius's Animated Knight
+Helmet3 supplies the closed great helm inside the hood. Authored material roles and UVs are
+retained without embedding the source-resolution textures; all geometry remains render-only.
+`npm run armour:extract` reconstructs the pinned source extracts and
+`npm run armour:verify` checks the original files and every selected extract before
+`asset-src/build_warrior.py` fits them.
 
-The first 2026-08-27 front/back/side review was a false PASS. It examined only the upright
-GLB, while four stray facial islands in the torso face set raised its fitted landmark,
-shortened the actual trunk by 114 mm and left 52 mm of air below the neck. It also never asked
-an elbow, wrist, hip or knee to rotate. `npm run asset:review` is the correction: eight views
-include guard, full reach and crouch poses built from the same thirteen-body hierarchy as the
-game, plus front and side views of an elbow flexed to 120 degrees. Source tests reject the
-five-island torso and an incomplete limb manifest. The asset
-checker separately enforces the fitted cloth/leather underlayer, forearm-following elbow
-covers and torso-mounted pauldrons;
-the rendered images remain the art-direction judgement rather than receiving an automated
-PASS from upright bounding boxes.
+The 2026-08-27 rigid adaptation was a false PASS. Its checks proved that thirty-four parts
+existed and that nominal attachment points were close; they did not prove that the result
+looked like a person. The shipping camera exposed a floating face without a neck, tiny hands,
+detached arms and shoulder plates, merged clothing and an implausible pelvis. Even the
+isolated review images contained malformed arms and a horror face. That failure retired the
+rigid-piece architecture rather than adding more cuffs to conceal it.
+
+The replacement review has two layers. Blender views judge front, three-quarter, back,
+helmet and grip silhouettes. The actual shipping arena must then load the skin, show sword
+and buckler contact, and hold together in a moving pose. This second layer immediately found
+that Babylon adds `_primitiveN` to multi-primitive mesh names: the first runtime parser read
+that suffix as part of the region name, rejected the skin, and silently restored the
+mannequin. The real-GLB integration test now reproduces that loader naming. After the fix,
+the arena and an independent adversarial review passed the structural plausibility bar:
+continuous adult silhouette, closed helmet/collar, joined shoulders and limbs, ordinary
+trouser rise, grounded boots and connected grips under motion. The long rear hood and the
+buckler obscuring its hand remain visible polish notes. This is not a claim of final or AAA
+character art; it is the narrower claim the rejected build could not meet—a plausible,
+connected human rather than abstract body parts.
 
 A nominally CC0 plate-armour candidate was rejected during adversarial provenance review:
 its source blend packed a distinctive third-party armour concept as a reference, so the
 uploader's CC0 declaration did not establish a clean rights chain for the design. No geometry
-from that candidate ships. The three creator-direct records above -- Quaternius with its
-bundled notice, Blender Studio's official CC0 bundle and Poly Haven's official CC0 asset --
-are the narrower claim this repository can actually prove.
+from that candidate ships. The two selected Quaternius records above are the narrower claim
+this repository can actually prove.
 
-Imported tangent xyz is negated once when `Figure.wear()` replaces a primitive's
-vertices, normalizing the glTF right-handed frame to the same Babylon-LH basis the fallback
-primitive used. Every authored island is area-normalized to 0.300 UV units per metre before
-the family-level texture repeat is applied; the asset checker measures that ratio from the
-exported triangles and UVs rather than trusting Blender source comments.
+The glTF loader owns the asset's handedness conversion; the runtime does not rewrite tangent
+buffers. The asset checker validates finite authored UV and tangent payload rather than
+trusting Blender source comments.
 
 Babylon-built weapons remain a separate material authority. Forged steel deliberately reuses
 the session-08 worked-steel maps, worn leather reuses its matching character maps, and

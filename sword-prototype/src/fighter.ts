@@ -1110,6 +1110,7 @@ export class Fighter {
     }, materials.figure ?? materials, {
       scale: this.profile.scale,
       authored: this.profile.authoredCostume,
+      loadout: this.loadout,
     });
     this.costume = this.figure.pieces;
     for (const mesh of this.costume) this.owned.add(mesh);
@@ -1527,6 +1528,11 @@ export class Fighter {
     limb.severed = true;
     limb.health = 0;
     limb.attachment.dispose();
+    // The physics pieces are already independent roots. The one continuous
+    // visual skin is not: remove weights that still cross this now-absent joint
+    // before the freed body receives its parting impulse, or its first rendered
+    // frame stretches the retained torso after it.
+    this.figure.sever(limb.key);
 
     // Losing any piece of an arm drops that whole arm, anchors and all -- see
     // `Arm.drop`. Which arm is decided by the key, because that is what the key

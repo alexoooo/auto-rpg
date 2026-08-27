@@ -376,25 +376,23 @@ experiment and why this pipeline does not repeat it are recorded in `docs/design
 
 The warriors are authored: `public/assets/warrior.glb` is built from
 `asset-src/build_warrior.py` by `npm run asset:build`, which needs Blender, and the result
-is committed so a fresh clone runs without one. Its thirty-four rigid pieces cover a complete
-human-shaped garment underlayer on every simulated limb; the old generated collar and nasal
-pieces are gone rather than preserved as two conspicuous shapes. `G` is what takes the costume off.
+is committed so a fresh clone runs without one. It is one continuous skinned Ranger, divided
+into twenty-nine anatomical render regions that share one thirteen-bone skeleton; it is not a
+person assembled from rigid costume chunks. `G` is what takes the costume off.
 The Python holds no duplicated **rig** dimensions: live joints and body envelopes come from
 `asset-src/dimensions.json`, regenerated out of `src/config.ts` and `src/figure.ts` on each
 build. Donor landmarks and fitting ratios stay beside the pinned donor geometry, so a bone
 that moves without a rebuild fails `npm run asset:verify` instead of quietly stretching a
-warrior. The fitted tunic, coat-skirts, belts, hood, sleeves, bracers, pauldron, trousers and
-boot shafts adapt Quaternius's CC0 Modular Character Outfits - Fantasy Ranger. The face,
-neck, torso, pelvis, upper arms, forearms, hands, thighs and shins restore the complete
-articulated anatomy from Blender Studio's CC0 realistic human base mesh from the earlier
-turntable experiment, at its realtime level-zero cage. The covered body shells use cloth or
-leather as a fitted underlayer; only the exposed head, neck and hands use skin. Rounded LOD1 Poly Haven
-boots replace the Ranger's square foot sections and inherit the game's leather surface.
+warrior. The tunic, coat-skirts, belts, hood, sleeves, bracers, pauldron, trousers, boots,
+arms and hands come from Quaternius's CC0 Modular Character Outfits - Fantasy Ranger. Its
+native skin supplies the continuous shoulders and limbs; its finger rig is baked into closed
+weapon grips before being remapped onto the physics rig. Quaternius's CC0 Animated Knight
+Helmet3 closes the face and is fitted inside the hood.
 The pinned sources, exact objects, extracted-mesh digests and transformations live in
 `asset-src/armour-sources.json`; `npm run armour:verify` checks that provenance. Imported
-geometry is split at the existing rigid costume-piece boundaries and remains render-only;
-source-derived limb boundaries are closed and overlapped beneath cuffs. The shipping builder
-refuses any generated form.
+geometry remains render-only. Region names and cross-boundary skin weights make severance
+local without reintroducing visible rigid seams. The shipping builder refuses any generated
+form.
 The rounded/blockout meshes in `figure.ts` are retained only as a load-failure diagnostic;
 the committed healthy-load asset contains none of their triangles.
 
@@ -407,17 +405,17 @@ clean verdict shutdown, blood, policies that fight with the controller you use, 
 takeover of either body, two cameras, the rig overlay and authored arena and equipment
 surfaces. The learned controller remains an unpromoted experiment rather than a setup option.
 
-The thirty-four-piece warriors now separate skin, neutral woven cloth, leather and worked
+The skinned warriors now separate flesh, neutral woven cloth, leather and worked
 steel with authored UVs and shared PBR maps. Only the surcoat/skirt material is constructed per
 fighter, so crimson and blue remain independent while their images stay shared; rebuilding
-a bout disposes those materials. A corrected 2026-08-27 review rejected the former static
-PASS because it never rotated a joint and therefore missed the disconnected torso and limbs.
-`npm run asset:review` now renders eight upright, guard, reach, crouch and 120-degree
-elbow-flex views; those views keep the
-fitted garment, continuous human silhouette, actual face and hands, closed hood, shoulder
-plates, narrow coat-skirts and rounded boots readable. Both camera presets, both
-zoom clamps and walking/crouching comparisons remain
-open human judgements in `docs/measurements.md`.
+a bout disposes those materials. A corrected 2026-08-27 review rejected the former rigid
+PASS because it reduced visual judgement to presence and attachment-point distances. The
+shipping game was visibly a disconnected mannequin with a floating horror face. The
+replacement review requires both authored turntable views and the actual arena with sword,
+buckler and a moving pose. The 2026-08-27 arena pass found a continuous adult silhouette,
+closed helmet and collar, joined shoulders and arms, trousers, boots and weapon grips. The
+long rear hood and partly obscured buckler hand remain polish notes rather than structural
+failures.
 
 Weapons, shields, arrows and ring posts use the same registry without changing their
 geometry or physics. A total 35-part table assigns forged steel, brass, worn leather,

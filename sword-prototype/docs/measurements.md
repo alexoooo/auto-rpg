@@ -274,11 +274,11 @@ angular motor at 40 000 N.m -- over a thousand times the shipped 34 -- moved the
 - `__sword.rigview.audit()`: **45 bodies and 104 meshes, unchanged across 10 cycles**, and
   the body count holds over 50. The overlay creates no physics object, which is its central
   promise.
-- `public/assets/warrior.glb`: 34 nodes, **43 262 triangles per fighter** after the
-  corrected 2026-08-27 CC0 anatomy-and-clothing adaptation, up from 33 379 for the
-  Ranger-plus-generated hybrid. Both fighters carry 86 524 triangles in 68 costume meshes;
-  `G` strips and restores all 68. The committed GLB is 2.28 MiB. Every shipping form is source-derived:
-  Blender Studio anatomy, Quaternius clothing or the rounded Poly Haven boot foot.
+- `public/assets/warrior.glb`: **29 skinned mesh nodes, 13 weighted joints and 27 638
+  triangles per fighter** after the 2026-08-27 continuous-Ranger replacement. Both fighters
+  carry 55 276 triangles in 58 costume meshes; `G` strips and restores all 58. The committed
+  GLB is 1 964 852 bytes (1.87 MiB). Every shipping form is source-derived from Quaternius's
+  Ranger or Animated Knight Helmet3.
 - Dimensional check (`npm run asset:verify`): floor 0.0 mm, crown 1.800 m against a
   `fighter.height` of 1.800. The digest is pinned in `scripts/run-blender.mjs`; it pins the
   *file*, not the build, because Blender's glTF exporter is not byte-reproducible.
@@ -297,8 +297,9 @@ Session 08's static asset/material audit, not a visible-browser GPU capture:
 | + CC0 Ranger modular clothing | **33 379** | **48 for two fighters** | **16.97 MiB / 33 maps** | **176.0 MiB** |
 | + CC0 anatomy fragments and rounded boot feet | **37 575** | **44 for two fighters** | **16.97 MiB / 33 maps** | **176.0 MiB** |
 | + complete articulated CC0 garment underlayer and joint covers | **43 262** | **68 for two fighters** | **16.97 MiB / 33 maps** | **176.0 MiB** |
+| + continuous skinned Ranger and closed Helmet3 | **27 638** | **58 for two fighters** | **16.97 MiB / 33 maps** | **176.0 MiB** |
 
-The draw count is the mesh count -- no piece was split or merged -- and the memory column is
+The submission column is the mesh count, including region and glTF primitive splits, and the memory column is
 the conservative decoded RGBA8 mip-chain calculation, not a driver reading. Three Terlenka
 maps are 1024x1026; the other thirty are 1024 square. The visible frame-cost bracket and
 material-readiness table remain open human-browser checks.
@@ -453,24 +454,20 @@ the numbered list here now carries only playtest history and judgements that rem
    changing the first-guess constants; the automated browser rendered at 1--2 fps and is not
    performance or feel evidence.
 
-9. **Character surfaces implemented; the corrected articulated clothing review passed.** The welded
-   articulated-piece contract remains, but creator-authored Ranger modules now supply the
-   tunic, coat-skirts, belts, hood, sleeves, bracers, pauldrons, trousers and boot shafts;
-   the restored Blender Studio human supplies the face, hands, complete limb/trunk underlayer
-   and compact elbow/wrist joint covers; and
-   rounded Poly Haven LOD1 boot feet replace the square Ranger foot sections. No generated
-   primitive form contributes to any healthy-load piece. Cloth, skin detail, leather and worked
-   steel retain separate CC0 PBR families, consistent authored texel density and total
-   piece-to-family mapping. The earlier disappearing-map failure is closed by delayed
-   attachment and colour fallback. The first front/back/side static verdict on 2026-08-27 was
-   false: four stray facial islands shortened the fitted torso by 114 mm and left 52 mm of air
-   below the neck, while an upright pose could not expose rigid elbow seams. The corrected
-   eight-view loop rejects that five-island torso and exercises guard, reach, crouch and an
-   explicit 120-degree elbow bend. Its first two elbow-cover candidates were also rejected for
-   a visible gap and then a bulbous rosette; the accepted compact forearm-derived band leaves a
-   garment seam rather than daylight or a detached stump.
-   Both camera presets, the two zoom clamps and motion comparison remain owed, so this closes
-   the static adaptation review rather than the whole art-direction verdict.
+9. **Character continuity implemented; the shipping-game review passed.** The rigid-piece
+   adaptation was rejected after its supposed PASS: the live camera showed a floating face,
+   no neck, detached arms and plates, tiny hands and an implausible pelvis. A full Quaternius
+   Ranger now supplies one continuous native skin, complete clothing, trousers, boots, arms
+   and hands; Quaternius Helmet3 closes the face. The source finger rig is baked into weapon
+   grips before its weights are remapped to the exact thirteen-bone visual hierarchy.
+   Blender front/three-quarter/back/head/hand views were necessary but not sufficient. The
+   first actual-arena run then caught a Babylon `_primitiveN` suffix that made the runtime
+   reject valid regions and silently show the fallback mannequin; the real-GLB integration
+   test now pins that loader path. After correction, sword-and-buckler idle and moving views
+   showed a continuous adult silhouette, joined shoulders and limbs, ordinary trousers,
+   grounded boots and connected grips. An independent adversarial review gave a hard PASS on
+   the discombobulation/horror bar. The long rear hood and partly obscured buckler hand remain
+   polish notes; this closes structural plausibility, not final character-art quality.
 10. **Done.** This entry recorded that no policy knew what a shield was for, and that an
    `idle` fighter given one took *more* damage than one with two empty hands -- 90 against
    28. Closing it needed the two-handed `FighterView` the entry called for, and that is what

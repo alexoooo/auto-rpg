@@ -1,0 +1,12 @@
+Quaternius Animated Knight Pack
+Author: Quaternius
+Official page: https://quaternius.com/packs/knightcharacter.html
+License: CC0 1.0 Universal
+License URL: https://creativecommons.org/publicdomain/zero/1.0/
+Retrieved: 2026-08-24
+Archive SHA-256: 36aed14d0e27282bd006982e00206a852b1d8c00fc72f95c2437d9b4b5dccdb9
+
+Selected object: Helmet3. The authored great helm is fitted inside the Ranger
+hood, its transform is baked, and all vertices are weighted to the visual head
+bone. The weapon, body, shoulder pads, animations, and other helmets are not
+used.

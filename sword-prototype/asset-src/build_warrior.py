@@ -1,65 +1,33 @@
-"""Build the authored warrior this rig wears, one object per costume piece.
+"""Retarget the complete CC0 Ranger onto the prototype's thirteen visual bones.
 
-Run through ``scripts/run-blender.mjs``; it is what writes ``dimensions.json``
-and what checks the result::
+The donor already contains the thing the previous builder tried to reconstruct:
+one proportioned outfit, a weighted armature and articulated fingers. This
+builder keeps that authored whole. It lowers and closes the donor's arms through
+that native skin, bakes the coherent pose, and then applies one uniform fit into
+the exact physics joint table in ``dimensions.json``. Faces are split by their
+dominant target bone so a future sever can hide one region without cutting
+through a triangle owned by another.
 
-    npm run asset:build
-
-**No rig dimension is duplicated here.** Every target dimension comes out of
-``asset-src/dimensions.json``, which ``run-blender.mjs`` regenerates from
-``src/config.ts`` and ``src/figure.ts`` immediately before Blender is started.
-That is the whole reason this file exists rather than the study in
-``../warrior-prototype``, which is 422 lines of excellent procedural armour
-built to a body 55 mm taller with shoulders 170 mm further out. Scaling that
-result to fit would have produced a warrior that fits *today*, and a stretched
-one the first time a limb was retuned. Constants that appear below are
-proportions -- how far a pauldron laps over the shoulder it caps -- not
-measurements, and each one is expressed against a number that came from the
-JSON. Measured landmarks from the pinned source meshes remain beside their
-adaptation transforms; they describe the donors, not the simulated body.
-
-**Coordinates are the fighter's, not Blender's.** Every position written below
-is ``(x, height, forward)``: exactly the frame ``config.ts``'s ``body`` table and
-``figure.ts``'s piece anchors are written in, so a line here can be read straight
-against a line there. ``_blender`` is the only place the axes are permuted, and
-it does the permutation once. Getting this wrong is cheap to do and expensive to
-see -- it puts a nose on the back of a head -- which is why
-``scripts/check-warrior.mjs`` asserts every piece's bounds in all three axes
-rather than in the height alone.
-
-**No generated forms.** Every sub-object welded into the shipping GLB must
-carry the name of a pinned source extract. The welder refuses anything else,
-and the source test mutates an imported call into a box call to prove the guard.
-The one derived operation is closing the open rings where the selected human
-source is cut at a rigid joint: those caps inherit the donor boundary exactly
-and prevent a rotated elbow from rendering as a hollow tube.
-
-**No skinning, no skeleton, no armature.** The hierarchy already exists as
-thirteen physics bodies with motorised joints between them, and ``figure.ts``
-parents each piece to the body it covers. A skinned mesh would add a second
-opinion about where a shoulder is, and the two would disagree the moment
-somebody retuned the first one.
-
-**No sword and no shield.** The sword is a physics body with its own compound
-shape and a hand that is three simulated bones; modelling one into a fist would
-put a costume on the subject of the experiment. A shield is out of scope until
-it can block, because a cosmetic shield that does not block is precisely the lie
-the rig overlay exists to expose.
+The resulting skin is cosmetic. Physics remains authoritative in the browser.
 """
 
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
-import struct
 import sys
 
-import bmesh
 import bpy
 from mathutils import Matrix, Vector
 
 
-SOURCE_PINS = {}
+TARGET_ORDER = (
+    "torso", "head", "pelvis",
+    "swordUpperArm", "swordForearm", "swordHand",
+    "offUpperArm", "offForearm", "offHand",
+    "thighLeft", "shinLeft", "thighRight", "shinRight",
+)
 
 
 def arguments():
@@ -70,40 +38,18 @@ def arguments():
     return parser.parse_args(values)
 
 
-def _blender(point):
-    """Fighter ``(x, height, forward)`` to a Blender position.
-
-    Three frames sit between this file and the browser, and only this function
-    knows about any of them. Blender is Z-up with a character conventionally
-    facing -Y; the glTF exporter's Y-up conversion sends Blender ``(x, y, z)``
-    to glTF ``(x, z, -y)``, which lands that character's front on glTF +Z where
-    the format wants it; and Babylon's loader converts glTF's right-handed frame
-    to its own left-handed one by **negating X**. Compose the three and every
-    semantic axis survives -- right stays right, up stays up, forward stays
-    forward -- which is what makes the numbers below readable against
-    ``config.ts`` directly.
-
-    That last step is measured, not assumed. Authoring the warrior facing
-    Blender +Y instead put it in the arena with its X and Z both flipped: a
-    figure with its nose on the back of its head, its boots pointing behind it
-    and its pauldrons swapped -- and, because the model is nearly symmetric,
-    one that looks approximately fine in a screenshot. `scripts/check-warrior.mjs`
-    asserts bounds in all three axes for exactly this reason.
-    """
+def fighter_to_blender(point):
+    """Fighter (right, height, forward) to Blender before glTF's Y-up export."""
     return Vector((-point[0], -point[2], point[1]))
 
 
-def material(name, colour, metallic, roughness):
-    """One of the arena's four surfaces, as Blender understands it.
+def source_digest(path, expected):
+    actual = hashlib.sha256(path.read_bytes()).hexdigest()
+    if actual != expected:
+        raise RuntimeError(f'"{path}" digest {actual}; expected {expected}')
 
-    These exist so the committed ``.glb`` opens in any viewer as a warrior
-    rather than as a grey lump. They are **not** what the game renders: at
-    runtime ``figure.ts`` re-dresses every piece out of the arena's own PBR
-    palette, which is lit by the scene's HDRI and is live-tunable, and a second
-    set of materials arriving with the asset would be a second opinion about
-    what steel looks like. The colours here are copied from that palette so the
-    two agree; if they ever disagree, the palette is the one that is right.
-    """
+
+def material(name, colour, metallic=0.0, roughness=0.75):
     value = bpy.data.materials.new(name)
     value.use_nodes = True
     shader = value.node_tree.nodes.get("Principled BSDF")
@@ -116,680 +62,402 @@ def material(name, colour, metallic, roughness):
     return value
 
 
-def _finish(obj, smooth):
-    if smooth:
-        for polygon in obj.data.polygons:
-            polygon.use_smooth = True
-    return obj
+def target_segments(dimensions):
+    bones = dimensions["bones"]
+    fighter = dimensions["fighter"]
+    body = dimensions["body"]
+
+    def joint(name):
+        return fighter_to_blender(bones[name]["joint"])
+
+    def centre(name):
+        return fighter_to_blender(bones[name]["centre"])
+
+    sword_wrist = bones["swordHand"]["joint"]
+    off_wrist = bones["offHand"]["joint"]
+    return {
+        # A bone node's origin is the edit-bone head. Figure.syncSkin drives
+        # that node from the matching physics capsule, whose origin is its
+        # centre rather than its anatomical joint. Tails only establish the
+        # authored basis and are deliberately disconnected from child heads.
+        "torso": (centre("torso"), joint("head")),
+        "head": (centre("head"), fighter_to_blender((0, fighter["height"], 0))),
+        "pelvis": (centre("pelvis"), fighter_to_blender((0, body["hip"], 0))),
+        "swordUpperArm": (centre("swordUpperArm"), joint("swordForearm")),
+        "swordForearm": (centre("swordForearm"), joint("swordHand")),
+        # A 180 mm visual hand fixes the old miniature hand without changing the
+        # 120 mm physics capsule or its weapon weld point.
+        "swordHand": (centre("swordHand"), fighter_to_blender((
+            sword_wrist[0], bones["swordHand"]["centre"][1] - 0.18, sword_wrist[2],
+        ))),
+        "offUpperArm": (centre("offUpperArm"), joint("offForearm")),
+        "offForearm": (centre("offForearm"), joint("offHand")),
+        "offHand": (centre("offHand"), fighter_to_blender((
+            off_wrist[0], bones["offHand"]["centre"][1] - 0.18, off_wrist[2],
+        ))),
+        "thighLeft": (centre("thighLeft"), joint("shinLeft")),
+        "shinLeft": (centre("shinLeft"), fighter_to_blender((-body["hipSide"], 0.015, 0.055))),
+        "thighRight": (centre("thighRight"), joint("shinRight")),
+        "shinRight": (centre("shinRight"), fighter_to_blender((body["hipSide"], 0.015, 0.055))),
+    }
 
 
-def imported_obj(path, name, transform, keep_face=lambda _centre, _material: True):
-    """Read selected CC0 OBJ faces into the fighter frame.
+def build_target_armature(segments):
+    data = bpy.data.armatures.new("WarriorRig")
+    rig = bpy.data.objects.new("WarriorRig", data)
+    bpy.context.scene.collection.objects.link(rig)
+    bpy.context.view_layer.objects.active = rig
+    rig.select_set(True)
+    bpy.ops.object.mode_set(mode="EDIT")
+    parents = {
+        "head": "torso", "pelvis": "torso",
+        "swordUpperArm": "torso", "swordForearm": "swordUpperArm", "swordHand": "swordForearm",
+        "offUpperArm": "torso", "offForearm": "offUpperArm", "offHand": "offForearm",
+        "thighLeft": "pelvis", "shinLeft": "thighLeft",
+        "thighRight": "pelvis", "shinRight": "thighRight",
+    }
+    made = {}
+    for name in TARGET_ORDER:
+        bone = data.edit_bones.new(name)
+        bone.head, bone.tail = segments[name]
+        bone.use_connect = False
+        if name in parents:
+            bone.parent = made[parents[name]]
+        made[name] = bone
+    bpy.ops.object.mode_set(mode="OBJECT")
+    rig.select_set(False)
+    return rig
 
-    Importing through Blender's OBJ operator makes the result depend on operator
-    axis defaults. This tiny reader keeps the extracts' X/right, Y/back, Z/up
-    convention explicit and is intentionally limited to the vertex/face/material
-    grammar used by the pinned, evaluated armour extracts. ``transform`` is
-    explicit because each donor still has different landmarks; hiding those in
-    importer defaults is how armour gets fitted backwards while looking almost
-    plausible.
-    """
-    resolved = path.resolve()
-    expected = SOURCE_PINS.get(resolved)
-    if expected is None:
-        raise RuntimeError(f'"{path}" is not a selected extract in armour-sources.json')
-    source_bytes = path.read_bytes()
-    actual = hashlib.sha256(source_bytes).hexdigest()
-    if actual != expected:
-        raise RuntimeError(f'"{path}" digest {actual}; expected selected extract {expected}')
 
-    vertices = []
-    faces = []
-    material = ""
-    min_area = 1e-12 if path.parent.name == "blender-human" else 0.0000005
-    for raw in source_bytes.decode("utf8").splitlines():
+def source_target(name):
+    if name in {"root", "pelvis"}:
+        return "pelvis"
+    if name.startswith("spine_") or name.startswith("clavicle_"):
+        return "torso"
+    if name in {"neck_01", "Head"}:
+        return "head"
+    # The glTF is already in Blender's right-handed frame. Its `_l` geometry
+    # lives at +X, which is the fighter's left/off side after Babylon performs
+    # its handedness conversion; swapping these was what crossed both coat tails
+    # through the crotch in the first retargeted render.
+    for suffix, side in (("_l", "off"), ("_r", "sword")):
+        if name == "upperarm" + suffix:
+            return side + "UpperArm"
+        if name == "lowerarm" + suffix:
+            return side + "Forearm"
+        if name == "hand" + suffix or name.endswith(suffix) and any(
+            name.startswith(digit) for digit in ("index_", "middle_", "ring_", "pinky_", "thumb_")
+        ):
+            return side + "Hand"
+    if name == "thigh_l":
+        return "thighLeft"
+    if name in {"calf_l", "foot_l", "ball_l", "ball_leaf_l"}:
+        return "shinLeft"
+    if name == "thigh_r":
+        return "thighRight"
+    if name in {"calf_r", "foot_r", "ball_r", "ball_leaf_r"}:
+        return "shinRight"
+    return None
+
+
+def pose_native_bind(source_rig, dimensions, fit_scale):
+    """Use the donor rig to lower its arms and close both hands coherently."""
+    for suffix, angle in (("l", -90), ("r", 90)):
+        pose = source_rig.pose.bones[f"upperarm_{suffix}"]
+        pose.rotation_mode = "XYZ"
+        # Ranger is authored in a T-pose. Its upper-arm local Z is the shoulder
+        # hinge which brings the whole native weighted sleeve, pauldron and arm
+        # down together. Baking this deformation preserves the authored surface;
+        # separately transforming target-owned vertices made cloth seams into
+        # the crotch spikes and detached shoulder fins this asset replaces.
+        pose.rotation_euler.z = math.radians(angle)
+        pose.scale.y = dimensions["arm"]["upperLength"] / (
+            source_rig.data.bones[f"upperarm_{suffix}"].length * fit_scale
+        )
+        forearm = source_rig.pose.bones[f"lowerarm_{suffix}"]
+        forearm.scale.y = dimensions["arm"]["foreLength"] / (
+            source_rig.data.bones[f"lowerarm_{suffix}"].length * fit_scale
+        )
+    for suffix in ("l", "r"):
+        for digit in ("index", "middle", "ring", "pinky"):
+            for index, angle in ((1, 54), (2, 68), (3, 58)):
+                pose = source_rig.pose.bones.get(f"{digit}_0{index}_{suffix}")
+                if pose is None:
+                    continue
+                pose.rotation_mode = "XYZ"
+                # The donor finger bones run along local Y; their local X lies
+                # in the palm plane. Curling about X closes the fingers. The old
+                # Z-axis attempt splayed them sideways into the grotesque spikes
+                # this replacement exists to remove.
+                pose.rotation_euler.x = math.radians(-angle)
+        for index, x_angle in ((1, 18), (2, 22), (3, 16)):
+            pose = source_rig.pose.bones.get(f"thumb_0{index}_{suffix}")
+            if pose is None:
+                continue
+            pose.rotation_mode = "XYZ"
+            pose.rotation_euler.x = math.radians(-x_angle)
+    bpy.context.view_layer.update()
+
+
+def source_fit_transform(source_meshes, fighter):
+    """Fit the complete donor with one transform; never reshape body regions."""
+    points = [
+        obj.matrix_world @ vertex.co
+        for obj in source_meshes
+        for vertex in obj.data.vertices
+    ]
+    floor = min(point.z for point in points)
+    crown = max(point.z for point in points)
+    scale = fighter["height"] / (crown - floor)
+    # The physics shoulders are 20 mm forward of the torso axis. The donor is
+    # centred on its shoulder plane, so align the complete character there as
+    # part of the same global translation. This also puts each closed fist over
+    # its physical weapon root instead of 13 mm behind it.
+    return Matrix.Translation((0.0, -fighter["shoulderFront"], -floor * scale)) @ Matrix.Scale(scale, 4)
+
+
+def remapped_weights(source, vertex):
+    weights = {}
+    for membership in vertex.groups:
+        source_name = source.vertex_groups[membership.group].name
+        target = source_target(source_name)
+        if target is not None and membership.weight > 0:
+            weights[target] = weights.get(target, 0.0) + membership.weight
+    total = sum(weights.values())
+    if total <= 1e-8:
+        return {"torso": 1.0}
+    return {name: value / total for name, value in weights.items()}
+
+
+def ranger_materials():
+    return {
+        "cloth": material("cloth", (0.29, 0.10, 0.12), 0.0, 0.88),
+        "cloth_surcoat": material("cloth_surcoat", (0.29, 0.10, 0.12), 0.0, 0.88),
+        "leather": material("leather", (0.13, 0.075, 0.045), 0.0, 0.72),
+        "steel": material("steel", (0.44, 0.48, 0.54), 0.92, 0.24),
+        "flesh": material("flesh", (0.48, 0.25, 0.16), 0.0, 0.70),
+        "brass": material("helmet.brass", (0.42, 0.23, 0.055), 0.82, 0.28),
+        "black": material("helmet.black", (0.012, 0.014, 0.018), 0.25, 0.34),
+    }
+
+
+def role_for(source_name, slot_name):
+    if "Regular_Male" in slot_name:
+        return "flesh"
+    if source_name == "Male_Ranger_Acc_Pauldron":
+        return "steel"
+    if source_name == "Male_Ranger_Body":
+        return "cloth_surcoat"
+    if source_name in {"Male_Ranger_Arms_Bracer", "Male_Ranger_Feet_Boots"} or "Belt" in source_name:
+        return "leather"
+    return "cloth"
+
+
+def split_source_mesh(source, target_rig, fit, materials):
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    evaluated = source.evaluated_get(depsgraph)
+    evaluated_mesh = evaluated.to_mesh(preserve_all_data_layers=True, depsgraph=depsgraph)
+    try:
+        if len(evaluated_mesh.vertices) != len(source.data.vertices):
+            raise RuntimeError(f'"{source.name}" armature evaluation changed vertex indices')
+        source.data.calc_loop_triangles()
+        uv_source = source.data.uv_layers.active
+        positions = []
+        weights = []
+        for index, original in enumerate(source.data.vertices):
+            remapped = remapped_weights(source, original)
+            posed = evaluated.matrix_world @ evaluated_mesh.vertices[index].co
+            positions.append(fit @ posed)
+            weights.append(remapped)
+
+        triangles_by_owner = {name: [] for name in TARGET_ORDER}
+        for triangle in source.data.loop_triangles:
+            totals = {name: 0.0 for name in TARGET_ORDER}
+            for vertex_index in triangle.vertices:
+                for target, weight in weights[vertex_index].items():
+                    totals[target] += weight
+            owner = max(TARGET_ORDER, key=lambda name: totals[name])
+            triangles_by_owner[owner].append(triangle)
+
+        built = []
+        for owner, triangles in triangles_by_owner.items():
+            if not triangles:
+                continue
+            used = sorted({index for triangle in triangles for index in triangle.vertices})
+            remap = {old: new for new, old in enumerate(used)}
+            mesh = bpy.data.meshes.new(f"{source.name}__region_{owner}_mesh")
+            mesh.from_pydata(
+                [positions[index] for index in used], [],
+                [tuple(remap[index] for index in triangle.vertices) for triangle in triangles],
+            )
+            mesh.update(calc_edges=True)
+            for slot in source.material_slots:
+                mesh.materials.append(materials[role_for(source.name, slot.name)])
+            for polygon, triangle in zip(mesh.polygons, triangles):
+                polygon.material_index = min(triangle.material_index, max(0, len(mesh.materials) - 1))
+                polygon.use_smooth = True
+            if uv_source is not None:
+                uv_target = mesh.uv_layers.new(name="UVMap")
+                for polygon, triangle in zip(mesh.polygons, triangles):
+                    for new_loop, old_loop in zip(polygon.loop_indices, triangle.loops):
+                        uv_target.data[new_loop].uv = uv_source.data[old_loop].uv
+
+            obj = bpy.data.objects.new(f"{source.name}__region_{owner}", mesh)
+            bpy.context.scene.collection.objects.link(obj)
+            for target in TARGET_ORDER:
+                group = obj.vertex_groups.new(name=target)
+                for new_index, old_index in enumerate(used):
+                    weight = weights[old_index].get(target, 0.0)
+                    if weight > 0:
+                        group.add([new_index], weight, "REPLACE")
+            modifier = obj.modifiers.new("WarriorRig", "ARMATURE")
+            modifier.object = target_rig
+            obj.parent = target_rig
+            built.append(obj)
+        return built
+    finally:
+        evaluated.to_mesh_clear()
+
+
+def parse_helmet(path, target_rig, fit, materials):
+    vertices, uvs, triangles, triangle_uvs, roles = [], [], [], [], []
+    active = "Grey"
+    for raw in path.read_text(encoding="utf8").splitlines():
         fields = raw.split()
         if not fields:
             continue
         if fields[0] == "v":
-            vertices.append(tuple(float(value) for value in fields[1:4]))
+            # The archive's OBJ is Y-up: (x, z, -y) relative to its Blender
+            # source. Restore Blender's Z-up basis before applying the measured
+            # fit. Reading the OBJ triples directly turns depth into height and
+            # presents the helmet's crown as a featureless face-sized dome.
+            x, y_up, back = (float(value) for value in fields[1:4])
+            point = Vector((x, -back, y_up))
+            point *= 0.15
+            vertices.append(fit @ (point + Vector((0, 0, 1.640))))
+        elif fields[0] == "vt":
+            uvs.append(tuple(float(value) for value in fields[1:3]))
         elif fields[0] == "usemtl":
-            material = fields[1]
+            active = fields[1]
         elif fields[0] == "f":
-            face = tuple(int(value.split("/")[0]) - 1 for value in fields[1:])
-            centre = tuple(sum(vertices[index][axis] for index in face) / len(face) for axis in range(3))
-            fitted = [Vector(transform(vertices[index])) for index in face]
-            area = ((fitted[1] - fitted[0]).cross(fitted[2] - fitted[0])).length / 2
-            if keep_face(centre, material) and area >= min_area:
-                faces.append(face)
-    used = sorted({index for face in faces for index in face})
-    remap = {old: new for new, old in enumerate(used)}
-    points = []
-    for index in used:
-        points.append(_blender(transform(vertices[index])))
-    mesh = bpy.data.meshes.new(name + "_source_mesh")
-    mesh.from_pydata(points, [], [tuple(remap[index] for index in face) for face in faces])
+            corners = [field.split("/") for field in fields[1:]]
+            for index in range(1, len(corners) - 1):
+                tri = (corners[0], corners[index], corners[index + 1])
+                triangles.append(tuple(int(corner[0]) - 1 for corner in tri))
+                triangle_uvs.append(tuple(int(corner[1]) - 1 if len(corner) > 1 and corner[1] else None for corner in tri))
+                roles.append(active)
+
+    mesh = bpy.data.meshes.new("Helmet3__region_head_mesh")
+    mesh.from_pydata(vertices, [], triangles)
     mesh.update(calc_edges=True)
-    # The clothing and boot donors carry sub-millimetre slivers around layered
-    # seams. The 1 mm cleanup is deliberately excluded from Blender anatomy: applying
-    # it to the Blender anatomy collapsed 613 facial triangles and visibly tore
-    # the mouth, jaw and wrists. Other donors get only floating-point residue
-    # cleanup, followed by the piece welder's same 1e-8 pass.
-    cleanup_distance = 1e-8 if path.parent.name == "blender-human" else 0.001
-    cleaned = bmesh.new()
-    cleaned.from_mesh(mesh)
-    bmesh.ops.dissolve_degenerate(cleaned, dist=cleanup_distance, edges=list(cleaned.edges))
-    anatomical_limb = any(part in path.stem for part in (
-        "upper-arm", "forearm", "hand", "thigh", "shin",
-    ))
-    if anatomical_limb:
-        boundary = [edge for edge in cleaned.edges if edge.is_boundary]
-        if not boundary:
-            raise RuntimeError(f'"{path}" has no rigid-joint boundary to close')
-        filled = bmesh.ops.holes_fill(cleaned, edges=boundary, sides=0)
-        bmesh.ops.triangulate(cleaned, faces=filled["faces"])
-    cleaned.to_mesh(mesh)
-    cleaned.free()
-    mesh.update(calc_edges=True)
-    obj = bpy.data.objects.new(name + "_source", mesh)
+    role_material = {"Grey": materials["steel"], "Golden": materials["brass"], "Black": materials["black"]}
+    for role in ("Grey", "Golden", "Black"):
+        mesh.materials.append(role_material[role])
+    material_index = {role: index for index, role in enumerate(("Grey", "Golden", "Black"))}
+    uv_layer = mesh.uv_layers.new(name="UVMap") if uvs else None
+    for polygon, role, face_uvs in zip(mesh.polygons, roles, triangle_uvs):
+        polygon.material_index = material_index[role]
+        polygon.use_smooth = True
+        if uv_layer:
+            for loop_index, source_uv in zip(polygon.loop_indices, face_uvs):
+                if source_uv is not None:
+                    uv_layer.data[loop_index].uv = uvs[source_uv]
+    obj = bpy.data.objects.new("Helmet3__region_head", mesh)
     bpy.context.scene.collection.objects.link(obj)
-    # `piece` refuses anything without this mark. The normal game may use its
-    # primitive stand-ins while an asset request is in flight, but no primitive
-    # is allowed to contribute a triangle to the shipping GLB.
-    obj["source_extract"] = expected
-    return _finish(obj, True)
-
-
-def piece(name, joint, parts, surface, root):
-    """Weld one costume piece together and cut its origin at its own joint.
-
-    Every sub-object's transform is baked into its vertices first, so the merge
-    is a pure union and the result carries no transform of its own but the one
-    set here. That matters: the checker asserts a node has no rotation and no
-    scale, because a node that has either is a node whose translation is not its
-    origin, and then "the origin is at the joint" stops meaning anything.
-    """
-    welded = bmesh.new()
-    for part in parts:
-        if "source_extract" not in part:
-            raise RuntimeError(
-                f'"{name}" includes generated geometry; shipping pieces must come from a pinned source extract'
-            )
-        # `matrix_basis`, not `matrix_world`, and this cost an afternoon. Blender
-        # evaluates `matrix_world` from the dependency graph, and the graph is
-        # only stepped when the next operator runs -- so every sub-object here
-        # baked correctly *except the last one built*, which was still carrying
-        # the identity it was created with and welded in at its unscaled
-        # primitive size. Half the figure was right, which is the failure mode
-        # that survives a glance. `matrix_basis` is computed from the object's
-        # own location, rotation and scale on every access; none of these has a
-        # parent yet, so the two are the same matrix whenever both are correct.
-        part.data.transform(part.matrix_basis)
-        welded.from_mesh(part.data)
-    # Every sub-object is a closed shell, so "outward" is well defined for each
-    # of them separately and this costs nothing. It is here for `plate`, whose
-    # winding follows the order its silhouette was typed in: get that backwards
-    # and the panel is invisible from the front and solid from behind, which
-    # looks like a missing piece rather than like an inside-out one.
-    bmesh.ops.recalc_face_normals(welded, faces=welded.faces)
-    bmesh.ops.dissolve_degenerate(welded, dist=1e-8, edges=list(welded.edges))
-    # Tangent generation only has a defined answer for triangles and quads.
-    # `plate()` deliberately starts with silhouette n-gons, so triangulation
-    # belongs here, after the pieces are welded and before the export sees them.
-    bmesh.ops.triangulate(welded, faces=list(welded.faces))
-    mesh = bpy.data.meshes.new(name + "_mesh")
-    welded.to_mesh(mesh)
-    # Boundary caps can inherit duplicate corner records from the donor's
-    # sculpt face-set seam. Blender's exporter warns and guesses if those are
-    # left in place; validate removes only invalid topology records before UVs
-    # and tangents are authored, never a visible source surface.
-    mesh.validate(clean_customdata=True)
-    mesh.update(calc_edges=True)
-    welded.free()
-    for part in parts:
-        bpy.data.objects.remove(part, do_unlink=True)
-
-    pivot = _blender(joint)
-    mesh.transform(Matrix.Translation(-pivot))
-    mesh.materials.append(surface)
-
-    obj = bpy.data.objects.new(name, mesh)
-    bpy.context.scene.collection.objects.link(obj)
-    obj.location = pivot
-    obj.parent = root
-    # Let Blender pack the final, already-triangulated loops. Its exporter may
-    # split loops again while creating tangents; projecting before that split
-    # left two silhouette triangles with three identical UVs even though the
-    # in-memory layer was sound. Smart Project supplies a real island boundary
-    # for those faces and survives the tangent split.
-    bpy.ops.object.select_all(action="DESELECT")
-    obj.select_set(True)
-    bpy.context.view_layer.objects.active = obj
-    bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.mesh.select_all(action="SELECT")
-    # Named island strategies for the places a camera can actually expose.
-    # The open face gets tighter cuts around its features; the surcoat panels
-    # and articulated skirt split at much shallower garment boundaries. Other
-    # pieces use the broad sixty-six-degree hard-surface cut.
-    island_angles = {
-        "head": 0.61,
-        "helm": 0.61,
-        "surcoat": 0.35,
-        "skirt": 0.70,
-        "upperArmL": 0.35,
-        "upperArmR": 0.35,
-    }
-    bpy.ops.uv.smart_project(angle_limit=island_angles.get(name, 1.15192), island_margin=0.02)
-    bpy.ops.object.mode_set(mode="OBJECT")
-    # Smart Project packs every object to the full square. Normalize by actual
-    # triangle surface area instead: sqrt(UV area / square metres) is then the
-    # same 0.30 UV units/metre for a nasal, breastplate, sleeve or surcoat.
-    # Runtime `scale` remains the intentional family detail frequency.
-    uv_layer = obj.data.uv_layers.active
-    if uv_layer:
-        mesh_area = sum(polygon.area for polygon in obj.data.polygons)
-        uv_area = 0.0
-        for polygon in obj.data.polygons:
-            if len(polygon.loop_indices) != 3:
-                raise RuntimeError(f'"{name}" reached UV density normalization before triangulation')
-            uv = [uv_layer.data[index].uv for index in polygon.loop_indices]
-            uv_area += abs((uv[1].x - uv[0].x) * (uv[2].y - uv[0].y) -
-                           (uv[1].y - uv[0].y) * (uv[2].x - uv[0].x)) / 2
-        if mesh_area <= 0 or uv_area <= 0:
-            raise RuntimeError(f'"{name}" has no area for UV density normalization')
-        factor = 0.30 * (mesh_area / uv_area) ** 0.5
-        centre_u = (min(loop.uv.x for loop in uv_layer.data) + max(loop.uv.x for loop in uv_layer.data)) / 2
-        centre_v = (min(loop.uv.y for loop in uv_layer.data) + max(loop.uv.y for loop in uv_layer.data)) / 2
-        for loop in uv_layer.data:
-            loop.uv.x = 0.5 + (loop.uv.x - centre_u) * factor
-            loop.uv.y = 0.5 + (loop.uv.y - centre_v) * factor
-            if loop.uv.x < -1e-6 or loop.uv.x > 1 + 1e-6 or loop.uv.y < -1e-6 or loop.uv.y > 1 + 1e-6:
-                raise RuntimeError(f'"{name}" cannot fit the shared UV density in [0,1]')
+    group = obj.vertex_groups.new(name="head")
+    group.add(list(range(len(mesh.vertices))), 1.0, "REPLACE")
+    modifier = obj.modifiers.new("WarriorRig", "ARMATURE")
+    modifier.object = target_rig
+    obj.parent = target_rig
     return obj
 
 
-def build(dimensions):
+def grip_marker(name, bone_name, centre, rig):
+    marker = bpy.data.objects.new(name, None)
+    bpy.context.scene.collection.objects.link(marker)
+    marker.empty_display_type = "PLAIN_AXES"
+    marker.empty_display_size = 0.04
+    marker.parent = rig
+    marker.parent_type = "BONE"
+    marker.parent_bone = bone_name
+    marker.matrix_world = Matrix.Translation(fighter_to_blender(centre))
+    return marker
+
+
+def build(dimensions, source_root):
     bpy.ops.wm.read_factory_settings(use_empty=True)
+    provenance = json.loads((source_root / "armour-sources.json").read_text(encoding="utf8"))
+    rows = {row["id"]: row for row in provenance["sources"]}
+    ranger_row = rows["quaternius-modular-character-outfits-fantasy-standard-2026"]
+    helmet_row = rows["quaternius-animated-knight-2018"]
+    ranger_path = source_root / "armour" / "quaternius-ranger" / "ranger-source.gltf"
+    helmet_path = source_root / "armour" / "quaternius-knight" / "Helmet3.obj"
+    source_digest(ranger_path, ranger_row["extracts"]["ranger-source.gltf"])
+    source_digest(ranger_path.with_suffix(".bin"), ranger_row["extracts"]["ranger-source.bin"])
+    source_digest(helmet_path, helmet_row["extracts"]["Helmet3.obj"])
+
+    bpy.ops.import_scene.gltf(filepath=str(ranger_path))
+    source_rig = next(obj for obj in bpy.context.scene.objects if obj.type == "ARMATURE")
+    source_meshes = [
+        obj for obj in bpy.context.scene.objects
+        if obj.type == "MESH" and obj.name != "Icosphere"
+    ]
+    fit = source_fit_transform(source_meshes, dimensions["fighter"])
+    pose_native_bind(source_rig, dimensions, fit.to_scale().x)
+
+    target_by_name = target_segments(dimensions)
+    target_rig = build_target_armature(target_by_name)
+    materials = ranger_materials()
+    built = []
+    for source in source_meshes:
+        built.extend(split_source_mesh(source, target_rig, fit, materials))
+    built.append(parse_helmet(helmet_path, target_rig, fit, materials))
+
+    bones = dimensions["bones"]
+    hand_length = dimensions["arm"]["handLength"]
+    primary_grip = list(bones["swordHand"]["centre"])
+    secondary_grip = list(bones["offHand"]["centre"])
+    primary_grip[1] -= hand_length / 2
+    secondary_grip[1] -= hand_length / 2
+    built.append(grip_marker("grip.primary", "swordHand", primary_grip, target_rig))
+    built.append(grip_marker("grip.secondary", "offHand", secondary_grip, target_rig))
+
+    for obj in source_meshes:
+        bpy.data.objects.remove(obj, do_unlink=True)
+    bpy.data.objects.remove(source_rig, do_unlink=True)
     root = bpy.data.objects.new("Warrior", None)
     bpy.context.scene.collection.objects.link(root)
-
-    surfaces = {
-        "steel": material("steel", (0.62, 0.65, 0.70), 1.0, 0.22),
-        "leather": material("leather", (0.16, 0.11, 0.08), 0.0, 0.78),
-        "cloth": material("cloth", (0.29, 0.10, 0.12), 0.0, 0.92),
-        "flesh": material("flesh", (0.68, 0.48, 0.38), 0.0, 0.68),
-        "side": material("cloth_surcoat", (0.29, 0.10, 0.12), 0.0, 0.92),
-    }
-
-    fighter = dimensions["fighter"]
-    body = dimensions["body"]
-    bones = dimensions["bones"]
-    source_root = Path(__file__).resolve().parent
-    clothing_root = source_root / "armour" / "quaternius-ranger"
-    boots_root = source_root / "armour" / "polyhaven-boots"
-    human_root = source_root / "body" / "blender-human"
-
-    # The builder is the last process that sees the source paths before they
-    # become one anonymous GLB buffer. Verify exact selected path-and-digest
-    # membership here; a caller cannot turn an arbitrary OBJ into a trusted one
-    # merely by passing it through imported_obj().
-    provenance = json.loads((source_root / "armour-sources.json").read_text(encoding="utf8"))
-    selected = provenance["selected"] if isinstance(provenance["selected"], list) else [provenance["selected"]]
-    global SOURCE_PINS
-    SOURCE_PINS = {}
-    for source_id in selected:
-        source = next((row for row in provenance["sources"] if row["id"] == source_id), None)
-        if source is None:
-            raise RuntimeError(f'selected appearance source "{source_id}" has no row')
-        for filename, digest in source["extracts"].items():
-            if not filename.endswith(".obj"):
-                continue
-            SOURCE_PINS[(source_root.parent / source["extractRoot"] / filename).resolve()] = digest
-
-    height = fighter["height"]
-    shoulder_side = fighter["shoulderSide"]
-    shoulder_height = fighter["shoulderHeight"]
-    shoulder_front = fighter["shoulderFront"]
-    waist = body["waist"]
-    neck = body["neck"]
-    torso_top = body["torsoCentre"] + body["torsoLength"] / 2
-    pelvis_top = body["pelvisCentre"] + body["pelvisLength"] / 2
-    pelvis_bottom = body["pelvisCentre"] - body["pelvisLength"] / 2
-    hip = body["hip"]
-    hip_side = body["hipSide"]
-    knee = body["knee"]
-    arm = dimensions["arm"]
-    arm_elbow = shoulder_height - arm["upperLength"]
-    arm_wrist = arm_elbow - arm["foreLength"]
-    arm_fist = arm_wrist - arm["handLength"]
-
-    # Quaternius authors the Ranger upright in metres with X sideways, Y back
-    # and Z up. These measured source landmarks only describe the selected CC0
-    # mesh; every target landmark still comes from dimensions.json.
-    def ranger_torso(point):
-        x, source_back, up = point
-        return (x * 0.94, waist + 0.015 + (up - 1.125) * 0.90,
-                -(source_back - 0.03) * 0.94)
-
-    def ranger_hood(point):
-        x, source_back, up = point
-        return (x * body["headRadius"] * 1.25 / 0.1516,
-                neck + (up - 1.5253) * (height - neck) / (1.8650 - 1.5253),
-                -(source_back - 0.025) * 0.90)
-
-    def ranger_arm(point):
-        x, source_back, up = point
-        outward = 1 if x >= 0 else -1
-        along = abs(x) - 0.18
-        span = arm["upperLength"] + arm["foreLength"]
-        return (outward * (shoulder_side + (up - 1.45) * 0.82),
-                shoulder_height - along * span / (0.8994 - 0.18),
-                shoulder_front - (source_back - 0.05) * 0.86)
-
-    def ranger_pauldron(point, side):
-        x, source_back, up = point
-        return (side * (shoulder_side + (x - 0.20) * 0.75),
-                shoulder_height + (up - 1.48) * 0.80,
-                shoulder_front - (source_back - 0.05) * 0.80)
-
-    def ranger_legs(point):
-        x, source_back, up = point
-        return (x, 0.04 + (up - 0.4226) * (hip - 0.04) / (1.0514 - 0.4226),
-                -(source_back - 0.04) * 0.90)
-
-    def ranger_boots(point):
-        x, source_back, up = point
-        return (x * 0.95, (up + 0.0040) * 0.86, -source_back * 0.82 + 0.035)
-
-    # The Blender source is the realistic body remembered from the old
-    # turntable, but this uses its 21k-triangle level-zero cage. It arrives in
-    # the same X/right, Y/back, Z/up convention as the Ranger extracts.
-    def human_torso(point):
-        x, source_back, up = point
-        return (x * 0.86,
-                waist + (up - 1.0475227) * (torso_top - waist) / (1.4348141 - 1.0475227),
-                -source_back * 0.68)
-
-    def human_pelvis(point):
-        x, source_back, up = point
-        return (x * 0.86,
-                pelvis_bottom + (up - 0.7524507) * (pelvis_top - pelvis_bottom) / (0.9620752 - 0.7524507),
-                -source_back * 0.66)
-
-    def human_neck(point):
-        x, source_back, up = point
-        return (x * 0.96,
-                neck - 0.072 + (up - 1.4490762) * 0.132 / (1.5300004 - 1.4490762),
-                -(source_back + 0.105) * 0.90)
-
-    def human_head(point):
-        x, source_back, up = point
-        return (x * 1.06,
-                neck - 0.015 + (up - 1.3682661) * 0.225 / (1.6844132 - 1.3682661),
-                -(source_back + 0.050) * 0.82)
-
-    def human_hand(point, side):
-        x, source_back, up = point
-        source_start = Vector((side * 0.3512, 0.8940))
-        source_end = Vector((side * 0.4404, 0.7118))
-        source_axis = source_end - source_start
-        source_length = source_axis.length
-        source_direction = source_axis / source_length
-        source_perpendicular = Vector((-source_direction.y, source_direction.x))
-        relative = Vector((x, up)) - source_start
-        along = relative.dot(source_direction) / source_length
-        across = relative.dot(source_perpendicular) * 0.82
-        target_start = Vector((side * shoulder_side, arm_wrist))
-        target_end = Vector((side * shoulder_side, arm_fist))
-        target_axis = target_end - target_start
-        target_direction = target_axis.normalized()
-        target_perpendicular = Vector((-target_direction.y, target_direction.x))
-        fitted = target_start + target_axis * along + target_perpendicular * across
-        # The Ranger bracer ends above the simulated wrist. Lift the authored
-        # hand into it rather than welding a second donor's hand-shaped wrist
-        # region on top; the three-angle review caught that apparent duplicate.
-        return (fitted.x, fitted.y + 0.060, shoulder_front - (source_back + 0.090) * 0.70)
-
-    def human_segment(point, source_start, source_end, target_start, target_end,
-                      across_scale, depth_scale, depth_centre=0.0):
-        """Straighten one anatomical shell onto one simulated bone.
-
-        The source is an A-pose, while the prototype's authoring frame hangs
-        every limb vertically. Mapping the source's X/Z axis onto the physics
-        joint axis preserves the donor's real silhouette instead of replacing
-        it with another capsule. Target ends deliberately overlap their
-        neighbouring joints beneath sleeves, bracers, trouser cuffs and boot
-        shafts. The elbow overlap is wider than its cuff so an ordinary guard
-        cannot expose the closed source boundary.
-        """
-        x, source_back, up = point
-        source_axis = Vector(source_end) - Vector(source_start)
-        source_length = source_axis.length
-        source_direction = source_axis / source_length
-        source_perpendicular = Vector((-source_direction.y, source_direction.x))
-        relative = Vector((x, up)) - Vector(source_start)
-        along = relative.dot(source_direction) / source_length
-        across = relative.dot(source_perpendicular) * across_scale
-        target_axis = Vector(target_end) - Vector(target_start)
-        target_direction = target_axis.normalized()
-        target_perpendicular = Vector((-target_direction.y, target_direction.x))
-        fitted = Vector(target_start) + target_axis * along + target_perpendicular * across
-        return (fitted.x, fitted.y, shoulder_front - (source_back - depth_centre) * depth_scale)
-
-    def segment_fraction(point, source_start, source_end):
-        """Where a donor face centre sits along one anatomical segment."""
-        x, _source_back, up = point
-        axis = Vector(source_end) - Vector(source_start)
-        return (Vector((x, up)) - Vector(source_start)).dot(axis) / axis.length_squared
-
-    def human_upper_arm(point, side):
-        return human_segment(
-            point,
-            (side * 0.10385, 1.38833), (side * 0.32670, 1.06608),
-            (side * shoulder_side, shoulder_height + 0.032),
-            (side * shoulder_side, arm_elbow - 0.070),
-            0.80, 0.70, 0.010,
-        )
-
-    def human_forearm(point, side):
-        return human_segment(
-            point,
-            (side * 0.25550, 1.10985), (side * 0.39615, 0.86164),
-            (side * (shoulder_side - 0.010), arm_elbow + 0.070),
-            (side * (shoulder_side - 0.010), arm_wrist - 0.050),
-            0.58, 0.56, -0.018,
-        )
-
-    def human_elbow_cover(point, side):
-        """A narrow proximal-forearm band crossing the shared elbow pivot.
-
-        Lengthwise overlap cannot cover a bend: two straight shells that cross
-        in the bind pose rotate apart around their common endpoint. This band
-        follows the forearm into the upper sleeve, while both of its capped ends
-        remain buried under existing garments. Using the donor's proximal
-        forearm avoids turning the much broader upper-arm end into a rosette.
-        """
-        source_start = Vector((side * 0.25550, 1.10985))
-        source_end = Vector((side * 0.39615, 0.86164))
-        source_cut = source_start.lerp(source_end, 0.22)
-        return human_segment(
-            point, source_start, source_cut,
-            (side * (shoulder_side - 0.010), arm_elbow + 0.053),
-            (side * (shoulder_side - 0.010), arm_elbow - 0.030),
-            0.71, 0.62, -0.018,
-        )
-
-    def human_wrist_cover(point, side):
-        """The same pivot cover at the bracer-to-hand seam."""
-        source_start = Vector((side * 0.25550, 1.10985))
-        source_end = Vector((side * 0.39615, 0.86164))
-        source_cut = source_start.lerp(source_end, 0.68)
-        return human_segment(
-            point, source_cut, source_end,
-            (side * (shoulder_side - 0.010), arm_wrist + 0.028),
-            (side * (shoulder_side - 0.010), arm_wrist - 0.048),
-            0.76, 0.66, -0.046,
-        )
-
-    def human_thigh(point, side):
-        return human_segment(
-            point,
-            (side * 0.055, 0.82565), (side * 0.174, 0.43330),
-            (side * (hip_side - 0.030), hip + 0.060),
-            (side * (hip_side - 0.030), knee - 0.032),
-            0.38, 0.42, -0.008,
-        )
-
-    def human_shin(point, side):
-        return human_segment(
-            point,
-            (side * 0.105, 0.45874), (side * 0.185, 0.05208),
-            (side * (hip_side - 0.030), knee + 0.032),
-            (side * (hip_side - 0.030), 0.020),
-            0.38, 0.42, 0.025,
-        )
-
-    def poly_boot(point, side):
-        x, source_back, up = point
-        return (side * hip_side + x * 1.27, up * 0.95,
-                -source_back * 0.92 + 0.025)
-
-    made = {}
-    wanted = {p["name"]: p["bone"] for p in dimensions["pieces"]}
-
-    def add(name, parts, surface):
-        if name not in wanted:
-            raise RuntimeError(f'this script builds "{name}" and figure.ts does not dress it')
-        made[name] = piece(name, bones[wanted[name]]["joint"], parts, surfaces[surface], root)
-
-    # Authored anatomy supplies the shape of a fitted gambeson, leggings and
-    # gauntlets beneath the Ranger modules. Only the exposed head, neck and
-    # hands use skin; a flesh-coloured inner shell erupting through an armhole
-    # is not anatomy, it is visibly broken layering.
-    add("pelvis", [imported_obj(human_root / "human-pelvis.obj", "blender_human_pelvis", human_pelvis)], "cloth")
-
-    skirt_top = waist + 0.09
-    skirt_bottom = pelvis_bottom + 0.025
-    ranger_skirt_bottom = 0.9085435
-    ranger_skirt_top = 1.115
-
-    def ranger_skirt(point):
-        x, source_back, up = point
-        return (x * 1.04,
-                skirt_bottom + (up - ranger_skirt_bottom) * (skirt_top - skirt_bottom)
-                / (ranger_skirt_top - ranger_skirt_bottom),
-                -(source_back - 0.04) * 1.04)
-
-    def ranger_belt(point):
-        x, source_back, up = point
-        return (x * 0.92, waist + 0.015 + (up - 1.1253091), -(source_back + 0.008) * 0.86)
-
-    add("skirt", [imported_obj(clothing_root / "ranger-body.obj", "quaternius_ranger_skirt",
-                              ranger_skirt, lambda centre, _material: centre[2] <= ranger_skirt_top)], "side")
-    add("belly", [
-        imported_obj(clothing_root / "ranger-belt-upper.obj", "quaternius_ranger_belt_upper", ranger_belt),
-        imported_obj(clothing_root / "ranger-belt-lower.obj", "quaternius_ranger_belt_lower", ranger_belt),
-    ], "leather")
-    add("chest", [imported_obj(human_root / "human-torso.obj", "blender_human_torso", human_torso)], "cloth")
-
-    for name, side in (("pauldronL", -1), ("pauldronR", 1)):
-        add(name, [imported_obj(clothing_root / "ranger-pauldron.obj",
-                                "quaternius_ranger_pauldron_" + name,
-                                lambda point, side=side: ranger_pauldron(point, side))], "steel")
-
-    add("surcoat", [imported_obj(clothing_root / "ranger-body.obj", "quaternius_ranger_tunic",
-                                 ranger_torso, lambda centre, _material: centre[2] > ranger_skirt_top)], "side")
-
-    add("neck", [imported_obj(human_root / "human-neck.obj", "blender_human_neck", human_neck)], "flesh")
-    add("head", [imported_obj(human_root / "human-head.obj", "blender_human_head", human_head)], "flesh")
-    add("helm", [imported_obj(clothing_root / "ranger-hood.obj", "quaternius_ranger_hood", ranger_hood)], "cloth")
-
-    for suffix, side in (("R", 1), ("L", -1)):
-        add("upperArmSkin" + suffix, [imported_obj(
-            human_root / ("human-upper-arm-r.obj" if side > 0 else "human-upper-arm-l.obj"),
-            "blender_human_upperArmSkin" + suffix,
-            lambda point, side=side: human_upper_arm(point, side),
-        )], "cloth")
-        add("upperArm" + suffix, [imported_obj(
-            clothing_root / "ranger-arms.obj", "quaternius_ranger_upperArm" + suffix, ranger_arm,
-            lambda centre, source_material, side=side:
-                source_material == "MI_Ranger"
-                and centre[0] * side > 0 and ranger_arm(centre)[1] >= arm_elbow,
-        )], "cloth")
-        add("elbowCover" + suffix, [imported_obj(
-            human_root / ("human-forearm-r.obj" if side > 0 else "human-forearm-l.obj"),
-            "blender_human_elbowCover" + suffix,
-            lambda point, side=side: human_elbow_cover(point, side),
-            lambda centre, _material, side=side: segment_fraction(
-                centre, (side * 0.25550, 1.10985), (side * 0.39615, 0.86164),
-            ) <= 0.22,
-        )], "cloth")
-        add("forearmSkin" + suffix, [imported_obj(
-            human_root / ("human-forearm-r.obj" if side > 0 else "human-forearm-l.obj"),
-            "blender_human_forearmSkin" + suffix,
-            lambda point, side=side: human_forearm(point, side),
-        )], "leather")
-        add("forearm" + suffix, [imported_obj(
-            clothing_root / "ranger-arms.obj", "quaternius_ranger_forearm" + suffix, ranger_arm,
-            lambda centre, source_material, side=side:
-                source_material == "MI_Ranger"
-                and centre[0] * side > 0 and arm_wrist <= ranger_arm(centre)[1] < arm_elbow,
-        )], "leather")
-        add("wristCover" + suffix, [imported_obj(
-            human_root / ("human-forearm-r.obj" if side > 0 else "human-forearm-l.obj"),
-            "blender_human_wristCover" + suffix,
-            lambda point, side=side: human_wrist_cover(point, side),
-            lambda centre, _material, side=side: segment_fraction(
-                centre, (side * 0.25550, 1.10985), (side * 0.39615, 0.86164),
-            ) >= 0.68,
-        )], "leather")
-        add("hand" + suffix, [imported_obj(
-            human_root / ("human-hand-r.obj" if side > 0 else "human-hand-l.obj"),
-            "blender_human_hand" + suffix, lambda point, side=side: human_hand(point, side),
-        )], "flesh")
-
-    for suffix, side in (("L", -1), ("R", 1)):
-        add("thighSkin" + suffix, [imported_obj(
-            human_root / ("human-thigh-r.obj" if side > 0 else "human-thigh-l.obj"),
-            "blender_human_thighSkin" + suffix,
-            lambda point, side=side: human_thigh(point, side),
-        )], "cloth")
-        add("thigh" + suffix, [imported_obj(
-            clothing_root / "ranger-legs.obj", "quaternius_ranger_thigh" + suffix, ranger_legs,
-            lambda centre, _material, side=side:
-                centre[0] * side > 0 and ranger_legs(centre)[1] >= knee,
-        )], "cloth")
-        add("shinSkin" + suffix, [imported_obj(
-            human_root / ("human-shin-r.obj" if side > 0 else "human-shin-l.obj"),
-            "blender_human_shinSkin" + suffix,
-            lambda point, side=side: human_shin(point, side),
-        )], "leather")
-        add("shin" + suffix, [
-            imported_obj(clothing_root / "ranger-legs.obj", "quaternius_ranger_shin_cloth" + suffix,
-                         ranger_legs, lambda centre, _material, side=side:
-                         centre[0] * side > 0 and ranger_legs(centre)[1] < knee),
-            imported_obj(clothing_root / "ranger-boots.obj", "quaternius_ranger_shin_boot" + suffix,
-                         ranger_boots, lambda centre, _material, side=side:
-                         centre[0] * side > 0 and ranger_boots(centre)[1] > 0.13),
-        ], "leather")
-        add("foot" + suffix, [imported_obj(
-            boots_root / ("boot-r.obj" if side > 0 else "boot-l.obj"),
-            "polyhaven_leather_boot" + suffix, lambda point, side=side: poly_boot(point, side),
-            lambda centre, _material, side=side: poly_boot(centre, side)[1] <= 0.15,
-        )], "leather")
-
-    missing = [p["name"] for p in dimensions["pieces"] if p["name"] not in made]
-    if missing:
-        raise RuntimeError(f"figure.ts dresses pieces this script does not build: {missing}")
-    return root
+    target_rig.parent = root
+    return root, target_rig, built
 
 
-def export(root, output):
+def export(root, rig, built, output):
     output.parent.mkdir(parents=True, exist_ok=True)
     bpy.ops.object.select_all(action="DESELECT")
     root.select_set(True)
-    for child in root.children_recursive:
-        child.select_set(True)
-    bpy.context.view_layer.objects.active = root
+    rig.select_set(True)
+    for obj in built:
+        obj.select_set(True)
+    bpy.context.view_layer.objects.active = rig
     result = bpy.ops.export_scene.gltf(
         filepath=str(output), export_format="GLB", check_existing=False,
-        export_yup=True, export_apply=True, use_selection=True,
-        # UVs are an authored-asset contract now. Every costume family carries
-        # a normal map, so every exported primitive needs its tangent frame.
+        export_yup=True, use_selection=True,
         export_texcoords=True, export_normals=True, export_tangents=True,
         export_materials="EXPORT", export_cameras=False, export_lights=False,
-        export_animations=False, export_skins=False, export_morph=False,
-        export_extras=False,
+        export_animations=False, export_skins=True, export_morph=False,
+        export_extras=True,
     )
     if result != {"FINISHED"}:
         raise RuntimeError(f"glTF export failed: {result}")
 
-    # Compact every accessor, buffer view and byte span that the export leaves
-    # unreachable. Session 07 also stripped non-steel tangents here; all four
-    # costume families are normal-mapped now, so none are optional payload.
-    raw = output.read_bytes()
-    json_length, json_type = struct.unpack_from("<II", raw, 12)
-    if json_type != 0x4E4F534A:
-        raise RuntimeError("exported GLB does not start with its JSON chunk")
-    document = json.loads(raw[20:20 + json_length].decode("utf-8"))
-    materials = document.get("materials", [])
-    for mesh in document.get("meshes", []):
-        for primitive in mesh.get("primitives", []):
-            material_index = primitive.get("material")
-            material_name = materials[material_index].get("name", "") if material_index is not None else ""
-            if material_name not in {"steel", "leather", "cloth", "cloth_surcoat", "flesh"}:
-                primitive.get("attributes", {}).pop("TANGENT", None)
-    binary_header = 20 + json_length
-    binary_length, binary_type = struct.unpack_from("<II", raw, binary_header)
-    binary = raw[binary_header + 8:binary_header + 8 + binary_length]
-
-    used_accessors = set()
-    for mesh in document.get("meshes", []):
-        for primitive in mesh.get("primitives", []):
-            used_accessors.update(primitive.get("attributes", {}).values())
-            if "indices" in primitive:
-                used_accessors.add(primitive["indices"])
-    accessor_order = sorted(used_accessors)
-    accessor_remap = {old: new for new, old in enumerate(accessor_order)}
-    accessors = document.get("accessors", [])
-    compact_accessors = [accessors[index] for index in accessor_order]
-    for mesh in document.get("meshes", []):
-        for primitive in mesh.get("primitives", []):
-            primitive["attributes"] = {
-                semantic: accessor_remap[index]
-                for semantic, index in primitive.get("attributes", {}).items()
-            }
-            if "indices" in primitive:
-                primitive["indices"] = accessor_remap[primitive["indices"]]
-
-    used_views = {
-        accessor["bufferView"] for accessor in compact_accessors if "bufferView" in accessor
-    }
-    used_views.update(
-        image["bufferView"] for image in document.get("images", []) if "bufferView" in image
-    )
-    view_order = sorted(used_views)
-    view_remap = {old: new for new, old in enumerate(view_order)}
-    source_views = document.get("bufferViews", [])
-    compact_views = []
-    compact_binary = bytearray()
-    for old_index in view_order:
-        view = dict(source_views[old_index])
-        while len(compact_binary) % 4:
-            compact_binary.append(0)
-        source_start = view.get("byteOffset", 0)
-        view["byteOffset"] = len(compact_binary)
-        compact_binary.extend(binary[source_start:source_start + view["byteLength"]])
-        compact_views.append(view)
-    for accessor in compact_accessors:
-        if "bufferView" in accessor:
-            accessor["bufferView"] = view_remap[accessor["bufferView"]]
-    for image in document.get("images", []):
-        if "bufferView" in image:
-            image["bufferView"] = view_remap[image["bufferView"]]
-
-    document["accessors"] = compact_accessors
-    document["bufferViews"] = compact_views
-    document["buffers"][0]["byteLength"] = len(compact_binary)
-    binary = bytes(compact_binary) + b"\0" * ((4 - len(compact_binary) % 4) % 4)
-    encoded = json.dumps(document, separators=(",", ":")).encode("utf-8")
-    encoded += b" " * ((4 - len(encoded) % 4) % 4)
-
-    total = 20 + len(encoded) + 8 + len(binary)
-    output.write_bytes(
-        struct.pack("<III", 0x46546C67, 2, total) +
-        struct.pack("<II", len(encoded), 0x4E4F534A) + encoded +
-        struct.pack("<II", len(binary), binary_type) + binary
-    )
-
 
 def main():
     args = arguments()
-    dimensions = json.loads(args.dimensions.read_text(encoding="utf-8"))
+    dimensions = json.loads(args.dimensions.read_text(encoding="utf8"))
     if dimensions.get("schema") != 1:
         raise RuntimeError(f"dimensions.json schema {dimensions.get('schema')}, expected 1")
-    root = build(dimensions)
-    export(root, args.output)
+    root, rig, built = build(dimensions, Path(__file__).resolve().parent)
+    export(root, rig, built, args.output)
     print(f"wrote {args.output}")
 
 

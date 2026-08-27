@@ -1,14 +1,20 @@
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
+import { VertexBuffer } from "@babylonjs/core/Buffers/buffer.js";
 import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader.js";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
-import { Matrix } from "@babylonjs/core/Maths/math.vector.js";
+import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import type { AssetContainer } from "@babylonjs/core/assetContainer.js";
-import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
+import type { Bone } from "@babylonjs/core/Bones/bone.js";
+import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
+import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import type { Material } from "@babylonjs/core/Materials/material.js";
+import type { Observer } from "@babylonjs/core/Misc/observable.js";
+import type { Node } from "@babylonjs/core/node.js";
 import type { Scene } from "@babylonjs/core/scene.js";
+import type { Skeleton } from "@babylonjs/core/Bones/skeleton.js";
 
 // Side effect, and a load-bearing one: this is what teaches `LoadAssetContainerAsync`
 // that a `.glb` is a thing it can read. Without it the load rejects with "Unable to
@@ -20,6 +26,7 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import "@babylonjs/loaders/glTF/2.0/glTFLoader.js";
 
 import { CONFIG } from "./config.ts";
+import { isStrapped, type HandName, type WeaponKind } from "./hands.ts";
 import { followSurfaceMaps } from "./surface.ts";
 import type { Part } from "./rig.ts";
 
@@ -63,6 +70,67 @@ export interface FigureRig {
 
 /** Every name in `FigureRig` that is a bone rather than the prefix. */
 export type BoneName = Exclude<keyof FigureRig, "prefix">;
+
+/**
+ * The visual hierarchy, and deliberately not Havok's constraint direction.
+ *
+ * The waist motor has to be registered pelvis-to-torso for the V2 solver, but
+ * a person is cut the other way: severing the pelvis takes the legs with it and
+ * leaves the chest behind. The skin therefore roots at the torso. Every other
+ * severable part is then exactly a subtree, which is the property a future
+ * wound-cap pass needs and one an armature cannot recover after export.
+ */
+export const SKIN_BONE_PARENT: Readonly<Record<BoneName, BoneName | null>> = Object.freeze({
+  torso: null,
+  head: "torso",
+  pelvis: "torso",
+  swordUpperArm: "torso",
+  swordForearm: "swordUpperArm",
+  swordHand: "swordForearm",
+  offUpperArm: "torso",
+  offForearm: "offUpperArm",
+  offHand: "offForearm",
+  thighLeft: "pelvis",
+  shinLeft: "thighLeft",
+  thighRight: "pelvis",
+  shinRight: "thighRight",
+});
+
+/** Parent-before-child order for composing independent physics roots. */
+const SKIN_BONE_ORDER: readonly BoneName[] = Object.freeze([
+  "torso", "head", "pelvis",
+  "swordUpperArm", "swordForearm", "swordHand",
+  "offUpperArm", "offForearm", "offHand",
+  "thighLeft", "shinLeft", "thighRight", "shinRight",
+]);
+
+/**
+ * Express an independently simulated world transform in its visual parent's
+ * local frame. Babylon uses row vectors, so `local * parent === world`; reversing
+ * this product mirrors rotations around translated parents while still looking
+ * correct for the identity pose.
+ */
+export function skinLocalMatrixToRef(
+  world: Matrix,
+  parentWorld: Matrix,
+  inverse: Matrix,
+  result: Matrix,
+): void {
+  parentWorld.invertToRef(inverse);
+  world.multiplyToRef(inverse, result);
+}
+
+/** Apply a physics delta to an arbitrary authored bone bind frame. */
+export function bindCorrectedSkinWorldToRef(
+  bindWorld: Matrix,
+  physicsBindInverse: Matrix,
+  physicsCurrent: Matrix,
+  delta: Matrix,
+  result: Matrix,
+): void {
+  physicsBindInverse.multiplyToRef(physicsCurrent, delta);
+  bindWorld.multiplyToRef(delta, result);
+}
 
 /** Which of the arena's materials a piece is made of, or its fighter's colour. */
 export type PieceMaterial = keyof FigureMaterials | "side";
@@ -508,6 +576,16 @@ const costumeBytes: Promise<ArrayBuffer | null> =
 
 /** Parsed once per scene: two fighters wear one asset. */
 const costumes = new WeakMap<Scene, Promise<AssetContainer | null>>();
+/**
+ * The resolved half of `costumes`.
+ *
+ * A skinned graph cannot arrive after a fighter has been published. Picking,
+ * the shadow list and the rig overlay all snapshot the meshes in its constructor;
+ * swapping in new ones a frame later makes the visible person a stranger to all
+ * three systems. `main.ts` therefore awaits `prepareWarriorFigure` before the
+ * first bout, and every later rebuild reads this map synchronously.
+ */
+const preparedCostumes = new WeakMap<Scene, AssetContainer | null>();
 
 function costumeFor(scene: Scene): Promise<AssetContainer | null> {
   const known = costumes.get(scene);
@@ -528,6 +606,134 @@ function costumeFor(scene: Scene): Promise<AssetContainer | null> {
   });
   costumes.set(scene, pending);
   return pending;
+}
+
+/** Parse the one Warrior asset before any fighter can publish its visual graph. */
+export async function prepareWarriorFigure(scene: Scene): Promise<void> {
+  preparedCostumes.set(scene, await costumeFor(scene));
+}
+
+function hasExactSkin(container: AssetContainer): boolean {
+  if (container.skeletons.length !== 1) return false;
+  const skeleton = container.skeletons[0];
+  if (skeleton.bones.length !== SKIN_BONE_ORDER.length) return false;
+  const found = new Map(skeleton.bones.map((bone) => [bone.name, bone]));
+  if (found.size !== SKIN_BONE_ORDER.length) return false;
+  for (const name of SKIN_BONE_ORDER) {
+    const bone = found.get(name);
+    if (!bone || !bone.getTransformNode()) return false;
+    const parentName = SKIN_BONE_PARENT[name];
+    if ((bone.getParent()?.name ?? null) !== parentName) return false;
+    if (parentName && bone.getTransformNode()?.parent !== found.get(parentName)?.getTransformNode()) return false;
+  }
+  return container.meshes.some((mesh) => mesh.skeleton === skeleton && mesh.getTotalVertices() > 0);
+}
+
+interface SkinBinding {
+  bone: Bone;
+  node: TransformNode;
+  part: Part;
+  parent: SkinBinding | null;
+  bindWorld: Matrix;
+  physicsBindInverse: Matrix;
+  partWorld: Matrix;
+  delta: Matrix;
+  world: Matrix;
+  inverse: Matrix;
+  local: Matrix;
+  position: Vector3;
+  rotation: Quaternion;
+  scale: Vector3;
+}
+
+interface SkinRegion {
+  mesh: Mesh;
+  owner: BoneName;
+  indices: number[];
+  weights: number[];
+}
+
+const LIMB_SKIN_BONE: Readonly<Record<string, BoneName>> = Object.freeze({
+  torso: "torso",
+  head: "head",
+  pelvis: "pelvis",
+  upperArm: "swordUpperArm",
+  forearm: "swordForearm",
+  hand: "swordHand",
+  offUpperArm: "offUpperArm",
+  offForearm: "offForearm",
+  offHand: "offHand",
+  thighL: "thighLeft",
+  shinL: "shinLeft",
+  thighR: "thighRight",
+  shinR: "shinRight",
+});
+
+const regionOf = (name: string): BoneName | null => {
+  const marker = name.lastIndexOf("__region_");
+  if (marker < 0) return null;
+  const suffix = name.slice(marker + "__region_".length);
+  // Babylon expands one glTF mesh with several primitives into sibling meshes
+  // named `<source>_primitiveN`. The anatomical owner precedes that loader
+  // suffix; treating the whole tail as a bone name rejects a valid skin and
+  // silently restores the disjoint primitive mannequin.
+  const candidate = suffix.replace(/_primitive\d+$/, "") as BoneName;
+  return Object.hasOwn(SKIN_BONE_PARENT, candidate) ? candidate : null;
+};
+
+const inSkinSubtree = (candidate: BoneName, root: BoneName): boolean => {
+  for (let at: BoneName | null = candidate; at; at = SKIN_BONE_PARENT[at]) {
+    if (at === root) return true;
+  }
+  return false;
+};
+
+/** Pure half of severance, exported so the crossing-weight rule can be mutated. */
+export function redirectedSkinWeights(
+  owner: BoneName,
+  cuts: Iterable<BoneName>,
+  boneIndices: ReadonlyMap<BoneName, number>,
+  indexBones: ReadonlyMap<number, BoneName>,
+  sourceIndices: readonly number[],
+  sourceWeights: readonly number[],
+): { indices: number[]; weights: number[] } {
+  const indices = Array.from(sourceIndices);
+  const weights = Array.from(sourceWeights);
+  for (const cut of cuts) {
+    const loose = inSkinSubtree(owner, cut);
+    const destination = loose ? cut : SKIN_BONE_PARENT[cut];
+    const destinationIndex = destination ? boneIndices.get(destination) : undefined;
+    if (destinationIndex === undefined) continue;
+    for (let at = 0; at < weights.length; at += 1) {
+      if (weights[at] <= 0) continue;
+      const influence = indexBones.get(Math.round(indices[at]));
+      if (!influence || inSkinSubtree(influence, cut) === loose) continue;
+      indices[at] = destinationIndex;
+    }
+  }
+  for (let vertex = 0; vertex < weights.length; vertex += 4) {
+    const total = weights[vertex] + weights[vertex + 1] + weights[vertex + 2] + weights[vertex + 3];
+    if (total <= 0) continue;
+    for (let slot = 0; slot < 4; slot += 1) weights[vertex + slot] /= total;
+  }
+  return { indices, weights };
+}
+
+const handPose = (kind: WeaponKind): "open" | "grip" | "strapped" =>
+  kind === "empty" ? "open" : isStrapped(kind) ? "strapped" : "grip";
+
+function selectHandMorphs(mesh: Mesh, loadout: Record<HandName, WeaponKind> | undefined): void {
+  const manager = mesh.morphTargetManager;
+  if (!manager || !loadout) return;
+  const wanted: Record<HandName, string> = {
+    primary: `hand.primary.${handPose(loadout.primary)}`,
+    secondary: `hand.secondary.${handPose(loadout.secondary)}`,
+  };
+  for (let index = 0; index < manager.numTargets; index += 1) {
+    const target = manager.getTarget(index);
+    if (!/^hand\.(primary|secondary)\.(open|grip|strapped)$/.test(target.name)) continue;
+    target.influence = target.name === wanted.primary || target.name === wanted.secondary ? 1 : 0;
+  }
 }
 
 /**
@@ -572,14 +778,26 @@ export class Figure {
   /** The piece under each authored node name, and the bone it rides on. */
   private readonly byName = new Map<string, { mesh: Mesh; bone: BoneName }>();
   /** The only per-fighter material. Its textures remain palette-shared. */
-  private readonly sideMaterial: Material;
-  private readonly unfollowSideMaps: () => void;
+  private sideMaterial: Material;
+  private unfollowSideMaps: () => void;
+  /** The instantiated graph is not parented to a physics mesh and owns itself. */
+  private skinRoots: Node[] = [];
+  private skinSkeleton: Skeleton | null = null;
+  private skinBindings: SkinBinding[] = [];
+  private skinRegions: SkinRegion[] = [];
+  private severedSkinRoots = new Set<BoneName>();
+  private renderObserver: Observer<Scene> | null = null;
+  private skinAnimations: { stop(): void; dispose(): void }[] = [];
 
   constructor(
     scene: Scene,
     rig: FigureRig,
     materials: FigureMaterials,
-    options: { scale?: number; authored?: boolean } = {},
+    options: {
+      scale?: number;
+      authored?: boolean;
+      loadout?: Record<HandName, WeaponKind>;
+    } = {},
   ) {
     const frames = boneFrames();
     const scale = options.scale ?? 1;
@@ -646,15 +864,259 @@ export class Figure {
     }
 
     if (options.authored === false) return;
+
+    const prepared = preparedCostumes.get(scene);
+    if (prepared && hasExactSkin(prepared)) {
+      this.installSkin(scene, prepared, rig, options.loadout);
+      return;
+    }
+    if (prepared) {
+      // Compatibility with the previous rigid asset while the skinned authoring
+      // pipeline is being replaced. Once the file contains a skin, a malformed
+      // one must fall through to primitives rather than being worn as rigid
+      // islands and recreating the defect the skin exists to remove.
+      if (prepared.skeletons.length === 0) this.wear(prepared, frames);
+      return;
+    }
+
+    // Direct headless fixtures never call the browser's prepare seam and keep
+    // their immediate primitive fallback. A late rigid file is safe to apply in
+    // place because it preserves every mesh identity; a late skin is not.
     void costumeFor(scene).then((container) => {
-      if (container) this.wear(container, frames);
+      if (container && container.skeletons.length === 0) this.wear(container, frames);
     });
+  }
+
+  /**
+   * Stop skin weights from spanning a physics joint that no longer exists.
+   *
+   * Each authored mesh names the anatomical region that owns its triangles.
+   * On the loose side of a cut, influence from the retained body is folded into
+   * the cut root; on the retained side, influence from the loose subtree is
+   * folded into the cut's parent. Starting from the authored arrays every time
+   * makes several cuts commute well enough to stay local -- a hand cut after an
+   * upper arm cut cannot inherit the upper arm's already rewritten weights.
+   */
+  sever(limbKey: string): void {
+    const root = LIMB_SKIN_BONE[limbKey];
+    if (!root || root === "torso" || !this.skinSkeleton) return;
+    if (this.severedSkinRoots.has(root)) return;
+    this.severedSkinRoots.add(root);
+
+    const byIndex = new Map<number, BoneName>();
+    const byName = new Map<BoneName, number>();
+    for (const bone of this.skinSkeleton.bones) {
+      if (!Object.hasOwn(SKIN_BONE_PARENT, bone.name)) continue;
+      const name = bone.name as BoneName;
+      byIndex.set(bone.getIndex(), name);
+      byName.set(name, bone.getIndex());
+    }
+
+    for (const region of this.skinRegions) {
+      const { indices, weights } = redirectedSkinWeights(
+        region.owner,
+        this.severedSkinRoots,
+        byName,
+        byIndex,
+        region.indices,
+        region.weights,
+      );
+      region.mesh.updateVerticesData(VertexBuffer.MatricesIndicesKind, indices, false, false);
+      region.mesh.updateVerticesData(VertexBuffer.MatricesWeightsKind, weights, false, false);
+    }
   }
 
   /** Release the one material this figure, rather than the arena palette, owns. */
   dispose(): void {
+    if (this.renderObserver) {
+      this.sideMaterial.getScene().onBeforeRenderObservable.remove(this.renderObserver);
+      this.renderObserver = null;
+    }
+    for (const animation of this.skinAnimations) {
+      animation.stop();
+      animation.dispose();
+    }
+    this.skinAnimations.length = 0;
+    for (const binding of this.skinBindings) binding.bone.linkTransformNode(null);
+    for (const root of this.skinRoots) root.dispose(false, false);
+    this.skinRoots.length = 0;
+    this.skinSkeleton?.dispose();
+    this.skinSkeleton = null;
+    this.skinBindings.length = 0;
+    this.skinRegions.length = 0;
+    this.severedSkinRoots.clear();
     this.unfollowSideMaps();
     this.sideMaterial.dispose(false, false);
+  }
+
+  /**
+   * Instantiate one independent skin and connect its thirteen visual bones to
+   * the thirteen authoritative, scene-root physics meshes.
+   */
+  private installSkin(
+    scene: Scene,
+    container: AssetContainer,
+    rig: FigureRig,
+    loadout: Record<HandName, WeaponKind> | undefined,
+  ): void {
+    const before = new Set(scene.meshes);
+    const entries = container.instantiateModelsToScene(
+      (source) => `${rig.prefix}.figure.${source}`,
+      false,
+      { doNotInstantiate: true },
+    );
+    const skeleton = entries.skeletons.length === 1 ? entries.skeletons[0] : null;
+    const meshes = scene.meshes.filter((mesh): mesh is Mesh =>
+      mesh instanceof Mesh && !before.has(mesh) &&
+      mesh.skeleton === skeleton && mesh.getTotalVertices() > 0);
+
+    // The source was checked before cloning; repeat the identity-bearing half
+    // on the clone because Babylon remaps linked transform nodes during this
+    // call, and a failed remap is a skin that moves nowhere.
+    const bones = skeleton ? new Map(skeleton.bones.map((bone) => [bone.name, bone])) : new Map();
+    const exactBones = skeleton !== null && meshes.length > 0 && SKIN_BONE_ORDER.every((name) => {
+      const bone = bones.get(name);
+      const parentName = SKIN_BONE_PARENT[name];
+      return bone?.getTransformNode() &&
+        (bone.getParent()?.name ?? null) === parentName &&
+        (!parentName || bone.getTransformNode()?.parent === bones.get(parentName)?.getTransformNode());
+    });
+    const regions = meshes.map((mesh): SkinRegion | null => {
+      const owner = regionOf(mesh.name);
+      const indices = mesh.getVerticesData(VertexBuffer.MatricesIndicesKind);
+      const weights = mesh.getVerticesData(VertexBuffer.MatricesWeightsKind);
+      const width = mesh.getTotalVertices() * 4;
+      if (!owner || !indices || !weights || indices.length !== width || weights.length !== width) return null;
+      return { mesh, owner, indices: Array.from(indices), weights: Array.from(weights) };
+    });
+    const rootNode = bones.get("torso")?.getTransformNode() ?? null;
+    if (!exactBones || regions.some((region) => region === null) || !rootNode?.parent) {
+      for (const root of entries.rootNodes) root.dispose(false, false);
+      for (const animation of entries.animationGroups) animation.dispose();
+      skeleton?.dispose();
+      return;
+    }
+    this.skinRegions = regions as SkinRegion[];
+
+    // The GLTF graph is authored around the arena's model origin. Put that
+    // whole bind pose at this fighter's construction transform before caching
+    // any bone bind matrices: otherwise the delta formula below would preserve
+    // both fighters faithfully at the asset origin. This is one static parent,
+    // not a fourteenth bone and not a source of motion.
+    const placement = new TransformNode(`${rig.prefix}.figure.placement`, scene);
+    placement.rotationQuaternion = Quaternion.Identity();
+    const modelTorso = Matrix.Translation(0, boneFrames().torso.centre[1], 0);
+    const modelTorsoInverse = Matrix.Identity();
+    modelTorso.invertToRef(modelTorsoInverse);
+    const physicsTorso = Matrix.Identity();
+    Matrix.ComposeToRef(
+      Vector3.OneReadOnly,
+      rig.torso.mesh.rotationQuaternion ?? Quaternion.Identity(),
+      rig.torso.mesh.position,
+      physicsTorso,
+    );
+    const placementMatrix = modelTorsoInverse.multiply(physicsTorso);
+    placementMatrix.decompose(placement.scaling, placement.rotationQuaternion, placement.position);
+    for (const graphRoot of entries.rootNodes) graphRoot.parent = placement;
+    placement.computeWorldMatrix(true);
+
+    const tintable = meshes.filter((mesh) => mesh.material?.name === "cloth_surcoat");
+    if (tintable.length > 0) {
+      const authoredSide = sideCloth(rig.prefix, tintable[0].material as Material);
+      this.unfollowSideMaps();
+      this.sideMaterial.dispose(false, false);
+      this.sideMaterial = authoredSide.material;
+      this.unfollowSideMaps = authoredSide.unfollow;
+      for (const mesh of tintable) mesh.material = this.sideMaterial;
+    }
+
+    const fallback = this.pieces.splice(0);
+    this.byName.clear();
+    for (const mesh of fallback) mesh.dispose(false, false);
+
+    for (const mesh of meshes) {
+      mesh.receiveShadows = true;
+      mesh.isPickable = true;
+      selectHandMorphs(mesh, loadout);
+      this.pieces.push(mesh);
+    }
+    // GLTF vertex buffers are immutable by default. Severance is a one-way
+    // visual state change, so make only the two skin attributes it rewrites
+    // updatable and keep the authored arrays above as the reset point for every
+    // later cut.
+    for (const region of this.skinRegions) {
+      region.mesh.setVerticesData(VertexBuffer.MatricesIndicesKind, region.indices, true);
+      region.mesh.setVerticesData(VertexBuffer.MatricesWeightsKind, region.weights, true);
+    }
+
+    const bindings = new Map<BoneName, SkinBinding>();
+    for (const name of SKIN_BONE_ORDER) {
+      const bone = bones.get(name) as Bone;
+      const node = bone.getTransformNode() as TransformNode;
+      const parentName = SKIN_BONE_PARENT[name];
+      const binding: SkinBinding = {
+        bone,
+        node,
+        part: rig[name],
+        parent: parentName ? bindings.get(parentName) ?? null : null,
+        bindWorld: node.computeWorldMatrix(true).clone(),
+        physicsBindInverse: Matrix.Identity(),
+        partWorld: Matrix.Identity(),
+        delta: Matrix.Identity(),
+        world: Matrix.Identity(),
+        inverse: Matrix.Identity(),
+        local: Matrix.Identity(),
+        position: new Vector3(),
+        rotation: new Quaternion(),
+        scale: new Vector3(1, 1, 1),
+      };
+      Matrix.ComposeToRef(
+        Vector3.OneReadOnly,
+        binding.part.mesh.rotationQuaternion ?? Quaternion.Identity(),
+        binding.part.mesh.position,
+        binding.partWorld,
+      );
+      binding.partWorld.invertToRef(binding.physicsBindInverse);
+      bindings.set(name, binding);
+      this.skinBindings.push(binding);
+    }
+
+    const root = this.skinBindings[0];
+    // `hasExactSkin` cannot know whether instantiation retained the loader's
+    // handedness root. The guard above refuses a clone that did not.
+    rootNode.parent.computeWorldMatrix(true).invertToRef(root.inverse);
+
+    this.skinRoots = [placement];
+    this.skinSkeleton = skeleton;
+    this.skinAnimations = entries.animationGroups;
+    for (const animation of this.skinAnimations) animation.stop();
+    this.syncSkin();
+    this.renderObserver = scene.onBeforeRenderObservable.add(() => this.syncSkin());
+  }
+
+  /** Copy the solver-achieved pose into the linked GLTF joint hierarchy. */
+  private syncSkin(): void {
+    for (const binding of this.skinBindings) {
+      const rotation = binding.part.mesh.rotationQuaternion ?? Quaternion.Identity();
+      Matrix.ComposeToRef(Vector3.OneReadOnly, rotation, binding.part.mesh.position, binding.partWorld);
+      bindCorrectedSkinWorldToRef(
+        binding.bindWorld,
+        binding.physicsBindInverse,
+        binding.partWorld,
+        binding.delta,
+        binding.world,
+      );
+      if (binding.parent) {
+        skinLocalMatrixToRef(binding.world, binding.parent.world, binding.inverse, binding.local);
+      } else {
+        binding.world.multiplyToRef(binding.inverse, binding.local);
+      }
+      binding.local.decompose(binding.scale, binding.rotation, binding.position);
+      binding.node.position.copyFrom(binding.position);
+      binding.node.rotationQuaternion ??= Quaternion.Identity();
+      binding.node.rotationQuaternion.copyFrom(binding.rotation);
+      binding.node.scaling.copyFrom(binding.scale);
+    }
   }
 
   /**

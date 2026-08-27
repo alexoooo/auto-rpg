@@ -1,22 +1,12 @@
-// Checks that `public/assets/warrior.glb` is the right *shape*, in metres.
+// Validate the authored Warrior as the thing the player sees: one continuous,
+// skinned person in the physics rig's bind pose.
 //
 //     node scripts/check-warrior.mjs
 //
-// This is not a glTF validator and deliberately not one. Structural validity is
-// not what can go wrong here: Blender writes the container, and a container it
-// cannot write is a build that failed loudly. What can go wrong -- silently, and
-// only visibly in a browser nobody is looking at -- is a warrior authored to the
-// wrong dimensions. A crown 90 mm too high, a pauldron on the shoulder of the
-// study rather than the shoulder of this rig, feet 20 mm off the floor: each of
-// those loads perfectly, validates perfectly, and is wrong. So every assertion
-// below is a distance, taken against `asset-src/dimensions.json`, which is
-// itself written out of `src/config.ts` and `src/figure.ts`.
-//
-// It reads the `.glb` with nothing but `Buffer` and `JSON.parse`. That is not
-// asceticism: the alternative on offer was `gltf-validator`, which is not a
-// dependency of this directory and lives only in the repository root's
-// `node_modules`, and reaching up into that is exactly what this directory's
-// AGENTS.md forbids.
+// Blender's exporter already owns container validity. This checker owns the
+// project-specific failures which glTF validation cannot name: the wrong bone
+// hierarchy, rigid costume fragments, weights which do not deform, missing
+// garments, toy-sized hands, and hands which do not reach their weapon grips.
 
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -29,53 +19,52 @@ const ROOT = resolve(HERE, "..");
 const GLB_MAGIC = 0x46546c67;
 const CHUNK_JSON = 0x4e4f534a;
 const CHUNK_BIN = 0x004e4942;
+const REJECTED_RIGID_ASSET = "c08f09fa564b6b84b24a2b25442f3c51fd167d20f0c8d4f777e5bd25943c1afd";
+const FORBIDDEN = /\b(?:sword|shield|blade|hilt|pommel|scabbard|buckler|crossguard)\b/i;
 
-/** Anything the sword or a shield would be called. Neither may be in here. */
-const FORBIDDEN = /sword|shield|blade|hilt|pommel|scabbard|buckler|crossguard/i;
+export const SKIN_BONE_PARENT = Object.freeze({
+  torso: null,
+  head: "torso",
+  pelvis: "torso",
+  swordUpperArm: "torso",
+  swordForearm: "swordUpperArm",
+  swordHand: "swordForearm",
+  offUpperArm: "torso",
+  offForearm: "offUpperArm",
+  offHand: "offForearm",
+  thighLeft: "pelvis",
+  shinLeft: "thighLeft",
+  thighRight: "pelvis",
+  shinRight: "thighRight",
+});
 
-/** How far a joint-cut piece may reach from its own origin, in metres. */
-const SEGMENT_SPAN = 0.62;
+const SKIN_BONES = Object.freeze(Object.keys(SKIN_BONE_PARENT));
+const GARMENTS = Object.freeze([
+  ["trousers", (name) => /trouser|pants/i.test(name) || (/legs/i.test(name) && /region_pelvis/i.test(name))],
+  ["left and right boots", (name) => /boot|shoe/i.test(name)],
+  ["hood", (name) => /hood/i.test(name)],
+  ["closed Helmet3", (name) => /helmet3|closed[_ -]?helmet/i.test(name)],
+]);
 
-/** Tolerances, in metres, and each one is a claim about what would be visible. */
-const TOLERANCE = {
-  /** The joint a piece is cut at. Sub-millimetre: it is an authored constant on
-   *  both sides, so anything at all here is an arithmetic mistake, not drift. */
-  joint: 0.0005,
-  /** Feet on the floor. A boot 2 mm under the ground plane z-fights with it. */
-  floor: 0.002,
-  /** The crown against `fighter.height`, straight from the plan's acceptance. */
-  crown: 0.020,
-  /** How far a piece's bounding box may miss the point its primitive stands at
-   *  before the two have stopped describing the same piece of a person. */
-  anchor: 0.005,
-  /** Sideways placement of a pauldron against `fighter.shoulderSide`. A pauldron
-   *  is wider than the joint it caps, so this is looser than the others. */
-  shoulder: 0.060,
+const COMPONENT = {
+  5120: { bytes: 1, read: "readInt8", divisor: 127 },
+  5121: { bytes: 1, read: "readUInt8", divisor: 255 },
+  5122: { bytes: 2, read: "readInt16LE", divisor: 32767 },
+  5123: { bytes: 2, read: "readUInt16LE", divisor: 65535 },
+  5125: { bytes: 4, read: "readUInt32LE", divisor: 4294967295 },
+  5126: { bytes: 4, read: "readFloatLE", divisor: 1 },
 };
+const WIDTH = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT4: 16 };
 
-/**
- * The glTF chunks, without a dependency.
- *
- * Only the JSON chunk is read. Vertex positions are never touched, because
- * every accessor that carries one is required to carry `min` and `max` as well
- * -- so the bounding box of a mesh is a fact stated in the header rather than
- * something to be recomputed from a buffer, and reading it back from the floats
- * would only test that Blender can add up.
- */
-function readGlb(buffer) {
+export function readGlb(buffer) {
   if (buffer.length < 12) throw new Error("not a glb: shorter than its own header");
   if (buffer.readUInt32LE(0) !== GLB_MAGIC) throw new Error("not a glb: bad magic");
   const version = buffer.readUInt32LE(4);
   if (version !== 2) throw new Error(`glb version ${version}, expected 2`);
-  const declared = buffer.readUInt32LE(8);
-  if (declared !== buffer.length) {
-    throw new Error(`glb header declares ${declared} bytes, file is ${buffer.length}`);
-  }
-
-  let offset = 12;
+  if (buffer.readUInt32LE(8) !== buffer.length) throw new Error("glb header length does not match the file");
   let json = null;
   let bin = null;
-  while (offset + 8 <= buffer.length) {
+  for (let offset = 12; offset + 8 <= buffer.length;) {
     const length = buffer.readUInt32LE(offset);
     const type = buffer.readUInt32LE(offset + 4);
     const start = offset + 8;
@@ -89,20 +78,12 @@ function readGlb(buffer) {
   return { json, bin };
 }
 
-const COMPONENT = {
-  5121: { bytes: 1, read: "readUInt8" },
-  5123: { bytes: 2, read: "readUInt16LE" },
-  5125: { bytes: 4, read: "readUInt32LE" },
-  5126: { bytes: 4, read: "readFloatLE" },
-};
-const WIDTH = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4 };
-
-function accessorValues(json, bin, index) {
+function accessorValues(json, bin, index, normalized = true) {
   const accessor = json.accessors?.[index];
   const view = json.bufferViews?.[accessor?.bufferView];
   const component = COMPONENT[accessor?.componentType];
   const width = WIDTH[accessor?.type];
-  if (!accessor || !view || !component || !width) return null;
+  if (!accessor || !view || !component || !width || accessor.sparse) return null;
   const packed = component.bytes * width;
   const stride = view.byteStride ?? packed;
   const start = (view.byteOffset ?? 0) + (accessor.byteOffset ?? 0);
@@ -110,671 +91,378 @@ function accessorValues(json, bin, index) {
   for (let row = 0; row < accessor.count; row += 1) {
     const values = [];
     for (let column = 0; column < width; column += 1) {
-      values.push(bin[component.read](start + row * stride + column * component.bytes));
+      const value = bin[component.read](start + row * stride + column * component.bytes);
+      values.push(normalized && accessor.normalized ? Math.max(-1, value / component.divisor) : value);
     }
     rows.push(values);
   }
   return rows;
 }
 
-function uvSeamCount(positions, uvs, indices) {
-  const pointKey = (point) => point.map((value) => value.toFixed(6)).join(",");
-  const uvKey = (uv) => uv.map((value) => value.toFixed(6)).join(",");
-  const edges = new Map();
-  const seams = new Set();
-  for (let i = 0; i + 2 < indices.length; i += 3) {
-    const triangle = [indices[i][0], indices[i + 1][0], indices[i + 2][0]];
-    for (const [one, two] of [[triangle[0], triangle[1]], [triangle[1], triangle[2]], [triangle[2], triangle[0]]]) {
-      const endpoints = [[pointKey(positions[one]), uvKey(uvs[one])], [pointKey(positions[two]), uvKey(uvs[two])]]
-        .sort(([a], [b]) => a.localeCompare(b));
-      const key = `${endpoints[0][0]}|${endpoints[1][0]}`;
-      const textureEdge = `${endpoints[0][1]}|${endpoints[1][1]}`;
-      const previous = edges.get(key);
-      if (previous !== undefined && previous !== textureEdge) seams.add(key);
-      else if (previous === undefined) edges.set(key, textureEdge);
+const identity = () => [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+
+function multiply(a, b) {
+  const out = Array(16).fill(0);
+  for (let column = 0; column < 4; column += 1) {
+    for (let row = 0; row < 4; row += 1) {
+      for (let k = 0; k < 4; k += 1) out[column * 4 + row] += a[k * 4 + row] * b[column * 4 + k];
     }
   }
-  return seams.size;
+  return out;
 }
 
-function checkTextureGeometry(json, bin, found, fail) {
-  const meshes = json.meshes ?? [];
-  const materials = json.materials ?? [];
-  for (const node of found) {
-    const sourceNode = (json.nodes ?? []).find((candidate) => candidate.name === node.name);
-    for (const primitive of meshes[sourceNode?.mesh]?.primitives ?? []) {
-      const material = materials[primitive.material]?.name ?? `material${primitive.material}`;
-      const positions = json.accessors?.[primitive.attributes?.POSITION];
-      const positionValues = accessorValues(json, bin, primitive.attributes?.POSITION);
-      const uvIndex = primitive.attributes?.TEXCOORD_0;
-      if (uvIndex === undefined) {
-        fail(`"${node.name}" textured primitive (${material}) has no TEXCOORD_0`);
-        continue;
-      }
-      const uvs = accessorValues(json, bin, uvIndex);
-      const uvAccessor = json.accessors?.[uvIndex];
-      if (uvAccessor?.type !== "VEC2" || uvAccessor?.componentType !== 5126 || uvAccessor?.count !== positions?.count) {
-        fail(`"${node.name}" textured primitive (${material}) TEXCOORD_0 is not float VEC2 with POSITION count`);
-      }
-      if (!uvs?.length) {
-        fail(`"${node.name}" textured primitive (${material}) has an unreadable TEXCOORD_0`);
-        continue;
-      }
-      if (uvs.some((uv) => uv.some((value) => !Number.isFinite(value) || value < -1e-6 || value > 1 + 1e-6))) {
-        fail(`"${node.name}" textured primitive (${material}) has UVs outside finite [0,1] bounds`);
-      }
-      const indices = primitive.indices === undefined
-        ? uvs.map((_, index) => [index])
-        : accessorValues(json, bin, primitive.indices);
-      const namedSeams = new Set(["head", "helm", "surcoat", "skirt"]);
-      if (namedSeams.has(node.name) && uvSeamCount(positionValues ?? [], uvs, indices ?? []) === 0) {
-        fail(`"${node.name}" lost its named UV seam boundaries`);
-      }
-      let degenerate = null;
-      for (let i = 0; indices && i + 2 < indices.length; i += 3) {
-        const a = uvs[indices[i][0]];
-        const b = uvs[indices[i + 1][0]];
-        const c = uvs[indices[i + 2][0]];
-        if (!a || !b || !c) continue;
-        const area = Math.abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])) / 2;
-        if (area <= 1e-12 && !degenerate) degenerate = { triangle: i / 3, uv: [a, b, c] };
-      }
-      if (degenerate) fail(
-        `"${node.name}" textured primitive (${material}) has a zero-area UV triangle ` +
-        `${degenerate.triangle} (${degenerate.uv.map((uv) => uv.join(",")).join(" / ")}; positions ` +
-        `${indices.slice(degenerate.triangle * 3, degenerate.triangle * 3 + 3).map(([index]) => positionValues[index].join(",")).join(" / ")})`,
-      );
-
-      let meshArea = 0;
-      let uvArea = 0;
-      for (let i = 0; indices && i + 2 < indices.length; i += 3) {
-        const ids = [indices[i][0], indices[i + 1][0], indices[i + 2][0]];
-        const p = ids.map((index) => positionValues?.[index]);
-        const uv = ids.map((index) => uvs[index]);
-        if (p.some((value) => !value) || uv.some((value) => !value)) continue;
-        const ab = p[1].map((value, axis) => value - p[0][axis]);
-        const ac = p[2].map((value, axis) => value - p[0][axis]);
-        const cross = [
-          ab[1] * ac[2] - ab[2] * ac[1],
-          ab[2] * ac[0] - ab[0] * ac[2],
-          ab[0] * ac[1] - ab[1] * ac[0],
-        ];
-        meshArea += Math.hypot(...cross) / 2;
-        uvArea += Math.abs(
-          (uv[1][0] - uv[0][0]) * (uv[2][1] - uv[0][1]) -
-          (uv[1][1] - uv[0][1]) * (uv[2][0] - uv[0][0]),
-        ) / 2;
-      }
-      const density = Math.sqrt(uvArea / meshArea);
-      if (!Number.isFinite(density) || density < 0.285 || density > 0.315) {
-        fail(`"${node.name}" textured primitive (${material}) has UV density ${density.toFixed(3)}, expected 0.300 +/- 0.015`);
-      }
-
-      const tangentIndex = primitive.attributes?.TANGENT;
-      const normalMapped = /^(steel|leather|cloth|cloth_surcoat|flesh)$/i.test(material);
-      if (normalMapped && tangentIndex === undefined) {
-        fail(`"${node.name}" normal-mapped primitive (${material}) has no TANGENT`);
-      } else if (!normalMapped && tangentIndex !== undefined) {
-        fail(`"${node.name}" primitive (${material}) carries TANGENT without a normal map`);
-      } else if (tangentIndex !== undefined) {
-        const accessor = json.accessors?.[tangentIndex];
-        const tangents = accessorValues(json, bin, tangentIndex);
-        if (accessor?.type !== "VEC4" || accessor?.componentType !== 5126 || accessor?.count !== positions?.count) {
-          fail(`"${node.name}" normal-mapped primitive (${material}) TANGENT is not float VEC4 with POSITION count`);
-        }
-        if (!tangents?.length || tangents.some((tangent) =>
-          tangent.some((value) => !Number.isFinite(value)) ||
-          Math.hypot(tangent[0], tangent[1], tangent[2]) <= 1e-6 ||
-          Math.abs(Math.abs(tangent[3]) - 1) > 1e-4)) {
-          fail(`"${node.name}" normal-mapped primitive (${material}) has invalid TANGENT values`);
-        }
-      }
-    }
-  }
+function localMatrix(node) {
+  if (node.matrix) return node.matrix;
+  const [x, y, z, w] = node.rotation ?? [0, 0, 0, 1];
+  const [sx, sy, sz] = node.scale ?? [1, 1, 1];
+  const [tx, ty, tz] = node.translation ?? [0, 0, 0];
+  return [
+    (1 - 2 * y * y - 2 * z * z) * sx, (2 * x * y + 2 * z * w) * sx, (2 * x * z - 2 * y * w) * sx, 0,
+    (2 * x * y - 2 * z * w) * sy, (1 - 2 * x * x - 2 * z * z) * sy, (2 * y * z + 2 * x * w) * sy, 0,
+    (2 * x * z + 2 * y * w) * sz, (2 * y * z - 2 * x * w) * sz, (1 - 2 * x * x - 2 * y * y) * sz, 0,
+    tx, ty, tz, 1,
+  ];
 }
 
-function checkMaterialFamilies(json, dimensions, fail) {
-  const materials = json.materials ?? [];
-  const expected = new Map((dimensions.pieces ?? []).map((piece) => [
-    piece.name,
-    piece.material === "side" ? "cloth_surcoat" : piece.material,
-  ]));
-  for (const node of json.nodes ?? []) {
-    if (node.mesh === undefined || !expected.has(node.name)) continue;
-    const family = expected.get(node.name);
-    for (const primitive of json.meshes?.[node.mesh]?.primitives ?? []) {
-      const actual = materials[primitive.material]?.name ?? `material${primitive.material}`;
-      if (actual !== family) fail(`"${node.name}" uses exported material ${actual}; expected runtime family ${family}`);
-    }
-  }
-  for (const material of materials) {
-    const pbr = material.pbrMetallicRoughness ?? {};
-    if (pbr.baseColorTexture || pbr.metallicRoughnessTexture || material.normalTexture || material.occlusionTexture) {
-      fail(`exported material "${material.name ?? "unnamed"}" carries a texture and would compete with the runtime palette`);
-    }
-  }
-  if ((json.textures?.length ?? 0) || (json.images?.length ?? 0)) {
-    fail(`the authored asset embeds ${json.textures?.length ?? 0} texture(s) and ${json.images?.length ?? 0} image(s); runtime owns both`);
-  }
-}
+const transformPoint = (matrix, point) => [
+  matrix[0] * point[0] + matrix[4] * point[1] + matrix[8] * point[2] + matrix[12],
+  matrix[1] * point[0] + matrix[5] * point[1] + matrix[9] * point[2] + matrix[13],
+  matrix[2] * point[0] + matrix[6] * point[1] + matrix[10] * point[2] + matrix[14],
+];
 
-/**
- * The torso and pelvis are separate bodies now. Sample the real lower garment
- * vertices at all four anatomical posture corners. The old conservative AABB
- * invented combinations no vertex occupied and forced a visible hoop around
- * the waist; checking the actual seam keeps the proof without redesigning the
- * donor silhouette around empty space.
- */
-function checkWaistEnvelope(json, bin, found, dimensions, fail) {
-  const byName = new Map(found.map((node) => [node.name, node]));
-  const torso = [byName.get("belly"), byName.get("surcoat")].filter(Boolean);
-  const skirt = byName.get("skirt");
-  if (torso.length !== 2 || !skirt) return;
-  const waist = dimensions.body.waist;
-  const nodes = json.nodes ?? [];
-  const meshes = json.meshes ?? [];
-  const seam = [];
-  for (const node of torso) {
-    const source = nodes[node.index];
-    for (const primitive of meshes[source.mesh]?.primitives ?? []) {
-      for (const point of accessorValues(json, bin, primitive.attributes?.POSITION) ?? []) {
-        const world = [
-          node.origin[0] - point[0],
-          node.origin[1] + point[1],
-          node.origin[2] + point[2],
-        ];
-        if (world[1] <= node.min[1] + 0.035) seam.push(world);
-      }
+function sceneGraph(json, fail) {
+  const reachable = new Set();
+  const parents = new Map();
+  const world = new Map();
+  const visit = (index, parent, parentWorld) => {
+    if (reachable.has(index)) {
+      fail(`node ${index} is reached more than once; the skin hierarchy is not a tree`);
+      return;
     }
-  }
-  if (!seam.length) {
-    fail("the torso has no readable waist-seam vertices");
-    return;
-  }
-  const epsilon = 0.001;
-  for (const lean of [-dimensions.body.trunkLeanMax, dimensions.body.trunkLeanMax]) {
-    for (const twist of [-dimensions.body.trunkTwistMax, dimensions.body.trunkTwistMax]) {
-      const cl = Math.cos(lean), sl = Math.sin(lean);
-      const ct = Math.cos(twist), st = Math.sin(twist);
-      for (const [x, sourceY, z] of seam) {
-        const yawX = x * ct + z * st;
-        const yawZ = -x * st + z * ct;
-        const dy = sourceY - waist;
-        const point = [yawX, waist + dy * cl - yawZ * sl, dy * sl + yawZ * cl];
-        if (point.some((value, axis) => value < skirt.min[axis] - epsilon || value > skirt.max[axis] + epsilon)) {
-          fail(
-            `waist seam opens at lean ${lean.toFixed(2)}, twist ${twist.toFixed(2)}: ` +
-            `torso corner ${point.map((value) => value.toFixed(3)).join(",")} leaves skirt envelope ` +
-            `${skirt.min.map((value) => value.toFixed(3)).join(",")}..${skirt.max.map((value) => value.toFixed(3)).join(",")}`,
-          );
-          return;
-        }
-      }
-    }
-  }
-}
-
-function checkGeometryReachability(json, bin, fail) {
-  const reachableNodes = new Set();
-  const reachableMeshes = new Set();
-  const visit = (index) => {
-    if (reachableNodes.has(index)) return;
-    reachableNodes.add(index);
     const node = json.nodes?.[index];
-    if (!node) return;
-    if (node.mesh !== undefined) reachableMeshes.add(node.mesh);
-    for (const child of node.children ?? []) visit(child);
+    if (!node) {
+      fail(`node ${index} is referenced and absent`);
+      return;
+    }
+    reachable.add(index);
+    parents.set(index, parent);
+    const matrix = multiply(parentWorld, localMatrix(node));
+    world.set(index, matrix);
+    for (const child of node.children ?? []) visit(child, index, matrix);
   };
   const scene = json.scenes?.[json.scene ?? 0];
-  for (const root of scene?.nodes ?? []) visit(root);
+  if (!scene) fail("glb declares no scene");
+  for (const root of scene?.nodes ?? []) visit(root, null, identity());
+  return { reachable, parents, world };
+}
 
-  const usedAccessors = new Set();
-  const tangentAccessors = new Set();
-  for (const [meshIndex, mesh] of (json.meshes ?? []).entries()) {
-    if (!reachableMeshes.has(meshIndex)) {
-      fail(`mesh ${meshIndex} (${mesh.name ?? "unnamed"}) is dead payload`);
+function checkSkin(json, bin, graph, dimensions, fail) {
+  const skins = json.skins ?? [];
+  if (skins.length !== 1) {
+    fail(`the Warrior must carry exactly one skin; found ${skins.length}`);
+    return null;
+  }
+  const skin = skins[0];
+  if (skin.joints?.length !== SKIN_BONES.length) {
+    fail(`the Warrior skin must have exactly ${SKIN_BONES.length} joints; found ${skin.joints?.length ?? 0}`);
+    return null;
+  }
+  const jointNames = skin.joints.map((index) => json.nodes?.[index]?.name);
+  if (new Set(jointNames).size !== SKIN_BONES.length || SKIN_BONES.some((name) => !jointNames.includes(name))) {
+    fail(`skin joints must be exactly the BoneName set; found [${jointNames.join(", ")}]`);
+  }
+  const jointForName = new Map(jointNames.map((name, index) => [name, { slot: index, node: skin.joints[index] }]));
+  for (const name of SKIN_BONES) {
+    const joint = jointForName.get(name);
+    if (!joint) continue;
+    const actualParent = graph.parents.get(joint.node);
+    const expectedName = SKIN_BONE_PARENT[name];
+    const expectedParent = expectedName === null ? null : jointForName.get(expectedName)?.node;
+    if (expectedName === null) {
+      if (actualParent !== null && skin.joints.includes(actualParent)) {
+        fail(`bone "${name}" must be the skin root, not a child of "${json.nodes?.[actualParent]?.name}"`);
+      }
+    } else if (actualParent !== expectedParent) {
+      fail(`bone "${name}" must be a direct child of "${expectedName}"`);
+    }
+
+    // The runtime links these nodes to scene-root physics parts whose origins
+    // are the capsule centres. A bone authored at its anatomical joint can look
+    // perfect in Blender and still translate by half a limb on frame one. The
+    // exporter converts fighter (+X right, +Y up, +Z forward) to glTF by
+    // reflecting X; Babylon reflects it back when loading into the LH scene.
+    const centre = dimensions.bones?.[name]?.centre;
+    const matrix = graph.world.get(joint.node);
+    if (!centre || !matrix) {
+      fail(`bone "${name}" has no bind origin to compare with its physics centre`);
+    } else {
+      const actual = [matrix[12], matrix[13], matrix[14]];
+      const expected = [-centre[0], centre[1], centre[2]];
+      const error = Math.hypot(...actual.map((value, axis) => value - expected[axis]));
+      if (error > 0.002) {
+        fail(
+          `bone "${name}" bind origin ${actual.map((value) => value.toFixed(4)).join(",")} is ` +
+          `${(error * 1000).toFixed(1)} mm from its physics centre ` +
+          `${expected.map((value) => value.toFixed(4)).join(",")}`,
+        );
+      }
+    }
+  }
+  if (skin.skeleton !== undefined && skin.skeleton !== jointForName.get("torso")?.node) {
+    fail('skin.skeleton must name the "torso" root bone');
+  }
+  const inverse = json.accessors?.[skin.inverseBindMatrices];
+  const values = accessorValues(json, bin, skin.inverseBindMatrices);
+  if (!inverse || inverse.type !== "MAT4" || inverse.componentType !== 5126 || inverse.count !== SKIN_BONES.length ||
+      !values?.length || values.some((row) => row.some((value) => !Number.isFinite(value)))) {
+    fail(`the skin needs ${SKIN_BONES.length} finite float MAT4 inverse bind matrices`);
+  }
+  return { skin, jointForName };
+}
+
+function checkPrimitiveGeometry(json, bin, node, primitive, usedJoints, handPoints, skinInfo, graph, fail) {
+  const label = `"${node.name ?? "unnamed mesh"}"`;
+  const positionIndex = primitive.attributes?.POSITION;
+  const positions = accessorValues(json, bin, positionIndex);
+  const positionAccessor = json.accessors?.[positionIndex];
+  if (!positions?.length || positionAccessor?.type !== "VEC3" || positionAccessor.componentType !== 5126 ||
+      positions.some((row) => row.some((value) => !Number.isFinite(value)))) {
+    fail(`${label} has no readable finite float VEC3 POSITION`);
+    return;
+  }
+  const jointsIndex = primitive.attributes?.JOINTS_0;
+  const weightsIndex = primitive.attributes?.WEIGHTS_0;
+  const joints = accessorValues(json, bin, jointsIndex, false);
+  const weights = accessorValues(json, bin, weightsIndex);
+  const jointsAccessor = json.accessors?.[jointsIndex];
+  const weightsAccessor = json.accessors?.[weightsIndex];
+  if (primitive.attributes?.JOINTS_1 !== undefined || primitive.attributes?.WEIGHTS_1 !== undefined) {
+    fail(`${label} exceeds the four-influence skinning contract`);
+  }
+  if (!joints?.length || ![5121, 5123].includes(jointsAccessor?.componentType) || jointsAccessor?.type !== "VEC4" ||
+      jointsAccessor.count !== positionAccessor.count) {
+    fail(`${label} JOINTS_0 must be unsigned VEC4 with POSITION count`);
+    return;
+  }
+  if (!weights?.length || weightsAccessor?.type !== "VEC4" || weightsAccessor.count !== positionAccessor.count ||
+      ![5121, 5123, 5126].includes(weightsAccessor?.componentType) ||
+      (weightsAccessor.componentType !== 5126 && weightsAccessor.normalized !== true)) {
+    fail(`${label} WEIGHTS_0 must be normalized VEC4 with POSITION count`);
+    return;
+  }
+  let primitiveHasWeight = false;
+  for (let vertex = 0; vertex < positions.length; vertex += 1) {
+    const rowWeights = weights[vertex];
+    const rowJoints = joints[vertex];
+    const sum = rowWeights.reduce((total, value) => total + value, 0);
+    if (rowWeights.some((value) => !Number.isFinite(value) || value < 0) || Math.abs(sum - 1) > 1e-3) {
+      fail(`${label} vertex ${vertex} has non-finite, negative, or unnormalized weights (sum ${sum})`);
+      break;
+    }
+    for (let influence = 0; influence < 4; influence += 1) {
+      const slot = rowJoints[influence];
+      const weight = rowWeights[influence];
+      if (!Number.isInteger(slot) || slot < 0 || slot >= SKIN_BONES.length) {
+        fail(`${label} vertex ${vertex} refers to joint slot ${slot} outside the 13-bone skin`);
+        break;
+      }
+      if (weight <= 1e-6) continue;
+      primitiveHasWeight = true;
+      if (weight >= 0.05) usedJoints.add(slot);
+      const jointName = json.nodes?.[skinInfo.skin.joints[slot]]?.name;
+      if ((jointName === "swordHand" || jointName === "offHand") && weight >= 0.25 &&
+          new RegExp(`__region_${jointName}(?:$|[._-])`).test(node.name ?? "")) {
+        handPoints.get(jointName).push(transformPoint(graph.world.get(node.index) ?? identity(), positions[vertex]));
+      }
+    }
+  }
+  if (!primitiveHasWeight) fail(`${label} has no meaningful skin influence`);
+
+  const uvIndex = primitive.attributes?.TEXCOORD_0;
+  if (uvIndex !== undefined) {
+    const uv = accessorValues(json, bin, uvIndex);
+    const accessor = json.accessors?.[uvIndex];
+    if (!uv?.length || accessor?.type !== "VEC2" || accessor.componentType !== 5126 || accessor.count !== positionAccessor.count ||
+        uv.some((row) => row.some((value) => !Number.isFinite(value)))) {
+      fail(`${label} TEXCOORD_0 must be finite float VEC2 with POSITION count`);
+    }
+  }
+  const material = json.materials?.[primitive.material];
+  if ((material?.pbrMetallicRoughness?.baseColorTexture || material?.normalTexture) && uvIndex === undefined) {
+    fail(`${label} carries a textured material without TEXCOORD_0`);
+  }
+  const tangentIndex = primitive.attributes?.TANGENT;
+  if (material?.normalTexture && tangentIndex === undefined) {
+    fail(`${label} carries a normal map without TANGENT`);
+  } else if (tangentIndex !== undefined) {
+    const tangents = accessorValues(json, bin, tangentIndex);
+    const accessor = json.accessors?.[tangentIndex];
+    if (!tangents?.length || accessor?.type !== "VEC4" || accessor.componentType !== 5126 || accessor.count !== positionAccessor.count ||
+        tangents.some((row) => row.some((value) => !Number.isFinite(value)) ||
+          Math.hypot(row[0], row[1], row[2]) <= 1e-6 || Math.abs(Math.abs(row[3]) - 1) > 1e-4)) {
+      fail(`${label} TANGENT must be finite float VEC4 with POSITION count`);
+    }
+  }
+}
+
+function checkGarments(meshNodes, fail) {
+  for (const [label, matchesName] of GARMENTS) {
+    const matches = meshNodes.filter((node) => matchesName(node.name ?? ""));
+    if (!matches.length) fail(`the coherent outfit is missing ${label} geometry`);
+    if (label === "left and right boots" && matches.length < 2 && !matches.some((node) => /boots/i.test(node.name ?? ""))) {
+      fail("the coherent outfit does not contain both boots");
+    }
+  }
+}
+
+function distanceToBounds(point, min, max) {
+  return Math.hypot(...point.map((value, axis) => Math.max(min[axis] - value, 0, value - max[axis])));
+}
+
+function checkHands(json, graph, handPoints, dimensions, fail) {
+  const markers = new Map([["swordHand", "grip.primary"], ["offHand", "grip.secondary"]]);
+  for (const [bone, markerName] of markers) {
+    const points = handPoints.get(bone);
+    if (!points?.length) {
+      fail(`"${bone}" has no geometry meaningfully weighted to it`);
       continue;
     }
-    for (const primitive of mesh.primitives ?? []) {
-      for (const [semantic, index] of Object.entries(primitive.attributes ?? {})) {
-        usedAccessors.add(index);
-        if (semantic === "TANGENT") tangentAccessors.add(index);
+    const min = [0, 1, 2].map((axis) => Math.min(...points.map((point) => point[axis])));
+    const max = [0, 1, 2].map((axis) => Math.max(...points.map((point) => point[axis])));
+    const width = Math.max(max[0] - min[0], max[2] - min[2]);
+    if (width < 0.075) fail(`"${bone}" is only ${(width * 1000).toFixed(1)} mm wide; an adult hand must be at least 75 mm`);
+
+    const markerIndex = json.nodes?.findIndex((node) => node.name === markerName) ?? -1;
+    let grip;
+    if (markerIndex >= 0 && graph.world.has(markerIndex)) {
+      grip = transformPoint(graph.world.get(markerIndex), [0, 0, 0]);
+    } else {
+      fail(`the bind pose is missing explicit weapon root "${markerName}"`);
+      const centre = dimensions.bones?.[bone]?.centre;
+      if (centre) grip = [centre[0], centre[1] - dimensions.arm.handLength / 2, centre[2]];
+    }
+    if (grip) {
+      const centre = dimensions.bones?.[bone]?.centre;
+      const expected = centre && [centre[0], centre[1] - dimensions.arm.handLength / 2, centre[2]];
+      if (expected && (
+        Math.abs(Math.abs(grip[0]) - Math.abs(expected[0])) > 0.010 ||
+        Math.abs(grip[1] - expected[1]) > 0.010 ||
+        Math.abs(Math.abs(grip[2]) - Math.abs(expected[2])) > 0.010
+      )) {
+        fail(`"${markerName}" is not at the physical bind weapon root (${expected.map((value) => value.toFixed(3)).join(",")})`);
       }
+      const distance = distanceToBounds(grip, min, max);
+      if (distance > 0.010) {
+        fail(`"${bone}" geometry stops ${(distance * 1000).toFixed(1)} mm from ${markerName}; the hand is disconnected from its weapon`);
+      }
+    }
+  }
+}
+
+function checkDeadPayload(json, bin, graph, skinInfo, fail) {
+  const reachableMeshes = new Set([...graph.reachable].map((index) => json.nodes?.[index]?.mesh).filter((index) => index !== undefined));
+  const usedAccessors = new Set();
+  for (const [index, mesh] of (json.meshes ?? []).entries()) {
+    if (!reachableMeshes.has(index)) fail(`mesh ${index} (${mesh.name ?? "unnamed"}) is dead payload`);
+    for (const primitive of mesh.primitives ?? []) {
+      Object.values(primitive.attributes ?? {}).forEach((value) => usedAccessors.add(value));
       if (primitive.indices !== undefined) usedAccessors.add(primitive.indices);
     }
   }
+  if (skinInfo?.skin.inverseBindMatrices !== undefined) usedAccessors.add(skinInfo.skin.inverseBindMatrices);
   for (let index = 0; index < (json.accessors ?? []).length; index += 1) {
-    const accessor = json.accessors[index];
-    if (!usedAccessors.has(index)) fail(`accessor ${index} (${accessor.type ?? "unknown"}) is dead payload`);
-    if (accessor.type === "VEC4" && accessor.componentType === 5126 && !tangentAccessors.has(index)) {
-      fail(`float VEC4 accessor ${index} carries dead tangent payload`);
-    }
+    if (!usedAccessors.has(index)) fail(`accessor ${index} is dead payload`);
   }
-
-  const usedViews = new Set();
-  for (const index of usedAccessors) {
-    const accessor = json.accessors?.[index];
-    if (accessor?.bufferView !== undefined) usedViews.add(accessor.bufferView);
-  }
-  for (const image of json.images ?? []) {
-    if (image.bufferView !== undefined) usedViews.add(image.bufferView);
-  }
+  const usedViews = new Set([...usedAccessors].map((index) => json.accessors?.[index]?.bufferView).filter((index) => index !== undefined));
+  for (const image of json.images ?? []) if (image.bufferView !== undefined) usedViews.add(image.bufferView);
   for (let index = 0; index < (json.bufferViews ?? []).length; index += 1) {
     if (!usedViews.has(index)) fail(`bufferView ${index} is dead binary payload`);
   }
   const logicalBytes = json.buffers?.[0]?.byteLength;
   const end = Math.max(0, ...(json.bufferViews ?? []).map((view) => (view.byteOffset ?? 0) + view.byteLength));
-  if (logicalBytes !== end || bin.length - logicalBytes < 0 || bin.length - logicalBytes > 3) {
+  if (logicalBytes !== end || bin.length < logicalBytes || bin.length - logicalBytes > 3) {
     fail(`binary payload is ${logicalBytes} logical bytes with last live byte ${end} and chunk ${bin.length}`);
   }
 }
 
-// These are not a triangle budget. Every shipping piece is source-derived now,
-// so every name has a floor. A lower number is allowed only when the adaptation
-// itself is deliberately changed and visually re-reviewed.
-const AUTHORED_TRIANGLE_FLOORS = {
-  belly: 1500,
-  chest: 1300,
-  footL: 2400,
-  footR: 2400,
-  forearmL: 900,
-  forearmR: 900,
-  forearmSkinL: 500,
-  forearmSkinR: 500,
-  elbowCoverL: 60,
-  elbowCoverR: 60,
-  handL: 1250,
-  handR: 1250,
-  head: 6300,
-  helm: 1700,
-  neck: 900,
-  pauldronL: 1250,
-  pauldronR: 1250,
-  pelvis: 300,
-  shinL: 3500,
-  shinR: 3500,
-  shinSkinL: 750,
-  shinSkinR: 750,
-  skirt: 500,
-  surcoat: 1900,
-  thighL: 180,
-  thighR: 180,
-  thighSkinL: 350,
-  thighSkinR: 350,
-  upperArmL: 450,
-  upperArmR: 450,
-  upperArmSkinL: 540,
-  upperArmSkinR: 540,
-  wristCoverL: 200,
-  wristCoverR: 200,
-};
-
-function checkAuthoredGeometry(json, found, fail) {
-  for (const node of found) {
-    const floor = AUTHORED_TRIANGLE_FLOORS[node.name];
-    if (floor === undefined) continue;
-    const source = json.nodes?.[node.index];
-    const triangles = (json.meshes?.[source?.mesh]?.primitives ?? []).reduce((sum, primitive) => {
-      const accessor = primitive.indices === undefined
-        ? json.accessors?.[primitive.attributes?.POSITION]
-        : json.accessors?.[primitive.indices];
-      return sum + (accessor?.count ?? 0) / 3;
-    }, 0);
-    if (triangles < floor) {
-      fail(`"${node.name}" has ${triangles} triangles; its pinned source adaptation requires at least ${floor}`);
+export function checkWarriorDocument(json, bin, dimensions, digest = null) {
+  const failures = [];
+  const notes = [];
+  const fail = (sentence) => failures.push(sentence);
+  if (digest === REJECTED_RIGID_ASSET) {
+    fail(`asset digest ${digest} is the explicitly rejected disconnected rigid Warrior`);
+  }
+  const graph = sceneGraph(json, fail);
+  const skinInfo = checkSkin(json, bin, graph, dimensions, fail);
+  const meshNodes = [...graph.reachable].map((index) => ({ index, ...json.nodes[index] })).filter((node) => node.mesh !== undefined);
+  if (!meshNodes.length) fail("the Warrior has no reachable mesh geometry");
+  const usedJoints = new Set();
+  const handPoints = new Map([["swordHand", []], ["offHand", []]]);
+  for (const node of meshNodes) {
+    if (node.skin !== 0) fail(`"${node.name ?? "unnamed mesh"}" is not attached to the one Warrior skin`);
+    const region = (node.name ?? "").match(/__region_(\w+)$/)?.[1];
+    if (!SKIN_BONES.includes(region)) {
+      fail(`"${node.name ?? "unnamed mesh"}" does not name one BoneName owner with __region_<BoneName>`);
+    }
+    for (const primitive of json.meshes?.[node.mesh]?.primitives ?? []) {
+      if (skinInfo) checkPrimitiveGeometry(json, bin, node, primitive, usedJoints, handPoints, skinInfo, graph, fail);
     }
   }
+  if (skinInfo) {
+    for (let slot = 0; slot < SKIN_BONES.length; slot += 1) {
+      if (!usedJoints.has(slot)) fail(`bone "${json.nodes?.[skinInfo.skin.joints[slot]]?.name}" has no meaningful vertex weights`);
+    }
+  }
+  checkGarments(meshNodes, fail);
+  checkHands(json, graph, handPoints, dimensions, fail);
+  checkDeadPayload(json, bin, graph, skinInfo, fail);
+  if (json.animations?.length) fail("the cosmetic asset carries animation; live physics owns the pose");
+  if (json.cameras?.length) fail(`the asset carries ${json.cameras.length} camera(s)`);
+  for (const name of [
+    ...(json.nodes ?? []).map((node) => node.name ?? ""),
+    ...(json.meshes ?? []).map((mesh) => mesh.name ?? ""),
+  ]) {
+    if (FORBIDDEN.test(name) && !/^grip\./.test(name)) fail(`"${name}" is weapon geometry; weapons remain physics-owned`);
+  }
+  notes.push(`skinned mesh nodes: ${meshNodes.length}`);
+  notes.push(`skin joints with weights: ${usedJoints.size}/${SKIN_BONES.length}`);
+  if (digest) notes.push(`sha256 ${digest}`);
+  return { ok: failures.length === 0, failures, notes };
 }
 
-/**
- * Refuse a shipping builder that can put a generated primitive in the GLB.
- *
- * This extracts the build function rather than grepping an arbitrary line, and
- * its test mutates a real imported call into a box call before trusting it. The
- * primitive fallback in figure.ts is a separate load-failure path; this rule is
- * specifically about the asset a healthy game displays.
- */
+export function checkWarrior(buffer, dimensions) {
+  const digest = createHash("sha256").update(buffer).digest("hex");
+  const { json, bin } = readGlb(buffer);
+  return checkWarriorDocument(json, bin, dimensions, digest);
+}
+
+/** The new builder must create a skinned armature, never welded rigid pieces. */
 export function checkWarriorBuilder(source, provenance) {
   const failures = [];
-  const match = source.match(/\ndef build\(dimensions\):([\s\S]*?)\n\ndef export\(/);
-  if (!match) return ["the warrior builder has no readable build function"];
-  const build = match[1];
-  const generated = [...build.matchAll(/\b(ball|box|tube|ring|plate)\s*\(/g)].map((entry) => entry[1]);
-  if (generated.length) failures.push(`the shipping build calls generated ${[...new Set(generated)].join(", ")} geometry`);
-  if (/bpy\.ops\.mesh\.primitive_/.test(source)) {
-    failures.push("the warrior builder still contains a Blender primitive constructor");
+  if (!/WarriorRig/.test(source)) failures.push('the builder does not name the one armature "WarriorRig"');
+  for (const bone of SKIN_BONES) {
+    if (!new RegExp(`['\"]${bone}['\"]`).test(source)) failures.push(`the builder does not author BoneName "${bone}"`);
   }
-  if (!source.includes('if "source_extract" not in part:')) {
-    failures.push("the piece welder does not refuse geometry without a pinned source extract");
-  }
-  if ((build.match(/source_material == "MI_Ranger"/g) ?? []).length !== 2) {
-    failures.push("the Ranger sleeve and bracer imports do not both exclude donor-body material");
-  }
-  if (!source.includes("SOURCE_PINS.get(resolved)") || !source.includes("hashlib.sha256(source_bytes).hexdigest()")) {
-    failures.push("the OBJ importer does not verify selected source path and digest at build time");
-  }
-  const selected = Array.isArray(provenance?.selected) ? provenance.selected : [provenance?.selected].filter(Boolean);
-  const allowed = new Set((provenance?.sources ?? [])
-    .filter((row) => selected.includes(row.id))
-    .flatMap((row) => Object.keys(row.extracts ?? {}))
-    .filter((name) => name.endsWith(".obj")));
-  for (const [, filename] of source.matchAll(/"([^"/\\]+\.obj)"/g)) {
-    if (!allowed.has(filename)) failures.push(`"${filename}" is not a selected pinned OBJ`);
+  if (!/vertex_group|vertex_groups/.test(source)) failures.push("the builder does not author vertex weights");
+  if (/bpy\.ops\.mesh\.primitive_/.test(source)) failures.push("the Warrior builder contains a Blender primitive constructor");
+  const selected = new Set(Array.isArray(provenance?.selected) ? provenance.selected : [provenance?.selected].filter(Boolean));
+  const pins = (provenance?.sources ?? []).filter((row) => selected.has(row.id));
+  if (!pins.length || pins.some((row) => row.license !== "CC0-1.0" || !/^[0-9a-f]{64}$/.test(row.archiveSha256 ?? ""))) {
+    failures.push("the selected Warrior sources are not all digest-pinned CC0 records");
   }
   return failures;
 }
 
-function checkWristSeams(actual, fail) {
-  for (const suffix of ["L", "R"]) {
-    const forearm = actual.get(`forearm${suffix}`);
-    const hand = actual.get(`hand${suffix}`);
-    if (!forearm || !hand) continue;
-    const gap = forearm.min[1] - hand.max[1];
-    if (gap > 0.005) {
-      fail(`"hand${suffix}" wrist seam opens ${Math.round(gap * 1000)} mm below its bracer`);
-    }
-  }
-}
-
-function checkAnatomicalContinuity(actual, dimensions, fail) {
-  const body = dimensions.body;
-  const arm = dimensions.arm;
-  const elbow = dimensions.fighter.shoulderHeight - arm.upperLength;
-  const wrist = elbow - arm.foreLength;
-  const requireBelow = (name, joint, margin, label) => {
-    const node = actual.get(name);
-    if (node && node.min[1] > joint - margin) {
-      fail(`"${name}" stops above the ${label}; its anatomy does not cross the joint`);
-    }
-  };
-  const requireAbove = (name, joint, margin, label) => {
-    const node = actual.get(name);
-    if (node && node.max[1] < joint + margin) {
-      fail(`"${name}" stops below the ${label}; its anatomy does not cross the joint`);
-    }
-  };
-  const requirePivotCover = (name, x, y, z, radius, label) => {
-    const node = actual.get(name);
-    if (!node) return;
-    const point = [x, y, z];
-    for (let axis = 0; axis < 3; axis += 1) {
-      if (node.min[axis] > point[axis] - radius || node.max[axis] < point[axis] + radius) {
-        fail(`"${name}" does not surround the ${label} pivot on ${"xyz"[axis]}`);
-      }
-    }
-  };
-
-  for (const suffix of ["L", "R"]) {
-    const side = suffix === "L" ? -1 : 1;
-    requireBelow(`upperArmSkin${suffix}`, elbow, 0.020, "elbow");
-    requireAbove(`forearmSkin${suffix}`, elbow, 0.020, "elbow");
-    requireBelow(`forearmSkin${suffix}`, wrist, 0.015, "wrist");
-    requireAbove(`hand${suffix}`, wrist, 0.015, "wrist");
-    requirePivotCover(`elbowCover${suffix}`, side * (dimensions.fighter.shoulderSide + 0.001),
-      elbow, dimensions.fighter.shoulderFront - 0.010, 0.013, "elbow");
-    requirePivotCover(`wristCover${suffix}`, side * (dimensions.fighter.shoulderSide - 0.010),
-      wrist, dimensions.fighter.shoulderFront, 0.025, "wrist");
-    requireAbove(`thighSkin${suffix}`, body.hip, 0.010, "hip");
-    requireBelow(`thighSkin${suffix}`, body.knee, 0.015, "knee");
-    requireAbove(`shinSkin${suffix}`, body.knee, 0.015, "knee");
-  }
-
-  const chest = actual.get("chest");
-  const neck = actual.get("neck");
-  const head = actual.get("head");
-  if (chest && neck && chest.max[1] - neck.min[1] < 0.025) {
-    fail('"chest" and "neck" do not overlap enough at the bind seam');
-  }
-  if (neck && head && neck.max[1] - head.min[1] < 0.025) {
-    fail('"neck" and "head" do not overlap enough at the bind seam');
-  }
-}
-
-function checkGarmentUnderlayer(dimensions, fail) {
-  const pieces = new Map(dimensions.pieces.map((piece) => [piece.name, piece]));
-  const expected = new Map([
-    ["chest", "cloth"], ["pelvis", "cloth"],
-    ["upperArmSkinL", "cloth"], ["upperArmSkinR", "cloth"],
-    ["forearmSkinL", "leather"], ["forearmSkinR", "leather"],
-    ["thighSkinL", "cloth"], ["thighSkinR", "cloth"],
-    ["shinSkinL", "leather"], ["shinSkinR", "leather"],
-  ]);
-  for (const [name, material] of expected) {
-    const piece = pieces.get(name);
-    if (piece && piece.material !== material) {
-      fail(`"${name}" exposes ${piece.material} beneath the outfit; expected fitted ${material} underlayer`);
-    }
-  }
-  for (const suffix of ["L", "R"]) {
-    const elbowCover = pieces.get(`elbowCover${suffix}`);
-    const forearmBone = suffix === "R" ? "swordForearm" : "offForearm";
-    if (elbowCover && elbowCover.bone !== forearmBone) {
-      fail(`"elbowCover${suffix}" rides ${elbowCover.bone}; its cuff must follow ${forearmBone} under the sleeve`);
-    }
-    const pauldron = pieces.get(`pauldron${suffix}`);
-    if (pauldron && pauldron.bone !== "torso") {
-      fail(`"pauldron${suffix}" rides ${pauldron.bone}; torso armour must not rotate behind a raised shoulder`);
-    }
-  }
-}
-
-const identityRotation = (r) =>
-  !r || (Math.abs(r[0]) < 1e-6 && Math.abs(r[1]) < 1e-6 && Math.abs(r[2]) < 1e-6 && Math.abs(Math.abs(r[3]) - 1) < 1e-6);
-
-const unitScale = (s) => !s || s.every((v) => Math.abs(v - 1) < 1e-6);
-
-/**
- * Every mesh-bearing node, with its bounds in the fighter's own upright frame.
- *
- * glTF is Y-up and right-handed, with a model conventionally facing +Z and its
- * own left on +X; this rig is Y-up and left-handed with +Z the way the fighter
- * faces and its right on +X. One axis therefore flips, and it is X -- which is
- * also the conversion Babylon's loader performs, so this walk and the browser
- * agree by construction rather than by coincidence. Getting it wrong would put a
- * nose on the back of a head, which is why the anchor assertion below is taken
- * in all three axes rather than in the height alone.
- */
-function collectNodes(json) {
-  const nodes = json.nodes ?? [];
-  const meshes = json.meshes ?? [];
-  const accessors = json.accessors ?? [];
-  const found = [];
-  let triangles = 0;
-
-  const walk = (index, parentOffset, depth) => {
-    const node = nodes[index];
-    if (!node) throw new Error(`node ${index} is referenced and absent`);
-    if (!identityRotation(node.rotation)) {
-      throw new Error(`node "${node.name}" carries a rotation; its origin is then not its joint`);
-    }
-    if (!unitScale(node.scale)) {
-      throw new Error(`node "${node.name}" carries a scale; the export did not apply it`);
-    }
-    const t = node.translation ?? [0, 0, 0];
-    const origin = [parentOffset[0] - t[0], parentOffset[1] + t[1], parentOffset[2] + t[2]];
-
-    if (node.mesh !== undefined) {
-      const min = [Infinity, Infinity, Infinity];
-      const max = [-Infinity, -Infinity, -Infinity];
-      for (const primitive of meshes[node.mesh].primitives ?? []) {
-        const accessor = accessors[primitive.attributes?.POSITION];
-        if (!accessor?.min || !accessor?.max) {
-          throw new Error(`node "${node.name}" has a POSITION accessor with no bounds`);
-        }
-        // Flip X, then re-sort: a negated interval arrives back to front.
-        const lo = [-accessor.max[0], accessor.min[1], accessor.min[2]];
-        const hi = [-accessor.min[0], accessor.max[1], accessor.max[2]];
-        for (let axis = 0; axis < 3; axis += 1) {
-          min[axis] = Math.min(min[axis], lo[axis]);
-          max[axis] = Math.max(max[axis], hi[axis]);
-        }
-        if (primitive.indices !== undefined) triangles += accessors[primitive.indices].count / 3;
-      }
-      found.push({
-        name: node.name ?? `node${index}`,
-        index,
-        origin,
-        depth,
-        min: min.map((v, axis) => v + origin[axis]),
-        max: max.map((v, axis) => v + origin[axis]),
-        local: { min, max },
-      });
-    }
-    for (const child of node.children ?? []) walk(child, origin, depth + 1);
-  };
-
-  const scene = json.scenes?.[json.scene ?? 0];
-  if (!scene) throw new Error("glb declares no scene");
-  for (const root of scene.nodes ?? []) walk(root, [0, 0, 0], 0);
-  return { found, triangles };
-}
-
-const near = (a, b, tolerance) => Math.abs(a - b) <= tolerance;
-
-/**
- * The whole check, as a list of sentences that are true or are not.
- *
- * Returned rather than printed, and the failures are named rather than counted,
- * because a checker that prints and exits cannot be asked what it found.
- */
-export function checkWarrior(buffer, dimensions) {
-  const failures = [];
-  const notes = [];
-  const fail = (sentence) => failures.push(sentence);
-
+export function measurements(buffer) {
   const { json, bin } = readGlb(buffer);
-  const { found, triangles } = collectNodes(json);
-  checkMaterialFamilies(json, dimensions, fail);
-  checkTextureGeometry(json, bin, found, fail);
-  checkGeometryReachability(json, bin, fail);
-  checkAuthoredGeometry(json, found, fail);
-  checkWaistEnvelope(json, bin, found, dimensions, fail);
-
-  // ---- nothing that decides a hit ----
-  if (json.skins?.length) fail(`the asset carries ${json.skins.length} skin(s); this rig is the skeleton`);
-  if (json.animations?.length) fail(`the asset carries ${json.animations.length} animation(s); the solver poses this figure`);
-  if (json.cameras?.length) fail(`the asset carries ${json.cameras.length} camera(s)`);
-  const names = [
-    ...(json.nodes ?? []).map((n) => n.name ?? ""),
-    ...(json.meshes ?? []).map((m) => m.name ?? ""),
-    ...(json.materials ?? []).map((m) => m.name ?? ""),
-  ];
-  for (const name of names) {
-    if (FORBIDDEN.test(name)) fail(`"${name}" is a weapon or a shield; both are physics, not costume`);
-  }
-
-  // ---- exactly the pieces `figure.ts` dresses, and no others ----
-  const expected = new Map(dimensions.pieces.map((piece) => [piece.name, piece]));
-  const counts = new Map();
-  for (const node of found) counts.set(node.name, (counts.get(node.name) ?? 0) + 1);
-  for (const [name, count] of counts) {
-    if (count > 1) fail(`piece name "${name}" occurs ${count} times; runtime wear would be ambiguous`);
-  }
-  const actual = new Map(found.map((node) => [node.name, node]));
-  for (const name of expected.keys()) {
-    if (!actual.has(name)) fail(`piece "${name}" is missing; figure.ts will fall back to its primitive`);
-  }
-  for (const name of actual.keys()) {
-    if (!expected.has(name)) fail(`"${name}" is in the asset and is not a piece figure.ts dresses`);
-  }
-  checkWristSeams(actual, fail);
-  checkAnatomicalContinuity(actual, dimensions, fail);
-  checkGarmentUnderlayer(dimensions, fail);
-
-  // ---- every piece cut at its own joint, and reaching no further than a limb ----
-  for (const piece of dimensions.pieces) {
-    const node = actual.get(piece.name);
-    if (!node) continue;
-    const joint = dimensions.bones[piece.bone].joint;
-    for (const [axis, label] of [[0, "x"], [1, "y"], [2, "z"]]) {
-      if (!near(node.origin[axis], joint[axis], TOLERANCE.joint)) {
-        fail(
-          `"${piece.name}" is cut at ${label}=${node.origin[axis].toFixed(4)}, ` +
-            `and the ${piece.bone} joint is at ${label}=${joint[axis].toFixed(4)}`,
-        );
-      }
-    }
-    const reach = Math.max(
-      ...node.local.min.map(Math.abs),
-      ...node.local.max.map(Math.abs),
-    );
-    if (reach > SEGMENT_SPAN) {
-      fail(`"${piece.name}" reaches ${reach.toFixed(3)} m from its joint; a segment does not`);
-    }
-    // The primitive's anchor is where `figure.ts` draws the stand-in. The
-    // authored piece is free to be a different shape and is not free to be
-    // somewhere else, or `G` would move the figure as well as undress it.
-    for (const [axis, label] of [[0, "x"], [1, "y"], [2, "z"]]) {
-      const at = piece.at[axis];
-      if (at < node.min[axis] - TOLERANCE.anchor || at > node.max[axis] + TOLERANCE.anchor) {
-        fail(
-          `"${piece.name}" spans ${label} ${node.min[axis].toFixed(3)}..${node.max[axis].toFixed(3)} ` +
-            `and does not cover its primitive's anchor at ${label}=${at.toFixed(3)}`,
-        );
-      }
-    }
-  }
-
-  // ---- the three measurements the plan accepts the figure on ----
-  const floor = Math.min(...found.map((node) => node.min[1]));
-  const crown = Math.max(...found.map((node) => node.max[1]));
-  if (!near(floor, 0, TOLERANCE.floor)) {
-    fail(`the lowest point of the figure is ${(floor * 1000).toFixed(1)} mm, not on the floor`);
-  }
-  if (!near(crown, dimensions.fighter.height, TOLERANCE.crown)) {
-    fail(
-      `the crown is at ${crown.toFixed(3)} m and fighter.height is ` +
-        `${dimensions.fighter.height.toFixed(3)} m`,
-    );
-  }
-  for (const boot of ["footL", "footR"]) {
-    const node = actual.get(boot);
-    if (node && !near(node.min[1], 0, TOLERANCE.floor)) {
-      fail(`"${boot}" sits at ${(node.min[1] * 1000).toFixed(1)} mm rather than on the floor`);
-    }
-  }
-
-  const shoulder = [
-    ["pauldronL", -dimensions.fighter.shoulderSide],
-    ["pauldronR", dimensions.fighter.shoulderSide],
-  ];
-  for (const [name, x] of shoulder) {
-    const node = actual.get(name);
-    if (!node) continue;
-    const centre = (node.min[0] + node.max[0]) / 2;
-    if (!near(centre, x, TOLERANCE.shoulder)) {
-      fail(`"${name}" is centred at x=${centre.toFixed(3)} and the shoulder is at x=${x.toFixed(3)}`);
-    }
-    const point = [x, dimensions.fighter.shoulderHeight, dimensions.fighter.shoulderFront];
-    const covers = point.every((v, axis) => v >= node.min[axis] && v <= node.max[axis]);
-    if (!covers) fail(`"${name}" does not cover the shoulder joint it is supposed to cap`);
-  }
-
-  notes.push(`nodes with geometry: ${found.length}`);
-  notes.push(`triangles: ${triangles}`);
-  notes.push(`binary chunk: ${(bin.length / 1024).toFixed(1)} KB of ${(buffer.length / 1024).toFixed(1)} KB`);
-  notes.push(`floor ${(floor * 1000).toFixed(1)} mm, crown ${crown.toFixed(3)} m (height ${dimensions.fighter.height})`);
-  notes.push(`sha256 ${createHash("sha256").update(buffer).digest("hex")}`);
-
-  return { ok: failures.length === 0, failures, notes, triangles, crown, floor };
-}
-
-/** A table of what every piece measures, for a person deciding whether it looks right. */
-export function measurements(buffer, dimensions) {
-  const { json } = readGlb(buffer);
-  const { found } = collectNodes(json);
   const rows = [];
-  for (const piece of dimensions.pieces) {
-    const node = found.find((candidate) => candidate.name === piece.name);
-    if (!node) {
-      rows.push(`${piece.name.padEnd(10)} absent`);
-      continue;
+  for (const node of json.nodes ?? []) {
+    if (node.mesh === undefined) continue;
+    let vertices = 0;
+    for (const primitive of json.meshes?.[node.mesh]?.primitives ?? []) {
+      vertices += accessorValues(json, bin, primitive.attributes?.POSITION)?.length ?? 0;
     }
-    const span = (axis) => `${node.min[axis].toFixed(3)}..${node.max[axis].toFixed(3)}`;
-    rows.push(
-      `${piece.name.padEnd(10)} ${piece.bone.padEnd(12)} ` +
-        `x ${span(0).padEnd(15)} y ${span(1).padEnd(15)} z ${span(2)}`,
-    );
+    rows.push(`${(node.name ?? "unnamed").padEnd(46)} ${String(vertices).padStart(7)} vertices skin ${node.skin ?? "none"}`);
   }
   return rows;
 }
@@ -788,17 +476,13 @@ async function main() {
     process.exit(1);
   }
   const result = checkWarrior(buffer, dimensions);
-  if (process.argv.includes("--table")) for (const row of measurements(buffer, dimensions)) console.log(row);
+  if (process.argv.includes("--table")) for (const row of measurements(buffer)) console.log(row);
   for (const note of result.notes) console.log(`  ${note}`);
   for (const failure of result.failures) console.error(`FAIL ${failure}`);
-  console.log(result.ok ? "warrior.glb fits the rig." : `${result.failures.length} dimensional failures.`);
+  console.log(result.ok ? "warrior.glb is one coherent skinned person." : `${result.failures.length} Warrior asset failures.`);
   process.exit(result.ok ? 0 : 1);
 }
 
-// `pathToFileURL` rather than string surgery: on Windows `process.argv[1]` is a
-// drive path and the hand-built `file://` form is one slash short of the one
-// `import.meta.url` reports, so the comparison silently never fires and the
-// script exits successfully having checked nothing.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error) => {
     console.error(error.message);

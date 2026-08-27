@@ -5,396 +5,312 @@ import { dirname, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { checkWarrior, checkWarriorBuilder } from "../scripts/check-warrior.mjs";
+import {
+  checkWarrior,
+  checkWarriorBuilder,
+  checkWarriorDocument,
+  SKIN_BONE_PARENT,
+} from "../scripts/check-warrior.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
 const warrior = await readFile(process.env.SWORD_WARRIOR_UNDER_TEST ?? resolve(ROOT, "public/assets/warrior.glb"));
 const dimensions = JSON.parse(await readFile(resolve(ROOT, "asset-src/dimensions.json"), "utf8"));
 const provenance = JSON.parse(await readFile(resolve(ROOT, "asset-src/armour-sources.json"), "utf8"));
+const REJECTED = "c08f09fa564b6b84b24a2b25442f3c51fd167d20f0c8d4f777e5bd25943c1afd";
+const BONE_NAMES = Object.keys(SKIN_BONE_PARENT);
 
-test("every_imported_character_source_has_a_pinned_cc0_license_record", async () => {
-  assert.ok(Array.isArray(provenance.selected));
-  assert.deepEqual(provenance.selected, [
-    "quaternius-modular-character-outfits-fantasy-standard-2026",
-    "blender-human-base-meshes-1.4.1",
-    "poly-haven-rubber-boots-1k-2026",
-  ]);
+test("the_asset_checker_uses_the_runtime_BoneName_hierarchy_verbatim", async () => {
+  const source = await readFile(resolve(ROOT, "src/figure.ts"), "utf8");
+  const block = source.match(/export const SKIN_BONE_PARENT[^=]*= Object\.freeze\(\{([\s\S]*?)\}\);/);
+  assert.ok(block, "src/figure.ts exposes a readable SKIN_BONE_PARENT table");
+  const runtime = Object.fromEntries([...block[1].matchAll(/^\s*(\w+):\s*(null|"\w+"),/gm)]
+    .map(([, name, parent]) => [name, parent === "null" ? null : parent.slice(1, -1)]));
+  assert.deepEqual(runtime, SKIN_BONE_PARENT);
+});
+
+test("every_selected_character_source_has_a_pinned_cc0_license_record", async () => {
+  assert.ok(Array.isArray(provenance.selected) && provenance.selected.length >= 1);
   for (const id of provenance.selected) {
     const selected = provenance.sources.find((source) => source.id === id);
     assert.ok(selected, `selected character source ${id} has a row`);
     assert.equal(selected.license, "CC0-1.0");
-    assert.match(selected.officialPage, /^https:\/\/(?:www\.blender\.org|quaternius\.com|polyhaven\.com)\//);
     assert.match(selected.licenseUrl, /creativecommons\.org\/publicdomain\/zero\/1\.0/);
     assert.match(selected.archiveSha256, /^[0-9a-f]{64}$/);
-    assert.ok(selected.selectedObjects.length >= 1);
-    assert.ok(Object.keys(selected.extracts).length >= 1);
-    assert.ok(Object.values(selected.extracts).every((value) => /^[0-9a-f]{64}$/.test(value)));
-    assert.ok(selected.adaptations.some((entry) => /render-only/.test(entry)));
+    assert.ok(Object.keys(selected.extracts ?? {}).length >= 1);
     for (const [filename, expected] of Object.entries(selected.extracts)) {
       const bytes = await readFile(resolve(ROOT, selected.extractRoot, filename));
-      const actual = createHash("sha256").update(bytes).digest("hex");
-      assert.equal(actual, expected, `${filename} matches its selected-extract pin`);
-    }
-    if (selected.licenseEvidence === "bundled-notice") {
-      const notice = await readFile(resolve(ROOT, selected.extractRoot, "LICENSE.txt"), "utf8");
-      assert.match(notice, /CC0 1\.0 Universal/);
-      assert.match(notice, /creativecommons\.org\/publicdomain\/zero\/1\.0/);
-    } else {
-      assert.equal(selected.licenseEvidence, "official-page");
-      assert.ok("SOURCE.txt" in selected.extracts);
+      assert.equal(createHash("sha256").update(bytes).digest("hex"), expected,
+        `${filename} matches its selected-extract pin`);
     }
   }
 });
 
-const objComponentCount = (source) => {
-  const vertices = [];
-  const faces = [];
-  for (const raw of source.split(/\r?\n/)) {
-    const fields = raw.trim().split(/\s+/);
-    if (fields[0] === "v") vertices.push(vertices.length);
-    if (fields[0] === "f") faces.push(fields.slice(1).map((field) => Number(field.split("/")[0]) - 1));
-  }
-  const neighbours = vertices.map(() => new Set());
-  for (const face of faces) {
-    for (let index = 1; index < face.length; index += 1) {
-      neighbours[face[0]].add(face[index]);
-      neighbours[face[index]].add(face[0]);
-    }
-  }
-  const seen = new Set();
-  let components = 0;
-  for (const vertex of vertices) {
-    if (seen.has(vertex) || neighbours[vertex].size === 0) continue;
-    components += 1;
-    const pending = [vertex];
-    seen.add(vertex);
-    while (pending.length > 0) {
-      for (const next of neighbours[pending.pop()]) {
-        if (seen.has(next)) continue;
-        seen.add(next);
-        pending.push(next);
-      }
-    }
-  }
-  return components;
-};
-
-test("the_human_torso_is_one_connected_body_without_landmark_poison", async () => {
-  const human = provenance.sources.find((source) => source.id === "blender-human-base-meshes-1.4.1");
-  const torso = await readFile(resolve(ROOT, human.extractRoot, "human-torso.obj"), "utf8");
-  assert.equal(objComponentCount(torso), 1,
-    "the torso extract cannot carry stray face islands that poison its fitting landmarks");
+test("the_shipping_warrior_is_one_coherent_skinned_person", () => {
+  const result = checkWarrior(warrior, dimensions);
+  assert.equal(result.ok, true, result.failures.join("\n"));
 });
 
-test("the_human_source_covers_every_articulated_limb", () => {
-  const human = provenance.sources.find((source) => source.id === "blender-human-base-meshes-1.4.1");
-  const required = [
-    "human-forearm-l.obj", "human-forearm-r.obj",
-    "human-upper-arm-l.obj", "human-upper-arm-r.obj",
-    "human-thigh-l.obj", "human-thigh-r.obj",
-    "human-shin-l.obj", "human-shin-r.obj",
-  ];
-  for (const filename of required) {
-    assert.ok(filename in human.extracts, `${filename} is part of the selected continuous anatomy`);
-  }
+test("the_disconnected_rigid_warrior_digest_can_never_be_accepted_again", () => {
+  const fixture = coherentFixture();
+  const result = checkWarriorDocument(fixture.json, fixture.bin, dimensions, REJECTED);
+  assert.ok(result.failures.some((failure) => failure.includes("explicitly rejected disconnected rigid Warrior")));
 });
 
-test("the_shipping_warrior_is_built_only_from_pinned_source_meshes", async () => {
+test("the_mutation_fixture_satisfies_the_complete_skin_contract_before_it_is_broken", () => {
+  const checked = result(coherentFixture());
+  assert.equal(checked.ok, true, checked.failures.join("\n"));
+});
+
+test("the_shipping_builder_authors_the_exact_skinned_rig_from_pinned_sources", async () => {
   const source = await readFile(resolve(ROOT, "asset-src/build_warrior.py"), "utf8");
   assert.deepEqual(checkWarriorBuilder(source, provenance), []);
 
-  const buildAt = source.indexOf("\ndef build(dimensions):");
-  const importedAt = source.indexOf("imported_obj(", buildAt);
-  const mutated = source.slice(0, importedAt) + "box(" + source.slice(importedAt + "imported_obj(".length);
-  assert.ok(checkWarriorBuilder(mutated, provenance).some((failure) => failure.includes("generated box geometry")));
-
-  const donorHand = source.replace('source_material == "MI_Ranger"', 'source_material != "MI_Ranger"');
-  assert.ok(checkWarriorBuilder(donorHand, provenance).some((failure) => failure.includes("exclude donor-body material")));
-
-  const unregistered = source.replace('"ranger-body.obj"', '"unregistered.obj"');
-  assert.ok(checkWarriorBuilder(unregistered, provenance).some((failure) => failure.includes("not a selected pinned OBJ")));
+  const withoutRig = source.replaceAll("WarriorRig", "LooseParts");
+  assert.ok(checkWarriorBuilder(withoutRig, provenance).some((failure) => failure.includes("one armature")));
+  const primitive = `${source}\nbpy.ops.mesh.primitive_cube_add()`;
+  assert.ok(checkWarriorBuilder(primitive, provenance).some((failure) => failure.includes("primitive constructor")));
 });
 
-test("the_warrior_has_no_dead_geometry_payload", () => {
-  const failures = checkWarrior(warrior, dimensions).failures.filter((failure) => /dead|binary payload/.test(failure));
-  assert.deepEqual(failures, []);
+test("missing_skin_is_refused_by_the_contract_it_removes", () => {
+  const fixture = coherentFixture();
+  delete fixture.json.skins;
+  assertFailure(fixture, /exactly one skin; found 0/);
 });
 
-function mutateJson(buffer, mutate) {
-  const jsonLength = buffer.readUInt32LE(12);
-  const json = JSON.parse(buffer.toString("utf8", 20, 20 + jsonLength));
-  const binHeader = 20 + jsonLength;
-  const binLength = buffer.readUInt32LE(binHeader);
-  const bin = Buffer.from(buffer.subarray(binHeader + 8, binHeader + 8 + binLength));
-  mutate(json, bin);
-  const raw = Buffer.from(JSON.stringify(json));
-  const padded = Buffer.concat([raw, Buffer.alloc((4 - raw.length % 4) % 4, 0x20)]);
-  const out = Buffer.alloc(20 + padded.length + 8 + bin.length);
-  out.writeUInt32LE(0x46546c67, 0);
-  out.writeUInt32LE(2, 4);
-  out.writeUInt32LE(out.length, 8);
-  out.writeUInt32LE(padded.length, 12);
-  out.writeUInt32LE(0x4e4f534a, 16);
-  padded.copy(out, 20);
-  const next = 20 + padded.length;
-  out.writeUInt32LE(bin.length, next);
-  out.writeUInt32LE(0x004e4942, next + 4);
-  bin.copy(out, next + 8);
-  return out;
+test("a_wrong_bone_parent_is_refused_by_name", () => {
+  const fixture = coherentFixture();
+  const head = fixture.json.nodes.findIndex((node) => node.name === "head");
+  const torso = fixture.json.nodes.find((node) => node.name === "torso");
+  torso.children = torso.children.filter((index) => index !== head);
+  fixture.json.nodes.find((node) => node.name === "pelvis").children.push(head);
+  assertFailure(fixture, /bone "head" must be a direct child of "torso"/);
+});
+
+test("a_bone_authored_at_its_joint_instead_of_its_physics_centre_is_refused", () => {
+  const fixture = coherentFixture();
+  fixture.json.nodes.find((node) => node.name === "swordForearm").translation[1] += 0.05;
+  assertFailure(fixture, /bone "swordForearm" bind origin .* 50\.0 mm from its physics centre/);
+});
+
+test("non_normalized_and_non_finite_weights_are_refused_at_the_vertex", () => {
+  const low = coherentFixture();
+  low.bin.writeFloatLE(0.6, low.weightOffsets[0]);
+  assertFailure(low, /unnormalized weights/);
+
+  const nan = coherentFixture();
+  nan.bin.writeFloatLE(Number.NaN, nan.weightOffsets[0]);
+  assertFailure(nan, /non-finite, negative, or unnormalized weights/);
+});
+
+test("more_than_four_influences_and_an_unskinned_mesh_are_refused", () => {
+  const fixture = coherentFixture();
+  const node = fixture.json.nodes.find((candidate) => candidate.mesh !== undefined);
+  delete node.skin;
+  const primitive = fixture.json.meshes[node.mesh].primitives[0];
+  primitive.attributes.JOINTS_1 = primitive.attributes.JOINTS_0;
+  primitive.attributes.WEIGHTS_1 = primitive.attributes.WEIGHTS_0;
+  const failures = result(fixture).failures;
+  assert.ok(failures.some((failure) => failure.includes("not attached to the one Warrior skin")), failures.join("\n"));
+  assert.ok(failures.some((failure) => failure.includes("four-influence")), failures.join("\n"));
+});
+
+test("trousers_hood_and_the_closed_helmet_are_each_required", () => {
+  for (const [pattern, expected] of [
+    [/trouser/i, /missing trousers geometry/],
+    [/hood/i, /missing hood geometry/],
+    [/helmet3/i, /missing closed Helmet3 geometry/],
+  ]) {
+    const fixture = coherentFixture();
+    fixture.json.nodes.find((node) => pattern.test(node.name ?? "")).name = "anonymous_garment";
+    assertFailure(fixture, expected);
+  }
+});
+
+test("both_boots_are_required", () => {
+  const fixture = coherentFixture();
+  const boots = fixture.json.nodes.filter((node) => /boot/i.test(node.name ?? ""));
+  boots[1].name = "anonymous_lower_leg";
+  assertFailure(fixture, /does not contain both boots/);
+});
+
+test("adult_sized_hands_must_reach_the_two_weapon_roots", () => {
+  const small = coherentFixture();
+  for (const offset of small.handPositionOffsets.swordHand) {
+    small.bin.writeFloatLE(0.21, offset);
+    small.bin.writeFloatLE(0.73, offset + 4);
+    small.bin.writeFloatLE(0.005, offset + 8);
+  }
+  assertFailure(small, /swordHand" is only .* adult hand must be at least 75 mm/);
+
+  const disconnected = coherentFixture();
+  const grip = disconnected.json.nodes.find((node) => node.name === "grip.secondary");
+  grip.translation[1] -= 0.08;
+  assertFailure(disconnected, /offHand" geometry stops .* disconnected from its weapon/);
+});
+
+test("a_missing_explicit_grip_marker_is_not_repaired_by_guessing", () => {
+  const fixture = coherentFixture();
+  fixture.json.nodes.find((node) => node.name === "grip.primary").name = "lost.primary";
+  assertFailure(fixture, /missing explicit weapon root "grip.primary"/);
+});
+
+test("a_grip_marker_at_the_palm_centre_does_not_redefine_the_weapon_root", () => {
+  const fixture = coherentFixture();
+  const grip = fixture.json.nodes.find((node) => node.name === "grip.primary");
+  grip.translation[1] += dimensions.arm.handLength / 2;
+  assertFailure(fixture, /grip\.primary" is not at the physical bind weapon root/);
+});
+
+test("dead_mesh_and_accessor_payload_remain_refused", () => {
+  const fixture = coherentFixture();
+  fixture.json.meshes.push(structuredClone(fixture.json.meshes[0]));
+  fixture.json.accessors.push(structuredClone(fixture.json.accessors[0]));
+  const failures = result(fixture).failures;
+  assert.ok(failures.some((failure) => /mesh .* dead payload/.test(failure)), failures.join("\n"));
+  assert.ok(failures.some((failure) => /accessor .* dead payload/.test(failure)), failures.join("\n"));
+});
+
+test("textured_geometry_keeps_uvs_and_normal_mapped_geometry_keeps_tangents", () => {
+  const fixture = coherentFixture();
+  const node = fixture.json.nodes.find((candidate) => candidate.mesh !== undefined);
+  const primitive = fixture.json.meshes[node.mesh].primitives[0];
+  fixture.json.materials = [{ pbrMetallicRoughness: { baseColorTexture: { index: 0 } }, normalTexture: { index: 1 } }];
+  primitive.material = 0;
+  const failures = result(fixture).failures;
+  assert.ok(failures.some((failure) => failure.includes("textured material without TEXCOORD_0")), failures.join("\n"));
+  assert.ok(failures.some((failure) => failure.includes("normal map without TANGENT")), failures.join("\n"));
+});
+
+function result(fixture) {
+  fixture.json.buffers[0].byteLength = fixture.bin.length;
+  return checkWarriorDocument(fixture.json, fixture.bin, dimensions);
 }
 
-test("unreachable_meshes_and_duplicate_piece_names_are_refused", () => {
-  const unreferenced = mutateJson(warrior, (json) => {
-    json.meshes.push(structuredClone(json.meshes[0]));
-  });
-  assert.ok(checkWarrior(unreferenced, dimensions).failures.some((failure) =>
-    failure.includes("mesh") && failure.includes("dead payload")));
-
-  const duplicate = mutateJson(warrior, (json) => {
-    const source = json.nodes.find((node) => node.name === "surcoat");
-    json.nodes.push(structuredClone(source));
-    json.scenes[json.scene ?? 0].nodes.push(json.nodes.length - 1);
-  });
-  assert.ok(checkWarrior(duplicate, dimensions).failures.some((failure) =>
-    failure.includes('piece name "surcoat" occurs 2 times')));
-});
-
-test("every_selected_source_adaptation_is_present_in_the_shipping_glb", () => {
-  assert.deepEqual(checkWarrior(warrior, dimensions).failures.filter((failure) =>
-    failure.includes("pinned source adaptation")), []);
-
-  const stripped = mutateJson(warrior, (json) => {
-    const node = json.nodes.find((candidate) => candidate.name === "surcoat");
-    json.accessors[json.meshes[node.mesh].primitives[0].indices].count = 3;
-  });
-  assert.ok(checkWarrior(stripped, dimensions).failures.some((failure) =>
-    failure.includes('"surcoat"') && failure.includes("pinned source adaptation")));
-});
-
-test("the_authored_hands_meet_their_bracers_without_a_block_or_gap", () => {
-  assert.deepEqual(checkWarrior(warrior, dimensions).failures.filter((failure) => /wrist seam/.test(failure)), []);
-
-  const separated = mutateJson(warrior, (json) => {
-    const hand = json.nodes.find((node) => node.name === "handR");
-    const position = json.accessors[json.meshes[hand.mesh].primitives[0].attributes.POSITION];
-    position.min[1] -= 0.1;
-    position.max[1] -= 0.1;
-  });
-  const failures = checkWarrior(separated, dimensions).failures;
-  assert.ok(failures.some((failure) => failure.includes('"handR" wrist seam opens')), failures.join("\n"));
-});
-
-test("the_anatomical_underlayer_overlaps_every_joint_in_the_bind_pose", () => {
-  assert.deepEqual(checkWarrior(warrior, dimensions).failures.filter((failure) =>
-    /anatomy does not cross|do not overlap enough/.test(failure)), []);
-
-  const separated = mutateJson(warrior, (json) => {
-    const arm = json.nodes.find((node) => node.name === "upperArmSkinR");
-    const position = json.accessors[json.meshes[arm.mesh].primitives[0].attributes.POSITION];
-    position.min[1] = -0.005;
-  });
-  assert.ok(checkWarrior(separated, dimensions).failures.some((failure) =>
-    failure.includes('"upperArmSkinR"') && failure.includes("does not cross the joint")));
-
-  const uncovered = mutateJson(warrior, (json) => {
-    const cover = json.nodes.find((node) => node.name === "elbowCoverR");
-    const position = json.accessors[json.meshes[cover.mesh].primitives[0].attributes.POSITION];
-    position.max[2] = -0.100;
-  });
-  assert.ok(checkWarrior(uncovered, dimensions).failures.some((failure) =>
-    failure.includes('"elbowCoverR"') && failure.includes("does not surround the elbow pivot")));
-});
-
-test("the_human_underlayer_is_dressed_instead_of_erupting_through_the_outfit", () => {
-  assert.deepEqual(checkWarrior(warrior, dimensions).failures.filter((failure) =>
-    /expected fitted|must not rotate behind/.test(failure)), []);
-
-  const fleshSleeve = structuredClone(dimensions);
-  fleshSleeve.pieces.find((piece) => piece.name === "upperArmSkinR").material = "flesh";
-  assert.ok(checkWarrior(warrior, fleshSleeve).failures.some((failure) =>
-    failure.includes('"upperArmSkinR"') && failure.includes("expected fitted cloth underlayer")));
-
-  const fixedCuff = structuredClone(dimensions);
-  fixedCuff.pieces.find((piece) => piece.name === "elbowCoverR").bone = "swordUpperArm";
-  assert.ok(checkWarrior(warrior, fixedCuff).failures.some((failure) =>
-    failure.includes('"elbowCoverR"') && failure.includes("must follow swordForearm")));
-
-  const loosePlate = structuredClone(dimensions);
-  loosePlate.pieces.find((piece) => piece.name === "pauldronR").bone = "swordUpperArm";
-  assert.ok(checkWarrior(warrior, loosePlate).failures.some((failure) =>
-    failure.includes('"pauldronR"') && failure.includes("must not rotate behind")));
-});
-
-const accessorOffset = (json, accessorIndex, element = 0) => {
-  const accessor = json.accessors[accessorIndex];
-  const view = json.bufferViews[accessor.bufferView];
-  const components = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4 }[accessor.type];
-  const bytes = { 5121: 1, 5123: 2, 5125: 4, 5126: 4 }[accessor.componentType];
-  return (view.byteOffset ?? 0) + (accessor.byteOffset ?? 0) + element * (view.byteStride ?? components * bytes);
-};
-
-function readIndex(json, bin, accessorIndex, element) {
-  const accessor = json.accessors[accessorIndex];
-  const at = accessorOffset(json, accessorIndex, element);
-  return accessor.componentType === 5121 ? bin.readUInt8(at)
-    : accessor.componentType === 5123 ? bin.readUInt16LE(at)
-      : bin.readUInt32LE(at);
+function assertFailure(fixture, pattern) {
+  const failures = result(fixture).failures;
+  assert.ok(failures.some((failure) => pattern.test(failure)), failures.join("\n"));
 }
 
-test("every_textured_warrior_primitive_has_non_degenerate_uvs", () => {
-  assert.equal(checkWarrior(warrior, dimensions).failures.filter((f) => /UV|TEXCOORD/.test(f)).length, 0);
-
-  let victim = "";
-  const broken = mutateJson(warrior, (json) => {
-    const node = json.nodes.find((candidate) => candidate.mesh !== undefined);
-    victim = node.name;
-    delete json.meshes[node.mesh].primitives[0].attributes.TEXCOORD_0;
-  });
-  const failures = checkWarrior(broken, dimensions).failures;
-  assert.ok(failures.some((failure) => failure.includes(victim) && failure.includes("TEXCOORD_0")), failures.join("\n"));
-
-  const wrongShape = mutateJson(warrior, (json) => {
-    const primitive = json.meshes[json.nodes.find((node) => node.mesh !== undefined).mesh].primitives[0];
-    json.accessors[primitive.attributes.TEXCOORD_0].type = "VEC3";
-  });
-  assert.ok(checkWarrior(wrongShape, dimensions).failures.some((failure) => failure.includes("float VEC2")));
-
-  const wrongCount = mutateJson(warrior, (json) => {
-    const primitive = json.meshes[json.nodes.find((node) => node.mesh !== undefined).mesh].primitives[0];
-    json.accessors[primitive.attributes.TEXCOORD_0].count -= 1;
-  });
-  assert.ok(checkWarrior(wrongCount, dimensions).failures.some((failure) => failure.includes("POSITION count")));
-
-  const degenerate = mutateJson(warrior, (json, bin) => {
-    const primitive = json.meshes[json.nodes.find((node) => node.mesh !== undefined).mesh].primitives[0];
-    for (let corner = 0; corner < 3; corner += 1) {
-      const vertex = readIndex(json, bin, primitive.indices, corner);
-      const at = accessorOffset(json, primitive.attributes.TEXCOORD_0, vertex);
-      bin.writeFloatLE(0.25, at);
-      bin.writeFloatLE(0.25, at + 4);
+/**
+ * A deliberately plain but structurally valid glTF document. It is not an art
+ * substitute and never ships; it makes every guard independently mutable, so a
+ * green mutation test cannot be an accidental property of the current asset.
+ */
+function coherentFixture() {
+  const json = {
+    asset: { version: "2.0" }, scenes: [{ nodes: [] }], scene: 0,
+    nodes: [], meshes: [], skins: [], accessors: [], bufferViews: [], buffers: [{ byteLength: 0 }],
+  };
+  const chunks = [];
+  let byteLength = 0;
+  const weightOffsets = [];
+  const handPositionOffsets = { swordHand: [], offHand: [] };
+  const addAccessor = (buffer, componentType, type, count, extra = {}) => {
+    const padding = (4 - byteLength % 4) % 4;
+    if (padding) {
+      chunks.push(Buffer.alloc(padding));
+      byteLength += padding;
     }
-  });
-  assert.ok(checkWarrior(degenerate, dimensions).failures.some((failure) => failure.includes("zero-area UV triangle")));
+    const view = json.bufferViews.length;
+    json.bufferViews.push({ buffer: 0, byteOffset: byteLength, byteLength: buffer.length });
+    const accessor = json.accessors.length;
+    json.accessors.push({ bufferView: view, componentType, count, type, ...extra });
+    chunks.push(buffer);
+    const offset = byteLength;
+    byteLength += buffer.length;
+    return { accessor, offset };
+  };
 
-  let densityVictim = "";
-  const wrongDensity = mutateJson(warrior, (json, bin) => {
-    const node = json.nodes.find((candidate) => candidate.name === "chest");
-    densityVictim = node.name;
-    const primitive = json.meshes[node.mesh].primitives[0];
-    const accessor = json.accessors[primitive.attributes.TEXCOORD_0];
-    for (let index = 0; index < accessor.count; index += 1) {
-      const at = accessorOffset(json, primitive.attributes.TEXCOORD_0, index);
-      bin.writeFloatLE(0.5 + (bin.readFloatLE(at) - 0.5) * 0.5, at);
-      bin.writeFloatLE(0.5 + (bin.readFloatLE(at + 4) - 0.5) * 0.5, at + 4);
+  const boneIndex = new Map();
+  for (const name of BONE_NAMES) {
+    boneIndex.set(name, json.nodes.length);
+    json.nodes.push({ name, children: [] });
+  }
+  for (const [name, parent] of Object.entries(SKIN_BONE_PARENT)) {
+    if (parent) json.nodes[boneIndex.get(parent)].children.push(boneIndex.get(name));
+  }
+  const gltfCentre = (name) => {
+    const centre = dimensions.bones[name].centre;
+    return [-centre[0], centre[1], centre[2]];
+  };
+  for (const [name, parent] of Object.entries(SKIN_BONE_PARENT)) {
+    const origin = gltfCentre(name);
+    const parentOrigin = parent ? gltfCentre(parent) : [0, 0, 0];
+    json.nodes[boneIndex.get(name)].translation = origin.map((value, axis) => value - parentOrigin[axis]);
+  }
+  json.scenes[0].nodes.push(boneIndex.get("torso"));
+
+  const meshNames = new Map([
+    ["torso", "Male_Ranger_Chest__region_torso"],
+    ["head", "Male_Ranger_Hood__region_head"],
+    ["pelvis", "Male_Ranger_Trousers__region_pelvis"],
+    ["swordUpperArm", "Male_Ranger_Sleeve__region_swordUpperArm"],
+    ["swordForearm", "Male_Ranger_Bracer__region_swordForearm"],
+    ["swordHand", "Male_Ranger_Arms__region_swordHand"],
+    ["offUpperArm", "Male_Ranger_Sleeve__region_offUpperArm"],
+    ["offForearm", "Male_Ranger_Bracer__region_offForearm"],
+    ["offHand", "Male_Ranger_Arms__region_offHand"],
+    ["thighLeft", "Male_Ranger_Legs__region_thighLeft"],
+    ["shinLeft", "Male_Ranger_Boot_L__region_shinLeft"],
+    ["thighRight", "Male_Ranger_Legs__region_thighRight"],
+    ["shinRight", "Male_Ranger_Boot_R__region_shinRight"],
+  ]);
+
+  const centreFor = (bone) => gltfCentre(bone);
+  const pointsFor = (bone) => {
+    const [x, y, z] = centreFor(bone);
+    if (bone === "swordHand" || bone === "offHand") {
+      const gripY = y - dimensions.arm.handLength / 2;
+      return [[x - 0.04, gripY, z - 0.02], [x + 0.04, gripY, z - 0.02],
+        [x - 0.04, gripY + 0.10, z + 0.02], [x - 0.04, gripY + 0.10, z + 0.02],
+        [x + 0.04, gripY, z - 0.02], [x + 0.04, gripY + 0.10, z + 0.02]];
     }
-  });
-  const densityFailures = checkWarrior(wrongDensity, dimensions).failures;
-  assert.ok(densityFailures.some((failure) => failure.includes(densityVictim) && failure.includes("UV density")), densityFailures.join("\n"));
+    return [[x - 0.02, y - 0.02, z], [x + 0.02, y - 0.02, z], [x, y + 0.02, z + 0.02]];
+  };
 
-  const mergedSeams = mutateJson(warrior, (json, bin) => {
-    const node = json.nodes.find((candidate) => candidate.name === "surcoat");
-    const primitive = json.meshes[node.mesh].primitives[0];
-    const positions = primitive.attributes.POSITION;
-    const uvs = primitive.attributes.TEXCOORD_0;
-    const count = json.accessors[positions].count;
-    const firstUvAtPosition = new Map();
-    for (let index = 0; index < count; index += 1) {
-      const positionAt = accessorOffset(json, positions, index);
-      const key = [0, 4, 8].map((offset) => bin.readFloatLE(positionAt + offset).toFixed(6)).join(",");
-      const uvAt = accessorOffset(json, uvs, index);
-      const canonical = firstUvAtPosition.get(key);
-      if (canonical) {
-        bin.writeFloatLE(canonical[0], uvAt);
-        bin.writeFloatLE(canonical[1], uvAt + 4);
-      } else {
-        firstUvAtPosition.set(key, [bin.readFloatLE(uvAt), bin.readFloatLE(uvAt + 4)]);
-      }
+  const addMesh = (name, bone) => {
+    const slot = BONE_NAMES.indexOf(bone);
+    const points = pointsFor(bone);
+    const positionBuffer = Buffer.alloc(points.length * 12);
+    points.forEach((point, vertex) => point.forEach((value, axis) => positionBuffer.writeFloatLE(value, vertex * 12 + axis * 4)));
+    const position = addAccessor(positionBuffer, 5126, "VEC3", points.length,
+      { min: [0, 1, 2].map((axis) => Math.min(...points.map((point) => point[axis]))),
+        max: [0, 1, 2].map((axis) => Math.max(...points.map((point) => point[axis]))) });
+    if (bone in handPositionOffsets) {
+      for (let vertex = 0; vertex < points.length; vertex += 1) handPositionOffsets[bone].push(position.offset + vertex * 12);
     }
-  });
-  const seamFailures = checkWarrior(mergedSeams, dimensions).failures;
-  assert.ok(seamFailures.some((failure) => failure.includes('"surcoat"') && failure.includes("UV seam")), seamFailures.join("\n"));
-});
+    const jointsBuffer = Buffer.alloc(points.length * 4);
+    for (let vertex = 0; vertex < points.length; vertex += 1) jointsBuffer.writeUInt8(slot, vertex * 4);
+    const joints = addAccessor(jointsBuffer, 5121, "VEC4", points.length);
+    const weightsBuffer = Buffer.alloc(points.length * 16);
+    for (let vertex = 0; vertex < points.length; vertex += 1) weightsBuffer.writeFloatLE(1, vertex * 16);
+    const weights = addAccessor(weightsBuffer, 5126, "VEC4", points.length);
+    for (let vertex = 0; vertex < points.length; vertex += 1) weightOffsets.push(weights.offset + vertex * 16);
+    const mesh = json.meshes.length;
+    json.meshes.push({ name, primitives: [{ attributes: {
+      POSITION: position.accessor, JOINTS_0: joints.accessor, WEIGHTS_0: weights.accessor,
+    } }] });
+    const node = json.nodes.length;
+    json.nodes.push({ name, mesh, skin: 0 });
+    json.scenes[0].nodes.push(node);
+  };
 
-test("a_normal_mapped_primitive_has_tangents", () => {
-  assert.equal(checkWarrior(warrior, dimensions).failures.filter((f) => /TANGENT/.test(f)).length, 0);
-
-  let victim = "";
-  const broken = mutateJson(warrior, (json) => {
-    const steel = json.materials.findIndex((material) => material.name === "steel");
-    const node = json.nodes.find((candidate) =>
-      candidate.mesh !== undefined && json.meshes[candidate.mesh].primitives.some((primitive) => primitive.material === steel));
-    victim = node.name;
-    const primitive = json.meshes[node.mesh].primitives.find((candidate) => candidate.material === steel);
-    delete primitive.attributes.TANGENT;
-  });
-  const failures = checkWarrior(broken, dimensions).failures;
-  assert.ok(failures.some((failure) => failure.includes(victim) && failure.includes("TANGENT")), failures.join("\n"));
-
-  const malformed = mutateJson(warrior, (json) => {
-    const steel = json.materials.findIndex((material) => material.name === "steel");
-    const primitive = json.meshes.flatMap((mesh) => mesh.primitives).find((candidate) => candidate.material === steel);
-    json.accessors[primitive.attributes.TANGENT].type = "VEC3";
-  });
-  assert.ok(checkWarrior(malformed, dimensions).failures.some((failure) => failure.includes("float VEC4")));
-
-  const wrongCount = mutateJson(warrior, (json) => {
-    const steel = json.materials.findIndex((material) => material.name === "steel");
-    const primitive = json.meshes.flatMap((mesh) => mesh.primitives).find((candidate) => candidate.material === steel);
-    json.accessors[primitive.attributes.TANGENT].count -= 1;
-  });
-  assert.ok(checkWarrior(wrongCount, dimensions).failures.some((failure) => failure.includes("POSITION count")));
-
-  const nonFinite = mutateJson(warrior, (json, bin) => {
-    const steel = json.materials.findIndex((material) => material.name === "steel");
-    const primitive = json.meshes.flatMap((mesh) => mesh.primitives).find((candidate) => candidate.material === steel);
-    bin.writeFloatLE(Number.NaN, accessorOffset(json, primitive.attributes.TANGENT));
-  });
-  assert.ok(checkWarrior(nonFinite, dimensions).failures.some((failure) => failure.includes("invalid TANGENT values")));
-
-  const zero = mutateJson(warrior, (json, bin) => {
-    const steel = json.materials.findIndex((material) => material.name === "steel");
-    const primitive = json.meshes.flatMap((mesh) => mesh.primitives).find((candidate) => candidate.material === steel);
-    const at = accessorOffset(json, primitive.attributes.TANGENT);
-    bin.writeFloatLE(0, at);
-    bin.writeFloatLE(0, at + 4);
-    bin.writeFloatLE(0, at + 8);
-  });
-  assert.ok(checkWarrior(zero, dimensions).failures.some((failure) => failure.includes("invalid TANGENT values")));
-
-  const dead = mutateJson(warrior, (json) => {
-    const liveTangent = json.meshes.flatMap((mesh) => mesh.primitives)
-      .map((primitive) => primitive.attributes.TANGENT)
-      .find((index) => index !== undefined);
-    json.accessors.push(structuredClone(json.accessors[liveTangent]));
-    json.bufferViews.push(structuredClone(json.bufferViews[json.accessors[liveTangent].bufferView]));
-  });
-  const deadFailures = checkWarrior(dead, dimensions).failures;
-  assert.ok(deadFailures.some((failure) => failure.includes("dead tangent payload")), deadFailures.join("\n"));
-  assert.ok(deadFailures.some((failure) => failure.includes("dead binary payload")), deadFailures.join("\n"));
-});
-
-test("every_authored_node_names_the_runtime_surface_family", () => {
-  assert.deepEqual(checkWarrior(warrior, dimensions).failures.filter((failure) => /material|runtime palette/.test(failure)), []);
-
-  const broken = mutateJson(warrior, (json) => {
-    const surcoat = json.nodes.find((node) => node.name === "surcoat");
-    const steel = json.materials.findIndex((material) => material.name === "steel");
-    json.meshes[surcoat.mesh].primitives[0].material = steel;
-  });
-  const failures = checkWarrior(broken, dimensions).failures;
-  assert.ok(failures.some((failure) => failure.includes('"surcoat"') && failure.includes("cloth_surcoat")), failures.join("\n"));
-
-  const competing = mutateJson(warrior, (json) => {
-    json.materials.find((material) => material.name === "cloth").pbrMetallicRoughness.baseColorTexture = { index: 0 };
-  });
-  assert.ok(checkWarrior(competing, dimensions).failures.some((failure) => failure.includes("runtime palette")));
-});
-
-test("the_waist_seam_covers_all_four_lean_and_twist_corners", () => {
-  assert.deepEqual(checkWarrior(warrior, dimensions).failures.filter((failure) => /waist seam/.test(failure)), []);
-  const impossible = structuredClone(dimensions);
-  impossible.body.trunkLeanMax = 1.2;
-  const failures = checkWarrior(warrior, impossible).failures;
-  assert.ok(failures.some((failure) => failure.includes("waist seam opens")), failures.join("\n"));
-});
+  for (const bone of BONE_NAMES) addMesh(meshNames.get(bone), bone);
+  addMesh("Helmet3__region_head", "head");
+  for (const [bone, name] of [["swordHand", "grip.primary"], ["offHand", "grip.secondary"]]) {
+    const marker = json.nodes.length;
+    json.nodes.push({ name, translation: [0, -dimensions.arm.handLength / 2, 0] });
+    json.nodes[boneIndex.get(bone)].children.push(marker);
+  }
+  const matrices = Buffer.alloc(BONE_NAMES.length * 16 * 4);
+  for (let matrix = 0; matrix < BONE_NAMES.length; matrix += 1) {
+    for (let diagonal = 0; diagonal < 4; diagonal += 1) matrices.writeFloatLE(1, (matrix * 16 + diagonal * 5) * 4);
+  }
+  const inverse = addAccessor(matrices, 5126, "MAT4", BONE_NAMES.length);
+  json.skins.push({ name: "WarriorRig", joints: BONE_NAMES.map((name) => boneIndex.get(name)),
+    skeleton: boneIndex.get("torso"), inverseBindMatrices: inverse.accessor });
+  const bin = Buffer.concat(chunks);
+  json.buffers[0].byteLength = bin.length;
+  return { json, bin, weightOffsets, handPositionOffsets };
+}

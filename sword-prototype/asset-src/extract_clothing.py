@@ -1,11 +1,14 @@
 """Extract the selected CC0 Ranger pieces from Quaternius's pinned archive.
 
 Run this through ``npm run armour:extract``.  The archive stays in the ignored
-review directory; the small render-only OBJ files and the bundled CC0 notice
-are the portable, reviewable sources committed beside the warrior builder.
+review directory; the selected stripped source glTF, small render-only OBJ
+studies and the bundled CC0 notice are committed beside the warrior builder.
+The glTF is kept because it carries the skin weights and finger rig that the
+OBJ studies necessarily discard; only its large unused textures are removed.
 """
 
 import argparse
+import json
 from pathlib import Path
 import sys
 import tempfile
@@ -88,6 +91,32 @@ def main():
             raise RuntimeError("clothing archive has no bundled License_Standard.txt")
         license_text = archive.read(license_member).decode("utf-8").replace("\r\n", "\n")
         (args.output / "LICENSE.txt").write_bytes(license_text.encode("utf-8"))
+
+        full_gltf = next(
+            (name for name in members if name.endswith("Exports/glTF (Godot-Unreal)/Outfits/Male_Ranger.gltf")),
+            None,
+        )
+        if full_gltf is None:
+            raise RuntimeError("clothing archive has no full Male_Ranger.gltf outfit")
+        full_bin = full_gltf[:-len("Male_Ranger.gltf")] + "Male_Ranger.bin"
+        document = json.loads(archive.read(full_gltf).decode("utf8"))
+        document["buffers"][0]["uri"] = "ranger-source.bin"
+        document.pop("images", None)
+        document.pop("textures", None)
+        document.pop("samplers", None)
+        for source_material in document.get("materials", []):
+            source_material.pop("normalTexture", None)
+            source_material.pop("occlusionTexture", None)
+            source_material.pop("emissiveTexture", None)
+            pbr = source_material.get("pbrMetallicRoughness", {})
+            pbr.pop("baseColorTexture", None)
+            pbr.pop("metallicRoughnessTexture", None)
+        gltf_target = args.output / "ranger-source.gltf"
+        bin_target = args.output / "ranger-source.bin"
+        gltf_target.write_bytes((json.dumps(document, indent=2) + "\n").encode("utf8"))
+        bin_target.write_bytes(archive.read(full_bin))
+        print(f"wrote {gltf_target}")
+        print(f"wrote {bin_target}")
 
         for source_file, objects in SOURCES.items():
             bpy.ops.wm.read_factory_settings(use_empty=True)

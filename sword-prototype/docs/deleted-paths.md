@@ -53,7 +53,6 @@ at `503bd0a`; the exact counts were deliberately removed after later asset delet
 them stale while leaving the argument unchanged.
 
 <!-- BEGIN GENERATED -->
-- `asset-src/armour/quaternius-knight/Helmet3.obj`
 - `asset-src/armour/quaternius-knight/KnightCharacter.obj`
 - `asset-src/armour/quaternius-knight/ShoulderPads.obj`
 - `asset-src/learning/baseline-v1.json`

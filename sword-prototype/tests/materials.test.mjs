@@ -19,7 +19,13 @@ import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader.js"
 import HavokPhysics from "@babylonjs/havok";
 
 import { buildTexturedSurfaces, OBJECT_SURFACE_VARIANTS, TEXTURED_SURFACES } from "../src/materials.ts";
-import { boneFrames, costumePieces, Figure, normalizeImportedTangents } from "../src/figure.ts";
+import {
+  boneFrames,
+  costumePieces,
+  Figure,
+  normalizeImportedTangents,
+  SKIN_BONE_PARENT,
+} from "../src/figure.ts";
 import { configureTexture, sharedSurface, surface, surfaceVariant } from "../src/surface.ts";
 import {
   OBJECT_PART_SURFACES,
@@ -299,37 +305,35 @@ test("the_costume_fallback_uses_the_same_surface_assignments_as_the_glb", async 
   );
 });
 
-test("the_actual_glb_loads_and_wears_each_authored_piece_on_its_declared_bone", async (t) => {
+test("the_actual_glb_installs_its_skinned_regions_and_authored_material_roles", async (t) => {
   const engine = new NullEngine();
   const scene = new Scene(engine);
   t.after(() => engine.dispose());
   const raw = await readFile(resolve(ROOT, "public/assets/warrior.glb"));
   const container = await LoadAssetContainerAsync(new Uint8Array(raw), scene, { pluginExtension: ".glb" });
   const fixture = figureFixture(scene, "wear-proof");
-  fixture.figure.wear(container, boneFrames());
+  fixture.figure.installSkin(scene, container, { prefix: "wear-proof", ...fixture.bones });
 
-  const pieces = new Map(fixture.figure.pieces.map((mesh) => [mesh.name.split(".").at(-1), mesh]));
-  const parentFailures = () => costumePieces().flatMap((piece) => {
-    const worn = pieces.get(piece.name);
-    return worn.parent === fixture.bones[piece.bone].mesh
-      ? []
-      : [`${piece.name} is not parented to ${piece.bone}`];
-  });
-  for (const piece of costumePieces()) {
-    const worn = pieces.get(piece.name);
-    const source = container.meshes.find((mesh) => mesh.name === piece.name);
-    assert.ok(source && source.getTotalVertices() > 0, `${piece.name} loads from the real GLB`);
-    assert.equal(worn.getTotalVertices(), source.getTotalVertices(), `${piece.name} replaces its fallback geometry`);
-    assert.strictEqual(worn.parent, fixture.bones[piece.bone].mesh, `${piece.name} stays on ${piece.bone}`);
-    assert.deepEqual(worn.position.asArray(), [0, 0, 0], `${piece.name} carries no fallback offset after wear`);
-    assert.deepEqual(worn.scaling.asArray(), [1, 1, 1], `${piece.name} carries no fallback scale after wear`);
+  const regions = fixture.figure.pieces;
+  assert.ok(regions.length > 13, "the skin replaces the primitive fallback with authored regions");
+  assert.ok(regions.every((mesh) => mesh.name.includes("__region_")),
+    `every installed mesh names the anatomical region that owns its faces: ${regions.map((mesh) => mesh.name).join(", ")}`);
+  assert.ok(regions.every((mesh) => mesh.skeleton), "every installed region is driven by the cloned skin");
+
+  const owners = new Set(regions.map((mesh) => Object.keys(SKIN_BONE_PARENT).find((name) =>
+    new RegExp(`__region_${name}(?:_primitive\\d+)?$`).test(mesh.name))));
+  assert.deepEqual(owners, new Set(Object.keys(SKIN_BONE_PARENT)), "the actual GLB covers every physics bone");
+
+  const authoredMaterials = new Set(container.meshes.flatMap((mesh) => {
+    if (mesh.material?.subMaterials) return mesh.material.subMaterials.map((entry) => entry?.name).filter(Boolean);
+    return mesh.material?.name ? [mesh.material.name] : [];
+  }));
+  for (const role of ["cloth", "cloth_surcoat", "leather", "steel", "flesh", "helmet.brass", "helmet.black"]) {
+    assert.ok(authoredMaterials.has(role), `the actual GLB carries the ${role} material role`);
   }
-  assert.deepEqual(parentFailures(), []);
+  assert.ok(regions.some((mesh) => mesh.material?.name === "figure.side.wear-proof"),
+    "cloth_surcoat is replaced by this fighter's side tint when the skin is installed");
 
-  const surcoat = pieces.get("surcoat");
-  surcoat.parent = fixture.bones.pelvis.mesh;
-  assert.ok(parentFailures().includes("surcoat is not parented to torso"),
-    "the parent contract catches a deliberately mis-parented piece");
   fixture.figure.dispose();
   container.dispose();
 });

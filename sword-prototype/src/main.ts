@@ -6,6 +6,7 @@ import { horizontalForward, orbitFraming } from "./camera";
 import { buildArena } from "./arena";
 import { refreshShadowCasters, type RoomOcclusionTarget } from "./arena-room";
 import { Fighter, stepPair } from "./fighter";
+import { prepareWarriorFigure } from "./figure";
 import { Arrow } from "./arrow";
 import { Combat } from "./combat";
 import { Hud } from "./hud";
@@ -170,6 +171,11 @@ async function boot(): Promise<void> {
   // sub-step so that stiff joints carrying a heavy lever behave the same on a
   // 144 Hz monitor as on a 60 Hz one.
   const arena = await buildArena(engine);
+  // A skinned fighter has to publish its real meshes at construction time:
+  // picking, shadows and the rig overlay all keep those identities. Parse the
+  // shared source while the arena is already waiting on startup work, then both
+  // fighters and every rebuild instantiate it synchronously.
+  await prepareWarriorFigure(arena.scene);
 
   // Babylon's own input manager cancels `pointerdown`, and cancelling that
   // suppresses every compatibility mouse event for the rest of the gesture. It
