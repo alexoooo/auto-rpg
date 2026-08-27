@@ -1,6 +1,6 @@
-// Rebuild the small committed Ranger OBJ sources from the pinned CC0 archive.
-// The archive itself is intentionally ignored: it is large, while these
-// deterministic, render-only extracts are what the warrior build consumes.
+// Rebuild the small committed clothing and anatomy OBJ sources from the pinned
+// CC0 archives. The archives remain ignored; the deterministic, render-only
+// extracts are what the warrior build consumes.
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -11,18 +11,12 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const record = JSON.parse(await readFile(resolve(ROOT, "asset-src/armour-sources.json"), "utf8"));
-const source = record.sources.find((candidate) => candidate.id === record.selected);
-if (!source) throw new Error(`selected armour source "${record.selected}" has no provenance row`);
-
-const archive = resolve(ROOT, source.reviewFile);
-const bytes = await readFile(archive).catch(() => null);
-if (!bytes) {
-  throw new Error(`missing ${archive} -- download "${source.title}" from ${source.downloadPage}`);
-}
-const actual = createHash("sha256").update(bytes).digest("hex");
-if (actual !== source.archiveSha256) {
-  throw new Error(`${source.title} digest ${actual}; expected ${source.archiveSha256}`);
-}
+const selected = Array.isArray(record.selected) ? record.selected : [record.selected];
+const sources = selected.map((id) => {
+  const source = record.sources.find((candidate) => candidate.id === id);
+  if (!source) throw new Error(`selected appearance source "${id}" has no provenance row`);
+  return source;
+});
 
 const candidates = [
   process.env.BLENDER_PATH,
@@ -30,20 +24,33 @@ const candidates = [
   resolve(ROOT, "../.tools/blender-4.5.12/blender-4.5.12-windows-x64/blender.exe"),
 ].filter(Boolean);
 
-let status = null;
-for (const executable of candidates) {
-  if ((executable.includes("/") || executable.includes("\\")) && !existsSync(executable)) continue;
-  const result = spawnSync(executable, [
-    "--background", "--factory-startup", "--python", "asset-src/extract_clothing.py", "--",
-    "--source", source.reviewFile, "--output", source.extractRoot,
-  ], { cwd: ROOT, encoding: "utf8", stdio: "inherit" });
-  if (result.error?.code === "ENOENT") continue;
-  if (result.error) throw result.error;
-  status = result.status ?? 1;
-  break;
+for (const source of sources) {
+  const archive = resolve(ROOT, source.reviewFile);
+  const bytes = await readFile(archive).catch(() => null);
+  if (!bytes) {
+    throw new Error(`missing ${archive} -- download "${source.title}" from ${source.downloadPage ?? source.downloadUrl}`);
+  }
+  const actual = createHash("sha256").update(bytes).digest("hex");
+  if (actual !== source.archiveSha256) {
+    throw new Error(`${source.title} digest ${actual}; expected ${source.archiveSha256}`);
+  }
+  if (!source.extractor) throw new Error(`selected appearance source "${source.id}" names no extractor`);
+
+  let status = null;
+  for (const executable of candidates) {
+    if ((executable.includes("/") || executable.includes("\\")) && !existsSync(executable)) continue;
+    const result = spawnSync(executable, [
+      "--background", "--factory-startup", "--python", source.extractor, "--",
+      "--source", source.reviewFile, "--output", source.extractRoot,
+    ], { cwd: ROOT, encoding: "utf8", stdio: "inherit" });
+    if (result.error?.code === "ENOENT") continue;
+    if (result.error) throw result.error;
+    status = result.status ?? 1;
+    break;
+  }
+  if (status === null) throw new Error("Blender was not found. Set BLENDER_PATH or install Blender on PATH.");
+  if (status !== 0) process.exit(status);
 }
-if (status === null) throw new Error("Blender was not found. Set BLENDER_PATH or install Blender on PATH.");
-if (status !== 0) process.exit(status);
 
 const verification = spawnSync(process.execPath, ["scripts/fetch-armour.mjs", "--verify"], {
   cwd: ROOT,

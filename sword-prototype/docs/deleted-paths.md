@@ -46,12 +46,16 @@ punctuation, so under `en_US.UTF-8` it puts `training-evaluator.mjs` before
 that reads as though the register were wrong. `LC_ALL=C` is byte order, which is what
 `.sort()` does for these names.
 
-`--no-renames` is not optional. With rename detection on, git reports 49 paths here instead
-of 56 and loses 7 old names that references in this tree still use, because a rename is
+`--no-renames` is not optional. With rename detection on, the two counts can differ and old
+names that references in this tree still use disappear, because a rename is
 recorded as one modification rather than as a deletion plus an addition. Measured 2026-08-25
-at `503bd0a`.
+at `503bd0a`; the exact counts were deliberately removed after later asset deletions made
+them stale while leaving the argument unchanged.
 
 <!-- BEGIN GENERATED -->
+- `asset-src/armour/quaternius-knight/Helmet3.obj`
+- `asset-src/armour/quaternius-knight/KnightCharacter.obj`
+- `asset-src/armour/quaternius-knight/ShoulderPads.obj`
 - `asset-src/learning/baseline-v1.json`
 - `asset-src/learning/engagement-baseline-v1.json`
 - `asset-src/learning/unpromoted-v1.json`

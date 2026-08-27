@@ -22,6 +22,9 @@ const sources = selectedIds.map((id) => {
   if (!/^[0-9a-f]{64}$/.test(source.archiveSha256 ?? "")) {
     throw new Error(`selected armour source "${id}" has no valid archive SHA-256`);
   }
+  if (!["bundled-notice", "official-page"].includes(source.licenseEvidence)) {
+    throw new Error(`selected armour source "${id}" has no recognized license evidence`);
+  }
   return source;
 });
 
@@ -41,13 +44,16 @@ async function verifyExtracts(source) {
     if (actual !== expected) {
       throw new Error(`armour extract ${filename} digest ${actual}; expected ${expected}`);
     }
-    if (filename === "LICENSE.txt") {
+    if (filename === "LICENSE.txt" && source.licenseEvidence === "bundled-notice") {
       const notice = bytes.toString("utf8");
       if (!notice.includes("CC0 1.0 Universal") ||
           !notice.includes("creativecommons.org/publicdomain/zero/1.0")) {
         throw new Error(`armour license extract ${filename} does not contain the pinned CC0 notice`);
       }
     }
+  }
+  if (source.licenseEvidence === "bundled-notice" && !("LICENSE.txt" in (source.extracts ?? {}))) {
+    throw new Error(`selected armour source "${source.id}" has no pinned bundled license notice`);
   }
 }
 

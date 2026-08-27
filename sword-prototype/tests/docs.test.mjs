@@ -107,7 +107,7 @@ const SCAN_EXT = /\.(?:ts|tsx|mjs|cjs|js|jsx|md)$/;
 // the other side: any span containing a `/` and ending in an extension must have that
 // extension here, so the next asset type cannot slip out of the judged population
 // silently the way these eleven did.
-const FILE_EXT = /\.(?:ts|tsx|mjs|cjs|js|jsx|md|json|html|css|bin|txt|yml|yaml|toml|wasm|glb|py|jsonl)$/i;
+const FILE_EXT = /\.(?:ts|tsx|mjs|cjs|js|jsx|md|json|html|css|bin|txt|yml|yaml|toml|wasm|glb|obj|py|jsonl)$/i;
 
 // A code span, CommonMark-style: a run of N backticks closed by a run of exactly N.
 // The lookarounds matter -- without them a match starts inside a run and

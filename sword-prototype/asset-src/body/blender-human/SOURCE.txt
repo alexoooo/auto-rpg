@@ -1,0 +1,5 @@
+Blender Human Base Meshes v1.4.1
+Source: https://www.blender.org/download/demo-files/
+Archive: https://download.blender.org/demo/asset-bundles/human-base-meshes/human-base-meshes-bundle-v1.4.1.zip
+The official Blender source page publishes this asset bundle under CC0.
+Selected object: GEO-body_male_realistic, Multires level 0.

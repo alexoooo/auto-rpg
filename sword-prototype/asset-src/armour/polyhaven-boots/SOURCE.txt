@@ -1,0 +1,5 @@
+Poly Haven Rubber Boots
+Source: https://polyhaven.com/a/rubber_boots
+Download: https://dl.polyhaven.org/file/ph-assets/Models/blend/1k/rubber_boots/rubber_boots_1k.blend
+Poly Haven publishes this asset under CC0.
+Selected objects: clean left and right LOD1 meshes; materials and textures discarded.

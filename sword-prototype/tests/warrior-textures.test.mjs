@@ -5,21 +5,26 @@ import { dirname, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { checkWarrior } from "../scripts/check-warrior.mjs";
+import { checkWarrior, checkWarriorBuilder } from "../scripts/check-warrior.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
 const warrior = await readFile(process.env.SWORD_WARRIOR_UNDER_TEST ?? resolve(ROOT, "public/assets/warrior.glb"));
 const dimensions = JSON.parse(await readFile(resolve(ROOT, "asset-src/dimensions.json"), "utf8"));
+const provenance = JSON.parse(await readFile(resolve(ROOT, "asset-src/armour-sources.json"), "utf8"));
 
 test("every_imported_character_source_has_a_pinned_cc0_license_record", async () => {
-  const provenance = JSON.parse(await readFile(resolve(ROOT, "asset-src/armour-sources.json"), "utf8"));
-  assert.equal(typeof provenance.selected, "string");
-  for (const id of [provenance.selected]) {
+  assert.ok(Array.isArray(provenance.selected));
+  assert.deepEqual(provenance.selected, [
+    "quaternius-modular-character-outfits-fantasy-standard-2026",
+    "blender-human-base-meshes-1.4.1",
+    "poly-haven-rubber-boots-1k-2026",
+  ]);
+  for (const id of provenance.selected) {
     const selected = provenance.sources.find((source) => source.id === id);
     assert.ok(selected, `selected character source ${id} has a row`);
     assert.equal(selected.license, "CC0-1.0");
-    assert.match(selected.officialPage, /^https:\/\/quaternius\.com\//);
+    assert.match(selected.officialPage, /^https:\/\/(?:www\.blender\.org|quaternius\.com|polyhaven\.com)\//);
     assert.match(selected.licenseUrl, /creativecommons\.org\/publicdomain\/zero\/1\.0/);
     assert.match(selected.archiveSha256, /^[0-9a-f]{64}$/);
     assert.ok(selected.selectedObjects.length >= 1);
@@ -31,10 +36,31 @@ test("every_imported_character_source_has_a_pinned_cc0_license_record", async ()
       const actual = createHash("sha256").update(bytes).digest("hex");
       assert.equal(actual, expected, `${filename} matches its selected-extract pin`);
     }
-    const notice = await readFile(resolve(ROOT, selected.extractRoot, "LICENSE.txt"), "utf8");
-    assert.match(notice, /CC0 1\.0 Universal/);
-    assert.match(notice, /creativecommons\.org\/publicdomain\/zero\/1\.0/);
+    if (selected.licenseEvidence === "bundled-notice") {
+      const notice = await readFile(resolve(ROOT, selected.extractRoot, "LICENSE.txt"), "utf8");
+      assert.match(notice, /CC0 1\.0 Universal/);
+      assert.match(notice, /creativecommons\.org\/publicdomain\/zero\/1\.0/);
+    } else {
+      assert.equal(selected.licenseEvidence, "official-page");
+      assert.ok("SOURCE.txt" in selected.extracts);
+    }
   }
+});
+
+test("the_shipping_warrior_is_built_only_from_pinned_source_meshes", async () => {
+  const source = await readFile(resolve(ROOT, "asset-src/build_warrior.py"), "utf8");
+  assert.deepEqual(checkWarriorBuilder(source, provenance), []);
+
+  const buildAt = source.indexOf("\ndef build(dimensions):");
+  const importedAt = source.indexOf("imported_obj(", buildAt);
+  const mutated = source.slice(0, importedAt) + "box(" + source.slice(importedAt + "imported_obj(".length);
+  assert.ok(checkWarriorBuilder(mutated, provenance).some((failure) => failure.includes("generated box geometry")));
+
+  const donorHand = source.replace('source_material == "MI_Ranger"', 'source_material != "MI_Ranger"');
+  assert.ok(checkWarriorBuilder(donorHand, provenance).some((failure) => failure.includes("exclude donor-body material")));
+
+  const unregistered = source.replace('"ranger-body.obj"', '"unregistered.obj"');
+  assert.ok(checkWarriorBuilder(unregistered, provenance).some((failure) => failure.includes("not a selected pinned OBJ")));
 });
 
 test("the_warrior_has_no_dead_geometry_payload", () => {
@@ -81,16 +107,29 @@ test("unreachable_meshes_and_duplicate_piece_names_are_refused", () => {
     failure.includes('piece name "surcoat" occurs 2 times')));
 });
 
-test("the_selected_ranger_geometry_is_present_in_the_shipping_glb", () => {
+test("every_selected_source_adaptation_is_present_in_the_shipping_glb", () => {
   assert.deepEqual(checkWarrior(warrior, dimensions).failures.filter((failure) =>
-    failure.includes("authored Ranger adaptation")), []);
+    failure.includes("pinned source adaptation")), []);
 
   const stripped = mutateJson(warrior, (json) => {
     const node = json.nodes.find((candidate) => candidate.name === "surcoat");
     json.accessors[json.meshes[node.mesh].primitives[0].indices].count = 3;
   });
   assert.ok(checkWarrior(stripped, dimensions).failures.some((failure) =>
-    failure.includes('"surcoat"') && failure.includes("authored Ranger adaptation")));
+    failure.includes('"surcoat"') && failure.includes("pinned source adaptation")));
+});
+
+test("the_authored_hands_meet_their_bracers_without_a_block_or_gap", () => {
+  assert.deepEqual(checkWarrior(warrior, dimensions).failures.filter((failure) => /wrist seam/.test(failure)), []);
+
+  const separated = mutateJson(warrior, (json) => {
+    const hand = json.nodes.find((node) => node.name === "handR");
+    const position = json.accessors[json.meshes[hand.mesh].primitives[0].attributes.POSITION];
+    position.min[1] -= 0.1;
+    position.max[1] -= 0.1;
+  });
+  const failures = checkWarrior(separated, dimensions).failures;
+  assert.ok(failures.some((failure) => failure.includes('"handR" wrist seam opens')), failures.join("\n"));
 });
 
 const accessorOffset = (json, accessorIndex, element = 0) => {

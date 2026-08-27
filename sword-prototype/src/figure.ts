@@ -234,8 +234,9 @@ export function costumePieces(): CostumePiece[] {
         at: [x, B.shinCentre, 0],
         primitive: { kind: "capsule", height: 0.42, radius: 0.068 },
       },
-      // The sole sits on the floor: half the 0.075 boot above zero. Twenty
-      // millimetres out and the figure reads as hovering.
+      // The fallback keeps the old footprint only for a failed asset load. The
+      // authored piece is Poly Haven's rounded LOD1 boot foot, recoloured as
+      // worn leather and joined visually to the Ranger boot shaft.
       {
         name: `foot${suffix}`,
         bone: shin,
@@ -261,13 +262,6 @@ export function costumePieces(): CostumePiece[] {
       material: "cloth",
       at: [0, 1.34, 0],
       primitive: { kind: "box", size: [0.37, 0.34, 0.25] },
-    },
-    {
-      name: "collar",
-      bone: "torso",
-      material: "leather",
-      at: [0, 1.49, 0],
-      primitive: { kind: "box", size: [0.40, 0.07, 0.26] },
     },
     {
       name: "pauldronR",
@@ -337,13 +331,6 @@ export function costumePieces(): CostumePiece[] {
       material: "cloth",
       at: [0, 1.655, -0.004],
       primitive: { kind: "sphere", diameter: 0.235, scale: [1, 0.92, 1.04] },
-    },
-    {
-      name: "nasal",
-      bone: "head",
-      material: "steel",
-      at: [0, B.headCentre + 0.06, 0.095],
-      primitive: { kind: "box", size: [0.028, 0.13, 0.03] },
     },
 
     // ---- free arm ----

@@ -274,15 +274,17 @@ angular motor at 40 000 N.m -- over a thousand times the shipped 34 -- moved the
 - `__sword.rigview.audit()`: **45 bodies and 104 meshes, unchanged across 10 cycles**, and
   the body count holds over 50. The overlay creates no physics object, which is its central
   promise.
-- `public/assets/warrior.glb`: 24 nodes, **33 379 triangles per fighter** after the
-  2026-08-27 CC0 Ranger-clothing adaptation, up from 15 712 for the mostly procedural
-  costume. Both fighters carry 66 758 triangles in 48 costume meshes; `G` strips and
-  restores all 48. The committed GLB is 1.82 MiB, against 0.72 MiB before the adaptation.
+- `public/assets/warrior.glb`: 22 nodes, **37 575 triangles per fighter** after the
+  2026-08-27 CC0 body-and-clothing adaptation, up from 33 379 for the Ranger-plus-generated
+  hybrid. Both fighters carry 75 150 triangles in 44 costume meshes; `G` strips and
+  restores all 44. The committed GLB is 2.04 MiB. Every shipping piece is source-derived:
+  Blender Studio anatomy, Quaternius clothing or the rounded Poly Haven boot foot.
 - Dimensional check (`npm run asset:verify`): floor 0.0 mm, crown 1.800 m against a
   `fighter.height` of 1.800. The digest is pinned in `scripts/run-blender.mjs`; it pins the
   *file*, not the build, because Blender's glTF exporter is not byte-reproducible.
-- Fallback verified by renaming the asset away: the page boots clean, no uncaught error,
-  heads still hold 1.660 after 10 s, triangles drop to 10 952 primitives.
+- The load-failure fallback remains a diagnostic path and carries no authority. The normal
+  committed asset contains no generated primitive triangle; the builder and its mutation
+  test refuse one.
 
 Session 08's static asset/material audit, not a visible-browser GPU capture:
 
@@ -293,6 +295,7 @@ Session 08's static asset/material audit, not a visible-browser GPU capture:
 | + weapon/object families | **15 712** | **48 for two fighters** | **10.94 MiB / 24 maps** | **128.0 MiB** |
 | + room wall/timber/banner | **15 712** | **48 for two fighters** | **16.97 MiB / 33 maps** | **176.0 MiB** |
 | + CC0 Ranger modular clothing | **33 379** | **48 for two fighters** | **16.97 MiB / 33 maps** | **176.0 MiB** |
+| + CC0 anatomy fragments and rounded boot feet | **37 575** | **44 for two fighters** | **16.97 MiB / 33 maps** | **176.0 MiB** |
 
 The draw count is the mesh count -- no piece was split or merged -- and the memory column is
 the conservative decoded RGBA8 mip-chain calculation, not a driver reading. Three Terlenka
@@ -451,8 +454,10 @@ the numbered list here now carries only playtest history and judgements that rem
 
 9. **Character surfaces implemented; current static clothing review passed.** The welded
    articulated-piece contract remains, but creator-authored Ranger modules now supply the
-   tunic, coat-skirts, belts, hood, sleeves, bracers, pauldrons, trousers and boots instead of
-   asking primitive tubes and boxes to imply them. Cloth, skin detail, leather and worked
+   tunic, coat-skirts, belts, hood, sleeves, bracers, pauldrons, trousers and boot shafts;
+   the restored Blender Studio human supplies the face, hands and body underlayer; and
+   rounded Poly Haven LOD1 boot feet replace the square Ranger foot sections. No generated
+   geometry contributes to any healthy-load piece. Cloth, skin detail, leather and worked
    steel retain separate CC0 PBR families, consistent authored texel density and total
    piece-to-family mapping. The earlier disappearing-map failure is closed by delayed
    attachment and colour fallback. Front/back/side static renders on 2026-08-27 resolved the

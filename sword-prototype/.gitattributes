@@ -2,3 +2,6 @@
 # extractor's explicit LF output intact on Windows checkouts.
 asset-src/armour/**/*.obj text eol=lf
 asset-src/armour/**/LICENSE.txt text eol=lf
+asset-src/armour/**/SOURCE.txt text eol=lf
+asset-src/body/**/*.obj text eol=lf
+asset-src/body/**/SOURCE.txt text eol=lf

@@ -1,6 +1,10 @@
 {
   "schema": 2,
-  "selected": "quaternius-modular-character-outfits-fantasy-standard-2026",
+  "selected": [
+    "quaternius-modular-character-outfits-fantasy-standard-2026",
+    "blender-human-base-meshes-1.4.1",
+    "poly-haven-rubber-boots-1k-2026"
+  ],
   "sources": [
     {
       "id": "quaternius-modular-character-outfits-fantasy-standard-2026",
@@ -10,15 +14,17 @@
       "downloadPage": "https://quaternius.itch.io/modular-character-outfits-fantasy/purchase",
       "reviewFile": ".review/armour-sources/quaternius-modular-fantasy-standard.zip",
       "extractRoot": "asset-src/armour/quaternius-ranger",
+      "extractor": "asset-src/extract_clothing.py",
       "license": "CC0-1.0",
       "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "licenseEvidence": "bundled-notice",
       "retrieved": "2026-08-27",
       "archiveSha256": "c3468b18871cc8c8f05ab14df7712baf22cb9f389cbd870babf130e595187f70",
       "selectedObjects": [
         "Modular Parts/Male_Ranger_Body.gltf: body and both belts",
         "Modular Parts/Male_Ranger_Arms.gltf: sleeves and bracers",
         "Modular Parts/Male_Ranger_Acc_Pauldron.gltf: right pauldron, mirrored for the left",
-        "Modular Parts/Male_Ranger_Feet_Boots.gltf: both tall boots",
+        "Modular Parts/Male_Ranger_Feet_Boots.gltf: both tall boot shafts",
         "Modular Parts/Male_Ranger_Head_Hood.gltf: open hood",
         "Modular Parts/Male_Ranger_Legs.gltf: both trouser legs"
       ],
@@ -34,11 +40,78 @@
         "ranger-pauldron.obj": "e8451799499fe9ac3e625d12c7e54d915109879a960737ac41dc670086b67d47"
       },
       "adaptations": [
-        "the authored tunic, coat-skirts, belts, hood, sleeves, bracers, pauldron, trousers and boots are selected",
+        "the authored tunic, coat-skirts, belts, hood, sleeves, bracers, pauldron, trousers and boot shafts are selected",
         "armature, animation, donor body, donor hands and textures are discarded",
         "modular pieces are fitted and split at the prototype's rigid costume-piece boundaries",
         "piece origins are baked to the existing physics-bone joints",
         "runtime materials replace source materials and preserve side colour",
+        "all imported geometry remains render-only"
+      ]
+    },
+    {
+      "id": "blender-human-base-meshes-1.4.1",
+      "title": "Blender Human Base Meshes v1.4.1",
+      "author": "Blender Studio and community contributors",
+      "officialPage": "https://www.blender.org/download/demo-files/",
+      "downloadPage": "https://download.blender.org/demo/asset-bundles/human-base-meshes/",
+      "reviewFile": ".review/human-sources/human-base-meshes-bundle-v1.4.1.zip",
+      "extractRoot": "asset-src/body/blender-human",
+      "extractor": "asset-src/extract_human.py",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "licenseEvidence": "official-page",
+      "retrieved": "2026-08-27",
+      "archiveSha256": "811f43accbb31a88266d932f8f5563b2d13586fca0ba2693aad1f5fe582b3515",
+      "selectedObjects": [
+        "GEO-body_male_realistic at Multires level 0: torso, pelvis, neck and face-set-defined head",
+        "GEO-body_male_realistic at Multires level 0: both face-set-defined hands"
+      ],
+      "extracts": {
+        "SOURCE.txt": "48370d8633e1585af9c782d63486c3a12abec8b5e3e218fe357c7bdb0228002f",
+        "human-hand-l.obj": "483a0839da61fa99a0725624ca95d859dc02ba9f3e2047edae9566ad5b2aa43c",
+        "human-hand-r.obj": "634afe18292dea58ae1cfda61d5b86cd027526bd62694ea8ff0355301f400e3a",
+        "human-head.obj": "13f03e59f97267cad18a1189122006714ef6283b0da6a03eca29f62f00d7085c",
+        "human-neck.obj": "c6c08c414529de8d1ba93a969feb7a6298d70fd097d5f99242fb3ae7f8409d1e",
+        "human-pelvis.obj": "6a25fac82cd89e9013d10cf6f75a78ab06872ae027a7d1b9f97795cfc16df837",
+        "human-torso.obj": "bebe51515f58e17da01f03dd05c2d9042bbe2b967feb5a02362cafaea1455442"
+      },
+      "adaptations": [
+        "the remembered realistic body is restored from the official Blender source rather than copied from the earlier experiment",
+        "face sets split the source at the prototype's rigid physics-bone boundaries",
+        "the level-zero cage is used so two fighters remain suitable for realtime rendering",
+        "the authored hands are fitted upward into the rigid bracers so the source remains one hand per arm",
+        "armature, multires detail, skinning, animation and source materials are discarded",
+        "all imported geometry remains render-only"
+      ]
+    },
+    {
+      "id": "poly-haven-rubber-boots-1k-2026",
+      "title": "Rubber Boots",
+      "author": "L for Poly Haven",
+      "officialPage": "https://polyhaven.com/a/rubber_boots",
+      "downloadUrl": "https://dl.polyhaven.org/file/ph-assets/Models/blend/1k/rubber_boots/rubber_boots_1k.blend",
+      "downloadPage": "https://polyhaven.com/a/rubber_boots",
+      "reviewFile": ".review/human-sources/rubber_boots_1k.blend",
+      "extractRoot": "asset-src/armour/polyhaven-boots",
+      "extractor": "asset-src/extract_boots.py",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "licenseEvidence": "official-page",
+      "retrieved": "2026-08-27",
+      "archiveSha256": "d562c416674a68bca88ad52048e58d7f460cf25cd0c82b20a7e2a5441d003b04",
+      "selectedObjects": [
+        "rubber_boots_l_LOD1: lower foot section adapted beneath the Ranger shaft",
+        "rubber_boots_r_LOD1: lower foot section adapted beneath the Ranger shaft"
+      ],
+      "extracts": {
+        "SOURCE.txt": "942d0689b5c07eeefbec47c38c041cd4eb8034794c922425a3d5cd69b478460e",
+        "boot-l.obj": "c63fdb600f0bb02770e55d005f4a3003a1115a05362425a4364a4e935399e3c8",
+        "boot-r.obj": "ffbd4ebbb523b62cc6f1c81ae31b1b5400f50bf2f0bbca3660687f2b62df1728"
+      },
+      "adaptations": [
+        "only the rounded LOD1 foot and heel are retained beneath the existing Ranger boot shaft",
+        "the modern rubber material and all source textures are discarded in favour of the game leather surface",
+        "the fitted result reads as a soft leather boot rather than a square block from the game camera",
         "all imported geometry remains render-only"
       ]
     }

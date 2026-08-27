@@ -177,7 +177,7 @@ function checkTextureGeometry(json, bin, found, fail) {
         const c = uvs[indices[i + 2][0]];
         if (!a || !b || !c) continue;
         const area = Math.abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])) / 2;
-        if (area <= 1e-8 && !degenerate) degenerate = { triangle: i / 3, uv: [a, b, c] };
+        if (area <= 1e-12 && !degenerate) degenerate = { triangle: i / 3, uv: [a, b, c] };
       }
       if (degenerate) fail(
         `"${node.name}" textured primitive (${material}) has a zero-area UV triangle ` +
@@ -369,27 +369,32 @@ function checkGeometryReachability(json, bin, fail) {
   }
 }
 
-// These are not a triangle budget. They prove that the selected modular donor
-// is still present in the pieces whose primitive fallbacks have the same names.
-// A lower number is allowed only when the adaptation itself is deliberately
-// changed and visually re-reviewed.
+// These are not a triangle budget. Every shipping piece is source-derived now,
+// so every name has a floor. A lower number is allowed only when the adaptation
+// itself is deliberately changed and visually re-reviewed.
 const AUTHORED_TRIANGLE_FLOORS = {
-  belly: 1700,
-  footL: 1000,
-  footR: 1000,
-  forearmL: 2500,
-  forearmR: 2500,
-  helm: 1800,
-  pauldronL: 1500,
-  pauldronR: 1500,
-  shinL: 4000,
-  shinR: 4000,
-  skirt: 550,
-  surcoat: 2000,
-  thighL: 250,
-  thighR: 250,
-  upperArmL: 500,
-  upperArmR: 500,
+  belly: 1500,
+  chest: 1300,
+  footL: 2400,
+  footR: 2400,
+  forearmL: 900,
+  forearmR: 900,
+  handL: 1250,
+  handR: 1250,
+  head: 6300,
+  helm: 1700,
+  neck: 900,
+  pauldronL: 1250,
+  pauldronR: 1250,
+  pelvis: 300,
+  shinL: 3500,
+  shinR: 3500,
+  skirt: 500,
+  surcoat: 1900,
+  thighL: 180,
+  thighR: 180,
+  upperArmL: 450,
+  upperArmR: 450,
 };
 
 function checkAuthoredGeometry(json, found, fail) {
@@ -404,7 +409,57 @@ function checkAuthoredGeometry(json, found, fail) {
       return sum + (accessor?.count ?? 0) / 3;
     }, 0);
     if (triangles < floor) {
-      fail(`"${node.name}" has ${triangles} triangles; the authored Ranger adaptation requires at least ${floor}`);
+      fail(`"${node.name}" has ${triangles} triangles; its pinned source adaptation requires at least ${floor}`);
+    }
+  }
+}
+
+/**
+ * Refuse a shipping builder that can put a generated primitive in the GLB.
+ *
+ * This extracts the build function rather than grepping an arbitrary line, and
+ * its test mutates a real imported call into a box call before trusting it. The
+ * primitive fallback in figure.ts is a separate load-failure path; this rule is
+ * specifically about the asset a healthy game displays.
+ */
+export function checkWarriorBuilder(source, provenance) {
+  const failures = [];
+  const match = source.match(/\ndef build\(dimensions\):([\s\S]*?)\n\ndef export\(/);
+  if (!match) return ["the warrior builder has no readable build function"];
+  const build = match[1];
+  const generated = [...build.matchAll(/\b(ball|box|tube|ring|plate)\s*\(/g)].map((entry) => entry[1]);
+  if (generated.length) failures.push(`the shipping build calls generated ${[...new Set(generated)].join(", ")} geometry`);
+  if (/bpy\.ops\.mesh\.primitive_/.test(source)) {
+    failures.push("the warrior builder still contains a Blender primitive constructor");
+  }
+  if (!source.includes('if "source_extract" not in part:')) {
+    failures.push("the piece welder does not refuse geometry without a pinned source extract");
+  }
+  if ((build.match(/source_material == "MI_Ranger"/g) ?? []).length !== 2) {
+    failures.push("the Ranger sleeve and bracer imports do not both exclude donor-body material");
+  }
+  if (!source.includes("SOURCE_PINS.get(resolved)") || !source.includes("hashlib.sha256(source_bytes).hexdigest()")) {
+    failures.push("the OBJ importer does not verify selected source path and digest at build time");
+  }
+  const selected = Array.isArray(provenance?.selected) ? provenance.selected : [provenance?.selected].filter(Boolean);
+  const allowed = new Set((provenance?.sources ?? [])
+    .filter((row) => selected.includes(row.id))
+    .flatMap((row) => Object.keys(row.extracts ?? {}))
+    .filter((name) => name.endsWith(".obj")));
+  for (const [, filename] of source.matchAll(/"([^"/\\]+\.obj)"/g)) {
+    if (!allowed.has(filename)) failures.push(`"${filename}" is not a selected pinned OBJ`);
+  }
+  return failures;
+}
+
+function checkWristSeams(actual, fail) {
+  for (const suffix of ["L", "R"]) {
+    const forearm = actual.get(`forearm${suffix}`);
+    const hand = actual.get(`hand${suffix}`);
+    if (!forearm || !hand) continue;
+    const gap = forearm.min[1] - hand.max[1];
+    if (gap > 0.005) {
+      fail(`"hand${suffix}" wrist seam opens ${Math.round(gap * 1000)} mm below its bracer`);
     }
   }
 }
@@ -528,6 +583,7 @@ export function checkWarrior(buffer, dimensions) {
   for (const name of actual.keys()) {
     if (!expected.has(name)) fail(`"${name}" is in the asset and is not a piece figure.ts dresses`);
   }
+  checkWristSeams(actual, fail);
 
   // ---- every piece cut at its own joint, and reaching no further than a limb ----
   for (const piece of dimensions.pieces) {

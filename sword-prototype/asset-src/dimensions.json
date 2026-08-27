@@ -293,16 +293,6 @@
       ]
     },
     {
-      "name": "collar",
-      "bone": "torso",
-      "material": "leather",
-      "at": [
-        0,
-        1.49,
-        0
-      ]
-    },
-    {
       "name": "pauldronR",
       "bone": "torso",
       "material": "steel",
@@ -380,16 +370,6 @@
         0,
         1.655,
         -0.004
-      ]
-    },
-    {
-      "name": "nasal",
-      "bone": "head",
-      "material": "steel",
-      "at": [
-        0,
-        1.72,
-        0.095
       ]
     },
     {
