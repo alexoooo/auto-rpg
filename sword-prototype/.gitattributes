@@ -1,0 +1,4 @@
+# These deterministic source extracts are pinned byte-for-byte.  Keep the
+# extractor's explicit LF output intact on Windows checkouts.
+asset-src/armour/**/*.obj text eol=lf
+asset-src/armour/**/LICENSE.txt text eol=lf

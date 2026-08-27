@@ -1,28 +1,44 @@
 {
-  "schema": 1,
-  "selected": "quaternius-animated-knight-2018",
+  "schema": 2,
+  "selected": "quaternius-modular-character-outfits-fantasy-standard-2026",
   "sources": [
     {
-      "id": "quaternius-animated-knight-2018",
-      "title": "Animated Knight Pack",
+      "id": "quaternius-modular-character-outfits-fantasy-standard-2026",
+      "title": "Modular Character Outfits - Fantasy [Standard]",
       "author": "Quaternius",
-      "officialPage": "https://quaternius.com/packs/knightcharacter.html",
-      "archiveMirror": "https://opengameart.org/sites/default/files/Knight%20Character%20by%20%40Quaternius.zip",
+      "officialPage": "https://quaternius.com/packs/modularcharacteroutfitsfantasy.html",
+      "downloadPage": "https://quaternius.itch.io/modular-character-outfits-fantasy/purchase",
+      "reviewFile": ".review/armour-sources/quaternius-modular-fantasy-standard.zip",
+      "extractRoot": "asset-src/armour/quaternius-ranger",
       "license": "CC0-1.0",
       "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
-      "retrieved": "2026-08-24",
-      "archiveSha256": "36aed14d0e27282bd006982e00206a852b1d8c00fc72f95c2437d9b4b5dccdb9",
+      "retrieved": "2026-08-27",
+      "archiveSha256": "c3468b18871cc8c8f05ab14df7712baf22cb9f389cbd870babf130e595187f70",
       "selectedObjects": [
-        "OBJ/KnightCharacter.obj: Armor material faces",
-        "OBJ/Helmet3.obj",
-        "OBJ/ShoulderPads.obj"
+        "Modular Parts/Male_Ranger_Body.gltf: body and both belts",
+        "Modular Parts/Male_Ranger_Arms.gltf: sleeves and bracers",
+        "Modular Parts/Male_Ranger_Acc_Pauldron.gltf: right pauldron, mirrored for the left",
+        "Modular Parts/Male_Ranger_Feet_Boots.gltf: both tall boots",
+        "Modular Parts/Male_Ranger_Head_Hood.gltf: open hood",
+        "Modular Parts/Male_Ranger_Legs.gltf: both trouser legs"
       ],
+      "extracts": {
+        "LICENSE.txt": "9eddea33ca29a6d3918a2a6fa62e0441e6ecc4626c73a18d752e2a35ae4bb22f",
+        "ranger-arms.obj": "9bc8b17272811c1925505a51ab3e935fea6e4315f94a150beec24c1550dea94e",
+        "ranger-belt-lower.obj": "a1dc76822cbbf8233cf511efbe822cc51025012f8294f2a0ff0633bd5807c4af",
+        "ranger-belt-upper.obj": "d1a66f7e0d69c078cea1036ecddcf8374c91700d3b0459ff77c99db8644bf710",
+        "ranger-body.obj": "d1f2c7bcc10dd15246e91d67eacb929bcf4afd9938cc745bae1b2394438724ee",
+        "ranger-boots.obj": "b385aa1aa25476f10de67d0b234b8a6234d1eada46887c2669101528934d03e7",
+        "ranger-hood.obj": "c560fcae41fb0ffd81ec97b89e17ee92626c4ad25bcfbfb99a738730f63b4e3f",
+        "ranger-legs.obj": "d6c0806a34a8ad2e9277d241dd9f47f2e0205ed8fdaf042b74cb63b43e97036b",
+        "ranger-pauldron.obj": "e8451799499fe9ac3e625d12c7e54d915109879a960737ac41dc670086b67d47"
+      },
       "adaptations": [
-        "animation and armature discarded",
-        "weapon props discarded",
-        "selected armour is split at the prototype's rigid costume-piece boundaries",
+        "the authored tunic, coat-skirts, belts, hood, sleeves, bracers, pauldron, trousers and boots are selected",
+        "armature, animation, donor body, donor hands and textures are discarded",
+        "modular pieces are fitted and split at the prototype's rigid costume-piece boundaries",
         "piece origins are baked to the existing physics-bone joints",
-        "runtime materials are replaced by the arena palette and side cloth remains separate",
+        "runtime materials replace source materials and preserve side colour",
         "all imported geometry remains render-only"
       ]
     }

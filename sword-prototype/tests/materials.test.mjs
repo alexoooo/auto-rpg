@@ -15,6 +15,7 @@ import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
 import { VertexBuffer } from "@babylonjs/core/Buffers/buffer.js";
 import { Scene } from "@babylonjs/core/scene.js";
+import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader.js";
 import HavokPhysics from "@babylonjs/havok";
 
 import { buildTexturedSurfaces, OBJECT_SURFACE_VARIANTS, TEXTURED_SURFACES } from "../src/materials.ts";
@@ -235,7 +236,7 @@ function figureFixture(scene, prefix, sharedMaterials = null) {
       cloth, flesh: material(scene, "flesh"),
     };
   })();
-  return { figure: new Figure(scene, { prefix, ...bones }, materials), materials };
+  return { figure: new Figure(scene, { prefix, ...bones }, materials), materials, bones };
 }
 
 test("every_costume_piece_names_one_known_surface_family", () => {
@@ -296,6 +297,41 @@ test("the_costume_fallback_uses_the_same_surface_assignments_as_the_glb", async 
     dimensions.pieces.map((piece) => [piece.name, piece.material]),
     [...runtime],
   );
+});
+
+test("the_actual_glb_loads_and_wears_each_authored_piece_on_its_declared_bone", async (t) => {
+  const engine = new NullEngine();
+  const scene = new Scene(engine);
+  t.after(() => engine.dispose());
+  const raw = await readFile(resolve(ROOT, "public/assets/warrior.glb"));
+  const container = await LoadAssetContainerAsync(new Uint8Array(raw), scene, { pluginExtension: ".glb" });
+  const fixture = figureFixture(scene, "wear-proof");
+  fixture.figure.wear(container, boneFrames());
+
+  const pieces = new Map(fixture.figure.pieces.map((mesh) => [mesh.name.split(".").at(-1), mesh]));
+  const parentFailures = () => costumePieces().flatMap((piece) => {
+    const worn = pieces.get(piece.name);
+    return worn.parent === fixture.bones[piece.bone].mesh
+      ? []
+      : [`${piece.name} is not parented to ${piece.bone}`];
+  });
+  for (const piece of costumePieces()) {
+    const worn = pieces.get(piece.name);
+    const source = container.meshes.find((mesh) => mesh.name === piece.name);
+    assert.ok(source && source.getTotalVertices() > 0, `${piece.name} loads from the real GLB`);
+    assert.equal(worn.getTotalVertices(), source.getTotalVertices(), `${piece.name} replaces its fallback geometry`);
+    assert.strictEqual(worn.parent, fixture.bones[piece.bone].mesh, `${piece.name} stays on ${piece.bone}`);
+    assert.deepEqual(worn.position.asArray(), [0, 0, 0], `${piece.name} carries no fallback offset after wear`);
+    assert.deepEqual(worn.scaling.asArray(), [1, 1, 1], `${piece.name} carries no fallback scale after wear`);
+  }
+  assert.deepEqual(parentFailures(), []);
+
+  const surcoat = pieces.get("surcoat");
+  surcoat.parent = fixture.bones.pelvis.mesh;
+  assert.ok(parentFailures().includes("surcoat is not parented to torso"),
+    "the parent contract catches a deliberately mis-parented piece");
+  fixture.figure.dispose();
+  container.dispose();
 });
 
 test("late_palette_maps_reach_a_live_side_tint_without_new_wrappers", (t) => {

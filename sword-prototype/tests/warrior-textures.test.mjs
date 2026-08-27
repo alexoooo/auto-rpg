@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import test from "node:test";
@@ -13,13 +14,27 @@ const dimensions = JSON.parse(await readFile(resolve(ROOT, "asset-src/dimensions
 
 test("every_imported_character_source_has_a_pinned_cc0_license_record", async () => {
   const provenance = JSON.parse(await readFile(resolve(ROOT, "asset-src/armour-sources.json"), "utf8"));
-  const selected = provenance.sources.find((source) => source.id === provenance.selected);
-  assert.ok(selected, "selected armour source has a row");
-  assert.equal(selected.license, "CC0-1.0");
-  assert.match(selected.licenseUrl, /creativecommons\.org\/publicdomain\/zero\/1\.0/);
-  assert.match(selected.archiveSha256, /^[0-9a-f]{64}$/);
-  assert.ok(selected.selectedObjects.length >= 1);
-  assert.ok(selected.adaptations.some((entry) => /render-only/.test(entry)));
+  assert.equal(typeof provenance.selected, "string");
+  for (const id of [provenance.selected]) {
+    const selected = provenance.sources.find((source) => source.id === id);
+    assert.ok(selected, `selected character source ${id} has a row`);
+    assert.equal(selected.license, "CC0-1.0");
+    assert.match(selected.officialPage, /^https:\/\/quaternius\.com\//);
+    assert.match(selected.licenseUrl, /creativecommons\.org\/publicdomain\/zero\/1\.0/);
+    assert.match(selected.archiveSha256, /^[0-9a-f]{64}$/);
+    assert.ok(selected.selectedObjects.length >= 1);
+    assert.ok(Object.keys(selected.extracts).length >= 1);
+    assert.ok(Object.values(selected.extracts).every((value) => /^[0-9a-f]{64}$/.test(value)));
+    assert.ok(selected.adaptations.some((entry) => /render-only/.test(entry)));
+    for (const [filename, expected] of Object.entries(selected.extracts)) {
+      const bytes = await readFile(resolve(ROOT, selected.extractRoot, filename));
+      const actual = createHash("sha256").update(bytes).digest("hex");
+      assert.equal(actual, expected, `${filename} matches its selected-extract pin`);
+    }
+    const notice = await readFile(resolve(ROOT, selected.extractRoot, "LICENSE.txt"), "utf8");
+    assert.match(notice, /CC0 1\.0 Universal/);
+    assert.match(notice, /creativecommons\.org\/publicdomain\/zero\/1\.0/);
+  }
 });
 
 test("the_warrior_has_no_dead_geometry_payload", () => {
@@ -49,6 +64,34 @@ function mutateJson(buffer, mutate) {
   bin.copy(out, next + 8);
   return out;
 }
+
+test("unreachable_meshes_and_duplicate_piece_names_are_refused", () => {
+  const unreferenced = mutateJson(warrior, (json) => {
+    json.meshes.push(structuredClone(json.meshes[0]));
+  });
+  assert.ok(checkWarrior(unreferenced, dimensions).failures.some((failure) =>
+    failure.includes("mesh") && failure.includes("dead payload")));
+
+  const duplicate = mutateJson(warrior, (json) => {
+    const source = json.nodes.find((node) => node.name === "surcoat");
+    json.nodes.push(structuredClone(source));
+    json.scenes[json.scene ?? 0].nodes.push(json.nodes.length - 1);
+  });
+  assert.ok(checkWarrior(duplicate, dimensions).failures.some((failure) =>
+    failure.includes('piece name "surcoat" occurs 2 times')));
+});
+
+test("the_selected_ranger_geometry_is_present_in_the_shipping_glb", () => {
+  assert.deepEqual(checkWarrior(warrior, dimensions).failures.filter((failure) =>
+    failure.includes("authored Ranger adaptation")), []);
+
+  const stripped = mutateJson(warrior, (json) => {
+    const node = json.nodes.find((candidate) => candidate.name === "surcoat");
+    json.accessors[json.meshes[node.mesh].primitives[0].indices].count = 3;
+  });
+  assert.ok(checkWarrior(stripped, dimensions).failures.some((failure) =>
+    failure.includes('"surcoat"') && failure.includes("authored Ranger adaptation")));
+});
 
 const accessorOffset = (json, accessorIndex, element = 0) => {
   const accessor = json.accessors[accessorIndex];

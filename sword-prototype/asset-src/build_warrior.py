@@ -201,13 +201,16 @@ def plate(points, front, back, smooth=False):
     return _finish(obj, smooth)
 
 
-def imported_obj(path, name, scale, offset, keep_face=lambda _centre, _material: True):
+def imported_obj(path, name, transform, keep_face=lambda _centre, _material: True):
     """Read selected CC0 OBJ faces into the fighter frame.
 
     Importing through Blender's OBJ operator makes the result depend on operator
     axis defaults. This tiny reader keeps the source's X/right, Y/up convention
     explicit and is intentionally limited to the vertex/face/material grammar
-    used by the three pinned Quaternius files.
+    used by the pinned, evaluated armour extracts.  ``transform`` is explicit
+    because this donor is Blender Z-up while the old Quaternius OBJ was Y-up;
+    hiding that difference in an importer default is how armour gets fitted
+    backwards while still looking almost plausible.
     """
     vertices = []
     faces = []
@@ -223,25 +226,32 @@ def imported_obj(path, name, scale, offset, keep_face=lambda _centre, _material:
         elif fields[0] == "f":
             face = tuple(int(value.split("/")[0]) - 1 for value in fields[1:])
             centre = tuple(sum(vertices[index][axis] for index in face) / len(face) for axis in range(3))
-            if keep_face(centre, material):
+            fitted = [Vector(transform(vertices[index])) for index in face]
+            area = ((fitted[1] - fitted[0]).cross(fitted[2] - fitted[0])).length / 2
+            if keep_face(centre, material) and area >= 0.0000005:
                 faces.append(face)
     used = sorted({index for face in faces for index in face})
     remap = {old: new for new, old in enumerate(used)}
     points = []
     for index in used:
-        x, y, z = vertices[index]
-        # Quaternius OBJ is X-right, Y-up and Z-back for this pack.
-        points.append(_blender((
-            x * scale + offset[0],
-            y * scale + offset[1],
-            -z * scale + offset[2],
-        )))
+        points.append(_blender(transform(vertices[index])))
     mesh = bpy.data.meshes.new(name + "_source_mesh")
     mesh.from_pydata(points, [], [tuple(remap[index] for index in face) for face in faces])
     mesh.update(calc_edges=True)
+    # The source carries sub-millimetre sliver triangles around layered plate
+    # seams.  They do not survive the fitted scale as visible detail, but their
+    # nearly-collinear UVs have no tangent frame.  Collapse only that imported
+    # residue before it joins the authored piece; procedural facial details are
+    # deliberately outside this cleanup.
+    cleaned = bmesh.new()
+    cleaned.from_mesh(mesh)
+    bmesh.ops.dissolve_degenerate(cleaned, dist=0.001, edges=list(cleaned.edges))
+    cleaned.to_mesh(mesh)
+    cleaned.free()
+    mesh.update(calc_edges=True)
     obj = bpy.data.objects.new(name + "_source", mesh)
     bpy.context.scene.collection.objects.link(obj)
-    return _finish(obj, False)
+    return _finish(obj, True)
 
 
 def piece(name, joint, parts, surface, root):
@@ -311,6 +321,8 @@ def piece(name, joint, parts, surface, root):
         "helm": 0.61,
         "surcoat": 0.35,
         "skirt": 0.70,
+        "upperArmL": 0.35,
+        "upperArmR": 0.35,
     }
     bpy.ops.uv.smart_project(angle_limit=island_angles.get(name, 1.15192), island_margin=0.02)
     bpy.ops.object.mode_set(mode="OBJECT")
@@ -363,7 +375,7 @@ def build(dimensions):
     fighter = dimensions["fighter"]
     body = dimensions["body"]
     bones = dimensions["bones"]
-    source_root = Path(__file__).resolve().parent / "armour" / "quaternius-knight"
+    clothing_root = Path(__file__).resolve().parent / "armour" / "quaternius-ranger"
 
     height = fighter["height"]
     shoulder_side = fighter["shoulderSide"]
@@ -391,6 +403,61 @@ def build(dimensions):
     knee = body["knee"]
     ankle = body["shinCentre"] - body["shinLength"] / 2
 
+    # Quaternius authors the Ranger upright, in metres, with X sideways, Y back
+    # and Z up.  The maps below keep those proportions wherever this shorter,
+    # broader physics rig allows it.  They are measured against the pinned
+    # modular files, while every target landmark comes from dimensions.json.
+    def ranger_torso(point):
+        x, source_back, up = point
+        return (
+            x * 0.94,
+            waist + 0.015 + (up - 1.125) * 0.90,
+            -(source_back - 0.03) * 0.94,
+        )
+
+    def ranger_hood(point):
+        x, source_back, up = point
+        return (
+            x * head_radius * 1.25 / 0.1516,
+            neck + (up - 1.5253) * (height - neck) / (1.8650 - 1.5253),
+            -(source_back - 0.025) * 0.90,
+        )
+
+    def ranger_arm(point):
+        x, source_back, up = point
+        outward = 1 if x >= 0 else -1
+        along = abs(x) - 0.18
+        span = arm["upperLength"] + arm["foreLength"]
+        return (
+            outward * (shoulder_side + (up - 1.45) * 0.82),
+            shoulder_height - along * span / (0.8994 - 0.18),
+            shoulder_front - (source_back - 0.05) * 0.86,
+        )
+
+    def ranger_pauldron(point, side):
+        x, source_back, up = point
+        return (
+            side * (shoulder_side + (x - 0.20) * 0.75),
+            shoulder_height + (up - 1.48) * 0.80,
+            shoulder_front - (source_back - 0.05) * 0.80,
+        )
+
+    def ranger_legs(point):
+        x, source_back, up = point
+        return (
+            x,
+            0.04 + (up - 0.4226) * (hip - 0.04) / (1.0514 - 0.4226),
+            -(source_back - 0.04) * 0.90,
+        )
+
+    def ranger_boots(point):
+        x, source_back, up = point
+        return (
+            x * 0.95,
+            (up + 0.0040) * 0.86,
+            -source_back * 0.82 + 0.035,
+        )
+
     made = {}
 
     wanted = {p["name"]: p["bone"] for p in dimensions["pieces"]}
@@ -402,101 +469,102 @@ def build(dimensions):
 
     # ---- the hips ----
     #
-    # The pelvis capsule is 0.32 m across and 0.26 m tall; the leather over it
+    # The pelvis capsule is 0.32 m across and 0.26 m tall; the padded cloth over it
     # follows that envelope rather than inventing one, so a hit that the overlay
     # shows landing on the pelvis lands somewhere the eye also calls the hips.
     add("pelvis", [
         ball((0, pelvis_centre - 0.005, 0), (pelvis_radius * 1.03, 0.13, pelvis_radius * 0.85)),
         ring((0, pelvis_top - 0.04, 0), pelvis_radius * 0.97, 0.022),
         box((0, pelvis_top - 0.04, pelvis_radius * 0.92), (0.055, 0.05, 0.03)),
-    ], "leather")
+    ], "cloth")
 
-    # Faulds: a flared skirt that overlaps the torso through every allowed
-    # lean/twist corner. A neutral ten-millimetre lip was enough only while the
-    # torso was rigid; rotating the 0.26 m seam radius can lift its far corner
-    # roughly 90 mm. `check-warrior.mjs` transforms the conservative seam box at
-    # all four posture corners and refuses a gap.
+    # Preserve the Ranger's narrow, overlapping coat-skirt silhouette.  The
+    # conservative posture seam is carried by a small inner fauld at the waist,
+    # not by inflating the visible garment into a hoop skirt.
     skirt_top = waist + 0.09
+    skirt_bottom = pelvis_bottom + 0.025
+    ranger_skirt_bottom = 0.9085435
+    ranger_skirt_top = 1.115
+
+    def ranger_skirt(point):
+        x, source_forward, up = point
+        return (
+            x * 1.04,
+            skirt_bottom + (up - ranger_skirt_bottom)
+            * (skirt_top - skirt_bottom) / (ranger_skirt_top - ranger_skirt_bottom),
+            -(source_forward - 0.04) * 1.04,
+        )
+
+    def ranger_belt(point):
+        x, source_forward, up = point
+        belt_bottom = 1.1253091
+        belt_top = 1.2357826
+        return (
+            x,
+            waist + 0.015 + (up - belt_bottom),
+            -(source_forward + 0.008),
+        )
+
     add("skirt", [
-        tube((0, skirt_top, 0), (0, pelvis_bottom + 0.025, 0),
-             pelvis_radius * 1.72, pelvis_radius * 1.52),
-        ring((0, skirt_top - 0.015, 0), pelvis_radius * 1.68, 0.015),
-        ring((0, pelvis_bottom + 0.04, 0), pelvis_radius * 1.48, 0.015),
+        imported_obj(
+            clothing_root / "ranger-body.obj",
+            "quaternius_ranger_skirt",
+            ranger_skirt,
+            lambda centre, _material: centre[2] <= ranger_skirt_top,
+        ),
     ], "side")
 
     # ---- the trunk ----
     add("belly", [
         ball((0, waist + 0.09, 0), (torso_radius * 0.87, 0.11, torso_radius * 0.71)),
-        ring((0, waist + 0.04, 0), torso_radius * 0.84, 0.016),
-        ring((0, waist + 0.14, 0), torso_radius * 0.88, 0.016),
+        imported_obj(
+            clothing_root / "ranger-belt-upper.obj",
+            "quaternius_ranger_belt_upper",
+            ranger_belt,
+        ),
+        imported_obj(
+            clothing_root / "ranger-belt-lower.obj",
+            "quaternius_ranger_belt_lower",
+            ranger_belt,
+        ),
     ], "leather")
 
     chest_top = torso_top - 0.06
     chest_bottom = waist + 0.09
-    donor_scale = height / 5.584167
     add("chest", [
         ball((0, (chest_top + chest_bottom) / 2, 0),
-             (torso_radius * 0.97, (chest_top - chest_bottom) / 2, torso_radius * 0.68)),
-        plate([(-0.155, chest_top), (0, chest_top + 0.04), (0.155, chest_top),
-               (0.135, chest_bottom + 0.05), (0.07, chest_bottom),
-               (-0.07, chest_bottom), (-0.135, chest_bottom + 0.05)],
-              torso_radius * 0.82, torso_radius * 0.30),
-        plate([(-0.15, chest_top), (0.15, chest_top),
-               (0.13, chest_bottom + 0.04), (-0.13, chest_bottom + 0.04)],
-              -torso_radius * 0.30, -torso_radius * 0.80),
-        box((0, chest_bottom + 0.06, torso_radius * 0.84), (0.20, 0.014, 0.02)),
-        box((0, chest_bottom + 0.15, torso_radius * 0.85), (0.23, 0.014, 0.02)),
-        box((0, chest_bottom + 0.24, torso_radius * 0.84), (0.21, 0.014, 0.02)),
-        imported_obj(
-            source_root / "KnightCharacter.obj",
-            "quaternius_chest",
-            donor_scale,
-            (0, 0, -0.03),
-            lambda centre, material: material == "Armor"
-            and chest_bottom / donor_scale <= centre[1] <= chest_top / donor_scale
-            and abs(centre[0]) <= torso_radius * 1.22 / donor_scale,
-        ),
-    ], "steel")
+             (torso_radius * 0.88, (chest_top - chest_bottom) / 2, torso_radius * 0.50)),
+    ], "cloth")
 
     add("collar", [
-        ring((0, torso_top - 0.04, 0), torso_radius * 0.66, 0.032),
-        box((0, torso_top - 0.07, 0), (torso_radius * 1.58, 0.05, torso_radius * 1.16)),
-    ], "steel")
+        ring((0, torso_top - 0.035, 0), 0.070, 0.018),
+    ], "leather")
 
     # Pauldrons cap the shoulder joint and lap two lames over the upper arm. The
     # checker asserts each one's bounds actually contain the joint it caps,
     # because a pauldron that has drifted inboard is the single most obvious way
     # for an authored figure to stop agreeing with the rig underneath it.
-    for name, x in (("pauldronL", -shoulder_side), ("pauldronR", shoulder_side)):
-        outward = 1 if x > 0 else -1
+    for name, side in (("pauldronL", -1), ("pauldronR", 1)):
+        x = side * shoulder_side
         add(name, [
-            ball((x, shoulder_height + 0.02, shoulder_front - 0.01), (0.105, 0.075, 0.095)),
-            ball((x + outward * 0.015, shoulder_height - 0.04, shoulder_front - 0.01),
-                 (0.098, 0.05, 0.09)),
-            ball((x + outward * 0.026, shoulder_height - 0.10, shoulder_front - 0.01),
-                 (0.088, 0.045, 0.082)),
+            ball((x, shoulder_height + 0.02, shoulder_front - 0.01), (0.095, 0.070, 0.088)),
             imported_obj(
-                source_root / "ShoulderPads.obj",
-                "quaternius_" + name,
-                shoulder_side / 1.08,
-                (0, shoulder_height, shoulder_front),
-                lambda centre, _material, outward=outward: centre[0] * outward > 0,
+                clothing_root / "ranger-pauldron.obj",
+                "quaternius_ranger_pauldron_" + name,
+                lambda point, side=side: ranger_pauldron(point, side),
             ),
         ], "steel")
 
-    # The surcoat. It is the one piece this session adds and it is here to be
-    # read rather than worn: two helmed figures in the same steel are the same
-    # figure at the distance the Fixed camera sits at.
-    surcoat_top = torso_top - 0.07
-    surcoat_bottom = waist - 0.04
-    front = torso_radius * 0.88
-    hem = [(-0.115, surcoat_top), (0.115, surcoat_top), (0.115, surcoat_bottom + 0.06),
-           (0.05, surcoat_bottom), (0, surcoat_bottom + 0.05),
-           (-0.05, surcoat_bottom), (-0.115, surcoat_bottom + 0.06)]
+    # The side colour now rides the donor's fitted tunic instead of two flat
+    # heraldic boards.  Its quilted lower edge and closures stay readable from
+    # the game camera without hiding a separate breastplate.
     add("surcoat", [
-        plate(hem, front + 0.02, front),
-        plate([(x, y) for x, y in reversed(hem)], -front, -front - 0.02),
-        box((0, surcoat_top - 0.015, 0), (0.23, 0.03, (front + 0.02) * 2)),
+        imported_obj(
+            clothing_root / "ranger-body.obj",
+            "quaternius_ranger_tunic",
+            ranger_torso,
+            lambda centre, _material: centre[2] > ranger_skirt_top,
+        ),
     ], "side")
 
     # ---- the head ----
@@ -511,23 +579,19 @@ def build(dimensions):
         box((0, head_centre + 0.012, head_radius * 0.76), (0.13, 0.022, 0.045)),
     ], "flesh")
 
-    # A helm with the face open. The comment on `figure.ts`'s primitive has
-    # always claimed a skullcap and a visible face, and the primitive it
-    # describes is a steel egg over the whole head, because a box and a sphere
-    # cannot cut an opening. The cone stops at the brow, the rim closes the
-    # seam, and the two cheek plates leave the eyes and the beard showing.
-    crown = height
+    # The authored hood keeps the face open and closes the broken rear opening
+    # that the rejected plate donor exposed in orbit views.
     brow = head_centre + 0.005
     add("helm", [
-        tube((0, brow, -0.004), (0, crown, -0.004), head_radius * 1.19, 0.03),
-        ring((0, brow + 0.005, -0.004), head_radius * 1.12, 0.016),
-        ball((0, brow - 0.04, -head_radius * 0.81), (0.10, 0.055, 0.05)),
-        ball((-head_radius * 0.93, brow - 0.05, 0.01), (0.032, 0.055, 0.06)),
-        ball((head_radius * 0.93, brow - 0.05, 0.01), (0.032, 0.055, 0.06)),
-    ], "steel")
+        imported_obj(
+            clothing_root / "ranger-hood.obj",
+            "quaternius_ranger_hood",
+            ranger_hood,
+        ),
+    ], "cloth")
 
     add("nasal", [
-        box((0, brow - 0.02, head_radius * 0.95), (0.026, 0.10, 0.03)),
+        box((0, brow + 0.055, head_radius * 0.90), (0.050, 0.025, 0.025)),
     ], "steel")
 
     # ---- both arms ----
@@ -556,8 +620,14 @@ def build(dimensions):
         add("upperArm" + suffix, [
             tube((x, shoulder_height + 0.01, shoulder_front),
                  (x + lean, arm_elbow - 0.01, shoulder_front),
-                 arm["upperRadius"] * 1.11, arm["upperRadius"] * 0.89),
-            ring((x + lean, arm_elbow + 0.02, shoulder_front), arm["upperRadius"] * 0.93, 0.012),
+                 arm["upperRadius"] * 0.96, arm["upperRadius"] * 0.78),
+            imported_obj(
+                clothing_root / "ranger-arms.obj",
+                "quaternius_ranger_upperArm" + suffix,
+                ranger_arm,
+                lambda centre, _material, x=x:
+                    centre[0] * x > 0 and ranger_arm(centre)[1] >= arm_elbow,
+            ),
         ], "cloth")
 
         add("forearm" + suffix, [
@@ -567,6 +637,14 @@ def build(dimensions):
                  arm["foreRadius"] * 1.15, arm["foreRadius"] * 0.92),
             ring((x + lean, arm_elbow - 0.06, shoulder_front), arm["foreRadius"] * 1.04, 0.011),
             ring((x + lean * 1.5, arm_wrist + 0.06, shoulder_front), arm["foreRadius"] * 0.98, 0.011),
+            imported_obj(
+                clothing_root / "ranger-arms.obj",
+                "quaternius_ranger_forearm" + suffix,
+                ranger_arm,
+                lambda centre, _material, x=x:
+                    centre[0] * x > 0
+                    and arm_wrist <= ranger_arm(centre)[1] < arm_elbow,
+            ),
         ], "leather")
 
         # A fist rather than an open hand, because every one of these is holding
@@ -583,8 +661,14 @@ def build(dimensions):
     for suffix, side in (("L", -1), ("R", 1)):
         x = side * hip_side
         add("thigh" + suffix, [
-            ball((x, hip - 0.01, 0), (0.090, 0.070, 0.090)),
-            tube((x, hip, 0), (x - side * 0.003, knee, 0.005), 0.088, 0.072),
+            tube((x, hip, 0), (x - side * 0.003, knee, 0.005), 0.070, 0.056),
+            imported_obj(
+                clothing_root / "ranger-legs.obj",
+                "quaternius_ranger_thigh" + suffix,
+                ranger_legs,
+                lambda centre, _material, side=side:
+                    centre[0] * side > 0 and ranger_legs(centre)[1] >= knee,
+            ),
         ], "cloth")
 
         add("shin" + suffix, [
@@ -592,15 +676,33 @@ def build(dimensions):
             tube((x - side * 0.003, knee - 0.01, 0.005), (x - side * 0.005, ankle + 0.05, 0.01),
                  0.072, 0.052),
             ring((x - side * 0.004, (knee + ankle) / 2, 0.008), 0.062, 0.011),
+            imported_obj(
+                clothing_root / "ranger-legs.obj",
+                "quaternius_ranger_shin_cloth" + suffix,
+                ranger_legs,
+                lambda centre, _material, side=side:
+                    centre[0] * side > 0 and ranger_legs(centre)[1] < knee,
+            ),
+            imported_obj(
+                clothing_root / "ranger-boots.obj",
+                "quaternius_ranger_shin_boot" + suffix,
+                ranger_boots,
+                lambda centre, _material, side=side:
+                    centre[0] * side > 0 and ranger_boots(centre)[1] > 0.13,
+            ),
         ], "leather")
 
         # The sole is on the floor, and the checker says so to the millimetre: a
         # boot 20 mm up and the whole figure reads as hovering, which is the one
         # defect nobody ever attributes to the asset.
         add("foot" + suffix, [
-            box((x - side * 0.003, 0.045, 0.045), (0.105, 0.090, 0.240)),
-            ball((x - side * 0.003, 0.030, 0.160), (0.050, 0.030, 0.045)),
-            ball((x - side * 0.005, 0.095, 0.000), (0.062, 0.045, 0.070)),
+            imported_obj(
+                clothing_root / "ranger-boots.obj",
+                "quaternius_ranger_foot" + suffix,
+                ranger_boots,
+                lambda centre, _material, side=side:
+                    centre[0] * side > 0 and ranger_boots(centre)[1] <= 0.13,
+            ),
         ], "leather")
 
     missing = [p["name"] for p in dimensions["pieces"] if p["name"] not in made]

@@ -285,7 +285,7 @@
     {
       "name": "chest",
       "bone": "torso",
-      "material": "steel",
+      "material": "cloth",
       "at": [
         0,
         1.34,
@@ -295,7 +295,7 @@
     {
       "name": "collar",
       "bone": "torso",
-      "material": "steel",
+      "material": "leather",
       "at": [
         0,
         1.49,
@@ -335,7 +335,7 @@
     {
       "name": "pelvis",
       "bone": "pelvis",
-      "material": "leather",
+      "material": "cloth",
       "at": [
         0,
         0.94,
@@ -375,7 +375,7 @@
     {
       "name": "helm",
       "bone": "head",
-      "material": "steel",
+      "material": "cloth",
       "at": [
         0,
         1.655,
@@ -388,8 +388,8 @@
       "material": "steel",
       "at": [
         0,
-        1.618,
-        0.108
+        1.72,
+        0.095
       ]
     },
     {

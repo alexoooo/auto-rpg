@@ -176,7 +176,7 @@ export function costumePieces(): CostumePiece[] {
   const off = -F.shoulderSide;
   const z = F.shoulderFront;
   /**
-   * One arm's three sleeves, from the shoulder down.
+   * One arm's three costume pieces, from the shoulder down.
    *
    * `R` is the sword side and `L` the off side, matching the leg suffixes and
    * the names the asset already carries -- the off arm's three pieces were
@@ -184,7 +184,7 @@ export function costumePieces(): CostumePiece[] {
    * keeping them is what stops this being a rename of the asset as well as an
    * addition to it.
    */
-  const sleeve = (suffix: "L" | "R", x: number): CostumePiece[] => {
+  const armCostume = (suffix: "L" | "R", x: number): CostumePiece[] => {
     const A = CONFIG.arm;
     const elbow = F.shoulderHeight - A.upperLength;
     const wrist = elbow - A.foreLength;
@@ -258,14 +258,14 @@ export function costumePieces(): CostumePiece[] {
     {
       name: "chest",
       bone: "torso",
-      material: "steel",
+      material: "cloth",
       at: [0, 1.34, 0],
       primitive: { kind: "box", size: [0.37, 0.34, 0.25] },
     },
     {
       name: "collar",
       bone: "torso",
-      material: "steel",
+      material: "leather",
       at: [0, 1.49, 0],
       primitive: { kind: "box", size: [0.40, 0.07, 0.26] },
     },
@@ -299,7 +299,7 @@ export function costumePieces(): CostumePiece[] {
     {
       name: "pelvis",
       bone: "pelvis",
-      material: "leather",
+      material: "cloth",
       at: [0, 0.94, 0],
       primitive: { kind: "box", size: [0.28, 0.16, 0.22] },
     },
@@ -329,14 +329,12 @@ export function costumePieces(): CostumePiece[] {
       at: [0, 1.635, 0],
       primitive: { kind: "sphere", diameter: 0.205 },
     },
-    // A skullcap rather than a full helm: a face reads as a person, and a
-    // featureless steel egg does not. The primitive is the egg, because a box
-    // and a sphere cannot cut a face opening; the authored piece is the helm the
-    // comment has always described, with cheek plates and an open front.
+    // The fallback is still a skullcap. The authored piece is an open Ranger
+    // hood: it keeps the face readable and gives the orbit view a finished back.
     {
       name: "helm",
       bone: "head",
-      material: "steel",
+      material: "cloth",
       at: [0, 1.655, -0.004],
       primitive: { kind: "sphere", diameter: 0.235, scale: [1, 0.92, 1.04] },
     },
@@ -344,7 +342,7 @@ export function costumePieces(): CostumePiece[] {
       name: "nasal",
       bone: "head",
       material: "steel",
-      at: [0, 1.618, 0.108],
+      at: [0, B.headCentre + 0.06, 0.095],
       primitive: { kind: "box", size: [0.028, 0.13, 0.03] },
     },
 
@@ -352,10 +350,10 @@ export function costumePieces(): CostumePiece[] {
     // Both arms, mirrored. The sword arm used to be missing here on purpose --
     // it was the one real arm and the whole point of the prototype, and a sleeve
     // on it would have been a costume on the subject being measured. There are
-    // two real arms now, and half a fighter in a shirt reads as a bug rather
+    // two real arms now, and half an armoured fighter reads as a bug rather
     // than as an instrument. `G` is the instrument.
-    ...sleeve("R", side),
-    ...sleeve("L", off),
+    ...armCostume("R", side),
+    ...armCostume("L", off),
 
     // ---- legs ----
     ...leg("L", -1),

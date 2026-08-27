@@ -371,12 +371,14 @@ The warriors are authored: `public/assets/warrior.glb` is built from
 `asset-src/build_warrior.py` by `npm run asset:build`, which needs Blender, and the result
 is committed so a fresh clone runs without one. Twenty-four pieces now, where there were
 twenty-one: both arms are simulated and both are therefore dressed, where the sword arm
-used to be left bare as the subject of the measurement. `G` is what takes the costume off. The Python holds **no dimensions** — every
-number comes from `asset-src/dimensions.json`, regenerated out of `src/config.ts` and
-`src/figure.ts` on each build, so a bone that moves without a rebuild fails
-`npm run asset:verify` instead of quietly stretching a warrior. The breastplate, helmet and
-shoulder forms adapt selected meshes from Quaternius's CC0 Animated Knight Pack. The pinned
-archive digest, exact source objects, license and transformations live in
+used to be left bare as the subject of the measurement. `G` is what takes the costume off.
+The Python holds no duplicated **rig** dimensions: live joints and body envelopes come from
+`asset-src/dimensions.json`, regenerated out of `src/config.ts` and `src/figure.ts` on each
+build. Donor landmarks and fitting ratios stay beside the pinned donor geometry, so a bone
+that moves without a rebuild fails `npm run asset:verify` instead of quietly stretching a
+warrior. The fitted tunic, coat-skirts, belts, hood, sleeves, bracers, pauldron, trousers and
+boots adapt Quaternius's CC0 Modular Character Outfits - Fantasy Ranger. The pinned archive,
+bundled CC0 notice, exact objects, extracted-mesh digests and transformations live in
 `asset-src/armour-sources.json`; `npm run armour:verify` checks that provenance. Imported
 geometry is split at the existing rigid costume-piece boundaries and remains render-only.
 Delete the `.glb` and the
@@ -394,9 +396,10 @@ surfaces. The learned controller remains an unpromoted experiment rather than a 
 The twenty-four-piece warriors now separate skin, neutral woven cloth, leather and worked
 steel with authored UVs and shared PBR maps. Only the surcoat/skirt material is constructed per
 fighter, so crimson and blue remain independent while their images stay shared; rebuilding
-a bout disposes those materials. The first default-zoom Fixed/Overhead browser comparison
-kept the four families, side colours, open faces and waist join readable. Both zoom clamps
-and walking/crouching comparisons remain open human judgements in `docs/measurements.md`.
+a bout disposes those materials. The 2026-08-27 static front/back/side review kept the fitted
+garment, side colours, open face, closed hood and narrow coat-skirts readable after adversarial
+art review. Both camera presets, both zoom clamps and walking/crouching comparisons remain
+open human judgements in `docs/measurements.md`.
 
 Weapons, shields, arrows and ring posts use the same registry without changing their
 geometry or physics. A total 35-part table assigns forged steel, brass, worn leather,
@@ -426,7 +429,7 @@ earned promotion and no `learned-v1` option is advertised.
 The mechanics, controls, unit and evaluation-contract sessions of the current topic are
 implemented: pause/restart correctness, projectile and shield behaviour, unarmed engagement,
 solid arena bounds, middle-drag camera control, whole-body human control, Broot, Centipede,
-licensed armour adaptation, factual engagement gates and factorized AI actions. Four real-Havok
+licensed clothing adaptation, factual engagement gates and factorized AI actions. Four real-Havok
 research runners now implement recurrent NEAT-QD, DAgger, recurrent PPO and calibrated bounded
 look-ahead, with deterministic artifacts, resume and one shared deployment/tournament boundary.
 PPO has a repeated collect/update/validation outer loop rather than the retired four-bout probe,

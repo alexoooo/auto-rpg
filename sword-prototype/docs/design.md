@@ -1217,18 +1217,29 @@ Steel, neutral cloth, brown leather and subtle skin detail now have separate
 albedo/normal/ORM families. The side colour is one per-Figure material derived from neutral cloth:
 crimson and blue own only their tint while all texture objects remain palette-shared, and
 `Figure.dispose()` releases the material on a bout rebuild. The visible art-direction verdict
-is intentionally not inferred from the headless checks. The first default-zoom Fixed and
-Overhead comparison kept the four material families, team colours, open faces and waist join
-readable; the still-open zoom and motion judgements live only in `docs/measurements.md`.
+is intentionally not inferred from the headless checks. The 2026-08-24 pre-adaptation
+default-zoom Fixed and Overhead material comparison kept the four material families, team
+colours, open faces and waist join readable. It did not judge the Ranger geometry below;
+those still-open camera, zoom and motion judgements live only in `docs/measurements.md`.
 
-The final armour silhouette is adapted rather than invented entirely from primitives.
-`asset-src/armour-sources.json` pins Quaternius's CC0 Animated Knight Pack archive, license,
-retrieval date and the three selected OBJ sources. `npm run armour:verify` checks the archive
-digest and selected files before `asset-src/build_warrior.py` splits breastplate, helmet and
-shoulder geometry at the existing rigid costume-piece boundaries. Its armature, animation,
-weapons and source materials are discarded; the adapted meshes inherit the runtime palette
-and remain render-only. This preserves severability and the cosmetics/no-authority contract
-without pretending the imported character rig is the simulated one.
+The current clothing silhouette is adapted rather than invented entirely from primitives.
+`asset-src/armour-sources.json` pins Quaternius's creator-published CC0 Modular Character
+Outfits - Fantasy Standard archive and the archive's own CC0 notice. The Ranger tunic,
+coat-skirts, two belts, hood, sleeves and bracers, pauldron, trousers and tall boots are
+committed as deterministic OBJ extracts; their exact source objects and digests are part of
+the record. `npm run armour:extract` rebuilds them with Blender and `npm run armour:verify`
+checks both the original archive and every selected extract before `asset-src/build_warrior.py`
+fits them to the existing rigid costume-piece boundaries. Armatures, animation, donor body,
+donor hands, textures and source materials are discarded; the adapted meshes inherit the
+runtime palette and remain render-only. This preserves severability and the
+cosmetics/no-authority contract without pretending the imported character rig is the
+simulated one.
+
+A nominally CC0 plate-armour candidate was rejected during adversarial provenance review:
+its source blend packed a distinctive third-party armour concept as a reference, so the
+uploader's CC0 declaration did not establish a clean rights chain for the design. No geometry
+from that candidate ships. Creator-direct Quaternius geometry plus the archive's bundled
+license is the narrower claim this repository can actually prove.
 
 Imported tangent xyz is negated once when `Figure.wear()` replaces a primitive's
 vertices, normalizing the glTF right-handed frame to the same Babylon-LH basis the fallback

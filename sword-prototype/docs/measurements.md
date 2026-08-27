@@ -274,9 +274,10 @@ angular motor at 40 000 N.m -- over a thousand times the shipped 34 -- moved the
 - `__sword.rigview.audit()`: **45 bodies and 104 meshes, unchanged across 10 cycles**, and
   the body count holds over 50. The overlay creates no physics object, which is its central
   promise.
-- `public/assets/warrior.glb`: 24 nodes, **15 712 triangles per fighter**, up from 15 424
-  before the articulated-waist overlap and all-family tangent frames. Both fighters carry
-  31 424 triangles in 48 costume meshes; `G` strips and restores all 48.
+- `public/assets/warrior.glb`: 24 nodes, **33 379 triangles per fighter** after the
+  2026-08-27 CC0 Ranger-clothing adaptation, up from 15 712 for the mostly procedural
+  costume. Both fighters carry 66 758 triangles in 48 costume meshes; `G` strips and
+  restores all 48. The committed GLB is 1.82 MiB, against 0.72 MiB before the adaptation.
 - Dimensional check (`npm run asset:verify`): floor 0.0 mm, crown 1.800 m against a
   `fighter.height` of 1.800. The digest is pinned in `scripts/run-blender.mjs`; it pins the
   *file*, not the build, because Blender's glTF exporter is not byte-reproducible.
@@ -291,6 +292,7 @@ Session 08's static asset/material audit, not a visible-browser GPU capture:
 | cloth/skin/leather/steel | **15 712** | **48 for two fighters** | **7.83 MiB / 15 maps** | **80.0 MiB** |
 | + weapon/object families | **15 712** | **48 for two fighters** | **10.94 MiB / 24 maps** | **128.0 MiB** |
 | + room wall/timber/banner | **15 712** | **48 for two fighters** | **16.97 MiB / 33 maps** | **176.0 MiB** |
+| + CC0 Ranger modular clothing | **33 379** | **48 for two fighters** | **16.97 MiB / 33 maps** | **176.0 MiB** |
 
 The draw count is the mesh count -- no piece was split or merged -- and the memory column is
 the conservative decoded RGBA8 mip-chain calculation, not a driver reading. Three Terlenka
@@ -421,8 +423,8 @@ the numbered list here now carries only playtest history and judgements that rem
    diagnostic rather than the shipped pose.
 5. **Surface implementation done; the first visible verdict is in.** Both warriors now use the same
    digest-pinned cloth, skin-detail, leather and worked-steel maps, with distinct disposable
-   crimson/blue cloth tints. Authored/fallback family parity and a conservative four-corner
-   waist AABB are mutation-tested. The 2026-08-24 browser pass showed readable open faces,
+   crimson/blue cloth tints. Authored/fallback family parity and the real garment's lower
+   seam vertices at all four lean/twist corners are mutation-tested. The 2026-08-24 browser pass showed readable open faces,
    worked steel, leather and cloth, distinct crimson/blue sides and no visible waist break in
    Fixed and Overhead stills at the default zoom. Both zoom clamps and a walking/crouching
    comparison remain open; one well-lit still is not an art-direction sign-off.
@@ -447,14 +449,16 @@ the numbered list here now carries only playtest history and judgements that rem
    changing the first-guess constants; the automated browser rendered at 1--2 fps and is not
    performance or feel evidence.
 
-9. **Character surfaces implemented; first visible comparison passed.** The warriors remain a
-   deliberately welded low-poly silhouette, but they are no longer four flat colours:
-   cloth, skin detail, leather and worked steel have separate CC0 PBR families, consistent
-   authored texel density and total piece-to-family mapping. The earlier disappearing-map
-   failure is closed by delayed attachment and colour fallback. A matched Fixed/Overhead
-   browser sample showed the material families and side tints as distinct at combat distance.
-   The two zoom clamps and motion comparison remain owed, so this closes basic readability
-   rather than the whole art-direction verdict.
+9. **Character surfaces implemented; current static clothing review passed.** The welded
+   articulated-piece contract remains, but creator-authored Ranger modules now supply the
+   tunic, coat-skirts, belts, hood, sleeves, bracers, pauldrons, trousers and boots instead of
+   asking primitive tubes and boxes to imply them. Cloth, skin detail, leather and worked
+   steel retain separate CC0 PBR families, consistent authored texel density and total
+   piece-to-family mapping. The earlier disappearing-map failure is closed by delayed
+   attachment and colour fallback. Front/back/side static renders on 2026-08-27 resolved the
+   cardboard tabard, hoop-skirt and open-rear-helmet defects found by adversarial art review.
+   Both camera presets, the two zoom clamps and motion comparison remain owed, so this closes
+   the static adaptation review rather than the whole art-direction verdict.
 10. **Done.** This entry recorded that no policy knew what a shield was for, and that an
    `idle` fighter given one took *more* damage than one with two empty hands -- 90 against
    28. Closing it needed the two-handed `FighterView` the entry called for, and that is what

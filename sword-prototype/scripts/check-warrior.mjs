@@ -259,29 +259,47 @@ function checkMaterialFamilies(json, dimensions, fail) {
 }
 
 /**
- * The torso and pelvis are separate bodies now. This conservative AABB check
- * rejects an obvious gap at any anatomical posture corner; it is deliberately
- * not described as a silhouette or cloth-intersection proof. Session 14 still
- * has to look at the moving seam from both cameras.
+ * The torso and pelvis are separate bodies now. Sample the real lower garment
+ * vertices at all four anatomical posture corners. The old conservative AABB
+ * invented combinations no vertex occupied and forced a visible hoop around
+ * the waist; checking the actual seam keeps the proof without redesigning the
+ * donor silhouette around empty space.
  */
-function checkWaistEnvelope(found, dimensions, fail) {
+function checkWaistEnvelope(json, bin, found, dimensions, fail) {
   const byName = new Map(found.map((node) => [node.name, node]));
   const torso = [byName.get("belly"), byName.get("surcoat")].filter(Boolean);
   const skirt = byName.get("skirt");
   if (torso.length !== 2 || !skirt) return;
   const waist = dimensions.body.waist;
-  const seamY = Math.min(...torso.map((node) => node.min[1]));
-  const extentX = Math.max(...torso.flatMap((node) => [Math.abs(node.min[0]), Math.abs(node.max[0])]));
-  const extentZ = Math.max(...torso.flatMap((node) => [Math.abs(node.min[2]), Math.abs(node.max[2])]));
+  const nodes = json.nodes ?? [];
+  const meshes = json.meshes ?? [];
+  const seam = [];
+  for (const node of torso) {
+    const source = nodes[node.index];
+    for (const primitive of meshes[source.mesh]?.primitives ?? []) {
+      for (const point of accessorValues(json, bin, primitive.attributes?.POSITION) ?? []) {
+        const world = [
+          node.origin[0] - point[0],
+          node.origin[1] + point[1],
+          node.origin[2] + point[2],
+        ];
+        if (world[1] <= node.min[1] + 0.035) seam.push(world);
+      }
+    }
+  }
+  if (!seam.length) {
+    fail("the torso has no readable waist-seam vertices");
+    return;
+  }
   const epsilon = 0.001;
   for (const lean of [-dimensions.body.trunkLeanMax, dimensions.body.trunkLeanMax]) {
     for (const twist of [-dimensions.body.trunkTwistMax, dimensions.body.trunkTwistMax]) {
       const cl = Math.cos(lean), sl = Math.sin(lean);
       const ct = Math.cos(twist), st = Math.sin(twist);
-      for (const x of [-extentX, extentX]) for (const z of [-extentZ, extentZ]) {
+      for (const [x, sourceY, z] of seam) {
         const yawX = x * ct + z * st;
         const yawZ = -x * st + z * ct;
-        const dy = seamY - waist;
+        const dy = sourceY - waist;
         const point = [yawX, waist + dy * cl - yawZ * sl, dy * sl + yawZ * cl];
         if (point.some((value, axis) => value < skirt.min[axis] - epsilon || value > skirt.max[axis] + epsilon)) {
           fail(
@@ -297,9 +315,26 @@ function checkWaistEnvelope(found, dimensions, fail) {
 }
 
 function checkGeometryReachability(json, bin, fail) {
+  const reachableNodes = new Set();
+  const reachableMeshes = new Set();
+  const visit = (index) => {
+    if (reachableNodes.has(index)) return;
+    reachableNodes.add(index);
+    const node = json.nodes?.[index];
+    if (!node) return;
+    if (node.mesh !== undefined) reachableMeshes.add(node.mesh);
+    for (const child of node.children ?? []) visit(child);
+  };
+  const scene = json.scenes?.[json.scene ?? 0];
+  for (const root of scene?.nodes ?? []) visit(root);
+
   const usedAccessors = new Set();
   const tangentAccessors = new Set();
-  for (const mesh of json.meshes ?? []) {
+  for (const [meshIndex, mesh] of (json.meshes ?? []).entries()) {
+    if (!reachableMeshes.has(meshIndex)) {
+      fail(`mesh ${meshIndex} (${mesh.name ?? "unnamed"}) is dead payload`);
+      continue;
+    }
     for (const primitive of mesh.primitives ?? []) {
       for (const [semantic, index] of Object.entries(primitive.attributes ?? {})) {
         usedAccessors.add(index);
@@ -331,6 +366,46 @@ function checkGeometryReachability(json, bin, fail) {
   const end = Math.max(0, ...(json.bufferViews ?? []).map((view) => (view.byteOffset ?? 0) + view.byteLength));
   if (logicalBytes !== end || bin.length - logicalBytes < 0 || bin.length - logicalBytes > 3) {
     fail(`binary payload is ${logicalBytes} logical bytes with last live byte ${end} and chunk ${bin.length}`);
+  }
+}
+
+// These are not a triangle budget. They prove that the selected modular donor
+// is still present in the pieces whose primitive fallbacks have the same names.
+// A lower number is allowed only when the adaptation itself is deliberately
+// changed and visually re-reviewed.
+const AUTHORED_TRIANGLE_FLOORS = {
+  belly: 1700,
+  footL: 1000,
+  footR: 1000,
+  forearmL: 2500,
+  forearmR: 2500,
+  helm: 1800,
+  pauldronL: 1500,
+  pauldronR: 1500,
+  shinL: 4000,
+  shinR: 4000,
+  skirt: 550,
+  surcoat: 2000,
+  thighL: 250,
+  thighR: 250,
+  upperArmL: 500,
+  upperArmR: 500,
+};
+
+function checkAuthoredGeometry(json, found, fail) {
+  for (const node of found) {
+    const floor = AUTHORED_TRIANGLE_FLOORS[node.name];
+    if (floor === undefined) continue;
+    const source = json.nodes?.[node.index];
+    const triangles = (json.meshes?.[source?.mesh]?.primitives ?? []).reduce((sum, primitive) => {
+      const accessor = primitive.indices === undefined
+        ? json.accessors?.[primitive.attributes?.POSITION]
+        : json.accessors?.[primitive.indices];
+      return sum + (accessor?.count ?? 0) / 3;
+    }, 0);
+    if (triangles < floor) {
+      fail(`"${node.name}" has ${triangles} triangles; the authored Ranger adaptation requires at least ${floor}`);
+    }
   }
 }
 
@@ -388,6 +463,7 @@ function collectNodes(json) {
       }
       found.push({
         name: node.name ?? `node${index}`,
+        index,
         origin,
         depth,
         min: min.map((v, axis) => v + origin[axis]),
@@ -422,7 +498,8 @@ export function checkWarrior(buffer, dimensions) {
   checkMaterialFamilies(json, dimensions, fail);
   checkTextureGeometry(json, bin, found, fail);
   checkGeometryReachability(json, bin, fail);
-  checkWaistEnvelope(found, dimensions, fail);
+  checkAuthoredGeometry(json, found, fail);
+  checkWaistEnvelope(json, bin, found, dimensions, fail);
 
   // ---- nothing that decides a hit ----
   if (json.skins?.length) fail(`the asset carries ${json.skins.length} skin(s); this rig is the skeleton`);
@@ -439,6 +516,11 @@ export function checkWarrior(buffer, dimensions) {
 
   // ---- exactly the pieces `figure.ts` dresses, and no others ----
   const expected = new Map(dimensions.pieces.map((piece) => [piece.name, piece]));
+  const counts = new Map();
+  for (const node of found) counts.set(node.name, (counts.get(node.name) ?? 0) + 1);
+  for (const [name, count] of counts) {
+    if (count > 1) fail(`piece name "${name}" occurs ${count} times; runtime wear would be ambiguous`);
+  }
   const actual = new Map(found.map((node) => [node.name, node]));
   for (const name of expected.keys()) {
     if (!actual.has(name)) fail(`piece "${name}" is missing; figure.ts will fall back to its primitive`);
