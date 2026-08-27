@@ -18,6 +18,7 @@ export { MAX_FIRST_ATTACK_P90_SECONDS, MAX_NEAR_RANGE_STALL_SHARE, MAX_SPECIALIS
 import { emptyPersistenceCounts, mergePersistenceCounts, persistenceRecordFailure,
   type PersistenceCounts } from "./persistence.ts";
 import type { ResearchMatrixJob } from "./research-matrix.ts";
+import { TOURNAMENT_SAFETY_NAMES, type TournamentSafety } from "./safety.ts";
 
 export { OPPORTUNITY_WINDOW_SECONDS, STALL_WINDOW_SECONDS } from "./engagement.ts";
 /**
@@ -47,15 +48,14 @@ export { OPPORTUNITY_WINDOW_SECONDS, STALL_WINDOW_SECONDS } from "./engagement.t
  * `tacticTargets` is a pure table lookup on the *action*: a key that names its
  * action names how many targets were legal when it was chosen.
  *
- * **Four of the five heads therefore need no map of their own, and `action` is
- * the one that stopped needing one.** Movement and stance are legal on every
- * body; target is derived from the action; and every body that can decide at all
- * offers two or more actions, so a free-action count is exactly the action
- * marginal. `FREE_CHOICE_HEADS` in `options.ts` carries that theorem, the
- * coverage space of the sweeps behind it, and the head-by-head check -- along
- * with the key format and its delimiter. The effector is the one head a joint
- * map cannot answer for, because a key names the hand that acted and no key says
- * how many were offered.
+ * **Three of the five heads therefore need no map of their own, and `action` is
+ * the one that stopped needing one.** Movement is legal on every body; target
+ * is derived from the action; and every body that can decide at all offers two
+ * or more actions, so a free-action count is exactly the action marginal.
+ * `FREE_CHOICE_HEADS` in `options.ts` carries that theorem and the two exceptions
+ * that require recorded marginals: effector availability depends on the body
+ * and chosen action, while stance availability depends on whether the controller
+ * has a head and whether the body consumes posture at all.
  *
  * **The sixth head is not in this key and is not going to be.** A decision names
  * a dwell as well as a tuple, and adding it would multiply a key that entry 17
@@ -93,7 +93,7 @@ export function tacticMarginal(counts: TacticCounts, head: keyof TacticTuple): R
 export function mergeBehaviourRecord(rows: readonly Pick<TournamentRawRow, "tacticCounts" | "freeChoiceCounts" | "persistenceCounts">[]):
   { readonly tacticCounts: TacticCounts; readonly freeChoiceCounts: FreeChoiceCounts; readonly persistenceCounts: PersistenceCounts } {
   const tacticCounts: Record<string, number> = {};
-  const freeChoiceCounts: Record<FreeChoiceHead, Record<string, number>> = { effector: {} };
+  const freeChoiceCounts: Record<FreeChoiceHead, Record<string, number>> = { effector: {}, stance: {} };
   for (const row of rows) {
     for (const [key, count] of Object.entries(row.tacticCounts)) tacticCounts[key] = (tacticCounts[key] ?? 0) + count;
     for (const head of FREE_CHOICE_HEADS) {
@@ -103,7 +103,8 @@ export function mergeBehaviourRecord(rows: readonly Pick<TournamentRawRow, "tact
     }
   }
   return Object.freeze({ tacticCounts: Object.freeze(tacticCounts),
-    freeChoiceCounts: Object.freeze({ effector: Object.freeze(freeChoiceCounts.effector) }),
+    freeChoiceCounts: Object.freeze({ effector: Object.freeze(freeChoiceCounts.effector),
+      stance: Object.freeze(freeChoiceCounts.stance) }),
     // The third half of the record, folded by the module that owns its shape.
     // Deleting this line leaves every candidate reporting an empty dwell
     // marginal, which reads exactly like a tournament in which nobody decided --
@@ -136,13 +137,7 @@ export interface TournamentCandidate {
   readonly tacticCounts: TacticCounts;
   readonly freeChoiceCounts: FreeChoiceCounts;
   readonly persistenceCounts: PersistenceCounts;
-  readonly safety: {
-    readonly finiteAnatomical: boolean;
-    readonly capabilities: boolean;
-    readonly postVerdict: boolean;
-    readonly stuckActions: boolean;
-    readonly lifecycle: boolean;
-  };
+  readonly safety: TournamentSafety;
 }
 
 export interface CandidateVerdict {
@@ -274,6 +269,10 @@ function validateTacticRecord(identity: string, row: Pick<TournamentRawRow, "tac
     }
   }
   for (const head of FREE_CHOICE_HEADS) {
+    if (!row.freeChoiceCounts[head] || typeof row.freeChoiceCounts[head] !== "object" ||
+        Array.isArray(row.freeChoiceCounts[head])) {
+      throw new Error(`${identity} has no free-choice ${head} map`);
+    }
     const table = FREE_CHOICE_TABLES[head]; const marginal = tacticMarginal(row.tacticCounts, head);
     for (const [name, count] of Object.entries(row.freeChoiceCounts[head] ?? {})) {
       if (!Number.isSafeInteger(count) || count < 0) throw new Error(`${identity} has an invalid free-choice ${head} count for "${name}"`);
@@ -314,7 +313,16 @@ function validatePartialTournamentRows(rows: readonly TournamentRawRow[], manife
     if (engagement.firstAttackSeconds !== null && (!Number.isFinite(engagement.firstAttackSeconds) ||
         engagement.firstAttackSeconds < 0 || engagement.firstAttackSeconds > row.seconds + 1e-9)) throw new Error(`${identity} has invalid first attack time`);
     validateTacticRecord(identity, row);
-    if (Object.values(row.safety).some((value) => typeof value !== "boolean")) throw new Error(`${identity} has invalid safety evidence`);
+    const safety: unknown = row.safety;
+    if (!safety || typeof safety !== "object" || Array.isArray(safety)) {
+      throw new Error(`${identity} has invalid safety evidence`);
+    }
+    const keys = Object.keys(safety);
+    if (keys.length !== TOURNAMENT_SAFETY_NAMES.length ||
+        TOURNAMENT_SAFETY_NAMES.some((name) => !Object.hasOwn(safety, name) ||
+          typeof (safety as Record<string, unknown>)[name] !== "boolean")) {
+      throw new Error(`${identity} has invalid safety evidence`);
+    }
   }
 }
 export function assertCommonTournamentMatrix(rows: readonly TournamentRawRow[], manifest: FrozenTournamentManifest): void {
@@ -472,12 +480,12 @@ export interface HeadUtilisation {
  *
  * `freeChoiceDecisions` is what makes the statistic worth printing at all,
  * because it separates the two readings of a modal share of 1.0. Four of the
- * five tuple heads' free sets are *derived* and only the effector's is recorded:
- * movement and stance are legal on every body, `tacticTargets` is a table lookup
- * on the action so a key naming `bite` had one legal target and every other
- * action had at least two, and every body that can decide offers two or more
- * actions (the theorem beside `FREE_CHOICE_HEADS`). The effector is the one a
- * joint map cannot answer for.
+ * five tuple heads' free sets are *derived* except for effector and stance.
+ * `tacticTargets` is a table lookup on the action, and every body that can
+ * decide offers two or more actions (the theorem beside `FREE_CHOICE_HEADS`).
+ * Effector depends on the chosen action and live body; stance depends on a
+ * controller declaration and on whether the body consumes posture. Their free
+ * marginals therefore arrive in `freeChoiceCounts`.
  *
  * **The dwell's is recorded too, and for a different reason worth keeping
  * separate.** The effector's free set varies per decision, with the body and
@@ -585,16 +593,14 @@ export interface HeadUtilisation {
  * about their own harness, and the drift across a strata change is the second
  * reason not to quote them. The table is the part that does not move.
  *
- * **A head some algorithms do not have prints exactly like a head that
- * collapsed, and the `stance` row still does it.** `lookaheadMind` writes the
- * constant `UNLEARNED_STANCE` and has no stance head at all, so a lookahead
- * candidate's `stance` row is
- * `{chosen: 1, modal: "action-default", modalShare: 1, freeModalShare: 1}` --
- * indistinguishable from a learned stance head that settled on one option.
- * Nothing in this record can say which, so `scripts/evaluate-ai.mjs` puts
- * `algorithm` on every utilisation row and a reader has to use it. The stance
- * head is unmasked on every body, so there is no free set to record for it; what
- * it would take is the same declaration the dwell now carries.
+ * **The stance row now separates a missing head from a collapsed one.**
+ * `lookaheadMind` declares one stance option and learned controllers declare
+ * their decoded or frozen head width. The producer records a free stance only
+ * when that declaration is wider than one *and* the body consumes posture, so
+ * a centipede does not advertise six behaviourally identical choices. Thus a
+ * one-option marginal with `freeChoiceDecisions: 0` means constant by
+ * construction, while the same marginal with a non-zero free denominator means
+ * a head had choices and settled on one.
  *
  * **The `persistence` row is that defect fixed rather than described, and it was
  * two defects.** PPO wrote `UNLEARNED_PERSISTENCE` one field over until its sixth
@@ -618,9 +624,9 @@ export function headUtilisation(candidate: Pick<TournamentCandidate, "tacticCoun
   // The free *distribution*, not its sum: a head's free options and how often
   // each was taken. Derived from the joint map wherever the free set is a
   // function of the key -- which is four heads of five -- and read off the
-  // recorded map for the effector.
+  // recorded maps for the effector and stance.
   const freeMarginal = (head: keyof TacticTuple): Readonly<Record<string, number>> => {
-    if (head === "effector") return candidate.freeChoiceCounts.effector ?? {};
+    if (head === "effector" || head === "stance") return candidate.freeChoiceCounts[head] ?? {};
     if (head === "target") {
       const free: Record<string, number> = {};
       for (const [key, count] of Object.entries(counts)) {
@@ -657,7 +663,7 @@ export function headUtilisation(candidate: Pick<TournamentCandidate, "tacticCoun
   // `?? emptyPersistenceCounts()` and not a throw: this is the reporter and the
   // deserialization guard is `validateTacticRecord`, which refuses a row with no
   // dwell record by name. The same split is already here one head over --
-  // `candidate.freeChoiceCounts.effector ?? {}` above.
+  // the two `candidate.freeChoiceCounts[head] ?? {}` reads above.
   const dwell = candidate.persistenceCounts ?? emptyPersistenceCounts();
   return Object.freeze(Object.fromEntries([...rows,
     ["persistence", utilisation(dwell.bins, dwell.freeBins)] as const]) as Record<UtilisationHead, HeadUtilisation>);

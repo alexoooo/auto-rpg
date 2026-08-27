@@ -1,9 +1,8 @@
-import { createHash } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { Worker } from "node:worker_threads";
 import { fileURLToPath } from "node:url";
 
-import { ResearchArtifact } from "../src/learning/artifact.ts";
+import { canonicalDigest, canonicalJson, ResearchArtifact } from "../src/learning/artifact.ts";
 import { aggregateDaggerRows, balancedDaggerRows, daggerClassificationMetrics, DAGGER_HEAD_NAMES, predictDagger,
   requireTeacherEngagement, selectDaggerIteration, trainDaggerModel } from "../src/learning/dagger.ts";
 import { FEATURE_COLUMNS, FEATURE_VERSION } from "../src/learning/features.ts";
@@ -13,7 +12,9 @@ import { TACTICAL_TEACHER_VERSION } from "../src/learning/tactical-teacher.ts";
 import { EFFECTOR_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TACTIC_VERSION, TARGET_NAMES } from "../src/options.ts";
 import { ENGAGEMENT_INSTRUMENT_VERSION } from "../src/recorder.ts";
 import { checkpointJobDue, checkpointRun, DEFAULT_PLATEAU_EPSILON, DEFAULT_PLATEAU_ROWS, digestContract,
-  engagementGates, finalizeRun, ledgerStopDecision, makeLedgerRow, readLedger, runIsFinalized } from "./research-ledger.mjs";
+  engagementGates, finalizeRun, ledgerStopDecision, makeLedgerRow, readLedger, refuseFinalizedResume } from "./research-ledger.mjs";
+import { BALANCE_CONFIG_DIGEST, contractDigestArgument, refuseStaleResearchResume,
+  requiredResearchContractDigest } from "./research-preflight.mjs";
 
 const argv = process.argv.slice(2);
 const value = (name, fallback) => { const at = argv.indexOf(`--${name}`); return at < 0 ? fallback : argv[at + 1]; };
@@ -28,6 +29,7 @@ for (const [name, number] of Object.entries({ seed, solverSteps, iterations, wor
 }
 if (!Number.isFinite(plateauEpsilon) || plateauEpsilon < 0) throw new Error("--plateau-epsilon must be a non-negative number");
 if (solverSteps % 4 !== 0) throw new Error("--solver-steps must be divisible by four");
+const contractDigest = requiredResearchContractDigest(contractDigestArgument(argv));
 const evaluationJobs = iterations * 2; const quanta = solverSteps / 4; const baseQuanta = Math.floor(quanta / evaluationJobs);
 const extraJobs = quanta % evaluationJobs; if (baseQuanta < 1) throw new Error("DAgger budget cannot cover every train/validation job");
 // The output vocabulary, for the reason written out in full on `train-neat-qd.mjs`'s
@@ -41,21 +43,24 @@ const config = { version: 1, algorithm: "dagger", seed, solverSteps, iterations,
   teacherEngagementFloor: 0.05, featureVersion: FEATURE_VERSION, featureNames: FEATURE_COLUMNS,
   tacticVersion: TACTIC_VERSION, movementNames: MOVEMENT_NAMES, actionNames: HAND_ACTION_NAMES,
   effectorNames: EFFECTOR_NAMES, targetNames: TARGET_NAMES, stanceNames: STANCE_NAMES,
-  humanTraceStratum: "absent-optional", plateauEpsilon, plateauRows };
-const configText = JSON.stringify(config); const configDigest = createHash("sha256").update(configText).digest("hex").slice(0, 16);
+  humanTraceStratum: "absent-optional", plateauEpsilon, plateauRows,
+  balanceConfigDigest: BALANCE_CONFIG_DIGEST, contractDigest };
+const configText = canonicalJson(config); const configDigest = canonicalDigest(config);
 const runId = String(value("run-id", `dagger-${seed}-${configDigest}`));
 if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(runId)) throw new Error("invalid --run-id");
 const runDir = new URL(`../asset-src/learning/research/${runId}/`, import.meta.url); await mkdir(runDir, { recursive: true });
 const stateUrl = new URL("state.json", runDir);
 const atomic = async (url, data) => { const temporary = new URL(`${url.pathname.split("/").pop()}.tmp-${process.pid}`, runDir);
   await writeFile(temporary, data); await rename(temporary, url); };
-const runPath = fileURLToPath(runDir); const contractDigest = digestContract(RESEARCH_ARTIFACT_CONTRACT);
+const runPath = fileURLToPath(runDir);
+await refuseFinalizedResume(runPath, "DAgger", flag("resume"));
 
 let nextIteration = 0; let consumedSolverSteps = 0; let iterationRows = []; let validations = []; let models = [];
 let partialCollection = null; let pendingTraining = null; let completedJobs = 0;
 let checkpointRows = []; let pendingLedgerRow = null;
 if (flag("resume")) { const saved = JSON.parse(await readFile(stateUrl, "utf8"));
-  if (JSON.stringify(saved.config) !== configText) throw new Error("DAgger resume refused: config digest changed");
+  refuseStaleResearchResume("DAgger", saved.config?.contractDigest, contractDigest);
+  if (canonicalJson(saved.config) !== configText) throw new Error("DAgger resume refused: config digest changed");
   ({ nextIteration, consumedSolverSteps, iterationRows, validations, models, partialCollection = null, pendingTraining = null,
     completedJobs = 0, pendingLedgerRow = null } = saved); }
 const existingRows = await readLedger(fileURLToPath(new URL("ledger.jsonl", runDir)));
@@ -158,7 +163,6 @@ if (pendingLedgerRow) {
   pendingLedgerRow = null; await persist();
 }
 let stopped = ledgerStopDecision(checkpointRows);
-if (flag("resume") && stopped && await runIsFinalized(runPath)) throw new Error(`DAgger resume refused: ${stopped}`);
 
 for (let iteration = nextIteration; iteration < iterations && !stopped; iteration += 1) {
   const deployed = iteration === 0 ? null : models[iteration - 1];

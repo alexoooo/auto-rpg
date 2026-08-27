@@ -11,6 +11,7 @@ import { engagementGates, engagementMetrics, formatEngagementGateTable,
 const STORAGE_KEY = "sword-prototype.session-18b-playtest.v3";
 const REPORT_VERSION = 3;
 const BOUT_CAP_SECONDS = 45;
+const COMPETENCE_VALUES = Object.freeze(["", "comfortable", "learning", "struggling"] as const);
 
 interface Cell {
   readonly key: string;
@@ -609,7 +610,7 @@ export class GuidedPlaytest {
       if (parsed.reportVersion !== REPORT_VERSION || parsed.protocolDigest !== PLAYTEST_PROTOCOL.digest
           || parsed.engagementInstrumentVersion !== ENGAGEMENT_INSTRUMENT_VERSION
           || typeof parsed.startedAt !== "string" || typeof parsed.updatedAt !== "string"
-          || typeof parsed.competence !== "string" || typeof parsed.generalNotes !== "string"
+          || !COMPETENCE_VALUES.includes(parsed.competence) || typeof parsed.generalNotes !== "string"
           || !Array.isArray(parsed.rows) || !Array.isArray(parsed.aborts)
           || !parsed.feel || typeof parsed.feel !== "object" || !Number.isInteger(parsed.next)
           || parsed.next < 0 || parsed.next > ASSIGNMENTS.length || parsed.rows.length !== parsed.next
@@ -617,7 +618,8 @@ export class GuidedPlaytest {
           || FEEL_QUESTIONS.some(({ key }) => !parsed.feel[key]
             || !["", "yes", "no", "unsure"].includes(parsed.feel[key].verdict)
             || typeof parsed.feel[key].notes !== "string")
-          || parsed.aborts.some((abort) => !savedAbortMatchesAssignment(abort))
+          || parsed.aborts.some((abort) => !savedAbortMatchesAssignment(abort)
+            || abort.assignmentIndex > parsed.next)
           || parsed.rows.some((row, index) => !savedRowMatchesAssignment(row, index))) {
         this.loadIssue = "Saved playtest data uses an incompatible or incomplete format. It was not overwritten; Start over will archive it first.";
         this.recoverySource = source;

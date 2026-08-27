@@ -256,7 +256,7 @@ export class Centipede implements Combatant {
   }
 
   update(dt: number): void {
-    if (this.dead) return;
+    if (this.dead || !this.fighting) return;
     const input = this.mind.decide(this.view, dt);
     this.intentObserver?.(this.view, input);
     this.phaseClock += dt;

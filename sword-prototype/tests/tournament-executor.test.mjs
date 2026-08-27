@@ -66,6 +66,8 @@ const candidates = [...bytes].map(([name, value]) => ({ name, algorithm: name ==
 const job = Object.freeze({ split: "test", cell: 0, mirror: 0, actorSide: "left", actorSeed: 11, opponentSeed: 12,
   unit: "warrior", loadout: "sword+empty", opponent: "specialist", boutCapSeconds: 1 });
 const manifest = freezeTournamentManifest({ candidates, jobs: [job] });
+const measuredSafety = () => ({ finiteAnatomical: true, capabilities: true,
+  postVerdict: true, stuckActions: true, lifecycle: true });
 
 test("every_frozen_research_artifact_has_one_strict_deployment_runtime", () => {
   const loaded = loadFrozenArtifacts(manifest, bytes);
@@ -88,7 +90,7 @@ test("every_frozen_research_artifact_has_one_strict_deployment_runtime", () => {
 const boutRecord = () => ({
   tacticCounts: { [tacticCountKey({ movement: "close", action: "cut", effector: "primary", target: "vital", stance: "action-default" })]: 3,
     [tacticCountKey({ movement: "hold", action: "cover", effector: "secondary", target: "threat", stance: "upright" })]: 2 },
-  freeChoiceCounts: { effector: { primary: 1, secondary: 2 } },
+  freeChoiceCounts: { effector: { primary: 1, secondary: 2 }, stance: { "action-default": 3, upright: 2 } },
   // Five decisions, two dwell bins, every one of them free -- a controller that
   // declared a dwell head. `bins` sums to the joint map's own total because every
   // decision names exactly one dwell, which is what the row validator checks.
@@ -98,7 +100,8 @@ test("the_executor_runs_only_the_next_frozen_indices_and_returns_mergeable_raw_r
   const loaded = loadFrozenArtifacts(manifest, bytes); const called = [];
   const mock = async (indexedJob, makeMind) => { called.push(indexedJob.index); makeMind(() => {});
     return { result: { winner: "left", seconds: 1 }, engagement: { viableOpportunities: 2, attacksInWindow: 1,
-      damagingContactsInWindow: 1, nearRangeStallSeconds: 0, firstAttackSeconds: 0.2 }, ...boutRecord() }; };
+      damagingContactsInWindow: 1, nearRangeStallSeconds: 0, firstAttackSeconds: 0.2 },
+      safetyEvidence: measuredSafety(), ...boutRecord() }; };
   const rows = await executeNextTournamentRows({ manifest, rows: [], artifacts: loaded, maximum: 2, runResearchBout: mock });
   assert.deepEqual(called, [0, 0]); assert.deepEqual(rows.map((row) => row.candidate), ["neat", "dagger"]);
   assert.ok(rows.every((row) => row.manifestDigest === manifest.digest)); assert.deepEqual(rows[0].job, job);
@@ -125,10 +128,11 @@ test("a_bout_that_recorded_nothing_still_produces_a_row_the_validator_accepts", 
   const loaded = loadFrozenArtifacts(manifest, bytes);
   const mock = async (indexedJob, makeMind) => { makeMind(() => {});
     return { result: { winner: null, seconds: 1 }, engagement: { viableOpportunities: 0, attacksInWindow: 0,
-      damagingContactsInWindow: 0, nearRangeStallSeconds: 0, firstAttackSeconds: null }, tacticCounts: {} }; };
+      damagingContactsInWindow: 0, nearRangeStallSeconds: 0, firstAttackSeconds: null },
+      safetyEvidence: measuredSafety(), tacticCounts: {} }; };
   const rows = await executeNextTournamentRows({ manifest, rows: [], artifacts: loaded, maximum: 1, runResearchBout: mock });
   assert.deepEqual(rows[0].tacticCounts, {});
-  assert.deepEqual(rows[0].freeChoiceCounts, { effector: {} });
+  assert.deepEqual(rows[0].freeChoiceCounts, { effector: {}, stance: {} });
   // The dwell half too: a control took no decision, so an empty pair is the
   // record it has, and `freezePersistenceCounts` is what turns a mock that omits
   // the field entirely into one rather than into `undefined`.
@@ -381,7 +385,7 @@ test("a_lookahead_model_from_another_key_grammar_is_refused_by_model_version", (
  * assertion says by comparing against the fixture's own head rather than against
  * `PERSISTENCE_SECONDS.length`.
  */
-test("every_deployed_algorithm_declares_whether_it_has_a_dwell_head", () => {
+test("every_deployed_algorithm_declares_whether_it_has_stance_and_dwell_heads", () => {
   const loaded = loadFrozenArtifacts(manifest, bytes);
   const declared = Object.fromEntries([...bytes.keys()].map((name) =>
     [name, deployedResearchMind(loaded.get(name), "warrior/sword+empty").persistenceOptions]));
@@ -391,5 +395,12 @@ test("every_deployed_algorithm_declares_whether_it_has_a_dwell_head", () => {
   // Said the other way round, because the count is the part that carries meaning
   // and `1` is the only value that means "there is no head here".
   assert.deepEqual(Object.entries(declared).filter(([, options]) => options === 1).map(([name]) => name),
+    ["lookahead"]);
+
+  const stances = Object.fromEntries([...bytes.keys()].map((name) =>
+    [name, deployedResearchMind(loaded.get(name), "warrior/sword+empty").stanceOptions]));
+  assert.deepEqual(stances, { neat: 6, dagger: 6, ppo: 6, lookahead: 1 });
+  assert.equal(stances.ppo, ppo().weights.stance.rows, "ppo declares its own decoded stance-head width");
+  assert.deepEqual(Object.entries(stances).filter(([, options]) => options === 1).map(([name]) => name),
     ["lookahead"]);
 });

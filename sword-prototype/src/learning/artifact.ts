@@ -117,6 +117,9 @@ export function artifactChecksum(text: string): string {
   return hash.toString(16).padStart(8, "0");
 }
 
+/** One page-safe spelling for every deterministic configuration fingerprint. */
+export const canonicalDigest = (value: unknown): string => artifactChecksum(canonicalJson(value));
+
 const validate = (data: ResearchArtifactData, contract: ResearchArtifactContract): void => {
   if ((data.schema ?? RESEARCH_ARTIFACT_SCHEMA) !== RESEARCH_ARTIFACT_SCHEMA) {
     throw new Error(`research artifact schema ${data.schema} is unsupported`);

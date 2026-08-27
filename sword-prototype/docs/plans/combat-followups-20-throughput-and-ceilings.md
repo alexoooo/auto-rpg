@@ -1,26 +1,25 @@
 # Session 20 -- measure throughput, derive every ceiling, freeze the contract
 
-> **Corrections, 2026-08-26.** Measured against the tree at `86b74c8`.
+> **Current entry state, 2026-08-26.** The defects this file originally assigned to the start
+> of session 20 are now closed, but no throughput schedule has been measured.
 >
 > - **The ceiling this session derives is a count of *updates* per direction, with steps as
 >   a derived column.** A step budget is not a learning budget for three of the four:
->   PPO cannot spend one at all (5,508 consumed against 800,000 requested), and NEAT-QD and
->   DAgger scale by `--generations` and `--iterations` while `--solver-steps` only lengthens
+>   The old PPO runner could not spend one at all (5,508 consumed against 800,000 requested),
+>   and NEAT-QD and DAgger scale by `--generations` and `--iterations` while `--solver-steps` only lengthens
 >   the bouts inside a fixed number of updates. Only look-ahead turns steps into fitted rows.
 >   Deriving a step ceiling and handing it to sessions 21 and 22 schedules a quantity that
 >   does not move three of the four directions.
-> - **"PPO is the direction most likely to dominate the schedule" is inverted.** On today's
->   runner PPO is the *cheapest* by two orders of magnitude -- four bouts, about twenty
->   seconds. Measuring it first is still right, for the opposite reason: it is the direction
->   that will reveal it cannot run.
+> - **PPO now has the outer loop that measurement needs.** Repeated
+>   collect/update/validation jobs spend the declared ceiling and publish resumable ledger rows.
+>   The old four-bout/twenty-second figure is historical and says nothing about current throughput.
 > - **`--rung` does not exist anywhere in the tree**, and sessions 21 and 22 both require it
 >   ("resolve these from the frozen contract via `--rung 2`, never from the command line").
 >   This session or 21 must own building it.
-> - **`configDigest` is two incompatible formats**: 16-hex SHA-256 in `train-neat-qd.mjs` and
->   `collect-dagger.mjs`, 8-hex FNV-1a in `train-ppo.mjs` and `train-lookahead.mjs`. Preflight
->   compares a contract digest across all four, so the *Freeze* step has to reconcile them.
->   Note also that a SHA-256 digest cannot live in `src/learning/`: `node:crypto` is
->   unavailable in the page and `crypto.subtle` is async, as `src/learning/artifact.ts` says.
+> - **The digest/preflight mechanism is implemented.** All four runners use the same canonical
+>   config spelling and refuse a missing or stale contract digest before their first worker or
+>   collector call. The frozen surface deliberately says pre-throughput and contains no invented
+>   ceiling or cadence; this session extends it only after taking the measurements below.
 > - **Worth bracketing early.** The null control runs 120 bouts of 3.52 s in 16.3 s of wall
 >   clock -- about 26x real time on one thread, one unbracketed reading, bench harness. If
 >   NEAT's rate is within a factor of two of that, the 86- and 125-hour extrapolations in
@@ -34,6 +33,11 @@ all four directions at their intended worker counts, convert the declared wall-c
 into per-direction step ceilings and checkpoint cadences, then freeze the compute-contract
 digest and the ledger row schema.
 
+**Entry gate:** session 18b's formal human gate-feasibility verdict exists. The brief positive
+play note in `docs/measurements.md` is useful qualitative evidence and is not that verdict. Until
+18b is complete, do not run the throughput windows or any research rung. Software-only preflight,
+resume and parallelism work may land ahead of the measurement; no ceiling may.
+
 This is the real preflight. Its predecessor froze a budget and audited the machinery around
 it; this one measures the machine and derives the budget from what it finds.
 
@@ -46,8 +50,9 @@ warm-up, validation overhead and worker contention all outside the sample. The h
 labels them scheduling hints. Treat them as the null hypothesis to be replaced, not a baseline
 to be refined.
 
-PPO has no estimate at all, and it is the direction most likely to dominate the schedule: the
-runner deliberately refuses `--workers` greater than 1. Measure it first.
+PPO has no current estimate at all: its only number came from the retired fixed four-bout runner.
+Measure it first, including the worker/seed parallelism shape, because the outer loop is new and
+its utilisation cannot be inferred from the single-core probe.
 
 ## Measure
 
@@ -71,11 +76,11 @@ Record for each direction:
 - machine utilisation: threads busy, and for `--workers 8` the per-worker efficiency against
   the `--workers 1` rate.
 
-Then answer the scheduling question that only PPO raises: **at `--workers 1`, how much of the
-host is idle, and can three PPO seeds run concurrently without disturbing each other's
-throughput?** Measure one seed alone, then three concurrently, and report both. If three
-concurrent single-worker runs cost less than three sequential ones, session 22's PPO schedule
-changes shape, and that is worth knowing before it is written down.
+Then answer PPO's scheduling question across both available axes: **how does one seed scale with
+its supported worker counts, and how do several seeds coexist?** Measure a single-worker control,
+the candidate within-seed worker counts, and three concurrent seeds at the best justified count.
+Report total throughput, per-worker efficiency and host utilisation for each. Session 22 uses the
+best measured topology; neither one worker nor one process is privileged in advance.
 
 ## Derive
 
@@ -96,17 +101,18 @@ Write all of it into `docs/measurements.md` as one dated throughput table naming
 its host and its bracket spreads. This table is what future scheduling decisions cite; the
 86/125-hour figures are superseded and should be marked as such where they appear.
 
-## Freeze
+## Complete the freeze
 
-1. Compute the compute-contract digest over the exact frozen surface: feature v4 column names
+The canonical digest, balance-config provenance and early refusal already exist. Finish rather
+than replace that foundation:
+
+1. Extend the compute-contract digest over the measured schedule as well as the exact frozen surface: feature v4 column names
    and normalization, the mirror tables, tactic v2 vocabulary, legal masks, threat selection,
    the ledger row schema, and the derived ceilings, cadences and plateau arguments.
-2. Add `npm run ai:preflight`. It validates that digest, the feature/tactic versions, the
-   ledger schema, the artifact codec and every declared threshold, and **refuses a missing or
-   mismatched digest before solver step one**. Every research command takes the digest as a
-   required argument and calls the same check. Sessions 24 and 25 already invoke this command.
-3. Record the balance-config digest mechanism from the overview: every run stamps the config
-   digest it started under into its ledger header and its report.
+2. Extend the existing `npm run ai:preflight` checks to the derived ceilings and cadences. Keep
+   its current early-refusal tests and all-runner wiring intact.
+3. Confirm the existing balance-config digest remains provenance rather than part of the frozen
+   learned-interface digest, and that every final report carries both identities.
 4. Fold the durable conclusions from `session15-workers8-smoke/`, `session16-final-workers8/`
    and `session18-minimum/` into `docs/measurements.md` as prose and tables, then delete all
    three directories. Stale-version refusal is tested with synthetic headers; the repository
@@ -114,10 +120,8 @@ its host and its bracket spreads. This table is what future scheduling decisions
 
 ## Tests and adversarial proof
 
-- `tests/preflight.test.mjs`:
-  `a_missing_or_mismatched_contract_digest_refuses_before_the_first_solver_step`;
-  `a_changed_ledger_row_schema_changes_the_digest`;
-  `a_changed_balance_constant_does_not_change_the_contract_digest_but_is_recorded`.
+- `tests/preflight.test.mjs` already pins missing/stale refusal, surface drift and balance-config
+  separation. Add the measured schedule to those existing mutation proofs.
 - `tests/ceilings.test.mjs`:
   `a_derived_ceiling_is_reproduced_from_its_recorded_rate_window_and_overhead` -- the
   arithmetic is checked, not trusted.
@@ -133,7 +137,8 @@ covers versions and not contents would let a renormalized column pass as the sam
 - PPO has a measured rate and a concurrency answer.
 - Every ceiling, cadence and plateau argument in sessions 21 and 22 is derived from that table,
   with its arithmetic shown.
-- `npm run ai:preflight` exists and refuses on any contract mismatch before solver work.
+- `npm run ai:preflight` still refuses on any contract mismatch before solver work, now including
+  the measured schedule rather than only the pre-throughput surface.
 - The three retained smoke directories are gone and their conclusions survive as prose.
 - The superseded 86/125-hour extrapolations are marked superseded where they appear.
 - `npm test`, `npm run check` and `npm run build` pass.

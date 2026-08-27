@@ -7,6 +7,7 @@ import { ATTACK_OPTION_NAMES, EFFECTOR_NAMES, FREE_CHOICE_HEADS, HAND_ACTION_NAM
 import { UNLEARNED_PERSISTENCE, deployableActions } from "../src/learning/meta.ts";
 import { PERSISTENCE_BIN_KEYS, PERSISTENCE_SECONDS, persistenceBin, persistenceBinFailure, persistenceBinKey,
   persistenceOptionsOf } from "../src/learning/persistence.ts";
+import { stanceOptionsForBody, stanceOptionsOf } from "../src/learning/stance.ts";
 import { researchLabelMind } from "../src/learning/research-policy.ts";
 import { runResearchBout } from "../scripts/research-havok.mjs";
 import { RESEARCH_STRATA, researchMatrix } from "../src/learning/research-matrix.ts";
@@ -61,7 +62,13 @@ const dwellRecord = (tacticCounts, { bin = "0.40", free = true } = {}) => {
   const bins = decisions ? { [bin]: decisions } : {};
   return { bins, freeBins: free ? { ...bins } : {} };
 };
-const withDwell = (record, options) => ({ persistenceCounts: dwellRecord(record.tacticCounts, options), ...record });
+const stanceMarginal = (counts) => Object.entries(counts).reduce((marginal, [written, count]) => {
+  const stance = written.split(TACTIC_KEY_DELIMITER)[4];
+  marginal[stance] = (marginal[stance] ?? 0) + count;
+  return marginal;
+}, {});
+const withDwell = (record, options) => ({ persistenceCounts: dwellRecord(record.tacticCounts, options), ...record,
+  freeChoiceCounts: { stance: stanceMarginal(record.tacticCounts), ...record.freeChoiceCounts } });
 const behaviour = (scale = 1) => withDwell({
   tacticCounts: { [key("close", "cut")]: 10 * scale, [key("hold", "cover", "secondary", "threat")]: 10 * scale,
     [key("circle-left", "thrust", "primary", "high", "slip-left")]: 10 * scale },
@@ -121,6 +128,23 @@ test("selection_uses_validation_and_test_is_opened_exactly_once", () => {
   assert.throws(() => nextTournamentBatch([{ ...partial[0], manifestDigest: "changed" }], frozen, 1), /different frozen manifest/);
   assert.throws(() => nextTournamentBatch([{ ...partial[0], outcome: "timeout" }], frozen, 1), /invalid outcome/);
   assert.throws(() => nextTournamentBatch([{ ...partial[0], safety: { ...safety, lifecycle: "yes" } }], frozen, 1), /invalid safety evidence/);
+});
+
+test("persisted_safety_evidence_requires_exactly_the_five_boolean_fields_on_resume_and_merge", () => {
+  const frozen = manifest(); const source = rows()[0];
+  const { lifecycle: _removed, ...missing } = safety;
+  const malformed = [
+    { ...safety, invented: true },
+    missing,
+    null,
+    [],
+    { ...safety, lifecycle: "yes" },
+  ];
+  for (const evidence of malformed) {
+    const persisted = { ...source, safety: evidence };
+    assert.throws(() => nextTournamentBatch([persisted], frozen, 1), /invalid safety evidence/);
+    assert.throws(() => mergeTournamentRows([], [persisted], frozen), /invalid safety evidence/);
+  }
 });
 
 test("reordering_controllers_does_not_change_any_fight_record_or_verdict", () => {
@@ -261,11 +285,16 @@ test("a_malformed_behaviour_record_is_refused_by_the_part_that_is_wrong", () => 
   // `action` is a real head of the tuple and is *not* a free-choice head, which
   // makes it the sharpest case for this refusal: it was one until 2026-08-25,
   // and a resumed row from before the deletion carries it.
-  for (const stale of ["action", "stance"]) {
+  for (const stale of ["action"]) {
     assert.throws(() => nextTournamentBatch(rowWith({ tacticCounts: { [legal]: 4 },
       freeChoiceCounts: { effector: { primary: 4 }, [stale]: { cut: 4 } } }), frozen, 1),
-    new RegExp(`free-choice head "${stale}", not effector`));
+    new RegExp(`free-choice head "${stale}", not effector or stance`));
   }
+  assert.throws(() => nextTournamentBatch(rowWith({ tacticCounts: { [legal]: 4 },
+    freeChoiceCounts: { effector: {}, stance: { crouching: 4 } } }), frozen, 1),
+  /a free-choice stance of action-default, upright, compact, extended, slip-left, slip-right, not "crouching"/);
+  assert.throws(() => nextTournamentBatch([{ ...row(candidates[0].name, jobs[0], 0),
+    freeChoiceCounts: { effector: {} } }], frozen, 1), /has no free-choice stance map/);
   assert.throws(() => nextTournamentBatch(rowWith({ tacticCounts: { [legal]: 4 },
     freeChoiceCounts: { effector: { tertiary: 4 } } }), frozen, 1),
   /a free-choice effector of primary, secondary, natural, not "tertiary"/);
@@ -493,7 +522,7 @@ test("the_free_choice_modal_and_the_all_decision_modal_can_name_different_option
   const measured = {
     tacticCounts: { [key("close", "cut", "primary", "vital")]: 69,
       [key("close", "cover", "secondary", "threat")]: 27 },
-    freeChoiceCounts: { effector: { secondary: 27 } },
+    freeChoiceCounts: { effector: { secondary: 27 }, stance: { "action-default": 96 } },
     // Two bins rather than one, so the `persistence` row in the record below is
     // a real distribution and not a singleton that any implementation produces.
     // The probe held its cuts for 0.10 s and its covers for 0.40, which is the
@@ -568,16 +597,17 @@ test("the_modal_option_is_the_most_used_one_and_not_the_least", () => {
 test("an_aggregated_candidate_carries_the_free_choice_counts_its_rows_recorded", () => {
   const mine = candidates[0].name;
   const first = row(mine, jobs[0], 0, { tacticCounts: { [key("close", "cut")]: 6, [key("hold", "cover", "secondary", "threat")]: 4 },
-    freeChoiceCounts: { effector: { secondary: 4 } },
+    freeChoiceCounts: { effector: { secondary: 4 }, stance: { "action-default": 10 } },
     persistenceCounts: { bins: { "0.10": 6, "0.40": 4 }, freeBins: { "0.10": 6, "0.40": 4 } } });
   const second = row(mine, jobs[1], 1, { tacticCounts: { [key("close", "cut")]: 1, [key("hold", "cover", "primary", "threat")]: 9 },
-    freeChoiceCounts: { effector: { primary: 9 } },
+    freeChoiceCounts: { effector: { primary: 9 }, stance: { "action-default": 10 } },
     persistenceCounts: { bins: { "0.40": 1, "0.80": 9 }, freeBins: { "0.40": 1, "0.80": 9 } } });
   const others = rows().filter((entry) => entry.candidate !== mine);
   const aggregate = candidateFromRawRows(candidates[0], [first, second, ...others]);
   assert.deepEqual(aggregate.tacticCounts, { [key("close", "cut")]: 7,
     [key("hold", "cover", "secondary", "threat")]: 4, [key("hold", "cover", "primary", "threat")]: 9 });
-  assert.deepEqual(aggregate.freeChoiceCounts, { effector: { secondary: 4, primary: 9 } });
+  assert.deepEqual(aggregate.freeChoiceCounts,
+    { effector: { secondary: 4, primary: 9 }, stance: { "action-default": 20 } });
   // The dwell half beside them, summed bin by bin across two rows that share one
   // bin and differ on the other -- so a fold that kept the first row, kept the
   // last, or dropped the map is red, and the shared 0.40 bin is what a fold
@@ -882,6 +912,37 @@ test("a_collapsed_dwell_head_and_a_head_that_does_not_exist_are_different_record
 });
 
 /**
+ * The stance analogue: the all-decision marginal is already in the joint key,
+ * so the extra record is only the free-choice marginal that says whether a head
+ * and body could have emitted another meaningful stance.
+ */
+test("a_collapsed_stance_head_and_a_head_that_does_not_exist_are_different_records", () => {
+  const counts = { [key("close", "cut")]: 20, [key("hold", "thrust")]: 20 };
+  const base = { tacticCounts: counts, persistenceCounts: dwellRecord(counts), freeChoiceCounts: { effector: {} } };
+  const noHead = { ...base, freeChoiceCounts: { ...base.freeChoiceCounts, stance: {} } };
+  const collapsed = { ...base, freeChoiceCounts: { ...base.freeChoiceCounts, stance: { "action-default": 40 } } };
+
+  assert.deepEqual(headUtilisation(noHead).stance, { decisions: 40, freeChoiceDecisions: 0, chosen: 1,
+    modal: "action-default", modalShare: 1, freeModal: null, freeModalShare: 0 });
+  assert.deepEqual(headUtilisation(collapsed).stance, { decisions: 40, freeChoiceDecisions: 40, chosen: 1,
+    modal: "action-default", modalShare: 1, freeModal: "action-default", freeModalShare: 1 });
+  assert.equal(headUtilisation(noHead).stance.modal, headUtilisation(collapsed).stance.modal);
+  assert.notDeepEqual(headUtilisation(noHead).stance, headUtilisation(collapsed).stance);
+});
+
+test("a_stance_declaration_is_validated_and_a_centipede_cannot_advertise_postures_it_does_not_consume", () => {
+  assert.equal(stanceOptionsOf({}), 1);
+  assert.equal(stanceOptionsOf(null), 1);
+  assert.equal(stanceOptionsOf({ stanceOptions: STANCE_NAMES.length }), STANCE_NAMES.length);
+  assert.equal(stanceOptionsForBody({ stanceOptions: STANCE_NAMES.length }, "warrior"), STANCE_NAMES.length);
+  assert.equal(stanceOptionsForBody({ stanceOptions: STANCE_NAMES.length }, "centipede"), 1);
+  for (const bad of [0, -1, 2.5, Number.NaN, "6"]) {
+    assert.throws(() => stanceOptionsOf({ stanceOptions: bad }),
+      /stance options; the contract is a whole number of at least 1/, `${bad}`);
+  }
+});
+
+/**
  * The refusals a malformed dwell record earns, each naming the offending part,
  * and the two well-formed shapes that must not be refused.
  *
@@ -995,7 +1056,7 @@ test("a_real_bout_records_the_dwell_every_decision_asked_for", async () => {
         const persistence = dwells[step % dwells.length]; step += 1; asked.push(persistence);
         return { movement: "close", action: "cut", effector: chooseEffector(view, "cut"),
           target: "vital", stance: "action-default", persistence };
-      }, onDecision, persistenceOptions), 2400);
+      }, onDecision, persistenceOptions, STANCE_NAMES.length), 2400);
     // Keyed through the mirror above rather than through the function under
     // test, so a producer and a checker that agree on a wrong spelling still fail.
     const expected = {};
@@ -1024,6 +1085,7 @@ test("a_real_bout_records_the_dwell_every_decision_asked_for", async () => {
   // The sweeping head used its grid, and the record says how much of it.
   assert.equal(headUtilisation(swept.bout).persistence.chosen, PERSISTENCE_SECONDS.length);
   assert.equal(headUtilisation(swept.bout).persistence.freeChoiceDecisions, swept.bout.decisions);
+  assert.equal(headUtilisation(swept.bout).stance.freeChoiceDecisions, swept.bout.decisions);
 
   // The pair the whole record exists for, taken off two real bouts rather than
   // off a literal: identical marginals, and only the declaration separating a
@@ -1035,4 +1097,19 @@ test("a_real_bout_records_the_dwell_every_decision_asked_for", async () => {
   assert.equal(headUtilisation(collapsed.bout).persistence.freeChoiceDecisions, collapsed.bout.decisions);
   assert.equal(headUtilisation(constant.bout).persistence.freeChoiceDecisions, 0);
   assert.notDeepEqual(headUtilisation(collapsed.bout).persistence, headUtilisation(constant.bout).persistence);
+});
+
+test("a_real_centipede_bout_records_no_free_stance_choices_even_for_a_controller_with_a_head", async () => {
+  const matrix = researchMatrix("train", 310013);
+  const at = matrix.findIndex((entry) => entry.unit === "centipede");
+  assert.ok(at >= 0, "no train job for a centipede");
+  const bout = await runResearchBout({ ...matrix[at], index: at }, (onDecision) =>
+    researchLabelMind("centipede-stance-probe", () => ({ movement: "close", action: "bite", effector: "natural",
+      target: "vital", stance: "slip-left", persistence: UNLEARNED_PERSISTENCE }), onDecision,
+    1, STANCE_NAMES.length), 1200);
+
+  assert.ok(bout.decisions > 0, "the body never reached the declaration under test");
+  assert.deepEqual(bout.freeChoiceCounts.stance, {});
+  assert.equal(headUtilisation(bout).stance.freeChoiceDecisions, 0);
+  assert.equal(headUtilisation(bout).stance.modal, "slip-left", "the chosen marginal remains factual");
 });

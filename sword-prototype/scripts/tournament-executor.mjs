@@ -7,6 +7,7 @@ import { policyMind } from "../src/mind.ts";
 import { scriptedMetaMind } from "../src/options.ts";
 import { freezePersistenceCounts } from "../src/learning/persistence.ts";
 import { mergeTournamentRows, nextTournamentBatch, validateTournamentManifest } from "../src/learning/tournament.ts";
+import { tournamentSafetyFromBout, tournamentSafetyObserver } from "./tournament-safety.mjs";
 
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
@@ -57,15 +58,15 @@ export function tournamentRawRow(manifest, scheduled, bout) {
     // validator has to accept that. Nothing downstream reads a control's counts
     // -- `assessTournamentCandidate` runs over `manifest.candidates` alone.
     tacticCounts: Object.freeze({ ...bout.tacticCounts }),
-    freeChoiceCounts: Object.freeze({ effector: Object.freeze({ ...bout.freeChoiceCounts?.effector }) }),
+    freeChoiceCounts: Object.freeze({ effector: Object.freeze({ ...bout.freeChoiceCounts?.effector }),
+      stance: Object.freeze({ ...bout.freeChoiceCounts?.stance }) }),
     // The dwell half, through the same shared freezer the validator's failure
     // reader is beside. A row that carried it under a different shape would be
     // refused at *run* time and not at check time, because nothing under
     // `scripts/` is type-checked -- which is why this is one function and not a
     // second spelling of `{ bins, freeBins }` on this side of the JSON.
     persistenceCounts: freezePersistenceCounts(bout.persistenceCounts),
-    safety: Object.freeze({ finiteAnatomical: true,
-      capabilities: true, postVerdict: true, stuckActions: true, lifecycle: true }) });
+    safety: tournamentSafetyFromBout(bout) });
 }
 
 /** Execute only the frozen indexed prefix returned by the shared resume scheduler. */
@@ -76,8 +77,11 @@ export async function executeNextTournamentRows({ manifest, rows, artifacts, max
   let merged = Object.freeze([...rows]);
   for (const entry of scheduled) {
     const job = manifest.jobs[entry.index]; const indexedJob = Object.freeze({ ...job, index: entry.index });
+    const safety = tournamentSafetyObserver({
+      requireTacticEvidence: manifest.candidates.some((candidate) => candidate.name === entry.candidate),
+    });
     const result = await run(indexedJob, mindFactoryForTournament(entry.candidate, job, artifacts),
-      Math.round(job.boutCapSeconds * 240));
+      Math.round(job.boutCapSeconds * 240), null, { tournamentSafety: safety });
     const row = tournamentRawRow(manifest, entry, { ...result, job });
     merged = mergeTournamentRows(merged, [row], manifest); await onRow?.(merged, row);
   }

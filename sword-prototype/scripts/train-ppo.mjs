@@ -1,15 +1,16 @@
 import { readFile, rename, writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { Worker } from "node:worker_threads";
 
 import { FEATURE_COLUMNS } from "../src/learning/features.ts";
 import { CONFIG } from "../src/config.ts";
-import { ResearchArtifact, artifactChecksum, canonicalJson } from "../src/learning/artifact.ts";
+import { ResearchArtifact, artifactChecksum, canonicalDigest, canonicalJson } from "../src/learning/artifact.ts";
 import { GRU_UNITS, RecurrentPolicy, maskedCategorical, seededRandom } from "../src/learning/recurrent-network.ts";
 import { META_OUTPUT_LAYOUT, PERSISTENCE_SECONDS } from "../src/learning/meta.ts";
 import { decodePpoResume, encodePpoResume, equalBudgetPpoArms, freezeOpponentLeague, generalizedAdvantages,
   indexedLeagueOpponent, ppoHeadUpdate, PPO_GAMMA_PER_SECOND, PPO_POLICY_HEADS, PPO_TRACE_LAMBDA,
-  selectPpoArm, tacticalBoundaryReward } from "../src/learning/ppo.ts";
+  PPO_ROLLOUT_BUNDLE_SIZE, PPO_TRAINING_SEMANTICS_VERSION, selectPpoArm, tacticalBoundaryReward } from "../src/learning/ppo.ts";
 import { researchMatrix } from "../src/learning/research-matrix.ts";
 import { researchLabelMind } from "../src/learning/research-policy.ts";
 import { predictDagger } from "../src/learning/dagger.ts";
@@ -20,7 +21,9 @@ import { EFFECTOR_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TARGET
 import { ENGAGEMENT_INSTRUMENT_VERSION } from "../src/recorder.ts";
 import { runResearchBout } from "./research-havok.mjs";
 import { checkpointJobDue, checkpointRun, DEFAULT_PLATEAU_EPSILON, DEFAULT_PLATEAU_ROWS, digestContract, engagementGates,
-  finalizeRun, ledgerStopDecision, makeLedgerRow, readLedger, runIsFinalized } from "./research-ledger.mjs";
+  finalizeRun, ledgerStopDecision, makeLedgerRow, readLedger, refuseFinalizedResume } from "./research-ledger.mjs";
+import { BALANCE_CONFIG_DIGEST, contractDigestArgument, FROZEN_RESEARCH_CONTRACT_DIGEST,
+  refuseStaleResearchResume, requiredResearchContractDigest } from "./research-preflight.mjs";
 
 const layer = (rows, columns, random, scale = 0.08) => ({ rows, columns,
   weights: Array.from({ length: rows * columns }, () => (random() * 2 - 1) * scale), bias: Array(rows).fill(0) });
@@ -49,6 +52,7 @@ const HEAD_CONTRACT_SLOTS = { movement: MOVEMENT_NAMES.length, action: HAND_ACTI
   persistence: 1 };
 export const PPO_PRODUCED_OUTPUTS = PPO_POLICY_HEADS.reduce((sum, name) => sum + HEAD_CONTRACT_SLOTS[name], 0);
 export const PPO_PRODUCED_LOGITS = PPO_POLICY_HEADS.reduce((sum, name) => sum + HEAD_LOGITS[name], 0);
+export { PPO_ROLLOUT_BUNDLE_SIZE, PPO_TRAINING_SEMANTICS_VERSION };
 export function initialPpoWeights(seed, initialization) {
   const random = seededRandom(seed ^ (initialization === "dagger" ? 0xda66e2 : 0x51f15e));
   const inputSize = FEATURE_COLUMNS.length; const combined = inputSize + GRU_UNITS;
@@ -81,6 +85,18 @@ export function opponentRoute(opponent, controllers = new Map()) {
   return { opponent: opponent.kind, controller: null };
 }
 
+/** Rebuild cloneable learned league payloads into the exact controller factories used in-process. */
+export function leagueControllers(models) {
+  return new Map(models.map(({ id, algorithm, payload }) => [id, algorithm === "dagger" ? () => researchLabelMind(id,
+    (_view, features) => predictDagger(payload, features)) : () => {
+      const policy = new RecurrentPolicy(payload.weights); return researchLabelMind(id, (view, features) => {
+        const tactic = recurrentTactic(view, policy.step(features), argmaxHeadPick);
+        return { movement: tactic.movement, action: tactic.action, effector: tactic.effector,
+          target: tactic.target, stance: tactic.stance, persistence: tactic.persistenceSeconds };
+      });
+    }]));
+}
+
 export async function loadLeagueArtifacts(paths) {
   const loaded = [];
   for (const path of paths) {
@@ -92,28 +108,13 @@ export async function loadLeagueArtifacts(paths) {
     let payload; try { payload = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(new Uint8Array(artifact.data.payload))); }
     catch (error) { throw new Error(`league artifact "${path}" has invalid model payload`, { cause: error }); }
     const digest = artifactChecksum(new TextDecoder().decode(bytes)); const id = `${artifact.data.algorithm}:${digest}`;
-    const controller = artifact.data.algorithm === "dagger" ? () => researchLabelMind(id,
-      (_view, features) => predictDagger(payload, features)) : () => {
-        const policy = new RecurrentPolicy(payload.weights); return researchLabelMind(id, (view, features) => {
-          // `recurrentTactic`, which is the same conditional-mask decode
-          // `deployment.ts`'s PPO branch runs. This was a sixth copy of the
-          // legality rule -- `supportedOptions` plus the cover delete, character
-          // for character -- sitting in the file that decides what a league
-          // opponent does; C1 unified the action half and C2b unifies the rest,
-          // so a frozen champion fights as the thing that was deployed.
-          // Including the dwell, which was `UNLEARNED_PERSISTENCE` here for as
-          // long as PPO had five heads. A frozen champion that decides its own
-          // tuple and is handed somebody else's persistence is not the thing
-          // that was deployed, which is the sentence above about the mask.
-          const tactic = recurrentTactic(view, policy.step(features), argmaxHeadPick);
-          return { movement: tactic.movement, action: tactic.action, effector: tactic.effector,
-            target: tactic.target, stance: tactic.stance, persistence: tactic.persistenceSeconds };
-        }); };
-    loaded.push({ entry: { id, kind: artifact.data.algorithm, digest }, controller });
+    loaded.push({ entry: { id, kind: artifact.data.algorithm, digest },
+      model: { id, algorithm: artifact.data.algorithm, payload } });
   }
   const dagger = loaded.filter(({ entry }) => entry.kind === "dagger"); const ppo = loaded.filter(({ entry }) => entry.kind === "ppo").slice(-4);
-  const retained = [...dagger, ...ppo]; return { league: freezeOpponentLeague([...PPO_LEAGUE, ...retained.map(({ entry }) => entry)]),
-    controllers: new Map(retained.map(({ entry, controller }) => [entry.id, controller])) };
+  const retained = [...dagger, ...ppo]; const models = retained.map(({ model }) => model);
+  return { league: freezeOpponentLeague([...PPO_LEAGUE, ...retained.map(({ entry }) => entry)]),
+    controllers: leagueControllers(models), models };
 }
 
 // The resume encoding's flat vector, in exactly `ppoHeadUpdate`'s buffer order:
@@ -188,6 +189,96 @@ export async function collectPpoTrajectory({ seed, initialization, solverSteps, 
   return { result, weights, boundaries, rewards, advantages, opponent: { ...opponent } };
 }
 
+/** A fixed graph: worker count may schedule these budgets, never choose them. */
+export function ppoRolloutBundle(solverSteps, rowIndex) {
+  if (!Number.isSafeInteger(solverSteps) || solverSteps < 4 || solverSteps % 4 ||
+      !Number.isSafeInteger(rowIndex) || rowIndex < 0) throw new Error("invalid PPO rollout bundle request");
+  // Below eight quanta there is no eight-way graph to expose. Keeping that tail
+  // as one job also preserves the exact small-budget resume fixtures used to
+  // test the trainer. At and above eight quanta, the bundle is always eight --
+  // it does not contract to the requested worker count.
+  const count = solverSteps < PPO_ROLLOUT_BUNDLE_SIZE * 4 ? 1 : PPO_ROLLOUT_BUNDLE_SIZE;
+  const quanta = solverSteps / 4; const base = Math.floor(quanta / count); const extra = quanta % count;
+  return Object.freeze(Array.from({ length: count }, (_, shard) => Object.freeze({
+    shard, solverSteps: (base + (shard < extra ? 1 : 0)) * 4,
+    jobIndex: rowIndex * PPO_ROLLOUT_BUNDLE_SIZE + shard,
+  })));
+}
+
+const mergeEngagement = (trajectories) => {
+  const records = trajectories.map(({ result }) => result.engagement).filter(Boolean);
+  if (!records.length) return null;
+  return { viableOpportunities: records.reduce((sum, row) => sum + row.viableOpportunities, 0),
+    attacksInWindow: records.reduce((sum, row) => sum + row.attacksInWindow, 0),
+    damagingContactsInWindow: records.reduce((sum, row) => sum + row.damagingContactsInWindow, 0),
+    nearRangeStallSeconds: records.reduce((sum, row) => sum + row.nearRangeStallSeconds, 0),
+    firstAttackSeconds: records.map((row) => row.firstAttackSeconds) };
+};
+
+export async function collectPpoBundle(collectTrajectory, request) {
+  const jobs = ppoRolloutBundle(request.solverSteps, request.jobIndex);
+  const trajectories = await Promise.all(jobs.map((job) => collectTrajectory({ ...request, ...job })));
+  // Promise order is input order, not completion order. Every concatenated
+  // gradient row and every report field therefore has the fixed shard order.
+  // Each shard is a separately reset recurrent episode. Preserve that seam in
+  // the ordered row stream so truncated BPTT cannot train through it.
+  const boundaries = trajectories.flatMap((row) => row.boundaries.map((boundary, index) =>
+    index === 0 ? { ...boundary, episodeStart: true } : boundary));
+  return { result: { ...trajectories.at(-1).result,
+      solverSteps: trajectories.reduce((sum, row) => sum + row.result.solverSteps, 0),
+      result: { ...trajectories.at(-1).result.result,
+        seconds: trajectories.reduce((sum, row) => sum + row.result.result.seconds, 0) },
+      engagement: mergeEngagement(trajectories) },
+    weights: request.weights, boundaries, rewards: trajectories.flatMap((row) => row.rewards),
+    advantages: trajectories.flatMap((row) => row.advantages),
+    opponent: trajectories.length === 1 ? trajectories[0].opponent : trajectories.map((row) => row.opponent),
+    rolloutJobs: jobs };
+}
+
+export class PpoRolloutPool {
+  constructor(size, models, workerUrl = new URL("./ppo-rollout-worker.mjs", import.meta.url)) {
+    this.next = 0; this.queue = []; this.failed = null; this.closing = false;
+    this.workers = Array.from({ length: size }, () => {
+      const worker = new Worker(workerUrl, { workerData: { models } });
+      const slot = { worker, ready: false, busy: false };
+      worker.on("message", (message) => {
+        if (this.failed || this.closing) return;
+        if (message.ready) { slot.ready = true; this.dispatch(); return; }
+        const pending = slot.pending; slot.pending = null; slot.busy = false;
+        if (!pending) { this.fail(new Error("PPO rollout worker sent a result with no pending job")); return; }
+        if (message.error) pending.reject(new Error(message.error)); else pending.resolve(message.value);
+        this.dispatch();
+      });
+      worker.on("error", (error) => this.fail(error));
+      // Exit 0 without a result is not success. The NEAT/DAgger worker trap in
+      // AGENTS.md applies here too, and aborting the whole pool is safer than
+      // silently rescheduling a job whose solver-side effects are unknown.
+      worker.on("exit", (code) => { if (!this.closing) this.fail(new Error(`PPO rollout worker exited ${code} before pool shutdown`)); });
+      return slot;
+    });
+  }
+  fail(error) {
+    if (this.failed || this.closing) return; this.failed = error;
+    for (const slot of this.workers) { if (slot.pending) slot.pending.reject(error); slot.pending = null; slot.busy = false; }
+    for (const pending of this.queue.splice(0)) pending.reject(error);
+    this.closing = true;
+    for (const { worker } of this.workers) void worker.terminate();
+  }
+  dispatch() {
+    if (this.failed || this.closing) return;
+    for (const slot of this.workers) if (slot.ready && !slot.busy && this.queue.length) {
+      const pending = this.queue.shift(); slot.busy = true; slot.pending = pending;
+      slot.worker.postMessage({ id: pending.id, request: pending.request });
+    }
+  }
+  run(request) {
+    if (this.failed) return Promise.reject(this.failed);
+    if (this.closing) return Promise.reject(new Error("PPO rollout pool is closed"));
+    return new Promise((resolve, reject) => { this.queue.push({ id: this.next++, request: { ...request, controllers: undefined }, resolve, reject }); this.dispatch(); });
+  }
+  async close() { this.closing = true; await Promise.all(this.workers.map(({ worker }) => worker.terminate())); }
+}
+
 /**
  * The rows `ppoHeadUpdate` descends on, lifted out of `trainPpo` so the value
  * head's regression target is a thing a test can read.
@@ -242,8 +333,10 @@ export function ppoIterationBudget(remainingSolverSteps) {
 }
 
 const rowRank = (a, b) => b.macro - a.macro || a.index - b.index;
-const resumeTrainingState = (armWeights, champions) => ({
+const resumeTrainingState = (armWeights, champions, identity) => ({
   engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION,
+  contractDigest: identity.contractDigest, configDigest: identity.configDigest,
+  trainingSemanticsVersion: PPO_TRAINING_SEMANTICS_VERSION, rolloutBundleSize: PPO_ROLLOUT_BUNDLE_SIZE,
   armWeights: [...armWeights].sort(([a], [b]) => a - b).map(([armIndex, fullWeights]) =>
     ({ armIndex, fullWeights: snapshotPpoWeights(fullWeights) })),
   champions: [...champions.values()].sort((a, b) => a.armIndex - b.armIndex)
@@ -255,8 +348,7 @@ export const PPO_TRAJECTORY_SOLVER_STEP_CAP = Math.max(...researchBoutCaps) * CO
 if (!Number.isSafeInteger(PPO_TRAJECTORY_SOLVER_STEP_CAP) || PPO_TRAJECTORY_SOLVER_STEP_CAP < 4 ||
     PPO_TRAJECTORY_SOLVER_STEP_CAP % 4) throw new Error("PPO research-matrix bout cap is not a solver-step quantum");
 
-export async function trainPpo(config, runtime = {}) {
-  if (config.workers !== undefined && config.workers !== 1) throw new Error("PPO --workers currently supports exactly 1; refusing ignored parallelism");
+async function trainPpoCore(config, runtime) {
   if (!Number.isSafeInteger(config.solverSteps) || config.solverSteps < 8 || config.solverSteps % 4) {
     throw new Error("PPO per-arm budget must be at least eight solver steps and divisible by four");
   }
@@ -266,8 +358,11 @@ export async function trainPpo(config, runtime = {}) {
   const arms = equalBudgetPpoArms(config.seed, config.solverSteps); let rows = [];
   const champions = new Map(); const armWeights = new Map();
   const leagueDigest = artifactChecksum(canonicalJson(config.league ?? PPO_LEAGUE));
-  const configDigest = artifactChecksum(canonicalJson({ seed: config.seed, solverSteps: config.solverSteps,
-    league: config.league ?? PPO_LEAGUE, engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION }));
+  const configDigest = canonicalDigest({ seed: config.seed, solverSteps: config.solverSteps,
+    league: config.league ?? PPO_LEAGUE, engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION,
+    balanceConfigDigest: config.balanceConfigDigest ?? BALANCE_CONFIG_DIGEST,
+    contractDigest: config.contractDigest,
+    trainingSemanticsVersion: PPO_TRAINING_SEMANTICS_VERSION, rolloutBundleSize: PPO_ROLLOUT_BUNDLE_SIZE });
   if (config.resumeBytes) {
     const resumed = decodePpoResume(config.resumeBytes);
     rows = [...resumed.rows];
@@ -285,6 +380,12 @@ export async function trainPpo(config, runtime = {}) {
         !Array.isArray(resumed.training.armWeights) || !Array.isArray(resumed.training.champions)) {
       throw new Error("PPO resume is missing or predates the current engagement instrument");
     }
+    refuseStaleResearchResume("PPO", resumed.training.contractDigest, config.contractDigest);
+    if (resumed.training.trainingSemanticsVersion !== PPO_TRAINING_SEMANTICS_VERSION ||
+        resumed.training.rolloutBundleSize !== PPO_ROLLOUT_BUNDLE_SIZE) {
+      throw new Error("PPO resume refused: training semantics version or rollout bundle size changed or is missing");
+    }
+    if (resumed.training.configDigest !== configDigest) throw new Error("PPO resume refused: config digest changed or is missing");
     for (const entry of resumed.training.armWeights) {
       if (!entry || !arms.some((arm) => arm.index === entry.armIndex) || !entry.fullWeights || armWeights.has(entry.armIndex)) {
         throw new Error("PPO resume has invalid per-arm weights");
@@ -337,7 +438,8 @@ export async function trainPpo(config, runtime = {}) {
     const optimizer = { update: rows.filter((row) => row.update !== null).length,
       firstMoment: flat.map(() => 0), secondMoment: flat.map(() => 0),
       consumedSolverSteps: rows.reduce((sum, row) => sum + row.solverSteps, 0) };
-    return { optimizer, bytes: encodePpoResume(flat, optimizer, rows, resumeTrainingState(armWeights, champions)) };
+    return { optimizer, bytes: encodePpoResume(flat, optimizer, rows,
+      resumeTrainingState(armWeights, champions, { contractDigest: config.contractDigest, configDigest })) };
   };
   const selectedSoFar = () => {
     const selectedArm = selectPpoArm(rows.map((row) => ({ split: row.split, arm: row.initialization, macro: row.macro })));
@@ -354,7 +456,9 @@ export async function trainPpo(config, runtime = {}) {
         configDigest, engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION,
         producedOutputs: PPO_PRODUCED_OUTPUTS, producedLogits: PPO_PRODUCED_LOGITS,
         contractOutputs: META_OUTPUT_LAYOUT.width, persistenceSeconds: [...PERSISTENCE_SECONDS],
-        gammaPerSecond: PPO_GAMMA_PER_SECOND, traceLambda: PPO_TRACE_LAMBDA } }, RESEARCH_ARTIFACT_CONTRACT).toBytes();
+        gammaPerSecond: PPO_GAMMA_PER_SECOND, traceLambda: PPO_TRACE_LAMBDA,
+        trainingSemanticsVersion: PPO_TRAINING_SEMANTICS_VERSION,
+        rolloutBundleSize: PPO_ROLLOUT_BUNDLE_SIZE } }, RESEARCH_ARTIFACT_CONTRACT).toBytes();
   };
 
   if (runtime.terminalStop != null && !["stopped: plateau", "stopped: ceiling"].includes(runtime.terminalStop)) {
@@ -371,7 +475,7 @@ export async function trainPpo(config, runtime = {}) {
       const index = rows.length; const budget = ppoIterationBudget(arm.solverSteps - armConsumed[arm.index]);
       let trajectory = null; let update = null;
       if (budget.train) {
-        trajectory = await collectTrajectory({ ...arm, solverSteps: budget.train, jobIndex: index, weights, split: "train",
+        trajectory = await collectPpoBundle(collectTrajectory, { ...arm, solverSteps: budget.train, jobIndex: index, weights, split: "train",
           league: config.league ?? PPO_LEAGUE, controllers: config.controllers ?? new Map() });
         if (!Number.isSafeInteger(trajectory.result.solverSteps) || trajectory.result.solverSteps < 4 ||
             trajectory.result.solverSteps > budget.train || trajectory.result.solverSteps % 4) {
@@ -381,7 +485,7 @@ export async function trainPpo(config, runtime = {}) {
         update = updateHeads(trajectory.weights, ppoUpdateRows(trajectory), config.seed ^ index);
       }
       const updatedWeights = armWeights.get(arm.index);
-      const validation = await collectTrajectory({ ...arm, solverSteps: budget.validation, jobIndex: index,
+      const validation = await collectPpoBundle(collectTrajectory, { ...arm, solverSteps: budget.validation, jobIndex: index,
         weights: updatedWeights, split: "validation", league: config.league ?? PPO_LEAGUE,
         controllers: config.controllers ?? new Map() });
       if (!Number.isSafeInteger(validation.result.solverSteps) || validation.result.solverSteps < 4 ||
@@ -404,7 +508,8 @@ export async function trainPpo(config, runtime = {}) {
         engagement: engagement ? { opportunities: engagement.viableOpportunities,
           attacksInWindow: engagement.attacksInWindow, contactsInWindow: engagement.damagingContactsInWindow,
           nearRangeStallSeconds: engagement.nearRangeStallSeconds, seconds: validation.result.result.seconds,
-          firstAttackSeconds: [engagement.firstAttackSeconds] } : null,
+          firstAttackSeconds: Array.isArray(engagement.firstAttackSeconds)
+            ? engagement.firstAttackSeconds : [engagement.firstAttackSeconds] } : null,
         opponent: validation.opponent, update };
       const champion = champions.get(arm.index);
       if (!champion || reward > champion.macro) champions.set(arm.index,
@@ -448,9 +553,33 @@ export async function trainPpo(config, runtime = {}) {
   return { complete: true, artifact: artifactFor(selected, selectedChampion), resume: state.bytes,
     report: new TextEncoder().encode(canonicalJson({ algorithm: "ppo", runId: config.runId ?? null, configDigest,
       engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION,
+      trainingSemanticsVersion: PPO_TRAINING_SEMANTICS_VERSION, rolloutBundleSize: PPO_ROLLOUT_BUNDLE_SIZE,
       rows, selected: selected.initialization, selectedIteration: selected.iteration,
       ledgerFile: "ledger.jsonl", stopping: { plateauEpsilon: config.plateauEpsilon ?? DEFAULT_PLATEAU_EPSILON,
         plateauRows: config.plateauRows ?? DEFAULT_PLATEAU_ROWS, stepCeiling: config.solverSteps * 2 }, stopped })) };
+}
+
+export async function trainPpo(config, runtime = {}) {
+  const workers = config.workers ?? 1;
+  if (!Number.isSafeInteger(workers) || workers <= 0 || workers > 64) {
+    throw new Error(`PPO --workers must be a positive integer at most 64, not ${JSON.stringify(workers)}`);
+  }
+  const contractDigest = requiredResearchContractDigest(config.contractDigest ?? FROZEN_RESEARCH_CONTRACT_DIGEST);
+  config = { ...config, workers, contractDigest };
+  if (runtime.collectTrajectory) return trainPpoCore(config, runtime);
+  const controllerCount = config.controllers?.size ?? 0;
+  if (controllerCount && !Array.isArray(config.learnedLeagueModels)) {
+    throw new Error("PPO parallel rollout refused: learned league controllers are missing cloneable model payloads");
+  }
+  // Lazy construction is a resume-safety property, not merely startup thrift:
+  // `trainPpoCore` decodes and validates the complete saved identity before its
+  // first collector call, so a stale state cannot start even an idle worker.
+  let pool = null; const createPool = runtime.createRolloutPool ??
+    (() => new PpoRolloutPool(workers, config.learnedLeagueModels ?? []));
+  try { return await trainPpoCore(config, { ...runtime, collectTrajectory: (request) => {
+    pool ??= createPool(); return pool.run(request);
+  } }); }
+  finally { if (pool) await pool.close(); }
 }
 
 export function assertPpoLedgerPrefix(resumeBytes, ledgerRows) {
@@ -479,11 +608,12 @@ export function ppoPendingAction(pending, ledgerRows) {
 
 export async function runPpoCli() {
   const arg = (name, fallback) => { const at = process.argv.indexOf(`--${name}`); return at < 0 ? fallback : process.argv[at + 1]; };
+  const contractDigest = requiredResearchContractDigest(contractDigestArgument(process.argv));
   const leaguePaths = process.argv.flatMap((value, index) => value === "--league-artifact" ? [process.argv[index + 1]] : []).filter(Boolean);
   const loaded = await loadLeagueArtifacts(leaguePaths);
   const config = { seed: Number(arg("seed", 310013)), solverSteps: Number(arg("solver-steps", 960)), workers: Number(arg("workers", 1)),
     stopAfterJobs: Number(arg("stop-after-jobs", 0)), runId: arg("run-id", undefined),
-    league: loaded.league, controllers: loaded.controllers };
+    league: loaded.league, controllers: loaded.controllers, learnedLeagueModels: loaded.models, contractDigest };
   if (!Number.isSafeInteger(config.solverSteps) || config.solverSteps < 8 || config.solverSteps % 4) {
     throw new Error("--solver-steps must be at least eight and divisible by four");
   }
@@ -497,24 +627,35 @@ export async function runPpoCli() {
   if (!Number.isFinite(plateauEpsilon) || plateauEpsilon < 0) throw new Error("--plateau-epsilon must be a non-negative number");
   if (!Number.isSafeInteger(plateauRows) || plateauRows <= 0) throw new Error("--plateau-rows must be a positive integer");
   config.plateauEpsilon = plateauEpsilon; config.plateauRows = plateauRows;
-  const configDigest = artifactChecksum(canonicalJson({ seed: config.seed, solverSteps: config.solverSteps,
-    league: config.league, engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION }));
+  config.balanceConfigDigest = BALANCE_CONFIG_DIGEST;
+  const configDigest = canonicalDigest({ seed: config.seed, solverSteps: config.solverSteps,
+    league: config.league, engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION,
+    balanceConfigDigest: config.balanceConfigDigest, contractDigest,
+    trainingSemanticsVersion: PPO_TRAINING_SEMANTICS_VERSION, rolloutBundleSize: PPO_ROLLOUT_BUNDLE_SIZE });
   config.runId ??= `ppo-${config.seed}-${configDigest}`;
   const runDir = new URL(`../asset-src/learning/research/${config.runId}/`, import.meta.url);
   const runPath = fileURLToPath(runDir); await mkdir(runPath, { recursive: true });
   const statePath = resolve(arg("resume", fileURLToPath(new URL("state.json", runDir))));
   const encodeCliState = (resume, pending = null) => new TextEncoder().encode(canonicalJson({ version: 1,
-    plateauEpsilon, plateauRows,
+    plateauEpsilon, plateauRows, contractDigest, configDigest,
+    trainingSemanticsVersion: PPO_TRAINING_SEMANTICS_VERSION, rolloutBundleSize: PPO_ROLLOUT_BUNDLE_SIZE,
     resume: Buffer.from(resume).toString("base64"), pending: pending ? { row: pending.row,
       champion: Buffer.from(pending.champion).toString("base64") } : null }));
   const decodeCliState = (bytes) => { let value; try { value = JSON.parse(new TextDecoder().decode(bytes)); } catch { return { resume: bytes, pending: null }; }
     if (value?.version !== 1 || typeof value.resume !== "string") return { resume: bytes, pending: null };
+    if (value.contractDigest !== contractDigest || value.configDigest !== configDigest) {
+      throw new Error("PPO resume refused: research contract or config digest changed or is missing");
+    }
+    if (value.trainingSemanticsVersion !== PPO_TRAINING_SEMANTICS_VERSION || value.rolloutBundleSize !== PPO_ROLLOUT_BUNDLE_SIZE) {
+      throw new Error("PPO resume refused: training semantics version or rollout bundle size changed or is missing");
+    }
     if (value.plateauEpsilon !== plateauEpsilon || value.plateauRows !== plateauRows) {
       throw new Error("PPO resume refused: plateau contract changed");
     }
     return { resume: new Uint8Array(Buffer.from(value.resume, "base64")), pending: value.pending ? {
       row: value.pending.row, champion: new Uint8Array(Buffer.from(value.pending.champion, "base64")) } : null }; };
   const resumeFrom = arg("resume-from", ""); let cliState = null;
+  await refuseFinalizedResume(runPath, "PPO", Boolean(resumeFrom));
   if (resumeFrom) { cliState = decodeCliState(new Uint8Array(await readFile(resolve(resumeFrom)))); config.resumeBytes = cliState.resume; }
   let ledgerRows = await readLedger(resolve(runPath, "ledger.jsonl"));
   if (!config.resumeBytes && ledgerRows.length) throw new Error(`PPO run "${config.runId}" already has a ledger; use --resume-from or a new --run-id`);
@@ -529,8 +670,6 @@ export async function runPpoCli() {
   if (config.resumeBytes) assertPpoLedgerPrefix(config.resumeBytes, ledgerRows);
   if (config.resumeBytes) assertPpoStoppingContract(ledgerRows, plateauEpsilon, plateauRows);
   const terminalStop = ledgerStopDecision(ledgerRows);
-  if (config.resumeBytes && terminalStop && await runIsFinalized(runPath)) throw new Error(`PPO resume refused: ${terminalStop}`);
-  const contractDigest = digestContract(RESEARCH_ARTIFACT_CONTRACT);
   const baseWallSeconds = ledgerRows.at(-1)?.wallSeconds ?? 0; const started = performance.now();
   const output = await trainPpo(config, { terminalStop, onCheckpoint: async (checkpoint) => {
     const terminalBoundary = checkpoint.progress.consumedSolverSteps >= config.solverSteps * 2 ||

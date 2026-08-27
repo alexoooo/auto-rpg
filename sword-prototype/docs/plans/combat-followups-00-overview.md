@@ -18,8 +18,12 @@ are still wrong, and only the first was known when this plan set was written.
    `BoutRecorder`, and the guided page flow now owns the declared human/control schedule,
    autosave and report. Opportunity-attack 0.65 still has never been shown reachable by a
    controller *or* a player; the 18b sitting finds out before compute begins.
-3. The compute phase as first drafted repeated the failure this directory exists to escape.
-   Sessions 19--22 replace it.
+3. **Run foundation corrected; measurements still owed.** Session 19 gave PPO a repeated
+   collect/update/validation outer loop and gave all four directions the same indexed
+   ledger/resume/finalization lifecycle. The pre-throughput half of session 20 has also landed:
+   one canonical config digest, a shared contract surface and a preflight refusal before solver
+   work. The human gate verdict and the measured throughput, parallelism, ceilings and cadences
+   still precede any research rung.
 
 ## What the compute phase must not repeat
 
@@ -71,7 +75,7 @@ Two further standing rules follow from those.
 | [18a](combat-followups-18a-engagement-instrument.md) **complete** | shared page/bench engagement recorder, gate table and specialist bench command | 17, 19 |
 | [18b](combat-followups-18-human-gate-feasibility.md) | measure a person on the promotion instrument; settle the open feel questions | 18a |
 | [19](combat-followups-19-run-legibility.md) **complete** | checkpoint ledger, gate table per row, plateau rule, watchable champion-so-far | 17 |
-| [20](combat-followups-20-throughput-and-ceilings.md) | measure real throughput for all four directions and derive every ceiling | 18, 19 |
+| [20](combat-followups-20-throughput-and-ceilings.md) | finish the human-blocked throughput/parallelism measurements and derive every ceiling | 18b, 19 |
 | [21](combat-followups-21-research-ladder.md) | one seed per direction under a one-day ceiling, then advance or kill each | 20 |
 | [22](combat-followups-22-scaled-runs.md) | remaining seeds and declared ablations for surviving directions only | 21 |
 | [23](combat-followups-23-held-out-ai-tournament.md) | freeze one selection per surviving direction and execute the test matrix once | 22 |
@@ -81,7 +85,8 @@ Two further standing rules follow from those.
 **Sessions 19 and 18a have landed, so 18b is the only session left before the compute phase.**
 The page and bench now share the versioned recorder and gate table; 18b is the person using that
 instrument, taking the first readings and settling the predeclared feasibility questions. Session
-20 still needs that human verdict as well as session 19's run lifecycle.
+Its software preflight foundation is already present, but session 20 remains blocked on that
+human verdict before it measures throughput or freezes any schedule.
 Session 22 needs 21's verdict. Session 23 does not begin until every surviving direction has a
 complete report and artifact.
 
@@ -127,14 +132,12 @@ A run stops at the plateau or the ceiling, whichever comes first, and its report
 run that hit the ceiling still climbing is a *result* -- it is the evidence that buys a larger
 window, and it is the only thing that may buy one.
 
-**None of this is expressible today, and session 19 is what makes it so.** Measured 2026-08-26
-and recorded in `docs/measurements.md`: a step budget is not a learning budget for three of the
-four directions, and PPO cannot spend one at all -- asked for 800,000 solver steps it consumed
-5,508, because it runs exactly four bouts and a bout ends when somebody dies. A 24-hour PPO rung
-completes in about twenty seconds. NEAT-QD and DAgger scale by `--generations` and `--iterations`
-rather than by steps. And a plateau rule is currently illegal in both of those, which throw
-unless `consumedSolverSteps === solverSteps` exactly. **The ceiling session 20 derives is a count
-of updates per direction, with steps as a derived column.**
+**That was not expressible before session 19.** The historical probe recorded in
+`docs/measurements.md` asked the old PPO runner for 800,000 solver steps and received 5,508,
+because it ran exactly four bouts. Session 19 replaced that fixed four-bout path with a repeated
+outer loop and made plateau/ceiling stops legal in every runner. Session 20 therefore derives a
+count of learning updates per direction, with solver steps as an observed derived column; the old
+5,508-step result remains evidence about the retired runner, not a current throughput estimate.
 
 ## Thresholds
 
@@ -177,27 +180,25 @@ npm run build
 ~~~
 
 Session 25 deletes this remaining plan set and handoff only after all results are folded into
+durable documentation.
 
-## What sessions 19 and 20 inherit
+## Historical findings sessions 19 and the pre-throughput foundation closed
 
 Measured during the pass that closed sessions 15--17 and the owner follow-ups. Each is one to
 three lines with a pointer rather than a restatement; the evidence is in `docs/measurements.md`
 unless another file is named.
 
-- **PPO cannot spend a step budget, and does two gradient updates whatever it is asked for.**
-  Four bouts an invocation, ~5,508 steps against 800,000 requested. It needs an outer loop --
-  iterations of collect-then-update -- before any ceiling, plateau or curve means anything. **No
-  session in this set owns building it**; it belongs at the front of 19.
-- **Two runners already keep most of a ledger row.** `train-neat-qd.mjs` pushes a per-generation
-  row carrying `validationWorstCellScore` and `archiveCoverage` and flushes every five
-  generations; `collect-dagger.mjs` pushes one per iteration. Session 19 generalises a working
-  cadence; it does not invent a schema. PPO alone has no mid-run persistence, and
-  `train-lookahead.mjs` has no state file at all.
-- **No runner emits progress.** All four write once, after the run returns.
-- **A plateau rule is illegal in two runners** until the exact-budget throws in
-  `train-neat-qd.mjs` and `collect-dagger.mjs` are removed or made conditional.
-- **`configDigest` is two incompatible formats** -- 16-hex SHA-256 in NEAT-QD and DAgger, 8-hex
-  FNV-1a in PPO and look-ahead. Session 20 freezes a contract digest and preflight compares it.
+- **The old PPO runner could not spend a learning budget.** Four bouts and two updates consumed
+  about 5,508 steps against 800,000 requested. Session 19 added the repeated
+  collect/update/validation outer loop.
+- **The four runners had four lifecycle shapes.** Session 19 generalized the useful pieces into
+  indexed state, append-only ledgers, resumable publication and terminal finalization for NEAT-QD,
+  DAgger, PPO and look-ahead. PPO and look-ahead now honor `--run-id`; look-ahead also owns its
+  default run directory and outputs instead of requiring ad hoc output flags.
+- **The old config digest had two incompatible spellings.** The pre-throughput foundation now
+  computes one canonical contract digest and one canonical balance-config digest and requires all
+  four runners to preflight them before their first worker or collector call. Measured schedules
+  are deliberately absent from that surface until this session takes them.
 - **A SHA-256 contract digest cannot live in `src/learning/`**: `node:crypto` is unavailable in
   the page and `crypto.subtle` is async. `src/learning/artifact.ts` records why.
 - **The gate table has holes no runner can fill.** `firstAttackSeconds` is recorded and discarded
@@ -206,9 +207,9 @@ unless another file is named.
   `result.engagement`.
 - **A look-ahead budget that leaves cells unfitted is a narrower controller, not a cheaper one**,
   and nothing in the run record says which cells went.
-- **Three commands the later sessions invoke do not exist**: `--rung` (nothing), `--run-id` (PPO
-  and look-ahead ignore it), and `--verify-promoted` (sessions 24 and 25 both call it). Each
-  needs an owner.
+- **Two commands the later sessions invoke still do not exist**: `--rung` and
+  `--verify-promoted`. Session 20 owns freezing the schedule that `--rung` will resolve; session
+  23 or 24 owns promoted-artifact verification.
 - **The prototype's own session numbering collides with this plan set's.** `docs/measurements.md`
   already has headings for "Session 18", "Session 19" and "Session 27" that are owner follow-ups,
   not these sessions. Say which numbering a new heading uses before writing one.
@@ -222,7 +223,9 @@ and the null control is unmoved at 66/120 = 55.0 %, 176.17 damage, 10 severs, 14
 contacts at seed 20260823.
 
 Sessions 18a and 19 are complete. Session 18b's player-facing acquisition flow is implemented,
-but the human sitting and its verdicts have not happened; sessions 20 through 25 have not started.
+but the human sitting and its verdicts have not happened. Session 20's pre-throughput software
+foundation is implemented; its throughput/parallelism measurements, derived schedules and every
+research rung in sessions 21 through 25 remain unstarted.
 
 Findings that were measured and deliberately left alone live in
 [Found but not fixed](combat-followups-99-found-not-fixed.md), one entry each with its evidence,

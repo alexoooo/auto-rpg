@@ -3,7 +3,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { Worker } from "node:worker_threads";
 import { fileURLToPath } from "node:url";
 
-import { ResearchArtifact } from "../src/learning/artifact.ts";
+import { canonicalDigest, canonicalJson, ResearchArtifact } from "../src/learning/artifact.ts";
 import { FEATURE_COLUMNS, FEATURE_VERSION } from "../src/learning/features.ts";
 import { adaptiveCompatibilityThreshold, breedGeneration, cloneGenome, initialSparseGenome, InnovationTracker,
   innovationTrackerFor, speciate } from "../src/learning/genome.ts";
@@ -16,7 +16,9 @@ import { SeededRng } from "../src/learning/rng.ts";
 import { EFFECTOR_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TACTIC_VERSION, TARGET_NAMES } from "../src/options.ts";
 import { ENGAGEMENT_INSTRUMENT_VERSION } from "../src/recorder.ts";
 import { checkpointJobDue, checkpointRun, DEFAULT_PLATEAU_EPSILON, DEFAULT_PLATEAU_ROWS, digestContract, engagementGates,
-  finalizeRun, ledgerStopDecision, makeLedgerRow, readLedger, runIsFinalized } from "./research-ledger.mjs";
+  finalizeRun, ledgerStopDecision, makeLedgerRow, readLedger, refuseFinalizedResume } from "./research-ledger.mjs";
+import { BALANCE_CONFIG_DIGEST, contractDigestArgument, refuseStaleResearchResume,
+  requiredResearchContractDigest } from "./research-preflight.mjs";
 
 const argv = process.argv.slice(2); const value = (name, fallback) => { const at = argv.indexOf(`--${name}`); return at < 0 ? fallback : argv[at + 1]; };
 const flag = (name) => argv.includes(`--${name}`); const smoke = flag("smoke");
@@ -33,6 +35,7 @@ for (const [name, number] of Object.entries({ seed, solverSteps, populationSize,
 }
 if (!Number.isFinite(plateauEpsilon) || plateauEpsilon < 0) throw new Error("--plateau-epsilon must be a non-negative number");
 if (solverSteps % 4 !== 0) throw new Error("--solver-steps must be divisible by four");
+const contractDigest = requiredResearchContractDigest(contractDigestArgument(argv));
 const evaluationJobs = generations * populationSize * 2; const budgetQuanta = solverSteps / 4;
 const baseQuanta = Math.floor(budgetQuanta / evaluationJobs); const extraJobs = budgetQuanta % evaluationJobs;
 if (baseQuanta < 1) throw new Error(`--solver-steps needs at least ${evaluationJobs * 4} steps for the configured jobs`);
@@ -55,14 +58,16 @@ const config = { version: 1, algorithm: "neat-qd", seed, solverSteps,
   engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION,
   tacticVersion: TACTIC_VERSION, movementNames: MOVEMENT_NAMES, actionNames: HAND_ACTION_NAMES,
   effectorNames: EFFECTOR_NAMES, targetNames: TARGET_NAMES, stanceNames: STANCE_NAMES, curriculumDigest: curriculumDigest(),
-  ablations: ["without-curriculum", "without-qd", "fixed-species-threshold"], plateauEpsilon, plateauRows };
-const configText = JSON.stringify(config); const configDigest = createHash("sha256").update(configText).digest("hex").slice(0, 16);
+  ablations: ["without-curriculum", "without-qd", "fixed-species-threshold"], plateauEpsilon, plateauRows,
+  balanceConfigDigest: BALANCE_CONFIG_DIGEST, contractDigest };
+const configText = canonicalJson(config); const configDigest = canonicalDigest(config);
 const runId = String(value("run-id", `neat-qd-${seed}-${configDigest}`));
 if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(runId)) throw new Error("invalid --run-id");
 const runDir = new URL(`../asset-src/learning/research/${runId}/`, import.meta.url); await mkdir(runDir, { recursive: true });
 const stateUrl = new URL("state.json", runDir); const atomic = async (url, data) => { const temp = new URL(`${url.pathname.split("/").pop()}.tmp-${process.pid}`, runDir);
   await writeFile(temp, data); await rename(temp, url); };
-const runPath = fileURLToPath(runDir); const contractDigest = digestContract(RESEARCH_ARTIFACT_CONTRACT);
+const runPath = fileURLToPath(runDir);
+await refuseFinalizedResume(runPath, "NEAT-QD", flag("resume"));
 // Asked of the one output table rather than re-derived: a population bred at a
 // width the deployment decoder does not read is a run that finishes and cannot
 // be deployed, and nothing between here and `readMetaOutput` would say so.
@@ -75,7 +80,8 @@ let opponentArchive = [...SHIPPED_OPPONENT_ARCHIVE]; const championGenomes = new
 let qualityElites = []; let checkpointRows = []; let pendingLedgerRow = null;
 if (flag("resume")) {
   const saved = JSON.parse(await readFile(stateUrl, "utf8"));
-  if (JSON.stringify(saved.config) !== configText) throw new Error("NEAT-QD resume refused: config digest changed");
+  refuseStaleResearchResume("NEAT-QD", saved.config?.contractDigest, contractDigest);
+  if (canonicalJson(saved.config) !== configText) throw new Error("NEAT-QD resume refused: config digest changed");
   ({ population, nextGeneration, threshold, consumedSolverSteps, opponentArchive, ledgers, selected,
     qualityElites = [], pendingLedgerRow = null } = saved);
   for (const entry of saved.championGenomes ?? []) championGenomes.set(entry.id, entry.genome);
@@ -135,7 +141,6 @@ if (pendingLedgerRow) {
     qualityElites, ledgers, selected, pendingLedgerRow }, null, 2)}\n`);
 }
 stopped = ledgerStopDecision(checkpointRows);
-if (flag("resume") && stopped && await runIsFinalized(runPath)) throw new Error(`NEAT-QD resume refused: ${stopped}`);
 
 for (let generation = nextGeneration; generation < generations && !stopped; generation += 1) {
   const qd = new QualityArchive(); for (const elite of qualityElites) qd.offer(elite); const train = await evaluatePopulation("train", generation);

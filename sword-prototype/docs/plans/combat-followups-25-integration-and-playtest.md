@@ -36,7 +36,7 @@ npm test
 npm run check
 npm run build
 npm run measure -- --seed 20260824
-npm run ai:preflight -- --seed 20260824
+npm run ai:preflight
 npm run ai:evaluate -- --verify-promoted
 ~~~
 

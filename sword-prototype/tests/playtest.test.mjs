@@ -451,6 +451,31 @@ test("a_saved_abort_for_the_wrong_assignment_is_refused", () => {
   assert.match(resumed.host.innerHTML, /incompatible or incomplete format/);
 });
 
+test("a_saved_abort_cannot_claim_a_future_assignment_the_run_never_reached", () => {
+  const first = harness(); open(first); start(first);
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+  saved.active = null;
+  saved.aborts = [{ assignmentIndex: 60, controller: "specialist", cell: "broot/sword+empty",
+    actorSide: "right", repeat: 1, excluded: false,
+    policySeeds: { left: 133828, right: 147967 }, startedAt: new Date().toISOString(),
+    endedAt: new Date().toISOString(), reason: "page-reloaded-before-verdict" }];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+  const recovered = harness(); open(recovered);
+  assert.match(recovered.host.innerHTML, /incompatible or incomplete format/);
+  assert.deepEqual(report(recovered).progress, { completed: 0, aborted: 0, total: 61 });
+});
+
+test("a_saved_run_refuses_a_competence_label_the_player_could_not_choose", () => {
+  const first = harness(); open(first); start(first);
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+  saved.active = null;
+  saved.competence = "expert-by-corruption";
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+  const recovered = harness(); open(recovered);
+  assert.match(recovered.host.innerHTML, /incompatible or incomplete format/);
+  assert.equal(report(recovered).competence, "");
+});
+
 test("the_bout_cap_is_a_workflow_lease_and_is_restored_on_exit", () => {
   CONFIG.bout.capSeconds = 81;
   const fixture = harness();

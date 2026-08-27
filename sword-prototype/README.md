@@ -429,6 +429,10 @@ solid arena bounds, middle-drag camera control, whole-body human control, Broot,
 licensed armour adaptation, factual engagement gates and factorized AI actions. Four real-Havok
 research runners now implement recurrent NEAT-QD, DAgger, recurrent PPO and calibrated bounded
 look-ahead, with deterministic artifacts, resume and one shared deployment/tournament boundary.
+PPO has a repeated collect/update/validation outer loop rather than the retired four-bout probe,
+and all four runners use the same ledger/finalization lifecycle and fail-fast research preflight.
+Tournament safety is measured from each executed bout rather than filled with passing defaults.
+These are execution foundations, not evidence that a controller has passed.
 Only engineering smokes have run; the full three-seed budgets, blind tournament, possible
 promotion and final playtest remain sequenced in
 [docs/plans/combat-followups-00-overview.md](docs/plans/combat-followups-00-overview.md). The older

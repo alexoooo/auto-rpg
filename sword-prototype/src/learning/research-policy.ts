@@ -12,15 +12,17 @@ export type ResearchLabeler = (view: FighterView, features: readonly number[]) =
 
 /** Shared deployment seam for teacher, DAgger and recurrent NEAT policies. */
 export function researchLabelMind(name: string, labeler: ResearchLabeler,
-  onDecision?: (view: FighterView, features: readonly number[], label: DaggerLabel) => void, persistenceOptions = 1): Mind & {
-    readonly selectedMovement: MovementName; readonly selectedAction: HandActionName; readonly persistenceOptions: number;
-    /** A frozen reading of the last decision. Reading it never runs the policy. (`persistenceOptions` beside it is `PersistenceHead` in `learning/persistence.ts`: declared by the caller, never inferred from what a bout happened to use, and one when nobody says.) */
+  onDecision?: (view: FighterView, features: readonly number[], label: DaggerLabel) => void,
+  persistenceOptions = 1, stanceOptions = 1): Mind & {
+    readonly selectedMovement: MovementName; readonly selectedAction: HandActionName;
+    readonly persistenceOptions: number; readonly stanceOptions: number;
+    /** A frozen reading of the last decision. Reading it never runs the policy. (`persistenceOptions` and `stanceOptions` beside it are controller declarations: each is supplied by the caller, never inferred from what a bout happened to use, and one when nobody says.) */
     diagnostic(): MetaDiagnostic;
   } {
   const writer = new FeatureWriter(); let movement: MovementName = "hold"; let action: HandActionName = "recover";
   let option: CombatOption | null = null; let nextDecision = -Infinity;
   let persistenceSeconds = 0; let observedClock = 0;
-  return { name, persistenceOptions, get selectedMovement() { return movement; }, get selectedAction() { return action; },
+  return { name, persistenceOptions, stanceOptions, get selectedMovement() { return movement; }, get selectedAction() { return action; },
     /**
      * The window into a learned controller, and the reason it is here rather
      * than on the network that used to own it: session 17 deleted

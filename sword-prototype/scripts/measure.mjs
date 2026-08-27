@@ -220,7 +220,7 @@ export function runBout({
   left: leftPolicy, right: rightPolicy, seeds, leftLoadout, rightLoadout,
   leftUnit = "warrior", rightUnit = "warrior",
   leftMind = null, rightMind = null, onSample = null, onEvent = null,
-  onVerdict = null, postVerdictFrames = 0, physics = havok,
+  onVerdict = null, postVerdictFrames = 0, postVerdictActionProbe = false, physics = havok,
 }) {
   const { engine, scene, materials } = buildArena(physics);
   const F = CONFIG.fighter;
@@ -283,6 +283,12 @@ export function runBout({
     if (decided) {
       left.stepProjectiles(FIXED);
       right.stepProjectiles(FIXED);
+      // Opt-in safety probe only. Ordinary decided worlds keep aging their
+      // projectiles without returning to the body update seam. A tournament
+      // tail asks that seam again after `stopFighting`: a correctly revoked
+      // body returns before its mind, while a missing revocation emits a real
+      // post-verdict command for the observer to reject.
+      if (postVerdictActionProbe) stepPair(left, right, FIXED, now);
     } else {
       stepPair(left, right, FIXED, now);
       sampleBoutRecorder(recorder, left, right, FIXED, now);
@@ -357,6 +363,11 @@ export function runBout({
       left.stopFighting();
       right.stopFighting();
       for (const side of sides) side.combat.stop();
+      // The opt-in tail probes command revocation, not behaviour recording.
+      // Its samples are outside the decided bout, so release the recorder seam
+      // before revisiting `update`; the tracked mind / tournament wrapper is
+      // the authority observer here.
+      if (postVerdictActionProbe) { left.intentObserver = null; right.intentObserver = null; }
       onVerdict?.();
     }
     frames += 1;
@@ -364,8 +375,8 @@ export function runBout({
 
   // Tests may keep the decided world alive for a few render frames, just as the
   // browser does beneath its verdict banner. The default remains the measured
-  // bout itself; this tail exists to prove that stopping is a lifecycle event,
-  // rather than an accident of this harness leaving its loop immediately.
+  // bout itself. With `postVerdictActionProbe`, this tail also revisits the body
+  // update seam so revocation is observed rather than inferred from this loop.
   for (let frame = 0; frame < postVerdictFrames; frame += 1) {
     scene._renderId += 1;
     scene._advancePhysicsEngineStep(1000 * FRAME);

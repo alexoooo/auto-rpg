@@ -11,8 +11,9 @@
 > - **The DAgger report lists macro-F1 for five heads and omits the dwell.**
 >   `DAGGER_HEAD_NAMES` is five and the selection loss adds the persistence term separately;
 >   say what the sixth head is scored on.
-> - **The ceilings inherit session 20's step-as-budget error.** See its corrections: the unit
->   is updates.
+> - **Session 19 closed the execution gaps this draft inherited.** Every runner now owns
+>   ledger/resume/finalization and PPO has a repeated outer loop. Session 20 still owes the
+>   measured update ceilings and parallel topology; none is inferred here.
 
 ## Entry gate
 
@@ -30,8 +31,9 @@ Produce one validation-selected artifact per direction for session 23.
 
 From session 20's arithmetic and session 21's result, per surviving direction:
 
-- **Ceiling** = the lesser of 3x that direction's rung-1 plateau step count and 72 hours at its
-  measured rate. A direction that plateaued at four hours does not get a three-day window
+- **Ceiling** = the lesser of 3x that direction's rung-1 plateau update count and 72 hours at its
+  measured rate. Solver steps remain an observed derived column. A direction that plateaued at
+  four hours does not get a three-day window
   because a sibling needed one.
 - **Cadence and plateau arguments** carry over from the rung unchanged, so rung-1 and scaled
   ledgers are directly comparable.
@@ -95,8 +97,8 @@ Seeds 310019 and 310031, both initialization arms per seed, equal budget across 
 - League: all completed DAgger artifacts from this session and the ladder. For the second and
   third seed, also pass earlier frozen PPO champions so the runner retains the last four
   available PPO validation champions. Never pass a smoke or champion-so-far artifact.
-- Schedule per session 20's concurrency answer; the runner still refuses `--workers` above 1.
-- The report prints every reward component, all five policy-head entropy diagnostics,
+- Schedule per session 20's measured within-seed and across-seed parallelism answer.
+- The report prints every reward component, all six policy-head entropy diagnostics,
   optimizer and clipping diagnostics, recurrent gradient norms, and validation macro and
   worst-cell values.
 - Validation alone selects the arm. No test row exists.
@@ -108,7 +110,9 @@ Seeds 310019 and 310031, both initialization arms per seed, equal budget across 
 Seeds 310019 and 310031.
 
 - The schedule covers all 15 body/loadout cells and the exact compatible
-  `(movement, action, effector, target, stance)` count measured by preflight. The obsolete
+  `(movement, action, effector, target)` count measured by preflight. Look-ahead has no stance
+  head and declares that absence explicitly rather than imitating a collapsed learned head. The
+  obsolete
   action-v1 cell count is gone -- 220 before session 17 stage C1, 240 after it trained the
   `punch` the runtime already offered on `sword+empty` and `axe+empty`, and **280** since
   `sword+axe` joined the strata. Read the tuple count from

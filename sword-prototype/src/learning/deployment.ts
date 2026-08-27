@@ -9,6 +9,7 @@ import { lookaheadMind, LOOKAHEAD_DEPTH, LOOKAHEAD_WIDTH } from "./lookahead.ts"
 import { META_OUTPUT_LAYOUT, deployableActions, readMetaOutput,
   selectDeployableTactic } from "./meta.ts";
 import { PERSISTENCE_SECONDS, type PersistenceHead } from "./persistence.ts";
+import type { StanceHead } from "./stance.ts";
 import { RecurrentNeatNetwork } from "./recurrent-neat.ts";
 import { PPO_POLICY_HEADS } from "./ppo.ts";
 import { RecurrentPolicy, maskedArgmax, type RecurrentPolicyWeights, type RecurrentStep } from "./recurrent-network.ts";
@@ -329,7 +330,7 @@ export function decodeChampionSoFar(bytes: Uint8Array): ResearchArtifact {
 
 export type ChampionSource = Blob | ArrayBuffer | Uint8Array;
 export async function loadChampionSoFarMind(source: ChampionSource, bodyLoadout: string):
-Promise<Readonly<{ artifact: ResearchArtifact; mind: Mind & PersistenceHead; digest: string }>> {
+Promise<Readonly<{ artifact: ResearchArtifact; mind: Mind & PersistenceHead & StanceHead; digest: string }>> {
   const bytes = source instanceof Uint8Array ? source
     : source instanceof ArrayBuffer ? new Uint8Array(source) : new Uint8Array(await source.arrayBuffer());
   const artifact = decodeChampionSoFar(bytes);
@@ -374,7 +375,7 @@ Promise<Readonly<{ artifact: ResearchArtifact; mind: Mind & PersistenceHead; dig
  * seam owns no writer. `lookaheadMind`'s own note carries it.
  */
 export function deployedResearchMind(artifact: ResearchArtifact, bodyLoadout: string,
-  onDecision?: (view: FighterView, features: readonly number[], label: DaggerLabel) => void): Mind & PersistenceHead {
+  onDecision?: (view: FighterView, features: readonly number[], label: DaggerLabel) => void): Mind & PersistenceHead & StanceHead {
   const decoded = recordObject(payloadJson(artifact), artifact.data.algorithm);
   if (artifact.data.algorithm === "dagger") {
     const model = decoded as unknown as DaggerModel;
@@ -398,7 +399,8 @@ export function deployedResearchMind(artifact: ResearchArtifact, bodyLoadout: st
     // dwell is a sigmoid on `persistenceWeights`, so it reaches every bin and
     // lands on one only by accident. `PersistenceHead` in `learning/persistence.ts`
     // carries why this is declared here rather than inferred from a bout.
-    return researchLabelMind("dagger", (_view, features) => predictDagger(model, features), onDecision, PERSISTENCE_SECONDS.length);
+    return researchLabelMind("dagger", (_view, features) => predictDagger(model, features), onDecision,
+      PERSISTENCE_SECONDS.length, STANCE_NAMES.length);
   }
   if (artifact.data.algorithm === "ppo") {
     const weights = decoded.weights as unknown as RecurrentPolicyWeights;
@@ -421,7 +423,7 @@ export function deployedResearchMind(artifact: ResearchArtifact, bodyLoadout: st
     // to `PERSISTENCE_SECONDS.length` four lines up; reading it from the weights
     // anyway is what makes a future artifact with a narrower dwell head report
     // the width it actually has instead of the width this file expected.
-    return researchLabelMind("ppo", labeler, onDecision, weights.persistence.rows);
+    return researchLabelMind("ppo", labeler, onDecision, weights.persistence.rows, weights.stance.rows);
   }
   if (artifact.data.algorithm === "neat-qd") {
     // This probe **shadows `readMetaOutput`'s width refusal** rather than being
@@ -454,7 +456,7 @@ export function deployedResearchMind(artifact: ResearchArtifact, bodyLoadout: st
     // Continuous, like `dagger`: `decodeMetaPersistence` maps one trailing scalar
     // onto `[MIN_PERSISTENCE, MAX_PERSISTENCE]`, so the grid width is again how
     // many dwells this record can distinguish it naming.
-    return researchLabelMind("neat-qd", labeler, onDecision, PERSISTENCE_SECONDS.length);
+    return researchLabelMind("neat-qd", labeler, onDecision, PERSISTENCE_SECONDS.length, STANCE_NAMES.length);
   }
   if (artifact.data.algorithm === "lookahead") {
     const model = decoded as unknown as TacticalModel;

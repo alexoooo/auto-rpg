@@ -639,8 +639,11 @@ another job. A marked run refuses resume.
 The objectives are fixed: NEAT-QD maximizes validation worst-cell score, DAgger minimizes validation
 loss, PPO maximizes fair-round validation macro reward, and look-ahead minimizes calibration
 severity. A progress-only row has an unavailable objective and does not advance plateau. Every gate
-is either measured with a signed margin or unavailable with a reason; safety remains unavailable
-until the held-out tournament actually runs.
+is either measured with a signed margin or unavailable with a reason. Research checkpoints leave
+tournament-only safety unavailable; held-out tournament bouts measure all five safety properties
+from command, capability, tactic, verdict-tail and successful return-after-teardown evidence, and
+refuse a row whose evidence is missing. That lifecycle flag is not a resource census: the full
+integration lifecycle audit separately proves that bodies, scenes and observers leave no leaks.
 
 The page and bench share `BoutRecorder`; engagement is label-free on both. Any change to opportunity,
 intent-edge or contact-attribution semantics bumps `ENGAGEMENT_INSTRUMENT_VERSION` and keeps that
@@ -655,6 +658,9 @@ rather than silently repaired.
 
 **Checkpoint cadence is a job-index rule, never elapsed time.** Wall time is a reported fact and
 may not decide when a row is written, which job runs next, or when plateau is reached.
+PPO's `--workers` is also scheduling only: its eight-shard rollout bundle, shard budgets and shard
+indices must not depend on worker count, and aggregation is always by shard index rather than
+completion order. A worker-count change must reproduce artifact, report and resume bytes exactly.
 `npm run ai:watch -- --run <run-directory>` is read-only. `champion-so-far.artifact` may be loaded
 into a live arena fight through `__sword.research.load(...)`, but its in-progress provenance is
 refused by policy, league and tournament registration.

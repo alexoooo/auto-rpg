@@ -274,11 +274,12 @@ const SCRATCH_SHARE_OF_DURABLE = { min: 0.02, max: 0.25 };
 // `src/learning/gates.ts` and `scripts/measure-engagement.mjs`, none of which exist, and
 // names `tests/recorder.test.mjs` and `tests/engagement.test.mjs` a second time each --
 // this tally counts occurrences, not distinct paths. Session 18a built all five, removing
-// seven occurrences and taking the count to 8. So a rise here means a plan got more specific
+// seven occurrences and taking the count to 8. Session 20 then built
+// `tests/preflight.test.mjs`, taking it to 7. So a rise here means a plan got more specific
 // about what it will create, and a fall means somebody created it. Both are correct; neither
 // is a repair.
 const PLAN_SURFACE = {
-  noSuchFile: 8,
+  noSuchFile: 7,
   ambiguousFile: 0,
   anchorIntoDeletedFile: 0,
   orphanContinuation: 0,

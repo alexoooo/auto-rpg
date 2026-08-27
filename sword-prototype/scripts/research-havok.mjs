@@ -3,6 +3,7 @@ import { randomMetaMind } from "../src/learning/meta.ts";
 import { ATTACK_OPTION_NAMES, scriptedMetaMind, tacticCountKey, tacticEffectors } from "../src/options.ts";
 import { policyMind } from "../src/mind.ts";
 import { persistenceBinKey, persistenceOptionsOf } from "../src/learning/persistence.ts";
+import { stanceOptionsForBody } from "../src/learning/stance.ts";
 process.env.SWORD_MEASURE_LIBRARY = "1";
 const { freshHavok, runBout } = await import("./measure.mjs");
 
@@ -51,10 +52,12 @@ export async function runResearchBout(job, makeActorMind, solverStepLimit, makeO
   // `learning/tournament.ts` because that file and `options.ts` are in an import
   // cycle; the docstring there carries the measurement.) All five *marginals*
   // project out of it (`tacticMarginal`); what does not is a head's free-choice
-  // *denominator*, and four of the five need no map for that either -- movement
-  // and stance are legal on every body, the target's is a pure lookup on the
-  // recorded action (`tacticTargets`), and the action's is the whole mask, which
-  // is never smaller than two. Only the effector's has to be carried.
+  // *denominator*, and three of the five need no map for that either -- movement
+  // is legal on every body, the target's is a pure lookup on the recorded action
+  // (`tacticTargets`), and the action's is the whole mask, which is never smaller
+  // than two. Effector and stance are carried: the first depends on body/action,
+  // while the second depends on controller architecture and whether the body
+  // consumes posture.
   //
   // **A scripted probe's key does not parse, and that is deliberate.**
   // `asMeasured` names the target `"as-measured"`, which is the opponent's own
@@ -85,9 +88,10 @@ export async function runResearchBout(job, makeActorMind, solverStepLimit, makeO
   // containing `as-measured`.** The row validator refuses it by name if one ever
   // arrives, which is the right answer to "this record came from somewhere else".
   const tacticCounts = {};
-  // The one head a joint map cannot answer for, counted only on the decisions
-  // where the body offered it two or more hands. `tacticEffectors` is the same
-  // rule `handActionOption` refuses by, asked for rather than approximated.
+  // The two tuple heads a joint map cannot answer for. Effector is counted only
+  // where the body offered two or more hands. Stance is counted only where the
+  // controller declared a real head and the body consumes posture; a look-ahead
+  // constant and a centipede therefore both write an empty free marginal.
   //
   // **There is no `action` map here and its absence is a theorem, not an
   // omission.** Every body that can decide at all has two or more legal actions,
@@ -95,7 +99,7 @@ export async function runResearchBout(job, makeActorMind, solverStepLimit, makeO
   // `tacticCounts`. `FREE_CHOICE_HEADS` in `options.ts` carries the proof, the
   // coverage space of the two sweeps behind it, and the one unbuildable body
   // shape that would break it.
-  const freeChoiceCounts = { effector: {} };
+  const freeChoiceCounts = { effector: {}, stance: {} };
   // **The sixth head, which is not in the tuple key and never will be.** The
   // dwell is a decision like the other five and the joint map cannot hold it:
   // eight bins multiply a 2,520-cell key that is already 555 occupied cells at
@@ -111,10 +115,12 @@ export async function runResearchBout(job, makeActorMind, solverStepLimit, makeO
   // printed nothing whatever, because `headUtilisation` reads the five-name
   // tuple key and the dwell is not one of its fields.
   const persistenceCounts = { bins: {}, freeBins: {} };
-  let dwellOptions = 1;
+  let dwellOptions = 1; let stanceOptions = 1;
   let latestView = null;
-  const actorMind = makeActorMind((view, _features, label) => {
+  const safety = hooks.tournamentSafety ?? null;
+  const baseActorMind = makeActorMind((view, _features, label) => {
     decisions += 1; latestView = view;
+    safety?.observeTactic(view, label);
     const key = tacticCountKey(label);
     tacticCounts[key] = (tacticCounts[key] ?? 0) + 1;
     // Binned by distance rather than by equality, and keyed by the canonical
@@ -124,6 +130,9 @@ export async function runResearchBout(job, makeActorMind, solverStepLimit, makeO
     const bin = persistenceBinKey(label.persistence);
     persistenceCounts.bins[bin] = (persistenceCounts.bins[bin] ?? 0) + 1;
     if (dwellOptions > 1) persistenceCounts.freeBins[bin] = (persistenceCounts.freeBins[bin] ?? 0) + 1;
+    if (stanceOptions > 1) {
+      freeChoiceCounts.stance[label.stance] = (freeChoiceCounts.stance[label.stance] ?? 0) + 1;
+    }
     // **Conditioned on the action the policy just chose, which makes this
     // denominator a post-treatment variable.** A body's second hand is offered
     // for `cover` and `recover` and withheld from `cut` and `thrust`, so a
@@ -142,11 +151,24 @@ export async function runResearchBout(job, makeActorMind, solverStepLimit, makeO
       attacks += 1;
     }
   });
+  const observedDecide = safety ? (view, dt) => {
+    const intent = baseActorMind.decide(view, dt);
+    safety.observeIntent(view, intent);
+    return intent;
+  } : null;
+  // Preserve every declaration on a deployed controller -- especially its
+  // dwell-head width -- while interposing on the one call a body actually
+  // consumes. A copied object has already lost optional controller metadata in
+  // this harness once; the proxy forwards it instead of spelling it again.
+  const actorMind = safety ? new Proxy(baseActorMind, { get(target, property, receiver) {
+    return property === "decide" ? observedDecide : Reflect.get(target, property, receiver);
+  } }) : baseActorMind;
   // Read off the controller after it exists and before a decision can fire, so a
   // hook closing over it sees the declaration rather than the seed. Silence is
   // one, which is the direction that under-claims: `PersistenceHead` in
   // `learning/persistence.ts` carries why a declaration and not an inference.
   dwellOptions = persistenceOptionsOf(actorMind);
+  stanceOptions = stanceOptionsForBody(actorMind, job.unit);
   const opponent = makeOpponentMind ? makeOpponentMind() : opponentMind(job.opponent, job.opponentSeed);
   const actorLeft = job.actorSide === "left"; const actorLoadout = LOADOUTS[job.loadout];
   if (!actorLoadout) throw new Error(`research harness has no loadout "${job.loadout}"`);
@@ -163,7 +185,11 @@ export async function runResearchBout(job, makeActorMind, solverStepLimit, makeO
       rightMind: actorLeft ? opponent : actorMind,
       physics: await freshHavok(),
       onSample({ left, right, dt, clock }) { latestView = (actorLeft ? left : right).view;
+        safety?.observeSample({ clock: latestView.clock });
         hooks.onSample?.({ view: latestView, dt, clock }); },
+      onVerdict() { safety?.observeVerdict(); hooks.onVerdict?.(); },
+      postVerdictFrames: safety?.postVerdictFrames ?? 0,
+      postVerdictActionProbe: safety !== null,
       onEvent(event) {
         hooks.onEvent?.({ actorEvent: (event.side === "left") === actorLeft, event });
         if ((event.side === "left") !== actorLeft) return;
@@ -171,9 +197,11 @@ export async function runResearchBout(job, makeActorMind, solverStepLimit, makeO
       },
     });
     const solverSteps = Math.min(solverStepLimit, Math.round(result.seconds * CONFIG.world.physicsHz));
+    const safetyEvidence = safety?.finish(result);
     return { index: job.index, solverSteps, result, decisions, attacks, contacts, damage, tacticCounts, freeChoiceCounts, persistenceCounts,
       engagement: result.behaviour[job.actorSide].engagement,
       engagementInstrumentVersion: result.engagementInstrumentVersion,
+      safetyEvidence,
       lastClock: latestView?.clock ?? 0,
       lastPublished: latestView ? { selfVitality: latestView.self.vitality, opponentVitality: latestView.opponent.vitality,
         measure: latestView.measure } : null };

@@ -96,6 +96,7 @@ test("every_finish_path_stops_combat_on_the_exact_verdict_step", async () => {
     onSample({ right }) { samples += 1; if (samples === 60) torso(right).health = 0; },
     onVerdict() { callsAtVerdict = { left: calls.left.length, right: calls.right.length }; },
     postVerdictFrames: 3,
+    postVerdictActionProbe: true,
   });
   assert.equal(result.ending, "exhausted");
   assert.equal(result.winner, "left");

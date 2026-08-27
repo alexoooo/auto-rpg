@@ -12,6 +12,11 @@
 > - **`npm run ai:evaluate -- --verify-promoted` does not exist** -- zero occurrences in the
 >   tree -- and sessions 24 and 25 both invoke it. Either this session or 24 must own building
 >   it.
+> - **Tournament safety is no longer a placeholder.** The executor observes finite/anatomical
+>   commands, exact capability legality, post-verdict action, stuck tactics and a successful
+>   return after teardown for each real bout, and refuses missing or invented evidence. This is
+>   not the integration audit's resource census. Session 23 consumes those booleans; it does not
+>   implement or default them.
 
 ## Outcome
 
@@ -89,14 +94,13 @@ summary the ledger does -- rows completed, rows remaining, elapsed -- on the sam
   head utilisation is reported and never gated, and `headUtilisation`'s own docstring carries
   the reason.
 
-  One reading that will otherwise be wrong, and it is now the only one. **A look-ahead candidate
-  has no stance head at all** -- `lookaheadMind` hardcodes `UNLEARNED_STANCE` -- so it prints a
-  free choice on every decision, one option chosen, modal share 1.0: the exact signature of a
-  collapsed head, by design. Cross-reference the `algorithm` field on each utilisation row before
-  concluding anything about a `stance` row.
+  **Stance and persistence now carry their own missing-head evidence.** A look-ahead candidate
+  has no stance head and declares one option, while the three learned controllers declare their
+  head width; the producer also narrows a centipede to one because that body consumes no posture.
+  Therefore `freeChoiceDecisions: 0` means the stance was constant by construction, while a
+  non-zero free denominator beside `chosen: 1` is a learned head that settled on one option.
 
-  **The `persistence` row needs no such cross-reference and is the model for what the stance row
-  is still missing.** It was the second instance of the same trap -- PPO wrote the constant `0.4`
+  The persistence row was the model for this repair. PPO once wrote the constant `0.4`
   and there was no dwell row at all, because the joint tuple key has five names and the dwell is
   not one of them. There is a row now, over `persistenceCounts`, and it separates the two
   readings on its own: `freeChoiceDecisions: 0` means the controller declared no dwell head

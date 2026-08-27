@@ -22,34 +22,6 @@ it. The reason a thing was left alone is worth as much as the fix.
 
 ## Open
 
-### 1. All five tournament safety flags are hardcoded `true`
-
-`scripts/tournament-executor.mjs:64-65` is the sole producer of the `safety` object and writes
-`{finiteAnatomical: true, capabilities: true, postVerdict: true, stuckActions: true, lifecycle: true}`
-unconditionally. The aggregate fold at `src/learning/tournament.ts:718-721` is a conjunction seeded
-all-`true`, so it cannot answer anything else. The five `if (!safety.X) failures.push(...)` branches
-in `assessTournamentCandidate` are therefore **dead in production**, reachable only from test
-literals.
-
-`docs/design.md:339` documents the five as a registration requirement -- *"and five safety flags --
-finite/anatomical commands, capability masking, no post-verdict action, no stuck action, and
-lifecycle"* -- with nothing behind them. No separate harness computes them and is merely unwired;
-there is no producer at all.
-
-**Why it matters more than a missing check.** A tournament report that says "capability failure:
-none" when nothing examined capability is worse than one that stays silent, because a reader cannot
-tell a passed check from an absent one. Sessions 23--25 promote a champion on this verdict.
-
-**Why not fixed.** Computing five real safety properties is a session of work, not a fix: each needs
-a definition, a place in the bout loop to observe it, and a test that watches it go false on a body
-that genuinely fails. `scripts/measure.mjs:221,364-370` has an `onVerdict` / `postVerdictFrames`
-mechanism that `tests/integration.test.mjs:98` already uses for a post-verdict lifecycle assertion,
-so one of the five has a head start; the other four do not.
-
-**Cost to close.** One session. Natural home is session 23, which already lists *"common cells,
-mirrors, controls, safety evidence"* as a verification item
-(`combat-followups-23-held-out-ai-tournament.md:69`) without wiring any computation.
-
 ### 2. `decisionsPerSecond` in the tournament report is systematically under-reported
 
 **Closed 2026-08-25, and the entry had found the smaller of two defects.** See the Closed
@@ -303,7 +275,7 @@ produces its dwell (`PersistenceHead`). So `{chosen: 1, freeChoiceDecisions: 0}`
 grid and used one bin of it", and a reader needs neither the algorithm name nor its source to tell
 them apart. `a_collapsed_dwell_head_and_a_head_that_does_not_exist_are_different_records` and
 `a_real_bout_records_the_dwell_every_decision_asked_for` are the readers;
-`every_deployed_algorithm_declares_whether_it_has_a_dwell_head` pins the four declarations, which is
+`every_deployed_algorithm_declares_whether_it_has_stance_and_dwell_heads` pins the declarations, which is
 what a declaration needs and a measurement would not.
 
 **The tuple was not widened, and entry 17's first bullet is why.** Adding the dwell to `TacticTuple`
@@ -312,18 +284,16 @@ multiplies a joint key already measured at 555 occupied cells of 2,520 by eight.
 plus its two validators -- `validateTacticRecord` in TypeScript and the row builder in
 `scripts/tournament-executor.mjs`, which gets no static check at all (entry 15).
 
-**What is still open here is the stance, and it is now the only one.** `lookaheadMind` still writes
-`UNLEARNED_STANCE` and the stance head is unmasked on every body, so there is no free set to record
-for it: the `stance` row of a look-ahead candidate is still indistinguishable from a learned stance
-head that settled on one option, and `scripts/evaluate-ai.mjs`'s `algorithm` column is still the only
-thing that separates them. Closing it needs the same declaration the dwell now carries -- a
-`stanceOptions` beside `persistenceOptions`, six for a controller with a stance head and one for
-look-ahead -- which is a smaller job than this one was, because the shape now exists.
+**The stance half is closed too.** `StanceHead` declares the choice width beside
+`PersistenceHead`: the three learned controllers declare six and look-ahead declares one. The
+research producer records the chosen-stance marginal only in `tacticCounts` and its free subset in
+`freeChoiceCounts.stance`, so a one-option learned collapse and a missing head no longer print the
+same row.
 
 Separately, **a centipede consumes no posture.** `src/bodies/centipede.ts` publishes crouch, trunk
 lean and trunk twist as zero and never reads `input.posture`, so on the three centipede cells -- 6 of
-26 tournament jobs -- the stance head reports a free choice on every decision while all six names are
-behaviourally identical. `applyTacticStance`'s own note records that during any committing action
+26 tournament jobs -- the producer narrows the controller's declaration to one and records no free
+stance choice. `applyTacticStance`'s own note records that during any committing action
 `extended` is a near-duplicate of the commit posture, so it is five distinguishable names elsewhere,
 not six.
 
@@ -502,6 +472,24 @@ use rather than at planning time. Assign each to 20, 21 or 23.
 ---
 
 ## Closed
+
+### All five tournament safety flags were hardcoded `true`
+
+Entry 1 was closed 2026-08-26. `tournamentSafetyObserver` now watches the command actually returned
+to the body, the exact legal action/effector/target set, movement/action occupancy, the verdict edge
+and a three-frame live tail. It finalizes only after `runBout` returns from its teardown path. The
+executor refuses a row with missing, invented or non-boolean evidence instead of filling a default.
+That lifecycle observation proves a complete run reached a successful return after teardown; it
+does not count live resources. The integration lifecycle audit remains the owner of the no-leak
+claim.
+
+The stuck thresholds did not move: a bout must last at least five seconds, and an uninterrupted run
+must occupy at least five seconds and 95% of the bout. The semantics are translated and strengthened:
+the legacy controller selected one `OptionName`, while the factorized controller selects movement
+and action together, and either head can now fail. No threshold was chosen from held-out results.
+Focused tests drive every one of the five observations false, drive the missing-evidence refusal,
+and take the observer through a real one-second NullEngine/Havok bout. Each false/refusal assertion
+was watched fail with its own production guard removed before restoration.
 
 ### `decisionsPerSecond` was not under-reported, it was not a rate at all
 

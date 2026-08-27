@@ -1,10 +1,12 @@
 # Combat follow-ups handoff -- 2026-08-26
 
-> **Sessions 19 and 18a have landed, and 18b's player-facing acquisition flow is ready.** Long
-> research runs are resumable and legible, and the page and bench produce the same versioned,
-> label-free engagement records and shared gate tables. The next action is still **a person using
-> the instrument**. No human reading, held-out tournament or promotion has occurred, and session
-> 20 remains blocked on 18b's gate-feasibility verdict.
+> **Sessions 19 and 18a have landed, 18b's player-facing acquisition flow is ready, and the
+> pre-throughput research foundation is in place.** PPO has a real repeated outer loop; all four
+> directions have indexed ledger/resume/finalization; run IDs and look-ahead outputs are stable;
+> one canonical config/contract preflight refuses stale runs before solver work; stance-head
+> absence is explicit; and tournament safety is measured rather than filled with `true`. The next
+> action is still **a person using the instrument**. No human gate verdict, throughput schedule,
+> research rung, held-out tournament or promotion has occurred.
 
 ## Read these three things first
 
@@ -32,13 +34,12 @@ design, reference or measurement document rather than in a plan. What they measu
 `docs/measurements.md`, what they decided is in `docs/design.md` and beside the code, and the
 compressed rules are in `AGENTS.md`.
 
-## Last verified state
+## Last verified baseline
 
-For the guided-acquisition working tree, from `sword-prototype/`:
+The guided-acquisition landing was green under `npm test`, `npm run check` and `npm run build`.
+Do not carry its test count forward while the PPO-parallelism work is active; re-measure the whole
+tree at the next landing. Its behavioural null control was:
 
-- `npm test` -- **678 passed, 0 failed**
-- `npm run check` -- clean
-- `npm run build` -- clean, ~650 ms
 - `node scripts/measure.mjs --only duelist-swinger --bouts 120` at seed 20260823 --
   **66/120 = 55.0 %**, 176.17 damage, 10 severs, 1496/1670 scoring contacts. This is the null
   control; it has not moved across any of the last twelve commits and it must not move under a
@@ -48,25 +49,24 @@ For the guided-acquisition working tree, from `sword-prototype/`:
   prototype's; the command has been red for longer than this topic has existed, so do not read
   its exit code as a signal about work here.
 
-## The finding that changes what the next session is
+## The historical finding that changed session 19
 
-**PPO cannot spend a step budget.** Asked for 400,000 solver steps an arm -- 800,000 across the
-two -- an invocation consumed **5,508**, seven tenths of one per cent. Three facts multiply:
+The old PPO runner could not spend a step budget. Asked for 400,000 solver steps an arm -- 800,000
+across the two -- an invocation consumed **5,508**, seven tenths of one per cent. Three facts multiply:
 `runResearchBout` clamps a bout to `min(boutCapSeconds, limit / physicsHz)` and every stratum
 sets 45 s against 240 Hz, so 10,800 steps is the ceiling on one bout however large the budget;
 a bout ends when somebody dies rather than at the cap, so a real bout costs about 1,400; and
-`trainPpo` runs exactly four bouts, two arms by two splits. It also performs exactly **two
-gradient updates** at any budget -- `ppoHeadUpdate` has one call site inside a two-element loop
-and there is no `--iterations` flag.
+`trainPpo` ran exactly four bouts, two arms by two splits, and performed exactly two gradient
+updates at any budget.
 
 More generally, **a step budget is not a learning budget for three of the four directions.**
 NEAT-QD and DAgger scale by `--generations` and `--iterations`; `--solver-steps` only lengthens
 the bouts inside a fixed number of updates. Only look-ahead turns steps into fitted rows.
 
-Sessions 20, 21 and 22 derive a step ceiling from measured throughput, run a 24-hour rung
-against it, and scale to 72-hour seeds. **For PPO a 24-hour rung completes in about twenty
-seconds.** The full account, with its coverage space, is in `docs/measurements.md` under *What
-a long run cannot yet tell anybody*.
+Session 19 closed that defect with repeated collect/update/validation jobs and resumable
+checkpoint publication. The 5,508-step/twenty-second result remains a measurement of the retired
+four-bout runner and must not schedule the current one. Sessions 20--22 still derive the current
+update ceilings and parallel execution shape from new measurements.
 
 ## First action for the next session
 
@@ -86,7 +86,7 @@ research result has been seen.
 | 18a | **complete** -- versioned shared recorder, gate table and bench command; no readings | 19 |
 | 18b | **acquisition UI ready; no readings yet** -- measure a person on the promotion instrument; settle the open feel questions | 18a |
 | 19 | **complete** -- a run that can be run, a ledger, plateau rule, watchable champion-so-far | -- |
-| 20 | measure real throughput and derive every ceiling, **in updates** | 18b, 19 |
+| 20 | **pre-throughput foundation complete; measurements blocked** -- measure throughput/parallelism and derive every ceiling, in updates | 18b, 19 |
 | 21 | one seed per direction under a one-day ceiling, then advance or kill each | 20 |
 | 22 | remaining seeds and declared ablations for surviving directions only | 21 |
 | 23 | freeze one selection per surviving direction and execute the test matrix once | 22 |
@@ -97,12 +97,12 @@ Session 25 deletes the remaining plan set and this handoff, after all results ar
 durable documentation. Sessions 15--17 have already been through that fold; the pattern is on
 record in `828b74b`.
 
-## Three commands the plan set invokes that do not exist
+## Two commands the plan set invokes that do not exist
 
-`--rung` (nothing implements it; sessions 21 and 22 both require it), `--run-id` (exists in
-NEAT-QD and DAgger, silently ignored by PPO and look-ahead), and `--verify-promoted` (nothing
-implements it; sessions 24 and 25 both invoke it). Register entry 22. Each needs an owner
-before the session that calls it.
+`--rung` (sessions 21 and 22 require it) and `--verify-promoted` (sessions 24 and 25 invoke it).
+PPO and look-ahead now honor `--run-id`, and look-ahead writes to its run directory without
+manual artifact/report paths. Session 20 must freeze the measured schedule before `--rung` can
+resolve it; session 23 or 24 owns `--verify-promoted`.
 
 ## Retained smoke evidence
 
@@ -133,6 +133,13 @@ Interface, unchanged:
   test split, reward, future contacts or tournament labels.
 - Any feature/action/version/digest mismatch must fail before a research runner spends its
   first solver step.
+- An absent stance head and a learned head that chose one stance must not produce the same
+  utilisation record. The controller declares its stance width; a body that consumes no posture
+  narrows the free set explicitly.
+- Tournament safety comes from the command, capability, tactic, verdict-tail and successful
+  return-after-teardown observations of the bout being recorded. The lifecycle flag is not a
+  resource census; the integration audit owns that proof. Missing evidence is a refusal, never a
+  passing default.
 
 Compute, and these are the ones this pass added:
 

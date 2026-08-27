@@ -16,10 +16,10 @@ import { argmaxHeadPick, decodeResearchArtifact, inProgressResearchArtifact, rec
   RESEARCH_ARTIFACT_CONTRACT } from "../src/learning/deployment.ts";
 import { MAX_PERSISTENCE, META_OUTPUT_LAYOUT, MIN_PERSISTENCE, PERSISTENCE_SECONDS, UNLEARNED_PERSISTENCE,
   deployableTactics } from "../src/learning/meta.ts";
-import { assertPpoLedgerPrefix, assertPpoStoppingContract, collectPpoTrajectory, flattenHeads, initialPpoWeights, loadLeagueArtifacts, opponentRoute,
-  ppoPendingAction,
+import { assertPpoLedgerPrefix, assertPpoStoppingContract, collectPpoBundle, collectPpoTrajectory, flattenHeads, initialPpoWeights, loadLeagueArtifacts, opponentRoute,
+  ppoPendingAction, ppoRolloutBundle, PpoRolloutPool,
   ppoIterationBudget, ppoUpdateRows, trainPpo, PPO_PRODUCED_LOGITS, PPO_PRODUCED_OUTPUTS,
-  PPO_TRAJECTORY_SOLVER_STEP_CAP } from "../scripts/train-ppo.mjs";
+  PPO_ROLLOUT_BUNDLE_SIZE, PPO_TRAINING_SEMANTICS_VERSION, PPO_TRAJECTORY_SOLVER_STEP_CAP } from "../scripts/train-ppo.mjs";
 import { researchMatrix } from "../src/learning/research-matrix.ts";
 import { assertCompleteView } from "./fixtures/view.mjs";
 
@@ -145,6 +145,83 @@ test("an_indexed_arm_boundary_resume_is_byte_identical_to_an_uninterrupted_havok
   for (const name of ["artifact", "report", "resume"]) assert.deepEqual(resumed[name], uninterrupted[name]);
 });
 
+test("one_two_and_four_real_workers_produce_byte_identical_fixed_rollout_bundles", async () => {
+  const outputs = [];
+  for (const workers of [1, 2, 4]) outputs.push(await trainPpo({ seed: 310013, solverSteps: 64, workers }));
+  for (const name of ["artifact", "report", "resume"]) {
+    assert.deepEqual(outputs[1][name], outputs[0][name], `${name} changed at two workers`);
+    assert.deepEqual(outputs[2][name], outputs[0][name], `${name} changed at four workers`);
+  }
+  const report = JSON.parse(new TextDecoder().decode(outputs[0].report));
+  assert.equal(report.trainingSemanticsVersion, PPO_TRAINING_SEMANTICS_VERSION);
+  assert.equal(report.rolloutBundleSize, PPO_ROLLOUT_BUNDLE_SIZE);
+  assert.deepEqual(ppoRolloutBundle(32, 3).map((job) => job.jobIndex), [24, 25, 26, 27, 28, 29, 30, 31]);
+  assert.deepEqual(ppoRolloutBundle(28, 3), [{ shard: 0, solverSteps: 28, jobIndex: 24 }]);
+  const all = [ppoRolloutBundle(32, 0), ppoRolloutBundle(4, 1), ppoRolloutBundle(32, 2)].flat();
+  assert.equal(new Set(all.map((job) => job.jobIndex)).size, all.length,
+    "a single tail and a full bundle share no rollout job index");
+});
+
+test("rollout_bundle_aggregation_uses_shard_order_not_completion_order", async () => {
+  const completed = [];
+  const bundle = await collectPpoBundle(async (request) => {
+    await new Promise((resolve) => setTimeout(resolve, (PPO_ROLLOUT_BUNDLE_SIZE - request.shard) * 2));
+    completed.push(request.shard);
+    return { result: { solverSteps: request.solverSteps, result: { seconds: request.shard }, engagement: null },
+      weights: request.weights, boundaries: [{ shard: request.shard }], rewards: [request.shard],
+      advantages: [request.shard], opponent: { id: `opponent-${request.shard}` } };
+  }, { seed: 1, initialization: "random", solverSteps: 32, jobIndex: 2, weights: weights(), split: "train", league: [] });
+  assert.notDeepEqual(completed, [0, 1, 2, 3, 4, 5, 6, 7], "the fixture must actually finish out of order");
+  assert.deepEqual(bundle.boundaries.map((row) => row.shard), [0, 1, 2, 3, 4, 5, 6, 7]);
+  assert.deepEqual(bundle.boundaries.map((row) => row.episodeStart), Array(8).fill(true),
+    "every independently reset shard remains an episode boundary after concatenation");
+  assert.deepEqual(bundle.rewards, [0, 1, 2, 3, 4, 5, 6, 7]);
+  assert.equal(bundle.result.solverSteps, 32);
+});
+
+test("parallel_rollout_workers_rebuild_a_frozen_learned_league_opponent", async () => {
+  const learnedWeights = initialPpoWeights(310013, "random");
+  learnedWeights.persistence = { rows: PERSISTENCE_SECONDS.length, columns: GRU_UNITS,
+    weights: Array(PERSISTENCE_SECONDS.length * GRU_UNITS).fill(0),
+    bias: PERSISTENCE_SECONDS.map((_, index) => index === 6 ? 20 : -20) };
+  const bytes = new ResearchArtifact({ algorithm: "ppo", ...RESEARCH_ARTIFACT_CONTRACT,
+    payload: [...new TextEncoder().encode(canonicalJson({ initialization: "random", weights: learnedWeights }))],
+    provenance: { seed: 7, solverSteps: 4, trainingSplit: "train", validationSplit: "validation",
+      configDigest: "synthetic" } }, RESEARCH_ARTIFACT_CONTRACT).toBytes();
+  const path = join(mkdtempSync(join(tmpdir(), "ppo-parallel-league-")), "champion.bin"); writeFileSync(path, bytes);
+  const loaded = await loadLeagueArtifacts([path]); const entry = loaded.league.find((row) => row.kind === "ppo");
+  const request = { seed: 310013, initialization: "random", solverSteps: 8, jobIndex: 0,
+    weights: initialPpoWeights(91, "random"), league: freezeOpponentLeague([entry]), split: "train" };
+  const pool = new PpoRolloutPool(1, loaded.models);
+  try {
+    const [fromWorker, inProcess] = await Promise.all([
+      pool.run(request), collectPpoTrajectory({ ...request, controllers: loaded.controllers }),
+    ]);
+    assert.deepEqual(fromWorker, inProcess,
+      "worker transport must reconstruct the learned controller, not merely preserve its opponent id");
+  } finally { await pool.close(); }
+  const trained = await trainPpo({ seed: 310013, solverSteps: 64, workers: 2,
+    league: freezeOpponentLeague([entry]), controllers: loaded.controllers, learnedLeagueModels: loaded.models });
+  const report = JSON.parse(new TextDecoder().decode(trained.report));
+  assert.ok(report.rows.flatMap((row) => Array.isArray(row.opponent) ? row.opponent : [row.opponent])
+    .every((opponent) => opponent.id === entry.id));
+});
+
+test("invalid_worker_counts_are_refused_by_name_before_a_rollout_worker_starts", async () => {
+  for (const workers of [0, -1, 1.5, 65, "4"]) {
+    await assert.rejects(trainPpo({ seed: 310013, solverSteps: 64, workers }), /PPO --workers must be a positive integer at most 64/);
+  }
+});
+
+test("a_rollout_worker_that_exits_zero_without_a_result_rejects_pending_and_queued_jobs", async () => {
+  const pool = new PpoRolloutPool(1, [], new URL("./fixtures/ppo-worker-exits-cleanly.mjs", import.meta.url));
+  const first = pool.run({ job: 1 }); const queued = pool.run({ job: 2 });
+  await assert.rejects(first, /PPO rollout worker exited 0 before pool shutdown/);
+  await assert.rejects(queued, /PPO rollout worker exited 0 before pool shutdown/);
+  await assert.rejects(pool.run({ job: 3 }), /PPO rollout worker exited 0 before pool shutdown/);
+  await pool.close();
+});
+
 test("a_ppo_resume_from_the_previous_engagement_instrument_is_refused_before_collection", async () => {
   const config = { seed: 310013, solverSteps: 24, workers: 1 };
   const interrupted = await trainPpo({ ...config, stopAfterJobs: 1 }, syntheticPpoRuntime());
@@ -155,6 +232,23 @@ test("a_ppo_resume_from_the_previous_engagement_instrument_is_refused_before_col
   await assert.rejects(trainPpo({ ...config, resumeBytes: staleBytes }, syntheticPpoRuntime(calls)),
     /predates the current engagement instrument/);
   assert.deepEqual(calls, [], "resume identity is checked before the first collector call");
+});
+
+test("a_pre_parallel_ppo_resume_refuses_before_the_rollout_pool_is_constructed", async () => {
+  const config = { seed: 310013, solverSteps: 24, workers: 2 };
+  const interrupted = await trainPpo({ ...config, stopAfterJobs: 1 }, syntheticPpoRuntime());
+  const saved = decodePpoResume(interrupted.resume); let pools = 0;
+  const { contractDigest: _contractDigest, ...missingContract } = saved.training;
+  for (const training of [
+    missingContract,
+    { ...saved.training, trainingSemanticsVersion: 1 },
+    { ...saved.training, rolloutBundleSize: 1 },
+  ]) {
+    const stale = encodePpoResume(saved.weights, saved.optimizer, saved.rows, training);
+    await assert.rejects(trainPpo({ ...config, resumeBytes: stale }, { createRolloutPool() { pools += 1; return null; } }),
+      /research contract digest|training semantics version or rollout bundle size/);
+  }
+  assert.equal(pools, 0, "resume identity is complete before even an idle rollout worker is constructed");
 });
 
 test("larger_solver_step_ceilings_buy_more_indexed_ppo_updates_for_both_arms", async () => {
@@ -175,8 +269,8 @@ test("larger_solver_step_ceilings_buy_more_indexed_ppo_updates_for_both_arms", a
   assert.equal(longCalls.length, 20, "five train/validation pairs were run for each arm");
   for (let at = 0; at < longCalls.length; at += 2) {
     assert.deepEqual(longCalls.slice(at, at + 2).map((call) => call.split), ["train", "validation"]);
-    assert.equal(longCalls[at].jobIndex, at / 2);
-    assert.equal(longCalls[at + 1].jobIndex, at / 2);
+    assert.equal(longCalls[at].jobIndex, at / 2 * PPO_ROLLOUT_BUNDLE_SIZE);
+    assert.equal(longCalls[at + 1].jobIndex, at / 2 * PPO_ROLLOUT_BUNDLE_SIZE);
   }
   assert.ok(longReport.rows.every((row, index) => row.index === index), "checkpoint boundaries are an indexed prefix");
   assert.ok(longReport.rows.every((row) => row.requestedTrainSolverSteps >= row.trainSolverSteps));
@@ -305,8 +399,8 @@ test("an_unchanged_early_ppo_champion_keeps_its_artifact_and_provenance_prefix",
   const { provenance } = decodeResearchArtifact(trained.artifact).data;
   assert.equal(provenance.selectedIteration, 0);
   assert.equal(provenance.solverSteps, 21_600, "the champion claims only its own arm prefix, not later training");
-  assert.deepEqual(report.rows[0].engagement, { opportunities: 2, attacksInWindow: 1, contactsInWindow: 1,
-    nearRangeStallSeconds: 0.25, seconds: 0.5, firstAttackSeconds: [null] });
+  assert.deepEqual(report.rows[0].engagement, { opportunities: 16, attacksInWindow: 8, contactsInWindow: 8,
+    nearRangeStallSeconds: 2, seconds: 4, firstAttackSeconds: Array(8).fill(null) });
   assert.deepEqual(report.rows.filter((row) => row.armIndex === 0).map((row) => row.armSolverSteps),
     [21_600, 43_200, 64_800]);
 });
@@ -610,6 +704,31 @@ test("truncated_bptt_moves_all_three_gru_gate_matrices_under_the_same_clip", () 
   for (const [index, gate] of [network.update, network.reset, network.candidate].entries())
     assert.notDeepEqual(gate.weights, before[index]);
   assert.ok(report.recurrentGradientNorm > 0); assert.ok(report.clippedGradientNorm <= 0.5 + 1e-12);
+});
+
+test("recurrent_gradients_do_not_cross_an_independent_rollout_episode_reset", () => {
+  const recurrent = () => ({ ...layer(2, 3), weights: Array(6).fill(0.03) });
+  const output = (rows) => ({ ...layer(rows, 2), weights: Array(rows * 2).fill(0.08) });
+  const network = () => ({ update: recurrent(), reset: recurrent(), candidate: recurrent(),
+    ...Object.fromEntries(PPO_POLICY_HEADS.map((name) => [name, output(2)])), value: output(1) });
+  const boundary = (input, hidden, extra) => ({ ...headBoundary(hidden, extra), input, previousHidden: [0, 0],
+    episodeStart: true,
+    ...Object.fromEntries(PPO_POLICY_HEADS.map((name) => [`${name}Supported`, [0, 1]])) });
+  const episodeA = boundary([0.4], [0.1, -0.05], { movement: 0, action: 1, advantage: 0.7, valueTarget: 0.4 });
+  const episodeB = boundary([-0.8], [-0.2, 0.3], { movement: 1, action: 0, advantage: -1.3, valueTarget: -0.6 });
+  const initial = network(); const combined = structuredClone(initial);
+  const onlyA = structuredClone(initial); const onlyB = structuredClone(initial);
+  const update = (target, rows) => ppoHeadUpdate(target, rows, 310013, 0.002, 0.2, 0.2, 0, 1e9);
+  update(combined, [episodeA, episodeB]); update(onlyA, [episodeA]); update(onlyB, [episodeB]);
+  for (const name of ["update", "reset", "candidate"]) {
+    for (const field of ["weights", "bias"]) for (let index = 0; index < initial[name][field].length; index += 1) {
+      const combinedDelta = initial[name][field][index] - combined[name][field][index];
+      const independentMean = ((initial[name][field][index] - onlyA[name][field][index]) +
+        (initial[name][field][index] - onlyB[name][field][index])) / 2;
+      assert.ok(Math.abs(combinedDelta - independentMean) < 1e-14,
+        `${name}.${field}[${index}] crossed the episode reset: ${combinedDelta} against ${independentMean}`);
+    }
+  }
 });
 
 test("seeded_minibatches_and_league_jobs_are_worker_count_independent", () => {

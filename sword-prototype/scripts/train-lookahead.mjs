@@ -2,7 +2,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { ResearchArtifact, artifactChecksum, canonicalJson } from "../src/learning/artifact.ts";
+import { ResearchArtifact, artifactChecksum, canonicalDigest, canonicalJson } from "../src/learning/artifact.ts";
 import { calibrateTacticalModel, calibrationSeverity, fitTacticalModel,
   TACTICAL_STATE_COLUMNS } from "../src/learning/tactical-model.ts";
 import { researchMatrix } from "../src/learning/research-matrix.ts";
@@ -15,7 +15,9 @@ import { HAND_ACTION_NAMES, MOVEMENT_NAMES, tacticTargets } from "../src/options
 import { ENGAGEMENT_INSTRUMENT_VERSION } from "../src/recorder.ts";
 import { runResearchBout } from "./research-havok.mjs";
 import { checkpointRun, DEFAULT_PLATEAU_EPSILON, DEFAULT_PLATEAU_ROWS, digestContract, engagementGates,
-  finalizeRun, ledgerStopDecision, makeLedgerRow, readLedger, runIsFinalized } from "./research-ledger.mjs";
+  finalizeRun, ledgerStopDecision, makeLedgerRow, readLedger, refuseFinalizedResume } from "./research-ledger.mjs";
+import { BALANCE_CONFIG_DIGEST, contractDigestArgument, FROZEN_RESEARCH_CONTRACT_DIGEST,
+  refuseStaleResearchResume, requiredResearchContractDigest } from "./research-preflight.mjs";
 
 /**
  * **The training state and the deployment state are one function, and were two.**
@@ -415,7 +417,9 @@ const textEncoder = new TextEncoder(); const textDecoder = new TextDecoder();
  * the stop boundary. The state instead carries rows and the next one of all
  * 3,780 jobs; fitting happens only after that index reaches `groups`.
  */
-export function lookaheadRunConfig({ seed, solverSteps, runId = null }) {
+export function lookaheadRunConfig({ seed, solverSteps, runId = null,
+  contractDigest = FROZEN_RESEARCH_CONTRACT_DIGEST }) {
+  contractDigest = requiredResearchContractDigest(contractDigest);
   if (!Number.isSafeInteger(seed)) throw new Error("lookahead seed must be a safe integer");
   if (!Number.isSafeInteger(solverSteps) || solverSteps <= 0) {
     throw new Error("lookahead solver-step budget must be a positive integer");
@@ -431,15 +435,16 @@ export function lookaheadRunConfig({ seed, solverSteps, runId = null }) {
   const allocation = { perJob, extraJobs: (solverSteps - perJob * groups) / 4 };
   const identity = { version: LOOKAHEAD_RESUME_VERSION, algorithm: "lookahead", seed,
     requestedSolverSteps: solverSteps, fitSeeds, columns: TACTICAL_STATE_COLUMNS,
-    engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION, schedule, allocation };
-  const defaultRunId = `lookahead-${seed}-${artifactChecksum(canonicalJson(identity))}`;
+    engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION, schedule, allocation,
+    balanceConfigDigest: BALANCE_CONFIG_DIGEST, contractDigest };
+  const defaultRunId = `lookahead-${seed}-${canonicalDigest(identity)}`;
   const chosenRunId = String(runId ?? defaultRunId);
   if (!LOOKAHEAD_RUN_ID.test(chosenRunId)) throw new Error("invalid --run-id");
   const config = { ...identity, runId: chosenRunId };
   // The directory label identifies one execution, not the search contract. Two
   // names for the same indexed search therefore share a config digest while
   // resume still compares the complete config, including `runId`.
-  return { ...config, configDigest: artifactChecksum(canonicalJson(identity)) };
+  return { ...config, configDigest: canonicalDigest(identity) };
 }
 
 const initialLookaheadState = (config) => ({ nextJobIndex: 0, consumedSolverSteps: 0,
@@ -461,6 +466,7 @@ export function decodeLookaheadResume(bytes, expectedConfig) {
   if (saved?.version !== LOOKAHEAD_RESUME_VERSION || saved?.algorithm !== "lookahead") {
     throw new Error("lookahead resume has an unsupported version or algorithm");
   }
+  refuseStaleResearchResume("lookahead", saved.config?.contractDigest, expectedConfig.contractDigest);
   if (canonicalJson(saved.config) !== canonicalJson(expectedConfig)) {
     throw new Error("lookahead resume refused: run id, seed, budget, or indexed schedule changed");
   }
@@ -575,13 +581,14 @@ export function finalLookaheadReport(record, ledgerRows) {
 }
 
 export async function trainLookahead({ seed, solverSteps, runId = null, resumeBytes = null, stopAfterJobs = 0,
+  contractDigest = FROZEN_RESEARCH_CONTRACT_DIGEST,
   checkpointEveryJobs = 1, plateauEpsilon = DEFAULT_PLATEAU_EPSILON, plateauRows = DEFAULT_PLATEAU_ROWS,
   onCheckpoint = null, collectBudget = collectTacticalBudget }) {
   if (!Number.isSafeInteger(stopAfterJobs) || stopAfterJobs < 0) throw new Error("lookahead stop-after-jobs must be a non-negative integer");
   if (!Number.isSafeInteger(checkpointEveryJobs) || checkpointEveryJobs <= 0) {
     throw new Error("lookahead checkpoint-every-jobs must be a positive integer");
   }
-  const config = lookaheadRunConfig({ seed, solverSteps, runId });
+  const config = lookaheadRunConfig({ seed, solverSteps, runId, contractDigest });
   const trainTasks = lookaheadTacticCellSchedule("train", seed); const validationTasks = lookaheadTacticCellSchedule("validation", seed);
   const state = resumeBytes ? decodeLookaheadResume(resumeBytes, config) : initialLookaheadState(config);
   let completedHere = 0;
@@ -642,6 +649,7 @@ export async function trainLookahead({ seed, solverSteps, runId = null, resumeBy
 export async function runLookaheadCli() {
   const arg = (name, fallback) => { const at = process.argv.indexOf(`--${name}`); return at < 0 ? fallback : process.argv[at + 1]; };
   const flag = (name) => process.argv.includes(`--${name}`);
+  const contractDigest = requiredResearchContractDigest(contractDigestArgument(process.argv));
   const seed = Number(arg("seed", 310013)); const solverSteps = Number(arg("solver-steps", 181_440));
   const plateauEpsilon = Number(arg("plateau-epsilon", DEFAULT_PLATEAU_EPSILON));
   const plateauRows = Number(arg("plateau-rows", DEFAULT_PLATEAU_ROWS));
@@ -651,7 +659,7 @@ export async function runLookaheadCli() {
   if (!Number.isSafeInteger(plateauRows) || plateauRows <= 0) throw new Error("--plateau-rows must be a positive integer");
   if (!Number.isSafeInteger(stopAfterJobs) || stopAfterJobs < 0) throw new Error("--stop-after-jobs must be a non-negative integer");
   if (!Number.isSafeInteger(checkpointEveryJobs) || checkpointEveryJobs <= 0) throw new Error("--checkpoint-every-jobs must be a positive integer");
-  const provisional = lookaheadRunConfig({ seed, solverSteps, runId: arg("run-id", null) });
+  const provisional = lookaheadRunConfig({ seed, solverSteps, runId: arg("run-id", null), contractDigest });
   const runDir = new URL(`../asset-src/learning/research/${provisional.runId}/`, import.meta.url);
   const runPath = fileURLToPath(runDir); await mkdir(runPath, { recursive: true });
   const statePath = arg("state", fileURLToPath(new URL("state.json", runDir)));
@@ -664,8 +672,8 @@ export async function runLookaheadCli() {
       throw new Error("lookahead resume refused: plateau contract changed");
     }
     return new Uint8Array(Buffer.from(value.resume, "base64")); };
+  await refuseFinalizedResume(runPath, "lookahead", Boolean(resumeFrom));
   let resumeBytes = resumeFrom ? decodeCliState(new Uint8Array(await readFile(resolve(resumeFrom)))) : null;
-  const contractDigest = digestContract(RESEARCH_ARTIFACT_CONTRACT);
   let ledgerRows = await readLedger(resolve(runPath, "ledger.jsonl"));
   if (!resumeBytes && ledgerRows.length) throw new Error(`lookahead run "${provisional.runId}" already has a ledger; use --resume or a new --run-id`);
   if (resumeBytes) {
@@ -680,9 +688,8 @@ export async function runLookaheadCli() {
     resumedState.pendingCheckpoint = null; resumeBytes = encodeLookaheadResume(provisional, resumedState);
   }
   const existingStop = ledgerStopDecision(ledgerRows);
-  if (resumeBytes && existingStop && await runIsFinalized(runPath)) throw new Error(`lookahead resume refused: ${existingStop}`);
   const baseWallSeconds = ledgerRows.at(-1)?.wallSeconds ?? 0; const started = performance.now();
-  const output = await trainLookahead({ seed, solverSteps, runId: provisional.runId, resumeBytes,
+  const output = await trainLookahead({ seed, solverSteps, runId: provisional.runId, resumeBytes, contractDigest,
     stopAfterJobs, checkpointEveryJobs, plateauEpsilon, plateauRows,
     onCheckpoint: async (bytes, progress) => {
       await writeAtomic(statePath, encodeCliState(bytes));

@@ -23,6 +23,15 @@ const OBJECTIVE_CONTRACT = Object.freeze({
   ppo: ["validationMacroReward", "higher"], lookahead: ["calibrationSeverity", "lower"],
 });
 export const RESEARCH_SAFETY_NAMES = Object.freeze(["finiteAnatomical", "capabilities", "postVerdict", "stuckActions", "lifecycle"]);
+export const LEDGER_CONTRACT = Object.freeze({
+  schema: LEDGER_SCHEMA,
+  fields: Object.freeze(["schema", "direction", "row", "jobIndex", "stepsConsumed", "wallSeconds",
+    "stepsPerSecond", "configDigest", "contractDigest", "validation", "objective", "gates", "gateScope",
+    "safety", "directionData", "champion", "improvedSinceRow", "summary", "stopping"]),
+  objectives: OBJECTIVE_CONTRACT,
+  safetyNames: RESEARCH_SAFETY_NAMES,
+  gateNames: RESEARCH_GATE_NAMES,
+});
 
 const finite = (value, label) => {
   if (!Number.isFinite(value)) throw new Error(`${label} must be finite`);
@@ -283,6 +292,13 @@ export async function runIsFinalized(runDir) {
     throw new Error("research final outputs do not match their finalization marker");
   }
   return true;
+}
+
+/** A finalization marker is terminal even when its ledger is absent or truncated. */
+export async function refuseFinalizedResume(runDir, direction, resumeRequested) {
+  if (resumeRequested && await runIsFinalized(runDir)) {
+    throw new Error(`${direction} resume refused: run is finalized`);
+  }
 }
 
 export async function checkpointRun({ runDir, row, championBytes }) {

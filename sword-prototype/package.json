@@ -16,6 +16,8 @@
     "measure:engagement": "node scripts/measure-engagement.mjs",
     "ai:evaluate": "node scripts/evaluate-ai.mjs",
     "ai:research": "node scripts/research-runner.mjs",
+    "ai:preflight": "node scripts/research-preflight.mjs",
+    "ai:measure-ppo-workers": "node scripts/measure-ppo-workers.mjs",
     "ai:watch": "node scripts/watch-research.mjs",
     "asset:build": "node scripts/run-blender.mjs",
     "asset:verify": "node scripts/run-blender.mjs --verify",

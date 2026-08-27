@@ -254,11 +254,13 @@ export function tacticalStateFromView(view: FighterView, contactProbability = 0)
  */
 export function lookaheadMind(model: TacticalModel, bodyLoadout: string, limits: CalibrationLimits,
   depth = LOOKAHEAD_DEPTH, width = LOOKAHEAD_WIDTH,
-  onDecision?: (view: FighterView, features: readonly number[], label: DaggerLabel) => void): Mind & { readonly persistenceOptions: number } {
+  onDecision?: (view: FighterView, features: readonly number[], label: DaggerLabel) => void): Mind & {
+    readonly persistenceOptions: number; readonly stanceOptions: number;
+  } {
   let movement: MovementName = "hold"; let action: HandActionName = "recover";
   let planned: PlannedTactic | null = null; let option: CombatOption | null = null;
   let capability = "";
-  return { name: `lookahead-${bodyLoadout}`, persistenceOptions: 1, decide(view: FighterView, dt: number): Intent {
+  return { name: `lookahead-${bodyLoadout}`, persistenceOptions: 1, stanceOptions: 1, decide(view: FighterView, dt: number): Intent {
     // A body with no attached hand and no jaws can perform nothing, which is a
     // fact about the body rather than about the model, so it is inert and not a
     // refusal -- the same answer `researchLabelMind` gives on the same empty

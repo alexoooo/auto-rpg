@@ -1,21 +1,18 @@
 # Session 21 -- the ladder: one seed per direction, then advance or kill
 
-> **Corrections, 2026-08-26.** Measured against the tree at `86b74c8`.
+> **Current prerequisites, 2026-08-26.** Session 19 closed most execution gaps this draft found.
 >
-> - **The four commands in this file cannot run as written.** `--rung` exists nowhere.
->   `--run-id` exists in `train-neat-qd.mjs` and `collect-dagger.mjs` and **not** in
->   `train-ppo.mjs` or `train-lookahead.mjs`, which would silently ignore it. `ai:research`
->   reads only `--idea` and delegates the rest of argv.
-> - **"Resume an interrupted rung with `--resume`" is wrong for PPO**, where `--resume` is
->   the *output* path and `--resume-from` takes the input. Passing `--resume` to resume
->   writes a file and resumes nothing. Session 19 records this inversion; this file repeats
->   the error it corrects.
-> - **A look-ahead rung as written produces no files.** `train-lookahead.mjs` writes an
->   artifact or report only when `--artifact` / `--report` are given; with only `--run-id`
->   it prints to stdout and exits.
-> - **"Every rung produced a ledger with at least twenty-four rows" is unreachable for PPO**
->   under any cadence until it grows an outer loop -- it runs four bouts and two updates
->   whatever the budget. See session 19's corrections.
+> - All four runners now honor a run ID, persist indexed resume state and a common ledger, recover
+>   interrupted publication, and finalize into their run directory. Look-ahead no longer needs
+>   manual artifact/report paths.
+> - PPO now repeats collect/update/validation jobs, so its ledger cadence and plateau have a real
+>   outer loop to observe.
+> - `--rung` is still intentionally absent. Session 20 must measure and freeze its schedule before
+>   this session implements a resolver; a flag backed by placeholder numbers would be worse than
+>   no flag.
+> - Resume spelling remains runner-specific at the CLI boundary. Use the exact command printed by
+>   the runner/run directory until a common dispatcher owns that syntax; never assume bare
+>   `--resume` means the same thing for all four.
 
 ## Outcome
 
@@ -59,21 +56,22 @@ direction did not move this gate on this interface in a day.
 ## Run
 
 Take the exact ceilings, cadences, plateau arguments and contract digest from session 20.
-Schedule according to session 20's measured concurrency answer -- in particular whether three
-single-worker PPO runs coexist -- and fall back to sequential, which costs four days, if it
-does not.
+Schedule according to session 20's measured PPO worker/seed topology. Do not carry the old
+single-worker probe forward as a ceiling on a desktop whose parallel efficiency has not yet been
+measured.
 
 ~~~powershell
 npm run ai:preflight
-npm run ai:research -- --idea neat-qd   --seed 310013 --workers 8 --rung 1 --run-id neat-qd-rung1-310013
-npm run ai:research -- --idea dagger    --seed 310013 --workers 8 --rung 1 --run-id dagger-rung1-310013
-npm run ai:research -- --idea lookahead --seed 310013 --rung 1 --run-id lookahead-rung1-310013
-npm run ai:research -- --idea ppo       --seed 310013 --workers 1 --rung 1 --run-id ppo-rung1-310013 --league-artifact <dagger rung-1 champion>
+$contractDigest = '<session-20 frozen contract digest>'
+npm run ai:research -- --idea neat-qd   --contract-digest $contractDigest --seed 310013 --workers 8 --rung 1 --run-id neat-qd-rung1-310013
+npm run ai:research -- --idea dagger    --contract-digest $contractDigest --seed 310013 --workers 8 --rung 1 --run-id dagger-rung1-310013
+npm run ai:research -- --idea lookahead --contract-digest $contractDigest --seed 310013 --rung 1 --run-id lookahead-rung1-310013
+npm run ai:research -- --idea ppo       --contract-digest $contractDigest --seed 310013 --workers <session-20 choice> --rung 1 --run-id ppo-rung1-310013 --league-artifact <dagger rung-1 champion>
 ~~~
 
 `--rung 1` resolves the ceiling, cadence and plateau arguments from the frozen contract rather
 than restating them on the command line, so a rung cannot be run under numbers nobody recorded.
-Resume an interrupted rung with `--resume` and the same run id.
+Resume an interrupted rung with the same run ID and that runner's recorded resume command.
 
 PPO needs a league. In the ladder it gets the single rung-1 DAgger champion if DAgger advanced,
 and the shipped specialists otherwise; a full three-artifact frozen league belongs to session

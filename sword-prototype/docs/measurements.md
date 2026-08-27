@@ -6980,3 +6980,42 @@ tampering, in-progress registration refusal, and the page-loader lifecycle. Deli
 mutations to the outer loop, resume cursor, exact budget, gate sign, plateau direction,
 no-improvement append and registration seams each made a named test red before restoration. This
 session ran no held-out tournament and promoted no policy.
+
+## Informal visible playtest note -- 2026-08-26
+
+Coverage space: one brief, unscheduled page play on a laptop concurrently running several AI
+workloads. It was stopped because the resulting machine load made the game too slow to continue.
+There is no guided report, fixed matchup set, engagement row or performance reading behind this
+note, so it is **qualitative evidence only** and does not satisfy any part of Session 18b's gate
+feasibility sitting.
+
+The player's first reaction was positive: the game felt "not bad", they liked it, and they wanted
+to see where it goes with stronger AI. Preserve that as the answer the brief sitting actually gave.
+Do not turn it into a gate verdict, and do not infer that the slowdown belonged to the game when the
+host was deliberately occupied by unrelated AI work.
+
+## PPO fixed-bundle worker scaling -- 2026-08-26
+
+Harness: the real headless research bench, `trainPpo` using persistent Node worker threads and
+actual Havok rollouts. Seed 310013, 64 solver steps per arm, training semantics 2, eight indexed
+shards in every 32-step train and validation phase. Each reading includes worker startup and was
+run sequentially on this 32-thread desktop; it is a short plumbing check, not Session 20's owed
+steady-state bracket and not a throughput ceiling.
+
+| workers | wall seconds | total solver steps | steps/second | report SHA-256 prefix |
+|---:|---:|---:|---:|---|
+| 1 | 1.641 | 128 | 78.0 | `6bb6b9059ebe` |
+| 2 | 1.214 | 128 | 105.5 | `6bb6b9059ebe` |
+| 4 | 1.171 | 128 | 109.3 | `6bb6b9059ebe` |
+
+Artifact, report and resume SHA-256 digests were identical at all three counts, and the byte-equality
+test compares the bytes themselves rather than these summaries. Two workers reduced this
+startup-inclusive probe by 26%; four by 29%. The
+small workload is already dominated by startup at four, so this establishes real CPU parallelism
+and worker-count independence, not the production worker count.
+
+Reproduce the same short probe without writing a research run:
+
+```powershell
+npm run ai:measure-ppo-workers -- --solver-steps 64
+```

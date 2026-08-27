@@ -134,9 +134,10 @@ export function parseTacticCountKey(key: string): TacticTuple {
 }
 
 /**
- * The one head **of the five** whose free set a behaviour record has to *carry*,
- * being the only one of them the joint map cannot answer for. (The dwell cannot
- * either and is carried beside this: `learning/persistence.ts` owns that record.)
+ * The heads whose free sets a behaviour record has to *carry*, because the
+ * joint map says what was chosen and not what the controller and body could
+ * meaningfully have chosen instead. (The dwell cannot either and is carried
+ * beside this: `learning/persistence.ts` owns that record.)
  *
  * Checked head by head against the executor rather than assumed, because a
  * second would change what a behaviour record has to carry.
@@ -144,18 +145,18 @@ export function parseTacticCountKey(key: string): TacticTuple {
  * - `movement`: `movementIntent`'s only gate is `knownMovement`, a name test,
  *   and `deployableTactics` does not enumerate movement at all. All five are
  *   legal on every body that can decide anything.
- * - `stance`: `handActionOption`'s only gate is `knownStance`, and
- *   `applyTacticStance` is total over the six names on every body -- `extended`
- *   falls back to body-relative +1 when no hand is acting, which is the branch a
- *   `bite` and an armless `recover` take.
+ * - `stance`: legality alone says all six names, but capability and controller
+ *   architecture say less. Look-ahead has no stance head and always writes
+ *   `UNLEARNED_STANCE`; a centipede consumes no posture and turns all six names
+ *   into the same command. Neither fact can be recovered from a tuple key, so
+ *   the producer records this marginal beside the effector's.
  * - `target`: `unsupportedTactic` reads `AIMED_TARGETS[action]`, which takes no
  *   view. Pure lookup on the action, so how many targets were legal is
  *   recoverable from the recorded action and needs no separate map. (`bite` is
  *   the only action with a single row, so it is the only one with no choice.)
  * - `action`: **free on every recorded decision -- see the theorem below.**
- * - `effector`: body-dependent, through `tacticEffectors(view, action)`, and the
- *   only head of the five a joint map cannot answer for. `cut` reaches one hand
- *   on a `sword+shield` body and two on nothing at all; the key names the hand
+ * - `effector`: body-dependent, through `tacticEffectors(view, action)`. `cut`
+ *   reaches one hand on a `sword+shield` body and two on `sword+axe`; the key names the hand
  *   that was used and no key says how many were offered.
  *
  * **How much that last one is worth is smaller than it sounds**, and the measured
@@ -221,10 +222,10 @@ export function parseTacticCountKey(key: string): TacticTuple {
  * this map has to come back** -- and the larger bug to fix first is that a body
  * would then be able to decide without being able to perform its own attack.
  */
-export const FREE_CHOICE_HEADS = Object.freeze(["effector"] as const);
+export const FREE_CHOICE_HEADS = Object.freeze(["effector", "stance"] as const);
 export type FreeChoiceHead = (typeof FREE_CHOICE_HEADS)[number];
 export const FREE_CHOICE_TABLES: Readonly<Record<FreeChoiceHead, readonly string[]>> =
-  Object.freeze({ effector: EFFECTOR_NAMES });
+  Object.freeze({ effector: EFFECTOR_NAMES, stance: STANCE_NAMES });
 
 /**
  * Where an aimed skill points: a named body region, or the line the scripted

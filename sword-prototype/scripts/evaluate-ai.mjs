@@ -112,15 +112,13 @@ const boutSeconds = measured.reduce((sum, row) => sum + row.seconds, 0);
 // with the candidate. `rawRows` keeps `job` beside the counts, so the grouping
 // is available here and nowhere else.
 //
-// **`algorithm` on every row, because one of the four cannot vary the `stance`
-// head at all and the printed row is identical either way.** `lookaheadMind`
-// (`learning/lookahead.ts`) has no stance head: it writes the constant
-// `UNLEARNED_STANCE` at its own call site, so a lookahead candidate prints
-// `stance: {chosen: 1, modal: "action-default", modalShare: 1, freeModalShare: 1}`
-// -- byte for byte what a learned stance head collapsed onto one option prints.
-// A reader holding the algorithm name can tell "never varied" from "cannot
-// vary". Without it there is no way to, and the mistake runs in the direction
-// that matters: it reads as a defect in a candidate that has none.
+// **`algorithm` remains provenance, but stance no longer needs it to explain a
+// missing head.** `lookaheadMind` declares one stance option; learned controllers
+// declare their head width; and the executor records a free stance only when
+// both that declaration and the body make it meaningful. Thus look-ahead and a
+// centipede report `freeChoiceDecisions: 0`, while a learned humanoid head that
+// collapsed reports a non-zero free denominator beside the same one-option
+// marginal.
 //
 // **The `persistence` row does not need the algorithm name, and that is the
 // difference worth reading.** It was the same trap twice over: PPO wrote the

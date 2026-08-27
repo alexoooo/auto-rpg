@@ -158,6 +158,9 @@ export function generalizedAdvantages(steps: readonly AdvantageStep[], gamma: nu
  */
 export const PPO_GAMMA_PER_SECOND = 0.99 ** (1 / UNLEARNED_PERSISTENCE);
 export const PPO_TRACE_LAMBDA = 0.95;
+/** Worker count schedules this graph but is not part of it. */
+export const PPO_TRAINING_SEMANTICS_VERSION = 2;
+export const PPO_ROLLOUT_BUNDLE_SIZE = 8;
 
 export function clippedPolicyTerm(oldProbability: number, newProbability: number, advantage: number, epsilon: number): number {
   if (!(oldProbability > 0) || !Number.isFinite(newProbability) || !Number.isFinite(advantage) || epsilon < 0) {
@@ -339,6 +342,8 @@ export interface PpoTrainableNetwork extends PpoTrainableHeads {
  * the contract.
  */
 export interface PpoPolicyBoundary {
+  /** True only for the first boundary after a recurrent-policy reset. */
+  readonly episodeStart?: boolean;
   readonly input?: readonly number[]; readonly previousHidden?: readonly number[];
   readonly hidden: readonly number[];
   readonly movement: number; readonly action: number; readonly effector: number;
@@ -477,6 +482,11 @@ export function ppoHeadUpdate(heads: PpoTrainableNetwork, rows: readonly PpoPoli
         nextHiddenGradient = previous.map((_, unit) => dh[unit]! * (1 - (update[unit] as number)) +
           (candidateInputGradient[input.length + unit] as number) * (reset[unit] as number) +
           (joinedGradient[input.length + unit] as number));
+        // A rollout bundle is a fixed ordered concatenation of independent
+        // bouts. The hidden state resets between them, so its adjoint must too:
+        // carrying this vector into the prior row trains a transition that was
+        // never executed and makes shard packing part of PPO semantics.
+        if (row.episodeStart) nextHiddenGradient.fill(0);
       }
     }
   }

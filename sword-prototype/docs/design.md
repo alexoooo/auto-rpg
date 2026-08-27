@@ -306,6 +306,18 @@ trajectories 2.6 % apart, because a boundary requested at 0.4 s lasts 0.31 s. It
 progress term, which is clipped per boundary, does not telescope, and is worth about three times as
 much a bout in the other direction -- an independent bias, registered with its coverage space.
 
+**PPO worker count schedules a frozen rollout graph; it does not define one.** Training semantics
+version 2 divides every train or validation phase of at least 32 solver steps into eight indexed
+shards. One, two, four or eight persistent worker threads may finish those shards in any order,
+but gradients, engagement totals and opponent records are concatenated in shard order before the
+single update. Each shard's first row remains an episode start in that concatenation, and truncated
+BPTT zeros the recurrent adjoint there just as collection reset the recurrent state. The next
+validation bundle still waits for that update, and the next arm still waits
+for the current indexed row, so checkpoint and resume prefixes have one meaning. Smaller tails are
+one shard because they cannot give eight jobs the four-step solver quantum. `workers` is absent from
+the config digest; the semantics version and bundle size are in the config digest, artifact
+provenance, report and preflight contract.
+
 **The quality-diversity descriptor deliberately did not follow the widening.** Three outcome
 measures at five bins is 125 cells; adding the chosen tuple would make it 9,000-10,500 against
 10,240 genome evaluations at full budget, which is fewer than one elite per cell and stops it
@@ -342,6 +354,16 @@ failed that rule: the validation-selected network disengaged for 88% of decision
 of its 120 held-out bouts. Consequently `POLICIES` has no `learned-v1` entry and no candidate
 is bundled. This is the important direction of the boundary: evidence authorizes a picker
 entry; the existence of bytes does not.
+
+Those safety flags are observations, not executor defaults. `tournamentSafetyObserver` reads every
+candidate command and chosen legal tuple, preserves the original five-second/95% stuck-option
+thresholds, and translates the legacy controller's one `OptionName` into the factorized controller's
+movement and action heads: either head can now fail the gate. It watches the verdict through a live
+three-frame tail and finalizes lifecycle evidence only after the headless bout has returned from its
+teardown path. That boundary proves complete,
+monotonic execution and a successful teardown return; it does not inspect a resource census.
+The integration lifecycle audit owns the separate no-leak proof. A row missing any measured
+boolean is refused before it can enter the tournament aggregate.
 
 **Transition diversity was in that list and is not a gate.** `MIN_STRONGER_MOTIFS` -- "fewer
 than two transition motifs are more common than scripted baseline" -- lived in `promotion.ts`,

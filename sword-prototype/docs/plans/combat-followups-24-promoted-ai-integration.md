@@ -5,9 +5,10 @@
 > - **`npm run ai:evaluate -- --verify-promoted` does not exist.** `evaluate-ai.mjs` throws on
 >   a missing `--manifest` before reading any other flag. No session owns building this; it
 >   belongs to 23 or here.
-> - **Step 3 silently depends on session 19 having built a page-side deployment path**, which
->   does not exist today -- `src/main.ts` has zero `artifact` references and all nine
->   `deployment.ts` importers are Node-side. Say so.
+> - **The page-side deployment path landed in session 19.** A champion-so-far can be loaded for
+>   a live debug fight while registration still refuses its in-progress provenance. Promotion
+>   reuses that decoder/mind boundary with the terminal artifact; it does not invent a second
+>   loader.
 
 ## Entry gate
 
