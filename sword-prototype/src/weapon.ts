@@ -1,12 +1,14 @@
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
-import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
+import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
+import { VertexBuffer } from "@babylonjs/core/Buffers/buffer.js";
 import { Vector3, Quaternion, Matrix } from "@babylonjs/core/Maths/math.vector.js";
 import { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
 import {
   PhysicsShape,
   PhysicsShapeBox,
   PhysicsShapeContainer,
+  PhysicsShapeConvexHull,
   PhysicsShapeCylinder,
 } from "@babylonjs/core/Physics/v2/physicsShape.js";
 import { PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
@@ -110,6 +112,203 @@ interface Built {
 const unbuildable = (kind: never): never => {
   throw new Error(`no builder for weapon kind ${String(kind)}`);
 };
+
+function rotateByQuaternionToRef(vector: Vector3, q: Quaternion, ref: Vector3): Vector3 {
+  const ix = q.w * vector.x + q.y * vector.z - q.z * vector.y;
+  const iy = q.w * vector.y + q.z * vector.x - q.x * vector.z;
+  const iz = q.w * vector.z + q.x * vector.y - q.y * vector.x;
+  const iw = -q.x * vector.x - q.y * vector.y - q.z * vector.z;
+  return ref.set(
+    ix * q.w + iw * -q.x + iy * -q.z - iz * -q.y,
+    iy * q.w + iw * -q.y + iz * -q.x - ix * -q.z,
+    iz * q.w + iw * -q.z + ix * -q.y - iy * -q.x,
+  );
+}
+
+function principalAxis(covariance: readonly number[], reject?: Vector3): Vector3 {
+  const candidates = [new Vector3(1, 0, 0), new Vector3(0, 1, 0), new Vector3(0, 0, 1)];
+  const project = (vector: Vector3): Vector3 => {
+    if (reject) vector.subtractInPlace(reject.scale(Vector3.Dot(vector, reject)));
+    return vector.lengthSquared() > 1e-20 ? vector.normalize() : vector;
+  };
+  const multiply = (vector: Vector3): Vector3 => new Vector3(
+    covariance[0] * vector.x + covariance[1] * vector.y + covariance[2] * vector.z,
+    covariance[3] * vector.x + covariance[4] * vector.y + covariance[5] * vector.z,
+    covariance[6] * vector.x + covariance[7] * vector.y + covariance[8] * vector.z,
+  );
+  let axis = candidates
+    .map((candidate) => project(candidate))
+    .sort((left, right) => Vector3.Dot(right, multiply(right)) - Vector3.Dot(left, multiply(left)))[0];
+  for (let iteration = 0; iteration < 32; iteration += 1) {
+    const next = project(multiply(axis));
+    if (next.lengthSquared() <= 1e-20) break;
+    axis = next;
+  }
+  return axis;
+}
+
+function creatorConvexComponents(mesh: Mesh, meshToRoot: Matrix): Vector3[][] {
+  const positions = mesh.getVerticesData(VertexBuffer.PositionKind);
+  if (!positions || positions.length < 9 || positions.length % 3 !== 0 ||
+      positions.some((value) => !Number.isFinite(value))) {
+    throw new Error(`creator mesh "${mesh.name}" has invalid positions`);
+  }
+  const keys: string[] = [];
+  const points = new Map<string, Vector3>();
+  const links = new Map<string, Set<string>>();
+  for (let index = 0; index < positions.length; index += 3) {
+    const key = `${positions[index]},${positions[index + 1]},${positions[index + 2]}`;
+    keys.push(key);
+    if (!points.has(key)) {
+      points.set(key, Vector3.TransformCoordinates(
+        new Vector3(positions[index], positions[index + 1], positions[index + 2]),
+        meshToRoot,
+      ));
+      links.set(key, new Set());
+    }
+  }
+  const indices = mesh.getIndices();
+  if (!indices) return [[...points.values()]];
+  if (indices.length < 3 || indices.length % 3 !== 0 ||
+      indices.some((value) => !Number.isInteger(value) || value < 0 || value >= keys.length)) {
+    throw new Error(`creator mesh "${mesh.name}" has invalid triangle indices`);
+  }
+  for (let index = 0; index < indices.length; index += 3) {
+    const triangle = [keys[indices[index]], keys[indices[index + 1]], keys[indices[index + 2]]];
+    for (let corner = 0; corner < 3; corner += 1) {
+      links.get(triangle[corner])?.add(triangle[(corner + 1) % 3]);
+      links.get(triangle[(corner + 1) % 3])?.add(triangle[corner]);
+    }
+  }
+  const result: Vector3[][] = [];
+  const seen = new Set<string>();
+  for (const start of points.keys()) {
+    if (seen.has(start)) continue;
+    const component: Vector3[] = [];
+    const pending = [start];
+    seen.add(start);
+    while (pending.length > 0) {
+      const key = pending.pop() as string;
+      component.push(points.get(key) as Vector3);
+      for (const neighbour of links.get(key) ?? []) {
+        if (seen.has(neighbour)) continue;
+        seen.add(neighbour);
+        pending.push(neighbour);
+      }
+    }
+    if (component.length >= 4) result.push(component);
+  }
+  return result;
+}
+
+function creatorHullHasVolume(points: readonly Vector3[]): boolean {
+  const origin = points[0];
+  const end = points.reduce((best, point) =>
+    Vector3.DistanceSquared(origin, point) > Vector3.DistanceSquared(origin, best) ? point : best,
+  origin);
+  const line = end.subtract(origin);
+  const plane = points.reduce((best, point) =>
+    Vector3.Cross(line, point.subtract(origin)).lengthSquared() >
+      Vector3.Cross(line, best.subtract(origin)).lengthSquared() ? point : best,
+  origin);
+  const normal = Vector3.Cross(line, plane.subtract(origin));
+  const volume = points.reduce((best, point) =>
+    Math.max(best, Math.abs(Vector3.Dot(normal, point.subtract(origin)))), 0);
+  return line.lengthSquared() > 1e-12 && normal.lengthSquared() > 1e-12 && volume > 1e-12;
+}
+
+interface CreatorGeometry {
+  readonly components: readonly Vector3[][];
+  readonly points: readonly Vector3[];
+}
+
+function creatorGeometry(meshes: readonly Mesh[], root: TransformNode): CreatorGeometry {
+  if (meshes.length === 0) throw new Error("creator visual has no meshes");
+  root.computeWorldMatrix(true);
+  const inverseRoot = Matrix.Identity();
+  root.getWorldMatrix().invertToRef(inverseRoot);
+  const components: Vector3[][] = [];
+  for (const mesh of meshes) {
+    const meshToRoot = mesh.computeWorldMatrix(true).multiply(inverseRoot);
+    components.push(...creatorConvexComponents(mesh, meshToRoot));
+  }
+  if (components.length === 0) throw new Error("creator visual has no usable triangle geometry");
+  for (const component of components) {
+    if (!creatorHullHasVolume(component)) {
+      throw new Error("creator visual contains a component with no convex volume");
+    }
+  }
+  return { components, points: components.flat() };
+}
+
+interface CreatorSwordFrame {
+  readonly blade: Vector3;
+  readonly edge: Vector3;
+  readonly flat: Vector3;
+  readonly tip: number;
+}
+
+function creatorSwordFrame(points: readonly Vector3[]): CreatorSwordFrame {
+  if (points.length < 4) throw new Error("creator sword has too few points");
+  const centre = points.reduce((sum, point) => sum.addInPlace(point), Vector3.Zero())
+    .scaleInPlace(1 / points.length);
+  const covariance = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+  for (const point of points) {
+    const x = point.x - centre.x;
+    const y = point.y - centre.y;
+    const z = point.z - centre.z;
+    covariance[0] += x * x; covariance[1] += x * y; covariance[2] += x * z;
+    covariance[3] += y * x; covariance[4] += y * y; covariance[5] += y * z;
+    covariance[6] += z * x; covariance[7] += z * y; covariance[8] += z * z;
+  }
+  const blade = principalAxis(covariance);
+  const edge = principalAxis(covariance, blade);
+  const flat = Vector3.Cross(edge, blade).normalize();
+  Vector3.CrossToRef(blade, flat, edge).normalize();
+  if (blade.lengthSquared() < 0.99 || edge.lengthSquared() < 0.99 || flat.lengthSquared() < 0.99) {
+    throw new Error("creator sword has no stable principal frame");
+  }
+  let low = Infinity;
+  let high = -Infinity;
+  for (const point of points) {
+    const projection = Vector3.Dot(point, blade);
+    low = Math.min(low, projection);
+    high = Math.max(high, projection);
+  }
+  if (!Number.isFinite(low) || !Number.isFinite(high) || high - low <= 1e-6) {
+    throw new Error("creator sword has no measurable blade span");
+  }
+  if (Math.abs(low) > Math.abs(high)) {
+    blade.scaleInPlace(-1);
+    flat.scaleInPlace(-1);
+    [low, high] = [-high, -low];
+  }
+  return { blade, edge, flat, tip: high };
+}
+
+/**
+ * Prove that an imported visual can become authoritative geometry without
+ * creating a Havok object. Preparation uses this before enabling a picker;
+ * construction repeats the same extraction because the instance is the thing
+ * Havok will actually read.
+ */
+export function creatorGeometryQualification(
+  root: TransformNode,
+  meshes: readonly Mesh[],
+  kind: "sword" | "shield",
+  expectedComponents: number,
+): string | null {
+  try {
+    const geometry = creatorGeometry(meshes, root);
+    if (geometry.components.length !== expectedComponents) {
+      return `creator ${kind} has ${geometry.components.length} connected components; expected ${expectedComponents}`;
+    }
+    if (kind === "sword") creatorSwordFrame(geometry.points);
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
 
 /**
  * How a kind sits in the fist: two of the weapon's own axes, written in the
@@ -273,15 +472,21 @@ export class Weapon {
    */
   private readonly parts: PhysicsShape[] = [];
   private readonly partOffsets: Vector3[] = [];
+  private layer: number;
+  private collidesWith: number;
 
   /** Distance from origin to the point of the blade, along local +Y. */
-  readonly tipOffset: number;
+  tipOffset: number;
   /** Where the blade proper begins -- the guard. */
   readonly baseOffset: number;
   /** Where a second hand takes hold along local +Y, or null if none does. */
   readonly secondGrip: number | null;
 
   private discarded = false;
+  private readonly localEdge = new Vector3(1, 0, 0);
+  private readonly localBlade = new Vector3(0, 1, 0);
+  private readonly localFlat = new Vector3(0, 0, 1);
+  private creatorFrame = false;
 
   /**
    * Whether this has stopped being a weapon, which for a `Weapon` means it has
@@ -308,6 +513,57 @@ export class Weapon {
       mesh.isVisible = false;
       mesh.isPickable = false;
     }
+  }
+
+  /**
+   * Replace a primitive proxy with convex hulls made from the exact creator mesh.
+   *
+   * The vertices are not edited, fitted or stretched. Each exact-weld connected
+   * component is copied into a temporary root-local input for Havok, then that
+   * input is discarded after the convex shape exists. For a sword the same
+   * point cloud also supplies its principal blade/edge/flat frame, so collision,
+   * tip and scoring describe the visible object rather than an unrelated
+   * procedural convention.
+   */
+  adoptCreatorGeometry(meshes: readonly Mesh[]): void {
+    const geometry = creatorGeometry(meshes, this.root);
+    const swordFrame = this.kind === "sword" ? creatorSwordFrame(geometry.points) : null;
+    const nextParts: PhysicsShape[] = [];
+    try {
+      for (const component of geometry.components) {
+        const proxy = new Mesh(`${this.root.name}.creator-collider`, this.root.getScene());
+        proxy.setVerticesData(
+          VertexBuffer.PositionKind,
+          component.flatMap((point) => [point.x, point.y, point.z]),
+        );
+        try {
+          nextParts.push(new PhysicsShapeConvexHull(proxy, this.root.getScene()));
+        } finally {
+          proxy.dispose(false, false);
+        }
+      }
+    } catch (error) {
+      for (const shape of nextParts) shape.dispose();
+      throw error;
+    }
+
+    this.body.shape = null;
+    for (let index = this.shape.getNumChildren() - 1; index >= 0; index -= 1) {
+      this.shape.removeChild(index);
+    }
+    for (const part of this.parts) part.dispose();
+    this.parts.length = 0;
+    this.partOffsets.length = 0;
+    for (let index = 0; index < nextParts.length; index += 1) {
+      const shape = nextParts[index];
+      this.shape.addChild(shape);
+      this.parts.push(shape);
+      this.partOffsets.push(Vector3.Zero());
+    }
+    this.relayer(this.layer, this.collidesWith);
+    this.body.shape = this.shape;
+
+    if (swordFrame) this.adoptCreatorSwordFrame(swordFrame);
   }
 
   /**
@@ -346,6 +602,8 @@ export class Weapon {
   ) {
     this.kind = opts.kind;
     this.hand = opts.hand;
+    this.layer = opts.layer;
+    this.collidesWith = opts.collidesWith;
 
     this.root = new TransformNode(opts.name, scene);
     this.root.position.copyFrom(opts.position);
@@ -1130,6 +1388,8 @@ export class Weapon {
   }
 
   relayer(layer: number, collidesWith: number): void {
+    this.layer = layer;
+    this.collidesWith = collidesWith;
     for (const part of this.parts) {
       part.filterMembershipMask = layer;
       part.filterCollideMask = collidesWith;
@@ -1150,22 +1410,25 @@ export class Weapon {
     this.discarded = true;
   }
 
-  /** World-space direction of the cutting edge (local +X). */
+  /** World-space cutting edge: procedural +X or the imported sword's PCA edge. */
   edgeDirection(): Vector3 {
     const m = this.root.getWorldMatrix();
-    return this.scratch.edge.set(m.m[0], m.m[1], m.m[2]).normalize();
+    if (!this.creatorFrame) return this.scratch.edge.set(m.m[0], m.m[1], m.m[2]).normalize();
+    return Vector3.TransformNormalToRef(this.localEdge, m, this.scratch.edge).normalize();
   }
 
-  /** World-space direction along the blade toward the tip (local +Y). */
+  /** World-space blade direction: procedural +Y or the imported sword's long axis. */
   bladeDirection(): Vector3 {
     const m = this.root.getWorldMatrix();
-    return this.scratch.blade.set(m.m[4], m.m[5], m.m[6]).normalize();
+    if (!this.creatorFrame) return this.scratch.blade.set(m.m[4], m.m[5], m.m[6]).normalize();
+    return Vector3.TransformNormalToRef(this.localBlade, m, this.scratch.blade).normalize();
   }
 
-  /** World-space normal of the flat of the blade (local +Z). */
+  /** World-space blade flat: procedural +Z or the imported sword's PCA normal. */
   flatDirection(): Vector3 {
     const m = this.root.getWorldMatrix();
-    return this.scratch.flat.set(m.m[8], m.m[9], m.m[10]).normalize();
+    if (!this.creatorFrame) return this.scratch.flat.set(m.m[8], m.m[9], m.m[10]).normalize();
+    return Vector3.TransformNormalToRef(this.localFlat, m, this.scratch.flat).normalize();
   }
 
   tipPosition(): Vector3 {
@@ -1236,12 +1499,24 @@ export class Weapon {
    */
   bladeDirectionToRef(ref: Vector3): Vector3 {
     const q = this.root.rotationQuaternion;
-    if (!q) return ref.set(0, 1, 0);
-    return ref.set(
-      2 * (q.x * q.y - q.w * q.z),
-      1 - 2 * (q.x * q.x + q.z * q.z),
-      2 * (q.y * q.z + q.w * q.x),
-    );
+    if (!this.creatorFrame) {
+      if (!q) return ref.set(0, 1, 0);
+      return ref.set(
+        2 * (q.x * q.y - q.w * q.z),
+        1 - 2 * (q.x * q.x + q.z * q.z),
+        2 * (q.y * q.z + q.w * q.x),
+      );
+    }
+    if (!q) return ref.copyFrom(this.localBlade);
+    return rotateByQuaternionToRef(this.localBlade, q, ref).normalize();
+  }
+
+  private adoptCreatorSwordFrame(frame: CreatorSwordFrame): void {
+    this.localBlade.copyFrom(frame.blade);
+    this.localEdge.copyFrom(frame.edge);
+    this.localFlat.copyFrom(frame.flat);
+    this.tipOffset = frame.tip;
+    this.creatorFrame = true;
   }
 
   /**

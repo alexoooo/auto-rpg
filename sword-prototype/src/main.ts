@@ -7,6 +7,7 @@ import { buildArena } from "./arena";
 import { refreshShadowCasters, type RoomOcclusionTarget } from "./arena-room";
 import { Fighter, stepPair } from "./fighter";
 import { prepareWarriorFigure } from "./figure";
+import { kayKitUnavailableUnits, prepareKayKitFigure } from "./kaykit-figure";
 import { Arrow } from "./arrow";
 import { Combat } from "./combat";
 import { Hud } from "./hud";
@@ -176,6 +177,7 @@ async function boot(): Promise<void> {
   // shared source while the arena is already waiting on startup work, then both
   // fighters and every rebuild instantiate it synchronously.
   await prepareWarriorFigure(arena.scene);
+  const kayKit = await prepareKayKitFigure(arena.scene);
 
   // Babylon's own input manager cancels `pointerdown`, and cancelling that
   // suppresses every compatibility mouse event for the rest of the gesture. It
@@ -197,7 +199,11 @@ async function boot(): Promise<void> {
    * checks.
    */
   let state = selectScreen(defaultMatchup());
-  const setup = new SetupScreen(need("matchup"), state.matchup);
+  const setup = new SetupScreen(
+    need("matchup"),
+    state.matchup,
+    kayKitUnavailableUnits(kayKit),
+  );
   let guidedPolicySeeds: Readonly<Record<Side, number>> | null = null;
   let guidedOriginalMatchup: Matchup | null = null;
 

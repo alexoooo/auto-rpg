@@ -396,9 +396,22 @@ form.
 The rounded/blockout meshes in `figure.ts` are retained only as a load-failure diagnostic;
 the committed healthy-load asset contains none of their triangles.
 
+`KayKit Knight (Experimental)` is a fourth, separate unit rather than a costume or replacement
+for Warrior. Its committed CC0 KayKit Adventurers 1.0 derivative keeps the creator's continuous
+skin, armour, helmet, cape, one-handed sword and round shield. The body uses native joint and
+region measurements for its real colliders, while the source animation clips are stopped and the
+same solver controller drives the skin. Its sword and shield collision hulls and the sword's
+scoring frame are derived mechanically from the selected creator geometry, so hits occur on the
+objects shown. Its only admitted loadout is sword plus buckler and its
+only admitted policies are idle, swinger and duelist. `npm run kaykit:verify` reproduces and
+checks the derivative without Blender or mesh editing. If that exact asset cannot be fetched,
+parsed or qualified, the setup option is disabled with the reason; no primitive substitute is
+shown as if it were the Knight.
+
 ## Status
 
-Working: Warrior, Broot and Centipede combatants; articulated arms, anatomically bounded
+Working: Warrior, Broot and Centipede combatants, plus the separate experimental KayKit Knight;
+articulated arms, anatomically bounded
 wrists, moving trunks and crouch; blades,
 shields, bows and bare hands, contact scoring, dismemberment, one derived vitality state,
 clean verdict shutdown, blood, policies that fight with the controller you use, live

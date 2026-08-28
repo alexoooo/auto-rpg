@@ -1300,6 +1300,72 @@ maximum error and lower RMS error, while retaining weapon-arm reach and grip sup
 combat reach to match an art asset remains a gameplay decision, not an asset-pipeline
 convenience.
 
+### The asset-native Knight is a separate body, not a Warrior costume
+
+The KayKit Adventurers 1.0 Knight now enters through a fourth, explicitly experimental unit
+kind. It does not replace Warrior or Broot, does not change either one's proportions, and is not
+in the guided human protocol or any learned-policy claim. Its one admitted loadout is the
+creator's one-handed sword in the right slot and round shield in the left; `idle`, `swinger` and
+`duelist` are the only policies whose existing hand-intent surface is claimed compatible.
+
+`asset-src/armour/kaykit-adventurers-1.0/manifest.json` pins the CC0 source at commit
+`672074b73ba276876a19e8816ecdc5241817ab47`, source SHA-256
+`60428e3abc09ba83e595d256e3af8c5c976b46cdae599f0802fc82b4a3445168` and the exact bundled
+license. `npm run kaykit:derive` is a mechanical GLB rewrite, not a modelling pass: it retains
+the helmet, cape, `1H_Sword`, `Round_Shield`, one material/texture and a reference subset of the
+creator actions. It partitions all 4 148 source body triangles exactly once by summed collapsed
+skin influence into the thirteen severable physics regions. The runtime GLB is
+`82b436e2c12d9ce185eaceb5953b9f213ab655cc846cfe6f9b6f0f87950d4476`; `npm run
+kaykit:verify` reproduces it and its profile
+`c90710860964a34baee9b3c7c3c7064bfcbc387574c0a19fda6c5625fc2adae5`, and refuses a moved
+source, rule, triangle, weapon component, profile, license or output.
+
+The generated profile is also the body's dimension authority. Bind-pose region AABBs set capsule
+centres and radii, creator joints set shoulder/hip/knee/neck pivots, and creator joint/slot
+distances set the three-link arms and their normalized reach envelope. Signed X is preserved:
+the creator's anatomical right/sword arm is negative X, rather than being mirrored to keep the
+Warrior convention. The arm therefore begins in the creator's outstretched bind pose before the
+same solver controller brings it to guard. That construction keeps the source body and the real
+colliders together without stretching or hand-authored offsets.
+
+The 41-bone skin is presentation only and every retained native action is stopped before either
+the parsed container or an instance is published. This is an observed requirement, not defensive
+boilerplate: Babylon 9.18.1 automatically starts `1H_Melee_Attack_Chop` and creates 123 scene
+animatables when it parses this exact GLB. The test watches `stop()` return that count to zero.
+The solver then drives every positively weighted creator joint through the explicit 41-to-13 map;
+unweighted IK/control joints retain their creator-local bind transforms. Severance redirects any
+weight crossing a removed authoritative joint and never changes hit geometry.
+
+Creator weapon nodes are reparented, with their world transform preserved, under the existing
+authoritative `Weapon.root`. Merely preserving that transform is not alignment evidence: the
+first implementation kept a correctly held 1.775 m creator sword over an unrelated 1.03 m box,
+so visible contact and scoring disagreed while its mount test passed. The derivative now records
+exact slot-frame indexed geometry and exact-weld components. Runtime mechanically repeats that
+topology partition and gives Havok one convex hull per component -- three for the sword, two for
+the round shield -- without changing a render vertex. The sword point, edge and flat come from
+the same source point cloud's ordered principal axes; the farthest long-axis projection is the
+scored tip. Headless acceptance compares both weapon colliders with visible world bounds within
+5 mm, the observed Havok convex-bound tolerance, and checks the point/edge/flat ordering.
+
+The Babylon-built sword and buckler meshes are hidden only after those source-derived shapes and
+frames exist. Weld, mass, scoring and drop state stay on the real `Weapon`; imported weapon meshes
+are deliberately absent from `Fighter.owns`, both carried and dropped, so a click cannot select a
+sword as a body. Runtime publication also refuses a reparent that moves a visual by more than 0.1
+mm or 0.1 degrees. Preparation checks finite indexed topology, exact connected-component counts,
+non-zero convex volume and the sword's principal frame before enabling the option. Construction is
+transactional as a separate defence: if either transfer still throws, the figure releases the
+imported graph and the fighter releases every body and constraint already built. A missing or
+malformed asset therefore disables the Knight picker with the exact reason, never substitutes
+primitives and cannot leave an unowned partial fighter in the scene.
+
+The 2026-08-28 shipping-arena inspection used two policy-controlled Knights at fixed bearings
+225, 315 and 0 degrees. It showed one continuous chibi body per fighter, attached helmet/cape,
+grounded feet, and the creator sword and round shield seated at the hands after the solver had
+left the T-pose. It did not reproduce the former floating-face, detached-arm or dangling-weapon
+failure. This is an experimental-art verdict, not a final-game verdict: the very large helmet/head,
+short limbs and overhead camera occupancy are intrinsic to this 1.0 art direction, and KayKit 2.0
+remains the next comparison before promotion.
+
 The qualifier executes rather than merely labels the coordinate contract. Creator glTF profiles
 are identity-axis only because their root already carries the format conversion; the Knight's
 non-identity mapping is applied while reading its authoritative blend metadata. Shoulder and limb,

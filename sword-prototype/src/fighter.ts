@@ -24,6 +24,7 @@ import { CONFIG } from "./config.ts";
 import { COLLIDES, LAYER, layersFor, type Side } from "./physics.ts";
 import { capsulePart, joint, type Part } from "./rig.ts";
 import { Figure, type FigureController, type FigureMaterials } from "./figure.ts";
+import { KayKitFigure } from "./kaykit-figure.ts";
 import { Arm } from "./arm.ts";
 import { handsFor, isShield, type Weapon, type WeaponKind } from "./weapon.ts";
 import type { Striking } from "./combat.ts";
@@ -829,6 +830,7 @@ export class Fighter {
           arrowLayer: layers.arrow,
           arrowCollidesWith: layers.arrowCollides,
           weapon: wanted[hand],
+          bindPose: this.profile.appearance === "kaykit-knight" ? "outstretched" : "hanging",
           visible,
           config: this.armConfig,
         },
@@ -1105,7 +1107,7 @@ export class Fighter {
     // The costume goes on last, because every piece of it hangs off a body that
     // has to exist first. It carries no authority of any kind: it is what the
     // eye and `scene.pick` see, and what the rig overlay takes off.
-    this.figure = new Figure(scene, {
+    const figureRig = {
       prefix: opts.side,
       torso: this.torso,
       head: this.head,
@@ -1120,11 +1122,26 @@ export class Fighter {
       shinLeft: legs[0].shin,
       thighRight: legs[1].thigh,
       shinRight: legs[1].shin,
-    }, materials.figure ?? materials, {
-      scale: this.profile.scale,
-      authored: this.profile.appearance === "warrior",
-      loadout: this.loadout,
-    });
+    };
+    try {
+      this.figure = this.profile.appearance === "kaykit-knight"
+        ? new KayKitFigure(scene, figureRig, {
+            primary: this.arms.primary.weapon,
+            secondary: this.arms.secondary.weapon,
+          }, { origin: opts.origin, facing: opts.facing })
+        : new Figure(scene, figureRig, materials.figure ?? materials, {
+            scale: this.profile.scale,
+            authored: this.profile.appearance === "warrior",
+            loadout: this.loadout,
+          });
+    } catch (error) {
+      // A constructor that throws has no object its caller can dispose. The
+      // asset gate rejects known malformed geometry before the picker enables,
+      // but this is the last boundary against an unexpected loader/Havok
+      // failure after the ordinary body graph already exists.
+      this.disposeBodyGraph();
+      throw error;
+    }
     this.costume = this.figure.pieces;
     for (const mesh of this.costume) this.owned.add(mesh);
 
@@ -1585,6 +1602,10 @@ export class Fighter {
    */
   dispose(): void {
     this.figure.dispose();
+    this.disposeBodyGraph();
+  }
+
+  private disposeBodyGraph(): void {
     for (const limb of this.limbs) {
       if (!limb.severed) limb.attachment?.dispose();
     }

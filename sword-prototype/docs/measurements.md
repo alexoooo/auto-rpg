@@ -367,6 +367,46 @@ direction is acceptable, 1.0 is mechanically qualified for an asset-native integ
 2.0 is the next source to compare before choosing which version ships. If that direction is not
 acceptable, the search remains open; no equally complete realistic free candidate was found.
 
+That 1.0 spike was implemented on 2026-08-28 as the separate `KayKit Knight (Experimental)`
+unit, without replacing or rescaling Warrior. The deterministic derivative retains 4 148 body
+triangles, partitions every one exactly once into thirteen physics regions and has SHA-256
+`82b436e2c12d9ce185eaceb5953b9f213ab655cc846cfe6f9b6f0f87950d4476`. Its generated native
+profile records a 2.314 534 488 m body-only height, -0.212 007 374 m sword-shoulder X,
+0.241 897 188 m upper arm, 0.333 787 688 m forearm and 0.112 010 158 m hand-to-slot reach.
+Those are creator measurements,
+not fitted Warrior constants. The exact GLB made Babylon 9.18.1 start one source clip and 123
+animatables during parse; stopping every animation group returned the scene to zero before the
+asset or an instance was published. Headless Havok construction then verified all thirteen
+regions, creator sword and round-shield ownership by the real weapon roots, stopped animation,
+and a rebuild/disposal return to the warmed scene census.
+
+Adversarial construction fault injection then forced the second weapon adoption to throw after
+the first had succeeded. Before rollback existed, that path left 44 meshes, 58 transform nodes,
+one skeleton, 22 animation groups and 19 physics bodies in the scene. The accepted boundary first
+preflights topology, component count, convex volume and the sword principal frame, then retains a
+full figure-plus-fighter rollback for unexpected transfer failures. Repeating the same injected
+failure now returns meshes, nodes, skeletons, animation groups, bodies, constraints and active
+before-render observers to the warmed baseline.
+
+The weapon audit corrected the first runtime spike before it landed. Reparenting preserved the
+creator nodes perfectly but proved only that Babylon's `setParent` had not moved them; the old
+colliders still described the procedural weapons. The source sword measures 0.503 444 434 by
+1.775 261 521 by 0.130 633 472 m in its hand-slot frame and separates mechanically into three
+exact-weld components. The round shield measures 0.882 606 864 by 0.882 607 132 by
+0.331 945 562 m and separates into plate and grip components. Runtime convex hulls now come from
+those exact component vertices. In the real Havok build their world AABB extrema remain within
+5 mm of the rendered extrema; the sword's source-derived scored long axis spans 1.775 212 483 m,
+and its farthest projection is the reported tip. This replaces a visual-only grip claim with a
+collision and scoring claim over the same creator geometry.
+
+The visible shipping-arena pass used two policy-driven Knights at fixed bearings 225, 315 and 0
+degrees. It found continuous bodies, grounded feet, attached helmet and cape, and creator weapons
+seated at the hands after the solver left the bind pose. It did not reproduce the detached limbs,
+floating face or dangling off-hand weapon that invalidated the former Warrior presentation. The
+pass is intentionally narrow: this is a coherent polished chibi candidate, not evidence that its
+large helmet/head and short limbs suit the final game's art direction, and not a combat-balance,
+guided-playtest or learned-policy result. KayKit Adventurers 2.0 remains the next asset comparison.
+
 Session 08's static asset/material audit, not a visible-browser GPU capture:
 
 | character-surface build | triangles / fighter | character draw submissions | committed texture JPEGs | estimated RGBA8 mip footprint |

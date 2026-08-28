@@ -6,6 +6,7 @@ import type { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
 import { CONFIG } from "./config.ts";
 import type { UnitSelectionRules } from "./bout.ts";
 import { BROOT_PROFILE, Fighter, type FighterMaterials, type Limb } from "./fighter.ts";
+import { KAYKIT_KNIGHT_METRICS, KAYKIT_KNIGHT_PROFILE } from "./kaykit-profile.ts";
 import type { Striking } from "./combat.ts";
 import { handsFor, isWeaponKind, WEAPON_KINDS, type WeaponKind } from "./hands.ts";
 import type { FighterView, HandName, Intent, Mind } from "./mind.ts";
@@ -225,16 +226,18 @@ const kaykitKnight: UnitDefinition = Object.freeze({
     parts: warriorParts,
     vitalityWeights: CONFIG.body.vitalWeight,
   }),
-  reach: CONFIG.arm.reachNeutral,
-  crownHeight: CONFIG.body.headCentre + CONFIG.body.headRadius,
-  vitalHeight: CONFIG.body.torsoCentre,
-  collisionRadius: CONFIG.body.pelvisRadius,
-  // The asset-runtime session replaces this refusal with the native KayKit
-  // skeleton builder. Keeping a named refusal is safer than silently spawning
-  // the procedural Fighter under a different registry kind.
-  build: () => {
-    throw new Error('unit "kaykit-knight" runtime is not installed');
-  },
+  reach: KAYKIT_KNIGHT_METRICS.reach,
+  crownHeight: KAYKIT_KNIGHT_METRICS.crownHeight,
+  vitalHeight: KAYKIT_KNIGHT_METRICS.vitalHeight,
+  collisionRadius: KAYKIT_KNIGHT_METRICS.collisionRadius,
+  build: (ctx: CombatantBuild) => new Fighter(ctx.scene, {
+    side: ctx.side,
+    origin: ctx.origin,
+    facing: ctx.facing,
+    mind: ctx.mind,
+    loadout: ctx.loadout,
+    profile: KAYKIT_KNIGHT_PROFILE,
+  }, ctx.materials),
 });
 
 export const UNIT_REGISTRY: Readonly<Record<UnitKind, UnitDefinition>> = Object.freeze({

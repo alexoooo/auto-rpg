@@ -43,8 +43,8 @@ test("broot_supports_every_declared_humanoid_loadout_on_both_sides", () => {
 });
 
 test("broot_has_a_distinct_primitive_costume_contract", () => {
-  assert.equal(BROOT_PROFILE.authoredCostume, false);
-  assert.equal(WARRIOR_PROFILE.authoredCostume, true);
+  assert.equal(BROOT_PROFILE.appearance, "primitive");
+  assert.equal(WARRIOR_PROFILE.appearance, "warrior");
   assert.ok(unitDefinition("broot").crownHeight > unitDefinition("warrior").crownHeight);
   assert.ok(unitDefinition("broot").collisionRadius > unitDefinition("warrior").collisionRadius);
 });

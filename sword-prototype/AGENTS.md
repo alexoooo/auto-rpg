@@ -566,6 +566,31 @@ npm run dev             # http://localhost:5180, strictPort
   `tests/integration.test.mjs` learned this while auditing 25 rebuilds; it still catches a
   genuinely live callback because marked observers no longer participate in notification.
 
+- **Babylon starts an animation while parsing the exact KayKit Knight GLB.** With Babylon
+  9.18.1 the retained source actions are not inert reference data by default:
+  `1H_Melee_Attack_Chop` starts and produces 123 scene animatables. The asset-native figure must
+  stop every container group before publication and stop every instantiated group again. Letting
+  the creator clip and the physics solver both drive the skeleton is the visual equivalent of two
+  controllers fighting over one body; `tests/kaykit-knight-asset.test.mjs` and
+  `tests/kaykit-runtime.test.mjs` pin zero animatables at both boundaries.
+
+- **A world-preserving reparent proves no weapon alignment.** The first KayKit spike checked that
+  `setParent()` moved its visual by under 0.1 mm and called the mount good while the 1.775 m creator
+  sword and the 1.03 m procedural collider occupied different volumes. That test only judged the
+  operation it had just performed. Asset-native weapons derive connected components, convex
+  collision hulls, point, edge and flat from the creator point cloud, then compare the live Havok
+  bounds with the rendered bounds. A grip test that never asks hit/scoring geometry is false green.
+
+- **A selectable imported figure needs two failure boundaries.** Name and skeleton qualification
+  alone did not prove that Havok could build the creator weapon geometry; a forced failure during
+  the second KayKit weapon transfer leaked 44 meshes, 58 transform nodes, one skeleton, 22
+  animation groups and 19 physics bodies because a throwing constructor leaves no object for its
+  caller to dispose. Preparation now checks indexed topology, connected-component count, convex
+  volume and the sword PCA frame before enabling the picker. Construction still owns a transaction:
+  `KayKitFigure` releases its imported graph and `Fighter` releases its whole physics graph if an
+  unexpected transfer fails. Keep both; preflight explains expected refusal and rollback contains
+  everything a loader or physics backend can still do unexpectedly.
+
 - **Havok's private constraint-to-body map is a debug history, not a live-resource census.**
   Version 9.18.1 adds entries in `initConstraint` but does not remove them in
   `disposeConstraint`, even though the native constraint is disabled and released there.
