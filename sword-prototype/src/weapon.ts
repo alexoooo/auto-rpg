@@ -297,6 +297,20 @@ export class Weapon {
   }
 
   /**
+   * Let an imported, creator-mounted mesh represent this existing weapon.
+   *
+   * Collision, mass, scoring and the welded root remain exactly where they
+   * were. Only the Babylon-built stand-in is hidden, and callers must attach
+   * their replacement under `root` before returning control to the renderer.
+   */
+  hideBuiltVisual(): void {
+    for (const mesh of this.root.getChildMeshes(false)) {
+      mesh.isVisible = false;
+      mesh.isPickable = false;
+    }
+  }
+
+  /**
    * The three pieces a bow's draw moves, and null for every other kind.
    *
    * Data rather than a branch: `drawTo` is a no-op for anything that has no

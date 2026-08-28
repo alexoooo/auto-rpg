@@ -8,7 +8,7 @@ import {
   type Control,
   type Matchup,
 } from "./bout";
-import { UNITS, unitDefinition } from "./units";
+import { supportsLoadoutForUnit, UNITS, unitDefinition } from "./units";
 import type { Side } from "./physics";
 
 /**
@@ -35,6 +35,7 @@ import type { Side } from "./physics";
  */
 export class SetupScreen {
   private readonly host: HTMLElement;
+  private readonly unavailableUnits: Readonly<Record<string, string>>;
   private matchup: Matchup;
 
   private readonly units: Record<Side, HTMLSelectElement>;
@@ -42,8 +43,13 @@ export class SetupScreen {
   private readonly hands: Record<"handA" | "handB", Record<Side, HTMLSelectElement>>;
   private readonly controls: Record<Side, HTMLInputElement[]>;
 
-  constructor(host: HTMLElement, matchup: Matchup) {
+  constructor(
+    host: HTMLElement,
+    matchup: Matchup,
+    unavailableUnits: Readonly<Record<string, string>> = Object.freeze({}),
+  ) {
     this.host = host;
+    this.unavailableUnits = unavailableUnits;
     this.matchup = matchup;
 
     host.innerHTML = `${this.corner("left", "Left")}${this.corner("right", "Right")}`;
@@ -148,12 +154,12 @@ export class SetupScreen {
 
     switch (target.dataset.field) {
       case "unit":
-        this.matchup = withUnit(this.matchup, side, target.value);
-        if (unitDefinition(target.value).hands === 0) {
-          this.matchup = withEquipment(this.matchup, side, "handA", "empty");
-          this.matchup = withEquipment(this.matchup, side, "handB", "empty");
-          this.matchup = withPolicy(this.matchup, side, unitDefinition(target.value).compatiblePolicies![0]);
-        }
+        this.matchup = withUnit(
+          this.matchup,
+          side,
+          target.value,
+          unitDefinition(target.value),
+        );
         break;
       case "handA":
       case "handB":
@@ -179,9 +185,25 @@ export class SetupScreen {
     for (const side of ["left", "right"] as const) {
       const setup = this.matchup[side];
       const definition = unitDefinition(setup.unit);
-      const compatible = new Set(definition.equipment);
-      for (const field of [this.hands.handA[side], this.hands.handB[side]]) {
-        for (const option of field.options) option.disabled = !compatible.has(option.value as never);
+      for (const option of this.units[side].options) {
+        const unavailableReason = this.unavailableUnits[option.value];
+        option.disabled = unavailableReason !== undefined;
+        option.title = unavailableReason ?? "";
+      }
+      for (const hand of ["handA", "handB"] as const) {
+        const field = this.hands[hand][side];
+        for (const option of field.options) {
+          // Judge the result of the reducer, rather than this option beside an
+          // unchanged other hand. That distinction keeps the existing route
+          // from bow+bow to sword+empty enabled while a fixed authored pair,
+          // such as the KayKit knight's sword+buckler, stays exact.
+          const candidate = withEquipment(this.matchup, side, hand, option.value)[side];
+          option.disabled = !supportsLoadoutForUnit(
+            setup.unit,
+            candidate.handA,
+            candidate.handB,
+          );
+        }
         field.disabled = definition.hands === 0;
       }
       for (const option of this.policies[side].options) {

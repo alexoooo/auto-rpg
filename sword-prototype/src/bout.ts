@@ -118,6 +118,28 @@ export interface Matchup {
 }
 
 /**
+ * The pure part of a unit definition needed when its picker row is selected.
+ *
+ * `units.ts` also owns meshes and Babylon builders, so this module cannot
+ * import that registry without giving up its DOM-free, engine-free test graph.
+ * The setup screen already has the definition in hand and passes this narrow
+ * structural view across the boundary instead.
+ */
+export interface UnitSelectionRules {
+  readonly loadouts: readonly {
+    readonly primary: string;
+    readonly secondary: string;
+  }[];
+  readonly defaultLoadout: {
+    readonly primary: string;
+    readonly secondary: string;
+  };
+  /** Null means every policy is compatible. */
+  readonly compatiblePolicies: readonly string[] | null;
+  readonly defaultPolicy: string;
+}
+
+/**
  * The units on offer.
  *
  * One of them, and it is still a list feeding a `select` rather than a label,
@@ -159,9 +181,26 @@ const copy = (matchup: Matchup): Matchup => ({
   right: { ...matchup.right },
 });
 
-export function withUnit(matchup: Matchup, side: Side, unit: string): Matchup {
+export function withUnit(
+  matchup: Matchup,
+  side: Side,
+  unit: string,
+  rules?: UnitSelectionRules,
+): Matchup {
   const next = copy(matchup);
   next[side].unit = unit;
+  if (rules !== undefined) {
+    const loadoutIsAllowed = rules.loadouts.some((loadout) =>
+      loadout.primary === next[side].handA && loadout.secondary === next[side].handB
+    );
+    if (!loadoutIsAllowed) {
+      next[side].handA = rules.defaultLoadout.primary;
+      next[side].handB = rules.defaultLoadout.secondary;
+    }
+    if (rules.compatiblePolicies !== null && !rules.compatiblePolicies.includes(next[side].policy)) {
+      next[side].policy = rules.defaultPolicy;
+    }
+  }
   return next;
 }
 

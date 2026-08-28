@@ -4,15 +4,21 @@ import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import type { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
 
 import { CONFIG } from "./config.ts";
+import type { UnitSelectionRules } from "./bout.ts";
 import { BROOT_PROFILE, Fighter, type FighterMaterials, type Limb } from "./fighter.ts";
 import type { Striking } from "./combat.ts";
-import { isWeaponKind, WEAPON_KINDS, type WeaponKind } from "./hands.ts";
+import { handsFor, isWeaponKind, WEAPON_KINDS, type WeaponKind } from "./hands.ts";
 import type { FighterView, HandName, Intent, Mind } from "./mind.ts";
 import type { Side } from "./physics.ts";
 import { Centipede, CENTIPEDE_BITE_REACH, CENTIPEDE_CROWN, CENTIPEDE_RADIUS, CENTIPEDE_SEGMENTS } from "./bodies/centipede.ts";
 
 /** A body kind accepted at the setup boundary. */
-export type UnitKind = "warrior" | "broot" | "centipede";
+export type UnitKind = "warrior" | "broot" | "centipede" | "kaykit-knight";
+
+export interface UnitLoadout {
+  readonly primary: WeaponKind;
+  readonly secondary: WeaponKind;
+}
 
 export interface AnatomyDefinition {
   readonly parts: readonly string[];
@@ -84,13 +90,17 @@ export interface Combatant {
   occlusionPoints(): readonly Vector3[];
 }
 
-export interface UnitDefinition {
+export interface UnitDefinition extends UnitSelectionRules {
   readonly kind: UnitKind;
   readonly label: string;
+  /** The picker-visible union; `loadouts` is the authoritative pair rule. */
   readonly equipment: readonly WeaponKind[];
+  readonly loadouts: readonly UnitLoadout[];
+  readonly defaultLoadout: UnitLoadout;
   readonly hands: 0 | 2;
   /** Null means every policy can drive the body's articulated input surface. */
   readonly compatiblePolicies: readonly string[] | null;
+  readonly defaultPolicy: string;
   readonly anatomy: AnatomyDefinition;
   readonly reach: number;
   readonly crownHeight: number;
@@ -99,14 +109,40 @@ export interface UnitDefinition {
   build(ctx: CombatantBuild): Combatant;
 }
 
+const freezeLoadouts = (loadouts: UnitLoadout[]): readonly UnitLoadout[] =>
+  Object.freeze(loadouts.map((loadout) => Object.freeze(loadout)));
+
+/*
+ * These are exactly the pairs the pre-registry picker could reach. A
+ * two-handed kind fills both hands; every pair of zero/one-handed kinds remains
+ * independent. Writing the rule here makes the old surface explicit without
+ * expanding it when a unit with an authored fixed grip enters the registry.
+ */
+const humanoidLoadouts = freezeLoadouts(WEAPON_KINDS.flatMap((primary) =>
+  WEAPON_KINDS.flatMap((secondary) => {
+    const primaryTakesTwo = handsFor(primary) === 2;
+    const secondaryTakesTwo = handsFor(secondary) === 2;
+    const allowed = primaryTakesTwo || secondaryTakesTwo
+      ? primary === secondary && primaryTakesTwo
+      : true;
+    return allowed ? [{ primary, secondary }] : [];
+  })
+));
+const humanoidDefault = Object.freeze<UnitLoadout>({ primary: "sword", secondary: "empty" });
+const emptyLoadout = Object.freeze<UnitLoadout>({ primary: "empty", secondary: "empty" });
+const kaykitKnightLoadout = Object.freeze<UnitLoadout>({ primary: "sword", secondary: "buckler" });
+
 const warriorParts = Object.freeze(Object.keys(CONFIG.body.vitalWeight));
 
 const warrior: UnitDefinition = Object.freeze({
   kind: "warrior",
   label: "Warrior",
   equipment: WEAPON_KINDS,
+  loadouts: humanoidLoadouts,
+  defaultLoadout: humanoidDefault,
   hands: 2,
   compatiblePolicies: null,
+  defaultPolicy: "idle",
   anatomy: Object.freeze({
     parts: warriorParts,
     vitalityWeights: CONFIG.body.vitalWeight,
@@ -128,8 +164,11 @@ const broot: UnitDefinition = Object.freeze({
   kind: "broot",
   label: "Broot",
   equipment: WEAPON_KINDS,
+  loadouts: humanoidLoadouts,
+  defaultLoadout: humanoidDefault,
   hands: 2,
   compatiblePolicies: null,
+  defaultPolicy: "idle",
   anatomy: Object.freeze({
     parts: warriorParts,
     vitalityWeights: CONFIG.body.vitalWeight,
@@ -160,8 +199,11 @@ const centipede: UnitDefinition = Object.freeze({
   label: "Centipede",
   // `empty` is the setup sentinel, not equipment: both controls are disabled.
   equipment: Object.freeze(["empty"] as WeaponKind[]),
+  loadouts: freezeLoadouts([{ primary: "empty", secondary: "empty" }]),
+  defaultLoadout: emptyLoadout,
   hands: 0,
   compatiblePolicies: Object.freeze(["crawler"]),
+  defaultPolicy: "crawler",
   anatomy: Object.freeze({ parts: centipedeParts, vitalityWeights: centipedeWeights }),
   reach: CENTIPEDE_BITE_REACH,
   crownHeight: CENTIPEDE_CROWN,
@@ -170,7 +212,37 @@ const centipede: UnitDefinition = Object.freeze({
   build: (ctx: CombatantBuild) => new Centipede(ctx),
 });
 
-export const UNIT_REGISTRY: Readonly<Record<UnitKind, UnitDefinition>> = Object.freeze({ warrior, broot, centipede });
+const kaykitKnight: UnitDefinition = Object.freeze({
+  kind: "kaykit-knight",
+  label: "KayKit Knight (Experimental)",
+  equipment: Object.freeze(["sword", "buckler"] as WeaponKind[]),
+  loadouts: freezeLoadouts([{ primary: "sword", secondary: "buckler" }]),
+  defaultLoadout: kaykitKnightLoadout,
+  hands: 2,
+  compatiblePolicies: Object.freeze(["idle", "swinger", "duelist"]),
+  defaultPolicy: "idle",
+  anatomy: Object.freeze({
+    parts: warriorParts,
+    vitalityWeights: CONFIG.body.vitalWeight,
+  }),
+  reach: CONFIG.arm.reachNeutral,
+  crownHeight: CONFIG.body.headCentre + CONFIG.body.headRadius,
+  vitalHeight: CONFIG.body.torsoCentre,
+  collisionRadius: CONFIG.body.pelvisRadius,
+  // The asset-runtime session replaces this refusal with the native KayKit
+  // skeleton builder. Keeping a named refusal is safer than silently spawning
+  // the procedural Fighter under a different registry kind.
+  build: () => {
+    throw new Error('unit "kaykit-knight" runtime is not installed');
+  },
+});
+
+export const UNIT_REGISTRY: Readonly<Record<UnitKind, UnitDefinition>> = Object.freeze({
+  warrior,
+  broot,
+  centipede,
+  "kaykit-knight": kaykitKnight,
+});
 
 /** Picker rows are a projection of bodies that can actually be built. */
 export const UNITS: readonly { name: UnitKind; label: string }[] = Object.freeze(
@@ -197,7 +269,25 @@ export function loadoutForUnit(
     }
     return value;
   };
-  return { primary: read(handA), secondary: read(handB) };
+  const primary = read(handA);
+  const secondary = read(handB);
+  if (!supportsLoadoutForUnit(unitName, primary, secondary)) {
+    throw new Error(`unit "${unit.kind}" does not support loadout "${primary}+${secondary}"`);
+  }
+  return { primary, secondary };
+}
+
+/** Whether both hands together are an authored loadout for this unit. */
+export function supportsLoadoutForUnit(
+  unitName: string,
+  primary: string,
+  secondary: string,
+): boolean {
+  const unit = unitDefinition(unitName);
+  if (!isWeaponKind(primary) || !isWeaponKind(secondary)) return false;
+  return unit.loadouts.some((loadout) =>
+    loadout.primary === primary && loadout.secondary === secondary
+  );
 }
 
 /** Refuse a policy that cannot express the selected body's action surface. */

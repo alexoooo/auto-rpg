@@ -37,6 +37,13 @@ export interface FigureMaterials {
   flesh: Material;
 }
 
+/** The cosmetic half of an articulated fighter, independent of asset family. */
+export interface FigureController {
+  readonly pieces: readonly Mesh[];
+  sever(limbKey: string): void;
+  dispose(): void;
+}
+
 /** The bones a costume hangs on. Every piece is a child of one of these. */
 export interface FigureRig {
   /** Which fighter this is, so two costumes in one scene have distinct names. */
@@ -771,7 +778,7 @@ function selectHandMorphs(mesh: Mesh, loadout: Record<HandName, WeaponKind> | un
  * those. It also gives the fallback for free: a piece the asset does not name
  * simply never gets re-skinned.
  */
-export class Figure {
+export class Figure implements FigureController {
   /** Every mesh built here, for the rig overlay to hide and a pick to find. */
   readonly pieces: Mesh[] = [];
 

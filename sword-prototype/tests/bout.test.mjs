@@ -102,6 +102,51 @@ test("choosing a policy or a unit touches one side only, and does not move the c
   assert.equal(start.right.unit, "warrior", "and the one handed in is untouched");
 });
 
+test("changing_unit_preserves_valid_choices_and_normalizes_only_invalid_ones", () => {
+  const rules = {
+    loadouts: [{ primary: "sword", secondary: "buckler" }],
+    defaultLoadout: { primary: "sword", secondary: "buckler" },
+    compatiblePolicies: ["idle", "swinger", "duelist"],
+    defaultPolicy: "idle",
+  };
+  const valid = {
+    ...defaultMatchup(),
+    right: {
+      ...defaultMatchup().right,
+      policy: "duelist",
+      handA: "sword",
+      handB: "buckler",
+    },
+  };
+  const kept = withUnit(valid, "right", "kaykit-knight", rules);
+  assert.equal(kept.right.policy, "duelist");
+  assert.equal(kept.right.handA, "sword");
+  assert.equal(kept.right.handB, "buckler");
+
+  const wrongPolicy = withUnit({
+    ...valid,
+    right: { ...valid.right, policy: "crawler" },
+  }, "right", "kaykit-knight", rules);
+  assert.equal(wrongPolicy.right.policy, "idle");
+  assert.equal(wrongPolicy.right.handA, "sword", "a valid pair survives a policy correction");
+  assert.equal(wrongPolicy.right.handB, "buckler");
+
+  const wrongLoadout = withUnit({
+    ...valid,
+    right: { ...valid.right, handB: "empty" },
+  }, "right", "kaykit-knight", rules);
+  assert.equal(wrongLoadout.right.policy, "duelist", "a compatible policy survives a loadout correction");
+  assert.equal(wrongLoadout.right.handA, "sword");
+  assert.equal(wrongLoadout.right.handB, "buckler");
+
+  const normalized = withUnit(defaultMatchup(), "right", "kaykit-knight", rules);
+  assert.equal(normalized.right.unit, "kaykit-knight");
+  assert.equal(normalized.right.policy, "idle");
+  assert.equal(normalized.right.handA, "sword");
+  assert.equal(normalized.right.handB, "buckler");
+  assert.deepEqual(normalized.left, defaultMatchup().left);
+});
+
 test("an unknown policy is refused by name rather than quietly becoming idle", () => {
   assert.equal(POLICIES.some((policy) => policy.name === "idle"), true);
   assert.equal(policyMind("idle").name, "idle");

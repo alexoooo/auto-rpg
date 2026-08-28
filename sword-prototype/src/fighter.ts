@@ -23,7 +23,7 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import { CONFIG } from "./config.ts";
 import { COLLIDES, LAYER, layersFor, type Side } from "./physics.ts";
 import { capsulePart, joint, type Part } from "./rig.ts";
-import { Figure, type FigureMaterials } from "./figure.ts";
+import { Figure, type FigureController, type FigureMaterials } from "./figure.ts";
 import { Arm } from "./arm.ts";
 import { handsFor, isShield, type Weapon, type WeaponKind } from "./weapon.ts";
 import type { Striking } from "./combat.ts";
@@ -107,25 +107,35 @@ export interface FighterOptions {
 }
 
 export interface HumanoidProfile {
-  readonly kind: "warrior" | "broot";
+  readonly kind: "warrior" | "broot" | "kaykit-knight";
   readonly scale: number;
   readonly massScale: number;
   readonly healthScale: number;
   readonly forceScale: number;
   readonly mobilityScale: number;
   readonly turnScale: number;
-  /** Authored warrior geometry is never stretched onto a different body. */
-  readonly authoredCostume: boolean;
+  /** Which visual contract dresses this body; it never changes collision. */
+  readonly appearance: "warrior" | "primitive" | "kaykit-knight";
+  /**
+   * Measurements read from an imported body's bind pose, applied after the
+   * broad mass/force tuning above. A native body is not a uniformly stretched
+   * Warrior: shoulders, joints, capsules and reach have their own dimensions.
+   */
+  readonly values?: {
+    readonly body?: Partial<BodyConfig>;
+    readonly fighter?: Partial<FighterConfig>;
+    readonly arm?: Partial<ArmConfig>;
+  };
 }
 
 export const WARRIOR_PROFILE: HumanoidProfile = Object.freeze({
   kind: "warrior", scale: 1, massScale: 1, healthScale: 1, forceScale: 1,
-  mobilityScale: 1, turnScale: 1, authoredCostume: true,
+  mobilityScale: 1, turnScale: 1, appearance: "warrior",
 });
 
 export const BROOT_PROFILE: HumanoidProfile = Object.freeze({
   kind: "broot", scale: 1.18, massScale: 1.64, healthScale: 1.30, forceScale: 1.35,
-  mobilityScale: 0.88, turnScale: 0.88, authoredCostume: false,
+  mobilityScale: 0.88, turnScale: 0.88, appearance: "primitive",
 });
 
 type BodyConfig = typeof CONFIG.body;
@@ -165,22 +175,25 @@ function scaledRecord<T extends Record<string, unknown>>(
 export function humanoidProfileValues(profile: HumanoidProfile): {
   body: BodyConfig; fighter: FighterConfig; arm: ArmConfig;
 } {
-  if (profile === WARRIOR_PROFILE || profile.kind === "warrior") {
+  if ((profile === WARRIOR_PROFILE || profile.kind === "warrior") && !profile.values) {
     return { body: CONFIG.body, fighter: CONFIG.fighter, arm: CONFIG.arm };
   }
-  const body = scaledRecord(CONFIG.body, (key) =>
+  const scaledBody = scaledRecord(CONFIG.body, (key) =>
     BODY_LENGTHS.has(key) ? profile.scale
       : BODY_MASSES.has(key) ? profile.massScale
         : BODY_FORCES.has(key) ? profile.forceScale
           : key === "partHealth" ? profile.healthScale : 1);
-  const fighter = scaledRecord(CONFIG.fighter, (key) =>
+  const scaledFighter = scaledRecord(CONFIG.fighter, (key) =>
     key === "walkSpeed" || key === "backSpeed" || key === "strafeSpeed"
       ? profile.mobilityScale
       : key === "turnSpeed" ? profile.turnScale : key.includes("shoulder") ? profile.scale : 1);
-  const arm = scaledRecord(CONFIG.arm, (key) =>
+  const scaledArm = scaledRecord(CONFIG.arm, (key) =>
     ARM_LENGTHS.has(key) ? profile.scale
       : ARM_MASSES.has(key) ? profile.massScale
         : ARM_FORCES.has(key) ? profile.forceScale : 1);
+  const body = Object.assign({}, scaledBody, profile.values?.body) as BodyConfig;
+  const fighter = Object.assign({}, scaledFighter, profile.values?.fighter) as FighterConfig;
+  const arm = Object.assign({}, scaledArm, profile.values?.arm) as ArmConfig;
   return { body, fighter, arm };
 }
 
@@ -407,7 +420,7 @@ const blankProjectile = (owner: "self" | "opponent"): ProjectileView => ({
 });
 
 export class Fighter {
-  readonly kind: "warrior" | "broot";
+  readonly kind: "warrior" | "broot" | "kaykit-knight";
   readonly profile: HumanoidProfile;
   private readonly bodyConfig: BodyConfig;
   private readonly fighterConfig: FighterConfig;
@@ -510,7 +523,7 @@ export class Fighter {
    * has no reason to hide them.
    */
   readonly costume: readonly AbstractMesh[];
-  private readonly figure: Figure;
+  private readonly figure: FigureController;
 
   /**
    * Every body joint, how many times `body.jointStiffness` it is worth, and the
@@ -1109,7 +1122,7 @@ export class Fighter {
       shinRight: legs[1].shin,
     }, materials.figure ?? materials, {
       scale: this.profile.scale,
-      authored: this.profile.authoredCostume,
+      authored: this.profile.appearance === "warrior",
       loadout: this.loadout,
     });
     this.costume = this.figure.pieces;
