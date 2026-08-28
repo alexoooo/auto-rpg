@@ -1,0 +1,189 @@
+{
+  "schemaVersion": 1,
+  "id": "kaykit-adventurers-1.0-knight",
+  "creator": "Kay Lousberg",
+  "title": "KayKit: Adventurers Character Pack 1.0 - Knight",
+  "license": {
+    "spdx": "CC0-1.0",
+    "url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "file": "LICENSE.txt",
+    "sha256": "ae322141814056dda0deea7540d74c41d87aee1da319977cd1bd84ee5a923629"
+  },
+  "source": {
+    "repository": "https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0",
+    "commit": "672074b73ba276876a19e8816ecdc5241817ab47",
+    "archiveUrl": "https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0/archive/refs/heads/main.zip",
+    "archiveRef": "refs/heads/main",
+    "archiveRetrievedAtCommit": "672074b73ba276876a19e8816ecdc5241817ab47",
+    "archiveRetrievedOn": "2026-08-28",
+    "archiveSha256": "e19176d799036452bc783c00dd1036e158c66c5a43b7285ccbfea3466d6f57bf",
+    "member": "addons/kaykit_character_pack_adventures/Characters/gltf/Knight.glb",
+    "file": "Knight.glb",
+    "byteLength": 3659532,
+    "sha256": "60428e3abc09ba83e595d256e3af8c5c976b46cdae599f0802fc82b4a3445168"
+  },
+  "derivative": {
+    "generator": "scripts/derive-kaykit-knight.mjs",
+    "glb": "public/assets/kaykit-knight.glb",
+    "glbSha256": "82b436e2c12d9ce185eaceb5953b9f213ab655cc846cfe6f9b6f0f87950d4476",
+    "profile": "public/assets/kaykit-knight.profile.json",
+    "profileSha256": "de9fb5bcbd3ed7af1592aafc73645c8fe90c5d2a0287c897f07c578bbdffc73d",
+    "sourceProfile": "asset-src/armour/kaykit-adventurers-1.0/derived-profile.json"
+  },
+  "selection": {
+    "skinnedBodyNodes": [
+      "Knight_ArmLeft",
+      "Knight_ArmRight",
+      "Knight_Body",
+      "Knight_Head",
+      "Knight_LegLeft",
+      "Knight_LegRight"
+    ],
+    "rigidNodes": [
+      "Knight_Helmet",
+      "Knight_Cape",
+      "1H_Sword",
+      "Round_Shield"
+    ],
+    "removedAccessoryNodes": [
+      "1H_Sword_Offhand",
+      "Badge_Shield",
+      "Rectangle_Shield",
+      "Spike_Shield",
+      "2H_Sword"
+    ],
+    "animations": [
+      "1H_Melee_Attack_Chop",
+      "1H_Melee_Attack_Slice_Diagonal",
+      "1H_Melee_Attack_Slice_Horizontal",
+      "1H_Melee_Attack_Stab",
+      "Block",
+      "Block_Attack",
+      "Block_Hit",
+      "Blocking",
+      "Death_A",
+      "Death_B",
+      "Dodge_Backward",
+      "Dodge_Forward",
+      "Dodge_Left",
+      "Dodge_Right",
+      "Hit_A",
+      "Hit_B",
+      "Idle",
+      "Running_A",
+      "Running_Strafe_Left",
+      "Running_Strafe_Right",
+      "Walking_A",
+      "Walking_Backwards"
+    ],
+    "animationRuntime": {
+      "babylonVersion": "9.18.1",
+      "loaderStartsFirstClip": "1H_Melee_Attack_Chop",
+      "adapterMustStopAllBeforePublish": true
+    }
+  },
+  "regionInfluenceRule": {
+    "version": 1,
+    "description": "Assign each source triangle to the region with the greatest sum of its three vertices' mapped JOINTS_0/WEIGHTS_0 influences; ties use regionOrder.",
+    "regionOrder": [
+      "torso",
+      "head",
+      "pelvis",
+      "swordUpperArm",
+      "swordForearm",
+      "swordHand",
+      "offUpperArm",
+      "offForearm",
+      "offHand",
+      "thighLeft",
+      "shinLeft",
+      "thighRight",
+      "shinRight"
+    ],
+    "regionParents": {
+      "torso": null,
+      "head": "torso",
+      "pelvis": "torso",
+      "swordUpperArm": "torso",
+      "swordForearm": "swordUpperArm",
+      "swordHand": "swordForearm",
+      "offUpperArm": "torso",
+      "offForearm": "offUpperArm",
+      "offHand": "offForearm",
+      "thighLeft": "pelvis",
+      "shinLeft": "thighLeft",
+      "thighRight": "pelvis",
+      "shinRight": "thighRight"
+    },
+    "sourceBoneToRegion": {
+      "root": "torso",
+      "hips": "pelvis",
+      "spine": "torso",
+      "chest": "torso",
+      "head": "head",
+      "upperarm.r": "swordUpperArm",
+      "lowerarm.r": "swordForearm",
+      "wrist.r": "swordHand",
+      "hand.r": "swordHand",
+      "handslot.r": "swordHand",
+      "upperarm.l": "offUpperArm",
+      "lowerarm.l": "offForearm",
+      "wrist.l": "offHand",
+      "hand.l": "offHand",
+      "handslot.l": "offHand",
+      "upperleg.l": "thighLeft",
+      "lowerleg.l": "shinLeft",
+      "foot.l": "shinLeft",
+      "toes.l": "shinLeft",
+      "upperleg.r": "thighRight",
+      "lowerleg.r": "shinRight",
+      "foot.r": "shinRight",
+      "toes.r": "shinRight",
+      "kneeIK.l": null,
+      "heelIK.l": null,
+      "IK-foot.l": null,
+      "control-foot-roll.l": null,
+      "IK-toe.l": null,
+      "control-heel-roll.l": null,
+      "control-toe-roll.l": null,
+      "kneeIK.r": null,
+      "heelIK.r": null,
+      "IK-foot.r": null,
+      "control-foot-roll.r": null,
+      "IK-toe.r": null,
+      "control-heel-roll.r": null,
+      "control-toe-roll.r": null,
+      "elbowIK.r": null,
+      "handIK.r": null,
+      "elbowIK.l": null,
+      "handIK.l": null
+    },
+    "profileBoneByRegion": {
+      "torso": "chest",
+      "head": "head",
+      "pelvis": "hips",
+      "swordUpperArm": "upperarm.r",
+      "swordForearm": "lowerarm.r",
+      "swordHand": "hand.r",
+      "offUpperArm": "upperarm.l",
+      "offForearm": "lowerarm.l",
+      "offHand": "hand.l",
+      "thighLeft": "upperleg.l",
+      "shinLeft": "lowerleg.l",
+      "thighRight": "upperleg.r",
+      "shinRight": "lowerleg.r"
+    }
+  },
+  "weaponMounts": {
+    "primary": {
+      "handBone": "hand.r",
+      "slotNode": "handslot.r",
+      "visualNode": "1H_Sword"
+    },
+    "secondary": {
+      "handBone": "hand.l",
+      "slotNode": "handslot.l",
+      "visualNode": "Round_Shield"
+    }
+  }
+}

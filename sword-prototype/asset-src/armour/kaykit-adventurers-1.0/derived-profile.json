@@ -1,0 +1,795 @@
+{
+  "schemaVersion": 1,
+  "assetId": "kaykit-adventurers-1.0-knight",
+  "sourceSha256": "60428e3abc09ba83e595d256e3af8c5c976b46cdae599f0802fc82b4a3445168",
+  "coordinateSystem": {
+    "handedness": "right",
+    "up": "+Y",
+    "forward": "+Z",
+    "unit": "metre"
+  },
+  "bodyOnlyBounds": {
+    "minM": [
+      -0.971253335,
+      -0.000026527,
+      -0.485230654
+    ],
+    "maxM": [
+      0.971253335,
+      2.314507961,
+      0.531793654
+    ],
+    "sizeM": [
+      1.942506671,
+      2.314534488,
+      1.017024308
+    ],
+    "heightM": 2.314534488
+  },
+  "regions": [
+    {
+      "region": "torso",
+      "sourceBone": "chest",
+      "parent": null,
+      "bindWorldJointCentreM": [
+        0,
+        0.972628891,
+        0
+      ]
+    },
+    {
+      "region": "head",
+      "sourceBone": "head",
+      "parent": "torso",
+      "bindWorldJointCentreM": [
+        0,
+        1.241425439,
+        0
+      ]
+    },
+    {
+      "region": "pelvis",
+      "sourceBone": "hips",
+      "parent": "torso",
+      "bindWorldJointCentreM": [
+        0,
+        0.405663431,
+        0
+      ]
+    },
+    {
+      "region": "swordUpperArm",
+      "sourceBone": "upperarm.r",
+      "parent": "torso",
+      "bindWorldJointCentreM": [
+        -0.212007374,
+        1.10676103,
+        8.4e-8
+      ]
+    },
+    {
+      "region": "swordForearm",
+      "sourceBone": "lowerarm.r",
+      "parent": "swordUpperArm",
+      "bindWorldJointCentreM": [
+        -0.453507344,
+        1.10676102,
+        -0.013856836
+      ]
+    },
+    {
+      "region": "swordHand",
+      "sourceBone": "hand.r",
+      "parent": "swordForearm",
+      "bindWorldJointCentreM": [
+        -0.787007316,
+        1.106761153,
+        -8.12e-7
+      ]
+    },
+    {
+      "region": "offUpperArm",
+      "sourceBone": "upperarm.l",
+      "parent": "torso",
+      "bindWorldJointCentreM": [
+        0.212007374,
+        1.10676103,
+        8.4e-8
+      ]
+    },
+    {
+      "region": "offForearm",
+      "sourceBone": "lowerarm.l",
+      "parent": "offUpperArm",
+      "bindWorldJointCentreM": [
+        0.453507329,
+        1.10676099,
+        -0.013856823
+      ]
+    },
+    {
+      "region": "offHand",
+      "sourceBone": "hand.l",
+      "parent": "offForearm",
+      "bindWorldJointCentreM": [
+        0.787007317,
+        1.106761089,
+        -7.79e-7
+      ]
+    },
+    {
+      "region": "thighLeft",
+      "sourceBone": "upperleg.l",
+      "parent": "pelvis",
+      "bindWorldJointCentreM": [
+        0.170945063,
+        0.519250691,
+        1.4e-8
+      ]
+    },
+    {
+      "region": "shinLeft",
+      "sourceBone": "lowerleg.l",
+      "parent": "thighLeft",
+      "bindWorldJointCentreM": [
+        0.170945035,
+        0.292310304,
+        0.007888949
+      ]
+    },
+    {
+      "region": "thighRight",
+      "sourceBone": "upperleg.r",
+      "parent": "pelvis",
+      "bindWorldJointCentreM": [
+        -0.170945063,
+        0.519250691,
+        1.4e-8
+      ]
+    },
+    {
+      "region": "shinRight",
+      "sourceBone": "lowerleg.r",
+      "parent": "thighRight",
+      "bindWorldJointCentreM": [
+        -0.170945033,
+        0.292310304,
+        0.007888949
+      ]
+    }
+  ],
+  "lengthsM": {
+    "pelvisToChest": 0.56696546,
+    "chestToHead": 0.268796548,
+    "shoulderWidth": 0.424014748,
+    "hipWidth": 0.341890126,
+    "swordUpperArm": 0.241897188,
+    "swordForearm": 0.333787688,
+    "swordHandToSlot": 0.112010158,
+    "offUpperArm": 0.241897173,
+    "offForearm": 0.333787705,
+    "offHandToSlot": 0.112010167,
+    "thighLeft": 0.227077464,
+    "shinLeft": 0.149437084,
+    "footLeft": 0.165650284,
+    "thighRight": 0.227077464,
+    "shinRight": 0.149437084,
+    "footRight": 0.165650284
+  },
+  "weaponMounts": {
+    "primary": {
+      "handBone": "hand.r",
+      "slotNode": "handslot.r",
+      "visualNode": "1H_Sword",
+      "matrixConvention": "glTF column-major; column vectors; parentToChild local transforms",
+      "handToSlotMatrix": [
+        -1.34e-7,
+        0.999999906,
+        5e-9,
+        0,
+        -0.999999966,
+        -1.34e-7,
+        0,
+        0,
+        0,
+        -5e-9,
+        0.99999994,
+        0,
+        -1e-9,
+        0.096125066,
+        -0.057500124,
+        1
+      ],
+      "slotToVisualMatrix": [
+        -1,
+        2.65e-7,
+        5e-9,
+        0,
+        2.65e-7,
+        1,
+        -2.07e-7,
+        0,
+        -5e-9,
+        -2.07e-7,
+        -1,
+        0,
+        0,
+        0.033309305,
+        -1.21e-7,
+        1
+      ],
+      "handToVisualMatrix": [
+        -1.31e-7,
+        -0.999999906,
+        0,
+        0,
+        -0.999999966,
+        1.31e-7,
+        -2.07e-7,
+        0,
+        2.07e-7,
+        0,
+        -0.99999994,
+        0,
+        -0.033309305,
+        0.096125062,
+        -0.057500245,
+        1
+      ]
+    },
+    "secondary": {
+      "handBone": "hand.l",
+      "slotNode": "handslot.l",
+      "visualNode": "Round_Shield",
+      "matrixConvention": "glTF column-major; column vectors; parentToChild local transforms",
+      "handToSlotMatrix": [
+        -1.34e-7,
+        -0.999999906,
+        -5e-9,
+        0,
+        0.999999966,
+        -1.34e-7,
+        0,
+        0,
+        0,
+        -5e-9,
+        0.99999994,
+        0,
+        1e-9,
+        0.096125066,
+        -0.057500124,
+        1
+      ],
+      "slotToVisualMatrix": [
+        1,
+        0.000002801,
+        -3.37e-7,
+        0,
+        -0.000002801,
+        1,
+        -2.07e-7,
+        0,
+        3.37e-7,
+        2.07e-7,
+        1,
+        0,
+        0,
+        0.017011786,
+        0.155885339,
+        1
+      ],
+      "handToVisualMatrix": [
+        0.000002666,
+        -0.999999906,
+        -3.42e-7,
+        0,
+        0.999999966,
+        0.000002666,
+        -2.07e-7,
+        0,
+        2.07e-7,
+        -3.42e-7,
+        0.99999994,
+        0,
+        0.017011786,
+        0.096125063,
+        0.098385206,
+        1
+      ]
+    }
+  },
+  "deformation": {
+    "influenceRuleVersion": 1,
+    "positiveWeightJoints": [
+      {
+        "sourceBone": "hips",
+        "region": "pelvis"
+      },
+      {
+        "sourceBone": "spine",
+        "region": "torso"
+      },
+      {
+        "sourceBone": "chest",
+        "region": "torso"
+      },
+      {
+        "sourceBone": "upperarm.l",
+        "region": "offUpperArm"
+      },
+      {
+        "sourceBone": "lowerarm.l",
+        "region": "offForearm"
+      },
+      {
+        "sourceBone": "wrist.l",
+        "region": "offHand"
+      },
+      {
+        "sourceBone": "hand.l",
+        "region": "offHand"
+      },
+      {
+        "sourceBone": "upperarm.r",
+        "region": "swordUpperArm"
+      },
+      {
+        "sourceBone": "lowerarm.r",
+        "region": "swordForearm"
+      },
+      {
+        "sourceBone": "wrist.r",
+        "region": "swordHand"
+      },
+      {
+        "sourceBone": "hand.r",
+        "region": "swordHand"
+      },
+      {
+        "sourceBone": "head",
+        "region": "head"
+      },
+      {
+        "sourceBone": "upperleg.l",
+        "region": "thighLeft"
+      },
+      {
+        "sourceBone": "lowerleg.l",
+        "region": "shinLeft"
+      },
+      {
+        "sourceBone": "foot.l",
+        "region": "shinLeft"
+      },
+      {
+        "sourceBone": "toes.l",
+        "region": "shinLeft"
+      },
+      {
+        "sourceBone": "upperleg.r",
+        "region": "thighRight"
+      },
+      {
+        "sourceBone": "lowerleg.r",
+        "region": "shinRight"
+      },
+      {
+        "sourceBone": "foot.r",
+        "region": "shinRight"
+      },
+      {
+        "sourceBone": "toes.r",
+        "region": "shinRight"
+      }
+    ],
+    "unweightedControlJoints": [
+      "root",
+      "handslot.l",
+      "handslot.r",
+      "kneeIK.l",
+      "control-toe-roll.l",
+      "control-heel-roll.l",
+      "control-foot-roll.l",
+      "heelIK.l",
+      "IK-foot.l",
+      "IK-toe.l",
+      "kneeIK.r",
+      "control-toe-roll.r",
+      "control-heel-roll.r",
+      "control-foot-roll.r",
+      "heelIK.r",
+      "IK-foot.r",
+      "IK-toe.r",
+      "elbowIK.l",
+      "handIK.l",
+      "elbowIK.r",
+      "handIK.r"
+    ]
+  },
+  "physics": {
+    "authority": "body-only bind-pose source vertices referenced by each mechanically partitioned region",
+    "paddingM": 0,
+    "regionBounds": {
+      "torso": {
+        "minM": [
+          -0.402052611,
+          0.420121402,
+          -0.3861368
+        ],
+        "maxM": [
+          0.402098596,
+          1.293071508,
+          0.365554959
+        ],
+        "centreM": [
+          0.000022992,
+          0.856596455,
+          -0.010290921
+        ],
+        "sizeM": [
+          0.804151207,
+          0.872950107,
+          0.751691759
+        ],
+        "halfExtentsM": [
+          0.402075604,
+          0.436475053,
+          0.375845879
+        ]
+      },
+      "head": {
+        "minM": [
+          -0.543159306,
+          1.215891242,
+          -0.485230654
+        ],
+        "maxM": [
+          0.543173373,
+          2.314507961,
+          0.531793654
+        ],
+        "centreM": [
+          0.000007033,
+          1.765199602,
+          0.0232815
+        ],
+        "sizeM": [
+          1.086332679,
+          1.098616719,
+          1.017024308
+        ],
+        "halfExtentsM": [
+          0.543166339,
+          0.54930836,
+          0.508512154
+        ]
+      },
+      "pelvis": {
+        "minM": [
+          -0.30030641,
+          0.376399368,
+          -0.284720331
+        ],
+        "maxM": [
+          0.300305545,
+          0.515329123,
+          0.27123183
+        ],
+        "centreM": [
+          -4.32e-7,
+          0.445864245,
+          -0.006744251
+        ],
+        "sizeM": [
+          0.600611955,
+          0.138929754,
+          0.555952162
+        ],
+        "halfExtentsM": [
+          0.300305977,
+          0.069464877,
+          0.277976081
+        ]
+      },
+      "swordUpperArm": {
+        "minM": [
+          -0.462608904,
+          0.989293396,
+          -0.142151549
+        ],
+        "maxM": [
+          -0.052082174,
+          1.2718575,
+          0.142151713
+        ],
+        "centreM": [
+          -0.257345539,
+          1.130575448,
+          8.2e-8
+        ],
+        "sizeM": [
+          0.41052673,
+          0.282564104,
+          0.284303263
+        ],
+        "halfExtentsM": [
+          0.205263365,
+          0.141282052,
+          0.142151631
+        ]
+      },
+      "swordForearm": {
+        "minM": [
+          -0.767757118,
+          0.975305021,
+          -0.168585986
+        ],
+        "maxM": [
+          -0.41985622,
+          1.234261036,
+          0.131034002
+        ],
+        "centreM": [
+          -0.593806669,
+          1.104783028,
+          -0.018775992
+        ],
+        "sizeM": [
+          0.347900897,
+          0.258956015,
+          0.299619988
+        ],
+        "halfExtentsM": [
+          0.173950449,
+          0.129478008,
+          0.149809994
+        ]
+      },
+      "swordHand": {
+        "minM": [
+          -0.971253335,
+          0.983147204,
+          -0.149988666
+        ],
+        "maxM": [
+          -0.720026553,
+          1.226387024,
+          0.121599019
+        ],
+        "centreM": [
+          -0.845639944,
+          1.104767114,
+          -0.014194824
+        ],
+        "sizeM": [
+          0.251226783,
+          0.24323982,
+          0.271587685
+        ],
+        "halfExtentsM": [
+          0.125613391,
+          0.12161991,
+          0.135793842
+        ]
+      },
+      "offUpperArm": {
+        "minM": [
+          0.052082174,
+          0.989293396,
+          -0.142151549
+        ],
+        "maxM": [
+          0.462608904,
+          1.2718575,
+          0.142151713
+        ],
+        "centreM": [
+          0.257345539,
+          1.130575448,
+          8.2e-8
+        ],
+        "sizeM": [
+          0.41052673,
+          0.282564104,
+          0.284303263
+        ],
+        "halfExtentsM": [
+          0.205263365,
+          0.141282052,
+          0.142151631
+        ]
+      },
+      "offForearm": {
+        "minM": [
+          0.41985622,
+          0.975305021,
+          -0.168585986
+        ],
+        "maxM": [
+          0.767757118,
+          1.234261036,
+          0.131034002
+        ],
+        "centreM": [
+          0.593806669,
+          1.104783028,
+          -0.018775992
+        ],
+        "sizeM": [
+          0.347900897,
+          0.258956015,
+          0.299619988
+        ],
+        "halfExtentsM": [
+          0.173950449,
+          0.129478008,
+          0.149809994
+        ]
+      },
+      "offHand": {
+        "minM": [
+          0.720026553,
+          0.983147204,
+          -0.149988666
+        ],
+        "maxM": [
+          0.971253335,
+          1.226387024,
+          0.121599019
+        ],
+        "centreM": [
+          0.845639944,
+          1.104767114,
+          -0.014194824
+        ],
+        "sizeM": [
+          0.251226783,
+          0.24323982,
+          0.271587685
+        ],
+        "halfExtentsM": [
+          0.125613391,
+          0.12161991,
+          0.135793842
+        ]
+      },
+      "thighLeft": {
+        "minM": [
+          0.049543183,
+          0.244761825,
+          -0.109045967
+        ],
+        "maxM": [
+          0.287756771,
+          0.529194355,
+          0.121701308
+        ],
+        "centreM": [
+          0.168649977,
+          0.38697809,
+          0.00632767
+        ],
+        "sizeM": [
+          0.238213588,
+          0.28443253,
+          0.230747275
+        ],
+        "halfExtentsM": [
+          0.119106794,
+          0.142216265,
+          0.115373638
+        ]
+      },
+      "shinLeft": {
+        "minM": [
+          0.048996586,
+          -0.000026527,
+          -0.131405294
+        ],
+        "maxM": [
+          0.288103521,
+          0.303893834,
+          0.299492389
+        ],
+        "centreM": [
+          0.168550054,
+          0.151933654,
+          0.084043548
+        ],
+        "sizeM": [
+          0.239106935,
+          0.303920361,
+          0.430897683
+        ],
+        "halfExtentsM": [
+          0.119553467,
+          0.151960181,
+          0.215448841
+        ]
+      },
+      "thighRight": {
+        "minM": [
+          -0.287756771,
+          0.244761825,
+          -0.109045967
+        ],
+        "maxM": [
+          -0.049543183,
+          0.529194355,
+          0.121701308
+        ],
+        "centreM": [
+          -0.168649977,
+          0.38697809,
+          0.00632767
+        ],
+        "sizeM": [
+          0.238213588,
+          0.28443253,
+          0.230747275
+        ],
+        "halfExtentsM": [
+          0.119106794,
+          0.142216265,
+          0.115373638
+        ]
+      },
+      "shinRight": {
+        "minM": [
+          -0.288103521,
+          -0.000026527,
+          -0.131405294
+        ],
+        "maxM": [
+          -0.048996586,
+          0.303893834,
+          0.299492389
+        ],
+        "centreM": [
+          -0.168550054,
+          0.151933654,
+          0.084043548
+        ],
+        "sizeM": [
+          0.239106935,
+          0.303920361,
+          0.430897683
+        ],
+        "halfExtentsM": [
+          0.119553467,
+          0.151960181,
+          0.215448841
+        ]
+      }
+    }
+  },
+  "nativeAnimations": {
+    "retained": [
+      "1H_Melee_Attack_Chop",
+      "1H_Melee_Attack_Slice_Diagonal",
+      "1H_Melee_Attack_Slice_Horizontal",
+      "1H_Melee_Attack_Stab",
+      "Block",
+      "Block_Attack",
+      "Block_Hit",
+      "Blocking",
+      "Death_A",
+      "Death_B",
+      "Dodge_Backward",
+      "Dodge_Forward",
+      "Dodge_Left",
+      "Dodge_Right",
+      "Hit_A",
+      "Hit_B",
+      "Idle",
+      "Running_A",
+      "Running_Strafe_Left",
+      "Running_Strafe_Right",
+      "Walking_A",
+      "Walking_Backwards"
+    ],
+    "babylonVersion": "9.18.1",
+    "loaderStartsFirstClip": "1H_Melee_Attack_Chop",
+    "adapterMustStopAllBeforePublish": true
+  }
+}

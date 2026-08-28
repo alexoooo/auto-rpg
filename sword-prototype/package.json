@@ -29,7 +29,9 @@
     "texture:verify": "node scripts/fetch-textures.mjs --verify",
     "armour:fetch": "node scripts/fetch-armour.mjs",
     "armour:verify": "node scripts/fetch-armour.mjs --verify",
-    "armour:extract": "node scripts/extract-armour.mjs"
+    "armour:extract": "node scripts/extract-armour.mjs",
+    "kaykit:derive": "node scripts/derive-kaykit-knight.mjs",
+    "kaykit:verify": "node scripts/derive-kaykit-knight.mjs --verify"
   },
   "dependencies": {
     "@babylonjs/core": "9.18.1",
