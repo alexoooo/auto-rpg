@@ -6,54 +6,60 @@
   "landmarkLimitMm": 25,
   "sourceHeightM": 1.869008,
   "uniformScale": 0.963078,
+  "rigidTranslationM": [0, 0.003821, 0.041412],
+  "landmarks": [
+    { "name": "pelvis", "sourceBone": "pelvis", "available": true, "placedM": [0, 0.917878, 0], "targetM": [0, 0.9, 0], "errorMm": 17.878, "qualified": true },
+    { "name": "waist", "sourceBone": "spine_01", "available": true, "placedM": [0, 1.03624, 0.034767], "targetM": [0, 1.06, 0], "errorMm": 42.11, "qualified": false },
+    { "name": "head base", "sourceBone": "Head", "available": true, "placedM": [0, 1.544553, 0.024655], "targetM": [0, 1.55, 0], "errorMm": 25.249, "qualified": false },
+    { "name": "primary shoulder", "sourceBone": "upperarm_l", "available": true, "placedM": [0.184815, 1.40558, -0.021573], "targetM": [0.21, 1.42, 0.02], "errorMm": 50.7, "qualified": false },
+    { "name": "secondary shoulder", "sourceBone": "upperarm_r", "available": true, "placedM": [-0.184815, 1.40558, -0.021573], "targetM": [-0.21, 1.42, 0.02], "errorMm": 50.7, "qualified": false },
+    { "name": "positive-side hip", "sourceBone": "thigh_l", "available": true, "placedM": [0.087255, 0.939162, 0.006742], "targetM": [0.105, 0.9, 0], "errorMm": 43.52, "qualified": false },
+    { "name": "negative-side hip", "sourceBone": "thigh_r", "available": true, "placedM": [-0.087255, 0.939162, 0.006742], "targetM": [-0.105, 0.9, 0], "errorMm": 43.52, "qualified": false },
+    { "name": "positive-side ankle", "sourceBone": "foot_l", "available": true, "placedM": [0.087255, 0.087127, -0.042857], "targetM": [0.105, 0.04, 0], "errorMm": 66.125, "qualified": false },
+    { "name": "negative-side ankle", "sourceBone": "foot_r", "available": true, "placedM": [-0.087255, 0.087127, -0.042857], "targetM": [-0.105, 0.04, 0], "errorMm": 66.125, "qualified": false }
+  ],
   "limbs": [
-    {
-      "name": "primary arm",
-      "sourceLengthsM": [0.241843, 0.231543],
-      "targetLengthsM": [0.3, 0.27],
-      "elbowErrorMm": 58.157,
-      "wristErrorMm": 96.613,
-      "qualified": false
-    },
-    {
-      "name": "secondary arm",
-      "sourceLengthsM": [0.241843, 0.231543],
-      "targetLengthsM": [0.28, 0.26],
-      "elbowErrorMm": 38.157,
-      "wristErrorMm": 66.613,
-      "qualified": false
-    },
-    {
-      "name": "left leg",
-      "sourceLengthsM": [0.412968, 0.441849],
-      "targetLengthsM": [0.44, 0.42],
-      "kneeErrorMm": 27.032,
-      "ankleErrorMm": 5.183,
-      "qualified": false
-    },
-    {
-      "name": "right leg",
-      "sourceLengthsM": [0.412968, 0.441849],
-      "targetLengthsM": [0.44, 0.42],
-      "kneeErrorMm": 27.032,
-      "ankleErrorMm": 5.183,
-      "qualified": false
-    }
+    { "name": "primary arm", "available": true, "sourceLengthsM": [0.241843, 0.231543], "targetLengthsM": [0.3, 0.27], "elbowErrorMm": 58.157, "wristErrorMm": 96.613, "qualified": false },
+    { "name": "secondary arm", "available": true, "sourceLengthsM": [0.241843, 0.231543], "targetLengthsM": [0.28, 0.26], "elbowErrorMm": 38.157, "wristErrorMm": 66.613, "qualified": false },
+    { "name": "left leg", "available": true, "sourceLengthsM": [0.412968, 0.441849], "targetLengthsM": [0.44, 0.42], "elbowErrorMm": 27.032, "wristErrorMm": 5.183, "qualified": false },
+    { "name": "right leg", "available": true, "sourceLengthsM": [0.412968, 0.441849], "targetLengthsM": [0.44, 0.42], "elbowErrorMm": 27.032, "wristErrorMm": 5.183, "qualified": false }
   ],
   "animationCount": 0,
+  "poses": [
+    { "label": "sword grip", "qualified": false, "animation": null, "fingerChannels": 0 },
+    { "label": "shield grip", "qualified": false, "animation": null, "fingerChannels": 0 }
+  ],
   "attributeDigests": {
-    "POSITION": "e2d1f9d29322ab6c3a287ccaa7dda4b91825d3b218f96074af03428ad9c04b42",
-    "NORMAL": "a42dc484acb623eac4cc03e0b53c3f2fc550f2fc4a5d159c4cf7c8610f8d7bc6",
-    "TEXCOORD_0": "97bb7e28b173adef0ef949078140da3e236373ea8d9b5c1860e0c48aa2a61cb5",
-    "JOINTS_0": "6063757ff1fedefa37ae9b5c2fc4ff5729656aadedb8514da744dae23a035b04",
-    "WEIGHTS_0": "f1b4a17898013e3915c0082bc07f247f9efc0ab2f0626b74a6ce3ee6a3eda573"
+    "COLOR_0": { "count": 21925, "sha256": "7db9c840b5f75a3dd666718a871f944230130cf8323cdd84169dc2cbb6142ecd" },
+    "COLOR_1": { "count": 21925, "sha256": "efa8862962915bae98ddeb2c1f5635a9f981618aa52c80f5e6b5afa25bd0175b" },
+    "INDICES": { "count": 80946, "sha256": "af0ce930fb0a9815f039d21abcd05e863b4c40541ec88000889b98653cac6da2" },
+    "JOINTS_0": { "count": 24873, "sha256": "6063757ff1fedefa37ae9b5c2fc4ff5729656aadedb8514da744dae23a035b04" },
+    "NORMAL": { "count": 24873, "sha256": "a42dc484acb623eac4cc03e0b53c3f2fc550f2fc4a5d159c4cf7c8610f8d7bc6" },
+    "POSITION": { "count": 24873, "sha256": "e2d1f9d29322ab6c3a287ccaa7dda4b91825d3b218f96074af03428ad9c04b42" },
+    "TEXCOORD_0": { "count": 24873, "sha256": "97bb7e28b173adef0ef949078140da3e236373ea8d9b5c1860e0c48aa2a61cb5" },
+    "TEXCOORD_1": { "count": 3042, "sha256": "77e71b8cb44c4736e120ef560a8462e7f6f8495a7a767758c025d6e4ce693f03" },
+    "WEIGHTS_0": { "count": 24873, "sha256": "f1b4a17898013e3915c0082bc07f247f9efc0ab2f0626b74a6ce3ee6a3eda573" }
   },
-  "sourceIntegrity": "passed",
+  "structureDigests": {
+    "SKELETON": "079b70c6e15e5809bb3ea3a578e16b6c74af2b70e30c09c50caa4d93db0c1da1",
+    "MATERIALS": "3af13cb395b7da1345a394592093626bbe00f27ed5422c43b345049a0a94b106"
+  },
+  "integrity": { "ok": true, "failures": [] },
   "failures": [
-    "primary wrist misses the limit by 71.613 mm",
-    "secondary wrist misses the limit by 41.613 mm",
-    "both knees miss the limit by 2.032 mm",
-    "the selected glTF contains no creator-authored sword or shield hand pose"
+    "waist misses the 25 mm 3D landmark limit: 42.11 mm",
+    "head base misses the 25 mm 3D landmark limit: 25.249 mm",
+    "primary shoulder misses the 25 mm 3D landmark limit: 50.7 mm",
+    "secondary shoulder misses the 25 mm 3D landmark limit: 50.7 mm",
+    "positive-side hip misses the 25 mm 3D landmark limit: 43.52 mm",
+    "negative-side hip misses the 25 mm 3D landmark limit: 43.52 mm",
+    "positive-side ankle misses the 25 mm 3D landmark limit: 66.125 mm",
+    "negative-side ankle misses the 25 mm 3D landmark limit: 66.125 mm",
+    "primary arm misses the 25 mm landmark limit: elbow/knee 58.157 mm, wrist/ankle 96.613 mm",
+    "secondary arm misses the 25 mm landmark limit: elbow/knee 38.157 mm, wrist/ankle 66.613 mm",
+    "left leg misses the 25 mm landmark limit: elbow/knee 27.032 mm, wrist/ankle 5.183 mm",
+    "right leg misses the 25 mm landmark limit: elbow/knee 27.032 mm, wrist/ankle 5.183 mm",
+    "source contains no creator-authored sword grip with finger channels",
+    "source contains no creator-authored shield grip with finger channels"
   ],
   "decision": "Do not install, stretch, retarget, or silently substitute this asset. Keep the current shipping Warrior until the user authorizes a physics-rig change or chooses another qualified asset family."
 }
