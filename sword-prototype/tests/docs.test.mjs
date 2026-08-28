@@ -281,8 +281,15 @@ const SCRATCH_SHARE_OF_DURABLE = { min: 0.02, max: 0.25 };
 // `tests/preflight.test.mjs`, taking it to 7. So a rise here means a plan got more specific
 // about what it will create, and a fall means somebody created it. Both are correct; neither
 // is a repair.
+//
+// **Re-measured 2026-08-28 after the Construct Forge topic was written: 80.** Its
+// sixteen implementable sessions add 73 occurrences naming the source, test and
+// script files they will create. The occurrence count is intentional: shared
+// constructs such as `src/construct/controllers.ts` appear in each session that
+// changes their contract, so deleting one promise or landing one file moves the
+// exact surface the plan reader sees.
 const PLAN_SURFACE = {
-  noSuchFile: 7,
+  noSuchFile: 80,
   ambiguousFile: 0,
   anchorIntoDeletedFile: 0,
   orphanContinuation: 0,
