@@ -96,11 +96,56 @@ test("the_generated_profile_is_an_exact_native_proportion_and_mount_seam", () =>
       Math.abs(value - (bounds.minM[axis] + bounds.maxM[axis]) / 2) <= 1e-9));
   }
   for (const mount of Object.values(parsed.weaponMounts)) {
+    assert.equal(mount.handFromSlotMatrix.length, 16);
+    assert.equal(mount.slotFromVisualMatrix.length, 16);
+    assert.equal(mount.handFromVisualMatrix.length, 16);
+    assert.deepEqual(mount.handFromSlotMatrix, mount.handToSlotMatrix);
+    assert.deepEqual(mount.slotFromVisualMatrix, mount.slotToVisualMatrix);
+    assert.deepEqual(mount.handFromVisualMatrix, mount.handToVisualMatrix);
     assert.equal(mount.handToSlotMatrix.length, 16);
     assert.equal(mount.slotToVisualMatrix.length, 16);
     assert.equal(mount.handToVisualMatrix.length, 16);
     assert.ok([...mount.handToSlotMatrix, ...mount.slotToVisualMatrix,
       ...mount.handToVisualMatrix].every(Number.isFinite));
+  }
+});
+
+test("weapon_collider_facts_are_exact_creator_geometry_in_each_hand_slot_frame", () => {
+  const parsed = JSON.parse(profile);
+  const expected = {
+    primary: {
+      visual: "1H_Sword", frame: "handslot.r", vertices: 359, triangles: 300,
+      components: [229, 73, 57], sizeM: [0.503444434, 1.775261521, 0.130633472],
+    },
+    secondary: {
+      visual: "Round_Shield", frame: "handslot.l", vertices: 322, triangles: 284,
+      components: [266, 56], sizeM: [0.882606864, 0.882607132, 0.331945562],
+    },
+  };
+  const dot = (a, b) => a.reduce((sum, value, axis) => sum + value * b[axis], 0);
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  for (const [side, pinned] of Object.entries(expected)) {
+    const mount = parsed.weaponMounts[side];
+    const geometry = mount.geometryInSlotFrame;
+    assert.equal(mount.visualNode, pinned.visual);
+    assert.equal(geometry.frame, pinned.frame);
+    assert.equal(geometry.vertexCount, pinned.vertices);
+    assert.equal(geometry.triangleCount, pinned.triangles);
+    assert.deepEqual(geometry.aabb.sizeM, pinned.sizeM);
+    assert.deepEqual(geometry.connectedComponents.components.map(({ vertexCount }) => vertexCount),
+      pinned.components);
+    assert.equal(geometry.connectedComponents.components.reduce((sum, component) =>
+      sum + component.vertexCount, 0), geometry.vertexCount);
+    assert.equal(geometry.connectedComponents.components.reduce((sum, component) =>
+      sum + component.triangleCount, 0), geometry.triangleCount);
+    const axes = geometry.principalAxes.map(({ directionUnit }) => directionUnit);
+    axes.forEach((axis) => assert.ok(Math.abs(dot(axis, axis) - 1) < 2e-9));
+    assert.ok(Math.abs(dot(axes[0], axes[1])) < 2e-9);
+    assert.ok(Math.abs(dot(axes[0], axes[2])) < 2e-9);
+    assert.ok(Math.abs(dot(axes[1], axes[2])) < 2e-9);
+    assert.ok(dot(cross(axes[0], axes[1]), axes[2]) > 0.999999998,
+      "principal axes must form a deterministic right-handed collider frame");
   }
 });
 
@@ -156,4 +201,15 @@ test("source_output_and_region_rule_mutations_are_detected_instead_of_reblessed"
   movedRule.regionInfluenceRule.sourceBoneToRegion.head = "torso";
   assert.throws(() => deriveKayKit(source, movedRule), /no geometry for head/,
     "changing the frozen influence rule must be refused before it can be reblessed");
+
+  const movedGeometryContract = structuredClone(manifest);
+  movedGeometryContract.weaponMounts.primary.geometryContract.aabbSizeM[1] += 0.001;
+  assert.throws(() => deriveKayKit(source, movedGeometryContract), /slot-frame AABB contract moved/);
+
+  const movedProfile = JSON.parse(profile);
+  movedProfile.weaponMounts.secondary.geometryInSlotFrame.aabb.maxM[0] += 0.001;
+  const movedProfileBytes = Buffer.from(`${JSON.stringify(movedProfile, null, 2)}\n`);
+  const profileResult = verifyDerivative(source, license, runtime, movedProfileBytes, manifest);
+  assert.equal(profileResult.ok, false);
+  assert.ok(profileResult.failures.some((failure) => failure.includes("runtime profile")));
 });

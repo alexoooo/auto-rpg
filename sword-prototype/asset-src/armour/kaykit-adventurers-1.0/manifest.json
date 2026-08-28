@@ -27,7 +27,7 @@
     "glb": "public/assets/kaykit-knight.glb",
     "glbSha256": "82b436e2c12d9ce185eaceb5953b9f213ab655cc846cfe6f9b6f0f87950d4476",
     "profile": "public/assets/kaykit-knight.profile.json",
-    "profileSha256": "de9fb5bcbd3ed7af1592aafc73645c8fe90c5d2a0287c897f07c578bbdffc73d",
+    "profileSha256": "c90710860964a34baee9b3c7c3c7064bfcbc387574c0a19fda6c5625fc2adae5",
     "sourceProfile": "asset-src/armour/kaykit-adventurers-1.0/derived-profile.json"
   },
   "selection": {
@@ -178,12 +178,26 @@
     "primary": {
       "handBone": "hand.r",
       "slotNode": "handslot.r",
-      "visualNode": "1H_Sword"
+      "visualNode": "1H_Sword",
+      "geometryContract": {
+        "frame": "handslot.r",
+        "vertexCount": 359,
+        "triangleCount": 300,
+        "connectedComponentVertexCounts": [229, 73, 57],
+        "aabbSizeM": [0.503444434, 1.775261521, 0.130633472]
+      }
     },
     "secondary": {
       "handBone": "hand.l",
       "slotNode": "handslot.l",
-      "visualNode": "Round_Shield"
+      "visualNode": "Round_Shield",
+      "geometryContract": {
+        "frame": "handslot.l",
+        "vertexCount": 322,
+        "triangleCount": 284,
+        "connectedComponentVertexCounts": [266, 56],
+        "aabbSizeM": [0.882606864, 0.882607132, 0.331945562]
+      }
     }
   }
 }

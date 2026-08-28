@@ -218,6 +218,234 @@ function distance(a, b) {
   return rounded(Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]));
 }
 
+function transformPoint(matrix, point) {
+  const [x, y, z] = point;
+  return [
+    matrix[0] * x + matrix[4] * y + matrix[8] * z + matrix[12],
+    matrix[1] * x + matrix[5] * y + matrix[9] * z + matrix[13],
+    matrix[2] * x + matrix[6] * y + matrix[10] * z + matrix[14],
+  ];
+}
+
+function dot(a, b) {
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+
+function cross(a, b) {
+  return [a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+}
+
+function normalized(vector) {
+  const length = Math.hypot(...vector);
+  failUnless(length > 1e-12, "cannot normalize a zero-length principal axis");
+  return vector.map((value) => value / length);
+}
+
+function canonicalDirection(vector) {
+  let largest = 0;
+  for (let axis = 1; axis < 3; axis += 1) {
+    if (Math.abs(vector[axis]) > Math.abs(vector[largest])) largest = axis;
+  }
+  return vector[largest] < 0 ? vector.map((value) => -value) : vector;
+}
+
+function principalAxes(points, centroid) {
+  const covariance = Array.from({ length: 3 }, () => Array(3).fill(0));
+  for (const point of points) {
+    const delta = point.map((value, axis) => value - centroid[axis]);
+    for (let row = 0; row < 3; row += 1) {
+      for (let column = 0; column < 3; column += 1) {
+        covariance[row][column] += delta[row] * delta[column] / points.length;
+      }
+    }
+  }
+  const vectors = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+  const pairs = [[0, 1], [0, 2], [1, 2]];
+  for (let iteration = 0; iteration < 64; iteration += 1) {
+    let [p, q] = pairs[0];
+    for (const pair of pairs.slice(1)) {
+      if (Math.abs(covariance[pair[0]][pair[1]]) > Math.abs(covariance[p][q])) [p, q] = pair;
+    }
+    if (Math.abs(covariance[p][q]) <= 1e-15) break;
+    const angle = 0.5 * Math.atan2(2 * covariance[p][q],
+      covariance[q][q] - covariance[p][p]);
+    const cosine = Math.cos(angle);
+    const sine = Math.sin(angle);
+    const rotation = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+    rotation[p][p] = cosine;
+    rotation[q][q] = cosine;
+    rotation[p][q] = sine;
+    rotation[q][p] = -sine;
+    const next = Array.from({ length: 3 }, () => Array(3).fill(0));
+    for (let row = 0; row < 3; row += 1) {
+      for (let column = 0; column < 3; column += 1) {
+        for (let left = 0; left < 3; left += 1) {
+          for (let right = 0; right < 3; right += 1) {
+            next[row][column] += rotation[left][row] * covariance[left][right] *
+              rotation[right][column];
+          }
+        }
+      }
+    }
+    for (let row = 0; row < 3; row += 1) {
+      for (let column = 0; column < 3; column += 1) covariance[row][column] = next[row][column];
+    }
+    for (let row = 0; row < 3; row += 1) {
+      const vp = vectors[row][p];
+      const vq = vectors[row][q];
+      vectors[row][p] = cosine * vp - sine * vq;
+      vectors[row][q] = sine * vp + cosine * vq;
+    }
+  }
+  const ranked = [0, 1, 2].map((index) => ({ eigenvalue: covariance[index][index],
+    direction: canonicalDirection(normalized(vectors.map((row) => row[index]))), index }))
+    .sort((a, b) => b.eigenvalue - a.eigenvalue || a.index - b.index);
+  ranked[2].direction = normalized(cross(ranked[0].direction, ranked[1].direction));
+  return ranked.map(({ eigenvalue, direction }, rank) => {
+    let minProjection = Infinity;
+    let maxProjection = -Infinity;
+    let minVertex;
+    let maxVertex;
+    let maxOrthogonalRadius = 0;
+    for (const point of points) {
+      const projection = dot(point, direction);
+      if (projection < minProjection) { minProjection = projection; minVertex = point; }
+      if (projection > maxProjection) { maxProjection = projection; maxVertex = point; }
+      const delta = point.map((value, axis) => value - centroid[axis]);
+      const axial = dot(delta, direction);
+      const radius = Math.hypot(...delta.map((value, axis) => value - axial * direction[axis]));
+      maxOrthogonalRadius = Math.max(maxOrthogonalRadius, radius);
+    }
+    const centreProjection = dot(centroid, direction);
+    return {
+      rank,
+      directionUnit: roundedArray(direction),
+      varianceM2: rounded(eigenvalue),
+      projectionMinM: rounded(minProjection),
+      projectionMaxM: rounded(maxProjection),
+      spanM: rounded(maxProjection - minProjection),
+      axisLineMinM: roundedArray(centroid.map((value, axis) =>
+        value + (minProjection - centreProjection) * direction[axis])),
+      axisLineMaxM: roundedArray(centroid.map((value, axis) =>
+        value + (maxProjection - centreProjection) * direction[axis])),
+      extremeMinVertexM: roundedArray(minVertex),
+      extremeMaxVertexM: roundedArray(maxVertex),
+      maxOrthogonalRadiusM: rounded(maxOrthogonalRadius),
+    };
+  });
+}
+
+function pointCloudFacts(points) {
+  failUnless(points.length >= 4, "collider point cloud has fewer than four vertices");
+  const min = [Infinity, Infinity, Infinity];
+  const max = [-Infinity, -Infinity, -Infinity];
+  const centroid = [0, 0, 0];
+  for (const point of points) {
+    for (let axis = 0; axis < 3; axis += 1) {
+      min[axis] = Math.min(min[axis], point[axis]);
+      max[axis] = Math.max(max[axis], point[axis]);
+      centroid[axis] += point[axis] / points.length;
+    }
+  }
+  const size = max.map((value, axis) => value - min[axis]);
+  return {
+    aabb: { minM: roundedArray(min), maxM: roundedArray(max),
+      centreM: roundedArray(min.map((value, axis) => (value + max[axis]) / 2)),
+      sizeM: roundedArray(size), halfExtentsM: roundedArray(size.map((value) => value / 2)) },
+    vertexCentroidM: roundedArray(centroid),
+    principalAxes: principalAxes(points, centroid),
+  };
+}
+
+function visualGeometryInSlotFrame(document, bin, nodeName) {
+  const nodes = uniqueByName(document.nodes, "node");
+  const nodeIndex = nodes.get(nodeName);
+  const node = document.nodes[nodeIndex];
+  failUnless(node?.mesh !== undefined, `${nodeName} has no creator mesh`);
+  const slotFromVisual = localMatrix(node);
+  const records = new Map();
+  const triangles = [];
+  for (const primitive of document.meshes[node.mesh].primitives) {
+    failUnless((primitive.mode ?? 4) === 4 && primitive.indices !== undefined,
+      `${nodeName} must contain indexed triangles`);
+    const indices = readIndices(document, bin, primitive.indices);
+    failUnless(indices.length % 3 === 0, `${nodeName} index count is not triangular`);
+    for (let triangle = 0; triangle < indices.length; triangle += 3) {
+      const keys = indices.slice(triangle, triangle + 3).map((vertex) =>
+        `${primitive.attributes.POSITION}:${vertex}`);
+      triangles.push(keys);
+      keys.forEach((key, corner) => {
+        if (!records.has(key)) {
+          const sourcePoint = readItem(document, bin, primitive.attributes.POSITION,
+            indices[triangle + corner]);
+          records.set(key, { sourcePoint,
+            point: transformPoint(slotFromVisual, sourcePoint) });
+        }
+      });
+    }
+  }
+  const keys = [...records.keys()];
+  const parent = new Map(keys.map((key) => [key, key]));
+  const find = (key) => {
+    const direct = parent.get(key);
+    if (direct === key) return key;
+    const root = find(direct);
+    parent.set(key, root);
+    return root;
+  };
+  const union = (left, right) => {
+    const a = find(left);
+    const b = find(right);
+    if (a !== b) parent.set(b, a);
+  };
+  for (const triangle of triangles) {
+    union(triangle[0], triangle[1]);
+    union(triangle[0], triangle[2]);
+  }
+  const samePosition = new Map();
+  for (const [key, { sourcePoint }] of records) {
+    const positionKey = sourcePoint.map((value) => value.toPrecision(17)).join("/");
+    if (samePosition.has(positionKey)) union(key, samePosition.get(positionKey));
+    else samePosition.set(positionKey, key);
+  }
+  const components = new Map();
+  for (const [key, record] of records) {
+    const root = find(key);
+    if (!components.has(root)) components.set(root, { points: [], triangleCount: 0 });
+    components.get(root).points.push(record.point);
+  }
+  for (const triangle of triangles) components.get(find(triangle[0])).triangleCount += 1;
+  const rankedComponents = [...components.values()]
+    .sort((a, b) => b.points.length - a.points.length || b.triangleCount - a.triangleCount)
+    .map((component, index) => ({ index, vertexCount: component.points.length,
+      triangleCount: component.triangleCount, ...pointCloudFacts(component.points) }));
+  const points = [...records.values()].map(({ point }) => point);
+  return {
+    frame: document.nodes[parentIndices(document.nodes)[nodeIndex]].name,
+    derivation: "unique indexed POSITION vertices transformed by the creator visual node local matrix",
+    vertexCount: points.length,
+    triangleCount: triangles.length,
+    ...pointCloudFacts(points),
+    connectedComponents: {
+      derivation: "triangle-index connectivity welded across exactly equal source POSITION values",
+      count: rankedComponents.length,
+      components: rankedComponents,
+    },
+  };
+}
+
+function verifyGeometryContract(geometry, contract, label) {
+  failUnless(geometry.frame === contract.frame, `${label} slot-frame contract moved`);
+  failUnless(geometry.vertexCount === contract.vertexCount, `${label} vertex count contract moved`);
+  failUnless(geometry.triangleCount === contract.triangleCount, `${label} triangle count contract moved`);
+  failUnless(JSON.stringify(geometry.connectedComponents.components.map(({ vertexCount }) => vertexCount)) ===
+    JSON.stringify(contract.connectedComponentVertexCounts),
+  `${label} connected-component contract moved`);
+  failUnless(JSON.stringify(geometry.aabb.sizeM) === JSON.stringify(contract.aabbSizeM),
+    `${label} slot-frame AABB contract moved`);
+}
+
 function nativeBounds(document, bin, bodyNodeNames) {
   const nodes = uniqueByName(document.nodes, "node");
   const min = [Infinity, Infinity, Infinity];
@@ -273,12 +501,19 @@ export function buildProfile(document, bin, manifest) {
   for (const [side, mount] of Object.entries(manifest.weaponMounts)) {
     const handToSlot = localMatrix(document.nodes[nodes.get(mount.slotNode)]);
     const slotToVisual = localMatrix(document.nodes[nodes.get(mount.visualNode)]);
+    const geometryInSlotFrame = visualGeometryInSlotFrame(document, bin, mount.visualNode);
+    verifyGeometryContract(geometryInSlotFrame, mount.geometryContract, mount.visualNode);
     mounts[side] = {
       ...mount,
-      matrixConvention: "glTF column-major; column vectors; parentToChild local transforms",
+      matrixConvention: "glTF column-major, column vectors; XFromY maps Y-frame points into X",
+      handFromSlotMatrix: roundedArray(handToSlot),
+      slotFromVisualMatrix: roundedArray(slotToVisual),
+      handFromVisualMatrix: roundedArray(multiplyMatrix(handToSlot, slotToVisual)),
+      compatibilityAliases: "handToSlotMatrix/slotToVisualMatrix/handToVisualMatrix retain the original field names",
       handToSlotMatrix: roundedArray(handToSlot),
       slotToVisualMatrix: roundedArray(slotToVisual),
       handToVisualMatrix: roundedArray(multiplyMatrix(handToSlot, slotToVisual)),
+      geometryInSlotFrame,
     };
   }
   return {
