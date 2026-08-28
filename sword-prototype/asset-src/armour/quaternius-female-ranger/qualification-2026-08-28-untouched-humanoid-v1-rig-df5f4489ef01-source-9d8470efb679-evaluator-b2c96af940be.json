@@ -1,0 +1,390 @@
+{
+  "schema": 2,
+  "candidateId": "quaternius-female-ranger",
+  "asset": "Quaternius Modular Character Outfits - Fantasy [Standard] / Female_Ranger",
+  "evaluated": "2026-08-28",
+  "contract": "untouched-humanoid-v1",
+  "status": "rejected",
+  "rule": "uniform scale and rigid placement only; no vertex, weight, or proportion edits",
+  "landmarkLimitMm": 25,
+  "sourceHeightM": 1.798047,
+  "uniformScale": 1.001086,
+  "rigidTranslationM": [
+    0,
+    0.003972,
+    0.04575
+  ],
+  "axisMapping": [
+    "+X",
+    "+Y",
+    "+Z"
+  ],
+  "sideMapping": {
+    "primary": [
+      "upperarm_l",
+      "lowerarm_l",
+      "hand_l"
+    ],
+    "secondary": [
+      "upperarm_r",
+      "lowerarm_r",
+      "hand_r"
+    ]
+  },
+  "landmarks": [
+    {
+      "name": "pelvis",
+      "sourceBone": "pelvis",
+      "available": true,
+      "placedM": [
+        0,
+        0.936784,
+        0
+      ],
+      "targetM": [
+        0,
+        0.9,
+        0
+      ],
+      "errorMm": 36.784,
+      "qualified": false
+    },
+    {
+      "name": "waist",
+      "sourceBone": "spine_01",
+      "available": true,
+      "placedM": [
+        0,
+        1.059717,
+        0.030633
+      ],
+      "targetM": [
+        0,
+        1.06,
+        0
+      ],
+      "errorMm": 30.635,
+      "qualified": false
+    },
+    {
+      "name": "head base",
+      "sourceBone": "Head",
+      "available": true,
+      "placedM": [
+        0,
+        1.555255,
+        0.034838
+      ],
+      "targetM": [
+        0,
+        1.55,
+        0
+      ],
+      "errorMm": 35.232,
+      "qualified": false
+    },
+    {
+      "name": "primary shoulder",
+      "sourceBone": "upperarm_l",
+      "available": true,
+      "placedM": [
+        0.151765,
+        1.423612,
+        -0.008609
+      ],
+      "targetM": [
+        0.21,
+        1.42,
+        0.02
+      ],
+      "errorMm": 64.984,
+      "qualified": false
+    },
+    {
+      "name": "secondary shoulder",
+      "sourceBone": "upperarm_r",
+      "available": true,
+      "placedM": [
+        -0.151765,
+        1.423612,
+        -0.008609
+      ],
+      "targetM": [
+        -0.21,
+        1.42,
+        0.02
+      ],
+      "errorMm": 64.984,
+      "qualified": false
+    },
+    {
+      "name": "positive-side hip",
+      "sourceBone": "thigh_l",
+      "available": true,
+      "placedM": [
+        0.111521,
+        0.949097,
+        -0.006107
+      ],
+      "targetM": [
+        0.105,
+        0.9,
+        0
+      ],
+      "errorMm": 49.903,
+      "qualified": false
+    },
+    {
+      "name": "negative-side hip",
+      "sourceBone": "thigh_r",
+      "available": true,
+      "placedM": [
+        -0.111521,
+        0.949097,
+        -0.006107
+      ],
+      "targetM": [
+        -0.105,
+        0.9,
+        0
+      ],
+      "errorMm": 49.903,
+      "qualified": false
+    },
+    {
+      "name": "positive-side ankle",
+      "sourceBone": "foot_l",
+      "available": true,
+      "placedM": [
+        0.111521,
+        0.074748,
+        -0.030834
+      ],
+      "targetM": [
+        0.105,
+        0.04,
+        0
+      ],
+      "errorMm": 46.912,
+      "qualified": false
+    },
+    {
+      "name": "negative-side ankle",
+      "sourceBone": "foot_r",
+      "available": true,
+      "placedM": [
+        -0.111521,
+        0.074748,
+        -0.030834
+      ],
+      "targetM": [
+        -0.105,
+        0.04,
+        0
+      ],
+      "errorMm": 46.912,
+      "qualified": false
+    }
+  ],
+  "limbs": [
+    {
+      "name": "primary arm",
+      "available": true,
+      "sourceLengthsM": [
+        0.240603,
+        0.249575
+      ],
+      "targetLengthsM": [
+        0.3,
+        0.27
+      ],
+      "elbowErrorMm": 59.397,
+      "wristErrorMm": 79.822,
+      "qualified": false
+    },
+    {
+      "name": "secondary arm",
+      "available": true,
+      "sourceLengthsM": [
+        0.240603,
+        0.249575
+      ],
+      "targetLengthsM": [
+        0.28,
+        0.26
+      ],
+      "elbowErrorMm": 39.397,
+      "wristErrorMm": 49.822,
+      "qualified": false
+    },
+    {
+      "name": "left leg",
+      "available": true,
+      "sourceLengthsM": [
+        0.41031,
+        0.466607
+      ],
+      "targetLengthsM": [
+        0.44,
+        0.42
+      ],
+      "elbowErrorMm": 29.69,
+      "wristErrorMm": 16.916,
+      "qualified": false
+    },
+    {
+      "name": "right leg",
+      "available": true,
+      "sourceLengthsM": [
+        0.41031,
+        0.466607
+      ],
+      "targetLengthsM": [
+        0.44,
+        0.42
+      ],
+      "elbowErrorMm": 29.69,
+      "wristErrorMm": 16.916,
+      "qualified": false
+    }
+  ],
+  "fit": {
+    "complete": true,
+    "expectedChecks": 17,
+    "checks": 17,
+    "overLimit": 15,
+    "maxErrorMm": 79.822,
+    "rmsErrorMm": 47.048
+  },
+  "animationCount": 0,
+  "poses": [
+    {
+      "label": "sword grip",
+      "authored": false,
+      "qualified": false,
+      "animation": null,
+      "fingerChannels": 0
+    },
+    {
+      "label": "shield grip",
+      "authored": false,
+      "qualified": false,
+      "animation": null,
+      "fingerChannels": 0
+    }
+  ],
+  "sourceTechnical": {
+    "qualified": true,
+    "authority": "creator-published glTF attributes",
+    "creatorVertices": 24808,
+    "creatorIndices": 80898,
+    "skinJoints": 65,
+    "maxJointIndex": 64,
+    "weightRange": [
+      0,
+      1
+    ],
+    "weightSumRange": [
+      0.999999857,
+      1.000000144
+    ],
+    "inverseBindMatricesFinite": true,
+    "weightNormalizationRequired": false,
+    "failures": []
+  },
+  "severance": {
+    "status": "deferred-after-admission-failure",
+    "sourceSkinJoints": 65,
+    "method": "mechanical triangle partition by dominant mapped source-bone region; no vertex-position authoring",
+    "reason": "A rejected candidate is not installed or cut. Full region coverage is checked only after anatomy and grip admission failure."
+  },
+  "attributeDigests": {
+    "COLOR_0": {
+      "count": 24808,
+      "sha256": "577220de391611f0ae4286bf64b6d8bd76baaae01c9b6d0b72411726569eed5a"
+    },
+    "COLOR_1": {
+      "count": 24808,
+      "sha256": "dc4333e16e7d9d517b121a47b1856c2a6c0f8e1b65023bd407f009bfa5b5c850"
+    },
+    "COLOR_2": {
+      "count": 24808,
+      "sha256": "dc4333e16e7d9d517b121a47b1856c2a6c0f8e1b65023bd407f009bfa5b5c850"
+    },
+    "COLOR_3": {
+      "count": 928,
+      "sha256": "8b01a542147e0975f64f13c177c8f58ceea3992cb32457f819ebb2e506db30a6"
+    },
+    "INDICES": {
+      "count": 80898,
+      "sha256": "c120fcaf0388060e71366277bf8cc782dff0b204443a4e479e32ec1823716143"
+    },
+    "JOINTS_0": {
+      "count": 24808,
+      "sha256": "ab964071949eb8a201d91c6a96734baf0d0c2cda1c7d2a74a7e0be442056a3f7"
+    },
+    "NORMAL": {
+      "count": 24808,
+      "sha256": "5e727ddb90af9b9df9328d9de5860b4b72c28127426cb3130b0e77c0ac411529"
+    },
+    "POSITION": {
+      "count": 24808,
+      "sha256": "3835242dc9711393286ab0194fd54719e509a81c1b0ca2ce30f187d041ce05a2"
+    },
+    "TEXCOORD_0": {
+      "count": 24808,
+      "sha256": "62028dece3e006ee3dc5ec7c7132e330fd352ce48e75b9279e3f29799e752b81"
+    },
+    "WEIGHTS_0": {
+      "count": 24808,
+      "sha256": "bb7c92e2760abd4ad075ab4019dd1eef9211ff7160e4a75fad081474db18d13d"
+    }
+  },
+  "structureDigests": {
+    "SKELETON": "77abed2b22f63aba82b1761b68a5bc385cb0838d049bf5afe641276e28134c89",
+    "MATERIALS": "bad7046a544346dbcfd9138f0810e4eaa2eee039975d4825f5c4e508c54fe8dc"
+  },
+  "integrity": {
+    "ok": true,
+    "sourceId": "quaternius-modular-character-outfits-fantasy-standard-2026",
+    "sourceMember": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/Female_Ranger.gltf",
+    "sourceMemberSha256": "9b98b2ae6af3b4a1ec22bf8928b939e0751f08b25b636de82bfa7364fb34d3e1",
+    "sourceMemberSha256Actual": "9b98b2ae6af3b4a1ec22bf8928b939e0751f08b25b636de82bfa7364fb34d3e1",
+    "binaryMember": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/Female_Ranger.bin",
+    "binaryMemberSha256": "d015964ba0a26eee9c9d2ea6f07aa660bba88aa536cf8bb6b67944b9e97c46df",
+    "binaryMemberSha256Actual": "d015964ba0a26eee9c9d2ea6f07aa660bba88aa536cf8bb6b67944b9e97c46df",
+    "archiveSha256": "c3468b18871cc8c8f05ab14df7712baf22cb9f389cbd870babf130e595187f70",
+    "representation": {
+      "female-ranger-source.gltf": "00e1af8c6419561b6fec25ed83d0ded8bf0dc805ff8186b066ece097a1d64adf",
+      "female-ranger-source.bin": "d015964ba0a26eee9c9d2ea6f07aa660bba88aa536cf8bb6b67944b9e97c46df"
+    },
+    "sourceInputSha256": "9d8470efb67901ed5ab651c3f363f328e433d06fcc2cef688a88148090c72101",
+    "rig": {
+      "path": "asset-src/dimensions.json",
+      "sha256": "df5f4489ef014fb147fb494b8e9496355ff59111384737b2902e2818bbb93580"
+    },
+    "evaluator": {
+      "path": "scripts/qualify-humanoid.mjs",
+      "sha256": "b2c96af940be602a19d77572b80d6bd59fae3ad221aee5547d7148f84f43c99f"
+    },
+    "failures": []
+  },
+  "failures": [
+    "pelvis misses the 25 mm 3D landmark limit: 36.784 mm",
+    "waist misses the 25 mm 3D landmark limit: 30.635 mm",
+    "head base misses the 25 mm 3D landmark limit: 35.232 mm",
+    "primary shoulder misses the 25 mm 3D landmark limit: 64.984 mm",
+    "secondary shoulder misses the 25 mm 3D landmark limit: 64.984 mm",
+    "positive-side hip misses the 25 mm 3D landmark limit: 49.903 mm",
+    "negative-side hip misses the 25 mm 3D landmark limit: 49.903 mm",
+    "positive-side ankle misses the 25 mm 3D landmark limit: 46.912 mm",
+    "negative-side ankle misses the 25 mm 3D landmark limit: 46.912 mm",
+    "primary arm misses the 25 mm landmark limit: elbow/knee 59.397 mm, wrist/ankle 79.822 mm",
+    "secondary arm misses the 25 mm landmark limit: elbow/knee 39.397 mm, wrist/ankle 49.822 mm",
+    "left leg misses the 25 mm landmark limit: elbow/knee 29.69 mm, wrist/ankle 16.916 mm",
+    "right leg misses the 25 mm landmark limit: elbow/knee 29.69 mm, wrist/ankle 16.916 mm",
+    "source contains no qualifying creator-authored sword grip with finger channels",
+    "source contains no qualifying creator-authored shield grip with finger channels"
+  ],
+  "decision": "Do not install, stretch, retarget, or silently substitute this asset. Keep the current shipping Warrior until the user authorizes a physics-rig change or chooses another qualified asset family."
+}

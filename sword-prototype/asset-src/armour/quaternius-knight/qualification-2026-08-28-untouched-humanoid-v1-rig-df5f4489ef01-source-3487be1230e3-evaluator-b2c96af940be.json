@@ -1,0 +1,404 @@
+{
+  "schema": 2,
+  "candidateId": "quaternius-animated-knight",
+  "asset": "Quaternius Animated Knight Pack / KnightCharacter",
+  "evaluated": "2026-08-28",
+  "contract": "untouched-humanoid-v1",
+  "status": "rejected",
+  "rule": "uniform scale and rigid placement only; no vertex, weight, or proportion edits",
+  "landmarkLimitMm": 25,
+  "sourceHeightM": 5.598826,
+  "uniformScale": 0.321496,
+  "rigidTranslationM": [
+    0,
+    0.000569,
+    0
+  ],
+  "axisMapping": [
+    "+X",
+    "+Z",
+    "-Y"
+  ],
+  "sideMapping": {
+    "primary": [
+      "UpperArm.L",
+      "LowerArm.L",
+      "Palm.L"
+    ],
+    "secondary": [
+      "UpperArm.R",
+      "LowerArm.R",
+      "Palm.R"
+    ]
+  },
+  "landmarks": [
+    {
+      "name": "pelvis",
+      "sourceBone": "Hips",
+      "available": true,
+      "placedM": [
+        0,
+        0.630231,
+        0
+      ],
+      "targetM": [
+        0,
+        0.9,
+        0
+      ],
+      "errorMm": 269.769,
+      "qualified": false
+    },
+    {
+      "name": "waist",
+      "sourceBone": "Abdomen",
+      "available": true,
+      "placedM": [
+        0,
+        0.754204,
+        -0.02497
+      ],
+      "targetM": [
+        0,
+        1.06,
+        0
+      ],
+      "errorMm": 306.814,
+      "qualified": false
+    },
+    {
+      "name": "head base",
+      "sourceBone": "Head",
+      "available": true,
+      "placedM": [
+        0,
+        1.325731,
+        -0.003441
+      ],
+      "targetM": [
+        0,
+        1.55,
+        0
+      ],
+      "errorMm": 224.295,
+      "qualified": false
+    },
+    {
+      "name": "primary shoulder",
+      "sourceBone": "UpperArm.L",
+      "available": true,
+      "placedM": [
+        0.201486,
+        1.194658,
+        -0.041428
+      ],
+      "targetM": [
+        0.21,
+        1.42,
+        0.02
+      ],
+      "errorMm": 233.719,
+      "qualified": false
+    },
+    {
+      "name": "secondary shoulder",
+      "sourceBone": "UpperArm.R",
+      "available": true,
+      "placedM": [
+        -0.203019,
+        1.194772,
+        -0.039117
+      ],
+      "targetM": [
+        -0.21,
+        1.42,
+        0.02
+      ],
+      "errorMm": 232.962,
+      "qualified": false
+    },
+    {
+      "name": "positive-side hip",
+      "sourceBone": "UpperLeg.L",
+      "available": true,
+      "placedM": [
+        0.169889,
+        0.560286,
+        -0.022469
+      ],
+      "targetM": [
+        0.105,
+        0.9,
+        0
+      ],
+      "errorMm": 346.585,
+      "qualified": false
+    },
+    {
+      "name": "negative-side hip",
+      "sourceBone": "UpperLeg.R",
+      "available": true,
+      "placedM": [
+        -0.172812,
+        0.590539,
+        -0.022469
+      ],
+      "targetM": [
+        -0.105,
+        0.9,
+        0
+      ],
+      "errorMm": 317.599,
+      "qualified": false
+    },
+    {
+      "name": "positive-side ankle",
+      "sourceBone": "Foot.L",
+      "available": true,
+      "placedM": [
+        0.170928,
+        0.008508,
+        -0.044377
+      ],
+      "targetM": [
+        0.105,
+        0.04,
+        0
+      ],
+      "errorMm": 85.484,
+      "qualified": false
+    },
+    {
+      "name": "negative-side ankle",
+      "sourceBone": "Foot.R",
+      "available": true,
+      "placedM": [
+        -0.171774,
+        0.008508,
+        -0.044377
+      ],
+      "targetM": [
+        -0.105,
+        0.04,
+        0
+      ],
+      "errorMm": 86.139,
+      "qualified": false
+    }
+  ],
+  "limbs": [
+    {
+      "name": "primary arm",
+      "available": true,
+      "sourceLengthsM": [
+        0.326467,
+        0.352334
+      ],
+      "targetLengthsM": [
+        0.3,
+        0.27
+      ],
+      "elbowErrorMm": 26.467,
+      "wristErrorMm": 108.802,
+      "qualified": false
+    },
+    {
+      "name": "secondary arm",
+      "available": true,
+      "sourceLengthsM": [
+        0.299845,
+        0.379108
+      ],
+      "targetLengthsM": [
+        0.28,
+        0.26
+      ],
+      "elbowErrorMm": 19.845,
+      "wristErrorMm": 138.952,
+      "qualified": false
+    },
+    {
+      "name": "left leg",
+      "available": true,
+      "sourceLengthsM": [
+        0.304432,
+        0.257445
+      ],
+      "targetLengthsM": [
+        0.44,
+        0.42
+      ],
+      "elbowErrorMm": 135.568,
+      "wristErrorMm": 298.123,
+      "qualified": false
+    },
+    {
+      "name": "right leg",
+      "available": true,
+      "sourceLengthsM": [
+        0.304432,
+        0.28691
+      ],
+      "targetLengthsM": [
+        0.44,
+        0.42
+      ],
+      "elbowErrorMm": 135.568,
+      "wristErrorMm": 268.658,
+      "qualified": false
+    }
+  ],
+  "fit": {
+    "complete": true,
+    "expectedChecks": 17,
+    "checks": 17,
+    "overLimit": 16,
+    "maxErrorMm": 346.585,
+    "rmsErrorMm": 215.827
+  },
+  "animationCount": 12,
+  "poses": [
+    {
+      "label": "sword grip",
+      "authored": true,
+      "qualified": false,
+      "animation": "Idle_swordLeft",
+      "fingerChannels": 2,
+      "controls": [
+        "Fingers.L",
+        "Thumb.R",
+        "Thumb2.R"
+      ]
+    },
+    {
+      "label": "shield grip",
+      "authored": false,
+      "qualified": false,
+      "animation": null,
+      "fingerChannels": 0,
+      "controls": [
+        "Fingers.R",
+        "Thumb.L",
+        "Thumb2.L"
+      ]
+    }
+  ],
+  "sourceTechnical": {
+    "qualified": false,
+    "authority": "read-only measurements from the untouched creator blend member",
+    "blenderVersion": "4.5.12 LTS",
+    "creatorVertices": 480,
+    "creatorPolygons": 551,
+    "maxInfluences": 6,
+    "verticesOverFourInfluences": 31,
+    "weightsOverOne": [
+      {
+        "group": 9,
+        "vertex": 148,
+        "weight": 1.0007268190383911
+      },
+      {
+        "group": 17,
+        "vertex": 399,
+        "weight": 1.000840425491333
+      }
+    ],
+    "weightNormalizationRequired": true,
+    "failures": [
+      "creator mesh contains 2 skin weights over 1; browser-format export normalizes them and cannot preserve literal creator weights"
+    ]
+  },
+  "severance": {
+    "status": "deferred-after-admission-failure",
+    "sourceSkinJoints": 31,
+    "method": "mechanical triangle partition by dominant mapped source-bone region; no vertex-position authoring",
+    "reason": "A rejected candidate is not installed or cut. Full region coverage is checked only after anatomy and grip admission failure."
+  },
+  "attributeDigests": {
+    "INDICES": {
+      "count": 2868,
+      "sha256": "cc84fca909ce5680495562bfb73b1dc1a67a6dd8f27a16d7f2b792ba1a65f1a0"
+    },
+    "JOINTS_0": {
+      "count": 2058,
+      "sha256": "fd49226d76ee323f1af6edaf5b4de6a7f87e6354977111af268dd9fc704a98f6"
+    },
+    "JOINTS_1": {
+      "count": 2058,
+      "sha256": "36d82a8cead656841b0c41d4ccaa40aed4c997843085cad0426bfc0e88510acf"
+    },
+    "NORMAL": {
+      "count": 2058,
+      "sha256": "d606af7db56441c4cb225658a67f34fce36def872af2147256c2b4051a5f0ede"
+    },
+    "POSITION": {
+      "count": 2058,
+      "sha256": "aed27112c2aeef7fbaf6f1e61585bbd1120c4f16f9883156714d4a34c21ff18c"
+    },
+    "TEXCOORD_0": {
+      "count": 2058,
+      "sha256": "1e5d2df732bdbdd5dcd165df5b3c3855aab5c891aa3a313da5b7f29aacef449f"
+    },
+    "TEXCOORD_1": {
+      "count": 2058,
+      "sha256": "1e5d2df732bdbdd5dcd165df5b3c3855aab5c891aa3a313da5b7f29aacef449f"
+    },
+    "WEIGHTS_0": {
+      "count": 2058,
+      "sha256": "dffd670612f20ec326d495d92c17e539ce00a2eceb29d899a078aa5f38f6781e"
+    },
+    "WEIGHTS_1": {
+      "count": 2058,
+      "sha256": "667ef58dff4b862ab0679a0f3b8ad23746be32000767ea03a6d81f5c10c70fa8"
+    }
+  },
+  "structureDigests": {
+    "SKELETON": "0acc14b170f13f407d89e294e6aac97403fe7873b6ed2ada316f20b8d97936d3",
+    "MATERIALS": "5b26365ebab88f25ec627ac22f651e037cb97a3b437c1d9fdf9c932a356e8657"
+  },
+  "integrity": {
+    "ok": true,
+    "sourceId": "quaternius-animated-knight-2018",
+    "sourceMember": "Knight Character by @Quaternius/Blends/KnightCharacter.blend",
+    "sourceMemberSha256": "edc8036644626dbe20fbf2d2bd3b046688496962c0dacc516b3ea78f519a35e9",
+    "sourceMemberSha256Actual": "edc8036644626dbe20fbf2d2bd3b046688496962c0dacc516b3ea78f519a35e9",
+    "binaryMember": null,
+    "binaryMemberSha256": null,
+    "binaryMemberSha256Actual": null,
+    "archiveSha256": "36aed14d0e27282bd006982e00206a852b1d8c00fc72f95c2437d9b4b5dccdb9",
+    "representation": {
+      "knight-source.gltf": "b945051f9c9020597865e67420d6bf0943b49f99bf48c8f3ef692351b094e5a4",
+      "knight-source.bin": "6bb575a201d92be6579049b847d1499635bfa5faaa17075938192c6965de96fe",
+      "knight-source-metadata.json": "035ce50c7176df62dccd1e9de63da8d319e1fe4b9a952e65458f55e46682f7c3"
+    },
+    "sourceInputSha256": "3487be1230e322b9c44d9e47945824ebf9778bc58ed0847a816517b717285e89",
+    "rig": {
+      "path": "asset-src/dimensions.json",
+      "sha256": "df5f4489ef014fb147fb494b8e9496355ff59111384737b2902e2818bbb93580"
+    },
+    "evaluator": {
+      "path": "scripts/qualify-humanoid.mjs",
+      "sha256": "b2c96af940be602a19d77572b80d6bd59fae3ad221aee5547d7148f84f43c99f"
+    },
+    "failures": []
+  },
+  "failures": [
+    "pelvis misses the 25 mm 3D landmark limit: 269.769 mm",
+    "waist misses the 25 mm 3D landmark limit: 306.814 mm",
+    "head base misses the 25 mm 3D landmark limit: 224.295 mm",
+    "primary shoulder misses the 25 mm 3D landmark limit: 233.719 mm",
+    "secondary shoulder misses the 25 mm 3D landmark limit: 232.962 mm",
+    "positive-side hip misses the 25 mm 3D landmark limit: 346.585 mm",
+    "negative-side hip misses the 25 mm 3D landmark limit: 317.599 mm",
+    "positive-side ankle misses the 25 mm 3D landmark limit: 85.484 mm",
+    "negative-side ankle misses the 25 mm 3D landmark limit: 86.139 mm",
+    "primary arm misses the 25 mm landmark limit: elbow/knee 26.467 mm, wrist/ankle 108.802 mm",
+    "secondary arm misses the 25 mm landmark limit: elbow/knee 19.845 mm, wrist/ankle 138.952 mm",
+    "left leg misses the 25 mm landmark limit: elbow/knee 135.568 mm, wrist/ankle 298.123 mm",
+    "right leg misses the 25 mm landmark limit: elbow/knee 135.568 mm, wrist/ankle 268.658 mm",
+    "source contains no qualifying creator-authored sword grip with finger channels",
+    "source contains no qualifying creator-authored shield grip with finger channels",
+    "creator mesh contains 2 skin weights over 1; browser-format export normalizes them and cannot preserve literal creator weights"
+  ],
+  "decision": "Do not install, stretch, retarget, or silently substitute this asset. Keep the current shipping Warrior until the user authorizes a physics-rig change or chooses another qualified asset family."
+}

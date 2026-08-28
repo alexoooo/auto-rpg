@@ -5,8 +5,8 @@ import { dirname, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { LANDMARK_LIMIT_MM, attributeDigests, qualifyHumanoidDocument,
-  qualifyHumanoidCandidate, qualifySelectedHumanoid, reportPathFor,
+import { HUMANOID_PROFILES, LANDMARK_LIMIT_MM, attributeDigests, qualifyHumanoidDocument,
+  qualifyHumanoidCandidate, qualifySelectedHumanoid, reportPathFor, requireSeveranceAdmission,
   structureDigests } from "../scripts/qualify-humanoid.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -21,6 +21,21 @@ const HISTORICAL_EVALUATIONS = Object.freeze([
     candidateId: "quaternius-animated-knight",
     id: "2026-08-28-untouched-humanoid-v1-rig-df5f4489ef01-source-3487be1230e3-evaluator-0512551c9118",
     reportSha256: "8672ebd44097bf950d26ca38832010ade902007278efccc52d6dbe93d6ff81d2",
+  },
+  {
+    candidateId: "quaternius-male-ranger",
+    id: "2026-08-27-untouched-humanoid-v1-rig-df5f4489ef01-source-55451f9bb52d-evaluator-b2c96af940be",
+    reportSha256: "f8a5eaad34d62fcf943913dd499550ac2f2ad55107a145022b26dc48e0aa7ca1",
+  },
+  {
+    candidateId: "quaternius-animated-knight",
+    id: "2026-08-28-untouched-humanoid-v1-rig-df5f4489ef01-source-3487be1230e3-evaluator-b2c96af940be",
+    reportSha256: "1470a4b7bec1ec56301f771c38a436d711ee86f9bd27e6e35424b59ed0f6b1ca",
+  },
+  {
+    candidateId: "quaternius-female-ranger",
+    id: "2026-08-28-untouched-humanoid-v1-rig-df5f4489ef01-source-9d8470efb679-evaluator-b2c96af940be",
+    reportSha256: "8d961ea021358f896c74c8d7227c6abf72395f8e466ea16599eeb1a733a9c00f",
   },
 ]);
 const HISTORICAL_LEGACY_REPORT = Object.freeze({
@@ -60,6 +75,141 @@ test("the_untouched_animated_knight_is_measured_from_its_creator_blend_and_rejec
   assert.equal(report.poses.find((pose) => pose.label === "shield grip").authored, false);
   assert.equal(report.sourceTechnical.weightNormalizationRequired, true);
   assert.deepEqual(recorded, report, "the Knight rejection report must remain executable evidence");
+});
+
+test("the_untouched_female_ranger_is_rejected_but_becomes_the_closest_geometry", async () => {
+  const report = await qualifyHumanoidCandidate("quaternius-female-ranger", ROOT);
+  const recorded = JSON.parse(await readFile(resolve(ROOT, reportPathFor(report)), "utf8"));
+  assert.equal(report.status, "rejected");
+  assert.equal(report.integrity.ok, true, report.integrity.failures.join("\n"));
+  assert.equal(report.sourceHeightM, 1.798047);
+  assert.equal(report.uniformScale, 1.001086);
+  assert.deepEqual(report.axisMapping, ["+X", "+Y", "+Z"]);
+  assert.deepEqual(report.sideMapping.primary, ["upperarm_l", "lowerarm_l", "hand_l"]);
+  assert.deepEqual(report.sideMapping.secondary, ["upperarm_r", "lowerarm_r", "hand_r"]);
+  assert.deepEqual(report.fit, { complete: true, expectedChecks: 17, checks: 17,
+    overLimit: 15, maxErrorMm: 79.822, rmsErrorMm: 47.048 });
+  assert.equal(report.animationCount, 0);
+  assert.deepEqual(report.poses.map(({ authored, qualified }) => ({ authored, qualified })), [
+    { authored: false, qualified: false }, { authored: false, qualified: false },
+  ]);
+  assert.deepEqual(report.sourceTechnical, {
+    qualified: true,
+    authority: "creator-published glTF attributes",
+    creatorVertices: 24808,
+    creatorIndices: 80898,
+    skinJoints: 65,
+    maxJointIndex: 64,
+    weightRange: [0, 1],
+    weightSumRange: [0.999999857, 1.000000144],
+    inverseBindMatricesFinite: true,
+    weightNormalizationRequired: false,
+    failures: [],
+  });
+  assert.deepEqual(recorded, report, "the Female Ranger rejection must remain executable evidence");
+});
+
+test("the_generic_gltf_gate_decodes_skin_values_instead_of_assuming_their_validity", async () => {
+  const original = JSON.parse(await readFile(resolve(ROOT,
+    "asset-src/armour/quaternius-female-ranger/female-ranger-source.gltf"), "utf8"));
+  const source = await readFile(resolve(ROOT,
+    "asset-src/armour/quaternius-female-ranger/female-ranger-source.bin"));
+  const dimensions = JSON.parse(await readFile(resolve(ROOT, "asset-src/dimensions.json"), "utf8"));
+  const profile = HUMANOID_PROFILES["quaternius-female-ranger"];
+  const firstPrimitive = original.meshes[0].primitives[0];
+  const offsetOf = (document, accessorIndex, component = 0) => {
+    const accessor = document.accessors[accessorIndex];
+    const view = document.bufferViews[accessor.bufferView];
+    const bytes = accessor.componentType === 5121 ? 1 : accessor.componentType === 5123 ? 2 : 4;
+    return (view.byteOffset ?? 0) + (accessor.byteOffset ?? 0) + component * bytes;
+  };
+
+  const badJoint = Buffer.from(source);
+  const jointAccessor = original.accessors[firstPrimitive.attributes.JOINTS_0];
+  const jointOffset = offsetOf(original, firstPrimitive.attributes.JOINTS_0);
+  if (jointAccessor.componentType === 5121) badJoint.writeUInt8(255, jointOffset);
+  else badJoint.writeUInt16LE(65535, jointOffset);
+  assert.ok(qualifyHumanoidDocument(original, badJoint, dimensions, null, profile).sourceTechnical.failures
+    .includes("creator joint indices exceed the active skin palette"));
+
+  const badIndex = Buffer.from(source);
+  const indexAccessor = original.accessors[firstPrimitive.indices];
+  const indexOffset = offsetOf(original, firstPrimitive.indices);
+  const invalidIndex = original.accessors[firstPrimitive.attributes.POSITION].count;
+  if (indexAccessor.componentType === 5121) badIndex.writeUInt8(invalidIndex, indexOffset);
+  else if (indexAccessor.componentType === 5123) badIndex.writeUInt16LE(invalidIndex, indexOffset);
+  else badIndex.writeUInt32LE(invalidIndex, indexOffset);
+  assert.ok(qualifyHumanoidDocument(original, badIndex, dimensions, null, profile).sourceTechnical.failures
+    .includes("creator triangle indices exceed their primitive vertex count"));
+
+  const badWeights = Buffer.from(source);
+  const weightOffset = offsetOf(original, firstPrimitive.attributes.WEIGHTS_0);
+  badWeights.writeUInt32LE(0x7fc00000, weightOffset);
+  const weightReport = qualifyHumanoidDocument(original, badWeights, dimensions, null, profile);
+  assert.ok(weightReport.sourceTechnical.failures.includes("creator skin weights contain non-finite values"));
+  assert.equal(weightReport.sourceTechnical.qualified, false);
+
+  const zeroWeights = Buffer.from(source);
+  for (let influence = 0; influence < 4; influence += 1) zeroWeights.writeFloatLE(0, weightOffset + influence * 4);
+  assert.ok(qualifyHumanoidDocument(original, zeroWeights, dimensions, null, profile).sourceTechnical.failures
+    .includes("creator four-influence weight sums differ from 1 by more than 0.001"));
+
+  const badMatrices = structuredClone(original);
+  badMatrices.accessors[badMatrices.skins[0].inverseBindMatrices].count -= 1;
+  assert.ok(qualifyHumanoidDocument(badMatrices, source, dimensions, null, profile).sourceTechnical.failures
+    .includes("creator inverse-bind matrix layout disagrees with its skin"));
+
+  const extraInfluences = structuredClone(original);
+  extraInfluences.meshes[0].primitives[0].attributes.JOINTS_1 = firstPrimitive.attributes.JOINTS_0;
+  extraInfluences.meshes[0].primitives[0].attributes.WEIGHTS_1 = firstPrimitive.attributes.WEIGHTS_0;
+  assert.ok(qualifyHumanoidDocument(extraInfluences, source, dimensions, null, profile).sourceTechnical.failures
+    .includes("generic creator glTF uses skin influence sets beyond JOINTS_0/WEIGHTS_0"));
+});
+
+test("profile_labels_and_unreachable_accessor_bounds_cannot_silently_change_the_fit", async () => {
+  const original = JSON.parse(await readFile(resolve(ROOT,
+    "asset-src/armour/quaternius-female-ranger/female-ranger-source.gltf"), "utf8"));
+  const binary = await readFile(resolve(ROOT,
+    "asset-src/armour/quaternius-female-ranger/female-ranger-source.bin"));
+  const dimensions = JSON.parse(await readFile(resolve(ROOT, "asset-src/dimensions.json"), "utf8"));
+  const profile = HUMANOID_PROFILES["quaternius-female-ranger"];
+  const control = qualifyHumanoidDocument(original, binary, dimensions, null, profile);
+
+  const decoy = structuredClone(original);
+  const copiedMesh = structuredClone(decoy.meshes[0]);
+  const positionAccessor = decoy.accessors[copiedMesh.primitives[0].attributes.POSITION];
+  positionAccessor.min[1] = -999;
+  positionAccessor.max[1] = 999;
+  decoy.meshes.push(copiedMesh);
+  const decoyReport = qualifyHumanoidDocument(decoy, binary, dimensions, null, profile);
+  assert.equal(decoyReport.sourceHeightM, control.sourceHeightM);
+  assert.deepEqual(decoyReport.fit, control.fit);
+
+  const falseAxis = structuredClone(profile);
+  falseAxis.axisMapping = ["+X", "+Z", "-Y"];
+  assert.ok(qualifyHumanoidDocument(original, binary, dimensions, null, falseAxis).failures.includes(
+    "generic glTF profile declares a non-identity axis mapping that the evaluator cannot execute"));
+  const crossedSides = structuredClone(profile);
+  crossedSides.landmarks.primaryShoulder = "upperarm_r";
+  assert.ok(qualifyHumanoidDocument(original, binary, dimensions, null, crossedSides).failures.some((failure) =>
+    failure.includes("primary shoulder profile landmark")));
+  const missingFeet = structuredClone(profile);
+  missingFeet.requiredMeshes = missingFeet.requiredMeshes.filter((name) => name !== "Female_Ranger_Feet");
+  const missingFeetReport = qualifyHumanoidDocument(original, binary, dimensions, null, missingFeet);
+  assert.ok(missingFeetReport.failures.includes("profile omits active skinned mesh Female_Ranger_Feet"));
+  assert.equal(missingFeetReport.sourceHeightM, control.sourceHeightM,
+    "profile omissions cannot alter rejected-candidate ranking measurements");
+});
+
+test("an_otherwise_clean_candidate_cannot_qualify_while_severance_is_deferred", () => {
+  const failures = [];
+  requireSeveranceAdmission(failures, { status: "deferred-after-admission-failure" });
+  assert.deepEqual(failures, [
+    "severance compatibility has not been admitted for this otherwise-qualified source",
+  ]);
+  const admitted = [];
+  requireSeveranceAdmission(admitted, { status: "qualified" });
+  assert.deepEqual(admitted, []);
 });
 
 test("the_candidate_ledger_preserves_every_evaluation_and_derives_its_comparison", async () => {
@@ -106,6 +256,10 @@ test("the_candidate_ledger_preserves_every_evaluation_and_derives_its_comparison
     }
     assert.ok(candidate.sourceFiles.some((file) => file.sha256 === sourceCandidate.sourceMemberSha256),
       `${candidate.id} does not commit its exact creator member`);
+    if (sourceCandidate.binaryMemberSha256) {
+      assert.ok(candidate.sourceFiles.some((file) => file.sha256 === sourceCandidate.binaryMemberSha256),
+        `${candidate.id} does not commit its exact creator binary member`);
+    }
     for (const legacy of candidate.legacyReports ?? []) {
       assert.match(legacy.sha256, /^[0-9a-f]{64}$/);
       const bytes = await readFile(resolve(ROOT, legacy.path));
@@ -127,6 +281,7 @@ test("the_candidate_ledger_preserves_every_evaluation_and_derives_its_comparison
       assert.equal(report.integrity.evaluator.sha256, evaluation.evaluatorSha256);
       assert.equal(report.integrity.sourceInputSha256, evaluation.sourceInputSha256);
       assert.equal(report.integrity.sourceMemberSha256Actual, report.integrity.sourceMemberSha256);
+      assert.equal(report.integrity.binaryMemberSha256Actual, report.integrity.binaryMemberSha256);
       assert.equal(report.status, evaluation.status);
       assert.equal(report.integrity.ok, evaluation.integrityOk);
       assert.equal(report.sourceTechnical.qualified, evaluation.sourceTechnicalOk);
@@ -151,7 +306,8 @@ test("the_candidate_ledger_preserves_every_evaluation_and_derives_its_comparison
       if ("swordGripQualified" in evaluation.authoredPoses) assert.equal(evaluation.authoredPoses.swordGripQualified, sword.qualified);
       assert.equal(evaluation.authoredPoses.shieldGrip, shield.qualified);
       if (evaluation.contract === ledger.comparison.contract &&
-          evaluation.rig.sha256 === ledger.comparison.rigSha256 && report.fit.complete) {
+          evaluation.rig.sha256 === ledger.comparison.rigSha256 &&
+          evaluation.evaluatorSha256 === ledger.comparison.evaluatorSha256 && report.fit.complete) {
         ranked.push({ id: candidate.id, eligible: report.status === "qualified",
           max: report.fit.maxErrorMm, rms: report.fit.rmsErrorMm });
       }
@@ -160,6 +316,23 @@ test("the_candidate_ledger_preserves_every_evaluation_and_derives_its_comparison
   ranked.sort((a, b) => Number(b.eligible) - Number(a.eligible) || a.max - b.max || a.rms - b.rms);
   assert.equal(ledger.comparison.closestGeometrySoFar, ranked[0]?.id ?? null);
   assert.equal(ledger.comparison.qualifiedCandidate, ranked[0]?.eligible ? ranked[0].id : null);
+});
+
+test("the_closest_geometry_boundary_is_female_then_male_and_not_a_qualification", async () => {
+  const ledger = JSON.parse(await readFile(resolve(ROOT, "asset-src/humanoid-candidates.json"), "utf8"));
+  const latest = (id) => ledger.candidates.find((candidate) => candidate.id === id).evaluations.at(-1);
+  const male = latest("quaternius-male-ranger");
+  const female = latest("quaternius-female-ranger");
+  const closest = (rows) => [...rows].filter((row) => row.fit.complete)
+    .sort((a, b) => Number(b.status === "qualified") - Number(a.status === "qualified")
+      || a.fit.maxErrorMm - b.fit.maxErrorMm || a.fit.rmsErrorMm - b.fit.rmsErrorMm)[0];
+  assert.equal(closest([male, female]), female);
+  const movedPastMale = structuredClone(female);
+  movedPastMale.fit.maxErrorMm = male.fit.maxErrorMm + 0.001;
+  assert.equal(closest([male, movedPastMale]), male,
+    "the comparison test must fail in the direction that would erase the Female result");
+  assert.equal(ledger.comparison.closestGeometrySoFar, "quaternius-female-ranger");
+  assert.equal(ledger.comparison.qualifiedCandidate, null);
 });
 
 test("the_source_attribute_digest_changes_when_even_one_weight_byte_moves", async () => {

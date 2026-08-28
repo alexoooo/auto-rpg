@@ -46,11 +46,26 @@
           "id": "quaternius-male-ranger",
           "sourceMember": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/Male_Ranger.gltf",
           "sourceMemberSha256": "e1033a212332d84d98c19bc4927c621635478d0aa15d13c79da68d3ba9e0196f",
+          "binaryMember": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/Male_Ranger.bin",
+          "binaryMemberSha256": "5bbb0d42cb324c6c27ce00417e68a876d92978f07d161f83590f0d7c0570eff6",
           "extractRoot": "asset-src/armour/quaternius-ranger",
           "extracts": {
             "ranger-creator.gltf": "e1033a212332d84d98c19bc4927c621635478d0aa15d13c79da68d3ba9e0196f",
             "ranger-source.gltf": "9647969f306ca905a4be7fd0903e55ad6db35a30d4ed8ad77758d53d61ad11b8",
             "ranger-source.bin": "5bbb0d42cb324c6c27ce00417e68a876d92978f07d161f83590f0d7c0570eff6"
+          }
+        },
+        {
+          "id": "quaternius-female-ranger",
+          "sourceMember": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/Female_Ranger.gltf",
+          "sourceMemberSha256": "9b98b2ae6af3b4a1ec22bf8928b939e0751f08b25b636de82bfa7364fb34d3e1",
+          "binaryMember": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/Female_Ranger.bin",
+          "binaryMemberSha256": "d015964ba0a26eee9c9d2ea6f07aa660bba88aa536cf8bb6b67944b9e97c46df",
+          "extractRoot": "asset-src/armour/quaternius-female-ranger",
+          "extracts": {
+            "female-ranger-creator.gltf": "9b98b2ae6af3b4a1ec22bf8928b939e0751f08b25b636de82bfa7364fb34d3e1",
+            "female-ranger-source.gltf": "00e1af8c6419561b6fec25ed83d0ded8bf0dc805ff8186b066ece097a1d64adf",
+            "female-ranger-source.bin": "d015964ba0a26eee9c9d2ea6f07aa660bba88aa536cf8bb6b67944b9e97c46df"
           }
         }
       ],

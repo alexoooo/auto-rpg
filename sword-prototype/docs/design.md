@@ -1300,6 +1300,23 @@ maximum error and lower RMS error, while retaining weapon-arm reach and grip sup
 combat reach to match an art asset remains a gameplay decision, not an asset-pipeline
 convenience.
 
+The qualifier executes rather than merely labels the coordinate contract. Creator glTF profiles
+are identity-axis only because their root already carries the format conversion; the Knight's
+non-identity mapping is applied while reading its authoritative blend metadata. Shoulder and limb,
+hip and leg, and ankle and leg-end declarations must agree, with the primary source shoulder on
+positive X. Height is decoded from transformed vertices of the profile's required active meshes,
+so an unreachable mesh or forged accessor bounds cannot improve a fit. The generic glTF gate also
+decodes positions, normals, UVs, indices, joints, weights and inverse-bind matrices before calling
+the source technically clean. A candidate that clears those checks still cannot become qualified
+while severance remains deferred.
+
+The committed `*-creator.gltf` and creator binary hashes preserve the exact archive members. The
+smaller `*-source.gltf` qualification representation changes only the buffer URI and removes image,
+texture, sampler and material texture-binding records; its material-structure digest therefore pins
+that declared representation, not an untouched creator-material document. Geometry, skin and
+animation accessors remain the creator streams, and their separate digests are the no-mesh-edit
+evidence.
+
 The glTF loader owns the asset's handedness conversion; the runtime does not rewrite tangent
 buffers. The asset checker validates finite authored UV and tangent payload rather than
 trusting Blender source comments.

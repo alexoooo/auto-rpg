@@ -122,6 +122,38 @@ def main():
         print(f"wrote {gltf_target}")
         print(f"wrote {bin_target}")
 
+        female_gltf = next(
+            (name for name in members if name.endswith("Exports/glTF (Godot-Unreal)/Outfits/Female_Ranger.gltf")),
+            None,
+        )
+        if female_gltf is None:
+            raise RuntimeError("clothing archive has no full Female_Ranger.gltf outfit")
+        female_bin = female_gltf[:-len("Female_Ranger.gltf")] + "Female_Ranger.bin"
+        female_creator_bytes = archive.read(female_gltf)
+        female_output = args.output.parent / "quaternius-female-ranger"
+        female_output.mkdir(parents=True, exist_ok=True)
+        female_creator_target = female_output / "female-ranger-creator.gltf"
+        female_creator_target.write_bytes(female_creator_bytes)
+        print(f"wrote {female_creator_target}")
+        female_document = json.loads(female_creator_bytes.decode("utf8"))
+        female_document["buffers"][0]["uri"] = "female-ranger-source.bin"
+        female_document.pop("images", None)
+        female_document.pop("textures", None)
+        female_document.pop("samplers", None)
+        for source_material in female_document.get("materials", []):
+            source_material.pop("normalTexture", None)
+            source_material.pop("occlusionTexture", None)
+            source_material.pop("emissiveTexture", None)
+            pbr = source_material.get("pbrMetallicRoughness", {})
+            pbr.pop("baseColorTexture", None)
+            pbr.pop("metallicRoughnessTexture", None)
+        female_gltf_target = female_output / "female-ranger-source.gltf"
+        female_bin_target = female_output / "female-ranger-source.bin"
+        female_gltf_target.write_bytes((json.dumps(female_document, indent=2) + "\n").encode("utf8"))
+        female_bin_target.write_bytes(archive.read(female_bin))
+        print(f"wrote {female_gltf_target}")
+        print(f"wrote {female_bin_target}")
+
         for source_file, objects in SOURCES.items():
             bpy.ops.wm.read_factory_settings(use_empty=True)
             source_path = Path(scratch) / (prefix + source_file)

@@ -44,8 +44,35 @@ const RANGER_PROFILE = Object.freeze({
   requiredBones: RANGER_BONES,
   requiredMeshes: [
     "Male_Ranger_Acc_Pauldron", "Male_Ranger_Arms", "Male_Ranger_Arms_Bracer",
-    "Male_Ranger_Body", "Male_Ranger_Body_Belt_1", "Male_Ranger_Feet_Boots",
+    "Male_Ranger_Body", "Male_Ranger_Body_Belt_1", "Male_Ranger_Body_Belt_2", "Male_Ranger_Feet_Boots",
     "Male_Ranger_Head_Hood", "Male_Ranger_Legs",
+  ],
+  landmarks: {
+    pelvis: "pelvis", waist: "spine_01", head: "Head",
+    primaryShoulder: "upperarm_l", secondaryShoulder: "upperarm_r",
+    positiveHip: "thigh_l", negativeHip: "thigh_r",
+    positiveAnkle: "foot_l", negativeAnkle: "foot_r",
+  },
+  limbs: {
+    primaryArm: ["upperarm_l", "lowerarm_l", "hand_l"],
+    secondaryArm: ["upperarm_r", "lowerarm_r", "hand_r"],
+    leftLeg: ["thigh_l", "calf_l", "foot_l"],
+    rightLeg: ["thigh_r", "calf_r", "foot_r"],
+  },
+  poseKind: "five-digits",
+  axisMapping: ["+X", "+Y", "+Z"],
+});
+
+const FEMALE_RANGER_PROFILE = Object.freeze({
+  id: "quaternius-female-ranger",
+  asset: "Quaternius Modular Character Outfits - Fantasy [Standard] / Female_Ranger",
+  evaluated: "2026-08-28",
+  rootBone: "root",
+  requiredBones: RANGER_BONES,
+  requiredMeshes: [
+    "Female_Ranger_Acc_Pauldrons", "Female_Ranger_Arms", "Female_Ranger_Arms_Bracer",
+    "Female_Ranger_Body", "Female_Ranger_Body_Belt_1", "Female_Ranger_Body_Belt_2",
+    "Female_Ranger_Feet", "Female_Ranger_Head_Hood", "Female_Ranger_Legs",
   ],
   landmarks: {
     pelvis: "pelvis", waist: "spine_01", head: "Head",
@@ -93,6 +120,7 @@ const KNIGHT_PROFILE = Object.freeze({
 
 export const HUMANOID_PROFILES = Object.freeze({
   [RANGER_PROFILE.id]: RANGER_PROFILE,
+  [FEMALE_RANGER_PROFILE.id]: FEMALE_RANGER_PROFILE,
   [KNIGHT_PROFILE.id]: KNIGHT_PROFILE,
 });
 
@@ -130,7 +158,7 @@ function localMatrix(node) {
   ];
 }
 
-function bonePositions(document) {
+function nodeWorldMatrices(document) {
   const parents = Array(document.nodes.length).fill(-1);
   document.nodes.forEach((node, parent) => {
     for (const child of node.children ?? []) parents[child] = parent;
@@ -142,8 +170,13 @@ function bonePositions(document) {
     cache[index] = parents[index] < 0 ? local : multiply(world(parents[index]), local);
     return cache[index];
   };
+  return document.nodes.map((_, index) => world(index));
+}
+
+function bonePositions(document) {
+  const matrices = nodeWorldMatrices(document);
   return new Map(document.nodes.map((node, index) => {
-    const matrix = world(index);
+    const matrix = matrices[index];
     return [node.name, [matrix[12], matrix[13], matrix[14]]];
   }).filter(([name]) => typeof name === "string"));
 }
@@ -155,15 +188,26 @@ const roundedMetres = (value) => {
   return Object.is(rounded, -0) ? 0 : rounded;
 };
 
-function sourceBounds(document) {
+function sourceBounds(document, binary, reachable) {
   let low = Infinity;
   let high = -Infinity;
-  for (const mesh of document.meshes ?? []) {
+  const matrices = nodeWorldMatrices(document);
+  for (const [nodeIndex, node] of document.nodes.entries()) {
+    if (!reachable.has(nodeIndex) || node.skin !== 0 || !Number.isInteger(node.mesh)) continue;
+    const mesh = document.meshes?.[node?.mesh];
+    if (!mesh) continue;
+    const matrix = matrices[nodeIndex];
     for (const primitive of mesh.primitives ?? []) {
-      const accessor = document.accessors?.[primitive.attributes?.POSITION];
-      if (!accessor?.min || !accessor?.max) continue;
-      low = Math.min(low, accessor.min[1]);
-      high = Math.max(high, accessor.max[1]);
+      let positions;
+      try { positions = accessorValues(document, binary, primitive.attributes?.POSITION); } catch { continue; }
+      for (let vertex = 0; vertex < positions.accessor.count; vertex += 1) {
+        const x = positions.at(vertex, 0);
+        const y = positions.at(vertex, 1);
+        const z = positions.at(vertex, 2);
+        const worldY = matrix[1] * x + matrix[5] * y + matrix[9] * z + matrix[13];
+        low = Math.min(low, worldY);
+        high = Math.max(high, worldY);
+      }
     }
   }
   return { low, high, height: high - low };
@@ -190,6 +234,142 @@ function copiedAccessorBytes(document, binary, accessorIndex) {
     binary.copy(out, index * elementBytes, start + index * stride, start + index * stride + elementBytes);
   }
   return out;
+}
+
+function accessorValues(document, binary, accessorIndex) {
+  const accessor = document.accessors?.[accessorIndex];
+  if (!accessor) throw new Error(`accessor ${accessorIndex} is missing`);
+  const componentBytes = COMPONENT_BYTES[accessor.componentType];
+  const width = TYPE_WIDTH[accessor.type];
+  const bytes = copiedAccessorBytes(document, binary, accessorIndex);
+  const readers = {
+    5120: (at) => bytes.readInt8(at),
+    5121: (at) => bytes.readUInt8(at),
+    5122: (at) => bytes.readInt16LE(at),
+    5123: (at) => bytes.readUInt16LE(at),
+    5125: (at) => bytes.readUInt32LE(at),
+    5126: (at) => bytes.readFloatLE(at),
+  };
+  const read = readers[accessor.componentType];
+  if (!read || !componentBytes || !width) throw new Error(`accessor ${accessorIndex} has unsupported values`);
+  return {
+    accessor,
+    width,
+    at: (element, component) => read((element * width + component) * componentBytes),
+  };
+}
+
+const roundedTechnical = (value) => Math.round(value * 1_000_000_000) / 1_000_000_000;
+
+function creatorGltfTechnical(document, binary, skin) {
+  const failures = [];
+  let creatorVertices = 0;
+  let creatorIndices = 0;
+  let maxJointIndex = -1;
+  let minWeight = Infinity;
+  let maxWeight = -Infinity;
+  let minWeightSum = Infinity;
+  let maxWeightSum = -Infinity;
+  let nonFinitePositions = false;
+  let nonFiniteNormals = false;
+  let nonFiniteUvs = false;
+  let nonFiniteWeights = false;
+  let outOfRangeWeights = false;
+  let unnormalizedWeights = false;
+  let outOfRangeJoints = false;
+  let outOfRangeIndices = false;
+  let nonTrianglePrimitives = false;
+  let extraInfluenceSets = false;
+  try {
+    for (const mesh of document.meshes ?? []) {
+      for (const primitive of mesh.primitives ?? []) {
+        if (Object.keys(primitive.attributes ?? {}).some((semantic) => /^(?:JOINTS|WEIGHTS)_[1-9][0-9]*$/.test(semantic))) {
+          extraInfluenceSets = true;
+        }
+        const positions = accessorValues(document, binary, primitive.attributes.POSITION);
+        const normals = accessorValues(document, binary, primitive.attributes.NORMAL);
+        const uvs = accessorValues(document, binary, primitive.attributes.TEXCOORD_0);
+        const joints = accessorValues(document, binary, primitive.attributes.JOINTS_0);
+        const weights = accessorValues(document, binary, primitive.attributes.WEIGHTS_0);
+        const indices = accessorValues(document, binary, primitive.indices);
+        if ((primitive.mode ?? 4) !== 4 || indices.accessor.count % 3 !== 0) nonTrianglePrimitives = true;
+        creatorVertices += positions.accessor.count;
+        creatorIndices += indices.accessor.count;
+        for (let vertex = 0; vertex < positions.accessor.count; vertex += 1) {
+          for (let axis = 0; axis < positions.width; axis += 1) {
+            if (!Number.isFinite(positions.at(vertex, axis))) nonFinitePositions = true;
+            if (!Number.isFinite(normals.at(vertex, axis))) nonFiniteNormals = true;
+          }
+          for (let axis = 0; axis < uvs.width; axis += 1) {
+            if (!Number.isFinite(uvs.at(vertex, axis))) nonFiniteUvs = true;
+          }
+          let sum = 0;
+          for (let influence = 0; influence < weights.width; influence += 1) {
+            const weight = weights.at(vertex, influence);
+            const joint = joints.at(vertex, influence);
+            if (!Number.isFinite(weight)) nonFiniteWeights = true;
+            if (weight < 0 || weight > 1) outOfRangeWeights = true;
+            minWeight = Math.min(minWeight, weight);
+            maxWeight = Math.max(maxWeight, weight);
+            sum += weight;
+            maxJointIndex = Math.max(maxJointIndex, joint);
+            if (!Number.isInteger(joint) || joint < 0 || joint >= (skin?.joints.length ?? 0)) outOfRangeJoints = true;
+          }
+          minWeightSum = Math.min(minWeightSum, sum);
+          maxWeightSum = Math.max(maxWeightSum, sum);
+          if (!Number.isFinite(sum) || Math.abs(sum - 1) > 0.001) unnormalizedWeights = true;
+        }
+        for (let index = 0; index < indices.accessor.count; index += 1) {
+          const value = indices.at(index, 0);
+          if (!Number.isInteger(value) || value < 0 || value >= positions.accessor.count) outOfRangeIndices = true;
+        }
+      }
+    }
+  } catch (error) {
+    failures.push(`creator attribute values cannot be inspected: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  if (nonFinitePositions) failures.push("creator positions contain non-finite values");
+  if (nonFiniteNormals) failures.push("creator normals contain non-finite values");
+  if (nonFiniteUvs) failures.push("creator texture coordinates contain non-finite values");
+  if (nonFiniteWeights) failures.push("creator skin weights contain non-finite values");
+  if (outOfRangeWeights) failures.push("creator skin weights fall outside [0, 1]");
+  if (unnormalizedWeights) failures.push("creator four-influence weight sums differ from 1 by more than 0.001");
+  if (outOfRangeJoints) failures.push("creator joint indices exceed the active skin palette");
+  if (outOfRangeIndices) failures.push("creator triangle indices exceed their primitive vertex count");
+  if (nonTrianglePrimitives) failures.push("creator geometry contains a non-triangle primitive");
+  if (extraInfluenceSets) failures.push("generic creator glTF uses skin influence sets beyond JOINTS_0/WEIGHTS_0");
+  let inverseBindMatricesFinite = true;
+  try {
+    const matrices = accessorValues(document, binary, skin?.inverseBindMatrices);
+    if (matrices.accessor.componentType !== 5126 || matrices.accessor.type !== "MAT4"
+        || matrices.accessor.count !== skin.joints.length) {
+      failures.push("creator inverse-bind matrix layout disagrees with its skin");
+      inverseBindMatricesFinite = false;
+    } else {
+      for (let matrix = 0; matrix < matrices.accessor.count; matrix += 1) {
+        for (let component = 0; component < matrices.width; component += 1) {
+          if (!Number.isFinite(matrices.at(matrix, component))) inverseBindMatricesFinite = false;
+        }
+      }
+      if (!inverseBindMatricesFinite) failures.push("creator inverse-bind matrices contain non-finite values");
+    }
+  } catch (error) {
+    inverseBindMatricesFinite = false;
+    failures.push(`creator inverse-bind matrices cannot be inspected: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  return {
+    qualified: failures.length === 0,
+    authority: "creator-published glTF attributes",
+    creatorVertices,
+    creatorIndices,
+    skinJoints: skin?.joints.length ?? 0,
+    maxJointIndex,
+    weightRange: [roundedTechnical(minWeight), roundedTechnical(maxWeight)],
+    weightSumRange: [roundedTechnical(minWeightSum), roundedTechnical(maxWeightSum)],
+    inverseBindMatricesFinite,
+    weightNormalizationRequired: outOfRangeWeights || unnormalizedWeights,
+    failures,
+  };
 }
 
 export function attributeDigests(document, binary) {
@@ -405,6 +585,45 @@ function limbResult(name, positions, sourceBones, targetLengths, scale) {
   };
 }
 
+function profileFailures(profile, positions, hasExecutableAxisMapping, nodes, reachable) {
+  const failures = [];
+  if (!hasExecutableAxisMapping && profile.axisMapping.join(",") !== "+X,+Y,+Z") {
+    failures.push("generic glTF profile declares a non-identity axis mapping that the evaluator cannot execute");
+  }
+  const expected = [
+    ["primary shoulder", profile.landmarks.primaryShoulder, profile.limbs.primaryArm[0]],
+    ["secondary shoulder", profile.landmarks.secondaryShoulder, profile.limbs.secondaryArm[0]],
+    ["positive-side hip", profile.landmarks.positiveHip, profile.limbs.leftLeg[0]],
+    ["positive-side ankle", profile.landmarks.positiveAnkle, profile.limbs.leftLeg[2]],
+    ["negative-side hip", profile.landmarks.negativeHip, profile.limbs.rightLeg[0]],
+    ["negative-side ankle", profile.landmarks.negativeAnkle, profile.limbs.rightLeg[2]],
+  ];
+  if (new Set(profile.requiredMeshes).size !== profile.requiredMeshes.length) {
+    failures.push("profile required mesh list contains a duplicate");
+  }
+  const declaredMeshes = new Set(profile.requiredMeshes);
+  for (const [index, node] of nodes.entries()) {
+    if (reachable.has(index) && node.skin === 0 && Number.isInteger(node.mesh) && !declaredMeshes.has(node.name)) {
+      failures.push(`profile omits active skinned mesh ${node.name}`);
+    }
+  }
+  for (const [label, landmark, limb] of expected) {
+    if (landmark !== limb) failures.push(`${label} profile landmark ${landmark} disagrees with limb endpoint ${limb}`);
+  }
+  const primary = positions.get(profile.landmarks.primaryShoulder);
+  const secondary = positions.get(profile.landmarks.secondaryShoulder);
+  if (primary && secondary && (primary[0] <= 0 || secondary[0] >= 0)) {
+    failures.push("profile side mapping is inconsistent with positive-X primary and negative-X secondary shoulders");
+  }
+  return failures;
+}
+
+export function requireSeveranceAdmission(failures, severance) {
+  if (failures.length === 0 && severance.status !== "qualified") {
+    failures.push("severance compatibility has not been admitted for this otherwise-qualified source");
+  }
+}
+
 export function qualifyHumanoidDocument(document, binary, dimensions, integrity = null,
     profile = RANGER_PROFILE, measurement = null) {
   const failures = [];
@@ -458,9 +677,10 @@ export function qualifyHumanoidDocument(document, binary, dimensions, integrity 
       }
     }
   }
-  const bounds = measurement?.bounds ?? sourceBounds(document);
+  const bounds = measurement?.bounds ?? sourceBounds(document, binary, reachable);
   const scale = dimensions.fighter.height / bounds.height;
   const positions = measurement?.positions ?? bonePositions(document);
+  failures.push(...profileFailures(profile, positions, Boolean(measurement), nodes, reachable));
   const pelvis = positions.get(profile.landmarks.pelvis) ?? [0, 0, 0];
   const translation = [-pelvis[0] * scale, -bounds.low * scale, -pelvis[2] * scale];
   const ankle = dimensions.body.shinCentre - dimensions.body.shinLength / 2;
@@ -495,13 +715,16 @@ export function qualifyHumanoidDocument(document, binary, dimensions, integrity 
   }
   const poses = poseResults(document, binary, skinJoints, profile);
   for (const pose of poses) if (!pose.qualified) failures.push(`source contains no qualifying creator-authored ${pose.label} with finger channels`);
-  const sourceTechnical = measurement?.sourceTechnical ?? {
-    qualified: true,
-    authority: "creator-published glTF attributes",
-    weightNormalizationRequired: false,
-  };
+  const sourceTechnical = measurement?.sourceTechnical ?? creatorGltfTechnical(document, binary, skin);
   if (!sourceTechnical.qualified) failures.push(...sourceTechnical.failures);
   if (integrity && !integrity.ok) failures.push(...integrity.failures);
+  const severance = {
+    status: "deferred-after-admission-failure",
+    sourceSkinJoints: skinJoints.size,
+    method: "mechanical triangle partition by dominant mapped source-bone region; no vertex-position authoring",
+    reason: "A rejected candidate is not installed or cut. Full region coverage is checked only after anatomy and grip admission failure.",
+  };
+  requireSeveranceAdmission(failures, severance);
   let protectedAttributes = {};
   let protectedStructure = {};
   try { protectedAttributes = attributeDigests(document, binary); } catch (error) {
@@ -533,12 +756,7 @@ export function qualifyHumanoidDocument(document, binary, dimensions, integrity 
     animationCount: (document.animations ?? []).length,
     poses,
     sourceTechnical,
-    severance: {
-      status: "deferred-after-admission-failure",
-      sourceSkinJoints: skinJoints.size,
-      method: "mechanical triangle partition by dominant mapped source-bone region; no vertex-position authoring",
-      reason: "A rejected candidate is not installed or cut. Full region coverage is checked only after anatomy and grip admission.",
-    },
+    severance,
     attributeDigests: protectedAttributes,
     structureDigests: protectedStructure,
     integrity,
@@ -558,6 +776,13 @@ const CANDIDATE_FILES = Object.freeze({
     creator: "ranger-creator.gltf",
     gltf: "ranger-source.gltf",
     binary: "ranger-source.bin",
+  },
+  [FEMALE_RANGER_PROFILE.id]: {
+    provenanceId: "quaternius-modular-character-outfits-fantasy-standard-2026",
+    sourceRoot: "asset-src/armour/quaternius-female-ranger",
+    creator: "female-ranger-creator.gltf",
+    gltf: "female-ranger-source.gltf",
+    binary: "female-ranger-source.bin",
   },
   [KNIGHT_PROFILE.id]: {
     provenanceId: "quaternius-animated-knight-2018",
@@ -617,6 +842,7 @@ export async function qualifyHumanoidCandidate(candidateId, root = ROOT) {
   if (candidate && creatorBytes && sha256(creatorBytes) !== candidate.sourceMemberSha256) failures.push(`${files.creator} moved from its creator-member pin`);
   if (candidate && sha256(gltfBytes) !== candidate.extracts[files.gltf]) failures.push(`${files.gltf} moved from its qualification pin`);
   if (candidate && sha256(binary) !== candidate.extracts[files.binary]) failures.push(`${files.binary} moved from its qualification pin`);
+  if (candidate?.binaryMemberSha256 && sha256(binary) !== candidate.binaryMemberSha256) failures.push(`${files.binary} moved from its creator binary-member pin`);
   let metadata = null;
   let metadataActual = null;
   if (files.metadata) {
@@ -641,6 +867,9 @@ export async function qualifyHumanoidCandidate(candidateId, root = ROOT) {
     sourceMember: candidate?.sourceMember ?? null,
     sourceMemberSha256: candidate?.sourceMemberSha256 ?? null,
     sourceMemberSha256Actual: creatorBytes ? sha256(creatorBytes) : null,
+    binaryMember: candidate?.binaryMember ?? null,
+    binaryMemberSha256: candidate?.binaryMemberSha256 ?? null,
+    binaryMemberSha256Actual: candidate?.binaryMemberSha256 ? sha256(binary) : null,
     archiveSha256: row?.archiveSha256 ?? null,
     representation,
     sourceInputSha256,

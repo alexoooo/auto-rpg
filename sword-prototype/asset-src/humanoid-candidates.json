@@ -24,7 +24,8 @@
         "The Standard archive contains exactly four complete outfit glTFs: Male_Ranger, Female_Ranger, Male_Peasant, and Female_Peasant.",
         "It contains no complete Knight outfit; its advertised modular set is Ranger and Peasant clothing.",
         "Male_Peasant shares the Male_Ranger skeleton coordinates and omits a complete visible head, so it is not a new proportion family or a serious armoured candidate.",
-        "Female_Ranger is the next distinct skeleton in this bundle and remains available for a later recorded evaluation."
+        "Female_Peasant shares the Female_Ranger skeleton coordinates and has only arm, body, feet, and leg meshes -- no complete head mesh.",
+        "The rejected Female_Ranger evaluation exhausts this archive's second and final distinct skeleton family; another outfit from it cannot provide new proportions."
       ]
     },
     {
@@ -100,6 +101,38 @@
             "swordGrip": false,
             "shieldGrip": false
           }
+        },
+        {
+          "id": "2026-08-27-untouched-humanoid-v1-rig-df5f4489ef01-source-55451f9bb52d-evaluator-b2c96af940be",
+          "contract": "untouched-humanoid-v1",
+          "evaluated": "2026-08-27",
+          "rig": {
+            "path": "asset-src/dimensions.json",
+            "sha256": "df5f4489ef014fb147fb494b8e9496355ff59111384737b2902e2818bbb93580"
+          },
+          "evaluatorSha256": "b2c96af940be602a19d77572b80d6bd59fae3ad221aee5547d7148f84f43c99f",
+          "sourceInputSha256": "55451f9bb52d7fc3cc47c9d21057560a038601557c685a3825a1e78b9b161b6e",
+          "report": "asset-src/armour/quaternius-ranger/qualification-2026-08-27-untouched-humanoid-v1-rig-df5f4489ef01-source-55451f9bb52d-evaluator-b2c96af940be.json",
+          "reportSha256": "f8a5eaad34d62fcf943913dd499550ac2f2ad55107a145022b26dc48e0aa7ca1",
+          "status": "rejected",
+          "integrityOk": true,
+          "sourceTechnicalOk": true,
+          "fit": {
+            "complete": true,
+            "expectedChecks": 17,
+            "checks": 17,
+            "overLimit": 14,
+            "maxErrorMm": 96.613,
+            "rmsErrorMm": 48.827,
+            "primaryElbowMm": 58.157,
+            "primaryWristMm": 96.613,
+            "secondaryElbowMm": 38.157,
+            "secondaryWristMm": 66.613
+          },
+          "authoredPoses": {
+            "swordGrip": false,
+            "shieldGrip": false
+          }
         }
       ]
     },
@@ -150,6 +183,92 @@
             "swordGripQualified": false,
             "shieldGrip": false
           }
+        },
+        {
+          "id": "2026-08-28-untouched-humanoid-v1-rig-df5f4489ef01-source-3487be1230e3-evaluator-b2c96af940be",
+          "contract": "untouched-humanoid-v1",
+          "evaluated": "2026-08-28",
+          "rig": {
+            "path": "asset-src/dimensions.json",
+            "sha256": "df5f4489ef014fb147fb494b8e9496355ff59111384737b2902e2818bbb93580"
+          },
+          "evaluatorSha256": "b2c96af940be602a19d77572b80d6bd59fae3ad221aee5547d7148f84f43c99f",
+          "sourceInputSha256": "3487be1230e322b9c44d9e47945824ebf9778bc58ed0847a816517b717285e89",
+          "report": "asset-src/armour/quaternius-knight/qualification-2026-08-28-untouched-humanoid-v1-rig-df5f4489ef01-source-3487be1230e3-evaluator-b2c96af940be.json",
+          "reportSha256": "1470a4b7bec1ec56301f771c38a436d711ee86f9bd27e6e35424b59ed0f6b1ca",
+          "status": "rejected",
+          "integrityOk": true,
+          "sourceTechnicalOk": false,
+          "fit": {
+            "complete": true,
+            "expectedChecks": 17,
+            "checks": 17,
+            "overLimit": 16,
+            "maxErrorMm": 346.585,
+            "rmsErrorMm": 215.827,
+            "primaryElbowMm": 26.467,
+            "primaryWristMm": 108.802,
+            "secondaryElbowMm": 19.845,
+            "secondaryWristMm": 138.952
+          },
+          "authoredPoses": {
+            "swordActionPresent": true,
+            "swordGripQualified": false,
+            "shieldGrip": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "quaternius-female-ranger",
+      "bundleId": "quaternius-modular-character-outfits-fantasy-standard-2026",
+      "assetLocator": "Exports/glTF (Godot-Unreal)/Outfits/Female_Ranger.gltf",
+      "sourceFiles": [
+        {
+          "path": "asset-src/armour/quaternius-female-ranger/female-ranger-creator.gltf",
+          "sha256": "9b98b2ae6af3b4a1ec22bf8928b939e0751f08b25b636de82bfa7364fb34d3e1"
+        },
+        {
+          "path": "asset-src/armour/quaternius-female-ranger/female-ranger-source.gltf",
+          "sha256": "00e1af8c6419561b6fec25ed83d0ded8bf0dc805ff8186b066ece097a1d64adf"
+        },
+        {
+          "path": "asset-src/armour/quaternius-female-ranger/female-ranger-source.bin",
+          "sha256": "d015964ba0a26eee9c9d2ea6f07aa660bba88aa536cf8bb6b67944b9e97c46df"
+        }
+      ],
+      "evaluations": [
+        {
+          "id": "2026-08-28-untouched-humanoid-v1-rig-df5f4489ef01-source-9d8470efb679-evaluator-b2c96af940be",
+          "contract": "untouched-humanoid-v1",
+          "evaluated": "2026-08-28",
+          "rig": {
+            "path": "asset-src/dimensions.json",
+            "sha256": "df5f4489ef014fb147fb494b8e9496355ff59111384737b2902e2818bbb93580"
+          },
+          "evaluatorSha256": "b2c96af940be602a19d77572b80d6bd59fae3ad221aee5547d7148f84f43c99f",
+          "sourceInputSha256": "9d8470efb67901ed5ab651c3f363f328e433d06fcc2cef688a88148090c72101",
+          "report": "asset-src/armour/quaternius-female-ranger/qualification-2026-08-28-untouched-humanoid-v1-rig-df5f4489ef01-source-9d8470efb679-evaluator-b2c96af940be.json",
+          "reportSha256": "8d961ea021358f896c74c8d7227c6abf72395f8e466ea16599eeb1a733a9c00f",
+          "status": "rejected",
+          "integrityOk": true,
+          "sourceTechnicalOk": true,
+          "fit": {
+            "complete": true,
+            "expectedChecks": 17,
+            "checks": 17,
+            "overLimit": 15,
+            "maxErrorMm": 79.822,
+            "rmsErrorMm": 47.048,
+            "primaryElbowMm": 59.397,
+            "primaryWristMm": 79.822,
+            "secondaryElbowMm": 39.397,
+            "secondaryWristMm": 49.822
+          },
+          "authoredPoses": {
+            "swordGrip": false,
+            "shieldGrip": false
+          }
         }
       ]
     }
@@ -157,8 +276,9 @@
   "comparison": {
     "contract": "untouched-humanoid-v1",
     "rigSha256": "df5f4489ef014fb147fb494b8e9496355ff59111384737b2902e2818bbb93580",
+    "evaluatorSha256": "b2c96af940be602a19d77572b80d6bd59fae3ad221aee5547d7148f84f43c99f",
     "qualifiedCandidate": null,
-    "closestGeometrySoFar": "quaternius-male-ranger",
-    "note": "Closest is not qualified. Ranger has the lower maximum and RMS error, but still fails anatomy and both required grip gates."
+    "closestGeometrySoFar": "quaternius-female-ranger",
+    "note": "Closest is not qualified. Female Ranger has the lowest maximum and RMS error so far, but still fails 15 anatomy checks and both required grip gates."
   }
 }

@@ -285,7 +285,7 @@ angular motor at 40 000 N.m -- over a thousand times the shipped 34 -- moved the
 - The load-failure fallback remains a diagnostic path and carries no authority. The normal
   committed asset contains no generated primitive triangle; the builder and its mutation
   test refuse one.
-- Untouched-source qualification has rejected both candidates evaluated so far. The cumulative
+- Untouched-source qualification has rejected all three candidates evaluated so far. The cumulative
   ledger below owns those results; the shipping Warrior remains unchanged. This is an
   asset/physics landmark measurement, not a rendering or gameplay measurement.
 
@@ -293,14 +293,17 @@ angular motor at 40 000 N.m -- over a thousand times the shipped 34 -- moved the
 
 `asset-src/humanoid-candidates.json` is the machine-readable, append-only authority. Each report
 name includes its date, contract and the first twelve characters of the physics-dimensions digest,
-so a later rig change adds evidence instead of erasing it. The fit column folds nine placed 3D
+source-input digest and evaluator digest, so a later rig or evaluator change adds evidence instead
+of erasing it. A comparison admits only reports sharing all three contract, rig and evaluator
+identities; old measurement grammar cannot silently outrank current grammar. The fit column folds nine placed 3D
 landmarks plus the proximal and cumulative endpoint error for both arms and both legs. The gate is
 25 mm per check; max error precedes RMS when comparing rejected geometry.
 
 | date | untouched candidate | rig SHA-256 | scale | fit over / 17; max; RMS | primary elbow / wrist | secondary elbow / wrist | authored sword / shield grip | technical source | verdict |
 |---|---|---|---:|---|---|---|---|---|---|
-| 2026-08-27 | Quaternius Standard `Male_Ranger` | `df5f4489ef01...` | 0.963078 | 14; 96.613 mm; 48.827 mm | 58.157 / 96.613 mm | 38.157 / 66.613 mm | no / no | clean pinned creator glTF streams | **rejected; closest geometry so far** |
+| 2026-08-27 | Quaternius Standard `Male_Ranger` | `df5f4489ef01...` | 0.963078 | 14; 96.613 mm; 48.827 mm | 58.157 / 96.613 mm | 38.157 / 66.613 mm | no / no | clean pinned creator glTF streams | **rejected** |
 | 2026-08-28 | Quaternius Animated Knight `KnightCharacter` | `df5f4489ef01...` | 0.321496 | 16; 346.585 mm; 215.827 mm | 26.467 / 108.802 mm | 19.845 / 138.952 mm | sword action present but fails all-control grip gate / no | two creator weights exceed 1 and must be normalized by browser-format export | **rejected** |
+| 2026-08-28 | Quaternius Standard `Female_Ranger` | `df5f4489ef01...` | 1.001086 | 15; 79.822 mm; 47.048 mm | 59.397 / 79.822 mm | 39.397 / 49.822 mm | no / no | clean pinned creator glTF: 24 808 vertices, 80 898 indices and 65 valid inverse-bind matrices | **rejected; closest geometry so far** |
 
 The Ranger's other failed 3D landmarks are waist 42.110 mm, head base 25.249 mm,
 both shoulders 50.700 mm, both hips 43.520 mm and both ankles 66.125 mm. The Knight is
@@ -312,15 +315,28 @@ exported with all influence sets after the default exporter was observed truncat
 with five or six influences. Even that mode must normalize the source's two weights over 1, so no
 literal no-weight-change installation exists.
 
+The Female Ranger misses pelvis 36.784 mm, waist 30.635 mm, head base 35.232 mm,
+both shoulders 64.984 mm, both hips 49.903 mm and both ankles 46.912 mm. Both knees miss
+29.690 mm although the cumulative ankle length is within the isolated 25 mm limit at
+16.916 mm. Its creator glTF has no animations, so neither required grip exists. It wins the
+rejected-geometry comparison because 79.822 mm maximum and 47.048 mm RMS are lower than the
+Male Ranger's 96.613 mm and 48.827 mm; the count of failed checks is deliberately not the
+ranking key, and 15 failures do not make it qualified.
+
 The bundle inventory matters independently of either rejection. The free Standard archive has
 exactly four full outfit glTFs -- male/female Ranger and male/female Peasant -- and no complete
 Knight. Male Peasant reuses the Male Ranger skeleton coordinates and omits a complete visible
 head, so evaluating it would add no proportion family and would not supply the armoured person
-being sought. Female Ranger is the next distinct skeleton still available inside that archive.
+being sought. Female Peasant likewise reuses the Female Ranger skeleton coordinates and has
+only arms, body, feet and legs -- no complete head mesh. The Female Ranger evaluation therefore
+exhausts the Standard archive's two distinct skeleton families rather than leaving an unseen
+fifth option.
 The Animated Knight archive does contain one complete skinned Knight, but Helmet3 and its shoulder
 pads are separate unrigged assets; calling their assembly an untouched complete candidate would
 be false. None of the candidates is qualified. If a later decision must use the least-bad measured
-fit, Male Ranger currently wins only that narrow comparison.
+fit, Female Ranger currently wins only that narrow comparison. A genuinely different next
+attempt requires another asset family; another Standard outfit can change clothing but cannot
+change these measured proportions.
 
 Session 08's static asset/material audit, not a visible-browser GPU capture:
 

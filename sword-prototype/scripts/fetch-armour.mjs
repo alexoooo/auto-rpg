@@ -68,6 +68,15 @@ async function verifyQualificationCandidates(source, archive) {
     if (memberDigest !== candidate.sourceMemberSha256) {
       throw new Error(`qualification source member ${candidate.sourceMember} digest ${memberDigest}; expected ${candidate.sourceMemberSha256}`);
     }
+    if (candidate.binaryMember || candidate.binaryMemberSha256) {
+      if (!candidate.binaryMember || !/^[0-9a-f]{64}$/.test(candidate.binaryMemberSha256 ?? "")) {
+        throw new Error(`qualification source "${candidate.id}" has an invalid binary member pin`);
+      }
+      const binaryDigest = digest(zipMember(archive, candidate.binaryMember));
+      if (binaryDigest !== candidate.binaryMemberSha256) {
+        throw new Error(`qualification binary member ${candidate.binaryMember} digest ${binaryDigest}; expected ${candidate.binaryMemberSha256}`);
+      }
+    }
     for (const [filename, expected] of Object.entries(candidate.extracts ?? {})) {
       if (!/^[0-9a-f]{64}$/.test(expected)) {
         throw new Error(`qualification extract ${candidate.id}/${filename} has no valid SHA-256`);
