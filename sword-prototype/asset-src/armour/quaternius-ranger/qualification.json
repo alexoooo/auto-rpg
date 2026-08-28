@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "asset": "Quaternius Modular Character Outfits - Fantasy [Standard] / Male_Ranger",
+  "status": "rejected",
+  "rule": "uniform scale and rigid placement only; no vertex, weight, or proportion edits",
+  "landmarkLimitMm": 25,
+  "sourceHeightM": 1.869008,
+  "uniformScale": 0.963078,
+  "limbs": [
+    {
+      "name": "primary arm",
+      "sourceLengthsM": [0.241843, 0.231543],
+      "targetLengthsM": [0.3, 0.27],
+      "elbowErrorMm": 58.157,
+      "wristErrorMm": 96.613,
+      "qualified": false
+    },
+    {
+      "name": "secondary arm",
+      "sourceLengthsM": [0.241843, 0.231543],
+      "targetLengthsM": [0.28, 0.26],
+      "elbowErrorMm": 38.157,
+      "wristErrorMm": 66.613,
+      "qualified": false
+    },
+    {
+      "name": "left leg",
+      "sourceLengthsM": [0.412968, 0.441849],
+      "targetLengthsM": [0.44, 0.42],
+      "kneeErrorMm": 27.032,
+      "ankleErrorMm": 5.183,
+      "qualified": false
+    },
+    {
+      "name": "right leg",
+      "sourceLengthsM": [0.412968, 0.441849],
+      "targetLengthsM": [0.44, 0.42],
+      "kneeErrorMm": 27.032,
+      "ankleErrorMm": 5.183,
+      "qualified": false
+    }
+  ],
+  "animationCount": 0,
+  "attributeDigests": {
+    "POSITION": "e2d1f9d29322ab6c3a287ccaa7dda4b91825d3b218f96074af03428ad9c04b42",
+    "NORMAL": "a42dc484acb623eac4cc03e0b53c3f2fc550f2fc4a5d159c4cf7c8610f8d7bc6",
+    "TEXCOORD_0": "97bb7e28b173adef0ef949078140da3e236373ea8d9b5c1860e0c48aa2a61cb5",
+    "JOINTS_0": "6063757ff1fedefa37ae9b5c2fc4ff5729656aadedb8514da744dae23a035b04",
+    "WEIGHTS_0": "f1b4a17898013e3915c0082bc07f247f9efc0ab2f0626b74a6ce3ee6a3eda573"
+  },
+  "sourceIntegrity": "passed",
+  "failures": [
+    "primary wrist misses the limit by 71.613 mm",
+    "secondary wrist misses the limit by 41.613 mm",
+    "both knees miss the limit by 2.032 mm",
+    "the selected glTF contains no creator-authored sword or shield hand pose"
+  ],
+  "decision": "Do not install, stretch, retarget, or silently substitute this asset. Keep the current shipping Warrior until the user authorizes a physics-rig change or chooses another qualified asset family."
+}

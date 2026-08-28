@@ -285,6 +285,12 @@ angular motor at 40 000 N.m -- over a thousand times the shipped 34 -- moved the
 - The load-failure fallback remains a diagnostic path and carries no authority. The normal
   committed asset contains no generated primitive triangle; the builder and its mutation
   test refuse one.
+- Untouched-source qualification (`npm run asset:qualify`, 2026-08-27) rejects the free
+  Quaternius Male Ranger before integration: after the sole permitted uniform height scale,
+  the primary wrist is **96.613 mm** from the current arm-length endpoint and the secondary
+  wrist is **66.613 mm** away, against a 25 mm maximum. Both source files still match their
+  provenance hashes, and the qualification report pins all five geometry/skin streams. This
+  is an asset/physics landmark measurement, not a rendering or gameplay measurement.
 
 Session 08's static asset/material audit, not a visible-browser GPU capture:
 

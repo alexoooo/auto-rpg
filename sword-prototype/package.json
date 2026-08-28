@@ -22,6 +22,7 @@
     "asset:build": "node scripts/run-blender.mjs",
     "asset:review": "node scripts/run-blender.mjs --review",
     "asset:verify": "node scripts/run-blender.mjs --verify",
+    "asset:qualify": "node scripts/qualify-humanoid.mjs",
     "asset:dimensions": "node scripts/run-blender.mjs --dimensions",
     "asset:fetch": "node scripts/fetch-polyhaven.mjs",
     "texture:fetch": "node scripts/fetch-textures.mjs",

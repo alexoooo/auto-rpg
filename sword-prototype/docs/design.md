@@ -1278,6 +1278,17 @@ uploader's CC0 declaration did not establish a clean rights chain for the design
 from that candidate ships. The two selected Quaternius records above are the narrower claim
 this repository can actually prove.
 
+An untouched-asset replacement has a separate numerical admission gate. It may receive one
+uniform scale and rigid placement, but no vertex edit, weight painting or proportional stretch.
+`npm run asset:qualify` checks the pinned creator glTF directly and exits nonzero when a joint
+landmark is more than 25 mm from the authoritative physics rig. The first candidate is the same
+free Male Ranger before the fitted build changes it; the free Standard archive contains Ranger
+and Peasant, not a complete Knight outfit. At the permitted 0.963078 height scale its
+primary elbow and wrist miss by 58.157 and 96.613 mm; the secondary pair miss by 38.157 and
+66.613 mm. It is therefore rejected rather than installed. The checked-in report is
+`asset-src/armour/quaternius-ranger/qualification.json`. Changing combat reach to match an art
+asset is a gameplay decision, not an asset-pipeline convenience.
+
 The glTF loader owns the asset's handedness conversion; the runtime does not rewrite tangent
 buffers. The asset checker validates finite authored UV and tangent payload rather than
 trusting Blender source comments.
