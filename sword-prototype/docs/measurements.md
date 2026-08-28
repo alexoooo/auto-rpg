@@ -338,6 +338,35 @@ fit, Female Ranger currently wins only that narrow comparison. A genuinely diffe
 attempt requires another asset family; another Standard outfit can change clothing but cannot
 change these measured proportions.
 
+The 2026-08-28 replacement-architecture search did find that different family. KayKit's CC0
+[`Character Pack: Adventurers 1.0`](https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0)
+Knight, at creator repository commit
+`672074b73ba276876a19e8816ecdc5241817ab47`, is the first candidate found whose weapon handling is
+correct by construction rather than by a local pose or mesh edit. The self-contained Knight GLB
+is 3 659 532 bytes with SHA-256
+`60428e3abc09ba83e595d256e3af8c5c976b46cdae599f0802fc82b4a3445168`. Its one 41-joint skin
+contains `handslot.r` and `handslot.l` joints below the corresponding hand joints; the creator's
+one-handed sword is already a child of the right slot and four shield choices are already children
+of the left. Its 76 embedded actions include four one-handed attacks, `Block`, `Blocking`,
+`Block_Attack`, `Block_Hit`, locomotion, hit and death. All 3 716 skinned vertices have one
+four-influence joint/weight set whose sums are normalized within 5.22e-8. An untouched Blender
+4.5.12 render with only the creator's `1H_Sword` and `Round_Shield` made visible kept both seated in
+their hands through idle, diagonal/chop attacks, block, block-hit and locomotion; no body or armour
+part floated or detached. That is a presentation inspection, not a current-physics-rig
+qualification, and no local mesh, bone, attachment transform or animation was changed.
+
+The remaining decision is art direction rather than missing construction. This Knight is a
+cohesive, polished low-poly **chibi** character: large head, short limbs and mitten hands without
+individual finger bones. It is not a realistically proportioned human, and it should not be
+misrepresented as one. Selecting one of the creator-attached sword and shield variants is ordinary
+node visibility, not mesh authoring. KayKit's current
+[Adventurers 2.0 release](https://kaylousberg.itch.io/kaykit-adventurers) is visually refreshed
+and advertises the same CC0 Knight/sword/shield ecosystem plus the separate compatible animation
+pack, but its exact free archive has not yet received the file-level inspection above. If the chibi
+direction is acceptable, 1.0 is mechanically qualified for an asset-native integration spike and
+2.0 is the next source to compare before choosing which version ships. If that direction is not
+acceptable, the search remains open; no equally complete realistic free candidate was found.
+
 Session 08's static asset/material audit, not a visible-browser GPU capture:
 
 | character-surface build | triangles / fighter | character draw submissions | committed texture JPEGs | estimated RGBA8 mip footprint |
