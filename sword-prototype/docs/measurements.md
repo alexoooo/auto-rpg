@@ -285,12 +285,42 @@ angular motor at 40 000 N.m -- over a thousand times the shipped 34 -- moved the
 - The load-failure fallback remains a diagnostic path and carries no authority. The normal
   committed asset contains no generated primitive triangle; the builder and its mutation
   test refuse one.
-- Untouched-source qualification (`npm run asset:qualify`, 2026-08-27) rejects the free
-  Quaternius Male Ranger before integration: after the sole permitted uniform height scale,
-  the primary wrist is **96.613 mm** from the current arm-length endpoint and the secondary
-  wrist is **66.613 mm** away, against a 25 mm maximum. Both source files still match their
-  provenance hashes, and the qualification report pins every present geometry/skin stream. This
-  is an asset/physics landmark measurement, not a rendering or gameplay measurement.
+- Untouched-source qualification has rejected both candidates evaluated so far. The cumulative
+  ledger below owns those results; the shipping Warrior remains unchanged. This is an
+  asset/physics landmark measurement, not a rendering or gameplay measurement.
+
+### Untouched humanoid candidate ledger
+
+`asset-src/humanoid-candidates.json` is the machine-readable, append-only authority. Each report
+name includes its date, contract and the first twelve characters of the physics-dimensions digest,
+so a later rig change adds evidence instead of erasing it. The fit column folds nine placed 3D
+landmarks plus the proximal and cumulative endpoint error for both arms and both legs. The gate is
+25 mm per check; max error precedes RMS when comparing rejected geometry.
+
+| date | untouched candidate | rig SHA-256 | scale | fit over / 17; max; RMS | primary elbow / wrist | secondary elbow / wrist | authored sword / shield grip | technical source | verdict |
+|---|---|---|---:|---|---|---|---|---|---|
+| 2026-08-27 | Quaternius Standard `Male_Ranger` | `df5f4489ef01...` | 0.963078 | 14; 96.613 mm; 48.827 mm | 58.157 / 96.613 mm | 38.157 / 66.613 mm | no / no | clean pinned creator glTF streams | **rejected; closest geometry so far** |
+| 2026-08-28 | Quaternius Animated Knight `KnightCharacter` | `df5f4489ef01...` | 0.321496 | 16; 346.585 mm; 215.827 mm | 26.467 / 108.802 mm | 19.845 / 138.952 mm | sword action present but fails all-control grip gate / no | two creator weights exceed 1 and must be normalized by browser-format export | **rejected** |
+
+The Ranger's other failed 3D landmarks are waist 42.110 mm, head base 25.249 mm,
+both shoulders 50.700 mm, both hips 43.520 mm and both ankles 66.125 mm. The Knight is
+substantially farther away: pelvis 269.769 mm, waist 306.814 mm, head base 224.295 mm,
+shoulders 233.719/232.962 mm, hips 346.585/317.599 mm and ankles 85.484/86.139 mm. Its leg
+endpoint errors are 298.123 and 268.658 mm. The untouched blend remains the authority for those
+measurements; the checked-in glTF is explicitly a Blender 4.5.12 mechanical inspection format,
+exported with all influence sets after the default exporter was observed truncating 31 vertices
+with five or six influences. Even that mode must normalize the source's two weights over 1, so no
+literal no-weight-change installation exists.
+
+The bundle inventory matters independently of either rejection. The free Standard archive has
+exactly four full outfit glTFs -- male/female Ranger and male/female Peasant -- and no complete
+Knight. Male Peasant reuses the Male Ranger skeleton coordinates and omits a complete visible
+head, so evaluating it would add no proportion family and would not supply the armoured person
+being sought. Female Ranger is the next distinct skeleton still available inside that archive.
+The Animated Knight archive does contain one complete skinned Knight, but Helmet3 and its shoulder
+pads are separate unrigged assets; calling their assembly an untouched complete candidate would
+be false. None of the candidates is qualified. If a later decision must use the least-bad measured
+fit, Male Ranger currently wins only that narrow comparison.
 
 Session 08's static asset/material audit, not a visible-browser GPU capture:
 

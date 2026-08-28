@@ -1,0 +1,164 @@
+{
+  "schema": 1,
+  "contracts": {
+    "untouched-humanoid-v1": {
+      "rule": "one profile-declared axis normalization, one uniform scale, and one rigid translation only; no vertex, weight, proportion, or animation edits",
+      "landmarkLimitMm": 25,
+      "requiredPoses": [
+        "sword-grip",
+        "shield-grip"
+      ],
+      "ranking": "qualified candidates first; then lowest maximum fit error; then lowest RMS fit error; pose, provenance, technical, and severance failures remain separate hard gates"
+    }
+  },
+  "bundles": [
+    {
+      "id": "quaternius-modular-character-outfits-fantasy-standard-2026",
+      "title": "Modular Character Outfits - Fantasy [Standard]",
+      "author": "Quaternius",
+      "officialPage": "https://quaternius.com/packs/modularcharacteroutfitsfantasy.html",
+      "license": "CC0-1.0",
+      "licenseEvidence": "bundled-notice",
+      "archiveSha256": "c3468b18871cc8c8f05ab14df7712baf22cb9f389cbd870babf130e595187f70",
+      "contentsFinding": [
+        "The Standard archive contains exactly four complete outfit glTFs: Male_Ranger, Female_Ranger, Male_Peasant, and Female_Peasant.",
+        "It contains no complete Knight outfit; its advertised modular set is Ranger and Peasant clothing.",
+        "Male_Peasant shares the Male_Ranger skeleton coordinates and omits a complete visible head, so it is not a new proportion family or a serious armoured candidate.",
+        "Female_Ranger is the next distinct skeleton in this bundle and remains available for a later recorded evaluation."
+      ]
+    },
+    {
+      "id": "quaternius-animated-knight-2018",
+      "title": "Animated Knight Pack",
+      "author": "Quaternius",
+      "officialPage": "https://quaternius.com/packs/knightcharacter.html",
+      "license": "CC0-1.0",
+      "licenseEvidence": "official-page",
+      "archiveSha256": "36aed14d0e27282bd006982e00206a852b1d8c00fc72f95c2437d9b4b5dccdb9",
+      "contentsFinding": [
+        "KnightCharacter.blend is one complete 480-vertex skinned character with a 31-bone armature and twelve creator actions.",
+        "Helmet3 and the shoulder pads are separate static assets, not rigged parts of KnightCharacter; assembling them would require authored placement.",
+        "The creator mesh has 31 vertices with more than four influences and two individual weights over 1, so a browser glTF conversion must preserve extra influence sets and still normalize the invalid weights."
+      ]
+    }
+  ],
+  "candidates": [
+    {
+      "id": "quaternius-male-ranger",
+      "bundleId": "quaternius-modular-character-outfits-fantasy-standard-2026",
+      "assetLocator": "Exports/glTF (Godot-Unreal)/Outfits/Male_Ranger.gltf",
+      "sourceFiles": [
+        {
+          "path": "asset-src/armour/quaternius-ranger/ranger-creator.gltf",
+          "sha256": "e1033a212332d84d98c19bc4927c621635478d0aa15d13c79da68d3ba9e0196f"
+        },
+        {
+          "path": "asset-src/armour/quaternius-ranger/ranger-source.gltf",
+          "sha256": "9647969f306ca905a4be7fd0903e55ad6db35a30d4ed8ad77758d53d61ad11b8"
+        },
+        {
+          "path": "asset-src/armour/quaternius-ranger/ranger-source.bin",
+          "sha256": "5bbb0d42cb324c6c27ce00417e68a876d92978f07d161f83590f0d7c0570eff6"
+        }
+      ],
+      "legacyReports": [
+        {
+          "path": "asset-src/armour/quaternius-ranger/qualification.json",
+          "sha256": "7c4cdcf29339819f6009b440f01a3963a21e0103dcc64ad838a7b16f41db1370",
+          "note": "Original schema-1 rejection preserved byte-for-byte; the append-only schema-2 evaluation adds source, rig and evaluator identity."
+        }
+      ],
+      "evaluations": [
+        {
+          "id": "2026-08-27-untouched-humanoid-v1-rig-df5f4489ef01-source-55451f9bb52d-evaluator-0512551c9118",
+          "contract": "untouched-humanoid-v1",
+          "evaluated": "2026-08-27",
+          "rig": {
+            "path": "asset-src/dimensions.json",
+            "sha256": "df5f4489ef014fb147fb494b8e9496355ff59111384737b2902e2818bbb93580"
+          },
+          "evaluatorSha256": "0512551c91187f3b0448cacf57498f7b1ae486e819a26230c172dec380b20bc9",
+          "sourceInputSha256": "55451f9bb52d7fc3cc47c9d21057560a038601557c685a3825a1e78b9b161b6e",
+          "report": "asset-src/armour/quaternius-ranger/qualification-2026-08-27-untouched-humanoid-v1-rig-df5f4489ef01-source-55451f9bb52d-evaluator-0512551c9118.json",
+          "reportSha256": "2ab8c7b66e5f2b8060cd92ef38fcd36159e718dde226ce87516bbff408fd7076",
+          "status": "rejected",
+          "integrityOk": true,
+          "sourceTechnicalOk": true,
+          "fit": {
+            "complete": true,
+            "expectedChecks": 17,
+            "checks": 17,
+            "overLimit": 14,
+            "maxErrorMm": 96.613,
+            "rmsErrorMm": 48.827,
+            "primaryElbowMm": 58.157,
+            "primaryWristMm": 96.613,
+            "secondaryElbowMm": 38.157,
+            "secondaryWristMm": 66.613
+          },
+          "authoredPoses": {
+            "swordGrip": false,
+            "shieldGrip": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "quaternius-animated-knight",
+      "bundleId": "quaternius-animated-knight-2018",
+      "assetLocator": "Knight Character by @Quaternius/Blends/KnightCharacter.blend",
+      "sourceFiles": [
+        {
+          "path": "asset-src/armour/quaternius-knight/KnightCharacter.blend",
+          "sha256": "edc8036644626dbe20fbf2d2bd3b046688496962c0dacc516b3ea78f519a35e9"
+        },
+        {
+          "path": "asset-src/armour/quaternius-knight/knight-source-metadata.json",
+          "sha256": "035ce50c7176df62dccd1e9de63da8d319e1fe4b9a952e65458f55e46682f7c3"
+        }
+      ],
+      "evaluations": [
+        {
+          "id": "2026-08-28-untouched-humanoid-v1-rig-df5f4489ef01-source-3487be1230e3-evaluator-0512551c9118",
+          "contract": "untouched-humanoid-v1",
+          "evaluated": "2026-08-28",
+          "rig": {
+            "path": "asset-src/dimensions.json",
+            "sha256": "df5f4489ef014fb147fb494b8e9496355ff59111384737b2902e2818bbb93580"
+          },
+          "evaluatorSha256": "0512551c91187f3b0448cacf57498f7b1ae486e819a26230c172dec380b20bc9",
+          "sourceInputSha256": "3487be1230e322b9c44d9e47945824ebf9778bc58ed0847a816517b717285e89",
+          "report": "asset-src/armour/quaternius-knight/qualification-2026-08-28-untouched-humanoid-v1-rig-df5f4489ef01-source-3487be1230e3-evaluator-0512551c9118.json",
+          "reportSha256": "8672ebd44097bf950d26ca38832010ade902007278efccc52d6dbe93d6ff81d2",
+          "status": "rejected",
+          "integrityOk": true,
+          "sourceTechnicalOk": false,
+          "fit": {
+            "complete": true,
+            "expectedChecks": 17,
+            "checks": 17,
+            "overLimit": 16,
+            "maxErrorMm": 346.585,
+            "rmsErrorMm": 215.827,
+            "primaryElbowMm": 26.467,
+            "primaryWristMm": 108.802,
+            "secondaryElbowMm": 19.845,
+            "secondaryWristMm": 138.952
+          },
+          "authoredPoses": {
+            "swordActionPresent": true,
+            "swordGripQualified": false,
+            "shieldGrip": false
+          }
+        }
+      ]
+    }
+  ],
+  "comparison": {
+    "contract": "untouched-humanoid-v1",
+    "rigSha256": "df5f4489ef014fb147fb494b8e9496355ff59111384737b2902e2818bbb93580",
+    "qualifiedCandidate": null,
+    "closestGeometrySoFar": "quaternius-male-ranger",
+    "note": "Closest is not qualified. Ranger has the lower maximum and RMS error, but still fails anatomy and both required grip gates."
+  }
+}

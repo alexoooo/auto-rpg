@@ -3,6 +3,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { zipMember } from "./zip-member.mjs";
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const record = JSON.parse(await readFile(resolve(ROOT, "asset-src/armour-sources.json"), "utf8"));
 if (record.schema !== 2) throw new Error(`unsupported armour provenance schema ${record.schema}`);
@@ -57,6 +59,30 @@ async function verifyExtracts(source) {
   }
 }
 
+async function verifyQualificationCandidates(source, archive) {
+  for (const candidate of source.qualificationCandidates ?? []) {
+    if (!candidate.id || !candidate.sourceMember || !/^[0-9a-f]{64}$/.test(candidate.sourceMemberSha256 ?? "")) {
+      throw new Error(`armour source "${source.id}" has an invalid qualification candidate`);
+    }
+    const memberDigest = digest(zipMember(archive, candidate.sourceMember));
+    if (memberDigest !== candidate.sourceMemberSha256) {
+      throw new Error(`qualification source member ${candidate.sourceMember} digest ${memberDigest}; expected ${candidate.sourceMemberSha256}`);
+    }
+    for (const [filename, expected] of Object.entries(candidate.extracts ?? {})) {
+      if (!/^[0-9a-f]{64}$/.test(expected)) {
+        throw new Error(`qualification extract ${candidate.id}/${filename} has no valid SHA-256`);
+      }
+      const path = resolve(ROOT, candidate.extractRoot, filename);
+      const bytes = await readFile(path).catch(() => null);
+      if (!bytes) throw new Error(`missing qualification extract ${path}`);
+      const actual = digest(bytes);
+      if (actual !== expected) {
+        throw new Error(`qualification extract ${candidate.id}/${filename} digest ${actual}; expected ${expected}`);
+      }
+    }
+  }
+}
+
 async function verifySource(source) {
   const path = resolve(ROOT, source.reviewFile);
   const bytes = await readFile(path).catch(() => null);
@@ -69,6 +95,7 @@ async function verifySource(source) {
     throw new Error(`${source.title} digest ${actual}; expected ${source.archiveSha256}`);
   }
   await verifyExtracts(source);
+  await verifyQualificationCandidates(source, bytes);
   console.log(`${source.title} and its selected extracts match their pins.`);
 }
 

@@ -99,7 +99,11 @@ def main():
         if full_gltf is None:
             raise RuntimeError("clothing archive has no full Male_Ranger.gltf outfit")
         full_bin = full_gltf[:-len("Male_Ranger.gltf")] + "Male_Ranger.bin"
-        document = json.loads(archive.read(full_gltf).decode("utf8"))
+        creator_bytes = archive.read(full_gltf)
+        creator_target = args.output / "ranger-creator.gltf"
+        creator_target.write_bytes(creator_bytes)
+        print(f"wrote {creator_target}")
+        document = json.loads(creator_bytes.decode("utf8"))
         document["buffers"][0]["uri"] = "ranger-source.bin"
         document.pop("images", None)
         document.pop("textures", None)

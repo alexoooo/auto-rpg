@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -27,18 +27,7 @@ const TYPE_WIDTH = Object.freeze({
   MAT4: 16,
 });
 
-const REQUIRED_MESHES = Object.freeze([
-  "Male_Ranger_Acc_Pauldron",
-  "Male_Ranger_Arms",
-  "Male_Ranger_Arms_Bracer",
-  "Male_Ranger_Body",
-  "Male_Ranger_Body_Belt_1",
-  "Male_Ranger_Feet_Boots",
-  "Male_Ranger_Head_Hood",
-  "Male_Ranger_Legs",
-]);
-
-const REQUIRED_BONES = Object.freeze([
+const RANGER_BONES = Object.freeze([
   "root", "pelvis", "spine_01", "spine_02", "spine_03", "neck_01", "Head",
   "clavicle_l", "upperarm_l", "lowerarm_l", "hand_l",
   "clavicle_r", "upperarm_r", "lowerarm_r", "hand_r",
@@ -46,6 +35,66 @@ const REQUIRED_BONES = Object.freeze([
   "index_01_l", "middle_01_l", "ring_01_l", "pinky_01_l", "thumb_01_l",
   "index_01_r", "middle_01_r", "ring_01_r", "pinky_01_r", "thumb_01_r",
 ]);
+
+const RANGER_PROFILE = Object.freeze({
+  id: "quaternius-male-ranger",
+  asset: "Quaternius Modular Character Outfits - Fantasy [Standard] / Male_Ranger",
+  evaluated: "2026-08-27",
+  rootBone: "root",
+  requiredBones: RANGER_BONES,
+  requiredMeshes: [
+    "Male_Ranger_Acc_Pauldron", "Male_Ranger_Arms", "Male_Ranger_Arms_Bracer",
+    "Male_Ranger_Body", "Male_Ranger_Body_Belt_1", "Male_Ranger_Feet_Boots",
+    "Male_Ranger_Head_Hood", "Male_Ranger_Legs",
+  ],
+  landmarks: {
+    pelvis: "pelvis", waist: "spine_01", head: "Head",
+    primaryShoulder: "upperarm_l", secondaryShoulder: "upperarm_r",
+    positiveHip: "thigh_l", negativeHip: "thigh_r",
+    positiveAnkle: "foot_l", negativeAnkle: "foot_r",
+  },
+  limbs: {
+    primaryArm: ["upperarm_l", "lowerarm_l", "hand_l"],
+    secondaryArm: ["upperarm_r", "lowerarm_r", "hand_r"],
+    leftLeg: ["thigh_l", "calf_l", "foot_l"],
+    rightLeg: ["thigh_r", "calf_r", "foot_r"],
+  },
+  poseKind: "five-digits",
+  axisMapping: ["+X", "+Y", "+Z"],
+});
+
+const KNIGHT_PROFILE = Object.freeze({
+  id: "quaternius-animated-knight",
+  asset: "Quaternius Animated Knight Pack / KnightCharacter",
+  evaluated: "2026-08-28",
+  rootBone: "Bone",
+  requiredBones: [
+    "Bone", "Body", "Hips", "Abdomen", "Torso", "Neck", "Head",
+    "Shoulder.L", "UpperArm.L", "LowerArm.L", "Palm.L", "MiddleHand.L", "Fingers.L", "Thumb.R", "Thumb2.R",
+    "Shoulder.R", "UpperArm.R", "LowerArm.R", "Palm.R", "MiddleHand.R", "Fingers.R", "Thumb.L", "Thumb2.L",
+    "UpperLeg.L", "LowerLeg.L", "Foot.L", "UpperLeg.R", "LowerLeg.R", "Foot.R",
+  ],
+  requiredMeshes: ["Knight"],
+  landmarks: {
+    pelvis: "Hips", waist: "Abdomen", head: "Head",
+    primaryShoulder: "UpperArm.L", secondaryShoulder: "UpperArm.R",
+    positiveHip: "UpperLeg.L", negativeHip: "UpperLeg.R",
+    positiveAnkle: "Foot.L", negativeAnkle: "Foot.R",
+  },
+  limbs: {
+    primaryArm: ["UpperArm.L", "LowerArm.L", "Palm.L"],
+    secondaryArm: ["UpperArm.R", "LowerArm.R", "Palm.R"],
+    leftLeg: ["UpperLeg.L", "LowerLeg.L", "Foot.L"],
+    rightLeg: ["UpperLeg.R", "LowerLeg.R", "Foot.R"],
+  },
+  poseKind: "grouped-knight",
+  axisMapping: ["+X", "+Z", "-Y"],
+});
+
+export const HUMANOID_PROFILES = Object.freeze({
+  [RANGER_PROFILE.id]: RANGER_PROFILE,
+  [KNIGHT_PROFILE.id]: KNIGHT_PROFILE,
+});
 
 const identity = () => [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 
@@ -254,10 +303,61 @@ function poseResult(document, binary, skinJoints, label, namePattern, side) {
       if (rotationAccessorMoves(document, binary, sampler.input, sampler.output)) animated.add(match[1]);
     }
     if (["index", "middle", "ring", "pinky", "thumb"].every((digit) => animated.has(digit))) {
-      return { label, qualified: true, animation: animation.name, fingerChannels: animated.size };
+      return { label, authored: true, qualified: true, animation: animation.name, fingerChannels: animated.size };
     }
   }
-  return { label, qualified: false, animation: null, fingerChannels: 0 };
+  return { label, authored: false, qualified: false, animation: null, fingerChannels: 0 };
+}
+
+function controlledPoseResult(document, binary, skinJoints, label, animationName, controls) {
+  const animation = (document.animations ?? []).find((candidate) => candidate.name === animationName);
+  if (!animation) return { label, authored: false, qualified: false, animation: null, fingerChannels: 0, controls };
+  const animated = new Set();
+  for (const channel of animation.channels ?? []) {
+    const nodeIndex = channel.target?.node;
+    const name = document.nodes?.[nodeIndex]?.name;
+    const sampler = animation.samplers?.[channel.sampler];
+    if (!controls.includes(name) || channel.target?.path !== "rotation" || !skinJoints.has(nodeIndex) || !sampler) continue;
+    if (rotationAccessorMoves(document, binary, sampler.input, sampler.output)) animated.add(name);
+  }
+  return {
+    label,
+    authored: true,
+    qualified: controls.every((name) => animated.has(name)),
+    animation: animation.name,
+    fingerChannels: animated.size,
+    controls,
+  };
+}
+
+function poseResults(document, binary, skinJoints, profile) {
+  if (profile.poseKind === "grouped-knight") return [
+    controlledPoseResult(document, binary, skinJoints, "sword grip", "Idle_swordLeft",
+      ["Fingers.L", "Thumb.R", "Thumb2.R"]),
+    controlledPoseResult(document, binary, skinJoints, "shield grip", "Shield_Guard",
+      ["Fingers.R", "Thumb.L", "Thumb2.L"]),
+  ];
+  return [
+    poseResult(document, binary, skinJoints, "sword grip", /(?=.*(?:sword|weapon))(?=.*(?:idle|grip|hold))/i, "l"),
+    poseResult(document, binary, skinJoints, "shield grip", /(?:shield|block|guard)/i, "r"),
+  ];
+}
+
+function summarizeFit(landmarks, limbs) {
+  const errors = [
+    ...landmarks.filter((row) => row.available).map((row) => row.errorMm),
+    ...limbs.filter((row) => row.available).flatMap((row) => [row.elbowErrorMm, row.wristErrorMm]),
+  ];
+  return {
+    complete: errors.length === 17,
+    expectedChecks: 17,
+    checks: errors.length,
+    overLimit: errors.filter((value) => value > LANDMARK_LIMIT_MM).length,
+    maxErrorMm: errors.length ? Math.max(...errors) : null,
+    rmsErrorMm: errors.length
+      ? Math.round(Math.sqrt(errors.reduce((sum, value) => sum + value * value, 0) / errors.length) * 1_000) / 1_000
+      : null,
+  };
 }
 
 function primitiveFailure(document, binary, primitive) {
@@ -305,7 +405,8 @@ function limbResult(name, positions, sourceBones, targetLengths, scale) {
   };
 }
 
-export function qualifyHumanoidDocument(document, binary, dimensions, integrity = null) {
+export function qualifyHumanoidDocument(document, binary, dimensions, integrity = null,
+    profile = RANGER_PROFILE, measurement = null) {
   const failures = [];
   const nodes = document.nodes ?? [];
   const parents = Array(nodes.length).fill(-1);
@@ -324,8 +425,8 @@ export function qualifyHumanoidDocument(document, binary, dimensions, integrity 
   if (!scene) failures.push("source has no active creator scene");
   if (!skin) failures.push(`source requires exactly one creator skin; found ${document.skins?.length ?? 0}`);
   else if (skin.inverseBindMatrices === undefined) failures.push("creator skin has no inverse-bind matrices");
-  const rootIndex = nodeByName.get("root")?.index;
-  for (const bone of REQUIRED_BONES) {
+  const rootIndex = nodeByName.get(profile.rootBone)?.index;
+  for (const bone of profile.requiredBones) {
     const occurrences = nodes.filter((node) => node.name === bone).length;
     if (occurrences > 1) failures.push(`creator bone ${bone} occurs ${occurrences} times`);
     const found = nodeByName.get(bone);
@@ -338,7 +439,7 @@ export function qualifyHumanoidDocument(document, binary, dimensions, integrity 
       if (rootIndex !== undefined && at !== rootIndex) failures.push(`creator bone ${bone} is disconnected from the humanoid root`);
     }
   }
-  for (const mesh of REQUIRED_MESHES) {
+  for (const mesh of profile.requiredMeshes) {
     const occurrences = nodes.filter((node) => node.name === mesh).length;
     if (occurrences > 1) failures.push(`creator mesh ${mesh} occurs ${occurrences} times`);
     const found = nodeByName.get(mesh);
@@ -357,46 +458,49 @@ export function qualifyHumanoidDocument(document, binary, dimensions, integrity 
       }
     }
   }
-  const bounds = sourceBounds(document);
+  const bounds = measurement?.bounds ?? sourceBounds(document);
   const scale = dimensions.fighter.height / bounds.height;
-  const positions = bonePositions(document);
-  const pelvis = positions.get("pelvis") ?? [0, 0, 0];
+  const positions = measurement?.positions ?? bonePositions(document);
+  const pelvis = positions.get(profile.landmarks.pelvis) ?? [0, 0, 0];
   const translation = [-pelvis[0] * scale, -bounds.low * scale, -pelvis[2] * scale];
   const ankle = dimensions.body.shinCentre - dimensions.body.shinLength / 2;
   const landmarks = [
-    landmarkResult("pelvis", positions, "pelvis", [0, dimensions.body.hip, 0], scale, translation),
-    landmarkResult("waist", positions, "spine_01", dimensions.bones.pelvis.joint, scale, translation),
-    landmarkResult("head base", positions, "Head", dimensions.bones.head.joint, scale, translation),
-    landmarkResult("primary shoulder", positions, "upperarm_l", dimensions.bones.swordUpperArm.joint, scale, translation),
-    landmarkResult("secondary shoulder", positions, "upperarm_r", dimensions.bones.offUpperArm.joint, scale, translation),
-    landmarkResult("positive-side hip", positions, "thigh_l", dimensions.bones.thighRight.joint, scale, translation),
-    landmarkResult("negative-side hip", positions, "thigh_r", dimensions.bones.thighLeft.joint, scale, translation),
-    landmarkResult("positive-side ankle", positions, "foot_l", [dimensions.body.hipSide, ankle, 0], scale, translation),
-    landmarkResult("negative-side ankle", positions, "foot_r", [-dimensions.body.hipSide, ankle, 0], scale, translation),
+    landmarkResult("pelvis", positions, profile.landmarks.pelvis, [0, dimensions.body.hip, 0], scale, translation),
+    landmarkResult("waist", positions, profile.landmarks.waist, dimensions.bones.pelvis.joint, scale, translation),
+    landmarkResult("head base", positions, profile.landmarks.head, dimensions.bones.head.joint, scale, translation),
+    landmarkResult("primary shoulder", positions, profile.landmarks.primaryShoulder, dimensions.bones.swordUpperArm.joint, scale, translation),
+    landmarkResult("secondary shoulder", positions, profile.landmarks.secondaryShoulder, dimensions.bones.offUpperArm.joint, scale, translation),
+    landmarkResult("positive-side hip", positions, profile.landmarks.positiveHip, dimensions.bones.thighRight.joint, scale, translation),
+    landmarkResult("negative-side hip", positions, profile.landmarks.negativeHip, dimensions.bones.thighLeft.joint, scale, translation),
+    landmarkResult("positive-side ankle", positions, profile.landmarks.positiveAnkle, [dimensions.body.hipSide, ankle, 0], scale, translation),
+    landmarkResult("negative-side ankle", positions, profile.landmarks.negativeAnkle, [-dimensions.body.hipSide, ankle, 0], scale, translation),
   ];
   for (const landmark of landmarks) {
     if (!landmark.available) failures.push(`${landmark.name} landmark is unavailable`);
     else if (!landmark.qualified) failures.push(`${landmark.name} misses the ${LANDMARK_LIMIT_MM} mm 3D landmark limit: ${landmark.errorMm} mm`);
   }
   const limbs = [
-    limbResult("primary arm", positions, ["upperarm_r", "lowerarm_r", "hand_r"],
+    limbResult("primary arm", positions, profile.limbs.primaryArm,
       [dimensions.arm.upperLength, dimensions.arm.foreLength], scale),
-    limbResult("secondary arm", positions, ["upperarm_l", "lowerarm_l", "hand_l"],
+    limbResult("secondary arm", positions, profile.limbs.secondaryArm,
       [dimensions.body.offUpperLength, dimensions.body.offForeLength], scale),
-    limbResult("left leg", positions, ["thigh_l", "calf_l", "foot_l"],
+    limbResult("left leg", positions, profile.limbs.leftLeg,
       [dimensions.body.thighLength, dimensions.body.shinLength], scale),
-    limbResult("right leg", positions, ["thigh_r", "calf_r", "foot_r"],
+    limbResult("right leg", positions, profile.limbs.rightLeg,
       [dimensions.body.thighLength, dimensions.body.shinLength], scale),
   ];
   for (const limb of limbs) {
     if (!limb.available) failures.push(`${limb.name} landmarks are unavailable`);
     else if (!limb.qualified) failures.push(`${limb.name} misses the ${LANDMARK_LIMIT_MM} mm landmark limit: elbow/knee ${limb.elbowErrorMm} mm, wrist/ankle ${limb.wristErrorMm} mm`);
   }
-  const poses = [
-    poseResult(document, binary, skinJoints, "sword grip", /(?=.*(?:sword|weapon))(?=.*(?:idle|grip|hold))/i, "l"),
-    poseResult(document, binary, skinJoints, "shield grip", /(?:shield|block|guard)/i, "r"),
-  ];
-  for (const pose of poses) if (!pose.qualified) failures.push(`source contains no creator-authored ${pose.label} with finger channels`);
+  const poses = poseResults(document, binary, skinJoints, profile);
+  for (const pose of poses) if (!pose.qualified) failures.push(`source contains no qualifying creator-authored ${pose.label} with finger channels`);
+  const sourceTechnical = measurement?.sourceTechnical ?? {
+    qualified: true,
+    authority: "creator-published glTF attributes",
+    weightNormalizationRequired: false,
+  };
+  if (!sourceTechnical.qualified) failures.push(...sourceTechnical.failures);
   if (integrity && !integrity.ok) failures.push(...integrity.failures);
   let protectedAttributes = {};
   let protectedStructure = {};
@@ -407,18 +511,34 @@ export function qualifyHumanoidDocument(document, binary, dimensions, integrity 
     failures.push(`source structure cannot be hashed: ${error instanceof Error ? error.message : String(error)}`);
   }
   return {
-    schema: 1,
-    asset: "Quaternius Modular Character Outfits - Fantasy [Standard] / Male_Ranger",
+    schema: 2,
+    candidateId: profile.id,
+    asset: profile.asset,
+    evaluated: profile.evaluated,
+    contract: "untouched-humanoid-v1",
     status: failures.length === 0 ? "qualified" : "rejected",
     rule: "uniform scale and rigid placement only; no vertex, weight, or proportion edits",
     landmarkLimitMm: LANDMARK_LIMIT_MM,
     sourceHeightM: Math.round(bounds.height * 1_000_000) / 1_000_000,
     uniformScale: Math.round(scale * 1_000_000) / 1_000_000,
     rigidTranslationM: translation.map(roundedMetres),
+    axisMapping: profile.axisMapping,
+    sideMapping: {
+      primary: profile.limbs.primaryArm,
+      secondary: profile.limbs.secondaryArm,
+    },
     landmarks,
     limbs,
+    fit: summarizeFit(landmarks, limbs),
     animationCount: (document.animations ?? []).length,
     poses,
+    sourceTechnical,
+    severance: {
+      status: "deferred-after-admission-failure",
+      sourceSkinJoints: skinJoints.size,
+      method: "mechanical triangle partition by dominant mapped source-bone region; no vertex-position authoring",
+      reason: "A rejected candidate is not installed or cut. Full region coverage is checked only after anatomy and grip admission.",
+    },
     attributeDigests: protectedAttributes,
     structureDigests: protectedStructure,
     integrity,
@@ -431,24 +551,139 @@ export function qualifyHumanoidDocument(document, binary, dimensions, integrity 
 
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
-export async function qualifySelectedHumanoid(root = ROOT) {
-  const sourceRoot = resolve(root, "asset-src/armour/quaternius-ranger");
-  const gltfBytes = await readFile(resolve(sourceRoot, "ranger-source.gltf"));
-  const binary = await readFile(resolve(sourceRoot, "ranger-source.bin"));
+const CANDIDATE_FILES = Object.freeze({
+  [RANGER_PROFILE.id]: {
+    provenanceId: "quaternius-modular-character-outfits-fantasy-standard-2026",
+    sourceRoot: "asset-src/armour/quaternius-ranger",
+    creator: "ranger-creator.gltf",
+    gltf: "ranger-source.gltf",
+    binary: "ranger-source.bin",
+  },
+  [KNIGHT_PROFILE.id]: {
+    provenanceId: "quaternius-animated-knight-2018",
+    sourceRoot: "asset-src/armour/quaternius-knight",
+    creator: "KnightCharacter.blend",
+    gltf: "knight-source.gltf",
+    binary: "knight-source.bin",
+    metadata: "knight-source-metadata.json",
+  },
+});
+
+function knightMeasurement(metadata) {
+  const toGame = ([x, y, z]) => [x, z, -y];
+  return {
+    bounds: {
+      low: metadata.mesh.boundsWorldMin[2],
+      high: metadata.mesh.boundsWorldMax[2],
+      height: metadata.mesh.boundsWorldMax[2] - metadata.mesh.boundsWorldMin[2],
+    },
+    positions: new Map(Object.entries(metadata.bones).map(([name, bone]) => [name, toGame(bone.headWorld)])),
+    sourceTechnical: {
+      qualified: false,
+      authority: metadata.authority,
+      blenderVersion: metadata.blenderVersion,
+      creatorVertices: metadata.mesh.vertices,
+      creatorPolygons: metadata.mesh.polygons,
+      maxInfluences: metadata.mesh.maxInfluences,
+      verticesOverFourInfluences: metadata.mesh.verticesOverFourInfluences,
+      weightsOverOne: metadata.mesh.weightsOverOne,
+      weightNormalizationRequired: metadata.mesh.weightsOverOne.length > 0,
+      failures: [
+        `creator mesh contains ${metadata.mesh.weightsOverOne.length} skin weights over 1; browser-format export normalizes them and cannot preserve literal creator weights`,
+      ],
+    },
+  };
+}
+
+export async function qualifyHumanoidCandidate(candidateId, root = ROOT) {
+  const profile = HUMANOID_PROFILES[candidateId];
+  const files = CANDIDATE_FILES[candidateId];
+  if (!profile || !files) throw new Error(`unknown humanoid candidate "${candidateId}"`);
+  const sourceRoot = resolve(root, files.sourceRoot);
+  const creatorBytes = await readFile(resolve(sourceRoot, files.creator)).catch(() => null);
+  const gltfBytes = await readFile(resolve(sourceRoot, files.gltf));
+  const binary = await readFile(resolve(sourceRoot, files.binary));
   const document = JSON.parse(gltfBytes);
-  const dimensions = JSON.parse(await readFile(resolve(root, "asset-src/dimensions.json"), "utf8"));
+  const dimensionsBytes = await readFile(resolve(root, "asset-src/dimensions.json"));
+  const evaluatorBytes = await readFile(fileURLToPath(import.meta.url));
+  const dimensions = JSON.parse(dimensionsBytes);
   const provenance = JSON.parse(await readFile(resolve(root, "asset-src/armour-sources.json"), "utf8"));
-  const row = provenance.sources.find((source) => source.id === "quaternius-modular-character-outfits-fantasy-standard-2026");
+  const row = provenance.sources.find((source) => source.id === files.provenanceId);
+  const candidate = row?.qualificationCandidates?.find((entry) => entry.id === candidateId);
   const failures = [];
-  if (!row) failures.push("selected Quaternius provenance row is missing");
-  if (row && sha256(gltfBytes) !== row.extracts["ranger-source.gltf"]) failures.push("ranger-source.gltf moved from its provenance pin");
-  if (row && sha256(binary) !== row.extracts["ranger-source.bin"]) failures.push("ranger-source.bin moved from its provenance pin");
-  const integrity = { ok: failures.length === 0, failures };
-  return qualifyHumanoidDocument(document, binary, dimensions, integrity);
+  if (!row) failures.push(`Quaternius provenance row ${files.provenanceId} is missing`);
+  if (!candidate) failures.push(`qualification provenance for ${candidateId} is missing`);
+  if (!creatorBytes) failures.push(`committed creator member ${files.creator} is missing`);
+  if (candidate && creatorBytes && sha256(creatorBytes) !== candidate.sourceMemberSha256) failures.push(`${files.creator} moved from its creator-member pin`);
+  if (candidate && sha256(gltfBytes) !== candidate.extracts[files.gltf]) failures.push(`${files.gltf} moved from its qualification pin`);
+  if (candidate && sha256(binary) !== candidate.extracts[files.binary]) failures.push(`${files.binary} moved from its qualification pin`);
+  let metadata = null;
+  let metadataActual = null;
+  if (files.metadata) {
+    const metadataBytes = await readFile(resolve(sourceRoot, files.metadata));
+    metadataActual = sha256(metadataBytes);
+    metadata = JSON.parse(metadataBytes);
+    if (candidate && metadataActual !== candidate.extracts[files.metadata]) failures.push(`${files.metadata} moved from its qualification pin`);
+    if (candidate && metadata.sourceMemberSha256 !== candidate.sourceMemberSha256) failures.push("Knight creator blend member moved from its qualification pin");
+  }
+  const representation = Object.fromEntries([
+    [files.gltf, sha256(gltfBytes)],
+    [files.binary, sha256(binary)],
+    ...(files.metadata ? [[files.metadata, metadataActual]] : []),
+  ]);
+  const sourceInputSha256 = sha256(Buffer.from(JSON.stringify({
+    creator: creatorBytes ? sha256(creatorBytes) : null,
+    representation,
+  })));
+  const integrity = {
+    ok: failures.length === 0,
+    sourceId: files.provenanceId,
+    sourceMember: candidate?.sourceMember ?? null,
+    sourceMemberSha256: candidate?.sourceMemberSha256 ?? null,
+    sourceMemberSha256Actual: creatorBytes ? sha256(creatorBytes) : null,
+    archiveSha256: row?.archiveSha256 ?? null,
+    representation,
+    sourceInputSha256,
+    rig: { path: "asset-src/dimensions.json", sha256: sha256(dimensionsBytes) },
+    evaluator: { path: "scripts/qualify-humanoid.mjs", sha256: sha256(evaluatorBytes) },
+    failures,
+  };
+  return qualifyHumanoidDocument(document, binary, dimensions, integrity, profile,
+    metadata ? knightMeasurement(metadata) : null);
+}
+
+export async function qualifySelectedHumanoid(root = ROOT) {
+  return qualifyHumanoidCandidate(RANGER_PROFILE.id, root);
+}
+
+export function reportPathFor(report) {
+  const files = CANDIDATE_FILES[report.candidateId];
+  if (!files) throw new Error(`unknown humanoid candidate "${report.candidateId}"`);
+  const rig = report.integrity.rig.sha256.slice(0, 12);
+  const source = report.integrity.sourceInputSha256.slice(0, 12);
+  const evaluator = report.integrity.evaluator.sha256.slice(0, 12);
+  return [
+    `${files.sourceRoot}/qualification`, report.evaluated, report.contract,
+    `rig-${rig}`, `source-${source}`, `evaluator-${evaluator}`,
+  ].join("-") + ".json";
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const report = await qualifySelectedHumanoid();
+  const candidateAt = process.argv.indexOf("--candidate");
+  const candidateId = candidateAt >= 0 ? process.argv[candidateAt + 1] : RANGER_PROFILE.id;
+  const report = await qualifyHumanoidCandidate(candidateId);
+  if (process.argv.includes("--write")) {
+    const path = resolve(ROOT, reportPathFor(report));
+    const bytes = Buffer.from(`${JSON.stringify(report, null, 2)}\n`);
+    const existing = await readFile(path).catch((error) => {
+      if (error?.code === "ENOENT") return null;
+      throw error;
+    });
+    if (existing && !existing.equals(bytes)) {
+      throw new Error(`refusing to overwrite immutable humanoid evaluation ${path}`);
+    }
+    if (!existing) await writeFile(path, bytes);
+  }
   console.log(JSON.stringify(report, null, 2));
   process.exitCode = report.status === "qualified" ? 0 : 1;
 }

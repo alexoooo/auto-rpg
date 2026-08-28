@@ -41,6 +41,19 @@
         "ranger-legs.obj": "d6c0806a34a8ad2e9277d241dd9f47f2e0205ed8fdaf042b74cb63b43e97036b",
         "ranger-pauldron.obj": "e8451799499fe9ac3e625d12c7e54d915109879a960737ac41dc670086b67d47"
       },
+      "qualificationCandidates": [
+        {
+          "id": "quaternius-male-ranger",
+          "sourceMember": "Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/Male_Ranger.gltf",
+          "sourceMemberSha256": "e1033a212332d84d98c19bc4927c621635478d0aa15d13c79da68d3ba9e0196f",
+          "extractRoot": "asset-src/armour/quaternius-ranger",
+          "extracts": {
+            "ranger-creator.gltf": "e1033a212332d84d98c19bc4927c621635478d0aa15d13c79da68d3ba9e0196f",
+            "ranger-source.gltf": "9647969f306ca905a4be7fd0903e55ad6db35a30d4ed8ad77758d53d61ad11b8",
+            "ranger-source.bin": "5bbb0d42cb324c6c27ce00417e68a876d92978f07d161f83590f0d7c0570eff6"
+          }
+        }
+      ],
       "adaptations": [
         "the complete authored tunic, coat-skirts, belts, hood, sleeves, bracers, pauldron, trousers, boots and hands are selected",
         "native skinning is retargeted onto the prototype's exact thirteen physics-bone names, centre origins and hierarchy",
@@ -72,6 +85,21 @@
         "Helmet3.obj": "f9ff269b4d606e2c4e95fd5f04ab0ed26d5f57110ae5045da6c79bdcbaa7bf2f",
         "Helmet3.mtl": "fdfd97e432fc9e83877877c2efaf5855b390286558d6b3273cff5d1154e022ba"
       },
+      "qualificationCandidates": [
+        {
+          "id": "quaternius-animated-knight",
+          "sourceMember": "Knight Character by @Quaternius/Blends/KnightCharacter.blend",
+          "sourceMemberSha256": "edc8036644626dbe20fbf2d2bd3b046688496962c0dacc516b3ea78f519a35e9",
+          "extractRoot": "asset-src/armour/quaternius-knight",
+          "representation": "Blender 4.5.12 LTS mechanical glTF export with all skin influences; measurements remain authoritative from the untouched blend",
+          "extracts": {
+            "KnightCharacter.blend": "edc8036644626dbe20fbf2d2bd3b046688496962c0dacc516b3ea78f519a35e9",
+            "knight-source.gltf": "b945051f9c9020597865e67420d6bf0943b49f99bf48c8f3ef692351b094e5a4",
+            "knight-source.bin": "6bb575a201d92be6579049b847d1499635bfa5faaa17075938192c6965de96fe",
+            "knight-source-metadata.json": "035ce50c7176df62dccd1e9de63da8d319e1fe4b9a952e65458f55e46682f7c3"
+          }
+        }
+      ],
       "adaptations": [
         "Helmet3 is uniformly fitted inside the Ranger hood and weighted rigidly to the visual head bone",
         "the steel, brass and black eye-slit material roles are preserved",

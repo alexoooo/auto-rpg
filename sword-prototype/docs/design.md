@@ -1279,15 +1279,26 @@ from that candidate ships. The two selected Quaternius records above are the nar
 this repository can actually prove.
 
 An untouched-asset replacement has a separate numerical admission gate. It may receive one
-uniform scale and rigid placement, but no vertex edit, weight painting or proportional stretch.
-`npm run asset:qualify` checks the pinned creator glTF directly and exits nonzero when a joint
-landmark is more than 25 mm from the authoritative physics rig. The first candidate is the same
-free Male Ranger before the fitted build changes it; the free Standard archive contains Ranger
-and Peasant, not a complete Knight outfit. At the permitted 0.963078 height scale its
-primary elbow and wrist miss by 58.157 and 96.613 mm; the secondary pair miss by 38.157 and
-66.613 mm. It is therefore rejected rather than installed. The checked-in report is
-`asset-src/armour/quaternius-ranger/qualification.json`. Changing combat reach to match an art
-asset is a gameplay decision, not an asset-pipeline convenience.
+profile-declared whole-body axis normalization, one uniform scale and one rigid translation,
+but no vertex edit, weight painting, animation authoring or proportional stretch. The axis
+mapping is fixed from the creator format before any landmark is measured; it is not optimized
+per limb. `npm run asset:qualify -- --candidate <id>` checks the pinned creator authority and
+exits nonzero when a joint landmark is more than 25 mm from the authoritative physics rig.
+Provenance/integrity, source technical validity, both creator-authored grips, anatomy and the
+mechanical severance path are separate hard gates. A small numerical error cannot rehabilitate
+an asset that fails one of the others.
+
+`asset-src/humanoid-candidates.json` is the durable candidate and bundle authority. It separates
+an archive from the outfits inside it, pins every report to the qualification contract and the
+`dimensions.json` digest, and appends a new evaluation rather than overwriting history when the
+rig changes. Candidate-local reports preserve every landmark, limb, pose and protected source
+digest. The executable ledger test refuses drift between those reports, their provenance and
+the ledger summaries; `docs/measurements.md` transcribes the comparison vector for people. The
+comparison orders qualified candidates first, then lower
+maximum error and lower RMS error, while retaining weapon-arm reach and grip support explicitly.
+"Closest" therefore means only closest measured geometry and never means qualified. Changing
+combat reach to match an art asset remains a gameplay decision, not an asset-pipeline
+convenience.
 
 The glTF loader owns the asset's handedness conversion; the runtime does not rewrite tangent
 buffers. The asset checker validates finite authored UV and tangent payload rather than
