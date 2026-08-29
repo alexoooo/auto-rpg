@@ -55,9 +55,9 @@ export const CONSTRUCT_LEARNING_SCHEDULE = Object.freeze({
   ...CONSTRUCT_LEARNING_PROTOCOL,
   entryGate: Object.freeze({
     qualified: false,
-    evidence: "construct-entry-run-d0e8011a-source-be5f8040-2026-08-28",
+    evidence: "construct-entry-run-d0e8011a-source-3780627d-2026-08-29",
     runDigest: "d0e8011a",
-    sourceDigest: "be5f8040",
+    sourceDigest: "3780627d",
     runtimeStatus: "current seeded runtime; qualification rejected",
     reason: "8/8 time caps, 234442 stuck physics steps and 2/8 rows without bilateral damage",
   }),

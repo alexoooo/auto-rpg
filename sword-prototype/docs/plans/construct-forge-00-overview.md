@@ -126,6 +126,7 @@ order an editor, JSON parser or worker happened to produce.
 | [14](construct-forge-14-learning-runtime.md) | graph policy inference, training/checkpoint software and parity | 13 |
 | [15](construct-forge-15-learning-rung.md) | measured interruptible learning ladder or explicit negative result | 14 |
 | [16](construct-forge-16-integration-and-playtest.md) | player verdict and durable close-out | 12 plus either 15 or the session-12 early-negative record |
+| [17](construct-forge-17-humanoid-effigy.md) | fixed two-foot Swordbearer archetype and honest mixed-body baseline | 07, 09, 16 |
 
 Sessions 01--12 produce the game without requiring learned AI. Sessions 13--15 begin only after
 the authored Mind can complete meaningful bouts and a person judges the build-program-observe loop

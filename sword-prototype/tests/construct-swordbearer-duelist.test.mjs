@@ -9,7 +9,7 @@ import { ActionScheduler } from "../src/construct/scheduler.ts";
 import { CONSTRUCT_CONTROLLERS } from "../src/construct/controllers.ts";
 import { installedSensorsForBlueprint, SensorFrame } from "../src/construct/sensors.ts";
 import { SWORDBEARER_DUELIST, swordbearerDuelistProgram } from "../src/construct/swordbearer-duelist.ts";
-import { runConstructWarriorBout } from "../scripts/construct-warrior-bout.mjs";
+import { assertConstructWarriorEvidence, runConstructWarriorBout } from "../scripts/construct-warrior-bout.mjs";
 
 const blueprint = humanoidBlueprint();
 const graph = humanoidControl();
@@ -52,23 +52,24 @@ test("the_Swordbearer_duelist_targets_only_the_explicit_biped_and_sword_Action_s
   assert.equal(program.id, "swordbearer-warrior-duelist");
   const actionsById = new Map(graph.actions.map((action) => [action.id, action.controller]));
   assert.deepEqual([...new Set(program.rules.map(({ action }) => action))].sort(),
-    ["brace", "guard", "move", "recover", "stabilize", "sweep", "turn"]);
-  assert.equal(actionsById.get("move"), "biped-move");
-  assert.equal(actionsById.get("turn"), "biped-turn");
+    ["brace", "guard", "stabilize", "sweep"]);
+  assert.equal(actionsById.has("move"), false, "the failed gait is not an accepted request");
+  assert.equal(actionsById.has("turn"), false, "the failed turn gait is not an accepted request");
+  assert.equal(actionsById.has("recover"), false, "the failed recovery is not an accepted request");
   assert.equal(actionsById.get("brace"), "biped-brace");
-  assert.equal(actionsById.get("recover"), "biped-recover");
+  assert.equal(actionsById.get("sweep"), "sweep-compact-arc");
   assert.equal(program.rules.some(({ action }) => action.includes("quadruped") || action === "cut" || action === "cover"), false);
 });
 
-test("recovery_facing_distance_guard_and_sweep_are_disjoint_scheduler_decisions", () => {
+test("posture_distance_guard_and_sweep_are_disjoint_scheduler_decisions", () => {
   const cases = [
-    [{ upright: false, range: 1.4, relativeSpeed: 4.2 }, ["recover", "stabilize"]],
+    [{ upright: false, range: 1.4, relativeSpeed: 4.2 }, ["stabilize"]],
     [{ range: 3.4, lateral: 0 }, ["guard", "brace", "stabilize"]],
-    [{ range: 3.4, lateral: 1.4 }, ["turn", "stabilize"]],
+    [{ range: 3.4, lateral: 1.4 }, ["guard", "brace", "stabilize"]],
     [{ range: 1.4, lateral: 0.1, relativeSpeed: 0.2 }, ["sweep", "brace", "stabilize"]],
     [{ range: 1.4, lateral: -0.1, relativeSpeed: 0.2 }, ["sweep", "brace", "stabilize"]],
     [{ range: 1.4, lateral: 0.1, relativeSpeed: 4.2 }, ["sweep", "brace", "stabilize"]],
-    [{ range: 0.6, lateral: 0.1, relativeSpeed: 0.2 }, ["move", "stabilize"]],
+    [{ range: 0.6, lateral: 0.1, relativeSpeed: 0.2 }, ["brace", "guard", "stabilize"]],
   ];
   for (const [values, expected] of cases) {
     const command = decide(values);
@@ -82,8 +83,11 @@ test("recovery_facing_distance_guard_and_sweep_are_disjoint_scheduler_decisions"
   }
   assert.equal(decide({ range: 1.4, lateral: 0.1 }).requests[0].request.parameters.direction, 1);
   assert.equal(decide({ range: 1.4, lateral: -0.1 }).requests[0].request.parameters.direction, -1);
-  assert.deepEqual(decide({ range: 0.6, lateral: 0.1 }).requests[0].request.parameters,
-    { forward: -1, right: -0.45, speed: SWORDBEARER_DUELIST.retreatSpeedMps });
+});
+
+test("the_pinned_real_mixed_bout_stands_sweeps_scores_and_publishes_its_effector", async () => {
+  const report = await runConstructWarriorBout();
+  assert.equal(assertConstructWarriorEvidence(report), report);
 });
 
 test("mutating_the_strike_boundary_changes_the_public_command_cell", () => {

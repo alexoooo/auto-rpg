@@ -103,6 +103,8 @@ them stale while leaving the argument unchanged.
 - `docs/plans/combat-followups-21-integration-and-playtest.md`
 - `docs/plans/combat-followups-21-ppo-self-play.md`
 - `docs/plans/combat-followups-22-bounded-lookahead.md`
+- `docs/plans/construct-forge-04-bronze-warden.md`
+- `docs/plans/construct-forge-05-action-runtime.md`
 - `scripts/evaluate-options.mjs`
 - `scripts/promotion-evaluator.mjs`
 - `scripts/train-meta-worker.mjs`

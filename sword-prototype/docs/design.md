@@ -1610,6 +1610,35 @@ qualification records no stuck `recover` interval: its exact failures are 220,87
 steps, 13,571 `fire/tracking` steps, eight time caps and two rows without bilateral damage. Those
 current failures independently block learning.
 
+### The fixed humanoid construct
+
+The Swordbearer Effigy is a second fixed `Construct` archetype, not a humanoid `Fighter` in stone
+clothes and not a renamed Warden. Its blueprint is a connected primitive tree with head, neck,
+torso, pelvis, one stabilized free arm, one yaw/pitch sword arm and two four-bearing legs. Only the
+two feet own contact sensors. The fixed body exposes only the physically demonstrated biped brace
+controller; it reads those sensors and live joint/core facts, then writes through `MotorWriter`.
+The first move/turn gait fell and travelled backwards, and recovery never righted the fallen body
+in an extended real-Havok probe, so all three requests are absent rather than accepted dishonestly.
+Neither a hand nor a root transform is
+used as a support limb. A disjoint posture Action holds the head, neck, waist and free arm while the
+leg and sword groups act concurrently.
+
+`ConstructProfile` owns the archetype identity, body dimensions and named support parts used by
+`describe`; the old Warden constants are not reused for an unlike body. Mounted swords publish
+body-neutral effector facts -- socket anchor, physical tip, material-point velocity, reach and live
+loss -- through `BodyView.effectors`. Humanoid tactics can therefore cover the real mounted weapon
+without the construct inventing a `HandView`. The same physical module remains the scorer, so
+perception and damage share its installed/lost state.
+
+The committed Effigy Mind is a planted counter-fighter. It braces while a Warrior closes, chooses
+sweep direction from local opponent position and keeps non-overlapping posture control active. It
+makes no recovery request after the measured upright predicate fails. That is the strongest honest
+current policy, not a promotion claim: the pinned mixed bout records real upright sword damage but
+also records a late fall and a decisive damage deficit. Forge v1 can load and inspect the fixed
+body only through the direct Setup/runtime path: the Forge library and its sensor catalog remain
+Warden-specific and do not list or import this archetype. Its fragment shelf is therefore not yet
+a general humanoid authoring kit.
+
 ## Construct capabilities, resources and Minds
 
 Capabilities are recomputed from installed facts, not remembered from the original blueprint.

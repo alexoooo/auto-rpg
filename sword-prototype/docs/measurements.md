@@ -7345,3 +7345,33 @@ npm run construct:train -- --smoke --run <physical-smoke-directory> --workers 2
 npm run construct:qualify -- --out <qualification-directory> --workers 8
 npm run construct:watch -- --run <directory>
 ```
+
+## Swordbearer Effigy mixed-body baseline -- 2026-08-29
+
+The new archetype, truthful support/profile remediation and mixed-bout failure gate broadened the
+fail-closed qualification source fingerprint to `3780627d`. Re-running the frozen eight-job Warden corpus with eight workers preserved run digest
+`d0e8011a` and the exact rejection: six of eight bilateral-damage rows, eight time caps, 234,442
+stuck steps, 212 named capability transitions and zero unexplained losses. This is a source-identity
+move, not a Warden result move; the schedule now pins the new pair.
+
+Harness: `scripts/construct-warrior-bout.mjs`, real Havok at a fixed 240 Hz, 4,800 steps/20 seconds,
+Swordbearer on the left against the real Warrior `duelist` with sword+buckler at seed 20,903. The
+script directly installs the saved construct program; the older humanoid-only measurement harness
+would silently select hold and is not evidence for this body.
+
+The final planted counter-fighter completed eight mounted sweeps, reported zero scheduler refusals
+or failures, and stayed in the combined root-up/torso-height/head-order standing predicate for
+19.5417 seconds. Its first physical `effigy-sword` damage was 0.074789 at 17.1875 seconds while
+upright. It ended at 0.944206 vitality after the Warrior dealt 358.431303 raw local damage; the
+Warrior ended at 0.999925 vitality. This is evidence that the whole public path can stand, decide,
+sweep, score and be perceived. It is also a failed competence comparison: the damage is tiny and
+the body falls just before the cap. An extended 30-second probe found that the experimental recovery
+never returned it to standing, so the fixed Effigy no longer advertises that Action.
+
+The stabilizing iteration changed no geometry, contacts or root authority. Golem-scale joints moved
+waist 380 Nm/damping 8 -> 1200/18; hip X 300/8 -> 1000/18; hip Y 220/8 -> 750/18; knee 260/8 ->
+900/16; ankle 180/8 -> 650/16; sole 180/8 -> 500/14. The subsequent heavy-stone distribution moved
+pelvis 70 -> 180 kg and each thigh/shin/ankle/foot 18/14/6/18 -> 60/50/25/80 kg. In the isolated
+repeated-sweep harness that body remained upright for 20/20 seconds and completed 17 sweeps. A wider
+0.90-radian attack arc was then rejected: it cut mixed standing time to 7.4875 seconds and produced
+no upright damage, so the committed arc remains 0.55 radians.

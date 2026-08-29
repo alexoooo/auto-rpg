@@ -47,11 +47,13 @@ const leftArmJoints = Object.freeze([
 ]);
 
 const leg = (side: "left" | "right", x: number) => {
+  // Heavy-stone chassis experiment, mass only: thigh/shin/ankle/foot were
+  // 18/14/6/18 kg. Geometry and the two contact leaves deliberately do not move.
   const parts = Object.freeze([
-    part(`${side}-thigh`, { kind: "capsule", lengthM: 0.32, radiusM: 0.12 }, 18, "piston"),
-    part(`${side}-shin`, { kind: "capsule", lengthM: 0.30, radiusM: 0.10 }, 14, "piston"),
-    part(`${side}-ankle`, { kind: "cylinder", lengthM: 0.12, radiusM: 0.085 }, 6, "bearing"),
-    part(`${side}-foot`, { kind: "box", sizeM: [0.40, 0.14, 0.55] }, 18),
+    part(`${side}-thigh`, { kind: "capsule", lengthM: 0.32, radiusM: 0.12 }, 60, "piston"),
+    part(`${side}-shin`, { kind: "capsule", lengthM: 0.30, radiusM: 0.10 }, 50, "piston"),
+    part(`${side}-ankle`, { kind: "cylinder", lengthM: 0.12, radiusM: 0.085 }, 25, "bearing"),
+    part(`${side}-foot`, { kind: "box", sizeM: [0.40, 0.14, 0.55] }, 80),
   ]);
   // The initial 300/220/260/180/180 Nm, damping-8 leg was sized like a human
   // exoskeleton but drives a roughly 200 kg stone body. These are actuator values,
@@ -75,7 +77,8 @@ const leftLeg = leg("left", -0.19); const rightLeg = leg("right", 0.19);
 
 const bodyParts = Object.freeze([
   part("torso", { kind: "box", sizeM: [0.72, 0.78, 0.34] }, 52, "core", true),
-  part("pelvis", { kind: "box", sizeM: [0.60, 0.22, 0.30] }, 70, "core"),
+  // Pelvis was 70 kg; 180 kg makes the authored identity a bottom-heavy stone golem.
+  part("pelvis", { kind: "box", sizeM: [0.60, 0.22, 0.30] }, 180, "core"),
   part("neck", { kind: "cylinder", lengthM: 0.16, radiusM: 0.10 }, 4, "bearing"),
   part("head", { kind: "sphere", radiusM: 0.22 }, 10, "core"),
   ...leftArmParts, ...leftLeg.parts, ...rightLeg.parts,
@@ -159,22 +162,16 @@ export function humanoidControl(): ConstructControlGraph {
   ], actions: [
     { id: "hold", controller: "hold-joints", group: "whole-body", claims: [], parameters: {} },
     { id: "stabilize", controller: "hold-joints", group: "posture", claims: [], parameters: {} },
-    { id: "move", controller: "biped-move", group: "locomotion", claims: ["resource:balance"], parameters: {
-      forward: { kind: "number", min: -1, max: 1, unit: "scalar" },
-      right: { kind: "number", min: -1, max: 1, unit: "scalar" },
-      speed: { kind: "number", min: 0, max: 1.6, unit: "metres-per-second" },
-    } },
-    { id: "turn", controller: "biped-turn", group: "locomotion", claims: ["resource:balance"], parameters: {
-      yaw: { kind: "number", min: -1, max: 1, unit: "scalar" },
-    } },
+    // The first biped gait writes legitimate motors but falls and travels backwards in a real
+    // Havok probe. This fixed body therefore does not advertise move/turn until they earn a
+    // two-facing physical gate; accepting a request the chassis cannot honour would be worse.
     { id: "brace", controller: "biped-brace", group: "locomotion", claims: ["resource:balance"], parameters: {} },
-    { id: "recover", controller: "biped-recover", group: "locomotion", claims: ["resource:balance"], parameters: {} },
     { id: "aim", controller: "aim-direction", group: "sword-arm",
       claims: ["resource:power-mount", "resource:sensor-line-of-sight"], parameters: {
         yaw: { kind: "number", min: -2.5, max: 2.5, unit: "radians" },
         pitch: { kind: "number", min: -0.75, max: 1.65, unit: "radians" },
       } },
-    { id: "sweep", controller: "sweep-arc", group: "sword-arm",
+    { id: "sweep", controller: "sweep-compact-arc", group: "sword-arm",
       claims: ["module:effigy-sword", "resource:power-mount", "resource:sensor-line-of-sight"],
       parameters: { direction: { kind: "number", min: -1, max: 1, unit: "scalar" } } },
     { id: "guard", controller: "guard-mount", group: "sword-arm",

@@ -120,10 +120,10 @@ export const CONTROLLER_COMPATIBILITY: readonly ControllerCompatibility[] = Obje
       yaw: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
     } : {}) as Readonly<Record<string, ParameterSpec>>,
   })),
-  ...["aim-direction", "track-target", "sweep-arc", "fire-projectile", "guard-mount"].map((controller): ControllerCompatibility => Object.freeze({
+  ...["aim-direction", "track-target", "sweep-arc", "sweep-compact-arc", "fire-projectile", "guard-mount"].map((controller): ControllerCompatibility => Object.freeze({
     controller, role: "two-axis-mount" as const, minimumJoints: 2, minimumModules: 1,
     requiredParameters: Object.freeze(controller === "aim-direction" ? ["yaw", "pitch"]
-      : controller === "sweep-arc" ? ["direction"] : []),
+      : controller === "sweep-arc" || controller === "sweep-compact-arc" ? ["direction"] : []),
     bindings: Object.freeze([
       Object.freeze({ role: "yaw", repeat: "once" as const, joints: 1, modules: 0 }),
       Object.freeze({ role: "pitch", repeat: "once" as const, joints: 1, modules: 0 }),
@@ -134,7 +134,7 @@ export const CONTROLLER_COMPATIBILITY: readonly ControllerCompatibility[] = Obje
     parameters: Object.freeze(controller === "aim-direction" ? {
       yaw: Object.freeze({ kind: "number" as const, min: -2.5, max: 2.5, unit: "radians" as const }),
       pitch: Object.freeze({ kind: "number" as const, min: -0.75, max: 1.65, unit: "radians" as const }),
-    } : controller === "sweep-arc" ? {
+    } : controller === "sweep-arc" || controller === "sweep-compact-arc" ? {
       direction: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
     } : {}) as Readonly<Record<string, ParameterSpec>>,
   })),

@@ -678,6 +678,11 @@ Seven, and each one was paid for.
   breakdown above. Its 212 named resource/hardware transitions are telemetry, not unexplained
   capability disappearance. Promotion gates judge the conjunction and production writes no shard
   or artifact when entry is red.
+- **Foot contact does not prove a humanoid is standing.** The first Swordbearer test accepted two
+  live foot contacts while the whole body was lying on its back. A biped posture claim needs root-up,
+  torso height and head-above-torso together over the claimed interval. Its mixed Warrior harness
+  records all three and the first posture-loss time; a contact count remains useful sensor evidence,
+  not a stability verdict.
 
 ## Research runs
 

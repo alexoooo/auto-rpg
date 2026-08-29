@@ -7,7 +7,7 @@ corpus is explicitly superseded: its seed field did not alter physical initial c
 nominal seeds were duplicates apart from mirror. No production behavior-cloning run, PPO run or
 held-out tournament was started, and no artifact was promoted. The measured worker-scaling bracket
 remains valid for selecting eight workers for the same eight-job shape. The replacement source
-`be5f8040` / run `d0e8011a` corpus is a real seeded qualification and was rejected: all eight bouts
+`3780627d` / run `d0e8011a` corpus is a real seeded qualification and was rejected: all eight bouts
 time-capped, with 234,442 stuck steps and two rows without bilateral damage. Its 212 named
 resource/hardware transitions are informational and its unexplained capability-loss count is zero.
 

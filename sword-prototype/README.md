@@ -158,6 +158,15 @@ four-limbed carved-stone construct with bronze bearings. Its limbs and dorsal mo
 joint chains: the saved Actions graph is what makes four chains walk and what makes the same
 two-axis mount aim a sword or auto-crossbow.
 
+**Swordbearer Effigy (Experimental)** is the second fixed construct body and the direct way to see
+this framework in humanoid form. Choose it as one corner, choose **Effigy Mind** and **mind**, then
+put a Warrior in the other corner. It is a real two-foot articulated stone body with a stabilized
+head/neck/free arm and a separately controlled mounted sword; it has no fabricated human hand or
+hidden support leg. The current chassis is a useful experiment rather than a finished opponent:
+it can stand and repeat physical sweeps, and its mounted sword has dealt real damage to the Warrior,
+but the pinned mixed bout still topples it at 19.54 seconds and its damage is far below the
+Warrior's. The diagnostics report that limitation rather than labelling it production AI.
+
 Use the four tabs as one loop:
 
 1. **Body** selects a part in the connected tree, adds/removes code-native stone pieces, changes

@@ -42,7 +42,10 @@ export const WARDEN_CONSTRUCT_PROFILE: ConstructProfile = Object.freeze({ kind: 
   reach: 1.4, crownHeight: 1.9, vitalHeight: 1.08, collisionRadius: 0.72,
   footPartIds: Object.freeze(["limb-front-left-foot", "limb-front-right-foot", "limb-rear-left-foot", "limb-rear-right-foot"]) });
 export const HUMANOID_CONSTRUCT_PROFILE: ConstructProfile = Object.freeze({ kind: "swordbearer-effigy", label: "Swordbearer Effigy",
-  reach: 1.3, crownHeight: 2.48, vitalHeight: 1.49, collisionRadius: 0.62,
+  // These are bind-pose heights above the contact-pad support plane. The pads are
+  // colliders too: measuring only the bare foot makes every host consumer 52 mm
+  // shorter than the compiled machine it frames and aims at.
+  reach: 1.3, crownHeight: 2.532, vitalHeight: 1.542, collisionRadius: 0.62,
   footPartIds: Object.freeze(["left-foot", "right-foot"]) });
 export const constructProfileForBlueprint = (blueprint: ConstructBlueprint): ConstructProfile =>
   blueprint.id === "swordbearer-effigy" ? HUMANOID_CONSTRUCT_PROFILE : WARDEN_CONSTRUCT_PROFILE;
@@ -54,7 +57,8 @@ const controllerPowerW = (controller: string): number => ({
   "hold-joints": 18, "turn-joint-to-angle": 55,
   "quadruped-move": 280, "quadruped-turn": 240, brace: 150, recover: 320,
   "biped-move": 240, "biped-turn": 210, "biped-brace": 135, "biped-recover": 300,
-  "aim-direction": 70, "track-target": 90, "sweep-arc": 300, "fire-projectile": 60, "guard-mount": 95,
+  "aim-direction": 70, "track-target": 90, "sweep-arc": 300, "sweep-compact-arc": 300,
+  "fire-projectile": 60, "guard-mount": 95,
 }[controller] ?? 80);
 
 export function boundAimModuleIds(blueprint: ConstructBlueprint,
@@ -376,7 +380,9 @@ export class Construct implements Combatant {
   }
 
   feetPosition(): Vector3 {
-    const feet = this.constructProfile.footPartIds.map((id) => this.runtime.parts.get(id)?.node.position)
+    const feet = this.constructProfile.footPartIds
+      .filter((id) => this.state.damage.isAttached(id))
+      .map((id) => this.runtime.parts.get(id)?.node.position)
       .filter((position): position is Vector3 => position !== undefined);
     if (feet.length === 0) {
       const core = this.runtime.part(this.runtime.blueprint.rootPart).node.position;

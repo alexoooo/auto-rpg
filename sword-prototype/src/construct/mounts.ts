@@ -46,10 +46,13 @@ class MountController implements ActionController {
   private fired = false;
   private sweepPhase: "wind" | "commit" | "recover" | "complete" = "wind";
   private targetError = Number.POSITIVE_INFINITY;
+  private readonly sweepArcRad: number;
 
-  constructor(context: ControllerContext, mode: "aim" | "track" | "sweep" | "fire" | "guard") {
+  constructor(context: ControllerContext, mode: "aim" | "track" | "sweep" | "fire" | "guard",
+    sweepArcRad = 0.90) {
     this.context = context;
     this.mode = mode;
+    this.sweepArcRad = sweepArcRad;
     boundJoint(context, "yaw");
     boundJoint(context, "pitch");
     if (mode === "guard") boundModule(context, "sword");
@@ -110,8 +113,8 @@ class MountController implements ActionController {
     }
     if (this.mode === "sweep") {
       const direction = Number(this.context.request.parameters.direction ?? 1);
-      yawTarget = this.sweepPhase === "wind" ? direction * -0.55 :
-        this.sweepPhase === "commit" ? direction * 0.55 : 0;
+      yawTarget = this.sweepPhase === "wind" ? direction * -this.sweepArcRad :
+        this.sweepPhase === "commit" ? direction * this.sweepArcRad : 0;
       // The mounted sword projects along the socket's forward axis. Its damaging travel is
       // therefore the declared yaw stroke itself; pitching it down first only turns the blade
       // into an unstable vertical pendulum and makes module choice alter the shared mount.
@@ -154,14 +157,16 @@ class MountController implements ActionController {
     progress: this.targetError, epsilon: 0.04 }; }
 }
 
-const mountFactory = (name: string, mode: "aim" | "track" | "sweep" | "fire" | "guard"): ControllerFactory => Object.freeze({
-  name, create: (context: ControllerContext) => new MountController(context, mode),
+const mountFactory = (name: string, mode: "aim" | "track" | "sweep" | "fire" | "guard",
+  sweepArcRad = 0.90): ControllerFactory => Object.freeze({
+  name, create: (context: ControllerContext) => new MountController(context, mode, sweepArcRad),
 });
 
 export const MOUNT_CONTROLLERS: readonly ControllerFactory[] = Object.freeze([
   mountFactory("aim-direction", "aim"),
   mountFactory("track-target", "track"),
   mountFactory("sweep-arc", "sweep"),
+  mountFactory("sweep-compact-arc", "sweep", 0.55),
   mountFactory("fire-projectile", "fire"),
   mountFactory("guard-mount", "guard"),
 ]);

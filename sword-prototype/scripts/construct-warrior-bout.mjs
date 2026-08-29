@@ -185,7 +185,24 @@ export async function runConstructWarriorBout({
   }
 }
 
+export function assertConstructWarriorEvidence(report) {
+  const failures = [];
+  if (report.physics !== "real-havok-fixed-240hz") failures.push("physics was not real fixed-step Havok");
+  if (report.simulatedSeconds < 20) failures.push(`bout ended at ${report.simulatedSeconds} s before the 20 s evidence cap`);
+  if (report.posture.longestStandingS < 19) failures.push(`standing lasted only ${report.posture.longestStandingS} s`);
+  if (!report.completedActions.includes("sweep")) failures.push("no mounted sweep completed");
+  if (!Number.isFinite(report.firstUprightConstructDamageS)) failures.push("no upright construct damage was recorded");
+  if (!report.damagingEffectors.includes("effigy-sword")) failures.push("damage was not attributed to effigy-sword");
+  if (!report.mountedThreatVisibleToWarriorMind) failures.push("the Warrior Mind could not perceive the mounted sword");
+  if (report.lifecycle.refused !== 0 || report.lifecycle.failed !== 0) {
+    failures.push(`${report.lifecycle.refused} refused and ${report.lifecycle.failed} failed Actions`);
+  }
+  if (failures.length) throw new Error(`construct-Warrior evidence failed: ${failures.join("; ")}`);
+  return report;
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const report = await runConstructWarriorBout();
+  assertConstructWarriorEvidence(report);
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 }
