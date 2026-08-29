@@ -75,9 +75,9 @@ test("restart_resets_both_engagement_records_to_a_fresh_bout", async () => {
   assert.match(build, /const recorder = new BoutRecorder\(\)/);
   assert.match(build, /wireBoutRecorder\(recorder, left, right\)/,
     "the page attaches both bodies to the shared intent adapter");
-  assert.match(build, /combatRecorder\(recorder, "left"\)/,
+  assert.match(build, /combatRecorder\(recorder, "left",/,
     "the page records left-side combat through the shared adapter");
-  assert.match(build, /combatRecorder\(recorder, "right"\)/,
+  assert.match(build, /combatRecorder\(recorder, "right",/,
     "the page records right-side combat through the shared adapter");
   assert.match(build, /return \{ left, right, sides, recorder,/);
   assert.match(rebuild, /bout = buildBout\(state\.matchup\)/,

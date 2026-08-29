@@ -1,5 +1,17 @@
 # Session 06 -- make four ordinary limbs into legs
 
+## Status -- implemented with one measured blocker (2026-08-28)
+
+Move, turn, brace and longitudinal recovery run through real Havok motors. The fixed move probe now
+asserts forward progress at facing 0 and pi, physical support, raised swing-foot clearance, bounded
+slip and upright core; both longitudinal off-centre impulse falls recover. An older corpus exposed
+lateral recovery failure, but the current seeded eight-bout classification is more specific:
+220,871 stuck steps are `brace/brace` and 13,571 are `fire/tracking`. All eight bouts time-cap and
+two lack bilateral damage. The 212 named resource/hardware transitions are expected lifecycle
+telemetry, with zero unexplained capability disappearance. Session 15 therefore remains
+fail-closed. This session is not accepted as fully complete until the current brace/tracking and
+decisive-completion blockers pass without weakening the gate.
+
 ## Outcome
 
 The Bronze Warden walks, turns, braces and recovers because one locomotion group assigns its four
@@ -13,7 +25,7 @@ Extend `src/construct/warden.ts` with a control graph, not new physical fields:
 ~~~ts
 {
   id: "locomotion",
-  joints: [/* twelve stable joint IDs */],
+  joints: [/* sixteen stable joint IDs: four per Warden limb */],
   modules: ["foot-fl", "foot-fr", "foot-rl", "foot-rr"]
 }
 ~~~
@@ -31,6 +43,12 @@ Create `src/construct/locomotion.ts` for the gait mathematics, pure where possib
 controller state, not blueprint state. A missing or severed foot reduces the active phase schedule;
 the full capability-loss rules land in session 08, but this controller must already refuse fewer
 than three usable contacts rather than indexing a missing fourth leg.
+
+Foot contact is a per-solver-step fact, not a latched boolean. Each contact sensor clears before
+the step, collision callbacks mark world contact during it, and the next control publication reads
+that completed step exactly once. Disposal removes every callback. Tests force activation so a
+sleeping Warden cannot report perfect stability. A supported foot also reports tangential velocity
+against the contacted world body; contact without a slip reading is not gait evidence.
 
 Add construct action buttons and target direction to the existing debug panel in `src/hud.ts`.
 They issue `ConstructCommand`; do not add keyboard code that calls a motor directly. Human control
@@ -54,7 +72,10 @@ Create `tests/construct-locomotion.test.mjs`:
 - `locomotion_is_invariant_under_blueprint_array_reordering_and_world_bearing`
 
 Watch `move_advances...` fail with the contact correction removed; a distance-only assertion would
-accept a Warden sliding on its armour and is not sufficient.
+accept a Warden sliding on its armour and is not sufficient. It asserts core progress, the declared
+support pattern, foot-to-ground separation and bounded tangential slip together. Replace the
+per-step contact clear with a latched contact and require the support test to fail after the foot
+leaves the ground.
 
 ## Accept
 

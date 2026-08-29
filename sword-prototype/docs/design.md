@@ -13,6 +13,21 @@ harness that took it named, and the list of what is still owed.
 
 ## The seam everything hangs on
 
+The arena-facing seam is now `ControlEndpoint`, not `Mind`. Every body publishes a surface tag,
+an installed-driver getter and an optional recording port. The host observes both bodies before it
+steps either installed driver; that ordering is the fairness rule, not an implementation detail.
+The humanoid endpoint keeps `Mind`, `FighterView` and `Intent` together behind `humanoid-v1`, while
+a later construct endpoint can carry action requests without fabricating a humanoid view or widening
+`Intent` into an untyped command bag. Installing a driver whose surface tag differs is refused with
+both surfaces named.
+
+Definitions publish the drivers their surface can actually construct. Changing a body keeps an
+incompatible saved choice visible and blocks Fight until the player chooses a valid driver; it does
+not quietly install Idle. Human injection is a typed adapter supplied only by the page, with the
+existing achieved-pose seed and hand-ownership source. Headless bodies omit it. Recording follows
+the same capability rule: the humanoid endpoint owns the intent/view tap, and a surface with no
+recording port is not sampled through a made-up `FighterView`.
+
 ```ts
 interface Mind { decide(view: FighterView, dt: number): Intent }
 class Controls { readonly state: Intent; readonly camera: CameraGestureState }
@@ -1491,6 +1506,185 @@ the next bout and what qualitative observations to add -- no developer console o
 matchup bookkeeping is part of the measurement. The panel derives the actor's eight ordered gates
 and human table directly from the captured behaviour record, then prints achieved value, threshold,
 signed margin and verdict after every bout; record and verdict cannot drift as independent payloads.
+
+## Construct body blueprints
+
+A construct begins as a versioned hardware graph, before there is a scene, a controller or a
+mind. `ConstructBlueprint` in `src/construct/blueprint.ts` owns the v1 vocabulary: primitive
+rigid parts with positive mass, one-to-three-axis joints with an attachment frame on each body, tagged
+sockets and catalogued modules mounted into those sockets. Part/joint/socket/module identifiers
+are local to their own namespaces. The joints must make every part except the named root the child
+of exactly one bearing, and the resulting graph must be one connected acyclic tree.
+
+That same description owns every physical fact later runtime sessions consume. A part declares
+collider dimensions, mass, friction, health, armour, fatality/vitality weight and one closed visual
+recipe with bounded shell clearance. `carved-stone` is a first-class grainy surface, not bronze
+with a different colour and not a property inferred from the part's name. Recipe profiles own
+colour, roughness and grain together; a part cannot carry shader scalars that the compiler ignores.
+A joint owns its integrity beside its limits and motor facts. Module properties are a closed tagged vocabulary
+for power sources and consumers, thermal capacity/cooling/limit, ammunition/reload and raw sensor
+facts. No open property record can smuggle an unversioned rule into a save.
+
+Self-collision is a versioned compiler rule, not a per-blueprint choice: intact parts belonging to
+one construct exclude each other, including non-adjacent parts, while a severed subtree is moved
+to the debris layer before the next physics step. Blueprint v1 deliberately has no field that can
+override that rule. This is the feasible v1 policy for dense repeated mechanisms; joint and
+neighbour clearance remain compiler validation rather than solver contact.
+
+The vocabulary contains no arm, leg or turret role. Four identical chains do not become legs by
+being built on four sides of a core; a later control graph may group their generic joints into a
+locomotion system, while a different control graph may use the same hardware as stabilizers or
+weapon bearings. Hardware says what can physically exist. Control says what that hardware may be
+asked to do, and the mind later says when to ask. Neither control nor mind may repair, reinterpret
+or silently add to a malformed body.
+
+`canonicalBlueprintJson` in `src/construct/canonical.ts` validates the closed vocabulary before it
+writes it, orders object keys independently of insertion order and spells only finite JSON numbers.
+Parts, joints, sockets and modules are sets canonicalized by ID; compatibility tags, sensor facts
+and module property kinds are sets too. Their input order therefore does not change save bytes.
+Control groups and actions are likewise ID-canonical sets. Mind rules alone retain declaration
+order because their indices are the final arbitration tie-break; body-array canonicalization does
+not establish a general array-sorting rule.
+`blueprintDigest` is the browser-safe FNV-1a integrity checksum over those bytes; it detects a
+changed or damaged editor save and makes no authenticity claim. `parseBlueprint` rejects an
+unsupported version, every unknown nested key and every malformed relation rather than dropping
+future data into a v1 object. This boundary imports neither Babylon nor the DOM and constructs no
+runtime resource.
+
+Construct damage has one explicit compound-shape limitation. Babylon/Havok collision events name
+the two owner `PhysicsBody` objects and the world contact point, but expose no compound child-shape
+identity. Modules therefore cannot honestly be identified by a hidden engine handle. The construct
+target seam transforms the contact point into every mounted module's frame and chooses the nearest
+surface within 35 mm from the blueprint's authoritative primitives, with module ID as the stable
+exact-tie order. Render-shell clearance is deliberately absent from that calculation. Two module
+surfaces coincident within that tolerance are physically ambiguous in v1; the stable nearest rule
+makes the result reproducible, but a later blueprint/compiler revision must reject or disambiguate
+such geometry if the Forge permits it intentionally.
+
+Collision callbacks update blueprint-owned part/module health and joint integrity, including armour,
+but do not mutate constraints or compound shapes during Havok's walk. The next control edge first
+reconciles queued subtree detachments and destroyed module layers, derives living joints, modules,
+sensor channels and the sole resource ledger, then cancels unavailable actions before their
+controllers can write another motor. Fatality and weighted vitality come from the blueprint rather
+than humanoid part names. A destroyed or subtree-detached mounted sword, launcher and its pooled
+projectiles lose scorer ownership immediately from that same installed-module fact; debris never
+retains an attacker identity. A destroyed mounted module is absent on both sides of the rendering/
+collision boundary: reconciliation disables its visual root and sets every compound leaf's
+membership and collide masks to zero. A detached subtree instead moves its leaves to the debris
+layer. Neither path synthesizes a new rigid body for a module.
+
+## Construct control graphs and closed-loop actions
+
+`ConstructControlGraph` is the saved semantic layer between hardware and intent. A group lists the
+only joints and modules a controller may use, while named bindings give those generic members an
+ordered role such as four joints and one contact module for a limb, or yaw, pitch and output for a
+mount. An action names one registered controller, one group, closed parameter descriptors and
+explicit `module:`/`resource:` claims. Controller compatibility descriptors are the Action
+Workshop's source for required roles and parameter kinds; the editor has no controller-name switch.
+
+A `ConstructCommand` contains scheduled requests, not motor values. The scheduler validates the
+whole command, then orders requests by descending priority, ascending saved `sourceIndex`, and
+action ID as the exact final tie-break. Every group joint is an implicit exclusive claim beside the
+action's explicit claims. A conflict is refused by name. An admitted controller persists while the
+same request remains present; withdrawal, conflict, changed parameters, lost capability, an
+exception or host stop cancels it explicitly. Its view is refreshed with live joint angle/speed and
+sensor facts on every step. `MotorWriter` and `EffectWriter` make the capability boundary structural:
+a controller cannot name a joint or projectile module outside its group, and non-finite or
+non-positive motor limits are refused before reaching Havok. Diagnostics publish admission,
+start/completion/cancellation/refusal and each live controller's phase, progress and epsilon.
+
+This is a closed-loop seam rather than animation playback. Gait, recovery and mount controllers
+re-read the physical state and write bounded targets through that seam; an authored Mind, a learned
+command source and the Workshop probe all submit the same command vocabulary. The Workshop probe
+suspends the inert editor preview, constructs a real probe and target through `Construct`, advances
+their real observation, capability, resource, scheduler, effect and Havok paths, then disposes both
+and restores the preview. It can therefore refuse a physically unsupported action for the same
+reason as battle. It remains a short bounded probe, not evidence of long-bout competence.
+
+The committed four-beat crawl is physical and supports three feet or a measured near-ground pair;
+its fixed probe records forward progress, swing-foot clearance, slip and upright core at both arena
+facings. Recovery is physically demonstrated for the two longitudinal off-centre impulse falls.
+A superseded corpus exposed the Warden's inability to reliably right a lateral combat fall, which
+remains an unclosed limitation rather than a completed recovery claim. The current seeded
+qualification records no stuck `recover` interval: its exact failures are 220,871 `brace/brace`
+steps, 13,571 `fire/tracking` steps, eight time caps and two rows without bilateral damage. Those
+current failures independently block learning.
+
+## Construct capabilities, resources and Minds
+
+Capabilities are recomputed from installed facts, not remembered from the original blueprint.
+Living joints, mounted modules and installed sensor channels are intersected with each action's
+group and claims. Refusal precedence is stable: missing joint, missing module, missing sensor,
+ammunition exhaustion/reload, power exhaustion, then overheat. Numeric parameter bounds are copied
+from the action descriptor into the published capability row. A fixed-step resource ledger owns
+charge, output, heat/cooling, ammunition and reload. Consumers arbitrate by descending priority,
+declaration index and consumer ID; a shortfall refuses the whole consumer rather than partially
+throttling every one. Launcher fire is transactional across ammunition, reload, energy and heat, so
+a power or thermal refusal consumes no round.
+
+A saved Mind is an ordered, bounded expression program over sensors its mounted hardware actually
+installs. Sensor facts are typed as boolean, scalar, metres, metres per second, radians, radians per
+second, seconds, joules or watts and identify a self, contact or opponent source. `expressionType`
+is the sole unit checker used by both runtime and the tree-form editor: conditions must be boolean,
+utilities scalar, and action parameter expressions must match their descriptor. Dimensional values
+cannot be compared across units, and multiplication accepts at most one dimensional operand. Every
+referenced sensor must be installed and must publish a correctly typed finite value in that decision
+frame. Unknown fields/operators/actions/parameters, missing required parameters, non-finite values
+and bounded-size/depth violations are refusals, never defaults or conversions.
+
+True rules with positive utility may emit concurrent requests. Their saved rule indices become
+stable scheduler `sourceIndex` values; rule order is therefore canonical behavior rather than a set.
+Per-rule dwell delays a newly true request without changing direct inspection. An optional rule may
+skip a statically absent action, but optionality never turns live hardware loss into success: the
+scheduler still refuses or cancels it with the hardware-derived reason. Decision diagnostics retain
+each rule's utility, selection and the sensor values that decided it.
+
+## The no-code Forge and local library
+
+The Forge edits complete validated values, never disconnected drafts. A body command first reduces
+to a candidate blueprint and builds its candidate preview; only a successful validation and preview
+enter history and replace the last valid scene. Undo and redo therefore move between whole valid
+blueprints. The connected-fragment catalog reuses the committed Warden's exact four-part,
+four-bearing limb template and adds its declared contact-sensor socket in one transaction. It can
+reconstruct a removed Warden limb or add the corresponding corner branch to a suitable core. V1
+does not expose arbitrary socket frames, arbitrary joint-frame editing or a blank-to-complete-Warden
+wizard, so it is not an unrestricted body modeller.
+
+The Action Workshop creates and edits group membership, ordered role bindings, compatible actions,
+claims and parameter bounds. The Mind Workshop edits expression trees, action parameters, priority,
+optionality, dwell and meaningful rule order. Both publish only values accepted by the runtime
+validators. Save combines the current blueprint, control graph and program, recomputes all three
+digests and checks that the program's sensors are installed. Import checks claimed digests rather
+than recording new ones for damaged bytes.
+
+The browser library is a separate closed envelope: version 1, at most 32 uniquely named entries,
+at most 4,000,000 UTF-8 bytes and nesting depth 66. It revalidates every nested saved construct and
+canonicalizes the complete replacement before its one storage write. A malformed, future, oversized,
+overdeep or digest-mismatched library is refused as a whole; the caller may report the saved bytes,
+but may not publish a partly recovered library silently.
+
+## Construct Lab and onboarding evidence
+
+Page batches and Node workers cross one job boundary. Each job carries canonical saved bytes plus a
+matchup identity containing blueprint, control, program, arena and configuration digests; both hosts
+parse the saved constructs and verify every identity before solver work. They then call the same
+prepared bout runner, which constructs the same physical bodies, authored controls, Combat observers,
+fixed solver step and diagnostic sampling. The browser creates an isolated `NullEngine`/Havok scene
+per job, runs small batches serially and yields between them so it cannot contaminate the visible
+arena. The Node host parallelizes immutable indexed jobs, commits each canonical row atomically and
+aggregates by job index rather than worker completion order. A visible Lab bout uses the exact saved
+body/control/program pair selected for each side through the ordinary arena runtime. This shared
+boundary is an implementation contract; it is not a claim that page/headless gameplay outcomes have
+already received a human quality verdict.
+
+The in-Forge first-machine guide is versioned by the frozen construct playtest protocol digest and
+autosaves only checklist evidence in local storage. It watches ordinary blueprint/control/program
+revisions, public probe commands, decision diagnostics and an actually launched visible Lab bout; it
+owns no hidden construction command, motor handle or privileged arena path. Its assignments cover
+the four Warden limbs, a crossbow-to-sword swap, authored/probed locomotion and attack actions, and a
+deliberately weak Mind followed by diagnosis and repair. This is onboarding infrastructure, not a
+completed study. No person has yet supplied the session-16 timing, confusion, explanation,
+prediction, improvement or enjoyment evidence, and no pivot/keep/stop product verdict is recorded.
 
 ## The house rules this work was done under
 

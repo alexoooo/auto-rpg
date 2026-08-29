@@ -95,12 +95,22 @@ test("the_same_sample_and_event_stream_produces_the_same_record_in_both_loops", 
 
 test("the_shared_loop_adapter_wires_intents_samples_and_combat_for_both_sides", () => {
   const recorder = new BoutRecorder();
-  const bodies = { left: { view: view(), intentObserver: null },
-    right: { view: view({ clock: 0 }), intentObserver: null } };
+  const body = (published) => {
+    let attached = null; let side = null;
+    return {
+      emit: (intent) => attached.intent(side, published, intent),
+      control: { recording: {
+        attach: (next, nextSide) => { attached = next; side = nextSide; },
+        sample: (dt, clock) => attached.sample(side, { view: published, dt, clock }),
+        detach: () => { attached = null; side = null; },
+      } },
+    };
+  };
+  const bodies = { left: body(view()), right: body(view({ clock: 0 })) };
   wireBoutRecorder(recorder, bodies.left, bodies.right);
   const thrust = blankIntent(); thrust.primary.thrust = true;
-  bodies.left.intentObserver(bodies.left.view, thrust);
-  bodies.right.intentObserver(bodies.right.view, blankIntent());
+  bodies.left.emit(thrust);
+  bodies.right.emit(blankIntent());
   sampleBoutRecorder(recorder, bodies.left, bodies.right, 1 / 240, 0);
   const observed = [];
   combatRecorder(recorder, "left", (event) => observed.push(event))({ hand: "primary", blocked: true,
@@ -109,6 +119,33 @@ test("the_shared_loop_adapter_wires_intents_samples_and_combat_for_both_sides", 
   assert.equal(recorder.records.left.contacts.primary, 1);
   assert.equal(recorder.records.right.blocks, 1);
   assert.equal(observed.length, 1, "the bench observer survives the shared recording callback");
+});
+
+test("a_surface_without_a_recording_port_is_not_sampled_as_a_humanoid", () => {
+  const recorder = new BoutRecorder();
+  let sampled = 0;
+  const absent = { control: { recording: null } };
+  const present = { control: { recording: {
+    attach: () => {}, sample: () => { sampled += 1; }, detach: () => {},
+  } } };
+  assert.doesNotThrow(() => wireBoutRecorder(recorder, absent, present));
+  assert.doesNotThrow(() => sampleBoutRecorder(recorder, absent, present, 1 / 240, 0));
+  assert.equal(sampled, 1);
+});
+
+test("construct_effectors_never_create_a_null_humanoid_hand_bucket", () => {
+  const recorder = new BoutRecorder();
+  recorder.combat("left", {
+    effectorId: "dorsal-sword",
+    hand: null,
+    blocked: false,
+    report: { weapon: "sword", damage: 12, at: 1.25 },
+  });
+  assert.deepEqual(recorder.records.left.contacts, { primary: 0, secondary: 0 });
+  assert.deepEqual(recorder.controlEvents, [{
+    version: 1, side: "left", sequence: 0, surface: "construct-v1", kind: "combat",
+    payload: { effectorId: "dorsal-sword", weapon: "sword", damage: 12, blocked: false, at: 1.25 },
+  }]);
 });
 
 test("the_engagement_recorder_reads_no_controls_or_mind_identity", async () => {
@@ -131,15 +168,10 @@ test("research_runners_version_the_label_free_instrument_before_starting_workers
   }
 });
 
-test("every_combatant_observes_its_intent_immediately_after_deciding", async () => {
-  const [common, fighter, centipede] = await Promise.all([
-    readFile(new URL("../src/units.ts", import.meta.url), "utf8"),
-    readFile(new URL("../src/fighter.ts", import.meta.url), "utf8"),
-    readFile(new URL("../src/bodies/centipede.ts", import.meta.url), "utf8"),
-  ]);
-  assert.match(common, /intentObserver: \(\(view: FighterView, intent: Intent\) => void\) \| null/);
-  assert.match(fighter, /const intent = this\.mind\.decide\(this\.view, dt\);\s*this\.intentObserver\?\.\(this\.view, intent\);/);
-  assert.match(centipede, /const input = this\.mind\.decide\(this\.view, dt\);\s*this\.intentObserver\?\.\(this\.view, input\);/);
+test("every_humanoid_driver_records_the_intent_immediately_after_deciding", async () => {
+  const source = await readFile(new URL("../src/humanoid-control.ts", import.meta.url), "utf8");
+  assert.match(source, /this\.apply\(dt, this\.mind\.decide\(this\.view, dt\)\)/);
+  assert.match(source, /this\.recording\.intent\(intent\);\s*this\.observer\?\.\(this\.options\.view, intent\);\s*this\.options\.apply/);
 });
 
 test("a_label_free_mind_and_a_labelled_mind_agree_on_attack_intent_for_a_single_weapon_cut", () => {

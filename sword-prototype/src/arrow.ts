@@ -52,12 +52,19 @@ import { applyObjectSurface, disposeCarriedRoot } from "./object-surfaces.ts";
 
 /** Everything a quiver needs to know about whose arrows these are. */
 export interface QuiverOptions {
-  hand: HandName;
+  hand: HandName | null;
   /** Prefix for every node, so four quivers in one scene are tellable apart. */
   name: string;
   /** The side's arrow layer, from `layersFor`. */
   layer: number;
   collidesWith: number;
+  /** Construct launchers override physical projectile facts from their validated blueprint. */
+  profile?: typeof CONFIG.arrow;
+  /** Stable module-owned attribution prefix; humanoid quivers preserve their historical name. */
+  effectorPrefix?: string;
+  damageScale?: number;
+  /** Construct projectiles stop scoring when their blueprint-owned launcher is destroyed. */
+  scoringActive?: () => boolean;
 }
 
 /**
@@ -84,7 +91,9 @@ const TRACE_VISIBILITY = 0.62;
  */
 export class Arrow {
   readonly kind: Striker = "arrow";
-  readonly hand: HandName;
+  readonly hand: HandName | null;
+  readonly effectorId: string;
+  readonly damageScale?: number;
   readonly root: TransformNode;
   readonly body: PhysicsBody;
   /**
@@ -126,7 +135,7 @@ export class Arrow {
    * averaging 2.9 damage into what should have been a handful averaging forty.
    */
   get spent(): boolean {
-    return this.struck;
+    return this.struck || !this.scoringActive();
   }
   /** Seconds since it was loosed, or since it struck. */
   age = 0;
@@ -160,6 +169,8 @@ export class Arrow {
 
   private readonly collidesWith: number;
   private readonly layer: number;
+  private readonly profile: typeof CONFIG.arrow;
+  private readonly scoringActive: () => boolean;
 
   /**
    * How fast it was going on the last control step before it hit anything.
@@ -179,7 +190,11 @@ export class Arrow {
 
   constructor(scene: Scene, name: string, opts: QuiverOptions, materials: WeaponMaterials) {
     this.hand = opts.hand;
-    const A = CONFIG.arrow;
+    this.effectorId = opts.effectorPrefix ? `${opts.effectorPrefix}:${name.split(".").at(-1)}` : `projectile-${name}`;
+    this.damageScale = opts.damageScale;
+    this.scoringActive = opts.scoringActive ?? (() => true);
+    const A = opts.profile ?? CONFIG.arrow;
+    this.profile = A;
     this.layer = opts.layer;
     this.collidesWith = opts.collidesWith;
 
@@ -381,7 +396,7 @@ export class Arrow {
       this.tracePoints[this.tracePoints.length - 1].copyFrom(this.root.position);
       this.updateTrace();
     } else {
-      this.trail.visibility = TRACE_VISIBILITY * Math.max(0, 1 - this.age / CONFIG.arrow.visual.fadeSeconds);
+      this.trail.visibility = TRACE_VISIBILITY * Math.max(0, 1 - this.age / this.profile.visual.fadeSeconds);
       if (this.trail.visibility === 0) this.traceRoot.setEnabled(false);
     }
 
@@ -403,14 +418,14 @@ export class Arrow {
       // Bleeding it matters more than it sounds. A 35 g arrow at 45 m/s into a
       // keyframed trunk **bounces**: measured against a static wall, one came
       // back 3.3 m in half a second.
-      const keep = 1 - CONFIG.arrow.stickDamping;
+      const keep = 1 - this.profile.stickDamping;
       this.body.setLinearVelocity(this.body.getLinearVelocity().scaleInPlace(keep));
       this.body.setAngularVelocity(this.body.getAngularVelocity().scaleInPlace(keep));
       this.shape.filterMembershipMask = LAYER.SPENT_ARROW;
       this.shape.filterCollideMask = COLLIDES.SPENT_ARROW;
     }
 
-    const spent = this.struck ? CONFIG.arrow.stickSeconds : CONFIG.arrow.lifeSeconds;
+    const spent = this.struck ? this.profile.stickSeconds : this.profile.lifeSeconds;
     if (this.age > spent || this.root.position.y < -2) this.park();
   }
 
@@ -471,7 +486,7 @@ export class Arrow {
   /** The head. */
   tipPosition(): Vector3 {
     return this.bladeDirection()
-      .scaleInPlace(CONFIG.arrow.length / 2)
+      .scaleInPlace(this.profile.length / 2)
       .addInPlace(this.root.position);
   }
 
@@ -497,7 +512,7 @@ export class Arrow {
    */
   tipPositionToRef(ref: Vector3): Vector3 {
     return this.bladeDirectionToRef(ref)
-      .scaleInPlace(CONFIG.arrow.length / 2)
+      .scaleInPlace(this.profile.length / 2)
       .addInPlace(this.root.position);
   }
 
@@ -593,7 +608,7 @@ export class Quiver {
 
   constructor(scene: Scene, opts: QuiverOptions, materials: WeaponMaterials) {
     const arrows: Arrow[] = [];
-    for (let i = 0; i < CONFIG.arrow.count; i += 1) {
+    for (let i = 0; i < (opts.profile ?? CONFIG.arrow).count; i += 1) {
       arrows.push(new Arrow(scene, `${opts.name}.${i}`, opts, materials));
     }
     this.arrows = arrows;

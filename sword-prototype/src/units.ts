@@ -8,13 +8,17 @@ import type { UnitSelectionRules } from "./bout.ts";
 import { BROOT_PROFILE, Fighter, type FighterMaterials, type Limb } from "./fighter.ts";
 import { KAYKIT_KNIGHT_METRICS, KAYKIT_KNIGHT_PROFILE } from "./kaykit-profile.ts";
 import type { Striking } from "./combat.ts";
+import type { ControlEndpoint } from "./control-host.ts";
+import type { HumanoidHumanSource } from "./humanoid-control.ts";
 import { handsFor, isWeaponKind, WEAPON_KINDS, type WeaponKind } from "./hands.ts";
-import type { FighterView, HandName, Intent, Mind } from "./mind.ts";
+import { POLICIES, splitMind, type HandName, type Mind } from "./mind.ts";
 import type { Side } from "./physics.ts";
 import { Centipede, CENTIPEDE_BITE_REACH, CENTIPEDE_CROWN, CENTIPEDE_RADIUS, CENTIPEDE_SEGMENTS } from "./bodies/centipede.ts";
+import { Construct } from "./construct/construct.ts";
+import { wardenBlueprint } from "./construct/warden.ts";
 
 /** A body kind accepted at the setup boundary. */
-export type UnitKind = "warrior" | "broot" | "centipede" | "kaykit-knight";
+export type UnitKind = "warrior" | "broot" | "centipede" | "kaykit-knight" | "bronze-warden";
 
 export interface UnitLoadout {
   readonly primary: WeaponKind;
@@ -31,9 +35,13 @@ export interface CombatantBuild {
   readonly side: Side;
   readonly origin: Vector3;
   readonly facing: number;
-  readonly mind: Mind;
-  readonly loadout: Record<HandName, WeaponKind>;
+  readonly mind?: Mind;
+  readonly loadout?: Record<HandName, WeaponKind>;
   readonly materials: FighterMaterials;
+  readonly human?: HumanoidHumanSource;
+  readonly policyName?: string;
+  readonly policySeed?: number;
+  readonly humanActive?: boolean;
 }
 
 /**
@@ -44,10 +52,9 @@ export interface CombatantBuild {
 export interface Combatant {
   readonly kind: UnitKind;
   readonly side: Side;
-  mind: Mind;
-  /** A read-only tap on the command actually handed to this body. */
-  intentObserver: ((view: FighterView, intent: Intent) => void) | null;
-  readonly view: import("./mind.ts").FighterView;
+  readonly control: ControlEndpoint;
+  /** Explicit old-body capability ports; null bodies do not impersonate a humanoid. */
+  readonly articulated: Fighter | null;
   readonly limbs: Limb[];
   readonly strikers: Striking[];
   readonly costume: readonly AbstractMesh[];
@@ -76,14 +83,17 @@ export interface Combatant {
     owner: "self" | "opponent",
   ): number;
   nearestPartTo(point: Vector3): number;
-  update(dt: number): void;
   stepProjectiles(dt: number): void;
   feetPosition(): Vector3;
   centre(): Vector3;
   aimPoint(): Vector3;
   owns(mesh: AbstractMesh): boolean;
   limbFor(body: PhysicsBody): Limb | undefined;
-  parriedBy(body: PhysicsBody): { readonly kind: WeaponKind } | null;
+  /** Compound bodies may resolve a blueprint-owned damage leaf from the contact point. */
+  damageTargetFor?(body: PhysicsBody, point: Vector3): Limb | undefined;
+  /** Body-owned armour may transform raw scoring damage into authoritative applied damage. */
+  applyDamage?(target: Limb, rawDamage: number): number;
+  parriedBy(body: PhysicsBody, point?: Vector3): { readonly kind: WeaponKind } | null;
   sever(limb: Limb, direction: Vector3): void;
   stopFighting(): void;
   dispose(): void;
@@ -101,12 +111,17 @@ export interface UnitDefinition extends UnitSelectionRules {
   readonly hands: 0 | 2;
   /** Null means every policy can drive the body's articulated input surface. */
   readonly compatiblePolicies: readonly string[] | null;
+  readonly driverOptions: readonly { readonly name: string; readonly label: string }[];
+  readonly humanAdapter: boolean;
+  readonly controlSurface: string;
   readonly defaultPolicy: string;
   readonly anatomy: AnatomyDefinition;
   readonly reach: number;
   readonly crownHeight: number;
   readonly vitalHeight: number;
   readonly collisionRadius: number;
+  /** Humanoid compatibility only; construct endpoints build their own typed drivers. */
+  readonly createPolicy: ((name: string, seed?: number) => Mind) | null;
   build(ctx: CombatantBuild): Combatant;
 }
 
@@ -134,6 +149,30 @@ const emptyLoadout = Object.freeze<UnitLoadout>({ primary: "empty", secondary: "
 const kaykitKnightLoadout = Object.freeze<UnitLoadout>({ primary: "sword", secondary: "buckler" });
 
 const warriorParts = Object.freeze(Object.keys(CONFIG.body.vitalWeight));
+const drivers = (names: readonly string[] | null) => Object.freeze(POLICIES
+  .filter((policy) => names === null || names.includes(policy.name))
+  .map(({ name, label }) => Object.freeze({ name, label })));
+const policyFactory = (unit: string, options: readonly { readonly name: string }[]) =>
+  (name: string, seed?: number): Mind => {
+    if (!options.some((option) => option.name === name)) {
+      throw new Error(`unit "${unit}" does not support policy "${name}"`);
+    }
+    const policy = POLICIES.find((candidate) => candidate.name === name);
+    if (!policy) throw new Error(`unit "${unit}" declares unknown policy "${name}"`);
+    return policy.create(seed);
+  };
+const initialMind = (ctx: CombatantBuild, definition: UnitDefinition): Mind => {
+  if (ctx.mind) return ctx.mind;
+  if (!definition.createPolicy) throw new Error(`control surface ${definition.controlSurface} has no humanoid Mind factory`);
+  const policy = definition.createPolicy(ctx.policyName ?? definition.defaultPolicy, ctx.policySeed);
+  if (!ctx.humanActive) return policy;
+  if (!ctx.human || !definition.humanAdapter) {
+    throw new Error(`control surface ${definition.controlSurface} has no human adapter`);
+  }
+  return splitMind(ctx.human.mind, policy, ctx.human.ownership);
+};
+const initialLoadout = (ctx: CombatantBuild, definition: UnitDefinition): Record<HandName, WeaponKind> =>
+  ctx.loadout ?? { primary: definition.defaultLoadout.primary, secondary: definition.defaultLoadout.secondary };
 
 const warrior: UnitDefinition = Object.freeze({
   kind: "warrior",
@@ -143,6 +182,9 @@ const warrior: UnitDefinition = Object.freeze({
   defaultLoadout: humanoidDefault,
   hands: 2,
   compatiblePolicies: null,
+  driverOptions: drivers(null),
+  humanAdapter: true,
+  controlSurface: "humanoid-v1",
   defaultPolicy: "idle",
   anatomy: Object.freeze({
     parts: warriorParts,
@@ -152,12 +194,17 @@ const warrior: UnitDefinition = Object.freeze({
   crownHeight: CONFIG.body.headCentre + CONFIG.body.headRadius,
   vitalHeight: CONFIG.body.torsoCentre,
   collisionRadius: CONFIG.body.pelvisRadius,
+  createPolicy: (name: string, seed?: number) => policyFactory("warrior", warrior.driverOptions)(name, seed),
   build: (ctx: CombatantBuild) => new Fighter(ctx.scene, {
     side: ctx.side,
     origin: ctx.origin,
     facing: ctx.facing,
-    mind: ctx.mind,
-    loadout: ctx.loadout,
+    mind: initialMind(ctx, warrior),
+    human: ctx.human,
+    controlPolicies: warrior.driverOptions,
+    controlPolicyName: ctx.policyName,
+    controlPolicyFactory: warrior.createPolicy ?? undefined,
+    loadout: initialLoadout(ctx, warrior),
   }, ctx.materials),
 });
 
@@ -169,6 +216,9 @@ const broot: UnitDefinition = Object.freeze({
   defaultLoadout: humanoidDefault,
   hands: 2,
   compatiblePolicies: null,
+  driverOptions: drivers(null),
+  humanAdapter: true,
+  controlSurface: "humanoid-v1",
   defaultPolicy: "idle",
   anatomy: Object.freeze({
     parts: warriorParts,
@@ -178,12 +228,17 @@ const broot: UnitDefinition = Object.freeze({
   crownHeight: (CONFIG.body.headCentre + CONFIG.body.headRadius) * BROOT_PROFILE.scale,
   vitalHeight: CONFIG.body.torsoCentre * BROOT_PROFILE.scale,
   collisionRadius: CONFIG.body.pelvisRadius * BROOT_PROFILE.scale,
+  createPolicy: (name: string, seed?: number) => policyFactory("broot", broot.driverOptions)(name, seed),
   build: (ctx: CombatantBuild) => new Fighter(ctx.scene, {
     side: ctx.side,
     origin: ctx.origin,
     facing: ctx.facing,
-    mind: ctx.mind,
-    loadout: ctx.loadout,
+    mind: initialMind(ctx, broot),
+    human: ctx.human,
+    controlPolicies: broot.driverOptions,
+    controlPolicyName: ctx.policyName,
+    controlPolicyFactory: broot.createPolicy ?? undefined,
+    loadout: initialLoadout(ctx, broot),
     profile: BROOT_PROFILE,
   }, ctx.materials),
 });
@@ -204,13 +259,18 @@ const centipede: UnitDefinition = Object.freeze({
   defaultLoadout: emptyLoadout,
   hands: 0,
   compatiblePolicies: Object.freeze(["crawler"]),
+  driverOptions: drivers(["crawler"]),
+  humanAdapter: true,
+  controlSurface: "humanoid-v1",
   defaultPolicy: "crawler",
   anatomy: Object.freeze({ parts: centipedeParts, vitalityWeights: centipedeWeights }),
   reach: CENTIPEDE_BITE_REACH,
   crownHeight: CENTIPEDE_CROWN,
   vitalHeight: CENTIPEDE_CROWN * 0.55,
   collisionRadius: CENTIPEDE_RADIUS,
-  build: (ctx: CombatantBuild) => new Centipede(ctx),
+  createPolicy: (name: string, seed?: number) => policyFactory("centipede", centipede.driverOptions)(name, seed),
+  build: (ctx: CombatantBuild) => new Centipede({ ...ctx, mind: initialMind(ctx, centipede),
+    loadout: initialLoadout(ctx, centipede) }),
 });
 
 const kaykitKnight: UnitDefinition = Object.freeze({
@@ -221,6 +281,9 @@ const kaykitKnight: UnitDefinition = Object.freeze({
   defaultLoadout: kaykitKnightLoadout,
   hands: 2,
   compatiblePolicies: Object.freeze(["idle", "swinger", "duelist"]),
+  driverOptions: drivers(["idle", "swinger", "duelist"]),
+  humanAdapter: true,
+  controlSurface: "humanoid-v1",
   defaultPolicy: "idle",
   anatomy: Object.freeze({
     parts: warriorParts,
@@ -230,14 +293,48 @@ const kaykitKnight: UnitDefinition = Object.freeze({
   crownHeight: KAYKIT_KNIGHT_METRICS.crownHeight,
   vitalHeight: KAYKIT_KNIGHT_METRICS.vitalHeight,
   collisionRadius: KAYKIT_KNIGHT_METRICS.collisionRadius,
+  createPolicy: (name: string, seed?: number) => policyFactory("kaykit-knight", kaykitKnight.driverOptions)(name, seed),
   build: (ctx: CombatantBuild) => new Fighter(ctx.scene, {
     side: ctx.side,
     origin: ctx.origin,
     facing: ctx.facing,
-    mind: ctx.mind,
-    loadout: ctx.loadout,
+    mind: initialMind(ctx, kaykitKnight),
+    human: ctx.human,
+    controlPolicies: kaykitKnight.driverOptions,
+    controlPolicyName: ctx.policyName,
+    controlPolicyFactory: kaykitKnight.createPolicy ?? undefined,
+    loadout: initialLoadout(ctx, kaykitKnight),
     profile: KAYKIT_KNIGHT_PROFILE,
   }, ctx.materials),
+});
+
+const wardenModel = wardenBlueprint("crossbow");
+const wardenParts = Object.freeze(wardenModel.parts.map(({ id }) => id));
+const wardenWeights = Object.freeze(Object.fromEntries(
+  wardenModel.parts.map(({ id, vitalityWeight }) => [id, vitalityWeight]),
+));
+const bronzeWarden: UnitDefinition = Object.freeze({
+  kind: "bronze-warden",
+  label: "Bronze Warden (Experimental)",
+  equipment: Object.freeze(["empty"] as WeaponKind[]),
+  loadouts: freezeLoadouts([{ primary: "empty", secondary: "empty" }]),
+  defaultLoadout: emptyLoadout,
+  hands: 0,
+  compatiblePolicies: Object.freeze(["construct-hold", "warden-authored"]),
+  driverOptions: Object.freeze([
+    Object.freeze({ name: "construct-hold", label: "Hold" }),
+    Object.freeze({ name: "warden-authored", label: "Warden Mind" }),
+  ]),
+  humanAdapter: false,
+  controlSurface: "construct-v1",
+  defaultPolicy: "warden-authored",
+  anatomy: Object.freeze({ parts: wardenParts, vitalityWeights: wardenWeights }),
+  reach: 1.4,
+  crownHeight: 1.9,
+  vitalHeight: 1.33,
+  collisionRadius: 0.72,
+  createPolicy: null,
+  build: (ctx: CombatantBuild) => new Construct(ctx),
 });
 
 export const UNIT_REGISTRY: Readonly<Record<UnitKind, UnitDefinition>> = Object.freeze({
@@ -245,6 +342,7 @@ export const UNIT_REGISTRY: Readonly<Record<UnitKind, UnitDefinition>> = Object.
   broot,
   centipede,
   "kaykit-knight": kaykitKnight,
+  "bronze-warden": bronzeWarden,
 });
 
 /** Picker rows are a projection of bodies that can actually be built. */
@@ -296,7 +394,7 @@ export function supportsLoadoutForUnit(
 /** Refuse a policy that cannot express the selected body's action surface. */
 export function policyForUnit(unitName: string, policyName: string): string {
   const unit = unitDefinition(unitName);
-  if (unit.compatiblePolicies !== null && !unit.compatiblePolicies.includes(policyName)) {
+  if (!unit.driverOptions.some((driver) => driver.name === policyName)) {
     throw new Error(`unit "${unit.kind}" does not support policy "${policyName}"`);
   }
   return policyName;
@@ -304,5 +402,5 @@ export function policyForUnit(unitName: string, policyName: string): string {
 
 /** Human handover and the rig overlay are capabilities, not assumptions. */
 export function isArticulatedCombatant(combatant: Combatant): combatant is Fighter {
-  return combatant instanceof Fighter;
+  return combatant.articulated !== null;
 }

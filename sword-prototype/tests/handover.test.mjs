@@ -21,6 +21,7 @@ import {
   policyMind,
   poseShiftMm,
 } from "../src/mind.ts";
+import { HumanoidControlEndpoint } from "../src/humanoid-control.ts";
 
 /**
  * A body changing hands without the blade jumping.
@@ -192,6 +193,35 @@ test("the first command after a handover is exactly the pose it found", () => {
   const raw = centre.decide(null, FIXED);
   const jump = poseShiftMm(pose, poseFor(raw.primary.pointerX, raw.primary.pointerY));
   assert.ok(jump > 300, `an unseeded handover only moved the hand ${jump.toFixed(1)} mm`);
+});
+
+test("humanoid_policy_handover_keeps_the_exact_command_on_both_sides_of_the_seam", () => {
+  const poses = {
+    primary: { ...poseFor(0.75, -0.4, 0.6), wristBend: 0.2 },
+    secondary: { ...poseFor(-0.65, 0.3, -0.5), azimuth: azimuthOf(-0.65, "secondary"), wristBend: 0.7 },
+  };
+  const personIntent = blank(); personIntent.actingHand = "primary";
+  const policyIntent = blank(); policyIntent.actingHand = "secondary";
+  let applied = null; let seeded = null;
+  const endpoint = new HumanoidControlEndpoint({
+    initialMind: fixed("idle", policyIntent), initialPolicyName: "idle", view: {},
+    canStep: () => true, apply: (_dt, intent) => { applied = structuredClone(intent); }, stopBody: () => {},
+    policies: [{ name: "idle", label: "Idle" }], policyFactory: () => fixed("idle", policyIntent),
+    poseSeed: () => poses,
+    human: { mind: fixed("human", personIntent), ownership: { posture: false, drivenWrist: false },
+      seed: (_view, found) => { seeded = found; } },
+  });
+  endpoint.installHuman();
+  endpoint.driver.step(FIXED);
+
+  assert.equal(seeded, poses);
+  for (const name of ["primary", "secondary"]) {
+    const cursor = cursorForPose(poses[name], name);
+    assert.equal(applied[name].pointerX, cursor.pointerX, `${name} X`);
+    assert.equal(applied[name].pointerY, cursor.pointerY, `${name} Y`);
+    assert.equal(applied[name].roll, poses[name].roll, `${name} roll`);
+    assert.equal(applied[name].wristBend, poses[name].wristBend, `${name} wrist`);
+  }
 });
 
 test("a_handover_preserves_roll_and_wrist_bend_without_a_jump", () => {

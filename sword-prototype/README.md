@@ -146,6 +146,73 @@ excluded practice bout, 48 bouts you play and 12 hands-off specialist controls; 
 an hour, or exit between bouts and resume later in the same browser. When finished, use
 **Copy results for Codex** (or **Download report**) in the panel.
 
+### Construct Forge and auto-battle
+
+The setup screen's **Saved machine** picker chooses an exact local revision by all three Body,
+Actions and Mind digests. **Fight** builds that revision directly; if it was deleted or is stale,
+Setup names the missing revision and refuses instead of substituting the committed Warden. Its
+**Open Forge** button edits that selection, while the global **Open Construct Forge** starts a
+powered core with its utility hardware but no legs; no console, source edit or external model
+editor is required. The committed Bronze Warden is a
+four-limbed carved-stone construct with bronze bearings. Its limbs and dorsal mount are generic
+joint chains: the saved Actions graph is what makes four chains walk and what makes the same
+two-axis mount aim a sword or auto-crossbow.
+
+Use the four tabs as one loop:
+
+1. **Body** selects a part in the connected tree, adds/removes code-native stone pieces, changes
+   box dimensions, and mounts catalog hardware on compatible sockets. Generic pieces snap through
+   visible top/bottom/left/right/front/rear attachment faces; an occupied face refuses, and resizing
+   moves face-bound joint/module frames in the same transaction while custom-frame bodies refuse.
+   The yaw+pitch mount template creates a real y-then-x joint chain and output socket on newly built
+   structure. Socket templates add sword/crossbow, sensor, power, magazine or shield mounting points,
+   and the module shelf includes the corresponding hardware. The connected-fragment shelf
+   adds one exact four-bearing Warden limb plus its declared contact-sensor socket atomically; it is
+   the no-code route to a controller-compatible leg, not a decorative one-piece prop. Exact Warden
+   corner fragments accept only the unresized starter root and an unoccupied corner; arbitrary
+   parents refuse rather than inheriting a core-local frame. An invalid edit
+   is named and the last valid physical preview remains intact.
+   Removing a subtree or module also reconciles stale Action bindings and Mind rules in the same
+   undoable transaction. This is what makes the ordinary crossbow unmount followed by sword mount
+   immediately savable instead of leaving an invisible reference to removed hardware.
+2. **Actions** groups existing joints/modules and installs closed-loop controllers. Controller
+   choices inspect real joint axes, connected leg chains, contact sensors and launcher/sword module
+   kinds and require yaw -> pitch -> output to be one physical chain, not only matching counts.
+   Bindings preserve click order. Actions, groups and bindings can
+   be deleted, and several Actions can be queued into one Probe to inspect arbitration. **Probe** builds
+   a fresh real battle Construct and target, observes real facts, and uses the same resource,
+   capability-admission and effect path as a fight. Its timeline retains early completion/refusal
+   and sampled convergence across the whole run, plus an explicit commanded-travel-limit metric.
+   It disposes both bodies and restores the inert
+   preview after every run; it cannot write a motor outside the selected group.
+3. **Mind** orders sensor-driven rules. The rule sequence is meaningful: priority, then this saved
+   order, resolves competing requests. Sensors report physical facts rather than tactical answers.
+4. **Save** stores the complete Body/Actions/Mind revision in this browser. Export downloads the
+   same checksummed JSON; Import refuses damaged, oversized, future-version or mismatched data.
+5. **Lab** chooses left and right bodies and Mind revisions independently. **Run visible bout**
+   returns to the arena with exactly those saved revisions. Batch and Compare use isolated indexed
+   physics jobs and cannot mutate the visible fight.
+6. During a construct bout, expand **Construct decisions, hardware and damage** at the upper right.
+   Pausing opens it automatically while leaving the machine visible. It shows the selected rules
+   and sensor facts, action admission/refusal and convergence, live capabilities, power/heat/ammo,
+   and damage credited to stable weapon/module IDs.
+
+The **Guided first machine** checklist above the Forge is the short, interruption-friendly route
+through that loop. It autosaves locally against a pinned protocol: attach all four named connected
+limb fragments to the starter core (a prebuilt Warden does not count), inspect those branches,
+swap the dorsal crossbow for the mounted sword using ordinary unmount/mount controls, create and
+probe locomotion and attack Actions, deliberately weaken a Mind rule, run the saved revision in the
+visible Lab, use a real refusal/stuck decision to diagnose it, then repair, save and run the repaired
+revision. The guide preselects that exact three-digest revision in Lab; diagnostics from another
+saved machine or the other side cannot advance it. Those saved/run/diagnose steps only count in that order. The checklist
+observes the same saved blueprints, control graphs, programs, public probe commands and visible Lab
+the rest of the game uses; it has no private construction or motor command.
+
+The construct trainer is intentionally not a hidden setup option. `npm run construct:train` is an
+interruptible research command for qualified authored combat only; every indexed shard commits
+atomically, and `npm run construct:watch -- --run <directory>` observes a run without changing it.
+The game keeps the authored Mind when no learned candidate clears its frozen held-out gates.
+
 There is no hidden learned policy in that picker. Three full population experiments were
 run, and the validation-selected candidate then lost every held-out promotion bout across
 sword, shield, axe, bow and bare hands. It spent 88% of its decisions disengaging and

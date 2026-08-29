@@ -438,6 +438,7 @@ export interface WeaponOptions {
 export class Weapon {
   readonly kind: WeaponKind;
   readonly hand: HandName;
+  readonly effectorId: string;
   readonly root: TransformNode;
   readonly body: PhysicsBody;
   readonly shape: PhysicsShapeContainer;
@@ -602,6 +603,7 @@ export class Weapon {
   ) {
     this.kind = opts.kind;
     this.hand = opts.hand;
+    this.effectorId = `hand-${opts.hand}-${opts.name}`;
     this.layer = opts.layer;
     this.collidesWith = opts.collidesWith;
 

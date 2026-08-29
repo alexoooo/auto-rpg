@@ -12,6 +12,7 @@ import { LAYER, COLLIDES, layersFor, type Side } from "../physics.ts";
 import { capsulePart, joint, type Part } from "../rig.ts";
 import type { WeaponKind } from "../hands.ts";
 import type { Combatant, CombatantBuild } from "../units.ts";
+import { HumanoidControlEndpoint } from "../humanoid-control.ts";
 
 export const CENTIPEDE_SEGMENTS = 8;
 export const CENTIPEDE_LENGTH = 2.1;
@@ -31,6 +32,7 @@ const HUMANOID_HANDS = (): Record<HandName, HandView> => ({
 
 class BiteStrike implements Striking {
   readonly kind = "bite" as const;
+  readonly effectorId = "natural-bite";
   // Combat reports identify a hand. This source label is not published as a
   // HandView and does not fabricate an arm on the creature.
   //
@@ -80,10 +82,14 @@ const blankBody = (hands: Record<HandName, HandView> = NO_HANDS): BodyView => ({
 
 /** A low, authoritative nine-part chain. It owns no hands and accepts no gear. */
 export class Centipede implements Combatant {
+  readonly articulated = null;
+  readonly control: HumanoidControlEndpoint;
   readonly kind = "centipede";
   readonly side: Side;
-  mind: Mind;
-  intentObserver: ((view: FighterView, intent: Intent) => void) | null = null;
+  get mind(): Mind { return this.control.mind; }
+  set mind(value: Mind) { this.control.installMind(value); }
+  get intentObserver(): ((view: FighterView, intent: Intent) => void) | null { return this.control.observer; }
+  set intentObserver(value: ((view: FighterView, intent: Intent) => void) | null) { this.control.observer = value; }
   readonly limbs: Limb[] = [];
   readonly costume: AbstractMesh[] = [];
   readonly view: FighterView = {
@@ -129,7 +135,7 @@ export class Centipede implements Combatant {
 
   constructor(ctx: CombatantBuild) {
     this.side = ctx.side;
-    this.mind = ctx.mind;
+    const initialMind = ctx.mind ?? crawlerMind();
     this.heading = ctx.facing;
     const layers = layersFor(ctx.side);
     const segmentLength = CENTIPEDE_LENGTH / (CENTIPEDE_SEGMENTS + 1);
@@ -194,6 +200,15 @@ export class Centipede implements Combatant {
       () => this.facingVector.set(Math.sin(this.heading), 0, Math.cos(this.heading)),
     );
     this.strikers = [bite];
+    this.control = new HumanoidControlEndpoint({
+      initialMind,
+      view: this.view,
+      canStep: () => !this.dead && this.fighting,
+      apply: (dt, intent) => this.applyIntent(dt, intent),
+      stopBody: () => this.stopBody(),
+      policies: [{ name: "crawler", label: "Crawler" }],
+      human: ctx.human,
+    });
   }
 
   // Damage is applied outside update(), so fatal head damage must be visible on
@@ -256,9 +271,10 @@ export class Centipede implements Combatant {
   }
 
   update(dt: number): void {
-    if (this.dead || !this.fighting) return;
-    const input = this.mind.decide(this.view, dt);
-    this.intentObserver?.(this.view, input);
+    this.control.driver.step(dt);
+  }
+
+  private applyIntent(dt: number, input: Intent): void {
     this.phaseClock += dt;
     // The natural channel. This read `input.primary.thrust` on a body whose
     // published `hands` is an empty object, so the creature's whole control
@@ -309,9 +325,11 @@ export class Centipede implements Combatant {
     if (this.vitality <= 0) this.die();
   }
 
-  stopFighting(): void { this.fighting = false; this.phase = "ready"; }
+  stopFighting(): void { this.control.stopFighting(); }
+  private stopBody(): void { this.fighting = false; this.phase = "ready"; }
   occlusionPoints(): readonly Vector3[] { return this.occlusion; }
   dispose(): void {
+    this.control.dispose();
     for (const constraint of this.constraints) constraint.dispose();
     for (const art of this.costume) art.dispose(false, false);
     for (const part of this.parts) part.mesh.dispose();

@@ -225,7 +225,8 @@ const RESOLVED_IN_NODE_MODULES = [
 // A glob and a brace expansion are excused because neither is a path -- but neither
 // is checked either, so `` `src/nope-*.ts` `` and `` `src/{nope,alsonope}.ts` `` are
 // both green, and that is a smuggling route rather than a rule. Bounded by pinning
-// the targets: five spans over four distinct targets in the durable surface, all four
+// the targets in the durable surface; each is either a real glob/brace reference or a
+// deliberately interpolated trainer artifact name that cannot resolve literally. All
 // of them real. Bare extensions (`` `.ts` ``, 24 durable spans over 7 targets) are
 // deliberately *not* pinned -- a bare extension has no path in it at all, so nothing
 // can be hidden inside one, and pinning a population that grows whenever somebody
@@ -234,6 +235,10 @@ const RESOLVED_IN_NODE_MODULES = [
 const NOT_A_PATH_TARGETS = [
   ".review/rem2/cutseeds-{before,after}.json",
   "asset-src/learning/{baseline,engagement-baseline,unpromoted}-v1.json",
+  "candidate-${artifact.candidate}.json",
+  "candidate-${id}.json",
+  "candidate-boundary-${artifact.candidate}.json",
+  "candidate-boundary-${id}.json",
   "scripts/*.mjs",
   "tests/*.mjs",
 ];
@@ -282,15 +287,13 @@ const SCRATCH_SHARE_OF_DURABLE = { min: 0.02, max: 0.25 };
 // about what it will create, and a fall means somebody created it. Both are correct; neither
 // is a repair.
 //
-// **Re-measured 2026-08-28 after the Construct Forge topic was written: 80.** Its
-// sixteen implementable sessions add 73 occurrences naming the source, test and
-// script files they will create. The occurrence count is intentional: shared
-// constructs such as `src/construct/controllers.ts` appear in each session that
-// changes their contract, so deleting one promise or landing one file moves the
-// exact surface the plan reader sees.
+// **Re-measured 2026-08-28 after the Construct Forge implementation: 10 missing and
+// two ambiguous.** Most promised files now exist. The two ambiguous bare `ppo.ts`
+// references predate the construct learner and now have two real candidates; they
+// remain pinned plan debt rather than being guessed by basename.
 const PLAN_SURFACE = {
-  noSuchFile: 80,
-  ambiguousFile: 0,
+  noSuchFile: 10,
+  ambiguousFile: 2,
   anchorIntoDeletedFile: 0,
   orphanContinuation: 0,
   continuationOutsideGuessedCarrier: 0,

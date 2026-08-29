@@ -9,7 +9,7 @@ import { Fighter, stepPair } from "./fighter";
 import { prepareWarriorFigure } from "./figure";
 import { kayKitUnavailableUnits, prepareKayKitFigure } from "./kaykit-figure";
 import { Arrow } from "./arrow";
-import { Combat } from "./combat";
+import { Combat, type CombatReportEvent } from "./combat";
 import { Hud } from "./hud";
 import { Controls } from "./input";
 import { AimIndicator } from "./aim";
@@ -22,6 +22,26 @@ import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, combatRecorder, sampleBout
 import { advanceActiveHostTimers, ArenaPresentation, pauseHost, restartHost, resumeHost,
   runActiveHostFrame, type RunningHost } from "./host-run";
 import { SetupScreen } from "./setup";
+import { compileConstruct } from "./construct/compile";
+import { Construct } from "./construct/construct";
+import { constructControlSnapshot, type ConstructControlSnapshot } from "./construct/control";
+import { saveConstruct, type SavedConstruct } from "./construct/codec";
+import type { ConstructRuntime } from "./construct/runtime";
+import { WARDEN_SENSORS, wardenBlueprint, wardenControl, wardenProgram } from "./construct/warden";
+import { installedSensorsForBlueprint } from "./construct/sensors";
+import { ForgeScreen } from "./forge/screen";
+import { CONSTRUCT_LIBRARY_STORAGE_KEY, encodeConstructLibrary, parseConstructLibrary,
+  replaceConstructLibraryEntry } from "./forge/library";
+import { ControlEditor } from "./forge/control-editor";
+import { ProgramEditor } from "./forge/program-editor";
+import { ConstructOnboarding } from "./forge/onboarding";
+import { starterCoreConstruct } from "./forge/starter";
+import { ConstructDiagnosticsPanel, type ConstructDiagnosticFrame } from "./forge/diagnostics";
+import { summarizeProbeSnapshots } from "./forge/probe";
+import { ConstructLabScreen, type ConstructLabEntry, type ConstructLabSelection } from "./forge/lab-screen";
+import { runBrowserConstructLabBatch } from "./forge/lab-host";
+import { createConstructBoutJobs, type ConstructBoutJob } from "./construct/matchup";
+import { CONSTRUCT_LAB_ARENA_DIGEST, CONSTRUCT_LAB_BOUT_CAP_STEPS, constructLabConfigDigest } from "./construct/lab-config";
 import { GuidedPlaytest } from "./playtest";
 import type { Side } from "./physics";
 import {
@@ -29,13 +49,12 @@ import {
   cursorForPose,
   handover,
   humanMind,
-  policyMind,
   poseShiftMm,
-  splitMind,
   type ArmPose,
   type Mind,
 } from "./mind";
-import { isArticulatedCombatant, loadoutForUnit, policyForUnit, unitDefinition, type Combatant } from "./units";
+import { loadoutForUnit, unitDefinition, type Combatant } from "./units";
+import type { HumanoidHumanSource } from "./humanoid-control";
 import { metaDiagnostic } from "./learning/meta";
 import { engagementGates, engagementMetrics, formatEngagementGateTable } from "./learning/gates";
 import { loadChampionSoFarMind, requireLiveResearchBout, type ChampionSource } from "./learning/deployment";
@@ -157,6 +176,21 @@ async function boot(): Promise<void> {
   const modeLine = need("mode");
   const playtestLaunch = need<HTMLButtonElement>("guided-playtest");
   const playtestHost = need("playtest");
+  const openForgeButton = need<HTMLButtonElement>("open-forge");
+  const closeForgeButton = need<HTMLButtonElement>("close-forge");
+  const forgeWorkspace = need("forge-workspace");
+  const forgeOnboardingRoot = need("forge-onboarding-root");
+  const forgeRoot = need("forge-root");
+  const forgeSectionRoot = need("forge-section-root");
+  const forgeDiagnosticsRoot = need("forge-diagnostics-root");
+  const forgeHostStatus = need<HTMLOutputElement>("forge-host-status");
+  const forgeLibrarySelect = need<HTMLSelectElement>("forge-library-select");
+  const forgeLoadSaved = need<HTMLButtonElement>("forge-load-saved");
+  const arenaConstructDiagnostics = need("arena-construct-diagnostics");
+  const arenaConstructDetails = arenaConstructDiagnostics.querySelector<HTMLDetailsElement>("details");
+  if (!arenaConstructDetails) throw new Error("missing construct diagnostics details surface");
+  const arenaConstructLeft = need("arena-construct-left");
+  const arenaConstructRight = need("arena-construct-right");
 
   beginButton.disabled = true;
 
@@ -198,11 +232,53 @@ async function boot(): Promise<void> {
    * only check by starting a browser and waiting a minute is a rule nobody
    * checks.
    */
+  const committedConstruct = saveConstruct(
+    "Bronze Warden (committed)",
+    wardenBlueprint("crossbow"),
+    wardenControl("crossbow"),
+    wardenProgram("crossbow"),
+    WARDEN_SENSORS,
+  );
+  const forgeLibraryKey = CONSTRUCT_LIBRARY_STORAGE_KEY;
+  let libraryRefusal: string | null = null;
+  let savedLibrary: SavedConstruct[] = [];
+  try {
+    const stored = localStorage.getItem(forgeLibraryKey);
+    if (stored) {
+      savedLibrary = [...parseConstructLibrary(stored, WARDEN_SENSORS)];
+    }
+  } catch (error) {
+    libraryRefusal = `Saved construct library was not loaded: ${error instanceof Error ? error.message : String(error)}`;
+  }
+  let openForgeForSide: (side: Side | null) => void = () => {
+    forgeHostStatus.value = "Construct Forge is still starting.";
+  };
+
+  function libraryId(saved: SavedConstruct): string {
+    return `${saved.digests.blueprint}/${saved.digests.control}/${saved.digests.program}`;
+  }
+  function libraryEntries(): readonly SavedConstruct[] {
+    const seen = new Set<string>();
+    return [committedConstruct, ...savedLibrary].filter((saved) => {
+      const key = libraryId(saved);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
   let state = selectScreen(defaultMatchup());
   const setup = new SetupScreen(
     need("matchup"),
     state.matchup,
     kayKitUnavailableUnits(kayKit),
+    beginButton,
+    {
+      entries: () => libraryEntries().map((saved) => ({ id: libraryId(saved), label: saved.name,
+        blueprint: saved.digests.blueprint, control: saved.digests.control, program: saved.digests.program })),
+      defaultId: () => libraryId(committedConstruct),
+      open: (side) => openForgeForSide(side),
+    },
   );
   let guidedPolicySeeds: Readonly<Record<Side, number>> | null = null;
   let guidedOriginalMatchup: Matchup | null = null;
@@ -275,8 +351,8 @@ async function boot(): Promise<void> {
       // in, exactly as a takeover does: the cursor is absolute, so a hand taken
       // over without seeding snaps to wherever the mouse happens to be at the
       // full 850 N the grip can pull.
-      const fighter = yours();
-      if (!isArticulatedCombatant(fighter)) return;
+      const fighter = yours().articulated;
+      if (!fighter) return;
       if (!fighter.armed) return;
       const seed = cursorForPose(fighter.armPoses()[controls.state.actingHand], controls.state.actingHand);
       const hand = controls.state[controls.state.actingHand];
@@ -326,20 +402,19 @@ async function boot(): Promise<void> {
    */
   const you = humanMind(controls);
 
-  /**
-   * Who drives a side, and what drives the hand you are not using.
-   *
-   * A person gets `splitMind`: their own feet and their own cursor hand, and the
-   * side's *own policy* on the other. Not a second policy chosen separately --
-   * the one already picked for that corner, which is what that fighter becomes
-   * the moment you step out of it. So the spare hand fights the way the whole
-   * body would, and there is nothing new to choose on the screen.
-   */
-  const mindFor = (sideName: Side, side: SideSetup): Mind => {
-    const seed = guidedPolicySeeds?.[sideName];
-    return side.control === "you"
-      ? splitMind(you, policyMind(policyForUnit(side.unit, side.policy), seed), controls.ownership)
-      : policyMind(policyForUnit(side.unit, side.policy), seed);
+  /** Typed page injection; each definition constructs its own policy/split driver. */
+  const humanSource: HumanoidHumanSource = {
+    mind: you,
+    ownership: controls.ownership,
+    seed: (view, poses) => {
+      controls.state.posture.crouch = view.self.crouch;
+      controls.state.posture.trunkLean = view.self.trunkLean;
+      controls.state.posture.trunkTwist = view.self.trunkTwist;
+      for (const name of HANDS) {
+        const seed = cursorForPose(poses[name], name);
+        Object.assign(controls.state[name], seed);
+      }
+    },
   };
 
   /**
@@ -356,6 +431,15 @@ async function boot(): Promise<void> {
    */
   const loadoutFor = (side: SideSetup) => loadoutForUnit(side.unit, side.handA, side.handB);
 
+  /** Non-null only while the visible arena is presenting an exact pair selected in the Lab. */
+  let visibleConstructLab: readonly [SavedConstruct, SavedConstruct] | null = null;
+
+  const savedForSetup = (side: SideSetup): SavedConstruct => {
+    const saved = libraryEntries().find((candidate) => libraryId(candidate) === side.constructId);
+    if (!saved) throw new Error(`saved construct "${side.constructId ?? "(none)"}" is unavailable; return to Setup and choose an installed saved machine`);
+    return saved;
+  };
+
   /**
    * Two fighters of the same kind, facing each other, one `Combat` per side
    * pointed at the other's body, and a mind each.
@@ -369,31 +453,55 @@ async function boot(): Promise<void> {
     const F = CONFIG.fighter;
     const leftDefinition = unitDefinition(matchup.left.unit);
     const rightDefinition = unitDefinition(matchup.right.unit);
-    const left = leftDefinition.build({
+    const leftContext = {
         scene: arena.scene,
         side: "left",
         origin: Vector3.Zero(),
         facing: 0,
-        mind: mindFor("left", matchup.left),
+        policyName: matchup.left.policy,
+        policySeed: guidedPolicySeeds?.left,
+        humanActive: matchup.left.control === "you",
+        human: leftDefinition.humanAdapter ? humanSource : undefined,
         loadout: loadoutFor(matchup.left),
         materials: arena.materials,
-      });
-    const right = rightDefinition.build({
+      } as const;
+    const leftSaved = visibleConstructLab?.[0] ?? (leftDefinition.controlSurface === "construct-v1" ? savedForSetup(matchup.left) : null);
+    const left = leftSaved ? new Construct({ ...leftContext, policyName: "construct-program",
+      humanActive: false, human: undefined }, { blueprint: leftSaved.blueprint, control: leftSaved.control,
+      program: leftSaved.program, sensors: installedSensorsForBlueprint(leftSaved.blueprint, WARDEN_SENSORS) })
+      : leftDefinition.build(leftContext);
+    const rightContext = {
         scene: arena.scene,
         side: "right",
         origin: new Vector3(0, 0, F.separation),
         facing: Math.PI,
-        mind: mindFor("right", matchup.right),
+        policyName: matchup.right.policy,
+        policySeed: guidedPolicySeeds?.right,
+        humanActive: matchup.right.control === "you",
+        human: rightDefinition.humanAdapter ? humanSource : undefined,
         loadout: loadoutFor(matchup.right),
         materials: arena.materials,
-      });
+      } as const;
+    const rightSaved = visibleConstructLab?.[1] ?? (rightDefinition.controlSurface === "construct-v1" ? savedForSetup(matchup.right) : null);
+    const right = rightSaved ? new Construct({ ...rightContext, policyName: "construct-program",
+      humanActive: false, human: undefined }, { blueprint: rightSaved.blueprint, control: rightSaved.control,
+      program: rightSaved.program, sensors: installedSensorsForBlueprint(rightSaved.blueprint, WARDEN_SENSORS) })
+      : rightDefinition.build(rightContext);
     const leftStrikers = left.strikers;
     const rightStrikers = right.strikers;
     const recorder = new BoutRecorder();
     wireBoutRecorder(recorder, left, right);
+    const constructCombat: Record<Side, CombatReportEvent[]> = { left: [], right: [] };
+    const recordConstructCombat = (side: Side) => (event: CombatReportEvent): void => {
+      const rows = constructCombat[side];
+      rows.push(event);
+      if (rows.length > 8) rows.shift();
+    };
     const sides = [
-      { fighter: left, combat: new Combat("left", leftStrikers, combatRecorder(recorder, "left")) },
-      { fighter: right, combat: new Combat("right", rightStrikers, combatRecorder(recorder, "right")) },
+      { fighter: left, combat: new Combat("left", leftStrikers,
+        combatRecorder(recorder, "left", recordConstructCombat("left"))) },
+      { fighter: right, combat: new Combat("right", rightStrikers,
+        combatRecorder(recorder, "right", recordConstructCombat("right"))) },
     ];
     // Each blade is pointed at the other body. The collision layers already say
     // the same thing in the solver; this says it again in the scoring.
@@ -416,7 +524,7 @@ async function boot(): Promise<void> {
         { point: striker.tracePoints[striker.tracePoints.length - 1], active: traced },
       );
     }
-    return { left, right, sides, recorder, ending: new FightEnd(sides), occlusionTargets };
+    return { left, right, sides, recorder, ending: new FightEnd(sides), occlusionTargets, constructCombat };
   };
 
   let bout = buildBout(state.matchup);
@@ -439,11 +547,12 @@ async function boot(): Promise<void> {
   const ownPosture = need<HTMLInputElement>("own-posture");
   const ownWrist = need<HTMLInputElement>("own-wrist");
   const seedOwnedChannels = (): void => {
-    const fighter = yours();
+    const body = yours();
+    const fighter = body.articulated;
+    if (!fighter) return;
     controls.state.posture.crouch = fighter.view.self.crouch;
     controls.state.posture.trunkLean = fighter.view.self.trunkLean;
     controls.state.posture.trunkTwist = fighter.view.self.trunkTwist;
-    if (!isArticulatedCombatant(fighter)) return;
     const poses = fighter.armPoses();
     for (const name of HANDS) {
       controls.state[name].roll = poses[name].roll;
@@ -466,8 +575,13 @@ async function boot(): Promise<void> {
   takeover.attach(bout.left, bout.right);
   const rigview = new RigView(arena.scene);
   const attachRig = (): void => {
-    if (isArticulatedCombatant(bout.left) && isArticulatedCombatant(bout.right)) {
-      rigview.attach(bout.sides as { fighter: Fighter; combat: Combat }[]);
+    const left = bout.left.articulated;
+    const right = bout.right.articulated;
+    if (left && right) {
+      rigview.attach([
+        { fighter: left, combat: bout.sides[0].combat },
+        { fighter: right, combat: bout.sides[1].combat },
+      ]);
     } else {
       rigview.attach([]);
     }
@@ -662,8 +776,8 @@ async function boot(): Promise<void> {
     if (state.phase === "select") return null;
 
     const before = humanSide(state.matchup);
-    const target = side === "left" ? bout.left : bout.right;
-    if (!isArticulatedCombatant(target)) return null;
+    const target = (side === "left" ? bout.left : bout.right).articulated;
+    if (!target) return null;
 
     // No branch for "you already drive this one", deliberately, and it is the
     // same argument the seam itself rests on. Re-taking your own body seeds from
@@ -674,11 +788,16 @@ async function boot(): Promise<void> {
 
     let released: HandReading | null = null;
     if (before && before !== side) {
-      const leaving = before === "left" ? bout.left : bout.right;
-      if (!isArticulatedCombatant(leaving)) return null;
+      const leaving = (before === "left" ? bout.left : bout.right).articulated;
+      if (!leaving) return null;
       // A whole policy, not a split one: nobody is driving that body any more, so
     // both of its hands go back to the mind the corner names.
-    released = handOver(leaving, before, policyMind(state.matchup[before].policy));
+    released = handOver(leaving, before,
+      (() => {
+        const factory = unitDefinition(state.matchup[before].unit).createPolicy;
+        if (!factory) throw new Error(`unit "${state.matchup[before].unit}" has no humanoid policy handover`);
+        return factory(state.matchup[before].policy);
+      })());
     }
 
     state = takeBody(state, side);
@@ -761,6 +880,446 @@ async function boot(): Promise<void> {
   // fight instead of replacing it with another screen.
   const presentation = new ArenaPresentation(curtain, pauseMenu);
 
+  let forgeScreen: ForgeScreen | null = null;
+  let constructOnboarding: ConstructOnboarding | null = null;
+  let controlEditor: ControlEditor | null = null;
+  let programEditor: ProgramEditor | null = null;
+  let labScreen: ConstructLabScreen | null = null;
+  let diagnosticsPanel: ConstructDiagnosticsPanel | null = null;
+  let activeForgeGraph = committedConstruct.control;
+  let activeForgeProgram = committedConstruct.program;
+  let probeClock = 0;
+  let forgePreviewRuntime: ConstructRuntime | null = null;
+  let forgeEditingSide: Side | null = null;
+
+  const refreshLibraryPicker = (): void => {
+    const selected = forgeLibrarySelect.value;
+    forgeLibrarySelect.innerHTML = "";
+    for (const saved of libraryEntries()) {
+      const option = document.createElement("option");
+      option.value = libraryId(saved);
+      option.textContent = `${saved.name} [${saved.digests.blueprint}]`;
+      forgeLibrarySelect.append(option);
+    }
+    if ([...forgeLibrarySelect.options].some((option) => option.value === selected)) {
+      forgeLibrarySelect.value = selected;
+    }
+  };
+
+  const persistSaved = (saved: SavedConstruct): void => {
+    const next = replaceConstructLibraryEntry(savedLibrary, saved, WARDEN_SENSORS);
+    localStorage.setItem(forgeLibraryKey, encodeConstructLibrary(next, WARDEN_SENSORS));
+    savedLibrary = [...next];
+    libraryRefusal = null;
+    refreshLibraryPicker();
+    forgeLibrarySelect.value = libraryId(saved);
+    if (forgeEditingSide) setup.chooseConstruct(forgeEditingSide, libraryId(saved));
+    constructOnboarding?.observeSaved(saved);
+    forgeHostStatus.value = `${saved.name} saved locally${forgeEditingSide ? ` and selected for the ${forgeEditingSide} Fight corner` : ""}. ` +
+      `Its three digests identify the exact body, Actions and Mind.`;
+  };
+
+  const emptyDiagnosticFrame = (): ConstructDiagnosticFrame => ({
+    at: probeClock,
+    paused: true,
+    rules: Object.freeze([]),
+    scheduler: Object.freeze([]),
+    active: Object.freeze([]),
+    capabilities: Object.freeze([]),
+  });
+
+  const arenaDiagnosticPanels: Readonly<Record<Side, ConstructDiagnosticsPanel>> = Object.freeze({
+    left: new ConstructDiagnosticsPanel(arenaConstructLeft, emptyDiagnosticFrame()),
+    right: new ConstructDiagnosticsPanel(arenaConstructRight, emptyDiagnosticFrame()),
+  });
+  let arenaDiagnosticsWerePaused = false;
+
+  const updateArenaConstructDiagnostics = (): void => {
+    const bodies: Readonly<Record<Side, Combatant>> = { left: bout.left, right: bout.right };
+    const snapshots = Object.freeze({
+      left: constructControlSnapshot(bodies.left.control),
+      right: constructControlSnapshot(bodies.right.control),
+    });
+    const hasConstruct = snapshots.left !== null || snapshots.right !== null;
+    arenaConstructDiagnostics.classList.toggle("gone", state.phase === "select" || !hasConstruct);
+    if (!hasConstruct) return;
+    const paused = !controls.isActive;
+    if (paused && !arenaDiagnosticsWerePaused) arenaConstructDetails.open = true;
+    arenaDiagnosticsWerePaused = paused;
+    for (const side of ["left", "right"] as const) {
+      const host = side === "left" ? arenaConstructLeft.parentElement : arenaConstructRight.parentElement;
+      const snapshot = snapshots[side];
+      host?.classList.toggle("gone", snapshot === null);
+      if (!snapshot) continue;
+      constructOnboarding?.observeDiagnostic(state.matchup[side].constructId, side,
+        snapshot.events.some(({ kind }) => kind === "refused") ||
+        snapshot.active.some(({ phase }) => phase === "stuck") ||
+        (snapshot.decision !== null && snapshot.decision.rules.length > 0 &&
+          !snapshot.decision.rules.some(({ selected }) => selected)));
+      const resources = Object.fromEntries(Object.entries(snapshot.facts).filter(([id]) =>
+        id === "power-charge-j" || id === "heat-j" || id === "overheated" ||
+        id.startsWith("ammo:") || id.startsWith("reload:")));
+      const combat = bout.constructCombat[side].map(({ report, effectorId, blocked }) => Object.freeze({
+        effectorId,
+        target: report.key,
+        damage: report.damage,
+        severed: report.severed,
+        blocked,
+      }));
+      arenaDiagnosticPanels[side].update({
+        at: bout.sides[side === "left" ? 0 : 1].combat.now,
+        paused,
+        rules: snapshot.decision?.rules ?? Object.freeze([]),
+        scheduler: snapshot.events,
+        active: snapshot.active,
+        capabilities: Object.freeze(snapshot.capabilities.map((row) => Object.freeze({
+          id: row.action,
+          available: row.available,
+          reason: row.reason,
+        }))),
+        resources: Object.freeze(resources),
+        combat: Object.freeze(combat),
+      });
+    }
+  };
+
+  const probeAction = (command: import("./construct/actions").ConstructCommand): void => {
+    if (!forgeScreen || !diagnosticsPanel) return;
+    const blueprint = forgeScreen.blueprint;
+    let probe: Construct | null = null;
+    let target: Construct | null = null;
+    forgeScreen.suspendPreview();
+    try {
+      const sensors = installedSensorsForBlueprint(blueprint, WARDEN_SENSORS);
+      probe = new Construct({ scene: arena.scene, side: "left", origin: new Vector3(2.2, 0, 2.4), facing: 0,
+        policyName: "construct-program", humanActive: false, materials: arena.materials }, {
+        blueprint, control: activeForgeGraph, program: activeForgeProgram, sensors,
+      });
+      target = new Construct({ scene: arena.scene, side: "right", origin: new Vector3(2.2, 0, 6.4), facing: Math.PI,
+        policyName: "construct-hold", humanActive: false, materials: arena.materials }, {
+        blueprint: committedConstruct.blueprint, control: committedConstruct.control,
+        program: committedConstruct.program, sensors: installedSensorsForBlueprint(committedConstruct.blueprint, WARDEN_SENSORS),
+      });
+      probe.control.installHuman();
+      probe.control.setDebugCommand(command);
+      const before = new Map([...probe.runtime.parts].map(([id, part]) => [id, part.node.position.clone()]));
+      const probeSnapshots: ConstructControlSnapshot[] = [];
+      const wasEnabled = arena.scene.physicsEnabled;
+      arena.scene.physicsEnabled = true;
+      try {
+        for (let step = 0; step < 180; step += 1) {
+          const dt = 1 / CONFIG.world.physicsHz;
+          probe.observe(target, probeClock + step * dt);
+          target.observe(probe, probeClock + step * dt);
+          probe.control.driver.step(dt);
+          probeSnapshots.push(probe.control.snapshot());
+          target.control.driver.step(dt);
+          (arena.scene as unknown as { _renderId: number; _advancePhysicsEngineStep(milliseconds: number): void })._renderId += 1;
+          (arena.scene as unknown as { _advancePhysicsEngineStep(milliseconds: number): void })
+            ._advancePhysicsEngineStep(1000 / CONFIG.world.physicsHz);
+        }
+      } finally { arena.scene.physicsEnabled = wasEnabled; }
+      const timeline = summarizeProbeSnapshots(probeSnapshots);
+      const snapshot = timeline.final;
+      const movedMm = Math.max(...[...probe.runtime.parts].map(([id, part]) =>
+        Vector3.Distance(before.get(id) as Vector3, part.node.position) * 1000));
+      probeClock += 180 / CONFIG.world.physicsHz;
+      constructOnboarding?.observeProbe(command, activeForgeGraph);
+      diagnosticsPanel.update({
+        at: probeClock,
+        paused: true,
+        rules: Object.freeze([]),
+        scheduler: timeline.scheduler,
+        active: timeline.active,
+        capabilities: snapshot.capabilities.map((capability) => ({ id: capability.action,
+          available: capability.available, reason: capability.reason })),
+        resources: Object.freeze(Object.fromEntries(Object.entries(snapshot.facts).filter(([id]) =>
+          id === "power-charge-j" || id === "heat-j" || id === "overheated" || id.startsWith("ammo:") || id.startsWith("reload:")))),
+        probeMotor: timeline.motors,
+      });
+      const terminal = [...new Set(timeline.scheduler.filter(({ kind }) =>
+        kind === "completed" || kind === "refused" || kind === "failed" || kind === "cancelled")
+        .map(({ action, kind }) => `${action}:${kind}`))].join(", ") || "no terminal event";
+      forgeHostStatus.value = `Physical Probe used a fresh battle Construct, real sensors, resources, capability admission and effect sink for 180 solver ticks; ` +
+        `it moved ${movedMm.toFixed(1)} mm; retained ${terminal}; ${timeline.motors.targetsAtLimit}/${timeline.motors.writes} motor targets reached travel limits. ` +
+        `The probe was disposed and the inert preview was rebuilt.`;
+    } catch (error) {
+      const action = command.requests[0]?.request.action ?? "probe";
+      const group = activeForgeGraph.actions.find((candidate) => candidate.id === action)?.group ?? "workshop";
+      diagnosticsPanel.update({
+        ...emptyDiagnosticFrame(),
+        at: probeClock,
+        scheduler: Object.freeze([{
+          kind: "refused" as const,
+          action,
+          group,
+          reason: error instanceof Error ? error.message : String(error),
+        }]),
+      });
+      forgeHostStatus.value = `Probe refused: ${error instanceof Error ? error.message : String(error)}`;
+    } finally {
+      probe?.dispose();
+      target?.dispose();
+      forgeScreen.resetPreview();
+    }
+  };
+
+  const labEntries = (): readonly ConstructLabEntry[] => libraryEntries().map((saved) => ({
+    id: libraryId(saved),
+    label: saved.name,
+    blueprintDigest: saved.digests.blueprint,
+    controlDigest: saved.digests.control,
+    programDigest: saved.digests.program,
+  }));
+
+  const savedForLab = (id: string): SavedConstruct => {
+    const saved = libraryEntries().find((candidate) => libraryId(candidate) === id);
+    if (!saved) throw new Error(`Auto-battle Lab selection no longer names saved construct "${id}"`);
+    return saved;
+  };
+
+  const labSides = (selection: ConstructLabSelection): readonly [SavedConstruct, SavedConstruct] => {
+    const left = savedForLab(selection.left);
+    const right = savedForLab(selection.right);
+    const leftProgram = savedForLab(selection.leftProgram);
+    const rightProgram = savedForLab(selection.rightProgram);
+    if (left.digests.control !== leftProgram.digests.control) {
+      throw new Error(`Left program revision "${selection.leftProgram}" cannot drive the left construct's control contract`);
+    }
+    if (right.digests.control !== rightProgram.digests.control) {
+      throw new Error(`Right program revision "${selection.rightProgram}" cannot drive the right construct's control contract`);
+    }
+    return [
+      saveConstruct(`${left.name} with ${leftProgram.name} program`, left.blueprint, left.control, leftProgram.program, WARDEN_SENSORS),
+      saveConstruct(`${right.name} with ${rightProgram.name} program`, right.blueprint, right.control, rightProgram.program, WARDEN_SENSORS),
+    ];
+  };
+
+  const labJobs = (left: SavedConstruct, right: SavedConstruct, seeds: readonly number[]): readonly ConstructBoutJob[] =>
+    createConstructBoutJobs(left, right, seeds, {
+      mirrored: true,
+      arenaDigest: CONSTRUCT_LAB_ARENA_DIGEST,
+      configDigest: constructLabConfigDigest(),
+      boutCapSteps: CONSTRUCT_LAB_BOUT_CAP_STEPS,
+    });
+
+  const runLabBatch = async (selection: ConstructLabSelection): Promise<Awaited<ReturnType<typeof runBrowserConstructLabBatch>>> => {
+    const [left, right] = labSides(selection);
+    const jobs = labJobs(left, right, [0x5eed_0001, 0x5eed_0002]);
+    forgeHostStatus.value = `Lab is running ${jobs.length} isolated jobs. The visible arena remains paused and untouched.`;
+    return runBrowserConstructLabBatch(jobs, WARDEN_SENSORS, (row) => {
+      forgeHostStatus.value = `Lab committed job ${row.job + 1} of ${jobs.length}: ${row.ending}${row.limitation ? ` -- ${row.limitation}` : ""}`;
+    });
+  };
+
+  const compareLabRevision = async (selection: ConstructLabSelection): Promise<Awaited<ReturnType<typeof runBrowserConstructLabBatch>>> => {
+    const [left, right] = labSides(selection);
+    const jobs = labJobs(left, right, [0xc011_0001, 0xc011_0002, 0xc011_0003, 0xc011_0004]);
+    forgeHostStatus.value = `Lab is comparing the independently selected programs across ${jobs.length} isolated mirrored jobs.`;
+    return runBrowserConstructLabBatch(jobs, WARDEN_SENSORS, (row) => {
+      forgeHostStatus.value = `Lab comparison committed job ${row.job + 1} of ${jobs.length}: ${row.ending}${row.limitation ? ` -- ${row.limitation}` : ""}`;
+    });
+  };
+
+  const disposeForgeSection = (): void => {
+    controlEditor?.dispose();
+    programEditor?.dispose();
+    labScreen?.dispose();
+    controlEditor = null;
+    programEditor = null;
+    labScreen = null;
+    forgeSectionRoot.innerHTML = "";
+  };
+  let guideLabRevisionId: string | null = null;
+
+  const showForgeSection = (section: "body" | "actions" | "mind" | "lab"): void => {
+    disposeForgeSection();
+    if (!forgeScreen || section === "body") return;
+    if (section === "actions") {
+      controlEditor = new ControlEditor(forgeSectionRoot, {
+        graph: activeForgeGraph,
+        blueprint: forgeScreen.blueprint,
+        availableJoints: forgeScreen.blueprint.joints.map((joint) => joint.id),
+        availableModules: forgeScreen.blueprint.modules.map((module) => module.id),
+        onChange: (graph) => {
+          activeForgeGraph = graph;
+          forgeScreen?.setControl(graph);
+          constructOnboarding?.observeControl(graph);
+        },
+        onProbe: probeAction,
+        onReset: () => { forgeScreen?.resetPreview(); forgeHostStatus.value = "Physical preview rebuilt at bind pose."; },
+        onControllerPick: (descriptor) => {
+          forgeHostStatus.value = `Controller ${descriptor.controller} selected; choose a compatible group before adding its action.`;
+        },
+      });
+      return;
+    }
+    if (section === "mind") {
+      const installedSensors = installedSensorsForBlueprint(forgeScreen.blueprint, WARDEN_SENSORS);
+      programEditor = new ProgramEditor(forgeSectionRoot, {
+        program: activeForgeProgram,
+        graph: activeForgeGraph,
+        sensors: installedSensors,
+        onChange: (program) => {
+          activeForgeProgram = program;
+          forgeScreen?.setProgram(program);
+          constructOnboarding?.observeProgram(program);
+        },
+        onSensorPick: (sensor) => {
+          forgeHostStatus.value = `Sensor ${sensor.id} selected; choose a condition or utility expression target.`;
+        },
+      });
+      return;
+    }
+    labScreen = new ConstructLabScreen(forgeSectionRoot, {
+      entries: labEntries(),
+      initialSelection: guideLabRevisionId ? { left: guideLabRevisionId, leftProgram: guideLabRevisionId,
+        right: libraryId(committedConstruct), rightProgram: libraryId(committedConstruct) } : undefined,
+      onVisibleBout: (selection) => {
+        const sides = labSides(selection);
+        const matchup: Matchup = {
+          left: { unit: "bronze-warden", policy: "warden-authored", control: "mind", handA: "empty", handB: "empty",
+            constructId: selection.left },
+          right: { unit: "bronze-warden", policy: "warden-authored", control: "mind", handA: "empty", handB: "empty",
+            constructId: selection.right },
+        };
+        controls.pause();
+        arena.scene.physicsEnabled = false;
+        takeover.cancel();
+        visibleConstructLab = sides;
+        constructOnboarding?.visibleLabStarted(selection.left, "left");
+        state = begin(selectScreen(matchup), matchup);
+        disposeForgeSection();
+        diagnosticsPanel?.dispose();
+        diagnosticsPanel = null;
+        forgeScreen?.dispose();
+        forgeScreen = null;
+        forgeWorkspace.classList.add("gone");
+        rebuild();
+        presentation.showSetup(false);
+        presentation.showPaused(false);
+        refreshShadowCasters(arena.scene, arena.shadows);
+        resume();
+      },
+      onBatch: runLabBatch,
+      onCompare: compareLabRevision,
+    });
+  };
+
+  const closeForge = (): void => {
+    disposeForgeSection();
+    diagnosticsPanel?.dispose();
+    diagnosticsPanel = null;
+    forgeScreen?.dispose();
+    forgeScreen = null;
+    constructOnboarding?.dispose();
+    constructOnboarding = null;
+    forgeWorkspace.classList.add("gone");
+    state = { ...state, matchup: setup.selection };
+    setup.show(state.matchup);
+    presentation.showSetup(true);
+    presentation.showPaused(false);
+    refreshShadowCasters(arena.scene, arena.shadows);
+  };
+
+  openForgeForSide = (side): void => {
+    if (state.phase !== "select") {
+      forgeHostStatus.value = "Construct Forge opens from Setup, not over a live bout.";
+      return;
+    }
+    controls.pause();
+    arena.scene.physicsEnabled = false;
+    disposeForgeSection();
+    diagnosticsPanel?.dispose();
+    forgeScreen?.dispose();
+    constructOnboarding?.dispose();
+    constructOnboarding = null;
+    forgeEditingSide = side;
+    const selected = side
+      ? libraryEntries().find((saved) => libraryId(saved) === setup.selection[side].constructId)
+      : starterCoreConstruct();
+    if (!selected) {
+      forgeHostStatus.value = `Forge refused: the ${side} side's saved machine is no longer installed.`;
+      setup.show(setup.selection);
+      return;
+    }
+    activeForgeGraph = selected.control;
+    activeForgeProgram = selected.program;
+    forgeScreen = new ForgeScreen(forgeRoot, {
+      blueprint: selected.blueprint,
+      control: activeForgeGraph,
+      program: activeForgeProgram,
+      sensors: WARDEN_SENSORS,
+      name: selected.name,
+      preview: (blueprint) => {
+        const runtime = compileConstruct(arena.scene, blueprint, {
+          faction: "left",
+          origin: new Vector3(2.2, 1.35, 2.4),
+          facing: Math.PI,
+        });
+        forgePreviewRuntime = runtime;
+        refreshShadowCasters(arena.scene, arena.shadows);
+        return { dispose: () => {
+          if (forgePreviewRuntime === runtime) forgePreviewRuntime = null;
+          runtime.dispose();
+          refreshShadowCasters(arena.scene, arena.shadows);
+        } };
+      },
+      onSaved: persistSaved,
+      publisher: {
+        capture: () => ({ graph: activeForgeGraph, program: activeForgeProgram,
+          onboarding: constructOnboarding?.checkpoint() ?? null, status: forgeHostStatus.value }),
+        publish: (publication) => {
+          activeForgeGraph = publication.control; activeForgeProgram = publication.program;
+          constructOnboarding?.observeBlueprint(publication.blueprint);
+          if (publication.command) constructOnboarding?.observeBodyEdit(publication.command);
+          constructOnboarding?.observeControl(publication.control);
+          constructOnboarding?.observeProgram(publication.program);
+          if (publication.saved) forgeHostStatus.value =
+            `${publication.saved.name} imported with all three digest claims verified.`;
+        },
+        rollback: (source) => {
+          const checkpoint = source as { graph: typeof activeForgeGraph; program: typeof activeForgeProgram;
+            onboarding: ReturnType<ConstructOnboarding["checkpoint"]> | null; status: string };
+          activeForgeGraph = checkpoint.graph; activeForgeProgram = checkpoint.program;
+          if (checkpoint.onboarding && constructOnboarding) constructOnboarding.restore(checkpoint.onboarding);
+          forgeHostStatus.value = checkpoint.status;
+        },
+      },
+      onSection: showForgeSection,
+    });
+    if (side === null) {
+      constructOnboarding = new ConstructOnboarding(forgeOnboardingRoot, {
+        initialBlueprint: selected.blueprint,
+        initialControl: selected.control,
+        onSection: showForgeSection,
+        onVisibleLab: (savedId) => { guideLabRevisionId = savedId; showForgeSection("lab"); return true; },
+      });
+      constructOnboarding.observeBlueprint(selected.blueprint);
+      constructOnboarding.observeControl(activeForgeGraph);
+      constructOnboarding.observeProgram(activeForgeProgram);
+    } else forgeOnboardingRoot.innerHTML = "";
+    diagnosticsPanel = new ConstructDiagnosticsPanel(forgeDiagnosticsRoot, emptyDiagnosticFrame());
+    refreshLibraryPicker();
+    forgeHostStatus.value = libraryRefusal ?? (side
+      ? `Editing the exact saved revision selected by the ${side} setup corner. Save selects the new three-digest revision for that Fight corner.`
+      : "Starting from a powered core with no legs. Attach all four connected limb fragments; Save creates an ordinary local machine." );
+    presentation.showSetup(false);
+    presentation.showPaused(false);
+    forgeWorkspace.classList.remove("gone");
+  };
+
+  openForgeButton.addEventListener("click", () => openForgeForSide(null));
+  closeForgeButton.addEventListener("click", closeForge);
+  forgeLoadSaved.addEventListener("click", () => {
+    const saved = libraryEntries().find((candidate) => libraryId(candidate) === forgeLibrarySelect.value);
+    if (!forgeScreen || !saved) {
+      forgeHostStatus.value = "Saved construct load refused: choose an entry while the Forge is open.";
+      return;
+    }
+    forgeScreen.importText(JSON.stringify(saved));
+  });
+
   const runningHost: RunningHost = {
     get active() { return controls.isActive; },
     setPhysics: (enabled) => { arena.scene.physicsEnabled = enabled; },
@@ -803,6 +1362,7 @@ async function boot(): Promise<void> {
       return;
     }
     state = toSelect(state);
+    visibleConstructLab = null;
     controls.pause();
     arena.scene.physicsEnabled = false;
     takeover.cancel();
@@ -820,6 +1380,12 @@ async function boot(): Promise<void> {
     // whether a fresh bout has to be built rather than whether the transition is
     // allowed -- the rule and the wiring answer separately and agree.
     if (state.phase === "select") {
+      const refusal = setup.refusal;
+      if (refusal) {
+        beginButton.title = refusal;
+        return;
+      }
+      visibleConstructLab = null;
       state = begin(state, setup.selection);
       rebuild();
     }
@@ -842,6 +1408,7 @@ async function boot(): Promise<void> {
       takeover.cancel();
       if (guidedOriginalMatchup === null) guidedOriginalMatchup = structuredClone(setup.selection);
       state = begin(selectScreen(matchup), matchup);
+      visibleConstructLab = null;
       guidedPolicySeeds = policySeeds;
       try {
         rebuild();
@@ -907,7 +1474,7 @@ async function boot(): Promise<void> {
       // its own.
       // Pelvis, not torso: leaning or twisting the chest must not roll the
       // camera or swing its bearing away from locomotion heading.
-      const world = isArticulatedCombatant(follow) ? follow.pelvis.mesh.getWorldMatrix() : null;
+      const world = follow.articulated?.pelvis.mesh.getWorldMatrix() ?? null;
       const horizontal = world
         ? horizontalForward(world.m[8], world.m[10], forward.x, forward.z)
         : horizontalForward(forward.x, forward.z, 0, 1);
@@ -1045,6 +1612,7 @@ async function boot(): Promise<void> {
       // and `C` made that a thing that can change under you.
       rigview.update(dt, humanSide(state.matchup));
     });
+    updateArenaConstructDiagnostics();
     arena.scene.render();
 
     const timers = advanceActiveHostTimers(runningHost, {
@@ -1099,7 +1667,7 @@ async function boot(): Promise<void> {
     //
     // **It did not go to keep the panel lit, and an earlier note here said it
     // did.** The panel has never lit in this page and does not light now:
-    // `mindFor` builds minds only through `policyMind` and `splitMind`, the
+    // Definitions build page minds only through their declared policy factories, and the
     // five `POLICIES` entries are `idle`, `swinger`, `duelist`, `archer` and
     // `crawler`, and `typeof mind.diagnostic === "undefined"` for every one of
     // them -- measured, not assumed. `learnedMetaMind` had no constructor
@@ -1109,7 +1677,8 @@ async function boot(): Promise<void> {
     // before.
     const learned = Object.fromEntries(
       (["left", "right"] as const).flatMap((side) => {
-        const reading = metaDiagnostic(bout[side].mind);
+        const body = bout[side].articulated;
+        const reading = body ? metaDiagnostic(body.mind) : null;
         return reading ? [[side, reading] as const] : [];
       }),
     );
@@ -1118,8 +1687,8 @@ async function boot(): Promise<void> {
       {
         fps: engine.getFps(),
         physicsMs,
-        tipSpeed: isArticulatedCombatant(driven) ? driven.sword?.tipSpeed() ?? 0 : 0,
-        edgeAlignment: isArticulatedCombatant(driven) ? edgeAlignmentNow(driven) : 0,
+        tipSpeed: driven.articulated?.sword?.tipSpeed() ?? 0,
+        edgeAlignment: driven.articulated ? edgeAlignmentNow(driven.articulated) : 0,
         meshes: arena.scene.meshes.length,
         rig: rigview.readout(),
         driving: humanSide(state.matchup),
@@ -1240,7 +1809,9 @@ async function boot(): Promise<void> {
           const selected = state.matchup[side];
           const loadout = selected.unit === "centipede" ? "natural:bite" : `${selected.handA}+${selected.handB}`;
           const loaded = await loadChampionSoFarMind(source, `${selected.unit}/${loadout}`);
-          bout[side].mind = loaded.mind;
+          const body = bout[side].articulated;
+          if (!body) throw new Error(`research champion cannot drive control surface ${bout[side].control.surface}`);
+          body.mind = loaded.mind;
           return Object.freeze({ side, algorithm: loaded.artifact.data.algorithm,
             runId: loaded.artifact.data.provenance.runId, status: loaded.artifact.data.provenance.status,
             championDigest: loaded.digest });

@@ -110,6 +110,8 @@ export interface SideSetup {
   handA: string;
   /** The secondary. `empty` is a choice rather than an absence. */
   handB: string;
+  /** Exact saved Construct revision: blueprint/control/program digests joined as one library ID. */
+  constructId?: string;
 }
 
 export interface Matchup {
@@ -197,9 +199,8 @@ export function withUnit(
       next[side].handA = rules.defaultLoadout.primary;
       next[side].handB = rules.defaultLoadout.secondary;
     }
-    if (rules.compatiblePolicies !== null && !rules.compatiblePolicies.includes(next[side].policy)) {
-      next[side].policy = rules.defaultPolicy;
-    }
+    // A policy is a saved user choice, not body repair. An incompatible one
+    // remains visible and blocks Fight until the player chooses a real driver.
   }
   return next;
 }
@@ -208,6 +209,19 @@ export function withPolicy(matchup: Matchup, side: Side, policy: string): Matchu
   const next = copy(matchup);
   next[side].policy = policy;
   return next;
+}
+
+export function withConstruct(matchup: Matchup, side: Side, constructId: string): Matchup {
+  const next = copy(matchup);
+  next[side].constructId = constructId;
+  return next;
+}
+
+export function constructSelectionRefusal(setup: SideSetup, installedIds: readonly string[]): string | null {
+  const id = setup.constructId;
+  return id && installedIds.includes(id)
+    ? null
+    : `saved construct "${id ?? "(none)"}" is unavailable; choose an installed saved machine`;
 }
 
 /**

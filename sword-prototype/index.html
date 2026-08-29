@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Sword prototype</title>
     <link rel="stylesheet" href="/src/style.css" />
+    <link rel="stylesheet" href="/src/forge/forge.css" />
   </head>
   <body>
     <canvas id="stage"></canvas>
@@ -42,12 +43,27 @@
             your point leaves the line.
           </p>
           <button id="begin" class="action" type="button">Fight</button>
+          <button id="open-forge" class="action quiet" type="button">Open Construct Forge</button>
           <button id="guided-playtest" class="action quiet" type="button">Guided playtest</button>
           <p class="note">No setup or developer tools required: it chooses each matchup, records it, and saves your progress.</p>
           <p class="note" id="boot-note">Loading Havok&hellip;</p>
         </section>
         <p class="note keys-hint"><b>?</b> for the controls</p>
       </div>
+    </div>
+    <div id="forge-workspace" class="gone" role="dialog" aria-modal="true" aria-label="Construct Forge workspace">
+      <div class="forge-workspace-bar">
+        <div><strong>Construct workshop</strong><output id="forge-host-status" aria-live="polite"></output></div>
+        <label>Saved library
+          <select id="forge-library-select"></select>
+        </label>
+        <button id="forge-load-saved" type="button">Load saved</button>
+        <button id="close-forge" type="button">Return to setup</button>
+      </div>
+      <div id="forge-onboarding-root"></div>
+      <div id="forge-root"></div>
+      <div id="forge-section-root"></div>
+      <div id="forge-diagnostics-root"></div>
     </div>
     <!-- Real-time-with-pause mode: a control surface in the game view, not a
          second screen. Focus loss (including a screenshot tool taking focus)
@@ -63,6 +79,13 @@
         <button id="leave" class="action quiet" type="button">Setup</button>
       </div>
       <span class="pause-help"><b>?</b> controls</span>
+    </aside>
+    <aside id="arena-construct-diagnostics" class="gone" aria-label="Live construct diagnostics">
+      <details>
+        <summary>Construct decisions, hardware and damage</summary>
+        <div class="arena-construct-side"><h2>Left machine</h2><div id="arena-construct-left"></div></div>
+        <div class="arena-construct-side"><h2>Right machine</h2><div id="arena-construct-right"></div></div>
+      </details>
     </aside>
     <!-- The controls, on their own overlay rather than on the curtain.
          Seventeen rows above the Fight button pushed it off the bottom of a

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { handsFor, isWeaponKind, WEAPON_KINDS } from "../src/hands.ts";
 import {
   EQUIPMENT,
+  constructSelectionRefusal,
   advance,
   beaten,
   begin,
@@ -18,6 +19,7 @@ import {
   vitality,
   verdict,
   withControl,
+  withConstruct,
   withEquipment,
   withPolicy,
   withUnit,
@@ -80,6 +82,18 @@ test("the screen opens with the left fighter yours and a policy opposite", () =>
   assert.equal(matchup.right.policy, "idle");
 });
 
+test("a_setup_construct_choice_pins_the_exact_three_digest_library_ID_without_touching_the_other_side", () => {
+  const start = defaultMatchup();
+  const id = "blueprint-a/control-b/program-c";
+  const selected = withConstruct(start, "right", id);
+  assert.equal(selected.right.constructId, id);
+  assert.deepEqual(selected.left, start.left);
+  assert.equal(start.right.constructId, undefined);
+  assert.equal(constructSelectionRefusal(selected.right, [id]), null);
+  assert.match(constructSelectionRefusal(selected.right, []), /blueprint-a\/control-b\/program-c.*unavailable/);
+  assert.match(constructSelectionRefusal(start.right, [id]), /"\(none\)" is unavailable/);
+});
+
 test("there is one of you, so taking a side gives the other one back to its policy", () => {
   const taken = withControl(defaultMatchup(), "right", "you");
   assert.equal(humanSide(taken), "right");
@@ -102,7 +116,7 @@ test("choosing a policy or a unit touches one side only, and does not move the c
   assert.equal(start.right.unit, "warrior", "and the one handed in is untouched");
 });
 
-test("changing_unit_preserves_valid_choices_and_normalizes_only_invalid_ones", () => {
+test("changing_unit_preserves_the_policy_even_when_the_new_surface_refuses_it", () => {
   const rules = {
     loadouts: [{ primary: "sword", secondary: "buckler" }],
     defaultLoadout: { primary: "sword", secondary: "buckler" },
@@ -127,8 +141,8 @@ test("changing_unit_preserves_valid_choices_and_normalizes_only_invalid_ones", (
     ...valid,
     right: { ...valid.right, policy: "crawler" },
   }, "right", "kaykit-knight", rules);
-  assert.equal(wrongPolicy.right.policy, "idle");
-  assert.equal(wrongPolicy.right.handA, "sword", "a valid pair survives a policy correction");
+  assert.equal(wrongPolicy.right.policy, "crawler");
+  assert.equal(wrongPolicy.right.handA, "sword", "a valid pair survives a unit change");
   assert.equal(wrongPolicy.right.handB, "buckler");
 
   const wrongLoadout = withUnit({
@@ -141,7 +155,7 @@ test("changing_unit_preserves_valid_choices_and_normalizes_only_invalid_ones", (
 
   const normalized = withUnit(defaultMatchup(), "right", "kaykit-knight", rules);
   assert.equal(normalized.right.unit, "kaykit-knight");
-  assert.equal(normalized.right.policy, "idle");
+  assert.equal(normalized.right.policy, defaultMatchup().right.policy);
   assert.equal(normalized.right.handA, "sword");
   assert.equal(normalized.right.handB, "buckler");
   assert.deepEqual(normalized.left, defaultMatchup().left);

@@ -6768,7 +6768,7 @@ wrong line, so every anchor into a file whose length moved has to be re-pointed 
 pass did that by arithmetic — add the file's net line delta — and it was wrong in three ways**: it
 missed `src/learning/ppo.ts` and `tests/ppo.test.mjs` entirely, the two largest movers, leaving six
 anchors rotted and green; it carried a pre-existing off-by-eight forward as though verified
-(`ppo.ts:319` named a divisor that was at 327, and +102 produced 421 for a line at 429); and a net
+(`src/learning/ppo.ts:319` named a divisor that was at 327, and +102 produced 421 for a line at 429); and a net
 delta is the wrong number anyway, because the insertions are not all above the anchor.
 
 The method that works, and what `.review/persist/anchors.mjs` does: print what each anchor lands on
@@ -7152,4 +7152,196 @@ Reproduce the same short probe without writing a research run:
 
 ```powershell
 npm run ai:measure-ppo-workers -- --solver-steps 64
+```
+
+## Construct Lab first full-cap qualification -- 2026-08-28
+
+This is an early-negative gameplay reading, not a learning result and not a scaling sweep. The
+session-12 production adapter compiled two canonical crossbow Wardens in a fresh Havok world and
+drove their real Minds and action schedulers for the full 14,400-physics-step, 60-second simulated
+cap. Bind-pose collider support placed both roots 1.372 m above the floor. One authoritative job
+took 7.238 seconds of wall time on this desktop, so a completed job is
+comfortably below the five-minute durability ceiling. The worker runner commits each such job
+independently; an interruption can replay an in-flight job but never a committed one.
+
+| seed | mirror | ending | simulated seconds | requests | action transitions | refusal events | damage | final range |
+|---:|:---:|:---:|---:|---:|---:|---:|---:|---:|
+| 9 | no | time cap | 60 | 86,116 | 67 | 30,995 | 474.589 / 453.472 | 1.113 m |
+
+The range reached a 0.890 m minimum, averaged 2.016 m and finished at 1.113 m. A separate 200-step
+direction probe measured +0.01038 m at facing 0 and +0.01034 m at facing pi: both bodies advance in
+their own forward frame. Live controller views let fire converge and complete twice per side in that
+short probe; cover settled to about 0.000004 rad error against its 0.002 epsilon. The full row records
+30 completed actions, 474.589 left damage, 453.472 right damage, zero severs and no proven stuck
+interval. Named refusals are reload/power exhaustion plus one right-side recovery request after
+contact loss, rather than silent fallbacks.
+
+This row was real combat progress, but it has been superseded as entry evidence by the bracket
+below. The fixed-step action power ledger changed the workload after this row: the old damage
+numbers must not be used as evidence for the current runtime.
+
+Reproduce the full-cap row through `runConstructBoutJob` or write a durable batch with:
+
+```powershell
+npm run construct:lab -- --left <left.saved.json> --right <right.saved.json> --seeds 1 --out <directory>
+```
+
+## Construct authored entry bracket and worker scaling -- 2026-08-28
+
+Harness: `npm run construct:qualify -- --out .tools/construct-entry-20260828-c`, current desktop,
+canonical crossbow Warden versus itself, frozen seeds 9/17/29/43, both mirrors, 14,400 solver steps
+per job. Run digest `55357539` and source fingerprint `bc29e70a` identify the exact workload. This
+is the frozen pre-final-locomotion runtime: the subsequent turn/brace/recover acceptance repair is
+not represented by this source fingerprint, so the gameplay entry decision requires a current
+eight-worker corpus rerun. The worker-topology evidence remains applicable to the same eight-job
+shape. The script bracketed every subject with a one-worker control and refused any source change during the
+run. All nine runs produced byte-identical `rows.jsonl`, `state.json` and `report.json`; completion
+order and telemetry remained non-authoritative.
+
+| run | requested workers | wall s | bracket speedup | aggregate CPU | peak RSS |
+|:---|---:|---:|---:|---:|---:|
+| control | 1 | 39.868 | -- | 1.10 cores | 398 MB |
+| subject | 2 | 20.669 | 1.92x | 2.22 cores | 571 MB |
+| control | 1 | 39.363 | -- | 1.10 cores | 427 MB |
+| subject | 4 | 11.108 | 3.56x | 4.39 cores | 1,043 MB |
+| control | 1 | 39.831 | -- | 1.09 cores | 520 MB |
+| subject | 8 | 7.280 | 5.51x | 8.72 cores | 1,224 MB |
+| control | 1 | 40.411 | -- | 1.10 cores | 533 MB |
+| subject | default (32) | 6.709 | 5.94x | 8.70 cores | 1,260 MB |
+| control | 1 | 39.289 | -- | 1.09 cores | 538 MB |
+
+Bracket speedup uses the mean of the adjacent controls. The default request could start only eight
+live jobs because the corpus contains eight jobs; its 32-worker label therefore does not demonstrate
+32-way scaling. Eight is the selected topology: it reaches the corpus concurrency ceiling without
+claiming idle requested workers as utilization. The conservative one-worker full-batch maximum,
+40.411 seconds, is also an upper bound on one durable job and is far below five minutes.
+
+The gameplay verdict is a decisive rejection, not a weak pass. All eight rows reached the 60-second
+cap. They issued move, fire and cover, but completed zero actions, dealt zero damage, and refused
+197,088 of 231,408 requests (85.17%). They recorded zero stuck steps and zero capability losses;
+those two green counters do not rescue an action/controller/power loop that never completes or
+hits. `src/construct/learning/schedule.ts` durably pins the run/source digests and the rejected
+pre-final-locomotion verdict; the untracked run directory is evidence input, not a repository
+contract. This rejection was kept fail-closed pending the current-runtime evidence below.
+
+**Qualification correction after adversarial review.** Both corpora below predate the declared
+seed-driven initial-condition perturbation. At that time `seed` participated in job identity but
+not `ConstructLabBout` physics, so seeds 9/17/29/43 were duplicate trajectories within each mirror.
+The action, damage, stuck and topology readings remain honest observations of those jobs, but the
+four-seed gameplay claim is superseded and cannot qualify learning. Current runtime now applies a
+small deterministic, bounded, mirror-correct lateral/separation/yaw perturbation; tests prove exact
+same-seed replay and different-seed trajectory divergence. The replacement outcome is recorded
+below; it does not retroactively validate either pre-seeded corpus.
+
+The then-final, now-superseded pre-seeded runtime rerun used `npm run construct:qualify -- --out
+.tools/construct-entry-final-20260828-v2 --workers 8` after the power ledger, physical sensors,
+four-beat crawl and in-range brace rule froze. Qualification identity is schedule digest `8cfec0a0`,
+source fingerprint `ee9a247a` and run digest `62944ccf`. The eight jobs finished in 17.921 seconds
+at 7.53 aggregate CPU cores and 3,390,054,400 peak RSS bytes. All eight rows exercised move,
+brace, fire and cover and dealt bilateral physical damage with no unexplained capability loss.
+That is a real correction to the earlier zero-damage action/power failure, but it is not a pass:
+all eight bouts reached the time cap and together accumulated 91,640 stuck recovery steps after
+combat falls. The entry gate therefore remains rejected.
+
+The tuning history matters because two superficially plausible corrections failed in opposite
+ways under this same corpus. Raising the power core from 2,400 J to 24,000 J and replacing cancelling
+sine phases with a three-stance/one-return crawl restored admitted attacks and physical damage.
+Stopping movement at 5.5 m instead braced immediately at the actual 2.6 m spawn separation and
+produced no move or damage; a 2.45 m threshold exercised move but again produced no bilateral damage.
+The retained 2.0 m transition preserved damage and reduced stuck recovery from 110,712 steps in the
+pre-brace run to 91,640, but did not solve lateral recovery or bout completion.
+
+**Current seeded qualification.** `node scripts/qualify-construct-learning-entry.mjs --out
+.tools/construct-entry-seeded-be5f8040-20260828 --workers 8` ran the same four seeds and mirrors
+after physical perturbation, complete sensors, action-specific capability accounting and the
+shared-mount correction. Its exact identity is protocol `0cf3bb85`, source/environment `be5f8040`
+and run `d0e8011a`. Eight workers finished in 19.272 seconds at 8.04 aggregate CPU cores and
+3,162,714,112 peak RSS bytes. Every row exercised move, brace, fire and cover. Six of eight rows
+dealt bilateral physical damage, but all eight time-capped, the corpus accumulated 234,442 stuck
+steps and two rows lacked bilateral damage. Of those stuck steps, 220,871 are `brace/brace` and
+13,571 are `fire/tracking`; the current evidence does not attribute them to longitudinal recovery.
+The report also retains 206 named ammunition lifecycle transitions and six named mounted-module
+loss transitions as telemetry, and records zero unexplained capability disappearances. This is a current, properly seeded rejection; it
+replaces the missing-evidence status without weakening the gate.
+
+| current-runtime probe | result |
+|:---|:---|
+| four-second move, facing 0 and pi | both exceed 0.05 m in their own forward frame |
+| support | at least two physical contacts; any non-diagonal pair has both missing feet within 20 mm of planted height |
+| swing clearance | at least one returning foot exceeds planted-foot height by 10 mm |
+| planted-foot tangential slip | below 4 m/s in the fixed probe |
+| recovery | both +Z and -Z 700 N s off-centre longitudinal falls return upright with at least three contacts |
+| combat action convergence | rejected; 220,871 `brace/brace` plus 13,571 `fire/tracking` stuck steps |
+
+## Construct learning rung entry-gate result -- 2026-08-28
+
+Session 15 promoted no network and spent no production rollout after the current rejected corpus
+above. The current entry gate remains false and pins its exact source/run identity. Running
+`node scripts/train-construct.mjs --run .tools/construct-training-final-be5f8040-20260828 --workers 8`
+returned config digest `a8d8cf04`, `promotedArtifact: null`, `completedShards: 0` and `updates: 0`.
+This is a no-progress-at-
+rung-1 result, not a learning comparison: behavior cloning, PPO and the sealed test split were never
+opened.
+
+The synthetic shard remains a checkpoint/resume fixture, but it is no longer the training smoke.
+`node scripts/train-construct.mjs --smoke` now runs one physical BC shard and one physical PPO shard
+through `ConstructLabBout` and the public scheduler. The current
+`.tools/construct-learning-smoke-current-be5f8040-20260828` smoke produced nine graph-policy decision
+boundaries, 373 scheduler admissions, two finite-loss rows and changed checkpoint weights under graph
+`f17d51af`, action/program/teacher `95ef233c`, config `51515152` and checkpoint `7bc3d7b5`, while
+writing `promotedArtifact: null`. Its smoke-only schedule remains `5e1672ff` by design and does not
+claim production qualification. A separate one-versus-four-worker physical fixture reproduced the
+same checkpoint and result bytes. The focused observation/learning/tournament run completed 36
+tests and also covered a mutation-proven commit-failure path that terminates a slow worker peer, a
+higher completed index surviving beside an earlier missing index, resume under a changed worker
+count, byte-identical terminal checkpoint/result output, config-bound shard refusal, pointer-last
+partial-bundle recovery, terminal recovery with zero new rollouts, validation selection without
+test-row access, and the no-promotion negative. A deliberate mutation that rewarded a time cap
+made `time_cap_survival_cannot_outscore_a_damaging_loss` fail (`passive 15` versus `-0.5`) before
+the penalty was restored.
+
+These software checks are not a learned-gameplay result. The current software identities are graph
+contract `f17d51af`, frozen inference `81362f20`, corpus metadata `95ef233c` and immutable learning
+protocol `0cf3bb85`. Lab identity separately pins runtime `90029073`, installed Warden sensor catalog
+`a4370097` and full-cap config `2ada6317`. Source/environment fingerprint `be5f8040` names the exact
+qualified-against implementation; any further runtime edit invalidates it.
+
+The diagnostic progress contract now measures brace by maximum live joint target error and recover
+by full roll/pitch tilt magnitude. The earlier roll-only recover metric could incorrectly exempt a
+pitch-dominant, non-recovering construct from stuck classification. A real scheduler/controller
+regression now holds roll inside epsilon, pitch at `1.1` radians and joint readings static, and
+requires the resulting recover interval to be classified stuck. The current seeded qualification
+above includes this correction and rejected the resulting combat behavior.
+
+Construct terminal recording previously held only one pending envelope. Handover could overwrite a
+cancellation with the new driver's command, while verdict closed the arena sampling gate and
+disposal detached the port before either cancellation was published. The recorder now queues
+envelopes and lifecycle stops flush immediately against the last host boundary. Havok-backed tests
+hold `cover` active through handover, disposal and the real two-sided `FightEnd` transition, require
+one cancellation with the exact reason and prove that another sample or repeated transition cannot
+duplicate it. Removing the lifecycle flush made the handover and verdict tests fail with zero
+terminal rows before it was restored.
+
+The production ladder is physically wired
+BC -> PPO -> frozen validation -> held-out tournament over a stage-scoped sealed limb-count/mount/
+mass/program split, but the authored corpus blocks it before the first production worker. Validation
+uses four shared scenario cells, each evaluated by both frozen BC/PPO candidates, and refuses
+unpaired coverage before selection. Only then may the held-out accessor materialize its saves and
+run eight shared scenario cells times selected, prior-frozen and authored competitors (24 shards).
+Candidate boundary records retain exact checkpoint bytes and terminal v2 binds exact
+checkpoint/config/protocol/artifact/manifest digests. Resume and terminal recovery independently
+reconstruct that stage boundary from committed canonical-index Adam updates, then recheck the live
+qualification source and gate before trusting old rows. Eight workers and the split are selected
+from frozen evidence; neither selection changes the rejected entry status. Repair brace/tracking
+convergence and decisive bout completion, then rerun the eight-worker corpus before changing that status;
+repeat the full scaling bracket only if the job shape or worker topology changes.
+
+Reproduce the fail-closed production result, the real physical smoke, and the read-only
+watcher with:
+
+```powershell
+npm run construct:train -- --run <negative-directory>
+npm run construct:train -- --smoke --run <physical-smoke-directory> --workers 2
+npm run construct:qualify -- --out <qualification-directory> --workers 8
+npm run construct:watch -- --run <directory>
 ```

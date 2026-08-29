@@ -1,7 +1,8 @@
-import { POLICIES } from "./mind";
 import {
   EQUIPMENT,
+  constructSelectionRefusal,
   withControl,
+  withConstruct,
   withEquipment,
   withPolicy,
   withUnit,
@@ -10,6 +11,19 @@ import {
 } from "./bout";
 import { supportsLoadoutForUnit, UNITS, unitDefinition } from "./units";
 import type { Side } from "./physics";
+
+const escapeHtml = (value: string): string => value.replace(/[&<>"']/g, (character) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+})[character] as string);
+
+export interface ConstructSetupAffordance {
+  /** Installed exact saved revisions. IDs pin blueprint, Control Graph and Mind together. */
+  entries(): readonly Readonly<{ id: string; label: string; blueprint: string; control: string; program: string }>[];
+  /** The initial installed revision used only when a side has never selected one. */
+  defaultId(): string;
+  /** Opens the mouse-driven Forge without changing the bout selection underneath it. */
+  open(side: Side): void;
+}
 
 /**
  * The screen before the fight.
@@ -42,15 +56,26 @@ export class SetupScreen {
   private readonly policies: Record<Side, HTMLSelectElement>;
   private readonly hands: Record<"handA" | "handB", Record<Side, HTMLSelectElement>>;
   private readonly controls: Record<Side, HTMLInputElement[]>;
+  private readonly beginButton: HTMLButtonElement | null;
+  private readonly constructAffordance: ConstructSetupAffordance | null;
+  private readonly humanoidEquipment: Record<Side, HTMLElement[]>;
+  private readonly blueprintFields: Record<Side, HTMLElement>;
+  private readonly blueprintLabels: Record<Side, HTMLOutputElement>;
+  private readonly constructs: Record<Side, HTMLSelectElement>;
+  private readonly forgeButtons: Record<Side, HTMLButtonElement>;
 
   constructor(
     host: HTMLElement,
     matchup: Matchup,
     unavailableUnits: Readonly<Record<string, string>> = Object.freeze({}),
+    beginButton: HTMLButtonElement | null = null,
+    constructAffordance: ConstructSetupAffordance | null = null,
   ) {
     this.host = host;
     this.unavailableUnits = unavailableUnits;
     this.matchup = matchup;
+    this.beginButton = beginButton;
+    this.constructAffordance = constructAffordance;
 
     host.innerHTML = `${this.corner("left", "Left")}${this.corner("right", "Right")}`;
 
@@ -74,11 +99,20 @@ export class SetupScreen {
       left: [...host.querySelectorAll<HTMLInputElement>('[data-side="left"][data-field="control"]')],
       right: [...host.querySelectorAll<HTMLInputElement>('[data-side="right"][data-field="control"]')],
     };
+    this.humanoidEquipment = {
+      left: [...host.querySelectorAll<HTMLElement>('[data-side="left"][data-humanoid-equipment]')],
+      right: [...host.querySelectorAll<HTMLElement>('[data-side="right"][data-humanoid-equipment]')],
+    };
+    this.blueprintFields = pick<HTMLElement>("blueprint-field");
+    this.blueprintLabels = pick<HTMLOutputElement>("blueprint-label");
+    this.constructs = pick<HTMLSelectElement>("construct");
+    this.forgeButtons = pick<HTMLButtonElement>("open-forge");
 
     // One delegated listener rather than seven. The controls are built here and
     // never replaced -- `render` writes values into them -- so there is nothing
     // to rebind and nothing to leak.
     host.addEventListener("change", this.onChange);
+    host.addEventListener("click", this.onClick);
     this.render();
   }
 
@@ -101,8 +135,14 @@ export class SetupScreen {
     this.render();
   }
 
+  chooseConstruct(side: Side, id: string): void {
+    this.matchup = withConstruct(this.matchup, side, id);
+    this.render();
+  }
+
   dispose(): void {
     this.host.removeEventListener("change", this.onChange);
+    this.host.removeEventListener("click", this.onClick);
   }
 
   private corner(side: Side, title: string): string {
@@ -123,16 +163,22 @@ export class SetupScreen {
         </label>
         <label class="field">
           <span class="field-name">Policy</span>
-          <select data-side="${side}" data-field="policy">${options(POLICIES)}</select>
+          <select data-side="${side}" data-field="policy"></select>
         </label>
-        <label class="field">
+        <label class="field" data-side="${side}" data-humanoid-equipment>
           <span class="field-name">Hand A</span>
           <select data-side="${side}" data-field="handA">${options(EQUIPMENT)}</select>
         </label>
-        <label class="field">
+        <label class="field" data-side="${side}" data-humanoid-equipment>
           <span class="field-name">Hand B</span>
           <select data-side="${side}" data-field="handB">${options(EQUIPMENT)}</select>
         </label>
+        <div class="field construct-blueprint" data-side="${side}" data-field="blueprint-field" hidden>
+          <span class="field-name">Saved machine</span>
+          <select data-side="${side}" data-field="construct"></select>
+          <output data-side="${side}" data-field="blueprint-label"></output>
+          <button type="button" class="setup-forge" data-side="${side}" data-field="open-forge">Open Forge</button>
+        </div>
         <div class="field">
           <span class="field-name">Control</span>
           <span class="choice">
@@ -172,6 +218,9 @@ export class SetupScreen {
       case "policy":
         this.matchup = withPolicy(this.matchup, side, target.value);
         break;
+      case "construct":
+        this.matchup = withConstruct(this.matchup, side, target.value);
+        break;
       case "control":
         this.matchup = withControl(this.matchup, side, target.value as Control);
         break;
@@ -181,10 +230,24 @@ export class SetupScreen {
     this.render();
   };
 
+  private readonly onClick = (event: Event): void => {
+    const target = event.target as HTMLElement | null;
+    const button = target?.closest<HTMLButtonElement>('button[data-field="open-forge"]');
+    const side = button?.dataset.side;
+    if (!button || (side !== "left" && side !== "right")) return;
+    this.constructAffordance?.open(side);
+  };
+
   private render(): void {
     for (const side of ["left", "right"] as const) {
       const setup = this.matchup[side];
       const definition = unitDefinition(setup.unit);
+      const construct = definition.controlSurface === "construct-v1";
+      const policyOptions = definition.driverOptions.some((driver) => driver.name === setup.policy)
+        ? definition.driverOptions
+        : [{ name: setup.policy, label: `${setup.policy} (incompatible)` }, ...definition.driverOptions];
+      this.policies[side].innerHTML = policyOptions
+        .map((driver) => `<option value="${driver.name}">${driver.label}</option>`).join("");
       for (const option of this.units[side].options) {
         const unavailableReason = this.unavailableUnits[option.value];
         option.disabled = unavailableReason !== undefined;
@@ -206,15 +269,62 @@ export class SetupScreen {
         }
         field.disabled = definition.hands === 0;
       }
+      for (const field of this.humanoidEquipment[side]) field.hidden = construct;
+      this.blueprintFields[side].hidden = !construct;
+      if (construct) {
+        const entries = this.constructAffordance?.entries() ?? [];
+        if (setup.constructId === undefined && this.constructAffordance) {
+          setup.constructId = this.constructAffordance.defaultId();
+        }
+        const selected = entries.find(({ id }) => id === setup.constructId);
+        const shown = selected ? entries : [{ id: setup.constructId ?? "", label: "Unavailable saved machine",
+          blueprint: "missing", control: "missing", program: "missing" }, ...entries];
+        this.constructs[side].innerHTML = shown.map((entry) =>
+          `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.label)}</option>`).join("");
+        this.constructs[side].value = setup.constructId ?? "";
+        this.blueprintLabels[side].textContent = selected
+          ? `Blueprint ${selected.blueprint} -- Control ${selected.control} -- Mind ${selected.program}`
+          : `Saved revision ${setup.constructId ?? "(none)"} is unavailable`;
+        this.forgeButtons[side].disabled = this.constructAffordance === null;
+        this.forgeButtons[side].title = this.constructAffordance === null
+          ? "Construct Forge is unavailable: no Forge host is installed"
+          : `Edit ${selected?.label ?? "this unavailable revision"} in Construct Forge`;
+      }
       for (const option of this.policies[side].options) {
-        option.disabled = definition.compatiblePolicies !== null
-          && !definition.compatiblePolicies.includes(option.value);
+        option.disabled = !definition.driverOptions.some((driver) => driver.name === option.value);
       }
       this.units[side].value = setup.unit;
       this.policies[side].value = setup.policy;
       this.hands.handA[side].value = setup.handA;
       this.hands.handB[side].value = setup.handB;
-      for (const button of this.controls[side]) button.checked = button.value === setup.control;
+      for (const button of this.controls[side]) {
+        button.checked = button.value === setup.control;
+        button.disabled = button.value === "you" && !definition.humanAdapter;
+        button.title = button.disabled ? `control surface ${definition.kind} has no human adapter` : "";
+      }
     }
+    if (this.beginButton) {
+      const reason = this.refusal;
+      this.beginButton.disabled = reason !== null;
+      this.beginButton.title = reason ?? "";
+    }
+  }
+
+  get refusal(): string | null {
+    for (const side of ["left", "right"] as const) {
+      const setup = this.matchup[side];
+      const definition = unitDefinition(setup.unit);
+      if (!definition.driverOptions.some((driver) => driver.name === setup.policy)) {
+        return `unit "${definition.kind}" does not support policy "${setup.policy}"`;
+      }
+      if (setup.control === "you" && !definition.humanAdapter) {
+        return `control surface ${definition.kind} has no human adapter`;
+      }
+      if (definition.controlSurface === "construct-v1") {
+        const refusal = constructSelectionRefusal(setup, this.constructAffordance?.entries().map(({ id }) => id) ?? []);
+        if (refusal) return refusal;
+      }
+    }
+    return null;
   }
 }

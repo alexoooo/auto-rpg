@@ -656,6 +656,29 @@ Seven, and each one was paid for.
   the next session went looking -- about 2.5 standard deviations at 120 bouts. `docs/measurements.md`
   under "What that is worth in bouts" carries the table.
 
+- **Recovery cannot require the support state it exists to restore.** The first construct
+  controller required three planted contacts in its constructor, so a fallen Mind selected
+  `recover` forever and the scheduler refused it forever. Move, turn and brace retain that
+  admission rule; recovery does not. The current Warden proves longitudinal recovery under real
+  off-centre impulses. The current authored corpus still fails to complete: 220,871 of its
+  234,442 stuck steps are in `brace/brace`, and the remaining 13,571 are in `fire/tracking`.
+  Learning stays fail-closed until those live action failures and decisive completion are fixed.
+- **A construct qualification identity is a pair.** `scheduleDigest` covers the complete frozen
+  assignment and thresholds; `sourceDigest` covers runtime sources and construct scripts but
+  deliberately excludes `src/construct/learning/schedule.ts`. Including the schedule in both made
+  writing `entryGate.sourceDigest` change the source digest it was trying to pin. Do not collapse
+  the pair or narrow the broad source list without a mutation test.
+- **Construct worker count is scheduling only.** Jobs, seeds, mirrors and shard boundaries are
+  frozen before workers start; aggregation and checkpoint updates are by job index. Eight workers
+  match the eight-job authored corpus. Requesting 32 there demonstrated eight live jobs, not
+  32-way scaling.
+- **A green counter cannot rescue a red bout.** The zero-damage authored corpus originally had
+  zero stuck steps and zero capability losses because its action/power loop never progressed.
+  Six of eight current rows deal bilateral damage, but all eight time out with the stuck-action
+  breakdown above. Its 212 named resource/hardware transitions are telemetry, not unexplained
+  capability disappearance. Promotion gates judge the conjunction and production writes no shard
+  or artifact when entry is red.
+
 ## Research runs
 
 Every long research run writes `state.json`, an append-only ledger named **ledger.jsonl**,

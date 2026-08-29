@@ -1,5 +1,12 @@
 # Session 08 -- let damage rewrite the machine's available actions
 
+## Status -- implemented and edge-ordered 2026-08-28
+
+Passive cooling and reload time now advance before capability derivation, while request power/heat
+admission happens after it. Reload and overheat therefore become available on the exact fixed-step
+crossing instead of remaining falsely unavailable for one extra tick; the enabling direction is
+covered by `reload_and_thermal_capabilities_enable_on_the_exact_passive_resource_edge`.
+
 ## Outcome
 
 Armour, joint damage, severed subtrees, power, heat, reload and ammunition are authoritative body
@@ -30,10 +37,17 @@ owner. Core fatality and vitality weights come from the blueprint, not names suc
 `torso`. Extend `src/construct/scheduler.ts` to cancel an active action before its next motor write
 when any claim becomes unavailable.
 
-Create `src/construct/resources.ts` for a per-step power ledger, heat accumulation/cooling, reload
-and ammunition. Resource arithmetic is fixed-step and finite. A power shortfall is resolved by the
+Extend session 07's `src/construct/resources.ts` with a per-step power ledger and heat
+accumulation/cooling. It remains the sole owner of reload and ammunition; capability code reads its
+published facts and never keeps a second counter. Resource arithmetic is fixed-step and finite. A
+power shortfall is resolved by the
 same explicit priority/declaration order as action conflicts; it does not scale every motor by an
 implicit fraction.
+
+Freeze the control-step edge: collision resolution records damage; before the next driver step the
+runtime applies damage/severance, recomputes resources and capabilities, cancels invalid actions,
+and only then permits controller motor writes. “Immediately” means no write on that next control
+edge, not a callback trying to mutate a scheduler halfway through Havok's collision walk.
 
 Update HUD diagnostics with the live part tree, active/cancelled actions and exact unavailable
 reasons. Feed construct combat events into its recorder without coercing effectors into hands.
@@ -51,7 +65,7 @@ Create `tests/construct-damage.test.mjs`:
 - `damage_disposal_and_rebuild_return_every_resource_to_baseline`
 
 Mutation proof: delay capability recomputation by one step and require the post-sever motor-write
-counter to fail. Give a detached sword continued scorer ownership and require the debris contact
+counter on the actual severed joint to fail. Give a detached sword continued scorer ownership and require the debris contact
 fixture to fail.
 
 ## Accept

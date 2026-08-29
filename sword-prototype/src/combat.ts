@@ -38,7 +38,11 @@ export type { HitKind };
  */
 export interface Striking {
   readonly kind: Striker;
-  readonly hand: HandName;
+  /** Stable physical source; construct modules never impersonate a humanoid hand. */
+  readonly effectorId: string;
+  readonly hand: HandName | null;
+  /** Blueprint-owned multiplier; legacy effectors omit it and therefore remain exactly 1. */
+  readonly damageScale?: number;
   readonly body: PhysicsBody;
   /**
    * Whether this has stopped being a weapon: dropped, or already spent.
@@ -119,7 +123,8 @@ export interface HitReport {
 
 export interface CombatReportEvent {
   readonly report: HitReport;
-  readonly hand: HandName;
+  readonly effectorId: string;
+  readonly hand: HandName | null;
   readonly blocked: boolean;
 }
 
@@ -284,11 +289,12 @@ export class Combat {
     // A bare hand and forearm are both limbs and a guard. Physical interposition
     // decides which one this is: when an attached empty arm is the thing found,
     // it blocks for zero damage before the same body can be filed as a wound.
-    if (this.target.parriedBy(event.collidedAgainst)?.kind === "empty") {
+    if (this.target.parriedBy(event.collidedAgainst, event.point as Vector3)?.kind === "empty") {
       this.parried(weapon, event);
       return;
     }
-    const limb = this.target.limbFor(event.collidedAgainst);
+    const limb = this.target.damageTargetFor?.(event.collidedAgainst, event.point as Vector3) ??
+      this.target.limbFor(event.collidedAgainst);
     if (!limb) {
       this.parried(weapon, event);
       return;
@@ -300,7 +306,7 @@ export class Combat {
     limb.lastHitAt = this.clock;
     this.lastHit = report;
     if (report.damage > 0) this.lastWound = report;
-    this.onReport?.({ report, hand: weapon.hand, blocked: false });
+    this.onReport?.({ report, effectorId: weapon.effectorId, hand: weapon.hand, blocked: false });
     this.log.unshift(report);
     if (this.log.length > 24) this.log.length = 24;
   }
@@ -318,7 +324,7 @@ export class Combat {
    * the log with a single parry twenty-four times over.
    */
   private parried(weapon: Striking, event: IPhysicsCollisionEvent): void {
-    const stopped = this.target?.parriedBy(event.collidedAgainst);
+    const stopped = this.target?.parriedBy(event.collidedAgainst, event.point as Vector3);
     if (!stopped || !event.point) return;
     if (this.clock - this.lastParryAt < CONFIG.combat.hitCooldown) return;
     this.lastParryAt = this.clock;
@@ -342,7 +348,7 @@ export class Combat {
       edge: weapon.edgeDirection().clone(),
     };
     this.lastHit = report;
-    this.onReport?.({ report, hand: weapon.hand, blocked: true });
+    this.onReport?.({ report, effectorId: weapon.effectorId, hand: weapon.hand, blocked: true });
     this.log.unshift(report);
     if (this.log.length > 24) this.log.length = 24;
   }
@@ -399,9 +405,10 @@ export class Combat {
       },
       weapon.kind,
     );
-    const { kind, quality, damage } = score;
-
-    limb.health -= damage;
+    const { kind, quality } = score;
+    const rawDamage = score.damage * (weapon.damageScale ?? 1);
+    const damage = this.target?.applyDamage?.(limb, rawDamage) ?? rawDamage;
+    if (!this.target?.applyDamage) limb.health -= damage;
 
     // The blade shoves what it strikes whether or not it bites. A flat slap
     // transfers the most push and the least damage, which is the trade the
@@ -411,7 +418,7 @@ export class Combat {
       .scaleInPlace(speed * 0.11 * (1.35 - quality * 0.7));
     limb.part.body.applyImpulse(shove, point);
 
-    const severed = severs(score, limb.health, weapon.kind);
+    const severed = severs({ ...score, damage }, limb.health, weapon.kind);
     if (severed) this.target?.sever(limb, direction);
 
     return { ...base, kind, edgeAlignment, damage, severed };

@@ -29,6 +29,7 @@ import { Arm } from "./arm.ts";
 import { handsFor, isShield, type Weapon, type WeaponKind } from "./weapon.ts";
 import type { Striking } from "./combat.ts";
 import type { Combatant } from "./units.ts";
+import { HumanoidControlEndpoint, type HumanoidHumanSource } from "./humanoid-control.ts";
 import { vitality } from "./bout.ts";
 import {
   HANDS,
@@ -96,6 +97,11 @@ export interface FighterOptions {
    * not thought about it stands still rather than reading undefined.
    */
   mind?: Mind;
+  /** Page-only typed injection; headless callers deliberately omit it. */
+  human?: HumanoidHumanSource;
+  readonly controlPolicies?: readonly { readonly name: string; readonly label: string }[];
+  readonly controlPolicyName?: string;
+  readonly controlPolicyFactory?: (name: string, seed?: number) => Mind;
   /**
    * What is in each hand. Defaults to a sword in the primary and nothing in the
    * secondary, which is what every fighter held before there was a choice --
@@ -421,6 +427,8 @@ const blankProjectile = (owner: "self" | "opponent"): ProjectileView => ({
 });
 
 export class Fighter {
+  readonly articulated: Fighter = this;
+  readonly control: HumanoidControlEndpoint;
   readonly kind: "warrior" | "broot" | "kaykit-knight";
   readonly profile: HumanoidProfile;
   private readonly bodyConfig: BodyConfig;
@@ -498,10 +506,12 @@ export class Fighter {
    * the first would drop the blade and the second would move the bodies it is
    * trying to hold still.
    */
-  mind: Mind;
+  get mind(): Mind { return this.control.mind; }
+  set mind(value: Mind) { this.control.installMind(value); }
 
-  /** Observes the command selected for this body without wrapping its mutable mind. */
-  intentObserver: ((view: FighterView, intent: Intent) => void) | null = null;
+  /** Compatibility tap for direct harnesses; arena recording uses `control.recording`. */
+  get intentObserver(): ((view: FighterView, intent: Intent) => void) | null { return this.control.observer; }
+  set intentObserver(value: ((view: FighterView, intent: Intent) => void) | null) { this.control.observer = value; }
 
   /**
    * What this fighter can see, republished in place by `observe`.
@@ -640,7 +650,7 @@ export class Fighter {
     const B = this.bodyConfig;
     const layers = layersFor(opts.side);
     this.side = opts.side;
-    this.mind = opts.mind ?? idleMind();
+    const initialMind = opts.mind ?? idleMind();
 
     // Built empty and filled in place by `observe` from then on. Nothing here
     // creates a body, a shape or a constraint, so it costs the arm's build order
@@ -1146,6 +1156,18 @@ export class Fighter {
     for (const mesh of this.costume) this.owned.add(mesh);
 
     this.applyTuning();
+    this.control = new HumanoidControlEndpoint({
+      initialMind,
+      initialPolicyName: opts.controlPolicyName,
+      view: this.view,
+      canStep: () => !this.dead && this.fighting,
+      apply: (dt, intent) => this.applyIntent(dt, intent),
+      stopBody: () => this.stopBody(),
+      policies: opts.controlPolicies ?? [{ name: "idle", label: "Idle" }],
+      policyFactory: opts.controlPolicyFactory,
+      human: opts.human,
+      poseSeed: () => this.armed ? this.armPoses() : null,
+    });
   }
 
   /**
@@ -1484,13 +1506,10 @@ export class Fighter {
   }
 
   update(dt: number): void {
-    // Before `decide`, not after: a dead fighter is not asked what it wants. The
-    // early return for a lost arm sits four lines further down and deliberately
-    // runs `walk` first, because a one-armed fighter still walks. This one comes
-    // first because a headless one does not.
-    if (this.dead || !this.fighting) return;
-    const intent = this.mind.decide(this.view, dt);
-    this.intentObserver?.(this.view, intent);
+    this.control.driver.step(dt);
+  }
+
+  private applyIntent(dt: number, intent: Intent): void {
     this.steer(dt, intent);
     this.poseTrunk(dt, intent);
     this.walk(dt);
@@ -1528,6 +1547,10 @@ export class Fighter {
    * as a severed head. Neither is disposed.
    */
   stopFighting(): void {
+    this.control.stopFighting();
+  }
+
+  private stopBody(): void {
     if (!this.fighting) return;
     this.fighting = false;
     for (const name of HANDS) this.arms[name].stopFighting();
@@ -1601,6 +1624,7 @@ export class Fighter {
    * hanging on rather than being collected separately.
    */
   dispose(): void {
+    this.control.dispose();
     this.figure.dispose();
     this.disposeBodyGraph();
   }
@@ -1973,6 +1997,6 @@ export class Fighter {
 export function stepPair(left: Combatant, right: Combatant, dt: number, clock: number): void {
   left.observe(right, clock);
   right.observe(left, clock);
-  left.update(dt);
-  right.update(dt);
+  left.control.driver.step(dt);
+  right.control.driver.step(dt);
 }

@@ -56,6 +56,7 @@ const UP = new Vector3(0, 1, 0);
 export class FistStrike implements Striking {
   readonly kind = "empty" as const;
   readonly hand: HandName;
+  readonly effectorId: string;
   readonly body: Part["body"];
   private readonly part: Part;
   private readonly isSpent: () => boolean;
@@ -78,6 +79,7 @@ export class FistStrike implements Striking {
   constructor(part: Part, hand: HandName, isSpent: () => boolean) {
     this.part = part;
     this.hand = hand;
+    this.effectorId = `hand-${hand}-fist`;
     this.body = part.body;
     this.isSpent = isSpent;
     // Havok emits no per-body contacts until this is enabled. A weapon does it

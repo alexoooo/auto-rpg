@@ -1,0 +1,249 @@
+.gone { display: none !important; }
+
+#forge-workspace {
+  background: rgba(7, 7, 7, 0.3);
+  box-sizing: border-box;
+  inset: 0;
+  overflow: auto;
+  padding: 14px;
+  position: fixed;
+  z-index: 30;
+}
+
+.forge-workspace-bar {
+  align-items: center;
+  background: rgba(18, 17, 15, 0.96);
+  border: 1px solid rgba(190, 153, 91, 0.35);
+  border-radius: 9px;
+  color: #e9e2d0;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding: 9px 12px;
+}
+
+.forge-workspace-bar > div { display: grid; gap: 2px; }
+.forge-workspace-bar output { color: #b8aa90; font-size: 12px; }
+.forge-workspace-bar label { color: #b8aa90; display: grid; font-size: 11px; gap: 2px; }
+.forge-workspace-bar select {
+  background: #201c17;
+  border: 1px solid rgba(190, 153, 91, 0.35);
+  border-radius: 5px;
+  color: #e9e2d0;
+  max-width: 360px;
+  padding: 6px;
+}
+.forge-workspace-bar button,
+.setup-forge {
+  background: #34271b;
+  border: 1px solid rgba(212, 154, 79, 0.65);
+  border-radius: 5px;
+  color: #f0e4cd;
+  cursor: pointer;
+  padding: 7px 10px;
+}
+
+#forge-root,
+#forge-section-root,
+#forge-diagnostics-root,
+#forge-onboarding-root { margin: 0 auto 10px; max-width: 1440px; }
+
+.construct-forge,
+.action-workshop,
+.program-editor,
+.construct-lab,
+.construct-diagnostics {
+  --forge-ink: #e9e2d0;
+  --forge-muted: #a99f89;
+  --forge-line: rgba(190, 153, 91, 0.35);
+  --forge-panel: rgba(25, 23, 20, 0.94);
+  color: var(--forge-ink);
+  background: radial-gradient(circle at 20% 0%, rgba(118, 72, 36, 0.2), transparent 38%), #12110f;
+  border: 1px solid var(--forge-line);
+  border-radius: 12px;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.48);
+  font: 14px/1.45 system-ui, sans-serif;
+  padding: 18px;
+}
+
+.construct-onboarding {
+  background: #17130f;
+  border: 1px solid rgba(212, 154, 79, 0.65);
+  border-radius: 10px;
+  color: #e9e2d0;
+  font: 13px/1.45 system-ui, sans-serif;
+  padding: 12px 16px;
+}
+.construct-onboarding header { align-items: center; display: flex; justify-content: space-between; }
+.construct-onboarding h2 { font-family: Georgia, serif; margin: 2px 0; }
+.construct-onboarding header code { color: #a99f89; }
+.construct-onboarding ol { display: grid; gap: 8px; grid-template-columns: repeat(4, 1fr); margin: 10px 0 0; padding: 0; }
+.construct-onboarding li { background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 7px; list-style: none; padding: 9px; }
+.construct-onboarding li[data-complete="true"] { border-color: #729b68; opacity: 0.72; }
+.construct-onboarding button { background: #34271b; border: 1px solid rgba(212, 154, 79, 0.65); border-radius: 5px; color: #f0e4cd; min-height: 34px; padding: 6px 9px; }
+.construct-onboarding button:disabled { opacity: 0.35; }
+
+.construct-forge header,
+.action-workshop header,
+.program-editor > header,
+.construct-lab header,
+.construct-diagnostics header {
+  align-items: end;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+}
+
+.construct-forge h1,
+.construct-forge h2,
+.action-workshop h2,
+.program-editor h2,
+.construct-lab h2,
+.construct-diagnostics h2 { font-family: Georgia, serif; margin: 0 0 10px; }
+.forge-kicker { color: #d49a4f; font-size: 11px; letter-spacing: 0.18em; margin: 0; text-transform: uppercase; }
+.forge-muted { color: var(--forge-muted); }
+
+.construct-forge button,
+.construct-forge input,
+.construct-forge select,
+.action-workshop button,
+.action-workshop input,
+.action-workshop select,
+.program-editor button,
+.program-editor select,
+.construct-lab button,
+.construct-lab select {
+  background: #24211c;
+  border: 1px solid var(--forge-line);
+  border-radius: 6px;
+  color: var(--forge-ink);
+  min-height: 36px;
+  padding: 7px 10px;
+}
+
+.construct-forge button:hover,
+.construct-forge button[aria-pressed="true"],
+.action-workshop button:hover,
+.program-editor button:hover,
+.construct-lab button:hover { background: #493522; border-color: #d49a4f; }
+.construct-forge button:disabled,
+.program-editor button:disabled { cursor: not-allowed; opacity: 0.35; }
+
+.forge-toolbar,
+.lab-controls { align-items: end; display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+.forge-toolbar label,
+.lab-controls label { display: grid; gap: 3px; }
+.forge-file { cursor: pointer; position: relative; }
+.forge-file input { inset: 0; opacity: 0; position: absolute; width: 100%; }
+.forge-refusal { background: #3a1d18; border-left: 3px solid #dd765d; color: #ffd6c9; padding: 9px 12px; }
+.forge-refusal[hidden] { display: none; }
+
+.forge-grid { display: grid; gap: 12px; grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1.35fr) minmax(200px, 0.9fr); }
+.forge-grid > * { background: var(--forge-panel); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 12px; }
+.forge-preview { grid-column: 1 / -1; min-height: 210px; }
+.forge-preview [data-forge-preview] { min-height: 165px; }
+.forge-catalog,
+.forge-sockets { display: grid; gap: 6px; }
+.forge-catalog button,
+.forge-sockets button { display: grid; text-align: left; }
+.forge-catalog small,
+.forge-sockets small { color: var(--forge-muted); }
+
+.forge-tree { list-style: none; margin: 0 0 14px; padding: 0; }
+.forge-tree li { align-items: center; display: flex; gap: 8px; margin-left: calc(var(--forge-depth) * 16px); }
+.forge-tree li span { color: var(--forge-muted); font-size: 12px; }
+.forge-dimensions { border: 1px solid var(--forge-line); display: grid; gap: 7px; grid-template-columns: repeat(3, 1fr); margin: 12px 0; }
+.forge-dimensions label { display: grid; gap: 3px; }
+.forge-dimensions button { grid-column: 1 / -1; }
+.forge-summary { display: grid; grid-template-columns: 1fr auto; }
+.forge-summary dt,
+.forge-summary dd { border-bottom: 1px solid rgba(255, 255, 255, 0.06); margin: 0; padding: 6px 0; }
+
+.workshop-grid,
+.diagnostic-columns { display: grid; gap: 12px; grid-template-columns: repeat(3, 1fr); }
+.workshop-grid > section,
+.diagnostic-columns > section,
+.program-rule,
+.program-editor > aside { background: var(--forge-panel); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 12px; }
+.workshop-card { border-top: 1px solid var(--forge-line); padding: 8px 0; }
+.workshop-grid fieldset { display: grid; gap: 6px; }
+
+.program-editor { display: grid; gap: 12px; grid-template-columns: 220px 1fr; }
+.program-editor > header,
+.program-editor > .forge-refusal { grid-column: 1 / -1; }
+.program-rule { margin-bottom: 10px; }
+.program-rule header { align-items: center; }
+.program-rule dl { display: grid; gap: 8px; grid-template-columns: 110px 1fr; }
+.program-rule dt,
+.program-rule dd { margin: 0; }
+.program-rule dd { display: grid; }
+.program-rule small { color: var(--forge-muted); }
+.program-order { align-items: center; background: #d49a4f; border-radius: 50%; color: #19130d; display: inline-flex; font-weight: 800; height: 28px; justify-content: center; width: 28px; }
+
+.construct-diagnostics[data-paused="true"] { border-color: #e5b268; box-shadow: 0 0 0 2px rgba(229, 178, 104, 0.13); }
+.diagnostic-columns { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.diagnostic-columns ol { list-style: none; margin: 0; padding: 0; }
+.diagnostic-columns li { border-top: 1px solid rgba(255, 255, 255, 0.08); display: grid; padding: 7px 0; }
+.diagnostic-columns small { color: var(--forge-muted); }
+.diagnostic-columns [data-kind="refused"],
+.diagnostic-columns [data-available="false"] { color: #ffae94; }
+.diagnostic-columns [data-severed="true"] { color: #ffcf7e; }
+
+#arena-construct-diagnostics {
+  box-sizing: border-box;
+  max-height: calc(100vh - 170px);
+  overflow: auto;
+  position: fixed;
+  right: 12px;
+  top: 12px;
+  width: min(760px, 52vw);
+  z-index: 19;
+}
+#arena-construct-diagnostics > details > summary {
+  background: rgba(18, 17, 15, 0.94);
+  border: 1px solid rgba(212, 154, 79, 0.65);
+  border-radius: 7px;
+  color: #f0e4cd;
+  cursor: pointer;
+  font: 12px/1.4 system-ui, sans-serif;
+  padding: 8px 10px;
+}
+.arena-construct-side > h2 {
+  background: rgba(18, 17, 15, 0.92);
+  color: #d49a4f;
+  font: 700 11px/1.3 system-ui, sans-serif;
+  letter-spacing: 0.12em;
+  margin: 6px 0 0;
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
+#arena-construct-diagnostics .construct-diagnostics {
+  border-radius: 0 0 8px 8px;
+  font-size: 11px;
+  padding: 9px;
+}
+#arena-construct-diagnostics .construct-diagnostics header { display: none; }
+#arena-construct-diagnostics .diagnostic-columns { gap: 6px; grid-template-columns: repeat(2, 1fr); }
+#arena-construct-diagnostics .diagnostic-columns > section { padding: 7px; }
+#arena-construct-diagnostics .diagnostic-columns h3 { font-size: 11px; margin: 0; }
+#arena-construct-diagnostics .diagnostic-columns li { padding: 4px 0; }
+
+.construct-lab table { border-collapse: collapse; width: 100%; }
+.construct-lab th,
+.construct-lab td { border-bottom: 1px solid rgba(255, 255, 255, 0.09); padding: 8px; text-align: left; }
+.construct-lab output { display: block; margin-top: 12px; min-height: 48px; padding: 10px; background: var(--forge-panel); }
+
+/* The one Babylon canvas stays behind the screen. These two translucent layers
+   make the code-native preview visible through its named panel without adding a
+   second renderer or pretending the empty DOM marker owns a viewport. */
+#forge-root .construct-forge { background: rgba(18, 17, 15, 0.28); }
+#forge-root .forge-preview { background: rgba(10, 9, 8, 0.16); }
+
+@media (max-width: 950px) {
+  .forge-grid,
+  .workshop-grid,
+  .diagnostic-columns { grid-template-columns: 1fr; }
+  .program-editor { grid-template-columns: 1fr; }
+  .construct-onboarding ol { grid-template-columns: 1fr; }
+  .forge-preview { grid-column: auto; }
+}
