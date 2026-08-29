@@ -208,6 +208,11 @@
   font: 12px/1.4 system-ui, sans-serif;
   padding: 8px 10px;
 }
+#arena-construct-diagnostics > details[open] > summary {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
 .arena-construct-side > h2 {
   background: rgba(18, 17, 15, 0.92);
   color: #d49a4f;
@@ -227,6 +232,26 @@
 #arena-construct-diagnostics .diagnostic-columns > section { padding: 7px; }
 #arena-construct-diagnostics .diagnostic-columns h3 { font-size: 11px; margin: 0; }
 #arena-construct-diagnostics .diagnostic-columns li { padding: 4px 0; }
+
+/* The evidence panel must remain usable beside the fight it explains. At laptop
+   widths the former 52vw/two-column sheet covered the followed machine and left
+   less than one third of the arena unobstructed. Keep a genuine arena viewport,
+   then let the evidence scroll in one narrow column. */
+@media (max-width: 1400px) {
+  #arena-construct-diagnostics { width: min(420px, calc(100vw - 24px)); }
+  #arena-construct-diagnostics .diagnostic-columns { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 760px) {
+  #arena-construct-diagnostics {
+    bottom: 12px;
+    left: 12px;
+    max-height: 44vh;
+    right: 12px;
+    top: auto;
+    width: auto;
+  }
+}
 
 .construct-lab table { border-collapse: collapse; width: 100%; }
 .construct-lab th,

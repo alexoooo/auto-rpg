@@ -1,9 +1,10 @@
 import type { ControllerContext, ControllerFactory, ControllerDiagnostic } from "./scheduler.ts";
 import type { ParameterSpec } from "./actions.ts";
+import { BIPED_CONTROLLERS } from "./biped.ts";
 import { LOCOMOTION_CONTROLLERS } from "./locomotion.ts";
 import { MOUNT_CONTROLLERS } from "./mounts.ts";
 
-export type ControllerRole = "any-joints" | "one-rotational-joint" | "quadruped" | "two-axis-mount";
+export type ControllerRole = "any-joints" | "one-rotational-joint" | "quadruped" | "biped" | "two-axis-mount";
 
 export interface ControllerCompatibility {
   readonly controller: string;
@@ -103,6 +104,22 @@ export const CONTROLLER_COMPATIBILITY: readonly ControllerCompatibility[] = Obje
       yaw: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
     } : {}) as Readonly<Record<string, ParameterSpec>>,
   })),
+  ...["biped-move", "biped-turn", "biped-brace", "biped-recover"].map((controller): ControllerCompatibility => Object.freeze({
+    controller, role: "biped" as const, minimumJoints: 8, minimumModules: 2,
+    requiredParameters: Object.freeze(controller === "biped-move" ? ["forward", "right", "speed"]
+      : controller === "biped-turn" ? ["yaw"] : []),
+    bindings: Object.freeze([
+      Object.freeze({ role: "left-foot", repeat: "once" as const, joints: 4, modules: 1 }),
+      Object.freeze({ role: "right-foot", repeat: "once" as const, joints: 4, modules: 1 }),
+    ]),
+    parameters: Object.freeze(controller === "biped-move" ? {
+      forward: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
+      right: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
+      speed: Object.freeze({ kind: "number" as const, min: 0, max: 1.6, unit: "metres-per-second" as const }),
+    } : controller === "biped-turn" ? {
+      yaw: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
+    } : {}) as Readonly<Record<string, ParameterSpec>>,
+  })),
   ...["aim-direction", "track-target", "sweep-arc", "fire-projectile", "guard-mount"].map((controller): ControllerCompatibility => Object.freeze({
     controller, role: "two-axis-mount" as const, minimumJoints: 2, minimumModules: 1,
     requiredParameters: Object.freeze(controller === "aim-direction" ? ["yaw", "pitch"]
@@ -158,6 +175,7 @@ export const BOOTSTRAP_CONTROLLERS: readonly ControllerFactory[] = Object.freeze
 
 export const CONSTRUCT_CONTROLLERS: readonly ControllerFactory[] = Object.freeze([
   ...BOOTSTRAP_CONTROLLERS,
+  ...BIPED_CONTROLLERS,
   ...LOCOMOTION_CONTROLLERS,
   ...MOUNT_CONTROLLERS,
 ]);

@@ -9,9 +9,9 @@ import { Quiver } from "../arrow.ts";
 import { CONFIG } from "../config.ts";
 import type { Striking } from "../combat.ts";
 import type { Limb } from "../fighter.ts";
-import type { BodyView, HandName, HandView, ProjectileView } from "../mind.ts";
+import type { BodyView, EffectorView, HandName, HandView, ProjectileView } from "../mind.ts";
 import { LAYER, layersFor, type Side } from "../physics.ts";
-import type { Combatant, CombatantBuild } from "../units.ts";
+import type { Combatant, CombatantBuild, UnitKind } from "../units.ts";
 import type { WeaponKind } from "../hands.ts";
 import { compileConstruct, groundedConstructOriginY } from "./compile.ts";
 import { ConstructControlEndpoint } from "./control.ts";
@@ -32,7 +32,20 @@ export interface ConstructDefinition {
   readonly control: ConstructControlGraph;
   readonly program: ConstructProgram;
   readonly sensors: readonly SensorSpec[];
+  readonly profile?: ConstructProfile;
 }
+
+export interface ConstructProfile { readonly kind: Extract<UnitKind, "bronze-warden" | "swordbearer-effigy">;
+  readonly label: string; readonly reach: number; readonly crownHeight: number; readonly vitalHeight: number;
+  readonly collisionRadius: number; readonly footPartIds: readonly string[]; }
+export const WARDEN_CONSTRUCT_PROFILE: ConstructProfile = Object.freeze({ kind: "bronze-warden", label: "Bronze Warden",
+  reach: 1.4, crownHeight: 1.9, vitalHeight: 1.08, collisionRadius: 0.72,
+  footPartIds: Object.freeze(["limb-front-left-foot", "limb-front-right-foot", "limb-rear-left-foot", "limb-rear-right-foot"]) });
+export const HUMANOID_CONSTRUCT_PROFILE: ConstructProfile = Object.freeze({ kind: "swordbearer-effigy", label: "Swordbearer Effigy",
+  reach: 1.3, crownHeight: 2.48, vitalHeight: 1.49, collisionRadius: 0.62,
+  footPartIds: Object.freeze(["left-foot", "right-foot"]) });
+export const constructProfileForBlueprint = (blueprint: ConstructBlueprint): ConstructProfile =>
+  blueprint.id === "swordbearer-effigy" ? HUMANOID_CONSTRUCT_PROFILE : WARDEN_CONSTRUCT_PROFILE;
 
 const NO_HANDS = Object.freeze({}) as Record<HandName, HandView>;
 const NO_NATURAL_ATTACKS = Object.freeze({});
@@ -40,6 +53,7 @@ const NO_NATURAL_ATTACKS = Object.freeze({});
 const controllerPowerW = (controller: string): number => ({
   "hold-joints": 18, "turn-joint-to-angle": 55,
   "quadruped-move": 280, "quadruped-turn": 240, brace: 150, recover: 320,
+  "biped-move": 240, "biped-turn": 210, "biped-brace": 135, "biped-recover": 300,
   "aim-direction": 70, "track-target": 90, "sweep-arc": 300, "fire-projectile": 60, "guard-mount": 95,
 }[controller] ?? 80);
 
@@ -54,7 +68,8 @@ export function boundAimModuleIds(blueprint: ConstructBlueprint,
 
 /** The first generic construct body; its physical and control roles come entirely from saved data. */
 export class Construct implements Combatant {
-  readonly kind = "bronze-warden" as const;
+  readonly kind: UnitKind;
+  readonly constructProfile: ConstructProfile;
   readonly side: Side;
   readonly articulated = null;
   readonly runtime: ConstructRuntime;
@@ -89,12 +104,16 @@ export class Construct implements Combatant {
   private previousOpponentClock: number | null = null;
   private readonly damageTargets: ConstructDamageTargets;
   private readonly aimModuleIds: readonly string[];
+  private readonly mountedEffectors: readonly ConstructMountedSword[];
+  private readonly effectorViews: EffectorView[];
 
   constructor(ctx: CombatantBuild, selection: "crossbow" | "sword" | ConstructDefinition = "crossbow") {
     this.side = ctx.side;
     const definition = typeof selection === "string" ? null : selection;
     const variant: "crossbow" | "sword" | null = typeof selection === "string" ? selection : null;
     const blueprint = definition ? definition.blueprint : wardenBlueprint(variant as "crossbow" | "sword");
+    this.constructProfile = definition?.profile ?? constructProfileForBlueprint(blueprint);
+    this.kind = this.constructProfile.kind;
     this.sensorSpecs = installedSensorsForBlueprint(blueprint, definition ? definition.sensors : WARDEN_SENSORS);
     // The committed four-segment chain puts the foot sole 1.33 m below the core bind origin.
     const origin = new Vector3(ctx.origin.x,
@@ -131,6 +150,7 @@ export class Construct implements Combatant {
     this.control = new ConstructControlEndpoint(this.runtime, control, this.sensorSpecs, Object.freeze({
       "construct-hold": null,
       "warden-authored": program,
+      "humanoid-authored": program,
       "construct-program": program,
     }), ctx.policyName ?? (definition ? "construct-program" : "construct-hold"), {
       beforeStep: (dt) => { this.state.beforeControlStep(dt); this.quiver?.step(dt); },
@@ -178,9 +198,12 @@ export class Construct implements Combatant {
       });
       if (observer) this.contactObservers.push({ body, observer });
     }
-    this.strikers = [...this.runtime.modules.values()]
+    this.mountedEffectors = [...this.runtime.modules.values()]
       .filter((module) => module.spec.kind === "sword")
       .map((module) => new ConstructMountedSword(module, () => this.state.moduleAvailable(module.id)));
+    this.effectorViews = this.mountedEffectors.map(() => ({ weapon: "sword", anchor: new Vector3(),
+      tip: new Vector3(), tipVelocity: new Vector3(), reach: 0, lost: false }));
+    this.strikers = [...this.mountedEffectors];
     if (this.quiver) this.strikers.push(...this.quiver.arrows);
     if (ctx.humanActive) this.control.installHuman();
   }
@@ -296,12 +319,22 @@ export class Construct implements Combatant {
     const rotation = core.rotationQuaternion ?? Quaternion.Identity();
     Matrix.FromQuaternionToRef(rotation, this.facingScratch);
     into.unit = this.kind;
-    into.reach = 1.4;
-    into.crownHeight = 1.9;
-    into.vitalHeight = 1.08;
-    into.collisionRadius = 0.72;
+    into.reach = this.constructProfile.reach;
+    into.crownHeight = this.constructProfile.crownHeight;
+    into.vitalHeight = this.constructProfile.vitalHeight;
+    into.collisionRadius = this.constructProfile.collisionRadius;
     into.naturalAttacks = NO_NATURAL_ATTACKS;
-    into.ground.set(core.position.x, 0, core.position.z);
+    for (let index = 0; index < this.mountedEffectors.length; index += 1) {
+      const striker = this.mountedEffectors[index];
+      const view = this.effectorViews[index];
+      view.anchor.copyFrom(striker.anchorPosition());
+      view.tip.copyFrom(striker.tipPosition());
+      view.tipVelocity.copyFrom(striker.velocityAt(view.tip));
+      view.reach = Vector3.Distance(view.anchor, view.tip);
+      view.lost = striker.spent;
+    }
+    into.effectors = this.effectorViews;
+    into.ground.copyFrom(this.feetPosition());
     into.facing = Math.atan2(this.facingScratch.m[8], this.facingScratch.m[10]);
     into.shoulder.copyFrom(core.position);
     into.tip.copyFrom(this.aimPoint());
@@ -343,8 +376,14 @@ export class Construct implements Combatant {
   }
 
   feetPosition(): Vector3 {
-    const core = this.runtime.part(this.runtime.blueprint.rootPart).node.position;
-    return this.middle.set(core.x, 0, core.z);
+    const feet = this.constructProfile.footPartIds.map((id) => this.runtime.parts.get(id)?.node.position)
+      .filter((position): position is Vector3 => position !== undefined);
+    if (feet.length === 0) {
+      const core = this.runtime.part(this.runtime.blueprint.rootPart).node.position;
+      return this.middle.set(core.x, 0, core.z);
+    }
+    return this.middle.set(feet.reduce((sum, foot) => sum + foot.x, 0) / feet.length, 0,
+      feet.reduce((sum, foot) => sum + foot.z, 0) / feet.length);
   }
 
   centre(): Vector3 { return this.runtime.part(this.runtime.blueprint.rootPart).node.position; }

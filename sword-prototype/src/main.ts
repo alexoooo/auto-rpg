@@ -19,7 +19,7 @@ import { Blood } from "./blood";
 import { advanceFight, FightEnd } from "./fight-end";
 import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, combatRecorder, sampleBoutRecorder,
   wireBoutRecorder } from "./recorder";
-import { advanceActiveHostTimers, ArenaPresentation, pauseHost, restartHost, resumeHost,
+import { advanceActiveHostTimers, ArenaPresentation, pauseHost, presentRebuiltFrame, restartHost, resumeHost,
   runActiveHostFrame, type RunningHost } from "./host-run";
 import { SetupScreen } from "./setup";
 import { compileConstruct } from "./construct/compile";
@@ -675,7 +675,11 @@ async function boot(): Promise<void> {
     attachRig();
     if (rigWasUp) rigview.show();
     refreshShadowCasters(arena.scene, arena.shadows);
-    placeCamera(yours(), 0, true);
+    presentRebuiltFrame({
+      placeCamera: () => placeCamera(yours(), 0, true),
+      updateRoomOcclusion: () => arena.updateRoomOcclusion(bout.occlusionTargets),
+      render: () => arena.scene.render(),
+    });
     // Nothing in flight can be settled against bodies that no longer exist, and
     // a rebuild is the one moment where a pending reading's fighter is a
     // disposed one. What it leaves behind in `takeovers` keeps its NaN, which is

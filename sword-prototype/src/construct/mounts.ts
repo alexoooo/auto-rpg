@@ -110,8 +110,8 @@ class MountController implements ActionController {
     }
     if (this.mode === "sweep") {
       const direction = Number(this.context.request.parameters.direction ?? 1);
-      yawTarget = this.sweepPhase === "wind" ? direction * -0.9 :
-        this.sweepPhase === "commit" ? direction * 0.9 : 0;
+      yawTarget = this.sweepPhase === "wind" ? direction * -0.55 :
+        this.sweepPhase === "commit" ? direction * 0.55 : 0;
       // The mounted sword projects along the socket's forward axis. Its damaging travel is
       // therefore the declared yaw stroke itself; pitching it down first only turns the blade
       // into an unstable vertical pendulum and makes module choice alter the shared mount.

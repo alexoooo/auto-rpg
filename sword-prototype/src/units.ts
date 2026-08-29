@@ -14,11 +14,12 @@ import { handsFor, isWeaponKind, WEAPON_KINDS, type WeaponKind } from "./hands.t
 import { POLICIES, splitMind, type HandName, type Mind } from "./mind.ts";
 import type { Side } from "./physics.ts";
 import { Centipede, CENTIPEDE_BITE_REACH, CENTIPEDE_CROWN, CENTIPEDE_RADIUS, CENTIPEDE_SEGMENTS } from "./bodies/centipede.ts";
-import { Construct } from "./construct/construct.ts";
+import { Construct, HUMANOID_CONSTRUCT_PROFILE } from "./construct/construct.ts";
+import { humanoidBlueprint, humanoidControl, humanoidProgram, HUMANOID_SENSORS } from "./construct/humanoid.ts";
 import { wardenBlueprint } from "./construct/warden.ts";
 
 /** A body kind accepted at the setup boundary. */
-export type UnitKind = "warrior" | "broot" | "centipede" | "kaykit-knight" | "bronze-warden";
+export type UnitKind = "warrior" | "broot" | "centipede" | "kaykit-knight" | "bronze-warden" | "swordbearer-effigy";
 
 export interface UnitLoadout {
   readonly primary: WeaponKind;
@@ -337,12 +338,40 @@ const bronzeWarden: UnitDefinition = Object.freeze({
   build: (ctx: CombatantBuild) => new Construct(ctx),
 });
 
+const humanoidModel = humanoidBlueprint();
+const swordbearerEffigy: UnitDefinition = Object.freeze({
+  kind: "swordbearer-effigy",
+  label: "Swordbearer Effigy (Experimental)",
+  equipment: Object.freeze(["empty"] as WeaponKind[]),
+  loadouts: freezeLoadouts([{ primary: "empty", secondary: "empty" }]),
+  defaultLoadout: emptyLoadout,
+  hands: 0,
+  compatiblePolicies: Object.freeze(["construct-hold", "humanoid-authored"]),
+  driverOptions: Object.freeze([
+    Object.freeze({ name: "construct-hold", label: "Hold" }),
+    Object.freeze({ name: "humanoid-authored", label: "Effigy Mind" }),
+  ]),
+  humanAdapter: false,
+  controlSurface: "construct-humanoid-v1",
+  defaultPolicy: "humanoid-authored",
+  anatomy: Object.freeze({ parts: Object.freeze(humanoidModel.parts.map(({ id }) => id)),
+    vitalityWeights: Object.freeze(Object.fromEntries(humanoidModel.parts.map(({ id, vitalityWeight }) => [id, vitalityWeight]))) }),
+  reach: 1.3,
+  crownHeight: 2.1,
+  vitalHeight: 1.35,
+  collisionRadius: 0.72,
+  createPolicy: null,
+  build: (ctx: CombatantBuild) => new Construct(ctx, { blueprint: humanoidBlueprint(), control: humanoidControl(),
+    program: humanoidProgram(), sensors: HUMANOID_SENSORS, profile: HUMANOID_CONSTRUCT_PROFILE }),
+});
+
 export const UNIT_REGISTRY: Readonly<Record<UnitKind, UnitDefinition>> = Object.freeze({
   warrior,
   broot,
   centipede,
   "kaykit-knight": kaykitKnight,
   "bronze-warden": bronzeWarden,
+  "swordbearer-effigy": swordbearerEffigy,
 });
 
 /** Picker rows are a projection of bodies that can actually be built. */

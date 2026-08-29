@@ -637,6 +637,27 @@ test("a_bite_competes_with_the_hands_that_can_strike_and_not_below_them", () => 
   assert.equal(threat.reach, 0.62);
 });
 
+test("a_mounted_sword_is_selected_from_body_neutral_effectors_without_a_fake_hand", () => {
+  const view = facing("empty+empty", "empty+empty");
+  const at = vitals(view);
+  const effector = { weapon: "sword", anchor: { x: at.x + 0.45, y: at.y, z: at.z + 1.0 },
+    tip: { x: at.x + 0.20, y: at.y, z: at.z + 0.65 },
+    tipVelocity: { x: -1.2, y: 0, z: -5.8 }, reach: 1.1, lost: false };
+  view.opponent.effectors = [effector];
+
+  const threat = selectThreat(view);
+  assert.equal(threat.striker, "sword");
+  assert.equal(threat.weapon, "sword");
+  assert.equal(threat.source, null, "a mounted module is not assigned to an invented humanoid hand");
+  assert.deepEqual(threat.velocity, effector.tipVelocity);
+  assert.equal(threat.reach, 1.1);
+
+  // This is the mutation boundary: the same fast geometry must stop winning as soon as its real
+  // module is unavailable. Merely adding an effector row without consuming `lost` fails here.
+  effector.lost = true;
+  assert.equal(selectThreat(view).striker, "empty");
+});
+
 /**
  * Finite is not the assertion this test looks like it is making, and the first
  * version of this note got the reason right and then wrote three checks that

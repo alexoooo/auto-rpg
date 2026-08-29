@@ -13,7 +13,7 @@ export class ConstructMountedSword implements Striking {
   private readonly module: ConstructModule;
   private readonly available: () => boolean;
   private readonly scratch = {
-    tip: new Vector3(), edge: new Vector3(), blade: new Vector3(), flat: new Vector3(),
+    anchor: new Vector3(), tip: new Vector3(), edge: new Vector3(), blade: new Vector3(), flat: new Vector3(),
     linear: new Vector3(), angular: new Vector3(), relative: new Vector3(), velocity: new Vector3(),
   };
 
@@ -33,6 +33,12 @@ export class ConstructMountedSword implements Striking {
   }
 
   get spent(): boolean { return !this.module.socket.part.attached || !this.available(); }
+
+  /** World-space socket frame of the real mounted module, not an invented shoulder. */
+  anchorPosition(): Vector3 {
+    this.module.root.computeWorldMatrix(true).getTranslationToRef(this.scratch.anchor);
+    return this.scratch.anchor;
+  }
 
   velocityAt(world: Vector3): Vector3 {
     this.body.getLinearVelocityToRef(this.scratch.linear);

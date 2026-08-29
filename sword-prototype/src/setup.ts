@@ -242,7 +242,8 @@ export class SetupScreen {
     for (const side of ["left", "right"] as const) {
       const setup = this.matchup[side];
       const definition = unitDefinition(setup.unit);
-      const construct = definition.controlSurface === "construct-v1";
+      const construct = definition.controlSurface.startsWith("construct-");
+      const savedMachine = definition.controlSurface === "construct-v1";
       const policyOptions = definition.driverOptions.some((driver) => driver.name === setup.policy)
         ? definition.driverOptions
         : [{ name: setup.policy, label: `${setup.policy} (incompatible)` }, ...definition.driverOptions];
@@ -270,8 +271,8 @@ export class SetupScreen {
         field.disabled = definition.hands === 0;
       }
       for (const field of this.humanoidEquipment[side]) field.hidden = construct;
-      this.blueprintFields[side].hidden = !construct;
-      if (construct) {
+      this.blueprintFields[side].hidden = !savedMachine;
+      if (savedMachine) {
         const entries = this.constructAffordance?.entries() ?? [];
         if (setup.constructId === undefined && this.constructAffordance) {
           setup.constructId = this.constructAffordance.defaultId();

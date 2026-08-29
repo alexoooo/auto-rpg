@@ -381,7 +381,7 @@ function approachToScratch(px: number, py: number, pz: number, vx: number, vy: n
  * bite are both slot 0 -- and without it that pair would be decided by which was
  * visited first, which is sort stability wearing a different hat.
  */
-const BEST = { group: 3, slot: 0, tier: 0, major: 0, minor: 0, kind: 0, order: 0, found: false };
+const BEST = { group: 4, slot: 0, tier: 0, major: 0, minor: 0, kind: 0, order: 0, found: false };
 function offerThreat(group: number, slot: number, tier: number, major: number, minor: number,
   kind: number, order: number): void {
   if (BEST.found) {
@@ -526,7 +526,7 @@ export function selectThreat(view: FighterView, into: ThreatView = blankThreat()
   const vitalX = self.ground.x; const vitalY = self.vitalHeight; const vitalZ = self.ground.z;
   const gate = self.collisionRadius + ACTION_TUNING.arrowMissMargin;
   const fall = -ACTION_TUNING.gravity;
-  BEST.found = false; BEST.group = 3; BEST.slot = 0;
+  BEST.found = false; BEST.group = 4; BEST.slot = 0;
   for (let index = 0; index < view.projectiles.length; index += 1) {
     const shot = view.projectiles[index] as FighterView["projectiles"][number];
     if (shot.owner !== "opponent") continue;
@@ -548,12 +548,23 @@ export function selectThreat(view: FighterView, into: ThreatView = blankThreat()
     offerThreat(1, slot, tier, arriving(hand.tipSpeed, reading.miss, gate), 0,
       strikerIndex(hand.weapon), slot);
   }
+  const effectors = them.effectors ?? [];
+  for (let index = 0; index < effectors.length; index += 1) {
+    const effector = effectors[index];
+    const tier = effector.lost ? 3 : isStriking(effector.weapon) ? 1 : 2;
+    const reading = approachToScratch(effector.tip.x, effector.tip.y, effector.tip.z,
+      effector.tipVelocity.x, effector.tipVelocity.y, effector.tipVelocity.z,
+      vitalX, vitalY, vitalZ, 0);
+    offerThreat(2, index, tier, arriving(Math.hypot(effector.tipVelocity.x,
+      effector.tipVelocity.y, effector.tipVelocity.z), reading.miss, gate), 0,
+    strikerIndex(effector.weapon), HANDS.length + index);
+  }
   const bite = them.naturalAttacks?.bite;
   if (bite) {
     // The head is the striker and the body speed is its speed; there is no
     // direction to extrapolate, so the miss is simply where it is now.
     const reading = approachToScratch(them.tip.x, them.tip.y, them.tip.z, 0, 0, 0, vitalX, vitalY, vitalZ, 0);
-    offerThreat(2, 0, 1, arriving(them.tipSpeed, reading.miss, gate), 0, strikerIndex("bite"), 0);
+    offerThreat(3, 0, 1, arriving(them.tipSpeed, reading.miss, gate), 0, strikerIndex("bite"), 0);
   }
   if (BEST.group === 0) {
     const shot = view.projectiles[BEST.slot] as FighterView["projectiles"][number];
@@ -571,10 +582,20 @@ export function selectThreat(view: FighterView, into: ThreatView = blankThreat()
       hand.tipVelocity.x, hand.tipVelocity.y, hand.tipVelocity.z, hand.tipSpeed, hand.reach,
       hand.lost, hand.outboard, reading.seconds, reading.miss);
   }
+  if (BEST.group === 2) {
+    const effector = effectors[BEST.slot];
+    const reading = approachToScratch(effector.tip.x, effector.tip.y, effector.tip.z,
+      effector.tipVelocity.x, effector.tipVelocity.y, effector.tipVelocity.z,
+      vitalX, vitalY, vitalZ, 0);
+    return writeThreat(into, effector.weapon, effector.weapon, null, BEST.slot,
+      effector.anchor, effector.tip, effector.tipVelocity.x, effector.tipVelocity.y,
+      effector.tipVelocity.z, Math.hypot(effector.tipVelocity.x, effector.tipVelocity.y,
+        effector.tipVelocity.z), effector.reach, effector.lost, 1, reading.seconds, reading.miss);
+  }
   // A creature whose whole head is the striker publishes a body speed and no
   // direction, so `velocity` stays zero rather than being invented from one.
   const reading = approachToScratch(them.tip.x, them.tip.y, them.tip.z, 0, 0, 0, vitalX, vitalY, vitalZ, 0);
-  if (BEST.group === 2 && bite) {
+  if (BEST.group === 3 && bite) {
     return writeThreat(into, "bite", "empty", null, 0, them.shoulder, them.tip,
       0, 0, 0, them.tipSpeed, bite.reach, false, 1, reading.seconds, reading.miss);
   }

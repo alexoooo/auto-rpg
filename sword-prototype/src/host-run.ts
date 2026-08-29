@@ -31,6 +31,27 @@ export class ArenaPresentation {
   }
 }
 
+export interface RebuiltFrameHost {
+  placeCamera(): void;
+  updateRoomOcclusion(): void;
+  render(): void;
+}
+
+/**
+ * Publish one complete frame before a setup curtain is allowed to leave.
+ *
+ * A Construct is much more expensive to compile than a humanoid. On a first-page
+ * Construct launch the curtain could finish hiding before the ordinary animation
+ * loop had painted the replacement scene, exposing a blank canvas until another
+ * visible frame happened to run. The rebuild boundary already owns the new body;
+ * it also owns the first truthful frame of that body.
+ */
+export function presentRebuiltFrame(host: RebuiltFrameHost): void {
+  host.placeCamera();
+  host.updateRoomOcclusion();
+  host.render();
+}
+
 /** The browser-owned half of pause/restart, kept small enough to test without a DOM. */
 export interface RunningHost {
   readonly active: boolean;

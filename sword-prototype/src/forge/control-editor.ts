@@ -99,7 +99,7 @@ const compatibleHardware = (role: string, binding: ControlGroupSpec["bindings"][
   if (role === "output") return modules.some((module) => module?.kind === "launcher" || module?.kind === "sword");
   if (role === "launcher") return modules.length === 1 && modules[0]?.kind === "launcher";
   if (role === "sword") return modules.length === 1 && modules[0]?.kind === "sword";
-  if (role !== "limb") return true;
+  if (role !== "limb" && role !== "left-foot" && role !== "right-foot") return true;
   if (joints.length !== 4 || modules.length !== 1 || modules[0]?.kind !== "contact-sensor") return false;
   for (let index = 1; index < joints.length; index += 1) {
     if (joints[index - 1]?.childPart !== joints[index]?.parentPart) return false;

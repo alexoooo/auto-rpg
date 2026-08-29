@@ -366,6 +366,16 @@ export interface ProjectileView {
   age: number;
 }
 
+/** A body-mounted striker, published without pretending that a module is a humanoid hand. */
+export interface EffectorView {
+  weapon: WeaponKind;
+  anchor: Vector3;
+  tip: Vector3;
+  tipVelocity: Vector3;
+  reach: number;
+  lost: boolean;
+}
+
 /** One body as a mind sees it: where it is, where its blade is, what is left of it. */
 export interface BodyView {
   /** Registry identity and unlike-body geometry used by tactics and framing. */
@@ -375,6 +385,8 @@ export interface BodyView {
   vitalHeight: number;
   collisionRadius: number;
   naturalAttacks: Readonly<Record<string, NaturalAttackView>>;
+  /** Optional for legacy bodies; constructs publish every installed mounted striker here. */
+  effectors?: readonly EffectorView[];
   /** Position on the floor. */
   ground: Vector3;
   /** Heading in radians, zero down +Z turning toward +X, as everywhere here. */

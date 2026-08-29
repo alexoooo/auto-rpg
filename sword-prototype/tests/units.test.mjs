@@ -82,12 +82,21 @@ const endpoint = () => new HumanoidControlEndpoint({
 });
 
 test("legacy_units_keep_the_humanoid_surface_and_policy_factory", () => {
-  for (const unit of Object.values(UNIT_REGISTRY).filter(({ kind }) => kind !== "bronze-warden")) {
+  for (const unit of Object.values(UNIT_REGISTRY).filter(({ kind }) =>
+    kind !== "bronze-warden" && kind !== "swordbearer-effigy")) {
     assert.equal(unit.controlSurface, "humanoid-v1", unit.kind);
     assert.deepEqual(unit.driverOptions.map(({ name }) => name),
       unit.compatiblePolicies ?? ["idle", "swinger", "duelist", "archer", "crawler"]);
     assert.equal(unit.createPolicy(unit.defaultPolicy).name, unit.defaultPolicy);
   }
+});
+
+test("the_Swordbearer_Effigy_has_its_own_construct_identity_and_biped_driver", () => {
+  const effigy = unitDefinition("swordbearer-effigy");
+  assert.equal(effigy.controlSurface, "construct-humanoid-v1");
+  assert.equal(effigy.humanAdapter, false);
+  assert.equal(effigy.createPolicy, null);
+  assert.deepEqual(effigy.driverOptions.map(({ name }) => name), ["construct-hold", "humanoid-authored"]);
 });
 
 test("the_Bronze_Warden_exposes_only_its_construct_drivers_and_no_fake_human_adapter", () => {
