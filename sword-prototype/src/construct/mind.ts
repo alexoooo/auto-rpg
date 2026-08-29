@@ -1,6 +1,6 @@
 import type { ConstructCommand, ConstructControlGraph } from "./actions.ts";
 import { commandForRules, evaluateExpression, validateProgram,
-  type ConstructProgram, type Expression, type ValidatedProgram } from "./program.ts";
+  type ConstructProgram, type Expression, type ProgramRuntimeState, type ValidatedProgram } from "./program.ts";
 import type { SensorFrame, SensorSpec } from "./sensors.ts";
 
 export interface ConstructRuleDiagnostic {
@@ -20,6 +20,7 @@ export interface ConstructDecisionDiagnostic {
 const expressionSensors = (expression: Expression, into: Set<string>): void => {
   switch (expression.op) {
     case "sensor": into.add(expression.id); return;
+    case "active": return;
     case "constant": return;
     case "not": expressionSensors(expression.value, into); return;
     case "lt": case "lte": case "gt": case "gte":
@@ -47,7 +48,8 @@ export class ConstructMind {
       requests: Object.freeze([]), rules: Object.freeze([]) });
   }
 
-  decide(frame: SensorFrame, dt = Number.POSITIVE_INFINITY): ConstructCommand {
+  decide(frame: SensorFrame, dt = Number.POSITIVE_INFINITY,
+    runtime?: ProgramRuntimeState): ConstructCommand {
     const sensorsByRule = new Map<number, readonly string[]>();
     const availableRuleIndices = this.validated.enabledRuleIndices.filter((index) => {
       const rule = this.validated.program.rules[index];
@@ -62,7 +64,7 @@ export class ConstructMind {
       return ordered.every((id) => frame.has(id));
     });
     const proposed = commandForRules(Object.freeze({ ...this.validated,
-      enabledRuleIndices: Object.freeze(availableRuleIndices) }), this.graph, frame);
+      enabledRuleIndices: Object.freeze(availableRuleIndices) }), this.graph, frame, runtime);
     const proposedByIndex = new Map(proposed.requests.map((request) => [request.sourceIndex, request]));
     const requests = this.validated.enabledRuleIndices.flatMap((index) => {
       const request = proposedByIndex.get(index);
@@ -79,7 +81,7 @@ export class ConstructMind {
       const ids = sensorsByRule.get(index) ?? Object.freeze([]);
       const available = ids.every((id) => frame.has(id));
       const decisiveFacts = Object.fromEntries(ids.map((id) => [id, frame.has(id) ? frame.read(id).value : "unavailable"]));
-      return Object.freeze({ rule: rule.id, utility: available ? Number(evaluateExpression(rule.utility, frame).value) : 0,
+      return Object.freeze({ rule: rule.id, utility: available ? Number(evaluateExpression(rule.utility, frame, runtime).value) : 0,
         selected: selectedIndices.has(index), decisiveFacts: Object.freeze(decisiveFacts) });
     });
     this.last = Object.freeze({ program: this.name, selectedRules: Object.freeze(selectedRules),

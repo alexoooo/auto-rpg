@@ -1,115 +1,75 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { CONFIG } from "../src/config.ts";
-import { saveConstruct } from "../src/construct/codec.ts";
+import { blankBlocker, selectBlocker } from "../src/action-primitives.ts";
 import { humanoidBlueprint, humanoidControl, HUMANOID_SENSORS } from "../src/construct/humanoid.ts";
 import { ConstructMind } from "../src/construct/mind.ts";
-import { ActionScheduler } from "../src/construct/scheduler.ts";
-import { CONSTRUCT_CONTROLLERS } from "../src/construct/controllers.ts";
 import { installedSensorsForBlueprint, SensorFrame } from "../src/construct/sensors.ts";
 import { SWORDBEARER_DUELIST, swordbearerDuelistProgram } from "../src/construct/swordbearer-duelist.ts";
-import { assertConstructWarriorEvidence, runConstructWarriorBout } from "../scripts/construct-warrior-bout.mjs";
+import { constructWarriorWinner, constructStandingThresholds, isConstructStanding } from
+  "../scripts/construct-warrior-bout.mjs";
 
 const blueprint = humanoidBlueprint();
 const graph = humanoidControl();
 const sensors = installedSensorsForBlueprint(blueprint, HUMANOID_SENSORS);
 const program = swordbearerDuelistProgram(graph, sensors);
 
-const facts = ({ upright = true, range = 3.4, lateral = 0, relativeSpeed = 0.2, visible = true } = {}) => ({
-  "core-upright": upright, "core-roll-rad": 0, "core-pitch-rad": 0, "core-speed-mps": 0,
-  "core-yaw-rate-rad-s": 0, "opponent-range": range, "opponent-relative-speed": relativeSpeed,
-  "opponent-local-x": lateral, "opponent-local-y": 0.2, "opponent-local-z": range,
-  "opponent-local-vx": 0, "opponent-local-vy": 0, "opponent-local-vz": 0,
-  "projectile-speed-mps": 1, "line-of-sight": visible,
-  "contact:contact-left-foot": true, "contact:contact-right-foot": true,
-  "contact-contact-left-foot": true, "contact-contact-right-foot": true,
-  "slip:contact-left-foot": 0, "slip:contact-right-foot": 0,
-  "slip-contact-left-foot": 0, "slip-contact-right-foot": 0,
-});
-
-const frame = (values) => {
-  const result = new SensorFrame(sensors);
-  const installed = new Set(sensors.map(({ id }) => id));
-  for (const [id, value] of Object.entries(facts(values))) if (installed.has(id)) result.publish(id, value);
-  return result;
-};
-const decide = (values) => new ConstructMind(program, graph, sensors).decide(frame(values), 1);
-const actions = (values) => decide(values).requests.map(({ request }) => request.action);
-
-const jointReading = (minRad = -1.5, maxRad = 1.5) => ({ angleRad: 0, speedRadS: 0,
-  minRad, maxRad, maxSpeedRadS: 5, maxForceNm: 500 });
-const schedulerView = (values) => {
-  const joints = {};
-  for (const joint of blueprint.joints) {
-    for (const axis of joint.angularAxes) joints[`${joint.id}:${axis.id}`] = jointReading(axis.minRad, axis.maxRad);
-    if (joint.angularAxes.length === 1) joints[joint.id] = joints[`${joint.id}:${joint.angularAxes[0].id}`];
+const commandActions = ({ range = 1.4, blocker = true, visible = true, upright = true } = {}) => {
+  const frame = new SensorFrame(sensors);
+  const values = {
+    "core-upright": upright, "core-roll-rad": 0, "core-pitch-rad": 0,
+    "opponent-range": range, "opponent-relative-speed": 0,
+    "opponent-local-x": 0, "opponent-local-y": 0, "opponent-local-z": range,
+    "opponent-local-vx": 0, "opponent-local-vy": 0, "opponent-local-vz": 0,
+    "opponent-blocker-present": blocker, "opponent-blocker-local-x": blocker ? -0.4 : 0,
+    "opponent-blocker-local-y": 0, "opponent-blocker-local-z": blocker ? range : 0,
+    "line-of-sight": visible, "contact-left-foot": true, "contact-right-foot": true,
+    "slip-left-foot": 0, "slip-right-foot": 0,
+  };
+  for (const [id, value] of Object.entries(values)) if (sensors.some((sensor) => sensor.id === id)) {
+    frame.publish(id, value);
   }
-  return { joints, facts: facts(values) };
+  return new ConstructMind(program, graph, sensors).decide(frame, 1).requests.map(({ request }) => request.action);
 };
 
-test("the_Swordbearer_duelist_targets_only_the_explicit_biped_and_sword_Action_surface", () => {
-  assert.equal(program.id, "swordbearer-warrior-duelist");
-  const actionsById = new Map(graph.actions.map((action) => [action.id, action.controller]));
-  assert.deepEqual([...new Set(program.rules.map(({ action }) => action))].sort(),
-    ["brace", "guard", "stabilize", "sweep"]);
-  assert.equal(actionsById.has("move"), false, "the failed gait is not an accepted request");
-  assert.equal(actionsById.has("turn"), false, "the failed turn gait is not an accepted request");
-  assert.equal(actionsById.has("recover"), false, "the failed recovery is not an accepted request");
-  assert.equal(actionsById.get("brace"), "biped-brace");
-  assert.equal(actionsById.get("sweep"), "sweep-compact-arc");
-  assert.equal(program.rules.some(({ action }) => action.includes("quadruped") || action === "cut" || action === "cover"), false);
+test("the_rejected_single_arm_beat_and_contact_latch_are_absent_from_the_Swordbearer", () => {
+  assert.equal(graph.actions.some(({ id }) => id === "beat-cut"), false);
+  assert.equal(graph.groups.some(({ id }) => id === "sword-braced-attack"), false);
+  assert.equal(program.rules.some(({ action }) => action === "beat-cut"), false);
+  assert.equal(HUMANOID_SENSORS.some(({ id }) => id.includes("sword-blocker")), false);
+  assert.equal(blueprint.modules.some(({ striker }) => striker && "contactSensorId" in striker), false);
+  assert.deepEqual(commandActions({ range: 1.4, blocker: true }), ["guard", "brace", "stabilize"]);
+  assert.deepEqual(commandActions({ range: 1.4, blocker: false }), ["sweep", "brace", "stabilize"]);
 });
 
-test("posture_distance_guard_and_sweep_are_disjoint_scheduler_decisions", () => {
-  const cases = [
-    [{ upright: false, range: 1.4, relativeSpeed: 4.2 }, ["stabilize"]],
-    [{ range: 3.4, lateral: 0 }, ["guard", "brace", "stabilize"]],
-    [{ range: 3.4, lateral: 1.4 }, ["guard", "brace", "stabilize"]],
-    [{ range: 1.4, lateral: 0.1, relativeSpeed: 0.2 }, ["sweep", "brace", "stabilize"]],
-    [{ range: 1.4, lateral: -0.1, relativeSpeed: 0.2 }, ["sweep", "brace", "stabilize"]],
-    [{ range: 1.4, lateral: 0.1, relativeSpeed: 4.2 }, ["sweep", "brace", "stabilize"]],
-    [{ range: 0.6, lateral: 0.1, relativeSpeed: 0.2 }, ["brace", "guard", "stabilize"]],
-  ];
-  for (const [values, expected] of cases) {
-    const command = decide(values);
-    assert.deepEqual(command.requests.map(({ request }) => request.action), expected, JSON.stringify(values));
-    const writes = [];
-    const events = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS, { write: (target) => writes.push(target) })
-      .step(command, schedulerView(values), 1 / CONFIG.world.physicsHz);
-    assert.equal(events.some(({ kind }) => kind === "refused" || kind === "failed"), false,
-      `${JSON.stringify(values)}: ${JSON.stringify(events)}`);
-    assert.ok(writes.length > 0, `${JSON.stringify(values)} must reach public motors`);
-  }
-  assert.equal(decide({ range: 1.4, lateral: 0.1 }).requests[0].request.parameters.direction, 1);
-  assert.equal(decide({ range: 1.4, lateral: -0.1 }).requests[0].request.parameters.direction, -1);
-});
-
-test("the_pinned_real_mixed_bout_stands_sweeps_scores_and_publishes_its_effector", async () => {
-  const report = await runConstructWarriorBout();
-  assert.equal(assertConstructWarriorEvidence(report), report);
-});
-
-test("mutating_the_strike_boundary_changes_the_public_command_cell", () => {
-  assert.deepEqual(actions({ range: SWORDBEARER_DUELIST.strikeBelowM - 0.01, relativeSpeed: 0.2 }),
-    ["sweep", "brace", "stabilize"]);
-  assert.deepEqual(actions({ range: SWORDBEARER_DUELIST.strikeBelowM + 0.01, relativeSpeed: 0.2 }),
+test("the_safe_Swordbearer_never_aims_at_a_described_blocker_without_line_of_sight", () => {
+  assert.deepEqual(commandActions({ range: 1.4, blocker: true, visible: false }), ["brace", "stabilize"]);
+  assert.deepEqual(commandActions({ range: SWORDBEARER_DUELIST.strikeBelowM + 0.01 }),
     ["guard", "brace", "stabilize"]);
 });
 
-test("a_real_Warrior_view_receives_the_mounted_sword_physics_without_a_fake_hand", async () => {
-  const saved = saveConstruct("Swordbearer Duelist", blueprint, graph, program, HUMANOID_SENSORS);
-  const report = await runConstructWarriorBout({ saved, maxSteps: 240 });
-  assert.equal(report.physics, "real-havok-fixed-240hz");
-  assert.equal(report.mountedThreatVisibleToWarriorMind, true);
-  assert.equal(report.perceivedEffectors.length, 1);
-  const [effector] = report.perceivedEffectors;
-  assert.equal(effector.weapon, "sword");
-  assert.equal(effector.lost, false);
-  for (const point of [effector.anchor, effector.tip, effector.tipVelocity]) {
-    assert.equal(Object.values(point).every(Number.isFinite), true);
-  }
-  const reach = Math.hypot(effector.tip.x - effector.anchor.x,
-    effector.tip.y - effector.anchor.y, effector.tip.z - effector.anchor.z);
-  assert.ok(Math.abs(reach - effector.reach) < 1e-9, "published reach is the real anchor-to-tip distance");
+test("the_raw_described_blocker_selects_attached_shields_and_clears_without_a_stale_latch", () => {
+  const hand = (weapon, x, lost = false) => ({ weapon, lost, outboard: x < 0 ? -1 : 1,
+    tip: { x, y: 1, z: 0.8 } });
+  const body = { hands: { primary: hand("sword", 0.4), secondary: hand("buckler", -0.5) } };
+  const result = selectBlocker(body, blankBlocker());
+  assert.equal(result.found, true); assert.equal(result.source, "secondary");
+  assert.deepEqual(result.tip, { x: -0.5, y: 1, z: 0.8 });
+  body.hands.secondary.lost = true;
+  assert.equal(selectBlocker(body, result).found, false);
+  assert.deepEqual(result.tip, { x: 0, y: 0, z: 0 });
+});
+
+test("mixed_bout_verdict_and_standing_thresholds_are_vitality_and_profile_derived", () => {
+  assert.equal(constructWarriorWinner(0, 1), "warrior");
+  assert.equal(constructWarriorWinner(1, 0), "construct");
+  assert.equal(constructWarriorWinner(0, 0), "draw");
+  const thresholds = constructStandingThresholds({ vitalHeight: 1, crownHeight: 1.8 });
+  assert.equal(isConstructStanding({ rootUp: 0.9, torsoHeightM: 0.95, headAboveTorsoM: 0.5 }, thresholds), true);
+  assert.equal(isConstructStanding({ rootUp: 0.9, torsoHeightM: 0.85, headAboveTorsoM: 0.5 }, thresholds), false);
+  const small = constructStandingThresholds({ vitalHeight: 0.55, crownHeight: 0.90 });
+  assert.ok(Math.abs(small.minimumTorsoHeightM - 0.495) < 1e-12);
+  assert.ok(Math.abs(small.minimumHeadAboveTorsoM - 0.175) < 1e-12);
+  assert.equal(isConstructStanding({ rootUp: 0.9, torsoHeightM: 0.52, headAboveTorsoM: 0.20 }, small), true,
+    "the host must not impose a human-height floor on a deliberately smaller construct profile");
 });

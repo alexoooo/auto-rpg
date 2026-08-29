@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+
+import { Combat } from "../src/combat.ts";
+import { Construct } from "../src/construct/construct.ts";
 import { CONSTRUCT_CONTROLLERS } from "../src/construct/controllers.ts";
-import { solveTwoAxisAim } from "../src/construct/mounts.ts";
+import { solveTwoAxisAim, solveTwoAxisLauncherAim } from "../src/construct/mounts.ts";
 import { ActionScheduler } from "../src/construct/scheduler.ts";
 import { wardenControl } from "../src/construct/warden.ts";
 import { wardenBlueprint, wardenProgram, WARDEN_SENSORS } from "../src/construct/warden.ts";
@@ -10,6 +15,8 @@ import { saveConstruct } from "../src/construct/codec.ts";
 import { ConstructLabBout } from "../src/construct/lab-bout.ts";
 import { createConstructHeadlessArena } from "../scripts/construct-headless-arena.mjs";
 import { CONFIG } from "../src/config.ts";
+import { stepPair } from "../src/fighter.ts";
+import { unitDefinition } from "../src/units.ts";
 
 test("aim_converges_inside_limits_and_refuses_an_unreachable_direction", () => {
   assert.deepEqual(solveTwoAxisAim({ x: 0, y: 0, z: 1 }, [-1, 1], [-0.5, 0.5]),
@@ -17,6 +24,17 @@ test("aim_converges_inside_limits_and_refuses_an_unreachable_direction", () => {
   const unreachable = solveTwoAxisAim({ x: 1, y: 2, z: 0 }, [-0.4, 0.4], [-0.2, 0.2]);
   assert.equal(unreachable.reachable, false);
   assert.match(unreachable.reason, /outside mount limits/);
+});
+
+test("launcher_aim_corrects_from_the_compiled_muzzle_ray_instead_of_the_construct_root", () => {
+  const solution = solveTwoAxisLauncherAim({ x: 0, y: 0, z: 4 }, {
+    origin: { x: 0, y: 0.71, z: 0.29 }, forward: { x: 0, y: 0, z: 1 },
+    yawRad: 0, pitchRad: 0,
+  }, [-1, 1], [-0.75, 0.65]);
+  assert.equal(solution.reachable, true);
+  assert.equal(solution.yawRad, 0);
+  assert.ok(solution.pitchRad > 0.18 && solution.pitchRad < 0.20,
+    `a muzzle 0.71 m above the target needs downward pitch, got ${solution.pitchRad}`);
 });
 
 test("the_same_two_axis_group_drives_crossbow_tracking_and_sword_sweep", () => {
@@ -86,7 +104,9 @@ test("tracking_leads_a_moving_target_and_fire_waits_for_LOS_self_clearance_and_a
   }]));
   const facts = { "opponent-local-x": 1, "opponent-local-y": 0, "opponent-local-z": 4,
     "opponent-local-vx": 2, "opponent-local-vy": 0, "opponent-local-vz": 0,
-    "projectile-speed-mps": 8, "line-of-sight": true, "launcher-clear": true };
+    "projectile-speed-mps": 8, "line-of-sight": true, "launcher-clear": true,
+    "launcher-muzzle-local-x": 0, "launcher-muzzle-local-y": 0.71, "launcher-muzzle-local-z": 0.29,
+    "launcher-forward-local-x": 0, "launcher-forward-local-y": 0, "launcher-forward-local-z": 1 };
   const writes = []; const effects = [];
   const tracked = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS, {
     write: (target) => writes.push(target), effect: (effect) => effects.push(effect),
@@ -109,6 +129,84 @@ test("tracking_leads_a_moving_target_and_fire_waits_for_LOS_self_clearance_and_a
   selfBlocked.step({ version: 1, requests: [{ request: { action: "fire", parameters: {} }, priority: 1, sourceIndex: 0 }] },
     { joints, facts: { ...facts, "launcher-clear": false } }, 1 / 240);
   assert.equal(effects.length, 0);
+});
+
+test("launcher_tracking_applies_an_authored_target_height_without_replacing_live_muzzle_geometry", () => {
+  const graph = structuredClone(wardenControl("crossbow"));
+  const track = graph.actions.find(({ id }) => id === "track");
+  track.parameters = {
+    "target-height-offset": { kind: "number", min: -0.5, max: 0.75, unit: "metres" },
+    "target-lateral-offset": { kind: "number", min: -0.6, max: 0.6, unit: "metres" },
+  };
+  const mount = graph.groups.find(({ id }) => id === "dorsal-mount");
+  const joints = Object.fromEntries(mount.joints.map((joint) => [joint, {
+    angleRad: 0, speedRadS: 0, minRad: -3, maxRad: 3, maxSpeedRadS: 5, maxForceNm: 180,
+  }]));
+  const facts = { "opponent-local-x": 0, "opponent-local-y": 0, "opponent-local-z": 4,
+    "opponent-local-vx": 0, "opponent-local-vy": 0, "opponent-local-vz": 0,
+    "projectile-speed-mps": 42, "line-of-sight": true, "launcher-clear": true,
+    "launcher-muzzle-local-x": 0, "launcher-muzzle-local-y": 0.71, "launcher-muzzle-local-z": 0.29,
+    "launcher-forward-local-x": 0, "launcher-forward-local-y": 0, "launcher-forward-local-z": 1 };
+  const targetFor = (height, lateral) => {
+    const writes = [];
+    const scheduler = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS, { write: (target) => writes.push(target) });
+    scheduler.step({ version: 1, requests: [{ request: { action: "track",
+      parameters: { "target-height-offset": height, "target-lateral-offset": lateral } },
+      priority: 1, sourceIndex: 0 }] },
+    { joints, facts }, 1 / 240);
+    return { yaw: writes.find(({ joint }) => joint === mount.bindings.yaw.joints[0]).angleRad,
+      pitch: writes.find(({ joint }) => joint === mount.bindings.pitch.joints[0]).angleRad };
+  };
+  assert.ok(targetFor(0.4, 0).pitch < targetFor(0, 0).pitch,
+    "a higher target must command less downward pitch from the same live muzzle");
+  assert.ok(targetFor(0, -0.3).yaw < targetFor(0, 0).yaw,
+    "a left target lane must command a leftward correction from the same live muzzle");
+});
+
+const mixedMaterials = (scene) => {
+  const shared = new StandardMaterial("construct-mounts.mixed", scene);
+  return Object.freeze({ shared, fighter: Object.freeze({ flesh: shared, cloth: shared, steel: shared,
+    leather: shared, brass: shared, hide: shared, wood: shared, arrowAccent: shared }) });
+};
+
+test("the_existing_Warden_crossbow_physically_hits_a_stationary_Warrior_torso_in_both_mirrors", async () => {
+  for (const constructSide of ["left", "right"]) {
+    const arena = await createConstructHeadlessArena();
+    const materials = mixedMaterials(arena.scene);
+    const separation = CONFIG.fighter.separation;
+    const constructOrigin = constructSide === "left" ? Vector3.Zero() : new Vector3(0, 0, separation);
+    const warriorOrigin = constructSide === "left" ? new Vector3(0, 0, separation) : Vector3.Zero();
+    const warriorSide = constructSide === "left" ? "right" : "left";
+    const construct = new Construct({ scene: arena.scene, side: constructSide, origin: constructOrigin,
+      facing: constructSide === "left" ? 0 : Math.PI, materials: materials.fighter,
+      policyName: "warden-authored" }, "crossbow");
+    const warrior = unitDefinition("warrior").build({ scene: arena.scene, side: warriorSide,
+      origin: warriorOrigin, facing: warriorSide === "left" ? 0 : Math.PI, materials: materials.fighter,
+      policyName: "idle", loadout: { primary: "empty", secondary: "empty" } });
+    const reports = [];
+    const combat = new Combat(constructSide, construct.strikers, (event) => reports.push(event));
+    combat.attach(warrior);
+    try {
+      for (let step = 0; step < CONFIG.world.physicsHz * 6 &&
+          !reports.some(({ report }) => report.damage > 0 && report.key === "torso"); step += 1) {
+        stepPair(constructSide === "left" ? construct : warrior,
+          constructSide === "left" ? warrior : construct, 1 / CONFIG.world.physicsHz, combat.now);
+        arena.scene._renderId += 1;
+        arena.scene._advancePhysicsEngineStep(1000 / CONFIG.world.physicsHz);
+        combat.advance(1 / CONFIG.world.physicsHz);
+      }
+      const torso = reports.find(({ report }) => report.damage > 0 && report.key === "torso");
+      assert.ok(torso, `${constructSide} Warden never landed a physical torso arrow`);
+      assert.equal(torso.effectorId.startsWith("dorsal-crossbow:"), true);
+      assert.equal(torso.report.weapon, "arrow");
+    } finally {
+      combat.dispose();
+      warrior.dispose();
+      construct.dispose();
+      materials.shared.dispose(false, false);
+      arena.dispose();
+    }
+  }
 });
 
 test("a_physical_Warden_sword_tip_traverses_the_commanded_sweep_arc", async () => {

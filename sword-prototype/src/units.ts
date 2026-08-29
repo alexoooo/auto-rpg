@@ -14,12 +14,18 @@ import { handsFor, isWeaponKind, WEAPON_KINDS, type WeaponKind } from "./hands.t
 import { POLICIES, splitMind, type HandName, type Mind } from "./mind.ts";
 import type { Side } from "./physics.ts";
 import { Centipede, CENTIPEDE_BITE_REACH, CENTIPEDE_CROWN, CENTIPEDE_RADIUS, CENTIPEDE_SEGMENTS } from "./bodies/centipede.ts";
-import { Construct, HUMANOID_CONSTRUCT_PROFILE } from "./construct/construct.ts";
+import { ARBALEST_CONSTRUCT_PROFILE, Construct, HUMANOID_CONSTRUCT_PROFILE,
+  TWINBLADE_CONSTRUCT_PROFILE } from "./construct/construct.ts";
+import { arbalestBlueprint, arbalestControl, arbalestProgram,
+  ARBALEST_SENSORS } from "./construct/arbalest.ts";
 import { humanoidBlueprint, humanoidControl, humanoidProgram, HUMANOID_SENSORS } from "./construct/humanoid.ts";
+import { twinbladeBlueprint, twinbladeControl, twinbladeProgram,
+  TWINBLADE_SENSORS } from "./construct/twinblade.ts";
 import { wardenBlueprint } from "./construct/warden.ts";
 
 /** A body kind accepted at the setup boundary. */
-export type UnitKind = "warrior" | "broot" | "centipede" | "kaykit-knight" | "bronze-warden" | "swordbearer-effigy";
+export type UnitKind = "warrior" | "broot" | "centipede" | "kaykit-knight" | "bronze-warden" |
+  "swordbearer-effigy" | "twinblade-effigy" | "arbalest-effigy";
 
 export interface UnitLoadout {
   readonly primary: WeaponKind;
@@ -365,6 +371,64 @@ const swordbearerEffigy: UnitDefinition = Object.freeze({
     program: humanoidProgram(), sensors: HUMANOID_SENSORS, profile: HUMANOID_CONSTRUCT_PROFILE }),
 });
 
+const twinbladeModel = twinbladeBlueprint();
+const twinbladeEffigy: UnitDefinition = Object.freeze({
+  kind: "twinblade-effigy",
+  label: "Twinblade Effigy (Mechanical A/B)",
+  equipment: Object.freeze(["empty"] as WeaponKind[]),
+  loadouts: freezeLoadouts([{ primary: "empty", secondary: "empty" }]),
+  defaultLoadout: emptyLoadout,
+  hands: 0,
+  compatiblePolicies: Object.freeze(["construct-hold", "humanoid-authored"]),
+  driverOptions: Object.freeze([
+    Object.freeze({ name: "construct-hold", label: "Hold" }),
+    Object.freeze({ name: "humanoid-authored", label: "Existing right-arm Mind" }),
+  ]),
+  humanAdapter: false,
+  controlSurface: "construct-twinblade-v1",
+  defaultPolicy: "humanoid-authored",
+  anatomy: Object.freeze({ parts: Object.freeze(twinbladeModel.parts.map(({ id }) => id)),
+    vitalityWeights: Object.freeze(Object.fromEntries(twinbladeModel.parts
+      .map(({ id, vitalityWeight }) => [id, vitalityWeight]))) }),
+  reach: TWINBLADE_CONSTRUCT_PROFILE.reach,
+  crownHeight: TWINBLADE_CONSTRUCT_PROFILE.crownHeight,
+  vitalHeight: TWINBLADE_CONSTRUCT_PROFILE.vitalHeight,
+  collisionRadius: TWINBLADE_CONSTRUCT_PROFILE.collisionRadius,
+  createPolicy: null,
+  build: (ctx: CombatantBuild) => new Construct(ctx, { blueprint: twinbladeBlueprint(),
+    control: twinbladeControl(), program: twinbladeProgram(), sensors: TWINBLADE_SENSORS,
+    profile: TWINBLADE_CONSTRUCT_PROFILE }),
+});
+
+const arbalestModel = arbalestBlueprint();
+const arbalestEffigy: UnitDefinition = Object.freeze({
+  kind: "arbalest-effigy",
+  label: "Arbalest Effigy (Mechanical A/B)",
+  equipment: Object.freeze(["empty"] as WeaponKind[]),
+  loadouts: freezeLoadouts([{ primary: "empty", secondary: "empty" }]),
+  defaultLoadout: emptyLoadout,
+  hands: 0,
+  compatiblePolicies: Object.freeze(["construct-hold", "humanoid-authored"]),
+  driverOptions: Object.freeze([
+    Object.freeze({ name: "construct-hold", label: "Hold" }),
+    Object.freeze({ name: "humanoid-authored", label: "Arbalest Mind" }),
+  ]),
+  humanAdapter: false,
+  controlSurface: "construct-arbalest-v1",
+  defaultPolicy: "humanoid-authored",
+  anatomy: Object.freeze({ parts: Object.freeze(arbalestModel.parts.map(({ id }) => id)),
+    vitalityWeights: Object.freeze(Object.fromEntries(arbalestModel.parts
+      .map(({ id, vitalityWeight }) => [id, vitalityWeight]))) }),
+  reach: ARBALEST_CONSTRUCT_PROFILE.reach,
+  crownHeight: ARBALEST_CONSTRUCT_PROFILE.crownHeight,
+  vitalHeight: ARBALEST_CONSTRUCT_PROFILE.vitalHeight,
+  collisionRadius: ARBALEST_CONSTRUCT_PROFILE.collisionRadius,
+  createPolicy: null,
+  build: (ctx: CombatantBuild) => new Construct(ctx, { blueprint: arbalestBlueprint(),
+    control: arbalestControl(), program: arbalestProgram(), sensors: ARBALEST_SENSORS,
+    profile: ARBALEST_CONSTRUCT_PROFILE }),
+});
+
 export const UNIT_REGISTRY: Readonly<Record<UnitKind, UnitDefinition>> = Object.freeze({
   warrior,
   broot,
@@ -372,6 +436,8 @@ export const UNIT_REGISTRY: Readonly<Record<UnitKind, UnitDefinition>> = Object.
   "kaykit-knight": kaykitKnight,
   "bronze-warden": bronzeWarden,
   "swordbearer-effigy": swordbearerEffigy,
+  "twinblade-effigy": twinbladeEffigy,
+  "arbalest-effigy": arbalestEffigy,
 });
 
 /** Picker rows are a projection of bodies that can actually be built. */

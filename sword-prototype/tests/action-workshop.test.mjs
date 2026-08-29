@@ -132,6 +132,15 @@ test("the_program_editor_cannot_compare_incompatible_sensor_units", () => {
   assert.doesNotMatch(markup, /data-program-group|name="group"/);
 });
 
+test("the_program_editor_names_runtime_action_commitment_separately_from_installed_facts", () => {
+  const committed = structuredClone(wardenProgram());
+  committed.rules[0].condition = { op: "active", action: "fire" };
+  const markup = programEditorMarkup(committed, wardenControl(), WARDEN_SENSORS);
+  assert.match(markup, /Active action/);
+  assert.match(markup, /data-expression-active/);
+  assert.match(markup, /<option value="fire" selected>fire<\/option>/);
+});
+
 test("rule_reordering_changes_canonical_program_bytes_and_the_visible_order_together", () => {
   const original = wardenProgram();
   const moved = reorderProgramRule(original, 0, 1);

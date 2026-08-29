@@ -72,6 +72,24 @@ test("a_program_reads_only_sensors_its_blueprint_installed", () => {
   assert.throws(() => values.read("opponent-policy"), /uninstalled sensor "opponent-policy"/);
 });
 
+test("active_action_expressions_read_scheduler_state_without_becoming_hardware_sensors", () => {
+  const continuation = structuredClone(program);
+  continuation.rules = [continuation.rules[0]];
+  continuation.rules[0].condition = { op: "active", action: "fire" };
+  const parsed = parseProgram(JSON.stringify(continuation), graph, sensors);
+  const noHardwareFacts = new SensorFrame(sensors);
+  const mind = new ConstructMind(parsed, graph, sensors);
+  assert.deepEqual(mind.decide(noHardwareFacts, 1,
+    { isActionActive: (action) => action === "fire" }).requests.map(({ request }) => request.action), ["fire"]);
+  assert.deepEqual(mind.decide(noHardwareFacts, 1,
+    { isActionActive: () => false }).requests, [],
+  "an inactive action cannot bootstrap itself from a continuation expression");
+
+  const unknown = structuredClone(continuation);
+  unknown.rules[0].condition.action = "teleport";
+  assert.throws(() => validateProgram(unknown, graph, sensors), /unknown active action "teleport"/);
+});
+
 test("a_destroyed_sensor_suppresses_its_rules_instead_of_reusing_the_previous_fact", () => {
   const mind = new ConstructMind(program, graph, sensors);
   assert.deepEqual(mind.decide(frame()).requests.map(({ request }) => request.action), ["fire", "walk"]);

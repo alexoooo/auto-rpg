@@ -127,6 +127,8 @@ order an editor, JSON parser or worker happened to produce.
 | [15](construct-forge-15-learning-rung.md) | measured interruptible learning ladder or explicit negative result | 14 |
 | [16](construct-forge-16-integration-and-playtest.md) | player verdict and durable close-out | 12 plus either 15 or the session-12 early-negative record |
 | [17](construct-forge-17-humanoid-effigy.md) | fixed two-foot Swordbearer archetype and honest mixed-body baseline | 07, 09, 16 |
+| [18](construct-forge-18-adversarial-balance-curriculum.md) | identical-body idle/active durability ratchet and physically witnessed Twinblade tactic | 17 |
+| [19](construct-forge-19-human-scale-arbalest-curriculum.md) | selectable human-scale Arbalest and physically qualified ranged durability ratchet | 18 |
 
 Sessions 01--12 produce the game without requiring learned AI. Sessions 13--15 begin only after
 the authored Mind can complete meaningful bouts and a person judges the build-program-observe loop
@@ -146,7 +148,7 @@ authority for downloaded public assets, not for live editor state. A schema muta
 synthetic old fixture fail before the version is re-recorded.
 
 The v1 import ceilings are contract, not padding: at most 128 parts, 127 joints, 256 sockets,
-256 modules with 16 primitive components and 16 sensor channels each (256 channels total), 128
+256 modules with 16 primitive components and 24 sensor channels each (256 channels total), 128
 groups with 64 joint/module members each, 256 actions with 32 parameters and 16 extra resource
 claims each, 512 program rules, 4,096 expression nodes at depth at most 64 and 1 MiB of canonical
 saved bytes. A variable graph may use any smaller supported size without padding or truncation.

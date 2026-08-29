@@ -148,6 +148,22 @@ test("a parked arrow has no visible trace", async () => {
   );
 });
 
+test("a_recycled_pool_slot_carries_the_current_loose_serial_not_its_pool_suffix", async () => {
+  const { scene, materials } = await world();
+  const layers = layersFor("left");
+  const profile = { ...CONFIG.arrow, count: 1 };
+  const quiver = new Quiver(scene,
+    { name: "serial-q", layer: layers.arrow, collidesWith: layers.arrowCollides, profile }, materials);
+  const arrow = quiver.arrows[0];
+  assert.equal(quiver.loose(Vector3.Zero(), Vector3.Forward(), 30, 17), true);
+  assert.equal(arrow.shotSerial, 17);
+  arrow.park();
+  assert.equal(arrow.shotSerial, null, "parked evidence cannot retain the prior loose identity");
+  assert.equal(quiver.loose(Vector3.Zero(), Vector3.Forward(), 30, 18), true);
+  assert.equal(arrow.shotSerial, 18,
+    "the same physical pool slot receives the next globally unique loose serial");
+});
+
 /**
  * The two ways of asking where the head is, asked of the same shaft.
  *

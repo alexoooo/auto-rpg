@@ -41,6 +41,17 @@ test("a_blueprint_round_trip_preserves_every_declared_part_joint_socket_and_modu
   assert.equal(parsed.modules.find(({ id }) => id === "launcher").projectile.muzzleSpeedMps, 35);
 });
 
+test("striker_contact_latches_are_not_part_of_the_blueprint_grammar", () => {
+  const source = blueprint();
+  source.modules[2] = { id: "sword", kind: "sword", socket: "launcher-socket",
+    compatibilityTag: "weapon", geometry: [geometry("blade")], massKg: 1.4, health: 70, armour: 5,
+    striker: { localTipM: [0, 0, 0.1], localEdgeDirection: [1, 0, 0], localFlatDirection: [0, 1, 0],
+      damageScale: 1 } };
+  assert.equal(parseBlueprint(canonicalBlueprintJson(source)).modules[2].striker.damageScale, 1);
+  source.modules[2].striker.contactSensorId = "contact-sword-blocker";
+  refusal(source, /striker.*unknown field "contactSensorId"/);
+});
+
 test("part_roles_do_not_exist_in_the_physical_grammar", () => {
   const source = blueprint(); source.parts[0].role = "leg";
   refusal(source, /part "limb".*unknown field "role"/);

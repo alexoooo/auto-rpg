@@ -151,6 +151,12 @@ export class ActionScheduler {
 
   get events(): readonly SchedulerEvent[] { return this.eventRows; }
 
+  /** Authored programs may continue a scheduler-owned action; this is runtime state, not a sensor. */
+  isActionActive(action: string): boolean {
+    for (const running of this.active.values()) if (running.action.id === action) return true;
+    return false;
+  }
+
   diagnostics(): readonly ActiveActionDiagnostic[] {
     return [...this.active.values()].map(({ action, controller }) => {
       const diagnostic = controller.diagnostic();

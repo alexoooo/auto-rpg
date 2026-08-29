@@ -1538,6 +1538,14 @@ weapon bearings. Hardware says what can physically exist. Control says what that
 asked to do, and the mind later says when to ask. Neither control nor mind may repair, reinterpret
 or silently add to a malformed body.
 
+Size is likewise a blueprint fact, not a body-class assumption. The current humanoid stone chassis
+uses one explicit `0.75` similarity transform: lengths scale once, mass by its cube and actuator
+authority by its fourth power, while its ordinary steel sword is an explicit unscaled module.
+Host-facing crown, vital height, reach and collision radius are measured from the resolved bind
+geometry. Arena framing and standing gates consume that declared profile without a human-height
+minimum, so a later smaller archetype must declare its own coherent scale and measured profile
+rather than inheriting Swordbearer constants or being enlarged by the host.
+
 `canonicalBlueprintJson` in `src/construct/canonical.ts` validates the closed vocabulary before it
 writes it, orders object keys independently of insertion order and spells only finite JSON numbers.
 Parts, joints, sockets and modules are sets canonicalized by ID; compatibility tags, sensor facts
@@ -1638,6 +1646,27 @@ also records a late fall and a decisive damage deficit. Forge v1 can load and in
 body only through the direct Setup/runtime path: the Forge library and its sensor catalog remain
 Warden-specific and do not list or import this archetype. Its fragment shelf is therefore not yet
 a general humanoid authoring kit.
+
+The Arbalest Effigy is a third selectable fixed profile on that same human-scale body contract,
+not a replacement for Swordbearer or Twinblade. Its right yaw/pitch chain carries a compact
+launcher fed by a finite torso magazine; its real four-joint left arm carries the same ordinary
+sword module used by Swordbearer. Launcher tracking, left-sword guard, biped brace and central
+posture occupy disjoint control groups and therefore run concurrently through the ordinary
+scheduler. The Mind requests fire only when declared reload and ammunition telemetry permit it,
+but continues tracking through reload. This is intentional body/Mind co-design: idle and active
+comparisons share the exact launcher, sword, body and control graph, while only active requests the
+guard and fire Actions.
+
+Ranged qualification is separate from sword qualification. `arbalest-fatal-arrow-v1` is a
+blueprint-bound checker over retained physical bout evidence, including full launcher hardware,
+ammunition, paired fire lifecycle, exact-time support/posture, launcher-specific opponent
+perception, unique finite projectile contacts and the fatal arrow transition. Quiver suffixes name
+recyclable physics bodies, not shots: every successful Construct loose receives a monotonically
+unique serial that is carried by its start/completion lifecycle and physical contact. Later fire
+lifecycles must also begin after the prior loose's declared reload interval. A visible guard
+sword cannot substitute for a visible launcher, and a sword-assisted raw win is qualified only
+when the arrow owns the fatal transition. The durability corpus and earned thresholds are recorded
+in `docs/measurements.md`; they are balance evidence, not new blueprint semantics.
 
 ## Construct capabilities, resources and Minds
 

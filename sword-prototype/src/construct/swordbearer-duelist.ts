@@ -13,6 +13,7 @@ const sensor = (id: string): Expression => Object.freeze({ op: "sensor", id });
 const scalar = (value: number): Expression => Object.freeze({ op: "constant", value });
 const metres = (value: number): Expression => Object.freeze({ op: "constant", value, unit: "metres" });
 const and = (...values: Expression[]): Expression => Object.freeze({ op: "and", values: Object.freeze(values) });
+const not = (value: Expression): Expression => Object.freeze({ op: "not", value });
 const lt = (left: Expression, right: Expression): Expression => Object.freeze({ op: "lt", left, right });
 const gte = (left: Expression, right: Expression): Expression => Object.freeze({ op: "gte", left, right });
 const parameter = (value: Expression) => Object.freeze({ kind: "expression" as const, value });
@@ -22,7 +23,7 @@ const rule = (value: ProgramRule): ProgramRule => Object.freeze({ ...value,
 const upright = sensor("core-upright");
 const visible = sensor("line-of-sight");
 const range = sensor("opponent-range");
-const lateral = sensor("opponent-local-x");
+const blockerPresent = sensor("opponent-blocker-present");
 const below = (value: number): Expression => lt(range, metres(value));
 const atLeast = (value: number): Expression => gte(range, metres(value));
 
@@ -49,15 +50,17 @@ export function swordbearerDuelistProgram(
       condition: and(upright, visible, below(SWORDBEARER_DUELIST.retreatBelowM)),
       utility: scalar(31), parameters: {} }),
 
-    // A sweep is paired with planted legs; local side chooses the physical wind/commit direction.
-    rule({ id: "sweep-opponent-right", action: "sweep", priority: 70, optional: false, dwellS: 0.04,
-      condition: and(upright, combatBand, gte(lateral, metres(0))),
-      utility: scalar(28), parameters: { direction: parameter(scalar(1)) } }),
-    rule({ id: "sweep-opponent-left", action: "sweep", priority: 70, optional: false, dwellS: 0.04,
-      condition: and(upright, combatBand, lt(lateral, metres(0))),
-      utility: scalar(28), parameters: { direction: parameter(scalar(-1)) } }),
-    rule({ id: "brace-during-sweep", action: "brace", priority: 65, optional: false, dwellS: 0.03,
-      condition: and(upright, combatBand), utility: scalar(24), parameters: {} }),
+    // The rejected one-arm beat depended on a lossy collision pulse and never displaced the
+    // buckler. A shielded opponent therefore gets an honest planted guard, not a relabelled attack.
+    rule({ id: "guard-shielded-opponent", action: "guard", priority: 70, optional: false, dwellS: 0.03,
+      condition: and(upright, visible, combatBand, blockerPresent), utility: scalar(28), parameters: {} }),
+    rule({ id: "brace-shielded-opponent", action: "brace", priority: 65, optional: false, dwellS: 0.03,
+      condition: and(upright, combatBand, blockerPresent), utility: scalar(24), parameters: {} }),
+    rule({ id: "sweep-unblocked-opponent", action: "sweep", priority: 70, optional: false, dwellS: 0,
+      condition: and(upright, visible, combatBand, not(blockerPresent)), utility: scalar(28),
+      parameters: { direction: parameter(scalar(1)) } }),
+    rule({ id: "brace-during-unblocked-sweep", action: "brace", priority: 65, optional: false, dwellS: 0.03,
+      condition: and(upright, combatBand, not(blockerPresent)), utility: scalar(24), parameters: {} }),
 
     // The Warrior closes under its own policy. A planted counter-fighter proved materially safer
     // than asking the first biped gait prototype to pursue and falling before its first sweep.

@@ -94,6 +94,8 @@ export class Arrow {
   readonly hand: HandName | null;
   readonly effectorId: string;
   readonly damageScale?: number;
+  /** Monotonic loose identity; unlike effectorId, this never names a recycled pool slot. */
+  shotSerial: number | null = null;
   readonly root: TransformNode;
   readonly body: PhysicsBody;
   /**
@@ -292,6 +294,7 @@ export class Arrow {
     this.firstContact = null;
     this.planting = false;
     this.age = 0;
+    this.shotSerial = null;
     this.shape.filterMembershipMask = 0;
     this.shape.filterCollideMask = 0;
     this.body.setLinearVelocity(Vector3.Zero());
@@ -313,13 +316,14 @@ export class Arrow {
    * heading and the attitude, because an arrow that flies sideways to the way it
    * is pointing is one that has already gone wrong.
    */
-  loose(from: Vector3, along: Vector3, speed: number): void {
+  loose(from: Vector3, along: Vector3, speed: number, shotSerial: number | null = null): void {
     this.live = true;
     this.struck = false;
     this.touched = false;
     this.firstContact = null;
     this.planting = false;
     this.age = 0;
+    this.shotSerial = shotSerial;
     this.shape.filterMembershipMask = this.layer;
     this.shape.filterCollideMask = this.collidesWith;
     this.body.setMotionType(PhysicsMotionType.DYNAMIC);
@@ -637,7 +641,7 @@ export class Quiver {
    * longest -- so a fighter shooting faster than the pool recycles takes its own
    * oldest arrow back rather than being silently refused a shot.
    */
-  loose(from: Vector3, along: Vector3, speed: number): boolean {
+  loose(from: Vector3, along: Vector3, speed: number, shotSerial: number | null = null): boolean {
     let pick: Arrow | null = null;
     for (const arrow of this.arrows) {
       if (!arrow.live) {
@@ -647,7 +651,7 @@ export class Quiver {
       if (!pick || arrow.age > pick.age) pick = arrow;
     }
     if (!pick) return false;
-    pick.loose(from, along, speed);
+    pick.loose(from, along, speed, shotSerial);
     return true;
   }
 

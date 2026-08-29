@@ -22,6 +22,50 @@ const readingFor = (context: ControllerContext, joint: string, axis: "x" | "y" =
 const contacts = (context: ControllerContext): number => (["left", "right"] as const)
   .filter((side) => context.view.facts[`contact:${bindingFor(context, side).modules[0]}`] === true).length;
 
+export interface BipedBracePose {
+  readonly kneeRad: number;
+  readonly ankleRad: number;
+  readonly soleRad: number;
+}
+
+/** The ordinary biped stance. Mounted Actions may author a different pose explicitly. */
+export const BIPED_BRACE_POSE: Readonly<BipedBracePose> = Object.freeze({
+  kneeRad: -0.20, ankleRad: 0.10, soleRad: 0.08,
+});
+
+/** The exact two-foot brace motor field, shared by brace and braced mounted attacks. */
+export function writeBipedBrace(
+  context: ControllerContext,
+  pose: Readonly<BipedBracePose> = BIPED_BRACE_POSE,
+): number {
+  if (![pose.kneeRad, pose.ankleRad, pose.soleRad].every(Number.isFinite)) {
+    throw new Error("biped brace pose must be finite");
+  }
+  const roll = Number(context.view.facts["core-roll-rad"] ?? 0);
+  const pitch = Number(context.view.facts["core-pitch-rad"] ?? 0);
+  const pitchCorrection = Math.max(-0.55, Math.min(0.55, pitch * 0.85));
+  let greatestError = 0;
+  for (const side of ["left", "right"] as const) {
+    const binding = bindingFor(context, side);
+    const sign = side === "left" ? -1 : 1;
+    const targets: readonly [string, "x" | "y", number][] = [
+      [binding.joints[0], "x", pitchCorrection + sign * roll * 0.14],
+      [binding.joints[1], "x", pose.kneeRad],
+      [binding.joints[2], "x", pose.ankleRad - pitchCorrection * 0.62],
+      [binding.joints[3], "x", pose.soleRad - pitchCorrection * 0.38],
+      [binding.joints[0], "y", 0],
+    ];
+    for (const [joint, axis, target] of targets) {
+      const reading = readingFor(context, joint, axis);
+      const angleRad = Math.max(reading.minRad, Math.min(reading.maxRad, target));
+      greatestError = Math.max(greatestError, Math.abs(angleRad - reading.angleRad));
+      context.motors.write({ joint: `${joint}:${axis}`, angleRad,
+        maxSpeedRadS: reading.maxSpeedRadS, maxForceNm: reading.maxForceNm });
+    }
+  }
+  return greatestError;
+}
+
 /** A two-support controller; every command crosses the same MotorWriter as every other Action. */
 class BipedController implements ActionController {
   private readonly context: ControllerContext;
@@ -44,13 +88,17 @@ class BipedController implements ActionController {
 
   step(dt: number): void {
     if (this.cancelled) return;
+    if (this.mode === "brace") {
+      this.state = "brace";
+      this.progress = writeBipedBrace(this.context);
+      return;
+    }
     const speed = this.mode === "move" ? numberParameter(this.context, "speed") :
       this.mode === "turn" ? Math.abs(numberParameter(this.context, "yaw")) : 0;
     this.phase = (this.phase + dt * (0.65 + speed * 0.55)) % 1;
     const upright = this.context.view.facts["core-upright"] !== false;
     const roll = Number(this.context.view.facts["core-roll-rad"] ?? 0);
     const pitch = Number(this.context.view.facts["core-pitch-rad"] ?? 0);
-    const pitchCorrection = Math.max(-0.55, Math.min(0.55, pitch * 0.85));
     let greatestError = 0;
     for (const side of ["left", "right"] as const) {
       const binding = bindingFor(this.context, side);
@@ -64,14 +112,11 @@ class BipedController implements ActionController {
         : 0;
       const lateral = this.mode === "move" ? numberParameter(this.context, "right") * sign * 0.10 : 0;
       const rock = this.mode === "recover" ? Math.sin(this.phase * Math.PI * 2) * sign * 0.48 : 0;
-      const hipX = this.mode === "brace" ? pitchCorrection + sign * roll * 0.14 :
-        this.mode === "recover" ? Math.max(-0.65, Math.min(0.65, -pitch * 0.38 + rock)) : stride + lateral;
+      const hipX = this.mode === "recover" ? Math.max(-0.65, Math.min(0.65, -pitch * 0.38 + rock)) : stride + lateral;
       const legLift = this.mode === "turn" ? lift * 0.22 : lift;
-      const knee = this.mode === "brace" ? -0.20 : this.mode === "recover" ? -0.38 - Math.abs(rock) * 0.20 : -legLift * 0.62;
-      const ankle = this.mode === "brace" ? 0.10 - pitchCorrection * 0.62 :
-        this.mode === "recover" ? 0.22 + Math.abs(rock) * 0.14 : legLift * 0.34;
-      const sole = this.mode === "brace" ? 0.08 - pitchCorrection * 0.38 :
-        this.mode === "recover" ? 0.16 : legLift * 0.24;
+      const knee = this.mode === "recover" ? -0.38 - Math.abs(rock) * 0.20 : -legLift * 0.62;
+      const ankle = this.mode === "recover" ? 0.22 + Math.abs(rock) * 0.14 : legLift * 0.34;
+      const sole = this.mode === "recover" ? 0.16 : legLift * 0.24;
       const targets: readonly [string, "x" | "y", number][] = [
         [binding.joints[0], "x", hipX], [binding.joints[1], "x", knee],
         [binding.joints[2], "x", ankle], [binding.joints[3], "x", sole],

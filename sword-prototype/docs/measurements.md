@@ -7375,3 +7375,161 @@ pelvis 70 -> 180 kg and each thigh/shin/ankle/foot 18/14/6/18 -> 60/50/25/80 kg.
 repeated-sweep harness that body remained upright for 20/20 seconds and completed 17 sweeps. A wider
 0.90-radian attack arc was then rejected: it cut mixed standing time to 7.4875 seconds and produced
 no upright damage, so the committed arc remains 0.55 radians.
+
+### Twinblade open-line experiment -- rejected
+
+The distinct `twinblade-effigy` keeps the Swordbearer available as an A/B body and adds two
+independently resolved 1.4 kg sword chains. Its authored `dual-cut` is one public Action: the
+blocker-side arm attempts to occupy the observed buckler, the opposite arm crosses the mirrored
+open line, and the same controller braces both real support legs. The idle program uses a separate
+explicit zero-angle mount hold; it does not freeze an arbitrary admission pose. The rejected
+single-arm contact acknowledgement branch was removed from the blueprint grammar, publisher,
+Action graph and Mind because its one-step pulse could cross attempt boundaries.
+
+One declared fixed gate was run after mutation-proving blocker-side assignment, counter-rotation,
+neutral hold, exact motor ownership, missing-sword refusal and same-attempt evidence:
+`twinblade-effigy` left versus Warrior `duelist` sword+buckler, seed 20,903, real Havok at 240 Hz,
+4,800 steps / 20 seconds. The gate **rejected**. It ended a draw: Twinblade vitality 1.0, Warrior
+vitality 0.888620; Twinblade dealt 87.837591 raw damage and took 203.883682. The body remained in
+the profile-derived standing predicate for only 1.591667 seconds (minimum root-up 0.115564), no
+`dual-cut` completed, and seven attempts were cancelled as the public attack predicate changed.
+There were zero refused and zero failed Actions.
+
+The physical path was not fictitious: `left-effigy-sword` made exact `block:buckler` contacts in
+attempts 3--5, and both sword effectors produced damage during the bout. But the one qualifying
+fact did not happen: within one completed attempt, the blocker-side sword never occupied the
+buckler while the opposite sword scored a later unblocked body cut. Attempt 4 instead had the left
+sword both contact the buckler and damage the pelvis/hand. This is an open-loop attempted
+occupation, not a successful dual-arm tactic. Do not call the Twinblade competent or promote it;
+the next architecture step is posture-preserving whole-body manipulation and a stable tactical
+commitment condition, not another unmeasured aim-offset tweak.
+
+### Identical-body durability curriculum -- open and red
+
+Harness: `scripts/construct-warrior-curriculum.mjs`, real Havok at 240 Hz for at most 30 seconds,
+four FNV-derived frozen seeds mirrored with the Construct on both sides against Warrior `duelist`.
+Idle and active use the same exact Twinblade blueprint and control graph; idle replaces only the
+Mind with neutral mounts, brace and stabilize. Durability multiplies health for every part, joint
+and module while leaving armour, mass, geometry, motors and weapon scoring unchanged.
+
+The measured idle ladder is deliberately not a binary-search boundary:
+
+| whole-construct durability | Warrior kills / 8 |
+| ---: | ---: |
+| 0.50 | 1 |
+| 0.25 | 3 |
+| 0.10 | 8 |
+| 0.05 | 8 |
+| 0.02 | 5 |
+
+At 0.02, early severance removes collision surfaces and lets three bodies survive that did not at
+0.05 or 0.10. The first active rung is therefore 0.10, selected by the declared ladder rather than
+by pretending a lower health value is always easier to kill. This also supersedes the earlier
+Swordbearer-only adjacent torso-health claim: adding the neutral second sword changed collision
+coverage, so fatal-torso health alone never exceeded 5/8 even at one point. The 0.10 whole-body
+result is the current 8/8 authority.
+
+The initial committed bind-and-cross-cut was red at that rung: 0/8 Construct kills, 3/8 active
+survivals, upright Construct damage in 4/8 cells and 139.356623 total raw damage. Three isolated
+ideas were then rejected against the same corpus. Phase-boundary target replanning reduced the
+result to 2 survivals, 2 upright-damage cells and 22.074928 damage. Binding the Warrior sword
+instead of its buckler retained 3 survivals and 4 upright cells but reduced damage to 41.657841.
+Sending both blades through the torso as a sequential scissor improved survival to 4 cells but
+still won none and dealt 64.378737. All three changes were measured physically; the first two were
+removed rather than kept as plausible-looking code.
+
+The scissor cadence grid covered travel multipliers 0.50, 0.75, 1.00, 1.20 and 1.55 crossed with
+settle allowances 0, 0.05 and 0.10 seconds. No one of its 120 bouts won. The strongest secondary
+cell was 0.75 / 0.05: 6/8 survivals, 7/8 upright-damage cells and 166.383 raw damage. A follow-up at
+that cadence lowered minimum range to 0.75 m and tried maximum ranges 1.20, 1.30, 1.40 and 1.50 m;
+all four were worse, with zero wins, at most three survivals and at most 89.692 damage. The original
+1.20--1.70 m admission remains. None of these secondary counters satisfies the curriculum: the
+active acceptance thresholds stay zero until a real corpus earns nonzero numbers, and durability
+does not ratchet to 0.05 before the active 0.10 body can actually win.
+
+At the retained 0.75 / 0.05 cadence, an authored lane shift away from the observed blocker was
+also swept at 0, 0.08, 0.14, 0.20 and 0.28 m. The zero lane remained strongest at 0/8 kills, 6/8
+survivals, 7/8 upright-damage cells and 166.383 damage. Nonzero lanes produced respectively
+1/4/25.978, 2/6/77.111, 4/6/119.530 and 4/4/106.498 for survivals/upright cells/damage, with zero
+kills throughout. The parameter remains available for authored experiments, but its selected
+default is zero because no nonzero lane improved both mirrors or the primary win counter.
+
+An adversarial evidence pass then found that raw win counts and redundant summaries were too easy
+to believe. The curriculum artifact now retains every detailed bout, reconstructs the exact seed x
+side x mode Cartesian matrix, recomputes every summary and separates raw from physically qualified
+wins. The Twinblade qualifier requires continuous vitality across its two ordered torso cuts, no
+intervening positive-damage contact, time-local Warrior threat perception, meaningful commanded
+and physical motion for both sword axes, mirrored role correctness, and a clean fatal/completion
+tail. Disabling the matrix uniqueness check let a duplicated cell with a forged matching summary
+through and made the focused test fail; removing vitality continuity likewise made the evidence
+suite fail before both mutations were restored.
+
+### Human-scale Arbalest -- first rung diagnosis, superseded
+
+The separate `arbalest-effigy` keeps the same 1.8995 m Humanoid body and all eighteen parts and
+seventeen joints, replaces the right-hand sword with a 3.2 kg two-axis launcher, and adds a 2.4 kg
+twelve-bolt torso magazine. Its 0.12 kg, 42 m/s bolts retain ordinary 1.15 projectile damage. The
+generic launcher correction now aims from the live compiled muzzle ray rather than pretending the
+weapon begins at the root; a real stationary-Warrior probe lands torso arrows and spends declared
+ammunition in both mirrors. Reversing the pitch correction made that physical test fail before it
+was restored.
+
+The first durability-0.10 corpus preserved the required 8/8 idle Warrior kills. Active produced
+1/8 Construct kills, 1/8 survivals, upright arrow damage in 8/8 cells and 685.067 total damage.
+The one genuine raw win was seed 4,157,765,078 with Construct on the right at 14.1875 seconds. The
+seven-loss diagnosis is not posture or ammunition: every cell remained upright until death, no row
+spent more than five of twelve bolts, and each landed its first torso shot at 0.158--0.217 seconds
+for about 62--63 raw damage. Three left-side losses died at 0.833--1.417 seconds; three right-side
+losses fired twice but lost the launcher pitch joint at 1.108 seconds and died around 1.425 seconds.
+The long 4.167-second loss fired five times: torso, then buckler, sword, buckler and buckler.
+
+Authored aim-lane probes did not solve that close-range defense. Height offsets 0.20, 0.35 and
+0.50 m produced respectively 0/1/425.34, 0/0/651.96 and 0/0/547.38 for kills/survivals/damage.
+Lateral offsets -0.20, -0.35 and -0.50 m produced 1/2/689.88, 0/0/729.32 and 0/0/537.71; combined
+height/lateral cells (0.50,-0.15), (0.50,-0.25) and (0.40,-0.20) also won none. Head lanes made the
+first hit more vital but did not stop follow-ups being weapon-blocked. This was a diagnosis of the
+bare-launcher candidate, not the final result below.
+
+### Human-scale Arbalest -- qualified durability ratchet
+
+The retained Mind tracks continuously through the declared 0.65-second reload, gates `fire` on
+real reload/ammunition telemetry, aims at the measured fixed -0.10 m lane, and holds the existing
+ordinary 1.15 sword in a four-joint left-hand guard. The guard targets are shoulder -0.35, elbow
+-0.65, wrist +0.35 and palm -0.15 radians. The sword is reused asset hardware rather than a new
+authored mesh. A bare-arm guard, three compact shield poses, a larger four-joint shield guard and a
+4.5 m ranged deployment were all rejected: none produced a qualified mirror win, and the larger
+shield/deployment variants also reduced idle Warrior kills to 6/8. A blocker-side aim rule was
+rejected because the buckler crossed local centre during the reload and destabilized reacquisition.
+
+The final committed qualifier is `arbalest-fatal-arrow-v1`. It is selected from a blueprint-bound
+registry, not supplied again by an assertion caller. Every cell retains its detailed bout, and the
+checker pins the complete projectile/launcher hardware, bounded ammunition, unique projectile
+contacts, paired finite fire lifecycle, exact-time upright/support state, launcher-specific Warrior
+perception, chronological finite contacts, fatal-arrow vitality transition and clean verdict tail.
+The Quiver is a recycling pool, so an `effigy-arbalest:0` suffix can recur in one bout and cannot be
+chronological evidence. Runtime now assigns a monotonically unique serial at each successful loose
+and carries it through the paired lifecycle and contact. The checker permits a recycled suffix only
+across distinct serials, rejects repeated serials, and requires every later successful lifecycle to
+begin no earlier than the prior completion plus the declared 0.65-second reload. Perception frames
+are finite, strictly chronological and unique, so a duplicate good frame cannot hide a bad same-time
+sample. The frozen Arbalest corpus also binds each cell's fixed-step count and simulated duration to
+the 30-second no-tail cap; a later win cannot be relabelled as a shorter bout in the report header.
+An instantaneous already-aligned fire may start and complete on one scheduler boundary; row order
+establishes lifecycle order and a 1e-9 tolerance joins downstream timestamps from that same 240 Hz
+boundary. Requiring an artificial extra tick changed the ballistics and was removed rather than
+calling an evidence-induced gameplay regression honesty.
+
+One final source was run at the next three declared durability rungs with no tuning between them.
+All share control digest `2d8aa403` and active program digest `da776d60`:
+
+| whole-body durability | body digest | idle Warrior kills | raw / qualified active wins | qualified left / right | active survivals | upright-damage cells |
+| ---: | :--- | ---: | :---: | :---: | ---: | ---: |
+| 0.10 | `3f4928d9` | 8/8 | 2 / 2 | 1 / 1 | 3/8 | 8/8 |
+| 0.05 | `69f4038a` | 8/8 | 2 / 2 | 1 / 1 | 2/8 | 8/8 |
+| 0.02 | `9257ba2b` | 8/8 | 3 / 3 | 1 / 2 | 3/8 | 8/8 |
+
+This is the requested ratchet: the idle copy loses every cell, the active copy earns physical wins
+in both mirrors, and the same AI retains that floor after health is halved and then cut to one fifth
+of the first passing rung. It is not an undefeated-AI claim. The 2/8 floor is the measured acceptance;
+the earlier 4/8 result was superseded when refused-fire spam and ambiguous lifecycle evidence were
+made fail-closed.

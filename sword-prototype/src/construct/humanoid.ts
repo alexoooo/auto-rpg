@@ -1,3 +1,5 @@
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+
 import { validateControlGraph, type ConstructControlGraph } from "./actions.ts";
 import { validateBlueprint, type AttachmentFrame, type ConstructBlueprint, type JointSpec,
   type ModuleKind, type PartSpec } from "./blueprint.ts";
@@ -5,33 +7,49 @@ import { saveConstruct, type SavedConstruct } from "./codec.ts";
 import type { ConstructProgram } from "./program.ts";
 import type { SensorSpec } from "./sensors.ts";
 import { swordbearerDuelistProgram } from "./swordbearer-duelist.ts";
+import { groundedConstructOriginY, resolveConstructBindTransforms } from "./compile.ts";
+import { humanoidActuator, humanoidLength, humanoidMass, humanoidShape,
+  humanoidTriple } from "./humanoid-scale.ts";
+export { HUMANOID_SCALE } from "./humanoid-scale.ts";
 
 const I = [0, 0, 0, 1] as const;
-const frame = (positionM: readonly [number, number, number] = [0, 0, 0]): AttachmentFrame =>
-  Object.freeze({ positionM: Object.freeze([...positionM]) as [number, number, number], rotation: I });
+// The first Swordbearer-only corpus selected 30 here, but that boundary did not survive the
+// exact Twinblade body: its neutral second sword changes collision coverage. Keep this authored
+// core value as chassis data; session 18's whole-construct multiplier and identical-body 8/8
+// corpus are the balance authority, not the superseded adjacent-value claim.
+export const HUMANOID_FATAL_HEALTH = 30;
+const frame = (positionM: readonly [number, number, number] = [0, 0, 0],
+  bodyScaled = true): AttachmentFrame => Object.freeze({
+  positionM: bodyScaled ? humanoidTriple(positionM) : Object.freeze([...positionM]) as [number, number, number],
+  rotation: I,
+});
 const part = (id: string, shape: PartSpec["shape"], massKg: number,
   style: PartSpec["shell"]["style"] = "plate", fatal = false): PartSpec => Object.freeze({
-  id, shape: Object.freeze(shape), massKg, centreOfMassM: Object.freeze([0, 0, 0] as const),
+  id, shape: humanoidShape(shape), massKg: humanoidMass(massKg), centreOfMassM: Object.freeze([0, 0, 0] as const),
   friction: id.includes("foot") ? 1.35 : id.includes("hand") ? 1.05 : 0.72, restitution: 0.04,
-  health: fatal ? 480 : 120, armour: fatal ? 38 : 16, vitalityWeight: fatal ? 1 : 0, fatal,
-  shell: Object.freeze({ style, visualClearanceM: style === "bearing" ? 0.003 : 0.008 }),
+  health: fatal ? HUMANOID_FATAL_HEALTH : 120, armour: fatal ? 38 : 16,
+  vitalityWeight: fatal ? 1 : 0, fatal,
+  shell: Object.freeze({ style, visualClearanceM: humanoidLength(style === "bearing" ? 0.003 : 0.008) }),
 });
 const joint = (id: string, parentPart: string, childPart: string,
   parentPosition: readonly [number, number, number], childPosition: readonly [number, number, number],
   axis: "x" | "y" | "z", minRad: number, maxRad: number, maxTorqueNm = 240,
   damping = 8): JointSpec => Object.freeze({
   id, parentPart, childPart, parentFrame: frame(parentPosition), childFrame: frame(childPosition),
-  angularAxes: Object.freeze([Object.freeze({ id: axis, minRad, maxRad, damping,
-    maxTorqueNm, maxSpeedRadS: axis === "y" ? 7 : 4.5 })]), health: 160, armour: 12,
+  angularAxes: Object.freeze([Object.freeze({ id: axis, minRad, maxRad,
+    damping: humanoidActuator(damping), maxTorqueNm: humanoidActuator(maxTorqueNm),
+    maxSpeedRadS: axis === "y" ? 7 : 4.5 })]), health: 160, armour: 12,
 });
 const geometry = (id: string, shape: PartSpec["shape"], style: PartSpec["shell"]["style"],
-  positionM: readonly [number, number, number] = [0, 0, 0]) => Object.freeze({
-  id, frame: frame(positionM), shape: Object.freeze(shape),
-  shell: Object.freeze({ style, visualClearanceM: style === "bearing" ? 0.002 : 0.006 }),
+  positionM: readonly [number, number, number] = [0, 0, 0], bodyScaled = true) => Object.freeze({
+  id, frame: frame(positionM, bodyScaled), shape: bodyScaled ? humanoidShape(shape) : Object.freeze(shape),
+  shell: Object.freeze({ style, visualClearanceM: bodyScaled
+    ? humanoidLength(style === "bearing" ? 0.002 : 0.006) : style === "bearing" ? 0.002 : 0.006 }),
 });
 const moduleBase = (id: string, kind: ModuleKind, socket: string, compatibilityTag: string,
-  pieces: readonly ReturnType<typeof geometry>[], massKg: number) => ({ id, kind, socket,
-  compatibilityTag, geometry: Object.freeze(pieces), massKg, health: 90, armour: 12 });
+  pieces: readonly ReturnType<typeof geometry>[], massKg: number, bodyScaled = true) => ({ id, kind, socket,
+  compatibilityTag, geometry: Object.freeze(pieces), massKg: bodyScaled ? humanoidMass(massKg) : massKg,
+  health: 90, armour: 12 });
 
 const leftArmParts = Object.freeze([
   part("left-upper-arm", { kind: "capsule", lengthM: 0.55, radiusM: 0.105 }, 8, "piston"),
@@ -62,8 +80,8 @@ const leg = (side: "left" | "right", x: number) => {
     "x", -0.9, 0.9, 1000, 18);
   const joints = Object.freeze([
     Object.freeze({ ...hip, angularAxes: Object.freeze([...hip.angularAxes,
-      Object.freeze({ id: "y" as const, minRad: -0.45, maxRad: 0.45, damping: 18,
-        maxTorqueNm: 750, maxSpeedRadS: 4.2 })]) }),
+      Object.freeze({ id: "y" as const, minRad: -0.45, maxRad: 0.45,
+        damping: humanoidActuator(18), maxTorqueNm: humanoidActuator(750), maxSpeedRadS: 4.2 })]) }),
     joint(`${side}-knee`, `${side}-thigh`, `${side}-shin`, [0, -0.16, 0], [0, 0.15, 0],
       "x", -1.25, 0.35, 900, 16),
     joint(`${side}-ankle`, `${side}-shin`, `${side}-ankle`, [0, -0.15, 0], [0, 0.06, 0],
@@ -113,6 +131,14 @@ export const HUMANOID_SENSORS: readonly SensorSpec[] = Object.freeze([
     Object.freeze({ id: `opponent-local-${axis}`, unit: "metres" as const, source: "opponent" as const }),
     Object.freeze({ id: `opponent-local-v${axis}`, unit: "metres-per-second" as const, source: "opponent" as const }),
   ]),
+  Object.freeze({ id: "opponent-blocker-present", unit: "boolean", source: "opponent" }),
+  ...["x", "y", "z"].map((axis) => Object.freeze({
+    id: `opponent-blocker-local-${axis}`, unit: "metres" as const, source: "opponent" as const,
+  })),
+  Object.freeze({ id: "opponent-weapon-present", unit: "boolean", source: "opponent" }),
+  ...["x", "y", "z"].map((axis) => Object.freeze({
+    id: `opponent-weapon-local-${axis}`, unit: "metres" as const, source: "opponent" as const,
+  })),
   Object.freeze({ id: "line-of-sight", unit: "boolean", source: "opponent" }),
   ...CONTACTS.flatMap(({ role }) => [
     Object.freeze({ id: `contact-${role}`, unit: "boolean" as const, source: "contact" as const }),
@@ -136,15 +162,68 @@ export function humanoidBlueprint(): ConstructBlueprint {
       sensorChannels: Object.freeze(HUMANOID_SENSORS.map(({ id }) => id).filter((id) => !id.startsWith("contact-") && !id.startsWith("slip-"))) }),
     Object.freeze({ ...moduleBase("effigy-heart", "power-core", "socket-heart", "power-core",
       [geometry("heart", { kind: "sphere", radiusM: 0.11 }, "core")], 7), capacityJ: 24_000, maxOutputW: 620 }),
+    // Full-sized steel longsword hardware is not similarity-scaled with the stone chassis.
+    // At 1.4 kg it keeps ordinary weapon inertia; the former 6 kg fantasy mass toppled the
+    // resized biped during its first committed sweep and was not truthful to that contract.
     Object.freeze({ ...moduleBase("effigy-sword", "sword", "socket-sword-hand", "dorsal-weapon", [
-      geometry("grip", { kind: "cylinder", lengthM: 0.18, radiusM: 0.05 }, "bearing"),
-      geometry("guard", { kind: "box", sizeM: [0.34, 0.08, 0.08] }, "bearing", [0, 0, 0.08]),
-      geometry("blade", { kind: "box", sizeM: [0.10, 0.05, 1.05] }, "plate", [0, 0, 0.58]),
-    ], 6), striker: Object.freeze({ localTipM: [0, 0, 1.105] as const,
+      geometry("grip", { kind: "cylinder", lengthM: 0.18, radiusM: 0.05 }, "bearing", [0, 0, 0], false),
+      geometry("guard", { kind: "box", sizeM: [0.34, 0.08, 0.08] }, "bearing", [0, 0, 0.08], false),
+      geometry("blade", { kind: "box", sizeM: [0.10, 0.05, 1.05] }, "plate", [0, 0, 0.58], false),
+    ], 1.4, false), striker: Object.freeze({ localTipM: [0, 0, 1.105] as const,
       localEdgeDirection: [1, 0, 0] as const, localFlatDirection: [0, 1, 0] as const, damageScale: 1.15 }) }),
   ];
   return validateBlueprint({ version: 1, id: "swordbearer-effigy", rootPart: "torso",
     parts: bodyParts, joints: bodyJoints, sockets, modules });
+}
+
+/** Host-facing dimensions measured from the scaled bind pose and its unscaled ordinary sword. */
+export function humanoidProfileMetrics(): Readonly<{ reach: number; crownHeight: number;
+  vitalHeight: number; collisionRadius: number }> {
+  const blueprint = humanoidBlueprint();
+  const origin = new Vector3(0, groundedConstructOriginY(blueprint), 0);
+  const transforms = resolveConstructBindTransforms(blueprint, origin);
+  const root = transforms.get(blueprint.rootPart) as { position: Vector3; rotation: Quaternion };
+  const head = transforms.get("head") as { position: Vector3; rotation: Quaternion };
+  const headSpec = blueprint.parts.find(({ id }) => id === "head");
+  const sword = blueprint.modules.find(({ id }) => id === "effigy-sword");
+  const socket = blueprint.sockets.find(({ id }) => id === sword?.socket);
+  const owner = socket ? transforms.get(socket.part) : undefined;
+  if (headSpec?.shape.kind !== "sphere" || !sword?.striker || !socket || !owner) {
+    throw new Error("Swordbearer profile metrics require the declared head and mounted sword bind geometry");
+  }
+  const socketRotation = owner.rotation.multiply(Quaternion.FromArray(socket.frame.rotation)).normalize();
+  const anchor = Vector3.FromArray(socket.frame.positionM)
+    .rotateByQuaternionToRef(owner.rotation, new Vector3()).addInPlace(owner.position);
+  const tip = Vector3.FromArray(sword.striker.localTipM)
+    .rotateByQuaternionToRef(socketRotation, new Vector3()).addInPlace(anchor);
+  return Object.freeze({ reach: Vector3.Distance(root.position, tip),
+    crownHeight: head.position.y + headSpec.shape.radiusM,
+    vitalHeight: root.position.y, collisionRadius: humanoidLength(0.62) });
+}
+
+/** Bind dimensions consumed by target solvers; all points are root-local at identity facing. */
+export function humanoidSwordBindMetrics(): Readonly<{ yawPivotRootM: readonly [number, number, number];
+  pitchPivotRootM: readonly [number, number, number]; pitchToSocketM: number; socketToTipM: number }> {
+  const blueprint = humanoidBlueprint();
+  const transforms = resolveConstructBindTransforms(blueprint);
+  const point = (partId: string, local: readonly [number, number, number]): Vector3 => {
+    const transform = transforms.get(partId);
+    if (!transform) throw new Error(`Swordbearer bind metrics lost part "${partId}"`);
+    return Vector3.FromArray(local).rotateByQuaternionToRef(transform.rotation, new Vector3())
+      .addInPlace(transform.position);
+  };
+  const yaw = blueprint.joints.find(({ id }) => id === "sword-yaw");
+  const pitch = blueprint.joints.find(({ id }) => id === "sword-pitch");
+  const sword = blueprint.modules.find(({ id }) => id === "effigy-sword");
+  const socket = blueprint.sockets.find(({ id }) => id === sword?.socket);
+  if (!yaw || !pitch || !sword?.striker || !socket) throw new Error("Swordbearer bind metrics lost its sword chain");
+  const yawPivot = point(yaw.parentPart, yaw.parentFrame.positionM);
+  const pitchPivot = point(pitch.parentPart, pitch.parentFrame.positionM);
+  const anchor = point(socket.part, socket.frame.positionM);
+  return Object.freeze({ yawPivotRootM: Object.freeze([yawPivot.x, yawPivot.y, yawPivot.z] as const),
+    pitchPivotRootM: Object.freeze([pitchPivot.x, pitchPivot.y, pitchPivot.z] as const),
+    pitchToSocketM: Vector3.Distance(pitchPivot, anchor),
+    socketToTipM: Math.hypot(...sword.striker.localTipM) });
 }
 
 export function humanoidControl(): ConstructControlGraph {
@@ -171,7 +250,7 @@ export function humanoidControl(): ConstructControlGraph {
         yaw: { kind: "number", min: -2.5, max: 2.5, unit: "radians" },
         pitch: { kind: "number", min: -0.75, max: 1.65, unit: "radians" },
       } },
-    { id: "sweep", controller: "sweep-compact-arc", group: "sword-arm",
+    { id: "sweep", controller: "swordbearer-target-sweep", group: "sword-arm",
       claims: ["module:effigy-sword", "resource:power-mount", "resource:sensor-line-of-sight"],
       parameters: { direction: { kind: "number", min: -1, max: 1, unit: "scalar" } } },
     { id: "guard", controller: "guard-mount", group: "sword-arm",

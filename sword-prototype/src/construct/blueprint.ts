@@ -1,7 +1,7 @@
 export const CONSTRUCT_BLUEPRINT_VERSION = 1 as const;
 export const CONSTRUCT_BLUEPRINT_LIMITS = Object.freeze({ maxBytes: 1_048_576, maxDepth: 64,
   maxParts: 128, maxJoints: 127, maxSockets: 256, maxModules: 256,
-  maxModulePrimitives: 16, maxModuleSensorChannels: 16, maxSensorChannels: 256 });
+  maxModulePrimitives: 16, maxModuleSensorChannels: 24, maxSensorChannels: 256 });
 
 export type Triple = readonly [number, number, number];
 export type Rotation = readonly [number, number, number, number];
@@ -150,12 +150,14 @@ function parseModule(value: unknown, blueprint: string, index: number): ModuleSp
   const result: Plain = { id: id(source.id, context, "id"), kind, socket: id(source.socket, context, "socket"), compatibilityTag: id(source.compatibilityTag, context, "compatibilityTag"), geometry: Object.freeze(geometry), massKg: positive(source.massKg, context, "massKg"), health: positive(source.health, context, "health"), armour: nonNegative(source.armour, context, "armour") };
   for (const name of ["capacityJ", "maxOutputW", "maxHeatJ", "reloadSeconds", "heatPerShotJ", "energyPerShotJ"] as const) if (source[name] !== undefined) result[name] = positive(source[name], context, name);
   if (source.coolingW !== undefined) result.coolingW = nonNegative(source.coolingW, context, "coolingW"); if (source.ammunition !== undefined) result.ammunition = integer(source.ammunition, context, "ammunition");
-  if (source.sensorChannels !== undefined) result.sensorChannels = idList(source.sensorChannels, context, "sensorChannels", 16);
+  if (source.sensorChannels !== undefined) result.sensorChannels = idList(source.sensorChannels, context,
+    "sensorChannels", CONSTRUCT_BLUEPRINT_LIMITS.maxModuleSensorChannels);
   if (source.striker !== undefined) { const striker = object(source.striker, `${context} field "striker"`); fields(striker, ["localTipM", "localEdgeDirection", "localFlatDirection", "damageScale"], [], `${context} field "striker"`);
     const tip = triple(striker.localTipM, context, "striker.localTipM"); const edge = unit(striker.localEdgeDirection, context, "striker.localEdgeDirection"); const flat = unit(striker.localFlatDirection, context, "striker.localFlatDirection");
     if (Math.abs(edge[0] * flat[0] + edge[1] * flat[1] + edge[2] * flat[2]) > 1e-6) throw new Error(`${context} field "striker" directions must be orthogonal`);
     if (!geometry.some((primitive) => pointOnPrimitive(tip, primitive))) throw new Error(`${context} field "striker.localTipM" must lie on declared geometry`);
-    result.striker = Object.freeze({ localTipM: tip, localEdgeDirection: edge, localFlatDirection: flat, damageScale: positive(striker.damageScale, context, "striker.damageScale") }); }
+    result.striker = Object.freeze({ localTipM: tip, localEdgeDirection: edge, localFlatDirection: flat, damageScale: positive(striker.damageScale, context, "striker.damageScale"),
+    }); }
   if (source.projectile !== undefined) { const projectile = object(source.projectile, `${context} field "projectile"`); fields(projectile, ["poolSize", "massKg", "radiusM", "lengthM", "muzzleSpeedMps", "damageScale"], [], `${context} field "projectile"`);
     result.projectile = Object.freeze({ poolSize: integer(projectile.poolSize, context, "projectile.poolSize"), massKg: positive(projectile.massKg, context, "projectile.massKg"), radiusM: positive(projectile.radiusM, context, "projectile.radiusM"), lengthM: positive(projectile.lengthM, context, "projectile.lengthM"), muzzleSpeedMps: positive(projectile.muzzleSpeedMps, context, "projectile.muzzleSpeedMps"), damageScale: positive(projectile.damageScale, context, "projectile.damageScale") }); }
   return Object.freeze(result) as unknown as ModuleSpec;

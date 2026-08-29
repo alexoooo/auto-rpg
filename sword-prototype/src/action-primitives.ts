@@ -1,5 +1,5 @@
-import type { FighterView, Intent } from "./mind.ts";
-import { HANDS, STRIKER_KINDS, isStriking, type HandName, type Striker, type WeaponKind } from "./hands.ts";
+import type { BodyView, FighterView, Intent } from "./mind.ts";
+import { HANDS, STRIKER_KINDS, isShield, isStriking, type HandName, type Striker, type WeaponKind } from "./hands.ts";
 
 /**
  * The option layer's whole tuning surface, and why it is not `CONFIG`.
@@ -314,6 +314,40 @@ export const blankThreat = (): ThreatView => ({
   shoulder: { x: 0, y: 0, z: 0 }, tip: { x: 0, y: 0, z: 0 }, velocity: { x: 0, y: 0, z: 0 },
   tipSpeed: 0, reach: 0, lost: false, outboard: 1, timeToClosest: 0, closestMiss: 0,
 });
+
+/** A factual attached guard surface; path choice remains the controller's job. */
+export interface BlockerView {
+  found: boolean;
+  weapon: WeaponKind;
+  source: HandName | null;
+  tip: ActionPoint;
+  outboard: number;
+}
+
+export const blankBlocker = (): BlockerView => ({
+  found: false, weapon: "empty", source: null, tip: { x: 0, y: 0, z: 0 }, outboard: 1,
+});
+
+/**
+ * Select the first attached described shield in canonical hand order.
+ *
+ * This publishes equipment, position and ownership only. It does not call a hand
+ * "open", predict a parry, or choose which side to attack; those are tactics and
+ * belong to the Action consuming this record. Mounted non-hand blockers can join
+ * the same view once `EffectorView` can honestly identify non-striking modules.
+ */
+export function selectBlocker(body: BodyView, into: BlockerView = blankBlocker()): BlockerView {
+  into.found = false; into.weapon = "empty"; into.source = null; into.outboard = 1;
+  into.tip.x = 0; into.tip.y = 0; into.tip.z = 0;
+  for (const name of HANDS) {
+    const hand = body.hands[name];
+    if (!hand || hand.lost || !isShield(hand.weapon)) continue;
+    into.found = true; into.weapon = hand.weapon; into.source = name; into.outboard = hand.outboard;
+    into.tip.x = hand.tip.x; into.tip.y = hand.tip.y; into.tip.z = hand.tip.z;
+    break;
+  }
+  return into;
+}
 
 /**
  * Closest approach of a point under a constant vertical acceleration to a fixed

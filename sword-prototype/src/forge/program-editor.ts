@@ -65,10 +65,12 @@ export function replaceProgramExpression(program: ConstructProgram, ruleIndex: n
 
 const numericSensor = (sensors: readonly SensorSpec[]): SensorSpec | undefined => sensors.find(({ unit }) => unit !== "boolean");
 const booleanSensor = (sensors: readonly SensorSpec[]): SensorSpec | undefined => sensors.find(({ unit }) => unit === "boolean");
-const defaultExpression = (op: Expression["op"], sensors: readonly SensorSpec[], expected: SensorUnit): Expression => {
+const defaultExpression = (op: Expression["op"], sensors: readonly SensorSpec[], expected: SensorUnit,
+  graph: ConstructControlGraph): Expression => {
   const number = sensors.find(({ unit }) => unit === expected) ?? numericSensor(sensors);
   const boolean = booleanSensor(sensors);
   if (op === "sensor") return { op, id: (expected === "boolean" ? boolean : number)?.id ?? "missing-sensor" };
+  if (op === "active") return { op, action: graph.actions[0]?.id ?? "missing-action" };
   if (op === "constant") return expected === "boolean" ? { op, value: true }
     : { op, value: 1, ...(expected === "scalar" ? {} : { unit: expected }) };
   if (op === "not") return { op, value: boolean ? { op: "sensor", id: boolean.id } : { op: "constant", value: true } };
@@ -99,15 +101,18 @@ const typeLabel = (expression: Expression, sensors: readonly SensorSpec[]): stri
   try { const type = expressionType(expression, sensorMap(sensors)); return `${type.kind} -- ${type.unit}`; }
   catch (error) { return `invalid -- ${error instanceof Error ? error.message : String(error)}`; }
 };
-const opOptions = (selected: string): string => ["sensor", "constant", "not", "and", "or", "lt", "lte", "gt", "gte", "add", "sub", "mul", "min", "max"]
+const opOptions = (selected: string): string => ["sensor", "active", "constant", "not", "and", "or", "lt", "lte", "gt", "gte", "add", "sub", "mul", "min", "max"]
   .map((op) => `<option ${op === selected ? "selected" : ""}>${op}</option>`).join("");
 
 const expressionMarkup = (expression: Expression, rule: number, field: "condition" | "utility" | "parameter",
-  parameter: string, path: ExpressionPath, sensors: readonly SensorSpec[]): string => {
+  parameter: string, path: ExpressionPath, sensors: readonly SensorSpec[], graph: ConstructControlGraph): string => {
   const token = pathToken(rule, field, parameter, path);
   const controls = expression.op === "sensor"
     ? `<label>Fact<select data-expression-sensor data-expression-path="${token}">${sensors.map((sensor) =>
       `<option value="${escapeHtml(sensor.id)}" ${sensor.id === expression.id ? "selected" : ""}>${escapeHtml(sensor.id)} -- ${escapeHtml(sensor.unit)}</option>`).join("")}</select></label>`
+    : expression.op === "active"
+      ? `<label>Active action<select data-expression-active data-expression-path="${token}">${graph.actions.map((action) =>
+        `<option value="${escapeHtml(action.id)}" ${action.id === expression.action ? "selected" : ""}>${escapeHtml(action.id)}</option>`).join("")}</select></label>`
     : expression.op === "constant"
       ? `<label>Value type<select data-expression-constant-kind data-expression-path="${token}"><option ${typeof expression.value === "number" ? "selected" : ""}>number</option><option ${typeof expression.value === "boolean" ? "selected" : ""}>boolean</option></select></label>` +
         (typeof expression.value === "boolean" ? `<label>Value<select data-expression-constant-boolean data-expression-path="${token}"><option value="true" ${expression.value ? "selected" : ""}>true</option><option value="false" ${!expression.value ? "selected" : ""}>false</option></select></label>`
@@ -115,11 +120,11 @@ const expressionMarkup = (expression: Expression, rule: number, field: "conditio
             `<label>Unit<select data-expression-constant-unit data-expression-path="${token}">${SENSOR_UNITS.filter((unit) => unit !== "boolean").map((unit) =>
               `<option ${unit === (expression.unit ?? "scalar") ? "selected" : ""}>${unit}</option>`).join("")}</select></label>`)
       : expression.op === "not"
-        ? expressionMarkup(expression.value, rule, field, parameter, [...path, "value"], sensors)
+        ? expressionMarkup(expression.value, rule, field, parameter, [...path, "value"], sensors, graph)
       : "left" in expression
-        ? `<div class="expression-children"><label>Left${expressionMarkup(expression.left, rule, field, parameter, [...path, "left"], sensors)}</label>` +
-          `<label>Right${expressionMarkup(expression.right, rule, field, parameter, [...path, "right"], sensors)}</label></div>`
-        : `<div class="expression-children">${expression.values.map((value, index) => `<div>${expressionMarkup(value, rule, field, parameter, [...path, "values", index], sensors)}` +
+        ? `<div class="expression-children"><label>Left${expressionMarkup(expression.left, rule, field, parameter, [...path, "left"], sensors, graph)}</label>` +
+          `<label>Right${expressionMarkup(expression.right, rule, field, parameter, [...path, "right"], sensors, graph)}</label></div>`
+        : `<div class="expression-children">${expression.values.map((value, index) => `<div>${expressionMarkup(value, rule, field, parameter, [...path, "values", index], sensors, graph)}` +
           `<button type="button" data-program-action="remove-expression-child" data-expression-path="${token}" data-child="${index}" ${expression.values.length <= 1 ? "disabled" : ""}>Remove term</button></div>`).join("")}` +
           `<button type="button" data-program-action="add-expression-child" data-expression-path="${token}">Add term</button></div>`;
   return `<fieldset class="expression-node" data-expression-node="${token}"><legend>${escapeHtml(typeLabel(expression, sensors))}</legend>` +
@@ -133,14 +138,14 @@ const ruleMarkup = (rule: ProgramRule, index: number, ruleCount: number, graph: 
     if (spec.kind === "enum") return `<fieldset><legend>${escapeHtml(name)}</legend><select data-program-enum data-index="${index}" data-parameter="${escapeHtml(name)}">${spec.values.map((choice) =>
       `<option ${value?.kind === "enum" && value.value === choice ? "selected" : ""}>${escapeHtml(choice)}</option>`).join("")}</select></fieldset>`;
     return `<fieldset><legend>${escapeHtml(name)} -- ${spec.kind === "number" ? spec.unit : "boolean"}</legend>${value?.kind === "expression"
-      ? expressionMarkup(value.value, index, "parameter", name, [], sensors) : "<p>Missing expression</p>"}</fieldset>`;
+      ? expressionMarkup(value.value, index, "parameter", name, [], sensors, graph) : "<p>Missing expression</p>"}</fieldset>`;
   }).join("") : "";
   return `<article class="program-rule" data-rule="${index}"><header><span class="program-order">${index + 1}</span><label>Rule ID<input data-program-rule-id data-index="${index}" value="${escapeHtml(rule.id)}"></label>` +
     `<div><button type="button" data-program-action="move-up" data-index="${index}" ${index === 0 ? "disabled" : ""}>Up</button>` +
     `<button type="button" data-program-action="move-down" data-index="${index}" ${index === ruleCount - 1 ? "disabled" : ""}>Down</button>` +
     `<button type="button" data-program-action="remove-rule" data-index="${index}">Remove</button></div></header><dl>` +
-    `<dt>Condition</dt><dd>${expressionMarkup(rule.condition, index, "condition", "", [], sensors)}</dd>` +
-    `<dt>Utility</dt><dd>${expressionMarkup(rule.utility, index, "utility", "", [], sensors)}</dd>` +
+    `<dt>Condition</dt><dd>${expressionMarkup(rule.condition, index, "condition", "", [], sensors, graph)}</dd>` +
+    `<dt>Utility</dt><dd>${expressionMarkup(rule.utility, index, "utility", "", [], sensors, graph)}</dd>` +
     `<dt>Action</dt><dd><select data-program-action-picker data-index="${index}">${graph.actions.map((candidate) => `<option value="${escapeHtml(candidate.id)}" ${candidate.id === rule.action ? "selected" : ""}>${escapeHtml(candidate.id)}</option>`).join("")}</select></dd>` +
     `<dt>Resolved group</dt><dd><output>${escapeHtml(group)}</output></dd><dt>Parameters</dt><dd>${parameters || "No parameters."}</dd>` +
     `<dt>Priority</dt><dd><input type="number" min="-32768" max="32767" step="1" data-program-priority data-index="${index}" value="${rule.priority}"></dd>` +
@@ -207,8 +212,9 @@ export class ProgramEditor {
     const token = target.dataset.expressionPath; if (!token) return; const path = pathParts(token); const rule = this.value.rules[path.rule];
     const root = path.field === "parameter" ? (rule.parameters[path.parameter] as { kind: "expression"; value: Expression }).value : rule[path.field]; const current = expressionAt(root, path.path);
     if (target.matches("[data-expression-op]")) this.expression(token,
-      defaultExpression(target.value as Expression["op"], this.options.sensors, this.expectedUnit(path)));
+      defaultExpression(target.value as Expression["op"], this.options.sensors, this.expectedUnit(path), this.options.graph));
     else if (target.matches("[data-expression-sensor]")) this.expression(token, { op: "sensor", id: target.value });
+    else if (target.matches("[data-expression-active]")) this.expression(token, { op: "active", action: target.value });
     else if (target.matches("[data-expression-constant-kind]")) this.expression(token, { op: "constant", value: target.value === "boolean" });
     else if (target.matches("[data-expression-constant-boolean]")) this.expression(token, { op: "constant", value: target.value === "true" });
     else if (target.matches("[data-expression-constant-number]")) this.expression(token, { op: "constant", value: Number(target.value), ...(current.op === "constant" && current.unit && current.unit !== "boolean" ? { unit: current.unit } : {}) });

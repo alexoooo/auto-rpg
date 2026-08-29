@@ -177,7 +177,7 @@ export class ConstructControlEndpoint implements ControlEndpoint {
       }] }));
     }
     const mind = new ConstructMind(program, this.graph, this.sensorSpecs);
-    return this.driverFor(name, (dt) => mind.decide(this.sensors, dt), () => mind.diagnostic());
+    return this.driverFor(name, (dt) => mind.decide(this.sensors, dt, this.scheduler), () => mind.diagnostic());
   }
 
   private driverFor(name: string, command: (dt: number) => ConstructCommand,

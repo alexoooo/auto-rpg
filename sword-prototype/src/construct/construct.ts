@@ -10,9 +10,10 @@ import { CONFIG } from "../config.ts";
 import type { Striking } from "../combat.ts";
 import type { Limb } from "../fighter.ts";
 import type { BodyView, EffectorView, HandName, HandView, ProjectileView } from "../mind.ts";
+import { blankBlocker, selectBlocker } from "../action-primitives.ts";
 import { LAYER, layersFor, type Side } from "../physics.ts";
 import type { Combatant, CombatantBuild, UnitKind } from "../units.ts";
-import type { WeaponKind } from "../hands.ts";
+import { isHeldStriker, type WeaponKind } from "../hands.ts";
 import { compileConstruct, groundedConstructOriginY } from "./compile.ts";
 import { ConstructControlEndpoint } from "./control.ts";
 import type { ConstructRuntime } from "./runtime.ts";
@@ -26,6 +27,18 @@ import type { ConstructProgram } from "./program.ts";
 import { installedSensorsForBlueprint, jointSensorChannels, type SensorSpec } from "./sensors.ts";
 import { LiveConstructState } from "./live-state.ts";
 import { ConstructDamageTargets, moduleAtContact } from "./damage-target.ts";
+import { humanoidProfileMetrics } from "./humanoid.ts";
+import { twinbladeProfileMetrics } from "./twinblade.ts";
+import { arbalestProfileMetrics } from "./arbalest.ts";
+
+/** Held guards are visible opponent geometry even though they are not severable limbs. */
+export function opponentOwnsSightHit(
+  opponent: Pick<Combatant, "limbFor" | "parriedBy">,
+  body: PhysicsBody,
+  point: Vector3,
+): boolean {
+  return opponent.limbFor(body) !== undefined || opponent.parriedBy(body, point) !== null;
+}
 
 export interface ConstructDefinition {
   readonly blueprint: ConstructBlueprint;
@@ -35,29 +48,52 @@ export interface ConstructDefinition {
   readonly profile?: ConstructProfile;
 }
 
-export interface ConstructProfile { readonly kind: Extract<UnitKind, "bronze-warden" | "swordbearer-effigy">;
+export interface ConstructProfile { readonly kind: Extract<UnitKind,
+  "bronze-warden" | "swordbearer-effigy" | "twinblade-effigy" | "arbalest-effigy">;
   readonly label: string; readonly reach: number; readonly crownHeight: number; readonly vitalHeight: number;
   readonly collisionRadius: number; readonly footPartIds: readonly string[]; }
 export const WARDEN_CONSTRUCT_PROFILE: ConstructProfile = Object.freeze({ kind: "bronze-warden", label: "Bronze Warden",
   reach: 1.4, crownHeight: 1.9, vitalHeight: 1.08, collisionRadius: 0.72,
   footPartIds: Object.freeze(["limb-front-left-foot", "limb-front-right-foot", "limb-rear-left-foot", "limb-rear-right-foot"]) });
+const HUMANOID_PROFILE_METRICS = humanoidProfileMetrics();
 export const HUMANOID_CONSTRUCT_PROFILE: ConstructProfile = Object.freeze({ kind: "swordbearer-effigy", label: "Swordbearer Effigy",
   // These are bind-pose heights above the contact-pad support plane. The pads are
   // colliders too: measuring only the bare foot makes every host consumer 52 mm
   // shorter than the compiled machine it frames and aims at.
-  reach: 1.3, crownHeight: 2.532, vitalHeight: 1.542, collisionRadius: 0.62,
+  ...HUMANOID_PROFILE_METRICS,
   footPartIds: Object.freeze(["left-foot", "right-foot"]) });
+const TWINBLADE_PROFILE_METRICS = twinbladeProfileMetrics();
+export const TWINBLADE_CONSTRUCT_PROFILE: ConstructProfile = Object.freeze({
+  kind: "twinblade-effigy", label: "Twinblade Effigy", ...TWINBLADE_PROFILE_METRICS,
+  footPartIds: Object.freeze(["left-foot", "right-foot"]),
+});
+const ARBALEST_PROFILE_METRICS = arbalestProfileMetrics();
+export const ARBALEST_CONSTRUCT_PROFILE: ConstructProfile = Object.freeze({
+  kind: "arbalest-effigy", label: "Arbalest Effigy", ...ARBALEST_PROFILE_METRICS,
+  footPartIds: Object.freeze(["left-foot", "right-foot"]),
+});
 export const constructProfileForBlueprint = (blueprint: ConstructBlueprint): ConstructProfile =>
-  blueprint.id === "swordbearer-effigy" ? HUMANOID_CONSTRUCT_PROFILE : WARDEN_CONSTRUCT_PROFILE;
+  blueprint.id === "swordbearer-effigy" ? HUMANOID_CONSTRUCT_PROFILE
+    : blueprint.id === "twinblade-effigy" ? TWINBLADE_CONSTRUCT_PROFILE
+      : blueprint.id === "arbalest-effigy" ? ARBALEST_CONSTRUCT_PROFILE : WARDEN_CONSTRUCT_PROFILE;
 
 const NO_HANDS = Object.freeze({}) as Record<HandName, HandView>;
 const NO_NATURAL_ATTACKS = Object.freeze({});
+const blankThreatHand = (): HandView => ({ weapon: "empty", shoulder: new Vector3(), tip: new Vector3(),
+  tipSpeed: 0, tipVelocity: new Vector3(), reach: 0, lost: false, outboard: 1 });
+const blankThreatBody = (): BodyView => ({ unit: "warrior", reach: 0, crownHeight: 0, vitalHeight: 0,
+  collisionRadius: 0, naturalAttacks: NO_NATURAL_ATTACKS, ground: new Vector3(), facing: 0,
+  shoulder: new Vector3(), tip: new Vector3(), tipSpeed: 0,
+  hands: { primary: blankThreatHand(), secondary: blankThreatHand() }, crouch: 0, trunkLean: 0,
+  trunkTwist: 0, vitality: 1, health: {} });
 
 const controllerPowerW = (controller: string): number => ({
   "hold-joints": 18, "turn-joint-to-angle": 55,
   "quadruped-move": 280, "quadruped-turn": 240, brace: 150, recover: 320,
   "biped-move": 240, "biped-turn": 210, "biped-brace": 135, "biped-recover": 300,
   "aim-direction": 70, "track-target": 90, "sweep-arc": 300, "sweep-compact-arc": 300,
+  "swordbearer-target-sweep": 300,
+  "twinblade-neutral-hold": 130, "twinblade-scissor-cut": 520,
   "fire-projectile": 60, "guard-mount": 95,
 }[controller] ?? 80);
 
@@ -103,6 +139,10 @@ export class Construct implements Combatant {
   private readonly opponentVelocity = new Vector3();
   private readonly localOpponent = new Vector3();
   private readonly localOpponentVelocity = new Vector3();
+  private readonly perceivedOpponent = blankThreatBody();
+  private readonly selectedBlocker = blankBlocker();
+  private readonly localBlocker = new Vector3();
+  private readonly localWeapon = new Vector3();
   private readonly muzzleOrigin = new Vector3();
   private readonly muzzleDirection = new Vector3();
   private previousOpponentClock: number | null = null;
@@ -110,6 +150,11 @@ export class Construct implements Combatant {
   private readonly aimModuleIds: readonly string[];
   private readonly mountedEffectors: readonly ConstructMountedSword[];
   private readonly effectorViews: EffectorView[];
+  private readonly launcherEffectorIndex: number | null;
+  private readonly launcherAngularVelocity = new Vector3();
+  private readonly launcherRadius = new Vector3();
+  private readonly launcherTangentialVelocity = new Vector3();
+  private launcherLooseSerial = 0;
 
   constructor(ctx: CombatantBuild, selection: "crossbow" | "sword" | ConstructDefinition = "crossbow") {
     this.side = ctx.side;
@@ -119,7 +164,8 @@ export class Construct implements Combatant {
     this.constructProfile = definition?.profile ?? constructProfileForBlueprint(blueprint);
     this.kind = this.constructProfile.kind;
     this.sensorSpecs = installedSensorsForBlueprint(blueprint, definition ? definition.sensors : WARDEN_SENSORS);
-    // The committed four-segment chain puts the foot sole 1.33 m below the core bind origin.
+    // Grounding is compiled from the selected blueprint, including mounted contact-pad colliders;
+    // fixed body-name offsets became false as soon as a second scaled chassis existed.
     const origin = new Vector3(ctx.origin.x,
       ctx.origin.y === 0 ? groundedConstructOriginY(blueprint, ctx.facing) : ctx.origin.y, ctx.origin.z);
     this.runtime = compileConstruct(ctx.scene, blueprint, { faction: ctx.side, origin, facing: ctx.facing });
@@ -207,6 +253,9 @@ export class Construct implements Combatant {
       .map((module) => new ConstructMountedSword(module, () => this.state.moduleAvailable(module.id)));
     this.effectorViews = this.mountedEffectors.map(() => ({ weapon: "sword", anchor: new Vector3(),
       tip: new Vector3(), tipVelocity: new Vector3(), reach: 0, lost: false }));
+    this.launcherEffectorIndex = launcher ? this.effectorViews.length : null;
+    if (launcher) this.effectorViews.push({ weapon: "bow", anchor: new Vector3(),
+      tip: new Vector3(), tipVelocity: new Vector3(), reach: 0, lost: false });
     this.strikers = [...this.mountedEffectors];
     if (this.quiver) this.strikers.push(...this.quiver.arrows);
     if (ctx.humanActive) this.control.installHuman();
@@ -220,6 +269,7 @@ export class Construct implements Combatant {
     const root = rootPart.node;
     const rotation = root.rotationQuaternion ?? Quaternion.Identity();
     const up = Vector3.Up().rotateByQuaternionToRef(rotation, this.middle);
+    const coreUpright = Vector3.Dot(up, Vector3.Up()) > 0.72;
     const coreEuler = rotation.toEulerAngles();
     const facts: Record<string, number | boolean> = Object.fromEntries(this.sensorSpecs.map((sensor) =>
       [sensor.id, sensor.unit === "boolean" ? false : 0]));
@@ -233,10 +283,30 @@ export class Construct implements Combatant {
     const inverse = Quaternion.Inverse(rotation);
     opponentCentre.subtractToRef(root.position, this.localOpponent).rotateByQuaternionToRef(inverse, this.localOpponent);
     this.opponentVelocity.rotateByQuaternionToRef(inverse, this.localOpponentVelocity);
-    const launcherClear = this.launcherModule ? this.launcherLineIsClear() : false;
-    const lineOfSight = this.hasLineOfSight(opponent, opponentCentre);
+    // `effectors` is optional for legacy bodies. Clear the pooled record before dispatch so a
+    // body that publishes none cannot inherit a mounted weapon from an earlier descriptor.
+    this.perceivedOpponent.effectors = undefined;
+    opponent.describe(this.perceivedOpponent);
+    const blocker = selectBlocker(this.perceivedOpponent, this.selectedBlocker);
+    if (blocker.found) {
+      this.localBlocker.set(blocker.tip.x - root.position.x, blocker.tip.y - root.position.y,
+        blocker.tip.z - root.position.z).rotateByQuaternionToRef(inverse, this.localBlocker);
+    } else this.localBlocker.setAll(0);
+    const weapon = [this.perceivedOpponent.hands.primary, this.perceivedOpponent.hands.secondary]
+      .find((hand) => hand && !hand.lost && isHeldStriker(hand.weapon));
+    if (weapon) {
+      this.localWeapon.set(weapon.tip.x - root.position.x, weapon.tip.y - root.position.y,
+        weapon.tip.z - root.position.z).rotateByQuaternionToRef(inverse, this.localWeapon);
+    } else this.localWeapon.setAll(0);
+    const launcherPose = this.launcherModule ? this.launcherPose() : null;
+    const localMuzzleOrigin = launcherPose?.origin.subtract(root.position)
+      .rotateByQuaternionToRef(inverse, new Vector3()) ?? Vector3.Zero();
+    const localLauncherForward = launcherPose?.direction
+      .rotateByQuaternionToRef(inverse, new Vector3()) ?? Vector3.Zero();
+    const launcherClear = launcherPose ? this.launcherLineIsClear(launcherPose) : false;
+    const lineOfSight = this.hasLineOfSight(opponent, opponentCentre, launcherPose);
     Object.assign(facts, {
-      "core-upright": Vector3.Dot(up, Vector3.Up()) > 0.72,
+      "core-upright": coreUpright,
       "core-roll-rad": coreEuler.z,
       "core-pitch-rad": coreEuler.x,
       "opponent-range": Vector3.Distance(this.centre(), opponentCentre),
@@ -249,6 +319,25 @@ export class Construct implements Combatant {
       "opponent-local-vx": this.localOpponentVelocity.x,
       "opponent-local-vy": this.localOpponentVelocity.y,
       "opponent-local-vz": this.localOpponentVelocity.z,
+      // These are the live compiled ray, not a second copy of socket or projectile dimensions.
+      // The mount controller needs them because opponent-local coordinates are rooted at the
+      // core while the two-axis launcher is neither rooted there nor fired from its socket.
+      "launcher-muzzle-local-x": localMuzzleOrigin.x,
+      "launcher-muzzle-local-y": localMuzzleOrigin.y,
+      "launcher-muzzle-local-z": localMuzzleOrigin.z,
+      "launcher-forward-local-x": localLauncherForward.x,
+      "launcher-forward-local-y": localLauncherForward.y,
+      "launcher-forward-local-z": localLauncherForward.z,
+      // These are equipment facts. Whether the surface is an opening, and which way to move
+      // around it, remain policy/controller decisions rather than sensor conclusions.
+      "opponent-blocker-present": blocker.found,
+      "opponent-blocker-local-x": this.localBlocker.x,
+      "opponent-blocker-local-y": this.localBlocker.y,
+      "opponent-blocker-local-z": this.localBlocker.z,
+      "opponent-weapon-present": weapon !== undefined,
+      "opponent-weapon-local-x": this.localWeapon.x,
+      "opponent-weapon-local-y": this.localWeapon.y,
+      "opponent-weapon-local-z": this.localWeapon.z,
       "projectile-speed-mps": this.launcherModule?.spec.projectile?.muzzleSpeedMps ?? 1,
       "core-speed-mps": Math.hypot(rootPart.body.getLinearVelocity().x, rootPart.body.getLinearVelocity().z),
       "core-yaw-rate-rad-s": rootPart.body.getAngularVelocity().y,
@@ -316,6 +405,8 @@ export class Construct implements Combatant {
       this.contactNormal.delete(module.id);
     }
     this.control.publishFacts(facts, hardware.sensors);
+    // Collision callbacks run after control/observe. The pulse published above therefore belongs
+    // to one completed physics step, and clearing here makes absence on the next step explicit.
   }
 
   describe(into: BodyView): void {
@@ -336,6 +427,19 @@ export class Construct implements Combatant {
       view.tipVelocity.copyFrom(striker.velocityAt(view.tip));
       view.reach = Vector3.Distance(view.anchor, view.tip);
       view.lost = striker.spent;
+    }
+    if (this.launcherModule && this.launcherEffectorIndex !== null) {
+      const view = this.effectorViews[this.launcherEffectorIndex];
+      const pose = this.launcherPose();
+      this.launcherModule.root.computeWorldMatrix(true).getTranslationToRef(view.anchor);
+      view.tip.copyFrom(pose.origin);
+      this.launcherModule.socket.part.body.getLinearVelocityToRef(view.tipVelocity);
+      this.launcherModule.socket.part.body.getAngularVelocityToRef(this.launcherAngularVelocity);
+      this.launcherRadius.copyFrom(view.tip).subtractInPlace(this.launcherModule.socket.part.node.position);
+      Vector3.CrossToRef(this.launcherAngularVelocity, this.launcherRadius, this.launcherTangentialVelocity);
+      view.tipVelocity.addInPlace(this.launcherTangentialVelocity);
+      view.reach = Vector3.Distance(view.anchor, view.tip);
+      view.lost = !this.state.moduleAvailable(this.launcherModule.id);
     }
     into.effectors = this.effectorViews;
     into.ground.copyFrom(this.feetPosition());
@@ -429,6 +533,8 @@ export class Construct implements Combatant {
   }
 
   stopFighting(): void { this.control.stopFighting(); }
+  /** Count of successful launcher looses, independent of the Quiver's recyclable body slots. */
+  launcherLooseCount(): number { return this.launcherLooseSerial; }
   occlusionPoints(): readonly Vector3[] { return [...this.runtime.parts.values()].map((part) => part.node.position); }
 
   dispose(): void {
@@ -454,7 +560,8 @@ export class Construct implements Combatant {
       return;
     }
     const pose = this.launcherPose();
-    this.quiver.loose(pose.origin, pose.direction, projectile.muzzleSpeedMps);
+    if (this.quiver.loose(pose.origin, pose.direction, projectile.muzzleSpeedMps,
+      this.launcherLooseSerial)) this.launcherLooseSerial += 1;
   }
 
   private launcherPose(): Readonly<{ origin: Vector3; direction: Vector3 }> {
@@ -467,9 +574,8 @@ export class Construct implements Combatant {
     return { origin: this.muzzleOrigin, direction: this.muzzleDirection };
   }
 
-  private launcherLineIsClear(): boolean {
+  private launcherLineIsClear(pose = this.launcherPose()): boolean {
     if (!this.launcherModule) return false;
-    const pose = this.launcherPose();
     const end = pose.origin.add(pose.direction.scale(1.2));
     const engine = this.runtime.part(this.runtime.blueprint.rootPart).node.getScene().getPhysicsEngine() as PhysicsEngine | null;
     const hits = engine?.raycastMulti(pose.origin, end) ?? [];
@@ -477,12 +583,13 @@ export class Construct implements Combatant {
       hit.body !== undefined && this.byBody.has(hit.body));
   }
 
-  private hasLineOfSight(opponent: Combatant, opponentCentre: Vector3): boolean {
-    const from = this.launcherModule ? this.launcherPose().origin : this.centre();
+  private hasLineOfSight(opponent: Combatant, opponentCentre: Vector3,
+    launcherPose: Readonly<{ origin: Vector3; direction: Vector3 }> | null = null): boolean {
+    const from = launcherPose?.origin ?? this.centre();
     const engine = this.runtime.part(this.runtime.blueprint.rootPart).node.getScene().getPhysicsEngine() as PhysicsEngine | null;
     const hits = engine?.raycastMulti(from, opponentCentre) ?? [];
     const first = [...hits].sort((left, right) => left.hitDistance - right.hitDistance)
       .find((hit) => hit.body !== undefined && !this.byBody.has(hit.body));
-    return first?.body !== undefined && opponent.limbFor(first.body) !== undefined;
+    return first?.body !== undefined && opponentOwnsSightHit(opponent, first.body, first.hitPointWorld);
   }
 }

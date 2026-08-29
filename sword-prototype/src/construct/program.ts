@@ -44,6 +44,13 @@ function parseExpression(value: unknown, path: string, depth: number, budget: Pa
     if (typeof row.id !== "string" || !PROGRAM_ID.test(row.id)) throw new Error(`${path}.id is invalid`);
     return Object.freeze({ op: "sensor", id: row.id });
   }
+  if (row.op === "active") {
+    exactFields(row, ["op", "action"], [], path);
+    if (typeof row.action !== "string" || !PROGRAM_ID.test(row.action)) {
+      throw new Error(`${path}.action is invalid`);
+    }
+    return Object.freeze({ op: "active", action: row.action });
+  }
   if (row.op === "constant") {
     exactFields(row, ["op", "value"], ["unit"], path);
     if (typeof row.value !== "number" && typeof row.value !== "boolean") throw new Error(`${path}.value must be finite number or boolean`);
@@ -72,6 +79,7 @@ function parseExpression(value: unknown, path: string, depth: number, budget: Pa
 
 export type Expression =
   | Readonly<{ op: "sensor"; id: string }>
+  | Readonly<{ op: "active"; action: string }>
   | Readonly<{ op: "constant"; value: number | boolean; unit?: SensorUnit }>
   | Readonly<{ op: "not"; value: Expression }>
   | Readonly<{ op: "and" | "or"; values: readonly Expression[] }>
@@ -181,6 +189,7 @@ export function expressionType(expression: Expression, sensors: ReadonlyMap<stri
       if (!sensor) throw new Error(`program references unknown sensor "${expression.id}"`);
       return sensor.unit === "boolean" ? BOOLEAN : { kind: "number", unit: sensor.unit };
     }
+    case "active": return BOOLEAN;
     case "constant":
       if (typeof expression.value === "boolean") {
         if (expression.unit !== undefined && expression.unit !== "boolean") {
@@ -260,6 +269,9 @@ export function validateProgram(
     if (expressionNodes > CONSTRUCT_PROGRAM_LIMITS.maxExpressionNodes) {
       throw new Error(`construct program exceeds ${CONSTRUCT_PROGRAM_LIMITS.maxExpressionNodes} expression nodes`);
     }
+    if (expression.op === "active" && !graph.actions.some(({ id }) => id === expression.action)) {
+      throw new Error(`${path} references unknown active action "${expression.action}"`);
+    }
     if (expression.op === "not") measure(expression.value, depth + 1, `${path}.value`);
     else if ("values" in expression) expression.values.forEach((value, index) => measure(value, depth + 1, `${path}.values[${index}]`));
     else if ("left" in expression) {
@@ -316,30 +328,36 @@ export function validateProgram(
 
 type Evaluation = { readonly value: number | boolean; readonly unit: SensorUnit };
 
-export function evaluateExpression(expression: Expression, frame: SensorFrame): Evaluation {
+export interface ProgramRuntimeState { isActionActive(action: string): boolean }
+const INACTIVE_PROGRAM_STATE: ProgramRuntimeState = Object.freeze({ isActionActive: () => false });
+
+export function evaluateExpression(expression: Expression, frame: SensorFrame,
+  runtime: ProgramRuntimeState = INACTIVE_PROGRAM_STATE): Evaluation {
   switch (expression.op) {
     case "sensor": {
       const value = frame.read(expression.id);
       return { value: value.value, unit: value.unit };
     }
+    case "active": return { value: runtime.isActionActive(expression.action), unit: "boolean" };
     case "constant": return { value: expression.value, unit: expression.unit ?? (typeof expression.value === "boolean" ? "boolean" : "scalar") };
-    case "not": return { value: !evaluateExpression(expression.value, frame).value, unit: "boolean" };
-    case "and": return { value: expression.values.every((value) => Boolean(evaluateExpression(value, frame).value)), unit: "boolean" };
-    case "or": return { value: expression.values.some((value) => Boolean(evaluateExpression(value, frame).value)), unit: "boolean" };
-    case "lt": return { value: Number(evaluateExpression(expression.left, frame).value) < Number(evaluateExpression(expression.right, frame).value), unit: "boolean" };
-    case "lte": return { value: Number(evaluateExpression(expression.left, frame).value) <= Number(evaluateExpression(expression.right, frame).value), unit: "boolean" };
-    case "gt": return { value: Number(evaluateExpression(expression.left, frame).value) > Number(evaluateExpression(expression.right, frame).value), unit: "boolean" };
-    case "gte": return { value: Number(evaluateExpression(expression.left, frame).value) >= Number(evaluateExpression(expression.right, frame).value), unit: "boolean" };
-    case "add": return numericFold(expression.values, frame, (a, b) => a + b);
-    case "sub": return numericFold(expression.values, frame, (a, b) => a - b);
-    case "mul": return numericFold(expression.values, frame, (a, b) => a * b);
-    case "min": return numericFold(expression.values, frame, Math.min);
-    case "max": return numericFold(expression.values, frame, Math.max);
+    case "not": return { value: !evaluateExpression(expression.value, frame, runtime).value, unit: "boolean" };
+    case "and": return { value: expression.values.every((value) => Boolean(evaluateExpression(value, frame, runtime).value)), unit: "boolean" };
+    case "or": return { value: expression.values.some((value) => Boolean(evaluateExpression(value, frame, runtime).value)), unit: "boolean" };
+    case "lt": return { value: Number(evaluateExpression(expression.left, frame, runtime).value) < Number(evaluateExpression(expression.right, frame, runtime).value), unit: "boolean" };
+    case "lte": return { value: Number(evaluateExpression(expression.left, frame, runtime).value) <= Number(evaluateExpression(expression.right, frame, runtime).value), unit: "boolean" };
+    case "gt": return { value: Number(evaluateExpression(expression.left, frame, runtime).value) > Number(evaluateExpression(expression.right, frame, runtime).value), unit: "boolean" };
+    case "gte": return { value: Number(evaluateExpression(expression.left, frame, runtime).value) >= Number(evaluateExpression(expression.right, frame, runtime).value), unit: "boolean" };
+    case "add": return numericFold(expression.values, frame, runtime, (a, b) => a + b);
+    case "sub": return numericFold(expression.values, frame, runtime, (a, b) => a - b);
+    case "mul": return numericFold(expression.values, frame, runtime, (a, b) => a * b);
+    case "min": return numericFold(expression.values, frame, runtime, Math.min);
+    case "max": return numericFold(expression.values, frame, runtime, Math.max);
   }
 }
 
-function numericFold(values: readonly Expression[], frame: SensorFrame, operation: (a: number, b: number) => number): Evaluation {
-  const rows = values.map((value) => evaluateExpression(value, frame));
+function numericFold(values: readonly Expression[], frame: SensorFrame,
+  runtime: ProgramRuntimeState, operation: (a: number, b: number) => number): Evaluation {
+  const rows = values.map((value) => evaluateExpression(value, frame, runtime));
   const result = rows.slice(1).reduce((total, row) => operation(total, Number(row.value)), Number(rows[0].value));
   if (!Number.isFinite(result)) throw new Error("construct program expression evaluated non-finitely");
   const unit = rows.find((row) => row.unit !== "scalar")?.unit ?? "scalar";
@@ -350,11 +368,12 @@ export function commandForRules(
   validated: ValidatedProgram,
   graph: ConstructControlGraph,
   frame: SensorFrame,
+  runtime: ProgramRuntimeState = INACTIVE_PROGRAM_STATE,
 ): ConstructCommand {
   const selected = validated.enabledRuleIndices.flatMap((index) => {
     const rule = validated.program.rules[index];
-    if (!Boolean(evaluateExpression(rule.condition, frame).value)) return [];
-    const utility = Number(evaluateExpression(rule.utility, frame).value);
+    if (!Boolean(evaluateExpression(rule.condition, frame, runtime).value)) return [];
+    const utility = Number(evaluateExpression(rule.utility, frame, runtime).value);
     if (!(utility > 0)) return [];
     const action = graph.actions.find((candidate) => candidate.id === rule.action);
     if (!action) return [];
@@ -365,7 +384,7 @@ export function commandForRules(
         return [name, parameter.value];
       }
       if (parameter.kind !== "expression") throw new Error(`rule "${rule.id}" parameter "${name}" is malformed`);
-      return [name, evaluateExpression(parameter.value, frame).value];
+      return [name, evaluateExpression(parameter.value, frame, runtime).value];
     }));
     return [{ request: { action: action.id, parameters }, priority: rule.priority, sourceIndex: index }];
   });

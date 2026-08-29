@@ -3,11 +3,13 @@ import test from "node:test";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
 import { CONFIG } from "../src/config.ts";
+import { CONSTRUCT_BLUEPRINT_LIMITS } from "../src/construct/blueprint.ts";
 import { canonicalBlueprintJson } from "../src/construct/canonical.ts";
 import { ConstructLabBout } from "../src/construct/lab-bout.ts";
 import { CONSTRUCT_CONTROLLERS } from "../src/construct/controllers.ts";
 import { humanoidBlueprint, humanoidControl, humanoidProgram, humanoidSavedConstruct,
-  HUMANOID_SENSORS } from "../src/construct/humanoid.ts";
+  humanoidProfileMetrics, humanoidSwordBindMetrics, HUMANOID_FATAL_HEALTH,
+  HUMANOID_SCALE, HUMANOID_SENSORS } from "../src/construct/humanoid.ts";
 import { ActionScheduler } from "../src/construct/scheduler.ts";
 import { resolveConstructBindTransforms } from "../src/construct/compile.ts";
 import { wardenBlueprint } from "../src/construct/warden.ts";
@@ -52,6 +54,11 @@ test("the_Swordbearer_Effigy_is_a_distinct_connected_humanoid_primitive_blueprin
   }
   assert.equal(blueprint.parts.every(({ shape }) => ["box", "capsule", "cylinder", "sphere"].includes(shape.kind)), true);
   assert.equal(blueprint.modules.some(({ id, kind }) => id === "effigy-sword" && kind === "sword"), true);
+  const fatalParts = blueprint.parts.filter(({ fatal }) => fatal);
+  assert.deepEqual(fatalParts.map(({ id, health, armour }) => ({ id, health, armour })),
+    [{ id: "torso", health: HUMANOID_FATAL_HEALTH, armour: 38 }],
+    "the measured curriculum durability belongs only to the declared fatal torso");
+  assert.equal(HUMANOID_FATAL_HEALTH, 30);
   const sockets = new Map(blueprint.sockets.map((socket) => [socket.id, socket]));
   const contacts = blueprint.modules.filter(({ kind }) => kind === "contact-sensor");
   assert.deepEqual(contacts.map(({ id }) => id).sort(), ["contact-left-foot", "contact-right-foot"]);
@@ -77,12 +84,54 @@ test("the_Swordbearer_Effigy_is_a_distinct_connected_humanoid_primitive_blueprin
     "the seam gate rejects the old floating-limb failure shape");
 });
 
+test("one_similarity_scale_owns_the_human_sized_stone_chassis_but_not_its_ordinary_sword", () => {
+  assert.equal(HUMANOID_SCALE, 0.75);
+  const blueprint = humanoidBlueprint();
+  const part = (id) => blueprint.parts.find((candidate) => candidate.id === id);
+  assert.deepEqual(part("torso").shape.sizeM, [0.72 * HUMANOID_SCALE, 0.78 * HUMANOID_SCALE,
+    0.34 * HUMANOID_SCALE]);
+  assert.equal(part("pelvis").massKg, 180 * HUMANOID_SCALE ** 3);
+  assert.equal(part("left-foot").massKg, 80 * HUMANOID_SCALE ** 3);
+  const waist = blueprint.joints.find(({ id }) => id === "waist").angularAxes[0];
+  assert.equal(waist.maxTorqueNm, 1200 * HUMANOID_SCALE ** 4);
+  assert.equal(waist.damping, 18 * HUMANOID_SCALE ** 4);
+  assert.deepEqual(blueprint.joints.find(({ id }) => id === "sword-yaw").parentFrame.positionM,
+    [0.42 * HUMANOID_SCALE, 0.25 * HUMANOID_SCALE, 0]);
+  assert.deepEqual(blueprint.sockets.find(({ id }) => id === "socket-sword-hand").frame.positionM,
+    [0, -0.29 * HUMANOID_SCALE, 0]);
+  const sword = blueprint.modules.find(({ id }) => id === "effigy-sword");
+  assert.equal(sword.massKg, 1.4,
+    "the full-sized weapon keeps ordinary longsword mass rather than stone-chassis density");
+  assert.deepEqual(sword.geometry.find(({ id }) => id === "blade").shape.sizeM, [0.10, 0.05, 1.05]);
+  assert.deepEqual(sword.striker.localTipM, [0, 0, 1.105]);
+  const mount = humanoidSwordBindMetrics();
+  assert.deepEqual(mount.yawPivotRootM, [0.315, 0.1875, 0]);
+  assert.deepEqual(mount.pitchPivotRootM, [0.315, 0.3225, 0]);
+  assert.ok(Math.abs(mount.pitchToSocketM - 0.435) < 1e-12);
+  assert.equal(mount.socketToTipM, 1.105);
+});
+
+test("the_humanoid_sensor_surface_is_the_exact_24_raw_facts_without_a_high_target_conclusion", () => {
+  const expected = ["core-upright", "core-roll-rad", "core-pitch-rad", "opponent-range",
+    "opponent-relative-speed", "opponent-local-x", "opponent-local-vx", "opponent-local-y",
+    "opponent-local-vy", "opponent-local-z", "opponent-local-vz", "opponent-blocker-present",
+    "opponent-blocker-local-x", "opponent-blocker-local-y", "opponent-blocker-local-z",
+    "opponent-weapon-present", "opponent-weapon-local-x", "opponent-weapon-local-y",
+    "opponent-weapon-local-z", "line-of-sight", "contact-left-foot", "slip-left-foot",
+    "contact-right-foot", "slip-right-foot"];
+  assert.deepEqual(HUMANOID_SENSORS.map(({ id }) => id), expected);
+  assert.equal(CONSTRUCT_BLUEPRINT_LIMITS.maxModuleSensorChannels, 24);
+  const sight = humanoidBlueprint().modules.find(({ id }) => id === "effigy-sight");
+  assert.deepEqual(sight.sensorChannels, expected.slice(0, 20),
+    "target choice remains Mind/controller inference rather than installed high-target hardware");
+});
+
 test("the_humanoid_saved_character_exposes_only_physically_supported_leg_and_sword_actions", () => {
   const control = humanoidControl();
   const controllers = new Map(control.actions.map(({ id, controller }) => [id, controller]));
   assert.deepEqual(Object.fromEntries([...controllers].filter(([id]) =>
     ["move", "turn", "recover", "aim", "sweep", "guard"].includes(id))), {
-    aim: "aim-direction", sweep: "sweep-compact-arc", guard: "guard-mount",
+    aim: "aim-direction", sweep: "swordbearer-target-sweep", guard: "guard-mount",
   });
   const locomotion = control.groups.find(({ id }) => id === "locomotion");
   assert.deepEqual(Object.keys(locomotion.bindings), ["left-foot", "right-foot"]);
@@ -149,7 +198,8 @@ test("the_humanoid_saved_character_physically_compiles_and_steps_in_the_shared_C
     assert.ok(bind.part("left-hand").node.position.x < bind.part("torso").node.position.x);
     assert.ok(bind.part("sword-arm-pitch").node.position.x > bind.part("torso").node.position.x);
     assert.ok(bind.part("left-foot").node.position.y < bind.part("pelvis").node.position.y);
-    const bindCrownHeight = bind.part("head").node.position.y + 0.22;
+    const headRadius = saved.blueprint.parts.find(({ id }) => id === "head").shape.radiusM;
+    const bindCrownHeight = bind.part("head").node.position.y + headRadius;
     const bindVitalHeight = bind.part("torso").node.position.y;
     for (let step = 0; step < 180; step += 1) bout.step(1 / CONFIG.world.physicsHz);
     const left = bout.construct("left");
@@ -171,10 +221,14 @@ test("the_humanoid_saved_character_physically_compiles_and_steps_in_the_shared_C
       naturalAttacks: {}, ground: new Vector3(), facing: 0, shoulder: new Vector3(), tip: new Vector3(),
       tipSpeed: 0, hands: {}, crouch: 0, trunkLean: 0, trunkTwist: 0, vitality: 0, health: {} };
     left.describe(view);
+    const measured = humanoidProfileMetrics();
     assert.deepEqual({ unit: view.unit, reach: view.reach, crownHeight: view.crownHeight,
       vitalHeight: view.vitalHeight, collisionRadius: view.collisionRadius }, {
-      unit: "swordbearer-effigy", reach: 1.3, crownHeight: 2.532, vitalHeight: 1.542, collisionRadius: 0.62,
+      unit: "swordbearer-effigy", ...measured,
     });
+    assert.ok(Math.abs(view.crownHeight - 1.8995) < 1e-12, "scaled chassis crown is human-sized");
+    assert.ok(view.reach > 1.1 && view.reach < 1.2,
+      "published reach is measured from the scaled body to the unscaled sword tip");
     assert.ok(Math.abs(bindCrownHeight - view.crownHeight) < 1e-9,
       "published crown height is the resolved head geometry above the contact pads");
     assert.ok(Math.abs(bindVitalHeight - view.vitalHeight) < 1e-9,

@@ -3,6 +3,7 @@ import type { ParameterSpec } from "./actions.ts";
 import { BIPED_CONTROLLERS } from "./biped.ts";
 import { LOCOMOTION_CONTROLLERS } from "./locomotion.ts";
 import { MOUNT_CONTROLLERS } from "./mounts.ts";
+import { TWINBLADE_COMBAT_CONTROLLERS } from "./twinblade-combat.ts";
 
 export type ControllerRole = "any-joints" | "one-rotational-joint" | "quadruped" | "biped" | "two-axis-mount";
 
@@ -91,6 +92,11 @@ export const CONTROLLER_COMPATIBILITY: readonly ControllerCompatibility[] = Obje
       joint: Object.freeze({ kind: "enum", values: Object.freeze(["replace-with-group-joint"]) }),
       "angle-rad": Object.freeze({ kind: "number", min: -3.14159, max: 3.14159, unit: "radians" }),
     }) }),
+  Object.freeze({ controller: "arbalest-left-sword-guard", role: "any-joints", minimumJoints: 4, minimumModules: 1,
+    requiredParameters: Object.freeze(["shoulder", "elbow", "wrist", "palm"]), bindings: Object.freeze([]),
+    parameters: Object.freeze(Object.fromEntries(["shoulder", "elbow", "wrist", "palm"].map((name) => [name,
+      Object.freeze({ kind: "number" as const, min: -1.25, max: 0.95, unit: "radians" as const })]))),
+  }),
   ...["quadruped-move", "quadruped-turn", "brace", "recover"].map((controller): ControllerCompatibility => Object.freeze({
     controller, role: "quadruped" as const, minimumJoints: 12, minimumModules: 3,
     requiredParameters: Object.freeze(controller === "quadruped-move" ? ["forward", "right", "speed"]
@@ -171,6 +177,15 @@ export const BOOTSTRAP_CONTROLLERS: readonly ControllerFactory[] = Object.freeze
       return new JointController(context, { [target]: numberParameter(context, "angle-rad") }, true);
     },
   }),
+  Object.freeze({
+    name: "arbalest-left-sword-guard",
+    create: (context: ControllerContext) => new JointController(context, {
+      "left-shoulder": numberParameter(context, "shoulder"),
+      "left-elbow": numberParameter(context, "elbow"),
+      "left-wrist": numberParameter(context, "wrist"),
+      "left-palm": numberParameter(context, "palm"),
+    }),
+  }),
 ]);
 
 export const CONSTRUCT_CONTROLLERS: readonly ControllerFactory[] = Object.freeze([
@@ -178,6 +193,7 @@ export const CONSTRUCT_CONTROLLERS: readonly ControllerFactory[] = Object.freeze
   ...BIPED_CONTROLLERS,
   ...LOCOMOTION_CONTROLLERS,
   ...MOUNT_CONTROLLERS,
+  ...TWINBLADE_COMBAT_CONTROLLERS,
 ]);
 
 /** Total controller lookup: unknown names are errors, never aliases for hold. */

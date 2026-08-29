@@ -83,7 +83,8 @@ const endpoint = () => new HumanoidControlEndpoint({
 
 test("legacy_units_keep_the_humanoid_surface_and_policy_factory", () => {
   for (const unit of Object.values(UNIT_REGISTRY).filter(({ kind }) =>
-    kind !== "bronze-warden" && kind !== "swordbearer-effigy")) {
+    kind !== "bronze-warden" && kind !== "swordbearer-effigy" && kind !== "twinblade-effigy" &&
+    kind !== "arbalest-effigy")) {
     assert.equal(unit.controlSurface, "humanoid-v1", unit.kind);
     assert.deepEqual(unit.driverOptions.map(({ name }) => name),
       unit.compatiblePolicies ?? ["idle", "swinger", "duelist", "archer", "crawler"]);
@@ -97,6 +98,25 @@ test("the_Swordbearer_Effigy_has_its_own_construct_identity_and_biped_driver", (
   assert.equal(effigy.humanAdapter, false);
   assert.equal(effigy.createPolicy, null);
   assert.deepEqual(effigy.driverOptions.map(({ name }) => name), ["construct-hold", "humanoid-authored"]);
+});
+
+test("the_Twinblade_Effigy_is_a_distinct_construct_picker_choice_without_replacing_the_Swordbearer", () => {
+  const twin = unitDefinition("twinblade-effigy");
+  assert.equal(twin.controlSurface, "construct-twinblade-v1");
+  assert.equal(twin.humanAdapter, false);
+  assert.equal(twin.createPolicy, null);
+  assert.deepEqual(twin.driverOptions.map(({ name }) => name), ["construct-hold", "humanoid-authored"]);
+  assert.notEqual(twin.anatomy.parts, unitDefinition("swordbearer-effigy").anatomy.parts);
+});
+
+test("the_Arbalest_Effigy_is_a_separate_human_scale_construct_picker_choice", () => {
+  const arbalest = unitDefinition("arbalest-effigy");
+  assert.equal(arbalest.controlSurface, "construct-arbalest-v1");
+  assert.equal(arbalest.humanAdapter, false);
+  assert.equal(arbalest.createPolicy, null);
+  assert.deepEqual(arbalest.driverOptions.map(({ name }) => name), ["construct-hold", "humanoid-authored"]);
+  assert.equal(UNITS.some(({ name }) => name === "swordbearer-effigy"), true);
+  assert.equal(UNITS.some(({ name }) => name === "twinblade-effigy"), true);
 });
 
 test("the_Bronze_Warden_exposes_only_its_construct_drivers_and_no_fake_human_adapter", () => {

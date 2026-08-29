@@ -167,6 +167,14 @@ it can stand and repeat physical sweeps, and its mounted sword has dealt real da
 but the pinned mixed bout still topples it at 19.54 seconds and its damage is far below the
 Warrior's. The diagnostics report that limitation rather than labelling it production AI.
 
+**Twinblade Effigy** and **Arbalest Effigy** remain separate Setup choices; neither replaces that
+Swordbearer experiment. Twinblade mounts two ordinary swords for the sequential scissor Action.
+Arbalest keeps the same human-scale stone body, tracks a finite-magazine auto-crossbow on the right
+and holds an ordinary sword guard with the real four-joint left arm. Its active Mind has physically
+qualified fatal-arrow wins against Warrior `duelist` on both arena sides at whole-body durability
+0.10, 0.05 and 0.02, while the exact posture-only body loses every frozen cell. This is a measured
+competitive prototype, not an undefeated-AI claim.
+
 Use the four tabs as one loop:
 
 1. **Body** selects a part in the connected tree, adds/removes code-native stone pieces, changes
