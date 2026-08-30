@@ -28,8 +28,9 @@ import { constructLearningCorpusDigest, constructLearningMaterializationOrder, c
   constructLearningMorphology, CONSTRUCT_LEARNING_SPLIT } from
   "../src/construct/learning/corpus.ts";
 import { authoredQualificationActionFailures, authoredQualificationCapabilityFailures,
+  assertConstructQualificationExpectation, parseConstructQualificationArgs,
   constructQualificationSourceFingerprint,
-  constructQualificationSourcePaths } from
+  constructQualificationSourcePaths, runConstructQualificationCli } from
   "../scripts/qualify-construct-learning-entry.mjs";
 
 const control = Object.freeze({ version: 1, groups: Object.freeze([
@@ -243,6 +244,45 @@ test("authored_qualification_distinguishes_named_resource_transitions_from_missi
   assert.deepEqual(authoredQualificationCapabilityFailures([
     row(0, [{ id: "left/dorsal/fire", reason: "ammunition \"dorsal-bolt\" is reloading" }]),
   ]), [], "a named resource lifecycle transition must not fail the structural integrity gate");
+});
+
+test("qualification_expectation_returns_success_only_for_the_named_terminal_status", async () => {
+  const parsed = parseConstructQualificationArgs(["--out", "evidence", "--workers", "8", "--expect", "rejected"]);
+  assert.deepEqual(parsed, { outDirectory: "evidence", workers: 8, expectation: "rejected" });
+  assert.deepEqual(parseConstructQualificationArgs(["--out", "evidence"]),
+    { outDirectory: "evidence", workers: undefined, expectation: undefined });
+  assert.doesNotThrow(() => assertConstructQualificationExpectation(undefined, "rejected"),
+    "an omitted expectation preserves the existing caller-controlled rejection exit path");
+  assert.doesNotThrow(() => assertConstructQualificationExpectation("rejected", "rejected"));
+  assert.doesNotThrow(() => assertConstructQualificationExpectation("qualified", "qualified"));
+  assert.doesNotThrow(() => assertConstructQualificationExpectation("recorded", "rejected"));
+  assert.doesNotThrow(() => assertConstructQualificationExpectation("recorded", "qualified"));
+  assert.throws(() => assertConstructQualificationExpectation("rejected", "qualified"),
+    /expected rejected but actual status was qualified/);
+  assert.throws(() => assertConstructQualificationExpectation("qualified", "rejected"),
+    /expected qualified but actual status was rejected/);
+  const run = (status, expectation) => runConstructQualificationCli([
+    "--out", "evidence", ...(expectation === undefined ? [] : ["--expect", expectation]),
+  ], async () => ({ status }), { write() {} });
+  assert.equal(await run("rejected", "rejected"), 0);
+  assert.equal(await run("qualified", "qualified"), 0);
+  assert.equal(await run("rejected", "recorded"), 0);
+  assert.equal(await run("qualified", "recorded"), 0);
+  assert.equal(await run("rejected", undefined), 2, "omission preserves the old rejected exit code");
+  await assert.rejects(run("qualified", "rejected"), /expected rejected but actual status was qualified/);
+});
+
+test("qualification_expectation_refuses_unknown_missing_duplicate_and_invalid_terminal_values", () => {
+  assert.throws(() => parseConstructQualificationArgs(["--out", "evidence", "--expect"]),
+    /--expect requires rejected, qualified or recorded/);
+  assert.throws(() => parseConstructQualificationArgs(["--out", "evidence", "--expect", "--workers", "8"]),
+    /--expect requires rejected, qualified or recorded/);
+  assert.throws(() => parseConstructQualificationArgs(["--out", "evidence", "--expect", "maybe"]),
+    /does not accept "maybe"; expected rejected, qualified or recorded/);
+  assert.throws(() => parseConstructQualificationArgs(["--out", "evidence", "--expect", "rejected",
+    "--expect", "qualified"]), /accepts --expect only once/);
+  assert.throws(() => assertConstructQualificationExpectation("recorded", "running"),
+    /invalid terminal status "running"/);
 });
 
 test("physical_smoke_uses_graph_policy_commands_the_public_scheduler_admits_and_moves_loss", async () => {

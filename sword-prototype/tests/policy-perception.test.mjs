@@ -13,7 +13,7 @@ import HavokPhysics from "@babylonjs/havok";
 
 import { CONFIG } from "../src/config.ts";
 import { attachPhysics, COLLIDES, LAYER } from "../src/physics.ts";
-import { Fighter } from "../src/fighter.ts";
+import { Fighter, stepPair } from "../src/fighter.ts";
 import { blankIntent } from "../src/policies.ts";
 import { ACTION_TUNING, selectThreat } from "../src/action-primitives.ts";
 import { FEATURE_COLUMNS, FeatureWriter, mirrorFeatures, writeFeatures } from "../src/learning/features.ts";
@@ -79,10 +79,7 @@ async function ring(leftLoadout, rightLoadout) {
   let pending = [];
   const control = () => {
     clock += FIXED;
-    left.observe(right, clock);
-    right.observe(left, clock);
-    left.update(FIXED);
-    right.update(FIXED);
+    stepPair(left, right, FIXED, clock);
     // **After** `update`. `Arm.update` runs `Quiver.step` first thing, and that
     // is what takes down the one-step teleport `loose` puts up -- a shot queued
     // ahead of it is cancelled before the solver sees it and starts from where

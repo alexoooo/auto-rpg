@@ -1,5 +1,7 @@
 import type { BoutRecorder } from "./recorder.ts";
 import type { Side } from "./physics.ts";
+import { resolveSupportedPair } from "./supported-locomotion.ts";
+import type { SupportedLocomotionPort } from "./supported-locomotion.ts";
 
 export type DriverStopReason = "verdict" | "handover" | "dispose";
 
@@ -41,12 +43,16 @@ export interface ControlEndpoint {
 /** The fairness boundary: every body publishes before either installed driver acts. */
 export interface ControlledBody {
   readonly control: ControlEndpoint;
+  readonly locomotion?: SupportedLocomotionPort | null;
   observe(opponent: ControlledBody, clock: number): void;
 }
 
 export function stepControlledPair(left: ControlledBody, right: ControlledBody, dt: number, clock: number): void {
   left.observe(right, clock);
   right.observe(left, clock);
+  left.locomotion?.beginControlStep();
+  right.locomotion?.beginControlStep();
   left.control.driver.step(dt);
   right.control.driver.step(dt);
+  resolveSupportedPair(left.locomotion, right.locomotion, dt);
 }

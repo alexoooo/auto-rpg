@@ -5,6 +5,7 @@ import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js"
 import type { Side } from "../physics.ts";
 import { Combat, type CombatReportEvent } from "../combat.ts";
 import type { FighterMaterials } from "../fighter.ts";
+import { stepControlledPair, type ControlledBody } from "../control-host.ts";
 import { Construct, type ConstructDefinition } from "./construct.ts";
 import { type ConstructControlSnapshot } from "./control.ts";
 import type { SavedConstruct } from "./codec.ts";
@@ -50,11 +51,6 @@ class LabBody {
   get control() { return this.body.control; }
   rootPosition(): Vector3 { return this.body.centre(); }
 
-  publish(opponent: LabBody, dt: number): void {
-    void dt;
-    this.body.observe(opponent.body, this.combat.now);
-  }
-
   sample(rangeM: number): ConstructLabBodySample {
     const combat = Object.freeze(this.reports.splice(0).map((event) => Object.freeze(event)));
     const snapshot = this.control.snapshot();
@@ -68,6 +64,29 @@ class LabBody {
 }
 
 /**
+ * `LabBody` owns combat reports and sampling in addition to a Construct, so it
+ * is deliberately not made to impersonate the host's controlled-body seam.
+ * This adapter is the one narrow translation owned by the bout: the shared
+ * pair scheduler sees two ordinary endpoints while observation still receives
+ * the real opposing Construct.
+ */
+class LabControlledBodyAdapter implements ControlledBody {
+  private readonly owner: LabBody;
+
+  constructor(owner: LabBody) { this.owner = owner; }
+
+  get control() { return this.owner.control; }
+  get locomotion() { return (this.owner.body as ControlledBody).locomotion ?? null; }
+
+  observe(opponent: ControlledBody, clock: number): void {
+    if (!(opponent instanceof LabControlledBodyAdapter)) {
+      throw new Error("construct lab pair adapter requires another construct lab body");
+    }
+    this.owner.body.observe(opponent.owner.body, clock);
+  }
+}
+
+/**
  * Shared page/headless construct driver. The host owns scene creation, but commands, solver
  * stepping and trace sampling are one implementation in both environments.
  */
@@ -75,6 +94,8 @@ export class ConstructLabBout {
   private readonly scene: Scene;
   private readonly left: LabBody;
   private readonly right: LabBody;
+  private readonly leftAdapter: LabControlledBodyAdapter;
+  private readonly rightAdapter: LabControlledBodyAdapter;
   private stepIndex = 0;
   private disposed = false;
   private readonly material: StandardMaterial;
@@ -99,9 +120,11 @@ export class ConstructLabBout {
     const separation = separationM + initialCondition.separationOffsetM;
     this.left = new LabBody(scene, "left", left, sensors, new Vector3(-lateral / 2, originY, 0),
       initialCondition.yawOffsetRad, materials);
+    this.leftAdapter = new LabControlledBodyAdapter(this.left);
     try {
       this.right = new LabBody(scene, "right", right, sensors,
         new Vector3(lateral / 2, originY, separation), Math.PI - initialCondition.yawOffsetRad, materials);
+      this.rightAdapter = new LabControlledBodyAdapter(this.right);
       this.left.combat.attach(this.right.body);
       this.right.combat.attach(this.left.body);
     } catch (error) {
@@ -113,10 +136,7 @@ export class ConstructLabBout {
   step(dt: number): ConstructLabStepSample {
     if (this.disposed) throw new Error("construct lab bout cannot step after disposal");
     if (!Number.isFinite(dt) || dt <= 0) throw new Error("construct lab bout dt must be finite and positive");
-    this.left.publish(this.right, dt);
-    this.right.publish(this.left, dt);
-    this.left.control.driver.step(dt);
-    this.right.control.driver.step(dt);
+    stepControlledPair(this.leftAdapter, this.rightAdapter, dt, this.left.combat.now);
     const sceneInternals = this.scene as unknown as { _renderId: number; _advancePhysicsEngineStep(milliseconds: number): void };
     sceneInternals._renderId += 1;
     sceneInternals._advancePhysicsEngineStep(1000 * dt);

@@ -33,7 +33,9 @@ test("the_browser_host_wires_library_preview_probe_diagnostics_and_Lab_callbacks
   assert.match(main, /preview: \(blueprint\) => \{\s*const runtime = compileConstruct/);
   assert.match(main, /probe = new Construct/);
   assert.match(main, /probe\.control\.setDebugCommand\(command\)/);
-  assert.match(main, /probe\.observe\(target/);
+  assert.match(main, /stepPair\(probe, target/);
+  assert.doesNotMatch(main, /probe\.observe\(target/,
+    "the Workshop probe must not bypass pair-level locomotion resolution");
   assert.match(main, /installedSensorsForBlueprint\(blueprint/);
   assert.match(main, /probe\.control\.snapshot\(\)/);
   assert.match(main, /probe\?\.dispose\(\)/);

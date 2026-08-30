@@ -13,7 +13,7 @@ import HavokPhysics from "@babylonjs/havok";
 
 import { CONFIG } from "../src/config.ts";
 import { attachPhysics, LAYER, COLLIDES } from "../src/physics.ts";
-import { Fighter } from "../src/fighter.ts";
+import { Fighter, stepPair } from "../src/fighter.ts";
 import { mountFor, mountRotation } from "../src/weapon.ts";
 import { blankIntent } from "../src/policies.ts";
 import { ACTION_TUNING, actionAimAt, actionCoverAt, blankThreat, selectThreat } from "../src/action-primitives.ts";
@@ -76,10 +76,7 @@ async function ring(loadout, rightLoadout = { primary: "empty", secondary: "empt
   let pending = [];
   const run = (seconds) => {
     const observer = scene.onBeforePhysicsObservable.add(() => {
-      left.observe(right, clock.now);
-      right.observe(left, clock.now);
-      left.update(FIXED);
-      right.update(FIXED);
+      stepPair(left, right, FIXED, clock.now);
       // After the updates, because `Arm.update` runs `Quiver.step` first thing
       // and that is what takes down the one-step teleport a `loose` puts up.
       // See `arrow.ts`'s header for the failure that ordering causes.

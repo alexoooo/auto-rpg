@@ -7533,3 +7533,36 @@ in both mirrors, and the same AI retains that floor after health is halved and t
 of the first passing rung. It is not an undefeated-AI claim. The 2/8 floor is the measured acceptance;
 the earlier 4/8 result was superseded when refused-fire spam and ambiguous lifecycle evidence were
 made fail-closed.
+
+## Supported-locomotion pre-fix closure baseline -- rejected (2026-08-30)
+
+Harness: `scripts/measure-supported-locomotion.mjs --baseline`, real Havok fixed at 240 Hz. The v1
+fixture starts at 2.6 m, settles for 144 solver steps, then retains all 720 steps / 3 seconds. The
+designated Warrior has empty hands and requests full inward movement throughout; its control digest
+is `e9fdbca3` and profile digest is `6887a893`. The Warrior/Warrior counterpart is idle. The shipping
+Swordbearer has blueprint/control/program digests `f84bccfb` / `223de914` / `e6cfc2ca` and is driven
+only through its shipped `brace` plus `stabilize` Actions, with attack requests omitted. Left/right
+means the side carrying the designated mover in the control cells and the Construct in the mixed
+cells. Root positions and quaternions are read directly, every body is kept awake, and the render ID
+and physics accumulator advance on the established fixed-step path.
+
+| scenario | side | minimum separation | inward dwell in 1.10 m envelope | posture-loss steps | peak penetration / dwell over 0.08 m | peak part speed | peak Construct joint-frame error | retained contacts / damage |
+| --- | :---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Warrior / Warrior | left | 0.337337 m | 179 | 135 / 720 | 0 m / 0 | 219.999988 m/s | 0 m | 15 / 216.000000 |
+| Warrior / Warrior | right | 0.207375 m | 179 | 58 / 720 | 0.112625 m / 2 | 219.999990 m/s | 0 m | 18 / 265.376979 |
+| Warrior / Swordbearer | left | 0.013871 m | 286 | 623 / 720 | 0.611129 m / 194 | 9.630466 m/s | 0.011340 m | 10 / 0.135456 |
+| Warrior / Swordbearer | right | 0.012659 m | 286 | 623 / 720 | 0.612341 m / 193 | 172.364910 m/s | 0.011299 m | 10 / 0.407261 |
+
+The classifier rejected every cell. The mixed result is the specific clinch heap this work set out
+to catch: both facings genuinely enter range and preserve the inward request for more than a second,
+then lose composite posture for 623 of 720 retained steps and overlap the declared root footprint by
+about 0.61 m for roughly 0.8 seconds. The final position could not launder that history. The strong
+right-side speed asymmetry is retained rather than averaged away.
+
+The Warrior/Warrior control also rejects under this deliberately adversarial closure. Empty hands do
+not mean collision-free hands: uncommanded fist contacts still become retained Combat rows after the
+limb pile accelerates, and the animated pelvis does not make the rest of the ragdoll continuously
+upright. That is not evidence against the mixed diagnosis; it narrows the requirement. Supported
+locomotion has to stabilize the pair boundary for both bodies, not merely replace the Construct gait.
+The physical test `the_current_clinch_heap_trace_is_rejected_as_discombobulated` keeps one real mixed
+cell on the ordinary test gate, while the command-line baseline owns all four exact cells.

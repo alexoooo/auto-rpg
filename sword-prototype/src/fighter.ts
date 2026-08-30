@@ -30,6 +30,7 @@ import { handsFor, isShield, type Weapon, type WeaponKind } from "./weapon.ts";
 import type { Striking } from "./combat.ts";
 import type { Combatant } from "./units.ts";
 import { HumanoidControlEndpoint, type HumanoidHumanSource } from "./humanoid-control.ts";
+import { stepControlledPair } from "./control-host.ts";
 import { vitality } from "./bout.ts";
 import {
   HANDS,
@@ -1995,8 +1996,5 @@ export class Fighter {
  * arm coasts through the rest.
  */
 export function stepPair(left: Combatant, right: Combatant, dt: number, clock: number): void {
-  left.observe(right, clock);
-  right.observe(left, clock);
-  left.control.driver.step(dt);
-  right.control.driver.step(dt);
+  stepControlledPair(left, right, dt, clock);
 }

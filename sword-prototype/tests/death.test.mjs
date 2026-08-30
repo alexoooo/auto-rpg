@@ -15,7 +15,7 @@ import HavokPhysics from "@babylonjs/havok";
 
 import { CONFIG } from "../src/config.ts";
 import { attachPhysics } from "../src/physics.ts";
-import { Fighter } from "../src/fighter.ts";
+import { Fighter, stepPair } from "../src/fighter.ts";
 import { Combat } from "../src/combat.ts";
 import { Blood } from "../src/blood.ts";
 import { idleMind } from "../src/mind.ts";
@@ -91,10 +91,7 @@ async function ring(leftMind = null, leftLoadout = undefined) {
 function frame(scene, left, right, clock) {
   scene._renderId += 1;
   const observer = scene.onBeforePhysicsObservable.add(() => {
-    left.observe(right, clock.now);
-    right.observe(left, clock.now);
-    left.update(FIXED);
-    right.update(FIXED);
+    stepPair(left, right, FIXED, clock.now);
     clock.now += FIXED;
   });
   scene._advancePhysicsEngineStep(1000 / 60);

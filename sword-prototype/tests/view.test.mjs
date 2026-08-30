@@ -10,7 +10,7 @@ import HavokPhysics from "@babylonjs/havok";
 
 import { CONFIG } from "../src/config.ts";
 import { attachPhysics } from "../src/physics.ts";
-import { armForLimbKey, Fighter, legPose } from "../src/fighter.ts";
+import { armForLimbKey, Fighter, legPose, stepPair } from "../src/fighter.ts";
 import { idleMind } from "../src/mind.ts";
 import { blankIntent } from "../src/policies.ts";
 import { BODY_FIELDS, HAND_FIELDS, PROJECTILE_FIELDS, VIEW_FIELDS } from "./fixtures/view.mjs";
@@ -114,10 +114,7 @@ test("looking at the world leaves no trace on it", async (t) => {
   let clock = 0;
   const control = () => {
     clock += FIXED;
-    left.observe(right, clock);
-    right.observe(left, clock);
-    left.update(FIXED);
-    right.update(FIXED);
+    stepPair(left, right, FIXED, clock);
   };
 
   // Get everything moving, so a stale sample and a fresh one are different
@@ -240,10 +237,7 @@ test("trunk_motion_moves_both_shoulders_but_not_the_planted_hips", async (t) => 
   };
   const control = () => {
     clock += FIXED;
-    left.observe(right, clock);
-    right.observe(left, clock);
-    left.update(FIXED);
-    right.update(FIXED);
+    stepPair(left, right, FIXED, clock);
   };
   for (let i = 0; i < 120; i += 1) frame(scene, control);
   left.observe(right, clock);
@@ -270,10 +264,7 @@ test("leaning_the_trunk_does_not_remap_a_centre_cursor_off_world_vertical", asyn
       let clock = 0;
       const control = () => {
         clock += FIXED;
-        left.observe(right, clock);
-        right.observe(left, clock);
-        left.update(FIXED);
-        right.update(FIXED);
+        stepPair(left, right, FIXED, clock);
       };
       for (let i = 0; i < 120; i += 1) frame(scene, control);
 
@@ -295,10 +286,7 @@ test("body_view_reports_pelvis_heading_separately_from_trunk_twist", async (t) =
   let clock = 0;
   const control = () => {
     clock += FIXED;
-    left.observe(right, clock);
-    right.observe(left, clock);
-    left.update(FIXED);
-    right.update(FIXED);
+    stepPair(left, right, FIXED, clock);
   };
   for (let i = 0; i < 120; i += 1) frame(scene, control);
   left.observe(right, clock);
@@ -322,10 +310,7 @@ test("crouch_lowers_the_pelvis_without_moving_either_foot_through_the_floor", as
   let clock = 0;
   const control = () => {
     clock += FIXED;
-    left.observe(right, clock);
-    right.observe(left, clock);
-    left.update(FIXED);
-    right.update(FIXED);
+    stepPair(left, right, FIXED, clock);
   };
   for (let i = 0; i < 180; i += 1) frame(scene, control);
 
@@ -366,10 +351,7 @@ test("posture_readings_do_not_stamp_world_matrices", async (t) => {
   let clock = 0;
   const control = () => {
     clock += FIXED;
-    left.observe(right, clock);
-    right.observe(left, clock);
-    left.update(FIXED);
-    right.update(FIXED);
+    stepPair(left, right, FIXED, clock);
   };
   for (let i = 0; i < 90; i += 1) frame(scene, control);
   scene._renderId += 1;
@@ -397,10 +379,7 @@ test("both hands are published, and the primary's is the one at the top level", 
   let clock = 0;
   const control = () => {
     clock += FIXED;
-    left.observe(right, clock);
-    right.observe(left, clock);
-    left.update(FIXED);
-    right.update(FIXED);
+    stepPair(left, right, FIXED, clock);
   };
   for (let i = 0; i < 60; i += 1) frame(scene, control);
 
@@ -452,10 +431,7 @@ test("wrist_bend_changes_weapon_orientation_without_moving_the_commanded_hand", 
   let clock = 0;
   const step = () => frame(scene, () => {
     clock += FIXED;
-    left.observe(right, clock);
-    right.observe(left, clock);
-    left.update(FIXED);
-    right.update(FIXED);
+    stepPair(left, right, FIXED, clock);
   });
 
   for (let i = 0; i < 45; i += 1) step();
@@ -546,10 +522,7 @@ test("a hand publishes how far it reaches, and it is the weapon's not the arm's"
     for (let i = 0; i < 20; i += 1) {
       frame(scene, () => {
         clock += FIXED;
-        left.observe(right, clock);
-        right.observe(left, clock);
-        left.update(FIXED);
-        right.update(FIXED);
+        stepPair(left, right, FIXED, clock);
       });
     }
     const mine = left.view.self.hands;
@@ -695,10 +668,7 @@ test("projectile_view_contains_only_live_unspent_arrows_from_both_owners", async
   let pending = [];
   const control = () => {
     clock += FIXED;
-    left.observe(right, clock);
-    right.observe(left, clock);
-    left.update(FIXED);
-    right.update(FIXED);
+    stepPair(left, right, FIXED, clock);
     // **After** `update`, and this is not a detail. `Arm.update` runs
     // `Quiver.step` first thing, and that is what takes down the one-step
     // teleport `loose` puts up -- so a shot queued before it is cancelled before
@@ -779,10 +749,7 @@ test("a_hand_rolled_fixture_carries_every_field_a_real_view_does", async (t) => 
   let pending = null;
   const control = () => {
     clock += FIXED;
-    left.observe(right, clock);
-    right.observe(left, clock);
-    left.update(FIXED);
-    right.update(FIXED);
+    stepPair(left, right, FIXED, clock);
     // After `update`, for the reason the test above gives at length.
     if (pending) { pending(); pending = null; }
   };

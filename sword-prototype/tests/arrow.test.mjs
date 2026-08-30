@@ -14,7 +14,7 @@ import HavokPhysics from "@babylonjs/havok";
 import { CONFIG } from "../src/config.ts";
 import { attachPhysics, COLLIDES, LAYER, layersFor } from "../src/physics.ts";
 import { Quiver } from "../src/arrow.ts";
-import { Fighter } from "../src/fighter.ts";
+import { Fighter, stepPair } from "../src/fighter.ts";
 import { Combat } from "../src/combat.ts";
 import { blankIntent } from "../src/policies.ts";
 
@@ -579,10 +579,7 @@ test("holding the button draws the bow and letting go looses an arrow", async ()
 
   const clock = { now: 0 };
   const observer = scene.onBeforePhysicsObservable.add(() => {
-    archer.observe(dummy, clock.now);
-    dummy.observe(archer, clock.now);
-    archer.update(FIXED);
-    dummy.update(FIXED);
+    stepPair(archer, dummy, FIXED, clock.now);
     clock.now += FIXED;
   });
   const run = (seconds) => frames(Math.round(seconds * 60));
@@ -783,10 +780,7 @@ test("a fighter walks backwards slower than it walks forwards", async () => {
   const back = measure(-1, 10);
   const clock = { now: 0 };
   scene.onBeforePhysicsObservable.add(() => {
-    ahead.observe(back, clock.now);
-    back.observe(ahead, clock.now);
-    ahead.update(FIXED);
-    back.update(FIXED);
+    stepPair(ahead, back, FIXED, clock.now);
     clock.now += FIXED;
   });
 

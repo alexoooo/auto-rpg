@@ -10,7 +10,7 @@ import HavokPhysics from "@babylonjs/havok";
 
 import { CONFIG } from "../src/config.ts";
 import { attachPhysics } from "../src/physics.ts";
-import { Fighter } from "../src/fighter.ts";
+import { Fighter, stepPair } from "../src/fighter.ts";
 import { azimuthOf, elevationOf, blankIntent } from "../src/policies.ts";
 import { COMBAT_FIELDS } from "./fixtures/intent.mjs";
 import {
@@ -423,10 +423,7 @@ async function jumpOnHandover(t, { driver, incoming, seeded, frames = 25 }) {
   let clock = 0;
   const control = () => {
     clock += FIXED;
-    left.observe(right, clock);
-    right.observe(left, clock);
-    left.update(FIXED);
-    right.update(FIXED);
+    stepPair(left, right, FIXED, clock);
   };
 
   // Long enough for the arm to be genuinely in flight rather than settling out
@@ -449,7 +446,6 @@ async function jumpOnHandover(t, { driver, incoming, seeded, frames = 25 }) {
   // legitimate blade travel that make a tip reading useless here.
   scene._renderId += 1;
   left.observe(right, clock);
-  right.observe(left, clock);
   left.update(FIXED);
 
   return { jump: poseShiftMm(pose, left.armAngles()), pose, speed };
@@ -506,10 +502,7 @@ test("a_takeover_during_full_trunk_lean_does_not_jump_either_hand", async (t) =>
   let clock = 0;
   const control = () => {
     clock += FIXED;
-    left.observe(right, clock);
-    right.observe(left, clock);
-    left.update(FIXED);
-    right.update(FIXED);
+    stepPair(left, right, FIXED, clock);
   };
   for (let i = 0; i < 120; i += 1) {
     scene._renderId += 1;

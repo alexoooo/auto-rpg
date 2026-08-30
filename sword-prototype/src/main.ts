@@ -1013,11 +1013,8 @@ async function boot(): Promise<void> {
       try {
         for (let step = 0; step < 180; step += 1) {
           const dt = 1 / CONFIG.world.physicsHz;
-          probe.observe(target, probeClock + step * dt);
-          target.observe(probe, probeClock + step * dt);
-          probe.control.driver.step(dt);
+          stepPair(probe, target, dt, probeClock + step * dt);
           probeSnapshots.push(probe.control.snapshot());
-          target.control.driver.step(dt);
           (arena.scene as unknown as { _renderId: number; _advancePhysicsEngineStep(milliseconds: number): void })._renderId += 1;
           (arena.scene as unknown as { _advancePhysicsEngineStep(milliseconds: number): void })
             ._advancePhysicsEngineStep(1000 / CONFIG.world.physicsHz);

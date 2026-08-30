@@ -68,6 +68,49 @@ export function authoredQualificationCapabilityFailures(rows) {
       id, reason }))));
 }
 
+const QUALIFICATION_EXPECTATIONS = Object.freeze(["rejected", "qualified", "recorded"]);
+
+export function parseConstructQualificationArgs(argv) {
+  const outAt = argv.indexOf("--out");
+  if (outAt < 0 || !argv[outAt + 1] || argv[outAt + 1].startsWith("--")) {
+    throw new Error("construct entry qualification requires --out <directory>");
+  }
+  const workersAt = argv.indexOf("--workers");
+  const workersValue = workersAt < 0 ? undefined : argv[workersAt + 1];
+  const workers = workersValue === undefined ? undefined : Number(workersValue);
+  if (workersAt >= 0 && (!workersValue || workersValue.startsWith("--") ||
+    !Number.isSafeInteger(workers) || workers <= 0)) {
+    throw new Error("construct entry qualification --workers must be a positive safe integer");
+  }
+  const expectationIndexes = argv.flatMap((value, index) => value === "--expect" ? [index] : []);
+  if (expectationIndexes.length > 1) {
+    throw new Error("construct entry qualification accepts --expect only once");
+  }
+  const expectAt = expectationIndexes[0];
+  const expectation = expectAt === undefined ? undefined : argv[expectAt + 1];
+  if (expectAt !== undefined && (!expectation || expectation.startsWith("--"))) {
+    throw new Error("construct entry qualification --expect requires rejected, qualified or recorded");
+  }
+  if (expectation !== undefined && !QUALIFICATION_EXPECTATIONS.includes(expectation)) {
+    throw new Error(`construct entry qualification --expect does not accept ${JSON.stringify(expectation)}; ` +
+      "expected rejected, qualified or recorded");
+  }
+  return Object.freeze({ outDirectory: argv[outAt + 1], workers, expectation });
+}
+
+export function assertConstructQualificationExpectation(expectation, actual) {
+  if (actual !== "rejected" && actual !== "qualified") {
+    throw new Error(`construct entry qualification produced invalid terminal status ${JSON.stringify(actual)}`);
+  }
+  if (expectation === undefined) return;
+  if (!QUALIFICATION_EXPECTATIONS.includes(expectation)) {
+    throw new Error(`construct entry qualification received invalid expectation ${JSON.stringify(expectation)}`);
+  }
+  if (expectation !== "recorded" && expectation !== actual) {
+    throw new Error(`construct entry qualification expected ${expectation} but actual status was ${actual}`);
+  }
+}
+
 export async function qualifyConstructLearningEntry(outDirectory, options = {}) {
   const output = path.resolve(outDirectory);
   await mkdir(output, { recursive: true });
@@ -126,15 +169,15 @@ export async function qualifyConstructLearningEntry(outDirectory, options = {}) 
   return report;
 }
 
+export async function runConstructQualificationCli(argv = process.argv.slice(2),
+  qualify = qualifyConstructLearningEntry, output = process.stdout) {
+  const { outDirectory, workers, expectation } = parseConstructQualificationArgs(argv);
+  const report = await qualify(outDirectory, { workers });
+  output.write(`${canonicalIntegrityJson(report)}\n`);
+  assertConstructQualificationExpectation(expectation, report.status);
+  return expectation === undefined && report.status !== "qualified" ? 2 : 0;
+}
+
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
-  const at = process.argv.indexOf("--out");
-  if (at < 0 || !process.argv[at + 1]) throw new Error("construct entry qualification requires --out <directory>");
-  const workersAt = process.argv.indexOf("--workers");
-  const workers = workersAt < 0 ? undefined : Number(process.argv[workersAt + 1]);
-  if (workers !== undefined && (!Number.isSafeInteger(workers) || workers <= 0)) {
-    throw new Error("construct entry qualification --workers must be a positive safe integer");
-  }
-  const report = await qualifyConstructLearningEntry(process.argv[at + 1], { workers });
-  process.stdout.write(`${canonicalIntegrityJson(report)}\n`);
-  if (report.status !== "qualified") process.exitCode = 2;
+  process.exitCode = await runConstructQualificationCli();
 }
