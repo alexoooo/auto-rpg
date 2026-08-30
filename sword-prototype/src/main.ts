@@ -29,6 +29,8 @@ import { saveConstruct, type SavedConstruct } from "./construct/codec";
 import type { ConstructRuntime } from "./construct/runtime";
 import { WARDEN_SENSORS, wardenBlueprint, wardenControl, wardenProgram } from "./construct/warden";
 import { installedSensorsForBlueprint } from "./construct/sensors";
+import { constructSupportsSupportedLocomotion } from "./construct/assisted-locomotion";
+import { flatSupportedWorldRegistry } from "./supported-locomotion-production";
 import { ForgeScreen } from "./forge/screen";
 import { CONSTRUCT_LIBRARY_STORAGE_KEY, encodeConstructLibrary, parseConstructLibrary,
   replaceConstructLibraryEntry } from "./forge/library";
@@ -53,7 +55,8 @@ import {
   type ArmPose,
   type Mind,
 } from "./mind";
-import { loadoutForUnit, unitDefinition, type Combatant } from "./units";
+import { loadoutForUnit, locomotionModeForPair, unitDefinition, SUPPORTED_LOCOMOTION_PORT_V1,
+  type Combatant } from "./units";
 import type { HumanoidHumanSource } from "./humanoid-control";
 import { metaDiagnostic } from "./learning/meta";
 import { engagementGates, engagementMetrics, formatEngagementGateTable } from "./learning/gates";
@@ -235,8 +238,8 @@ async function boot(): Promise<void> {
   const committedConstruct = saveConstruct(
     "Bronze Warden (committed)",
     wardenBlueprint("crossbow"),
-    wardenControl("crossbow"),
-    wardenProgram("crossbow"),
+    wardenControl("crossbow", "assisted"),
+    wardenProgram("crossbow", "assisted"),
     WARDEN_SENSORS,
   );
   const forgeLibraryKey = CONSTRUCT_LIBRARY_STORAGE_KEY;
@@ -440,6 +443,15 @@ async function boot(): Promise<void> {
     return saved;
   };
 
+  /** Pair-atomic mode selection shared by visible Fight and the physical Forge Probe. */
+  const locomotionContextForPair = (leftSupports: boolean, rightSupports: boolean) => {
+    const declared = (supported: boolean) => ({ supportedLocomotionPort:
+      supported ? SUPPORTED_LOCOMOTION_PORT_V1 : null });
+    const locomotionMode = locomotionModeForPair(declared(leftSupports), declared(rightSupports));
+    return Object.freeze({ locomotionMode,
+      locomotionWorld: locomotionMode === "supported" ? flatSupportedWorldRegistry() : undefined });
+  };
+
   /**
    * Two fighters of the same kind, facing each other, one `Combat` per side
    * pointed at the other's body, and a mind each.
@@ -453,6 +465,13 @@ async function boot(): Promise<void> {
     const F = CONFIG.fighter;
     const leftDefinition = unitDefinition(matchup.left.unit);
     const rightDefinition = unitDefinition(matchup.right.unit);
+    const leftSaved = visibleConstructLab?.[0] ?? (leftDefinition.controlSurface === "construct-v1" ? savedForSetup(matchup.left) : null);
+    const rightSaved = visibleConstructLab?.[1] ?? (rightDefinition.controlSurface === "construct-v1" ? savedForSetup(matchup.right) : null);
+    const leftSupports = leftSaved ? constructSupportsSupportedLocomotion(leftSaved.blueprint, leftSaved.control)
+      : leftDefinition.supportedLocomotionPort === SUPPORTED_LOCOMOTION_PORT_V1;
+    const rightSupports = rightSaved ? constructSupportsSupportedLocomotion(rightSaved.blueprint, rightSaved.control)
+      : rightDefinition.supportedLocomotionPort === SUPPORTED_LOCOMOTION_PORT_V1;
+    const { locomotionMode, locomotionWorld } = locomotionContextForPair(leftSupports, rightSupports);
     const leftContext = {
         scene: arena.scene,
         side: "left",
@@ -464,8 +483,9 @@ async function boot(): Promise<void> {
         human: leftDefinition.humanAdapter ? humanSource : undefined,
         loadout: loadoutFor(matchup.left),
         materials: arena.materials,
+        locomotionMode,
+        locomotionWorld,
       } as const;
-    const leftSaved = visibleConstructLab?.[0] ?? (leftDefinition.controlSurface === "construct-v1" ? savedForSetup(matchup.left) : null);
     const left = leftSaved ? new Construct({ ...leftContext, policyName: "construct-program",
       humanActive: false, human: undefined }, { blueprint: leftSaved.blueprint, control: leftSaved.control,
       program: leftSaved.program, sensors: installedSensorsForBlueprint(leftSaved.blueprint, WARDEN_SENSORS) })
@@ -481,12 +501,21 @@ async function boot(): Promise<void> {
         human: rightDefinition.humanAdapter ? humanSource : undefined,
         loadout: loadoutFor(matchup.right),
         materials: arena.materials,
+        locomotionMode,
+        locomotionWorld,
       } as const;
-    const rightSaved = visibleConstructLab?.[1] ?? (rightDefinition.controlSurface === "construct-v1" ? savedForSetup(matchup.right) : null);
-    const right = rightSaved ? new Construct({ ...rightContext, policyName: "construct-program",
-      humanActive: false, human: undefined }, { blueprint: rightSaved.blueprint, control: rightSaved.control,
-      program: rightSaved.program, sensors: installedSensorsForBlueprint(rightSaved.blueprint, WARDEN_SENSORS) })
-      : rightDefinition.build(rightContext);
+    let right;
+    try {
+      right = rightSaved ? new Construct({ ...rightContext, policyName: "construct-program",
+        humanActive: false, human: undefined }, { blueprint: rightSaved.blueprint, control: rightSaved.control,
+        program: rightSaved.program, sensors: installedSensorsForBlueprint(rightSaved.blueprint, WARDEN_SENSORS) })
+        : rightDefinition.build(rightContext);
+    } catch (error) {
+      // Pair mode is atomic before construction, but a backend/asset failure can still happen while
+      // building the second body. A throwing constructor leaves no bout owner to release the first.
+      left.dispose();
+      throw error;
+    }
     const leftStrikers = left.strikers;
     const rightStrikers = right.strikers;
     const recorder = new BoutRecorder();
@@ -983,6 +1012,7 @@ async function boot(): Promise<void> {
         }))),
         resources: Object.freeze(resources),
         combat: Object.freeze(combat),
+        locomotion: snapshot.locomotion,
       });
     }
   };
@@ -995,12 +1025,17 @@ async function boot(): Promise<void> {
     forgeScreen.suspendPreview();
     try {
       const sensors = installedSensorsForBlueprint(blueprint, WARDEN_SENSORS);
+      const { locomotionMode, locomotionWorld } = locomotionContextForPair(
+        constructSupportsSupportedLocomotion(blueprint, activeForgeGraph),
+        constructSupportsSupportedLocomotion(committedConstruct.blueprint, committedConstruct.control));
       probe = new Construct({ scene: arena.scene, side: "left", origin: new Vector3(2.2, 0, 2.4), facing: 0,
-        policyName: "construct-program", humanActive: false, materials: arena.materials }, {
+        policyName: "construct-program", humanActive: false, materials: arena.materials,
+        locomotionMode, locomotionWorld }, {
         blueprint, control: activeForgeGraph, program: activeForgeProgram, sensors,
       });
       target = new Construct({ scene: arena.scene, side: "right", origin: new Vector3(2.2, 0, 6.4), facing: Math.PI,
-        policyName: "construct-hold", humanActive: false, materials: arena.materials }, {
+        policyName: "construct-hold", humanActive: false, materials: arena.materials,
+        locomotionMode, locomotionWorld }, {
         blueprint: committedConstruct.blueprint, control: committedConstruct.control,
         program: committedConstruct.program, sensors: installedSensorsForBlueprint(committedConstruct.blueprint, WARDEN_SENSORS),
       });
@@ -1037,6 +1072,7 @@ async function boot(): Promise<void> {
         resources: Object.freeze(Object.fromEntries(Object.entries(snapshot.facts).filter(([id]) =>
           id === "power-charge-j" || id === "heat-j" || id === "overheated" || id.startsWith("ammo:") || id.startsWith("reload:")))),
         probeMotor: timeline.motors,
+        locomotion: timeline.locomotion.at(-1)?.diagnostic ?? snapshot.locomotion,
       });
       const terminal = [...new Set(timeline.scheduler.filter(({ kind }) =>
         kind === "completed" || kind === "refused" || kind === "failed" || kind === "cancelled")

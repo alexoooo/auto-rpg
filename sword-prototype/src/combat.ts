@@ -1,7 +1,8 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { PhysicsEventType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
-import type { IPhysicsCollisionEvent } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
-import type { Observer } from "@babylonjs/core/Misc/observable.js";
+import type { IBasePhysicsCollisionEvent, IPhysicsCollisionEvent } from
+  "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
+import type { Observable } from "@babylonjs/core/Misc/observable.js";
 
 import type { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
 
@@ -14,6 +15,20 @@ import type { HandName } from "./hands.ts";
 import { biteFloor, scoreHit, severs, type HitKind, type Striker } from "./scoring.ts";
 
 export type { HitKind };
+
+/**
+ * A non-solving sensor over a real striker.
+ *
+ * Havok trigger events identify the two bodies but deliberately carry no contact manifold.
+ * The owner therefore supplies the best physical point it can derive from its live source and
+ * the body it overlapped. Velocity, edge and spent state remain on the ordinary `Striking`
+ * object, so a sensor can report a fist without becoming a second imaginary weapon.
+ */
+export interface NonSolvingStrikeTrigger {
+  readonly body: PhysicsBody;
+  readonly events: Observable<IBasePhysicsCollisionEvent>;
+  contactPoint(collidedAgainst: PhysicsBody): Vector3;
+}
 
 /**
  * What this file needs from a thing that can hurt somebody.
@@ -44,6 +59,8 @@ export interface Striking {
   /** Blueprint-owned multiplier; legacy effectors omit it and therefore remain exactly 1. */
   readonly damageScale?: number;
   readonly body: PhysicsBody;
+  /** Supported bodies may replace a solving striker contact with this sensor-only path. */
+  readonly nonSolvingTrigger?: NonSolvingStrikeTrigger;
   /**
    * Whether this has stopped being a weapon: dropped, or already spent.
    *
@@ -194,8 +211,7 @@ export class Combat {
    * it buys is that an observable is never touched at 240 Hz and no arrow can
    * outlive the observer watching it. `Fighter.strikers` is what hands them over.
    */
-  private readonly watching: { weapon: Striking; observer: Observer<IPhysicsCollisionEvent> }[] =
-    [];
+  private readonly watching: { weapon: Striking; remove: () => void }[] = [];
   private target: Combatant | null = null;
   private clock = 0;
   /** Parries share one cooldown, since two blades resting together contact
@@ -221,12 +237,23 @@ export class Combat {
   constructor(side: Side, weapons: readonly (Striking | null)[], onReport?: (event: CombatReportEvent) => void) {
     this.side = side;
     this.onReport = onReport;
-    for (const weapon of weapons) {
-      if (!weapon) continue;
-      const observer = weapon.body
-        .getCollisionObservable()
-        .add((event) => this.onContact(weapon, event));
-      if (observer) this.watching.push({ weapon, observer });
+    try {
+      for (const weapon of weapons) {
+        if (!weapon) continue;
+        const trigger = weapon.nonSolvingTrigger;
+        if (trigger) {
+          const observer = trigger.events.add((event) => this.onTrigger(weapon, trigger, event));
+          if (observer) this.watching.push({ weapon, remove: () => trigger.events.remove(observer) });
+          continue;
+        }
+        const observable = weapon.body.getCollisionObservable();
+        const observer = observable.add((event) => this.onContact(weapon, event));
+        if (observer) this.watching.push({ weapon, remove: () => observable.remove(observer) });
+      }
+    } catch (error) {
+      for (const watch of this.watching) watch.remove();
+      this.watching.length = 0;
+      throw error;
     }
   }
 
@@ -272,10 +299,31 @@ export class Combat {
   }
 
   dispose(): void {
-    for (const watch of this.watching) {
-      watch.weapon.body.getCollisionObservable().remove(watch.observer);
-    }
+    for (const watch of this.watching) watch.remove();
     this.watching.length = 0;
+  }
+
+  private onTrigger(weapon: Striking, trigger: NonSolvingStrikeTrigger,
+    event: IBasePhysicsCollisionEvent): void {
+    if (event.type === PhysicsEventType.TRIGGER_EXITED) return;
+    const collidedAgainst = event.collider === trigger.body ? event.collidedAgainst
+      : event.collidedAgainst === trigger.body ? event.collider : null;
+    if (!collidedAgainst) return;
+    const point = trigger.contactPoint(collidedAgainst);
+    // A trigger has no solver manifold by construction. `resolve` still applies the ordinary
+    // authored shove from the real fist's material-point velocity; the diagnostic impulse is
+    // truthfully zero rather than borrowed from an unrelated anatomy contact.
+    this.onContact(weapon, {
+      collider: trigger.body,
+      colliderIndex: event.collider === trigger.body ? event.colliderIndex : event.collidedAgainstIndex,
+      collidedAgainst,
+      collidedAgainstIndex: event.collider === trigger.body ? event.collidedAgainstIndex : event.colliderIndex,
+      type: PhysicsEventType.COLLISION_STARTED,
+      point,
+      distance: 0,
+      impulse: 0,
+      normal: null,
+    });
   }
 
   private onContact(weapon: Striking, event: IPhysicsCollisionEvent): void {

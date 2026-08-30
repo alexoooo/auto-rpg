@@ -2,6 +2,7 @@ import type { BoutRecorder } from "./recorder.ts";
 import type { Side } from "./physics.ts";
 import { resolveSupportedPair } from "./supported-locomotion.ts";
 import type { SupportedLocomotionPort } from "./supported-locomotion.ts";
+import { isPhysicalSupportedLocomotionPort, resolvePhysicalSupportedPair } from "./supported-locomotion-production.ts";
 
 export type DriverStopReason = "verdict" | "handover" | "dispose";
 
@@ -54,5 +55,12 @@ export function stepControlledPair(left: ControlledBody, right: ControlledBody, 
   right.locomotion?.beginControlStep();
   left.control.driver.step(dt);
   right.control.driver.step(dt);
+  if (isPhysicalSupportedLocomotionPort(left.locomotion) ||
+      isPhysicalSupportedLocomotionPort(right.locomotion)) {
+    if (!resolvePhysicalSupportedPair(left.locomotion, right.locomotion, dt)) {
+      throw new Error("supported locomotion pair construction produced only one physical V1 port");
+    }
+    return;
+  }
   resolveSupportedPair(left.locomotion, right.locomotion, dt);
 }

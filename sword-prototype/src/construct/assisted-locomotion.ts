@@ -5,6 +5,7 @@ import { StagedSupportedLocomotionPort, type LocomotionResolution,
 import { SUPPORTED_LOCOMOTION_V1 } from "../supported-locomotion-state.ts";
 import type { LocomotionAuthorityToken, LocomotionSchedulerPort,
   LocomotionSubmission } from "./scheduler.ts";
+import { supportedLocomotionControllerDescriptor } from "./controllers.ts";
 
 export interface ResolvedSupportBinding {
   readonly role: string;
@@ -160,6 +161,7 @@ export interface LocomotionControllerDescriptor {
   readonly controller: string;
   readonly gaitStabilityScale: number;
   readonly brace: boolean;
+  readonly alternative?: Readonly<{ readonly family: string; readonly rank: "primary" | "fallback" }>;
 }
 
 /** Runtime-only authority. It is intentionally absent from every saved command and controller API. */
@@ -172,6 +174,8 @@ export interface LocomotionAuthority {
   readonly balanceChainJointIds: readonly string[];
   readonly braceCapacityMultiplier: number;
   readonly gaitStabilityScale: number;
+  /** Fallback Actions may move only while every member of their exact support set is freshly planted. */
+  readonly requiresAllFreshSupport: boolean;
 }
 
 const continuousChain = (blueprint: ConstructBlueprint, ids: readonly string[], carrierPartId: string,
@@ -223,7 +227,24 @@ export function deriveLocomotionAuthority(
     carrierToRootJointIds: support.carrierToRootJointIds, supportBindings: support.supportBindings,
     balanceChainJointIds: Object.freeze([...balance.joints]),
     braceCapacityMultiplier: descriptor.brace ? SUPPORTED_LOCOMOTION_V1.BRACE_CAPACITY_MULTIPLIER : 1,
-    gaitStabilityScale: descriptor.gaitStabilityScale });
+    gaitStabilityScale: descriptor.gaitStabilityScale,
+    requiresAllFreshSupport: descriptor.alternative?.rank === "fallback" });
+}
+
+/** Saved/library bodies bypass UnitDefinition, so their exact graph and topology advertise V1. */
+export function constructSupportsSupportedLocomotion(
+  blueprint: ConstructBlueprint,
+  graph: import("./actions.ts").ConstructControlGraph,
+): boolean {
+  try {
+    return graph.actions.some((action) => {
+      const descriptor = supportedLocomotionControllerDescriptor(action.controller);
+      const group = graph.groups.find(({ id }) => id === action.group);
+      if (!descriptor || !group) return false;
+      deriveLocomotionAuthority(blueprint, group, action, descriptor);
+      return true;
+    });
+  } catch { return false; }
 }
 
 /**

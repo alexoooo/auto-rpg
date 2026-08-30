@@ -1,5 +1,16 @@
 # Session 21 -- add dormant locomotion authority, support and state
 
+## Status -- complete (2026-08-30)
+
+Scoped carrier authority, fresh physical-support evidence, authored-shove stability, deterministic
+fall/rise transitions and their mutation proofs landed green in `82f16e8`. The production activation
+continues to use these frozen state-machine constants unchanged.
+The dormant session's pure bracket was not the real-Havok evidence its implementation paragraph
+promised. That later physical debt is now closed by
+`tests/supported-locomotion-stability-physical.test.mjs`: live supported body mass, both fresh foot
+terminals and valid posture bracket 0.006 and 0.014 m/s below/at, and exact fall releases the real
+pelvis from ANIMATED to DYNAMIC.
+
 ## Outcome
 
 Add the complete scoped command, support, stability and recovery semantics while keeping carrier
@@ -126,7 +137,7 @@ remove `resource:balance`, and let idle bodies enter rising. Each must go red.
 No selectable motion changes. Existing saved digests and `duelist-swinger` values remain exact.
 
 ```powershell
-node --test tests/supported-locomotion-state.test.mjs tests/construct-assisted-locomotion.test.mjs tests/construct-scheduler.test.mjs tests/death.test.mjs tests/handover.test.mjs
+node --test tests/supported-locomotion-state.test.mjs tests/supported-locomotion-stability-physical.test.mjs tests/construct-assisted-locomotion.test.mjs tests/construct-scheduler.test.mjs tests/death.test.mjs tests/handover.test.mjs
 npm run construct:qualify -- --out <fresh-directory> --workers 8 --expect rejected
 npm test
 npm run check

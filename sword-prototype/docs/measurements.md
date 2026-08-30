@@ -7251,7 +7251,7 @@ produced no move or damage; a 2.45 m threshold exercised move but again produced
 The retained 2.0 m transition preserved damage and reduced stuck recovery from 110,712 steps in the
 pre-brace run to 91,640, but did not solve lateral recovery or bout completion.
 
-**Current seeded qualification.** `node scripts/qualify-construct-learning-entry.mjs --out
+**Superseded seeded qualification (2026-08-28).** `node scripts/qualify-construct-learning-entry.mjs --out
 .tools/construct-entry-seeded-be5f8040-20260828 --workers 8` ran the same four seeds and mirrors
 after physical perturbation, complete sensors, action-specific capability accounting and the
 shared-mount correction. Its exact identity is protocol `0cf3bb85`, source/environment `be5f8040`
@@ -7261,8 +7261,8 @@ dealt bilateral physical damage, but all eight time-capped, the corpus accumulat
 steps and two rows lacked bilateral damage. Of those stuck steps, 220,871 are `brace/brace` and
 13,571 are `fire/tracking`; the current evidence does not attribute them to longitudinal recovery.
 The report also retains 206 named ammunition lifecycle transitions and six named mounted-module
-loss transitions as telemetry, and records zero unexplained capability disappearances. This is a current, properly seeded rejection; it
-replaces the missing-evidence status without weakening the gate.
+loss transitions as telemetry, and records zero unexplained capability disappearances. This was a
+properly seeded rejection, but the assisted result recorded below supersedes it.
 
 | current-runtime probe | result |
 |:---|:---|
@@ -7275,8 +7275,8 @@ replaces the missing-evidence status without weakening the gate.
 
 ## Construct learning rung entry-gate result -- 2026-08-28
 
-Session 15 promoted no network and spent no production rollout after the current rejected corpus
-above. The current entry gate remains false and pins its exact source/run identity. Running
+Session 15 promoted no network and spent no production rollout after the then-current rejected corpus
+above. The entry gate remained false and pinned that exact source/run identity. Running
 `node scripts/train-construct.mjs --run .tools/construct-training-final-be5f8040-20260828 --workers 8`
 returned config digest `a8d8cf04`, `promotedArtifact: null`, `completedShards: 0` and `updates: 0`.
 This is a no-progress-at-
@@ -7300,7 +7300,7 @@ test-row access, and the no-promotion negative. A deliberate mutation that rewar
 made `time_cap_survival_cannot_outscore_a_damaging_loss` fail (`passive 15` versus `-0.5`) before
 the penalty was restored.
 
-These software checks are not a learned-gameplay result. The current software identities are graph
+These software checks are not a learned-gameplay result. The software identities at that run were graph
 contract `f17d51af`, frozen inference `81362f20`, corpus metadata `95ef233c` and immutable learning
 protocol `0cf3bb85`. Lab identity separately pins runtime `90029073`, installed Warden sensor catalog
 `a4370097` and full-cap config `2ada6317`. Source/environment fingerprint `be5f8040` names the exact
@@ -7310,8 +7310,8 @@ The diagnostic progress contract now measures brace by maximum live joint target
 by full roll/pitch tilt magnitude. The earlier roll-only recover metric could incorrectly exempt a
 pitch-dominant, non-recovering construct from stuck classification. A real scheduler/controller
 regression now holds roll inside epsilon, pitch at `1.1` radians and joint readings static, and
-requires the resulting recover interval to be classified stuck. The current seeded qualification
-above includes this correction and rejected the resulting combat behavior.
+requires the resulting recover interval to be classified stuck. The superseded seeded qualification
+above included this correction and rejected the resulting combat behavior.
 
 Construct terminal recording previously held only one pending envelope. Handover could overwrite a
 cancellation with the new driver's command, while verdict closed the arena sampling gate and
@@ -7427,7 +7427,7 @@ At 0.02, early severance removes collision surfaces and lets three bodies surviv
 by pretending a lower health value is always easier to kill. This also supersedes the earlier
 Swordbearer-only adjacent torso-health claim: adding the neutral second sword changed collision
 coverage, so fatal-torso health alone never exceeded 5/8 even at one point. The 0.10 whole-body
-result is the current 8/8 authority.
+result was the raw-gait 8/8 authority at the time; the supported rerun below supersedes it.
 
 The initial committed bind-and-cross-cut was red at that rung: 0/8 Construct kills, 3/8 active
 survivals, upright Construct damage in 4/8 cells and 139.356623 total raw damage. Three isolated
@@ -7566,3 +7566,177 @@ upright. That is not evidence against the mixed diagnosis; it narrows the requir
 locomotion has to stabilize the pair boundary for both bodies, not merely replace the Construct gait.
 The physical test `the_current_clinch_heap_trace_is_rejected_as_discombobulated` keeps one real mixed
 cell on the ordinary test gate, while the command-line baseline owns all four exact cells.
+
+## Supported-locomotion activation and AI rerun -- 2026-08-30
+
+The dynamic-root premise was tested before accepting the working assisted path. In a real Havok
+240 Hz, two-second Swordbearer/empty-idle-Warrior closure cell, making both supported roots DYNAMIC
+caused the Construct to enter `fallen` at 0.1000 s and the Warrior at 0.4000 s. At the end, both had
+no fresh support binding; the Construct's support-missing clock was 2.0000 s and the Warrior's was
+1.0917 s. Minimum range remained 1.968669 m only because neither could continue walking. The same
+cell with the admitted ANIMATED roots is part of the twelve-cell corpus below and closes past the
+required 0.75 m without the old heap. This is why the durable design supersedes the planned
+continuous dynamic-root motor rather than hiding the failed bracket.
+
+The canonical physical corpus is `scripts/construct-warrior-locomotion.mjs`. It runs and validates
+26 real-Havok cells: twelve Swordbearer/Twinblade/Arbalest versus Warrior side x mode cells, two
+Warrior/Warrior scheduler mirrors, four 0.90 m movement/recovery cells, five ledge/slope/snag/
+occupied-recovery cells and three held-wall/hit-interrupt cells. The accepted report had 26/26
+qualified, zero owed, minimum mixed-cell closure 0.982850788 m, minimum mixed-cell range
+0.821477391 m and 932.418017 total mixed-cell damage after the retained outside-feint repair. Each
+companion validator pins its matrix and
+thresholds against code-owned constants and recomputes summaries from retained physical rows; a
+report cannot remove an obstacle, duplicate a scheduler mirror or lower its own closure threshold.
+The mixed cells request the planned 2.40 m start and full 1,920-step/8.0 s cap. Attack-free cells
+require inward and outward requested motion, no damage and declared footprint separation; combat
+cells require real weapon contact and permit posture loss only as a recorded supported-to-fallen
+physical release.
+
+The first assisted Arbalest v2 rerun uses qualifier `arbalest-assisted-support-v2`. Unlike the
+historical v1 row, it retains every support boundary and requires supported mode, live authority,
+valid posture and fresh physical foot evidence at fire start, completion and the damaging/fatal
+arrow. A recycled projectile suffix still needs a unique monotonically increasing loose serial.
+
+| durability | body digest | idle Warrior kills | raw / qualified active wins | qualified left / right | active survivals | upright-damage cells | active damage |
+| ---: | :--- | ---: | :---: | :---: | ---: | ---: | ---: |
+| 0.25 | `2e8bd69d` | 8/8 | 8 / 7 | 4 / 3 | 8/8 | 8/8 | 1897.586595 |
+| 0.10 | `3f4928d9` | 7/8 | 8 / 8 | 4 / 4 | 8/8 | 8/8 | 1782.564836 |
+| 0.05 | `69f4038a` | 7/8 | 7 / 7 | 4 / 3 | 8/8 | 8/8 | 2002.910431 |
+| 0.02 | `9257ba2b` | 7/8 | 8 / 8 | 4 / 4 | 8/8 | 8/8 | 2147.768364 |
+
+All four active rows share control `0f542c4c`. The exact-fresh regression repair moved the active
+program from `d5ef8c57` to `5fdedf5a`: fire admission now requires upright posture plus at least
+one current foot contact, an admitted draw remains owned until loose or failure, and the authored
+retreat boundary is 1.80 m rather than 1.40 m. The rerun above is the post-repair corpus; the full idle-only
+ladder at 0.50, 0.25, 0.10, 0.05 and 0.02 is respectively 4, 8, 7, 7 and 7 Warrior kills out of
+eight. The x0.10 row is the committed balance point: it lowers durability from the first 8/8 idle
+rung while improving the active result from seven qualified wins to eight. The x0.05 active
+regression and x0.02 recovery prove this is a measured ladder, not a monotonic health boundary.
+
+The remaining idle draw is seed `4124209840` with the Construct on the right. At x0.10 the Duelist
+deals 212.483593 raw damage and detaches the pelvis, but the fatal torso retains full weighted
+vitality. After 6.03 s its damaging contacts are confined to the right foot; later blade contacts
+against both feet are predominantly weak and deal zero damage through the 30-second cap. Lowering
+health cannot repair that targeting geometry, and declaring an arbitrary foot fatal would launder
+the result. The explicit 7/8 idle floor therefore retains one combat-targeting/functional-defeat
+debt while the exact 8/8 active qualifier proves the supported AI, arrow and fatal-transition path.
+
+The supported Twinblade rerun remains red and is distinct from its historical raw-gait ratchet.
+Its idle ladder at the same five rungs is 2, 4, 6, 7 and 6 Warrior kills out of eight. At the
+default x0.10 body the active Mind wins 0/8, qualifies 0/8, survives 2/8 and records upright damage
+in 0/8 cells. Assisted locomotion therefore did not close Session 18, and the old 8/8 idle row must
+not be quoted as current.
+
+The assisted Swordbearer corrected an unreachable retreat rule. Its old 0.82 m threshold sat inside
+the measured pair footprint, so the Mind could never request retreat. A 1.12 m trial still crossed
+the weapon-shove release before its next decision; 1.25 m is the first two-mirror bracket that
+admits retreat beforehand. At ten seconds both mirrors selected full close, full retreat and the
+ordinary shielded-opponent sweep, neither produced a refused sweep, minimum ranges were 1.171266 m
+and 1.209877 m, and the body remained out of the clinch heap. A separate
+authored 12 N s shove at the historical 19.5417 s boundary made both idle-opponent mirrors traverse
+fallen -> rising -> supported within a 24-second bout and exceed the old 0.074789 damage floor.
+Exact-fresh turn/replanting initially left the right mirror at 3.145951 damage but moved the left
+from a damaging path to 0. A fixed lane could not repair it honestly: -0.45 m restored the
+historical pair but broke the held-sword wall and hit-interrupt boundaries, while intermediate
++0.30/+0.35 m lanes still failed the wall and +0.40 m still dealt 0 on the left. The retained
+controller uses described opening geometry instead: at the 2.59960 m shielded admission, weapon
+local x was -0.02277 on the failed mirror and -0.19589 on the already-good mirror. Above a measured
+-0.10 m split, only the windup uses the -0.45 m outside-feint lane; the rising commit and every
+admission below 2.55 m keep the canonical +0.45 m lane. This produced 52.357646/3.145951 damage,
+minimum ranges 1.080848/0.866331 m and full recovery left/right. The nearest wall admission is
+2.21 m, so the exact three-cell boundary corpus remains on its prior path and passes unchanged.
+
+The assisted Warden keeps raw control available for A/B. Its physical longitudinal and lateral
+450 N s falls leave the raw gait fallen, while the separately selected assisted gait reaches
+fallen -> rising -> supported in both directions. The result establishes technical recovery, not a
+human verdict on whether the gait looks good. The validator freezes all four mode x axis rows:
+both raw rows must retain `legacy`, no recovered transition, no settled recovery and a false final
+upright fact; both assisted rows must finish supported and upright after a settled recovery. Its
+mutation check turns one raw recovery true and one assisted final-upright fact false, and rejects
+both forged reports.
+
+Four assisted crawl Actions name each exact three-of-four support set. Capability, scheduler,
+array-order, Mind selection and all four missing-limb capability permutations are green. The real
+Havok front-left severance cell admits only `crawl-without-front-left`, moves more than 0.20 m and
+never allows motion unless `front-right`, `rear-left` and `rear-right` are all simultaneously true
+in the public contact facts and the fresh-support diagnostic. Its allowed speed is at most 0.55
+m/s and its measured root peak is bounded by 0.63 m/s. Removing the pair-boundary all-fresh gate
+made 277 unsupported motion samples visible before the repair.
+
+The Forge path also has physical evidence rather than only codec parity. A newly named
+`forge-three-support-crawl` Action and rule are authored over the exact fallback group, saved,
+parsed and digest-checked, then executed through both reloaded Probe and `construct-program` Fight
+paths after real front-left severance. Each path moves more than 0.15 m, writes the real motor sink
+and crosses the pair resolver with the same three-fresh-support invariant. The core-mounted
+`joint-live-bearing-front-left-upper` fact is deliberate: a sensor on a detached foot becomes
+unavailable rather than reading false, so damage topology must be observed from surviving
+hardware. Physical severance permutations beyond the retained front-left cell remain owed, and
+the prebuilt learning morphology corpus remains raw because those fixtures do not install the
+sensor surface required by the assisted program.
+
+The physical 0.90 m Swordbearer uses scale `(0.90 - 0.002) / (1.8995 - 0.002)` =
+0.473254281949934 so the fixed 2 mm compile clearance does not falsely produce a 0.901 m crown.
+Its measured crown is 0.8999999999999999 m and canonical blueprint digest is `e9ed64a7`. Part,
+contact and non-weapon module geometry/translations scale linearly, masses by s^3 and shape-derived
+inertia by s^5; the ordinary 1.4 kg sword remains unscaled. Real Havok cells at yaw zero and pi move
+more than 0.25 m while supported, then a 0.5 N s authored shove produces
+fallen -> rising -> supported and a valid final posture.
+
+Real Havok wall-pressure fixtures now intersect ordinary held geometry rather than treating the
+carrier query as a weapon. Shield pressure retained 384 WORLD callbacks with 2.30 m/s maximum part
+speed and 0.0023 m maximum Construct joint-frame error. Blade pressure retained 81 callbacks with
+11.40 m/s maximum speed and 0.0032 m joint error. Both measured zero penetration and remain below
+the frozen 0.020 m penetration, 12 m/s part-speed and 0.08 m joint-error limits; their signed
+minimum clearances were respectively 0.016182627 m and 0.021108513 m. The validator derives
+penetration separately from that signed geometry, and a forged 0.021 m row fails rather than being
+accepted as merely finite clearance. A separate real
+buckler hit interrupted recovery: rising began at 0.7250 s, the contact
+arrived at 0.7417 s and the next safe boundary returned the Construct to fallen at 0.7458 s; no
+scheduled fixture shove impersonated the hit.
+
+The frozen stability thresholds now also have a direct real-Havok bracket in
+`tests/supported-locomotion-stability-physical.test.mjs`. Each fresh cell builds an ordinary
+supported Warrior pair on a physical floor, reads the live public body masses, queues the authored
+N s shove through `Fighter.queueStabilityEvent`, advances one fixed 240 Hz boundary step and reads
+the physical port plus the actual pelvis motion type -- no corpus summary or assertion hook is
+involved. The exact-fall cell then advances another 0.50 s of the same solver: the torso dropped
+0.040820 m, above the test's 0.020 m physical-motion floor.
+
+| specific impulse | support state | real Havok pelvis | fresh terminals / posture |
+| ---: | :--- | :--- | :--- |
+| 0.005999 m/s | supported | ANIMATED | both / valid |
+| 0.006000 m/s | staggered | ANIMATED | both / valid |
+| 0.013999 m/s | staggered | ANIMATED | both / valid |
+| 0.014000 m/s | fallen | DYNAMIC | both / valid |
+
+All four cells read the production 0.006/0.014 m/s thresholds and verified that the public Havok
+part masses agree with the 119.3 kg supported-mass input within 0.00001 kg. The mutation proof
+lowered the at-stagger input by 0.000001 m/s while retaining the staggered expectation; the focused
+test failed with actual `supported` versus expected `staggered`, then passed after restoration.
+
+### Fresh assisted-Warden entry qualification -- rejected
+
+After the supported runtime, exact-fresh fallback gate, Forge physical path and canonical corpus
+stopped moving, `npm run construct:qualify -- --out
+.tools/construct-qualify-session24-final-audit-20260830 --workers 8 --expect recorded` ran the exact
+four-seed mirrored Warden entry corpus. Its identity is schedule `9a1e5a6b`, source/environment
+`22c8d82f` and run `f20c3f18`. Eight workers completed in 25.606 seconds at 8.43 aggregate CPU
+cores and 3,087,147,008 peak RSS bytes.
+
+The result is rejected. Seven of eight rows dealt bilateral physical damage, all eight reached the
+time cap, and the observed Action set was only `cover`, `fire` and `recover`: every row lacked the
+required `move` and `brace` Actions. There were 337 named capability losses, zero unexplained
+capability disappearances and zero stuck physics steps. This is not the old raw-gait rejection
+copied onto a new body. It is a fresh assisted-runtime result, and the entry gate pins its exact
+source/run identity while remaining false.
+
+The same final source passed research preflight `2f9d6462` and balance contract `48c3236c`. Its
+mandatory `duelist-swinger` null control at 120 bouts and seed 20260823 remained byte-for-measurement
+identical to the frozen baseline: Duelist 66/120 (55.0%), Swinger 54/120, zero draws, median bout
+3.52 s (1.42--8.98), Duelist/Swinger mean damage 176.17/179.97, ten Duelist severs and 1496/1670
+scoring contacts. Supported locomotion therefore did not silently move the legacy matchup.
+
+Still owed, by name: improving the rejected assisted-Warden qualification; the Arbalest's one right-side
+idle targeting debt; and the red Twinblade balance curriculum. These are not skipped green cells.
+The live construct-forge Session 23/24 plans remain
+until the physical claims and balance decision close.

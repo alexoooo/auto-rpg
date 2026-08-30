@@ -9,6 +9,7 @@ import { humanoidBlueprint, humanoidControl, humanoidProfileMetrics,
   HUMANOID_SENSORS } from "./humanoid.ts";
 import type { ConstructProgram } from "./program.ts";
 import type { SensorSpec } from "./sensors.ts";
+import { humanoidLocomotionRules, humanoidOpponentAligned } from "./humanoid-locomotion-program.ts";
 
 const I = Object.freeze([0, 0, 0, 1] as const);
 const frame = (positionM: readonly [number, number, number] = [0, 0, 0]): AttachmentFrame =>
@@ -44,6 +45,10 @@ export const ARBALEST_HARDWARE = Object.freeze({
     lengthM: 0.34, muzzleSpeedMps: 42, damageScale: 1.15 }),
 });
 
+/** V1 remains named evidence; assisted locomotion is a distinct qualification claim. */
+export const ARBALEST_HISTORICAL_QUALIFIER_ID = "arbalest-fatal-arrow-v1";
+export const ARBALEST_ASSISTED_QUALIFIER_ID = "arbalest-assisted-support-v2";
+
 /**
  * The 2026-08-29 x0.10 mirrored sweep retained only these tactical choices.
  * Continuous reload tracking moved the second release from 1.10--1.22 s to
@@ -53,6 +58,7 @@ export const ARBALEST_HARDWARE = Object.freeze({
  * root-local centre during a clinch, so switching lanes destabilized reacquisition.
  */
 export const ARBALEST_TACTICS = Object.freeze({ blockerClearanceM: 0.10 });
+export const ARBALEST_LOCOMOTION = Object.freeze({ retreatBelowM: 1.80, closeAtM: 6.00 });
 export const ARBALEST_LEFT_SWORD_GUARD = Object.freeze({
   shoulder: -0.35, elbow: -0.65, wrist: 0.35, palm: -0.15,
 });
@@ -124,7 +130,8 @@ export function arbalestControl(): ConstructControlGraph {
       launcher: { joints: [], modules: ["effigy-arbalest"] },
     },
   }).concat([{ id: "left-sword-guard", joints: armJoints, modules: ["effigy-left-sword"], bindings: {} }]);
-  const support = base.actions.filter(({ id }) => ["hold", "stabilize", "brace", "aim"].includes(id))
+  const support = base.actions.filter(({ id }) =>
+    ["hold", "stabilize", "move", "limp-left", "limp-right", "turn", "brace", "recover", "aim"].includes(id))
     .map((action) => action.id === "aim" ? { ...action, group: "arbalest-arm" } : action);
   return validateControlGraph({ version: 1, groups, actions: [...support,
     { id: "track", controller: "track-target", group: "arbalest-arm",
@@ -145,6 +152,7 @@ export function arbalestControl(): ConstructControlGraph {
 
 const constant = (value: number | boolean) => Object.freeze({ op: "constant" as const, value });
 const sensor = (id: string) => Object.freeze({ op: "sensor" as const, id });
+const active = (action: string) => Object.freeze({ op: "active" as const, action });
 
 export function arbalestProgram(): ConstructProgram {
   const targetHeightOffset = Object.freeze({ kind: "expression" as const,
@@ -153,22 +161,38 @@ export function arbalestProgram(): ConstructProgram {
     value: Object.freeze({ ...constant(-ARBALEST_TACTICS.blockerClearanceM), unit: "metres" as const }) });
   const targetParameters = Object.freeze({ "target-height-offset": targetHeightOffset,
     "target-lateral-offset": targetLateralOffset });
+  const locomotionBand = Object.freeze({ op: "and" as const, values: Object.freeze([
+    humanoidOpponentAligned(),
+    Object.freeze({ op: "gte" as const, left: sensor("opponent-range"),
+      right: Object.freeze({ ...constant(ARBALEST_LOCOMOTION.retreatBelowM), unit: "metres" as const }) }),
+    Object.freeze({ op: "lt" as const, left: sensor("opponent-range"),
+      right: Object.freeze({ ...constant(ARBALEST_LOCOMOTION.closeAtM), unit: "metres" as const }) }),
+  ]) });
   return Object.freeze({ version: 1, id: "arbalest-effigy-mind", rules: Object.freeze([
+    ...humanoidLocomotionRules(ARBALEST_LOCOMOTION),
     Object.freeze({ id: "fire-in-range", action: "fire", priority: 30, optional: true, dwellS: 0.1,
-      condition: Object.freeze({ op: "and" as const, values: Object.freeze([
-        sensor("line-of-sight"), Object.freeze({ op: "lt" as const,
-          left: sensor("opponent-range"), right: Object.freeze({ ...constant(8), unit: "metres" as const }) }),
-        Object.freeze({ op: "lte" as const, left: sensor("reload-effigy-arbalest-magazine"),
-          right: Object.freeze({ ...constant(0), unit: "seconds" as const }) }),
-        Object.freeze({ op: "gt" as const, left: sensor("ammo-effigy-arbalest-magazine"),
-          right: Object.freeze({ ...constant(0), unit: "scalar" as const }) }),
-        Object.freeze({ op: "gt" as const, left: sensor("module-health-effigy-arbalest"),
-          right: Object.freeze({ ...constant(0), unit: "scalar" as const }) }),
-        Object.freeze({ op: "gt" as const, left: sensor("module-health-effigy-arbalest-magazine"),
-          right: Object.freeze({ ...constant(0), unit: "scalar" as const }) }),
-        Object.freeze({ op: "gt" as const, left: sensor("power-charge-j"),
-          right: Object.freeze({ ...constant(0), unit: "joules" as const }) }),
-        Object.freeze({ op: "not" as const, value: sensor("overheated") }),
+      // Once admitted, a draw owns the launcher until it looses or fails. Supported turning can
+      // move the line-of-sight sample for one solver row; withdrawing a live draw on that sample
+      // produced a cancelled, serial-less attempt before the next exact-fresh support frame.
+      condition: Object.freeze({ op: "or" as const, values: Object.freeze([active("fire"),
+        Object.freeze({ op: "and" as const, values: Object.freeze([
+          sensor("core-upright"), sensor("line-of-sight"), Object.freeze({ op: "lt" as const,
+            left: sensor("opponent-range"), right: Object.freeze({ ...constant(8), unit: "metres" as const }) }),
+          Object.freeze({ op: "or" as const, values: Object.freeze([
+            sensor("contact-left-foot"), sensor("contact-right-foot"),
+          ]) }),
+          Object.freeze({ op: "lte" as const, left: sensor("reload-effigy-arbalest-magazine"),
+            right: Object.freeze({ ...constant(0), unit: "seconds" as const }) }),
+          Object.freeze({ op: "gt" as const, left: sensor("ammo-effigy-arbalest-magazine"),
+            right: Object.freeze({ ...constant(0), unit: "scalar" as const }) }),
+          Object.freeze({ op: "gt" as const, left: sensor("module-health-effigy-arbalest"),
+            right: Object.freeze({ ...constant(0), unit: "scalar" as const }) }),
+          Object.freeze({ op: "gt" as const, left: sensor("module-health-effigy-arbalest-magazine"),
+            right: Object.freeze({ ...constant(0), unit: "scalar" as const }) }),
+          Object.freeze({ op: "gt" as const, left: sensor("power-charge-j"),
+            right: Object.freeze({ ...constant(0), unit: "joules" as const }) }),
+          Object.freeze({ op: "not" as const, value: sensor("overheated") }),
+        ]) }),
       ]) }), utility: constant(20), parameters: targetParameters }),
     // Keep following through the reload. Without this disjoint admission phase the mount
     // waited for ammunition before it began reacquiring a clinching opponent, spending
@@ -180,7 +204,7 @@ export function arbalestProgram(): ConstructProgram {
         Object.entries(ARBALEST_LEFT_SWORD_GUARD).map(([name, value]) => [name, Object.freeze({ kind: "expression" as const,
           value: Object.freeze({ ...constant(value), unit: "radians" as const }) })]))) }),
     Object.freeze({ id: "brace", action: "brace", priority: 20, optional: false, dwellS: 0,
-      condition: constant(true), utility: constant(4), parameters: Object.freeze({}) }),
+      condition: locomotionBand, utility: constant(4), parameters: Object.freeze({}) }),
     Object.freeze({ id: "stabilize", action: "stabilize", priority: 10, optional: false, dwellS: 0,
       condition: constant(true), utility: constant(3), parameters: Object.freeze({}) }),
   ]) });

@@ -1,5 +1,22 @@
 # Session 24 -- expose damaged-limb locomotion and retune the machines
 
+## Status -- technical implementation and evidence complete; human verdict remains (2026-08-30)
+
+Humanoid full/left-limp/right-limp Actions, assisted Warden selection, descriptor-driven Forge
+choices, immutable Arena/Probe diagnostics, assisted Arbalest qualifier v2 and Swordbearer recovery
+are implemented. At the committed x0.10 durability the Arbalest idle body dies 7/8, while active
+wins and exactly qualifies 8/8 across both mirrors (left 4, right 4). The x0.05 active regression
+to 7/8 and x0.02 recovery to 8/8 keep this an explicitly non-monotonic ladder, not permission to
+skip the one right-side idle targeting debt. The assisted Twinblade rerun remains 0/8 active and
+its best idle rung is 7/8. Exact-fresh Warden crawl authority, the Forge-authored save/reload
+Probe/Fight path and frozen raw/assisted recovery A/B are physical and mutation-proven. The
+physical fallback/obstacle corpus is complete; a fresh
+assisted-Warden qualification at source `22c8d82f` was run with eight workers and rejected rather
+than laundered: all eight rows time-capped, one lacked bilateral damage and all eight missed the
+required move/brace Actions. That negative satisfies this session's fail-closed handoff. This plan
+remains only because the topic is not deleted until Session 16's human verdict and Session 18's
+separate Twinblade balance decision close.
+
 ## Outcome
 
 Make supported locomotion a construct-building and AI-programming mechanic rather than a fixed-body
@@ -33,7 +50,9 @@ balance/qualification corpus and hand one technically green build to Session 16'
    The Warden A/B includes its durable lateral-fall limitation: identical forward and lateral
    falls must compare raw recovery with assisted recovery, and the result is recorded even if the
    raw controller still fails. The assisted controller cannot be accepted only on longitudinal
-   falls.
+   falls. The retained result is deliberately asymmetric: both raw rows stay fallen/legacy while
+   both assisted rows recover supported. A validator and negative mutations prevent either side
+   from being rewritten into a generic all-green summary.
 
 4. Put support state, stability, live support groups, requested/allowed speed, blocked reason,
    release reason and recovery progress into the existing in-arena Construct diagnostics and
@@ -76,6 +95,8 @@ balance/qualification corpus and hand one technically green build to Session 16'
 - `the_assisted_Arbalest_qualifier_cannot_accept_v1_or_launder_support_evidence`
 - `Swordbearer_recovers_from_the_historical_topple_and_exceeds_its_historical_damage_floor`
 - `assisted_Warden_lateral_recovery_is_measured_beside_the_retained_raw_gait`
+- `a_physically_severed_Warden_limb_executes_only_its_exact_three_support_crawl`
+- `Forge_can_author_probe_save_reload_and_physically_fight_with_an_exact_Warden_crawl`
 
 Mutations: stale detached sensor, skipped missing joint, fallback chosen by array order, zero-group
 carrier retention, hidden UI dispatch, full-speed limp, double-spent attack limb, reused v1

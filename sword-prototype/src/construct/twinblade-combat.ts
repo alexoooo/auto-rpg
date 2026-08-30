@@ -236,6 +236,12 @@ class TwinbladeScissorCutController implements ActionController {
       this.begin(phase);
     }
     if (this.phase === "complete" || this.phase === "cancelled") return;
+    // The combined cut owns `resource:balance`, so in supported mode it must keep the same
+    // zero-velocity carrier authority as the brace it replaces. In legacy mode there is no
+    // carrier to feed and the established motor-only cut remains available.
+    if (this.context.locomotion.available) {
+      this.context.locomotion.request({ localForward: 0, localRight: 0, yaw: 0, recover: false });
+    }
     this.elapsedS += dt;
     const braceError = writeBipedBrace(this.context, this.bracePose);
     let greatest = braceError;

@@ -16,6 +16,7 @@ import { SensorFrame, type SensorSpec } from "./sensors.ts";
 import { ConstructRecorder } from "./recorder.ts";
 import type { ActionCapability } from "./capabilities.ts";
 import type { LocomotionSchedulerPort } from "./scheduler.ts";
+import type { PhysicalSupportedLocomotionDiagnostic } from "../supported-locomotion-production.ts";
 
 export const CONSTRUCT_CONTROL_SURFACE = "construct-v1";
 
@@ -27,6 +28,8 @@ export interface ConstructControlSnapshot {
   readonly capabilities: readonly ActionCapability[];
   readonly decision: ConstructDecisionDiagnostic | null;
   readonly motorTargets: readonly MotorTargetDiagnostic[];
+  /** Plain immutable locomotion evidence. No body, shape, carrier or motor handle crosses this seam. */
+  readonly locomotion: PhysicalSupportedLocomotionDiagnostic | null;
 }
 
 export interface MotorTargetDiagnostic extends MotorTarget {
@@ -43,6 +46,7 @@ export interface ConstructControlHooks {
   capabilities?(): readonly ActionCapability[];
   admission?(dt: number, command: ConstructCommand): readonly ActionCapability[];
   locomotion?: LocomotionSchedulerPort;
+  locomotionDiagnostic?(): PhysicalSupportedLocomotionDiagnostic | null;
 }
 
 const jointAngle = (runtime: ConstructRuntime, id: string, axisId?: "x" | "y" | "z"): number => {
@@ -164,6 +168,7 @@ export class ConstructControlEndpoint implements ControlEndpoint {
       capabilities: this.lastCapabilities,
       decision: this.lastDecision,
       motorTargets: this.lastMotorTargets,
+      locomotion: this.hooks.locomotionDiagnostic?.() ?? null,
     });
   }
 

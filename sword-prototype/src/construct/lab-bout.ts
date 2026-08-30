@@ -11,6 +11,10 @@ import { type ConstructControlSnapshot } from "./control.ts";
 import type { SavedConstruct } from "./codec.ts";
 import type { SensorSpec } from "./sensors.ts";
 import type { ConstructInitialCondition } from "./matchup.ts";
+import { constructSupportsSupportedLocomotion } from "./assisted-locomotion.ts";
+import { flatSupportedWorldRegistry } from "../supported-locomotion-production.ts";
+import type { LocomotionMode } from "../units.ts";
+import type { StandableWorldRegistry } from "../supported-locomotion-runtime.ts";
 
 export interface ConstructLabBodySample {
   readonly side: Side;
@@ -39,12 +43,13 @@ class LabBody {
   private readonly reports: CombatReportEvent[] = [];
 
   constructor(scene: Scene, side: Side, saved: SavedConstruct, sensors: readonly SensorSpec[],
-    position: Vector3, facing: number, materials: FighterMaterials) {
+    position: Vector3, facing: number, materials: FighterMaterials,
+    locomotionMode: LocomotionMode, locomotionWorld?: StandableWorldRegistry) {
     this.side = side;
     const definition: ConstructDefinition = Object.freeze({ blueprint: saved.blueprint, control: saved.control,
       program: saved.program, sensors });
     this.body = new Construct({ scene, side, origin: position, facing, materials,
-      policyName: "construct-program" }, definition);
+      policyName: "construct-program", locomotionMode, locomotionWorld }, definition);
     this.combat = new Combat(side, this.body.strikers, (event) => this.reports.push(event));
   }
 
@@ -118,12 +123,16 @@ export class ConstructLabBout {
       arrowAccent: this.material };
     const lateral = initialCondition.lateralOffsetM;
     const separation = separationM + initialCondition.separationOffsetM;
+    const locomotionMode: LocomotionMode = constructSupportsSupportedLocomotion(left.blueprint, left.control) &&
+      constructSupportsSupportedLocomotion(right.blueprint, right.control) ? "supported" : "legacy";
+    const locomotionWorld = locomotionMode === "supported" ? flatSupportedWorldRegistry() : undefined;
     this.left = new LabBody(scene, "left", left, sensors, new Vector3(-lateral / 2, originY, 0),
-      initialCondition.yawOffsetRad, materials);
+      initialCondition.yawOffsetRad, materials, locomotionMode, locomotionWorld);
     this.leftAdapter = new LabControlledBodyAdapter(this.left);
     try {
       this.right = new LabBody(scene, "right", right, sensors,
-        new Vector3(lateral / 2, originY, separation), Math.PI - initialCondition.yawOffsetRad, materials);
+        new Vector3(lateral / 2, originY, separation), Math.PI - initialCondition.yawOffsetRad, materials,
+        locomotionMode, locomotionWorld);
       this.rightAdapter = new LabControlledBodyAdapter(this.right);
       this.left.combat.attach(this.right.body);
       this.right.combat.attach(this.left.body);

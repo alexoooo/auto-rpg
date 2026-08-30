@@ -1,5 +1,11 @@
 # Session 22 -- build the dormant carrier and collision runtime
 
+## Status -- complete (2026-08-30)
+
+The body-less carrier, standable-world registry, symmetric footprint resolver, bounded root/rise
+actuators, collision filtering and resource census landed dormant and green in `9698eab`. Session 23
+activates that same runtime rather than replacing it.
+
 ## Outcome
 
 Build and physically test the assisted carrier, world query, passive-contact policy and lifecycle

@@ -11,6 +11,7 @@ import { humanoidBlueprint, humanoidProfileMetrics, humanoidSavedConstruct,
 import { twinbladeBlueprint, twinbladeControl, twinbladeProgram, twinbladeProfileMetrics,
   twinbladeSavedConstruct, twinbladeSwordBindMetrics, TWINBLADE_SENSORS } from "../src/construct/twinblade.ts";
 import { createConstructHeadlessArena } from "../scripts/construct-headless-arena.mjs";
+import { SUPPORTED_LOCOMOTION_V1 } from "../src/supported-locomotion-state.ts";
 import { UNITS, unitDefinition } from "../src/units.ts";
 
 const REMOVED_FREE_ARM = ["left-upper-arm", "left-forearm", "left-wrist", "left-hand"];
@@ -122,7 +123,8 @@ test("the_control_surface_declares_disjoint_passive_and_combined_bilateral_Actio
   assert.deepEqual(combined.bindings["right-yaw"].joints, ["sword-yaw"]);
   assert.deepEqual(combined.bindings["right-pitch"].joints, ["sword-pitch"]);
   assert.deepEqual(combined.bindings["right-sword"].modules, ["effigy-sword"]);
-  assert.equal(new Set(combined.joints).size, 12);
+  assert.equal(new Set(combined.joints).size, 15,
+    "the combined cut owns both blades, both legs, and the explicit balance chain");
   const neutral = control.actions.find(({ id }) => id === "dual-mount-neutral");
   assert.deepEqual({ controller: neutral.controller, group: neutral.group },
     { controller: "twinblade-neutral-hold", group: "dual-sword-mounts" });
@@ -166,11 +168,30 @@ test("the_Twinblade_physically_compiles_with_two_strikers_and_two_support_feet",
       ["effigy-sword", "left-effigy-sword"]);
     assert.ok(left.runtime.part("left-sword-arm-pitch").node.position.x < left.runtime.part("torso").node.position.x);
     assert.ok(left.runtime.part("sword-arm-pitch").node.position.x > left.runtime.part("torso").node.position.x);
-    for (let step = 0; step < 180; step += 1) bout.step(1 / CONFIG.world.physicsHz);
+    const supportFrames = [];
+    for (let step = 0; step < 180; step += 1) {
+      bout.step(1 / CONFIG.world.physicsHz);
+      supportFrames.push(left.locomotion.diagnostic().freshSupportBindings);
+    }
     const snapshot = left.control.snapshot();
     assert.equal(["left-sword-yaw", "left-sword-pitch"].every((id) =>
       snapshot.motorTargets.some(({ joint }) => joint === id || joint.startsWith(`${id}:`))), true);
-    assert.equal(Object.entries(snapshot.facts).filter(([id, value]) =>
-      id.startsWith("contact:contact-") && id.endsWith("-foot") && value === true).length, 2);
+    const locomotion = left.locomotion.diagnostic();
+    assert.equal(locomotion.state.state, "supported");
+    assert.equal(locomotion.postureSupported, true);
+    // A gait frame is not a stance definition: step 180 deliberately has only the left foot
+    // planted. Require both authored feet to produce real evidence, including a simultaneous
+    // two-foot frame, while the pair never exceeds the frozen no-support grace.
+    assert.deepEqual([...new Set(supportFrames.flat())].sort(), ["left-foot", "right-foot"]);
+    assert.equal(supportFrames.some((bindings) => bindings.length === 2), true);
+    let currentGap = 0; let longestGap = 0;
+    for (const bindings of supportFrames) {
+      currentGap = bindings.length === 0 ? currentGap + 1 : 0;
+      longestGap = Math.max(longestGap, currentGap);
+    }
+    assert.ok(longestGap / CONFIG.world.physicsHz <= SUPPORTED_LOCOMOTION_V1.SUPPORT_GRACE_S,
+      `physical support was absent for ${longestGap / CONFIG.world.physicsHz} s`);
+    assert.ok(locomotion.freshSupportBindings.length >= 1,
+      "the final gait sample must still have a physically planted foot");
   } finally { bout.dispose(); arena.dispose(); }
 });

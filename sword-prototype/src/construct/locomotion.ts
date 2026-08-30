@@ -18,10 +18,24 @@ export interface GaitInput {
   readonly yaw?: number;
 }
 
+/**
+ * Three exact support chains trade authority for surviving a severed limb. These are deliberately
+ * lower than the full Warden gait: the number is a controller contract, not an inference from the
+ * number of bindings that happened to remain live.
+ */
+export const SUPPORTED_QUADRUPED_CRAWL_V1 = Object.freeze({
+  MAX_SPEED_MPS: 0.55,
+  MAX_YAW_FRACTION: 0.35,
+  GAIT_STABILITY_SCALE: 0.65,
+});
+
+const supportBindings = (context: ControllerContext) => Object.entries(context.group.bindings)
+  .filter(([, binding]) => binding.joints.length === 4 && binding.modules.length === 1);
+
 /** Roles and ordered chains come only from the configured group bindings. */
 export function quadrupedTargets(context: ControllerContext, input: GaitInput): readonly GaitTarget[] {
   const rows: GaitTarget[] = [];
-  const roles = Object.entries(context.group.bindings);
+  const roles = supportBindings(context);
   if (roles.length < 3) throw new Error(`group "${context.group.id}" needs at least three configured limb bindings`);
   for (const [role, binding] of roles) {
     if (binding.joints.length !== 4 || binding.modules.length !== 1) {
@@ -76,12 +90,14 @@ const numeric = (context: ControllerContext, name: string, fallback = 0): number
 };
 
 const usableContacts = (context: ControllerContext): number => Object.values(context.group.bindings)
-  .filter((binding) => binding.modules.length === 1 && context.view.facts[`contact:${binding.modules[0]}`] === true)
+  .filter((binding) => binding.joints.length === 4 && binding.modules.length === 1 &&
+    context.view.facts[`contact:${binding.modules[0]}`] === true)
   .length;
 
 class LocomotionController implements ActionController {
   private readonly context: ControllerContext;
-  private readonly mode: "move" | "turn" | "brace" | "recover";
+  private readonly mode: "move" | "turn" | "brace" | "recover" | "crawl";
+  private readonly assisted: boolean;
   private phase = 0;
   private state = "ready";
   private cancelled = "";
@@ -89,9 +105,10 @@ class LocomotionController implements ActionController {
   private stableS = 0;
   private readonly recoveryAxis: "roll" | "pitch";
 
-  constructor(context: ControllerContext, mode: "move" | "turn" | "brace" | "recover") {
+  constructor(context: ControllerContext, mode: "move" | "turn" | "brace" | "recover" | "crawl", assisted = false) {
     this.context = context;
     this.mode = mode;
+    this.assisted = assisted;
     this.recoveryAxis = Math.abs(Number(context.view.facts["core-roll-rad"] ?? 0)) >
       Math.abs(Number(context.view.facts["core-pitch-rad"] ?? 0)) ? "roll" : "pitch";
     // Recovery is precisely the action needed after the support set has collapsed. Requiring
@@ -105,13 +122,14 @@ class LocomotionController implements ActionController {
 
   step(dt: number): void {
     if (this.cancelled !== "") return;
-    const speed = this.mode === "move" ? numeric(this.context, "speed") : 0;
+    const speed = this.mode === "move" || this.mode === "crawl" ? numeric(this.context, "speed") : 0;
+    if (this.assisted) this.writeLocomotionRequest(speed);
     this.phase = (this.phase + dt * (0.75 + speed * 0.65)) % 1;
     const upright = this.context.view.facts["core-upright"] !== false;
     let targets: readonly GaitTarget[];
-    if (this.mode === "brace") {
+    if (this.mode === "brace" || (this.mode === "recover" && this.assisted)) {
       const roll = Number(this.context.view.facts["core-roll-rad"] ?? 0);
-      targets = Object.entries(this.context.group.bindings).flatMap(([role, binding]) => [
+      targets = supportBindings(this.context).flatMap(([role, binding]) => [
         // These hinges rotate around local X, so front/rear -- not left/right -- widens
         // the support polygon. The earlier array-index alternation twisted each side apart.
         { joint: binding.joints[0], angleRad: role.includes("front") ? -0.25 : 0.25 },
@@ -122,7 +140,7 @@ class LocomotionController implements ActionController {
     } else if (this.mode === "recover") {
       const roll = Number(this.context.view.facts["core-roll-rad"] ?? 0);
       const pitch = Number(this.context.view.facts["core-pitch-rad"] ?? 0);
-      targets = Object.entries(this.context.group.bindings).flatMap(([role, binding]) => {
+      targets = supportBindings(this.context).flatMap(([role, binding]) => {
         const frontRear = role.includes("front") ? -1 : 1;
         const side = role.includes("left") ? -1 : 1;
         // When the core lies on its nose, the front attachment is already the low side:
@@ -147,12 +165,12 @@ class LocomotionController implements ActionController {
       this.stableS = upright && usableContacts(this.context) >= 3 ? this.stableS + dt : 0;
       this.state = this.stableS >= 0.25 ? "stable" : upright ? "settling" : "planting";
     } else {
-      const yaw = this.mode === "turn" ? numeric(this.context, "yaw") : 0;
+      const yaw = this.mode === "turn" || this.mode === "crawl" ? numeric(this.context, "yaw") : 0;
       targets = quadrupedTargets(this.context, {
         phase: this.phase,
-        forward: this.mode === "move" ? numeric(this.context, "forward") : 0,
-        right: this.mode === "move" ? numeric(this.context, "right") : yaw,
-        speed: this.mode === "move" ? speed : Math.abs(yaw),
+        forward: this.mode === "move" || this.mode === "crawl" ? numeric(this.context, "forward") : 0,
+        right: this.mode === "move" || this.mode === "crawl" ? numeric(this.context, "right") : yaw,
+        speed: this.mode === "move" || this.mode === "crawl" ? speed : Math.abs(yaw),
         yaw,
       });
     }
@@ -166,7 +184,7 @@ class LocomotionController implements ActionController {
         angleRad,
         maxSpeedRadS: reading.maxSpeedRadS, maxForceNm: reading.maxForceNm });
     }
-    if (this.mode === "move") {
+    if (this.mode === "move" || this.mode === "crawl") {
       this.progress = Math.max(0, speed - Number(this.context.view.facts["core-speed-mps"] ?? 0));
     } else if (this.mode === "turn") {
       this.progress = Math.max(0, Math.abs(numeric(this.context, "yaw")) -
@@ -180,11 +198,35 @@ class LocomotionController implements ActionController {
   cancel(reason: string): void { this.cancelled = reason; this.state = "cancelled"; }
   diagnostic(): ControllerDiagnostic { return { phase: this.state, detail: this.cancelled || `gait phase ${this.phase.toFixed(3)}`,
     progress: this.progress, epsilon: 0.03 }; }
+
+  private writeLocomotionRequest(speed: number): void {
+    const crawling = this.mode === "crawl";
+    const moving = this.mode === "move" || crawling;
+    const forward = moving ? numeric(this.context, "forward") : 0;
+    const right = moving ? numeric(this.context, "right") : 0;
+    const magnitude = Math.hypot(forward, right);
+    const directionScale = magnitude > 1 ? 1 / magnitude : 1;
+    const maximumSpeed = crawling ? SUPPORTED_QUADRUPED_CRAWL_V1.MAX_SPEED_MPS : 1.6;
+    // Requests are fractions of the shared 1.6 m/s carrier, not fractions of this Action's own
+    // ceiling. Dividing a 0.55 m/s crawl by 0.55 asked the carrier for its full 1.6 m/s authority.
+    // The physical port separately gates fallback translation on every exact fresh binding;
+    // normalization here only prevents the reduced Action ceiling from becoming full authority.
+    const speedScale = moving
+      ? Math.max(0, Math.min(maximumSpeed, speed) / 1.6) : 0;
+    this.context.locomotion.request({
+      localForward: forward * directionScale * speedScale,
+      localRight: right * directionScale * speedScale,
+      yaw: this.mode === "turn" ? numeric(this.context, "yaw") : crawling
+        ? Math.max(-SUPPORTED_QUADRUPED_CRAWL_V1.MAX_YAW_FRACTION,
+          Math.min(SUPPORTED_QUADRUPED_CRAWL_V1.MAX_YAW_FRACTION, numeric(this.context, "yaw"))) : 0,
+      recover: this.mode === "recover",
+    });
+  }
 }
 
-const factory = (name: string, mode: "move" | "turn" | "brace" | "recover"): ControllerFactory => Object.freeze({
+const factory = (name: string, mode: "move" | "turn" | "brace" | "recover" | "crawl", assisted = false): ControllerFactory => Object.freeze({
   name,
-  create: (context: ControllerContext) => new LocomotionController(context, mode),
+  create: (context: ControllerContext) => new LocomotionController(context, mode, assisted),
 });
 
 export const LOCOMOTION_CONTROLLERS: readonly ControllerFactory[] = Object.freeze([
@@ -192,4 +234,9 @@ export const LOCOMOTION_CONTROLLERS: readonly ControllerFactory[] = Object.freez
   factory("quadruped-turn", "turn"),
   factory("brace", "brace"),
   factory("recover", "recover"),
+  factory("supported-quadruped-move", "move", true),
+  factory("supported-quadruped-turn", "turn", true),
+  factory("supported-quadruped-brace", "brace", true),
+  factory("supported-quadruped-recover", "recover", true),
+  factory("supported-quadruped-crawl", "crawl", true),
 ]);

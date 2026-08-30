@@ -59,7 +59,7 @@ const saved = (
   const baseBlueprint = wardenBlueprint(variant);
   const blueprint = body === "heavy" ? heavyCore(baseBlueprint, "heavy-core")
     : body === "three-limb" ? withoutRearRight(baseBlueprint) : baseBlueprint;
-  const baseControl = wardenControl(variant);
+  const baseControl = wardenControl(variant, "assisted");
   const control = body === "three-limb" ? controlWithoutRearRight(baseControl) : baseControl;
   const program = opponentProgram === "aggressive" ? aggressiveProgram(variant) : wardenProgram(variant);
   return saveConstruct(id, blueprint, control, program, WARDEN_SENSORS);
@@ -118,7 +118,7 @@ export const CONSTRUCT_LEARNING_SPLIT = Object.freeze({
 const baseDefinitionDigests = Object.freeze(Object.fromEntries((["crossbow", "sword"] as const).map((variant) => [
   variant, Object.freeze({
     blueprint: integrityDigest(canonicalIntegrityJson(wardenBlueprint(variant) as unknown as IntegrityValue)),
-    control: integrityDigest(canonicalIntegrityJson(wardenControl(variant) as unknown as IntegrityValue)),
+    control: integrityDigest(canonicalIntegrityJson(wardenControl(variant, "assisted") as unknown as IntegrityValue)),
     program: integrityDigest(canonicalIntegrityJson(wardenProgram(variant) as unknown as IntegrityValue)),
   }),
 ])));

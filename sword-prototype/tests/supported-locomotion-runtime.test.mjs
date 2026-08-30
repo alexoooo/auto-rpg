@@ -168,6 +168,11 @@ test("the_supported_collision_table_is_exact_for_both_sides_every_membership_and
     assert.equal((own.trunkCollides & other.trunk) !== 0, false);
     assert.equal((own.armCollides & other.arm) !== 0, false);
     assert.equal((own.legCollides & other.leg) !== 0, false);
+    const releasedTrunk = side === "left" ? LAYER.RIGHT_TRUNK : LAYER.LEFT_TRUNK;
+    assert.ok(own.trunkCollides & releasedTrunk,
+      "a supported body must meet opponent anatomy after that anatomy leaves supported mode");
+    assert.ok((side === "left" ? COLLIDES.RIGHT_TRUNK : COLLIDES.LEFT_TRUNK) & own.trunk,
+      "released-versus-supported anatomy collision must be reciprocal");
     assert.ok(own.trunkCollides & LAYER.WORLD);
     assert.ok(own.armCollides & LAYER.DEBRIS);
     assert.equal(own.fistTriggerCollides,

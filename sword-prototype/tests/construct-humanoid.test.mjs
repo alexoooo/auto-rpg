@@ -11,6 +11,9 @@ import { humanoidBlueprint, humanoidControl, humanoidProgram, humanoidSavedConst
   humanoidProfileMetrics, humanoidSwordBindMetrics, HUMANOID_FATAL_HEALTH,
   HUMANOID_SCALE, HUMANOID_SENSORS } from "../src/construct/humanoid.ts";
 import { ActionScheduler } from "../src/construct/scheduler.ts";
+import { ConstructLocomotionPort, deriveLocomotionAuthority } from
+  "../src/construct/assisted-locomotion.ts";
+import { supportedLocomotionControllerDescriptor } from "../src/construct/controllers.ts";
 import { resolveConstructBindTransforms } from "../src/construct/compile.ts";
 import { wardenBlueprint } from "../src/construct/warden.ts";
 import { createConstructHeadlessArena } from "../scripts/construct-headless-arena.mjs";
@@ -130,20 +133,25 @@ test("the_humanoid_saved_character_exposes_only_physically_supported_leg_and_swo
   const control = humanoidControl();
   const controllers = new Map(control.actions.map(({ id, controller }) => [id, controller]));
   assert.deepEqual(Object.fromEntries([...controllers].filter(([id]) =>
-    ["move", "turn", "recover", "aim", "sweep", "guard"].includes(id))), {
-    aim: "aim-direction", sweep: "swordbearer-target-sweep", guard: "guard-mount",
+    ["move", "limp-left", "limp-right", "turn", "recover", "aim", "sweep", "guard"].includes(id))), {
+    move: "supported-biped-move", turn: "supported-biped-turn",
+    "limp-left": "supported-biped-limp-left", "limp-right": "supported-biped-limp-right",
+    recover: "supported-biped-recover", aim: "aim-direction",
+    sweep: "swordbearer-target-sweep", guard: "guard-mount",
   });
   const locomotion = control.groups.find(({ id }) => id === "locomotion");
-  assert.deepEqual(Object.keys(locomotion.bindings), ["left-foot", "right-foot"]);
-  for (const binding of Object.values(locomotion.bindings)) {
+  assert.deepEqual(Object.keys(locomotion.bindings), ["left-foot", "right-foot", "balance-chain"]);
+  for (const binding of [locomotion.bindings["left-foot"], locomotion.bindings["right-foot"]]) {
     assert.equal(binding.joints.length, 4); assert.equal(binding.modules.length, 1);
   }
+  assert.deepEqual(locomotion.bindings["balance-chain"], {
+    joints: ["waist", "neck-bearing", "head-bearing"], modules: [] });
   const sword = control.groups.find(({ id }) => id === "sword-arm");
   assert.deepEqual(sword.bindings.yaw.joints, ["sword-yaw"]);
   assert.deepEqual(sword.bindings.pitch.joints, ["sword-pitch"]);
   assert.deepEqual(sword.bindings.sword.modules, ["effigy-sword"]);
   assert.deepEqual([...new Set(humanoidProgram().rules.map(({ action }) => action))].sort(),
-    ["brace", "guard", "stabilize", "sweep"]);
+    ["brace", "guard", "limp-left", "limp-right", "move", "recover", "stabilize", "sweep", "turn"]);
   assert.equal(humanoidProgram().id, "swordbearer-warrior-duelist");
 
   const saved = humanoidSavedConstruct();
@@ -163,8 +171,13 @@ test("the_humanoid_saved_character_exposes_only_physically_supported_leg_and_swo
   }, "setup and the live Construct publish one physical profile");
 });
 
-test("biped_support_actions_command_only_the_declared_leg_axes_through_MotorWriter", () => {
+test("biped_support_actions_cross_private_authority_and_command_only_declared_leg_axes", () => {
   const control = humanoidControl(); const group = control.groups.find(({ id }) => id === "locomotion");
+  const blueprint = humanoidBlueprint();
+  const locomotionPort = () => new ConstructLocomotionPort((action, selectedGroup) => {
+    const descriptor = supportedLocomotionControllerDescriptor(action.controller);
+    return descriptor ? deriveLocomotionAuthority(blueprint, selectedGroup, action, descriptor) : null;
+  });
   const joints = Object.fromEntries(group.joints.flatMap((id) => [
     [`${id}:x`, { angleRad: 0, speedRadS: 0, minRad: -1.5, maxRad: 1.5, maxSpeedRadS: 4, maxForceNm: 240 }],
     ...(id.endsWith("hip") ? [[`${id}:y`, { angleRad: 0, speedRadS: 0, minRad: -0.45,
@@ -173,18 +186,142 @@ test("biped_support_actions_command_only_the_declared_leg_axes_through_MotorWrit
   const supported = { "contact:contact-left-foot": true, "contact:contact-right-foot": true,
     "core-upright": true, "core-roll-rad": 0, "core-pitch-rad": 0 };
   const writes = [];
-  const scheduler = new ActionScheduler(control, CONSTRUCT_CONTROLLERS, { write: (target) => writes.push(target) });
+  const port = locomotionPort(); port.beginControlStep();
+  const scheduler = new ActionScheduler(control, CONSTRUCT_CONTROLLERS,
+    { write: (target) => writes.push(target) }, port);
   scheduler.step({ version: 1, requests: [{ request: { action: "brace",
     parameters: {} }, priority: 0, sourceIndex: 0 }] },
   { joints, facts: supported }, 1 / 240);
   assert.equal(writes.length, 10, "four sagittal joints plus one hip-yaw target per physical leg");
   assert.equal(writes.every(({ joint }) => /^(left|right)-(hip|knee|ankle|sole):(x|y)$/.test(joint)), true);
+  assert.deepEqual(port.snapshot().staged, {
+    localForward: 0, localRight: 0, yaw: 0, recover: false });
 
-  const unsupported = new ActionScheduler(control, CONSTRUCT_CONTROLLERS, { write() {} });
+  const unsupportedPort = locomotionPort(); unsupportedPort.beginControlStep();
+  const unsupported = new ActionScheduler(control, CONSTRUCT_CONTROLLERS,
+    { write() {} }, unsupportedPort);
   const events = unsupported.step({ version: 1, requests: [{ request: { action: "brace", parameters: {} },
     priority: 0, sourceIndex: 0 }] }, { joints, facts: { ...supported,
       "contact:contact-left-foot": false, "contact:contact-right-foot": false } }, 1 / 240);
   assert.equal(events.some(({ kind, reason }) => kind === "refused" && /at least one measured foot contact/.test(reason)), true);
+});
+
+test("supported_biped_turn_replants_from_one_physical_foot_while_retaining_yaw_authority", () => {
+  const control = humanoidControl();
+  const group = control.groups.find(({ id }) => id === "locomotion");
+  const blueprint = humanoidBlueprint();
+  const port = new ConstructLocomotionPort((action, selectedGroup) => {
+    const descriptor = supportedLocomotionControllerDescriptor(action.controller);
+    return descriptor ? deriveLocomotionAuthority(blueprint, selectedGroup, action, descriptor) : null;
+  });
+  const joints = Object.fromEntries(group.joints.flatMap((id) => [
+    [`${id}:x`, { angleRad: 0, speedRadS: 0, minRad: -1.5, maxRad: 1.5,
+      maxSpeedRadS: 4, maxForceNm: 240 }],
+    ...(id.endsWith("hip") ? [[`${id}:y`, { angleRad: 0, speedRadS: 0, minRad: -0.45,
+      maxRad: 0.45, maxSpeedRadS: 4, maxForceNm: 220 }]] : []),
+  ]));
+  const writes = [];
+  port.beginControlStep();
+  const scheduler = new ActionScheduler(control, CONSTRUCT_CONTROLLERS,
+    { write: (target) => writes.push(target) }, port);
+  scheduler.step({ version: 1, requests: [{ request: { action: "turn", parameters: { yaw: 1 } },
+    priority: 0, sourceIndex: 0 }] }, { joints, facts: {
+      "contact:contact-left-foot": false, "contact:contact-right-foot": true,
+      "core-upright": true, "core-roll-rad": 0, "core-pitch-rad": 0,
+    } }, 1 / 240);
+  assert.deepEqual(port.snapshot().staged, {
+    localForward: 0, localRight: 0, yaw: 1, recover: false,
+  }, "the support-preserving leg pose must not reduce carrier turn authority");
+  assert.deepEqual(Object.fromEntries(writes.map(({ joint, angleRad }) => [joint, angleRad])), {
+    "left-hip:x": 0, "left-knee:x": 0, "left-ankle:x": 0, "left-sole:x": 0,
+    "left-hip:y": 0,
+    "right-hip:x": 0, "right-knee:x": 0, "right-ankle:x": 0, "right-sole:x": 0,
+    "right-hip:y": 0,
+  });
+});
+
+test("supported_biped_limp_shuffles_on_its_surviving_plant_and_stops_when_that_contact_is_absent", () => {
+  const control = humanoidControl();
+  const group = control.groups.find(({ id }) => id === "locomotion");
+  const blueprint = humanoidBlueprint();
+  const port = new ConstructLocomotionPort((action, selectedGroup) => {
+    const descriptor = supportedLocomotionControllerDescriptor(action.controller);
+    return descriptor ? deriveLocomotionAuthority(blueprint, selectedGroup, action, descriptor) : null;
+  });
+  const joints = Object.fromEntries(group.joints.flatMap((id) => [
+    [`${id}:x`, { angleRad: 0, speedRadS: 0, minRad: -1.5, maxRad: 1.5,
+      maxSpeedRadS: 4, maxForceNm: 240 }],
+    ...(id.endsWith("hip") ? [[`${id}:y`, { angleRad: 0, speedRadS: 0, minRad: -0.45,
+      maxRad: 0.45, maxSpeedRadS: 4, maxForceNm: 220 }]] : []),
+  ]));
+  const writes = [];
+  const scheduler = new ActionScheduler(control, CONSTRUCT_CONTROLLERS,
+    { write: (target) => writes.push(target) }, port);
+  const command = { version: 1, requests: [{ request: { action: "limp-right",
+    parameters: { forward: 1, right: 0, yaw: 1, speed: 0.64 } }, priority: 0, sourceIndex: 0 }] };
+  const facts = { "contact:contact-left-foot": false, "contact:contact-right-foot": true,
+    "core-upright": true, "core-roll-rad": 0, "core-pitch-rad": 0 };
+  port.beginControlStep();
+  scheduler.step(command, { joints, facts }, 1 / 240);
+  assert.deepEqual(port.snapshot().staged, {
+    localForward: 0.64 / 1.6, localRight: 0, yaw: 0.45, recover: false,
+  }, "the planted shuffle retains the frozen one-support authority fractions");
+  assert.deepEqual(Object.fromEntries(writes.map(({ joint, angleRad }) => [joint, angleRad])), {
+    "right-hip:x": 0, "right-knee:x": -0.20, "right-ankle:x": 0.10,
+    "right-sole:x": 0.08, "right-hip:y": 0,
+  }, "the sole surviving leg retains the non-lifting planted brace");
+
+  port.beginControlStep(); writes.length = 0;
+  scheduler.step(command, { joints, facts: { ...facts, "contact:contact-right-foot": false } }, 1 / 240);
+  assert.deepEqual(port.snapshot().staged, {
+    localForward: 0, localRight: 0, yaw: 0, recover: false,
+  }, "one-support grace cannot authorize carrier motion without a fresh surviving contact");
+  assert.deepEqual(Object.fromEntries(writes.map(({ joint, angleRad }) => [joint, angleRad])), {
+    "right-hip:x": 0, "right-knee:x": -0.20, "right-ankle:x": 0.10,
+    "right-sole:x": 0.08, "right-hip:y": 0,
+  });
+});
+
+const supportedRecoveryWrites = (pitchRad) => {
+  const control = humanoidControl();
+  const group = control.groups.find(({ id }) => id === "locomotion");
+  const blueprint = humanoidBlueprint();
+  const port = new ConstructLocomotionPort((action, selectedGroup) => {
+    const descriptor = supportedLocomotionControllerDescriptor(action.controller);
+    return descriptor ? deriveLocomotionAuthority(blueprint, selectedGroup, action, descriptor) : null;
+  });
+  const joints = Object.fromEntries(group.joints.flatMap((id) => [
+    [`${id}:x`, { angleRad: 0, speedRadS: 0, minRad: -1.5, maxRad: 1.5,
+      maxSpeedRadS: 4, maxForceNm: 240 }],
+    ...(id.endsWith("hip") ? [[`${id}:y`, { angleRad: 0, speedRadS: 0, minRad: -0.45,
+      maxRad: 0.45, maxSpeedRadS: 4, maxForceNm: 220 }]] : []),
+  ]));
+  const writes = [];
+  port.beginControlStep();
+  const scheduler = new ActionScheduler(control, CONSTRUCT_CONTROLLERS,
+    { write: (target) => writes.push(target) }, port);
+  scheduler.step({ version: 1, requests: [{ request: { action: "recover", parameters: {} },
+    priority: 0, sourceIndex: 0 }] }, { joints, facts: {
+      "contact:contact-left-foot": false, "contact:contact-right-foot": false,
+      "core-upright": false, "core-roll-rad": 0, "core-pitch-rad": pitchRad,
+    } }, 1 / 240);
+  assert.deepEqual(port.snapshot().staged, {
+    localForward: 0, localRight: 0, yaw: 0, recover: true,
+  });
+  return Object.fromEntries(writes.map(({ joint, angleRad }) => [joint, angleRad]));
+};
+
+test("supported_biped_recovery_plants_when_fallen_and_braces_only_inside_the_upright_band", () => {
+  assert.deepEqual(supportedRecoveryWrites(0), {
+    "left-hip:x": 0, "left-knee:x": -0.20, "left-ankle:x": 0.10, "left-sole:x": 0.08,
+    "left-hip:y": 0,
+    "right-hip:x": 0, "right-knee:x": -0.20, "right-ankle:x": 0.10, "right-sole:x": 0.08,
+    "right-hip:y": 0,
+  }, "assisted recovery must not add the legacy scale-sensitive 0.48-rad rocking gait");
+  assert.equal(supportedRecoveryWrites(0.30)["left-knee:x"], -0.20,
+    "the measured 0.30 rad upright boundary retains the combat brace");
+  assert.equal(supportedRecoveryWrites(0.301)["left-knee:x"], 0,
+    "outside the measured upright boundary a fallen body uses the neutral plant");
 });
 
 test("the_humanoid_saved_character_physically_compiles_and_steps_in_the_shared_Construct_bout", async () => {
@@ -214,9 +351,15 @@ test("the_humanoid_saved_character_physically_compiles_and_steps_in_the_shared_C
       "the non-leg, non-sword joints have a concurrent persistent posture Action");
     assert.equal(snapshot.motorTargets.some(({ joint }) => ["waist", "neck-bearing", "head-bearing",
       "left-shoulder", "left-elbow", "left-wrist", "left-palm"].some((id) => joint === id || joint.startsWith(`${id}:`))), true);
-    const contacts = Object.entries(left.control.snapshot().facts)
-      .filter(([id, value]) => id.startsWith("contact:") && value === true);
-    assert.equal(contacts.length, 2, `the biped settles on exactly its two real feet: ${JSON.stringify(contacts)}`);
+    const locomotion = left.locomotion.diagnostic();
+    assert.equal(locomotion.state.state, "supported");
+    assert.equal(locomotion.postureSupported, true);
+    assert.deepEqual(locomotion.supportGroups.find(({ id }) => id === "locomotion")?.bindings
+      .map(({ id }) => id).sort(), ["left-foot", "right-foot"],
+    "the full carrier authority is derived from both authored support chains");
+    assert.ok(locomotion.freshSupportBindings.length >= 1 &&
+      locomotion.freshSupportBindings.every((id) => id === "left-foot" || id === "right-foot"),
+    "an arbitrary gait boundary publishes only the authored foot or feet actually planted");
     const view = { unit: "warrior", reach: 0, crownHeight: 0, vitalHeight: 0, collisionRadius: 0,
       naturalAttacks: {}, ground: new Vector3(), facing: 0, shoulder: new Vector3(), tip: new Vector3(),
       tipSpeed: 0, hands: {}, crouch: 0, trunkLean: 0, trunkTwist: 0, vitality: 0, health: {} };
@@ -233,8 +376,10 @@ test("the_humanoid_saved_character_physically_compiles_and_steps_in_the_shared_C
       "published crown height is the resolved head geometry above the contact pads");
     assert.ok(Math.abs(bindVitalHeight - view.vitalHeight) < 1e-9,
       "published vital height is the fatal torso centre above the contact pads");
-    assert.ok(Vector3.Distance(left.feetPosition(), view.ground) < 1e-6,
-      "published ground uses the explicit two-foot profile rather than the old Warden core shortcut");
+    const carrierGround = left.locomotion.carrierGround();
+    assert.ok(carrierGround && Vector3.Distance(view.ground,
+      new Vector3(carrierGround.x, carrierGround.y, carrierGround.z)) < 1e-9,
+    "supported publication uses the navigation carrier that the pair resolver actually committed");
 
     const rightFoot = left.runtime.part("right-foot").node.position.clone();
     left.state.severJoint("left-hip");

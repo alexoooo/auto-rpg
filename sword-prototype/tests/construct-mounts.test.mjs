@@ -7,7 +7,8 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Combat } from "../src/combat.ts";
 import { Construct } from "../src/construct/construct.ts";
 import { CONSTRUCT_CONTROLLERS } from "../src/construct/controllers.ts";
-import { solveTwoAxisAim, solveTwoAxisLauncherAim } from "../src/construct/mounts.ts";
+import { solveTwoAxisAim, solveTwoAxisLauncherAim, swordbearerWindLateralOffset,
+  SWORDBEARER_TARGET_SWEEP } from "../src/construct/mounts.ts";
 import { ActionScheduler } from "../src/construct/scheduler.ts";
 import { wardenControl } from "../src/construct/warden.ts";
 import { wardenBlueprint, wardenProgram, WARDEN_SENSORS } from "../src/construct/warden.ts";
@@ -24,6 +25,21 @@ test("aim_converges_inside_limits_and_refuses_an_unreachable_direction", () => {
   const unreachable = solveTwoAxisAim({ x: 1, y: 2, z: 0 }, [-0.4, 0.4], [-0.2, 0.2]);
   assert.equal(unreachable.reachable, false);
   assert.match(unreachable.reason, /outside mount limits/);
+});
+
+test("the_Swordbearer_outside_feint_is_selected_on_both_sides_of_the_measured_opening_boundary", () => {
+  // Exact historical admissions were x=-0.02277/-0.19589 at 2.59960 m; -0.10 is between
+  // both mirrors. The nearest frozen wall admission is 2.21 m, below the 2.55 m opening.
+  assert.equal(swordbearerWindLateralOffset(2.59960, true, true, -0.02277),
+    SWORDBEARER_TARGET_SWEEP.openingLateralOffsetM);
+  assert.equal(swordbearerWindLateralOffset(2.59960, true, true, -0.19589),
+    SWORDBEARER_TARGET_SWEEP.lateralOffsetM);
+  assert.equal(swordbearerWindLateralOffset(2.21, true, true, -0.02277),
+    SWORDBEARER_TARGET_SWEEP.lateralOffsetM);
+  assert.equal(swordbearerWindLateralOffset(2.59960, false, true, -0.02277),
+    SWORDBEARER_TARGET_SWEEP.lateralOffsetM);
+  assert.equal(swordbearerWindLateralOffset(2.59960, true, false, 0),
+    SWORDBEARER_TARGET_SWEEP.lateralOffsetM);
 });
 
 test("launcher_aim_corrects_from_the_compiled_muzzle_ray_instead_of_the_construct_root", () => {

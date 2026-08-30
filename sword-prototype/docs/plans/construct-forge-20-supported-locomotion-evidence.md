@@ -1,5 +1,11 @@
 # Session 20 -- prove the pile-up and freeze the pair boundary
 
+## Status -- complete (2026-08-30)
+
+The rejected pile-up corpus, shared two-phase pair scheduler and dormant request/commit seam landed
+green in `74444e2`. Its evidence is retained in `docs/measurements.md`; later sessions consume the
+same boundary rather than opening a second stepping path.
+
 ## Outcome
 
 Land a behaviour-neutral evidence and stepping foundation. The current Warrior-versus-small-

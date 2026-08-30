@@ -26,7 +26,24 @@ export interface SweepCentreSolution {
 
 /** A low outside feint followed by a target-centred rising cut through the head band. */
 export const SWORDBEARER_TARGET_SWEEP = Object.freeze({ halfArcRad: 0.32,
-  lateralOffsetM: 0.45, windHeightOffsetM: -0.85, commitHeightOffsetM: 0.42 });
+  lateralOffsetM: 0.45, openingLateralOffsetM: -0.45, openingAboveM: 2.55,
+  openingWeaponXAboveM: -0.10, windHeightOffsetM: -0.85, commitHeightOffsetM: 0.42 });
+
+/** Select the outside opening feint from raw described geometry, never a host-side mirror label. */
+export function swordbearerWindLateralOffset(
+  rangeM: number,
+  blockerPresent: boolean,
+  weaponPresent: boolean,
+  weaponLocalXM: number,
+): number {
+  if (!Number.isFinite(rangeM) || !Number.isFinite(weaponLocalXM)) {
+    throw new Error("target-centred sweep opening facts must be finite");
+  }
+  return blockerPresent && weaponPresent && rangeM >= SWORDBEARER_TARGET_SWEEP.openingAboveM &&
+    weaponLocalXM > SWORDBEARER_TARGET_SWEEP.openingWeaponXAboveM
+    ? SWORDBEARER_TARGET_SWEEP.openingLateralOffsetM
+    : SWORDBEARER_TARGET_SWEEP.lateralOffsetM;
+}
 
 /**
  * Put the Swordbearer's real, offset L-shaped sword chain through a root-local target.
@@ -145,9 +162,12 @@ class MountController implements ActionController {
   private targetError = Number.POSITIVE_INFINITY;
   private readonly sweepArcRad: number;
   private readonly targetCentredSweep: boolean;
-  private sweepCentreYaw = 0;
+  private sweepWindCentreYaw = 0;
+  private sweepCommitCentreYaw = 0;
   private sweepWindPitch = 0.25;
   private sweepCommitPitch = 0.25;
+  private sweepWindLateralOffsetM: number = SWORDBEARER_TARGET_SWEEP.lateralOffsetM;
+  private sweepCommitLateralOffsetM: number = SWORDBEARER_TARGET_SWEEP.lateralOffsetM;
 
   constructor(context: ControllerContext, mode: "aim" | "track" | "sweep" | "fire" | "guard",
     sweepArcRad = 0.90, targetCentredSweep = false) {
@@ -168,21 +188,41 @@ class MountController implements ActionController {
       }
       return value;
     };
-    const target = { x: fact("opponent-local-x") + SWORDBEARER_TARGET_SWEEP.lateralOffsetM,
-      y: fact("opponent-local-y"),
+    // Exact-fresh replanting exposed one asymmetric opening: the ordinary +0.45 m lane met the
+    // left historical approach's buckler, while applying -0.45 m to every cut destabilized the
+    // mirrored recovery and close wall corpus. The opponent's described sword flank distinguishes
+    // those opening poses without a side label. Latch it at shielded opening-range admission;
+    // close cuts and unblocked opponents retain the canonical lane, and the Action never changes
+    // its selected wind/commit lanes mid-swing.
+    const target = { x: fact("opponent-local-x"), y: fact("opponent-local-y"),
       z: fact("opponent-local-z") };
     const wind = solveSwordbearerSweepCentre({ ...target,
+      x: target.x + this.sweepWindLateralOffsetM,
       y: target.y + SWORDBEARER_TARGET_SWEEP.windHeightOffsetM });
     const commit = solveSwordbearerSweepCentre({ ...target,
+      x: target.x + this.sweepCommitLateralOffsetM,
       y: target.y + SWORDBEARER_TARGET_SWEEP.commitHeightOffsetM });
-    this.sweepCentreYaw = commit.yawRad;
+    this.sweepWindCentreYaw = wind.yawRad;
+    this.sweepCommitCentreYaw = commit.yawRad;
     this.sweepWindPitch = wind.pitchRad;
     this.sweepCommitPitch = commit.pitchRad;
   }
 
   enter(): void {
     this.phase = this.mode === "sweep" ? "wind" : "tracking";
-    if (this.mode === "sweep" && this.targetCentredSweep) this.snapshotSweepCentre();
+    if (this.mode === "sweep" && this.targetCentredSweep) {
+      const range = this.context.view.facts["opponent-range"];
+      const weaponX = this.context.view.facts["opponent-weapon-local-x"];
+      if (typeof range !== "number" || !Number.isFinite(range) ||
+          typeof weaponX !== "number" || !Number.isFinite(weaponX)) {
+        throw new Error("target-centred sweep opening facts must be finite");
+      }
+      this.sweepWindLateralOffsetM = swordbearerWindLateralOffset(range,
+        this.context.view.facts["opponent-blocker-present"] === true,
+        this.context.view.facts["opponent-weapon-present"] === true, weaponX);
+      this.sweepCommitLateralOffsetM = SWORDBEARER_TARGET_SWEEP.lateralOffsetM;
+      this.snapshotSweepCentre();
+    }
   }
 
   private trackedTarget(yawReading: Readonly<{ minRad: number; maxRad: number }>,
@@ -252,7 +292,9 @@ class MountController implements ActionController {
     }
     if (this.mode === "sweep") {
       const direction = Number(this.context.request.parameters.direction ?? 1);
-      const centreYaw = this.targetCentredSweep ? this.sweepCentreYaw : 0;
+      const centreYaw = this.targetCentredSweep
+        ? this.sweepPhase === "wind" ? this.sweepWindCentreYaw : this.sweepCommitCentreYaw
+        : 0;
       yawTarget = this.sweepPhase === "wind" ? centreYaw - direction * this.sweepArcRad :
         this.sweepPhase === "commit" ? centreYaw + direction * this.sweepArcRad : centreYaw;
       // The mounted sword projects along the socket's forward axis. Its damaging travel is

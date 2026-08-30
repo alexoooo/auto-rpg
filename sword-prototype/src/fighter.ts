@@ -21,18 +21,20 @@ import type { Scene } from "@babylonjs/core/scene.js";
 // reach. `input.ts` is on the far side of it, and a fighter reaches it only
 // through `mind.ts`'s `Intent`, which is a type alias and erases.
 import { CONFIG } from "./config.ts";
-import { COLLIDES, LAYER, layersFor, type Side } from "./physics.ts";
+import { COLLIDES, LAYER, layersFor, supportedLayersFor, type Side } from "./physics.ts";
 import { capsulePart, joint, type Part } from "./rig.ts";
 import { Figure, type FigureController, type FigureMaterials } from "./figure.ts";
 import { KayKitFigure } from "./kaykit-figure.ts";
 import { Arm } from "./arm.ts";
 import { handsFor, isShield, type Weapon, type WeaponKind } from "./weapon.ts";
 import type { Striking } from "./combat.ts";
-import type { Combatant } from "./units.ts";
+import type { Combatant, LocomotionMode } from "./units.ts";
 import { HumanoidControlEndpoint, type HumanoidHumanSource } from "./humanoid-control.ts";
 import { stepControlledPair } from "./control-host.ts";
 import { vitality } from "./bout.ts";
-import { StagedSupportedLocomotionPort } from "./supported-locomotion.ts";
+import { PhysicalSupportedLocomotionPort } from "./supported-locomotion-production.ts";
+import { deriveLocomotionFootprint, type StandableWorldRegistry } from "./supported-locomotion-runtime.ts";
+import { fighterPostureIsSupported } from "./supported-locomotion-state.ts";
 import {
   HANDS,
   idleMind,
@@ -113,6 +115,8 @@ export interface FighterOptions {
   loadout?: Partial<Record<HandName, WeaponKind>>;
   /** Per-body tuning. Omitted is the exact historical Warrior. */
   profile?: HumanoidProfile;
+  readonly locomotionMode?: LocomotionMode;
+  readonly locomotionWorld?: StandableWorldRegistry;
 }
 
 export interface HumanoidProfile {
@@ -431,8 +435,7 @@ const blankProjectile = (owner: "self" | "opponent"): ProjectileView => ({
 export class Fighter {
   readonly articulated: Fighter = this;
   readonly control: HumanoidControlEndpoint;
-  /** Dormant command/support adapter; `steer` remains the only movement writer until activation. */
-  readonly locomotion = new StagedSupportedLocomotionPort();
+  readonly locomotion: PhysicalSupportedLocomotionPort | null;
   readonly kind: "warrior" | "broot" | "kaykit-knight";
   readonly profile: HumanoidProfile;
   private readonly bodyConfig: BodyConfig;
@@ -652,7 +655,12 @@ export class Fighter {
     this.armConfig = profileConfig.arm;
     const F = this.fighterConfig;
     const B = this.bodyConfig;
-    const layers = layersFor(opts.side);
+    const ordinaryLayers = layersFor(opts.side);
+    const assistedLayers = supportedLayersFor(opts.side);
+    const assisted = opts.locomotionMode === "supported";
+    const layers = assisted ? { ...ordinaryLayers,
+      trunk: assistedLayers.trunk, trunkCollides: assistedLayers.trunkCollides,
+      arm: assistedLayers.arm, armCollides: assistedLayers.armCollides } : ordinaryLayers;
     this.side = opts.side;
     const initialMind = opts.mind ?? idleMind();
 
@@ -843,6 +851,8 @@ export class Fighter {
           // conditionally is a mask that has to be worked out twice.
           arrowLayer: layers.arrow,
           arrowCollidesWith: layers.arrowCollides,
+          fistTrigger: assisted ? { membership: assistedLayers.fistTrigger,
+            collidesWith: assistedLayers.fistTriggerCollides } : undefined,
           weapon: wanted[hand],
           bindPose: this.profile.appearance === "kaykit-knight" ? "outstretched" : "hanging",
           visible,
@@ -888,6 +898,7 @@ export class Fighter {
       height: number,
       radius: number,
       mass: number,
+      collision = { layer: layers.trunk, collidesWith: layers.trunkCollides },
     ): Part => {
       const part = capsulePart(scene, {
         name: `${opts.side}.${name}`,
@@ -896,8 +907,8 @@ export class Fighter {
         height,
         radius,
         mass,
-        layer: layers.trunk,
-        collidesWith: layers.trunkCollides,
+        layer: collision.layer,
+        collidesWith: collision.collidesWith,
         material: materials.hide,
         friction: 0.8,
       });
@@ -912,7 +923,120 @@ export class Fighter {
 
     this.head = bone("head", place(0, B.headCentre, 0), B.headLength, B.headRadius, B.headMass);
     this.pelvis = bone("pelvis", place(0, B.pelvisCentre, 0), B.pelvisLength, B.pelvisRadius, B.pelvisMass);
+    // A dynamic-root bracket loses both real foot contacts within the frozen 0.10 s grace even
+    // at zero input; both bodies then collapse together. The game carrier owns supported walking,
+    // while authored knockdown releases this root to the ordinary dynamic ragdoll.
     this.pelvis.body.setMotionType(PhysicsMotionType.ANIMATED);
+    if (assisted && !opts.locomotionWorld) throw new Error("supported Fighter requires the pair world-query registry");
+    const setAssistedAnatomyCollision = (supported: boolean): void => {
+      for (const limb of this.limbs) {
+        if (limb.severed) continue;
+        const arm = ["upperArm", "forearm", "hand", "offUpperArm", "offForearm", "offHand"]
+          .includes(limb.key);
+        const leg = ["thighL", "shinL", "thighR", "shinR"].includes(limb.key);
+        const membership = supported
+          ? arm ? assistedLayers.arm : leg ? assistedLayers.leg : assistedLayers.trunk
+          : arm ? ordinaryLayers.arm : ordinaryLayers.trunk;
+        const collides = supported
+          ? arm ? assistedLayers.armCollides : leg ? assistedLayers.legCollides : assistedLayers.trunkCollides
+          : arm ? ordinaryLayers.armCollides : ordinaryLayers.trunkCollides;
+        limb.part.shape.filterMembershipMask = membership;
+        limb.part.shape.filterCollideMask = collides;
+      }
+    };
+    this.locomotion = assisted ? new PhysicalSupportedLocomotionPort({
+      id: `${opts.side}.${this.kind}`,
+      position: { x: this.pelvis.mesh.position.x, y: this.pelvis.mesh.position.y, z: this.pelvis.mesh.position.z },
+      yaw: opts.facing,
+      footprint: deriveLocomotionFootprint({ radiusM: Math.max(B.torsoRadius, B.hipSide + B.thighRadius),
+        heightM: B.headCentre + B.headRadius,
+        provenance: { profileId: this.kind, source: "fighter-bind-geometry", measuredAt: "constructor-bind-pose" } }),
+      ownerPartIds: new Set(["pelvis", "torso", "head", "left-leg", "right-leg"]),
+      registry: opts.locomotionWorld as StandableWorldRegistry,
+      supportedMassKg: B.torsoMass + B.headMass + B.pelvisMass + 2 * (B.thighMass + B.shinMass) +
+        2 * (this.armConfig.upperMass + this.armConfig.foreMass + this.armConfig.handMass),
+      authority: () => ({ carrierPartId: "pelvis",
+        supportBindings: Object.freeze([{ role: "left-leg" }, { role: "right-leg" }]),
+        braceCapacityMultiplier: 1, gaitStabilityScale: 1 }),
+      supportBindings: Object.freeze(["left-leg", "right-leg"]),
+      supportPoint: (role) => {
+        const limb = this.limbs.find(({ key, severed }) => !severed && key ===
+          (role === "left-leg" ? "shinL" : role === "right-leg" ? "shinR" : ""));
+        if (!limb) return null;
+        const rotation = limb.part.mesh.rotationQuaternion ?? Quaternion.Identity();
+        const down = Vector3.Down().rotateByQuaternionToRef(rotation, new Vector3())
+          .scaleInPlace(B.shinLength / 2);
+        const point = limb.part.mesh.position.add(down);
+        return { x: point.x, y: point.y, z: point.z };
+      },
+      applyAngularDrive: (targetYaw) => {
+        const rotation = this.pelvis.mesh.rotationQuaternion ?? Quaternion.Identity();
+        const up = Vector3.Up().rotateByQuaternionToRef(rotation, new Vector3());
+        const angular = this.pelvis.body.getAngularVelocity();
+        const actualYaw = rotation.toEulerAngles().y;
+        const yawError = Math.atan2(Math.sin(targetYaw - actualYaw), Math.cos(targetYaw - actualYaw));
+        const mass = B.torsoMass + B.headMass + B.pelvisMass + 2 * (B.thighMass + B.shinMass) +
+          2 * (this.armConfig.upperMass + this.armConfig.foreMass + this.armConfig.handMass);
+        const torque = Vector3.Cross(up, Vector3.Up()).scaleInPlace(mass * 6);
+        torque.x -= angular.x * mass * 7;
+        torque.z -= angular.z * mass * 7;
+        torque.y = Math.max(-mass * 8, Math.min(mass * 8, yawError * mass * 6 - angular.y * mass * 5));
+        const limit = mass * 8;
+        if (torque.length() > limit) torque.normalize().scaleInPlace(limit);
+        this.pelvis.body.applyTorque(torque);
+      },
+      driveAnimatedRoot: (targetVelocity, targetYaw) => {
+        const rotation = this.pelvis.mesh.rotationQuaternion ?? Quaternion.Identity();
+        const actualYaw = rotation.toEulerAngles().y;
+        const yawError = Math.atan2(Math.sin(targetYaw - actualYaw), Math.cos(targetYaw - actualYaw));
+        this.pelvis.body.setLinearVelocity(new Vector3(targetVelocity.x, 0, targetVelocity.z));
+        this.pelvis.body.setAngularVelocity(new Vector3(0,
+          clamp(yawError * 8, -F.turnSpeed, F.turnSpeed), 0));
+      },
+      releaseRoot: () => {
+        if (this.pelvis.body.getMotionType() === PhysicsMotionType.ANIMATED) {
+          this.pelvis.body.setMotionType(PhysicsMotionType.DYNAMIC);
+        }
+      },
+      restoreRoot: () => {
+        if (!this.dead && this.pelvis.body.getMotionType() === PhysicsMotionType.DYNAMIC) {
+          this.pelvis.body.setMotionType(PhysicsMotionType.ANIMATED);
+          this.pelvis.body.setLinearVelocity(Vector3.Zero());
+          this.pelvis.body.setAngularVelocity(Vector3.Zero());
+        }
+      },
+      releaseAnatomyCollision: () => setAssistedAnatomyCollision(false),
+      restoreSupportedAnatomyCollision: () => setAssistedAnatomyCollision(true),
+      liveSupport: () => !this.dead && ["thighL", "shinL", "thighR", "shinR"].every((key) =>
+        !this.limbs.find((limb) => limb.key === key)?.severed),
+      postureSupported: () => {
+        const rotation = this.pelvis.mesh.rotationQuaternion ?? Quaternion.Identity();
+        const up = Vector3.Up().rotateByQuaternionToRef(rotation, new Vector3());
+        return fighterPostureIsSupported({ pelvisUpDot: up.y,
+          torsoHeightAbovePelvisM: this.torso.mesh.position.y - this.pelvis.mesh.position.y,
+          headHeightAboveTorsoM: this.head.mesh.position.y - this.torso.mesh.position.y });
+      },
+      root: {
+        sample: () => ({ motionType: this.pelvis.body.getMotionType() === PhysicsMotionType.DYNAMIC ? "dynamic" :
+          this.pelvis.body.getMotionType() === PhysicsMotionType.ANIMATED ? "animated" : "static",
+        position: { x: this.pelvis.mesh.position.x, y: this.pelvis.mesh.position.y, z: this.pelvis.mesh.position.z },
+        velocity: { x: this.pelvis.body.getLinearVelocity().x, y: this.pelvis.body.getLinearVelocity().y,
+          z: this.pelvis.body.getLinearVelocity().z }, massKg: B.torsoMass + B.headMass + B.pelvisMass +
+          2 * (B.thighMass + B.shinMass) +
+          2 * (this.armConfig.upperMass + this.armConfig.foreMass + this.armConfig.handMass), released: this.dead }),
+        applyForce: (force) => {
+          const mass = B.torsoMass + B.headMass + B.pelvisMass + 2 * (B.thighMass + B.shinMass) +
+            2 * (this.armConfig.upperMass + this.armConfig.foreMass + this.armConfig.handMass);
+          this.pelvis.body.applyForce(new Vector3(force.x, force.y + mass * 9.81, force.z), this.pelvis.mesh.position);
+        },
+        clearDrive: () => {
+          if (this.pelvis.body.getMotionType() === PhysicsMotionType.ANIMATED) {
+            this.pelvis.body.setLinearVelocity(Vector3.Zero());
+            this.pelvis.body.setAngularVelocity(Vector3.Zero());
+          }
+        },
+      },
+    }) : null;
 
     // The off arm used to be two capsules on gait-driven motors, with no hand
     // body, no anchor and no grip: it counterswung while you walked and there
@@ -926,8 +1050,10 @@ export class Fighter {
       const x = index === 0 ? -B.hipSide : B.hipSide;
       return {
         x,
-        thigh: bone(`thigh${suffix}`, place(x, B.thighCentre, 0), B.thighLength, B.thighRadius, B.thighMass),
-        shin: bone(`shin${suffix}`, place(x, B.shinCentre, 0), B.shinLength, B.shinRadius, B.shinMass),
+        thigh: bone(`thigh${suffix}`, place(x, B.thighCentre, 0), B.thighLength, B.thighRadius, B.thighMass,
+          assisted ? { layer: assistedLayers.leg, collidesWith: assistedLayers.legCollides } : undefined),
+        shin: bone(`shin${suffix}`, place(x, B.shinCentre, 0), B.shinLength, B.shinRadius, B.shinMass,
+          assisted ? { layer: assistedLayers.leg, collidesWith: assistedLayers.legCollides } : undefined),
       };
     });
 
@@ -1167,7 +1293,7 @@ export class Fighter {
       canStep: () => !this.dead && this.fighting,
       apply: (dt, intent) => this.applyIntent(dt, intent),
       stopBody: () => this.stopBody(),
-      clearLocomotion: (reason) => this.locomotion.clear(reason),
+      clearLocomotion: (reason) => this.locomotion?.clear(reason),
       policies: opts.controlPolicies ?? [{ name: "idle", label: "Idle" }],
       policyFactory: opts.controlPolicyFactory,
       human: opts.human,
@@ -1515,7 +1641,7 @@ export class Fighter {
   }
 
   queueStabilityEvent(event: import("./supported-locomotion-state.ts").StabilityEvent): void {
-    this.locomotion.queueStabilityEvent(event);
+    this.locomotion?.queueStabilityEvent(event);
   }
 
   private applyIntent(dt: number, intent: Intent): void {
@@ -1634,6 +1760,7 @@ export class Fighter {
    */
   dispose(): void {
     this.control.dispose();
+    this.locomotion?.dispose();
     this.figure.dispose();
     this.disposeBodyGraph();
   }
@@ -1853,6 +1980,15 @@ export class Fighter {
     const right = this.scratch.right.set(world.m[0], world.m[1], world.m[2]).normalize();
     const forward = this.scratch.forward.set(world.m[8], world.m[9], world.m[10]).normalize();
 
+    if (this.locomotion) {
+      const magnitude = Math.hypot(input.forward, input.strafe);
+      const scale = magnitude > 1 ? 1 / magnitude : 1;
+      this.locomotion.request({ localForward: input.forward * scale,
+        localRight: input.strafe * scale,
+        yaw: clamp(this.turnRate(input, forward) / Math.max(F.turnSpeed, 1e-9), -1, 1), recover: false });
+      return;
+    }
+
     const desired = this.scratch.move.set(0, 0, 0);
     // Backwards is slower than forwards, which it was not until there was a
     // policy that lived on the difference. See `fighter.backSpeed`.
@@ -1940,7 +2076,9 @@ export class Fighter {
    */
   private walk(dt: number): void {
     const B = this.bodyConfig;
-    const speed = this.groundSpeed();
+    const allowed = this.locomotion?.priorAllowed() ?? null;
+    const speed = this.locomotion ? Math.hypot(allowed?.localForward ?? 0,
+      allowed?.localRight ?? 0) * this.fighterConfig.walkSpeed : this.groundSpeed();
     this.stride += speed * this.fighterConfig.strideCadence * dt;
 
     const pose = B.gaitDrivesLegs
@@ -1952,6 +2090,8 @@ export class Fighter {
       if (drive.limb.severed) continue;
       drive.constraint.setAxisMotorTarget(PhysicsConstraintAxis.ANGULAR_X, pose[drive.angle]);
     }
+
+    if (this.locomotion) return;
 
     // The pelvis is the locomotion frame and remains animated, but its vertical
     // reference is not arbitrary: it is the height implied by the same solved

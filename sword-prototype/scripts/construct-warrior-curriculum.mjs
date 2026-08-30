@@ -208,11 +208,11 @@ export const CONSTRUCT_WARRIOR_CURRICULUM_ACCEPTANCE = Object.freeze({
 });
 
 /**
- * Honest x0.10 floor from the strict 2026-08-29 Arbalest corpus, not the
- * superseded pre-qualifier score. The unchanged AI/body ratchet also passed
- * x0.05 at 2 qualified wins and x0.02 non-monotonically at 3; idle died 8/8
- * at all three rungs. Active damage was 912.2360733535304, the same again,
- * then 1127.6907478558683.
+ * Assisted-support v2 rerun on 2026-08-30. At x0.10 the active body won and qualified
+ * 8/8 exactly (left 4, right 4), while its same-body posture-only baseline died 7/8.
+ * Health alone cannot finish the remaining right-mirror cell: severance strands the
+ * fallen fatal torso behind non-vital foot contacts. The explicit debt stays in the
+ * corpus instead of weakening the fatal-part rule or pretending the ladder is monotonic.
  */
 export const ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE = Object.freeze({
   version: 2,
@@ -223,16 +223,16 @@ export const ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE = Object.freeze({
   qualifierId: ARBALEST_QUALIFIER_ID,
   constructBlueprintId: "arbalest-effigy",
   activeProgramId: "arbalest-effigy-mind",
-  idleWarriorKillsMin: 8,
-  activeConstructKillsMin: 2,
-  activeQualifiedConstructKillsMin: 2,
-  activeQualifiedConstructKillsLeftMin: 1,
-  activeQualifiedConstructKillsRightMin: 1,
-  activeConstructSurvivalsMin: 2,
+  idleWarriorKillsMin: 7,
+  activeConstructKillsMin: 8,
+  activeQualifiedConstructKillsMin: 8,
+  activeQualifiedConstructKillsLeftMin: 4,
+  activeQualifiedConstructKillsRightMin: 4,
+  activeConstructSurvivalsMin: 8,
   activeUprightDamageCellsMin: 8,
   blueprintDigest: "3f4928d9",
-  controlDigest: "2d8aa403",
-  activeProgramDigest: "da776d60",
+  controlDigest: "0f542c4c",
+  activeProgramDigest: "5fdedf5a",
 });
 
 export function assertConstructWarriorCurriculum(report,

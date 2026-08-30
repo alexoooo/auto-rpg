@@ -1,5 +1,6 @@
 import type { ConstructControlGraph } from "./actions.ts";
 import type { ResourceView } from "./resources.ts";
+import { supportedLocomotionControllerDescriptor } from "./controllers.ts";
 
 export interface ActionCapability {
   readonly action: string;
@@ -48,4 +49,56 @@ export function deriveCapabilities(
     );
     return Object.freeze({ action: action.id, group: action.group, available: reason === null, reason, parameterBounds });
   });
+}
+
+/**
+ * Descriptor-owned full/fallback exclusion.
+ *
+ * Hardware availability remains all-members-required in `deriveCapabilities`. This second pure
+ * pass says which of those exact groups may spend the one balance resource. It never picks a
+ * fallback by utility, request order or array order.
+ */
+export function applySupportedLocomotionAlternatives(
+  graph: ConstructControlGraph,
+  capabilities: readonly ActionCapability[],
+  requestedActions: readonly string[] = [],
+): readonly ActionCapability[] {
+  const actionById = new Map(graph.actions.map((action) => [action.id, action]));
+  const descriptorByAction = new Map(graph.actions.flatMap((action) => {
+    const descriptor = supportedLocomotionControllerDescriptor(action.controller);
+    return descriptor?.alternative ? [[action.id, descriptor.alternative] as const] : [];
+  }));
+  const capabilityByAction = new Map(capabilities.map((row) => [row.action, row]));
+  const families = new Set([...descriptorByAction.values()].map(({ family }) => family));
+  const requested = new Set(requestedActions);
+  const reasonByAction = new Map<string, string>();
+
+  for (const family of [...families].sort()) {
+    const members = [...descriptorByAction].filter(([, descriptor]) => descriptor.family === family)
+      .sort(([left], [right]) => left.localeCompare(right));
+    const livePrimary = members.filter(([, descriptor]) => descriptor.rank === "primary")
+      .map(([id]) => capabilityByAction.get(id)).find((row) => row?.available);
+    if (livePrimary) {
+      for (const [id, descriptor] of members) if (descriptor.rank === "fallback") {
+        reasonByAction.set(id, `primary locomotion action "${livePrimary.action}" remains available`);
+      }
+      continue;
+    }
+    const requestedFallbacks = members.filter(([id, descriptor]) =>
+      descriptor.rank === "fallback" && requested.has(id)).map(([id]) => id);
+    if (requestedFallbacks.length > 1) {
+      const reason = `fallback locomotion actions "${requestedFallbacks.join('", "')}" were requested together; ` +
+        `one "resource:balance" fallback must be named`;
+      for (const id of requestedFallbacks) {
+        const own = capabilityByAction.get(id)?.reason;
+        reasonByAction.set(id, own ? `${reason}; ${own}` : reason);
+      }
+    }
+  }
+
+  return Object.freeze(capabilities.map((row) => {
+    if (!actionById.has(row.action)) throw new Error(`capability references unknown action "${row.action}"`);
+    const reason = reasonByAction.get(row.action);
+    return reason ? Object.freeze({ ...row, available: false, reason }) : row;
+  }));
 }

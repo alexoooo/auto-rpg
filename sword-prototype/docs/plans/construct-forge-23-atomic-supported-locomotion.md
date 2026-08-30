@@ -1,5 +1,24 @@
 # Session 23 -- atomically activate supported locomotion
 
+## Status -- production activation and the complete physical matrix are green (2026-08-30)
+
+Pair-atomic supported mode, symmetric carrier separation, real limb/contact gates, authored
+stability release, ragdoll knockdown and bounded recovery are active for Fighters and the humanoid
+Constructs. The canonical 26-cell report now runs the twelve Construct/Warrior cells, mirrored
+Fighter/Fighter cells, physically scaled 0.90 m cells, ledge and slope limits, snag, occupied
+recovery, held-weapon wall pressure and hit-interrupted recovery. A separate live-body 240 Hz
+bracket proves below/at 0.006 m/s stagger and 0.014 m/s fall, including the real pelvis
+ANIMATED-to-DYNAMIC release. Held sword/shield wall rows retain signed geometry clearance and a
+separate penetration maximum; both measure zero against a frozen 0.020 m limit, while a forged
+0.021 m result is rejected. The topic remains live for Session 24's qualification/balance handoff,
+not for an unmeasured Session 23 physical cell.
+
+One planned mechanism is superseded by measured evidence. Keeping the supported root DYNAMIC made
+both humanoid bodies lose real foot evidence and fall inside the exact 0.10 s grace at rest. The
+landed game carrier therefore admits an ANIMATED root while supported and releases the same root to
+DYNAMIC on knockdown. `docs/design.md` owns the replacement safety argument; this plan's dynamic-root
+sentences below remain as the rejected premise rather than being rewritten as if they had passed.
+
 ## Outcome
 
 Activate symmetric separation, supported-root authority, passive-contact filtering, live limb
@@ -97,6 +116,7 @@ recovery without phasing.
 - `page_headless_Lab_Workshop_training_and_qualification_take_the_same_pair_path`
 - `mixed_Warden_and_Centipede_pairs_choose_legacy_for_both_bodies_before_construction`
 - `a_supported_humanoid_pair_enables_both_ports_or_refuses_never_one`
+- `real_Havok_brackets_the_frozen_stagger_and_fall_thresholds_on_a_supported_body`
 - `every_obstacle_cell_proves_its_fixture_intersects_the_declared_envelope`
 - `held_shield_and_blade_wall_pressure_neither_phases_nor_launches_combat_geometry`
 
@@ -116,7 +136,7 @@ timing, run control -> locomotion corpus -> control in each round and report the
 difference/range; a lone command is not a performance bracket.
 
 ```powershell
-node --test tests/supported-locomotion-physical.test.mjs tests/construct-humanoid.test.mjs tests/construct-arbalest.test.mjs tests/construct-lab.test.mjs tests/integration.test.mjs
+node --test tests/supported-locomotion-physical.test.mjs tests/supported-locomotion-stability-physical.test.mjs tests/construct-humanoid.test.mjs tests/construct-arbalest.test.mjs tests/construct-lab.test.mjs tests/integration.test.mjs
 node scripts/construct-warrior-locomotion.mjs
 npm run measure -- --only duelist-swinger --bouts 120 --seed 20260823
 npm run construct:qualify -- --out <fresh-directory> --workers 8 --expect rejected

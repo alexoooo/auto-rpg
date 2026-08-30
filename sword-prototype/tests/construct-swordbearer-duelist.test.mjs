@@ -38,14 +38,20 @@ test("the_rejected_single_arm_beat_and_contact_latch_are_absent_from_the_Swordbe
   assert.equal(program.rules.some(({ action }) => action === "beat-cut"), false);
   assert.equal(HUMANOID_SENSORS.some(({ id }) => id.includes("sword-blocker")), false);
   assert.equal(blueprint.modules.some(({ striker }) => striker && "contactSensorId" in striker), false);
-  assert.deepEqual(commandActions({ range: 1.4, blocker: true }), ["guard", "brace", "stabilize"]);
-  assert.deepEqual(commandActions({ range: 1.4, blocker: false }), ["sweep", "brace", "stabilize"]);
+  assert.equal(graph.actions.find(({ id }) => id === "move").controller, "supported-biped-move");
+  assert.equal(graph.actions.find(({ id }) => id === "sweep").controller, "swordbearer-target-sweep");
+  // Assisted support made a described shield a physical sweep target instead of a reason to
+  // abandon both closing and attacking. Blocker presence changes neither public Action here.
+  assert.deepEqual(commandActions({ range: 1.4, blocker: true }), ["move", "sweep", "stabilize"]);
+  assert.deepEqual(commandActions({ range: 1.4, blocker: false }), ["move", "sweep", "stabilize"]);
 });
 
 test("the_safe_Swordbearer_never_aims_at_a_described_blocker_without_line_of_sight", () => {
-  assert.deepEqual(commandActions({ range: 1.4, blocker: true, visible: false }), ["brace", "stabilize"]);
+  // Losing sight suppresses every aimed weapon Action without suppressing supported locomotion.
+  // Removing `visible` from either sweep rule therefore adds `sweep` and fails this whole record.
+  assert.deepEqual(commandActions({ range: 1.4, blocker: true, visible: false }), ["move", "stabilize"]);
   assert.deepEqual(commandActions({ range: SWORDBEARER_DUELIST.strikeBelowM + 0.01 }),
-    ["guard", "brace", "stabilize"]);
+    ["move", "guard", "stabilize"]);
 });
 
 test("the_raw_described_blocker_selects_attached_shields_and_clears_without_a_stale_latch", () => {

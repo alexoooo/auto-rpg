@@ -6,11 +6,14 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
 import { Combat } from "../src/combat.ts";
 import { CONFIG } from "../src/config.ts";
-import { ARBALEST_HARDWARE, ARBALEST_LEFT_SWORD_GUARD, ARBALEST_SENSORS,
-  arbalestBlueprint, arbalestControl,
+import { ARBALEST_HARDWARE, ARBALEST_LEFT_SWORD_GUARD, ARBALEST_LOCOMOTION, ARBALEST_SENSORS,
+  arbalestBlueprint, arbalestControl, arbalestProgram,
   arbalestProfileMetrics, arbalestSavedConstruct } from "../src/construct/arbalest.ts";
 import { humanoidBlueprint } from "../src/construct/humanoid.ts";
+import { evaluateExpression } from "../src/construct/program.ts";
+import { installedSensorsForBlueprint, SensorFrame } from "../src/construct/sensors.ts";
 import { stepPair } from "../src/fighter.ts";
+import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
 import { postureOnlySavedConstruct,
   runConstructWarriorCurriculum } from "../scripts/construct-warrior-curriculum.mjs";
 import { arbalestCurriculumDefinition } from "../scripts/arbalest-warrior-qualifier.mjs";
@@ -52,7 +55,10 @@ test("the_Arbalest_reuses_the_human_scale_body_with_a_right_launcher_and_an_ordi
 test("the_Arbalest_public_graph_exposes_tracking_fire_and_the_existing_biped_support_actions", () => {
   const control = arbalestControl();
   assert.deepEqual(Object.fromEntries(control.actions.map(({ id, controller }) => [id, controller])), {
-    hold: "hold-joints", stabilize: "hold-joints", brace: "biped-brace", aim: "aim-direction",
+    hold: "hold-joints", stabilize: "hold-joints", move: "supported-biped-move",
+    "limp-left": "supported-biped-limp-left", "limp-right": "supported-biped-limp-right",
+    turn: "supported-biped-turn", brace: "supported-biped-brace",
+    recover: "supported-biped-recover", aim: "aim-direction",
     track: "track-target", fire: "fire-projectile", "guard-left-sword": "arbalest-left-sword-guard",
   });
   const mount = control.groups.find(({ id }) => id === "arbalest-arm");
@@ -70,7 +76,33 @@ test("the_Arbalest_public_graph_exposes_tracking_fire_and_the_existing_biped_sup
   assert.deepEqual(ARBALEST_LEFT_SWORD_GUARD,
     { shoulder: -0.35, elbow: -0.65, wrist: 0.35, palm: -0.15 });
   assert.deepEqual(new Set(arbalestSavedConstruct().program.rules.map(({ action }) => action)),
-    new Set(["fire", "track", "guard-left-sword", "brace", "stabilize"]));
+    new Set(["fire", "track", "guard-left-sword", "brace", "stabilize", "move", "limp-left",
+      "limp-right", "turn", "recover"]));
+});
+
+test("an_Arbalest_draw_starts_only_upright_on_fresh_support_and_then_keeps_its_launcher", () => {
+  assert.equal(ARBALEST_LOCOMOTION.retreatBelowM, 1.80);
+  const installed = installedSensorsForBlueprint(arbalestBlueprint(), ARBALEST_SENSORS);
+  const frame = new SensorFrame(installed);
+  for (const [id, value] of Object.entries({
+    "core-upright": true, "line-of-sight": true, "opponent-range": 2,
+    "contact-left-foot": false, "contact-right-foot": false,
+    "reload-effigy-arbalest-magazine": 0, "ammo-effigy-arbalest-magazine": 12,
+    "module-health-effigy-arbalest": 1, "module-health-effigy-arbalest-magazine": 1,
+    "power-charge-j": 24_000, overheated: false,
+  })) frame.publish(id, value);
+  const fire = arbalestProgram().rules.find(({ id }) => id === "fire-in-range");
+  assert.ok(fire);
+  const admitted = (active) => Boolean(evaluateExpression(fire.condition, frame,
+    { isActionActive: (action) => active && action === "fire" }).value);
+  assert.equal(admitted(false), false, "an otherwise valid shot cannot begin without a fresh foot");
+  frame.publish("contact-left-foot", true);
+  assert.equal(admitted(false), true, "one exact fresh support admits the ordinary fire Action");
+  frame.publish("core-upright", false); frame.publish("contact-left-foot", false);
+  assert.equal(admitted(false), false, "a fallen Arbalest cannot begin a shot");
+  frame.publish("line-of-sight", false);
+  assert.equal(admitted(true), true,
+    "a draw already admitted by upright support survives transient support/LOS withdrawal");
 });
 
 test("the_Arbalest_is_selectable_without_replacing_either_sword_effigy_and_idle_changes_only_its_program", () => {
@@ -125,13 +157,16 @@ test("the_selectable_Arbalest_tracks_and_physically_hits_an_idle_Warrior_torso_i
     const constructOrigin = constructSide === "left" ? Vector3.Zero() : new Vector3(0, 0, separation);
     const warriorOrigin = constructSide === "left" ? new Vector3(0, 0, separation) : Vector3.Zero();
     const warriorSide = constructSide === "left" ? "right" : "left";
+    const locomotionWorld = flatSupportedWorldRegistry();
     const construct = unitDefinition("arbalest-effigy").build({ scene: arena.scene, side: constructSide,
       origin: constructOrigin, facing: constructSide === "left" ? 0 : Math.PI,
-      materials: palette.fighter, policyName: "humanoid-authored" });
+      materials: palette.fighter, policyName: "humanoid-authored",
+      locomotionMode: "supported", locomotionWorld });
     const warrior = unitDefinition("warrior").build({ scene: arena.scene, side: warriorSide,
       origin: warriorOrigin, facing: warriorSide === "left" ? 0 : Math.PI,
       materials: palette.fighter, policyName: "idle",
-      loadout: { primary: "empty", secondary: "empty" } });
+      loadout: { primary: "empty", secondary: "empty" },
+      locomotionMode: "supported", locomotionWorld });
     const reports = []; const observedActions = new Set();
     const combat = new Combat(constructSide, construct.strikers, (event) => reports.push(event));
     combat.attach(warrior);
@@ -143,6 +178,9 @@ test("the_selectable_Arbalest_tracks_and_physically_hits_an_idle_Warrior_torso_i
           constructSide === "left" ? warrior : construct, 1 / CONFIG.world.physicsHz, combat.now);
         const snapshot = construct.control.snapshot();
         for (const { action } of snapshot.active) observedActions.add(action);
+        for (const { action, kind } of snapshot.events) {
+          if (kind === "started" || kind === "completed") observedActions.add(action);
+        }
         arena.scene._renderId += 1;
         arena.scene._advancePhysicsEngineStep(1000 / CONFIG.world.physicsHz);
         combat.advance(1 / CONFIG.world.physicsHz);

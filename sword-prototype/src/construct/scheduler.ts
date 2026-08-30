@@ -149,6 +149,9 @@ export class LocomotionWriter {
     this.portSample = portSample;
   }
 
+  /** Controllers may preserve a legacy motor-only path without seeing or forging the token. */
+  get available(): boolean { return this.authority !== null && this.submit !== null; }
+
   request(value: LocomotionRequest): void {
     if (!this.authority || !this.submit) {
       throw new Error(`action "${this.action.id}" in group "${this.group.id}" has no locomotion authority`);

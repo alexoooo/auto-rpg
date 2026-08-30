@@ -660,9 +660,10 @@ Seven, and each one was paid for.
   controller required three planted contacts in its constructor, so a fallen Mind selected
   `recover` forever and the scheduler refused it forever. Move, turn and brace retain that
   admission rule; recovery does not. The current Warden proves longitudinal recovery under real
-  off-centre impulses. The current authored corpus still fails to complete: 220,871 of its
-  234,442 stuck steps are in `brace/brace`, and the remaining 13,571 are in `fire/tracking`.
-  Learning stays fail-closed until those live action failures and decisive completion are fixed.
+  off-centre impulses. The superseded raw corpus accumulated 234,442 stuck steps. The current
+  assisted corpus has zero stuck steps, but all eight rows time-cap, one lacks bilateral damage
+  and every row omits required move/brace Actions. Learning stays fail-closed until those live
+  action and decisive-completion failures are fixed.
 - **A construct qualification identity is a pair.** `scheduleDigest` covers the complete frozen
   assignment and thresholds; `sourceDigest` covers runtime sources and construct scripts but
   deliberately excludes `src/construct/learning/schedule.ts`. Including the schedule in both made
@@ -674,10 +675,10 @@ Seven, and each one was paid for.
   32-way scaling.
 - **A green counter cannot rescue a red bout.** The zero-damage authored corpus originally had
   zero stuck steps and zero capability losses because its action/power loop never progressed.
-  Six of eight current rows deal bilateral damage, but all eight time out with the stuck-action
-  breakdown above. Its 212 named resource/hardware transitions are telemetry, not unexplained
-  capability disappearance. Promotion gates judge the conjunction and production writes no shard
-  or artifact when entry is red.
+  Seven of eight current assisted rows deal bilateral damage and stuck steps are zero, but all
+  eight time out and all omit required move/brace Actions. Its 337 named capability losses are
+  telemetry, not unexplained capability disappearance. Promotion gates judge the conjunction and
+  production writes no shard or artifact when entry is red.
 - **Foot contact does not prove a humanoid is standing.** The first Swordbearer test accepted two
   live foot contacts while the whole body was lying on its back. A biped posture claim needs root-up,
   torso height and head-above-torso together over the claimed interval. Its mixed Warrior harness
@@ -722,6 +723,20 @@ completion order. A worker-count change must reproduce artifact, report and resu
 `npm run ai:watch -- --run <run-directory>` is read-only. `champion-so-far.artifact` may be loaded
 into a live arena fight through `__sword.research.load(...)`, but its in-progress provenance is
 refused by policy, league and tournament registration.
+
+**Supported walking is not continuous ragdoll balance.** The virtual carrier has no body or combat
+shape, while the admitted physical root is ANIMATED until an authored knockdown releases it to
+DYNAMIC. This supersedes the first dynamic-root plan: a real 240 Hz bracket made both humanoid
+bodies lose foot evidence and fall inside the frozen 0.10 s grace at rest. Do not "restore physics"
+by deleting `driveAnimatedRoot`; that recreates the pile-up this system exists to avoid. The safety
+boundary is instead pair-atomic footprint resolution, real limb/contact authorization, authored
+stability release, no drive while fallen/dead, and occupancy/hit-gated recovery. The durable
+argument is in `docs/design.md`; the before/after numbers are in `docs/measurements.md`.
+
+**A support query unit test is not a physical obstacle corpus.** A fake root that records bounded
+forces can prove a clamp or slope predicate. It cannot prove held-weapon wall speed, joint-frame
+error, Havok penetration or recovery around real combat geometry. Keep those unit tests, but name
+the physical evidence separately and leave a missing physical cell owed rather than relabelling it.
 
 ## Where the design lives
 

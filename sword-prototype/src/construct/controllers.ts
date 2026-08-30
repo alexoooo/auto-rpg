@@ -1,7 +1,7 @@
 import type { ControllerContext, ControllerFactory, ControllerDiagnostic } from "./scheduler.ts";
 import type { ParameterSpec } from "./actions.ts";
-import { BIPED_CONTROLLERS } from "./biped.ts";
-import { LOCOMOTION_CONTROLLERS } from "./locomotion.ts";
+import { BIPED_CONTROLLERS, SUPPORTED_BIPED_LIMP_V1 } from "./biped.ts";
+import { LOCOMOTION_CONTROLLERS, SUPPORTED_QUADRUPED_CRAWL_V1 } from "./locomotion.ts";
 import { MOUNT_CONTROLLERS } from "./mounts.ts";
 import { TWINBLADE_COMBAT_CONTROLLERS } from "./twinblade-combat.ts";
 
@@ -23,6 +23,15 @@ export interface ControllerCompatibility {
   }>[];
   /** Exact saved parameter descriptors used to seed a new Action form. */
   readonly parameters: Readonly<Record<string, ParameterSpec>>;
+  readonly supportedLocomotion?: Readonly<{
+    readonly gaitStabilityScale: number;
+    readonly brace: boolean;
+    /** Descriptor-owned exclusion; the Forge and runtime read this without controller-name dispatch. */
+    readonly alternative?: Readonly<{
+      readonly family: string;
+      readonly rank: "primary" | "fallback";
+    }>;
+  }>;
 }
 
 class JointController {
@@ -110,6 +119,48 @@ export const CONTROLLER_COMPATIBILITY: readonly ControllerCompatibility[] = Obje
       yaw: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
     } : {}) as Readonly<Record<string, ParameterSpec>>,
   })),
+  ...["supported-quadruped-move", "supported-quadruped-turn", "supported-quadruped-brace",
+    "supported-quadruped-recover"].map((controller): ControllerCompatibility => Object.freeze({
+    controller, role: "quadruped" as const, minimumJoints: 13, minimumModules: 3,
+    requiredParameters: Object.freeze(controller === "supported-quadruped-move" ? ["forward", "right", "speed"]
+      : controller === "supported-quadruped-turn" ? ["yaw"] : []),
+    bindings: Object.freeze([
+      Object.freeze({ role: "limb", repeat: "at-least-three" as const, joints: 4, modules: 1 }),
+      Object.freeze({ role: "balance-chain", repeat: "once" as const, joints: 1, modules: 0 }),
+    ]),
+    parameters: Object.freeze(controller === "supported-quadruped-move" ? {
+      forward: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
+      right: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
+      speed: Object.freeze({ kind: "number" as const, min: 0, max: 1.6, unit: "metres-per-second" as const }),
+    } : controller === "supported-quadruped-turn" ? {
+      yaw: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
+    } : {}) as Readonly<Record<string, ParameterSpec>>,
+    supportedLocomotion: Object.freeze({ gaitStabilityScale: 1,
+      brace: controller === "supported-quadruped-brace",
+      ...(controller === "supported-quadruped-move" ? {
+        alternative: Object.freeze({ family: "supported-quadruped-move", rank: "primary" as const }),
+      } : {}),
+    }),
+  })),
+  Object.freeze({ controller: "supported-quadruped-crawl", role: "quadruped" as const,
+    minimumJoints: 13, minimumModules: 3,
+    requiredParameters: Object.freeze(["forward", "right", "yaw", "speed"]),
+    bindings: Object.freeze([
+      Object.freeze({ role: "limb", repeat: "at-least-three" as const, joints: 4, modules: 1 }),
+      Object.freeze({ role: "balance-chain", repeat: "once" as const, joints: 1, modules: 0 }),
+    ]),
+    parameters: Object.freeze({
+      forward: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
+      right: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
+      yaw: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
+      speed: Object.freeze({ kind: "number" as const, min: 0,
+        max: SUPPORTED_QUADRUPED_CRAWL_V1.MAX_SPEED_MPS, unit: "metres-per-second" as const }),
+    }),
+    supportedLocomotion: Object.freeze({ gaitStabilityScale: SUPPORTED_QUADRUPED_CRAWL_V1.GAIT_STABILITY_SCALE,
+      brace: false,
+      alternative: Object.freeze({ family: "supported-quadruped-move", rank: "fallback" as const }),
+    }),
+  }),
   ...["biped-move", "biped-turn", "biped-brace", "biped-recover"].map((controller): ControllerCompatibility => Object.freeze({
     controller, role: "biped" as const, minimumJoints: 8, minimumModules: 2,
     requiredParameters: Object.freeze(controller === "biped-move" ? ["forward", "right", "speed"]
@@ -126,6 +177,80 @@ export const CONTROLLER_COMPATIBILITY: readonly ControllerCompatibility[] = Obje
       yaw: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
     } : {}) as Readonly<Record<string, ParameterSpec>>,
   })),
+  ...["supported-biped-move", "supported-biped-turn", "supported-biped-brace",
+    "supported-biped-recover"].map((controller): ControllerCompatibility => Object.freeze({
+    controller, role: "biped" as const, minimumJoints: 11, minimumModules: 2,
+    requiredParameters: Object.freeze(controller === "supported-biped-move" ? ["forward", "right", "speed"]
+      : controller === "supported-biped-turn" ? ["yaw"] : []),
+    bindings: Object.freeze([
+      Object.freeze({ role: "left-foot", repeat: "once" as const, joints: 4, modules: 1 }),
+      Object.freeze({ role: "right-foot", repeat: "once" as const, joints: 4, modules: 1 }),
+      Object.freeze({ role: "balance-chain", repeat: "once" as const, joints: 3, modules: 0 }),
+    ]),
+    parameters: Object.freeze(controller === "supported-biped-move" ? {
+      forward: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
+      right: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
+      speed: Object.freeze({ kind: "number" as const, min: 0, max: 1.6, unit: "metres-per-second" as const }),
+    } : controller === "supported-biped-turn" ? {
+      yaw: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
+    } : {}) as Readonly<Record<string, ParameterSpec>>,
+    supportedLocomotion: Object.freeze({ gaitStabilityScale: 1,
+      brace: controller === "supported-biped-brace",
+      ...(controller === "supported-biped-move" ? {
+        alternative: Object.freeze({ family: "supported-biped-move", rank: "primary" as const }),
+      } : {}),
+    }),
+  })),
+  ...(["left", "right"] as const).map((side): ControllerCompatibility => Object.freeze({
+    controller: `supported-biped-limp-${side}`, role: "biped" as const,
+    minimumJoints: 7, minimumModules: 1,
+    requiredParameters: Object.freeze(["forward", "right", "yaw", "speed"]),
+    bindings: Object.freeze([
+      Object.freeze({ role: `${side}-foot`, repeat: "once" as const, joints: 4, modules: 1 }),
+      Object.freeze({ role: "balance-chain", repeat: "once" as const, joints: 3, modules: 0 }),
+    ]),
+    parameters: Object.freeze({
+      forward: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
+      right: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
+      yaw: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
+      speed: Object.freeze({ kind: "number" as const, min: 0,
+        max: SUPPORTED_BIPED_LIMP_V1.MAX_SPEED_MPS, unit: "metres-per-second" as const }),
+    }),
+    supportedLocomotion: Object.freeze({ gaitStabilityScale: SUPPORTED_BIPED_LIMP_V1.GAIT_STABILITY_SCALE,
+      brace: false,
+      alternative: Object.freeze({ family: "supported-biped-move", rank: "fallback" as const }),
+    }),
+  })),
+  Object.freeze({ controller: "twinblade-scissor-cut", role: "biped" as const,
+    minimumJoints: 15, minimumModules: 4,
+    requiredParameters: Object.freeze(["blocker-outward-m", "cutter-chamber-cross-m",
+      "cutter-chamber-drop-m", "open-lane-offset-m", "motor-speed-fraction", "motor-force-fraction",
+      "travel-multiplier", "settle-allowance-s", "brace-knee-rad", "brace-ankle-rad", "brace-sole-rad"]),
+    bindings: Object.freeze([
+      Object.freeze({ role: "left-foot", repeat: "once" as const, joints: 4, modules: 1 }),
+      Object.freeze({ role: "right-foot", repeat: "once" as const, joints: 4, modules: 1 }),
+      Object.freeze({ role: "balance-chain", repeat: "once" as const, joints: 3, modules: 0 }),
+      ...(["left", "right"] as const).flatMap((side) => [
+        Object.freeze({ role: `${side}-yaw`, repeat: "once" as const, joints: 1, modules: 0 }),
+        Object.freeze({ role: `${side}-pitch`, repeat: "once" as const, joints: 1, modules: 0 }),
+        Object.freeze({ role: `${side}-sword`, repeat: "once" as const, joints: 0, modules: 1 }),
+      ]),
+    ]),
+    parameters: Object.freeze({
+      "blocker-outward-m": Object.freeze({ kind: "number" as const, min: 0.05, max: 0.70, unit: "metres" as const }),
+      "cutter-chamber-cross-m": Object.freeze({ kind: "number" as const, min: 0.05, max: 0.80, unit: "metres" as const }),
+      "cutter-chamber-drop-m": Object.freeze({ kind: "number" as const, min: 0, max: 0.70, unit: "metres" as const }),
+      "open-lane-offset-m": Object.freeze({ kind: "number" as const, min: 0, max: 0.35, unit: "metres" as const }),
+      "motor-speed-fraction": Object.freeze({ kind: "number" as const, min: 0.25, max: 1, unit: "scalar" as const }),
+      "motor-force-fraction": Object.freeze({ kind: "number" as const, min: 0.25, max: 1, unit: "scalar" as const }),
+      "travel-multiplier": Object.freeze({ kind: "number" as const, min: 0.5, max: 3, unit: "scalar" as const }),
+      "settle-allowance-s": Object.freeze({ kind: "number" as const, min: 0, max: 0.5, unit: "seconds" as const }),
+      "brace-knee-rad": Object.freeze({ kind: "number" as const, min: -0.60, max: 0.15, unit: "radians" as const }),
+      "brace-ankle-rad": Object.freeze({ kind: "number" as const, min: -0.25, max: 0.35, unit: "radians" as const }),
+      "brace-sole-rad": Object.freeze({ kind: "number" as const, min: -0.20, max: 0.30, unit: "radians" as const }),
+    }),
+    supportedLocomotion: Object.freeze({ gaitStabilityScale: 1, brace: true }),
+  }),
   ...["aim-direction", "track-target", "sweep-arc", "sweep-compact-arc", "fire-projectile", "guard-mount"].map((controller): ControllerCompatibility => Object.freeze({
     controller, role: "two-axis-mount" as const, minimumJoints: 2, minimumModules: 1,
     requiredParameters: Object.freeze(controller === "aim-direction" ? ["yaw", "pitch"]
@@ -207,4 +332,13 @@ export function compatibleControllers(joints: number, modules: number): readonly
   return CONTROLLER_COMPATIBILITY.filter((descriptor) =>
     joints >= descriptor.minimumJoints && modules >= descriptor.minimumModules
   );
+}
+
+export function supportedLocomotionControllerDescriptor(name: string): Readonly<{
+  readonly controller: string; readonly gaitStabilityScale: number; readonly brace: boolean;
+  readonly alternative?: Readonly<{ readonly family: string; readonly rank: "primary" | "fallback" }>;
+}> | null {
+  const descriptor = CONTROLLER_COMPATIBILITY.find(({ controller }) => controller === name);
+  return descriptor?.supportedLocomotion
+    ? Object.freeze({ controller: descriptor.controller, ...descriptor.supportedLocomotion }) : null;
 }

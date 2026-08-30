@@ -287,12 +287,11 @@ const SCRATCH_SHARE_OF_DURABLE = { min: 0.02, max: 0.25 };
 // about what it will create, and a fall means somebody created it. Both are correct; neither
 // is a repair.
 //
-// **Re-measured 2026-08-30 after completed/deprecated plans were pruned and the
-// supported-locomotion sessions were added: 13 missing and zero ambiguous.** The
-// remaining misses are files those live sessions promise to create. The two former
-// ambiguous `ppo.ts` references belonged to removed historical plan prose.
+// **Re-measured 2026-08-30 after the current plan pruning: four missing and zero
+// ambiguous.** The remaining misses are files those live sessions promise to create.
+// The former ambiguous `ppo.ts` references belonged to removed historical plan prose.
 const PLAN_SURFACE = {
-    noSuchFile: 5,
+  noSuchFile: 4,
   ambiguousFile: 0,
   anchorIntoDeletedFile: 0,
   orphanContinuation: 0,

@@ -170,3 +170,55 @@ test("a_pause_keeps_the_machine_and_decision_timeline_visible", () => {
   assert.match(markup, /18\.00 damage/);
   assert.doesNotMatch(markup, /hidden/);
 });
+
+const locomotionDiagnostic = (overrides = {}) => ({
+  state: { state: "rising", specificImpulseMps: 0.004, supportMissingS: 0,
+    fallenElapsedS: 0.5, risingElapsedS: 0.225, driveStaged: true },
+  stability: { specificImpulseMps: 0.004, staggerAtMps: 0.006, fallAtMps: 0.014 },
+  authority: true, activeGroup: "locomotion-left", liveSupport: true, postureSupported: true,
+  supportGroups: [{ id: "locomotion-full", live: false, reason: "right leg detached",
+    bindings: [{ id: "left-foot", live: true, reason: null },
+      { id: "right-foot", live: false, reason: "right foot detached" }] },
+  { id: "locomotion-left", live: true, reason: null,
+    bindings: [{ id: "left-foot", live: true, reason: null }] }],
+  freshSupportBindings: ["left-foot"],
+  requested: { localForward: 0.35, localRight: 0, yaw: -0.2, recover: true },
+  allowed: { localForward: 0.1, localRight: 0, yaw: -0.2, recover: true },
+  blockedReason: "carrier motion is constrained by world <wall>",
+  releaseReason: "supported posture was lost", recoveryProgress: 0.5,
+  ...overrides,
+});
+
+test("diagnostics_report_requested_and_allowed_motion_without_exposing_a_body_handle", () => {
+  const locomotion = locomotionDiagnostic();
+  const markup = diagnosticsMarkup({ at: 1, paused: false, rules: [], scheduler: [], active: [],
+    capabilities: [], locomotion });
+  assert.match(markup, /data-support-state="rising"/);
+  assert.match(markup, /stability impulse.*0\.00400 m\/s/);
+  assert.match(markup, /locomotion-full/);
+  assert.match(markup, /left-foot=live/);
+  assert.match(markup, /Requested motion.*forward 0\.350/);
+  assert.match(markup, /Allowed motion.*forward 0\.100/);
+  assert.match(markup, /carrier motion is constrained by world &lt;wall&gt;/);
+  assert.match(markup, /supported posture was lost/);
+  assert.match(markup, /Recovery progress<\/b> 50\.0%/);
+  for (const forbidden of ["body", "shape", "carrierHandle", "motor"]) {
+    assert.equal(Object.hasOwn(locomotion, forbidden), false, `${forbidden} must not cross the diagnostic snapshot`);
+  }
+});
+
+test("physical_probe_retains_release_and_recovery_transitions_instead_of_only_its_final_tick", () => {
+  const base = { command: { version: 1, requests: [] }, facts: {}, capabilities: [], decision: null,
+    events: [], active: [], motorTargets: [] };
+  const timeline = summarizeProbeSnapshots([
+    { ...base, locomotion: locomotionDiagnostic({ state: { ...locomotionDiagnostic().state, state: "fallen" },
+      recoveryProgress: 0, releaseReason: "stability threshold was exceeded" }) },
+    { ...base, locomotion: locomotionDiagnostic({ recoveryProgress: 0.25 }) },
+    { ...base, locomotion: locomotionDiagnostic({ state: { ...locomotionDiagnostic().state, state: "supported" },
+      recoveryProgress: null, releaseReason: null }) },
+  ]);
+  assert.deepEqual(timeline.locomotion.map(({ step, diagnostic }) =>
+    [step, diagnostic.state.state, diagnostic.recoveryProgress]),
+  [[0, "fallen", 0], [1, "rising", 0.25], [2, "supported", null]]);
+  assert.equal(timeline.locomotion[0].diagnostic.releaseReason, "stability threshold was exceeded");
+});

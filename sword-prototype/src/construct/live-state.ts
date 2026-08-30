@@ -1,5 +1,6 @@
 import type { ConstructCommand, ConstructControlGraph } from "./actions.ts";
-import { deriveCapabilities, type ActionCapability, type HardwareAvailability } from "./capabilities.ts";
+import { applySupportedLocomotionAlternatives, deriveCapabilities,
+  type ActionCapability, type HardwareAvailability } from "./capabilities.ts";
 import { ConstructDamageState, type DamageResult } from "./damage.ts";
 import type { ConstructResources, ResourceView } from "./resources.ts";
 import type { ConstructRuntime } from "./runtime.ts";
@@ -100,10 +101,12 @@ export class LiveConstructState {
     })));
     const refusal = new Map(decisions.filter(({ admitted }) => !admitted)
       .map(({ consumer, reason }) => [consumer.slice("action:".length), reason as string]));
-    return base.map((capability) => {
+    const powered = base.map((capability) => {
       const reason = refusal.get(capability.action);
       return reason && capability.available ? Object.freeze({ ...capability, available: false, reason }) : capability;
     });
+    return applySupportedLocomotionAlternatives(graph, powered,
+      [...chosen.values()].map(({ request }) => request.action));
   }
 
   hardware(): HardwareAvailability {
@@ -150,6 +153,6 @@ export class LiveConstructState {
   }
 
   capabilities(graph: ConstructControlGraph): readonly ActionCapability[] {
-    return deriveCapabilities(graph, this.hardware());
+    return applySupportedLocomotionAlternatives(graph, deriveCapabilities(graph, this.hardware()));
   }
 }

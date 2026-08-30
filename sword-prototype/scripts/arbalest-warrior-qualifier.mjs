@@ -1,9 +1,10 @@
 import { CONFIG } from "../src/config.ts";
-import { ARBALEST_HARDWARE, ARBALEST_SENSORS, arbalestSavedConstruct } from
+import { ARBALEST_ASSISTED_QUALIFIER_ID, ARBALEST_HARDWARE, ARBALEST_SENSORS,
+  arbalestSavedConstruct } from
   "../src/construct/arbalest.ts";
 
 const FIXED = 1 / CONFIG.world.physicsHz;
-export const ARBALEST_QUALIFIER_ID = "arbalest-fatal-arrow-v1";
+export const ARBALEST_QUALIFIER_ID = ARBALEST_ASSISTED_QUALIFIER_ID;
 const finite = (...values) => values.every(Number.isFinite);
 const sameTime = (left, right) => finite(left, right) && Math.abs(left - right) <= 1e-9;
 
@@ -14,17 +15,28 @@ export function assertArbalestWarriorEvidence(report) {
   const frames = Array.isArray(report?.blockerTimeline) ? report.blockerTimeline : [];
   const contacts = Array.isArray(report?.constructContacts) ? report.constructContacts : [];
   const launcher = Array.isArray(report?.launcherEvidence) ? report.launcherEvidence : [];
+  const locomotion = Array.isArray(report?.locomotionSteps) ? report.locomotionSteps : [];
   const fireTimeline = timeline.filter(({ action }) => action === "fire");
   const completedFire = fireTimeline.filter(({ kind }) => kind === "completed");
   const arrowContacts = contacts.filter(({ weapon, effectorId }) =>
     weapon === "arrow" && typeof effectorId === "string" && effectorId.startsWith("effigy-arbalest:"));
   const damaging = arrowContacts.filter(({ blocked, damage }) => blocked === false && damage > 0);
   const frameAt = (atS) => frames.find((frame) => sameTime(frame.atS, atS));
+  const locomotionAt = (atS) => locomotion.find((frame) => sameTime(frame.atS, atS));
   const supportedThreat = (frame) => frame?.upright === true && frame.admissionSupported === true &&
     frame.warriorLauncherVisible === true;
+  const assistedSupport = (frame) => (frame?.construct?.state === "supported" ||
+    frame?.construct?.state === "staggered") &&
+    frame.construct.authority === true && frame.construct.liveSupport === true &&
+    frame.construct.postureSupported === true &&
+    Array.isArray(frame.construct.freshSupportBindings) && frame.construct.freshSupportBindings.length > 0;
 
   if (report?.version !== 1) failures.push("bout evidence schema was not version 1");
   if (report?.physics !== "real-havok-fixed-240hz") failures.push("physics was not real fixed-step Havok");
+  if (report?.locomotion?.mode !== "supported" || locomotion.length !== report?.steps ||
+      locomotion.some(({ atS }, index) => !finite(atS) || index > 0 && !(locomotion[index - 1].atS < atS))) {
+    failures.push("assisted locomotion rows did not cover the supported bout chronologically");
+  }
   if (report?.construct?.blueprintId !== "arbalest-effigy" ||
       report?.construct?.programId !== "arbalest-effigy-mind") {
     failures.push("the winning body was not the authored Arbalest Effigy");
@@ -91,8 +103,9 @@ export function assertArbalestWarriorEvidence(report) {
   }
   if (started !== null || pairs.length !== completedFire.length ||
       pairs.some(({ shotSerial, started: start, completed }, index) => shotSerial !== index ||
-        !supportedThreat(frameAt(start.atS)) ||
-        !supportedThreat(frameAt(completed.atS)) || completed.atS >= report?.verdictAtS)) {
+        !supportedThreat(frameAt(start.atS)) || !assistedSupport(locomotionAt(start.atS)) ||
+        !supportedThreat(frameAt(completed.atS)) || !assistedSupport(locomotionAt(completed.atS)) ||
+        completed.atS >= report?.verdictAtS)) {
     failures.push("fire lifecycles lacked exact-time upright support, mounted threat, or pre-verdict completion");
   }
   if (launcher.length !== 1 || pairs.some((pair, index) => index > 0 &&
@@ -107,8 +120,8 @@ export function assertArbalestWarriorEvidence(report) {
     failures.push("a physical arrow contact did not follow its ordered completed fire lifecycle");
   }
   if (damaging.length === 0 || damaging.some(({ standingAtStep, atS }) =>
-      standingAtStep !== true || !supportedThreat(frameAt(atS)))) {
-    failures.push("a damaging arrow lacked time-local upright support or mounted-threat perception");
+      standingAtStep !== true || !supportedThreat(frameAt(atS)) || !assistedSupport(locomotionAt(atS)))) {
+    failures.push("a damaging arrow lacked time-local physical feet, assisted support, or mounted-threat perception");
   }
   const fatal = damaging.findLast(({ targetVitalityBefore, targetVitalityAfter }) =>
     finite(targetVitalityBefore, targetVitalityAfter) && targetVitalityBefore > 0 && targetVitalityAfter <= 0);

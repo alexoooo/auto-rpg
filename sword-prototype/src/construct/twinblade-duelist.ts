@@ -2,6 +2,7 @@ import type { ConstructControlGraph } from "./actions.ts";
 import type { ConstructProgram, Expression, ProgramRule } from "./program.ts";
 import { validateProgram } from "./program.ts";
 import type { SensorSpec } from "./sensors.ts";
+import { humanoidLocomotionRules, humanoidOpponentAligned } from "./humanoid-locomotion-program.ts";
 
 export interface TwinbladeDuelistTuning {
   readonly minimumCutRangeM?: number;
@@ -51,7 +52,8 @@ export function twinbladeDuelistProgram(
   const blocker = sensor("opponent-blocker-present");
   const supported = or(sensor("contact-left-foot"), sensor("contact-right-foot"));
   const range = sensor("opponent-range");
-  const admittedAttack = and(upright, visible, blocker, supported,
+  const aligned = humanoidOpponentAligned();
+  const admittedAttack = and(upright, visible, blocker, supported, aligned,
     gte(range, metres(tuning.minimumCutRangeM)),
     lt(range, metres(tuning.maximumCutRangeM)));
   // Once the scheduler owns the combined cut, transient perception/posture flicker cannot
@@ -59,7 +61,11 @@ export function twinbladeDuelistProgram(
   // scheduler authority and still cancel the action by name.
   const attack = or(admittedAttack, active("dual-cut"));
   const passive = not(attack);
+  const locomotion = humanoidLocomotionRules({ retreatBelowM: tuning.minimumCutRangeM,
+    closeAtM: tuning.maximumCutRangeM }).map((candidate) => rule({ ...candidate,
+      condition: and(not(active("dual-cut")), candidate.condition) }));
   const rules: readonly ProgramRule[] = Object.freeze([
+    ...locomotion,
     rule({ id: "dual-scissor-cut", action: "dual-cut", priority: 80, optional: false, dwellS: 0,
       condition: attack, utility: scalar(32), parameters: {
         "blocker-outward-m": parameter(metres(tuning.blockerOutwardM)),
@@ -76,8 +82,13 @@ export function twinbladeDuelistProgram(
       } }),
     rule({ id: "neutral-blades-outside-cut", action: "dual-mount-neutral", priority: 60,
       optional: false, dwellS: 0, condition: passive, utility: scalar(20), parameters: {} }),
+    // The controller itself admits only after a real foot contact. Once admitted, contact sensor
+    // flicker may not withdraw the one Action that owns support authority and turn an upright body
+    // into a software knockdown. Live topology/contact revocation remains engine authority.
     rule({ id: "brace-outside-cut", action: "brace", priority: 50, optional: false, dwellS: 0.03,
-      condition: and(upright, supported, passive), utility: scalar(18), parameters: {} }),
+      condition: and(upright, aligned, passive,
+        gte(range, metres(tuning.minimumCutRangeM)), lt(range, metres(tuning.maximumCutRangeM))),
+      utility: scalar(18), parameters: {} }),
     rule({ id: "stabilize-posture", action: "stabilize", priority: 10, optional: false, dwellS: 0,
       condition: Object.freeze({ op: "constant", value: true }), utility: scalar(2), parameters: {} }),
   ]);

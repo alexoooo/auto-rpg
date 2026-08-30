@@ -10,6 +10,7 @@ import { swordbearerDuelistProgram } from "./swordbearer-duelist.ts";
 import { groundedConstructOriginY, resolveConstructBindTransforms } from "./compile.ts";
 import { humanoidActuator, humanoidLength, humanoidMass, humanoidShape,
   humanoidTriple } from "./humanoid-scale.ts";
+import { SUPPORTED_BIPED_LIMP_V1 } from "./biped.ts";
 export { HUMANOID_SCALE } from "./humanoid-scale.ts";
 
 const I = [0, 0, 0, 1] as const;
@@ -228,10 +229,23 @@ export function humanoidSwordBindMetrics(): Readonly<{ yawPivotRootM: readonly [
 
 export function humanoidControl(): ConstructControlGraph {
   const locomotionJoints = CONTACTS.flatMap(({ role }) => chain(role));
-  const postureJoints = ["waist", "neck-bearing", "head-bearing", "left-shoulder", "left-elbow", "left-wrist", "left-palm"];
+  const balanceChain = ["waist", "neck-bearing", "head-bearing"];
+  const postureJoints = ["left-shoulder", "left-elbow", "left-wrist", "left-palm"];
+  const limpGroup = (side: "left" | "right") => {
+    const role = `${side}-foot`;
+    const contact = CONTACTS.find((row) => row.role === role);
+    if (!contact) throw new Error(`humanoid control lost ${role}`);
+    return { id: `locomotion-limp-${side}`, joints: [...chain(role), ...balanceChain], modules: [contact.module],
+      bindings: { [role]: { joints: chain(role), modules: [contact.module] },
+        "balance-chain": { joints: balanceChain, modules: [] } } };
+  };
   return validateControlGraph({ version: 1, groups: [
-    { id: "locomotion", joints: locomotionJoints, modules: CONTACTS.map(({ module }) => module),
-      bindings: Object.fromEntries(CONTACTS.map(({ role, module }) => [role, { joints: chain(role), modules: [module] }])) },
+    { id: "locomotion", joints: [...locomotionJoints, ...balanceChain], modules: CONTACTS.map(({ module }) => module),
+      bindings: { ...Object.fromEntries(CONTACTS.map(({ role, module }) =>
+        [role, { joints: chain(role), modules: [module] }])),
+      "balance-chain": { joints: balanceChain, modules: [] } } },
+    limpGroup("left"),
+    limpGroup("right"),
     { id: "sword-arm", joints: ["sword-yaw", "sword-pitch"], modules: ["effigy-sword"], bindings: {
       yaw: { joints: ["sword-yaw"], modules: [] }, pitch: { joints: ["sword-pitch"], modules: [] },
       output: { joints: [], modules: ["effigy-sword"] }, sword: { joints: [], modules: ["effigy-sword"] },
@@ -241,10 +255,26 @@ export function humanoidControl(): ConstructControlGraph {
   ], actions: [
     { id: "hold", controller: "hold-joints", group: "whole-body", claims: [], parameters: {} },
     { id: "stabilize", controller: "hold-joints", group: "posture", claims: [], parameters: {} },
-    // The first biped gait writes legitimate motors but falls and travels backwards in a real
-    // Havok probe. This fixed body therefore does not advertise move/turn until they earn a
-    // two-facing physical gate; accepting a request the chassis cannot honour would be worse.
-    { id: "brace", controller: "biped-brace", group: "locomotion", claims: ["resource:balance"], parameters: {} },
+    { id: "move", controller: "supported-biped-move", group: "locomotion", claims: ["resource:balance"],
+      parameters: { forward: { kind: "number", min: -1, max: 1, unit: "scalar" },
+        right: { kind: "number", min: -1, max: 1, unit: "scalar" },
+        speed: { kind: "number", min: 0, max: 1.6, unit: "metres-per-second" } } },
+    ...(["left", "right"] as const).map((side) => ({
+      id: `limp-${side}`, controller: `supported-biped-limp-${side}`,
+      group: `locomotion-limp-${side}`, claims: ["resource:balance"], parameters: {
+        forward: { kind: "number" as const, min: -1, max: 1, unit: "scalar" as const },
+        right: { kind: "number" as const, min: -1, max: 1, unit: "scalar" as const },
+        yaw: { kind: "number" as const, min: -1, max: 1, unit: "scalar" as const },
+        speed: { kind: "number" as const, min: 0, max: SUPPORTED_BIPED_LIMP_V1.MAX_SPEED_MPS,
+          unit: "metres-per-second" as const },
+      },
+    })),
+    { id: "turn", controller: "supported-biped-turn", group: "locomotion", claims: ["resource:balance"],
+      parameters: { yaw: { kind: "number", min: -1, max: 1, unit: "scalar" } } },
+    { id: "brace", controller: "supported-biped-brace", group: "locomotion",
+      claims: ["resource:balance"], parameters: {} },
+    { id: "recover", controller: "supported-biped-recover", group: "locomotion",
+      claims: ["resource:balance"], parameters: {} },
     { id: "aim", controller: "aim-direction", group: "sword-arm",
       claims: ["resource:power-mount", "resource:sensor-line-of-sight"], parameters: {
         yaw: { kind: "number", min: -2.5, max: 2.5, unit: "radians" },

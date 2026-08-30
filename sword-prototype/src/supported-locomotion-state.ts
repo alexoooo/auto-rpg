@@ -134,7 +134,11 @@ export function risingEligibility(state: SupportedLocomotionState,
   if (!input.occupancyClear) return Object.freeze({ eligible: false, reason: "recovery occupancy is obstructed" });
   if (input.hitInterrupted) return Object.freeze({ eligible: false, reason: "recovery was interrupted by a hit" });
   const allowed = new Set(input.authority.supportBindings.map(({ role }) => role));
-  if (!input.supportEvidence.some((row) => isFreshStandableSupport(row, input.safeBoundarySequence, allowed))) {
+  // Fresh ground admits a rise. Once the bounded path has started, requiring the same terminal
+  // to remain planted makes lifting that terminal cancel recovery by construction; live topology,
+  // occupancy and hit interruption remain checked on every rising boundary.
+  if (state.state === "fallen" &&
+      !input.supportEvidence.some((row) => isFreshStandableSupport(row, input.safeBoundarySequence, allowed))) {
     return Object.freeze({ eligible: false, reason: "fresh standable support is unavailable" });
   }
   return Object.freeze({ eligible: true, reason: null });

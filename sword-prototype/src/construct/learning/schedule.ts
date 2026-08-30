@@ -55,11 +55,11 @@ export const CONSTRUCT_LEARNING_SCHEDULE = Object.freeze({
   ...CONSTRUCT_LEARNING_PROTOCOL,
   entryGate: Object.freeze({
     qualified: false,
-    evidence: "construct-entry-run-d0e8011a-source-3780627d-2026-08-29",
-    runDigest: "d0e8011a",
-    sourceDigest: "3780627d",
-    runtimeStatus: "current seeded runtime; qualification rejected",
-    reason: "8/8 time caps, 234442 stuck physics steps and 2/8 rows without bilateral damage",
+    evidence: "construct-entry-run-f20c3f18-source-22c8d82f-2026-08-30",
+    runDigest: "f20c3f18",
+    sourceDigest: "22c8d82f",
+    runtimeStatus: "current assisted runtime; qualification rejected",
+    reason: "8/8 time caps, 1/8 row without bilateral damage and all 8 rows missing move and brace",
   }),
 });
 

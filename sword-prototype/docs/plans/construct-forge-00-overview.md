@@ -1,5 +1,14 @@
 # Construct Forge -- live roadmap
 
+> **2026-08-30 implementation status.** Sessions 20--24 landed their runtime, production activation,
+> physical evidence and technical handoff, but the topic is not closed. The 26-cell Havok locomotion
+> matrix is green. The fresh assisted-Warden qualification was run and honestly rejected: all eight
+> rows time-capped, one lacked bilateral damage and none exercised the required move/brace Actions.
+> Improving that rejection, the Arbalest's one-cell idle targeting debt, the red Twinblade
+> curriculum and Session 16's human verdict remain named work. The
+> original continuous-DYNAMIC-root premise was rejected by a real at-rest bracket and is superseded
+> by the supported-ANIMATED -> knocked-down-DYNAMIC boundary in `docs/design.md`.
+
 ## Current status -- assisted locomotion is the next architecture (2026-08-30)
 
 The Body, Actions, Mind, Forge, Lab, diagnostics, physical learning smoke and separately
@@ -90,8 +99,10 @@ Fighter-versus-Warden/Centipede coherent until those bodies gain a supported ada
 
 Session 21 introduces the exact v1 stability/recovery constants: decay 0.020 m/s per second,
 stagger at 0.006 m/s specific impulse, fall at 0.014 m/s, brace multiplier 1.50, fallen dwell
-0.35 s, support grace 0.10 s and rising duration 0.45 s. Its physical brackets must fail when each
-threshold moves in either direction; they are not tuning folklore.
+0.35 s, support grace 0.10 s and rising duration 0.45 s. The real-Havok bracket in
+`tests/supported-locomotion-stability-physical.test.mjs` now pins below/at on a live supported body;
+lowering the at-stagger input by 0.000001 m/s made it fail before restoration. These thresholds are
+not tuning folklore.
 
 ## Version and digest prediction
 

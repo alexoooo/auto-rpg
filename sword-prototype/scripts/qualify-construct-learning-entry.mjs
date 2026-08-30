@@ -37,7 +37,7 @@ export const constructQualificationSourceFingerprint = async (read = readFile) =
 ].join("\0"));
 
 const saved = saveConstruct("Authored Warden qualification", wardenBlueprint("crossbow"),
-  wardenControl("crossbow"), wardenProgram("crossbow"), WARDEN_SENSORS);
+  wardenControl("crossbow", "assisted"), wardenProgram("crossbow", "assisted"), WARDEN_SENSORS);
 
 const assignment = CONSTRUCT_LEARNING_SCHEDULE.authoredQualification;
 const jobs = createConstructBoutJobs(saved, saved, assignment.seeds, {

@@ -208,6 +208,15 @@ export class VirtualLocomotionCarrier {
 
   get state(): VirtualCarrierState { return this.current; }
 
+  /** Recovery re-anchors the bodyless carrier over the live fallen root; no solver transform is written. */
+  reset(position: WorldPoint, yaw = this.current.yaw): void {
+    if (![position.x, position.y, position.z, yaw].every(Number.isFinite)) {
+      throw new Error("virtual carrier reset transform must be finite");
+    }
+    this.current = Object.freeze({ ...position, yaw: wrapYaw(yaw),
+      velocityX: 0, velocityZ: 0, yawVelocity: 0 });
+  }
+
   propose(request: LocomotionRequest, dt: number, resistance = 1): CarrierProposal {
     positive(dt, "virtual carrier dt");
     positive(resistance, "virtual carrier resistance");
@@ -234,12 +243,13 @@ export class VirtualLocomotionCarrier {
 
   commit(proposal: CarrierProposal, allowed: HorizontalMove): void {
     if (proposal.prior !== this.current) throw new Error("virtual carrier proposal is stale");
-    const dtFromX = proposal.displacement.x === 0 ? 1 : allowed.x / proposal.displacement.x;
-    const dtFromZ = proposal.displacement.z === 0 ? 1 : allowed.z / proposal.displacement.z;
-    const fraction = Math.max(0, Math.min(1, dtFromX, dtFromZ));
+    const xFraction = proposal.displacement.x === 0 ? 0 :
+      Math.max(0, Math.min(1, allowed.x / proposal.displacement.x));
+    const zFraction = proposal.displacement.z === 0 ? 0 :
+      Math.max(0, Math.min(1, allowed.z / proposal.displacement.z));
     this.current = Object.freeze({ x: this.current.x + allowed.x, y: this.current.y,
       z: this.current.z + allowed.z, yaw: wrapYaw(this.current.yaw + allowed.yaw),
-      velocityX: proposal.next.velocityX * fraction, velocityZ: proposal.next.velocityZ * fraction,
+      velocityX: proposal.next.velocityX * xFraction, velocityZ: proposal.next.velocityZ * zFraction,
       yawVelocity: proposal.next.yawVelocity });
   }
 }

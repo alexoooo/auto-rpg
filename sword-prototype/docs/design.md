@@ -1613,10 +1613,9 @@ The committed four-beat crawl is physical and supports three feet or a measured 
 its fixed probe records forward progress, swing-foot clearance, slip and upright core at both arena
 facings. Recovery is physically demonstrated for the two longitudinal off-centre impulse falls.
 A superseded corpus exposed the Warden's inability to reliably right a lateral combat fall, which
-remains an unclosed limitation rather than a completed recovery claim. The current seeded
-qualification records no stuck `recover` interval: its exact failures are 220,871 `brace/brace`
-steps, 13,571 `fire/tracking` steps, eight time caps and two rows without bilateral damage. Those
-current failures independently block learning.
+remains an unclosed limitation rather than a completed recovery claim. The current assisted
+qualification records zero stuck steps, but all eight rows time-cap, one lacks bilateral damage
+and every row omits required move/brace Actions. Those failures independently block learning.
 
 ### The fixed humanoid construct
 
@@ -1743,6 +1742,55 @@ the four Warden limbs, a crossbow-to-sword swap, authored/probed locomotion and 
 deliberately weak Mind followed by diagnosis and repair. This is onboarding infrastructure, not a
 completed study. No person has yet supplied the session-16 timing, confusion, explanation,
 prediction, improvement or enjoyment evidence, and no pivot/keep/stop product verdict is recorded.
+
+## Supported walking is a game carrier authorized by physical limbs
+
+Supported locomotion deliberately separates *where a combatant may walk* from the full ragdoll
+problem. A body still needs its declared hip/knee/ankle/sole chains, live joints, installed contact
+modules, fresh standable contact and a valid upright torso chain. Those facts authorize an invisible
+virtual carrier; they do not become decorative proof after a hidden root transform has already
+moved. The carrier is query-only geometry and owns no Havok body, shape, damage target or combat
+contact. Pair resolution commits both carriers together, so scheduler call order cannot let one
+side enter space the other side still owns.
+
+The construction-time pair handshake is atomic. Both selected unit definitions must advertise the
+same supported-port version or both retain legacy locomotion for the entire bout. Warrior, Broot,
+KayKit and the three humanoid Constructs use supported V1 together. The assisted Bronze Warden is
+a separately authored control graph; its old raw four-beat gait remains selectable for measured A/B
+evidence. A supported body cannot silently fall back to legacy after damage.
+
+Movement still crosses ordinary public Actions. Full biped movement owns both named support chains
+and the balance chain. A one-support fallback owns exactly its surviving left or right chain, has
+lower speed/strafe/yaw and stability authority, and is inadmissible while full movement is live.
+Two fallbacks cannot spend `resource:balance` together. Assisted Warden control declares four
+explicit three-of-four crawl groups; each group still requires every joint and contact module in
+its named three limbs plus the balance chain. Its lower 0.55 m/s, capped-yaw, 0.65-stability
+controller is distinct from both full assisted movement and the retained raw gait. The same
+descriptor data drives scheduler admission, Forge choices, save/reload, Probe and visible fights;
+the UI has no controller-name exception. Warden support groups follow the same all-members-required
+rule rather than treating "at least three" as hidden optional membership.
+
+Support is a four-state boundary machine: supported, staggered, fallen and rising. Only authored
+horizontal combat shove enters stability; Havok's solver impulse is diagnostic. Losing fresh
+standable contact for more than 0.10 s, losing the declared chain/posture, or exceeding the frozen
+specific-impulse threshold releases assisted anatomy to an ordinary dynamic ragdoll. A Fighter asks
+to rise with deliberate movement; a Construct must run its public recover Action. The 0.45 s rise
+is occupancy-checked and interruption-sensitive on every boundary. Fallen and dead bodies receive
+no carrier drive.
+
+The original plan required a continuously DYNAMIC supported root. A real 240 Hz bracket rejected
+that premise: both the humanoid Construct and Warrior lost physical foot evidence inside the exact
+0.10 s grace and fell at rest. Supported walking therefore uses an ANIMATED physical root only while
+the carrier remains admitted, with finite-speed carrier motion and symmetric footprint collision;
+knockdown changes that same root to DYNAMIC. This is the game's intentional locomotion assistance,
+not invulnerable combat anatomy: real weapons remain physical, authored shove releases support, and
+recovery must earn reattachment. The animated-root choice supersedes the earlier dynamic-root plan
+in the durable architecture.
+
+Diagnostics expose immutable support state, specific impulse, active and alternative support
+groups with binding-level refusal reasons, requested and allowed motion, blockage/release reason and
+recovery progress. They expose no body or shape handle. Arena and physical Forge Probe retain the
+same transition timeline, so a final supported row cannot hide a fall or failed rise.
 
 ## The house rules this work was done under
 

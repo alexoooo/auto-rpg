@@ -1,4 +1,5 @@
 import type { ActiveActionDiagnostic, SchedulerEvent } from "../construct/scheduler.ts";
+import type { PhysicalSupportedLocomotionDiagnostic } from "../supported-locomotion-production.ts";
 
 export interface RuleDecisionDiagnostic {
   readonly rule: string;
@@ -29,6 +30,7 @@ export interface ConstructDiagnosticFrame {
     blocked: boolean;
   }>[];
   readonly probeMotor?: Readonly<{ writes: number; targetsAtLimit: number; targetLimitFraction: number }>;
+  readonly locomotion?: PhysicalSupportedLocomotionDiagnostic | null;
 }
 
 const escapeHtml = (value: string): string => value.replace(/[&<>"']/g, (character) => ({
@@ -54,6 +56,26 @@ export function diagnosticsMarkup(frame: ConstructDiagnosticFrame): string {
   const probeMotor = frame.probeMotor ? `<section><h3>Probe motor travel limits</h3><p data-probe-motor-saturation>` +
     `${frame.probeMotor.targetsAtLimit}/${frame.probeMotor.writes} commanded targets at a joint travel stop ` +
     `(${(frame.probeMotor.targetLimitFraction * 100).toFixed(1)}%). This does not infer measured torque.</p></section>` : "";
+  const motion = (value: PhysicalSupportedLocomotionDiagnostic["requested"]): string => value === null
+    ? "none" : `forward ${value.localForward.toFixed(3)}, right ${value.localRight.toFixed(3)}, ` +
+      `yaw ${value.yaw.toFixed(3)}, recover ${value.recover}`;
+  const locomotion = frame.locomotion ? (() => {
+    const row = frame.locomotion;
+    const groups = row.supportGroups.map((group) => `<li data-support-live="${group.live}"><b>${escapeHtml(group.id)}</b>` +
+      `<span>${group.live ? "live" : "unavailable"}${group.id === row.activeGroup ? " -- active" : ""}</span>` +
+      `<small>${escapeHtml(group.reason ?? "complete support chain")} -- ${group.bindings.map((binding) =>
+        `${escapeHtml(binding.id)}=${binding.live ? "live" : escapeHtml(binding.reason ?? "unavailable")}`).join("; ")}</small></li>`).join("");
+    return `<section class="locomotion-diagnostic" data-support-state="${row.state.state}"><h3>Supported locomotion</h3>` +
+      `<p><b>State</b> ${row.state.state}; <b>stability impulse</b> ${row.stability.specificImpulseMps.toFixed(5)} m/s ` +
+      `(stagger ${row.stability.staggerAtMps.toFixed(5)}, fall ${row.stability.fallAtMps.toFixed(5)}).</p>` +
+      `<p data-locomotion-motion><b>Requested motion</b> ${motion(row.requested)}. ` +
+      `<b>Allowed motion</b> ${motion(row.allowed)}.</p>` +
+      `<p data-locomotion-blocked><b>Blocked reason</b> ${escapeHtml(row.blockedReason ?? "none")}.</p>` +
+      `<p data-locomotion-release><b>Release reason</b> ${escapeHtml(row.releaseReason ?? "none")}.</p>` +
+      `<p data-locomotion-recovery><b>Recovery progress</b> ${row.recoveryProgress === null ? "not active" : `${(row.recoveryProgress * 100).toFixed(1)}%`}.</p>` +
+      `<p><b>Fresh standable bindings</b> ${row.freshSupportBindings.map(escapeHtml).join(", ") || "none"}.</p>` +
+      `<ol>${groups || "<li>No registered support groups.</li>"}</ol></section>`;
+  })() : "";
   return `<section class="construct-diagnostics" data-paused="${frame.paused}" aria-label="Construct decision timeline">` +
     `<header><div><p class="forge-kicker">Decision timeline</p><h2>${frame.paused ? "Paused -- evidence stays visible" : `Live -- ${frame.at.toFixed(2)} s`}</h2></div>` +
     `<span class="diagnostic-clock">${frame.at.toFixed(3)} s</span></header><div class="diagnostic-columns">` +
@@ -63,6 +85,7 @@ export function diagnosticsMarkup(frame: ConstructDiagnosticFrame): string {
     `<section><h3>Hardware capabilities</h3><ol>${capabilities || "<li>No capability changes.</li>"}</ol></section>` +
     `<section><h3>Power, heat and ammunition</h3><ol>${resources || "<li>No resource ledger.</li>"}</ol></section>` +
     `<section><h3>Damage by effector</h3><ol>${combat || "<li>No scored contacts.</li>"}</ol></section>` +
+    locomotion +
     probeMotor +
     `</div></section>`;
 }

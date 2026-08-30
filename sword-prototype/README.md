@@ -377,6 +377,15 @@ joint at the shoulder, a hinge at the elbow, a rolling wrist, and whatever is we
 the fist. Both arms are like that: two full chains, either of which can hold a sword, a
 shield, a bow or nothing.
 
+Construct and assisted-humanoid walking uses the same rule in a more explicit form. An invisible
+game carrier prevents two articulated bodies from collapsing into an unsolvable clinch heap, but
+the machine's real legs decide whether that carrier is allowed to move. Break a required leg chain
+and full movement disappears; a saved one-leg limp can take over at lower authority if that exact
+chain and foot contact survive. A hard hit, missing ground or invalid torso posture releases the
+body to its ordinary ragdoll. Recovery is an authored Action, not an automatic stand-up animation.
+The Forge and in-fight diagnostics name the live support group, requested versus allowed movement,
+the reason movement was blocked, and recovery progress.
+
 The arm is driven by a single invisible keyframed **anchor**, joined to the hand by a
 six-degree-of-freedom constraint whose motors have a finite force budget. Move the anchor
 and the solver drags the hand after it; the forearm and upper arm follow because they are

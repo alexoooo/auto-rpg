@@ -2,14 +2,18 @@ import { pathToFileURL } from "node:url";
 
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
+import { PhysicsEventType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 
 import { CONFIG } from "../src/config.ts";
 import { Combat } from "../src/combat.ts";
 import { Construct, constructProfileForBlueprint } from "../src/construct/construct.ts";
 import { moduleAtContact } from "../src/construct/damage-target.ts";
 import { twinbladeSavedConstruct, TWINBLADE_SENSORS } from "../src/construct/twinblade.ts";
+import { constructSupportsSupportedLocomotion } from "../src/construct/assisted-locomotion.ts";
+import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
+import { LAYER } from "../src/physics.ts";
 import { stepPair } from "../src/fighter.ts";
-import { unitDefinition } from "../src/units.ts";
+import { SUPPORTED_LOCOMOTION_PORT_V1, unitDefinition } from "../src/units.ts";
 import { createConstructHeadlessArena } from "./construct-headless-arena.mjs";
 
 const FIXED = 1 / CONFIG.world.physicsHz;
@@ -115,37 +119,71 @@ const sharedMaterials = (scene) => {
 export async function runConstructWarriorBout({
   saved = twinbladeSavedConstruct(),
   sensors = TWINBLADE_SENSORS,
+  constructProfile = null,
   warriorPolicy = "duelist",
   warriorSeed = 0x51a7,
   constructSide = "left",
   separationM = CONFIG.fighter.separation,
   maxSteps = CONFIG.world.physicsHz * 20,
+  warriorLoadout = Object.freeze({ primary: "sword", secondary: "buckler" }),
+  stabilityShoves = Object.freeze([]),
+  fixturePlacement = null,
 } = {}) {
   if (!Number.isInteger(maxSteps) || maxSteps <= 0) throw new Error("construct-Warrior maxSteps must be positive integer");
   if (constructSide !== "left" && constructSide !== "right") {
     throw new Error('construct-Warrior constructSide must be "left" or "right"');
   }
+  if (!Array.isArray(stabilityShoves) || stabilityShoves.some(({ atStep, horizontalShoveNs }) =>
+    !Number.isInteger(atStep) || atStep < 0 || !Array.isArray(horizontalShoveNs) ||
+    horizontalShoveNs.length !== 2 || horizontalShoveNs.some((value) => !Number.isFinite(value)))) {
+    throw new Error("construct-Warrior stability shoves require a non-negative step and two finite N s components");
+  }
+  const fixtureShoves = Object.freeze(stabilityShoves.map(({ atStep, horizontalShoveNs }) =>
+    Object.freeze({ atStep, horizontalShoveNs: Object.freeze([...horizontalShoveNs]) })));
+  if (fixturePlacement !== null) {
+    const points = [fixturePlacement.construct, fixturePlacement.warrior];
+    if (points.some((point) => !point || ![point.x, point.z, point.facing].every(Number.isFinite))) {
+      throw new Error("construct-Warrior fixture placement requires finite construct and Warrior x/z/facing");
+    }
+    if (fixturePlacement.wall && (!['x', 'z'].includes(fixturePlacement.wall.axis) ||
+        !Number.isFinite(fixturePlacement.wall.coordinate))) {
+      throw new Error("construct-Warrior fixture wall requires axis x/z and a finite coordinate");
+    }
+  }
   const arena = await createConstructHeadlessArena();
   const materials = sharedMaterials(arena.scene);
+  const resolvedConstructProfile = constructProfile ?? constructProfileForBlueprint(saved.blueprint);
   const definition = Object.freeze({ blueprint: saved.blueprint, control: saved.control,
-    program: saved.program, sensors });
-  const constructOrigin = constructSide === "left" ? Vector3.Zero() : new Vector3(0, 0, separationM);
-  const warriorOrigin = constructSide === "left" ? new Vector3(0, 0, separationM) : Vector3.Zero();
+    program: saved.program, sensors, profile: resolvedConstructProfile });
+  const warriorDefinition = unitDefinition("warrior");
+  const locomotionMode = constructSupportsSupportedLocomotion(saved.blueprint, saved.control) &&
+    warriorDefinition.supportedLocomotionPort === SUPPORTED_LOCOMOTION_PORT_V1 ? "supported" : "legacy";
+  const locomotionWorld = locomotionMode === "supported" ? flatSupportedWorldRegistry() : undefined;
+  const constructOrigin = fixturePlacement
+    ? new Vector3(fixturePlacement.construct.x, 0, fixturePlacement.construct.z)
+    : constructSide === "left" ? Vector3.Zero() : new Vector3(0, 0, separationM);
+  const warriorOrigin = fixturePlacement
+    ? new Vector3(fixturePlacement.warrior.x, 0, fixturePlacement.warrior.z)
+    : constructSide === "left" ? new Vector3(0, 0, separationM) : Vector3.Zero();
+  const constructFacing = fixturePlacement?.construct.facing ?? (constructSide === "left" ? 0 : Math.PI);
   const construct = new Construct({ scene: arena.scene, side: constructSide, origin: constructOrigin,
-    facing: constructSide === "left" ? 0 : Math.PI,
-    materials: materials.fighter, policyName: "construct-program" }, definition);
+    facing: constructFacing,
+    materials: materials.fighter, policyName: "construct-program", locomotionMode, locomotionWorld }, definition);
   let warrior;
   let constructCombat;
   let warriorCombat;
+  const heldWallObservers = [];
   const constructReports = [];
   const warriorReports = [];
   let constructContactContext = Object.freeze({ action: null, phase: null, attempt: null });
   try {
     const warriorSide = constructSide === "left" ? "right" : "left";
-    warrior = unitDefinition("warrior").build({ scene: arena.scene, side: warriorSide,
-      origin: warriorOrigin, facing: warriorSide === "left" ? 0 : Math.PI, materials: materials.fighter,
+    warrior = warriorDefinition.build({ scene: arena.scene, side: warriorSide,
+      origin: warriorOrigin,
+      facing: fixturePlacement?.warrior.facing ?? (warriorSide === "left" ? 0 : Math.PI),
+      materials: materials.fighter,
       policyName: warriorPolicy, policySeed: warriorSeed,
-      loadout: { primary: "sword", secondary: "buckler" } });
+      loadout: warriorLoadout, locomotionMode, locomotionWorld });
     let lastWarriorVitality = warrior.vitality;
     constructCombat = new Combat(constructSide, construct.strikers, (event) => {
       const targetVitalityAfter = warrior.vitality;
@@ -168,12 +206,18 @@ export async function runConstructWarriorBout({
     });
     constructCombat.attach(warrior);
     warriorCombat.attach(construct);
+    const initialConstructRoot = construct.centre().clone();
+    const initialWarriorRoot = warrior.centre().clone();
+    const initialRangeM = Vector3.Distance(initialConstructRoot, initialWarriorRoot);
 
     const startedActions = new Set();
     const completedActions = new Set();
     const actionTimeline = [];
     const blockerTimeline = [];
     const controllerTimeline = [];
+    const locomotionTimeline = [];
+    const locomotionSteps = [];
+    let lastLocomotionKey = "";
     let lastControllerPhase = "";
     let observedLauncherLooses = 0;
     let pendingFireStart = null;
@@ -200,14 +244,72 @@ export async function runConstructWarriorBout({
     let verdictAtStep = null;
     let verdictVitality = null;
     let activeAfterStep = null;
-    const standingThresholds = constructStandingThresholds(constructProfileForBlueprint(saved.blueprint));
+    let maximumPartSpeedMps = 0;
+    let maximumConstructJointFrameErrorM = 0;
+    let minimumHeldWallClearanceM = Number.POSITIVE_INFINITY;
+    const minimumHeldWallClearanceByKindM = new Map();
+    let maximumHeldWallPenetrationM = 0;
+    const maximumHeldWallPenetrationByKindM = new Map();
+    const heldKinds = new Set();
+    const solverMeasurementStartStep = Math.ceil(CONFIG.world.physicsHz * 0.6);
+    const wall = fixturePlacement?.wall ?? null;
+    const held = [...construct.strikers, ...warrior.strikers]
+      .filter(({ kind }) => kind === "sword" || kind === "shield" || kind === "buckler");
+    const heldWorldContactsByKind = new Map();
+    for (const { kind } of held) heldKinds.add(kind);
+    for (const striker of held) {
+      const observable = striker.body.getCollisionObservable();
+      const observer = observable.add((event) => {
+        if (steps < solverMeasurementStartStep || event.type === PhysicsEventType.COLLISION_FINISHED) return;
+        const membership = event.collidedAgainst?.shape?.filterMembershipMask ?? 0;
+        if ((membership & LAYER.WORLD) === 0) return;
+        heldWorldContactsByKind.set(striker.kind, (heldWorldContactsByKind.get(striker.kind) ?? 0) + 1);
+      });
+      if (observer) heldWallObservers.push({ observable, observer });
+    }
+    const fixtureEnvelopeIntersectsWall = wall !== null && (() => {
+      const candidate = fixturePlacement.warrior;
+      const centreDistance = Math.abs(wall.coordinate - candidate[wall.axis]);
+      return centreDistance <= warriorDefinition.reach + warriorDefinition.collisionRadius;
+    })();
+    const standingThresholds = constructStandingThresholds(resolvedConstructProfile);
     for (; shouldAdvanceConstructWarriorStep({ step: steps, maxSteps, verdictAtStep,
       activeAction: activeAfterStep }); steps += 1) {
       const clock = constructCombat.now;
+      for (const { atStep, horizontalShoveNs } of fixtureShoves) {
+        if (atStep === steps) construct.queueStabilityEvent({ horizontalShoveNs });
+      }
       const left = constructSide === "left" ? construct : warrior;
       const right = constructSide === "left" ? warrior : construct;
       stepPair(left, right, FIXED, clock);
       const snapshot = construct.control.snapshot();
+      const constructLocomotion = construct.locomotion?.diagnostic() ?? null;
+      const warriorLocomotion = warrior.locomotion?.diagnostic() ?? null;
+      const compactLocomotion = (diagnostic) => diagnostic === null ? null : Object.freeze({
+        state: diagnostic.state.state, authority: diagnostic.authority,
+        liveSupport: diagnostic.liveSupport, postureSupported: diagnostic.postureSupported,
+        freshSupportBindings: diagnostic.freshSupportBindings,
+        requested: diagnostic.requested, allowed: diagnostic.allowed,
+      });
+      locomotionSteps.push(Object.freeze({ atS: steps * FIXED,
+        construct: compactLocomotion(constructLocomotion), warrior: compactLocomotion(warriorLocomotion) }));
+      const locomotionKey = JSON.stringify([constructLocomotion?.state.state,
+        constructLocomotion?.authority, constructLocomotion?.liveSupport,
+        constructLocomotion?.postureSupported, warriorLocomotion?.state.state,
+        warriorLocomotion?.authority, warriorLocomotion?.liveSupport,
+        warriorLocomotion?.postureSupported]);
+      if (locomotionKey !== lastLocomotionKey) {
+        const fighter = warrior.articulated;
+        const pelvisRotation = fighter?.pelvis.mesh.rotationQuaternion ?? Quaternion.Identity();
+        const pelvisUp = Vector3.Dot(Vector3.Up().rotateByQuaternionToRef(
+          pelvisRotation, new Vector3()), Vector3.Up());
+        locomotionTimeline.push(Object.freeze({ atS: steps * FIXED,
+          construct: constructLocomotion, warrior: warriorLocomotion,
+          warriorPhysical: fighter ? Object.freeze({ pelvisUp,
+            torsoHeightAbovePelvisM: fighter.torso.mesh.position.y - fighter.pelvis.mesh.position.y,
+            headHeightAboveTorsoM: fighter.head.mesh.position.y - fighter.torso.mesh.position.y }) : null }));
+        lastLocomotionKey = locomotionKey;
+      }
       if (snapshot.events.some(({ kind, action }) => kind === "started" && action === "dual-cut")) {
         dualCutAttempt += 1;
       }
@@ -233,6 +335,34 @@ export async function runConstructWarriorBout({
       }
       arena.scene._renderId += 1;
       arena.scene._advancePhysicsEngineStep(1000 * FIXED);
+      if (steps >= solverMeasurementStartStep) {
+        for (const part of construct.runtime.parts.values()) {
+          maximumPartSpeedMps = Math.max(maximumPartSpeedMps, part.body.getLinearVelocity().length());
+        }
+        for (const limb of warrior.limbs) if (!limb.severed) {
+          maximumPartSpeedMps = Math.max(maximumPartSpeedMps, limb.part.body.getLinearVelocity().length());
+        }
+        for (const striker of held) {
+          maximumPartSpeedMps = Math.max(maximumPartSpeedMps, striker.body.getLinearVelocity().length());
+          if (wall) {
+            const coordinate = striker.tipPosition()[wall.axis];
+            const signed = Math.sign(wall.coordinate) * (wall.coordinate - coordinate);
+            const clearance = signed;
+            const penetration = Math.max(0, -signed);
+            minimumHeldWallClearanceM = Math.min(minimumHeldWallClearanceM, clearance);
+            minimumHeldWallClearanceByKindM.set(striker.kind,
+              Math.min(minimumHeldWallClearanceByKindM.get(striker.kind) ?? Number.POSITIVE_INFINITY, clearance));
+            maximumHeldWallPenetrationM = Math.max(maximumHeldWallPenetrationM, penetration);
+            maximumHeldWallPenetrationByKindM.set(striker.kind,
+              Math.max(maximumHeldWallPenetrationByKindM.get(striker.kind) ?? 0, penetration));
+          }
+        }
+        for (const joint of construct.runtime.joints.values()) {
+          const frames = joint.liveFrames();
+          maximumConstructJointFrameErrorM = Math.max(maximumConstructJointFrameErrorM,
+            Vector3.Distance(frames.parent.position, frames.child.position));
+        }
+      }
       constructCombat.advance(FIXED);
       warriorCombat.advance(FIXED);
       minimumRangeM = Math.min(minimumRangeM, Vector3.Distance(construct.centre(), warrior.centre()));
@@ -426,8 +556,36 @@ export async function runConstructWarriorBout({
       verdictAtS: verdictAtStep === null ? null : verdictAtStep * FIXED,
       postVerdictTailS: verdictAtStep === null ? 0 : (steps - verdictAtStep) * FIXED,
       winner,
+      stabilityShoves: fixtureShoves,
+      fixturePlacement: fixturePlacement === null ? null : Object.freeze({
+        construct: Object.freeze({ ...fixturePlacement.construct }),
+        warrior: Object.freeze({ ...fixturePlacement.warrior }),
+        wall: fixturePlacement.wall ? Object.freeze({ ...fixturePlacement.wall }) : null,
+      }),
+      solver: Object.freeze({ measurementStartS: solverMeasurementStartStep * FIXED,
+        fixtureEnvelopeIntersectsWall, maximumPartSpeedMps, maximumConstructJointFrameErrorM,
+        minimumHeldWallClearanceM: Number.isFinite(minimumHeldWallClearanceM)
+          ? minimumHeldWallClearanceM : null,
+        minimumHeldWallClearanceByKindM: Object.freeze(Object.fromEntries(
+          [...minimumHeldWallClearanceByKindM].sort(([left], [right]) => left.localeCompare(right)))),
+        maximumHeldWallPenetrationM,
+        maximumHeldWallPenetrationByKindM: Object.freeze(Object.fromEntries(
+          [...maximumHeldWallPenetrationByKindM].sort(([left], [right]) => left.localeCompare(right)))),
+        heldWorldContactsByKind: Object.freeze(Object.fromEntries(
+          [...heldWorldContactsByKind].sort(([left], [right]) => left.localeCompare(right)))),
+        heldKinds: Object.freeze([...heldKinds].sort()) }),
       swordDamageScales,
       launcherEvidence,
+      locomotion: Object.freeze({ mode: locomotionMode, initialRangeM,
+        finalRangeM: Vector3.Distance(construct.centre(), warrior.centre()),
+        constructRootDisplacementM: Vector3.Distance(initialConstructRoot, construct.centre()),
+        warriorRootDisplacementM: Vector3.Distance(initialWarriorRoot, warrior.centre()),
+        constructSupportState: construct.locomotion?.state ?? null,
+        warriorSupportState: warrior.locomotion?.state ?? null,
+        constructDiagnostic: construct.locomotion?.diagnostic() ?? null,
+        warriorDiagnostic: warrior.locomotion?.diagnostic() ?? null }),
+      locomotionTimeline: Object.freeze(locomotionTimeline),
+      locomotionSteps: Object.freeze(locomotionSteps),
       minimumRangeM,
       startedActions: Object.freeze([...startedActions].sort()),
       completedActions: Object.freeze([...completedActions].sort()),
@@ -473,6 +631,7 @@ export async function runConstructWarriorBout({
       perceivedEffectors,
     });
   } finally {
+    for (const { observable, observer } of heldWallObservers) observable.remove(observer);
     warriorCombat?.dispose();
     constructCombat?.dispose();
     warrior?.dispose();

@@ -11,6 +11,7 @@ import type { Striking } from "./combat.ts";
 import type { ControlEndpoint } from "./control-host.ts";
 import type { SupportedLocomotionPort } from "./supported-locomotion.ts";
 import type { StabilityEvent } from "./supported-locomotion-state.ts";
+import type { StandableWorldRegistry } from "./supported-locomotion-runtime.ts";
 import type { HumanoidHumanSource } from "./humanoid-control.ts";
 import { handsFor, isWeaponKind, WEAPON_KINDS, type WeaponKind } from "./hands.ts";
 import { POLICIES, splitMind, type HandName, type Mind } from "./mind.ts";
@@ -28,6 +29,10 @@ import { wardenBlueprint } from "./construct/warden.ts";
 /** A body kind accepted at the setup boundary. */
 export type UnitKind = "warrior" | "broot" | "centipede" | "kaykit-knight" | "bronze-warden" |
   "swordbearer-effigy" | "twinblade-effigy" | "arbalest-effigy";
+
+export type LocomotionMode = "legacy" | "supported";
+export const SUPPORTED_LOCOMOTION_PORT_V1 = "supported-locomotion-v1" as const;
+export type SupportedLocomotionCompatibility = typeof SUPPORTED_LOCOMOTION_PORT_V1;
 
 export interface UnitLoadout {
   readonly primary: WeaponKind;
@@ -51,6 +56,9 @@ export interface CombatantBuild {
   readonly policyName?: string;
   readonly policySeed?: number;
   readonly humanActive?: boolean;
+  /** Pair-owned and immutable. Omitted direct harnesses retain historical locomotion. */
+  readonly locomotionMode?: LocomotionMode;
+  readonly locomotionWorld?: StandableWorldRegistry;
 }
 
 /**
@@ -126,6 +134,7 @@ export interface UnitDefinition extends UnitSelectionRules {
   readonly driverOptions: readonly { readonly name: string; readonly label: string }[];
   readonly humanAdapter: boolean;
   readonly controlSurface: string;
+  readonly supportedLocomotionPort: SupportedLocomotionCompatibility | null;
   readonly defaultPolicy: string;
   readonly anatomy: AnatomyDefinition;
   readonly reach: number;
@@ -197,6 +206,7 @@ const warrior: UnitDefinition = Object.freeze({
   driverOptions: drivers(null),
   humanAdapter: true,
   controlSurface: "humanoid-v1",
+  supportedLocomotionPort: SUPPORTED_LOCOMOTION_PORT_V1,
   defaultPolicy: "idle",
   anatomy: Object.freeze({
     parts: warriorParts,
@@ -216,6 +226,8 @@ const warrior: UnitDefinition = Object.freeze({
     controlPolicies: warrior.driverOptions,
     controlPolicyName: ctx.policyName,
     controlPolicyFactory: warrior.createPolicy ?? undefined,
+    locomotionMode: ctx.locomotionMode,
+    locomotionWorld: ctx.locomotionWorld,
     loadout: initialLoadout(ctx, warrior),
   }, ctx.materials),
 });
@@ -231,6 +243,7 @@ const broot: UnitDefinition = Object.freeze({
   driverOptions: drivers(null),
   humanAdapter: true,
   controlSurface: "humanoid-v1",
+  supportedLocomotionPort: SUPPORTED_LOCOMOTION_PORT_V1,
   defaultPolicy: "idle",
   anatomy: Object.freeze({
     parts: warriorParts,
@@ -250,6 +263,8 @@ const broot: UnitDefinition = Object.freeze({
     controlPolicies: broot.driverOptions,
     controlPolicyName: ctx.policyName,
     controlPolicyFactory: broot.createPolicy ?? undefined,
+    locomotionMode: ctx.locomotionMode,
+    locomotionWorld: ctx.locomotionWorld,
     loadout: initialLoadout(ctx, broot),
     profile: BROOT_PROFILE,
   }, ctx.materials),
@@ -274,6 +289,7 @@ const centipede: UnitDefinition = Object.freeze({
   driverOptions: drivers(["crawler"]),
   humanAdapter: true,
   controlSurface: "humanoid-v1",
+  supportedLocomotionPort: null,
   defaultPolicy: "crawler",
   anatomy: Object.freeze({ parts: centipedeParts, vitalityWeights: centipedeWeights }),
   reach: CENTIPEDE_BITE_REACH,
@@ -296,6 +312,7 @@ const kaykitKnight: UnitDefinition = Object.freeze({
   driverOptions: drivers(["idle", "swinger", "duelist"]),
   humanAdapter: true,
   controlSurface: "humanoid-v1",
+  supportedLocomotionPort: SUPPORTED_LOCOMOTION_PORT_V1,
   defaultPolicy: "idle",
   anatomy: Object.freeze({
     parts: warriorParts,
@@ -315,6 +332,8 @@ const kaykitKnight: UnitDefinition = Object.freeze({
     controlPolicies: kaykitKnight.driverOptions,
     controlPolicyName: ctx.policyName,
     controlPolicyFactory: kaykitKnight.createPolicy ?? undefined,
+    locomotionMode: ctx.locomotionMode,
+    locomotionWorld: ctx.locomotionWorld,
     loadout: initialLoadout(ctx, kaykitKnight),
     profile: KAYKIT_KNIGHT_PROFILE,
   }, ctx.materials),
@@ -339,6 +358,7 @@ const bronzeWarden: UnitDefinition = Object.freeze({
   ]),
   humanAdapter: false,
   controlSurface: "construct-v1",
+  supportedLocomotionPort: SUPPORTED_LOCOMOTION_PORT_V1,
   defaultPolicy: "warden-authored",
   anatomy: Object.freeze({ parts: wardenParts, vitalityWeights: wardenWeights }),
   reach: 1.4,
@@ -364,6 +384,7 @@ const swordbearerEffigy: UnitDefinition = Object.freeze({
   ]),
   humanAdapter: false,
   controlSurface: "construct-humanoid-v1",
+  supportedLocomotionPort: SUPPORTED_LOCOMOTION_PORT_V1,
   defaultPolicy: "humanoid-authored",
   anatomy: Object.freeze({ parts: Object.freeze(humanoidModel.parts.map(({ id }) => id)),
     vitalityWeights: Object.freeze(Object.fromEntries(humanoidModel.parts.map(({ id, vitalityWeight }) => [id, vitalityWeight]))) }),
@@ -391,6 +412,7 @@ const twinbladeEffigy: UnitDefinition = Object.freeze({
   ]),
   humanAdapter: false,
   controlSurface: "construct-twinblade-v1",
+  supportedLocomotionPort: SUPPORTED_LOCOMOTION_PORT_V1,
   defaultPolicy: "humanoid-authored",
   anatomy: Object.freeze({ parts: Object.freeze(twinbladeModel.parts.map(({ id }) => id)),
     vitalityWeights: Object.freeze(Object.fromEntries(twinbladeModel.parts
@@ -420,6 +442,7 @@ const arbalestEffigy: UnitDefinition = Object.freeze({
   ]),
   humanAdapter: false,
   controlSurface: "construct-arbalest-v1",
+  supportedLocomotionPort: SUPPORTED_LOCOMOTION_PORT_V1,
   defaultPolicy: "humanoid-authored",
   anatomy: Object.freeze({ parts: Object.freeze(arbalestModel.parts.map(({ id }) => id)),
     vitalityWeights: Object.freeze(Object.fromEntries(arbalestModel.parts
@@ -456,6 +479,15 @@ export const UNITS: readonly { name: UnitKind; label: string }[] = Object.freeze
 export function unitDefinition(name: string): UnitDefinition {
   if (!Object.hasOwn(UNIT_REGISTRY, name)) throw new Error(`unknown unit "${name}"`);
   return UNIT_REGISTRY[name as UnitKind];
+}
+
+/** One construction-time decision; a live pair never enables only one body or falls back. */
+export function locomotionModeForPair(
+  left: Pick<UnitDefinition, "supportedLocomotionPort">,
+  right: Pick<UnitDefinition, "supportedLocomotionPort">,
+): LocomotionMode {
+  return left.supportedLocomotionPort === SUPPORTED_LOCOMOTION_PORT_V1 &&
+    right.supportedLocomotionPort === SUPPORTED_LOCOMOTION_PORT_V1 ? "supported" : "legacy";
 }
 
 export function loadoutForUnit(

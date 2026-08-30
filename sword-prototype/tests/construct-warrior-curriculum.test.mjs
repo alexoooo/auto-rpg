@@ -24,10 +24,17 @@ test("the_curriculum_seed_corpus_and_posture_only_baseline_are_frozen_before_bal
 test("the_Arbalest_CLI_flag_selects_its_committed_definition_and_earned_acceptance", () => {
   assert.equal(curriculumDefinitionForArgs([]), null);
   const definition = curriculumDefinitionForArgs(["--arbalest"]);
-  assert.equal(definition.qualifierId, "arbalest-fatal-arrow-v1");
+  assert.equal(definition.qualifierId, "arbalest-assisted-support-v2");
   assert.equal(definition.saved.blueprint.id, "arbalest-effigy");
   assert.equal(curriculumAcceptanceForDefinition(null), CONSTRUCT_WARRIOR_CURRICULUM_ACCEPTANCE);
   assert.equal(curriculumAcceptanceForDefinition(definition), ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE);
+  assert.deepEqual({
+    idle: ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE.idleWarriorKillsMin,
+    active: ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE.activeConstructKillsMin,
+    qualified: ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE.activeQualifiedConstructKillsMin,
+    left: ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE.activeQualifiedConstructKillsLeftMin,
+    right: ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE.activeQualifiedConstructKillsRightMin,
+  }, { idle: 7, active: 8, qualified: 8, left: 4, right: 4 });
   assert.throws(() => curriculumDefinitionForArgs(["--arbalesst"]),
     /unknown construct-Warrior curriculum flag "--arbalesst"/);
   assert.throws(() => curriculumAcceptanceForDefinition({ qualifierId: "arbalest-fatal-arrow-v1",

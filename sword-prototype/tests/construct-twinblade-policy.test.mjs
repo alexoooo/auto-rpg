@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { CONFIG } from "../src/config.ts";
 import { BIPED_BRACE_POSE } from "../src/construct/biped.ts";
-import { CONSTRUCT_CONTROLLERS } from "../src/construct/controllers.ts";
+import { CONSTRUCT_CONTROLLERS, supportedLocomotionControllerDescriptor } from "../src/construct/controllers.ts";
 import { ConstructMind } from "../src/construct/mind.ts";
 import { ActionScheduler } from "../src/construct/scheduler.ts";
 import { installedSensorsForBlueprint, SensorFrame } from "../src/construct/sensors.ts";
@@ -61,6 +61,26 @@ const includesExpression = (expression, predicate) => predicate(expression) ||
       "left" in expression && (includesExpression(expression.left, predicate) ||
         includesExpression(expression.right, predicate)));
 
+// These scheduler tests exercise the authored program without constructing a Havok body. The
+// supported brace still needs the same private authority seam production supplies; omitting the
+// seam would test legacy admission rather than the graph the Twinblade actually runs.
+const schedulerLocomotion = (stage = () => {}) => ({
+  authority(action, group) {
+    if (!supportedLocomotionControllerDescriptor(action.controller)) return null;
+    return Object.freeze({ actionId: action.id, groupId: group.id, carrierPartId: "pelvis",
+      carrierToRootJointIds: Object.freeze([]), supportBindings: Object.freeze([]),
+      balanceChainJointIds: Object.freeze([]), braceCapacityMultiplier: 1,
+      gaitStabilityScale: 1 });
+  },
+  stage,
+  priorSample() { return Object.freeze({ request: null }); },
+  clearSubmission() {},
+  clearAll() {},
+});
+
+const scheduler = (sink) => new ActionScheduler(graph, CONSTRUCT_CONTROLLERS, sink,
+  schedulerLocomotion());
+
 const schedulerView = (options, mountAngle = 0) => {
   const joints = {};
   for (const joint of blueprint.joints) for (const axis of joint.angularAxes) {
@@ -84,7 +104,8 @@ test("the_Twinblade_program_selects_one_combined_attack_without_claim_refusals",
     .parameters["open-lane-offset-m"], { kind: "number", min: 0, max: 0.35, unit: "metres" });
   assert.deepEqual(actions({ visible: false }), ["dual-mount-neutral", "brace", "stabilize"]);
   assert.deepEqual(actions({ blocker: false }), ["dual-mount-neutral", "brace", "stabilize"]);
-  assert.deepEqual(actions({ leftSupport: false, rightSupport: false }), ["dual-mount-neutral", "stabilize"]);
+  assert.deepEqual(actions({ leftSupport: false, rightSupport: false }),
+    ["dual-mount-neutral", "brace", "stabilize"]);
   const cutCondition = program.rules.find(({ action }) => action === "dual-cut").condition;
   assert.equal(includesExpression(cutCondition,
     ({ op, id }) => op === "sensor" && id === "line-of-sight"), true);
@@ -93,7 +114,7 @@ test("the_Twinblade_program_selects_one_combined_attack_without_claim_refusals",
 
   for (const options of [{}, { visible: false }, { blocker: false }]) {
     const writes = [];
-    const events = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS, { write: (row) => writes.push(row) })
+    const events = scheduler({ write: (row) => writes.push(row) })
       .step(decide(options), schedulerView(options), 1 / CONFIG.world.physicsHz);
     assert.equal(events.some(({ kind }) => kind === "refused" || kind === "failed"), false,
       JSON.stringify(events));
@@ -102,7 +123,7 @@ test("the_Twinblade_program_selects_one_combined_attack_without_claim_refusals",
 });
 
 test("an_active_dual_cut_survives_fact_flicker_and_suppresses_every_passive_rule", () => {
-  const scheduler = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS, { write() {} });
+  const scheduler = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS, { write() {} }, schedulerLocomotion());
   const started = scheduler.step(decide(), schedulerView(), 1 / CONFIG.world.physicsHz);
   assert.equal(started.some(({ kind, action }) => kind === "started" && action === "dual-cut"), true);
   assert.equal(scheduler.isActionActive("dual-cut"), true);
@@ -121,8 +142,27 @@ test("an_active_dual_cut_survives_fact_flicker_and_suppresses_every_passive_rule
   }
 });
 
+test("the_supported_dual_cut_keeps_zero_velocity_brace_authority_without_resurrecting_missing_support", () => {
+  const staged = [];
+  const port = schedulerLocomotion((row) => staged.push(row));
+  const active = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS, { write() {} }, port);
+  const events = active.step(decide(), schedulerView(), 1 / CONFIG.world.physicsHz);
+  assert.equal(events.some(({ action, kind }) => action === "dual-cut" &&
+    (kind === "refused" || kind === "failed")), false, JSON.stringify(events));
+  assert.deepEqual(staged.filter(({ action }) => action === "dual-cut").map(({ request }) => request), [{
+    localForward: 0, localRight: 0, yaw: 0, recover: false,
+  }]);
+
+  const noAuthority = schedulerLocomotion();
+  noAuthority.authority = () => null;
+  const unsupported = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS, { write() {} }, noAuthority);
+  const legacy = unsupported.step(decide(), schedulerView(), 1 / CONFIG.world.physicsHz);
+  assert.equal(legacy.some(({ action, kind }) => action === "dual-cut" && kind === "failed"), false,
+    "a missing authority cannot be manufactured by the controller; legacy keeps only its motor brace");
+});
+
 test("completion_hardware_loss_and_explicit_stop_release_dual_cut_commitment", () => {
-  const complete = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS, { write() {} });
+  const complete = scheduler({ write() {} });
   complete.step(decide(), schedulerView(), 1 / CONFIG.world.physicsHz);
   let completed = false;
   for (let step = 0; step < 600 && !completed; step += 1) {
@@ -134,7 +174,7 @@ test("completion_hardware_loss_and_explicit_stop_release_dual_cut_commitment", (
   assert.deepEqual(decide({ visible: false }, complete).requests.map(({ request }) => request.action),
     ["dual-mount-neutral", "brace", "stabilize"]);
 
-  const unavailable = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS, { write() {} });
+  const unavailable = scheduler({ write() {} });
   unavailable.step(decide(), schedulerView(), 1 / CONFIG.world.physicsHz);
   const hardwareLoss = unavailable.step(decide({ blocker: false }, unavailable), schedulerView({ blocker: false }),
     1 / CONFIG.world.physicsHz, [{ action: "dual-cut", group: "dual-sword-braced-body",
@@ -143,7 +183,7 @@ test("completion_hardware_loss_and_explicit_stop_release_dual_cut_commitment", (
     action === "dual-cut" && /left-effigy-sword/.test(reason)), true, JSON.stringify(hardwareLoss));
   assert.equal(unavailable.isActionActive("dual-cut"), false);
 
-  const stopped = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS, { write() {} });
+  const stopped = scheduler({ write() {} });
   stopped.step(decide(), schedulerView(), 1 / CONFIG.world.physicsHz);
   assert.equal(stopped.stop("verdict").some(({ kind, action, reason }) => kind === "cancelled" &&
     action === "dual-cut" && reason === "verdict"), true);
@@ -154,7 +194,7 @@ test("completion_hardware_loss_and_explicit_stop_release_dual_cut_commitment", (
 test("neutral_mount_hold_commands_declared_zero_instead_of_freezing_a_displaced_admission_pose", () => {
   const writes = [];
   const options = { visible: false };
-  const events = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS, { write: (row) => writes.push(row) })
+  const events = scheduler({ write: (row) => writes.push(row) })
     .step(decide(options), schedulerView(options, 0.43), 1 / CONFIG.world.physicsHz);
   assert.equal(events.some(({ kind }) => kind === "refused" || kind === "failed"), false);
   const mountWrites = writes.filter(({ joint }) => joint.includes("sword"));
@@ -238,7 +278,8 @@ test("opponent_weapon_telemetry_cannot_move_either_scissor_cut_motor_path", () =
   const trace = (weaponX, weaponY) => {
     const options = { weaponX, weaponY };
     const writes = [];
-    const scheduler = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS, { write: (row) => writes.push(row) });
+    const scheduler = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS,
+      { write: (row) => writes.push(row) }, schedulerLocomotion());
     for (let step = 0; step < 240; step += 1) {
       scheduler.step(decide(options, scheduler), schedulerView(options), 1 / 60);
     }
@@ -250,7 +291,8 @@ test("opponent_weapon_telemetry_cannot_move_either_scissor_cut_motor_path", () =
 
 test("phase_order_sends_the_near_blade_before_the_opposite_scissor_blade", () => {
   const writes = [];
-  const scheduler = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS, { write: (row) => writes.push(row) });
+  const scheduler = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS,
+    { write: (row) => writes.push(row) }, schedulerLocomotion());
   const openLaneOffsetM = 0.14;
   const tunedProgram = twinbladeProgram({ openLaneOffsetM });
   const tuning = { ...TWINBLADE_SCISSOR_CUT,
@@ -289,7 +331,8 @@ test("phase_order_sends_the_near_blade_before_the_opposite_scissor_blade", () =>
 
 test("the_combined_Action_writes_both_swords_and_both_leg_chains_without_contact_latches", () => {
   const writes = [];
-  const scheduler = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS, { write: (row) => writes.push(row) });
+  const scheduler = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS,
+    { write: (row) => writes.push(row) }, schedulerLocomotion());
   const events = scheduler.step(decide(), schedulerView(), 1 / CONFIG.world.physicsHz);
   assert.equal(events.some(({ kind }) => kind === "refused" || kind === "failed"), false, JSON.stringify(events));
   const joints = new Set(writes.map(({ joint }) => joint.split(":")[0]));

@@ -20,14 +20,14 @@ export function starterCoreConstruct(): SavedConstruct {
   const blueprint = starterCoreBlueprint();
   const joints = new Set(blueprint.joints.map(({ id }) => id));
   const modules = new Set(blueprint.modules.map(({ id }) => id));
-  const source = wardenControl("crossbow");
+  const source = wardenControl("crossbow", "assisted");
   const groups = source.groups.filter((group) => group.joints.every((id) => joints.has(id)) &&
     group.modules.every((id) => modules.has(id)));
   const groupIds = new Set(groups.map(({ id }) => id));
   const control: ConstructControlGraph = validateControlGraph({ ...source, groups,
     actions: source.actions.filter(({ group }) => groupIds.has(group)) });
   const actionIds = new Set(control.actions.map(({ id }) => id));
-  const sourceProgram = wardenProgram("crossbow");
+  const sourceProgram = wardenProgram("crossbow", "assisted");
   const program: ConstructProgram = validateProgram({ ...sourceProgram,
     rules: sourceProgram.rules.filter(({ action }) => actionIds.has(action)) }, control, WARDEN_SENSORS).program;
   return saveConstruct("Starter core -- build four limbs", blueprint, control, program, WARDEN_SENSORS);

@@ -5,10 +5,15 @@ import {
   PhysicsConstraintAxisLimitMode,
   PhysicsConstraintMotorType,
   PhysicsMotionType,
+  type IPhysicsEnginePluginV2,
 } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import type { Material } from "@babylonjs/core/Materials/material.js";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import type { Scene } from "@babylonjs/core/scene.js";
+import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
+import { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
+import { PhysicsShapeCapsule } from "@babylonjs/core/Physics/v2/physicsShape.js";
+import type { Observer } from "@babylonjs/core/Misc/observable.js";
 
 import { CONFIG } from "./config.ts";
 import { mirroredWristBend, type ArmPose, type HandIntent, type HandName } from "./mind.ts";
@@ -25,7 +30,7 @@ import {
 import { isShooting } from "./hands.ts";
 import { Quiver } from "./arrow.ts";
 import { nextDraw } from "./buttons.ts";
-import type { Striking } from "./combat.ts";
+import type { NonSolvingStrikeTrigger, Striking } from "./combat.ts";
 
 const LINEAR = [
   PhysicsConstraintAxis.LINEAR_X,
@@ -46,6 +51,100 @@ const clamp = (value: number, low: number, high: number) =>
 const FORWARD = new Vector3(0, 0, 1);
 const UP = new Vector3(0, 1, 0);
 
+interface FistTriggerOptions {
+  readonly scene: Scene;
+  readonly membership: number;
+  readonly collidesWith: number;
+  readonly radius: number;
+  readonly length: number;
+}
+
+/**
+ * Sensor geometry which follows a supported Fighter's real hand.
+ *
+ * This body is ANIMATED and its only shape is a Havok trigger, so it contributes no mass,
+ * impulse or passive body-body pusher. The before-physics copy uses the root-node fields Havok
+ * wrote after the prior step -- never a world matrix -- and the event callback later reads the
+ * freshly synchronized real hand for scoring.
+ */
+class PhysicalFistTrigger implements NonSolvingStrikeTrigger {
+  readonly body: PhysicsBody;
+  readonly shape: PhysicsShapeCapsule;
+  readonly events: NonSolvingStrikeTrigger["events"];
+  private readonly node: TransformNode;
+  private readonly source: Part;
+  private readonly scene: Scene;
+  private readonly follower: Observer<Scene>;
+  private readonly point = new Vector3();
+  private disposed = false;
+
+  constructor(source: Part, hand: HandName, options: FistTriggerOptions) {
+    this.source = source;
+    this.scene = options.scene;
+    const physics = options.scene.getPhysicsEngine();
+    if (!physics) throw new Error("a fist trigger requires an attached physics engine");
+    const plugin = physics.getPhysicsPlugin();
+    if (!plugin || plugin.getPluginVersion() !== 2) {
+      throw new Error("a fist trigger requires the V2 physics plugin");
+    }
+    this.events = (plugin as IPhysicsEnginePluginV2).onTriggerCollisionObservable;
+    const node = new TransformNode(`${source.name}.${hand}.non-solving-trigger`, options.scene);
+    let shape: PhysicsShapeCapsule | null = null;
+    let body: PhysicsBody | null = null;
+    let follower: Observer<Scene> | null = null;
+    try {
+      node.position.copyFrom(source.mesh.position);
+      node.rotationQuaternion = (source.mesh.rotationQuaternion ?? Quaternion.Identity()).clone();
+      const halfSegment = Math.max(0, options.length / 2 - options.radius);
+      shape = new PhysicsShapeCapsule(new Vector3(0, -halfSegment, 0),
+        new Vector3(0, halfSegment, 0), options.radius, options.scene);
+      shape.filterMembershipMask = options.membership;
+      shape.filterCollideMask = options.collidesWith;
+      shape.isTrigger = true;
+      body = new PhysicsBody(node, PhysicsMotionType.ANIMATED, false, options.scene);
+      body.shape = shape;
+      // TELEPORT prestep is correct here: a sensor samples the achieved hand pose and must not
+      // interpolate a second trajectory which the hand itself never followed.
+      body.disablePreStep = false;
+      follower = options.scene.onBeforePhysicsObservable.add(() => this.follow());
+    } catch (error) {
+      if (follower) options.scene.onBeforePhysicsObservable.remove(follower);
+      body?.dispose();
+      shape?.dispose();
+      node.dispose(false, false);
+      throw error;
+    }
+    this.node = node;
+    this.shape = shape;
+    this.body = body;
+    this.follower = follower;
+  }
+
+  contactPoint(collidedAgainst: PhysicsBody): Vector3 {
+    const centre = this.source.mesh.position;
+    const bounds = collidedAgainst.getBoundingBox();
+    return this.point.set(
+      Math.max(bounds.minimumWorld.x, Math.min(bounds.maximumWorld.x, centre.x)),
+      Math.max(bounds.minimumWorld.y, Math.min(bounds.maximumWorld.y, centre.y)),
+      Math.max(bounds.minimumWorld.z, Math.min(bounds.maximumWorld.z, centre.z)),
+    );
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.scene.onBeforePhysicsObservable.remove(this.follower);
+    this.body.dispose();
+    this.shape.dispose();
+    this.node.dispose(false, false);
+  }
+
+  private follow(): void {
+    this.node.position.copyFrom(this.source.mesh.position);
+    this.node.rotationQuaternion?.copyFrom(this.source.mesh.rotationQuaternion ?? Quaternion.Identity());
+  }
+}
+
 /**
  * A striking seam over the hand that is already in the solver.
  *
@@ -60,6 +159,9 @@ export class FistStrike implements Striking {
   readonly body: Part["body"];
   private readonly part: Part;
   private readonly isSpent: () => boolean;
+  private readonly triggerOptions: FistTriggerOptions | null;
+  private trigger: PhysicalFistTrigger | null = null;
+  private triggerDisposed = false;
   private readonly scratch = {
     rel: new Vector3(),
     velocity: new Vector3(),
@@ -76,12 +178,14 @@ export class FistStrike implements Striking {
     freeRel: new Vector3(),
   };
 
-  constructor(part: Part, hand: HandName, isSpent: () => boolean) {
+  constructor(part: Part, hand: HandName, isSpent: () => boolean,
+    triggerOptions: FistTriggerOptions | null = null) {
     this.part = part;
     this.hand = hand;
     this.effectorId = `hand-${hand}-fist`;
     this.body = part.body;
     this.isSpent = isSpent;
+    this.triggerOptions = triggerOptions;
     // Havok emits no per-body contacts until this is enabled. A weapon does it
     // in its constructor; the fist has no weapon constructor to do it for us.
     this.body.setCollisionCallbackEnabled(true);
@@ -89,6 +193,19 @@ export class FistStrike implements Striking {
 
   get spent(): boolean {
     return this.isSpent();
+  }
+
+  /** Lazily created when Combat binds, after both ordinary articulated bodies exist. */
+  get nonSolvingTrigger(): PhysicalFistTrigger | undefined {
+    if (!this.triggerOptions || this.triggerDisposed) return undefined;
+    this.trigger ??= new PhysicalFistTrigger(this.part, this.hand, this.triggerOptions);
+    return this.trigger;
+  }
+
+  dispose(): void {
+    this.triggerDisposed = true;
+    this.trigger?.dispose();
+    this.trigger = null;
   }
 
   velocityAt(world: Vector3): Vector3 {
@@ -244,6 +361,8 @@ export interface ArmOptions {
   arrowCollidesWith: number;
   /** What this hand holds. `empty` builds no body and welds nothing. */
   weapon: WeaponKind;
+  /** Present only for an atomically-supported pair; legacy fists keep their solving hand contact. */
+  fistTrigger?: { readonly membership: number; readonly collidesWith: number };
   /** Creator bind pose used only for an imported native-proportion body. */
   bindPose?: "hanging" | "outstretched";
   /**
@@ -536,7 +655,10 @@ export class Arm {
     this.upperArm = limb("upperArm", A.upperLength / 2, A.upperLength, A.upperRadius, A.upperMass, materials.cloth);
     this.forearm = limb("forearm", A.upperLength + A.foreLength / 2, A.foreLength, A.foreRadius, A.foreMass, materials.leather);
     this.hand = limb("hand", A.upperLength + A.foreLength + A.handLength / 2, A.handLength, A.handRadius, A.handMass, materials.flesh, handRotation);
-    this.fist = opts.weapon === "empty" ? new FistStrike(this.hand, opts.hand, () => this.lost) : null;
+    this.fist = opts.weapon === "empty" ? new FistStrike(this.hand, opts.hand, () => this.lost,
+      opts.fistTrigger ? { scene, membership: opts.fistTrigger.membership,
+        collidesWith: opts.fistTrigger.collidesWith, radius: A.handRadius,
+        length: A.handLength } : null) : null;
     this.meshes = built;
 
     // Shoulder: a ball joint with a generous cone. The limits exist to rule out
@@ -1095,6 +1217,7 @@ export class Arm {
     this.weld?.dispose();
     this.weapon?.dispose();
     this.quiver?.dispose();
+    this.fist?.dispose();
     this.handAnchor.mesh.dispose();
     this.elbowAnchor.mesh.dispose();
   }

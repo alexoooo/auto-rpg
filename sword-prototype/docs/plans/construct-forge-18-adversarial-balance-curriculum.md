@@ -1,6 +1,6 @@
 # Session 18 -- adversarial Construct/Warrior balance curriculum
 
-## Status -- paused at 0/8 until supported locomotion lands (2026-08-30)
+## Status -- assisted rerun remains red (2026-08-30)
 
 Make the separately selectable Twinblade Effigy earn its durability through control. The same
 physical blueprint faces the real Warrior `duelist` in two modes: a posture-only idle Mind and the
@@ -10,10 +10,11 @@ rung. A victory without a witnessed physical action sequence is a failed session
 scoreboard says Construct.
 
 The raw-gait curriculum and evidence checker below are implemented, but no Twinblade cell won.
-The later visible clinch-heap finding invalidates further timing/aim tuning on that locomotion
-foundation. Sessions 20--24 in `construct-forge-00-overview.md` must land first; then this exact
-corpus is re-run with new saved control/program identities and an explicitly assisted-support
-qualifier. The old 0/8 result remains historical evidence and is not copied forward.
+Supported locomotion has now invalidated and rerun that old evidence rather than copying it
+forward. The current idle ladder at 0.50, 0.25, 0.10, 0.05 and 0.02 durability is 2, 4, 6, 7 and
+6 Warrior kills out of eight. At the default x0.10 body the active Twinblade wins and qualifies
+0/8, survives 2/8 and records upright damage in 0/8 cells. The session therefore remains honestly
+red: neither an 8/8 idle rung nor active competence has been earned on the assisted body.
 
 The committed chassis is human-scale rather than giant-scale: `HUMANOID_SCALE = 0.75` produces a
 1.8995 m crown. `constructStandingThresholds` remains profile-derived, and
@@ -46,7 +47,8 @@ session's identical-body comparison.
 
 ## Acceptance
 
-- The idle posture-only Twinblade dies in 8/8 frozen cells at the current rung.
+- The idle posture-only Twinblade dies in 8/8 frozen cells at the current rung. The assisted rerun's
+  best rung is currently 7/8, so this criterion is not met.
 - The active Twinblade kills the Warrior in both mirrored sides and across the declared seed
   corpus before any lower durability rung is attempted. Active acceptance numbers remain zero
   until a real corpus establishes them; they are never filled from a desired outcome.

@@ -2,6 +2,7 @@ import { validateControlGraph, type ActionSpec, type ConstructControlGraph } fro
 import { validateBlueprint, type AttachmentFrame, type ConstructBlueprint, type JointSpec, type PartSpec } from "./blueprint.ts";
 import type { ConstructProgram, ProgramRule } from "./program.ts";
 import type { SensorSpec } from "./sensors.ts";
+import { SUPPORTED_QUADRUPED_CRAWL_V1 } from "./locomotion.ts";
 
 const I = [0, 0, 0, 1] as const;
 const X_QUARTER_TURN = [0.7071067811865476, 0, 0, 0.7071067811865476] as const;
@@ -126,7 +127,8 @@ const commonModules = Object.freeze([
     sensorChannels: Object.freeze(["core-upright", "core-roll-rad", "core-pitch-rad",
       "line-of-sight", "opponent-range", "opponent-relative-speed",
       "opponent-local-x", "opponent-local-y", "opponent-local-z",
-      "opponent-local-vx", "opponent-local-vy", "opponent-local-vz"]) }),
+      "opponent-local-vx", "opponent-local-vy", "opponent-local-vz",
+      ...WARDEN_LIMB_ATTACHMENTS.map(({ id }) => `joint-live-bearing-${id}-upper`)]) }),
   Object.freeze(moduleBase("warden-shield", "shield", "socket-shield", "shield",
     [geometry("plate", { kind: "box", sizeM: [0.72, 0.84, 0.09] }, "plate", [0, 0, 0.10]),
       geometry("boss", { kind: "cylinder", lengthM: 0.08, radiusM: 0.11 }, "bearing", [0, 0, 0.17])], 14)),
@@ -165,9 +167,16 @@ export function wardenBlueprint(variant: "crossbow" | "sword" = "crossbow"): Con
 
 const locomotionJoints = Object.freeze(limbJoints.map(({ id }) => id));
 const footModules = Object.freeze(WARDEN_LIMB_ATTACHMENTS.map(({ id }) => `foot-${id}`));
+const WARDEN_BALANCE_CHAIN = Object.freeze(["bearing-sensor-mast"]);
+const WARDEN_CRAWL_MISSING = Object.freeze(WARDEN_LIMB_ATTACHMENTS.map(({ id }) => id));
+export type WardenLocomotionMode = "raw" | "assisted";
 
-export function wardenControl(variant: "crossbow" | "sword" = "crossbow"): ConstructControlGraph {
+export function wardenControl(variant: "crossbow" | "sword" = "crossbow",
+  locomotionMode: WardenLocomotionMode = "raw"): ConstructControlGraph {
   const weapon = variant === "crossbow" ? "dorsal-crossbow" : "dorsal-sword";
+  const locomotionController = (mode: "move" | "turn" | "brace" | "recover") =>
+    locomotionMode === "assisted" ? `supported-quadruped-${mode}`
+      : mode === "move" || mode === "turn" ? `quadruped-${mode}` : mode;
   const weaponAction: ActionSpec = variant === "crossbow"
     ? { id: "fire", controller: "fire-projectile", group: "dorsal-mount",
         claims: ["module:dorsal-crossbow", "module:dorsal-magazine", "resource:power-mount", "resource:ammo-dorsal-magazine",
@@ -176,14 +185,38 @@ export function wardenControl(variant: "crossbow" | "sword" = "crossbow"): Const
         claims: ["module:dorsal-sword", "resource:power-mount", "resource:sensor-line-of-sight"], parameters: {
           direction: { kind: "number", min: -1, max: 1, unit: "scalar" },
         } };
+  const supportBinding = (id: string) => ({
+    joints: [`bearing-${id}-upper`, `bearing-${id}-lower`, `bearing-${id}-ankle`, `bearing-${id}-foot`],
+    modules: [`foot-${id}`],
+  });
+  const crawlGroups = locomotionMode === "assisted" ? WARDEN_CRAWL_MISSING.map((missing) => {
+    const supports = WARDEN_LIMB_ATTACHMENTS.map(({ id }) => id).filter((id) => id !== missing);
+    return { id: `locomotion-without-${missing}`,
+      joints: [...supports.flatMap((id) => supportBinding(id).joints), ...WARDEN_BALANCE_CHAIN],
+      modules: supports.flatMap((id) => supportBinding(id).modules),
+      bindings: { ...Object.fromEntries(supports.map((id) => [id, supportBinding(id)])),
+        "balance-chain": { joints: WARDEN_BALANCE_CHAIN, modules: [] } } };
+  }) : [];
+  const crawlActions: ActionSpec[] = locomotionMode === "assisted" ? WARDEN_CRAWL_MISSING.map((missing) => ({
+    id: `crawl-without-${missing}`, controller: "supported-quadruped-crawl",
+    group: `locomotion-without-${missing}`, claims: ["resource:balance"], parameters: {
+      forward: { kind: "number", min: -1, max: 1, unit: "scalar" },
+      right: { kind: "number", min: -1, max: 1, unit: "scalar" },
+      yaw: { kind: "number", min: -1, max: 1, unit: "scalar" },
+      speed: { kind: "number", min: 0, max: SUPPORTED_QUADRUPED_CRAWL_V1.MAX_SPEED_MPS,
+        unit: "metres-per-second" },
+    },
+  })) : [];
   return validateControlGraph({
     version: 1,
     groups: [
-      { id: "locomotion", joints: locomotionJoints, modules: footModules,
-        bindings: Object.fromEntries(WARDEN_LIMB_ATTACHMENTS.map(({ id }) => [id, {
-          joints: [`bearing-${id}-upper`, `bearing-${id}-lower`, `bearing-${id}-ankle`, `bearing-${id}-foot`],
-          modules: [`foot-${id}`],
-        }])) },
+      { id: "locomotion", joints: locomotionMode === "assisted"
+        ? [...locomotionJoints, ...WARDEN_BALANCE_CHAIN] : locomotionJoints, modules: footModules,
+        bindings: { ...Object.fromEntries(WARDEN_LIMB_ATTACHMENTS.map(({ id }) => [id, supportBinding(id)])),
+          ...(locomotionMode === "assisted" ? {
+          "balance-chain": { joints: WARDEN_BALANCE_CHAIN, modules: [] },
+        } : {}) } },
+      ...crawlGroups,
       { id: "dorsal-mount", joints: ["bearing-dorsal-yaw", "bearing-dorsal-pitch"],
         modules: variant === "crossbow" ? [weapon, "dorsal-magazine"] : [weapon],
         bindings: { yaw: { joints: ["bearing-dorsal-yaw"], modules: [] },
@@ -197,16 +230,18 @@ export function wardenControl(variant: "crossbow" | "sword" = "crossbow"): Const
     ],
     actions: [
       { id: "hold", controller: "hold-joints", group: "whole-body", claims: [], parameters: {} },
-      { id: "move", controller: "quadruped-move", group: "locomotion", claims: ["resource:balance"], parameters: {
+      { id: "move", controller: locomotionController("move"), group: "locomotion", claims: ["resource:balance"], parameters: {
         forward: { kind: "number", min: -1, max: 1, unit: "scalar" },
         right: { kind: "number", min: -1, max: 1, unit: "scalar" },
-        speed: { kind: "number", min: 0, max: 2.2, unit: "metres-per-second" },
+        speed: { kind: "number", min: 0, max: locomotionMode === "assisted" ? 1.6 : 2.2,
+          unit: "metres-per-second" },
       } },
-      { id: "turn", controller: "quadruped-turn", group: "locomotion", claims: ["resource:balance"], parameters: {
+      { id: "turn", controller: locomotionController("turn"), group: "locomotion", claims: ["resource:balance"], parameters: {
         yaw: { kind: "number", min: -1, max: 1, unit: "scalar" },
       } },
-      { id: "brace", controller: "brace", group: "locomotion", claims: ["resource:balance"], parameters: {} },
-      { id: "recover", controller: "recover", group: "locomotion", claims: ["resource:balance"], parameters: {} },
+      { id: "brace", controller: locomotionController("brace"), group: "locomotion", claims: ["resource:balance"], parameters: {} },
+      { id: "recover", controller: locomotionController("recover"), group: "locomotion", claims: ["resource:balance"], parameters: {} },
+      ...crawlActions,
       { id: "aim", controller: "aim-direction", group: "dorsal-mount",
         claims: ["resource:power-mount", "resource:sensor-line-of-sight"], parameters: {
           yaw: { kind: "number", min: -2.5, max: 2.5, unit: "radians" },
@@ -245,13 +280,45 @@ export const WARDEN_SENSORS: readonly SensorSpec[] = Object.freeze([
   ...WARDEN_LIMB_ATTACHMENTS.map(({ id }) => Object.freeze({
     id: `slip-foot-${id}`, unit: "metres-per-second" as const, source: "contact" as const,
   })),
+  ...WARDEN_LIMB_ATTACHMENTS.map(({ id }) => Object.freeze({
+    id: `joint-live-bearing-${id}-upper`, unit: "boolean" as const, source: "self" as const,
+  })),
 ]);
 
-export function wardenProgram(variant: "crossbow" | "sword" = "crossbow"): ConstructProgram {
+export function wardenProgram(variant: "crossbow" | "sword" = "crossbow",
+  locomotionMode: WardenLocomotionMode = "raw"): ConstructProgram {
   const attack = variant === "crossbow" ? "fire" : "cut";
   const attackParameters: ProgramRule["parameters"] = variant === "sword"
     ? Object.freeze({ direction: Object.freeze({ kind: "expression", value: Object.freeze({ op: "constant", value: 1 }) }) })
     : Object.freeze({});
+  const crawlRules: readonly ProgramRule[] = locomotionMode === "assisted" ? WARDEN_CRAWL_MISSING.map((missing) => {
+    const liveSupports = WARDEN_LIMB_ATTACHMENTS.map(({ id }) => id).filter((id) => id !== missing);
+    return Object.freeze({ id: `crawl-without-${missing}-while-closing`, action: `crawl-without-${missing}`,
+      priority: 10, optional: false, dwellS: 0,
+      condition: Object.freeze({ op: "and" as const, values: Object.freeze([
+        Object.freeze({ op: "sensor" as const, id: "core-upright" }),
+        // Contact sensors leave the installed manifest with their detached limb. A core
+        // topology channel names the absent support while the rule separately requires
+        // fresh evidence from every support the fallback will actually spend.
+        Object.freeze({ op: "not" as const, value: Object.freeze({ op: "sensor" as const,
+          id: `joint-live-bearing-${missing}-upper` }) }),
+        ...liveSupports.map((id) => Object.freeze({ op: "sensor" as const, id: `contact-foot-${id}` })),
+        Object.freeze({ op: "gt" as const,
+          left: Object.freeze({ op: "sensor" as const, id: "opponent-range" }),
+          right: Object.freeze({ op: "constant" as const, value: 2, unit: "metres" as const }) }),
+      ]) }), utility: Object.freeze({ op: "constant" as const, value: 4.5 }),
+      parameters: Object.freeze({
+        forward: Object.freeze({ kind: "expression" as const,
+          value: Object.freeze({ op: "constant" as const, value: 1 }) }),
+        right: Object.freeze({ kind: "expression" as const,
+          value: Object.freeze({ op: "constant" as const, value: 0 }) }),
+        yaw: Object.freeze({ kind: "expression" as const,
+          value: Object.freeze({ op: "constant" as const, value: 0 }) }),
+        speed: Object.freeze({ kind: "expression" as const,
+          value: Object.freeze({ op: "constant" as const,
+            value: SUPPORTED_QUADRUPED_CRAWL_V1.MAX_SPEED_MPS, unit: "metres-per-second" as const }) }),
+      }) } as ProgramRule);
+  }) : [];
   const rules: readonly ProgramRule[] = Object.freeze([
     Object.freeze({ id: "recover-when-fallen", action: "recover", priority: 40, optional: false, dwellS: 0.2,
       condition: Object.freeze({ op: "not", value: Object.freeze({ op: "sensor", id: "core-upright" }) }),
@@ -268,6 +335,7 @@ export function wardenProgram(variant: "crossbow" | "sword" = "crossbow"): Const
         Object.freeze({ op: "gt", left: Object.freeze({ op: "sensor", id: "opponent-range" }),
           right: Object.freeze({ op: "constant", value: 2.2, unit: "metres" }) }),
       ]) }), utility: Object.freeze({ op: "constant", value: 8 }), parameters: Object.freeze({}) })] : []),
+    ...crawlRules,
     Object.freeze({ id: "close-distance", action: "move", priority: 10, optional: false, dwellS: 0.2,
       condition: Object.freeze({ op: "and", values: Object.freeze([
         Object.freeze({ op: "sensor", id: "core-upright" }),
