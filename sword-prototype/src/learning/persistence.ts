@@ -261,8 +261,9 @@ export function persistenceRecordFailure(record: unknown, decisions: number): st
  * inference available is the defect being fixed.** Counting the bins a bout
  * actually used cannot separate a collapsed head from a constant; reading the
  * algorithm name off the manifest is the thing `scripts/evaluate-ai.mjs` already
- * does and the thing entry 14 of the found-not-fixed register says is not
- * enough, because three of the four algorithms decide a dwell and one does not.
+ * does and the persistence-head measurement in `docs/measurements.md` says is
+ * not enough, because three of the four algorithms decide a dwell and one does
+ * not.
  * So the number is stated at the site that produces the dwell, where a reader
  * changing that site sees it:
  *

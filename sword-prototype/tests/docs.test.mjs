@@ -278,8 +278,8 @@ const SCRATCH_SHARE_OF_DURABLE = { min: 0.02, max: 0.25 };
 //
 // **It rises when a session is split, and 13 -> 10 -> 15 -> 8 is the whole story of that.**
 // Session 19 took it to 10 by building three of the named files. Splitting session 18 then
-// took it to 15: `combat-followups-18a-engagement-instrument.md` names `src/recorder.ts`,
-// `src/learning/gates.ts` and `scripts/measure-engagement.mjs`, none of which exist, and
+// took it to 15: the then-live recorder implementation plan named `src/recorder.ts`,
+// `src/learning/gates.ts` and `scripts/measure-engagement.mjs`, none of which existed, and
 // names `tests/recorder.test.mjs` and `tests/engagement.test.mjs` a second time each --
 // this tally counts occurrences, not distinct paths. Session 18a built all five, removing
 // seven occurrences and taking the count to 8. Session 20 then built
@@ -287,13 +287,13 @@ const SCRATCH_SHARE_OF_DURABLE = { min: 0.02, max: 0.25 };
 // about what it will create, and a fall means somebody created it. Both are correct; neither
 // is a repair.
 //
-// **Re-measured 2026-08-28 after the Construct Forge implementation: 10 missing and
-// two ambiguous.** Most promised files now exist. The two ambiguous bare `ppo.ts`
-// references predate the construct learner and now have two real candidates; they
-// remain pinned plan debt rather than being guessed by basename.
+// **Re-measured 2026-08-30 after completed/deprecated plans were pruned and the
+// supported-locomotion sessions were added: 13 missing and zero ambiguous.** The
+// remaining misses are files those live sessions promise to create. The two former
+// ambiguous `ppo.ts` references belonged to removed historical plan prose.
 const PLAN_SURFACE = {
-  noSuchFile: 10,
-  ambiguousFile: 2,
+  noSuchFile: 13,
+  ambiguousFile: 0,
   anchorIntoDeletedFile: 0,
   orphanContinuation: 0,
   continuationOutsideGuessedCarrier: 0,
@@ -781,10 +781,11 @@ test("the_extension_whitelist_covers_every_path_shaped_span", () => {
 });
 
 test("the_plan_sets_unverifiable_references_are_pinned_from_both_sides", () => {
-  // Not gated: the whole plan set is deleted when the topic closes, so repairing its
-  // anchors is work about to be thrown away. Pinned so that rotting more is reported
-  // and repairing some forces a re-pin. Every entry today is a plan naming a file it
-  // intends to create; see PLAN_SURFACE for why that makes the pin read differently.
+  // Not gated: completed session files are pruned and a topic's remaining live set is
+  // deleted when it closes, so repairing its anchors is work about to be thrown away.
+  // Pinned so that rotting more is reported and repairing some forces a re-pin. Every
+  // entry today is a plan naming a file it intends to create; see PLAN_SURFACE for why
+  // that makes the pin read differently.
   const records = all.filter((r) => !durable(r)).map(judge).filter(Boolean);
   assert.deepEqual(tally(records), PLAN_SURFACE, `plan surface moved:\n${JSON.stringify(records, null, 2)}`);
 });

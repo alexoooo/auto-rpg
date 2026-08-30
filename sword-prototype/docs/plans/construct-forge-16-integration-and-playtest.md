@@ -1,13 +1,14 @@
 # Session 16 -- decide whether this becomes the game
 
-## Status -- UI implementation complete; technical and human verdicts open (2026-08-28)
+## Status -- UI complete; product verdict blocked by supported locomotion (2026-08-30)
 
 The ordinary mouse-driven starter, Forge, physical probe, exact saved-revision Setup/Fight path and
-causal weak/repaired Lab sequence are implemented. No person has yet completed the visible-browser
-protocol. In addition, the replacement seeded corpus rejected the current authored game with eight
-time caps, 234,442 stuck steps and two rows without bilateral damage. Its 212 named
-resource/hardware transitions are telemetry rather than unexplained capability loss.
-The technical entry premise below is therefore not satisfied. No learned candidate is integrated.
+causal weak/repaired Lab sequence are implemented. No person has yet completed the complete guided
+visible-browser protocol. A later informal Warrior-versus-small-golem fight did establish one
+technical rejection: the animated-root Warrior and fully dynamic Construct collapsed into a living
+clinch heap. Sessions 20--24 in `construct-forge-00-overview.md` now own that blocker. This session's
+product verdict cannot close before their physical and visible gates do. No learned candidate is
+integrated.
 
 ## Outcome
 
@@ -17,24 +18,19 @@ with an explicit product verdict and moves every durable result out of this plan
 
 ## Entry gate
 
-Sessions 01--12 are complete enough to expose the loop, with every measured blocker called out in
-its session status. Either session 15 has a passing frozen learned candidate or recorded
-negative result, or session 12 has the explicit evidence-backed early-negative entry that blocked
-sessions 13--15. Merely not running learning is not a result. The construct playtest protocol,
-assignments and questions in `src/construct/playtest.ts` were committed before exposing the player
-to any candidate.
+The implemented loop and fail-closed learning result are recorded under "Construct learning rung
+entry-gate result" in `docs/measurements.md`: the rejected authored corpus spent no production
+rollout and promoted no network. Sessions 20--24 must additionally close supported locomotion.
+Merely not running learning is not a result. The construct playtest protocol, assignments and
+questions in `src/construct/playtest.ts` were committed before exposing the player to any candidate.
 
-## Integrate
+## Integrated result
 
-If session 15 passed, register one `adaptive-construct-v1` driver through the construct control
-surface. It loads only the frozen graph/action/policy contract and names unsupported blueprint or
-program digests; there is no fallback to the authored Warden Mind. Surface candidate provenance,
-active action scores and parameter outputs in the same diagnostics as authored rules.
-
-If session 15 did not pass, or learning was rejected at session 12's entry gate, integrate no
-learned entry. The authored Mind editor and auto-battle
-loop remain the product; this is a valid outcome because AI programming, not opaque learning alone,
-is the core gameplay.
+The learning entry gate rejected the corpus, promoted no candidate and spent no production rollout.
+There is therefore no `adaptive-construct-v1` entry to install. The authored Mind editor and
+auto-battle loop remain the product under test; AI programming, not opaque learning alone, is the
+core gameplay. Session 24 must rerun the invalidated entry gate after supported locomotion, but this
+session never invents a learned driver when that rerun promotes nothing.
 
 Finish onboarding in the Forge: one guided build of a four-limb Warden, one crossbow-to-sword module
 swap, one locomotion group, one attack action, one simple Mind rule, then a visible auto-battle and a
@@ -63,6 +59,13 @@ At minimum test:
 5. Does watching the AI feel like watching *their machine think*, rather than a generic policy use
    a skin?
 6. Are construction and programming enjoyable before progression, salvage or campaign rewards exist?
+7. In Warrior-versus-small-Construct pressure, can the player close, separate, knock down,
+   interrupt recovery and observe one-leg fallback without foot skate, heap, air-walk or an
+   invulnerable carrier?
+8. With the Arbalest, are ranged tracking, firing, sword fallback and guard interaction readable
+   and plausible at human scale rather than merely accepted by the fatal-arrow qualifier?
+9. In the Warden A/B, is assisted lateral recovery visibly better than the retained raw four-beat
+   gait without looking like a teleport?
 
 Record timing, aborts, confusion points and qualitative answers in `docs/measurements.md`. Do not
 turn one enthusiastic comment into a quantitative competence claim.

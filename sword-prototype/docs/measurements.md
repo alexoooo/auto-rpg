@@ -3284,9 +3284,9 @@ masks it and there is nothing to trade it against.
   repository root and skips only `.claude`, `.git`, `.tools`, `node_modules` and `target`, and
   its `docs/plans/` exclusion is relative to *that* root, so `sword-prototype/docs/plans/` is not
   excluded at all. Appending one Markdown link to a plan file, with href
-  `../../scripts/train-ppo.mjs#L99999`, and running the checker reports
-  `sword-prototype/docs/plans/combat-followups-19-run-legibility.md:217: line link ... is
-  outside its target`; a second probe with href `#L1` and link text naming a symbol draws the
+  `../../scripts/train-ppo.mjs#L99999`, and running the checker against the then-live run-legibility
+  plan reported that its line link was outside its target; a second probe with an `L1` fragment and
+  link text naming a symbol drew the
   stale-anchor complaint as well. The checker reaches these files and validates exactly this.
 
   It cannot see the plan set's anchors because they are written as **inline code spans** with

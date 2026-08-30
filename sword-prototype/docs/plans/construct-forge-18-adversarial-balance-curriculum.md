@@ -1,6 +1,6 @@
 # Session 18 -- adversarial Construct/Warrior balance curriculum
 
-## Status -- in progress (2026-08-29)
+## Status -- paused at 0/8 until supported locomotion lands (2026-08-30)
 
 Make the separately selectable Twinblade Effigy earn its durability through control. The same
 physical blueprint faces the real Warrior `duelist` in two modes: a posture-only idle Mind and the
@@ -8,6 +8,12 @@ active combat Mind. Reduce whole-construct durability until the idle body loses 
 mirrored cell; improve the active Mind until it wins; then repeat at the next declared durability
 rung. A victory without a witnessed physical action sequence is a failed session even if the
 scoreboard says Construct.
+
+The raw-gait curriculum and evidence checker below are implemented, but no Twinblade cell won.
+The later visible clinch-heap finding invalidates further timing/aim tuning on that locomotion
+foundation. Sessions 20--24 in `construct-forge-00-overview.md` must land first; then this exact
+corpus is re-run with new saved control/program identities and an explicitly assisted-support
+qualifier. The old 0/8 result remains historical evidence and is not copied forward.
 
 The committed chassis is human-scale rather than giant-scale: `HUMANOID_SCALE = 0.75` produces a
 1.8995 m crown. `constructStandingThresholds` remains profile-derived, and
