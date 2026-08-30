@@ -30,6 +30,7 @@ import { ConstructDamageTargets, moduleAtContact } from "./damage-target.ts";
 import { humanoidProfileMetrics } from "./humanoid.ts";
 import { twinbladeProfileMetrics } from "./twinblade.ts";
 import { arbalestProfileMetrics } from "./arbalest.ts";
+import { ConstructLocomotionPort } from "./assisted-locomotion.ts";
 
 /** Held guards are visible opponent geometry even though they are not severable limbs. */
 export function opponentOwnsSightHit(
@@ -115,6 +116,7 @@ export class Construct implements Combatant {
   readonly runtime: ConstructRuntime;
   readonly state: LiveConstructState;
   readonly control: ConstructControlEndpoint;
+  readonly locomotion: ConstructLocomotionPort;
   readonly limbs: Limb[];
   readonly strikers: Striking[];
   readonly costume: readonly AbstractMesh[];
@@ -185,6 +187,9 @@ export class Construct implements Combatant {
         reloadS: launcher.spec.reloadSeconds as number }] : [],
     ) : null;
     this.state = new LiveConstructState(this.runtime, this.resources);
+    // Dormant until the pair-wide activation session: the port participates in begin/commit and
+    // terminal clears now, but no registered action resolves authority yet.
+    this.locomotion = new ConstructLocomotionPort();
     if (launcher?.spec.projectile) {
       const projectile = launcher.spec.projectile;
       const layers = layersFor(ctx.side);
@@ -207,6 +212,7 @@ export class Construct implements Combatant {
       effect: (effect) => this.applyEffect(effect),
       capabilities: () => this.state.capabilities(control),
       admission: (dt, command) => this.state.capabilitiesForCommand(control, command, dt),
+      locomotion: this.locomotion,
     });
     this.limbs = blueprint.parts.map((spec) => {
       const part = this.runtime.part(spec.id);
@@ -263,6 +269,10 @@ export class Construct implements Combatant {
 
   get alive(): boolean { return this.vitality > 0; }
   get vitality(): number { return this.state.vitality(); }
+
+  queueStabilityEvent(event: import("../supported-locomotion-state.ts").StabilityEvent): void {
+    this.locomotion.queueStabilityEvent(event);
+  }
 
   observe(opponent: Combatant, _clock: number): void {
     const rootPart = this.runtime.part(this.runtime.blueprint.rootPart);

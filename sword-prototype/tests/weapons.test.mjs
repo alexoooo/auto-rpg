@@ -193,6 +193,7 @@ test("an_empty_hand_builds_no_weapon_body_but_exposes_one_fist_striker", async (
 test("a_slow_fist_slaps_and_shoves_without_hurting", () => {
   let contact;
   const impulses = [];
+  const stability = [];
   const weapon = {
     kind: "empty",
     spent: false,
@@ -217,6 +218,7 @@ test("a_slow_fist_slaps_and_shoves_without_hurting", () => {
     limbFor: () => limb,
     parriedBy: () => null,
     sever: () => assert.fail("a slap cannot sever"),
+    queueStabilityEvent: (event) => stability.push(event),
   });
 
   contact({
@@ -231,6 +233,9 @@ test("a_slow_fist_slaps_and_shoves_without_hurting", () => {
   assert.equal(combat.lastHit.damage, 0);
   assert.equal(impulses.length, 1, "the contact still reaches the shove path");
   assert.ok(impulses[0].x > 0, "the shove follows the fist");
+  assert.deepEqual(stability, [{ horizontalShoveNs: [impulses[0].x, impulses[0].z] }],
+    "stability receives the authored shove, not the solver impulse diagnostic");
+  assert.notEqual(stability[0].horizontalShoveNs[0], 1, "the solver impulse was not substituted");
 });
 
 test("combat_reports_every_contact_before_its_screen_log_is_truncated", () => {

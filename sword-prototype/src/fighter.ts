@@ -32,6 +32,7 @@ import type { Combatant } from "./units.ts";
 import { HumanoidControlEndpoint, type HumanoidHumanSource } from "./humanoid-control.ts";
 import { stepControlledPair } from "./control-host.ts";
 import { vitality } from "./bout.ts";
+import { StagedSupportedLocomotionPort } from "./supported-locomotion.ts";
 import {
   HANDS,
   idleMind,
@@ -430,6 +431,8 @@ const blankProjectile = (owner: "self" | "opponent"): ProjectileView => ({
 export class Fighter {
   readonly articulated: Fighter = this;
   readonly control: HumanoidControlEndpoint;
+  /** Dormant command/support adapter; `steer` remains the only movement writer until activation. */
+  readonly locomotion = new StagedSupportedLocomotionPort();
   readonly kind: "warrior" | "broot" | "kaykit-knight";
   readonly profile: HumanoidProfile;
   private readonly bodyConfig: BodyConfig;
@@ -1164,6 +1167,7 @@ export class Fighter {
       canStep: () => !this.dead && this.fighting,
       apply: (dt, intent) => this.applyIntent(dt, intent),
       stopBody: () => this.stopBody(),
+      clearLocomotion: (reason) => this.locomotion.clear(reason),
       policies: opts.controlPolicies ?? [{ name: "idle", label: "Idle" }],
       policyFactory: opts.controlPolicyFactory,
       human: opts.human,
@@ -1508,6 +1512,10 @@ export class Fighter {
 
   update(dt: number): void {
     this.control.driver.step(dt);
+  }
+
+  queueStabilityEvent(event: import("./supported-locomotion-state.ts").StabilityEvent): void {
+    this.locomotion.queueStabilityEvent(event);
   }
 
   private applyIntent(dt: number, intent: Intent): void {

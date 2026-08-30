@@ -1,4 +1,6 @@
 /** The complete public movement command. It carries no physics or topology authority. */
+export * from "./supported-locomotion-state.ts";
+
 export interface LocomotionRequest {
   readonly localForward: number;
   readonly localRight: number;
@@ -26,6 +28,74 @@ export interface SupportedLocomotionPort {
   sample(): SupportedLocomotionSample;
   commit(resolution: LocomotionResolution): void;
   clear(reason: string): void;
+}
+
+export interface SupportedLocomotionPortSnapshot {
+  readonly staged: LocomotionRequest | null;
+  readonly committed: LocomotionResolution | null;
+  readonly lastClearReason: string | null;
+  readonly beginCount: number;
+  readonly commitCount: number;
+  readonly stabilityEvents: readonly import("./supported-locomotion-state.ts").StabilityEvent[];
+}
+
+/**
+ * Command-buffer half of assisted locomotion. It deliberately performs no movement: Session 22
+ * installs the carrier actuator behind `commit`, while this session freezes clear semantics.
+ */
+export class StagedSupportedLocomotionPort implements SupportedLocomotionPort {
+  private staged: LocomotionRequest | null = null;
+  private committed: LocomotionResolution | null = null;
+  private clearReason: string | null = null;
+  private begins = 0;
+  private commits = 0;
+  private readonly pendingStability: import("./supported-locomotion-state.ts").StabilityEvent[] = [];
+  private boundaryStability: readonly import("./supported-locomotion-state.ts").StabilityEvent[] = Object.freeze([]);
+
+  beginControlStep(): void {
+    this.staged = null;
+    this.clearReason = null;
+    this.begins += 1;
+    this.boundaryStability = Object.freeze(this.pendingStability.splice(0)
+      .map((event) => Object.freeze({ horizontalShoveNs: Object.freeze([...event.horizontalShoveNs]) as
+        readonly [number, number] })));
+  }
+
+  request(value: LocomotionRequest): void {
+    if (this.staged) throw new Error("supported locomotion accepts one request per control boundary");
+    // The pair resolver owns the canonical validation and copy. Staging through it here prevents
+    // a caller from mutating the object between decision and pair sampling.
+    this.staged = resolveSupportedPairSamples({ request: value }, { request: null }, 1).left.allowed;
+  }
+
+  sample(): SupportedLocomotionSample { return Object.freeze({ request: this.staged }); }
+
+  commit(resolution: LocomotionResolution): void {
+    this.committed = Object.freeze({ allowed: resolution.allowed === null ? null : Object.freeze({ ...resolution.allowed }),
+      dt: resolution.dt });
+    this.commits += 1;
+  }
+
+  clear(reason: string): void {
+    this.staged = null;
+    this.committed = null;
+    this.clearReason = reason;
+  }
+
+  /** Collision callbacks queue only; the next safe begin edge owns reconciliation. */
+  queueStabilityEvent(event: import("./supported-locomotion-state.ts").StabilityEvent): void {
+    if (event.horizontalShoveNs.length !== 2 || event.horizontalShoveNs.some((value) => !Number.isFinite(value))) {
+      throw new Error("supported locomotion stability event must have two finite horizontal components");
+    }
+    this.pendingStability.push(Object.freeze({ horizontalShoveNs: Object.freeze([...event.horizontalShoveNs]) as
+      readonly [number, number] }));
+  }
+
+  snapshot(): SupportedLocomotionPortSnapshot {
+    return Object.freeze({ staged: this.staged, committed: this.committed,
+      lastClearReason: this.clearReason, beginCount: this.begins, commitCount: this.commits,
+      stabilityEvents: this.boundaryStability });
+  }
 }
 
 export interface SupportedPairResolution {

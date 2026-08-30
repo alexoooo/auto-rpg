@@ -4,6 +4,7 @@ import { ConstructDamageState, type DamageResult } from "./damage.ts";
 import type { ConstructResources, ResourceView } from "./resources.ts";
 import type { ConstructRuntime } from "./runtime.ts";
 import { jointSensorChannels } from "./sensors.ts";
+import type { LiveSupportAvailability } from "./assisted-locomotion.ts";
 
 const UNPOWERED_RESOURCES: ResourceView = Object.freeze({
   chargeJ: 0,
@@ -139,6 +140,13 @@ export class LiveConstructState {
       : UNPOWERED_RESOURCES);
     const resources = hasDeclaredPower && !hasLivingPower ? Object.freeze({ ...published, chargeJ: 0 }) : published;
     return Object.freeze({ joints: this.damage.livingJoints(), modules, sensors, resources });
+  }
+
+  /** Called after `beforeControlStep`: all queued topology mutation is then reflected here. */
+  locomotionAvailability(): LiveSupportAvailability {
+    return Object.freeze({ livingJointIds: this.damage.livingJoints(),
+      installedModuleIds: this.damage.installedModules(),
+      isPartAttached: (id: string) => this.damage.isAttached(id) });
   }
 
   capabilities(graph: ConstructControlGraph): readonly ActionCapability[] {

@@ -20,6 +20,7 @@ export interface HumanoidControlOptions {
   readonly canStep: () => boolean;
   readonly apply: (dt: number, intent: Intent) => void;
   readonly stopBody: () => void;
+  readonly clearLocomotion?: (reason: string) => void;
   readonly policies: readonly { readonly name: string; readonly label: string }[];
   readonly policyFactory?: (name: string, seed?: number) => Mind;
   readonly human?: HumanoidHumanSource;
@@ -71,6 +72,7 @@ export class HumanoidControlEndpoint implements ControlEndpoint {
       throw new Error(`control source for surface ${driver.surface} cannot drive surface ${this.surface}`);
     }
     this.installed.stop("handover");
+    this.options.clearLocomotion?.("control handover");
     this.installed = driver;
   }
 
@@ -94,8 +96,10 @@ export class HumanoidControlEndpoint implements ControlEndpoint {
   }
 
   releaseHuman(): void { this.installPolicy(this.selectedPolicy); }
-  stopFighting(): void { this.installed.stop("verdict"); this.options.stopBody(); }
-  dispose(): void { this.installed.stop("dispose"); this.recording.detach(); this.observer = null; }
+  stopFighting(): void { this.installed.stop("verdict"); this.options.clearLocomotion?.("verdict");
+    this.options.stopBody(); }
+  dispose(): void { this.installed.stop("dispose"); this.options.clearLocomotion?.("dispose");
+    this.recording.detach(); this.observer = null; }
 
   private driverFor(mind: Mind): HumanoidDriver {
     return new HumanoidDriver(mind, this.options.view, (dt, intent) => {

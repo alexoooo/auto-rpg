@@ -8,6 +8,7 @@ import {
   type ControlGroupSpec,
 } from "./actions.ts";
 import type { ActionCapability } from "./capabilities.ts";
+import type { LocomotionRequest, SupportedLocomotionSample } from "../supported-locomotion.ts";
 
 export interface JointReading {
   readonly angleRad: number;
@@ -59,6 +60,7 @@ export interface ControllerContext {
   readonly view: ControllerView;
   readonly motors: MotorWriter;
   readonly effects: EffectWriter;
+  readonly locomotion: LocomotionWriter;
 }
 
 export interface ControllerFactory {
@@ -102,6 +104,76 @@ export class EffectWriter {
   }
 }
 
+export interface LocomotionAuthorityToken {
+  readonly carrierPartId: string;
+}
+
+export interface LocomotionSubmission {
+  readonly action: string;
+  readonly group: string;
+  readonly authority: LocomotionAuthorityToken;
+  readonly request: LocomotionRequest;
+}
+
+/** Runtime seam kept optional until the assisted carrier is activated in Session 23. */
+export interface LocomotionSchedulerPort {
+  authority(action: ActionSpec, group: ControlGroupSpec): LocomotionAuthorityToken | null;
+  stage(submission: LocomotionSubmission): void;
+  priorSample(authority: LocomotionAuthorityToken): SupportedLocomotionSample;
+  clearSubmission(action: string, group: string, authority: LocomotionAuthorityToken, reason: string): void;
+  clearAll(reason: string): void;
+}
+
+const locomotionAxis = (value: number, field: string): number => {
+  if (!Number.isFinite(value) || value < -1 || value > 1) {
+    throw new Error(`locomotion request ${field} must be finite and within -1..1`);
+  }
+  return value;
+};
+
+/** A controller can submit a command but can neither name nor alter its carrier authority. */
+export class LocomotionWriter {
+  private readonly action: ActionSpec;
+  private readonly group: ControlGroupSpec;
+  private readonly authority: LocomotionAuthorityToken | null;
+  private readonly submit: ((submission: LocomotionSubmission) => void) | null;
+  private readonly portSample: ((authority: LocomotionAuthorityToken) => SupportedLocomotionSample) | null;
+
+  constructor(action: ActionSpec, group: ControlGroupSpec, authority: LocomotionAuthorityToken | null,
+    submit: ((submission: LocomotionSubmission) => void) | null,
+    portSample: ((authority: LocomotionAuthorityToken) => SupportedLocomotionSample) | null = null) {
+    this.action = action;
+    this.group = group;
+    this.authority = authority;
+    this.submit = submit;
+    this.portSample = portSample;
+  }
+
+  request(value: LocomotionRequest): void {
+    if (!this.authority || !this.submit) {
+      throw new Error(`action "${this.action.id}" in group "${this.group.id}" has no locomotion authority`);
+    }
+    if (typeof value.recover !== "boolean") throw new Error("locomotion request recover must be boolean");
+    const request = Object.freeze({
+      localForward: locomotionAxis(value.localForward, "localForward"),
+      localRight: locomotionAxis(value.localRight, "localRight"),
+      yaw: locomotionAxis(value.yaw, "yaw"),
+      recover: value.recover,
+    });
+    if (Math.hypot(request.localForward, request.localRight) > 1 + 1e-12) {
+      throw new Error("locomotion request forward/right vector must be normalized");
+    }
+    this.submit(Object.freeze({ action: this.action.id, group: this.group.id,
+      authority: this.authority, request }));
+  }
+
+  /** Previous committed boundary only; the pair has not resolved this boundary while controllers run. */
+  sample(): SupportedLocomotionSample {
+    if (!this.authority || !this.portSample) return Object.freeze({ request: null });
+    return this.portSample(this.authority);
+  }
+}
+
 export type SchedulerEventKind = "admitted" | "started" | "completed" | "cancelled" | "refused" | "failed";
 
 export interface SchedulerEvent {
@@ -126,6 +198,7 @@ interface ActiveAction {
   readonly request: ActionRequest;
   readonly controller: ActionController;
   readonly liveView: { current: ControllerView };
+  readonly locomotionAuthority: LocomotionAuthorityToken | null;
 }
 
 const requestKey = (action: ActionSpec): string => `${action.group}/${action.id}`;
@@ -134,12 +207,16 @@ export class ActionScheduler {
   private readonly graph: ConstructControlGraph;
   private readonly factories: ReadonlyMap<string, ControllerFactory>;
   private readonly sink: MotorSink;
+  private readonly locomotionPort: LocomotionSchedulerPort | null;
   private readonly active = new Map<string, ActiveAction>();
   private readonly eventRows: SchedulerEvent[] = [];
+  private readonly locomotionClaims = new Map<string, string>();
 
-  constructor(graph: ConstructControlGraph, factories: readonly ControllerFactory[], sink: MotorSink) {
+  constructor(graph: ConstructControlGraph, factories: readonly ControllerFactory[], sink: MotorSink,
+    locomotionPort: LocomotionSchedulerPort | null = null) {
     this.graph = graph;
     this.sink = sink;
+    this.locomotionPort = locomotionPort;
     this.factories = new Map(factories.map((factory) => [factory.name, factory]));
     if (this.factories.size !== factories.length) throw new Error("construct controller registry has duplicate names");
     for (const action of graph.actions) {
@@ -170,6 +247,7 @@ export class ActionScheduler {
     if (!Number.isFinite(dt) || dt <= 0) throw new Error("construct scheduler dt must be finite and positive");
     validateConstructCommand(this.graph, command);
     this.eventRows.length = 0;
+    this.locomotionClaims.clear();
     const capabilityByAction = new Map((capabilities ?? []).map((row) => [row.action, row]));
 
     const ordered = command.requests.map((scheduled) => ({ scheduled,
@@ -183,12 +261,34 @@ export class ActionScheduler {
     for (const { request, action } of ordered) {
       const group = this.group(action.group);
       const key = requestKey(action);
+      let locomotionAuthority: LocomotionAuthorityToken | null = null;
+      try {
+        locomotionAuthority = this.locomotionPort?.authority(action, group) ?? null;
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        this.eventRows.push({ kind: "refused", action: action.id, group: group.id, reason });
+        continue;
+      }
+      const priorRunning = this.active.get(key);
+      if (priorRunning?.locomotionAuthority &&
+          (!locomotionAuthority || JSON.stringify(priorRunning.locomotionAuthority) !== JSON.stringify(locomotionAuthority))) {
+        const reason = `locomotion authority for "${group.id}/${action.id}" was revoked`;
+        this.cancelAndClear(priorRunning, reason);
+        this.active.delete(key);
+        this.eventRows.push({ kind: "cancelled", action: action.id, group: group.id, reason });
+        continue;
+      }
+      if (locomotionAuthority && !action.claims.includes("resource:balance")) {
+        this.eventRows.push({ kind: "refused", action: action.id, group: group.id,
+          reason: `locomotion action "${action.id}" in group "${group.id}" must claim "resource:balance"` });
+        continue;
+      }
       const capability = capabilityByAction.get(action.id);
       if (capability && !capability.available) {
         const reason = capability.reason ?? `action "${action.id}" is unavailable`;
         const running = this.active.get(key);
         if (running) {
-          running.controller.cancel(reason);
+          this.cancelAndClear(running, reason);
           this.active.delete(key);
           this.eventRows.push({ kind: "cancelled", action: action.id, group: group.id, reason });
         } else {
@@ -202,8 +302,10 @@ export class ActionScheduler {
       ];
       const conflict = requestedClaims.find((claim) => claims.has(claim));
       if (conflict) {
+        const holder = claims.get(conflict) as string;
         this.eventRows.push({ kind: "refused", action: action.id, group: group.id,
-          reason: `claim "${conflict}" is held by "${claims.get(conflict)}"` });
+          reason: `claim "${conflict}" is held by "${holder}" while ` +
+            `"${group.id}/${action.id}" requested it` });
         continue;
       }
       admitted.add(key);
@@ -212,7 +314,7 @@ export class ActionScheduler {
 
       let running = this.active.get(key);
       if (running && JSON.stringify(running.request.parameters) !== JSON.stringify(request.parameters)) {
-        running.controller.cancel("parameters changed");
+        this.cancelAndClear(running, "parameters changed");
         this.eventRows.push({ kind: "cancelled", action: action.id, group: group.id, reason: "parameters changed" });
         this.active.delete(key);
         running = undefined;
@@ -221,35 +323,50 @@ export class ActionScheduler {
         const factory = this.factories.get(action.controller) as ControllerFactory;
         let controller: ActionController;
         const liveView = { current: view };
+        const locomotion = new LocomotionWriter(action, group, locomotionAuthority,
+          this.locomotionPort ? (submission) => this.stageLocomotion(submission) : null,
+          this.locomotionPort ? (authority) => this.locomotionPort?.priorSample(authority) ??
+            Object.freeze({ request: null }) : null);
         try {
           controller = factory.create({ action, request, group, get view() { return liveView.current; },
-            motors: new MotorWriter(group.joints, this.sink), effects: new EffectWriter(group.modules, this.sink) });
+            motors: new MotorWriter(group.joints, this.sink), effects: new EffectWriter(group.modules, this.sink),
+            locomotion });
           controller.enter();
         } catch (error) {
           const reason = error instanceof Error ? error.message : String(error);
+          if (locomotionAuthority) {
+            this.locomotionPort?.clearSubmission(action.id, group.id, locomotionAuthority, reason);
+            this.releaseLocomotionClaim(action.id, group.id, locomotionAuthority);
+          }
           this.eventRows.push({ kind: "refused", action: action.id, group: group.id, reason });
           admitted.delete(key);
           for (const claim of requestedClaims) claims.delete(claim);
           continue;
         }
-        running = { key, action, request, controller, liveView };
+        running = { key, action, request, controller, liveView, locomotionAuthority };
         this.active.set(key, running);
         this.eventRows.push({ kind: "started", action: action.id, group: group.id, reason: null });
       }
       // Controllers persist across requests; their sensor/joint view must not persist with admission.
       running.liveView.current = view;
+      let done = false;
       try {
         running.controller.step(dt);
+        done = running.controller.done();
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
-        running.controller.cancel(reason);
+        this.cancelAndClear(running, reason);
+        if (running.locomotionAuthority) {
+          this.releaseLocomotionClaim(running.action.id, running.action.group, running.locomotionAuthority);
+        }
         this.active.delete(key);
         this.eventRows.push({ kind: "failed", action: action.id, group: group.id, reason });
         admitted.delete(key);
         for (const claim of requestedClaims) claims.delete(claim);
         continue;
       }
-      if (running.controller.done()) {
+      if (done) {
+        this.clearLocomotion(running, "action completed");
         this.active.delete(key);
         this.eventRows.push({ kind: "completed", action: action.id, group: group.id, reason: null });
       }
@@ -257,7 +374,7 @@ export class ActionScheduler {
 
     for (const [key, running] of [...this.active]) {
       if (admitted.has(key)) continue;
-      running.controller.cancel("request withdrawn or conflicted");
+      this.cancelAndClear(running, "request withdrawn or conflicted");
       this.active.delete(key);
       this.eventRows.push({ kind: "cancelled", action: running.action.id, group: running.action.group,
         reason: "request withdrawn or conflicted" });
@@ -269,7 +386,7 @@ export class ActionScheduler {
     const key = `${groupId}/${actionId}`;
     const running = this.active.get(key);
     if (!running) return;
-    running.controller.cancel(reason);
+    this.cancelAndClear(running, reason);
     this.active.delete(key);
     this.eventRows.push({ kind: "cancelled", action: actionId, group: groupId, reason });
   }
@@ -277,10 +394,11 @@ export class ActionScheduler {
   stop(reason = "scheduler stopped"): readonly SchedulerEvent[] {
     this.eventRows.length = 0;
     for (const running of this.active.values()) {
-      running.controller.cancel(reason);
+      this.cancelAndClear(running, reason);
       this.eventRows.push({ kind: "cancelled", action: running.action.id, group: running.action.group, reason });
     }
     this.active.clear();
+    this.locomotionPort?.clearAll(reason);
     return Object.freeze(this.eventRows.map((event) => Object.freeze({ ...event })));
   }
 
@@ -288,5 +406,35 @@ export class ActionScheduler {
     const group = this.graph.groups.find((candidate) => candidate.id === id);
     if (!group) throw new Error(`construct control references missing group "${id}"`);
     return group;
+  }
+
+  private stageLocomotion(submission: LocomotionSubmission): void {
+    const key = `${submission.group}/${submission.action}`;
+    const prior = this.locomotionClaims.get(submission.authority.carrierPartId);
+    if (prior) {
+      throw new Error(`carrier "${submission.authority.carrierPartId}" already has locomotion from ` +
+        `"${prior}" while "${key}" submitted another request`);
+    }
+    this.locomotionClaims.set(submission.authority.carrierPartId, key);
+    this.locomotionPort?.stage(submission);
+  }
+
+  private clearLocomotion(running: ActiveAction, reason: string): void {
+    if (!running.locomotionAuthority) return;
+    this.locomotionPort?.clearSubmission(running.action.id, running.action.group,
+      running.locomotionAuthority, reason);
+  }
+
+  /** Terminal controller code is untrusted; motion revocation is not allowed to depend on it returning. */
+  private cancelAndClear(running: ActiveAction, reason: string): void {
+    try { running.controller.cancel(reason); }
+    catch { /* Cancellation is best-effort; the scoped locomotion clear below is authoritative. */ }
+    finally { this.clearLocomotion(running, reason); }
+  }
+
+  private releaseLocomotionClaim(action: string, group: string, authority: LocomotionAuthorityToken): void {
+    if (this.locomotionClaims.get(authority.carrierPartId) === `${group}/${action}`) {
+      this.locomotionClaims.delete(authority.carrierPartId);
+    }
   }
 }

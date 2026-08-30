@@ -417,6 +417,9 @@ export class Combat {
       .copyFrom(direction)
       .scaleInPlace(speed * 0.11 * (1.35 - quality * 0.7));
     limb.part.body.applyImpulse(shove, point);
+    // This authored transfer, not Havok's solver reaction impulse, is the stability input.
+    // Collision callbacks may queue it but cannot change support state or motion type here.
+    this.target?.queueStabilityEvent?.({ horizontalShoveNs: [shove.x, shove.z] });
 
     const severed = severs({ ...score, damage }, limb.health, weapon.kind);
     if (severed) this.target?.sever(limb, direction);

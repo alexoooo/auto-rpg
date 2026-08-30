@@ -15,6 +15,7 @@ import { ActionScheduler, type ActiveActionDiagnostic, type ControllerView, type
 import { SensorFrame, type SensorSpec } from "./sensors.ts";
 import { ConstructRecorder } from "./recorder.ts";
 import type { ActionCapability } from "./capabilities.ts";
+import type { LocomotionSchedulerPort } from "./scheduler.ts";
 
 export const CONSTRUCT_CONTROL_SURFACE = "construct-v1";
 
@@ -37,9 +38,11 @@ export interface MotorTargetDiagnostic extends MotorTarget {
 
 export interface ConstructControlHooks {
   beforeStep?(dt: number): void;
+  afterStep?(dt: number): void;
   effect?(effect: ActionEffect): void;
   capabilities?(): readonly ActionCapability[];
   admission?(dt: number, command: ConstructCommand): readonly ActionCapability[];
+  locomotion?: LocomotionSchedulerPort;
 }
 
 const jointAngle = (runtime: ConstructRuntime, id: string, axisId?: "x" | "y" | "z"): number => {
@@ -93,7 +96,7 @@ export class ConstructControlEndpoint implements ControlEndpoint {
     this.diagnostics = Object.freeze({ surface: this.surface, read: () => this.snapshot() });
     this.scheduler = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS, {
       write: (target) => this.writeMotor(target), effect: (effect) => this.hooks.effect?.(effect),
-    });
+    }, this.hooks.locomotion ?? null);
     this.current = this.buildPolicy(initialPolicy);
   }
 
@@ -199,6 +202,7 @@ export class ConstructControlEndpoint implements ControlEndpoint {
         this.lastCommand = next;
         this.lastEvents = Object.freeze(events.map((event) => Object.freeze({ ...event })));
         this.recording.record(next, this.lastEvents);
+        this.hooks.afterStep?.(dt);
       },
       stop: (_reason: DriverStopReason) => { driverStopped = true; },
     });

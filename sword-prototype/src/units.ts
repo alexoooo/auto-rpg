@@ -9,6 +9,8 @@ import { BROOT_PROFILE, Fighter, type FighterMaterials, type Limb } from "./figh
 import { KAYKIT_KNIGHT_METRICS, KAYKIT_KNIGHT_PROFILE } from "./kaykit-profile.ts";
 import type { Striking } from "./combat.ts";
 import type { ControlEndpoint } from "./control-host.ts";
+import type { SupportedLocomotionPort } from "./supported-locomotion.ts";
+import type { StabilityEvent } from "./supported-locomotion-state.ts";
 import type { HumanoidHumanSource } from "./humanoid-control.ts";
 import { handsFor, isWeaponKind, WEAPON_KINDS, type WeaponKind } from "./hands.ts";
 import { POLICIES, splitMind, type HandName, type Mind } from "./mind.ts";
@@ -60,6 +62,7 @@ export interface Combatant {
   readonly kind: UnitKind;
   readonly side: Side;
   readonly control: ControlEndpoint;
+  readonly locomotion?: SupportedLocomotionPort | null;
   /** Explicit old-body capability ports; null bodies do not impersonate a humanoid. */
   readonly articulated: Fighter | null;
   readonly limbs: Limb[];
@@ -100,6 +103,8 @@ export interface Combatant {
   damageTargetFor?(body: PhysicsBody, point: Vector3): Limb | undefined;
   /** Body-owned armour may transform raw scoring damage into authoritative applied damage. */
   applyDamage?(target: Limb, rawDamage: number): number;
+  /** Authored hit transfer only; collision callbacks queue it for the next safe control edge. */
+  queueStabilityEvent?(event: StabilityEvent): void;
   parriedBy(body: PhysicsBody, point?: Vector3): { readonly kind: WeaponKind } | null;
   sever(limb: Limb, direction: Vector3): void;
   stopFighting(): void;
