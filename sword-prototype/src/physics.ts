@@ -81,6 +81,14 @@ export const LAYER = {
   LEFT_ARROW: 1 << 10,
   RIGHT_ARROW: 1 << 11,
   SPENT_ARROW: 1 << 12,
+  LEFT_SUPPORTED_TRUNK: 1 << 13,
+  LEFT_SUPPORTED_ARM: 1 << 14,
+  LEFT_SUPPORTED_LEG: 1 << 15,
+  RIGHT_SUPPORTED_TRUNK: 1 << 16,
+  RIGHT_SUPPORTED_ARM: 1 << 17,
+  RIGHT_SUPPORTED_LEG: 1 << 18,
+  LEFT_FIST_TRIGGER: 1 << 19,
+  RIGHT_FIST_TRIGGER: 1 << 20,
 } as const;
 
 /** Everything one side owns, which is what the *other* side collides with. */
@@ -93,26 +101,54 @@ const RIGHT_SIDE =
   LAYER.RIGHT_SHIELD |
   LAYER.RIGHT_ARROW;
 
+const LEFT_SUPPORTED_ANATOMY =
+  LAYER.LEFT_SUPPORTED_TRUNK | LAYER.LEFT_SUPPORTED_ARM | LAYER.LEFT_SUPPORTED_LEG;
+const RIGHT_SUPPORTED_ANATOMY =
+  LAYER.RIGHT_SUPPORTED_TRUNK | LAYER.RIGHT_SUPPORTED_ARM | LAYER.RIGHT_SUPPORTED_LEG;
+const LEFT_DAMAGEABLE_ANATOMY = LAYER.LEFT_TRUNK | LAYER.LEFT_ARM | LEFT_SUPPORTED_ANATOMY;
+const RIGHT_DAMAGEABLE_ANATOMY = LAYER.RIGHT_TRUNK | LAYER.RIGHT_ARM | RIGHT_SUPPORTED_ANATOMY;
+const LEFT_STRIKERS = LAYER.LEFT_SWORD | LAYER.LEFT_SHIELD | LAYER.LEFT_ARROW;
+const RIGHT_STRIKERS = LAYER.RIGHT_SWORD | LAYER.RIGHT_SHIELD | LAYER.RIGHT_ARROW;
+
 const EVERY_FIGHTER = LEFT_SIDE | RIGHT_SIDE;
+const EVERY_SUPPORTED_ANATOMY = LEFT_SUPPORTED_ANATOMY | RIGHT_SUPPORTED_ANATOMY;
 
 export const COLLIDES = {
-  WORLD: EVERY_FIGHTER | LAYER.DEBRIS | LAYER.SPENT_ARROW,
+  WORLD: EVERY_FIGHTER | EVERY_SUPPORTED_ANATOMY | LAYER.DEBRIS | LAYER.SPENT_ARROW,
   LEFT_TRUNK: LAYER.WORLD | RIGHT_SIDE | LAYER.LEFT_SHIELD | LAYER.DEBRIS,
   LEFT_ARM: LAYER.WORLD | RIGHT_SIDE | LAYER.DEBRIS,
-  LEFT_SWORD: LAYER.WORLD | RIGHT_SIDE | LAYER.DEBRIS,
-  LEFT_SHIELD: LAYER.WORLD | RIGHT_SIDE | LAYER.LEFT_TRUNK | LAYER.DEBRIS,
+  LEFT_SWORD: LAYER.WORLD | RIGHT_SIDE | RIGHT_SUPPORTED_ANATOMY | LAYER.DEBRIS,
+  LEFT_SHIELD: LAYER.WORLD | RIGHT_SIDE | RIGHT_SUPPORTED_ANATOMY |
+    LAYER.LEFT_TRUNK | LAYER.LEFT_SUPPORTED_TRUNK | LAYER.DEBRIS,
   // The sword's row exactly. An arrow in flight is a small fast blade that
   // belongs to a side, and everything that follows from that is already written.
-  LEFT_ARROW: LAYER.WORLD | RIGHT_SIDE | LAYER.DEBRIS,
+  LEFT_ARROW: LAYER.WORLD | RIGHT_SIDE | RIGHT_SUPPORTED_ANATOMY | LAYER.DEBRIS,
   RIGHT_TRUNK: LAYER.WORLD | LEFT_SIDE | LAYER.RIGHT_SHIELD | LAYER.DEBRIS,
   RIGHT_ARM: LAYER.WORLD | LEFT_SIDE | LAYER.DEBRIS,
-  RIGHT_SWORD: LAYER.WORLD | LEFT_SIDE | LAYER.DEBRIS,
-  RIGHT_SHIELD: LAYER.WORLD | LEFT_SIDE | LAYER.RIGHT_TRUNK | LAYER.DEBRIS,
-  RIGHT_ARROW: LAYER.WORLD | LEFT_SIDE | LAYER.DEBRIS,
+  RIGHT_SWORD: LAYER.WORLD | LEFT_SIDE | LEFT_SUPPORTED_ANATOMY | LAYER.DEBRIS,
+  RIGHT_SHIELD: LAYER.WORLD | LEFT_SIDE | LEFT_SUPPORTED_ANATOMY |
+    LAYER.RIGHT_TRUNK | LAYER.RIGHT_SUPPORTED_TRUNK | LAYER.DEBRIS,
+  RIGHT_ARROW: LAYER.WORLD | LEFT_SIDE | LEFT_SUPPORTED_ANATOMY | LAYER.DEBRIS,
+  // Supported anatomy solves only against the arena, real combat geometry and
+  // debris. The opposite body is represented to navigation by its pure
+  // footprint, so two articulated piles never become one solver island.
+  LEFT_SUPPORTED_TRUNK: LAYER.WORLD | RIGHT_STRIKERS | LAYER.LEFT_SHIELD |
+    LAYER.RIGHT_FIST_TRIGGER | LAYER.DEBRIS,
+  LEFT_SUPPORTED_ARM: LAYER.WORLD | RIGHT_STRIKERS | LAYER.RIGHT_FIST_TRIGGER | LAYER.DEBRIS,
+  LEFT_SUPPORTED_LEG: LAYER.WORLD | RIGHT_STRIKERS | LAYER.RIGHT_FIST_TRIGGER | LAYER.DEBRIS,
+  RIGHT_SUPPORTED_TRUNK: LAYER.WORLD | LEFT_STRIKERS | LAYER.RIGHT_SHIELD |
+    LAYER.LEFT_FIST_TRIGGER | LAYER.DEBRIS,
+  RIGHT_SUPPORTED_ARM: LAYER.WORLD | LEFT_STRIKERS | LAYER.LEFT_FIST_TRIGGER | LAYER.DEBRIS,
+  RIGHT_SUPPORTED_LEG: LAYER.WORLD | LEFT_STRIKERS | LAYER.LEFT_FIST_TRIGGER | LAYER.DEBRIS,
+  // These leaves are sensors, not navigation proxies and not solver geometry.
+  // Their bodies follow the real hands and collision callbacks retain the
+  // hand's measured point and velocity for ordinary Combat scoring.
+  LEFT_FIST_TRIGGER: RIGHT_DAMAGEABLE_ANATOMY,
+  RIGHT_FIST_TRIGGER: LEFT_DAMAGEABLE_ANATOMY,
   // A piece that has come off is nobody's any more: it collides with everything,
   // including the fighter it was cut from, because a severed arm lying against
   // its owner's shin is a truer picture than one sunk into it.
-  DEBRIS: LAYER.WORLD | EVERY_FIGHTER | LAYER.DEBRIS,
+  DEBRIS: LAYER.WORLD | EVERY_FIGHTER | EVERY_SUPPORTED_ANATOMY | LAYER.DEBRIS,
   // A first-hit projectile becomes world litter, not a scaffold or a second
   // striker. Reciprocity exists only with the arena.
   SPENT_ARROW: LAYER.WORLD,
@@ -148,6 +184,62 @@ export const layersFor = (side: Side) =>
         arrow: LAYER.RIGHT_ARROW,
         arrowCollides: COLLIDES.RIGHT_ARROW,
       };
+
+/** Dormant assisted leaves. Session 23 is the only authority allowed to install them. */
+export const supportedLayersFor = (side: Side) =>
+  side === "left"
+    ? {
+        trunk: LAYER.LEFT_SUPPORTED_TRUNK,
+        trunkCollides: COLLIDES.LEFT_SUPPORTED_TRUNK,
+        arm: LAYER.LEFT_SUPPORTED_ARM,
+        armCollides: COLLIDES.LEFT_SUPPORTED_ARM,
+        leg: LAYER.LEFT_SUPPORTED_LEG,
+        legCollides: COLLIDES.LEFT_SUPPORTED_LEG,
+        fistTrigger: LAYER.LEFT_FIST_TRIGGER,
+        fistTriggerCollides: COLLIDES.LEFT_FIST_TRIGGER,
+      }
+    : {
+        trunk: LAYER.RIGHT_SUPPORTED_TRUNK,
+        trunkCollides: COLLIDES.RIGHT_SUPPORTED_TRUNK,
+        arm: LAYER.RIGHT_SUPPORTED_ARM,
+        armCollides: COLLIDES.RIGHT_SUPPORTED_ARM,
+        leg: LAYER.RIGHT_SUPPORTED_LEG,
+        legCollides: COLLIDES.RIGHT_SUPPORTED_LEG,
+        fistTrigger: LAYER.RIGHT_FIST_TRIGGER,
+        fistTriggerCollides: COLLIDES.RIGHT_FIST_TRIGGER,
+      };
+
+export interface CollisionLeaf {
+  filterMembershipMask: number;
+  filterCollideMask: number;
+}
+
+/** Havok filters compounds at their leaves. The container write is only an audit mirror. */
+export function writeCollisionFilter(
+  container: CollisionLeaf,
+  leaves: readonly CollisionLeaf[],
+  membership: number,
+  collidesWith: number,
+): void {
+  if (leaves.length === 0) throw new Error("a collision filter requires at least one leaf");
+  container.filterMembershipMask = membership;
+  container.filterCollideMask = collidesWith;
+  for (const leaf of leaves) {
+    leaf.filterMembershipMask = membership;
+    leaf.filterCollideMask = collidesWith;
+  }
+}
+
+/** Refuse a container-only update instead of claiming an assisted body is filtered. */
+export function collisionFilterIsExact(
+  container: CollisionLeaf,
+  leaves: readonly CollisionLeaf[],
+  membership: number,
+  collidesWith: number,
+): boolean {
+  return leaves.length > 0 && [container, ...leaves].every((shape) =>
+    shape.filterMembershipMask === membership && shape.filterCollideMask === collidesWith);
+}
 
 /**
  * Bring the solver up on a scene, with the settings the whole prototype was
