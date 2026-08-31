@@ -20,7 +20,7 @@ import { advanceFight, FightEnd } from "./fight-end";
 import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, combatRecorder, sampleBoutRecorder,
   wireBoutRecorder } from "./recorder";
 import { advanceActiveHostTimers, ArenaPresentation, pauseHost, presentRebuiltFrame, restartHost, resumeHost,
-  runActiveHostFrame, type RunningHost } from "./host-run";
+  runHostFrame, type RunningHost } from "./host-run";
 import { SetupScreen } from "./setup";
 import { compileConstruct } from "./construct/compile";
 import { Construct } from "./construct/construct";
@@ -1355,7 +1355,7 @@ async function boot(): Promise<void> {
     get active() { return controls.isActive; },
     setPhysics: (enabled) => { arena.scene.physicsEnabled = enabled; },
     startControls: () => controls.start(),
-    pauseControls: () => controls.pause(),
+    pauseControls: () => controls.pauseCombat(),
     showPaused: (paused) => {
       blood.setPaused(paused);
       presentation.showPaused(paused);
@@ -1602,7 +1602,7 @@ async function boot(): Promise<void> {
     if (dt <= 0) return;
     if (controls.isActive) playtest?.frame(rawDeltaMs, dt);
 
-    runActiveHostFrame(runningHost, () => {
+    runHostFrame(runningHost, () => {
       controls.sample(dt);
       targeting.releaseIfSteering(controls.state.turn);
       // One owner of the cursor's outline at a time; see `Targeting.update`.
@@ -1634,14 +1634,18 @@ async function boot(): Promise<void> {
       // rendering and camera all continue after attack authority has ended.
       // `advanceFight` delivers the old-to-new phase edge to that coordinator.
       const driven = yours();
-      placeCamera(driven, dt, false);
-      arena.updateRoomOcclusion(bout.occlusionTargets);
-
       aim.update(driven.feetPosition(), driven.aimPoint());
       // The overlay's three numbers follow whoever is being driven, and the panel
       // names the side, because they used to be the left fighter's by definition
       // and `C` made that a thing that can change under you.
       rigview.update(dt, humanSide(state.matchup));
+    }, () => {
+      // Camera gestures remain presentation while paused. Their own clock is the
+      // bounded render delta, never the bout clock, so orbit/pan/zoom can reframe
+      // a screenshot without advancing a mind, a motor, blood or the timeout.
+      if (!controls.isActive) controls.sampleCamera(dt);
+      placeCamera(yours(), dt, false);
+      arena.updateRoomOcclusion(bout.occlusionTargets);
     });
     updateArenaConstructDiagnostics();
     arena.scene.render();

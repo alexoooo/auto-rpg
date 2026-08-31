@@ -9,7 +9,10 @@ first full-health Arbalest knockdown. At committed x0.10 durability the identica
 the recovery-aware active Mind wins and exactly qualifies 8/8 across both mirrors (left 4, right 4).
 The later living-fallen-footprint correction invalidated that route; the requalified body uses the
 same rise-timed fragile-pressure and blocker-relative aim with a 2.40 m retreat boundary and explicit
-1.90 heavy bolt. The assisted Twinblade rerun remains 0/8 active and
+1.90 heavy bolt. A later player-driven idle bout exposed a full-health prone-target deadlock; the
+ordinary Mind now preserves a 1.25-second recovery window and then resolves persistent incapacity
+with a separately qualified prone shot. The x0.10 corpus remains 8/8 qualified under program digest
+`b6ae8b21`. The assisted Twinblade rerun remains 0/8 active and
 its best idle rung is 7/8. Exact-fresh Warden crawl authority, the Forge-authored save/reload
 Probe/Fight path and frozen raw/assisted recovery A/B are physical and mutation-proven. The
 physical fallback/obstacle corpus is complete; a fresh

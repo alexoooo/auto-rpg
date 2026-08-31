@@ -145,6 +145,8 @@ export class Controls {
 
   private readonly held = new Set<string>();
   private active = false;
+  /** Arena presentation remains interactive while combat authority is paused. */
+  private cameraEnabled = false;
   private zoomNotches = 0;
   /** Buttons whose current press has already been paid out as an action. */
   private spent = 0;
@@ -186,10 +188,21 @@ export class Controls {
 
   start(): void {
     this.active = true;
+    this.cameraEnabled = true;
   }
 
   pause(): void {
+    this.stop(false);
+  }
+
+  /** Freeze combat input while retaining the frozen arena's camera controls. */
+  pauseCombat(): void {
+    this.stop(true);
+  }
+
+  private stop(preserveCamera: boolean): void {
     this.active = false;
+    this.cameraEnabled = preserveCamera;
     this.held.clear();
     this.openHand();
     this.endCameraGesture();
@@ -231,8 +244,14 @@ export class Controls {
       hand.wristBend = slew(hand.wristBend, axis("KeyT", "KeyY") > 0 ? 1 : 0, Ctl.wristSlewPerSecond);
     }
 
-    slewCameraZoom(this.camera, this.zoomNotches, dt, CONFIG.camera);
+    this.sampleCamera(dt);
     return this.state;
+  }
+
+  /** Advance only the host-owned camera easing; safe in a frozen bout. */
+  sampleCamera(dt: number): CameraGestureState {
+    slewCameraZoom(this.camera, this.zoomNotches, dt, CONFIG.camera);
+    return this.camera;
   }
 
   dispose(): void {
@@ -251,7 +270,7 @@ export class Controls {
   }
 
   private readonly onAuxClick = (event: MouseEvent): void => {
-    if (this.active) event.preventDefault();
+    if (this.active || this.cameraEnabled) event.preventDefault();
   };
 
   private readonly onContextMenu = (event: Event): void => {
@@ -309,19 +328,16 @@ export class Controls {
         if (this.active) this.hooks.onToggleRig();
         return;
       case "KeyV":
-        // Gated on `active` like `G` and `L`. Nothing about the camera is
-        // dangerous to change while paused, but this key remains part of the
-        // running control set; the pause overlay changes presentation, not input ownership.
-        if (this.active) this.hooks.onToggleCamera();
+        if (this.cameraEnabled) this.hooks.onToggleCamera();
         return;
       case "BracketLeft":
-        if (this.active) this.hooks.onRotateCamera(-1);
+        if (this.cameraEnabled) this.hooks.onRotateCamera(-1);
         return;
       case "BracketRight":
         // Held-down repeats never reach this switch -- `event.repeat` is answered
         // above -- so leaning on the key does not spin the arena, which is what a
         // stepped control wants and what a continuous one would not care about.
-        if (this.active) this.hooks.onRotateCamera(1);
+        if (this.cameraEnabled) this.hooks.onRotateCamera(1);
         return;
       case "KeyL":
         if (this.active) this.hooks.onToggleLock();
@@ -401,8 +417,6 @@ export class Controls {
   };
 
   private readonly onPointerDown = (event: PointerEvent): void => {
-    if (!this.active) return;
-
     // Chrome opens its autoscroll widget on a middle press, and once it is up it
     // captures the pointer and stops delivering movement until it is dismissed.
     // Cancelling `auxclick` below is too late to stop it -- that fires after the
@@ -410,8 +424,8 @@ export class Controls {
     // actually opens the widget. The documented cost of cancelling `pointerdown`
     // is that the compatibility mouse events stop arriving for the rest of the
     // gesture, which is free: nothing in this file listens for them.
-    if (event.button === 1) event.preventDefault();
-    if (event.button === 1) {
+    if (event.button === 1 && this.cameraEnabled) {
+      event.preventDefault();
       this.camera.mode = event.shiftKey ? "pan" : "orbit";
       this.camera.pointerId = event.pointerId;
       this.cameraX = event.clientX;
@@ -419,6 +433,7 @@ export class Controls {
       try { this.canvas.setPointerCapture(event.pointerId); } catch { /* capture is best effort off-canvas */ }
       return;
     }
+    if (!this.active) return;
 
     // A press is proof that whatever the last press of this button owed has been
     // settled, however its release went missing, so it starts again unspent.
@@ -480,7 +495,7 @@ export class Controls {
   }
 
   private readonly onWheel = (event: WheelEvent): void => {
-    if (!this.active) return;
+    if (!this.cameraEnabled) return;
     event.preventDefault();
     this.zoomNotches = clamp(
       this.zoomNotches + Math.sign(event.deltaY), -CAMERA_ZOOM_NOTCHES, CAMERA_ZOOM_NOTCHES,

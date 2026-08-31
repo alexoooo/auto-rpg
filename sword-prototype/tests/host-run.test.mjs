@@ -4,7 +4,7 @@ import test from "node:test";
 
 import { begin, defaultMatchup, selectScreen } from "../src/bout.ts";
 import { advanceActiveHostTimers, ArenaPresentation, pauseHost, presentRebuiltFrame, restartHost, resumeHost,
-  runActiveHostFrame } from "../src/host-run.ts";
+  runHostFrame } from "../src/host-run.ts";
 
 const visibilityTarget = () => {
   const classes = new Set(["gone"]);
@@ -116,13 +116,14 @@ test("restart_button_rebuilds_once_clears_the_verdict_and_resumes", () => {
   assert.equal(f.active, true);
 });
 
-test("a_paused_frame_advances_no_mind_combat_arrow_blood_body_or_presentation_transform", () => {
+test("a_paused_frame_freezes_simulation_but_keeps_camera_presentation_live", () => {
   const stages = { mind: 0, combat: 0, arrow: 0, blood: 0, body: 0, camera: 0, occlusion: 0, aim: 0, rig: 0 };
-  const frame = () => { for (const name of Object.keys(stages)) stages[name] += 1; };
-  assert.equal(runActiveHostFrame({ active: false }, frame), false);
-  assert.deepEqual(stages, { mind: 0, combat: 0, arrow: 0, blood: 0, body: 0, camera: 0, occlusion: 0, aim: 0, rig: 0 });
-  assert.equal(runActiveHostFrame({ active: true }, frame), true);
-  assert.deepEqual(stages, { mind: 1, combat: 1, arrow: 1, blood: 1, body: 1, camera: 1, occlusion: 1, aim: 1, rig: 1 });
+  const advance = () => { for (const name of ["mind", "combat", "arrow", "blood", "body", "aim", "rig"]) stages[name] += 1; };
+  const present = () => { stages.camera += 1; stages.occlusion += 1; };
+  assert.equal(runHostFrame({ active: false }, advance, present), false);
+  assert.deepEqual(stages, { mind: 0, combat: 0, arrow: 0, blood: 0, body: 0, camera: 1, occlusion: 1, aim: 0, rig: 0 });
+  assert.equal(runHostFrame({ active: true }, advance, present), true);
+  assert.deepEqual(stages, { mind: 1, combat: 1, arrow: 1, blood: 1, body: 1, camera: 2, occlusion: 2, aim: 1, rig: 1 });
 });
 
 test("paused_presentation_timers_keep_the_exact_instant_the_player_stopped", () => {

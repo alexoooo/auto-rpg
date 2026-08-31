@@ -86,7 +86,8 @@ test("the_Arbalest_public_graph_exposes_tracking_fire_and_the_existing_biped_sup
 test("an_Arbalest_draw_starts_only_upright_on_fresh_support_and_then_keeps_its_launcher", () => {
   assert.equal(ARBALEST_LOCOMOTION.retreatBelowM, 2.40);
   assert.deepEqual(ARBALEST_TACTICS, { blockerClearanceM: 0.07, targetHeightOffsetM: -0.05,
-    reacquireAfterReloadS: 0.10, desperateLauncherHealth: 9 });
+    reacquireAfterReloadS: 0.10, finishDownedAfterS: 1.25,
+    finishTargetHeightOffsetM: 0.25, desperateLauncherHealth: 9 });
   assert.equal(ARBALEST_SENSORS.some(({ id }) => id === "opponent-upright"), true);
   assert.equal(ARBALEST_SENSORS.some(({ id }) => id === "opponent-rising"), true);
   assert.equal(ARBALEST_SENSORS.some(({ id }) => id === "opponent-aim-local-x"), true);
@@ -121,7 +122,8 @@ test("an_Arbalest_draw_starts_only_upright_on_fresh_support_and_then_keeps_its_l
   assert.equal(admitted(false), false,
     "damage to an ordinary launcher cannot masquerade as deliberately fragile hardware");
   frame.publish("module-max-health-effigy-arbalest", ARBALEST_TACTICS.desperateLauncherHealth);
-  assert.equal(admitted(false), false, "a fragile launcher still does not waste ammunition on a prone body");
+  assert.equal(admitted(false), false,
+    "the fragile rising-pressure branch does not admit a merely prone target without the finishing dwell");
   frame.publish("opponent-rising", true);
   assert.equal(admitted(false), true, "a critically fragile launcher times pressure against a bounded rise");
   frame.publish("module-health-effigy-arbalest", 1);
@@ -134,6 +136,23 @@ test("an_Arbalest_draw_starts_only_upright_on_fresh_support_and_then_keeps_its_l
   frame.publish("line-of-sight", false);
   assert.equal(admitted(true), true,
     "a draw already admitted by upright support survives transient support/LOS withdrawal");
+
+  const finish = arbalestProgram().rules.find(({ id }) => id === "finish-downed-opponent");
+  assert.ok(finish);
+  assert.equal(finish.dwellS, ARBALEST_TACTICS.finishDownedAfterS);
+  assert.deepEqual(finish.parameters["target-height-offset"],
+    { kind: "expression", value: { op: "constant", value: 0.25, unit: "metres" } });
+  const finishes = () => Boolean(evaluateExpression(finish.condition, frame,
+    { isActionActive: () => false }).value);
+  frame.publish("core-upright", true); frame.publish("contact-left-foot", true);
+  frame.publish("line-of-sight", true); frame.publish("opponent-upright", true);
+  assert.equal(finishes(), false, "the finishing rule cannot compete with an upright-target shot");
+  frame.publish("opponent-upright", false); frame.publish("opponent-rising", true);
+  assert.equal(finishes(), false, "the recovery animation remains an inviolable firing window");
+  frame.publish("opponent-rising", false);
+  frame.publish("contact-left-foot", false);
+  assert.equal(finishes(), true,
+    "a core-upright launcher may resolve a target that remains prone between exact foot samples");
 });
 
 test("the_Arbalest_is_selectable_without_replacing_either_sword_effigy_and_idle_changes_only_its_program", () => {
@@ -260,4 +279,17 @@ test("the_full_health_Arbalest_allows_one_Warrior_recovery_then_wins_with_follow
   assert.ok(report.constructPhysical.rootUp >= 0.90 && report.constructPhysical.minimumAttachedY >= -0.05 &&
     report.constructPhysical.maximumAttachedDistanceFromRootM <= 1.65,
   "the winning Arbalest remains upright and physically assembled");
+});
+
+test("the_Arbalest_resolves_an_idle_fallen_Warrior_instead_of_waiting_for_the_bout_cap", async () => {
+  const report = await runConstructWarriorBout({ saved: arbalestSavedConstruct(), sensors: ARBALEST_SENSORS,
+    warriorPolicy: "idle", warriorSeed: 7, constructSide: "left",
+    maxSteps: CONFIG.world.physicsHz * 20 });
+  const fallenAtS = report.locomotionSteps.find(({ warrior }) => warrior?.state === "fallen")?.atS;
+  const starts = report.actionTimeline.filter(({ action, kind }) => action === "fire" && kind === "started");
+  assert.equal(report.winner, "construct");
+  assert.equal(report.warrior.vitality, 0);
+  assert.ok(report.simulatedSeconds < 3, "the verdict must promptly precede the safety cap");
+  assert.ok(starts.length >= 2 && starts[1].atS - fallenAtS >= ARBALEST_TACTICS.finishDownedAfterS,
+    "a finishing draw must wait through the declared prone recovery window");
 });

@@ -211,8 +211,9 @@ export const CONSTRUCT_WARRIOR_CURRICULUM_ACCEPTANCE = Object.freeze({
  * Recovery-aware assisted-support v2 rerun on 2026-08-31. After living fallen bodies began
  * reserving recovery space, the corrected 2.40 m retreat and 1.90 heavy bolt restored x0.10 to
  * 8/8 qualified wins (left 4, right 4). The same-body posture-only baseline dies 8/8. The fragile
- * Mind reads saved launcher capacity and times pressure during a rise; ordinary
- * full-health hardware waits for restored support.
+ * Mind reads saved launcher capacity and times pressure during a rise. Ordinary full-health
+ * hardware waits for restored support, or gives an opponent that remains prone 1.25 seconds
+ * before a separately aimed finishing shot; that branch is outside these fast fragile cells.
  */
 export const ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE = Object.freeze({
   version: 2,
@@ -232,7 +233,7 @@ export const ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE = Object.freeze({
   activeUprightDamageCellsMin: 8,
   blueprintDigest: "b7b4d0c1",
   controlDigest: "0f542c4c",
-  activeProgramDigest: "09a29161",
+  activeProgramDigest: "b6ae8b21",
 });
 
 export function assertConstructWarriorCurriculum(report,

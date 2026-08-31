@@ -89,11 +89,22 @@ export function restartHost(state: BoutState, host: RunningHost, resume: boolean
   return fresh;
 }
 
-/** One authority gate for every mutable stage between two rendered frames. */
-export function runActiveHostFrame(host: Pick<RunningHost, "active">, advance: () => void): boolean {
-  if (!host.active) return false;
-  advance();
-  return true;
+/**
+ * One authority gate for the simulation, followed by presentation in both modes.
+ *
+ * Pause freezes authored state; it does not freeze the player's viewpoint. Keeping
+ * the two callbacks on opposite sides of this boundary prevents a camera fix from
+ * accidentally advancing a mind, and prevents a later simulation edit from putting
+ * the camera back behind the pause gate.
+ */
+export function runHostFrame(
+  host: Pick<RunningHost, "active">,
+  advance: () => void,
+  present: () => void,
+): boolean {
+  if (host.active) advance();
+  present();
+  return host.active;
 }
 
 export interface HostTimers {

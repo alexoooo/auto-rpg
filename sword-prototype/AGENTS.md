@@ -318,6 +318,11 @@ npm run dev             # http://localhost:5180, strictPort
   Opening its large `<details>` panel on a pause edge covered the exact frozen frame pause exists
   to inspect. Pause may expose only the already-committed compact `#pause-menu`; it must not open,
   close, expand or navigate any other surface.
+- **Pause freezes game authority, not the camera.** A frozen arena exists to be inspected. Keep
+  middle-drag orbit, Shift+middle-drag pan, wheel zoom and camera mode/bearing keys live through
+  `Controls.pauseCombat()`, and keep camera placement plus room occlusion after `runHostFrame`'s
+  simulation gate. Putting them back inside the active callback recreates a view the player cannot
+  reframe for a screenshot.
 - **A constant tuned for the bench does not become a player's by being in `config.ts`.**
   `bout.capSeconds` was 60 and every word of the argument beside it was about running a
   hundred bouts headlessly at 250x real time. Nothing in it was about somebody at a
@@ -742,6 +747,12 @@ carrier stand through the ragdoll, hide it from the camera and occupy the exact 
 then refused. The fallen port follows its live root at safe boundaries and reserves its ordinary
 query-only footprint; detached/dead roots reserve nothing. Do not recover the old balance corpus by
 restoring the overlap bug -- requalify the Mind against the honest recovery space.
+
+**Recovery discipline needs a terminal branch.** The Arbalest once refused every shot at a prone
+opponent. That protected a rising Warrior, but a player-driven idle Warrior requested no recovery
+and produced a physically stable draw until the cap. Keep `rising` protected; after a stable prone
+dwell, use the separately measured finishing aim. Do not call an unbounded deadlock ammunition
+discipline.
 
 **A Fighter recovery request must survive the rising interval.** Fallen locomotion deliberately
 zeros translation, so deriving `recover` from that stopped request traps the body forever; clearing

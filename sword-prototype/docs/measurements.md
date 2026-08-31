@@ -7678,11 +7678,22 @@ posture loss. Every winner spent exactly two bolts and finished with root-up bet
 
 | body/program/control digest | idle Warrior kills | raw / qualified active wins | qualified left / right | active survivals | active damage |
 | :--- | ---: | :---: | :---: | ---: | ---: |
-| `b7b4d0c1` / `09a29161` / `0f542c4c` | 8/8 | 8 / 8 | 4 / 4 | 8/8 | 1630.711453 |
+| `b7b4d0c1` / `b6ae8b21` / `0f542c4c` | 8/8 | 8 / 8 | 4 / 4 | 8/8 | 1630.711453 |
 
 The 0.12 kg mass, 42 m/s speed, twelve-round magazine and 0.65-second reload remain unchanged; the
 explicit damage scale is now 1.90. This is a superseding balance measurement, not evidence that the
 old 1.15/1.90 m result was fabricated: its collision premise changed.
+
+The player-driven idle case exposed a separate policy deadlock after that corpus: one full-health
+bolt left an idle Warrior fallen at 49.327562% vitality, and the ordinary Mind then spent zero more
+bolts through a 20-second cap because it admitted neither a recovery nor a prone shot. The retained
+rule distinguishes recovery from incapacity. It refuses fire during `rising`, waits 1.25 seconds of
+stable `fallen`, then admits a finishing draw without requiring the upright-vital-point sight ray or
+an exact transient foot sample. A six-cell prone aim sweep at -0.40, -0.25, -0.10, +0.10, +0.25 and
++0.40 m retained +0.25 m: it hit the torso on the first finishing loose and ended the exact idle
+fixture at 2.137500 s with two bolts spent. The revised x0.10 four-seed mirrored corpus remained
+byte-for-measurement equal -- 8/8 qualified, 4/4 each side, 1630.711453 damage -- while only the
+program digest moved from `09a29161` to `b6ae8b21`.
 
 The supported Twinblade rerun remains red and is distinct from its historical raw-gait ratchet.
 Its idle ladder at the same five rungs is 2, 4, 6, 7 and 6 Warrior kills out of eight. At the

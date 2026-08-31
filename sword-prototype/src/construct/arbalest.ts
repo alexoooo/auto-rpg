@@ -29,7 +29,8 @@ const geometry = (id: string, shape: ModuleGeometrySpec["shape"],
  * 0.65 s reload and the bolt's mass, dimensions and 42 m/s launch speed are the
  * existing Warden projectile geometry and cadence; the compact 3.2 kg hand-mount,
  * twelve-round carrier and 1.90 heavy-bolt damage scale are explicit chassis choices. Combat pacing belongs to the Mind:
- * it does not begin a new shot at an already fallen opponent. Pool size is recycling
+ * it gives a newly fallen opponent a recovery window, then finishes a body that
+ * remains incapacitated instead of waiting for the bout cap. Pool size is recycling
  * capacity, not ammunition.
  */
 export const ARBALEST_HARDWARE = Object.freeze({
@@ -70,10 +71,12 @@ export const ARBALEST_ASSISTED_QUALIFIER_ID = "arbalest-assisted-support-v2";
  * the full-health seeded win, with the Construct supported at root-up 0.99786 after the fatal shot.
  * The x0.10 mirrored damage bracket then rejected 1.85 at only 5/8 posture-qualified wins and
  * retained 1.90 at 8/8; all eight winners remained upright and spent exactly two bolts.
- * Fragile hardware spends follow-up shots during the bounded rise rather than wasting them on a prone body.
+ * Fragile hardware spends its immediate follow-up during the bounded rise; the separately delayed
+ * prone-finisher remains common to both hardware profiles.
  */
 export const ARBALEST_TACTICS = Object.freeze({ blockerClearanceM: 0.07,
-  targetHeightOffsetM: -0.05, reacquireAfterReloadS: 0.10, desperateLauncherHealth: 9 });
+  targetHeightOffsetM: -0.05, reacquireAfterReloadS: 0.10,
+  finishDownedAfterS: 1.25, finishTargetHeightOffsetM: 0.25, desperateLauncherHealth: 9 });
 export const ARBALEST_LOCOMOTION = Object.freeze({ retreatBelowM: 2.40, closeAtM: 6.00 });
 export const ARBALEST_LEFT_SWORD_GUARD = Object.freeze({
   shoulder: -0.35, elbow: -0.65, wrist: 0.35, palm: -0.15,
@@ -183,12 +186,31 @@ export function arbalestProgram(): ConstructProgram {
     value: Object.freeze({ ...constant(0), unit: "metres" as const }) });
   const targetParameters = Object.freeze({ "target-height-offset": targetHeightOffset,
     "target-lateral-offset": targetLateralOffset });
+  const finishTargetParameters = Object.freeze({ ...targetParameters,
+    "target-height-offset": Object.freeze({ kind: "expression" as const,
+      value: Object.freeze({ ...constant(ARBALEST_TACTICS.finishTargetHeightOffsetM),
+        unit: "metres" as const }) }) });
   const locomotionBand = Object.freeze({ op: "and" as const, values: Object.freeze([
     humanoidOpponentAligned(),
     Object.freeze({ op: "gte" as const, left: sensor("opponent-range"),
       right: Object.freeze({ ...constant(ARBALEST_LOCOMOTION.retreatBelowM), unit: "metres" as const }) }),
     Object.freeze({ op: "lt" as const, left: sensor("opponent-range"),
       right: Object.freeze({ ...constant(ARBALEST_LOCOMOTION.closeAtM), unit: "metres" as const }) }),
+  ]) });
+  const launcherReady = Object.freeze({ op: "and" as const, values: Object.freeze([
+    sensor("core-upright"), Object.freeze({ op: "lt" as const,
+      left: sensor("opponent-range"), right: Object.freeze({ ...constant(8), unit: "metres" as const }) }),
+    Object.freeze({ op: "lte" as const, left: sensor("reload-effigy-arbalest-magazine"),
+      right: Object.freeze({ ...constant(0), unit: "seconds" as const }) }),
+    Object.freeze({ op: "gt" as const, left: sensor("ammo-effigy-arbalest-magazine"),
+      right: Object.freeze({ ...constant(0), unit: "scalar" as const }) }),
+    Object.freeze({ op: "gt" as const, left: sensor("module-health-effigy-arbalest"),
+      right: Object.freeze({ ...constant(0), unit: "scalar" as const }) }),
+    Object.freeze({ op: "gt" as const, left: sensor("module-health-effigy-arbalest-magazine"),
+      right: Object.freeze({ ...constant(0), unit: "scalar" as const }) }),
+    Object.freeze({ op: "gt" as const, left: sensor("power-charge-j"),
+      right: Object.freeze({ ...constant(0), unit: "joules" as const }) }),
+    Object.freeze({ op: "not" as const, value: sensor("overheated") }),
   ]) });
   return Object.freeze({ version: 1, id: "arbalest-effigy-mind", rules: Object.freeze([
     ...humanoidLocomotionRules(ARBALEST_LOCOMOTION),
@@ -199,7 +221,7 @@ export function arbalestProgram(): ConstructProgram {
       // produced a cancelled, serial-less attempt before the next exact-fresh support frame.
       condition: Object.freeze({ op: "or" as const, values: Object.freeze([active("fire"),
         Object.freeze({ op: "and" as const, values: Object.freeze([
-          sensor("core-upright"), Object.freeze({ op: "or" as const, values: Object.freeze([
+          Object.freeze({ op: "or" as const, values: Object.freeze([
             sensor("opponent-upright"), Object.freeze({ op: "and" as const, values: Object.freeze([
               sensor("opponent-rising"),
               Object.freeze({ op: "lte" as const, left: sensor("module-max-health-effigy-arbalest"),
@@ -207,24 +229,25 @@ export function arbalestProgram(): ConstructProgram {
                   unit: "scalar" as const }) }),
             ]) }),
           ]) }),
-          sensor("line-of-sight"), Object.freeze({ op: "lt" as const,
-            left: sensor("opponent-range"), right: Object.freeze({ ...constant(8), unit: "metres" as const }) }),
-          Object.freeze({ op: "or" as const, values: Object.freeze([
+          sensor("line-of-sight"), Object.freeze({ op: "or" as const, values: Object.freeze([
             sensor("contact-left-foot"), sensor("contact-right-foot"),
-          ]) }),
-          Object.freeze({ op: "lte" as const, left: sensor("reload-effigy-arbalest-magazine"),
-            right: Object.freeze({ ...constant(0), unit: "seconds" as const }) }),
-          Object.freeze({ op: "gt" as const, left: sensor("ammo-effigy-arbalest-magazine"),
-            right: Object.freeze({ ...constant(0), unit: "scalar" as const }) }),
-          Object.freeze({ op: "gt" as const, left: sensor("module-health-effigy-arbalest"),
-            right: Object.freeze({ ...constant(0), unit: "scalar" as const }) }),
-          Object.freeze({ op: "gt" as const, left: sensor("module-health-effigy-arbalest-magazine"),
-            right: Object.freeze({ ...constant(0), unit: "scalar" as const }) }),
-          Object.freeze({ op: "gt" as const, left: sensor("power-charge-j"),
-            right: Object.freeze({ ...constant(0), unit: "joules" as const }) }),
-          Object.freeze({ op: "not" as const, value: sensor("overheated") }),
+          ]) }), launcherReady,
         ]) }),
       ]) }), utility: constant(20), parameters: targetParameters }),
+    // A person may be driving the Warrior and may choose not to request a rise. Waiting forever
+    // in that state is not discipline; it is a deadlock. Preserve the readable knockdown beat,
+    // refuse fire throughout an actual rise, then admit a finishing draw after a stable prone dwell.
+    Object.freeze({ id: "finish-downed-opponent", action: "fire", priority: 29, optional: true,
+      dwellS: ARBALEST_TACTICS.finishDownedAfterS,
+      condition: Object.freeze({ op: "and" as const, values: Object.freeze([
+        Object.freeze({ op: "not" as const, value: sensor("opponent-upright") }),
+        Object.freeze({ op: "not" as const, value: sensor("opponent-rising") }),
+        // The ordinary sight ray is aimed at an upright vital point and is allowed to
+        // disappear into the floor when that point falls. Fresh-foot contact alternates
+        // during supported idle as well; after the prone dwell, core-upright is the stable
+        // support fact. Requiring either transient reading recreated a 16-second near-timeout.
+        launcherReady,
+      ]) }), utility: constant(19), parameters: finishTargetParameters }),
     // Keep following through the reload. Without this disjoint admission phase the mount
     // waited for ammunition before it began reacquiring a clinching opponent, spending
     // another 0.18--0.39 s exposed after every 0.65 s reload.

@@ -541,7 +541,10 @@ that leaves for setup must not be the same key. `R` restarts the same matchup; S
 pause controls is the explicit exit.
 
 The render loop keeps painting while paused, because a frozen frame that disappears cannot
-be inspected. One host gate owns every game-time mutation, including presentation notices;
+be inspected. Middle-drag orbit, Shift+middle-drag pan, wheel zoom, `V` and the bracket bearing
+keys remain host-owned presentation controls in that mode. `Controls.pauseCombat()` withdraws
+combat authority without withdrawing camera authority, and `runHostFrame` places camera/occlusion
+after the simulation gate. One host gate owns every game-time mutation, including presentation notices;
 physics is disabled and blood particles use Babylon's zero-update-speed frozen state. Focus
 loss and hidden visibility are idempotent pause edges and focus return never resumes. A
 manual pause is refused during the timed portion of a guided playtest, but safety blur still
@@ -1654,9 +1657,11 @@ posture occupy disjoint control groups and therefore run concurrently through th
 scheduler. The Mind requests fire only when declared reload and ammunition telemetry permit it,
 but continues tracking through reload. Its sight also observes the opponent's public support state,
 saved launcher health capacity and a live blocker-relative aim lane. A launcher with ordinary
-health waits through fallen and rising, so its opponent can finish a real recovery before the next
-shot. The deliberately fragile x0.10 balance body instead fires during the bounded rise, but still
-does not waste its finite magazine on a prone body. Saved capacity is a separate fact from normalized
+health refuses fire during a rise, so its opponent can finish a real recovery before the next
+ordinary shot. A stable opponent that remains prone is a different state: after a 1.25-second
+recovery window, a finishing rule uses its separately measured +0.25 m prone aim trim and resolves
+the bout instead of waiting for the safety cap. The deliberately fragile x0.10 balance body instead
+fires during the bounded rise. Saved capacity is a separate fact from normalized
 remaining health; confusing those units made the fragile branch always true in the rejected version.
 Its 2.40 m retreat boundary preserves recovery space instead of exploiting a fallen opponent's
 absent carrier footprint. The explicit 1.90 heavy-bolt scale is the first 0.05-step bracket above
