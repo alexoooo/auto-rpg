@@ -188,7 +188,11 @@ export function stepSupportedLocomotionState(prior: SupportedLocomotionState,
   const fallAt = SUPPORTED_LOCOMOTION_V1.FALL_SPECIFIC_IMPULSE_MPS * capacity;
 
   if (prior.state === "rising") {
-    if (input.authoredShoves.length > 0 || specificImpulseMps >= fallAt) {
+    // The decaying ledger records why the body fell; it is not a second hit. Fallen is allowed
+    // to enter rising while that history remains above fallAt, so reapplying the upright threshold
+    // here would cancel the rise one boundary later. Production marks a new nonzero shove through
+    // hitInterrupted, which remains the fresh-event abort.
+    if (input.hitInterrupted) {
       return Object.freeze({ state: "fallen", specificImpulseMps,
       supportMissingS, fallenElapsedS: 0, risingElapsedS: 0, driveStaged: false });
     }

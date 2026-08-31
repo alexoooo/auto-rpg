@@ -37,6 +37,7 @@ import { deriveLocomotionFootprint, type StandableWorldRegistry } from "./suppor
 import { fighterPostureIsSupported } from "./supported-locomotion-state.ts";
 import {
   HANDS,
+  NEUTRAL,
   idleMind,
   otherHand,
   type ArmPose,
@@ -602,6 +603,8 @@ export class Fighter {
   private trunkTwist = 0;
   private crouch = 0;
   private readonly pelvisRestY: number;
+  /** Captured once per assisted rise so righting rotation follows the same bounded clock as height. */
+  private risingStartRotation: Quaternion | null = null;
 
   /**
    * What is left of the fighter's own scratch once the arm took its share.
@@ -627,6 +630,8 @@ export class Fighter {
     trunkFrame: Matrix.Identity(),
     pelvisInverse: Quaternion.Identity(),
     relativeTrunk: Quaternion.Identity(),
+    risingRotation: Quaternion.Identity(),
+    risingTargetRotation: Quaternion.Identity(),
     trunkAngles: new Vector3(),
   };
 
@@ -993,16 +998,45 @@ export class Fighter {
         this.pelvis.body.setAngularVelocity(new Vector3(0,
           clamp(yawError * 8, -F.turnSpeed, F.turnSpeed), 0));
       },
+      // Rising is the bounded carrier actuator, not ordinary supported movement and not an
+      // unbounded ragdoll force. The Construct adapter already takes this path. Omitting it here
+      // left Fighters on the fallback dynamic-root motor: the state reached `rising`, but a
+      // prone pelvis never satisfied the upright predicate and could remain there forever.
+      driveRisingRoot: (targetPosition, _targetVelocity, targetYaw) => {
+        if (this.pelvis.body.getMotionType() !== PhysicsMotionType.ANIMATED) {
+          this.pelvis.body.setMotionType(PhysicsMotionType.ANIMATED);
+        }
+        const liveRotation = this.pelvis.mesh.rotationQuaternion ?? Quaternion.Identity();
+        if (this.risingStartRotation === null) this.risingStartRotation = liveRotation.clone();
+        Quaternion.RotationAxisToRef(Vector3.Up(), targetYaw, this.scratch.risingTargetRotation);
+        const progress = this.locomotion?.diagnostic().recoveryProgress ?? 0;
+        const smooth = progress * progress * (3 - 2 * progress);
+        Quaternion.SlerpToRef(this.risingStartRotation, this.scratch.risingTargetRotation,
+          smooth, this.scratch.risingRotation);
+        this.pelvis.body.setTargetTransform(
+          new Vector3(targetPosition.x, targetPosition.y, targetPosition.z),
+          this.scratch.risingRotation);
+      },
       releaseRoot: () => {
+        this.risingStartRotation = null;
         if (this.pelvis.body.getMotionType() === PhysicsMotionType.ANIMATED) {
           this.pelvis.body.setMotionType(PhysicsMotionType.DYNAMIC);
         }
       },
       restoreRoot: () => {
+        this.risingStartRotation = null;
         if (!this.dead && this.pelvis.body.getMotionType() === PhysicsMotionType.DYNAMIC) {
           this.pelvis.body.setMotionType(PhysicsMotionType.ANIMATED);
-          this.pelvis.body.setLinearVelocity(Vector3.Zero());
-          this.pelvis.body.setAngularVelocity(Vector3.Zero());
+        }
+        if (this.dead) return;
+        // Reattachment is an admitted game transition. Retaining ragdoll momentum here made the
+        // now-supported chain discharge its stored rotation through the first fencing pose (105
+        // m/s in the Arbalest recovery bracket). A same-boundary hit cannot reach this branch: it
+        // aborts rising above. Clear the recovered articulation once, never during ordinary play.
+        for (const { part, severed } of this.limbs) {
+          if (severed) continue;
+          part.body.setLinearVelocity(Vector3.Zero());
+          part.body.setAngularVelocity(Vector3.Zero());
         }
       },
       releaseAnatomyCollision: () => setAssistedAnatomyCollision(false),
@@ -1646,7 +1680,17 @@ export class Fighter {
 
   private applyIntent(dt: number, intent: Intent): void {
     this.steer(dt, intent);
-    this.poseTrunk(dt, intent);
+    // Once the bounded rise begins, continuing a fencing pose turns recovery into a fight between
+    // the righting carrier and every high-force arm/waist motor. Movement remains live above so a
+    // person or Mind can keep asking to recover; the articulated body takes the ordinary neutral
+    // pose until support has actually been earned again.
+    const recovering = this.locomotion?.state === "rising";
+    const trunkIntent = recovering ? NEUTRAL : intent;
+    // A rising arm rests instead of fencing against the floor or fighting the bounded root.
+    // Re-enabling a Duelist's guard during rising reached 109 m/s in the representative Arbalest
+    // cell; hands return only after the physical posture has earned supported state again.
+    const armIntent = recovering ? NEUTRAL : intent;
+    this.poseTrunk(dt, trunkIntent);
     this.walk(dt);
     // Both arms, each from its own half of the intent. `Arm.update` returns on
     // its own if that arm has been dropped, which is why there is no second
@@ -1666,11 +1710,11 @@ export class Fighter {
     if (this.twoHanded) {
       const lead = this.arms[this.twoHanded];
       const trail = this.arms[otherHand(this.twoHanded)];
-      lead.update(dt, intent[this.twoHanded]);
+      lead.update(dt, armIntent[this.twoHanded]);
       trail.follow(lead.gripPoint(CONFIG.club.secondGrip), lead.commandedRotation);
       return;
     }
-    for (const name of HANDS) this.arms[name].update(dt, intent[name]);
+    for (const name of HANDS) this.arms[name].update(dt, armIntent[name]);
   }
 
   /**
@@ -1983,9 +2027,18 @@ export class Fighter {
     if (this.locomotion) {
       const magnitude = Math.hypot(input.forward, input.strafe);
       const scale = magnitude > 1 ? 1 / magnitude : 1;
+      const yaw = clamp(this.turnRate(input, forward) / Math.max(F.turnSpeed, 1e-9), -1, 1);
+      // A fallen carrier resolves translation to STOP, so allowed displacement cannot carry the
+      // player's or Mind's intent across the next safe boundary. Translate deliberate Fighter
+      // movement into the public recover bit before pair resolution erases that displacement.
+      // Constructs already do this through their explicit recover Action.
+      // Recovery authority must remain asserted for the whole bounded rise. Dropping the bit on
+      // the first `rising` frame made the next safe boundary cancel every Fighter recovery even
+      // though the same deliberate movement was still held.
+      const recover = (this.locomotion.state === "fallen" || this.locomotion.state === "rising") &&
+        Math.max(Math.abs(input.forward), Math.abs(input.strafe), Math.abs(yaw)) > 0;
       this.locomotion.request({ localForward: input.forward * scale,
-        localRight: input.strafe * scale,
-        yaw: clamp(this.turnRate(input, forward) / Math.max(F.turnSpeed, 1e-9), -1, 1), recover: false });
+        localRight: input.strafe * scale, yaw, recover });
       return;
     }
 

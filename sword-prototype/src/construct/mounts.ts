@@ -232,7 +232,10 @@ class MountController implements ActionController {
       if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`mount tracking requires finite fact "${id}"`);
       return value;
     };
-    const x = fact("opponent-local-x") + Number(this.context.request.parameters["target-lateral-offset"] ?? 0);
+    const authoredAimX = this.context.view.facts["opponent-aim-local-x"];
+    const x = (typeof authoredAimX === "number" && Number.isFinite(authoredAimX)
+      ? authoredAimX : fact("opponent-local-x")) +
+      Number(this.context.request.parameters["target-lateral-offset"] ?? 0);
     // A launcher can deliberately select a lane above or below centre mass. This remains
     // authored Action input: the generic mount owns the geometry, not an Arbalest-only
     // guess about where a shield happens to be.

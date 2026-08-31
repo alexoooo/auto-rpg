@@ -24,6 +24,7 @@ const recoverySaved = (mode) => {
 
 const impulseFor = (axis, magnitude) => axis === "longitudinal"
   ? new Vector3(0, 0, magnitude) : new Vector3(magnitude, 0, 0);
+const PHYSICAL_IMPULSE_NS = Object.freeze({ longitudinal: 450, lateral: 600 });
 
 export async function measureWardenRecoveryCell(mode, axis) {
   const arena = await createConstructHeadlessArena();
@@ -41,7 +42,7 @@ export async function measureWardenRecoveryCell(mode, axis) {
       construct.queueStabilityEvent({ horizontalShoveNs: axis === "longitudinal" ? [0, 5.5] : [5.5, 0] });
       bout.step(1 / CONFIG.world.physicsHz);
     }
-    root.body.applyImpulse(impulseFor(axis, 450),
+    root.body.applyImpulse(impulseFor(axis, PHYSICAL_IMPULSE_NS[axis]),
       root.body.getObjectCenterWorld().add(new Vector3(0, 1.1, 0)));
     let fell = false; let physicalFell = false; let recoveredAfterFall = false;
     let firstFallStep = null; let firstPhysicalFallStep = null; let firstRecoveryStep = null;
@@ -95,14 +96,15 @@ export async function measureWardenRecoveryAB() {
     for (const axis of ["longitudinal", "lateral"]) cells.push(await measureWardenRecoveryCell(mode, axis));
   }
   return Object.freeze({ harness: "headless Havok Warden fall/recovery A/B", physicsHz: CONFIG.world.physicsHz,
-    impulseNs: 450, cells: Object.freeze(cells) });
+    impulseNsByAxis: PHYSICAL_IMPULSE_NS, cells: Object.freeze(cells) });
 }
 
 export function assertWardenRecoveryABEvidence(report) {
   const expectedRows = ["raw/longitudinal", "raw/lateral", "assisted/longitudinal", "assisted/lateral"];
   const rows = report?.cells?.map(({ mode, axis }) => `${mode}/${axis}`) ?? [];
   if (report?.harness !== "headless Havok Warden fall/recovery A/B" ||
-      report?.physicsHz !== CONFIG.world.physicsHz || report?.impulseNs !== 450 ||
+      report?.physicsHz !== CONFIG.world.physicsHz ||
+      JSON.stringify(report?.impulseNsByAxis) !== JSON.stringify(PHYSICAL_IMPULSE_NS) ||
       JSON.stringify(rows) !== JSON.stringify(expectedRows)) {
     throw new Error("Warden recovery A/B did not retain its exact physical four-cell fixture");
   }

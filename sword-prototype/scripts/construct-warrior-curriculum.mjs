@@ -208,11 +208,10 @@ export const CONSTRUCT_WARRIOR_CURRICULUM_ACCEPTANCE = Object.freeze({
 });
 
 /**
- * Assisted-support v2 rerun on 2026-08-30. At x0.10 the active body won and qualified
- * 8/8 exactly (left 4, right 4), while its same-body posture-only baseline died 7/8.
- * Health alone cannot finish the remaining right-mirror cell: severance strands the
- * fallen fatal torso behind non-vital foot contacts. The explicit debt stays in the
- * corpus instead of weakening the fatal-part rule or pretending the ladder is monotonic.
+ * Recovery-aware assisted-support v2 rerun on 2026-08-31. At x0.10 the active body won
+ * and qualified 8/8 exactly (left 4, right 4), while the same-body posture-only baseline
+ * died 7/8. The fragile Mind reads saved launcher capacity and times pressure during a rise;
+ * ordinary full-health hardware waits for restored support. Cadence and damage remain unchanged.
  */
 export const ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE = Object.freeze({
   version: 2,
@@ -230,9 +229,9 @@ export const ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE = Object.freeze({
   activeQualifiedConstructKillsRightMin: 4,
   activeConstructSurvivalsMin: 8,
   activeUprightDamageCellsMin: 8,
-  blueprintDigest: "3f4928d9",
+  blueprintDigest: "15221014",
   controlDigest: "0f542c4c",
-  activeProgramDigest: "5fdedf5a",
+  activeProgramDigest: "6c7419a1",
 });
 
 export function assertConstructWarriorCurriculum(report,

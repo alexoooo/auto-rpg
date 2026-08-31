@@ -117,9 +117,27 @@ test("a_hit_obstruction_or_lost_support_aborts_rising_state_and_leaves_no_staged
     assert.equal(result.risingElapsedS, 0);
   }
   const shoved = stepSupportedLocomotionState(rising, boundary({ recoverRequested: true,
-    authoredShoves: [{ horizontalShoveNs: [V1.FALL_SPECIFIC_IMPULSE_MPS, 0] }] }));
+    authoredShoves: [{ horizontalShoveNs: [V1.FALL_SPECIFIC_IMPULSE_MPS, 0] }], hitInterrupted: true }));
   assert.equal(shoved.state, "fallen");
   assert.equal(shoved.driveStaged, false);
+});
+
+test("the_decaying_fall_ledger_does_not_impersonate_a_fresh_hit_during_rising", () => {
+  const rising = state({ state: "rising", fallenElapsedS: V1.FALLEN_DWELL_S,
+    risingElapsedS: 0.1, driveStaged: true, specificImpulseMps: V1.FALL_SPECIFIC_IMPULSE_MPS * 2 });
+  const result = stepSupportedLocomotionState(rising,
+    boundary({ recoverRequested: true, hitInterrupted: false }));
+  assert.equal(result.state, "rising");
+  assert.equal(result.driveStaged, true);
+});
+
+test("zero_authored_shove_is_not_a_hit_and_cannot_interrupt_rising", () => {
+  const rising = state({ state: "rising", fallenElapsedS: V1.FALLEN_DWELL_S,
+    risingElapsedS: 0.1, driveStaged: true });
+  const result = stepSupportedLocomotionState(rising, boundary({ recoverRequested: true,
+    authoredShoves: [{ horizontalShoveNs: [0, 0] }], hitInterrupted: false }));
+  assert.equal(result.state, "rising");
+  assert.equal(result.driveStaged, true);
 });
 
 test("rising_duration_is_bracketed_on_both_sides_of_the_frozen_boundary", () => {

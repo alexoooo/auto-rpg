@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { assertWarriorWarriorLocomotionCorpus,
+  runWarriorMovementRecoveryCell,
   runWarriorWarriorLocomotionCorpus } from "../scripts/warrior-warrior-locomotion.mjs";
 
 test("Warrior_and_Warrior_close_and_retreat_without_a_clinch_heap_or_air_walk", async () => {
@@ -35,4 +36,22 @@ test("Warrior_and_Warrior_close_and_retreat_without_a_clinch_heap_or_air_walk", 
   duplicate.cells[1] = structuredClone(duplicate.cells[0]);
   assert.throws(() => assertWarriorWarriorLocomotionCorpus(duplicate),
     /exact two-cell matrix changed/);
+});
+
+test("Warrior_movement_intent_survives_fallen_STOP_and_completes_physical_recovery", async () => {
+  for (const activeSide of ["left", "right"]) {
+    const cell = await runWarriorMovementRecoveryCell(activeSide);
+    const states = cell.samples.map((sample) => sample[activeSide].locomotion.state);
+    const fallen = states.indexOf("fallen");
+    const rising = states.indexOf("rising", fallen + 1);
+    const recovered = states.indexOf("supported", rising + 1);
+    assert.ok(fallen >= 0 && rising > fallen && recovered > rising,
+      `${activeSide} movement recovery never completed: ${[...new Set(states)]}`);
+    assert.equal(cell.stabilityShoves.length, 1);
+    assert.equal(cell.samples.slice(fallen, rising).some((sample) => {
+      const request = sample[activeSide].locomotion.requested;
+      return request && Math.max(Math.abs(request.localForward), Math.abs(request.localRight),
+        Math.abs(request.yaw)) > 0;
+    }), true, `${activeSide} fixture did not retain deliberate movement while fallen`);
+  }
 });

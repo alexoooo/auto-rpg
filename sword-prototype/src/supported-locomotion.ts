@@ -1,5 +1,6 @@
 /** The complete public movement command. It carries no physics or topology authority. */
 export * from "./supported-locomotion-state.ts";
+import type { SupportState } from "./supported-locomotion-state.ts";
 
 export interface LocomotionRequest {
   readonly localForward: number;
@@ -23,6 +24,8 @@ export interface LocomotionResolution {
 }
 
 export interface SupportedLocomotionPort {
+  /** Physical ports publish support state; command-only and legacy ports leave it unknown. */
+  readonly state?: SupportState;
   beginControlStep(): void;
   request(value: LocomotionRequest): void;
   sample(): SupportedLocomotionSample;

@@ -30,7 +30,7 @@ import { LiveConstructState } from "./live-state.ts";
 import { ConstructDamageTargets, moduleAtContact } from "./damage-target.ts";
 import { humanoidProfileMetrics } from "./humanoid.ts";
 import { twinbladeProfileMetrics } from "./twinblade.ts";
-import { arbalestProfileMetrics } from "./arbalest.ts";
+import { ARBALEST_TACTICS, arbalestProfileMetrics } from "./arbalest.ts";
 import { deriveLocomotionAuthority, resolveSupportCarrier, resolveSupportCarrierSet, supportCarrierIsLive,
   type ResolvedSupportCarrier } from "./assisted-locomotion.ts";
 import { supportedLocomotionControllerDescriptor } from "./controllers.ts";
@@ -447,6 +447,7 @@ export class Construct implements Combatant {
     const facts: Record<string, number | boolean> = Object.fromEntries(this.sensorSpecs.map((sensor) =>
       [sensor.id, sensor.unit === "boolean" ? false : 0]));
     const opponentCentre = opponent.centre();
+    const opponentSupportState = opponent.locomotion?.state ?? null;
     const elapsed = this.previousOpponentClock === null ? 0 : _clock - this.previousOpponentClock;
     if (elapsed > 0) opponentCentre.subtractToRef(this.previousOpponent, this.opponentVelocity).scaleInPlace(1 / elapsed);
     else this.opponentVelocity.setAll(0);
@@ -484,6 +485,14 @@ export class Construct implements Combatant {
       "core-pitch-rad": coreEuler.x,
       "opponent-range": Vector3.Distance(this.centre(), opponentCentre),
       "opponent-relative-speed": relativeSpeed,
+      // This is the opponent's public locomotion state, not a pose guess from its render nodes.
+      // Legacy bodies have no assisted state and retain their historical always-upright reading.
+      "opponent-upright": opponent.alive && (opponent.locomotion === null ||
+        opponent.locomotion === undefined || opponent.locomotion.state === "supported" ||
+        opponent.locomotion.state === "staggered"),
+      // A fragile launcher can time a follow-up against the bounded rise without wasting its
+      // finite magazine on a prone body. Ordinary hardware waits until support is restored.
+      "opponent-rising": opponentSupportState === "rising",
       "line-of-sight": lineOfSight,
       "launcher-clear": launcherClear,
       "opponent-local-x": this.localOpponent.x,
@@ -507,6 +516,13 @@ export class Construct implements Combatant {
       "opponent-blocker-local-x": this.localBlocker.x,
       "opponent-blocker-local-y": this.localBlocker.y,
       "opponent-blocker-local-z": this.localBlocker.z,
+      // The sight publishes a live geometric target; the Mind still decides whether and when
+      // to fire. Keeping this out of Action parameters lets the generic tracker follow motion
+      // without turning an ordinary buckler centre-crossing into a scheduler cancellation.
+      "opponent-aim-local-x": this.localOpponent.x + (blocker.found
+        ? (this.localBlocker.x >= this.localOpponent.x
+          ? -ARBALEST_TACTICS.blockerClearanceM : ARBALEST_TACTICS.blockerClearanceM)
+        : 0),
       "opponent-weapon-present": weapon !== undefined,
       "opponent-weapon-local-x": this.localWeapon.x,
       "opponent-weapon-local-y": this.localWeapon.y,
@@ -535,6 +551,9 @@ export class Construct implements Combatant {
     }
     for (const module of this.runtime.blueprint.modules) {
       facts[`module-health-${module.id}`] = this.state.moduleHealth(module.id) / module.health;
+      // Normalized remaining health answers damage; authored Minds that deliberately change their
+      // durability need the saved capacity as a separate fact rather than comparing unlike units.
+      facts[`module-max-health-${module.id}`] = module.health;
     }
     for (const joint of this.runtime.joints.values()) {
       facts[`joint-live-${joint.spec.id}`] = hardware.joints.has(joint.spec.id);

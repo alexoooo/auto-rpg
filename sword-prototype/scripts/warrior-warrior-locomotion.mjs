@@ -85,7 +85,7 @@ const maximumFreshGapS = (samples, side) => {
   return longest / WARRIOR_WARRIOR_LOCOMOTION_V1.physicsHz;
 };
 
-async function runCell(activeSide) {
+async function runCell(activeSide, stabilityShoves = Object.freeze([])) {
   const arena = await createConstructHeadlessArena();
   const materials = materialsFor(arena.scene);
   const definition = unitDefinition("warrior");
@@ -110,6 +110,11 @@ async function runCell(activeSide) {
 
     const samples = [];
     for (let step = 0; step < WARRIOR_WARRIOR_LOCOMOTION_V1.steps; step += 1) {
+      for (const shove of stabilityShoves) {
+        if (shove.atStep === step) activeSide === "left"
+          ? left.queueStabilityEvent({ horizontalShoveNs: shove.horizontalShoveNs })
+          : right.queueStabilityEvent({ horizontalShoveNs: shove.horizontalShoveNs });
+      }
       const first = activeSide === "left" ? left : right;
       const second = activeSide === "left" ? right : left;
       stepPair(first, second, FIXED, leftCombat.now);
@@ -122,7 +127,9 @@ async function runCell(activeSide) {
         return Object.freeze({ state: diagnostic.state.state, liveSupport: diagnostic.liveSupport,
           postureSupported: diagnostic.postureSupported,
           freshSupportBindings: diagnostic.freshSupportBindings,
-          requested: diagnostic.requested, allowed: diagnostic.allowed });
+          requested: diagnostic.requested, allowed: diagnostic.allowed,
+          blockedReason: diagnostic.blockedReason, releaseReason: diagnostic.releaseReason,
+          recoveryProgress: diagnostic.recoveryProgress });
       };
       samples.push(Object.freeze({ step, separationM: separation(left, right),
         left: Object.freeze({ posture: posture(left), locomotion: locomotion(left),
@@ -138,6 +145,8 @@ async function runCell(activeSide) {
     return Object.freeze({ id: `warrior-warrior-active-${activeSide}`,
       activeSide, schedulerOrder: activeSide === "left" ? "left-then-right" : "right-then-left",
       physics: "real-havok-fixed-240hz", footprintSeparationM: footprintRadiusM * 2,
+      stabilityShoves: Object.freeze(stabilityShoves.map((shove) => Object.freeze({
+        atStep: shove.atStep, horizontalShoveNs: Object.freeze([...shove.horizontalShoveNs]) }))),
       combatEvents: Object.freeze(combatEvents.map(({ side, event }) => Object.freeze({ side,
         damage: event.report.damage, atS: event.report.at, kind: event.report.kind }))),
       samples: Object.freeze(samples), summary: Object.freeze({
@@ -155,6 +164,19 @@ async function runCell(activeSide) {
     leftCombat?.dispose(); rightCombat?.dispose();
     left.dispose(); right.dispose(); materials.owner.dispose(false, false); arena.dispose();
   }
+}
+
+/** A real Fighter adapter cell: deliberate movement must become a rise request after knockdown. */
+export async function runWarriorMovementRecoveryCell(activeSide = "left") {
+  if (activeSide !== "left" && activeSide !== "right") {
+    throw new Error(`Warrior recovery activeSide must be left or right, got ${JSON.stringify(activeSide)}`);
+  }
+  return runCell(activeSide, Object.freeze([
+    // Just beyond the Fighter's mass-scaled fall threshold. A 12 N s fixture keeps residual
+    // stability above the rising threshold for almost five seconds and tests repeated refusal,
+    // not whether deliberate movement can complete an otherwise eligible recovery.
+    Object.freeze({ atStep: 48, horizontalShoveNs: Object.freeze([1.8, 0]) }),
+  ]));
 }
 
 export async function runWarriorWarriorLocomotionCorpus() {

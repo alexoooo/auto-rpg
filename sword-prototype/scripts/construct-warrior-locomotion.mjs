@@ -147,9 +147,16 @@ function physicalCell(chassis, constructSide, mode, saved, bout) {
   if (mode === "no-attack" && !(closureM >= CONSTRUCT_WARRIOR_LOCOMOTION_V1.minimumClosureM)) {
     failures.push(`closure was only ${round(closureM)} m`);
   }
-  if (!(bout.minimumRangeM >= footprintSeparationM -
-      CONSTRUCT_WARRIOR_LOCOMOTION_V1.maximumFootprintPenetrationM)) {
-    failures.push(`minimum range ${round(bout.minimumRangeM)} m penetrated the declared footprints`);
+  const releasedByCombat = mode === "combat" && (constructReleasedByCombat || warriorReleasedByCombat);
+  const separationFloor = footprintSeparationM -
+    CONSTRUCT_WARRIOR_LOCOMOTION_V1.maximumFootprintPenetrationM;
+  // A fallen carrier deliberately stops blocking its opponent, so ragdoll anatomy may cross the
+  // carrier discs during an authored knockdown. Judge the retained separation there after both
+  // bodies have had their recovery opportunity; attack-free and never-released cells still pin
+  // the whole-stream minimum.
+  const separationM = releasedByCombat ? bout.locomotion.finalRangeM : bout.minimumRangeM;
+  if (!(separationM >= separationFloor)) {
+    failures.push(`${releasedByCombat ? "final" : "minimum"} range ${round(separationM)} m penetrated the declared footprints`);
   }
   if (mode === "combat" && !(combat.constructContacts + combat.warriorContacts > 0)) {
     failures.push("the real-combat cell produced no physical weapon contact");
@@ -286,9 +293,12 @@ export function assertConstructWarriorLocomotionCorpus(report) {
       (cell.mode === "no-attack" && closureM < CONSTRUCT_WARRIOR_LOCOMOTION_V1.minimumClosureM)) {
       prefix("closure evidence was below or contradicted the threshold");
     }
-    if (!Number.isFinite(cell.range.minimumM) ||
-        cell.range.minimumM < cell.range.footprintSeparationM - cell.range.maximumAllowedPenetrationM) {
-      prefix("retained minimum range penetrated the declared footprints");
+    const releasedByCombat = cell.mode === "combat" &&
+      (cell.constructReleasedByCombat || cell.warriorReleasedByCombat);
+    const separationM = releasedByCombat ? cell.range.finalM : cell.range.minimumM;
+    if (!Number.isFinite(separationM) ||
+        separationM < cell.range.footprintSeparationM - cell.range.maximumAllowedPenetrationM) {
+      prefix(`retained ${releasedByCombat ? "final" : "minimum"} range penetrated the declared footprints`);
     }
     const constructPosture = cell.posture.constructFirstLossS === null &&
       cell.posture.constructMinimumRootUp > cell.posture.thresholds.minimumRootUp &&

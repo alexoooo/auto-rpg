@@ -1,17 +1,18 @@
 # Session 24 -- expose damaged-limb locomotion and retune the machines
 
-## Status -- technical implementation and evidence complete; human verdict remains (2026-08-30)
+## Status -- technical implementation and recovery-aware evidence complete; human verdict remains (2026-08-31)
 
 Humanoid full/left-limp/right-limp Actions, assisted Warden selection, descriptor-driven Forge
 choices, immutable Arena/Probe diagnostics, assisted Arbalest qualifier v2 and Swordbearer recovery
-are implemented. At the committed x0.10 durability the Arbalest idle body dies 7/8, while active
-wins and exactly qualifies 8/8 across both mirrors (left 4, right 4). The x0.05 active regression
-to 7/8 and x0.02 recovery to 8/8 keep this an explicitly non-monotonic ladder, not permission to
-skip the one right-side idle targeting debt. The assisted Twinblade rerun remains 0/8 active and
+are implemented. The recovery correction now lets the Warrior complete a physical rise after the
+first full-health Arbalest knockdown. At committed x0.10 durability the identical idle body dies 7/8, while
+the recovery-aware active Mind wins and exactly qualifies 8/8 across both mirrors (left 4, right 4)
+with unchanged projectile hardware; its rise-timed fragile-pressure mode, blocker-relative aim and
+1.90 m retreat boundary keep damaging shots on live assisted support. The assisted Twinblade rerun remains 0/8 active and
 its best idle rung is 7/8. Exact-fresh Warden crawl authority, the Forge-authored save/reload
 Probe/Fight path and frozen raw/assisted recovery A/B are physical and mutation-proven. The
 physical fallback/obstacle corpus is complete; a fresh
-assisted-Warden qualification at source `22c8d82f` was run with eight workers and rejected rather
+assisted-Warden qualification at source `bd7b37f8` was run with eight workers and rejected rather
 than laundered: all eight rows time-capped, one lacked bilateral damage and all eight missed the
 required move/brace Actions. That negative satisfies this session's fail-closed handoff. This plan
 remains only because the topic is not deleted until Session 16's human verdict and Session 18's

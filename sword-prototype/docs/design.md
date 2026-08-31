@@ -1652,7 +1652,17 @@ launcher fed by a finite torso magazine; its real four-joint left arm carries th
 sword module used by Swordbearer. Launcher tracking, left-sword guard, biped brace and central
 posture occupy disjoint control groups and therefore run concurrently through the ordinary
 scheduler. The Mind requests fire only when declared reload and ammunition telemetry permit it,
-but continues tracking through reload. This is intentional body/Mind co-design: idle and active
+but continues tracking through reload. Its sight also observes the opponent's public support state,
+saved launcher health capacity and a live blocker-relative aim lane. A launcher with ordinary
+health waits through fallen and rising, so its opponent can finish a real recovery before the next
+shot. The deliberately fragile x0.10 balance body instead fires during the bounded rise, but still
+does not waste its finite magazine on a prone body. Saved capacity is a separate fact from normalized
+remaining health; confusing those units made the fragile branch always true in the rejected version.
+Its 1.90 m retreat boundary is the narrow corpus-qualified correction for keeping damaging shots on
+live assisted support. Blocker-relative aim compares the blocker with the opponent's centre, adds a
+0.07 m open-side lane and uses a measured -0.05 m vertical trim. It is a live
+mount fact rather than a changing Action parameter, so a buckler crossing centre cannot cancel and
+restart an admitted draw. This is intentional body/Mind co-design: idle and active
 comparisons share the exact launcher, sword, body and control graph, while only active requests the
 guard and fire Actions.
 
@@ -1664,7 +1674,11 @@ recyclable physics bodies, not shots: every successful Construct loose receives 
 unique serial that is carried by its start/completion lifecycle and physical contact. Later fire
 lifecycles must also begin after the prior loose's declared reload interval. A visible guard
 sword cannot substitute for a visible launcher, and a sword-assisted raw win is qualified only
-when the arrow owns the fatal transition. The durability corpus and earned thresholds are recorded
+when the arrow owns the fatal transition. Assisted v2 requires exact fresh feet when fire begins and
+completes. At the later physical impact it accepts the support machine's declared live grace interval,
+but still requires supported/staggered state, authority, posture, standing combat evidence and visible
+mounted threat; an AI cannot know which foot contact a projectile will have several boundaries in the
+future. The durability corpus and earned thresholds are recorded
 in `docs/measurements.md`; they are balance evidence, not new blueprint semantics.
 
 ## Construct capabilities, resources and Minds
@@ -1776,7 +1790,13 @@ standable contact for more than 0.10 s, losing the declared chain/posture, or ex
 specific-impulse threshold releases assisted anatomy to an ordinary dynamic ragdoll. A Fighter asks
 to rise with deliberate movement; a Construct must run its public recover Action. The 0.45 s rise
 is occupancy-checked and interruption-sensitive on every boundary. Fallen and dead bodies receive
-no carrier drive.
+no carrier drive. Fighter movement remains a recovery request throughout both fallen and rising;
+its fencing motors are neutral during that interval, the pelvis follows an acceleration-bounded
+orientation path, and reattachment clears residual limb velocity once. The decaying stability
+ledger explains the prior fall but does not impersonate a new hit after rising begins; a fresh
+nonzero authored shove still aborts at the next safe boundary. A zero-magnitude authored
+contact is not an interruption, and standable support must be within the terminal's step-height
+envelope rather than merely sharing its horizontal projection.
 
 The original plan required a continuously DYNAMIC supported root. A real 240 Hz bracket rejected
 that premise: both the humanoid Construct and Warrior lost physical foot evidence inside the exact

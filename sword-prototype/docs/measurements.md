@@ -7583,7 +7583,8 @@ The canonical physical corpus is `scripts/construct-warrior-locomotion.mjs`. It 
 Warrior/Warrior scheduler mirrors, four 0.90 m movement/recovery cells, five ledge/slope/snag/
 occupied-recovery cells and three held-wall/hit-interrupt cells. The accepted report had 26/26
 qualified, zero owed, minimum mixed-cell closure 0.982850788 m, minimum mixed-cell range
-0.821477391 m and 932.418017 total mixed-cell damage after the retained outside-feint repair. Each
+0.823019030 m and 1832.362643 total mixed-cell damage after the retained outside-feint and recovery
+repairs. Each
 companion validator pins its matrix and
 thresholds against code-owned constants and recomputes summaries from retained physical rows; a
 report cannot remove an obstacle, duplicate a scheduler mirror or lower its own closure threshold.
@@ -7594,8 +7595,11 @@ physical release.
 
 The first assisted Arbalest v2 rerun uses qualifier `arbalest-assisted-support-v2`. Unlike the
 historical v1 row, it retains every support boundary and requires supported mode, live authority,
-valid posture and fresh physical foot evidence at fire start, completion and the damaging/fatal
-arrow. A recycled projectile suffix still needs a unique monotonically increasing loose serial.
+valid posture and fresh physical foot evidence at fire start and completion. At damaging/fatal
+impact it retains the support machine's live grace rather than requiring an unknowable future
+current-foot sample, while still requiring supported/staggered state, authority, posture, standing
+combat evidence and mounted-threat perception. A recycled projectile suffix still needs a unique
+monotonically increasing loose serial.
 
 | durability | body digest | idle Warrior kills | raw / qualified active wins | qualified left / right | active survivals | upright-damage cells | active damage |
 | ---: | :--- | ---: | :---: | :---: | ---: | ---: | ---: |
@@ -7620,6 +7624,45 @@ against both feet are predominantly weak and deal zero damage through the 30-sec
 health cannot repair that targeting geometry, and declaring an arbitrary foot fatal would launder
 the result. The explicit 7/8 idle floor therefore retains one combat-targeting/functional-defeat
 debt while the exact 8/8 active qualifier proves the supported AI, arrow and fatal-transition path.
+
+### Recovery-aware Warrior and Arbalest correction -- 2026-08-31
+
+The visible sword-and-buckler Warrior did have the supported port, but three adapter defects made
+that claim false in combat. Fallen STOP erased the deliberate movement that requested recovery;
+the first rising boundary then dropped the request; and the Fighter had no bounded root path back
+to its carrier. The corrected adapter retains the request through rising, neutralizes fencing
+motors during recovery, slerps the pelvis through the bounded 0.45-second path and clears residual
+part velocity once at reattachment. Support queries now reject a terminal farther than the 0.18 m
+step envelope from the reported plane. Zero N s contact rows do not interrupt recovery.
+
+The representative full-health real-Havok bout (curriculum seed `4140987459`, Construct left,
+30-second cap) records Warrior `fallen` at 0.208333 s, `rising` at 0.558333 s and restored
+`supported` at 1.012500 s. No second draw starts inside that interval; fire resumes at 1.116667 s.
+The low-health pinned regression uses seed `4140987459`, x0.10 durability and the left mirror. At
+that durability launcher health is 9, so the Mind enters its declared fragile-pressure mode rather
+than waiting exposed for a recovery; the full-health recovery cell and fragile balance corpus are
+separate claims.
+
+A purely upright gate was rejected at 0/8 active wins before Fighter recovery was repaired, while
+an always-on low-health test was later found to compare normalized health with raw health 9. The
+accepted Mind reads saved launcher capacity, fires fragile follow-ups during `rising`, and never
+spends on a merely fallen target. It chooses a live 0.07 m lane opposite the blocker relative to
+the opponent's centre, adds a measured -0.05 m vertical trim and publishes the resulting local-x
+target as a sight fact; keeping it out of Action parameters removed centre-crossing draw cancellation.
+The official 30-second x0.10 curriculum then passed exactly:
+
+| body/program/control digest | idle Warrior kills | raw / qualified active wins | qualified left / right | active survivals | active damage |
+| :--- | ---: | :---: | :---: | ---: | ---: |
+| `15221014` / `6c7419a1` / `0f542c4c` | 7/8 | 8 / 8 | 4 / 4 | 8/8 | 2194.206977 |
+
+Projectile mass, 42 m/s launch speed, 1.15 damage scale and 0.65-second reload did not move. The
+balance gain is observed state, capacity-aware pressure and mirror-correct
+targeting, not more health, damage or cadence. The last unsupported damaging-arrow mirror at the
+old 1.80 m retreat boundary passed at 1.90 m; 2.00 and 2.20 m introduced new posture/contact timing
+failures, while 2.40 m happened to pass that single cell and was rejected as the broader change.
+The retained 1.90 m boundary qualified all eight pinned active cells. This preserves the measured
+7/8 idle floor while superseding the fixed-lane targeting debt immediately above; the older ladder
+remains as the before-measurement rather than being rewritten.
 
 The supported Twinblade rerun remains red and is distinct from its historical raw-gait ratchet.
 Its idle ladder at the same five rungs is 2, 4, 6, 7 and 6 Warrior kills out of eight. At the
@@ -7646,14 +7689,21 @@ admission below 2.55 m keep the canonical +0.45 m lane. This produced 52.357646/
 minimum ranges 1.080848/0.866331 m and full recovery left/right. The nearest wall admission is
 2.21 m, so the exact three-cell boundary corpus remains on its prior path and passes unchanged.
 
-The assisted Warden keeps raw control available for A/B. Its physical longitudinal and lateral
-450 N s falls leave the raw gait fallen, while the separately selected assisted gait reaches
+The assisted Warden keeps raw control available for A/B. Its physical 450 N s longitudinal and
+600 N s lateral falls leave the raw gait fallen, while the separately selected assisted gait reaches
 fallen -> rising -> supported in both directions. The result establishes technical recovery, not a
 human verdict on whether the gait looks good. The validator freezes all four mode x axis rows:
 both raw rows must retain `legacy`, no recovered transition, no settled recovery and a false final
 upright fact; both assisted rows must finish supported and upright after a settled recovery. Its
 mutation check turns one raw recovery true and one assisted final-upright fact false, and rejects
 both forged reports.
+
+The lateral impulse was raised from 450 to 600 N s after the recovery correction stopped treating
+the old decaying stability ledger as a fresh hit. At 450 N s the assisted carrier began its bounded
+rise before lateral root-up crossed the physical-fall threshold; 600 N s crosses it before recovery.
+The longitudinal fixture remains 450 N s because 600 N s made the raw body rebound through one
+upright sample and left the assisted body obstructed. The axis-specific pair is a fixture bracket,
+not a claim that the directions have equal tipping leverage.
 
 Four assisted crawl Actions name each exact three-of-four support set. Capability, scheduler,
 array-order, Mind selection and all four missing-limb capability permutations are green. The real
@@ -7716,12 +7766,12 @@ test failed with actual `supported` versus expected `staggered`, then passed aft
 
 ### Fresh assisted-Warden entry qualification -- rejected
 
-After the supported runtime, exact-fresh fallback gate, Forge physical path and canonical corpus
-stopped moving, `npm run construct:qualify -- --out
-.tools/construct-qualify-session24-final-audit-20260830 --workers 8 --expect recorded` ran the exact
+After the Fighter recovery and Arbalest tactics correction, `npm run construct:qualify -- --out
+.tools/construct-qualification-2026-08-31-recovery-ai-final --workers 8 --expect recorded` reran the exact
 four-seed mirrored Warden entry corpus. Its identity is schedule `9a1e5a6b`, source/environment
-`22c8d82f` and run `f20c3f18`. Eight workers completed in 25.606 seconds at 8.43 aggregate CPU
-cores and 3,087,147,008 peak RSS bytes.
+`bd7b37f8` and run `f20c3f18`. Eight workers completed in 26.348 seconds at 8.52 aggregate CPU
+cores and 3,294,187,520 peak RSS bytes. This supersedes source `22c8d82f`; the unchanged run digest
+is measured parity, not an assumption that unrelated Arbalest/Fighter edits could not reach it.
 
 The result is rejected. Seven of eight rows dealt bilateral physical damage, all eight reached the
 time cap, and the observed Action set was only `cover`, `fire` and `recover`: every row lacked the
@@ -7730,11 +7780,12 @@ capability disappearances and zero stuck physics steps. This is not the old raw-
 copied onto a new body. It is a fresh assisted-runtime result, and the entry gate pins its exact
 source/run identity while remaining false.
 
-The same final source passed research preflight `2f9d6462` and balance contract `48c3236c`. Its
+The immediately prior source passed research preflight `2f9d6462` and balance contract `48c3236c`. Its
 mandatory `duelist-swinger` null control at 120 bouts and seed 20260823 remained byte-for-measurement
 identical to the frozen baseline: Duelist 66/120 (55.0%), Swinger 54/120, zero draws, median bout
 3.52 s (1.42--8.98), Duelist/Swinger mean damage 176.17/179.97, ten Duelist severs and 1496/1670
-scoring contacts. Supported locomotion therefore did not silently move the legacy matchup.
+scoring contacts. The 2026-08-31 source has not resumed the compute roadmap; its preflight/null
+control remains required before that resume rather than being relabelled by the Warden parity run.
 
 Still owed, by name: improving the rejected assisted-Warden qualification; the Arbalest's one right-side
 idle targeting debt; and the red Twinblade balance curriculum. These are not skipped green cells.

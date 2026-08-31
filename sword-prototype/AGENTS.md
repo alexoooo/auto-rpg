@@ -733,6 +733,13 @@ boundary is instead pair-atomic footprint resolution, real limb/contact authoriz
 stability release, no drive while fallen/dead, and occupancy/hit-gated recovery. The durable
 argument is in `docs/design.md`; the before/after numbers are in `docs/measurements.md`.
 
+**A Fighter recovery request must survive the rising interval.** Fallen locomotion deliberately
+zeros translation, so deriving `recover` from that stopped request traps the body forever; clearing
+the bit on the first rising row cancels the actuator one boundary later. Preserve deliberate input
+as the request through both states, neutralize ordinary fencing motors while the bounded root path
+owns the body, and clear residual limb velocity once at reattachment. A support hit whose x/z lies
+under a foot is not contact unless its y lies within the declared step-height envelope.
+
 **A support query unit test is not a physical obstacle corpus.** A fake root that records bounded
 forces can prove a clamp or slope predicate. It cannot prove held-weapon wall speed, joint-frame
 error, Havok penetration or recovery around real combat geometry. Keep those unit tests, but name

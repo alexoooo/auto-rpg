@@ -272,7 +272,7 @@ test("an_admitted_rise_may_lift_its_planting_terminal_but_still_aborts_on_lost_l
 
 test("assisted_Warden_lateral_recovery_is_measured_beside_the_retained_raw_gait", { timeout: 120_000 }, async () => {
   const evidence = assertWardenRecoveryABEvidence(await measureWardenRecoveryAB());
-  assert.equal(evidence.impulseNs, 450);
+  assert.deepEqual(evidence.impulseNsByAxis, { longitudinal: 450, lateral: 600 });
   assert.deepEqual(evidence.cells.map(({ mode, axis }) => `${mode}/${axis}`), [
     "raw/longitudinal", "raw/lateral", "assisted/longitudinal", "assisted/lateral",
   ]);

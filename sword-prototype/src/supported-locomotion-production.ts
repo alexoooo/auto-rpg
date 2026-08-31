@@ -206,7 +206,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       recoverRequested: priorRequest?.recover === true || (this.supportState.state === "fallen" &&
         priorRequest !== null && Math.max(Math.abs(priorRequest.localForward),
           Math.abs(priorRequest.localRight), Math.abs(priorRequest.yaw)) > 0),
-      occupancyClear, hitInterrupted: shoves.length > 0,
+      occupancyClear, hitInterrupted: shoves.some(({ horizontalShoveNs: [x, z] }) => Math.hypot(x, z) > 0),
     });
     if (this.supportState.state === "fallen") {
       if (priorState !== "fallen") {

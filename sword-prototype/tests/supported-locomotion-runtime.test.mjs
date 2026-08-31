@@ -131,7 +131,7 @@ test("the_world_query_excludes_every_owner_part_and_still_finds_standable_world"
   registry.register(collider("fifty-degree", "standable-world", { normal:
     [Math.sin(50 * Math.PI / 180), Math.cos(50 * Math.PI / 180), 0], support: () =>
       hit("fifty-degree", 0, [Math.sin(50 * Math.PI / 180), Math.cos(50 * Math.PI / 180), 0]) }));
-  const evidence = registry.supportEvidence(point(0, 0.9, 0), footprint(),
+  const evidence = registry.supportEvidence(point(0, 0.1, 0), footprint(),
     new Set(["root", "torso", "head", "left-foot", "right-foot"]), "left-foot", 8);
   assert.deepEqual(evidence.map(({ contactedOwner }) => contactedOwner), ["floor"]);
   assert.equal(evidence[0].safeBoundarySequence, 8);
@@ -139,6 +139,10 @@ test("the_world_query_excludes_every_owner_part_and_still_finds_standable_world"
   assert.equal(footprint().stepHeightM, 0.18);
   assert.equal(footprint().maxSlopeDeg, 35);
   assert.equal(SUPPORTED_CARRIER_V1.REFUSAL_SLOPE_DEG, 50);
+  assert.deepEqual(registry.supportEvidence(point(0, footprint().stepHeightM + 0.001, 0), footprint(),
+    new Set(), "left-foot", 9), [], "a terminal above the step-height envelope is not planted");
+  assert.deepEqual(registry.supportEvidence(point(0, -footprint().stepHeightM - 0.001, 0), footprint(),
+    new Set(), "left-foot", 10), [], "a terminal below the step-height envelope is not planted");
 });
 
 test("pair_resolution_finds_the_opponent_footprint_without_query_geometry", () => {

@@ -28,8 +28,9 @@ const geometry = (id: string, shape: ModuleGeometrySpec["shape"],
  * The 2.4 kg magazine is twelve 0.12 kg bolts plus a 0.96 kg torso carrier. The
  * 0.65 s reload and the bolt's mass, dimensions and 42 m/s launch speed are the
  * existing Warden projectile contract; only the compact 3.2 kg hand-mount and
- * twelve-round carrier are new chassis choices. Pool size is recycling capacity,
- * not ammunition. Damage remains the ordinary construct projectile scale.
+ * twelve-round carrier are new chassis choices. Combat pacing belongs to the Mind:
+ * it does not begin a new shot at an already fallen opponent. Pool size is recycling
+ * capacity, not ammunition. Damage remains the ordinary construct projectile scale.
  */
 export const ARBALEST_HARDWARE = Object.freeze({
   launcherMassKg: 3.2,
@@ -50,21 +51,35 @@ export const ARBALEST_HISTORICAL_QUALIFIER_ID = "arbalest-fatal-arrow-v1";
 export const ARBALEST_ASSISTED_QUALIFIER_ID = "arbalest-assisted-support-v2";
 
 /**
- * The 2026-08-29 x0.10 mirrored sweep retained only these tactical choices.
- * Continuous reload tracking moved the second release from 1.10--1.22 s to
- * 0.7625 s. The fixed -0.10 m lane produced 2/8 raw wins; fixed negative
- * 0.06, 0.12, 0.15 and 0.20 m magnitudes produced 1, 0, 0 and 0. A
- * blocker-side switching rule was also rejected at 1/8: the shield crosses the
- * root-local centre during a clinch, so switching lanes destabilized reacquisition.
+ * The 2026-08-29 x0.10 mirrored sweep retained the fixed -0.10 m lane: it produced
+ * 2/8 raw wins where fixed negative 0.06, 0.12, 0.15 and 0.20 m magnitudes produced
+ * 1, 0, 0 and 0. A 2026-08-30 recovery-aware cadence sweep found no hardware-only
+ * compromise: 0.72/0.80/0.88 s won the first 4/4 with zero Warrior recoveries;
+ * 0.96 s recovered 4/4 and won 0/4; 0.90 s centre aim passed that half-corpus but
+ * fell to 3/8 qualified on the full mirrors. The Mind therefore retains proven
+ * hardware cadence. The recovery-aware 2026-08-31 sweep instead selects the lane opposite the
+ * blocker relative to the opponent's centre and uses 0.07 m, with a -0.05 m vertical trim. That
+ * live sight fact feeds the mount without changing Action parameters mid-draw. The same corpus
+ * rejected both the old
+ * 1.80 m retreat boundary (one damaging arrow landed after support was lost) and wider guesses:
+ * 2.00 and 2.20 m introduced new contact/posture timing failures, while 2.40 m happened to pass
+ * only that single cell. The narrower 1.90 m correction qualified all eight mirrors. Fragile
+ * hardware spends follow-up shots during the bounded rise rather than wasting them on a prone body.
  */
-export const ARBALEST_TACTICS = Object.freeze({ blockerClearanceM: 0.10 });
-export const ARBALEST_LOCOMOTION = Object.freeze({ retreatBelowM: 1.80, closeAtM: 6.00 });
+export const ARBALEST_TACTICS = Object.freeze({ blockerClearanceM: 0.07,
+  targetHeightOffsetM: -0.05, reacquireAfterReloadS: 0.10, desperateLauncherHealth: 9 });
+export const ARBALEST_LOCOMOTION = Object.freeze({ retreatBelowM: 1.90, closeAtM: 6.00 });
 export const ARBALEST_LEFT_SWORD_GUARD = Object.freeze({
   shoulder: -0.35, elbow: -0.65, wrist: 0.35, palm: -0.15,
 });
 
-export const ARBALEST_SENSORS: readonly SensorSpec[] = Object.freeze(HUMANOID_SENSORS
-  .map((sensor) => Object.freeze({ ...sensor })));
+export const ARBALEST_SENSORS: readonly SensorSpec[] = Object.freeze([
+  ...HUMANOID_SENSORS.map((sensor) => Object.freeze({ ...sensor })),
+  Object.freeze({ id: "opponent-upright", unit: "boolean", source: "opponent" } as const),
+  Object.freeze({ id: "opponent-rising", unit: "boolean", source: "opponent" } as const),
+  Object.freeze({ id: "opponent-aim-local-x", unit: "metres", source: "opponent" } as const),
+  Object.freeze({ id: "module-max-health-effigy-arbalest", unit: "scalar", source: "self" } as const),
+]);
 
 const TARGET_HEIGHT_PARAMETER = Object.freeze({ kind: "number" as const,
   min: -0.5, max: 0.75, unit: "metres" as const });
@@ -104,7 +119,8 @@ export function arbalestBlueprint(): ConstructBlueprint {
   const ordinarySword = base.modules.find(({ id }) => id === "effigy-sword");
   if (!ordinarySword) throw new Error("Arbalest requires the humanoid's ordinary sword module");
   const modules = base.modules.filter(({ id }) => id !== "effigy-sword").map((module) =>
-    module.id === sight?.id ? { ...module, sensorChannels: ARBALEST_SENSORS.map(({ id }) => id) } : module);
+    module.id === sight?.id ? { ...module, sensorChannels: ARBALEST_SENSORS.map(({ id }) => id)
+      .filter((id) => !id.startsWith("contact-") && !id.startsWith("slip-")) } : module);
   return validateBlueprint({ ...base, id: "arbalest-effigy",
     sockets: [...base.sockets,
       { id: "socket-arbalest-magazine", part: "torso",
@@ -156,9 +172,9 @@ const active = (action: string) => Object.freeze({ op: "active" as const, action
 
 export function arbalestProgram(): ConstructProgram {
   const targetHeightOffset = Object.freeze({ kind: "expression" as const,
-    value: Object.freeze({ ...constant(0), unit: "metres" as const }) });
+    value: Object.freeze({ ...constant(ARBALEST_TACTICS.targetHeightOffsetM), unit: "metres" as const }) });
   const targetLateralOffset = Object.freeze({ kind: "expression" as const,
-    value: Object.freeze({ ...constant(-ARBALEST_TACTICS.blockerClearanceM), unit: "metres" as const }) });
+    value: Object.freeze({ ...constant(0), unit: "metres" as const }) });
   const targetParameters = Object.freeze({ "target-height-offset": targetHeightOffset,
     "target-lateral-offset": targetLateralOffset });
   const locomotionBand = Object.freeze({ op: "and" as const, values: Object.freeze([
@@ -170,13 +186,22 @@ export function arbalestProgram(): ConstructProgram {
   ]) });
   return Object.freeze({ version: 1, id: "arbalest-effigy-mind", rules: Object.freeze([
     ...humanoidLocomotionRules(ARBALEST_LOCOMOTION),
-    Object.freeze({ id: "fire-in-range", action: "fire", priority: 30, optional: true, dwellS: 0.1,
+    Object.freeze({ id: "fire-in-range", action: "fire", priority: 30, optional: true,
+      dwellS: ARBALEST_TACTICS.reacquireAfterReloadS,
       // Once admitted, a draw owns the launcher until it looses or fails. Supported turning can
       // move the line-of-sight sample for one solver row; withdrawing a live draw on that sample
       // produced a cancelled, serial-less attempt before the next exact-fresh support frame.
       condition: Object.freeze({ op: "or" as const, values: Object.freeze([active("fire"),
         Object.freeze({ op: "and" as const, values: Object.freeze([
-          sensor("core-upright"), sensor("line-of-sight"), Object.freeze({ op: "lt" as const,
+          sensor("core-upright"), Object.freeze({ op: "or" as const, values: Object.freeze([
+            sensor("opponent-upright"), Object.freeze({ op: "and" as const, values: Object.freeze([
+              sensor("opponent-rising"),
+              Object.freeze({ op: "lte" as const, left: sensor("module-max-health-effigy-arbalest"),
+                right: Object.freeze({ ...constant(ARBALEST_TACTICS.desperateLauncherHealth),
+                  unit: "scalar" as const }) }),
+            ]) }),
+          ]) }),
+          sensor("line-of-sight"), Object.freeze({ op: "lt" as const,
             left: sensor("opponent-range"), right: Object.freeze({ ...constant(8), unit: "metres" as const }) }),
           Object.freeze({ op: "or" as const, values: Object.freeze([
             sensor("contact-left-foot"), sensor("contact-right-foot"),

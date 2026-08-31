@@ -7,6 +7,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Combat } from "../src/combat.ts";
 import { CONFIG } from "../src/config.ts";
 import { ARBALEST_HARDWARE, ARBALEST_LEFT_SWORD_GUARD, ARBALEST_LOCOMOTION, ARBALEST_SENSORS,
+  ARBALEST_TACTICS,
   arbalestBlueprint, arbalestControl, arbalestProgram,
   arbalestProfileMetrics, arbalestSavedConstruct } from "../src/construct/arbalest.ts";
 import { humanoidBlueprint } from "../src/construct/humanoid.ts";
@@ -15,8 +16,10 @@ import { installedSensorsForBlueprint, SensorFrame } from "../src/construct/sens
 import { stepPair } from "../src/fighter.ts";
 import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
 import { postureOnlySavedConstruct,
+  CONSTRUCT_WARRIOR_CURRICULUM_SEEDS,
   runConstructWarriorCurriculum } from "../scripts/construct-warrior-curriculum.mjs";
 import { arbalestCurriculumDefinition } from "../scripts/arbalest-warrior-qualifier.mjs";
+import { runConstructWarriorBout } from "../scripts/construct-warrior-bout.mjs";
 import { createConstructHeadlessArena } from "../scripts/construct-headless-arena.mjs";
 import { UNITS, unitDefinition } from "../src/units.ts";
 
@@ -81,23 +84,51 @@ test("the_Arbalest_public_graph_exposes_tracking_fire_and_the_existing_biped_sup
 });
 
 test("an_Arbalest_draw_starts_only_upright_on_fresh_support_and_then_keeps_its_launcher", () => {
-  assert.equal(ARBALEST_LOCOMOTION.retreatBelowM, 1.80);
+  assert.equal(ARBALEST_LOCOMOTION.retreatBelowM, 1.90);
+  assert.deepEqual(ARBALEST_TACTICS, { blockerClearanceM: 0.07, targetHeightOffsetM: -0.05,
+    reacquireAfterReloadS: 0.10, desperateLauncherHealth: 9 });
+  assert.equal(ARBALEST_SENSORS.some(({ id }) => id === "opponent-upright"), true);
+  assert.equal(ARBALEST_SENSORS.some(({ id }) => id === "opponent-rising"), true);
+  assert.equal(ARBALEST_SENSORS.some(({ id }) => id === "opponent-aim-local-x"), true);
+  assert.equal(ARBALEST_SENSORS.some(({ id }) => id === "module-max-health-effigy-arbalest"), true);
   const installed = installedSensorsForBlueprint(arbalestBlueprint(), ARBALEST_SENSORS);
   const frame = new SensorFrame(installed);
   for (const [id, value] of Object.entries({
-    "core-upright": true, "line-of-sight": true, "opponent-range": 2,
+    "core-upright": true, "opponent-upright": true, "opponent-rising": false,
+    "opponent-aim-local-x": -0.07, "line-of-sight": true, "opponent-range": 2,
     "contact-left-foot": false, "contact-right-foot": false,
     "reload-effigy-arbalest-magazine": 0, "ammo-effigy-arbalest-magazine": 12,
-    "module-health-effigy-arbalest": 1, "module-health-effigy-arbalest-magazine": 1,
+    "module-health-effigy-arbalest": 1, "module-max-health-effigy-arbalest": 90,
+    "module-health-effigy-arbalest-magazine": 1,
     "power-charge-j": 24_000, overheated: false,
   })) frame.publish(id, value);
   const fire = arbalestProgram().rules.find(({ id }) => id === "fire-in-range");
   assert.ok(fire);
+  assert.deepEqual(fire.parameters["target-lateral-offset"],
+    { kind: "expression", value: { op: "constant", value: 0, unit: "metres" } });
+  assert.deepEqual(fire.parameters["target-height-offset"],
+    { kind: "expression", value: { op: "constant", value: -0.05, unit: "metres" } });
+  assert.equal(fire.dwellS, ARBALEST_TACTICS.reacquireAfterReloadS);
   const admitted = (active) => Boolean(evaluateExpression(fire.condition, frame,
     { isActionActive: (action) => active && action === "fire" }).value);
   assert.equal(admitted(false), false, "an otherwise valid shot cannot begin without a fresh foot");
   frame.publish("contact-left-foot", true);
   assert.equal(admitted(false), true, "one exact fresh support admits the ordinary fire Action");
+  frame.publish("opponent-upright", false);
+  assert.equal(admitted(false), false, "the Mind does not begin another shot at a fallen opponent");
+  assert.equal(admitted(true), true, "an already admitted draw completes across the knockdown it caused");
+  frame.publish("module-health-effigy-arbalest", 0.05);
+  assert.equal(admitted(false), false,
+    "damage to an ordinary launcher cannot masquerade as deliberately fragile hardware");
+  frame.publish("module-max-health-effigy-arbalest", ARBALEST_TACTICS.desperateLauncherHealth);
+  assert.equal(admitted(false), false, "a fragile launcher still does not waste ammunition on a prone body");
+  frame.publish("opponent-rising", true);
+  assert.equal(admitted(false), true, "a critically fragile launcher times pressure against a bounded rise");
+  frame.publish("module-health-effigy-arbalest", 1);
+  frame.publish("module-max-health-effigy-arbalest", 90);
+  assert.equal(admitted(false), false, "ordinary hardware allows the rise to complete");
+  frame.publish("opponent-rising", false);
+  frame.publish("opponent-upright", true);
   frame.publish("core-upright", false); frame.publish("contact-left-foot", false);
   assert.equal(admitted(false), false, "a fallen Arbalest cannot begin a shot");
   frame.publish("line-of-sight", false);
@@ -200,4 +231,25 @@ test("the_selectable_Arbalest_tracks_and_physically_hits_an_idle_Warrior_torso_i
       palette.shared.dispose(false, false); arena.dispose();
     }
   }
+});
+
+test("the_full_health_Arbalest_allows_one_Warrior_recovery_then_wins_with_follow_up_pressure", async () => {
+  const saved = arbalestSavedConstruct();
+  const report = await runConstructWarriorBout({ saved, sensors: ARBALEST_SENSORS,
+    warriorPolicy: "duelist", warriorSeed: CONSTRUCT_WARRIOR_CURRICULUM_SEEDS[0],
+    constructSide: "left", maxSteps: CONFIG.world.physicsHz * 30 });
+  const states = report.locomotionSteps.map(({ warrior }) => warrior?.state ?? null);
+  const risingIndex = states.indexOf("rising");
+  const recoveredIndex = states.findIndex((state, index) => index > risingIndex && state === "supported");
+  assert.ok(risingIndex >= 0, "a physical arrow must actually knock the Warrior down");
+  assert.ok(recoveredIndex > risingIndex, "the Warrior must complete a physical recovery");
+  const fallenAtS = report.locomotionSteps.find(({ warrior }) => warrior?.state === "fallen")?.atS;
+  const recoveredAtS = report.locomotionSteps[recoveredIndex].atS;
+  const starts = report.actionTimeline.filter(({ action, kind }) => action === "fire" && kind === "started");
+  assert.equal(starts.some(({ atS }) => atS > fallenAtS && atS < recoveredAtS), false,
+    "the first knockdown cannot be maintained by another admitted shot");
+  assert.equal(starts.some(({ atS }) => atS >= recoveredAtS), true,
+    "the Mind must resume pressure after observing the completed recovery");
+  assert.equal(report.winner, "construct");
+  assert.equal(report.warrior.vitality, 0);
 });

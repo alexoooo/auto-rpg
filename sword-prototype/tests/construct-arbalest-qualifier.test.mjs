@@ -59,6 +59,7 @@ test("the_Arbalest_qualifier_reconstructs_ammunition_posture_perception_and_the_
     (row) => { row.launcherEvidence[0].muzzleSpeedMps = 41; },
     (row) => { row.launcherEvidence[0].remainingAmmunition = 12; },
     (row) => { row.constructContacts[0].standingAtStep = false; },
+    (row) => { row.locomotionSteps[72].construct.liveSupport = false; },
     (row) => { row.locomotion.mode = "legacy"; },
     (row) => { row.locomotionSteps[48].construct.freshSupportBindings = []; },
     (row) => { row.locomotionSteps[72].construct.authority = false; },
@@ -80,6 +81,10 @@ test("the_Arbalest_qualifier_reconstructs_ammunition_posture_perception_and_the_
     const changed = structuredClone(report); mutate(changed);
     assert.equal(qualifiesArbalestVictory(changed), false);
   }
+  const graceAtImpact = structuredClone(report);
+  graceAtImpact.locomotionSteps[72].construct.freshSupportBindings = [];
+  assert.equal(qualifiesArbalestVictory(graceAtImpact), true,
+    "an in-flight arrow may land inside the support machine's intentional live grace interval");
 });
 
 test("recycled_projectile_pool_slots_remain_distinct_through_monotonic_loose_serials", () => {

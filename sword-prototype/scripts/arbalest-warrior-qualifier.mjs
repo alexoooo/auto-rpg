@@ -25,11 +25,18 @@ export function assertArbalestWarriorEvidence(report) {
   const locomotionAt = (atS) => locomotion.find((frame) => sameTime(frame.atS, atS));
   const supportedThreat = (frame) => frame?.upright === true && frame.admissionSupported === true &&
     frame.warriorLauncherVisible === true;
+  const liveImpactThreat = (frame) => frame?.upright === true && frame.warriorLauncherVisible === true;
   const assistedSupport = (frame) => (frame?.construct?.state === "supported" ||
     frame?.construct?.state === "staggered") &&
     frame.construct.authority === true && frame.construct.liveSupport === true &&
     frame.construct.postureSupported === true &&
     Array.isArray(frame.construct.freshSupportBindings) && frame.construct.freshSupportBindings.length > 0;
+  // Fire admission/completion pin exact fresh feet. A physical arrow lands a few boundaries later;
+  // the support machine intentionally bridges brief contact gaps with liveSupport, so requiring a
+  // new current-foot sample at impact would judge an in-flight projectile by unknowable future gait.
+  const assistedImpactSupport = (frame) => (frame?.construct?.state === "supported" ||
+    frame?.construct?.state === "staggered") && frame.construct.authority === true &&
+    frame.construct.liveSupport === true && frame.construct.postureSupported === true;
 
   if (report?.version !== 1) failures.push("bout evidence schema was not version 1");
   if (report?.physics !== "real-havok-fixed-240hz") failures.push("physics was not real fixed-step Havok");
@@ -120,8 +127,8 @@ export function assertArbalestWarriorEvidence(report) {
     failures.push("a physical arrow contact did not follow its ordered completed fire lifecycle");
   }
   if (damaging.length === 0 || damaging.some(({ standingAtStep, atS }) =>
-      standingAtStep !== true || !supportedThreat(frameAt(atS)) || !assistedSupport(locomotionAt(atS)))) {
-    failures.push("a damaging arrow lacked time-local physical feet, assisted support, or mounted-threat perception");
+      standingAtStep !== true || !liveImpactThreat(frameAt(atS)) || !assistedImpactSupport(locomotionAt(atS)))) {
+    failures.push("a damaging arrow lacked time-local live assisted support or mounted-threat perception");
   }
   const fatal = damaging.findLast(({ targetVitalityBefore, targetVitalityAfter }) =>
     finite(targetVitalityBefore, targetVitalityAfter) && targetVitalityBefore > 0 && targetVitalityAfter <= 0);

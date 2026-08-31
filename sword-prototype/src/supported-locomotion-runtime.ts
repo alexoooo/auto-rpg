@@ -135,6 +135,11 @@ export class StandableWorldRegistry {
       const hit = collider.support(at, footprint);
       if (!hit || hit.colliderId !== collider.id || !unitNormal(hit.upwardNormal)) continue;
       if (slopeDegrees(hit.upwardNormal) > footprint.maxSlopeDeg) continue;
+      // A provider names the plane below a terminal; it does not get to turn an airborne or
+      // deeply buried terminal into current contact merely because their x/z projections overlap.
+      // The footprint's authored step envelope is already the vertical tolerance used by
+      // navigation, and using it symmetrically also tolerates the solver's shallow penetration.
+      if (Math.abs(at.y - hit.point.y) > footprint.stepHeightM) continue;
       evidence.push(Object.freeze({
         safeBoundarySequence,
         supportBinding,
@@ -437,7 +442,11 @@ export class RisingActuator {
     const peakAcceleration = 6 * distance /
       (SUPPORTED_CARRIER_V1.RISING_DURATION_S * SUPPORTED_CARRIER_V1.RISING_DURATION_S);
     if (peakAcceleration > SUPPORTED_CARRIER_V1.RISING_MAX_ACCELERATION_MPS2) {
-      throw new Error("rising target exceeds the acceleration-limited Hermite path");
+      throw new Error(`rising target from (${this.start.x.toFixed(6)}, ${this.start.y.toFixed(6)}, ` +
+        `${this.start.z.toFixed(6)}) to (${this.target.x.toFixed(6)}, ${this.target.y.toFixed(6)}, ` +
+        `${this.target.z.toFixed(6)}) spans ${distance.toFixed(6)} m and requires ` +
+        `${peakAcceleration.toFixed(6)} m/s^2, above the ` +
+        `${SUPPORTED_CARRIER_V1.RISING_MAX_ACCELERATION_MPS2.toFixed(6)} m/s^2 acceleration-limited Hermite limit`);
     }
   }
 
