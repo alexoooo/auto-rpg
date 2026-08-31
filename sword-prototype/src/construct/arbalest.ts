@@ -27,10 +27,10 @@ const geometry = (id: string, shape: ModuleGeometrySpec["shape"],
  *
  * The 2.4 kg magazine is twelve 0.12 kg bolts plus a 0.96 kg torso carrier. The
  * 0.65 s reload and the bolt's mass, dimensions and 42 m/s launch speed are the
- * existing Warden projectile contract; only the compact 3.2 kg hand-mount and
- * twelve-round carrier are new chassis choices. Combat pacing belongs to the Mind:
+ * existing Warden projectile geometry and cadence; the compact 3.2 kg hand-mount,
+ * twelve-round carrier and 1.90 heavy-bolt damage scale are explicit chassis choices. Combat pacing belongs to the Mind:
  * it does not begin a new shot at an already fallen opponent. Pool size is recycling
- * capacity, not ammunition. Damage remains the ordinary construct projectile scale.
+ * capacity, not ammunition.
  */
 export const ARBALEST_HARDWARE = Object.freeze({
   launcherMassKg: 3.2,
@@ -43,7 +43,7 @@ export const ARBALEST_HARDWARE = Object.freeze({
   heatPerShotJ: 85,
   energyPerShotJ: 160,
   projectile: Object.freeze({ poolSize: 16, massKg: 0.12, radiusM: 0.018,
-    lengthM: 0.34, muzzleSpeedMps: 42, damageScale: 1.15 }),
+    lengthM: 0.34, muzzleSpeedMps: 42, damageScale: 1.90 }),
 });
 
 /** V1 remains named evidence; assisted locomotion is a distinct qualification claim. */
@@ -63,12 +63,18 @@ export const ARBALEST_ASSISTED_QUALIFIER_ID = "arbalest-assisted-support-v2";
  * rejected both the old
  * 1.80 m retreat boundary (one damaging arrow landed after support was lost) and wider guesses:
  * 2.00 and 2.20 m introduced new contact/posture timing failures, while 2.40 m happened to pass
- * only that single cell. The narrower 1.90 m correction qualified all eight mirrors. Fragile
- * hardware spends follow-up shots during the bounded rise rather than wasting them on a prone body.
+ * only that single cell. The narrower 1.90 m correction qualified all eight mirrors under the
+ * superseded rule that let a supported carrier walk through a fallen body. Once a living fallen
+ * body retained recovery space, the same Mind spent all twelve bolts and drew at 9.99% Warrior
+ * vitality. A fresh 2026-08-31 1.90/2.20/2.40 m bracket retained 2.40 m: only that cell restored
+ * the full-health seeded win, with the Construct supported at root-up 0.99786 after the fatal shot.
+ * The x0.10 mirrored damage bracket then rejected 1.85 at only 5/8 posture-qualified wins and
+ * retained 1.90 at 8/8; all eight winners remained upright and spent exactly two bolts.
+ * Fragile hardware spends follow-up shots during the bounded rise rather than wasting them on a prone body.
  */
 export const ARBALEST_TACTICS = Object.freeze({ blockerClearanceM: 0.07,
   targetHeightOffsetM: -0.05, reacquireAfterReloadS: 0.10, desperateLauncherHealth: 9 });
-export const ARBALEST_LOCOMOTION = Object.freeze({ retreatBelowM: 1.90, closeAtM: 6.00 });
+export const ARBALEST_LOCOMOTION = Object.freeze({ retreatBelowM: 2.40, closeAtM: 6.00 });
 export const ARBALEST_LEFT_SWORD_GUARD = Object.freeze({
   shoulder: -0.35, elbow: -0.65, wrist: 0.35, palm: -0.15,
 });

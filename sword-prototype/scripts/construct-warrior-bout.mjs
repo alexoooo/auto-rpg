@@ -509,6 +509,32 @@ export async function runConstructWarriorBout({
       warriorLauncherVisible === true);
     const finalVitality = verdictVitality ?? Object.freeze({ construct: construct.vitality, warrior: warrior.vitality });
     const winner = constructWarriorWinner(finalVitality.construct, finalVitality.warrior);
+    const attachedWarriorParts = warrior.limbs.filter(({ severed }) => !severed)
+      .map(({ key, part }) => Object.freeze({ key, x: part.mesh.position.x,
+        y: part.mesh.position.y, z: part.mesh.position.z }));
+    const warriorPelvisPosition = warrior.articulated?.pelvis.mesh.position ?? warrior.centre();
+    const warriorPhysical = Object.freeze({
+      pelvis: Object.freeze({ x: warriorPelvisPosition.x, y: warriorPelvisPosition.y,
+        z: warriorPelvisPosition.z }),
+      minimumAttachedY: Math.min(...attachedWarriorParts.map(({ y }) => y)),
+      maximumAttachedY: Math.max(...attachedWarriorParts.map(({ y }) => y)),
+      maximumAttachedDistanceFromPelvisM: Math.max(...attachedWarriorParts.map(({ x, y, z }) =>
+        Math.hypot(x - warriorPelvisPosition.x, y - warriorPelvisPosition.y,
+          z - warriorPelvisPosition.z))),
+      attachedParts: Object.freeze(attachedWarriorParts),
+    });
+    const constructRoot = construct.runtime.part(construct.runtime.blueprint.rootPart).node;
+    const constructRootRotation = constructRoot.rotationQuaternion ?? Quaternion.Identity();
+    const constructPhysical = Object.freeze({
+      root: Object.freeze({ x: constructRoot.position.x, y: constructRoot.position.y,
+        z: constructRoot.position.z }),
+      rootUp: Vector3.Dot(Vector3.Up().rotateByQuaternionToRef(constructRootRotation,
+        new Vector3()), Vector3.Up()),
+      minimumAttachedY: Math.min(...[...construct.runtime.parts.values()]
+        .map(({ node }) => node.position.y)),
+      maximumAttachedDistanceFromRootM: Math.max(...[...construct.runtime.parts.values()]
+        .map(({ node }) => Vector3.Distance(node.position, constructRoot.position))),
+    });
     const contactRows = (events) => Object.freeze(events.map((event) => {
       const { report, effectorId, blocked,
       sourceModuleId = null, action = null, phase = null, attempt = null, shotSerial = null,
@@ -556,6 +582,8 @@ export async function runConstructWarriorBout({
       verdictAtS: verdictAtStep === null ? null : verdictAtStep * FIXED,
       postVerdictTailS: verdictAtStep === null ? 0 : (steps - verdictAtStep) * FIXED,
       winner,
+      warriorPhysical,
+      constructPhysical,
       stabilityShoves: fixtureShoves,
       fixturePlacement: fixturePlacement === null ? null : Object.freeze({
         construct: Object.freeze({ ...fixturePlacement.construct }),

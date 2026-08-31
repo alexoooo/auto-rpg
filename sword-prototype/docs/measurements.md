@@ -7468,7 +7468,8 @@ suite fail before both mutations were restored.
 
 The separate `arbalest-effigy` keeps the same 1.8995 m Humanoid body and all eighteen parts and
 seventeen joints, replaces the right-hand sword with a 3.2 kg two-axis launcher, and adds a 2.4 kg
-twelve-bolt torso magazine. Its 0.12 kg, 42 m/s bolts retain ordinary 1.15 projectile damage. The
+twelve-bolt torso magazine. Its first committed 0.12 kg, 42 m/s bolts used ordinary 1.15 projectile
+damage; the living-fallen-footprint correction and superseding 1.90 heavy-bolt bracket are recorded below. The
 generic launcher correction now aims from the live compiled muzzle ray rather than pretending the
 weapon begins at the root; a real stationary-Warrior probe lands torso arrows and spends declared
 ammunition in both mirrors. Reversing the pitch correction made that physical test fail before it
@@ -7655,7 +7656,7 @@ The official 30-second x0.10 curriculum then passed exactly:
 | :--- | ---: | :---: | :---: | ---: | ---: |
 | `15221014` / `6c7419a1` / `0f542c4c` | 7/8 | 8 / 8 | 4 / 4 | 8/8 | 2194.206977 |
 
-Projectile mass, 42 m/s launch speed, 1.15 damage scale and 0.65-second reload did not move. The
+At that revision, projectile mass, 42 m/s launch speed, 1.15 damage scale and 0.65-second reload did not move. The
 balance gain is observed state, capacity-aware pressure and mirror-correct
 targeting, not more health, damage or cadence. The last unsupported damaging-arrow mirror at the
 old 1.80 m retreat boundary passed at 1.90 m; 2.00 and 2.20 m introduced new posture/contact timing
@@ -7663,6 +7664,25 @@ failures, while 2.40 m happened to pass that single cell and was rejected as the
 The retained 1.90 m boundary qualified all eight pinned active cells. This preserves the measured
 7/8 idle floor while superseding the fixed-lane targeting debt immediately above; the older ladder
 remains as the before-measurement rather than being rewritten.
+
+That result was invalidated by the living-fallen-footprint correction on 2026-08-31. Under the old
+pair rule, a supported opponent ignored a fallen carrier, stood through the ragdoll and occupied
+its recovery space. The visible symptom was a missing Warrior body with only its sword and shield
+showing beneath a half-fallen Arbalest. Once living fallen roots re-anchored and reserved their
+query-only footprint, the 1.90 m Mind spent all twelve bolts in one mirror and drew with the Warrior
+at 9.99% vitality. A new retreat bracket rejected 1.90 and 2.20 m for the full-health seed and
+retained 2.40 m. The subsequent x0.10 heavy-bolt bracket rejected 1.85 at 8/8 raw but only 5/8
+posture-qualified wins; 1.90 was the first 0.05-step cell to restore all eight without pre-verdict
+posture loss. Every winner spent exactly two bolts and finished with root-up between 0.976073 and
+0.981685. The current complete corpus is:
+
+| body/program/control digest | idle Warrior kills | raw / qualified active wins | qualified left / right | active survivals | active damage |
+| :--- | ---: | :---: | :---: | ---: | ---: |
+| `b7b4d0c1` / `09a29161` / `0f542c4c` | 8/8 | 8 / 8 | 4 / 4 | 8/8 | 1630.711453 |
+
+The 0.12 kg mass, 42 m/s speed, twelve-round magazine and 0.65-second reload remain unchanged; the
+explicit damage scale is now 1.90. This is a superseding balance measurement, not evidence that the
+old 1.15/1.90 m result was fabricated: its collision premise changed.
 
 The supported Twinblade rerun remains red and is distinct from its historical raw-gait ratchet.
 Its idle ladder at the same five rungs is 2, 4, 6, 7 and 6 Warrior kills out of eight. At the

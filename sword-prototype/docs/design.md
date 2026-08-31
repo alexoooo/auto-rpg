@@ -1658,8 +1658,10 @@ health waits through fallen and rising, so its opponent can finish a real recove
 shot. The deliberately fragile x0.10 balance body instead fires during the bounded rise, but still
 does not waste its finite magazine on a prone body. Saved capacity is a separate fact from normalized
 remaining health; confusing those units made the fragile branch always true in the rejected version.
-Its 1.90 m retreat boundary is the narrow corpus-qualified correction for keeping damaging shots on
-live assisted support. Blocker-relative aim compares the blocker with the opponent's centre, adds a
+Its 2.40 m retreat boundary preserves recovery space instead of exploiting a fallen opponent's
+absent carrier footprint. The explicit 1.90 heavy-bolt scale is the first 0.05-step bracket above
+the rejected 1.85 cell that restores all eight x0.10 mirrored wins before posture loss.
+Blocker-relative aim compares the blocker with the opponent's centre, adds a
 0.07 m open-side lane and uses a measured -0.05 m vertical trim. It is a live
 mount fact rather than a changing Action parameter, so a buckler crossing centre cannot cancel and
 restart an admitted draw. This is intentional body/Mind co-design: idle and active
@@ -1790,7 +1792,10 @@ standable contact for more than 0.10 s, losing the declared chain/posture, or ex
 specific-impulse threshold releases assisted anatomy to an ordinary dynamic ragdoll. A Fighter asks
 to rise with deliberate movement; a Construct must run its public recover Action. The 0.45 s rise
 is occupancy-checked and interruption-sensitive on every boundary. Fallen and dead bodies receive
-no carrier drive. Fighter movement remains a recovery request throughout both fallen and rising;
+no carrier drive. A living fallen root nevertheless re-anchors its query-only footprint at each
+safe boundary: being lower does not make the body absent, and an opponent may walk around it but
+may not stand through it and occupy the space required to rise. A detached/dead root reserves
+nothing. Fighter movement remains a recovery request throughout both fallen and rising;
 its fencing motors are neutral during that interval, the pelvis follows an acceleration-bounded
 orientation path, and reattachment clears residual limb velocity once. The decaying stability
 ledger explains the prior fall but does not impersonate a new hit after rising begins; a fresh

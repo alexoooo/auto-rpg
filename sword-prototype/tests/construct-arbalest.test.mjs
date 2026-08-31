@@ -43,7 +43,7 @@ test("the_Arbalest_reuses_the_human_scale_body_with_a_right_launcher_and_an_ordi
   assert.equal(magazine.massKg, 2.4);
   assert.equal(magazine.ammunition, 12);
   assert.equal(launcher.reloadSeconds, 0.65);
-  assert.equal(launcher.projectile.damageScale, 1.15);
+  assert.equal(launcher.projectile.damageScale, 1.90);
   assert.equal(leftSword.kind, "sword");
   assert.equal(leftSword.massKg, 1.4);
   assert.equal(leftSword.striker.damageScale, 1.15);
@@ -84,7 +84,7 @@ test("the_Arbalest_public_graph_exposes_tracking_fire_and_the_existing_biped_sup
 });
 
 test("an_Arbalest_draw_starts_only_upright_on_fresh_support_and_then_keeps_its_launcher", () => {
-  assert.equal(ARBALEST_LOCOMOTION.retreatBelowM, 1.90);
+  assert.equal(ARBALEST_LOCOMOTION.retreatBelowM, 2.40);
   assert.deepEqual(ARBALEST_TACTICS, { blockerClearanceM: 0.07, targetHeightOffsetM: -0.05,
     reacquireAfterReloadS: 0.10, desperateLauncherHealth: 9 });
   assert.equal(ARBALEST_SENSORS.some(({ id }) => id === "opponent-upright"), true);
@@ -252,4 +252,12 @@ test("the_full_health_Arbalest_allows_one_Warrior_recovery_then_wins_with_follow
     "the Mind must resume pressure after observing the completed recovery");
   assert.equal(report.winner, "construct");
   assert.equal(report.warrior.vitality, 0);
+  assert.ok(report.minimumRangeM >= 0.625 - 0.020,
+    "the Arbalest cannot make a fallen Warrior disappear inside its carrier footprint");
+  assert.ok(report.warriorPhysical.minimumAttachedY >= -0.05 &&
+    report.warriorPhysical.maximumAttachedDistanceFromPelvisM <= 1.25,
+  "the defeated Warrior remains a cohesive visible body in the arena");
+  assert.ok(report.constructPhysical.rootUp >= 0.90 && report.constructPhysical.minimumAttachedY >= -0.05 &&
+    report.constructPhysical.maximumAttachedDistanceFromRootM <= 1.65,
+  "the winning Arbalest remains upright and physically assembled");
 });

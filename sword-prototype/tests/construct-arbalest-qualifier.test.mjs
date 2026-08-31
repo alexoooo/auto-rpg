@@ -18,13 +18,18 @@ const qualified = () => ({
   mountedThreatVisibleToWarriorMind: true,
   launcherVisibleToWarriorMind: true,
   posture: { firstPostureLossS: null },
+  warriorPhysical: { pelvis: { x: 0, y: 0.9, z: 0 }, minimumAttachedY: 0.1,
+    maximumAttachedY: 1.8, maximumAttachedDistanceFromPelvisM: 0.7, attachedParts: [] },
+  constructPhysical: { root: { x: 1, y: 1, z: 0 }, rootUp: 1,
+    minimumAttachedY: 0.1, maximumAttachedDistanceFromRootM: 1.05 },
   launcherEvidence: [{ moduleId: "effigy-arbalest",
     poolSize: ARBALEST_HARDWARE.projectile.poolSize,
     projectileMassKg: ARBALEST_HARDWARE.projectile.massKg,
     projectileRadiusM: ARBALEST_HARDWARE.projectile.radiusM,
     projectileLengthM: ARBALEST_HARDWARE.projectile.lengthM,
     muzzleSpeedMps: ARBALEST_HARDWARE.projectile.muzzleSpeedMps,
-    damageScale: 1.15, reloadSeconds: 0.65, maxHeatJ: ARBALEST_HARDWARE.maxHeatJ,
+    damageScale: ARBALEST_HARDWARE.projectile.damageScale,
+    reloadSeconds: 0.65, maxHeatJ: ARBALEST_HARDWARE.maxHeatJ,
     coolingW: ARBALEST_HARDWARE.coolingW, heatPerShotJ: ARBALEST_HARDWARE.heatPerShotJ,
     energyPerShotJ: ARBALEST_HARDWARE.energyPerShotJ,
     magazineId: "effigy-arbalest-magazine", initialAmmunition: 12, remainingAmmunition: 11 }],
@@ -77,6 +82,8 @@ test("the_Arbalest_qualifier_reconstructs_ammunition_posture_perception_and_the_
       [row.blockerTimeline[1], row.blockerTimeline[0]]; },
     (row) => { row.version = 2; },
     (row) => { row.construct.vitality = Number.POSITIVE_INFINITY; },
+    (row) => { row.warriorPhysical.maximumAttachedDistanceFromPelvisM = 4; },
+    (row) => { row.constructPhysical.rootUp = 0.4; },
   ]) {
     const changed = structuredClone(report); mutate(changed);
     assert.equal(qualifiesArbalestVictory(changed), false);
@@ -130,7 +137,7 @@ test("recycled_projectile_pool_slots_remain_distinct_through_monotonic_loose_ser
 test("the_x010_real_Havok_corpus_freezes_the_earned_mirrored_Arbalest_floor", async () => {
   const report = await runConstructWarriorCurriculum({ definition: arbalestCurriculumDefinition() });
   assert.equal(assertConstructWarriorCurriculum(report, ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE), report);
-  assert.equal(report.summary.idleWarriorKills, 7);
+  assert.equal(report.summary.idleWarriorKills, 8);
   assert.equal(report.summary.activeConstructKills, 8);
   assert.equal(report.summary.activeQualifiedConstructKills, 8);
   assert.equal(report.summary.activeQualifiedConstructKillsLeft, 4);

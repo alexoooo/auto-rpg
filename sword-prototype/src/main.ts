@@ -190,8 +190,6 @@ async function boot(): Promise<void> {
   const forgeLibrarySelect = need<HTMLSelectElement>("forge-library-select");
   const forgeLoadSaved = need<HTMLButtonElement>("forge-load-saved");
   const arenaConstructDiagnostics = need("arena-construct-diagnostics");
-  const arenaConstructDetails = arenaConstructDiagnostics.querySelector<HTMLDetailsElement>("details");
-  if (!arenaConstructDetails) throw new Error("missing construct diagnostics details surface");
   const arenaConstructLeft = need("arena-construct-left");
   const arenaConstructRight = need("arena-construct-right");
 
@@ -965,8 +963,6 @@ async function boot(): Promise<void> {
     left: new ConstructDiagnosticsPanel(arenaConstructLeft, emptyDiagnosticFrame()),
     right: new ConstructDiagnosticsPanel(arenaConstructRight, emptyDiagnosticFrame()),
   });
-  let arenaDiagnosticsWerePaused = false;
-
   const updateArenaConstructDiagnostics = (): void => {
     const bodies: Readonly<Record<Side, Combatant>> = { left: bout.left, right: bout.right };
     const snapshots = Object.freeze({
@@ -977,8 +973,6 @@ async function boot(): Promise<void> {
     arenaConstructDiagnostics.classList.toggle("gone", state.phase === "select" || !hasConstruct);
     if (!hasConstruct) return;
     const paused = !controls.isActive;
-    if (paused && !arenaDiagnosticsWerePaused) arenaConstructDetails.open = true;
-    arenaDiagnosticsWerePaused = paused;
     for (const side of ["left", "right"] as const) {
       const host = side === "left" ? arenaConstructLeft.parentElement : arenaConstructRight.parentElement;
       const snapshot = snapshots[side];

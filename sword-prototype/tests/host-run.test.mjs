@@ -72,6 +72,8 @@ test("the_pause_overlay_is_a_compact_sibling_and_main_wires_both_targets", async
   const closeDivs = html.slice(curtainAt, pauseAt).match(/<\/div>/g)?.length ?? 0;
   assert.equal(openDivs, closeDivs, "pause-menu is outside the setup curtain");
   assert.match(main, /new ArenaPresentation\(curtain, pauseMenu\)/);
+  assert.doesNotMatch(main, /paused[^\n]*arenaConstructDetails\.open\s*=|arenaConstructDetails\.open\s*=\s*true/,
+    "pausing must preserve the player's diagnostics disclosure state");
 
   const pauseRule = css.match(/#pause-menu\s*\{([^}]*)\}/)?.[1] ?? "";
   assert.match(pauseRule, /position:\s*fixed/);

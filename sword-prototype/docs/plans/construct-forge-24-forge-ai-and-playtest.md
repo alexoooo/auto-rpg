@@ -6,9 +6,10 @@ Humanoid full/left-limp/right-limp Actions, assisted Warden selection, descripto
 choices, immutable Arena/Probe diagnostics, assisted Arbalest qualifier v2 and Swordbearer recovery
 are implemented. The recovery correction now lets the Warrior complete a physical rise after the
 first full-health Arbalest knockdown. At committed x0.10 durability the identical idle body dies 7/8, while
-the recovery-aware active Mind wins and exactly qualifies 8/8 across both mirrors (left 4, right 4)
-with unchanged projectile hardware; its rise-timed fragile-pressure mode, blocker-relative aim and
-1.90 m retreat boundary keep damaging shots on live assisted support. The assisted Twinblade rerun remains 0/8 active and
+the recovery-aware active Mind wins and exactly qualifies 8/8 across both mirrors (left 4, right 4).
+The later living-fallen-footprint correction invalidated that route; the requalified body uses the
+same rise-timed fragile-pressure and blocker-relative aim with a 2.40 m retreat boundary and explicit
+1.90 heavy bolt. The assisted Twinblade rerun remains 0/8 active and
 its best idle rung is 7/8. Exact-fresh Warden crawl authority, the Forge-authored save/reload
 Probe/Fight path and frozen raw/assisted recovery A/B are physical and mutation-proven. The
 physical fallback/obstacle corpus is complete; a fresh

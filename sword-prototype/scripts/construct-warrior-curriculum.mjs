@@ -208,10 +208,11 @@ export const CONSTRUCT_WARRIOR_CURRICULUM_ACCEPTANCE = Object.freeze({
 });
 
 /**
- * Recovery-aware assisted-support v2 rerun on 2026-08-31. At x0.10 the active body won
- * and qualified 8/8 exactly (left 4, right 4), while the same-body posture-only baseline
- * died 7/8. The fragile Mind reads saved launcher capacity and times pressure during a rise;
- * ordinary full-health hardware waits for restored support. Cadence and damage remain unchanged.
+ * Recovery-aware assisted-support v2 rerun on 2026-08-31. After living fallen bodies began
+ * reserving recovery space, the corrected 2.40 m retreat and 1.90 heavy bolt restored x0.10 to
+ * 8/8 qualified wins (left 4, right 4). The same-body posture-only baseline dies 8/8. The fragile
+ * Mind reads saved launcher capacity and times pressure during a rise; ordinary
+ * full-health hardware waits for restored support.
  */
 export const ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE = Object.freeze({
   version: 2,
@@ -229,9 +230,9 @@ export const ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE = Object.freeze({
   activeQualifiedConstructKillsRightMin: 4,
   activeConstructSurvivalsMin: 8,
   activeUprightDamageCellsMin: 8,
-  blueprintDigest: "15221014",
+  blueprintDigest: "b7b4d0c1",
   controlDigest: "0f542c4c",
-  activeProgramDigest: "6c7419a1",
+  activeProgramDigest: "09a29161",
 });
 
 export function assertConstructWarriorCurriculum(report,

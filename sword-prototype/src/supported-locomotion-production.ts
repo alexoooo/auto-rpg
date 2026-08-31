@@ -322,6 +322,14 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
 
   proposal(dt: number): CarrierProposal {
     if (this.disposed) throw new Error("physical supported locomotion port is disposed");
+    if (this.supportState.state === "fallen" && !this.options.root.sample().released) {
+      // A fallen fighter is lower, not absent. Letting the opponent ignore its footprint allowed
+      // the supported carrier to stand directly over the ragdoll; recovery was then occupancy-
+      // blocked forever and the camera showed only the trapped fighter's sword and shield. Follow
+      // the live fallen root at each safe boundary so the body can be walked around but not through.
+      const live = this.options.root.sample().position;
+      this.carrier.reset({ x: live.x, y: this.carrier.state.y, z: live.z }, this.carrier.state.yaw);
+    }
     const missingRequiredFallbackSupport = this.activeAuthority?.requiresAllFreshSupport === true &&
       this.activeAuthority.supportBindings.some(({ role }) =>
         !this.lastBoundary.freshSupportBindings.includes(role));
@@ -338,7 +346,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
   }
 
   blocksOpponentFootprint(): boolean {
-    return this.supportState.state !== "fallen" && !this.options.root.sample().released;
+    return !this.options.root.sample().released;
   }
 
   updatePairOccupancy(other: PhysicalSupportedLocomotionPort): void {

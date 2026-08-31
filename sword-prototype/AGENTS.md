@@ -314,6 +314,10 @@ npm run dev             # http://localhost:5180, strictPort
   sibling `#pause-menu`, and neither method can toggle the other's target. The rule remains
   `pauseAction` in `bout.ts`, and **a key that pauses must never also be the key that leaves
   for setup.**
+- **Pause does not grant UI permission.** The Arena diagnostics disclosure is player-owned state.
+  Opening its large `<details>` panel on a pause edge covered the exact frozen frame pause exists
+  to inspect. Pause may expose only the already-committed compact `#pause-menu`; it must not open,
+  close, expand or navigate any other surface.
 - **A constant tuned for the bench does not become a player's by being in `config.ts`.**
   `bout.capSeconds` was 60 and every word of the argument beside it was about running a
   hundred bouts headlessly at 250x real time. Nothing in it was about somebody at a
@@ -732,6 +736,12 @@ by deleting `driveAnimatedRoot`; that recreates the pile-up this system exists t
 boundary is instead pair-atomic footprint resolution, real limb/contact authorization, authored
 stability release, no drive while fallen/dead, and occupancy/hit-gated recovery. The durable
 argument is in `docs/design.md`; the before/after numbers are in `docs/measurements.md`.
+
+**Fallen is lower, not absent.** Treating a living fallen carrier as non-blocking let the other
+carrier stand through the ragdoll, hide it from the camera and occupy the exact footprint recovery
+then refused. The fallen port follows its live root at safe boundaries and reserves its ordinary
+query-only footprint; detached/dead roots reserve nothing. Do not recover the old balance corpus by
+restoring the overlap bug -- requalify the Mind against the honest recovery space.
 
 **A Fighter recovery request must survive the rising interval.** Fallen locomotion deliberately
 zeros translation, so deriving `recover` from that stopped request traps the body forever; clearing

@@ -38,6 +38,23 @@ export function assertArbalestWarriorEvidence(report) {
     frame?.construct?.state === "staggered") && frame.construct.authority === true &&
     frame.construct.liveSupport === true && frame.construct.postureSupported === true;
 
+  const warriorPhysical = report?.warriorPhysical;
+  const constructPhysical = report?.constructPhysical;
+  if (!finite(warriorPhysical?.pelvis?.x, warriorPhysical?.pelvis?.y, warriorPhysical?.pelvis?.z,
+      warriorPhysical?.minimumAttachedY, warriorPhysical?.maximumAttachedY,
+      warriorPhysical?.maximumAttachedDistanceFromPelvisM) ||
+      warriorPhysical.minimumAttachedY < -0.05 ||
+      warriorPhysical.maximumAttachedDistanceFromPelvisM > 1.25) {
+    failures.push("the Warrior body was absent, below the arena, or physically disassembled");
+  }
+  if (!finite(constructPhysical?.root?.x, constructPhysical?.root?.y, constructPhysical?.root?.z,
+      constructPhysical?.rootUp, constructPhysical?.minimumAttachedY,
+      constructPhysical?.maximumAttachedDistanceFromRootM) ||
+      constructPhysical.rootUp < 0.90 || constructPhysical.minimumAttachedY < -0.05 ||
+      constructPhysical.maximumAttachedDistanceFromRootM > 1.65) {
+    failures.push("the Arbalest body was absent, below the arena, tilted, or physically disassembled");
+  }
+
   if (report?.version !== 1) failures.push("bout evidence schema was not version 1");
   if (report?.physics !== "real-havok-fixed-240hz") failures.push("physics was not real fixed-step Havok");
   if (report?.locomotion?.mode !== "supported" || locomotion.length !== report?.steps ||
@@ -68,7 +85,7 @@ export function assertArbalestWarriorEvidence(report) {
       launcher[0].initialAmmunition !== ARBALEST_HARDWARE.ammunition ||
       !Number.isInteger(launcher[0].remainingAmmunition) || launcher[0].remainingAmmunition < 0 ||
       launcher[0].remainingAmmunition > launcher[0].initialAmmunition) {
-    failures.push("runtime launcher facts were not the declared ordinary 1.15 arrow and torso magazine");
+    failures.push("runtime launcher facts were not the declared 1.90 heavy bolt and torso magazine");
   }
   const spent = launcher.length === 1
     ? launcher[0].initialAmmunition - launcher[0].remainingAmmunition : Number.NaN;

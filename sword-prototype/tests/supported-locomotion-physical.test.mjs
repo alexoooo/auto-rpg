@@ -143,7 +143,7 @@ test("production_support_evidence_queries_each_live_terminal_instead_of_duplicat
   } finally { port.dispose(); }
 });
 
-test("a_fallen_carrier_stops_blocking_the_still_supported_opponent", () => {
+test("a_fallen_carrier_reserves_recovery_space_instead_of_becoming_an_invisible_overlap", () => {
   const registry = flatSupportedWorldRegistry();
   const fallen = physicalFixture("fallen", -0.5, registry);
   const moving = physicalFixture("moving", 0.5, registry);
@@ -154,8 +154,8 @@ test("a_fallen_carrier_stops_blocking_the_still_supported_opponent", () => {
     assert.equal(fallen.state, "fallen");
     moving.request({ localForward: 0, localRight: -1, yaw: 0, recover: false });
     assert.equal(resolvePhysicalSupportedPair(fallen, moving, 0.25), true);
-    assert.ok(moving.carrierGround().x < 0.5,
-      "the supported body may cross the stale fallen footprint instead of orbiting an invisible blocker");
+    assert.equal(moving.carrierGround().x, 0.5,
+      "the supported body cannot stand over the fallen body and permanently obstruct its rise");
   } finally { fallen.dispose(); moving.dispose(); }
 });
 
@@ -343,11 +343,11 @@ test("Swordbearer_recovers_from_the_historical_topple_and_exceeds_its_historical
   }
 });
 
-test("Swordbearer_closes_attacks_and_retreats_from_the_Duelist_without_heap_or_air_walk", async () => {
+test("Swordbearer_closes_attacks_and_preserves_recovery_space_without_heap_or_air_walk", async () => {
   for (const constructSide of ["left", "right"]) {
     const report = await runConstructWarriorBout({ saved: humanoidSavedConstruct(),
       sensors: HUMANOID_SENSORS, warriorPolicy: "duelist", constructSide, maxSteps: 10 * 240 });
-    for (const id of ["full-close-distance", "full-retreat-clinch", "sweep-shielded-opponent"]) {
+    for (const id of ["full-close-distance", "sweep-shielded-opponent"]) {
       assert.ok(report.selectedRules.includes(id), `${constructSide} never selected ${id}`);
     }
     assert.ok(report.startedActions.includes("sweep"),
