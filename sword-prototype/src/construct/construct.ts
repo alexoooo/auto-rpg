@@ -17,7 +17,7 @@ import type { Combatant, CombatantBuild, UnitKind } from "../units.ts";
 import { isHeldStriker, type WeaponKind } from "../hands.ts";
 import { compileConstruct, groundedConstructOriginY } from "./compile.ts";
 import { ConstructControlEndpoint } from "./control.ts";
-import type { ConstructRuntime } from "./runtime.ts";
+import type { ConstructPart, ConstructRuntime } from "./runtime.ts";
 import { WARDEN_SENSORS, wardenBlueprint, wardenControl, wardenProgram } from "./warden.ts";
 import { ConstructMountedSword } from "./striker.ts";
 import { ConstructResources } from "./resources.ts";
@@ -39,6 +39,7 @@ import { DEFAULT_SUPPORTED_CARRIER, isStandableUpwardNormalY, PhysicalSupportedL
   "../supported-locomotion-production.ts";
 import { deriveLocomotionFootprint } from "../supported-locomotion-runtime.ts";
 import { constructPostureIsSupported } from "../supported-locomotion-state.ts";
+import { supportedRootTargetToRef } from "../supported-root-drive.ts";
 
 /** Held guards are visible opponent geometry even though they are not severable limbs. */
 export function opponentOwnsSightHit(
@@ -61,6 +62,24 @@ export interface ConstructProfile { readonly kind: Extract<UnitKind,
   "bronze-warden" | "swordbearer-effigy" | "twinblade-effigy" | "arbalest-effigy">;
   readonly label: string; readonly reach: number; readonly crownHeight: number; readonly vitalHeight: number;
   readonly collisionRadius: number; readonly footPartIds: readonly string[]; }
+
+interface PostVerdictPartHold {
+  readonly part: ConstructPart;
+  readonly localPosition: Vector3;
+  readonly localRotation: Quaternion;
+  readonly targetPosition: Vector3;
+  readonly targetRotation: Quaternion;
+}
+
+interface PostVerdictAssemblyHold {
+  readonly rootPosition: Vector3;
+  readonly rotation: Quaternion;
+  readonly targetPosition: Vector3;
+  readonly desiredRotation: Quaternion;
+  readonly targetRotation: Quaternion;
+  readonly yaw: number;
+  readonly parts: readonly PostVerdictPartHold[];
+}
 export const WARDEN_CONSTRUCT_PROFILE: ConstructProfile = Object.freeze({ kind: "bronze-warden", label: "Bronze Warden",
   reach: 1.4, crownHeight: 1.9, vitalHeight: 1.08, collisionRadius: 0.72,
   footPartIds: Object.freeze(["limb-front-left-foot", "limb-front-right-foot", "limb-rear-left-foot", "limb-rear-right-foot"]) });
@@ -176,6 +195,11 @@ export class Construct implements Combatant {
   private readonly launcherAngularVelocity = new Vector3();
   private readonly launcherRadius = new Vector3();
   private readonly launcherTangentialVelocity = new Vector3();
+  private readonly supportedPosition = new Vector3();
+  private readonly supportedUp = new Vector3();
+  private readonly supportedRotation = Quaternion.Identity();
+  private readonly supportedDesiredRotation = Quaternion.Identity();
+  private postVerdictHold: PostVerdictAssemblyHold | null = null;
   private launcherLooseSerial = 0;
 
   constructor(ctx: CombatantBuild, selection: "crossbow" | "sword" | ConstructDefinition = "crossbow") {
@@ -279,13 +303,21 @@ export class Construct implements Combatant {
         if (torque.length() > limit) torque.normalize().scaleInPlace(limit);
         carrierPart.body.applyTorque(torque);
       },
-      driveAnimatedRoot: (targetVelocity, targetYaw) => {
-        const rotation = carrierPart.node.rotationQuaternion ?? Quaternion.Identity();
-        const actualYaw = rotation.toEulerAngles().y;
-        const yawError = Math.atan2(Math.sin(targetYaw - actualYaw), Math.cos(targetYaw - actualYaw));
-        carrierPart.body.setLinearVelocity(new Vector3(targetVelocity.x, 0, targetVelocity.z));
-        carrierPart.body.setAngularVelocity(new Vector3(0,
-          Math.max(-2.4, Math.min(2.4, yawError * 8)), 0));
+      driveAnimatedRoot: (_targetPosition, targetVelocity, targetYaw, dt) => {
+        const liveRotation = carrierPart.node.rotationQuaternion ?? Quaternion.Identity();
+        this.supportedUp.set(0, 1, 0).rotateByQuaternionToRef(liveRotation, this.supportedUp);
+        if (this.supportedUp.y < 0.995) {
+          supportedRootTargetToRef(carrierPart.node.position, liveRotation, targetVelocity, targetYaw,
+            dt, 1.2, this.supportedPosition, this.supportedDesiredRotation,
+            this.supportedRotation);
+          carrierPart.body.setTargetTransform(this.supportedPosition, this.supportedRotation);
+        } else {
+          const actualYaw = liveRotation.toEulerAngles().y;
+          const yawError = Math.atan2(Math.sin(targetYaw - actualYaw), Math.cos(targetYaw - actualYaw));
+          carrierPart.body.setLinearVelocity(new Vector3(targetVelocity.x, 0, targetVelocity.z));
+          carrierPart.body.setAngularVelocity(new Vector3(0,
+            Math.max(-2.4, Math.min(2.4, yawError * 8)), 0));
+        }
       },
       driveRisingRoot: (targetPosition, _targetVelocity, targetYaw) => {
         if (carrierPart.body.getMotionType() !== PhysicsMotionType.ANIMATED) {
@@ -678,6 +710,20 @@ export class Construct implements Combatant {
   }
   stepProjectiles(dt: number): void { this.quiver?.step(dt); }
 
+  stepPostVerdictPresentation(dt: number): void {
+    const hold = this.postVerdictHold;
+    if (!hold) return;
+    supportedRootTargetToRef(hold.rootPosition, hold.rotation, { x: 0, z: 0 }, hold.yaw,
+      dt, 1.2, hold.targetPosition, hold.desiredRotation, hold.targetRotation);
+    for (const part of hold.parts) {
+      part.localPosition.rotateByQuaternionToRef(hold.targetRotation, part.targetPosition)
+        .addInPlace(hold.rootPosition);
+      hold.targetRotation.multiplyToRef(part.localRotation, part.targetRotation);
+      part.part.body.setTargetTransform(part.targetPosition, part.targetRotation);
+    }
+    hold.rotation.copyFrom(hold.targetRotation);
+  }
+
   nearestPartTo(point: Vector3): number {
     let nearest = Number.POSITIVE_INFINITY;
     for (const limb of this.limbs) if (!limb.severed) {
@@ -735,7 +781,32 @@ export class Construct implements Combatant {
     }
   }
 
-  stopFighting(): void { this.control.stopFighting(); }
+  stopFighting(): void {
+    this.control.stopFighting();
+    if (!this.alive || this.postVerdictHold) return;
+    const root = this.runtime.part(this.runtime.blueprint.rootPart);
+    const rootPosition = root.node.position.clone();
+    const rotation = (root.node.rotationQuaternion ?? Quaternion.Identity()).clone().normalize();
+    const inverse = Quaternion.Inverse(rotation);
+    const forward = Vector3.Forward().rotateByQuaternionToRef(rotation, new Vector3());
+    const parts: PostVerdictPartHold[] = [];
+    for (const part of this.runtime.parts.values()) {
+      if (!part.attached || !this.state.damage.isAttached(part.id)) continue;
+      const localPosition = part.node.position.subtract(rootPosition)
+        .rotateByQuaternionToRef(inverse, new Vector3());
+      const partRotation = (part.node.rotationQuaternion ?? Quaternion.Identity()).clone().normalize();
+      const localRotation = inverse.multiply(partRotation).normalize();
+      part.body.setMotionType(PhysicsMotionType.ANIMATED);
+      part.body.setLinearVelocity(Vector3.Zero());
+      part.body.setAngularVelocity(Vector3.Zero());
+      part.body.setTargetTransform(part.node.position, partRotation);
+      parts.push({ part, localPosition, localRotation,
+        targetPosition: new Vector3(), targetRotation: Quaternion.Identity() });
+    }
+    this.postVerdictHold = { rootPosition, rotation, targetPosition: new Vector3(),
+      desiredRotation: Quaternion.Identity(), targetRotation: Quaternion.Identity(),
+      yaw: Math.atan2(forward.x, forward.z), parts: Object.freeze(parts) };
+  }
   /** Count of successful launcher looses, independent of the Quiver's recyclable body slots. */
   launcherLooseCount(): number { return this.launcherLooseSerial; }
   occlusionPoints(): readonly Vector3[] { return [...this.runtime.parts.values()].map((part) => part.node.position); }

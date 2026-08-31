@@ -102,6 +102,8 @@ export interface Combatant {
   ): number;
   nearestPartTo(point: Vector3): number;
   stepProjectiles(dt: number): void;
+  /** Presentation-only body maintenance after both command drivers have stopped. */
+  stepPostVerdictPresentation?(dt: number): void;
   feetPosition(): Vector3;
   centre(): Vector3;
   aimPoint(): Vector3;

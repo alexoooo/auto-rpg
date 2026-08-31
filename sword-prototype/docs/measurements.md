@@ -7775,6 +7775,39 @@ buckler hit interrupted recovery: rising began at 0.7250 s, the contact
 arrived at 0.7417 s and the next safe boundary returned the Construct to fallen at 0.7458 s; no
 scheduled fixture shove impersonated the hit.
 
+### Visual/physics correction pass -- 2026-08-31
+
+Three reports that shared one screenshot had three causes. The body-hit arrow fixture first failed
+with its shaft moving only from y 1.062 m to 1.033 m over one second: the 0.92 impact damping was
+being reapplied at 240 Hz and cancelled gravity. Damping once on the spent transition makes the
+same regression fall by more than 0.50 m while retaining the world-only spent collision mask.
+
+The exact 26-cell Construct/Warrior locomotion corpus remained green after one measured acceptance
+correction. Letting Arbalest arrows fall onto the world moved the left combat target's longest
+fresh-foot evidence gap from 24 to 25 solver ticks. The corpus grace is therefore written as the
+measured `25 / 240` seconds rather than rounded upward; the production 0.10-second lost-support rule
+did not move. Held sword/shield wall pressure and the real recovery-interrupt cells passed unchanged.
+
+Animated roots ignore x/z angular-velocity righting, while an exact upright target in one solver
+step raised the held-sword wall fixture above its 12 m/s part-speed ceiling. The retained live
+carrier path keeps the prior velocity/yaw drive above root-up 0.995 and, below that threshold,
+converges toward upright at a bounded 1.2 rad/s while advancing the same resolved velocity. A
+root-only post-verdict variant was visually rejected: after pair and joint control stopped, the
+target pulled the surviving Construct assembly away from the visible fight rather than settling
+it. The retained live carrier path also runs on null movement requests; its regression proves that
+an idle/weapon-only animated root is held without reporting an admitted locomotion command. After
+the verdict, the survivor captures all attached parts in one root-relative pose and applies the
+bounded rotation to that entire ANIMATED set. The physical regression preserves every part's root
+radius within 0.005 m while reaching root-up 0.995. In the attached visible browser, Arbalest versus
+Duelist ended with the surviving Construct upright and assembled, the defeated Warrior coherent in
+all three paused camera modes, and spent arrow pieces on the floor rather than suspended.
+
+The zoom-dependent missing Warrior was not severance or physics state. Its skinned regions were
+frustum-rejected from bind-pose CPU bounds after the bones drove the fallen vertices elsewhere.
+All twenty-nine authored regions now bypass that stale bound; the actual-GLB regression requires
+the active-mesh flag on every region, and the attached visible-browser fallen-body check remained
+coherent across the camera modes.
+
 The frozen stability thresholds now also have a direct real-Havok bracket in
 `tests/supported-locomotion-stability-physical.test.mjs`. Each fresh cell builds an ordinary
 supported Warrior pair on a physical floor, reads the live public body masses, queues the authored

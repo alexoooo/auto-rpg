@@ -733,6 +733,11 @@ quaternion directly into a Blender joint can be numerically tidy and anatomicall
 out. The twenty-nine mesh regions name the bone that owns their triangles. On severance,
 weights that cross the cut are redirected to the nearest retained or detached root and
 renormalized from the original weights, so a second cut does not inherit the first rewrite.
+Those regions are always selected as active meshes. Their CPU bounds describe the authored bind
+pose, while the physical bones can move vertices an entire body length away after a fall; frustum
+culling against the stale bounds made a coherent fallen Warrior disappear at one camera distance
+and reappear at another while independently rendered boots and weapons remained. The fixed set of
+twenty-nine draw candidates is the deliberate correctness cost.
 
 No dimension is written down twice. `asset-src/dimensions.json` is generated from
 `src/config.ts` and `figure.ts`'s exported `costumePieces()`, committed so the numbers the
@@ -1056,6 +1061,12 @@ inside that callback marks it spent *before* the watcher that scores it runs -- 
 every arrow in the game scored nothing, silently, with a flight that looked
 perfectly healthy. The fix is to promote the flag one control step later, after
 which neither watcher needs to know the other exists.
+
+The same promotion edge owns impact damping. A body-hit arrow receives its 0.92 damping once,
+changes to the world-only spent layer and then remains an ordinary dynamic body under gravity.
+Applying the same damping on every 240 Hz control step also damped away each new increment from
+gravity, so spent arrows appeared to hang in space for their six-second collection lifetime.
+World hits are different by construction: they plant STATIC where they landed.
 
 **`velocityAt` is the right question for a blade and the wrong one for a
 projectile.** `linear + w x r` is what a sword's contact point moves at, because the
@@ -1816,6 +1827,19 @@ knockdown changes that same root to DYNAMIC. This is the game's intentional loco
 not invulnerable combat anatomy: real weapons remain physical, authored shove releases support, and
 recovery must earn reattachment. The animated-root choice supersedes the earlier dynamic-root plan
 in the durable architecture.
+
+An admitted Construct carrier also removes collision tilt through that ordinary live root drive.
+Above root-up 0.995 it retains the proven velocity/yaw drive; below the threshold it advances the
+same carrier velocity while converging toward world-up at no more than 1.2 rad/s. A one-step upright
+snap was rejected because it pushed the correction through every attached joint as an unbounded
+impulse. Moving the bounded target to a root-only post-verdict callback was rejected too: after pair
+and joint control had stopped, it pulled the surviving assembly away from the visible fight rather
+than settling it. On the verdict edge both command drivers and pair control stop. A surviving
+Construct instead captures every still-attached part in the achieved root-relative pose, changes
+that finite set to ANIMATED presentation bodies, and rotates the entire assembly toward upright at
+the same bound. Pairwise geometry therefore cannot be left behind by a root correction, and no
+scheduler, locomotion request or combat authority is revived. Detached debris and a defeated
+Construct remain ordinary dynamic bodies.
 
 Diagnostics expose immutable support state, specific impulse, active and alternative support
 groups with binding-level refusal reasons, requested and allowed motion, blockage/release reason and

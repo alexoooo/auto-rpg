@@ -319,6 +319,8 @@ test("the_actual_glb_installs_its_skinned_regions_and_authored_material_roles", 
   assert.ok(regions.every((mesh) => mesh.name.includes("__region_")),
     `every installed mesh names the anatomical region that owns its faces: ${regions.map((mesh) => mesh.name).join(", ")}`);
   assert.ok(regions.every((mesh) => mesh.skeleton), "every installed region is driven by the cloned skin");
+  assert.ok(regions.every((mesh) => mesh.alwaysSelectAsActiveMesh),
+    "ragdoll-driven skin regions cannot be frustum-rejected by stale bind-pose bounds");
 
   const owners = new Set(regions.map((mesh) => Object.keys(SKIN_BONE_PARENT).find((name) =>
     new RegExp(`__region_${name}(?:_primitive\\d+)?$`).test(mesh.name))));

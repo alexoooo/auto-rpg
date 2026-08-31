@@ -105,8 +105,9 @@ export interface PhysicalSupportedLocomotionOptions {
   /** Live terminal/contact point for one registered support role. */
   readonly supportPoint?: (binding: string) => WorldPoint | null;
   readonly applyAngularDrive?: (yaw: number, state: Exclude<SupportState, "fallen">) => void;
-  /** Fighter's proven supported root stays animated until an authored release makes it ragdoll. */
-  readonly driveAnimatedRoot?: (velocity: Readonly<{ x: number; y: number; z: number }>, yaw: number) => void;
+  /** Fighter's supported root follows the resolved upright carrier until an authored release makes it ragdoll. */
+  readonly driveAnimatedRoot?: (position: WorldPoint,
+    velocity: Readonly<{ x: number; y: number; z: number }>, yaw: number, dt: number) => void;
   /** Applies only the occupancy-checked, acceleration-bounded RisingActuator frame. */
   readonly driveRisingRoot?: (position: WorldPoint, velocity: WorldPoint, yaw: number) => void;
   readonly releaseRoot?: () => void;
@@ -389,10 +390,15 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
           this.options.applyAngularDrive?.(frame.yaw, "rising");
         }
       }
-    } else if (requested !== null && this.supportState.state !== "fallen") {
+    } else if (this.supportState.state !== "fallen") {
+      // Supported is a physical hold as well as a response to movement. An
+      // idle/weapon-only command still needs the admitted root driven from the
+      // STOP proposal, particularly after a collision has tilted an ANIMATED
+      // body. `resolution.allowed` remains null when no request existed; this
+      // branch maintains the body without inventing a locomotion command.
       const velocity = { x: state.velocityX, y: 0, z: state.velocityZ };
       if (this.options.root.sample().motionType === "animated" && this.options.driveAnimatedRoot) {
-        this.options.driveAnimatedRoot(velocity, state.yaw);
+        this.options.driveAnimatedRoot({ x: state.x, y: state.y, z: state.z }, velocity, state.yaw, dt);
       } else {
         this.motor.drive({ x: state.x, y: state.y, z: state.z }, velocity, this.supportState.state);
         this.options.applyAngularDrive?.(state.yaw, this.supportState.state);

@@ -990,9 +990,9 @@ export class Fighter {
         if (torque.length() > limit) torque.normalize().scaleInPlace(limit);
         this.pelvis.body.applyTorque(torque);
       },
-      driveAnimatedRoot: (targetVelocity, targetYaw) => {
-        const rotation = this.pelvis.mesh.rotationQuaternion ?? Quaternion.Identity();
-        const actualYaw = rotation.toEulerAngles().y;
+      driveAnimatedRoot: (_targetPosition, targetVelocity, targetYaw, _dt) => {
+        const liveRotation = this.pelvis.mesh.rotationQuaternion ?? Quaternion.Identity();
+        const actualYaw = liveRotation.toEulerAngles().y;
         const yawError = Math.atan2(Math.sin(targetYaw - actualYaw), Math.cos(targetYaw - actualYaw));
         this.pelvis.body.setLinearVelocity(new Vector3(targetVelocity.x, 0, targetVelocity.z));
         this.pelvis.body.setAngularVelocity(new Vector3(0,

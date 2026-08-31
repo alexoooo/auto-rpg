@@ -456,6 +456,29 @@ test("an arrow that hits the ground plants where it landed and is collected late
   assert.equal(arrow.live, false, "and it is collected");
 });
 
+test("an_arrow_spent_on_a_body_is_damped_once_and_then_falls_under_gravity", async () => {
+  const { scene, materials, frames, driver } = await world();
+  const target = MeshBuilder.CreateBox("body-target", { width: 1, height: 2, depth: 0.25 }, scene);
+  target.position.set(0, 1.1, 3);
+  const targetAggregate = new PhysicsAggregate(target, PhysicsShapeType.BOX, { mass: 0 }, scene);
+  targetAggregate.shape.filterMembershipMask = LAYER.RIGHT_TRUNK;
+  targetAggregate.shape.filterCollideMask = COLLIDES.RIGHT_TRUNK;
+  const layers = layersFor("left");
+  const quiver = new Quiver(scene,
+    { name: "body-drop", layer: layers.arrow, collidesWith: layers.arrowCollides }, materials);
+  const arrow = quiver.arrows[0];
+  driver(quiver).fire(new Vector3(0, 1.1, 0), new Vector3(0, 0, 1), 30);
+
+  for (let frame = 0; frame < 60 && !arrow.struck; frame += 1) frames(1);
+  assert.equal(arrow.struck, true, "the fixture must first spend the arrow on anatomy, not the floor");
+  const impactY = arrow.root.position.y;
+  frames(60);
+  assert.ok(impactY - arrow.root.position.y > 0.5,
+    `a body-spent shaft must fall rather than hover: ${impactY.toFixed(3)} -> ${arrow.root.position.y.toFixed(3)}`);
+  assert.equal(arrow.shape.filterMembershipMask, LAYER.SPENT_ARROW);
+  assert.equal(arrow.shape.filterCollideMask, COLLIDES.SPENT_ARROW);
+});
+
 test("parked_flying_and_spent_masks_are_three_distinct_states", async () => {
   const { scene, materials, frames, driver } = await world();
   const layers = layersFor("left");

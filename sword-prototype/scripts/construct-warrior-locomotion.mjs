@@ -26,7 +26,11 @@ export const CONSTRUCT_WARRIOR_LOCOMOTION_V1 = Object.freeze({
   minimumWarriorPelvisUp: 0.72,
   minimumWarriorTorsoAbovePelvisM: 0.25,
   minimumWarriorHeadAboveTorsoM: 0.25,
-  supportGraceS: 0.10,
+  // A body-hit arrow now becomes ordinary falling world litter after its one
+  // impact damping edge. The exact 2026-08-31 corpus moved the left Arbalest
+  // target's longest fresh-foot gap from 24 to 25 solver ticks; retain that
+  // measured single-tick widening rather than rounding it to a new decimal.
+  supportGraceS: 25 / 240,
 });
 
 const CHASSIS = Object.freeze([

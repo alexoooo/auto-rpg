@@ -100,6 +100,28 @@ const physicalFixture = (id, x, registry, overrides = {}) => {
     supportPoint: () => ({ x, y: 0.04, z: 0 }), ...overrides });
 };
 
+test("an_admitted_animated_root_is_held_even_without_a_locomotion_request", () => {
+  const registry = flatSupportedWorldRegistry();
+  const rootState = { motionType: "animated", position: { x: 0, y: 0.9, z: 0 },
+    velocity: { x: 0, y: 0, z: 0 }, massKg: 10, released: false };
+  const driven = [];
+  const port = physicalFixture("idle-root-hold", 0, registry, {
+    root: { sample: () => rootState, applyForce() {}, clearDrive() {} },
+    driveAnimatedRoot: (position, velocity, yaw, dt) => driven.push({ position, velocity, yaw, dt }),
+  });
+  try {
+    port.beginControlStep();
+    const proposal = port.proposal(1 / 240);
+    port.commitPhysical(proposal, proposal.displacement, 1 / 240);
+    assert.equal(port.diagnostic().requested, null,
+      "the fixture must not smuggle in a locomotion request");
+    assert.equal(port.diagnostic().allowed, null,
+      "maintaining support must not be reported as an admitted command");
+    assert.deepEqual(driven, [{ position: { x: 0, y: 0.9, z: 0 },
+      velocity: { x: 0, y: 0, z: 0 }, yaw: 0, dt: 1 / 240 }]);
+  } finally { port.dispose(); }
+});
+
 test("production_diagnostic_is_plain_immutable_support_evidence_and_names_motion_blockage", () => {
   const registry = flatSupportedWorldRegistry();
   const groupRows = [{ id: "locomotion-left", live: true, reason: null,

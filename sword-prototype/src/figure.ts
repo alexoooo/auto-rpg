@@ -1044,6 +1044,12 @@ export class Figure implements FigureController {
     for (const mesh of meshes) {
       mesh.receiveShadows = true;
       mesh.isPickable = true;
+      // Bone-driven vertices can leave the authored bind-pose bounds by an
+      // entire body length after a fall. Frustum-testing those stale CPU bounds
+      // made the skin vanish at some camera distances while boots and weapons
+      // remained. This is a small fixed mesh set; keep it active and let the GPU
+      // skin the current physical pose.
+      mesh.alwaysSelectAsActiveMesh = true;
       selectHandMorphs(mesh, loadout);
       this.pieces.push(mesh);
     }

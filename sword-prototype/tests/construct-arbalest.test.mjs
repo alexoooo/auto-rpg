@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 
 import { Combat } from "../src/combat.ts";
 import { CONFIG } from "../src/config.ts";
@@ -199,6 +200,37 @@ const materials = (scene) => {
     leather: shared, brass: shared, hide: shared, wood: shared, arrowAccent: shared }) });
 };
 
+test("a_surviving_Arbalest_holds_its_attached_assembly_as_one_post_verdict_pose", async () => {
+  const arena = await createConstructHeadlessArena();
+  const construct = unitDefinition("arbalest-effigy").build({ scene: arena.scene, side: "left",
+    origin: Vector3.Zero(), facing: 0, materials: materials(arena.scene).fighter,
+    policyName: "construct-hold", locomotionMode: "supported",
+    locomotionWorld: flatSupportedWorldRegistry() });
+  try {
+    const root = construct.runtime.part(construct.runtime.blueprint.rootPart);
+    root.node.rotationQuaternion = Quaternion.RotationAxis(Vector3.Forward(), 0.28);
+    construct.stopFighting();
+    assert.equal(typeof construct.stepPostVerdictPresentation, "function");
+    const attached = [...construct.runtime.parts.values()].filter(({ attached }) => attached);
+    assert.ok(attached.length > 1, "the fixture must exercise a jointed assembly");
+    assert.equal(attached.every(({ body }) => body.getMotionType() === PhysicsMotionType.ANIMATED), true,
+      "the victory hold must move every attached part rather than dragging only the root");
+    const radii = new Map(attached.map((part) =>
+      [part.id, Vector3.Distance(root.node.position, part.node.position)]));
+    for (let step = 0; step < CONFIG.world.physicsHz; step += 1) {
+      construct.stepPostVerdictPresentation(1 / CONFIG.world.physicsHz);
+      arena.scene._renderId += 1;
+      arena.scene._advancePhysicsEngineStep(1000 / CONFIG.world.physicsHz);
+    }
+    const rootUp = Vector3.Up().rotateByQuaternionToRef(
+      root.node.rotationQuaternion ?? Quaternion.Identity(), new Vector3()).y;
+    assert.ok(rootUp >= 0.995, `the whole-assembly victory hold remained tilted at ${rootUp}`);
+    for (const part of attached) assert.ok(Math.abs(
+      Vector3.Distance(root.node.position, part.node.position) - radii.get(part.id)) <= 0.005,
+    `${part.id} changed its root radius while the assembly righted`);
+  } finally { construct.dispose(); arena.dispose(); }
+});
+
 test("the_selectable_Arbalest_tracks_and_physically_hits_an_idle_Warrior_torso_in_both_mirrors", async () => {
   for (const constructSide of ["left", "right"]) {
     const arena = await createConstructHeadlessArena();
@@ -278,7 +310,7 @@ test("the_full_health_Arbalest_allows_one_Warrior_recovery_then_wins_with_follow
   "the defeated Warrior remains a cohesive visible body in the arena");
   assert.ok(report.constructPhysical.rootUp >= 0.90 && report.constructPhysical.minimumAttachedY >= -0.05 &&
     report.constructPhysical.maximumAttachedDistanceFromRootM <= 1.65,
-  "the winning Arbalest remains upright and physically assembled");
+  `the winning Arbalest remains upright and physically assembled: ${JSON.stringify(report.constructPhysical)}`);
 });
 
 test("the_Arbalest_resolves_an_idle_fallen_Warrior_instead_of_waiting_for_the_bout_cap", async () => {

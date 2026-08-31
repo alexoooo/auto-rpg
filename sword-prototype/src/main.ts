@@ -891,10 +891,14 @@ async function boot(): Promise<void> {
       const clock = bout.sides[0].combat.now;
       sampleBoutRecorder(bout.recorder, bout.left, bout.right, FIXED_STEP, clock);
     } else {
-      // A projectile already away belongs to the world after the verdict. The
-      // arms no longer pose or shoot, but the pool must still age and recycle.
+      // Both command drivers are stopped. A projectile already away belongs to
+      // the world after the verdict, while a surviving compound body may keep
+      // an explicitly presentation-only whole-assembly hold. That seam cannot
+      // submit an Action or move only one root out from under its joints.
       bout.left.stepProjectiles(FIXED_STEP);
       bout.right.stepProjectiles(FIXED_STEP);
+      bout.left.stepPostVerdictPresentation?.(FIXED_STEP);
+      bout.right.stepPostVerdictPresentation?.(FIXED_STEP);
     }
     // Here rather than at the swap, because the quantity is what the *new* mind
     // commanded and this is the first step it has been asked.

@@ -748,6 +748,27 @@ then refused. The fallen port follows its live root at safe boundaries and reser
 query-only footprint; detached/dead roots reserve nothing. Do not recover the old balance corpus by
 restoring the overlap bug -- requalify the Mind against the honest recovery space.
 
+**Impact damping is an edge, not a force law.** Reapplying a body-hit arrow's 0.92 damping every
+240 Hz step damps gravity too and leaves the shaft hanging for its whole spent lifetime. Apply it
+once when `touched` becomes `struck`; after that a body-hit shaft is dynamic world litter, while an
+actual world hit is the separate STATIC planting path.
+
+**A skinned ragdoll cannot be culled by its bind-pose bounds.** The physical bones can put visible
+vertices an entire body length outside the authored CPU box. Culling those regions made a fallen
+Warrior disappear at one zoom and reappear at another while boots and weapons stayed. The fixed
+Warrior region set uses `alwaysSelectAsActiveMesh`; do not trade that correctness for a stale-bound
+micro-optimization.
+
+**Right a supported root only while its whole assembly is under live carrier control.** An ANIMATED
+Havok root ignores x/z angular-velocity correction. The Construct's admitted carrier therefore uses
+a bounded transform target below root-up 0.995 and the proven velocity/yaw drive above it. A one-step
+exact target launched the held-sword wall fixture; moving the bounded target to a root-only
+post-verdict callback pulled the assembly out of the visible fight after pair and joint control had
+stopped. Both were rejected. The post-verdict survivor hold captures every attached part in one
+root-relative pose and rotates that entire finite ANIMATED set without reviving either driver;
+detached or defeated pieces stay dynamic. Do not replace that whole-body seam with a
+`stepProjectiles` root shortcut.
+
 **Recovery discipline needs a terminal branch.** The Arbalest once refused every shot at a prone
 opponent. That protected a rising Warrior, but a player-driven idle Warrior requested no recovery
 and produced a physically stable draw until the cap. Keep `rising` protected; after a stable prone

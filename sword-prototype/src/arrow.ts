@@ -384,7 +384,8 @@ export class Arrow {
 
     // A step late, on purpose. See `touched`: marking it spent inside the
     // contact callback marks it spent before the watcher that scores it runs.
-    if (this.touched && !this.struck) {
+    const justStruck = this.touched && !this.struck;
+    if (justStruck) {
       this.struck = true;
       this.age = 0;
     }
@@ -404,20 +405,24 @@ export class Arrow {
       if (this.trail.visibility === 0) this.traceRoot.setEnabled(false);
     }
 
-    if (this.struck && this.planting) {
+    if (justStruck && this.planting) {
       this.planting = false;
       this.body.setLinearVelocity(Vector3.Zero());
       this.body.setAngularVelocity(Vector3.Zero());
       this.body.setMotionType(PhysicsMotionType.STATIC);
       this.shape.filterMembershipMask = LAYER.SPENT_ARROW;
       this.shape.filterCollideMask = COLLIDES.SPENT_ARROW;
-    } else if (this.struck) {
+    } else if (justStruck) {
       // Into a body rather than into the world. It cannot be pinned there --
       // the thing it hit is moving, and an arrow welded to a limb is a session
       // of its own -- so it is bled of nearly all its speed and dropped. That is
       // an arrow that arrives, stops dead and falls at the target's feet, which
       // is honest about what this models: it is *not* an arrow standing out of
       // somebody's chest.
+      //
+      // This is an impact transition, not a per-step drag law. Reapplying the
+      // damping at 240 Hz also cancels almost all gravity and leaves the shaft
+      // visibly suspended for its six-second spent lifetime.
       //
       // Bleeding it matters more than it sounds. A 35 g arrow at 45 m/s into a
       // keyframed trunk **bounces**: measured against a static wall, one came
