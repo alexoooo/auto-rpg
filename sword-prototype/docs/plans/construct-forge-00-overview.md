@@ -1,11 +1,12 @@
 # Construct Forge -- live roadmap
 
-> **2026-08-30 implementation status.** Sessions 20--24 landed their runtime, production activation,
+> **2026-08-31 implementation status.** Sessions 20--24 landed their runtime, production activation,
 > physical evidence and technical handoff, but the topic is not closed. The 26-cell Havok locomotion
 > matrix is green. The fresh assisted-Warden qualification was run and honestly rejected: all eight
 > rows time-capped, one lacked bilateral damage and none exercised the required move/brace Actions.
-> Improving that rejection, the Arbalest's one-cell idle targeting debt, the red Twinblade
-> curriculum and Session 16's human verdict remain named work. The
+> The Arbalest's one-cell idle targeting debt is closed by an authored-clearance mount and
+> separately measured prone lane while preserving its 8/8 qualified corpus. Improving the Warden
+> rejection, the red Twinblade curriculum and Session 16's human verdict remain named work. The
 > original continuous-DYNAMIC-root premise was rejected by a real at-rest bracket and is superseded
 > by the supported-ANIMATED -> knocked-down-DYNAMIC boundary in `docs/design.md`.
 

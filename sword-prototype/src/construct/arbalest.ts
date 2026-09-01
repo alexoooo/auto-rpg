@@ -13,7 +13,8 @@ import { humanoidLocomotionRules, humanoidOpponentAligned } from "./humanoid-loc
 
 const I = Object.freeze([0, 0, 0, 1] as const);
 const frame = (positionM: readonly [number, number, number] = [0, 0, 0]): AttachmentFrame =>
-  Object.freeze({ positionM: Object.freeze([...positionM]) as [number, number, number], rotation: I });
+  Object.freeze({ positionM: Object.freeze([...positionM]) as [number, number, number],
+    rotation: I });
 type ModuleGeometrySpec = ModuleSpec["geometry"][number];
 const geometry = (id: string, shape: ModuleGeometrySpec["shape"],
   positionM: readonly [number, number, number] = [0, 0, 0],
@@ -59,7 +60,9 @@ export const ARBALEST_ASSISTED_QUALIFIER_ID = "arbalest-assisted-support-v2";
  * 0.96 s recovered 4/4 and won 0/4; 0.90 s centre aim passed that half-corpus but
  * fell to 3/8 qualified on the full mirrors. The Mind therefore retains proven
  * hardware cadence. The recovery-aware 2026-08-31 sweep instead selects the lane opposite the
- * blocker relative to the opponent's centre and uses 0.07 m, with a -0.05 m vertical trim. That
+ * blocker relative to the opponent's centre and uses 0.07 m, with a -0.05 m vertical trim. The
+ * later outboard launcher mount needed 0.12 m to keep that same blocker-relative lane visibly
+ * open; 0.07 m let the full-health follow-up draw repeatedly feed the buckler. That
  * live sight fact feeds the mount without changing Action parameters mid-draw. The same corpus
  * rejected both the old
  * 1.80 m retreat boundary (one damaging arrow landed after support was lost) and wider guesses:
@@ -72,11 +75,13 @@ export const ARBALEST_ASSISTED_QUALIFIER_ID = "arbalest-assisted-support-v2";
  * The x0.10 mirrored damage bracket then rejected 1.85 at only 5/8 posture-qualified wins and
  * retained 1.90 at 8/8; all eight winners remained upright and spent exactly two bolts.
  * Fragile hardware spends its immediate follow-up during the bounded rise; the separately delayed
- * prone-finisher remains common to both hardware profiles.
+ * prone-finisher remains common to both hardware profiles. After the mount moved, a six-height
+ * fixed-seed prone sweep found +0.15 m was the only prompt torso-finishing lane near centre;
+ * lower rows fed fallen limbs and +0.35 m drew.
  */
-export const ARBALEST_TACTICS = Object.freeze({ blockerClearanceM: 0.07,
+export const ARBALEST_TACTICS = Object.freeze({ blockerClearanceM: 0.12,
   targetHeightOffsetM: -0.05, reacquireAfterReloadS: 0.10,
-  finishDownedAfterS: 1.25, finishTargetHeightOffsetM: 0.25, desperateLauncherHealth: 9 });
+  finishDownedAfterS: 1.25, finishTargetHeightOffsetM: 0.15, desperateLauncherHealth: 9 });
 export const ARBALEST_LOCOMOTION = Object.freeze({ retreatBelowM: 2.40, closeAtM: 6.00 });
 export const ARBALEST_LEFT_SWORD_GUARD = Object.freeze({
   shoulder: -0.35, elbow: -0.65, wrist: 0.35, palm: -0.15,
@@ -101,7 +106,7 @@ const launcherModule = (): ModuleSpec => Object.freeze({
   geometry: Object.freeze([
     geometry("stock", { kind: "box", sizeM: [0.14, 0.14, 0.28] }, [0, 0, -0.05]),
     geometry("rail", { kind: "box", sizeM: [0.06, 0.06, 0.32] }, [0, 0.05, 0.05], "bearing"),
-    geometry("bow", { kind: "box", sizeM: [0.48, 0.05, 0.06] }, [0, 0.05, 0.08], "bearing"),
+    geometry("bow", { kind: "box", sizeM: [0.24, 0.05, 0.06] }, [0, 0.05, 0.08], "bearing"),
   ]),
   massKg: ARBALEST_HARDWARE.launcherMassKg, health: 90, armour: 12,
   maxHeatJ: ARBALEST_HARDWARE.maxHeatJ, coolingW: ARBALEST_HARDWARE.coolingW,
@@ -126,12 +131,19 @@ export function arbalestBlueprint(): ConstructBlueprint {
   const base = structuredClone(humanoidBlueprint());
   const sight = base.modules.find(({ id }) => id === "effigy-sight");
   const ordinarySword = base.modules.find(({ id }) => id === "effigy-sword");
-  if (!ordinarySword) throw new Error("Arbalest requires the humanoid's ordinary sword module");
+  const torso = base.parts.find(({ id }) => id === "torso");
+  if (!ordinarySword || torso?.shape.kind !== "box") {
+    throw new Error("Arbalest requires the humanoid sword and box torso");
+  }
   const modules = base.modules.filter(({ id }) => id !== "effigy-sword").map((module) =>
     module.id === sight?.id ? { ...module, sensorChannels: ARBALEST_SENSORS.map(({ id }) => id)
       .filter((id) => !id.startsWith("contact-") && !id.startsWith("slip-")) } : module);
   return validateBlueprint({ ...base, id: "arbalest-effigy",
-    sockets: [...base.sockets,
+    parts: base.parts,
+    joints: base.joints,
+    sockets: [...base.sockets.map((socket) => socket.id === "socket-sword-hand"
+      ? { ...socket, frame: frame([0.20, socket.frame.positionM[1], 0.20]) }
+      : socket),
       { id: "socket-arbalest-magazine", part: "torso",
         frame: frame([-0.18, -0.04, -0.19]), accepts: ["magazine"] },
       { id: "socket-arbalest-left-sword", part: "left-hand",
@@ -248,6 +260,16 @@ export function arbalestProgram(): ConstructProgram {
         // support fact. Requiring either transient reading recreated a 16-second near-timeout.
         launcherReady,
       ]) }), utility: constant(19), parameters: finishTargetParameters }),
+    // Use the declared recovery window to acquire the finishing lane. Tracking
+    // the old upright lane during that dwell made the fire action spend another
+    // two seconds traversing after it was admitted -- and repeatedly feed the
+    // same fallen buckler in the meantime.
+    Object.freeze({ id: "track-downed-opponent", action: "track", priority: 26, optional: true, dwellS: 0,
+      condition: Object.freeze({ op: "and" as const, values: Object.freeze([
+        Object.freeze({ op: "not" as const, value: sensor("opponent-upright") }),
+        Object.freeze({ op: "not" as const, value: sensor("opponent-rising") }),
+        sensor("line-of-sight"),
+      ]) }), utility: constant(9), parameters: finishTargetParameters }),
     // Keep following through the reload. Without this disjoint admission phase the mount
     // waited for ammunition before it began reacquiring a clinching opponent, spending
     // another 0.18--0.39 s exposed after every 0.65 s reload.

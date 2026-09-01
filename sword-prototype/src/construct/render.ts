@@ -167,6 +167,40 @@ export function buildConstructModuleVisual(
   root.metadata = { constructModuleId: module.id, constructModuleKind: module.kind };
   const meshes: Mesh[] = [];
   try {
+    const standOff = Math.hypot(socketFrame.positionM[0], socketFrame.positionM[2]);
+    if (module.kind === "launcher" && standOff > 0.10) {
+      // A collision-safe socket must still read as attached hardware. Route an
+      // L bracket outboard first, then forward: the old shortest diagonal cut
+      // straight through the chest and merely hid the same violation in a
+      // non-solving visual.
+      const makeBracket = (name: string, size: Vector3, position: Vector3) => {
+        const bracket = MeshBuilder.CreateBox(`construct.${module.id}.${name}`, {
+          width: size.x, height: size.y, depth: size.z,
+        }, scene);
+        bracket.parent = root;
+        bracket.position.copyFrom(position);
+        bracket.material = materialForConstructRole(palette, "joint");
+        bracket.metadata = { constructModuleId: module.id, constructModuleKind: module.kind,
+          constructSurfaceRole: "joint", presentationOnlyMountBracket: true };
+        bracket.isPickable = false;
+        meshes.push(bracket);
+      };
+      const x = socketFrame.positionM[0];
+      const z = socketFrame.positionM[2];
+      if (Math.abs(x) > 0.11) {
+        // The pitch-arm shell already covers the first decimetre from its
+        // socket. Drawing that span a second time put the cosmetic bracket
+        // through the torso even though the actual launcher was clear.
+        const visible = Math.abs(x) - 0.10;
+        makeBracket("mount-outboard", new Vector3(visible + 0.04, 0.06, 0.06),
+          // `root` is already at the offset socket. The owner's old socket is
+          // therefore at (-x, -z): the outboard leg belongs in that rear plane,
+          // not beside the launcher where it can sweep back through the torso.
+          new Vector3(-Math.sign(x) * visible / 2, 0, -z));
+      }
+      makeBracket("mount-forward", new Vector3(0.06, 0.06, Math.abs(z) + 0.05),
+        new Vector3(0, 0, -z / 2));
+    }
     for (const spec of module.geometry) {
       const mesh = shell(scene, `construct.${module.id}.${spec.id}`, spec.shape, spec.shell.visualClearanceM);
       mesh.parent = root;

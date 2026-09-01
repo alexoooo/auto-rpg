@@ -908,6 +908,31 @@ ceiling** so the elbow is bent. That last one is not the knob the previous sessi
 that was a *floor* under `reachGuard`, refuted because lifting the reach moved the plate
 closer to the head. This is the opposite bound and that measurement argues for it.
 
+### Self-clearance is part of the controller
+
+An owner collision filter cannot turn an impossible two-hand request into a good pose. A sword
+anchor driven through a shield anchor leaves two strong motors pressing into one contact; general
+self-collision is worse, because the adjacent capsules of every articulated chain overlap at their
+joint seams. The accepted boundary is selective and sits below both player and policy intent.
+
+Both ordinary arms now plan before either commits. A sword centreline is tested against the
+planned, expanded shield box together with the sword hand, forearm and their achieved-to-command
+sweeps. A crossing routes the sword hand to the nearest clear outboard, over or under pose while
+preserving both authored reaches; if every straight route remains obstructed, it holds the last
+achieved physical pose for that step rather than committing the final rejected candidate. A
+strapped shield command more than 0.60 rad across its own side
+is refused to a mirrored 0.45 rad outboard carry; that refusal also reverses the requested wrist
+turn so the plate still faces the line it was commanded to cover. The elbow pole mirrors only for
+that refused pose. This is anatomical execution below player and policy intent, not defensive aim
+assist: it reads neither an opponent nor an incoming weapon.
+
+There is deliberately no new collision leaf, mass, inertia or debris. The visible board remains
+the shield's one physical leaf and the existing same-owner sword/shield filters remain exempt;
+making two high-force anchors solve that contact pinned the board after its visible geometry had
+already cleared. The articulated bodies still have to carry the corrected targets. Tests read the
+achieved blade, hand and forearm on every physics step while both hands sweep, in both factions and both loadout orders,
+then discard the same one-leaf shield through the ordinary debris path.
+
 **What none of it fixes is placement**, and the numbers in `docs/measurements.md` are blunt
 about it: an arm pointed at the enemy shows him 0.033 m^2 of a 0.26 m^2 board, and an arm
 held across the line shows him 0.190. The mount decides what the plate *can* do and only
@@ -1670,7 +1695,7 @@ but continues tracking through reload. Its sight also observes the opponent's pu
 saved launcher health capacity and a live blocker-relative aim lane. A launcher with ordinary
 health refuses fire during a rise, so its opponent can finish a real recovery before the next
 ordinary shot. A stable opponent that remains prone is a different state: after a 1.25-second
-recovery window, a finishing rule uses its separately measured +0.25 m prone aim trim and resolves
+recovery window, a finishing rule uses its separately measured +0.15 m prone aim trim and resolves
 the bout instead of waiting for the safety cap. The deliberately fragile x0.10 balance body instead
 fires during the bounded rise. Saved capacity is a separate fact from normalized
 remaining health; confusing those units made the fragile branch always true in the rejected version.
@@ -1678,7 +1703,7 @@ Its 2.40 m retreat boundary preserves recovery space instead of exploiting a fal
 absent carrier footprint. The explicit 1.90 heavy-bolt scale is the first 0.05-step bracket above
 the rejected 1.85 cell that restores all eight x0.10 mirrored wins before posture loss.
 Blocker-relative aim compares the blocker with the opponent's centre, adds a
-0.07 m open-side lane and uses a measured -0.05 m vertical trim. It is a live
+0.12 m open-side lane and uses a measured -0.05 m vertical trim. It is a live
 mount fact rather than a changing Action parameter, so a buckler crossing centre cannot cancel and
 restart an admitted draw. This is intentional body/Mind co-design: idle and active
 comparisons share the exact launcher, sword, body and control graph, while only active requests the

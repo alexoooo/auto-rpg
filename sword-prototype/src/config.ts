@@ -611,6 +611,15 @@ export const CONFIG = {
      * 0.28 still passes under it untouched.
      */
     reachCap: 0.32,
+    /**
+     * Minimum outboard angle for a strapped shield hand.
+     *
+     * The 0.80-radian covering angle previously let an extreme command wrap the
+     * carrying arm across the trunk. Keeping the fist 0.45 rad outboard leaves
+     * the plate covering the centreline without putting its inner half through
+     * the owner's chest.
+     */
+    handOutboardAzimuthMin: 0.45,
     bossDiameter: 0.13,
     gripLength: 0.12,
     mass: 4.0,

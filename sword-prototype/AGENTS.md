@@ -606,6 +606,23 @@ npm run dev             # http://localhost:5180, strictPort
   The integration lifecycle audit wraps those two plugin calls and balances the actual
   `_pluginData` IDs; reading `_constraintToBodyIdPair.size` would report a leak forever.
 
+- **General self-collision is not a physicality fix for a driven articulated body.** Adjacent
+  capsules overlap at their joint seams by construction, so turning every owner pair on makes
+  the motors buzz against their own anatomy. The opposite failure is just as misleading:
+  `selfCollisionCount === 0` proves nothing about pairs the filters never admitted. Physicality
+  uses three narrow boundaries instead: anatomical controller limits (an impossible strapped-shield
+  command is reflected to a same-side carry and its wrist turn is reversed), pair-atomic planning
+  plus command-volume clearance for an owner's sword and shield, and authored mount clearance
+  validated through the live articulation envelope.
+  A generic mount-versus-own-trunk layer changed the Warden's established dorsal-yaw contact into
+  a dorsal-pitch hit, so it was rejected rather than relayering every launcher. A hidden shield
+  leaf was also rejected because it changed mass, inertia and debris; the retained resolver tests
+  the visible plate against the blade, hand, forearm and achieved-to-command sweep without adding
+  physics geometry. For mounted hardware, prove bind clearance and live clearance in both mirrors while
+  preserving the established aiming chain. Reparenting the Arbalest bearings onto a new brace made
+  a clean-looking mount that could no longer aim; the accepted socket offset changes mounting,
+  not the controller's joint response.
+
 ## House rules
 
 Seven, and each one was paid for.

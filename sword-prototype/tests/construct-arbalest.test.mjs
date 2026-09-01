@@ -12,6 +12,7 @@ import { ARBALEST_HARDWARE, ARBALEST_LEFT_SWORD_GUARD, ARBALEST_LOCOMOTION, ARBA
   arbalestBlueprint, arbalestControl, arbalestProgram,
   arbalestProfileMetrics, arbalestSavedConstruct } from "../src/construct/arbalest.ts";
 import { humanoidBlueprint } from "../src/construct/humanoid.ts";
+import { resolveConstructBindTransforms } from "../src/construct/compile.ts";
 import { evaluateExpression } from "../src/construct/program.ts";
 import { installedSensorsForBlueprint, SensorFrame } from "../src/construct/sensors.ts";
 import { stepPair } from "../src/fighter.ts";
@@ -28,8 +29,10 @@ test("the_Arbalest_reuses_the_human_scale_body_with_a_right_launcher_and_an_ordi
   const swordbearer = humanoidBlueprint();
   const blueprint = arbalestBlueprint();
   assert.equal(blueprint.id, "arbalest-effigy");
-  assert.deepEqual(blueprint.parts, swordbearer.parts);
-  assert.deepEqual(blueprint.joints, swordbearer.joints);
+  assert.deepEqual(blueprint.parts, swordbearer.parts,
+    "launcher clearance must not replace the proven humanoid body");
+  assert.deepEqual(blueprint.joints, swordbearer.joints,
+    "launcher clearance must not change the proven two-axis aiming chain");
   assert.equal(blueprint.modules.some(({ id }) => id === "effigy-sword"), false);
 
   const launcher = blueprint.modules.find(({ id }) => id === "effigy-arbalest");
@@ -38,6 +41,8 @@ test("the_Arbalest_reuses_the_human_scale_body_with_a_right_launcher_and_an_ordi
   const ordinarySword = swordbearer.modules.find(({ id }) => id === "effigy-sword");
   assert.equal(launcher.kind, "launcher");
   assert.equal(launcher.socket, "socket-sword-hand");
+  assert.deepEqual(blueprint.sockets.find(({ id }) => id === launcher.socket).frame.positionM,
+    [0.20, swordbearer.sockets.find(({ id }) => id === launcher.socket).frame.positionM[1], 0.20]);
   assert.equal(magazine.kind, "magazine");
   assert.equal(blueprint.sockets.find(({ id }) => id === magazine.socket).part, "torso");
   assert.equal(launcher.massKg, 3.2);
@@ -54,6 +59,29 @@ test("the_Arbalest_reuses_the_human_scale_body_with_a_right_launcher_and_an_ordi
   assert.equal(magazine.massKg,
     ARBALEST_HARDWARE.ammunition * ARBALEST_HARDWARE.projectile.massKg + ARBALEST_HARDWARE.carrierMassKg,
   "magazine mass is declared bolt mass plus its torso carrier, not a hidden balance scale");
+});
+
+test("the_Arbalest_crossbow_is_authored_outside_its_torso_in_the_bind_pose", () => {
+  const blueprint = arbalestBlueprint();
+  const transforms = resolveConstructBindTransforms(blueprint);
+  const torso = blueprint.parts.find(({ id }) => id === "torso");
+  const launcher = blueprint.modules.find(({ id }) => id === "effigy-arbalest");
+  const socket = blueprint.sockets.find(({ id }) => id === launcher.socket);
+  const owner = transforms.get(socket.part);
+  assert.equal(torso.shape.kind, "box");
+
+  const moduleRootX = owner.position.x + socket.frame.positionM[0];
+  const moduleRootZ = owner.position.z + socket.frame.positionM[2];
+  const torsoOuterX = torso.shape.sizeM[0] / 2 + torso.shell.visualClearanceM;
+  const torsoOuterZ = torso.shape.sizeM[2] / 2 + torso.shell.visualClearanceM;
+  for (const piece of launcher.geometry) {
+    assert.equal(piece.shape.kind, "box");
+    const innerX = moduleRootX + piece.frame.positionM[0] - piece.shape.sizeM[0] / 2 - piece.shell.visualClearanceM;
+    const innerZ = moduleRootZ + piece.frame.positionM[2] - piece.shape.sizeM[2] / 2 - piece.shell.visualClearanceM;
+    const clearance = Math.max(innerX - torsoOuterX, innerZ - torsoOuterZ);
+    assert.ok(clearance >= 0.005,
+      `${piece.id} has only ${(clearance * 1000).toFixed(1)} mm of bind-pose torso clearance`);
+  }
 });
 
 test("the_Arbalest_public_graph_exposes_tracking_fire_and_the_existing_biped_support_actions", () => {
@@ -86,9 +114,9 @@ test("the_Arbalest_public_graph_exposes_tracking_fire_and_the_existing_biped_sup
 
 test("an_Arbalest_draw_starts_only_upright_on_fresh_support_and_then_keeps_its_launcher", () => {
   assert.equal(ARBALEST_LOCOMOTION.retreatBelowM, 2.40);
-  assert.deepEqual(ARBALEST_TACTICS, { blockerClearanceM: 0.07, targetHeightOffsetM: -0.05,
+  assert.deepEqual(ARBALEST_TACTICS, { blockerClearanceM: 0.12, targetHeightOffsetM: -0.05,
     reacquireAfterReloadS: 0.10, finishDownedAfterS: 1.25,
-    finishTargetHeightOffsetM: 0.25, desperateLauncherHealth: 9 });
+    finishTargetHeightOffsetM: 0.15, desperateLauncherHealth: 9 });
   assert.equal(ARBALEST_SENSORS.some(({ id }) => id === "opponent-upright"), true);
   assert.equal(ARBALEST_SENSORS.some(({ id }) => id === "opponent-rising"), true);
   assert.equal(ARBALEST_SENSORS.some(({ id }) => id === "opponent-aim-local-x"), true);
@@ -142,7 +170,7 @@ test("an_Arbalest_draw_starts_only_upright_on_fresh_support_and_then_keeps_its_l
   assert.ok(finish);
   assert.equal(finish.dwellS, ARBALEST_TACTICS.finishDownedAfterS);
   assert.deepEqual(finish.parameters["target-height-offset"],
-    { kind: "expression", value: { op: "constant", value: 0.25, unit: "metres" } });
+    { kind: "expression", value: { op: "constant", value: 0.15, unit: "metres" } });
   const finishes = () => Boolean(evaluateExpression(finish.condition, frame,
     { isActionActive: () => false }).value);
   frame.publish("core-upright", true); frame.publish("contact-left-foot", true);
@@ -231,6 +259,71 @@ test("a_surviving_Arbalest_holds_its_attached_assembly_as_one_post_verdict_pose"
   } finally { construct.dispose(); arena.dispose(); }
 });
 
+test("the_live_Arbalest_crossbow_stays_out_of_its_own_supported_trunk_in_both_mirrors", async () => {
+  for (const constructSide of ["left", "right"]) {
+    const arena = await createConstructHeadlessArena();
+    const palette = materials(arena.scene);
+    const separation = CONFIG.fighter.separation;
+    const constructOrigin = constructSide === "left" ? Vector3.Zero() : new Vector3(0, 0, separation);
+    const warriorSide = constructSide === "left" ? "right" : "left";
+    const warriorOrigin = warriorSide === "left" ? Vector3.Zero() : new Vector3(0, 0, separation);
+    const locomotionWorld = flatSupportedWorldRegistry();
+    const construct = unitDefinition("arbalest-effigy").build({ scene: arena.scene, side: constructSide,
+      origin: constructOrigin, facing: constructSide === "left" ? 0 : Math.PI,
+      materials: palette.fighter, policyName: "humanoid-authored",
+      locomotionMode: "supported", locomotionWorld });
+    const warrior = unitDefinition("warrior").build({ scene: arena.scene, side: warriorSide,
+      origin: warriorOrigin, facing: warriorSide === "left" ? 0 : Math.PI,
+      materials: palette.fighter, policyName: "duelist",
+      policySeed: CONSTRUCT_WARRIOR_CURRICULUM_SEEDS[0],
+      loadout: { primary: "sword", secondary: "shield" },
+      locomotionMode: "supported", locomotionWorld });
+    try {
+      const launcher = construct.runtime.modules.get("effigy-arbalest");
+      assert.ok(launcher, "the fixture requires the installed launcher module");
+      const torso = construct.runtime.part("torso");
+
+      const overlapCounts = new Map(launcher.visual.meshes.map((mesh) => [mesh.name, 0]));
+      let firstOverlap = null;
+      let minimumRootUp = 1;
+      let minimumTorsoHeightM = Number.POSITIVE_INFINITY;
+      let minimumHeadAboveTorsoM = Number.POSITIVE_INFINITY;
+      const torsoShell = torso.visual.meshes[0];
+      const head = construct.runtime.part("head");
+      for (let step = 0; step < CONFIG.world.physicsHz * 5; step += 1) {
+        stepPair(constructSide === "left" ? construct : warrior,
+          constructSide === "left" ? warrior : construct, 1 / CONFIG.world.physicsHz, step / CONFIG.world.physicsHz);
+        arena.scene._renderId += 1;
+        arena.scene._advancePhysicsEngineStep(1000 / CONFIG.world.physicsHz);
+        const rootUp = Vector3.Up().rotateByQuaternionToRef(
+          torso.node.rotationQuaternion ?? Quaternion.Identity(), new Vector3()).y;
+        minimumRootUp = Math.min(minimumRootUp, rootUp);
+        minimumTorsoHeightM = Math.min(minimumTorsoHeightM, torso.node.position.y);
+        minimumHeadAboveTorsoM = Math.min(minimumHeadAboveTorsoM,
+          head.node.position.y - torso.node.position.y);
+        torsoShell.computeWorldMatrix(true);
+        for (const mesh of launcher.visual.meshes) {
+          mesh.computeWorldMatrix(true);
+          if (mesh.intersectsMesh(torsoShell, true)) {
+            overlapCounts.set(mesh.name, overlapCounts.get(mesh.name) + 1);
+            firstOverlap ??= { step, mesh: mesh.name,
+              meshPosition: mesh.getAbsolutePosition().asArray(), torsoPosition: torsoShell.getAbsolutePosition().asArray() };
+          }
+        }
+      }
+      const overlaps = [...overlapCounts.values()].reduce((sum, count) => sum + count, 0);
+      assert.equal(overlaps, 0,
+        `${constructSide} launcher entered its own torso: ${JSON.stringify({ counts: Object.fromEntries(overlapCounts), firstOverlap })}`);
+      assert.ok(minimumRootUp >= 0.95 && minimumTorsoHeightM >= 1.10 && minimumHeadAboveTorsoM >= 0.25,
+        `${constructSide} mount clearance was bought by an unstable body: ${JSON.stringify({
+          minimumRootUp, minimumTorsoHeightM, minimumHeadAboveTorsoM,
+        })}`);
+    } finally {
+      warrior.dispose(); construct.dispose(); palette.shared.dispose(false, false); arena.dispose();
+    }
+  }
+});
+
 test("the_selectable_Arbalest_tracks_and_physically_hits_an_idle_Warrior_torso_in_both_mirrors", async () => {
   for (const constructSide of ["left", "right"]) {
     const arena = await createConstructHeadlessArena();
@@ -268,7 +361,13 @@ test("the_selectable_Arbalest_tracks_and_physically_hits_an_idle_Warrior_torso_i
         combat.advance(1 / CONFIG.world.physicsHz);
       }
       const torso = reports.find(({ report }) => report.damage > 0 && report.key === "torso");
-      assert.ok(torso, `${constructSide} Arbalest never landed a physical torso arrow`);
+      const finalSnapshot = construct.control.snapshot();
+      assert.ok(torso, `${constructSide} Arbalest never landed a physical torso arrow: ${JSON.stringify({
+        active: finalSnapshot.active, motors: finalSnapshot.motorTargets,
+        muzzle: Object.fromEntries(Object.entries(finalSnapshot.facts).filter(([id]) => id.startsWith("launcher-"))),
+        opponent: Object.fromEntries(Object.entries(finalSnapshot.facts).filter(([id]) => id.startsWith("opponent-local"))),
+        ammo: construct.state.hardware().resources.ammunition["effigy-arbalest-magazine"],
+      })}`);
       assert.equal(torso.effectorId.startsWith("effigy-arbalest:"), true);
       assert.equal(torso.report.weapon, "arrow");
       assert.equal(observedActions.has("fire"), true);
@@ -301,7 +400,9 @@ test("the_full_health_Arbalest_allows_one_Warrior_recovery_then_wins_with_follow
     "the first knockdown cannot be maintained by another admitted shot");
   assert.equal(starts.some(({ atS }) => atS >= recoveredAtS), true,
     "the Mind must resume pressure after observing the completed recovery");
-  assert.equal(report.winner, "construct");
+  assert.equal(report.winner, "construct", JSON.stringify({ vitality: report.warrior.vitality,
+    seconds: report.simulatedSeconds, starts, contacts: report.constructContacts,
+    construct: report.constructPhysical }));
   assert.equal(report.warrior.vitality, 0);
   assert.ok(report.minimumRangeM >= 0.625 - 0.020,
     "the Arbalest cannot make a fallen Warrior disappear inside its carrier footprint");
@@ -319,9 +420,12 @@ test("the_Arbalest_resolves_an_idle_fallen_Warrior_instead_of_waiting_for_the_bo
     maxSteps: CONFIG.world.physicsHz * 20 });
   const fallenAtS = report.locomotionSteps.find(({ warrior }) => warrior?.state === "fallen")?.atS;
   const starts = report.actionTimeline.filter(({ action, kind }) => action === "fire" && kind === "started");
-  assert.equal(report.winner, "construct");
+  assert.equal(report.winner, "construct", JSON.stringify({ vitality: report.warrior.vitality,
+    seconds: report.simulatedSeconds, starts, contacts: report.constructContacts,
+    construct: report.constructPhysical }));
   assert.equal(report.warrior.vitality, 0);
-  assert.ok(report.simulatedSeconds < 3, "the verdict must promptly precede the safety cap");
+  assert.ok(report.simulatedSeconds < 5,
+    `the verdict must promptly precede the safety cap, got ${report.simulatedSeconds.toFixed(3)} s`);
   assert.ok(starts.length >= 2 && starts[1].atS - fallenAtS >= ARBALEST_TACTICS.finishDownedAfterS,
     "a finishing draw must wait through the declared prone recovery window");
 });

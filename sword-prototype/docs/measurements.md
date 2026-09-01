@@ -7855,3 +7855,65 @@ Still owed, by name: improving the rejected assisted-Warden qualification; the A
 idle targeting debt; and the red Twinblade balance curriculum. These are not skipped green cells.
 The live construct-forge Session 23/24 plans remain
 until the physical claims and balance decision close.
+
+### Owner self-clearance and Arbalest mounting -- 2026-08-31
+
+The screenshot's three overlaps were real authority defects, not costume errors. A shield policy
+could request the carrying hand 0.80 rad across the threat line, past its owner's sternum, and the
+ordinary arm controller honoured it. The retained anatomical boundary refuses a shield request
+whose hand-relative azimuth is below -0.60 rad and carries that hand at a mirrored **0.45 rad
+outboard** instead. The wrist turn has to reverse with that reflection: retaining the old +1.0
+secondary-hand roll produced zero blocks and four torso wounds in the exact archer fixture; the
+mirrored -1.0 roll produced **two physical shield blocks**, with 0.0 mm hand-anchor error and 0.0 mm
+reconstructed distal-arm/trunk penetration at both contacts. The settled refused pose also measured
+0.0 mm penetration. Startup capsule adjacency is excluded after the ordinary 0.6 s construction
+settle; counting it reported 21.9 mm even though the commanded pose was already clear.
+
+Sword versus own shield is a two-anchor command problem rather than a collision-filter problem.
+The retained pair-atomic controller tests the blade, hand and forearm against the planned shield OBB
+and also tests their achieved-to-command sweeps before either anchor commits. A crossing routes the
+sword outboard, over or under the plate; if all three routes are obstructed, the command holds the
+last achieved physical pose for one step instead of falling through with a rejected target. Across
+a four-second aggressive simultaneous sword-and-shield sweep, all four mirrored
+faction/loadout-order cases keep exact expanded-box penetration below **5 mm on every physics
+step**; after another 0.5 s both hand errors are below 35 mm. The real board remains one physics
+leaf with its original mass and filters, and that same leaf becomes ordinary debris when discarded.
+A hidden 80 mm contact leaf and reciprocal owner collision were tested and rejected: the former
+changed inertia/debris, while the latter left two high-force motors pinning a board after the visible
+geometry had cleared. General self-collision remains rejected because adjacent driven anatomy
+overlaps at its joint seams and a zero counter cannot observe pairs its filters excluded.
+
+The original Arbalest launcher was born inside its torso: the bow entered by **208 mm**, and a
+bow-only adjustment still left the stock with **-37 mm clearance**. A structural shoulder-brace
+attempt made the geometry clear but changed the proven yaw/pitch chain's physical response; the
+fire controller remained outside its limits and spent no ammunition. It was rejected rather than
+retuning AI around a mounting regression.
+
+The retained machine keeps the Humanoid's parts and joints byte-for-structure, narrows the bow from
+0.48 m to 0.24 m and moves only `socket-sword-hand` by **0.20 m outboard and 0.20 m forward**. A
+two-piece visible coupling omits the first 0.10 m already covered by the pitch-arm shell. The
+outboard coupling occupies the original socket's rear plane before turning forward; drawing that
+leg beside the launcher made the cosmetic bracket sweep back through the chest. A generic
+mount-versus-own-trunk layer was rejected because it changed the Warden's established dorsal-yaw
+contact into a dorsal-pitch hit. The retained boundary is authored clearance: the bind test has at
+least 5 mm separation for every launcher primitive, and the live test samples every launcher mesh
+for five seconds in each mirror. It observed **zero** torso intersections while root-up stayed at
+least 0.95, torso height at least 1.10 m and head-above-torso separation at least 0.25 m; the
+physical targeting test then landed a damaging torso bolt in both mirrors.
+
+The offset changed the prone finishing lane. A fixed-seed sweep at -0.25, -0.15, -0.05, +0.05,
++0.15, +0.25 and +0.35 m found the lower rows repeatedly struck fallen limbs, +0.05 m fed the
+buckler and +0.35 m drew. The retained **+0.15 m** row and a downed-only tracking rule use the
+1.25 s recovery window to acquire before firing. Moving the open-side blocker lane from 0.07 m to
+**0.12 m** was also necessary after the socket moved; 0.07 m left the full-health follow-up behind
+the buckler. The idle regression now ends in a Construct win at **4.025 s** after three physical
+bolts, and the seeded full-health Duelist cell still records a completed recovery followed by an
+Arbalest win.
+
+The complete x0.10 four-seed mirrored corpus qualifies again without lowering any floor: 8/8 idle
+Warrior kills, 8/8 raw and qualified active Construct wins, 4/4 per mirror, 8/8 survivals and 8/8
+upright-damage cells. Active Construct damage is **1791.470695**. The intentional body and Mind
+changes move the blueprint/program/control row from `b7b4d0c1` / `b6ae8b21` / `0f542c4c` to
+`1cfdf5d7` / `d89e988b` / `0f542c4c`; the unchanged control digest is evidence that clearance did
+not retune the yaw/pitch chain. This supersedes the closing sentence above that called right-side
+idle targeting owed.

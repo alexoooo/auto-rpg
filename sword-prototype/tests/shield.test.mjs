@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { PhysicsAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate.js";
@@ -62,19 +62,20 @@ async function ring(loadout, rightLoadout = { primary: "empty", secondary: "empt
   };
 
   const intent = blankIntent();
+  const rightIntent = blankIntent();
   const mind = { name: "held", decide: () => intent };
   const left = new Fighter(scene, {
     side: "left", origin: Vector3.Zero(), facing: 0, mind, loadout,
   }, materials);
   const right = new Fighter(scene, {
     side: "right", origin: new Vector3(0, 0, CONFIG.fighter.separation),
-    facing: Math.PI, mind: { name: "still", decide: () => blankIntent() },
+    facing: Math.PI, mind: { name: "held-right", decide: () => rightIntent },
     loadout: rightLoadout,
   }, materials);
 
   const clock = { now: 0 };
   let pending = [];
-  const run = (seconds) => {
+  const run = (seconds, afterStep) => {
     const observer = scene.onBeforePhysicsObservable.add(() => {
       stepPair(left, right, FIXED, clock.now);
       // After the updates, because `Arm.update` runs `Quiver.step` first thing
@@ -84,14 +85,16 @@ async function ring(loadout, rightLoadout = { primary: "empty", secondary: "empt
       pending = [];
       clock.now += FIXED;
     });
+    const after = afterStep ? scene.onAfterPhysicsObservable.add(afterStep) : null;
     for (let frame = 0; frame < Math.round(seconds * 60); frame += 1) {
       scene._renderId += 1;
       scene._advancePhysicsEngineStep(1000 / 60);
     }
     scene.onBeforePhysicsObservable.remove(observer);
+    if (after) scene.onAfterPhysicsObservable.remove(after);
   };
 
-  return { engine, scene, left, right, intent, run, queue: (fn) => pending.push(fn) };
+  return { engine, scene, left, right, intent, rightIntent, run, queue: (fn) => pending.push(fn) };
 }
 
 /** How far a hand is from the anchor dragging it, in millimetres. */
@@ -186,6 +189,117 @@ function biteMm(fighter, arm) {
   return deepest * 1000;
 }
 
+function capsuleFor(part, length, radius) {
+  const m = part.mesh.computeWorldMatrix(true);
+  const axis = new Vector3(m.m[4], m.m[5], m.m[6]).normalize();
+  const centre = new Vector3(m.m[12], m.m[13], m.m[14]);
+  const half = Math.max(0, length / 2 - radius);
+  return { a: centre.add(axis.scale(half)), b: centre.subtract(axis.scale(half)), radius };
+}
+
+const segmentDistance = (p1, q1, p2, q2) => {
+  const u = q1.subtract(p1); const v = q2.subtract(p2); const w = p1.subtract(p2);
+  const a = Vector3.Dot(u, u); const b = Vector3.Dot(u, v); const c = Vector3.Dot(v, v);
+  const d = Vector3.Dot(u, w); const e = Vector3.Dot(v, w);
+  const denominator = a * c - b * b;
+  let sn = denominator; let tn = denominator; let sd = denominator; let td = denominator;
+  if (denominator < 1e-9) { sn = 0; sd = 1; tn = e; td = c; }
+  else {
+    sn = b * e - c * d; tn = a * e - b * d;
+    if (sn < 0) { sn = 0; tn = e; td = c; }
+    else if (sn > sd) { sn = sd; tn = e + b; td = c; }
+  }
+  if (tn < 0) {
+    tn = 0;
+    if (-d < 0) sn = 0;
+    else if (-d > a) sn = sd;
+    else { sn = -d; sd = a; }
+  } else if (tn > td) {
+    tn = td;
+    if (-d + b < 0) sn = 0;
+    else if (-d + b > a) sn = sd;
+    else { sn = -d + b; sd = a; }
+  }
+  const sc = Math.abs(sn) < 1e-9 ? 0 : sn / sd;
+  const tc = Math.abs(tn) < 1e-9 ? 0 : tn / td;
+  return w.add(u.scale(sc)).subtractInPlace(v.scale(tc)).length();
+};
+
+function distalArmBiteMm(fighter, arm) {
+  const armCapsules = [
+    capsuleFor(arm.forearm, CONFIG.arm.foreLength, CONFIG.arm.foreRadius),
+    capsuleFor(arm.hand, CONFIG.arm.handLength, CONFIG.arm.handRadius),
+  ];
+  let deepest = 0;
+  for (const distal of armCapsules) {
+    for (const body of trunk(fighter)) {
+      deepest = Math.max(deepest,
+        distal.radius + body.radius - segmentDistance(distal.a, distal.b, body.a, body.b));
+    }
+  }
+  return deepest * 1000;
+}
+
+function segmentEntersAabb(from, to, halfX, halfY, halfZ, centreY, centreZ) {
+  let enter = 0;
+  let leave = 1;
+  const axis = (start, end, low, high) => {
+    const delta = end - start;
+    if (Math.abs(delta) < 1e-9) return start >= low && start <= high;
+    const first = (low - start) / delta;
+    const second = (high - start) / delta;
+    enter = Math.max(enter, Math.min(first, second));
+    leave = Math.min(leave, Math.max(first, second));
+    return enter <= leave;
+  };
+  return axis(from.x, to.x, -halfX, halfX)
+    && axis(from.y, to.y, centreY - halfY, centreY + halfY)
+    && axis(from.z, to.z, centreZ - halfZ, centreZ + halfZ);
+}
+
+/** Read the achieved physical bodies, not the controller targets they followed. */
+function ownShieldIntrusions(sword, shield) {
+  const S = CONFIG.shield;
+  const inverse = Matrix.Invert(shield.weapon.root.computeWorldMatrix(true));
+  const centreY = S.standOff;
+  const centreZ = S.height / 2 - S.gripInset;
+  const intoShield = (point) => Vector3.TransformCoordinates(point, inverse);
+
+  const swordWorld = sword.weapon.root.computeWorldMatrix(true);
+  const bladeFrom = intoShield(Vector3.TransformCoordinates(
+    new Vector3(0, sword.weapon.baseOffset, 0), swordWorld));
+  const bladeTo = intoShield(Vector3.TransformCoordinates(
+    new Vector3(0, sword.weapon.tipOffset, 0), swordWorld));
+  const penetrationMm = (from, to, radius) => {
+    let deepest = 0;
+    for (let i = 0; i <= 24; i += 1) {
+      const point = Vector3.Lerp(from, to, i / 24);
+      const qx = Math.abs(point.x) - S.width / 2;
+      const qy = Math.abs(point.y - centreY) - S.thickness * 1.2;
+      const qz = Math.abs(point.z - centreZ) - S.height / 2;
+      const outside = Math.hypot(Math.max(qx, 0), Math.max(qy, 0), Math.max(qz, 0));
+      const signed = outside + Math.min(Math.max(qx, qy, qz), 0);
+      deepest = Math.max(deepest, radius - signed);
+    }
+    return deepest * 1000;
+  };
+  const bladeMm = penetrationMm(bladeFrom, bladeTo, CONFIG.sword.bladeWidth / 2);
+
+  const violates = (from, to, radius) => segmentEntersAabb(from, to,
+    S.width / 2 + radius - 0.005,
+    S.thickness * 1.2 + radius - 0.005,
+    S.height / 2 + radius - 0.005,
+    centreY, centreZ);
+  const bladeViolation = violates(bladeFrom, bladeTo, CONFIG.sword.bladeWidth / 2);
+  const distal = [
+    capsuleFor(sword.forearm, CONFIG.arm.foreLength, CONFIG.arm.foreRadius),
+    capsuleFor(sword.hand, CONFIG.arm.handLength, CONFIG.arm.handRadius),
+  ].map(({ a, b, radius }) => ({ from: intoShield(a), to: intoShield(b), radius }));
+  const distalMm = Math.max(...distal.map(({ from, to, radius }) => penetrationMm(from, to, radius)));
+  const distalViolation = distal.some(({ from, to, radius }) => violates(from, to, radius));
+  return { bladeMm, distalMm, bladeViolation, distalViolation };
+}
+
 test("an arm holding a shield tracks its anchor as closely as one holding a sword", async (t) => {
   const { engine, left, run } = await ring({ primary: "sword", secondary: "shield" });
   t.after(() => engine.dispose());
@@ -201,6 +315,26 @@ test("an arm holding a shield tracks its anchor as closely as one holding a swor
     strayMm(left.arms.secondary) < 5,
     `shield hand strayed ${strayMm(left.arms.secondary)} mm -- it is pinned on something`,
   );
+});
+
+test("an_across_body_shield_guard_keeps_the_forearm_outside_the_trunk", async (t) => {
+  const { engine, left, intent, run } = await ring({ primary: "empty", secondary: "shield" });
+  t.after(() => engine.dispose());
+  Object.assign(intent.secondary, { pointerX: 0.65, pointerY: -0.10, roll: 0.85,
+    wristBend: 0.18, guard: false, thrust: false });
+  // Construction begins with adjacent capsules touching at their articulated
+  // seams. Judge the refused pose after the ordinary startup settle; this test
+  // is about a commanded forearm through the trunk, not whether a shoulder and
+  // upper arm begin attached.
+  run(0.6);
+  let bite = 0;
+  run(1.4, () => { bite = Math.max(bite, distalArmBiteMm(left, left.arms.secondary)); });
+  assert.ok(strayMm(left.arms.secondary) < 35,
+    `the across-body shield hand strayed ${strayMm(left.arms.secondary).toFixed(1)} mm from its anchor ` +
+    JSON.stringify({ hand: left.arms.secondary.hand.mesh.position.asArray(),
+      anchor: left.arms.secondary.handAnchor.mesh.position.asArray(), lost: left.arms.secondary.lost }));
+  assert.ok(bite < 5,
+    `the shield forearm enters its owner's trunk by ${bite.toFixed(1)} mm`);
 });
 
 for (const kind of ["shield", "buckler"]) {
@@ -264,7 +398,7 @@ test("a strapped shield is held closer in than a buckler is held out", async (t)
   );
 });
 
-test("the collision table lets a shield rest on its owner and a blade pass through", async (t) => {
+test("the collision table leaves owner separation to the paired hand controller", async (t) => {
   const engine = new NullEngine();
   const scene = new Scene(engine);
   attachPhysics(scene, await HavokPhysics({ wasmBinary: await readFile(wasm) }));
@@ -298,6 +432,8 @@ test("the collision table lets a shield rest on its owner and a blade pass throu
     ["a shield stops on the enemy", LAYER.RIGHT_TRUNK, COLLIDES.RIGHT_TRUNK, LAYER.LEFT_SHIELD, COLLIDES.LEFT_SHIELD, true],
     ["a blade stops on the enemy", LAYER.RIGHT_TRUNK, COLLIDES.RIGHT_TRUNK, LAYER.LEFT_SWORD, COLLIDES.LEFT_SWORD, true],
     ["a blade stops on the enemy's shield", LAYER.RIGHT_SHIELD, COLLIDES.RIGHT_SHIELD, LAYER.LEFT_SWORD, COLLIDES.LEFT_SWORD, true],
+    ["a left blade is not a second solver against its own shield", LAYER.LEFT_SHIELD, COLLIDES.LEFT_SHIELD, LAYER.LEFT_SWORD, COLLIDES.LEFT_SWORD, false],
+    ["a right blade is not a second solver against its own shield", LAYER.RIGHT_SHIELD, COLLIDES.RIGHT_SHIELD, LAYER.RIGHT_SWORD, COLLIDES.RIGHT_SWORD, false],
     ["an arrow stops on the enemy's shield", LAYER.RIGHT_SHIELD, COLLIDES.RIGHT_SHIELD, LAYER.LEFT_ARROW, COLLIDES.LEFT_ARROW, true],
     ["an arrow stops on the enemy's buckler layer", LAYER.LEFT_SHIELD, COLLIDES.LEFT_SHIELD, LAYER.RIGHT_ARROW, COLLIDES.RIGHT_ARROW, true],
   ].map(([label, fl, fm, bl, bm, lands]) => ({ ...drop(label, fl, fm, bl, bm), lands }));
@@ -445,6 +581,82 @@ test("a weapon does not collide with the arm that is holding it", async () => {
     assert.ok(hits.shield > 0, "the shield still stops on its owner's trunk, which is its whole job");
   } finally {
     engine.dispose();
+  }
+});
+
+test("both_factions_and_both_loadout_orders_keep_the_sword_arm_out_of_its_own_shield", async (t) => {
+  for (const side of ["left", "right"]) for (const swordHand of ["primary", "secondary"]) {
+    await t.test(`${side}-${swordHand}`, async (caseTest) => {
+      const shieldHand = swordHand === "primary" ? "secondary" : "primary";
+      const loadout = { [swordHand]: "sword", [shieldHand]: "shield" };
+      const empty = { primary: "empty", secondary: "empty" };
+      const built = side === "left" ? await ring(loadout, empty) : await ring(empty, loadout);
+      caseTest.after(() => built.engine.dispose());
+      const fighter = built[side];
+      const intent = side === "left" ? built.intent : built.rightIntent;
+      const sword = fighter.arms[swordHand];
+      const shield = fighter.arms[shieldHand];
+      Object.assign(intent[shieldHand], {
+        pointerX: shieldHand === "primary" ? -0.65 : 0.65,
+        pointerY: -0.10,
+        roll: shieldHand === "primary" ? -0.85 : 0.85,
+        wristBend: 0.18,
+        guard: false,
+        thrust: false,
+      });
+      built.run(1);
+
+      const shieldPieces = shield.weapon.pieces;
+      assert.equal(shieldPieces.length, 1,
+        "the real board is the only physics leaf -- controller clearance adds no hidden mass or armour");
+      const layers = side === "left"
+        ? [LAYER.LEFT_SHIELD, COLLIDES.LEFT_SHIELD]
+        : [LAYER.RIGHT_SHIELD, COLLIDES.RIGHT_SHIELD];
+      assert.equal(shieldPieces[0].filterMembershipMask, layers[0]);
+      assert.equal(shieldPieces[0].filterCollideMask, layers[1]);
+      assert.equal(shield.weapon.body.getMassProperties().mass, CONFIG.shield.mass,
+        "clearance does not alter shield mass");
+
+      let maxBladeMm = 0;
+      let maxDistalMm = 0;
+      let exactViolation = null;
+      let physicsStep = 0;
+      for (let sample = 0; sample < 40; sample += 1) {
+        intent[swordHand].pointerX = Math.sin(sample * 0.55);
+        intent[swordHand].pointerY = -0.05 + 0.25 * Math.cos(sample * 0.37);
+        intent[swordHand].roll = 0.25 * Math.sin(sample * 0.29);
+        intent[shieldHand].pointerX = Math.sin(sample * 0.43 + (shieldHand === "primary" ? Math.PI : 0));
+        intent[shieldHand].pointerY = -0.10 + 0.30 * Math.cos(sample * 0.31);
+        intent[shieldHand].roll = (shieldHand === "primary" ? -1 : 1) *
+          (0.65 + 0.30 * Math.sin(sample * 0.23));
+        built.run(0.10, () => {
+          physicsStep += 1;
+          const intrusion = ownShieldIntrusions(sword, shield);
+          maxBladeMm = Math.max(maxBladeMm, intrusion.bladeMm);
+          maxDistalMm = Math.max(maxDistalMm, intrusion.distalMm);
+          if (!exactViolation && (intrusion.bladeViolation || intrusion.distalViolation)) {
+            exactViolation = { physicsStep, ...intrusion };
+          }
+        });
+      }
+      assert.equal(exactViolation, null,
+        `${side}/${swordHand}: exact expanded-box penetration: ${JSON.stringify(exactViolation)}`);
+      assert.ok(maxBladeMm < 5 && maxDistalMm < 5,
+        `${side}/${swordHand}: max achieved penetration at every physics step was ` +
+        `blade ${maxBladeMm.toFixed(1)} mm, distal arm ${maxDistalMm.toFixed(1)} mm`);
+
+      built.run(0.5);
+      const swordStray = strayMm(sword);
+      const shieldStray = strayMm(shield);
+      assert.ok(swordStray < 35 && shieldStray < 35,
+        `${side}/${swordHand}: sword ${swordStray.toFixed(1)} mm, shield ${shieldStray.toFixed(1)} mm from their anchors, ` +
+        `plate bite ${biteMm(fighter, shield).toFixed(1)} mm`);
+
+      shield.weapon.discard();
+      assert.equal(shield.weapon.pieces.length, 1, "discard creates no hidden guard debris");
+      assert.equal(shield.weapon.pieces[0].filterMembershipMask, LAYER.DEBRIS,
+        "the one visible board becomes ordinary debris");
+    });
   }
 });
 

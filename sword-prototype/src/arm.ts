@@ -47,6 +47,34 @@ const ANGULAR = [
 const clamp = (value: number, low: number, high: number) =>
   value < low ? low : value > high ? high : value;
 
+/** First segment entry into an axis-aligned box, including an inside endpoint. */
+function segmentBoxEntry(
+  from: Vector3,
+  to: Vector3,
+  minX: number,
+  maxX: number,
+  minY: number,
+  maxY: number,
+  minZ: number,
+  maxZ: number,
+): number | null {
+  let enter = 0;
+  let leave = 1;
+  const axis = (start: number, end: number, low: number, high: number): boolean => {
+    const delta = end - start;
+    if (Math.abs(delta) < 1e-9) return start >= low && start <= high;
+    const first = (low - start) / delta;
+    const second = (high - start) / delta;
+    enter = Math.max(enter, Math.min(first, second));
+    leave = Math.min(leave, Math.max(first, second));
+    return enter <= leave;
+  };
+  const intersects = axis(from.x, to.x, minX, maxX)
+    && axis(from.y, to.y, minY, maxY)
+    && axis(from.z, to.z, minZ, maxZ);
+  return intersects ? enter : null;
+}
+
 /** The torso's own forward, which is what a shield squares itself to. */
 const FORWARD = new Vector3(0, 0, 1);
 const UP = new Vector3(0, 1, 0);
@@ -515,6 +543,7 @@ export class Arm {
 
   private lost = false;
   private hasPreviousFrame = false;
+  private shieldInboardRefused = false;
 
   private readonly trunkFrame: () => Matrix;
   private readonly locomotionFrame: () => Matrix;
@@ -579,6 +608,15 @@ export class Arm {
     impulse: new Vector3(),
     swordFrame: new Matrix(),
     swordFrameInverse: new Matrix(),
+    shieldRotation: new Quaternion(),
+    shieldFrame: new Matrix(),
+    shieldFrameInverse: new Matrix(),
+    bladeBaseLocal: new Vector3(),
+    bladeTipLocal: new Vector3(),
+    clearanceLocal: new Vector3(),
+    clearanceWorld: new Vector3(),
+    achievedLocal: new Vector3(),
+    plannedLocal: new Vector3(),
   };
 
   constructor(scene: Scene, opts: ArmOptions, materials: ArmMaterials) {
@@ -1064,7 +1102,31 @@ export class Arm {
     return this.scratch.rotation;
   }
 
-  /** The four per-step methods, in the one order they work in. */
+  /**
+   * Compute this step's hand pose without giving either motor the answer yet.
+   *
+   * `Fighter` plans both ordinary arms before it commits either one. That small
+   * seam is what lets an owner's sword and shield answer one another as a pair:
+   * doing a correction after the first anchor had moved made the result depend
+   * on which hand happened to be updated first.
+   */
+  plan(dt: number, hand: HandIntent): void {
+    this.stepProjectiles(dt);
+    if (this.lost) return;
+    this.shoot(dt, hand);
+    this.aim(dt, hand);
+    this.buildAnchorFrame();
+  }
+
+  /** Send a pose prepared by `plan` to the two physical drives. */
+  commit(dt: number): void {
+    if (this.lost) return;
+    this.driveAnchor(dt);
+    this.driveElbow();
+    this.dampGrip(dt);
+  }
+
+  /** The four per-step methods, kept as the one-arm convenience path. */
   update(dt: number, hand: HandIntent): void {
     // **First, and outside the `lost` guard**, for two separate reasons.
     //
@@ -1079,13 +1141,142 @@ export class Arm {
     // teleport before the solver ever saw it, and every shot would start from
     // wherever the last one ended -- the exact failure `arrow.ts`'s header
     // records, six shots from one origin landing 12 m apart.
-    this.stepProjectiles(dt);
-    if (this.lost) return;
-    this.shoot(dt, hand);
-    this.aim(dt, hand);
-    this.driveAnchor(dt);
-    this.driveElbow();
-    this.dampGrip(dt);
+    this.plan(dt, hand);
+    this.commit(dt);
+  }
+
+  /**
+   * Route a planned sword arm around this fighter's planned shield plate.
+   *
+   * Asking a high-force hand anchor to cross a plate held by another high-force
+   * anchor leaves the two motors requesting the same occupied volume. Refuse that request here,
+   * below player and policy intents, by rotating the blade toward the nearest
+   * side of the plate. The forearm and hand are part of the same request: a
+   * clear blade with a wrist through the board is still the exact physicality
+   * failure this seam exists to prevent. This is control geometry, not a
+   * teleport of either physical body; the articulated arm still has to carry
+   * the corrected pose.
+   */
+  clearOwnShield(shield: Arm): void {
+    if (this.lost || shield.lost || this.weapon?.kind !== "sword" || shield.weapon?.kind !== "shield") return;
+
+    const s = this.scratch;
+    const sword = this.weapon;
+    const S = CONFIG.shield;
+    const centreY = S.standOff;
+    const centreZ = S.height / 2 - S.gripInset;
+    const frameFor = (): void => {
+      mountRotation("shield", shield.scratch.rotation, s.shieldRotation);
+      Matrix.ComposeToRef(Vector3.One(), s.shieldRotation, shield.scratch.target, s.shieldFrame);
+      s.shieldFrame.invertToRef(s.shieldFrameInverse);
+    };
+    const obstructed = (): boolean => {
+      // A centreline against an expanded box is the Minkowski form of the
+      // carried shape against the real plate. The extra centimetre is command
+      // clearance, not another physics leaf: it has no mesh, mass, inertia,
+      // enemy contact or debris lifecycle.
+      s.along.copyFrom(s.target).addInPlace(s.aim.scale(sword.baseOffset));
+      Vector3.TransformCoordinatesToRef(s.along, s.shieldFrameInverse, s.bladeBaseLocal);
+      Vector3.TransformCoordinatesToRef(s.aimFar, s.shieldFrameInverse, s.bladeTipLocal);
+      let halfX = S.width / 2 + CONFIG.sword.bladeWidth / 2 + 0.01;
+      let halfY = S.thickness * 1.2 + CONFIG.sword.bladeThickness / 2 + 0.01;
+      let halfZ = S.height / 2 + CONFIG.sword.bladeWidth / 2 + 0.01;
+      let crossing = segmentBoxEntry(
+        s.bladeBaseLocal,
+        s.bladeTipLocal,
+        -halfX, halfX,
+        centreY - halfY, centreY + halfY,
+        centreZ - halfZ, centreZ + halfZ,
+      );
+
+      if (crossing === null && this.solveElbowPoint()) {
+        // The elbow-to-hand segment conservatively covers the forearm and the
+        // hand. Using the larger of their radii keeps the test one finite OBB
+        // query and errs toward visible separation at their joint.
+        Vector3.TransformCoordinatesToRef(s.elbowPoint, s.shieldFrameInverse, s.bladeBaseLocal);
+        Vector3.TransformCoordinatesToRef(s.target, s.shieldFrameInverse, s.bladeTipLocal);
+        const distalRadius = Math.max(this.config.foreRadius, this.config.handRadius);
+        halfX = S.width / 2 + distalRadius + 0.01;
+        halfY = S.thickness * 1.2 + distalRadius + 0.01;
+        halfZ = S.height / 2 + distalRadius + 0.01;
+        crossing = segmentBoxEntry(
+          s.bladeBaseLocal,
+          s.bladeTipLocal,
+          -halfX, halfX,
+          centreY - halfY, centreY + halfY,
+          centreZ - halfZ, centreZ + halfZ,
+        );
+        if (crossing === null) {
+          // Static end poses are not enough. The motor carries the achieved
+          // forearm and hand toward them over time, and that swept command can
+          // cross the board even when both ends are clear. Check the two body
+          // centres against the same expanded OBB before issuing the move.
+          const testSweep = (achieved: Vector3, planned: Vector3): number | null => {
+            Vector3.TransformCoordinatesToRef(achieved, s.shieldFrameInverse, s.achievedLocal);
+            Vector3.TransformCoordinatesToRef(planned, s.shieldFrameInverse, s.plannedLocal);
+            const entry = segmentBoxEntry(
+              s.achievedLocal,
+              s.plannedLocal,
+              -halfX, halfX,
+              centreY - halfY, centreY + halfY,
+              centreZ - halfZ, centreZ + halfZ,
+            );
+            if (entry !== null) {
+              s.bladeBaseLocal.copyFrom(s.achievedLocal);
+              s.bladeTipLocal.copyFrom(s.plannedLocal);
+            }
+            return entry;
+          };
+          s.clearanceWorld.copyFrom(s.elbowPoint).addInPlace(s.target).scaleInPlace(0.5);
+          crossing = testSweep(this.forearm.mesh.position, s.clearanceWorld);
+          if (crossing === null) crossing = testSweep(this.hand.mesh.position, s.target);
+        }
+      }
+      return crossing !== null;
+    };
+
+    frameFor();
+    if (!obstructed()) return;
+
+    // The sword hand yields to the guard and takes the nearest anatomical route
+    // outside it. Try its present height, then over and under the finite board;
+    // each candidate is checked against the achieved-to-command sweep as well
+    // as the final forearm and blade.
+    const elevations = [this.elevation, this.config.elMax, this.config.elMin];
+    for (const elevation of elevations) {
+      this.azimuth = this.outboard * this.config.azMax;
+      this.elevation = elevation;
+      const cosEl = Math.cos(elevation);
+      s.dirLocal.set(Math.sin(this.azimuth) * cosEl, Math.sin(elevation),
+        Math.cos(this.azimuth) * cosEl);
+      Vector3.TransformNormalToRef(s.dirLocal, this.locomotionFrame(), s.aim);
+      s.aim.normalize();
+      s.target.copyFrom(s.shoulder).addInPlace(s.aim.scale(this.armReach));
+      s.aimFar.copyFrom(s.shoulder).addInPlace(
+        s.aim.scale(this.armReach + sword.tipOffset),
+      );
+      this.buildAnchorFrame();
+      if (!obstructed()) return;
+    }
+
+    // Every candidate was obstructed, usually because the achieved hand is on
+    // the wrong side of a fast-moving plate and a straight command to any safe
+    // endpoint would still cross it. Never fall through with the final rejected
+    // target. Hold the last achieved physical pose for one step; the shield can
+    // finish moving and the next plan can choose a genuinely clear route.
+    this.holdAchievedPose();
+  }
+
+  private holdAchievedPose(): void {
+    const s = this.scratch;
+    s.target.copyFrom(this.hand.mesh.position);
+    s.rotation.copyFrom(this.hand.mesh.rotationQuaternion ?? Quaternion.Identity());
+    Matrix.ComposeToRef(Vector3.One(), s.rotation, Vector3.Zero(), s.basis);
+    s.axisX.set(s.basis.m[0], s.basis.m[1], s.basis.m[2]);
+    s.axisY.set(s.basis.m[4], s.basis.m[5], s.basis.m[6]);
+    s.axisZ.set(s.basis.m[8], s.basis.m[9], s.basis.m[10]);
+    s.aim.copyFrom(s.target).subtractInPlace(s.shoulder);
+    if (s.aim.lengthSquared() > 1e-9) s.aim.normalize();
   }
 
   /**
@@ -1232,9 +1423,28 @@ export class Arm {
   private aim(dt: number, input: HandIntent): void {
     const A = this.config;
 
-    this.azimuth = azimuthOf(input.pointerX, this.handName);
+    const requestedAzimuth = azimuthOf(input.pointerX, this.handName);
+    // The plate covers the middle; the arm carrying it stays on its own side.
+    // Without this anatomical boundary an extreme cover sent the off hand past
+    // the sternum and wrapped the forearm around the trunk to put the board on
+    // the sword side of the body. Mirror one minimum outboard carry per hand.
+    const signedShieldAzimuth = requestedAzimuth * this.outboard;
+    this.shieldInboardRefused = this.squaresToFront && signedShieldAzimuth < -0.60;
+    this.azimuth = this.shieldInboardRefused
+      ? CONFIG.shield.handOutboardAzimuthMin * this.outboard
+      : requestedAzimuth;
     this.elevation = clamp(spread(input.pointerY, A.elMin, A.elMax), A.elMin, A.elMax);
-    this.roll = clamp(input.roll, A.rollMin, A.rollMax);
+    // Moving a strapped shield from an impossible across-body command to the
+    // carrier's own side reverses which wrist turn presents its face. Keeping
+    // the old pronation made the arm anatomical but turned the board away from
+    // the incoming line -- the exact seeded archer fixture went from real
+    // blocks to four torso wounds. This is the orientation half of refusing the
+    // pose, not aim assist: it reads no opponent and mirrors only the command
+    // that was already outside the anatomical envelope.
+    const requestedRoll = this.shieldInboardRefused
+      ? this.outboard * Math.abs(input.roll)
+      : input.roll;
+    this.roll = clamp(requestedRoll, A.rollMin, A.rollMax);
     const wristStep = 1 - Math.exp(-A.wristResponse * dt);
     const wantedBend = clamp(input.wristBend, 0, 1);
     this.wristBend += (wantedBend - this.wristBend) * wristStep;
@@ -1292,13 +1502,9 @@ export class Arm {
    * from three axes directly rather than by composing rotations: it is easier to
    * be sure a basis is correct than to be sure a quaternion product is.
    */
-  private driveAnchor(dt: number): void {
+  private buildAnchorFrame(): void {
     const s = this.scratch;
     const { aim, edge, axisX, axisY, axisZ, basis, rotation, target } = s;
-
-    s.prevX.copyFrom(axisX);
-    s.prevY.copyFrom(axisY);
-    s.prevZ.copyFrom(axisZ);
 
     // Hand +Y points back up the arm, because the blade runs along hand -Y.
     axisY.copyFrom(aim).scaleInPlace(-1).normalize();
@@ -1393,6 +1599,11 @@ export class Arm {
 
     Matrix.FromXYZAxesToRef(axisX, axisY, axisZ, basis);
     Quaternion.FromRotationMatrixToRef(basis, rotation);
+  }
+
+  private driveAnchor(dt: number): void {
+    const s = this.scratch;
+    const { axisX, axisY, axisZ, rotation, target } = s;
 
     // The angular velocity this frame's move is asking the hand for, taken
     // straight from the two bases rather than from a quaternion difference:
@@ -1410,6 +1621,9 @@ export class Arm {
       commanded.scaleInPlace(0.5 / dt);
     }
     this.hasPreviousFrame = true;
+    s.prevX.copyFrom(axisX);
+    s.prevY.copyFrom(axisY);
+    s.prevZ.copyFrom(axisZ);
 
     // setTargetTransform rather than teleporting the transform node: it gives the
     // keyframed anchor a real velocity, so the constraint sees motion instead of
@@ -1431,7 +1645,8 @@ export class Arm {
    * travel barely moved. Tone pulls a joint toward a resting *angle*, and the
    * elbow's angle was never the free variable.
    */
-  private driveElbow(): void {
+  /** Solve the elbow point shared by command clearance and the real motor. */
+  private solveElbowPoint(): boolean {
     const A = this.config;
     const s = this.scratch;
 
@@ -1440,7 +1655,7 @@ export class Arm {
 
     const along = s.along.copyFrom(s.target).subtractInPlace(s.shoulder);
     const span = clamp(along.length(), Math.abs(upper - lower) + 1e-3, upper + lower - 1e-3);
-    if (along.lengthSquared() < 1e-8) return;
+    if (along.lengthSquared() < 1e-8) return false;
     along.normalize();
 
     // Distance from the shoulder to the foot of the elbow's perpendicular, and
@@ -1449,17 +1664,27 @@ export class Arm {
     const rise = Math.sqrt(Math.max(0, upper * upper - foot * foot));
 
     const world = this.locomotionFrame();
-    const pole = s.pole.set(A.elbowPole.x, A.elbowPole.y, A.elbowPole.z);
+    const pole = s.pole.set(
+      this.shieldInboardRefused ? A.elbowPole.x * this.outboard : A.elbowPole.x,
+      A.elbowPole.y,
+      A.elbowPole.z,
+    );
     Vector3.TransformNormalToRef(pole, world, pole);
     const sideways = s.sideways.copyFrom(pole);
     sideways.subtractInPlace(along.scale(Vector3.Dot(pole, along)));
-    if (sideways.lengthSquared() < 1e-6) return;
+    if (sideways.lengthSquared() < 1e-6) return false;
     sideways.normalize();
 
     s.elbowPoint
       .copyFrom(s.shoulder)
       .addInPlace(along.scale(foot))
       .addInPlace(sideways.scale(rise));
+    return true;
+  }
+
+  private driveElbow(): void {
+    const s = this.scratch;
+    if (!this.solveElbowPoint()) return;
 
     // The upper arm's local +Y runs from its centre up to the shoulder.
     const boneY = s.boneY.copyFrom(s.shoulder).subtractInPlace(s.elbowPoint);

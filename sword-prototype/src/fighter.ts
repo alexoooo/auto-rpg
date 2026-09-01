@@ -1714,7 +1714,21 @@ export class Fighter {
       trail.follow(lead.gripPoint(CONFIG.club.secondGrip), lead.commandedRotation);
       return;
     }
-    for (const name of HANDS) this.arms[name].update(dt, armIntent[name]);
+    // Plan both hands before moving either anchor. Sword-versus-own-shield is a
+    // coupled request: resolving it after the primary hand had already moved
+    // made the physical answer depend on `HANDS` iteration order and left two
+    // high-force motors pushing into the same plate. The narrow resolver lives
+    // below every Mind and player input, then the ordinary articulated drives
+    // receive the pair together.
+    for (const name of HANDS) this.arms[name].plan(dt, armIntent[name]);
+    const primary = this.arms.primary;
+    const secondary = this.arms.secondary;
+    if (primary.weapon?.kind === "sword" && secondary.weapon?.kind === "shield") {
+      primary.clearOwnShield(secondary);
+    } else if (secondary.weapon?.kind === "sword" && primary.weapon?.kind === "shield") {
+      secondary.clearOwnShield(primary);
+    }
+    for (const name of HANDS) this.arms[name].commit(dt);
   }
 
   /**
