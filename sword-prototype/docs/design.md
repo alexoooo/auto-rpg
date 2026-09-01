@@ -1844,6 +1844,12 @@ nonzero authored shove still aborts at the next safe boundary. A zero-magnitude 
 contact is not an interruption, and standable support must be within the terminal's step-height
 envelope rather than merely sharing its horizontal projection.
 
+Supported V1 freezes the whole stability scale together: specific impulse decays by 0.020 m/s each
+second, staggers at 0.006 m/s and falls at 0.014 m/s; brace multiplies both thresholds by 1.50; the
+fallen dwell is 0.35 s, support grace is 0.10 s and rising lasts 0.45 s. The live-Havok threshold
+bracket and its one-millionth mutation proof are recorded in `docs/measurements.md`; these values
+are one measured contract rather than independently tunable feel constants.
+
 The original plan required a continuously DYNAMIC supported root. A real 240 Hz bracket rejected
 that premise: both the humanoid Construct and Warrior lost physical foot evidence inside the exact
 0.10 s grace and fell at rest. Supported walking therefore uses an ANIMATED physical root only while

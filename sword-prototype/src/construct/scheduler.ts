@@ -115,7 +115,7 @@ export interface LocomotionSubmission {
   readonly request: LocomotionRequest;
 }
 
-/** Runtime seam kept optional until the assisted carrier is activated in Session 23. */
+/** Optional runtime seam: legacy pairs deliberately construct the scheduler without a carrier. */
 export interface LocomotionSchedulerPort {
   authority(action: ActionSpec, group: ControlGroupSpec): LocomotionAuthorityToken | null;
   stage(submission: LocomotionSubmission): void;

@@ -1,130 +1,105 @@
 # Construct Forge -- live roadmap
 
-> **2026-08-31 implementation status.** Sessions 20--24 landed their runtime, production activation,
-> physical evidence and technical handoff, but the topic is not closed. The 26-cell Havok locomotion
-> matrix is green. The fresh assisted-Warden qualification was run and honestly rejected: all eight
-> rows time-capped, one lacked bilateral damage and none exercised the required move/brace Actions.
-> The Arbalest's one-cell idle targeting debt is closed by an authored-clearance mount and
-> separately measured prone lane while preserving its 8/8 qualified corpus. Improving the Warden
-> rejection, the red Twinblade curriculum and Session 16's human verdict remain named work. The
-> original continuous-DYNAMIC-root premise was rejected by a real at-rest bracket and is superseded
-> by the supported-ANIMATED -> knocked-down-DYNAMIC boundary in `docs/design.md`.
+> **2026-09-01 implementation status.** Supported locomotion and its damaged-limb fallbacks are
+> complete. Their closed Sessions 20--24 have been removed: the authority and recovery contract is
+> durable in [`docs/design.md`](../design.md#supported-walking-is-a-game-carrier-authorized-by-physical-limbs),
+> the rejected dynamic-root premise and 26-cell Havok corpus are in
+> [`docs/measurements.md`](../measurements.md#supported-locomotion-activation-and-ai-rerun----2026-08-30),
+> and the operational traps are in `AGENTS.md`. Sessions 25--30 are approved but unimplemented.
+> Session 18 remains red, and Session 16 still requires the final guided human/product verdict.
 
-## Current status -- assisted locomotion is the next architecture (2026-08-30)
+## Current boundary
 
-The Body, Actions, Mind, Forge, Lab, diagnostics, physical learning smoke and separately
-selectable Swordbearer, Twinblade and Arbalest implementations have landed. Their contracts and
-negative/positive results are durable in `docs/design.md`, `docs/measurements.md`, `README.md` and
-`AGENTS.md`; their completed session plans have been removed.
+The Body, Actions, Mind, Forge, Lab, diagnostics, physical learning smoke and separately selectable
+Swordbearer, Twinblade, Arbalest and Warden implementations have landed. Supported V1 now supplies
+pair-atomic carrier movement for Fighters and compatible Constructs while keeping limb authority,
+weapons, knockdown, severance, recovery and death physical. That architecture is a completed
+prerequisite, not work retained in this plan set.
 
-A visible Warrior-versus-small-golem fight exposed the next structural blocker. The Warrior uses
-an animated pelvis locomotion root while the Construct is entirely dynamic. They close, the
-Warrior acts as an effectively infinite-mass pusher, and the bodies can collapse into a living
-clinch heap from which neither presentation nor policy recovers cleanly. The old humanoid raw gait
-had already been measured falling and travelling backward. More motor tuning or ML does not make
-that a good game foundation.
+The continuation begins at combat units. The visible build established three connected debts:
 
-Sessions 20--24 replace accidental solver balance with supported locomotion: a collision-aware,
-limb-authorized virtual carrier supplies a walking target while bounded motors, anatomy, weapons,
-impacts, severance, knockdown and death remain physical. This is a narrow game-authority exception,
-not permission for a Mind or debugger to write transforms.
+- combat is internally a high-number game despite its normalized HUD;
+- projectile wounds use speed and unsigned shaft alignment but ignore mass and contact zone; and
+- authored Construct Minds do not yet make every morphology pursue, turn and use its simultaneous
+  weapons dynamically.
 
-## Frozen design choice
+Sessions 25--30 replace those rules with low-number localized durability, axial-energy projectiles,
+morphology-specific combined arms and procedural stone/bronze fragment effects. Session 30 returns
+one integrated build to Sessions 18 and 16; it does not claim either the physical qualification or
+the player's product verdict in advance.
+
+## Frozen continuation choices
 
 ```ts
-export interface LocomotionRequest {
-  readonly localForward: number; // -1..1
-  readonly localRight: number;   // -1..1
-  readonly yaw: number;          // -1..1
-  readonly recover: boolean;
-}
-
-export type SupportState = "supported" | "staggered" | "fallen" | "rising";
+export const COMBAT_VALUE_UNIT_VERSION = 2 as const;
+export const PROJECTILE_PENETRATION_V1 = Object.freeze({
+  axialSpeedFloorMps: 8,
+  joulesPerDamage: 34,
+  maximumDamage: 3,
+});
 ```
 
-The request is the complete public command. A separate engine-owned, non-persisted authority
-envelope is derived from the admitted Action/controller descriptor and carries carrier identity,
-live support bindings, brace multiplier and degraded-gait stability scale. A controller cannot
-forge it and runtime never switches on controller names.
+A Warrior torso has 10 durability and its head/ordinary parts have 5. Health stays local to parts,
+joints and modules; vitality remains derived and normalized. A projectile wound uses mass, cached
+arrival speed, signed point-first alignment and an actual head-contact zone. At 0.12 kg and 42 m/s
+a clean Construct bolt is exactly 3 damage before armour. One hundred durability remains legal but
+is outside ordinary content and is effectively invincible on this weapon scale.
 
-- A player or Mind still submits `Intent` or a saved `ConstructCommand`. Neither receives a body,
-  transform, constraint or joint handle.
-- A scheduler-scoped locomotion writer may submit one bounded request per carrier for the current
-  control boundary. Every locomotion Action claims `resource:balance`; the host clears before
-  scheduling and commits only after both sides have decided.
-- The carrier is derived from configured support topology. A Construct has no saved `leg`,
-  `pelvis` or hidden body-class field. Renaming parts cannot change the answer.
-- Real support chains determine admission. Losing a required joint, its attachment path or its
-  installed contact module cancels full locomotion on that same safe control boundary. A detached
-  grounded foot cannot authorize movement.
-- Full, limp, crawl and other degraded gaits are explicit Actions over explicit smaller groups.
-  The engine does not silently enumerate every surviving limb subset or substitute an unbound
-  limb.
-- The virtual carrier/navigation envelope is a query/controller aid and never a body, trigger or
-  combat geometry. It cannot be hit,
-  parry, occlude an arrow or own damage.
-- Carrier-versus-carrier separation is resolved symmetrically after both requests. No left-first,
-  right-first or kinematic-body bulldozer rule is permitted.
-- A dedicated locomotion footprint is derived and recorded separately from
-  `BodyView.collisionRadius`; the latter remains a combat/perception feature.
-- Stability comes from the authored shove computed in `Combat.resolve`, not Havok's noisy
-  `solverImpulse`. Damage callbacks queue a transition for the next safe pre-physics boundary.
-- Adapter-specific composite dynamic anatomy owns posture. Fighter uses pelvis-up, torso height and
-  head order; Construct controllers declare a topology-derived `balance-chain`. An upright virtual
-  carrier cannot call a folded body standing, and v1 gains no hidden torso/head names.
-- Humanoid Fighters request recovery by giving nonzero locomotion input after the fallen dwell.
-  Constructs request their explicit saved `recover` Action. Both pass through the same clearance,
-  support and interruption gates; neither rises automatically while idle.
+Construct locomotion and combat Actions remain ordinary public commands. The continuation may add
+new declared Actions and hardware, but no Mind, shader, debugger or saved program receives a body,
+transform, constraint, collision or joint handle. Presentation remains one-way: authoritative
+damage may update render metadata, while render state can never feed physics, targeting, AI,
+collision, picking or saved content.
 
 ## Live session order
 
 | session | landable result | depends on |
 | --- | --- | --- |
-| [16](construct-forge-16-integration-and-playtest.md) | final player/product verdict after the technical blocker closes | 24 |
-| [18](construct-forge-18-adversarial-balance-curriculum.md) | physically witnessed Twinblade competence, remeasured after locomotion | 24 |
-| [20](construct-forge-20-supported-locomotion-evidence.md) | reproduce the pile-up, freeze honest evidence, and establish one two-phase pair boundary | -- |
-| [21](construct-forge-21-locomotion-authority-and-state.md) | dormant scoped requests, live support adapters, stability and recovery contract | 20 |
-| [22](construct-forge-22-carrier-and-collision-runtime.md) | dormant carrier, query collision, passive-contact policy and fist preservation | 21 |
-| [23](construct-forge-23-atomic-supported-locomotion.md) | atomically activate the shared system for Fighters and humanoid Constructs | 22 |
-| [24](construct-forge-24-forge-ai-and-playtest.md) | damaged-limb Actions, Forge exposure, AI/balance reruns and technical handoff | 23 |
+| [25](construct-forge-25-low-number-combat-units.md) | localized v2 combat units, saved-content migration and low-number UI | completed supported V1 |
+| [26](construct-forge-26-physical-projectiles.md) | capped axial-energy arrow and bolt wounds | 25 |
+| [27](construct-forge-27-morphology-combined-arms.md) | dynamic morphology-specific pursuit, turning and concurrent attacks | 26 |
+| [28](construct-forge-28-procedural-stone-pbr.md) | shared procedural PBR stone/bronze plugin with mapped fallback | 25 |
+| [29](construct-forge-29-surface-binding-and-damage.md) | semantic per-part grain, carved relief and one-way damage wear | 28 |
+| [30](construct-forge-30-qualification-and-handoff.md) | competitive corpus, shader evidence, durable record and human handoff | 27, 29 |
+| [18](construct-forge-18-adversarial-balance-curriculum.md) | close the red Twinblade physical-competence gate on the integrated rules | 30 |
+| [16](construct-forge-16-integration-and-playtest.md) | guided player/product verdict and topic close-out | 30 |
 
-Sessions 20--22 deliberately keep every new authority dormant. Session 23 activates pair
-separation, passive-contact filtering, supported-root motion and knockdown together for both body
-families. Enabling only one family recreates the current asymmetry; enabling an always-supported
-root motor before knockdown exists trades pile-up for invulnerability. Session 24 lands technical
-evidence and hands the build to Session 16; only Session 16 owns the human/product verdict.
+Sessions 25--26 deliberately separate unit migration from projectile balance. Session 25 leaves an
+exact `/20` bridge for old arrow scoring so melee/unit migration is independently provable;
+Session 26 removes that bridge and introduces the physical equation. Session 27 owns Actions and
+Minds but not final competitive claims. Sessions 28--29 are presentation-only and must be provably
+isolated from authority. Session 30 is the only continuation session allowed to select durability
+rungs or publish the 0/8 idle, 6/8 active qualification claim.
 
-Assistance is selected once before construction and is pair-atomic: both selected bodies must
-advertise compatible supported ports or both are built in legacy locomotion mode. This keeps
-Fighter-versus-Warden/Centipede coherent until those bodies gain a supported adapter.
-
-Session 21 introduces the exact v1 stability/recovery constants: decay 0.020 m/s per second,
-stagger at 0.006 m/s specific impulse, fall at 0.014 m/s, brace multiplier 1.50, fallen dwell
-0.35 s, support grace 0.10 s and rising duration 0.45 s. The real-Havok bracket in
-`tests/supported-locomotion-stability-physical.test.mjs` now pins below/at on a live supported body;
-lowering the at-stagger input by 0.000001 m/s made it fail before restoration. These thresholds are
-not tuning folklore.
+The two branches after Session 25 may be implemented independently: 26 -> 27 owns combat and AI,
+while 28 -> 29 owns presentation. They join only in Session 30. A rejected qualification returns
+to the owning implementation session; a new source digest is never qualification by itself.
 
 ## Version and digest prediction
 
-Blueprint v1, Action v1, Program v1, Observation v2 and Policy v2 remain valid only if no persisted
-field is added. New registered controller IDs and changed saved action/program instances move their
-canonical digests without changing grammar versions. If implementation needs a saved carrier or
-optional-member field, stop and version the control grammar rather than slipping it into v1.
+Session 25 intentionally advances Blueprint and SavedConstruct to v2 because health/armour units
+change. Session 26 advances Blueprint, SavedConstruct and the library envelope to v3 when persisted
+projectile `damageScale` becomes bounded `penetrationEfficiency`; v1 imports chain through both
+verified migrations. Session 27 advances them to v4 for the explicit zero-wound mounted-contact
+striker used by the Warden shield. Action and Program grammar versions do not move merely because
+instances gain Actions or rules.
 
 - No root-workspace golden applies to this standalone prototype.
-- Sessions 20--22 must not move existing Body, control, program, sensor, observation or policy
-  digests because the runtime is dormant. Every source-changing Session 20--23 invalidates the
-  broad Construct qualification fingerprint and runs a fresh qualification before landing; a
-  replacement rejected source fingerprint is recorded from evidence, never guessed.
-- Session 23 changes shared stepping, collision and Fighter locomotion. The documented
-  `duelist-swinger` null-control bracket is mandatory. Research contract/feature/tactic digests must
-  not move because the public command vocabulary is unchanged; physical bout results may move.
-- Sessions 23--24 leave humanoid Construct blueprints unchanged but move control/program digests
-  where supported Actions and rules are added. Arbalest/Twinblade curriculum evidence and broad
-  qualification source identities are invalidated and must be remeasured.
-- `arbalest-fatal-arrow-v1` remains a historical physical-foot-support qualifier. Assisted support
-  requires a new explicitly versioned qualifier; v1 evidence must not be silently reinterpreted.
+- Session 25 moves every built-in/Forge blueprint, persisted report identity and any program with
+  an absolute maximum-health comparison. Control digests must not move: the body-neutral reporting
+  surface tag advances, but `canonicalControlJson` contains only the unchanged Action graph.
+  Exact-`/20` fixtures preserve arithmetic; deliberately re-authored Construct cores move outcomes
+  and require fresh evidence.
+- Session 26 moves every blueprint digest because the root grammar becomes v3, moves the balance
+  digest when `pierceScale` is removed, and invalidates ordinary Archer as well as Construct
+  projectile evidence. Controls/programs must not move.
+- Session 27 moves every blueprint digest for v4, the Warden shield hardware digest,
+  Arbalest/Warden controls and every edited morphology program.
+- Sessions 28--29 must move no authoritative digest or physical trace. Their conservative broad
+  qualification source fingerprints do move because that owner hashes every `src/**/*.ts`.
+- Session 30 may commit the measured per-morphology health-only durability multipliers selected by
+  the frozen all-rungs ratchet; those production blueprint digests are expected to move. It may not
+  tune an unrecorded constant merely to turn a rejected row green.
 
 ## Gate for every session
 
@@ -142,6 +117,7 @@ Any shared execution/physics session also brackets:
 npm run measure -- --only duelist-swinger --bouts 120 --seed 20260823
 ```
 
-The final session additionally runs the supported-locomotion corpus, Arbalest curriculum, fresh
-eight-worker Construct qualification, root `git diff --check -- sword-prototype`, and a visible
-human playtest. No development server remains running.
+Session 30 additionally runs the supported-locomotion and five-morphology combat corpora, fresh
+eight-worker Construct qualification, `git diff --check -- .`, and a visible WebGL audit. Session
+16 separately owns the visible human product-feel playtest. No development server remains running
+unless the user explicitly asks for one and receives its PID and port.

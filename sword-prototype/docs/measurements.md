@@ -7851,10 +7851,11 @@ identical to the frozen baseline: Duelist 66/120 (55.0%), Swinger 54/120, zero d
 scoring contacts. The 2026-08-31 source has not resumed the compute roadmap; its preflight/null
 control remains required before that resume rather than being relabelled by the Warden parity run.
 
-Still owed, by name: improving the rejected assisted-Warden qualification; the Arbalest's one right-side
-idle targeting debt; and the red Twinblade balance curriculum. These are not skipped green cells.
-The live construct-forge Session 23/24 plans remain
-until the physical claims and balance decision close.
+Still owed at this point in the chronology: improving the rejected assisted-Warden qualification,
+the Arbalest's one right-side idle targeting debt and the red Twinblade balance curriculum. The
+next section closes the Arbalest debt; the Warden and Twinblade results remain honest inputs to the
+live combined-arms continuation rather than skipped green cells. Supported locomotion itself is
+closed and its former implementation plans have been removed.
 
 ### Owner self-clearance and Arbalest mounting -- 2026-08-31
 

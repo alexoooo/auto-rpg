@@ -15,8 +15,8 @@ export interface SupportedLocomotionSample {
 }
 
 /**
- * Session 20 deliberately resolves to the submitted command. The later carrier runtime may
- * reduce this value symmetrically, but a port never gets to infer its opponent's decision.
+ * Pair resolution may reduce the submitted command symmetrically, but a port never gets to infer
+ * its opponent's decision.
  */
 export interface LocomotionResolution {
   readonly allowed: LocomotionRequest | null;
@@ -43,8 +43,8 @@ export interface SupportedLocomotionPortSnapshot {
 }
 
 /**
- * Command-buffer half of assisted locomotion. It deliberately performs no movement: Session 22
- * installs the carrier actuator behind `commit`, while this session freezes clear semantics.
+ * Command-buffer half of assisted locomotion. It deliberately performs no movement; the carrier
+ * actuator is installed behind `commit`, preserving this buffer's clear semantics.
  */
 export class StagedSupportedLocomotionPort implements SupportedLocomotionPort {
   private staged: LocomotionRequest | null = null;

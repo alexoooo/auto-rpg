@@ -1,14 +1,15 @@
 # Session 16 -- decide whether this becomes the game
 
-## Status -- UI complete; product verdict blocked by supported locomotion (2026-08-30)
+## Status -- UI complete; product verdict blocked by the integrated continuation (2026-09-01)
 
 The ordinary mouse-driven starter, Forge, physical probe, exact saved-revision Setup/Fight path and
 causal weak/repaired Lab sequence are implemented. No person has yet completed the complete guided
-visible-browser protocol. A later informal Warrior-versus-small-golem fight did establish one
-technical rejection: the animated-root Warrior and fully dynamic Construct collapsed into a living
-clinch heap. Sessions 20--24 in `construct-forge-00-overview.md` now own that blocker. This session's
-product verdict cannot close before their physical and visible gates do. No learned candidate is
-integrated.
+visible-browser protocol. The clinch-heap blocker exposed by the informal
+Warrior-versus-small-golem fight is closed by the supported V1 architecture recorded in
+`docs/design.md` and its 26-cell physical corpus in `docs/measurements.md`. Sessions 25--30 now own
+the low-number combat, physical projectile, combined-arms and surface continuation. This session's
+product verdict cannot close before Session 30 hands off one integrated build. No learned candidate
+is integrated.
 
 ## Outcome
 
@@ -20,17 +21,19 @@ with an explicit product verdict and moves every durable result out of this plan
 
 The implemented loop and fail-closed learning result are recorded under "Construct learning rung
 entry-gate result" in `docs/measurements.md`: the rejected authored corpus spent no production
-rollout and promoted no network. Sessions 20--24 must additionally close supported locomotion.
-Merely not running learning is not a result. The construct playtest protocol, assignments and
-questions in `src/construct/playtest.ts` were committed before exposing the player to any candidate.
+rollout and promoted no network. Supported locomotion is complete; Session 30 must now rerun the
+entry gate against the integrated continuation. Merely not running learning is not a result. The
+construct playtest protocol, assignments and questions in `src/construct/playtest.ts` were
+committed before exposing the player to any candidate.
 
 ## Integrated result
 
 The learning entry gate rejected the corpus, promoted no candidate and spent no production rollout.
 There is therefore no `adaptive-construct-v1` entry to install. The authored Mind editor and
 auto-battle loop remain the product under test; AI programming, not opaque learning alone, is the
-core gameplay. Session 24 must rerun the invalidated entry gate after supported locomotion, but this
-session never invents a learned driver when that rerun promotes nothing.
+core gameplay. The supported-runtime rerun was honestly rejected and promoted nothing; Session 30
+owns the next integrated qualification. This session never invents a learned driver when that rerun
+promotes nothing.
 
 Finish onboarding in the Forge: one guided build of a four-limb Warden, one crossbow-to-sword module
 swap, one locomotion group, one attack action, one simple Mind rule, then a visible auto-battle and a

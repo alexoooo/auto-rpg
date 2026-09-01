@@ -32,8 +32,9 @@ export const SCALED_LOCOMOTION_MASS_SCALE = SCALED_LOCOMOTION_BODY_SCALE ** 3;
 export const SCALED_LOCOMOTION_FIXTURE_SPEED_MPS = 0.40;
 
 /**
- * Session 23's physically scaled evidence humanoid. All body/contact dimensions and attachment
- * translations share one similarity transform; part/module mass follows volume. Havok derives
+ * The supported-locomotion corpus's physically scaled evidence humanoid. All body/contact
+ * dimensions and attachment translations share one similarity transform; part/module mass follows
+ * volume. Havok derives
  * each body's inertia from that scaled shape and mass. The ordinary steel sword is carried by the
  * scaled socket but keeps its real geometry, striker point and 1.4 kg mass.
  */

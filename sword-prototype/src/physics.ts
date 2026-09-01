@@ -185,7 +185,7 @@ export const layersFor = (side: Side) =>
         arrowCollides: COLLIDES.RIGHT_ARROW,
       };
 
-/** Dormant assisted leaves. Session 23 is the only authority allowed to install them. */
+/** Assisted leaves installed only by the supported-locomotion production handshake. */
 export const supportedLayersFor = (side: Side) =>
   side === "left"
     ? {

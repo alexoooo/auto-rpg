@@ -9,16 +9,17 @@ are durable in `docs/design.md`, `docs/measurements.md`, `README.md` and `AGENTS
 
 Only engineering smokes have run. No complete human-feasibility sitting, derived throughput
 schedule, three-seed research ladder, scaled run, blind tournament, promotion or final confirming
-playtest exists. Those are the live sessions below. The new supported-locomotion topic may change
-physical balance before these runs; do not freeze compute schedules or spend production compute
-until both the human gate and Construct Forge Session 24 are complete.
+playtest exists. Those are the live sessions below. Supported locomotion is complete, but the live
+Construct Forge combat-unit/projectile continuation will change physical balance; do not freeze
+compute schedules or spend production compute until both the human gate and Construct Forge
+Session 30 are complete.
 
 ## Live session order
 
 | session | remaining result | depends on |
 | --- | --- | --- |
 | [18b](combat-followups-18-human-gate-feasibility.md) | measure a person on the promotion instrument; settle open feel questions | landed recorder/UI |
-| [20](combat-followups-20-throughput-and-ceilings.md) | measure throughput/parallelism and derive every per-direction ceiling | 18b, supported locomotion 24 |
+| [20](combat-followups-20-throughput-and-ceilings.md) | measure throughput/parallelism and derive every per-direction ceiling | 18b, Construct Forge 30 |
 | [21](combat-followups-21-research-ladder.md) | one seed per direction under a one-day ceiling, then advance or kill | 20 |
 | [22](combat-followups-22-scaled-runs.md) | remaining seeds and declared ablations for surviving directions | 21 |
 | [23](combat-followups-23-held-out-ai-tournament.md) | freeze selections and execute the blind test matrix once | 22 |
