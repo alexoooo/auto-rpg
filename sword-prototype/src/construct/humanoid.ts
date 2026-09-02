@@ -139,6 +139,11 @@ export const HUMANOID_SENSORS: readonly SensorSpec[] = Object.freeze([
   Object.freeze({ id: "core-upright", unit: "boolean", source: "self" }),
   Object.freeze({ id: "core-roll-rad", unit: "radians", source: "self" }),
   Object.freeze({ id: "core-pitch-rad", unit: "radians", source: "self" }),
+  // These are live hardware/geometry facts. The Mind can decline actions whose real carrying
+  // chain is gone, while the mount safety controller uses only the declared sword/core pair.
+  Object.freeze({ id: "left-arm-ready", unit: "boolean", source: "self" }),
+  Object.freeze({ id: "sword-ready", unit: "boolean", source: "self" }),
+  Object.freeze({ id: "sword-core-clearance-m", unit: "metres", source: "self" }),
   Object.freeze({ id: "opponent-range", unit: "metres", source: "opponent" }),
   Object.freeze({ id: "opponent-relative-speed", unit: "metres-per-second", source: "opponent" }),
   ...["x", "y", "z"].flatMap((axis) => [
@@ -173,12 +178,15 @@ export function humanoidBlueprint(): ConstructBlueprint {
       sensorChannels: Object.freeze([`contact-${role}`, `slip-${role}`]) })),
     Object.freeze({ ...moduleBase("effigy-sight", "opponent-sensor", "socket-face-sensor", "sensor",
       [geometry("face", { kind: "box", sizeM: [0.22, 0.14, 0.08] }, "plate")], 2),
-      sensorChannels: Object.freeze(HUMANOID_SENSORS.map(({ id }) => id).filter((id) => !id.startsWith("contact-") && !id.startsWith("slip-"))) }),
+      sensorChannels: Object.freeze(HUMANOID_SENSORS.map(({ id }) => id).filter((id) =>
+        !id.startsWith("contact-") && !id.startsWith("slip-"))) }),
     Object.freeze({ ...moduleBase("effigy-heart", "power-core", "socket-heart", "power-core",
       [geometry("heart", { kind: "sphere", radiusM: 0.11 }, "core")], 7), capacityJ: 24_000, maxOutputW: 620 }),
-    // Full-sized steel longsword hardware is not similarity-scaled with the stone chassis.
-    // At 1.4 kg it keeps ordinary weapon inertia; the former 6 kg fantasy mass toppled the
-    // resized biped during its first committed sweep and was not truthful to that contract.
+    // The physical weapon is an ordinary metre-long sword, not a similarity-scaled stone beam.
+    // Its own torso is now a real collision partner; safe clearance is therefore enforced by
+    // Havok rather than pretending a short decorative blade is a fighting reach. At 1.4 kg it
+    // retains ordinary weapon inertia; the former 6 kg fantasy mass toppled the resized biped
+    // during its first committed sweep and was not truthful to that contract.
     Object.freeze({ ...moduleBase("effigy-sword", "sword", "socket-sword-hand", "dorsal-weapon", [
       geometry("grip", { kind: "cylinder", lengthM: 0.18, radiusM: 0.05 }, "bearing", [0, 0, 0], false),
       geometry("guard", { kind: "box", sizeM: [0.34, 0.08, 0.08] }, "bearing", [0, 0, 0.08], false),
@@ -264,6 +272,14 @@ export function humanoidControl(): ConstructControlGraph {
       output: { joints: [], modules: ["effigy-sword"] }, sword: { joints: [], modules: ["effigy-sword"] },
     } },
     { id: "posture", joints: postureJoints, modules: [], bindings: {} },
+    // The bare left arm is a physical defence, not a cosmetic counterweight. It has its own
+    // group so it can protect the core while the right mounted sword and lower-body carrier act.
+    { id: "offhand-guard", joints: postureJoints, modules: [], bindings: {
+      shoulder: { joints: ["left-shoulder"], modules: [] },
+      elbow: { joints: ["left-elbow"], modules: [] },
+      wrist: { joints: ["left-wrist"], modules: [] },
+      palm: { joints: ["left-palm"], modules: [] },
+    } },
     { id: "whole-body", joints: bodyJoints.map(({ id }) => id), modules: [], bindings: {} },
   ], actions: [
     { id: "hold", controller: "hold-joints", group: "whole-body", claims: [], parameters: {} },
@@ -272,6 +288,16 @@ export function humanoidControl(): ConstructControlGraph {
       parameters: { forward: { kind: "number", min: -1, max: 1, unit: "scalar" },
         right: { kind: "number", min: -1, max: 1, unit: "scalar" },
         speed: { kind: "number", min: 0, max: 1.6, unit: "metres-per-second" } } },
+    // Named sidesteps keep an authored Mind from laundering an evasive manoeuvre through an
+    // unlabelled move vector. They retain every ordinary supported-biped constraint and claim.
+    ...(["left", "right"] as const).map((side) => ({
+      id: `dodge-${side}`, controller: "supported-biped-move", group: "locomotion",
+      claims: ["resource:balance"], parameters: {
+        forward: { kind: "number" as const, min: -1, max: 1, unit: "scalar" as const },
+        right: { kind: "number" as const, min: -1, max: 1, unit: "scalar" as const },
+        speed: { kind: "number" as const, min: 0, max: 1.6, unit: "metres-per-second" as const },
+      },
+    })),
     ...(["left", "right"] as const).map((side) => ({
       id: `limp-${side}`, controller: `supported-biped-limp-${side}`,
       group: `locomotion-limp-${side}`, claims: ["resource:balance"], parameters: {
@@ -298,6 +324,15 @@ export function humanoidControl(): ConstructControlGraph {
       parameters: { direction: { kind: "number", min: -1, max: 1, unit: "scalar" } } },
     { id: "guard", controller: "guard-mount", group: "sword-arm",
       claims: ["module:effigy-sword", "resource:power-mount", "resource:sensor-line-of-sight"], parameters: {} },
+    { id: "stow-sword", controller: "mount-safe-hold", group: "sword-arm",
+      claims: ["resource:power-mount"], parameters: {
+        yaw: { kind: "number", min: -2.5, max: 2.5, unit: "radians" },
+        pitch: { kind: "number", min: -0.75, max: 1.65, unit: "radians" },
+        "tilted-pitch": { kind: "number", min: -0.75, max: 1.65, unit: "radians" },
+        "minimum-clearance-m": { kind: "number", min: 0.006, max: 0.20, unit: "metres" },
+      } },
+    { id: "offhand-guard", controller: "humanoid-offhand-guard", group: "offhand-guard",
+      claims: ["resource:power-offhand-guard"], parameters: {} },
   ] });
 }
 

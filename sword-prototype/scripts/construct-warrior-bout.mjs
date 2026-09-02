@@ -924,7 +924,8 @@ export async function runConstructWarriorBout({
           y: fact["opponent-blocker-local-y"], z: fact["opponent-blocker-local-z"] }),
         weaponLocalX: fact["opponent-weapon-local-x"],
         targetLocalX: fact["opponent-local-x"], rangeM: fact["opponent-range"],
-        upright: fact["core-upright"], lineOfSight: fact["line-of-sight"],
+        upright: fact["core-upright"], coreRollRad: fact["core-roll-rad"],
+        corePitchRad: fact["core-pitch-rad"], lineOfSight: fact["line-of-sight"],
         admissionSupported: fact["contact-left-foot"] === true || fact["contact-right-foot"] === true,
         warriorThreatVisible, warriorLauncherVisible,
         action: activeAttack?.action ?? null, phase: activeAttack?.phase ?? null,
@@ -943,7 +944,8 @@ export async function runConstructWarriorBout({
         if (event.kind in lifecycle) {
           const row = { atS: qualificationTimeAtStep(steps),
             rangeM: Vector3.Distance(construct.centre(), warrior.centre()), rootUp,
-            torsoHeightM: torso.position.y, kind: event.kind, action: event.action,
+            torsoHeightM: torso.position.y, coreRollRad: fact["core-roll-rad"],
+            corePitchRad: fact["core-pitch-rad"], kind: event.kind, action: event.action,
             reason: event.reason ?? null, attempt: event.action === "dual-cut" ? dualCutAttempt : null,
             shotSerial: null };
           if (event.action === "fire" && event.kind === "started") pendingFireStart = row;

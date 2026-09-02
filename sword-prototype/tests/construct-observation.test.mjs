@@ -11,6 +11,7 @@ import { mirrorConstructCandidates, mirrorConstructCommand, mirrorConstructContr
   "../src/construct/learning/mirror.ts";
 import { canonicalIntegrityJson, integrityDigest } from "../src/construct/integrity.ts";
 import { WARDEN_SENSORS, wardenBlueprint, wardenControl } from "../src/construct/warden.ts";
+import { humanoidBlueprint, humanoidControl } from "../src/construct/humanoid.ts";
 
 const resourceView = Object.freeze({ chargeJ: 1000, heatJ: 0, overheated: false,
   ammunition: Object.freeze({ "dorsal-magazine": 10 }), reloadS: Object.freeze({ "dorsal-magazine": 0 }) });
@@ -91,6 +92,19 @@ test("mirror_twice_returns_exact_graph_and_candidate_bytes", () => {
       joint: "bearing-shield", "angle-rad": 0.3 }) }), priority: 0, sourceIndex: 1 }),
   ]) });
   assert.deepEqual(mirrorConstructCommand(mirrorConstructCommand(command, control, blueprint), control, blueprint), command);
+});
+
+test("mirroring_a_supported_biped_dodge_reverses_the_real_lateral_parameter", () => {
+  const blueprint = humanoidBlueprint(); const control = humanoidControl();
+  const command = Object.freeze({ version: 1, requests: Object.freeze([
+    Object.freeze({ request: Object.freeze({ action: "dodge-right", parameters: Object.freeze({
+      forward: 0.2, right: 1, speed: 1.05 }) }), priority: 0, sourceIndex: 0 }),
+  ]) });
+  const mirrored = mirrorConstructCommand(command, control, blueprint);
+  assert.deepEqual(mirrored.requests[0].request, {
+    action: "dodge-left", parameters: { forward: 0.2, right: -1, speed: 1.05 },
+  }, "a reflected body must step away from the corresponding shield side");
+  assert.deepEqual(mirrorConstructCommand(mirrored, control, blueprint), command);
 });
 
 test("mirror_uses_polar_axial_and_declared_joint_axis_parity_while_swapping_symmetric_roles", () => {

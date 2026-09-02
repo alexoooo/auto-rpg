@@ -565,6 +565,8 @@ export class Construct implements Combatant {
     else this.localMountedSwordAnchor.setAll(0);
     const launcherClear = launcherPose ? this.launcherLineIsClear(launcherPose) : false;
     const leftSwordClearanceM = this.leftSwordClearanceM();
+    const swordCoreClearanceM = this.swordCoreClearanceM();
+    const hardware = this.state.hardware();
     const lineOfSight = this.hasLineOfSight(opponent, opponentCentre, launcherPose);
     Object.assign(facts, {
       "core-upright": coreUpright,
@@ -586,6 +588,10 @@ export class Construct implements Combatant {
       // primitive and live mounted blade. Controllers receive no mesh/body handle.
       "left-sword-clearance-m": leftSwordClearanceM ?? 1,
       "left-sword-clear": leftSwordClearanceM === null || leftSwordClearanceM >= 0.025,
+      "sword-core-clearance-m": swordCoreClearanceM ?? 1,
+      "left-arm-ready": ["left-shoulder", "left-elbow", "left-wrist", "left-palm"]
+        .every((joint) => hardware.joints.has(joint)),
+      "sword-ready": hardware.modules.has("effigy-sword"),
       "opponent-local-x": this.localOpponent.x,
       "opponent-local-y": this.localOpponent.y,
       "opponent-local-z": this.localOpponent.z,
@@ -628,7 +634,6 @@ export class Construct implements Combatant {
       "core-speed-mps": Math.hypot(rootPart.body.getLinearVelocity().x, rootPart.body.getLinearVelocity().z),
       "core-yaw-rate-rad-s": rootPart.body.getAngularVelocity().y,
     });
-    const hardware = this.state.hardware();
     const resources = hardware.resources;
     Object.assign(facts, {
       "power-charge-j": resources.chargeJ,
@@ -766,8 +771,8 @@ export class Construct implements Combatant {
     for (const limb of this.limbs) into.health[limb.key] = limb.severed ? 0 : Math.max(0, limb.health / limb.maxHealth);
   }
 
-  private leftSwordClearanceM(): number | null {
-    const sword = this.runtime.modules.get("effigy-left-sword");
+  private swordClearanceM(swordId: string): number | null {
+    const sword = this.runtime.modules.get(swordId);
     const torso = this.runtime.parts.get("torso");
     if (!sword || !torso || torso.spec.shape.kind !== "box" || !sword.spec.striker) return null;
     const matrix = sword.root.computeWorldMatrix(true);
@@ -778,8 +783,8 @@ export class Construct implements Combatant {
     let minimum = Number.POSITIVE_INFINITY;
     // The hilt is allowed beside the hand; the combat-bearing three quarters of
     // the blade must remain outside the owner's torso plus the declared margin.
-    for (let index = 2; index <= 8; index += 1) {
-      const point = Vector3.Lerp(hilt, tip, index / 8);
+    for (let index = 4; index <= 16; index += 1) {
+      const point = Vector3.Lerp(hilt, tip, index / 16);
       const local = Vector3.TransformCoordinates(point, inverseTorso);
       const q = new Vector3(Math.abs(local.x) - half.x, Math.abs(local.y) - half.y,
         Math.abs(local.z) - half.z);
@@ -789,6 +794,9 @@ export class Construct implements Combatant {
     }
     return minimum;
   }
+
+  private leftSwordClearanceM(): number | null { return this.swordClearanceM("effigy-left-sword"); }
+  private swordCoreClearanceM(): number | null { return this.swordClearanceM("effigy-sword"); }
 
   publishProjectiles(into: ProjectileView[], at: number, owner: "self" | "opponent"): number {
     if (!this.quiver) return at;
@@ -925,6 +933,13 @@ export class Construct implements Combatant {
 
   private installSupportedCollisionFilters(support: ResolvedSupportCarrier): void {
     const layers = supportedLayersFor(this.side);
+    const ordinary = layersFor(this.side);
+    // A sword normally ignores its owner's body: linked limbs overlap at the hand and a generic
+    // self-contact graph makes every driven fighter buzz. The Swordbearer's dorsal mount is the
+    // exceptional geometry the player can plainly see cross its own chest after a fall. Give
+    // just that declared sword/torso pair reciprocal collision masks. This is a physical stop,
+    // not an animation clamp, and deliberately does not extend to its arm chain or to Twinblade.
+    const guardSwordCore = this.runtime.blueprint.id === "swordbearer-effigy";
     const legParts = new Set(support.supportBindings.flatMap(({ jointIds }) => jointIds.flatMap((id) => {
       const joint = this.runtime.blueprint.joints.find((candidate) => candidate.id === id);
       return joint ? [joint.parentPart, joint.childPart] : [];
@@ -934,12 +949,12 @@ export class Construct implements Combatant {
       const row = legParts.has(part.id)
         ? { membership: layers.leg, collides: layers.legCollides }
         : support.criticalPartIds.includes(part.id)
-          ? { membership: layers.trunk, collides: layers.trunkCollides }
+          ? { membership: layers.trunk, collides: layers.trunkCollides |
+            (guardSwordCore && part.id === "torso" ? ordinary.sword : 0) }
           : { membership: layers.arm, collides: layers.armCollides };
       const anatomyLeaves = part.leafShapes.filter((leaf) => !moduleLeaves.has(leaf));
       writeCollisionFilter(part.shape, anatomyLeaves, row.membership, row.collides);
     }
-    const ordinary = layersFor(this.side);
     for (const module of this.runtime.modules.values()) {
       if (module.leafShapes.length === 0) continue;
       const row = module.spec.kind === "sword"
@@ -949,20 +964,26 @@ export class Construct implements Combatant {
           : module.spec.kind === "launcher"
             ? { membership: ordinary.arrow, collides: ordinary.arrowCollides }
             : { membership: layers.arm, collides: layers.armCollides };
-      for (const leaf of module.leafShapes) {
+      for (const [index, leaf] of module.leafShapes.entries()) {
         leaf.filterMembershipMask = row.membership;
-        leaf.filterCollideMask = row.collides;
+        // Grip and guard deliberately nest against their carrier at the socket. Only the blade
+        // is the unsafe self-cut path, so making the entire module collide with its owner would
+        // lock the mount before an attack could begin.
+        leaf.filterCollideMask = row.collides | (guardSwordCore && module.id === "effigy-sword" &&
+          module.spec.geometry[index]?.id === "blade" ? layers.trunk : 0);
       }
     }
   }
 
   private installOrdinaryCollisionFilters(support: ResolvedSupportCarrier): void {
     const ordinary = layersFor(this.side);
+    const guardSwordCore = this.runtime.blueprint.id === "swordbearer-effigy";
     const moduleLeaves = new Set([...this.runtime.modules.values()].flatMap((module) => module.leafShapes));
     for (const part of this.runtime.parts.values()) {
       if (!this.state.damage.isAttached(part.id)) continue;
       const row = support.criticalPartIds.includes(part.id)
-        ? { membership: ordinary.trunk, collides: ordinary.trunkCollides }
+        ? { membership: ordinary.trunk, collides: ordinary.trunkCollides |
+          (guardSwordCore && part.id === "torso" ? ordinary.sword : 0) }
         : { membership: ordinary.arm, collides: ordinary.armCollides };
       const anatomyLeaves = part.leafShapes.filter((leaf) => !moduleLeaves.has(leaf));
       writeCollisionFilter(part.shape, anatomyLeaves, row.membership, row.collides);
@@ -976,9 +997,10 @@ export class Construct implements Combatant {
           : module.spec.kind === "launcher"
             ? { membership: ordinary.arrow, collides: ordinary.arrowCollides }
             : { membership: ordinary.arm, collides: ordinary.armCollides };
-      for (const leaf of module.leafShapes) {
+      for (const [index, leaf] of module.leafShapes.entries()) {
         leaf.filterMembershipMask = row.membership;
-        leaf.filterCollideMask = row.collides;
+        leaf.filterCollideMask = row.collides | (guardSwordCore && module.id === "effigy-sword" &&
+          module.spec.geometry[index]?.id === "blade" ? ordinary.trunk : 0);
       }
     }
   }

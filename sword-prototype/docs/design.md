@@ -1760,8 +1760,10 @@ correction made it stale. Schedule `8253502c`, source `f82bc3d3`, run `97a634ab`
 only one of eight rows dealt bilateral physical damage, seven omitted brace and fire, and all eight
 time-capped. The separate 560-bout combined-arms run at that source, run `d1e1d8e7`, also rejected
 every durability rung. The later Effigy sibling-foot correction moves current runtime source to
-`420906e8`, so both rejected receipts are historical and current source is unqualified. Nothing
-promotes a learned Mind or installs a multiplier.
+`420906e8`, so both rejected receipts became historical and that source was unqualified. The
+2026-09-02 sustained-action repair moved the current source again, and the following locomotion
+fallback correction fixes the tactical-alias reporting regression it exposed; the current source is
+`aa47975e`. It has no entry receipt. Nothing promotes a learned Mind or installs a multiplier.
 
 ### The fixed humanoid construct
 
@@ -1769,12 +1771,12 @@ The Swordbearer Effigy is a second fixed `Construct` archetype, not a humanoid `
 clothes and not a renamed Warden. Its blueprint is a connected primitive tree with head, neck,
 torso, pelvis, one stabilized free arm, one yaw/pitch sword arm and two four-bearing legs. Only the
 two feet own contact sensors. The fixed body exposes only the physically demonstrated biped brace
-controller; it reads those sensors and live joint/core facts, then writes through `MotorWriter`.
-The first move/turn gait fell and travelled backwards, and recovery never righted the fallen body
-in an extended real-Havok probe, so all three requests are absent rather than accepted dishonestly.
-Neither a hand nor a root transform is
-used as a support limb. A disjoint posture Action holds the head, neck, waist and free arm while the
-leg and sword groups act concurrently.
+controller, supported move/turn/brace/recover Actions; they read those sensors and live joint/core
+facts, then write through `MotorWriter`. The rejected raw gait did fall and travel backwards, but
+that is not an argument for removing movement: the supported carrier is the deliberate game-level
+walking aid, while a knockdown releases the real body and recovery re-admits it. Neither a hand nor
+a root transform is used as a support limb. A disjoint posture Action holds the head, neck, waist
+and free arm while the leg and sword groups act concurrently.
 
 The broad feet are physical support surfaces, not decorative boots. Their qualified collider,
 joint and hip chain remain unchanged. Saved shell style `support` draws stone box casing at 90% of
@@ -1790,14 +1792,28 @@ loss -- through `BodyView.effectors`. Humanoid tactics can therefore cover the r
 without the construct inventing a `HandView`. The same physical module remains the scorer, so
 perception and damage share its installed/lost state.
 
-The committed Effigy Mind is a planted counter-fighter. It braces while a Warrior closes, chooses
-sweep direction from local opponent position and keeps non-overlapping posture control active. It
-makes no recovery request after the measured upright predicate fails. That is the strongest honest
-current policy, not a promotion claim: the pinned mixed bout records real upright sword damage but
-also records a late fall and a decisive damage deficit. Forge v1 can load and inspect the fixed
-body only through the direct Setup/runtime path: the Forge library and its sensor catalog remain
-Warden-specific and do not list or import this archetype. Its fragment shelf is therefore not yet
-a general humanoid authoring kit.
+The committed Effigy Mind is now an action-level counter-fighter. It closes above 1.85 m, retreats
+below 1.15 m, sweeps an upright visible target below 2.10 m, holds the free left arm in a genuine
+four-joint guard, and takes a named shield-side dodge while the sword arm remains independent.
+The hardware surface also says whether the sword and left-arm chain remain available, so severing
+one removes only the Actions it can no longer execute instead of producing refusal spam. A fall
+withdraws scoring, stows the sword and requests supported recovery before ordinary tactics resume.
+
+The Swordbearer's blade is the one intentional same-owner weapon/core collision pair. General
+self-collision remains wrong for driven articulated chains, and the socketed grip and guard must
+remain exempt because they are built beside their owner. The combat-bearing blade alone collides
+reciprocally with the declared torso, while a semantic sword/core distance is published as a
+self-sensor for its safe-hold controller and action evidence. This is a narrow physical boundary,
+not a hidden transform correction or a mesh-derived rule.
+
+The 2026-09-02 two-sided real-Havok reference bout proves sustained sweeps, non-pulsed off-hand
+guards, dodges, recovery, and upright multi-part sword damage in both sides. It does **not** promote
+the morphology: one left-side all-time post-fall diagnostic still observes a -0.082 m blade/core
+sample even though each armed sweep stays positive. Whole-bout recovery clearance, a broader
+multi-seed balance bracket and a person-visible arena review remain owed. Forge v1 can load and
+inspect the fixed body only through the direct Setup/runtime path: the Forge library and its sensor
+catalog remain Warden-specific and do not list or import this archetype. Its fragment shelf is
+therefore not yet a general humanoid authoring kit.
 
 The Arbalest Effigy is a third selectable fixed profile on that same human-scale body contract,
 not a replacement for Swordbearer or Twinblade. Its right yaw/pitch chain carries a compact

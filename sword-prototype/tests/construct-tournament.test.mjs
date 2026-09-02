@@ -89,7 +89,7 @@ test("no_passing_candidate_writes_no_promoted_artifact", async () => {
     assert.equal(config.qualificationSourceDigest, "f82bc3d3");
     assert.equal(config.qualificationProtocolDigest, "8253502c");
     assert.equal(config.entryReason,
-      "current source 420906e8 has no entry receipt; prior f82bc3d3 receipt was rejected");
+      "current source aa47975e has no entry receipt; prior f82bc3d3 receipt was rejected");
     let shards = 0;
     const result = await runConstructTrainer({ runDirectory, config, runShard: (job) => {
       shards += 1;

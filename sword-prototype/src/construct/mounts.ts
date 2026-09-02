@@ -29,7 +29,7 @@ export interface SweepCentreSolution {
 export const SWORDBEARER_TARGET_SWEEP = Object.freeze({ halfArcRad: 0.20,
   lateralOffsetM: 0.10, recoverLateralOffsetM: -0.10,
   openingLateralOffsetM: 0.10, openingAboveM: 2.55,
-  openingWeaponXAboveM: -0.10, windHeightOffsetM: 0, commitHeightOffsetM: 0 });
+  openingWeaponXAboveM: -0.10, windHeightOffsetM: 0.25, commitHeightOffsetM: 0.25 });
 
 /**
  * The Warden's dorsal blade crosses one latched target chord, then returns through it.
@@ -63,12 +63,11 @@ export function swordbearerWindLateralOffset(
 /**
  * Put the Swordbearer's real, offset L-shaped sword chain through a root-local target.
  *
- * The yaw bearing is not at the root centre and the pitch bearing does not carry a
- * forward ray: it first drops by `pitchToSocketM`, then the ordinary sword projects
- * forward from that socket. Treating either as a camera aim produces a plausible
- * looking number that misses the torso. The finite blade radius is chosen before the
- * two-link angle, so targets inside reach are crossed by the blade rather than merely
- * pointed at by an unreachable tip.
+ * The yaw bearing is not at the root centre and the pitch bearing does not carry a forward ray:
+ * it first drops by `pitchToSocketM`, then the ordinary sword projects forward from that socket.
+ * Treating either as a camera aim produces a plausible looking number that misses the torso. The
+ * finite blade radius is chosen before the two-link angle, so targets inside reach are crossed by
+ * the blade rather than merely pointed at by an unreachable tip.
  */
 export function solveSwordbearerSweepCentre(
   target: Readonly<{ x: number; y: number; z: number }>,
@@ -196,7 +195,7 @@ class MountController implements ActionController {
     this.sweepArcRad = sweepArcRad;
     this.sweepTargeting = sweepTargeting;
     this.targetCentredSweep = sweepTargeting !== "fixed";
-    this.sweepReturnsRemaining = sweepTargeting === "swordbearer" ? 4 : 0;
+    this.sweepReturnsRemaining = 0;
     boundJoint(context, "yaw");
     boundJoint(context, "pitch");
     if (mode === "guard") boundModule(context, "sword");

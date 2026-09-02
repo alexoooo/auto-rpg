@@ -8,12 +8,14 @@ at schedule `8253502c`, source `f82bc3d3`, run `97a634ab` is also rejected: 1/8 
 physical-damage rows, seven rows missing brace and fire, and 8/8 time caps. The earlier accepted
 identity `e74cb441` / `e5d255e7` / `7a626bcd` remains historical evidence superseded by the
 fire-lifecycle source change. `mapped-pbr` remains the default because no genuinely visible
-hardware browser was available for the required performance bracket. The foot-corrected full gate
-ran on 2026-09-01: 1,316/1,317 tests passed, `npm run check`, `npm run build` and `git diff --check`
-passed, and the sole remaining red is the Swordbearer's one-completed-sweep left mirror. The
-competitive repair remains owed. The later sibling-foot correction moves current source to
-`420906e8`, making both rejected `f82bc3d3` receipts historical; rerun the matrix only after the
-known Session-27 combat red is repaired. Session 30 is not complete.
+hardware browser was available for the required performance bracket. The 2026-09-02 focused
+Swordbearer repair closes the former one-completed-sweep left mirror: the bilateral sustained-action
+reference now proves repeated sweeps, off-hand guard, dodge, recovery and upright sword damage.
+The broader supported-locomotion suite is still red on scaled recovery and held-weapon wall pressure,
+so the competitive repair remains owed. The later sibling-foot correction moved source to `420906e8`, and
+the sustained-action work plus its locomotion-fallback correction move current source to `aa47975e`, making both rejected `f82bc3d3`
+receipts historical; rerun the matrix only after the broader supported-locomotion boundary reds
+are repaired. Session 30 is not complete.
 
 The first full-matrix attempt exhausted a 4 GiB V8 heap after roughly 260 cells because the parent,
 resume reader, finalizer and CLI still retained corpus-sized objects despite atomic checkpoint files.
@@ -23,7 +25,8 @@ retains no raw result array, independently replays one indexed cache row at a ti
 `report.json` in a third. Its terminal output is a compact receipt and path. The source change
 invalidated the interrupted checkpoint by design; the final matrix restarted from an empty output
 under source `f82bc3d3` and completed all 560 cells. That corpus remains an exact historical
-rejection, but it is not current-source evidence after the `420906e8` foot correction.
+rejection, but it is not current-source evidence after the `420906e8` foot correction and the
+later sustained-action and locomotion-fallback repair at `aa47975e`.
 
 ## Outcome
 

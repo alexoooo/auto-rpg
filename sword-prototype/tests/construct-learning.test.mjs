@@ -195,8 +195,8 @@ test("the_live_learning_entry_fails_closed_when_the_runtime_moves_past_its_rejec
     evidence: "construct-entry-run-97a634ab-source-f82bc3d3-2026-09-01",
     runDigest: "97a634ab",
     sourceDigest: "f82bc3d3",
-    runtimeStatus: "historical combat-value-v2 Warden receipt; current source 420906e8 is unqualified",
-    reason: "current source 420906e8 has no entry receipt; prior f82bc3d3 receipt was rejected",
+    runtimeStatus: "historical combat-value-v2 Warden receipt; current source aa47975e is unqualified",
+    reason: "current source aa47975e has no entry receipt; prior f82bc3d3 receipt was rejected",
   });
 });
 

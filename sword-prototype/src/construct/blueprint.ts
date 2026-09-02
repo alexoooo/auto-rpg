@@ -1,7 +1,10 @@
 export const CONSTRUCT_BLUEPRINT_VERSION = 4 as const;
 export const CONSTRUCT_BLUEPRINT_LIMITS = Object.freeze({ maxBytes: 1_048_576, maxDepth: 64,
   maxParts: 128, maxJoints: 127, maxSockets: 256, maxModules: 256,
-  maxModulePrimitives: 16, maxModuleSensorChannels: 24, maxSensorChannels: 256 });
+  // A biped's raw self-safety facts are intentionally carried by the same installed sight
+  // surface as its geometry facts.  Thirty-two keeps that complete declared surface bounded
+  // while leaving room for the mirrored multi-arm descriptors built on the same chassis.
+  maxModulePrimitives: 16, maxModuleSensorChannels: 32, maxSensorChannels: 256 });
 
 export type Triple = readonly [number, number, number];
 export type Rotation = readonly [number, number, number, number];

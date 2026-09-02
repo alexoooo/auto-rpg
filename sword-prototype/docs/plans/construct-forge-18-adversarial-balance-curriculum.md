@@ -16,8 +16,9 @@ forward. The prior assisted idle ladder at 0.50, 0.25, 0.10, 0.05 and 0.02 durab
 the same rungs recorded 0, 0, 6, 8 and 7 idle Warrior kills, while active wins were 1, 0, 0, 0 and 0.
 The x1 body wins 3/8 active bouts, one left and two right, but supplies zero strict evidence cells.
 The session therefore remains honestly red: x0.05 earns the idle 8/8 loss but no active win, and no
-rung earns active competence. The later sibling-foot correction moves current source to
-`420906e8`, so these exact counts are historical and cannot qualify the corrected body.
+rung earns active competence. The later sibling-foot correction moved source to `420906e8`, and
+sustained-action work plus its locomotion-fallback correction move current source to `aa47975e`, so these exact counts are historical
+and cannot qualify the corrected body.
 
 The committed chassis is human-scale rather than giant-scale: `HUMANOID_SCALE = 0.75` produces a
 1.8995 m crown. `constructStandingThresholds` remains profile-derived, and

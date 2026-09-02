@@ -9,13 +9,17 @@
 > focused-green and recorded durably. Session 27's public Actions, Minds and evidence machinery are
 > implemented, but its Swordbearer physical acceptance remains red. Session 30's 560-bout corpus
 > and authored Warden entry were complete and rejected at source `f82bc3d3`. The sibling-foot
-> presentation correction moves current source to `420906e8`, so those rejections remain historical
+> presentation correction moved source to `420906e8`; sustained-action work and its following
+> locomotion-fallback correction move current source to `aa47975e`, so those rejections remain historical
 > evidence rather than current qualification. All production durability multipliers remain
 > null. `mapped-pbr` remains the production default because visible hardware performance evidence
-> is blocked. The final foot-corrected 2026-09-01 gate passed 1,316/1,317 tests; its sole red is the
-> Swordbearer's one-completed-sweep left mirror. Session 30 therefore remains competitively red
-> rather than being called complete; rerunning its corpus is deferred until Session 27 repairs that
-> known combat failure.
+> is blocked. The 2026-09-02 full suite closes the Swordbearer's former one-sweep mirror failure:
+> its bilateral sustained-action reference is green. Five actual wider supported-locomotion reds
+> remain -- scaled fixture identity/recovery and held-weapon wall pressure, plus their dependent
+> corpus assertions -- and keep Session 30 competitively red. Three additional documentation-test
+> failures under the sandbox are Git ownership/provenance checks; the same 15-test file is green
+> with the repository supplied as a process-local `safe.directory`. Rerun the matrix only after the
+> broader locomotion boundaries are repaired, not because the Swordbearer is still inert.
 > Session 18 remains red, and Session 16 still requires the final guided human/product verdict.
 
 ## Current boundary

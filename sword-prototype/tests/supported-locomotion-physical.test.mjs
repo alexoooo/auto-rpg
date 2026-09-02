@@ -383,7 +383,7 @@ test("Warrior_and_each_humanoid_Construct_close_in_both_orders_without_a_clinch_
     /frozen fixture changed/);
 });
 
-test("Swordbearer_recovers_from_the_historical_topple_and_exceeds_its_historical_damage_floor", async () => {
+test("Swordbearer_recovers_from_the_historical_topple_while_an_idle_raised_guard_blocks_its_real_blade", async () => {
   const historicalToppleStep = Math.round(19.5417 * 240);
   for (const constructSide of ["left", "right"]) {
     const report = await runConstructWarriorBout({ saved: humanoidSavedConstruct(),
@@ -398,8 +398,16 @@ test("Swordbearer_recovers_from_the_historical_topple_and_exceeds_its_historical
     const recovered = states.indexOf("supported", rising + 1);
     assert.ok(fallen >= 0 && rising > fallen && recovered > rising,
       `${constructSide} Swordbearer did not complete fallen -> rising -> supported: ${states}`);
-    assert.ok(report.construct.damage > 0.00373945,
-      `${constructSide} Swordbearer dealt ${report.construct.damage}, not more than the historical floor`);
+    // This fixture deliberately gives the idle Warrior its ordinary sword-and-buckler loadout.
+    // The Swordbearer must still drive real sweeps before the authored shove, but a permanently
+    // held physical guard should stop those contacts rather than leak the old fractional damage
+    // floor through it. The live duelist bout owns the separate requirement for unblocked damage.
+    const guardedSweeps = report.constructContacts.filter((row) => row.sourceModuleId === "effigy-sword" &&
+      row.effectorId === "effigy-sword" && row.action === "sweep" && row.blocked === true);
+    assert.ok(guardedSweeps.length > 0,
+      `${constructSide} never physically brought its sword into the idle Warrior's raised guard`);
+    assert.equal(report.construct.damage, 0,
+      `${constructSide} damaged an idle Warrior through its continuously raised physical guard`);
     assert.ok(report.minimumRangeM >= 0.625 - 0.020,
       `${constructSide} Swordbearer penetrated the supported pair footprint`);
   }

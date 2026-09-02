@@ -8704,3 +8704,35 @@ source fingerprint from `f82bc3d3` to `420906e8`. The old 560-cell combined-arms
 entry receipt remain truthful historical rejections but are stale for the corrected body. No
 durability multiplier, learned artifact or qualification is promoted from them; the current source
 must be rerun only after Session 27 repairs the known Swordbearer combat failure.
+
+### Swordbearer sustained-action reference bout -- mechanically green, still unqualified -- 2026-09-02
+
+A focused real-Havok repair was run after the 2026-09-01 Swordbearer failure. It is deliberately a
+small deterministic reference, not a competitive bracket: the saved durability-1 Swordbearer and
+the Warrior `duelist` use seed `4157765078` for 30 seconds (`7200` 240 Hz steps), once with the
+Construct on each arena side. `the_live_Swordbearer_exchanges_real_sword_offhand_and_dodge_actions_in_both_mirrors`
+is the executable record. It requires two completed sweeps, at least 1.5 upright action-attributed
+sword damage across at least two Warrior regions, a held off-hand guard and dodge of at least 0.25 s,
+completed recovery, and positive action-scoped sword/core clearance on both sides.
+
+| Construct side | completed sweeps | longest off-hand guard | longest dodge | action-scoped sword/core minimum | observed upright sword result |
+| --- | ---: | ---: | ---: | ---: | --- |
+| left | 3 | 2.375 s | 1.846 s | 0.136 m | hand, off upper arm and off forearm damage, 4.30 total |
+| right | 13 | 1.629 s | 0.879 s | 0.031 m | repeated hand/arm, head and torso damage |
+
+The repair has three separate mechanisms. The Mind owns close, retreat, sweep, free-arm guard,
+shield-side dodge and recovery as ordinary declared Actions; the left-arm and sword hardware facts
+remove only unavailable behavior after severance; and the Swordbearer's **blade** has a reciprocal
+collision filter with its own torso. The grip and guard retain their socket exemption. This is why a
+driven attack can still begin -- filtering every mounted primitive against the owner prevented the
+mount from moving at all -- while the actual cutting span receives a physical stop.
+
+This is not an all-clear on self-intersection. The reference's all-time diagnostic minimum is
+`-0.0824 m` on the left side during a post-fall/recovery interval (the right side is `0.0312 m`).
+The action-scoped margin establishes that the live attacks are not scoring through the Effigy's
+torso; it does not establish a visually clean fallen body. Do not read this focused green test as a
+qualification, a balance result, or permission to install a learned Mind. The owed work is a
+whole-bout recovery-clearance repair, a fresh multi-seed/multi-rung bracket, and a visible human
+arena review. The sustained-action work moved the source after `420906e8`; the immediately
+following locomotion fallback correction moves the fail-closed qualification fingerprint to
+`aa47975e`. No entry receipt exists for the new source.

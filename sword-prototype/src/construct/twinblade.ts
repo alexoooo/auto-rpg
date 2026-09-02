@@ -5,7 +5,7 @@ import { validateBlueprint, type ConstructBlueprint } from "./blueprint.ts";
 import { saveConstruct, type SavedConstruct } from "./codec.ts";
 import { groundedConstructOriginY, resolveConstructBindTransforms } from "./compile.ts";
 import { humanoidBlueprint, humanoidControl, HUMANOID_SENSORS } from "./humanoid.ts";
-import { humanoidLength } from "./humanoid-scale.ts";
+import { HUMANOID_SCALE, humanoidLength } from "./humanoid-scale.ts";
 import type { ConstructProgram } from "./program.ts";
 import type { SensorSpec } from "./sensors.ts";
 import { twinbladeDuelistProgram, type TwinbladeDuelistTuning } from "./twinblade-duelist.ts";
@@ -40,9 +40,20 @@ export function twinbladeBlueprint(): ConstructBlueprint {
   const rightPitchPart = required(base.parts, RIGHT.pitchPart, "right pitch part");
   const rightYaw = required(base.joints, RIGHT.yawJoint, "right yaw joint");
   const rightPitch = required(base.joints, RIGHT.pitchJoint, "right pitch joint");
-  const rightSocket = required(base.sockets, RIGHT.socket, "right sword socket");
-  const rightSword = required(base.modules, RIGHT.module, "right sword module");
-  if (!rightSword.striker) throw new Error("Twinblade source right sword lost its striker");
+  const baseRightSocket = required(base.sockets, RIGHT.socket, "right sword socket");
+  const baseRightSword = required(base.modules, RIGHT.module, "right sword module");
+  if (!baseRightSword.striker) throw new Error("Twinblade source right sword lost its striker");
+  // Twinblade is independently qualified as the long-sword A/B chassis. Do not silently inherit
+  // the Swordbearer's short recovery-safe weapon when its own dual-cut envelope was not retuned.
+  const rightSocket = { ...structuredClone(baseRightSocket), frame: Object.freeze({
+    ...structuredClone(baseRightSocket.frame), positionM: Object.freeze([0, -0.29 * HUMANOID_SCALE, 0] as const),
+  }) };
+  const rightSword = { ...structuredClone(baseRightSword), geometry: Object.freeze(baseRightSword.geometry.map((piece) =>
+    piece.id === "blade" ? Object.freeze({ ...structuredClone(piece), frame: Object.freeze({
+      ...structuredClone(piece.frame), positionM: Object.freeze([0, 0, 0.58] as const),
+    }), shape: Object.freeze({ kind: "box" as const, sizeM: Object.freeze([0.10, 0.05, 1.05] as const) }) }) :
+      structuredClone(piece))), striker: Object.freeze({ ...structuredClone(baseRightSword.striker),
+    localTipM: Object.freeze([0, 0, 1.105] as const) }) };
 
   const leftYaw = { ...structuredClone(rightYaw), id: LEFT.yawJoint, childPart: LEFT.yawPart,
     parentFrame: { ...structuredClone(rightYaw.parentFrame), positionM: Object.freeze([
@@ -66,7 +77,7 @@ export function twinbladeBlueprint(): ConstructBlueprint {
       { ...structuredClone(rightYawPart), id: LEFT.yawPart },
       { ...structuredClone(rightPitchPart), id: LEFT.pitchPart }],
     joints: [...base.joints.filter(({ id }) => !REMOVED_LEFT_JOINTS.includes(id)), leftYaw, leftPitch],
-    sockets: [...base.sockets, leftSocket],
+    sockets: [...base.sockets.filter(({ id }) => id !== RIGHT.socket), rightSocket, leftSocket],
     modules: [...modules, twinRightSword, leftSword] });
 }
 
@@ -88,7 +99,9 @@ export function twinbladeControl(): ConstructControlGraph {
     [`${mount.side}-pitch`, { joints: [mount.pitchJoint], modules: [] }],
     [`${mount.side}-sword`, { joints: [], modules: [mount.module] }],
   ]));
-  const groups = base.groups.map((group) => group.id === posture.id
+  // Twinblade replaces the whole ordinary left arm with a second sword mount. Do not carry the
+  // Swordbearer's offhand defence vocabulary into a body which physically lacks that chain.
+  const groups = base.groups.filter((group) => group.id !== "offhand-guard").map((group) => group.id === posture.id
     ? { ...group, joints: group.joints.filter((id) => !REMOVED_LEFT_JOINTS.includes(id)) }
     : group.id === wholeBody.id
       ? { ...group, joints: [...group.joints.filter((id) => !REMOVED_LEFT_JOINTS.includes(id)),
@@ -100,7 +113,8 @@ export function twinbladeControl(): ConstructControlGraph {
     modules: [...locomotion.modules, ...mountModules], bindings: {
       ...locomotion.bindings, ...mountBindings,
     } });
-  return validateControlGraph({ version: 1, groups, actions: [...base.actions,
+  return validateControlGraph({ version: 1, groups, actions: [...base.actions.filter(({ id }) =>
+    id !== "offhand-guard" && id !== "stow-sword"),
     { id: "dual-mount-neutral", controller: "twinblade-neutral-hold", group: "dual-sword-mounts",
       claims: [...mountModules.map((id) => `module:${id}`), "resource:power-mount"], parameters: {} },
     { id: "dual-cut", controller: "twinblade-scissor-cut", group: "dual-sword-braced-body",

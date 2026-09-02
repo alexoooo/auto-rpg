@@ -20,6 +20,7 @@ import { wardenBlueprint } from "../src/construct/warden.ts";
 import { createConstructHeadlessArena } from "../scripts/construct-headless-arena.mjs";
 import { unitDefinition } from "../src/units.ts";
 import { HUMANOID_CONSTRUCT_PROFILE } from "../src/construct/construct.ts";
+import { layersFor, supportedLayersFor } from "../src/physics.ts";
 
 const supportRadius = (shape, direction) => {
   switch (shape.kind) {
@@ -147,8 +148,9 @@ test("humanoid_effigy_visible_feet_are_proportional_and_do_not_intersect_in_the_
     "the support presentation margin must refuse shapes for which its axis contract is undefined");
 });
 
-test("the_humanoid_sensor_surface_is_the_exact_24_raw_facts_without_a_high_target_conclusion", () => {
-  const expected = ["core-upright", "core-roll-rad", "core-pitch-rad", "opponent-range",
+test("the_humanoid_sensor_surface_is_the_exact_27_raw_facts_without_a_high_target_conclusion", () => {
+  const expected = ["core-upright", "core-roll-rad", "core-pitch-rad", "left-arm-ready", "sword-ready",
+    "sword-core-clearance-m", "opponent-range",
     "opponent-relative-speed", "opponent-local-x", "opponent-local-vx", "opponent-local-y",
     "opponent-local-vy", "opponent-local-z", "opponent-local-vz", "opponent-blocker-present",
     "opponent-blocker-local-x", "opponent-blocker-local-y", "opponent-blocker-local-z",
@@ -156,9 +158,10 @@ test("the_humanoid_sensor_surface_is_the_exact_24_raw_facts_without_a_high_targe
     "opponent-weapon-local-z", "line-of-sight", "contact-left-foot", "slip-left-foot",
     "contact-right-foot", "slip-right-foot"];
   assert.deepEqual(HUMANOID_SENSORS.map(({ id }) => id), expected);
-  assert.equal(CONSTRUCT_BLUEPRINT_LIMITS.maxModuleSensorChannels, 24);
+  assert.equal(CONSTRUCT_BLUEPRINT_LIMITS.maxModuleSensorChannels, 32);
   const sight = humanoidBlueprint().modules.find(({ id }) => id === "effigy-sight");
-  assert.deepEqual(sight.sensorChannels, expected.slice(0, 20),
+  assert.deepEqual(sight.sensorChannels, expected.filter((id) => !id.startsWith("contact-") &&
+    !id.startsWith("slip-")),
     "target choice remains Mind/controller inference rather than installed high-target hardware");
 });
 
@@ -184,7 +187,8 @@ test("the_humanoid_saved_character_exposes_only_physically_supported_leg_and_swo
   assert.deepEqual(sword.bindings.pitch.joints, ["sword-pitch"]);
   assert.deepEqual(sword.bindings.sword.modules, ["effigy-sword"]);
   assert.deepEqual([...new Set(humanoidProgram().rules.map(({ action }) => action))].sort(),
-    ["brace", "guard", "limp-left", "limp-right", "move", "recover", "stabilize", "sweep", "turn"]);
+    ["brace", "dodge-left", "dodge-right", "guard", "limp-left", "limp-right", "move",
+      "offhand-guard", "recover", "stabilize", "stow-sword", "sweep", "turn"]);
   assert.equal(humanoidProgram().id, "swordbearer-warrior-duelist");
 
   const saved = humanoidSavedConstruct();
@@ -398,9 +402,20 @@ test("the_humanoid_saved_character_physically_compiles_and_steps_in_the_shared_C
     assert.equal(left.runtime.joints.size, saved.blueprint.joints.length);
     assert.equal(left.runtime.modules.has("effigy-sword"), true);
     assert.equal(left.strikers.length, 1, "the mounted sword owns a real combat striker");
+    const sword = left.runtime.modules.get("effigy-sword");
+    const bladeIndex = sword.spec.geometry.findIndex(({ id }) => id === "blade");
+    const torsoLeaf = left.runtime.part("torso").leafShapes[0];
+    const blade = sword.leafShapes[bladeIndex];
+    const grip = sword.leafShapes[sword.spec.geometry.findIndex(({ id }) => id === "grip")];
+    assert.ok((blade.filterCollideMask & supportedLayersFor("left").trunk) !== 0,
+      "the Swordbearer's combat blade must physically stop at its own torso");
+    assert.equal((grip.filterCollideMask & supportedLayersFor("left").trunk) !== 0, false,
+      "the socketed grip must retain its declared self-overlap exemption");
+    assert.ok((torsoLeaf.filterCollideMask & layersFor("left").sword) !== 0,
+      "the core guard is reciprocal rather than a one-sided filter write");
     const snapshot = left.control.snapshot();
-    assert.equal(snapshot.active.some(({ action }) => action === "stabilize"), true,
-      "the non-leg, non-sword joints have a concurrent persistent posture Action");
+    assert.equal(snapshot.active.some(({ action }) => action === "offhand-guard"), true,
+      "the physical left arm has a concurrent defensive Action while the sword and legs remain free");
     assert.equal(snapshot.motorTargets.some(({ joint }) => ["waist", "neck-bearing", "head-bearing",
       "left-shoulder", "left-elbow", "left-wrist", "left-palm"].some((id) => joint === id || joint.startsWith(`${id}:`))), true);
     const locomotion = left.locomotion.diagnostic();

@@ -74,17 +74,23 @@ export function applySupportedLocomotionAlternatives(
   const reasonByAction = new Map<string, string>();
 
   for (const family of [...families].sort()) {
-    const members = [...descriptorByAction].filter(([, descriptor]) => descriptor.family === family)
-      .sort(([left], [right]) => left.localeCompare(right));
-    const livePrimary = members.filter(([, descriptor]) => descriptor.rank === "primary")
+    // The graph's canonical action order declares which of several equivalent primary actions
+    // names the live carrier in a human-facing refusal. Tactical aliases such as `dodge-left`
+    // share the same physical carrier as `move`; alphabetising them made a healthy biped claim
+    // that its *dodge* was the primary locomotion action. Fallback arbitration below remains
+    // identifier-sorted, so a request order or a graph reformat cannot select a limp.
+    const membersInGraphOrder = [...descriptorByAction]
+      .filter(([, descriptor]) => descriptor.family === family);
+    const livePrimary = membersInGraphOrder.filter(([, descriptor]) => descriptor.rank === "primary")
       .map(([id]) => capabilityByAction.get(id)).find((row) => row?.available);
     if (livePrimary) {
-      for (const [id, descriptor] of members) if (descriptor.rank === "fallback") {
+      for (const [id, descriptor] of membersInGraphOrder) if (descriptor.rank === "fallback") {
         reasonByAction.set(id, `primary locomotion action "${livePrimary.action}" remains available`);
       }
       continue;
     }
-    const requestedFallbacks = members.filter(([id, descriptor]) =>
+    const requestedFallbacks = [...membersInGraphOrder].sort(([left], [right]) => left.localeCompare(right))
+      .filter(([id, descriptor]) =>
       descriptor.rank === "fallback" && requested.has(id)).map(([id]) => id);
     if (requestedFallbacks.length > 1) {
       const reason = `fallback locomotion actions "${requestedFallbacks.join('", "')}" were requested together; ` +

@@ -25,7 +25,8 @@ rollout and promoted no network. Supported locomotion is complete. A historical 
 entry qualified under schedule `e74cb441`, source `e5d255e7` and run `7a626bcd`, then became stale
 when the fire lifecycle changed. Schedule `8253502c`, source `f82bc3d3`, run `97a634ab` was then
 rejected: one of eight rows dealt bilateral physical damage, seven omitted brace and fire, and all
-eight time-capped. The sibling-foot correction moves current source to `420906e8`, which has no
+eight time-capped. The sibling-foot correction moved source to `420906e8`; sustained-action work
+and its locomotion-fallback correction move current source to `aa47975e`, which has no
 entry receipt. The learning rung remains closed. Merely not running learning is not a result. The
 construct playtest protocol, assignments and questions in `src/construct/playtest.ts` were
 committed before exposing the player to any candidate.

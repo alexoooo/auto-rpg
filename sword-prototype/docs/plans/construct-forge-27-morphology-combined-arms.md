@@ -1,14 +1,18 @@
 # Session 27 — morphology-specific combined-arms Minds
 
-**Status (2026-09-01): public Actions, Minds and evidence machinery are implemented and recorded
-durably, but physical acceptance is red. The Swordbearer completes only one sweep in the left
-mirror; the separately reported recovery-space red was a focused-test reporting mismatch and is
-green after reconstructing the canonical combat-release evidence without changing its 0.605 m
-floor. The fresh authored Warden entry is rejected, and Session 30's completed five-morphology
-matrix rejected every durability rung at historical source `f82bc3d3`. The subsequent sibling-foot
-clearance correction moves current source to `420906e8`; its bind and recovery checks are green,
-but it intentionally invalidates those receipts. Further physical and competitive work remains
-owed rather than qualified.**
+**Status (2026-09-02): public Actions, Minds and evidence machinery are implemented and recorded
+durably. The former Swordbearer one-sweep focused failure is repaired by an executable bilateral
+30-second reference bout: both sides complete repeated sweeps, hold the physical left-arm guard,
+dodge, recover, deal multi-region upright sword damage, and retain positive action-scoped
+sword/core clearance. The repair deliberately narrows same-owner collision to the Swordbearer's
+blade/torso pair; it does not create general self-collision or a transform-writing escape hatch.
+It is not physical acceptance for Session 30: the left reference still records a -0.0824 m
+all-time post-fall blade/core diagnostic, and the fresh authored Warden entry plus five-morphology
+durability matrix remain rejected/stale at historical source `f82bc3d3`. The sibling-foot
+correction previously moved current source to `420906e8`, and sustained-action work plus its
+locomotion-fallback correction move it again to `aa47975e`. Whole-bout
+recovery clearance, a fresh multi-seed/multi-rung matrix and person-visible review remain owed;
+no learned artifact or durability multiplier is promoted.**
 
 ## Outcome
 

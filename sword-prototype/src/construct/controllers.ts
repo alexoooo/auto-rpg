@@ -39,6 +39,26 @@ export const ARBALEST_LEFT_SWORD_GUARD = Object.freeze({
   shoulder: -0.35, elbow: -0.65, wrist: 0.35, palm: -0.15,
 });
 
+/**
+ * The Swordbearer has no imaginary second weapon.  Its ordinary stone forearm is instead held
+ * forward at the vital plate while the mounted sword works.  The four X-axis hinges can make an
+ * honest forward-side intercept, but cannot secretly cross the chassis laterally.  This is
+ * intentionally a posture only:
+ * enemy blades still meet the real arm collider, but the action neither arms a scorer nor creates
+ * a hidden shield body.
+ */
+export const HUMANOID_OFFHAND_GUARD = Object.freeze({
+  shoulder: -0.55, elbow: -0.90, wrist: 0.50, palm: -0.25,
+});
+
+/**
+ * A fall can carry an otherwise level blade back across the core.  The stow Action begins in
+ * its ordinary level lane, then latches its alternate declared pitch before the live semantic
+ * sword/core clearance reaches zero.  This is a bounded safety interlock over published body
+ * facts, not an attempt to move a mesh or to solve the ragdoll from the controller.
+ */
+export const MOUNT_SAFE_HOLD_V1 = Object.freeze({ minimumClearanceM: 0.05 });
+
 export const ARBALEST_LEFT_SWORD_LANE = Object.freeze({ x: -0.34, toleranceM: 0.08,
   waitForLaneS: 0.15 });
 const ARBALEST_LEFT_SWORD_DRIVE_CLEARANCE_M = 0.12;
@@ -369,6 +389,55 @@ class JointController {
   }
 }
 
+/** A held mount pose may react only to the saved body's published semantic clearance, never to meshes. */
+class MountSafeHoldController implements ActionController {
+  private readonly context: ControllerContext;
+  private readonly yaw: string;
+  private readonly pitch: string;
+  private readonly yawTarget: number;
+  private readonly levelPitchTarget: number;
+  private readonly tiltedPitchTarget: number;
+  private readonly minimumClearanceM: number;
+  private tilted = false;
+  private phase = "ready";
+  private cancelled = "";
+  private progress = Number.POSITIVE_INFINITY;
+
+  constructor(context: ControllerContext) {
+    this.context = context;
+    this.yaw = oneBoundJoint(context, "yaw"); this.pitch = oneBoundJoint(context, "pitch");
+    this.yawTarget = numberParameter(context, "yaw");
+    this.levelPitchTarget = numberParameter(context, "pitch");
+    this.tiltedPitchTarget = numberParameter(context, "tilted-pitch");
+    this.minimumClearanceM = numberParameter(context, "minimum-clearance-m");
+  }
+
+  enter(): void { this.phase = "stowing"; }
+
+  step(): void {
+    if (this.cancelled !== "") return;
+    const clearance = this.context.view.facts["sword-core-clearance-m"];
+    // Latch rather than alternate: changing target back and forth near one solver sample made
+    // the recovery mount buzz through the core. The requested threshold remains an authored,
+    // inspectable Action parameter and cannot be narrower than the controller's measured floor.
+    if (typeof clearance === "number" && Number.isFinite(clearance) &&
+        clearance <= Math.max(this.minimumClearanceM, MOUNT_SAFE_HOLD_V1.minimumClearanceM)) this.tilted = true;
+    const targetPitch = this.tilted ? this.tiltedPitchTarget : this.levelPitchTarget;
+    this.progress = Math.max(clampedWrite(this.context, this.yaw, this.yawTarget),
+      clampedWrite(this.context, this.pitch, targetPitch));
+    this.phase = this.progress <= 0.01 ? "holding" : "stowing";
+  }
+
+  // A recovery controller must retain its safe hold for the whole fallen interval. Completing on
+  // convergence immediately re-admitted a new stow instance every tick and produced a noisy,
+  // physically weaker motor target.
+  done(): boolean { return false; }
+  cancel(reason: string): void { this.cancelled = reason; this.phase = "cancelled"; }
+  diagnostic(): ControllerDiagnostic { return { phase: this.phase,
+    detail: this.cancelled || `${this.tilted ? "clearance" : "level"} mount hold`,
+    progress: this.progress, epsilon: 0.01 }; }
+}
+
 const numberParameter = (context: ControllerContext, name: string): number => {
   const value = context.request.parameters[name];
   if (typeof value !== "number") throw new Error(`controller "${context.action.controller}" requires numeric parameter "${name}"`);
@@ -395,6 +464,21 @@ export const CONTROLLER_COMPATIBILITY: readonly ControllerCompatibility[] = Obje
     parameters: Object.freeze(Object.fromEntries(["shoulder", "elbow", "wrist", "palm"].map((name) => [name,
       Object.freeze({ kind: "number" as const, min: -1.25, max: 0.95, unit: "radians" as const })]))),
   }),
+  Object.freeze({ controller: "humanoid-offhand-guard", role: "any-joints", minimumJoints: 4, minimumModules: 0,
+    requiredParameters: Object.freeze([]), bindings: Object.freeze([
+      ...(["shoulder", "elbow", "wrist", "palm"] as const).map((role) =>
+        Object.freeze({ role, repeat: "once" as const, joints: 1, modules: 0 })),
+    ]), parameters: Object.freeze({}) }),
+  Object.freeze({ controller: "mount-safe-hold", role: "two-axis-mount", minimumJoints: 2,
+    minimumModules: 1, requiredParameters: Object.freeze(["yaw", "pitch", "tilted-pitch", "minimum-clearance-m"]), bindings: Object.freeze([
+      Object.freeze({ role: "yaw", repeat: "once", joints: 1, modules: 0 }),
+      Object.freeze({ role: "pitch", repeat: "once", joints: 1, modules: 0 }),
+    ]), parameters: Object.freeze({
+      yaw: Object.freeze({ kind: "number", min: -2.5, max: 2.5, unit: "radians" }),
+      pitch: Object.freeze({ kind: "number", min: -0.75, max: 1.65, unit: "radians" }),
+      "tilted-pitch": Object.freeze({ kind: "number", min: -0.75, max: 1.65, unit: "radians" }),
+      "minimum-clearance-m": Object.freeze({ kind: "number", min: 0.006, max: 0.20, unit: "metres" }),
+    }) }),
   Object.freeze({ controller: "arbalest-launcher-neutral", role: "two-axis-mount",
     minimumJoints: 2, minimumModules: 1, requiredParameters: Object.freeze([]),
     bindings: Object.freeze([
@@ -630,6 +714,22 @@ export const BOOTSTRAP_CONTROLLERS: readonly ControllerFactory[] = Object.freeze
       "left-wrist": numberParameter(context, "wrist"),
       "left-palm": numberParameter(context, "palm"),
     }),
+  }),
+  Object.freeze({
+    name: "humanoid-offhand-guard",
+    create: (context: ControllerContext) => new JointController(context, Object.fromEntries(
+      (["shoulder", "elbow", "wrist", "palm"] as const).map((role) => [
+        oneBoundJoint(context, role), HUMANOID_OFFHAND_GUARD[role],
+      ]),
+    )),
+  }),
+  // A fallen carrier keeps its ordinary attached weapon on a named motor pose instead of leaving
+  // the last attack impulse free to fold the blade through its own core. The controller consumes
+  // the installed self-sensor clearance fact rather than reaching into a mesh or solver. It
+  // remains non-scoring: combat never treats `stow-sword` as an attack.
+  Object.freeze({
+    name: "mount-safe-hold",
+    create: (context: ControllerContext) => new MountSafeHoldController(context),
   }),
   Object.freeze({
     name: "arbalest-launcher-neutral",
