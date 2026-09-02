@@ -411,8 +411,10 @@ test("a_short_real_Arbalest_cut_is_sampled_at_its_lifecycle_edges_when_30hz_miss
 });
 
 test("an_Arbalest_cycle_that_never_publishes_a_physical_phase_is_not_claimed_as_an_attack_admission", async () => {
+  // The corrected Effigy feet remove this edge from seed[1]. The fourth frozen seed retains 22
+  // same-step cycles in this six-second cell, so the recorder seam remains physically exercised.
   const report = await runConstructWarriorBout({ saved: arbalestSavedConstruct(),
-    sensors: ARBALEST_SENSORS, warriorPolicy: "duelist", warriorSeed: COMBINED_ARMS_SEEDS[1],
+    sensors: ARBALEST_SENSORS, warriorPolicy: "duelist", warriorSeed: COMBINED_ARMS_SEEDS[3],
     constructSide: "left", maxSteps: CONFIG.world.physicsHz * 6 });
   const phases = new Set(report.qualificationEvents.filter(({ kind }) => kind === "action-phase")
     .map(({ actionInstanceId }) => actionInstanceId));

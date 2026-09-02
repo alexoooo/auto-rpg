@@ -75,7 +75,7 @@ export const DEFAULT_CONSTRUCT_MATERIAL_RECIPE: ConstructMaterialRecipeKey = "ca
 /** Shell style is saved appearance authority; core/plate/piston retain the requested rocky grain. */
 export function roleForConstructShell(style: ShellStyle): ConstructSurfaceRole {
   switch (style) {
-    case "core": case "plate": case "piston": return "shell";
+    case "core": case "plate": case "piston": case "support": return "shell";
     case "collar": return "mount";
     case "bearing": return "joint";
   }

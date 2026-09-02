@@ -188,15 +188,15 @@ test("pinning_entry_evidence_does_not_move_the_immutable_learning_protocol_diges
     "the immutable protocol stays fixed while a requalified run still gets a new row/checkpoint identity");
 });
 
-test("the_live_learning_entry_is_the_current_rejected_source_frozen_receipt", () => {
+test("the_live_learning_entry_fails_closed_when_the_runtime_moves_past_its_rejected_receipt", () => {
   assert.equal(CONSTRUCT_LEARNING_SCHEDULE_DIGEST, "8253502c");
   assert.deepEqual(CONSTRUCT_LEARNING_SCHEDULE.entryGate, {
     qualified: false,
     evidence: "construct-entry-run-97a634ab-source-f82bc3d3-2026-09-01",
     runDigest: "97a634ab",
     sourceDigest: "f82bc3d3",
-    runtimeStatus: "current combat-value-v2 assisted Warden runtime; qualification rejected",
-    reason: "1/8 bilateral physical-damage rows; 7/8 rows missing brace and fire; 8/8 bouts reached the time cap",
+    runtimeStatus: "historical combat-value-v2 Warden receipt; current source 420906e8 is unqualified",
+    reason: "current source 420906e8 has no entry receipt; prior f82bc3d3 receipt was rejected",
   });
 });
 

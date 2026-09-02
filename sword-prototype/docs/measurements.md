@@ -7787,8 +7787,8 @@ simulation trace comparison and visible-browser control -> subject -> control pe
 The physical 0.90 m Swordbearer uses scale `(0.90 - 0.002) / (1.8995 - 0.002)` =
 0.473254281949934 so the fixed 2 mm compile clearance does not falsely produce a 0.901 m crown.
 Its measured crown is 0.8999999999999999 m. Its historical v1-combat-unit blueprint digest was
-`e9ed64a7`; the verified low-number/schema migration moves that same scaled physical body to
-`cb2e2715`. Part,
+`e9ed64a7`; the verified low-number/schema migration moved that same scaled physical body to
+`cb2e2715`. The later sibling-foot presentation correction moves it again to `90c06e5f`. Part,
 contact and non-weapon module geometry/translations scale linearly, masses by s^3 and shape-derived
 inertia by s^5; the ordinary 1.4 kg sword remains unscaled. Real Havok cells at yaw zero and pi move
 more than 0.25 m while supported, then a 0.5 N s authored shove produces
@@ -8661,3 +8661,46 @@ of 1,316. TypeScript checking, the production Vite build and `git diff --check` 
 also confirms that the recovery-classification correction, scaled-locomotion digest update and
 Git-owned documentation gate corrections removed the five unrelated failures seen across the
 earlier audits; they are not being hidden in the one-test total.
+
+### Effigy sibling-foot clearance correction -- 2026-09-01
+
+A player report that the Effigies had giant feet and appeared to walk into themselves identified a
+bind-pose defect, not merely an animation impression. At `HUMANOID_SCALE = 0.75`, each original
+foot was 0.300 m wide and its centre was only 0.285 m from its sibling. Including the declared
+6 mm shell clearance on each side, the visible stone shells overlapped by 0.027 m before either
+Mind requested locomotion. The two visible contact pads independently overlapped by 0.009 m.
+
+The regression `humanoid_effigy_visible_feet_are_proportional_and_do_not_intersect_in_the_bind_pose` was
+shown red against that body before production geometry moved. Shrinking the unscaled foot width to
+0.32 m, then 0.34 m, removed the overlap but lost physical support; a 0.36 m candidate repeatedly
+rose and fell in the historical recovery bout. Widening the hips to +/-0.21 m crossed the
+left-wrist/thigh clearance envelope, while +/-0.225 m destabilized combat-topple recovery. Those
+candidates were rejected because they retuned already-qualified physics; the failures motivated an
+explicit support-casing presentation margin instead.
+
+The retained body restores the exact qualified 0.40 x 0.14 x 0.55 m physical foot, original
++/-0.19 m hip spacing, original sole joint and original 0.38 x 0.08 x 0.50 m contact pad. A saved
+`support` shell style draws box casing at 90% lateral and toe-to-heel size while leaving height and
+every physical field unchanged. The scaled foot centres remain 0.285 m apart; the visible stone
+shells have 0.015 m clearance and the visible contact-pad shells have 0.0195 m clearance. A precise
+oriented-mesh check samples both shell pairs through 180 real gait steps and observes no
+intersection. The complete humanoid blueprint suite passes 10/10; the scaled move/recovery corpus
+passes after its presentation-bearing blueprint pin moves from `cb2e2715` to `90c06e5f`; and the
+26-cell locomotion corpus, historical recovery and full-health Arbalest follow-up cells all pass on
+the unchanged physical geometry.
+
+The unchanged support boxes themselves therefore retain their former 0.015 m internal overlap.
+Same-body support leaves do not solve against one another, and changing that footprint broke
+measured recovery/contact cells. The player-facing stone and pad meshes no longer overlap; this is
+the deliberate locomotion-support margin, rather than a claim that the hidden carrier is anatomical.
+
+The exact final full-suite rerun is 1,316 passing of 1,317. Its sole red is the pre-existing
+Swordbearer requirement for two completed live mounted sweeps in the left mirror; foot clearance,
+supported locomotion, recovery and both Arbalest regression cells are green. TypeScript checking,
+the production build, the Git-backed documentation suite and `git diff --check` also pass.
+
+Because the blueprint is authoritative qualification input, this correction moves the runtime
+source fingerprint from `f82bc3d3` to `420906e8`. The old 560-cell combined-arms matrix and Warden
+entry receipt remain truthful historical rejections but are stale for the corrected body. No
+durability multiplier, learned artifact or qualification is promoted from them; the current source
+must be rerun only after Session 27 repairs the known Swordbearer combat failure.

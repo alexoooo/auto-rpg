@@ -30,7 +30,10 @@ const part = (id: string, shape: PartSpec["shape"], massKg: number,
   friction: id.includes("foot") ? 1.35 : id.includes("hand") ? 1.05 : 0.72, restitution: 0.04,
   health: fatal ? HUMANOID_FATAL_HEALTH : 6, armour: fatal ? 1.9 : 0.8,
   vitalityWeight: fatal ? 1 : 0, fatal,
-  shell: Object.freeze({ style, visualClearanceM: humanoidLength(style === "bearing" ? 0.003 : 0.008) }),
+  // Feet are already broad contact primitives. Inflating their visible shell made the siblings
+  // intersect while adding no support; every other shell retains the ordinary stone clearance.
+  shell: Object.freeze({ style, visualClearanceM: id.endsWith("-foot") ? 0 :
+    humanoidLength(style === "bearing" ? 0.003 : 0.008) }),
 });
 const joint = (id: string, parentPart: string, childPart: string,
   parentPosition: readonly [number, number, number], childPosition: readonly [number, number, number],
@@ -72,7 +75,9 @@ const leg = (side: "left" | "right", x: number) => {
     part(`${side}-thigh`, { kind: "capsule", lengthM: 0.32, radiusM: 0.12 }, 60, "piston"),
     part(`${side}-shin`, { kind: "capsule", lengthM: 0.30, radiusM: 0.10 }, 50, "piston"),
     part(`${side}-ankle`, { kind: "cylinder", lengthM: 0.12, radiusM: 0.085 }, 25, "bearing"),
-    part(`${side}-foot`, { kind: "box", sizeM: [0.40, 0.14, 0.55] }, 80),
+    // The support collider retains the physically qualified slab. The saved support shell style
+    // draws a smaller stone casing inside it, avoiding sibling overlap without retuning locomotion.
+    part(`${side}-foot`, { kind: "box", sizeM: [0.40, 0.14, 0.55] }, 80, "support"),
   ]);
   // The initial 300/220/260/180/180 Nm, damping-8 leg was sized like a human
   // exoskeleton but drives a roughly 200 kg stone body. These are actuator values,
@@ -92,6 +97,8 @@ const leg = (side: "left" | "right", x: number) => {
   ]);
   return { parts, joints };
 };
+// Keep the measured hip spacing. Widening it to +/-0.21 m moved the left thigh into the wrist's
+// clearance envelope; +/-0.225 m also destabilized the historical combat-topple recovery.
 const leftLeg = leg("left", -0.19); const rightLeg = leg("right", 0.19);
 
 const bodyParts = Object.freeze([
@@ -162,7 +169,7 @@ export function humanoidBlueprint(): ConstructBlueprint {
   ];
   const modules = [
     ...CONTACTS.map(({ role, module, socket }) => Object.freeze({ ...moduleBase(module, "contact-sensor", socket,
-      "contact-sensor", [geometry("pad", { kind: "box", sizeM: [0.38, 0.08, 0.50] }, "plate")], 2),
+      "contact-sensor", [geometry("pad", { kind: "box", sizeM: [0.38, 0.08, 0.50] }, "support")], 2),
       sensorChannels: Object.freeze([`contact-${role}`, `slip-${role}`]) })),
     Object.freeze({ ...moduleBase("effigy-sight", "opponent-sensor", "socket-face-sensor", "sensor",
       [geometry("face", { kind: "box", sizeM: [0.22, 0.14, 0.08] }, "plate")], 2),

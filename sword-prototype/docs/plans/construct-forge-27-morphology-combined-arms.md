@@ -5,8 +5,10 @@ durably, but physical acceptance is red. The Swordbearer completes only one swee
 mirror; the separately reported recovery-space red was a focused-test reporting mismatch and is
 green after reconstructing the canonical combat-release evidence without changing its 0.605 m
 floor. The fresh authored Warden entry is rejected, and Session 30's completed five-morphology
-matrix rejects every durability rung. Further physical and competitive work remains owed rather
-than qualified.**
+matrix rejected every durability rung at historical source `f82bc3d3`. The subsequent sibling-foot
+clearance correction moves current source to `420906e8`; its bind and recovery checks are green,
+but it intentionally invalidates those receipts. Further physical and competitive work remains
+owed rather than qualified.**
 
 ## Outcome
 

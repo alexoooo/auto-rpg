@@ -6,7 +6,7 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 
-import type { AttachmentFrame, ModuleSpec, PartSpec, PrimitiveShape } from "./blueprint.ts";
+import type { AttachmentFrame, ModuleSpec, PartSpec, PrimitiveShape, ShellStyle } from "./blueprint.ts";
 import {
   CONSTRUCT_SURFACE_RULES,
   applyConstructSurface,
@@ -103,6 +103,18 @@ const dimensions = (shape: PrimitiveShape, clearanceM: number): Vector3 => {
 
 const tuple = (value: Vector3): readonly [number, number, number] =>
   Object.freeze([value.x, value.y, value.z]);
+
+/**
+ * Support colliders may be wider than their stone casing. This is a saved presentation style,
+ * not a body-name exception: physics, support and damage retain the authored primitive while the
+ * inset visible mesh owns the correspondingly narrower picking surface.
+ */
+export function constructPresentedShellShape(shape: PrimitiveShape, style: ShellStyle): PrimitiveShape {
+  if (style !== "support") return shape;
+  if (shape.kind !== "box") throw new Error('construct shell style "support" requires a box primitive');
+  return Object.freeze({ kind: "box" as const,
+    sizeM: Object.freeze([shape.sizeM[0] * 0.90, shape.sizeM[1], shape.sizeM[2] * 0.90] as const) });
+}
 
 /** FNV-1a over authored semantic names. Build order, faction and mutable health never enter. */
 export function constructSurfaceSeed(...semanticIds: readonly string[]): number {
@@ -252,15 +264,16 @@ export function buildConstructPartVisual(
   surfaces: ConstructSurfaceRegistry,
 ): ConstructPartVisual {
   const made: Mesh[] = [];
-  const body = shell(scene, `construct.${part.id}.shell`, part.shape, part.shell.visualClearanceM);
+  const presentedShape = constructPresentedShellShape(part.shape, part.shell.style);
+  const body = shell(scene, `construct.${part.id}.shell`, presentedShape, part.shell.visualClearanceM);
   body.parent = owner;
   body.isPickable = true;
-  surfaces.bind(body, surfaceBinding("part", part.id, `${part.id}:shell`, part.shape,
+  surfaces.bind(body, surfaceBinding("part", part.id, `${part.id}:shell`, presentedShape,
     part.shell.visualClearanceM, part.shell.style));
   applyConstructSurface(body, palette, recipeForConstructShell(part.shell.style));
   made.push(body);
 
-  const accentSize = containedScale(part.shape);
+  const accentSize = containedScale(presentedShape);
   const bearing = MeshBuilder.CreateCylinder(
     `construct.${part.id}.bearing`,
     { height: accentSize * 0.55, diameter: accentSize * 2, tessellation: 12 },
@@ -280,7 +293,7 @@ export function buildConstructPartVisual(
     scene,
   );
   core.parent = owner;
-  core.position.z = Math.min(dimensions(part.shape, 0).z * 0.35, accentSize * 1.3);
+  core.position.z = Math.min(dimensions(presentedShape, 0).z * 0.35, accentSize * 1.3);
   surfaces.bind(core, surfaceBinding("part", part.id, `${part.id}:rune-core`,
     { kind: "sphere", radiusM: accentSize * 0.31 }, 0, "rune"), false);
   applyConstructSurface(core, palette, CONSTRUCT_SURFACE_RULES.rune.recipe);
@@ -360,14 +373,16 @@ export function buildConstructModuleVisual(
         new Vector3(0, 0, -z / 2));
     }
     for (const spec of module.geometry) {
-      const mesh = shell(scene, `construct.${module.id}.${spec.id}`, spec.shape, spec.shell.visualClearanceM);
+      const presentedShape = constructPresentedShellShape(spec.shape, spec.shell.style);
+      const mesh = shell(scene, `construct.${module.id}.${spec.id}`, presentedShape,
+        spec.shell.visualClearanceM);
       mesh.parent = root;
       mesh.position.copyFromFloats(...spec.frame.positionM);
       mesh.rotationQuaternion = Quaternion.FromArray(spec.frame.rotation);
       const role = roleForConstructShell(spec.shell.style);
       mesh.metadata = { constructModuleId: module.id, constructModuleKind: module.kind, constructSurfaceRole: role,
         authoritativePrimitiveId: spec.id };
-      surfaces.bind(mesh, surfaceBinding("module", module.id, spec.id, spec.shape,
+      surfaces.bind(mesh, surfaceBinding("module", module.id, spec.id, presentedShape,
         spec.shell.visualClearanceM, spec.shell.style));
       applyConstructSurface(mesh, palette, CONSTRUCT_SURFACE_RULES[role].recipe);
       mesh.isPickable = false;

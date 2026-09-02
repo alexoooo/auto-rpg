@@ -689,9 +689,10 @@ Seven, and each one was paid for.
   off-centre impulses. The superseded raw corpus accumulated 234,442 stuck steps. A historical
   combat-value-v2 corpus qualified under schedule `e74cb441`, source `e5d255e7` and run
   `7a626bcd`, but the later fire-lifecycle correction invalidated that source identity. The fresh
-  current-source run is schedule `8253502c`, source `f82bc3d3`, run `97a634ab`: only one of eight
-  rows dealt bilateral physical damage, seven omitted both brace and fire, and all eight reached
-  the time cap. Recovery remains proved; authored combat entry does not.
+  next run was schedule `8253502c`, source `f82bc3d3`, run `97a634ab`: only one of eight rows dealt
+  bilateral physical damage, seven omitted both brace and fire, and all eight reached the time cap.
+  The later Effigy sibling-foot correction moves current source to `420906e8`; that source has no
+  qualification receipt. Recovery remains proved; authored combat entry does not.
 - **A construct qualification identity is a pair.** `scheduleDigest` covers the complete frozen
   assignment and thresholds; `sourceDigest` covers runtime sources and construct scripts but
   deliberately excludes `src/construct/learning/schedule.ts`. Including the schedule in both made

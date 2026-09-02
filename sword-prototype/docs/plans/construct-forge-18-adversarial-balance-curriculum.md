@@ -12,11 +12,12 @@ scoreboard says Construct.
 The raw-gait curriculum and evidence checker below are implemented, but no Twinblade cell won.
 Supported locomotion has now invalidated and rerun that old evidence rather than copying it
 forward. The prior assisted idle ladder at 0.50, 0.25, 0.10, 0.05 and 0.02 durability was 2, 4, 6,
-7 and 6 Warrior kills out of eight. That claim is superseded by source `f82bc3d3`, run `d1e1d8e7`: the
-same rungs now record 0, 0, 6, 8 and 7 idle Warrior kills, while active wins are 1, 0, 0, 0 and 0.
+7 and 6 Warrior kills out of eight. That claim was superseded by source `f82bc3d3`, run `d1e1d8e7`:
+the same rungs recorded 0, 0, 6, 8 and 7 idle Warrior kills, while active wins were 1, 0, 0, 0 and 0.
 The x1 body wins 3/8 active bouts, one left and two right, but supplies zero strict evidence cells.
 The session therefore remains honestly red: x0.05 earns the idle 8/8 loss but no active win, and no
-rung earns active competence.
+rung earns active competence. The later sibling-foot correction moves current source to
+`420906e8`, so these exact counts are historical and cannot qualify the corrected body.
 
 The committed chassis is human-scale rather than giant-scale: `HUMANOID_SCALE = 0.75` produces a
 1.8995 m crown. `constructStandingThresholds` remains profile-derived, and

@@ -1756,10 +1756,12 @@ Action's 0.08-second recoil follow-through rather than occupying the whole reloa
 `e74cb441`, source `e5d255e7` and run `7a626bcd`, all eight mirrored rows dealt bilateral physical
 damage; the corpus observed move/brace/fire/cover, recorded zero stuck steps and only one time cap.
 That historical identity admitted the learning rung at the time, but the later fire-lifecycle
-correction made it stale. The fresh schedule `8253502c`, source `f82bc3d3`, run `97a634ab` is
-rejected: only one of eight rows deals bilateral physical damage, seven omit brace and fire, and all
-eight time-cap. It promotes no learned Mind. The separate 560-bout combined-arms run at source
-`f82bc3d3`, run `d1e1d8e7` also rejects every durability rung and installs no multiplier.
+correction made it stale. Schedule `8253502c`, source `f82bc3d3`, run `97a634ab` was then rejected:
+only one of eight rows dealt bilateral physical damage, seven omitted brace and fire, and all eight
+time-capped. The separate 560-bout combined-arms run at that source, run `d1e1d8e7`, also rejected
+every durability rung. The later Effigy sibling-foot correction moves current runtime source to
+`420906e8`, so both rejected receipts are historical and current source is unqualified. Nothing
+promotes a learned Mind or installs a multiplier.
 
 ### The fixed humanoid construct
 
@@ -1773,6 +1775,13 @@ in an extended real-Havok probe, so all three requests are absent rather than ac
 Neither a hand nor a root transform is
 used as a support limb. A disjoint posture Action holds the head, neck, waist and free arm while the
 leg and sword groups act concurrently.
+
+The broad feet are physical support surfaces, not decorative boots. Their qualified collider,
+joint and hip chain remain unchanged. Saved shell style `support` draws stone box casing at 90% of
+the collider's lateral and toe-to-heel size while preserving full height; the same rule draws the
+visible contact pad inside its physical primitive. This is an explicit game-support presentation
+margin, not a body-name renderer exception. Bind-pose and live oriented-mesh clearance are
+regressions, so a future gait cannot silently restore the original visible intersection.
 
 `ConstructProfile` owns the archetype identity, body dimensions and named support parts used by
 `describe`; the old Warden constants are not reused for an unlike body. Mounted swords publish

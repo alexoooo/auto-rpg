@@ -15,6 +15,7 @@ import { ConstructLocomotionPort, deriveLocomotionAuthority } from
   "../src/construct/assisted-locomotion.ts";
 import { supportedLocomotionControllerDescriptor } from "../src/construct/controllers.ts";
 import { resolveConstructBindTransforms } from "../src/construct/compile.ts";
+import { constructPresentedShellShape } from "../src/construct/render.ts";
 import { wardenBlueprint } from "../src/construct/warden.ts";
 import { createConstructHeadlessArena } from "../scripts/construct-headless-arena.mjs";
 import { unitDefinition } from "../src/units.ts";
@@ -112,6 +113,38 @@ test("one_similarity_scale_owns_the_human_sized_stone_chassis_but_not_its_ordina
   assert.deepEqual(mount.pitchPivotRootM, [0.315, 0.3225, 0]);
   assert.ok(Math.abs(mount.pitchToSocketM - 0.435) < 1e-12);
   assert.equal(mount.socketToTipM, 1.105);
+});
+
+test("humanoid_effigy_visible_feet_are_proportional_and_do_not_intersect_in_the_bind_pose", () => {
+  const blueprint = humanoidBlueprint();
+  const transforms = resolveConstructBindTransforms(blueprint);
+  const part = (id) => blueprint.parts.find((candidate) => candidate.id === id);
+  const left = part("left-foot"); const right = part("right-foot"); const torso = part("torso");
+  assert.equal(left.shape.kind, "box"); assert.equal(right.shape.kind, "box");
+  assert.equal(torso.shape.kind, "box");
+  const centreGap = transforms.get("right-foot").position.x - transforms.get("left-foot").position.x;
+  const leftShell = constructPresentedShellShape(left.shape, left.shell.style);
+  const rightShell = constructPresentedShellShape(right.shape, right.shell.style);
+  assert.equal(leftShell.kind, "box"); assert.equal(rightShell.kind, "box");
+  assert.ok(leftShell.sizeM[0] <= centreGap,
+    "one visible effigy foot must not span across the opposite foot's authored centre");
+  assert.ok(leftShell.sizeM[2] <= torso.shape.sizeM[1] * 0.65,
+    "one effigy foot must not read as a giant slab relative to its body height");
+  const visibleGap = centreGap - leftShell.sizeM[0] / 2 - left.shell.visualClearanceM -
+    rightShell.sizeM[0] / 2 - right.shell.visualClearanceM;
+  assert.ok(visibleGap >= 0.002,
+    `the two effigy foot shells overlap or nearly scrape in bind: ${visibleGap} m`);
+  const pads = blueprint.modules.filter(({ kind }) => kind === "contact-sensor")
+    .map((module) => module.geometry.find(({ id }) => id === "pad"));
+  assert.equal(pads.length, 2); assert.equal(pads.every(({ shape }) => shape.kind === "box"), true);
+  const presentedPads = pads.map((pad) => constructPresentedShellShape(pad.shape, pad.shell.style));
+  const padVisibleGap = centreGap - presentedPads[0].sizeM[0] / 2 - pads[0].shell.visualClearanceM -
+    presentedPads[1].sizeM[0] / 2 - pads[1].shell.visualClearanceM;
+  assert.ok(padVisibleGap >= 0.01,
+    `the two visible sole pads overlap or nearly scrape in bind: ${padVisibleGap} m`);
+  assert.throws(() => constructPresentedShellShape({ kind: "sphere", radiusM: 0.2 }, "support"),
+    /support.*requires a box primitive/,
+    "the support presentation margin must refuse shapes for which its axis contract is undefined");
 });
 
 test("the_humanoid_sensor_surface_is_the_exact_24_raw_facts_without_a_high_target_conclusion", () => {
@@ -324,6 +357,19 @@ test("supported_biped_recovery_plants_when_fallen_and_braces_only_inside_the_upr
     "outside the measured upright boundary a fallen body uses the neutral plant");
 });
 
+const effigyFeetIntersect = (construct) => {
+  const pairs = [
+    [construct.runtime.part("left-foot").visual.meshes[0],
+      construct.runtime.part("right-foot").visual.meshes[0]],
+    [construct.runtime.modules.get("contact-left-foot").visual.meshes[0],
+      construct.runtime.modules.get("contact-right-foot").visual.meshes[0]],
+  ];
+  return pairs.some(([left, right]) => {
+    left.computeWorldMatrix(true); right.computeWorldMatrix(true);
+    return left.intersectsMesh(right, true);
+  });
+};
+
 test("the_humanoid_saved_character_physically_compiles_and_steps_in_the_shared_Construct_bout", async () => {
   const arena = await createConstructHeadlessArena();
   const saved = humanoidSavedConstruct();
@@ -338,8 +384,14 @@ test("the_humanoid_saved_character_physically_compiles_and_steps_in_the_shared_C
     const headRadius = saved.blueprint.parts.find(({ id }) => id === "head").shape.radiusM;
     const bindCrownHeight = bind.part("head").node.position.y + headRadius;
     const bindVitalHeight = bind.part("torso").node.position.y;
-    for (let step = 0; step < 180; step += 1) bout.step(1 / CONFIG.world.physicsHz);
+    const walkingFootIntersections = [];
+    for (let step = 0; step < 180; step += 1) {
+      bout.step(1 / CONFIG.world.physicsHz);
+      if (effigyFeetIntersect(bout.construct("left"))) walkingFootIntersections.push(step);
+    }
     const left = bout.construct("left");
+    assert.deepEqual(walkingFootIntersections, [],
+      "the live gait must not walk its sibling foot or sole-pad meshes into one another");
     assert.equal(left.kind, "swordbearer-effigy");
     assert.equal(left.constructProfile.label, "Swordbearer Effigy");
     assert.equal(left.runtime.parts.size, saved.blueprint.parts.length);

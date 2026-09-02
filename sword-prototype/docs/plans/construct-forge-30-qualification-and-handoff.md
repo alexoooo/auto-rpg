@@ -8,10 +8,12 @@ at schedule `8253502c`, source `f82bc3d3`, run `97a634ab` is also rejected: 1/8 
 physical-damage rows, seven rows missing brace and fire, and 8/8 time caps. The earlier accepted
 identity `e74cb441` / `e5d255e7` / `7a626bcd` remains historical evidence superseded by the
 fire-lifecycle source change. `mapped-pbr` remains the default because no genuinely visible
-hardware browser was available for the required performance bracket. The full prototype gate ran
-on 2026-09-01: 1,315/1,316 tests passed, `npm run check`, `npm run build` and `git diff --check`
+hardware browser was available for the required performance bracket. The foot-corrected full gate
+ran on 2026-09-01: 1,316/1,317 tests passed, `npm run check`, `npm run build` and `git diff --check`
 passed, and the sole remaining red is the Swordbearer's one-completed-sweep left mirror. The
-competitive repair remains owed; Session 30 is not complete.
+competitive repair remains owed. The later sibling-foot correction moves current source to
+`420906e8`, making both rejected `f82bc3d3` receipts historical; rerun the matrix only after the
+known Session-27 combat red is repaired. Session 30 is not complete.
 
 The first full-matrix attempt exhausted a 4 GiB V8 heap after roughly 260 cells because the parent,
 resume reader, finalizer and CLI still retained corpus-sized objects despite atomic checkpoint files.
@@ -20,7 +22,8 @@ retains no raw result array, independently replays one indexed cache row at a ti
 16-cell rung at a time, folds the exact run digest in a bounded second pass and streams canonical
 `report.json` in a third. Its terminal output is a compact receipt and path. The source change
 invalidated the interrupted checkpoint by design; the final matrix restarted from an empty output
-under source `f82bc3d3` and completed all 560 cells.
+under source `f82bc3d3` and completed all 560 cells. That corpus remains an exact historical
+rejection, but it is not current-source evidence after the `420906e8` foot correction.
 
 ## Outcome
 

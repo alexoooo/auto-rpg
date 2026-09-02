@@ -23,9 +23,10 @@ The implemented loop and fail-closed learning history are recorded under "Constr
 entry-gate result" in `docs/measurements.md`: the rejected authored corpus spent no production
 rollout and promoted no network. Supported locomotion is complete. A historical combat-value-v2
 entry qualified under schedule `e74cb441`, source `e5d255e7` and run `7a626bcd`, then became stale
-when the fire lifecycle changed. The fresh schedule `8253502c`, source `f82bc3d3`, run `97a634ab`
-is rejected: one of eight rows deals bilateral physical damage, seven omit brace and fire, and all
-eight time-cap. The learning rung remains closed. Merely not running learning is not a result. The
+when the fire lifecycle changed. Schedule `8253502c`, source `f82bc3d3`, run `97a634ab` was then
+rejected: one of eight rows dealt bilateral physical damage, seven omitted brace and fire, and all
+eight time-capped. The sibling-foot correction moves current source to `420906e8`, which has no
+entry receipt. The learning rung remains closed. Merely not running learning is not a result. The
 construct playtest protocol, assignments and questions in `src/construct/playtest.ts` were
 committed before exposing the player to any candidate.
 

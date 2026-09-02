@@ -10,7 +10,7 @@ export type AttachmentFrame = FrameSpec;
 export type PrimitiveShape = Readonly<{ kind: "box"; sizeM: Triple }> |
   Readonly<{ kind: "capsule" | "cylinder"; lengthM: number; radiusM: number }> |
   Readonly<{ kind: "sphere"; radiusM: number }>;
-export type ShellStyle = "plate" | "collar" | "bearing" | "piston" | "core";
+export type ShellStyle = "plate" | "collar" | "bearing" | "piston" | "core" | "support";
 export interface ShellSpec { readonly style: ShellStyle; readonly visualClearanceM: number }
 export interface PartSpec { readonly id: string; readonly shape: PrimitiveShape; readonly massKg: number;
   readonly centreOfMassM: Triple; readonly friction: number; readonly restitution: number;
@@ -56,7 +56,7 @@ export interface V3ConstructBlueprint extends Omit<ConstructBlueprint, "version"
 type Plain = Record<string, unknown>;
 const ID = /^[a-z][a-z0-9-]{0,47}$/;
 const KINDS: readonly ModuleKind[] = ["contact-sensor", "attitude-sensor", "opponent-sensor", "power-core", "shield", "sword", "launcher", "magazine"];
-const STYLES: readonly ShellStyle[] = ["plate", "collar", "bearing", "piston", "core"];
+const STYLES: readonly ShellStyle[] = ["plate", "collar", "bearing", "piston", "core", "support"];
 const OPTIONAL = ["capacityJ", "maxOutputW", "maxHeatJ", "coolingW", "reloadSeconds", "heatPerShotJ", "energyPerShotJ", "ammunition", "sensorChannels", "striker", "projectile", "mountedContactStriker"] as const;
 const OWNED: Readonly<Record<ModuleKind, readonly string[]>> = { "contact-sensor": ["sensorChannels"],
   "attitude-sensor": ["sensorChannels"], "opponent-sensor": ["sensorChannels"],
