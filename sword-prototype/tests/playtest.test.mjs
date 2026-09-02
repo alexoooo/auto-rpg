@@ -7,7 +7,7 @@ import { GuidedPlaytest, PLAYTEST_PROTOCOL } from "../src/playtest.ts";
 import { researchMatrix } from "../src/learning/research-matrix.ts";
 import { behaviourRecord } from "../src/options.ts";
 
-const STORAGE_KEY = "sword-prototype.session-18b-playtest.v3";
+const STORAGE_KEY = "sword-prototype.session-18b-playtest.v5";
 
 class FakeTarget {
   listeners = new Map();
@@ -100,7 +100,7 @@ const reading = (matchup = defaultMatchup) => {
     firstAttackSeconds: 0.5,
     nearRangeStallSeconds: 0.1,
   });
-  return { engagementInstrumentVersion: 1, matchup, record };
+  return { engagementInstrumentVersion: 3, matchup, record };
 };
 
 const harness = () => {
@@ -152,8 +152,8 @@ test.beforeEach(() => {
 
 test("the_guided_protocol_pins_the_exact_61_assignment_manifest", () => {
   assert.deepEqual(PLAYTEST_PROTOCOL, {
-    version: 3,
-    engagementInstrumentVersion: 1,
+    version: 5,
+    engagementInstrumentVersion: 3,
     split: "validation",
     baseSeed: 310013,
     boutCapSeconds: 45,
@@ -162,7 +162,7 @@ test("the_guided_protocol_pins_the_exact_61_assignment_manifest", () => {
     opponent: { unit: "warrior", loadout: "sword+empty", policy: "swinger" },
     cells: expectedCells,
     assignments: expectedAssignments,
-    digest: "5d3dea04",
+    digest: "e6990388",
   });
   assert.equal(PLAYTEST_PROTOCOL.assignments.length, 61);
   assert.equal(PLAYTEST_PROTOCOL.assignments.filter(({ excluded }) => !excluded).length, 60);
@@ -570,7 +570,7 @@ test("capture_refuses_an_instrument_version_other_than_the_pinned_one", () => {
   start(fixture);
   const stale = reading(fixture.starts[0].matchup);
   stale.engagementInstrumentVersion = 2;
-  assert.throws(() => fixture.guided.completeBout(outcome(), stale), /expected engagement instrument 1, got 2/);
+  assert.throws(() => fixture.guided.completeBout(outcome(), stale), /expected engagement instrument 3, got 2/);
   assert.equal(fixture.guided.boutIsRunning, true);
   assert.equal(report(fixture).rows.length, 0);
 });

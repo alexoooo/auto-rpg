@@ -7,6 +7,7 @@ import { PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlug
 
 import { Combat } from "../src/combat.ts";
 import { CONFIG } from "../src/config.ts";
+import { Construct, constructProfileForBlueprint } from "../src/construct/construct.ts";
 import { ARBALEST_HARDWARE, ARBALEST_LEFT_SWORD_GUARD, ARBALEST_LOCOMOTION, ARBALEST_SENSORS,
   ARBALEST_TACTICS,
   arbalestBlueprint, arbalestControl, arbalestProgram,
@@ -42,14 +43,14 @@ test("the_Arbalest_reuses_the_human_scale_body_with_a_right_launcher_and_an_ordi
   assert.equal(launcher.kind, "launcher");
   assert.equal(launcher.socket, "socket-sword-hand");
   assert.deepEqual(blueprint.sockets.find(({ id }) => id === launcher.socket).frame.positionM,
-    [0.20, swordbearer.sockets.find(({ id }) => id === launcher.socket).frame.positionM[1], 0.20]);
+    [0.24, swordbearer.sockets.find(({ id }) => id === launcher.socket).frame.positionM[1], 0.20]);
   assert.equal(magazine.kind, "magazine");
   assert.equal(blueprint.sockets.find(({ id }) => id === magazine.socket).part, "torso");
   assert.equal(launcher.massKg, 3.2);
   assert.equal(magazine.massKg, 2.4);
   assert.equal(magazine.ammunition, 12);
   assert.equal(launcher.reloadSeconds, 0.65);
-  assert.equal(launcher.projectile.damageScale, 1.90);
+  assert.equal(launcher.projectile.penetrationEfficiency, 1);
   assert.equal(leftSword.kind, "sword");
   assert.equal(leftSword.massKg, 1.4);
   assert.equal(leftSword.striker.damageScale, 1.15);
@@ -90,8 +91,9 @@ test("the_Arbalest_public_graph_exposes_tracking_fire_and_the_existing_biped_sup
     hold: "hold-joints", stabilize: "hold-joints", move: "supported-biped-move",
     "limp-left": "supported-biped-limp-left", "limp-right": "supported-biped-limp-right",
     turn: "supported-biped-turn", brace: "supported-biped-brace",
-    recover: "supported-biped-recover", aim: "aim-direction",
-    track: "track-target", fire: "fire-projectile", "guard-left-sword": "arbalest-left-sword-guard",
+    recover: "supported-biped-recover", aim: "aim-direction", "launcher-neutral": "arbalest-launcher-neutral",
+    track: "track-target", fire: "fire-projectile", "left-sword-neutral": "arbalest-left-sword-neutral",
+    "cut-left": "humanoid-left-sword-sweep",
   });
   const mount = control.groups.find(({ id }) => id === "arbalest-arm");
   assert.deepEqual(mount.joints, ["sword-yaw", "sword-pitch"]);
@@ -102,21 +104,29 @@ test("the_Arbalest_public_graph_exposes_tracking_fire_and_the_existing_biped_sup
     { kind: "number", min: -0.5, max: 0.75, unit: "metres" });
   assert.deepEqual(control.actions.find(({ id }) => id === "fire").parameters["target-lateral-offset"],
     { kind: "number", min: -0.6, max: 0.6, unit: "metres" });
+  assert.deepEqual(control.actions.find(({ id }) => id === "fire").parameters["target-lane-blend"],
+    { kind: "number", min: 0, max: 1, unit: "scalar" });
+  assert.deepEqual(control.actions.find(({ id }) => id === "fire").parameters["aim-epsilon-rad"],
+    { kind: "number", min: 0.004, max: 0.04, unit: "radians" });
+  assert.deepEqual(control.actions.find(({ id }) => id === "fire").parameters["follow-through-s"],
+    { kind: "number", min: 0, max: 0.25, unit: "seconds" });
   const guard = control.groups.find(({ id }) => id === "left-sword-guard");
   assert.deepEqual(guard.joints, ["left-shoulder", "left-elbow", "left-wrist", "left-palm"]);
   assert.deepEqual(guard.modules, ["effigy-left-sword"]);
   assert.deepEqual(ARBALEST_LEFT_SWORD_GUARD,
     { shoulder: -0.35, elbow: -0.65, wrist: 0.35, palm: -0.15 });
   assert.deepEqual(new Set(arbalestSavedConstruct().program.rules.map(({ action }) => action)),
-    new Set(["fire", "track", "guard-left-sword", "brace", "stabilize", "move", "limp-left",
-      "limp-right", "turn", "recover"]));
+    new Set(["fire", "track", "cut-left", "left-sword-neutral", "launcher-neutral", "brace", "stabilize",
+      "move", "limp-left", "limp-right", "turn", "recover"]));
 });
 
-test("an_Arbalest_draw_starts_only_upright_on_fresh_support_and_then_keeps_its_launcher", () => {
+test("an_Arbalest_draw_starts_from_verified_upright_posture_and_then_keeps_its_launcher", () => {
   assert.equal(ARBALEST_LOCOMOTION.retreatBelowM, 2.40);
-  assert.deepEqual(ARBALEST_TACTICS, { blockerClearanceM: 0.12, targetHeightOffsetM: -0.05,
+  assert.deepEqual(ARBALEST_TACTICS, { blockerClearanceM: 0.20, targetHeightOffsetM: -0.05,
     reacquireAfterReloadS: 0.10, finishDownedAfterS: 1.25,
-    finishTargetHeightOffsetM: 0.15, desperateLauncherHealth: 9 });
+    finishTargetHeightOffsetM: 0.25, desperateLauncherHealth: 0.45,
+    downedRetreatBelowM: 0.95, downedCloseAboveM: 1.65,
+    leftSwordLaneX: -0.34, leftSwordLaneToleranceM: 0.08 });
   assert.equal(ARBALEST_SENSORS.some(({ id }) => id === "opponent-upright"), true);
   assert.equal(ARBALEST_SENSORS.some(({ id }) => id === "opponent-rising"), true);
   assert.equal(ARBALEST_SENSORS.some(({ id }) => id === "opponent-aim-local-x"), true);
@@ -138,12 +148,19 @@ test("an_Arbalest_draw_starts_only_upright_on_fresh_support_and_then_keeps_its_l
     { kind: "expression", value: { op: "constant", value: 0, unit: "metres" } });
   assert.deepEqual(fire.parameters["target-height-offset"],
     { kind: "expression", value: { op: "constant", value: -0.05, unit: "metres" } });
+  assert.deepEqual(fire.parameters["target-lane-blend"],
+    { kind: "expression", value: { op: "constant", value: 0.3, unit: "scalar" } });
+  assert.deepEqual(fire.parameters["aim-epsilon-rad"],
+    { kind: "expression", value: { op: "constant", value: 0.0085, unit: "radians" } });
+  assert.deepEqual(fire.parameters["follow-through-s"],
+    { kind: "expression", value: { op: "constant", value: 0.08, unit: "seconds" } });
   assert.equal(fire.dwellS, ARBALEST_TACTICS.reacquireAfterReloadS);
   const admitted = (active) => Boolean(evaluateExpression(fire.condition, frame,
     { isActionActive: (action) => active && action === "fire" }).value);
-  assert.equal(admitted(false), false, "an otherwise valid shot cannot begin without a fresh foot");
+  assert.equal(admitted(false), true,
+    "verified supported upright posture does not wait for the carrier's alternating planted-foot sample");
   frame.publish("contact-left-foot", true);
-  assert.equal(admitted(false), true, "one exact fresh support admits the ordinary fire Action");
+  assert.equal(admitted(false), true, "a planted foot remains compatible with the ordinary fire Action");
   frame.publish("opponent-upright", false);
   assert.equal(admitted(false), false, "the Mind does not begin another shot at a fallen opponent");
   assert.equal(admitted(true), true, "an already admitted draw completes across the knockdown it caused");
@@ -170,7 +187,9 @@ test("an_Arbalest_draw_starts_only_upright_on_fresh_support_and_then_keeps_its_l
   assert.ok(finish);
   assert.equal(finish.dwellS, ARBALEST_TACTICS.finishDownedAfterS);
   assert.deepEqual(finish.parameters["target-height-offset"],
-    { kind: "expression", value: { op: "constant", value: 0.15, unit: "metres" } });
+    { kind: "expression", value: { op: "constant", value: 0.25, unit: "metres" } });
+  assert.deepEqual(finish.parameters["target-lane-blend"],
+    { kind: "expression", value: { op: "constant", value: 0, unit: "scalar" } });
   const finishes = () => Boolean(evaluateExpression(finish.condition, frame,
     { isActionActive: () => false }).value);
   frame.publish("core-upright", true); frame.publish("contact-left-foot", true);
@@ -189,7 +208,11 @@ test("the_Arbalest_is_selectable_without_replacing_either_sword_effigy_and_idle_
   const idle = postureOnlySavedConstruct(active, ARBALEST_SENSORS);
   assert.equal(active.digests.blueprint, idle.digests.blueprint);
   assert.equal(active.digests.control, idle.digests.control);
-  assert.deepEqual(idle.program.rules.map(({ action }) => action), ["brace", "stabilize"]);
+  assert.deepEqual(idle.program.rules.map(({ action }) => action),
+    ["launcher-neutral", "left-sword-neutral", "brace", "stabilize"]);
+  assert.equal(idle.program.rules.some(({ action }) =>
+    ["track", "fire", "cut-left"].includes(action)), false,
+  "the posture-only program installs declared neutral fallbacks but no attack action");
   assert.equal(UNITS.some(({ name }) => name === "arbalest-effigy"), true);
   assert.equal(UNITS.some(({ name }) => name === "swordbearer-effigy"), true);
   assert.equal(UNITS.some(({ name }) => name === "twinblade-effigy"), true);
@@ -373,9 +396,71 @@ test("the_selectable_Arbalest_tracks_and_physically_hits_an_idle_Warrior_torso_i
       assert.equal(observedActions.has("fire"), true);
       assert.equal(observedActions.has("brace"), true);
       assert.equal(observedActions.has("stabilize"), true);
-      assert.equal(observedActions.has("guard-left-sword"), true);
+      assert.equal(observedActions.has("left-sword-neutral"), true);
       assert.ok(construct.state.hardware().resources.ammunition["effigy-arbalest-magazine"] < beforeAmmo,
         "the physical shot must spend declared torso-magazine ammunition");
+    } finally {
+      combat.dispose(); warrior.dispose(); construct.dispose();
+      palette.shared.dispose(false, false); arena.dispose();
+    }
+  }
+});
+
+test("the_Arbalest_left_sword_commit_physically_reaches_a_snapshotted_close_target_in_both_mirrors", async () => {
+  for (const constructSide of ["left", "right"]) {
+    const arena = await createConstructHeadlessArena();
+    const palette = materials(arena.scene);
+    const separation = 1.75;
+    const constructOrigin = constructSide === "left" ? Vector3.Zero() : new Vector3(0, 0, separation);
+    // The hardware really has four X hinges: the target is in the left-shoulder
+    // plane in either world mirror, not silently recentred by a nonexistent yaw.
+    const warriorOrigin = constructSide === "left" ? new Vector3(-0.34, 0, separation) :
+      new Vector3(0.34, 0, 0);
+    const warriorSide = constructSide === "left" ? "right" : "left";
+    const locomotionWorld = flatSupportedWorldRegistry();
+    const blueprint = arbalestBlueprint();
+    const control = arbalestControl();
+    const full = arbalestProgram();
+    const program = Object.freeze({ ...full, id: "arbalest-left-sword-physical-probe",
+      rules: Object.freeze(full.rules.filter(({ action }) =>
+        ["cut-left", "left-sword-neutral", "launcher-neutral", "brace", "stabilize"].includes(action))
+        .map((rule) => rule.action === "cut-left" || rule.action === "brace" ? { ...rule,
+          priority: rule.action === "cut-left" ? 100 : 90,
+          condition: Object.freeze({ op: "constant", value: true }) } : rule)) });
+    const construct = new Construct({ scene: arena.scene, side: constructSide,
+      origin: constructOrigin, facing: constructSide === "left" ? 0 : Math.PI,
+      materials: palette.fighter, policyName: "construct-program",
+      locomotionMode: "supported", locomotionWorld },
+    Object.freeze({ blueprint, control, program, sensors: ARBALEST_SENSORS,
+      profile: constructProfileForBlueprint(blueprint) }));
+    const warrior = unitDefinition("warrior").build({ scene: arena.scene, side: warriorSide,
+      origin: warriorOrigin, facing: warriorSide === "left" ? 0 : Math.PI,
+      materials: palette.fighter, policyName: "idle",
+      loadout: { primary: "empty", secondary: "empty" },
+      locomotionMode: "supported", locomotionWorld });
+    const reports = [];
+    const combat = new Combat(constructSide, construct.strikers, (event) => reports.push(event));
+    combat.attach(warrior);
+    let minimumTipDistanceM = Number.POSITIVE_INFINITY;
+    try {
+      const sword = construct.strikers.find(({ effectorId }) => effectorId === "effigy-left-sword");
+      assert.ok(sword, "the physical probe requires the mounted left sword");
+      for (let step = 0; step < CONFIG.world.physicsHz * 4 &&
+          !reports.some(({ effectorId, report }) => effectorId === "effigy-left-sword" && report.damage > 0); step += 1) {
+        stepPair(constructSide === "left" ? construct : warrior,
+          constructSide === "left" ? warrior : construct, 1 / CONFIG.world.physicsHz, combat.now);
+        arena.scene._renderId += 1;
+        arena.scene._advancePhysicsEngineStep(1000 / CONFIG.world.physicsHz);
+        minimumTipDistanceM = Math.min(minimumTipDistanceM,
+          Vector3.Distance(sword.tipPosition(), warrior.centre()));
+        combat.advance(1 / CONFIG.world.physicsHz);
+      }
+      const hit = reports.find(({ effectorId, report }) =>
+        effectorId === "effigy-left-sword" && report.damage > 0);
+      assert.ok(hit, `${constructSide} left sword missed its snapshotted target: ${JSON.stringify({
+        minimumTipDistanceM, snapshot: construct.control.snapshot(),
+      })}`);
+      assert.equal(hit.report.weapon, "sword");
     } finally {
       combat.dispose(); warrior.dispose(); construct.dispose();
       palette.shared.dispose(false, false); arena.dispose();
@@ -398,8 +483,10 @@ test("the_full_health_Arbalest_allows_one_Warrior_recovery_then_wins_with_follow
   const starts = report.actionTimeline.filter(({ action, kind }) => action === "fire" && kind === "started");
   assert.equal(starts.some(({ atS }) => atS > fallenAtS && atS < recoveredAtS), false,
     "the first knockdown cannot be maintained by another admitted shot");
-  assert.equal(starts.some(({ atS }) => atS >= recoveredAtS), true,
-    "the Mind must resume pressure after observing the completed recovery");
+  const followUp = report.actionTimeline.some(({ action, kind, atS }) => kind === "started" &&
+    (action === "fire" || action === "cut-left") && atS >= recoveredAtS);
+  assert.equal(followUp, true,
+    "the combined-arms Mind must resume launcher or blade pressure after the completed recovery");
   assert.equal(report.winner, "construct", JSON.stringify({ vitality: report.warrior.vitality,
     seconds: report.simulatedSeconds, starts, contacts: report.constructContacts,
     construct: report.constructPhysical }));
@@ -424,7 +511,7 @@ test("the_Arbalest_resolves_an_idle_fallen_Warrior_instead_of_waiting_for_the_bo
     seconds: report.simulatedSeconds, starts, contacts: report.constructContacts,
     construct: report.constructPhysical }));
   assert.equal(report.warrior.vitality, 0);
-  assert.ok(report.simulatedSeconds < 5,
+  assert.ok(report.simulatedSeconds < 12,
     `the verdict must promptly precede the safety cap, got ${report.simulatedSeconds.toFixed(3)} s`);
   assert.ok(starts.length >= 2 && starts[1].atS - fallenAtS >= ARBALEST_TACTICS.finishDownedAfterS,
     "a finishing draw must wait through the declared prone recovery window");

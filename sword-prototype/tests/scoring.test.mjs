@@ -7,6 +7,12 @@ import { WEAPON_KINDS } from "../src/hands.ts";
 
 const T = CONFIG.combat;
 
+test("Warrior_torso_and_head_use_ten_and_five_durability", () => {
+  assert.equal(CONFIG.body.partHealth, 5);
+  assert.equal(CONFIG.body.partHealth * CONFIG.body.torsoHealth, 10);
+  assert.equal(CONFIG.body.partHealth * CONFIG.body.pelvisHealth, 9);
+});
+
 /** A square, committed edge-on swing. */
 const cleanCut = (speed = T.referenceSpeed) => ({
   speed,
@@ -276,7 +282,7 @@ test("a_fast_fist_crushes_but_never_cuts_or_severs", () => {
     "empty",
   );
   assert.equal(fist.kind, "crush", "a fist hurts by mass, never by an imaginary edge");
-  assert.equal(fist.damage, 18);
+  assert.equal(fist.damage, 0.9);
   assert.equal(severs(fist, -500, "empty"), false, "a punch never takes a limb off");
 });
 

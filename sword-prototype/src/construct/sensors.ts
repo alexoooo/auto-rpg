@@ -5,6 +5,8 @@ export interface SensorSpec {
   readonly id: string;
   readonly unit: SensorUnit;
   readonly source: "self" | "contact" | "opponent";
+  /** Explicit combat-unit semantics for saved-program migration; IDs are not a type system. */
+  readonly combatValue?: "absolute" | "normalized";
 }
 
 export interface SensorValue {
@@ -56,13 +58,15 @@ export function installedSensorsForBlueprint(
   // Health, joint state and finite resources are hardware telemetry rather than conclusions.
   // Their stable IDs exist exactly when the corresponding hardware exists.
   for (const part of blueprint.parts ?? []) result.set(`part-health-${part.id}`,
-    Object.freeze({ id: `part-health-${part.id}`, unit: "scalar", source: "self" }));
+    Object.freeze({ id: `part-health-${part.id}`, unit: "scalar", source: "self",
+      combatValue: "normalized" }));
   for (const joint of blueprint.joints ?? []) for (const channel of jointSensorChannels(joint)) {
     result.set(channel.angle, Object.freeze({ id: channel.angle, unit: "radians", source: "self" }));
     result.set(channel.speed, Object.freeze({ id: channel.speed, unit: "radians-per-second", source: "self" }));
   }
   for (const module of blueprint.modules) result.set(`module-health-${module.id}`,
-    Object.freeze({ id: `module-health-${module.id}`, unit: "scalar", source: "self" }));
+    Object.freeze({ id: `module-health-${module.id}`, unit: "scalar", source: "self",
+      combatValue: "normalized" }));
   if (blueprint.modules.some(({ kind }) => kind === "power-core")) result.set("power-charge-j",
     Object.freeze({ id: "power-charge-j", unit: "joules", source: "self" }));
   if (blueprint.modules.some(({ kind }) => kind === "launcher")) {

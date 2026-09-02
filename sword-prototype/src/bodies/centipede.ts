@@ -171,7 +171,7 @@ export class Centipede implements Combatant {
       this.costume.push(art);
       this.owned.add(art);
 
-      const health = index === 0 ? 90 : 48;
+      const health = index === 0 ? 4.5 : 2.4;
       const limb: Limb = {
         key: index === 0 ? "head" : `segment${index}`,
         label: index === 0 ? "Head" : `Segment ${index}`,

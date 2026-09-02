@@ -59,9 +59,7 @@ export class StagedSupportedLocomotionPort implements SupportedLocomotionPort {
     this.staged = null;
     this.clearReason = null;
     this.begins += 1;
-    this.boundaryStability = Object.freeze(this.pendingStability.splice(0)
-      .map((event) => Object.freeze({ horizontalShoveNs: Object.freeze([...event.horizontalShoveNs]) as
-        readonly [number, number] })));
+    this.boundaryStability = Object.freeze(this.pendingStability.splice(0).map(copyStabilityEvent));
   }
 
   request(value: LocomotionRequest): void {
@@ -87,11 +85,7 @@ export class StagedSupportedLocomotionPort implements SupportedLocomotionPort {
 
   /** Collision callbacks queue only; the next safe begin edge owns reconciliation. */
   queueStabilityEvent(event: import("./supported-locomotion-state.ts").StabilityEvent): void {
-    if (event.horizontalShoveNs.length !== 2 || event.horizontalShoveNs.some((value) => !Number.isFinite(value))) {
-      throw new Error("supported locomotion stability event must have two finite horizontal components");
-    }
-    this.pendingStability.push(Object.freeze({ horizontalShoveNs: Object.freeze([...event.horizontalShoveNs]) as
-      readonly [number, number] }));
+    this.pendingStability.push(copyStabilityEvent(event));
   }
 
   snapshot(): SupportedLocomotionPortSnapshot {
@@ -100,6 +94,22 @@ export class StagedSupportedLocomotionPort implements SupportedLocomotionPort {
       stabilityEvents: this.boundaryStability });
   }
 }
+
+const copyStabilityEvent = (event: import("./supported-locomotion-state.ts").StabilityEvent):
+  import("./supported-locomotion-state.ts").StabilityEvent => {
+  if (event.kind === "specific-impulse") {
+    if (!Number.isFinite(event.specificImpulseMps) || event.specificImpulseMps < 0) {
+      throw new Error("supported locomotion stability specific impulse must be finite and non-negative");
+    }
+    return Object.freeze({ kind: "specific-impulse", specificImpulseMps: event.specificImpulseMps });
+  }
+  if (event.horizontalShoveNs.length !== 2 ||
+      event.horizontalShoveNs.some((value) => !Number.isFinite(value))) {
+    throw new Error("supported locomotion stability event must have two finite horizontal components");
+  }
+  return Object.freeze({
+    horizontalShoveNs: Object.freeze([...event.horizontalShoveNs]) as readonly [number, number] });
+};
 
 export interface SupportedPairResolution {
   readonly left: LocomotionResolution;

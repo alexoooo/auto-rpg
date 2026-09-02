@@ -8,7 +8,7 @@ import { ConstructMind } from "../src/construct/mind.ts";
 import { ActionScheduler } from "../src/construct/scheduler.ts";
 import { installedSensorsForBlueprint, SensorFrame } from "../src/construct/sensors.ts";
 import { solveSwordbearerSweepCentre } from "../src/construct/mounts.ts";
-import { solveTwinbladeScissorCutPath, TWINBLADE_SCISSOR_CUT } from
+import { solveTwinbladeScissorCutPath, TWINBLADE_MINIMUM_CUT_PHASE_S, TWINBLADE_SCISSOR_CUT } from
   "../src/construct/twinblade-combat.ts";
 import { TWINBLADE_DUELIST } from "../src/construct/twinblade-duelist.ts";
 import { twinbladeBlueprint, twinbladeControl, twinbladeProgram, twinbladeSwordBindMetrics,
@@ -21,10 +21,12 @@ const program = twinbladeProgram();
 
 const values = ({ range = 1.4, visible = true, blocker = true, blockerX = -0.45,
   weapon = true, weaponX = 0.55, weaponY = 0.25, weaponZ = range,
-  upright = true, leftSupport = true, rightSupport = true } = {}) => ({
+  targetX = 0, targetY = 0.15, targetZ = range,
+  upright = true, opponentUpright = true, opponentRising = false,
+  leftSupport = true, rightSupport = true } = {}) => ({
   "core-upright": upright, "core-roll-rad": 0, "core-pitch-rad": 0,
   "opponent-range": range, "opponent-relative-speed": 0,
-  "opponent-local-x": 0, "opponent-local-y": 0.15, "opponent-local-z": range,
+  "opponent-local-x": targetX, "opponent-local-y": targetY, "opponent-local-z": targetZ,
   "opponent-local-vx": 0, "opponent-local-vy": 0, "opponent-local-vz": 0,
   "opponent-blocker-present": blocker,
   "opponent-blocker-local-x": blocker ? blockerX : 0,
@@ -35,6 +37,7 @@ const values = ({ range = 1.4, visible = true, blocker = true, blockerX = -0.45,
   "opponent-weapon-local-y": weapon ? weaponY : 0,
   "opponent-weapon-local-z": weapon ? weaponZ : 0,
   "line-of-sight": visible,
+  "opponent-upright": opponentUpright, "opponent-rising": opponentRising,
   "contact-left-foot": leftSupport, "contact-right-foot": rightSupport,
   "slip-left-foot": 0, "slip-right-foot": 0,
   "contact:contact-left-foot": leftSupport, "contact:contact-right-foot": rightSupport,
@@ -51,10 +54,11 @@ const decide = (options, runtime) => decideFrom(program, options, runtime);
 const actions = (options) => decide(options).requests.map(({ request }) => request.action);
 const dualCutRequest = (options) => decide(options).requests
   .find(({ request }) => request.action === "dual-cut")?.request;
-const DUAL_CUT_PARAMETERS = ["blocker-outward-m", "brace-ankle-rad", "brace-knee-rad",
-  "brace-sole-rad", "cutter-chamber-cross-m", "cutter-chamber-drop-m",
+const DUAL_CUT_PARAMETERS = ["blocker-outward-m", "blocker-target-height-offset-m",
+  "brace-ankle-rad", "brace-knee-rad", "brace-sole-rad", "cut-advance-fraction",
+  "cutter-chamber-cross-m", "cutter-chamber-drop-m",
   "motor-force-fraction", "motor-speed-fraction", "open-lane-offset-m",
-  "settle-allowance-s", "travel-multiplier"];
+  "settle-allowance-s", "target-height-offset-m", "travel-multiplier"];
 const includesExpression = (expression, predicate) => predicate(expression) ||
   (expression.op === "not" ? includesExpression(expression.value, predicate) :
     "values" in expression ? expression.values.some((value) => includesExpression(value, predicate)) :
@@ -99,13 +103,28 @@ test("the_Twinblade_program_selects_one_combined_attack_without_claim_refusals",
     "the authored rule must supply every required combined-cut parameter");
   assert.equal(program.rules.find(({ action }) => action === "dual-cut")
     .parameters["settle-allowance-s"].value.unit, "seconds");
-  assert.equal(dualCutRequest().parameters["open-lane-offset-m"], 0);
+  assert.equal(dualCutRequest().parameters["open-lane-offset-m"], 0.14);
+  assert.equal(dualCutRequest().parameters["target-height-offset-m"], 0.35);
+  assert.equal(dualCutRequest().parameters["blocker-target-height-offset-m"], 0.60);
+  assert.equal(dualCutRequest().parameters["cut-advance-fraction"], 0.20);
+  assert.equal(dualCutRequest({ range: 1.70 })?.action, "dual-cut",
+    "mutating the measured 1.80 m admission back to 1.65 m must fail this bracket");
+  assert.equal(dualCutRequest({ range: 1.80 }), undefined);
   assert.deepEqual(graph.actions.find(({ id }) => id === "dual-cut")
     .parameters["open-lane-offset-m"], { kind: "number", min: 0, max: 0.35, unit: "metres" });
+  assert.deepEqual(graph.actions.find(({ id }) => id === "dual-cut")
+    .parameters["target-height-offset-m"], { kind: "number", min: -0.20, max: 0.50, unit: "metres" });
+  assert.deepEqual(graph.actions.find(({ id }) => id === "dual-cut")
+    .parameters["blocker-target-height-offset-m"],
+  { kind: "number", min: -0.20, max: 0.80, unit: "metres" });
+  assert.deepEqual(graph.actions.find(({ id }) => id === "dual-cut")
+    .parameters["cut-advance-fraction"], { kind: "number", min: 0, max: 0.50, unit: "scalar" });
   assert.deepEqual(actions({ visible: false }), ["dual-mount-neutral", "brace", "stabilize"]);
-  assert.deepEqual(actions({ blocker: false }), ["dual-mount-neutral", "brace", "stabilize"]);
+  assert.deepEqual(actions({ blocker: false }), ["dual-cut", "stabilize"]);
   assert.deepEqual(actions({ leftSupport: false, rightSupport: false }),
     ["dual-mount-neutral", "brace", "stabilize"]);
+  assert.deepEqual(actions({ upright: false }), ["dual-cut", "stabilize"],
+    "a fallen Twinblade within its physical lane must keep the armed recovery-cut active");
   const cutCondition = program.rules.find(({ action }) => action === "dual-cut").condition;
   assert.equal(includesExpression(cutCondition,
     ({ op, id }) => op === "sensor" && id === "line-of-sight"), true);
@@ -142,7 +161,42 @@ test("an_active_dual_cut_survives_fact_flicker_and_suppresses_every_passive_rule
   }
 });
 
-test("the_supported_dual_cut_keeps_zero_velocity_brace_authority_without_resurrecting_missing_support", () => {
+test("the_Twinblade_attacks_a_visible_unshielded_torso", () => {
+  const request = dualCutRequest({ blocker: false });
+  assert.equal(request?.action, "dual-cut");
+  const writes = [];
+  const events = scheduler({ write: (row) => writes.push(row) })
+    .step(decide({ blocker: false }), schedulerView({ blocker: false }), 1 / CONFIG.world.physicsHz);
+  assert.equal(events.some(({ kind }) => kind === "refused" || kind === "failed"), false,
+    JSON.stringify(events));
+  assert.equal(writes.some(({ joint }) => joint === "left-sword-yaw"), true);
+  assert.equal(writes.some(({ joint }) => joint === "sword-yaw"), true);
+});
+
+test("a_stably_downed_opponent_remains_a_physical_melee_target_when_the_upright_ray_hits_the_floor", () => {
+  assert.equal(dualCutRequest({ visible: false, opponentUpright: false, opponentRising: false })?.action,
+    "dual-cut");
+  assert.equal(dualCutRequest({ visible: false, opponentUpright: false, opponentRising: true }), undefined,
+    "an opponent actively rising keeps the recovery window");
+});
+
+test("an_open_lane_Twinblade_cut_uses_distinct_torso_paths_in_both_mirrors", () => {
+  const target = { x: 0.22, y: 0.15, z: 1.4 };
+  const path = solveTwinbladeScissorCutPath(target, { kind: "open-torso" });
+  const mirrored = solveTwinbladeScissorCutPath({ ...target, x: -target.x }, { kind: "open-torso" });
+  assert.equal(path.lane, "open-torso");
+  assert.notDeepEqual(path.left.commit, path.right.commit);
+  assert.deepEqual(path.left.commit,
+    solveSwordbearerSweepCentre({ ...target, x: target.x + 0.10 }, twinbladeSwordBindMetrics("left")));
+  assert.deepEqual(path.right.commit,
+    solveSwordbearerSweepCentre({ ...target, x: target.x - 0.10 }, twinbladeSwordBindMetrics("right")),
+  "both blades must cross the centreline; same-side convergence makes this physical assertion fail");
+  assert.notDeepEqual(path.left, mirrored.left,
+    "a nonzero target makes the mirror assertion sensitive to broken geometry");
+  assert.notDeepEqual(path.right, mirrored.right);
+});
+
+test("the_supported_dual_cut_advances_under_brace_authority_without_resurrecting_missing_support", () => {
   const staged = [];
   const port = schedulerLocomotion((row) => staged.push(row));
   const active = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS, { write() {} }, port);
@@ -150,8 +204,20 @@ test("the_supported_dual_cut_keeps_zero_velocity_brace_authority_without_resurre
   assert.equal(events.some(({ action, kind }) => action === "dual-cut" &&
     (kind === "refused" || kind === "failed")), false, JSON.stringify(events));
   assert.deepEqual(staged.filter(({ action }) => action === "dual-cut").map(({ request }) => request), [{
-    localForward: 0, localRight: 0, yaw: 0, recover: false,
+    localForward: 0.20, localRight: 0, yaw: 0, recover: false,
   }]);
+
+  const recoveringStages = [];
+  const recovering = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS, { write() {} },
+    schedulerLocomotion((row) => recoveringStages.push(row)));
+  const recoveringEvents = recovering.step(decide({ upright: false }),
+    schedulerView({ upright: false }), 1 / CONFIG.world.physicsHz);
+  assert.equal(recoveringEvents.some(({ kind }) => kind === "refused" || kind === "failed"), false,
+    JSON.stringify(recoveringEvents));
+  assert.deepEqual(recoveringStages.filter(({ action }) => action === "dual-cut")
+    .map(({ request }) => request), [{
+    localForward: 0.20, localRight: 0, yaw: 0, recover: true,
+  }], "the same armed Action must request bounded support recovery instead of becoming passive");
 
   const noAuthority = schedulerLocomotion();
   noAuthority.authority = () => null;
@@ -217,12 +283,11 @@ test("the_blocker_selects_the_open_lane_for_both_sequential_scissor_blades", () 
     cutterChamberDropM: TWINBLADE_DUELIST.cutterChamberDropM,
     openLaneOffsetM: TWINBLADE_DUELIST.openLaneOffsetM }, {
     blockerOutwardM: 0.28, cutterChamberCrossM: 0.28, cutterChamberDropM: 0.15,
-    openLaneOffsetM: 0,
+    openLaneOffsetM: 0.14,
   }, "a measured lane must remain an explicit authored parameter");
   assert.deepEqual([TWINBLADE_DUELIST.travelMultiplier, TWINBLADE_DUELIST.settleAllowanceS],
-    [TWINBLADE_SCISSOR_CUT.travelMultiplier, TWINBLADE_SCISSOR_CUT.settleAllowanceS]);
-  assert.deepEqual([TWINBLADE_DUELIST.travelMultiplier, TWINBLADE_DUELIST.settleAllowanceS],
-    [0.75, 0.05]);
+    [0.75, 0]);
+  assert.equal(TWINBLADE_MINIMUM_CUT_PHASE_S, 0.13);
   const target = { x: 0, y: 0.15, z: 1.4 };
   const leftBlocker = { x: -0.45, y: 0.1, z: 1.4 };
   const rightBlocker = { x: 0.45, y: 0.1, z: 1.4 };
@@ -289,6 +354,73 @@ test("opponent_weapon_telemetry_cannot_move_either_scissor_cut_motor_path", () =
     "mutating a real opponent weapon fact must not redirect the blocker bind");
 });
 
+test("each_cut_phase_refreshes_described_torso_geometry_without_restarting_the_Action", () => {
+  const firstCutFrame = (targetX) => {
+    const writes = [];
+    const selected = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS,
+      { write: (row) => writes.push(row) }, schedulerLocomotion());
+    selected.step(decide({ blocker: false }), schedulerView({ blocker: false }), 1 / 60);
+    for (let step = 0; step < 120; step += 1) {
+      writes.length = 0;
+      const options = { blocker: false, targetX };
+      selected.step(decide(options, selected), schedulerView(options), 1 / 60);
+      if (selected.diagnostics().some(({ action, phase }) => action === "dual-cut" && phase === "first-cut")) {
+        return Object.fromEntries(writes.filter(({ joint }) => joint.includes("sword"))
+          .map(({ joint, angleRad }) => [joint, angleRad]));
+      }
+    }
+    throw new Error("Twinblade did not reach first-cut");
+  };
+  const centred = firstCutFrame(0);
+  const moved = firstCutFrame(0.12);
+  assert.notDeepEqual(moved, centred,
+    "a controller that keeps only admission-frame geometry must fail this mutation");
+  const path = solveTwinbladeScissorCutPath({ x: 0.12,
+    y: 0.15 + TWINBLADE_DUELIST.targetHeightOffsetM, z: 1.4 }, { kind: "open-torso" }, {
+    ...TWINBLADE_SCISSOR_CUT,
+    outwardChamberM: TWINBLADE_DUELIST.blockerOutwardM,
+    cutterChamberCrossM: TWINBLADE_DUELIST.cutterChamberCrossM,
+    cutterChamberDropM: TWINBLADE_DUELIST.cutterChamberDropM,
+    openLaneOffsetM: TWINBLADE_DUELIST.openLaneOffsetM,
+  });
+  assert.deepEqual(moved, {
+    "left-sword-yaw": path.left.commit.yawRad, "left-sword-pitch": path.left.commit.pitchRad,
+    "sword-yaw": path.right.chamber.yawRad, "sword-pitch": path.right.chamber.pitchRad,
+  });
+});
+
+test("a_blocker_lane_and_its_high_target_remain_latched_for_the_whole_Action", () => {
+  const writes = [];
+  const selected = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS,
+    { write: (row) => writes.push(row) }, schedulerLocomotion());
+  selected.step(decide({ blocker: true, blockerX: -0.45 }),
+    schedulerView({ blocker: true, blockerX: -0.45 }), 1 / 60);
+  let firstCut = null;
+  for (let step = 0; step < 120 && firstCut === null; step += 1) {
+    writes.length = 0;
+    const options = { blocker: false, targetX: 0.08 };
+    selected.step(decide(options, selected), schedulerView(options), 1 / 60);
+    if (selected.diagnostics().some(({ action, phase }) => action === "dual-cut" && phase === "first-cut")) {
+      firstCut = Object.fromEntries(writes.filter(({ joint }) => joint.includes("sword"))
+        .map(({ joint, angleRad }) => [joint, angleRad]));
+    }
+  }
+  assert.ok(firstCut, "Twinblade did not reach the first blocker-relative cut");
+  const target = { x: 0.08, y: 0.15 + TWINBLADE_DUELIST.blockerTargetHeightOffsetM, z: 1.4 };
+  const path = solveTwinbladeScissorCutPath(target,
+    { kind: "blocker-relative", blocker: { x: target.x - 0.10, y: target.y, z: target.z } }, {
+      ...TWINBLADE_SCISSOR_CUT,
+      outwardChamberM: TWINBLADE_DUELIST.blockerOutwardM,
+      cutterChamberCrossM: TWINBLADE_DUELIST.cutterChamberCrossM,
+      cutterChamberDropM: TWINBLADE_DUELIST.cutterChamberDropM,
+      openLaneOffsetM: TWINBLADE_DUELIST.openLaneOffsetM,
+    });
+  assert.deepEqual(firstCut, {
+    "left-sword-yaw": path.left.commit.yawRad, "left-sword-pitch": path.left.commit.pitchRad,
+    "sword-yaw": path.right.chamber.yawRad, "sword-pitch": path.right.chamber.pitchRad,
+  }, "live shield loss must not demote an admitted high blocker lane to the torso lane mid-Action");
+});
+
 test("phase_order_sends_the_near_blade_before_the_opposite_scissor_blade", () => {
   const writes = [];
   const scheduler = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS,
@@ -300,7 +432,8 @@ test("phase_order_sends_the_near_blade_before_the_opposite_scissor_blade", () =>
     cutterChamberCrossM: TWINBLADE_DUELIST.cutterChamberCrossM,
     cutterChamberDropM: TWINBLADE_DUELIST.cutterChamberDropM,
     openLaneOffsetM };
-  const path = solveTwinbladeScissorCutPath({ x: 0, y: 0.15, z: 1.4 },
+  const path = solveTwinbladeScissorCutPath({ x: 0,
+    y: 0.15 + TWINBLADE_DUELIST.blockerTargetHeightOffsetM, z: 1.4 },
     { x: -0.45, y: 0.1, z: 1.4 }, tuning);
   const firstFrame = new Map();
   for (let step = 0; step < 600 && !firstFrame.has("recover"); step += 1) {
@@ -322,9 +455,9 @@ test("phase_order_sends_the_near_blade_before_the_opposite_scissor_blade", () =>
     "sword-yaw": path.right.chamber.yawRad, "sword-pitch": path.right.chamber.pitchRad },
   "moving the opposite blade during first-cut or mislabeling chamber must fail this mutation");
   assert.deepEqual(firstFrame.get("second-cut"), {
-    "left-sword-yaw": path.left.commit.yawRad, "left-sword-pitch": path.left.commit.pitchRad,
+    "left-sword-yaw": path.left.chamber.yawRad, "left-sword-pitch": path.left.chamber.pitchRad,
     "sword-yaw": path.right.commit.yawRad, "sword-pitch": path.right.commit.pitchRad },
-  "releasing the first blade or mislabeling first-cut must fail this mutation");
+  "parking the first blade inside the target or mislabeling first-cut must fail this mutation");
   assert.deepEqual(firstFrame.get("recover"), {
     "left-sword-yaw": 0, "left-sword-pitch": 0, "sword-yaw": 0, "sword-pitch": 0 });
 });

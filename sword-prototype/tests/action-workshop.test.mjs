@@ -171,6 +171,21 @@ test("a_pause_keeps_the_machine_and_decision_timeline_visible", () => {
   assert.doesNotMatch(markup, /hidden/);
 });
 
+test("Arena_names_the_exact_Hold_or_saved_program_that_is_running", () => {
+  const hold = diagnosticsMarkup({ at: 1, paused: true, rules: [], scheduler: [], active: [],
+    capabilities: [], driver: { label: "Hold", policyId: "construct-hold",
+      programId: "patient-stone", programSource: "saved" } });
+  assert.match(hold, />Hold \/ patient-stone</);
+  assert.match(hold, /data-policy-id="construct-hold"/);
+  assert.match(hold, /data-program-source="saved"/);
+
+  const saved = diagnosticsMarkup({ at: 1, paused: false, rules: [], scheduler: [], active: [],
+    capabilities: [], driver: { label: "Saved Mind", policyId: "warden-authored",
+      programId: "patient-stone", programSource: "saved" } });
+  assert.match(saved, />Saved Mind \/ patient-stone</);
+  assert.doesNotMatch(saved, />Warden Mind \/ patient-stone</);
+});
+
 const locomotionDiagnostic = (overrides = {}) => ({
   state: { state: "rising", specificImpulseMps: 0.004, supportMissingS: 0,
     fallenElapsedS: 0.5, risingElapsedS: 0.225, driveStaged: true },

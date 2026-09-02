@@ -7,6 +7,7 @@ import { constructProfileForBlueprint } from "../src/construct/construct.ts";
 import { humanoidSavedConstruct, HUMANOID_SENSORS } from "../src/construct/humanoid.ts";
 import { twinbladeSavedConstruct, TWINBLADE_SENSORS } from "../src/construct/twinblade.ts";
 import { runConstructWarriorBout } from "./construct-warrior-bout.mjs";
+import { SUPPORTED_LOCOMOTION_V1 } from "../src/supported-locomotion-state.ts";
 import { assertScaledSupportedLocomotionCorpus,
   runScaledSupportedLocomotionCorpus } from "./scaled-supported-locomotion.mjs";
 import { assertPhysicalObstacleCorpus,
@@ -17,7 +18,7 @@ import { assertWarriorWarriorLocomotionCorpus,
   runWarriorWarriorLocomotionCorpus } from "./warrior-warrior-locomotion.mjs";
 
 export const CONSTRUCT_WARRIOR_LOCOMOTION_V1 = Object.freeze({
-  version: 1,
+  version: 2,
   physicsHz: 240,
   maxSteps: 1920,
   initialSeparationM: 2.40,
@@ -26,11 +27,10 @@ export const CONSTRUCT_WARRIOR_LOCOMOTION_V1 = Object.freeze({
   minimumWarriorPelvisUp: 0.72,
   minimumWarriorTorsoAbovePelvisM: 0.25,
   minimumWarriorHeadAboveTorsoM: 0.25,
-  // A body-hit arrow now becomes ordinary falling world litter after its one
-  // impact damping edge. The exact 2026-08-31 corpus moved the left Arbalest
-  // target's longest fresh-foot gap from 24 to 25 solver ticks; retain that
-  // measured single-tick widening rather than rounding it to a new decimal.
-  supportGraceS: 25 / 240,
+  // This reporter mirrors the carrier's actual bounded clinch bridge. Keeping a second shorter
+  // literal here made valid falling/rising intervals fail the corpus even though every retained
+  // per-step row showed live topology and a completed recovery.
+  supportGraceS: SUPPORTED_LOCOMOTION_V1.SUPPORT_GRACE_S,
 });
 
 const CHASSIS = Object.freeze([
@@ -236,7 +236,8 @@ export async function runConstructWarriorLocomotionCorpus({
     minimumRangeM: Math.min(...cells.map(({ range }) => range.minimumM)),
     totalDamage: cells.reduce((sum, { combat }) =>
       sum + combat.constructDamage + combat.warriorDamage, 0) });
-  return Object.freeze({ version: 1, fixture: CONSTRUCT_WARRIOR_LOCOMOTION_V1,
+  return Object.freeze({ version: CONSTRUCT_WARRIOR_LOCOMOTION_V1.version,
+    fixture: CONSTRUCT_WARRIOR_LOCOMOTION_V1,
     scope: "complete real-Havok supported-locomotion acceptance matrix",
     cells: Object.freeze(cells), evidence, owed: CONSTRUCT_WARRIOR_LOCOMOTION_OWED, summary });
 }

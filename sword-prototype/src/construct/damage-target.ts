@@ -169,6 +169,27 @@ export class ConstructDamageTargets {
     return this.partByBody.get(body);
   }
 
+  describe(target: Limb): Readonly<{
+    targetKind: "part" | "module" | "joint";
+    targetId: string;
+    remaining: number;
+    maximum: number;
+  }> {
+    if (this.moduleTargetSet.has(target)) return Object.freeze({
+      targetKind: "module", targetId: target.key,
+      remaining: this.state.moduleHealth(target.key), maximum: target.maxHealth,
+    });
+    if (this.jointTargetSet.has(target)) return Object.freeze({
+      targetKind: "joint", targetId: target.key,
+      remaining: this.state.jointIntegrity(target.key), maximum: target.maxHealth,
+    });
+    if (this.partByBody.get(target.part.body) === target) return Object.freeze({
+      targetKind: "part", targetId: target.key,
+      remaining: this.state.partHealth(target.key), maximum: target.maxHealth,
+    });
+    throw new Error(`construct damage target "${target.key}" is not owned by this construct`);
+  }
+
   applyDamage(target: Limb, rawDamage: number): number {
     if (this.moduleTargetSet.has(target)) return this.state.damageModule(target.key, rawDamage).applied;
     if (this.jointTargetSet.has(target)) return this.state.damageJoint(target.key, rawDamage).applied;

@@ -329,7 +329,9 @@ export const blankBlocker = (): BlockerView => ({
 });
 
 /**
- * Select the first attached described shield in canonical hand order.
+ * Select the first attached described shield in canonical hand order, then the first mounted
+ * shield effector. A mounted plate remains an effector with `source: null`; calling it a hand
+ * would corrupt control ownership merely to make the shared blocker geometry visible.
  *
  * This publishes equipment, position and ownership only. It does not call a hand
  * "open", predict a parry, or choose which side to attack; those are tactics and
@@ -344,6 +346,13 @@ export function selectBlocker(body: BodyView, into: BlockerView = blankBlocker()
     if (!hand || hand.lost || !isShield(hand.weapon)) continue;
     into.found = true; into.weapon = hand.weapon; into.source = name; into.outboard = hand.outboard;
     into.tip.x = hand.tip.x; into.tip.y = hand.tip.y; into.tip.z = hand.tip.z;
+    break;
+  }
+  if (!into.found) for (const effector of body.effectors ?? []) {
+    if (effector.lost || !isShield(effector.weapon)) continue;
+    into.found = true; into.weapon = effector.weapon; into.source = null;
+    into.outboard = effector.tip.x < body.shoulder.x ? -1 : 1;
+    into.tip.x = effector.tip.x; into.tip.y = effector.tip.y; into.tip.z = effector.tip.z;
     break;
   }
   return into;

@@ -2,11 +2,13 @@ import { CONFIG } from "../src/config.ts";
 import { ARBALEST_ASSISTED_QUALIFIER_ID, ARBALEST_HARDWARE, ARBALEST_SENSORS,
   arbalestSavedConstruct } from
   "../src/construct/arbalest.ts";
+import { evaluateProjectileImpact } from "../src/scoring.ts";
 
 const FIXED = 1 / CONFIG.world.physicsHz;
 export const ARBALEST_QUALIFIER_ID = ARBALEST_ASSISTED_QUALIFIER_ID;
 const finite = (...values) => values.every(Number.isFinite);
 const sameTime = (left, right) => finite(left, right) && Math.abs(left - right) <= 1e-9;
+const sameNumber = sameTime;
 
 /** Fail closed: a scoreboard win is not evidence that the authored ranged Action earned it. */
 export function assertArbalestWarriorEvidence(report) {
@@ -55,7 +57,7 @@ export function assertArbalestWarriorEvidence(report) {
     failures.push("the Arbalest body was absent, below the arena, tilted, or physically disassembled");
   }
 
-  if (report?.version !== 1) failures.push("bout evidence schema was not version 1");
+  if (report?.version !== 3) failures.push("bout evidence schema was not version 3");
   if (report?.physics !== "real-havok-fixed-240hz") failures.push("physics was not real fixed-step Havok");
   if (report?.locomotion?.mode !== "supported" || locomotion.length !== report?.steps ||
       locomotion.some(({ atS }, index) => !finite(atS) || index > 0 && !(locomotion[index - 1].atS < atS))) {
@@ -75,7 +77,8 @@ export function assertArbalestWarriorEvidence(report) {
       launcher[0].projectileRadiusM !== ARBALEST_HARDWARE.projectile.radiusM ||
       launcher[0].projectileLengthM !== ARBALEST_HARDWARE.projectile.lengthM ||
       launcher[0].muzzleSpeedMps !== ARBALEST_HARDWARE.projectile.muzzleSpeedMps ||
-      launcher[0].damageScale !== ARBALEST_HARDWARE.projectile.damageScale ||
+      launcher[0].penetrationEfficiency !== ARBALEST_HARDWARE.projectile.penetrationEfficiency ||
+      Object.hasOwn(launcher[0], "damageScale") ||
       launcher[0].reloadSeconds !== ARBALEST_HARDWARE.reloadSeconds ||
       launcher[0].maxHeatJ !== ARBALEST_HARDWARE.maxHeatJ ||
       launcher[0].coolingW !== ARBALEST_HARDWARE.coolingW ||
@@ -85,7 +88,7 @@ export function assertArbalestWarriorEvidence(report) {
       launcher[0].initialAmmunition !== ARBALEST_HARDWARE.ammunition ||
       !Number.isInteger(launcher[0].remainingAmmunition) || launcher[0].remainingAmmunition < 0 ||
       launcher[0].remainingAmmunition > launcher[0].initialAmmunition) {
-    failures.push("runtime launcher facts were not the declared 1.90 heavy bolt and torso magazine");
+    failures.push("runtime launcher facts were not the declared physical bolt and torso magazine");
   }
   const spent = launcher.length === 1
     ? launcher[0].initialAmmunition - launcher[0].remainingAmmunition : Number.NaN;
@@ -96,6 +99,39 @@ export function assertArbalestWarriorEvidence(report) {
   if (contactSerials.some((shotSerial) => !Number.isInteger(shotSerial) || shotSerial < 0) ||
       new Set(contactSerials).size !== contactSerials.length) {
     failures.push("one loose serial produced duplicate or invalid physical contact evidence");
+  }
+  if (arrowContacts.some((row) => {
+    const projectile = row.projectile;
+    if (!projectile || Object.hasOwn(projectile, "damageScale") ||
+        projectile.identity?.owner !== report?.construct?.side ||
+        projectile.identity?.effectorId !== row.effectorId ||
+        projectile.identity?.shotSerial !== row.shotSerial ||
+        !Number.isInteger(projectile.identity?.poolIndex) || projectile.identity.poolIndex < 0 ||
+        projectile.identity.poolIndex >= ARBALEST_HARDWARE.projectile.poolSize ||
+        row.effectorId !== `effigy-arbalest:${projectile.identity.poolIndex}` ||
+        projectile.massKg !== ARBALEST_HARDWARE.projectile.massKg ||
+        projectile.penetrationEfficiency !== ARBALEST_HARDWARE.projectile.penetrationEfficiency ||
+        !finite(row.speedMps, projectile.arrivalSpeedMps, projectile.signedShaftAlignment,
+          projectile.usableEnergyJ, projectile.uncappedDamage, projectile.preArmourDamage,
+          projectile.postArmourDamage) ||
+        !sameNumber(row.speedMps, projectile.arrivalSpeedMps) ||
+        !["head", "shaft", "tail", "other"].includes(projectile.contactedZone)) return true;
+    let evaluated;
+    try {
+      evaluated = evaluateProjectileImpact({ massKg: projectile.massKg,
+        speedMps: projectile.arrivalSpeedMps,
+        signedShaftAlignment: projectile.signedShaftAlignment,
+        contactedHead: projectile.contactedZone === "head",
+        penetrationEfficiency: projectile.penetrationEfficiency });
+    } catch { return true; }
+    return !sameNumber(projectile.usableEnergyJ, evaluated.usableEnergyJ) ||
+      !sameNumber(projectile.uncappedDamage, evaluated.uncappedDamage) ||
+      !sameNumber(projectile.preArmourDamage, evaluated.score.damage) ||
+      !sameNumber(projectile.postArmourDamage, row.damage) ||
+      projectile.postArmourDamage < 0 || projectile.postArmourDamage > projectile.preArmourDamage ||
+      projectile.preArmourDamage > 3;
+  })) {
+    failures.push("arrow contacts lacked the immutable v3 physical projectile record");
   }
   if (arrowContacts.some(({ atS, damage }) => !finite(atS, damage)) ||
       arrowContacts.some((row, index) => index > 0 && !(arrowContacts[index - 1].atS < row.atS)) ||

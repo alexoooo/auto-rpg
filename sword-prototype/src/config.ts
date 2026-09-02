@@ -17,6 +17,11 @@
  */
 export type CameraMode = "overhead" | "fixed";
 
+/** Authoritative wound, durability and armour units used by all newly-authored content. */
+export const COMBAT_VALUE_UNIT_VERSION = 2 as const;
+/** Preserve pre-v2 selection pressure where combat damage competes with frozen win bonuses. */
+export const combatValueToLegacyRewardWeight = (damage: number): number => damage * 20;
+
 export const CONFIG = {
   world: {
     gravity: -9.81,
@@ -794,9 +799,9 @@ export const CONFIG = {
     edgeExponent: 2.0,
     /** A thrust only counts if it lands within this distance of the tip. */
     thrustTipZone: 0.30,
-    damageScale: 46,
+    damageScale: 2.3,
     /** Damage past a part's remaining health this far over severs it. */
-    severMargin: 1.0,
+    severMargin: 0.05,
     /**
      * How well a blade has to be placed before it may take a limb off.
      *
@@ -815,7 +820,7 @@ export const CONFIG = {
     /**
      * The club, which does not cut.
      *
-     * `crushScale` against `damageScale`'s 46: a club landing square is worth
+     * `crushScale` against `damageScale`'s 2.3: a club landing square is worth
      * less than a sword landing perfectly, and far more than a sword landing
      * badly. That is the trade the weapon is for -- you cannot place a blow with
      * a club, so it should not need placing, and it should not out-damage a cut
@@ -825,20 +830,20 @@ export const CONFIG = {
      * is a blade being leaned on and a club that arrives slowly is still several
      * kilograms of wood. Neither number has been played with.
      */
-    crushScale: 34,
+    crushScale: 1.7,
     minCrushSpeed: 2.2,
 
     /**
      * The fist. These are deliberately below steel: a clean 9 m/s punch is
-     * worth 18 damage and anything below 3.5 m/s is only a shove. The session
+     * worth 0.9 damage and anything below 3.5 m/s is only a shove. The session
      * 06 unarmed corpus in `docs/measurements.md` records both floors beside
      * the resulting punches, blocks, damage and survival.
      */
-    fistScale: 18,
+    fistScale: 0.9,
     fistMinSpeed: 3.5,
     fistReferenceSpeed: 9,
     /** Centipede's committed lunge: damaging, point-like, and never severing. */
-    biteScale: 24,
+    biteScale: 1.2,
     biteMinSpeed: 2.8,
     biteReferenceSpeed: 8,
 
@@ -862,10 +867,12 @@ export const CONFIG = {
      *   never the binding constraint and the weapon's own scale was doing all of
      *   the work.
      *
-     * So `chopScale` is the axe, and 64 is where two independent arguments meet.
+     * So `chopScale` is the axe, and 3.2 is the v2-unit form of the 64 selected
+     * where two independent arguments meet.
      * The physical one: the same arm speed arrives through a hand's width of
      * edge rather than through 840 mm of it, which is worth something like 1.4
-     * times, and 46 x 1.4 is 64.4. The measured one, `duelist` carrying it
+     * times. The measured table below retains the legacy-v1 combat units in which
+     * 46 x 1.4 is 64.4. The `duelist` carrying it
      * against `swinger`, 12 bouts a row:
      *
      * | chopScale | damage taken | dealt | died | killed | per blow |
@@ -881,7 +888,7 @@ export const CONFIG = {
      * out-damage a placed cut -- which would make the sword pointless, and is
      * the thing this number is not allowed to do.
      */
-    chopScale: 64,
+    chopScale: 3.2,
 
     /**
      * The arrow, which needed a **second** number for a reason none of the
@@ -905,20 +912,6 @@ export const CONFIG = {
      */
     minArrowSpeed: 8.0,
     arrowReference: 42,
-    /**
-     * What a clean full-draw arrow is worth, against the sword's 46 and the
-     * axe's 64.
-     *
-     * The physical argument is that an arrow carries less energy than a sword
-     * cut -- 0.035 kg at 48 m/s is about 40 J against a blade's 60 -- and
-     * delivers all of it through a head the width of a thumbnail. The measured
-     * one is in `docs/measurements.md`, `archer` against both melee policies:
-     *
-     * | pierceScale | dealt | killed | per hit |
-     * |---|---|---|---|
-     * | (swept and recorded once the policy existed) |
-     */
-    pierceScale: 55,
   },
 
   /**
@@ -942,9 +935,9 @@ export const CONFIG = {
      * damage rather than in speed so that it moves with the scoring rule instead
      * of having to be re-derived every time `damageScale` changes.
      */
-    minSpray: 1.5,
-    /** Damage at which a spray is as big as it gets. `partHealth` is 100. */
-    fullSpray: 22,
+    minSpray: 0.075,
+    /** Damage at which a spray is as big as it gets. `partHealth` is 5. */
+    fullSpray: 1.1,
 
     /** Droplets in the largest single burst. */
     sprayCount: 90,
@@ -1201,7 +1194,7 @@ export const CONFIG = {
      */
     gaitDrivesLegs: true,
 
-    partHealth: 100,
+    partHealth: 5,
     /** The torso cannot be severed, so it wants more health than a limb: it is
      *  the biggest target on the body and the one a bout most often ends on. */
     torsoHealth: 2,

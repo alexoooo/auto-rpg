@@ -274,7 +274,15 @@ export class Hud {
         <table class="hit-rows">
           <tr><th>damage</th><td>${lastHit.damage.toFixed(1)}</td></tr>
           <tr><th>contact speed</th><td>${lastHit.speed.toFixed(1)} m/s</td></tr>
-          <tr><th>edge</th><td>${Math.round(lastHit.edgeAlignment * 100)}%</td></tr>
+          ${lastHit.projectile ? `
+          <tr><th>projectile mass</th><td>${lastHit.projectile.massKg.toFixed(3)} kg</td></tr>
+          <tr><th>arrival speed</th><td>${lastHit.projectile.arrivalSpeedMps.toFixed(1)} m/s</td></tr>
+          <tr><th>point-first</th><td>${Math.round(Math.max(0, lastHit.projectile.signedShaftAlignment) * 100)}%</td></tr>
+          <tr><th>contact zone</th><td>${lastHit.projectile.contactedZone}</td></tr>
+          <tr><th>usable energy</th><td>${lastHit.projectile.usableEnergyJ.toFixed(1)} J</td></tr>
+          <tr><th>efficiency</th><td>${Math.round(lastHit.projectile.penetrationEfficiency * 100)}%</td></tr>
+          <tr><th>pre / post armour</th><td>${lastHit.projectile.preArmourDamage.toFixed(2)} / ${lastHit.projectile.postArmourDamage.toFixed(2)}</td></tr>
+          ` : `<tr><th>edge</th><td>${Math.round(lastHit.edgeAlignment * 100)}%</td></tr>`}
           <tr><th>solver impulse</th><td>${lastHit.solverImpulse.toFixed(2)}</td></tr>
         </table>
       `;

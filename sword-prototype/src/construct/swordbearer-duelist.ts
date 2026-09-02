@@ -19,6 +19,7 @@ const sensor = (id: string): Expression => Object.freeze({ op: "sensor", id });
 const scalar = (value: number): Expression => Object.freeze({ op: "constant", value });
 const metres = (value: number): Expression => Object.freeze({ op: "constant", value, unit: "metres" });
 const and = (...values: Expression[]): Expression => Object.freeze({ op: "and", values: Object.freeze(values) });
+const or = (...values: Expression[]): Expression => Object.freeze({ op: "or", values: Object.freeze(values) });
 const not = (value: Expression): Expression => Object.freeze({ op: "not", value });
 const lt = (left: Expression, right: Expression): Expression => Object.freeze({ op: "lt", left, right });
 const gte = (left: Expression, right: Expression): Expression => Object.freeze({ op: "gte", left, right });
@@ -30,6 +31,7 @@ const upright = sensor("core-upright");
 const visible = sensor("line-of-sight");
 const range = sensor("opponent-range");
 const blockerPresent = sensor("opponent-blocker-present");
+const sweepActive: Expression = Object.freeze({ op: "active", action: "sweep" });
 const below = (value: number): Expression => lt(range, metres(value));
 const atLeast = (value: number): Expression => gte(range, metres(value));
 
@@ -57,15 +59,18 @@ export function swordbearerDuelistProgram(
     // The old raw-gait body could only survive this band by guarding. Assisted support changes the
     // premise: a shield is now something to strike and physically displace, not a reason for two
     // authored Minds to stare forever. Damage still has to cross the ordinary sword collider.
-    rule({ id: "sweep-shielded-opponent", action: "sweep", priority: 70, optional: false, dwellS: 0,
-      condition: and(upright, visible, combatBand, blockerPresent), utility: scalar(28),
+    // Direction is latched by authored policy, not recomputed from a near-zero lateral sensor.
+    // The latter restarted almost every sweep as two bodies crossed by millimetres, leaving the
+    // blade permanently in its wind phase. The target-centred controller already snapshots and
+    // mirrors the actual opponent geometry at Action admission. Once admitted, `active` keeps the
+    // same request above the clinch guard until the physical controller completes; transient LOS
+    // and range changes used to withdraw a healthy sweep halfway through its first stroke.
+    rule({ id: "sweep-visible-opponent", action: "sweep", priority: 90, optional: false, dwellS: 0,
+      condition: or(sweepActive, and(upright, visible, combatBand)), utility: scalar(28),
       parameters: { direction: parameter(scalar(1)) } }),
     rule({ id: "brace-shielded-opponent", action: "brace", priority: 65, optional: false, dwellS: 0.03,
       condition: and(upright, aligned, combatBand, below(SWORDBEARER_DUELIST.closeAtM), blockerPresent),
       utility: scalar(24), parameters: {} }),
-    rule({ id: "sweep-unblocked-opponent", action: "sweep", priority: 70, optional: false, dwellS: 0,
-      condition: and(upright, visible, combatBand, not(blockerPresent)), utility: scalar(28),
-      parameters: { direction: parameter(scalar(1)) } }),
     rule({ id: "brace-during-unblocked-sweep", action: "brace", priority: 65, optional: false, dwellS: 0.03,
       condition: and(upright, aligned, combatBand, below(SWORDBEARER_DUELIST.closeAtM), not(blockerPresent)),
       utility: scalar(24), parameters: {} }),

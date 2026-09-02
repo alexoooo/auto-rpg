@@ -1,4 +1,5 @@
-import type { ControllerContext, ControllerFactory, ControllerDiagnostic } from "./scheduler.ts";
+import type { ActionController, ControllerContext, ControllerFactory, ControllerDiagnostic,
+  JointReading } from "./scheduler.ts";
 import type { ParameterSpec } from "./actions.ts";
 import { BIPED_CONTROLLERS, SUPPORTED_BIPED_LIMP_V1 } from "./biped.ts";
 import { LOCOMOTION_CONTROLLERS, SUPPORTED_QUADRUPED_CRAWL_V1 } from "./locomotion.ts";
@@ -32,6 +33,294 @@ export interface ControllerCompatibility {
       readonly rank: "primary" | "fallback";
     }>;
   }>;
+}
+
+export const ARBALEST_LEFT_SWORD_GUARD = Object.freeze({
+  shoulder: -0.35, elbow: -0.65, wrist: 0.35, palm: -0.15,
+});
+
+export const ARBALEST_LEFT_SWORD_LANE = Object.freeze({ x: -0.34, toleranceM: 0.08,
+  waitForLaneS: 0.15 });
+const ARBALEST_LEFT_SWORD_DRIVE_CLEARANCE_M = 0.12;
+
+export const HUMANOID_LEFT_SWORD_SWEEP_V1 = Object.freeze({
+  chamberS: 0.34,
+  commitS: 0.32,
+  recoverS: 0.24,
+  guard: ARBALEST_LEFT_SWORD_GUARD,
+  chamberHeightOffsetM: 0.38,
+  commitHeightOffsetM: -0.28,
+  chamberDepthOffsetM: 0,
+  commitDepthOffsetM: 0,
+});
+
+export const WARDEN_SHIELD_BASH_V1 = Object.freeze({
+  chamberS: 0.16,
+  driveS: 0.12,
+  holdS: 0.10,
+  recoverS: 0.22,
+  chamberRad: -0.42,
+  driveRad: 0.52,
+  recoverRad: 0.30,
+});
+
+type LeftSwordPose = Readonly<{ shoulder: number; elbow: number; wrist: number; palm: number }>;
+
+const LEFT_SWORD_LIMITS = Object.freeze({
+  shoulder: Object.freeze([-0.95, 0.95] as const),
+  elbow: Object.freeze([-1.25, 0.35] as const),
+  wrist: Object.freeze([-0.75, 0.75] as const),
+  palm: Object.freeze([-0.55, 0.55] as const),
+});
+
+/**
+ * The Arbalest's ordinary arm is four X hinges, so its sword tip has one honest
+ * planar target and no hidden lateral actuator. This forward model is the exact
+ * authored shoulder/elbow/wrist/palm chain from `humanoid.ts`, including the
+ * hand socket and the unscaled 1.105 m sword. A bounded coordinate descent is
+ * cheap at Action admission and turns the snapshotted opponent point into four
+ * joint targets without reaching into a body or solver.
+ */
+export function solveArbalestLeftSwordPose(target: Readonly<{ y: number; z: number }>): LeftSwordPose {
+  if (!Number.isFinite(target.y) || !Number.isFinite(target.z)) {
+    throw new Error("Arbalest left-sword target must be finite");
+  }
+  const roles = Object.freeze(["shoulder", "elbow", "wrist", "palm"] as const);
+  const desiredY = Math.max(-0.60, Math.min(0.72, target.y));
+  const desiredZ = Math.max(0.75, Math.min(2.18, target.z));
+  const point = (pose: LeftSwordPose): readonly [number, number] => {
+    let y = 0.25;
+    let z = 0;
+    let angle = 0;
+    for (const [role, length] of [["shoulder", 0.55], ["elbow", 0.45],
+      ["wrist", 0.20]] as const) {
+      angle += pose[role];
+      y -= length * Math.cos(angle);
+      z -= length * Math.sin(angle);
+    }
+    angle += pose.palm;
+    // Palm child frame [0, 0.08, 0.03], sword socket [0, 0, 0.10]
+    // and 1.105 m tip combine to this terminal vector.
+    y += -0.08 * Math.cos(angle) - 1.175 * Math.sin(angle);
+    z += -0.08 * Math.sin(angle) + 1.175 * Math.cos(angle);
+    return [y, z];
+  };
+  const score = (pose: LeftSwordPose): number => {
+    const [y, z] = point(pose);
+    return (y - desiredY) ** 2 + (z - desiredZ) ** 2;
+  };
+  let pose: LeftSwordPose = { ...ARBALEST_LEFT_SWORD_GUARD };
+  let increment = 0.45;
+  for (let iteration = 0; iteration < 48; iteration += 1) {
+    for (const role of roles) for (const direction of [-1, 1]) {
+      const limits = LEFT_SWORD_LIMITS[role];
+      const candidate = { ...pose,
+        [role]: Math.max(limits[0], Math.min(limits[1], pose[role] + direction * increment)) };
+      if (score(candidate) < score(pose)) pose = candidate;
+    }
+    increment *= 0.88;
+  }
+  return Object.freeze(pose);
+}
+
+const reading = (context: ControllerContext, joint: string): JointReading => {
+  const value = context.view.joints[joint];
+  if (!value) throw new Error(`controller "${context.action.controller}" cannot read joint "${joint}"`);
+  return value;
+};
+
+const oneBoundJoint = (context: ControllerContext, role: string): string => {
+  const binding = context.group.bindings[role];
+  if (!binding || binding.joints.length !== 1) {
+    throw new Error(`group "${context.group.id}" needs one joint bound as "${role}"`);
+  }
+  return binding.joints[0];
+};
+
+const clampedWrite = (context: ControllerContext, joint: string, angleRad: number): number => {
+  const value = reading(context, joint);
+  const clamped = Math.max(value.minRad, Math.min(value.maxRad, angleRad));
+  context.motors.write({ joint, angleRad: clamped,
+    maxSpeedRadS: value.maxSpeedRadS, maxForceNm: value.maxForceNm });
+  return Math.abs(value.angleRad - clamped);
+};
+
+class HumanoidLeftSwordSweepController implements ActionController {
+  private readonly context: ControllerContext;
+  private readonly joints: Readonly<Record<keyof LeftSwordPose, string>>;
+  private target: Readonly<{ x: number; y: number; z: number }>;
+  private committed: boolean;
+  private chamber: LeftSwordPose;
+  private commit: LeftSwordPose;
+  private elapsed = 0;
+  private phase = "ready";
+  private cancelled = "";
+  private progress = Number.POSITIVE_INFINITY;
+
+  constructor(context: ControllerContext) {
+    this.context = context;
+    this.joints = Object.freeze({ shoulder: oneBoundJoint(context, "shoulder"),
+      elbow: oneBoundJoint(context, "elbow"), wrist: oneBoundJoint(context, "wrist"),
+      palm: oneBoundJoint(context, "palm") });
+    this.target = this.readTarget();
+    this.committed = context.view.facts["core-upright"] === true &&
+      this.target.x >= ARBALEST_LEFT_SWORD_LANE.x - ARBALEST_LEFT_SWORD_LANE.toleranceM &&
+      this.target.x <= ARBALEST_LEFT_SWORD_LANE.x + ARBALEST_LEFT_SWORD_LANE.toleranceM;
+    this.chamber = solveArbalestLeftSwordPose({
+      y: this.target.y + HUMANOID_LEFT_SWORD_SWEEP_V1.chamberHeightOffsetM,
+      z: this.target.z + HUMANOID_LEFT_SWORD_SWEEP_V1.chamberDepthOffsetM,
+    });
+    this.commit = solveArbalestLeftSwordPose({
+      y: this.target.y + HUMANOID_LEFT_SWORD_SWEEP_V1.commitHeightOffsetM,
+      z: this.target.z + HUMANOID_LEFT_SWORD_SWEEP_V1.commitDepthOffsetM,
+    });
+  }
+
+  private readTarget(): Readonly<{ x: number; y: number; z: number }> {
+    const fact = (id: string): number => {
+      const value = this.context.view.facts[id];
+      if (typeof value !== "number" || !Number.isFinite(value)) {
+        throw new Error(`humanoid-left-sword-sweep requires finite fact "${id}"`);
+      }
+      return value;
+    };
+    return Object.freeze({ x: fact("opponent-local-x"), y: fact("opponent-local-y"),
+      z: fact("opponent-local-z") });
+  }
+
+  private snapshotPoses(target: Readonly<{ y: number; z: number }>): void {
+    this.chamber = solveArbalestLeftSwordPose({
+      y: target.y + HUMANOID_LEFT_SWORD_SWEEP_V1.chamberHeightOffsetM,
+      z: target.z + HUMANOID_LEFT_SWORD_SWEEP_V1.chamberDepthOffsetM,
+    });
+    this.commit = solveArbalestLeftSwordPose({
+      y: target.y + HUMANOID_LEFT_SWORD_SWEEP_V1.commitHeightOffsetM,
+      z: target.z + HUMANOID_LEFT_SWORD_SWEEP_V1.commitDepthOffsetM,
+    });
+  }
+
+  private clearForDrive(): boolean {
+    const clearance = this.context.view.facts["left-sword-clearance-m"];
+    return this.context.view.facts["left-sword-clear"] === true &&
+      (typeof clearance !== "number" || !Number.isFinite(clearance) ||
+        clearance >= ARBALEST_LEFT_SWORD_DRIVE_CLEARANCE_M);
+  }
+
+  enter(): void {
+    if (this.committed && !this.clearForDrive()) throw new Error("self-blocked");
+    this.phase = this.committed ? "chamber" : "aligning";
+  }
+
+  private writePose(pose: LeftSwordPose): void {
+    this.progress = Math.max(...Object.entries(pose).map(([role, angle]) =>
+      clampedWrite(this.context, this.joints[role as keyof LeftSwordPose], angle)));
+  }
+
+  step(dt: number): void {
+    if (this.cancelled !== "") return;
+    this.elapsed += dt;
+    const tuning = HUMANOID_LEFT_SWORD_SWEEP_V1;
+    const liveRange = this.context.view.facts["opponent-range"];
+    if (this.context.view.facts["line-of-sight"] !== true || typeof liveRange !== "number" ||
+        !Number.isFinite(liveRange) || liveRange >= 2.60) {
+      this.writePose(tuning.guard);
+      this.phase = "complete";
+      this.progress = 0;
+      return;
+    }
+    // Melee opportunity is a cadence edge, while an X-hinge arm still cannot attack outside
+    // its shoulder plane. Keep this admitted Action in guard while locomotion turns, then take
+    // one fresh centre snapshot at the actual lane crossing. Completing short off-lane cycles
+    // let the last cycle disappear exactly when a late opportunity arrived; snapshotting before
+    // the turn instead committed toward a point the four X hinges could never reach.
+    if (!this.committed) {
+      // Locomotion can move the torso into a once-safe guard while this Action waits for its
+      // four-X-hinge lane. End the armed interval before writing another pose: throwing here
+      // would turn ordinary moving-body occlusion into a controller fault, while continuing to
+      // drive the guard was the measured late self-crossing in the frozen Arbalest mirror.
+      if (!this.clearForDrive()) {
+        this.phase = "complete";
+        this.progress = 0;
+        return;
+      }
+      const target = this.readTarget();
+      const inLane = target.x >= ARBALEST_LEFT_SWORD_LANE.x - ARBALEST_LEFT_SWORD_LANE.toleranceM &&
+        target.x <= ARBALEST_LEFT_SWORD_LANE.x + ARBALEST_LEFT_SWORD_LANE.toleranceM;
+      if (this.context.view.facts["core-upright"] === true && inLane) {
+        this.target = target;
+        this.snapshotPoses(target);
+        this.committed = true;
+        this.elapsed = 0;
+        this.phase = "chamber";
+        this.writePose(this.chamber);
+      } else if (this.elapsed < ARBALEST_LEFT_SWORD_LANE.waitForLaneS) this.phase = "aligning";
+      else { this.phase = "complete"; this.progress = 0; }
+      return;
+    }
+    if (!this.clearForDrive()) {
+      this.phase = "complete";
+      this.progress = 0;
+      return;
+    }
+    if (this.elapsed < tuning.chamberS) {
+      this.phase = "chamber";
+      this.writePose(this.chamber);
+    } else if (this.elapsed < tuning.chamberS + tuning.commitS) {
+      this.phase = "commit";
+      this.writePose(this.commit);
+    } else if (this.elapsed < tuning.chamberS + tuning.commitS + tuning.recoverS) {
+      this.phase = "recover";
+      this.writePose(tuning.guard);
+    } else {
+      this.phase = "complete";
+      this.progress = 0;
+      this.writePose(tuning.guard);
+    }
+  }
+
+  done(): boolean { return this.phase === "complete"; }
+  cancel(reason: string): void { this.cancelled = reason; this.phase = "cancelled"; }
+  diagnostic(): ControllerDiagnostic {
+    return { phase: this.phase,
+      detail: this.cancelled || `snap target ${this.target.x.toFixed(3)},${this.target.y.toFixed(3)},${this.target.z.toFixed(3)}`,
+      progress: this.progress, epsilon: 0.04 };
+  }
+}
+
+class WardenShieldBashController implements ActionController {
+  private readonly context: ControllerContext;
+  private readonly bearing: string;
+  private elapsed = 0;
+  private phase = "ready";
+  private cancelled = "";
+  private progress = Number.POSITIVE_INFINITY;
+
+  constructor(context: ControllerContext) {
+    this.context = context;
+    this.bearing = oneBoundJoint(context, "bearing");
+  }
+
+  enter(): void { this.phase = "chamber"; }
+
+  step(dt: number): void {
+    if (this.cancelled !== "") return;
+    this.elapsed += dt;
+    const tuning = WARDEN_SHIELD_BASH_V1;
+    let target: number = tuning.recoverRad;
+    if (this.elapsed < tuning.chamberS) { this.phase = "chamber"; target = tuning.chamberRad; }
+    else if (this.elapsed < tuning.chamberS + tuning.driveS) { this.phase = "drive"; target = tuning.driveRad; }
+    else if (this.elapsed < tuning.chamberS + tuning.driveS + tuning.holdS) {
+      this.phase = "hold"; target = tuning.driveRad;
+    } else if (this.elapsed < tuning.chamberS + tuning.driveS + tuning.holdS + tuning.recoverS) {
+      this.phase = "recover";
+    } else { this.phase = "complete"; }
+    this.progress = clampedWrite(this.context, this.bearing, target);
+  }
+
+  done(): boolean { return this.phase === "complete"; }
+  cancel(reason: string): void { this.cancelled = reason; this.phase = "cancelled"; }
+  diagnostic(): ControllerDiagnostic { return { phase: this.phase,
+    detail: this.cancelled || `${this.elapsed.toFixed(3)} s`, progress: this.progress, epsilon: 0.04 }; }
 }
 
 class JointController {
@@ -106,6 +395,31 @@ export const CONTROLLER_COMPATIBILITY: readonly ControllerCompatibility[] = Obje
     parameters: Object.freeze(Object.fromEntries(["shoulder", "elbow", "wrist", "palm"].map((name) => [name,
       Object.freeze({ kind: "number" as const, min: -1.25, max: 0.95, unit: "radians" as const })]))),
   }),
+  Object.freeze({ controller: "arbalest-launcher-neutral", role: "two-axis-mount",
+    minimumJoints: 2, minimumModules: 1, requiredParameters: Object.freeze([]),
+    bindings: Object.freeze([
+      Object.freeze({ role: "yaw", repeat: "once" as const, joints: 1, modules: 0 }),
+      Object.freeze({ role: "pitch", repeat: "once" as const, joints: 1, modules: 0 }),
+      Object.freeze({ role: "output", repeat: "once" as const, joints: 0, modules: 1,
+        allowAdditionalModules: true }),
+    ]), parameters: Object.freeze({}) }),
+  Object.freeze({ controller: "arbalest-left-sword-neutral", role: "any-joints",
+    minimumJoints: 4, minimumModules: 1, requiredParameters: Object.freeze([]),
+    bindings: Object.freeze([
+      ...(["shoulder", "elbow", "wrist", "palm"] as const).map((role) =>
+        Object.freeze({ role, repeat: "once" as const, joints: 1, modules: 0 })),
+      Object.freeze({ role: "sword", repeat: "once" as const, joints: 0, modules: 1 }),
+    ]), parameters: Object.freeze({}) }),
+  Object.freeze({ controller: "humanoid-left-sword-sweep", role: "any-joints", minimumJoints: 4, minimumModules: 1,
+    requiredParameters: Object.freeze([]), bindings: Object.freeze([
+      ...(["shoulder", "elbow", "wrist", "palm"] as const).map((role) =>
+        Object.freeze({ role, repeat: "once" as const, joints: 1, modules: 0 })),
+      Object.freeze({ role: "sword", repeat: "once" as const, joints: 0, modules: 1 }),
+    ]), parameters: Object.freeze({}) }),
+  Object.freeze({ controller: "warden-shield-bash", role: "one-rotational-joint", minimumJoints: 1, minimumModules: 1,
+    requiredParameters: Object.freeze([]), bindings: Object.freeze([
+      Object.freeze({ role: "bearing", repeat: "once" as const, joints: 1, modules: 1 }),
+    ]), parameters: Object.freeze({}) }),
   ...["quadruped-move", "quadruped-turn", "brace", "recover"].map((controller): ControllerCompatibility => Object.freeze({
     controller, role: "quadruped" as const, minimumJoints: 12, minimumModules: 3,
     requiredParameters: Object.freeze(controller === "quadruped-move" ? ["forward", "right", "speed"]
@@ -251,10 +565,13 @@ export const CONTROLLER_COMPATIBILITY: readonly ControllerCompatibility[] = Obje
     }),
     supportedLocomotion: Object.freeze({ gaitStabilityScale: 1, brace: true }),
   }),
-  ...["aim-direction", "track-target", "sweep-arc", "sweep-compact-arc", "fire-projectile", "guard-mount"].map((controller): ControllerCompatibility => Object.freeze({
+  ...["aim-direction", "track-target", "sweep-arc", "sweep-compact-arc", "target-centred-sweep",
+    "warden-sword-sweep",
+    "fire-projectile", "guard-mount"].map((controller): ControllerCompatibility => Object.freeze({
     controller, role: "two-axis-mount" as const, minimumJoints: 2, minimumModules: 1,
     requiredParameters: Object.freeze(controller === "aim-direction" ? ["yaw", "pitch"]
-      : controller === "sweep-arc" || controller === "sweep-compact-arc" ? ["direction"] : []),
+      : controller === "sweep-arc" || controller === "sweep-compact-arc" ||
+        controller === "target-centred-sweep" || controller === "warden-sword-sweep" ? ["direction"] : []),
     bindings: Object.freeze([
       Object.freeze({ role: "yaw", repeat: "once" as const, joints: 1, modules: 0 }),
       Object.freeze({ role: "pitch", repeat: "once" as const, joints: 1, modules: 0 }),
@@ -265,8 +582,11 @@ export const CONTROLLER_COMPATIBILITY: readonly ControllerCompatibility[] = Obje
     parameters: Object.freeze(controller === "aim-direction" ? {
       yaw: Object.freeze({ kind: "number" as const, min: -2.5, max: 2.5, unit: "radians" as const }),
       pitch: Object.freeze({ kind: "number" as const, min: -0.75, max: 1.65, unit: "radians" as const }),
-    } : controller === "sweep-arc" || controller === "sweep-compact-arc" ? {
+    } : controller === "sweep-arc" || controller === "sweep-compact-arc" ||
+      controller === "target-centred-sweep" || controller === "warden-sword-sweep" ? {
       direction: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
+      ...(controller === "target-centred-sweep" ? { "target-height-offset": Object.freeze({
+        kind: "number" as const, min: -0.5, max: 1, unit: "metres" as const }) } : {}),
     } : {}) as Readonly<Record<string, ParameterSpec>>,
   })),
 ]);
@@ -310,6 +630,30 @@ export const BOOTSTRAP_CONTROLLERS: readonly ControllerFactory[] = Object.freeze
       "left-wrist": numberParameter(context, "wrist"),
       "left-palm": numberParameter(context, "palm"),
     }),
+  }),
+  Object.freeze({
+    name: "arbalest-launcher-neutral",
+    create: (context: ControllerContext) => new JointController(context, {
+      [oneBoundJoint(context, "yaw")]: 0,
+      [oneBoundJoint(context, "pitch")]: 0,
+    }),
+  }),
+  Object.freeze({
+    name: "arbalest-left-sword-neutral",
+    create: (context: ControllerContext) => new JointController(context, {
+      [oneBoundJoint(context, "shoulder")]: ARBALEST_LEFT_SWORD_GUARD.shoulder,
+      [oneBoundJoint(context, "elbow")]: ARBALEST_LEFT_SWORD_GUARD.elbow,
+      [oneBoundJoint(context, "wrist")]: ARBALEST_LEFT_SWORD_GUARD.wrist,
+      [oneBoundJoint(context, "palm")]: ARBALEST_LEFT_SWORD_GUARD.palm,
+    }),
+  }),
+  Object.freeze({
+    name: "humanoid-left-sword-sweep",
+    create: (context: ControllerContext) => new HumanoidLeftSwordSweepController(context),
+  }),
+  Object.freeze({
+    name: "warden-shield-bash",
+    create: (context: ControllerContext) => new WardenShieldBashController(context),
   }),
 ]);
 

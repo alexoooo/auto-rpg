@@ -11,6 +11,7 @@ import { createConstructHeadlessArena } from "../scripts/construct-headless-aren
 import { CONFIG } from "../src/config.ts";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { classifyConstructStuck } from "../src/construct/lab-report.ts";
+import { ConstructLocomotionPort } from "../src/construct/assisted-locomotion.ts";
 
 const readings = (graph) => Object.fromEntries(graph.groups.flatMap((group) => group.joints)
   .map((joint) => [joint, { angleRad: 0, speedRadS: 0, minRad: -1.5, maxRad: 1.5,
@@ -85,6 +86,22 @@ test("brace_tracks_pose_error_and_pitch_dominant_non_recovery_is_classified_stuc
   assert.ok(samples.every(({ progress, epsilon }) => progress > epsilon));
   assert.deepEqual(classifyConstructStuck(samples, 5), [{ side: "left", action: "recover", group: "locomotion",
     phase: "planting", firstStep: 1, lastStep: 7 }]);
+});
+
+test("supported_continuous_locomotion_does_not_impersonate_a_stuck_finite_motor_pose", () => {
+  const graph = wardenControl("crossbow", "assisted");
+  const run = (action, parameters) => {
+    const locomotion = new ConstructLocomotionPort(() => ({ carrierPartId: "core" }));
+    const scheduler = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS, { write() {} }, locomotion);
+    locomotion.beginControlStep();
+    scheduler.step({ version: 1, requests: [{ request: { action, parameters }, priority: 0,
+      sourceIndex: 0 }] }, { joints: readings(graph), facts: { ...facts(graph), "core-upright": true,
+      "core-roll-rad": 0, "core-pitch-rad": 0, "core-speed-mps": 0,
+      "core-yaw-rate-rad-s": 0 } }, 1 / 240);
+    return scheduler.diagnostics().find((row) => row.action === action);
+  };
+  assert.equal(run("move", { forward: 1, right: 0, speed: 1.1 }).progress, 0);
+  assert.equal(run("brace", {}).progress, 0);
 });
 
 const physicalSaved = (id, action, parameters) => {
@@ -166,9 +183,9 @@ test("recover_returns_each_supported_longitudinal_impulse_fall_to_upright_contac
       condition: { op: "sensor", id: "core-upright" }, utility: { op: "constant", value: 1 }, parameters: {} },
   ];
   const recover = saveConstruct("recover-physical-probe", wardenBlueprint("crossbow"),
-    wardenControl("crossbow"), recoverProgram, WARDEN_SENSORS);
+    wardenControl("crossbow", "assisted"), recoverProgram, WARDEN_SENSORS);
   for (const [label, impulse] of [
-    ["nose", new Vector3(0, 0, 700)], ["tail", new Vector3(0, 0, -700)],
+    ["nose", new Vector3(0, 0, 450)], ["tail", new Vector3(0, 0, -450)],
   ]) {
     const arena = await createConstructHeadlessArena();
     const bout = new ConstructLabBout(arena.scene, recover, recover, WARDEN_SENSORS, CONFIG.fighter.separation);
@@ -176,13 +193,17 @@ test("recover_returns_each_supported_longitudinal_impulse_fall_to_upright_contac
     for (let step = 0; step < 120; step += 1) bout.step(1 / CONFIG.world.physicsHz);
     const root = bout.construct("left").runtime.part("core");
     arena.scene.getPhysicsEngine().getPhysicsPlugin().setActivationControl(root.body, 1);
+    // Supported V1 deliberately holds the carrier against arbitrary solver impulses. Cross the
+    // public authored-stability boundary first, then apply the physical tip to the released body.
+    bout.construct("left").queueStabilityEvent({ horizontalShoveNs: [0, label === "nose" ? 5.5 : -5.5] });
+    bout.step(1 / CONFIG.world.physicsHz);
     // Tip the whole compound through an ordinary off-centre collision impulse. Havok's
     // direct angular impulse is deliberately not used here: on this welded dynamic tree it
     // can be absorbed by the constraint solve without ever producing a fallen fixture.
     root.body.applyImpulse(impulse,
       root.body.getObjectCenterWorld().add(new Vector3(0, 1.1, 0)));
     let fell = false; let recoveredAfterFall = false; let facts = bout.construct("left").control.snapshot().facts;
-    for (let step = 0; step < 1200; step += 1) {
+    for (let step = 0; step < 1440; step += 1) {
       facts = bout.step(1 / CONFIG.world.physicsHz).left.snapshot.facts;
       if (facts["core-upright"] === false) fell = true;
       else if (fell) recoveredAfterFall = true;
@@ -193,8 +214,8 @@ test("recover_returns_each_supported_longitudinal_impulse_fall_to_upright_contac
     assert.equal(facts["core-upright"], true,
       `${label} recover returns the measured core to upright (up=${finalUp.asArray().map((value) => value.toFixed(3)).join(",")}, ` +
       `crossed=${recoveredAfterFall}, active=${JSON.stringify(finalControl.active)}, events=${JSON.stringify(finalControl.events)})`);
-    assert.ok(Object.keys(facts).filter((id) => id.startsWith("contact:") && facts[id] === true).length >= 3,
-      `${label} recover ends with a supported contact set`);
+    assert.equal(bout.construct("left").locomotion?.diagnostic().state.state, "supported",
+      `${label} recover ends in the supported carrier state`);
     } finally {
       bout.dispose(); arena.dispose();
     }

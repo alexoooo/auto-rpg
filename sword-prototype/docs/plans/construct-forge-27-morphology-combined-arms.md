@@ -1,5 +1,13 @@
 # Session 27 — morphology-specific combined-arms Minds
 
+**Status (2026-09-01): public Actions, Minds and evidence machinery are implemented and recorded
+durably, but physical acceptance is red. The Swordbearer completes only one sweep in the left
+mirror; the separately reported recovery-space red was a focused-test reporting mismatch and is
+green after reconstructing the canonical combat-release evidence without changing its 0.605 m
+floor. The fresh authored Warden entry is rejected, and Session 30's completed five-morphology
+matrix rejects every durability rung. Further physical and competitive work remains owed rather
+than qualified.**
+
 ## Outcome
 
 Make every selectable authored Construct Mind visibly pursue, orient and attack with the hardware it
@@ -145,11 +153,12 @@ than inventing a second meaning of aligned.
    turn, active controller phases, completed attacks, contact effector, pre-/post-armour damage,
    support state and longest passive interval.
 
-13. Add the five-morphology, both-mirror, all-rungs provisional runner to
-    `scripts/construct-warrior-curriculum.mjs` behind `--combined-arms-provisional`. It records the
-    raw rows needed here and returns nonzero unless every morphology has at least one passing rung.
-    Session 30 extends these rows with canonical publication/validator identity; it does not first
-    invent the matrix there.
+13. Add the five-morphology, both-mirror, all-rungs runner to
+    `scripts/construct-warrior-curriculum.mjs`. The originally planned
+    `--combined-arms-provisional` spelling was superseded before landing by Session 30's final
+    `--combined-arms --out <directory>` runner, which owns canonical publication/validator identity,
+    bounded checkpoint storage and the same raw rows rather than maintaining two divergent matrix
+    implementations. It returns nonzero unless every morphology has a passing rung.
 
 14. Show the exact selected policy and saved program ID in Arena diagnostics. Selecting `Hold`
     must visibly say `Hold / <program-id>`; a saved passive program must not be labelled as the
@@ -205,7 +214,7 @@ node --test tests/construct-swordbearer-duelist.test.mjs tests/construct-twinbla
 node --test tests/construct-arbalest.test.mjs tests/construct-mounts.test.mjs
 node scripts/construct-warrior-locomotion.mjs
 node scripts/construct-warrior-curriculum.mjs --durability-ladder
-node scripts/construct-warrior-curriculum.mjs --combined-arms-provisional
+node scripts/construct-warrior-curriculum.mjs --combined-arms --workers 8 --out .tools/construct-combined-arms-session27
 node scripts/construct-warrior-curriculum.mjs
 npm test
 npm run check

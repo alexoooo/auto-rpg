@@ -6,6 +6,7 @@ import { GATE_CONTRACT, RESEARCH_GATE_NAMES, engagementGates, engagementMetrics,
   formatEngagementGateTable, gatePassed } from "../src/learning/gates.ts";
 import { assessTournamentCandidate } from "../src/learning/tournament.ts";
 import { tacticCountKey } from "../src/options.ts";
+import { ENGAGEMENT_INSTRUMENT_VERSION } from "../src/recorder.ts";
 import { engagementGates as ledgerEngagementGates } from "../scripts/research-ledger.mjs";
 import { measureEngagement, parseEngagementArgs, runMeasureEngagementCli } from "../scripts/measure-engagement.mjs";
 
@@ -67,9 +68,10 @@ test("the_engagement_bench_uses_the_tournament_specialist_for_each_named_cell", 
       nearRangeStallSeconds: 0.5 } }; };
   const report = await measureEngagement(config, run);
   assert.equal(report.harness, "bench/runResearchBout");
-  assert.equal(report.engagementInstrumentVersion, 1);
+  assert.equal(report.engagementInstrumentVersion, ENGAGEMENT_INSTRUMENT_VERSION);
   assert.deepEqual(report.provenance, { harness: "bench/runResearchBout", instrument: "engagement-gates",
-    engagementInstrumentVersion: 1, controller: "specialist", split: "validation", seed: 310013 });
+    engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION,
+    controller: "specialist", split: "validation", seed: 310013 });
   assert.equal(report.rows.length, 4, "two named cells run both mirrors and only the specialist opponent");
   assert.deepEqual(calls.map((call) => [call.job.unit, call.job.loadout, call.job.opponent, call.mind]), [
     ["warrior", "bow+empty", "specialist", "archer"], ["warrior", "bow+empty", "specialist", "archer"],

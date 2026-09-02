@@ -8,7 +8,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { PhysicsAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate.js";
-import { PhysicsShapeType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
+import { PhysicsEventType, PhysicsShapeType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import HavokPhysics from "@babylonjs/havok";
 
 import { CONFIG } from "../src/config.ts";
@@ -155,13 +155,27 @@ test("a_recycled_pool_slot_carries_the_current_loose_serial_not_its_pool_suffix"
   const quiver = new Quiver(scene,
     { name: "serial-q", layer: layers.arrow, collidesWith: layers.arrowCollides, profile }, materials);
   const arrow = quiver.arrows[0];
-  assert.equal(quiver.loose(Vector3.Zero(), Vector3.Forward(), 30, 17), true);
-  assert.equal(arrow.shotSerial, 17);
+  assert.equal(quiver.loose(Vector3.Zero(), Vector3.Forward(), 30), true);
+  assert.equal(arrow.shotSerial, 0);
   arrow.park();
   assert.equal(arrow.shotSerial, null, "parked evidence cannot retain the prior loose identity");
-  assert.equal(quiver.loose(Vector3.Zero(), Vector3.Forward(), 30, 18), true);
-  assert.equal(arrow.shotSerial, 18,
+  assert.equal(quiver.loose(Vector3.Zero(), Vector3.Forward(), 30), true);
+  assert.equal(arrow.shotSerial, 1,
     "the same physical pool slot receives the next globally unique loose serial");
+});
+
+test("the_live_Havok_projectile_mass_is_the_mass_seen_by_the_scorer", async () => {
+  const { scene, materials } = await world();
+  const layers = layersFor("left");
+  const profile = { ...CONFIG.arrow, mass: 0.12, length: 0.34, shaftDiameter: 0.036, count: 1 };
+  const quiver = new Quiver(scene, { name: "mass-q", layer: layers.arrow,
+    collidesWith: layers.arrowCollides, profile, penetrationEfficiency: 0.75 }, materials);
+  const arrow = quiver.arrows[0];
+  assert.ok(Math.abs(arrow.body.getMassProperties().mass - arrow.projectileImpact.massKg) < 1e-7,
+    "Havok stores the one authored mass as float32");
+  assert.deepEqual(arrow.projectileImpact, {
+    massKg: 0.12, lengthM: 0.34, radiusM: 0.018, penetrationEfficiency: 0.75,
+  });
 });
 
 /**
@@ -507,6 +521,22 @@ test("spent_arrows_land_on_world_but_never_on_one_another", () => {
     "spent shafts cannot push fighters or severed debris");
 });
 
+test("opposing_flying_projectiles_do_not_erase_one_another_head_on", () => {
+  assert.equal(COLLIDES.LEFT_ARROW & LAYER.RIGHT_ARROW, 0,
+    "a right projectile is not an invisible shield against a left projectile");
+  assert.equal(COLLIDES.RIGHT_ARROW & LAYER.LEFT_ARROW, 0,
+    "and the collision exemption is mirror exact");
+  for (const [mask, retained] of [[COLLIDES.LEFT_ARROW,
+    LAYER.WORLD | LAYER.RIGHT_TRUNK | LAYER.RIGHT_ARM | LAYER.RIGHT_SWORD |
+      LAYER.RIGHT_SHIELD | LAYER.RIGHT_SUPPORTED_TRUNK | LAYER.DEBRIS],
+  [COLLIDES.RIGHT_ARROW,
+    LAYER.WORLD | LAYER.LEFT_TRUNK | LAYER.LEFT_ARM | LAYER.LEFT_SWORD |
+      LAYER.LEFT_SHIELD | LAYER.LEFT_SUPPORTED_TRUNK | LAYER.DEBRIS]]) {
+    assert.equal(mask & retained, retained,
+      "world, opposing anatomy, weapons, supported anatomy and debris remain physical");
+  }
+});
+
 test("twenty_spent_arrows_cannot_build_a_floating_stack", async () => {
   const { scene, materials, frames } = await world();
   const layers = layersFor("left");
@@ -695,7 +725,7 @@ test("a spent arrow does not go on scoring the limb it is lying against", async 
   const first = combat.lastHit;
   assert.ok(first, "the arrow was scored");
   assert.equal(first.weapon, "arrow");
-  assert.ok(first.damage > 0, `and it was worth something: ${first.damage}`);
+  assert.ok(first.projectile, "the first physical contact carries projectile evidence");
   // It arrives point-first at full draw, which is the best an arrow can do.
   assert.ok(
     Math.abs(first.speed - CONFIG.arrow.speedMax) < 1,
@@ -703,9 +733,9 @@ test("a spent arrow does not go on scoring the limb it is lying against", async 
   );
 
   // Now let it lie there for three seconds against a body that is being driven.
-  const scored = combat.log.filter((r) => r.weapon === "arrow" && r.damage > 0).length;
+  const scored = combat.log.filter((r) => r.weapon === "arrow").length;
   frames(180);
-  const after = combat.log.filter((r) => r.weapon === "arrow" && r.damage > 0).length;
+  const after = combat.log.filter((r) => r.weapon === "arrow").length;
   assert.equal(after, scored, "and it is billed exactly once, however long it rests there");
 });
 
@@ -721,16 +751,13 @@ test("an arrow is scored at the speed it arrived, not at what the collision left
    * damage model was handed **5.6**.
    */
   const { scene, materials, frames, driver } = await world();
-  const intent = blankIntent();
-  const target = new Fighter(
-    scene,
-    {
-      side: "right", origin: new Vector3(0, 0, 6), facing: Math.PI,
-      mind: { name: "still", decide: () => intent },
-      loadout: { primary: "empty", secondary: "empty" },
-    },
-    materials,
-  );
+  const targetMesh = MeshBuilder.CreateSphere("arrival-target", { diameter: 0.04 }, scene);
+  targetMesh.position.set(0, 1.4, 6);
+  const targetAggregate = new PhysicsAggregate(targetMesh, PhysicsShapeType.SPHERE, { mass: 0 }, scene);
+  targetAggregate.shape.filterMembershipMask = LAYER.RIGHT_TRUNK;
+  targetAggregate.shape.filterCollideMask = COLLIDES.RIGHT_TRUNK;
+  const limb = { key: "arrival-target", label: "target", health: 20, maxHealth: 20,
+    severed: false, lastHitAt: -999, part: { body: targetAggregate.body } };
   const layers = layersFor("left");
   const quiver = new Quiver(
     scene,
@@ -738,17 +765,15 @@ test("an arrow is scored at the speed it arrived, not at what the collision left
     materials,
   );
   const combat = new Combat("left", quiver.arrows);
-  combat.attach(target);
+  combat.attach({ limbFor: (body) => body === targetAggregate.body ? limb : null,
+    parriedBy: () => null, sever: () => {},
+    applyDamage: (_target, damage) => { limb.health -= damage; return damage; } });
   const bow = driver(quiver);
-  const clock = { now: 0 };
   scene.onBeforePhysicsObservable.add(() => {
-    target.observe(target, clock.now);
-    target.update(FIXED);
-    clock.now += FIXED;
     combat.advance(FIXED);
   });
-  frames(120);
-  const chest = target.torso.mesh.position.clone();
+  frames(2);
+  const chest = targetMesh.position.clone();
 
   for (const speed of [CONFIG.arrow.speedMax, CONFIG.arrow.speedMin]) {
     for (const arrow of quiver.arrows) arrow.park();
@@ -757,7 +782,9 @@ test("an arrow is scored at the speed it arrived, not at what the collision left
     // `speedMin` takes twice as long as at `speedMax`, and reading `lastHit`
     // too early reads the previous shot's.
     const before = combat.lastHit ? combat.lastHit.at : -1;
-    bow.fire(new Vector3(chest.x, chest.y, chest.z - 3), new Vector3(0, 0, 1), speed);
+    const flightS = 3 / speed;
+    bow.fire(new Vector3(chest.x, chest.y + 0.5 * 9.81 * flightS ** 2, chest.z - 3),
+      new Vector3(0, 0, 1), speed);
     for (let i = 0; i < 30 && (combat.lastHit?.at ?? -1) === before; i += 1) frames(1);
     const hit = combat.lastHit;
     assert.ok(hit && hit.weapon === "arrow" && hit.at !== before, `loosed at ${speed}: it landed`);
@@ -767,13 +794,155 @@ test("an arrow is scored at the speed it arrived, not at what the collision left
     );
   }
 
-  // And the two are worth different amounts, which is the whole reason the bow
-  // has a draw at all. Scored against the blade's `referenceSpeed` of 11 they
-  // would be identical.
-  const hard = combat.log.find((r) => r.weapon === "arrow" && r.speed > CONFIG.arrow.speedMax - 2);
-  const soft = combat.log.find((r) => r.weapon === "arrow" && r.speed < CONFIG.arrow.speedMin + 2);
-  assert.ok(hard && soft);
-  assert.ok(soft.damage < hard.damage * 0.75, `a short draw hurts less: ${soft.damage.toFixed(1)} vs ${hard.damage.toFixed(1)}`);
+  // Projectile energy scaling is pinned in projectile-physical-score.test.mjs. This live test
+  // owns the distinct boundary claim: Combat must retain pre-solver arrival speed after Havok's
+  // contact response, even when the reported manifold classifies this particular contact as a
+  // non-head strike and therefore quite correctly awards no wound.
+});
+
+test("live_Havok_tail_shaft_head_and_off_axis_contacts_are_classified_in_both_mirrors", async () => {
+  const { scene, materials, frames } = await world();
+  const left = layersFor("left");
+  const cases = [];
+
+  for (const mirror of [-1, 1]) {
+    for (const zone of ["head", "tail", "shaft", "other"]) {
+      const lane = cases.length * 1.2;
+      const axis = zone === "head" || zone === "tail"
+        ? new Vector3(0, 0, mirror) : new Vector3(0, 1, 0);
+      const velocity = zone === "tail"
+        ? new Vector3(0, 0, -mirror) : new Vector3(0, 0, mirror);
+      const targetZ = zone === "tail" ? -mirror * 1.5 : mirror * 1.5;
+      const shaftDiameter = zone === "other" ? 0.002 : 0.04;
+      const profile = { ...CONFIG.arrow, count: 1, length: 0.5, shaftDiameter };
+      const quiver = new Quiver(scene, {
+        name: `zone-${mirror}-${zone}`, layer: left.arrow,
+        collidesWith: left.arrowCollides, profile,
+      }, materials);
+      const arrow = quiver.arrows[0];
+      const target = MeshBuilder.CreateBox(`zone-target-${mirror}-${zone}`,
+        { width: 0.5, height: zone === "shaft" || zone === "other" ? 0.05 : 0.5,
+          depth: zone === "other" ? 0.35 : 0.03 }, scene);
+      target.position.set(lane, 1.4, targetZ);
+      const aggregate = new PhysicsAggregate(target, PhysicsShapeType.BOX, { mass: 0 }, scene);
+      aggregate.shape.filterMembershipMask = LAYER.RIGHT_TRUNK;
+      aggregate.shape.filterCollideMask = COLLIDES.RIGHT_TRUNK;
+      const limb = { key: `target-${mirror}-${zone}`, label: zone, health: 20, maxHealth: 20,
+        severed: false, lastHitAt: -999, part: { body: aggregate.body } };
+      const combat = new Combat("left", [arrow]);
+      combat.attach({
+        limbFor: (body) => body === aggregate.body ? limb : null,
+        parriedBy: () => null,
+        sever: () => {},
+        applyDamage: (_target, damage) => { limb.health -= damage; return damage; },
+      });
+      cases.push({ mirror, zone, lane, axis, velocity, quiver, arrow, combat });
+    }
+  }
+
+  let pending = null;
+  scene.onBeforePhysicsObservable.add(() => {
+    for (const row of cases) {
+      row.quiver.step(FIXED);
+      row.combat.advance(FIXED);
+    }
+    if (pending) {
+      pending.row.arrow.loose(new Vector3(pending.row.lane, 1.4, 0),
+        pending.row.axis, pending.speed, 0);
+      pending.row.arrow.body.setLinearVelocity(pending.row.velocity.scale(pending.speed));
+      if (pending.row.zone === "other") {
+        pending.row.arrow.body.setAngularVelocity(new Vector3(-80 * pending.row.mirror, 0, 0));
+      }
+      pending = null;
+    }
+  });
+
+  for (const row of cases) {
+    const speed = row.zone === "other" ? CONFIG.arrow.speedMax : 16;
+    pending = { row, speed };
+    for (let frame = 0; frame < 60 && row.combat.lastHit === null; frame += 1) frames(1);
+    const report = row.combat.lastHit;
+    assert.ok(report?.projectile,
+      `${row.zone} contact in mirror ${row.mirror} reached Combat through a live Havok manifold`);
+    assert.equal(report.projectile.contactedZone, row.zone,
+      `${row.zone} in mirror ${row.mirror}: ${JSON.stringify({
+        point: report.point.asArray(), tip: row.arrow.impactTipPosition().asArray(),
+      })}`);
+    assert.equal(report.damage > 0, row.zone === "head",
+      `${row.zone} in mirror ${row.mirror} is ${row.zone === "head" ? "scored" : "refused"}`);
+    row.arrow.park();
+    frames(2);
+  }
+});
+
+test("a_first_substep_projectile_contact_uses_the_full_cached_launch_speed", async () => {
+  const { scene, materials } = await world();
+  const left = layersFor("left");
+  const profile = { ...CONFIG.arrow, count: 1, mass: 0.12, length: 0.5, shaftDiameter: 0.04 };
+  const quiver = new Quiver(scene, { name: "immediate", layer: left.arrow,
+    collidesWith: left.arrowCollides, profile }, materials);
+  const arrow = quiver.arrows[0];
+  const target = MeshBuilder.CreateBox("immediate-target",
+    { width: 0.4, height: 0.4, depth: 0.03 }, scene);
+  target.position.set(0, 1.4, 0.30);
+  const aggregate = new PhysicsAggregate(target, PhysicsShapeType.BOX, { mass: 0 }, scene);
+  aggregate.shape.filterMembershipMask = LAYER.RIGHT_TRUNK;
+  aggregate.shape.filterCollideMask = COLLIDES.RIGHT_TRUNK;
+  const limb = { key: "torso", label: "Torso", health: 20, maxHealth: 20,
+    severed: false, lastHitAt: -999, part: { body: aggregate.body } };
+  const combat = new Combat("left", [arrow]);
+  combat.attach({ limbFor: (body) => body === aggregate.body ? limb : null,
+    parriedBy: () => null, sever: () => {},
+    applyDamage: (_target, damage) => { limb.health -= damage; return damage; } });
+  arrow.loose(new Vector3(0, 1.4, 0), new Vector3(0, 0, 1), 42, 0);
+  // Dispatch the launch substep's real body observable before `Quiver.step` has had an
+  // opportunity to refresh the arrival cache. Arrow's own observer latches the target first;
+  // Combat's observer then scores the same physical callback, exactly as Havok dispatch does.
+  arrow.body.getCollisionObservable().notifyObservers({
+    type: PhysicsEventType.COLLISION_STARTED,
+    collider: arrow.body,
+    collidedAgainst: aggregate.body,
+    point: new Vector3(0, 1.4, 0.25),
+    impulse: 0,
+  });
+
+  assert.ok(combat.lastHit?.projectile, "the launch-step body callback reached physical scoring");
+  assert.ok(Math.abs(combat.lastHit.speed - 42) < 1.5,
+    `the cached launch speed stayed physical: ${combat.lastHit.speed}`);
+  assert.ok(combat.lastHit.damage > 0, "the point-first launch-step contact produced a wound");
+});
+
+test("post_solver_projectile_rotation_cannot_relabel_the_cached_contact_zone", () => {
+  let contact;
+  const body = { getCollisionObservable: () => ({
+    add: (callback) => { contact = callback; return {}; }, remove: () => {},
+  }) };
+  const weapon = {
+    kind: "arrow", effectorId: "test-projectile", hand: null, spent: false, body,
+    projectileImpact: { massKg: 0.12, lengthM: 0.5, radiusM: 0.01,
+      penetrationEfficiency: 1 },
+    projectilePoolIndex: 0, shotSerial: 0,
+    allowsContact: () => true,
+    velocityAt: () => new Vector3(0, 0, 42),
+    edgeDirection: () => new Vector3(1, 0, 0),
+    bladeDirection: () => new Vector3(1, 0, 0),
+    impactBladeDirection: () => new Vector3(0, 0, 1),
+    tipPosition: () => new Vector3(0.5, 0, 0),
+    impactTipPosition: () => new Vector3(0, 0, 0.5),
+  };
+  const limb = { key: "torso", label: "Torso", health: 20, maxHealth: 20,
+    severed: false, lastHitAt: -999, part: { body: { applyImpulse: () => {} } } };
+  const combat = new Combat("left", [weapon]);
+  combat.attach({ limbFor: () => limb, parriedBy: () => null, sever: () => {},
+    applyDamage: (_target, damage) => { limb.health -= damage; return damage; } });
+
+  contact({ type: PhysicsEventType.COLLISION_STARTED, point: new Vector3(0, 0, 0.45),
+    impulse: 0, collidedAgainst: {} });
+
+  assert.equal(combat.lastHit.projectile.contactedZone, "head");
+  assert.equal(combat.lastHit.projectile.signedShaftAlignment, 1);
+  assert.ok(combat.lastHit.damage > 0,
+    "the cached head and cached axis remain one physical arrival pose");
 });
 
 test("a fighter walks backwards slower than it walks forwards", async () => {

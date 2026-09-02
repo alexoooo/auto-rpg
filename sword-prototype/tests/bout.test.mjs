@@ -59,6 +59,19 @@ const minus = (key) =>
 
 const flattened = () => whole().map((part) => ({ ...part, health: 0 }));
 
+test("the_low_number_migration_preserves_melee_health_fractions_and_death_decisions", () => {
+  const legacy = [
+    { key: "torso", health: 80, maxHealth: 200, severed: false, fatal: true, vitalityWeight: 0.4 },
+    { key: "head", health: 100, maxHealth: 100, severed: false, fatal: true, vitalityWeight: 0.3 },
+    { key: "right-arm", health: 40, maxHealth: 100, severed: false, fatal: false, vitalityWeight: 0.3 },
+  ];
+  const migrated = legacy.map((part) => ({ ...part, health: part.health / 20, maxHealth: part.maxHealth / 20 }));
+  assert.equal(vitality(migrated), vitality(legacy));
+  assert.equal(beaten(migrated), beaten(legacy));
+  legacy[0].health = 0; migrated[0].health = 0;
+  assert.equal(beaten(migrated), beaten(legacy));
+});
+
 const blow = (by, over = {}) => ({
   by,
   limb: "Head",

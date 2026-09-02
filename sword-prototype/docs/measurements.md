@@ -17,6 +17,10 @@ peak transient with identical code** -- 264.97 mm in the page against 242.88 mm 
 bench -- and why is not established. See "The arm's parity" below for what was eliminated.
 Neither is wrong. Putting them in one column is.
 
+**Combat-value unit note (2026-09-01):** historical damage and durability rows recorded before
+ruleset v2 remain in their measured legacy units. Divide those values by 20 only when comparing
+their scale with fresh v2 evidence; the historical tables themselves are not rewritten.
+
 **And a reading is only worth what its coverage space is worth, so every figure below
 names the space before it names the result.** This is the second rule and it was paid for
 seven times in one effort. An exact sweep over the wrong space does not read as an error --
@@ -7362,7 +7366,8 @@ would silently select hold and is not evidence for this body.
 The final planted counter-fighter completed eight mounted sweeps, reported zero scheduler refusals
 or failures, and stayed in the combined root-up/torso-height/head-order standing predicate for
 19.5417 seconds. Its first physical `effigy-sword` damage was 0.074789 at 17.1875 seconds while
-upright. It ended at 0.944206 vitality after the Warrior dealt 358.431303 raw local damage; the
+upright. These two damage readings are historical v1 combat units. It ended at 0.944206 vitality
+after the Warrior dealt 358.431303 raw local damage; the
 Warrior ended at 0.999925 vitality. This is evidence that the whole public path can stand, decide,
 sweep, score and be perceived. It is also a failed competence comparison: the damage is tiny and
 the body falls just before the cap. An extended 30-second probe found that the experimental recovery
@@ -7755,9 +7760,35 @@ hardware. Physical severance permutations beyond the retained front-left cell re
 the prebuilt learning morphology corpus remains raw because those fixtures do not install the
 sensor surface required by the assisted program.
 
+### Construct procedural-surface static evidence -- 2026-09-01
+
+Harness: `tests/construct-procedural-surface.test.mjs`, Babylon `NullEngine`, no rendered pixels and
+no performance claim. Twenty named tests pin the procedural GLSL source, capability refusal,
+mapped fallback, semantic binding and resource lifecycle. NullEngine requests `procedural-pbr` and
+is refused to `mapped-pbr` by name because its declared capability set lacks the required path;
+the audit still reports four shared PBR materials, two generated stone textures and four material
+plugins. Twenty palette rebuilds and twenty part/registry rebuilds return mesh, material, texture,
+plugin and binding counts to their warmed baselines.
+
+The frozen presentation bands are stone frequencies 1.7/11/4.5 per metre, crack width 0.055,
+roughness 0.82--0.98 and normal strength 0.62. Damage wear begins below 0.75 health, reaches maximum
+at 0.10 and caps crack darkening/fresh-edge lightening/normal increase at 0.22/0.16/0.28. Bronze is
+at least 0.8 metallic with roughness constrained to 0.34--0.58; rune inlay is non-emissive.
+Tests bind two differently damaged meshes through one shared material and observe distinct per-mesh
+uniform ratios, then update part/module/joint keys independently. Canonical blueprint output and
+policy/control sources contain no surface binding or shader constant.
+
+This is deliberately not the browser acceptance promised by the plan. No screenshot here proves
+facets, bounded moire, bronze readability, front-only relief, shadow/outline quality or pattern
+stability while orbiting a paused fight, and a hidden automated tab cannot establish the visible
+frame-cost bracket. Session 30 owns the matched procedural/fallback screenshots, identical
+simulation trace comparison and visible-browser control -> subject -> control performance evidence.
+
 The physical 0.90 m Swordbearer uses scale `(0.90 - 0.002) / (1.8995 - 0.002)` =
 0.473254281949934 so the fixed 2 mm compile clearance does not falsely produce a 0.901 m crown.
-Its measured crown is 0.8999999999999999 m and canonical blueprint digest is `e9ed64a7`. Part,
+Its measured crown is 0.8999999999999999 m. Its historical v1-combat-unit blueprint digest was
+`e9ed64a7`; the verified low-number/schema migration moves that same scaled physical body to
+`cb2e2715`. Part,
 contact and non-weapon module geometry/translations scale linearly, masses by s^3 and shape-derived
 inertia by s^5; the ordinary 1.4 kg sword remains unscaled. Real Havok cells at yaw zero and pi move
 more than 0.25 m while supported, then a 0.5 N s authored shove produces
@@ -7786,7 +7817,29 @@ The exact 26-cell Construct/Warrior locomotion corpus remained green after one m
 correction. Letting Arbalest arrows fall onto the world moved the left combat target's longest
 fresh-foot evidence gap from 24 to 25 solver ticks. The corpus grace is therefore written as the
 measured `25 / 240` seconds rather than rounded upward; the production 0.10-second lost-support rule
-did not move. Held sword/shield wall pressure and the real recovery-interrupt cells passed unchanged.
+did not move in that pass. Held sword/shield wall pressure and the real recovery-interrupt cells
+passed unchanged. The production rule and both reporters were superseded by the later clinch and
+recovery bracket below.
+
+### Supported clinch and recovery correction -- 2026-09-01
+
+The combined-arms bouts exposed two different false negatives in the completed carrier. A brief
+shield/torso clinch could remove both finite foot contacts for longer than 0.10 s before Havok
+separated and replanted them, releasing a body in the middle of an otherwise valid attack. Once a
+body really had fallen, requiring one folded foot to report fresh planted contact before the rise
+could begin made an intact upside-down body unrecoverable by construction. The retained rule uses a
+0.35 s no-contact bridge while upright, but authored specific impulse, topology and posture still
+release immediately. A fallen body instead needs live support topology, verified standable ground
+under its carrier footprint, clear occupancy and the acceleration bound; fresh terminal evidence
+is required again at completed reattachment.
+
+The old recovery-interrupt fixture no longer fell naturally under the longer clinch bridge, so its
+v2 form declares a 12 N s step-zero shove solely to establish the fallen premise. The later
+rising-to-fallen edge must still coincide with a real Havok weapon contact, and the checker rejects
+any additional scheduled shove. The three boundary cells passed with held sword/shield wall
+pressure inside their prior speed, joint-frame and penetration ceilings. The complete supported
+locomotion reporter now reads the production 0.35 s literal rather than retaining its obsolete
+`25 / 240` acceptance copy; its 26/26 real-Havok cells qualified after the change.
 
 Animated roots ignore x/z angular-velocity righting, while an exact upright target in one solver
 step raised the held-sword wall fixture above its 12 m/s part-speed ceiling. The retained live
@@ -7851,6 +7904,13 @@ identical to the frozen baseline: Duelist 66/120 (55.0%), Swinger 54/120, zero d
 scoring contacts. The 2026-08-31 source has not resumed the compute roadmap; its preflight/null
 control remains required before that resume rather than being relabelled by the Warden parity run.
 
+The combat-value-v2 continuation intentionally retires those two pins. The engagement/control
+event grammar advanced to v3 when physical projectile evidence joined the body-neutral stream,
+moving the reviewed research contract to `ffdfcdb8`; the low-number durability table and removal
+of the legacy projectile multiplier move the balance provenance to `592e8648`. These are interface
+and tuning identities, not evidence that any research result survived the rule change. All prior
+artifacts remain historical until rerun under this exact pair.
+
 Still owed at this point in the chronology: improving the rejected assisted-Warden qualification,
 the Arbalest's one right-side idle targeting debt and the red Twinblade balance curriculum. The
 next section closes the Arbalest debt; the Warden and Twinblade results remain honest inputs to the
@@ -7891,7 +7951,9 @@ fire controller remained outside its limits and spent no ammunition. It was reje
 retuning AI around a mounting regression.
 
 The retained machine keeps the Humanoid's parts and joints byte-for-structure, narrows the bow from
-0.48 m to 0.24 m and moves only `socket-sword-hand` by **0.20 m outboard and 0.20 m forward**. A
+0.48 m to 0.24 m and moves only `socket-sword-hand` by **0.24 m outboard and 0.20 m forward**. The
+last 40 mm is the measured correction that keeps the live launcher stock outside the torso in both
+mirrors; the earlier 0.20 m outboard position still intersected under solver motion. A
 two-piece visible coupling omits the first 0.10 m already covered by the pitch-arm shell. The
 outboard coupling occupies the original socket's rear plane before turning forward; drawing that
 leg beside the launcher made the cosmetic bracket sweep back through the chest. A generic
@@ -7902,10 +7964,12 @@ for five seconds in each mirror. It observed **zero** torso intersections while 
 least 0.95, torso height at least 1.10 m and head-above-torso separation at least 0.25 m; the
 physical targeting test then landed a damaging torso bolt in both mirrors.
 
-The offset changed the prone finishing lane. A fixed-seed sweep at -0.25, -0.15, -0.05, +0.05,
-+0.15, +0.25 and +0.35 m found the lower rows repeatedly struck fallen limbs, +0.05 m fed the
-buckler and +0.35 m drew. The retained **+0.15 m** row and a downed-only tracking rule use the
-1.25 s recovery window to acquire before firing. Moving the open-side blocker lane from 0.07 m to
+The offset changed the prone finishing lane. A fixed-seed v1-body sweep at -0.25, -0.15, -0.05,
++0.05, +0.15, +0.25 and +0.35 m found the lower rows repeatedly struck fallen limbs, +0.05 m fed
+the buckler and +0.35 m drew, so that superseded body retained +0.15 m. The combat-v2 body required
+a fresh seven-height rerun: **-0.15 m** put four capped bolts into the torso in 5.925 s, while
++0.15 m repeatedly spent the magazine on an already-ruined upper arm. The retained -0.15 m lane
+and a downed-only tracking rule use the 1.25 s recovery window to acquire before firing. Moving the open-side blocker lane from 0.07 m to
 **0.12 m** was also necessary after the socket moved; 0.07 m left the full-health follow-up behind
 the buckler. The idle regression now ends in a Construct win at **4.025 s** after three physical
 bolts, and the seeded full-health Duelist cell still records a completed recovery followed by an
@@ -7918,3 +7982,682 @@ changes move the blueprint/program/control row from `b7b4d0c1` / `b6ae8b21` / `0
 `1cfdf5d7` / `d89e988b` / `0f542c4c`; the unchanged control digest is evidence that clearance did
 not retune the yaw/pitch chain. This supersedes the closing sentence above that called right-side
 idle targeting owed.
+
+### Combat-value-v2 qualification infrastructure -- 2026-09-01
+
+Harness: `tests/construct-combined-arms-qualification.test.mjs`, synthetic ordered fixtures only.
+This is validator evidence, not a physical balance result. Thirteen focused checks reconstruct every
+claim from raw events and reject a missing event stream, a duplicate projectile serial, post-verdict
+damage, owner contact presented as an attack, unverified module attribution, sub-limit semantic
+self-clearance, a missing second attack, wrong mirror counts and a changed source/run identity.
+Each condition is an independently mutated input fixture rather than a hand-authored green summary.
+
+The pure projectile-law calibration is separate from that synthetic qualification fixture. With
+the v1 eight-metre-per-second axial floor, 34 joules per damage and unit penetration efficiency, a
+0.12 kg bolt arriving point-first at 42 m/s reaches the 3-damage cap; a 0.035 kg arrow at 48 m/s is
+approximately 1.15294 damage. Mass is linear, usable energy is quadratic above the floor, the curve
+is continuous at 8 m/s, and tail-first, broadside and shaft-zone contacts return zero. These are
+equation checks; a physical bout must still prove the mass profile used by Havok equals the one
+reported to the scorer and that the contact actually lands in the point zone.
+
+That physical contact-zone debt is now closed by the mirrored live-Havok fixture in
+`tests/arrow.test.mjs`. Eight deterministic cells reach head, shaft, tail and a spinning off-axis
+`other` contact from both mirror signs using the solver's reported world manifold point and the
+matching live projectile pose. Restoring the rejected axis projection makes the off-axis cells
+misclassify and the test fail. The mounted-contact boundary is independently mutation-proved in
+`tests/construct-damage.test.mjs`: owner contact, an inactive Action, bad module attribution and a
+duplicate contact are named refusals, while the same armed shield contact remains scoreable.
+
+The frozen physical run is 560 bouts: five morphologies, seven durability multipliers, four seeds,
+two Construct sides and both active/idle programs. Every rung runs because physical results are not
+assumed monotonic; selection is the numerically lowest passing multiplier. Idle qualification is
+the conjunction **zero Construct wins and eight Warrior kills** -- a draw cannot substitute for an
+idle death. Active qualification is at least six Construct wins with at least three per side, while
+all eight cells must retain correct-sign movement or earned spacing, two physical attack admissions,
+positive damage, support/assembly/recovery evidence, an explicit refusal audit and semantic minimum
+self-clearance. Morphology-specific bolt, sword, shield-bash and open-lane clauses are additional
+requirements rather than counters that can rescue a red cell.
+
+Eight workers are the committed default. Jobs are frozen before scheduling and aggregated by job
+index. With `--out`, each indexed cell is an atomic checkpoint; resume accepts it only under the
+same source fingerprint, complete job-manifest digest and per-cell morphology/qualifier/seed/side/
+mode/digest identity. This makes five-minute runs useful without allowing worker completion order or
+an interrupted old binary to choose the evidence.
+
+The first implementation used `Promise.all` inside one Node process. That is rejected evidence:
+Havok's wasm state is shared by every arena in one JavaScript realm, and concurrent exact cells
+changed winners relative to the same rows run sequentially. The retained runner assigns fixed
+round-robin batches to isolated worker threads and executes each worker's batch serially. Focused
+evidence includes a synthetic realm-global guard that makes the old scheduler fail, worker counts one
+and three reproduce identical ordered bytes, a two-row real NullEngine/Havok corpus is byte-identical
+at one and two workers, worker failures retain the exact frozen job index, and a written checkpoint
+resumes in its original slot. These are topology and parity checks, not the still-pending 560-bout
+balance result.
+
+The first complete-matrix attempt exposed a second independent runner defect: with a 4 GiB V8 heap
+it exhausted memory after roughly 260 cells. Atomic checkpoint files did not make that path bounded.
+The parent still retained every raw bout in its return array, its asynchronous delivery chain could
+queue later worker messages behind a slow file write, resume loaded every old cell at once,
+finalization assembled all 560 cells, and the CLI attempted to stringify that full object. The files
+were persistent, but memory ownership was still corpus-sized.
+
+The retained disk-backed path makes those ownership boundaries explicit. A worker waits for a
+parent acknowledgement after its cell callback has atomically written; the runner is invoked with
+result retention disabled; a resumed row reads and independently compares only its matching indexed
+cell; terminal reconstruction retains one 16-cell rung at a time; and exact run-digest folding makes
+a second bounded pass before a third pass streams canonical `report.json` bytes. The CLI requires
+`--out` and prints only status, source/run digests, selected multipliers, cell count and report path.
+A 12-cell synthetic mutation uses 1 MiB payloads and blocks the first callback: the one-worker engine
+must remain at exactly one executed job until acknowledgement, and the runner must return no bout
+array. A complete small in-memory oracle and its disk reconstruction have byte-identical reports and
+run digests before and after terminal resume. Source drift still refuses before finalization, and a
+resumed cell is always rerun and canonical-compared; bounded memory does not turn a cache into trust.
+
+The indexed files are deliberately only untrusted restart caches. Their ordinary integrity digests
+detect drift and accidental mixing; they do not authenticate authorship and are not signatures.
+Qualification authority begins again at terminal finalization, which reconstructs every rung and
+physical clause from the complete raw corpus and refuses a contradicted report. A cache edited by a
+person is outside the evidence protocol and must be discarded or independently replayed, never
+treated as a qualified artifact because its manifest fields still match.
+
+The Warrior's downed-target correction was measured sequentially, never through the rejected
+same-realm scheduler. A fallen Construct publishes its live fatal root as `BodyView.shoulder`; its
+vertical drop previously inflated the Duelist's approach gate, and one detached idle Arbalest was
+left alive through the cap. The retained policy classifies downed state only from live scale-relative
+geometry, approaches by horizontal separation, plants its feet, traverses the original bounded
+0.32 by 0.62 cursor chord, adds the ordinary physical arm thrust during commit and alternates that
+chord on successive attempts. The wider 0.24 by 0.90 experiment regressed the exact idle bracket to
+5/8 and was reverted. At durability x0.02 the retained four-seed/two-mirror Arbalest idle body died
+8/8 in 7.467--25.929 seconds. An upright crossbow Warden could instead retain only 10.7% vitality;
+below the visible 20% boundary the same physical core stroke replaces the broad head-line cut, and
+the sequential Warden x0.02 idle bracket then died 8/8 in 8.146--28.475 seconds. The unit tests
+mutation-prove the low-core admission, point drive, alternating chord and upright low-vitality
+transition. This is an idle-side prerequisite only; it does not select a production rung or rescue
+an active morphology that fails the remaining clauses.
+
+The physical corpus was not complete in this implementation pass. The first source-frozen run was
+invalidated by the bounded-memory defect above and must restart under the corrected source identity,
+so no durability multiplier is promoted and no historical v1-unit result
+is relabelled. `procedural-pbr` likewise remains an
+explicit opt-in. Its functional NullEngine evidence is recorded above, but the required visible
+hardware-browser `mapped control -> procedural subject -> mapped control` frame-time bracket is
+blocked: no genuinely visible, hardware-rasterized browser was available to this run. There is no
+frame-time number, no hidden-tab substitute and no performance pass. Production therefore remains
+`mapped-pbr` with the named automatic fallback.
+
+### Crossbow Warden low-durability assault bracket -- rejected -- 2026-09-01
+
+Harness: the combined-arms four-seed, both-mirror active rows, 30 seconds at 240 Hz, run
+sequentially in isolated real NullEngine/Havok realms. These were pre-matrix structural brackets,
+not a promoted durability result.
+
+The retained x1 chassis won 5/8 raw bouts before this pass but produced 0/8 qualifier-clean cells:
+bolts launched from fire Actions cancelled by the magazine reload edge, while several shield
+contacts belonged to bash instances later cancelled by broken hardware. The independent lifecycle
+defect was mutation-proved and fixed narrowly. A Warden fire Action now completes at the physical
+launch edge (`follow-through-s = 0`); recoil bracing remains a separately admitted public Action.
+The old 0.08 second tail could never complete because reload makes the fire capability unavailable
+on the following control step. This repair changes no projectile, health, armour, mass or geometry.
+
+The exact x1 rerun after that lifecycle repair won 4/8 raw bouts, two in each mirror, and
+drew the other four. Strict reconstruction accepted only 3/8 cells: the
+`4140987459/right` draw and both `4174542697` wins. Both `4124209840` mirrors were real 12-damage
+Construct wins but no shield contact occurred inside a completed bash; `4140987459/left` produced
+two physical shield contacts and no bolt wound; `4157765078/left` dealt 12 damage and left the
+Warrior at 0.04 vitality but one completed fire omitted its launcher/core sample; and
+`4157765078/right` admitted no attack after its hardware was hit. Where both semantic pairs were
+sampled, live minimum clearance remained positive at 0.037--0.120 m. Winner counters therefore
+overstated this body's combined-arms result: the exact gate was 4/8 raw wins and 3/8 clean cells,
+not the required at least 6/8 wins and 8/8 clean cells.
+
+One mutation-first sequencing correction tested the narrowest explanation for the missing bash
+evidence. The first-fire dwell was extended from 0.20 to 0.38 seconds, spanning the authored
+0.16 + 0.12 + 0.10 second chamber, drive and hold envelope before release. Its unit assertion was
+observed red before the source change and green after it. The exact active bracket regressed to
+2/8 raw wins and 2/8 clean cells: delaying the launch did not manufacture body contact, removed
+too many viable shots and left six draws. The correction and its test were reverted. Because the
+retained x1 active half is already red, no idle x1 or durability ladder is presented as a possible
+qualification.
+
+At x0.02 that retained controller won 1/8 raw bouts (0 left, 1 right) and passed the complete cell
+evidence grammar in 0/8. Five rows were Warrior wins and two were draws. The common failure is
+physical rather than a summary threshold: the 0.08-health shield or dorsal launcher meets the real
+Duelist sword before a bolt-and-bash sequence completes. The one raw Construct win still failed
+the winning-support clause after its assembly was lost.
+
+A protected-opening candidate then fired two physical bolts before entering the shield envelope,
+completed fire at launch, used the blocker-aware lane and delayed ranged withdrawal until a real
+bash shot. Its exact x0.02 bracket regressed to 0/8 wins and 0/8 accepted cells. A third centre-mass
+opening shot improved the representative `4140987459/right` row to three torso hits and 9 damage,
+but the Warden still died before a body-contact bash. Lowering only the crossbow shield leaf kept
+mass and combat values byte-identical and passed the isolated bilateral contact/clearance fixture,
+yet in the live row the leaf still struck the sword and its scaled module broke before producing a
+shove. That was enough to reject the candidate without laundering a one-row diagnostic into an
+eight-row bracket. All protected-opening, split-lane and lowered-shield changes were reverted.
+
+This rules out sequencing alone as the x0.02 repair. A future attempt needs shield/launcher
+survivability by construction -- a genuinely protected placement or an independent strike volume
+that reaches the body without first becoming the Duelist sword's blocker -- and must then rerun the
+exact 8-cell active bracket plus the 8-cell idle half. Damage, durability, mass, armour and the
+strict qualifier were not changed to make the red result look green.
+
+A later x1 shield-path follow-up separated scheduler admission from actual reach. At the first
+`4124209840` bash in both mirrors, the 240 Hz live path put the ordinary shield contact point at
+about local x = -1.20 m in chamber and only x = -0.98 m at the end of drive/hold, while the moving
+Duelist crossed x = -0.38 to -0.22 m. The nearest attached body point stayed 0.35--0.90 m away.
+The old stationary, unarmed torso fixture therefore did not prove the production moving-target
+claim. A bilateral exact-Duelist test was first observed red against that old path.
+
+One bounded correction moved only the crossbow Mind's lateral alignment band to
+[-0.82, -0.58] m and required that alignment before admitting bash. It made the mutation test
+green, kept launcher and shield/core action-scoped clearance positive (0.086--0.115 m), and
+produced the required raw 6/8 wins with three in each mirror. It still failed the per-cell gate:
+`4174542697/right` completed a bash but its real leaf made no body contact. The other seven rows
+published physical shield contacts. The two `4140987459` rows also exposed an independent
+short-Action clearance-sampling omission; repairing that recorder cannot create the missing
+`4174542697/right` contact.
+
+A side-neutral shortened-chamber probe made that missing mirror contact, but regressed the exact
+bracket to 5/8 wins (three left, two right). Letting locomotion close instead of brace during the
+bash reduced the sampled `4174542697` pair to two draws, and a 1.02 m bash admission threshold
+never admitted an attack because the physical bodies stopped outside it. Those probes, the
+moving-target test, and the outboard lane were reverted. This is a measured rejection, not a
+near-pass: a future candidate needs a shield path that reaches every moving mirror while retaining
+the already-earned 6/8 tactical result and all eight completed bolt-plus-bash evidence cells.
+
+### Arbalest opening-tolerance mirror bracket -- rejected -- 2026-09-01
+
+Harness: the combined-arms four-seed, both-mirror active x1 rows, 30 seconds at 240 Hz,
+run sequentially in one Havok realm. This was an adversarial follow-up to the retained staged
+bolt-then-left-sword tactic's 6/8 result (four left, two right), not a durability qualification.
+
+The two right-mirror draws did not share one cause. In `4140987459/right`, the 0.0085 rad
+launcher window admitted two draws but did not loose until 20.746 s; the Construct then lost
+support and finished at 0.832 vitality against a 0.616 Warrior. The same seed on the left loosed
+from 1.154 s and won. In `4157765078/right`, three physical torso bolts and the left sword reduced
+the Warrior to 0.01553 vitality, after which turn/brace lane oscillation produced no final wound.
+Both rows retained positive launcher/torso and left-sword/torso clearance. This is why damage,
+health and a side-labeled exception would all have answered the wrong question.
+
+A mutation-first test then widened only the Arbalest fire convergence window to 0.012 rad --
+about 31 mm at the 2.6 m opening range, still inside finite bolt/torso geometry. The exact bracket
+improved to 7/8, with four left and three right wins, positive action-scoped clearance in every
+row and no passive interval. It was nevertheless rejected: `4174542697/left` became a 3.183 s
+arrow-only kill (11.988 physical bolt damage, zero left-sword damage), so that cell failed the
+strict per-cell combined-arms proof. The source and test were reverted to 0.0085 rad. A future
+repair must make the opening shot reliable while preserving a physical sword follow-through in
+every cell; aggregate win count cannot substitute for the morphology evidence.
+
+### Arbalest post-opening melee gate -- rejected -- 2026-09-01
+
+Harness: the same active x1 four-seed, both-mirror bracket, 30 seconds at 240 Hz, run
+sequentially in one Havok realm. A mutation-first program test withheld every subsequent fire
+admission after the first spent bolt while range was at least 2.60 m, then admitted both `fire`
+and the ordinary `cut-left` Action inside that same physical sword range. An already active draw
+still owned its follow-through. The downed finisher used the same range gate without resurrecting
+the floor-facing line-of-sight requirement.
+
+The exact result stayed **6/8 raw wins, four left and two right**. The same two right rows drew:
+`4140987459/right` ended at Construct/Warrior vitality 0.831969/0.615560, and
+`4157765078/right` ended at 0.451851/0.015533. All eight rows dealt damage with both a point-first
+axial bolt and the left sword, requested earned ranged spacing and turn, completed at least 19
+physical attacks, recorded no excessive passive interval, and kept their recorded armed minimum
+clearance positive at 0.072--0.117 m. Forcing the close therefore did not repair the mirror win
+floor.
+
+Strict reconstruction also accepted **0/8** cells. Every row contained completed sword instances
+without the required instance-local `left-sword/torso` sample; three right rows additionally failed
+the bounded melee-opportunity correlation, and several rows exposed pre-existing phase or terminal
+attribution gaps. Those are recorder/Action-lifecycle debts, not evidence that a raw win qualifies.
+Because the candidate missed both the three-per-mirror threshold and the all-cells evidence gate,
+its program rule and mutation test were reverted. Health, armour, mass, projectile damage,
+qualifier logic and the retained 0.0085 rad aim tolerance were unchanged.
+
+### Action-lifecycle clearance coverage correction -- 2026-09-01
+
+Harness: `node --test --experimental-strip-types --test-name-pattern "short_real_Arbalest"
+tests/construct-combined-arms-qualification.test.mjs`, followed by the complete qualification test
+file. The fixed real fixture is `4174542697/right`, four seconds at 240 Hz. It is an evidence-path
+probe, not the full four-seed/two-mirror Arbalest bracket.
+
+The old 30 Hz armed-clearance sampler was observed red against a real completed one-tick
+`cut-left`: `cut-left:left-sword-guard:9` started at step 857, completed at 858 and carried no
+instance-local sample. The scheduler had already removed a terminal generation from
+`snapshot.active` before the next periodic sample. This was a recorder false negative; the whole
+action diagnostic remained a different, non-qualifying stream.
+
+The retained recorder samples the same live authoritative collision primitives at Action admission
+and immediately before the delayed terminal row, and keeps the 30 Hz minimum during longer live
+Actions. Admission, clearance and terminal rows all carry the exact generation id. Solver contacts
+still publish before a same-tick terminal, so the correction does not move physical damage outside
+its Action. The real fixture now gives every completed cut its own sample, including a sub-30-Hz
+instance covered only by lifecycle edges. Synthetic mutations prove that a lifecycle-edge sample
+below its authored margin or with a non-finite distance is still rejected; no qualification clause,
+combat AI, physics, health or damage value changed.
+
+The complete qualification test file passed 30/30, and the retained single-seed full-health
+Arbalest recovery/pressure test also passed. No eight-cell Arbalest reconstruction or 560-bout
+matrix was run for this narrow correction. Because the source fingerprint folds the bout recorder,
+the source digest must move; because the run digest folds both that source identity and raw ordered
+events, every final matrix must be regenerated and cannot reuse an earlier run digest.
+
+### Qualification fixed-step time canonicalization correction -- 2026-09-01
+
+The final-corpus reconstruction exposed a recorder/validator disagreement in eight otherwise
+complete rows. Raw qualification events already serialized time as `atStep / eventStepHz`, and the
+strict validator correctly required that exact JavaScript number. The verdict reporter instead
+used `verdictAtStep * (1 / physicsHz)`. At representative real verdict step 6324, the former is
+`26.35` while the latter is `26.349999999999998`; they are mathematically equivalent but not
+bit-identical. Loosening the evidence validator would have hidden a two-authority record format.
+
+A mutation-first unit probe fixed step 6324 (and the shorter step 413) to the division result and
+was red while the runner had no canonical conversion. The retained runner now derives every
+integer-step-authored absolute report time through one checked `step / stepHz` function: raw
+events, action/locomotion/controller/blocker traces, armed-clearance sample time, verdict time and
+simulated end time. Step-count durations such as the post-verdict tail use the same conversion.
+The validator remains strict equality; no epsilon, physics, policy, vitality, damage or
+qualification threshold changed.
+
+`tests/construct-combined-arms-qualification.test.mjs` passed 35/35, including the real short-Action
+Havok fixture and isolated-worker parity. This was a recorder correction, not a fresh morphology
+qualification: no full corpus was run. The runner source fingerprint and final run digest must be
+regenerated, and checkpoint rows made under the reciprocal-multiplication reporter are not valid
+substitutes for the final corpus.
+
+### Swordbearer outboard mount bracket -- rejected -- 2026-09-01
+
+Harness: the combined-arms four-seed, both-mirror active x1 rows, 30 seconds at 240 Hz. This
+was a pre-matrix structural bracket against the real sword-and-buckler Duelist, not a durability
+qualification or a promoted production result.
+
+The candidate split the existing right yaw-bearing part and joint budgets across a visible,
+fixed torso-to-bearing boom and the original bearing. It moved the physical pivot 0.16 m
+outboard and 0.12 m forward, constrained yaw to its forward anatomical envelope, and left the
+ordinary 1.4 kg sword, damage scale, total assembly mass, and summed part/joint health and armour
+unchanged. The historical shoulder at x = 0.315 m sat only 0.045 m outside the 0.270 m torso
+half-width and the source bracket had measured -0.127 m live sword/core clearance. The boom made
+the ordinary early strokes visibly separate, but external weapon contacts could still lever the
+serial hanging pitch link back through the owner. A compact end-bearing replacement was also
+tested and reverted after both sampled mirrors remained draws and reached -0.053/-0.069 m.
+
+| seed | Construct side | verdict | Warrior vitality | sword damage | completed sweeps | minimum action clearance |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| 4140987459 | left | draw | 1.000 | 0.000 | 16 | -0.094 m |
+| 4140987459 | right | draw | 0.938 | 2.468 | 6 | -0.069 m |
+| 4124209840 | left | draw | 0.429 | 8.933 | 25 | 0.194 m |
+| 4124209840 | right | draw | 1.000 | 0.000 | 5 | 0.255 m |
+| 4174542697 | left | draw | 0.950 | 2.477 | 7 | 0.193 m |
+| 4174542697 | right | draw | 1.000 | 0.000 | 5 | 0.290 m |
+| 4157765078 | left | draw | 1.000 | 0.000 | 15 | -0.036 m |
+| 4157765078 | right | draw | 0.921 | 2.703 | 8 | -0.021 m |
+
+The exact result is 0/8 against the 6/8 active gate, with four unsafe rows and a -0.094 m
+minimum. The candidate and its compatibility plumbing were therefore reverted. This rules out
+an added serial shoulder boom as a by-construction Swordbearer repair: a future morphology needs
+an independently placed cut actuator whose whole constrained envelope clears the torso, not a
+longer lever in front of the same hanging pitch chain. Damage, health, mass, and the strict
+qualifier were not changed to make the red result look green.
+
+### Swordbearer independent forward turntable -- rejected -- 2026-09-01
+
+The next structural bracket removed the hanging pitch lever rather than extending it. A short
+fixed support placed a one-axis yaw turntable wholly in front of the torso, kept the original
+two-part 6/8 kg and two-joint health budgets, and carried the unchanged 1.4 kg sword in a horizontal
+plane. The source shoulder's sampled commanded envelope fails at -0.127 m; the new bind envelope
+was separated by construction. A first 0.20 rad chord made no contact, so the one permitted
+controller/path probe widened physical travel to 0.55 rad without changing damage or durability.
+
+The exact active x1 four-seed/two-mirror bracket remained 0/8. Every Warrior finished at full
+vitality and the turntable produced zero sword damage and zero damaging sword contacts. Worse,
+the live constraint did not preserve the bind argument under combat load: one completed left row
+reached -0.006369 m action-scoped sword/core clearance. A cell with no completed Action has no
+action-scoped clearance and is shown as `--`, not converted into a passing diagnostic.
+
+| seed | Construct side | verdict | Construct vitality | completed sweeps | minimum action clearance |
+| --- | --- | --- | ---: | ---: | ---: |
+| 4140987459 | left | draw | 0.870603 | 4 | -0.006369 m |
+| 4140987459 | right | draw | 0.934171 | 0 | -- |
+| 4124209840 | left | draw | 0.943701 | 2 | 0.219242 m |
+| 4124209840 | right | draw | 0.718833 | 0 | -- |
+| 4174542697 | left | draw | 0.863460 | 0 | -- |
+| 4174542697 | right | draw | 0.812895 | 0 | -- |
+| 4157765078 | left | draw | 0.890931 | 0 | 0.367731 m |
+| 4157765078 | right | draw | 1.000000 | 0 | -- |
+
+An adversarial follow-up isolated the old policy coupling before accepting that result. The
+candidate's compiled profile measured 1.3975 m reach and 0.465 m carrier envelope, while the
+historical hanging-arm program admitted attacks out to 2.60 m. A mutation-first program proof
+showed the old program selecting `sweep` at 1.26 m while a reach-coupled band instead kept closing;
+the experimental band derived strike/close at 1.18825 m and retreat at 1.08595 m from those two
+compiled values. No other candidate datum changed. The first exact seed then remained plainly
+ineligible in both mirrors: seed 4140987459 drew left/right with Warrior vitality 1.0, zero sword
+damage, zero damaging contacts and zero completed sweeps; Construct vitality was 1.0/0.963021.
+Both rows carried close, retreat and both turn-rule evidence. Per the bounded-trial stop rule the
+remaining six cells were not represented as measured. This rejects the plausible alternative
+explanation that only the inherited 2.60 m admission caused the zero-contact result.
+
+The candidate was fully reverted. This rules out both serial shoulder booms and a single
+forward horizontal turntable for this chassis. The latter is geometrically cleaner at bind but
+cannot reach the supported Duelist's damaging lane, and its fixed support still admits a small
+impact-driven violation. A future attempt needs an independently clear strike volume that is also
+kinematically co-located with the opponent lane; neither endpoint clearance nor a wider yaw chord
+is enough. The strict qualifier, health, armour, sword mass and damage scale were unchanged.
+
+### Sword Warden high-mast front rotor -- rejected -- 2026-09-01
+
+A separate sword-only branch replaced both shared dorsal parts and joints with a 0.64 m physical
+mast, a front elevation block, and a bounded azimuth rotor. It preserved the 7/6 kg part budget,
+both 8-health/0.6-armour joint budgets, the 11 kg sword module, and the sword's damage scale. The
+crossbow blueprint/control branch was not edited. Unlike the earlier short turntable, the rotor
+latched the live target chord and made four finite outward/return crossings per Action. The first
+overhand version was rejected before the bracket because it remained self-clear but produced no
+contact. The horizontal version passed all three physical acceptance cases: bilateral live Warrior
+contact, bilateral completed-Action contact/clearance, and collider-to-Combat health change.
+
+That physical success was still not tactical qualification. The exact active x1, four-seed,
+both-mirror bracket remained 0/8, below the required 6/8 and 3-per-side gate. Every cell did make
+positive sword contact and requested both move and turn, and every sampled Action clearance was
+positive. Four cells completed fewer than the required two cuts. Results are in frozen seed/side
+order:
+
+| seed | Construct side | Warrior vitality | Construct vitality | completed cuts | damaging contacts | sword damage | minimum action clearance |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 4140987459 | left | 0.226643 | 1.000000 | 5 | 20 | 9.403536 | 0.347093 m |
+| 4140987459 | right | 0.751805 | 0.979927 | 2 | 8 | 3.818927 | 0.307265 m |
+| 4124209840 | left | 0.855489 | 1.000000 | 1 | 7 | 1.528639 | 0.452471 m |
+| 4124209840 | right | 0.976216 | 0.988871 | 1 | 3 | 1.189205 | 0.220408 m |
+| 4174542697 | left | 0.634351 | 1.000000 | 0 | 3 | 2.575690 | 0.570780 m |
+| 4174542697 | right | 0.915294 | 0.987766 | 0 | 3 | 1.382410 | 0.332563 m |
+| 4157765078 | left | 0.796066 | 0.987953 | 0 | 7 | 4.104186 | 0.386813 m |
+| 4157765078 | right | 0.531316 | 0.994733 | 2 | 9 | 3.903454 | 0.232569 m |
+
+One diagnostic mattered independently of the rejected design: adding a real mounted-sword
+controller without adding its name to `MOUNTED_SWORD_ATTACK_CONTROLLERS` moves the collider but
+causes Combat to refuse every hit as `inactive-action`. The physical tests caught that omission;
+the bracket above was measured only after the striker was genuinely armed. The mast, rotor,
+controller, and temporary arming entry were then fully reverted. A safer envelope and more
+physical contacts are not enough: this chassis still needs an actuator whose completed stroke
+cadence and contact placement convert into kills without increasing damage or durability.
+
+### Twinblade forward-turret rack bracket -- rejected -- 2026-09-01
+
+Harness: the same four-seed, both-mirror active x1 bracket, 30 seconds at 240 Hz. The candidate
+replaced the two shoulder-hung chains with short independently aimed mounts on one visible roof
+rack. The rack joined the torso through ordinary blueprint geometry, both blades remained the
+ordinary 1.4 kg swords, and their constrained frontal arcs began 0.20 m forward of the root. An
+idle-Warrior probe moved live action-scoped clearance from the historical crossing into a
+0.35--0.38 m band and produced real bilateral wounds, so the idea reached the exact opponent
+instead of being accepted from bind geometry alone.
+
+The exact bracket rejected it. All eight cells drew. Construct/Warrior vitality, dealt damage,
+completed cuts and minimum action-scoped clearance were respectively: 0.881/0.928, 2.391, 22,
+0.004 m; 0.948/1.000, 0, 5, 0.087 m; 0.806/0.859, 5.737, 33, 0.096 m; 1.000/1.000, 0, 2,
+0.103 m; 0.903/1.000, 0, 8, 0.120 m; 0.855/0.944, 2.794, 25, -0.087 m; 0.984/0.923,
+3.090, 7, -0.041 m; and 0.849/1.000, 0, 14, 0.107 m in seed/left-right order. The two late
+negative rows show that a shared rack still lets an external hit torque a short serial link
+through its owner, while five zero-damage rows show that clearance alone did not make the
+target-centred scissor reliable. A wider travel and an explicit first-blade clearing phase made
+isolated wounds faster but did not restore the ordered two-torso-cut proof. The topology and those
+controller changes were reverted. A future Twinblade needs two genuinely independent constrained
+cut bearings, not two ordinary arm chains sharing a roof plate.
+
+### Sword Warden targeting bracket -- rejected -- 2026-09-01
+
+Harness: the combined-arms four-seed, both-mirror active x1 rows, 30 seconds at 240 Hz, plus
+`the_phase_latched_Warden_sword_completes_contacts_and_clears_its_core_in_both_mirrors` and
+`a_jammed_Warden_sword_reverses_each_genuinely_attempted_phase_within_a_bounded_time`. This is a
+pre-matrix targeting bracket, not a durability qualification or a promoted production result.
+
+The retained morphology-specific controller chambers, commits and recovers one physical dorsal
+stroke, samples target posture only at phase edges and reverses a genuinely attempted phase after
+0.75 seconds when an opponent or shield prevents exact endpoint convergence. The timeout keeps
+writing the real yaw/pitch motors and manufactures no contact or damage. Its mutation test freezes
+both bearings: the old controller remains in `chamber` forever, while the retained controller
+publishes the timeout reason and completes the bounded attempt. The physical mirror proof still
+requires completed Actions, damaging sword contacts and positive sword/core clearance.
+
+| sword Warden trial | exact x1 result | physical disposition |
+| --- | --- | --- |
+| 0.20 rad, +0.20 m centre chord before bounded reversal | 1/8 wins | safe but long jams limited most rows to 2--5 completed cuts |
+| blocker-clear target lane or blocker-derived stroke direction | 1/8 and 0/8 | rejected; moved energy into arms or missed the centre lane |
+| 0.30 rad chord | 0/8 | rejected; one row crossed the core |
+| 0.12 rad, +0.05 m chord before fallen-carrier audit | apparent 2/8 | rejected; the second win continued driving while fallen and one mirror reached -0.027 m sword/core clearance |
+| 0.12 rad, +0.05 m, cut cancelled on lost support | 1/8 | retained as the honest red baseline; all eight rows stayed at or above 0.086 m clearance |
+| sword-only core 0.58 -> 0.40 m and mount top 0.29 -> 0.20 m | 0/8 | rejected and reverted; literal surface bind was safe but reduced torso contact |
+| sword-only 1.10 m boom plus outboard Y cut bearing, 0.55 rad | 0/8 | rejected and reverted; all rows made damaging contact but none won, four rows failed to complete a return, minimum sword/core clearance was 0.041 m |
+
+The final structural probe replaced the sword variant's shared pitch block with a long placing boom
+and an outboard cut bearing while leaving the crossbow blueprint unchanged. Its mutation-first bind
+test rejected the old two-axis chain, then pinned a strict redistribution rather than free hardware:
+the boom and cutter still summed to 6 kg, 6 part health and 0.9 part armour, while the pitch and cut
+joints still summed to 8 joint health and 0.6 joint armour. The new bearing physically swept and
+scored in both mirrors, but its exact eight rows were all draws at Warrior vitality 0.626--0.961.
+Four rows never returned beyond `commit` before the bout cap, and the four completing rows managed
+only one to seven cuts. Because this was 0/8 against a 6/8 gate, the actuator, budget split and its
+mutation test were reverted; it is evidence against adding another serial dorsal bearing to this
+same fixed boom, not a production morphology.
+
+After that revert, the exact same retained two-axis controller was rerun against the source's newer
+Duelist downed branch, which now uses finite planar reach and a physical point drive. That sequential
+current-source bracket is **0/8 draws**, with Warrior vitality 0.147--0.888, three to twenty completed
+cuts except where noted by the raw rows, and positive per-instance sword/core clearance with a new
+0.035 m minimum. This supersedes the 1/8 winner count and 0.086 m corpus minimum above as current
+opponent-policy evidence; it does not identify a Warden regression. The controller still has the
+same 0.12 rad chord, +0.05/+0.30 m posture lanes, 0.75 s bounded reversal, pedestal compensation and
+lost-upright cancellation, and all focused Action/contact/bilateral-clearance proofs remain green.
+
+The remaining limitation is structural rather than another target scalar. A top-mounted two-axis
+bearing can sweep only one short horizontal chord; shield and arm contacts redistribute most of
+its energy, while lowering that same bearing by the smallest literal surface-preserving amount
+made the chord worse. Reaching the six-of-eight gate needs a different actuator/morphology -- for
+example independent extension or a joint chain that can place and then drive the blade through a
+torso lane -- with its own clearance proof. Damage, health, mass and the strict qualifier were not
+changed to make this red result look green.
+
+### Authored Warden entry requalification -- historical accepted identity -- 2026-09-01
+
+Harness: the frozen four-seed, both-mirror authored Warden entry qualification used by
+`npm run construct:qualify`. The historical accepted identity was schedule `e74cb441`, source `e5d255e7` and
+run `7a626bcd`. All eight rows dealt bilateral physical damage, the corpus contained every required
+Action (`move`, `brace`, `fire`, `cover`), no row recorded a stuck physics step, and one of eight
+reached the time cap. At that historical source the entry gate therefore qualified on the
+combat-value-v2 assisted runtime. This was an admission result for the learning rung, not a learned
+candidate, durability multiplier or five-morphology combined-arms qualification; the fresh
+current-source rejection recorded below supersedes it for present admission decisions.
+
+The final controller shape came from a fail-closed authored bracket rather than from relabelling the
+earlier rejected corpus:
+
+| authored Warden trial | physical result | disposition |
+| --- | --- | --- |
+| mounted blocker-side aiming lane | 0/8 damaging rows | rejected |
+| centre-mass lane with 0.01 rad release, before the recoil-brace correction | 8/8 damaging rows; 2/8 missing brace | rejected |
+| brace for the complete reload | 0/8 bilateral-damage rows | rejected |
+| brace only for the then-retained 0.08 s recoil follow-through | 8/8 bilateral damage; all required Actions; 0 stuck; 1 time cap | historically qualified |
+
+That identity is not current-source evidence after the fire-lifecycle correction recorded above.
+The current Action completes at launch because reload otherwise cancels it by construction; brace
+remains evidence from a declared public Action rather than a hidden transform. A fresh authored
+entry run must replace the schedule/source/run identity before promotion. The source-frozen
+560-bout combined-arms matrix and the complete Session-30 gate remain separate, pending evidence.
+
+### Twinblade independent torso bearings -- rejected before the corpus -- 2026-09-01
+
+The follow-up to the rejected common rack gave each ordinary 1.4 kg sword its own compact two-axis
+bearing parented directly to the torso. The yaw parents were physically distinct at root-local
+`x = +/-0.24 m`, their pitch children and sockets shared no moving part, and both sword hilts began
+`0.29 m` forward of the torso origin. A mutation-first topology test was red on the retained
+shoulder bind (`z = 0`) and green only with those independent forward parents. `npm.cmd run check`
+was green before the physics probe.
+
+The required bilateral idle-Warrior proof rejected the design before the frozen active corpus was
+spent. The exact command was
+`node --test --test-name-pattern="one_physical_Twinblade_Action" tests/construct-twinblade.test.mjs`;
+real Havok ran at 240 Hz, separation was 1.25 m, the Warrior was unarmed and idle, and the first
+left-mirror row failed because no first-cut torso contact existed in its 160 steps. A bounded
+480-step trace explained the failure rather than rescuing it with a target scalar: the forward
+neutral swords began inside the opponent arm envelope. Both independent bearings moved and the
+left row retained `0.524 m` minimum left-sword/core and `0.526 m` right-sword/core clearance, but
+the first blade repeatedly struck the head while the second blade contacted the off arm and then
+crossed the torso at only `0.157 m/s`, below the physical sword bite floor. Moving the target down
+to the torso made the first cutter wound it, but the second still arrived at only `0.12--2.51 m/s`;
+widening the chamber merely turned the first contact into a starting-pose arm wound.
+
+This is a fail-closed pre-corpus rejection, not an eight-cell qualification result. The physical
+prerequisite -- one ordered, damaging torso cut from each independently commanded blade -- was
+absent, so running the active four-seed/both-mirror matrix could not satisfy the strict Twinblade
+qualifier. The candidate topology and its mutation test were fully reverted. A future independent
+actuator must include a physically clear neutral/stowed pose and a route around the opponent's arm
+envelope; moving two forward-pointing universal bearings independently is not sufficient.
+
+### Arbalest opening-only tolerance bracket -- rejected -- 2026-09-01
+
+Harness: the combined-arms four-seed, both-mirror active x1 rows, 30 seconds at 240 Hz,
+run sequentially in one Havok realm after lifecycle-edge clearance sampling was installed. This
+was a side-neutral follow-up to the globally widened tolerance recorded above, not a durability
+qualification.
+
+A mutation-first program test made the launcher's convergence window 0.012 rad only while the
+twelve-round magazine remained completely unspent, then restored the retained 0.0085 rad after
+the first physical bolt. The hardware ammunition count is authoritative and mirror-independent.
+The intent was to rescue `4140987459/right`'s 20.746-second first damaging bolt without retaining
+the fast follow-up shots that had turned `4174542697/left` into an arrow-only kill.
+
+The exact raw bracket reached **7/8 wins, four left and three right**. The old late-launch row won,
+and `4157765078/right` also finished instead of oscillating at 0.01553 Warrior vitality. The sole
+draw moved to `4174542697/right`, ending at 0.07345 Warrior vitality. The result nevertheless
+failed the strict physical gate. Three winning rows crossed their live action-scoped self-clearance
+limits, with recorded minima -0.01717, -0.09836 and -0.01436 m; the draw also lacked the required
+point-first bolt plus concurrent left-sword evidence. Several rapid replacement instances exposed
+additional contact/lifecycle attribution failures, so only three cells reconstructed without a
+strict failure.
+
+The dynamic tolerance expression and its mutation test were reverted. A mirror-floor win count
+cannot override live self-intersection or missing combined-arms evidence. Health, damage, armour,
+mass, morphology geometry, qualifier rules and the retained 0.0085 rad window were unchanged.
+
+### Qualification Action-admission and sword-Warden clearance correction -- 2026-09-01
+
+An audit of the bounded Session-30 corpus found two recorder/schema defects; neither was a combat
+result. In sword-Warden active x1 cells 449 and 451, the runner truthfully published 187 and 1,542
+`shield/core` samples attributed to physical `bash` generations. The frozen morphology schema
+declared only `dorsal-sword/core -> cut`, however, so the validator rejected every shield row as
+belonging to the wrong armed Action. Sword Warden carries and actively drives that independent
+shield, so dropping its evidence would have weakened the safety claim. The qualifier now declares
+both `dorsal-sword/core -> cut` and `shield/core -> bash`. A mutation test removes the shield rows
+and then drives one below its authored margin; omission and unsafe clearance both remain red. On
+the saved raw cells this removes the thousands of false schema-attribution failures while leaving
+all genuine cancelled-Action contact failures intact.
+
+The same audit found 42 false physical admissions in the exact x1 Arbalest rows (90 in the saved
+corpus): `cut-left` was started and completed in one scheduler step after live sight or range had
+already made its controller decline to drive. Those generations published no controller phase,
+but the runner had called every scheduler start an `attack-admitted` event. The recorder now keeps
+the lifecycle start/terminal while claiming physical admission and sampling armed clearance only
+when that exact generation survives into the active snapshot. A fixed real Havok fixture was red
+before the correction and proves that the same-step phase-less cycles remain present but are no
+longer admitted. The terminal-step recorder also refuses clearance and contact authority to an
+instance whose controller never published a phase; a completed generation which did publish a
+phase still owns its final solver step. This does not convert phase-less cycles into completed
+attacks, manufacture contact or relax the validator's requirement for an independently attributed
+physical phase.
+
+The same raw-event audit separated a second misleading diagnostic from a qualification failure.
+Non-projectile contacts occurred after valid admission but before a later cancellation in 1,086
+rows (`31` Arbalest cuts, `175` Swordbearer sweeps, `39` Twinblade cuts, `4` crossbow-Warden
+bashes, `6` sword-Warden bashes and `831` sword-Warden cuts), and another `46` belonged to Actions
+still open at the bout boundary. They are temporally inside their attributed physical Action; the
+old validator incorrectly called them outside solely because their terminal was not completed.
+The reconstruction now accepts that raw timing fact but keeps the qualification boundary strict:
+only contacts belonging to a completed admitted instance can supply positive-damage or morphology
+evidence, and cancelled/open instances cannot satisfy either attack count. Contact after any
+terminal remains invalid. Mutation tests cover open contact, pre-cancellation contact, cancelled
+damage laundering and terminal-before-contact order independently.
+
+### Final combat-value-v2 combined-arms matrix -- rejected -- 2026-09-01
+
+Harness: `node scripts/construct-warrior-curriculum.mjs --combined-arms --workers 8 --out <fresh-output-directory>`,
+real NullEngine/Havok at 240 Hz. The frozen manifest contains five
+morphologies, seven durability rungs, four seeds, both Construct sides and matched idle/active
+bodies: 560 cells. The completed receipt is source `f82bc3d3`, run `d1e1d8e7`, status `rejected`.
+Independent cell reconstruction found no verdict-time anomaly. Every selected production
+multiplier is null.
+
+| morphology | x1 idle Warrior kills | x1 active wins (left/right) | x1 strict evidence cells | first rung with 8/8 idle Warrior kills | active result at that rung |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Swordbearer | 0/8 | 0/8 (0/4, 0/4) | 0/8 | x0.02 | 0/8 |
+| Twinblade | 0/8 | 3/8 (1/4, 2/4) | 0/8 | x0.05 | 0/8 |
+| Arbalest | 0/8 | 6/8 (4/4, 2/4) | 0/8 | none; x0.02 reaches 5/8 | 0/8 at x0.02 |
+| crossbow Warden | 0/8 | 4/8 (2/4, 2/4) | 4/8 | x0.02 | 1/8 (0/4, 1/4) |
+| sword Warden | 0/8 | 0/8 (0/4, 0/4) | 8/8 | none; x0.02 reaches 5/8 | 0/8 at x0.02 |
+
+The raw win count never rescues the physical gate. Arbalest reaches six aggregate wins at x1 but
+misses the three-win right mirror floor and every cell lacks the required point-first bolt plus
+concurrent left-sword proof. Crossbow Warden has four clean x1 cells but only four wins. Sword
+Warden supplies all eight x1 evidence cells and still wins none. Swordbearer and Twinblade retain
+self-clearance, passive-interval and attack-completion failures recorded in the rejected brackets
+above. Lower durability can make the idle body killable without preserving active competence.
+There is therefore no measured production rung to install and no prior combat-unit result is
+relabeled as current qualification.
+
+The visible performance half of the handoff remains blocked. No genuinely visible,
+hardware-rasterized browser was available for the required mapped control -> procedural subject ->
+mapped control bracket. No hidden-tab number substitutes for it, `mapped-pbr` remains the production
+default, and `procedural-pbr` remains an explicit mode with the named automatic fallback.
+
+### Fresh current-source authored Warden entry -- rejected -- 2026-09-01
+
+Harness: `npm run construct:qualify -- --out <fresh-output-directory> --workers 8 --expect recorded`,
+the frozen four-seed, both-mirror authored Warden entry corpus. The terminal receipt is
+schedule `8253502c`, source `f82bc3d3`, run `97a634ab`, status `rejected`. It records eight rows,
+one bilateral physical-damage row, zero stuck steps, 68 named capability losses and zero unexplained
+capability losses. Seven rows omit both required brace and fire Actions, and all eight reach the
+time cap. Production writes no learning shard or promoted artifact from this entry.
+
+This current result supersedes the accepted identity `e74cb441` / `e5d255e7` / `7a626bcd` for
+admission decisions without rewriting that historical measurement. The immutable schedule digest
+remains `8253502c`; repinning entry evidence does not change it because the mutable entry record is
+deliberately outside the frozen protocol digest. Session 30 remains competitively red, Session 18
+still owns the Twinblade deficit, and Session 16 still requires a person's product verdict.
+
+### Swordbearer Action-length repair bracket -- rejected -- 2026-09-01
+
+The first full-gate audit reported two focused real-Havok tests red at the frozen Session-30 source
+`f82bc3d3`. One was genuine. In the
+30-second seed-`4157765078` left mirror, the first public `sweep` generation completed at 7.100 s,
+then the physical `effigy-sword` module detached at 8.721 s; later requests were truthfully refused
+as `missing module "effigy-sword"`, leaving only one completed generation.
+
+The other apparent red was a focused-test reporting mismatch, not a locomotion regression. The
+bout report retained the posture, contact and `fallen` evidence from which the canonical locomotion
+corpus derives combat release, but did not publish the corpus cell's two derived release booleans.
+The test read those absent properties as false and therefore judged the transient 0.585398993 m
+minimum rather than the 2.269833 m final separation after a real fall. It now reconstructs the exact
+corpus predicate and passes both mirrors; the 0.605 m recovery-space floor did not change.
+
+The controller was bracketed without changing health, damage, armour, morphology, qualification or
+either assertion. Reducing the four additional commit/recover reversals to zero or one produced
+multiple completed Actions but lost the required positive upright torso wound in the left mirror.
+Two or three additional reversals retained only one completion. Restoring all four reversals and
+adding the same bounded-obstruction phase progression used by the Warden also failed: 0.50 s and
+0.60 s phase limits retained the left torso wound but lost the right one, while 0.70 s lost the left
+wound. Every candidate and its temporary controller state was reverted.
+
+A subsequent support-aware continuation candidate kept transient perception loss from cancelling an
+admitted sweep but cancelled it as soon as `core-upright` became false. It completed zero left-side
+sweeps rather than one and was reverted. Posture loss occurs at 1.795833 s, every positive
+Swordbearer hit is thereafter non-standing and the Warrior deals more than the sword module's 4.5
+durability before later admission can succeed. The remaining repair therefore has to preserve the
+weapon and recover upright attack opportunities, not merely rename an Action terminal boundary.
+
+The result rules out treating lifecycle granularity alone as the repair. A future Swordbearer
+change must jointly prove two completed physical generations, bilateral upright torso damage and
+the retained recovery-space floor; shortening the oscillator or declaring an obstructed endpoint
+complete independently does not preserve that set. Session 27/30 therefore remains red rather
+than accepting a favourable subset of the focused evidence.
+
+The final full prototype rerun measured 1,315 passing and the genuine Swordbearer test failing out
+of 1,316. TypeScript checking, the production Vite build and `git diff --check` passed. This rerun
+also confirms that the recovery-classification correction, scaled-locomotion digest update and
+Git-owned documentation gate corrections removed the five unrelated failures seen across the
+earlier audits; they are not being hidden in the one-test total.

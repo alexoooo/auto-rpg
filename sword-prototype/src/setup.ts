@@ -243,7 +243,7 @@ export class SetupScreen {
       const setup = this.matchup[side];
       const definition = unitDefinition(setup.unit);
       const construct = definition.controlSurface.startsWith("construct-");
-      const savedMachine = definition.controlSurface === "construct-v1";
+      const savedMachine = definition.controlSurface === "construct-v3";
       const policyOptions = definition.driverOptions.some((driver) => driver.name === setup.policy)
         ? definition.driverOptions
         : [{ name: setup.policy, label: `${setup.policy} (incompatible)` }, ...definition.driverOptions];
@@ -321,7 +321,7 @@ export class SetupScreen {
       if (setup.control === "you" && !definition.humanAdapter) {
         return `control surface ${definition.kind} has no human adapter`;
       }
-      if (definition.controlSurface === "construct-v1") {
+      if (definition.controlSurface === "construct-v3") {
         const refusal = constructSelectionRefusal(setup, this.constructAffordance?.entries().map(({ id }) => id) ?? []);
         if (refusal) return refusal;
       }

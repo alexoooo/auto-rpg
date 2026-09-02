@@ -85,6 +85,11 @@ test("no_passing_candidate_writes_no_promoted_artifact", async () => {
   const runDirectory = await mkdtemp(join(tmpdir(), "construct-negative-"));
   try {
     const config = productionConstructTrainerConfig();
+    assert.equal(config.entryQualified, false);
+    assert.equal(config.qualificationSourceDigest, "f82bc3d3");
+    assert.equal(config.qualificationProtocolDigest, "8253502c");
+    assert.equal(config.entryReason,
+      "1/8 bilateral physical-damage rows; 7/8 rows missing brace and fire; 8/8 bouts reached the time cap");
     let shards = 0;
     const result = await runConstructTrainer({ runDirectory, config, runShard: (job) => {
       shards += 1;
@@ -92,6 +97,8 @@ test("no_passing_candidate_writes_no_promoted_artifact", async () => {
     } });
     assert.equal(result.status, "rejected");
     assert.equal(result.promotedArtifact, null);
+    assert.equal(result.completedShards, 0);
+    assert.equal(result.reason, config.entryReason);
     assert.equal(shards, 0);
     assert.equal(JSON.parse(await readFile(join(runDirectory, "construct-learning-result.json"), "utf8")).promotedArtifact, null);
   } finally { await rm(runDirectory, { recursive: true, force: true }); }

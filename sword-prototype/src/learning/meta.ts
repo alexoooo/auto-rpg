@@ -629,7 +629,7 @@ export function fitnessComponents(record: BehaviourRecord, opponentVitality: num
   // previously paid a healthy runner for avoiding the fight; it is retained as
   // a zero-valued report field only so old experiment readers refuse no rows.
   const win = record.win ? 4 : -4; const vitality = Math.max(-0.5, Math.min(0.5, (record.vitality - opponentVitality) * 0.5));
-  const efficiency = Math.min(0.5, record.damage / Math.max(1, record.damage + (1 - record.vitality) * 300) * 0.5);
+  const efficiency = Math.min(0.5, record.damage / Math.max(1, record.damage + (1 - record.vitality) * 15) * 0.5);
   const survival = 0;
   const feasible = record.engagement.attacksInWindow > 0 ||
     (record.engagement.viableOpportunities === 0 && record.engagement.retreatOutsideReachSeconds === 0);

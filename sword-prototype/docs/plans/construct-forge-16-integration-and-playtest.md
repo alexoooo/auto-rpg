@@ -1,6 +1,6 @@
 # Session 16 -- decide whether this becomes the game
 
-## Status -- UI complete; product verdict blocked by the integrated continuation (2026-09-01)
+## Status -- UI complete; current authored entry rejected; product verdict blocked by the red integrated continuation (2026-09-01)
 
 The ordinary mouse-driven starter, Forge, physical probe, exact saved-revision Setup/Fight path and
 causal weak/repaired Lab sequence are implemented. No person has yet completed the complete guided
@@ -19,21 +19,24 @@ with an explicit product verdict and moves every durable result out of this plan
 
 ## Entry gate
 
-The implemented loop and fail-closed learning result are recorded under "Construct learning rung
+The implemented loop and fail-closed learning history are recorded under "Construct learning rung
 entry-gate result" in `docs/measurements.md`: the rejected authored corpus spent no production
-rollout and promoted no network. Supported locomotion is complete; Session 30 must now rerun the
-entry gate against the integrated continuation. Merely not running learning is not a result. The
+rollout and promoted no network. Supported locomotion is complete. A historical combat-value-v2
+entry qualified under schedule `e74cb441`, source `e5d255e7` and run `7a626bcd`, then became stale
+when the fire lifecycle changed. The fresh schedule `8253502c`, source `f82bc3d3`, run `97a634ab`
+is rejected: one of eight rows deals bilateral physical damage, seven omit brace and fire, and all
+eight time-cap. The learning rung remains closed. Merely not running learning is not a result. The
 construct playtest protocol, assignments and questions in `src/construct/playtest.ts` were
 committed before exposing the player to any candidate.
 
 ## Integrated result
 
-The learning entry gate rejected the corpus, promoted no candidate and spent no production rollout.
-There is therefore no `adaptive-construct-v1` entry to install. The authored Mind editor and
-auto-battle loop remain the product under test; AI programming, not opaque learning alone, is the
-core gameplay. The supported-runtime rerun was honestly rejected and promoted nothing; Session 30
-owns the next integrated qualification. This session never invents a learned driver when that rerun
-promotes nothing.
+The current learning entry gate rejects its corpus, promotes no candidate and spends no production
+rollout. There is therefore no `adaptive-construct-v1` or other learned candidate to install. The
+authored Mind editor and auto-battle loop remain the product under test; AI programming, not opaque
+learning alone, is the core gameplay. Session 30's completed matrix is also competitively red, and
+Session 18 still owns the Twinblade deficit. This session never invents a learned driver when no
+candidate promotes.
 
 Finish onboarding in the Forge: one guided build of a four-limb Warden, one crossbow-to-sword module
 swap, one locomotion group, one attack action, one simple Mind rule, then a visible auto-battle and a

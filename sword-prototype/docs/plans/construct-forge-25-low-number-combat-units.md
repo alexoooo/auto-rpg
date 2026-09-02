@@ -1,5 +1,8 @@
 # Session 25 — low-number combat units and saved-content migration
 
+**Status (2026-09-01): implemented, focused-green and recorded durably; final integrated gate
+belongs to Session 30.**
+
 ## Outcome
 
 Move every authoritative wound, durability and armour value into combat-value ruleset v2. A

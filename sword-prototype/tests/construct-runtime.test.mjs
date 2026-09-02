@@ -37,7 +37,7 @@ const part = (id, vital = false, clearance = 0.004) => ({
 });
 
 const sixPartBlueprint = () => ({
-  version: 1,
+  version: 4,
   id: "six-part-runtime",
   rootPart: "core",
   parts: [part("tip"), part("middle-b"), part("core", true), part("middle-d"), part("middle-a"), part("middle-c")],
@@ -57,7 +57,7 @@ const sixPartBlueprint = () => ({
 });
 
 const onePartBlueprint = () => ({
-  version: 1,
+  version: 4,
   id: "one-part-control",
   rootPart: "control",
   parts: [{ ...part("control", true), massKg: 12 }],
@@ -382,7 +382,7 @@ test("socket_module_roots_publish_all_Warden_hardware_as_code_native_geometry", 
       localFlatDirection: [0, 1, 0], damageScale: 1 } } : {}),
     ...(kind === "launcher" ? { maxHeatJ: 500, coolingW: 20, reloadSeconds: 0.5,
       heatPerShotJ: 35, energyPerShotJ: 80, projectile: { poolSize: 8, massKg: 0.05,
-        radiusM: 0.015, lengthM: 0.4, muzzleSpeedMps: 35, damageScale: 1 } } : {}),
+        radiusM: 0.015, lengthM: 0.4, muzzleSpeedMps: 35, penetrationEfficiency: 1 } } : {}),
   }));
   const runtime = compileConstruct(scene, blueprint, { faction: "left", origin: new Vector3(0, 3, 0) });
   t.after(() => runtime.dispose());

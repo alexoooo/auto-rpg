@@ -19,7 +19,7 @@ import { compileConstruct, groundedConstructOriginY } from "./compile.ts";
 import { ConstructControlEndpoint } from "./control.ts";
 import type { ConstructPart, ConstructRuntime } from "./runtime.ts";
 import { WARDEN_SENSORS, wardenBlueprint, wardenControl, wardenProgram } from "./warden.ts";
-import { ConstructMountedSword } from "./striker.ts";
+import { ConstructMountedContactStriker, ConstructMountedSword } from "./striker.ts";
 import { ConstructResources } from "./resources.ts";
 import type { ActionEffect } from "./scheduler.ts";
 import type { ConstructBlueprint } from "./blueprint.ts";
@@ -118,6 +118,9 @@ export const HUMANOID_CONSTRUCT_SUPPORTED_CARRIER = Object.freeze({
 
 const NO_HANDS = Object.freeze({}) as Record<HandName, HandView>;
 const NO_NATURAL_ATTACKS = Object.freeze({});
+const MOUNTED_SWORD_ATTACK_CONTROLLERS = new Set(["swordbearer-target-sweep",
+  "twinblade-scissor-cut", "humanoid-left-sword-sweep", "sweep-arc", "sweep-compact-arc",
+  "target-centred-sweep", "warden-sword-sweep"]);
 const blankThreatHand = (): HandView => ({ weapon: "empty", shoulder: new Vector3(), tip: new Vector3(),
   tipSpeed: 0, tipVelocity: new Vector3(), reach: 0, lost: false, outboard: 1 });
 const blankThreatBody = (): BodyView => ({ unit: "warrior", reach: 0, crownHeight: 0, vitalHeight: 0,
@@ -131,7 +134,7 @@ const controllerPowerW = (controller: string): number => ({
   "quadruped-move": 280, "quadruped-turn": 240, brace: 150, recover: 320,
   "biped-move": 240, "biped-turn": 210, "biped-brace": 135, "biped-recover": 300,
   "aim-direction": 70, "track-target": 90, "sweep-arc": 300, "sweep-compact-arc": 300,
-  "swordbearer-target-sweep": 300,
+  "target-centred-sweep": 300, "warden-sword-sweep": 300, "swordbearer-target-sweep": 300,
   "twinblade-neutral-hold": 130, "twinblade-scissor-cut": 520,
   "fire-projectile": 60, "guard-mount": 95,
 }[controller] ?? 80);
@@ -154,6 +157,8 @@ export class Construct implements Combatant {
   readonly runtime: ConstructRuntime;
   readonly state: LiveConstructState;
   readonly control: ConstructControlEndpoint;
+  /** Exact immutable Mind identity for host diagnostics; no program graph or body handle crosses it. */
+  readonly programId: string;
   readonly locomotion: PhysicalSupportedLocomotionPort | null;
   readonly limbs: Limb[];
   readonly strikers: Striking[];
@@ -184,12 +189,14 @@ export class Construct implements Combatant {
   private readonly selectedBlocker = blankBlocker();
   private readonly localBlocker = new Vector3();
   private readonly localWeapon = new Vector3();
+  private readonly localMountedSwordAnchor = new Vector3();
   private readonly muzzleOrigin = new Vector3();
   private readonly muzzleDirection = new Vector3();
   private previousOpponentClock: number | null = null;
   private readonly damageTargets: ConstructDamageTargets;
   private readonly aimModuleIds: readonly string[];
   private readonly mountedEffectors: readonly ConstructMountedSword[];
+  private readonly mountedContactEffectors: readonly ConstructMountedContactStriker[];
   private readonly effectorViews: EffectorView[];
   private readonly launcherEffectorIndex: number | null;
   private readonly launcherAngularVelocity = new Vector3();
@@ -201,6 +208,10 @@ export class Construct implements Combatant {
   private readonly supportedDesiredRotation = Quaternion.Identity();
   private postVerdictHold: PostVerdictAssemblyHold | null = null;
   private launcherLooseSerial = 0;
+  private bashActionActive = false;
+  private bashActionSequence = 0;
+  private readonly swordActionSequences = new Map<string, number>();
+  private readonly swordActionKeys = new Map<string, string | null>();
 
   constructor(ctx: CombatantBuild, selection: "crossbow" | "sword" | ConstructDefinition = "crossbow") {
     this.side = ctx.side;
@@ -381,10 +392,11 @@ export class Construct implements Combatant {
         shaftDiameter: projectile.radiusM * 2 });
       this.quiver = new Quiver(ctx.scene, { hand: null, name: launcher.id,
         layer: layers.arrow, collidesWith: layers.arrowCollides, profile,
-        effectorPrefix: launcher.id, damageScale: projectile.damageScale,
+        effectorPrefix: launcher.id, penetrationEfficiency: projectile.penetrationEfficiency,
         scoringActive: () => this.state.moduleAvailable(launcher.id) }, ctx.materials);
     } else this.quiver = null;
     const program = definition ? definition.program : wardenProgram(variant as "crossbow" | "sword", "assisted");
+    this.programId = program.id;
     this.control = new ConstructControlEndpoint(this.runtime, control, this.sensorSpecs, Object.freeze({
       "construct-hold": null,
       "warden-authored": program,
@@ -392,6 +404,34 @@ export class Construct implements Combatant {
       "construct-program": program,
     }), ctx.policyName ?? (definition ? "construct-program" : "construct-hold"), {
       beforeStep: (dt) => { this.state.beforeControlStep(dt); this.quiver?.step(dt); },
+      afterStep: () => {
+        const snapshot = this.control.snapshot();
+        const bash = snapshot.active.find(({ action }) => action === "bash");
+        if (bash && !this.bashActionActive) this.bashActionSequence += 1;
+        this.bashActionActive = bash !== undefined;
+        const armed = bash?.phase === "drive" || bash?.phase === "hold";
+        for (const striker of this.mountedContactEffectors) {
+          striker.setActionState(bash ? `bash:${this.bashActionSequence}` : null, armed);
+        }
+        for (const striker of this.mountedEffectors) {
+          const active = snapshot.active.find((row) => {
+            const action = control.actions.find(({ id }) => id === row.action);
+            return action !== undefined && MOUNTED_SWORD_ATTACK_CONTROLLERS.has(action.controller) &&
+              action.claims.includes(`module:${striker.effectorId}`);
+          });
+          const key = active ? `${active.action}:${active.group}` : null;
+          const prior = this.swordActionKeys.get(striker.effectorId) ?? null;
+          const restarted = active !== undefined && snapshot.events.some((event) =>
+            event.kind === "started" && event.action === active.action && event.group === active.group);
+          if (key !== null && (prior !== key || restarted)) {
+            this.swordActionSequences.set(striker.effectorId,
+              (this.swordActionSequences.get(striker.effectorId) ?? 0) + 1);
+          }
+          this.swordActionKeys.set(striker.effectorId, key);
+          const sequence = this.swordActionSequences.get(striker.effectorId) ?? 0;
+          striker.setActionState(key === null ? null : `${key}:${sequence}`, key !== null);
+        }
+      },
       effect: (effect) => this.applyEffect(effect),
       capabilities: () => this.state.capabilities(control),
       admission: (dt, command) => this.state.capabilitiesForCommand(control, command, dt),
@@ -446,13 +486,21 @@ export class Construct implements Combatant {
     }
     this.mountedEffectors = [...this.runtime.modules.values()]
       .filter((module) => module.spec.kind === "sword")
-      .map((module) => new ConstructMountedSword(module, () => this.state.moduleAvailable(module.id)));
-    this.effectorViews = this.mountedEffectors.map(() => ({ weapon: "sword", anchor: new Vector3(),
-      tip: new Vector3(), tipVelocity: new Vector3(), reach: 0, lost: false }));
+      .map((module) => new ConstructMountedSword(module, () => this.state.moduleAvailable(module.id), this.runtime));
+    this.mountedContactEffectors = [...this.runtime.modules.values()]
+      .filter((module) => module.spec.mountedContactStriker !== undefined)
+      .map((module) => new ConstructMountedContactStriker(this.runtime, module,
+        () => this.state.moduleAvailable(module.id)));
+    this.effectorViews = [
+      ...this.mountedEffectors.map(() => ({ weapon: "sword" as const, anchor: new Vector3(),
+        tip: new Vector3(), tipVelocity: new Vector3(), reach: 0, lost: false })),
+      ...this.mountedContactEffectors.map(() => ({ weapon: "buckler" as const, anchor: new Vector3(),
+        tip: new Vector3(), tipVelocity: new Vector3(), reach: 0, lost: false })),
+    ];
     this.launcherEffectorIndex = launcher ? this.effectorViews.length : null;
     if (launcher) this.effectorViews.push({ weapon: "bow", anchor: new Vector3(),
       tip: new Vector3(), tipVelocity: new Vector3(), reach: 0, lost: false });
-    this.strikers = [...this.mountedEffectors];
+    this.strikers = [...this.mountedEffectors, ...this.mountedContactEffectors];
     if (this.quiver) this.strikers.push(...this.quiver.arrows);
     if (ctx.humanActive) this.control.installHuman();
   }
@@ -509,7 +557,14 @@ export class Construct implements Combatant {
       .rotateByQuaternionToRef(inverse, new Vector3()) ?? Vector3.Zero();
     const localLauncherForward = launcherPose?.direction
       .rotateByQuaternionToRef(inverse, new Vector3()) ?? Vector3.Zero();
+    const mountedSwordAnchor = this.mountedEffectors[0]?.anchorPosition();
+    if (mountedSwordAnchor) this.localMountedSwordAnchor
+      .set(mountedSwordAnchor.x - root.position.x, mountedSwordAnchor.y - root.position.y,
+        mountedSwordAnchor.z - root.position.z)
+      .rotateByQuaternionToRef(inverse, this.localMountedSwordAnchor);
+    else this.localMountedSwordAnchor.setAll(0);
     const launcherClear = launcherPose ? this.launcherLineIsClear(launcherPose) : false;
+    const leftSwordClearanceM = this.leftSwordClearanceM();
     const lineOfSight = this.hasLineOfSight(opponent, opponentCentre, launcherPose);
     Object.assign(facts, {
       "core-upright": coreUpright,
@@ -527,6 +582,10 @@ export class Construct implements Combatant {
       "opponent-rising": opponentSupportState === "rising",
       "line-of-sight": lineOfSight,
       "launcher-clear": launcherClear,
+      // A semantic body-space clearance fact, derived from the authored torso
+      // primitive and live mounted blade. Controllers receive no mesh/body handle.
+      "left-sword-clearance-m": leftSwordClearanceM ?? 1,
+      "left-sword-clear": leftSwordClearanceM === null || leftSwordClearanceM >= 0.025,
       "opponent-local-x": this.localOpponent.x,
       "opponent-local-y": this.localOpponent.y,
       "opponent-local-z": this.localOpponent.z,
@@ -542,6 +601,12 @@ export class Construct implements Combatant {
       "launcher-forward-local-x": localLauncherForward.x,
       "launcher-forward-local-y": localLauncherForward.y,
       "launcher-forward-local-z": localLauncherForward.z,
+      // A generic mounted sweep consumes the live compiled socket origin, just as launcher aim
+      // consumes the muzzle ray. Copying the Warden's joint offsets into a controller made a
+      // geometry edit silently turn an otherwise valid cut into empty space.
+      "mounted-sword-anchor-local-x": this.localMountedSwordAnchor.x,
+      "mounted-sword-anchor-local-y": this.localMountedSwordAnchor.y,
+      "mounted-sword-anchor-local-z": this.localMountedSwordAnchor.z,
       // These are equipment facts. Whether the surface is an opening, and which way to move
       // around it, remain policy/controller decisions rather than sensor conclusions.
       "opponent-blocker-present": blocker.found,
@@ -659,7 +724,18 @@ export class Construct implements Combatant {
       view.tip.copyFrom(striker.tipPosition());
       view.tipVelocity.copyFrom(striker.velocityAt(view.tip));
       view.reach = Vector3.Distance(view.anchor, view.tip);
-      view.lost = striker.spent;
+      // Perception describes installed hardware. Whether its current Action has armed scoring is
+      // private combat authority and must not make a visible sword blink in and out of existence.
+      view.lost = !this.state.moduleAvailable(striker.effectorId);
+    }
+    for (let index = 0; index < this.mountedContactEffectors.length; index += 1) {
+      const striker = this.mountedContactEffectors[index];
+      const view = this.effectorViews[this.mountedEffectors.length + index];
+      view.anchor.copyFrom(striker.anchorPosition());
+      view.tip.copyFrom(striker.tipPosition());
+      view.tipVelocity.copyFrom(striker.velocityAt(view.tip));
+      view.reach = Vector3.Distance(view.anchor, view.tip);
+      view.lost = !this.state.moduleAvailable(striker.effectorId);
     }
     if (this.launcherModule && this.launcherEffectorIndex !== null) {
       const view = this.effectorViews[this.launcherEffectorIndex];
@@ -688,6 +764,30 @@ export class Construct implements Combatant {
     into.trunkTwist = 0;
     into.vitality = this.vitality;
     for (const limb of this.limbs) into.health[limb.key] = limb.severed ? 0 : Math.max(0, limb.health / limb.maxHealth);
+  }
+
+  private leftSwordClearanceM(): number | null {
+    const sword = this.runtime.modules.get("effigy-left-sword");
+    const torso = this.runtime.parts.get("torso");
+    if (!sword || !torso || torso.spec.shape.kind !== "box" || !sword.spec.striker) return null;
+    const matrix = sword.root.computeWorldMatrix(true);
+    const hilt = matrix.getTranslation();
+    const tip = Vector3.TransformCoordinates(Vector3.FromArray(sword.spec.striker.localTipM), matrix);
+    const inverseTorso = Matrix.Invert(torso.node.computeWorldMatrix(true));
+    const half = Vector3.FromArray(torso.spec.shape.sizeM).scaleInPlace(0.5);
+    let minimum = Number.POSITIVE_INFINITY;
+    // The hilt is allowed beside the hand; the combat-bearing three quarters of
+    // the blade must remain outside the owner's torso plus the declared margin.
+    for (let index = 2; index <= 8; index += 1) {
+      const point = Vector3.Lerp(hilt, tip, index / 8);
+      const local = Vector3.TransformCoordinates(point, inverseTorso);
+      const q = new Vector3(Math.abs(local.x) - half.x, Math.abs(local.y) - half.y,
+        Math.abs(local.z) - half.z);
+      const outside = Math.hypot(Math.max(q.x, 0), Math.max(q.y, 0), Math.max(q.z, 0));
+      const inside = Math.min(Math.max(q.x, q.y, q.z), 0);
+      minimum = Math.min(minimum, outside + inside);
+    }
+    return minimum;
   }
 
   publishProjectiles(into: ProjectileView[], at: number, owner: "self" | "opponent"): number {
@@ -759,7 +859,9 @@ export class Construct implements Combatant {
     return this.damageTargets.targetFor(body, point);
   }
   applyDamage(target: Limb, rawDamage: number): number {
-    return this.damageTargets.applyDamage(target, rawDamage);
+    const applied = this.damageTargets.applyDamage(target, rawDamage);
+    this.runtime.surfaces.publish(this.damageTargets.describe(target));
+    return applied;
   }
   parriedBy(body: PhysicsBody, point?: Vector3): { readonly kind: WeaponKind } | null {
     const shield = point ? moduleAtContact(this.runtime, body, point) : null;
@@ -922,8 +1024,9 @@ export class Construct implements Combatant {
       return;
     }
     const pose = this.launcherPose();
-    if (this.quiver.loose(pose.origin, pose.direction, projectile.muzzleSpeedMps,
-      this.launcherLooseSerial)) this.launcherLooseSerial += 1;
+    if (this.quiver.loose(pose.origin, pose.direction, projectile.muzzleSpeedMps)) {
+      this.launcherLooseSerial += 1;
+    }
   }
 
   private launcherPose(): Readonly<{ origin: Vector3; direction: Vector3 }> {

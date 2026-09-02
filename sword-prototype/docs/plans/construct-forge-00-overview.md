@@ -5,7 +5,15 @@
 > durable in [`docs/design.md`](../design.md#supported-walking-is-a-game-carrier-authorized-by-physical-limbs),
 > the rejected dynamic-root premise and 26-cell Havok corpus are in
 > [`docs/measurements.md`](../measurements.md#supported-locomotion-activation-and-ai-rerun----2026-08-30),
-> and the operational traps are in `AGENTS.md`. Sessions 25--30 are approved but unimplemented.
+> and the operational traps are in `AGENTS.md`. Sessions 25, 26, 28 and 29 are implemented,
+> focused-green and recorded durably. Session 27's public Actions, Minds and evidence machinery are
+> implemented, but its Swordbearer physical acceptance remains red. Session 30's source-frozen
+> 560-bout corpus is complete but rejected every rung;
+> its fresh authored Warden entry is also rejected. All production durability multipliers remain
+> null. `mapped-pbr` remains the production default because visible hardware performance evidence
+> is blocked. The final 2026-09-01 full prototype gate passed 1,315/1,316 tests; its sole red is the
+> Swordbearer's one-completed-sweep left mirror. Session 30 therefore remains competitively red
+> rather than being called complete.
 > Session 18 remains red, and Session 16 still requires the final guided human/product verdict.
 
 ## Current boundary

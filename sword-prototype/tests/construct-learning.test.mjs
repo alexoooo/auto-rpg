@@ -3,6 +3,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { combatValueToLegacyRewardWeight } from "../src/config.ts";
 
 import { ActionScheduler } from "../src/construct/scheduler.ts";
 import { CONSTRUCT_GRAPH_CONTRACT_DIGEST } from "../src/construct/learning/contract.ts";
@@ -187,6 +188,18 @@ test("pinning_entry_evidence_does_not_move_the_immutable_learning_protocol_diges
     "the immutable protocol stays fixed while a requalified run still gets a new row/checkpoint identity");
 });
 
+test("the_live_learning_entry_is_the_current_rejected_source_frozen_receipt", () => {
+  assert.equal(CONSTRUCT_LEARNING_SCHEDULE_DIGEST, "8253502c");
+  assert.deepEqual(CONSTRUCT_LEARNING_SCHEDULE.entryGate, {
+    qualified: false,
+    evidence: "construct-entry-run-97a634ab-source-f82bc3d3-2026-09-01",
+    runDigest: "97a634ab",
+    sourceDigest: "f82bc3d3",
+    runtimeStatus: "current combat-value-v2 assisted Warden runtime; qualification rejected",
+    reason: "1/8 bilateral physical-damage rows; 7/8 rows missing brace and fire; 8/8 bouts reached the time cap",
+  });
+});
+
 test("the_frozen_learning_corpus_varies_limb_mount_mass_and_program_before_selection", () => {
   const corpus = constructLearningMorphologies();
   const all = [...CONSTRUCT_LEARNING_SPLIT.train, ...CONSTRUCT_LEARNING_SPLIT.validation, ...CONSTRUCT_LEARNING_SPLIT.test]
@@ -219,6 +232,8 @@ test("qualification_fingerprint_covers_the_broad_runtime_and_fails_closed_when_a
 });
 
 test("authored_qualification_requires_move_brace_fire_and_cover_in_every_row_not_the_union", () => {
+  assert.equal(CONSTRUCT_LEARNING_PROTOCOL.authoredQualification.separationM, 7,
+    "the authored ranged Mind must begin outside its six-metre close-distance boundary");
   const row = (job, actions) => ({ job, seed: job + 1, mirrored: job % 2 === 1,
     actionTrace: actions.map((action) => `${job}:left:started/group/${action}`) });
   const failures = authoredQualificationActionFailures([
@@ -565,6 +580,25 @@ test("time_cap_survival_cannot_outscore_a_damaging_loss", () => {
   const damagingLoss = constructEngagementReward({ victory: false, draw: false, timeCap: false,
     damageDealt: 2, damageTaken: 10 });
   assert.ok(damagingLoss > passive, `${damagingLoss} must beat passive ${passive}`);
+});
+
+test("learning_reward_order_is_preserved_across_the_combat_unit_migration", () => {
+  const legacyReward = ({ victory, draw, timeCap, damageDealt, damageTaken }) =>
+    (victory ? 100 : 0) + damageDealt - damageTaken * 0.25 - (draw ? 10 : 0) - (timeCap ? 25 : 0);
+  const candidates = [
+    { victory: true, draw: false, timeCap: false, damageDealt: 44, damageTaken: 80 },
+    { victory: false, draw: false, timeCap: false, damageDealt: 90, damageTaken: 30 },
+    { victory: false, draw: true, timeCap: true, damageDealt: 20, damageTaken: 10 },
+  ];
+  const legacyOrder = candidates.map(legacyReward).map((score, index) => ({ score, index }))
+    .sort((a, b) => b.score - a.score).map(({ index }) => index);
+  const migratedScores = candidates.map((row) => constructEngagementReward({ ...row,
+    damageDealt: row.damageDealt / 20, damageTaken: row.damageTaken / 20 }));
+  assert.deepEqual(migratedScores, candidates.map(legacyReward));
+  const migratedOrder = migratedScores
+    .map((score, index) => ({ score, index })).sort((a, b) => b.score - a.score).map(({ index }) => index);
+  assert.deepEqual(migratedOrder, legacyOrder);
+  assert.equal(combatValueToLegacyRewardWeight(2.25), 45);
 });
 
 test("terminal_checkpoint_recovery_finalizes_without_spending_another_rollout", async () => {

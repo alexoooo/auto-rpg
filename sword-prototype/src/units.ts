@@ -24,7 +24,8 @@ import { arbalestBlueprint, arbalestControl, arbalestProgram,
 import { humanoidBlueprint, humanoidControl, humanoidProgram, HUMANOID_SENSORS } from "./construct/humanoid.ts";
 import { twinbladeBlueprint, twinbladeControl, twinbladeProgram,
   TWINBLADE_SENSORS } from "./construct/twinblade.ts";
-import { wardenBlueprint } from "./construct/warden.ts";
+import { wardenBlueprint, wardenControl, wardenProgram, WARDEN_SENSORS } from "./construct/warden.ts";
+import { constructBlueprintForDurability } from "./construct/durability.ts";
 
 /** A body kind accepted at the setup boundary. */
 export type UnitKind = "warrior" | "broot" | "centipede" | "kaykit-knight" | "bronze-warden" |
@@ -42,6 +43,8 @@ export interface UnitLoadout {
 export interface AnatomyDefinition {
   readonly parts: readonly string[];
   readonly vitalityWeights: Readonly<Record<string, number>>;
+  /** Authoritative maximum durability by selectable body part. */
+  readonly durability: Readonly<Record<string, number>>;
 }
 
 export interface CombatantBuild {
@@ -172,6 +175,10 @@ const emptyLoadout = Object.freeze<UnitLoadout>({ primary: "empty", secondary: "
 const kaykitKnightLoadout = Object.freeze<UnitLoadout>({ primary: "sword", secondary: "buckler" });
 
 const warriorParts = Object.freeze(Object.keys(CONFIG.body.vitalWeight));
+const humanoidDurability = (scale = 1): Readonly<Record<string, number>> => Object.freeze(Object.fromEntries(
+  warriorParts.map((part) => [part, CONFIG.body.partHealth * scale *
+    (part === "torso" ? CONFIG.body.torsoHealth : part === "pelvis" ? CONFIG.body.pelvisHealth : 1)]),
+));
 const drivers = (names: readonly string[] | null) => Object.freeze(POLICIES
   .filter((policy) => names === null || names.includes(policy.name))
   .map(({ name, label }) => Object.freeze({ name, label })));
@@ -213,6 +220,7 @@ const warrior: UnitDefinition = Object.freeze({
   anatomy: Object.freeze({
     parts: warriorParts,
     vitalityWeights: CONFIG.body.vitalWeight,
+    durability: humanoidDurability(),
   }),
   reach: CONFIG.arm.reachNeutral,
   crownHeight: CONFIG.body.headCentre + CONFIG.body.headRadius,
@@ -250,6 +258,7 @@ const broot: UnitDefinition = Object.freeze({
   anatomy: Object.freeze({
     parts: warriorParts,
     vitalityWeights: CONFIG.body.vitalWeight,
+    durability: humanoidDurability(BROOT_PROFILE.healthScale),
   }),
   reach: CONFIG.arm.reachNeutral * BROOT_PROFILE.scale,
   crownHeight: (CONFIG.body.headCentre + CONFIG.body.headRadius) * BROOT_PROFILE.scale,
@@ -293,7 +302,9 @@ const centipede: UnitDefinition = Object.freeze({
   controlSurface: "humanoid-v1",
   supportedLocomotionPort: null,
   defaultPolicy: "crawler",
-  anatomy: Object.freeze({ parts: centipedeParts, vitalityWeights: centipedeWeights }),
+  anatomy: Object.freeze({ parts: centipedeParts, vitalityWeights: centipedeWeights,
+    durability: Object.freeze(Object.fromEntries(centipedeParts.map((part) =>
+      [part, part === "head" ? 4.5 : 2.4]))) }),
   reach: CENTIPEDE_BITE_REACH,
   crownHeight: CENTIPEDE_CROWN,
   vitalHeight: CENTIPEDE_CROWN * 0.55,
@@ -319,6 +330,7 @@ const kaykitKnight: UnitDefinition = Object.freeze({
   anatomy: Object.freeze({
     parts: warriorParts,
     vitalityWeights: CONFIG.body.vitalWeight,
+    durability: humanoidDurability(KAYKIT_KNIGHT_PROFILE.healthScale),
   }),
   reach: KAYKIT_KNIGHT_METRICS.reach,
   crownHeight: KAYKIT_KNIGHT_METRICS.crownHeight,
@@ -341,7 +353,8 @@ const kaykitKnight: UnitDefinition = Object.freeze({
   }, ctx.materials),
 });
 
-const wardenModel = wardenBlueprint("crossbow");
+const wardenModel = constructBlueprintForDurability(wardenBlueprint("crossbow"),
+  "warden-crossbow", "production");
 const wardenParts = Object.freeze(wardenModel.parts.map(({ id }) => id));
 const wardenWeights = Object.freeze(Object.fromEntries(
   wardenModel.parts.map(({ id, vitalityWeight }) => [id, vitalityWeight]),
@@ -359,19 +372,23 @@ const bronzeWarden: UnitDefinition = Object.freeze({
     Object.freeze({ name: "warden-authored", label: "Warden Mind" }),
   ]),
   humanAdapter: false,
-  controlSurface: "construct-v1",
+  controlSurface: "construct-v3",
   supportedLocomotionPort: SUPPORTED_LOCOMOTION_PORT_V1,
   defaultPolicy: "warden-authored",
-  anatomy: Object.freeze({ parts: wardenParts, vitalityWeights: wardenWeights }),
+  anatomy: Object.freeze({ parts: wardenParts, vitalityWeights: wardenWeights,
+    durability: Object.freeze(Object.fromEntries(wardenModel.parts.map(({ id, health }) => [id, health]))) }),
   reach: 1.4,
   crownHeight: 1.9,
   vitalHeight: 1.33,
   collisionRadius: 0.72,
   createPolicy: null,
-  build: (ctx: CombatantBuild) => new Construct(ctx),
+  build: (ctx: CombatantBuild) => new Construct(ctx, { blueprint: wardenModel,
+    control: wardenControl("crossbow", "assisted"), program: wardenProgram("crossbow", "assisted"),
+    sensors: WARDEN_SENSORS }),
 });
 
-const humanoidModel = humanoidBlueprint();
+const humanoidModel = constructBlueprintForDurability(humanoidBlueprint(),
+  "swordbearer", "production");
 const swordbearerEffigy: UnitDefinition = Object.freeze({
   kind: "swordbearer-effigy",
   label: "Swordbearer Effigy (Experimental)",
@@ -389,17 +406,19 @@ const swordbearerEffigy: UnitDefinition = Object.freeze({
   supportedLocomotionPort: SUPPORTED_LOCOMOTION_PORT_V1,
   defaultPolicy: "humanoid-authored",
   anatomy: Object.freeze({ parts: Object.freeze(humanoidModel.parts.map(({ id }) => id)),
-    vitalityWeights: Object.freeze(Object.fromEntries(humanoidModel.parts.map(({ id, vitalityWeight }) => [id, vitalityWeight]))) }),
+    vitalityWeights: Object.freeze(Object.fromEntries(humanoidModel.parts.map(({ id, vitalityWeight }) => [id, vitalityWeight]))),
+    durability: Object.freeze(Object.fromEntries(humanoidModel.parts.map(({ id, health }) => [id, health]))) }),
   reach: HUMANOID_CONSTRUCT_PROFILE.reach,
   crownHeight: HUMANOID_CONSTRUCT_PROFILE.crownHeight,
   vitalHeight: HUMANOID_CONSTRUCT_PROFILE.vitalHeight,
   collisionRadius: HUMANOID_CONSTRUCT_PROFILE.collisionRadius,
   createPolicy: null,
-  build: (ctx: CombatantBuild) => new Construct(ctx, { blueprint: humanoidBlueprint(), control: humanoidControl(),
+  build: (ctx: CombatantBuild) => new Construct(ctx, { blueprint: humanoidModel, control: humanoidControl(),
     program: humanoidProgram(), sensors: HUMANOID_SENSORS, profile: HUMANOID_CONSTRUCT_PROFILE }),
 });
 
-const twinbladeModel = twinbladeBlueprint();
+const twinbladeModel = constructBlueprintForDurability(twinbladeBlueprint(),
+  "twinblade", "production");
 const twinbladeEffigy: UnitDefinition = Object.freeze({
   kind: "twinblade-effigy",
   label: "Twinblade Effigy (Mechanical A/B)",
@@ -418,18 +437,20 @@ const twinbladeEffigy: UnitDefinition = Object.freeze({
   defaultPolicy: "humanoid-authored",
   anatomy: Object.freeze({ parts: Object.freeze(twinbladeModel.parts.map(({ id }) => id)),
     vitalityWeights: Object.freeze(Object.fromEntries(twinbladeModel.parts
-      .map(({ id, vitalityWeight }) => [id, vitalityWeight]))) }),
+      .map(({ id, vitalityWeight }) => [id, vitalityWeight]))),
+    durability: Object.freeze(Object.fromEntries(twinbladeModel.parts.map(({ id, health }) => [id, health]))) }),
   reach: TWINBLADE_CONSTRUCT_PROFILE.reach,
   crownHeight: TWINBLADE_CONSTRUCT_PROFILE.crownHeight,
   vitalHeight: TWINBLADE_CONSTRUCT_PROFILE.vitalHeight,
   collisionRadius: TWINBLADE_CONSTRUCT_PROFILE.collisionRadius,
   createPolicy: null,
-  build: (ctx: CombatantBuild) => new Construct(ctx, { blueprint: twinbladeBlueprint(),
+  build: (ctx: CombatantBuild) => new Construct(ctx, { blueprint: twinbladeModel,
     control: twinbladeControl(), program: twinbladeProgram(), sensors: TWINBLADE_SENSORS,
     profile: TWINBLADE_CONSTRUCT_PROFILE }),
 });
 
-const arbalestModel = arbalestBlueprint();
+const arbalestModel = constructBlueprintForDurability(arbalestBlueprint(),
+  "arbalest", "production");
 const arbalestEffigy: UnitDefinition = Object.freeze({
   kind: "arbalest-effigy",
   label: "Arbalest Effigy (Mechanical A/B)",
@@ -448,13 +469,14 @@ const arbalestEffigy: UnitDefinition = Object.freeze({
   defaultPolicy: "humanoid-authored",
   anatomy: Object.freeze({ parts: Object.freeze(arbalestModel.parts.map(({ id }) => id)),
     vitalityWeights: Object.freeze(Object.fromEntries(arbalestModel.parts
-      .map(({ id, vitalityWeight }) => [id, vitalityWeight]))) }),
+      .map(({ id, vitalityWeight }) => [id, vitalityWeight]))),
+    durability: Object.freeze(Object.fromEntries(arbalestModel.parts.map(({ id, health }) => [id, health]))) }),
   reach: ARBALEST_CONSTRUCT_PROFILE.reach,
   crownHeight: ARBALEST_CONSTRUCT_PROFILE.crownHeight,
   vitalHeight: ARBALEST_CONSTRUCT_PROFILE.vitalHeight,
   collisionRadius: ARBALEST_CONSTRUCT_PROFILE.collisionRadius,
   createPolicy: null,
-  build: (ctx: CombatantBuild) => new Construct(ctx, { blueprint: arbalestBlueprint(),
+  build: (ctx: CombatantBuild) => new Construct(ctx, { blueprint: arbalestModel,
     control: arbalestControl(), program: arbalestProgram(), sensors: ARBALEST_SENSORS,
     profile: ARBALEST_CONSTRUCT_PROFILE }),
 });

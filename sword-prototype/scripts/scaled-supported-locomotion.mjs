@@ -9,7 +9,7 @@ import { scaledLocomotionFixture, SCALED_LOCOMOTION_BODY_SCALE,
 export const SCALED_SUPPORTED_LOCOMOTION_V1 = Object.freeze({
   version: 1,
   physicsHz: 240,
-  blueprintDigest: "e9ed64a7",
+  blueprintDigest: "cb2e2715",
   targetCrownM: SCALED_LOCOMOTION_TARGET_CROWN_M,
   bodyScale: SCALED_LOCOMOTION_BODY_SCALE,
   closeSpeedMps: SCALED_LOCOMOTION_FIXTURE_SPEED_MPS,

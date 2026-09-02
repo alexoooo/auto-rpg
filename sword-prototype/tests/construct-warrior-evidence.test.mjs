@@ -1,11 +1,79 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { assertConstructWarriorEvidence, shouldAdvanceConstructWarriorStep,
-  stopCombatOnFatalTransition, stopDefeatedConstructWarriorControl } from
+import { advanceQualificationActionLifecycle, assertConstructWarriorEvidence, qualificationActionContext,
+  shouldAdvanceConstructWarriorStep, stopCombatOnFatalTransition, stopDefeatedConstructWarriorControl } from
   "../scripts/construct-warrior-bout.mjs";
 
 const FIXED = 1 / 240;
+
+const lifecycle = (events, prior) => advanceQualificationActionLifecycle(events, prior && {
+  activeInstances: prior.activeInstances,
+  nextInstance: prior.nextInstance,
+  pendingFireInstance: prior.pendingFireInstance,
+});
+
+test("qualification_Action_generations_survive_same_group_replacement_and_refusal_order", () => {
+  const first = lifecycle([{ kind: "started", action: "sweep", group: "weapon" }]);
+  const oldSweep = [...first.activeInstances.values()][0];
+  const replaced = lifecycle([
+    { kind: "started", action: "cut", group: "weapon" },
+    { kind: "cancelled", action: "sweep", group: "weapon" },
+  ], first);
+  assert.deepEqual(replaced.transitions.map(({ kind, event, instance }) =>
+    [kind, event.action, instance?.actionInstanceId ?? null]), [
+    ["started", "cut", "cut:weapon:1"],
+    ["terminal", "sweep", oldSweep.actionInstanceId],
+  ]);
+  assert.deepEqual([...replaced.activeInstances.values()].map(({ action }) => action), ["cut"]);
+
+  const refused = lifecycle([
+    { kind: "refused", action: "cut", group: "weapon" },
+    { kind: "cancelled", action: "cut", group: "weapon" },
+  ], replaced);
+  assert.equal(refused.transitions[0].instance, null,
+    "a refused request must not consume the already-running generation");
+  assert.equal(refused.transitions[1].instance.actionInstanceId, "cut:weapon:1");
+  assert.equal(refused.activeInstances.size, 0);
+});
+
+test("a_same_step_fire_replacement_owns_its_launch_while_a_completion_keeps_the_old_generation", () => {
+  const first = lifecycle([{ kind: "started", action: "fire", group: "launcher" }]);
+  const oldFire = first.pendingFireInstance;
+  const replaced = lifecycle([
+    { kind: "cancelled", action: "fire", group: "launcher" },
+    { kind: "started", action: "fire", group: "launcher" },
+  ], first);
+  assert.notEqual(replaced.fireInstanceForStep.actionInstanceId, oldFire.actionInstanceId);
+  assert.equal(replaced.fireInstanceForStep.actionInstanceId, "fire:launcher:1");
+  assert.equal(replaced.pendingFireInstance, replaced.fireInstanceForStep);
+
+  const completed = lifecycle([{ kind: "completed", action: "fire", group: "launcher" }], replaced);
+  assert.equal(completed.fireInstanceForStep.actionInstanceId, "fire:launcher:1");
+  assert.equal(completed.transitions[0].instance.actionInstanceId, "fire:launcher:1");
+});
+
+test("a_completing_Action_retains_its_instance_and_last_published_phase_through_the_solver_step", () => {
+  const started = lifecycle([{ kind: "started", action: "sweep", group: "weapon" }]);
+  const instance = [...started.activeInstances.values()][0];
+  instance.lastPhase = "commit";
+  const completed = lifecycle([{ kind: "completed", action: "sweep", group: "weapon" }], started);
+  assert.equal(completed.activeInstances.size, 0, "the generation is terminal for the next scheduler step");
+  const context = qualificationActionContext("sweep", [], completed.activeInstances,
+    completed.transitions.filter(({ kind }) => kind === "terminal"));
+  assert.equal(context.instance, instance);
+  assert.equal(context.phase, "commit");
+});
+
+test("a_phase_less_terminal_Action_cannot_own_a_solver_contact", () => {
+  const started = lifecycle([{ kind: "started", action: "sweep", group: "weapon" }]);
+  const completed = lifecycle([{ kind: "completed", action: "sweep", group: "weapon" }], started);
+  const context = qualificationActionContext("sweep", [], completed.activeInstances,
+    completed.transitions.filter(({ kind }) => kind === "terminal"));
+  assert.equal(context, null,
+    "a generation which never published a physical phase cannot lend its residual pose to contact");
+});
+
 const joints = ["left-sword-yaw", "left-sword-pitch", "sword-yaw", "sword-pitch",
   "left-hip", "left-knee", "left-ankle", "left-sole",
   "right-hip", "right-knee", "right-ankle", "right-sole"];

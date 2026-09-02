@@ -5,7 +5,7 @@ import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsCo
 import type { PhysicsShape } from "@babylonjs/core/Physics/v2/physicsShape.js";
 
 import type { AttachmentFrame, ConstructBlueprint, JointSpec, ModuleSpec, PartSpec, SocketSpec } from "./blueprint.ts";
-import type { ConstructModuleVisual, ConstructPartVisual } from "./render.ts";
+import type { ConstructModuleVisual, ConstructPartVisual, ConstructSurfaceRegistry } from "./render.ts";
 import { COLLIDES, LAYER } from "../physics.ts";
 
 export interface WorldAttachmentFrame {
@@ -185,6 +185,7 @@ export class ConstructRuntime {
   readonly sockets: ReadonlyMap<string, ConstructSocketRuntime>;
   readonly modules: ReadonlyMap<string, ConstructModule>;
   readonly partOrder: readonly string[];
+  readonly surfaces: ConstructSurfaceRegistry;
   private disposed = false;
 
   constructor(
@@ -192,8 +193,10 @@ export class ConstructRuntime {
     builtParts: readonly ConstructPart[],
     builtJoints: readonly ConstructJoint[],
     builtModules: readonly ConstructModule[],
+    surfaces: ConstructSurfaceRegistry,
   ) {
     this.blueprint = blueprint;
+    this.surfaces = surfaces;
     this.partOrder = Object.freeze(builtParts.map((part) => part.id));
     this.parts = new Map(builtParts.map((part) => [part.id, part]));
     this.joints = new Map(builtJoints.map((joint) => [joint.id, joint]));
@@ -261,6 +264,7 @@ export class ConstructRuntime {
     for (let index = modules.length - 1; index >= 0; index -= 1) modules[index].dispose();
     const parts = [...this.parts.values()];
     for (let index = parts.length - 1; index >= 0; index -= 1) parts[index].dispose();
+    this.surfaces.dispose();
   }
 }
 
@@ -286,8 +290,8 @@ export class ConstructBuildTransaction {
     return module;
   }
 
-  publish(blueprint: ConstructBlueprint): ConstructRuntime {
-    const runtime = new ConstructRuntime(blueprint, this.parts, this.joints, this.modules);
+  publish(blueprint: ConstructBlueprint, surfaces: ConstructSurfaceRegistry): ConstructRuntime {
+    const runtime = new ConstructRuntime(blueprint, this.parts, this.joints, this.modules, surfaces);
     this.finished = true;
     return runtime;
   }

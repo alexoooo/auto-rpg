@@ -35,7 +35,7 @@ export const RESEARCH_CONTRACT_SURFACE = Object.freeze({
 export const CURRENT_RESEARCH_CONTRACT_DIGEST = canonicalDigest(RESEARCH_CONTRACT_SURFACE);
 // This is a review pin, not a security signature. A surface edit moves it only
 // after the edit and its refusal tests have been reviewed together.
-export const FROZEN_RESEARCH_CONTRACT_DIGEST = "2f9d6462";
+export const FROZEN_RESEARCH_CONTRACT_DIGEST = "ffdfcdb8";
 
 /** Mutable page tuning is provenance, not part of the learned interface pin. */
 export const BALANCE_CONFIG_DIGEST = canonicalDigest(CONFIG);

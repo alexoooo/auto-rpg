@@ -158,6 +158,30 @@ four-limbed carved-stone construct with bronze bearings. Its limbs and dorsal mo
 joint chains: the saved Actions graph is what makes four chains walk and what makes the same
 two-axis mount aim a sword or auto-crossbow.
 
+Combat uses deliberately small numbers. A Warrior torso has 10 durability, an ordinary limb or
+head has 5, values around 15 are already substantial, and 100 is effectively invulnerable. Armour,
+part durability, joint integrity and module durability remain separate local facts rather than one
+large arcade HP pool. Projectiles are not assigned a magic damage value: point-first axial kinetic
+energy, mass and the saved penetration efficiency determine the wound, after which armour applies;
+tail, shaft and broadside contacts do no penetrating damage and one projectile can score only once.
+
+Construct weapons are independent Actions. A Mind can close or hold earned firing distance while a
+left sword, dorsal weapon or shield action runs through its own compatible hardware group, so a
+crossbow construct does not have to become an inert turret in melee. The fresh current-source
+authored Warden entry remains closed: only one of eight mirrored rows dealt bilateral physical
+damage, seven omitted brace and fire, and all eight reached the time cap. It promoted no learned
+Mind and production learning remains fail-closed.
+
+The complete 560-bout mirrored active/idle durability matrix also rejected every measured rung.
+Setup therefore keeps every built-in base value; no production durability multiplier was inferred
+from a losing or physically incomplete result.
+
+The stone/bronze look defaults to the mapped PBR path. The grainier procedural shader is available
+as an explicit visual mode and falls back automatically, by name, when the browser lacks the pinned
+GLSL precision/derivative path or shader compilation fails. That choice changes no bout, damage,
+AI or saved machine. Procedural mode will not become the default until a visible hardware-browser
+performance bracket passes; a hidden or software-rasterized tab does not count.
+
 **Swordbearer Effigy (Experimental)** is the second fixed construct body and the direct way to see
 this framework in humanoid form. Choose it as one corner, choose **Effigy Mind** and **mind**, then
 put a Warrior in the other corner. It is a real two-foot articulated stone body with a stabilized
@@ -171,9 +195,9 @@ Warrior's. The diagnostics report that limitation rather than labelling it produ
 Swordbearer experiment. Twinblade mounts two ordinary swords for the sequential scissor Action.
 Arbalest keeps the same human-scale stone body, tracks a finite-magazine auto-crossbow on the right
 and holds an ordinary sword guard with the real four-joint left arm. Its active Mind has physically
-qualified fatal-arrow wins against Warrior `duelist` on both arena sides at whole-body durability
-0.10, 0.05 and 0.02, while the exact posture-only body loses every frozen cell. This is a measured
-competitive prototype, not an undefeated-AI claim.
+qualified historical fatal-arrow wins against Warrior `duelist` on both arena sides under the old
+combat-value rules. Those rows remain useful history but do not qualify the current low-number,
+physical-projectile game; the fresh combined-arms matrix must earn that claim again.
 
 Use the four tabs as one loop:
 
@@ -229,6 +253,20 @@ The construct trainer is intentionally not a hidden setup option. `npm run const
 interruptible research command for qualified authored combat only; every indexed shard commits
 atomically, and `npm run construct:watch -- --run <directory>` observes a run without changing it.
 The game keeps the authored Mind when no learned candidate clears its frozen held-out gates.
+
+The low-number combined-arms qualification is also interruption-friendly:
+
+```powershell
+node scripts/construct-warrior-curriculum.mjs --combined-arms --workers 8 --out .tools/combined-arms-v2
+```
+
+It freezes 560 indexed bouts before starting, writes each completed cell atomically, and resumes
+only when the source fingerprint and job-manifest digest still match. Worker count affects
+scheduling only. A changed source or relabelled cell is refused rather than mixed into the run.
+Those per-cell files are untrusted restart caches, not signed evidence: the terminal report is
+accepted only after the complete raw corpus is independently reconstructed and finalized by the
+current qualifier. Do not publish or hand-edit a partial cache as though its filenames or digests
+proved where its event rows came from.
 
 There is no hidden learned policy in that picker. Three full population experiments were
 run, and the validation-selected candidate then lost every held-out promotion bout across

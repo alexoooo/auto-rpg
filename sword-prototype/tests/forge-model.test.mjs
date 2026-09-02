@@ -84,8 +84,8 @@ test("saved_construct_import_recomputes_all_three_digests_and_refuses_unknown_ve
   const corrupt = structuredClone(saved);
   corrupt.digests.program = "00000000";
   assert.throws(() => parseSavedConstruct(JSON.stringify(corrupt), WARDEN_SENSORS), /program digest/);
-  const future = structuredClone(saved); future.version = 2;
-  assert.throws(() => parseSavedConstruct(JSON.stringify(future), WARDEN_SENSORS), /version 2 is unsupported/);
+  const future = structuredClone(saved); future.version = 5;
+  assert.throws(() => parseSavedConstruct(JSON.stringify(future), WARDEN_SENSORS), /version 5 is unsupported/);
 });
 
 test("a_saved_construct_refuses_a_digest_valid_control_graph_that_names_absent_hardware", () => {

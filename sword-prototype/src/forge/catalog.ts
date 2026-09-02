@@ -129,12 +129,12 @@ export function instantiateTwoAxisMount(blueprint: ConstructBlueprint, parentPar
   const stem = uniqueStem(blueprint, "forge-mount");
   const yaw = Object.freeze({ id: `${stem}-yaw`, shape: Object.freeze({ kind: "cylinder" as const,
     lengthM: 0.18, radiusM: 0.14 }), massKg: 6, centreOfMassM: Object.freeze([0, 0, 0] as const),
-    friction: 0.72, restitution: 0.04, health: 120, armour: 18, vitalityWeight: 0, fatal: false,
+    friction: 0.72, restitution: 0.04, health: 6, armour: 0.9, vitalityWeight: 0, fatal: false,
     shell: shell("bearing", 0.003) });
   const pitch = Object.freeze({ id: `${stem}-pitch`, shape: Object.freeze({ kind: "box" as const,
     sizeM: Object.freeze([0.28, 0.18, 0.30] as const) }), massKg: 6,
     centreOfMassM: Object.freeze([0, 0, 0] as const), friction: 0.72, restitution: 0.04,
-    health: 120, armour: 18, vitalityWeight: 0, fatal: false, shell: shell("bearing", 0.003) });
+    health: 6, armour: 0.9, vitalityWeight: 0, fatal: false, shell: shell("bearing", 0.003) });
   const opposite: Readonly<Record<PartAttachmentSocketId, PartAttachmentSocketId>> = {
     top: "bottom", bottom: "top", left: "right", right: "left", front: "rear", rear: "front",
   };
@@ -147,9 +147,9 @@ export function instantiateTwoAxisMount(blueprint: ConstructBlueprint, parentPar
     maxRad: id === "y" ? 2.5 : 1.65, damping: 8, maxTorqueNm: force, maxSpeedRadS: id === "y" ? 8 : 6 });
   const joints = Object.freeze([
     Object.freeze({ id: `${stem}-yaw-joint`, parentPart, childPart: yaw.id, parentFrame,
-      childFrame: yawChildFrame, angularAxes: Object.freeze([axis("y", 900)]), health: 160, armour: 12 }),
+      childFrame: yawChildFrame, angularAxes: Object.freeze([axis("y", 900)]), health: 8, armour: 0.6 }),
     Object.freeze({ id: `${stem}-pitch-joint`, parentPart: yaw.id, childPart: pitch.id, parentFrame: yawTop,
-      childFrame: pitchBottom, angularAxes: Object.freeze([axis("x", 650)]), health: 160, armour: 12 }),
+      childFrame: pitchBottom, angularAxes: Object.freeze([axis("x", 650)]), health: 8, armour: 0.6 }),
   ]);
   const outputSocket = `${stem}-output-socket`;
   return Object.freeze({ parts: Object.freeze([yaw, pitch]), joints,
@@ -204,44 +204,44 @@ export const MODULE_CATALOG: readonly ModuleCatalogEntry[] = Object.freeze([
       primitive("body", { kind: "box", sizeM: [0.34, 0.16, 0.48] }, "plate"),
       primitive("left-bow", { kind: "box", sizeM: [0.48, 0.05, 0.07] }, "piston", [-0.28, 0, 0.12]),
       primitive("right-bow", { kind: "box", sizeM: [0.48, 0.05, 0.07] }, "piston", [0.28, 0, 0.12]),
-    ]), massKg: 12, health: 110, armour: 12, maxHeatJ: 900, coolingW: 55,
+    ]), massKg: 12, health: 5.5, armour: 0.6, maxHeatJ: 900, coolingW: 55,
     reloadSeconds: 0.65, heatPerShotJ: 80, energyPerShotJ: 160,
     projectile: Object.freeze({ poolSize: 18, massKg: 0.08, radiusM: 0.018,
-      lengthM: 0.55, muzzleSpeedMps: 42, damageScale: 1 }),
+      lengthM: 0.55, muzzleSpeedMps: 42, penetrationEfficiency: 1 }),
   }) }),
   Object.freeze({ id: "sword", label: "Mounted sword", module: Object.freeze({
     kind: "sword" as const, compatibilityTag: "dorsal-weapon", geometry: Object.freeze([
       primitive("blade", { kind: "box", sizeM: [0.09, 0.06, 1.25] }, "plate", [0, 0, 0.62]),
       primitive("guard", { kind: "box", sizeM: [0.36, 0.08, 0.08] }, "bearing", [0, 0, 0.06]),
-    ]), massKg: 8, health: 150, armour: 18,
+    ]), massKg: 8, health: 7.5, armour: 0.9,
     striker: Object.freeze({ localTipM: [0, 0, 1.245] as const,
       localEdgeDirection: [1, 0, 0] as const, localFlatDirection: [0, 1, 0] as const, damageScale: 1 }),
   }) }),
   Object.freeze({ id: "opponent-sensor", label: "Range and sight sensor", module: Object.freeze({
     kind: "opponent-sensor" as const, compatibilityTag: "sensor",
     geometry: Object.freeze([primitive("lens", { kind: "sphere", radiusM: 0.11 }, "core")]),
-    massKg: 1.5, health: 60, armour: 6,
+    massKg: 1.5, health: 3, armour: 0.3,
     sensorChannels: Object.freeze(["line-of-sight", "opponent-range", "opponent-relative-speed"]),
   }) }),
   Object.freeze({ id: "contact-sensor", label: "Contact sensor", module: Object.freeze({
     kind: "contact-sensor" as const, compatibilityTag: "contact-sensor",
     geometry: Object.freeze([primitive("pad", { kind: "box", sizeM: [0.24, 0.04, 0.3] }, "plate")]),
     // The Forge replaces these template tokens with IDs owned by the mounted module.
-    massKg: 0.8, health: 55, armour: 5, sensorChannels: Object.freeze(["contact-sensor", "slip-sensor"]),
+    massKg: 0.8, health: 2.75, armour: 0.25, sensorChannels: Object.freeze(["contact-sensor", "slip-sensor"]),
   }) }),
   Object.freeze({ id: "shield", label: "Stone shield", module: Object.freeze({
     kind: "shield" as const, compatibilityTag: "shield",
     geometry: Object.freeze([primitive("face", { kind: "box", sizeM: [0.72, 0.88, 0.12] }, "plate")]),
-    massKg: 18, health: 260, armour: 30,
+    massKg: 18, health: 13, armour: 1.5,
   }) }),
   Object.freeze({ id: "power-core", label: "Rune power core", module: Object.freeze({
     kind: "power-core" as const, compatibilityTag: "power-core",
     geometry: Object.freeze([primitive("cell", { kind: "sphere", radiusM: 0.16 }, "core")]),
-    massKg: 6, health: 100, armour: 12, capacityJ: 24_000, maxOutputW: 520,
+    massKg: 6, health: 5, armour: 0.6, capacityJ: 24_000, maxOutputW: 520,
   }) }),
   Object.freeze({ id: "magazine", label: "Crossbow magazine", module: Object.freeze({
     kind: "magazine" as const, compatibilityTag: "magazine",
     geometry: Object.freeze([primitive("cartridge", { kind: "box", sizeM: [0.20, 0.18, 0.28] }, "plate")]),
-    massKg: 5, health: 80, armour: 10, ammunition: 18,
+    massKg: 5, health: 4, armour: 0.5, ammunition: 18,
   }) }),
 ]);

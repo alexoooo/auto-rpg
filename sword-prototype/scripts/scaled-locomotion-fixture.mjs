@@ -87,7 +87,7 @@ export function scaledLocomotionFixture() {
     ...metrics, footPartIds: Object.freeze(["left-foot", "right-foot"]) });
   const program = structuredClone(humanoidProgram());
   program.id = "locomotion-fixture-090-program";
-  // The production 1.2 m/s stride left both 0.90 m feet airborne beyond the frozen 0.10 s
+  // The production 1.2 m/s stride left both 0.90 m feet airborne beyond the then-current 0.10 s
   // grace. 0.40 m/s is the first two-facing bracket that retains physical support; this fixture
   // is evidence for scale-sensitive gait, not a production tuning change.
   const close = program.rules.find(({ id }) => id === "full-close-distance");

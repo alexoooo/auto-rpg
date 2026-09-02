@@ -43,7 +43,7 @@ const assignment = CONSTRUCT_LEARNING_SCHEDULE.authoredQualification;
 const jobs = createConstructBoutJobs(saved, saved, assignment.seeds, {
   mirrored: assignment.mirrored,
   arenaDigest: CONSTRUCT_LAB_ARENA_DIGEST,
-  configDigest: constructLabConfigDigest(assignment.boutCapSteps),
+  configDigest: constructLabConfigDigest(assignment.boutCapSteps, WARDEN_SENSORS, assignment.separationM),
   boutCapSteps: assignment.boutCapSteps,
 });
 
@@ -125,7 +125,8 @@ export async function qualifyConstructLearningEntry(outDirectory, options = {}) 
       Number(label.slice(label.lastIndexOf("-") + 1)));
     const directory = path.join(output, `${String(index).padStart(2, "0")}-${label}`);
     if (await constructQualificationSourceFingerprint() !== sourceDigest) throw new Error("construct runtime source changed during qualification");
-    const result = await runConstructBatch({ jobs, outDirectory: directory, workers });
+    const result = await runConstructBatch({ jobs, outDirectory: directory, workers,
+      engineOptions: Object.freeze({ separationM: assignment.separationM }) });
     if (await constructQualificationSourceFingerprint() !== sourceDigest) throw new Error("construct runtime source changed during qualification");
     const canonical = await canonicalFiles(directory);
     if (control === null) control = canonical;
@@ -151,7 +152,7 @@ export async function qualifyConstructLearningEntry(outDirectory, options = {}) 
     .map(({ job, id }) => `job ${job} ${id}`).join("; ")}`);
   if (timeCaps * 2 >= rows.length) reasons.push(`${timeCaps}/${rows.length} bouts reached the time cap; meaningful completions are not the majority`);
   const report = Object.freeze({
-    version: 2,
+    version: 4,
     status: reasons.length === 0 ? "qualified" : "rejected",
     scheduleDigest: CONSTRUCT_LEARNING_SCHEDULE_DIGEST,
     sourceDigest,

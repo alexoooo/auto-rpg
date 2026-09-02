@@ -184,7 +184,14 @@ class LocomotionController implements ActionController {
         angleRad,
         maxSpeedRadS: reading.maxSpeedRadS, maxForceNm: reading.maxForceNm });
     }
-    if (this.mode === "move" || this.mode === "crawl") {
+    if (this.assisted && (this.mode === "move" || this.mode === "turn" || this.mode === "brace" ||
+        this.mode === "crawl")) {
+      // These are continuous submissions to the supported carrier, not finite motor poses.
+      // Closure/support evidence belongs to that carrier's boundary report. Reusing the raw
+      // gait's speed/pose error here labelled a physically translating move -- and an admitted
+      // stationary brace -- as a controller that had failed to advance for half a second.
+      this.progress = 0;
+    } else if (this.mode === "move" || this.mode === "crawl") {
       this.progress = Math.max(0, speed - Number(this.context.view.facts["core-speed-mps"] ?? 0));
     } else if (this.mode === "turn") {
       this.progress = Math.max(0, Math.abs(numeric(this.context, "yaw")) -

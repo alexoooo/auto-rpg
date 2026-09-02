@@ -1,16 +1,18 @@
 import { controlDigest, validateControlGraph, type ConstructControlGraph } from "./actions.ts";
-import { validateBlueprint, type ConstructBlueprint } from "./blueprint.ts";
-import { blueprintDigest } from "./canonical.ts";
-import { parseProgram, programDigest, type ConstructProgram } from "./program.ts";
+import { validateBlueprint, validateLegacyBlueprint, validateV2Blueprint, validateV3Blueprint,
+  type ConstructBlueprint, type LegacyConstructBlueprint, type V2ConstructBlueprint,
+  type V3ConstructBlueprint } from "./blueprint.ts";
+import { blueprintDigest, legacyBlueprintDigest, v2BlueprintDigest, v3BlueprintDigest } from "./canonical.ts";
+import { parseProgram, programDigest, type ConstructProgram, type Expression } from "./program.ts";
 import type { SensorSpec } from "./sensors.ts";
 import { installedSensorsForBlueprint } from "./sensors.ts";
 import { canonicalJson, type ArtifactValue } from "../learning/artifact.ts";
 
-export const SAVED_CONSTRUCT_VERSION = 1 as const;
+export const SAVED_CONSTRUCT_VERSION = 4 as const;
 export const SAVED_CONSTRUCT_MAX_BYTES = 1_000_000;
 
 export interface SavedConstruct {
-  readonly version: 1;
+  readonly version: 4;
   readonly name: string;
   readonly blueprint: ConstructBlueprint;
   readonly control: ConstructControlGraph;
@@ -20,7 +22,7 @@ export interface SavedConstruct {
 
 /** A control graph is saved with one body, so stale hardware references are an import error. */
 function validateControlHardware(
-  blueprint: ConstructBlueprint,
+  blueprint: ConstructBlueprint | LegacyConstructBlueprint | V2ConstructBlueprint | V3ConstructBlueprint,
   controlValue: ConstructControlGraph,
   installedSensors: readonly SensorSpec[],
 ): ConstructControlGraph {
@@ -49,6 +51,155 @@ function validateControlHardware(
     }
   }
   return control;
+}
+
+type SavedSource = Readonly<{ version: 1 | 2 | 3 | 4; name: string; blueprint: unknown;
+  control: ConstructControlGraph; program: ConstructProgram;
+  digests: Readonly<{ blueprint: string; control: string; program: string }> }>;
+
+const exact = (row: object, keys: readonly string[], context: string): void => {
+  const names = Object.keys(row);
+  const unknown = names.find((name) => !keys.includes(name));
+  if (unknown) throw new Error(`${context} has unknown field "${unknown}"`);
+  const missing = keys.find((name) => !names.includes(name));
+  if (missing) throw new Error(`${context} is missing field "${missing}"`);
+};
+
+const divideDurabilityAndArmourByTwenty = (blueprint: LegacyConstructBlueprint): V2ConstructBlueprint =>
+  validateV2Blueprint({ ...structuredClone(blueprint), version: 2,
+    parts: blueprint.parts.map((part) => ({ ...part, health: part.health / 20, armour: part.armour / 20 })),
+    joints: blueprint.joints.map((joint) => ({ ...joint, health: joint.health / 20, armour: joint.armour / 20 })),
+    modules: blueprint.modules.map((module) => ({ ...module, health: module.health / 20,
+      armour: module.armour / 20 })),
+  });
+
+const containsSensor = (expression: Expression, ids: ReadonlySet<string>): string | null => {
+  if (expression.op === "sensor") return ids.has(expression.id) ? expression.id : null;
+  if (expression.op === "active" || expression.op === "constant") return null;
+  if (expression.op === "not") return containsSensor(expression.value, ids);
+  if ("values" in expression) {
+    for (const value of expression.values) { const found = containsSensor(value, ids); if (found) return found; }
+    return null;
+  }
+  return containsSensor(expression.left, ids) ?? containsSensor(expression.right, ids);
+};
+
+function migrateExpression(expression: Expression, absolute: ReadonlySet<string>, rule: string): Expression {
+  if (["lt", "lte", "gt", "gte"].includes(expression.op)) {
+    const comparison = expression as Extract<Expression, { op: "lt" | "lte" | "gt" | "gte" }>;
+    const direct = (sensorSide: Expression, constantSide: Expression): readonly [Expression, Expression] | null =>
+      sensorSide.op === "sensor" && absolute.has(sensorSide.id) && constantSide.op === "constant" &&
+        typeof constantSide.value === "number"
+        ? [sensorSide, Object.freeze({ ...constantSide, value: constantSide.value / 20 })]
+        : null;
+    const left = direct(comparison.left, comparison.right);
+    if (left) return Object.freeze({ ...comparison, left: left[0], right: left[1] });
+    const right = direct(comparison.right, comparison.left);
+    if (right) return Object.freeze({ ...comparison, left: right[1], right: right[0] });
+    const sensor = containsSensor(expression, absolute);
+    if (sensor) {
+      throw new Error(`saved construct v1 program rule "${rule}" cannot migrate absolute health expression "${sensor}"`);
+    }
+    return expression;
+  }
+  if (expression.op === "not") {
+    return Object.freeze({ ...expression, value: migrateExpression(expression.value, absolute, rule) });
+  }
+  if (expression.op === "and" || expression.op === "or") {
+    return Object.freeze({ ...expression,
+      values: Object.freeze(expression.values.map((value) => migrateExpression(value, absolute, rule))) });
+  }
+  const sensor = containsSensor(expression, absolute);
+  if (sensor) throw new Error(`saved construct v1 program rule "${rule}" cannot migrate absolute health expression "${sensor}"`);
+  return expression;
+}
+
+function migrateAbsoluteHealthComparisons(
+  program: ConstructProgram,
+  sensors: readonly SensorSpec[],
+): ConstructProgram {
+  const absolute = new Set(sensors.filter(({ combatValue }) => combatValue === "absolute").map(({ id }) => id));
+  const rules = program.rules.map((rule) => Object.freeze({ ...rule,
+    condition: migrateExpression(rule.condition, absolute, rule.id),
+    utility: migrateExpression(rule.utility, absolute, rule.id),
+    parameters: Object.freeze(Object.fromEntries(Object.entries(rule.parameters).map(([name, parameter]) =>
+      [name, parameter.kind === "expression" ? Object.freeze({ ...parameter,
+        value: migrateExpression(parameter.value, absolute, rule.id) }) : parameter]))),
+  }));
+  return Object.freeze({ ...program, rules: Object.freeze(rules) });
+}
+
+function validateSavedSource(value: unknown): SavedSource {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error("saved construct must be an object");
+  exact(value, ["version", "name", "blueprint", "control", "program", "digests"], "saved construct");
+  const source = value as Partial<SavedSource>;
+  if (![1, 2, 3, 4].includes(source.version as number)) {
+    throw new Error(`saved construct version ${JSON.stringify(source.version)} is unsupported`);
+  }
+  if (typeof source.name !== "string" || !source.blueprint || !source.control || !source.program || !source.digests) {
+    throw new Error("saved construct is missing name, blueprint, control, program or digests");
+  }
+  if (typeof source.digests !== "object" || Array.isArray(source.digests)) {
+    throw new Error("saved construct digests must be an object");
+  }
+  exact(source.digests, ["blueprint", "control", "program"], "saved construct digests");
+  return source as SavedSource;
+}
+
+function migrateSavedV1(source: SavedSource, sensors: readonly SensorSpec[]): SavedConstruct {
+  const blueprint = validateLegacyBlueprint(source.blueprint);
+  const installed = installedSensorsForBlueprint(blueprint, sensors);
+  const control = validateControlHardware(blueprint, source.control, installed);
+  const program = parseProgram(JSON.stringify(source.program), control, installed);
+  const actual = { blueprint: legacyBlueprintDigest(blueprint), control: controlDigest(control),
+    program: programDigest(program) };
+  for (const key of ["blueprint", "control", "program"] as const) if (source.digests[key] !== actual[key]) {
+    throw new Error(`saved construct ${key} digest ${JSON.stringify(source.digests[key])} does not match ${actual[key]}`);
+  }
+  const migratedBlueprint = divideDurabilityAndArmourByTwenty(blueprint);
+  const migratedSensors = installedSensorsForBlueprint(migratedBlueprint, sensors);
+  const migratedProgram = migrateAbsoluteHealthComparisons(program, migratedSensors);
+  return saveConstruct(source.name, migrateV3ToV4(migrateV2ToV3(migratedBlueprint)), control,
+    migratedProgram, sensors);
+}
+
+const migrateV2ToV3 = (blueprint: V2ConstructBlueprint): V3ConstructBlueprint => validateV3Blueprint({
+  ...structuredClone(blueprint), version: 3,
+  modules: blueprint.modules.map((module) => {
+    if (!module.projectile) return module;
+    const { damageScale, ...projectile } = module.projectile;
+    return { ...module, projectile: { ...projectile, penetrationEfficiency: Math.min(1, damageScale) } };
+  }),
+});
+
+const migrateV3ToV4 = (blueprint: V3ConstructBlueprint): ConstructBlueprint =>
+  validateBlueprint({ ...structuredClone(blueprint), version: 4 });
+
+function verifySavedDigests(source: SavedSource,
+  blueprint: ConstructBlueprint | LegacyConstructBlueprint | V2ConstructBlueprint | V3ConstructBlueprint,
+  control: ConstructControlGraph, program: ConstructProgram, digest: (value: unknown) => string): void {
+  const actual = { blueprint: digest(blueprint), control: controlDigest(control), program: programDigest(program) };
+  for (const key of ["blueprint", "control", "program"] as const) if (source.digests[key] !== actual[key]) {
+    throw new Error(`saved construct ${key} digest ${JSON.stringify(source.digests[key])} does not match ${actual[key]}`);
+  }
+}
+
+function migrateSavedV2(source: SavedSource, sensors: readonly SensorSpec[]): SavedConstruct {
+  const blueprint = validateV2Blueprint(source.blueprint);
+  const installed = installedSensorsForBlueprint(blueprint, sensors);
+  const control = validateControlHardware(blueprint, source.control, installed);
+  const program = parseProgram(JSON.stringify(source.program), control, installed);
+  verifySavedDigests(source, blueprint, control, program, v2BlueprintDigest);
+  return saveConstruct(source.name, migrateV3ToV4(migrateV2ToV3(blueprint)), control, program, sensors);
+}
+
+function migrateSavedV3(source: SavedSource, sensors: readonly SensorSpec[]): SavedConstruct {
+  const blueprint = validateV3Blueprint(source.blueprint);
+  const installed = installedSensorsForBlueprint(blueprint, sensors);
+  const control = validateControlHardware(blueprint, source.control, installed);
+  const program = parseProgram(JSON.stringify(source.program), control, installed);
+  verifySavedDigests(source, blueprint, control, program, v3BlueprintDigest);
+  return saveConstruct(source.name, migrateV3ToV4(blueprint), control, program, sensors);
 }
 
 export function saveConstruct(
@@ -99,25 +250,11 @@ export function parseSavedConstruct(text: string, sensors: readonly SensorSpec[]
   let value: unknown;
   try { value = JSON.parse(text); }
   catch (error) { throw new Error(`saved construct JSON is invalid: ${error instanceof Error ? error.message : String(error)}`); }
-  if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error("saved construct must be an object");
-  const exact = (row: object, keys: readonly string[], context: string): void => {
-    const names = Object.keys(row);
-    const unknown = names.find((name) => !keys.includes(name));
-    if (unknown) throw new Error(`${context} has unknown field "${unknown}"`);
-    const missing = keys.find((name) => !names.includes(name));
-    if (missing) throw new Error(`${context} is missing field "${missing}"`);
-  };
-  exact(value, ["version", "name", "blueprint", "control", "program", "digests"], "saved construct");
-  const source = value as Partial<SavedConstruct>;
-  if (source.version !== SAVED_CONSTRUCT_VERSION) throw new Error(`saved construct version ${JSON.stringify(source.version)} is unsupported`);
-  if (typeof source.name !== "string" || !source.blueprint || !source.control || !source.program || !source.digests) {
-    throw new Error("saved construct is missing name, blueprint, control, program or digests");
-  }
-  if (typeof source.digests !== "object" || Array.isArray(source.digests)) {
-    throw new Error("saved construct digests must be an object");
-  }
-  exact(source.digests, ["blueprint", "control", "program"], "saved construct digests");
-  const saved = saveConstruct(source.name, source.blueprint, source.control, source.program, sensors);
+  const source = validateSavedSource(value);
+  if (source.version === 1) return migrateSavedV1(source, sensors);
+  if (source.version === 2) return migrateSavedV2(source, sensors);
+  if (source.version === 3) return migrateSavedV3(source, sensors);
+  const saved = saveConstruct(source.name, source.blueprint as ConstructBlueprint, source.control, source.program, sensors);
   for (const key of ["blueprint", "control", "program"] as const) {
     if (source.digests[key] !== saved.digests[key]) {
       throw new Error(`saved construct ${key} digest ${JSON.stringify(source.digests[key])} does not match ${saved.digests[key]}`);

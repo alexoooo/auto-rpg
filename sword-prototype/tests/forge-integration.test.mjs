@@ -13,7 +13,7 @@ test("setup_exposes_a_real_Forge_workspace_and_no_construct_hand_editor", async 
   assert.match(html, /id="forge-workspace"/);
   assert.match(html, /id="forge-library-select"/);
   assert.match(html, /id="forge-diagnostics-root"/);
-  assert.match(setup, /controlSurface === "construct-v1"/);
+  assert.match(setup, /controlSurface === "construct-v3"/);
   assert.match(setup, /controlSurface\.startsWith\("construct-"\)/,
     "fixed construct archetypes hide humanoid equipment without impersonating saved Forge entries");
   assert.match(setup, /data-humanoid-equipment/);

@@ -1150,7 +1150,35 @@ const DUELIST = {
    * thing in front of it is, and `FighterView` is where that belongs.
    */
   headLift: 0.20,
+  /**
+   * A body is down when its live described core has fallen well below its own authored vital
+   * height. This is deliberately a ratio, not a unit or morphology test: a small Construct and
+   * a human-sized one publish the same geometric fact at different metre scales.
+   */
+  downedShoulderFraction: 0.90,
+  /**
+   * A nearly destroyed but still upright body exposes the same live fatal-core finishing lane.
+   * The sequential Warden x0.02 idle bracket left one upright core at 10.7%; 0.20 admitted the
+   * next real core stroke and produced 8/8 deaths without moving damage, health or cadence.
+   */
+  finishBelowVitality: 0.20,
+  /**
+   * Half extents of the bounded overhead finishing stroke in cursor space.
+   *
+   * The 2026-09-01 sequential four-seed/two-mirror Arbalest x0.02 idle bracket retained the
+   * original 0.32/0.62 chord, added the ordinary point drive and alternated its traversal. Wider
+   * 0.24/0.90 strokes fixed one debris pose but regressed three others (5/8); the retained chord
+   * killed all eight in 7.467--25.929 seconds without changing damage or Construct durability.
+   */
+  downedStrokeX: 0.32,
+  downedStrokeY: 0.62,
 } as const;
+
+/** Public for the policy boundary test; the decision reads no type, side or hidden posture flag. */
+export function duelistOpponentIsDowned(body: Pick<BodyView, "shoulder" | "vitalHeight">): boolean {
+  return Number.isFinite(body.shoulder.y) && Number.isFinite(body.vitalHeight) && body.vitalHeight > 0 &&
+    body.shoulder.y < body.vitalHeight * DUELIST.downedShoulderFraction;
+}
 
 /**
  * The archer's numbers.
@@ -1360,6 +1388,8 @@ export function duelistMind(seed = randomSeed()): Mind {
 
   let stance: Stance = "hold";
   let elapsed = 0;
+  let finishingCore = false;
+  let downedStrokeDirection = 1;
 
   // The start offset, and the reason two duelists built together do not both
   // lunge on the same frame.
@@ -1413,7 +1443,14 @@ export function duelistMind(seed = randomSeed()): Mind {
     decide(view: FighterView, dt: number): Intent {
       const self = view.self;
       const them = view.opponent;
-      const gap = distance(self.shoulder, them.shoulder);
+      const downedOpponent = duelistOpponentIsDowned(them);
+      // A fallen body's live core can be almost a metre below the standing shoulder. Folding
+      // that vertical drop into the approach gate made the Duelist circle an exposed, severed
+      // core forever even when it was horizontally inside the sword's physical sweep envelope.
+      // Standing combat keeps the historical three-dimensional shoulder range.
+      const gap = downedOpponent
+        ? Math.hypot(self.shoulder.x - them.shoulder.x, self.shoulder.z - them.shoulder.z)
+        : distance(self.shoulder, them.shoulder);
 
       const threat = selectThreat(view, watching);
       attacker = attackHand(view, prefer, threat.tip);
@@ -1497,6 +1534,13 @@ export function duelistMind(seed = randomSeed()): Mind {
         stance === "hold" ? "cover" : stance === "recover" ? "recover" : "commit",
         intent,
       );
+      if (stance !== "hold" && finishingCore) {
+        // A supported overhead finish does not need the standing lunge's off-line step or forward
+        // lean. Keeping the feet planted is what stops a successful downward hit from pulling the
+        // Warrior onto the same debris pile it is trying to finish.
+        intent.forward = 0; intent.strafe = 0;
+        intent.posture.crouch = 0; intent.posture.trunkLean = 0; intent.posture.trunkTwist = 0;
+      }
 
       // ---- hands -----------------------------------------------------------
       // The hand that is not cutting, planned first and from the same reading,
@@ -1519,15 +1563,32 @@ export function duelistMind(seed = randomSeed()): Mind {
         // is left where the last cut put it rather than spent on nothing.
 
         if (cooldown <= 0 && gap <= strike && (opening || sinceOpening > patience)) {
-          target.x = them.ground.x;
-          target.y = them.shoulder.y + DUELIST.headLift;
-          target.z = them.ground.z;
-          aimAt(view, target, aim, attacker, socket);
+          finishingCore = downedOpponent || them.vitality < DUELIST.finishBelowVitality;
+          if (finishingCore) {
+            // The ordinary head-line diagonal becomes a foot rake after a body falls: distal
+            // debris intercepts its broad low chord while the described shoulder/core lies
+            // exposed between the feet. Re-aim one bounded, near-vertical stroke at that live
+            // core. It remains an ordinary arm command and an ordinary physical sword collider.
+            target.x = them.shoulder.x;
+            target.y = them.shoulder.y;
+            target.z = them.shoulder.z;
+            aimAt(view, target, aim, attacker, socket);
+            const strokeDirection = mirror * downedStrokeDirection;
+            fromX = clamp(aim.pointerX + DUELIST.downedStrokeX * strokeDirection, -1, 1);
+            fromY = clamp(aim.pointerY + DUELIST.downedStrokeY, -1, 1);
+            toX = clamp(aim.pointerX - DUELIST.downedStrokeX * strokeDirection, -1, 1);
+            toY = clamp(aim.pointerY - DUELIST.downedStrokeY, -1, 1);
+          } else {
+            target.x = them.ground.x;
+            target.y = them.shoulder.y + DUELIST.headLift;
+            target.z = them.ground.z;
+            aimAt(view, target, aim, attacker, socket);
 
-          fromX = clamp(aim.pointerX + DUELIST.offset.x * mirror, -1, 1);
-          fromY = clamp(aim.pointerY + DUELIST.offset.y, -1, 1);
-          toX = clamp(aim.pointerX - DUELIST.offset.x * mirror, -1, 1);
-          toY = clamp(aim.pointerY - DUELIST.offset.y, -1, 1);
+            fromX = clamp(aim.pointerX + DUELIST.offset.x * mirror, -1, 1);
+            fromY = clamp(aim.pointerY + DUELIST.offset.y, -1, 1);
+            toX = clamp(aim.pointerX - DUELIST.offset.x * mirror, -1, 1);
+            toY = clamp(aim.pointerY - DUELIST.offset.y, -1, 1);
+          }
           hand.roll = rollForStroke(
             fromX,
             fromY,
@@ -1544,6 +1605,10 @@ export function duelistMind(seed = randomSeed()): Mind {
           // The chamber lifts from wherever the guard left the cursor.
           aim.pointerX = hand.pointerX;
           aim.pointerY = hand.pointerY;
+          if (finishingCore) {
+            intent.forward = 0; intent.strafe = 0;
+            intent.posture.crouch = 0; intent.posture.trunkLean = 0; intent.posture.trunkTwist = 0;
+          }
         }
         return intent;
       }
@@ -1559,7 +1624,7 @@ export function duelistMind(seed = randomSeed()): Mind {
         hand.guard = false;
         // A step in with the chamber, on the diagonal the strafe is already
         // walking: closing straight down the middle is what `swinger` does.
-        intent.forward = Math.max(intent.forward, 0.35);
+        if (!finishingCore) intent.forward = Math.max(intent.forward, 0.35);
         const pose = actionStrokePose({ phase: "chamber", fraction: t }, aim,
           { pointerX: fromX, pointerY: fromY }, { pointerX: toX, pointerY: toY }, aim);
         hand.pointerX = pose.pointerX; hand.pointerY = pose.pointerY;
@@ -1569,8 +1634,12 @@ export function duelistMind(seed = randomSeed()): Mind {
 
       if (stance === "cut") {
         hand.guard = false;
-        hand.thrust = !hasHeldWeapon(self.hands[attacker].weapon);
-        intent.forward = Math.max(intent.forward, 0.2);
+        // A fallen core is approached from above, where a planted point drive is the physical
+        // continuation of the narrow vertical chop. Without it the sword only rakes distal
+        // debris at the edge of its arc; this remains the ordinary arm's authored thrust and
+        // ordinary collider, not a damage or transform shortcut.
+        hand.thrust = finishingCore || !hasHeldWeapon(self.hands[attacker].weapon);
+        if (!finishingCore) intent.forward = Math.max(intent.forward, 0.2);
         const pose = actionStrokePose({ phase: "commit", fraction: t }, aim,
           { pointerX: fromX, pointerY: fromY }, { pointerX: toX, pointerY: toY }, aim);
         hand.pointerX = pose.pointerX; hand.pointerY = pose.pointerY;
@@ -1592,7 +1661,9 @@ export function duelistMind(seed = randomSeed()): Mind {
         // can cut with. Two blades then take turns, and the one that is not
         // cutting covers -- which is both halves of using both hands.
         prefer = otherHand(attacker);
+        if (finishingCore) downedStrokeDirection = -downedStrokeDirection;
         goTo("hold");
+        finishingCore = false;
       }
       return intent;
     },

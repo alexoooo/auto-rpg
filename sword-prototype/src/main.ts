@@ -26,11 +26,13 @@ import { compileConstruct } from "./construct/compile";
 import { Construct } from "./construct/construct";
 import { constructControlSnapshot, type ConstructControlSnapshot } from "./construct/control";
 import { saveConstruct, type SavedConstruct } from "./construct/codec";
+import type { ConstructBlueprint } from "./construct/blueprint";
 import type { ConstructRuntime } from "./construct/runtime";
 import { WARDEN_SENSORS, wardenBlueprint, wardenControl, wardenProgram } from "./construct/warden";
 import { installedSensorsForBlueprint } from "./construct/sensors";
 import { constructSupportsSupportedLocomotion } from "./construct/assisted-locomotion";
 import { flatSupportedWorldRegistry } from "./supported-locomotion-production";
+import { constructBlueprintForDurability } from "./construct/durability";
 import { ForgeScreen } from "./forge/screen";
 import { CONSTRUCT_LIBRARY_STORAGE_KEY, encodeConstructLibrary, parseConstructLibrary,
   replaceConstructLibraryEntry } from "./forge/library";
@@ -268,6 +270,18 @@ async function boot(): Promise<void> {
     });
   }
 
+  /**
+   * Authored Forge/library revisions keep their authored base durability. Only the built-in
+   * committed body crosses the measured production seam when a bout is instantiated. The
+   * committed row is first in `libraryEntries` and digest-deduplication keeps that object as the
+   * canonical Setup selection, so this identity test cannot accidentally rescale a user revision.
+   */
+  function installedSetupBlueprint(saved: SavedConstruct): ConstructBlueprint {
+    return saved === committedConstruct
+      ? constructBlueprintForDurability(saved.blueprint, "warden-crossbow", "production")
+      : saved.blueprint;
+  }
+
   let state = selectScreen(defaultMatchup());
   const setup = new SetupScreen(
     need("matchup"),
@@ -463,8 +477,8 @@ async function boot(): Promise<void> {
     const F = CONFIG.fighter;
     const leftDefinition = unitDefinition(matchup.left.unit);
     const rightDefinition = unitDefinition(matchup.right.unit);
-    const leftSaved = visibleConstructLab?.[0] ?? (leftDefinition.controlSurface === "construct-v1" ? savedForSetup(matchup.left) : null);
-    const rightSaved = visibleConstructLab?.[1] ?? (rightDefinition.controlSurface === "construct-v1" ? savedForSetup(matchup.right) : null);
+    const leftSaved = visibleConstructLab?.[0] ?? (leftDefinition.controlSurface === "construct-v3" ? savedForSetup(matchup.left) : null);
+    const rightSaved = visibleConstructLab?.[1] ?? (rightDefinition.controlSurface === "construct-v3" ? savedForSetup(matchup.right) : null);
     const leftSupports = leftSaved ? constructSupportsSupportedLocomotion(leftSaved.blueprint, leftSaved.control)
       : leftDefinition.supportedLocomotionPort === SUPPORTED_LOCOMOTION_PORT_V1;
     const rightSupports = rightSaved ? constructSupportsSupportedLocomotion(rightSaved.blueprint, rightSaved.control)
@@ -484,9 +498,12 @@ async function boot(): Promise<void> {
         locomotionMode,
         locomotionWorld,
       } as const;
-    const left = leftSaved ? new Construct({ ...leftContext, policyName: "construct-program",
-      humanActive: false, human: undefined }, { blueprint: leftSaved.blueprint, control: leftSaved.control,
-      program: leftSaved.program, sensors: installedSensorsForBlueprint(leftSaved.blueprint, WARDEN_SENSORS) })
+    const leftBlueprint = leftSaved ? installedSetupBlueprint(leftSaved) : null;
+    const left = leftSaved ? new Construct({ ...leftContext,
+      policyName: matchup.left.policy === "construct-hold" ? "construct-hold" : "construct-program",
+      humanActive: false, human: undefined }, { blueprint: leftBlueprint as ConstructBlueprint,
+      control: leftSaved.control, program: leftSaved.program,
+      sensors: installedSensorsForBlueprint(leftBlueprint as ConstructBlueprint, WARDEN_SENSORS) })
       : leftDefinition.build(leftContext);
     const rightContext = {
         scene: arena.scene,
@@ -502,11 +519,14 @@ async function boot(): Promise<void> {
         locomotionMode,
         locomotionWorld,
       } as const;
+    const rightBlueprint = rightSaved ? installedSetupBlueprint(rightSaved) : null;
     let right;
     try {
-      right = rightSaved ? new Construct({ ...rightContext, policyName: "construct-program",
-        humanActive: false, human: undefined }, { blueprint: rightSaved.blueprint, control: rightSaved.control,
-        program: rightSaved.program, sensors: installedSensorsForBlueprint(rightSaved.blueprint, WARDEN_SENSORS) })
+      right = rightSaved ? new Construct({ ...rightContext,
+        policyName: matchup.right.policy === "construct-hold" ? "construct-hold" : "construct-program",
+        humanActive: false, human: undefined }, { blueprint: rightBlueprint as ConstructBlueprint,
+        control: rightSaved.control, program: rightSaved.program,
+        sensors: installedSensorsForBlueprint(rightBlueprint as ConstructBlueprint, WARDEN_SENSORS) })
         : rightDefinition.build(rightContext);
     } catch (error) {
       // Pair mode is atomic before construction, but a backend/asset failure can still happen while
@@ -978,6 +998,7 @@ async function boot(): Promise<void> {
     if (!hasConstruct) return;
     const paused = !controls.isActive;
     for (const side of ["left", "right"] as const) {
+      const body = bodies[side];
       const host = side === "left" ? arenaConstructLeft.parentElement : arenaConstructRight.parentElement;
       const snapshot = snapshots[side];
       host?.classList.toggle("gone", snapshot === null);
@@ -997,6 +1018,12 @@ async function boot(): Promise<void> {
         severed: report.severed,
         blocked,
       }));
+      const setupSide = state.matchup[side];
+      const definition = unitDefinition(setupSide.unit);
+      const selectedDriver = definition.driverOptions.find(({ name }) => name === setupSide.policy);
+      const savedProgram = definition.controlSurface === "construct-v3";
+      const driverLabel = setupSide.policy === "construct-hold" ? "Hold"
+        : savedProgram ? "Saved Mind" : selectedDriver?.label ?? setupSide.policy;
       arenaDiagnosticPanels[side].update({
         at: bout.sides[side === "left" ? 0 : 1].combat.now,
         paused,
@@ -1011,6 +1038,10 @@ async function boot(): Promise<void> {
         resources: Object.freeze(resources),
         combat: Object.freeze(combat),
         locomotion: snapshot.locomotion,
+        surface: body instanceof Construct ? body.runtime.surfaces.audit() : null,
+        driver: body instanceof Construct ? Object.freeze({ label: driverLabel,
+          policyId: setupSide.policy, programId: body.programId,
+          programSource: savedProgram ? "saved" : "built-in" }) : undefined,
       });
     }
   };
@@ -1071,6 +1102,7 @@ async function boot(): Promise<void> {
           id === "power-charge-j" || id === "heat-j" || id === "overheated" || id.startsWith("ammo:") || id.startsWith("reload:")))),
         probeMotor: timeline.motors,
         locomotion: timeline.locomotion.at(-1)?.diagnostic ?? snapshot.locomotion,
+        surface: probe.runtime.surfaces.audit(),
       });
       const terminal = [...new Set(timeline.scheduler.filter(({ kind }) =>
         kind === "completed" || kind === "refused" || kind === "failed" || kind === "cancelled")

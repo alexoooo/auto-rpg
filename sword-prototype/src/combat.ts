@@ -12,7 +12,8 @@ import type { WeaponKind } from "./weapon.ts";
 import type { Limb } from "./fighter.ts";
 import type { Combatant } from "./units.ts";
 import type { HandName } from "./hands.ts";
-import { biteFloor, scoreHit, severs, type HitKind, type Striker } from "./scoring.ts";
+import { biteFloor, evaluateProjectileImpact, scoreHit, severs,
+  type HitKind, type Striker } from "./scoring.ts";
 
 export type { HitKind };
 
@@ -58,9 +59,27 @@ export interface Striking {
   readonly hand: HandName | null;
   /** Blueprint-owned multiplier; legacy effectors omit it and therefore remain exactly 1. */
   readonly damageScale?: number;
+  /** Authored zero-wound contact transfer, expressed as target velocity change. */
+  readonly authoredSpecificImpulseMps?: number;
+  /** Immutable physical facts shared with the live projectile body. */
+  readonly projectileImpact?: Readonly<{
+    readonly massKg: number;
+    readonly lengthM: number;
+    readonly radiusM: number;
+    readonly penetrationEfficiency: number;
+  }>;
+  /** Stable pool slot; `shotSerial` changes at every launch of that slot. */
+  readonly projectilePoolIndex?: number;
+  readonly shotSerial?: number | null;
   readonly body: PhysicsBody;
   /** Supported bodies may replace a solving striker contact with this sensor-only path. */
   readonly nonSolvingTrigger?: NonSolvingStrikeTrigger;
+  /** Compound owners must prove the contact belongs to this semantic module leaf. */
+  allowsSourceContact?(point: Vector3): boolean;
+  /** Stateful effectors may accept at most one contact per target and action instance. */
+  claimContact?(body: PhysicsBody): boolean;
+  /** Mounted effectors name owner and inactive contacts instead of disappearing them. */
+  refusalForContact?(body: PhysicsBody): CombatRefusalEvent["reason"] | null;
   /**
    * Whether this has stopped being a weapon: dropped, or already spent.
    *
@@ -86,6 +105,27 @@ export interface Striking {
   edgeDirection(): Vector3;
   bladeDirection(): Vector3;
   tipPosition(): Vector3;
+  /** Optional pre-solver projectile pose paired with the cached arrival velocity. */
+  impactBladeDirection?(): Vector3;
+  impactTipPosition?(): Vector3;
+}
+
+export interface ProjectileImpactEvidence {
+  readonly identity: Readonly<{
+    readonly owner: Side;
+    readonly effectorId: string;
+    readonly poolIndex: number;
+    readonly shotSerial: number;
+  }>;
+  readonly massKg: number;
+  readonly arrivalSpeedMps: number;
+  readonly signedShaftAlignment: number;
+  readonly contactedZone: "head" | "shaft" | "tail" | "other";
+  readonly usableEnergyJ: number;
+  readonly penetrationEfficiency: number;
+  readonly uncappedDamage: number;
+  readonly preArmourDamage: number;
+  readonly postArmourDamage: number;
 }
 
 export interface HitReport {
@@ -120,6 +160,12 @@ export interface HitReport {
   /** What the solver actually resolved, kept as a diagnostic. */
   solverImpulse: number;
   damage: number;
+  /** Damage on the combat-value scale before and after target armour. */
+  preArmourDamage: number;
+  postArmourDamage: number;
+  /** Present only for a physical projectile contact. */
+  projectile?: ProjectileImpactEvidence;
+  stabilityShove?: Readonly<{ readonly kind: "specific-impulse"; readonly specificImpulseMps: number }>;
   severed: boolean;
   at: number;
   /**
@@ -143,6 +189,12 @@ export interface CombatReportEvent {
   readonly effectorId: string;
   readonly hand: HandName | null;
   readonly blocked: boolean;
+}
+
+export interface CombatRefusalEvent {
+  readonly reason: "owner-contact" | "inactive-action" | "module-attribution";
+  readonly effectorId: string;
+  readonly at: number;
 }
 
 /**
@@ -217,9 +269,12 @@ export class Combat {
   /** Parries share one cooldown, since two blades resting together contact
    *  every step and a log full of one block is a log of nothing. */
   private lastParryAt = -999;
+  /** One serial is one scoring opportunity; a recycled slot receives a new serial. */
+  private readonly projectileHits = new Set<string>();
   /** False from the verdict edge onward; observers stay installed until dispose. */
   private active = true;
   private readonly onReport?: (event: CombatReportEvent) => void;
+  private readonly onRefusal?: (event: CombatRefusalEvent) => void;
 
   /** The most recent meaningful contact, for the readout. */
   lastHit: HitReport | null = null;
@@ -234,9 +289,11 @@ export class Combat {
     push: new Vector3(),
   };
 
-  constructor(side: Side, weapons: readonly (Striking | null)[], onReport?: (event: CombatReportEvent) => void) {
+  constructor(side: Side, weapons: readonly (Striking | null)[], onReport?: (event: CombatReportEvent) => void,
+    onRefusal?: (event: CombatRefusalEvent) => void) {
     this.side = side;
     this.onReport = onReport;
+    this.onRefusal = onRefusal;
     try {
       for (const weapon of weapons) {
         if (!weapon) continue;
@@ -329,10 +386,23 @@ export class Combat {
   private onContact(weapon: Striking, event: IPhysicsCollisionEvent): void {
     if (!this.active) return;
     if (event.type === PhysicsEventType.COLLISION_FINISHED) return;
+    const refusal = weapon.refusalForContact?.(event.collidedAgainst) ?? null;
+    if (refusal !== null) {
+      this.onRefusal?.({ reason: refusal, effectorId: weapon.effectorId, at: this.clock });
+      return;
+    }
     // Debris does not score, and does not parry either. See `Striking.spent`.
     if (weapon.spent) return;
     if (weapon.allowsContact && !weapon.allowsContact(event.collidedAgainst)) return;
     if (!this.target || !event.point) return;
+    if (weapon.allowsSourceContact && !weapon.allowsSourceContact(event.point as Vector3)) {
+      this.onRefusal?.({ reason: "module-attribution", effectorId: weapon.effectorId, at: this.clock });
+      return;
+    }
+    if (weapon.claimContact && !weapon.claimContact(event.collidedAgainst)) {
+      this.onRefusal?.({ reason: "module-attribution", effectorId: weapon.effectorId, at: this.clock });
+      return;
+    }
 
     // A bare hand and forearm are both limbs and a guard. Physical interposition
     // decides which one this is: when an attached empty arm is the thing found,
@@ -348,15 +418,26 @@ export class Combat {
       return;
     }
     if (limb.severed) return;
-    if (this.clock - limb.lastHitAt < CONFIG.combat.hitCooldown) return;
+    const projectileKey = weapon.projectileImpact ? this.projectileIdentityKey(weapon) : null;
+    if (projectileKey !== null ? this.projectileHits.has(projectileKey)
+      : this.clock - limb.lastHitAt < CONFIG.combat.hitCooldown) return;
+    if (projectileKey !== null) this.projectileHits.add(projectileKey);
 
     const report = this.resolve(weapon, limb, event);
-    limb.lastHitAt = this.clock;
+    if (projectileKey === null) limb.lastHitAt = this.clock;
     this.lastHit = report;
     if (report.damage > 0) this.lastWound = report;
     this.onReport?.({ report, effectorId: weapon.effectorId, hand: weapon.hand, blocked: false });
     this.log.unshift(report);
     if (this.log.length > 24) this.log.length = 24;
+  }
+
+  private projectileIdentityKey(weapon: Striking): string {
+    if (!Number.isSafeInteger(weapon.projectilePoolIndex) ||
+        !Number.isSafeInteger(weapon.shotSerial) || (weapon.shotSerial as number) < 0) {
+      throw new Error(`projectile "${weapon.effectorId}" contacted without a live pool identity`);
+    }
+    return `${this.side}:${weapon.effectorId}:${weapon.projectilePoolIndex}:${weapon.shotSerial}`;
   }
 
 /**
@@ -389,6 +470,8 @@ export class Combat {
       edgeAlignment: 0,
       solverImpulse: event.impulse,
       damage: 0,
+      preArmourDamage: 0,
+      postArmourDamage: 0,
       severed: false,
       at: this.clock,
       point: point.clone(),
@@ -427,8 +510,9 @@ export class Combat {
     // be: for most of a year it was `speed < C.minCutSpeed`, which meant a club
     // below 3.0 m/s never reached `scoreHit` and `minCrushSpeed` was a setting
     // that worked only in its unit test.
-    if (speed < biteFloor(weapon.kind) && weapon.kind !== "empty") {
-      return { ...base, kind: "weak", edgeAlignment: 0, damage: 0, severed: false };
+    if (!weapon.projectileImpact && speed < biteFloor(weapon.kind) && weapon.kind !== "empty") {
+      return { ...base, kind: "weak", edgeAlignment: 0, damage: 0,
+        preArmourDamage: 0, postArmourDamage: 0, severed: false };
     }
 
     // A stationary contact has no direction and therefore a zero shove. This
@@ -444,34 +528,104 @@ export class Combat {
     const alongEdge = Vector3.Dot(direction, weapon.edgeDirection());
     const edgeAlignment = Math.abs(alongEdge);
 
-    const score = scoreHit(
-      {
-        speed,
-        edgeAlignment: alongEdge,
-        bladeAlignment: Math.abs(Vector3.Dot(direction, weapon.bladeDirection())),
-        nearTip: Vector3.Distance(point, weapon.tipPosition()) < C.thrustTipZone,
-      },
-      weapon.kind,
-    );
+    let projectile: ProjectileImpactEvidence | undefined;
+    const impactAxis = (weapon.impactBladeDirection?.() ?? weapon.bladeDirection()).clone().normalize();
+    const shaftAlignment = Vector3.Dot(direction, impactAxis);
+    const score = weapon.projectileImpact
+      ? (() => {
+        const profile = weapon.projectileImpact as NonNullable<Striking["projectileImpact"]>;
+        // Zone geometry and the manifold sample must describe the same arrival pose. Havok can
+        // rotate a thin shaft during resolution before this observer reads the node; using its
+        // live head with the cached arrival axis classified the mirrored point-first Warden bolt
+        // as a shaft hit. Projectiles therefore pair the cached head and axis with the manifold.
+        const head = (weapon.impactTipPosition?.() ?? weapon.tipPosition()).clone();
+        const axis = impactAxis;
+        const nock = head.subtract(axis.scale(profile.lengthM));
+        // The reported world contact is the physical evidence. Projecting it onto the shaft
+        // made the classifier's radial refusal unreachable, laundering a broad/off-axis
+        // manifold into a head, shaft or tail contact by construction.
+        const zone = classifyProjectileContactZone(nock, head, point, profile.radiusM);
+        // Both vectors are unit axes, but Havok/float32 pose recovery can put their dot a few
+        // ulps beyond +/-1. Clamp only this derived cosine at the physics boundary; the pure
+        // scorer still refuses an authored out-of-range input.
+        const physicalAlignment = Math.max(-1, Math.min(1, shaftAlignment));
+        const evaluation = evaluateProjectileImpact({ massKg: profile.massKg, speedMps: speed,
+          signedShaftAlignment: physicalAlignment, contactedHead: zone === "head",
+          penetrationEfficiency: profile.penetrationEfficiency });
+        projectile = {
+          identity: Object.freeze({ owner: this.side, effectorId: weapon.effectorId,
+            poolIndex: weapon.projectilePoolIndex as number, shotSerial: weapon.shotSerial as number }),
+          massKg: profile.massKg, arrivalSpeedMps: speed,
+          signedShaftAlignment: physicalAlignment, contactedZone: zone,
+          usableEnergyJ: evaluation.usableEnergyJ,
+          penetrationEfficiency: profile.penetrationEfficiency,
+          uncappedDamage: evaluation.uncappedDamage,
+          preArmourDamage: evaluation.score.damage,
+          postArmourDamage: 0,
+        };
+        return evaluation.score;
+      })()
+      : scoreHit(
+        {
+          speed,
+          edgeAlignment: alongEdge,
+          bladeAlignment: Math.abs(shaftAlignment),
+          nearTip: Vector3.Distance(point, weapon.tipPosition()) < C.thrustTipZone,
+        },
+        weapon.kind,
+      );
     const { kind, quality } = score;
-    const rawDamage = score.damage * (weapon.damageScale ?? 1);
+    const rawDamage = weapon.projectileImpact ? score.damage : score.damage * (weapon.damageScale ?? 1);
     const damage = this.target?.applyDamage?.(limb, rawDamage) ?? rawDamage;
+    if (projectile) projectile = Object.freeze({ ...projectile, postArmourDamage: damage });
     if (!this.target?.applyDamage) limb.health -= damage;
 
     // The blade shoves what it strikes whether or not it bites. A flat slap
     // transfers the most push and the least damage, which is the trade the
     // player is being taught.
-    const shove = this.scratch.push
-      .copyFrom(direction)
-      .scaleInPlace(speed * 0.11 * (1.35 - quality * 0.7));
-    limb.part.body.applyImpulse(shove, point);
-    // This authored transfer, not Havok's solver reaction impulse, is the stability input.
-    // Collision callbacks may queue it but cannot change support state or motion type here.
-    this.target?.queueStabilityEvent?.({ horizontalShoveNs: [shove.x, shove.z] });
+    let stabilityShove: HitReport["stabilityShove"];
+    if (weapon.authoredSpecificImpulseMps !== undefined) {
+      const specificImpulseMps = weapon.authoredSpecificImpulseMps;
+      const massKg = limb.part.body.getMassProperties().mass ?? 1;
+      const shove = this.scratch.push.copyFrom(direction).scaleInPlace(specificImpulseMps * massKg);
+      limb.part.body.applyImpulse(shove, point);
+      this.target?.queueStabilityEvent?.({ kind: "specific-impulse", specificImpulseMps });
+      stabilityShove = Object.freeze({ kind: "specific-impulse", specificImpulseMps });
+    } else {
+      const shove = this.scratch.push
+        .copyFrom(direction)
+        .scaleInPlace(speed * 0.11 * (1.35 - quality * 0.7));
+      limb.part.body.applyImpulse(shove, point);
+      // This authored transfer, not Havok's solver reaction impulse, is the stability input.
+      // Collision callbacks may queue it but cannot change support state or motion type here.
+      this.target?.queueStabilityEvent?.({ horizontalShoveNs: [shove.x, shove.z] });
+    }
 
     const severed = severs({ ...score, damage }, limb.health, weapon.kind);
     if (severed) this.target?.sever(limb, direction);
 
-    return { ...base, kind, edgeAlignment, damage, severed };
+    return { ...base, kind, edgeAlignment, damage, preArmourDamage: rawDamage,
+      postArmourDamage: damage, severed, ...(projectile ? { projectile } : {}),
+      ...(stabilityShove ? { stabilityShove } : {}) };
   }
+}
+
+export function classifyProjectileContactZone(nock: Vector3, head: Vector3, point: Vector3,
+  radiusM: number): "head" | "shaft" | "tail" | "other" {
+  if (![nock.x, nock.y, nock.z, head.x, head.y, head.z, point.x, point.y, point.z, radiusM]
+    .every(Number.isFinite) || radiusM <= 0) {
+    throw new Error("projectile contact zone contains invalid geometry");
+  }
+  const nockToHead = head.subtract(nock);
+  const shaftLengthM = nockToHead.length();
+  if (shaftLengthM <= 0) throw new Error("projectile contact zone requires a positive shaft length");
+  const axis = nockToHead.scale(1 / shaftLengthM);
+  const fromNock = point.subtract(nock);
+  const axialM = Vector3.Dot(fromNock, axis);
+  const radialM = fromNock.subtract(axis.scale(axialM)).length();
+  const endZoneM = Math.max(radiusM * 3, shaftLengthM * 0.12);
+  if (radialM > radiusM * 3 || axialM < -endZoneM || axialM > shaftLengthM + endZoneM) return "other";
+  if (Math.abs(axialM - shaftLengthM) <= endZoneM) return "head";
+  if (Math.abs(axialM) <= endZoneM) return "tail";
+  return "shaft";
 }

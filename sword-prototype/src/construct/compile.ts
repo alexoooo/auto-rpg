@@ -32,7 +32,7 @@ import {
   type ConstructFaction,
   type ConstructMaterialPalette,
 } from "./materials.ts";
-import { buildConstructModuleVisual, buildConstructPartVisual } from "./render.ts";
+import { buildConstructModuleVisual, buildConstructPartVisual, ConstructSurfaceRegistry } from "./render.ts";
 import {
   ConstructBuildTransaction,
   ConstructJoint,
@@ -54,6 +54,7 @@ export interface ConstructPartBuildContext {
   readonly transform: ConstructWorldTransform;
   readonly faction: ConstructFaction;
   readonly palette: ConstructMaterialPalette;
+  readonly surfaces: ConstructSurfaceRegistry;
   readonly partIndex: number;
 }
 
@@ -385,7 +386,7 @@ export const defaultConstructPartFactory: ConstructPartFactory = (context) => {
     body = new PhysicsBody(node, PhysicsMotionType.DYNAMIC, false, context.scene);
     body.shape = shape;
     body.setMassProperties({ mass: context.part.massKg, centerOfMass: vector(context.part.centreOfMassM) });
-    visual = buildConstructPartVisual(context.scene, node, context.part, context.palette);
+    visual = buildConstructPartVisual(context.scene, node, context.part, context.palette, context.surfaces);
     return new ConstructPart(context.part, node, body, shape, visual, [leaf]);
   } catch (error) {
     body?.dispose();
@@ -468,6 +469,7 @@ export function compileConstruct(
   const specs = new Map(blueprint.parts.map((part) => [part.id, part]));
   const ownsNewPalette = options.palette === undefined && !hasConstructMaterials(scene, options.faction);
   const palette = options.palette ?? constructMaterials(scene, options.faction);
+  const surfaces = new ConstructSurfaceRegistry(scene, palette);
   const factory = options.partFactory ?? defaultConstructPartFactory;
   const transaction = new ConstructBuildTransaction();
   try {
@@ -476,7 +478,7 @@ export function compileConstruct(
       const part = specs.get(id);
       const transform = transforms.get(id);
       if (!part || !transform) throw new Error(`part "${id}" was lost after construct validation`);
-      transaction.ownPart(factory({ scene, part, transform, faction: options.faction, palette, partIndex }));
+      transaction.ownPart(factory({ scene, part, transform, faction: options.faction, palette, surfaces, partIndex }));
     }
     const runtimeParts = new Map(transaction.parts.map((part) => [part.id, part]));
     const socketSpecs = new Map(blueprint.sockets.map((socket) => [socket.id, socket]));
@@ -493,7 +495,7 @@ export function compileConstruct(
         part: owner,
         liveFrame: () => liveAttachmentFrame(owner.node, socketSpec.frame, [1, 0, 0]),
       });
-      const visual = buildConstructModuleVisual(scene, owner.node, socketSpec.frame, module, palette);
+      const visual = buildConstructModuleVisual(scene, owner.node, socketSpec.frame, module, palette, surfaces);
       const leaves: PhysicsShape[] = [];
       try {
         const socketRotation = quaternion(socketSpec.frame.rotation);
@@ -531,10 +533,12 @@ export function compileConstruct(
       const child = runtimeParts.get(spec.childPart);
       if (!parent || !child) throw new Error(`joint "${spec.id}" lost a compiled body`);
       transaction.ownJoint(buildJoint(scene, spec, parent, child));
+      surfaces.rebindJoint(spec.id, spec.childPart, child.visual.bearing);
     }
-    return transaction.publish(blueprint);
+    return transaction.publish(blueprint, surfaces);
   } catch (error) {
     transaction.rollback();
+    surfaces.dispose();
     if (ownsNewPalette) palette.dispose();
     throw error;
   }

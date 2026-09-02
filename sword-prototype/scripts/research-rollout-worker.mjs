@@ -1,6 +1,7 @@
 import { parentPort, workerData } from "node:worker_threads";
 import { pathToFileURL } from "node:url";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
+import { combatValueToLegacyRewardWeight } from "../src/config.ts";
 
 import { predictDagger } from "../src/learning/dagger.ts";
 import { FEATURE_VERSION } from "../src/learning/features.ts";
@@ -83,7 +84,8 @@ async function neat() {
   const opportunity = opportunityCount ? attacksInWindow / opportunityCount : 0;
   const contact = attacksInWindow ? contactsInWindow / attacksInWindow : 0; const stall = Math.min(1, stallSeconds / Math.max(0.001, seconds));
   const cellScores = [...cells.values()].sort((a, b) => a.key.localeCompare(b.key)).map((cell) => ({ key: cell.key,
-    score: cell.wins * 1000 + cell.damage + cell.attacks * 2 - Math.min(1, cell.stallSeconds / Math.max(0.001, cell.seconds)) * 100 }));
+    score: cell.wins * 1000 + combatValueToLegacyRewardWeight(cell.damage) + cell.attacks * 2 -
+      Math.min(1, cell.stallSeconds / Math.max(0.001, cell.seconds)) * 100 }));
   const macroScore = cellScores.reduce((sum, cell) => sum + cell.score, 0) / Math.max(1, cellScores.length);
   const worstCellScore = Math.min(...cellScores.map((cell) => cell.score));
   return { solverSteps: budget, bout: { result: { winner: wins > 0 ? jobList[0].actorSide : null }, damage, attacks, bouts },

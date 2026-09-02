@@ -8,8 +8,8 @@ import type { BehaviourRecord } from "./options.ts";
 import { engagementGates, engagementMetrics, formatEngagementGateTable,
   type GateRow, type HumanGateRow } from "./learning/gates.ts";
 
-const STORAGE_KEY = "sword-prototype.session-18b-playtest.v3";
-const REPORT_VERSION = 3;
+const STORAGE_KEY = "sword-prototype.session-18b-playtest.v5";
+const REPORT_VERSION = 5;
 const BOUT_CAP_SECONDS = 45;
 const COMPETENCE_VALUES = Object.freeze(["", "comfortable", "learning", "struggling"] as const);
 

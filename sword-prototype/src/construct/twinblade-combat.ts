@@ -9,11 +9,16 @@ export interface TwinbladeArmPath {
   readonly commit: SweepCentreSolution;
 }
 export interface TwinbladeScissorCutPath {
+  readonly lane: "blocker-relative" | "open-torso";
   readonly blockerSide: TwinbladeSide;
   readonly cutterSide: TwinbladeSide;
   readonly left: TwinbladeArmPath;
   readonly right: TwinbladeArmPath;
 }
+export type TwinbladeLane =
+  | Readonly<{ kind: "blocker-relative";
+    blocker: Readonly<{ x: number; y: number; z: number }> }>
+  | Readonly<{ kind: "open-torso" }>;
 export interface TwinbladeScissorCutTuning {
   readonly outwardChamberM: number;
   readonly cutterChamberCrossM: number;
@@ -26,6 +31,7 @@ export interface TwinbladeScissorCutTuning {
 export const TWINBLADE_SCISSOR_CUT: TwinbladeScissorCutTuning = Object.freeze({ outwardChamberM: 0.28,
   cutterChamberCrossM: 0.35, cutterChamberDropM: 0.20, openLaneOffsetM: 0,
   travelMultiplier: 0.75, settleAllowanceS: 0.05 });
+export const TWINBLADE_MINIMUM_CUT_PHASE_S = 0.13;
 
 /**
  * Resolve both real mount chains independently. The blocker chooses the open torso
@@ -33,16 +39,49 @@ export const TWINBLADE_SCISSOR_CUT: TwinbladeScissorCutTuning = Object.freeze({ 
  */
 export function solveTwinbladeScissorCutPath(
   target: Readonly<{ x: number; y: number; z: number }>,
-  blocker: Readonly<{ x: number; y: number; z: number }>,
+  requestedLane: TwinbladeLane | Readonly<{ x: number; y: number; z: number }>,
   tuning: Readonly<TwinbladeScissorCutTuning> = TWINBLADE_SCISSOR_CUT,
 ): TwinbladeScissorCutPath {
-  if (![target.x, target.y, target.z, blocker.x, blocker.y, blocker.z].every(Number.isFinite)) {
+  // The point-only spelling is the v1 call surface retained for saved test and
+  // tool callers. Runtime code always chooses one of the two named lanes.
+  const lane: TwinbladeLane = "kind" in requestedLane
+    ? requestedLane
+    : Object.freeze({ kind: "blocker-relative", blocker: requestedLane });
+  const geometry = lane.kind === "blocker-relative"
+    ? [target.x, target.y, target.z, lane.blocker.x, lane.blocker.y, lane.blocker.z]
+    : [target.x, target.y, target.z];
+  if (!geometry.every(Number.isFinite)) {
     throw new Error("Twinblade scissor-cut geometry must be finite");
   }
   if (!Number.isFinite(tuning.openLaneOffsetM) || tuning.openLaneOffsetM < 0 ||
       tuning.openLaneOffsetM > 0.35) {
     throw new Error("Twinblade open-lane offset must be between 0 and 0.35 metres");
   }
+  if (lane.kind === "open-torso") {
+    const separationM = Math.max(0.10, tuning.openLaneOffsetM);
+    // Each blade must actually traverse the torso, not merely converge a few centimetres toward
+    // its own near edge. The old same-side chamber/commit pair completed cleanly while producing
+    // almost no physical work; mirrored crossings give the two sequential phases real travel and
+    // keep their paths distinct without inventing a host-side combat result.
+    const points = {
+      left: {
+        chamber: { x: target.x - tuning.outwardChamberM, y: target.y - 0.10, z: target.z },
+        commit: { x: target.x + separationM, y: target.y, z: target.z },
+      },
+      right: {
+        chamber: { x: target.x + tuning.outwardChamberM, y: target.y - 0.10, z: target.z },
+        commit: { x: target.x - separationM, y: target.y, z: target.z },
+      },
+    };
+    const path = (side: TwinbladeSide): TwinbladeArmPath => {
+      const bind = twinbladeSwordBindMetrics(side);
+      return Object.freeze({ chamber: solveSwordbearerSweepCentre(points[side].chamber, bind),
+        commit: solveSwordbearerSweepCentre(points[side].commit, bind) });
+    };
+    return Object.freeze({ lane: "open-torso", blockerSide: "left", cutterSide: "right",
+      left: path("left"), right: path("right") });
+  }
+  const blocker = lane.blocker;
   const offsetX = blocker.x - target.x;
   if (Math.abs(offsetX) < 0.02) {
     throw new Error("Twinblade scissor cut needs a blocker separated from the target centre");
@@ -58,7 +97,10 @@ export function solveTwinbladeScissorCutPath(
       commit: openLane,
     },
     cutter: {
-      chamber: { x: target.x - sign * tuning.cutterChamberCrossM,
+      // The opposite blade must begin on the blocker's side and cross into the open lane.
+      // Starting on its own side produced a short 140 mm convergence that finished cleanly
+      // against the Warrior's hand without ever traversing the torso.
+      chamber: { x: target.x + sign * tuning.cutterChamberCrossM,
         y: target.y - tuning.cutterChamberDropM, z: target.z },
       commit: openLane,
     },
@@ -68,7 +110,7 @@ export function solveTwinbladeScissorCutPath(
     return Object.freeze({ chamber: solveSwordbearerSweepCentre(points[role].chamber, bind),
       commit: solveSwordbearerSweepCentre(points[role].commit, bind) });
   };
-  return Object.freeze({ blockerSide, cutterSide,
+  return Object.freeze({ lane: "blocker-relative", blockerSide, cutterSide,
     left: path("left", blockerSide === "left" ? "blocker" : "cutter"),
     right: path("right", blockerSide === "right" ? "blocker" : "cutter") });
 }
@@ -141,6 +183,10 @@ class TwinbladeScissorCutController implements ActionController {
   private readonly context: ControllerContext;
   private readonly joints: Readonly<Record<TwinbladeSide, Readonly<{ yaw: string; pitch: string }>>>;
   private path!: TwinbladeScissorCutPath;
+  private lane!: Readonly<{ kind: "open-torso" } | { kind: "blocker-relative";
+    blockerSide: TwinbladeSide }>;
+  private pathTuning: Readonly<TwinbladeScissorCutTuning> = TWINBLADE_SCISSOR_CUT;
+  private cutAdvanceFraction = 0;
   private phase: Phase = "chamber";
   private pendingPhase: Exclude<Phase, "cancelled"> | null = null;
   private elapsedS = 0;
@@ -169,13 +215,12 @@ class TwinbladeScissorCutController implements ActionController {
   }
 
   enter(): void {
-    if (this.context.view.facts["line-of-sight"] !== true) {
+    const stableDownedOpponent = this.context.view.facts["opponent-upright"] === false &&
+      this.context.view.facts["opponent-rising"] === false;
+    if (this.context.view.facts["line-of-sight"] !== true && !stableDownedOpponent) {
       throw new Error("Twinblade scissor cut requires visible opponent geometry");
     }
-    if (this.context.view.facts["opponent-blocker-present"] !== true) {
-      throw new Error("Twinblade scissor cut requires an attached described blocker");
-    }
-    const tuning = Object.freeze({ ...TWINBLADE_SCISSOR_CUT,
+    this.pathTuning = Object.freeze({ ...TWINBLADE_SCISSOR_CUT,
       outwardChamberM: parameter(this.context, "blocker-outward-m"),
       cutterChamberCrossM: parameter(this.context, "cutter-chamber-cross-m"),
       cutterChamberDropM: parameter(this.context, "cutter-chamber-drop-m"),
@@ -187,13 +232,45 @@ class TwinbladeScissorCutController implements ActionController {
     this.bracePose = Object.freeze({ kneeRad: parameter(this.context, "brace-knee-rad"),
       ankleRad: parameter(this.context, "brace-ankle-rad"),
       soleRad: parameter(this.context, "brace-sole-rad") });
-    this.path = solveTwinbladeScissorCutPath({ x: fact(this.context, "opponent-local-x"),
-      y: fact(this.context, "opponent-local-y"), z: fact(this.context, "opponent-local-z") },
-    { x: fact(this.context, "opponent-blocker-local-x"),
-      y: fact(this.context, "opponent-blocker-local-y"), z: fact(this.context, "opponent-blocker-local-z") },
-    tuning);
+    this.cutAdvanceFraction = parameter(this.context, "cut-advance-fraction");
+    const targetX = fact(this.context, "opponent-local-x");
+    const blockerX = fact(this.context, "opponent-blocker-local-x");
+    this.lane = this.context.view.facts["opponent-blocker-present"] === true
+      ? Object.freeze({ kind: "blocker-relative" as const,
+        blockerSide: blockerX - targetX < 0 ? "left" as const : "right" as const })
+      : Object.freeze({ kind: "open-torso" as const });
+    this.refreshPath(true);
     this.validatePath();
     this.begin("chamber");
+  }
+
+  private refreshPath(required = false): void {
+    const target = {
+      x: fact(this.context, "opponent-local-x"),
+      y: fact(this.context, "opponent-local-y") + parameter(this.context,
+        this.lane.kind === "blocker-relative"
+          ? "blocker-target-height-offset-m" : "target-height-offset-m"),
+      z: fact(this.context, "opponent-local-z"),
+    };
+    const lane: TwinbladeLane = this.lane.kind === "open-torso"
+      ? this.lane
+      : Object.freeze({ kind: "blocker-relative", blocker: Object.freeze({
+        // Lane identity is an admission fact. Fresh blocker noise may not swap the two blades
+        // midway through one Action, so subsequent phase edges preserve only its measured side.
+        x: target.x + (this.lane.blockerSide === "left" ? -0.10 : 0.10),
+        y: target.y, z: target.z,
+      }) });
+    const candidate = solveTwinbladeScissorCutPath(target, lane, this.pathTuning);
+    const reachable = (["left", "right"] as const).every((side) =>
+      (["chamber", "commit"] as const).every((phase) => {
+        const solution = candidate[side][phase];
+        const yaw = reading(this.context, this.joints[side].yaw);
+        const pitch = reading(this.context, this.joints[side].pitch);
+        return solution.yawRad >= yaw.minRad && solution.yawRad <= yaw.maxRad &&
+          solution.pitchRad >= pitch.minRad && solution.pitchRad <= pitch.maxRad;
+      }));
+    if (reachable) this.path = candidate;
+    else if (required) throw new Error("Twinblade target is outside declared joint limits");
   }
 
   private solution(side: TwinbladeSide): SweepCentreSolution {
@@ -201,6 +278,13 @@ class TwinbladeScissorCutController implements ActionController {
     if (this.phase === "chamber") return this.path[side].chamber;
     if (this.phase === "first-cut") {
       return side === this.path.blockerSide ? this.path[side].commit : this.path[side].chamber;
+    }
+    if (this.phase === "second-cut") {
+      // The first blade cannot remain parked through the target while the second blade tries
+      // to occupy the same finite body. That was a scissor only in target-space: Havok kept
+      // the first sword embedded against the torso and the closing sword stopped on the hand
+      // or on its partner. Clear the completed stroke back to chamber as the other blade cuts.
+      return side === this.path.blockerSide ? this.path[side].chamber : this.path[side].commit;
     }
     return this.path[side].commit;
   }
@@ -227,12 +311,14 @@ class TwinbladeScissorCutController implements ActionController {
         Math.abs(yaw.angleRad - solution.yawRad) / (yaw.maxSpeedRadS * this.motorSpeedFraction),
         Math.abs(pitch.angleRad - solution.pitchRad) / (pitch.maxSpeedRadS * this.motorSpeedFraction));
     }
-    this.phaseLimitS = travelS * this.travelMultiplier + this.settleAllowanceS;
+    this.phaseLimitS = Math.max(travelS * this.travelMultiplier + this.settleAllowanceS,
+      phase === "first-cut" || phase === "second-cut" ? TWINBLADE_MINIMUM_CUT_PHASE_S : 0);
   }
   step(dt: number): void {
     if (this.pendingPhase) {
       const phase = this.pendingPhase;
       this.pendingPhase = null;
+      if (phase === "first-cut" || phase === "second-cut") this.refreshPath();
       this.begin(phase);
     }
     if (this.phase === "complete" || this.phase === "cancelled") return;
@@ -240,7 +326,8 @@ class TwinbladeScissorCutController implements ActionController {
     // zero-velocity carrier authority as the brace it replaces. In legacy mode there is no
     // carrier to feed and the established motor-only cut remains available.
     if (this.context.locomotion.available) {
-      this.context.locomotion.request({ localForward: 0, localRight: 0, yaw: 0, recover: false });
+      this.context.locomotion.request({ localForward: this.cutAdvanceFraction,
+        localRight: 0, yaw: 0, recover: this.context.view.facts["core-upright"] === false });
     }
     this.elapsedS += dt;
     const braceError = writeBipedBrace(this.context, this.bracePose);
@@ -266,7 +353,7 @@ class TwinbladeScissorCutController implements ActionController {
   done(): boolean { return this.phase === "complete"; }
   cancel(reason: string): void { this.cancelled = reason; this.pendingPhase = null; this.phase = "cancelled"; }
   diagnostic(): ControllerDiagnostic { return { phase: this.phase,
-    detail: this.cancelled || `blocker ${this.path?.blockerSide ?? "unknown"}; ${this.elapsedS.toFixed(3)} s`,
+    detail: this.cancelled || `${this.path?.lane ?? "unknown"} ${this.path?.blockerSide ?? "unknown"}; ${this.elapsedS.toFixed(3)} s`,
     progress: this.progress, epsilon: 0.04 }; }
 }
 

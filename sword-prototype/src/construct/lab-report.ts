@@ -1,7 +1,7 @@
 import { canonicalIntegrityJson, integrityDigest, type IntegrityValue } from "./integrity.ts";
 
-export const CONSTRUCT_LAB_ROW_VERSION = 1 as const;
-export const CONSTRUCT_LAB_REPORT_VERSION = 1 as const;
+export const CONSTRUCT_LAB_ROW_VERSION = 3 as const;
+export const CONSTRUCT_LAB_REPORT_VERSION = 3 as const;
 
 export type ConstructLabSide = "left" | "right";
 
@@ -42,7 +42,7 @@ export interface ConstructSideLabMetrics {
 }
 
 export interface ConstructLabRow {
-  readonly version: 1;
+  readonly version: 3;
   readonly job: number;
   readonly matchupDigest: string;
   readonly seed: number;
@@ -88,7 +88,7 @@ export interface ConstructLabAggregate {
 }
 
 export interface ConstructLabReport {
-  readonly version: 1;
+  readonly version: 3;
   readonly runDigest: string;
   readonly rowCount: number;
   readonly rowsDigest: string;

@@ -49,8 +49,12 @@ export function runConstructLabBout(
   left: SavedConstruct,
   right: SavedConstruct,
   sensors: readonly SensorSpec[],
+  separationM = CONFIG.fighter.separation,
 ): ConstructLabRow {
-  const bout = new ConstructLabBout(scene, left, right, sensors, CONFIG.fighter.separation, 0,
+  if (!Number.isFinite(separationM) || separationM <= 0) {
+    throw new Error("construct Lab separation must be finite and positive");
+  }
+  const bout = new ConstructLabBout(scene, left, right, sensors, separationM, 0,
     job.matchup.initialCondition);
   try {
     const sides: Record<"left" | "right", MutableMetrics> = { left: emptyMetrics(), right: emptyMetrics() };
@@ -131,7 +135,7 @@ export function runConstructLabBout(
       .filter((interval) => interval.side === side)
       .reduce((sum, interval) => sum + interval.lastStep - interval.firstStep + 1, 0);
     return Object.freeze({
-      version: 1,
+      version: 3,
       job: job.index,
       matchupDigest: job.matchupDigest,
       seed: job.matchup.seed,

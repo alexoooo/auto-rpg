@@ -62,7 +62,7 @@ export class ConstructRecorder implements ControlRecordingPort {
    */
   flush(): void {
     if (!this.recorder || !this.side) return;
-    for (const pending of this.pending.splice(0)) this.recorder.control(this.side, "construct-v1", {
+    for (const pending of this.pending.splice(0)) this.recorder.control(this.side, "construct-v3", {
       step: pending.step, dt: this.lastBoundary.dt, clock: this.lastBoundary.clock,
       command: pending.command,
       scheduler: pending.events,

@@ -7,11 +7,26 @@ import { ARBALEST_QUALIFIER_ID, arbalestCurriculumDefinition, assertArbalestWarr
   qualifiesArbalestVictory } from "../scripts/arbalest-warrior-qualifier.mjs";
 import { ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE, assertConstructWarriorCurriculum,
   runConstructWarriorCurriculum } from "../scripts/construct-warrior-curriculum.mjs";
+import { evaluateProjectileImpact } from "../src/scoring.ts";
+
+const projectileEvidence = (shotSerial, speedMps, damage, poolIndex = 0) => {
+  const evaluated = evaluateProjectileImpact({ massKg: ARBALEST_HARDWARE.projectile.massKg,
+    speedMps, signedShaftAlignment: 1, contactedHead: true,
+    penetrationEfficiency: ARBALEST_HARDWARE.projectile.penetrationEfficiency });
+  return { identity: { owner: "left", effectorId: `effigy-arbalest:${poolIndex}`,
+    poolIndex, shotSerial }, massKg: ARBALEST_HARDWARE.projectile.massKg,
+  arrivalSpeedMps: speedMps, signedShaftAlignment: 1, contactedZone: "head",
+  usableEnergyJ: evaluated.usableEnergyJ,
+  penetrationEfficiency: ARBALEST_HARDWARE.projectile.penetrationEfficiency,
+  uncappedDamage: evaluated.uncappedDamage, preArmourDamage: evaluated.score.damage,
+  postArmourDamage: damage };
+};
 
 const qualified = () => ({
-  version: 1,
+  version: 3,
   physics: "real-havok-fixed-240hz",
-  construct: { blueprintId: "arbalest-effigy", programId: "arbalest-effigy-mind", vitality: 1 },
+  construct: { blueprintId: "arbalest-effigy", programId: "arbalest-effigy-mind",
+    side: "left", vitality: 1 },
   warrior: { vitality: 0 }, winner: "construct", verdictAtS: 73 / 240,
   steps: 73,
   locomotion: { mode: "supported" },
@@ -28,7 +43,7 @@ const qualified = () => ({
     projectileRadiusM: ARBALEST_HARDWARE.projectile.radiusM,
     projectileLengthM: ARBALEST_HARDWARE.projectile.lengthM,
     muzzleSpeedMps: ARBALEST_HARDWARE.projectile.muzzleSpeedMps,
-    damageScale: ARBALEST_HARDWARE.projectile.damageScale,
+    penetrationEfficiency: ARBALEST_HARDWARE.projectile.penetrationEfficiency,
     reloadSeconds: 0.65, maxHeatJ: ARBALEST_HARDWARE.maxHeatJ,
     coolingW: ARBALEST_HARDWARE.coolingW, heatPerShotJ: ARBALEST_HARDWARE.heatPerShotJ,
     energyPerShotJ: ARBALEST_HARDWARE.energyPerShotJ,
@@ -42,8 +57,9 @@ const qualified = () => ({
   locomotionSteps: Array.from({ length: 73 }, (_, index) => ({ atS: index / 240,
     construct: { state: "supported", authority: true, liveSupport: true,
       postureSupported: true, freshSupportBindings: ["left-foot"] }, warrior: null })),
-  constructContacts: [{ atS: 72 / 240, effectorId: "effigy-arbalest:0", shotSerial: 0, weapon: "arrow",
-    blocked: false, damage: 63, standingAtStep: true,
+  constructContacts: [{ atS: 72 / 240, effectorId: "effigy-arbalest:0", shotSerial: 0,
+    weapon: "arrow", speedMps: 42, blocked: false, damage: 3, standingAtStep: true,
+    projectile: projectileEvidence(0, 42, 3),
     targetVitalityBefore: 0.2, targetVitalityAfter: 0 }],
 });
 
@@ -60,7 +76,12 @@ test("the_Arbalest_qualifier_reconstructs_ammunition_posture_perception_and_the_
   assert.equal(definition.qualifyActiveVictory, qualifiesArbalestVictory);
 
   for (const mutate of [
-    (row) => { row.launcherEvidence[0].damageScale = 1.16; },
+    (row) => { row.launcherEvidence[0].damageScale = 1.90; },
+    (row) => { delete row.constructContacts[0].projectile; },
+    (row) => { row.constructContacts[0].projectile.massKg = 0.035; },
+    (row) => { row.constructContacts[0].projectile.signedShaftAlignment = -1; },
+    (row) => { row.constructContacts[0].projectile.preArmourDamage = 63; },
+    (row) => { row.constructContacts[0].projectile.identity.shotSerial = 4; },
     (row) => { row.launcherEvidence[0].muzzleSpeedMps = 41; },
     (row) => { row.launcherEvidence[0].remainingAmmunition = 12; },
     (row) => { row.constructContacts[0].standingAtStep = false; },
@@ -113,10 +134,12 @@ test("recycled_projectile_pool_slots_remain_distinct_through_monotonic_loose_ser
     warriorLauncherVisible: true }));
   report.constructContacts = [
     { atS: 0.75, effectorId: "effigy-arbalest:0", shotSerial: 0, weapon: "arrow",
-      blocked: false, damage: 5, standingAtStep: true,
+      speedMps: 18, blocked: false, damage: 0.1, standingAtStep: true,
+      projectile: projectileEvidence(0, 18, 0.1),
       targetVitalityBefore: 0.3, targetVitalityAfter: 0.2 },
     { atS: 0.9, effectorId: "effigy-arbalest:0", shotSerial: 1, weapon: "arrow",
-      blocked: false, damage: 63, standingAtStep: true,
+      speedMps: 42, blocked: false, damage: 3, standingAtStep: true,
+      projectile: projectileEvidence(1, 42, 3),
       targetVitalityBefore: 0.2, targetVitalityAfter: 0 },
   ];
   assert.equal(assertArbalestWarriorEvidence(report), report,
@@ -134,19 +157,22 @@ test("recycled_projectile_pool_slots_remain_distinct_through_monotonic_loose_ser
     "a second successful shot cannot begin before the 0.65 s hardware ledger clears");
 });
 
-test("the_x010_real_Havok_corpus_freezes_the_earned_mirrored_Arbalest_floor", async () => {
-  const report = await runConstructWarriorCurriculum({ definition: arbalestCurriculumDefinition() });
-  assert.equal(assertConstructWarriorCurriculum(report, ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE), report);
-  assert.equal(report.summary.idleWarriorKills, 8);
-  assert.equal(report.summary.activeConstructKills, 8);
-  assert.equal(report.summary.activeQualifiedConstructKills, 8);
-  assert.equal(report.summary.activeQualifiedConstructKillsLeft, 4);
-  assert.equal(report.summary.activeQualifiedConstructKillsRight, 4);
-  const overCap = structuredClone(report);
-  const cell = overCap.cells.find(({ mode }) => mode === "active");
-  cell.simulatedSeconds = overCap.seconds + 1;
-  cell.bout.simulatedSeconds = overCap.seconds + 1;
-  cell.bout.steps = (overCap.seconds + 1) * 240;
-  assert.throws(() => assertConstructWarriorCurriculum(overCap,
-    ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE), /no-tail simulation cap/);
+test("the_old_eight_of_eight_Arbalest_corpus_is_historical_until_fresh_physical_qualification", async () => {
+  assert.equal(ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE.version, 4);
+  assert.equal(ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE.qualified, false);
+  assert.equal(ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE.status, "historical-v1-combat-units");
+  assert.deepEqual(ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE.historical,
+    { combatValueUnitVersion: 1, blueprintDigest: "1cfdf5d7",
+      activeProgramDigest: "d89e988b", qualifiedWins: 8, cells: 8 });
+  const report = await runConstructWarriorCurriculum({ definition: arbalestCurriculumDefinition(),
+    boutRunner: async ({ saved, warriorPolicy, warriorSeed, constructSide, maxSteps }) => ({
+      physics: "real-havok-fixed-240hz", simulatedSeconds: maxSteps / 240, winner: "draw",
+      construct: { blueprintId: saved.blueprint.id, programId: saved.program.id,
+        side: constructSide, vitality: 1, damage: 0 },
+      warrior: { policy: warriorPolicy, seed: warriorSeed, vitality: 1, damage: 0 },
+      firstUprightConstructDamageS: null,
+    }) });
+  assert.throws(() => assertConstructWarriorCurriculum(report,
+    ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE),
+  /combat-value ruleset v2 requires fresh Session-30 qualification/);
 });

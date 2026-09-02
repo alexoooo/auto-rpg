@@ -125,6 +125,11 @@ them stale while leaving the argument unchanged.
 - `docs/plans/construct-forge-15-learning-rung.md`
 - `docs/plans/construct-forge-17-humanoid-effigy.md`
 - `docs/plans/construct-forge-19-human-scale-arbalest-curriculum.md`
+- `docs/plans/construct-forge-20-supported-locomotion-evidence.md`
+- `docs/plans/construct-forge-21-locomotion-authority-and-state.md`
+- `docs/plans/construct-forge-22-carrier-and-collision-runtime.md`
+- `docs/plans/construct-forge-23-atomic-supported-locomotion.md`
+- `docs/plans/construct-forge-24-forge-ai-and-playtest.md`
 - `scripts/evaluate-options.mjs`
 - `scripts/promotion-evaluator.mjs`
 - `scripts/train-meta-worker.mjs`

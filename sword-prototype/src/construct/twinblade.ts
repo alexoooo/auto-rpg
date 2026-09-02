@@ -57,17 +57,23 @@ export function twinbladeBlueprint(): ConstructBlueprint {
       localEdgeDirection: Object.freeze([-rightSword.striker.localEdgeDirection[0],
         rightSword.striker.localEdgeDirection[1], rightSword.striker.localEdgeDirection[2]]) } };
 
+  const modules = base.modules.filter(({ id }) => id !== RIGHT.module).map((module) =>
+    module.id === "effigy-sight" ? { ...structuredClone(module), sensorChannels: Object.freeze([
+      ...new Set([...(module.sensorChannels ?? []), "opponent-upright", "opponent-rising"]),
+    ]) } : module);
   return validateBlueprint({ ...base, id: "twinblade-effigy",
     parts: [...base.parts.filter(({ id }) => !REMOVED_LEFT_PARTS.includes(id)),
       { ...structuredClone(rightYawPart), id: LEFT.yawPart },
       { ...structuredClone(rightPitchPart), id: LEFT.pitchPart }],
     joints: [...base.joints.filter(({ id }) => !REMOVED_LEFT_JOINTS.includes(id)), leftYaw, leftPitch],
     sockets: [...base.sockets, leftSocket],
-    modules: [...base.modules.filter(({ id }) => id !== RIGHT.module), twinRightSword, leftSword] });
+    modules: [...modules, twinRightSword, leftSword] });
 }
 
 export const TWINBLADE_SENSORS: readonly SensorSpec[] = Object.freeze([
   ...HUMANOID_SENSORS,
+  Object.freeze({ id: "opponent-upright", unit: "boolean", source: "opponent" } as const),
+  Object.freeze({ id: "opponent-rising", unit: "boolean", source: "opponent" } as const),
 ]);
 
 export function twinbladeControl(): ConstructControlGraph {
@@ -104,6 +110,9 @@ export function twinbladeControl(): ConstructControlGraph {
         "cutter-chamber-cross-m": { kind: "number", min: 0.05, max: 0.80, unit: "metres" },
         "cutter-chamber-drop-m": { kind: "number", min: 0, max: 0.70, unit: "metres" },
         "open-lane-offset-m": { kind: "number", min: 0, max: 0.35, unit: "metres" },
+        "target-height-offset-m": { kind: "number", min: -0.20, max: 0.50, unit: "metres" },
+        "blocker-target-height-offset-m": { kind: "number", min: -0.20, max: 0.80, unit: "metres" },
+        "cut-advance-fraction": { kind: "number", min: 0, max: 0.50, unit: "scalar" },
         "motor-speed-fraction": { kind: "number", min: 0.25, max: 1, unit: "scalar" },
         "motor-force-fraction": { kind: "number", min: 0.25, max: 1, unit: "scalar" },
         "travel-multiplier": { kind: "number", min: 0.5, max: 3, unit: "scalar" },

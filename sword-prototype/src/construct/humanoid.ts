@@ -18,7 +18,7 @@ const I = [0, 0, 0, 1] as const;
 // exact Twinblade body: its neutral second sword changes collision coverage. Keep this authored
 // core value as chassis data; session 18's whole-construct multiplier and identical-body 8/8
 // corpus are the balance authority, not the superseded adjacent-value claim.
-export const HUMANOID_FATAL_HEALTH = 30;
+export const HUMANOID_FATAL_HEALTH = 10;
 const frame = (positionM: readonly [number, number, number] = [0, 0, 0],
   bodyScaled = true): AttachmentFrame => Object.freeze({
   positionM: bodyScaled ? humanoidTriple(positionM) : Object.freeze([...positionM]) as [number, number, number],
@@ -28,18 +28,18 @@ const part = (id: string, shape: PartSpec["shape"], massKg: number,
   style: PartSpec["shell"]["style"] = "plate", fatal = false): PartSpec => Object.freeze({
   id, shape: humanoidShape(shape), massKg: humanoidMass(massKg), centreOfMassM: Object.freeze([0, 0, 0] as const),
   friction: id.includes("foot") ? 1.35 : id.includes("hand") ? 1.05 : 0.72, restitution: 0.04,
-  health: fatal ? HUMANOID_FATAL_HEALTH : 120, armour: fatal ? 38 : 16,
+  health: fatal ? HUMANOID_FATAL_HEALTH : 6, armour: fatal ? 1.9 : 0.8,
   vitalityWeight: fatal ? 1 : 0, fatal,
   shell: Object.freeze({ style, visualClearanceM: humanoidLength(style === "bearing" ? 0.003 : 0.008) }),
 });
 const joint = (id: string, parentPart: string, childPart: string,
   parentPosition: readonly [number, number, number], childPosition: readonly [number, number, number],
   axis: "x" | "y" | "z", minRad: number, maxRad: number, maxTorqueNm = 240,
-  damping = 8): JointSpec => Object.freeze({
+  damping = 8, maxSpeedRadS = axis === "y" ? 7 : 4.5): JointSpec => Object.freeze({
   id, parentPart, childPart, parentFrame: frame(parentPosition), childFrame: frame(childPosition),
   angularAxes: Object.freeze([Object.freeze({ id: axis, minRad, maxRad,
     damping: humanoidActuator(damping), maxTorqueNm: humanoidActuator(maxTorqueNm),
-    maxSpeedRadS: axis === "y" ? 7 : 4.5 })]), health: 160, armour: 12,
+    maxSpeedRadS })]), health: 8, armour: 0.6,
 });
 const geometry = (id: string, shape: PartSpec["shape"], style: PartSpec["shell"]["style"],
   positionM: readonly [number, number, number] = [0, 0, 0], bodyScaled = true) => Object.freeze({
@@ -50,7 +50,7 @@ const geometry = (id: string, shape: PartSpec["shape"], style: PartSpec["shell"]
 const moduleBase = (id: string, kind: ModuleKind, socket: string, compatibilityTag: string,
   pieces: readonly ReturnType<typeof geometry>[], massKg: number, bodyScaled = true) => ({ id, kind, socket,
   compatibilityTag, geometry: Object.freeze(pieces), massKg: bodyScaled ? humanoidMass(massKg) : massKg,
-  health: 90, armour: 12 });
+  health: 4.5, armour: 0.6 });
 
 const leftArmParts = Object.freeze([
   part("left-upper-arm", { kind: "capsule", lengthM: 0.55, radiusM: 0.105 }, 8, "piston"),
@@ -110,8 +110,14 @@ const bodyJoints = Object.freeze([
   joint("neck-bearing", "torso", "neck", [0, 0.39, 0], [0, -0.08, 0], "y", -0.55, 0.55, 100),
   joint("head-bearing", "neck", "head", [0, 0.08, 0], [0, -0.22, 0], "y", -0.35, 0.35, 80),
   ...leftArmJoints, ...leftLeg.joints, ...rightLeg.joints,
-  joint("sword-yaw", "torso", "sword-shoulder-yaw", [0.42, 0.25, 0], [0, -0.09, 0], "y", -2.5, 2.5, 900),
-  joint("sword-pitch", "sword-shoulder-yaw", "sword-arm-pitch", [0, 0.09, 0], [0, 0.29, 0], "x", -0.75, 1.65, 650),
+  // The 900/650 Nm mount spent most admissions chasing its phase target and completed at most
+  // three sweeps in the 30 s frozen active bouts. Three times that torque makes the full physical
+  // stroke complete in roughly 0.9--1.4 s without changing the ordinary 1.4 kg sword or its damage.
+  // Six times torque was measured too: it made contacts noisier and did not improve either mirror.
+  joint("sword-yaw", "torso", "sword-shoulder-yaw", [0.42, 0.25, 0], [0, -0.09, 0], "y", -2.5, 2.5,
+    2700, 8, 12),
+  joint("sword-pitch", "sword-shoulder-yaw", "sword-arm-pitch", [0, 0.09, 0], [0, 0.29, 0], "x", -0.75, 1.65,
+    1950, 8, 10),
 ]);
 
 const CONTACTS = Object.freeze([
@@ -173,7 +179,7 @@ export function humanoidBlueprint(): ConstructBlueprint {
     ], 1.4, false), striker: Object.freeze({ localTipM: [0, 0, 1.105] as const,
       localEdgeDirection: [1, 0, 0] as const, localFlatDirection: [0, 1, 0] as const, damageScale: 1.15 }) }),
   ];
-  return validateBlueprint({ version: 1, id: "swordbearer-effigy", rootPart: "torso",
+  return validateBlueprint({ version: 4, id: "swordbearer-effigy", rootPart: "torso",
     parts: bodyParts, joints: bodyJoints, sockets, modules });
 }
 

@@ -59,9 +59,9 @@ test("the_Swordbearer_Effigy_is_a_distinct_connected_humanoid_primitive_blueprin
   assert.equal(blueprint.modules.some(({ id, kind }) => id === "effigy-sword" && kind === "sword"), true);
   const fatalParts = blueprint.parts.filter(({ fatal }) => fatal);
   assert.deepEqual(fatalParts.map(({ id, health, armour }) => ({ id, health, armour })),
-    [{ id: "torso", health: HUMANOID_FATAL_HEALTH, armour: 38 }],
+    [{ id: "torso", health: HUMANOID_FATAL_HEALTH, armour: 1.9 }],
     "the measured curriculum durability belongs only to the declared fatal torso");
-  assert.equal(HUMANOID_FATAL_HEALTH, 30);
+  assert.equal(HUMANOID_FATAL_HEALTH, 10);
   const sockets = new Map(blueprint.sockets.map((socket) => [socket.id, socket]));
   const contacts = blueprint.modules.filter(({ kind }) => kind === "contact-sensor");
   assert.deepEqual(contacts.map(({ id }) => id).sort(), ["contact-left-foot", "contact-right-foot"]);

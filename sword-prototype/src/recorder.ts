@@ -10,7 +10,7 @@ import {
 import type { Side } from "./physics.ts";
 import type { ControlEndpoint } from "./control-host.ts";
 
-export const ENGAGEMENT_INSTRUMENT_VERSION = 1;
+export const ENGAGEMENT_INSTRUMENT_VERSION = 3;
 
 export interface RecorderSample {
   readonly view: FighterView;
@@ -19,7 +19,7 @@ export interface RecorderSample {
 }
 
 export interface BodyNeutralControlEvent {
-  readonly version: 1;
+  readonly version: 3;
   readonly side: Side;
   readonly sequence: number;
   readonly surface: string;
@@ -76,10 +76,11 @@ export class BoutRecorder {
     this.contactSequence += 1;
     if (event.hand === null) {
       this.controlEvents.push(Object.freeze({
-        version: 1, side: striker, sequence: this.controlSequence[striker],
-        surface: "construct-v1", kind: "combat",
+        version: 3, side: striker, sequence: this.controlSequence[striker],
+        surface: "construct-v3", kind: "combat",
         payload: Object.freeze({ effectorId: event.effectorId, weapon: event.report.weapon,
-          damage: event.report.damage, blocked: event.blocked, at: event.report.at }),
+          damage: event.report.damage, blocked: event.blocked, at: event.report.at,
+          projectile: event.report.projectile ?? null }),
       }));
       this.controlSequence[striker] += 1;
       return;
@@ -100,7 +101,7 @@ export class BoutRecorder {
   /** Command surfaces publish their own body-neutral payload; the bout recorder only orders it. */
   control(side: Side, surface: string, payload: Readonly<Record<string, unknown>>): void {
     this.controlEvents.push(Object.freeze({
-      version: 1, side, sequence: this.controlSequence[side], surface, kind: "control",
+      version: 3, side, sequence: this.controlSequence[side], surface, kind: "control",
       payload: Object.freeze({ ...payload }),
     }));
     this.controlSequence[side] += 1;

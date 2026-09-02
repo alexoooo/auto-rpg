@@ -10,7 +10,7 @@ import { ConstructLabBout } from "../src/construct/lab-bout.ts";
 import { SUPPORTED_QUADRUPED_CRAWL_V1 } from "../src/construct/locomotion.ts";
 import { ConstructMind } from "../src/construct/mind.ts";
 import { ActionScheduler } from "../src/construct/scheduler.ts";
-import { SensorFrame } from "../src/construct/sensors.ts";
+import { installedSensorsForBlueprint, SensorFrame } from "../src/construct/sensors.ts";
 import { constructProbeCommand, controllerChoicesForSelection,
   replaceControlAction } from "../src/forge/control-editor.ts";
 import { summarizeProbeSnapshots } from "../src/forge/probe.ts";
@@ -22,7 +22,6 @@ import { createConstructHeadlessArena } from "../scripts/construct-headless-aren
 import { assertWardenRecoveryABEvidence, measureWardenRecoveryAB } from "../scripts/warden-locomotion-ab.mjs";
 
 const FIXED = 1 / CONFIG.world.physicsHz;
-const EMPTY = Object.freeze({ version: 1, requests: Object.freeze([]) });
 const command = (action, parameters = {}) => Object.freeze({ version: 1, requests: Object.freeze([
   Object.freeze({ request: Object.freeze({ action, parameters: Object.freeze(parameters) }),
     priority: 100, sourceIndex: 0 }),
@@ -163,9 +162,14 @@ test("Forge_can_author_probe_save_reload_and_physically_fight_with_an_exact_Ward
     controller: descriptor.controller, group: group.id, claims: ["resource:balance"],
     parameters: descriptor.parameters }, blueprint);
   const canonicalRule = program.rules.find(({ action }) => action === "crawl-without-front-left");
+  const forgeCondition = structuredClone(canonicalRule.condition);
+  // This Forge exercise authors a closer fallback band than the production arbalest's 6 m
+  // standoff. Keep every topology and fresh-support premise from the canonical rule; only the
+  // range constant changes so the saved Action is exercised in the 2.6 m headless fixture.
+  forgeCondition.values.at(-1).right.value = 2;
   program.rules = [
     { ...structuredClone(canonicalRule), id: "forge-crawl-when-front-left-is-lost",
-      action: "forge-three-support-crawl", priority: 100 },
+      action: "forge-three-support-crawl", priority: 100, condition: forgeCondition },
     ...program.rules.filter(({ id }) => id !== canonicalRule.id),
   ];
   const parameters = { forward: 0.5, right: 0.1, yaw: -0.2,
@@ -177,13 +181,16 @@ test("Forge_can_author_probe_save_reload_and_physically_fight_with_an_exact_Ward
   assert.deepEqual(after, before);
   assert.deepEqual(loaded.digests, saved.digests);
 
-  const frame = new SensorFrame(WARDEN_SENSORS);
-  for (const sensor of WARDEN_SENSORS) {
+  const installedSensors = installedSensorsForBlueprint(blueprint, WARDEN_SENSORS);
+  const frame = new SensorFrame(installedSensors);
+  for (const sensor of installedSensors) {
     if (sensor.id === "contact-foot-front-left") continue;
     frame.publish(sensor.id, sensor.id === "joint-live-bearing-front-left-upper" ? false :
-      sensor.unit === "boolean" ? true : sensor.id === "opponent-range" ? 3 : 0);
+      sensor.unit === "boolean" ? true : sensor.id === "opponent-range" ? 7 :
+        sensor.id === "ammo-dorsal-magazine" ? 18 :
+          sensor.id.startsWith("module-health-") || sensor.id.startsWith("part-health-") ? 1 : 0);
   }
-  const requests = new ConstructMind(loaded.program, loaded.control, WARDEN_SENSORS).decide(frame, 1).requests;
+  const requests = new ConstructMind(loaded.program, loaded.control, installedSensors).decide(frame, 1).requests;
   assert.ok(requests.some(({ request }) => request.action === "forge-three-support-crawl"));
   assert.equal(requests.some(({ request }) => request.action === "crawl-without-front-left"), false);
   assert.equal(requests.some(({ request }) => request.action === "crawl-without-rear-right"), false);
@@ -195,7 +202,9 @@ test("Forge_can_author_probe_save_reload_and_physically_fight_with_an_exact_Ward
       CONFIG.fighter.separation);
     try {
       const left = bout.construct("left");
-      bout.construct("right").control.installCommandSource(`forge-${mode}-idle`, () => EMPTY);
+      // The fixture is about the severed body's exact fallback. Keep its opponent on a real
+      // public brace Action so an unrelated raw idle ragdoll cannot slide into the carrier port.
+      bout.construct("right").control.installCommandSource(`forge-${mode}-idle`, () => command("brace"));
       left.control.installCommandSource(`forge-${mode}-settle`, () => command("brace"));
       for (let step = 0; step < CONFIG.world.physicsHz; step += 1) bout.step(FIXED);
       left.state.severJoint("bearing-front-left-upper");
@@ -257,6 +266,7 @@ test("an_admitted_rise_may_lift_its_planting_terminal_but_still_aborts_on_lost_l
     braceCapacityMultiplier: 1, gaitStabilityScale: 1 };
   const boundary = { dt: 1 / 240, safeBoundarySequence: 9, authority, liveSupport: true,
     postureSupported: false, supportedMassKg: 244, authoredShoves: [], recoverRequested: true,
+    recoveryGroundAvailable: true,
     occupancyClear: true, hitInterrupted: false, supportEvidence: [{ safeBoundarySequence: 9,
       supportBinding: "front-left", contactedOwner: "arena-floor", category: "standable-world",
       point: [0, 0, 0], upwardNormal: [0, 1, 0], freshness: "current" }] };

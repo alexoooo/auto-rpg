@@ -6,6 +6,7 @@ import { validateProgram } from "../src/construct/program.ts";
 import {
   WARDEN_LIMB_ATTACHMENTS,
   WARDEN_LIMB_TEMPLATE,
+  WARDEN_SWORD_BIND,
   WARDEN_SENSORS,
   wardenBlueprint,
   wardenControl,
@@ -38,16 +39,30 @@ test("all_four_repeated_limbs_share_one_template_and_have_unique_attachment_fram
   }
 });
 
-test("the_same_Warden_body_mount_accepts_crossbow_and_sword_without_role_specific_physics", () => {
+test("the_sword_Warden_adds_only_the_measured_forward_pedestal_to_the_shared_body_mount", () => {
   const crossbow = wardenBlueprint("crossbow");
   const sword = wardenBlueprint("sword");
   assert.deepEqual(crossbow.parts, sword.parts);
   assert.deepEqual(crossbow.joints, sword.joints);
-  assert.deepEqual(crossbow.sockets, sword.sockets);
+  const crossbowOutput = crossbow.sockets.find(({ id }) => id === "socket-dorsal-output");
+  const swordOutput = sword.sockets.find(({ id }) => id === "socket-dorsal-output");
+  assert.equal(crossbowOutput.frame.positionM[2], 0.13);
+  assert.equal(swordOutput.frame.positionM[2], 0.55);
+  assert.ok(Math.abs(WARDEN_SWORD_BIND.socketForwardM -
+    WARDEN_SWORD_BIND.historicalSocketForwardM - 0.42) < 1e-12);
+  assert.deepEqual(crossbow.sockets.filter(({ id }) => id !== "socket-dorsal-output"),
+    sword.sockets.filter(({ id }) => id !== "socket-dorsal-output"));
   assert.equal(crossbow.modules.find((module) => module.id === "dorsal-crossbow").kind, "launcher");
-  assert.equal(sword.modules.find((module) => module.id === "dorsal-sword").kind, "sword");
+  const swordModule = sword.modules.find((module) => module.id === "dorsal-sword");
+  assert.equal(swordModule.kind, "sword");
+  assert.equal(swordModule.massKg, 11);
+  assert.deepEqual(swordModule.striker.localTipM, [0, 0, 1.15]);
+  assert.equal(swordModule.striker.damageScale, 1.2);
+  const pedestal = swordModule.geometry.find(({ id }) => id === "pedestal");
+  assert.ok(Math.abs(pedestal.shape.sizeM[2] - 0.42) < 1e-12);
+  assert.ok(Math.abs(pedestal.frame.positionM[2] + 0.21) < 1e-12);
   assert.equal(crossbow.modules.find((module) => module.id === "dorsal-crossbow").socket,
-    sword.modules.find((module) => module.id === "dorsal-sword").socket);
+    swordModule.socket);
   for (const graph of [wardenControl("crossbow"), wardenControl("sword")]) {
     const pitch = graph.actions.find(({ id }) => id === "aim").parameters.pitch;
     const limit = crossbow.joints.find(({ id }) => id === "bearing-dorsal-pitch").angularAxes[0];

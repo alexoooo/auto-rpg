@@ -82,6 +82,20 @@ export function forgeTreeMarkup(blueprint: ConstructBlueprint, selectedPart: str
   return `<ol class="forge-tree">${row(blueprint.rootPart, 0)}</ol>`;
 }
 
+/** Presentation precision only; authoritative values remain untouched in the blueprint. */
+export const formatCombatValue = (value: number): string => Number(value.toFixed(2)).toString();
+const durabilityRange = (rows: readonly Readonly<{ health: number }>[]): string => {
+  if (rows.length === 0) return "none";
+  const values = rows.map(({ health }) => health);
+  const low = Math.min(...values); const high = Math.max(...values);
+  return low === high ? formatCombatValue(low) : `${formatCombatValue(low)}-${formatCombatValue(high)}`;
+};
+const armourRange = (blueprint: ConstructBlueprint): string => {
+  const values = [...blueprint.parts, ...blueprint.joints, ...blueprint.modules].map(({ armour }) => armour);
+  const low = Math.min(...values); const high = Math.max(...values);
+  return low === high ? formatCombatValue(low) : `${formatCombatValue(low)}-${formatCombatValue(high)}`;
+};
+
 export function forgeScreenMarkup(
   blueprint: ConstructBlueprint,
   selectedPart: string,
@@ -103,7 +117,6 @@ export function forgeScreenMarkup(
   const mounted = blueprint.modules.map((module) => `<li>${escapeHtml(module.id)} <small>${escapeHtml(module.kind)}</small> ` +
     `<button type="button" data-forge-action="unmount-module" data-module="${escapeHtml(module.id)}">Unmount</button></li>`).join("");
   const totalMass = blueprint.parts.reduce((sum, part) => sum + part.massKg, 0);
-  const totalHealth = blueprint.parts.reduce((sum, part) => sum + part.health, 0);
   const attachmentSockets = partAttachmentSockets(selected).map((socket) => {
     const occupied = attachmentOccupied(blueprint, selected.id, socket.frame);
     return `<button type="button" data-forge-action="select-part-socket" data-part-socket="${socket.id}" ` +
@@ -141,7 +154,11 @@ export function forgeScreenMarkup(
       <aside><h2>Snap sockets</h2><div class="forge-sockets">${sockets || "<p>No module sockets.</p>"}</div>
         <h2>Installed modules</h2><ul>${mounted || "<li>None</li>"}</ul>
         <dl class="forge-summary"><dt>Parts</dt><dd>${blueprint.parts.length}</dd><dt>Mass</dt><dd>${totalMass.toFixed(1)} kg</dd>
-          <dt>Health</dt><dd>${totalHealth.toFixed(0)}</dd><dt>Blueprint</dt><dd><code>${canonicalBlueprintJson(blueprint).length} bytes</code></dd></dl></aside>
+          <dt>Part durability</dt><dd>${durabilityRange(blueprint.parts)}</dd>
+          <dt>Joint durability</dt><dd>${durabilityRange(blueprint.joints)}</dd>
+          <dt>Module durability</dt><dd>${durabilityRange(blueprint.modules)}</dd>
+          <dt>Armour</dt><dd>${armourRange(blueprint)}</dd>
+          <dt>Blueprint</dt><dd><code>${canonicalBlueprintJson(blueprint).length} bytes</code></dd></dl></aside>
       <section class="forge-preview" aria-label="Transactional 3D preview"><div data-forge-preview></div>
         <p>Preview keeps the last valid machine when an edit or rebuild is refused.</p></section></div>
   </section>`;
@@ -350,7 +367,7 @@ export class ForgeScreen {
     const bodyPart: PartSpec = {
       id, shape: structuredClone(entry.shape), massKg: entry.massKg,
       centreOfMassM: [0, 0, 0], friction: 0.72, restitution: 0.05,
-      health: 100, armour: 12, vitalityWeight: 0, fatal: false,
+      health: 5, armour: 0.6, vitalityWeight: 0, fatal: false,
       shell: structuredClone(entry.shell),
     };
     const parentPoint = partAttachmentSockets(parent).find(({ id }) => id === this.selectedAttachment);
@@ -366,7 +383,7 @@ export class ForgeScreen {
       parentFrame: structuredClone(parentPoint.frame), childFrame: structuredClone(childPoint.frame),
       angularAxes: [{ id: "x", minRad: -0.75, maxRad: 0.75,
         damping: 4, maxTorqueNm: 100, maxSpeedRadS: 3 }],
-      health: 100, armour: 12,
+      health: 5, armour: 0.6,
     };
     const result = this.apply({ kind: "attach-catalog-fragment", part: bodyPart, joint,
       parentSocket: parentPoint.id, childSocket: childPoint.id, attachmentTag: entry.attachmentTag });

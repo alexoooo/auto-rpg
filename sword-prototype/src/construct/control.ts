@@ -18,7 +18,7 @@ import type { ActionCapability } from "./capabilities.ts";
 import type { LocomotionSchedulerPort } from "./scheduler.ts";
 import type { PhysicalSupportedLocomotionDiagnostic } from "../supported-locomotion-production.ts";
 
-export const CONSTRUCT_CONTROL_SURFACE = "construct-v1";
+export const CONSTRUCT_CONTROL_SURFACE = "construct-v3";
 
 export interface ConstructControlSnapshot {
   readonly command: ConstructCommand;

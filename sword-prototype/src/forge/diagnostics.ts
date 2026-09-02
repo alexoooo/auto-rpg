@@ -1,5 +1,6 @@
 import type { ActiveActionDiagnostic, SchedulerEvent } from "../construct/scheduler.ts";
 import type { PhysicalSupportedLocomotionDiagnostic } from "../supported-locomotion-production.ts";
+import type { ConstructSurfaceRenderAudit } from "../construct/render.ts";
 
 export interface RuleDecisionDiagnostic {
   readonly rule: string;
@@ -31,6 +32,13 @@ export interface ConstructDiagnosticFrame {
   }>[];
   readonly probeMotor?: Readonly<{ writes: number; targetsAtLimit: number; targetLimitFraction: number }>;
   readonly locomotion?: PhysicalSupportedLocomotionDiagnostic | null;
+  readonly surface?: ConstructSurfaceRenderAudit | null;
+  readonly driver?: Readonly<{
+    readonly label: string;
+    readonly policyId: string;
+    readonly programId: string;
+    readonly programSource: "built-in" | "saved";
+  }>;
 }
 
 const escapeHtml = (value: string): string => value.replace(/[&<>"']/g, (character) => ({
@@ -76,15 +84,27 @@ export function diagnosticsMarkup(frame: ConstructDiagnosticFrame): string {
       `<p><b>Fresh standable bindings</b> ${row.freshSupportBindings.map(escapeHtml).join(", ") || "none"}.</p>` +
       `<ol>${groups || "<li>No registered support groups.</li>"}</ol></section>`;
   })() : "";
+  const surface = frame.surface ? `<section class="surface-diagnostic" data-surface-mode="${frame.surface.effective}">` +
+    `<h3>Construct surface</h3><p><b>${escapeHtml(frame.surface.effective)}</b>` +
+    `${frame.surface.requested === frame.surface.effective ? "" : ` (requested ${escapeHtml(frame.surface.requested)})`}</p>` +
+    `<p>${frame.surface.meshes} meshes; ${frame.surface.materials} shared materials; ` +
+    `${frame.surface.textures} textures; ${frame.surface.plugins} plugins; ` +
+    `${frame.surface.damagedBindings} damaged bindings.</p>` +
+    `<small>${escapeHtml(frame.surface.fallbackReason ?? "procedural capability accepted or mapped PBR requested")}</small></section>` : "";
+  const driver = frame.driver ? `<p class="diagnostic-driver" data-policy-id="${escapeHtml(frame.driver.policyId)}" ` +
+    `data-program-id="${escapeHtml(frame.driver.programId)}" data-program-source="${frame.driver.programSource}">` +
+    `<b>${escapeHtml(frame.driver.label)} / ${escapeHtml(frame.driver.programId)}</b>` +
+    `<small>selected policy ${escapeHtml(frame.driver.policyId)} -- ${frame.driver.programSource} program</small></p>` : "";
   return `<section class="construct-diagnostics" data-paused="${frame.paused}" aria-label="Construct decision timeline">` +
     `<header><div><p class="forge-kicker">Decision timeline</p><h2>${frame.paused ? "Paused -- evidence stays visible" : `Live -- ${frame.at.toFixed(2)} s`}</h2></div>` +
-    `<span class="diagnostic-clock">${frame.at.toFixed(3)} s</span></header><div class="diagnostic-columns">` +
+    `<span class="diagnostic-clock">${frame.at.toFixed(3)} s</span></header>${driver}<div class="diagnostic-columns">` +
     `<section><h3>Mind rules</h3><ol>${rules || "<li>No evaluated rules.</li>"}</ol></section>` +
     `<section><h3>Requests and claims</h3><ol>${scheduler || "<li>No scheduler events.</li>"}</ol></section>` +
     `<section><h3>Active phases</h3><ol>${active || "<li>No active controllers.</li>"}</ol></section>` +
     `<section><h3>Hardware capabilities</h3><ol>${capabilities || "<li>No capability changes.</li>"}</ol></section>` +
     `<section><h3>Power, heat and ammunition</h3><ol>${resources || "<li>No resource ledger.</li>"}</ol></section>` +
     `<section><h3>Damage by effector</h3><ol>${combat || "<li>No scored contacts.</li>"}</ol></section>` +
+    surface +
     locomotion +
     probeMotor +
     `</div></section>`;

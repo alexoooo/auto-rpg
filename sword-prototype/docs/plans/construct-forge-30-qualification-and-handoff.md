@@ -1,5 +1,27 @@
 # Session 30 — low-number combined-arms qualification and visual handoff
 
+**Status (2026-09-01): in progress and competitively red.** Infrastructure, raw-event
+reconstruction, non-monotonic lowest-rung selection, source/run identity, mutation fixtures and the
+source-frozen 560-bout matrix are complete. The matrix at source `f82bc3d3`, run `d1e1d8e7`
+rejected every rung, so all production durability multipliers remain null. The fresh authored entry
+at schedule `8253502c`, source `f82bc3d3`, run `97a634ab` is also rejected: 1/8 bilateral
+physical-damage rows, seven rows missing brace and fire, and 8/8 time caps. The earlier accepted
+identity `e74cb441` / `e5d255e7` / `7a626bcd` remains historical evidence superseded by the
+fire-lifecycle source change. `mapped-pbr` remains the default because no genuinely visible
+hardware browser was available for the required performance bracket. The full prototype gate ran
+on 2026-09-01: 1,315/1,316 tests passed, `npm run check`, `npm run build` and `git diff --check`
+passed, and the sole remaining red is the Swordbearer's one-completed-sweep left mirror. The
+competitive repair remains owed; Session 30 is not complete.
+
+The first full-matrix attempt exhausted a 4 GiB V8 heap after roughly 260 cells because the parent,
+resume reader, finalizer and CLI still retained corpus-sized objects despite atomic checkpoint files.
+The corrected runner now requires `--out`, acknowledges each worker only after its cell is on disk,
+retains no raw result array, independently replays one indexed cache row at a time, reconstructs one
+16-cell rung at a time, folds the exact run digest in a bounded second pass and streams canonical
+`report.json` in a third. Its terminal output is a compact receipt and path. The source change
+invalidated the interrupted checkpoint by design; the final matrix restarted from an empty output
+under source `f82bc3d3` and completed all 560 cells.
+
 ## Outcome
 
 Qualify the integrated combat-value-v2 game rather than six isolated mechanisms. Select durable
@@ -66,6 +88,13 @@ available under its old ID and is explicitly superseded rather than rewritten.
    base durability, production multiplier, action/phase sequence, weapon attribution, projectile
    identity, usable joules, pre-/post-armour damage, support state, minimum self-clearance, refused
    owner-contact/module-attribution events and verdict tail.
+
+   `--out` cells are untrusted restart caches. Source/manifest identity prevents accidental mixing,
+   but an ordinary digest is not a signature: only complete terminal reconstruction/finalization is
+   qualification evidence, and a hand-edited cache must be discarded or independently replayed.
+   The full matrix refuses an in-memory invocation. Worker publication is acknowledgement-backed,
+   terminal reconstruction holds at most one 16-cell rung, and canonical report generation reads
+   those checkpoint rows again rather than assembling them in the CLI.
 
 2. Extend `assertConstructWarriorCurriculum` and its canonical row reconstruction at
    `scripts/construct-warrior-curriculum.mjs#L241`, plus the mutation fixtures in
@@ -141,6 +170,7 @@ their expected refusal strings in the fixture tests.
 node scripts/construct-warrior-locomotion.mjs
 node scripts/construct-warrior-curriculum.mjs --durability-ladder
 node scripts/construct-warrior-curriculum.mjs
+node scripts/construct-warrior-curriculum.mjs --combined-arms --workers 8 --out docs/evidence/construct-combined-arms-v2
 npm run construct:qualify -- --out docs/evidence/construct-learning-entry-v2 --workers 8 --expect qualified
 npm run measure -- --only duelist-swinger --bouts 120 --seed 20260823
 npm test

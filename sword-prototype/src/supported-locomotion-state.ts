@@ -7,7 +7,12 @@ export const SUPPORTED_LOCOMOTION_V1 = Object.freeze({
   FALL_SPECIFIC_IMPULSE_MPS: 0.014,
   BRACE_CAPACITY_MULTIPLIER: 1.50,
   FALLEN_DWELL_S: 0.35,
-  SUPPORT_GRACE_S: 0.10,
+  // The supported carrier may bridge one bounded clinch compression while its feet replant.
+  // 0.10 s treated ordinary shield/torso contact as a fall before either body could finish an
+  // authored attack. The 0.35 s bridge still cannot hide a real shove (the impulse threshold is
+  // immediate), but it lets the game locomotion layer carry a short upright clinch while the
+  // solver separates and replants its finite feet.
+  SUPPORT_GRACE_S: 0.35,
   RISING_DURATION_S: 0.45,
 });
 
@@ -67,8 +72,18 @@ export interface StabilityAuthority {
   readonly gaitStabilityScale: number;
 }
 
-/** Combat queues this authored horizontal shove; solver reaction impulse has no field here. */
-export interface StabilityEvent { readonly horizontalShoveNs: readonly [number, number] }
+/**
+ * Combat queues an authored transfer; solver reaction impulse has no field here.
+ *
+ * Ordinary contacts retain force impulse because their transfer is computed from
+ * a material-point velocity. An authored bash already declares a mass-independent
+ * velocity change, so converting it back through target mass would make the
+ * controller stronger or weaker merely because its opponent is heavier.
+ */
+export type StabilityEvent =
+  | Readonly<{ readonly kind?: "horizontal-shove";
+    readonly horizontalShoveNs: readonly [number, number] }>
+  | Readonly<{ readonly kind: "specific-impulse"; readonly specificImpulseMps: number }>;
 
 export interface SupportedLocomotionState {
   readonly state: SupportState;
@@ -114,6 +129,8 @@ export interface SupportedLocomotionBoundary {
   readonly supportedMassKg: number;
   readonly authoredShoves: readonly StabilityEvent[];
   readonly recoverRequested: boolean;
+  /** Standable world under the recovery footprint; this is not a claim that a folded foot is planted. */
+  readonly recoveryGroundAvailable: boolean;
   readonly occupancyClear: boolean;
   readonly hitInterrupted: boolean;
 }
@@ -131,16 +148,17 @@ export function risingEligibility(state: SupportedLocomotionState,
   if (!input.recoverRequested) return Object.freeze({ eligible: false, reason: "recovery was not requested" });
   if (!input.authority) return Object.freeze({ eligible: false, reason: "locomotion authority is unavailable" });
   if (!input.liveSupport) return Object.freeze({ eligible: false, reason: "support chain is not live" });
+  if (!input.recoveryGroundAvailable) {
+    return Object.freeze({ eligible: false, reason: "standable recovery ground is unavailable" });
+  }
   if (!input.occupancyClear) return Object.freeze({ eligible: false, reason: "recovery occupancy is obstructed" });
   if (input.hitInterrupted) return Object.freeze({ eligible: false, reason: "recovery was interrupted by a hit" });
-  const allowed = new Set(input.authority.supportBindings.map(({ role }) => role));
-  // Fresh ground admits a rise. Once the bounded path has started, requiring the same terminal
-  // to remain planted makes lifting that terminal cancel recovery by construction; live topology,
-  // occupancy and hit interruption remain checked on every rising boundary.
-  if (state.state === "fallen" &&
-      !input.supportEvidence.some((row) => isFreshStandableSupport(row, input.safeBoundarySequence, allowed))) {
-    return Object.freeze({ eligible: false, reason: "fresh standable support is unavailable" });
-  }
+  // Falling is allowed to leave every foot above the floor or folded under the carrier. Requiring
+  // one of those terminals to publish a fresh planted contact before the bounded righting path may
+  // begin makes an upside-down but otherwise intact body unrecoverable by construction. The rise
+  // instead earns reattachment through live support topology, an explicit recover request, the
+  // fallen dwell, pair occupancy and uninterrupted clearance. Fresh terminal contact is still
+  // mandatory when the completed posture asks to become supported again.
   return Object.freeze({ eligible: true, reason: null });
 }
 
@@ -160,7 +178,12 @@ const checkedBoundary = (input: SupportedLocomotionBoundary): void => {
     throw new Error("supported locomotion authority has invalid stability scaling");
   }
   for (const event of input.authoredShoves) {
-    if (event.horizontalShoveNs.length !== 2 || event.horizontalShoveNs.some((value) => !Number.isFinite(value))) {
+    if (event.kind === "specific-impulse") {
+      if (!Number.isFinite(event.specificImpulseMps) || event.specificImpulseMps < 0) {
+        throw new Error("supported locomotion authored specific impulse must be finite and non-negative");
+      }
+    } else if (event.horizontalShoveNs.length !== 2 ||
+        event.horizontalShoveNs.some((value) => !Number.isFinite(value))) {
       throw new Error("supported locomotion authored shove must contain two finite horizontal components");
     }
   }
@@ -176,8 +199,9 @@ const supportAvailable = (input: SupportedLocomotionBoundary): boolean => {
 export function stepSupportedLocomotionState(prior: SupportedLocomotionState,
   input: SupportedLocomotionBoundary): SupportedLocomotionState {
   checkedBoundary(input);
-  const added = input.authoredShoves.reduce((sum, event) =>
-    sum + Math.hypot(...event.horizontalShoveNs) / input.supportedMassKg, 0);
+  const added = input.authoredShoves.reduce((sum, event) => sum +
+    (event.kind === "specific-impulse" ? event.specificImpulseMps :
+      Math.hypot(...event.horizontalShoveNs) / input.supportedMassKg), 0);
   const specificImpulseMps = Math.max(0,
     prior.specificImpulseMps - SUPPORTED_LOCOMOTION_V1.STABILITY_DECAY_MPS_PER_S * input.dt) + added;
   const hasSupport = supportAvailable(input);

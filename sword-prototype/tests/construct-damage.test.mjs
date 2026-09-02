@@ -9,10 +9,10 @@ import { BOOTSTRAP_CONTROLLERS } from "../src/construct/controllers.ts";
 import { ActionScheduler } from "../src/construct/scheduler.ts";
 import { LiveConstructState } from "../src/construct/live-state.ts";
 import { distanceToModulePrimitive, jointAtContact } from "../src/construct/damage-target.ts";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Combat } from "../src/combat.ts";
 import { PhysicsEventType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
-import { ConstructMountedSword } from "../src/construct/striker.ts";
+import { ConstructMountedContactStriker, ConstructMountedSword } from "../src/construct/striker.ts";
 
 const graph = Object.freeze({
   version: 1,
@@ -32,6 +32,19 @@ const resources = () => new ConstructResources(
   { capacityJ: 100, coolingW: 1, maxHeatJ: 20 },
   [{ id: "bolts", capacity: 2, reloadS: 0.5 }],
 );
+
+test("an_exact_divide_by_twenty_fixture_preserves_post_armour_Construct_damage", () => {
+  const legacy = new ConstructDamageState({ ...wardenBlueprint(),
+    parts: wardenBlueprint().parts.map((part) => ({ ...part, health: part.health * 20, armour: part.armour * 20 })),
+    joints: wardenBlueprint().joints.map((joint) => ({ ...joint, health: joint.health * 20, armour: joint.armour * 20 })),
+    modules: wardenBlueprint().modules.map((module) => ({ ...module, health: module.health * 20, armour: module.armour * 20 })),
+  });
+  const migrated = new ConstructDamageState(wardenBlueprint());
+  const old = legacy.damagePart("limb-front-left-upper", 40);
+  const next = migrated.damagePart("limb-front-left-upper", 2);
+  assert.equal(next.applied, old.applied / 20);
+  assert.equal(migrated.partHealth("limb-front-left-upper"), legacy.partHealth("limb-front-left-upper") / 20);
+});
 
 const hardware = (view, overrides = {}) => ({
   joints: new Set(["yaw", "pitch"]), modules: new Set(["launcher"]),
@@ -130,9 +143,9 @@ test("module_health_and_armour_are_blueprint_authority_for_installed_hardware", 
   const blueprint = wardenBlueprint();
   const shield = blueprint.modules.find(({ id }) => id === "warden-shield");
   const damage = new ConstructDamageState(blueprint);
-  const first = damage.damageModule(shield.id, shield.armour + 6);
-  assert.deepEqual(first, { target: shield.id, absorbed: shield.armour, applied: 6, severedParts: [] });
-  assert.equal(damage.installedModuleHealth(shield.id), shield.health - 6);
+  const first = damage.damageModule(shield.id, shield.armour + 2);
+  assert.deepEqual(first, { target: shield.id, absorbed: shield.armour, applied: 2, severedParts: [] });
+  assert.equal(damage.installedModuleHealth(shield.id), shield.health - 2);
   damage.damageModule(shield.id, 1000);
   assert.equal(damage.installedModules().has(shield.id), false);
 });
@@ -240,7 +253,7 @@ test("combat_routes_a_compound_contact_through_the_explicit_armoured_module_targ
   combat.attach({
     limbFor: () => part,
     damageTargetFor: (body, point) => { assert.equal(body, ownerBody); pointSeen = point.clone(); return module; },
-    applyDamage: (target, raw) => { assert.equal(target, module); rawSeen = raw; const applied = Math.max(0, raw - 7);
+    applyDamage: (target, raw) => { assert.equal(target, module); rawSeen = raw; const applied = Math.max(0, raw - 0.35);
       target.health -= applied; return applied; },
     parriedBy: () => null,
     sever: () => {},
@@ -249,9 +262,63 @@ test("combat_routes_a_compound_contact_through_the_explicit_armoured_module_targ
   contact({ type: PhysicsEventType.COLLISION_STARTED, point, impulse: 1, collidedAgainst: ownerBody });
   assert.deepEqual(pointSeen.asArray(), point.asArray());
   assert.equal(combat.lastHit.key, "mounted-module");
-  assert.equal(combat.lastHit.damage, rawSeen - 7, "the report and health use applied post-armour damage");
+  assert.equal(combat.lastHit.damage, rawSeen - 0.35, "the report and health use applied post-armour damage");
   assert.equal(module.health, 40 - combat.lastHit.damage);
   assert.equal(part.health, 100);
+});
+
+test("two_distinct_projectiles_are_not_collapsed_by_one_limb_cooldown", () => {
+  const callbacks = [];
+  const projectile = (poolIndex) => ({
+    kind: "arrow", hand: null, effectorId: `bolt:${poolIndex}`, spent: false,
+    projectileImpact: { massKg: 0.12, lengthM: 0.5, radiusM: 0.01,
+      penetrationEfficiency: 1 },
+    projectilePoolIndex: poolIndex, shotSerial: 0,
+    body: { getCollisionObservable: () => ({ add: (callback) => {
+      callbacks[poolIndex] = callback; return {}; }, remove() {} }) },
+    velocityAt: () => new Vector3(0, 0, 42), edgeDirection: () => new Vector3(1, 0, 0),
+    bladeDirection: () => new Vector3(0, 0, 1), tipPosition: () => new Vector3(0, 0, 1),
+  });
+  const bolts = [projectile(0), projectile(1)];
+  const limb = { key: "torso", label: "torso", health: 20, maxHealth: 20,
+    severed: false, lastHitAt: -999, part: { body: { applyImpulse() {} } } };
+  const reports = [];
+  const combat = new Combat("left", bolts, (event) => reports.push(event));
+  combat.attach({ limbFor: () => limb, parriedBy: () => null, sever: () => {},
+    applyDamage: (_target, damage) => { limb.health -= damage; return damage; } });
+  const event = { type: PhysicsEventType.COLLISION_STARTED, point: new Vector3(0, 0, 0.99),
+    impulse: 1, collidedAgainst: {} };
+  callbacks[0](event);
+  callbacks[1](event);
+  assert.equal(reports.length, 2);
+  assert.equal(reports.every(({ report }) => report.damage === 3), true);
+  assert.equal(limb.health, 14);
+});
+
+test("one_recycled_projectile_serial_scores_at_most_once", () => {
+  let contact;
+  const bolt = {
+    kind: "arrow", hand: null, effectorId: "bolt:0", spent: false,
+    projectileImpact: { massKg: 0.12, lengthM: 0.5, radiusM: 0.01,
+      penetrationEfficiency: 1 },
+    projectilePoolIndex: 0, shotSerial: 7,
+    body: { getCollisionObservable: () => ({ add: (callback) => { contact = callback; return {}; }, remove() {} }) },
+    velocityAt: () => new Vector3(0, 0, 42), edgeDirection: () => new Vector3(1, 0, 0),
+    bladeDirection: () => new Vector3(0, 0, 1), tipPosition: () => new Vector3(0, 0, 1),
+  };
+  const limb = { key: "torso", label: "torso", health: 20, maxHealth: 20,
+    severed: false, lastHitAt: -999, part: { body: { applyImpulse() {} } } };
+  const combat = new Combat("left", [bolt]);
+  combat.attach({ limbFor: () => limb, parriedBy: () => null, sever: () => {},
+    applyDamage: (_target, damage) => { limb.health -= damage; return damage; } });
+  const event = { type: PhysicsEventType.COLLISION_STARTED, point: new Vector3(0, 0, 0.99),
+    impulse: 1, collidedAgainst: {} };
+  contact(event);
+  contact(event);
+  assert.equal(limb.health, 17);
+  bolt.shotSerial = 8;
+  contact(event);
+  assert.equal(limb.health, 14, "the recycled slot becomes eligible only under its new serial");
 });
 
 test("a_destroyed_mounted_effector_loses_scorer_ownership_without_waiting_for_debris_motion", () => {
@@ -262,7 +329,95 @@ test("a_destroyed_mounted_effector_loses_scorer_ownership_without_waiting_for_de
     socket: { part: { attached: true, body: { setCollisionCallbackEnabled() {} } } },
   };
   const striker = new ConstructMountedSword(module, () => available);
+  striker.setActionState("sweep:1", true);
   assert.equal(striker.spent, false);
   available = false;
   assert.equal(striker.spent, true);
+});
+
+test("a_mounted_sword_scores_only_during_its_declared_attack_Action", () => {
+  let contact;
+  const ownerBody = {
+    setCollisionCallbackEnabled() {},
+    getCollisionObservable: () => ({ add: (callback) => { contact = callback; return {}; }, remove() {} }),
+    getLinearVelocityToRef: (value) => value.set(8, 0, 0),
+    getAngularVelocityToRef: (value) => value.set(0, 0, 0),
+  };
+  const targetBody = {};
+  const module = {
+    id: "blade", spec: { kind: "sword", striker: { damageScale: 1, localTipM: [0, 1, 0],
+      localEdgeDirection: [1, 0, 0], localFlatDirection: [0, 0, 1] } },
+    root: { computeWorldMatrix: () => Matrix.Identity() },
+    socket: { part: { attached: true, body: ownerBody, node: { position: Vector3.Zero() } } },
+  };
+  const striker = new ConstructMountedSword(module);
+  const limb = { key: "torso", label: "torso", health: 20, maxHealth: 20,
+    severed: false, lastHitAt: -999, part: { body: { applyImpulse() {} } } };
+  const reports = []; const refusals = [];
+  const combat = new Combat("left", [striker], (event) => reports.push(event),
+    (event) => refusals.push(event));
+  combat.attach({ limbFor: () => limb, parriedBy: () => null, sever: () => {} });
+  const event = { type: PhysicsEventType.COLLISION_STARTED, point: new Vector3(0, 1, 0),
+    impulse: 1, collidedAgainst: targetBody };
+  contact(event);
+  striker.setActionState("sweep:1", true);
+  contact(event);
+  striker.setActionState(null, false);
+  combat.advance(1);
+  contact(event);
+  assert.equal(reports.length, 1, "only the armed physical stroke owns sword damage");
+  assert.deepEqual(refusals.map(({ reason }) => reason), ["inactive-action", "inactive-action"]);
+});
+
+test("specific_impulse_bash_is_mass_independent_and_does_not_double_apply_generic_shove", () => {
+  let contact; let impulse = null;
+  const ownerBody = {
+    setCollisionCallbackEnabled() {},
+    getCollisionObservable: () => ({ add: (callback) => { contact = callback; return {}; }, remove() {} }),
+    getLinearVelocityToRef: (value) => value.set(5, 0, 0),
+    getAngularVelocityToRef: (value) => value.set(0, 0, 0),
+  };
+  const targetBody = {};
+  const module = {
+    id: "warden-shield",
+    spec: { kind: "shield", geometry: [{
+      id: "plate", frame: { positionM: [0, 0, 0], rotation: [0, 0, 0, 1] },
+      shape: { kind: "sphere", radiusM: 1 }, shell: { style: "plate" },
+    }], mountedContactStriker: { localContactPoint: [1, 0, 0], shoveSpecificImpulseMps: 0.008 } },
+    root: { computeWorldMatrix: () => Matrix.Identity() },
+    socket: { part: { attached: true, body: ownerBody, node: { position: Vector3.Zero() } } },
+  };
+  const runtime = { parts: new Map([["core", { body: ownerBody }]]), modules: new Map([[module.id, module]]) };
+  const striker = new ConstructMountedContactStriker(runtime, module);
+  const limb = { key: "torso", label: "torso", health: 10, maxHealth: 10,
+    severed: false, lastHitAt: -999, part: { body: {
+      getMassProperties: () => ({ mass: 25 }), applyImpulse: (value) => { impulse = value.clone(); },
+    } } };
+  const stability = []; const reports = []; const refusals = [];
+  const combat = new Combat("left", [striker], (event) => reports.push(event),
+    (event) => refusals.push(event));
+  combat.attach({ limbFor: () => limb, parriedBy: () => null, sever: () => {},
+    queueStabilityEvent: (event) => stability.push(event) });
+  const event = { type: PhysicsEventType.COLLISION_STARTED, point: new Vector3(1, 0, 0), impulse: 99,
+    collidedAgainst: targetBody };
+  contact(event);
+  assert.equal(reports.length, 0, "passive shield contact cannot impersonate an armed bash");
+  striker.setActionState("bash:1", true);
+  contact({ ...event, collidedAgainst: ownerBody });
+  assert.equal(reports.length, 0, "an owner-body contact cannot impersonate an opponent bash");
+  contact({ ...event, point: new Vector3(5, 0, 0) });
+  assert.equal(reports.length, 0, "a bearing/core contact cannot impersonate the shield leaf");
+  contact(event); contact(event);
+  assert.equal(reports.length, 1, "one target is eligible once per armed action instance");
+  assert.deepEqual(refusals.map(({ reason, effectorId }) => ({ reason, effectorId })), [
+    { reason: "inactive-action", effectorId: "warden-shield" },
+    { reason: "owner-contact", effectorId: "warden-shield" },
+    { reason: "module-attribution", effectorId: "warden-shield" },
+    { reason: "module-attribution", effectorId: "warden-shield" },
+  ], "inactive, owner, source-leaf and duplicate refusals are explicit audit evidence");
+  assert.equal(reports[0].report.damage, 0, "the authored shove is never a hidden wound");
+  assert.deepEqual(stability, [{ kind: "specific-impulse", specificImpulseMps: 0.008 }]);
+  assert.ok(Math.abs(impulse.length() - 25 * 0.008) < 1e-12);
+  assert.deepEqual(reports[0].report.stabilityShove,
+    { kind: "specific-impulse", specificImpulseMps: 0.008 });
 });

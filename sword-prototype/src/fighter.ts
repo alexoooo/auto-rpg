@@ -928,7 +928,7 @@ export class Fighter {
 
     this.head = bone("head", place(0, B.headCentre, 0), B.headLength, B.headRadius, B.headMass);
     this.pelvis = bone("pelvis", place(0, B.pelvisCentre, 0), B.pelvisLength, B.pelvisRadius, B.pelvisMass);
-    // A dynamic-root bracket loses both real foot contacts within the frozen 0.10 s grace even
+    // A dynamic-root bracket lost both real foot contacts within the then-current 0.10 s grace even
     // at zero input; both bodies then collapse together. The game carrier owns supported walking,
     // while authored knockdown releases this root to the ordinary dynamic ragdoll.
     this.pelvis.body.setMotionType(PhysicsMotionType.ANIMATED);

@@ -5,6 +5,15 @@ import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { ShellStyle } from "./blueprint.ts";
+import {
+  DEFAULT_CONSTRUCT_SURFACE_MODE,
+  attachConstructProceduralSurface,
+  constructSurfaceCapabilities,
+  selectConstructSurfaceMode,
+  type ConstructProceduralSurfacePlugin,
+  type ConstructSurfaceAudit,
+  type ConstructSurfaceMode,
+} from "./procedural-surface.ts";
 
 export type ConstructFaction = "left" | "right";
 export type ConstructSurfaceFamily = "carvedStone" | "functionalMetal" | "constructWood" | "rune";
@@ -17,10 +26,12 @@ export type ConstructMaterialRecipeKey =
 
 export interface ConstructMaterialPalette {
   readonly faction: ConstructFaction;
+  readonly surface: ConstructSurfaceAudit;
   readonly carvedStone: PBRMaterial;
   readonly functionalMetal: PBRMaterial;
   readonly constructWood: PBRMaterial;
   readonly rune: PBRMaterial;
+  readonly plugins: readonly ConstructProceduralSurfacePlugin[];
   readonly disposed: boolean;
   dispose(): void;
 }
@@ -55,7 +66,7 @@ export const CONSTRUCT_SURFACE_RULES = Object.freeze({
   joint: { recipe: "functional-bronze", reason: "bearing, axle or joint collar" },
   mount: { recipe: "functional-bronze", reason: "module and weapon mounting hardware" },
   trim: { recipe: "construct-wood", reason: "declared non-structural wood trim" },
-  rune: { recipe: "rune-inlay", reason: "non-structural emissive inlay" },
+  rune: { recipe: "rune-inlay", reason: "non-structural mineral and bronze inlay" },
 } satisfies Record<ConstructSurfaceRole, ConstructSurfaceRule>);
 
 export const DEFAULT_CONSTRUCT_SURFACE_ROLE: ConstructSurfaceRole = "shell";
@@ -117,10 +128,10 @@ export const CONSTRUCT_MATERIAL_PROFILES = Object.freeze({
   },
   "rune-inlay": {
     family: "rune",
-    albedoByFaction: { left: [0.95, 0.42, 0.16], right: [0.18, 0.62, 1.0] },
-    metallic: 0,
-    roughness: 0.82,
-    emissive: true,
+    albedoByFaction: { left: [0.72, 0.35, 0.12], right: [0.33, 0.47, 0.58] },
+    metallic: 0.42,
+    roughness: 0.66,
+    emissive: false,
     grain: null,
   },
 } satisfies Record<ConstructMaterialRecipeKey, ConstructMaterialProfile>);
@@ -206,7 +217,11 @@ export const hasConstructMaterials = (scene: Scene, faction: ConstructFaction): 
   scenePalettes.get(scene)?.has(faction) === true;
 
 /** One faction palette owns every material and generated texture it creates. */
-export function constructMaterials(scene: Scene, faction: ConstructFaction): ConstructMaterialPalette {
+export function constructMaterials(
+  scene: Scene,
+  faction: ConstructFaction,
+  requestedSurface: ConstructSurfaceMode = DEFAULT_CONSTRUCT_SURFACE_MODE,
+): ConstructMaterialPalette {
   let factions = scenePalettes.get(scene);
   if (!factions) {
     factions = new Map();
@@ -245,16 +260,27 @@ export function constructMaterials(scene: Scene, faction: ConstructFaction): Con
   rune.metallic = runeProfile.metallic;
   rune.roughness = runeProfile.roughness;
   rune.unlit = runeProfile.emissive;
-  rune.emissiveColor.copyFrom(rune.albedoColor);
+  rune.emissiveColor.set(0, 0, 0);
   rune.metadata = { constructSurfaceFamily: "rune" };
+
+  const surface: ConstructSurfaceAudit = { ...selectConstructSurfaceMode(requestedSurface,
+    constructSurfaceCapabilities(scene.getEngine())) };
+  const plugins = Object.freeze([
+    attachConstructProceduralSurface(carvedStone, "stone", requestedSurface, surface),
+    attachConstructProceduralSurface(functionalMetal, "bronze", requestedSurface, surface),
+    attachConstructProceduralSurface(constructWood, "plain", requestedSurface, surface),
+    attachConstructProceduralSurface(rune, "rune", requestedSurface, surface),
+  ]);
 
   let disposed = false;
   const palette: ConstructMaterialPalette = {
     faction,
+    surface,
     carvedStone,
     functionalMetal,
     constructWood,
     rune,
+    plugins,
     get disposed() { return disposed; },
     dispose() {
       if (disposed) return;
@@ -297,5 +323,6 @@ export function applyConstructSurface(
   recipe: ConstructMaterialRecipeKey = DEFAULT_CONSTRUCT_MATERIAL_RECIPE,
 ): void {
   mesh.material = materialForConstructRecipe(palette, recipe);
-  mesh.metadata = { ...(mesh.metadata ?? {}), constructMaterialRecipe: recipe };
+  mesh.metadata = { ...(mesh.metadata ?? {}), constructMaterialRecipe: recipe,
+    constructSurfaceFaction: palette.faction };
 }

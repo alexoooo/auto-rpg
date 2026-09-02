@@ -8,6 +8,7 @@ import {
 } from "./supported-locomotion.ts";
 import {
   StandableWorldRegistry,
+  SUPPORTED_CARRIER_V1,
   RisingActuator,
   SupportedRootMotor,
   SupportedRuntimeResourceCensus,
@@ -42,6 +43,11 @@ export const DEFAULT_SUPPORTED_CARRIER: VirtualCarrierConfig = Object.freeze({
 
 export const MAX_STANDABLE_SLOPE_DEGREES = 35;
 export const MIN_STANDABLE_UPWARD_NORMAL_Y = Math.cos(MAX_STANDABLE_SLOPE_DEGREES * Math.PI / 180);
+// Separation is part of the bounded rise, not a fallen-body teleport. The close-opponent fixture
+// below needs 0.27 m; 0.35 m admits that measured overlap while still refusing coincident carriers
+// and remaining far below the 1.62 m displacement admitted by the actuator acceleration limit.
+export const MAX_RECOVERY_SEPARATION_M = 0.35;
+export const RECOVERY_SEPARATION_MARGIN_M = 0.02;
 
 /** Downward/ceiling normals and any surface steeper than the frozen 35 degree limit are not feet. */
 export function isStandableUpwardNormalY(y: number): boolean {
@@ -162,6 +168,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
   private rising: RisingActuator | null = null;
   private risingFrameComplete = false;
   private pairOccupancyClear = true;
+  private recoveryPairTarget: WorldPoint | null = null;
   private anatomyReleased = false;
   private releaseReason: string | null = null;
   private lastBoundary: Pick<PhysicalSupportedLocomotionDiagnostic, "authority" | "liveSupport" |
@@ -193,9 +200,19 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     const liveSupport = this.options.liveSupport();
     const postureSupported = this.options.postureSupported();
     const root = this.options.root.sample();
-    const recoveryTarget = { x: root.position.x, y: this.carrier.state.y, z: root.position.z };
-    const occupancyClear = this.pairOccupancyClear && this.registry.allowedFraction(root.position, recoveryTarget,
-      this.carrier.footprint, this.carrier.ownerPartIds) >= 1;
+    const recoveryTarget = { x: this.recoveryPairTarget?.x ?? root.position.x,
+      y: this.carrier.state.y, z: this.recoveryPairTarget?.z ?? root.position.z };
+    const recoveryGroundAvailable = evidenceBindings.length > 0 && this.registry.supportEvidence(
+      { x: recoveryTarget.x, y: 0, z: recoveryTarget.z }, this.carrier.footprint,
+      this.carrier.ownerPartIds, evidenceBindings[0], this.sequence).length > 0;
+    const recoveryDistanceM = Math.hypot(recoveryTarget.x - root.position.x,
+      recoveryTarget.y - root.position.y, recoveryTarget.z - root.position.z);
+    const recoveryWithinAccelerationLimit = 6 * recoveryDistanceM /
+      (SUPPORTED_CARRIER_V1.RISING_DURATION_S * SUPPORTED_CARRIER_V1.RISING_DURATION_S) <=
+      SUPPORTED_CARRIER_V1.RISING_MAX_ACCELERATION_MPS2;
+    const occupancyClear = recoveryWithinAccelerationLimit && this.pairOccupancyClear &&
+      this.registry.allowedFraction(root.position, recoveryTarget,
+        this.carrier.footprint, this.carrier.ownerPartIds) >= 1;
     this.lastBoundary = Object.freeze({ authority: authority !== null, liveSupport, postureSupported,
       freshSupportBindings: Object.freeze([...new Set(evidence.map(({ supportBinding }) => supportBinding))].sort()) });
     const priorState = this.supportState.state;
@@ -207,7 +224,10 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       recoverRequested: priorRequest?.recover === true || (this.supportState.state === "fallen" &&
         priorRequest !== null && Math.max(Math.abs(priorRequest.localForward),
           Math.abs(priorRequest.localRight), Math.abs(priorRequest.yaw)) > 0),
-      occupancyClear, hitInterrupted: shoves.some(({ horizontalShoveNs: [x, z] }) => Math.hypot(x, z) > 0),
+      recoveryGroundAvailable, occupancyClear,
+      hitInterrupted: shoves.some((event) => event.kind === "specific-impulse"
+        ? event.specificImpulseMps > 0
+        : Math.hypot(...event.horizontalShoveNs) > 0),
     });
     if (this.supportState.state === "fallen") {
       if (priorState !== "fallen") {
@@ -230,7 +250,8 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       this.motor.drive(this.carrier.state, { x: 0, y: 0, z: 0 }, "fallen");
     } else if (this.supportState.state === "rising" && priorState !== "rising") {
       const live = this.options.root.sample();
-      const target = { x: live.position.x, y: this.carrier.state.y, z: live.position.z };
+      const target = { x: this.recoveryPairTarget?.x ?? live.position.x,
+        y: this.carrier.state.y, z: this.recoveryPairTarget?.z ?? live.position.z };
       this.carrier.reset(target, this.carrier.state.yaw);
       this.rising = new RisingActuator(live.position, target, this.carrier.state.yaw,
         this.carrier.footprint, this.registry, this.carrier.ownerPartIds);
@@ -239,6 +260,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       this.rising = null;
       this.risingFrameComplete = false;
       this.releaseReason = null;
+      this.recoveryPairTarget = null;
       this.options.restoreRoot?.();
       if (this.anatomyReleased) {
         this.options.restoreSupportedAnatomyCollision?.();
@@ -354,7 +376,34 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     const here = this.supportState.state === "fallen" ? this.options.root.sample().position : this.carrier.state;
     const there = other.supportState.state === "fallen" ? other.options.root.sample().position : other.carrier.state;
     const required = this.carrier.footprint.radiusM + other.carrier.footprint.radiusM;
-    this.pairOccupancyClear = Math.hypot(there.x - here.x, there.z - here.z) >= required - 1e-9;
+    const distance = Math.hypot(there.x - here.x, there.z - here.z);
+    if (distance >= required - 1e-9) {
+      this.pairOccupancyClear = true;
+      if (this.supportState.state !== "rising") this.recoveryPairTarget = null;
+      return;
+    }
+    if (this.supportState.state === "rising" && this.recoveryPairTarget) {
+      this.pairOccupancyClear = Math.hypot(there.x - this.recoveryPairTarget.x,
+        there.z - this.recoveryPairTarget.z) >= required - 1e-9;
+      return;
+    }
+    this.pairOccupancyClear = false;
+    this.recoveryPairTarget = null;
+    if (this.supportState.state !== "fallen") return;
+    const separationM = required - distance + RECOVERY_SEPARATION_MARGIN_M;
+    if (separationM > MAX_RECOVERY_SEPARATION_M) return;
+    const sign = this.options.id.localeCompare(other.options.id) <= 0 ? -1 : 1;
+    const awayX = distance > 1e-9 ? (here.x - there.x) / distance : sign;
+    const awayZ = distance > 1e-9 ? (here.z - there.z) / distance : 0;
+    const target = Object.freeze({ x: here.x + awayX * separationM,
+      y: this.carrier.state.y, z: here.z + awayZ * separationM });
+    // The other carrier is accounted for by the exact endpoint separation above. This sweep is
+    // the independent world/debris half: a wall or obstacle still vetoes the retreat before any
+    // RisingActuator exists.
+    if (this.registry.allowedFraction(here, target,
+        this.carrier.footprint, this.carrier.ownerPartIds) < 1) return;
+    this.recoveryPairTarget = target;
+    this.pairOccupancyClear = true;
   }
 
   commitPhysical(proposal: CarrierProposal, allowed: HorizontalMove, dt: number): void {

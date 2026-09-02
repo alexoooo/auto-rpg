@@ -8,8 +8,8 @@ import type { Scene } from "@babylonjs/core/scene.js";
 
 import type { AttachmentFrame, ModuleSpec, PartSpec, PrimitiveShape } from "./blueprint.ts";
 import {
+  CONSTRUCT_SURFACE_RULES,
   applyConstructSurface,
-  materialForConstructRole,
   recipeForConstructShell,
   roleForConstructShell,
   type ConstructMaterialPalette,
@@ -17,6 +17,7 @@ import {
 
 export interface ConstructPartVisual {
   readonly meshes: readonly Mesh[];
+  readonly bearing: Mesh;
   readonly clearanceM: number;
   dispose(): void;
 }
@@ -46,6 +47,35 @@ export interface ConstructDebugOverlay {
   dispose(): void;
 }
 
+export interface ConstructSurfaceBinding {
+  readonly targetKind: "part" | "module" | "joint";
+  readonly targetId: string;
+  readonly primitiveId: string;
+  readonly seed: number;
+  readonly shapeKind: PrimitiveShape["kind"];
+  readonly extentsM: readonly [number, number, number];
+  readonly relief: "none" | "core-front";
+  healthRatio: number;
+}
+
+export interface ConstructSurfaceDamageDescription {
+  readonly targetKind: ConstructSurfaceBinding["targetKind"];
+  readonly targetId: string;
+  readonly remaining: number;
+  readonly maximum: number;
+}
+
+export interface ConstructSurfaceRenderAudit {
+  readonly meshes: number;
+  readonly materials: number;
+  readonly textures: number;
+  readonly plugins: number;
+  readonly requested: import("./procedural-surface.ts").ConstructSurfaceMode;
+  readonly effective: import("./procedural-surface.ts").ConstructSurfaceMode;
+  readonly fallbackReason: string | null;
+  readonly damagedBindings: number;
+}
+
 const dimensions = (shape: PrimitiveShape, clearanceM: number): Vector3 => {
   switch (shape.kind) {
     case "box": return new Vector3(
@@ -70,6 +100,119 @@ const dimensions = (shape: PrimitiveShape, clearanceM: number): Vector3 => {
     );
   }
 };
+
+const tuple = (value: Vector3): readonly [number, number, number] =>
+  Object.freeze([value.x, value.y, value.z]);
+
+/** FNV-1a over authored semantic names. Build order, faction and mutable health never enter. */
+export function constructSurfaceSeed(...semanticIds: readonly string[]): number {
+  let value = 0x811c9dc5;
+  for (const byte of new TextEncoder().encode(semanticIds.join("\0"))) {
+    value ^= byte;
+    value = Math.imul(value, 0x01000193);
+  }
+  return (value >>> 0) / 0xffffffff;
+}
+
+const bindingKey = (kind: ConstructSurfaceBinding["targetKind"], id: string): string => `${kind}\0${id}`;
+
+/**
+ * Render metadata is owned beside the meshes and addressed only by stable semantic damage keys.
+ * This registry deliberately knows neither Limb objects nor ConstructDamageState.
+ */
+export class ConstructSurfaceRegistry {
+  private readonly scene: Scene;
+  private readonly palette: ConstructMaterialPalette;
+  private readonly bindings = new Map<string, Set<ConstructSurfaceBinding>>();
+  private disposed = false;
+
+  constructor(scene: Scene, palette: ConstructMaterialPalette) {
+    this.scene = scene;
+    this.palette = palette;
+  }
+
+  bind(mesh: Mesh, binding: ConstructSurfaceBinding, damageEligible = true): void {
+    mesh.metadata = { ...(mesh.metadata ?? {}), constructSurfaceBinding: binding };
+    if (!damageEligible) return;
+    const key = bindingKey(binding.targetKind, binding.targetId);
+    const set = this.bindings.get(key) ?? new Set<ConstructSurfaceBinding>();
+    set.add(binding);
+    this.bindings.set(key, set);
+  }
+
+  rebindJoint(jointId: string, childPartId: string, bearing: Mesh): void {
+    const prior = bearing.metadata?.constructSurfaceBinding as ConstructSurfaceBinding | undefined;
+    const binding: ConstructSurfaceBinding = {
+      targetKind: "joint",
+      targetId: jointId,
+      primitiveId: prior?.primitiveId ?? `${childPartId}:bearing`,
+      seed: constructSurfaceSeed("joint", jointId, prior?.primitiveId ?? `${childPartId}:bearing`, "bearing"),
+      shapeKind: "cylinder",
+      extentsM: prior?.extentsM ?? Object.freeze([0.1, 0.1, 0.1]),
+      relief: "none",
+      healthRatio: 1,
+    };
+    this.bind(bearing, binding);
+  }
+
+  publish(damage: ConstructSurfaceDamageDescription): void {
+    if (!Number.isFinite(damage.maximum) || damage.maximum <= 0) {
+      throw new Error(`construct surface damage maximum must be finite and positive, got ${damage.maximum}`);
+    }
+    const healthRatio = Math.max(0, Math.min(1,
+      Number.isFinite(damage.remaining) ? damage.remaining / damage.maximum : 0));
+    for (const binding of this.bindings.get(bindingKey(damage.targetKind, damage.targetId)) ?? []) {
+      binding.healthRatio = healthRatio;
+    }
+  }
+
+  audit(): ConstructSurfaceRenderAudit {
+    const paletteMaterials = new Set([
+      this.palette.carvedStone, this.palette.functionalMetal, this.palette.constructWood, this.palette.rune,
+    ]);
+    const factionMeshes = this.scene.meshes.filter((mesh) =>
+      mesh.metadata?.constructSurfaceFaction === this.palette.faction && paletteMaterials.has(mesh.material as never));
+    const damagedBindings = factionMeshes.filter((mesh) => {
+      const binding = mesh.metadata?.constructSurfaceBinding as ConstructSurfaceBinding | undefined;
+      return binding !== undefined && binding.healthRatio < 1;
+    }).length;
+    return Object.freeze({
+      meshes: factionMeshes.length,
+      materials: paletteMaterials.size,
+      textures: [this.palette.carvedStone.albedoTexture, this.palette.carvedStone.bumpTexture]
+        .filter((texture) => texture !== null).length,
+      plugins: this.palette.plugins.length,
+      requested: this.palette.surface.requested,
+      effective: this.palette.surface.effective,
+      fallbackReason: this.palette.surface.reason,
+      damagedBindings,
+    });
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.bindings.clear();
+  }
+}
+
+const surfaceBinding = (
+  targetKind: ConstructSurfaceBinding["targetKind"],
+  targetId: string,
+  primitiveId: string,
+  shape: PrimitiveShape,
+  clearanceM: number,
+  shellStyle: string,
+): ConstructSurfaceBinding => ({
+  targetKind,
+  targetId,
+  primitiveId,
+  seed: constructSurfaceSeed(targetKind, targetId, primitiveId, shellStyle),
+  shapeKind: shape.kind,
+  extentsM: tuple(dimensions(shape, clearanceM)),
+  relief: shape.kind === "box" && shellStyle === "core" ? "core-front" : "none",
+  healthRatio: 1,
+});
 
 const shell = (scene: Scene, name: string, shape: PrimitiveShape, clearanceM: number): Mesh => {
   const size = dimensions(shape, clearanceM);
@@ -106,11 +249,14 @@ export function buildConstructPartVisual(
   owner: TransformNode,
   part: PartSpec,
   palette: ConstructMaterialPalette,
+  surfaces: ConstructSurfaceRegistry,
 ): ConstructPartVisual {
   const made: Mesh[] = [];
   const body = shell(scene, `construct.${part.id}.shell`, part.shape, part.shell.visualClearanceM);
   body.parent = owner;
   body.isPickable = true;
+  surfaces.bind(body, surfaceBinding("part", part.id, `${part.id}:shell`, part.shape,
+    part.shell.visualClearanceM, part.shell.style));
   applyConstructSurface(body, palette, recipeForConstructShell(part.shell.style));
   made.push(body);
 
@@ -122,7 +268,9 @@ export function buildConstructPartVisual(
   );
   bearing.parent = owner;
   bearing.rotationQuaternion = Quaternion.FromEulerAngles(0, 0, Math.PI / 2);
-  bearing.material = materialForConstructRole(palette, "joint");
+  surfaces.bind(bearing, surfaceBinding("part", part.id, `${part.id}:bearing`,
+    { kind: "cylinder", radiusM: accentSize, lengthM: accentSize * 0.55 }, 0, "bearing"), false);
+  applyConstructSurface(bearing, palette, CONSTRUCT_SURFACE_RULES.joint.recipe);
   bearing.isPickable = false;
   made.push(bearing);
 
@@ -133,13 +281,16 @@ export function buildConstructPartVisual(
   );
   core.parent = owner;
   core.position.z = Math.min(dimensions(part.shape, 0).z * 0.35, accentSize * 1.3);
-  core.material = materialForConstructRole(palette, "rune");
+  surfaces.bind(core, surfaceBinding("part", part.id, `${part.id}:rune-core`,
+    { kind: "sphere", radiusM: accentSize * 0.31 }, 0, "rune"), false);
+  applyConstructSurface(core, palette, CONSTRUCT_SURFACE_RULES.rune.recipe);
   core.isPickable = false;
   made.push(core);
 
   let disposed = false;
   return {
     meshes: made,
+    bearing,
     clearanceM: part.shell.visualClearanceM,
     dispose() {
       if (disposed) return;
@@ -159,6 +310,7 @@ export function buildConstructModuleVisual(
   socketFrame: AttachmentFrame,
   module: ModuleSpec,
   palette: ConstructMaterialPalette,
+  surfaces: ConstructSurfaceRegistry,
 ): ConstructModuleVisual {
   const root = new TransformNode(`construct.${module.id}.module-root`, scene);
   root.parent = owner;
@@ -179,9 +331,11 @@ export function buildConstructModuleVisual(
         }, scene);
         bracket.parent = root;
         bracket.position.copyFrom(position);
-        bracket.material = materialForConstructRole(palette, "joint");
         bracket.metadata = { constructModuleId: module.id, constructModuleKind: module.kind,
           constructSurfaceRole: "joint", presentationOnlyMountBracket: true };
+        surfaces.bind(bracket, surfaceBinding("module", module.id, `${module.id}:${name}`,
+          { kind: "box", sizeM: [size.x, size.y, size.z] }, 0, "bearing"), false);
+        applyConstructSurface(bracket, palette, CONSTRUCT_SURFACE_RULES.joint.recipe);
         bracket.isPickable = false;
         meshes.push(bracket);
       };
@@ -191,8 +345,12 @@ export function buildConstructModuleVisual(
         // The pitch-arm shell already covers the first decimetre from its
         // socket. Drawing that span a second time put the cosmetic bracket
         // through the torso even though the actual launcher was clear.
-        const visible = Math.abs(x) - 0.10;
-        makeBracket("mount-outboard", new Vector3(visible + 0.04, 0.06, 0.06),
+        // The driven pitch-arm's 100 mm physical radius already owns the inner span. A bracket
+        // beginning at 80 mm looked connected in bind pose but crossed the torso during the live
+        // aim envelope. Begin at 140 mm: the small shell gap remains visually closed by the
+        // bearing clearance, while no presentation-only box enters authoritative anatomy.
+        const visible = Math.abs(x) - 0.14;
+        makeBracket("mount-outboard", new Vector3(visible, 0.06, 0.06),
           // `root` is already at the offset socket. The owner's old socket is
           // therefore at (-x, -z): the outboard leg belongs in that rear plane,
           // not beside the launcher where it can sweep back through the torso.
@@ -207,9 +365,11 @@ export function buildConstructModuleVisual(
       mesh.position.copyFromFloats(...spec.frame.positionM);
       mesh.rotationQuaternion = Quaternion.FromArray(spec.frame.rotation);
       const role = roleForConstructShell(spec.shell.style);
-      mesh.material = materialForConstructRole(palette, role);
       mesh.metadata = { constructModuleId: module.id, constructModuleKind: module.kind, constructSurfaceRole: role,
         authoritativePrimitiveId: spec.id };
+      surfaces.bind(mesh, surfaceBinding("module", module.id, spec.id, spec.shape,
+        spec.shell.visualClearanceM, spec.shell.style));
+      applyConstructSurface(mesh, palette, CONSTRUCT_SURFACE_RULES[role].recipe);
       mesh.isPickable = false;
       meshes.push(mesh);
     }

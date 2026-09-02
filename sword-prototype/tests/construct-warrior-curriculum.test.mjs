@@ -3,6 +3,8 @@ import test from "node:test";
 
 import { humanoidSavedConstruct } from "../src/construct/humanoid.ts";
 import { twinbladeSavedConstruct, TWINBLADE_SENSORS } from "../src/construct/twinblade.ts";
+import { CONSTRUCT_PRODUCTION_DURABILITY_MULTIPLIERS, constructBlueprintForDurability,
+  durabilityManifest, scaleConstructDurability } from "../src/construct/durability.ts";
 import { assertConstructWarriorCurriculum, CONSTRUCT_WARRIOR_CURRICULUM_ACCEPTANCE,
   ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE, curriculumAcceptanceForDefinition,
   curriculumDefinitionForArgs,
@@ -21,20 +23,16 @@ test("the_curriculum_seed_corpus_and_posture_only_baseline_are_frozen_before_bal
   assert.equal(idle.program.rules.some(({ action }) => action === "guard" || action === "sweep"), false);
 });
 
-test("the_Arbalest_CLI_flag_selects_its_committed_definition_and_earned_acceptance", () => {
+test("the_Arbalest_CLI_flag_selects_its_definition_but_keeps_the_old_corpus_historical", () => {
   assert.equal(curriculumDefinitionForArgs([]), null);
   const definition = curriculumDefinitionForArgs(["--arbalest"]);
   assert.equal(definition.qualifierId, "arbalest-assisted-support-v2");
   assert.equal(definition.saved.blueprint.id, "arbalest-effigy");
   assert.equal(curriculumAcceptanceForDefinition(null), CONSTRUCT_WARRIOR_CURRICULUM_ACCEPTANCE);
   assert.equal(curriculumAcceptanceForDefinition(definition), ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE);
-  assert.deepEqual({
-    idle: ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE.idleWarriorKillsMin,
-    active: ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE.activeConstructKillsMin,
-    qualified: ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE.activeQualifiedConstructKillsMin,
-    left: ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE.activeQualifiedConstructKillsLeftMin,
-    right: ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE.activeQualifiedConstructKillsRightMin,
-  }, { idle: 7, active: 8, qualified: 8, left: 4, right: 4 });
+  assert.equal(ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE.version, 4);
+  assert.equal(ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE.qualified, false);
+  assert.equal(ARBALEST_WARRIOR_CURRICULUM_ACCEPTANCE.historical.qualifiedWins, 8);
   assert.throws(() => curriculumDefinitionForArgs(["--arbalesst"]),
     /unknown construct-Warrior curriculum flag "--arbalesst"/);
   assert.throws(() => curriculumAcceptanceForDefinition({ qualifierId: "arbalest-fatal-arrow-v1",
@@ -122,6 +120,26 @@ test("the_durability_multiplier_scales_every_damageable_element_and_nothing_else
     /durability multiplier must be positive/);
 });
 
+test("base_and_production_builds_are_explicit_before_any_multiplier_is_installed", () => {
+  const authored = humanoidSavedConstruct().blueprint;
+  assert.equal(Object.values(CONSTRUCT_PRODUCTION_DURABILITY_MULTIPLIERS)
+    .every((value) => value === null), true);
+  assert.deepEqual(constructBlueprintForDurability(authored, "swordbearer", "base"), authored);
+  assert.deepEqual(constructBlueprintForDurability(authored, "swordbearer", "production"), authored);
+  assert.notEqual(constructBlueprintForDurability(authored, "swordbearer", "base"), authored);
+  assert.throws(() => constructBlueprintForDurability(authored, "unknown", "production"),
+    /no production durability slot/);
+
+  const scaled = scaleConstructDurability(authored, 0.25);
+  const baseManifest = durabilityManifest(authored);
+  const actualManifest = durabilityManifest(scaled);
+  for (const kind of ["parts", "joints", "modules"]) for (let index = 0;
+    index < baseManifest[kind].length; index += 1) {
+    assert.equal(actualManifest[kind][index].health, baseManifest[kind][index].health * 0.25);
+    assert.equal(actualManifest[kind][index].armour, baseManifest[kind][index].armour);
+  }
+});
+
 test("the_declared_durability_ladder_preserves_its_measured_non_monotonic_order", async () => {
   assert.deepEqual(CONSTRUCT_WARRIOR_DURABILITY_LADDER, [0.5, 0.25, 0.10, 0.05, 0.02]);
   const measuredShape = fakeBoutWithIdleKills((multiplier) => new Map([
@@ -196,7 +214,7 @@ test("the_committed_acceptance_pins_corpus_order_duration_and_mirror_identity", 
     [(row) => { [row.sides[0], row.sides[1]] = [row.sides[1], row.sides[0]]; }, /sides .*does not match/],
     [(row) => { row.seconds = 29; }, /seconds 29 does not match 30/],
     [(row) => { row.durabilityMultiplier = 0.05; }, /durabilityMultiplier 0.05 does not match 0.1/],
-    [(row) => { row.version = 3; }, /version 3 does not match 2/],
+    [(row) => { row.version = 3; }, /version 3 does not match 4/],
   ]) {
     const changed = structuredClone(report); mutate(changed);
     assert.throws(() => assertConstructWarriorCurriculum(changed,

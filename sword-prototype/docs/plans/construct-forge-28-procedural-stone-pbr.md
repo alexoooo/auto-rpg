@@ -1,5 +1,8 @@
 # Session 28 — procedural stone and bronze PBR foundation
 
+**Status (2026-09-01): implemented, focused-green and recorded durably. `mapped-pbr` remains the
+production default until Session 30 obtains a genuinely visible hardware performance bracket.**
+
 ## Outcome
 
 Add the reference image's foundational surface language to Constructs: faceted grey stone,

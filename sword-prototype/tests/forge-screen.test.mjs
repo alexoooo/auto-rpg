@@ -97,6 +97,15 @@ test("the_Forge_is_complete_without_console_or_source_editing", () => {
   assert.match(markup, /Build the body, then program it/);
 });
 
+test("Forge_reports_parts_joints_modules_and_armour_without_a_fake_total_HP_pool", () => {
+  const markup = forgeScreenMarkup(wardenBlueprint(), "core", "socket-dorsal-output", null, "Stone Warden");
+  for (const label of ["Part durability", "Joint durability", "Module durability", "Armour"]) {
+    assert.match(markup, new RegExp(`<dt>${label}</dt>`));
+  }
+  assert.doesNotMatch(markup, /<dt>(?:Health|HP)<\/dt>/i);
+  assert.doesNotMatch(markup, /\d+\.\d{3,}/, "combat values render with at most two decimal places");
+});
+
 test("a_failed_import_or_preview_leaves_the_library_and_last_valid_scene_unchanged", () => {
   const host = new FakeHost();
   const disposed = [];

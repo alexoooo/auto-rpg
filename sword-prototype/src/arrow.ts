@@ -62,7 +62,8 @@ export interface QuiverOptions {
   profile?: typeof CONFIG.arrow;
   /** Stable module-owned attribution prefix; humanoid quivers preserve their historical name. */
   effectorPrefix?: string;
-  damageScale?: number;
+  /** Validated projectile material efficiency; ordinary arrows use one. */
+  penetrationEfficiency?: number;
   /** Construct projectiles stop scoring when their blueprint-owned launcher is destroyed. */
   scoringActive?: () => boolean;
 }
@@ -93,7 +94,11 @@ export class Arrow {
   readonly kind: Striker = "arrow";
   readonly hand: HandName | null;
   readonly effectorId: string;
-  readonly damageScale?: number;
+  readonly projectileImpact: Readonly<{
+    readonly massKg: number; readonly lengthM: number; readonly radiusM: number;
+    readonly penetrationEfficiency: number;
+  }>;
+  readonly projectilePoolIndex: number;
   /** Monotonic loose identity; unlike effectorId, this never names a recycled pool slot. */
   shotSerial: number | null = null;
   readonly root: TransformNode;
@@ -181,6 +186,8 @@ export class Arrow {
    * `velocityAt`.
    */
   private readonly arrival = new Vector3();
+  private readonly arrivalAxis = new Vector3(0, 1, 0);
+  private readonly arrivalTip = new Vector3();
 
   private readonly scratch = {
     dir: new Vector3(),
@@ -190,12 +197,20 @@ export class Arrow {
     vel: new Vector3(),
   };
 
-  constructor(scene: Scene, name: string, opts: QuiverOptions, materials: WeaponMaterials) {
-    this.hand = opts.hand;
+  constructor(scene: Scene, name: string, opts: QuiverOptions, materials: WeaponMaterials,
+    poolIndex = 0) {
+    this.hand = opts.hand ?? null;
     this.effectorId = opts.effectorPrefix ? `${opts.effectorPrefix}:${name.split(".").at(-1)}` : `projectile-${name}`;
-    this.damageScale = opts.damageScale;
     this.scoringActive = opts.scoringActive ?? (() => true);
     const A = opts.profile ?? CONFIG.arrow;
+    const penetrationEfficiency = opts.penetrationEfficiency ?? 1;
+    if (!Number.isSafeInteger(poolIndex) || poolIndex < 0 || !Number.isFinite(penetrationEfficiency) ||
+        penetrationEfficiency <= 0 || penetrationEfficiency > 1) {
+      throw new Error("arrow projectile identity or penetration efficiency is invalid");
+    }
+    this.projectilePoolIndex = poolIndex;
+    this.projectileImpact = Object.freeze({ massKg: A.mass, lengthM: A.length,
+      radiusM: A.shaftDiameter / 2, penetrationEfficiency });
     this.profile = A;
     this.layer = opts.layer;
     this.collidesWith = opts.collidesWith;
@@ -339,7 +354,12 @@ export class Arrow {
     this.body.setAngularVelocity(Vector3.Zero());
     // Seeded here as well as in `step`, so an arrow that finds something on the
     // very first substep is still scored at the speed it left the string.
-    this.arrival.copyFrom(this.scratch.dir);
+    // Spell the speed out instead of depending on `scratch.dir` having been scaled by the
+    // body-velocity call above. The two readings are one authored launch fact, not an aliasing
+    // accident a harmless-looking refactor may separate later.
+    this.arrival.copyFrom(along).scaleInPlace(speed);
+    this.arrivalAxis.copyFrom(along).normalize();
+    this.arrivalTip.copyFrom(from).addInPlace(this.arrivalAxis.scale(this.profile.length / 2));
   }
 
   /** Ask the plugin to take the node's transform, for exactly one step. */
@@ -391,7 +411,12 @@ export class Arrow {
     }
     // The last reading taken while it was still only flying. Held here rather
     // than asked for at the contact, because by then it is not the same number.
-    if (!this.struck) this.body.getLinearVelocityToRef(this.arrival);
+    if (!this.struck) {
+      this.body.getLinearVelocityToRef(this.arrival);
+      this.bladeDirectionToRef(this.arrivalAxis).normalize();
+      this.arrivalTip.copyFrom(this.root.position)
+        .addInPlace(this.arrivalAxis.scale(this.profile.length / 2));
+    }
     this.age += dt;
 
     if (!this.struck) {
@@ -580,6 +605,9 @@ export class Arrow {
     return this.scratch.vel.copyFrom(this.arrival);
   }
 
+  impactBladeDirection(): Vector3 { return this.arrivalAxis; }
+  impactTipPosition(): Vector3 { return this.arrivalTip; }
+
   /** Collapse all history at a new shot's origin or at the off-world park. */
   private resetTrace(at: Vector3): void {
     for (const point of this.tracePoints) point.copyFrom(at);
@@ -614,11 +642,12 @@ export class Arrow {
  */
 export class Quiver {
   readonly arrows: readonly Arrow[];
+  private nextShotSerial = 0;
 
   constructor(scene: Scene, opts: QuiverOptions, materials: WeaponMaterials) {
     const arrows: Arrow[] = [];
     for (let i = 0; i < (opts.profile ?? CONFIG.arrow).count; i += 1) {
-      arrows.push(new Arrow(scene, `${opts.name}.${i}`, opts, materials));
+      arrows.push(new Arrow(scene, `${opts.name}.${i}`, opts, materials, i));
     }
     this.arrows = arrows;
   }
@@ -646,7 +675,7 @@ export class Quiver {
    * longest -- so a fighter shooting faster than the pool recycles takes its own
    * oldest arrow back rather than being silently refused a shot.
    */
-  loose(from: Vector3, along: Vector3, speed: number, shotSerial: number | null = null): boolean {
+  loose(from: Vector3, along: Vector3, speed: number): boolean {
     let pick: Arrow | null = null;
     for (const arrow of this.arrows) {
       if (!arrow.live) {
@@ -656,7 +685,11 @@ export class Quiver {
       if (!pick || arrow.age > pick.age) pick = arrow;
     }
     if (!pick) return false;
-    pick.loose(from, along, speed, shotSerial);
+    if (!Number.isSafeInteger(this.nextShotSerial) || this.nextShotSerial < 0) {
+      throw new Error("quiver shot serial exhausted its safe integer range");
+    }
+    pick.loose(from, along, speed, this.nextShotSerial);
+    this.nextShotSerial += 1;
     return true;
   }
 

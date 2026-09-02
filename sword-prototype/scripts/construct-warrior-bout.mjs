@@ -1,6 +1,6 @@
 import { pathToFileURL } from "node:url";
 
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import { PhysicsEventType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 
@@ -17,6 +17,139 @@ import { SUPPORTED_LOCOMOTION_PORT_V1, unitDefinition } from "../src/units.ts";
 import { createConstructHeadlessArena } from "./construct-headless-arena.mjs";
 
 const FIXED = 1 / CONFIG.world.physicsHz;
+const QUALIFICATION_CLEARANCE_SAMPLE_STEPS = Math.max(1, Math.round(CONFIG.world.physicsHz / 30));
+const QUALIFICATION_ATTACKS = new Set(["sweep", "dual-cut", "fire", "cut-left", "bash", "cut"]);
+
+/**
+ * Qualification time has one authority: an integer elapsed tick divided by its declared rate.
+ * Do not multiply by a cached reciprocal here. Those operations are mathematically equivalent,
+ * but not bit-equivalent in JavaScript, and the strict evidence validator deliberately checks
+ * the serialized seconds against `atStep / eventStepHz` without a tolerance.
+ */
+export function qualificationTimeAtStep(atStep, eventStepHz = CONFIG.world.physicsHz) {
+  if (!Number.isInteger(atStep) || atStep < 0 || !Number.isInteger(eventStepHz) || eventStepHz <= 0) {
+    throw new Error("qualification time requires a non-negative integer tick and positive integer rate");
+  }
+  return atStep / eventStepHz;
+}
+
+const signedDistanceToShape = (point, shape) => {
+  if (shape.kind === "sphere") return point.length() - shape.radiusM;
+  if (shape.kind === "box") {
+    const half = Vector3.FromArray(shape.sizeM).scaleInPlace(0.5);
+    const q = new Vector3(Math.abs(point.x) - half.x, Math.abs(point.y) - half.y,
+      Math.abs(point.z) - half.z);
+    return Math.hypot(Math.max(q.x, 0), Math.max(q.y, 0), Math.max(q.z, 0)) +
+      Math.min(Math.max(q.x, q.y, q.z), 0);
+  }
+  if (shape.kind === "cylinder") {
+    const radial = Math.hypot(point.x, point.z) - shape.radiusM;
+    const axial = Math.abs(point.y) - shape.lengthM * 0.5;
+    return Math.hypot(Math.max(radial, 0), Math.max(axial, 0)) + Math.min(Math.max(radial, axial), 0);
+  }
+  const halfSegment = Math.max(0, shape.lengthM * 0.5 - shape.radiusM);
+  const segmentY = Math.max(-halfSegment, Math.min(halfSegment, point.y));
+  return Math.hypot(point.x, point.y - segmentY, point.z) - shape.radiusM;
+};
+
+/** Deterministic collision-primitive samples; render shells never enter qualification evidence. */
+const primitiveSurfaceSamples = (shape) => {
+  if (shape.kind === "box") {
+    const [x, y, z] = shape.sizeM.map((value) => value * 0.5);
+    const samples = [];
+    for (const axis of [0, 1, 2]) for (const sign of [-1, 1]) for (const a of [-1, 0, 1]) {
+      for (const b of [-1, 0, 1]) {
+        const point = [a * x, b * y, 0];
+        if (axis === 0) { point[0] = sign * x; point[1] = a * y; point[2] = b * z; }
+        else if (axis === 1) { point[0] = a * x; point[1] = sign * y; point[2] = b * z; }
+        else { point[0] = a * x; point[1] = b * y; point[2] = sign * z; }
+        samples.push(new Vector3(...point));
+      }
+    }
+    return samples;
+  }
+  const samples = [];
+  const radius = shape.radiusM;
+  const half = shape.kind === "sphere" ? 0 : shape.lengthM * 0.5;
+  for (let ring = 0; ring < 12; ring += 1) {
+    const angle = ring * Math.PI / 6;
+    const x = Math.cos(angle) * radius;
+    const z = Math.sin(angle) * radius;
+    if (shape.kind === "sphere") {
+      samples.push(new Vector3(x, 0, z), new Vector3(x * Math.SQRT1_2,
+        radius * Math.SQRT1_2, z * Math.SQRT1_2), new Vector3(x * Math.SQRT1_2,
+        -radius * Math.SQRT1_2, z * Math.SQRT1_2));
+    } else {
+      samples.push(new Vector3(x, -half, z), new Vector3(x, 0, z), new Vector3(x, half, z));
+    }
+  }
+  samples.push(new Vector3(0, shape.kind === "capsule" ? -half : -radius, 0),
+    new Vector3(0, shape.kind === "capsule" ? half : radius, 0));
+  return samples;
+};
+
+const semanticPairSpecs = (blueprintId) => blueprintId === "swordbearer-effigy"
+  ? [{ semanticPair: "sword/core", moduleId: "effigy-sword", partId: "torso", actions: ["sweep"] }]
+  : blueprintId === "twinblade-effigy" ? [
+    { semanticPair: "left-sword/core", moduleId: "left-effigy-sword", partId: "torso", actions: ["dual-cut"] },
+    { semanticPair: "right-sword/core", moduleId: "effigy-sword", partId: "torso", actions: ["dual-cut"] },
+  ] : blueprintId === "arbalest-effigy" ? [
+    { semanticPair: "launcher/torso", moduleId: "effigy-arbalest", partId: "torso", actions: ["fire"] },
+    { semanticPair: "left-sword/torso", moduleId: "effigy-left-sword", partId: "torso",
+      actions: ["cut-left"], requiredM: 0.025 },
+  ] : blueprintId === "warden-crossbow" ? [
+    { semanticPair: "launcher/core", moduleId: "dorsal-crossbow", partId: "core", actions: ["fire"] },
+    { semanticPair: "shield/core", moduleId: "warden-shield", partId: "core", actions: ["bash"] },
+  ] : blueprintId === "warden-sword" ? [
+    { semanticPair: "dorsal-sword/core", moduleId: "dorsal-sword", partId: "core", actions: ["cut"] },
+    { semanticPair: "shield/core", moduleId: "warden-shield", partId: "core", actions: ["bash"] },
+  ] : [];
+
+const liveSemanticClearance = (runtime, spec) => {
+  const module = runtime.modules.get(spec.moduleId);
+  const part = runtime.parts.get(spec.partId);
+  if (!module || !part) return null;
+  const moduleWorld = module.root.computeWorldMatrix(true);
+  const inverseModule = Matrix.Invert(moduleWorld);
+  const partWorld = part.node.computeWorldMatrix(true);
+  const inversePart = Matrix.Invert(partWorld);
+  if (module.spec.striker) {
+    const hilt = moduleWorld.getTranslation();
+    const tip = Vector3.TransformCoordinates(Vector3.FromArray(module.spec.striker.localTipM), moduleWorld);
+    let minimum = Number.POSITIVE_INFINITY;
+    // The mount and grip are allowed beside their carrier. The combat-bearing three quarters of
+    // the live striker centreline is the semantic self-cut path, matching the controller fact.
+    for (let index = 4; index <= 16; index += 1) {
+      const local = Vector3.TransformCoordinates(Vector3.Lerp(hilt, tip, index / 16), inversePart);
+      minimum = Math.min(minimum, signedDistanceToShape(local, part.spec.shape));
+    }
+    const authoredMargin = Math.max(part.spec.shell.visualClearanceM,
+      ...module.spec.geometry.map(({ shell }) => shell.visualClearanceM));
+    return Object.freeze({ ...spec, requiredM: spec.requiredM ?? authoredMargin, clearanceM: minimum });
+  }
+  const partSamples = primitiveSurfaceSamples(part.spec.shape);
+  let minimum = Number.POSITIVE_INFINITY;
+  for (const primitive of module.spec.geometry) {
+    const primitiveFrame = Matrix.Compose(Vector3.One(), Quaternion.FromArray(primitive.frame.rotation),
+      Vector3.FromArray(primitive.frame.positionM));
+    const inversePrimitive = Matrix.Invert(primitiveFrame);
+    for (const local of primitiveSurfaceSamples(primitive.shape)) {
+      const inModule = Vector3.TransformCoordinates(local, primitiveFrame);
+      const world = Vector3.TransformCoordinates(inModule, moduleWorld);
+      minimum = Math.min(minimum, signedDistanceToShape(Vector3.TransformCoordinates(world, inversePart),
+        part.spec.shape));
+    }
+    for (const local of partSamples) {
+      const world = Vector3.TransformCoordinates(local, partWorld);
+      const inModule = Vector3.TransformCoordinates(world, inverseModule);
+      minimum = Math.min(minimum, signedDistanceToShape(Vector3.TransformCoordinates(inModule, inversePrimitive),
+        primitive.shape));
+    }
+  }
+  const authoredMargin = Math.max(part.spec.shell.visualClearanceM,
+    ...module.spec.geometry.map(({ shell }) => shell.visualClearanceM));
+  return Object.freeze({ ...spec, requiredM: spec.requiredM ?? authoredMargin, clearanceM: minimum });
+};
 
 export function constructWarriorWinner(constructVitality, warriorVitality) {
   if (!Number.isFinite(constructVitality) || !Number.isFinite(warriorVitality)) {
@@ -90,13 +223,86 @@ export function stopDefeatedConstructWarriorControl(construct, warrior) {
 /** Capture compound-leaf identity while the report point and module transform are contemporaneous. */
 export function captureConstructCombatEvent(sourceConstruct, event, context = {}) {
   const striker = sourceConstruct.strikers.find((candidate) => candidate.effectorId === event.effectorId);
-  const sourceModuleId = striker
-    ? moduleAtContact(sourceConstruct.runtime, striker.body, event.report.point)?.id ?? null : null;
+  const sourceModuleId = event.report.projectile
+    ? [...sourceConstruct.runtime.modules.values()].find(({ spec }) => spec.kind === "launcher")?.id ?? null
+    : striker ? moduleAtContact(sourceConstruct.runtime, striker.body, event.report.point)?.id ?? null : null;
   const shotSerial = Number.isInteger(striker?.shotSerial) ? striker.shotSerial : null;
   return Object.freeze({ ...event, sourceModuleId, shotSerial,
     action: context.action ?? null, phase: context.phase ?? null, attempt: context.attempt ?? null,
+    actionInstanceId: context.actionInstanceId ?? null,
     targetVitalityBefore: context.targetVitalityBefore ?? null,
     targetVitalityAfter: context.targetVitalityAfter ?? null });
+}
+
+const qualificationInstanceKey = ({ group, action }) => `${group}\0${action}`;
+
+/**
+ * Advance the attack-Action generation ledger in scheduler event order.
+ *
+ * The scheduler owns active state by group/action, not by group alone: a higher-priority Action
+ * can start in a group before the displaced Action's cancellation is appended at end-of-step.
+ * Refusal is never a terminal for an already-running generation; the scheduler emits a separate
+ * cancellation when that generation is actually withdrawn. Keep this fold pure so those two
+ * same-step edge cases can be mutation-tested without spending a Havok bout.
+ */
+export function advanceQualificationActionLifecycle(events, {
+  activeInstances = new Map(), nextInstance = 0, pendingFireInstance = null,
+} = {}) {
+  if (!Array.isArray(events) || !(activeInstances instanceof Map) ||
+      !Number.isInteger(nextInstance) || nextInstance < 0) {
+    throw new Error("qualification Action lifecycle requires events, a generation map and a non-negative index");
+  }
+  const nextActive = new Map(activeInstances);
+  const transitions = [];
+  let next = nextInstance;
+  let pendingFire = pendingFireInstance;
+  let fireInstanceForStep = pendingFireInstance;
+  for (const event of events) {
+    const key = qualificationInstanceKey(event);
+    if (event.kind === "started" && QUALIFICATION_ATTACKS.has(event.action)) {
+      const actionInstanceId = `${event.action}:${event.group}:${next}`;
+      next += 1;
+      const instance = { action: event.action, group: event.group, actionInstanceId,
+        weapon: event.action === "fire" ? "projectile" : event.action === "bash" ? "shield" : "sword",
+        lastPhase: null };
+      nextActive.set(key, instance);
+      transitions.push(Object.freeze({ kind: "started", event, instance }));
+      if (event.action === "fire") {
+        pendingFire = instance;
+        // A parameter-change cancellation can be followed by a replacement which looses on enter.
+        // The newest started generation, rather than the cancelled predecessor, owns that launch.
+        fireInstanceForStep = instance;
+      }
+    }
+    if (["completed", "cancelled", "refused", "failed"].includes(event.kind) &&
+        QUALIFICATION_ATTACKS.has(event.action)) {
+      const active = event.kind === "refused" ? null : nextActive.get(key);
+      const instance = active?.action === event.action ? active : null;
+      transitions.push(Object.freeze({ kind: "terminal", event, instance }));
+      if (instance?.action === "fire") fireInstanceForStep = instance;
+      if (instance && nextActive.get(key) === instance) nextActive.delete(key);
+    }
+  }
+  return Object.freeze({ activeInstances: nextActive, nextInstance: next,
+    pendingFireInstance: pendingFire, fireInstanceForStep,
+    transitions: Object.freeze(transitions) });
+}
+
+/** Resolve the generation which physically owns this solver step, including its terminal step. */
+export function qualificationActionContext(action, activeRows, activeInstances, terminalTransitions) {
+  const active = activeRows.find((row) => row.action === action);
+  const live = active ? activeInstances.get(qualificationInstanceKey(active)) : null;
+  if (live?.action === action) return Object.freeze({ instance: live, phase: active.phase });
+  // A parameter replacement can leave more than one same-action terminal in one tick. The last
+  // generation is the one whose controller stepped most recently and can have authored contact.
+  for (let index = terminalTransitions.length - 1; index >= 0; index -= 1) {
+    const terminal = terminalTransitions[index];
+    if (terminal.event.action === action && terminal.instance?.action === action &&
+        terminal.instance.lastPhase !== null) {
+      return Object.freeze({ instance: terminal.instance, phase: terminal.instance.lastPhase });
+    }
+  }
+  return null;
 }
 
 const sharedMaterials = (scene) => {
@@ -184,17 +390,84 @@ export async function runConstructWarriorBout({
       materials: materials.fighter,
       policyName: warriorPolicy, policySeed: warriorSeed,
       loadout: warriorLoadout, locomotionMode, locomotionWorld });
+    let steps = 0;
+    const qualificationEvents = [];
+    let qualificationSequence = 0;
+    const qualificationEvent = (kind, fields = {}) => {
+      const row = { sequence: qualificationSequence, atStep: steps,
+        atS: qualificationTimeAtStep(steps), kind, ...fields };
+      qualificationEvents.push(row);
+      qualificationSequence += 1;
+      return row;
+    };
+    const combatRefusalCounts = {
+      ownerContactsRefused: 0,
+      inactiveActionsRefused: 0,
+      moduleAttributionRefused: 0,
+    };
+    const onConstructCombatRefusal = ({ reason, effectorId }) => {
+      if (reason === "owner-contact") combatRefusalCounts.ownerContactsRefused += 1;
+      else if (reason === "inactive-action") combatRefusalCounts.inactiveActionsRefused += 1;
+      else combatRefusalCounts.moduleAttributionRefused += 1;
+      qualificationEvent("combat-refusal", { reason, effectorId });
+    };
+    let activeQualificationInstances = new Map();
+    const projectileInstances = new Map();
+    const qualificationContactsAwaitingPosture = [];
+    let nextQualificationInstance = 0;
+    let qualificationContextForEffector = () => Object.freeze({});
     let lastWarriorVitality = warrior.vitality;
     constructCombat = new Combat(constructSide, construct.strikers, (event) => {
       const targetVitalityAfter = warrior.vitality;
       constructReports.push(captureConstructCombatEvent(construct, event, {
-        ...constructContactContext, targetVitalityBefore: lastWarriorVitality, targetVitalityAfter,
+        ...constructContactContext, ...qualificationContextForEffector(event),
+        targetVitalityBefore: lastWarriorVitality, targetVitalityAfter,
       }));
+      const captured = constructReports.at(-1);
+      const projectile = event.report.projectile;
+      const identity = projectile ? Object.freeze({ owner: "construct",
+        poolIndex: projectile.identity.poolIndex, shotSerial: projectile.identity.shotSerial }) : null;
+      const projectileInstance = identity ? projectileInstances.get(
+        `${identity.poolIndex}:${identity.shotSerial}`) : null;
+      const actionInstanceId = projectileInstance?.actionInstanceId ?? captured.actionInstanceId;
+      const evidenceKind = !event.blocked && captured.sourceModuleId && actionInstanceId
+        ? "contact" : "combat-observation";
+      const qualificationRow = qualificationEvent(evidenceKind, {
+        ownerRelation: "opponent", sourceOwner: "construct",
+        attribution: captured.sourceModuleId ? "verified" : "missing",
+        sourceModuleId: captured.sourceModuleId,
+        actionInstanceId: actionInstanceId ?? null,
+        action: projectileInstance?.action ?? captured.action,
+        phase: captured.phase,
+        weapon: event.report.weapon === "arrow" ? "projectile"
+          : event.effectorId === "warden-shield" ? "shield" : event.report.weapon,
+        effectorId: event.effectorId,
+        blocked: event.blocked,
+        targetPartId: event.report.key,
+        pathId: captured.phase ?? null,
+        contactZone: projectile?.contactedZone === "head" ? "point" : projectile?.contactedZone ?? null,
+        axial: projectile ? projectile.signedShaftAlignment > 0 : null,
+        damage: event.report.damage,
+        preArmourDamage: event.report.preArmourDamage,
+        postArmourDamage: event.report.postArmourDamage,
+        targetVitalityBefore: captured.targetVitalityBefore,
+        targetVitalityAfter: captured.targetVitalityAfter,
+        massKg: projectile?.massKg ?? null,
+        arrivalSpeedMps: projectile?.arrivalSpeedMps ?? null,
+        signedShaftAlignment: projectile?.signedShaftAlignment ?? null,
+        penetrationEfficiency: projectile?.penetrationEfficiency ?? null,
+        contactedZone: projectile?.contactedZone ?? null,
+        usableEnergyJ: projectile?.usableEnergyJ ?? null,
+        uncappedDamage: projectile?.uncappedDamage ?? null,
+        ...(identity ? { projectile: identity } : {}),
+        stabilityShove: event.report.stabilityShove ?? null,
+      });
+      qualificationContactsAwaitingPosture.push(qualificationRow);
       if (constructCombat && warriorCombat) {
         stopCombatOnFatalTransition(lastWarriorVitality, targetVitalityAfter, constructCombat, warriorCombat);
       }
       lastWarriorVitality = targetVitalityAfter;
-    });
+    }, onConstructCombatRefusal);
     let lastConstructVitality = construct.vitality;
     warriorCombat = new Combat(warriorSide, warrior.strikers, (event) => {
       const targetVitalityAfter = construct.vitality;
@@ -220,7 +493,49 @@ export async function runConstructWarriorBout({
     let lastLocomotionKey = "";
     let lastControllerPhase = "";
     let observedLauncherLooses = 0;
+    let qualificationObservedLauncherLooses = 0;
     let pendingFireStart = null;
+    let pendingFireQualificationInstance = null;
+    let lastMotionEvidenceKey = "";
+    let lastSupportEvidenceKey = "";
+    let meleeOpportunityAvailable = false;
+    let observedPostureLoss = false;
+    let passiveIntervalStartS = null;
+    const activeQualificationProgram = saved.program.rules.some(({ action }) => QUALIFICATION_ATTACKS.has(action));
+    const maximumDwellS = saved.program.rules.reduce((maximum, { dwellS }) => Math.max(maximum, dwellS), 0);
+    const maximumReloadS = saved.blueprint.modules.reduce((maximum, module) =>
+      Math.max(maximum, module.reloadSeconds ?? 0), 0);
+    // 0.56 s is the longest explicitly time-bounded chamber/commit/recover controller in the
+    // registry. Reload and authored dwell are saved-body facts; the fixed step covers edge order.
+    const qualificationPassiveIntervalLimitS = Math.max(0.56, maximumReloadS) + maximumDwellS + FIXED;
+    const clearancePairs = semanticPairSpecs(saved.blueprint.id);
+    const clearanceMinimum = new Map(clearancePairs.map(({ semanticPair }) =>
+      [semanticPair, { clearanceM: Number.POSITIVE_INFINITY, sampledAtS: null, requiredM: null }]));
+    const clearanceMinimumByInstance = new Map();
+    const diagnosticClearanceMinimum = new Map(clearancePairs.map(({ semanticPair }) =>
+      [semanticPair, { clearanceM: Number.POSITIVE_INFINITY, sampledAtStep: null, requiredM: null }]));
+    const sampleArmedClearance = (instance, method) => {
+      if (!instance || !construct.alive) return;
+      for (const pair of clearancePairs) {
+        if (!pair.actions.includes(instance.action)) continue;
+        const module = construct.runtime.modules.get(pair.moduleId);
+        const part = construct.runtime.parts.get(pair.partId);
+        if (module?.socket.part.attached !== true || part?.attached !== true) continue;
+        const sample = liveSemanticClearance(construct.runtime, pair);
+        const prior = clearanceMinimum.get(pair.semanticPair);
+        if (!sample || !prior) continue;
+        if (sample.clearanceM < prior.clearanceM) clearanceMinimum.set(pair.semanticPair,
+          { clearanceM: sample.clearanceM, requiredM: sample.requiredM,
+            sampledAtS: qualificationTimeAtStep(steps) });
+        const instanceKey = `${instance.actionInstanceId}\0${pair.semanticPair}`;
+        const instanceMinimum = clearanceMinimumByInstance.get(instanceKey) ?? Number.POSITIVE_INFINITY;
+        if (sample.clearanceM >= instanceMinimum) continue;
+        clearanceMinimumByInstance.set(instanceKey, sample.clearanceM);
+        qualificationEvent("self-clearance", { semanticPair: pair.semanticPair,
+          clearanceM: sample.clearanceM, requiredM: sample.requiredM,
+          action: instance.action, actionInstanceId: instance.actionInstanceId, method });
+      }
+    };
     let dualCutAttempt = 0;
     const dualMotorJoints = new Map();
     const dualMotorTargets = new Map();
@@ -240,7 +555,6 @@ export async function runConstructWarriorBout({
     let firstConstructDamageS = null;
     let firstUprightConstructDamageS = null;
     let constructReportCursor = 0;
-    let steps = 0;
     let verdictAtStep = null;
     let verdictVitality = null;
     let activeAfterStep = null;
@@ -291,7 +605,7 @@ export async function runConstructWarriorBout({
         freshSupportBindings: diagnostic.freshSupportBindings,
         requested: diagnostic.requested, allowed: diagnostic.allowed,
       });
-      locomotionSteps.push(Object.freeze({ atS: steps * FIXED,
+      locomotionSteps.push(Object.freeze({ atS: qualificationTimeAtStep(steps),
         construct: compactLocomotion(constructLocomotion), warrior: compactLocomotion(warriorLocomotion) }));
       const locomotionKey = JSON.stringify([constructLocomotion?.state.state,
         constructLocomotion?.authority, constructLocomotion?.liveSupport,
@@ -303,7 +617,7 @@ export async function runConstructWarriorBout({
         const pelvisRotation = fighter?.pelvis.mesh.rotationQuaternion ?? Quaternion.Identity();
         const pelvisUp = Vector3.Dot(Vector3.Up().rotateByQuaternionToRef(
           pelvisRotation, new Vector3()), Vector3.Up());
-        locomotionTimeline.push(Object.freeze({ atS: steps * FIXED,
+        locomotionTimeline.push(Object.freeze({ atS: qualificationTimeAtStep(steps),
           construct: constructLocomotion, warrior: warriorLocomotion,
           warriorPhysical: fighter ? Object.freeze({ pelvisUp,
             torsoHeightAbovePelvisM: fighter.torso.mesh.position.y - fighter.pelvis.mesh.position.y,
@@ -313,10 +627,116 @@ export async function runConstructWarriorBout({
       if (snapshot.events.some(({ kind, action }) => kind === "started" && action === "dual-cut")) {
         dualCutAttempt += 1;
       }
+      const atS = qualificationTimeAtStep(steps);
+      const meleeAvailableNow = saved.blueprint.id === "arbalest-effigy" &&
+        snapshot.facts["line-of-sight"] === true && Number.isFinite(snapshot.facts["opponent-range"]) &&
+        snapshot.facts["opponent-range"] < 2.60;
+      if (meleeAvailableNow && !meleeOpportunityAvailable) qualificationEvent("melee-opportunity",
+        { rangeM: snapshot.facts["opponent-range"], weapon: "sword" });
+      meleeOpportunityAvailable = meleeAvailableNow;
+      const attackLane = (action) => action === "dual-cut"
+        ? (snapshot.facts["opponent-blocker-present"] === true ? "shielded" : "unshielded") : null;
+      const terminalQualificationEvents = [];
+      // A launched projectile can belong to an Action which became terminal in this scheduler
+      // step. Keep the last fire generation which actually stepped: an old terminal must not
+      // erase a later replacement, while a completed firing generation still owns its loose.
+      const lifecycleStep = advanceQualificationActionLifecycle(snapshot.events, {
+        activeInstances: activeQualificationInstances, nextInstance: nextQualificationInstance,
+        pendingFireInstance: pendingFireQualificationInstance,
+      });
+      activeQualificationInstances = lifecycleStep.activeInstances;
+      nextQualificationInstance = lifecycleStep.nextInstance;
+      pendingFireQualificationInstance = lifecycleStep.pendingFireInstance;
+      const fireInstanceForThisStep = lifecycleStep.fireInstanceForStep;
+      for (const transition of lifecycleStep.transitions) {
+        const { event, instance } = transition;
+        if (transition.kind === "started") {
+          const actionInstanceId = instance.actionInstanceId;
+          qualificationEvent("action-started", { action: event.action, actionInstanceId,
+            weapon: instance.weapon });
+          const active = snapshot.active.find((row) => qualificationInstanceKey(row) ===
+            qualificationInstanceKey(instance));
+          // A scheduler generation can start and immediately report complete when its controller
+          // refuses to drive (for example an Arbalest cut whose live sight disappeared). That is
+          // lifecycle evidence, but it never published a physical phase and therefore is not an
+          // attack admission. Claim only a generation which survived into the active snapshot;
+          // the phase loop below then supplies the independent physical-phase witness required by
+          // the strict reconstruction.
+          if (active && activeQualificationInstances.get(qualificationInstanceKey(active)) === instance) {
+            const blockerOffset = snapshot.facts["opponent-blocker-local-x"] - snapshot.facts["opponent-local-x"];
+            const leftFirst = snapshot.facts["opponent-blocker-present"] !== true || blockerOffset < 0;
+            qualificationEvent("attack-admitted", { action: event.action, actionInstanceId,
+              weapon: instance.weapon, physical: true, lane: attackLane(event.action),
+              ...(event.action === "dual-cut" ? {
+                firstEffectorId: leftFirst ? "left-effigy-sword" : "effigy-sword",
+                secondEffectorId: leftFirst ? "effigy-sword" : "left-effigy-sword",
+                admissionSupported: snapshot.facts["contact-left-foot"] === true ||
+                  snapshot.facts["contact-right-foot"] === true,
+                admissionUpright: snapshot.facts["core-upright"] === true,
+              } : {}) });
+            // A controller may complete before the next 30 Hz evidence tick. Sampling the live
+            // collision primitives at admission gives even that generation its own physical row;
+            // the terminal edge below catches any smaller clearance reached during its lifetime.
+            sampleArmedClearance(instance, "live-authoritative-primitive-samples-lifecycle-edge");
+          }
+        } else terminalQualificationEvents.push({ event, instance });
+      }
+      for (const active of snapshot.active) {
+        const instance = activeQualificationInstances.get(qualificationInstanceKey(active));
+        if (!instance || instance.action !== active.action || !QUALIFICATION_ATTACKS.has(active.action) ||
+            instance.lastPhase === active.phase) continue;
+        instance.lastPhase = active.phase;
+        qualificationEvent("action-phase", { action: active.action,
+          actionInstanceId: instance.actionInstanceId, phase: active.phase });
+      }
+      const looseCountBeforeSolver = construct.launcherLooseCount();
+      if (looseCountBeforeSolver > qualificationObservedLauncherLooses) {
+        for (let serial = qualificationObservedLauncherLooses; serial < looseCountBeforeSolver; serial += 1) {
+          const projectile = construct.strikers.find((striker) => striker.projectileImpact &&
+            striker.shotSerial === serial);
+          const instance = fireInstanceForThisStep;
+          if (projectile && instance) {
+            const identity = Object.freeze({ owner: "construct", poolIndex: projectile.projectilePoolIndex,
+              shotSerial: serial });
+            projectileInstances.set(`${identity.poolIndex}:${identity.shotSerial}`, instance);
+            qualificationEvent("projectile-launched", { actionInstanceId: instance.actionInstanceId,
+              projectile: identity });
+          }
+        }
+        qualificationObservedLauncherLooses = looseCountBeforeSolver;
+      }
       const commandedAttack = snapshot.active.find(({ action }) => action === "dual-cut" || action === "sweep");
       constructContactContext = Object.freeze({ action: commandedAttack?.action ?? null,
         phase: commandedAttack?.phase ?? null,
         attempt: commandedAttack?.action === "dual-cut" ? dualCutAttempt : null });
+      qualificationContextForEffector = (event) => {
+        if (event.report.projectile) {
+          const projectile = event.report.projectile.identity;
+          const instance = projectileInstances.get(`${projectile.poolIndex}:${projectile.shotSerial}`);
+          return instance ? { action: instance.action, actionInstanceId: instance.actionInstanceId,
+            phase: "flight" } : {};
+        }
+        const action = event.effectorId === "warden-shield" ? "bash"
+          : event.effectorId === "dorsal-sword" ? "cut"
+            : event.effectorId === "effigy-left-sword" && saved.blueprint.id === "arbalest-effigy"
+              ? "cut-left" : saved.blueprint.id === "twinblade-effigy" ? "dual-cut" : "sweep";
+        const context = qualificationActionContext(action, snapshot.active,
+          activeQualificationInstances, terminalQualificationEvents);
+        return context ? { action, actionInstanceId: context.instance.actionInstanceId,
+          phase: context.phase } : { action };
+      };
+      // The scheduler has already removed terminal generations from `snapshot.active`, but the
+      // primitives still hold the last solver-authored pose of that Action. Record it before this
+      // tick's solver and before publishing the delayed terminal row. Contacts produced by the
+      // solver remain ordered before the terminal exactly as they were before this audit existed.
+      for (const { instance } of terminalQualificationEvents) {
+        // A start which completed without ever entering an active snapshot authored no physical
+        // phase. Its lifecycle terminal is honest, but the residual held pose is not an armed
+        // Action primitive and cannot own either clearance or the solver contact below.
+        if (instance && instance.lastPhase !== null) {
+          sampleArmedClearance(instance, "live-authoritative-primitive-samples-lifecycle-edge");
+        }
+      }
       if (commandedAttack?.action === "dual-cut") {
         const joints = dualMotorJoints.get(dualCutAttempt) ?? new Set();
         const targets = dualMotorTargets.get(dualCutAttempt) ?? new Map();
@@ -365,6 +785,16 @@ export async function runConstructWarriorBout({
       }
       constructCombat.advance(FIXED);
       warriorCombat.advance(FIXED);
+      // Combat callbacks above publish this tick's physical contacts. A completed Action remains
+      // their authority through that solver step, so its terminal row follows them at the same
+      // integer tick rather than making valid contact appear post-terminal.
+      for (const { event, instance } of terminalQualificationEvents) {
+        qualificationEvent(`action-${event.kind}`, { action: event.action,
+          actionInstanceId: instance?.actionInstanceId ?? null, reason: event.reason ?? null });
+        if (instance?.action === "fire" && pendingFireQualificationInstance === instance) {
+          pendingFireQualificationInstance = null;
+        }
+      }
       minimumRangeM = Math.min(minimumRangeM, Vector3.Distance(construct.centre(), warrior.centre()));
 
       const torso = construct.runtime.part(construct.runtime.blueprint.rootPart).node;
@@ -377,9 +807,74 @@ export async function runConstructWarriorBout({
       minimumHeadAboveTorsoM = Math.min(minimumHeadAboveTorsoM, headAboveTorsoM);
       const standing = isConstructStanding({ rootUp, torsoHeightM: torso.position.y, headAboveTorsoM },
         standingThresholds);
+      for (const row of qualificationContactsAwaitingPosture.splice(0)) row.standingAtStep = standing;
       currentStandingS = standing ? currentStandingS + FIXED : 0;
       longestStandingS = Math.max(longestStandingS, currentStandingS);
-      if (!standing && firstPostureLossS === null) firstPostureLossS = steps * FIXED;
+      if (!standing && firstPostureLossS === null) firstPostureLossS = qualificationTimeAtStep(steps);
+      if (!standing) observedPostureLoss = true;
+
+      const assembled = [...construct.runtime.parts.values()].every(({ attached }) => attached);
+      const recovery = observedPostureLoss ? standing ? "recovered" : "pending" : "not-required";
+      const supportKey = JSON.stringify([standing, assembled, recovery]);
+      if (supportKey !== lastSupportEvidenceKey) {
+        qualificationEvent("support", { standing, assembled, recovery });
+        lastSupportEvidenceKey = supportKey;
+      }
+
+      const motionRows = [];
+      for (const active of snapshot.active) {
+        const request = snapshot.command.requests.find(({ request }) => request.action === active.action)?.request;
+        if (active.action === "turn") {
+          const yaw = request?.parameters.yaw;
+          const localX = snapshot.facts["opponent-local-x"];
+          motionRows.push({ request: "turn", correctSign: Number.isFinite(yaw) && Number.isFinite(localX) &&
+            Math.sign(yaw) === Math.sign(localX) });
+        } else if (active.action === "move" || active.action.startsWith("limp-") ||
+            active.action.startsWith("crawl-without-")) {
+          const forward = request?.parameters.forward;
+          if (Number.isFinite(forward) && forward !== 0) motionRows.push({
+            request: forward > 0 ? "close" : "retreat", correctSign: true,
+          });
+        }
+      }
+      const rangedActive = snapshot.active.some(({ action }) => action === "fire" || action === "track");
+      if (rangedActive && !motionRows.length) motionRows.push({ request: "ranged-spacing",
+        correctSign: snapshot.facts["line-of-sight"] === true,
+        earned: snapshot.facts["line-of-sight"] === true && snapshot.facts["launcher-clear"] === true });
+      const motionKey = JSON.stringify(motionRows);
+      if (motionKey !== lastMotionEvidenceKey) {
+        for (const row of motionRows) qualificationEvent("motion-request", row);
+        lastMotionEvidenceKey = motionKey;
+      }
+
+      const qualificationVisible = snapshot.facts["line-of-sight"] === true;
+      const qualificationRange = snapshot.facts["opponent-range"];
+      const qualificationInRange = Number.isFinite(qualificationRange) && qualificationRange <=
+        (saved.blueprint.modules.some(({ kind }) => kind === "launcher") ? 8 : resolvedConstructProfile.reach + 0.5);
+      const physicalIntent = snapshot.active.some(({ action }) => QUALIFICATION_ATTACKS.has(action) ||
+        action === "move" || action === "turn" || action === "track" || action === "recover" || action.startsWith("limp-") ||
+        action.startsWith("crawl-without-"));
+      const passiveNow = activeQualificationProgram && qualificationVisible && qualificationInRange && !physicalIntent;
+      if (passiveNow && passiveIntervalStartS === null) passiveIntervalStartS = atS;
+      if (!passiveNow && passiveIntervalStartS !== null) {
+        qualificationEvent("passive-interval", { visible: true, inRange: true,
+          durationS: atS - passiveIntervalStartS });
+        passiveIntervalStartS = null;
+      }
+
+      if (steps % QUALIFICATION_CLEARANCE_SAMPLE_STEPS === 0) for (const pair of clearancePairs) {
+        const sample = liveSemanticClearance(construct.runtime, pair);
+        const diagnosticPrior = diagnosticClearanceMinimum.get(pair.semanticPair);
+        if (sample && diagnosticPrior && sample.clearanceM < diagnosticPrior.clearanceM) {
+          diagnosticClearanceMinimum.set(pair.semanticPair, { clearanceM: sample.clearanceM,
+            requiredM: sample.requiredM, sampledAtStep: steps });
+        }
+        const active = snapshot.active.find(({ action }) => pair.actions.includes(action));
+        const instance = active ? activeQualificationInstances.get(qualificationInstanceKey(active)) : null;
+        if (sample && active && instance && instance.action === active.action) {
+          sampleArmedClearance(instance, "live-authoritative-primitive-samples-30hz");
+        }
+      }
 
       if (commandedAttack?.action === "dual-cut") {
         const attemptPosture = dualAttemptPosture.get(dualCutAttempt) ?? {
@@ -423,7 +918,7 @@ export async function runConstructWarriorBout({
       const fact = snapshot.facts;
       const warriorThreatVisible = warriorPerceivesMountedThreat(warrior.view.opponent);
       const warriorLauncherVisible = warriorPerceivesLauncher(warrior.view.opponent);
-      blockerTimeline.push(Object.freeze({ atS: steps * FIXED,
+      blockerTimeline.push(Object.freeze({ atS: qualificationTimeAtStep(steps),
         present: fact["opponent-blocker-present"],
         local: Object.freeze({ x: fact["opponent-blocker-local-x"],
           y: fact["opponent-blocker-local-y"], z: fact["opponent-blocker-local-z"] }),
@@ -437,7 +932,7 @@ export async function runConstructWarriorBout({
         selectedRules: Object.freeze([...(snapshot.decision?.selectedRules ?? [])]) }));
       const controllerPhase = activeAttack ? `${activeAttack.action}/${activeAttack.phase}` : "none";
       if (controllerPhase !== lastControllerPhase) {
-        controllerTimeline.push(Object.freeze({ atS: steps * FIXED,
+        controllerTimeline.push(Object.freeze({ atS: qualificationTimeAtStep(steps),
           action: activeAttack?.action ?? null, phase: activeAttack?.phase ?? null,
           attempt: activeAttack?.action === "dual-cut" ? dualCutAttempt : null }));
         lastControllerPhase = controllerPhase;
@@ -446,7 +941,7 @@ export async function runConstructWarriorBout({
       for (const event of snapshot.events) {
         if (event.kind in lifecycle) lifecycle[event.kind] += 1;
         if (event.kind in lifecycle) {
-          const row = { atS: steps * FIXED,
+          const row = { atS: qualificationTimeAtStep(steps),
             rangeM: Vector3.Distance(construct.centre(), warrior.centre()), rootUp,
             torsoHeightM: torso.position.y, kind: event.kind, action: event.action,
             reason: event.reason ?? null, attempt: event.action === "dual-cut" ? dualCutAttempt : null,
@@ -469,15 +964,19 @@ export async function runConstructWarriorBout({
         if (event.kind === "started") startedActions.add(event.action);
         if (event.kind === "completed") {
           completedActions.add(event.action);
-          if (event.action === "sweep" && firstSweepCompletedS === null) firstSweepCompletedS = steps * FIXED;
+          if (event.action === "sweep" && firstSweepCompletedS === null) {
+            firstSweepCompletedS = qualificationTimeAtStep(steps);
+          }
         }
       }
       const newConstructReports = constructReports.slice(constructReportCursor);
       constructReportCursor = constructReports.length;
       for (const event of newConstructReports) constructReportStanding.set(event, standing);
       if (newConstructReports.some(({ report }) => report.damage > 0)) {
-        if (firstConstructDamageS === null) firstConstructDamageS = steps * FIXED;
-        if (standing && firstUprightConstructDamageS === null) firstUprightConstructDamageS = steps * FIXED;
+        if (firstConstructDamageS === null) firstConstructDamageS = qualificationTimeAtStep(steps);
+        if (standing && firstUprightConstructDamageS === null) {
+          firstUprightConstructDamageS = qualificationTimeAtStep(steps);
+        }
       }
       if (verdictAtStep === null && (construct.vitality <= 0 || warrior.vitality <= 0)) {
         verdictAtStep = steps + 1;
@@ -489,6 +988,36 @@ export async function runConstructWarriorBout({
         stopDefeatedConstructWarriorControl(construct, warrior);
       }
     }
+
+    const qualificationEndS = qualificationTimeAtStep(steps);
+    if (passiveIntervalStartS !== null) {
+      qualificationEvent("passive-interval",
+        { visible: true, inRange: true, durationS: qualificationEndS - passiveIntervalStartS });
+      passiveIntervalStartS = null;
+    }
+    const passiveIntervals = qualificationEvents.filter(({ kind }) => kind === "passive-interval");
+    qualificationEvent("passive-audit", { activeProgram: activeQualificationProgram,
+      intervals: passiveIntervals.length, terminalFlushed: passiveIntervalStartS === null,
+      maximumDurationS: passiveIntervals.reduce((maximum, { durationS }) =>
+        Math.max(maximum, durationS), 0) });
+    for (const pair of clearancePairs) {
+      const observed = diagnosticClearanceMinimum.get(pair.semanticPair);
+      if (!observed || !Number.isFinite(observed.clearanceM) || !Number.isFinite(observed.requiredM)) continue;
+      qualificationEvent("self-clearance-diagnostic", { semanticPair: pair.semanticPair,
+        clearanceM: observed.clearanceM, requiredM: observed.requiredM,
+        sampledAtStep: observed.sampledAtStep, method: "whole-bout-live-authoritative-primitive-samples-30hz" });
+    }
+    const finalTorso = construct.runtime.part(construct.runtime.blueprint.rootPart).node;
+    const finalHead = construct.runtime.parts.get("head")?.node;
+    const finalRootUp = Vector3.Dot(Vector3.Up().rotateByQuaternionToRef(
+      finalTorso.rotationQuaternion ?? Quaternion.Identity(), new Vector3()), Vector3.Up());
+    const finalStanding = isConstructStanding({ rootUp: finalRootUp, torsoHeightM: finalTorso.position.y,
+      headAboveTorsoM: finalHead ? finalHead.position.y - finalTorso.position.y : Number.POSITIVE_INFINITY },
+    standingThresholds);
+    qualificationEvent("support", { standing: finalStanding,
+      assembled: [...construct.runtime.parts.values()].every(({ attached }) => attached),
+      recovery: observedPostureLoss ? finalStanding ? "recovered" : "pending" : "not-required" });
+    qualificationEvent("combat-audit", combatRefusalCounts);
 
     // This is evidence, not a compatibility shim. Until Construct publishes mounted strikers in
     // BodyView, a Warrior can collide with and be hurt by the sword while its Mind sees no hand or
@@ -538,11 +1067,14 @@ export async function runConstructWarriorBout({
     const contactRows = (events) => Object.freeze(events.map((event) => {
       const { report, effectorId, blocked,
       sourceModuleId = null, action = null, phase = null, attempt = null, shotSerial = null,
+        actionInstanceId = null,
         targetVitalityBefore = null, targetVitalityAfter = null } = event;
       return Object.freeze({
       atS: report.at, effectorId, blocked, weapon: report.weapon, limb: report.key, kind: report.kind,
       speedMps: report.speed, edgeAlignment: report.edgeAlignment, damage: report.damage,
-      sourceModuleId, action, phase, attempt, shotSerial,
+      sourceModuleId, action, phase, attempt, shotSerial, actionInstanceId,
+      preArmourDamage: report.preArmourDamage, postArmourDamage: report.postArmourDamage,
+      projectile: report.projectile ?? null, stabilityShove: report.stabilityShove ?? null,
       targetVitalityBefore, targetVitalityAfter,
       standingAtStep: constructReportStanding.get(event) ?? null,
       point: Object.freeze({ x: report.point.x, y: report.point.y, z: report.point.z }),
@@ -560,7 +1092,7 @@ export async function runConstructWarriorBout({
         projectileRadiusM: module.projectile?.radiusM ?? null,
         projectileLengthM: module.projectile?.lengthM ?? null,
         muzzleSpeedMps: module.projectile?.muzzleSpeedMps ?? null,
-        damageScale: module.projectile?.damageScale ?? null,
+        penetrationEfficiency: module.projectile?.penetrationEfficiency ?? null,
         reloadSeconds: module.reloadSeconds ?? null,
         maxHeatJ: module.maxHeatJ ?? null,
         coolingW: module.coolingW ?? null,
@@ -570,7 +1102,7 @@ export async function runConstructWarriorBout({
         initialAmmunition: magazine?.ammunition ?? null,
         remainingAmmunition: magazine ? resources.ammunition[magazine.id] ?? null : null })));
     return Object.freeze({
-      version: 1,
+      version: 4,
       physics: "real-havok-fixed-240hz",
       construct: Object.freeze({ blueprintId: saved.blueprint.id, programId: saved.program.id,
         side: constructSide, vitality: finalVitality.construct,
@@ -578,9 +1110,21 @@ export async function runConstructWarriorBout({
       warrior: Object.freeze({ policy: warriorPolicy, seed: warriorSeed, vitality: finalVitality.warrior,
         damage: warriorReports.reduce((sum, event) => sum + event.report.damage, 0) }),
       steps,
-      simulatedSeconds: steps * FIXED,
-      verdictAtS: verdictAtStep === null ? null : verdictAtStep * FIXED,
-      postVerdictTailS: verdictAtStep === null ? 0 : (steps - verdictAtStep) * FIXED,
+      simulatedSeconds: qualificationTimeAtStep(steps),
+      qualificationEventStepHz: CONFIG.world.physicsHz,
+      verdictAtStep,
+      verdictAtS: verdictAtStep === null ? null : qualificationTimeAtStep(verdictAtStep),
+      postVerdictTailS: verdictAtStep === null ? 0 : qualificationTimeAtStep(steps - verdictAtStep),
+      qualificationPassiveIntervalLimitS,
+      minimumSelfClearanceM: (() => {
+        const values = [...clearanceMinimum.values()].map(({ clearanceM }) => clearanceM);
+        return values.length && values.every(Number.isFinite) ? Math.min(...values) : null;
+      })(),
+      diagnosticMinimumSelfClearanceM: (() => {
+        const values = [...diagnosticClearanceMinimum.values()].map(({ clearanceM }) => clearanceM);
+        return values.length && values.every(Number.isFinite) ? Math.min(...values) : null;
+      })(),
+      qualificationEvents: Object.freeze(qualificationEvents.map((row) => Object.freeze(row))),
       winner,
       warriorPhysical,
       constructPhysical,
@@ -590,7 +1134,7 @@ export async function runConstructWarriorBout({
         warrior: Object.freeze({ ...fixturePlacement.warrior }),
         wall: fixturePlacement.wall ? Object.freeze({ ...fixturePlacement.wall }) : null,
       }),
-      solver: Object.freeze({ measurementStartS: solverMeasurementStartStep * FIXED,
+      solver: Object.freeze({ measurementStartS: qualificationTimeAtStep(solverMeasurementStartStep),
         fixtureEnvelopeIntersectsWall, maximumPartSpeedMps, maximumConstructJointFrameErrorM,
         minimumHeldWallClearanceM: Number.isFinite(minimumHeldWallClearanceM)
           ? minimumHeldWallClearanceM : null,
@@ -638,7 +1182,7 @@ export async function runConstructWarriorBout({
         }))),
       }))),
       dualAttemptPosture: Object.freeze([...dualAttemptPosture].map(([attempt, row]) => Object.freeze({
-        attempt, activeS: row.steps * FIXED, standingFraction: row.standingSteps / row.steps,
+        attempt, activeS: qualificationTimeAtStep(row.steps), standingFraction: row.standingSteps / row.steps,
         admissionSupportedFraction: row.admissionSupportedSteps / row.steps, minimumRootUp: row.minimumRootUp,
         minimumTorsoHeightM: row.minimumTorsoHeightM,
         minimumHeadAboveTorsoM: row.minimumHeadAboveTorsoM,

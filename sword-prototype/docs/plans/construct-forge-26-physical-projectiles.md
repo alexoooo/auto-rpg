@@ -1,5 +1,8 @@
 # Session 26 — axial-energy arrows and bolts
 
+**Status (2026-09-01): implemented, focused-green and recorded durably, including mirrored live
+Havok contact-zone proof; final integrated gate belongs to Session 30.**
+
 ## Outcome
 
 Make projectile wounds answer the projectile that physically arrived. Mass, cached arrival speed,

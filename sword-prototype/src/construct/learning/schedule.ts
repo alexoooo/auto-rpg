@@ -1,5 +1,6 @@
 import { canonicalIntegrityJson, integrityDigest, type IntegrityValue } from "../integrity.ts";
 import { CONSTRUCT_LEARNING_CORPUS_DIGEST, CONSTRUCT_LEARNING_SPLIT } from "./corpus.ts";
+import { combatValueToLegacyRewardWeight } from "../../config.ts";
 
 export const CONSTRUCT_LEARNING_SCHEDULE_VERSION = 3 as const;
 export type ConstructLearningStage = "authored" | "behavior-cloning" | "ppo" | "validation" | "held-out";
@@ -30,6 +31,7 @@ export const CONSTRUCT_LEARNING_PROTOCOL = Object.freeze({
   version: CONSTRUCT_LEARNING_SCHEDULE_VERSION,
   authoredQualification: Object.freeze({ seeds: Object.freeze([9, 17, 29, 43]), mirrored: true,
     requiredActions: Object.freeze(["move", "brace", "fire", "cover"]),
+    separationM: 7,
     boutCapSteps: 14_400, bracket: Object.freeze(["control-1", "subject-2", "control-1", "subject-4",
       "control-1", "subject-8", "control-1", "subject-default", "control-1"]) }),
   durability: Object.freeze({ measuredOneWorkerShardUpperBoundSeconds: 40.411, maximumShardSeconds: 300,
@@ -44,7 +46,7 @@ export const CONSTRUCT_LEARNING_PROTOCOL = Object.freeze({
   plateau: Object.freeze({ windowUpdates: 32, minimumImprovement: 0.005 }),
   thresholds: Object.freeze({ imitationAgreement: 0.95, maximumUnsupportedRate: 0,
     maximumRefusalRate: 0.005, minimumFiniteCommandRate: 1, maximumStuckRate: 0.1,
-    maximumTimeCapRate: 0.5, minimumActionGroupsSeen: 2, minimumDamage: 0.01 }),
+    maximumTimeCapRate: 0.5, minimumActionGroupsSeen: 2, minimumDamage: 0.0005 }),
   morphologySplit: Object.freeze({ train: CONSTRUCT_LEARNING_SPLIT.train,
     validation: CONSTRUCT_LEARNING_SPLIT.validation, test: CONSTRUCT_LEARNING_SPLIT.test,
     sealed: true, digest: CONSTRUCT_LEARNING_CORPUS_DIGEST,
@@ -55,11 +57,11 @@ export const CONSTRUCT_LEARNING_SCHEDULE = Object.freeze({
   ...CONSTRUCT_LEARNING_PROTOCOL,
   entryGate: Object.freeze({
     qualified: false,
-    evidence: "construct-entry-run-f20c3f18-source-22c8d82f-2026-08-30",
-    runDigest: "f20c3f18",
-    sourceDigest: "22c8d82f",
-    runtimeStatus: "current assisted runtime; qualification rejected",
-    reason: "8/8 time caps, 1/8 row without bilateral damage and all 8 rows missing move and brace",
+    evidence: "construct-entry-run-97a634ab-source-f82bc3d3-2026-09-01",
+    runDigest: "97a634ab",
+    sourceDigest: "f82bc3d3",
+    runtimeStatus: "current combat-value-v2 assisted Warden runtime; qualification rejected",
+    reason: "1/8 bilateral physical-damage rows; 7/8 rows missing brace and fire; 8/8 bouts reached the time cap",
   }),
 });
 
@@ -104,6 +106,7 @@ export function constructEngagementReward(input: Readonly<{
   if (![input.damageDealt, input.damageTaken].every(Number.isFinite) || input.damageDealt < 0 || input.damageTaken < 0) {
     throw new Error("construct reward damage must be finite and non-negative");
   }
-  return (input.victory ? 100 : 0) + input.damageDealt - input.damageTaken * 0.25 -
+  return (input.victory ? 100 : 0) + combatValueToLegacyRewardWeight(input.damageDealt) -
+    combatValueToLegacyRewardWeight(input.damageTaken) * 0.25 -
     (input.draw ? 10 : 0) - (input.timeCap ? 25 : 0);
 }

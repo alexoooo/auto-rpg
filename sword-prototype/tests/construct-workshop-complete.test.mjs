@@ -101,7 +101,7 @@ test("the_Mind_tree_form_edits_every_runtime_field_and_round_trips_through_the_r
   const restored = replaceProgramExpression(weak, 1, "utility", [], original.rules[1].utility);
   assert.equal(canonicalProgramJson(parseProgram(JSON.stringify(restored), graph, WARDEN_SENSORS)), canonicalProgramJson(original));
   assert.deepEqual(Object.keys(defaultRuleParameters(graph.actions.find(({ id }) => id === "move"))).sort(),
-    Object.keys(original.rules[2].parameters).sort());
+    Object.keys(original.rules.find(({ action }) => action === "move").parameters).sort());
   const markup = programEditorMarkup(original, graph, WARDEN_SENSORS);
   for (const marker of ["data-expression-op", "data-expression-sensor", "data-expression-constant-number",
     "data-expression-constant-unit", "data-program-priority", "data-program-dwell", "data-program-optional",

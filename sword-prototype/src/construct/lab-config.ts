@@ -21,12 +21,16 @@ export const constructLabSensorDigest = (sensors: readonly SensorSpec[]): string
 export function constructLabConfigDigest(
   boutCapSteps = CONSTRUCT_LAB_BOUT_CAP_STEPS,
   sensors: readonly SensorSpec[] = WARDEN_SENSORS,
+  separationM = CONFIG.fighter.separation,
 ): string {
+  if (!Number.isFinite(separationM) || separationM <= 0) {
+    throw new Error("construct Lab separation must be finite and positive");
+  }
   return integrityDigest(canonicalIntegrityJson({
     boutCapSteps,
     gravityMps2: CONFIG.world.gravity,
     physicsHz: CONFIG.world.physicsHz,
-    separationM: CONFIG.fighter.separation,
+    separationM,
     runtimeDigest: CONSTRUCT_LAB_RUNTIME_DIGEST,
     sensorDigest: constructLabSensorDigest(sensors),
   }));

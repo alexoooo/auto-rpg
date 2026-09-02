@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { NEUTRAL, POLICIES, mirroredWristBend, otherHand, policyMind, splitMind } from "../src/mind.ts";
-import { blankIntent, cursorForElevation, postureFor, rollForStroke } from "../src/policies.ts";
+import { blankIntent, cursorForElevation, duelistOpponentIsDowned, postureFor, rollForStroke } from
+  "../src/policies.ts";
 import { CONFIG } from "../src/config.ts";
 import { COMBAT_FIELDS } from "./fixtures/intent.mjs";
 import { assertCompleteView } from "./fixtures/view.mjs";
@@ -783,6 +784,102 @@ test("duelist makes an exchange happen against a blade that never leaves the lin
     const at = track.findIndex((intent) => intent.guard === false);
     assert.ok(at >= 0 && at * FIXED < 5, `seed ${seed} never committed inside five seconds`);
   }
+});
+
+test("duelist_selects_the_downed_finisher_from_live_scale_relative_geometry_only", () => {
+  const body = facing().opponent;
+  body.vitalHeight = 1.10;
+  body.shoulder.y = 1.10 * 0.90;
+  assert.equal(duelistOpponentIsDowned(body), false,
+    "the exact boundary remains the standing stroke");
+  body.shoulder.y -= 1e-6;
+  assert.equal(duelistOpponentIsDowned(body), true);
+  body.unit = "unrecognized-morphology";
+  body.ground.x = 19;
+  assert.equal(duelistOpponentIsDowned(body), true,
+    "neither registry identity nor world side participates in the decision");
+});
+
+test("a_downed_opponent_gets_a_bounded_mirrored_vertical_cut_without_changing_the_standing_cut", () => {
+  const make = (downed, mirrored = false) => {
+    const v = facing({ gap: 0.80, blade: "away", tipSpeed: 12, measure: 0.55 });
+    if (downed) {
+      const shoulder = { x: 0.18, y: v.opponent.vitalHeight * 0.35, z: 0.72 };
+      v.opponent.shoulder = shoulder;
+      for (const name of ["primary", "secondary"]) v.opponent.hands[name].shoulder = shoulder;
+      putTip(v, { x: mirrored ? -0.25 : 0.25, y: shoulder.y + 0.10, z: 1.0 });
+    }
+    if (mirrored) {
+      for (const body of [v.self, v.opponent]) {
+        body.ground = { ...body.ground, x: -body.ground.x };
+        body.shoulder = { ...body.shoulder, x: -body.shoulder.x };
+        body.tip = { ...body.tip, x: -body.tip.x }; body.facing = -body.facing;
+        for (const name of ["primary", "secondary"]) {
+          const hand = body.hands[name]; body.hands[name] = { ...hand,
+            shoulder: { ...hand.shoulder, x: -hand.shoulder.x },
+            tip: { ...hand.tip, x: -hand.tip.x },
+            tipVelocity: { ...hand.tipVelocity, x: -hand.tipVelocity.x }, outboard: -hand.outboard };
+        }
+      }
+    }
+    return v;
+  };
+  const committed = (v) => drive(policyMind("duelist", 21), 3, () => v)
+    .filter(({ guard }) => guard === false);
+  const standing = committed(make(false));
+  const downed = committed(make(true));
+  const mirror = committed(make(true, true));
+  const weakenedView = make(false);
+  weakenedView.opponent.vitality = 0.19;
+  const weakened = committed(weakenedView);
+  const lowCore = make(true);
+  const lowShoulder = { x: 0.18, y: 0.30, z: 0.90 };
+  lowCore.opponent.shoulder = lowShoulder;
+  for (const name of ["primary", "secondary"]) {
+    lowCore.opponent.hands[name].shoulder = lowShoulder;
+    lowCore.opponent.hands[name].tip = { x: 0.22, y: 0.20, z: 1.30 };
+  }
+  const lowCoreCut = committed(lowCore);
+  assert.ok(standing.length > 2 && downed.length === mirror.length && downed.length > 2);
+  assert.ok(lowCoreCut.length > 2,
+    "a low fallen core inside the remaining planar component of sword reach must be attacked");
+  const span = (rows, field) => Math.max(...rows.map((row) => row[field])) -
+    Math.min(...rows.map((row) => row[field]));
+  assert.ok(span(standing, "pointerX") > 0.70,
+    "the unchanged standing diagonal retains its broad lateral chord");
+  assert.ok(span(downed, "pointerX") < 0.70 && span(downed, "pointerY") > 0.70,
+    "the finisher is narrow laterally and travels vertically through the fallen core");
+  assert.ok(span(weakened, "pointerX") < 0.70 && span(weakened, "pointerY") > 0.70 &&
+    weakened.some((row) => row.thrust),
+  "an upright opponent below the visible vitality boundary receives the same physical core finish");
+  assert.equal(standing.some((row) => row.thrust), false,
+    "the standing sword cadence remains the historical edge-only cut");
+  assert.equal(downed.some((row) => row.thrust), true,
+    "the downed commit adds an ordinary physical point drive through distal debris");
+  const alternatingTrack = drive(policyMind("duelist", 21), 8, () => make(true));
+  const commitDirections = [];
+  let firstThrustX = null;
+  let lastThrustX = null;
+  for (const row of alternatingTrack) {
+    if (row.thrust) {
+      firstThrustX ??= row.pointerX;
+      lastThrustX = row.pointerX;
+    } else if (firstThrustX !== null) {
+      commitDirections.push(Math.sign(lastThrustX - firstThrustX));
+      firstThrustX = null; lastThrustX = null;
+    }
+  }
+  assert.ok(commitDirections.length >= 2 && commitDirections[0] * commitDirections[1] < 0,
+    `successive downed strokes must approach debris from opposite chords: ${commitDirections}`);
+  const unplanted = downed.find((row) => row.forward !== 0 || row.strafe !== 0);
+  assert.equal(unplanted, undefined,
+    `the finishing stroke remains planted instead of lunging onto the fallen body: ${JSON.stringify(unplanted)}`);
+  downed.forEach((row, index) => {
+    assert.ok(Math.abs(row.pointerX + mirror[index].pointerX) < 0.03,
+      `downed mirror X diverged at sample ${index}: ${row.pointerX}/${mirror[index].pointerX}`);
+    assert.ok(Math.abs(row.pointerY - mirror[index].pointerY) < 1e-12,
+      `downed mirror Y diverged at sample ${index}`);
+  });
 });
 
 test("duelist closes in proportion to how far out of position it is", () => {

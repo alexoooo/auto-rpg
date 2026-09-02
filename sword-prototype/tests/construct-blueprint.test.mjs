@@ -9,7 +9,7 @@ const part = (id, fatal = false) => ({ id, shape: { kind: "box", sizeM: [0.3, 0.
   centreOfMassM: [0, 0, 0], friction: 0.7, restitution: 0.05, health: 100, armour: 8,
   vitalityWeight: fatal ? 1 : 0, fatal, shell: shell(fatal ? "core" : "plate") });
 const geometry = (id, style = "plate") => ({ id, frame: frame(), shape: { kind: "box", sizeM: [0.2, 0.2, 0.2] }, shell: shell(style) });
-const blueprint = () => ({ version: 1, id: "contract-fixture", rootPart: "core",
+const blueprint = () => ({ version: 4, id: "contract-fixture", rootPart: "core",
   parts: [part("limb"), part("core", true)],
   joints: [{ id: "bearing", parentPart: "core", childPart: "limb", parentFrame: frame([0, 0.2, 0]),
     childFrame: frame([0, -0.2, 0]), angularAxes: [
@@ -29,7 +29,8 @@ const blueprint = () => ({ version: 1, id: "contract-fixture", rootPart: "core",
     { id: "launcher", kind: "launcher", socket: "launcher-socket", compatibilityTag: "weapon",
       geometry: [geometry("stock"), geometry("rail", "bearing")], massKg: 8, health: 80, armour: 8,
       maxHeatJ: 500, coolingW: 30, reloadSeconds: 0.5, heatPerShotJ: 40, energyPerShotJ: 80,
-      projectile: { poolSize: 12, massKg: 0.1, radiusM: 0.015, lengthM: 0.3, muzzleSpeedMps: 35, damageScale: 1.1 } },
+      projectile: { poolSize: 12, massKg: 0.1, radiusM: 0.015, lengthM: 0.3, muzzleSpeedMps: 35,
+        penetrationEfficiency: 0.9 } },
   ] });
 
 const refusal = (value, pattern) => assert.throws(() => validateBlueprint(value), pattern);
@@ -105,7 +106,7 @@ test("blueprint_set_arrays_canonicalize_by_ID_while_duplicate_members_refuse", (
 });
 
 test("a_version_or_unknown_key_from_the_future_is_refused_instead_of_repaired", () => {
-  const future = blueprint(); future.version = 2; refusal(future, /version" 2 is unsupported/);
+  const future = blueprint(); future.version = 5; refusal(future, /version" 5 is unsupported/);
   const unknown = blueprint(); unknown.modules[0].drawW = 2; refusal(unknown, /power.*unknown field "drawW"/);
   const wrongOwner = blueprint(); wrongOwner.modules[0].ammunition = 2; refusal(wrongOwner, /ammunition.*not owned by kind "power-core"/);
 });
@@ -115,4 +116,25 @@ test("oversize_blueprints_refuse_before_allocating_runtime_state", () => {
   refusal(source, /parts.*maximum 128/);
   assert.throws(() => parseBlueprint(" ".repeat(CONSTRUCT_BLUEPRINT_LIMITS.maxBytes + 1)), /maximum 1048576 bytes/);
   assert.throws(() => parseBlueprint("[".repeat(CONSTRUCT_BLUEPRINT_LIMITS.maxDepth + 1)), /maximum nesting depth 64/);
+});
+
+test("a_launcher_cannot_claim_less_energy_than_its_projectile_muzzle_energy", () => {
+  const source = blueprint();
+  source.modules[2].energyPerShotJ = 60;
+  refusal(source, /launcher.*muzzle energy 61\.25 J exceeds energyPerShotJ 60 J/);
+});
+
+test("a_mounted_contact_striker_is_bounded_and_lies_on_its_declared_primitive", () => {
+  const source = blueprint();
+  source.modules[2] = { id: "shield", kind: "shield", socket: "launcher-socket",
+    compatibilityTag: "weapon", geometry: [geometry("plate")], massKg: 4, health: 13, armour: 1.5,
+    mountedContactStriker: { kind: "authored-shove", localContactPoint: [0.1, 0, 0],
+      shoveSpecificImpulseMps: 0.008 } };
+  assert.equal(validateBlueprint(source).modules[2].mountedContactStriker.shoveSpecificImpulseMps, 0.008);
+  const tooStrong = structuredClone(source);
+  tooStrong.modules[2].mountedContactStriker.shoveSpecificImpulseMps = 0.0141;
+  refusal(tooStrong, /shoveSpecificImpulseMps.*at most 0\.014/);
+  const imaginary = structuredClone(source);
+  imaginary.modules[2].mountedContactStriker.localContactPoint = [0.2, 0, 0];
+  refusal(imaginary, /localContactPoint.*declared geometry/);
 });

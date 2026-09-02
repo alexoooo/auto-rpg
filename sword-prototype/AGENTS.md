@@ -686,10 +686,12 @@ Seven, and each one was paid for.
   controller required three planted contacts in its constructor, so a fallen Mind selected
   `recover` forever and the scheduler refused it forever. Move, turn and brace retain that
   admission rule; recovery does not. The current Warden proves longitudinal recovery under real
-  off-centre impulses. The superseded raw corpus accumulated 234,442 stuck steps. The current
-  assisted corpus has zero stuck steps, but all eight rows time-cap, one lacks bilateral damage
-  and every row omits required move/brace Actions. Learning stays fail-closed until those live
-  action and decisive-completion failures are fixed.
+  off-centre impulses. The superseded raw corpus accumulated 234,442 stuck steps. A historical
+  combat-value-v2 corpus qualified under schedule `e74cb441`, source `e5d255e7` and run
+  `7a626bcd`, but the later fire-lifecycle correction invalidated that source identity. The fresh
+  current-source run is schedule `8253502c`, source `f82bc3d3`, run `97a634ab`: only one of eight
+  rows dealt bilateral physical damage, seven omitted both brace and fire, and all eight reached
+  the time cap. Recovery remains proved; authored combat entry does not.
 - **A construct qualification identity is a pair.** `scheduleDigest` covers the complete frozen
   assignment and thresholds; `sourceDigest` covers runtime sources and construct scripts but
   deliberately excludes `src/construct/learning/schedule.ts`. Including the schedule in both made
@@ -698,13 +700,21 @@ Seven, and each one was paid for.
 - **Construct worker count is scheduling only.** Jobs, seeds, mirrors and shard boundaries are
   frozen before workers start; aggregation and checkpoint updates are by job index. Eight workers
   match the eight-job authored corpus. Requesting 32 there demonstrated eight live jobs, not
-  32-way scaling.
+  32-way scaling. **One worker realm runs one Havok arena at a time.** Havok's wasm state is
+  realm-global: `Promise.all` over two bouts in one Node realm changes physical outcomes even when
+  both scenes are separately constructed and disposed. Parallel qualification therefore uses
+  isolated worker threads, with a sequential loop inside each worker; the parent alone restores
+  frozen index order and commits checkpoints. `qualification_workers_never_overlap_two_arenas_in_one_JavaScript_realm`
+  mutation-proves the old scheduler unsafe, and the real-Havok worker-count parity test pins the
+  replacement. Do not replace the worker loop with async concurrency.
 - **A green counter cannot rescue a red bout.** The zero-damage authored corpus originally had
   zero stuck steps and zero capability losses because its action/power loop never progressed.
-  Seven of eight current assisted rows deal bilateral damage and stuck steps are zero, but all
-  eight time out and all omit required move/brace Actions. Its 337 named capability losses are
-  telemetry, not unexplained capability disappearance. Promotion gates judge the conjunction and
-  production writes no shard or artifact when entry is red.
+  The superseded assisted row had seven of eight bilateral-damage cells and zero stuck steps, but
+  all eight timed out and omitted required move/brace Actions. Its 337 named capability losses
+  were telemetry, not unexplained capability disappearance. A later historical entry advanced
+  only after all clauses passed together, then became stale when its source changed. The fresh
+  entry is red for damage, Action and completion failures together; production writes no shard or
+  artifact when entry is red.
 - **Foot contact does not prove a humanoid is standing.** The first Swordbearer test accepted two
   live foot contacts while the whole body was lying on its back. A biped posture claim needs root-up,
   torso height and head-above-torso together over the claimed interval. Its mixed Warrior harness
@@ -753,7 +763,8 @@ refused by policy, league and tournament registration.
 **Supported walking is not continuous ragdoll balance.** The virtual carrier has no body or combat
 shape, while the admitted physical root is ANIMATED until an authored knockdown releases it to
 DYNAMIC. This supersedes the first dynamic-root plan: a real 240 Hz bracket made both humanoid
-bodies lose foot evidence and fall inside the frozen 0.10 s grace at rest. Do not "restore physics"
+bodies lost foot evidence and fell inside the then-current 0.10 s grace at rest. The current 0.35 s
+clinch bridge does not change that rejected premise. Do not "restore physics"
 by deleting `driveAnimatedRoot`; that recreates the pile-up this system exists to avoid. The safety
 boundary is instead pair-atomic footprint resolution, real limb/contact authorization, authored
 stability release, no drive while fallen/dead, and occupancy/hit-gated recovery. The durable

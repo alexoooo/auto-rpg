@@ -11,6 +11,7 @@ import { humanoidBlueprint, humanoidProfileMetrics, humanoidSavedConstruct,
 import { twinbladeBlueprint, twinbladeControl, twinbladeProgram, twinbladeProfileMetrics,
   twinbladeSavedConstruct, twinbladeSwordBindMetrics, TWINBLADE_SENSORS } from "../src/construct/twinblade.ts";
 import { createConstructHeadlessArena } from "../scripts/construct-headless-arena.mjs";
+import { runConstructWarriorBout } from "../scripts/construct-warrior-bout.mjs";
 import { SUPPORTED_LOCOMOTION_V1 } from "../src/supported-locomotion-state.ts";
 import { UNITS, unitDefinition } from "../src/units.ts";
 
@@ -194,4 +195,31 @@ test("the_Twinblade_physically_compiles_with_two_strikers_and_two_support_feet",
     assert.ok(locomotion.freshSupportBindings.length >= 1,
       "the final gait sample must still have a physically planted foot");
   } finally { bout.dispose(); arena.dispose(); }
+});
+
+test("one_physical_Twinblade_Action_cuts_an_idle_Warrior_torso_with_both_blades_in_both_mirrors", async () => {
+  for (const constructSide of ["left", "right"]) {
+    const report = await runConstructWarriorBout({ saved: twinbladeSavedConstruct(), constructSide,
+      warriorPolicy: "idle", separationM: 1.25, maxSteps: 160,
+      warriorLoadout: { primary: "empty", secondary: "empty" } });
+    const first = report.constructContacts.find(({ effectorId, phase, limb, damage }) =>
+      effectorId === "left-effigy-sword" && phase === "first-cut" && limb === "torso" && damage > 0);
+    const second = report.constructContacts.find(({ effectorId, phase, limb, damage }) =>
+      effectorId === "effigy-sword" && phase === "second-cut" && limb === "torso" && damage > 0);
+    assert.ok(first, `${constructSide} mirror never put its first blade physically through the torso`);
+    assert.ok(second, `${constructSide} mirror never put its second blade physically through the torso`);
+    assert.equal(second.actionInstanceId, first.actionInstanceId,
+      `${constructSide} mirror did not land the ordered pair in one declared Action`);
+    assert.ok(second.atS > first.atS, `${constructSide} mirror reversed its authored cut order`);
+    const completion = report.qualificationEvents.find(({ kind, action, actionInstanceId }) =>
+      kind === "action-completed" && action === "dual-cut" && actionInstanceId === first.actionInstanceId);
+    assert.ok(completion, `${constructSide} mirror did not complete the physically observed Action`);
+    for (const semanticPair of ["left-sword/core", "right-sword/core"]) {
+      const samples = report.qualificationEvents.filter(({ kind, actionInstanceId, semanticPair: pair }) =>
+        kind === "self-clearance" && actionInstanceId === first.actionInstanceId && pair === semanticPair);
+      assert.ok(samples.length > 0, `${constructSide} ${semanticPair} omitted per-Action clearance evidence`);
+      assert.equal(samples.every(({ clearanceM, requiredM }) => clearanceM >= requiredM), true,
+        `${constructSide} ${semanticPair} crossed its owner during the ordered physical Action`);
+    }
+  }
 });

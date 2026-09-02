@@ -503,6 +503,21 @@ instead of quietly giving it no effect. This is why arrows and fists can finish 
 being allowed to sever, and why local damage remains meaningful after the HUD stopped showing
 twelve competing life bars.
 
+### Combat values are low authoritative units
+
+Combat-value ruleset v2 is a unit migration, not a display divisor. An ordinary Warrior part is
+5 durability, its torso is 10 and its pelvis is 9; ordinary attacks are consequently measured in
+roughly 0..3 damage. Construct part, joint and module durability and flat armour use the same unit
+at the damage-authority boundary. A value around 6 is modest, 10 is good, 15 is a lot, and 100 is
+effectively invincible in ordinary play.
+
+Saved v1 Constructs are authenticated with their frozen v1 blueprint/program digest grammar before
+durability and armour are divided by 20. Only sensors explicitly marked as absolute combat values
+move program constants; normalized part/module health and joint-integrity observations do not. A v2
+library is written only after every legacy entry migrates, while the v1 storage key remains as the
+recovery copy. Learning rewards that compare damage with pre-existing fixed win bonuses pass through
+one named legacy-weight conversion; human-facing damage and fitness inputs remain v2 values.
+
 ## Setup is a screen; pause is a mode
 
 `Space` paused a fight and then, from the state pausing had put you in, did something else
@@ -1620,6 +1635,89 @@ collision boundary: reconciliation disables its visual root and sets every compo
 membership and collide masks to zero. A detached subtree instead moves its leaves to the debris
 layer. Neither path synthesizes a new rigid body for a module.
 
+Projectile penetration is physical evidence, not a launcher damage scalar. Version 1 uses the
+positive shaft direction and only the authored point zone. With projectile mass `m`, impact speed
+`v`, clamped positive shaft alignment `a`, eight-metre-per-second axial floor `f` and penetration
+efficiency `p`, usable energy is `0.5 * m * max(0, (v*a)^2 - f^2)` joules. Uncapped damage is usable
+energy divided by 34 joules per combat-value point and multiplied by `p`; the wound is capped at
+3. Tail-first, broadside and shaft contacts score zero. The evaluator returns score, usable joules
+and uncapped damage from that one calculation, so reports cannot recompute a more convenient wound.
+Arrival velocity, shaft axis and head position are cached as one pre-contact pose; zone classification
+must not pair the cached head with a live post-solver axis, because the contact response may already
+have rotated the shaft enough to relabel the same manifold point.
+The launch-speed cache was audited in the same correction and was already behaviorally right: its
+scratch vector had been scaled by the preceding body-velocity write. It now spells out `along * speed`
+independently so that correctness does not depend on that mutable alias; the immediate-contact test was
+then mutation-proved by removing the scale and observing a 42 m/s launch score at 1 m/s.
+Armour is then applied once and the ordered contact retains pre- and post-armour values plus the
+immutable owner, pool index and shot serial. Recycling a pooled body does not recycle its shot
+identity. Combined-arms qualification also retains mass, arrival speed, signed shaft alignment,
+penetration efficiency and the authored contacted zone for every projectile contact. Its validator
+calls the same frozen pure evaluator and independently reconstructs usable energy, uncapped damage
+and the capped pre-armour wound; `point` and `axial` are checked as derived aliases of head contact
+and positive signed alignment rather than trusted summaries.
+
+That new contact grammar advances persisted evidence rather than silently reinterpreting old rows:
+the engagement instrument and Construct control-event surface are v3, guided playtest storage is
+v5, Construct Lab rows/reports are v3, Construct-Warrior bout evidence is v3, and its curriculum
+and learning-entry qualification envelopes are v4. The Arbalest's old 8/8 result remains labelled
+historical v1-combat-unit evidence. The fresh combined-arms corpus recorded physical impacts but
+rejected every durability rung, so it produced no accepted replacement claim.
+
+Combined arms belongs to Actions, not to a morphology-wide combat mode. Locomotion, turn, brace,
+recovery, a left-arm sword, a dorsal launcher, a dorsal sword and a shield bash own their declared
+groups and claims independently, so a Mind may request non-conflicting weapons concurrently. Every
+qualified contact must retain its Action-instance ID and verified source module. Delayed projectile
+contacts retain the instance that launched them rather than inheriting whichever Action happens to
+be live at impact. Owner contacts and ambiguous compound-module contacts are explicit refusals in
+the ordered audit stream; their absence from the damage list is not evidence that the boundary ran.
+The same stream carries semantic minimum self-clearance for named hardware pairs. A global
+`selfCollisionCount === 0` cannot replace that evidence because collision filters deliberately
+exclude intact adjacent anatomy.
+
+Qualification checkpoint files are restart diagnostics, not trusted evidence. Source and manifest
+digests reject accidental mixing but are not signatures: on resume, every cached cell is physically
+replayed and must match canonical bytes before finalization. A fully cached qualifying run therefore
+still costs one full matrix. That cost is the deliberate boundary which prevents a hand-edited event
+stream from becoming a production durability multiplier.
+
+Construct surfaces are a one-way presentation projection over those authoritative facts. Each
+faction keeps the existing four shared PBR materials and two synchronous generated stone maps;
+each material owns one `ConstructProceduralSurfacePlugin`, never one plugin or material per mesh.
+The production default remains `mapped-pbr`. An explicit procedural request is accepted only for
+the pinned GLSL path with high-precision shaders and standard derivatives; otherwise the palette
+reports a named `mapped-pbr` fallback and the generated maps were never detached while compilation
+was pending. The effect fallback removes `CONSTRUCT_PROCEDURAL`, so a shader failure has the same
+complete mapped surface available rather than an unready replacement resource.
+The fallback audit is palette-wide: if one of the four shared material effects drops the define, all
+four plugins are dirtied together. Diagnostics may not claim `mapped-pbr` while an already-compiled
+sibling material continues running the procedural branch.
+
+The procedural path is fragment-only presentation. Object-local position and normal feed bounded
+two-scale value noise, cellular crack ridges and derivative normal perturbation; bronze remains
+lit metallic PBR, and rune inlay is mineral/bronze contrast rather than emissive. A semantic FNV-1a
+seed combines damage-target kind and ID, module ID where applicable, primitive ID and authored shell
+style. It therefore survives build-order and faction changes without entering a blueprint. Only a
+box primitive authored with shell style `core` receives the front-face analytic relief mask; body
+names are not a style vocabulary.
+
+`ConstructSurfaceRegistry` is the render-side damage seam. Mesh metadata holds seed, local extents,
+shape, relief class and a mutable clamped health ratio. The registry addresses sets by the stable
+pair `{ targetKind, targetId }`: a part updates its shell, a module updates its semantic primitives,
+and a joint updates the child part's returned bearing mesh. `ConstructDamageTargets.describe`
+publishes remaining and maximum health only after authoritative damage has been applied. The
+registry refuses a non-finite or non-positive maximum, stores no Babylon or damage handle in saved
+data, and is never read by collision, picking, targeting, control, policy or serialization. A
+detached target consequently keeps the last ratio already painted on its debris. Shared material
+health is impossible because `bindForSubMesh` reads the current mesh binding at draw time.
+
+The in-game Construct diagnostics include the surface request/effective mode, named fallback,
+scene/faction mesh count, four-material/two-texture/four-plugin census and damaged-binding count.
+That is a correctness and leak audit, not a draw-call or frame-time measurement. The fixed shader
+constants and binding rules are version 1; changing them invalidates the broad Construct source
+fingerprint even though no saved, physics, combat, control, report or learning digest is permitted
+to move.
+
 ## Construct control graphs and closed-loop actions
 
 `ConstructControlGraph` is the saved semantic layer between hardware and intent. A group lists the
@@ -1651,10 +1749,17 @@ reason as battle. It remains a short bounded probe, not evidence of long-bout co
 The committed four-beat crawl is physical and supports three feet or a measured near-ground pair;
 its fixed probe records forward progress, swing-foot clearance, slip and upright core at both arena
 facings. Recovery is physically demonstrated for the two longitudinal off-centre impulse falls.
-A superseded corpus exposed the Warden's inability to reliably right a lateral combat fall, which
-remains an unclosed limitation rather than a completed recovery claim. The current assisted
-qualification records zero stuck steps, but all eight rows time-cap, one lacks bilateral damage
-and every row omits required move/brace Actions. Those failures independently block learning.
+A superseded assisted corpus exposed the Warden's inability to turn physical survival into a live
+Action-bearing fight: all eight rows time-capped, one lacked bilateral damage and every row omitted
+move/brace. The authored combat-value-v2 correction keeps brace ownership on the public fire
+Action's 0.08-second recoil follow-through rather than occupying the whole reload. Under schedule
+`e74cb441`, source `e5d255e7` and run `7a626bcd`, all eight mirrored rows dealt bilateral physical
+damage; the corpus observed move/brace/fire/cover, recorded zero stuck steps and only one time cap.
+That historical identity admitted the learning rung at the time, but the later fire-lifecycle
+correction made it stale. The fresh schedule `8253502c`, source `f82bc3d3`, run `97a634ab` is
+rejected: only one of eight rows deals bilateral physical damage, seven omit brace and fire, and all
+eight time-cap. It promotes no learned Mind. The separate 560-bout combined-arms run at source
+`f82bc3d3`, run `d1e1d8e7` also rejects every durability rung and installs no multiplier.
 
 ### The fixed humanoid construct
 
@@ -1829,7 +1934,7 @@ rule rather than treating "at least three" as hidden optional membership.
 
 Support is a four-state boundary machine: supported, staggered, fallen and rising. Only authored
 horizontal combat shove enters stability; Havok's solver impulse is diagnostic. Losing fresh
-standable contact for more than 0.10 s, losing the declared chain/posture, or exceeding the frozen
+standable contact for more than 0.35 s, losing the declared chain/posture, or exceeding the frozen
 specific-impulse threshold releases assisted anatomy to an ordinary dynamic ragdoll. A Fighter asks
 to rise with deliberate movement; a Construct must run its public recover Action. The 0.45 s rise
 is occupancy-checked and interruption-sensitive on every boundary. Fallen and dead bodies receive
@@ -1842,17 +1947,21 @@ orientation path, and reattachment clears residual limb velocity once. The decay
 ledger explains the prior fall but does not impersonate a new hit after rising begins; a fresh
 nonzero authored shove still aborts at the next safe boundary. A zero-magnitude authored
 contact is not an interruption, and standable support must be within the terminal's step-height
-envelope rather than merely sharing its horizontal projection.
+envelope rather than merely sharing its horizontal projection while supported. A fallen body may
+begin its bounded rise without pretending one folded foot is already planted: live support
+topology, verified standable ground under the recovery footprint, occupancy and the acceleration
+bound admit that path. Fresh terminal contact is required again before the completed body may
+return to `supported`.
 
 Supported V1 freezes the whole stability scale together: specific impulse decays by 0.020 m/s each
 second, staggers at 0.006 m/s and falls at 0.014 m/s; brace multiplies both thresholds by 1.50; the
-fallen dwell is 0.35 s, support grace is 0.10 s and rising lasts 0.45 s. The live-Havok threshold
+fallen dwell is 0.35 s, support grace is 0.35 s and rising lasts 0.45 s. The live-Havok threshold
 bracket and its one-millionth mutation proof are recorded in `docs/measurements.md`; these values
 are one measured contract rather than independently tunable feel constants.
 
 The original plan required a continuously DYNAMIC supported root. A real 240 Hz bracket rejected
 that premise: both the humanoid Construct and Warrior lost physical foot evidence inside the exact
-0.10 s grace and fell at rest. Supported walking therefore uses an ANIMATED physical root only while
+then-current 0.10 s grace and fell at rest. Supported walking therefore uses an ANIMATED physical root only while
 the carrier remains admitted, with finite-speed carrier motion and symmetric footprint collision;
 knockdown changes that same root to DYNAMIC. This is the game's intentional locomotion assistance,
 not invulnerable combat anatomy: real weapons remain physical, authored shove releases support, and

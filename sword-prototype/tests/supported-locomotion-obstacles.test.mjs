@@ -5,6 +5,7 @@ import { isStandableUpwardNormalY, PhysicalSupportedLocomotionPort } from
   "../src/supported-locomotion-production.ts";
 import { deriveLocomotionFootprint, StandableWorldRegistry, SUPPORTED_CARRIER_V1,
   VirtualLocomotionCarrier } from "../src/supported-locomotion-runtime.ts";
+import { SUPPORTED_LOCOMOTION_V1 } from "../src/supported-locomotion-state.ts";
 
 const point = (x, y, z) => ({ x, y, z });
 const normal = (degrees) => Object.freeze([
@@ -102,10 +103,10 @@ test("a_ledge_removes_live_terminal_support_only_after_the_frozen_grace", () => 
     assert.equal(fixture.port.diagnostic().freshSupportBindings.length, 2);
     terminal = point(ledgeX + 0.01, 0.04, 0);
     assert.ok(terminal.x > ledgeX, "the terminal fixture must lie beyond the declared ledge");
-    advance(fixture.port, 0.05);
-    advance(fixture.port, 0.05);
-    assert.equal(fixture.port.state, "supported", "exactly 0.10 s is still inside the frozen grace");
-    assert.ok(Math.abs(fixture.port.diagnostic().state.supportMissingS - 0.10) < 1e-12);
+    advance(fixture.port, SUPPORTED_LOCOMOTION_V1.SUPPORT_GRACE_S);
+    assert.equal(fixture.port.state, "supported", "the exact boundary is still inside the frozen grace");
+    assert.ok(Math.abs(fixture.port.diagnostic().state.supportMissingS -
+      SUPPORTED_LOCOMOTION_V1.SUPPORT_GRACE_S) < 1e-12);
     advance(fixture.port, 0.001);
     assert.equal(fixture.port.state, "fallen");
     assert.deepEqual(releases, ["root", "collision"]);

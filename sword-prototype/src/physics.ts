@@ -36,7 +36,7 @@ import { CONFIG } from "./config.ts";
  * single number the sword was tuned against.
  *
  * **An arrow is on its side, not on its own.** It gets a fifth bit per side and
- * that bit joins `LEFT_SIDE` / `RIGHT_SIDE`, which is what buys the two things
+ * that bit joins a side's anatomy and held weapons, which is what buys the two things
  * an arrow has to be able to do without a line of code anywhere: it finds the
  * other fighter's trunk, arms and shield, because those are what collide with a
  * side; and **an enemy blade can bat it out of the air**, because a sword
@@ -44,6 +44,11 @@ import { CONFIG } from "./config.ts";
  * own row is the sword's shape exactly -- world, the far side, and debris -- so
  * it passes through the archer who loosed it, which is the same exemption a
  * blade has always had and is why a bow can be drawn past one's own arm.
+ *
+ * Flying projectiles do not collide with projectiles from either side. Head-on authored
+ * launchers otherwise manufacture an invisible shield: Havok spends both bolts at their
+ * midpoint, but neither collision has a damageable target. Blades and shields still see the
+ * opposing projectile bit, so physical interception remains available through visible hardware.
  *
  * It also means **two arrows on the same side never touch**, which is not a
  * nicety: a quiver parks a dozen of them in the same cubic centimetre, and a
@@ -101,6 +106,9 @@ const RIGHT_SIDE =
   LAYER.RIGHT_SHIELD |
   LAYER.RIGHT_ARROW;
 
+const LEFT_SIDE_WITHOUT_ARROW = LEFT_SIDE & ~LAYER.LEFT_ARROW;
+const RIGHT_SIDE_WITHOUT_ARROW = RIGHT_SIDE & ~LAYER.RIGHT_ARROW;
+
 const LEFT_SUPPORTED_ANATOMY =
   LAYER.LEFT_SUPPORTED_TRUNK | LAYER.LEFT_SUPPORTED_ARM | LAYER.LEFT_SUPPORTED_LEG;
 const RIGHT_SUPPORTED_ANATOMY =
@@ -122,13 +130,13 @@ export const COLLIDES = {
     LAYER.LEFT_TRUNK | LAYER.LEFT_SUPPORTED_TRUNK | LAYER.DEBRIS,
   // The sword's row exactly. An arrow in flight is a small fast blade that
   // belongs to a side, and everything that follows from that is already written.
-  LEFT_ARROW: LAYER.WORLD | RIGHT_SIDE | RIGHT_SUPPORTED_ANATOMY | LAYER.DEBRIS,
+  LEFT_ARROW: LAYER.WORLD | RIGHT_SIDE_WITHOUT_ARROW | RIGHT_SUPPORTED_ANATOMY | LAYER.DEBRIS,
   RIGHT_TRUNK: LAYER.WORLD | LEFT_SIDE | LEFT_SUPPORTED_ANATOMY | LAYER.RIGHT_SHIELD | LAYER.DEBRIS,
   RIGHT_ARM: LAYER.WORLD | LEFT_SIDE | LEFT_SUPPORTED_ANATOMY | LAYER.DEBRIS,
   RIGHT_SWORD: LAYER.WORLD | LEFT_SIDE | LEFT_SUPPORTED_ANATOMY | LAYER.DEBRIS,
   RIGHT_SHIELD: LAYER.WORLD | LEFT_SIDE | LEFT_SUPPORTED_ANATOMY |
     LAYER.RIGHT_TRUNK | LAYER.RIGHT_SUPPORTED_TRUNK | LAYER.DEBRIS,
-  RIGHT_ARROW: LAYER.WORLD | LEFT_SIDE | LEFT_SUPPORTED_ANATOMY | LAYER.DEBRIS,
+  RIGHT_ARROW: LAYER.WORLD | LEFT_SIDE_WITHOUT_ARROW | LEFT_SUPPORTED_ANATOMY | LAYER.DEBRIS,
   // Supported anatomy solves only against the arena, real combat geometry and
   // debris. The opposite body is represented to navigation by its pure
   // footprint, so two articulated piles never become one solver island.

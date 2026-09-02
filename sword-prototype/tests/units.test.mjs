@@ -10,6 +10,11 @@ import {
 } from "../src/units.ts";
 import { stepControlledPair } from "../src/control-host.ts";
 import { HumanoidControlEndpoint } from "../src/humanoid-control.ts";
+import { constructBlueprintForDurability } from "../src/construct/durability.ts";
+import { humanoidBlueprint } from "../src/construct/humanoid.ts";
+import { twinbladeBlueprint } from "../src/construct/twinblade.ts";
+import { arbalestBlueprint } from "../src/construct/arbalest.ts";
+import { wardenBlueprint } from "../src/construct/warden.ts";
 
 test("the_unit_picker_is_derived_from_the_buildable_unit_registry", () => {
   assert.deepEqual(
@@ -75,6 +80,31 @@ test("each_units_vitality_weights_cover_exactly_its_parts", () => {
   }
 });
 
+test("every_selectable_body_uses_the_v2_low_number_range", () => {
+  for (const unit of Object.values(UNIT_REGISTRY)) {
+    assert.deepEqual(Object.keys(unit.anatomy.durability).sort(), [...unit.anatomy.parts].sort());
+    for (const [part, durability] of Object.entries(unit.anatomy.durability)) {
+      assert.ok(durability > 0 && durability <= 15,
+        `${unit.kind}/${part} has ${durability} durability outside the selectable v2 range`);
+    }
+  }
+});
+
+test("built_in_Construct_picker_bodies_read_the_installed_production_durability_seam", () => {
+  const cases = [
+    ["bronze-warden", "warden-crossbow", wardenBlueprint("crossbow")],
+    ["swordbearer-effigy", "swordbearer", humanoidBlueprint()],
+    ["twinblade-effigy", "twinblade", twinbladeBlueprint()],
+    ["arbalest-effigy", "arbalest", arbalestBlueprint()],
+  ];
+  for (const [unitId, morphologyId, authored] of cases) {
+    const production = constructBlueprintForDurability(authored, morphologyId, "production");
+    assert.deepEqual(unitDefinition(unitId).anatomy.durability,
+      Object.fromEntries(production.parts.map(({ id, health }) => [id, health])),
+      `${unitId} picker anatomy bypassed ${morphologyId}'s production durability`);
+  }
+});
+
 const endpoint = () => new HumanoidControlEndpoint({
   initialMind: { name: "idle", decide: () => ({}) },
   view: {}, canStep: () => true, apply: () => {}, stopBody: () => {},
@@ -121,7 +151,7 @@ test("the_Arbalest_Effigy_is_a_separate_human_scale_construct_picker_choice", ()
 
 test("the_Bronze_Warden_exposes_only_its_construct_drivers_and_no_fake_human_adapter", () => {
   const warden = unitDefinition("bronze-warden");
-  assert.equal(warden.controlSurface, "construct-v1");
+  assert.equal(warden.controlSurface, "construct-v3");
   assert.equal(warden.humanAdapter, false);
   assert.equal(warden.createPolicy, null);
   assert.deepEqual(warden.driverOptions.map(({ name }) => name), ["construct-hold", "warden-authored"]);

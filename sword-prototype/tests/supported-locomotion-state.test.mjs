@@ -19,7 +19,8 @@ const contact = (overrides = {}) => ({ safeBoundarySequence: 7, supportBinding: 
   category: "standable-world", point: [0, 0, 0], upwardNormal: [0, 1, 0], freshness: "current", ...overrides });
 const boundary = (overrides = {}) => ({ dt: 0.001, safeBoundarySequence: 7, authority, liveSupport: true,
   postureSupported: true, supportEvidence: [contact()], supportedMassKg: 1, authoredShoves: [],
-  recoverRequested: false, occupancyClear: true, hitInterrupted: false, ...overrides });
+  recoverRequested: false, recoveryGroundAvailable: true, occupancyClear: true,
+  hitInterrupted: false, ...overrides });
 const state = (overrides = {}) => ({ ...initialSupportedLocomotionState(), ...overrides });
 
 test("the_v1_stability_and_recovery_constants_are_frozen_as_measured_literals", () => {
@@ -29,7 +30,7 @@ test("the_v1_stability_and_recovery_constants_are_frozen_as_measured_literals", 
     FALL_SPECIFIC_IMPULSE_MPS: 0.014,
     BRACE_CAPACITY_MULTIPLIER: 1.50,
     FALLEN_DWELL_S: 0.35,
-    SUPPORT_GRACE_S: 0.10,
+    SUPPORT_GRACE_S: 0.35,
     RISING_DURATION_S: 0.45,
   });
 });
@@ -59,6 +60,20 @@ test("authored_shove_not_solver_impulse_drives_supported_staggered_and_fallen", 
   assert.equal(fallen.state, "fallen");
 });
 
+test("specific_impulse_bash_is_mass_independent", () => {
+  const event = Object.freeze({ kind: "specific-impulse", specificImpulseMps: 0.008 });
+  const light = stepSupportedLocomotionState(state(), boundary({
+    supportedMassKg: 10, authoredShoves: [event],
+  }));
+  const heavy = stepSupportedLocomotionState(state(), boundary({
+    supportedMassKg: 1_000, authoredShoves: [event],
+  }));
+  assert.equal(light.state, "staggered");
+  assert.equal(heavy.state, "staggered");
+  assert.equal(light.specificImpulseMps, 0.008);
+  assert.equal(heavy.specificImpulseMps, 0.008);
+});
+
 test("an_upright_carrier_with_folded_torso_or_inverted_head_is_not_supported", () => {
   assert.equal(fighterPostureIsSupported({ pelvisUpDot: 1, torsoHeightAbovePelvisM: 0.5,
     headHeightAboveTorsoM: 0.2 }), true);
@@ -83,17 +98,19 @@ test("Fighter_movement_input_and_Construct_recover_Action_share_recovery_gates_w
   assert.equal(constructRequestsRising(early, true), false);
 });
 
-test("rising_eligibility_requires_live_authority_standable_support_dwell_and_clearance", () => {
+test("rising_eligibility_requires_live_authority_topology_dwell_and_clearance_not_an_already_planted_foot", () => {
   const fallen = state({ state: "fallen", fallenElapsedS: V1.FALLEN_DWELL_S });
   const ready = boundary({ recoverRequested: true });
   assert.deepEqual(risingEligibility(fallen, ready), { eligible: true, reason: null });
   for (const [field, value, reason] of [
     ["authority", null, /authority/], ["liveSupport", false, /support chain/],
+    ["recoveryGroundAvailable", false, /recovery ground/],
     ["occupancyClear", false, /obstructed/],
     ["recoverRequested", false, /not requested/], ["hitInterrupted", true, /hit/],
   ]) assert.match(risingEligibility(fallen, boundary({ recoverRequested: true, [field]: value })).reason, reason);
-  assert.match(risingEligibility(fallen, boundary({ recoverRequested: true,
-    supportEvidence: [contact({ category: "wall" })] })).reason, /standable/);
+  assert.deepEqual(risingEligibility(fallen, boundary({ recoverRequested: true,
+    supportEvidence: [contact({ category: "wall" })] })), { eligible: true, reason: null },
+  "a folded body must be able to begin its bounded righting path before a foot is planted");
   assert.match(risingEligibility(state({ state: "fallen", fallenElapsedS: V1.FALLEN_DWELL_S - 0.001 }), ready).reason,
     /dwell/);
   assert.match(risingEligibility(state({ state: "supported", fallenElapsedS: V1.FALLEN_DWELL_S }), ready).reason,

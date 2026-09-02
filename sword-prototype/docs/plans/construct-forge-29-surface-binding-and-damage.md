@@ -1,5 +1,8 @@
 # Session 29 — semantic surface binding, relief and damage wear
 
+**Status (2026-09-01): implemented, focused-green and recorded durably; its presentation-only
+isolation is retained for Session 30's integrated gate.**
+
 ## Outcome
 
 Bind the procedural PBR foundation to real Construct damage targets without per-mesh materials or

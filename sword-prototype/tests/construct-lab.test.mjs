@@ -234,6 +234,28 @@ test("page_and_headless_lab_run_the_same_construct_matchup_and_action_trace", as
   });
 });
 
+test("a_custom_Lab_deployment_is_part_of_job_identity_and_reaches_both_hosts", async () => {
+  await withTemporaryDirectory(async (directory) => {
+    const separationM = 7;
+    const [job] = matchupJobs({ seeds: [9], mirrored: false, boutCapSteps: 4,
+      configDigest: constructLabConfigDigest(4, WARDEN_SENSORS, separationM) });
+    assert.throws(() => prepareConstructBoutJob(job, WARDEN_SENSORS),
+      /runtime\/schema\/sensor config digest is stale/,
+      "the ordinary 2.6 m Lab must not accept a 7 m qualification job");
+    const options = Object.freeze({ separationM });
+    const prepared = prepareConstructBoutJob(job, WARDEN_SENSORS, options);
+    const headless = await runConstructBatch({ jobs: [job], outDirectory: directory, workers: 1,
+      engineOptions: options });
+    const pageHost = await createConstructHeadlessArena();
+    try {
+      const direct = runPreparedConstructLabJobInScene(pageHost.scene, job, prepared, WARDEN_SENSORS, options);
+      assert.equal(canonicalConstructLabRowJson(headless.rows[0]), canonicalConstructLabRowJson(direct));
+      assert.ok(headless.rows[0].range.meanM > 6.5,
+        "the execution option must change physical deployment, not only its digest label");
+    } finally { pageHost.dispose(); }
+  });
+});
+
 test("Lab_runtime_and_sensor_identity_refuse_stale_prepared_jobs_and_resume_rows", async () => {
   const changedSensors = WARDEN_SENSORS.map((sensor) => sensor.id === "opponent-range"
     ? Object.freeze({ ...sensor, unit: "scalar" }) : sensor);

@@ -5,7 +5,7 @@ import { humanoidSavedConstruct, HUMANOID_SENSORS } from "../src/construct/human
 import { runConstructWarriorBout } from "./construct-warrior-bout.mjs";
 
 export const SUPPORTED_LOCOMOTION_BOUNDARIES_V1 = Object.freeze({
-  version: 1,
+  version: 2,
   physicsHz: 240,
   maximumPartSpeedMps: 12,
   maximumJointFrameErrorM: 0.080,
@@ -21,7 +21,11 @@ export const SUPPORTED_LOCOMOTION_BOUNDARIES_V1 = Object.freeze({
       warrior: Object.freeze({ x: 0, z: 11.2, facing: 0 }) }),
   ]),
   wall: Object.freeze({ axis: "z", coordinate: 13 }),
-  hit: Object.freeze({ separationM: 1.25, maxSteps: 380, warriorSeed: 3 }),
+  // Recovery is the premise under test, so the fixture causes the initial fall explicitly.
+  // The later abort must still line up with a real Havok weapon contact; this step-zero shove
+  // cannot satisfy that temporal proof or impersonate the interrupt.
+  hit: Object.freeze({ separationM: 1.25, maxSteps: 380, warriorSeed: 3,
+    initialShove: Object.freeze({ atStep: 0, horizontalShoveNs: Object.freeze([12, 0]) }) }),
 });
 
 const compactWall = (spec, bout) => Object.freeze({ id: spec.id, kind: "wall-pressure",
@@ -49,8 +53,10 @@ export async function runSupportedLocomotionBoundaryCorpus() {
   const hit = SUPPORTED_LOCOMOTION_BOUNDARIES_V1.hit;
   cells.push(compactHit(await runConstructWarriorBout({ saved, sensors: HUMANOID_SENSORS,
     warriorPolicy: "duelist", warriorSeed: hit.warriorSeed,
-    separationM: hit.separationM, maxSteps: hit.maxSteps })));
-  return Object.freeze({ version: 1, fixture: SUPPORTED_LOCOMOTION_BOUNDARIES_V1,
+    separationM: hit.separationM, maxSteps: hit.maxSteps,
+    stabilityShoves: [hit.initialShove] })));
+  return Object.freeze({ version: SUPPORTED_LOCOMOTION_BOUNDARIES_V1.version,
+    fixture: SUPPORTED_LOCOMOTION_BOUNDARIES_V1,
     cells: Object.freeze(cells), summary: Object.freeze({ physicalCells: cells.length,
       heldWorldContacts: cells.filter(({ kind }) => kind === "wall-pressure")
         .reduce((sum, cell) => sum + cell.solver.heldWorldContactsByKind[cell.heldKind], 0),
@@ -114,7 +120,9 @@ export function assertSupportedLocomotionBoundaryCorpus(report) {
         atS >= priorAtS - 1e-9 && atS <= fallenAtS + 1e-9)) {
         fail("the interrupt boundary retained no real Havok weapon contact");
       }
-      if (cell.stabilityShoves.length !== 0) fail("a scheduled shove impersonated the hit");
+      if (!same(cell.stabilityShoves, [expected.hit.initialShove])) {
+        fail("the explicit initial fall shove changed or another scheduled shove impersonated the hit");
+      }
     } else {
       fail("unknown boundary cell kind");
     }

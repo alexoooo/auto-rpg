@@ -34,7 +34,7 @@ const sample = (recorder, side, published, intent, dt = 1 / 240) => {
 };
 
 test("the_engagement_instrument_has_an_explicit_resume_version", () => {
-  assert.equal(ENGAGEMENT_INSTRUMENT_VERSION, 1);
+  assert.equal(ENGAGEMENT_INSTRUMENT_VERSION, 3);
 });
 
 test("the_bench_report_carries_the_versioned_records_from_the_shared_recorder", async () => {
@@ -143,8 +143,9 @@ test("construct_effectors_never_create_a_null_humanoid_hand_bucket", () => {
   });
   assert.deepEqual(recorder.records.left.contacts, { primary: 0, secondary: 0 });
   assert.deepEqual(recorder.controlEvents, [{
-    version: 1, side: "left", sequence: 0, surface: "construct-v1", kind: "combat",
-    payload: { effectorId: "dorsal-sword", weapon: "sword", damage: 12, blocked: false, at: 1.25 },
+    version: 3, side: "left", sequence: 0, surface: "construct-v3", kind: "combat",
+    payload: { effectorId: "dorsal-sword", weapon: "sword", damage: 12, blocked: false, at: 1.25,
+      projectile: null },
   }]);
 });
 

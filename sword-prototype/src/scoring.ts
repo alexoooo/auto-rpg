@@ -229,7 +229,10 @@ const BITE: Record<Striker, Bite> = {
     how: "point",
     floor: (t) => t.minArrowSpeed,
     reference: (t) => t.arrowReference,
-    scale: (t) => t.pierceScale,
+    // Combat routes every live projectile through `scoreProjectileImpact`.
+    // This unit scale keeps the legacy delivery classifier useful to policy
+    // tests without retaining a second projectile damage balance knob.
+    scale: () => 1,
     severQuality: () => 1,
   },
   /** A bare fist: mass without an edge, point, or severing path. */
@@ -273,6 +276,68 @@ export const biteFloor = (by: Striker, tuning: Tuning = CONFIG.combat): number =
   BITE[by].floor(tuning);
 
 const clamp01 = (value: number) => (value < 0 ? 0 : value > 1 ? 1 : value);
+
+/**
+ * Projectile wounds pay for axial kinetic energy that actually arrived.
+ *
+ * This is deliberately separate from `BITE.arrow`. A hand-held point attack
+ * has no projectile mass, while a projectile has no useful edge placement or
+ * arm-speed reference. Keeping the equation pure also makes the three-damage
+ * ceiling an import boundary rather than a promise made by every launcher.
+ */
+export const PROJECTILE_PENETRATION_V1 = Object.freeze({
+  axialSpeedFloorMps: 8,
+  joulesPerDamage: 34,
+  maximumDamage: 3,
+});
+
+export interface ProjectileImpact {
+  readonly massKg: number;
+  readonly speedMps: number;
+  readonly signedShaftAlignment: number;
+  readonly contactedHead: boolean;
+  readonly penetrationEfficiency: number;
+}
+
+export interface ProjectileImpactEvaluation {
+  readonly score: Score;
+  readonly usableEnergyJ: number;
+  readonly uncappedDamage: number;
+}
+
+/** One calculation owns both the wound and the immutable evidence reported for it. */
+export function evaluateProjectileImpact(impact: ProjectileImpact): ProjectileImpactEvaluation {
+  if (typeof impact.contactedHead !== "boolean" ||
+      ![impact.massKg, impact.speedMps, impact.signedShaftAlignment,
+        impact.penetrationEfficiency].every(Number.isFinite)) {
+    throw new Error("projectile impact contains a non-finite physical input");
+  }
+  if (impact.massKg <= 0 || impact.speedMps < 0 ||
+      impact.signedShaftAlignment < -1 || impact.signedShaftAlignment > 1 ||
+      impact.penetrationEfficiency <= 0 || impact.penetrationEfficiency > 1) {
+    throw new Error("projectile impact is outside the physical scoring bounds");
+  }
+  const alignment = clamp01(impact.signedShaftAlignment);
+  if (!impact.contactedHead || alignment <= 0) {
+    return Object.freeze({ score: Object.freeze({ kind: "slap", quality: 0, damage: 0 }),
+      usableEnergyJ: 0, uncappedDamage: 0 });
+  }
+  const axialSpeed = impact.speedMps * alignment;
+  const usableEnergyJ = 0.5 * impact.massKg * Math.max(0,
+    axialSpeed * axialSpeed - PROJECTILE_PENETRATION_V1.axialSpeedFloorMps ** 2);
+  const uncapped = usableEnergyJ / PROJECTILE_PENETRATION_V1.joulesPerDamage *
+    impact.penetrationEfficiency;
+  const damage = Math.min(PROJECTILE_PENETRATION_V1.maximumDamage, uncapped);
+  return Object.freeze({
+    score: Object.freeze({ kind: damage > 0 ? "thrust" : "weak",
+      quality: alignment * alignment, damage }),
+    usableEnergyJ,
+    uncappedDamage: uncapped,
+  });
+}
+
+export const scoreProjectileImpact = (impact: ProjectileImpact): Score =>
+  evaluateProjectileImpact(impact).score;
 
 /**
  * The rule that decides whether a contact was a cut, a thrust, or a clang.

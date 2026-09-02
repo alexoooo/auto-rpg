@@ -38,7 +38,7 @@ export async function runConstructBoutJob(job, options = {}) {
     ? Object.freeze([{ id: "dorsal-mount", reason: "bearing-dorsal-pitch severed" }])
     : Object.freeze([]);
   return Object.freeze({
-    version: 1,
+    version: 3,
     job: job.index,
     matchupDigest: job.matchupDigest,
     seed: job.matchup.seed,
