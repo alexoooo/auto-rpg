@@ -57,16 +57,21 @@ const moduleBase = (id: string, kind: ModuleKind, socket: string, compatibilityT
   health: 4.5, armour: 0.6 });
 
 const leftArmParts = Object.freeze([
-  part("left-upper-arm", { kind: "capsule", lengthM: 0.55, radiusM: CHASSIS.upperArmRadiusM }, 8, "piston"),
-  part("left-forearm", { kind: "capsule", lengthM: 0.45, radiusM: CHASSIS.forearmRadiusM }, 6, "piston"),
-  part("left-wrist", { kind: "cylinder", lengthM: 0.20, radiusM: CHASSIS.wristRadiusM }, 3, "bearing"),
-  part("left-hand", { kind: "box", sizeM: CHASSIS.hand }, 4),
+  Object.freeze({ ...part("left-upper-arm", { kind: "capsule", lengthM: 0.55, radiusM: CHASSIS.upperArmRadiusM }, 8, "piston"), health: 8, armour: 1.0 }),
+  Object.freeze({ ...part("left-forearm", { kind: "capsule", lengthM: 0.45, radiusM: CHASSIS.forearmRadiusM }, 6, "piston"), health: 8, armour: 1.0 }),
+  Object.freeze({ ...part("left-wrist", { kind: "cylinder", lengthM: 0.20, radiusM: CHASSIS.wristRadiusM }, 3, "bearing"), health: 8, armour: 1.0 }),
+  Object.freeze({ ...part("left-hand", { kind: "box", sizeM: CHASSIS.hand }, 4), health: 8, armour: 1.0 }),
 ]);
 const leftArmJoints = Object.freeze([
-  joint("left-shoulder", "torso", "left-upper-arm", [-0.42, 0.25, 0], [0, 0.275, 0], "x", -0.95, 0.95),
-  joint("left-elbow", "left-upper-arm", "left-forearm", [0, -0.275, 0], [0, 0.225, 0], "x", -1.25, 0.35),
-  joint("left-wrist", "left-forearm", "left-wrist", [0, -0.225, 0], [0, 0.10, 0], "x", -0.75, 0.75, 150),
-  joint("left-palm", "left-wrist", "left-hand", [0, -0.10, 0], [0, 0.08, 0.03], "x", -0.55, 0.55, 150),
+  Object.freeze({ ...joint("left-shoulder", "torso", "left-upper-arm", [-0.42, 0.25, 0], [0, 0.275, 0], "x", -0.95, 0.95),
+    angularAxes: Object.freeze([
+      ...joint("left-shoulder", "torso", "left-upper-arm", [-0.42, 0.25, 0], [0, 0.275, 0], "x", -0.95, 0.95).angularAxes,
+      Object.freeze({ id: "y" as const, minRad: -0.42, maxRad: 0.42, damping: humanoidActuator(8),
+        maxTorqueNm: humanoidActuator(340), maxSpeedRadS: 5 }),
+    ]), health: 8, armour: 1.1 }),
+  Object.freeze({ ...joint("left-elbow", "left-upper-arm", "left-forearm", [0, -0.275, 0], [0, 0.225, 0], "x", -1.25, 0.35), health: 8, armour: 1.1 }),
+  Object.freeze({ ...joint("left-wrist", "left-forearm", "left-wrist", [0, -0.225, 0], [0, 0.10, 0], "x", -0.75, 0.75, 150), health: 8, armour: 1.1 }),
+  Object.freeze({ ...joint("left-palm", "left-wrist", "left-hand", [0, -0.10, 0], [0, 0.08, 0.03], "x", -0.55, 0.55, 150), health: 8, armour: 1.1 }),
 ]);
 
 const leg = (side: "left" | "right", x: number) => {
@@ -110,7 +115,7 @@ const bodyParts = Object.freeze([
   part("head", { kind: "sphere", radiusM: 0.22 }, 10, "core"),
   ...leftArmParts, ...leftLeg.parts, ...rightLeg.parts,
   part("sword-shoulder-yaw", { kind: "cylinder", lengthM: 0.18, radiusM: CHASSIS.swordBearingRadiusM }, 6, "bearing"),
-  part("sword-arm-pitch", { kind: "capsule", lengthM: 0.58, radiusM: CHASSIS.shinRadiusM }, 8, "piston"),
+  Object.freeze({ ...part("sword-arm-pitch", { kind: "capsule", lengthM: 0.58, radiusM: CHASSIS.shinRadiusM }, 8, "piston"), health: 8, armour: 1.1 }),
 ]);
 const bodyJoints = Object.freeze([
   // Waist was 380 Nm/damping 8 before the same golem-scale correction.
@@ -122,10 +127,10 @@ const bodyJoints = Object.freeze([
   // three sweeps in the 30 s frozen active bouts. Three times that torque makes the full physical
   // stroke complete in roughly 0.9--1.4 s without changing the ordinary 1.4 kg sword or its damage.
   // Six times torque was measured too: it made contacts noisier and did not improve either mirror.
-  joint("sword-yaw", "torso", "sword-shoulder-yaw", [0.42, 0.25, 0], [0, -0.09, 0], "y", -2.5, 2.5,
-    2700, 8, 12),
-  joint("sword-pitch", "sword-shoulder-yaw", "sword-arm-pitch", [0, 0.09, 0], [0, 0.29, 0], "x", -0.75, 1.65,
-    1950, 8, 10),
+  Object.freeze({ ...joint("sword-yaw", "torso", "sword-shoulder-yaw", [0.42, 0.25, 0], [0, -0.09, 0], "y", -2.5, 2.5,
+    2700, 8, 12), health: 10, armour: 1.2 }),
+  Object.freeze({ ...joint("sword-pitch", "sword-shoulder-yaw", "sword-arm-pitch", [0, 0.09, 0], [0, 0.29, 0], "x", -0.75, 1.65,
+    1950, 8, 10), health: 10, armour: 1.2 }),
 ]);
 
 const CONTACTS = Object.freeze([
@@ -143,7 +148,9 @@ export const HUMANOID_SENSORS: readonly SensorSpec[] = Object.freeze([
   // These are live hardware/geometry facts. The Mind can decline actions whose real carrying
   // chain is gone, while the mount safety controller uses only the declared sword/core pair.
   Object.freeze({ id: "left-arm-ready", unit: "boolean", source: "self" }),
+  Object.freeze({ id: "left-arm-integrity", unit: "scalar", source: "self", combatValue: "normalized" }),
   Object.freeze({ id: "sword-ready", unit: "boolean", source: "self" }),
+  Object.freeze({ id: "sword-arm-integrity", unit: "scalar", source: "self", combatValue: "normalized" }),
   Object.freeze({ id: "sword-core-clearance-m", unit: "metres", source: "self" }),
   Object.freeze({ id: "opponent-range", unit: "metres", source: "opponent" }),
   Object.freeze({ id: "opponent-relative-speed", unit: "metres-per-second", source: "opponent" }),
@@ -173,6 +180,7 @@ export const HUMANOID_SENSORS: readonly SensorSpec[] = Object.freeze([
 export function humanoidBlueprint(): ConstructBlueprint {
   const sockets = [
     ...CONTACTS.map(({ socket, part: owner }) => ({ id: socket, part: owner, frame: frame([0, -0.08, 0]), accepts: ["contact-sensor"] })),
+    { id: "socket-left-gauntlet", part: "left-hand", frame: frame([0, 0, 0.13]), accepts: ["gauntlet"] },
     { id: "socket-sword-hand", part: "sword-arm-pitch", frame: frame([0, -0.29, 0]), accepts: ["dorsal-weapon"] },
     { id: "socket-face-sensor", part: "head", frame: frame([0, 0, 0.20]), accepts: ["sensor"] },
     { id: "socket-heart", part: "torso", frame: frame([0, 0, -0.15]), accepts: ["power-core"] },
@@ -187,6 +195,22 @@ export function humanoidBlueprint(): ConstructBlueprint {
         !id.startsWith("contact-") && !id.startsWith("slip-"))) }),
     Object.freeze({ ...moduleBase("effigy-heart", "power-core", "socket-heart", "power-core",
       [geometry("heart", { kind: "sphere", radiusM: 0.11 }, "core")], 7), capacityJ: 24_000, maxOutputW: 620 }),
+    // Broad carved stone is defensive and blunt. The smaller bronze ridge is an
+    // actual separate collider leaf: a hit only cuts if the manifold resolves to
+    // that leaf and its signed physical edge motion qualifies in Combat.
+    Object.freeze({ ...moduleBase("effigy-gauntlet", "gauntlet", "socket-left-gauntlet", "gauntlet", [
+      geometry("stone-face", { kind: "box", sizeM: [0.24, 0.22, 0.14] }, "plate", [0, 0, 0.12]),
+      geometry("bronze-ridge", { kind: "box", sizeM: [0.035, 0.14, 0.12] }, "bearing", [0.145, 0, 0.18]),
+      geometry("wrist-brace", { kind: "box", sizeM: [0.16, 0.14, 0.20] }, "bearing", [0, 0, -0.08]),
+    ], 5), health: 8, armour: 1.2,
+      mountedContactStriker: Object.freeze({ kind: "authored-surface" as const, action: "gauntlet-strike",
+        surfaces: Object.freeze([
+          Object.freeze({ id: "stone-face", primitiveId: "stone-face", kind: "mass" as const,
+            localContactPoint: [0, 0, 0.19] as const, damageScale: 0.55, shoveSpecificImpulseMps: 0.004 }),
+          Object.freeze({ id: "bronze-ridge", primitiveId: "bronze-ridge", kind: "edge" as const,
+            localContactPoint: [0.1625, 0, 0.18] as const, damageScale: 0.48,
+            localEdgeDirection: [0, 0, 1] as const, localFlatDirection: [1, 0, 0] as const }),
+        ]) }) }),
     // The physical weapon is an ordinary metre-long sword, not a similarity-scaled stone beam.
     // Its own torso is now a real collision partner; safe clearance is therefore enforced by
     // Havok rather than pretending a short decorative blade is a fighting reach. At 1.4 kg it
@@ -196,10 +220,10 @@ export function humanoidBlueprint(): ConstructBlueprint {
       geometry("grip", { kind: "cylinder", lengthM: 0.18, radiusM: 0.05 }, "bearing", [0, 0, 0], false),
       geometry("guard", { kind: "box", sizeM: [0.34, 0.08, 0.08] }, "bearing", [0, 0, 0.08], false),
       geometry("blade", { kind: "box", sizeM: [0.10, 0.05, 1.05] }, "plate", [0, 0, 0.58], false),
-    ], 1.4, false), striker: Object.freeze({ localTipM: [0, 0, 1.105] as const,
+    ], 1.4, false), health: 8, armour: 1.2, striker: Object.freeze({ localTipM: [0, 0, 1.105] as const,
       localEdgeDirection: [1, 0, 0] as const, localFlatDirection: [0, 1, 0] as const, damageScale: 1.15 }) }),
   ];
-  return validateBlueprint({ version: 4, id: "swordbearer-effigy", rootPart: "torso",
+  return validateBlueprint({ version: 5, id: "swordbearer-effigy", rootPart: "torso",
     parts: bodyParts, joints: bodyJoints, sockets, modules });
 }
 
@@ -277,13 +301,15 @@ export function humanoidControl(): ConstructControlGraph {
       output: { joints: [], modules: ["effigy-sword"] }, sword: { joints: [], modules: ["effigy-sword"] },
     } },
     { id: "posture", joints: postureJoints, modules: [], bindings: {} },
-    // The bare left arm is a physical defence, not a cosmetic counterweight. It has its own
-    // group so it can protect the core while the right mounted sword and lower-body carrier act.
-    { id: "offhand-guard", joints: postureJoints, modules: [], bindings: {
+    // The permanent left gauntlet is attached to the real four-joint arm. It owns
+    // its own group so guard/check strokes can run with the right sword and feet,
+    // but cannot silently overlap another left-arm action.
+    { id: "offhand-guard", joints: postureJoints, modules: ["effigy-gauntlet"], bindings: {
       shoulder: { joints: ["left-shoulder"], modules: [] },
       elbow: { joints: ["left-elbow"], modules: [] },
       wrist: { joints: ["left-wrist"], modules: [] },
       palm: { joints: ["left-palm"], modules: [] },
+      gauntlet: { joints: [], modules: ["effigy-gauntlet"] },
     } },
     { id: "whole-body", joints: bodyJoints.map(({ id }) => id), modules: [], bindings: {} },
   ], actions: [
@@ -346,7 +372,9 @@ export function humanoidControl(): ConstructControlGraph {
         "minimum-clearance-m": { kind: "number", min: 0.006, max: 0.20, unit: "metres" },
       } },
     { id: "offhand-guard", controller: "humanoid-offhand-guard", group: "offhand-guard",
-      claims: ["resource:power-offhand-guard"], parameters: {} },
+      claims: ["module:effigy-gauntlet", "resource:power-offhand-guard"], parameters: {} },
+    { id: "gauntlet-strike", controller: "humanoid-gauntlet-strike", group: "offhand-guard",
+      claims: ["module:effigy-gauntlet", "resource:power-offhand-guard", "resource:sensor-line-of-sight"], parameters: {} },
   ] });
 }
 

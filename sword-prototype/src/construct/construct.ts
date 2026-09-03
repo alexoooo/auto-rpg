@@ -209,10 +209,10 @@ export class Construct implements Combatant {
   private readonly supportedDesiredRotation = Quaternion.Identity();
   private postVerdictHold: PostVerdictAssemblyHold | null = null;
   private launcherLooseSerial = 0;
-  private bashActionActive = false;
-  private bashActionSequence = 0;
   private readonly swordActionSequences = new Map<string, number>();
   private readonly swordActionKeys = new Map<string, string | null>();
+  private readonly contactActionSequences = new Map<string, number>();
+  private readonly contactActionKeys = new Map<string, string | null>();
 
   constructor(ctx: CombatantBuild, selection: "crossbow" | "sword" | ConstructDefinition = "crossbow") {
     this.side = ctx.side;
@@ -407,12 +407,26 @@ export class Construct implements Combatant {
       beforeStep: (dt) => { this.state.beforeControlStep(dt); this.quiver?.step(dt); },
       afterStep: () => {
         const snapshot = this.control.snapshot();
-        const bash = snapshot.active.find(({ action }) => action === "bash");
-        if (bash && !this.bashActionActive) this.bashActionSequence += 1;
-        this.bashActionActive = bash !== undefined;
-        const armed = bash?.phase === "drive" || bash?.phase === "hold";
         for (const striker of this.mountedContactEffectors) {
-          striker.setActionState(bash ? `bash:${this.bashActionSequence}` : null, armed);
+          const active = snapshot.active.find((row) => {
+            const action = control.actions.find(({ id }) => id === row.action);
+            return action !== undefined && action.id === striker.action &&
+              action.claims.includes(`module:${striker.effectorId}`);
+          });
+          const key = active ? `${active.action}:${active.group}:${striker.surfaceId}` : null;
+          const ledgerKey = `${striker.effectorId}:${striker.surfaceId}`;
+          const prior = this.contactActionKeys.get(ledgerKey) ?? null;
+          const restarted = active !== undefined && snapshot.events.some((event) =>
+            event.kind === "started" && event.action === active.action && event.group === active.group);
+          if (key !== null && (prior !== key || restarted)) {
+            this.contactActionSequences.set(ledgerKey, (this.contactActionSequences.get(ledgerKey) ?? 0) + 1);
+          }
+          this.contactActionKeys.set(ledgerKey, key);
+          const sequence = this.contactActionSequences.get(ledgerKey) ?? 0;
+          // Guard and chamber are real defensive poses but never score. The only
+          // scoring interval is the controller's explicitly diagnostic drive/hold.
+          const armed = active?.phase === "drive" || active?.phase === "hold";
+          striker.setActionState(key === null ? null : `${key}:${sequence}`, armed);
         }
         for (const striker of this.mountedEffectors) {
           const active = snapshot.active.find((row) => {
@@ -489,9 +503,15 @@ export class Construct implements Combatant {
       .filter((module) => module.spec.kind === "sword")
       .map((module) => new ConstructMountedSword(module, () => this.state.moduleAvailable(module.id), this.runtime));
     this.mountedContactEffectors = [...this.runtime.modules.values()]
-      .filter((module) => module.spec.mountedContactStriker !== undefined)
-      .map((module) => new ConstructMountedContactStriker(this.runtime, module,
-        () => this.state.moduleAvailable(module.id)));
+      .flatMap((module) => {
+        const contact = module.spec.mountedContactStriker;
+        if (!contact) return [];
+        if (contact.kind === "authored-surface") return contact.surfaces.map((surface) =>
+          new ConstructMountedContactStriker(this.runtime, module, surface,
+            () => this.state.moduleAvailable(module.id)));
+        return [new ConstructMountedContactStriker(this.runtime, module, null,
+          () => this.state.moduleAvailable(module.id))];
+      });
     this.effectorViews = [
       ...this.mountedEffectors.map(() => ({ weapon: "sword" as const, anchor: new Vector3(),
         tip: new Vector3(), tipVelocity: new Vector3(), reach: 0, lost: false })),

@@ -1,4 +1,4 @@
-export const CONSTRUCT_BLUEPRINT_VERSION = 4 as const;
+export const CONSTRUCT_BLUEPRINT_VERSION = 5 as const;
 export const CONSTRUCT_BLUEPRINT_LIMITS = Object.freeze({ maxBytes: 1_048_576, maxDepth: 64,
   maxParts: 128, maxJoints: 127, maxSockets: 256, maxModules: 256,
   // A biped's raw self-safety facts are intentionally carried by the same installed sight
@@ -26,14 +26,26 @@ export interface JointSpec { readonly id: string; readonly parentPart: string; r
   readonly health: number; readonly armour: number }
 export interface SocketSpec { readonly id: string; readonly part: string; readonly frame: FrameSpec; readonly accepts: readonly string[] }
 export type ModuleKind = "contact-sensor" | "attitude-sensor" | "opponent-sensor" |
-  "power-core" | "shield" | "sword" | "launcher" | "magazine";
+  "power-core" | "shield" | "gauntlet" | "sword" | "launcher" | "magazine";
 export interface ModulePrimitiveSpec { readonly id: string; readonly frame: FrameSpec;
   readonly shape: PrimitiveShape; readonly shell: ShellSpec }
 export interface StrikerSpec { readonly localTipM: Triple; readonly localEdgeDirection: Triple;
   readonly localFlatDirection: Triple; readonly damageScale: number }
 export interface ProjectileSpec { readonly poolSize: number; readonly massKg: number; readonly radiusM: number;
   readonly lengthM: number; readonly muzzleSpeedMps: number; readonly penetrationEfficiency: number }
-export interface MountedContactStrikerSpec { readonly kind: "authored-shove";
+/**
+ * A contact surface is a named piece of the module's actual compound collider.
+ * An Action may arm it, but it cannot decide whether a hit cuts: that follows
+ * from this primitive and the ordinary physical score at the contact point.
+ */
+export interface MountedContactSurfaceSpec { readonly id: string; readonly primitiveId: string;
+  readonly kind: "mass" | "edge"; readonly localContactPoint: Triple;
+  readonly damageScale: number; readonly shoveSpecificImpulseMps?: number;
+  readonly localEdgeDirection?: Triple; readonly localFlatDirection?: Triple }
+export interface MountedContactStrikerSpec { readonly kind: "authored-surface"; readonly action: string;
+  readonly surfaces: readonly MountedContactSurfaceSpec[] }
+/** V4's one-point zero-damage shield shove, retained solely for authenticated migration. */
+export interface LegacyMountedContactStrikerSpec { readonly kind: "authored-shove";
   readonly localContactPoint: Triple; readonly shoveSpecificImpulseMps: number }
 export interface ModuleSpec { readonly id: string; readonly kind: ModuleKind; readonly socket: string;
   readonly compatibilityTag: string; readonly geometry: readonly ModulePrimitiveSpec[]; readonly massKg: number;
@@ -42,7 +54,7 @@ export interface ModuleSpec { readonly id: string; readonly kind: ModuleKind; re
   readonly heatPerShotJ?: number; readonly energyPerShotJ?: number; readonly ammunition?: number;
   readonly sensorChannels?: readonly string[]; readonly striker?: StrikerSpec; readonly projectile?: ProjectileSpec;
   readonly mountedContactStriker?: MountedContactStrikerSpec }
-export interface ConstructBlueprint { readonly version: 4; readonly id: string; readonly rootPart: string;
+export interface ConstructBlueprint { readonly version: 5; readonly id: string; readonly rootPart: string;
   readonly parts: readonly PartSpec[]; readonly joints: readonly JointSpec[];
   readonly sockets: readonly SocketSpec[]; readonly modules: readonly ModuleSpec[] }
 export interface LegacyProjectileSpec extends Omit<ProjectileSpec, "penetrationEfficiency"> {
@@ -55,15 +67,19 @@ export interface V2ConstructBlueprint extends Omit<ConstructBlueprint, "version"
   readonly version: 2; readonly modules: readonly LegacyModuleSpec[] }
 export interface V3ConstructBlueprint extends Omit<ConstructBlueprint, "version" | "mountedContactStriker"> {
   readonly version: 3 }
+export interface V4ModuleSpec extends Omit<ModuleSpec, "mountedContactStriker"> {
+  readonly mountedContactStriker?: LegacyMountedContactStrikerSpec }
+export interface V4ConstructBlueprint extends Omit<ConstructBlueprint, "version" | "modules"> {
+  readonly version: 4; readonly modules: readonly V4ModuleSpec[] }
 
 type Plain = Record<string, unknown>;
 const ID = /^[a-z][a-z0-9-]{0,47}$/;
-const KINDS: readonly ModuleKind[] = ["contact-sensor", "attitude-sensor", "opponent-sensor", "power-core", "shield", "sword", "launcher", "magazine"];
+const KINDS: readonly ModuleKind[] = ["contact-sensor", "attitude-sensor", "opponent-sensor", "power-core", "shield", "gauntlet", "sword", "launcher", "magazine"];
 const STYLES: readonly ShellStyle[] = ["plate", "collar", "bearing", "piston", "core", "support"];
 const OPTIONAL = ["capacityJ", "maxOutputW", "maxHeatJ", "coolingW", "reloadSeconds", "heatPerShotJ", "energyPerShotJ", "ammunition", "sensorChannels", "striker", "projectile", "mountedContactStriker"] as const;
 const OWNED: Readonly<Record<ModuleKind, readonly string[]>> = { "contact-sensor": ["sensorChannels"],
   "attitude-sensor": ["sensorChannels"], "opponent-sensor": ["sensorChannels"],
-  "power-core": ["capacityJ", "maxOutputW"], shield: [], sword: ["striker"], magazine: ["ammunition"],
+  "power-core": ["capacityJ", "maxOutputW"], shield: [], gauntlet: [], sword: ["striker"], magazine: ["ammunition"],
   launcher: ["maxHeatJ", "coolingW", "reloadSeconds", "heatPerShotJ", "energyPerShotJ", "projectile"] };
 
 const object = (value: unknown, context: string): Plain => {
@@ -153,15 +169,19 @@ const pointOnPrimitive = (point: Triple, primitive: ModulePrimitiveSpec): boolea
   return Math.abs(Math.hypot(local[0], local[1] - segmentY, local[2]) - primitive.shape.radiusM) <= epsilon;
 };
 
-function parseModule(value: unknown, blueprint: string, index: number, version: 1 | 2 | 3 | 4): ModuleSpec | LegacyModuleSpec {
+function parseModule(value: unknown, blueprint: string, index: number, version: 1 | 2 | 3 | 4 | 5): ModuleSpec | LegacyModuleSpec | V4ModuleSpec {
   const source = object(value, `blueprint "${blueprint}" module[${index}]`); const context = `module "${typeof source.id === "string" ? source.id : `<index ${index}>`}"`;
   fields(source, ["id", "kind", "socket", "compatibilityTag", "geometry", "massKg", "health", "armour"], OPTIONAL, context);
   if (!KINDS.includes(source.kind as ModuleKind)) throw new Error(`${context} field "kind" is unknown`); const kind = source.kind as ModuleKind;
+  if (kind === "gauntlet" && version < 5) throw new Error(`${context} kind "gauntlet" requires blueprint version 5`);
   for (const name of OPTIONAL) if (Object.prototype.hasOwnProperty.call(source, name) &&
-      !OWNED[kind].includes(name) && !(name === "mountedContactStriker" && kind === "shield" && version === 4)) {
+      !OWNED[kind].includes(name) && !(name === "mountedContactStriker" && (kind === "shield" || kind === "gauntlet") && version >= 4)) {
     throw new Error(`${context} field "${name}" is not owned by kind "${kind}"`);
   }
   for (const name of OWNED[kind]) if (!Object.prototype.hasOwnProperty.call(source, name)) throw new Error(`${context} kind "${kind}" is missing field "${name}"`);
+  if (kind === "gauntlet" && source.mountedContactStriker === undefined) {
+    throw new Error(`${context} kind "gauntlet" is missing field "mountedContactStriker"`);
+  }
   const geometrySource = array(source.geometry, context, "geometry"); if (!geometrySource.length || geometrySource.length > CONSTRUCT_BLUEPRINT_LIMITS.maxModulePrimitives) throw new Error(`${context} field "geometry" must contain 1 to 16 primitives`);
   const geometry = geometrySource.map((entry, at): ModulePrimitiveSpec => { const primitive = object(entry, `${context} geometry[${at}]`); fields(primitive, ["id", "frame", "shape", "shell"], [], `${context} geometry[${at}]`);
     return Object.freeze({ id: id(primitive.id, `${context} geometry[${at}]`, "id"), frame: frame(primitive.frame, `${context} geometry[${at}]`, "frame"), shape: shape(primitive.shape, `${context} geometry[${at}]`), shell: shell(primitive.shell, `${context} geometry[${at}]`) }); });
@@ -192,21 +212,72 @@ function parseModule(value: unknown, blueprint: string, index: number, version: 
   }
   if (source.mountedContactStriker !== undefined) {
     const mounted = object(source.mountedContactStriker, `${context} field "mountedContactStriker"`);
-    fields(mounted, ["kind", "localContactPoint", "shoveSpecificImpulseMps"], [], `${context} field "mountedContactStriker"`);
-    if (mounted.kind !== "authored-shove") throw new Error(`${context} field "mountedContactStriker.kind" is unknown`);
-    const localContactPoint = triple(mounted.localContactPoint, context, "mountedContactStriker.localContactPoint");
-    const shove = positive(mounted.shoveSpecificImpulseMps, context, "mountedContactStriker.shoveSpecificImpulseMps");
-    if (shove > 0.014) throw new Error(`${context} field "mountedContactStriker.shoveSpecificImpulseMps" must be at most 0.014`);
-    if (!geometry.some((primitive) => pointOnPrimitive(localContactPoint, primitive))) {
-      throw new Error(`${context} field "mountedContactStriker.localContactPoint" must lie on declared geometry`);
+    if (version === 4) {
+      fields(mounted, ["kind", "localContactPoint", "shoveSpecificImpulseMps"], [], `${context} field "mountedContactStriker"`);
+      if (mounted.kind !== "authored-shove") throw new Error(`${context} field "mountedContactStriker.kind" is unknown`);
+      const localContactPoint = triple(mounted.localContactPoint, context, "mountedContactStriker.localContactPoint");
+      const shove = positive(mounted.shoveSpecificImpulseMps, context, "mountedContactStriker.shoveSpecificImpulseMps");
+      if (shove > 0.014) throw new Error(`${context} field "mountedContactStriker.shoveSpecificImpulseMps" must be at most 0.014`);
+      if (!geometry.some((primitive) => pointOnPrimitive(localContactPoint, primitive))) {
+        throw new Error(`${context} field "mountedContactStriker.localContactPoint" must lie on declared geometry`);
+      }
+      result.mountedContactStriker = Object.freeze({ kind: mounted.kind, localContactPoint,
+        shoveSpecificImpulseMps: shove });
+    } else if (version === 5) {
+      fields(mounted, ["kind", "action", "surfaces"], [], `${context} field "mountedContactStriker"`);
+      if (mounted.kind !== "authored-surface") throw new Error(`${context} field "mountedContactStriker.kind" is unknown`);
+      const action = id(mounted.action, context, "mountedContactStriker.action");
+      const sourceSurfaces = array(mounted.surfaces, context, "mountedContactStriker.surfaces");
+      if (!sourceSurfaces.length || sourceSurfaces.length > CONSTRUCT_BLUEPRINT_LIMITS.maxModulePrimitives) {
+        throw new Error(`${context} field "mountedContactStriker.surfaces" must contain 1 to 16 entries`);
+      }
+      const surfaces = sourceSurfaces.map((entry, at): MountedContactSurfaceSpec => {
+        const surface = object(entry, `${context} mountedContactStriker.surfaces[${at}]`);
+        fields(surface, ["id", "primitiveId", "kind", "localContactPoint", "damageScale"],
+          ["shoveSpecificImpulseMps", "localEdgeDirection", "localFlatDirection"],
+          `${context} mountedContactStriker.surfaces[${at}]`);
+        const surfaceId = id(surface.id, context, `mountedContactStriker.surfaces[${at}].id`);
+        const primitiveId = id(surface.primitiveId, context, `mountedContactStriker.surfaces[${at}].primitiveId`);
+        const primitive = geometry.find((row) => row.id === primitiveId);
+        if (!primitive) throw new Error(`${context} mountedContactStriker surface "${surfaceId}" references missing primitive "${primitiveId}"`);
+        if (surface.kind !== "mass" && surface.kind !== "edge") throw new Error(`${context} mountedContactStriker surface "${surfaceId}" has unknown kind`);
+        const localContactPoint = triple(surface.localContactPoint, context, `mountedContactStriker.surfaces[${at}].localContactPoint`);
+        if (!pointOnPrimitive(localContactPoint, primitive)) {
+          throw new Error(`${context} mountedContactStriker surface "${surfaceId}" contact point must lie on primitive "${primitiveId}"`);
+        }
+        const damageScale = nonNegative(surface.damageScale, context, `mountedContactStriker.surfaces[${at}].damageScale`);
+        const shove = surface.shoveSpecificImpulseMps === undefined ? undefined :
+          nonNegative(surface.shoveSpecificImpulseMps, context, `mountedContactStriker.surfaces[${at}].shoveSpecificImpulseMps`);
+        if (shove !== undefined && shove > 0.014) throw new Error(`${context} mountedContactStriker surface "${surfaceId}" shoveSpecificImpulseMps must be at most 0.014`);
+        if (surface.kind === "mass") {
+          if (surface.localEdgeDirection !== undefined || surface.localFlatDirection !== undefined) {
+            throw new Error(`${context} mountedContactStriker mass surface "${surfaceId}" cannot declare edge directions`);
+          }
+          return Object.freeze({ id: surfaceId, primitiveId, kind: surface.kind, localContactPoint,
+            damageScale, ...(shove === undefined ? {} : { shoveSpecificImpulseMps: shove }) });
+        }
+        if (damageScale <= 0) throw new Error(`${context} mountedContactStriker edge surface "${surfaceId}" damageScale must be positive`);
+        const edge = unit(surface.localEdgeDirection, context, `mountedContactStriker.surfaces[${at}].localEdgeDirection`);
+        const flat = unit(surface.localFlatDirection, context, `mountedContactStriker.surfaces[${at}].localFlatDirection`);
+        if (Math.abs(edge[0] * flat[0] + edge[1] * flat[1] + edge[2] * flat[2]) > 1e-6) {
+          throw new Error(`${context} mountedContactStriker edge surface "${surfaceId}" directions must be orthogonal`);
+        }
+        return Object.freeze({ id: surfaceId, primitiveId, kind: surface.kind, localContactPoint,
+          damageScale, ...(shove === undefined ? {} : { shoveSpecificImpulseMps: shove }),
+          localEdgeDirection: edge, localFlatDirection: flat });
+      });
+      if (new Set(surfaces.map((surface) => surface.id)).size !== surfaces.length) {
+        throw new Error(`${context} field "mountedContactStriker.surfaces" contains a duplicate id`);
+      }
+      result.mountedContactStriker = Object.freeze({ kind: mounted.kind, action, surfaces: Object.freeze(surfaces) });
+    } else {
+      throw new Error(`${context} field "mountedContactStriker" is unavailable before blueprint version 4`);
     }
-    result.mountedContactStriker = Object.freeze({ kind: mounted.kind, localContactPoint,
-      shoveSpecificImpulseMps: shove });
   }
-  return Object.freeze(result) as unknown as ModuleSpec | LegacyModuleSpec;
+  return Object.freeze(result) as unknown as ModuleSpec | LegacyModuleSpec | V4ModuleSpec;
 }
 
-function topology(blueprint: ConstructBlueprint | LegacyConstructBlueprint | V2ConstructBlueprint | V3ConstructBlueprint): void {
+function topology(blueprint: ConstructBlueprint | LegacyConstructBlueprint | V2ConstructBlueprint | V3ConstructBlueprint | V4ConstructBlueprint): void {
   const parts = new Set(blueprint.parts.map((part) => part.id)); if (!parts.has(blueprint.rootPart)) throw new Error(`blueprint "${blueprint.id}" field "rootPart" references missing part "${blueprint.rootPart}"`);
   const parent = new Map<string, JointSpec>(); const children = new Map<string, JointSpec[]>();
   for (const joint of blueprint.joints) { if (!parts.has(joint.parentPart)) throw new Error(`joint "${joint.id}" field "parentPart" references missing part "${joint.parentPart}"`); if (!parts.has(joint.childPart)) throw new Error(`joint "${joint.id}" field "childPart" references missing part "${joint.childPart}"`); if (joint.childPart === blueprint.rootPart) throw new Error(`joint "${joint.id}" field "childPart" makes root part "${blueprint.rootPart}" a child`); if (parent.has(joint.childPart)) throw new Error(`joint "${joint.id}" field "childPart" repeats part "${joint.childPart}"`); parent.set(joint.childPart, joint); const rows = children.get(joint.parentPart) ?? []; rows.push(joint); children.set(joint.parentPart, rows); }
@@ -214,7 +285,7 @@ function topology(blueprint: ConstructBlueprint | LegacyConstructBlueprint | V2C
   const disconnected = blueprint.parts.find((part) => !reached.has(part.id)); if (disconnected) throw new Error(`part "${disconnected.id}" field "joints" is disconnected from root part "${blueprint.rootPart}"`); if (blueprint.joints.length !== blueprint.parts.length - 1) throw new Error(`blueprint "${blueprint.id}" field "joints" must contain one edge per non-root part`);
 }
 
-function validateBlueprintVersion(value: unknown, version: 1 | 2 | 3 | 4): ConstructBlueprint | LegacyConstructBlueprint | V2ConstructBlueprint | V3ConstructBlueprint {
+function validateBlueprintVersion(value: unknown, version: 1 | 2 | 3 | 4 | 5): ConstructBlueprint | LegacyConstructBlueprint | V2ConstructBlueprint | V3ConstructBlueprint | V4ConstructBlueprint {
   const source = object(value, "construct blueprint"); const named = typeof source.id === "string" ? source.id : "<unknown>"; fields(source, ["version", "id", "rootPart", "parts", "joints", "sockets", "modules"], [], `blueprint "${named}"`); if (source.version !== version) throw new Error(`blueprint "${named}" field "version" ${JSON.stringify(source.version)} is unsupported`); const blueprintId = id(source.id, `blueprint "${named}"`, "id");
   const partsSource = array(source.parts, `blueprint "${blueprintId}"`, "parts"); const jointsSource = array(source.joints, `blueprint "${blueprintId}"`, "joints"); const socketsSource = array(source.sockets, `blueprint "${blueprintId}"`, "sockets"); const modulesSource = array(source.modules, `blueprint "${blueprintId}"`, "modules");
   for (const [name, rows, maximum] of [["parts", partsSource, 128], ["joints", jointsSource, 127], ["sockets", socketsSource, 256], ["modules", modulesSource, 256]] as const) if (rows.length > maximum) throw new Error(`construct blueprint field "${name}" exceeds maximum ${maximum}`);
@@ -222,7 +293,7 @@ function validateBlueprintVersion(value: unknown, version: 1 | 2 | 3 | 4): Const
   const joints = jointsSource.map((entry, index): JointSpec => { const row = object(entry, `blueprint "${blueprintId}" joint[${index}]`); const context = `joint "${typeof row.id === "string" ? row.id : `<index ${index}>`}"`; fields(row, ["id", "parentPart", "childPart", "parentFrame", "childFrame", "angularAxes", "health", "armour"], [], context); const axesSource = array(row.angularAxes, context, "angularAxes"); if (!axesSource.length || axesSource.length > 3) throw new Error(`${context} field "angularAxes" must contain 1 to 3 axes`); const angularAxes = axesSource.map((entryAxis, at): AngularAxisSpec => { const axis = object(entryAxis, `${context} angularAxes[${at}]`); fields(axis, ["id", "minRad", "maxRad", "damping", "maxTorqueNm", "maxSpeedRadS"], [], `${context} angularAxes[${at}]`); if (axis.id !== "x" && axis.id !== "y" && axis.id !== "z") throw new Error(`${context} field "angularAxes[${at}].id" is unknown`); const minRad = finite(axis.minRad, context, `angularAxes[${at}].minRad`); const maxRad = finite(axis.maxRad, context, `angularAxes[${at}].maxRad`); if (minRad > maxRad) throw new Error(`${context} field "angularAxes[${at}]" has min greater than max`); return Object.freeze({ id: axis.id, minRad, maxRad, damping: nonNegative(axis.damping, context, `angularAxes[${at}].damping`), maxTorqueNm: positive(axis.maxTorqueNm, context, `angularAxes[${at}].maxTorqueNm`), maxSpeedRadS: positive(axis.maxSpeedRadS, context, `angularAxes[${at}].maxSpeedRadS`) }); }); if (new Set(angularAxes.map((axis) => axis.id)).size !== angularAxes.length) throw new Error(`${context} field "angularAxes" contains a duplicate axis`); return Object.freeze({ id: id(row.id, context, "id"), parentPart: id(row.parentPart, context, "parentPart"), childPart: id(row.childPart, context, "childPart"), parentFrame: frame(row.parentFrame, context, "parentFrame"), childFrame: frame(row.childFrame, context, "childFrame"), angularAxes: Object.freeze(angularAxes), health: positive(row.health, context, "health"), armour: nonNegative(row.armour, context, "armour") }); });
   const sockets = socketsSource.map((entry, index): SocketSpec => { const row = object(entry, `blueprint "${blueprintId}" socket[${index}]`); const context = `socket "${typeof row.id === "string" ? row.id : `<index ${index}>`}"`; fields(row, ["id", "part", "frame", "accepts"], [], context); const accepts = idList(row.accepts, context, "accepts"); if (!accepts.length) throw new Error(`${context} field "accepts" must not be empty`); return Object.freeze({ id: id(row.id, context, "id"), part: id(row.part, context, "part"), frame: frame(row.frame, context, "frame"), accepts }); });
   const modules = modulesSource.map((entry, index) => parseModule(entry, blueprintId, index, version)); for (const [name, rows] of [["parts", parts], ["joints", joints], ["sockets", sockets], ["modules", modules]] as const) if (new Set(rows.map((row) => row.id)).size !== rows.length) throw new Error(`blueprint "${blueprintId}" field "${name}" has duplicate id`);
-  const blueprint = Object.freeze({ version, id: blueprintId, rootPart: id(source.rootPart, `blueprint "${blueprintId}"`, "rootPart"), parts: Object.freeze(parts), joints: Object.freeze(joints), sockets: Object.freeze(sockets), modules: Object.freeze(modules) }) as unknown as ConstructBlueprint | LegacyConstructBlueprint | V2ConstructBlueprint | V3ConstructBlueprint; if (!parts.some((part) => part.fatal || part.vitalityWeight > 0)) throw new Error(`blueprint "${blueprintId}" field "parts" must contain a fatal or positive-vitality part`); topology(blueprint);
+  const blueprint = Object.freeze({ version, id: blueprintId, rootPart: id(source.rootPart, `blueprint "${blueprintId}"`, "rootPart"), parts: Object.freeze(parts), joints: Object.freeze(joints), sockets: Object.freeze(sockets), modules: Object.freeze(modules) }) as unknown as ConstructBlueprint | LegacyConstructBlueprint | V2ConstructBlueprint | V3ConstructBlueprint | V4ConstructBlueprint; if (!parts.some((part) => part.fatal || part.vitalityWeight > 0)) throw new Error(`blueprint "${blueprintId}" field "parts" must contain a fatal or positive-vitality part`); topology(blueprint);
   const partIds = new Set(parts.map((part) => part.id)); const socketMap = new Map(sockets.map((socket) => [socket.id, socket])); const occupied = new Map<string, string>(); for (const socket of sockets) if (!partIds.has(socket.part)) throw new Error(`socket "${socket.id}" field "part" references missing part "${socket.part}"`); for (const module of modules) { const socket = socketMap.get(module.socket); if (!socket) throw new Error(`module "${module.id}" field "socket" references missing socket "${module.socket}"`); if (occupied.has(module.socket)) throw new Error(`module "${module.id}" field "socket" is already occupied by module "${occupied.get(module.socket)}"`); if (!socket.accepts.includes(module.compatibilityTag)) throw new Error(`module "${module.id}" field "compatibilityTag" "${module.compatibilityTag}" is incompatible with socket "${socket.id}"`); occupied.set(module.socket, module.id);
     if (module.projectile) {
       const energy = 0.5 * module.projectile.massKg * module.projectile.muzzleSpeedMps ** 2;
@@ -245,3 +316,7 @@ export const validateV2Blueprint = (value: unknown): V2ConstructBlueprint =>
 
 export const validateV3Blueprint = (value: unknown): V3ConstructBlueprint =>
   validateBlueprintVersion(value, 3) as V3ConstructBlueprint;
+
+/** Frozen v4 grammar used only to authenticate saved bytes before contact-surface migration. */
+export const validateV4Blueprint = (value: unknown): V4ConstructBlueprint =>
+  validateBlueprintVersion(value, 4) as V4ConstructBlueprint;

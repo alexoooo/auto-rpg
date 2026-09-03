@@ -45,23 +45,52 @@ const moduleDistance = (module: ConstructModule, point: Vector3): number => {
   return Math.min(...module.spec.geometry.map((piece) => distanceToModulePrimitive(local, piece)));
 };
 
+export interface ModulePrimitiveContact {
+  readonly module: ConstructModule;
+  readonly primitive: ModulePrimitiveSpec;
+  readonly distanceM: number;
+  /** An exact primitive tie is never evidence that the smaller sharp surface won. */
+  readonly ambiguous: boolean;
+}
+
 /**
  * Babylon identifies only the compound owner body in a collision event. Resolve
  * the leaf explicitly from its blueprint geometry and contact point; never guess
  * from a visual mesh name or declaration order.
  */
+export function modulePrimitiveAtContact(
+  runtime: ConstructRuntime,
+  body: PhysicsBody,
+  point: Vector3,
+  toleranceM = SURFACE_SLOP_M,
+): ModulePrimitiveContact | null {
+  const candidates = [...runtime.modules.values()]
+    .filter((module) => module.socket.part.body === body && module.socket.part.attached)
+    .flatMap((module) => {
+      const local = Vector3.TransformCoordinates(point, Matrix.Invert(module.root.computeWorldMatrix(true)));
+      return module.spec.geometry.map((primitive) => Object.freeze({ module, primitive,
+        distanceM: distanceToModulePrimitive(local, primitive) }));
+    })
+    .filter(({ distanceM }) => distanceM <= toleranceM)
+    .sort((left, right) => left.distanceM - right.distanceM || left.module.id.localeCompare(right.module.id) ||
+      left.primitive.id.localeCompare(right.primitive.id));
+  const winner = candidates[0];
+  if (!winner) return null;
+  // A compound leaf overlap is a blueprint fault, not permission to award the most damaging
+  // candidate by declaration or lexical accident. Callers can still use the contact for a
+  // physical block, but edged scoring must fail closed when the hit primitive is ambiguous.
+  const ambiguous = candidates.slice(1).some((candidate) =>
+    candidate.module.id === winner.module.id && Math.abs(candidate.distanceM - winner.distanceM) <= 1e-9);
+  return Object.freeze({ ...winner, ambiguous });
+}
+
 export function moduleAtContact(
   runtime: ConstructRuntime,
   body: PhysicsBody,
   point: Vector3,
   toleranceM = SURFACE_SLOP_M,
 ): ConstructModule | null {
-  const candidates = [...runtime.modules.values()]
-    .filter((module) => module.socket.part.body === body && module.socket.part.attached)
-    .map((module) => ({ module, distance: moduleDistance(module, point) }))
-    .filter(({ distance }) => distance <= toleranceM)
-    .sort((left, right) => left.distance - right.distance || left.module.id.localeCompare(right.module.id));
-  return candidates[0]?.module ?? null;
+  return modulePrimitiveAtContact(runtime, body, point, toleranceM)?.module ?? null;
 }
 
 /** Bearings have no separate Havok body, so their attachment frame is their hit volume. */
