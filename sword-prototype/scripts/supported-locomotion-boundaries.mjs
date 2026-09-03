@@ -24,7 +24,13 @@ export const SUPPORTED_LOCOMOTION_BOUNDARIES_V1 = Object.freeze({
   // Recovery is the premise under test, so the fixture causes the initial fall explicitly.
   // The later abort must still line up with a real Havok weapon contact; this step-zero shove
   // cannot satisfy that temporal proof or impersonate the interrupt.
-  hit: Object.freeze({ separationM: 1.25, maxSteps: 380, warriorSeed: 3,
+  hit: Object.freeze({ separationM: 1.00, maxSteps: 380, warriorSeed: 6, warriorPolicy: "swinger",
+    // This is deliberately a two-handed club rather than the normal sword-and-buckler pair:
+    // the paired 240 Hz fixture needs one genuinely staggering physical strike during the
+    // 0.45-second rise.  The old duelist/sword row only supplied weak armour contacts after
+    // recovery, while the pre-fix test passed because a control sequencing gap dropped the
+    // carrier without any qualifying hit at all.
+    warriorLoadout: Object.freeze({ primary: "club", secondary: "club" }),
     initialShove: Object.freeze({ atStep: 0, horizontalShoveNs: Object.freeze([12, 0]) }) }),
 });
 
@@ -52,7 +58,7 @@ export async function runSupportedLocomotionBoundaryCorpus() {
   }
   const hit = SUPPORTED_LOCOMOTION_BOUNDARIES_V1.hit;
   cells.push(compactHit(await runConstructWarriorBout({ saved, sensors: HUMANOID_SENSORS,
-    warriorPolicy: "duelist", warriorSeed: hit.warriorSeed,
+    warriorPolicy: hit.warriorPolicy, warriorLoadout: hit.warriorLoadout, warriorSeed: hit.warriorSeed,
     separationM: hit.separationM, maxSteps: hit.maxSteps,
     stabilityShoves: [hit.initialShove] })));
   return Object.freeze({ version: SUPPORTED_LOCOMOTION_BOUNDARIES_V1.version,
@@ -116,9 +122,10 @@ export function assertSupportedLocomotionBoundaryCorpus(report) {
       if (!(rising >= 0 && interrupted > rising)) fail("a later safe boundary did not abort rising");
       const priorAtS = cell.locomotionSteps[interrupted - 1]?.atS;
       const fallenAtS = cell.locomotionSteps[interrupted]?.atS;
-      if (!cell.warriorContacts.some(({ atS }) =>
-        atS >= priorAtS - 1e-9 && atS <= fallenAtS + 1e-9)) {
-        fail("the interrupt boundary retained no real Havok weapon contact");
+      if (!cell.warriorContacts.some(({ atS, weapon, damage }) =>
+        atS >= priorAtS - 1e-9 && atS <= fallenAtS + 1e-9 && weapon === expected.hit.warriorLoadout.primary &&
+        Number.isFinite(damage) && damage > 0)) {
+        fail("the interrupt boundary retained no damaging real Havok weapon contact");
       }
       if (!same(cell.stabilityShoves, [expected.hit.initialShove])) {
         fail("the explicit initial fall shove changed or another scheduled shove impersonated the hit");

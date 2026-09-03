@@ -6,7 +6,7 @@ import { deriveLocomotionFootprint, StandableWorldRegistry,
 import { locomotionModeForPair, unitDefinition } from "../src/units.ts";
 import { humanoidSavedConstruct, HUMANOID_SENSORS } from "../src/construct/humanoid.ts";
 import { arbalestSavedConstruct, ARBALEST_SENSORS } from "../src/construct/arbalest.ts";
-import { flatSupportedWorldRegistry, PhysicalSupportedLocomotionPort, resolvePhysicalSupportedPair } from
+import { flatSupportedWorldRegistry, PhysicalSupportedLocomotionPort, recoveryHitInterrupted, resolvePhysicalSupportedPair } from
   "../src/supported-locomotion-production.ts";
 import { assertConstructWarriorLocomotionCorpus, CONSTRUCT_WARRIOR_LOCOMOTION_V1,
   runConstructWarriorLocomotionCorpus } from "../scripts/construct-warrior-locomotion.mjs";
@@ -84,6 +84,55 @@ test("withdrawn_Construct_authority_cannot_resurrect_from_the_prior_boundary", (
     assert.equal(port.diagnostic().authority, false,
       "the body-level fallback must not revive scheduler-owned permission");
   } finally { port.dispose(); }
+});
+
+test("a_reparameterized_locomotion_Action_keeps_its_declared_brace_at_the_next_safe_boundary", () => {
+  const registry = flatSupportedWorldRegistry();
+  const footprint = deriveLocomotionFootprint({ radiusM: 0.5, heightM: 1.8,
+    provenance: { profileId: "reparameterized-authority-fixture", source: "construct-bind-geometry",
+      measuredAt: "scheduler replacement boundary" } });
+  const root = { sample: () => ({ motionType: "animated", position: { x: 0, y: 0.9, z: 0 },
+    velocity: { x: 0, y: 0, z: 0 }, massKg: 10, released: false }),
+  applyForce() {}, clearDrive() {} };
+  const first = Object.freeze({ actionId: "advance", groupId: "locomotion", carrierPartId: "pelvis",
+    carrierToRootJointIds: Object.freeze([]), supportBindings: Object.freeze([{ role: "left-foot" }]),
+    balanceChainJointIds: Object.freeze([]), braceCapacityMultiplier: 2, gaitStabilityScale: 1 });
+  const replacement = Object.freeze({ ...first });
+  const port = new PhysicalSupportedLocomotionPort({ id: "reparameterized-authority-fixture",
+    position: root.sample().position, yaw: 0, footprint, ownerPartIds: new Set(), root, registry,
+    supportedMassKg: 10, authority: () => null, liveSupport: () => true, postureSupported: () => true,
+    supportBindings: ["left-foot"], resolveActionAuthority: () => replacement });
+  const request = (yaw) => ({ localForward: 0, localRight: 0, yaw, recover: false });
+  try {
+    port.beginControlStep();
+    port.stage({ action: "advance", group: "locomotion", authority: first, request: request(0) });
+    port.beginControlStep();
+    assert.equal(port.diagnostic().stability.fallAtMps, 0.028);
+    assert.equal(port.authority({ id: "advance", group: "locomotion", controller: "supported-biped-combat-move",
+      claims: ["resource:balance"], parameters: {} }, { id: "locomotion", joints: [], modules: [], bindings: {} }),
+    replacement, "the scheduler may probe the replacement before cancelling the prior Action");
+    port.clearSubmission("advance", "locomotion", first, "parameters changed");
+    port.stage({ action: "advance", group: "locomotion", authority: replacement, request: request(0.3) });
+    port.queueStabilityEvent({ kind: "specific-impulse", specificImpulseMps: 0.016 });
+    port.beginControlStep();
+    assert.equal(port.diagnostic().state.state, "staggered",
+      "the sub-braced hit may stagger but must not release the newly reparameterized carrier");
+    assert.equal(port.diagnostic().stability.fallAtMps, 0.028);
+  } finally { port.dispose(); }
+});
+
+test("only_a_fresh_staggering_transfer_can_interrupt_a_bounded_recovery", () => {
+  const authority = { carrierPartId: "pelvis", supportBindings: [], braceCapacityMultiplier: 1,
+    gaitStabilityScale: 1 };
+  assert.equal(recoveryHitInterrupted([{ kind: "specific-impulse", specificImpulseMps: 0.005999 }], 10, authority), false,
+    "a physical scrape must not make recovery mathematically impossible");
+  assert.equal(recoveryHitInterrupted([{ kind: "specific-impulse", specificImpulseMps: 0.006 }], 10, authority), true,
+    "the actual stagger edge must remain an interrupt");
+  assert.equal(recoveryHitInterrupted([{ horizontalShoveNs: [0.06, 0] }], 10, authority), true,
+    "ordinary authored weapon shoves use the same specific-impulse boundary");
+  assert.equal(recoveryHitInterrupted([{ kind: "specific-impulse", specificImpulseMps: 0.011 }], 10,
+    { ...authority, braceCapacityMultiplier: 2 }), false,
+    "a declared planted brace raises recovery interruption capacity as it raises fall capacity");
 });
 
 const physicalFixture = (id, x, registry, overrides = {}) => {
@@ -324,9 +373,10 @@ test("a_real_weapon_hit_during_rising_aborts_recovery_on_the_next_safe_boundary"
   assert.ok(interrupted > rising, "a later safe boundary must abort rising");
   const priorAtS = cell.locomotionSteps[interrupted - 1].atS;
   const fallenAtS = cell.locomotionSteps[interrupted].atS;
-  const physicalHit = cell.warriorContacts.find(({ atS }) =>
-    atS >= priorAtS - 1e-9 && atS <= fallenAtS + 1e-9);
-  assert.ok(physicalHit, "the interrupt boundary must retain the real Havok weapon contact");
+  const physicalHit = cell.warriorContacts.find(({ atS, weapon, damage }) =>
+    atS >= priorAtS - 1e-9 && atS <= fallenAtS + 1e-9 && weapon === report.fixture.hit.warriorLoadout.primary &&
+    damage > 0);
+  assert.ok(physicalHit, "the interrupt boundary must retain the damaging real Havok weapon contact");
   assert.deepEqual(cell.stabilityShoves, [report.fixture.hit.initialShove],
     "only the step-zero fall fixture is authored; the later interrupt must remain a real hit");
 });

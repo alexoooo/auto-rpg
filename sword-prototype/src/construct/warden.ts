@@ -147,9 +147,10 @@ const commonModules = Object.freeze([
       geometry("plate", { kind: "box", sizeM: [0.75, 0.50, 0.09] }, "plate", [-0.35, 0, 0.75]),
       geometry("boss", { kind: "cylinder", lengthM: 0.08, radiusM: 0.08 }, "bearing",
         [-0.35, 0, 0.80], X_QUARTER_TURN)], 14),
-    mountedContactStriker: Object.freeze({ kind: "authored-shove" as const,
-      localContactPoint: Object.freeze([-0.35, 0, 0.795]) as readonly [number, number, number],
-      shoveSpecificImpulseMps: 0.008 }) }),
+    mountedContactStriker: Object.freeze({ kind: "authored-surface" as const, action: "bash",
+      surfaces: Object.freeze([Object.freeze({ id: "boss-shove", primitiveId: "boss", kind: "mass" as const,
+        localContactPoint: Object.freeze([-0.35, 0, 0.84]) as readonly [number, number, number],
+        damageScale: 0, shoveSpecificImpulseMps: 0.008 })]) }) }),
   Object.freeze({ ...moduleBase("warden-power", "power-core", "socket-power", "power-core",
     [geometry("core", { kind: "sphere", radiusM: 0.12 }, "core")], 8), capacityJ: 24_000, maxOutputW: 520 }),
   Object.freeze({ ...moduleBase("dorsal-magazine", "magazine", "socket-magazine", "magazine",
@@ -176,7 +177,7 @@ export function wardenBlueprint(variant: "crossbow" | "sword" = "crossbow"): Con
   const sockets = variant === "sword" ? baseSockets.map((socket) => socket.id === "socket-dorsal-output"
     ? Object.freeze({ ...socket, frame: frame([0, 0.09, WARDEN_SWORD_BIND.socketForwardM]) }) : socket) : baseSockets;
   return validateBlueprint({
-    version: 4,
+    version: 5,
     id: `warden-${variant}`,
     rootPart: "core",
     parts: baseParts,

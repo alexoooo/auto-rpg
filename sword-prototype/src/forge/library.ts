@@ -5,10 +5,11 @@ import { canonicalSavedConstructJson } from "../construct/matchup.ts";
 import type { SensorSpec } from "../construct/sensors.ts";
 
 export const LEGACY_CONSTRUCT_LIBRARY_STORAGE_KEY = "sword-prototype.construct-library.v1";
-export const CONSTRUCT_LIBRARY_STORAGE_KEY = "sword-prototype.construct-library.v4";
-export const CONSTRUCT_LIBRARY_VERSION = 4 as const;
+export const CONSTRUCT_LIBRARY_STORAGE_KEY = "sword-prototype.construct-library.v5";
+export const CONSTRUCT_LIBRARY_VERSION = 5 as const;
 const MIGRATABLE_LIBRARY_STORAGE_KEYS = Object.freeze([
-  "sword-prototype.construct-library.v3", "sword-prototype.construct-library.v2",
+  "sword-prototype.construct-library.v4", "sword-prototype.construct-library.v3",
+  "sword-prototype.construct-library.v2",
   LEGACY_CONSTRUCT_LIBRARY_STORAGE_KEY,
 ]);
 export const CONSTRUCT_LIBRARY_MAX_ENTRIES = 32;
@@ -100,7 +101,7 @@ export function parseConstructLibrary(
     throw new Error(`saved construct library JSON is invalid: ${error instanceof Error ? error.message : String(error)}`);
   }
   const source = exactObject(value, ["version", "entries"], "saved construct library");
-  if (![1, 2, 3, CONSTRUCT_LIBRARY_VERSION].includes(source.version as number)) {
+  if (![1, 2, 3, 4, CONSTRUCT_LIBRARY_VERSION].includes(source.version as number)) {
     throw new Error(`saved construct library version ${JSON.stringify(source.version)} is unsupported`);
   }
   if (!Array.isArray(source.entries)) throw new Error("saved construct library entries must be an array");
@@ -146,7 +147,7 @@ export function loadConstructLibrary(
   if (source !== null) return parseConstructLibrary(source, sensors);
   const legacy = MIGRATABLE_LIBRARY_STORAGE_KEYS.map((key) => storage.getItem(key)).find((row) => row !== null);
   if (legacy === undefined || legacy === null) return Object.freeze([]);
-  // Parsing migrates the complete library in memory. Encoding also validates the final v4
+  // Parsing migrates the complete library in memory. Encoding also validates the final v5
   // envelope, so no partial replacement is observable if any entry refuses migration.
   const migrated = parseConstructLibrary(legacy, sensors);
   const encoded = encodeConstructLibrary(migrated, sensors);

@@ -20,13 +20,17 @@ export const EFFIGY_DYNAMISM_V1 = Object.freeze({
   warriorSeeds: Object.freeze([4140987459, 4124209840, 4174542697, 4157765078]),
   maximumPassiveCombatS: 0.75,
   minimumCompletedAttacks: 3,
+  minimumGauntletChecks: 1,
+  minimumBimanualCommitSamples: 1,
   minimumOrbitDirectionSwitches: 2,
   minimumTurnAndMoveS: 0.25,
   minimumSupportedStandingS: 19,
   minimumSwordCoreClearanceM: 0.025,
 });
 
-const ATTACK_ACTIONS = new Set(["sweep", "counter"]);
+const ATTACK_ACTIONS = new Set(["sweep", "counter", "gauntlet-strike"]);
+const RIGHT_ARM_ACTIONS = new Set(["sweep", "guard", "aim"]);
+const LEFT_ARM_ACTIONS = new Set(["offhand-guard", "gauntlet-strike"]);
 const MOTION_ACTIONS = new Set(["advance", "withdraw", "orbit-left", "orbit-right", "recover"]);
 const HOLD_EXEMPT_PHASES = new Set(["counter", "hold-ground"]);
 
@@ -68,6 +72,8 @@ function effigySample({ step, atS, construct, warrior, snapshot }) {
     active,
     rangeM: snapshot.facts["opponent-range"],
     swordCoreClearanceM: snapshot.facts["sword-core-clearance-m"],
+    swordArmIntegrity: snapshot.facts["sword-arm-integrity"],
+    leftArmIntegrity: snapshot.facts["left-arm-integrity"],
     terminal,
     weaponThreat: snapshot.facts["line-of-sight"] === true && snapshot.facts["opponent-weapon-present"] === true &&
       Number(snapshot.facts["opponent-weapon-speed-mps"] ?? 0) >= 5 && Number(snapshot.facts["opponent-weapon-local-z"] ?? 0) > 0 &&
@@ -81,7 +87,7 @@ function warriorSample({ step, atS, fighter, opponent }) {
     supportState: fighter.locomotion?.state ?? "legacy", carrierRequested: null, carrierAllowed: null,
     phase: "warrior-duelist", reason: "ordinary duelist", selectedActions: Object.freeze([]),
     active: Object.freeze([]), rangeM: fighter.view.measure, swordCoreClearanceM: Number.POSITIVE_INFINITY,
-    terminal: Object.freeze([]), weaponThreat: false });
+    terminal: Object.freeze([]), weaponThreat: false, swordArmIntegrity: null, leftArmIntegrity: null });
 }
 
 const vector = (from, to) => ({ x: to.x - from.x, z: to.z - from.z });
@@ -100,6 +106,8 @@ export function reconstructDynamismMetrics(samples, contacts = []) {
   let turnAndMoveStart = null;
   let maximumTurnAndMoveS = 0;
   const terminalActions = [];
+  let gauntletChecks = 0;
+  let bimanualCommitSamples = 0;
   for (let index = 0; index < samples.length; index += 1) {
     const row = samples[index];
     if (!Number.isSafeInteger(row.step) || !finite(row.atS) || !finite(row.root?.x) || !finite(row.root?.z) ||
@@ -123,6 +131,10 @@ export function reconstructDynamismMetrics(samples, contacts = []) {
 
     const labelledActive = row.selectedActions.some((action) => MOTION_ACTIONS.has(action) || ATTACK_ACTIONS.has(action) ||
       action === "guard" || action === "offhand-guard" || action === "stabilize");
+    if (row.selectedActions.includes("gauntlet-strike")) gauntletChecks += 1;
+    if (row.selectedActions.includes("sweep") && row.selectedActions.includes("gauntlet-strike")) {
+      bimanualCommitSamples += 1;
+    }
     const inCombat = finite(row.rangeM) && row.rangeM <= 2.10;
     if (inCombat && !labelledActive && !HOLD_EXEMPT_PHASES.has(row.phase)) {
       if (passiveStart === null) passiveStart = row.atS;
@@ -158,7 +170,8 @@ export function reconstructDynamismMetrics(samples, contacts = []) {
   }
   return immutableMetric({ groundPathM, lateralExcursionM, accumulatedHeadingRad, orbitDirectionSwitches,
     maximumPassiveCombatS, completedAttacks: terminalActions.length, damagingStationaryContacts,
-    maximumTurnAndMoveS, terminalActions: Object.freeze(terminalActions.map(Object.freeze)),
+    maximumTurnAndMoveS, gauntletChecks, bimanualCommitSamples,
+    terminalActions: Object.freeze(terminalActions.map(Object.freeze)),
     stationaryExceptions: Object.freeze(exceptions) });
 }
 
@@ -182,7 +195,7 @@ export function assertEffigyWarriorDynamismCorpus(report) {
     const stored = report.cells[index].effigy.metrics;
     const current = reconstructed[index].effigy;
     for (const key of ["groundPathM", "lateralExcursionM", "accumulatedHeadingRad", "orbitDirectionSwitches",
-      "maximumPassiveCombatS", "completedAttacks", "damagingStationaryContacts"]) {
+      "maximumPassiveCombatS", "completedAttacks", "damagingStationaryContacts", "gauntletChecks", "bimanualCommitSamples"]) {
       if (!sameNumber(stored?.[key], current[key])) error(`${actual[index]} stored ${key} disagrees with physical samples`);
     }
   }
@@ -198,6 +211,8 @@ export function assertEffigyWarriorDynamismCorpus(report) {
       if (metrics[field] + 1e-9 < warriorLowerQuartile[field]) error(`${actual[index]} ${field} is below Warrior lower quartile`);
     }
     if (metrics.completedAttacks < config.minimumCompletedAttacks) error(`${actual[index]} completed fewer than three attacks`);
+    if (metrics.gauntletChecks < config.minimumGauntletChecks) error(`${actual[index]} never selected a gauntlet check`);
+    if (metrics.bimanualCommitSamples < config.minimumBimanualCommitSamples) error(`${actual[index]} never committed both arms together`);
     if (metrics.orbitDirectionSwitches < config.minimumOrbitDirectionSwitches) error(`${actual[index]} changed orbit lane fewer than twice`);
     if (metrics.maximumPassiveCombatS > config.maximumPassiveCombatS + 1e-9) error(`${actual[index]} has an unlabelled passive combat interval`);
     if (metrics.maximumTurnAndMoveS + 1e-9 < config.minimumTurnAndMoveS) error(`${actual[index]} has no concurrent turn-and-move interval`);
@@ -212,6 +227,16 @@ export function assertEffigyWarriorDynamismCorpus(report) {
     const threatOccurred = cell.effigy.samples.some(({ weaponThreat }) => weaponThreat);
     if (threatOccurred && !cell.effigy.samples.some(({ weaponThreat, selectedActions }) => weaponThreat && selectedActions.includes("offhand-guard"))) {
       error(`${actual[index]} ignored a visible moving weapon with its intact off-hand`);
+    }
+    for (const sample of cell.effigy.samples) {
+      const combat = finite(sample.rangeM) && sample.rangeM <= 2.10 && sample.phase !== "recover";
+      if (!combat) continue;
+      if (!sample.selectedActions.some((action) => RIGHT_ARM_ACTIONS.has(action))) {
+        error(`${actual[index]} left the right arm unowned in ${sample.phase}`);
+      }
+      if (!sample.selectedActions.some((action) => LEFT_ARM_ACTIONS.has(action))) {
+        error(`${actual[index]} left the gauntlet arm unowned in ${sample.phase}`);
+      }
     }
   }
   return Object.freeze({ ...report, warriorLowerQuartile });

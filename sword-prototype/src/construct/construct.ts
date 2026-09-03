@@ -450,6 +450,7 @@ export class Construct implements Combatant {
       effect: (effect) => this.applyEffect(effect),
       capabilities: () => this.state.capabilities(control),
       admission: (dt, command) => this.state.capabilitiesForCommand(control, command, dt),
+      motorScale: (target) => this.state.motorScaleForJoint(target.joint.split(":", 1)[0]),
       locomotion: this.locomotion ?? undefined,
       locomotionDiagnostic: () => this.locomotion?.diagnostic() ?? null,
     });
@@ -506,11 +507,8 @@ export class Construct implements Combatant {
       .flatMap((module) => {
         const contact = module.spec.mountedContactStriker;
         if (!contact) return [];
-        if (contact.kind === "authored-surface") return contact.surfaces.map((surface) =>
-          new ConstructMountedContactStriker(this.runtime, module, surface,
-            () => this.state.moduleAvailable(module.id)));
-        return [new ConstructMountedContactStriker(this.runtime, module, null,
-          () => this.state.moduleAvailable(module.id))];
+        return contact.surfaces.map((surface) => new ConstructMountedContactStriker(this.runtime, module, surface,
+          () => this.state.moduleAvailable(module.id)));
       });
     this.effectorViews = [
       ...this.mountedEffectors.map(() => ({ weapon: "sword" as const, anchor: new Vector3(),
@@ -592,6 +590,8 @@ export class Construct implements Combatant {
     const leftSwordClearanceM = this.leftSwordClearanceM();
     const swordCoreClearanceM = this.swordCoreClearanceM();
     const hardware = this.state.hardware();
+    const leftArmIntegrity = this.state.armIntegrity("left");
+    const swordArmIntegrity = this.state.armIntegrity("sword");
     const lineOfSight = this.hasLineOfSight(opponent, opponentCentre, launcherPose);
     Object.assign(facts, {
       "core-upright": coreUpright,
@@ -614,9 +614,10 @@ export class Construct implements Combatant {
       "left-sword-clearance-m": leftSwordClearanceM ?? 1,
       "left-sword-clear": leftSwordClearanceM === null || leftSwordClearanceM >= 0.025,
       "sword-core-clearance-m": swordCoreClearanceM ?? 1,
-      "left-arm-ready": ["left-shoulder", "left-elbow", "left-wrist", "left-palm"]
-        .every((joint) => hardware.joints.has(joint)),
-      "sword-ready": hardware.modules.has("effigy-sword"),
+      "left-arm-ready": leftArmIntegrity > 0,
+      "left-arm-integrity": leftArmIntegrity,
+      "sword-ready": swordArmIntegrity > 0,
+      "sword-arm-integrity": swordArmIntegrity,
       "opponent-local-x": this.localOpponent.x,
       "opponent-local-y": this.localOpponent.y,
       "opponent-local-z": this.localOpponent.z,
@@ -902,8 +903,12 @@ export class Construct implements Combatant {
   }
   parriedBy(body: PhysicsBody, point?: Vector3): { readonly kind: WeaponKind } | null {
     const shield = point ? moduleAtContact(this.runtime, body, point) : null;
-    if (shield?.spec.kind !== "shield" || !this.state.moduleAvailable(shield.id)) return null;
-    return shield ? { kind: "shield" } : null;
+    if (!shield || !this.state.moduleAvailable(shield.id)) return null;
+    if (shield.spec.kind === "shield") return { kind: "shield" };
+    // A gauntlet blocks by real stone interposition. Calling it `empty` keeps
+    // the historic non-scoring forearm-parry rule without pretending the module
+    // is a shield or making its ridge invulnerable to ordinary damage targeting.
+    return shield.spec.kind === "gauntlet" ? { kind: "empty" } : null;
   }
 
   sever(limb: Limb, direction: Vector3): void {
@@ -1056,7 +1061,16 @@ export class Construct implements Combatant {
       this.runtime.sockets.get(socketId)?.liveFrame().position.y ?? Number.POSITIVE_INFINITY));
     const rootHeightAboveCarrierM = support.carrierPartId === support.rootPartId
       ? root.position.y - supportPlaneY : root.position.y - carrier.position.y;
-    return terminal !== undefined && constructPostureIsSupported({ chainContinuous: continuous,
+    // `carrierUpDot` and the internal chain prove that the articulated machine has the right
+    // *shape*, but not that it is standing in the arena. Before this guard, a prone carrier could
+    // finish its timed rising stroke with its torso only a few centimetres above the floor, satisfy
+    // the relative chain test, and be published as supported. The port then released the rising
+    // actuator and the supposed recovery immediately collapsed. Use the same bind-derived torso
+    // height floor that the physical bout evidence calls standing. This is deliberately a live
+    // collider/skeleton measurement -- it is neither a visual shell test nor a transform repair.
+    const rootHeightAboveSupportPlaneM = root.position.y - supportPlaneY;
+    const physicallyStanding = rootHeightAboveSupportPlaneM > this.constructProfile.vitalHeight * 0.9;
+    return physicallyStanding && terminal !== undefined && constructPostureIsSupported({ chainContinuous: continuous,
       carrierUpDot: up.y, rootHeightAboveCarrierM,
       terminalHeightAboveRootM: terminal.position.y - root.position.y });
   }

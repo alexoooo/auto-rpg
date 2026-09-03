@@ -40,11 +40,6 @@ export function distanceToModulePrimitive(pointInModule: Vector3, primitive: Mod
   return primitiveSurfaceDistance(local, primitive.shape);
 }
 
-const moduleDistance = (module: ConstructModule, point: Vector3): number => {
-  const local = Vector3.TransformCoordinates(point, Matrix.Invert(module.root.computeWorldMatrix(true)));
-  return Math.min(...module.spec.geometry.map((piece) => distanceToModulePrimitive(local, piece)));
-};
-
 export interface ModulePrimitiveContact {
   readonly module: ConstructModule;
   readonly primitive: ModulePrimitiveSpec;

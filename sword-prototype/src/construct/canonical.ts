@@ -1,8 +1,8 @@
 import { artifactChecksum, canonicalJson } from "../learning/artifact.ts";
 import { CONSTRUCT_BLUEPRINT_LIMITS, validateBlueprint, type ConstructBlueprint,
-  validateLegacyBlueprint, validateV2Blueprint, validateV3Blueprint, type FrameSpec,
-  type LegacyConstructBlueprint, type V2ConstructBlueprint, type V3ConstructBlueprint,
-  type LegacyModuleSpec, type ModuleSpec,
+  validateLegacyBlueprint, validateV2Blueprint, validateV3Blueprint, validateV4Blueprint, type FrameSpec,
+  type LegacyConstructBlueprint, type V2ConstructBlueprint, type V3ConstructBlueprint, type V4ConstructBlueprint,
+  type LegacyModuleSpec, type ModuleSpec, type V4ModuleSpec,
   type PrimitiveShape, type ShellSpec } from "./blueprint.ts";
 
 const lexical = (left: string, right: string): number => left < right ? -1 : left > right ? 1 : 0;
@@ -12,7 +12,7 @@ const shape = (value: PrimitiveShape): unknown => value.kind === "box" ? { kind:
   : value.kind === "sphere" ? { kind: value.kind, radiusM: value.radiusM }
     : { kind: value.kind, lengthM: value.lengthM, radiusM: value.radiusM };
 
-const moduleValue = (module: ModuleSpec | LegacyModuleSpec): unknown => {
+const moduleValue = (module: ModuleSpec | LegacyModuleSpec | V4ModuleSpec): unknown => {
   const result: Record<string, unknown> = { armour: module.armour, compatibilityTag: module.compatibilityTag,
     geometry: [...module.geometry].sort((a, b) => lexical(a.id, b.id)).map((piece) => ({
       frame: frame(piece.frame), id: piece.id, shape: shape(piece.shape), shell: shell(piece.shell),
@@ -31,14 +31,23 @@ const moduleValue = (module: ModuleSpec | LegacyModuleSpec): unknown => {
     muzzleSpeedMps: module.projectile.muzzleSpeedMps, poolSize: module.projectile.poolSize,
     radiusM: module.projectile.radiusM };
   if ("mountedContactStriker" in module && module.mountedContactStriker) {
-    result.mountedContactStriker = { kind: module.mountedContactStriker.kind,
-      localContactPoint: [...module.mountedContactStriker.localContactPoint],
-      shoveSpecificImpulseMps: module.mountedContactStriker.shoveSpecificImpulseMps };
+    const striker = module.mountedContactStriker;
+    result.mountedContactStriker = striker.kind === "authored-surface"
+      ? { action: striker.action, kind: striker.kind, surfaces: [...striker.surfaces]
+        .sort((left, right) => lexical(left.id, right.id)).map((surface) => ({
+          ...(surface.localEdgeDirection ? { localEdgeDirection: [...surface.localEdgeDirection] } : {}),
+          ...(surface.localFlatDirection ? { localFlatDirection: [...surface.localFlatDirection] } : {}),
+          ...(surface.shoveSpecificImpulseMps !== undefined ? { shoveSpecificImpulseMps: surface.shoveSpecificImpulseMps } : {}),
+          damageScale: surface.damageScale, id: surface.id, kind: surface.kind,
+          localContactPoint: [...surface.localContactPoint], primitiveId: surface.primitiveId,
+        })) }
+      : { kind: striker.kind, localContactPoint: [...striker.localContactPoint],
+        shoveSpecificImpulseMps: striker.shoveSpecificImpulseMps };
   }
   return result;
 };
 
-const blueprintValue = (blueprint: ConstructBlueprint | LegacyConstructBlueprint | V2ConstructBlueprint | V3ConstructBlueprint): unknown => ({ id: blueprint.id,
+const blueprintValue = (blueprint: ConstructBlueprint | LegacyConstructBlueprint | V2ConstructBlueprint | V3ConstructBlueprint | V4ConstructBlueprint): unknown => ({ id: blueprint.id,
   joints: [...blueprint.joints].sort((a, b) => lexical(a.id, b.id)).map((joint) => ({
     angularAxes: [...joint.angularAxes].sort((a, b) => lexical(a.id, b.id)).map((axis) => ({
       damping: axis.damping, id: axis.id, maxRad: axis.maxRad, maxSpeedRadS: axis.maxSpeedRadS,
@@ -65,6 +74,9 @@ export const v2BlueprintDigest = (value: unknown): string => artifactChecksum(ca
 export const canonicalV3BlueprintJson = (value: unknown): string =>
   canonicalJson(blueprintValue(validateV3Blueprint(value)));
 export const v3BlueprintDigest = (value: unknown): string => artifactChecksum(canonicalV3BlueprintJson(value));
+export const canonicalV4BlueprintJson = (value: unknown): string =>
+  canonicalJson(blueprintValue(validateV4Blueprint(value)));
+export const v4BlueprintDigest = (value: unknown): string => artifactChecksum(canonicalV4BlueprintJson(value));
 
 const refuseExcessiveSourceDepth = (text: string): void => {
   let depth = 0; let quoted = false; let escaped = false;

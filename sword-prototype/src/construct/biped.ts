@@ -11,6 +11,14 @@ export const SUPPORTED_BIPED_LIMP_V1 = Object.freeze({
   GAIT_STABILITY_SCALE: 0.55,
 });
 
+/**
+ * Combat-move plants both physical feet before advancing the admitted carrier. It is therefore a
+ * stronger stance than the ordinary stationary brace: both support chains keep correcting while
+ * the fighter carries a real weapon and off-hand guard. This changes only the action-owned
+ * stability capacity -- no motor, transform, collision, or damage exception is introduced.
+ */
+export const SUPPORTED_BIPED_COMBAT_BRACE_V1 = Object.freeze({ CAPACITY_MULTIPLIER: 2.00 });
+
 const numberParameter = (context: ControllerContext, name: string, fallback = 0): number => {
   const value = context.request.parameters[name];
   return typeof value === "number" ? value : fallback;

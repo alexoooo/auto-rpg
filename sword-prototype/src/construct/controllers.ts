@@ -1,7 +1,7 @@
 import type { ActionController, ControllerContext, ControllerFactory, ControllerDiagnostic,
   JointReading } from "./scheduler.ts";
 import type { ParameterSpec } from "./actions.ts";
-import { BIPED_CONTROLLERS, SUPPORTED_BIPED_LIMP_V1 } from "./biped.ts";
+import { BIPED_CONTROLLERS, SUPPORTED_BIPED_COMBAT_BRACE_V1, SUPPORTED_BIPED_LIMP_V1 } from "./biped.ts";
 import { LOCOMOTION_CONTROLLERS, SUPPORTED_QUADRUPED_CRAWL_V1 } from "./locomotion.ts";
 import { MOUNT_CONTROLLERS } from "./mounts.ts";
 import { TWINBLADE_COMBAT_CONTROLLERS } from "./twinblade-combat.ts";
@@ -27,6 +27,8 @@ export interface ControllerCompatibility {
   readonly supportedLocomotion?: Readonly<{
     readonly gaitStabilityScale: number;
     readonly brace: boolean;
+    /** A named planted-combat stance may exceed the ordinary two-foot brace capacity. */
+    readonly braceCapacityMultiplier?: number;
     /** Descriptor-owned exclusion; the Forge and runtime read this without controller-name dispatch. */
     readonly alternative?: Readonly<{
       readonly family: string;
@@ -40,15 +42,35 @@ export const ARBALEST_LEFT_SWORD_GUARD = Object.freeze({
 });
 
 /**
- * The Swordbearer has no imaginary second weapon.  Its ordinary stone forearm is instead held
- * forward at the vital plate while the mounted sword works.  The four X-axis hinges can make an
- * honest forward-side intercept, but cannot secretly cross the chassis laterally.  This is
- * intentionally a posture only:
- * enemy blades still meet the real arm collider, but the action neither arms a scorer nor creates
- * a hidden shield body.
+ * The permanent gauntlet is held forward at the vital plate while the mounted sword works. The
+ * four X hinges and one bounded shoulder yaw make an honest left-front intercept without a
+ * hidden cross-body transform. Guard is intentionally a posture only: its real stone collider
+ * can block, but it does not arm either gauntlet scoring surface.
  */
 export const HUMANOID_OFFHAND_GUARD = Object.freeze({
-  shoulder: -0.55, elbow: -0.90, wrist: 0.50, palm: -0.25,
+  // In the humanoid bind convention an opponent in front has local negative Z.
+  // The former negative shoulder value folded the left hand behind the torso;
+  // this compact positive-X chain puts the real gauntlet in the front-left lane.
+  shoulder: 0.30, elbow: -0.50, wrist: 0.20, palm: -0.10,
+});
+
+/**
+ * The gauntlet's Y shoulder axis keeps the stone plate on the left-front lane
+ * without crossing the torso. Its strike makes a compact, physically driven
+ * check; contact decides broad blunt versus bronze-ridge edge, never this pose.
+ */
+export const HUMANOID_GAUNTLET_COMBAT_V1 = Object.freeze({
+  // Zero guard yaw preserves the previously qualified walking envelope. The added
+  // axis is a bounded strike articulation, not an always-on sideways body torque.
+  guardShoulderYawRad: 0,
+  chamberShoulderYawRad: -0.12,
+  driveShoulderYawRad: -0.03,
+  chamberS: 0.14,
+  driveS: 0.14,
+  holdS: 0.08,
+  recoverS: 0.16,
+  chamber: Object.freeze({ shoulder: 0.15, elbow: -0.62, wrist: 0.20, palm: -0.10 }),
+  drive: Object.freeze({ shoulder: 0.72, elbow: -0.08, wrist: 0.08, palm: 0.04 }),
 });
 
 /**
@@ -343,6 +365,79 @@ class WardenShieldBashController implements ActionController {
     detail: this.cancelled || `${this.elapsed.toFixed(3)} s`, progress: this.progress, epsilon: 0.04 }; }
 }
 
+type GauntletPose = Readonly<{ shoulder: number; elbow: number; wrist: number; palm: number; shoulderYaw: number }>;
+
+const gauntletPose = (base: Readonly<{ shoulder: number; elbow: number; wrist: number; palm: number }>,
+  shoulderYaw: number): GauntletPose => Object.freeze({ ...base, shoulderYaw });
+
+class HumanoidGauntletGuardController implements ActionController {
+  protected readonly context: ControllerContext;
+  protected readonly joints: Readonly<Record<"shoulder" | "elbow" | "wrist" | "palm", string>>;
+  private phase = "ready";
+  private cancelled = "";
+  private progress = Number.POSITIVE_INFINITY;
+
+  constructor(context: ControllerContext) {
+    this.context = context;
+    this.joints = Object.freeze({ shoulder: oneBoundJoint(context, "shoulder"),
+      elbow: oneBoundJoint(context, "elbow"), wrist: oneBoundJoint(context, "wrist"),
+      palm: oneBoundJoint(context, "palm") });
+  }
+
+  protected writePose(pose: GauntletPose): void {
+    this.progress = Math.max(
+      clampedWrite(this.context, `${this.joints.shoulder}:x`, pose.shoulder),
+      clampedWrite(this.context, `${this.joints.shoulder}:y`, pose.shoulderYaw),
+      clampedWrite(this.context, this.joints.elbow, pose.elbow),
+      clampedWrite(this.context, this.joints.wrist, pose.wrist),
+      clampedWrite(this.context, this.joints.palm, pose.palm),
+    );
+  }
+
+  enter(): void { this.phase = "guard"; }
+  step(_dt: number): void {
+    if (this.cancelled !== "") return;
+    this.writePose(gauntletPose(HUMANOID_OFFHAND_GUARD, HUMANOID_GAUNTLET_COMBAT_V1.guardShoulderYawRad));
+  }
+  done(): boolean { return false; }
+  cancel(reason: string): void { this.cancelled = reason; this.phase = "cancelled"; }
+  diagnostic(): ControllerDiagnostic { return { phase: this.phase,
+    detail: this.cancelled || "left-front gauntlet cover", progress: this.progress, epsilon: 0.02 }; }
+}
+
+class HumanoidGauntletStrikeController extends HumanoidGauntletGuardController {
+  private elapsed = 0;
+  private strikePhase = "ready";
+  private strikeCancelled = "";
+
+  override enter(): void { this.strikePhase = "chamber"; }
+
+  override step(dt: number): void {
+    if (this.strikeCancelled !== "") return;
+    this.elapsed += dt;
+    const tuning = HUMANOID_GAUNTLET_COMBAT_V1;
+    if (this.elapsed < tuning.chamberS) {
+      this.strikePhase = "chamber";
+      this.writePose(gauntletPose(tuning.chamber, tuning.chamberShoulderYawRad));
+    } else if (this.elapsed < tuning.chamberS + tuning.driveS) {
+      this.strikePhase = "drive";
+      this.writePose(gauntletPose(tuning.drive, tuning.driveShoulderYawRad));
+    } else if (this.elapsed < tuning.chamberS + tuning.driveS + tuning.holdS) {
+      this.strikePhase = "hold";
+      this.writePose(gauntletPose(tuning.drive, tuning.driveShoulderYawRad));
+    } else if (this.elapsed < tuning.chamberS + tuning.driveS + tuning.holdS + tuning.recoverS) {
+      this.strikePhase = "recover";
+      this.writePose(gauntletPose(HUMANOID_OFFHAND_GUARD, tuning.guardShoulderYawRad));
+    } else this.strikePhase = "complete";
+  }
+
+  override done(): boolean { return this.strikePhase === "complete"; }
+  override cancel(reason: string): void { this.strikeCancelled = reason; this.strikePhase = "cancelled"; }
+  override diagnostic(): ControllerDiagnostic { return { phase: this.strikePhase,
+    detail: this.strikeCancelled || `${this.elapsed.toFixed(3)} s gauntlet check`,
+    progress: this.strikePhase === "complete" ? 0 : 0.02, epsilon: 0.04 }; }
+}
+
 class JointController {
   private readonly context: ControllerContext;
   private readonly targets: Readonly<Record<string, number>>;
@@ -464,10 +559,17 @@ export const CONTROLLER_COMPATIBILITY: readonly ControllerCompatibility[] = Obje
     parameters: Object.freeze(Object.fromEntries(["shoulder", "elbow", "wrist", "palm"].map((name) => [name,
       Object.freeze({ kind: "number" as const, min: -1.25, max: 0.95, unit: "radians" as const })]))),
   }),
-  Object.freeze({ controller: "humanoid-offhand-guard", role: "any-joints", minimumJoints: 4, minimumModules: 0,
+  Object.freeze({ controller: "humanoid-offhand-guard", role: "any-joints", minimumJoints: 4, minimumModules: 1,
     requiredParameters: Object.freeze([]), bindings: Object.freeze([
       ...(["shoulder", "elbow", "wrist", "palm"] as const).map((role) =>
         Object.freeze({ role, repeat: "once" as const, joints: 1, modules: 0 })),
+      Object.freeze({ role: "gauntlet", repeat: "once" as const, joints: 0, modules: 1 }),
+    ]), parameters: Object.freeze({}) }),
+  Object.freeze({ controller: "humanoid-gauntlet-strike", role: "any-joints", minimumJoints: 4, minimumModules: 1,
+    requiredParameters: Object.freeze([]), bindings: Object.freeze([
+      ...(["shoulder", "elbow", "wrist", "palm"] as const).map((role) =>
+        Object.freeze({ role, repeat: "once" as const, joints: 1, modules: 0 })),
+      Object.freeze({ role: "gauntlet", repeat: "once" as const, joints: 0, modules: 1 }),
     ]), parameters: Object.freeze({}) }),
   Object.freeze({ controller: "mount-safe-hold", role: "two-axis-mount", minimumJoints: 2,
     minimumModules: 1, requiredParameters: Object.freeze(["yaw", "pitch", "tilted-pitch", "minimum-clearance-m"]), bindings: Object.freeze([
@@ -603,6 +705,9 @@ export const CONTROLLER_COMPATIBILITY: readonly ControllerCompatibility[] = Obje
       // Calling it an unbraced gait here made its physical stability ledger disagree with the
       // motor pose that actually owns both leg chains.
       brace: controller === "supported-biped-brace" || controller === "supported-biped-combat-move",
+      ...(controller === "supported-biped-combat-move" ? {
+        braceCapacityMultiplier: SUPPORTED_BIPED_COMBAT_BRACE_V1.CAPACITY_MULTIPLIER,
+      } : {}),
       ...((controller === "supported-biped-move" || controller === "supported-biped-combat-move") ? {
         alternative: Object.freeze({ family: "supported-biped-move", rank: "primary" as const }),
       } : {}),
@@ -726,11 +831,11 @@ export const BOOTSTRAP_CONTROLLERS: readonly ControllerFactory[] = Object.freeze
   }),
   Object.freeze({
     name: "humanoid-offhand-guard",
-    create: (context: ControllerContext) => new JointController(context, Object.fromEntries(
-      (["shoulder", "elbow", "wrist", "palm"] as const).map((role) => [
-        oneBoundJoint(context, role), HUMANOID_OFFHAND_GUARD[role],
-      ]),
-    )),
+    create: (context: ControllerContext) => new HumanoidGauntletGuardController(context),
+  }),
+  Object.freeze({
+    name: "humanoid-gauntlet-strike",
+    create: (context: ControllerContext) => new HumanoidGauntletStrikeController(context),
   }),
   // A fallen carrier keeps its ordinary attached weapon on a named motor pose instead of leaving
   // the last attack impulse free to fold the blade through its own core. The controller consumes
@@ -789,6 +894,7 @@ export function compatibleControllers(joints: number, modules: number): readonly
 
 export function supportedLocomotionControllerDescriptor(name: string): Readonly<{
   readonly controller: string; readonly gaitStabilityScale: number; readonly brace: boolean;
+  readonly braceCapacityMultiplier?: number;
   readonly alternative?: Readonly<{ readonly family: string; readonly rank: "primary" | "fallback" }>;
 }> | null {
   const descriptor = CONTROLLER_COMPATIBILITY.find(({ controller }) => controller === name);

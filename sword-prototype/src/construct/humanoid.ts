@@ -206,9 +206,10 @@ export function humanoidBlueprint(): ConstructBlueprint {
       mountedContactStriker: Object.freeze({ kind: "authored-surface" as const, action: "gauntlet-strike",
         surfaces: Object.freeze([
           Object.freeze({ id: "stone-face", primitiveId: "stone-face", kind: "mass" as const,
-            localContactPoint: [0, 0, 0.19] as const, damageScale: 0.55, shoveSpecificImpulseMps: 0.004 }),
+            localContactPoint: [0, 0, humanoidLength(0.19)] as const, damageScale: 0.55,
+            shoveSpecificImpulseMps: 0.004 }),
           Object.freeze({ id: "bronze-ridge", primitiveId: "bronze-ridge", kind: "edge" as const,
-            localContactPoint: [0.1625, 0, 0.18] as const, damageScale: 0.48,
+            localContactPoint: [humanoidLength(0.1625), 0, humanoidLength(0.18)] as const, damageScale: 0.48,
             localEdgeDirection: [0, 0, 1] as const, localFlatDirection: [1, 0, 0] as const }),
         ]) }) }),
     // The physical weapon is an ordinary metre-long sword, not a similarity-scaled stone beam.

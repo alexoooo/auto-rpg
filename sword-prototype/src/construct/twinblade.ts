@@ -68,7 +68,7 @@ export function twinbladeBlueprint(): ConstructBlueprint {
       localEdgeDirection: Object.freeze([-rightSword.striker.localEdgeDirection[0],
         rightSword.striker.localEdgeDirection[1], rightSword.striker.localEdgeDirection[2]]) } };
 
-  const modules = base.modules.filter(({ id }) => id !== RIGHT.module).map((module) =>
+  const modules = base.modules.filter(({ id }) => id !== RIGHT.module && id !== "effigy-gauntlet").map((module) =>
     module.id === "effigy-sight" ? { ...structuredClone(module), sensorChannels: Object.freeze([
       ...new Set([...(module.sensorChannels ?? []), "opponent-upright", "opponent-rising"]),
     ]) } : module);
@@ -77,7 +77,7 @@ export function twinbladeBlueprint(): ConstructBlueprint {
       { ...structuredClone(rightYawPart), id: LEFT.yawPart },
       { ...structuredClone(rightPitchPart), id: LEFT.pitchPart }],
     joints: [...base.joints.filter(({ id }) => !REMOVED_LEFT_JOINTS.includes(id)), leftYaw, leftPitch],
-    sockets: [...base.sockets.filter(({ id }) => id !== RIGHT.socket), rightSocket, leftSocket],
+    sockets: [...base.sockets.filter(({ id }) => id !== RIGHT.socket && id !== "socket-left-gauntlet"), rightSocket, leftSocket],
     modules: [...modules, twinRightSword, leftSword] });
 }
 
@@ -114,7 +114,7 @@ export function twinbladeControl(): ConstructControlGraph {
       ...locomotion.bindings, ...mountBindings,
     } });
   return validateControlGraph({ version: 1, groups, actions: [...base.actions.filter(({ id }) =>
-    id !== "offhand-guard" && id !== "stow-sword"),
+    id !== "offhand-guard" && id !== "gauntlet-strike" && id !== "stow-sword"),
     { id: "dual-mount-neutral", controller: "twinblade-neutral-hold", group: "dual-sword-mounts",
       claims: [...mountModules.map((id) => `module:${id}`), "resource:power-mount"], parameters: {} },
     { id: "dual-cut", controller: "twinblade-scissor-cut", group: "dual-sword-braced-body",

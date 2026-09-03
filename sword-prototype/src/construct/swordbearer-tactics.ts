@@ -56,6 +56,7 @@ export class SwordbearerTactics {
   private phaseElapsedS = 0;
   private orbitSign: -1 | 1 = 1;
   private sweepWasActive = false;
+  private gauntletCheckIssued = false;
   private guardClearS = 0;
   private last: ConstructDecisionDiagnostic = Object.freeze({ program: this.name,
     selectedRules: Object.freeze([]), requests: Object.freeze([]), rules: Object.freeze([]),
@@ -63,7 +64,8 @@ export class SwordbearerTactics {
 
   constructor(graph: ConstructControlGraph, sensors: readonly SensorSpec[]) {
     if (sensors.length === 0) throw new Error("Swordbearer tactics requires installed sensor hardware");
-    for (const id of ["advance", "withdraw", "orbit-left", "orbit-right", "recover", "guard", "sweep"]) {
+    for (const id of ["advance", "withdraw", "orbit-left", "orbit-right", "recover", "guard", "sweep",
+      "offhand-guard", "gauntlet-strike"]) {
       if (!graph.actions.some((action) => action.id === id)) {
         throw new Error(`Swordbearer tactics requires declared action "${id}"`);
       }
@@ -76,6 +78,7 @@ export class SwordbearerTactics {
     const visible = booleanFact(frame, "line-of-sight");
     const sword = booleanFact(frame, "sword-ready");
     const leftArm = booleanFact(frame, "left-arm-ready");
+    const leftIntegrity = numberFact(frame, "left-arm-integrity", leftArm ? 1 : 0);
     const range = numberFact(frame, "opponent-range", Number.POSITIVE_INFINITY);
     const clearance = numberFact(frame, "sword-core-clearance-m", 1);
     const weaponPresent = booleanFact(frame, "opponent-weapon-present");
@@ -115,12 +118,35 @@ export class SwordbearerTactics {
     this.sweepWasActive = sweepActive;
 
     const locomotion = this.locomotionRequest(range);
+    if (this.phase === "recover") {
+      // Recovery is a locomotion Action, not a fencing phase. Continuing to servo the heavy
+      // gauntlet and sword guard while the bounded carrier is righting the root made those arms
+      // compete with the physical rise and, under pressure, turn a recoverable knockdown into a
+      // repeated heap. The scheduler withdraws the combat groups here; the next upright boundary
+      // resumes ordinary two-arm ownership. This is not a hidden pose -- it is the explicit
+      // absence of arm Actions while the public recover Action owns the body.
+      const requests = Object.freeze([locomotion]);
+      const selected = Object.freeze(requests.map(({ request }) => request.action));
+      this.last = Object.freeze({ program: this.name, selectedRules: selected, requests: selected,
+        rules: Object.freeze(selected.map((action, index) => Object.freeze({ rule: `${this.phase}:${action}`,
+          utility: requests[index].priority, selected: true, decisiveFacts: Object.freeze({ range, threat, visible }) }))),
+        phase: this.phase, reason: phaseReason(this.phase, threat, visible) });
+      return Object.freeze({ version: 1, requests });
+    }
     const requests: ScheduledActionRequest[] = [locomotion];
     const swordAction = this.swordRequest(sword, visible, clearance, threat);
     if (swordAction) requests.push(swordAction);
-    if (leftArm && threat && this.phase !== "commit" && this.phase !== "counter") {
-      requests.push(scheduled("offhand-guard", {}, 82, 2));
-    } else if (leftArm) requests.push(scheduled("stabilize", {}, 10, 3));
+    if (leftArm) {
+      // Both arms are commanded through every combat phase. The compact check is
+      // a real left-arm Action only in its close commit lane; everywhere else a
+      // left-front cover remains active instead of leaving an unowned limb to hang.
+      const gauntletCheckActive = runtime?.isActionActive("gauntlet-strike") === true;
+      const canCheck = gauntletCheckActive || (!this.gauntletCheckIssued && leftIntegrity > 0.25 &&
+        (this.phase === "commit" || this.phase === "counter") && visible && range <= 1.72);
+      if (canCheck && !gauntletCheckActive) this.gauntletCheckIssued = true;
+      requests.push(scheduled(canCheck ? "gauntlet-strike" : "offhand-guard", {},
+        canCheck ? 86 : threat ? 84 : 58, 2));
+    }
     const command: ConstructCommand = Object.freeze({ version: 1, requests: Object.freeze(requests) });
     const reason = phaseReason(this.phase, threat, visible);
     const selected = Object.freeze(requests.map(({ request }) => request.action));
@@ -137,6 +163,10 @@ export class SwordbearerTactics {
     if (this.phase === phase) return;
     this.phase = phase;
     this.phaseElapsedS = 0;
+    // The left check is a compact punctuation to one right-hand stroke, not a metronome.
+    // Reissuing it after every 0.60 s controller completion kept the physical arm driving
+    // through an entire commit and needlessly fed body momentum into supported locomotion.
+    if (phase === "commit" || phase === "counter") this.gauntletCheckIssued = false;
   }
 
   private orbitPhase(): "orbit-left" | "orbit-right" { return this.orbitSign < 0 ? "orbit-left" : "orbit-right"; }
@@ -176,7 +206,10 @@ export class SwordbearerTactics {
     if (sword && (this.phase === "commit" || this.phase === "counter") && (visible || this.sweepWasActive)) {
       return scheduled("sweep", { direction: this.orbitSign }, 92, 1);
     }
-    if (!sword || !visible || clearance < 0.025) return null;
+    // Guard is a physical cover pose, not a new sighted strike. Retaining it across a short
+    // occlusion keeps the right arm owned while the carrier recovers line of sight; only sweep
+    // admission remains visibility-gated above.
+    if (!sword || clearance < 0.025) return null;
     if (threat || this.phase === "guard" || this.phase === "chamber") return scheduled("guard", {}, 70, 1);
     return scheduled("guard", {}, 40, 1);
   }

@@ -13,6 +13,7 @@ import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Combat } from "../src/combat.ts";
 import { PhysicsEventType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import { ConstructMountedContactStriker, ConstructMountedSword } from "../src/construct/striker.ts";
+import { humanoidBlueprint, humanoidControl } from "../src/construct/humanoid.ts";
 
 const graph = Object.freeze({
   version: 1,
@@ -208,6 +209,37 @@ test("a_destroyed_sensor_removes_only_the_actions_that_declared_that_sensor", ()
   assert.equal(rows.find(({ action }) => action === "blind").reason, null);
 });
 
+test("real_arm_integrity_stages_motor_authority_and_removes_only_the_dependent_offense", () => {
+  const blueprint = humanoidBlueprint();
+  const runtime = { blueprint, detachSubtree: () => [],
+    modules: new Map(blueprint.modules.map((module) => [module.id, { detachAsDebris() {} }])) };
+  const live = new LiveConstructState(runtime, null);
+  const capability = (action) => live.capabilities(humanoidControl()).find((row) => row.action === action);
+  assert.equal(capability("sweep").available, true);
+  assert.equal(capability("gauntlet-strike").available, true);
+  assert.equal(live.motorScaleForJoint("left-elbow"), 0.60,
+    "the asymmetrical stone gauntlet remains force-bounded even while healthy");
+
+  live.damagePart("left-hand", 5);
+  assert.ok(live.armIntegrity("left") > 0.25 && live.armIntegrity("left") <= 0.60);
+  assert.equal(live.motorScaleForJoint("left-elbow"), 0.48);
+  assert.equal(capability("gauntlet-strike").available, true);
+
+  live.damagePart("left-hand", 3);
+  assert.equal(live.armIntegrity("left"), 0.25);
+  assert.equal(live.motorScaleForJoint("left-elbow"), 0.35);
+  assert.equal(capability("gauntlet-strike").available, false);
+  assert.match(capability("gauntlet-strike").reason, /critically damaged/);
+  assert.equal(capability("offhand-guard").available, true,
+    "a blunted or cracked arm may still physically cover after offensive control is withdrawn");
+
+  live.damageJoint("sword-yaw", 100);
+  assert.equal(capability("sweep").available, false);
+  assert.match(capability("sweep").reason, /sword arm is disabled/);
+  assert.equal(capability("guard").available, false,
+    "a truly severed sword mount loses its dependent defensive Action as well");
+});
+
 test("module_contact_targeting_uses_blueprint_collision_geometry_not_visual_bounds", () => {
   const box = { id: "plate", frame: { positionM: [0.5, 0, 0], rotation: [0, 0, 0, 1] },
     shape: { kind: "box", sizeM: [0.4, 0.6, 0.2] }, shell: { style: "plate", visualClearanceM: 0.3 } };
@@ -383,12 +415,15 @@ test("specific_impulse_bash_is_mass_independent_and_does_not_double_apply_generi
     spec: { kind: "shield", geometry: [{
       id: "plate", frame: { positionM: [0, 0, 0], rotation: [0, 0, 0, 1] },
       shape: { kind: "sphere", radiusM: 1 }, shell: { style: "plate" },
-    }], mountedContactStriker: { localContactPoint: [1, 0, 0], shoveSpecificImpulseMps: 0.008 } },
+    }], mountedContactStriker: { kind: "authored-surface", action: "bash", surfaces: [{
+      id: "plate-face", primitiveId: "plate", kind: "mass", localContactPoint: [1, 0, 0],
+      damageScale: 0, shoveSpecificImpulseMps: 0.008,
+    }] } },
     root: { computeWorldMatrix: () => Matrix.Identity() },
     socket: { part: { attached: true, body: ownerBody, node: { position: Vector3.Zero() } } },
   };
   const runtime = { parts: new Map([["core", { body: ownerBody }]]), modules: new Map([[module.id, module]]) };
-  const striker = new ConstructMountedContactStriker(runtime, module);
+  const striker = new ConstructMountedContactStriker(runtime, module, module.spec.mountedContactStriker.surfaces[0]);
   const limb = { key: "torso", label: "torso", health: 10, maxHealth: 10,
     severed: false, lastHitAt: -999, part: { body: {
       getMassProperties: () => ({ mass: 25 }), applyImpulse: (value) => { impulse = value.clone(); },
@@ -420,4 +455,35 @@ test("specific_impulse_bash_is_mass_independent_and_does_not_double_apply_generi
   assert.ok(Math.abs(impulse.length() - 25 * 0.008) < 1e-12);
   assert.deepEqual(reports[0].report.stabilityShove,
     { kind: "specific-impulse", specificImpulseMps: 0.008 });
+});
+
+test("named_gauntlet_surfaces_resolve_only_their_own_physical_leaf_and_fail_closed_on_overlap", () => {
+  const ownerBody = { setCollisionCallbackEnabled() {} };
+  const module = {
+    id: "effigy-gauntlet", spec: { kind: "gauntlet", geometry: [
+      { id: "stone", frame: { positionM: [0, 0, 0], rotation: [0, 0, 0, 1] },
+        shape: { kind: "sphere", radiusM: 1 }, shell: { style: "plate" } },
+      { id: "ridge", frame: { positionM: [3, 0, 0], rotation: [0, 0, 0, 1] },
+        shape: { kind: "box", sizeM: [0.2, 0.2, 0.2] }, shell: { style: "bearing" } },
+    ], mountedContactStriker: { kind: "authored-surface", action: "gauntlet-strike", surfaces: [
+      { id: "stone-face", primitiveId: "stone", kind: "mass", localContactPoint: [1, 0, 0], damageScale: 0.55 },
+      { id: "bronze-ridge", primitiveId: "ridge", kind: "edge", localContactPoint: [3.1, 0, 0], damageScale: 0.48,
+        localEdgeDirection: [0, 0, 1], localFlatDirection: [1, 0, 0] },
+    ] } }, root: { computeWorldMatrix: () => Matrix.Identity() },
+    socket: { part: { attached: true, body: ownerBody, node: { position: Vector3.Zero() } } },
+  };
+  const runtime = { parts: new Map([["core", { body: ownerBody }]]), modules: new Map([[module.id, module]]) };
+  const [stoneSurface, ridgeSurface] = module.spec.mountedContactStriker.surfaces;
+  const stone = new ConstructMountedContactStriker(runtime, module, stoneSurface);
+  const ridge = new ConstructMountedContactStriker(runtime, module, ridgeSurface);
+  stone.setActionState("gauntlet-strike:1", true); ridge.setActionState("gauntlet-strike:1", true);
+  assert.equal(stone.kind, "empty", "the broad stone face has no severing scorer");
+  assert.equal(ridge.kind, "axe", "only the exposed bronze chisel owns one cutting edge");
+  assert.equal(stone.allowsSourceContact(new Vector3(1, 0, 0)), true);
+  assert.equal(stone.allowsSourceContact(new Vector3(3.1, 0, 0)), false);
+  assert.equal(ridge.allowsSourceContact(new Vector3(3.1, 0, 0)), true);
+
+  module.spec.geometry[1] = { ...module.spec.geometry[0], id: "stone-overlap" };
+  assert.equal(stone.allowsSourceContact(new Vector3(1, 0, 0)), false,
+    "equal collision leaves may block but never elect an edged or broad scoring owner by order");
 });

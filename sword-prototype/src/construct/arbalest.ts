@@ -146,9 +146,13 @@ export function arbalestBlueprint(): ConstructBlueprint {
   if (!ordinarySword || torso?.shape.kind !== "box") {
     throw new Error("Arbalest requires the humanoid sword and box torso");
   }
-  const modules = base.modules.filter(({ id }) => id !== "effigy-sword").map((module) =>
+  // The arbalest's left hand is already a sword mount. It keeps the shared humanoid
+  // chassis but deliberately declines the swordbearer's permanent gauntlet rather
+  // than stacking two colliders through one forearm.
+  const modules = base.modules.filter(({ id }) => id !== "effigy-sword" && id !== "effigy-gauntlet").map((module) =>
     module.id === sight?.id ? { ...module, sensorChannels: ARBALEST_SENSORS.map(({ id }) => id)
-      .filter((id) => !id.startsWith("contact-") && !id.startsWith("slip-")) } : module);
+      .filter((id) => !id.startsWith("contact-") && !id.startsWith("slip-") &&
+        id !== "left-arm-integrity" && id !== "sword-arm-integrity") } : module);
   return validateBlueprint({ ...base, id: "arbalest-effigy",
     parts: base.parts,
     joints: base.joints,
@@ -166,7 +170,7 @@ export function arbalestBlueprint(): ConstructBlueprint {
 export function arbalestControl(): ConstructControlGraph {
   const base = structuredClone(humanoidControl());
   const armJoints = ["left-shoulder", "left-elbow", "left-wrist", "left-palm"];
-  const groups = base.groups.map((group) => group.id === "posture" ? {
+  const groups = base.groups.filter(({ id }) => id !== "offhand-guard").map((group) => group.id === "posture" ? {
     ...group, joints: group.joints.filter((joint) => !armJoints.includes(joint)),
   } : group.id !== "sword-arm" ? group : {
     id: "arbalest-arm", joints: group.joints,

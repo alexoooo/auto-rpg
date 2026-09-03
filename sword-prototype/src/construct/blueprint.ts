@@ -169,6 +169,15 @@ const pointOnPrimitive = (point: Triple, primitive: ModulePrimitiveSpec): boolea
   return Math.abs(Math.hypot(local[0], local[1] - segmentY, local[2]) - primitive.shape.radiusM) <= epsilon;
 };
 
+/** The v4 migration needs the same exact primitive ownership rule as v5 validation. */
+export function modulePrimitiveAtLocalPoint(
+  module: Readonly<{ geometry: readonly ModulePrimitiveSpec[] }>,
+  point: Triple,
+): ModulePrimitiveSpec | null {
+  return [...module.geometry].filter((primitive) => pointOnPrimitive(point, primitive))
+    .sort((left, right) => left.id.localeCompare(right.id))[0] ?? null;
+}
+
 function parseModule(value: unknown, blueprint: string, index: number, version: 1 | 2 | 3 | 4 | 5): ModuleSpec | LegacyModuleSpec | V4ModuleSpec {
   const source = object(value, `blueprint "${blueprint}" module[${index}]`); const context = `module "${typeof source.id === "string" ? source.id : `<index ${index}>`}"`;
   fields(source, ["id", "kind", "socket", "compatibilityTag", "geometry", "massKg", "health", "armour"], OPTIONAL, context);

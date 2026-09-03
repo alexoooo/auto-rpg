@@ -38,11 +38,13 @@ const range = sensor("opponent-range");
 const blockerPresent = sensor("opponent-blocker-present");
 const blockerX = sensor("opponent-blocker-local-x");
 const leftArmReady = sensor("left-arm-ready");
+const leftArmIntegrity = sensor("left-arm-integrity");
 const swordReady = sensor("sword-ready");
 const coreRoll = sensor("core-roll-rad");
 const corePitch = sensor("core-pitch-rad");
 const sweepActive: Expression = Object.freeze({ op: "active", action: "sweep" });
 const offhandGuardActive: Expression = Object.freeze({ op: "active", action: "offhand-guard" });
+const gauntletStrikeActive: Expression = Object.freeze({ op: "active", action: "gauntlet-strike" });
 const below = (value: number): Expression => lt(range, metres(value));
 const atLeast = (value: number): Expression => gte(range, metres(value));
 const dodgeBand = and(upright, visible, blockerPresent, atLeast(SWORDBEARER_DUELIST.retreatBelowM),
@@ -76,13 +78,18 @@ export function swordbearerDuelistProgram(
       condition: and(swordReady, upright, visible, below(SWORDBEARER_DUELIST.retreatBelowM)),
       utility: scalar(31), parameters: {} }),
 
-    // The unarmed left chain has an actual forward-side defensive pose. It deliberately does not
-    // claim to cross the chassis: the four declared X hinges cannot do that. The real forearm
-    // instead keeps an opponent's blade out of the left-front vital lane without becoming an
-    // unearned damage source.
+    // The permanent stone gauntlet owns the left chain. Its broad face is a real physical block
+    // throughout the exchange; only the separate named bronze ridge can score an edged contact.
     rule({ id: "offhand-core-guard", action: "offhand-guard", priority: 80, optional: false, dwellS: 0,
       condition: and(leftArmReady, upright, visible, below(SWORDBEARER_DUELIST.strikeBelowM)),
       utility: scalar(27), parameters: {} }),
+
+    // A short left check accompanies the right sword at close range. The shared action group
+    // makes this replace cover for its own finite cycle, never overlap it; physical surface
+    // ownership still decides whether stone shoves or the chisel ridge cuts.
+    rule({ id: "gauntlet-check-close", action: "gauntlet-strike", priority: 84, optional: false, dwellS: 0,
+      condition: and(leftArmReady, upright, visible, gte(leftArmIntegrity, scalar(0.26)), below(1.72)),
+      utility: scalar(29), parameters: {} }),
 
     // The old raw-gait body could only survive this band by guarding. Assisted support changes the
     // premise: a shield is now something to strike and physically displace, not a reason for two
@@ -134,7 +141,7 @@ export function swordbearerDuelistProgram(
     // whenever the real defensive action owns that same declared joint chain; a missing-arm
     // capability is handled by the hardware fact alongside the guard rule.
     rule({ id: "stabilize-posture", action: "stabilize", priority: 10, optional: false, dwellS: 0,
-      condition: and(leftArmReady, not(offhandGuardActive)), utility: scalar(2), parameters: {} }),
+      condition: and(leftArmReady, not(or(offhandGuardActive, gauntletStrikeActive))), utility: scalar(2), parameters: {} }),
   ]);
   const program = Object.freeze({ version: 1 as const, id: "swordbearer-warrior-duelist", rules });
   validateProgram(program, graph, sensors);

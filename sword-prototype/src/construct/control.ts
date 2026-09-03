@@ -48,6 +48,8 @@ export interface ConstructControlHooks {
   admission?(dt: number, command: ConstructCommand): readonly ActionCapability[];
   locomotion?: LocomotionSchedulerPort;
   locomotionDiagnostic?(): PhysicalSupportedLocomotionDiagnostic | null;
+  /** Damage authority may reduce a real joint's force, never replace its target. */
+  motorScale?(target: MotorTarget): number;
 }
 
 const jointAngle = (runtime: ConstructRuntime, id: string, axisId?: "x" | "y" | "z"): number => {
@@ -100,7 +102,7 @@ export class ConstructControlEndpoint implements ControlEndpoint {
     this.hooks = hooks;
     this.diagnostics = Object.freeze({ surface: this.surface, read: () => this.snapshot() });
     this.scheduler = new ActionScheduler(graph, CONSTRUCT_CONTROLLERS, {
-      write: (target) => this.writeMotor(target), effect: (effect) => this.hooks.effect?.(effect),
+      write: (target) => this.writeMotor(this.scaleMotor(target)), effect: (effect) => this.hooks.effect?.(effect),
     }, this.hooks.locomotion ?? null);
     this.current = this.buildPolicy(initialPolicy);
   }
@@ -239,9 +241,18 @@ export class ConstructControlEndpoint implements ControlEndpoint {
     const rotation = root.rotationQuaternion ?? Quaternion.Identity();
     const up = Vector3.Up().rotateByQuaternionToRef(rotation, new Vector3());
     const worldUpInBody = Vector3.Up().rotateByQuaternionToRef(Quaternion.Inverse(rotation), new Vector3());
+    // `observe` is the authority for a Construct's public upright fact.  It includes the
+    // locomotion state so a geometrically upright carrier remains non-upright throughout the
+    // bounded rise.  Recomputing and overwriting it here let the recovery controller call
+    // itself stable while that rise was still active, withdraw its own Action, and release the
+    // root on the next safe boundary.  Keep a pose-only fallback for bare control fixtures that
+    // deliberately publish no fact at all.
+    const publishedUpright = this.publishedFacts["core-upright"];
+    const coreUpright = typeof publishedUpright === "boolean"
+      ? publishedUpright : Vector3.Dot(up, Vector3.Up()) > 0.72;
     const facts: Record<string, number | boolean | string> = {
       ...this.publishedFacts,
-      "core-upright": Vector3.Dot(up, Vector3.Up()) > 0.72,
+      "core-upright": coreUpright,
       "core-roll-rad": Math.atan2(worldUpInBody.x, worldUpInBody.y),
       "core-pitch-rad": Math.atan2(-worldUpInBody.z, worldUpInBody.y),
     };
@@ -264,6 +275,14 @@ export class ConstructControlEndpoint implements ControlEndpoint {
     joint.constraint.setAxisMotorType(axis, PhysicsConstraintMotorType.POSITION);
     joint.constraint.setAxisMotorTarget(axis, target.angleRad);
     joint.constraint.setAxisMotorMaxForce(axis, Math.min(target.maxForceNm, configured.maxTorqueNm));
+  }
+
+  private scaleMotor(target: MotorTarget): MotorTarget {
+    const scale = this.hooks.motorScale?.(target) ?? 1;
+    if (!Number.isFinite(scale) || scale <= 0 || scale > 1) {
+      throw new Error(`construct motor scale must be finite in (0, 1], got ${scale}`);
+    }
+    return scale === 1 ? target : Object.freeze({ ...target, maxForceNm: target.maxForceNm * scale });
   }
 
   private recordStop(reason: string): void {

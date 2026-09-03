@@ -161,6 +161,8 @@ export interface LocomotionControllerDescriptor {
   readonly controller: string;
   readonly gaitStabilityScale: number;
   readonly brace: boolean;
+  /** A named planted-combat stance may declare its own audited capacity. */
+  readonly braceCapacityMultiplier?: number;
   readonly alternative?: Readonly<{ readonly family: string; readonly rank: "primary" | "fallback" }>;
 }
 
@@ -216,6 +218,11 @@ export function deriveLocomotionAuthority(
       descriptor.gaitStabilityScale > 1) {
     throw new Error(`locomotion controller "${descriptor.controller}" stability scale must be within (0, 1]`);
   }
+  if (descriptor.braceCapacityMultiplier !== undefined &&
+      (!descriptor.brace || !Number.isFinite(descriptor.braceCapacityMultiplier) ||
+        descriptor.braceCapacityMultiplier < 1)) {
+    throw new Error(`locomotion controller "${descriptor.controller}" brace capacity must be finite and at least 1 on a brace`);
+  }
   const support = resolveSupportCarrier(blueprint, group);
   const balance = group.bindings["balance-chain"];
   if (!balance || balance.modules.length !== 0) {
@@ -226,7 +233,9 @@ export function deriveLocomotionAuthority(
   return Object.freeze({ actionId: action.id, groupId: group.id, carrierPartId: support.carrierPartId,
     carrierToRootJointIds: support.carrierToRootJointIds, supportBindings: support.supportBindings,
     balanceChainJointIds: Object.freeze([...balance.joints]),
-    braceCapacityMultiplier: descriptor.brace ? SUPPORTED_LOCOMOTION_V1.BRACE_CAPACITY_MULTIPLIER : 1,
+    braceCapacityMultiplier: descriptor.brace
+      ? descriptor.braceCapacityMultiplier ?? SUPPORTED_LOCOMOTION_V1.BRACE_CAPACITY_MULTIPLIER
+      : 1,
     gaitStabilityScale: descriptor.gaitStabilityScale,
     requiresAllFreshSupport: descriptor.alternative?.rank === "fallback" });
 }

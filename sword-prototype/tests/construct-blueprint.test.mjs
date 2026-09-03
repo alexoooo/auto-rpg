@@ -9,7 +9,7 @@ const part = (id, fatal = false) => ({ id, shape: { kind: "box", sizeM: [0.3, 0.
   centreOfMassM: [0, 0, 0], friction: 0.7, restitution: 0.05, health: 100, armour: 8,
   vitalityWeight: fatal ? 1 : 0, fatal, shell: shell(fatal ? "core" : "plate") });
 const geometry = (id, style = "plate") => ({ id, frame: frame(), shape: { kind: "box", sizeM: [0.2, 0.2, 0.2] }, shell: shell(style) });
-const blueprint = () => ({ version: 4, id: "contract-fixture", rootPart: "core",
+const blueprint = () => ({ version: 5, id: "contract-fixture", rootPart: "core",
   parts: [part("limb"), part("core", true)],
   joints: [{ id: "bearing", parentPart: "core", childPart: "limb", parentFrame: frame([0, 0.2, 0]),
     childFrame: frame([0, -0.2, 0]), angularAxes: [
@@ -106,7 +106,7 @@ test("blueprint_set_arrays_canonicalize_by_ID_while_duplicate_members_refuse", (
 });
 
 test("a_version_or_unknown_key_from_the_future_is_refused_instead_of_repaired", () => {
-  const future = blueprint(); future.version = 5; refusal(future, /version" 5 is unsupported/);
+  const future = blueprint(); future.version = 6; refusal(future, /version" 6 is unsupported/);
   const unknown = blueprint(); unknown.modules[0].drawW = 2; refusal(unknown, /power.*unknown field "drawW"/);
   const wrongOwner = blueprint(); wrongOwner.modules[0].ammunition = 2; refusal(wrongOwner, /ammunition.*not owned by kind "power-core"/);
 });
@@ -124,17 +124,40 @@ test("a_launcher_cannot_claim_less_energy_than_its_projectile_muzzle_energy", ()
   refusal(source, /launcher.*muzzle energy 61\.25 J exceeds energyPerShotJ 60 J/);
 });
 
-test("a_mounted_contact_striker_is_bounded_and_lies_on_its_declared_primitive", () => {
+test("a_mounted_contact_surface_is_bounded_and_lies_on_its_declared_primitive", () => {
   const source = blueprint();
   source.modules[2] = { id: "shield", kind: "shield", socket: "launcher-socket",
     compatibilityTag: "weapon", geometry: [geometry("plate")], massKg: 4, health: 13, armour: 1.5,
-    mountedContactStriker: { kind: "authored-shove", localContactPoint: [0.1, 0, 0],
-      shoveSpecificImpulseMps: 0.008 } };
-  assert.equal(validateBlueprint(source).modules[2].mountedContactStriker.shoveSpecificImpulseMps, 0.008);
+    mountedContactStriker: { kind: "authored-surface", action: "bash", surfaces: [{
+      id: "plate-face", primitiveId: "plate", kind: "mass", localContactPoint: [0.1, 0, 0],
+      damageScale: 0, shoveSpecificImpulseMps: 0.008,
+    }] } };
+  assert.equal(validateBlueprint(source).modules[2].mountedContactStriker.surfaces[0].shoveSpecificImpulseMps, 0.008);
   const tooStrong = structuredClone(source);
-  tooStrong.modules[2].mountedContactStriker.shoveSpecificImpulseMps = 0.0141;
+  tooStrong.modules[2].mountedContactStriker.surfaces[0].shoveSpecificImpulseMps = 0.0141;
   refusal(tooStrong, /shoveSpecificImpulseMps.*at most 0\.014/);
   const imaginary = structuredClone(source);
-  imaginary.modules[2].mountedContactStriker.localContactPoint = [0.2, 0, 0];
-  refusal(imaginary, /localContactPoint.*declared geometry/);
+  imaginary.modules[2].mountedContactStriker.surfaces[0].localContactPoint = [0.2, 0, 0];
+  refusal(imaginary, /contact point must lie on primitive "plate"/);
+});
+
+test("a_gauntlet_names_its_contact_primitive_and_only_edges_own_cutting_axes", () => {
+  const source = blueprint();
+  source.sockets[2].accepts.push("gauntlet");
+  source.modules[2] = { id: "gauntlet", kind: "gauntlet", socket: "launcher-socket",
+    compatibilityTag: "gauntlet", geometry: [geometry("stone"), { ...geometry("chisel", "bearing"),
+      frame: frame([0.12, 0, 0]), shape: { kind: "box", sizeM: [0.04, 0.12, 0.12] } }],
+    massKg: 4, health: 8, armour: 1.2, mountedContactStriker: { kind: "authored-surface",
+      action: "gauntlet-strike", surfaces: [
+        { id: "stone", primitiveId: "stone", kind: "mass", localContactPoint: [0.1, 0, 0], damageScale: 0.5 },
+        { id: "chisel", primitiveId: "chisel", kind: "edge", localContactPoint: [0.14, 0, 0], damageScale: 0.4,
+          localEdgeDirection: [0, 0, 1], localFlatDirection: [1, 0, 0] },
+      ] } };
+  assert.equal(validateBlueprint(source).modules[2].mountedContactStriker.surfaces.length, 2);
+  const wrongPrimitive = structuredClone(source);
+  wrongPrimitive.modules[2].mountedContactStriker.surfaces[1].primitiveId = "stone";
+  refusal(wrongPrimitive, /contact point must lie on primitive "stone"/);
+  const massAxes = structuredClone(source);
+  massAxes.modules[2].mountedContactStriker.surfaces[0].localEdgeDirection = [0, 0, 1];
+  refusal(massAxes, /mass surface "stone" cannot declare edge directions/);
 });

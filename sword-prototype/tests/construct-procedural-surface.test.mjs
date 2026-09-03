@@ -195,7 +195,7 @@ test("twenty_rebuilds_dispose_every_palette_plugin_and_texture", () => {
 });
 
 test("shader_constants_cannot_change_any_saved_or_physics_digest", () => {
-  const blueprint = { version: 4, id: "surface-isolation", rootPart: "body",
+  const blueprint = { version: 5, id: "surface-isolation", rootPart: "body",
     parts: [part("body", "core")], joints: [], sockets: [], modules: [] };
   const before = canonicalBlueprintJson(blueprint);
   assert.deepEqual(PROCEDURAL_STONE_V1, {
@@ -215,7 +215,7 @@ test("surface_seed_is_stable_across_build_order_and_absent_from_canonical_bluepr
   const second = [...first].reverse().map(([id]) => [id,
     constructSurfaceSeed("part", id, `${id}:shell`, id === "body" ? "core" : "plate")]);
   assert.deepEqual(new Map(first), new Map(second));
-  const blueprint = { version: 4, id: "semantic-pattern", rootPart: "body",
+  const blueprint = { version: 5, id: "semantic-pattern", rootPart: "body",
     parts: [part("body", "core")], joints: [], sockets: [], modules: [] };
   assert.doesNotMatch(canonicalBlueprintJson(blueprint), /constructSurface|seed|healthRatio/);
 });

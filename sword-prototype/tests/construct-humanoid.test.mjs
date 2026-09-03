@@ -62,6 +62,8 @@ test("the_Swordbearer_Effigy_is_a_distinct_connected_humanoid_primitive_blueprin
   }
   assert.equal(blueprint.parts.every(({ shape }) => ["box", "capsule", "cylinder", "sphere"].includes(shape.kind)), true);
   assert.equal(blueprint.modules.some(({ id, kind }) => id === "effigy-sword" && kind === "sword"), true);
+  assert.equal(blueprint.modules.some(({ id, kind }) => id === "effigy-gauntlet" && kind === "gauntlet"), true,
+    "the left arm owns permanent physical cover rather than a controller-only pose");
   const fatalParts = blueprint.parts.filter(({ fatal }) => fatal);
   assert.deepEqual(fatalParts.map(({ id, health, armour }) => ({ id, health, armour })),
     [{ id: "torso", health: HUMANOID_FATAL_HEALTH, armour: 1.9 }],
@@ -150,8 +152,8 @@ test("humanoid_effigy_visible_feet_are_proportional_and_do_not_intersect_in_the_
     "the support presentation margin must refuse shapes for which its axis contract is undefined");
 });
 
-test("the_humanoid_sensor_surface_is_the_exact_31_raw_facts_without_a_high_target_conclusion", () => {
-  const expected = ["core-upright", "core-roll-rad", "core-pitch-rad", "left-arm-ready", "sword-ready",
+test("the_humanoid_sensor_surface_is_the_exact_33_raw_facts_without_a_high_target_conclusion", () => {
+  const expected = ["core-upright", "core-roll-rad", "core-pitch-rad", "left-arm-ready", "left-arm-integrity", "sword-ready", "sword-arm-integrity",
     "sword-core-clearance-m", "opponent-range",
     "opponent-relative-speed", "opponent-local-x", "opponent-local-vx", "opponent-local-y",
     "opponent-local-vy", "opponent-local-z", "opponent-local-vz", "opponent-blocker-present",
@@ -195,13 +197,14 @@ test("the_humanoid_saved_character_exposes_only_physically_supported_leg_and_swo
   const controllers = new Map(control.actions.map(({ id, controller }) => [id, controller]));
   assert.deepEqual(Object.fromEntries([...controllers].filter(([id]) =>
     ["move", "limp-left", "limp-right", "turn", "recover", "advance", "withdraw", "orbit-left", "orbit-right",
-      "aim", "sweep", "guard"].includes(id))), {
+      "aim", "sweep", "guard", "offhand-guard", "gauntlet-strike"].includes(id))), {
     move: "supported-biped-move", turn: "supported-biped-turn",
     "limp-left": "supported-biped-limp-left", "limp-right": "supported-biped-limp-right",
     recover: "supported-biped-recover", advance: "supported-biped-combat-move",
     withdraw: "supported-biped-combat-move", "orbit-left": "supported-biped-combat-move",
     "orbit-right": "supported-biped-combat-move", aim: "aim-direction",
     sweep: "swordbearer-target-sweep", guard: "guard-mount",
+    "offhand-guard": "humanoid-offhand-guard", "gauntlet-strike": "humanoid-gauntlet-strike",
   });
   const locomotion = control.groups.find(({ id }) => id === "locomotion");
   assert.deepEqual(Object.keys(locomotion.bindings), ["left-foot", "right-foot", "balance-chain"]);
@@ -214,8 +217,11 @@ test("the_humanoid_saved_character_exposes_only_physically_supported_leg_and_swo
   assert.deepEqual(sword.bindings.yaw.joints, ["sword-yaw"]);
   assert.deepEqual(sword.bindings.pitch.joints, ["sword-pitch"]);
   assert.deepEqual(sword.bindings.sword.modules, ["effigy-sword"]);
+  const offhand = control.groups.find(({ id }) => id === "offhand-guard");
+  assert.deepEqual(offhand.bindings.gauntlet.modules, ["effigy-gauntlet"]);
+  assert.ok(offhand.joints.includes("left-shoulder"));
   assert.deepEqual([...new Set(humanoidProgram().rules.map(({ action }) => action))].sort(),
-    ["brace", "dodge-left", "dodge-right", "guard", "limp-left", "limp-right", "move",
+    ["brace", "dodge-left", "dodge-right", "gauntlet-strike", "guard", "limp-left", "limp-right", "move",
       "offhand-guard", "recover", "stabilize", "stow-sword", "sweep", "turn"]);
   assert.equal(humanoidProgram().id, "swordbearer-warrior-duelist");
 
@@ -245,6 +251,8 @@ test("biped_support_actions_cross_private_authority_and_command_only_declared_le
   });
   assert.equal(supportedLocomotionControllerDescriptor("supported-biped-combat-move")?.brace, true,
     "combat-move writes the two-foot brace field and must receive the corresponding bounded stability capacity");
+  assert.equal(supportedLocomotionControllerDescriptor("supported-biped-combat-move")?.braceCapacityMultiplier, 2,
+    "combat-move must publish its stronger planted two-foot capacity explicitly");
   const joints = Object.fromEntries(group.joints.flatMap((id) => [
     [`${id}:x`, { angleRad: 0, speedRadS: 0, minRad: -1.5, maxRad: 1.5, maxSpeedRadS: 4, maxForceNm: 240 }],
     ...(id.endsWith("hip") ? [[`${id}:y`, { angleRad: 0, speedRadS: 0, minRad: -0.45,
@@ -450,7 +458,7 @@ test("the_humanoid_saved_character_physically_compiles_and_steps_in_the_shared_C
     assert.equal(left.runtime.parts.size, saved.blueprint.parts.length);
     assert.equal(left.runtime.joints.size, saved.blueprint.joints.length);
     assert.equal(left.runtime.modules.has("effigy-sword"), true);
-    assert.equal(left.strikers.length, 1, "the mounted sword owns a real combat striker");
+    assert.equal(left.strikers.length, 3, "the sword plus named stone and bronze gauntlet surfaces own real scorers");
     const sword = left.runtime.modules.get("effigy-sword");
     const bladeIndex = sword.spec.geometry.findIndex(({ id }) => id === "blade");
     const torsoLeaf = left.runtime.part("torso").leafShapes[0];

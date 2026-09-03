@@ -15,15 +15,15 @@ const row = (step, atS, phase, actions, x, heading, terminal = []) => ({
 });
 
 const samples = () => [
-  row(0, 0, "orbit-right", ["orbit-right", "guard"], 0.00, 0.00),
-  row(1, 0.30, "orbit-left", ["orbit-left", "guard"], 0.30, -0.30),
-  row(2, 0.60, "orbit-right", ["orbit-right", "guard"], 0.60, 0.00),
-  row(3, 0.90, "commit", ["advance", "sweep"], 0.75, 0.05, [{ kind: "completed", action: "sweep" }]),
-  row(4, 1.20, "withdraw", ["withdraw", "guard"], 1.05, 0.25),
-  row(5, 1.50, "commit", ["advance", "sweep"], 1.20, 0.30, [{ kind: "completed", action: "sweep" }]),
-  row(6, 1.80, "withdraw", ["withdraw", "guard"], 1.50, 0.50),
-  row(7, 2.10, "commit", ["advance", "sweep"], 1.65, 0.55, [{ kind: "completed", action: "sweep" }]),
-  row(8, 2.40, "withdraw", ["withdraw", "guard"], 1.95, 0.75),
+  row(0, 0, "orbit-right", ["orbit-right", "guard", "offhand-guard"], 0.00, 0.00),
+  row(1, 0.30, "orbit-left", ["orbit-left", "guard", "offhand-guard"], 0.30, -0.30),
+  row(2, 0.60, "orbit-right", ["orbit-right", "guard", "offhand-guard"], 0.60, 0.00),
+  row(3, 0.90, "commit", ["advance", "sweep", "gauntlet-strike"], 0.75, 0.05, [{ kind: "completed", action: "sweep" }]),
+  row(4, 1.20, "withdraw", ["withdraw", "guard", "offhand-guard"], 1.05, 0.25),
+  row(5, 1.50, "commit", ["advance", "sweep", "gauntlet-strike"], 1.20, 0.30, [{ kind: "completed", action: "sweep" }]),
+  row(6, 1.80, "withdraw", ["withdraw", "guard", "offhand-guard"], 1.50, 0.50),
+  row(7, 2.10, "commit", ["advance", "sweep", "gauntlet-strike"], 1.65, 0.55, [{ kind: "completed", action: "sweep" }]),
+  row(8, 2.40, "withdraw", ["withdraw", "guard", "offhand-guard"], 1.95, 0.75),
 ];
 
 const corpus = () => {

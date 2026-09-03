@@ -1,18 +1,18 @@
 import { controlDigest, validateControlGraph, type ConstructControlGraph } from "./actions.ts";
-import { validateBlueprint, validateLegacyBlueprint, validateV2Blueprint, validateV3Blueprint,
+import { modulePrimitiveAtLocalPoint, validateBlueprint, validateLegacyBlueprint, validateV2Blueprint, validateV3Blueprint, validateV4Blueprint,
   type ConstructBlueprint, type LegacyConstructBlueprint, type V2ConstructBlueprint,
-  type V3ConstructBlueprint } from "./blueprint.ts";
-import { blueprintDigest, legacyBlueprintDigest, v2BlueprintDigest, v3BlueprintDigest } from "./canonical.ts";
+  type V3ConstructBlueprint, type V4ConstructBlueprint } from "./blueprint.ts";
+import { blueprintDigest, legacyBlueprintDigest, v2BlueprintDigest, v3BlueprintDigest, v4BlueprintDigest } from "./canonical.ts";
 import { parseProgram, programDigest, type ConstructProgram, type Expression } from "./program.ts";
 import type { SensorSpec } from "./sensors.ts";
 import { installedSensorsForBlueprint } from "./sensors.ts";
 import { canonicalJson, type ArtifactValue } from "../learning/artifact.ts";
 
-export const SAVED_CONSTRUCT_VERSION = 4 as const;
+export const SAVED_CONSTRUCT_VERSION = 5 as const;
 export const SAVED_CONSTRUCT_MAX_BYTES = 1_000_000;
 
 export interface SavedConstruct {
-  readonly version: 4;
+  readonly version: 5;
   readonly name: string;
   readonly blueprint: ConstructBlueprint;
   readonly control: ConstructControlGraph;
@@ -22,7 +22,7 @@ export interface SavedConstruct {
 
 /** A control graph is saved with one body, so stale hardware references are an import error. */
 function validateControlHardware(
-  blueprint: ConstructBlueprint | LegacyConstructBlueprint | V2ConstructBlueprint | V3ConstructBlueprint,
+  blueprint: ConstructBlueprint | LegacyConstructBlueprint | V2ConstructBlueprint | V3ConstructBlueprint | V4ConstructBlueprint,
   controlValue: ConstructControlGraph,
   installedSensors: readonly SensorSpec[],
 ): ConstructControlGraph {
@@ -53,7 +53,7 @@ function validateControlHardware(
   return control;
 }
 
-type SavedSource = Readonly<{ version: 1 | 2 | 3 | 4; name: string; blueprint: unknown;
+type SavedSource = Readonly<{ version: 1 | 2 | 3 | 4 | 5; name: string; blueprint: unknown;
   control: ConstructControlGraph; program: ConstructProgram;
   digests: Readonly<{ blueprint: string; control: string; program: string }> }>;
 
@@ -133,7 +133,7 @@ function validateSavedSource(value: unknown): SavedSource {
   if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error("saved construct must be an object");
   exact(value, ["version", "name", "blueprint", "control", "program", "digests"], "saved construct");
   const source = value as Partial<SavedSource>;
-  if (![1, 2, 3, 4].includes(source.version as number)) {
+  if (![1, 2, 3, 4, 5].includes(source.version as number)) {
     throw new Error(`saved construct version ${JSON.stringify(source.version)} is unsupported`);
   }
   if (typeof source.name !== "string" || !source.blueprint || !source.control || !source.program || !source.digests) {
@@ -159,7 +159,7 @@ function migrateSavedV1(source: SavedSource, sensors: readonly SensorSpec[]): Sa
   const migratedBlueprint = divideDurabilityAndArmourByTwenty(blueprint);
   const migratedSensors = installedSensorsForBlueprint(migratedBlueprint, sensors);
   const migratedProgram = migrateAbsoluteHealthComparisons(program, migratedSensors);
-  return saveConstruct(source.name, migrateV3ToV4(migrateV2ToV3(migratedBlueprint)), control,
+  return saveConstruct(source.name, migrateV4ToV5(migrateV3ToV4(migrateV2ToV3(migratedBlueprint))), control,
     migratedProgram, sensors);
 }
 
@@ -172,11 +172,34 @@ const migrateV2ToV3 = (blueprint: V2ConstructBlueprint): V3ConstructBlueprint =>
   }),
 });
 
-const migrateV3ToV4 = (blueprint: V3ConstructBlueprint): ConstructBlueprint =>
-  validateBlueprint({ ...structuredClone(blueprint), version: 4 });
+const migrateV3ToV4 = (blueprint: V3ConstructBlueprint): V4ConstructBlueprint =>
+  validateV4Blueprint({ ...structuredClone(blueprint), version: 4 });
+
+/**
+ * Version four had one broad contact point per mounted shield.  Version five names
+ * an authored collision primitive so a later decorative primitive cannot silently
+ * become a weapon.  The only v4 producer was the Warden's bash, so preserving its
+ * action name keeps authentic imports playable while making its zero-damage shove
+ * explicit in the new grammar.
+ */
+const migrateV4ToV5 = (blueprint: V4ConstructBlueprint): ConstructBlueprint => validateBlueprint({
+  ...structuredClone(blueprint), version: 5,
+  modules: blueprint.modules.map((module) => {
+    const legacy = module.mountedContactStriker;
+    if (!legacy) return module;
+    const primitive = modulePrimitiveAtLocalPoint(module, legacy.localContactPoint);
+    if (!primitive) {
+      throw new Error(`saved construct v4 module "${module.id}" contact point no longer lies on a primitive`);
+    }
+    return { ...module, mountedContactStriker: { kind: "authored-surface", action: "bash", surfaces: [{
+      id: "legacy-contact", primitiveId: primitive.id, kind: "mass", damageScale: 0,
+      localContactPoint: legacy.localContactPoint, shoveSpecificImpulseMps: legacy.shoveSpecificImpulseMps,
+    }] } };
+  }),
+});
 
 function verifySavedDigests(source: SavedSource,
-  blueprint: ConstructBlueprint | LegacyConstructBlueprint | V2ConstructBlueprint | V3ConstructBlueprint,
+  blueprint: ConstructBlueprint | LegacyConstructBlueprint | V2ConstructBlueprint | V3ConstructBlueprint | V4ConstructBlueprint,
   control: ConstructControlGraph, program: ConstructProgram, digest: (value: unknown) => string): void {
   const actual = { blueprint: digest(blueprint), control: controlDigest(control), program: programDigest(program) };
   for (const key of ["blueprint", "control", "program"] as const) if (source.digests[key] !== actual[key]) {
@@ -190,7 +213,7 @@ function migrateSavedV2(source: SavedSource, sensors: readonly SensorSpec[]): Sa
   const control = validateControlHardware(blueprint, source.control, installed);
   const program = parseProgram(JSON.stringify(source.program), control, installed);
   verifySavedDigests(source, blueprint, control, program, v2BlueprintDigest);
-  return saveConstruct(source.name, migrateV3ToV4(migrateV2ToV3(blueprint)), control, program, sensors);
+  return saveConstruct(source.name, migrateV4ToV5(migrateV3ToV4(migrateV2ToV3(blueprint))), control, program, sensors);
 }
 
 function migrateSavedV3(source: SavedSource, sensors: readonly SensorSpec[]): SavedConstruct {
@@ -199,7 +222,16 @@ function migrateSavedV3(source: SavedSource, sensors: readonly SensorSpec[]): Sa
   const control = validateControlHardware(blueprint, source.control, installed);
   const program = parseProgram(JSON.stringify(source.program), control, installed);
   verifySavedDigests(source, blueprint, control, program, v3BlueprintDigest);
-  return saveConstruct(source.name, migrateV3ToV4(blueprint), control, program, sensors);
+  return saveConstruct(source.name, migrateV4ToV5(migrateV3ToV4(blueprint)), control, program, sensors);
+}
+
+function migrateSavedV4(source: SavedSource, sensors: readonly SensorSpec[]): SavedConstruct {
+  const blueprint = validateV4Blueprint(source.blueprint);
+  const installed = installedSensorsForBlueprint(blueprint, sensors);
+  const control = validateControlHardware(blueprint, source.control, installed);
+  const program = parseProgram(JSON.stringify(source.program), control, installed);
+  verifySavedDigests(source, blueprint, control, program, v4BlueprintDigest);
+  return saveConstruct(source.name, migrateV4ToV5(blueprint), control, program, sensors);
 }
 
 export function saveConstruct(
@@ -254,6 +286,7 @@ export function parseSavedConstruct(text: string, sensors: readonly SensorSpec[]
   if (source.version === 1) return migrateSavedV1(source, sensors);
   if (source.version === 2) return migrateSavedV2(source, sensors);
   if (source.version === 3) return migrateSavedV3(source, sensors);
+  if (source.version === 4) return migrateSavedV4(source, sensors);
   const saved = saveConstruct(source.name, source.blueprint as ConstructBlueprint, source.control, source.program, sensors);
   for (const key of ["blueprint", "control", "program"] as const) {
     if (source.digests[key] !== saved.digests[key]) {

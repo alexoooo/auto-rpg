@@ -13,6 +13,7 @@ import { ConstructLocomotionPort } from "../src/construct/assisted-locomotion.ts
 import { ConstructControlEndpoint, CONSTRUCT_CONTROL_SURFACE } from "../src/construct/control.ts";
 import { HumanoidControlEndpoint, HUMANOID_CONTROL_SURFACE } from "../src/humanoid-control.ts";
 import { StagedSupportedLocomotionPort } from "../src/supported-locomotion.ts";
+import { supportedLocomotionControllerDescriptor } from "../src/construct/controllers.ts";
 
 const locomotion = () => humanoidControl().groups.find(({ id }) => id === "locomotion");
 const mutableBlueprint = () => structuredClone(humanoidBlueprint());
@@ -130,6 +131,18 @@ test("a_controller_cannot_name_a_carrier_or_support_outside_its_group", () => {
   assert.deepEqual(submissions[0].request,
     { localForward: 0.4, localRight: 0.2, yaw: -0.1, recover: false });
   assert.throws(() => writer.request({ localForward: 1, localRight: 1, yaw: 0, recover: false }), /normalized/);
+});
+
+test("the_planted_combat_move_declares_its_extra_stability_capacity_through_the_descriptor", () => {
+  const graph = humanoidControl();
+  const action = graph.actions.find(({ id }) => id === "advance");
+  const descriptor = supportedLocomotionControllerDescriptor(action.controller);
+  assert.ok(descriptor);
+  const authority = deriveLocomotionAuthority(humanoidBlueprint(), locomotion(), action, descriptor);
+  assert.equal(authority.braceCapacityMultiplier, 2,
+    "combat-move must not silently inherit the weaker stationary brace");
+  assert.throws(() => deriveLocomotionAuthority(humanoidBlueprint(), locomotion(), action,
+    { ...descriptor, brace: false, braceCapacityMultiplier: 2 }), /brace capacity/);
 });
 
 test("one_carrier_accepts_at_most_one_balance_claim_even_across_full_and_limp_groups", () => {

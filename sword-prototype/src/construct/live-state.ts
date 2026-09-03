@@ -42,6 +42,55 @@ export class LiveConstructState {
   vitality(): number { return this.damage.vitality(); }
   moduleAvailable(id: string): boolean { return this.damage.installedModules().has(id); }
 
+  /**
+   * A limb is only as usable as its weakest real load-bearing element. This is
+   * deliberately a minimum rather than a cosmetic average: a cut wrist or a
+   * ruined mount is not made safe by an untouched upper arm.
+   */
+  armIntegrity(arm: "sword" | "left"): number {
+    const parts = arm === "sword" ? ["sword-shoulder-yaw", "sword-arm-pitch"] :
+      ["left-upper-arm", "left-forearm", "left-wrist", "left-hand"];
+    const joints = arm === "sword" ? ["sword-yaw", "sword-pitch"] :
+      ["left-shoulder", "left-elbow", "left-wrist", "left-palm"];
+    const modules = arm === "sword" ? ["effigy-sword"] : ["effigy-gauntlet", "effigy-left-sword"];
+    const blueprint = this.runtime.blueprint;
+    const ratios = [
+      ...parts.filter((id) => blueprint.parts.some((row) => row.id === id)).map((id) => {
+        const spec = blueprint.parts.find((row) => row.id === id);
+        return Math.max(0, this.partHealth(id) / spec!.health);
+      }),
+      ...joints.filter((id) => blueprint.joints.some((row) => row.id === id)).map((id) => {
+        const spec = blueprint.joints.find((row) => row.id === id);
+        return Math.max(0, this.jointIntegrity(id) / spec!.health);
+      }),
+      ...modules.filter((id) => blueprint.modules.some((row) => row.id === id)).map((id) => {
+        const spec = blueprint.modules.find((row) => row.id === id);
+        return this.moduleAvailable(id) ? Math.max(0, this.moduleHealth(id) / spec!.health) : 0;
+      }),
+    ];
+    return ratios.length ? Math.max(0, Math.min(1, ...ratios)) : 0;
+  }
+
+  /** One bounded control consequence of the published real-damage integrity. */
+  motorScaleForJoint(joint: string): number {
+    const arm = ["sword-yaw", "sword-pitch"].includes(joint) ? "sword" :
+      ["left-shoulder", "left-elbow", "left-wrist", "left-palm"].includes(joint) ? "left" : null;
+    if (arm === null) return 1;
+    const integrity = this.armIntegrity(arm);
+    if (arm === "left") {
+      // A stone gauntlet is a real off-centre load. Its normal 60% actuator ceiling is not a
+      // hidden kinematic restraint; it stops a defensive posture from injecting enough angular
+      // impulse to overturn the independently supported biped. Damage reduces that ceiling in
+      // the same staged way instead of snapping a usable arm from full force to none.
+      if (integrity <= 0.25) return 0.35;
+      if (integrity <= 0.60) return 0.48;
+      return 0.60;
+    }
+    if (integrity <= 0.25) return 0.55;
+    if (integrity <= 0.60) return 0.72;
+    return 1;
+  }
+
   damagePart(id: string, rawDamage: number): DamageResult {
     return this.damage.damagePart(id, rawDamage);
   }
@@ -153,6 +202,22 @@ export class LiveConstructState {
   }
 
   capabilities(graph: ConstructControlGraph): readonly ActionCapability[] {
-    return applySupportedLocomotionAlternatives(graph, deriveCapabilities(graph, this.hardware()));
+    const restricted = deriveCapabilities(graph, this.hardware()).map((capability) => {
+      const arm = ["sweep", "guard", "aim"].includes(capability.action) ? "sword" :
+        ["offhand-guard", "gauntlet-strike"].includes(capability.action) ? "left" : null;
+      if (arm === null) return capability;
+      const integrity = this.armIntegrity(arm);
+      if (integrity <= 0) {
+        return Object.freeze({ ...capability, available: false, reason: `${arm} arm is disabled` });
+      }
+      if (!capability.available) return capability;
+      const offensive = arm === "sword" ? capability.action === "sweep" : capability.action === "gauntlet-strike";
+      if (offensive && integrity <= 0.25) {
+        return Object.freeze({ ...capability, available: false,
+          reason: `${arm} arm is critically damaged; defensive actions only` });
+      }
+      return capability;
+    });
+    return applySupportedLocomotionAlternatives(graph, restricted);
   }
 }

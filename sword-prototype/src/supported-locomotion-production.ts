@@ -34,6 +34,23 @@ const STOP: LocomotionRequest = Object.freeze({
   localForward: 0, localRight: 0, yaw: 0, recover: false,
 });
 
+/**
+ * A rise is interrupted by a new *staggering* authored transfer, not a brush.  The ledger still
+ * records every physical contact for normal supported/fallen thresholds, but treating any
+ * positive floating-point contact as an interrupt made a weapon scrape reset a bounded rise at
+ * 240 Hz forever.  Express the boundary in the same mass-independent specific impulse units as
+ * the state machine, so a real hit retains its physical consequence without a special recovery
+ * damage rule.
+ */
+export function recoveryHitInterrupted(events: readonly StabilityEvent[], supportedMassKg: number,
+  authority: StabilityAuthority | null): boolean {
+  const freshSpecificImpulseMps = events.reduce((sum, event) => sum +
+    (event.kind === "specific-impulse" ? event.specificImpulseMps :
+      Math.hypot(...event.horizontalShoveNs) / supportedMassKg), 0);
+  const capacity = (authority?.braceCapacityMultiplier ?? 1) * (authority?.gaitStabilityScale ?? 1);
+  return freshSpecificImpulseMps >= SUPPORTED_LOCOMOTION_V1.STAGGER_SPECIFIC_IMPULSE_MPS * capacity;
+}
+
 export const DEFAULT_SUPPORTED_CARRIER: VirtualCarrierConfig = Object.freeze({
   maxSpeedMps: 1.6,
   maxAccelerationMps2: 9,
@@ -225,9 +242,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
         priorRequest !== null && Math.max(Math.abs(priorRequest.localForward),
           Math.abs(priorRequest.localRight), Math.abs(priorRequest.yaw)) > 0),
       recoveryGroundAvailable, occupancyClear,
-      hitInterrupted: shoves.some((event) => event.kind === "specific-impulse"
-        ? event.specificImpulseMps > 0
-        : Math.hypot(...event.horizontalShoveNs) > 0),
+      hitInterrupted: recoveryHitInterrupted(shoves, this.options.supportedMassKg, authority),
     });
     if (this.supportState.state === "fallen") {
       if (priorState !== "fallen") {
@@ -321,17 +336,20 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
   }
 
   authority(action: ActionSpec, group: ControlGroupSpec): LocomotionAuthorityToken | null {
-    const authority = this.options.resolveActionAuthority?.(action, group) ?? null;
-    // The scheduler asks the port about every admitted Action. An unrelated sword/posture
-    // Action returning null says nothing about the locomotion Action that already owns this
-    // carrier; its withdrawal reaches `clearSubmission` by action/group below.
-    if (authority !== null && "supportBindings" in authority) {
-      this.activeAuthority = authority as StabilityAuthority;
-      this.activeAuthorityOwner = `${group.id}/${action.id}`;
-    }
-    return authority;
+    // This is an admission query, not ownership.  The scheduler probes it before it cancels an
+    // old parameterized Action; claiming ownership here let that old cancellation clear the
+    // newly probed authority.  The following safe boundary then evaluated a still-moving
+    // two-foot body with capacity 1 instead of its declared combat brace and could release it
+    // under a sub-braced blow.  `stage` is the only proof that the Action actually survived
+    // admission and authored a carrier request, so it is the only place that may install it.
+    return this.options.resolveActionAuthority?.(action, group) ?? null;
   }
   stage(submission: LocomotionSubmission): void {
+    if (!("supportBindings" in submission.authority)) {
+      throw new Error(`physical locomotion submission "${submission.group}/${submission.action}" lacks stability authority`);
+    }
+    this.activeAuthority = submission.authority as StabilityAuthority;
+    this.activeAuthorityOwner = `${submission.group}/${submission.action}`;
     this.staged.request(submission.request);
   }
   priorSample(_authority: LocomotionAuthorityToken): SupportedLocomotionSample {

@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { parseSavedConstruct, saveConstruct } from "../src/construct/codec.ts";
 import { controlDigest } from "../src/construct/actions.ts";
-import { legacyBlueprintDigest, v2BlueprintDigest, v3BlueprintDigest } from "../src/construct/canonical.ts";
+import { legacyBlueprintDigest, v2BlueprintDigest, v3BlueprintDigest, v4BlueprintDigest } from "../src/construct/canonical.ts";
 import { programDigest } from "../src/construct/program.ts";
 import { ARBALEST_SENSORS, arbalestSavedConstruct } from "../src/construct/arbalest.ts";
 import { WARDEN_SENSORS, wardenBlueprint, wardenControl, wardenProgram } from "../src/construct/warden.ts";
@@ -194,23 +194,40 @@ test("a_failed_library_entry_prevents_the_atomic_v2_storage_write", () => {
   assert.equal(writes, 0);
 });
 
-test("v2_projectile_efficiency_is_digest_verified_then_migrated_through_v3_to_v4", () => {
+test("v2_projectile_efficiency_is_digest_verified_then_migrated_through_v3_v4_to_v5", () => {
   const source = priorSaved(arbalestSavedConstruct("Arbalest v2"), 2);
   const projectile = source.blueprint.modules.find(({ id }) => id === "effigy-arbalest").projectile;
   projectile.damageScale = 0.75;
   source.digests.blueprint = v2BlueprintDigest(source.blueprint);
   const migrated = parseSavedConstruct(JSON.stringify(source), ARBALEST_SENSORS);
-  assert.equal(migrated.version, 4);
-  assert.equal(migrated.blueprint.version, 4);
+  assert.equal(migrated.version, 5);
+  assert.equal(migrated.blueprint.version, 5);
   assert.equal(migrated.blueprint.modules.find(({ id }) => id === "effigy-arbalest")
     .projectile.penetrationEfficiency, 0.75);
   projectile.damageScale = 0.5;
   assert.throws(() => parseSavedConstruct(JSON.stringify(source), ARBALEST_SENSORS), /blueprint digest/);
 });
 
-test("v3_saved_content_migrates_to_v4_without_inventing_a_mounted_striker", () => {
+test("v3_saved_content_migrates_to_v5_without_inventing_a_mounted_striker", () => {
   const source = priorSaved(arbalestSavedConstruct("Arbalest v3"), 3);
   const migrated = parseSavedConstruct(JSON.stringify(source), ARBALEST_SENSORS);
-  assert.equal(migrated.version, 4);
+  assert.equal(migrated.version, 5);
   assert.equal(migrated.blueprint.modules.some(({ mountedContactStriker }) => mountedContactStriker), false);
+});
+
+test("v4_contact_hardware_is_digest_verified_then_migrated_to_one_named_mass_surface", () => {
+  const source = structuredClone(saved("Warden v4"));
+  source.version = 4;
+  source.blueprint.version = 4;
+  const shield = source.blueprint.modules.find(({ id }) => id === "warden-shield");
+  shield.mountedContactStriker = { kind: "authored-shove", localContactPoint: [-0.35, 0, 0.84],
+    shoveSpecificImpulseMps: 0.008 };
+  source.digests.blueprint = v4BlueprintDigest(source.blueprint);
+  const migrated = parseSavedConstruct(JSON.stringify(source), WARDEN_SENSORS);
+  assert.equal(migrated.version, 5);
+  const contact = migrated.blueprint.modules.find(({ id }) => id === "warden-shield").mountedContactStriker;
+  assert.deepEqual(contact, { kind: "authored-surface", action: "bash", surfaces: [{
+    id: "legacy-contact", primitiveId: "boss", kind: "mass", damageScale: 0,
+    localContactPoint: [-0.35, 0, 0.84], shoveSpecificImpulseMps: 0.008,
+  }] });
 });

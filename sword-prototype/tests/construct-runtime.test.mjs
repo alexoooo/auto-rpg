@@ -37,7 +37,7 @@ const part = (id, vital = false, clearance = 0.004) => ({
 });
 
 const sixPartBlueprint = () => ({
-  version: 4,
+  version: 5,
   id: "six-part-runtime",
   rootPart: "core",
   parts: [part("tip"), part("middle-b"), part("core", true), part("middle-d"), part("middle-a"), part("middle-c")],
@@ -57,7 +57,7 @@ const sixPartBlueprint = () => ({
 });
 
 const onePartBlueprint = () => ({
-  version: 4,
+  version: 5,
   id: "one-part-control",
   rootPart: "control",
   parts: [{ ...part("control", true), massKg: 12 }],

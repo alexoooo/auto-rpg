@@ -8,11 +8,12 @@ import { SwordbearerTactics, SWORDBEARER_TACTICS_V1 } from "../src/construct/swo
 
 const graph = humanoidControl();
 const sensors = installedSensorsForBlueprint(humanoidBlueprint(), HUMANOID_SENSORS);
-const frame = ({ range = 1.7, upright = true, visible = true, sword = true, leftArm = true,
+const frame = ({ range = 1.7, upright = true, visible = true, sword = true, leftArm = true, leftIntegrity = leftArm ? 1 : 0,
   weaponPresent = false, weaponSpeed = 0, weaponZ = 1, weaponVz = 0 } = {}) => {
   const result = new SensorFrame(sensors);
   const values = {
     "core-upright": upright, "line-of-sight": visible, "sword-ready": sword, "left-arm-ready": leftArm,
+    "left-arm-integrity": leftIntegrity,
     "opponent-range": range, "sword-core-clearance-m": 0.08,
     "opponent-weapon-present": weaponPresent, "opponent-weapon-speed-mps": weaponSpeed,
     "opponent-weapon-local-z": weaponZ, "opponent-weapon-local-vz": weaponVz,
@@ -22,7 +23,8 @@ const frame = ({ range = 1.7, upright = true, visible = true, sword = true, left
 };
 const actions = (command) => command.requests.map(({ request }) => request.action);
 const locomotionActions = new Set(["advance", "withdraw", "orbit-left", "orbit-right", "recover"]);
-const runtime = (sweep = false) => ({ isActionActive: (action) => action === "sweep" && sweep });
+const runtime = (sweep = false, gauntlet = false) => ({ isActionActive: (action) =>
+  action === "sweep" ? sweep : action === "gauntlet-strike" ? gauntlet : false });
 
 test("the_authored_Swordbearer_turns_and_moves_through_declared_combat_actions", () => {
   const tactics = new SwordbearerTactics(graph, sensors);
@@ -54,13 +56,20 @@ test("the_authored_Swordbearer_commits_a_latched_sweep_then_withdraws_and_change
   const commit = tactics.decide(frame({ range: 1.7 }), 0.2, runtime());
   assert.equal(tactics.diagnostic().phase, "commit");
   assert.equal(actions(commit).includes("sweep"), true);
+  assert.equal(actions(commit).includes("gauntlet-strike"), true,
+    "the finite left check runs alongside the committed right sword rather than leaving a dangling arm");
   assert.deepEqual(commit.requests[0].request, { action: "advance", parameters: {
     forward: 0, right: 0, yaw: 0.28, speed: 0,
   } }, "a physical stroke keeps its target lane while visibly turning through the declared biped carrier");
 
-  const held = tactics.decide(frame({ range: 1.7, visible: false }), 0.1, runtime(true));
+  const held = tactics.decide(frame({ range: 1.7, visible: false }), 0.1, runtime(true, true));
   assert.equal(actions(held).includes("sweep"), true,
     "a momentarily occluded admitted sweep keeps its scheduler-owned target latch");
+  assert.equal(actions(held).includes("gauntlet-strike"), true,
+    "an admitted left check remains scheduler-owned until its finite physical controller completes");
+  const cover = tactics.decide(frame({ range: 1.7 }), 0.1, runtime(true, false));
+  assert.equal(actions(cover).includes("offhand-guard"), true,
+    "one completed left check yields to cover rather than repeatedly driving the whole arm through a commit");
   const withdrawal = tactics.decide(frame({ range: 1.7 }), 0.1, runtime(false));
   assert.equal(tactics.diagnostic().phase, "withdraw");
   assert.equal(withdrawal.requests[0].request.action, "withdraw");
@@ -70,7 +79,7 @@ test("the_authored_Swordbearer_commits_a_latched_sweep_then_withdraws_and_change
     "a completed/cancelled physical stroke cannot leave the director on its original orbit side");
 });
 
-test("the_authored_Swordbearer_uses_the_real_left_arm_only_for_a_visible_incoming_weapon", () => {
+test("the_authored_Swordbearer_keeps_the_real_left_arm_active_and_reserves_the_check_for_close_contact", () => {
   const threatened = new SwordbearerTactics(graph, sensors);
   const command = threatened.decide(frame({ range: 1.6, weaponPresent: true, weaponSpeed: 6,
     weaponZ: 0.5, weaponVz: -1 }), 0.1, runtime());
@@ -88,8 +97,23 @@ test("the_authored_Swordbearer_uses_the_real_left_arm_only_for_a_visible_incomin
   const hidden = new SwordbearerTactics(graph, sensors);
   const unseen = hidden.decide(frame({ range: 1.6, visible: false, weaponPresent: true,
     weaponSpeed: 8, weaponZ: 0.5, weaponVz: -2 }), 0.1, runtime());
-  assert.equal(actions(unseen).includes("offhand-guard"), false,
-    "a hidden weapon velocity is not an action-authorizing threat fact");
+  assert.equal(actions(unseen).includes("offhand-guard"), true,
+    "lost sight prevents a new strike but retains physical left-side cover while the body searches");
+
+  const damaged = new SwordbearerTactics(graph, sensors);
+  const degraded = damaged.decide(frame({ range: 1.6, leftIntegrity: 0.25 }), 0.1, runtime());
+  assert.equal(actions(degraded).includes("gauntlet-strike"), false,
+    "a critically damaged arm remains a defensive block but cannot be driven as an attack");
+  assert.equal(actions(degraded).includes("offhand-guard"), true);
+});
+
+test("recovery_withdraws_both_weapon_groups_until_the_physical_carrier_is_upright_again", () => {
+  const tactics = new SwordbearerTactics(graph, sensors);
+  const recovery = tactics.decide(frame({ upright: false, range: 1.4, weaponPresent: true,
+    weaponSpeed: 8, weaponZ: 0.4, weaponVz: -2 }), 0.1, runtime());
+  assert.deepEqual(actions(recovery), ["recover"],
+    "the bounded rising carrier must not fight sword or gauntlet motors for the same body");
+  assert.equal(tactics.diagnostic().phase, "recover");
 });
 
 test("a_destroyed_sword_or_left_arm_removes_only_its_dependent_tactical_behaviour", () => {
