@@ -15,6 +15,9 @@ export interface ConstructDecisionDiagnostic {
   readonly selectedRules: readonly string[];
   readonly requests: readonly string[];
   readonly rules: readonly ConstructRuleDiagnostic[];
+  /** Optional only because saved Programs retain the compact rule-only diagnostic. */
+  readonly phase?: string;
+  readonly reason?: string;
 }
 
 const expressionSensors = (expression: Expression, into: Set<string>): void => {

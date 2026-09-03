@@ -1,7 +1,15 @@
 # Session 34 -- live Effigy dynamism parity and adversarial review
 
-**Status (2026-09-02): planned.** Session 33 makes a more capable authored controller; this
-session proves it is a real, mobile physical fighter rather than a more elaborate static script.
+**Status (2026-09-02): proof implemented; current eight-cell receipt is rejected.** The physical
+corpus retains pose, carrier, support, phase, admitted Action/controller, terminal and contact
+evidence, and its verifier refuses forged summaries. It confirms substantial travel, lateral
+motion and turn-and-move intervals rather than a stationary sweep turret. It is still red because
+`4140987459/right` has only 15.1167 seconds of supported standing and `4124209840/left` /
+`4174542697/right` complete only two / one sweeps. The retained receipt has no unlabelled stationary
+damaging contact. Those are real repair targets; they are not waived by the new dynamics.
+Two post-baseline moving-stroke candidates were rejected and reverted: the 0.55 m/s backward/lateral
+one cleared every attack count but failed supported standing in four cells; the smaller straight
+retreat left one unsafe and two attack-poor cells. The durable numbers are in `docs/measurements.md`.
 
 ## Outcome
 

@@ -832,6 +832,28 @@ body {
   pointer-events: none;
 }
 
+/* The Effigy's intent is one non-interactive line in the existing arena HUD. It deliberately
+   shares neither the pause card nor the detailed Forge inspector, so a screenshot/focus pause
+   still leaves the fighter and camera unobstructed. */
+#effigy-tactical-line {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  z-index: 11;
+  max-width: calc(100vw - 48px);
+  transform: translateX(-50%);
+  padding: 6px 9px;
+  border: 1px solid rgba(232, 180, 90, 0.42);
+  border-radius: 4px;
+  color: var(--hot);
+  background: rgba(12, 13, 16, 0.76);
+  font: 600 11px/1.25 ui-monospace, SFMono-Regular, Consolas, monospace;
+  letter-spacing: 0.025em;
+  pointer-events: none;
+}
+
+#effigy-tactical-line.gone { display: none; }
+
 .pause-copy {
   display: flex;
   align-items: baseline;

@@ -61,6 +61,7 @@ export class SetupScreen {
   private readonly humanoidEquipment: Record<Side, HTMLElement[]>;
   private readonly blueprintFields: Record<Side, HTMLElement>;
   private readonly blueprintLabels: Record<Side, HTMLOutputElement>;
+  private readonly effigyPlaytests: Record<Side, HTMLElement>;
   private readonly constructs: Record<Side, HTMLSelectElement>;
   private readonly forgeButtons: Record<Side, HTMLButtonElement>;
 
@@ -105,6 +106,7 @@ export class SetupScreen {
     };
     this.blueprintFields = pick<HTMLElement>("blueprint-field");
     this.blueprintLabels = pick<HTMLOutputElement>("blueprint-label");
+    this.effigyPlaytests = pick<HTMLElement>("effigy-playtest");
     this.constructs = pick<HTMLSelectElement>("construct");
     this.forgeButtons = pick<HTMLButtonElement>("open-forge");
 
@@ -178,6 +180,10 @@ export class SetupScreen {
           <select data-side="${side}" data-field="construct"></select>
           <output data-side="${side}" data-field="blueprint-label"></output>
           <button type="button" class="setup-forge" data-side="${side}" data-field="open-forge">Open Forge</button>
+        </div>
+        <div class="field effigy-playtest" data-side="${side}" data-field="effigy-playtest" hidden>
+          <span class="field-name">Visible review</span>
+          <output>Suggested bout: Warrior Duelist (sword + buckler) vs Swordbearer Effigy. The built-in Effigy Mind is selected here.</output>
         </div>
         <div class="field">
           <span class="field-name">Control</span>
@@ -271,6 +277,7 @@ export class SetupScreen {
         field.disabled = definition.hands === 0;
       }
       for (const field of this.humanoidEquipment[side]) field.hidden = construct;
+      this.effigyPlaytests[side].hidden = setup.unit !== "swordbearer-effigy";
       this.blueprintFields[side].hidden = !savedMachine;
       if (savedMachine) {
         const entries = this.constructAffordance?.entries() ?? [];

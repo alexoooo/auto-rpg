@@ -1,6 +1,6 @@
 import type { ActionController, ControllerContext, ControllerDiagnostic, ControllerFactory } from "./scheduler.ts";
 
-type Mode = "move" | "turn" | "brace" | "recover";
+type Mode = "move" | "combat-move" | "turn" | "brace" | "recover";
 type Side = "left" | "right";
 
 /** Conservative one-support authority. A physical sweep may lower these values, never bypass them. */
@@ -106,7 +106,13 @@ class BipedController implements ActionController {
       throw new Error(`biped ${context.action.controller} requires one or two distinct support sides`);
     }
     for (const side of this.supportSides) bindingFor(context, side);
-    if (mode !== "recover" && contacts(context, this.supportSides) < 1) {
+    // The combat carrier has its own bounded world footprint. During a turn it can keep that
+    // footprint supported while a real sole is between solver contacts; refusing the Action in
+    // that narrow interval made an otherwise upright Effigy repeatedly fall into recover and
+    // become a planted turret. Other biped modes retain the strict measured-foot admission.
+    const carrierBridgedContact = supported && mode === "combat-move" &&
+      context.view.facts["core-upright"] !== false;
+    if (mode !== "recover" && contacts(context, this.supportSides) < 1 && !carrierBridgedContact) {
       throw new Error(`biped ${mode} requires at least one measured foot contact`);
     }
   }
@@ -149,6 +155,16 @@ class BipedController implements ActionController {
       this.progress = Math.hypot(roll, pitch);
       return;
     }
+    if (this.mode === "combat-move") {
+      // Combat locomotion deliberately keeps both real support chains in their measured brace
+      // while the supported carrier performs the declared translation/yaw. A swinging gait under
+      // a 0.70 lateral turn repeatedly put a stone foot into its own next support footprint;
+      // this is the bounded "walking is a game layer" accommodation, not direct body movement --
+      // the carrier still has to clear the world and the brace motors still own every leg axis.
+      this.state = "combat-move";
+      this.progress = writeBipedBrace(this.context, BIPED_BRACE_POSE, this.supportSides);
+      return;
+    }
     if (oneSupport) {
       // A fallback leg cannot be both stance and swing. The carrier supplies the deliberately
       // reduced shuffle; the only surviving physical chain stays planted, and a missing fresh
@@ -157,10 +173,13 @@ class BipedController implements ActionController {
       this.progress = writeBipedBrace(this.context, BIPED_BRACE_POSE, this.supportSides);
       return;
     }
-    const speed = this.mode === "move" ? numberParameter(this.context, "speed") :
+    // `combat-move` returned above after planting its physical brace. Only the legacy/full gait
+    // below swings a leg, so its local definition is intentionally just ordinary `move`.
+    const moving = this.mode === "move";
+    const speed = moving ? numberParameter(this.context, "speed") :
       this.mode === "turn" ? Math.abs(numberParameter(this.context, "yaw")) : 0;
     const phaseDrive = this.supported
-      ? this.mode === "move" ? Math.max(Math.hypot(previous?.localForward ?? 0, previous?.localRight ?? 0),
+      ? moving ? Math.max(Math.hypot(previous?.localForward ?? 0, previous?.localRight ?? 0),
           Math.abs(previous?.yaw ?? 0))
         : this.mode === "turn" ? Math.abs(previous?.yaw ?? 0) : previous?.recover === true ? 1 : 0
       : 0.65 + speed * 0.55;
@@ -176,10 +195,10 @@ class BipedController implements ActionController {
       const returning = cycle >= 0.72;
       const liftPhase = returning ? (cycle - 0.72) / 0.28 : 0;
       const lift = returning ? Math.sin(liftPhase * Math.PI) : 0;
-      const stride = this.mode === "move"
+      const stride = moving
         ? ((cycle / 0.72) * 2 - 1) * numberParameter(this.context, "forward") * (0.22 + speed * 0.10)
         : 0;
-      const lateral = this.mode === "move"
+      const lateral = moving
         ? numberParameter(this.context, "right") * this.strafeScale * sign * 0.10 : 0;
       const rock = this.mode === "recover" ? Math.sin(this.phase * Math.PI * 2) * sign * 0.48 : 0;
       const hipX = this.mode === "recover" ? Math.max(-0.65, Math.min(0.65, -pitch * 0.38 + rock)) : stride + lateral;
@@ -190,6 +209,12 @@ class BipedController implements ActionController {
       const targets: readonly [string, "x" | "y", number][] = [
         [binding.joints[0], "x", hipX], [binding.joints[1], "x", knee],
         [binding.joints[2], "x", ankle], [binding.joints[3], "x", sole],
+        // The carrier, not this hip twist, supplies supported yaw. A full 0.34-rad gait twist
+        // was safe while turning in place, but coupled with a 0.70 orbit request it repeatedly
+        // pushed the stone torso over one support edge. A 0.12-rad acknowledgement still cost
+        // the four-seed physical corpus standing time, so a combat-move plants the real feet and
+        // delegates the yaw entirely to the declared supported carrier; this is not a transform
+        // shortcut, because the carrier is the locomotion Action's actual physics authority.
         [binding.joints[0], "y", this.mode === "turn" ? numberParameter(this.context, "yaw") * 0.34 : 0],
       ];
       for (const [joint, axis, target] of targets) {
@@ -207,7 +232,7 @@ class BipedController implements ActionController {
       this.progress = Math.hypot(roll, pitch);
     } else {
       this.state = this.mode;
-      this.progress = this.mode === "move"
+      this.progress = moving
         ? Math.max(0, speed - Number(this.context.view.facts["core-speed-mps"] ?? 0)) : greatestError;
     }
   }
@@ -223,16 +248,17 @@ class BipedController implements ActionController {
       this.context.locomotion.request({ localForward: 0, localRight: 0, yaw: 0, recover: false });
       return;
     }
-    const forward = this.mode === "move" ? numberParameter(this.context, "forward") : 0;
-    const right = this.mode === "move" ? numberParameter(this.context, "right") * this.strafeScale : 0;
+    const moving = this.mode === "move" || this.mode === "combat-move";
+    const forward = moving ? numberParameter(this.context, "forward") : 0;
+    const right = moving ? numberParameter(this.context, "right") * this.strafeScale : 0;
     const magnitude = Math.hypot(forward, right);
     const directionScale = magnitude > 1 ? 1 / magnitude : 1;
-    const speedScale = this.mode === "move"
+    const speedScale = moving
       ? Math.max(0, Math.min(this.speedCeilingMps / 1.6,
         numberParameter(this.context, "speed") / 1.6)) : 0;
     this.context.locomotion.request({ localForward: forward * directionScale * speedScale,
       localRight: right * directionScale * speedScale,
-      yaw: (this.mode === "turn" || this.supportSides.length === 1)
+      yaw: (this.mode === "turn" || this.mode === "combat-move" || this.supportSides.length === 1)
         ? numberParameter(this.context, "yaw") * this.yawScale : 0,
       recover: this.mode === "recover" });
   }
@@ -253,5 +279,6 @@ export const BIPED_CONTROLLERS: readonly ControllerFactory[] = Object.freeze([
   factory("biped-brace", "brace"), factory("biped-recover", "recover"),
   factory("supported-biped-move", "move", true), factory("supported-biped-turn", "turn", true),
   factory("supported-biped-brace", "brace", true), factory("supported-biped-recover", "recover", true),
+  factory("supported-biped-combat-move", "combat-move", true),
   limpFactory("left"), limpFactory("right"),
 ]);

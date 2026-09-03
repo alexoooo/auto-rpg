@@ -21,6 +21,9 @@ import { createConstructHeadlessArena } from "../scripts/construct-headless-aren
 import { unitDefinition } from "../src/units.ts";
 import { HUMANOID_CONSTRUCT_PROFILE } from "../src/construct/construct.ts";
 import { layersFor, supportedLayersFor } from "../src/physics.ts";
+import { ATHLETIC_HUMANOID_CHASSIS_CANDIDATES_V1, ATHLETIC_HUMANOID_CHASSIS_V1,
+  HUMANOID_CHASSIS_BASELINE_V1 } from
+  "../src/construct/humanoid-chassis.ts";
 
 const supportRadius = (shape, direction) => {
   switch (shape.kind) {
@@ -93,8 +96,7 @@ test("one_similarity_scale_owns_the_human_sized_stone_chassis_but_not_its_ordina
   assert.equal(HUMANOID_SCALE, 0.75);
   const blueprint = humanoidBlueprint();
   const part = (id) => blueprint.parts.find((candidate) => candidate.id === id);
-  assert.deepEqual(part("torso").shape.sizeM, [0.72 * HUMANOID_SCALE, 0.78 * HUMANOID_SCALE,
-    0.34 * HUMANOID_SCALE]);
+  assert.deepEqual(part("torso").shape.sizeM, ATHLETIC_HUMANOID_CHASSIS_V1.torso.map((value) => value * HUMANOID_SCALE));
   assert.equal(part("pelvis").massKg, 180 * HUMANOID_SCALE ** 3);
   assert.equal(part("left-foot").massKg, 80 * HUMANOID_SCALE ** 3);
   const waist = blueprint.joints.find(({ id }) => id === "waist").angularAxes[0];
@@ -148,14 +150,15 @@ test("humanoid_effigy_visible_feet_are_proportional_and_do_not_intersect_in_the_
     "the support presentation margin must refuse shapes for which its axis contract is undefined");
 });
 
-test("the_humanoid_sensor_surface_is_the_exact_27_raw_facts_without_a_high_target_conclusion", () => {
+test("the_humanoid_sensor_surface_is_the_exact_31_raw_facts_without_a_high_target_conclusion", () => {
   const expected = ["core-upright", "core-roll-rad", "core-pitch-rad", "left-arm-ready", "sword-ready",
     "sword-core-clearance-m", "opponent-range",
     "opponent-relative-speed", "opponent-local-x", "opponent-local-vx", "opponent-local-y",
     "opponent-local-vy", "opponent-local-z", "opponent-local-vz", "opponent-blocker-present",
     "opponent-blocker-local-x", "opponent-blocker-local-y", "opponent-blocker-local-z",
     "opponent-weapon-present", "opponent-weapon-local-x", "opponent-weapon-local-y",
-    "opponent-weapon-local-z", "line-of-sight", "contact-left-foot", "slip-left-foot",
+    "opponent-weapon-local-z", "opponent-weapon-local-vx", "opponent-weapon-local-vy",
+    "opponent-weapon-local-vz", "opponent-weapon-speed-mps", "line-of-sight", "contact-left-foot", "slip-left-foot",
     "contact-right-foot", "slip-right-foot"];
   assert.deepEqual(HUMANOID_SENSORS.map(({ id }) => id), expected);
   assert.equal(CONSTRUCT_BLUEPRINT_LIMITS.maxModuleSensorChannels, 32);
@@ -165,14 +168,39 @@ test("the_humanoid_sensor_surface_is_the_exact_27_raw_facts_without_a_high_targe
     "target choice remains Mind/controller inference rather than installed high-target hardware");
 });
 
+test("the_athletic_Swordbearer_candidates_refuse_to_fake_a_smaller_body_when_the_physical_exchange_regresses", () => {
+  const blueprint = humanoidBlueprint();
+  const part = (id) => blueprint.parts.find((candidate) => candidate.id === id);
+  const torso = part("torso"); const foot = part("left-foot"); const arm = part("left-upper-arm");
+  assert.equal(ATHLETIC_HUMANOID_CHASSIS_V1.id, "baseline-retained");
+  assert.equal(ATHLETIC_HUMANOID_CHASSIS_CANDIDATES_V1["athletic-20"].torso[0] <
+    HUMANOID_CHASSIS_BASELINE_V1.torso[0], true, "the rejected candidate remains an honest narrower physical alternative");
+  assert.equal(ATHLETIC_HUMANOID_CHASSIS_CANDIDATES_V1["athletic-15"].torso[0] <
+    HUMANOID_CHASSIS_BASELINE_V1.torso[0], true);
+  assert.deepEqual(foot.shape.sizeM, [0.40 * HUMANOID_SCALE, 0.14 * HUMANOID_SCALE, 0.55 * HUMANOID_SCALE],
+    "athletic selection may not fake a slim figure by weakening its qualified support footprint");
+  assert.deepEqual(torso.shape.sizeM, HUMANOID_CHASSIS_BASELINE_V1.torso.map((value) => value * HUMANOID_SCALE));
+  assert.equal(arm.shape.radiusM, HUMANOID_CHASSIS_BASELINE_V1.upperArmRadiusM * HUMANOID_SCALE);
+  const transforms = resolveConstructBindTransforms(blueprint);
+  const shoulder = transforms.get("left-upper-arm").position;
+  const core = transforms.get("torso").position;
+  assert.ok(Math.abs(shoulder.x - core.x) - torso.shape.sizeM[0] / 2 - arm.shape.radiusM <= 0.02,
+    "retaining the baseline means retaining its connected shoulder envelope, not introducing a floating-arm visual gap");
+  assert.ok(maximumExposedJointSeam(blueprint) <= 0.02,
+    "the readable gap is outside the connected joint seams, not a floating arm");
+});
+
 test("the_humanoid_saved_character_exposes_only_physically_supported_leg_and_sword_actions", () => {
   const control = humanoidControl();
   const controllers = new Map(control.actions.map(({ id, controller }) => [id, controller]));
   assert.deepEqual(Object.fromEntries([...controllers].filter(([id]) =>
-    ["move", "limp-left", "limp-right", "turn", "recover", "aim", "sweep", "guard"].includes(id))), {
+    ["move", "limp-left", "limp-right", "turn", "recover", "advance", "withdraw", "orbit-left", "orbit-right",
+      "aim", "sweep", "guard"].includes(id))), {
     move: "supported-biped-move", turn: "supported-biped-turn",
     "limp-left": "supported-biped-limp-left", "limp-right": "supported-biped-limp-right",
-    recover: "supported-biped-recover", aim: "aim-direction",
+    recover: "supported-biped-recover", advance: "supported-biped-combat-move",
+    withdraw: "supported-biped-combat-move", "orbit-left": "supported-biped-combat-move",
+    "orbit-right": "supported-biped-combat-move", aim: "aim-direction",
     sweep: "swordbearer-target-sweep", guard: "guard-mount",
   });
   const locomotion = control.groups.find(({ id }) => id === "locomotion");
@@ -215,6 +243,8 @@ test("biped_support_actions_cross_private_authority_and_command_only_declared_le
     const descriptor = supportedLocomotionControllerDescriptor(action.controller);
     return descriptor ? deriveLocomotionAuthority(blueprint, selectedGroup, action, descriptor) : null;
   });
+  assert.equal(supportedLocomotionControllerDescriptor("supported-biped-combat-move")?.brace, true,
+    "combat-move writes the two-foot brace field and must receive the corresponding bounded stability capacity");
   const joints = Object.fromEntries(group.joints.flatMap((id) => [
     [`${id}:x`, { angleRad: 0, speedRadS: 0, minRad: -1.5, maxRad: 1.5, maxSpeedRadS: 4, maxForceNm: 240 }],
     ...(id.endsWith("hip") ? [[`${id}:y`, { angleRad: 0, speedRadS: 0, minRad: -0.45,
@@ -241,6 +271,25 @@ test("biped_support_actions_cross_private_authority_and_command_only_declared_le
     priority: 0, sourceIndex: 0 }] }, { joints, facts: { ...supported,
       "contact:contact-left-foot": false, "contact:contact-right-foot": false } }, 1 / 240);
   assert.equal(events.some(({ kind, reason }) => kind === "refused" && /at least one measured foot contact/.test(reason)), true);
+
+  // The combat carrier can bridge an intermittent foot-contact reading only while the physical
+  // root remains upright; this is the intentionally bounded walking-layer accommodation. A
+  // fallen body still cannot air-walk through its recovery state.
+  const combatPort = locomotionPort(); combatPort.beginControlStep();
+  const combat = new ActionScheduler(control, CONSTRUCT_CONTROLLERS, { write() {} }, combatPort);
+  combat.step({ version: 1, requests: [{ request: { action: "orbit-right", parameters: {
+    forward: 0.35, right: 0.8, yaw: 0.7, speed: 1.05 } }, priority: 0, sourceIndex: 0 }] },
+  { joints, facts: { ...supported, "contact:contact-left-foot": false, "contact:contact-right-foot": false } }, 1 / 240);
+  assert.deepEqual(combatPort.snapshot().staged, {
+    localForward: 0.35 * (1.05 / 1.6), localRight: 0.8 * (1.05 / 1.6), yaw: 0.7, recover: false },
+  "the real supported carrier receives simultaneous forward, lateral and yaw authority");
+  const fallenPort = locomotionPort(); fallenPort.beginControlStep();
+  const fallen = new ActionScheduler(control, CONSTRUCT_CONTROLLERS, { write() {} }, fallenPort);
+  const fallenEvents = fallen.step({ version: 1, requests: [{ request: { action: "orbit-right", parameters: {
+    forward: 0.35, right: 0.8, yaw: 0.7, speed: 1.05 } }, priority: 0, sourceIndex: 0 }] },
+  { joints, facts: { ...supported, "core-upright": false,
+    "contact:contact-left-foot": false, "contact:contact-right-foot": false } }, 1 / 240);
+  assert.equal(fallenEvents.some(({ kind, reason }) => kind === "refused" && /at least one measured foot contact/.test(reason)), true);
 });
 
 test("supported_biped_turn_replants_from_one_physical_foot_while_retaining_yaw_authority", () => {

@@ -11,6 +11,7 @@ import { groundedConstructOriginY, resolveConstructBindTransforms } from "./comp
 import { humanoidActuator, humanoidLength, humanoidMass, humanoidShape,
   humanoidTriple } from "./humanoid-scale.ts";
 import { SUPPORTED_BIPED_LIMP_V1 } from "./biped.ts";
+import { ATHLETIC_HUMANOID_CHASSIS_V1 as CHASSIS } from "./humanoid-chassis.ts";
 export { HUMANOID_SCALE } from "./humanoid-scale.ts";
 
 const I = [0, 0, 0, 1] as const;
@@ -56,10 +57,10 @@ const moduleBase = (id: string, kind: ModuleKind, socket: string, compatibilityT
   health: 4.5, armour: 0.6 });
 
 const leftArmParts = Object.freeze([
-  part("left-upper-arm", { kind: "capsule", lengthM: 0.55, radiusM: 0.105 }, 8, "piston"),
-  part("left-forearm", { kind: "capsule", lengthM: 0.45, radiusM: 0.09 }, 6, "piston"),
-  part("left-wrist", { kind: "cylinder", lengthM: 0.20, radiusM: 0.08 }, 3, "bearing"),
-  part("left-hand", { kind: "box", sizeM: [0.22, 0.16, 0.25] }, 4),
+  part("left-upper-arm", { kind: "capsule", lengthM: 0.55, radiusM: CHASSIS.upperArmRadiusM }, 8, "piston"),
+  part("left-forearm", { kind: "capsule", lengthM: 0.45, radiusM: CHASSIS.forearmRadiusM }, 6, "piston"),
+  part("left-wrist", { kind: "cylinder", lengthM: 0.20, radiusM: CHASSIS.wristRadiusM }, 3, "bearing"),
+  part("left-hand", { kind: "box", sizeM: CHASSIS.hand }, 4),
 ]);
 const leftArmJoints = Object.freeze([
   joint("left-shoulder", "torso", "left-upper-arm", [-0.42, 0.25, 0], [0, 0.275, 0], "x", -0.95, 0.95),
@@ -72,9 +73,9 @@ const leg = (side: "left" | "right", x: number) => {
   // Heavy-stone chassis experiment, mass only: thigh/shin/ankle/foot were
   // 18/14/6/18 kg. Geometry and the two contact leaves deliberately do not move.
   const parts = Object.freeze([
-    part(`${side}-thigh`, { kind: "capsule", lengthM: 0.32, radiusM: 0.12 }, 60, "piston"),
-    part(`${side}-shin`, { kind: "capsule", lengthM: 0.30, radiusM: 0.10 }, 50, "piston"),
-    part(`${side}-ankle`, { kind: "cylinder", lengthM: 0.12, radiusM: 0.085 }, 25, "bearing"),
+    part(`${side}-thigh`, { kind: "capsule", lengthM: 0.32, radiusM: CHASSIS.thighRadiusM }, 60, "piston"),
+    part(`${side}-shin`, { kind: "capsule", lengthM: 0.30, radiusM: CHASSIS.shinRadiusM }, 50, "piston"),
+    part(`${side}-ankle`, { kind: "cylinder", lengthM: 0.12, radiusM: CHASSIS.ankleRadiusM }, 25, "bearing"),
     // The support collider retains the physically qualified slab. The saved support shell style
     // draws a smaller stone casing inside it, avoiding sibling overlap without retuning locomotion.
     part(`${side}-foot`, { kind: "box", sizeM: [0.40, 0.14, 0.55] }, 80, "support"),
@@ -102,14 +103,14 @@ const leg = (side: "left" | "right", x: number) => {
 const leftLeg = leg("left", -0.19); const rightLeg = leg("right", 0.19);
 
 const bodyParts = Object.freeze([
-  part("torso", { kind: "box", sizeM: [0.72, 0.78, 0.34] }, 52, "core", true),
+  part("torso", { kind: "box", sizeM: CHASSIS.torso }, 52, "core", true),
   // Pelvis was 70 kg; 180 kg makes the authored identity a bottom-heavy stone golem.
-  part("pelvis", { kind: "box", sizeM: [0.60, 0.22, 0.30] }, 180, "core"),
+  part("pelvis", { kind: "box", sizeM: CHASSIS.pelvis }, 180, "core"),
   part("neck", { kind: "cylinder", lengthM: 0.16, radiusM: 0.10 }, 4, "bearing"),
   part("head", { kind: "sphere", radiusM: 0.22 }, 10, "core"),
   ...leftArmParts, ...leftLeg.parts, ...rightLeg.parts,
-  part("sword-shoulder-yaw", { kind: "cylinder", lengthM: 0.18, radiusM: 0.13 }, 6, "bearing"),
-  part("sword-arm-pitch", { kind: "capsule", lengthM: 0.58, radiusM: 0.10 }, 8, "piston"),
+  part("sword-shoulder-yaw", { kind: "cylinder", lengthM: 0.18, radiusM: CHASSIS.swordBearingRadiusM }, 6, "bearing"),
+  part("sword-arm-pitch", { kind: "capsule", lengthM: 0.58, radiusM: CHASSIS.shinRadiusM }, 8, "piston"),
 ]);
 const bodyJoints = Object.freeze([
   // Waist was 380 Nm/damping 8 before the same golem-scale correction.
@@ -158,6 +159,10 @@ export const HUMANOID_SENSORS: readonly SensorSpec[] = Object.freeze([
   ...["x", "y", "z"].map((axis) => Object.freeze({
     id: `opponent-weapon-local-${axis}`, unit: "metres" as const, source: "opponent" as const,
   })),
+  ...["x", "y", "z"].map((axis) => Object.freeze({
+    id: `opponent-weapon-local-v${axis}`, unit: "metres-per-second" as const, source: "opponent" as const,
+  })),
+  Object.freeze({ id: "opponent-weapon-speed-mps", unit: "metres-per-second", source: "opponent" }),
   Object.freeze({ id: "line-of-sight", unit: "boolean", source: "opponent" }),
   ...CONTACTS.flatMap(({ role }) => [
     Object.freeze({ id: `contact-${role}`, unit: "boolean" as const, source: "contact" as const }),
@@ -288,6 +293,15 @@ export function humanoidControl(): ConstructControlGraph {
       parameters: { forward: { kind: "number", min: -1, max: 1, unit: "scalar" },
         right: { kind: "number", min: -1, max: 1, unit: "scalar" },
         speed: { kind: "number", min: 0, max: 1.6, unit: "metres-per-second" } } },
+    ...(["advance", "withdraw", "orbit-left", "orbit-right"] as const).map((id) => ({
+      id, controller: "supported-biped-combat-move", group: "locomotion", claims: ["resource:balance"],
+      parameters: {
+        forward: { kind: "number" as const, min: -1, max: 1, unit: "scalar" as const },
+        right: { kind: "number" as const, min: -1, max: 1, unit: "scalar" as const },
+        yaw: { kind: "number" as const, min: -1, max: 1, unit: "scalar" as const },
+        speed: { kind: "number" as const, min: 0, max: 1.6, unit: "metres-per-second" as const },
+      },
+    })),
     // Named sidesteps keep an authored Mind from laundering an evasive manoeuvre through an
     // unlabelled move vector. They retain every ordinary supported-biped constraint and claim.
     ...(["left", "right"] as const).map((side) => ({

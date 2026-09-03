@@ -194,6 +194,7 @@ async function boot(): Promise<void> {
   const arenaConstructDiagnostics = need("arena-construct-diagnostics");
   const arenaConstructLeft = need("arena-construct-left");
   const arenaConstructRight = need("arena-construct-right");
+  const effigyTacticalLine = need<HTMLOutputElement>("effigy-tactical-line");
 
   beginButton.disabled = true;
 
@@ -995,6 +996,7 @@ async function boot(): Promise<void> {
     });
     const hasConstruct = snapshots.left !== null || snapshots.right !== null;
     arenaConstructDiagnostics.classList.toggle("gone", state.phase === "select" || !hasConstruct);
+    effigyTacticalLine.classList.add("gone");
     if (!hasConstruct) return;
     const paused = !controls.isActive;
     for (const side of ["left", "right"] as const) {
@@ -1003,6 +1005,19 @@ async function boot(): Promise<void> {
       const snapshot = snapshots[side];
       host?.classList.toggle("gone", snapshot === null);
       if (!snapshot) continue;
+      if (body instanceof Construct && body.programId === "swordbearer-warrior-duelist") {
+        const phase = snapshot.decision?.phase ?? "holding";
+        const selected = snapshot.command.requests.map(({ request }) => request.action);
+        const phaseAction = phase === "commit" || phase === "chamber" || phase === "counter" ? "sweep" : phase;
+        const active = snapshot.active.find(({ action }) => action === phaseAction) ??
+          snapshot.active.find(({ action }) => selected.includes(action)) ?? null;
+        // This is a read-only rendering of the regular decision/scheduler snapshot.  It cannot
+        // become a second tactical state machine, and it remains beside the frozen arena on pause.
+        effigyTacticalLine.value = active === null
+          ? `EFFIGY: ${phase} -- ${snapshot.decision?.reason ?? "waiting for an admitted Action"}`
+          : `EFFIGY: ${phase} -- ${active.action} / ${active.controller}`;
+        effigyTacticalLine.classList.remove("gone");
+      }
       constructOnboarding?.observeDiagnostic(state.matchup[side].constructId, side,
         snapshot.events.some(({ kind }) => kind === "refused") ||
         snapshot.active.some(({ phase }) => phase === "stuck") ||

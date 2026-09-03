@@ -8,6 +8,7 @@ import type { ControlDiagnosticsPort, ControlEndpoint, DriverStopReason, Install
 import { emptyConstructCommand, type ConstructCommand, type ConstructControlGraph } from "./actions.ts";
 import { CONSTRUCT_CONTROLLERS } from "./controllers.ts";
 import { ConstructMind, type ConstructDecisionDiagnostic } from "./mind.ts";
+import { SwordbearerTactics } from "./swordbearer-tactics.ts";
 import { type ConstructProgram } from "./program.ts";
 import type { ConstructRuntime } from "./runtime.ts";
 import { ActionScheduler, type ActiveActionDiagnostic, type ControllerView, type JointReading,
@@ -183,6 +184,12 @@ export class ConstructControlEndpoint implements ControlEndpoint {
       return this.driverFor(name, () => ({ version: 1, requests: [{
         request: { action: hold.id, parameters: {} }, priority: 0, sourceIndex: 0,
       }] }));
+    }
+    // Built-in authored play is an inspectable tactical director. Saved Forge programs deliberately
+    // retain ConstructMind: changing a library file must never silently replace a player's graph.
+    if (name === "humanoid-authored" && program.id === "swordbearer-warrior-duelist") {
+      const tactics = new SwordbearerTactics(this.graph, this.sensorSpecs);
+      return this.driverFor(name, (dt) => tactics.decide(this.sensors, dt, this.scheduler), () => tactics.diagnostic());
     }
     const mind = new ConstructMind(program, this.graph, this.sensorSpecs);
     return this.driverFor(name, (dt) => mind.decide(this.sensors, dt, this.scheduler), () => mind.diagnostic());

@@ -26,6 +26,16 @@
 > athletic-chassis and dynamic-duelist correction; they do not relabel the focused Action proof as
 > a player-visible combat-quality result. Session 18 remains red, and Session 16 still requires the
 > final guided human/product verdict.
+>
+> **2026-09-02 dynamism implementation status.** Sessions 31--35 now have their measurement,
+> candidate-selection record, public combat Actions, built-in-only tactical driver, adversarial
+> corpus verifier and in-arena handoff line. `athletic-20` and `athletic-15` were both rejected by
+> the pre-existing mirrored physical exchange, so the selected physical chassis is honestly
+> `baseline-retained`. The new corpus demonstrates real travel, lateral motion, turning and repeated
+> physical attacks; it is nevertheless **rejected** while `4140987459/right` loses required
+> supported-standing time and `4124209840/left` plus `4174542697/right` complete fewer than three
+> physical sweeps. The retained receipt has no unlabelled stationary damaging contact. The human
+> review is therefore not claimed or requested yet.
 
 ## Current boundary
 
@@ -131,11 +141,11 @@ instances gain Actions or rules.
   the frozen all-rungs ratchet; those production blueprint digests are expected to move. It may not
   tune an unrecorded constant merely to turn a rejected row green.
 - Session 31 adds only measurements and a source-frozen reference; it moves no blueprint, control
-  or program digest. Session 32 changes the fixed humanoid blueprint and therefore its blueprint,
-  saved Construct and qualification source fingerprints, but no combat-unit rule. Session 33 moves
-  the Swordbearer control and program digests and the broad qualification source fingerprint.
-  Sessions 34--35 publish evidence and diagnostics; neither may adjust health, armour, weapon
-  mass or damage merely to make a dynamic result look competitive.
+  or program digest. Session 32 retained the existing selected blueprint after both narrower
+  candidates failed, so it moves no authoritative digest. Session 33 moves the Swordbearer control
+  digest through four new public Actions and the broad qualification source fingerprint; the saved
+  program grammar itself stays intact. Sessions 34--35 publish evidence and diagnostics; neither
+  may adjust health, armour, weapon mass or damage merely to make a dynamic result look competitive.
 
 ## Gate for every session
 

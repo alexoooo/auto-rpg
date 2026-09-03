@@ -575,10 +575,11 @@ export const CONTROLLER_COMPATIBILITY: readonly ControllerCompatibility[] = Obje
       yaw: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
     } : {}) as Readonly<Record<string, ParameterSpec>>,
   })),
-  ...["supported-biped-move", "supported-biped-turn", "supported-biped-brace",
+  ...["supported-biped-move", "supported-biped-combat-move", "supported-biped-turn", "supported-biped-brace",
     "supported-biped-recover"].map((controller): ControllerCompatibility => Object.freeze({
     controller, role: "biped" as const, minimumJoints: 11, minimumModules: 2,
     requiredParameters: Object.freeze(controller === "supported-biped-move" ? ["forward", "right", "speed"]
+      : controller === "supported-biped-combat-move" ? ["forward", "right", "yaw", "speed"]
       : controller === "supported-biped-turn" ? ["yaw"] : []),
     bindings: Object.freeze([
       Object.freeze({ role: "left-foot", repeat: "once" as const, joints: 4, modules: 1 }),
@@ -589,12 +590,20 @@ export const CONTROLLER_COMPATIBILITY: readonly ControllerCompatibility[] = Obje
       forward: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
       right: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
       speed: Object.freeze({ kind: "number" as const, min: 0, max: 1.6, unit: "metres-per-second" as const }),
+    } : controller === "supported-biped-combat-move" ? {
+      forward: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
+      right: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
+      yaw: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
+      speed: Object.freeze({ kind: "number" as const, min: 0, max: 1.6, unit: "metres-per-second" as const }),
     } : controller === "supported-biped-turn" ? {
       yaw: Object.freeze({ kind: "number" as const, min: -1, max: 1, unit: "scalar" as const }),
     } : {}) as Readonly<Record<string, ParameterSpec>>,
     supportedLocomotion: Object.freeze({ gaitStabilityScale: 1,
-      brace: controller === "supported-biped-brace",
-      ...(controller === "supported-biped-move" ? {
+      // Combat-move writes the same two-foot brace field before staging the supported carrier.
+      // Calling it an unbraced gait here made its physical stability ledger disagree with the
+      // motor pose that actually owns both leg chains.
+      brace: controller === "supported-biped-brace" || controller === "supported-biped-combat-move",
+      ...((controller === "supported-biped-move" || controller === "supported-biped-combat-move") ? {
         alternative: Object.freeze({ family: "supported-biped-move", rank: "primary" as const }),
       } : {}),
     }),

@@ -189,6 +189,7 @@ export class Construct implements Combatant {
   private readonly selectedBlocker = blankBlocker();
   private readonly localBlocker = new Vector3();
   private readonly localWeapon = new Vector3();
+  private readonly localWeaponVelocity = new Vector3();
   private readonly localMountedSwordAnchor = new Vector3();
   private readonly muzzleOrigin = new Vector3();
   private readonly muzzleDirection = new Vector3();
@@ -551,7 +552,11 @@ export class Construct implements Combatant {
     if (weapon) {
       this.localWeapon.set(weapon.tip.x - root.position.x, weapon.tip.y - root.position.y,
         weapon.tip.z - root.position.z).rotateByQuaternionToRef(inverse, this.localWeapon);
-    } else this.localWeapon.setAll(0);
+      weapon.tipVelocity.rotateByQuaternionToRef(inverse, this.localWeaponVelocity);
+    } else {
+      this.localWeapon.setAll(0);
+      this.localWeaponVelocity.setAll(0);
+    }
     const launcherPose = this.launcherModule ? this.launcherPose() : null;
     const localMuzzleOrigin = launcherPose?.origin.subtract(root.position)
       .rotateByQuaternionToRef(inverse, new Vector3()) ?? Vector3.Zero();
@@ -630,6 +635,10 @@ export class Construct implements Combatant {
       "opponent-weapon-local-x": this.localWeapon.x,
       "opponent-weapon-local-y": this.localWeapon.y,
       "opponent-weapon-local-z": this.localWeapon.z,
+      "opponent-weapon-local-vx": this.localWeaponVelocity.x,
+      "opponent-weapon-local-vy": this.localWeaponVelocity.y,
+      "opponent-weapon-local-vz": this.localWeaponVelocity.z,
+      "opponent-weapon-speed-mps": this.localWeaponVelocity.length(),
       "projectile-speed-mps": this.launcherModule?.spec.projectile?.muzzleSpeedMps ?? 1,
       "core-speed-mps": Math.hypot(rootPart.body.getLinearVelocity().x, rootPart.body.getLinearVelocity().z),
       "core-yaw-rate-rad-s": rootPart.body.getAngularVelocity().y,

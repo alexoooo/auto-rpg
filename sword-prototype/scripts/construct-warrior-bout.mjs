@@ -326,6 +326,7 @@ export async function runConstructWarriorBout({
   saved = twinbladeSavedConstruct(),
   sensors = TWINBLADE_SENSORS,
   constructProfile = null,
+  constructPolicy = "construct-program",
   warriorPolicy = "duelist",
   warriorSeed = 0x51a7,
   constructSide = "left",
@@ -334,8 +335,12 @@ export async function runConstructWarriorBout({
   warriorLoadout = Object.freeze({ primary: "sword", secondary: "buckler" }),
   stabilityShoves = Object.freeze([]),
   fixturePlacement = null,
+  onConstructStep = null,
 } = {}) {
   if (!Number.isInteger(maxSteps) || maxSteps <= 0) throw new Error("construct-Warrior maxSteps must be positive integer");
+  if (onConstructStep !== null && typeof onConstructStep !== "function") {
+    throw new Error("construct-Warrior onConstructStep must be a function or null");
+  }
   if (constructSide !== "left" && constructSide !== "right") {
     throw new Error('construct-Warrior constructSide must be "left" or "right"');
   }
@@ -374,7 +379,7 @@ export async function runConstructWarriorBout({
   const constructFacing = fixturePlacement?.construct.facing ?? (constructSide === "left" ? 0 : Math.PI);
   const construct = new Construct({ scene: arena.scene, side: constructSide, origin: constructOrigin,
     facing: constructFacing,
-    materials: materials.fighter, policyName: "construct-program", locomotionMode, locomotionWorld }, definition);
+    materials: materials.fighter, policyName: constructPolicy, locomotionMode, locomotionWorld }, definition);
   let warrior;
   let constructCombat;
   let warriorCombat;
@@ -597,6 +602,7 @@ export async function runConstructWarriorBout({
       const right = constructSide === "left" ? warrior : construct;
       stepPair(left, right, FIXED, clock);
       const snapshot = construct.control.snapshot();
+      onConstructStep?.(Object.freeze({ step: steps, atS: qualificationTimeAtStep(steps), construct, warrior, snapshot }));
       const constructLocomotion = construct.locomotion?.diagnostic() ?? null;
       const warriorLocomotion = warrior.locomotion?.diagnostic() ?? null;
       const compactLocomotion = (diagnostic) => diagnostic === null ? null : Object.freeze({

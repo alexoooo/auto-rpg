@@ -1,8 +1,13 @@
 # Session 31 -- Swordbearer dynamism contract
 
-**Status (2026-09-02): planned.** The current focused Swordbearer test proves repeated physical
-Actions, not player-visible movement quality. This session establishes the latter before changing
-the body or Mind.
+**Status (2026-09-02): implemented; physical acceptance remains red.**
+`scripts/effigy-warrior-dynamism.mjs` now retains the frozen four-seed/two-side 30-second real-
+Havok corpus alongside matched Warrior rows and reconstructs all anti-turret metrics from its raw
+samples. `tests/construct-effigy-dynamism.test.mjs` proves that erasing travel, heading, a terminal
+or an unlabelled interval rejects the record. The current live corpus is evidence, not a receipt:
+`4140987459/right` still fails supported-standing and `4124209840/left` plus
+`4174542697/right` still fail the three-terminal attack floor, so Sessions 33--34 remain open
+rather than accepting a lively-looking subset.
 
 ## Outcome
 

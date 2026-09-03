@@ -24,8 +24,10 @@ const parameterParity = (action: ActionSpec | undefined, name: string, parameter
   // the same public three-parameter Action as their legacy counterparts, so mirroring only the
   // quadruped spelling made a learned biped dodge step toward the original shield side.
   if ((action.controller === "quadruped-move" || action.controller === "supported-quadruped-move" ||
-      action.controller === "biped-move" || action.controller === "supported-biped-move") && name === "right") return -1;
-  if ((action.controller === "quadruped-turn" || action.controller === "aim-direction") && name === "yaw") return -1;
+      action.controller === "biped-move" || action.controller === "supported-biped-move" ||
+      action.controller === "supported-biped-combat-move") && name === "right") return -1;
+  if ((action.controller === "quadruped-turn" || action.controller === "supported-biped-turn" ||
+      action.controller === "supported-biped-combat-move" || action.controller === "aim-direction") && name === "yaw") return -1;
   if (action.controller === "sweep-arc" && name === "direction") return -1;
   if (action.controller === "mount-safe-hold" && name === "yaw") return -1;
   if (action.controller === "turn-joint-to-angle" && name === "angle-rad" && blueprint) {

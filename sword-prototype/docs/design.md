@@ -1792,12 +1792,40 @@ loss -- through `BodyView.effectors`. Humanoid tactics can therefore cover the r
 without the construct inventing a `HandView`. The same physical module remains the scorer, so
 perception and damage share its installed/lost state.
 
-The committed Effigy Mind is now an action-level counter-fighter. It closes above 1.85 m, retreats
-below 1.15 m, sweeps an upright visible target below 2.10 m, holds the free left arm in a genuine
-four-joint guard, and takes a named shield-side dodge while the sword arm remains independent.
-The hardware surface also says whether the sword and left-arm chain remain available, so severing
-one removes only the Actions it can no longer execute instead of producing refusal spam. A fall
-withdraws scoring, stows the sword and requests supported recovery before ordinary tactics resume.
+The built-in `humanoid-authored` Effigy policy is an action-level counter-fighter, not the saved
+condition table. `SwordbearerTactics` owns a small inspectable phase memory: it approaches above
+1.85 m, orbits and turns in the working band, guards a visible incoming weapon, chambers a clear
+upright lane, commits one latched sweep, withdraws, changes lane, and requests recovery after a
+support loss. It can issue only four added public movement Actions -- `advance`, `withdraw`,
+`orbit-left` and `orbit-right` -- each through the ordinary `supported-biped-combat-move`
+controller with bounded local forward/right/yaw/speed parameters. The carrier supplies the
+game-level walking translation and yaw while both physical leg chains stay braced; a transient
+sole-contact gap is bridged only while the root is upright, and a fallen body still has to recover.
+There is no direct mesh, transform, collision, target or damage handle in the director. Saved Forge
+programs retain `ConstructMind` exactly so this built-in behavior cannot silently overwrite player
+content.
+
+The hardware surface also says whether the sword and left-arm chain remain available, and publishes
+the described opponent weapon tip velocity in Effigy-local coordinates. Severing one chain removes
+only dependent behavior instead of producing refusal spam; a fall withdraws scoring and requests
+supported recovery before tactics resume. The free arm remains posture-only -- it is neither a
+shield module nor a damage source.
+
+The frozen eight-cell dynamism receipt is recorded in
+[measurements: Swordbearer dynamism corpus](measurements.md#swordbearer-dynamism-corpus----rejected-anti-turret-evidence-retained----2026-09-02).
+It rejects the current controller despite meeting the Warrior lower-quartile movement envelope:
+one mirror loses required supported-standing time and two have fewer than three completed sweeps.
+That record is deliberately a rejection, not permission to lower health, damage, or the gate for a
+livelier-looking fight. The in-arena phase line is diagnostic only, and the human visual review
+remains blocked until this physical receipt is green.
+
+The attempted narrower `athletic-20` and `athletic-15` stone profiles are retained as explicit
+rejected candidates rather than hidden render scales. Each was genuinely narrower while keeping
+feet, masses and limits fixed, but each lost one mirror of the existing physical multi-part
+exchange. The selected chassis is consequently the existing qualified envelope: broad feet remain
+game-support hardware, while its oriented support shells leave readable visible clearance. A new
+profile may replace it only after the same physical gates pass; presentation alone is not a reason
+to shrink a collider.
 
 The Swordbearer's blade is the one intentional same-owner weapon/core collision pair. General
 self-collision remains wrong for driven articulated chains, and the socketed grip and guard must

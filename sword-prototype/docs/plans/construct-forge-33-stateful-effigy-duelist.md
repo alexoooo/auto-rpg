@@ -1,9 +1,12 @@
 # Session 33 -- stateful Swordbearer duelist
 
-**Status (2026-09-02): planned.** The current Swordbearer is a condition table: it closes above
-1.85 m, retreats below 1.15 m, and otherwise repeatedly sweeps or braces. It cannot turn while
-moving and has no tactical memory. This session replaces that narrow demonstration with an
-authored, inspectable Action-level duelist.
+**Status (2026-09-02): implemented; live physical gate remains open.**
+`SwordbearerTactics` is now the built-in-only deterministic driver, with public advance, withdraw
+and two orbit Actions using `supported-biped-combat-move`; saved programs remain on `ConstructMind`.
+The carrier can turn while moving, stays within physical support/recovery authority, and the
+director exposes phase/reason through the normal snapshot. Its unit tests include command grammar,
+mirror parity, committed-latch handling, threat/off-hand behavior and loss fallback. Session 34
+owns whether that correct surface survives every frozen physical cell.
 
 ## Outcome
 

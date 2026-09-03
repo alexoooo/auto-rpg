@@ -29,7 +29,11 @@ export interface SweepCentreSolution {
 export const SWORDBEARER_TARGET_SWEEP = Object.freeze({ halfArcRad: 0.20,
   lateralOffsetM: 0.10, recoverLateralOffsetM: -0.10,
   openingLateralOffsetM: 0.10, openingAboveM: 2.55,
-  openingWeaponXAboveM: -0.10, windHeightOffsetM: 0.25, commitHeightOffsetM: 0.25 });
+  openingWeaponXAboveM: -0.10, windHeightOffsetM: 0.25, commitHeightOffsetM: 0.25,
+  // An opponent can physically stop a real blade short of its endpoint.  This is the bounded
+  // phase interval at which the Effigy tries the next leg of its already-admitted stroke; it
+  // never creates a hit or moves the collider outside Havok.
+  phaseTimeoutS: 0.85 });
 
 /**
  * The Warden's dorsal blade crosses one latched target chord, then returns through it.
@@ -187,6 +191,8 @@ class MountController implements ActionController {
   private sweepWindLateralOffsetM: number = SWORDBEARER_TARGET_SWEEP.lateralOffsetM;
   private sweepCommitLateralOffsetM: number = SWORDBEARER_TARGET_SWEEP.lateralOffsetM;
   private sweepReturnsRemaining: number;
+  private sweepPhaseElapsedS = 0;
+  private sweepAdvance = "";
 
   constructor(context: ControllerContext, mode: "aim" | "track" | "sweep" | "fire" | "guard",
     sweepArcRad = 0.90, sweepTargeting: "fixed" | "generic" | "swordbearer" = "fixed") {
@@ -335,6 +341,7 @@ class MountController implements ActionController {
 
   step(dt: number): void {
     this.elapsed += dt;
+    if (this.mode === "sweep") this.sweepPhaseElapsedS += dt;
     const yaw = boundJoint(this.context, "yaw");
     const pitch = boundJoint(this.context, "pitch");
     const yawReading = this.context.view.joints[yaw];
@@ -388,10 +395,15 @@ class MountController implements ActionController {
     const aligned = Math.abs(yawReading.angleRad - yawTarget) < aimEpsilonRad &&
       Math.abs(pitchReading.angleRad - pitchTarget) < aimEpsilonRad;
     this.targetError = Math.hypot(yawReading.angleRad - yawTarget, pitchReading.angleRad - pitchTarget);
-    if (this.mode === "sweep" && aligned) {
+    const sweepTimedOut = this.mode === "sweep" && this.sweepTargeting === "swordbearer" &&
+      this.sweepPhaseElapsedS >= SWORDBEARER_TARGET_SWEEP.phaseTimeoutS;
+    if (this.mode === "sweep" && (aligned || sweepTimedOut)) {
       // Wind can take more than a second while the opponent closes. Re-centre once at the commit
       // edge, then hold that physical chord stable until it has actually crossed the target.
       if (this.targetCentredSweep && this.sweepPhase === "wind") this.snapshotSweepCentre();
+      this.sweepAdvance = aligned ? "endpoint aligned" :
+        `phase timeout after ${this.sweepPhaseElapsedS.toFixed(3)} s`;
+      this.sweepPhaseElapsedS = 0;
       this.sweepPhase = this.sweepPhase === "wind" ? "commit" : this.sweepPhase === "commit" ? "recover" :
         this.sweepReturnsRemaining-- > 0 ? "commit" : "complete";
       this.phase = this.sweepPhase;
@@ -422,7 +434,8 @@ class MountController implements ActionController {
     (this.mode === "fire" && this.fired && this.elapsed - this.firedAtS >=
       Number(this.context.request.parameters["follow-through-s"] ?? 0)); }
   cancel(reason: string): void { this.cancelled = reason; this.phase = "cancelled"; }
-  diagnostic(): ControllerDiagnostic { return { phase: this.phase, detail: this.cancelled || `${this.elapsed.toFixed(3)} s`,
+  diagnostic(): ControllerDiagnostic { return { phase: this.phase, detail: this.cancelled ||
+    `${this.elapsed.toFixed(3)} s${this.sweepAdvance ? `; ${this.sweepAdvance}` : ""}`,
     progress: this.targetError, epsilon: Number(this.context.request.parameters["aim-epsilon-rad"] ?? 0.04) }; }
 }
 

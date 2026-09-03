@@ -8736,3 +8736,56 @@ whole-bout recovery-clearance repair, a fresh multi-seed/multi-rung bracket, and
 arena review. The sustained-action work moved the source after `420906e8`; the immediately
 following locomotion fallback correction moves the fail-closed qualification fingerprint to
 `aa47975e`. No entry receipt exists for the new source.
+
+### Swordbearer dynamism corpus -- rejected, anti-turret evidence retained -- 2026-09-02
+
+Harness: `node scripts/effigy-warrior-dynamism.mjs`, which builds each bout through the ordinary
+Construct/Warrior runtime in a fresh NullEngine/Havok scene. It runs the frozen four seeds on both
+Construct sides for 30 seconds at 240 Hz against the ordinary Warrior `duelist` with sword and
+buckler. A matched Warrior-versus-Warrior row is retained for every seed/side. The checker rebuilds
+movement and damage claims from immutable per-step root pose, heading, carrier request/allowance,
+support, phase, admitted Action/controller, terminal and contact evidence; it does not trust the
+stored summaries.
+
+The Warrior lower-quartile movement floors were 4.368 m ground path, 3.818 m accumulated lateral
+travel and 2.493 rad accumulated heading. Every Swordbearer cell exceeded all three, changed orbit
+lane at least twice, had a labelled turn-and-move interval above 0.25 s, had no unlabelled
+in-range passive interval, and had no stationary unlabelled damaging contact. This rules out the
+old planted sweep-turret reading, but does not waive the safety and repeat-attack floors.
+
+| seed / Construct side | path / lateral / heading | completed sweeps | orbit changes | longest supported standing | sword/core minimum |
+| --- | --- | ---: | ---: | ---: | ---: |
+| 4140987459 / left | 7.616 m / 5.379 m / 24.485 rad | 7 | 6 | 30.000 s | 0.0506 m |
+| 4140987459 / right | 24.389 m / 17.121 m / 52.504 rad | 4 | 4 | **15.117 s** | 0.0318 m |
+| 4124209840 / left | 7.813 m / 5.341 m / 28.656 rad | **2** | 2 | 30.000 s | 0.0498 m |
+| 4124209840 / right | 19.424 m / 11.845 m / 59.657 rad | 3 | 3 | 22.500 s | 0.0470 m |
+| 4174542697 / left | 9.174 m / 5.898 m / 29.560 rad | 4 | 4 | 30.000 s | 0.0316 m |
+| 4174542697 / right | 14.577 m / 9.553 m / 43.213 rad | **1** | 2 | 22.987 s | 0.1108 m |
+| 4157765078 / left | 8.111 m / 5.069 m / 27.461 rad | 5 | 5 | 30.000 s | 0.0502 m |
+| 4157765078 / right | 15.136 m / 8.721 m / 43.252 rad | 4 | 4 | 24.637 s | 0.0509 m |
+
+The corpus is rejected by its fixed minimums: 19.0 seconds of supported standing and three
+completed physical sweeps per cell. The three bold values identify the failures, respectively
+support/recovery and repeat physical attack throughput. No health, armour, weapon mass, weapon
+damage, hit attribution, or durability tuning was changed to improve the appearance of this result.
+The narrower `athletic-20` and `athletic-15` chassis candidates remain rejected separately because
+each lost one mirrored physical exchange; the selected body is the qualified `baseline-retained`
+envelope. A held-recovery-controller experiment was also rejected during this pass: retaining the
+Action beyond its controller-local settle signal regressed the existing scaled recovery and live
+Swordbearer physical boundaries, so it was reverted rather than treating a single better-looking
+recovery trace as evidence.
+
+A second rejected tactical candidate moved the carrier at `0.55 m/s` (0.18 backward and sideways,
+0.20 yaw) during the already-latched sword stroke. It raised every cell to at least four completed
+sweeps, including the two attack-throughput failures, but reduced longest supported standing to
+14.779 / 14.246 / 30.000 / 30.000 / 12.396 / 18.008 / 30.000 / 30.000 seconds in the frozen
+table order. Four cells therefore failed the same 19.0-second safety floor. The candidate was
+reverted: a longer attack list cannot buy permission to turn the supported carrier into an
+unstable moving platform.
+
+The smaller `0.28 m/s` straight-retreat candidate did not rescue that trade. It did keep five
+cells above both repeat-attack and standing floors, but `4174542697/right` reached only 16.037 s
+standing with a 0.0216 m sword/core margin, while both `4157765078` sides returned to two sweeps.
+That is a different failure pattern, not supporting evidence for an arbitrary in-between speed;
+it too was reverted. The next repair must address the support/weapon-loss failure path directly,
+not move the carrier during a mounted stroke.

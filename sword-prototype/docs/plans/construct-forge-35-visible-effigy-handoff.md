@@ -1,9 +1,10 @@
 # Session 35 -- visible Effigy handoff
 
-**Status (2026-09-02): planned.** A fixed-step corpus can reject an inert fighter, but cannot tell
-whether a person reads the resulting stone automaton as a compelling combatant. This session makes
-the state inspectable without obscuring the game, records the durable result, then requires that
-visible review.
+**Status (2026-09-02): UI implemented; human handoff is blocked on the red physical corpus.** The
+arena now renders the non-interactive `EFFIGY: phase -- action / controller` line from the ordinary
+decision/scheduler snapshot and the setup screen names the Warrior sword+buckler versus built-in
+Effigy-Mind review. It remains inside the arena on pause; it neither captures camera input nor
+replaces the game view. The three visible human questions remain owed after Session 34 is green.
 
 ## Outcome
 

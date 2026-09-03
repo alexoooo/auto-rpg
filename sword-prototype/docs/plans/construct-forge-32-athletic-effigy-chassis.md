@@ -1,8 +1,10 @@
 # Session 32 -- athletic stone-automaton chassis
 
-**Status (2026-09-02): planned.** The Swordbearer has deliberately broad support feet, but its
-torso, pelvis, arms and mount are also broad enough to obstruct readable fighting. This session
-changes that physical envelope without sacrificing supported walking.
+**Status (2026-09-02): implemented; baseline deliberately retained.** The candidate module exists
+at `src/construct/humanoid-chassis.ts`, but neither `athletic-20` nor `athletic-15` retained both
+mirrored multi-part physical exchanges. The selected immutable profile is therefore
+`baseline-retained`; no visual-only scaling was shipped. The bind and 180-step live shell checks
+continue to prove connected limbs, support-foot clearance and no sibling-foot intersection.
 
 ## Outcome
 

@@ -221,7 +221,11 @@ export function runBout({
   leftUnit = "warrior", rightUnit = "warrior",
   leftMind = null, rightMind = null, onSample = null, onEvent = null,
   onVerdict = null, postVerdictFrames = 0, postVerdictActionProbe = false, physics = havok,
+  maxSeconds = CONFIG.bout.capSeconds,
 }) {
+  if (!Number.isFinite(maxSeconds) || maxSeconds <= 0) {
+    throw new Error("runBout maxSeconds must be a positive finite number");
+  }
   const { engine, scene, materials } = buildArena(physics);
   const F = CONFIG.fighter;
 
@@ -349,9 +353,9 @@ export function runBout({
 
   // One frame more than the cap can need, so a rule that stopped ending bouts
   // shows up as a hang in the harness rather than as an infinite loop.
-  const limit = Math.ceil((CONFIG.bout.capSeconds + 1) * 60);
+  const limit = Math.ceil((maxSeconds + 1) * 60);
   let frames = 0;
-  while (state.phase === "fight" && frames < limit) {
+  while (state.phase === "fight" && state.clock < maxSeconds && frames < limit) {
     scene._renderId += 1;
     scene._advancePhysicsEngineStep(1000 * FRAME);
     for (const side of sides) side.combat.advance(FRAME);

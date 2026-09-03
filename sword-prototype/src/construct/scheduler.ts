@@ -189,6 +189,8 @@ export interface SchedulerEvent {
 export interface ActiveActionDiagnostic {
   readonly action: string;
   readonly group: string;
+  /** Declared factory identity -- UI evidence never infers a controller from a phase string. */
+  readonly controller: string;
   readonly phase: string;
   readonly detail: string;
   readonly progress: number;
@@ -240,7 +242,8 @@ export class ActionScheduler {
   diagnostics(): readonly ActiveActionDiagnostic[] {
     return [...this.active.values()].map(({ action, controller }) => {
       const diagnostic = controller.diagnostic();
-      return { action: action.id, group: action.group, phase: diagnostic.phase, detail: diagnostic.detail,
+      return { action: action.id, group: action.group, controller: action.controller,
+        phase: diagnostic.phase, detail: diagnostic.detail,
         progress: diagnostic.progress, epsilon: diagnostic.epsilon };
     });
   }
