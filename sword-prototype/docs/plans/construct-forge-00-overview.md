@@ -1,6 +1,6 @@
 # Construct Forge -- live roadmap
 
-> **2026-09-01 implementation status.** Supported locomotion and its damaged-limb fallbacks are
+> **2026-09-02 implementation status.** Supported locomotion and its damaged-limb fallbacks are
 > complete. Their closed Sessions 20--24 have been removed: the authority and recovery contract is
 > durable in [`docs/design.md`](../design.md#supported-walking-is-a-game-carrier-authorized-by-physical-limbs),
 > the rejected dynamic-root premise and 26-cell Havok corpus are in
@@ -19,8 +19,13 @@
 > corpus assertions -- and keep Session 30 competitively red. Three additional documentation-test
 > failures under the sandbox are Git ownership/provenance checks; the same 15-test file is green
 > with the repository supplied as a process-local `safe.directory`. Rerun the matrix only after the
-> broader locomotion boundaries are repaired, not because the Swordbearer is still inert.
-> Session 18 remains red, and Session 16 still requires the final guided human/product verdict.
+> broader locomotion boundaries are repaired. The sustained-action reference proves that the
+> Swordbearer can issue real sweep, guard, dodge and recovery Actions, but it does **not** prove
+> that its combat looks as mobile or intelligible as the Warrior Duelist. A player report found it
+> visually stationary and clunky despite reliable damage. Sessions 31--35 below own that separate
+> athletic-chassis and dynamic-duelist correction; they do not relabel the focused Action proof as
+> a player-visible combat-quality result. Session 18 remains red, and Session 16 still requires the
+> final guided human/product verdict.
 
 ## Current boundary
 
@@ -38,7 +43,10 @@ The continuation begins at combat units. The visible build established three con
   weapons dynamically.
 
 Sessions 25--30 replace those rules with low-number localized durability, axial-energy projectiles,
-morphology-specific combined arms and procedural stone/bronze fragment effects. Session 30 returns
+morphology-specific combined arms and procedural stone/bronze fragment effects. The focused
+Swordbearer work showed an additional player-visible debt: repeated public Actions alone are not a
+dynamic duel. Sessions 31--35 turn the fixed Swordbearer into an athletic stone automaton with a
+measurable tactical movement envelope before its balance result can be trusted. Session 30 returns
 one integrated build to Sessions 18 and 16; it does not claim either the physical qualification or
 the player's product verdict in advance.
 
@@ -75,6 +83,11 @@ collision, picking or saved content.
 | [28](construct-forge-28-procedural-stone-pbr.md) | shared procedural PBR stone/bronze plugin with mapped fallback | 25 |
 | [29](construct-forge-29-surface-binding-and-damage.md) | semantic per-part grain, carved relief and one-way damage wear | 28 |
 | [30](construct-forge-30-qualification-and-handoff.md) | competitive corpus, shader evidence, durable record and human handoff | 27, 29 |
+| [31](construct-forge-31-dynamism-contract.md) | retained Warrior/Effigy movement reference and anti-turret gate | current supported V1 |
+| [32](construct-forge-32-athletic-effigy-chassis.md) | selected narrow stone-automaton chassis without regressing support | 31 |
+| [33](construct-forge-33-stateful-effigy-duelist.md) | concurrent turn-and-orbit Actions and a deterministic authored tactical director | 31, 32 |
+| [34](construct-forge-34-live-dynamism-parity.md) | adversarial eight-cell physical proof that Swordbearer fights dynamically | 33 |
+| [35](construct-forge-35-visible-effigy-handoff.md) | compact tactical diagnostics, durable results and visible arena review | 34 |
 | [18](construct-forge-18-adversarial-balance-curriculum.md) | close the red Twinblade physical-competence gate on the integrated rules | 30 |
 | [16](construct-forge-16-integration-and-playtest.md) | guided player/product verdict and topic close-out | 30 |
 
@@ -86,8 +99,11 @@ isolated from authority. Session 30 is the only continuation session allowed to 
 rungs or publish the 0/8 idle, 6/8 active qualification claim.
 
 The two branches after Session 25 may be implemented independently: 26 -> 27 owns combat and AI,
-while 28 -> 29 owns presentation. They join only in Session 30. A rejected qualification returns
-to the owning implementation session; a new source digest is never qualification by itself.
+while 28 -> 29 owns presentation. They join only in Session 30. Sessions 31--35 then form one
+ordered corrective branch: first measure visible dynamism, then slim the physical body, then add
+the Action-level tactics, then prove it in combat, then ask a person. A rejected qualification or
+dynamism gate returns to its owning implementation session; a new source digest is never evidence
+by itself.
 
 ## Version and digest prediction
 
@@ -114,6 +130,12 @@ instances gain Actions or rules.
 - Session 30 may commit the measured per-morphology health-only durability multipliers selected by
   the frozen all-rungs ratchet; those production blueprint digests are expected to move. It may not
   tune an unrecorded constant merely to turn a rejected row green.
+- Session 31 adds only measurements and a source-frozen reference; it moves no blueprint, control
+  or program digest. Session 32 changes the fixed humanoid blueprint and therefore its blueprint,
+  saved Construct and qualification source fingerprints, but no combat-unit rule. Session 33 moves
+  the Swordbearer control and program digests and the broad qualification source fingerprint.
+  Sessions 34--35 publish evidence and diagnostics; neither may adjust health, armour, weapon
+  mass or damage merely to make a dynamic result look competitive.
 
 ## Gate for every session
 
