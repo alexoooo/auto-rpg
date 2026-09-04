@@ -290,8 +290,16 @@ const SCRATCH_SHARE_OF_DURABLE = { min: 0.02, max: 0.25 };
 // **Re-measured 2026-08-30 after the current plan pruning: four missing and zero
 // ambiguous.** The remaining misses are files those live sessions promise to create.
 // The former ambiguous `ppo.ts` references belonged to removed historical plan prose.
+//
+// **Re-measured 2026-09-04 when the golem plan set was added: 55 missing, still zero
+// ambiguous.** Four are the old combat-followups promises above; fifty-one are the twelve
+// golem session files naming the chain, terminal, bench, script and test files they intend to
+// create under a new golem source directory. Every one is unbuilt work by the rule two
+// paragraphs up. Golem session 01 deletes the old plan set, which takes the four away, and each
+// later session takes its own promises away by building them; a fall here after either is the
+// count doing its job, and the pin is re-taken from the run, never computed by hand.
 const PLAN_SURFACE = {
-  noSuchFile: 4,
+  noSuchFile: 55,
   ambiguousFile: 0,
   anchorIntoDeletedFile: 0,
   orphanContinuation: 0,
