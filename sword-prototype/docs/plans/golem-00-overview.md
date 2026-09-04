@@ -1,8 +1,9 @@
 # Golem -- live roadmap
 
-> **2026-09-04 status: planned, nothing landed.** Twelve files, one per landable session.
-> Session 01 (demolition) may start at once. Every later session ends at a human gate that the
-> owner records in that session's status line; an agent may not write "accepted" there.
+> **2026-09-04 status: session 01 implemented, nothing accepted.** Twelve files, one per landable
+> session. Session 01 (demolition) has landed; session 02 may start. Every later session ends at a
+> human gate that the owner records in that session's status line; an agent may not write
+> "accepted" there.
 
 ## Why this plan exists
 

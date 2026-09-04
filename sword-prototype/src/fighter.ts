@@ -24,7 +24,6 @@ import { CONFIG } from "./config.ts";
 import { COLLIDES, LAYER, layersFor, supportedLayersFor, type Side } from "./physics.ts";
 import { capsulePart, joint, type Part } from "./rig.ts";
 import { Figure, type FigureController, type FigureMaterials } from "./figure.ts";
-import { KayKitFigure } from "./kaykit-figure.ts";
 import { Arm } from "./arm.ts";
 import { handsFor, isShield, type Weapon, type WeaponKind } from "./weapon.ts";
 import type { Striking } from "./combat.ts";
@@ -121,7 +120,7 @@ export interface FighterOptions {
 }
 
 export interface HumanoidProfile {
-  readonly kind: "warrior" | "broot" | "kaykit-knight";
+  readonly kind: "warrior" | "broot";
   readonly scale: number;
   readonly massScale: number;
   readonly healthScale: number;
@@ -129,7 +128,7 @@ export interface HumanoidProfile {
   readonly mobilityScale: number;
   readonly turnScale: number;
   /** Which visual contract dresses this body; it never changes collision. */
-  readonly appearance: "warrior" | "primitive" | "kaykit-knight";
+  readonly appearance: "warrior" | "primitive";
   /**
    * Measurements read from an imported body's bind pose, applied after the
    * broad mass/force tuning above. A native body is not a uniformly stretched
@@ -437,7 +436,7 @@ export class Fighter {
   readonly articulated: Fighter = this;
   readonly control: HumanoidControlEndpoint;
   readonly locomotion: PhysicalSupportedLocomotionPort | null;
-  readonly kind: "warrior" | "broot" | "kaykit-knight";
+  readonly kind: "warrior" | "broot";
   readonly profile: HumanoidProfile;
   private readonly bodyConfig: BodyConfig;
   private readonly fighterConfig: FighterConfig;
@@ -859,7 +858,6 @@ export class Fighter {
           fistTrigger: assisted ? { membership: assistedLayers.fistTrigger,
             collidesWith: assistedLayers.fistTriggerCollides } : undefined,
           weapon: wanted[hand],
-          bindPose: this.profile.appearance === "kaykit-knight" ? "outstretched" : "hanging",
           visible,
           config: this.armConfig,
         },
@@ -1298,16 +1296,11 @@ export class Fighter {
       shinRight: legs[1].shin,
     };
     try {
-      this.figure = this.profile.appearance === "kaykit-knight"
-        ? new KayKitFigure(scene, figureRig, {
-            primary: this.arms.primary.weapon,
-            secondary: this.arms.secondary.weapon,
-          }, { origin: opts.origin, facing: opts.facing })
-        : new Figure(scene, figureRig, materials.figure ?? materials, {
-            scale: this.profile.scale,
-            authored: this.profile.appearance === "warrior",
-            loadout: this.loadout,
-          });
+      this.figure = new Figure(scene, figureRig, materials.figure ?? materials, {
+        scale: this.profile.scale,
+        authored: this.profile.appearance === "warrior",
+        loadout: this.loadout,
+      });
     } catch (error) {
       // A constructor that throws has no object its caller can dispose. The
       // asset gate rejects known malformed geometry before the picker enables,

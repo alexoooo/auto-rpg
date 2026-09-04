@@ -1965,11 +1965,14 @@ labels; arrow contacts are attributed back to the bow opportunity. Natural-attac
 included for Centipede, and contact identities collapse resting rattles without merging two
 distinct projectiles.
 
-The blind tournament remains unopened. There are no complete validation-selected NEAT-QD,
-DAgger, PPO or look-ahead artifacts, no frozen `tournament-v1.json`, and therefore no honest
-session-19 result or promoted artifact. `npm run ai:evaluate -- --split test` refuses without
-that manifest and raw indexed rows; once complete it recomputes macro, worst-cell and the
-verdict from raw mirrors rather than trusting stored aggregates.
+The blind tournament remained unopened and is now closed unopened. There were no complete
+validation-selected NEAT-QD, DAgger, PPO or look-ahead artifacts, no frozen tournament manifest,
+and therefore no honest session-19 result or promoted artifact; `npm run ai:evaluate` refused
+without that manifest and raw indexed rows. **Superseded 2026-09-04:** the runner, the manifest
+format and the command were deleted with the learning trees, and the tournament-v1 manifest this
+paragraph used to name in a code span never existed at all -- which is why the span is gone from
+it rather than re-pointed. It was the one entry on the docs gate's PROMISED_BY_A_PLAN list, and
+that list is empty now.
 
 ### Four-direction research implementation smoke -- 2026-08-24
 
@@ -2322,7 +2325,7 @@ coverage**, recorded here so the gap is known rather than invisible:
 | Synthetic 520-sample archer shot parity, specialist against scripted meta, at limits of 0.01 duty and 1 edge | `specialists_and_options_share_the_full_stroke_and_shot_timeline` compares both controllers' held, released and edge counts exactly. It previously ran only the meta archer and never compared. |
 | Every numeric leaf of an `Intent`, cross-checked against `INTENT_FIELDS` | `intentNumbers` moved from `promotion-evaluator.mjs` into `evaluation.ts`; `the_finiteness_sweep_covers_every_combat_number_and_nothing_else` is the cross-check that caught the `zoom` regression. |
 | **Lost:** real-solver twelve-row paired parity at zero damage/seconds/action-rate limits, with a specialist-repeat control proving the limits are achievable | Nothing. Every surviving parity test is fixture-only. This needs minutes of real Havok and cannot live in `npm test`; whoever wants it back needs a slow command outside the suite. |
-| **Lost:** the unscored warm-up and fresh-Havok-per-bout discipline, which is the encoding of the session-11 finding that a shared Havok module flips winners after disposal | Partly. `freshHavok()` is still called -- by `measure.mjs --selftest`, by `scripts/research-havok.mjs:172` for every research bout, and three times in `tests/integration.test.mjs`. What is lost is the *bracket*: an unscored warm-up followed by subject, control and control-repeat in one round, which is the part that made two controllers comparable. Nothing runs that. |
+| **Lost:** the unscored warm-up and fresh-Havok-per-bout discipline, which is the encoding of the session-11 finding that a shared Havok module flips winners after disposal | Partly. `freshHavok()` is still called -- by `measure.mjs --selftest`, by `scripts/research-havok.mjs` ~~:172~~ for every research bout, and three times in `tests/integration.test.mjs`. What is lost is the *bracket*: an unscored warm-up followed by subject, control and control-repeat in one round, which is the part that made two controllers comparable. Nothing runs that. |
 | **Lost:** the `--calibrate` discrete gate, the procedure that produced the parity limits | Nothing. The limits themselves are recorded above; the way to regenerate them is not. |
 | **Lost:** the corpus cells `duelist-club` and `idle-control` | `RESEARCH_STRATA` does not cover either, so no command now fights a club duelist or an idle control. |
 
@@ -3294,7 +3297,7 @@ masks it and there is nothing to trade it against.
   stale-anchor complaint as well. The checker reaches these files and validates exactly this.
 
   It cannot see the plan set's anchors because they are written as **inline code spans** with
-  bare file names -- `` `train-ppo.mjs#L246` `` -- and `checkGlobalInternalLinks` only inspects
+  bare file names -- `` `train-ppo.mjs` ~~#L246~~ `` -- and `checkGlobalInternalLinks` only inspects
   the `href` of a Markdown link or image. So the cheap fix is not a change to the checker: it is
   to write each anchor as a Markdown link whose href is a real relative path ending in the same
   `#Lnnn`, at which point the existing gate
@@ -3961,7 +3964,7 @@ alone. That one is decided above: struck, and the plan sentence that stated it i
 tense superseded.
 
 **Two more spellings exist and are not repaired here, written down so the next sweep does not
-rediscover them.** A comma list -- `` `tests/learning.test.mjs:147,151` `` -- which no regex in
+rediscover them.** A comma list -- `` `tests/learning.test.mjs` ~~:147,151~~ `` -- which no regex in
 `.review/c2b/` matches, and the bare `` `:NNN` `` continuation, which needs the preceding file
 name resolved to check. And **35 colon anchors this stage did not move are stale anyway**, for
 reasons predating it: `options.ts:190` pointed at a comment at `HEAD` while its prose names
@@ -6104,8 +6107,8 @@ effort were each exact over a space nobody had written down.
 **The +57 is grammar, not drift, and it splits exactly**: 41 bare `:nnn` continuations carrying the
 preceding file name, 5 more continuations with no file name to carry, 3 spans quoted inside a wider
 span, and 8 comma lists and multi-range anchors. The bare continuation is live in source, not just
-quoted in prose — `src/learning/tournament.ts` writes `research-policy.ts:98`, then `:95` and
-`:54-56` on the two lines after it, and `lookahead.ts:294` then `:291`.
+quoted in prose — `src/learning/tournament.ts` writes `research-policy.ts` ~~:98~~, then ~~:95~~ and
+~~:54-56~~ on the two lines after it, and `lookahead.ts` ~~:294~~ then ~~:291~~.
 
 **A fourth count, 143, is the same measurement with brace expansions dropped.** An adversarial
 re-measure produced 143 stale and 15 durable residue against 145 and 17. The whole difference is
@@ -6179,10 +6182,10 @@ hundred correct anchors at the nearest `export` above them: worse prose, and no 
 
 **A symbol-proximity heuristic was tried and rejected as an assertion too, after it was falsified.**
 It asked whether an identifier-like code span in the surrounding prose appears within four lines of
-the anchor's target, and reported roughly 45 rotted anchors. `src/learning/tournament.ts:253` names
-`lookaheadMind` and anchors `lookahead.ts:294`; the heuristic called it stale because
-`lookaheadMind` is declared at `lookahead.ts:255`. Both anchors are right — line 294 is the
-`onDecision` call and `:291` is the `option.enter(view)` before it. The prose names the caller and
+the anchor's target, and reported roughly 45 rotted anchors. `src/learning/tournament.ts` ~~:253~~ names
+`lookaheadMind` and anchors `lookahead.ts` ~~:294~~; the heuristic called it stale because
+`lookaheadMind` is declared at `lookahead.ts` ~~:255~~. Both anchors are right — line 294 is the
+`onDecision` call and ~~:291~~ is the `option.enter(view)` before it. The prose names the caller and
 the anchor points at the call. `tools/check_docs.js` documents the same asymmetry from the other
 side: it accepts an anchor landing on a call of the symbol it names, "which is why the gate is a rot
 detector and not a symbol resolver". So 45 is an upper bound of unknown tightness, it is not a
@@ -6323,8 +6326,9 @@ makes it.
 **The one cheap catch that was measured and rejected, kept here because its counterexample went
 with the plan set.** "A bare continuation never legitimately carries a `.md` file, so a `.md`
 carrier is wrong by construction" would have caught both rows above. It is false: the session-16
-plan wrote *"Update the perception and learning sections of `docs/design.md` -- `#L84` documents
-the 66-column v3 `FighterView` feature table"*, which is a correct `.md` carrier, and this
+plan wrote *"Update the perception and learning sections of `docs/design.md` -- ~~#L84~~ documents
+the 66-column v3 `FighterView` feature table"*, which was a correct `.md` carrier (struck
+2026-09-04: the feature table and the section it was in are deleted), and this
 document holds three more of the same shape. The heuristic would have been wrong four times to
 catch one. The coverage space it was measured over -- 17 of the tree's 48 continuations at the
 time, all in one plan file, hand-checked one at a time, nine of them guessing a file the prose
@@ -6772,7 +6776,7 @@ wrong line, so every anchor into a file whose length moved has to be re-pointed 
 pass did that by arithmetic — add the file's net line delta — and it was wrong in three ways**: it
 missed `src/learning/ppo.ts` and `tests/ppo.test.mjs` entirely, the two largest movers, leaving six
 anchors rotted and green; it carried a pre-existing off-by-eight forward as though verified
-(`src/learning/ppo.ts:319` named a divisor that was at 327, and +102 produced 421 for a line at 429); and a net
+(`src/learning/ppo.ts` ~~:319~~ named a divisor that was at 327, and +102 produced 421 for a line at 429); and a net
 delta is the wrong number anyway, because the insertions are not all above the anchor.
 
 The method that works, and what `.review/persist/anchors.mjs` does: print what each anchor lands on
@@ -6780,25 +6784,27 @@ now, find the construct the prose names, and refuse any target that is not uniqu
 
 | anchor | was | now | names |
 | --- | ---: | ---: | --- |
-| `src/learning/ppo.ts` | `#L96-L100` | `#L256-L260` | `equalBudgetPpoArms` |
-| `src/learning/ppo.ts` | `#L98-L99` | `#L258-L259` | both arms get the full budget |
-| `src/learning/ppo.ts` | `:319` | `:497` | the entropy divisor — was already eight lines off |
-| `tests/ppo.test.mjs` | `#L64-L66` | `#L115-L117` | the equal-budget pin |
-| `scripts/train-ppo.mjs` | `#L98-L127` | `#L125-L162` | `collectPpoTrajectory`'s boundary loop |
-| `scripts/train-ppo.mjs` | `#L174` | `#L238` | `macro: reward, worstCell: reward` |
-| `scripts/train-ppo.mjs` | `#L180` | `#L244` | `--stop-after-jobs` |
-| `scripts/train-ppo.mjs` | `#L182` | `#L246` | a bare file-name example |
-| `scripts/train-ppo.mjs` | `#L190` | `#L254` | the `configDigest` fold |
-| `scripts/train-ppo.mjs` | `#L217` | `#L284` | `--resume-from` |
-| `src/learning/recurrent-network.ts` | `:74` | `:85` | `maskedArgmax`'s refusal |
-| `src/learning/recurrent-network.ts` | `:31-38` | `:40-47` | `RecurrentPolicyWeights` |
-| `tests/tournament-executor.test.mjs` | `:106-135` | `:110-139` | the empty-maps test |
-| `docs/design.md` | `:325` | `:339` | the five safety flags — was already four lines off |
-| `docs/design.md` | `:584` | `:594` | the sword's three boxes |
+| `src/learning/ppo.ts` | ~~#L96-L100~~ | ~~#L256-L260~~ | `equalBudgetPpoArms` |
+| `src/learning/ppo.ts` | ~~#L98-L99~~ | ~~#L258-L259~~ | both arms get the full budget |
+| `src/learning/ppo.ts` | ~~:319~~ | ~~:497~~ | the entropy divisor — was already eight lines off |
+| `tests/ppo.test.mjs` | ~~#L64-L66~~ | ~~#L115-L117~~ | the equal-budget pin |
+| `scripts/train-ppo.mjs` | ~~#L98-L127~~ | ~~#L125-L162~~ | `collectPpoTrajectory`'s boundary loop |
+| `scripts/train-ppo.mjs` | ~~#L174~~ | ~~#L238~~ | `macro: reward, worstCell: reward` |
+| `scripts/train-ppo.mjs` | ~~#L180~~ | ~~#L244~~ | `--stop-after-jobs` |
+| `scripts/train-ppo.mjs` | ~~#L182~~ | ~~#L246~~ | a bare file-name example |
+| `scripts/train-ppo.mjs` | ~~#L190~~ | ~~#L254~~ | the `configDigest` fold |
+| `scripts/train-ppo.mjs` | ~~#L217~~ | ~~#L284~~ | `--resume-from` |
+| `src/learning/recurrent-network.ts` | ~~:74~~ | ~~:85~~ | `maskedArgmax`'s refusal |
+| `src/learning/recurrent-network.ts` | ~~:31-38~~ | ~~:40-47~~ | `RecurrentPolicyWeights` |
+| `tests/tournament-executor.test.mjs` | ~~:106-135~~ | ~~:110-139~~ | the empty-maps test |
+| `docs/design.md` | ~~:325~~ | ~~:339~~ | the five safety flags — was already four lines off |
+| `docs/design.md` | ~~:584~~ | ~~:594~~ | the sword's three boxes |
 
-`meta.ts:28` was kept on `UNLEARNED_PERSISTENCE` by rewriting that docstring line-for-line rather
+`meta.ts` ~~:28~~ was kept on `UNLEARNED_PERSISTENCE` by rewriting that docstring line-for-line rather
 than letting it grow, and `docs/design.md` was kept line-neutral through the second pass for the same
-reason.
+reason. **Struck 2026-09-04**: the two `docs/design.md` rows above named the five safety flags and
+the sword's three boxes, and the first of those paragraphs went with the learning sections while
+the file lost about 660 lines above the second. Both numbers are history, not pointers.
 
 ## The dwell marginal: telling a collapsed head from a head that is not there — 2026-08-26
 
@@ -6961,37 +6967,37 @@ passed rather than evidence the change is safe.
 ### The line-anchor pass, and the rot it found rather than caused
 
 Two files were kept **line-neutral above every anchor** instead of being re-pointed:
-`src/learning/research-policy.ts` (`:54-56`, `:95`, `:98` verified byte-identical to `HEAD`),
-`src/learning/lookahead.ts` (`:255`, `:294`), `src/options.ts` (four docstring lines rewritten
+`src/learning/research-policy.ts` (~~:54-56~~, ~~:95~~, ~~:98~~ verified byte-identical to `HEAD`),
+`src/learning/lookahead.ts` (~~:255~~, ~~:294~~), `src/options.ts` (four docstring lines rewritten
 four-for-four) and `scripts/research-havok.mjs`, whose new import took the blank line between the
 import block and `process.env` so that all seven of its anchored lines stayed put. `src/learning/meta.ts`
-lost 79 lines *below* `:28`, which is its only anchored line.
+lost 79 lines *below* ~~:28~~, which is its only anchored line.
 
 Four anchors were re-pointed by locating the construct the prose names:
 
 | anchor | was | now | names |
 | --- | --- | ---: | --- |
-| `src/learning/tournament.ts` | `:232` | `:253` | the sentence anchoring `lookahead.ts:294` |
-| `src/learning/tournament.ts` | `:274-277` | `:718-721` | the `safety` conjunction fold |
-| `scripts/tournament-executor.mjs` | `:35` | `:36` | `mindFactoryForTournament`'s control branch |
-| `scripts/tournament-executor.mjs` | `:49-50` | `:64-65` | the `safety` object literal |
-| `tests/tournament-executor.test.mjs` | `:110-139` | `:160-197` | the stale-*feature*-header test |
+| `src/learning/tournament.ts` | ~~:232~~ | ~~:253~~ | the sentence anchoring `lookahead.ts` ~~:294~~ |
+| `src/learning/tournament.ts` | ~~:274-277~~ | ~~:718-721~~ | the `safety` conjunction fold |
+| `scripts/tournament-executor.mjs` | ~~:35~~ | ~~:36~~ | `mindFactoryForTournament`'s control branch |
+| `scripts/tournament-executor.mjs` | ~~:49-50~~ | ~~:64-65~~ | the `safety` object literal |
+| `tests/tournament-executor.test.mjs` | ~~:110-139~~ | ~~:160-197~~ | the stale-*feature*-header test |
 
 **Six anchors were already wrong before this change and are left alone**, because repairing an
 anchor means deciding what somebody else's prose meant and three of these are historical findings
 about code that no longer exists. Written down rather than swept:
 
-- `tournament.ts:11` (`combat-followups-17`) says `MAX_SPECIALIST_GAP` "is redeclared at" it. The
+- `tournament.ts` ~~:11~~ (`combat-followups-17`) says `MAX_SPECIALIST_GAP` "is redeclared at" it. The
   declaration was line 25 at `HEAD` and is 31 now; line 11 is inside the header comment.
-- `tournament.ts#L197-L221` (overview, `-18`) names `assessTournamentCandidate`, which was at 339 and
+- `tournament.ts` ~~#L197-L221~~ (overview, `-18`) names `assessTournamentCandidate`, which was at 339 and
   is at 375.
-- `tournament.ts#L241-L245` (overview, `-18`) names the `+Infinity` a never-attacked cell maps to,
+- `tournament.ts` ~~#L241-L245~~ (overview, `-18`) names the `+Infinity` a never-attacked cell maps to,
   which is `percentile`, at 607 and now 686.
-- `research-havok.mjs#L46` (overview, `-18`) names the row that credits "the hand the label named",
+- `research-havok.mjs` ~~#L46~~ (overview, `-18`) names the row that credits "the hand the label named",
   which is the `opportunityForAction` call, at 126 and now 149.
-- `research-havok.mjs#L65-L66` (overview, `-18`) names `runResearchBout`'s `{ view, dt, clock }`
+- `research-havok.mjs` ~~#L65-L66~~ (overview, `-18`) names `runResearchBout`'s `{ view, dt, clock }`
   re-projection, which was at 145-146 and is at 173-174.
-- `scripts/research-havok.mjs:29,33` (`-17`) names `actionCounts`, which the tuple key replaced. There
+- `scripts/research-havok.mjs` ~~:29,33~~ (`-17`) names `actionCounts`, which the tuple key replaced. There
   is no line to point it at; the finding is closed and the sentence is history.
 
 The fifth row of the table above is a **correction of the previous session's own re-point**, and it is
@@ -8817,3 +8823,30 @@ has an armed physical manifold of its own; the corpus proves every normal Warrio
 cell actually drives the offhand and both arms remain active while the body travels, turns, attacks
 and stays upright. Neither witness uses an AI-controlled mesh, target transform, trigger-only hit
 box or special damage path.
+
+## The 2026-09-04 demolition: what these numbers still name — 2026-09-04
+
+The Construct Forge, every construct body, `src/learning/`, the four research runners, the KayKit
+Knight and the guided playtest were deleted on 2026-09-04. **Nothing above was deleted with them**:
+a measurement is evidence about a question that was asked, and the answers stay whether or not the
+code that produced them still exists. `docs/design.md` says under "What was removed on 2026-09 and
+why" what each experiment was for and what the three of them share.
+
+**Sixty-five line anchors into deleted files were struck rather than re-pointed**, which is the
+house rule in AGENTS.md applied at scale: a struck-through `~~:294~~` beside a file name says
+"this sentence used to point here and the file is gone", where re-pointing it would publish a
+number for a line that exists at no number at all. The file names themselves are left in place and
+resolve through `docs/deleted-paths.md`, which is what that register is for. The sentences are
+unchanged. Two consequences worth knowing: the tree is down to **one live bare `:nnn`
+continuation** outside `docs/plans/`, the grammar example in the anchor-spelling paragraph of this
+file — the rest were carried by `src/learning/tournament.ts`,
+`src/learning/research-policy.ts`, `src/learning/lookahead.ts`, `src/learning/ppo.ts`,
+`scripts/tournament-executor.mjs`, `tests/tournament-executor.test.mjs` or `docs/design.md`, which
+lost about 660 lines the same day — and the anchor-rot accounts in "The line-anchor pass" above are
+now entirely history, since almost every file they audited is gone.
+
+**What is owed and is not recoverable from this file:** the physical obstacle corpus, the
+supported-locomotion evidence corpus and the Warrior/Warrior combined-arms matrix were all driven
+by construct bodies. `tests/warrior-warrior-locomotion.test.mjs` is the one real-Havok locomotion
+corpus that survives, because its cells are two Warriors; the rest of that evidence is closed with
+the experiment and is named here so nobody reports its absence as a regression.

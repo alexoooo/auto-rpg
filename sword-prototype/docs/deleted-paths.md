@@ -5,7 +5,7 @@ register that lets `tests/docs.test.mjs` tell an accurate reference to a file th
 prototype used to have from a typo, without anyone hand-maintaining a list of excuses.
 
 **Why a register rather than an allowlist.** Most of the prototype's stale code-span file
-references are *correct*: `src/learning/evaluation.ts:5-7` and `src/options.ts:1255`
+references are *correct*: `src/learning/evaluation.ts` ~~:5-7~~ and `src/options.ts:1255`
 name deleted scripts in order to say they were deleted, and a checker that demanded they
 resolve would force falsifying accurate history. The difference between "names a file
 that was deleted" and "names a file that never existed" is a fact git already holds, so

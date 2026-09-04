@@ -16,8 +16,6 @@ import { attachPhysics, COLLIDES, LAYER } from "../src/physics.ts";
 import { Fighter, stepPair } from "../src/fighter.ts";
 import { blankIntent } from "../src/policies.ts";
 import { ACTION_TUNING, selectThreat } from "../src/action-primitives.ts";
-import { FEATURE_COLUMNS, FeatureWriter, mirrorFeatures, writeFeatures } from "../src/learning/features.ts";
-import { RESEARCH_STRATA } from "../src/learning/research-matrix.ts";
 import { STRIKER_KINDS, isStriking } from "../src/hands.ts";
 import { assertCompleteView } from "./fixtures/view.mjs";
 
@@ -28,8 +26,14 @@ import { assertCompleteView } from "./fixtures/view.mjs";
  * are about what a shaft loosed from a real bow does to a real view -- and
  * because a fixture that wrote the arrow's velocity by hand would go on passing
  * if `Arrow.flightVelocityToRef` answered zero, which is exactly the failure
- * these tests were made to fail against. The second is pure, because the feature
- * table has no bodies in it.
+ * these tests were made to fail against. The second is pure, because threat
+ * selection has no bodies in it.
+ *
+ * **Third of it went on 2026-09-04**: the feature-table sweep over the research
+ * matrix and the mirror check against a separately constructed asymmetric world
+ * both had `src/learning/features.ts` as their subject and went with it. What
+ * this file is named for -- counting Havok plugin boundary reads per `observe`,
+ * which is exact where a heap sample is not -- is untouched.
  *
  * Havok's wasm is handed over as bytes: its emscripten glue calls `fetch()` and
  * Node cannot fetch a `file://` URL.
@@ -399,21 +403,18 @@ const WARRIOR = { unit: "warrior", reach: 0.45, crownHeight: 1.77, vitalHeight: 
 const CENTIPEDE = { unit: "centipede", reach: 0.62, crownHeight: 0.52, vitalHeight: 0.29, collisionRadius: 0.22 };
 
 /**
- * A body carrying one of the eight research loadouts.
+ * A body carrying a loadout named as one string.
  *
- * Derived from `RESEARCH_STRATA` at the call site rather than from a list here,
- * which is why `sword+axe` needed no edit: `loadout.split("+")` fills both hands
- * from the name and `hand` is total over `WEAPON_KINDS`.
+ * The name is split rather than looked up -- `loadout.split("+")` fills both hands from it and
+ * `hand` is total over `WEAPON_KINDS` -- which is why a new pair needs no edit here. It used to
+ * be driven from `RESEARCH_STRATA`'s eight rows; that table went with `src/learning/` on
+ * 2026-09-04 and the builder did not need it.
  *
- * `toward` is which way it looks, `side` is which world it is in. Only `side`
- * flips under a mirror, and the two are separate arguments precisely so that the
- * mirrored world below can be built by changing one of them and nothing else --
- * a builder where "reflected" and "facing the other fighter" were the same knob
- * could not construct an asymmetric pair at all.
- *
- * A heading is its own mirror image here by construction: 0 reflects to -0 and
- * pi reflects to -pi, and `writeFeatures` reads the observer's heading through
- * `cos` and `sin`, for which those are the same numbers.
+ * `toward` is which way it looks, `side` is which world it is in. Only `side` flips under a
+ * mirror, and the two stay separate arguments -- a builder where "reflected" and "facing the
+ * other fighter" were the same knob could not construct an asymmetric pair at all. The mirror
+ * test that needed that went with the feature table on 2026-09-04; the separation is kept
+ * because it is what makes `facing` able to place two bodies in one world.
  */
 function body(loadout, { z, toward, side, lateral = 0.12 }) {
   const facing = toward > 0 ? 0 : Math.PI;
@@ -431,8 +432,6 @@ function body(loadout, { z, toward, side, lateral = 0.12 }) {
     hands: { primary, secondary }, crouch: 0.15, trunkLean: -0.2, trunkTwist: side * 0.3,
     vitality: 0.7, health: { torso: 1, head: 0.5 } };
 }
-
-const RESEARCH_LOADOUTS = [...new Set(RESEARCH_STRATA.map((row) => row.loadout))];
 
 // ---- the ranking itself, on stated geometry --------------------------------
 
@@ -656,157 +655,15 @@ test("a_mounted_sword_is_selected_from_body_neutral_effectors_without_a_fake_han
 });
 
 /**
- * Finite is not the assertion this test looks like it is making, and the first
- * version of this note got the reason right and then wrote three checks that
- * could not fail anyway.
- *
- * `clampAction` scrubs every non-finite input to zero on its way into a column
- * and clamps what is left inside its range, so a view built entirely out of
- * `NaN` comes back ninety-nine finite zeroes, all of them inside `-1..1`, with
- * the threat one-hot summing to exactly 1 because that column is a literal. Fed
- * exactly that, the previous version of this test passed on three of its four
- * assertions; only `threat_local_forward > 0` bit. Assertions that cannot fail
- * are worse than no assertions, because they are counted.
- *
- * **`assertCompleteView` is the guard that actually holds the line here**, and
- * it holds it before `writeFeatures` is ever called: it is what would have
- * caught `vitalHeight` and `collisionRadius` missing from every fixture in this
- * directory, which is how that went unnoticed for a whole session. It is
- * exercised on its own below, so its credit is a passing check rather than a
- * paragraph.
- *
- * What is checked per cell is therefore the *mapping* rather than the shape of
- * the numbers -- every one of these fails if a scale, a column order or a
- * derivation moves, and none of them can be satisfied by scrubbing:
- *
- * - the scaled columns reproduce the view they were written from;
- * - each hand's weapon one-hot names the weapon that hand is holding;
- * - the threat one-hot is 1 at exactly the striker `selectThreat` returned, and
- *   `threat_speed` is that threat's speed on the table's own scale;
- * - the threat's local right/up/forward rotate back into the world vector
- *   between the observer's shoulder and the threat's tip;
- * - the bite columns are non-zero exactly for the bodies that have jaws;
- * - the threat is in front, which was the one assertion that always bit.
- *
- * The range sweep stays, with an honest reason: it cannot fail for a column that
- * goes through `clampAction`, and it is here for the one that does not -- a
- * column written as a raw ratio is the drift it catches, and that is the only
- * claim it makes.
- */
-test("feature_v4_is_finite_for_every_research_cell", () => {
-  const forward = FEATURE_COLUMNS.indexOf("threat_local_forward");
-  const at = (name) => {
-    const index = FEATURE_COLUMNS.indexOf(name);
-    assert.notEqual(index, -1, `${name} is a column`);
-    return index;
-  };
-  const cells = new Set(RESEARCH_STRATA.map((row) => `${row.unit}/${row.loadout}`));
-  assert.equal(cells.size, 15, "fifteen body-and-loadout cells, which is what the ladder runs");
-  // How many cells put the threat somewhere the local frame can state exactly.
-  // Counted rather than assumed: every column of that triple saturates at 2 m,
-  // and a fixture that drifted past it would skip the round trip in silence.
-  let framed = 0;
-
-  for (const cell of cells) {
-    const loadout = cell.slice(cell.indexOf("/") + 1);
-    for (const against of RESEARCH_LOADOUTS) {
-      const label = `${cell} vs ${against}`;
-      const view = assertCompleteView({
-        self: body(loadout, { z: 0, toward: 1, side: 1 }),
-        opponent: body(against, { z: 1.55, toward: -1, side: 1, lateral: -0.4 }),
-        // A shaft in the air whenever either side carries a bow, because a cell
-        // whose whole point is the arrow columns would otherwise never write one.
-        projectiles: [
-          ...(loadout === "bow+empty"
-            ? [{ kind: "arrow", owner: "self", position: { x: 0.1, y: 1.5, z: 0.9 },
-              velocity: { x: 1.2, y: -0.8, z: 41 }, age: 0.05 }] : []),
-          ...(against === "bow+empty"
-            ? [{ kind: "arrow", owner: "opponent", position: { x: 0.05, y: 1.4, z: 0.8 },
-              velocity: { x: -0.4, y: -1.1, z: -44 }, age: 0.03 }] : []),
-        ],
-        measure: 1.2, clock: 7.5,
-      }, label);
-
-      const values = writeFeatures(view);
-      assert.equal(values.length, FEATURE_COLUMNS.length, label);
-      // The one claim this sweep makes: a column that skips `clampAction` and
-      // writes a raw ratio is out of range. It says nothing about the input.
-      values.forEach((value, index) => {
-        assert.ok(value >= -1 && value <= 1, `${label}: ${FEATURE_COLUMNS[index]} is ${value}, outside -1..1`);
-      });
-
-      // ---- the scaled columns against the view they came from ------------
-      const near = (name, expected) => assert.ok(Math.abs(values[at(name)] - expected) < 1e-12,
-        `${label}: ${name} is ${values[at(name)]}, and the view says ${expected}`);
-      near("measure", view.measure / 4);
-      near("self_vitality", view.self.vitality);
-      near("opponent_vitality", view.opponent.vitality);
-      near("self_crown_height", view.self.crownHeight / 2.5);
-      near("opponent_vital_height", view.opponent.vitalHeight / 2.5);
-      near("self_collision_radius", view.self.collisionRadius);
-      near("opponent_crouch", view.opponent.crouch);
-      near("opponent_trunk_twist", view.opponent.trunkTwist);
-
-      // ---- each hand names what is in it ---------------------------------
-      for (const [owner, side] of [["self", view.self], ["opponent", view.opponent]]) {
-        for (const name of ["primary", "secondary"]) {
-          const held = side.hands[name];
-          const kind = held ? held.weapon : "empty";
-          for (const candidate of ["sword", "axe", "bow", "shield", "buckler", "club", "empty"]) {
-            assert.equal(values[at(`${owner}_${name}_kind_${candidate}`)], candidate === kind ? 1 : 0,
-              `${label}: ${owner} ${name} holds ${kind}, so only that column is set`);
-          }
-          assert.equal(values[at(`${owner}_${name}_lost`)], held ? 0 : 1,
-            `${label}: a body with no ${name} hand publishes it as lost`);
-          if (held) near(`${owner}_${name}_reach`, held.reach / 2);
-        }
-        // Jaws, or three zeroes -- which is not the same as a bite of reach zero.
-        const jaws = side.naturalAttacks?.bite;
-        assert.equal(values[at(`${owner}_bite_reach`)] > 0, Boolean(jaws),
-          `${label}: ${owner} ${jaws ? "has jaws and says so" : "has no jaws and says nothing"}`);
-      }
-
-      // ---- and the threat is the one the selector actually returned -------
-      const threat = selectThreat(view);
-      for (const kind of STRIKER_KINDS) {
-        assert.equal(values[at(`threat_kind_${kind}`)], threat.striker === kind ? 1 : 0,
-          `${label}: the threat is a ${threat.striker}, so only that column is set`);
-      }
-      near("threat_speed", Math.min(1, threat.tipSpeed / 40));
-      const right = values[at("threat_local_right")] * 2;
-      const up = values[at("threat_local_up")] * 2;
-      const ahead = values[forward] * 2;
-      if (Math.max(Math.abs(right), Math.abs(up), Math.abs(ahead)) < 1.999) {
-        framed += 1;
-        const cos = Math.cos(view.self.facing); const sin = Math.sin(view.self.facing);
-        // The inverse of `toLocal`, which is the only way to check the frame
-        // without writing `toLocal` out a second time and comparing it to
-        // itself.
-        assert.ok(Math.abs((right * cos + ahead * sin) - (threat.tip.x - view.self.shoulder.x)) < 1e-12,
-          `${label}: the local frame does not rotate back to the threat's x`);
-        assert.ok(Math.abs((ahead * cos - right * sin) - (threat.tip.z - view.self.shoulder.z)) < 1e-12,
-          `${label}: the local frame does not rotate back to the threat's z`);
-        assert.ok(Math.abs(up - (threat.tip.y - view.self.shoulder.y)) < 1e-12,
-          `${label}: the local frame does not rotate back to the threat's height`);
-      }
-      assert.ok(values[forward] > 0,
-        `${label}: the threat is in front, so its local forward is positive, got ${values[forward]}`);
-    }
-  }
-  assert.ok(framed > 50, `only ${framed} cells put the threat inside the local frame's 2 m scale`);
-});
-
-/**
  * The guard, doing its job, on the failure that actually happened.
  *
- * The sweep above hands `assertCompleteView` a complete view every time, so
- * nothing there ever sees it refuse one -- and a guard nothing ever watches fail
- * is a guard nobody knows is still connected. `vitalHeight` is the field session
- * 16 added and every fixture in this directory was missing; without it
- * `selectThreat` measures every approach to `undefined`, which loses every
- * comparison silently and reaches the feature table as a scrubbed zero.
+ * Every other fixture in this file hands `assertCompleteView` a complete view, so nothing
+ * else ever sees it refuse one -- and a guard nothing ever watches fail is a guard nobody
+ * knows is still connected. `vitalHeight` is the field session 16 added and every fixture in
+ * this directory was missing; without it `selectThreat` measures every approach to
+ * `undefined`, which loses every comparison silently.
  */
-test("an_incomplete_view_is_refused_before_the_feature_writer_sees_it", () => {
+test("an_incomplete_view_is_refused_before_any_reader_sees_it", () => {
   const complete = () => ({
     self: body("sword+empty", { z: 0, toward: 1, side: 1 }),
     opponent: body("sword+empty", { z: 1.55, toward: -1, side: 1, lateral: -0.4 }),
@@ -835,67 +692,4 @@ test("an_incomplete_view_is_refused_before_the_feature_writer_sees_it", () => {
   notANumber.opponent.hands.secondary.tipSpeed = Number.NaN;
   assert.throws(() => assertCompleteView(notANumber), /tipSpeed/,
     "a finite number is part of what a view publishes");
-});
-
-/**
- * The mirror, against a world built the other way round rather than against
- * itself.
- *
- * **An involution proves nothing here.** `mirrorFeatures(mirrorFeatures(x))` is
- * `x` whatever sign a column carries, so two matching wrong signs satisfy it
- * exactly as well as two right ones -- and the two columns this session added,
- * `threat_local_right` and `threat_velocity_right`, are precisely a pair that
- * could both be wrong together and never be noticed.
- *
- * So the mirrored world is *constructed*, not derived: `world(-1)` is the same
- * builder with every x, every heading and every side flipped, and `mirrorView`
- * is never called. A sign missing from the table now disagrees with a world
- * nothing in `features.ts` had a hand in building.
- *
- * The tactic is mirrored too, because circling left in one world is circling
- * right in the other, and that pair is the only entry in `FEATURE_MIRROR_INDEX`
- * that swaps rather than negates.
- */
-test("feature_v4_mirror_matches_a_separately_constructed_asymmetric_world", () => {
-  const world = (side) => assertCompleteView({
-    self: body("sword+buckler", { z: 0, toward: 1, side }),
-    // Off to one side, so `facing_error` is a real angle rather than the zero a
-    // pair of bodies on one line would give -- and a zero proves nothing about a
-    // sign.
-    opponent: body("bow+empty", { z: 1.65, toward: -1, side, lateral: -0.6 }),
-    projectiles: [
-      // Across as well as in, so the local-right velocity column is genuinely
-      // non-zero and a dropped negation on it cannot hide behind a zero.
-      { kind: "arrow", owner: "opponent",
-        position: { x: side * 0.44, y: 1.5, z: 0.92 },
-        velocity: { x: side * -7.5, y: -1.3, z: -39 }, age: 0.04 },
-      { kind: "arrow", owner: "self",
-        position: { x: side * -0.3, y: 1.6, z: 0.4 },
-        velocity: { x: side * 2.1, y: 0.9, z: 36 }, age: 0.12 },
-    ],
-    measure: 1.3, clock: 9.25,
-  }, `world ${side}`);
-
-  const writerFor = (movement) => { const writer = new FeatureWriter(); writer.setTactic(movement, "cut", 0); return writer; };
-  const straight = writerFor("circle-left").write(world(1));
-  const reflected = writerFor("circle-right").write(world(-1));
-
-  assert.deepEqual(reflected, mirrorFeatures(straight));
-
-  // And the columns this exists for are actually driven, or the comparison above
-  // is two vectors of zeroes agreeing with each other.
-  for (const name of ["threat_local_right", "threat_velocity_right", "threat_bearing",
-    "facing_error", "self_trunk_twist", "opponent_trunk_twist"]) {
-    const index = FEATURE_COLUMNS.indexOf(name);
-    assert.ok(Math.abs(straight[index]) > 0.01,
-      `${name} is ${straight[index]}, so nothing about its sign is being tested`);
-    assert.equal(Math.sign(reflected[index]), -Math.sign(straight[index]), `${name} changes sign`);
-  }
-  assert.equal(straight[FEATURE_COLUMNS.indexOf("current_movement_circle-left")], 1);
-  assert.equal(reflected[FEATURE_COLUMNS.indexOf("current_movement_circle-right")], 1);
-  // The threat really is a shaft in both worlds, which is the case the two new
-  // columns exist for; a melee threat would leave `threat_velocity_*` reading a
-  // blade and the arrow half of the table untested.
-  assert.equal(straight[FEATURE_COLUMNS.indexOf("threat_kind_arrow")], 1);
-  assert.equal(reflected[FEATURE_COLUMNS.indexOf("threat_kind_arrow")], 1);
 });

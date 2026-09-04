@@ -2,7 +2,6 @@ import type { Combatant } from "./units";
 import type { HitReport } from "./combat";
 import type { Side } from "./physics";
 import type { RigReadout } from "./rigview";
-import type { MetaDiagnostic } from "./learning/meta";
 
 export interface Telemetry {
   fps: number;
@@ -34,8 +33,6 @@ export interface Telemetry {
    * move silently is a readout you can misread with complete confidence.
    */
   driving: Side | null;
-  /** Read-only learned-policy decisions; null keeps the panel out of ordinary bouts. */
-  learned: Partial<Record<Side, MetaDiagnostic>> | null;
 }
 
 const KIND_LABEL: Record<HitReport["kind"], string> = {
@@ -102,8 +99,6 @@ export class Hud {
   private readonly rigCrouch: HTMLElement;
   private readonly rigWaist: HTMLElement;
   private readonly rigLimits: HTMLElement;
-  private readonly learnedPanel: HTMLElement;
-  private readonly learnedRows: HTMLElement;
   private visible = true;
 
   constructor(host: HTMLElement) {
@@ -150,10 +145,6 @@ export class Hud {
           </details>
         </div>
         <div class="perf" data-perf></div>
-        <div class="gauge" data-learned>
-          <div class="gauge-label">Learned options</div>
-          <div class="hit-rows" data-learned-rows></div>
-        </div>
       </div>
     `;
 
@@ -195,10 +186,7 @@ export class Hud {
     this.rigCrouch = pick("[data-rig-crouch]");
     this.rigWaist = pick("[data-rig-waist]");
     this.rigLimits = pick("[data-rig-limits]");
-    this.learnedPanel = pick("[data-learned]");
-    this.learnedRows = pick("[data-learned-rows]");
     this.rigPanel.style.display = "none";
-    this.learnedPanel.style.display = "none";
   }
 
   toggle(): void {
@@ -223,15 +211,6 @@ export class Hud {
 
     this.edgeFill.style.width = `${(telemetry.edgeAlignment * 100).toFixed(1)}%`;
     this.edgeValue.textContent = `${Math.round(telemetry.edgeAlignment * 100)}%`;
-
-    const learned = telemetry.learned ? Object.entries(telemetry.learned) : [];
-    this.learnedPanel.style.display = learned.length > 0 ? "" : "none";
-    this.learnedRows.innerHTML = learned.map(([side, reading]) => {
-      const logits = reading.topLogits.map((row) => `${row.option} ${row.value.toFixed(2)}`).join(", ");
-      return `<div><strong>${side}</strong> ${reading.option} ` +
-        `${reading.persistenceRemaining.toFixed(2)}/${reading.persistenceSeconds.toFixed(2)} s` +
-        `${logits ? `<br><span class="unit">${logits}</span>` : ""}</div>`;
-    }).join("");
 
     // The three numbers every feel complaint so far has actually been about.
     // They appear only with the overlay, because they are only worth reading

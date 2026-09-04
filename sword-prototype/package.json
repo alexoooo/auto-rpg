@@ -13,16 +13,6 @@
     "check": "tsc --noEmit",
     "test": "node --test tests/*.test.mjs",
     "measure": "node scripts/measure.mjs",
-    "measure:engagement": "node scripts/measure-engagement.mjs",
-    "construct:lab": "node scripts/run-construct-bouts.mjs",
-    "construct:train": "node scripts/train-construct.mjs",
-    "construct:watch": "node scripts/watch-construct.mjs",
-    "construct:qualify": "node scripts/qualify-construct-learning-entry.mjs",
-    "ai:evaluate": "node scripts/evaluate-ai.mjs",
-    "ai:research": "node scripts/research-runner.mjs",
-    "ai:preflight": "node scripts/research-preflight.mjs",
-    "ai:measure-ppo-workers": "node scripts/measure-ppo-workers.mjs",
-    "ai:watch": "node scripts/watch-research.mjs",
     "asset:build": "node scripts/run-blender.mjs",
     "asset:review": "node scripts/run-blender.mjs --review",
     "asset:verify": "node scripts/run-blender.mjs --verify",
@@ -33,9 +23,7 @@
     "texture:verify": "node scripts/fetch-textures.mjs --verify",
     "armour:fetch": "node scripts/fetch-armour.mjs",
     "armour:verify": "node scripts/fetch-armour.mjs --verify",
-    "armour:extract": "node scripts/extract-armour.mjs",
-    "kaykit:derive": "node scripts/derive-kaykit-knight.mjs",
-    "kaykit:verify": "node scripts/derive-kaykit-knight.mjs --verify"
+    "armour:extract": "node scripts/extract-armour.mjs"
   },
   "dependencies": {
     "@babylonjs/core": "9.18.1",

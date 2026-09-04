@@ -3,7 +3,7 @@ import { ACTION_STROKE_TIMING, ACTION_TUNING, actionAimAt, actionArcherAim, acti
   actionStrokePose, actionStrokeReading, actionStrokeRoll, applyActionPosture, bareCrowdDistance, bareHoldDistance, blankThreat, boundIntent, clampAction,
   freshIntent, selectThreat, type ActionPoint, type ThreatView } from "./action-primitives.ts";
 import type { FighterView, Intent, Mind } from "./mind.ts";
-import { attackOpportunity, engagementRecord, EngagementTracker, type EngagementRecord } from "./learning/engagement.ts";
+import { attackOpportunity, engagementRecord, EngagementTracker, type EngagementRecord } from "./engagement.ts";
 
 export type MovementName = "close" | "hold" | "circle-left" | "circle-right" | "disengage";
 export type HandActionName = "cover" | "cut" | "thrust" | "punch" | "shoot" | "bite" | "recover";
@@ -63,13 +63,18 @@ export const STANCE_NAMES: readonly StanceName[] = Object.freeze([
  * format is exactly the "caller holding its own copy of a rule" defect this
  * directory has a written rule about. There is one.
  *
- * **It lives here rather than beside its reader, and the reason is an import
- * cycle rather than taste.** `options.ts` imports `learning/engagement.ts`,
+ * **It lives here rather than beside its reader, and the reason was an import
+ * cycle rather than taste.** ~~`options.ts` imports `learning/engagement.ts`,
  * which imports `OPPORTUNITY_WINDOW_SECONDS` from `learning/tournament.ts`, so
- * those two modules are cyclic; a frozen table built at `tournament.ts`'s module
+ * those two modules are cyclic~~; a frozen table built at `tournament.ts`'s module
  * scope out of `MOVEMENT_NAMES` threw `Cannot access 'MOVEMENT_NAMES' before
  * initialization` from every test whose first import was `options.ts`. Here, the
  * table is beside the five it is over and there is no cycle to lose a race with.
+ * **Superseded 2026-09-04:** the whole learning tree was deleted with the golem
+ * plan set's first session and the engagement instrument moved to
+ * `engagement.ts`, so there is no reader left to sit beside and no cycle left to
+ * lose a race with. The table stays here because this is where the five option
+ * tables it is over live, which is the durable half of the argument.
  *
  * **The delimiter is `"|"` and it is not a free choice.** Three of the
  * twenty-five names contain a hyphen -- `circle-left`, `slip-left`,

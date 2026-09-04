@@ -43,3 +43,41 @@ export const NATURAL_INTENT_FIELDS = Object.freeze(["thrust", "guard"].sort());
 
 /** `PostureIntent`. */
 export const POSTURE_INTENT_FIELDS = Object.freeze(["crouch", "trunkLean", "trunkTwist"].sort());
+
+/**
+ * The same command written as leaf paths, which is every value a parity sweep compares.
+ *
+ * Moved here on 2026-09-04 from `src/learning/evaluation.ts`, which went with the learning
+ * trees. It has to stay because `the_scripted_meta_controller_matches_the_policy_it_replaces`
+ * is the zero-delta parity sweep AGENTS.md names as the real control for an option-layer
+ * change, and that sweep is this list plus the comparator below.
+ *
+ * Not sorted, because a delta report reads better in command order, and
+ * `intent_leaf_paths_cover_exactly_the_combat_fields` in `tests/options.test.mjs` pins its
+ * top-level segments against `COMBAT_FIELDS` so the two spellings of one claim cannot drift.
+ */
+export const INTENT_FIELDS = Object.freeze([
+  "forward", "strafe", "turn", "actingHand", "natural.thrust", "natural.guard",
+  "posture.trunkLean", "posture.trunkTwist", "posture.crouch",
+  ...["primary", "secondary"].flatMap((hand) =>
+    ["pointerX", "pointerY", "roll", "wristBend", "thrust", "guard"].map((field) => `${hand}.${field}`)),
+]);
+
+const readPath = (value, path) => path.split(".").reduce(
+  (at, key) => (at && typeof at === "object" ? at[key] : undefined), value);
+
+/**
+ * One row per leaf: both values, the numeric difference where there is one, and whether they
+ * match. A per-field report rather than a boolean, because "these two commands differ" with
+ * no field named is a failure somebody has to reproduce by hand.
+ */
+export function intentFieldDeltas(before, after) {
+  return INTENT_FIELDS.map((field) => {
+    const oldValue = readPath(before, field);
+    const newValue = readPath(after, field);
+    const numeric = typeof oldValue === "number" && typeof newValue === "number";
+    const delta = numeric ? newValue - oldValue : null;
+    return { field, before: oldValue, after: newValue, delta,
+      equal: numeric ? Math.abs(delta) <= 1e-12 : Object.is(oldValue, newValue) };
+  });
+}

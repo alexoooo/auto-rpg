@@ -59,10 +59,9 @@ test("pause_reveals_an_in_arena_overlay_without_touching_the_setup_curtain", () 
 });
 
 test("the_pause_overlay_is_a_compact_sibling_and_main_wires_both_targets", async () => {
-  const [html, css, forgeCss, main] = await Promise.all([
+  const [html, css, main] = await Promise.all([
     readFile(new URL("../index.html", import.meta.url), "utf8"),
     readFile(new URL("../src/style.css", import.meta.url), "utf8"),
-    readFile(new URL("../src/forge/forge.css", import.meta.url), "utf8"),
     readFile(new URL("../src/main.ts", import.meta.url), "utf8"),
   ]);
   const curtainAt = html.indexOf('<div id="curtain">');
@@ -72,17 +71,13 @@ test("the_pause_overlay_is_a_compact_sibling_and_main_wires_both_targets", async
   const closeDivs = html.slice(curtainAt, pauseAt).match(/<\/div>/g)?.length ?? 0;
   assert.equal(openDivs, closeDivs, "pause-menu is outside the setup curtain");
   assert.match(main, /new ArenaPresentation\(curtain, pauseMenu\)/);
-  assert.doesNotMatch(main, /paused[^\n]*arenaConstructDetails\.open\s*=|arenaConstructDetails\.open\s*=\s*true/,
-    "pausing must preserve the player's diagnostics disclosure state");
 
   const pauseRule = css.match(/#pause-menu\s*\{([^}]*)\}/)?.[1] ?? "";
   assert.match(pauseRule, /position:\s*fixed/);
   assert.doesNotMatch(pauseRule, /inset:\s*0/, "pause is not a viewport-sized screen");
-  const laptopDiagnostics = forgeCss.match(/@media \(max-width: 1400px\)\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
-  assert.match(laptopDiagnostics, /#arena-construct-diagnostics\s*\{[^}]*width:\s*min\(420px,/,
-    "expanded diagnostics must preserve most of a laptop viewport for the fight");
-  assert.match(laptopDiagnostics, /\.diagnostic-columns\s*\{[^}]*grid-template-columns:\s*1fr/,
-    "the narrow evidence drawer scrolls vertically instead of widening over the arena");
+  // The two laptop-viewport assertions here read `src/forge/forge.css` and the construct
+  // diagnostics drawer it styled. Both went on 2026-09-04 with the Forge; the pause rules
+  // above are the part of this test whose subject survives.
 });
 
 test("resume_does_not_replay_elapsed_wall_clock", () => {

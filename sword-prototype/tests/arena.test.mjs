@@ -75,17 +75,18 @@ test("restart_resets_both_engagement_records_to_a_fresh_bout", async () => {
   assert.match(build, /const recorder = new BoutRecorder\(\)/);
   assert.match(build, /wireBoutRecorder\(recorder, left, right\)/,
     "the page attaches both bodies to the shared intent adapter");
-  assert.match(build, /combatRecorder\(recorder, "left",/,
+  assert.match(build, /combatRecorder\(recorder, "left"\)/,
     "the page records left-side combat through the shared adapter");
-  assert.match(build, /combatRecorder\(recorder, "right",/,
+  assert.match(build, /combatRecorder\(recorder, "right"\)/,
     "the page records right-side combat through the shared adapter");
   assert.match(build, /return \{ left, right, sides, recorder,/);
   assert.match(rebuild, /bout = buildBout\(state\.matchup\)/,
     "restart replaces the recorder with the rest of the bout");
-  assert.match(source, /engagementGates\(engagementMetrics\(record\.engagement, record\.seconds\)\)/,
-    "the page derives its ordered gate rows through the shared adapter");
-  assert.match(source, /table: formatEngagementGateTable\(gates\)/,
-    "the console handle exposes the shared human-facing rendering");
+  // The ordered gate rows and the human-facing table went with `src/learning/gates.ts` on
+  // 2026-09-04. The instrument itself is salvaged to `src/engagement.ts` and the console
+  // handle still reads the same per-side record the bench does.
+  assert.match(source, /left: bout\.recorder\.records\.left, right: bout\.recorder\.records\.right/,
+    "the console handle exposes both sides' raw engagement record");
   assert.match(source, /sampleBoutRecorder\(bout\.recorder, bout\.left, bout\.right, FIXED_STEP, clock\)/,
     "the page samples both published views at the shared control boundary");
 

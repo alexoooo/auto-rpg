@@ -136,150 +136,6 @@ runs out. Zero head or torso health is fatal by itself; serious combined wounds 
 can spend the same bar without erasing the local health that drives severing and disability.
 The banner names the winner and the blow that did it.
 
-### Guided playtest
-
-The setup screen's **Guided playtest** button runs the current human-feasibility protocol as
-part of the game. It chooses every matchup and side, applies the 45-second research cap,
-records the verdict, engagement gates, frame timing and focus integrity, and autosaves after
-each bout. There is no console setup and no seed or file handling. The full sitting is one
-excluded practice bout, 48 bouts you play and 12 hands-off specialist controls; allow about
-an hour, or exit between bouts and resume later in the same browser. When finished, use
-**Copy results for Codex** (or **Download report**) in the panel.
-
-### Construct Forge and auto-battle
-
-The setup screen's **Saved machine** picker chooses an exact local revision by all three Body,
-Actions and Mind digests. **Fight** builds that revision directly; if it was deleted or is stale,
-Setup names the missing revision and refuses instead of substituting the committed Warden. Its
-**Open Forge** button edits that selection, while the global **Open Construct Forge** starts a
-powered core with its utility hardware but no legs; no console, source edit or external model
-editor is required. The committed Bronze Warden is a
-four-limbed carved-stone construct with bronze bearings. Its limbs and dorsal mount are generic
-joint chains: the saved Actions graph is what makes four chains walk and what makes the same
-two-axis mount aim a sword or auto-crossbow.
-
-Combat uses deliberately small numbers. A Warrior torso has 10 durability, an ordinary limb or
-head has 5, values around 15 are already substantial, and 100 is effectively invulnerable. Armour,
-part durability, joint integrity and module durability remain separate local facts rather than one
-large arcade HP pool. Projectiles are not assigned a magic damage value: point-first axial kinetic
-energy, mass and the saved penetration efficiency determine the wound, after which armour applies;
-tail, shaft and broadside contacts do no penetrating damage and one projectile can score only once.
-
-Construct weapons are independent Actions. A Mind can close or hold earned firing distance while a
-left sword, dorsal weapon or shield action runs through its own compatible hardware group, so a
-crossbow construct does not have to become an inert turret in melee. The fresh current-source
-authored Warden entry remains closed: only one of eight mirrored rows dealt bilateral physical
-damage, seven omitted brace and fire, and all eight reached the time cap. It promoted no learned
-Mind and production learning remains fail-closed.
-
-The complete 560-bout mirrored active/idle durability matrix also rejected every measured rung.
-Setup therefore keeps every built-in base value; no production durability multiplier was inferred
-from a losing or physically incomplete result.
-
-The stone/bronze look defaults to the mapped PBR path. The grainier procedural shader is available
-as an explicit visual mode and falls back automatically, by name, when the browser lacks the pinned
-GLSL precision/derivative path or shader compilation fails. That choice changes no bout, damage,
-AI or saved machine. Procedural mode will not become the default until a visible hardware-browser
-performance bracket passes; a hidden or software-rasterized tab does not count.
-
-**Swordbearer Effigy (Experimental)** is the second fixed construct body and the direct way to see
-this framework in humanoid form. Choose it as one corner, choose **Effigy Mind** and **mind**, then
-put a Warrior in the other corner. It is a real two-foot articulated stone body with a stabilized
-head/neck/free arm and a separately controlled mounted sword; it has no fabricated human hand or
-hidden support leg. The current chassis is a useful experiment rather than a finished opponent:
-it can stand and repeat physical sweeps, and its mounted sword has dealt real damage to the Warrior,
-but the pinned mixed bout still topples it at 19.54 seconds and its damage is far below the
-Warrior's. The diagnostics report that limitation rather than labelling it production AI.
-
-**Twinblade Effigy** and **Arbalest Effigy** remain separate Setup choices; neither replaces that
-Swordbearer experiment. Twinblade mounts two ordinary swords for the sequential scissor Action.
-Arbalest keeps the same human-scale stone body, tracks a finite-magazine auto-crossbow on the right
-and holds an ordinary sword guard with the real four-joint left arm. Its active Mind has physically
-qualified historical fatal-arrow wins against Warrior `duelist` on both arena sides under the old
-combat-value rules. Those rows remain useful history but do not qualify the current low-number,
-physical-projectile game; the fresh combined-arms matrix must earn that claim again.
-
-Use the four tabs as one loop:
-
-1. **Body** selects a part in the connected tree, adds/removes code-native stone pieces, changes
-   box dimensions, and mounts catalog hardware on compatible sockets. Generic pieces snap through
-   visible top/bottom/left/right/front/rear attachment faces; an occupied face refuses, and resizing
-   moves face-bound joint/module frames in the same transaction while custom-frame bodies refuse.
-   The yaw+pitch mount template creates a real y-then-x joint chain and output socket on newly built
-   structure. Socket templates add sword/crossbow, sensor, power, magazine or shield mounting points,
-   and the module shelf includes the corresponding hardware. The connected-fragment shelf
-   adds one exact four-bearing Warden limb plus its declared contact-sensor socket atomically; it is
-   the no-code route to a controller-compatible leg, not a decorative one-piece prop. Exact Warden
-   corner fragments accept only the unresized starter root and an unoccupied corner; arbitrary
-   parents refuse rather than inheriting a core-local frame. An invalid edit
-   is named and the last valid physical preview remains intact.
-   Removing a subtree or module also reconciles stale Action bindings and Mind rules in the same
-   undoable transaction. This is what makes the ordinary crossbow unmount followed by sword mount
-   immediately savable instead of leaving an invisible reference to removed hardware.
-2. **Actions** groups existing joints/modules and installs closed-loop controllers. Controller
-   choices inspect real joint axes, connected leg chains, contact sensors and launcher/sword module
-   kinds and require yaw -> pitch -> output to be one physical chain, not only matching counts.
-   Bindings preserve click order. Actions, groups and bindings can
-   be deleted, and several Actions can be queued into one Probe to inspect arbitration. **Probe** builds
-   a fresh real battle Construct and target, observes real facts, and uses the same resource,
-   capability-admission and effect path as a fight. Its timeline retains early completion/refusal
-   and sampled convergence across the whole run, plus an explicit commanded-travel-limit metric.
-   It disposes both bodies and restores the inert
-   preview after every run; it cannot write a motor outside the selected group.
-3. **Mind** orders sensor-driven rules. The rule sequence is meaningful: priority, then this saved
-   order, resolves competing requests. Sensors report physical facts rather than tactical answers.
-4. **Save** stores the complete Body/Actions/Mind revision in this browser. Export downloads the
-   same checksummed JSON; Import refuses damaged, oversized, future-version or mismatched data.
-5. **Lab** chooses left and right bodies and Mind revisions independently. **Run visible bout**
-   returns to the arena with exactly those saved revisions. Batch and Compare use isolated indexed
-   physics jobs and cannot mutate the visible fight.
-6. During a construct bout, expand **Construct decisions, hardware and damage** at the upper right.
-   Pausing opens it automatically while leaving the machine visible. It shows the selected rules
-   and sensor facts, action admission/refusal and convergence, live capabilities, power/heat/ammo,
-   and damage credited to stable weapon/module IDs.
-
-The **Guided first machine** checklist above the Forge is the short, interruption-friendly route
-through that loop. It autosaves locally against a pinned protocol: attach all four named connected
-limb fragments to the starter core (a prebuilt Warden does not count), inspect those branches,
-swap the dorsal crossbow for the mounted sword using ordinary unmount/mount controls, create and
-probe locomotion and attack Actions, deliberately weaken a Mind rule, run the saved revision in the
-visible Lab, use a real refusal/stuck decision to diagnose it, then repair, save and run the repaired
-revision. The guide preselects that exact three-digest revision in Lab; diagnostics from another
-saved machine or the other side cannot advance it. Those saved/run/diagnose steps only count in that order. The checklist
-observes the same saved blueprints, control graphs, programs, public probe commands and visible Lab
-the rest of the game uses; it has no private construction or motor command.
-
-The construct trainer is intentionally not a hidden setup option. `npm run construct:train` is an
-interruptible research command for qualified authored combat only; every indexed shard commits
-atomically, and `npm run construct:watch -- --run <directory>` observes a run without changing it.
-The game keeps the authored Mind when no learned candidate clears its frozen held-out gates.
-
-The low-number combined-arms qualification is also interruption-friendly:
-
-```powershell
-node scripts/construct-warrior-curriculum.mjs --combined-arms --workers 8 --out .tools/combined-arms-v2
-```
-
-It freezes 560 indexed bouts before starting, writes each completed cell atomically, and resumes
-only when the source fingerprint and job-manifest digest still match. Worker count affects
-scheduling only. A changed source or relabelled cell is refused rather than mixed into the run.
-Those per-cell files are untrusted restart caches, not signed evidence: the terminal report is
-accepted only after the complete raw corpus is independently reconstructed and finalized by the
-current qualifier. Do not publish or hand-edit a partial cache as though its filenames or digests
-proved where its event rows came from.
-
-There is no hidden learned policy in that picker. Three full population experiments were
-run, and the validation-selected candidate then lost every held-out promotion bout across
-sword, shield, axe, bow and bare hands. It spent 88% of its decisions disengaging and
-failed seven predeclared gates, so it is recorded as an unpromoted experiment rather than
-renamed `learned-v1`. Its loader, its trainer and its five-loadout evaluator have since been
-deleted along with the option vocabulary they spoke — the four research directions run through
-one artifact format and one blind tournament instead — and
-[the measurement record](docs/measurements.md) carries the evidence they held. The current research roadmap has already added factual engagement
-and anti-stall gates and factorized movement from hand action. Its remaining sessions compare
-recurrent NEAT with quality diversity, DAgger imitation, recurrent PPO self-play and bounded
-tactical look-ahead under one still-unopened held-out tournament.
-
 Losing your head is also the end of you as a body, and not only as a competitor. The torso
 stops being steered and falls under its own weight, every joint drops to a fraction of its
 strength so the thing crumples rather than toppling in one piece, and the mind is never
@@ -415,14 +271,14 @@ joint at the shoulder, a hinge at the elbow, a rolling wrist, and whatever is we
 the fist. Both arms are like that: two full chains, either of which can hold a sword, a
 shield, a bow or nothing.
 
-Construct and assisted-humanoid walking uses the same rule in a more explicit form. An invisible
-game carrier prevents two articulated bodies from collapsing into an unsolvable clinch heap, but
-the machine's real legs decide whether that carrier is allowed to move. Break a required leg chain
-and full movement disappears; a saved one-leg limp can take over at lower authority if that exact
-chain and foot contact survive. A hard hit, missing ground or invalid torso posture releases the
-body to its ordinary ragdoll. Recovery is an authored Action, not an automatic stand-up animation.
-The Forge and in-fight diagnostics name the live support group, requested versus allowed movement,
-the reason movement was blocked, and recovery progress.
+Supported walking uses the same rule in a more explicit form. An invisible game carrier
+prevents two articulated bodies from collapsing into an unsolvable clinch heap, but the body's
+real legs decide whether that carrier is allowed to move. Break a required leg chain and full
+movement disappears; a one-leg limp can take over at lower authority if that exact chain and
+foot contact survive. A hard hit, missing ground or invalid torso posture releases the body to
+its ordinary ragdoll. Recovery is requested, not an automatic stand-up animation. The port's
+diagnostic names the live support group, requested versus allowed movement, the reason movement
+was blocked, and recovery progress.
 
 The arm is driven by a single invisible keyframed **anchor**, joined to the hand by a
 six-degree-of-freedom constraint whose motors have a finite force budget. Move the anchor
@@ -527,27 +383,14 @@ form.
 The rounded/blockout meshes in `figure.ts` are retained only as a load-failure diagnostic;
 the committed healthy-load asset contains none of their triangles.
 
-`KayKit Knight (Experimental)` is a fourth, separate unit rather than a costume or replacement
-for Warrior. Its committed CC0 KayKit Adventurers 1.0 derivative keeps the creator's continuous
-skin, armour, helmet, cape, one-handed sword and round shield. The body uses native joint and
-region measurements for its real colliders, while the source animation clips are stopped and the
-same solver controller drives the skin. Its sword and shield collision hulls and the sword's
-scoring frame are derived mechanically from the selected creator geometry, so hits occur on the
-objects shown. Its only admitted loadout is sword plus buckler and its
-only admitted policies are idle, swinger and duelist. `npm run kaykit:verify` reproduces and
-checks the derivative without Blender or mesh editing. If that exact asset cannot be fetched,
-parsed or qualified, the setup option is disabled with the reason; no primitive substitute is
-shown as if it were the Knight.
-
 ## Status
 
-Working: Warrior, Broot and Centipede combatants, plus the separate experimental KayKit Knight;
-articulated arms, anatomically bounded
+Working: Warrior, Broot and Centipede combatants; articulated arms, anatomically bounded
 wrists, moving trunks and crouch; blades,
 shields, bows and bare hands, contact scoring, dismemberment, one derived vitality state,
 clean verdict shutdown, blood, policies that fight with the controller you use, live
 takeover of either body, two cameras, the rig overlay and authored arena and equipment
-surfaces. The learned controller remains an unpromoted experiment rather than a setup option.
+surfaces.
 
 The skinned warriors now separate flesh, neutral woven cloth, leather and worked
 steel with authored UVs and shared PBR maps. Only the surcoat/skirt material is constructed per
@@ -582,25 +425,22 @@ stone, timber and cloth UVs are scaled from the Poly Haven material's physical m
 The first whole-body playtest is in: a human can beat `swinger`, its timing stays where it
 is, the gait-driven knees look good, and the implemented vitality, posture, bare-hand,
 surface and action-option work has its durable record in
-[docs/design.md](docs/design.md) and [docs/measurements.md](docs/measurements.md). The three
-full learned-policy experiments are also closed there as a negative result: no checkpoint
-earned promotion and no `learned-v1` option is advertised.
+[docs/design.md](docs/design.md) and [docs/measurements.md](docs/measurements.md).
 
-The mechanics, controls, unit and evaluation-contract sessions of the current topic are
+**Three body experiments closed as negative results on 2026-09-04**, and their code, scripts,
+tests and npm commands were deleted with them: the Construct Forge and its learning ladder,
+the fixed Effigy constructs, and the KayKit Knight. Nothing they measured is lost --
+[docs/measurements.md](docs/measurements.md) carries every number and the harness that took
+it, and `docs/design.md` says under "What was removed on 2026-09 and why" what each attempt
+was for. The finding they share is that each was gated by a scalar proxy that turned green
+while the owner's judgement stayed red, which is why the golem plan set that replaces them
+puts a person's look first.
+
+The mechanics, controls, unit and evaluation-contract sessions of that topic are
 implemented: pause/restart correctness, projectile and shield behaviour, unarmed engagement,
 solid arena bounds, middle-drag camera control, whole-body human control, Broot, Centipede,
-licensed clothing adaptation, factual engagement gates and factorized AI actions. Four real-Havok
-research runners now implement recurrent NEAT-QD, DAgger, recurrent PPO and calibrated bounded
-look-ahead, with deterministic artifacts, resume and one shared deployment/tournament boundary.
-PPO has a repeated collect/update/validation outer loop rather than the retired four-bout probe,
-and all four runners use the same ledger/finalization lifecycle and fail-fast research preflight.
-Tournament safety is measured from each executed bout rather than filled with passing defaults.
-These are execution foundations, not evidence that a controller has passed.
-Only engineering smokes have run; the full three-seed budgets, blind tournament, possible
-promotion and final playtest remain sequenced in
-[docs/plans/combat-followups-00-overview.md](docs/plans/combat-followups-00-overview.md). The older
-whole-body plan set was deleted when that topic closed; completed plans are not a second
-authority for the game.
+licensed clothing adaptation and factorized hand actions. Completed plans are not a second
+authority for the game and are deleted when their topic closes.
 
 The integrated headless contract covers all four humanoid policies with all 27 reachable
 two-hand loadouts, finite anatomical commands over complete bouts, the exact verdict edge,

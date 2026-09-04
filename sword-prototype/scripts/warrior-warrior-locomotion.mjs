@@ -11,7 +11,7 @@ import { blankIntent } from "../src/policies.ts";
 import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
 import { SUPPORTED_LOCOMOTION_V1 } from "../src/supported-locomotion-state.ts";
 import { unitDefinition } from "../src/units.ts";
-import { createConstructHeadlessArena } from "./construct-headless-arena.mjs";
+import { createHeadlessArena } from "./golem-headless-arena.mjs";
 
 const FIXED = 1 / CONFIG.world.physicsHz;
 const EMPTY_LOADOUT = Object.freeze({ primary: "empty", secondary: "empty" });
@@ -86,7 +86,7 @@ const maximumFreshGapS = (samples, side) => {
 };
 
 async function runCell(activeSide, stabilityShoves = Object.freeze([])) {
-  const arena = await createConstructHeadlessArena();
+  const arena = await createHeadlessArena();
   const materials = materialsFor(arena.scene);
   const definition = unitDefinition("warrior");
   const world = flatSupportedWorldRegistry();

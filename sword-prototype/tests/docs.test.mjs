@@ -176,9 +176,13 @@ const RELATIVE_HREF_SPANS = [
 // resolve nowhere and a live plan must still name it, which means the commit that
 // deletes the plan set turns it red. Measured 2026-08-25 on the working tree at
 // 503bd0a that adds this test.
-const PROMISED_BY_A_PLAN = [
-  { file: "docs/measurements.md", span: "tournament-v1.json" },
-];
+// **Empty since 2026-09-04, and empty is the interesting state.** Its one entry was
+// `docs/measurements.md` naming a frozen tournament manifest that session 19 was going to write.
+// Session 19 never ran, the golem plan set deleted the plan that promised it, and the sentence in
+// `docs/measurements.md` now says so in prose instead of in a code span -- which is the correct
+// resolution of "a durable document points at a file nobody is going to write", and is what this
+// pin existed to force. The rule and its test stay: the next promise gets a record here.
+const PROMISED_BY_A_PLAN = [];
 
 // The registry's re-added trap, kept visible rather than commented. A path can be
 // deleted and later restored; `scripts/fetch-textures.mjs` was, and it is why
@@ -232,13 +236,13 @@ const RESOLVED_IN_NODE_MODULES = [
 // can be hidden inside one, and pinning a population that grows whenever somebody
 // writes the words "a .ts file" would be re-pinned without thought.
 // Measured 2026-08-25 on the working tree that adds this test.
+// **Re-taken 2026-09-04, eight targets down to four.** The four `candidate-${...}.json` entries
+// were interpolated trainer artifact names written in `src/learning/` and its runners, and went
+// with them. The two brace expansions and the two globs are what is left, all four in durable
+// prose about files rather than in code.
 const NOT_A_PATH_TARGETS = [
   ".review/rem2/cutseeds-{before,after}.json",
   "asset-src/learning/{baseline,engagement-baseline,unpromoted}-v1.json",
-  "candidate-${artifact.candidate}.json",
-  "candidate-${id}.json",
-  "candidate-boundary-${artifact.candidate}.json",
-  "candidate-boundary-${id}.json",
   "scripts/*.mjs",
   "tests/*.mjs",
 ];
@@ -253,6 +257,15 @@ const NOT_A_PATH_TARGETS = [
 // excuse, which does not move when a measurement is added, plus a deliberately coarse
 // share so the population cannot come to dominate the surface without anyone noticing.
 // Measured 2026-08-25 on the working tree that adds this test: 165 / 1,409 = 11.7 %.
+//
+// **Re-taken 2026-09-04 after the demolition: 142 / 1,356 = 10.5 %, and the interesting half is
+// the denominator.** The session deleted 61 test files, 43 scripts and three source trees, and the
+// durable judged population fell by only 53 references -- because a `.review/` provenance pointer
+// and almost every other durable reference lives in `docs/measurements.md`, `AGENTS.md` and
+// `docs/design.md`, which were edited rather than deleted. The share moved 1.2 points and the band
+// is unchanged, which is the band doing what its own paragraph says: it is coarse on purpose, and
+// a session that re-tightened it around every new measurement would be training the habit these
+// pins exist to prevent.
 const SCRATCH_SHARE_OF_DURABLE = { min: 0.02, max: 0.25 };
 
 // `docs/plans/` is deleted in the commit that finishes the topic, so repairing its
@@ -616,16 +629,26 @@ test("the_scanner_reads_all_four_anchor_spellings_and_refuses_the_shapes_that_ar
 });
 
 test("a_bare_line_continuation_carries_the_file_named_just_before_it", () => {
-  // `src/learning/tournament.ts` is the live instance, and it is the reason this
-  // spelling is supported at all rather than skipped as unparseable.
-  const carried = all.filter((r) => r.kind === "continuation" && r.file === "src/learning/tournament.ts");
+  // **Re-taken 2026-09-04: three continuations in source became one in prose.**
+  //
+  // `src/learning/tournament.ts` used to be the live instance -- it wrote `research-policy.ts:98`
+  // and then a bare `:95` and `:54-56` on the two lines after it -- and it is the reason the
+  // spelling is parsed at all rather than skipped as unparseable. That file went with
+  // `src/learning/`, and the continuations quoting it in `docs/measurements.md` were struck in the
+  // same change, because a continuation whose carrier is deleted is an anchor into a deleted file
+  // wearing a different spelling. Five more went the same way: `#L84`, `:325`/`:339` and
+  // `:584`/`:594` all carried `docs/design.md`, which lost about 660 lines that day, so every one
+  // of them still landed inside the file and named something else -- the exact rot this gate
+  // cannot see and this file's header says it cannot see.
+  //
+  // What is left is one, and it is a **grammar example rather than a pointer**: the paragraph in
+  // `docs/measurements.md` that documents the four anchor spellings writes `options.ts:258` and
+  // then a bare `:105` to show what a continuation looks like. It is pinned whole, both sides, so
+  // the spelling keeps a live instance and a second one has to be looked at.
+  const carried = all.filter((r) => r.kind === "continuation" && durable(r));
   assert.deepEqual(
-    carried.map((r) => ({ span: r.span, target: r.target, lines: r.lines })),
-    [
-      { span: ":95", target: "research-policy.ts", lines: [95] },
-      { span: ":54-56", target: "research-policy.ts", lines: [54, 56] },
-      { span: ":291", target: "lookahead.ts", lines: [291] },
-    ],
+    carried.map((r) => ({ file: r.file, span: r.span, target: r.target, lines: r.lines })),
+    [{ file: "docs/measurements.md", span: ":105", target: "options.ts", lines: [105] }],
   );
 });
 

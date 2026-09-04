@@ -10,7 +10,7 @@ import { Fighter, stepPair } from "../src/fighter.ts";
 import { policyMind, idleMind } from "../src/mind.ts";
 import { LAYER } from "../src/physics.ts";
 import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
-import { createConstructHeadlessArena } from "../scripts/construct-headless-arena.mjs";
+import { createHeadlessArena } from "../scripts/golem-headless-arena.mjs";
 
 const FIXED = 1 / CONFIG.world.physicsHz;
 
@@ -26,7 +26,7 @@ const liveObservers = (observable) => observable.observers
   .filter((observer) => !observer._willBeUnregistered).length;
 
 async function supportedPunch(disableTrigger) {
-  const arena = await createConstructHeadlessArena();
+  const arena = await createHeadlessArena();
   const materials = materialsFor(arena.scene);
   const registry = flatSupportedWorldRegistry();
   const physics = arena.scene.getPhysicsEngine();

@@ -10,11 +10,6 @@ import {
 } from "../src/units.ts";
 import { stepControlledPair } from "../src/control-host.ts";
 import { HumanoidControlEndpoint } from "../src/humanoid-control.ts";
-import { constructBlueprintForDurability } from "../src/construct/durability.ts";
-import { humanoidBlueprint } from "../src/construct/humanoid.ts";
-import { twinbladeBlueprint } from "../src/construct/twinblade.ts";
-import { arbalestBlueprint } from "../src/construct/arbalest.ts";
-import { wardenBlueprint } from "../src/construct/warden.ts";
 
 test("the_unit_picker_is_derived_from_the_buildable_unit_registry", () => {
   assert.deepEqual(
@@ -35,25 +30,12 @@ test("an_incompatible_loadout_is_refused_with_the_unit_and_equipment_named", () 
   );
 });
 
-test("the_kaykit_knight_exposes_one_authored_sword_and_buckler_pair", () => {
-  const knight = unitDefinition("kaykit-knight");
-  assert.equal(knight.label, "KayKit Knight (Experimental)");
-  assert.deepEqual(knight.loadouts, [{ primary: "sword", secondary: "buckler" }]);
-  assert.deepEqual(knight.defaultLoadout, { primary: "sword", secondary: "buckler" });
-  assert.deepEqual(knight.compatiblePolicies, ["idle", "swinger", "duelist"]);
-  assert.equal(knight.defaultPolicy, "idle");
-
-  assert.deepEqual(loadoutForUnit("kaykit-knight", "sword", "buckler"), {
-    primary: "sword",
-    secondary: "buckler",
-  });
-  assert.equal(supportsLoadoutForUnit("kaykit-knight", "sword", "buckler"), true);
-  assert.equal(supportsLoadoutForUnit("kaykit-knight", "buckler", "sword"), false);
-  assert.throws(
-    () => loadoutForUnit("kaykit-knight", "buckler", "sword"),
-    /unit "kaykit-knight" does not support loadout "buckler\+sword"/,
-  );
-});
+// Deleted 2026-09-04 with their subjects: `the_kaykit_knight_exposes_one_authored_sword_and_buckler_pair`,
+// `built_in_Construct_picker_bodies_read_the_installed_production_durability_seam`, and the four
+// per-body identity tests for the Swordbearer, Twinblade and Arbalest Effigies and the Bronze
+// Warden. The registry rules they exercised -- the picker being a projection of buildable bodies,
+// an exact loadout set, vitality weights covering exactly a unit's parts, and the v2 durability
+// range -- are all still asserted below over the three surviving units.
 
 test("existing_units_keep_their_exact_reachable_loadout_sets", () => {
   for (const kind of ["warrior", "broot"]) {
@@ -90,21 +72,6 @@ test("every_selectable_body_uses_the_v2_low_number_range", () => {
   }
 });
 
-test("built_in_Construct_picker_bodies_read_the_installed_production_durability_seam", () => {
-  const cases = [
-    ["bronze-warden", "warden-crossbow", wardenBlueprint("crossbow")],
-    ["swordbearer-effigy", "swordbearer", humanoidBlueprint()],
-    ["twinblade-effigy", "twinblade", twinbladeBlueprint()],
-    ["arbalest-effigy", "arbalest", arbalestBlueprint()],
-  ];
-  for (const [unitId, morphologyId, authored] of cases) {
-    const production = constructBlueprintForDurability(authored, morphologyId, "production");
-    assert.deepEqual(unitDefinition(unitId).anatomy.durability,
-      Object.fromEntries(production.parts.map(({ id, health }) => [id, health])),
-      `${unitId} picker anatomy bypassed ${morphologyId}'s production durability`);
-  }
-});
-
 const endpoint = () => new HumanoidControlEndpoint({
   initialMind: { name: "idle", decide: () => ({}) },
   view: {}, canStep: () => true, apply: () => {}, stopBody: () => {},
@@ -112,50 +79,12 @@ const endpoint = () => new HumanoidControlEndpoint({
 });
 
 test("legacy_units_keep_the_humanoid_surface_and_policy_factory", () => {
-  for (const unit of Object.values(UNIT_REGISTRY).filter(({ kind }) =>
-    kind !== "bronze-warden" && kind !== "swordbearer-effigy" && kind !== "twinblade-effigy" &&
-    kind !== "arbalest-effigy")) {
+  for (const unit of Object.values(UNIT_REGISTRY)) {
     assert.equal(unit.controlSurface, "humanoid-v1", unit.kind);
     assert.deepEqual(unit.driverOptions.map(({ name }) => name),
       unit.compatiblePolicies ?? ["idle", "swinger", "duelist", "archer", "crawler"]);
     assert.equal(unit.createPolicy(unit.defaultPolicy).name, unit.defaultPolicy);
   }
-});
-
-test("the_Swordbearer_Effigy_has_its_own_construct_identity_and_biped_driver", () => {
-  const effigy = unitDefinition("swordbearer-effigy");
-  assert.equal(effigy.controlSurface, "construct-humanoid-v1");
-  assert.equal(effigy.humanAdapter, false);
-  assert.equal(effigy.createPolicy, null);
-  assert.deepEqual(effigy.driverOptions.map(({ name }) => name), ["construct-hold", "humanoid-authored"]);
-});
-
-test("the_Twinblade_Effigy_is_a_distinct_construct_picker_choice_without_replacing_the_Swordbearer", () => {
-  const twin = unitDefinition("twinblade-effigy");
-  assert.equal(twin.controlSurface, "construct-twinblade-v1");
-  assert.equal(twin.humanAdapter, false);
-  assert.equal(twin.createPolicy, null);
-  assert.deepEqual(twin.driverOptions.map(({ name }) => name), ["construct-hold", "humanoid-authored"]);
-  assert.notEqual(twin.anatomy.parts, unitDefinition("swordbearer-effigy").anatomy.parts);
-});
-
-test("the_Arbalest_Effigy_is_a_separate_human_scale_construct_picker_choice", () => {
-  const arbalest = unitDefinition("arbalest-effigy");
-  assert.equal(arbalest.controlSurface, "construct-arbalest-v1");
-  assert.equal(arbalest.humanAdapter, false);
-  assert.equal(arbalest.createPolicy, null);
-  assert.deepEqual(arbalest.driverOptions.map(({ name }) => name), ["construct-hold", "humanoid-authored"]);
-  assert.equal(UNITS.some(({ name }) => name === "swordbearer-effigy"), true);
-  assert.equal(UNITS.some(({ name }) => name === "twinblade-effigy"), true);
-});
-
-test("the_Bronze_Warden_exposes_only_its_construct_drivers_and_no_fake_human_adapter", () => {
-  const warden = unitDefinition("bronze-warden");
-  assert.equal(warden.controlSurface, "construct-v3");
-  assert.equal(warden.humanAdapter, false);
-  assert.equal(warden.createPolicy, null);
-  assert.deepEqual(warden.driverOptions.map(({ name }) => name), ["construct-hold", "warden-authored"]);
-  assert.deepEqual(warden.loadouts, [{ primary: "empty", secondary: "empty" }]);
 });
 
 test("a_driver_for_one_surface_is_refused_by_the_other_surface_name", () => {

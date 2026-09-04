@@ -23,9 +23,6 @@ import {
   tacticTargets,
   targetHeight,
 } from "../src/options.ts";
-import { deployableTactics } from "../src/learning/meta.ts";
-import { FEATURE_COLUMNS, FEATURE_MIRROR_INDEX, FEATURE_MIRROR_SIGN, FEATURE_VERSION, FeatureWriter, mirrorFeatures, mirrorView, writeFeatures } from "../src/learning/features.ts";
-import { INTENT_FIELDS, SEED_RANGES, evaluationMirrorSeeds, evaluationSeed, intentFieldDeltas, intentSequencesEqual, validateSeedRanges } from "../src/learning/evaluation.ts";
 import { archerMind, azimuthOf, cursorForAzimuth, duelistMind } from "../src/policies.ts";
 // The mutable block, imported here and *only* by this file's cross-check.
 // `options.ts` may not reach it -- `options_and_features_have_no_mutable_config_backdoor`
@@ -34,7 +31,7 @@ import { archerMind, azimuthOf, cursorForAzimuth, duelistMind } from "../src/pol
 import { CONFIG } from "../src/config.ts";
 import { ACTION_SHOT_TIMING, ACTION_STROKE_TIMING, ACTION_TUNING, actionAimAt, actionAzimuthOf, actionCoverAt, actionCursorForAzimuth, actionShotPhase, actionStrokeReading, bareCrowdDistance, blankThreat, freshIntent, selectThreat } from "../src/action-primitives.ts";
 import { WEAPON_KINDS } from "../src/hands.ts";
-import { COMBAT_FIELDS } from "./fixtures/intent.mjs";
+import { COMBAT_FIELDS, INTENT_FIELDS, intentFieldDeltas } from "./fixtures/intent.mjs";
 import { assertCompleteView } from "./fixtures/view.mjs";
 
 const parts = () => Object.fromEntries([
@@ -586,75 +583,79 @@ test("the_option_layer_and_the_scripted_layer_share_one_azimuth_mapping", () => 
     elevationMin: CONFIG.arm.elMin, elevationMax: CONFIG.arm.elMax });
 });
 
-test("an_illegal_action_effector_target_tuple_is_masked_not_repaired", () => {
-  const archer = view({ primary: "bow", secondary: "empty" });
-  const legal = deployableTactics(archer);
-  const has = (rows, action, effector, target) =>
-    rows.some((row) => row.action === action && row.effector === effector && row.target === target);
-
+/**
+ * **Half of this test went on 2026-09-04 and the half that went is named here rather than
+ * quietly dropped.** It used to hold the executor's refusals beside `deployableTactics`, the
+ * legality mask a learned controller was deployed behind, and it asserted that everything the
+ * mask offered could actually be entered. The mask lived in `src/learning/meta.ts` and the
+ * whole learning tree is gone, so what is left is the executor's own rule: an illegal
+ * action/effector/target triple is refused **by name**, never silently repaired into the
+ * nearest legal one. That is the durable half -- the silent-repair defect is a property of
+ * `handActionOption`, not of who was asking it.
+ */
+test("an_illegal_action_effector_target_tuple_is_refused_by_name_not_repaired", () => {
   // The tuple three independent argmaxes produce: largest action logit `shoot`,
   // largest effector logit `secondary`, largest target logit `low`. Each name is
   // legal and every pair of them is plausible; the triple is not, because a
   // two-handed bow welds the secondary to the haft and `Fighter.update` throws
   // that half of the command away. A repair would fire the bow anyway and call
   // it the decision that was made.
-  assert.equal(has(legal, "shoot", "primary", "low"), true, "the bow hand may aim low");
-  assert.equal(has(legal, "shoot", "secondary", "low"), false, "the welded hand is not an effector");
+  const archer = view({ primary: "bow", secondary: "empty" });
+  assert.doesNotThrow(() => handActionOption("shoot", { effector: "primary", target: "low", stance: "action-default" }).enter(archer),
+    "the bow hand may aim low");
   assert.throws(() => handActionOption("shoot", { effector: "secondary", target: "low", stance: "action-default" }).enter(archer),
     /option "shoot" requires the primary hand, which is the only one a two-handed bow leaves free to act/);
+  assert.throws(() => handActionOption("punch", { effector: "primary", target: "vital", stance: "action-default" }).enter(archer),
+    /option "punch" requires/);
 
-  // Masked at the source as well, and this row moved: `punch` used to be
-  // offered on a bow body and then posed onto the arm nothing reads.
-  assert.equal(legal.some((row) => row.action === "punch"), false);
   const fists = view({ primary: "empty", secondary: "empty" });
-  const barehanded = deployableTactics(fists);
-  assert.equal(has(barehanded, "punch", "primary", "vital"), true);
+  assert.doesNotThrow(() => handActionOption("punch", { effector: "primary", target: "vital", stance: "action-default" }).enter(fists));
   // The target third of the tuple, on a body that can punch: a fist swung from
   // a shoulder socket has no business at a knee.
-  assert.equal(has(barehanded, "punch", "primary", "low"), false);
   assert.throws(() => handActionOption("punch", { effector: "primary", target: "low", stance: "action-default" }).enter(fists),
     /option "punch" requires a punch target of vital, high, not "low"/);
 
-  // Capability-neutral recovery, stated as a mask rather than as a comment.
-  // `recover` needs no hand and `cover` needs one, and keeping those apart is
-  // the fix the last exhaustive look-ahead run bought -- re-fusing them empties
-  // the legal set for a body with no arms and `maskedArgmax` throws on it.
+  // Capability-neutral recovery. `recover` needs no hand and `cover` needs one, and keeping
+  // those apart is the fix the last exhaustive look-ahead run bought.
   const jaws = view();
   jaws.self.hands = {};
   jaws.self.naturalAttacks = { bite: { reach: 0.7, ready: true, active: false } };
-  const natural = deployableTactics(jaws);
-  assert.equal(has(natural, "recover", "natural", "vital"), true, "recovery survives having no hand");
-  assert.equal(natural.some((row) => row.action === "cover"), false, "a cover needs a hand to place");
-  assert.equal(has(natural, "bite", "natural", "vital"), true);
+  assert.doesNotThrow(() => handActionOption("recover", asMeasured("natural")).enter(jaws),
+    "recovery survives having no hand");
+  assert.throws(() => handActionOption("cover", asMeasured("natural")).enter(jaws),
+    /option "cover" requires/);
+  assert.doesNotThrow(() => handActionOption("bite", asMeasured("natural")).enter(jaws));
 
-  // Everything offered can be entered, checked against the real bodies rather
-  // than against one convenient fixture. That is the direction the arrangement
-  // guarantees; the other direction is below, and it does not hold.
+  // Every legal triple on every shipped body enters, checked against the real bodies rather
+  // than against one convenient fixture.
   const bodies = [archer, fists, jaws, view(), view({ primary: "sword", secondary: "shield" }),
     view({ primary: "axe", secondary: "empty" })];
   for (const body of bodies) {
-    const tuples = deployableTactics(body);
-    assert.ok(tuples.length > 0, `${body.self.unit} ${JSON.stringify(Object.keys(body.self.hands))} has no legal tactic`);
-    for (const row of tuples) {
-      assert.doesNotThrow(
-        () => handActionOption(row.action, { ...row, stance: "action-default" }).enter(body),
-        `${row.action}/${row.effector}/${row.target}`,
-      );
+    let entered = 0;
+    for (const action of HAND_ACTION_NAMES) {
+      for (const effector of EFFECTOR_NAMES) {
+        for (const target of TARGET_NAMES) {
+          // The construction refuses a tuple the vocabulary itself forbids and `enter` refuses
+          // one this body cannot perform; both are refusals by name and neither may repair.
+          try {
+            handActionOption(action, { effector, target, stance: "action-default" }).enter(body);
+            entered += 1;
+          } catch (error) {
+            assert.match(String(error.message), /"/, `${action}/${effector}/${target} refused without naming anything`);
+          }
+        }
+      }
     }
+    assert.ok(entered > 0, `${body.self.unit} ${JSON.stringify(Object.keys(body.self.hands))} has no enterable tactic`);
   }
 
-  // The body the "a mask and an executor cannot disagree" claim was false for,
-  // and it is the only kind that has arms to lose. An armless *warrior* -- both
-  // slots present, both lost, no natural attack -- is refused outright by
-  // `supportedOptions`' capability gate, so the mask is empty; the executor's
-  // own rule still answers `natural` for `recover` and still enters it. The mask
-  // being the stricter of the two is the safe direction and is what is asserted
-  // here, rather than an equality that does not exist.
+  // An armless warrior -- both slots present, both lost, no natural attack -- keeps exactly
+  // one capability-neutral option and it is `recover` on the natural effector.
   const armless = view();
   armless.self.hands.primary.lost = true; armless.self.hands.secondary.lost = true;
-  assert.deepEqual(deployableTactics(armless), [], "no capability at all is an empty mask");
-  assert.doesNotThrow(() => handActionOption("recover", asMeasured("natural")).enter(armless),
-    "and the executor is the more permissive of the two, which is a difference worth knowing");
+  assert.doesNotThrow(() => handActionOption("recover", asMeasured("natural")).enter(armless));
+  assert.throws(() => handActionOption("cut", { effector: "primary", target: "vital", stance: "action-default" }).enter(armless),
+    /option "cut" requires/);
 });
 
 test("a_lost_selected_hand_forces_a_new_decision_before_execution", () => {
@@ -849,6 +850,14 @@ test("a_named_target_is_a_body_region_derived_from_published_facts", () => {
   assert.ok(targetHeight(crawler, "vital") > targetHeight(crawler, "low"));
 });
 
+// Two spellings of one claim, bound together. `COMBAT_FIELDS` names a command's eight top-level
+// slots and `INTENT_FIELDS` names its leaves; before 2026-09-04 they lived in different files
+// and nothing compared them. A slot added to one and forgotten in the other fails here.
+test("intent_leaf_paths_cover_exactly_the_combat_fields", () => {
+  const heads = [...new Set(INTENT_FIELDS.map((path) => path.split(".")[0]))].sort();
+  assert.deepEqual(heads, [...COMBAT_FIELDS]);
+});
+
 test("the_scripted_meta_controller_matches_the_policy_it_replaces", () => {
   const old = duelistMind(991); const meta = scriptedMetaMind("duelist", 991); const v = view();
   const trace = [];
@@ -947,255 +956,6 @@ test("a_bare_scripted_meta_duelist_can_enter_punch_range", () => {
   assert.equal(punched, true, JSON.stringify({ z: v.opponent.shoulder.z, measure: v.measure, entries: meta.entries }));
 });
 
-test("feature_columns_are_total_finite_and_versioned", () => {
-  assert.equal(FEATURE_VERSION, 4);
-  assert.equal(new Set(FEATURE_COLUMNS).size, FEATURE_COLUMNS.length);
-  const values = writeFeatures(view());
-  assert.equal(values.length, FEATURE_COLUMNS.length);
-  assert.ok(values.every(Number.isFinite));
-  for (const kind of WEAPON_KINDS) {
-    const v = view({ primary: kind, secondary: "empty" });
-    const features = writeFeatures(v);
-    for (const candidate of WEAPON_KINDS) {
-      assert.equal(features[FEATURE_COLUMNS.indexOf(`self_primary_kind_${candidate}`)], candidate === kind ? 1 : 0);
-    }
-  }
-  const writer = new FeatureWriter(); const moving = view(); moving.clock = 0; writer.write(moving);
-  moving.clock = 0.1; moving.measure -= 0.29;
-  assert.ok(writer.write(moving)[FEATURE_COLUMNS.indexOf("radial_closing_rate")] > 0.9);
-  const coherent = view({ primary: "sword", secondary: "empty" }, { primary: "shield", secondary: "sword" });
-  closing(coherent.opponent.hands.primary, 30); closing(coherent.opponent.hands.secondary, 7);
-  coherent.opponent.hands.secondary.tip.x = 0.8;
-  const threatFeatures = writeFeatures(coherent);
-  // Still `7 / 40`, and it now means something stronger than it did. In v3 a
-  // shield could not be a threat because the filter kept only striking kinds and
-  // then sorted what was left by speed. In v4 the shield is offered to
-  // `selectThreat` like everything else and loses on its *tier* -- so the number
-  // survives a shield that is not merely faster but genuinely closing at 30 m/s,
-  // which the v3 fixture could not express and this one now does.
-  assert.equal(threatFeatures[FEATURE_COLUMNS.indexOf("threat_speed")], 7 / 40,
-    "the fast shield is not the dangerous hand");
-  assert.ok(threatFeatures[FEATURE_COLUMNS.indexOf("threat_bearing")] > 0,
-    "bearing and speed both describe the secondary sword tip");
-  // And the kind one-hot agrees with the speed, which is the column that would
-  // have caught the two disagreeing before there was one function to ask.
-  assert.equal(threatFeatures[FEATURE_COLUMNS.indexOf("threat_kind_sword")], 1);
-  assert.equal(threatFeatures[FEATURE_COLUMNS.indexOf("threat_kind_shield")], 0);
-  // The sword is closing, so it has a positive time to closest approach and the
-  // local-frame velocity points back down the observer's forward axis. Both
-  // directions of that sign are pinned by the mirror tests below.
-  assert.ok(threatFeatures[FEATURE_COLUMNS.indexOf("threat_time_to_closest")] > 0);
-  assert.equal(threatFeatures[FEATURE_COLUMNS.indexOf("threat_velocity_forward")], -7 / 40);
-});
-
-test("mirroring_a_view_mirrors_directional_features_and_preserves_scalar_ones", () => {
-  const asymmetric = view(); asymmetric.opponent.ground.x = 0.7; asymmetric.opponent.shoulder.x = 0.7;
-  const original = writeFeatures(asymmetric);
-  const mirrored = writeFeatures(mirrorView(asymmetric));
-  assert.deepEqual(mirrored, mirrorFeatures(original));
-});
-
-test("feature_v4_has_total_readers_resets_variance_and_exact_mirror_signs", () => {
-  const v = view(); v.clock = 0; const writer = new FeatureWriter(); const initial = writer.write(v);
-  writer.setTactic("circle-left", "cut", 0.1);
-  // The self vitality moves too, and it has to. `time_since_damage` was one
-  // clock fed from the opponent's vitality alone -- so it was time since damage
-  // *dealt* wearing a name that reads as time since damage taken, and a fixture
-  // that only ever wounded the opponent could not tell the two apart. Both are
-  // driven here and both are read below.
-  v.clock = 0.4; v.measure -= 0.25; v.opponent.vitality -= 0.1; v.self.vitality -= 0.2; v.opponent.ground.x = 0.8;
-  const changed = writer.write(v);
-  for (const name of ["usable_reach_margin", "radial_closing_rate", "facing_error", "current_movement_circle-left",
-    "current_action_cut", "persistence_age", "time_since_damage_dealt", "time_since_damage_received"]) {
-    const index = FEATURE_COLUMNS.indexOf(name); assert.notEqual(index, -1, name); assert.ok(Number.isFinite(changed[index]), name);
-  }
-  assert.notDeepEqual(changed, initial); assert.deepEqual(mirrorFeatures(mirrorFeatures(changed)), changed);
-  writer.reset(); const reset = writer.write(v);
-  assert.equal(reset[FEATURE_COLUMNS.indexOf("current_movement_hold")], 1);
-  assert.equal(reset[FEATURE_COLUMNS.indexOf("current_action_recover")], 1);
-  assert.equal(reset[FEATURE_COLUMNS.indexOf("persistence_age")], 0);
-  // Both histories reset to "nothing has happened yet", which for an age column
-  // is a saturated 1 rather than a 0. Naming both is what stops the pair being
-  // fed from one source again.
-  assert.equal(reset[FEATURE_COLUMNS.indexOf("time_since_damage_dealt")], 1);
-  assert.equal(reset[FEATURE_COLUMNS.indexOf("time_since_damage_received")], 1);
-  const crawler = view(); crawler.self.hands = {}; crawler.self.naturalAttacks = { bite: { reach: 0.7, ready: true, active: false } };
-  crawler.opponent.collisionRadius = 0.3; crawler.measure = 0.8;
-  const crawlerFeatures = writeFeatures(crawler);
-  assert.ok(crawlerFeatures[FEATURE_COLUMNS.indexOf("usable_reach_margin")] > 0,
-    "published natural reach plus target surface radius is usable without fabricated hands");
-  // And the jaws are published as jaws rather than as a nameless zero. Three
-  // columns per side, all zero when a body has no natural attack at all, which
-  // is not the same reading as a bite of reach zero.
-  assert.equal(crawlerFeatures[FEATURE_COLUMNS.indexOf("self_bite_reach")], 0.35);
-  assert.equal(crawlerFeatures[FEATURE_COLUMNS.indexOf("self_bite_ready")], 1);
-  assert.equal(crawlerFeatures[FEATURE_COLUMNS.indexOf("self_bite_active")], 0);
-  assert.equal(crawlerFeatures[FEATURE_COLUMNS.indexOf("opponent_bite_reach")], 0);
-  assert.equal(crawlerFeatures[FEATURE_COLUMNS.indexOf("opponent_bite_ready")], 0);
-});
-
-/**
- * The sign table, against a world built the other way round rather than against
- * itself.
- *
- * `mirroring_a_view_mirrors_directional_features_and_preserves_scalar_ones`
- * above is the involution check, and an involution proves nothing on its own:
- * mirroring twice returns the input whatever sign a column carries, so two
- * matching wrong signs pass it. This is the version that cannot be satisfied
- * that way -- the second world is constructed asymmetric and mirrored, and the
- * two feature vectors have to agree column for column.
- *
- * Its full form, with an arrow in the air and a threat that is genuinely moving
- * sideways, is `feature_v4_mirror_matches_a_separately_constructed_asymmetric_world`
- * in `tests/policy-perception.test.mjs`; this is the melee half, kept beside the
- * table it is about.
- */
-test("feature_v4_mirror_signs_hold_against_a_sideways_moving_threat", () => {
-  const asymmetric = view({ primary: "sword", secondary: "empty" }, { primary: "sword", secondary: "shield" });
-  asymmetric.opponent.ground.x = 0.7; asymmetric.opponent.shoulder.x = 0.7;
-  asymmetric.opponent.hands.primary.tip = { x: 0.55, y: 1.55, z: 0.62 };
-  // Across as well as in, so `threat_local_right` and `threat_velocity_right`
-  // are both non-zero and a dropped negation in either shows up.
-  asymmetric.opponent.hands.primary.tipSpeed = 11;
-  asymmetric.opponent.hands.primary.tipVelocity = { x: -6, y: -1.5, z: -9 };
-  asymmetric.self.trunkTwist = 0.4; asymmetric.opponent.trunkTwist = -0.25;
-
-  const original = writeFeatures(asymmetric);
-  const mirrored = writeFeatures(mirrorView(asymmetric));
-  assert.deepEqual(mirrored, mirrorFeatures(original));
-  // The columns this test exists for are actually exercised, or it is a story:
-  // a table where every one of them happened to be zero would pass whatever the
-  // signs said.
-  for (const name of ["threat_local_right", "threat_velocity_right", "threat_bearing",
-    "facing_error", "self_trunk_twist", "opponent_trunk_twist"]) {
-    const index = FEATURE_COLUMNS.indexOf(name);
-    assert.equal(FEATURE_MIRROR_SIGN[index], -1, `${name} names a side and has to change sign`);
-    assert.ok(Math.abs(original[index]) > 0.01, `${name} is ${original[index]}, so this proves nothing about it`);
-  }
-});
-
-/**
- * The checkable half of "primary and secondary are not sides", corrected.
- *
- * **This test used to be called `no_feature_column_carries_which_side_a_hand_is_on`
- * and the claim in its name is false.** Two columns carry a side and always did:
- * build two worlds differing only in the x of the opponent's threatening hand
- * and `threat_bearing` and `threat_local_right` come back equal and opposite.
- * `FEATURE_MIRROR_SIGN` lists both, along with `facing_error` and the two trunk
- * twists, which is the table admitting it. The old fixture could not see any of
- * that, because it flipped `outboard` alone: `outboard` is *derived* from the
- * arm's geometry (`src/arm.ts`, published by `src/fighter.ts`), so a body whose
- * `outboard` disagrees with its own `shoulder.x` and `tip.x` is a body that
- * cannot exist -- and `mirrorBody` negates all four together, which is itself the
- * admission that `outboard` is not the only side-carrying field. A hand column
- * spelled `Math.sign(hand.shoulder.x)` left that test green.
- *
- * The narrow fact that *is* true, can fail, and carries the decision: **no hand
- * column distinguishes which physical side a given hand slot is on.** The eight
- * columns per slot are a weapon one-hot, `lost`, `reach` and `tip_speed`, and
- * none of them is signed. So the side a slot sits on is invisible, swapping
- * `primary`/`secondary` under a mirror would invent a distinction the network
- * cannot see, and `mirrorBody` keeping the slot keys while negating the geometry
- * is what makes a mirrored sample a genuine left-handed copy of the same fighter
- * rather than a second, different fighter.
- *
- * Tactic v2's effector head inherits exactly that: `EFFECTOR_NAMES` name a slot,
- * no column answers which side a slot is on, so an output mirror leaves them
- * alone. `TARGET_NAMES` are heights and a threat and take no side either. The
- * conclusion the old test was written for still holds; the evidence for it did
- * not.
- */
-test("no_hand_column_carries_which_physical_side_a_slot_is_on", () => {
-  // The same fighter built left-handed: `outboard`, the shoulder, the tip and
-  // the tip velocity all negated together, which is the only coherent way to
-  // move a hand across the body. The torso's own `shoulder` and `tip` are
-  // aliases of the primary hand's in this file's fixture, so they are given
-  // their own copies first -- moving the hands must not move the body, or this
-  // would go red through `threat_bearing` and prove nothing about a hand column.
-  const sided = (side) => {
-    const built = view({ primary: "sword", secondary: "shield" }, { primary: "axe", secondary: "empty" });
-    built.opponent.hands.primary.tipSpeed = 9;
-    built.opponent.hands.primary.tipVelocity = { x: -4, y: -1, z: -7 };
-    built.self.shoulder = { ...built.self.shoulder }; built.self.tip = { ...built.self.tip };
-    for (const slot of Object.values(built.self.hands)) {
-      slot.outboard *= side;
-      slot.shoulder = { ...slot.shoulder, x: slot.shoulder.x * side };
-      slot.tip = { ...slot.tip, x: slot.tip.x * side };
-      slot.tipVelocity = { ...slot.tipVelocity, x: slot.tipVelocity.x * side };
-    }
-    return built;
-  };
-  const rightHanded = sided(1); const leftHanded = sided(-1);
-  // The fixture has to change the thing it is about and nothing else.
-  for (const name of ["primary", "secondary"]) {
-    assert.equal(leftHanded.self.hands[name].outboard, -rightHanded.self.hands[name].outboard, name);
-    assert.equal(leftHanded.self.hands[name].shoulder.x, -rightHanded.self.hands[name].shoulder.x, name);
-    assert.equal(leftHanded.self.hands[name].tip.x, -rightHanded.self.hands[name].tip.x, name);
-    assert.ok(Math.abs(rightHanded.self.hands[name].shoulder.x) > 0.01, `${name} has to be off the centre line`);
-  }
-  assert.deepEqual(leftHanded.self.shoulder, rightHanded.self.shoulder, "the torso must not have moved");
-  assert.deepEqual(writeFeatures(leftHanded), writeFeatures(rightHanded));
-  // And by name as well as by value, so a signed hand column added under a name
-  // this fixture happens not to drive is still a failure.
-  const handColumns = FEATURE_COLUMNS.filter((name) => /_(primary|secondary)_/.test(name));
-  assert.deepEqual(handColumns, ["self", "opponent"].flatMap((owner) => ["primary", "secondary"].flatMap((slot) =>
-    [...WEAPON_KINDS.map((kind) => `${owner}_${slot}_kind_${kind}`),
-      `${owner}_${slot}_lost`, `${owner}_${slot}_reach`, `${owner}_${slot}_tip_speed`])));
-
-  // **The correction, asserted rather than only written down.** Side *is* in the
-  // table -- it is the threat's side, not a slot's. Two worlds differing only in
-  // where the opponent's threatening hand is give equal and opposite readings on
-  // the two columns that name a direction in the observer's own frame, and
-  // `FEATURE_MIRROR_SIGN` marks both. Every hand column is identical across the
-  // pair, which is what separates the two facts.
-  const threatening = (x) => {
-    const built = view({ primary: "sword", secondary: "empty" }, { primary: "axe", secondary: "empty" });
-    // Off the centre line so the two readings are exactly opposite rather than
-    // merely different, and the torso gets its own shoulder for the same reason
-    // as above.
-    built.self.shoulder = { ...built.self.shoulder, x: 0 }; built.self.tip = { ...built.self.tip, x: 0 };
-    built.opponent.hands.primary.shoulder = { ...built.opponent.hands.primary.shoulder, x };
-    built.opponent.hands.primary.tip = { ...built.opponent.hands.primary.tip, x };
-    return built;
-  };
-  const fromRight = writeFeatures(threatening(0.5)); const fromLeft = writeFeatures(threatening(-0.5));
-  for (const name of ["threat_bearing", "threat_local_right"]) {
-    const index = FEATURE_COLUMNS.indexOf(name);
-    assert.equal(FEATURE_MIRROR_SIGN[index], -1, `${name} names a side and has to change sign`);
-    // The literals, not just "different": the hand is 0.5 m either side of a
-    // shoulder 0.5 m away, so the bearing is a quarter turn of pi and the local
-    // right is 0.5 over a 2 m frame scale. Both come to 0.25, and a column that
-    // read zero on both sides would satisfy "equal and opposite".
-    assert.equal(fromRight[index], 0.25, name);
-    assert.equal(fromLeft[index], -0.25, name);
-  }
-  for (const name of handColumns) {
-    const index = FEATURE_COLUMNS.indexOf(name);
-    assert.equal(fromRight[index], fromLeft[index], `${name} is a hand column and must not have moved`);
-  }
-
-  // And the mirror negates the geometry rather than renaming the slots, which is
-  // the other half of the sentence: `mirrorView` flips `outboard`, the shoulder
-  // and the tip on every hand and leaves `primary` and `secondary` where they
-  // were.
-  const reflected = mirrorView(rightHanded);
-  assert.deepEqual(Object.keys(reflected.self.hands), Object.keys(rightHanded.self.hands));
-  assert.equal(reflected.self.hands.primary.weapon, rightHanded.self.hands.primary.weapon);
-  assert.equal(reflected.self.hands.primary.outboard, -rightHanded.self.hands.primary.outboard);
-  assert.equal(reflected.self.hands.primary.shoulder.x, -rightHanded.self.hands.primary.shoulder.x);
-  assert.equal(reflected.self.hands.primary.tip.x, -rightHanded.self.hands.primary.tip.x);
-
-  // The swap table itself, whole. Exactly one pair moves, and it is a direction
-  // of travel rather than a hand -- so a hand swap added to the table would show
-  // up here as a third entry rather than as a comment going quietly false.
-  const swapped = FEATURE_MIRROR_INDEX.map((source, index) => [FEATURE_COLUMNS[index], FEATURE_COLUMNS[source]])
-    .filter(([name, from]) => name !== from);
-  assert.deepEqual(swapped, [
-    ["current_movement_circle-left", "current_movement_circle-right"],
-    ["current_movement_circle-right", "current_movement_circle-left"],
-  ]);
-});
-
 test("the_behaviour_record_counts_events_instead_of_the_truncated_combat_log", () => {
   const record = behaviourRecord();
   for (let i = 0; i < 40; i += 1) recordCombatEvent(record, {
@@ -1211,37 +971,11 @@ test("the_behaviour_record_counts_events_instead_of_the_truncated_combat_log", (
   assert.equal(record.attackAttempts.cut, 1, "one option entry is one attempt, not twenty samples or forty contacts");
 });
 
-test("training_validation_and_test_seed_ranges_cannot_leak", () => {
-  assert.doesNotThrow(() => validateSeedRanges(SEED_RANGES));
-  assert.throws(() => validateSeedRanges({ train: [0, 20], validation: [20, 40], test: [50, 60] }),
-    /train and validation overlap/);
-  for (const split of ["train", "validation", "test"]) {
-    const seed = evaluationSeed(20260823, split, 4);
-    assert.ok(seed >= SEED_RANGES[split][0] && seed <= SEED_RANGES[split][1]);
-  }
-  assert.deepEqual(evaluationMirrorSeeds(20260823, "test", 4), [
-    evaluationSeed(20260823, "test", 4), evaluationSeed(20260823, "test", 4),
-  ], "both sides of a mirror pair use one seed");
-});
-
-test("ordered_intent_parity_cannot_hide_equal_and_opposite_frame_errors", () => {
-  const unchanged = duelistMind(4).decide(view(), 1 / 240);
-  const baseline = [structuredClone(unchanged), structuredClone(unchanged)];
-  const mutated = [structuredClone(unchanged), structuredClone(unchanged)];
-  baseline[0].forward = 0; baseline[1].forward = 0;
-  mutated[0].forward = 0; mutated[1].forward = 0;
-  mutated[0].forward += 0.25;
-  mutated[1].forward -= 0.25;
-  assert.equal(mutated.reduce((sum, intent) => sum + intent.forward, 0),
-    baseline.reduce((sum, intent) => sum + intent.forward, 0), "the means cancel exactly");
-  assert.equal(intentSequencesEqual(baseline, mutated), false);
-  assert.equal(intentSequencesEqual(baseline, baseline.slice(0, 1)), false, "sample count is part of parity");
-});
-
+// One path, not two: `src/learning/features.ts` was the second and went on 2026-09-04 with
+// the learning trees. The rule is unchanged -- a legality or aim rule a console command can
+// move is a rule an artifact can be trained against and deployed without.
 test("options_and_features_have_no_mutable_config_backdoor", async () => {
-  for (const path of ["../src/options.ts", "../src/learning/features.ts"]) {
-    const source = await readFile(new URL(path, import.meta.url), "utf8");
-    assert.doesNotMatch(source, /from ["'](?:\.\.\/)?config\.ts["']/);
-  }
+  const source = await readFile(new URL("../src/options.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /from ["'](?:\.\.\/)?config\.ts["']/);
   assert.equal(Object.isFrozen(ACTION_TUNING), true);
 });

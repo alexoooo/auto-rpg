@@ -6,7 +6,6 @@ import type { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
 import { CONFIG } from "./config.ts";
 import type { UnitSelectionRules } from "./bout.ts";
 import { BROOT_PROFILE, Fighter, type FighterMaterials, type Limb } from "./fighter.ts";
-import { KAYKIT_KNIGHT_METRICS, KAYKIT_KNIGHT_PROFILE } from "./kaykit-profile.ts";
 import type { Striking } from "./combat.ts";
 import type { ControlEndpoint } from "./control-host.ts";
 import type { SupportedLocomotionPort } from "./supported-locomotion.ts";
@@ -17,19 +16,9 @@ import { handsFor, isWeaponKind, WEAPON_KINDS, type WeaponKind } from "./hands.t
 import { POLICIES, splitMind, type HandName, type Mind } from "./mind.ts";
 import type { Side } from "./physics.ts";
 import { Centipede, CENTIPEDE_BITE_REACH, CENTIPEDE_CROWN, CENTIPEDE_RADIUS, CENTIPEDE_SEGMENTS } from "./bodies/centipede.ts";
-import { ARBALEST_CONSTRUCT_PROFILE, Construct, HUMANOID_CONSTRUCT_PROFILE,
-  TWINBLADE_CONSTRUCT_PROFILE } from "./construct/construct.ts";
-import { arbalestBlueprint, arbalestControl, arbalestProgram,
-  ARBALEST_SENSORS } from "./construct/arbalest.ts";
-import { humanoidBlueprint, humanoidControl, humanoidProgram, HUMANOID_SENSORS } from "./construct/humanoid.ts";
-import { twinbladeBlueprint, twinbladeControl, twinbladeProgram,
-  TWINBLADE_SENSORS } from "./construct/twinblade.ts";
-import { wardenBlueprint, wardenControl, wardenProgram, WARDEN_SENSORS } from "./construct/warden.ts";
-import { constructBlueprintForDurability } from "./construct/durability.ts";
 
 /** A body kind accepted at the setup boundary. */
-export type UnitKind = "warrior" | "broot" | "centipede" | "kaykit-knight" | "bronze-warden" |
-  "swordbearer-effigy" | "twinblade-effigy" | "arbalest-effigy";
+export type UnitKind = "warrior" | "broot" | "centipede";
 
 export type LocomotionMode = "legacy" | "supported";
 export const SUPPORTED_LOCOMOTION_PORT_V1 = "supported-locomotion-v1" as const;
@@ -146,7 +135,7 @@ export interface UnitDefinition extends UnitSelectionRules {
   readonly crownHeight: number;
   readonly vitalHeight: number;
   readonly collisionRadius: number;
-  /** Humanoid compatibility only; construct endpoints build their own typed drivers. */
+  /** Humanoid compatibility only; a body with its own typed driver answers null. */
   readonly createPolicy: ((name: string, seed?: number) => Mind) | null;
   build(ctx: CombatantBuild): Combatant;
 }
@@ -172,7 +161,6 @@ const humanoidLoadouts = freezeLoadouts(WEAPON_KINDS.flatMap((primary) =>
 ));
 const humanoidDefault = Object.freeze<UnitLoadout>({ primary: "sword", secondary: "empty" });
 const emptyLoadout = Object.freeze<UnitLoadout>({ primary: "empty", secondary: "empty" });
-const kaykitKnightLoadout = Object.freeze<UnitLoadout>({ primary: "sword", secondary: "buckler" });
 
 const warriorParts = Object.freeze(Object.keys(CONFIG.body.vitalWeight));
 const humanoidDurability = (scale = 1): Readonly<Record<string, number>> => Object.freeze(Object.fromEntries(
@@ -314,182 +302,10 @@ const centipede: UnitDefinition = Object.freeze({
     loadout: initialLoadout(ctx, centipede) }),
 });
 
-const kaykitKnight: UnitDefinition = Object.freeze({
-  kind: "kaykit-knight",
-  label: "KayKit Knight (Experimental)",
-  equipment: Object.freeze(["sword", "buckler"] as WeaponKind[]),
-  loadouts: freezeLoadouts([{ primary: "sword", secondary: "buckler" }]),
-  defaultLoadout: kaykitKnightLoadout,
-  hands: 2,
-  compatiblePolicies: Object.freeze(["idle", "swinger", "duelist"]),
-  driverOptions: drivers(["idle", "swinger", "duelist"]),
-  humanAdapter: true,
-  controlSurface: "humanoid-v1",
-  supportedLocomotionPort: SUPPORTED_LOCOMOTION_PORT_V1,
-  defaultPolicy: "idle",
-  anatomy: Object.freeze({
-    parts: warriorParts,
-    vitalityWeights: CONFIG.body.vitalWeight,
-    durability: humanoidDurability(KAYKIT_KNIGHT_PROFILE.healthScale),
-  }),
-  reach: KAYKIT_KNIGHT_METRICS.reach,
-  crownHeight: KAYKIT_KNIGHT_METRICS.crownHeight,
-  vitalHeight: KAYKIT_KNIGHT_METRICS.vitalHeight,
-  collisionRadius: KAYKIT_KNIGHT_METRICS.collisionRadius,
-  createPolicy: (name: string, seed?: number) => policyFactory("kaykit-knight", kaykitKnight.driverOptions)(name, seed),
-  build: (ctx: CombatantBuild) => new Fighter(ctx.scene, {
-    side: ctx.side,
-    origin: ctx.origin,
-    facing: ctx.facing,
-    mind: initialMind(ctx, kaykitKnight),
-    human: ctx.human,
-    controlPolicies: kaykitKnight.driverOptions,
-    controlPolicyName: ctx.policyName,
-    controlPolicyFactory: kaykitKnight.createPolicy ?? undefined,
-    locomotionMode: ctx.locomotionMode,
-    locomotionWorld: ctx.locomotionWorld,
-    loadout: initialLoadout(ctx, kaykitKnight),
-    profile: KAYKIT_KNIGHT_PROFILE,
-  }, ctx.materials),
-});
-
-const wardenModel = constructBlueprintForDurability(wardenBlueprint("crossbow"),
-  "warden-crossbow", "production");
-const wardenParts = Object.freeze(wardenModel.parts.map(({ id }) => id));
-const wardenWeights = Object.freeze(Object.fromEntries(
-  wardenModel.parts.map(({ id, vitalityWeight }) => [id, vitalityWeight]),
-));
-const bronzeWarden: UnitDefinition = Object.freeze({
-  kind: "bronze-warden",
-  label: "Bronze Warden (Experimental)",
-  equipment: Object.freeze(["empty"] as WeaponKind[]),
-  loadouts: freezeLoadouts([{ primary: "empty", secondary: "empty" }]),
-  defaultLoadout: emptyLoadout,
-  hands: 0,
-  compatiblePolicies: Object.freeze(["construct-hold", "warden-authored"]),
-  driverOptions: Object.freeze([
-    Object.freeze({ name: "construct-hold", label: "Hold" }),
-    Object.freeze({ name: "warden-authored", label: "Warden Mind" }),
-  ]),
-  humanAdapter: false,
-  controlSurface: "construct-v3",
-  supportedLocomotionPort: SUPPORTED_LOCOMOTION_PORT_V1,
-  defaultPolicy: "warden-authored",
-  anatomy: Object.freeze({ parts: wardenParts, vitalityWeights: wardenWeights,
-    durability: Object.freeze(Object.fromEntries(wardenModel.parts.map(({ id, health }) => [id, health]))) }),
-  reach: 1.4,
-  crownHeight: 1.9,
-  vitalHeight: 1.33,
-  collisionRadius: 0.72,
-  createPolicy: null,
-  build: (ctx: CombatantBuild) => new Construct(ctx, { blueprint: wardenModel,
-    control: wardenControl("crossbow", "assisted"), program: wardenProgram("crossbow", "assisted"),
-    sensors: WARDEN_SENSORS }),
-});
-
-const humanoidModel = constructBlueprintForDurability(humanoidBlueprint(),
-  "swordbearer", "production");
-const swordbearerEffigy: UnitDefinition = Object.freeze({
-  kind: "swordbearer-effigy",
-  label: "Swordbearer Effigy (Experimental)",
-  equipment: Object.freeze(["empty"] as WeaponKind[]),
-  loadouts: freezeLoadouts([{ primary: "empty", secondary: "empty" }]),
-  defaultLoadout: emptyLoadout,
-  hands: 0,
-  compatiblePolicies: Object.freeze(["construct-hold", "humanoid-authored"]),
-  driverOptions: Object.freeze([
-    Object.freeze({ name: "construct-hold", label: "Hold" }),
-    Object.freeze({ name: "humanoid-authored", label: "Effigy Mind" }),
-  ]),
-  humanAdapter: false,
-  controlSurface: "construct-humanoid-v1",
-  supportedLocomotionPort: SUPPORTED_LOCOMOTION_PORT_V1,
-  defaultPolicy: "humanoid-authored",
-  anatomy: Object.freeze({ parts: Object.freeze(humanoidModel.parts.map(({ id }) => id)),
-    vitalityWeights: Object.freeze(Object.fromEntries(humanoidModel.parts.map(({ id, vitalityWeight }) => [id, vitalityWeight]))),
-    durability: Object.freeze(Object.fromEntries(humanoidModel.parts.map(({ id, health }) => [id, health]))) }),
-  reach: HUMANOID_CONSTRUCT_PROFILE.reach,
-  crownHeight: HUMANOID_CONSTRUCT_PROFILE.crownHeight,
-  vitalHeight: HUMANOID_CONSTRUCT_PROFILE.vitalHeight,
-  collisionRadius: HUMANOID_CONSTRUCT_PROFILE.collisionRadius,
-  createPolicy: null,
-  build: (ctx: CombatantBuild) => new Construct(ctx, { blueprint: humanoidModel, control: humanoidControl(),
-    program: humanoidProgram(), sensors: HUMANOID_SENSORS, profile: HUMANOID_CONSTRUCT_PROFILE }),
-});
-
-const twinbladeModel = constructBlueprintForDurability(twinbladeBlueprint(),
-  "twinblade", "production");
-const twinbladeEffigy: UnitDefinition = Object.freeze({
-  kind: "twinblade-effigy",
-  label: "Twinblade Effigy (Mechanical A/B)",
-  equipment: Object.freeze(["empty"] as WeaponKind[]),
-  loadouts: freezeLoadouts([{ primary: "empty", secondary: "empty" }]),
-  defaultLoadout: emptyLoadout,
-  hands: 0,
-  compatiblePolicies: Object.freeze(["construct-hold", "humanoid-authored"]),
-  driverOptions: Object.freeze([
-    Object.freeze({ name: "construct-hold", label: "Hold" }),
-    Object.freeze({ name: "humanoid-authored", label: "Existing right-arm Mind" }),
-  ]),
-  humanAdapter: false,
-  controlSurface: "construct-twinblade-v1",
-  supportedLocomotionPort: SUPPORTED_LOCOMOTION_PORT_V1,
-  defaultPolicy: "humanoid-authored",
-  anatomy: Object.freeze({ parts: Object.freeze(twinbladeModel.parts.map(({ id }) => id)),
-    vitalityWeights: Object.freeze(Object.fromEntries(twinbladeModel.parts
-      .map(({ id, vitalityWeight }) => [id, vitalityWeight]))),
-    durability: Object.freeze(Object.fromEntries(twinbladeModel.parts.map(({ id, health }) => [id, health]))) }),
-  reach: TWINBLADE_CONSTRUCT_PROFILE.reach,
-  crownHeight: TWINBLADE_CONSTRUCT_PROFILE.crownHeight,
-  vitalHeight: TWINBLADE_CONSTRUCT_PROFILE.vitalHeight,
-  collisionRadius: TWINBLADE_CONSTRUCT_PROFILE.collisionRadius,
-  createPolicy: null,
-  build: (ctx: CombatantBuild) => new Construct(ctx, { blueprint: twinbladeModel,
-    control: twinbladeControl(), program: twinbladeProgram(), sensors: TWINBLADE_SENSORS,
-    profile: TWINBLADE_CONSTRUCT_PROFILE }),
-});
-
-const arbalestModel = constructBlueprintForDurability(arbalestBlueprint(),
-  "arbalest", "production");
-const arbalestEffigy: UnitDefinition = Object.freeze({
-  kind: "arbalest-effigy",
-  label: "Arbalest Effigy (Mechanical A/B)",
-  equipment: Object.freeze(["empty"] as WeaponKind[]),
-  loadouts: freezeLoadouts([{ primary: "empty", secondary: "empty" }]),
-  defaultLoadout: emptyLoadout,
-  hands: 0,
-  compatiblePolicies: Object.freeze(["construct-hold", "humanoid-authored"]),
-  driverOptions: Object.freeze([
-    Object.freeze({ name: "construct-hold", label: "Hold" }),
-    Object.freeze({ name: "humanoid-authored", label: "Arbalest Mind" }),
-  ]),
-  humanAdapter: false,
-  controlSurface: "construct-arbalest-v1",
-  supportedLocomotionPort: SUPPORTED_LOCOMOTION_PORT_V1,
-  defaultPolicy: "humanoid-authored",
-  anatomy: Object.freeze({ parts: Object.freeze(arbalestModel.parts.map(({ id }) => id)),
-    vitalityWeights: Object.freeze(Object.fromEntries(arbalestModel.parts
-      .map(({ id, vitalityWeight }) => [id, vitalityWeight]))),
-    durability: Object.freeze(Object.fromEntries(arbalestModel.parts.map(({ id, health }) => [id, health]))) }),
-  reach: ARBALEST_CONSTRUCT_PROFILE.reach,
-  crownHeight: ARBALEST_CONSTRUCT_PROFILE.crownHeight,
-  vitalHeight: ARBALEST_CONSTRUCT_PROFILE.vitalHeight,
-  collisionRadius: ARBALEST_CONSTRUCT_PROFILE.collisionRadius,
-  createPolicy: null,
-  build: (ctx: CombatantBuild) => new Construct(ctx, { blueprint: arbalestModel,
-    control: arbalestControl(), program: arbalestProgram(), sensors: ARBALEST_SENSORS,
-    profile: ARBALEST_CONSTRUCT_PROFILE }),
-});
-
 export const UNIT_REGISTRY: Readonly<Record<UnitKind, UnitDefinition>> = Object.freeze({
   warrior,
   broot,
   centipede,
-  "kaykit-knight": kaykitKnight,
-  "bronze-warden": bronzeWarden,
-  "swordbearer-effigy": swordbearerEffigy,
-  "twinblade-effigy": twinbladeEffigy,
-  "arbalest-effigy": arbalestEffigy,
 });
 
 /** Picker rows are a projection of bodies that can actually be built. */

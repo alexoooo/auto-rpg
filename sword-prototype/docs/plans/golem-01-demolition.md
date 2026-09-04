@@ -1,7 +1,22 @@
 # Session 01 -- demolition
 
-**Status (2026-09-04): planned.** Depends on nothing. Lands in two commits by necessity (see
-step 9).
+**Status (2026-09-04): implemented, human gate not yet asked.** The Forge, every construct, every
+learning tree, the KayKit unit, the guided playtest and the old plan set are deleted; the three
+salvages landed in `src/golem/`, `src/engagement.ts` and `scripts/golem-headless-arena.mjs`; the
+tree is 46 `.ts` files and 25,842 lines under `src/` against 150 and 50,862, 11 scripts against 53,
+and 36 test files and 511 tests against 97 and 1,334. Step 10's look at the page is the coordinator's and the owner's, not this
+agent's.
+
+**Three corrections to what is written below**, recorded because the next reader will otherwise
+believe the file. (1) The expected-survivor list undercounts: 68 test files imported doomed code,
+not "about 56", and eight of those had a surviving *subject* and were operated on rather than
+deleted -- `death`, `options`, `policy-perception`, `recorder`, `supported-fist-trigger`, `units`,
+`host-run` and `bout`. (2) `scripts/golem-headless-arena.mjs` keeps the default arena geometry
+rather than deleting it with the construct lab populate path: the two surviving callers of the
+harness need a floor, so the geometry is inlined from the deleted `src/construct/lab-arena.ts`
+unchanged. (3) The Warrior and Broot units *do* declare `supportedLocomotionPort`, so
+`src/supported-locomotion-production.ts` has live consumers; what has no writer is its scheduler
+seam (`authority`/`stage`), kept for session 05 with that named in its own header.
 
 ## Outcome
 

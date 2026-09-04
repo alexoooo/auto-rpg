@@ -391,8 +391,6 @@ export interface ArmOptions {
   weapon: WeaponKind;
   /** Present only for an atomically-supported pair; legacy fists keep their solving hand contact. */
   fistTrigger?: { readonly membership: number; readonly collidesWith: number };
-  /** Creator bind pose used only for an imported native-proportion body. */
-  bindPose?: "hanging" | "outstretched";
   /**
    * Whether the bare capsules are drawn and can be picked.
    *
@@ -629,28 +627,14 @@ export class Arm {
     this.shoulderLocal = opts.shoulderLocal.clone();
 
     this.outboard = opts.shoulderLocal.x >= 0 ? 1 : -1;
-    const outstretched = opts.bindPose === "outstretched";
     // Every capsule's local +Y points back toward its parent: the shoulder uses
     // the upper arm's +Y end, then elbow and wrist join each child's +Y end to
-    // its parent's -Y end. Keep that convention in the horizontal creator pose
-    // instead of turning the chain inside out and handing Havok a half-metre
-    // construction-time violation.
-    const chainRotation = outstretched
-      ? opts.rotation.multiply(Quaternion.RotationAxis(
-          new Vector3(0, 0, 1),
-          this.outboard * Math.PI / 2,
-        ))
-      : opts.rotation;
-    const fighterFrame = Matrix.Identity();
-    Matrix.FromQuaternionToRef(opts.rotation, fighterFrame);
-    const armPoint = (drop: number): Vector3 => {
-      if (!outstretched) return opts.shoulderWorld.add(new Vector3(0, -drop, 0));
-      // `outboard` is signed in the fighter's frame, not the arena's. Adding it
-      // directly to world X made only one of two opposed fighters valid and
-      // built every quarter-turned arm across its own chest.
-      const local = new Vector3(this.outboard * drop, 0, 0);
-      return opts.shoulderWorld.add(Vector3.TransformNormal(local, fighterFrame));
-    };
+    // its parent's -Y end. The imported creator body that hung its arms
+    // horizontally instead went with the KayKit unit on 2026-09-04, so there is
+    // one bind pose again and it is this one.
+    const chainRotation = opts.rotation;
+    const armPoint = (drop: number): Vector3 =>
+      opts.shoulderWorld.add(new Vector3(0, -drop, 0));
 
     // A driven arm's capsules are the only bones drawn as themselves, and they
     // always have been: the costume leaves them out on purpose, because the arm
@@ -704,12 +688,6 @@ export class Arm {
     this.shoulder = joint(scene, opts.torso, this.upperArm, {
       pivotParent: this.shoulderLocal,
       pivotChild: new Vector3(0, A.upperLength / 2, 0),
-      // A T-pose rotates the child body a quarter turn, but it is still the
-      // shoulder's neutral bind. Express the parent's X/Y frame in that child
-      // body so the angular constraint starts at zero instead of interpreting
-      // the authored bind as an out-of-range 90-degree swing.
-      axisChild: outstretched ? new Vector3(0, -this.outboard, 0) : undefined,
-      perpChild: outstretched ? new Vector3(this.outboard, 0, 0) : undefined,
       swing: {
         x: { min: -2.7, max: 1.5 },
         y: { min: -1.9, max: 1.9 },

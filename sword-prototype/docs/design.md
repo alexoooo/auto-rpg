@@ -17,8 +17,8 @@ The arena-facing seam is now `ControlEndpoint`, not `Mind`. Every body publishes
 an installed-driver getter and an optional recording port. The host observes both bodies before it
 steps either installed driver; that ordering is the fairness rule, not an implementation detail.
 The humanoid endpoint keeps `Mind`, `FighterView` and `Intent` together behind `humanoid-v1`, while
-a later construct endpoint can carry action requests without fabricating a humanoid view or widening
-`Intent` into an untyped command bag. Installing a driver whose surface tag differs is refused with
+a later endpoint for a differently-shaped body can carry its own requests without fabricating a
+humanoid view or widening `Intent` into an untyped command bag. Installing a driver whose surface tag differs is refused with
 both surfaces named.
 
 Definitions publish the drivers their surface can actually construct. Changing a body keeps an
@@ -105,89 +105,30 @@ times a second per side, and a freshly allocated view would be the largest singl
 in the prototype. What `observe` may read is tightly constrained; see the render-id trap in
 `AGENTS.md`, which is the most expensive lesson in this directory.
 
-### Learning stops at the same seam
+### The option layer, and where a controller stops
 
-The experiment deliberately chose a hierarchical controller before choosing a learning
-algorithm. Havok has no cheap exact clone/restore seam, so combat-time look-ahead would have
-to rebuild a scene for every branch. An end-to-end network would instead spend its first
-experiment rediscovering the stable cut, cover, punch and shot geometry already expressed
-through the player's controls. The first implemented compromise kept eight mutually
-exclusive options. The current seam factorizes five movement choices from seven hand
-actions, so closing or circling can compose with cover, cut, thrust, punch, shoot or bite --
-and since session 17 the hand half also names the exact effector, the target region and the
-body stance, which is tactic v2 below.
-Scripted and learned controllers share those ordinary `Intent` producers and a bounded
-persistence interval. Novelty descriptors cover range, guard, handedness and attack
-transitions without granting the learner new authority.
+The seam a policy plays through is not the seam a body is built at, and the layer between them is
+`src/options.ts` over `src/action-primitives.ts`. Five movement choices compose with seven hand
+actions, so closing or circling composes with cover, cut, thrust, punch, shoot or bite -- and
+since session 17 the hand half also names the exact effector, the target region and the body
+stance, which is tactic v2 below. Every producer of a decision hands the layer ordinary `Intent`
+under a bounded persistence interval; nothing in it produces a pose directly.
 
-The learned meta-controller does not produce poses. A frozen research artifact maps the
-versioned 99-column v4 `FighterView` feature table to the tactic-v2 output contract: 26 numbers,
-laid over the five frozen vocabularies by index -- 5 movement, 7 hand-action, 3 effector, 4 target,
-6 stance and a bounded persistence interval. `META_OUTPUT_LAYOUT` in `learning/meta.ts` is the one
-table that names those offsets and nothing infers one; before session 17 stage C1 the layout was
-re-derived in five places, and one of them read the action block as "everything after the movements
-except the last number", which is a wrong argmax over a correct vector the moment a second block
-trails it. The columns include usable reach margin, facing and the current
-factorized tactic, as v3 did, and session 16 added what a policy needs to tell an incoming
-strike from a receding one: a nine-way one-hot over the selected threat's kind — arrows and
-bites included — that threat's position and velocity in the observer's own right/up/forward
-frame, its time to closest approach and closest miss distance, the opponent's posture, both
-bodies' collision radius, crown and vital heights, and both bodies' bite reach, ready and
-active. The misnamed single `time_since_damage` column became a pair, dealt and received,
-derived from vitality deltas rather than from combat events. One function, `selectThreat`,
-answers *what is worth answering* for the feature writer and the cover skills alike; there
-were three divergent copies of that question and two of them drove motor execution, so a
-policy could be guarding one blade while its perception watched another. It ranks a tip by
-how fast it is going *and* how near its path takes it to the vitals, not by raw speed, and
-the hand a scripted guard covers therefore moved -- measured, with the win rates either side
-of it, in [measurements](measurements.md). Unsupported options
-are masked before the argmax that chooses one -- `deployableActions` in `learning/meta.ts` is
-the single copy of that mask, and `supportedActionIndices` in `learning/deployment.ts` is only
-its projection onto the argmax's index space -- and the seam below it refuses an
-unsupported action by name rather than substituting a legal one. The same rule extended to the
-whole tuple in stage C2a: `deployableTactics` is `deployableActions` crossed with the effector and
-target tables the executor itself refuses by, and `selectDeployableTactic` scores a tuple by the
-**sum of its three logits over the legal tuples only**. Three independent argmaxes would name
-`punch` on a sword hand or `low` on a punch, and there is nothing honest to do about that
-afterwards -- refusing a decision the network meant, or repairing it into a tuple nobody chose,
-which is the silent redirection tactic v2 exists to remove. Ties break on action index, then
-effector, then target, and that order is walked rather than inherited from the legal set's
-enumeration order: `tacticTargets("cover")` is `["threat", "vital"]`, so a scan of the legal set
-would break a tie toward `threat`, which is the later name in the frozen table.
-Reading a controller's diagnostic never runs it. A stale or wrong-feature artifact is refused by
-the envelope before any network is built from its payload; there is no fallback that quietly turns
-an experiment into `duelist`. The envelope refuses on the **output** vocabulary too: the header
-carries `tacticVersion` and all five output name tables -- movement, action, effector, target,
-stance, one per block of the contract -- beside `featureVersion` and the column
-list, and the version comparison is written out by hand because `ResearchArtifact` rejects no
-unknown key, so an artifact from before the header grew arrives with the field simply absent.
-That comparison is `!==` rather than `!=` for a reason worth stating: `==` accepts a header whose
-version is the right number written as a JSON *string*, which is precisely the hand-edited or
-foreign artifact the gate exists for. The refused value is interpolated through `JSON.stringify`
-so the sentence reads `tactic version "2" does not match runtime 2` rather than naming the same
-number twice.
+**The learned half of this section went on 2026-09-04**, with `src/learning/`, the four research
+runners and their artifact, mask and tournament machinery; see "What was removed on 2026-09 and
+why" at the end of this file. What survives is what the option layer owns on its own, and the
+central rule is one of those: an action, effector or target this body cannot perform is refused
+**by name** rather than substituted with a legal one, because repairing a decision into a tuple
+nobody chose is the silent redirection this layer exists to remove. `handActionOption` throws with
+the tuple in the message and `tests/options.test.mjs` sweeps every action, effector and target
+over six bodies to say so.
 
-**"Single copy" was a claim about the runtime and was not true when it was written.** The mask
-was spelled out three times -- in `deployment.ts`, `research-policy.ts` and `lookahead.ts` --
-with the argmax reading the first and the *refusal* reading the second, which is precisely the
-arrangement that masks one policy and executes another.
-
-**Seven copies were found in the end, and the training side was the half that mattered**, since
-a network trained under one legality table and deployed under another is being scored on a
-controller nobody will run. The fourth was `research-rollout-worker.mjs`, which decodes every
-NEAT and DAgger rollout; the fifth was inlined in `collectTacticalTrace`; the sixth and seventh
-were in `train-ppo.mjs`, one of them for the league opponents and one -- **without even the
-`cover` deletion the other kept** -- for the trajectory collector that PPO actually learns from.
-All seven ask `deployableActions` now, or `supportedActionIndices`, which is that set projected
-onto the argmax's index space.
-
-**The "not even equivalent" charge against the fourth copy was investigated and is false.** It
-tested `weapon === "sword"` for thrust where the runtime asks `hasPoint`, and an exclusion list
-`!["empty","bow","shield","buckler"]` for cut where the runtime asks `isStriking && !== "empty"`
--- and over every kind a hand can hold those select the same sets, swept across all 49 ordered
-weapon pairs rather than argued. They were still worth deleting, because a pointed spear is a
-thrust the name test would refuse. Every *real* disagreement was the two-handed holder rule,
-which neither rewrite knew about. The tables are in `docs/measurements.md`.
+One function, `selectThreat` in `src/action-primitives.ts`, answers *what is worth answering* for
+the cover skills; there were three divergent copies of that question and two of them drove motor
+execution, so a policy could be guarding one blade while its perception watched another. It ranks a
+tip by how fast it is going *and* how near its path takes it to the vitals, not by raw speed, and
+the hand a scripted guard covers therefore moved -- measured, with the win rates either side of it,
+in [measurements](measurements.md).
 
 **Tactic v2: an action is not a decision until it says what performs it, at what, and how the
 body stands.** Action v1 named an action and stopped, and three ambiguities rode on that
@@ -195,9 +136,10 @@ silence. A dual wielder could not ask for its off sword -- the option searched
 `[preferred, other]` and answered with whichever hand could, so a request for the primary was
 executed on the secondary and nothing said so. Every attack replayed one fixed aim at the
 opponent's shoulder line. Crouch, lean and twist were animation welded to the action name.
-Session 17 Stage B closed all three in the execution layer and Stage C2a widened the output
-contract from thirteen values to twenty-six, so a learned controller can name what Stage B made
-namable:
+Session 17 Stage B closed all three in the execution layer, and Stage C2a widened the deleted
+learned controller's output contract from thirteen values to twenty-six so that it could name
+what Stage B made namable. The execution layer is what remains, and it is the half that was
+worth having:
 
 - **The effector is exact, and since session 18 it is also honoured.** `handActionOption` is
   handed the effector it will use and either uses it or refuses by name; the silent search
@@ -276,69 +218,7 @@ namable:
   `commit` posture** (0.12 / 0.30 / 0.68 x outboard), so during any committing action the
   six-name stance head offers five distinguishable choices rather than six.
 
-**Stage C2b is where the four trainers started writing and reading all of it**, and three
-decisions in it are worth having here rather than only in a commit message.
-
-The teacher's aim rule **varies only where a bout said varying it works**. `thrust` branches
-three ways because a named region moves its head share 0.09 -> 0.48; `cut` and `punch` take the
-constant `vital` with the measurement written beside them, because a named region on a stroke
-does not point the arc, it drops it; `cover` answers `threat`, the one aim in the table that is
-a moving point; `bite` has one legal region. The effector is **recovered** from the opportunity
-row the teacher already chose for an attack, and for `cover` and `recover` -- which have no row,
-because they are what a fighter does when there is nothing to attack -- it is the hand that
-holds the better guard: a shield or buckler before a sword, axe or club, before a bare hand,
-with hand order as the tie-break. The stance names a side -- `slip-left` away from a threat on
-the local right, the same quantity as the `threat_local_right` feature column, pinned by a test
-that builds the mirrored world at two facings rather than by reading the sign back.
-
-The label histogram from a real run is in `docs/measurements.md`. Two things about it are worth
-carrying here. **Its shares are one bout per cell at one budget with no seed replication**, and
-they move with the budget -- `natural` is 15.7 % at 2400 solver steps and 39.2 % at 9600 -- so a
-share quoted without its budget is a different number. And the effector head **was** a constant
-`primary` for every humanoid decision: the record blamed `RESEARCH_STRATA` for putting no
-striking weapon in the off hand, which is true for `cut` and was not the cause for `cover`. The
-cover rule took the first legal hand, and hands come in a fixed order, so no schedule could have
-changed it. `secondary` is 13.8 % now.
-
-**PPO produces all 26 outputs, and the twenty-sixth is a binned dwell rather than a continuous
-one.** It gained effector, target and stance heads and then a sixth over `PERSISTENCE_SECONDS`:
-eight dwell times spanning the persistence window with the old constant 0.4 among them. A grid
-keeps the categorical log-probability, ratio, clipping and `log k` entropy bound that a Gaussian
-would each change, so the algorithm change that was declined is not what shipped. The artifact
-records `producedOutputs` 26 and `producedLogits` 33 against `contractOutputs` 26, because a
-head's logits stopped equalling its contract slots. Its masks are **conditioned in contract
-order** rather than joint -- effector on the action just sampled, aim on the same -- because a
-factorized policy's update has to be able to rebuild the distribution each head was sampled
-from. NEAT-QD writes a raw vector and takes the joint `selectDeployableTactic` sum instead.
-
-**Learning the dwell made a flat discount wrong, and that is the change the head really forced.**
-GAE discounted once per option boundary, which was exact for exactly as long as every boundary was
-the same length. Learn it and a bout reaching the same terminal in fewer boundaries is weighted
-differently for nothing to do with tactics: measured, a terminal is worth **34.7 %** more at the
-0.80 bin than at the 0.10 bin. The discount is per second now and the trace decay stays per
-decision; the reference is the 0.4 s constant, which leaves the *rates* exact there and the
-trajectories 2.6 % apart, because a boundary requested at 0.4 s lasts 0.31 s. It does not fix the
-progress term, which is clipped per boundary, does not telescope, and is worth about three times as
-much a bout in the other direction -- an independent bias, registered with its coverage space.
-
-**PPO worker count schedules a frozen rollout graph; it does not define one.** Training semantics
-version 2 divides every train or validation phase of at least 32 solver steps into eight indexed
-shards. One, two, four or eight persistent worker threads may finish those shards in any order,
-but gradients, engagement totals and opponent records are concatenated in shard order before the
-single update. Each shard's first row remains an episode start in that concatenation, and truncated
-BPTT zeros the recurrent adjoint there just as collection reset the recurrent state. The next
-validation bundle still waits for that update, and the next arm still waits
-for the current indexed row, so checkpoint and resume prefixes have one meaning. Smaller tails are
-one shard because they cannot give eight jobs the four-step solver quantum. `workers` is absent from
-the config digest; the semantics version and bundle size are in the config digest, artifact
-provenance, report and preflight contract.
-
-**The quality-diversity descriptor deliberately did not follow the widening.** Three outcome
-measures at five bins is 125 cells; adding the chosen tuple would make it 9,000-10,500 against
-10,240 genome evaluations at full budget, which is fewer than one elite per cell and stops it
-being an archive. It is also an *outcome* descriptor and the tuple is an input to it.
-
-The natural channel arrived with them, and it is the same argument one level down. A centipede
+The natural channel is the same argument one level down. A centipede
 publishes `hands` as a frozen empty object and was driven entirely through
 `Intent.primary.thrust` and `Intent.primary.guard` -- a hand slot it does not have was its
 whole control surface, and every reader downstream carried the exception in a comment. A
@@ -357,55 +237,6 @@ same left and right mean the same two things to jaws as to a hand, and `applyBut
 `src/buttons.ts` writes one press onto both. Nothing switches on the unit -- a hand slot is
 inert on a body with no hands and the natural channel is inert on a body with no natural
 attack -- which is house rule 1 kept rather than a branch added.
-
-Loading a learned policy is deliberately separate from shipping one. Registration requires,
-in `learning/tournament.ts`'s `assessTournamentCandidate`: held-out macro score above both the
-scripted-meta and random-option controls; per cell, non-zero meaningful engagement, the five
-engagement thresholds (opportunity-attack, attack-contact, near-range stall, first-attack p90,
-symmetric time-cap) and a 15-point specialist bound; at least three non-recover actions each
-holding 8% of decisions; and five safety flags -- finite/anatomical commands, capability
-masking, no post-verdict action, no stuck action, and lifecycle. The first three full runs
-failed that rule: the validation-selected network disengaged for 88% of decisions and won none
-of its 120 held-out bouts. Consequently `POLICIES` has no `learned-v1` entry and no candidate
-is bundled. This is the important direction of the boundary: evidence authorizes a picker
-entry; the existence of bytes does not.
-
-Those safety flags are observations, not executor defaults. `tournamentSafetyObserver` reads every
-candidate command and chosen legal tuple, preserves the original five-second/95% stuck-option
-thresholds, and translates the legacy controller's one `OptionName` into the factorized controller's
-movement and action heads: either head can now fail the gate. It watches the verdict through a live
-three-frame tail and finalizes lifecycle evidence only after the headless bout has returned from its
-teardown path. That boundary proves complete,
-monotonic execution and a successful teardown return; it does not inspect a resource census.
-The integration lifecycle audit owns the separate no-leak proof. A row missing any measured
-boolean is refused before it can enter the tournament aggregate.
-
-**Transition diversity was in that list and is not a gate.** `MIN_STRONGER_MOTIFS` -- "fewer
-than two transition motifs are more common than scripted baseline" -- lived in `promotion.ts`,
-which session 17 deleted with the controller it judged, and `tournament.ts` has no `motif` or
-`transition` concept at all. Worth knowing before anyone rebuilds it: the one candidate ever
-measured against that gate **passed** it, with six motifs ahead of scripted where two were
-required, while failing seven other gates including option diversity and stuck-option safety.
-A gate that only ever agreed with the verdict the other gates had already reached is not
-evidence it worked.
-
-**Session 17 deleted the machinery that ran that first experiment**, and the deletion is the
-point rather than a loss. There were two action vocabularies, two checkpoint formats and two
-promotion gates in the tree at once: the standalone `checkpoint.ts` codec, its trainer and its
-`promotion.ts` thresholds served one superseded controller, while the four research directions
-run entirely through `ResearchArtifact` and the blind tournament in `learning/tournament.ts`.
-The old trainer had in fact never produced a loadable checkpoint at all -- it wrote an
-eight-name option table into a codec that required twelve -- which is what a second vocabulary
-kept "for compatibility" buys. Everything that experiment measured is in
-[measurements](measurements.md) under "Session 17 Stage A"; the thresholds it failed now live
-beside the tournament that will ask them next.
-
-Innovation allocation, mutation, crossover, speciation and evaluation are all seeded. Work
-items carry their genome index through a bounded worker pool and are sorted before selection,
-so worker completion order cannot become evolutionary state. Run state is written atomically
-and resumes only when feature, action and training-config versions agree. The trainer remains
-outside runtime inference; a browser can validate and run a frozen network without importing
-the population machinery that created it.
 
 ### The integrated authority check
 
@@ -507,16 +338,12 @@ twelve competing life bars.
 
 Combat-value ruleset v2 is a unit migration, not a display divisor. An ordinary Warrior part is
 5 durability, its torso is 10 and its pelvis is 9; ordinary attacks are consequently measured in
-roughly 0..3 damage. Construct part, joint and module durability and flat armour use the same unit
-at the damage-authority boundary. A value around 6 is modest, 10 is good, 15 is a lot, and 100 is
+roughly 0..3 damage. Any body's part durability and flat armour use the same unit at the
+damage-authority boundary. A value around 6 is modest, 10 is good, 15 is a lot, and 100 is
 effectively invincible in ordinary play.
 
-Saved v1 Constructs are authenticated with their frozen v1 blueprint/program digest grammar before
-durability and armour are divided by 20. Only sensors explicitly marked as absolute combat values
-move program constants; normalized part/module health and joint-integrity observations do not. A v2
-library is written only after every legacy entry migrates, while the v1 storage key remains as the
-recovery copy. Learning rewards that compare damage with pre-existing fixed win bonuses pass through
-one named legacy-weight conversion; human-facing damage and fitness inputs remain v2 values.
+The v1-to-v2 migration of the saved construct library, and the divide-by-20 that carried it, went
+with the Forge on 2026-09-04. The unit above is what survived it.
 
 ## Setup is a screen; pause is a mode
 
@@ -562,8 +389,8 @@ combat authority without withdrawing camera authority, and `runHostFrame` places
 after the simulation gate. One host gate owns every game-time mutation, including presentation notices;
 physics is disabled and blood particles use Babylon's zero-update-speed frozen state. Focus
 loss and hidden visibility are idempotent pause edges and focus return never resumes. A
-manual pause is refused during the timed portion of a guided playtest, but safety blur still
-freezes it and the report records that lost focus integrity.
+manual pause was refused during the timed portion of the guided playtest, which went on
+2026-09-04; nothing refuses one now.
 
 The cap that ships is now a safety net at 600 s, and `scripts/measure.mjs` sets its own 60
 at the top, where the argument for 60 lives.
@@ -1369,75 +1196,9 @@ maximum error and lower RMS error, while retaining weapon-arm reach and grip sup
 combat reach to match an art asset remains a gameplay decision, not an asset-pipeline
 convenience.
 
-### The asset-native Knight is a separate body, not a Warrior costume
-
-The KayKit Adventurers 1.0 Knight now enters through a fourth, explicitly experimental unit
-kind. It does not replace Warrior or Broot, does not change either one's proportions, and is not
-in the guided human protocol or any learned-policy claim. Its one admitted loadout is the
-creator's one-handed sword in the right slot and round shield in the left; `idle`, `swinger` and
-`duelist` are the only policies whose existing hand-intent surface is claimed compatible.
-
-`asset-src/armour/kaykit-adventurers-1.0/manifest.json` pins the CC0 source at commit
-`672074b73ba276876a19e8816ecdc5241817ab47`, source SHA-256
-`60428e3abc09ba83e595d256e3af8c5c976b46cdae599f0802fc82b4a3445168` and the exact bundled
-license. `npm run kaykit:derive` is a mechanical GLB rewrite, not a modelling pass: it retains
-the helmet, cape, `1H_Sword`, `Round_Shield`, one material/texture and a reference subset of the
-creator actions. It partitions all 4 148 source body triangles exactly once by summed collapsed
-skin influence into the thirteen severable physics regions. The runtime GLB is
-`82b436e2c12d9ce185eaceb5953b9f213ab655cc846cfe6f9b6f0f87950d4476`; `npm run
-kaykit:verify` reproduces it and its profile
-`c90710860964a34baee9b3c7c3c7064bfcbc387574c0a19fda6c5625fc2adae5`, and refuses a moved
-source, rule, triangle, weapon component, profile, license or output.
-
-The generated profile is also the body's dimension authority. Bind-pose region AABBs set capsule
-centres and radii, creator joints set shoulder/hip/knee/neck pivots, and creator joint/slot
-distances set the three-link arms and their normalized reach envelope. Signed X is preserved:
-the creator's anatomical right/sword arm is negative X, rather than being mirrored to keep the
-Warrior convention. The arm therefore begins in the creator's outstretched bind pose before the
-same solver controller brings it to guard. That construction keeps the source body and the real
-colliders together without stretching or hand-authored offsets.
-
-The 41-bone skin is presentation only and every retained native action is stopped before either
-the parsed container or an instance is published. This is an observed requirement, not defensive
-boilerplate: Babylon 9.18.1 automatically starts `1H_Melee_Attack_Chop` and creates 123 scene
-animatables when it parses this exact GLB. The test watches `stop()` return that count to zero.
-The solver then drives every positively weighted creator joint through the explicit 41-to-13 map;
-unweighted IK/control joints retain their creator-local bind transforms. Severance redirects any
-weight crossing a removed authoritative joint and never changes hit geometry.
-
-Creator weapon nodes are reparented, with their world transform preserved, under the existing
-authoritative `Weapon.root`. Merely preserving that transform is not alignment evidence: the
-first implementation kept a correctly held 1.775 m creator sword over an unrelated 1.03 m box,
-so visible contact and scoring disagreed while its mount test passed. The derivative now records
-exact slot-frame indexed geometry and exact-weld components. Runtime mechanically repeats that
-topology partition and gives Havok one convex hull per component -- three for the sword, two for
-the round shield -- without changing a render vertex. The sword point, edge and flat come from
-the same source point cloud's ordered principal axes; the farthest long-axis projection is the
-scored tip. Headless acceptance compares both weapon colliders with visible world bounds within
-5 mm, the observed Havok convex-bound tolerance, and checks the point/edge/flat ordering.
-
-The Babylon-built sword and buckler meshes are hidden only after those source-derived shapes and
-frames exist. Weld, mass, scoring and drop state stay on the real `Weapon`; imported weapon meshes
-are deliberately absent from `Fighter.owns`, both carried and dropped, so a click cannot select a
-sword as a body. Runtime publication also refuses a reparent that moves a visual by more than 0.1
-mm or 0.1 degrees. Preparation checks finite indexed topology, exact connected-component counts,
-non-zero convex volume and the sword's principal frame before enabling the option. Construction is
-transactional as a separate defence: if either transfer still throws, the figure releases the
-imported graph and the fighter releases every body and constraint already built. A missing or
-malformed asset therefore disables the Knight picker with the exact reason, never substitutes
-primitives and cannot leave an unowned partial fighter in the scene.
-
-The 2026-08-28 shipping-arena inspection used two policy-controlled Knights at fixed bearings
-225, 315 and 0 degrees. It showed one continuous chibi body per fighter, attached helmet/cape,
-grounded feet, and the creator sword and round shield seated at the hands after the solver had
-left the T-pose. It did not reproduce the former floating-face, detached-arm or dangling-weapon
-failure. This is an experimental-art verdict, not a final-game verdict: the very large helmet/head,
-short limbs and overhead camera occupancy are intrinsic to this 1.0 art direction, and KayKit 2.0
-remains the next comparison before promotion.
-
 The qualifier executes rather than merely labels the coordinate contract. Creator glTF profiles
-are identity-axis only because their root already carries the format conversion; the Knight's
-non-identity mapping is applied while reading its authoritative blend metadata. Shoulder and limb,
+are identity-axis only because their root already carries the format conversion; a non-identity
+mapping is applied while reading its authoritative blend metadata. Shoulder and limb,
 hip and leg, and ankle and leg-end declarations must agree, with the primary source shoulder on
 positive X. Height is decoded from transformed vertices of the profile's required active meshes,
 so an unreachable mesh or forged accessor bounds cannot improve a fit. The generic glTF gate also
@@ -1509,462 +1270,34 @@ counts plus the named visual/collider pairs. Repeated calls update private count
 one frozen stable getter view and allocate no result or Babylon resource. Foreign scene resources do not enter its
 census, and disposal unregisters every owned shadow caster.
 
-## Research-run lifecycle
-
-The four directions keep their own search state but share one append-only evidence contract.
-NEAT-QD maximizes validation worst-cell score, DAgger minimizes validation loss, PPO maximizes a
-fair-round macro reward across its two initialization arms, and look-ahead minimizes calibration
-severity. Their common **ledger.jsonl** records indexed work, cumulative solver steps, configuration
-and artifact-contract digests, validation, direction telemetry, champion identity, and gates.
-
-Numeric gates carry achieved values and signed margins. Anything not measured at that checkpoint is
-`unavailable` with a reason; absence never becomes a pass. Progress-only rows remain visible but do
-not count toward plateau. Improvement equal to epsilon resets the counter in either direction, while
-a champion change smaller than epsilon is still reported as a new champion.
-
-Cadence depends only on completed job indices. Wall time observes the run and cannot steer it, so a
-deterministic report points to the ledger rather than embedding wall-bearing rows. State records
-a pending boundary before publication, and a candidate row is checked against the ledger prefix
-before the champion may change. A terminal row is followed by final artifact and report publication,
-then a **finalized.json** marker; death in that window is recovered without another search job.
-
-`champion-so-far.artifact` carries in-progress provenance. The arena can load it into an existing
-live fight for manual debugging, but setup and ended bouts refuse it because their body will not
-fight again. Policy, PPO-league and tournament registration refuse it. Only the terminal champion
-is eligible for later promotion work.
-
 ## Engagement instrument
 
-Page and bench bouts feed one `BoutRecorder` at the 240 Hz control boundary. It owns one label-free
-behaviour record per side, queues the intent observed immediately after each body's `Mind.decide`,
-opens the geometry opportunity before consuming that intent edge, and owns the striker-to-defender
-flip for contact and block reports. `Fighter` and `Centipede` expose the same observer seam, so a
-mind pointer swap cannot bypass recording and natural attacks are not a special harness path.
+`src/engagement.ts` is the label-free attack instrument: opportunity rows, intent edges and
+contact attribution, with `ENGAGEMENT_INSTRUMENT_VERSION` in `src/recorder.ts` stamping any change
+to those semantics. The page and the headless bench share it through `BoutRecorder`, and
+`__sword.engagement` reads the per-side record of the current bout.
 
-The eight ordered promotion rows and their thresholds live in `learning/gates.ts`. The research
-ledger and tournament re-export or consume that table; the page and `measure:engagement` use the
-same adapter, verdict predicate and human formatter, including the specialist gap's subtraction
-tolerance at its exact boundary. A never-attacked bout remains wire `"Infinity"` with margin
-`"-Infinity"`, while the human table says "never attacked". Changed recorder semantics bump
-`ENGAGEMENT_INSTRUMENT_VERSION`; NEAT-QD, DAgger, PPO and look-ahead include it in resume identity
-before a worker or collector can spend a solver step.
+It was `src/learning/engagement.ts` until 2026-09-04 and moved here when the learning tree was
+deleted, because `src/options.ts` imports it and the golem bench will. What did *not* move is
+`learning/gates.ts` -- the eight ordered gate rows and their human-facing table -- because those
+were thresholds a research run was scored against and there is no research run. The instrument is
+the measurement; the gates were a verdict on it.
 
-The human-feasibility acquisition is also a game screen. `GuidedPlaytest` owns a versioned,
-digest-pinned schedule: one excluded shakedown, four human repeats on both sides of six declared
-cells, then one page-specialist control on both sides of those cells. It leases the 45-second cap
-only while the workflow is open, passes the validation seeds into both policy minds, and captures
-the actual matchup, cap and verdict on the fight-to-over edge before a rebuild can erase them.
-Rows and explicit reload aborts autosave locally; incompatible saves are refused, and the report
-carries the complete protocol and missing-assignment list. The player chooses only when to start
-the next bout and what qualitative observations to add -- no developer console or manual seed and
-matchup bookkeeping is part of the measurement. The panel derives the actor's eight ordered gates
-and human table directly from the captured behaviour record, then prints achieved value, threshold,
-signed margin and verdict after every bout; record and verdict cannot drift as independent payloads.
+## What was removed on 2026-09 and why
 
-## Construct body blueprints
-
-A construct begins as a versioned hardware graph, before there is a scene, a controller or a
-mind. `ConstructBlueprint` in `src/construct/blueprint.ts` owns the v1 vocabulary: primitive
-rigid parts with positive mass, one-to-three-axis joints with an attachment frame on each body, tagged
-sockets and catalogued modules mounted into those sockets. Part/joint/socket/module identifiers
-are local to their own namespaces. The joints must make every part except the named root the child
-of exactly one bearing, and the resulting graph must be one connected acyclic tree.
-
-That same description owns every physical fact later runtime sessions consume. A part declares
-collider dimensions, mass, friction, health, armour, fatality/vitality weight and one closed visual
-recipe with bounded shell clearance. `carved-stone` is a first-class grainy surface, not bronze
-with a different colour and not a property inferred from the part's name. Recipe profiles own
-colour, roughness and grain together; a part cannot carry shader scalars that the compiler ignores.
-A joint owns its integrity beside its limits and motor facts. Module properties are a closed tagged vocabulary
-for power sources and consumers, thermal capacity/cooling/limit, ammunition/reload and raw sensor
-facts. No open property record can smuggle an unversioned rule into a save.
-
-Self-collision is a versioned compiler rule, not a per-blueprint choice: intact parts belonging to
-one construct exclude each other, including non-adjacent parts, while a severed subtree is moved
-to the debris layer before the next physics step. Blueprint v1 deliberately has no field that can
-override that rule. This is the feasible v1 policy for dense repeated mechanisms; joint and
-neighbour clearance remain compiler validation rather than solver contact.
-
-The vocabulary contains no arm, leg or turret role. Four identical chains do not become legs by
-being built on four sides of a core; a later control graph may group their generic joints into a
-locomotion system, while a different control graph may use the same hardware as stabilizers or
-weapon bearings. Hardware says what can physically exist. Control says what that hardware may be
-asked to do, and the mind later says when to ask. Neither control nor mind may repair, reinterpret
-or silently add to a malformed body.
-
-Size is likewise a blueprint fact, not a body-class assumption. The current humanoid stone chassis
-uses one explicit `0.75` similarity transform: lengths scale once, mass by its cube and actuator
-authority by its fourth power, while its ordinary steel sword is an explicit unscaled module.
-Host-facing crown, vital height, reach and collision radius are measured from the resolved bind
-geometry. Arena framing and standing gates consume that declared profile without a human-height
-minimum, so a later smaller archetype must declare its own coherent scale and measured profile
-rather than inheriting Swordbearer constants or being enlarged by the host.
-
-`canonicalBlueprintJson` in `src/construct/canonical.ts` validates the closed vocabulary before it
-writes it, orders object keys independently of insertion order and spells only finite JSON numbers.
-Parts, joints, sockets and modules are sets canonicalized by ID; compatibility tags, sensor facts
-and module property kinds are sets too. Their input order therefore does not change save bytes.
-Control groups and actions are likewise ID-canonical sets. Mind rules alone retain declaration
-order because their indices are the final arbitration tie-break; body-array canonicalization does
-not establish a general array-sorting rule.
-`blueprintDigest` is the browser-safe FNV-1a integrity checksum over those bytes; it detects a
-changed or damaged editor save and makes no authenticity claim. `parseBlueprint` rejects an
-unsupported version, every unknown nested key and every malformed relation rather than dropping
-future data into a v1 object. This boundary imports neither Babylon nor the DOM and constructs no
-runtime resource.
-
-Construct damage has one explicit compound-shape limitation. Babylon/Havok collision events name
-the two owner `PhysicsBody` objects and the world contact point, but expose no compound child-shape
-identity. Modules therefore cannot honestly be identified by a hidden engine handle. The construct
-target seam transforms the contact point into every mounted module's frame and chooses the nearest
-surface within 35 mm from the blueprint's authoritative primitives, with module ID as the stable
-exact-tie order. Render-shell clearance is deliberately absent from that calculation. Two module
-surfaces coincident within that tolerance are physically ambiguous in v1; the stable nearest rule
-makes the result reproducible, but a later blueprint/compiler revision must reject or disambiguate
-such geometry if the Forge permits it intentionally.
-
-Collision callbacks update blueprint-owned part/module health and joint integrity, including armour,
-but do not mutate constraints or compound shapes during Havok's walk. The next control edge first
-reconciles queued subtree detachments and destroyed module layers, derives living joints, modules,
-sensor channels and the sole resource ledger, then cancels unavailable actions before their
-controllers can write another motor. Fatality and weighted vitality come from the blueprint rather
-than humanoid part names. A destroyed or subtree-detached mounted sword, launcher and its pooled
-projectiles lose scorer ownership immediately from that same installed-module fact; debris never
-retains an attacker identity. A destroyed mounted module is absent on both sides of the rendering/
-collision boundary: reconciliation disables its visual root and sets every compound leaf's
-membership and collide masks to zero. A detached subtree instead moves its leaves to the debris
-layer. Neither path synthesizes a new rigid body for a module.
-
-Projectile penetration is physical evidence, not a launcher damage scalar. Version 1 uses the
-positive shaft direction and only the authored point zone. With projectile mass `m`, impact speed
-`v`, clamped positive shaft alignment `a`, eight-metre-per-second axial floor `f` and penetration
-efficiency `p`, usable energy is `0.5 * m * max(0, (v*a)^2 - f^2)` joules. Uncapped damage is usable
-energy divided by 34 joules per combat-value point and multiplied by `p`; the wound is capped at
-3. Tail-first, broadside and shaft contacts score zero. The evaluator returns score, usable joules
-and uncapped damage from that one calculation, so reports cannot recompute a more convenient wound.
-Arrival velocity, shaft axis and head position are cached as one pre-contact pose; zone classification
-must not pair the cached head with a live post-solver axis, because the contact response may already
-have rotated the shaft enough to relabel the same manifold point.
-The launch-speed cache was audited in the same correction and was already behaviorally right: its
-scratch vector had been scaled by the preceding body-velocity write. It now spells out `along * speed`
-independently so that correctness does not depend on that mutable alias; the immediate-contact test was
-then mutation-proved by removing the scale and observing a 42 m/s launch score at 1 m/s.
-Armour is then applied once and the ordered contact retains pre- and post-armour values plus the
-immutable owner, pool index and shot serial. Recycling a pooled body does not recycle its shot
-identity. Combined-arms qualification also retains mass, arrival speed, signed shaft alignment,
-penetration efficiency and the authored contacted zone for every projectile contact. Its validator
-calls the same frozen pure evaluator and independently reconstructs usable energy, uncapped damage
-and the capped pre-armour wound; `point` and `axial` are checked as derived aliases of head contact
-and positive signed alignment rather than trusted summaries.
-
-That new contact grammar advances persisted evidence rather than silently reinterpreting old rows:
-the engagement instrument and Construct control-event surface are v3, guided playtest storage is
-v5, Construct Lab rows/reports are v3, Construct-Warrior bout evidence is v3, and its curriculum
-and learning-entry qualification envelopes are v4. The Arbalest's old 8/8 result remains labelled
-historical v1-combat-unit evidence. The fresh combined-arms corpus recorded physical impacts but
-rejected every durability rung, so it produced no accepted replacement claim.
-
-Combined arms belongs to Actions, not to a morphology-wide combat mode. Locomotion, turn, brace,
-recovery, a left-arm sword, a dorsal launcher, a dorsal sword and a shield bash own their declared
-groups and claims independently, so a Mind may request non-conflicting weapons concurrently. Every
-qualified contact must retain its Action-instance ID and verified source module. Delayed projectile
-contacts retain the instance that launched them rather than inheriting whichever Action happens to
-be live at impact. Owner contacts and ambiguous compound-module contacts are explicit refusals in
-the ordered audit stream; their absence from the damage list is not evidence that the boundary ran.
-The same stream carries semantic minimum self-clearance for named hardware pairs. A global
-`selfCollisionCount === 0` cannot replace that evidence because collision filters deliberately
-exclude intact adjacent anatomy.
-
-Qualification checkpoint files are restart diagnostics, not trusted evidence. Source and manifest
-digests reject accidental mixing but are not signatures: on resume, every cached cell is physically
-replayed and must match canonical bytes before finalization. A fully cached qualifying run therefore
-still costs one full matrix. That cost is the deliberate boundary which prevents a hand-edited event
-stream from becoming a production durability multiplier.
-
-Construct surfaces are a one-way presentation projection over those authoritative facts. Each
-faction keeps the existing four shared PBR materials and two synchronous generated stone maps;
-each material owns one `ConstructProceduralSurfacePlugin`, never one plugin or material per mesh.
-The production default remains `mapped-pbr`. An explicit procedural request is accepted only for
-the pinned GLSL path with high-precision shaders and standard derivatives; otherwise the palette
-reports a named `mapped-pbr` fallback and the generated maps were never detached while compilation
-was pending. The effect fallback removes `CONSTRUCT_PROCEDURAL`, so a shader failure has the same
-complete mapped surface available rather than an unready replacement resource.
-The fallback audit is palette-wide: if one of the four shared material effects drops the define, all
-four plugins are dirtied together. Diagnostics may not claim `mapped-pbr` while an already-compiled
-sibling material continues running the procedural branch.
-
-The procedural path is fragment-only presentation. Object-local position and normal feed bounded
-two-scale value noise, cellular crack ridges and derivative normal perturbation; bronze remains
-lit metallic PBR, and rune inlay is mineral/bronze contrast rather than emissive. A semantic FNV-1a
-seed combines damage-target kind and ID, module ID where applicable, primitive ID and authored shell
-style. It therefore survives build-order and faction changes without entering a blueprint. Only a
-box primitive authored with shell style `core` receives the front-face analytic relief mask; body
-names are not a style vocabulary.
-
-`ConstructSurfaceRegistry` is the render-side damage seam. Mesh metadata holds seed, local extents,
-shape, relief class and a mutable clamped health ratio. The registry addresses sets by the stable
-pair `{ targetKind, targetId }`: a part updates its shell, a module updates its semantic primitives,
-and a joint updates the child part's returned bearing mesh. `ConstructDamageTargets.describe`
-publishes remaining and maximum health only after authoritative damage has been applied. The
-registry refuses a non-finite or non-positive maximum, stores no Babylon or damage handle in saved
-data, and is never read by collision, picking, targeting, control, policy or serialization. A
-detached target consequently keeps the last ratio already painted on its debris. Shared material
-health is impossible because `bindForSubMesh` reads the current mesh binding at draw time.
-
-The in-game Construct diagnostics include the surface request/effective mode, named fallback,
-scene/faction mesh count, four-material/two-texture/four-plugin census and damaged-binding count.
-That is a correctness and leak audit, not a draw-call or frame-time measurement. The fixed shader
-constants and binding rules are version 1; changing them invalidates the broad Construct source
-fingerprint even though no saved, physics, combat, control, report or learning digest is permitted
-to move.
-
-## Construct control graphs and closed-loop actions
-
-`ConstructControlGraph` is the saved semantic layer between hardware and intent. A group lists the
-only joints and modules a controller may use, while named bindings give those generic members an
-ordered role such as four joints and one contact module for a limb, or yaw, pitch and output for a
-mount. An action names one registered controller, one group, closed parameter descriptors and
-explicit `module:`/`resource:` claims. Controller compatibility descriptors are the Action
-Workshop's source for required roles and parameter kinds; the editor has no controller-name switch.
-
-A `ConstructCommand` contains scheduled requests, not motor values. The scheduler validates the
-whole command, then orders requests by descending priority, ascending saved `sourceIndex`, and
-action ID as the exact final tie-break. Every group joint is an implicit exclusive claim beside the
-action's explicit claims. A conflict is refused by name. An admitted controller persists while the
-same request remains present; withdrawal, conflict, changed parameters, lost capability, an
-exception or host stop cancels it explicitly. Its view is refreshed with live joint angle/speed and
-sensor facts on every step. `MotorWriter` and `EffectWriter` make the capability boundary structural:
-a controller cannot name a joint or projectile module outside its group, and non-finite or
-non-positive motor limits are refused before reaching Havok. Diagnostics publish admission,
-start/completion/cancellation/refusal and each live controller's phase, progress and epsilon.
-
-This is a closed-loop seam rather than animation playback. Gait, recovery and mount controllers
-re-read the physical state and write bounded targets through that seam; an authored Mind, a learned
-command source and the Workshop probe all submit the same command vocabulary. The Workshop probe
-suspends the inert editor preview, constructs a real probe and target through `Construct`, advances
-their real observation, capability, resource, scheduler, effect and Havok paths, then disposes both
-and restores the preview. It can therefore refuse a physically unsupported action for the same
-reason as battle. It remains a short bounded probe, not evidence of long-bout competence.
-
-The committed four-beat crawl is physical and supports three feet or a measured near-ground pair;
-its fixed probe records forward progress, swing-foot clearance, slip and upright core at both arena
-facings. Recovery is physically demonstrated for the two longitudinal off-centre impulse falls.
-A superseded assisted corpus exposed the Warden's inability to turn physical survival into a live
-Action-bearing fight: all eight rows time-capped, one lacked bilateral damage and every row omitted
-move/brace. The authored combat-value-v2 correction keeps brace ownership on the public fire
-Action's 0.08-second recoil follow-through rather than occupying the whole reload. Under schedule
-`e74cb441`, source `e5d255e7` and run `7a626bcd`, all eight mirrored rows dealt bilateral physical
-damage; the corpus observed move/brace/fire/cover, recorded zero stuck steps and only one time cap.
-That historical identity admitted the learning rung at the time, but the later fire-lifecycle
-correction made it stale. Schedule `8253502c`, source `f82bc3d3`, run `97a634ab` was then rejected:
-only one of eight rows dealt bilateral physical damage, seven omitted brace and fire, and all eight
-time-capped. The separate 560-bout combined-arms run at that source, run `d1e1d8e7`, also rejected
-every durability rung. The later Effigy sibling-foot correction moves current runtime source to
-`420906e8`, so both rejected receipts became historical and that source was unqualified. The
-2026-09-02 sustained-action repair moved the current source again, and the following locomotion
-fallback correction fixed the tactical-alias reporting regression it exposed. The later v5 named
-gauntlet, contact-plane, Warden plate and Arbalest finisher corrections move the current source to
-`44cde241`. It has no entry receipt. Nothing promotes a learned Mind or installs a multiplier.
-
-### The fixed humanoid construct
-
-The Swordbearer Effigy is a second fixed `Construct` archetype, not a humanoid `Fighter` in stone
-clothes and not a renamed Warden. Its blueprint is a connected primitive tree with head, neck,
-torso, pelvis, one stabilized free arm, one yaw/pitch sword arm and two four-bearing legs. Only the
-two feet own contact sensors. The fixed body exposes only the physically demonstrated biped brace
-controller, supported move/turn/brace/recover Actions; they read those sensors and live joint/core
-facts, then write through `MotorWriter`. The rejected raw gait did fall and travel backwards, but
-that is not an argument for removing movement: the supported carrier is the deliberate game-level
-walking aid, while a knockdown releases the real body and recovery re-admits it. Neither a hand nor
-a root transform is used as a support limb. A disjoint posture Action holds the head, neck, waist
-and free arm while the leg and sword groups act concurrently.
-
-The broad feet are physical support surfaces, not decorative boots. Their qualified collider,
-joint and hip chain remain unchanged. Saved shell style `support` draws stone box casing at 90% of
-the collider's lateral and toe-to-heel size while preserving full height; the same rule draws the
-visible contact pad inside its physical primitive. This is an explicit game-support presentation
-margin, not a body-name renderer exception. Bind-pose and live oriented-mesh clearance are
-regressions, so a future gait cannot silently restore the original visible intersection.
-
-`ConstructProfile` owns the archetype identity, body dimensions and named support parts used by
-`describe`; the old Warden constants are not reused for an unlike body. Mounted swords publish
-body-neutral effector facts -- socket anchor, physical tip, material-point velocity, reach and live
-loss -- through `BodyView.effectors`. Humanoid tactics can therefore cover the real mounted weapon
-without the construct inventing a `HandView`. The same physical module remains the scorer, so
-perception and damage share its installed/lost state.
-
-The built-in `humanoid-authored` Effigy policy is an action-level counter-fighter, not the saved
-condition table. `SwordbearerTactics` owns a small inspectable phase memory: it approaches above
-1.85 m, orbits and turns in the working band, guards a visible incoming weapon, chambers a clear
-upright lane, commits one latched sweep, withdraws, changes lane, and requests recovery after a
-support loss. It can issue only four added public movement Actions -- `advance`, `withdraw`,
-`orbit-left` and `orbit-right` -- each through the ordinary `supported-biped-combat-move`
-controller with bounded local forward/right/yaw/speed parameters. The carrier supplies the
-game-level walking translation and yaw while both physical leg chains stay braced; a transient
-sole-contact gap is bridged only while the root is upright, and a fallen body still has to recover.
-There is no direct mesh, transform, collision, target or damage handle in the director. Saved Forge
-programs retain `ConstructMind` exactly so this built-in behavior cannot silently overwrite player
-content.
-
-The hardware surface also says whether the sword and left-arm chain remain available, and publishes
-the described opponent weapon tip velocity in Effigy-local coordinates. Severing one chain removes
-only dependent behavior instead of producing refusal spam; a fall withdraws scoring and requests
-supported recovery before tactics resume. The left arm carries a permanent fixed gauntlet: its broad
-stone face is a named blunt surface and its visibly extended bronze chisel is a separate named edge
-surface. `gauntlet-strike` arms only those physical leaves during its drive/hold phase. Havok's
-manifold decides whether it strikes stone or bronze, and ordinary edge orientation decides a cut;
-the Mind neither chooses damage nor moves a mesh. The arm keeps its ordinary guard pose outside the
-short checks, so it remains physical cover without pretending to be a shield module.
-
-The accepted eight-cell real-Havok bimanual receipt and its narrower physical contact witness are
-recorded in [measurements: Swordbearer dynamism corpus](measurements.md). Every mirror now exceeds
-the Warrior lower-quartile movement envelope, completes at least thirteen recorded Actions, keeps
-supported posture for the full 30 seconds, maintains at least 0.0503 m sword/core clearance, and
-drives an actual gauntlet `drive` or `hold` phase. The independent probe records the bronze chisel
-meeting a real Warrior sword during that armed phase. This is not permission to alter damage or
-declare a competitive balance rung: the in-arena phase line remains diagnostic, and a visible human
-review is still owed.
-
-The attempted narrower `athletic-20` and `athletic-15` stone profiles are retained as explicit
-rejected candidates rather than hidden render scales. Each was genuinely narrower while keeping
-feet, masses and limits fixed, but each lost one mirror of the existing physical multi-part
-exchange. The selected chassis is consequently the existing qualified envelope: broad feet remain
-game-support hardware, while its oriented support shells leave readable visible clearance. A new
-profile may replace it only after the same physical gates pass; presentation alone is not a reason
-to shrink a collider.
-
-The Swordbearer's blade is the one intentional same-owner weapon/core collision pair. General
-self-collision remains wrong for driven articulated chains, and the socketed grip and guard must
-remain exempt because they are built beside their owner. The combat-bearing blade alone collides
-reciprocally with the declared torso, while a semantic sword/core distance is published as a
-self-sensor for its safe-hold controller and action evidence. This is a narrow physical boundary,
-not a hidden transform correction or a mesh-derived rule.
-
-The 2026-09-02 two-sided real-Havok reference bout proves sustained sweeps, non-pulsed off-hand
-guards, dodges, recovery, and upright multi-part sword damage in both sides. It does **not** promote
-the morphology: one left-side all-time post-fall diagnostic still observes a -0.082 m blade/core
-sample even though each armed sweep stays positive. Whole-bout recovery clearance, a broader
-multi-seed balance bracket and a person-visible arena review remain owed. Forge v1 can load and
-inspect the fixed body only through the direct Setup/runtime path: the Forge library and its sensor
-catalog remain Warden-specific and do not list or import this archetype. Its fragment shelf is
-therefore not yet a general humanoid authoring kit.
-
-The Arbalest Effigy is a third selectable fixed profile on that same human-scale body contract,
-not a replacement for Swordbearer or Twinblade. Its right yaw/pitch chain carries a compact
-launcher fed by a finite torso magazine; its real four-joint left arm carries the same ordinary
-sword module used by Swordbearer. Launcher tracking, left-sword guard, biped brace and central
-posture occupy disjoint control groups and therefore run concurrently through the ordinary
-scheduler. The Mind requests fire only when declared reload and ammunition telemetry permit it,
-but continues tracking through reload. Its sight also observes the opponent's public support state,
-saved launcher health capacity and a live blocker-relative aim lane. A launcher with ordinary
-health refuses fire during a rise, so its opponent can finish a real recovery before the next
-ordinary shot. A stable opponent that remains prone is a different state: after a 1.25-second
-recovery window, a finishing rule uses its separately measured +0.12 m prone aim trim and resolves
-the bout instead of waiting for the safety cap. That is the current contact-schema/body envelope:
-the older +0.15 m measurement remains retained in the measurement history, while a confirmation at
-+0.12 m landed four physical hits and reached the verdict at 9.179 seconds. The deliberately fragile x0.10 balance body instead
-fires during the bounded rise. Saved capacity is a separate fact from normalized
-remaining health; confusing those units made the fragile branch always true in the rejected version.
-Its 2.40 m retreat boundary preserves recovery space instead of exploiting a fallen opponent's
-absent carrier footprint. The explicit 1.90 heavy-bolt scale is the first 0.05-step bracket above
-the rejected 1.85 cell that restores all eight x0.10 mirrored wins before posture loss.
-Blocker-relative aim compares the blocker with the opponent's centre, adds a
-0.12 m open-side lane and uses a measured -0.05 m vertical trim. It is a live
-mount fact rather than a changing Action parameter, so a buckler crossing centre cannot cancel and
-restart an admitted draw. This is intentional body/Mind co-design: idle and active
-comparisons share the exact launcher, sword, body and control graph, while only active requests the
-guard and fire Actions.
-
-Ranged qualification is separate from sword qualification. `arbalest-fatal-arrow-v1` is a
-blueprint-bound checker over retained physical bout evidence, including full launcher hardware,
-ammunition, paired fire lifecycle, exact-time support/posture, launcher-specific opponent
-perception, unique finite projectile contacts and the fatal arrow transition. Quiver suffixes name
-recyclable physics bodies, not shots: every successful Construct loose receives a monotonically
-unique serial that is carried by its start/completion lifecycle and physical contact. Later fire
-lifecycles must also begin after the prior loose's declared reload interval. A visible guard
-sword cannot substitute for a visible launcher, and a sword-assisted raw win is qualified only
-when the arrow owns the fatal transition. Assisted v2 requires exact fresh feet when fire begins and
-completes. At the later physical impact it accepts the support machine's declared live grace interval,
-but still requires supported/staggered state, authority, posture, standing combat evidence and visible
-mounted threat; an AI cannot know which foot contact a projectile will have several boundaries in the
-future. The durability corpus and earned thresholds are recorded
-in `docs/measurements.md`; they are balance evidence, not new blueprint semantics.
-
-## Construct capabilities, resources and Minds
-
-Capabilities are recomputed from installed facts, not remembered from the original blueprint.
-Living joints, mounted modules and installed sensor channels are intersected with each action's
-group and claims. Refusal precedence is stable: missing joint, missing module, missing sensor,
-ammunition exhaustion/reload, power exhaustion, then overheat. Numeric parameter bounds are copied
-from the action descriptor into the published capability row. A fixed-step resource ledger owns
-charge, output, heat/cooling, ammunition and reload. Consumers arbitrate by descending priority,
-declaration index and consumer ID; a shortfall refuses the whole consumer rather than partially
-throttling every one. Launcher fire is transactional across ammunition, reload, energy and heat, so
-a power or thermal refusal consumes no round.
-
-A saved Mind is an ordered, bounded expression program over sensors its mounted hardware actually
-installs. Sensor facts are typed as boolean, scalar, metres, metres per second, radians, radians per
-second, seconds, joules or watts and identify a self, contact or opponent source. `expressionType`
-is the sole unit checker used by both runtime and the tree-form editor: conditions must be boolean,
-utilities scalar, and action parameter expressions must match their descriptor. Dimensional values
-cannot be compared across units, and multiplication accepts at most one dimensional operand. Every
-referenced sensor must be installed and must publish a correctly typed finite value in that decision
-frame. Unknown fields/operators/actions/parameters, missing required parameters, non-finite values
-and bounded-size/depth violations are refusals, never defaults or conversions.
-
-True rules with positive utility may emit concurrent requests. Their saved rule indices become
-stable scheduler `sourceIndex` values; rule order is therefore canonical behavior rather than a set.
-Per-rule dwell delays a newly true request without changing direct inspection. An optional rule may
-skip a statically absent action, but optionality never turns live hardware loss into success: the
-scheduler still refuses or cancels it with the hardware-derived reason. Decision diagnostics retain
-each rule's utility, selection and the sensor values that decided it.
-
-## The no-code Forge and local library
-
-The Forge edits complete validated values, never disconnected drafts. A body command first reduces
-to a candidate blueprint and builds its candidate preview; only a successful validation and preview
-enter history and replace the last valid scene. Undo and redo therefore move between whole valid
-blueprints. The connected-fragment catalog reuses the committed Warden's exact four-part,
-four-bearing limb template and adds its declared contact-sensor socket in one transaction. It can
-reconstruct a removed Warden limb or add the corresponding corner branch to a suitable core. V1
-does not expose arbitrary socket frames, arbitrary joint-frame editing or a blank-to-complete-Warden
-wizard, so it is not an unrestricted body modeller.
-
-The Action Workshop creates and edits group membership, ordered role bindings, compatible actions,
-claims and parameter bounds. The Mind Workshop edits expression trees, action parameters, priority,
-optionality, dwell and meaningful rule order. Both publish only values accepted by the runtime
-validators. Save combines the current blueprint, control graph and program, recomputes all three
-digests and checks that the program's sensors are installed. Import checks claimed digests rather
-than recording new ones for damaged bytes.
-
-The browser library is a separate closed envelope: version 1, at most 32 uniquely named entries,
-at most 4,000,000 UTF-8 bytes and nesting depth 66. It revalidates every nested saved construct and
-canonicalizes the complete replacement before its one storage write. A malformed, future, oversized,
-overdeep or digest-mismatched library is refused as a whole; the caller may report the saved bytes,
-but may not publish a partly recovered library silently.
-
-## Construct Lab and onboarding evidence
-
-Page batches and Node workers cross one job boundary. Each job carries canonical saved bytes plus a
-matchup identity containing blueprint, control, program, arena and configuration digests; both hosts
-parse the saved constructs and verify every identity before solver work. They then call the same
-prepared bout runner, which constructs the same physical bodies, authored controls, Combat observers,
-fixed solver step and diagnostic sampling. The browser creates an isolated `NullEngine`/Havok scene
-per job, runs small batches serially and yields between them so it cannot contaminate the visible
-arena. The Node host parallelizes immutable indexed jobs, commits each canonical row atomically and
-aggregates by job index rather than worker completion order. A visible Lab bout uses the exact saved
-body/control/program pair selected for each side through the ordinary arena runtime. This shared
-boundary is an implementation contract; it is not a claim that page/headless gameplay outcomes have
-already received a human quality verdict.
-
-The in-Forge first-machine guide is versioned by the frozen construct playtest protocol digest and
-autosaves only checklist evidence in local storage. It watches ordinary blueprint/control/program
-revisions, public probe commands, decision diagnostics and an actually launched visible Lab bout; it
-owns no hidden construction command, motor handle or privileged arena path. Its assignments cover
-the four Warden limbs, a crossbow-to-sword swap, authored/probed locomotion and attack actions, and a
-deliberately weak Mind followed by diagnosis and repair. This is onboarding infrastructure, not a
-completed study. No person has yet supplied the session-16 timing, confusion, explanation,
-prediction, improvement or enjoyment evidence, and no pivot/keep/stop product verdict is recorded.
+Three body experiments ran in this prototype between sessions 08 and 35 and none produced a
+fighter the owner wanted to look at: the Construct Forge with its free-form blueprints, authored
+Actions, player-authored Minds and learning ladder; the fixed Effigy constructs built on that
+framework; and the asset-native KayKit Knight. All three were deleted on 2026-09-04 along with
+`src/learning/`, the guided playtest, the research runners, their tests and their npm commands.
+The finding they share, and the reason the golem plan set that replaces them reverses the order of
+work, is that **each was gated by a scalar proxy that turned green while the owner's judgement
+stayed red** -- anchor stray in millimetres, dynamism path length, stuck-step counts. Nothing they
+measured is lost: [measurements](measurements.md) keeps every number and the harness that took it,
+and `docs/deleted-paths.md` is the register of what the files were called. Three pieces were
+salvaged rather than deleted -- the stone/bronze material recipes and the procedural stone shader
+now in `src/golem/`, the engagement instrument above, and the headless arena harness now in
+`scripts/golem-headless-arena.mjs`.
 
 ## Supported walking is a game carrier authorized by physical limbs
 

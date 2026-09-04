@@ -22,8 +22,6 @@ import { idleMind } from "../src/mind.ts";
 import { beaten, begin, defaultMatchup, selectScreen } from "../src/bout.ts";
 import { blankIntent } from "../src/policies.ts";
 import { advanceFight, FightEnd } from "../src/fight-end.ts";
-import { researchLabelMind } from "../src/learning/research-policy.ts";
-import { probeLabel } from "./fixtures/label.mjs";
 
 /**
  * What losing your head costs.
@@ -297,32 +295,10 @@ test("the_winning_mind_is_not_asked_again_after_the_verdict", async (t) => {
     "and leaves no turning command running");
 });
 
-/**
- * The only test that the host revokes a *learned* mind, rather than a scripted
- * one, at the verdict edge.
- *
- * Its vehicle used to be `networkMetaMind`, and it counted calls into the
- * network rather than into the mind -- a proxy, because that controller re-ran
- * its network only at a decision boundary. Session 17 deleted that controller;
- * the surviving learned seam is `researchLabelMind`, and counting `decide`
- * itself is both the direct measurement and the stricter one. `atVerdict` is
- * asserted non-zero because "was never asked at all" satisfies the equality
- * below just as well as "was asked and then stopped".
- */
-test("the_learned_policy_stops_on_the_bout_verdict", async (t) => {
-  let asked = 0;
-  const policy = researchLabelMind("neat-qd", (view) => probeLabel(view, "close", "cover", 0.10));
-  const learned = { name: policy.name, decide(view, dt) { asked += 1; return policy.decide(view, dt); } };
-  const { engine, scene, left, right } = await ring(learned);
-  t.after(() => engine.dispose());
-  const clock = { now: 0 };
-  for (let i = 0; i < 10; i += 1) frame(scene, left, right, clock);
-  const atVerdict = asked;
-  assert.ok(atVerdict > 0, "the learned mind was driving the fighter before the verdict");
-  left.stopFighting();
-  for (let i = 0; i < 10; i += 1) frame(scene, left, right, clock);
-  assert.equal(asked, atVerdict, "the host revokes the learned mind at the verdict edge");
-});
+// Deleted 2026-09-04 with the learning trees: `the_learned_policy_stops_on_the_bout_verdict`
+// drove `researchLabelMind` and asserted the host revokes it at the verdict edge. The rule
+// survives and is still covered by `a verdict revokes the winning mind's authority` above,
+// which counts `decide` on a scripted mind; what is gone is the second vehicle, not the rule.
 
 test("a_surviving_torso_has_no_residual_turn_after_the_verdict", async (t) => {
   const { engine, scene, left, right } = await ring();

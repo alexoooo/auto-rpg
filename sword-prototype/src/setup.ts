@@ -1,8 +1,6 @@
 import {
   EQUIPMENT,
-  constructSelectionRefusal,
   withControl,
-  withConstruct,
   withEquipment,
   withPolicy,
   withUnit,
@@ -11,19 +9,6 @@ import {
 } from "./bout";
 import { supportsLoadoutForUnit, UNITS, unitDefinition } from "./units";
 import type { Side } from "./physics";
-
-const escapeHtml = (value: string): string => value.replace(/[&<>"']/g, (character) => ({
-  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-})[character] as string);
-
-export interface ConstructSetupAffordance {
-  /** Installed exact saved revisions. IDs pin blueprint, Control Graph and Mind together. */
-  entries(): readonly Readonly<{ id: string; label: string; blueprint: string; control: string; program: string }>[];
-  /** The initial installed revision used only when a side has never selected one. */
-  defaultId(): string;
-  /** Opens the mouse-driven Forge without changing the bout selection underneath it. */
-  open(side: Side): void;
-}
 
 /**
  * The screen before the fight.
@@ -57,26 +42,17 @@ export class SetupScreen {
   private readonly hands: Record<"handA" | "handB", Record<Side, HTMLSelectElement>>;
   private readonly controls: Record<Side, HTMLInputElement[]>;
   private readonly beginButton: HTMLButtonElement | null;
-  private readonly constructAffordance: ConstructSetupAffordance | null;
-  private readonly humanoidEquipment: Record<Side, HTMLElement[]>;
-  private readonly blueprintFields: Record<Side, HTMLElement>;
-  private readonly blueprintLabels: Record<Side, HTMLOutputElement>;
-  private readonly effigyPlaytests: Record<Side, HTMLElement>;
-  private readonly constructs: Record<Side, HTMLSelectElement>;
-  private readonly forgeButtons: Record<Side, HTMLButtonElement>;
 
   constructor(
     host: HTMLElement,
     matchup: Matchup,
     unavailableUnits: Readonly<Record<string, string>> = Object.freeze({}),
     beginButton: HTMLButtonElement | null = null,
-    constructAffordance: ConstructSetupAffordance | null = null,
   ) {
     this.host = host;
     this.unavailableUnits = unavailableUnits;
     this.matchup = matchup;
     this.beginButton = beginButton;
-    this.constructAffordance = constructAffordance;
 
     host.innerHTML = `${this.corner("left", "Left")}${this.corner("right", "Right")}`;
 
@@ -100,21 +76,11 @@ export class SetupScreen {
       left: [...host.querySelectorAll<HTMLInputElement>('[data-side="left"][data-field="control"]')],
       right: [...host.querySelectorAll<HTMLInputElement>('[data-side="right"][data-field="control"]')],
     };
-    this.humanoidEquipment = {
-      left: [...host.querySelectorAll<HTMLElement>('[data-side="left"][data-humanoid-equipment]')],
-      right: [...host.querySelectorAll<HTMLElement>('[data-side="right"][data-humanoid-equipment]')],
-    };
-    this.blueprintFields = pick<HTMLElement>("blueprint-field");
-    this.blueprintLabels = pick<HTMLOutputElement>("blueprint-label");
-    this.effigyPlaytests = pick<HTMLElement>("effigy-playtest");
-    this.constructs = pick<HTMLSelectElement>("construct");
-    this.forgeButtons = pick<HTMLButtonElement>("open-forge");
 
-    // One delegated listener rather than seven. The controls are built here and
+    // One delegated listener rather than six. The controls are built here and
     // never replaced -- `render` writes values into them -- so there is nothing
     // to rebind and nothing to leak.
     host.addEventListener("change", this.onChange);
-    host.addEventListener("click", this.onClick);
     this.render();
   }
 
@@ -137,14 +103,8 @@ export class SetupScreen {
     this.render();
   }
 
-  chooseConstruct(side: Side, id: string): void {
-    this.matchup = withConstruct(this.matchup, side, id);
-    this.render();
-  }
-
   dispose(): void {
     this.host.removeEventListener("change", this.onChange);
-    this.host.removeEventListener("click", this.onClick);
   }
 
   private corner(side: Side, title: string): string {
@@ -167,24 +127,14 @@ export class SetupScreen {
           <span class="field-name">Policy</span>
           <select data-side="${side}" data-field="policy"></select>
         </label>
-        <label class="field" data-side="${side}" data-humanoid-equipment>
+        <label class="field">
           <span class="field-name">Hand A</span>
           <select data-side="${side}" data-field="handA">${options(EQUIPMENT)}</select>
         </label>
-        <label class="field" data-side="${side}" data-humanoid-equipment>
+        <label class="field">
           <span class="field-name">Hand B</span>
           <select data-side="${side}" data-field="handB">${options(EQUIPMENT)}</select>
         </label>
-        <div class="field construct-blueprint" data-side="${side}" data-field="blueprint-field" hidden>
-          <span class="field-name">Saved machine</span>
-          <select data-side="${side}" data-field="construct"></select>
-          <output data-side="${side}" data-field="blueprint-label"></output>
-          <button type="button" class="setup-forge" data-side="${side}" data-field="open-forge">Open Forge</button>
-        </div>
-        <div class="field effigy-playtest" data-side="${side}" data-field="effigy-playtest" hidden>
-          <span class="field-name">Visible review</span>
-          <output>Suggested bout: Warrior Duelist (sword + buckler) vs Swordbearer Effigy. The built-in Effigy Mind is selected here.</output>
-        </div>
         <div class="field">
           <span class="field-name">Control</span>
           <span class="choice">
@@ -224,9 +174,6 @@ export class SetupScreen {
       case "policy":
         this.matchup = withPolicy(this.matchup, side, target.value);
         break;
-      case "construct":
-        this.matchup = withConstruct(this.matchup, side, target.value);
-        break;
       case "control":
         this.matchup = withControl(this.matchup, side, target.value as Control);
         break;
@@ -236,20 +183,10 @@ export class SetupScreen {
     this.render();
   };
 
-  private readonly onClick = (event: Event): void => {
-    const target = event.target as HTMLElement | null;
-    const button = target?.closest<HTMLButtonElement>('button[data-field="open-forge"]');
-    const side = button?.dataset.side;
-    if (!button || (side !== "left" && side !== "right")) return;
-    this.constructAffordance?.open(side);
-  };
-
   private render(): void {
     for (const side of ["left", "right"] as const) {
       const setup = this.matchup[side];
       const definition = unitDefinition(setup.unit);
-      const construct = definition.controlSurface.startsWith("construct-");
-      const savedMachine = definition.controlSurface === "construct-v3";
       const policyOptions = definition.driverOptions.some((driver) => driver.name === setup.policy)
         ? definition.driverOptions
         : [{ name: setup.policy, label: `${setup.policy} (incompatible)` }, ...definition.driverOptions];
@@ -265,8 +202,8 @@ export class SetupScreen {
         for (const option of field.options) {
           // Judge the result of the reducer, rather than this option beside an
           // unchanged other hand. That distinction keeps the existing route
-          // from bow+bow to sword+empty enabled while a fixed authored pair,
-          // such as the KayKit knight's sword+buckler, stays exact.
+          // from bow+bow to sword+empty enabled while a unit with a fixed
+          // authored pair stays exact.
           const candidate = withEquipment(this.matchup, side, hand, option.value)[side];
           option.disabled = !supportsLoadoutForUnit(
             setup.unit,
@@ -275,28 +212,6 @@ export class SetupScreen {
           );
         }
         field.disabled = definition.hands === 0;
-      }
-      for (const field of this.humanoidEquipment[side]) field.hidden = construct;
-      this.effigyPlaytests[side].hidden = setup.unit !== "swordbearer-effigy";
-      this.blueprintFields[side].hidden = !savedMachine;
-      if (savedMachine) {
-        const entries = this.constructAffordance?.entries() ?? [];
-        if (setup.constructId === undefined && this.constructAffordance) {
-          setup.constructId = this.constructAffordance.defaultId();
-        }
-        const selected = entries.find(({ id }) => id === setup.constructId);
-        const shown = selected ? entries : [{ id: setup.constructId ?? "", label: "Unavailable saved machine",
-          blueprint: "missing", control: "missing", program: "missing" }, ...entries];
-        this.constructs[side].innerHTML = shown.map((entry) =>
-          `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.label)}</option>`).join("");
-        this.constructs[side].value = setup.constructId ?? "";
-        this.blueprintLabels[side].textContent = selected
-          ? `Blueprint ${selected.blueprint} -- Control ${selected.control} -- Mind ${selected.program}`
-          : `Saved revision ${setup.constructId ?? "(none)"} is unavailable`;
-        this.forgeButtons[side].disabled = this.constructAffordance === null;
-        this.forgeButtons[side].title = this.constructAffordance === null
-          ? "Construct Forge is unavailable: no Forge host is installed"
-          : `Edit ${selected?.label ?? "this unavailable revision"} in Construct Forge`;
       }
       for (const option of this.policies[side].options) {
         option.disabled = !definition.driverOptions.some((driver) => driver.name === option.value);
@@ -327,10 +242,6 @@ export class SetupScreen {
       }
       if (setup.control === "you" && !definition.humanAdapter) {
         return `control surface ${definition.kind} has no human adapter`;
-      }
-      if (definition.controlSurface === "construct-v3") {
-        const refusal = constructSelectionRefusal(setup, this.constructAffordance?.entries().map(({ id }) => id) ?? []);
-        if (refusal) return refusal;
       }
     }
     return null;

@@ -575,6 +575,11 @@ npm run dev             # http://localhost:5180, strictPort
   `tests/integration.test.mjs` learned this while auditing 25 rebuilds; it still catches a
   genuinely live callback because marked observers no longer participate in notification.
 
+**The next four entries are about code deleted on 2026-09-04** -- the KayKit Knight and the
+construct/Forge trees. They are kept because the lessons are about Babylon, Havok and how a body
+experiment goes wrong, not about the units that taught them; the tests and files they name resolve
+through `docs/deleted-paths.md`. Read them as findings, not as descriptions of the current tree.
+
 - **Babylon starts an animation while parsing the exact KayKit Knight GLB.** With Babylon
   9.18.1 the retained source actions are not inert reference data by default:
   `1H_Melee_Attack_Chop` starts and produces 123 scene animatables. The asset-native figure must
@@ -682,6 +687,12 @@ Seven, and each one was paid for.
   the next session went looking -- about 2.5 standard deviations at 120 bouts. `docs/measurements.md`
   under "What that is worth in bouts" carries the table.
 
+**The five entries from here to the end of this list are also about the deleted construct trees**,
+for the same reason and with the same warning: their digests, corpora and named Minds no longer
+exist, and the rules they state -- a recovery that cannot require what it restores, a qualification
+identity that is a pair, worker count as scheduling only, a green counter that cannot rescue a red
+bout, foot contact that is not a posture verdict -- are what was paid for.
+
 - **Recovery cannot require the support state it exists to restore.** The first construct
   controller required three planted contacts in its constructor, so a fallen Mind selected
   `recover` forever and the scheduler refused it forever. Move, turn and brace retain that
@@ -722,100 +733,6 @@ Seven, and each one was paid for.
   records all three and the first posture-loss time; a contact count remains useful sensor evidence,
   not a stability verdict.
 
-## Research runs
-
-Every long research run writes `state.json`, an append-only ledger named **ledger.jsonl**,
-`champion-so-far.artifact`, and, after a terminal row, `champion.artifact`, `report.json` and a
-**finalized.json** marker. The ledger is canonical observational evidence; deterministic reports carry
-`ledgerFile: "ledger.jsonl"` and the frozen stopping contract, never wall telemetry. A missing
-final newline may be a killed append and is ignored; a complete malformed or contract-changing row
-is refused. A stopped ledger without the finalization marker must rebuild final outputs without spending
-another job. A marked run refuses resume.
-
-The objectives are fixed: NEAT-QD maximizes validation worst-cell score, DAgger minimizes validation
-loss, PPO maximizes fair-round validation macro reward, and look-ahead minimizes calibration
-severity. A progress-only row has an unavailable objective and does not advance plateau. Every gate
-is either measured with a signed margin or unavailable with a reason. Research checkpoints leave
-tournament-only safety unavailable; held-out tournament bouts measure all five safety properties
-from command, capability, tactic, verdict-tail and successful return-after-teardown evidence, and
-refuse a row whose evidence is missing. That lifecycle flag is not a resource census: the full
-integration lifecycle audit separately proves that bodies, scenes and observers leave no leaks.
-
-The page and bench share `BoutRecorder`; engagement is label-free on both. Any change to opportunity,
-intent-edge or contact-attribution semantics bumps `ENGAGEMENT_INSTRUMENT_VERSION` and keeps that
-version in all four research resume identities: NEAT-QD, DAgger, PPO and look-ahead. A stale state
-must be refused before its first worker or collector call.
-
-The human feasibility sitting is a player-facing game flow, not a console recipe. Its immutable
-assignment manifest, seeds and protocol digest live in `src/playtest.ts`; a protocol change bumps
-the report/storage version. Capture happens on the fight-to-over edge before rebuild, every started
-attempt either earns a verdict row or an explicit abort, and a stale or malformed save is refused
-rather than silently repaired.
-
-**Checkpoint cadence is a job-index rule, never elapsed time.** Wall time is a reported fact and
-may not decide when a row is written, which job runs next, or when plateau is reached.
-PPO's `--workers` is also scheduling only: its eight-shard rollout bundle, shard budgets and shard
-indices must not depend on worker count, and aggregation is always by shard index rather than
-completion order. A worker-count change must reproduce artifact, report and resume bytes exactly.
-`npm run ai:watch -- --run <run-directory>` is read-only. `champion-so-far.artifact` may be loaded
-into a live arena fight through `__sword.research.load(...)`, but its in-progress provenance is
-refused by policy, league and tournament registration.
-
-**Supported walking is not continuous ragdoll balance.** The virtual carrier has no body or combat
-shape, while the admitted physical root is ANIMATED until an authored knockdown releases it to
-DYNAMIC. This supersedes the first dynamic-root plan: a real 240 Hz bracket made both humanoid
-bodies lost foot evidence and fell inside the then-current 0.10 s grace at rest. The current 0.35 s
-clinch bridge does not change that rejected premise. Do not "restore physics"
-by deleting `driveAnimatedRoot`; that recreates the pile-up this system exists to avoid. The safety
-boundary is instead pair-atomic footprint resolution, real limb/contact authorization, authored
-stability release, no drive while fallen/dead, and occupancy/hit-gated recovery. The durable
-argument is in `docs/design.md`; the before/after numbers are in `docs/measurements.md`.
-
-**Fallen is lower, not absent.** Treating a living fallen carrier as non-blocking let the other
-carrier stand through the ragdoll, hide it from the camera and occupy the exact footprint recovery
-then refused. The fallen port follows its live root at safe boundaries and reserves its ordinary
-query-only footprint; detached/dead roots reserve nothing. Do not recover the old balance corpus by
-restoring the overlap bug -- requalify the Mind against the honest recovery space.
-
-**Impact damping is an edge, not a force law.** Reapplying a body-hit arrow's 0.92 damping every
-240 Hz step damps gravity too and leaves the shaft hanging for its whole spent lifetime. Apply it
-once when `touched` becomes `struck`; after that a body-hit shaft is dynamic world litter, while an
-actual world hit is the separate STATIC planting path.
-
-**A skinned ragdoll cannot be culled by its bind-pose bounds.** The physical bones can put visible
-vertices an entire body length outside the authored CPU box. Culling those regions made a fallen
-Warrior disappear at one zoom and reappear at another while boots and weapons stayed. The fixed
-Warrior region set uses `alwaysSelectAsActiveMesh`; do not trade that correctness for a stale-bound
-micro-optimization.
-
-**Right a supported root only while its whole assembly is under live carrier control.** An ANIMATED
-Havok root ignores x/z angular-velocity correction. The Construct's admitted carrier therefore uses
-a bounded transform target below root-up 0.995 and the proven velocity/yaw drive above it. A one-step
-exact target launched the held-sword wall fixture; moving the bounded target to a root-only
-post-verdict callback pulled the assembly out of the visible fight after pair and joint control had
-stopped. Both were rejected. The post-verdict survivor hold captures every attached part in one
-root-relative pose and rotates that entire finite ANIMATED set without reviving either driver;
-detached or defeated pieces stay dynamic. Do not replace that whole-body seam with a
-`stepProjectiles` root shortcut.
-
-**Recovery discipline needs a terminal branch.** The Arbalest once refused every shot at a prone
-opponent. That protected a rising Warrior, but a player-driven idle Warrior requested no recovery
-and produced a physically stable draw until the cap. Keep `rising` protected; after a stable prone
-dwell, use the separately measured finishing aim. Do not call an unbounded deadlock ammunition
-discipline.
-
-**A Fighter recovery request must survive the rising interval.** Fallen locomotion deliberately
-zeros translation, so deriving `recover` from that stopped request traps the body forever; clearing
-the bit on the first rising row cancels the actuator one boundary later. Preserve deliberate input
-as the request through both states, neutralize ordinary fencing motors while the bounded root path
-owns the body, and clear residual limb velocity once at reattachment. A support hit whose x/z lies
-under a foot is not contact unless its y lies within the declared step-height envelope.
-
-**A support query unit test is not a physical obstacle corpus.** A fake root that records bounded
-forces can prove a clamp or slope predicate. It cannot prove held-weapon wall speed, joint-frame
-error, Havok penetration or recovery around real combat geometry. Keep those unit tests, but name
-the physical evidence separately and leave a missing physical cell owed rather than relabelling it.
-
 ## Where the design lives
 
 `docs/design.md` is the map: what each subsystem is, and the decisions that belong to no
@@ -843,11 +760,20 @@ Keep an edit above an anchor line-neutral, or re-point what it moved.
 
 **Name the construct; a line number is a fact with no test.** That gate checks an anchor lands
 *inside* its file, not that it lands on what the prose means -- so "`selectValidationChampion` in
-`quality-diversity.ts`" survives every edit above it and "`quality-diversity.ts:93`" survives only
+`quality-diversity.ts`" survives every edit above it and "`quality-diversity.ts` ~~:93~~" survives only
 until somebody adds an import. Prefer the name. When a line number is genuinely wanted, re-point it
 by **locating the construct the prose names and refusing any target that is not unique** -- never by
 adding the file's line delta, which has produced wrong anchors here twice, once while repairing the
 very defect it introduced.
+
+**A file that is deleted takes every anchor into it with it, and the answer is to strike, never to
+re-point.** Sixty-five of them were struck on 2026-09-04 when the learning trees went; the file
+names stay and resolve through the register, the numbers are struck through in the prose, and
+`docs/measurements.md` carries the account. A consequence worth knowing before writing a checker
+against it: **the tree is down to one live bare `:nnn` continuation outside `docs/plans/`**, and it
+is a grammar example rather than a pointer -- every continuation that actually pointed somewhere was
+carried by a file that session deleted, or by `docs/design.md`, which lost about 660 lines the same
+day and therefore rotted the rest.
 
 **Never re-point an anchor inside a superseded sentence.** A struck-through claim with a live-looking
 `#Lnnn` in it reads to the next sweep as a live anchor, so it gets moved rather than read: one dead

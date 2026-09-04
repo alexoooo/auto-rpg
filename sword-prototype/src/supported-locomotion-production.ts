@@ -26,9 +26,53 @@ import type { StabilityEvent } from "./supported-locomotion-state.ts";
 import { initialSupportedLocomotionState, stepSupportedLocomotionState,
   SUPPORTED_LOCOMOTION_V1, type StabilityAuthority, type SupportState,
   type SupportedLocomotionState } from "./supported-locomotion-state.ts";
-import type { ActionSpec, ControlGroupSpec } from "./construct/actions.ts";
-import type { LocomotionAuthorityToken, LocomotionSchedulerPort,
-  LocomotionSubmission } from "./construct/scheduler.ts";
+/**
+ * The scheduler seam, moved here on 2026-09-04 when `src/construct/` and `src/forge/` were
+ * deleted with the golem plan set's first session.
+ *
+ * Five declarations came across -- the two specs an admission query names, the token it
+ * answers with, the submission that installs one, and the port interface this class
+ * implements. What did not come across is the construct parameter grammar (`ParameterSpec`,
+ * `QuantityUnit`), because this module reads no field of either spec: `authority` hands both
+ * straight to the caller-supplied `resolveActionAuthority` and looks at neither. So an
+ * `ActionSpec` here is the identity a caller needs to name an Action and its control group,
+ * and not a body-description format.
+ *
+ * **This seam currently has no writer.** The Warrior and Broot both declare
+ * `supportedLocomotionPort` and drive the carrier through `request`/`resolve` without ever
+ * calling `authority` or `stage`; the only caller that did was the construct runtime. Golem
+ * session 05 owns the locomotion contract and is the named reader that is coming, which is
+ * why this is kept rather than cut -- see the house rule about a view field with no reader
+ * *yet*, and delete it if session 05 lands without one.
+ */
+export interface ActionSpec {
+  readonly id: string;
+  readonly group: string;
+}
+
+export interface ControlGroupSpec {
+  readonly id: string;
+}
+
+export interface LocomotionAuthorityToken {
+  readonly carrierPartId: string;
+}
+
+export interface LocomotionSubmission {
+  readonly action: string;
+  readonly group: string;
+  readonly authority: LocomotionAuthorityToken;
+  readonly request: LocomotionRequest;
+}
+
+/** Optional runtime seam: a pair may deliberately construct without a carrier. */
+export interface LocomotionSchedulerPort {
+  authority(action: ActionSpec, group: ControlGroupSpec): LocomotionAuthorityToken | null;
+  stage(submission: LocomotionSubmission): void;
+  priorSample(authority: LocomotionAuthorityToken): SupportedLocomotionSample;
+  clearSubmission(action: string, group: string, authority: LocomotionAuthorityToken, reason: string): void;
+  clearAll(reason: string): void;
+}
 
 const STOP: LocomotionRequest = Object.freeze({
   localForward: 0, localRight: 0, yaw: 0, recover: false,

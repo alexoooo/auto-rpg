@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 
 import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, combatRecorder, sampleBoutRecorder,
   wireBoutRecorder } from "../src/recorder.ts";
-import { EngagementTracker, opportunityForAction } from "../src/learning/engagement.ts";
+import { EngagementTracker, opportunityForAction } from "../src/engagement.ts";
 import { behaviourRecord, recordBehaviourSample } from "../src/options.ts";
 import { blankIntent } from "../src/policies.ts";
 import { assertCompleteView } from "./fixtures/view.mjs";
@@ -156,18 +156,11 @@ test("the_engagement_recorder_reads_no_controls_or_mind_identity", async () => {
   }
 });
 
-test("research_runners_version_the_label_free_instrument_before_starting_workers", async () => {
-  for (const file of ["train-neat-qd.mjs", "collect-dagger.mjs", "train-lookahead.mjs"]) {
-    const source = await readFile(new URL(`../scripts/${file}`, import.meta.url), "utf8");
-    assert.match(source, /import \{ ENGAGEMENT_INSTRUMENT_VERSION \} from "\.\.\/src\/recorder\.ts"/);
-    assert.match(source, /engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION/);
-    const refusal = file === "train-lookahead.mjs" ? source.indexOf("lookahead resume refused")
-      : source.indexOf("resume refused: config digest changed");
-    const firstWork = file === "train-lookahead.mjs" ? source.indexOf("await collectBudget(") : source.indexOf("new Worker(");
-    assert.ok(refusal >= 0 && refusal < firstWork,
-      `${file} must refuse a stale instrument before it starts rollout work`);
-  }
-});
+// Deleted 2026-09-04 with its subject: `research_runners_version_the_label_free_instrument_before_starting_workers`
+// read `scripts/train-neat-qd.mjs`, `scripts/collect-dagger.mjs` and `scripts/train-lookahead.mjs`
+// and required each to refuse a stale `ENGAGEMENT_INSTRUMENT_VERSION` before starting workers.
+// All three runners are gone. The version constant itself survives in `src/recorder.ts` and is
+// still read by the page; nothing left in this tree resumes a run against it.
 
 test("every_humanoid_driver_records_the_intent_immediately_after_deciding", async () => {
   const source = await readFile(new URL("../src/humanoid-control.ts", import.meta.url), "utf8");
