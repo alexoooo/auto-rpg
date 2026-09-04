@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Golem effector bench</title>
+    <style>
+      /* The bench's own sheet rather than `src/style.css`, which is the arena's: a setup
+         curtain, a pause menu and a HUD that this page has none of. Four rules and a panel. */
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; background: #0e1014; color: #e8eaf0;
+        font: 13px/1.5 ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace; }
+      #stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block;
+        outline: none; touch-action: none; }
+      .panel { position: fixed; padding: 10px 14px; border-radius: 6px;
+        background: rgba(10, 12, 16, 0.82); border: 1px solid rgba(150, 170, 200, 0.22);
+        pointer-events: none; white-space: pre; }
+      #picker { top: 12px; left: 12px; max-width: 46ch; }
+      #readout { top: 12px; right: 12px; }
+      #keys { bottom: 12px; left: 12px; opacity: 0.72; }
+      #picker b { color: #7fd4ff; font-weight: 600; }
+      #picker .on { color: #ffc65a; }
+      .gone { display: none; }
+    </style>
+  </head>
+  <body>
+    <canvas id="stage"></canvas>
+    <!-- Both panels are filled entirely from `src/bench/main.ts`, which reads the option set
+         from `src/golem/registry.ts`. Nothing about which modules exist is written here: a
+         later session registers a module and it appears, and a hand-written list in this file
+         would be the one thing that had to be edited every time. -->
+    <div id="picker" class="panel"></div>
+    <div id="readout" class="panel"></div>
+    <div id="keys" class="panel">1-9 module &middot; F socket &middot; Tab readout &middot; G rig &middot; R rebuild &middot; Space pause &middot; middle-drag orbit, wheel zoom</div>
+    <script type="module" src="/src/bench/main.ts"></script>
+  </body>
+</html>

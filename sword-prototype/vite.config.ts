@@ -8,5 +8,13 @@ export default defineConfig({
   server: { port: 5180, strictPort: true },
   // Havok ships a .wasm beside its ESM bundle; Vite must not try to inline it.
   assetsInclude: ["**/*.wasm"],
-  build: { target: "es2022", chunkSizeWarningLimit: 4096 },
+  build: {
+    target: "es2022",
+    chunkSizeWarningLimit: 4096,
+    // Two entries, and both have to be named. Vite's default is `index.html` alone, so a
+    // second page builds fine in dev -- where every request is served from source -- and is
+    // simply absent from `dist`, which is the failure that looks like a routing problem and is
+    // a config one. `bench.html` is the golem effector bench.
+    rollupOptions: { input: { index: "index.html", bench: "bench.html" } },
+  },
 });

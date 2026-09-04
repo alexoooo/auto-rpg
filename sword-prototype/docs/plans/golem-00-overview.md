@@ -1,9 +1,11 @@
 # Golem -- live roadmap
 
-> **2026-09-04 status: session 01 implemented, nothing accepted.** Twelve files, one per landable
-> session. Session 01 (demolition) has landed; session 02 may start. Every later session ends at a
-> human gate that the owner records in that session's status line; an agent may not write
-> "accepted" there.
+> **2026-09-04 status: sessions 01 and 02 implemented, nothing accepted.** Twelve files, one per
+> landable session. Session 01 (demolition) and session 02 (the effector bench, the module
+> contract and chains 0 and 1) have landed; session 02's human gate has not been asked, so
+> sessions 03, 05 and 07 depend on that answer rather than on the code alone. Every session from
+> 02 on ends at a human gate that the owner records in that session's status line; an agent may
+> not write "accepted" there.
 
 ## Why this plan exists
 

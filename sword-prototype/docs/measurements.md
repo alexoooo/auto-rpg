@@ -8883,3 +8883,160 @@ both contact-speed distributions. Wall clock 20.6 s before and 20.7 s after, whi
 **What this does and does not say.** It says the demolition moved no execution-layer behaviour that
 this corpus can see, which is the thing session 16 shipped green without checking and the reason the
 rule exists. It says nothing about how anything looks; that is step 10's business and the owner's.
+
+## Golem effector bench — 2026-09-04
+
+**Nothing here is a verdict.** Session 02's human gate has not been asked, and this plan set
+exists because three body experiments each cleared a scalar proxy while the owner's judgement
+stayed red. Every figure below is a measurement of what the code does; none of them is a claim
+that a limb looks or feels right, and the thresholds in `tests/golem-bench.test.mjs` pinned from
+these runs are marked provisional there for the same reason.
+
+**Two harnesses, named on every figure.**
+
+- **The Node bench** — `scripts/golem-bench.mjs`, `NullEngine`, real Havok, no rendering. Run as
+  `node scripts/golem-bench.mjs --chain pitch --terminal blade`.
+- **The page bench** — `bench.html`, WebGL, real Havok, the same modules on the same stand.
+  Driven from the console with the same scripted command sequence, stepping by hand
+  (`__golem.step`) because Chrome does not paint a hidden tab.
+
+Both run the same sequence: rest, step to guard, return to rest, chop, recover, over 5.00 s at
+240 Hz, on the `primary` socket of a stand whose sockets sit at Warrior shoulder height.
+
+### The two harnesses agree to the digit here, which the Warrior's do not
+
+| reading | Node bench | page bench |
+| --- | --- | --- |
+| control steps / seconds | 1200 / 4.996 | 1200 / 4.996 |
+| settle after the guard step, s | 0.1792 | 0.1792 |
+| arrival after the guard step, s | 0.1792 | 0.1792 |
+| overshoot, rad | 0.0658 | 0.0658 |
+| peak tip speed, driven, m/s | 15.067 | 15.067 |
+| peak tip speed, raw, m/s | 15.067 | 15.067 |
+| final target error, rad | 0.000397 | 0.000400 |
+| tip wander at rest, mm | 2.8765 | 2.8765 |
+| contacts / self-contacts | 0 / 0 | 0 / 0 |
+
+This is worth recording precisely because of the standing finding above: the page and the
+headless bench **disagree by about 9 % on the Warrior's peak transient with identical code**, and
+why has never been established. On this module they do not disagree at all. That is not a
+resolution of the Warrior's question — a golem effector is one hinge and two bodies on a
+keyframed block, against a Warrior's three-bone chain, two anchors, a weapon weld and a whole
+arena around it — but it does say the disagreement is not a property of the two harnesses as
+such. **Keep naming the harness anyway.** The rule stands; this is one module agreeing, not a
+licence to put both in one column.
+
+### Rung 0, `effector.none`: the noise floor
+
+A capped socket with no driven axis, welded rigidly to a keyframed block, with
+`setActivationControl(body, 1)` forced on every body first — because Havok deactivates a body at
+rest and a sleeping one reads a perfect zero however badly it would shake awake.
+
+| reading | Node bench | page bench |
+| --- | --- | --- |
+| tip wander at rest, mm | 0.0000151 | 0.000000 |
+| peak tip speed, raw, m/s | 0.0000106 | 0.000000 |
+| target error, rad | 0 (there is no target) | 0 |
+| stuck steps / contacts / self-contacts | 0 / 0 / 0 | 0 / 0 / 0 |
+
+Fifteen nanometres of wander in Node and exactly none on the page. Every driven reading above is
+to be read against this: rung 1's 2.88 mm of residual wander is the chain, not the harness.
+
+### Rung 1, `effector.pitch.blade`: the three numbers that decide whether it is a limb
+
+One hinge at the socket, a 0.34 m stone link, an 0.80 m steel blade welded once. 10.70 kg,
+1.140 m of reach, no anchor. For a one-axis chain task space and joint space are the same number,
+so what is being measured is the torque cap, the target rate limit and the stroke shape. All
+three sweeps are the **Node bench**; each is reproduced in `src/golem/config.ts` beside the
+number it set, as the house rule requires.
+
+**The target rate limit** (`--sweep rate`), on the 0.725 rad step from rest to guard:
+
+| rad/s | arrival, s | peak tip on the step, m/s | overshoot, rad | wander at rest, mm |
+| --- | --- | --- | --- | --- |
+| 2.5 | 0.279 | 4.99 | 0.008 | 10.06 |
+| 4.0 | 0.175 | 6.87 | 0.019 | 16.01 |
+| **6.0** | **0.162** | **9.10** | **0.049** | **2.88** |
+| 9.0 | 0.142 | 12.67 | 0.054 | 2.43 |
+| 14.0 | 0.192 | 14.40 | 0.003 | 2.79 |
+| 30.0 | 0.404 | 7.35 | 0.003 | 2.44 |
+
+**The turn at 14 is the finding.** Past about 9 rad/s the command outruns the limb, and once it
+does, what moves the limb is not the command any more — it is Havok's position motor closing a
+large error, which it does at an approach rate of its own of roughly 1.7 rad/s whatever the error
+is. A command that arrives instantly therefore makes the limb **slower**: 0.404 s and 7.35 m/s at
+rate 30, against 0.162 s and 9.10 m/s at rate 6. That is the "joint-space position motor" the
+overview names as a candidate cause, in its exact mechanical form, and the rate limit is what
+keeps the motion shaped by what the person did.
+
+**The torque cap** (`--sweep torque`), same step:
+
+| N.m | arrival, s | overshoot, rad | peak tip on the step, m/s | wander at rest, mm |
+| --- | --- | --- | --- | --- |
+| 120 | 0.200 | 0.047 | 8.76 | 2.80 |
+| 200 | 0.221 | 0.096 | 8.77 | 2.82 |
+| **320** | **0.162** | **0.049** | **9.10** | **2.88** |
+| 500 | 0.142 | 0.037 | 9.80 | 4.30 |
+| 900 | 0.129 | 0.024 | 11.15 | 5.81 |
+
+**Overshoot falls as the torque rises, which is the opposite of a spring.** A stronger motor
+tracks a rate-limited command more exactly and so has less momentum to carry past it; the 200 N.m
+row is the worst of both, lagging enough to build momentum and too weak to arrest it.
+
+**The stroke** (`--sweep chop`), peak tip speed with the first 0.6 s and 0.25 s after any contact
+excluded:
+
+| drive rate, rad/s | peak tip on the chop, m/s |
+| --- | --- |
+| 6 | 9.31 |
+| 9 | 11.65 |
+| **12** | **15.07** |
+| 16 | 18.21 |
+| 22 | 18.21 |
+
+16 and 22 return the same figure: the torque cap will not accelerate 10.70 kg any harder inside
+the drive's 0.05 s, so above 16 the setting stops describing the stroke. The comparison 12 was
+chosen against is the Warrior duelist's own driven peak over the standard 120-bout corpus — mean
+16.00 m/s, range 0.00 to 43.13 — so a golem chop arrives just under a Warrior's average committed
+cut rather than above it.
+
+**The follow-through, which is what makes the stroke a velocity event.** With the drive held at
+12 rad/s for 0.05 s the limb always leaves the drive at 0.905 rad; what varies is how far past
+that it carries, at a **ninth of the drive's torque**:
+
+| follow, s | deepest pitch reached, rad | carried past the drive, rad |
+| --- | --- | --- |
+| 0.00 | 0.520 | 0.385 |
+| 0.01 | 0.434 | 0.471 |
+| 0.02 | 0.341 | 0.564 |
+| **0.04** | **0.097** | **0.808** |
+
+### Two defects the bench found in itself, and one in its own instrument
+
+**A joint stop that did not admit its own build pose.** The pitch link is built hanging straight
+down, which is pitch 0, and the first draft put the bottom stop at 0.10 rad — so the chain was
+constructed 0.10 rad outside its own limit and Havok cleared the violation on step one by
+throwing the blade tip at **9.95 m/s** on a stand that was doing nothing. That is the weld-frame
+fling arriving through a joint limit instead of a weld, and the weld-frame assertion in
+`tests/golem-bench.test.mjs` is what caught it. The stop is -0.05 now and the same reading is
+**under 3 m/s**.
+
+**A drive that used up the range before the follow could carry anything.** With `driveSeconds` at
+0.14 the drive alone reached the stop, rebounded off it, and the follow phase had nothing left to
+do — a pose sequence with a bounce on the end. Measured deepest pitch by drive length, follow
+held at 0.04 s: 0.05 s gives 0.097 (clears the stop by 0.147), 0.06 gives 0.022, 0.07 gives
+-0.062 (arrives at the stop), 0.08 gives -0.081, 0.14 gives -0.088.
+
+**And one in the instrument itself.** The readout's first spelling asked whether the command had
+moved by comparing it against a baseline the same test refreshed, so a command ramping slowly
+enough never registered as motion at all — and at a target rate of 2.5 rad/s the limb travelled
+through most of its range while the instrument reported **796 mm of "wander at rest"** on a chain
+whose real floor is 0.0000151 mm. It is a rate against the previous sample now. A green
+instrument that measures nothing is the same defect as a green test that asserts nothing, and it
+was found by sweeping a number rather than by reading the code.
+
+### What is owed
+
+The human gate. The owner opens `bench.html`, drives each chain with the mouse for about a
+minute, and answers the overview's three questions. No number above can be substituted for that,
+and the thresholds pinned from these runs become regression floors only after a yes.

@@ -323,8 +323,18 @@ const SCRATCH_SHARE_OF_DURABLE = { min: 0.02, max: 0.25 };
 // than left pointing at a line number in a file that is gone. The 46 that remain are the eleven
 // later golem sessions naming the chain, terminal, bench, module and test files they intend to
 // create.
+//
+// **Re-taken 2026-09-04 from golem session 02's own failing run: 46 -> 26.** Twenty occurrences
+// went because session 02 built what its plan promised: `bench.html`, `src/bench/main.ts`,
+// `src/golem/module.ts`, `src/golem/registry.ts`, `src/golem/config.ts`,
+// `src/golem/anchor-drive.ts`, `src/golem/effectors/chains/none.ts`,
+// `src/golem/effectors/chains/pitch.ts`, `src/golem/effectors/terminals/blade.ts`,
+// `scripts/golem-bench.mjs` and `tests/golem-bench.test.mjs`. Eleven files and twenty
+// occurrences, because several of them are named by the overview and by session 02 both, and by
+// the later sessions that will extend them. The 26 that remain are sessions 03 to 11 naming
+// what they intend to create.
 const PLAN_SURFACE = {
-  noSuchFile: 46,
+  noSuchFile: 26,
   ambiguousFile: 0,
   anchorIntoDeletedFile: 0,
   orphanContinuation: 0,

@@ -1,6 +1,17 @@
 # Session 02 -- the effector bench and the first two rungs
 
-**Status (2026-09-04): planned.** Depends on 01. Human gate: not yet asked.
+**Status (2026-09-04): implemented, human gate not yet asked.** `bench.html` puts one module on a
+kinematic stand and drives it with the mouse; the module contract, the chain-and-terminal
+factoring, the anchor drive, the blade terminal and both chains exist, and `npm run dev` plus
+<http://localhost:5180/bench.html> is where the owner answers the three questions.
+**Rung 0, `effector.none`** is a capped socket welded rigidly to the stand with no driven axis,
+and it measures the bench's noise floor: 0.0000151 mm of tip wander at rest with activation
+forced in the Node bench, exactly 0 on the page, and zero contacts of any kind.
+**Rung 1, `effector.pitch.blade`** is one hinge, a 0.34 m stone link and an 0.80 m steel blade
+welded once, 10.70 kg over 1.140 m of reach, and what was measured on it is the three things that
+decide whether it is a limb rather than a robot arm -- the torque cap, the target rate limit and
+the stroke shape -- each swept, tabled beside its number in `src/golem/config.ts` and recorded in
+`docs/measurements.md` with its harness named. The verdict on both is the owner's.
 
 ## Outcome
 
