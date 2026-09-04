@@ -1057,8 +1057,9 @@ export class Construct implements Combatant {
     // A quadruped's core is both blueprint root and carrier. Treating that identity as zero
     // torso height rejected every root-carried machine before its feet were examined. Its
     // equivalent vertical chain is the measured support plane -> core -> named upper terminal.
-    const supportPlaneY = Math.min(...support.supportBindings.map(({ socketId }) =>
-      this.runtime.sockets.get(socketId)?.liveFrame().position.y ?? Number.POSITIVE_INFINITY));
+    const supportPlaneY = Math.min(...support.supportBindings.map(({ moduleId, socketId }) =>
+      this.publishedSupportPoint.get(moduleId)?.y ??
+        this.runtime.sockets.get(socketId)?.liveFrame().position.y ?? Number.POSITIVE_INFINITY));
     const rootHeightAboveCarrierM = support.carrierPartId === support.rootPartId
       ? root.position.y - supportPlaneY : root.position.y - carrier.position.y;
     // `carrierUpDot` and the internal chain prove that the articulated machine has the right

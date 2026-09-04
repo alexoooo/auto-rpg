@@ -24,7 +24,7 @@ test("the_zero_pi_0_90_m_fixture_physically_compiles_with_one_pinned_scale", asy
   const scaled = fixture.blueprint;
   near(fixture.profile.crownHeight, SCALED_LOCOMOTION_TARGET_CROWN_M, 1e-12,
     "the measured collider crown must be exactly the named physical scale");
-  assert.equal(fixture.blueprintDigest, "90c06e5f",
+  assert.equal(fixture.blueprintDigest, "995a4855",
     "the validated fixture's canonical physics identity is pinned");
   assert.notEqual(SCALED_LOCOMOTION_BODY_SCALE,
     SCALED_LOCOMOTION_TARGET_CROWN_M / 1.8995,

@@ -11,11 +11,12 @@ fire-lifecycle source change. `mapped-pbr` remains the default because no genuin
 hardware browser was available for the required performance bracket. The 2026-09-02 focused
 Swordbearer repair closes the former one-completed-sweep left mirror: the bilateral sustained-action
 reference now proves repeated sweeps, off-hand guard, dodge, recovery and upright sword damage.
-The broader supported-locomotion suite is still red on scaled recovery and held-weapon wall pressure,
-so the competitive repair remains owed. The later sibling-foot correction moved source to `420906e8`, and
-the sustained-action work plus its locomotion-fallback correction move current source to `aa47975e`, making both rejected `f82bc3d3`
-receipts historical; rerun the matrix only after the broader supported-locomotion boundary reds
-are repaired. Session 30 is not complete.
+The broader supported-locomotion suite is now green on scaled recovery and held-weapon wall pressure,
+but the competitive repair remains owed. The later sibling-foot correction moved source to `420906e8`, and
+the sustained-action work plus its locomotion-fallback correction moved it to `aa47975e`. The later
+v5 named-gauntlet, contact-plane, Warden plate and Arbalest finisher corrections move current source to
+`44cde241`, making both rejected `f82bc3d3` receipts historical; rerun the matrix against this
+corrected source before any learning or durability promotion. Session 30 is not complete.
 
 The first full-matrix attempt exhausted a 4 GiB V8 heap after roughly 260 cells because the parent,
 resume reader, finalizer and CLI still retained corpus-sized objects despite atomic checkpoint files.
@@ -25,8 +26,9 @@ retains no raw result array, independently replays one indexed cache row at a ti
 `report.json` in a third. Its terminal output is a compact receipt and path. The source change
 invalidated the interrupted checkpoint by design; the final matrix restarted from an empty output
 under source `f82bc3d3` and completed all 560 cells. That corpus remains an exact historical
-rejection, but it is not current-source evidence after the `420906e8` foot correction and the
-later sustained-action and locomotion-fallback repair at `aa47975e`.
+rejection, but it is not current-source evidence after the `420906e8` foot correction, the later
+sustained-action/locomotion-fallback repair at `aa47975e`, and the current v5 corrections at
+`44cde241`.
 
 ## Outcome
 

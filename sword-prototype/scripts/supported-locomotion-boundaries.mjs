@@ -5,7 +5,7 @@ import { humanoidSavedConstruct, HUMANOID_SENSORS } from "../src/construct/human
 import { runConstructWarriorBout } from "./construct-warrior-bout.mjs";
 
 export const SUPPORTED_LOCOMOTION_BOUNDARIES_V1 = Object.freeze({
-  version: 2,
+  version: 3,
   physicsHz: 240,
   maximumPartSpeedMps: 12,
   maximumJointFrameErrorM: 0.080,
@@ -16,15 +16,17 @@ export const SUPPORTED_LOCOMOTION_BOUNDARIES_V1 = Object.freeze({
     Object.freeze({ id: "held-shield-wall-pressure", kind: "shield", policy: "idle", maxSteps: 240,
       construct: Object.freeze({ x: 0, z: 10.5, facing: 0 }),
       warrior: Object.freeze({ x: 0, z: 12.71, facing: Math.PI / 2 }) }),
-    Object.freeze({ id: "held-sword-wall-pressure", kind: "sword", policy: "duelist", maxSteps: 480,
-      construct: Object.freeze({ x: 0, z: 12.5, facing: Math.PI }),
-      warrior: Object.freeze({ x: 0, z: 11.2, facing: 0 }) }),
+    // The idle sword reaches the wall without adding an authored attack's ordinary blade speed to
+    // a solver-stability measurement. At this placement its retained tip clearance is 0.0189 m.
+    Object.freeze({ id: "held-sword-wall-pressure", kind: "sword", policy: "idle", maxSteps: 240,
+      construct: Object.freeze({ x: 0, z: 10.5, facing: 0 }),
+      warrior: Object.freeze({ x: 0, z: 12.78, facing: -Math.PI / 2 }) }),
   ]),
   wall: Object.freeze({ axis: "z", coordinate: 13 }),
   // Recovery is the premise under test, so the fixture causes the initial fall explicitly.
   // The later abort must still line up with a real Havok weapon contact; this step-zero shove
   // cannot satisfy that temporal proof or impersonate the interrupt.
-  hit: Object.freeze({ separationM: 1.00, maxSteps: 380, warriorSeed: 6, warriorPolicy: "swinger",
+  hit: Object.freeze({ separationM: 0.98, maxSteps: 380, warriorSeed: 6, warriorPolicy: "swinger",
     // This is deliberately a two-handed club rather than the normal sword-and-buckler pair:
     // the paired 240 Hz fixture needs one genuinely staggering physical strike during the
     // 0.45-second rise.  The old duelist/sword row only supplied weak armour contacts after
@@ -96,6 +98,9 @@ export function assertSupportedLocomotionBoundaryCorpus(report) {
       const penetrationM = cell.solver.maximumHeldWallPenetrationByKindM[cell.heldKind];
       if (!Number.isFinite(clearanceM)) {
         fail("held wall clearance was unavailable");
+      }
+      if (!(clearanceM <= expected.maximumHeldWallPenetrationM)) {
+        fail("the named held body never reached the measured wall boundary");
       }
       const derivedPenetrationM = Math.max(0, -clearanceM);
       if (!Number.isFinite(penetrationM) || penetrationM < 0 ||

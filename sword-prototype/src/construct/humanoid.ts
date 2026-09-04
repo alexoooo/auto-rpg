@@ -63,9 +63,9 @@ const leftArmParts = Object.freeze([
   Object.freeze({ ...part("left-hand", { kind: "box", sizeM: CHASSIS.hand }, 4), health: 8, armour: 1.0 }),
 ]);
 const leftArmJoints = Object.freeze([
-  Object.freeze({ ...joint("left-shoulder", "torso", "left-upper-arm", [-0.42, 0.25, 0], [0, 0.275, 0], "x", -0.95, 0.95),
+  Object.freeze({ ...joint("left-shoulder", "torso", "left-upper-arm", [-0.42, 0.25, 0], [0, 0.275, 0], "x", -1.40, 1.40, 480, 10),
     angularAxes: Object.freeze([
-      ...joint("left-shoulder", "torso", "left-upper-arm", [-0.42, 0.25, 0], [0, 0.275, 0], "x", -0.95, 0.95).angularAxes,
+      ...joint("left-shoulder", "torso", "left-upper-arm", [-0.42, 0.25, 0], [0, 0.275, 0], "x", -1.40, 1.40, 480, 10).angularAxes,
       Object.freeze({ id: "y" as const, minRad: -0.42, maxRad: 0.42, damping: humanoidActuator(8),
         maxTorqueNm: humanoidActuator(340), maxSpeedRadS: 5 }),
     ]), health: 8, armour: 1.1 }),
@@ -199,17 +199,23 @@ export function humanoidBlueprint(): ConstructBlueprint {
     // actual separate collider leaf: a hit only cuts if the manifold resolves to
     // that leaf and its signed physical edge motion qualifies in Combat.
     Object.freeze({ ...moduleBase("effigy-gauntlet", "gauntlet", "socket-left-gauntlet", "gauntlet", [
-      geometry("stone-face", { kind: "box", sizeM: [0.24, 0.22, 0.14] }, "plate", [0, 0, 0.12]),
-      geometry("bronze-ridge", { kind: "box", sizeM: [0.035, 0.14, 0.12] }, "bearing", [0.145, 0, 0.18]),
+      // These fixed pieces make an actual forearm-length stone hand rather than extending a
+      // collision point. The face reaches 240 mm from the mount and the visible bronze chisel
+      // runs along the outside of the forearm to a 585 mm point. That makes the chisel a legible
+      // short weapon, not an invisible reach increase; both are named leaves below, so Havok's
+      // manifold still chooses blunt stone or edge-bearing bronze without a controller ever
+      // moving a mesh.
+      geometry("stone-face", { kind: "box", sizeM: [0.24, 0.22, 0.28] }, "plate", [0, 0, 0.18]),
+      geometry("bronze-ridge", { kind: "box", sizeM: [0.035, 0.14, 0.60] }, "bearing", [0.145, 0, 0.48]),
       geometry("wrist-brace", { kind: "box", sizeM: [0.16, 0.14, 0.20] }, "bearing", [0, 0, -0.08]),
     ], 5), health: 8, armour: 1.2,
       mountedContactStriker: Object.freeze({ kind: "authored-surface" as const, action: "gauntlet-strike",
         surfaces: Object.freeze([
           Object.freeze({ id: "stone-face", primitiveId: "stone-face", kind: "mass" as const,
-            localContactPoint: [0, 0, humanoidLength(0.19)] as const, damageScale: 0.55,
+            localContactPoint: [0, 0, humanoidLength(0.32)] as const, damageScale: 0.55,
             shoveSpecificImpulseMps: 0.004 }),
           Object.freeze({ id: "bronze-ridge", primitiveId: "bronze-ridge", kind: "edge" as const,
-            localContactPoint: [humanoidLength(0.1625), 0, humanoidLength(0.18)] as const, damageScale: 0.48,
+            localContactPoint: [humanoidLength(0.1625), 0, humanoidLength(0.78)] as const, damageScale: 0.48,
             localEdgeDirection: [0, 0, 1] as const, localFlatDirection: [1, 0, 0] as const }),
         ]) }) }),
     // The physical weapon is an ordinary metre-long sword, not a similarity-scaled stone beam.
@@ -375,7 +381,13 @@ export function humanoidControl(): ConstructControlGraph {
     { id: "offhand-guard", controller: "humanoid-offhand-guard", group: "offhand-guard",
       claims: ["module:effigy-gauntlet", "resource:power-offhand-guard"], parameters: {} },
     { id: "gauntlet-strike", controller: "humanoid-gauntlet-strike", group: "offhand-guard",
-      claims: ["module:effigy-gauntlet", "resource:power-offhand-guard", "resource:sensor-line-of-sight"], parameters: {} },
+      // Sight gates admission in the public Mind rule; it is not an actuator. Claiming the shared
+      // sensor resource here made a real two-arm commit impossible: the sword sweep acquired it
+      // first and the scheduler refused every gauntlet stroke before its controller could move.
+      // The two actions retain distinct physical modules and power resources, so lifting this
+      // false exclusive claim permits their authored bimanual pairing without sharing a motor or
+      // creating a hidden collision/damage privilege.
+      claims: ["module:effigy-gauntlet", "resource:power-offhand-guard"], parameters: {} },
   ] });
 }
 

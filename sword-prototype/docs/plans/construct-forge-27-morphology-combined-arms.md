@@ -9,8 +9,9 @@ blade/torso pair; it does not create general self-collision or a transform-writi
 It is not physical acceptance for Session 30: the left reference still records a -0.0824 m
 all-time post-fall blade/core diagnostic, and the fresh authored Warden entry plus five-morphology
 durability matrix remain rejected/stale at historical source `f82bc3d3`. The sibling-foot
-correction previously moved current source to `420906e8`, and sustained-action work plus its
-locomotion-fallback correction move it again to `aa47975e`. Whole-bout
+correction previously moved source to `420906e8`, and sustained-action work plus its
+locomotion-fallback correction moved it again to `aa47975e`. The later v5 named-gauntlet,
+contact-plane, Warden plate and Arbalest finisher corrections move current source to `44cde241`. Whole-bout
 recovery clearance, a fresh multi-seed/multi-rung matrix and person-visible review remain owed;
 no learned artifact or durability multiplier is promoted.**
 

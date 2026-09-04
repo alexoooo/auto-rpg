@@ -1,12 +1,13 @@
 # Session 33 -- stateful Swordbearer duelist
 
-**Status (2026-09-02): implemented; live physical gate remains open.**
-`SwordbearerTactics` is now the built-in-only deterministic driver, with public advance, withdraw
-and two orbit Actions using `supported-biped-combat-move`; saved programs remain on `ConstructMind`.
-The carrier can turn while moving, stays within physical support/recovery authority, and the
-director exposes phase/reason through the normal snapshot. Its unit tests include command grammar,
-mirror parity, committed-latch handling, threat/off-hand behavior and loss fallback. Session 34
-owns whether that correct surface survives every frozen physical cell.
+**Status (2026-09-03): implemented and physically accepted.**
+`SwordbearerTactics` is the built-in-only deterministic driver, with public advance, withdraw and
+two orbit Actions using `supported-biped-combat-move`; saved programs remain on `ConstructMind`.
+The carrier turns while moving, stays within physical support/recovery authority, and the director
+exposes phase/reason through the normal snapshot. Its tests cover command grammar, mirror parity,
+committed-latch handling, threat/offhand behavior and loss fallback. The full Session-34 corpus
+now confirms that surface survives every frozen physical cell; the final visual review remains
+owed to a person.
 
 ## Outcome
 
@@ -77,11 +78,13 @@ and be mirrored with local X; no render read may produce a sensor fact.
    after every completed sweep and flip it after a blocked lane or threat dodge. A committed sweep
    keeps its present controller/latch semantics; the director cannot retarget it mid-stroke.
 
-4. The director must hold `offhand-guard` concurrently with sword/locomotion only when the real
-   left arm is intact and the threat condition holds. The left arm remains posture-only; it cannot
-   become a shield module, scorer or cross-body teleport. Sword loss leaves supported movement and
-   defense available; arm loss removes only the guard; a fall gives recovery exclusive locomotion
-   authority.
+4. The director must hold `offhand-guard` concurrently with sword/locomotion when the real left
+   arm is intact and the threat condition holds. The permanent named gauntlet remains ordinary
+   physical cover in guard; a compact, scheduler-admitted `gauntlet-strike` may arm only its fixed
+   stone-face and bronze-chisel collision leaves during `drive`/`hold`. The director gets no mesh,
+   transform, collision, target or damage handle. Sword loss leaves supported movement, cover and
+   the left-side check available; arm loss removes only dependent offhand behavior; a fall gives
+   recovery exclusive locomotion authority.
 
 5. Add a `construct-swordbearer-tactics` test module in `tests/`, covering phase transitions, action grammar,
    deterministic orbit alternation, mirror parity, true simultaneous movement/yaw, threat guard,

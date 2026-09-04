@@ -266,9 +266,12 @@ export class Combat {
   private readonly watching: { weapon: Striking; remove: () => void }[] = [];
   private target: Combatant | null = null;
   private clock = 0;
-  /** Parries share one cooldown, since two blades resting together contact
-   *  every step and a log full of one block is a log of nothing. */
-  private lastParryAt = -999;
+  /**
+   * Each physical effector gets one parry cadence. A blade resting on a guard still cannot fill
+   * the log, but a distinct gauntlet that genuinely joins the same bind is not erased by the
+   * sword's earlier callback in that solver step.
+   */
+  private readonly lastParryAt = new Map<string, number>();
   /** One serial is one scoring opportunity; a recycled slot receives a new serial. */
   private readonly projectileHits = new Set<string>();
   /** False from the verdict edge onward; observers stay installed until dispose. */
@@ -455,8 +458,9 @@ export class Combat {
   private parried(weapon: Striking, event: IPhysicsCollisionEvent): void {
     const stopped = this.target?.parriedBy(event.collidedAgainst, event.point as Vector3);
     if (!stopped || !event.point) return;
-    if (this.clock - this.lastParryAt < CONFIG.combat.hitCooldown) return;
-    this.lastParryAt = this.clock;
+    const prior = this.lastParryAt.get(weapon.effectorId) ?? -999;
+    if (this.clock - prior < CONFIG.combat.hitCooldown) return;
+    this.lastParryAt.set(weapon.effectorId, this.clock);
 
     const point = event.point as Vector3;
     const velocity = this.scratch.velocity.copyFrom(weapon.velocityAt(point));

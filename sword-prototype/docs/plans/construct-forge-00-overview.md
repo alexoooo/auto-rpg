@@ -10,7 +10,8 @@
 > implemented, but its Swordbearer physical acceptance remains red. Session 30's 560-bout corpus
 > and authored Warden entry were complete and rejected at source `f82bc3d3`. The sibling-foot
 > presentation correction moved source to `420906e8`; sustained-action work and its following
-> locomotion-fallback correction move current source to `aa47975e`, so those rejections remain historical
+> locomotion-fallback correction moved it to `aa47975e`. The later v5 named-gauntlet, contact-plane,
+> Warden plate and Arbalest finisher corrections move current source to `44cde241`, so those rejections remain historical
 > evidence rather than current qualification. All production durability multipliers remain
 > null. `mapped-pbr` remains the production default because visible hardware performance evidence
 > is blocked. The 2026-09-02 full suite closes the Swordbearer's former one-sweep mirror failure:

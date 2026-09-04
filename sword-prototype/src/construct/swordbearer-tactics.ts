@@ -28,6 +28,9 @@ export const SWORDBEARER_TACTICS_V1 = Object.freeze({
   withdrawS: 0.52,
   withdrawExitAboveM: 1.33,
   orbitBeforeCommitS: 0.48,
+  // A completed short check is not a permanent wind-up.  This interval lets the left arm return
+  // to cover, then re-enter a real stroke while the opponent remains in the working lane.
+  gauntletCheckIntervalS: 0.90,
 });
 
 const numberFact = (frame: SensorFrame, id: string, fallback = 0): number => {
@@ -54,9 +57,10 @@ export class SwordbearerTactics {
   readonly name = "swordbearer-authored-tactics-v1";
   private phase: SwordbearerTacticalPhase = "approach";
   private phaseElapsedS = 0;
+  private elapsedS = 0;
   private orbitSign: -1 | 1 = 1;
   private sweepWasActive = false;
-  private gauntletCheckIssued = false;
+  private nextGauntletCheckAtS = 0;
   private guardClearS = 0;
   private last: ConstructDecisionDiagnostic = Object.freeze({ program: this.name,
     selectedRules: Object.freeze([]), requests: Object.freeze([]), rules: Object.freeze([]),
@@ -89,6 +93,7 @@ export class SwordbearerTactics {
     const sweepActive = runtime?.isActionActive("sweep") === true;
 
     if (!Number.isFinite(dt) || dt <= 0) throw new Error("Swordbearer tactics requires a positive finite timestep");
+    this.elapsedS += dt;
     this.phaseElapsedS += dt;
     this.guardClearS = threat ? 0 : this.guardClearS + dt;
     if (!upright) this.enter("recover");
@@ -141,9 +146,9 @@ export class SwordbearerTactics {
       // a real left-arm Action only in its close commit lane; everywhere else a
       // left-front cover remains active instead of leaving an unowned limb to hang.
       const gauntletCheckActive = runtime?.isActionActive("gauntlet-strike") === true;
-      const canCheck = gauntletCheckActive || (!this.gauntletCheckIssued && leftIntegrity > 0.25 &&
+      const canCheck = gauntletCheckActive || (this.elapsedS >= this.nextGauntletCheckAtS && leftIntegrity > 0.25 &&
         (this.phase === "commit" || this.phase === "counter") && visible && range <= 1.72);
-      if (canCheck && !gauntletCheckActive) this.gauntletCheckIssued = true;
+      if (canCheck && !gauntletCheckActive) this.nextGauntletCheckAtS = this.elapsedS + tuned.gauntletCheckIntervalS;
       requests.push(scheduled(canCheck ? "gauntlet-strike" : "offhand-guard", {},
         canCheck ? 86 : threat ? 84 : 58, 2));
     }
@@ -163,10 +168,6 @@ export class SwordbearerTactics {
     if (this.phase === phase) return;
     this.phase = phase;
     this.phaseElapsedS = 0;
-    // The left check is a compact punctuation to one right-hand stroke, not a metronome.
-    // Reissuing it after every 0.60 s controller completion kept the physical arm driving
-    // through an entire commit and needlessly fed body momentum into supported locomotion.
-    if (phase === "commit" || phase === "counter") this.gauntletCheckIssued = false;
   }
 
   private orbitPhase(): "orbit-left" | "orbit-right" { return this.orbitSign < 0 ? "orbit-left" : "orbit-right"; }

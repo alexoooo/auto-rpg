@@ -356,9 +356,11 @@ test("the_Warden_shield_is_a_joined_frontal_leaf_on_the_physical_bash_axis", () 
     brace.frame.positionM[2] + Math.cos(braceYaw) * brace.shape.sizeM[2] / 2];
   assert.ok(Math.hypot(braceEnd[0] - plate.frame.positionM[0], braceEnd[1] - plate.frame.positionM[2]) < 0.05,
     "the diagonal brace must visibly terminate at the real plate");
-  assert.equal(shield.mountedContactStriker.localContactPoint[0], plate.frame.positionM[0]);
-  assert.equal(shield.mountedContactStriker.localContactPoint[1], 0);
-  assert.ok(Math.abs(shield.mountedContactStriker.localContactPoint[2] -
+  const shove = shield.mountedContactStriker.surfaces[0];
+  assert.equal(shove.primitiveId, "plate", "the visible frontal plate must own the bash contact");
+  assert.equal(shove.localContactPoint[0], plate.frame.positionM[0]);
+  assert.equal(shove.localContactPoint[1], 0);
+  assert.ok(Math.abs(shove.localContactPoint[2] -
     (plate.frame.positionM[2] + plate.shape.sizeM[2] / 2)) < 1e-12,
   "the authored shove point must lie on the plate's frontal face");
 });

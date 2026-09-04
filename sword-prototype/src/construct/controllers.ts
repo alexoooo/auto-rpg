@@ -48,10 +48,10 @@ export const ARBALEST_LEFT_SWORD_GUARD = Object.freeze({
  * can block, but it does not arm either gauntlet scoring surface.
  */
 export const HUMANOID_OFFHAND_GUARD = Object.freeze({
-  // In the humanoid bind convention an opponent in front has local negative Z.
-  // The former negative shoulder value folded the left hand behind the torso;
-  // this compact positive-X chain puts the real gauntlet in the front-left lane.
-  shoulder: 0.30, elbow: -0.50, wrist: 0.20, palm: -0.10,
+  // In the humanoid bind convention an opponent in front has local negative Z. The prior compact
+  // shoulder value folded the left hand across the torso; this measured counter-rotation keeps
+  // the real gauntlet in the front-left guard lane.
+  shoulder: -1.04, elbow: -0.38, wrist: 0.12, palm: -0.06,
 });
 
 /**
@@ -66,11 +66,14 @@ export const HUMANOID_GAUNTLET_COMBAT_V1 = Object.freeze({
   chamberShoulderYawRad: -0.12,
   driveShoulderYawRad: -0.03,
   chamberS: 0.14,
-  driveS: 0.14,
-  holdS: 0.08,
-  recoverS: 0.16,
-  chamber: Object.freeze({ shoulder: 0.15, elbow: -0.62, wrist: 0.20, palm: -0.10 }),
-  drive: Object.freeze({ shoulder: 0.72, elbow: -0.08, wrist: 0.08, palm: 0.04 }),
+  // The real opponent reaches the chisel after the motor has finished taking slack from the
+  // four-link arm. The former 80 ms hold ended before that physical manifold existed, then
+  // scored the later guard collision as nothing. This is a held collider, not a hit promise.
+  driveS: 0.22,
+  holdS: 0.30,
+  recoverS: 0.18,
+  chamber: Object.freeze({ shoulder: -0.78, elbow: -0.42, wrist: 0.12, palm: -0.06 }),
+  drive: Object.freeze({ shoulder: -1.28, elbow: -0.04, wrist: 0.05, palm: 0.03 }),
 });
 
 /**

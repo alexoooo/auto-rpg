@@ -62,7 +62,8 @@ test("the_Swordbearer_has_a_declared_sword_offhand_guard_and_shield-side_dodges"
   assert.equal(graph.actions.find(({ id }) => id === "sweep").controller, "swordbearer-target-sweep");
   const guard = graph.actions.find(({ id }) => id === "offhand-guard");
   assert.deepEqual({ controller: guard?.controller, group: guard?.group, claims: guard?.claims }, {
-    controller: "humanoid-offhand-guard", group: "offhand-guard", claims: ["resource:power-offhand-guard"],
+    controller: "humanoid-offhand-guard", group: "offhand-guard",
+    claims: ["module:effigy-gauntlet", "resource:power-offhand-guard"],
   });
   assert.deepEqual(graph.groups.find(({ id }) => id === "offhand-guard")?.joints,
     ["left-shoulder", "left-elbow", "left-wrist", "left-palm"]);
@@ -124,14 +125,16 @@ test("the_live_Swordbearer_exchanges_real_sword_offhand_and_dodge_actions_in_bot
       `${constructSide} swept its mounted blade through its own core (${report.minimumSelfClearanceM} m)`);
     assert.ok(longestActionIntervalS(report.actionTimeline, "offhand-guard", report.simulatedSeconds) >= 0.25,
       `${constructSide} only pulsed the off-hand guard instead of physically holding it`);
+    assert.ok(report.actionTimeline.some(({ action, kind }) => action === "gauntlet-strike" && kind === "started"),
+      `${constructSide} never admitted an active physical gauntlet check`);
     const longestDodge = Math.max(longestActionIntervalS(report.actionTimeline, "dodge-left", report.simulatedSeconds),
       longestActionIntervalS(report.actionTimeline, "dodge-right", report.simulatedSeconds));
     assert.ok(longestDodge >= 0.25,
       `${constructSide} only pulsed a dodge instead of physically taking the named side-step`);
     assert.equal(report.constructContacts.some((row) => row.damage > 0 && row.standingAtStep !== true), false,
       `${constructSide} dealt damage while its carrier was not standing`);
-    assert.ok(report.actionTimeline.some(({ action, kind }) => action === "recover" && kind === "completed"),
-      `${constructSide} never completed a physical return from combat knockdown`);
+    // This reference is a healthy two-arm exchange. It must not be made to fall merely to prove
+    // recovery; the separately forced historical-topple fixture owns fallen -> rising -> supported.
     for (const prefix of ["full-close", "full-turn"]) {
       assert.ok(report.selectedRules.some((id) => id.startsWith(prefix)),
         `${constructSide} never selected ${prefix} locomotion`);

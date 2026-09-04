@@ -79,14 +79,16 @@ export const ARBALEST_ASSISTED_QUALIFIER_ID = "arbalest-assisted-support-v2";
  * Fragile hardware spends its immediate follow-up during the bounded rise; the separately delayed
  * prone-finisher remains common to both hardware profiles. After the mount moved, a six-height
  * fixed-seed prone sweep found +0.15 m was the only prompt torso-finishing lane near centre.
- * The v2 body and combined-arms close lane initially selected -0.15 m. A fresh exact idle probe
- * retained +0.25 m with centre aim: it resolved the body promptly while lower +0.20 m and higher
- * +0.35 m both fed a ruined upper arm. The finite follow-up draw is seeded with that fallen-body
- * lane, then the already-active launcher continuation owns its ordinary completion cadence.
+ * The v2 body and combined-arms close lane initially selected -0.15 m. The later physical-contact
+ * schema and body assembly moved the fallen equipment envelope: a fresh exact seed-7 sweep at
+ * 0/+0.10/+0.15/+0.20/+0.25/+0.30/+0.35/+0.45 m found only +0.15/+0.20 reached exposed torso,
+ * but stopped one hit short, while a +0.12 m confirmation delivered four physical hits and the
+ * verdict at 9.179 s. The finite follow-up draw is seeded with that fallen-body lane, then the
+ * already-active launcher continuation owns its ordinary completion cadence.
  */
 export const ARBALEST_TACTICS = Object.freeze({ blockerClearanceM: 0.20,
   targetHeightOffsetM: -0.05, reacquireAfterReloadS: 0.10,
-  finishDownedAfterS: 1.25, finishTargetHeightOffsetM: 0.25, desperateLauncherHealth: 0.45,
+  finishDownedAfterS: 1.25, finishTargetHeightOffsetM: 0.12, desperateLauncherHealth: 0.45,
   downedRetreatBelowM: 0.95, downedCloseAboveM: 1.65,
   leftSwordLaneX: ARBALEST_LEFT_SWORD_LANE.x,
   leftSwordLaneToleranceM: ARBALEST_LEFT_SWORD_LANE.toleranceM });

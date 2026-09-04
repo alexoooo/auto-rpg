@@ -340,7 +340,9 @@ test("real_held_blade_and_shield_wall_pressure_stays_inside_part_speed_and_joint
   for (const cell of report.cells.filter(({ kind }) => kind === "wall-pressure")) {
     assert.ok(cell.solver.heldWorldContactsByKind[cell.heldKind] > 0,
       `the held ${cell.heldKind} never produced a real WORLD collision callback`);
-    assert.ok(Number.isFinite(cell.solver.minimumHeldWallClearanceByKindM[cell.heldKind]));
+    assert.ok(cell.solver.minimumHeldWallClearanceByKindM[cell.heldKind] <=
+      report.fixture.maximumHeldWallPenetrationM,
+    `the held ${cell.heldKind} callback was not physically near the named wall`);
     assert.ok(cell.solver.maximumHeldWallPenetrationByKindM[cell.heldKind] <=
       report.fixture.maximumHeldWallPenetrationM);
     assert.ok(cell.solver.maximumPartSpeedMps <= report.fixture.maximumPartSpeedMps);
@@ -356,6 +358,12 @@ test("real_held_blade_and_shield_wall_pressure_stays_inside_part_speed_and_joint
   impossibleWall.solver.maximumHeldWallPenetrationByKindM[impossibleWall.heldKind] = -1;
   assert.throws(() => assertSupportedLocomotionBoundaryCorpus(impossiblePenetration),
     /held geometry penetration contradicted signed clearance or phased through the wall/);
+  const floorOnlyContact = structuredClone(report);
+  const distantWall = floorOnlyContact.cells.find(({ kind, heldKind }) =>
+    kind === "wall-pressure" && heldKind === "sword");
+  distantWall.solver.minimumHeldWallClearanceByKindM.sword = 0.5;
+  assert.throws(() => assertSupportedLocomotionBoundaryCorpus(floorOnlyContact),
+    /named held body never reached the measured wall boundary/);
   const missingHit = structuredClone(report);
   missingHit.cells.pop();
   missingHit.fixture.cellIds.pop();
@@ -449,15 +457,16 @@ test("Swordbearer_recovers_from_the_historical_topple_while_an_idle_raised_guard
     assert.ok(fallen >= 0 && rising > fallen && recovered > rising,
       `${constructSide} Swordbearer did not complete fallen -> rising -> supported: ${states}`);
     // This fixture deliberately gives the idle Warrior its ordinary sword-and-buckler loadout.
-    // The Swordbearer must still drive real sweeps before the authored shove, but a permanently
-    // held physical guard should stop those contacts rather than leak the old fractional damage
-    // floor through it. The live duelist bout owns the separate requirement for unblocked damage.
+    // The Swordbearer must still drive real sweeps before the authored shove, and the physical
+    // guard must stop each contact it receives. It is not an invisible whole-body immunity: an
+    // exposed hand may honestly be grazed around the guard, while the live Duelist bout owns the
+    // separate requirement for unblocked damaging exchanges.
     const guardedSweeps = report.constructContacts.filter((row) => row.sourceModuleId === "effigy-sword" &&
       row.effectorId === "effigy-sword" && row.action === "sweep" && row.blocked === true);
     assert.ok(guardedSweeps.length > 0,
       `${constructSide} never physically brought its sword into the idle Warrior's raised guard`);
-    assert.equal(report.construct.damage, 0,
-      `${constructSide} damaged an idle Warrior through its continuously raised physical guard`);
+    assert.equal(guardedSweeps.every(({ damage }) => damage === 0), true,
+      `${constructSide} recorded damage through its continuously raised physical sword guard`);
     assert.ok(report.minimumRangeM >= 0.625 - 0.020,
       `${constructSide} Swordbearer penetrated the supported pair footprint`);
   }

@@ -6,7 +6,8 @@ import { assertEffigyWarriorDynamismCorpus, EFFIGY_DYNAMISM_V1,
 
 const row = (step, atS, phase, actions, x, heading, terminal = []) => ({
   step, atS, root: { x, z: 0 }, opponent: { x: 0, z: 2 }, headingRad: heading,
-  phase, reason: "test fixture", selectedActions: actions, active: [], rangeM: 1.7,
+  phase, reason: "test fixture", selectedActions: actions,
+  active: actions.includes("gauntlet-strike") ? [{ action: "gauntlet-strike", phase: "drive" }] : [], rangeM: 1.7,
   supportState: "supported", carrierRequested: null,
   carrierAllowed: actions[0]?.startsWith("orbit") ? { forward: 0.35,
     right: phase === "orbit-left" ? -0.8 : 0.8, yaw: phase === "orbit-left" ? -0.7 : 0.7,
@@ -77,4 +78,9 @@ test("the_Swordbearer_does_not_win_the_dynamism_gate_by_sweeping_from_a_planted_
   for (const { effigy } of passiveInterval.cells) for (const sample of effigy.samples.slice(0, 4)) sample.selectedActions = [];
   refresh(passiveInterval);
   assert.throws(() => assertEffigyWarriorDynamismCorpus(passiveInterval), /unlabelled passive combat interval/);
+
+  const refusedGauntlet = corpus();
+  for (const { effigy } of refusedGauntlet.cells) for (const sample of effigy.samples) sample.active = [];
+  refresh(refusedGauntlet);
+  assert.throws(() => assertEffigyWarriorDynamismCorpus(refusedGauntlet), /never physically drove its gauntlet check/);
 });

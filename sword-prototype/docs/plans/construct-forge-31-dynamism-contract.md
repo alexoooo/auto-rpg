@@ -1,13 +1,14 @@
 # Session 31 -- Swordbearer dynamism contract
 
-**Status (2026-09-02): implemented; physical acceptance remains red.**
-`scripts/effigy-warrior-dynamism.mjs` now retains the frozen four-seed/two-side 30-second real-
-Havok corpus alongside matched Warrior rows and reconstructs all anti-turret metrics from its raw
-samples. `tests/construct-effigy-dynamism.test.mjs` proves that erasing travel, heading, a terminal
-or an unlabelled interval rejects the record. The current live corpus is evidence, not a receipt:
-`4140987459/right` still fails supported-standing and `4124209840/left` plus
-`4174542697/right` still fail the three-terminal attack floor, so Sessions 33--34 remain open
-rather than accepting a lively-looking subset.
+**Status (2026-09-03): implemented and accepted.**
+`scripts/effigy-warrior-dynamism.mjs` retains the frozen four-seed/two-side 30-second real-Havok
+corpus alongside matched Warrior rows and reconstructs every anti-turret metric from raw samples.
+The repaired eight-cell receipt exceeds the Warrior lower-quartile movement envelope in every
+mirror, completes 13--21 attacks per cell, holds physical support for all 30 seconds, retains
+sword/core clearance, and records an armed `gauntlet-strike` `drive` or `hold` phase in each cell.
+`tests/construct-effigy-dynamism.test.mjs` proves that erasing travel, heading, a terminal, an
+unlabelled interval, or the physical offhand drive rejects the record. The accepted receipt and
+the correction to the original rejected 2026-09-02 run are durable in `docs/measurements.md`.
 
 ## Outcome
 
@@ -89,5 +90,6 @@ npm run build
 git diff --check -- .
 ```
 
-The expected initial corpus result is rejection. A green result before Session 33 is evidence that
-the measurement is too weak and must be fixed, not permission to skip the tactical work.
+The initial 2026-09-02 corpus did reject as intended. Session 33 repaired the tactical surface and
+Session 34 repaired its physical admission/recovery boundary; the recorded 2026-09-03 green result
+is therefore a receipt, not an early green from a weak measurement.

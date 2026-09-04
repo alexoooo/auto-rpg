@@ -189,14 +189,17 @@ test("pinning_entry_evidence_does_not_move_the_immutable_learning_protocol_diges
 });
 
 test("the_live_learning_entry_fails_closed_when_the_runtime_moves_past_its_rejected_receipt", () => {
-  assert.equal(CONSTRUCT_LEARNING_SCHEDULE_DIGEST, "8253502c");
+  // The protocol folds the exact frozen Warden corpus bytes. Blueprint v5 plus the later measured
+  // Warden/Arbalest physical corrections change this protocol identity, while this remains the old
+  // rejected entry rather than a back-door admission to learning.
+  assert.equal(CONSTRUCT_LEARNING_SCHEDULE_DIGEST, "99ca7ed3");
   assert.deepEqual(CONSTRUCT_LEARNING_SCHEDULE.entryGate, {
     qualified: false,
     evidence: "construct-entry-run-97a634ab-source-f82bc3d3-2026-09-01",
     runDigest: "97a634ab",
     sourceDigest: "f82bc3d3",
-    runtimeStatus: "historical combat-value-v2 Warden receipt; current source aa47975e is unqualified",
-    reason: "current source aa47975e has no entry receipt; prior f82bc3d3 receipt was rejected",
+    runtimeStatus: "historical combat-value-v2 Warden receipt; current source 44cde241 is unqualified",
+    reason: "current source 44cde241 has no entry receipt; prior f82bc3d3 receipt was rejected",
   });
 });
 

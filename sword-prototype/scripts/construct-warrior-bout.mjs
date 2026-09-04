@@ -18,7 +18,7 @@ import { createConstructHeadlessArena } from "./construct-headless-arena.mjs";
 
 const FIXED = 1 / CONFIG.world.physicsHz;
 const QUALIFICATION_CLEARANCE_SAMPLE_STEPS = Math.max(1, Math.round(CONFIG.world.physicsHz / 30));
-const QUALIFICATION_ATTACKS = new Set(["sweep", "dual-cut", "fire", "cut-left", "bash", "cut"]);
+const QUALIFICATION_ATTACKS = new Set(["sweep", "dual-cut", "fire", "cut-left", "bash", "cut", "gauntlet-strike"]);
 
 /**
  * Qualification time has one authority: an integer elapsed tick divided by its declared rate.
@@ -263,7 +263,8 @@ export function advanceQualificationActionLifecycle(events, {
       const actionInstanceId = `${event.action}:${event.group}:${next}`;
       next += 1;
       const instance = { action: event.action, group: event.group, actionInstanceId,
-        weapon: event.action === "fire" ? "projectile" : event.action === "bash" ? "shield" : "sword",
+        weapon: event.action === "fire" ? "projectile" : event.action === "bash" ? "shield"
+          : event.action === "gauntlet-strike" ? "gauntlet" : "sword",
         lastPhase: null };
       nextActive.set(key, instance);
       transitions.push(Object.freeze({ kind: "started", event, instance }));
@@ -445,7 +446,8 @@ export async function runConstructWarriorBout({
         action: projectileInstance?.action ?? captured.action,
         phase: captured.phase,
         weapon: event.report.weapon === "arrow" ? "projectile"
-          : event.effectorId === "warden-shield" ? "shield" : event.report.weapon,
+          : event.effectorId === "effigy-gauntlet" ? "gauntlet"
+            : event.effectorId === "warden-shield" ? "shield" : event.report.weapon,
         effectorId: event.effectorId,
         blocked: event.blocked,
         targetPartId: event.report.key,
@@ -722,7 +724,8 @@ export async function runConstructWarriorBout({
           return instance ? { action: instance.action, actionInstanceId: instance.actionInstanceId,
             phase: "flight" } : {};
         }
-        const action = event.effectorId === "warden-shield" ? "bash"
+        const action = event.effectorId === "effigy-gauntlet" ? "gauntlet-strike"
+          : event.effectorId === "warden-shield" ? "bash"
           : event.effectorId === "dorsal-sword" ? "cut"
             : event.effectorId === "effigy-left-sword" && saved.blueprint.id === "arbalest-effigy"
               ? "cut-left" : saved.blueprint.id === "twinblade-effigy" ? "dual-cut" : "sweep";

@@ -19,6 +19,13 @@ const shape = (value, by) => value.kind === "box"
     ? { kind: value.kind, radiusM: value.radiusM * by }
     : { kind: value.kind, lengthM: value.lengthM * by, radiusM: value.radiusM * by };
 const shell = (value, by) => ({ ...value, visualClearanceM: value.visualClearanceM * by });
+const mountedContactStriker = (value, by) => value?.kind === "authored-surface"
+  ? { ...value, surfaces: value.surfaces.map((surface) => ({ ...surface,
+    // A striker point is authored in the same local module frame as the primitive it names.
+    // Similarity-scaling the primitive but leaving this point in metres manufactured a point that
+    // no longer belonged to its leaf. Keep directions unit-length; only the position scales.
+    localContactPoint: triple(surface.localContactPoint, by) })) }
+  : value;
 
 const BASE_CROWN_M = humanoidProfileMetrics().crownHeight;
 // `groundedConstructOriginY` adds 2 mm after it finds the lowest scaled collider. That fixed
@@ -52,7 +59,9 @@ export function scaleLocomotionFixtureBlueprint(source = humanoidBlueprint()) {
     return { ...module, massKg: module.massKg * massBy,
       geometry: module.geometry.map((primitive) => ({ ...primitive,
         frame: frame(primitive.frame, by), shape: shape(primitive.shape, by),
-        shell: shell(primitive.shell, by) })) };
+        shell: shell(primitive.shell, by) })),
+      ...(module.mountedContactStriker === undefined ? {} : {
+        mountedContactStriker: mountedContactStriker(module.mountedContactStriker, by) }) };
   });
   return validateBlueprint({ ...source, id: "locomotion-fixture-090", parts, joints, sockets, modules });
 }

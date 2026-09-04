@@ -388,8 +388,10 @@ test("a_short_real_Arbalest_cut_is_sampled_at_its_lifecycle_edges_when_30hz_miss
   const report = await runConstructWarriorBout({ saved: arbalestSavedConstruct(),
     sensors: ARBALEST_SENSORS, warriorPolicy: "duelist", warriorSeed: COMBINED_ARMS_SEEDS[2],
     constructSide: "right", maxSteps: CONFIG.world.physicsHz * 4 });
-  const completed = report.qualificationEvents.filter(({ kind, action }) =>
-    kind === "action-completed" && action === "cut-left");
+  const physical = new Set(report.qualificationEvents.filter(({ kind, action }) =>
+    kind === "action-phase" && action === "cut-left").map(({ actionInstanceId }) => actionInstanceId));
+  const completed = report.qualificationEvents.filter(({ kind, action, actionInstanceId }) =>
+    kind === "action-completed" && action === "cut-left" && physical.has(actionInstanceId));
   assert.ok(completed.length > 0, "the fixed real bout must exercise the short physical cut");
   const starts = new Map(report.qualificationEvents.filter(({ kind, action }) =>
     kind === "action-started" && action === "cut-left").map((row) => [row.actionInstanceId, row]));
@@ -411,11 +413,11 @@ test("a_short_real_Arbalest_cut_is_sampled_at_its_lifecycle_edges_when_30hz_miss
 });
 
 test("an_Arbalest_cycle_that_never_publishes_a_physical_phase_is_not_claimed_as_an_attack_admission", async () => {
-  // The corrected Effigy feet remove this edge from seed[1]. The fourth frozen seed retains 22
-  // same-step cycles in this six-second cell, so the recorder seam remains physically exercised.
+  // The second frozen seed's right mirror retains same-step controller completions, so the
+  // recorder must distinguish a physical lifecycle from a scheduler-only start/terminal pair.
   const report = await runConstructWarriorBout({ saved: arbalestSavedConstruct(),
-    sensors: ARBALEST_SENSORS, warriorPolicy: "duelist", warriorSeed: COMBINED_ARMS_SEEDS[3],
-    constructSide: "left", maxSteps: CONFIG.world.physicsHz * 6 });
+    sensors: ARBALEST_SENSORS, warriorPolicy: "duelist", warriorSeed: COMBINED_ARMS_SEEDS[1],
+    constructSide: "right", maxSteps: CONFIG.world.physicsHz * 6 });
   const phases = new Set(report.qualificationEvents.filter(({ kind }) => kind === "action-phase")
     .map(({ actionInstanceId }) => actionInstanceId));
   const terminals = new Map(report.qualificationEvents.filter(({ kind }) =>

@@ -7788,9 +7788,11 @@ The physical 0.90 m Swordbearer uses scale `(0.90 - 0.002) / (1.8995 - 0.002)` =
 0.473254281949934 so the fixed 2 mm compile clearance does not falsely produce a 0.901 m crown.
 Its measured crown is 0.8999999999999999 m. Its historical v1-combat-unit blueprint digest was
 `e9ed64a7`; the verified low-number/schema migration moved that same scaled physical body to
-`cb2e2715`. The later sibling-foot presentation correction moves it again to `90c06e5f`. Part,
-contact and non-weapon module geometry/translations scale linearly, masses by s^3 and shape-derived
-inertia by s^5; the ordinary 1.4 kg sword remains unscaled. Real Havok cells at yaw zero and pi move
+`cb2e2715`. The later sibling-foot presentation correction moved it again to `90c06e5f`. The
+current v5 named-gauntlet fixture is `995a4855`: its primitive-local contact points must scale with
+their named collision leaves, while edge/flat directions remain unit vectors. Part, contact and
+non-weapon module geometry/translations scale linearly, masses by s^3 and shape-derived inertia by
+s^5; the ordinary 1.4 kg sword remains unscaled. Real Havok cells at yaw zero and pi move
 more than 0.25 m while supported, then a 0.5 N s authored shove produces
 fallen -> rising -> supported and a valid final posture.
 
@@ -7805,6 +7807,19 @@ accepted as merely finite clearance. A separate real
 buckler hit interrupted recovery: rising began at 0.7250 s, the contact
 arrived at 0.7417 s and the next safe boundary returned the Construct to fallen at 0.7458 s; no
 scheduled fixture shove impersonated the hit.
+
+The 2026-09-03 v5 correction preserved every floor while replacing three mismatched observations.
+At the 0.90 m scale the root stood at 0.54526 m and the real support contacts were at ground, but
+the old reporter subtracted a 0.06031 m socket centre before comparing it with the unchanged
+0.9-times-vital-height threshold. It now uses the already-published contact plane, falling back to
+the socket only before a contact exists. Both mirrors complete the 0.5 N s recovery by 2.304 s.
+The old sword wall row also measured an attacking tip 0.513 m from the wall while calling its normal
+15.65 m/s stroke a stability limit. The v3 row is an idle held sword at 0.01885 m signed clearance:
+356 real WORLD callbacks, 3.836 m/s maximum part speed and 0.00146 m joint error. It rejects a
+floor-only callback that never reaches the named 0.020 m wall band. Finally, the full mixed corpus
+recognizes bounded `rising` recovery and a supported verdict tail with fresh grounded feet as
+physical support; it does not waive a missing support chain while a living, supported body is meant
+to be walking.
 
 ### Visual/physics correction pass -- 2026-08-31
 
@@ -7982,6 +7997,17 @@ changes move the blueprint/program/control row from `b7b4d0c1` / `b6ae8b21` / `0
 `1cfdf5d7` / `d89e988b` / `0f542c4c`; the unchanged control digest is evidence that clearance did
 not retune the yaw/pitch chain. This supersedes the closing sentence above that called right-side
 idle targeting owed.
+
+The later v5 contact-leaf assembly invalidated the then-current +0.15 m prone-finisher line without
+invalidating the historical measurement itself. A new exact idle seed-7 height sweep first found
+that +0.15 m and +0.20 m reached exposed torso but stopped one hit short, whereas a +0.12 m
+confirmation landed four physical hits and reached the verdict at 9.179 s. `ARBALEST_TACTICS`
+therefore uses +0.12 m. This is a frozen aim correction, not a damage, life, magazine, reload or
+cadence change. In the same v5 review, the Warden's authored shield shove was found bound to its
+central boss while the visible frontal plate was the colliding leaf. Its exact shove surface now
+names that `plate` leaf at z=0.795 m; mirrored real-Havok shield-contact tests exercise the plate
+in both directions. Neither correction validates the older qualification source identity -- its
+Warden blueprint and Arbalest program inputs have changed and must be requalified independently.
 
 ### Combat-value-v2 qualification infrastructure -- 2026-09-01
 
@@ -8685,7 +8711,9 @@ every physical field unchanged. The scaled foot centres remain 0.285 m apart; th
 shells have 0.015 m clearance and the visible contact-pad shells have 0.0195 m clearance. A precise
 oriented-mesh check samples both shell pairs through 180 real gait steps and observes no
 intersection. The complete humanoid blueprint suite passes 10/10; the scaled move/recovery corpus
-passes after its presentation-bearing blueprint pin moves from `cb2e2715` to `90c06e5f`; and the
+passes after its presentation-bearing blueprint pin moves from `cb2e2715` to `90c06e5f`, then to
+the v5 gauntlet-bearing `995a4855` when its named local contact points began scaling with their
+leaves; and the
 26-cell locomotion corpus, historical recovery and full-health Arbalest follow-up cells all pass on
 the unchanged physical geometry.
 
@@ -8734,10 +8762,11 @@ torso; it does not establish a visually clean fallen body. Do not read this focu
 qualification, a balance result, or permission to install a learned Mind. The owed work is a
 whole-bout recovery-clearance repair, a fresh multi-seed/multi-rung bracket, and a visible human
 arena review. The sustained-action work moved the source after `420906e8`; the immediately
-following locomotion fallback correction moves the fail-closed qualification fingerprint to
-`aa47975e`. No entry receipt exists for the new source.
+following locomotion fallback correction moved it to `aa47975e`. The later v5 named-gauntlet,
+contact-plane, Warden plate and Arbalest finisher corrections move the fail-closed qualification
+fingerprint to `44cde241`. No entry receipt exists for the new source.
 
-### Swordbearer dynamism corpus -- rejected, anti-turret evidence retained -- 2026-09-02
+### Swordbearer dynamism corpus -- accepted bimanual physical evidence -- 2026-09-03
 
 Harness: `node scripts/effigy-warrior-dynamism.mjs`, which builds each bout through the ordinary
 Construct/Warrior runtime in a fresh NullEngine/Havok scene. It runs the frozen four seeds on both
@@ -8750,42 +8779,41 @@ stored summaries.
 The Warrior lower-quartile movement floors were 4.368 m ground path, 3.818 m accumulated lateral
 travel and 2.493 rad accumulated heading. Every Swordbearer cell exceeded all three, changed orbit
 lane at least twice, had a labelled turn-and-move interval above 0.25 s, had no unlabelled
-in-range passive interval, and had no stationary unlabelled damaging contact. This rules out the
-old planted sweep-turret reading, but does not waive the safety and repeat-attack floors.
+in-range passive interval, had no stationary unlabelled damaging contact, completed at least three
+attacks, and remained physically supported for the full 30 seconds. The retained samples now also
+require at least one actual `drive` or `hold` phase of the gauntlet Action in every cell; a selected
+but scheduler-refused offhand Action cannot satisfy the bimanual row.
 
 | seed / Construct side | path / lateral / heading | completed sweeps | orbit changes | longest supported standing | sword/core minimum |
 | --- | --- | ---: | ---: | ---: | ---: |
-| 4140987459 / left | 7.616 m / 5.379 m / 24.485 rad | 7 | 6 | 30.000 s | 0.0506 m |
-| 4140987459 / right | 24.389 m / 17.121 m / 52.504 rad | 4 | 4 | **15.117 s** | 0.0318 m |
-| 4124209840 / left | 7.813 m / 5.341 m / 28.656 rad | **2** | 2 | 30.000 s | 0.0498 m |
-| 4124209840 / right | 19.424 m / 11.845 m / 59.657 rad | 3 | 3 | 22.500 s | 0.0470 m |
-| 4174542697 / left | 9.174 m / 5.898 m / 29.560 rad | 4 | 4 | 30.000 s | 0.0316 m |
-| 4174542697 / right | 14.577 m / 9.553 m / 43.213 rad | **1** | 2 | 22.987 s | 0.1108 m |
-| 4157765078 / left | 8.111 m / 5.069 m / 27.461 rad | 5 | 5 | 30.000 s | 0.0502 m |
-| 4157765078 / right | 15.136 m / 8.721 m / 43.252 rad | 4 | 4 | 24.637 s | 0.0509 m |
+| 4140987459 / left | 8.337 m / 5.663 m / 27.205 rad | 16 | 4 | 30.000 s | 0.0505 m |
+| 4140987459 / right | 7.636 m / 4.925 m / 27.042 rad | 19 | 5 | 30.000 s | 0.0507 m |
+| 4124209840 / left | 8.495 m / 5.418 m / 26.516 rad | 13 | 3 | 30.000 s | 0.0504 m |
+| 4124209840 / right | 8.073 m / 5.054 m / 25.909 rad | 15 | 4 | 30.000 s | 0.0506 m |
+| 4174542697 / left | 8.300 m / 5.695 m / 29.089 rad | 17 | 5 | 30.000 s | 0.0506 m |
+| 4174542697 / right | 7.520 m / 4.877 m / 26.452 rad | 19 | 5 | 30.000 s | 0.0508 m |
+| 4157765078 / left | 7.282 m / 4.934 m / 26.512 rad | 21 | 6 | 30.000 s | 0.0505 m |
+| 4157765078 / right | 8.387 m / 5.665 m / 28.427 rad | 20 | 5 | 30.000 s | 0.0503 m |
 
-The corpus is rejected by its fixed minimums: 19.0 seconds of supported standing and three
-completed physical sweeps per cell. The three bold values identify the failures, respectively
-support/recovery and repeat physical attack throughput. No health, armour, weapon mass, weapon
-damage, hit attribution, or durability tuning was changed to improve the appearance of this result.
-The narrower `athletic-20` and `athletic-15` chassis candidates remain rejected separately because
-each lost one mirrored physical exchange; the selected body is the qualified `baseline-retained`
-envelope. A held-recovery-controller experiment was also rejected during this pass: retaining the
-Action beyond its controller-local settle signal regressed the existing scaled recovery and live
-Swordbearer physical boundaries, so it was reverted rather than treating a single better-looking
-recovery trace as evidence.
+The preceding 2026-09-02 receipt was a genuine rejection: it found one unstable mirror and two
+repeat-attack failures. The repair did not lower a health, armour, sword mass, sword damage or
+standing threshold. Instead, the locomotion authority preserves its declared combat brace across
+a safe parameter replacement, recovery no longer mistakes a light brush for a new stagger, and
+the authored offhand is admitted concurrently with the sword rather than falsely claiming the
+sword's sight resource. This is a dynamism/physical-control acceptance only; it does not promote a
+competitive durability rung or replace the still-owed visible human review.
 
-A second rejected tactical candidate moved the carrier at `0.55 m/s` (0.18 backward and sideways,
-0.20 yaw) during the already-latched sword stroke. It raised every cell to at least four completed
-sweeps, including the two attack-throughput failures, but reduced longest supported standing to
-14.779 / 14.246 / 30.000 / 30.000 / 12.396 / 18.008 / 30.000 / 30.000 seconds in the frozen
-table order. Four cells therefore failed the same 19.0-second safety floor. The candidate was
-reverted: a longer attack list cannot buy permission to turn the supported carrier into an
-unstable moving platform.
+### Swordbearer permanent-gauntlet contact probe -- accepted -- 2026-09-03
 
-The smaller `0.28 m/s` straight-retreat candidate did not rescue that trade. It did keep five
-cells above both repeat-attack and standing floors, but `4174542697/right` reached only 16.037 s
-standing with a 0.0216 m sword/core margin, while both `4157765078` sides returned to two sweeps.
-That is a different failure pattern, not supporting evidence for an arbitrary in-between speed;
-it too was reverted. The next repair must address the support/weapon-loss failure path directly,
-not move the carrier during a mounted stroke.
+`node scripts/effigy-gauntlet-contact.mjs` runs a separate 30-second real-Havok fixed-240 Hz
+contact witness: the fixed left-side Effigy faces the ordinary seed-4140987459 Duelist holding one
+sword and no buckler. It records the exact surface/action phase rather than granting the offhand a
+damage exception. The accepted contact is at 14.745833333332817 s: the `effigy-gauntlet` bronze
+ridge (`axe`) meets the real opposing sword at 0.6955127006217308 m/s during
+`gauntlet-strike` `drive`. It is a physical block, therefore zero damage is the expected result.
+
+This probe is intentionally narrower than the corpus. It proves that the named fixed bronze chisel
+has an armed physical manifold of its own; the corpus proves every normal Warrior sword-and-buckler
+cell actually drives the offhand and both arms remain active while the body travels, turns, attacks
+and stays upright. Neither witness uses an AI-controlled mesh, target transform, trigger-only hit
+box or special damage path.

@@ -1762,8 +1762,9 @@ time-capped. The separate 560-bout combined-arms run at that source, run `d1e1d8
 every durability rung. The later Effigy sibling-foot correction moves current runtime source to
 `420906e8`, so both rejected receipts became historical and that source was unqualified. The
 2026-09-02 sustained-action repair moved the current source again, and the following locomotion
-fallback correction fixes the tactical-alias reporting regression it exposed; the current source is
-`aa47975e`. It has no entry receipt. Nothing promotes a learned Mind or installs a multiplier.
+fallback correction fixed the tactical-alias reporting regression it exposed. The later v5 named
+gauntlet, contact-plane, Warden plate and Arbalest finisher corrections move the current source to
+`44cde241`. It has no entry receipt. Nothing promotes a learned Mind or installs a multiplier.
 
 ### The fixed humanoid construct
 
@@ -1808,16 +1809,21 @@ content.
 The hardware surface also says whether the sword and left-arm chain remain available, and publishes
 the described opponent weapon tip velocity in Effigy-local coordinates. Severing one chain removes
 only dependent behavior instead of producing refusal spam; a fall withdraws scoring and requests
-supported recovery before tactics resume. The free arm remains posture-only -- it is neither a
-shield module nor a damage source.
+supported recovery before tactics resume. The left arm carries a permanent fixed gauntlet: its broad
+stone face is a named blunt surface and its visibly extended bronze chisel is a separate named edge
+surface. `gauntlet-strike` arms only those physical leaves during its drive/hold phase. Havok's
+manifold decides whether it strikes stone or bronze, and ordinary edge orientation decides a cut;
+the Mind neither chooses damage nor moves a mesh. The arm keeps its ordinary guard pose outside the
+short checks, so it remains physical cover without pretending to be a shield module.
 
-The frozen eight-cell dynamism receipt is recorded in
-[measurements: Swordbearer dynamism corpus](measurements.md#swordbearer-dynamism-corpus----rejected-anti-turret-evidence-retained----2026-09-02).
-It rejects the current controller despite meeting the Warrior lower-quartile movement envelope:
-one mirror loses required supported-standing time and two have fewer than three completed sweeps.
-That record is deliberately a rejection, not permission to lower health, damage, or the gate for a
-livelier-looking fight. The in-arena phase line is diagnostic only, and the human visual review
-remains blocked until this physical receipt is green.
+The accepted eight-cell real-Havok bimanual receipt and its narrower physical contact witness are
+recorded in [measurements: Swordbearer dynamism corpus](measurements.md). Every mirror now exceeds
+the Warrior lower-quartile movement envelope, completes at least thirteen recorded Actions, keeps
+supported posture for the full 30 seconds, maintains at least 0.0503 m sword/core clearance, and
+drives an actual gauntlet `drive` or `hold` phase. The independent probe records the bronze chisel
+meeting a real Warrior sword during that armed phase. This is not permission to alter damage or
+declare a competitive balance rung: the in-arena phase line remains diagnostic, and a visible human
+review is still owed.
 
 The attempted narrower `athletic-20` and `athletic-15` stone profiles are retained as explicit
 rejected candidates rather than hidden render scales. Each was genuinely narrower while keeping
@@ -1853,8 +1859,10 @@ but continues tracking through reload. Its sight also observes the opponent's pu
 saved launcher health capacity and a live blocker-relative aim lane. A launcher with ordinary
 health refuses fire during a rise, so its opponent can finish a real recovery before the next
 ordinary shot. A stable opponent that remains prone is a different state: after a 1.25-second
-recovery window, a finishing rule uses its separately measured +0.15 m prone aim trim and resolves
-the bout instead of waiting for the safety cap. The deliberately fragile x0.10 balance body instead
+recovery window, a finishing rule uses its separately measured +0.12 m prone aim trim and resolves
+the bout instead of waiting for the safety cap. That is the current contact-schema/body envelope:
+the older +0.15 m measurement remains retained in the measurement history, while a confirmation at
++0.12 m landed four physical hits and reached the verdict at 9.179 seconds. The deliberately fragile x0.10 balance body instead
 fires during the bounded rise. Saved capacity is a separate fact from normalized
 remaining health; confusing those units made the fragile branch always true in the rejected version.
 Its 2.40 m retreat boundary preserves recovery space instead of exploiting a fallen opponent's

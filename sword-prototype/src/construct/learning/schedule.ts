@@ -60,8 +60,8 @@ export const CONSTRUCT_LEARNING_SCHEDULE = Object.freeze({
     evidence: "construct-entry-run-97a634ab-source-f82bc3d3-2026-09-01",
     runDigest: "97a634ab",
     sourceDigest: "f82bc3d3",
-    runtimeStatus: "historical combat-value-v2 Warden receipt; current source aa47975e is unqualified",
-    reason: "current source aa47975e has no entry receipt; prior f82bc3d3 receipt was rejected",
+    runtimeStatus: "historical combat-value-v2 Warden receipt; current source 44cde241 is unqualified",
+    reason: "current source 44cde241 has no entry receipt; prior f82bc3d3 receipt was rejected",
   }),
 });
 

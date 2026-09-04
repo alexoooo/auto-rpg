@@ -1,10 +1,12 @@
 # Session 35 -- visible Effigy handoff
 
-**Status (2026-09-02): UI implemented; human handoff is blocked on the red physical corpus.** The
-arena now renders the non-interactive `EFFIGY: phase -- action / controller` line from the ordinary
+**Status (2026-09-03): UI and physical receipt implemented; visible human handoff remains owed.**
+The arena renders the non-interactive `EFFIGY: phase -- action / controller` line from the ordinary
 decision/scheduler snapshot and the setup screen names the Warrior sword+buckler versus built-in
 Effigy-Mind review. It remains inside the arena on pause; it neither captures camera input nor
-replaces the game view. The three visible human questions remain owed after Session 34 is green.
+replaces the game view. The eight-cell physical corpus and its permanent-gauntlet contact witness
+are now green, so no red automated gate blocks this handoff. A person must still answer the three
+visible questions below in a real browser.
 
 ## Outcome
 

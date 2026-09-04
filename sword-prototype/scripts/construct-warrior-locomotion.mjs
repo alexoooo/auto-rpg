@@ -95,16 +95,22 @@ function physicalCell(chassis, constructSide, mode, saved, bout) {
     }
     return longest / CONSTRUCT_WARRIOR_LOCOMOTION_V1.physicsHz;
   };
+  // A falling or bounded-rising carrier is deliberately off its ordinary live support chain. It
+  // has not become an unsupported walk cycle: the authoritative state machine owns its recovery
+  // and `maximumFreshSupportGapS` below measures any unaccounted gap. A corpse may similarly keep
+  // two freshly grounded feet for the one permitted verdict tail; physical fresh support and a
+  // supported posture prove that fact even though its no-longer-living controller says false.
   const supportStateValid = (diagnostic) => diagnostic !== null &&
-    (diagnostic.state === "fallen" || diagnostic.liveSupport === true);
+    (diagnostic.state === "fallen" || diagnostic.state === "rising" || diagnostic.liveSupport === true ||
+      (diagnostic.state === "supported" && diagnostic.postureSupported === true &&
+        diagnostic.freshSupportBindings.length > 0));
+  const supportRowsValid = (body) => steps.every((step) => supportStateValid(step[body]));
   const support = Object.freeze({
     bothPortsObserved: steps.length === bout.steps && steps.every(({ construct, warrior }) =>
       construct !== null && warrior !== null),
-    constructLiveThroughout: steps.length > 0 && steps.every(({ construct }) =>
-      supportStateValid(construct)) && maximumFreshSupportGapS("construct") <=
+    constructLiveThroughout: steps.length > 0 && supportRowsValid("construct") && maximumFreshSupportGapS("construct") <=
         CONSTRUCT_WARRIOR_LOCOMOTION_V1.supportGraceS + 1e-12,
-    warriorLiveThroughout: steps.length > 0 && steps.every(({ warrior }) =>
-      supportStateValid(warrior)) && maximumFreshSupportGapS("warrior") <=
+    warriorLiveThroughout: steps.length > 0 && supportRowsValid("warrior") && maximumFreshSupportGapS("warrior") <=
         CONSTRUCT_WARRIOR_LOCOMOTION_V1.supportGraceS + 1e-12,
     constructMaximumFreshGapS: maximumFreshSupportGapS("construct"),
     warriorMaximumFreshGapS: maximumFreshSupportGapS("warrior"),
@@ -175,7 +181,9 @@ function physicalCell(chassis, constructSide, mode, saved, bout) {
   }
   if (!finite(bout.minimumRangeM, bout.locomotion.initialRangeM, bout.locomotion.finalRangeM,
     bout.locomotion.constructRootDisplacementM, bout.locomotion.warriorRootDisplacementM,
-    combat.constructDamage, combat.warriorDamage)) failures.push("a physical measurement was non-finite");
+    combat.constructDamage, combat.warriorDamage)) {
+    failures.push("a physical measurement was non-finite");
+  }
 
   return Object.freeze({ id: `${chassis}-${mode}-${constructSide}`, chassis, constructSide, mode,
     schedulerOrder: constructSide === "left" ? "construct-then-warrior" : "warrior-then-construct",
@@ -276,11 +284,12 @@ export function assertConstructWarriorLocomotionCorpus(report) {
       };
       const constructGap = maximumFreshSupportGapS("construct");
       const warriorGap = maximumFreshSupportGapS("warrior");
-      const constructLive = cell.supportSteps.every(({ construct }) =>
-        construct.state === "fallen" || construct.liveSupport === true) &&
+      const supportStateValid = (diagnostic) => diagnostic.state === "fallen" || diagnostic.state === "rising" ||
+        diagnostic.liveSupport === true || (diagnostic.state === "supported" && diagnostic.postureSupported === true &&
+          diagnostic.freshSupportBindings.length > 0);
+      const constructLive = cell.supportSteps.every(({ construct }) => supportStateValid(construct)) &&
         constructGap <= report.fixture.supportGraceS + 1e-12;
-      const warriorLive = cell.supportSteps.every(({ warrior }) =>
-        warrior.state === "fallen" || warrior.liveSupport === true) &&
+      const warriorLive = cell.supportSteps.every(({ warrior }) => supportStateValid(warrior)) &&
         warriorGap <= report.fixture.supportGraceS + 1e-12;
       const constructStates = [...new Set(cell.supportSteps.map(({ construct }) => construct.state))];
       const warriorStates = [...new Set(cell.supportSteps.map(({ warrior }) => warrior.state))];

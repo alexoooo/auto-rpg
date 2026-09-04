@@ -7,14 +7,16 @@ import { scaledLocomotionFixture, SCALED_LOCOMOTION_BODY_SCALE,
   "./scaled-locomotion-fixture.mjs";
 
 export const SCALED_SUPPORTED_LOCOMOTION_V1 = Object.freeze({
-  version: 1,
+  version: 2,
   physicsHz: 240,
-  blueprintDigest: "90c06e5f",
+  blueprintDigest: "995a4855",
   targetCrownM: SCALED_LOCOMOTION_TARGET_CROWN_M,
   bodyScale: SCALED_LOCOMOTION_BODY_SCALE,
   closeSpeedMps: SCALED_LOCOMOTION_FIXTURE_SPEED_MPS,
   movementSteps: 720,
-  recoverySteps: 1440,
+  // The shove lands at 1.5 s and both mirrors finish their bounded rise at 2.304 s. Stop at
+  // 2.5 s so this is a recovery cell, not a second unlabelled engagement after closing resumes.
+  recoverySteps: 600,
   shoveStep: 360,
   shoveNs: Object.freeze([0.5, 0]),
   minimumDisplacementM: 0.25,
@@ -58,7 +60,8 @@ export async function runScaledSupportedLocomotionCorpus() {
         horizontalShoveNs: SCALED_SUPPORTED_LOCOMOTION_V1.shoveNs }] });
     cells.push(compactBout(`scaled-recovery-${sideName}`, "recovery", constructSide, facing, recovery));
   }
-  return Object.freeze({ version: 1, fixture: SCALED_SUPPORTED_LOCOMOTION_V1,
+  return Object.freeze({ version: SCALED_SUPPORTED_LOCOMOTION_V1.version,
+    fixture: SCALED_SUPPORTED_LOCOMOTION_V1,
     cells: Object.freeze(cells), summary: Object.freeze({ physicalCells: cells.length,
       minimumMovementM: Math.min(...cells.filter(({ kind }) => kind === "move")
         .map(({ constructRootDisplacementM }) => constructRootDisplacementM)) }) });

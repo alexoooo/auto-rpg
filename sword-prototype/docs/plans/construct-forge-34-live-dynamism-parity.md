@@ -1,15 +1,14 @@
 # Session 34 -- live Effigy dynamism parity and adversarial review
 
-**Status (2026-09-02): proof implemented; current eight-cell receipt is rejected.** The physical
-corpus retains pose, carrier, support, phase, admitted Action/controller, terminal and contact
-evidence, and its verifier refuses forged summaries. It confirms substantial travel, lateral
-motion and turn-and-move intervals rather than a stationary sweep turret. It is still red because
-`4140987459/right` has only 15.1167 seconds of supported standing and `4124209840/left` /
-`4174542697/right` complete only two / one sweeps. The retained receipt has no unlabelled stationary
-damaging contact. Those are real repair targets; they are not waived by the new dynamics.
-Two post-baseline moving-stroke candidates were rejected and reverted: the 0.55 m/s backward/lateral
-one cleared every attack count but failed supported standing in four cells; the smaller straight
-retreat left one unsafe and two attack-poor cells. The durable numbers are in `docs/measurements.md`.
+**Status (2026-09-03): accepted real-Havok receipt.** The physical corpus retains pose, carrier,
+support, phase, admitted Action/controller, terminal and contact evidence, and its verifier refuses
+forged summaries. All eight mirrored cells now exceed the Warrior movement floor, complete 13--21
+attacks, change lane three or more times, retain support for the entire 30-second horizon, retain at
+least 0.0503 m sword/core clearance, and have no unlabelled stationary damaging contact. Every cell
+also contains a physically admitted gauntlet `drive` or `hold`; this prevents an idle guard pose
+from counting as two-arm combat. The repair preserved the originally rejected rows as history and
+did not relax durability, damage, health, armour or standing thresholds. The durable receipt is in
+`docs/measurements.md`.
 
 ## Outcome
 
@@ -52,11 +51,19 @@ the still-red wider locomotion and competitive qualification gates.
    comparison. A balance change belongs back in the owning low-number/qualification session and
    must preserve the retained dynamic records; a static kill never supplies balance evidence.
 
+6. For the permanent gauntlet extension, run `scripts/effigy-gauntlet-contact.mjs` beside the
+   corpus. It must find one real Havok contact during an armed `gauntlet-strike` `drive` or `hold`,
+   identify the exact named `effigy-gauntlet` leaf and ordinary weapon kind, and reject a chamber
+   pose or an attribution that lacks the source module. A blocked physical contact may correctly
+   deal zero damage; it is evidence of the manifold, not a special hit exception.
+
 ## Verification
 
 ```powershell
 node --test tests/construct-swordbearer-duelist.test.mjs
 node --test tests/supported-locomotion-physical.test.mjs tests/scaled-supported-locomotion.test.mjs
+node scripts/effigy-warrior-dynamism.mjs
+node scripts/effigy-gauntlet-contact.mjs
 node scripts/construct-warrior-curriculum.mjs --durability-ladder
 npm test
 npm run check

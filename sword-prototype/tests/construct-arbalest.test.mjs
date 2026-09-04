@@ -124,7 +124,7 @@ test("an_Arbalest_draw_starts_from_verified_upright_posture_and_then_keeps_its_l
   assert.equal(ARBALEST_LOCOMOTION.retreatBelowM, 2.40);
   assert.deepEqual(ARBALEST_TACTICS, { blockerClearanceM: 0.20, targetHeightOffsetM: -0.05,
     reacquireAfterReloadS: 0.10, finishDownedAfterS: 1.25,
-    finishTargetHeightOffsetM: 0.25, desperateLauncherHealth: 0.45,
+    finishTargetHeightOffsetM: 0.12, desperateLauncherHealth: 0.45,
     downedRetreatBelowM: 0.95, downedCloseAboveM: 1.65,
     leftSwordLaneX: -0.34, leftSwordLaneToleranceM: 0.08 });
   assert.equal(ARBALEST_SENSORS.some(({ id }) => id === "opponent-upright"), true);
@@ -187,7 +187,7 @@ test("an_Arbalest_draw_starts_from_verified_upright_posture_and_then_keeps_its_l
   assert.ok(finish);
   assert.equal(finish.dwellS, ARBALEST_TACTICS.finishDownedAfterS);
   assert.deepEqual(finish.parameters["target-height-offset"],
-    { kind: "expression", value: { op: "constant", value: 0.25, unit: "metres" } });
+    { kind: "expression", value: { op: "constant", value: 0.12, unit: "metres" } });
   assert.deepEqual(finish.parameters["target-lane-blend"],
     { kind: "expression", value: { op: "constant", value: 0, unit: "scalar" } });
   const finishes = () => Boolean(evaluateExpression(finish.condition, frame,

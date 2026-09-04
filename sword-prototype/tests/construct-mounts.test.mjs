@@ -482,7 +482,10 @@ test("the_authored_sword_Warden_physically_contacts_a_Warrior_in_both_mirrors", 
     const arena = await createConstructHeadlessArena();
     const materials = mixedMaterials(arena.scene);
     const locomotionWorld = flatSupportedWorldRegistry();
-    const separation = CONFIG.fighter.separation;
+    // Locomotion closure is covered by the phase-latched Warden bout above. Start this collider
+    // acceptance inside the authored dorsal sweep envelope so an idle target, which contributes
+    // no counter-motion into the arc, still exercises both mirrored physical leaves.
+    const separation = 1.4;
     const constructOrigin = constructSide === "left" ? Vector3.Zero() : new Vector3(0, 0, separation);
     const warriorOrigin = constructSide === "left" ? new Vector3(0, 0, separation) : Vector3.Zero();
     const warriorSide = constructSide === "left" ? "right" : "left";

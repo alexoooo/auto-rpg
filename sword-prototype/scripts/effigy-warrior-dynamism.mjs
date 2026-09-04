@@ -21,6 +21,10 @@ export const EFFIGY_DYNAMISM_V1 = Object.freeze({
   maximumPassiveCombatS: 0.75,
   minimumCompletedAttacks: 3,
   minimumGauntletChecks: 1,
+  // A selected request can be refused by a conflicting claim. Retain an actual motor-controller
+  // phase separately so the bimanual gate proves the gauntlet was physically armed, not merely
+  // named by the Mind.
+  minimumActiveGauntletDriveSamples: 1,
   minimumBimanualCommitSamples: 1,
   minimumOrbitDirectionSwitches: 2,
   minimumTurnAndMoveS: 0.25,
@@ -107,6 +111,7 @@ export function reconstructDynamismMetrics(samples, contacts = []) {
   let maximumTurnAndMoveS = 0;
   const terminalActions = [];
   let gauntletChecks = 0;
+  let activeGauntletDriveSamples = 0;
   let bimanualCommitSamples = 0;
   for (let index = 0; index < samples.length; index += 1) {
     const row = samples[index];
@@ -132,6 +137,8 @@ export function reconstructDynamismMetrics(samples, contacts = []) {
     const labelledActive = row.selectedActions.some((action) => MOTION_ACTIONS.has(action) || ATTACK_ACTIONS.has(action) ||
       action === "guard" || action === "offhand-guard" || action === "stabilize");
     if (row.selectedActions.includes("gauntlet-strike")) gauntletChecks += 1;
+    if (row.active.some(({ action, phase }) => action === "gauntlet-strike" &&
+      (phase === "drive" || phase === "hold"))) activeGauntletDriveSamples += 1;
     if (row.selectedActions.includes("sweep") && row.selectedActions.includes("gauntlet-strike")) {
       bimanualCommitSamples += 1;
     }
@@ -171,6 +178,7 @@ export function reconstructDynamismMetrics(samples, contacts = []) {
   return immutableMetric({ groundPathM, lateralExcursionM, accumulatedHeadingRad, orbitDirectionSwitches,
     maximumPassiveCombatS, completedAttacks: terminalActions.length, damagingStationaryContacts,
     maximumTurnAndMoveS, gauntletChecks, bimanualCommitSamples,
+    activeGauntletDriveSamples,
     terminalActions: Object.freeze(terminalActions.map(Object.freeze)),
     stationaryExceptions: Object.freeze(exceptions) });
 }
@@ -195,7 +203,8 @@ export function assertEffigyWarriorDynamismCorpus(report) {
     const stored = report.cells[index].effigy.metrics;
     const current = reconstructed[index].effigy;
     for (const key of ["groundPathM", "lateralExcursionM", "accumulatedHeadingRad", "orbitDirectionSwitches",
-      "maximumPassiveCombatS", "completedAttacks", "damagingStationaryContacts", "gauntletChecks", "bimanualCommitSamples"]) {
+      "maximumPassiveCombatS", "completedAttacks", "damagingStationaryContacts", "gauntletChecks",
+      "activeGauntletDriveSamples", "bimanualCommitSamples"]) {
       if (!sameNumber(stored?.[key], current[key])) error(`${actual[index]} stored ${key} disagrees with physical samples`);
     }
   }
@@ -212,6 +221,9 @@ export function assertEffigyWarriorDynamismCorpus(report) {
     }
     if (metrics.completedAttacks < config.minimumCompletedAttacks) error(`${actual[index]} completed fewer than three attacks`);
     if (metrics.gauntletChecks < config.minimumGauntletChecks) error(`${actual[index]} never selected a gauntlet check`);
+    if (metrics.activeGauntletDriveSamples < config.minimumActiveGauntletDriveSamples) {
+      error(`${actual[index]} never physically drove its gauntlet check`);
+    }
     if (metrics.bimanualCommitSamples < config.minimumBimanualCommitSamples) error(`${actual[index]} never committed both arms together`);
     if (metrics.orbitDirectionSwitches < config.minimumOrbitDirectionSwitches) error(`${actual[index]} changed orbit lane fewer than twice`);
     if (metrics.maximumPassiveCombatS > config.maximumPassiveCombatS + 1e-9) error(`${actual[index]} has an unlabelled passive combat interval`);
@@ -267,7 +279,8 @@ async function runEffigyCell(seed, constructSide) {
     maxSteps: EFFIGY_DYNAMISM_V1.seconds * EFFIGY_DYNAMISM_V1.physicsHz,
     onConstructStep: (row) => samples.push(effigySample({ ...row, step: samples.length })) });
   const contacts = Object.freeze(bout.constructContacts.map((row) => Object.freeze({ atS: row.atS, damage: row.damage,
-    action: row.action, phase: row.phase })));
+    action: row.action, phase: row.phase, effectorId: row.effectorId, blocked: row.blocked,
+    sourceModuleId: row.sourceModuleId })));
   const metrics = reconstructDynamismMetrics(samples, contacts);
   return Object.freeze({ samples: Object.freeze(samples), contacts, metrics,
     safety: Object.freeze({ longestStandingS: bout.posture.longestStandingS,
