@@ -175,7 +175,11 @@ async function main(): Promise<void> {
   let selfContacts = 0;
   let owned = new Set<PhysicsBody>();
   let watchers: [PhysicsBody, Observer<unknown>][] = [];
-  const readout = new BenchReadout({ settledBand: CHAIN_PITCH.settledBand });
+  // **Rebuilt with the module, because the band is the module's.** The first published axis is an
+  // angle on rung 1 and a distance on rungs 2 and 3, so a single shared constant would be a
+  // number whose unit depends on which option happens to be on the stand -- the same shape of
+  // defect as a range constant in `policies.ts` that is a weapon's length in disguise.
+  let readout = new BenchReadout({ settledBand: CHAIN_PITCH.settledBand });
   const sample = blankSample();
 
   const releaseWatchers = (): void => {
@@ -199,12 +203,12 @@ async function main(): Promise<void> {
     elapsed = 0;
     contacts = 0;
     selfContacts = 0;
-    readout.reset();
     const socket = stand.socket(slot);
     module = option.build({
       scene, side: "left", name: `golem.bench.${slot}`, socket, layers,
       materials: stand.materials,
     });
+    readout = new BenchReadout({ settledBand: module.envelope().settledBand });
     overlay = new BenchOverlay(scene, socket, module.envelope());
     if (rigWanted) overlay.toggle();
 
@@ -341,8 +345,17 @@ async function main(): Promise<void> {
       sample.tipX = view.tip.x;
       sample.tipY = view.tip.y;
       sample.tipZ = view.tip.z;
+      sample.cmdX = view.commandedTip.x;
+      sample.cmdY = view.commandedTip.y;
+      sample.cmdZ = view.commandedTip.z;
       sample.stroking = view.stroke !== "idle";
       sample.anchorStray = view.anchorStray;
+      sample.hasEdge = view.edge !== null;
+      if (view.edge) {
+        sample.edgeX = view.edge.x;
+        sample.edgeY = view.edge.y;
+        sample.edgeZ = view.edge.z;
+      }
     }
     sample.contacts = contacts;
     sample.selfContacts = selfContacts;

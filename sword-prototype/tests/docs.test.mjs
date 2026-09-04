@@ -333,8 +333,15 @@ const SCRATCH_SHARE_OF_DURABLE = { min: 0.02, max: 0.25 };
 // occurrences, because several of them are named by the overview and by session 02 both, and by
 // the later sessions that will extend them. The 26 that remain are sessions 03 to 11 naming
 // what they intend to create.
+//
+// **Re-taken 2026-09-04 from golem session 03's own failing run: 26 -> 24.** Two occurrences went
+// because session 03 built the two files its plan promised,
+// `src/golem/effectors/chains/reach.ts` and `src/golem/effectors/chains/wrist.ts`. Two files and
+// two occurrences: unlike session 02's, neither is named by the overview, which describes the
+// ladder in a table rather than by path. The 24 that remain are sessions 04 to 11 naming what
+// they intend to create.
 const PLAN_SURFACE = {
-  noSuchFile: 26,
+  noSuchFile: 24,
   ambiguousFile: 0,
   anchorIntoDeletedFile: 0,
   orphanContinuation: 0,

@@ -32,19 +32,23 @@ import type { EffectorView, GolemSocket, ModuleEnvelope } from "../golem/module.
  * - **Contact points**, the most recent few, as small marks. A contact is what opens the 0.25 s
  *   tip-speed exclusion window, so seeing where one happened is what makes an excluded peak
  *   legible rather than mysterious.
- *
- * There is deliberately no anchor here, because neither of Session 02's chains has one:
- * `AnchorDrive` builds an invisible massless sphere and nothing in the module contract
- * publishes it. Session 03 is the first session with an anchor to draw, and the honest way to
- * add it is a field on the view rather than this file reaching into a chain.
+ * - **The anchor**, for a chain that has one. Session 02 left no anchor here because neither of
+ *   its chains had one, and said that the honest way to add it was a field on the view rather
+ *   than this file reaching into a chain. `EffectorView.anchor` is that field. The reading it
+ *   makes visible is the one `AGENTS.md` says to take first: a driven limb that is not within a
+ *   few millimetres of its own anchor is not posed wrongly, it is stuck on something.
  */
 const CONTACT_MARKS = 8;
+
+/** How many segments a drawn envelope edge is walked in. Enough that a curve reads as one. */
+const EDGE_STEPS = 20;
 
 export class BenchOverlay {
   private readonly scene: Scene;
   private readonly nodes: (Mesh | LinesMesh)[] = [];
   private readonly commandedDot: Mesh;
   private readonly achievedDot: Mesh;
+  private readonly anchorDot: Mesh;
   private readonly contactDots: Mesh[] = [];
   private errorLine: LinesMesh;
   private readonly errorPoints = [new Vector3(), new Vector3(0, 0.001, 0)];
@@ -65,6 +69,7 @@ export class BenchOverlay {
     const commanded = glow("bench.commanded", new Color3(0.35, 0.85, 1));
     const achieved = glow("bench.achieved", new Color3(1, 0.78, 0.3));
     const contact = glow("bench.contact", new Color3(1, 0.32, 0.28));
+    const anchored = glow("bench.anchor", new Color3(0.45, 1, 0.55));
 
     const dot = (name: string, diameter: number, material: StandardMaterial): Mesh => {
       const mesh = MeshBuilder.CreateSphere(name, { diameter, segments: 8 }, scene);
@@ -75,6 +80,8 @@ export class BenchOverlay {
     };
     this.commandedDot = dot("bench.rig.commanded", 0.07, commanded);
     this.achievedDot = dot("bench.rig.achieved", 0.055, achieved);
+    this.anchorDot = dot("bench.rig.anchor", 0.05, anchored);
+    this.anchorDot.position.set(0, -50, 0);
     for (let index = 0; index < CONTACT_MARKS; index += 1) {
       const mark = dot(`bench.rig.contact${index}`, 0.05, contact);
       mark.position.set(0, -50, 0);
@@ -99,22 +106,86 @@ export class BenchOverlay {
     axis(new Vector3(0, 1, 0), new Color3(0.3, 1, 0.3), "bench.rig.socketY");
     axis(new Vector3(0, 0, 1), new Color3(0.3, 0.5, 1), "bench.rig.socketZ");
 
-    // The reach, as two rings through the socket: one in the sagittal plane the swing lives in
-    // and one horizontal. Two great circles of the reach sphere say "this far and no further"
-    // without this file having to know what the module's axes mean.
-    const ring = (name: string, first: Vector3, second: Vector3): void => {
-      const points: Vector3[] = [];
-      for (let step = 0; step <= 48; step += 1) {
-        const angle = (step / 48) * Math.PI * 2;
-        const point = first.scale(Math.cos(angle) * envelope.reach)
-          .addInPlace(second.scale(Math.sin(angle) * envelope.reach));
+    const reachable = envelope.reachable;
+    if (reachable) {
+      // **The envelope, drawn as what it actually is.** Frozen rule 3 says a command lives inside
+      // it, and on a chain whose command is a point that shell is not a sphere: it is the region
+      // between two radii, clipped by the swing and lift limits *and* by the minimum outboard
+      // carry -- which couples the swing to the other two, so the inboard edge is a curve and not
+      // a straight line. Two rings at one radius would draw a claim the module does not make.
+      //
+      // Outboard-signed, exactly as the record is, so this one piece of arithmetic draws either
+      // socket without a mirrored copy of itself.
+      const swingFloor = (radius: number, lift: number): number => {
+        const horizontal = radius * Math.cos(lift);
+        if (horizontal <= 1e-6) return reachable.swingMin;
+        const floor = Math.asin(
+          Math.max(-1, Math.min(1, reachable.carryMin / horizontal)),
+        );
+        return Math.max(reachable.swingMin, Math.min(floor, reachable.swingMax));
+      };
+      const on = (radius: number, swing: number, lift: number): Vector3 => {
+        const azimuth = socket.outboard * swing;
+        const cosLift = Math.cos(lift);
+        const point = new Vector3(
+          Math.sin(azimuth) * cosLift, Math.sin(lift), Math.cos(azimuth) * cosLift,
+        ).scaleInPlace(radius);
         point.rotateByQuaternionToRef(socket.rotation, point);
-        points.push(point.addInPlace(socket.world));
+        return point.addInPlace(socket.world);
+      };
+      const walk = (name: string, radius: number, colour: Color3, alpha: number): void => {
+        const points: Vector3[] = [];
+        const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
+        for (let i = 0; i <= EDGE_STEPS; i += 1) {
+          const t = i / EDGE_STEPS;
+          points.push(on(radius, lerp(swingFloor(radius, reachable.liftMax), reachable.swingMax, t),
+            reachable.liftMax));
+        }
+        for (let i = 0; i <= EDGE_STEPS; i += 1) {
+          const t = i / EDGE_STEPS;
+          points.push(on(radius, reachable.swingMax, lerp(reachable.liftMax, reachable.liftMin, t)));
+        }
+        for (let i = 0; i <= EDGE_STEPS; i += 1) {
+          const t = i / EDGE_STEPS;
+          points.push(on(radius, lerp(reachable.swingMax, swingFloor(radius, reachable.liftMin), t),
+            reachable.liftMin));
+        }
+        // The carry curve, walked in lift so the coupling shows.
+        for (let i = 0; i <= EDGE_STEPS * 2; i += 1) {
+          const lift = lerp(reachable.liftMin, reachable.liftMax, i / (EDGE_STEPS * 2));
+          points.push(on(radius, swingFloor(radius, lift), lift));
+        }
+        const made = line(name, points, colour);
+        made.alpha = alpha;
+      };
+      walk("bench.rig.envelopeOuter", reachable.reachMax, new Color3(0.45, 0.5, 0.6), 0.6);
+      walk("bench.rig.envelopeInner", reachable.reachMin, new Color3(0.35, 0.4, 0.5), 0.35);
+      // Four spokes at the corners, so the shell reads as a solid rather than as two loops.
+      for (const [swing, lift] of [
+        [reachable.swingMax, reachable.liftMax], [reachable.swingMax, reachable.liftMin],
+        [swingFloor(reachable.reachMax, reachable.liftMax), reachable.liftMax],
+        [swingFloor(reachable.reachMax, reachable.liftMin), reachable.liftMin],
+      ] as const) {
+        const made = line(`bench.rig.spoke${swing.toFixed(2)}${lift.toFixed(2)}`,
+          [on(reachable.reachMin, swing, lift), on(reachable.reachMax, swing, lift)],
+          new Color3(0.35, 0.4, 0.5));
+        made.alpha = 0.35;
       }
-      const made = line(name, points, new Color3(0.45, 0.5, 0.6));
-      made.alpha = 0.45;
-    };
-    if (envelope.reach > 0) {
+    } else if (envelope.reach > 0) {
+      // No reachable set published, so the honest drawing is the one thing the envelope does say:
+      // how far the business end goes. Two great circles of that sphere, as Session 02 drew them.
+      const ring = (name: string, first: Vector3, second: Vector3): void => {
+        const points: Vector3[] = [];
+        for (let step = 0; step <= 48; step += 1) {
+          const angle = (step / 48) * Math.PI * 2;
+          const point = first.scale(Math.cos(angle) * envelope.reach)
+            .addInPlace(second.scale(Math.sin(angle) * envelope.reach));
+          point.rotateByQuaternionToRef(socket.rotation, point);
+          points.push(point.addInPlace(socket.world));
+        }
+        const made = line(name, points, new Color3(0.45, 0.5, 0.6));
+        made.alpha = 0.45;
+      };
       ring("bench.rig.reachSagittal", new Vector3(0, 1, 0), new Vector3(0, 0, 1));
       ring("bench.rig.reachHorizontal", new Vector3(1, 0, 0), new Vector3(0, 0, 1));
     }
@@ -151,6 +222,11 @@ export class BenchOverlay {
     if (!this.shown || !view) return;
     this.commandedDot.position.copyFrom(view.commandedTip);
     this.achievedDot.position.copyFrom(view.tip);
+    // Parked far below the floor when there is no anchor, rather than hidden: a mesh toggled by
+    // this file would have to be re-shown by `setShown`, and one boolean owned in two places is
+    // how an overlay ends up drawing a stale anchor for a chain that has none.
+    if (view.anchor) this.anchorDot.position.copyFrom(view.anchor);
+    else this.anchorDot.position.set(0, -50, 0);
     this.errorPoints[0].copyFrom(view.commandedTip);
     this.errorPoints[1].copyFrom(view.tip);
     // Babylon refuses a line whose two points coincide, so nudge the second one when the limb

@@ -32,10 +32,41 @@ export interface ReadoutSample {
   tipX: number;
   tipY: number;
   tipZ: number;
+  /**
+   * Where the business end is being *asked* to be.
+   *
+   * Fed as well as the first axis's commanded value, because on a chain with more than one axis
+   * the first axis alone cannot answer "is the command moving". Rungs 2 and 3 publish reach,
+   * swing and lift, and a cursor sweeping across the window at constant reach moves the limb
+   * through most of its envelope while the reach never changes -- so an instrument reading only
+   * axis 0 called that "at rest" and reported **925.03 mm of tip wander at rest** on a chain
+   * whose real floor is a fraction of a millimetre. Measured 2026-09-04 in the Node bench, and it
+   * is the same shape of defect as the `stableCommand` baseline this file already records: a
+   * green instrument that measures nothing.
+   *
+   * Zero when a caller does not feed it, which is why the test below is a **union** with the
+   * axis's own rate rather than a replacement for it.
+   */
+  cmdX: number;
+  cmdY: number;
+  cmdZ: number;
   /** Whether a stroke is running. A stroke's target error is enormous by design. */
   stroking: boolean;
   /** Metres from the driven body to its own anchor, or null for a chain with no anchor. */
   anchorStray: number | null;
+  /**
+   * Which way the terminal's edge faces, or all zeroes when what is on the end has no edge.
+   *
+   * Fed as three scalars rather than as a `Vector3` for the reason this whole file is scalars in
+   * and scalars out: the page and the Node bench both feed it, and it has to be the same
+   * arithmetic in both or the two harnesses would disagree for a second reason on top of the one
+   * they already disagree for.
+   */
+  edgeX: number;
+  edgeY: number;
+  edgeZ: number;
+  /** Whether the terminal has an edge at all. False makes every edge reading `n/a`. */
+  hasEdge: boolean;
   /** Contacts of any kind since the previous sample. Opens the post-contact exclusion. */
   contacts: number;
   /** Of those, contacts between two bodies the same golem owns. Must be zero. */
@@ -44,7 +75,10 @@ export interface ReadoutSample {
 
 export const blankSample = (): ReadoutSample => ({
   t: 0, commanded: 0, achieved: 0, tipX: 0, tipY: 0, tipZ: 0,
-  stroking: false, anchorStray: null, contacts: 0, selfContacts: 0,
+  cmdX: 0, cmdY: 0, cmdZ: 0,
+  stroking: false, anchorStray: null,
+  edgeX: 0, edgeY: 0, edgeZ: 0, hasEdge: false,
+  contacts: 0, selfContacts: 0,
 });
 
 export interface ReadoutState {
@@ -109,9 +143,62 @@ export interface ReadoutState {
   readonly stuckSteps: number;
   readonly contacts: number;
   readonly selfContacts: number;
+  /**
+   * How far the business end is from where it is being asked to be, millimetres.
+   *
+   * The axis-space `targetError` above answers the same question in the first axis's own unit,
+   * which is an angle on rung 1 and a distance on rungs 2 and 3 and says nothing at all about the
+   * other axes of a chain that has more than one. This is the whole-command version: one scalar,
+   * in millimetres, comparable across every rung -- and directly comparable with the Warrior's
+   * own anchor-to-hand figures in `docs/measurements.md`, which are the numbers this directory
+   * has the most experience reading.
+   */
+  readonly tipErrorMm: number;
+  /**
+   * The peak of that, **outside the startup window and outside any stroke**.
+   *
+   * Both exclusions for the same reason the tip-speed ones exist: a limb lifting out of its build
+   * pose and a limb in the follow-through of a velocity event are both a long way from their
+   * commands *on purpose*, and a peak that does not say which it excludes means nothing. What is
+   * left is the lag under an ordinary commanded move, which is what a rate or force sweep is
+   * about.
+   */
+  readonly peakTipErrorMm: number;
   /** Millimetres from the driven body to its own anchor, or null where there is no anchor. */
   readonly anchorStrayMm: number | null;
   readonly peakAnchorStrayMm: number | null;
+  /**
+   * The same peak with the startup window and every stroke excluded.
+   *
+   * **This is the "is it stuck on something" reading**, and the unfiltered one above is not: a
+   * follow-through drops the drive's force ceiling on purpose, so the limb leaves its anchor by
+   * design and the run's peak stray is a measurement of the stroke. A driven limb that is not
+   * within a few millimetres of its own anchor *while nothing is asking it to be anywhere else*
+   * is not posed wrongly, it is stuck on something -- which is the reading `AGENTS.md` says to
+   * take first, and it is this one.
+   */
+  readonly idleAnchorStrayMm: number | null;
+  /**
+   * How well the edge is leading the tip's own motion: `unit tip velocity . edge axis`.
+   *
+   * The same quantity `src/scoring.ts` calls `edgeAlignment` and multiplies by speed to decide
+   * what a cut was worth, taken here against the tip's differenced velocity instead of against a
+   * contact -- because on a bench there is nothing to hit and the question being asked is whether
+   * the *chain* can put the edge where the blow is going. **Signed**, exactly as `Contact` is: a
+   * sword cuts either way and does not care, and an axe arriving at -1 is the poll.
+   *
+   * Null on a terminal with no edge, which is a real answer and not a missing one: a capped
+   * socket bites with mass and an alignment reported for it would be a number that means nothing.
+   */
+  readonly edgeLead: number | null;
+  /**
+   * The same, sampled at the moment of `peakTipSpeedDriven`.
+   *
+   * The pairing that matters, because scoring multiplies alignment by speed: an edge that is
+   * beautifully placed while the blade is crawling is worth nothing. A *peak* of a signed
+   * quantity would be meaningless, so this is not one -- it is the value at the peak of the other.
+   */
+  readonly edgeLeadAtPeak: number | null;
 }
 
 export interface ReadoutOptions {
@@ -131,6 +218,7 @@ export class BenchReadout {
   private steps = 0;
   private last = -1;
   private previous: { x: number; y: number; z: number } | null = null;
+  private previousCommand: { x: number; y: number; z: number } | null = null;
 
   private targetError = 0;
   private peakTargetError = 0;
@@ -172,6 +260,14 @@ export class BenchReadout {
 
   private anchorStray: number | null = null;
   private peakAnchorStray: number | null = null;
+  private idleAnchorStray: number | null = null;
+
+  private tipError = 0;
+  private peakTipError = 0;
+  private lastStrokeAt = Number.NEGATIVE_INFINITY;
+
+  private edgeLead: number | null = null;
+  private edgeLeadAtPeak: number | null = null;
 
   constructor(options: ReadoutOptions) {
     this.band = options.settledBand;
@@ -181,6 +277,7 @@ export class BenchReadout {
     this.steps = 0;
     this.last = -1;
     this.previous = null;
+    this.previousCommand = null;
     this.targetError = 0;
     this.peakTargetError = 0;
     this.tipSpeed = 0;
@@ -206,6 +303,12 @@ export class BenchReadout {
     this.errorWindow = [];
     this.anchorStray = null;
     this.peakAnchorStray = null;
+    this.idleAnchorStray = null;
+    this.tipError = 0;
+    this.peakTipError = 0;
+    this.lastStrokeAt = Number.NEGATIVE_INFINITY;
+    this.edgeLead = null;
+    this.edgeLeadAtPeak = null;
   }
 
   sample(next: ReadoutSample): void {
@@ -227,8 +330,18 @@ export class BenchReadout {
       const dx = next.tipX - this.previous.x;
       const dy = next.tipY - this.previous.y;
       const dz = next.tipZ - this.previous.z;
-      this.tipSpeed = Math.sqrt(dx * dx + dy * dy + dz * dz) / dt;
+      const travel = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      this.tipSpeed = travel / dt;
       if (this.tipSpeed > this.peakRaw) this.peakRaw = this.tipSpeed;
+
+      // The edge against the direction the tip is actually going. Below a millimetre of travel in
+      // a substep the direction is float noise rather than a motion, so there is no answer to
+      // report and the last one stands -- a normalised zero would read as a perfectly wrong edge.
+      if (next.hasEdge && travel > 1e-6) {
+        this.edgeLead = (dx * next.edgeX + dy * next.edgeY + dz * next.edgeZ) / travel;
+      } else if (!next.hasEdge) {
+        this.edgeLead = null;
+      }
 
       const inStartup = next.t < R.startupExclusionSeconds;
       const inContact = next.t - this.lastContactAt < R.contactExclusionSeconds;
@@ -239,6 +352,7 @@ export class BenchReadout {
       if (inContact) this.excludedContact += 1;
       if (!inStartup && !inContact && this.tipSpeed > this.peakDriven) {
         this.peakDriven = this.tipSpeed;
+        this.edgeLeadAtPeak = this.edgeLead;
       }
     }
     this.previous ??= { x: 0, y: 0, z: 0 };
@@ -256,7 +370,24 @@ export class BenchReadout {
     // a millimetre. That is the green-test-that-asserts-nothing shape in an instrument rather
     // than in a test, and it was found by sweeping a number, not by reading the code.
     const commandRate = dt > 0 ? Math.abs(next.commanded - this.lastCommand) / dt : 0;
-    const commandMoved = commandRate > R.commandStillRate;
+    // **A union over the first axis and the commanded point**, because "the command is still"
+    // means every part of it is still and a chain with three axes has three parts. The first axis
+    // alone missed a cursor sweeping across the envelope at constant reach; the commanded point
+    // alone would be zero for a caller that does not feed one, which the instrument's own
+    // synthetic tests deliberately do not. Either moving is moving.
+    let commandPointRate = 0;
+    if (this.previousCommand && dt > 0) {
+      const cx = next.cmdX - this.previousCommand.x;
+      const cy = next.cmdY - this.previousCommand.y;
+      const cz = next.cmdZ - this.previousCommand.z;
+      commandPointRate = Math.sqrt(cx * cx + cy * cy + cz * cz) / dt;
+    }
+    this.previousCommand ??= { x: 0, y: 0, z: 0 };
+    this.previousCommand.x = next.cmdX;
+    this.previousCommand.y = next.cmdY;
+    this.previousCommand.z = next.cmdZ;
+    const commandMoved = commandRate > R.commandStillRate
+      || commandPointRate > R.commandStillRate;
 
     // --- the noise floor: how far the tip moves while nothing is asking it to -------------
     // Three conditions, and the third one is the one that was missing at first. A command that
@@ -356,11 +487,24 @@ export class BenchReadout {
       this.errorWindow.length = 0;
     }
 
+    // --- the whole command, as one distance -------------------------------------------------
+    const ex = next.tipX - next.cmdX;
+    const ey = next.tipY - next.cmdY;
+    const ez = next.tipZ - next.cmdZ;
+    this.tipError = Math.sqrt(ex * ex + ey * ey + ez * ez) * 1000;
+    if (next.stroking) this.lastStrokeAt = next.t;
+    const settledEnough = next.t - this.lastStrokeAt >= R.strokeExclusionSeconds
+      && next.t >= R.startupExclusionSeconds;
+    if (settledEnough && this.tipError > this.peakTipError) this.peakTipError = this.tipError;
+
     // --- the anchor, where one exists ------------------------------------------------------
     this.anchorStray = next.anchorStray;
     if (next.anchorStray !== null) {
       const mm = next.anchorStray * 1000;
       if (this.peakAnchorStray === null || mm > this.peakAnchorStray) this.peakAnchorStray = mm;
+      if (settledEnough && (this.idleAnchorStray === null || mm > this.idleAnchorStray)) {
+        this.idleAnchorStray = mm;
+      }
     }
   }
 
@@ -382,8 +526,13 @@ export class BenchReadout {
       stuckSteps: this.stuckSteps,
       contacts: this.contacts,
       selfContacts: this.selfContacts,
+      tipErrorMm: this.tipError,
+      peakTipErrorMm: this.peakTipError,
       anchorStrayMm: this.anchorStray === null ? null : this.anchorStray * 1000,
       peakAnchorStrayMm: this.peakAnchorStray,
+      idleAnchorStrayMm: this.idleAnchorStray,
+      edgeLead: this.edgeLead,
+      edgeLeadAtPeak: this.edgeLeadAtPeak,
     };
   }
 }
@@ -400,10 +549,18 @@ const fixed = (value: number, places: number): string => value.toFixed(places);
 export function formatReadout(state: ReadoutState): readonly string[] {
   const stray = state.peakAnchorStrayMm === null
     ? "n/a (no anchor on this chain)"
-    : `${fixed(state.peakAnchorStrayMm, 2)} mm peak, ${fixed(state.anchorStrayMm ?? 0, 2)} now`;
+    : `${fixed(state.idleAnchorStrayMm ?? 0, 2)} mm peak while idle,`
+      + ` ${fixed(state.peakAnchorStrayMm, 2)} including strokes,`
+      + ` ${fixed(state.anchorStrayMm ?? 0, 2)} now`;
+  const edge = state.edgeLead === null
+    ? "n/a (this terminal has no edge)"
+    : `${fixed(state.edgeLead, 3)} now,`
+      + ` ${state.edgeLeadAtPeak === null ? "n/a" : fixed(state.edgeLeadAtPeak, 3)} at the peak`;
   return Object.freeze([
     `steps ${state.steps} over ${fixed(state.seconds, 2)} s`,
     `target error ${fixed(state.targetError, 4)} (peak ${fixed(state.peakTargetError, 4)})`,
+    `tip to command ${fixed(state.tipErrorMm, 2)} mm`
+      + ` (peak ${fixed(state.peakTipErrorMm, 2)} outside startup and strokes)`,
     `settle ${state.settleSeconds === null ? "n/a" : `${fixed(state.settleSeconds, 3)} s`}`
       + `  arrival ${state.arrivalSeconds === null ? "n/a" : `${fixed(state.arrivalSeconds, 3)} s`}`
       + `  overshoot ${fixed(state.overshoot, 4)}`,
@@ -413,6 +570,7 @@ export function formatReadout(state: ReadoutState): readonly string[] {
       + ` ${state.excludedStartupSteps} steps excluded as startup,`
       + ` ${state.excludedContactSteps} as post-contact)`,
     `tip wander at rest ${fixed(state.tipWanderMm, 3)} mm`,
+    `edge lead ${edge}`,
     `anchor stray ${stray}`,
     `stuck steps ${state.stuckSteps}`,
     `contacts ${state.contacts}, self-contacts ${state.selfContacts}`,

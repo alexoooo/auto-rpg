@@ -15,6 +15,7 @@ import {
   type BuiltChain,
   type EffectorAxisView,
   type EffectorStroke,
+  type EffectorStrokeKind,
   type GolemMount,
   type GolemPart,
   type ModuleBuild,
@@ -22,6 +23,10 @@ import {
 } from "../../module.ts";
 
 const HINGE = PhysicsConstraintAxis.ANGULAR_X;
+
+/** What rung 1 can be asked for: a chop, and a guard held. */
+const PITCH_STROKES: readonly EffectorStrokeKind[] =
+  Object.freeze<EffectorStrokeKind[]>(["thrust", "cover"]);
 
 /**
  * How a terminal is bolted to the end of the link, and why the edge lies where it does.
@@ -157,6 +162,12 @@ export const pitchChain = defineChain({
         id: "pitch", unit: "rad" as const, min: P.pitchMin, max: P.pitchMax, rate: P.targetRate,
       })]),
       reach: P.linkLength,
+      // A chop and a raised guard, and no cut: a cut is the target swept along an arc, and a
+      // one-axis chain has no arc to sweep it along that is not the chop it already runs.
+      // `reachable` is null because this chain's command is an angle rather than a point.
+      strokes: PITCH_STROKES,
+      reachable: null,
+      settledBand: P.settledBand,
     });
 
     const scratch = {
@@ -269,7 +280,8 @@ export const pitchChain = defineChain({
       axes: () => axes,
       stroke: () => phase,
       // No anchor on this rung: the hinge's own motor is the drive, so there is no second frame
-      // to stray from. Session 03's chains have one and fill this in.
+      // to stray from. Session 03's chains have one and fill both of these in.
+      anchor: () => null,
       anchorStray: () => null,
 
       commandedEnd(distanceFromSocket: number): Vector3 {

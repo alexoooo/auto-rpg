@@ -3,6 +3,8 @@ import type { HandIntent, Intent } from "../mind.ts";
 import { effectorModule } from "./effectors/effector.ts";
 import { noneChain } from "./effectors/chains/none.ts";
 import { pitchChain } from "./effectors/chains/pitch.ts";
+import { reachChain } from "./effectors/chains/reach.ts";
+import { wristChain } from "./effectors/chains/wrist.ts";
 import { bladeTerminal } from "./effectors/terminals/blade.ts";
 import {
   effectorSlot,
@@ -135,7 +137,8 @@ const handChannel = (intent: Intent, ctx: ModuleBuild): HandIntent => {
 export const EFFECTOR_CHAINS = {
   none: noneChain,
   pitch: pitchChain,
-  // Session 03 appends `reach` and `wrist` here.
+  reach: reachChain,
+  wrist: wristChain,
 } as const satisfies { readonly [K in ChainId]?: EffectorChainDefinition & { readonly id: K } };
 
 /** The terminal shelf, same rule. Session 04 appends `plate`, `mace` and `whip`. */
@@ -162,7 +165,8 @@ export type BuiltTerminalId = keyof typeof EFFECTOR_TERMINALS;
 export const GOLEM_MODULES: readonly GolemBenchOption[] = Object.freeze([
   benchOption(effectorModule(EFFECTOR_CHAINS.none, null), "effector", handChannel),
   benchOption(effectorModule(EFFECTOR_CHAINS.pitch, EFFECTOR_TERMINALS.blade), "effector", handChannel),
-  // Session 03: reach + blade, wrist + blade.
+  benchOption(effectorModule(EFFECTOR_CHAINS.reach, EFFECTOR_TERMINALS.blade), "effector", handChannel),
+  benchOption(effectorModule(EFFECTOR_CHAINS.wrist, EFFECTOR_TERMINALS.blade), "effector", handChannel),
   // Session 04: each accepted chain against plate, mace and whip.
   // Session 05: locomotion.biped and its siblings, with mode "locomotion".
   // Session 07: torso.plain, torso.plated, head.plain, head.ram.

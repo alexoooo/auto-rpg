@@ -83,6 +83,20 @@ export interface AnchorDriveOptions {
    * flinging the thing. `arm.ts`'s hand anchor carries the same comment and the same reason.
    */
   readonly rotation: Quaternion;
+  /**
+   * Which point *of the target* the anchor pins, in the target's own local frame.
+   *
+   * Defaults to the body's own origin, which is what `Arm`'s hand anchor does and what every
+   * six-axis pin wants. A position-only anchor on the end of a limb wants the **end**: pinning
+   * a forearm's centre and then asking where its far end went makes the commanded point a
+   * function of the pose it is trying to command, which is a circle. Pinning the far end
+   * directly makes the anchor's position the hand target and nothing else.
+   *
+   * `options.position` must be where this point is in world space at construction, or the
+   * constraint starts with a violation -- the same rule as a weld whose two frames disagree,
+   * and with the same remedy.
+   */
+  readonly pivot?: Vector3;
   readonly parameters: AnchorDriveParameters;
 }
 
@@ -128,11 +142,23 @@ export class AnchorDrive {
 
   private readonly parameters: AnchorDriveParameters;
   private readonly target: Part;
+  /** Which point of the target is pinned, in the target's own local frame. */
+  private readonly pivot: Vector3;
   /** The rate-limited command: where the anchor is actually being sent this step. */
   private readonly commanded = new Vector3();
   private readonly commandedRotation = new Quaternion();
+  /**
+   * What is being spent right now, which a stroke moves and `parameters` does not.
+   *
+   * Two numbers rather than a mutable copy of the whole parameter block, because these are
+   * exactly the two a stroke touches and a block that could be edited wholesale mid-run would
+   * make "which axes does this anchor drive" a question with a time-dependent answer.
+   */
+  private linearForceNow: number;
+  private linearRateNow: number;
   private readonly scratch = {
     stray: new Vector3(),
+    pinned: new Vector3(),
     step: new Quaternion(),
   };
   private released = false;
@@ -140,6 +166,9 @@ export class AnchorDrive {
   constructor(scene: Scene, options: AnchorDriveOptions) {
     this.parameters = options.parameters;
     this.target = options.target;
+    this.pivot = (options.pivot ?? Vector3.Zero()).clone();
+    this.linearForceNow = options.parameters.linearForce;
+    this.linearRateNow = options.parameters.linearRate;
     this.commanded.copyFrom(options.position);
     this.commandedRotation.copyFrom(options.rotation);
 
@@ -158,7 +187,7 @@ export class AnchorDrive {
     this.constraint = new Physics6DoFConstraint(
       {
         pivotA: Vector3.Zero(),
-        pivotB: Vector3.Zero(),
+        pivotB: (options.pivot ?? Vector3.Zero()).clone(),
         axisA: new Vector3(1, 0, 0),
         axisB: new Vector3(1, 0, 0),
         perpAxisA: new Vector3(0, 1, 0),
@@ -191,11 +220,47 @@ export class AnchorDrive {
   applyTuning(): void {
     if (this.released) return;
     for (const axis of this.parameters.linear) {
-      this.constraint.setAxisMotorMaxForce(axis, this.parameters.linearForce);
+      this.constraint.setAxisMotorMaxForce(axis, this.linearForceNow);
     }
     for (const axis of this.parameters.angular) {
       this.constraint.setAxisMotorMaxForce(axis, this.parameters.angularForce);
     }
+  }
+
+  /**
+   * Move the linear force ceiling, mid-stroke.
+   *
+   * **This is what a velocity event is made of on an anchor-driven chain.** Rung 1 switches its
+   * hinge motor to VELOCITY mode and drops the torque so the limb coasts through on its own
+   * momentum; an anchor has no velocity mode, so its follow-through is the same thing said the
+   * other way round -- the command holds and the *ceiling* drops, and the limb decelerates
+   * against gravity rather than against the motor. A pose sequence has no equivalent, which is
+   * the whole distinction.
+   *
+   * Not a second copy of the parameter: `parameters.linearForce` stays the chain's tuned setting,
+   * which is what a sweep moves and what `config.ts` carries the table for, and this is what is
+   * being spent right now.
+   */
+  setLinearForce(newtons: number): void {
+    this.linearForceNow = newtons;
+    this.applyTuning();
+  }
+
+  /** The ceiling on how fast the commanded point may move, moved for the length of a stroke. */
+  setLinearRate(metresPerSecond: number): void {
+    this.linearRateNow = metresPerSecond;
+  }
+
+  /**
+   * Where the anchor is being sent, **after** the rate limit, into a ref this drive owns.
+   *
+   * The number a readout wants when it asks what the command is: the mapping's answer is where
+   * the cursor points and this is what the solver was actually given, and on a chain whose whole
+   * character is that its command is rate-limited those two are different for most of every move.
+   * Publishing the mapping's would report a step the limb never had to follow.
+   */
+  commandedPoint(): Vector3 {
+    return this.commanded;
   }
 
   /**
@@ -209,10 +274,11 @@ export class AnchorDrive {
     if (this.released) return;
     const p = this.parameters;
 
+    const rate = this.linearRateNow;
     this.commanded.set(
-      slewTowards(this.commanded.x, target.x, p.linearRate, dt),
-      slewTowards(this.commanded.y, target.y, p.linearRate, dt),
-      slewTowards(this.commanded.z, target.z, p.linearRate, dt),
+      slewTowards(this.commanded.x, target.x, rate, dt),
+      slewTowards(this.commanded.y, target.y, rate, dt),
+      slewTowards(this.commanded.z, target.z, rate, dt),
     );
 
     // The angular rate limit, as a fraction of the way round: `Quaternion.Dot` gives the
@@ -251,6 +317,22 @@ export class AnchorDrive {
   }
 
   /**
+   * Where the pinned point of the target actually is, into a ref this drive owns.
+   *
+   * The pivot carried into the world through the target's own transform, so that a chain asking
+   * "where did my hand get to" and this class asking "how far is it from its anchor" are one
+   * piece of arithmetic rather than two that can disagree. `mesh.position` and
+   * `mesh.rotationQuaternion` and nothing else: a world matrix stamps the render id as a side
+   * effect of being read, and this is read on the control step.
+   */
+  pinned(): Vector3 {
+    this.pivot.rotateByQuaternionToRef(
+      this.target.mesh.rotationQuaternion ?? Quaternion.Identity(), this.scratch.pinned,
+    );
+    return this.scratch.pinned.addInPlace(this.target.mesh.position);
+  }
+
+  /**
    * How far the driven body is from its own anchor, metres.
    *
    * The reading `AGENTS.md` says to take first when a driven limb is not where it was pointed:
@@ -260,7 +342,7 @@ export class AnchorDrive {
    */
   stray(): number {
     return this.scratch.stray
-      .copyFrom(this.target.mesh.position)
+      .copyFrom(this.pinned())
       .subtractInPlace(this.anchor.mesh.position)
       .length();
   }

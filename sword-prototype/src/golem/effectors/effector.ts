@@ -66,9 +66,17 @@ export function effectorModule(
       // How far the business end is from the socket: the chain's own reach out to the weld,
       // plus the terminal's length beyond it. Fixed at build, because both halves are.
       const tipToSocket = built.reach + end.tipOffset;
+      const chainEnvelope = built.envelope();
       const envelope: ModuleEnvelope = Object.freeze({
-        axes: built.envelope().axes,
+        axes: chainEnvelope.axes,
         reach: tipToSocket,
+        // The chain's, unchanged: what a module can be *asked* for and what it can *reach* are
+        // both the chain's business, and a terminal that altered either would be a terminal
+        // contributing to control. The one field the pairing changes is the reach, because that
+        // is the one thing the terminal's own length is part of.
+        strokes: chainEnvelope.strokes,
+        reachable: chainEnvelope.reachable,
+        settledBand: chainEnvelope.settledBand,
       });
 
       // The view is one object with getters, allocated once and never replaced. Each getter
@@ -76,13 +84,21 @@ export function effectorModule(
       // nothing -- and every one of them reaches the world transform through `mesh.position`
       // and `mesh.rotationQuaternion` alone. See `RigidStrike` for why that is not optional.
       const slot = ctx.socket.slot;
+      // **Whether there is an edge to report is the terminal's answer, not the chain's.** A
+      // capped socket bites with mass, so an edge alignment taken off it would be a number with
+      // no meaning that a readout would nonetheless print -- and a number that means nothing is
+      // exactly what this plan set exists to stop being quoted. Settled once, at build, from the
+      // definition's own bite row.
+      const hasEdge = terminal?.bite === "edge";
       const view: EffectorView = {
         slot,
         get tip(): Vector3 { return end.striker.tipPosition(); },
         get commandedTip(): Vector3 { return built.commandedEnd(tipToSocket); },
         get axes(): readonly EffectorAxisView[] { return built.axes(); },
         get stroke(): EffectorStroke { return built.stroke(); },
+        get anchor(): Vector3 | null { return built.anchor(); },
         get anchorStray(): number | null { return built.anchorStray(); },
+        get edge(): Vector3 | null { return hasEdge ? end.striker.edgeDirection() : null; },
       };
 
       let severed = false;

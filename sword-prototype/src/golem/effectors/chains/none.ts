@@ -7,6 +7,7 @@ import { CHAIN_NONE } from "../../config.ts";
 import { materialForGolemRole } from "../../materials.ts";
 import {
   NO_ENVELOPE_AXES,
+  NO_STROKES,
   defineChain,
   effectorSlot,
   weldRotation,
@@ -142,7 +143,18 @@ export const noneChain = defineChain({
     // is how far its *weld point* is from the socket, and rung 0's weld point is the socket
     // itself; counting the cap here as well would have the module's envelope report a limb
     // twice as long as the thing on the stand.
-    const envelope = Object.freeze({ axes: NO_ENVELOPE_AXES, reach: 0 });
+    //
+    // No axis and no stroke either, so a mind reading this learns that a capped socket can be
+    // asked for nothing and needs no special case for the rung. `reachable` is null rather than a
+    // degenerate shell, because a module whose command is not a point has no reachable set to
+    // describe and inventing an empty one would be a record nobody could read.
+    const envelope = Object.freeze({
+      axes: NO_ENVELOPE_AXES,
+      reach: 0,
+      strokes: NO_STROKES,
+      reachable: null,
+      settledBand: C.settledBand,
+    });
     const commanded = new Vector3();
     // The cap's own direction out of the socket, fixed for the life of the chain because
     // nothing here can turn. Taken from the build rotation rather than re-derived, so the
@@ -162,6 +174,7 @@ export const noneChain = defineChain({
       envelope: () => envelope,
       axes: () => NO_AXES,
       stroke: () => "idle" as const,
+      anchor: () => null,
       anchorStray: () => null,
       // The commanded end is where a rigid cap on a stand that does not move *has* to be, so
       // the readout's target-versus-actual here is the solver's own error and nothing else --

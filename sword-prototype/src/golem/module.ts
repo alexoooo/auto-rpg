@@ -86,6 +86,60 @@ export interface ModuleAxisEnvelope {
 }
 
 /**
+ * A stroke a module can run, as a capability rather than as a button.
+ *
+ * Published on the envelope so Session 09's mind picks by capability instead of by chain id --
+ * "can this effector cut" is a question about the module, and a mind that answered it by
+ * switching on `ChainId` would be a second copy of the ladder living outside the registry.
+ *
+ * `cover` is in the list and is deliberately **not** an `EffectorStroke` phase: covering is a
+ * held pose, so it is a level rather than an edge (the rule `src/buttons.ts` states), and a
+ * chain running it reports `idle`. The two enumerations are therefore about different things --
+ * what a module can be asked for, and which phase of a velocity event it is in -- and collapsing
+ * them would put a level into a state machine that only understands edges.
+ */
+export type EffectorStrokeKind = "thrust" | "cut" | "cover";
+
+/**
+ * The clamped sphere-shell an effector's target lives in, in its own socket's frame.
+ *
+ * Frozen rule 3 says a command lives inside the envelope and that the mapping clamps **before
+ * the anchor ever sees a target**, so this is the shape the clamp clamps to and not a guard that
+ * runs after one. It is published because two readers need it and neither can derive it: the
+ * bench overlay draws it, and Session 09's mind picks inside it.
+ *
+ * **Outboard-signed, so one description serves both sockets.** `swing` is the azimuth multiplied
+ * by the socket's own `outboard`, so positive is always *away from the golem* whichever side the
+ * module is bolted to. The mirroring trap this avoids is a recorded one: the stroke geometry in
+ * `policies.ts` is written for a right arm and has to be mirrored for the other, and getting a
+ * sign backwards there does not look like a hand held wrong, it looks like an arm coming apart.
+ *
+ * `carryMin` is the minimum outboard carry, measured from the socket rather than from the
+ * golem's centreline so that the whole record stays socket-relative like everything else here.
+ * It is negative when the target may be carried inboard of its own socket, and the module picks
+ * it so that the shortfall is less than the socket's own stand-off -- which is what makes "hand
+ * across the sternum" not a pose a controller refuses but a pose that is not in the envelope.
+ */
+export interface ReachEnvelope {
+  /** Closest the business end may be commanded to the socket, metres. */
+  readonly reachMin: number;
+  /** Furthest, metres. Strictly inside the chain's own full extension. */
+  readonly reachMax: number;
+  /** Outboard-signed azimuth limits, radians. Negative is across the body. */
+  readonly swingMin: number;
+  readonly swingMax: number;
+  /** Elevation limits, radians. Negative is below the socket. */
+  readonly liftMin: number;
+  readonly liftMax: number;
+  /**
+   * The least outboard offset from the socket the target may have, metres.
+   *
+   * Negative: the target may come this far inboard of its own socket and no further.
+   */
+  readonly carryMin: number;
+}
+
+/**
  * What a module can reach, published so that the mouse mapping and a mind both pick inside it.
  *
  * Frozen rule 3: a controller never receives an unreachable target and never needs a refusal
@@ -95,6 +149,20 @@ export interface ModuleEnvelope {
   readonly axes: readonly ModuleAxisEnvelope[];
   /** How far the business end travels from the socket at full extension, metres. */
   readonly reach: number;
+  /** Which strokes this module can be asked for. Empty for a module that has none. */
+  readonly strokes: readonly EffectorStrokeKind[];
+  /** The reachable set, for a module whose command is a point; null for every other. */
+  readonly reachable: ReachEnvelope | null;
+  /**
+   * How close the first published axis has to be to its command to count as arrived, in that
+   * axis's own unit.
+   *
+   * On the envelope rather than in the instrument because it is a property of the *module*: rung
+   * 1's first axis is an angle and rungs 2 and 3's is a distance, so one constant serving both
+   * would be a number whose unit depends on which option happens to be on the stand. Both
+   * harnesses build their `BenchReadout` from this.
+   */
+  readonly settledBand: number;
 }
 
 /** Which phase of a stroke a chain is in. A chain with no stroke is always `idle`. */
@@ -129,6 +197,16 @@ export interface EffectorView {
   readonly axes: readonly EffectorAxisView[];
   readonly stroke: EffectorStroke;
   /**
+   * Where the chain's own anchor has got to, or null for a chain with no anchor.
+   *
+   * A field on the view rather than an overlay reaching into a chain, which is the seam Session
+   * 02 asked for when it noted that `AnchorDrive` builds an invisible massless sphere and
+   * nothing in the module contract published it. The overlay draws this beside the commanded
+   * and achieved tips, so a limb hanging behind its own anchor is visible rather than merely
+   * measured.
+   */
+  readonly anchor: Vector3 | null;
+  /**
    * How far the driven body is from its own anchor, metres, or null for a chain with no
    * anchor.
    *
@@ -139,6 +217,16 @@ export interface EffectorView {
    * is the reading `AGENTS.md` says to take first.
    */
   readonly anchorStray: number | null;
+  /**
+   * Which way the terminal's edge faces, or null when what is on the end has no edge.
+   *
+   * `src/scoring.ts` multiplies the *signed* alignment of this against the contact velocity, so
+   * on the ladder it is the number that becomes controllable the moment a chain grows a roll
+   * axis -- rung 3 and no earlier. Null for rung 0's capped socket, whose bite is mass: an
+   * alignment reported for something with no edge is a number that means nothing, and the
+   * readout says "n/a" rather than printing one.
+   */
+  readonly edge: Vector3 | null;
 }
 
 /** Which layers a module's bodies belong to and collide with. */
@@ -304,6 +392,8 @@ export interface BuiltChain {
   envelope(): ModuleEnvelope;
   axes(): readonly EffectorAxisView[];
   stroke(): EffectorStroke;
+  /** Where the chain's anchor is, into a ref the chain owns, or null when it has none. */
+  anchor(): Vector3 | null;
   anchorStray(): number | null;
   /**
    * Where the chain is commanding a point `distanceFromSocket` metres out to be, in world
@@ -356,3 +446,6 @@ export const defineTerminal = <K extends TerminalId>(
 
 /** An envelope with no driven axis. Declared once so every axis-free chain agrees. */
 export const NO_ENVELOPE_AXES: readonly ModuleAxisEnvelope[] = Object.freeze([]);
+
+/** A module that can be asked for no stroke at all. Same reason: one empty, not three. */
+export const NO_STROKES: readonly EffectorStrokeKind[] = Object.freeze([]);

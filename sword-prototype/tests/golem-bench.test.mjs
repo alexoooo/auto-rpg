@@ -25,7 +25,9 @@ import { CONFIG } from "../src/config.ts";
 import { COLLIDES, LAYER } from "../src/physics.ts";
 import { capsulePart } from "../src/rig.ts";
 import { AnchorDrive, slewTowards } from "../src/golem/anchor-drive.ts";
-import { ANCHOR_DRIVE, BENCH_READOUT, CHAIN_PITCH } from "../src/golem/config.ts";
+import {
+  ANCHOR_DRIVE, BENCH_READOUT, CHAIN_PITCH, CHAIN_REACH, CHAIN_WRIST,
+} from "../src/golem/config.ts";
 import { BenchReadout, blankSample } from "../src/golem/readout.ts";
 import {
   EFFECTOR_CHAINS,
@@ -110,7 +112,11 @@ test("the pair builder refuses a chain that carries its own terminal", async () 
 // Build, publish and dispose.
 // ---------------------------------------------------------------------------------------
 
-for (const id of ["effector.none", "effector.pitch.blade"]) {
+const ANCHORED = new Set(["effector.reach.blade", "effector.wrist.blade"]);
+
+for (const id of [
+  "effector.none", "effector.pitch.blade", "effector.reach.blade", "effector.wrist.blade",
+]) {
   test(`${id} builds, publishes a view and disposes without leaving a body behind`, async () => {
     const arena = await createHeadlessArena({ populateDefaultGeometry: false });
     const scene = arena.scene;
@@ -127,7 +133,19 @@ for (const id of ["effector.none", "effector.pitch.blade"]) {
       assert.ok(view, "an effector publishes a view");
       assert.equal(view.slot, "primary");
       assert.equal(view.stroke, "idle");
-      assert.equal(view.anchorStray, null, "neither Session 02 chain has an anchor");
+      if (ANCHORED.has(id)) {
+        // The anchor as a **field on the view**, which is what Session 02 asked for rather than
+        // an overlay reaching into a chain. Rungs 2 and 3 are the first with one to publish.
+        assert.ok(view.anchor, `${id} drives an anchor and must publish where it is`);
+        assert.ok(view.anchorStray !== null && view.anchorStray < 0.01,
+          `${id} was built ${view.anchorStray} m from its own anchor`);
+      } else {
+        assert.equal(view.anchorStray, null, "neither Session 02 chain has an anchor");
+        assert.equal(view.anchor, null);
+      }
+      // An edge to report is the *terminal's* answer: rung 0's cap bites with mass, so an edge
+      // alignment taken off it would be a number that means nothing and the readout says n/a.
+      assert.equal(view.edge === null, id === "effector.none");
       assert.ok(module.envelope().reach > 0);
 
       // The filter on the **leaf**, read back. Setting a mask on a `PhysicsShapeContainer`
@@ -405,6 +423,377 @@ test("rung 1's chop is a velocity event, not a pose sequence", async () => {
     module.dispose();
     stand.dispose();
     arena.dispose();
+  }
+});
+
+// ---------------------------------------------------------------------------------------
+// Rungs 2 and 3: unique pose, the envelope, the mirror and the strokes.
+// ---------------------------------------------------------------------------------------
+
+/**
+ * Build a chain on a stand and hand back everything a rung-2 or rung-3 test needs.
+ *
+ * A helper rather than six copies, because the interesting part of each of these tests is the
+ * *command sequence* and the assertion, and a fixture repeated six times is a fixture that will
+ * differ in one of them.
+ */
+async function onStand(id, slot = "primary") {
+  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const scene = arena.scene;
+  const plugin = scene.getPhysicsEngine().getPhysicsPlugin();
+  const stand = buildGolemStand(scene, { side: "left" });
+  const socket = stand.socket(slot);
+  const module = golemModule(id).build({
+    scene, side: "left", name: `t.${slot}`, socket,
+    layers: golemLayers("left"), materials: stand.materials,
+  });
+  for (const part of module.parts) plugin.setActivationControl(part.part.body, 1);
+  plugin.setActivationControl(stand.block.body, 1);
+  const control = scene.onBeforePhysicsObservable.add(() => module.step(SUBSTEP));
+  const intent = benchIntent();
+  const hand = intent[slot];
+  const run = (frames) => {
+    for (let frame = 0; frame < frames; frame += 1) {
+      module.command(intent);
+      scene._renderId += 1;
+      scene._advancePhysicsEngineStep(1000 * FRAME);
+    }
+  };
+  const partAt = (suffix) => module.parts.find((part) => part.id.endsWith(suffix)).part;
+  // The **hand**, which is the forearm's far end and is what the anchor pins and what the carry
+  // rule is stated about. Not the tip: a blade reaches 0.80 m past the hand and crossing the
+  // golem's own centreline with the steel is what a blade is for.
+  const handPoint = () => {
+    const fore = partAt(".forearm");
+    const out = new Vector3(0, -CHAIN_REACH.foreLength / 2, 0);
+    out.rotateByQuaternionToRef(fore.mesh.rotationQuaternion ?? Quaternion.Identity(), out);
+    return out.addInPlace(fore.mesh.position);
+  };
+  // The elbow is the far end of the upper arm, read the way everything in a golem reads a world
+  // transform: `mesh.position` and `mesh.rotationQuaternion` and nothing else.
+  const elbow = () => {
+    const upper = partAt(".upperArm");
+    const out = new Vector3(0, -CHAIN_REACH.upperLength / 2, 0);
+    out.rotateByQuaternionToRef(upper.mesh.rotationQuaternion ?? Quaternion.Identity(), out);
+    return out.addInPlace(upper.mesh.position);
+  };
+  const dispose = () => {
+    scene.onBeforePhysicsObservable.remove(control);
+    module.dispose();
+    stand.dispose();
+    arena.dispose();
+  };
+  return { arena, scene, stand, socket, module, intent, hand, run, elbow, handPoint, dispose };
+}
+
+test("rung 2's elbow is a single-valued function of the hand target", async () => {
+  // **The load-bearing test of this session.** Frozen rule 2 says a module has no more driven
+  // axes than its target specifies, and the whole reason rungs 2 and 3 exist is that the recorded
+  // Warrior defects -- an elbow that wrapped around the back, a shield hand that swung behind the
+  // trunk -- are the overview's candidate explanation of a seven-axis chain asked for a six-axis
+  // pose. A spare axis means the elbow can swivel about the shoulder-to-hand line without moving
+  // the hand at all, so where it ends up depends on where it came *from*.
+  //
+  // So this visits a grid of the envelope twice, in opposite orders, and asserts that the elbow
+  // lands in the same place both times for the same hand target. A history-dependent elbow fails
+  // it; a chain with three driven axes against a three-dimensional target cannot be.
+  //
+  // **Watched go red against a mutation, as the green-test-that-asserts-nothing rule demands.**
+  // Adding a free twist axis to the shoulder's pitch hinge in `arm-core.ts` --
+  // `swing: { x: {...}, y: { min: -1.2, max: 1.2 } }` -- gives the upper arm a rotation about its
+  // own long axis, which moves the elbow's hinge plane without moving the elbow's *distance* from
+  // the shoulder, and is exactly the spare axis the Warrior has. The recorded result is in
+  // `docs/measurements.md`.
+  const rig = await onStand("effector.reach.blade");
+  try {
+    const R = CHAIN_REACH;
+    // A grid inside the envelope, stated as cursor positions and reach presets so that nothing
+    // here reaches past `Intent` to pose the chain -- the same seam a person drives.
+    const grid = [];
+    for (const pointerX of [-0.8, -0.2, 0.4, 1.0]) {
+      for (const pointerY of [-0.7, 0, 0.6]) {
+        for (const guard of [false, true]) grid.push({ pointerX, pointerY, guard });
+      }
+    }
+    const visit = (order) => {
+      const seen = new Map();
+      for (const cell of order) {
+        rig.hand.pointerX = cell.pointerX;
+        rig.hand.pointerY = cell.pointerY;
+        rig.hand.guard = cell.guard;
+        // Long enough to converge from anywhere in the envelope: the rate limit is 1.2 m/s and
+        // the envelope is under 1.5 m across, so a second and a half is a full traverse plus a
+        // settle. A shorter hold would measure the approach rather than the pose.
+        rig.run(90);
+        const view = rig.module.view();
+        seen.set(`${cell.pointerX}|${cell.pointerY}|${cell.guard}`, {
+          hand: view.axes.map((axis) => axis.achieved),
+          elbow: rig.elbow().clone(),
+        });
+      }
+      return seen;
+    };
+    const forward = visit(grid);
+    const backward = visit([...grid].reverse());
+
+    let worstHand = 0;
+    let worstElbow = 0;
+    for (const [key, first] of forward) {
+      const second = backward.get(key);
+      const handApart = Math.hypot(
+        first.hand[0] - second.hand[0], first.hand[1] - second.hand[1],
+        first.hand[2] - second.hand[2],
+      );
+      const elbowApart = Vector3.Distance(first.elbow, second.elbow);
+      worstHand = Math.max(worstHand, handApart);
+      worstElbow = Math.max(worstElbow, elbowApart);
+    }
+    // The hands must agree first, or the elbow comparison is between two different targets and
+    // says nothing -- the "fixture that cannot exhibit the defect" shape, pointed the other way.
+    assert.ok(worstHand < 0.01,
+      `the two passes did not reach the same hand targets (worst ${worstHand} in axis units)`);
+    // **Measured both ways**, which is the only thing that makes this an assertion rather than a
+    // hope: 0.34 mm over the whole grid as the chain stands, and **17.08 mm** with the shoulder
+    // opened to three axes -- a fiftyfold move, and the bound below sits five times above the
+    // clean figure and five times under the mutated one. Note what the mutation had to be: adding
+    // a *twist* axis alone did **not** move the number at all, because a position-only anchor
+    // exerts no torque about the upper arm's own axis and nothing excites the spare degree of
+    // freedom. The Warrior's rope elbow needs a six-axis pin to drive it, which is a finding in
+    // its own right and is recorded in `docs/measurements.md`.
+    //
+    // Provisional, pinned from the 2026-09-04 Node bench run, to be re-taken after the owner's
+    // gate.
+    assert.ok(worstElbow < 0.003,
+      `the same hand target put the elbow ${(worstElbow * 1000).toFixed(1)} mm apart`
+      + " depending on which direction it was approached from; that is a spare axis");
+    assert.equal(grid.length, forward.size);
+  } finally {
+    rig.dispose();
+  }
+});
+
+test("rung 2 clamps a cross-body command into the envelope instead of refusing it", async () => {
+  // Frozen rule 3, as a phase rather than as a paragraph: the mapping clamps **before the anchor
+  // is ever handed a target**, so there is no refusal branch anywhere and nothing downstream has
+  // to know the rule exists. The Warrior does the opposite -- `Arm.aim` reads
+  // `signedShieldAzimuth < -0.60` and substitutes -- and that substitution is a controller
+  // arguing with a command.
+  const rig = await onStand("effector.reach.blade");
+  try {
+    const R = CHAIN_REACH;
+    const socket = rig.socket;
+    const outboard = socket.outboard;
+    // Measured on the **hand** and against the golem's own centreline, which is what `carryMin`
+    // is stated about. The stand is built at the origin facing +Z, so the centreline is x = 0.
+    const lateral = () => outboard * rig.handPoint().x;
+
+    // Fully inboard at guard reach: short, so the carry rule does not bite and the limb goes
+    // where it is told. This is the control -- without it, the assertion below is satisfied by a
+    // chain that simply cannot swing inboard at all.
+    rig.hand.pointerX = -1;
+    rig.hand.pointerY = 0;
+    rig.hand.guard = true;
+    rig.run(150);
+    const guarded = rig.module.view().axes[1].achieved;
+    assert.ok(guarded < -0.4,
+      `a short cross-body guard reached only ${guarded} rad of swing, so nothing was clamped`);
+
+    // The same cursor at thrust reach, which is outside the envelope: the carry floor at
+    // `reachThrust` is `asin(carryMin / (reachThrust * cos lift))`, well above `swingMin`.
+    rig.hand.guard = false;
+    rig.hand.thrust = true;
+    rig.run(240);
+    const reached = rig.module.view().axes[1].achieved;
+    const floor = Math.asin(R.carryMin / R.reachThrust);
+    assert.ok(reached > floor - 0.08,
+      `the clamp let the hand to ${reached} rad of swing against a floor of ${floor}`);
+    assert.ok(reached < R.swingMax,
+      "the clamp pushed the hand past the far side of its own envelope");
+    // And the point of the rule: the hand never crosses its own golem's centreline.
+    assert.ok(lateral() > 0,
+      `the hand finished ${lateral()} m inboard of the golem's own centreline`);
+  } finally {
+    rig.dispose();
+  }
+});
+
+test("the two sockets are mirror images under one command", async () => {
+  // **The mirroring trap, taken out at the root.** The stroke geometry in `policies.ts` is
+  // written for a right arm and has to be mirrored for the other, and a sign got backwards there
+  // does not look like a hand held wrong -- it looks like an arm coming apart, 504 mm of
+  // hand-to-anchor stray, because the shoulder cone refuses the twist and the solver pays for the
+  // orientation out of the position.
+  //
+  // Rungs 2 and 3 mirror in exactly two places and this asserts both: `swing` is outboard-signed
+  // so the mapping needs no mirror at all, and `roll` is multiplied by the socket's outboard sign
+  // because the mirror image of a rotation about the limb's own axis is its negative. The bend is
+  // deliberately **not** mirrored -- a rotation about the arm plane's lateral is a motion inside
+  // that plane, and mirroring it would flex one wrist backwards -- and a wrong answer there shows
+  // up here as the two tips failing to be reflections.
+  const left = await onStand("effector.wrist.blade", "primary");
+  const right = await onStand("effector.wrist.blade", "secondary");
+  try {
+    // **The cursor is mirrored and the wrist inputs are not**, and that asymmetry is the subject.
+    // `pointerX` is a screen position and there is only one of it, so a cursor to the right sends
+    // *both* hands to the right -- the Warrior's `azimuthOf` has the same property. So the pose
+    // that mirrors a primary at `pointerX = +0.55` is a secondary at `-0.55`. `roll` is the other
+    // way round: the module multiplies it by the socket's outboard sign, so the *same* input
+    // already produces mirrored rolls, and mirroring the input too would undo it. `wristBend`
+    // takes no sign at all, because a bend is a motion inside the arm's own plane.
+    for (const [rig, pointerX] of [[left, 0.55], [right, -0.55]]) {
+      for (const channel of ["primary", "secondary"]) {
+        Object.assign(rig.intent[channel], {
+          pointerX, pointerY: 0.3, roll: 0.9, wristBend: 0.6, thrust: false, guard: false,
+        });
+      }
+      rig.run(240);
+    }
+    const a = left.module.view();
+    const b = right.module.view();
+    const mirrored = new Vector3(-b.tip.x, b.tip.y, b.tip.z);
+    const apart = Vector3.Distance(a.tip, mirrored);
+    // Provisional, pinned from the 2026-09-04 Node bench run. The two chains are separately
+    // simulated so they do not converge bit-identically; what is asserted is that they are the
+    // same pose, not the same floats.
+    assert.ok(apart < 0.02,
+      `the two sockets settled ${(apart * 1000).toFixed(1)} mm from being mirror images`);
+    // And the edge, which is the half the roll sign decides. Reflecting a direction about the
+    // x = 0 plane negates its x, so a correctly mirrored roll puts the two edges here.
+    const edge = new Vector3(-b.edge.x, b.edge.y, b.edge.z);
+    const edgeApart = Vector3.Distance(a.edge, edge);
+    assert.ok(edgeApart < 0.05,
+      `the two blades' edges are ${edgeApart} apart from being mirror images; the roll sign is`
+      + " wrong on one side");
+  } finally {
+    left.dispose();
+    right.dispose();
+  }
+});
+
+test("rung 3's wrist owns orientation and the anchor never pays for it", async () => {
+  // **Split by axis, not doubled.** The anchor drives three linear axes and no angular ones; the
+  // wrist drives two angular axes and no linear ones. The Warrior's failure was the other shape
+  // -- its grip motor owned orientation *and* position, so a roll it could not reach was paid for
+  // out of the position, 504 mm of it. Here a roll the wrist cannot reach can only be a roll the
+  // wrist did not reach, and the reading that says so is the anchor stray staying small while the
+  // roll goes to its limit and past it.
+  const rig = await onStand("effector.wrist.blade");
+  try {
+    const W = CHAIN_WRIST;
+    rig.hand.pointerX = 0.4;
+    rig.hand.pointerY = 0.2;
+    rig.run(180);
+    const settledStray = rig.module.view().anchorStray;
+
+    // Demand a roll well past the stop, and a full bend with it.
+    rig.hand.roll = 4;
+    rig.hand.wristBend = 1;
+    rig.run(240);
+    const view = rig.module.view();
+    const roll = view.axes.find((axis) => axis.id === "roll");
+    const bend = view.axes.find((axis) => axis.id === "bend");
+    assert.ok(Math.abs(roll.commanded - W.rollMax) < 1e-9,
+      `a roll of 4 rad was commanded as ${roll.commanded} instead of being clamped to the stop`);
+    assert.ok(Math.abs(roll.achieved - roll.commanded) < 0.05,
+      `the wrist rolled to ${roll.achieved} against a command of ${roll.commanded}`);
+    assert.ok(Math.abs(bend.achieved - bend.commanded) < 0.05,
+      `the wrist bent to ${bend.achieved} against a command of ${bend.commanded}`);
+    // The whole claim, in one number: an impossible orientation demand costs the *position*
+    // nothing, because the two drives share no axis. Provisional, pinned from the 2026-09-04 Node
+    // bench run (0.03 mm settled, 0.04 mm at full roll).
+    assert.ok(view.anchorStray < 0.005,
+      `the hand strayed ${(view.anchorStray * 1000).toFixed(2)} mm from its anchor while the`
+      + ` wrist was being asked for an orientation it cannot reach (${settledStray * 1000} mm`
+      + " before the demand)");
+  } finally {
+    rig.dispose();
+  }
+});
+
+test("rung 2's thrust is a velocity event, not a pose sequence", async () => {
+  // The same distinction rung 1's chop test makes, in the units an anchor works in: a pose
+  // sequence stops where the pose says, and a velocity event carries past its own command and
+  // comes back. The anchor's analogue of switching a motor to VELOCITY is dropping its *force*
+  // ceiling while the command holds, so the limb decelerates against gravity rather than against
+  // the drive.
+  const rig = await onStand("effector.reach.blade");
+  try {
+    const R = CHAIN_REACH;
+    rig.hand.pointerX = 0.4;
+    rig.hand.pointerY = 0.2;
+    rig.run(180);
+
+    let atDriveEnd = null;
+    let furthest = 0;
+    let phases = 0;
+    let previous = "idle";
+    const watch = rig.scene.onBeforePhysicsObservable.add(() => {
+      const view = rig.module.view();
+      if (view.stroke === "drive" && previous !== "drive") phases += 1;
+      if (previous === "drive" && view.stroke !== "drive") atDriveEnd = view.axes[0].achieved;
+      previous = view.stroke;
+      furthest = Math.max(furthest, view.axes[0].achieved);
+    });
+    rig.hand.thrust = true;
+    rig.run(1);
+    rig.hand.thrust = false;
+    rig.run(90);
+    rig.scene.onBeforePhysicsObservable.remove(watch);
+
+    assert.equal(phases, 1, "a thrust must run exactly one drive phase");
+    assert.ok(atDriveEnd !== null, "a stroke without a drive phase has no follow-through");
+    // **The follow-through proper**, measured as the reach the hand carries to past where the
+    // drive left it. Measured 47.1 mm with `followSeconds` at 0.06 against 13.6 mm with the
+    // follow phase removed entirely; the table beside `CHAIN_REACH.thrust` carries all five rows.
+    // Provisional, pinned from the 2026-09-04 Node bench run.
+    assert.ok(furthest - atDriveEnd > 0.025,
+      `the drive ended at ${atDriveEnd} m and the stroke carried only to ${furthest} m`);
+    // **And it must not arrive at the arm's own extension.** A limb slamming into its own stop is
+    // a motor and a limit pushing at each other, which is the buzz `arm.ts`'s wrist was rewritten
+    // to get rid of -- and driving the stroke to `reachMax` instead of `reachThrust` did exactly
+    // that, 0.7812 m against a full extension of 0.780.
+    assert.ok(furthest < R.upperLength + R.foreLength - 0.03,
+      `the stroke carried the hand to ${furthest} m against a full extension of`
+      + ` ${R.upperLength + R.foreLength} m`);
+
+    // Held, not repeated: a stroke is an edge and holding the button must not chain them.
+    rig.hand.thrust = true;
+    rig.run(240);
+    rig.run(240);
+    assert.equal(phases, 1, "the watcher was removed, so this is a control on the count above");
+  } finally {
+    rig.dispose();
+  }
+});
+
+test("rungs 2 and 3 track their commands with zero contacts over the scripted sequence", async () => {
+  for (const id of ["effector.reach.blade", "effector.wrist.blade"]) {
+    const run = await runGolemBench({ moduleId: id });
+    const state = run.state;
+    assert.equal(state.selfContacts, 0, `${id}: a golem's own parts must never collide`);
+    // Zero contacts of any kind is also the floor-clearance check: `liftMin` and `reachMax`
+    // together put the blade's point 0.436 m off the floor at the bottom of the envelope, and a
+    // contact would open a 0.25 s tip-speed exclusion window on every stroke.
+    assert.equal(state.contacts, 0, `${id}: nothing should reach the floor or the walls`);
+    assert.equal(state.stuckSteps, 0, `${id}: an error that stops converging is stuck on something`);
+
+    // **The reading `AGENTS.md` says to take first.** A driven limb that is not within a few
+    // millimetres of its own anchor while nothing is asking it to be anywhere else is not posed
+    // wrongly, it is stuck on something. Measured 3.73 mm on rung 2 and 4.64 mm on rung 3 against
+    // a Warrior's 242.88 mm over its own sweep. Provisional, pinned from the 2026-09-04 Node
+    // bench run.
+    assert.ok(state.idleAnchorStrayMm !== null && state.idleAnchorStrayMm < 20,
+      `${id} strayed ${state.idleAnchorStrayMm} mm from its own anchor outside every stroke`);
+    // The strokes are the other half, and they stray by design -- a follow-through is the limb
+    // leaving its anchor. That number is recorded rather than bounded tightly.
+    assert.ok(state.peakAnchorStrayMm > state.idleAnchorStrayMm,
+      `${id}'s strokes did not leave its anchor at all, so nothing carried through`);
+
+    assert.ok(state.envelopeStrokes === undefined);
+    assert.deepEqual([...run.envelope.strokes], ["thrust", "cut", "cover"]);
+    assert.ok(run.envelope.reachable, `${id} commands a point and must publish its reachable set`);
+    assert.equal(run.envelope.reachable.carryMin, CHAIN_REACH.carryMin);
+    assert.equal(run.envelope.settledBand, CHAIN_REACH.settledBand);
   }
 });
 
