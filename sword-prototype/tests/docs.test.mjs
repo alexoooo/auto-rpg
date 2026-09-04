@@ -311,8 +311,20 @@ const SCRATCH_SHARE_OF_DURABLE = { min: 0.02, max: 0.25 };
 // paragraphs up. Golem session 01 deletes the old plan set, which takes the four away, and each
 // later session takes its own promises away by building them; a fall here after either is the
 // count doing its job, and the pin is re-taken from the run, never computed by hand.
+//
+// **Re-taken 2026-09-04 from golem session 01's own failing run: 55 -> 46.** Nine went, and they
+// went for two different reasons that are worth keeping apart. Four were the combat-followups
+// promises, which left with that plan set. The other five are files golem session 01 named in
+// order to *delete* them -- `src/kaykit-figure.ts`, `src/kaykit-adapter.ts`,
+// `src/kaykit-profile.ts`, `src/playtest.ts` and `scripts/watch-construct.mjs` -- and they stopped
+// counting as unbuilt work the moment `docs/deleted-paths.md` learned they had existed. So a fall
+// here is now either "somebody built it" or "somebody deleted it on purpose and the register says
+// so", and `anchorIntoDeletedFile` staying at 0 is what says the second kind was struck rather
+// than left pointing at a line number in a file that is gone. The 46 that remain are the eleven
+// later golem sessions naming the chain, terminal, bench, module and test files they intend to
+// create.
 const PLAN_SURFACE = {
-  noSuchFile: 55,
+  noSuchFile: 46,
   ambiguousFile: 0,
   anchorIntoDeletedFile: 0,
   orphanContinuation: 0,
