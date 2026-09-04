@@ -1390,3 +1390,64 @@ The full list is in `AGENTS.md`. The three that shaped the code rather than the 
 - **No feel complaint is fixed by raising a motor ceiling without a measured before/after
   table beside the number in `config.ts`.** Every number in the `arm` block was set that
   way and each one carries its table.
+
+## The golem module contract, and the bench that judges one module at a time
+
+A golem is a fixed body plan of five slots — locomotion, torso, two effectors and a head — each
+filled by one pre-made module. `src/golem/module.ts` is the contract every slot's option
+implements, and it is deliberately the whole of it: a module is a physics chain of slender
+colliders, an authored shell parented to those colliders, a controller that runs every physics
+substep, a declared envelope, a mass, per-part health and vitality weight, and a severing rule.
+`docs/plans/golem-00-overview.md` carries the design argument; this is what landed.
+
+**An effector is a chain and a terminal, chosen independently, and the split is the point.** The
+chain owns everything about motion — the driven axes, the drive, the envelope, the mouse mapping
+and the strokes. The terminal is what sits on the end: a collider, a mass, a striker kind through
+the existing bite table, a collision layer against the enemy, and a shell. It contributes nothing
+to control, and if a terminal file ever reads `HandIntent` the factoring has leaked. That is why
+every chain is benched with the same blade: what is being judged is the chain.
+
+`src/golem/effectors/effector.ts` is the whole of the glue and it switches on nothing, so there is
+no branch in it that could substitute one option for another — the failure that once put a shield
+in the arena as a club. What it does decide is a *refusal*: a chain that carries its own terminal
+cannot be given one, and a chain that hands out a weld has to be given one. Both throw at build.
+
+**Weapons are body parts.** There is no held item and no grip. A terminal is welded once to the
+chain's last link, in the frame that weld demands, because a weld whose two frames disagree at
+construction is a violation the solver clears by flinging the thing. The chain supplies the mount,
+not the terminal, because the chain is what knows which way its own swing plane lies: rung 1
+points the blade's edge along the tangent of its own arc, which is a fact about the chain and not
+about the steel.
+
+**A golem's own parts never collide with each other, by construction rather than by aspiration.**
+`golemLayers` derives a module's masks from the existing per-side table: links sit on the side's
+arm layer and terminals on its sword layer, and neither mask contains the other or the trunk. So
+no self-pair is ever admitted to the solver. The bench counts self-contacts anyway, and the count
+is what it is — a check that no pair was admitted by accident, not evidence of physicality, which
+is the correction the construct experiment already paid for.
+
+**`bench.html` is a second page and it carries no list of what it can show.** It reads the option
+set from `src/golem/registry.ts` and builds its picker from it, grouped by the mode each
+registration declares, with the number keys selecting from the registry's own order. A later
+session adds its file and one line to `GOLEM_MODULES`; nothing in the middle of the page changes,
+which is what lets two sessions extend it at once. `src/golem/config.ts` is one exported block per
+module id for the same reason — a flat file of `export const`s puts a new session's numbers at the
+end rather than in the middle of somebody else's object — and every number in it carries the sweep
+or the arithmetic that set it, with the date, exactly as `CONFIG.arm` does.
+
+**The drive is soft, force-capped and rate-limited.** `src/golem/anchor-drive.ts` is a copy-and-cut
+of what `src/arm.ts` does in its anchor construction, `driveAnchor` and `applyTuning`, standing on
+its own so a chain can have one without importing `Arm`. What is new is the rate limit: a
+Warrior's anchor is teleported to wherever the cursor says, which is why a Warrior arm keyframes
+onto its commanded pose on the first control step and reads 77 m/s of tip speed while standing
+still. A golem's command is bounded in how fast it may move, so the first step is a move.
+
+**The first two rungs of the chain ladder exist and neither is accepted.** Rung 0 (`none`) is a
+capped socket with no driven axis, and it is there so the body plan is complete without effectors
+and so the bench has a noise floor measured on something that cannot move. Rung 1 (`pitch`) is one
+hinge, a short stone link and a blade. For a one-axis chain task space and joint space are the
+same number, so the joint-space position motor the overview names as a candidate cause is
+unavoidable there; what makes it not a robot arm is the torque cap, the target rate limit and the
+stroke shape, and the bench measures exactly those three. `docs/measurements.md` has the sweeps,
+with the harness named on every figure. **Whether it reads as a limb is the owner's answer and no
+number in this directory can stand in for it** — that is the whole reason this plan set exists.
