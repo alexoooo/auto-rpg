@@ -5,7 +5,8 @@ learning tree, the KayKit unit, the guided playtest and the old plan set are del
 salvages landed in `src/golem/`, `src/engagement.ts` and `scripts/golem-headless-arena.mjs`; the
 tree is 46 `.ts` files and 25,842 lines under `src/` against 150 and 50,862, 11 scripts against 53,
 and 36 test files and 511 tests against 97 and 1,334. Step 10's look at the page is the coordinator's and the owner's, not this
-agent's.
+agent's. The duelist/swinger null control was run either side of the demolition and every printed
+figure agrees to the digit; the table is in `docs/measurements.md`.
 
 **Three corrections to what is written below**, recorded because the next reader will otherwise
 believe the file. (1) The expected-survivor list undercounts: 68 test files imported doomed code,

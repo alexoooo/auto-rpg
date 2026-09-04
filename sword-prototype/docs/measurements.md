@@ -8850,3 +8850,36 @@ supported-locomotion evidence corpus and the Warrior/Warrior combined-arms matri
 by construct bodies. `tests/warrior-warrior-locomotion.test.mjs` is the one real-Havok locomotion
 corpus that survives, because its cells are two Warriors; the rest of that evidence is closed with
 the experiment and is named here so nobody reports its absence as a regression.
+
+### The demolition's null control: the duelist/swinger bout, bit-identical either side — 2026-09-04
+
+The house rule is that a change to shared execution-layer code gets a bout either side of it and
+that the null control is not optional because it is a null. This session changed four files in that
+layer -- `src/arm.ts` lost the outstretched creator bind pose, `src/fighter.ts` lost the KayKit
+figure branch, `src/units.ts` lost five unit entries and `src/bout.ts` lost the saved-construct
+selection -- and every one of those was a branch whose condition is now provably false for every
+surviving body rather than a rule that moved. This is the measurement rather than the argument.
+
+**Harness: the bench** (`scripts/measure.mjs`, `NullEngine`, real Havok, no rendering). Command
+`npm run measure -- --only duelist-swinger --bouts 120 --seed 20260823`, the established one. The
+"before" side is commit `2be433a` in a detached worktree with `node_modules` junctioned in, so both
+runs used the same dependency tree; the "after" side is `ab05767`.
+
+| reading | 2be433a (before) | ab05767 (after) |
+| --- | --- | --- |
+| duelist / swinger / draw | 59 / 61 / 0 of 120 | 59 / 61 / 0 of 120 |
+| bout length, s | 3.48 (1.42-7.85) | 3.48 (1.42-7.85) |
+| final blow regions | Head 69, Torso 33, Pelvis 10, Sword arm 4, Off arm 2, Left thigh 1, Sword hand 1 | identical |
+| duelist peak tip driven, m/s | 16.00 (0.00-43.13) | 16.00 (0.00-43.13) |
+| duelist contacts / damage / severs | 42.21 / 8.80 / 10 | 42.21 / 8.80 / 10 |
+| swinger peak tip driven, m/s | 11.28 (0.00-49.06) | 11.28 (0.00-49.06) |
+| swinger contacts / damage / severs | 49.40 / 9.05 / 0 | 49.40 / 9.05 / 0 |
+| duelist edge alignment, median / mean | 0.607 / 0.572 | 0.607 / 0.572 |
+| swinger edge alignment, median / mean | 0.754 / 0.676 | 0.754 / 0.676 |
+
+Every printed figure agrees to the digit, including the 1,460 and 1,674 scoring-contact counts and
+both contact-speed distributions. Wall clock 20.6 s before and 20.7 s after, which is the same run.
+
+**What this does and does not say.** It says the demolition moved no execution-layer behaviour that
+this corpus can see, which is the thing session 16 shipped green without checking and the reason the
+rule exists. It says nothing about how anything looks; that is step 10's business and the owner's.
