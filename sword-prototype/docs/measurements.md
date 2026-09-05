@@ -9376,6 +9376,39 @@ swings the board through.
   the whip reports them as `n/a` outright, because a lash's first axis is the chain's reach and the
   scripted lash never holds it still long enough to open a step.
 
+### One pass on the page, which is a different harness and a different column
+
+Everything above is the Node bench. The **page bench** (`bench.html`, WebGL, real Havok) was
+driven once for each new terminal on 2026-09-04, from a background tab stepped by hand through
+`window.__golem.step` and `.render`, because Chrome pauses `requestAnimationFrame` outright in a
+hidden tab and a screenshot of one is a DOM overlay over a black canvas. Nothing below may be put
+in a column with a Node bench figure; the two harnesses disagree by about 9 % on a peak transient
+with identical code and that has already produced a regression report about a build where nothing
+had changed.
+
+What it says: all eleven registered pairs build, render and drive; the console is clean through a
+full load; the picker reaches every one of them (`1`-`9`, `0`, then shift for the second rank);
+`P` pairs two effectors and refuses to pair a mace, and `F` then moves the cursor rather than the
+module, with the limb the cursor left holding its last command. Spot readings, page harness, taken
+at rest rather than through a stroke: the plate on the reach chain reads 8.81 mm of idle anchor
+stray against 13.06 mm in the Node bench, and 149.8 mm of tip-to-command against a Node figure of
+161.9 — the same order and the same shape, which is all a spot reading can say.
+
+**And what a person can see, recorded as observation rather than as verdict**, because the gate is
+not this session's to answer:
+
+- The **mace** stands the way its arithmetic says it should: the two arms are exact mirrors at
+  x = +-0.34 with the bar running through both fists from a butt at -0.44 to a head at +0.78, and
+  the trailing arm tracks the driven one without visible lag. Whether it *looks attached* is the
+  owner's question.
+- The **whip** hangs as six stone capsules with a bronze bead at each joint and clears the floor
+  by a comfortable margin at rest (lowest bead centre 0.81 m).
+- The **plate** is a slab carried to one side of the wrist with a bronze rim showing round its
+  edge. Its board's inboard edge is on the limb's own axis, so there is a visible offset between
+  the arm and the middle of the board -- which is exactly the trade the clearance table forced,
+  and exactly the thing the gate's own question about this terminal ("does it look like it is
+  blocking, or like a plate floating near an arm") is pointed at. Worth looking at first.
+
 ### What Session 04 owes
 
 - **The human gate, per terminal per chain.** Nothing above answers the overview's three
