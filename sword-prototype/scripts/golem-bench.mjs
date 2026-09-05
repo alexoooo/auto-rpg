@@ -22,10 +22,16 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
 import { CONFIG } from "../src/config.ts";
-import { BENCH_READOUT, CHAIN_PITCH, CHAIN_REACH, CHAIN_WRIST } from "../src/golem/config.ts";
+import {
+  BENCH_READOUT, BENCH_STAND_LOCOMOTION, CHAIN_PITCH, CHAIN_REACH, CHAIN_WRIST, LOCOMOTION_BIPED,
+} from "../src/golem/config.ts";
+import { formatLocomotion, locomotionCommand } from "../src/golem/locomotion.ts";
+import { bipedModule } from "../src/golem/locomotion/biped.ts";
+import { buildLocomotionCourse, registerLocomotionCourse } from "../src/golem/locomotion/course.ts";
 import { BenchReadout, blankSample, formatReadout } from "../src/golem/readout.ts";
 import { GOLEM_MODULES, golemModule } from "../src/golem/registry.ts";
 import { buildGolemStand, golemLayers } from "../src/golem/stand.ts";
+import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
 import { createHeadlessArena } from "./golem-headless-arena.mjs";
 
 export const HARNESS = "the Node bench (scripts/golem-bench.mjs, NullEngine, real Havok, no rendering)";
@@ -396,6 +402,221 @@ export async function runGolemBench({
   }
 }
 
+// ------------------------------------------------------------------- the locomotion harness
+
+/**
+ * The scripted locomotion sequence the session plan names, phase for phase.
+ *
+ * Stand, walk forward two seconds, strafe, turn, crouch and walk, a shove above the fall
+ * threshold, recover. Every phase is a whole-body command through the same `Intent` a person's
+ * keyboard produces -- `forward`, `strafe`, `turn` and `posture.crouch` -- because a locomotion
+ * module reads exactly those and nothing else.
+ *
+ * **`recover` is not a phase field.** It is derived in `locomotionCommand` from whether the
+ * person is asking to move at all, which is `fighterRequestsRising`'s existing rule; the `down`
+ * phase therefore commands nothing so the fallen dwell can elapse, and `recover` walks forward,
+ * which is both the request to get up and the thing to do once up.
+ */
+export const LOCOMOTION_SEQUENCE = Object.freeze([
+  { name: "stand", until: 1.00, forward: 0, strafe: 0, turn: 0, crouch: 0 },
+  { name: "walk", until: 3.00, forward: 1, strafe: 0, turn: 0, crouch: 0 },
+  { name: "strafe", until: 4.50, forward: 0, strafe: 1, turn: 0, crouch: 0 },
+  { name: "turn", until: 6.00, forward: 0, strafe: 0, turn: 1, crouch: 0 },
+  { name: "crouchwalk", until: 8.00, forward: 1, strafe: 0, turn: 0, crouch: 1 },
+  { name: "settle", until: 9.00, forward: 0, strafe: 0, turn: 0, crouch: 0 },
+  // One frame long: a shove is an edge and an impulse, and a phase that held it would be a force.
+  { name: "shove", until: 9.02, forward: 0, strafe: 0, turn: 0, crouch: 0, shove: true },
+  { name: "down", until: 9.70, forward: 0, strafe: 0, turn: 0, crouch: 0 },
+  { name: "recover", until: 12.00, forward: 1, strafe: 0, turn: 0, crouch: 0 },
+]);
+
+/**
+ * A walk and nothing else, for sweeping a gait number.
+ *
+ * The full sequence above ends in a knockdown, and a gait column read over it is a column with a
+ * ragdoll in the middle of it. Eight seconds of flat ground: a second standing so the noise floor
+ * is a reading of the settled harness, six walking, a second stopping.
+ */
+export const WALK_SEQUENCE = Object.freeze([
+  { name: "stand", until: 1.00, forward: 0, strafe: 0, turn: 0, crouch: 0 },
+  { name: "walk", until: 7.00, forward: 1, strafe: 0, turn: 0, crouch: 0 },
+  { name: "stop", until: 8.00, forward: 0, strafe: 0, turn: 0, crouch: 0 },
+]);
+
+/**
+ * The locomotion modules this harness can drive.
+ *
+ * Looked up by definition rather than through `golemModule`, because what a locomotion run needs
+ * is the module's own surface -- its readout, its live evidence and its shove -- and `BenchModule`
+ * deliberately publishes none of those: it publishes what the *page* needs. `runGolemLocomotion`
+ * asserts that whatever it drives is also registered, so a module benched here and missing from
+ * the picker is a failure rather than a divergence.
+ */
+export const LOCOMOTION_MODULES = { biped: bipedModule };
+
+/** A whole `Intent` again, with the movement axes this time. */
+const locomotionIntent = () => benchIntent();
+
+/**
+ * Drive one locomotion module through a scripted sequence.
+ *
+ * **`course` is off by default and that is a measurement decision.** The page bench always has
+ * the step, the curb and the row of posts in front of the stand, because a person driving it for
+ * a couple of minutes has to have something to walk into. A *gait* number must not be taken
+ * through them: measured, a straight two-second walk from the stand puts a foot on the 0.12 m
+ * step about a second in, the leg jams, and the joint lag reads 1.549 rad -- which is a true
+ * reading of a leg on a step and a false one of a walk. The obstacle cells turn it on and say so.
+ */
+export async function runGolemLocomotion({
+  moduleId = "biped",
+  side = "left",
+  sequence = LOCOMOTION_SEQUENCE,
+  overrides = null,
+  populateFixture = null,
+  course: withCourse = false,
+  /** Called with the live scene and world-query registry before the module is built. */
+  prepare = null,
+  /** Called once per rendered frame with the live module, for a cell that measures its own thing. */
+  watch = null,
+} = {}) {
+  const definition = LOCOMOTION_MODULES[moduleId];
+  if (!definition) {
+    throw new Error(`no locomotion module "${moduleId}"; known: ${Object.keys(LOCOMOTION_MODULES).join(", ")}`);
+  }
+  if (!golemModule(definition.id)) {
+    throw new Error(`locomotion module "${definition.id}" is not registered in GOLEM_MODULES`);
+  }
+
+  const restore = [];
+  if (overrides) {
+    for (const [block, values] of overrides) {
+      for (const [key, value] of Object.entries(values)) {
+        restore.push([block, key, block[key]]);
+        block[key] = value;
+      }
+    }
+  }
+
+  const arena = await createHeadlessArena({ populateFixture });
+  const scene = arena.scene;
+  const plugin = scene.getPhysicsEngine().getPhysicsPlugin();
+  const world = flatSupportedWorldRegistry();
+  const course = withCourse ? buildLocomotionCourse(scene) : null;
+  if (withCourse) registerLocomotionCourse(world);
+  const stand = buildGolemStand(scene, {
+    side, ground: Vector3.Zero(), facing: Quaternion.Identity(), slot: "locomotion",
+  });
+  const prepared = prepare ? prepare({ scene, world, stand }) : null;
+  const module = definition.build({
+    scene, side, name: `golem.${side}.locomotion`, socket: stand.socket("locomotion"),
+    layers: golemLayers(side), materials: stand.materials, world,
+  });
+
+  // Forced activation on every body before a single reading is believed: Havok deactivates a body
+  // at rest and a sleeping one reads a perfect zero however badly it would shake awake, which for
+  // a *standing* golem would make the whole idle interval a measurement of the sleep threshold.
+  plugin.setActivationControl(stand.block.body, 1);
+  for (const part of module.parts) plugin.setActivationControl(part.part.body, 1);
+
+  // **Control runs on the physics clock**, exactly as the effector run above and the page do. The
+  // accumulator takes four solver steps per rendered frame and notifies this before each; a
+  // carrier stepped from the frame loop would resolve one safe boundary in four, and the state
+  // machine would be reading a dt four times the one the solver used.
+  const control = scene.onBeforePhysicsObservable.add(() => {
+    module.step(SUBSTEP);
+  });
+
+  const intent = locomotionIntent();
+  const marks = [];
+  let shoved = null;
+  try {
+    const total = sequence[sequence.length - 1].until;
+    let phase = 0;
+    for (let frame = 0; frame * FRAME < total; frame += 1) {
+      const now = frame * FRAME;
+      while (phase < sequence.length - 1 && now >= sequence[phase].until) phase += 1;
+      const step = sequence[phase];
+      intent.forward = step.forward;
+      intent.strafe = step.strafe;
+      intent.turn = step.turn;
+      intent.posture.crouch = step.crouch;
+      module.command(locomotionCommand(intent));
+      if (step.shove && shoved === null) {
+        module.shove();
+        shoved = now;
+      }
+
+      scene._renderId += 1;
+      scene._advancePhysicsEngineStep(1000 * FRAME);
+      if (watch) watch({ module, scene, world, stand, prepared, frame, now, phase: step.name });
+
+      const next = frame + 1;
+      if (next * FRAME >= sequence[phase].until || next * FRAME >= total) {
+        if (!marks.some((mark) => mark.phase === step.name)) {
+          marks.push({ phase: step.name, at: next * FRAME, state: module.readout() });
+        }
+      }
+    }
+    const evidence = module.evidence();
+    return {
+      harness: HARNESS,
+      moduleId: definition.id,
+      course: withCourse,
+      label: definition.label,
+      massKg: definition.massKg,
+      supportedMassKg: definition.massKg + stand.block.body.getMassProperties().mass,
+      heightRange: definition.heightRange,
+      footprint: definition.footprint,
+      shovedAt: shoved,
+      prepared,
+      marks,
+      evidence: { ...evidence },
+      state: module.readout(),
+    };
+  } finally {
+    scene.onBeforePhysicsObservable.remove(control);
+    module.dispose();
+    stand.dispose();
+    course?.dispose();
+    arena.dispose();
+    for (const [block, key, value] of restore.reverse()) block[key] = value;
+  }
+}
+
+/**
+ * The locomotion numbers with a sweep behind them.
+ *
+ * Same shape as `SWEEPS` and a separate table for the same reason the instrument is separate: a
+ * column named "peak tip speed" means nothing on a pair of legs, and a sweep that reported one
+ * would be a number waiting to be quoted wrongly.
+ */
+const LOCOMOTION_SWEEPS = {
+  footFriction: { block: LOCOMOTION_BIPED, key: "footFriction",
+    values: [0.15, 0.35, 0.45, 0.55, 0.65, 0.80] },
+  strideCadence: { block: LOCOMOTION_BIPED, key: "strideCadence",
+    values: [3.0, 3.8, 4.2, 4.4, 4.8, 5.5] },
+  strideSwing: { block: LOCOMOTION_BIPED, key: "strideSwing",
+    values: [0.30, 0.40, 0.45, 0.50, 0.55, 0.65] },
+  kneeLiftScale: { block: LOCOMOTION_BIPED, key: "kneeLiftScale",
+    values: [1.0, 1.6, 2.0, 2.4, 2.8, 3.2] },
+  kneeLiftPhase: { block: LOCOMOTION_BIPED, key: "kneeLiftPhase",
+    values: [0.9, 1.2, 1.4, 1.5, 1.6, 1.9] },
+  hipTorque: { block: LOCOMOTION_BIPED, key: "hipTorque",
+    values: [300, 600, 800, 900, 1100, 1600, 3000] },
+  kneeTorque: { block: LOCOMOTION_BIPED, key: "kneeTorque",
+    values: [200, 350, 450, 500, 600, 900, 1800] },
+  ankleTorque: { block: LOCOMOTION_BIPED, key: "ankleTorque",
+    values: [60, 140, 220, 320, 600, 1200] },
+  targetRate: { block: LOCOMOTION_BIPED, key: "targetRate", values: [2, 4, 6, 10, 20] },
+  // These three are about a knockdown, so they are the only ones read over the whole sequence.
+  waistTorque: { block: BENCH_STAND_LOCOMOTION, key: "waistTorque",
+    values: [800, 2000, 5000, 12000], sequence: LOCOMOTION_SEQUENCE },
+  shove: { block: LOCOMOTION_BIPED, key: "shoveImpulseNs",
+    values: [10, 12, 200, 600, 1600], sequence: LOCOMOTION_SEQUENCE },
+  fallenTorque: { block: LOCOMOTION_BIPED, key: "fallenTorqueScale",
+    values: [1.0, 0.30, 0.08, 0.0], sequence: LOCOMOTION_SEQUENCE },
+};
+
 /**
  * Every number that decides whether a chain reads as a limb, each with its own sweep.
  *
@@ -462,7 +683,8 @@ const SWEEPS = {
 };
 
 function parseArgs(argv) {
-  const args = { chain: null, terminal: null, module: null, sweep: null, json: false, slot: "primary" };
+  const args = { chain: null, terminal: null, module: null, sweep: null, json: false,
+    slot: "primary", locomotion: null, course: false };
   for (let index = 0; index < argv.length; index += 1) {
     const flag = argv[index];
     if (flag === "--json") { args.json = true; continue; }
@@ -473,6 +695,8 @@ function parseArgs(argv) {
       case "--module": args.module = value; index += 1; break;
       case "--sweep": args.sweep = value; index += 1; break;
       case "--slot": args.slot = value; index += 1; break;
+      case "--locomotion": args.locomotion = value ?? "biped"; index += 1; break;
+      case "--course": args.course = true; break;
       default: throw new Error(`unknown flag ${flag}`);
     }
   }
@@ -487,8 +711,85 @@ const idFor = (args) => {
 
 const fixed = (value, places) => (value === null ? "n/a" : value.toFixed(places));
 
+function printLocomotion(run) {
+  process.stdout.write(`harness: ${HARNESS}\n`);
+  process.stdout.write(`module ${run.moduleId} -- ${run.label}, ${run.massKg.toFixed(2)} kg of module,`
+    + ` ${run.supportedMassKg.toFixed(2)} kg supported\n`);
+  process.stdout.write(`stands ${run.heightRange.standM.toFixed(3)} m,`
+    + ` crouches to ${run.heightRange.crouchM.toFixed(3)} m,`
+    + ` footprint r=${run.footprint.radiusM.toFixed(3)} m,`
+    + ` step envelope ${run.footprint.stepHeightM.toFixed(3)} m,`
+    + ` max slope ${run.footprint.maxSlopeDeg} deg\n`);
+  process.stdout.write(`shoved at ${run.shovedAt === null ? "n/a" : `${run.shovedAt.toFixed(2)} s`}\n\n`);
+  for (const mark of run.marks) {
+    process.stdout.write(`  after "${mark.phase}" at ${mark.at.toFixed(2)} s:`
+      + ` supported ${mark.state.supportedSteps}/${mark.state.steps},`
+      + ` lag ${mark.state.peakCarrierLagMps.toFixed(3)} m/s,`
+      + ` slip ${(mark.state.peakFootSlipMps * 1000).toFixed(1)} mm/s,`
+      + ` joint lag ${mark.state.peakJointErrorRad.toFixed(4)} rad,`
+      + ` height ${mark.state.minHeightM.toFixed(3)}..${mark.state.maxHeightM.toFixed(3)} m\n`);
+  }
+  process.stdout.write("\n");
+  for (const line of formatLocomotion(run.state, run.evidence)) process.stdout.write(`  ${line}\n`);
+}
+
+async function mainLocomotion(args) {
+  if (args.sweep) {
+    const sweep = LOCOMOTION_SWEEPS[args.sweep];
+    if (!sweep) {
+      throw new Error(`unknown locomotion sweep "${args.sweep}";`
+        + ` known: ${Object.keys(LOCOMOTION_SWEEPS).join(", ")}`);
+    }
+    const rows = [];
+    for (const value of sweep.values) {
+      const run = await runGolemLocomotion({
+        moduleId: args.locomotion, course: args.course,
+        sequence: sweep.sequence ?? WALK_SEQUENCE,
+        overrides: [[sweep.block, { [sweep.key]: value }]],
+      });
+      rows.push({ value, ...run.state });
+    }
+    if (args.json) {
+      process.stdout.write(`${JSON.stringify({ harness: HARNESS, sweep: args.sweep, rows }, null, 2)}\n`);
+      return;
+    }
+    process.stdout.write(`harness: ${HARNESS}\n`);
+    process.stdout.write(`locomotion.${args.locomotion}, sweeping ${args.sweep} (${sweep.key})\n\n`);
+    process.stdout.write("   value   slip peak   slip mean   joint lag   sole lift   carrier lag"
+      + "   lean up/all   min up     planted   gap s   height min   rise s   hits/self\n");
+    for (const row of rows) {
+      process.stdout.write(
+        `  ${String(row.value).padStart(6)}`
+        + `   ${(row.peakFootSlipMps * 1000).toFixed(1).padStart(9)}`
+        + `   ${(row.meanFootSlipMps * 1000).toFixed(1).padStart(9)}`
+        + `   ${row.peakJointErrorRad.toFixed(4).padStart(9)}`
+        + `   ${(row.peakSoleLiftM * 1000).toFixed(1).padStart(9)}`
+        + `   ${row.peakCarrierLagMps.toFixed(3).padStart(11)}`
+        + `   ${row.peakUprightLeanRad.toFixed(4)}/${row.peakLeanRad.toFixed(4)}`
+        + `   ${row.minUpDot.toFixed(3).padStart(6)}`
+        + `   ${String(row.plantedSteps).padStart(5)}/${String(row.steps).padStart(4)}`
+        + `   ${row.longestSupportGapSeconds.toFixed(3).padStart(5)}`
+        + `   ${row.minHeightM.toFixed(3).padStart(10)}`
+        + `   ${(row.riseSeconds === null ? "n/a" : row.riseSeconds.toFixed(3)).padStart(6)}`
+        + `   ${String(row.contacts).padStart(5)}/${row.selfContacts}\n`,
+      );
+    }
+    return;
+  }
+  const run = await runGolemLocomotion({ moduleId: args.locomotion, course: args.course });
+  if (args.json) {
+    process.stdout.write(`${JSON.stringify(run, null, 2)}\n`);
+    return;
+  }
+  printLocomotion(run);
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args.locomotion) {
+    await mainLocomotion(args);
+    return;
+  }
   const moduleId = idFor(args);
 
   if (args.sweep) {

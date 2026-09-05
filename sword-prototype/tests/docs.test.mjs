@@ -240,10 +240,15 @@ const RESOLVED_IN_NODE_MODULES = [
 // were interpolated trainer artifact names written in `src/learning/` and its runners, and went
 // with them. The two brace expansions and the two globs are what is left, all four in durable
 // prose about files rather than in code.
+// **Re-taken 2026-09-04 by golem session 05: four targets to five.** `src/supported-locomotion*.ts`
+// is the fifth, and it is the name the plan set and `AGENTS.md` both already use for the four-file
+// carrier family; the locomotion contract that session built names it the same way rather than
+// listing four paths in every docstring that is about all of them.
 const NOT_A_PATH_TARGETS = [
   ".review/rem2/cutseeds-{before,after}.json",
   "asset-src/learning/{baseline,engagement-baseline,unpromoted}-v1.json",
   "scripts/*.mjs",
+  "src/supported-locomotion*.ts",
   "tests/*.mjs",
 ];
 
@@ -348,8 +353,22 @@ const SCRATCH_SHARE_OF_DURABLE = { min: 0.02, max: 0.25 };
 // and unlike session 02's, none of them is named by the overview, which describes the terminal
 // shelf in a table rather than by path. The 21 that remain are sessions 05 to 11 naming what they
 // intend to create.
+//
+// **Re-taken 2026-09-04 from golem session 05's own failing run: 24 -> 20.** Four occurrences went
+// because session 05 built the three files its plan promised -- `src/golem/locomotion.ts`,
+// `src/golem/locomotion/biped.ts` and `tests/golem-locomotion.test.mjs` -- of which the test file
+// is named twice, by session 05's own plan and by session 06's. The 20 that remain are sessions
+// 04 and 06 to 11 naming what they intend to create.
+//
+// **Re-taken 2026-09-04 from the merged tree's own failing run: 24 -> 17.** Sessions 04 and 05 ran
+// in parallel off the same 24, so each re-pinned against a tree the other's files were missing
+// from -- 21 and 20 -- and neither number survives the merge, because both sets of files now
+// exist. Session 04's three terminals account for three occurrences and session 05's three
+// locomotion files for four, and 3 + 4 = 7 is exactly the fall. The 17 that remain are sessions
+// 06 to 11 naming what they intend to create. Take the next one from its own failing run too: two
+// branches re-pinning the same counter is what made this note necessary.
 const PLAN_SURFACE = {
-  noSuchFile: 21,
+  noSuchFile: 17,
   ambiguousFile: 0,
   anchorIntoDeletedFile: 0,
   orphanContinuation: 0,

@@ -38,12 +38,34 @@ import { initialSupportedLocomotionState, stepSupportedLocomotionState,
  * `ActionSpec` here is the identity a caller needs to name an Action and its control group,
  * and not a body-description format.
  *
- * **This seam currently has no writer.** The Warrior and Broot both declare
- * `supportedLocomotionPort` and drive the carrier through `request`/`resolve` without ever
- * calling `authority` or `stage`; the only caller that did was the construct runtime. Golem
- * session 05 owns the locomotion contract and is the named reader that is coming, which is
- * why this is kept rather than cut -- see the house rule about a view field with no reader
- * *yet*, and delete it if session 05 lands without one.
+ * **This seam has no writer, and as of 2026-09-04 it has no reader that is coming either.**
+ * The Warrior and Broot both declare `supportedLocomotionPort` and drive the carrier through
+ * `request`/`resolve` without ever calling `authority` or `stage`; the only caller that did
+ * was the construct runtime. The header used to name golem session 05 as the reader that was
+ * coming and said to delete this if that session landed without one.
+ *
+ * **Session 05 landed without one, and here is why rather than merely that.** Its locomotion
+ * modules do supply a `StabilityAuthority` -- `src/golem/locomotion/biped.ts` publishes one per
+ * boundary, with a gait scale that falls with carrier speed -- but they supply it through the
+ * `authority` *callback* on `PhysicalSupportedLocomotionOptions`, which is the seam the Warrior
+ * already uses and which needs no scheduler. The three methods below exist for a caller that
+ * admits parameterized Actions into control groups and then submits movement under a token, and
+ * the golem plan set has no such caller and will not grow one: frozen rule 9 says there is no
+ * learning in it and that the central mind is a scripted state machine, and frozen rule 8 says
+ * `Intent` is the whole command surface -- an Action/control-group admission query would be a
+ * second one. Sessions 06 (wheel and multileg), 08 (assembly) and 09 (the scripted mind) are the
+ * only ones left that could plausibly want it, and each of them commands locomotion through the
+ * same `Intent`.
+ *
+ * So this is **dead and should be deleted**: measured 2026-09-04, nothing outside this file
+ * references `ActionSpec`, `ControlGroupSpec`, `LocomotionAuthorityToken`, `LocomotionSubmission`,
+ * `LocomotionSchedulerPort`, `resolveActionAuthority`, `authority`, `stage`, `priorSample`,
+ * `clearSubmission` or `clearAll` -- not one source file, test, script or document outside
+ * `docs/plans/golem-01-demolition.md`, which names them only to record that they were moved here.
+ * Session 05 left the deletion rather than taking it because two other sessions were editing this
+ * tree at the same time and a cut this wide is not an append; whoever next has this file to
+ * themselves should make it, and `clear` remains the whole of what `clearAll` and
+ * `clearSubmission` do.
  */
 export interface ActionSpec {
   readonly id: string;

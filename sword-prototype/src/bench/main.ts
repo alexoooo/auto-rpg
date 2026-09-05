@@ -32,10 +32,12 @@ import {
   type BenchModule,
   type GolemBenchOption,
 } from "../golem/registry.ts";
-import { buildGolemStand, golemLayers } from "../golem/stand.ts";
-import { EFFECTOR_SLOTS, type GolemSlot } from "../golem/module.ts";
+import { buildLocomotionCourse, registerLocomotionCourse } from "../golem/locomotion/course.ts";
+import { buildGolemStand, golemLayers, type GolemStand } from "../golem/stand.ts";
+import { EFFECTOR_SLOTS, effectorSlot, type GolemSlot } from "../golem/module.ts";
 import { Controls } from "../input.ts";
 import { attachPhysics } from "../physics.ts";
+import { flatSupportedWorldRegistry } from "../supported-locomotion-production.ts";
 import { BenchOverlay } from "./overlay.ts";
 
 // Side effect, and a load-bearing one: the HDR loader registers itself on import, exactly as
@@ -43,13 +45,19 @@ import { BenchOverlay } from "./overlay.ts";
 import "@babylonjs/core/Materials/Textures/Loaders/hdrTextureLoader.js";
 
 /**
- * The golem effector bench: one module on a fixed stand -- or two, one per socket -- driven with
- * the mouse.
+ * The golem module bench: one module on a stand -- or two effectors, one per socket -- driven
+ * with the mouse.
  *
- * This is the page that answers the question three body experiments failed -- can one effector
+ * This is the page that answers the question three body experiments failed -- can one module
  * look and feel right in isolation -- and the only way it answers it is that a person drives it
- * and says. Nothing here fights and nothing here has legs. Every number the readout prints is
- * evidence, and no number in it is a verdict.
+ * and says. Nothing here fights. Every number the readout prints is evidence, and no number in
+ * it is a verdict.
+ *
+ * **The stand is not fixed for every slot**, which is Session 05's half of this file. For the
+ * four slots that hang off a body it is Session 02's immovable `ANIMATED` block; for locomotion
+ * it is a real `DYNAMIC` torso block the module underneath has to carry, and it is rebuilt
+ * whenever the acting slot changes. `src/golem/stand.ts` owns that distinction and takes the
+ * slot, so nothing here switches on what kind of module is up.
  *
  * **`P` puts a second effector in the other socket**, which Session 04 added for a question a
  * single module cannot be asked: whether a blade and a plate on one stand read as one body or as
@@ -167,10 +175,20 @@ async function main(): Promise<void> {
   floor.material = surfaces.ground;
   floor.isPickable = false;
   floor.receiveShadows = true;
-  const stand = buildGolemStand(scene, {
-    side: "left", ground: Vector3.Zero(), facing: Quaternion.Identity(),
-  });
   const layers = golemLayers("left");
+
+  /**
+   * The world the carrier navigates against, and the course it navigates around.
+   *
+   * Built once and outliving every module rebuild, because a query registry is a fact about the
+   * room rather than about what is on the stand -- and because `StandableWorldRegistry.register`
+   * throws on a duplicate id, so re-registering the same course per rebuild would fail loudly on
+   * the second press of `R`. Handed to every module through `ModuleBuild.world`; an effector
+   * ignores it, which is why this is not a dispatch on what kind of module is up.
+   */
+  const world = flatSupportedWorldRegistry();
+  registerLocomotionCourse(world);
+  const course = buildLocomotionCourse(scene, surfaces.ground);
 
   // --- what is on the stand ---------------------------------------------------------------
   //
@@ -192,6 +210,19 @@ async function main(): Promise<void> {
   };
   const built = new Map<GolemSlot, BenchModule>();
   const overlays = new Map<GolemSlot, BenchOverlay>();
+  /**
+   * **The stand is rebuilt with the module, because which slot is filled decides what it is.**
+   * For four of the five slots it is the fixed `ANIMATED` anchor Session 02 built; for locomotion
+   * it is a real `DYNAMIC` torso block that the module carries, which is what the session plan
+   * means by "the stand becomes a real torso block on top of the module under test". `stand.ts`
+   * owns that distinction and takes the slot; nothing here switches on a mode.
+   *
+   * Nullable, and torn down with what stands on it. Sessions 04 and 05 restructured this file at
+   * the same time -- 04 for two effectors at once, 05 for a stand that is a different body per
+   * slot -- and the union is that one stand carries the whole `built` map: the map is what is on
+   * the stand, and the stand is what the map is bolted to, so they are built and dropped together.
+   */
+  let stand: GolemStand | null = null;
   let rigWanted = false;
   let readoutWanted = true;
   let elapsed = 0;
@@ -215,9 +246,25 @@ async function main(): Promise<void> {
   };
 
   const other = (of: GolemSlot): GolemSlot => (of === "primary" ? "secondary" : "primary");
+  /**
+   * Why the acting option cannot share the stand with a second one, or null when it can.
+   *
+   * A refusal that names its own reason rather than a bare `false`, because there are now two
+   * reasons and they want different answers from the person: a two-socket terminal is refused
+   * until they pick a different one, and a locomotion or torso slot is refused because that slot
+   * has no second socket at all and never will. Session 05 put non-effector options on this page,
+   * so `slot` is no longer always a hand -- which is the one place pairing had to be taught
+   * something by the merge rather than merely carried through it.
+   */
+  const pairRefusal = (): string | null => {
+    if (effectorSlot(slot) === null) return `the ${slot} slot has only one socket`;
+    if (chosen[slot].sockets === 2 || chosen[other(slot)].sockets === 2) {
+      return "a two-socket module cannot share the stand";
+    }
+    return null;
+  };
   /** Whether the acting option can share the stand with a second one. */
-  const canPair = (): boolean =>
-    chosen[slot].sockets === 1 && chosen[other(slot)].sockets === 1;
+  const canPair = (): boolean => pairRefusal() === null;
 
   const teardown = (): void => {
     releaseWatchers();
@@ -225,6 +272,12 @@ async function main(): Promise<void> {
     overlays.clear();
     for (const module of built.values()) module.dispose();
     built.clear();
+    // The stand goes **last**, after everything standing on it. Every module is jointed into the
+    // block's own body and `PhysicsBody.dispose` walks straight past whatever is constraining
+    // it, so taking the block down first would leave a constraint pointing at a freed Havok
+    // body. Same rule and same reason as terminal-before-chain in `effectorModule`.
+    stand?.dispose();
+    stand = null;
   };
 
   const build = (): void => {
@@ -234,6 +287,13 @@ async function main(): Promise<void> {
     selfContacts = 0;
     if (paired && !canPair()) paired = false;
     const filled: GolemSlot[] = paired ? [slot, other(slot)] : [slot];
+    // The stand first and the modules onto it, because the stand's own body is what every one of
+    // them is jointed to -- and **which slot is acting decides what the stand is**, so it is
+    // rebuilt here rather than once at bring-up.
+    const rebuilt = buildGolemStand(scene, {
+      side: "left", ground: Vector3.Zero(), facing: Quaternion.Identity(), slot,
+    });
+    stand = rebuilt;
 
     const watch = (body: PhysicsBody): void => {
       owned.add(body);
@@ -250,15 +310,19 @@ async function main(): Promise<void> {
       });
       watchers.push([body, observer as never]);
     };
-    watch(stand.block.body);
+    watch(rebuilt.block.body);
 
     for (const filling of filled) {
-      const socket = stand.socket(filling);
+      const socket = rebuilt.socket(filling);
       const module = chosen[filling].build({
         scene, side: "left", name: `golem.bench.${filling}`, socket,
         // The other socket, handed over whether or not the option wants one. A one-socket
         // terminal ignores it; a mace refuses to build without it, by name.
-        companion: stand.socket(other(filling)), layers, materials: stand.materials,
+        companion: rebuilt.socket(other(filling)), layers, materials: rebuilt.materials,
+        // The room's own registry, handed over on the same terms. A locomotion module navigates
+        // against it and every other slot ignores it, which is why this is not a dispatch on
+        // what kind of module is being built.
+        world,
       });
       built.set(filling, module);
       const overlay = new BenchOverlay(scene, socket, module.envelope());
@@ -307,9 +371,10 @@ async function main(): Promise<void> {
     }
     lines.push("");
     lines.push(`  socket: ${slot}   (F swaps)`);
+    const refusal = pairRefusal();
     lines.push(paired
       ? `  pair: on, ${chosen[other(slot)].label} in the ${other(slot)} socket   (P)`
-      : `  pair: off${canPair() ? "" : " -- a two-socket module cannot share the stand"}   (P)`);
+      : `  pair: off${refusal === null ? "" : ` -- ${refusal}`}   (P)`);
     lines.push("  keys 1-9, 0, then shift+1-9");
     pickerPanel.innerHTML = lines.join("\n");
   };
@@ -405,13 +470,27 @@ async function main(): Promise<void> {
   // what a bearing is.
   controls.camera.yaw = -1.1;
 
-  // The number keys and `P` are the bench's own, because `Controls` has no opinion about either:
-  // its default branch drops an unhandled code into the held set, where a digit and a `P` are
-  // both inert.
-  const onDigit = (event: KeyboardEvent): void => {
+  // The number keys, `P` and `B` are the bench's own, because `Controls` has no opinion about any
+  // of them: its default branch drops an unhandled code into the held set, where a digit, a `P`
+  // and a `B` are all inert.
+  //
+  // **One listener, because two would both fire.** Sessions 04 and 05 each grew a `keydown`
+  // handler on this window for their own key -- `onDigit` and `onBenchKey` -- and registering
+  // both would mean every digit ran `pick` twice: the first rebuild would drop the module the
+  // second one then read. The union is one function and one `addEventListener`.
+  const onBenchKey = (event: KeyboardEvent): void => {
+    // **A shove is an impulse, not a force**, and what it is worth is the module's own number
+    // with its own bracket beside it. The bench presses the button; it does not decide how hard.
+    // Asked of the **acting** module and answered by capability: a module that publishes no
+    // fixture, or a fixture that cannot be knocked down, does nothing here and needs no branch.
+    if (event.code === "KeyB") {
+      built.get(slot)?.fixture?.shove?.();
+      return;
+    }
     if (event.code === "KeyP") {
-      // Pair mode. Refused rather than half-applied when either socket holds a module that has
-      // already claimed both -- the picker line says which.
+      // Pair mode. Refused rather than half-applied, and the picker line names which of the two
+      // refusals it is -- a module that has already claimed both sockets, or an acting slot that
+      // has only ever had one.
       if (!paired && !canPair()) { renderPicker(); return; }
       paired = !paired;
       build();
@@ -426,7 +505,7 @@ async function main(): Promise<void> {
     const wanted = event.shiftKey ? base + 10 : base;
     if (wanted >= 1) pick(wanted);
   };
-  window.addEventListener("keydown", onDigit);
+  window.addEventListener("keydown", onBenchKey);
 
   // --- control on the physics clock --------------------------------------------------------
   // `onBeforePhysicsObservable`, not the render loop. The fixed-step accumulator takes several
@@ -473,9 +552,16 @@ async function main(): Promise<void> {
   // Framed on the middle of the working envelope rather than on the stand: the limb hangs from
   // 1.42 m and reaches 1.14 m out and down, so the thing being looked at is in front of and
   // below the block, not inside it.
+  //
+  // **Taken from the block each frame rather than fixed**, which is the same offset for an
+  // effector -- that block never moves -- and is what keeps a walking golem in shot. The block is
+  // the right thing to follow rather than the module's own root: it is where the torso is on
+  // every slot, and reading `mesh.position` costs nothing and stamps no render id.
+  const FOCUS_OFFSET = Object.freeze(new Vector3(0, 0.07, 0.35));
   const focus = new Vector3(0, 1.10, 0.35);
   const goal = new Vector3();
   const placeCamera = (dt: number, snap: boolean): void => {
+    if (stand) focus.copyFrom(stand.block.mesh.position).addInPlace(FOCUS_OFFSET);
     const gesture = controls.camera;
     // `orbitFraming` and the gesture state are `src/camera.ts`'s, so middle-drag orbit,
     // Shift+middle-drag pan and the wheel behave exactly as they do in the arena. The bench's
@@ -530,7 +616,8 @@ async function main(): Promise<void> {
         // perfectly by a limb that is not there.
         `trailing grip stray ${gripStray === null ? "n/a" : `${(gripStray * 1000).toFixed(3)} mm`}`,
         "",
-        ...formatReadout(state),
+        ...(view ? formatReadout(state) : []),
+        ...(module?.fixture ? module.fixture.lines() : []),
         "",
         controls.isActive ? "" : "PAUSED -- Space or Esc resumes",
       ].join("\n");
@@ -557,8 +644,14 @@ async function main(): Promise<void> {
    */
   Object.assign(window as unknown as Record<string, unknown>, {
     __golem: {
-      scene, camera, engine, stand, controls,
+      scene, camera, engine, controls, world, course,
+      // Getters, not fields, for everything a rebuild replaces. `stand`, `readout` and the acting
+      // module are all reassigned by `build`, so a console handle that captured them once would
+      // hand back the corpse of whatever was on the stand before the last `R` -- and `readout` in
+      // particular is where the merge chose: Session 05 published it as a plain field and Session
+      // 04 had already made it a getter for exactly this reason.
       get readout() { return readout; },
+      get stand() { return stand; },
       get module() { return built.get(slot) ?? null; },
       get modules() { return built; },
       get option() { return chosen[slot]; },
@@ -584,11 +677,11 @@ async function main(): Promise<void> {
 
   window.addEventListener("resize", () => engine.resize());
   window.addEventListener("beforeunload", () => {
-    window.removeEventListener("keydown", onDigit);
+    window.removeEventListener("keydown", onBenchKey);
     controls.dispose();
     teardown();
+    course.dispose();
     room.dispose();
-    stand.dispose();
   });
 }
 

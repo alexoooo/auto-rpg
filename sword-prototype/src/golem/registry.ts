@@ -1,5 +1,7 @@
 import type { Striking } from "../combat.ts";
 import type { HandIntent, Intent } from "../mind.ts";
+import { formatLocomotion, locomotionCommand } from "./locomotion.ts";
+import { bipedModule } from "./locomotion/biped.ts";
 import { effectorModule } from "./effectors/effector.ts";
 import { noneChain } from "./effectors/chains/none.ts";
 import { pitchChain } from "./effectors/chains/pitch.ts";
@@ -65,6 +67,30 @@ export const benchModeLabel = (mode: GolemBenchMode): string => {
 };
 
 /**
+ * What a module offers the *bench* beyond the module contract, or null when it offers nothing.
+ *
+ * Appended by Session 05, and it is a generalisation rather than a special case. The bench draws
+ * its readout from `view()` and drives everything through `command(intent)`, both of which are
+ * exactly right for an effector and empty for a module with no tip: a locomotion module's readout
+ * is a support state, a carrier speed and a foot slip, and none of those is an `EffectorView`
+ * field. A dispatch on `GolemBenchMode` in `src/bench/main.ts` would be the thing Sessions 05, 06
+ * and 07 all had to edit, which is what the mode's own comment says must not happen -- so the
+ * *module* says what extra the bench should show and what extra key it answers to, and the bench
+ * shows and calls it without knowing what kind of thing it is.
+ *
+ * Both members exist because the session plan names both: "Readout: commanded versus actual
+ * carrier speed, support state, posture evidence, foot slip while planted, rise time", and "a key
+ * applies a measured shove (a specific impulse, not a force) to the torso so knockdown can be seen
+ * on demand".
+ */
+export interface BenchFixture {
+  /** Extra readout lines, appended under the instrument's own. */
+  lines(): readonly string[];
+  /** What the bench's shove key does, or null for a module that cannot be knocked down. */
+  readonly shove: (() => void) | null;
+}
+
+/**
  * A built module with its command channel already bound to the whole `Intent`.
  *
  * This is the seam that keeps the bench free of per-mode dispatch. A registration says how a
@@ -77,6 +103,8 @@ export const benchModeLabel = (mode: GolemBenchMode): string => {
 export interface BenchModule {
   readonly parts: readonly GolemPart[];
   readonly strikers: readonly Striking[];
+  /** Null for a module with nothing to add to the bench. Every effector answers null. */
+  readonly fixture: BenchFixture | null;
   command(intent: Intent): void;
   step(dt: number): void;
   envelope(): ModuleEnvelope;
@@ -102,10 +130,16 @@ export interface GolemBenchOption {
   build(ctx: ModuleBuild): BenchModule;
 }
 
-function benchOption<Command>(
-  definition: GolemModuleDefinition<Command>,
+function benchOption<Command, Built extends BuiltModule<Command> = BuiltModule<Command>>(
+  // The intersection is what keeps `fixture` honest: a definition whose `build` returns something
+  // richer than `BuiltModule` -- a locomotion module returns a `BuiltLocomotion` -- infers `Built`
+  // as that richer type, so the hook sees the module's own surface without a cast and an effector
+  // that passes no hook is unaffected.
+  definition: Omit<GolemModuleDefinition<Command>, "build"> & { build(ctx: ModuleBuild): Built },
   mode: GolemBenchMode,
   adapt: (intent: Intent, ctx: ModuleBuild) => Command,
+  /** What this module offers the bench beyond the contract. Absent for every effector. */
+  fixture?: (built: Built) => BenchFixture,
 ): GolemBenchOption {
   return Object.freeze({
     id: definition.id,
@@ -115,10 +149,11 @@ function benchOption<Command>(
     massKg: definition.massKg,
     sockets: definition.sockets ?? 1,
     build(ctx: ModuleBuild): BenchModule {
-      const built: BuiltModule<Command> = definition.build(ctx);
+      const built: Built = definition.build(ctx);
       return Object.freeze({
         parts: built.parts,
         strikers: built.strikers,
+        fixture: fixture ? fixture(built) : null,
         command: (intent: Intent) => built.command(adapt(intent, ctx)),
         step: (dt: number) => built.step(dt),
         envelope: () => built.envelope(),
@@ -194,7 +229,13 @@ export const GOLEM_MODULES: readonly GolemBenchOption[] = Object.freeze([
   benchOption(effectorModule(EFFECTOR_CHAINS.reach, EFFECTOR_TERMINALS.mace), "effector", handChannel),
   benchOption(effectorModule(EFFECTOR_CHAINS.wrist, EFFECTOR_TERMINALS.mace), "effector", handChannel),
   benchOption(effectorModule(EFFECTOR_CHAINS.wrist, EFFECTOR_TERMINALS.whip), "effector", handChannel),
-  // Session 05: locomotion.biped and its siblings, with mode "locomotion".
+  // Session 05: the locomotion contract's first module. One line, and the bench's own dispatch
+  // is untouched -- what is new is the fixture hook, which any later non-effector module uses.
+  benchOption(bipedModule, "locomotion", locomotionCommand, (built) => Object.freeze({
+    lines: () => formatLocomotion(built.readout(), built.evidence()),
+    shove: () => built.shove(),
+  })),
+  // Session 06: locomotion.wheel and locomotion.multileg.
   // Session 07: torso.plain, torso.plated, head.plain, head.ram.
 ]);
 

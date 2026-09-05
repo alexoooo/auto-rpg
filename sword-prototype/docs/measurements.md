@@ -9430,3 +9430,149 @@ not this session's to answer:
   and the whip's length were both bounded by a 0.44 x 0.78 x 0.40 slab hanging below a socket
   1.42 m off the ground. Session 07 builds a real torso and Session 08 stands it on legs; both
   numbers are worth re-taking against the body that actually carries them.
+
+## Golem locomotion bench: the biped on the carrier -- 2026-09-04
+
+**Nothing here is a verdict.** Session 05's human gate has not been asked, and this plan set exists
+because three body experiments each cleared a scalar proxy while the owner's judgement stayed red.
+Every figure below is a measurement of what the code does; none is a claim that a golem looks or
+feels like it is walking, and the thresholds pinned from these runs in
+`tests/golem-locomotion.test.mjs` are marked provisional there for the same reason.
+
+**Harness: the Node bench** (`scripts/golem-bench.mjs`, `NullEngine`, real Havok, no rendering)
+unless a row says otherwise. Two scripted sequences, and they are never mixed: `WALK_SEQUENCE` is
+eight seconds of flat ground with no course, which is what every *gait* number is read over, and
+`LOCOMOTION_SEQUENCE` is the plan's own twelve seconds -- stand, walk, strafe, turn, crouch and
+walk, a shove above the fall threshold, recover. A gait column read over the second has a knockdown
+in the middle of it, and one read with the course built has a leg on a step in it: measured, a
+straight walk from the stand puts a foot on the 0.12 m step about a second in and the joint lag
+reads 1.549 rad, which is a true reading of a leg on a step and a false one of a walk.
+
+### What the body is
+
+| | |
+| --- | --- |
+| module mass | 203.20 kg (pelvis 93.4, two legs of 54.9) |
+| supported mass | 560.10 kg, with the bench's 356.9 kg torso block |
+| stands / crouches to | 1.020 m / 0.860 m at the socket |
+| footprint | r = 0.340 m, step envelope 0.180 m, max slope 35 deg |
+| carrier ceilings | 1.2 m/s, 4.0 m/s2, 1.6 rad/s, 6.0 rad/s2 |
+
+### The walk, over `WALK_SEQUENCE` at the settings that shipped
+
+| reading | Node bench |
+| --- | --- |
+| substeps with some sole in contact | 1919 of 1919 |
+| mean slip of the stillest planted sole | 114.7 mm/s, against a carrier at 1200 |
+| peak slip of the stillest planted sole | 3874.5 mm/s |
+| peak joint lag over the six driven angles | 0.2469 rad |
+| peak swing-sole clearance | 209.3 mm |
+| peak / mean carrier-to-root lag | 0.0167 / 0.0013 m/s |
+| longest interval with no fresh support binding | 0.000 s |
+| first posture loss | never |
+| minimum root up-dot | 1.000 |
+| world contacts / self-contacts | 10096 / 0 |
+
+**The peak slip is not a defect and the mean is the budget.** 3874.5 mm/s is one instant of one
+stride at which the only sole inside the 0.02 m plant band is the swing foot passing through, and a
+*maximum* over planted feet therefore reports the walk itself: a swing foot has to travel at about
+twice the body's speed. The reading that catches a golem with nothing on the ground is the planted
+count, and it is 1919 of 1919. The first draft of the instrument took the maximum and reported
+1233 mm/s of mean "slip" against a carrier doing 1200, which is the shape of a number that is about
+something else.
+
+### Four things the sweeps said that were not expected
+
+**Grip has a floor and both sides of it are a different failure.** Below 0.45 the sole slides and
+the carrier drags it at 742 mm/s. Above 0.55 the sole *sticks*, and because the root is keyframed
+rather than balanced a stuck foot is levered off the floor by the hip's own swing -- the planted
+count falls to 1235 of 1919 at friction 0.80, which is a golem off the ground for a third of its
+walk and is the worse failure of the two.
+
+**The cadence that makes a foot stand still is the arithmetic one.** A swing of 0.50 rad about a
+0.72 m leg moves a foot 0.690 m fore-and-aft, so a step of the same length wants a cadence of
+`pi / 0.690 = 4.55` rad per metre. Swept, the minimum is at 4.4: 114.7 mm/s against 598.6 at 3.0
+and 793.4 at 5.5, with the planted count falling away on the fast side.
+
+**Above 900 N.m the hip gets worse rather than better.** 300 gives 347.3 mm/s and 1197/1919
+planted; 900 gives 114.7 and 1919/1919; 3000 gives 740.0 and 1863/1919. A stiffer joint is not a
+better one here, which is the same finding rung 1 recorded from the other side when its overshoot
+*fell* as torque rose: what shapes this gait is the rate-limited command and not the motor.
+
+**The rate limiter has stopped binding on the walk at all.** `targetRate` 10 and 20 are the same run
+to the digit, because the fastest thing in the gait is the knee's fold at about 5 rad/s. What 6.0
+actually decides is the crouch and the step onto a new command after a knockdown.
+
+### The knockdown, over `LOCOMOTION_SEQUENCE`
+
+The shove is stated once and spent twice: a real `applyImpulse` on the carried block so the slab
+lurches, and the same transfer queued into the port as a `horizontal-shove` event so the state
+machine sees it in its own mass-independent units. Inferring either from the other would be
+inferring an event from a side effect that has a second cause.
+
+| impulse N s | specific m/s | what the state machine did | worst root up-dot | lowest socket |
+| ---: | ---: | --- | ---: | ---: |
+| 10 | 0.0179 | stayed supported | +1.000 | 0.791 m |
+| 12 | 0.0214 | fell, rose in 1.158 s | +0.518 | 0.620 |
+| 200 | 0.3571 | fell, rose in 1.158 s | +0.810 | 0.536 |
+| 600 | 1.0712 | fell, rose in 1.158 s | -0.053 | 0.367 |
+| 1600 | 2.8566 | fell, rose in 1.158 s | -0.134 | 0.365 |
+
+**The 10 and 12 rows are the frozen threshold straddled to the newton-second, and that is worth more
+than the setting.** `FALL_SPECIFIC_IMPULSE_MPS` is 0.014 and the biped's declared brace capacity is
+1.5, so its boundary is 0.021 m/s, which against this body's real 560.1 kg is 11.76 N s -- and 10
+stays up while 12 goes down. A frozen constant measured on a Warrior lands exactly where it says it
+does on a 560 kg golem it was never measured against.
+
+The whole knockdown-to-supported interval is **1.158 s** at every shove that fells it, which is the
+0.35 s fallen dwell plus the 0.45 s rising duration plus the time the scripted sequence spends
+holding the command still afterwards. The longest interval without a fresh support binding over the
+whole run is 0.046 s, well inside the frozen 0.35 s grace.
+
+**A ragdoll needs its legs relaxed or it is a stumble.** With the leg motors left at full torque
+under a released root the same 600 N s shove tipped the golem to an up-dot of +0.816 and dropped it
+to 0.791 m; at `fallenTorqueScale` 0.08 it reaches -0.053 and 0.367 m. Zero is *worse* than 0.08
+(+0.226 and 0.484 m), because with no tone at all the legs fold flat under the falling body and prop
+it up.
+
+### The physical obstacle corpus, and how much of the deleted one this restores
+
+The demolition's account above lists the physical obstacle corpus as owed and not recoverable,
+because its fixtures were construct humanoids. `tests/golem-locomotion.test.mjs` rebuilds it against
+the biped. Every cell builds a **real Havok body and a matching query collider from the same
+numbers**, which is the pairing the rule exists for: the carrier is bodyless and has no idea a post
+is there unless the registry says so, and the feet are real bodies that hit it whether the registry
+knows or not.
+
+| cell | rebuilt? | what it now proves on real geometry |
+| --- | --- | --- |
+| wall / brace | yes | the carrier stops at the curb face less the footprint radius, to 1e-6 m, while the command is still pressed; no part of the golem is more than 20 mm inside the wall; posture holds; 0 self-contacts |
+| snag / post | yes | the row of ring posts turns the carrier; support and posture survive it |
+| ledge | yes | support disappears and the body falls after the frozen 0.35 s grace and not at the first substep -- measured against the *last continuous* gap, because two feet straddling a ledge flicker the binding count for 0.567 s before the fall |
+| slope | yes | a real 45-degree ramp, past the frozen 35-degree limit, is neither standable nor drivable: the carrier stops at its foot and the fresh bindings are still the flat floor's |
+| occupied recovery | yes | two bipeds on one shared registry, resolved through `resolvePhysicalSupportedPair`, with overlapping footprints; the standing one keeps its own support through the other's ragdoll |
+| held-weapon wall speed | **no, still owed** | a golem has no held weapon, and no effector module is fitted to a locomotion module until Session 08. The cell cannot exist until there is an assembled golem |
+| combat-geometry penetration and joint-frame error under a blade | **no, still owed** | the same reason: it needs an assembled golem and an opponent, which is Session 08 |
+| the supported-locomotion evidence corpus and the Warrior/Warrior combined-arms matrix | **no** | those were about construct bodies and Warriors respectively; neither is this session's, and `tests/warrior-warrior-locomotion.test.mjs` still carries the surviving half |
+
+### What is owed for the biped
+
+- **The human gate.** Everything above is a bench. Nothing in it answers whether the golem reads as
+  walking or as being dragged with its legs moving, which is the question the session plan puts.
+- **A strafe and a turn are walked with a fore-aft stride.** The leg solve swings the hips in the
+  sagittal plane whatever direction the carrier is going, and `legPose` does the same for a Warrior.
+  Measured, the mean planted slip over the whole scripted sequence -- which strafes, turns and
+  crouch-walks -- is 419.5 mm/s against 114.7 for a straight walk. It is recorded rather than
+  budgeted because a side-step gait is a design decision and not a regression.
+- **The carrier does not climb.** `LocomotionFootprint.stepHeightM` is the vertical tolerance on
+  support *evidence*, not a step a carrier ascends: the V1 carrier's `commit` preserves its own `y`.
+  The bench's low step is therefore the cell that asks what a walking golem's legs do when they meet
+  a 0.12 m lip while the root stays where it is, and the curb is the cell that asks whether the
+  carrier stops. Actual step-up is not in this system and nothing here claims it is.
+- **Foot slip has no peak budget.** The mean is budgeted at 0.30 m/s and measured at 0.115; the peak
+  is reported and explained. A sharper instrument would gate the peak on a sole that had been
+  planted for several substeps rather than one.
+- **The page and the Node bench have not been put in one column and must not be.** The page bench
+  was driven by hand through `__golem.step`, because Chrome does not paint a hidden tab, and it
+  walked, crouched to 0.925 m, took the `B` shove to an up-dot of -0.137 and rose back to 1.020 m
+  with 0 self-contacts. Those are page numbers and none of them belongs beside a column above.
