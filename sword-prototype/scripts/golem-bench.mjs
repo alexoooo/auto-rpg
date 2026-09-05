@@ -24,9 +24,12 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { CONFIG } from "../src/config.ts";
 import {
   BENCH_READOUT, BENCH_STAND_LOCOMOTION, CHAIN_PITCH, CHAIN_REACH, CHAIN_WRIST, LOCOMOTION_BIPED,
+  LOCOMOTION_MULTILEG, LOCOMOTION_WHEEL,
 } from "../src/golem/config.ts";
 import { formatLocomotion, locomotionCommand } from "../src/golem/locomotion.ts";
 import { bipedModule } from "../src/golem/locomotion/biped.ts";
+import { multilegModule } from "../src/golem/locomotion/multileg.ts";
+import { wheelModule } from "../src/golem/locomotion/wheel.ts";
 import { buildLocomotionCourse, registerLocomotionCourse } from "../src/golem/locomotion/course.ts";
 import { BenchReadout, blankSample, formatReadout } from "../src/golem/readout.ts";
 import { GOLEM_MODULES, golemModule } from "../src/golem/registry.ts";
@@ -444,6 +447,34 @@ export const WALK_SEQUENCE = Object.freeze([
 ]);
 
 /**
+ * The same walk, cut to three seconds, **because a wheel is fast enough to leave the arena**.
+ *
+ * `WALK_SEQUENCE` is six seconds of walking and the headless arena carries the page's own ring of
+ * fourteen posts at a radius of 9.5 m. A biped covers 7.2 m in that and a multileg 4.8, both
+ * comfortably inside it; the wheel covers **12 m** and rams a post -- and the post is a real Havok
+ * body that the flat query registry knows nothing about, so the carrier drives the yoke straight
+ * into it. Measured: the carried block finished the run leaning 1.539 rad off the root and the
+ * axle read 1.409 rad out of its own fork, which is a true reading of a golem wrapped round a post
+ * and a false one of a walk. Exactly the shape of the "leg on a step" artefact
+ * `runGolemLocomotion`'s own `course` comment records.
+ *
+ * Three seconds is 6.0 m at the wheel's 2.0 m/s, which clears the posts with 3.5 m to spare. The
+ * two sequences are therefore not the same length and a column from one is not a column from the
+ * other -- which costs nothing, because no gait figure is compared *across* modules anyway: what
+ * is compared across modules is the knockdown, and that is read over `LOCOMOTION_SEQUENCE`, which
+ * every one of the three finishes well inside the ring.
+ */
+export const FAST_WALK_SEQUENCE = Object.freeze([
+  { name: "stand", until: 1.00, forward: 0, strafe: 0, turn: 0, crouch: 0 },
+  { name: "walk", until: 4.00, forward: 1, strafe: 0, turn: 0, crouch: 0 },
+  { name: "stop", until: 5.00, forward: 0, strafe: 0, turn: 0, crouch: 0 },
+]);
+
+/** Which walk a gait number is read over. See `FAST_WALK_SEQUENCE` for why it is not one. */
+export const walkSequenceFor = (moduleId) =>
+  (moduleId === "wheel" ? FAST_WALK_SEQUENCE : WALK_SEQUENCE);
+
+/**
  * The locomotion modules this harness can drive.
  *
  * Looked up by definition rather than through `golemModule`, because what a locomotion run needs
@@ -452,7 +483,11 @@ export const WALK_SEQUENCE = Object.freeze([
  * asserts that whatever it drives is also registered, so a module benched here and missing from
  * the picker is a failure rather than a divergence.
  */
-export const LOCOMOTION_MODULES = { biped: bipedModule };
+export const LOCOMOTION_MODULES = {
+  biped: bipedModule,
+  wheel: wheelModule,
+  multileg: multilegModule,
+};
 
 /** A whole `Intent` again, with the movement axes this time. */
 const locomotionIntent = () => benchIntent();
@@ -505,6 +540,12 @@ export async function runGolemLocomotion({
   if (withCourse) registerLocomotionCourse(world);
   const stand = buildGolemStand(scene, {
     side, ground: Vector3.Zero(), facing: Quaternion.Identity(), slot: "locomotion",
+    // **The module decides where its own socket is, and the stand goes there.** Session 05 had one
+    // locomotion option and could take the fixture's frozen 1.02; three of them stand at 1.02,
+    // 1.16 and 0.64, and a module built to somebody else's height would either bury its feet in
+    // the block or hang them above the floor. Taken from the definition rather than from a table
+    // here, so the two cannot disagree.
+    socketHeight: definition.heightRange.standM,
   });
   const prepared = prepare ? prepare({ scene, world, stand }) : null;
   const module = definition.build({
@@ -584,37 +625,102 @@ export async function runGolemLocomotion({
 }
 
 /**
- * The locomotion numbers with a sweep behind them.
+ * The locomotion numbers with a sweep behind them, **per module**.
  *
  * Same shape as `SWEEPS` and a separate table for the same reason the instrument is separate: a
  * column named "peak tip speed" means nothing on a pair of legs, and a sweep that reported one
  * would be a number waiting to be quoted wrongly.
+ *
+ * **Keyed by module, which Session 06 made it.** Session 05 wrote one flat table because there was
+ * one locomotion option, and every entry in it names `LOCOMOTION_BIPED` explicitly -- so running
+ * `--locomotion wheel --sweep footFriction` against that table would have swept the *biped's*
+ * friction while benching a wheel and printed a column of identical rows. Three options that share
+ * a name for a number they do not share (`footFriction`, `shove`, `fallenTorque`) is exactly the
+ * shape of reading that is about something else. The biped's own entries are unchanged to the
+ * value, so every table already recorded from them still reproduces.
  */
 const LOCOMOTION_SWEEPS = {
-  footFriction: { block: LOCOMOTION_BIPED, key: "footFriction",
-    values: [0.15, 0.35, 0.45, 0.55, 0.65, 0.80] },
-  strideCadence: { block: LOCOMOTION_BIPED, key: "strideCadence",
-    values: [3.0, 3.8, 4.2, 4.4, 4.8, 5.5] },
-  strideSwing: { block: LOCOMOTION_BIPED, key: "strideSwing",
-    values: [0.30, 0.40, 0.45, 0.50, 0.55, 0.65] },
-  kneeLiftScale: { block: LOCOMOTION_BIPED, key: "kneeLiftScale",
-    values: [1.0, 1.6, 2.0, 2.4, 2.8, 3.2] },
-  kneeLiftPhase: { block: LOCOMOTION_BIPED, key: "kneeLiftPhase",
-    values: [0.9, 1.2, 1.4, 1.5, 1.6, 1.9] },
-  hipTorque: { block: LOCOMOTION_BIPED, key: "hipTorque",
-    values: [300, 600, 800, 900, 1100, 1600, 3000] },
-  kneeTorque: { block: LOCOMOTION_BIPED, key: "kneeTorque",
-    values: [200, 350, 450, 500, 600, 900, 1800] },
-  ankleTorque: { block: LOCOMOTION_BIPED, key: "ankleTorque",
-    values: [60, 140, 220, 320, 600, 1200] },
-  targetRate: { block: LOCOMOTION_BIPED, key: "targetRate", values: [2, 4, 6, 10, 20] },
-  // These three are about a knockdown, so they are the only ones read over the whole sequence.
-  waistTorque: { block: BENCH_STAND_LOCOMOTION, key: "waistTorque",
-    values: [800, 2000, 5000, 12000], sequence: LOCOMOTION_SEQUENCE },
-  shove: { block: LOCOMOTION_BIPED, key: "shoveImpulseNs",
-    values: [10, 12, 200, 600, 1600], sequence: LOCOMOTION_SEQUENCE },
-  fallenTorque: { block: LOCOMOTION_BIPED, key: "fallenTorqueScale",
-    values: [1.0, 0.30, 0.08, 0.0], sequence: LOCOMOTION_SEQUENCE },
+  biped: {
+    footFriction: { block: LOCOMOTION_BIPED, key: "footFriction",
+      values: [0.15, 0.35, 0.45, 0.55, 0.65, 0.80] },
+    strideCadence: { block: LOCOMOTION_BIPED, key: "strideCadence",
+      values: [3.0, 3.8, 4.2, 4.4, 4.8, 5.5] },
+    strideSwing: { block: LOCOMOTION_BIPED, key: "strideSwing",
+      values: [0.30, 0.40, 0.45, 0.50, 0.55, 0.65] },
+    kneeLiftScale: { block: LOCOMOTION_BIPED, key: "kneeLiftScale",
+      values: [1.0, 1.6, 2.0, 2.4, 2.8, 3.2] },
+    kneeLiftPhase: { block: LOCOMOTION_BIPED, key: "kneeLiftPhase",
+      values: [0.9, 1.2, 1.4, 1.5, 1.6, 1.9] },
+    hipTorque: { block: LOCOMOTION_BIPED, key: "hipTorque",
+      values: [300, 600, 800, 900, 1100, 1600, 3000] },
+    kneeTorque: { block: LOCOMOTION_BIPED, key: "kneeTorque",
+      values: [200, 350, 450, 500, 600, 900, 1800] },
+    ankleTorque: { block: LOCOMOTION_BIPED, key: "ankleTorque",
+      values: [60, 140, 220, 320, 600, 1200] },
+    targetRate: { block: LOCOMOTION_BIPED, key: "targetRate", values: [2, 4, 6, 10, 20] },
+    // These three are about a knockdown, so they are the only ones read over the whole sequence.
+    waistTorque: { block: BENCH_STAND_LOCOMOTION, key: "waistTorque",
+      values: [800, 2000, 5000, 12000], sequence: LOCOMOTION_SEQUENCE },
+    shove: { block: LOCOMOTION_BIPED, key: "shoveImpulseNs",
+      values: [10, 12, 200, 600, 1600], sequence: LOCOMOTION_SEQUENCE },
+    fallenTorque: { block: LOCOMOTION_BIPED, key: "fallenTorqueScale",
+      values: [1.0, 0.30, 0.08, 0.0], sequence: LOCOMOTION_SEQUENCE },
+  },
+  wheel: {
+    // A wheel has one contact and one motor, so it has two gait numbers rather than nine -- and
+    // they are two halves of one question: whether the tread turns at the rate the ground passes
+    // under it. Both are read as the mean *material* slip of the contact patch.
+    wheelFriction: { block: LOCOMOTION_WHEEL, key: "wheelFriction",
+      values: [0.35, 0.55, 0.70, 0.85, 1.20] },
+    wheelSpinTorque: { block: LOCOMOTION_WHEEL, key: "wheelSpinTorque",
+      values: [120, 352, 700, 1200, 2400] },
+    waistTorque: { block: BENCH_STAND_LOCOMOTION, key: "waistTorque",
+      values: [800, 2000, 5000, 12000], sequence: LOCOMOTION_SEQUENCE },
+    // The bracket that matters, and its values straddle the biped's own 10/12 on purpose: the
+    // comparison the session exists for is that the shove the biped survives puts this over.
+    shove: { block: LOCOMOTION_WHEEL, key: "shoveImpulseNs",
+      values: [4, 6, 8, 10, 12, 700], sequence: LOCOMOTION_SEQUENCE },
+    // **Read at the biped's own "leaves it standing" impulse, which is what `with` is for.** At
+    // this module's own 1600 N.s bench shove every row of this sweep is identical to the digit --
+    // 225 times the threshold swamps any capacity multiplier -- so a sweep taken there would be a
+    // column of one number and a reader would conclude the field does nothing.
+    stand: { block: LOCOMOTION_WHEEL, key: "gaitStabilityScaleStand",
+      values: [0.35, 0.50, 0.70, 0.85, 1.00], sequence: LOCOMOTION_SEQUENCE,
+      with: [[LOCOMOTION_WHEEL, { shoveImpulseNs: 10 }]] },
+    fallenTorque: { block: LOCOMOTION_WHEEL, key: "fallenTorqueScale",
+      values: [1.0, 0.30, 0.08, 0.0], sequence: LOCOMOTION_SEQUENCE },
+  },
+  multileg: {
+    footFriction: { block: LOCOMOTION_MULTILEG, key: "footFriction",
+      values: [0.25, 0.45, 0.55, 0.70, 0.90] },
+    strideCadence: { block: LOCOMOTION_MULTILEG, key: "strideCadence",
+      values: [6.0, 9.0, 11.2, 14.0, 18.0] },
+    strideSwing: { block: LOCOMOTION_MULTILEG, key: "strideSwing",
+      values: [0.20, 0.28, 0.34, 0.42, 0.55] },
+    kneeLiftScale: { block: LOCOMOTION_MULTILEG, key: "kneeLiftScale",
+      values: [1.2, 1.8, 2.4, 3.0, 3.6] },
+    hipTorque: { block: LOCOMOTION_MULTILEG, key: "hipTorque",
+      values: [40, 80, 120, 180, 240, 600] },
+    kneeTorque: { block: LOCOMOTION_MULTILEG, key: "kneeTorque",
+      values: [20, 40, 60, 90, 120, 300] },
+    ankleTorque: { block: LOCOMOTION_MULTILEG, key: "ankleTorque",
+      values: [10, 30, 80, 200] },
+    targetRate: { block: LOCOMOTION_MULTILEG, key: "targetRate", values: [2, 4, 6, 10, 20] },
+    waistTorque: { block: BENCH_STAND_LOCOMOTION, key: "waistTorque",
+      values: [800, 2000, 5000, 12000], sequence: LOCOMOTION_SEQUENCE },
+    // Straddling the biped's 12, from above: the other comparison the session exists for is that
+    // the shove that fells the biped leaves this one standing.
+    shove: { block: LOCOMOTION_MULTILEG, key: "shoveImpulseNs",
+      values: [12, 20, 24, 30, 40, 900], sequence: LOCOMOTION_SEQUENCE },
+    // Read at the biped's own fall impulse for the reason the wheel's `stand` sweep states: at
+    // this module's own 2400 N.s bench shove every row is identical, because 104 times the
+    // threshold does not care what the threshold is.
+    brace: { block: LOCOMOTION_MULTILEG, key: "braceCapacityMultiplier",
+      values: [1.0, 1.5, 2.0, 2.6, 3.4], sequence: LOCOMOTION_SEQUENCE,
+      with: [[LOCOMOTION_MULTILEG, { shoveImpulseNs: 12 }]] },
+    fallenTorque: { block: LOCOMOTION_MULTILEG, key: "fallenTorqueScale",
+      values: [1.0, 0.30, 0.08, 0.0], sequence: LOCOMOTION_SEQUENCE },
+  },
 };
 
 /**
@@ -735,17 +841,26 @@ function printLocomotion(run) {
 
 async function mainLocomotion(args) {
   if (args.sweep) {
-    const sweep = LOCOMOTION_SWEEPS[args.sweep];
-    if (!sweep) {
-      throw new Error(`unknown locomotion sweep "${args.sweep}";`
+    const table = LOCOMOTION_SWEEPS[args.locomotion];
+    if (!table) {
+      throw new Error(`no sweep table for locomotion module "${args.locomotion}";`
         + ` known: ${Object.keys(LOCOMOTION_SWEEPS).join(", ")}`);
+    }
+    const sweep = table[args.sweep];
+    if (!sweep) {
+      throw new Error(`unknown ${args.locomotion} sweep "${args.sweep}";`
+        + ` known: ${Object.keys(table).join(", ")}`);
     }
     const rows = [];
     for (const value of sweep.values) {
       const run = await runGolemLocomotion({
         moduleId: args.locomotion, course: args.course,
-        sequence: sweep.sequence ?? WALK_SEQUENCE,
-        overrides: [[sweep.block, { [sweep.key]: value }]],
+        sequence: sweep.sequence ?? walkSequenceFor(args.locomotion),
+        // `with` is a fixed setting the whole sweep is read *at*, and it is not a convenience: a
+        // stability field swept at an impulse a hundred times its own threshold produces a column
+        // of one number, which reads as "this field does nothing" and is the shape of a measurement
+        // that is about something else. The two entries that carry one say why beside themselves.
+        overrides: [...(sweep.with ?? []), [sweep.block, { [sweep.key]: value }]],
       });
       rows.push({ value, ...run.state });
     }

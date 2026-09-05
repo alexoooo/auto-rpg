@@ -1707,6 +1707,14 @@ export const BENCH_STAND_LOCOMOTION = {
    * effector sockets at 1.02 + 0.39 + 0.39 = 1.80 m, against 1.42 m on the effector stand: the
    * assembled golem is a head taller than the bench slab suggests, which is the first place that
    * has actually been stated as a number. 2026-09-04.
+   *
+   * **It is the default rather than the rule, from Session 06 on.** Three locomotion options now
+   * stand at three heights -- this one, the wheel's 1.16 and the multileg's 0.64 -- and *the
+   * height is the trade rather than a fixture detail*: a lower socket is a lower effector and a
+   * lower head, and a module built to somebody else's number would hide that. So a module declares
+   * `heightRange.standM` and `buildGolemStand` takes it as `socketHeight`; this constant is what
+   * the stand uses when nobody says otherwise, and it is still exactly the biped's own segment sum,
+   * so every reading Session 05 took through this stand still reproduces. 2026-09-04.
    */
   socketHeight: 1.02,
   /**
@@ -2880,4 +2888,747 @@ export const HEAD_RAM = {
     driveTorque: 900,
     followTorque: 80,
   },
+};
+
+/**
+ * The wheel: one rolling body under a fork under the torso. **Session 06.**
+ *
+ * **Read the frozen choice before any number here.** The carrier moves the golem exactly as it
+ * moves the biped -- the yoke is `ANIMATED` and follows a bodyless `VirtualLocomotionCarrier` --
+ * and what is different is that the thing under it is a single real contact with the world whose
+ * *spin is derived from carrier speed*, so it rolls rather than slides. Nothing here balances and
+ * no number below is holding the golem up.
+ *
+ * **It exists to be different from the biped, not to be better than it.** Faster and quicker to
+ * turn, no height range at all, a socket 140 mm higher, and a fall threshold well under the
+ * biped's -- which is what makes it a wheel rather than a two-legged golem with a different mesh.
+ * The two comparisons that matter are in `tests/golem-locomotion.test.mjs` and they are
+ * comparisons rather than absolutes: the shove the biped survives puts this over.
+ */
+export const LOCOMOTION_WHEEL = {
+  /**
+   * The wheel: radius, tread width, and its mass at stone's 2600 kg/m3.
+   *
+   * 0.42 m of radius is chosen against the biped's 0.72 m of leg: a wheel that reaches the floor
+   * from a socket at a golem's own height has to be most of the module, and a small wheel under a
+   * long fork is a castor rather than a golem. The tread is 0.18 m, which is plainly a disc from
+   * the front and plainly wide enough to stand on from the side.
+   *
+   * Mass is arithmetic, like every other mass in this file: `pi r^2 w` is
+   * `pi x 0.1764 x 0.18 = 0.099752 m3`, and that is 259.4 kg. It is a solid stone wheel and it
+   * weighs what one weighs. What it decides is the specific impulse a shove is worth and how much
+   * torque the spin motor needs; nothing at all about how fast the golem travels, because the
+   * carrier is a bodyless record and the admitted root is `ANIMATED` while it is upright.
+   * 2026-09-04.
+   */
+  wheelRadius: 0.42,
+  wheelWidth: 0.18,
+  wheelMass: 259.4,
+  wheelHealth: 240,
+  wheelVitalityWeight: 2.6,
+
+  /**
+   * The yoke: the admitted physical root, the socket's own body, and the only fatal part here.
+   *
+   * A box, for the reason the biped's pelvis is one -- a socket frame on a rounded end is a socket
+   * whose position moves when the body rolls -- and the same 0.44 x 0.34 plan as the pelvis and
+   * the slab it carries. 0.28 m tall rather than 0.24, because it has to bridge from the socket
+   * down past the fork's crown. `0.44 x 0.28 x 0.34 = 0.041888 m3`, 108.9 kg.
+   *
+   * `forkClearance` is the gap between the top of the tread and the bottom face of the yoke: the
+   * wheel turns and the yoke does not, so anything less than a real gap is a wheel that grinds on
+   * its own mounting the first time the axle is levered. 0.04 m. 2026-09-04.
+   */
+  yokeWidth: 0.44,
+  yokeHeight: 0.28,
+  yokeDepth: 0.34,
+  yokeMass: 108.9,
+  yokeHealth: 300,
+  yokeVitalityWeight: 3.4,
+  forkClearance: 0.04,
+
+  /**
+   * How much grip the tread has, against the arena floor's own 0.9. **Swept.**
+   *
+   * **The sweep is a null result, which is why it is written down rather than dropped.** The
+   * expectation was that this was the number the whole "rolls rather than slides" claim rests on:
+   * the motor turns the wheel and grip is what converts that turn into a contact patch standing
+   * still. Swept in the Node bench over `FAST_WALK_SEQUENCE`, read as the mean material slip of
+   * the contact patch against a carrier travelling at 2000 mm/s:
+   *
+   *     friction   mean contact slip mm/s   peak mm/s
+   *       0.35              0.0                0.4
+   *       0.55              0.0                0.3
+   *       0.70              0.0                0.4
+   *       0.85              0.0                0.3
+   *       1.20              0.0                0.3
+   *
+   * **Grip does not bind at all**, over a range of nearly four to one, and the reason is the table
+   * beside `wheelSpinTorque`: the motor is strong enough to hold the rolling condition exactly, so
+   * there is almost no tangential force at the patch for a friction coefficient to limit. What
+   * decides whether this wheel rolls is the *torque*, and friction begins to matter only once the
+   * motor is too weak to be right on its own. Recorded because a reader would otherwise assume
+   * grip is load-bearing here as it is on the biped, where it is the sharpest number in the block.
+   *
+   * 0.85 is kept as the grip a stone tread on a stone floor should have -- an argument from the
+   * material rather than from a column, which is the honest thing to say about a number no
+   * measurement here moves. It is still live in two places this sweep does not reach: a fallen
+   * wheel skidding on its rim, and a wheel whose motor has been relaxed to `fallenTorqueScale`.
+   * 2026-09-04, the Node bench.
+   */
+  wheelFriction: 0.85,
+
+  /**
+   * The spin motor's ceiling, newton-metres. **A ceiling, not a stiffness.** Swept.
+   *
+   * A `VELOCITY` motor on the hinge, and its target is `carrier speed / wheelRadius` -- the spin
+   * is derived from the carrier and never from the wheel's own achieved rotation, which is the
+   * same rule the biped's gait follows and the reason neither winds up against a stop.
+   *
+   * What it has to do: a disc of 259.4 kg at 0.42 m has `I = m r^2 / 2 = 22.88 kg m2`, and taking
+   * it from rest to the carrier's own 2.0 m/s -- which is 4.76 rad/s -- inside the 0.31 s the
+   * carrier's 6.5 m/s2 needs is `22.88 x 15.4 = 352 N m`.
+   *
+   * Swept in the Node bench over `FAST_WALK_SEQUENCE`, read as the mean material slip of the
+   * contact patch -- `v + omega x r` at the tread, which is zero for rolling and the whole carrier
+   * speed for dragging -- against a carrier travelling at 2000 mm/s:
+   *
+   *     spin torque   mean contact slip mm/s   peak mm/s
+   *            120            780.6              1557.7
+   *            352             46.1               704.8
+   *            700              0.1                 8.6
+   *           1200              0.0                 0.3
+   *           2400              0.0                 0.3
+   *
+   * **1200 and 2400 are the same run to the digit**, which is the ceiling having stopped binding,
+   * and 1200 is the smallest value that reaches it -- the same rule
+   * `LOCOMOTION_BIPED.targetRate` is chosen by. The arithmetic value of 352 is a wheel that is
+   * *mostly* rolling, at 2.3 % slip; 120 is a wheel being dragged with its tread turning too
+   * slowly, at 39 %. This is the number the option's whole claim rests on, and the sweep is also
+   * the mutation control for the instrument that reports it: a slip reading computed from the axle
+   * rather than from the tread would say 0.0 at every row.
+   * 2026-09-04, the Node bench.
+   */
+  wheelSpinTorque: 1200,
+
+  /**
+   * Solver damping on the hinge, and the pair every other block here copies from `CONFIG.arm`.
+   * 2026-09-04.
+   */
+  motorDamping: 6,
+  linearDamping: 0.7,
+  angularDamping: 3,
+
+  /**
+   * What the spin motor's ceiling falls to while the body is fallen, as a fraction.
+   *
+   * `LOCOMOTION_BIPED.fallenTorqueScale`'s argument with one joint instead of six: **a wheel that
+   * cannot fall over is not a wheel.** A motor still driving its spin under a released root is a
+   * knocked-down golem whose wheel goes on turning against the floor and drives itself along it.
+   *
+   * **Swept, and unlike the biped's this one changes nothing** -- which is the finding, because the
+   * biped's own sweep is the sharpest in its block (up-dot +0.816 at 1.00 against -0.053 at 0.08).
+   * Over `LOCOMOTION_SEQUENCE` at the 1600 N.s bench shove:
+   *
+   *     fallenTorqueScale   root up-dot at its worst   lowest the socket reached
+   *              1.00                -0.082                     0.368 m
+   *              0.30                -0.065                     0.368
+   *              0.08                -0.093                     0.368
+   *              0.00                -0.091                     0.368
+   *
+   * The reason is structural rather than a matter of degree: the biped's six motors are
+   * **position** motors, so a released root with its legs still holding a pose is propped up on
+   * them; this module's one motor is a **velocity** motor on a free axis, which has no pose to
+   * hold and cannot prop anything up. 0.08 is kept on the argument rather than on the column --
+   * a body that has been let go of should not still be driving itself along the floor, whatever
+   * the up-dot says -- and it is `CONFIG.body.deadJointStrength` exactly, as the biped's is.
+   * 2026-09-04, the Node bench.
+   */
+  fallenTorqueScale: 0.08,
+
+  /**
+   * How close the contact patch has to be to the ground before the instrument calls it planted,
+   * metres. `LOCOMOTION_BIPED.plantBandM`'s number and its whole argument, unchanged: the support
+   * query's own 0.18 m step envelope is the tolerance on *evidence* and is far too loose to mean
+   * "bearing weight". 2026-09-04.
+   */
+  plantBandM: 0.02,
+
+  /**
+   * The ceiling on how fast the root may be carried back to its standing height, m/s.
+   *
+   * **It is not a crouch rate, because there is no crouch here.** `LOCOMOTION_BIPED.heightRate` is
+   * a ceiling on two things at once -- the crouch and the stride's own bob -- and this module has
+   * neither. What is left is the one job that ceiling also does on the biped: after a lean or a
+   * contact has pushed the yoke off its standing height, the drive brings it back at a bounded
+   * rate rather than snapping, because a one-step vertical snap launches everything jointed to the
+   * root. 0.9 m/s is `LOCOMOTION_BIPED.heightRate` exactly, taken rather than re-swept because
+   * what it governs here is a correction and not a motion anybody drives. 2026-09-04.
+   */
+  heightRate: 0.9,
+
+  /**
+   * The virtual carrier's own ceilings. **This is where "faster" actually lives.**
+   *
+   * Against the biped's 1.2 m/s, 4.0 m/s2, 1.6 rad/s and 6.0 rad/s2. A wheel is the fast option:
+   * 2.0 m/s is 167 % of the biped and 125 % of a Warrior's supported walk, 6.5 m/s2 reaches it in
+   * 0.31 s, and the yaw pair is scaled to match because a single contact patch pivots where a pair
+   * of feet has to step round.
+   *
+   * **Nothing in the module limits how fast the golem travels**; the wheel reads the speed the
+   * carrier committed to and spins to match it. Chosen by eye against the biped's numbers rather
+   * than swept, because what they decide is how the golem *handles*, which is the gate's question
+   * and not a bench's. 2026-09-04.
+   */
+  carrier: {
+    maxSpeedMps: 2.0,
+    maxAccelerationMps2: 6.5,
+    maxYawSpeedRadS: 2.6,
+    maxYawAccelerationRadS2: 10.0,
+  },
+
+  /**
+   * The navigation footprint.
+   *
+   * 0.42 m is the wheel's own radius, which is the golem's plan silhouette here: the tread is
+   * 0.84 m fore-and-aft and the yoke's half-diagonal is only 0.278 m, so the wheel is the widest
+   * thing in plan. `heightM` 1.94 is the top of the carried block (1.16 + 0.78). Both are measured
+   * from the bind geometry, which is what `deriveLocomotionFootprint` insists on: navigation
+   * geometry is never borrowed from combat perception. 2026-09-04.
+   */
+  footprintRadius: 0.42,
+  footprintHeight: 1.94,
+
+  /**
+   * The stability authority, and **this is the frozen choice's own number**.
+   *
+   * `braceCapacityMultiplier` is 1.0, which is the floor the state machine admits at all, against
+   * the biped's 1.5. The biped's is `SUPPORTED_LOCOMOTION_V1.BRACE_CAPACITY_MULTIPLIER` because a
+   * stone slab on two stone legs is braced by construction; a slab balanced on one wheel is the
+   * opposite of braced, and there is no honest way to give it more than a body with no brace at
+   * all.
+   *
+   * `gaitStabilityScaleStand` and `gaitStabilityScaleMin` are the live half, and unlike the biped's
+   * the standing end is **below 1**: a wheel standing still is balanced on a single contact line
+   * and has no fore-aft base whatsoever, which a pair of 0.34 m feet does. It runs from 0.70 at
+   * rest to 0.35 at 2.0 m/s. The fall threshold is therefore `0.014 x 1.0 x 0.70 = 0.0098 m/s`
+   * standing and 0.0049 at speed, against the biped's 0.021 and 0.0158 -- less than half at both
+   * ends.
+   *
+   * **Swept against the comparison it exists for**, which is the 10 N.s that leaves a biped
+   * standing. In newton-seconds the boundary is `0.014 x scale x 725.2 = 10.15 x scale`:
+   *
+   *     gaitStabilityScaleStand   own threshold N.s   what 10 N.s did
+   *              0.35                   3.55            fell, rose in 1.158 s
+   *              0.50                   5.08            fell, rose in 1.158 s
+   *              0.70                   7.11            fell, rose in 1.158 s
+   *              0.85                   8.63            fell, rose in 1.158 s
+   *              1.00                  10.15            stayed supported
+   *
+   * **1.00 is the wrong side of the comparison by one and a half per cent**, which is the reason
+   * 0.70 is taken rather than something nearer the biped's: a difference the option exists to
+   * carry should not rest on a margin that thin. At 0.70 the biped's own "leaves it standing"
+   * impulse is 1.4 times this body's threshold. Note that the *same sweep read at this module's
+   * own 1600 N.s bench shove is a column of one number*, because 225 times a threshold does not
+   * care what the threshold is -- which is why `--sweep stand` fixes the impulse and says so.
+   * 2026-09-04, the Node bench.
+   */
+  braceCapacityMultiplier: 1.0,
+  gaitStabilityScaleStand: 0.70,
+  gaitStabilityScaleMin: 0.35,
+
+  /**
+   * The bench's knockdown: an impulse, in newton-seconds, applied to the carried block.
+   *
+   * Same mechanism as the biped's and the same rule: stated once and spent twice, a real
+   * `applyImpulse` so the slab lurches and a `horizontal-shove` event queued into the port so the
+   * state machine sees the same transfer in its own mass-independent units. Inferring either from
+   * the other would be inferring an event from a side effect that has a second cause.
+   *
+   * Bracketed in the Node bench over `LOCOMOTION_SEQUENCE`, applied laterally to the block one
+   * second after the golem stops rolling. The supported mass is 725.2 kg:
+   *
+   *     impulse N.s   specific m/s   what the state machine did   root up-dot   lowest socket
+   *              6        0.0083         stayed supported            +1.000        1.160 m
+   *              8        0.0110         fell, rose in 1.158 s       +1.000        1.152
+   *            200        0.2758         fell, rose in 1.158 s       +0.985        1.152
+   *            700        0.9653         fell, rose in 1.158 s       +0.492        0.713
+   *           1600        2.2063         fell, rose in 1.158 s       -0.093        0.368
+   *           3200        4.4126         fell, rose in 1.158 s       -0.618        0.589
+   *
+   * **The 6 and 8 rows are this module's own declared threshold straddled to the newton-second**,
+   * exactly as the biped's 10 and 12 are: `FALL_SPECIFIC_IMPULSE_MPS` 0.014 times a brace capacity
+   * of 1.0 times a standing gait scale of 0.70 is 0.0098 m/s, which against 725.2 kg is **7.11
+   * N.s** -- and 6 stays up while 8 goes down. The biped's own boundary on the same bench is
+   * 11.76 N.s, so **10 N.s is the shove that leaves a biped standing and puts this over**, which
+   * is the cross-module comparison `tests/golem-locomotion.test.mjs` asserts.
+   *
+   * **1600 is the bench key, and it is chosen for the drop rather than for the threshold**, as the
+   * biped's 600 was. The two are much further apart here than there: 200 N.s is twenty-eight times
+   * the threshold and barely tilts the root, 700 reaches an up-dot of 0.49 which reads as a lean,
+   * and 1600 is where the golem is actually on its side. That ratio -- 225x the threshold here
+   * against 51x on the biped -- is the honest statement that **a threshold crossed and a body on
+   * the floor are two different questions**: the first is a decaying ledger in mass-independent
+   * units and the second is 725 kg against a base geometry. 3200 buys a further tilt and *less*
+   * drop, because the assembly bounces. 2026-09-04, the Node bench.
+   */
+  shoveImpulseNs: 1600,
+
+  /**
+   * What a rolling contact patch is allowed to slide, metres per second. **A budget, not a
+   * target**, on the mean and not the peak, for every reason
+   * `LOCOMOTION_BIPED.meanFootSlipBudgetMps` gives.
+   *
+   * It is the *material* velocity of the piece of tread that is against the floor -- the wheel's
+   * own velocity plus `omega x r` -- so a wheel turning at exactly `v / r` reads zero and one that
+   * is being dragged reads the whole carrier speed. That is the difference between a wheel and a
+   * skid, and it is the one number on this module that says which it is.
+   *
+   * **Measured at 0.019 mm/s over `FAST_WALK_SEQUENCE` against a carrier at 2000 mm/s**, which is
+   * the rolling condition held to five decimal places -- and a budget set at the biped's 2.5x
+   * margin over that would be 0.05 mm/s, a floor nothing could survive a solver change against.
+   * 0.05 m/s comes from the `wheelSpinTorque` table instead: it is where the *arithmetic* torque
+   * of 352 N.m sits (46.1 mm/s), so anything above this budget is a wheel whose motor has stopped
+   * holding the rolling condition, and a wheel being dragged at 120 N.m reads 780.6. A floor under
+   * a regression, not a claim that this reads as rolling -- that is the gate's. **Provisional**,
+   * in exactly the sense Sessions 02, 03 and 05 marked theirs. 2026-09-04, the Node bench.
+   */
+  meanContactSlipBudgetMps: 0.05,
+
+  /**
+   * How long a knockdown and the rise after it are allowed to take, seconds.
+   *
+   * Not a free parameter: `SUPPORTED_LOCOMOTION_V1` fixes the fallen dwell at 0.35 s and the rise
+   * at 0.45 s, so 0.80 s is the floor and this is that plus the time the request takes to be
+   * believed. `LOCOMOTION_BIPED.riseBudgetSeconds` is 1.60 and this is the same number for the
+   * same reason. **Provisional.** 2026-09-04.
+   */
+  riseBudgetSeconds: 1.60,
+};
+
+/**
+ * The multileg: a low, wide chassis on six short legs in a tripod gait. **Session 06.**
+ *
+ * **The opposite trade from the wheel, through the same contract.** Slow, slow to turn, no crouch
+ * because it is already low, and a base so wide that the fall threshold is hard to reach -- which
+ * is what `braceCapacityMultiplier` is for and is the only place that difference is stated.
+ *
+ * **What it costs is published as a number rather than hidden.** The torso socket sits at 0.640 m
+ * against the biped's 1.020, so everything bolted above it is 380 mm lower: an effector socket the
+ * biped puts at 1.800 m lands at 1.420, and the top of the carried block drops from 1.800 to
+ * 1.420 as well. That is the trade the session plan asks to be stated honestly, and
+ * `docs/measurements.md` carries it as a table.
+ */
+export const LOCOMOTION_MULTILEG = {
+  /**
+   * The chassis: the admitted physical root, and the only fatal part in the module.
+   *
+   * Wide and long and low, which is the whole option: 0.68 m across against the biped pelvis's
+   * 0.44 and the carried slab's 0.44, 0.56 m deep against 0.34, and 0.20 m tall against 0.24.
+   * Mass is arithmetic at stone's 2600 kg/m3: `0.68 x 0.20 x 0.56 = 0.076160 m3`, 198.0 kg.
+   *
+   * The block it carries is narrower than it is, which is the silhouette this option is for: a
+   * torso sitting on a broad low base rather than on a pair of hips. 2026-09-04.
+   */
+  chassisWidth: 0.68,
+  chassisHeight: 0.20,
+  chassisDepth: 0.56,
+  chassisMass: 198.0,
+  chassisHealth: 300,
+  chassisVitalityWeight: 3.4,
+
+  /**
+   * Where the six hips are: out from the centreline, and at three stations fore and aft. Metres.
+   *
+   * 0.40 out is a stance 0.80 m wide at the hips against the biped's 0.38 -- the "wide" of the
+   * frozen choice, stated as the number the brace capacity is argued from. The stations are
+   * -0.22, 0 and +0.22, so the support polygon is 0.44 m long as well as 0.80 m wide, which the
+   * biped's two feet in one lateral line do not have at all.
+   *
+   * `hipInset` 0.05 puts the pivots inside the chassis box's lower half rather than on its bottom
+   * face, and closes the socket arithmetic: the socket is
+   * `chassisHeight/2 + hipInset + femur + shin + footHeight` above the sole, which is
+   * `0.10 + 0.05 + 0.22 + 0.20 + 0.07 = 0.64`. 2026-09-04.
+   */
+  hipSide: 0.40,
+  hipStation: 0.22,
+  hipInset: 0.05,
+
+  /**
+   * Femur, shin and foot: six of each, and their masses at stone's 2600 kg/m3.
+   *
+   * 0.22 + 0.20 = 0.42 m of leg against the biped's 0.72, which is what "short" means here, and
+   * the radii taper 0.058 to 0.048 for the reason every other limb in this tree tapers -- a limb
+   * that does not is a pair of pipes.
+   *
+   * Masses: a capsule is `pi r^2 (h - 2r) + 4/3 pi r^3`, so the femur is
+   * `0.001099 + 0.000817 = 0.001916 m3` (5.0 kg) and the shin `0.000753 + 0.000463 = 0.001216`
+   * (3.2 kg); the foot is a solid slab `0.13 x 0.07 x 0.20 = 0.001820 m3` (4.7 kg). A whole leg is
+   * 12.9 kg and six of them are 77.4, against the biped's two at 54.9 each.
+   *
+   * **The foot is a pad rather than a plate**, and it is 0.20 m long against the biped's 0.34. The
+   * biped's foot is long because a *pair* of soles has to keep publishing support through a whole
+   * stride; a tripod always has three pads down, so the same evidence is bought by having more of
+   * them rather than by making each one bigger. 2026-09-04.
+   */
+  femurLength: 0.22,
+  femurRadius: 0.058,
+  femurMass: 5.0,
+  femurHealth: 90,
+  femurVitalityWeight: 0.6,
+
+  shinLength: 0.20,
+  shinRadius: 0.048,
+  shinMass: 3.2,
+  shinHealth: 75,
+  shinVitalityWeight: 0.5,
+
+  footLength: 0.20,
+  footWidth: 0.13,
+  footHeight: 0.07,
+  footMass: 4.7,
+  footHealth: 70,
+  footVitalityWeight: 0.4,
+
+  /**
+   * How much grip a pad has, against the arena floor's own 0.9. **Swept**, and it is the same
+   * curve with the same two failures either side of it that `LOCOMOTION_BIPED.footFriction`
+   * records: below the floor the pad slides under a keyframed root, above it the pad sticks and is
+   * levered off the ground by the hip's own swing.
+   *
+   * Swept in the Node bench over `WALK_SEQUENCE`, "planted" counting the substeps of 1919 in which
+   * some pad was inside the plant band at all, against a carrier travelling at 800 mm/s:
+   *
+   *     friction   mean planted slip mm/s   planted     peak joint lag rad
+   *       0.25             268.0            1919/1919         0.0999
+   *       0.45             259.3            1919/1919         0.0984
+   *       0.55             118.9            1919/1919         0.2028
+   *       0.70             155.6            1919/1919         0.5579
+   *       0.90             466.2            1714/1919         0.6998
+   *
+   * The same two failures either side of the floor as the biped's, and the top row is the worse
+   * one for the same reason: a stuck pad is levered off the ground by the hip's own swing, which
+   * is what the planted column falling to 1714 says. 0.55 is the floor, and it is also the grip a
+   * stone pad on a stone floor should have -- two independent arguments for one number, which is
+   * the only reason both are quoted. 2026-09-04, the Node bench.
+   */
+  footFriction: 0.55,
+
+  /**
+   * The joint ranges the gait commands, radians, and the stops that stand outside them.
+   *
+   * The biped's sign convention exactly: hip, knee and ankle are all `ANGULAR_X` targets that add
+   * along the chain, the leg's vertical extension is `femur cos(hip) + shin cos(hip + knee)`, and
+   * the ankle holds the sole level at `-(hip + knee)`.
+   *
+   * **Every stop is checked against the pose the legs are built in, which is all three angles at
+   * zero, and six legs is six times the opportunity to get that wrong.** Session 03 found a joint
+   * stop that did not admit its own build pose and Havok cleared the violation by throwing a blade
+   * tip at 9.95 m/s from a motionless stand; `tests/golem-locomotion.test.mjs` checks all
+   * eighteen. `hipAbduct` is the splits limit and is tighter than the biped's 0.20, because a
+   * 0.42 m leg splayed 0.14 rad moves a pad 0.059 m and the stance is already 0.80 m wide.
+   * 2026-09-04.
+   */
+  hipSwingMin: -0.45,
+  hipSwingMax: 0.45,
+  hipAbduct: 0.14,
+  hipTwist: 0.10,
+  hipJointMin: -0.60,
+  hipJointMax: 0.60,
+
+  kneeTargetMin: 0,
+  kneeTargetMax: 1.20,
+  kneeJointMin: -0.05,
+  kneeJointMax: 1.40,
+
+  ankleTargetMin: -0.80,
+  ankleTargetMax: 0.40,
+  ankleJointMin: -0.95,
+  ankleJointMax: 0.55,
+  /** How far an ankle may roll, radians. A pad that can turn over is a pad that catches. */
+  ankleRoll: 0.12,
+
+  /**
+   * The tripod stride. **Three numbers and one phase table.**
+   *
+   * The gait rule is the biped's -- cadence per metre travelled so the pads keep pace with the
+   * ground, amplitude fading to nothing at rest so standing still straightens the legs with no
+   * idle pose, and the speed read is the *carrier's committed* speed so a golem stopped by a wall
+   * stops stepping. What is new is that six legs run it in two groups of three: left-front,
+   * left-rear and right-middle on one phase and the other three half a cycle behind, which is the
+   * alternating tripod every six-legged thing walks with and is why it always has three pads down.
+   *
+   * `strideCadence` is solved the same way the biped's was and then swept: a swing of 0.34 rad
+   * about a 0.42 m leg moves a pad `2 x 0.42 x sin(0.34) = 0.280 m` fore-and-aft, so a step of the
+   * same length wants `cadence = pi / 0.280 = 11.2` rad of stride phase per metre.
+   * `kneeLiftScale` 2.4 and `kneeLiftPhase` 1.5 are the biped's, and on this leg they lift a pad a
+   * measured **68.6 mm** at full speed -- clear of the floor, and well inside the 0.18 m step
+   * envelope the support query admits, so a swinging pad's evidence never goes stale. Swept, the
+   * lift is what the setting is really buying and the slip is roughly flat under it:
+   *
+   *     kneeLiftScale   mean slip mm/s   lag rad   peak pad lift mm
+   *          1.2              24.8        0.1815         22.5
+   *          1.8              33.0        0.1885         43.4
+   *          2.4             118.9        0.2028         68.6
+   *          3.0              89.2        0.4860         96.1
+   *          3.6              86.2        0.2153        129.8
+   *
+   * **The lowest slip in that column is a scuff**, which is why it is not taken: at 1.2 the pads
+   * clear 22.5 mm, barely more than the 20 mm plant band, and a stride whose feet do not leave the
+   * ground is the "legs moving while the body is dragged" failure the human gate asks about in as
+   * many words. 2.4 is the smallest value that lifts a pad clear of its own plant band by a
+   * factor of three.
+   *
+   * Swept in the Node bench over `WALK_SEQUENCE`, read as the slip of a planted pad and the pad
+   * lift the same setting buys:
+   *
+   *     cadence   mean slip mm/s   lag rad   lift mm      swing   mean slip   lag rad   lift mm
+   *       6.0         269.3         0.0363    66.6         0.20      220.2     0.0360     24.7
+   *       9.0         192.1         0.0829    67.0         0.28      189.3     0.0650     47.8
+   *      11.2         118.9         0.2028    68.6         0.34      118.9     0.2028     68.6
+   *      14.0         102.4         0.3742    66.2         0.42       57.5     0.3782     90.3
+   *      18.0         224.7         0.6185    81.2         0.55      403.3     0.9017    156.8
+   *
+   * **What these two columns establish is where the *bad* regions are, and not a precise optimum.**
+   * Neither slip column has a clean minimum at the arithmetic the way the biped's cadence sweep
+   * did: 14.0 reads slightly lower than 11.2 and swing 0.42 reads half of 0.34, and the difference
+   * between neighbouring settings that are physically indistinguishable runs to a factor of two
+   * elsewhere in this block (`hipTorque` 120, 180 and 240 give 88.9, 118.9 and 61.4 with no
+   * monotonic structure at all). What the sweep does say clearly is that cadence 18 and swing 0.55
+   * are wrong -- the planted count falls to 1649 of 1919 at the latter, which is a body off the
+   * ground for a seventh of its walk -- and that below swing 0.28 the pads barely lift.
+   *
+   * 11.2 and 0.34 are taken as the arithmetic pair, because they are a pair: the cadence is solved
+   * from the swing, so moving one moves the other, and a setting picked off a noisy column would
+   * break that relationship for a difference the same column cannot resolve. 2026-09-04, the Node
+   * bench.
+   */
+  strideCadence: 11.2,
+  strideSwing: 0.34,
+  kneeLiftScale: 2.4,
+  kneeLiftPhase: 1.5,
+
+  /** How close a pad has to be to the ground before the instrument calls it planted, metres.
+   *  `LOCOMOTION_BIPED.plantBandM`'s number and its whole argument. 2026-09-04. */
+  plantBandM: 0.02,
+
+  /**
+   * How fast a commanded joint angle may move, radians per second.
+   *
+   * **The same rule as `LOCOMOTION_BIPED.targetRate` and a different answer, which is the finding
+   * rather than the setting.** The rule both take is "the smallest value at which the walk is
+   * unaffected": past the rate at which the command outruns the limb, what moves the limb stops
+   * being the command and becomes a motor closing a large error. On the biped that number is 6.0,
+   * because 6, 10 and 20 are the same run to the digit there. **On this body 6.0 is inside the
+   * gait**, and it is arithmetic why: the knee's own fold is `strideSwing x kneeLiftScale` over
+   * half a cycle, which at 0.8 m/s and a cadence of 11.2 is `0.34 x 2.4 x 8.96 = 7.3 rad/s` --
+   * a third faster than the biped's knee and past a 6.0 ceiling.
+   *
+   * Swept in the Node bench over `WALK_SEQUENCE`:
+   *
+   *     rate rad/s   mean planted slip mm/s   joint lag rad   peak pad lift mm
+   *          2               267.4                0.4195            30.4
+   *          4               303.9                0.6036            50.1
+   *          6               206.1                0.4979            72.2
+   *         10               118.9                0.2028            68.6
+   *         20               118.9                0.2028            68.6
+   *
+   * **10 and 20 are the same run to the digit**, which is the limiter having stopped binding, and
+   * 10 is the smallest value that reaches it. Below it the lag is the ceiling itself rather than
+   * the leg's own weight, which is the wrong thing for this number to be measuring. 2026-09-04,
+   * the Node bench.
+   */
+  targetRate: 10.0,
+
+  /**
+   * The ceiling on how fast the root may be carried to the height the stride solved for, m/s.
+   *
+   * **Not a crouch rate, because there is no crouch here**, but this body does have a bob: the
+   * tripod's own `hipDrop` moves the chassis about 24 mm at twice the stride frequency, which at
+   * full speed is a vertical rate of roughly 0.22 m/s. 0.9 is `LOCOMOTION_BIPED.heightRate`
+   * exactly, four times that peak, so the bob is tracked rather than lagged -- which matters for
+   * the reason the biped's own comment gives: a first-order response behind a solved height lifts
+   * the stance pads off the floor twice a step. 2026-09-04.
+   */
+  heightRate: 0.9,
+
+  /**
+   * The three motor ceilings, newton-metres. **Swept, and they are ceilings and not stiffnesses.**
+   *
+   * What each one has to hold, which is far less than the biped's because the legs are short and
+   * light: a hip carries 12.9 kg of leg on a lever reaching 0.31 m, which is 39 N.m held
+   * horizontal and 13 N.m at the stride's own 0.34 rad; a knee carries 7.9 kg at about 0.15 m,
+   * 12 N.m; an ankle carries 4.7 kg at 0.035 m, 1.6 N.m.
+   *
+   * Swept in the Node bench over `WALK_SEQUENCE`, each against the other two held at the values
+   * below. "lag" is the peak commanded-to-achieved error over all eighteen driven angles while
+   * upright:
+   *
+   *     hipTorque   mean slip mm/s   lag rad   planted        kneeTorque   mean slip   lag rad
+   *            40         465.3       0.7877   1561/1919               20      265.8    0.7854
+   *            80         269.2       0.7081   1919/1919               40       34.7    0.2020
+   *           120          88.9       0.1826   1919/1919               60      118.9    0.2028
+   *           180         118.9       0.2028   1919/1919               90      237.8    0.0683
+   *           240          61.4       0.2118   1919/1919              120      238.9    0.0654
+   *           600         242.8       0.1113   1919/1919              300      238.9    0.0654
+   *
+   *     ankleTorque   mean slip   lag rad
+   *              10      158.9      0.1648
+   *              30      118.9      0.2028
+   *              80      236.9      0.1711
+   *             200      230.2      0.1754
+   *
+   * **The bad region is sharp and the good region is noise.** Below 80 N.m the hip cannot carry
+   * its own leg through the swing and the body spends a fifth of the walk off the ground (1561 of
+   * 1919 planted); below 40 N.m the knee is the same failure. Above those the columns wander by a
+   * factor of four between neighbouring settings that no physical account distinguishes -- 120,
+   * 180 and 240 of hip torque give 88.9, 118.9 and 61.4 mm/s -- so what these tables establish is
+   * a floor and not an optimum, and a number chosen off the low point of one of these columns
+   * would be a number chosen from noise.
+   *
+   * 180, 60 and 30 are taken as the **middles of their own flat regions** rather than the edges of
+   * them, which is `LOCOMOTION_BIPED`'s own rule and is the only defensible way to read a table
+   * like this: a value at the edge of a plateau is one solver change from falling off it.
+   * 2026-09-04, the Node bench.
+   */
+  hipTorque: 180,
+  kneeTorque: 60,
+  ankleTorque: 30,
+
+  /**
+   * What those eighteen ceilings fall to while the body is fallen, as a fraction.
+   *
+   * `LOCOMOTION_BIPED.fallenTorqueScale`'s number and its argument: a ragdoll whose legs are still
+   * holding their pose is a stumble, and with six legs it ought to be a table that will not tip.
+   *
+   * **Swept, and like the wheel's it changes nothing** -- which is worth recording precisely
+   * because the biped's is the sharpest sweep in its own block. Over `LOCOMOTION_SEQUENCE` at the
+   * 2400 N.s bench shove:
+   *
+   *     fallenTorqueScale   root up-dot at its worst   lowest the socket reached
+   *              1.00                -0.361                     0.513 m
+   *              0.30                -0.343                     0.512
+   *              0.08                -0.338                     0.512
+   *              0.00                -0.363                     0.488
+   *
+   * The reason is scale rather than structure: eighteen motors at 180/60/30 N.m are holding
+   * 77.4 kg of leg under 632 kg of golem, so leaving them armed props nothing up. The biped's six
+   * at 900/500/220 under 560 kg are a different ratio entirely. 0.08 is kept on the argument --
+   * a body that has been let go of should be let go of -- and it is `CONFIG.body.deadJointStrength`
+   * exactly. 2026-09-04, the Node bench.
+   */
+  fallenTorqueScale: 0.08,
+
+  /** Solver damping on the leg joints' driven axes, and `CONFIG.arm`'s pair. The biped's three,
+   *  unchanged, for the reason every other block here copies them. 2026-09-04. */
+  motorDamping: 6,
+  linearDamping: 0.7,
+  angularDamping: 3,
+
+  /**
+   * The virtual carrier's own ceilings. **This is where "slow" lives, and the yaw is the point.**
+   *
+   * 0.8 m/s is two thirds of the biped and 40 % of the wheel; 3.0 m/s2 reaches it in 0.27 s. The
+   * yaw pair is the option's real signature: 0.7 rad/s is 44 % of the biped's and 27 % of the
+   * wheel's, which is a body 0.80 m wide swinging six legs round rather than pivoting on a contact
+   * patch. Chosen by eye against the other two rather than swept, because what they decide is how
+   * the golem handles, which is the gate's question. 2026-09-04.
+   */
+  carrier: {
+    maxSpeedMps: 0.8,
+    maxAccelerationMps2: 3.0,
+    maxYawSpeedRadS: 0.7,
+    maxYawAccelerationRadS2: 3.0,
+  },
+
+  /**
+   * The navigation footprint, and it is the biggest of the three by a long way.
+   *
+   * A pad's outer far corner sits at `(0.40 + 0.065, 0.22 + 0.10)` = 0.489 m from the centre, and
+   * the chassis's own half-diagonal is `hypot(0.34, 0.28)` = 0.440. The larger, rounded up: 0.50 m
+   * against the biped's 0.34 and the wheel's 0.42. That is a real cost rather than a rounding -- a
+   * wide body stops further from a wall and needs more room to pass another golem -- and it is the
+   * third face of the same trade the socket height states. `heightM` 1.42 is the top of the
+   * carried block (0.64 + 0.78), 380 mm under the biped's. 2026-09-04.
+   */
+  footprintRadius: 0.50,
+  footprintHeight: 1.42,
+
+  /**
+   * The stability authority. **This is the option, in two numbers.**
+   *
+   * `braceCapacityMultiplier` 2.6 against the biped's 1.5 and the wheel's 1.0. The argument is the
+   * support polygon and it is arithmetic rather than taste: a body tips about the edge of what it
+   * stands on, this one's half-width at the pads is `0.40 + 0.065 = 0.465 m` against the biped's
+   * `0.19 + 0.10 = 0.29`, and the ratio of those is 1.60 -- so `1.5 x 1.60 = 2.40` is the
+   * arithmetic. It also has a 0.44 m fore-aft base that the biped's single lateral line of two
+   * feet does not have at all, and 2.6 is that arithmetic with the fore-aft base worth the rest.
+   *
+   * **Swept against the comparison it exists for**, which is the 12 N.s that fells a biped. In
+   * newton-seconds the boundary is `0.014 x brace x 632.3 = 8.85 x brace`:
+   *
+   *     braceCapacityMultiplier   own threshold N.s   what 12 N.s did
+   *               1.0                   8.85            fell, rose in 1.158 s
+   *               1.5                  13.28            stayed supported
+   *               2.0                  17.70            stayed supported
+   *               2.6                  23.02            stayed supported
+   *               3.4                  30.10            stayed supported
+   *
+   * **1.5 clears it by ten per cent and 2.6 by ninety**, which is the reason the arithmetic's 2.4
+   * is rounded up rather than down: a difference the option exists to carry should not rest on a
+   * margin a solver change could eat. As with the wheel's `gaitStabilityScaleStand`, the same
+   * sweep read at this module's own 2400 N.s bench shove is a column of one number, so
+   * `--sweep brace` fixes the impulse at 12 and says so.
+   *
+   * `gaitStabilityScaleMin` 0.90 is the live half and it is much nearer 1 than the biped's 0.75:
+   * an alternating tripod always has three pads down, so being mid-stride costs this body almost
+   * nothing where a biped mid-stride is standing on one foot. The fall threshold is therefore
+   * `0.014 x 2.6 = 0.0364 m/s` standing and 0.0328 at full speed, against the biped's 0.021 and
+   * 0.0158. 2026-09-04.
+   */
+  braceCapacityMultiplier: 2.6,
+  gaitStabilityScaleMin: 0.90,
+
+  /**
+   * The bench's knockdown: an impulse, in newton-seconds, applied to the carried block. The same
+   * mechanism and the same rule as the other two -- stated once, spent twice.
+   *
+   * Bracketed in the Node bench over `LOCOMOTION_SEQUENCE`. The supported mass is 632.3 kg:
+   *
+   *     impulse N.s   specific m/s   what the state machine did   root up-dot   lowest socket
+   *             12        0.0190         stayed supported            +1.000        0.616 m
+   *             20        0.0316         stayed supported            +1.000        0.616
+   *             24        0.0380         fell, rose in 1.158 s       +1.000        0.616
+   *            200        0.3163         fell, rose in 1.158 s       +1.000        0.616
+   *            900        1.4234         fell, rose in 1.158 s       +0.952        0.616
+   *           2400        3.7957         fell, rose in 1.158 s       -0.338        0.512
+   *           6000        9.4892         fell, rose in 1.158 s       -1.000        0.506
+   *
+   * **The 20 and 24 rows are this module's own declared threshold straddled to the newton-second.**
+   * `FALL_SPECIFIC_IMPULSE_MPS` 0.014 times a brace capacity of 2.6 is 0.0364 m/s, which against
+   * 632.3 kg is **23.02 N.s** -- and 20 stays up while 24 goes down. The biped's boundary on the
+   * same bench is 11.76 N.s, so **12 N.s is the shove that fells a biped and leaves this one
+   * standing**, which is the cross-module comparison `tests/golem-locomotion.test.mjs` asserts.
+   *
+   * **2400 is the bench key, chosen for the drop rather than for the threshold.** The gap between
+   * the two is enormous on this body: at 900 N.s -- thirty-nine times the threshold -- the root is
+   * still at an up-dot of 0.95 and the socket has not moved at all, because a 0.80 m wide base
+   * 0.64 m tall is *shunted* rather than tipped. 2400 is where it goes over. That ratio, 104x
+   * against the biped's 51x and the wheel's 225x, is the same statement all three blocks make: a
+   * threshold crossed and a body on the floor are different questions. 2026-09-04, the Node bench.
+   */
+  shoveImpulseNs: 2400,
+
+  /** What a planted pad is allowed to slide, metres per second. **A budget, not a target**, on the
+   *  mean and not the peak, for every reason `LOCOMOTION_BIPED.meanFootSlipBudgetMps` gives.
+   *  Measured over `WALK_SEQUENCE` at the settings above: **118.9 mm/s against a carrier at 800**,
+   *  so a planted pad holds about 85 % of the ground it stands on, against the biped's 90 % at
+   *  114.7 of 1200. 0.30 m/s is that with a margin of about two and a half, which is the biped's
+   *  own margin over its own measurement. **Provisional.** 2026-09-04, the Node bench. */
+  meanFootSlipBudgetMps: 0.30,
+
+  /** How long a knockdown and the rise after it are allowed to take, seconds. The frozen 0.35 s
+   *  dwell plus the frozen 0.45 s rise is the floor; 1.60 s is `LOCOMOTION_BIPED`'s own budget and
+   *  this is the same number for the same reason. **Provisional.** 2026-09-04. */
+  riseBudgetSeconds: 1.60,
 };

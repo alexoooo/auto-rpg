@@ -382,8 +382,18 @@ const SCRATCH_SHARE_OF_DURABLE = { min: 0.02, max: 0.25 };
 // third demonstration in this comment that a counter re-pinned on a branch is a counter measured
 // against a tree that does not exist. 3 + 4 + 7 = 14 is the whole fall. The 10 that remain are
 // sessions 06 and 08 to 11 naming what they intend to create.
+//
+// **Re-taken 2026-09-04 from golem session 06's own failing run: 10 -> 8.** Two occurrences went
+// because session 06 built the two files its plan promised, `src/golem/locomotion/wheel.ts` and
+// `src/golem/locomotion/multileg.ts`. Two files and two occurrences, like session 03's: its third
+// promised file, `tests/golem-locomotion.test.mjs`, already existed from session 05 and was
+// therefore never in this count. The 8 that remain are the eight paths sessions 08 to 11 name --
+// `src/golem/golem.ts`, `golem-control.ts`, `tactics.ts`, `golem-policies.ts`, `parts-bin.ts` and
+// the three test files beside them. **This number was re-pinned on a branch**, which the paragraph
+// above says is a counter measured against a tree that does not exist: the coordinator re-takes it
+// after the merge.
 const PLAN_SURFACE = {
-  noSuchFile: 10,
+  noSuchFile: 8,
   ambiguousFile: 0,
   anchorIntoDeletedFile: 0,
   orphanContinuation: 0,

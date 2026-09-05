@@ -1,7 +1,9 @@
 import type { Striking } from "../combat.ts";
 import type { HandIntent, Intent, NaturalIntent } from "../mind.ts";
-import { formatLocomotion, locomotionCommand } from "./locomotion.ts";
+import { formatLocomotion, locomotionCommand, type LocomotionHeightRange } from "./locomotion.ts";
 import { bipedModule } from "./locomotion/biped.ts";
+import { multilegModule } from "./locomotion/multileg.ts";
+import { wheelModule } from "./locomotion/wheel.ts";
 import { effectorModule } from "./effectors/effector.ts";
 import { headPlain } from "./head/plain.ts";
 import { headRam } from "./head/ram.ts";
@@ -142,6 +144,18 @@ export interface GolemBenchOption {
    * socket, and a module that has already claimed both cannot share the stand with a second.
    */
   readonly sockets: 1 | 2;
+  /**
+   * Where this option's own socket stands above the floor, metres, or null for a module that does
+   * not decide one. Appended by Session 06.
+   *
+   * Only a locomotion module answers it, because only a locomotion module *is* the thing between
+   * the golem and the ground: the biped stands at 1.020 m, the wheel at 1.160 and the multileg at
+   * 0.640, and that height is the trade rather than a detail -- a lower socket is a lower effector
+   * and a lower head. The bench reads it to put the stand's block where the module under test
+   * expects it; forwarded from the definition's own `heightRange` rather than written down here,
+   * so a module and its stand cannot disagree.
+   */
+  readonly standHeightM: number | null;
   build(ctx: ModuleBuild): BenchModule;
 }
 
@@ -150,7 +164,11 @@ function benchOption<Command, Built extends BuiltModule<Command> = BuiltModule<C
   // richer than `BuiltModule` -- a locomotion module returns a `BuiltLocomotion` -- infers `Built`
   // as that richer type, so the hook sees the module's own surface without a cast and an effector
   // that passes no hook is unaffected.
-  definition: Omit<GolemModuleDefinition<Command>, "build"> & { build(ctx: ModuleBuild): Built },
+  // `heightRange` is optional and only a locomotion definition carries one, which is why it is an
+  // optional member of the parameter's own type rather than a second overload: every other slot's
+  // definition stays assignable unchanged, and the field is forwarded rather than transcribed.
+  definition: Omit<GolemModuleDefinition<Command>, "build"> & { build(ctx: ModuleBuild): Built }
+    & { readonly heightRange?: LocomotionHeightRange },
   mode: GolemBenchMode,
   adapt: (intent: Intent, ctx: ModuleBuild) => Command,
   /** What this module offers the bench beyond the contract. Absent for every effector. */
@@ -163,6 +181,7 @@ function benchOption<Command, Built extends BuiltModule<Command> = BuiltModule<C
     slots: definition.slots,
     massKg: definition.massKg,
     sockets: definition.sockets ?? 1,
+    standHeightM: definition.heightRange?.standM ?? null,
     build(ctx: ModuleBuild): BenchModule {
       // `Built`, not `BuiltModule<Command>`: Session 05's fixture hook needs the module's own
       // richer surface (a locomotion module returns a `BuiltLocomotion`) and Session 07's socket
@@ -282,7 +301,17 @@ export const GOLEM_MODULES: readonly GolemBenchOption[] = Object.freeze([
     lines: () => formatLocomotion(built.readout(), built.evidence()),
     shove: () => built.shove(),
   })),
-  // Session 06: locomotion.wheel and locomotion.multileg.
+  // Session 06: locomotion.wheel and locomotion.multileg, on the same one-line seam and with the
+  // same fixture hook. The three differ in their config blocks and in nothing else here, which is
+  // the contract doing its job -- the bench's own dispatch is still untouched.
+  benchOption(wheelModule, "locomotion", locomotionCommand, (built) => Object.freeze({
+    lines: () => formatLocomotion(built.readout(), built.evidence()),
+    shove: () => built.shove(),
+  })),
+  benchOption(multilegModule, "locomotion", locomotionCommand, (built) => Object.freeze({
+    lines: () => formatLocomotion(built.readout(), built.evidence()),
+    shove: () => built.shove(),
+  })),
   // Session 07's two trunks and two heads, on the same one-line seam as everything above.
   benchOption(torsoPlain, "torso", postureChannel),
   benchOption(torsoPlated, "torso", postureChannel),
