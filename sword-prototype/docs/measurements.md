@@ -10130,3 +10130,97 @@ multileg 2 m from the stand puts it on the page course's own 0.12 m step, where 
   the motor rather than by reversing it, so a sign error that happened to be self-consistent would
   not have been caught by that control alone — though the page's own `0.530 m / 1.261 rad` reading
   is an independent check of the sign in the right direction.
+## Session 10: body parts as loot
+
+*2026-09-04. Implemented; the human gate has not been asked, and no number below is a verdict about
+whether the loop is worth having.*
+
+### The Node arena harness (`NullEngine` + real Havok, `tests/golem-loot.test.mjs`'s own stand)
+
+Never in a column with a page reading or with a `scripts/golem-bench.mjs` figure.
+
+| what | reading |
+| --- | --- |
+| the default primary module's parts | 6: collar 70, upper arm 120, forearm 100, roll ring 50, wrist 60, blade 60 |
+| its total health | 460 |
+| a blade cut off with the chain behind it sound | module durability **0.8696** (400 of 460) |
+| the loot that leaves | one entry, `effector.wrist.blade` at 0.8696 |
+| a body wearing that same arm second-hand | vitality **0.9236** against 1.0000 fresh |
+| shells carrying a wear binding | **59 of 59** on a default golem |
+
+**The 0.8696 is the blade's own share of its module and nothing else** — 60 of 460 — so it is a
+statement about how this module is proportioned rather than about how hard the blow was. A module
+whose terminal is a bigger share of it comes off worth less, which is the intended shape and is
+worth knowing before anybody reads a durability as a difficulty.
+
+**The headless harness never renders the wear.** `NullEngine` reports no standard derivatives, so
+`selectGolemSurfaceMode` returns `mapped-pbr` with the reason
+`procedural-pbr requires standard derivatives` and the shader is never reached. Everything the Node
+tests check about wear is the *bound data*: that a binding exists on every shell, that it carries
+the fitted ratio, and that it follows the limb's health. Whether wear is visible is a page question.
+
+### The page (Chrome, the dev server, stepped by hand)
+
+A hidden tab pauses `requestAnimationFrame`, so the world was stepped by hand and `scene.render()`
+called directly; the bout rule lives in the host frame, so Babylon's own render-loop callbacks were
+called by hand too, with a real gap between them so `getDeltaTime()` was not zero.
+
+**The wear shader, read off the pixels.** Physics disabled so nothing overwrote a hand-set ratio,
+mean luminance and its standard deviation over a 160x120 block of the trunk:
+
+| health ratio | mean | sd |
+| ---: | ---: | ---: |
+| 1.00 | 96.93 | 31.66 |
+| 0.75 | 96.93 | 31.66 |
+| 0.50 | 98.95 | 33.77 |
+| 0.25 | 99.62 | 35.00 |
+| 0.10 | 99.49 | 35.30 |
+| 0.00 | 99.49 | 35.30 |
+
+**Those are `PROCEDURAL_DAMAGE_WEAR_V1`'s own two thresholds read off the screen.** 1.00 and 0.75
+are byte-identical because wear begins *below* 0.75; 0.10 and 0.00 are byte-identical because it is
+at its maximum by 0.10; and setting the ratio back to 1.00 reproduced the first row exactly. The
+contrast rises 11.5 % and the mean 2.6 %, which is the honest size of it: **the effect is in the
+crack pattern rather than in the overall shade**, and a mean is the wrong instrument for it.
+
+**The loop, end to end, in the page.** The enemy golem's blade was destroyed and its primary socket
+broken, then its head; at the verdict the banner read
+`BOUT OVER -- left, left standing as the other was exhausted -- TAKEN -- wrist ... + blade at 87%`,
+and `localStorage` held
+`{"bin":1,"sum":"667750f7","parts":[{"key":"1","id":"effector.wrist.blade","durability":0.869565}]}`.
+The head module was severed intact and was **not** collected, because the head is not a slot a
+module is salvaged from. The legs came off with the body's death and were not collected either.
+Fitting the entry in setup and pressing Fight built the primary arm at 0.870 of its health with its
+shells drawn at 0.870 and the secondary untouched at 1.00.
+
+### The mutation battery
+
+Ten mutations, one at a time, each restored afterwards, with no dev server running. **All ten went
+red.** Three in the codec (accept a bad checksum, accept an out-of-range durability, accept a module
+the shelf does not have), four in the rule (every severed module reads as intact, the intact test
+made unconditional, the durability snapshot taken as a constant, a severed fitted entry kept in the
+bin) and three in the fitting (a fitted module built at full health, its shells drawn fresh, wear
+never refreshed during a bout). The one watched by hand: deleting the checksum branch turned
+`the_parts_bin_codec_refuses_damaged_data_rather_than_substituting_defaults` red with
+`a checksum that does not match its contents was accepted`, and turned
+`a_damaged_stored_bin_is_refused_by_name_and_never_read_as_empty` red with it.
+
+### What is owed
+
+- **The human gate**, which is the whole of what this was built for: two bouts in a row, losing a
+  module in the first and fitting the enemy's in the second, and whether that feels like the game
+  this was meant to be. Nothing above answers it.
+- **The look of the golem changed** as a side effect of asking for the shader path at all, because
+  the procedural stone surface had never been drawn here. That is a visual change the owner has not
+  seen and did not ask for; if it is unwanted, the one-word revert is the surface mode the palette
+  is asked for, and the wear goes with it.
+- **Nothing charges for a shelf part**, so a salvaged module is strictly worse than the same module
+  new and there is no reason to fit one. The loop is closed and is not yet a game; see
+  `docs/design.md`.
+- **No bout has severed a module by fighting.** Every sever measured here was driven through the
+  body's own armour seam and then through the same `sever` call `Combat` makes, which is the
+  production path minus the scoring. A Warrior duelist has never been observed taking a golem's arm
+  off in a real bout, and how often that happens is a balance question nobody has asked.
+- **The banner's name for a salvaged module is the registry's label**, which reads
+  "wrist - reach plus roll and bend + blade at 87%". It is accurate and it is not a name a person
+  would use.

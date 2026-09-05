@@ -1892,3 +1892,91 @@ is 51x its own threshold for the biped, 104x for the multileg and 225x for the w
 module's `shoveImpulseNs` is chosen for the *drop* and its threshold is bracketed separately. A
 multileg shoved at thirty-nine times its threshold is still standing at an up-dot of 0.95, because
 a 0.80 m wide base 0.64 m tall is shunted rather than tipped.
+## Body parts as loot
+
+*Session 10, 2026-09-04. Implemented; the human gate has not been asked.*
+
+The One Must Fall loop, closed at prototype scale: a module severed in a bout survives the verdict
+as a thing, the winner keeps the ones that came off intact, and the next bout's setup offers them
+as options to fit. Modding the unit replaces finding equipment.
+
+### The loot rule, and the three existing facts it reads
+
+**A severed module is loot if its socket joint broke and the module's own parts still have health
+above zero. A module cut to pieces is debris.** No damage model was added for it; the rule reads
+what was already true and `src/golem/parts-bin.ts` is where it is written down.
+
+- **Which joint broke.** `Golem.sever` breaks a module's socket when a blow destroys a piece of it;
+  `Golem.die` breaks the locomotion module's when the body stops being a golem. Only the first is a
+  part coming off. The second is a stone body falling apart, and a pair of legs collected from every
+  corpse would be a reward for winning rather than for cutting something off.
+- **What was left of it at that instant.** `severs` in `src/scoring.ts` refuses to sever a piece
+  whose health is still above zero, so **the struck piece is always at zero when the socket
+  breaks** — which is why the rule cannot be read as "every part". It is read as *every part but
+  the one the blow destroyed*: cut an arm off at the shoulder and the blade and forearm are still
+  worth having; hack the same arm apart and two pieces are down, which is debris. That premise is
+  asserted against `severs` itself in `tests/golem-loot.test.mjs` rather than assumed.
+- **How worn it is.** The module's remaining health as a fraction of what it was built with, summed
+  over its parts so a slab counts for more than a bearing.
+
+The facts stop existing one line later — `sever` zeroes every part of the module on its way past —
+so the snapshot is taken **inside `sever`, before the zeroing**, and `Golem.moduleReport` publishes
+it. That accessor is the only one Session 10 added to `src/golem/golem.ts`, and it is one rather
+than two because the same walk answers the other half: how worn a module still on the body is, which
+is what a fitted bin entry has to carry back into the bin.
+
+The loot unit is the whole module, chain and terminal together. **A terminal snapped off its chain
+is not loot, because no weld has health yet** — there is no fact to read, and inventing one would be
+the damage model this rule exists without. And the two effector slots are the only ones a module can
+be salvaged from: a severed torso is a golem coming apart, and a bin entry no picker could fit would
+be a stored field with no reader.
+
+### The parts bin
+
+Per browser, in `localStorage`, checksummed, as the construct library was: a list of module option
+ids with their remaining durability and nothing else. It does **not** store a build, a matchup, a
+shell, a part-by-part health record or which piece the blow found. There is no import and no export,
+because losing it costs nothing that cannot be rebuilt by winning another bout.
+
+The codec **refuses damaged data rather than substituting defaults** — the guided playtest's save
+refused a stale record rather than repairing it, and a ternary chain with a default branch is not a
+dispatch table. Every clause returns a sentence naming the field it refused; the screen shows that
+sentence rather than reading a damaged bin as an empty one, which are two different states.
+`localStorage` can throw and can come back empty, so every read and write is wrapped and the bin may
+have no storage at all.
+
+A **reset control** sits under both corners of the setup screen, because a prototype without one is
+a prototype somebody has to clear from the console. It empties the bin and takes every salvage pick
+off the screen with it; a socket naming an entry that is *gone* is refused by name instead, because
+quietly rebuilding it new hands somebody a fresh module they did not earn.
+
+### Wear is visible, and it never feeds anything
+
+Remaining durability drives `PROCEDURAL_DAMAGE_WEAR_V1` on the module's shell through
+`src/golem/wear.ts`, so a fitted second-hand blade looks second-hand and a module cracks as it is
+hacked at. The binding is a plain record on a shell mesh's `metadata`, the plugin copies its
+`healthRatio` into a uniform, and nothing in the game reads it back: presentation reads authority
+and never feeds it.
+
+**Two things were found by turning it on.** `GolemSurfaceBinding.healthRatio` had a reader and no
+writer at all — nothing in the tree had ever written one. And the golem asked for `mapped-pbr`, so
+the salvaged shader had never been compiled here; when it finally was, it failed to link, because
+`GLSL_DEFINITIONS` declared two uniforms that the plugin's own `getUniforms` already declares. Both
+are fixed. The lesson is the one this directory keeps paying for: `tsc`, the build and every
+headless test passed with the shader unbuilt, because `NullEngine` has no standard derivatives and
+the audit falls back before the shader is reached. It took looking at it in a browser.
+
+### Written down as ideas rather than built
+
+- **In-arena pickup.** No mid-bout pickup this session: the winner collects at the verdict, once.
+  Picking a part up while the fight is on is a different game — it needs a reach test against a
+  loose body, a socket that is empty rather than broken, and a decision about what happens to the
+  module already in that socket. It is an idea, and this is where it is written down.
+- **The shelf is free, so salvage is currently a pure loss.** A fitted module at 0.87 is the same
+  module as a new one with 13 % of its life already spent, and it costs the whole body a slice of
+  its vitality bar. Nothing in the prototype charges for a shelf part, so there is no reason to fit
+  a salvaged one except to see it. The loop is *closed*; it is not yet a *game*, and what would make
+  it one is scarcity on the shelf rather than any change to the rule above.
+- **A refit is a uniform scale over the module's parts**, not a per-part record. The bin holds "one
+  of these, this worn". A per-part save would be a body description format, which is exactly what
+  the salvaged surface and material files were cut free of.
