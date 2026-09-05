@@ -1509,3 +1509,72 @@ decelerates against gravity rather than against the drive. The thrust carries 47
 its drive left it against 13.6 mm with the follow phase removed; the cut carries 0.371 rad against
 0.050. Both numbers stop short of a joint stop on purpose, and both tables record the setting that
 did not.
+
+## The torso and the head, and the option that gambles its own fatal part
+
+Session 07 filled two of the five slots. The torso is the part that carries the three upper
+sockets and the vitality core; the head is the fatal part, and in one of its two options it is
+also the only attack a golem makes with something that can kill it.
+
+**Torso options are mechanical, and the shape of the code is what enforces it.** A `TorsoTuning`
+block is a size, a mass, an armour fraction, three socket frames and a waist range — there is no
+mesh in it, no silhouette and no style, so an option that "looks different" is not a thing this
+seam can express. `torso.plain` is 139 kg with 24 degrees of lean and 32 of twist and keeps a
+tenth of a blow off its core; `torso.plated` is 236 kg with 16 and 19 and keeps a third. The one
+visible difference — how proud the armour slabs stand — is computed from `coreArmour` rather than
+chosen, so it cannot drift away from what the armour actually does.
+
+**The waist motor is shared between them on purpose.** Frozen rule 4 says weight comes from a
+finite force budget against real mass, so the same 1500 N·m against 236 kg has to lag more than it
+does against 139, and giving the heavier option a bigger motor would be the move the house rule
+forbids. What the sweep found is that a trunk is an **inverted pendulum**: its centre of mass is
+above the lean hinge, so gravity deepens a lean rather than restoring it and the motor is holding
+the trunk *back*. At 900 N·m the plain trunk carries 0.2025 rad past a 0.42 rad target — which is
+exactly its own joint stop — and the setting is 1500 because that is where it stops arriving
+there. The twist needs far less (900, saturated) for a reason that is not tuning: the twist axis
+is the vertical, so weight exerts no moment about it at all.
+
+**The socket frames are geometry and they change reach and cover honestly.** A torso hands out
+`primary`, `secondary` and `head` as `GolemSocket`s on its own core — the same record
+`buildGolemStand` hands out — so an effector bolted to a plated trunk really is held 40 mm wider
+and 20 mm higher, and it moves when the trunk leans because its mount is the core. That one
+call is also what Session 08 mounts on: there is no second seam for assembly.
+
+### Armour is a number on a part and a rule in the damage model
+
+The plated torso does not have a branch anywhere. `GolemPart` carries an optional `armour`
+fraction, `armouredDamage` in `src/scoring.ts` is the rule, and `Combatant.applyDamage` — which
+already existed for a body to turn raw scoring damage into applied damage — is where it is spent.
+The ordering is a decision rather than an implementation detail: armour runs *after* `scoreHit`
+and never inside it, so it changes what a blow costs and not what a blow *was*. Fold it into the
+score instead and a plated torso would quietly become harder to dismember as well as harder to
+hurt, which is two mechanics wearing one number.
+
+### The ram, and what it found in the damage model
+
+The ram's lunge is a velocity event through the neck: the pitch motor switches to VELOCITY, drives
+the head forward and down, then the torque drops to a ninth and 102 kg of head and plate coasts.
+It is fired from `Intent.natural.thrust`, which is the channel a centipede's jaws already use, and
+the writer on the person's side is `applyButtonPose` — the same left button that thrusts a blade.
+The bench sets `Controls.ownership.posture` so the arrow keys reach the trunk, because on a bench
+there is no policy to own posture and a channel with no writer is a button a person cannot press.
+
+Two things about it are worth carrying forward.
+
+**A lunge goes down, not across.** Measured, a nod carries the plate about 35 mm further forward
+and 460 mm further down: the plate traces an arc about a hinge already behind and below it. The
+forward half of a lunge is the *waist*, which the head does not own and does not need to — a
+person leans with the arrow keys and fires with the button, and the two arrive as one `Intent`.
+
+**And it does not reach a hand weapon's speeds, which broke the damage model rather than the
+ram.** The plate lands at 1.3–1.8 m/s at the contact, under the club's 2.2 m/s floor, so scored on
+the club's row the whole option did literally nothing. That floor is a statement about 3.4 kg on
+the end of an arm; a head on a hinge presents an effective mass of about 37 kg and arrives slowly.
+`ram` is therefore a `Striker` row of its own, with the club's two speeds carried across at equal
+kinetic energy (×0.303), and it never severs. It is the same argument `BITE.arrow` already makes
+in the other direction — "`combat.referenceSpeed` is 11 m/s and that is a **blade's** number" —
+and it is the third time this directory has found a table answering for a kind it did not know.
+
+**The risk is the design.** A ram golem puts its fatal part into the contact every time it
+attacks. `head.plain` keeps the same neck, the same block and the same guard with no plate and no
+lunge, so the trade is a real one and the control for measuring it is exact.

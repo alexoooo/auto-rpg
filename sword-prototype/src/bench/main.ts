@@ -167,6 +167,22 @@ async function main(): Promise<void> {
   let slot: GolemSlot = "primary";
   let option: GolemBenchOption = GOLEM_MODULES[0];
   let module: BenchModule | null = null;
+  /**
+   * The head the bench stands on whatever is on the stand, when the thing on the stand has a neck.
+   *
+   * **Capability, not mode.** Nothing here asks what kind of module is selected: it asks the built
+   * module whether it hosts a `head` socket, which only a torso does, and it carries whichever
+   * registered option last chosen fits the `head` slot. That is what lets the owner answer the
+   * gate the session plan actually asks -- lean a trunk *with a head on it*, and see the head bob
+   * when the trunk moves -- without the bench growing a table of which options go together.
+   *
+   * It starts at the first registered head so the pairing exists before anybody presses anything,
+   * and `pick` moves it, so looking at `head.ram` and then at `torso.plated` shows the ram on the
+   * plated trunk.
+   */
+  let headOption: GolemBenchOption | null =
+    GOLEM_MODULES.find((entry) => entry.slots.includes("head")) ?? null;
+  let carried: BenchModule | null = null;
   let overlay: BenchOverlay | null = null;
   let rigWanted = false;
   let readoutWanted = true;
@@ -194,6 +210,12 @@ async function main(): Promise<void> {
     releaseWatchers();
     overlay?.dispose();
     overlay = null;
+    // The carried module first. Its neck joint is anchored into the host's own body, and
+    // disposing the host first would leave a constraint pointing at a freed Havok body --
+    // `PhysicsBody.dispose` walks straight past whatever is constraining it. Same rule and same
+    // reason as terminal-before-chain in `effectorModule`.
+    carried?.dispose();
+    carried = null;
     module?.dispose();
     module = null;
   };
@@ -227,6 +249,16 @@ async function main(): Promise<void> {
     };
     watch(stand.block.body);
     for (const part of module.parts) watch(part.part.body);
+
+    // Ask what is on the stand whether it carries a head, and stand one on it if it does.
+    const neck = module.socket?.("head") ?? null;
+    if (neck && headOption) {
+      carried = headOption.build({
+        scene, side: "left", name: "golem.bench.head", socket: neck, layers,
+        materials: stand.materials,
+      });
+      for (const part of carried.parts) watch(part.part.body);
+    }
     renderPicker();
   };
 
@@ -246,6 +278,7 @@ async function main(): Promise<void> {
     }
     lines.push("");
     lines.push(`  socket: ${slot}   (F swaps)`);
+    if (carried && headOption) lines.push(`  carrying: ${headOption.label}`);
     if (GOLEM_MODULES.length > 9) {
       lines.push("  more than nine registered; keys pick the first nine");
     }
@@ -256,6 +289,10 @@ async function main(): Promise<void> {
     const ordered = golemBenchModes().flatMap((mode) => golemModulesForMode(mode));
     const chosen = ordered[wanted - 1];
     if (!chosen || chosen.id === option.id) return;
+    // Remembered by **slot** rather than by mode, so the bench never asks what kind of thing an
+    // option is: whatever fits a neck is what a neck gets. Picking a head therefore both shows it
+    // on the stand and chooses which head rides the next torso you pick.
+    if (chosen.slots.includes("head")) headOption = chosen;
     option = chosen;
     if (!option.slots.includes(slot)) slot = option.slots[0];
     build();
@@ -311,6 +348,14 @@ async function main(): Promise<void> {
     },
     onPrimaryDown: () => false,
   });
+  // **The person owns their own posture here, and without this line a torso has no writer.**
+  // `Controls` gates the arrow keys on `ownership.posture`, which is false by default because in
+  // the arena a policy is steering the body while the person spends the mouse on one hand. There
+  // is no policy on the bench: the person is the only driver, so `Intent.posture.trunkLean` and
+  // `trunkTwist` are theirs to write and nothing else would ever write them. A command channel
+  // with no writer is a button a person cannot press and it looks exactly like a body that does
+  // not work -- which is on record for `Intent.natural`, one channel over, and cost a session.
+  controls.ownership.posture = true;
   controls.start();
   // **The default view is from the side, because that is where the swing is.** Rung 1 turns in
   // the sagittal plane, and a camera on the arena's own default bearing looks straight down it:
@@ -337,6 +382,7 @@ async function main(): Promise<void> {
   scene.onBeforePhysicsObservable.add(() => {
     if (!module) return;
     module.step(SUBSTEP);
+    carried?.step(SUBSTEP);
     const view = module.view();
     sample.t = elapsed;
     sample.commanded = view && view.axes.length > 0 ? view.axes[0].commanded : 0;
@@ -399,7 +445,14 @@ async function main(): Promise<void> {
     if (controls.isActive) {
       // Once per rendered frame, which is what a control boundary is: a button press and a
       // cursor position are frame events. `step` above is what runs at 240 Hz.
-      module?.command(controls.sample(dt));
+      //
+      // **One command, handed to both.** Each module's registration says which channel of it to
+      // read -- an effector takes its own hand, a trunk takes `posture`, a head takes `natural` --
+      // so a torso and the head it carries are driven by the same `Intent` a person produced,
+      // with nothing here switching on what either of them is.
+      const command = controls.sample(dt);
+      module?.command(command);
+      carried?.command(command);
     } else {
       controls.sampleCamera(dt);
     }

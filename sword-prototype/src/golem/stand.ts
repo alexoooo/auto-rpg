@@ -6,7 +6,7 @@ import { layersFor, type Side } from "../physics.ts";
 import { boxPart, type Part } from "../rig.ts";
 import { BENCH_STAND } from "./config.ts";
 import { golemMaterials, materialForGolemRole, type GolemMaterialPalette } from "./materials.ts";
-import { type GolemLayers, type GolemSlot, type GolemSocket } from "./module.ts";
+import { effectorSlot, type GolemLayers, type GolemSlot, type GolemSocket } from "./module.ts";
 
 /**
  * Which layers a golem's own bodies belong to and collide with.
@@ -92,7 +92,14 @@ export function buildGolemStand(scene: Scene, options: GolemStandOptions): Golem
     // Primary to the golem's own right, which is the +X side of its own frame, exactly as
     // `CONFIG.fighter.shoulderSide` is positive on the sword side.
     const outboard = slot === "secondary" ? -1 : 1;
-    const local = new Vector3(S.socketSide * outboard, S.socketHeight, S.socketFront);
+    // **An effector hangs off the side; everything else bolts to the top face.** One rule, and it
+    // falls out of what the stand is for: the block stands in for whatever is *below* the module
+    // being benched, so an arm hangs from the shoulder line at `socketSide` and a torso or a head
+    // sits on the block's own top. `socketHeight` is already half the block's height -- 1.03 plus
+    // 0.39 is the 1.42 m shoulder line -- so the top face needs no second number, and Session 03's
+    // rung geometry is untouched because nothing about the effector branch moved.
+    const sideways = effectorSlot(slot) ? S.socketSide * outboard : 0;
+    const local = new Vector3(sideways, S.socketHeight, effectorSlot(slot) ? S.socketFront : 0);
     const world = new Vector3();
     // The block never turns on the bench, but the arithmetic is written for a frame that
     // might: a socket taken from `mesh.position` plus an untransformed offset is a socket that
