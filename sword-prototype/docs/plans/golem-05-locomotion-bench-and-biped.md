@@ -1,7 +1,11 @@
 # Session 05 -- the locomotion bench and the biped
 
-**Status (2026-09-04): planned.** Depends on 02 (the bench page and the module contract). May run
-in parallel with 03 and 04. Human gate: not yet asked.
+**Status (2026-09-04): implemented, human gate not yet asked.** The locomotion contract, a bench
+mode reached by registration alone, and a biped that walks at 1.2 m/s with a sole in contact on
+every one of 1919 substeps and 114.7 mm/s of mean planted slip, crouches 0.16 m through a solved
+leg, is knocked down past horizontal by a 600 N.s impulse and rises in 1.158 s -- measured in the
+Node bench, with the physical obstacle corpus (wall, post, ledge, 45-degree slope, and two bipeds
+sharing one registry) rebuilt against it on real Havok geometry.
 
 ## Outcome
 
@@ -79,3 +83,25 @@ npm test
 npm run build
 git diff --check -- .
 ```
+
+## What landed, and what did not
+
+- **`src/golem/locomotion.ts`** is the contract and the instrument. `LocomotionCommand` is the
+  existing `LocomotionRequest` plus `crouch`; `BuiltLocomotion` publishes the root body, a
+  `SupportedRootAdapter`, the port, the registry, the footprint, the height range,
+  `postureEvidence()`, `gait(dt)` and `beginSubstep`/`endSubstep` so a *pair* harness can own the
+  carrier resolution. `stepSoloCarrier` is the one-carrier path both benches share.
+- **The bench mode needed no dispatch change**, which was the point of the seam. What it did need is
+  a small generalisation, made rather than worked around: `benchOption` takes an optional
+  `BenchFixture` -- extra readout lines and what the shove key does -- because a module with no
+  `EffectorView` has nothing the effector instrument can say about it. `ModuleBuild.world` carries
+  the query registry, and `buildGolemStand` takes the slot so the block is a fixed anchor for four
+  of them and a real `DYNAMIC` torso load for locomotion.
+- **The V1 obstacle suites were not run against the biped as a fixture**, because they are pure
+  query tests over a fake root and re-parameterising them would have produced the same assertions
+  about the same arithmetic. What the biped got instead is a *physical* corpus on real Havok
+  geometry, which is what `AGENTS.md` says a support query unit test is not, and which is the debt
+  `docs/measurements.md` recorded when Session 01 deleted the construct corpora.
+- **Still owed and named there rather than relabelled:** held-weapon wall speed and joint-frame
+  error under a blade, neither of which can exist until Session 08 assembles a golem with an
+  effector on it.

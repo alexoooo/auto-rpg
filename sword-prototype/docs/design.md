@@ -1509,3 +1509,93 @@ decelerates against gravity rather than against the drive. The thrust carries 47
 its drive left it against 13.6 mm with the follow phase removed; the cut carries 0.371 rad against
 0.050. Both numbers stop short of a joint stop on purpose, and both tables record the setting that
 did not.
+
+## The locomotion slot, and why it is the one that is not a chain
+
+Every other golem slot is a driven chain of stone on a socket. Locomotion is not, and the reason is
+a measurement rather than a preference: **continuous dynamic-root balance was tried at 240 Hz and
+both humanoid bodies lost foot evidence and fell inside the then-current grace at rest.** So a golem
+moves the way the Warrior and the Broot already move — on the supported carrier in the four
+`src/supported-locomotion*.ts` files — and the locomotion module's job is to fill that system's own
+records in from its own anatomy rather than to invent a second one. Nothing in those four files
+changed shape for the golem; what was added to them is one provenance label
+(`golem-bind-geometry`), because a golem's footprint is measured from its own bind pose exactly as
+a fighter's is and calling it a construct's would name a body plan this tree no longer has.
+
+**What the pieces are.** A bodyless `VirtualLocomotionCarrier` resolves where the golem is *allowed*
+to be, against a `StandableWorldRegistry` of query colliders and, in a pair, against the other
+carrier's footprint. The admitted physical root — the biped's pelvis — is `ANIMATED` and is
+keyframed onto what the carrier resolved. The legs are ordinary driven, hittable, severable bodies:
+they publish the support evidence, they carry the gait, and they are what a blade meets. An authored
+knockdown above the frozen specific-impulse threshold releases the root to `DYNAMIC`, and the whole
+assembly is a ragdoll until a bounded `RisingActuator` frame brings it back. `AGENTS.md` says
+plainly that "restoring physics" by deleting `driveAnimatedRoot` recreates the pile-up this system
+exists to avoid.
+
+**The contract is `src/golem/locomotion.ts` and it adds five things to the module contract**: the
+carrier's own ceilings, a height range, a navigation footprint, the support bindings, and a
+`BuiltLocomotion` that publishes the root body, a `SupportedRootAdapter`, the port, the registry,
+`postureEvidence()` and `gait(dt)`. Its `Command` is the existing `LocomotionRequest` plus `crouch`
+from `Intent.posture` — the field `mind.ts` has carried marked "reserved for session 05" since the
+posture record was split out. `Intent` is not widened for any of it; `locomotionCommand` narrows,
+which is the direction the one-seam rule allows.
+
+### Three decisions in that contract that are not obvious
+
+**`recover` is derived from what the person is asking for, never from what the carrier achieved.**
+A fallen carrier zeroes its own translation, so a `recover` read back off the committed movement is
+false for exactly as long as the body is fallen and the body is therefore trapped for ever. The rule
+is the game's existing one — deliberate movement input after the fallen dwell is the request to get
+up.
+
+**Crouch is a carrier property rather than a pose.** The biped has a height range and Session 06's
+wheel will not, and a mind asking either of them to crouch is asking about the carrier. The
+`VirtualLocomotionCarrier` is horizontal-only by construction — its `commit` preserves `y` — so the
+vertical belongs to the module, which drives it to the height its own leg solve implies.
+
+**A pair owns its own carrier resolution and the module owns everything else.** `step(dt)` is
+`beginSubstep`, a solo world-clip resolution, `gait(dt)`, `endSubstep(dt)`, which is right for one
+module on a bench and wrong for two golems, because both carriers have to be proposed before either
+is committed. The two halves are published so `resolvePhysicalSupportedPair` can go between them,
+and `tests/golem-locomotion.test.mjs` drives a real pair of bipeds through exactly that.
+
+### The biped, and the gait rule in one paragraph
+
+A pelvis carrier on two legs of thigh, shin and foot, standing 1.02 m at the socket on 0.84 m of
+leg. The stride phase advances with the **carrier's committed** speed rather than the root's, so a
+golem stopped by a wall stops stepping instead of marching on the spot; the cadence is per metre
+travelled, so the feet keep pace with the ground; the swing amplitude fades to nothing at rest, so
+standing still straightens the legs with no idle pose and no blend to get wrong; and the crouch is
+solved through the law of cosines for the height the carrier wants, so the sole stays on the floor
+while the hip drops. That is `legPose` in `src/fighter.ts`, rewritten against this body's numbers
+with an ankle added that keeps the sole level. Every number in it was swept and carries its table.
+
+**Legs never collide with each other or with the torso; feet collide with the world**, and that is
+true by construction rather than by aspiration: the whole module sits on the side's own body layer,
+whose collide mask contains the world and the far side and contains neither itself nor the trunk. A
+self-contact count of zero proves nothing about pairs the filters never admitted, so the test that
+reports it also reports a positive world-contact count, which is what says the feet solve against
+the floor at all.
+
+**A knockdown relaxes the legs and that was measured.** A ragdoll whose leg motors go on driving
+their gait targets at full torque holds itself up: a shove 51 times the golem's own braced fall
+threshold tipped the root to an up-dot of 0.816 and dropped the assembly 0.23 m. At
+`fallenTorqueScale` the same shove takes it past horizontal.
+
+### The bench fixture seam, which is a generalisation rather than a special case
+
+`src/bench/main.ts` draws its readout from `EffectorView` and drives everything through
+`command(intent)`. Both are exactly right for an effector and empty for a module with no tip: a
+locomotion readout is a support state, a carrier speed and a foot slip, and none of those is an
+`EffectorView` field. A dispatch on `GolemBenchMode` would be the thing Sessions 05, 06 and 07 all
+had to edit, which is what that union's own comment says must not happen. So a registration may
+supply a `BenchFixture` — extra readout lines, and what the bench's shove key does — and the bench
+shows and calls it without knowing what kind of thing it is.
+
+Two smaller seams go with it. `ModuleBuild.world` carries the world-query registry, optional because
+only one slot of the five navigates and on `ModuleBuild` because a *pair* must share exactly one
+registry. And the bench stand now takes the slot it is about to carry: for four slots it is the
+fixed `ANIMATED` anchor Session 02 built, and for locomotion it is a real `DYNAMIC` torso block on a
+soft motorised waist, because a locomotion module is the base and the slab is its load. Session 07
+will replace that stand-in with a torso module, and who then owns the waist joint is an open
+question this session states rather than settles.
