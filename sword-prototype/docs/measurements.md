@@ -9872,3 +9872,37 @@ yet, and `src/golem/config.ts` carries the argument that chose 3.6.
   is the seam a later one would draw from.
 - **The whip's 103 mm** wants an eye rather than a threshold.
 - Nothing has measured a golem against a golem. Session 09 is the first that can.
+
+### The null control did not move — and the figure it is compared against has
+
+`npm run measure -- --only duelist-swinger --bouts 120`, seed 20260823: the established bout
+either side of a change to shared execution-layer code, run because this session edited
+`src/mind.ts`, `src/control-host.ts`, `src/humanoid-control.ts`, `src/fighter.ts` and
+`scripts/measure.mjs`.
+
+Taken twice on 2026-09-04 — once at `e5a7f97`, the commit before this session, from a `git archive`
+snapshot with `node_modules` junctioned in, and once at the session's own HEAD:
+
+| | before | after |
+|:---|---:|---:|
+| duelist wins | 59/120 = 49.2 % | 59/120 = 49.2 % |
+| bout length, s | 3.48 (1.42–7.85) | 3.48 (1.42–7.85) |
+| scoring contacts | 1460 / 1674 | 1460 / 1674 |
+| severs | 10 / 0 | 10 / 0 |
+| final-blow regions | Head 69, Torso 33, Pelvis 10, … | identical |
+
+**Every printed figure is identical**, which is what the change's shape predicts: `handover` is
+now `handoverFromCursors` with `cursorsForPoses` in front of it and computes the same seed; the
+bench never takes a body over at all; `ControlledBody.afterLocomotion` is a member a `Fighter` does
+not have, so the pair step gained two calls that are not there; and `runBout`'s new parameters
+default to `undefined`, which is what it passed before by omitting them.
+
+**The reference this is compared against is stale, and that is worth writing down rather than
+quietly re-recording.** "The null control did not move, again" above reports 66/120 = 55.0 %,
+bout 3.52 (1.42–8.98), 1496 / 1670 scoring contacts for the same command and the same seed. That
+figure was taken before the golem plan set began; at `e5a7f97` the same command already answers
+59/120. So the move happened somewhere in sessions 01 to 07 — the demolition alone deleted a great
+deal of what shared this execution layer — and it is **not** this session's. Seven wins in 120 is
+0.6 standard deviations and could be noise, but the bout-length range and the contact counts moved
+too, so the trajectories genuinely differ. Whoever wants the cause has a cheap bisect: five commits,
+one command, twenty seconds each.
