@@ -33,6 +33,14 @@
  * `tests/golem-bench.test.mjs` drives one on the bench stand and asserts that the
  * force cap and the rate limit each do what they say, so these numbers are exercised rather
  * than merely declared.
+ *
+ * **Session 03 arrived and swept them, and both moved.** The tables live in `CHAIN_REACH` beside
+ * `anchorForce` and `anchorRate` rather than here, because what they measure is one chain's mass
+ * and one chain's lever and neither is a property of this class -- a golem arm nearly three times
+ * rung 1's mass wants 3900 N, and its 1.52 m tip turns an anchor rate into something about seven
+ * times larger, so 6 m/s here is five times too fast there. These stay as they are: they are the
+ * defaults a chain gets if it does not care, and the two chains that do care state their own.
+ * 2026-09-04.
  */
 export const ANCHOR_DRIVE = {
   /**
