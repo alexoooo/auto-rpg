@@ -2,13 +2,49 @@ import {
   EQUIPMENT,
   withControl,
   withEquipment,
+  withGolemEffector,
+  withGolemSlot,
   withPolicy,
   withUnit,
   type Control,
+  type GolemEffectorSetup,
+  type GolemSlotName,
   type Matchup,
 } from "./bout";
+import {
+  NO_TERMINAL,
+  golemChainOptions,
+  golemEffector,
+  golemHeadOptions,
+  golemLocomotionOptions,
+  golemSetupRefusal,
+  golemTerminalOptions,
+  golemTorsoOptions,
+  type GolemSlotOption,
+} from "./golem/build";
 import { supportsLoadoutForUnit, UNITS, unitDefinition } from "./units";
 import type { Side } from "./physics";
+
+/**
+ * The seven `<select>`s a golem corner adds, and what each edits.
+ *
+ * Seven and not five, because the two effector slots are **two** choices each: the overview's
+ * whole design for an effector is that the chain and the terminal are picked independently, the
+ * chain owning motion and the terminal owning what is on the end. A single "arm" picker would be
+ * a shelf of pairs somebody had to write down, which is the second copy of the ladder this plan
+ * set keeps refusing to make.
+ */
+const GOLEM_FIELDS = [
+  { field: "golemLocomotion", label: "Legs" },
+  { field: "golemTorso", label: "Trunk" },
+  { field: "golemHead", label: "Head" },
+  { field: "golemPrimaryChain", label: "Primary arm" },
+  { field: "golemPrimaryTerminal", label: "Primary end" },
+  { field: "golemSecondaryChain", label: "Secondary arm" },
+  { field: "golemSecondaryTerminal", label: "Secondary end" },
+] as const;
+
+type GolemField = typeof GOLEM_FIELDS[number]["field"];
 
 /**
  * The screen before the fight.
@@ -40,6 +76,9 @@ export class SetupScreen {
   private readonly units: Record<Side, HTMLSelectElement>;
   private readonly policies: Record<Side, HTMLSelectElement>;
   private readonly hands: Record<"handA" | "handB", Record<Side, HTMLSelectElement>>;
+  private readonly golem: Record<GolemField, Record<Side, HTMLSelectElement>>;
+  private readonly handFields: Record<"handA" | "handB", Record<Side, HTMLElement>>;
+  private readonly golemFields: Record<GolemField, Record<Side, HTMLElement>>;
   private readonly controls: Record<Side, HTMLInputElement[]>;
   private readonly beginButton: HTMLButtonElement | null;
 
@@ -66,12 +105,25 @@ export class SetupScreen {
       right: one<T>(`[data-side="right"][data-field="${field}"]`),
     });
 
+    const wrapper = <T extends HTMLElement>(field: string): Record<Side, T> => ({
+      left: one<T>(`[data-side="left"][data-wrap="${field}"]`),
+      right: one<T>(`[data-side="right"][data-wrap="${field}"]`),
+    });
+
     this.units = pick<HTMLSelectElement>("unit");
     this.policies = pick<HTMLSelectElement>("policy");
     this.hands = {
       handA: pick<HTMLSelectElement>("handA"),
       handB: pick<HTMLSelectElement>("handB"),
     };
+    this.handFields = {
+      handA: wrapper<HTMLElement>("handA"),
+      handB: wrapper<HTMLElement>("handB"),
+    };
+    this.golem = Object.fromEntries(GOLEM_FIELDS.map(({ field }) =>
+      [field, pick<HTMLSelectElement>(field)])) as Record<GolemField, Record<Side, HTMLSelectElement>>;
+    this.golemFields = Object.fromEntries(GOLEM_FIELDS.map(({ field }) =>
+      [field, wrapper<HTMLElement>(field)])) as Record<GolemField, Record<Side, HTMLElement>>;
     this.controls = {
       left: [...host.querySelectorAll<HTMLInputElement>('[data-side="left"][data-field="control"]')],
       right: [...host.querySelectorAll<HTMLInputElement>('[data-side="right"][data-field="control"]')],
@@ -127,14 +179,19 @@ export class SetupScreen {
           <span class="field-name">Policy</span>
           <select data-side="${side}" data-field="policy"></select>
         </label>
-        <label class="field">
+        <label class="field" data-side="${side}" data-wrap="handA">
           <span class="field-name">Hand A</span>
           <select data-side="${side}" data-field="handA">${options(EQUIPMENT)}</select>
         </label>
-        <label class="field">
+        <label class="field" data-side="${side}" data-wrap="handB">
           <span class="field-name">Hand B</span>
           <select data-side="${side}" data-field="handB">${options(EQUIPMENT)}</select>
         </label>
+        ${GOLEM_FIELDS.map(({ field, label }) => `
+        <label class="field" data-side="${side}" data-wrap="${field}" hidden>
+          <span class="field-name">${label}</span>
+          <select data-side="${side}" data-field="${field}"></select>
+        </label>`).join("")}
         <div class="field">
           <span class="field-name">Control</span>
           <span class="choice">
@@ -177,6 +234,35 @@ export class SetupScreen {
       case "control":
         this.matchup = withControl(this.matchup, side, target.value as Control);
         break;
+      case "golemLocomotion":
+      case "golemTorso":
+      case "golemHead": {
+        const slot: GolemSlotName = target.dataset.field === "golemLocomotion" ? "locomotion"
+          : target.dataset.field === "golemTorso" ? "torso" : "head";
+        this.matchup = withGolemSlot(this.matchup, side, slot, target.value);
+        break;
+      }
+      case "golemPrimaryChain":
+      case "golemPrimaryTerminal":
+      case "golemSecondaryChain":
+      case "golemSecondaryTerminal": {
+        const socket = target.dataset.field.startsWith("golemPrimary") ? "primary" : "secondary";
+        const current = this.matchup[side].golem?.[socket];
+        if (!current) return;
+        // A chain change carries whatever terminal that chain still offers, because the pairs are
+        // not a full grid: the whip is offered on the wrist alone and rung 0 pairs with nothing at
+        // all. Falling back to the chain's first offered terminal is the same repair `withUnit`
+        // makes when a loadout stops being legal for a newly chosen unit.
+        const wanted: GolemEffectorSetup = target.dataset.field.endsWith("Chain")
+          ? { chain: target.value, terminal: current.terminal }
+          : { chain: current.chain, terminal: target.value };
+        const legal = golemEffector(wanted.chain, wanted.terminal)
+          ? wanted
+          : { chain: wanted.chain, terminal: golemTerminalOptions(wanted.chain)[0]?.id ?? NO_TERMINAL };
+        this.matchup = withGolemEffector(this.matchup, side, socket, legal,
+          (pick) => (golemEffector(pick.chain, pick.terminal)?.sockets ?? 1) === 2);
+        break;
+      }
       default:
         return;
     }
@@ -196,6 +282,35 @@ export class SetupScreen {
         const unavailableReason = this.unavailableUnits[option.value];
         option.disabled = unavailableReason !== undefined;
         option.title = unavailableReason ?? "";
+      }
+      // **A corner shows one vocabulary or the other.** A Warrior carries equipment and a golem is
+      // assembled from modules; offering both at once would be a screen that says a golem can hold
+      // a sword. `SideSetup.golem` is the presence that decides, and `withUnit` is what installs
+      // it -- so nothing here asks which unit a corner is.
+      const build = setup.golem ?? null;
+      for (const hand of ["handA", "handB"] as const) this.handFields[hand][side].hidden = build !== null;
+      for (const { field } of GOLEM_FIELDS) this.golemFields[field][side].hidden = build === null;
+      if (build) {
+        const fill = (field: GolemField, items: readonly GolemSlotOption[], value: string): void => {
+          const select = this.golem[field][side];
+          select.innerHTML = items
+            .map((item) => `<option value="${item.id}">${item.label}</option>`).join("");
+          select.value = value;
+        };
+        fill("golemLocomotion", golemLocomotionOptions(), build.locomotion);
+        fill("golemTorso", golemTorsoOptions(), build.torso);
+        fill("golemHead", golemHeadOptions(), build.head);
+        for (const socket of ["primary", "secondary"] as const) {
+          const pick = build[socket];
+          const chainField: GolemField = socket === "primary"
+            ? "golemPrimaryChain" : "golemSecondaryChain";
+          const terminalField: GolemField = socket === "primary"
+            ? "golemPrimaryTerminal" : "golemSecondaryTerminal";
+          fill(chainField, golemChainOptions(), pick.chain);
+          // Only the terminals this chain is actually offered with, which is the picker "hides
+          // pairs the registry does not have" with the registry itself as the list.
+          fill(terminalField, golemTerminalOptions(pick.chain), pick.terminal);
+        }
       }
       for (const hand of ["handA", "handB"] as const) {
         const field = this.hands[hand][side];
@@ -242,6 +357,14 @@ export class SetupScreen {
       }
       if (setup.control === "you" && !definition.humanAdapter) {
         return `control surface ${definition.kind} has no human adapter`;
+      }
+      // The build's own refusal, by name, from the file that owns the legal pairs. It should be
+      // unreachable through the pickers -- every option offered is one the registry has and the
+      // two-socket rule is applied by the reducer -- which is exactly why it is checked here: a
+      // matchup can also arrive from a restart, from `toSelect`, or from a console assignment.
+      if (setup.golem) {
+        const refusal = golemSetupRefusal(setup.golem);
+        if (refusal) return refusal;
       }
     }
     return null;

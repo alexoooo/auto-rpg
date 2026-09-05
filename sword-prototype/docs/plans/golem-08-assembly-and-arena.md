@@ -1,7 +1,10 @@
 # Session 08 -- assembly and the arena
 
-**Status (2026-09-04): planned.** Depends on 04, 05 and 07 (06 optional). Human gate: not yet
-asked.
+**Status (2026-09-04): implemented, human gate not yet asked.** A golem assembles from five module
+slots, walks, is driven through `Intent` on a `golem-v1` control surface, can be taken over by a
+person with the cursor rebased onto the pose it is in, sheds a module when its socket joint goes,
+and reaches a verdict against a Warrior duelist from either corner; measured in the Node arena
+harness only, and every threshold in `tests/golem-arena.test.mjs` is provisional.
 
 ## Outcome
 

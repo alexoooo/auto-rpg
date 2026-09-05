@@ -50,6 +50,7 @@ import {
   type LocomotionCommand,
   type LocomotionEvidence,
   type LocomotionHeightRange,
+  type LocomotionLoad,
   type LocomotionReadoutState,
   type LocomotionSupportBinding,
 } from "../locomotion.ts";
@@ -372,12 +373,23 @@ export const bipedModule = defineLocomotion({
      * mount rides on the module. So the relationship is decided by a *measured* property of the
      * mount rather than by a mode flag -- a `DYNAMIC` mount is a load and gets a soft motorised
      * waist, an `ANIMATED` one is a fixed anchor and is left alone. On the bench that is the
-     * stand's ride block; in Session 08 the torso module may want to own this joint instead, and
-     * that is an open question this file states rather than settles.
+     * stand's ride block.
+     *
+     * **Session 08 settled the open question this comment used to leave: the torso owns the
+     * waist, and this rule already yields it.** In an assembly there is nothing above the root at
+     * build time -- the root is what decides where the ground is, so it is built first -- and the
+     * assembly hands it an inert `ANIMATED` base frame, which lands on the branch that builds no
+     * joint at all. The torso module is then bolted to the pelvis and builds the waist it drives
+     * from `Intent.posture`, which is the joint a person actually turns. What the assembly owes in
+     * exchange is `carry`, below, because a module that built no waist still has to know what it
+     * is holding up.
      */
-    const carried = ctx.socket.mount.body.getMotionType() === PhysicsMotionType.DYNAMIC;
+    const carriedAtBuild = ctx.socket.mount.body.getMotionType() === PhysicsMotionType.DYNAMIC;
+    /** The load, from the mount at build or from `carry` afterwards. Never both. */
+    let load: Part | null = carriedAtBuild ? ctx.socket.mount : null;
+    let carriedMassKg = carriedAtBuild ? ctx.socket.mount.body.getMassProperties().mass ?? 0 : 0;
     const L = BENCH_STAND_LOCOMOTION;
-    let waist: Physics6DoFConstraint | null = carried
+    let waist: Physics6DoFConstraint | null = carriedAtBuild
       ? joint(ctx.scene, pelvis, ctx.socket.mount, {
         pivotParent: new Vector3(0, B.pelvisHeight / 2, 0),
         pivotChild: socket.local.clone(),
@@ -397,7 +409,6 @@ export const bipedModule = defineLocomotion({
         waist.setAxisMotorMaxForce(axis, L.waistTorque);
       }
     }
-    const carriedMassKg = carried ? ctx.socket.mount.body.getMassProperties().mass ?? 0 : 0;
 
     // --- the shell ----------------------------------------------------------------------------
     const shells: AbstractMesh[] = [];
@@ -451,8 +462,16 @@ export const bipedModule = defineLocomotion({
     // --- state --------------------------------------------------------------------------------
     const groundY = socket.world.y - standHeight;
     const standingPelvisY = socket.world.y - pelvisDown;
-    const supportedMassKg = B.pelvisMass +
-      2 * (B.thighMass + B.shinMass + B.footMass) + carriedMassKg;
+    const ownMassKg = B.pelvisMass + 2 * (B.thighMass + B.shinMass + B.footMass);
+    /**
+     * The mass the carrier is holding up, read live rather than frozen at build.
+     *
+     * A function and not a constant because `carry` can arrive one module later. Everything that
+     * reads it -- the port's stability arithmetic and the fallback bounded motor -- asks per
+     * boundary, so a load declared after construction is accounted for from the next substep and
+     * a bench module whose load was its mount reads exactly the number it always did.
+     */
+    const supportedMass = (): number => ownMassKg + carriedMassKg;
     const yaw = facing.toEulerAngles().y;
 
     let stride = 0;
@@ -510,7 +529,7 @@ export const bipedModule = defineLocomotion({
       motionType: "animated",
       position: { x: 0, y: 0, z: 0 },
       velocity: { x: 0, y: 0, z: 0 },
-      massKg: supportedMassKg,
+      massKg: supportedMass(),
       released: false,
     };
 
@@ -547,7 +566,7 @@ export const bipedModule = defineLocomotion({
       // the fallback the port takes when `driveAnimatedRoot` is absent and a later assembly may
       // supply a different root. Gravity is cancelled, as the Fighter's adapter cancels it.
       applyForce: (force: WorldPoint): void => {
-        scratch.drive.set(force.x, force.y + supportedMassKg * 9.81, force.z);
+        scratch.drive.set(force.x, force.y + supportedMass() * 9.81, force.z);
         pelvis.body.applyForce(scratch.drive, pelvis.mesh.position);
       },
       clearDrive: (): void => {
@@ -607,8 +626,11 @@ export const bipedModule = defineLocomotion({
       // `terminal above root` is what the root is carrying, above the root.
       carrierUpDot: rootUp().y,
       rootHeightAboveCarrierM: pelvis.mesh.position.y - meanSoleY(),
-      terminalHeightAboveRootM: carried
-        ? ctx.socket.mount.mesh.position.y - pelvis.mesh.position.y
+      // `load` and not `carried`: an assembly declares its load through `carry` one module after
+      // the root is built, and until something is declared the honest third signal is the only
+      // one this module can see. A body with nothing on it has no stack to measure.
+      terminalHeightAboveRootM: load
+        ? load.mesh.position.y - pelvis.mesh.position.y
         : pelvis.mesh.position.y - meanSoleY(),
     });
 
@@ -644,7 +666,12 @@ export const bipedModule = defineLocomotion({
       root: adapter,
       registry: world,
       config: B.carrier,
-      supportedMassKg,
+      // A getter, because a golem's load is bolted on one module after the root is built and
+      // the port reads this every safe boundary. `PhysicalSupportedLocomotionOptions` declares
+      // it `readonly`, which a getter satisfies; a plain number here would freeze the carrier's
+      // idea of its own mass at the legs alone and hand every shove a body eight times too
+      // light to resist it.
+      get supportedMassKg(): number { return supportedMass(); },
       authority,
       supportBindings: Object.freeze(SUPPORT_BINDINGS.map(({ role }) => role)),
       supportPoint: (binding: string): WorldPoint | null => {
@@ -886,9 +913,9 @@ export const bipedModule = defineLocomotion({
       }
       evidence.jointErrorRad = jointError;
       evidence.soleLiftM = soleLift;
-      if (carried) {
+      if (load) {
         UP.rotateByQuaternionToRef(
-          ctx.socket.mount.mesh.rotationQuaternion ?? Quaternion.Identity(), scratch.other);
+          load.mesh.rotationQuaternion ?? Quaternion.Identity(), scratch.other);
         evidence.carriedLeanRad = Math.acos(clamp(Vector3.Dot(scratch.other, rootUp()), -1, 1));
       }
       evidence.contacts = contacts;
@@ -945,6 +972,29 @@ export const bipedModule = defineLocomotion({
         wantedCrouch = clamp(next.crouch, 0, 1);
       },
 
+      /**
+       * What this carrier is holding up, declared by an assembly once the load exists.
+       *
+       * **It builds no joint**, and that is the settled answer to the question this file used to
+       * state and leave open: the torso owns the waist. What this does is the other half -- the
+       * mass a shove is divided by, the body the posture predicate's third signal is measured
+       * against, and the body a bench shove is applied to when there is one.
+       *
+       * Refused rather than accepted a second time. A module already carrying a `DYNAMIC` mount
+       * has a load with a waist joint attached to it, and quietly replacing it would leave a
+       * motorised joint pointing at a body nothing else believes is there.
+       */
+      carry(next: LocomotionLoad): void {
+        if (carriedAtBuild) {
+          throw new Error(`${ctx.name}: this locomotion module already carries its own mount`);
+        }
+        if (!(Number.isFinite(next.massKg) && next.massKg >= 0)) {
+          throw new Error(`${ctx.name}: a carried load needs a finite non-negative mass`);
+        }
+        load = next.part;
+        carriedMassKg = next.massKg;
+      },
+
       beginSubstep(): void {
         if (severed) return;
         refreshRoot();
@@ -978,8 +1028,8 @@ export const bipedModule = defineLocomotion({
         scratch.drive.set(impulse, 0, 0);
         scratch.drive.rotateByQuaternionToRef(
           pelvis.mesh.rotationQuaternion ?? Quaternion.Identity(), scratch.drive);
-        const target = carried && ctx.socket.mount.body.getMotionType() === PhysicsMotionType.DYNAMIC
-          ? ctx.socket.mount : pelvis;
+        const target = load && load.body.getMotionType() === PhysicsMotionType.DYNAMIC
+          ? load : pelvis;
         target.body.applyImpulse(scratch.drive, target.mesh.position);
         port?.queueStabilityEvent({ horizontalShoveNs: [scratch.drive.x, scratch.drive.z] });
       },

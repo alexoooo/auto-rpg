@@ -85,6 +85,10 @@ export const reachChain = defineChain({
       stroke: () => core.stroke(),
       anchor: () => core.anchorPoint(),
       anchorStray: () => core.anchorStray(),
+      // The core's, unchanged. Rung 2 has no orientation axis, so `roll` and `wristBend` are the
+      // zeros the core already answers -- the same "ignores a field it has no use for" this
+      // chain's own docstring is about, stated from the takeover's side.
+      cursor: () => core.cursor(),
 
       /**
        * Where the commanded tip is.

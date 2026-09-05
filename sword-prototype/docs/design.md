@@ -1743,3 +1743,72 @@ and it is the third time this directory has found a table answering for a kind i
 **The risk is the design.** A ram golem puts its fatal part into the contact every time it
 attacks. `head.plain` keeps the same neck, the same block and the same guard with no plate and no
 lunge, so the trade is a real one and the control for measuring it is exact.
+
+## The assembled golem
+
+Five modules bolted together, driven through one `Intent`, and hittable. `src/golem/golem.ts` is
+the only thing in the tree that knows what a golem *is*: every module already knows how to be
+built, commanded, stepped, measured and cut off, and none of them knows what it is bolted to.
+
+**Build order is forced, and forcing it settled the open question.** Locomotion first, because the
+root is what decides where the ground is; then the torso on the locomotion root; then the head and
+both effectors on the torso's own sockets. A joint can only be built by the module that has both
+bodies in hand, so it belongs to whichever of the two is built *second* — and the torso must be
+second, because it reads its mount's live transform every substep to know where its own commanded
+pose is. **So the torso owns the waist.** It is the right owner on the merits too: the waist is the
+joint a person turns with `Intent.posture`, the torso publishes its lean and twist on its own
+envelope, and the locomotion module's waist exists only to carry a bench block that has no module
+of its own. The biped's own rule — a `DYNAMIC` mount is a load and gets a waist, an `ANIMATED` one
+is a frame and is left alone — already yields it, because the assembly hands the root an inert
+`ANIMATED` base frame. What locomotion gets in exchange is `carry`: the mass it holds up and the
+body the posture predicate's third signal is measured against.
+
+**Sockets.** A golem has exactly two effector sockets and they are exactly the two hand names, so
+`HandName` fits without a third vocabulary, `splitMind` has a hand to give the person, and the
+hand-keyed behaviour record keeps working. A head files its blows with `hand` null through the
+body-neutral channel, as a centipede's jaws do. A **mace claims both**: one module built into the
+primary socket with the secondary handed over as `ModuleBuild.companion`, so `effectorPlan.secondary`
+is null and nothing else is built there. The reducer fills both sockets when a two-socket terminal
+is picked, which is the club's two-handed rule with a different subject, and `golemSetupRefusal`
+states the same rule again where a build that never went near the screen is checked.
+
+**A golem is not a `Fighter`, and the takeover stopped asking whether it was.** `isArticulatedCombatant`
+was the gate on human takeover, which was the same question for as long as the only takeable body
+was a Warrior. `Combatant.humanDriver` is the capability port now: a body that can report where a
+person's cursor would have to sit and accept a driver. `DrivenPose` is what it answers — the cursor
+seed, the refusal when there is none, the commanded business end in the body's own trunk frame, and
+the live tip — and both `Fighter` and `Golem` answer it from completely different anatomy. **The
+seeding rule is unchanged**: the cursor's meaning is rebased onto the pose the body is in, so a
+taken body never snaps its effector at full force. What made one rule serve two bodies is that the
+seed crossing the seam is a **cursor** rather than a pose: a Warrior's inverse is `cursorForPose`
+and a golem chain owns its own, and `handoverFromCursors` takes the answer instead of the question.
+`isArticulatedCombatant` survives for the question it actually asks — `scripts/measure.mjs` uses it
+to reach `Fighter.armed`.
+
+**Severing is breaking the socket joint, and the module is the severable unit.** Cutting through
+any piece of an arm takes the whole arm off at the shoulder, which is the Warrior's own rule for a
+body whose arm is a module rather than three bones. What it leaves on the floor is real: every part
+re-layers onto `DEBRIS` on its own leaf shape, the terminal marks itself spent so a blade lying on
+the ground scores nothing, and the module's drives let go — a motor still hauling a chain that has
+come off is the haunting the Warrior's anchors produce. **A golem does not bleed.** Nothing on the
+sever path calls `src/blood.ts`; the blood system reads the combat log and decides for itself, and
+what a stone body should throw off is a decision for somebody looking at it.
+
+**Death is a collapse rather than a crumple.** A Warrior folds because a corpse has joints with no
+strength in them. A golem is not soft enough to fold: losing its head or its pelvis releases the
+carrier, the legs' drives go, and the assembly comes apart under its own weight.
+
+**Vitality is scaled at assembly, because a module cannot know what it is bolted to.** The Warrior's
+weight table is a fixed anatomy summing to 3.6 with a ruined head or torso worth the whole bar; a
+golem's parts are whatever its five modules declare. So the declared points are normalized to
+`GOLEM_ASSEMBLY.vitalityTotal` and a part is worth its share of the golem it is part of — a body's
+bar is its own body. `PartState.vitalityWeight` is the field that carries it, which is the escape
+hatch the bout's weight table already had for a body whose keys it does not know.
+
+**The substep is the locomotion contract's order with two ends.** `stepControlledPair` runs
+`observe` on both bodies, then `beginControlStep`, then both drivers, then the paired carrier
+resolution, then `afterLocomotion` — a new optional member on `ControlledBody` that a `Fighter`
+does not implement. A golem refreshes its root velocity sample in `observe`, which is the first
+call of the substep, and runs the gait, the substep close-out **and every upper module's `step`**
+in `afterLocomotion`, which is the first moment the carrier has agreed where the golem is. Stepping
+the arms before it would drive them at a shoulder the world had not yet placed.

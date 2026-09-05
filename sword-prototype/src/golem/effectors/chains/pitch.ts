@@ -5,7 +5,7 @@ import {
 } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
 
-import type { HandIntent } from "../../../mind.ts";
+import type { HandCursor, HandIntent } from "../../../mind.ts";
 import { capsulePart, joint } from "../../../rig.ts";
 import { slewTowards } from "../../anchor-drive.ts";
 import { CHAIN_PITCH } from "../../config.ts";
@@ -56,6 +56,21 @@ const pitchForPointer = (pointerY: number): number => {
   const P = CHAIN_PITCH;
   const t = pointerY < -1 ? -1 : pointerY > 1 ? 1 : pointerY;
   return P.pitchMin + ((t + 1) / 2) * (P.pitchMax - P.pitchMin);
+};
+
+/**
+ * And back again: where the cursor has to sit for this pitch to be the one commanded.
+ *
+ * Written here rather than at the caller, immediately beside the forward mapping, because a
+ * cursor inverse spelled somewhere else is the defect `tests/handover.test.mjs` records paying
+ * for -- the plausible inverse and the correct one agreed on one side of centre and nobody
+ * noticed until both sides were sampled.
+ */
+const pointerForPitch = (pitch: number): number => {
+  const P = CHAIN_PITCH;
+  const span = P.pitchMax - P.pitchMin;
+  const t = span === 0 ? 0 : ((pitch - P.pitchMin) / span) * 2 - 1;
+  return t < -1 ? -1 : t > 1 ? 1 : t;
 };
 
 /**
@@ -178,6 +193,23 @@ export const pitchChain = defineChain({
       inverse: new Quaternion(),
       end: new Vector3(),
       direction: new Vector3(),
+      socket: new Vector3(),
+    };
+
+    /**
+     * Where the hinge's socket is **now**, world, into a ref this chain owns.
+     *
+     * The hinge itself needs nothing of this -- it is a constraint between two bodies and follows
+     * the mount wherever the mount goes. What needs it is the *published* commanded point: taken
+     * from `GolemSocket.world`, which is by contract the build-time position, the readout's
+     * tip-to-command line would grow by however far a walking golem had travelled and would read
+     * as a tracking failure in a chain that was tracking perfectly.
+     */
+    const socketWorld = (): Vector3 => {
+      socket.local.rotateByQuaternionToRef(
+        socket.mount.mesh.rotationQuaternion ?? Quaternion.Identity(), scratch.socket,
+      );
+      return scratch.socket.addInPlace(socket.mount.mesh.position);
     };
 
     /**
@@ -286,6 +318,20 @@ export const pitchChain = defineChain({
       anchor: () => null,
       anchorStray: () => null,
 
+      /**
+       * The seed a takeover needs: one axis, so one number.
+       *
+       * `pointerX`, `roll` and `wristBend` are zero because nothing on this rung reads them --
+       * the frozen rule "a chain that has no use for a field ignores it", answered from the
+       * other side. Taken from `commandedPitch`, which is where the rate limiter has got to
+       * rather than where the cursor was, so the first command after a handover is the command
+       * the outgoing driver had left standing. A `guard` held at the moment of the swap is
+       * unrecoverable from a cursor and is meant to be: guard is a button, and the incoming
+       * driver's own button decides.
+       */
+      cursor: (): HandCursor =>
+        ({ pointerX: 0, pointerY: pointerForPitch(commandedPitch), roll: 0, wristBend: 0 }),
+
       commandedEnd(distanceFromSocket: number): Vector3 {
         // The commanded limb direction at the commanded pitch, in the mount's frame, carried
         // out to whatever distance the caller is asking about.
@@ -293,7 +339,7 @@ export const pitchChain = defineChain({
         scratch.direction.rotateByQuaternionToRef(
           socket.mount.mesh.rotationQuaternion ?? Quaternion.Identity(), scratch.end,
         );
-        return scratch.end.scaleInPlace(distanceFromSocket).addInPlace(socket.world);
+        return scratch.end.scaleInPlace(distanceFromSocket).addInPlace(socketWorld());
       },
 
       /**

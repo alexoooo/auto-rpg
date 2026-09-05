@@ -184,6 +184,10 @@ export function effectorModule(
         },
         envelope: () => envelope,
         view: () => view,
+        // The driven chain's, and never the trailing one's. A mace's second arm is carried
+        // rather than commanded, so it has no pose of its own to seed and asking it would hand a
+        // takeover the cursor for an arm nobody drives.
+        cursor: () => built.cursor(),
         sever: () => {
           if (severed) return;
           severed = true;

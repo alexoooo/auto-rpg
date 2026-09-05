@@ -523,6 +523,14 @@ body {
   margin-top: 8px;
 }
 
+/* A corner shows either two hand pickers or five slot pickers, never both: a Warrior carries
+   equipment and a golem is assembled, and the two vocabularies describe different bodies. The
+   `hidden` attribute alone would not do it -- its user-agent `display: none` loses to the rule
+   above -- so the two live together and this is what makes `hidden` mean hidden. */
+.field[hidden] {
+  display: none;
+}
+
 .field-name {
   color: var(--dim);
   text-transform: uppercase;

@@ -801,10 +801,7 @@ export interface ArmPose {
  * that could express a reach anyway, which is the deeper reason: the controller
  * has two aiming axes and reach is not one of them.
  */
-export function cursorForPose(
-  pose: ArmPose,
-  hand: HandName = "primary",
-): { pointerX: number; pointerY: number; roll: number; wristBend: number } {
+export function cursorForPose(pose: ArmPose, hand: HandName = "primary"): HandCursor {
   return {
     pointerX: cursorForAzimuth(pose.azimuth, hand),
     pointerY: cursorForElevation(pose.elevation),
@@ -812,6 +809,34 @@ export function cursorForPose(
     wristBend: pose.wristBend,
   };
 }
+
+/**
+ * Where a cursor has to sit for one effector to be commanded into the pose it is in.
+ *
+ * The four aiming fields of a `HandIntent` and nothing else: `thrust` and `guard` are buttons
+ * rather than places, and `reach` is not a cursor axis at all -- see the note above `cursorForPose`
+ * for why inverting it would be inventing a fifth axis the controller does not have.
+ *
+ * Declared as its own type because a golem answers it from somewhere else entirely. A Warrior's
+ * arm is a seven-axis chain whose cursor mapping lives in `policies.ts`, and a golem effector is a
+ * one-, three- or five-axis chain that owns its own mapping and publishes its own inverse. Both
+ * produce this, which is what lets one handover serve both bodies.
+ */
+export interface HandCursor {
+  pointerX: number;
+  pointerY: number;
+  roll: number;
+  wristBend: number;
+}
+
+/** Both hands' seeds. Always both: the cursor is absolute, so the hand it is *not* on matters. */
+export type HandCursors = Record<HandName, HandCursor>;
+
+/** The Warrior's own answer: one inverse per hand, mirrored by `cursorForAzimuth`. */
+export const cursorsForPoses = (poses: ArmPoses): HandCursors => ({
+  primary: cursorForPose(poses.primary, "primary"),
+  secondary: cursorForPose(poses.secondary, "secondary"),
+});
 
 /** Convert normalized bend to a mirrored anatomical angle. */
 export function mirroredWristBend(wristBend: number, outboard: number): number {
@@ -915,10 +940,29 @@ export function handover(
   poses: ArmPoses,
   seconds = CONFIG.takeover.rebaseSeconds,
 ): Handover {
-  const seed = {
-    primary: cursorForPose(poses.primary, "primary"),
-    secondary: cursorForPose(poses.secondary, "secondary"),
-  };
+  return handoverFromCursors(inner, cursorsForPoses(poses), seconds);
+}
+
+/**
+ * The same, seeded from a cursor rather than from a Warrior arm's pose.
+ *
+ * `handover` above is this with `cursorsForPoses` in front of it, and the split is what lets a
+ * golem be taken over by the same rule rather than by a second one. A golem effector is not a
+ * seven-axis humanoid arm: its chain owns its own cursor mapping, its `swing` is outboard-signed
+ * against its own socket, and rungs 0 to 2 have no roll to invert -- so pushing a golem's pose
+ * through `ArmPose` and `cursorForAzimuth` would be asking the Warrior's inverse a question about
+ * a body it knows nothing about. What both bodies *can* answer is the seed itself, which is the
+ * thing this actually needs.
+ *
+ * Everything below is unchanged and the Warrior's behaviour with it: `handover` produces exactly
+ * the seed it always did, `tests/handover.test.mjs` still pins the jump against its unseeded
+ * control, and no number in `docs/measurements.md` moves.
+ */
+export function handoverFromCursors(
+  inner: Mind,
+  seed: HandCursors,
+  seconds = CONFIG.takeover.rebaseSeconds,
+): Handover {
   // Mutable, allocated once, and never handed out except during the window --
   // the same contract `NEUTRAL` documents and every policy already keeps.
   //

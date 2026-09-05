@@ -382,8 +382,17 @@ const SCRATCH_SHARE_OF_DURABLE = { min: 0.02, max: 0.25 };
 // third demonstration in this comment that a counter re-pinned on a branch is a counter measured
 // against a tree that does not exist. 3 + 4 + 7 = 14 is the whole fall. The 10 that remain are
 // sessions 06 and 08 to 11 naming what they intend to create.
+//
+// **Re-taken 2026-09-04 from golem session 08's own failing run: 10 -> 7.** Three occurrences went
+// because session 08 built the three files its plan promised: `src/golem/golem.ts`,
+// `src/golem/golem-control.ts` and `tests/golem-arena.test.mjs`. Three files and three
+// occurrences, like sessions 03 and 07 and unlike session 02: none of them is named by the
+// overview, which describes the assembly in a table rather than by path. The 7 that remain are
+// sessions 06 and 09 to 11 naming what they intend to create -- and session 06 is running in
+// parallel off the same 10, so the next re-pin is the merge's own and must be taken from its own
+// failing run rather than from this arithmetic, which is what the two notes above it are about.
 const PLAN_SURFACE = {
-  noSuchFile: 10,
+  noSuchFile: 7,
   ambiguousFile: 0,
   anchorIntoDeletedFile: 0,
   orphanContinuation: 0,

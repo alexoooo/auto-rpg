@@ -3,7 +3,7 @@ import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 
 import type { Striking } from "../combat.ts";
-import type { HandIntent, HandName } from "../mind.ts";
+import type { HandCursor, HandIntent, HandName } from "../mind.ts";
 import type { Side } from "../physics.ts";
 import type { Part } from "../rig.ts";
 import type { StandableWorldRegistry } from "../supported-locomotion-runtime.ts";
@@ -362,6 +362,27 @@ export interface BuiltModule<Command> {
    * second seam invented for the assembly.
    */
   socket?(slot: GolemSlot): GolemSocket | null;
+  /**
+   * Where a person's cursor has to sit for this module to be commanded into the pose it is in,
+   * or absent for a module a cursor does not drive.
+   *
+   * Optional for the same reason `socket` is: three of the five slots have no cursor at all. A
+   * trunk is driven by two posture numbers and a head by two buttons, and neither has anything a
+   * `HandCursor` could describe -- so they leave the field off rather than answering a record of
+   * zeros that a takeover would then seed a hand from.
+   *
+   * **This is the handover seeding rule, kept.** `mind.ts`'s `handoverFromCursors` rebases the
+   * cursor's meaning onto the pose it finds, so a body that changes hands mid-fight does not snap
+   * its effector at the full force the drive can pull. The Warrior answers the same question
+   * through `cursorForPose`; a golem chain owns its own mapping and therefore owns its own
+   * inverse, which is why this is asked of the module rather than derived from an `ArmPose`.
+   *
+   * Answered from what the chain is **commanding** rather than from where the limb got to, which
+   * is what `Arm.angles()` does too: the seed's job is to make the first command after a handover
+   * identical to the last command before it, and a seed taken off an achieved pose would ask the
+   * new driver to command whatever lag the old one had left.
+   */
+  cursor?(): HandCursor;
   sever(): void;
   dispose(): void;
 }
@@ -543,6 +564,16 @@ export interface BuiltChain {
   /** Where the chain's anchor is, into a ref the chain owns, or null when it has none. */
   anchor(): Vector3 | null;
   anchorStray(): number | null;
+  /**
+   * The cursor that commands the pose this chain is commanding. See `BuiltModule.cursor`.
+   *
+   * Required here where it is optional there, because every chain has a cursor mapping and
+   * therefore owes an inverse -- including rung 0, whose honest answer is a record of zeros
+   * because no cursor position changes what a capped socket does. A chain that could omit it
+   * would be a chain whose takeover silently snapped, which is the failure the seed exists to
+   * stop and is invisible in every reading but a person's eye.
+   */
+  cursor(): HandCursor;
   /**
    * Where the chain is commanding a point `distanceFromSocket` metres out to be, in world
    * space, into a ref the chain owns.

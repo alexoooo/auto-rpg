@@ -5,7 +5,7 @@ import {
 } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
 
-import type { HandIntent } from "../../../mind.ts";
+import type { HandCursor, HandIntent } from "../../../mind.ts";
 import { capsulePart, joint } from "../../../rig.ts";
 import { slewTowards } from "../../anchor-drive.ts";
 import { CHAIN_REACH, CHAIN_WRIST } from "../../config.ts";
@@ -331,6 +331,25 @@ export const wristChain = defineChain({
       stroke: () => core.stroke(),
       anchor: () => core.anchorPoint(),
       anchorStray: () => core.anchorStray(),
+
+      /**
+       * The core's two aiming axes, plus this rung's two orientation ones.
+       *
+       * Both inverses are the forward mappings in `command` read backwards, and both are
+       * mirrored the way the forward one is: `roll` is multiplied by `outboard` going in, so it
+       * is multiplied by `outboard` coming back out -- `outboard` is +-1, so the operation is its
+       * own inverse. Getting that sign backwards does not look like a hand held wrong, it looks
+       * like an arm coming apart, which is why it is spelled beside the mapping it inverts rather
+       * than in the file doing the takeover.
+       *
+       * `bendLimit` can be zero -- a mace pins the bend -- so the division is guarded; a wrist
+       * that cannot bend has one bend to command and any cursor commands it.
+       */
+      cursor: (): HandCursor => ({
+        ...core.cursor(),
+        roll: commandedRoll * outboard,
+        wristBend: bendLimit > 0 ? clamp(commandedBend / bendLimit, 0, 1) : 0,
+      }),
 
       /**
        * Where the commanded tip is, through the wrist.

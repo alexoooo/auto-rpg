@@ -92,6 +92,32 @@ export interface LocomotionHeightRange {
   readonly crouchM: number;
 }
 
+/**
+ * What a locomotion module is carrying, once the thing it carries exists.
+ *
+ * **A locomotion module is the one slot with nothing above it at build time**, and that is the
+ * whole reason this exists. `GolemSocket.mount` is "the body this module hangs from" and
+ * locomotion inverts it: the mount rides on the module. On the bench the stand block is built
+ * first and handed over as a `DYNAMIC` mount, so the module can read its mass and hang a
+ * compliance waist off it. In an assembly the order is the other way round -- the root defines
+ * where the ground is, so it is built first and the torso is bolted to it afterwards -- and
+ * everything the module wants to know about its load only becomes true one module later.
+ *
+ * Two things depend on it and neither is cosmetic. `supportedMassKg` is what a shove is divided
+ * by to decide whether the golem staggers or falls, so a carrier that counted only its own legs
+ * would be knocked over by a blow that should barely move a golem. And the posture predicate
+ * wants *three independent signals* -- root up, root above the soles, and what the root carries
+ * above the root -- which is exactly the trap the first Swordbearer test fell into by accepting
+ * two foot contacts from a body lying on its back; without a load the third signal is a second
+ * copy of the second one.
+ */
+export interface LocomotionLoad {
+  /** The body the root carries: what an assembly bolts on above the waist. */
+  readonly part: Part;
+  /** Everything above the waist, kilograms. */
+  readonly massKg: number;
+}
+
 /** One named place a locomotion module can prove it is standing on something. */
 export interface LocomotionSupportBinding {
   /** The role name the `StabilityAuthority` and the support evidence both use. */
@@ -137,6 +163,17 @@ export interface BuiltLocomotion extends BuiltModule<LocomotionCommand> {
    * shape-agnostic and suit a squat body -- wants three independent signals at once.
    */
   postureEvidence(): ConstructPostureEvidence;
+  /**
+   * Tell the module what it is carrying, once the load exists. See `LocomotionLoad`.
+   *
+   * Optional, and it is optional on purpose rather than for compatibility: a module handed a
+   * `DYNAMIC` mount already knows its load at build and owes nothing here, and a module that does
+   * not care can decline the whole question. **It must not build a waist**: in an assembly the
+   * torso module owns that joint, because the torso is the one that has a real mount to build it
+   * against and because the waist a person drives with `Intent.posture` is the torso's. Two owners
+   * is two motors on one joint, which this tree has already paid for.
+   */
+  carry?(load: LocomotionLoad): void;
   /** One substep of the legs. Called from `step`; exposed so a harness can drive it alone. */
   gait(dt: number): void;
   /**

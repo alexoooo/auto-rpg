@@ -41,6 +41,7 @@ import { policyMind } from "../src/mind.ts";
 import { blankIntent } from "../src/policies.ts";
 import { ACTION_TUNING } from "../src/action-primitives.ts";
 import { advance, begin, selectScreen } from "../src/bout.ts";
+import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
 import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, combatRecorder, sampleBoutRecorder,
   wireBoutRecorder } from "../src/recorder.ts";
 
@@ -219,6 +220,8 @@ function sideRecord(policy) {
 export function runBout({
   left: leftPolicy, right: rightPolicy, seeds, leftLoadout, rightLoadout,
   leftUnit = "warrior", rightUnit = "warrior",
+  leftGolem = undefined, rightGolem = undefined,
+  locomotionMode = undefined,
   leftMind = null, rightMind = null, onSample = null, onEvent = null,
   onVerdict = null, postVerdictFrames = 0, postVerdictActionProbe = false, physics = havok,
   maxSeconds = CONFIG.bout.capSeconds,
@@ -229,11 +232,25 @@ export function runBout({
   const { engine, scene, materials } = buildArena(physics);
   const F = CONFIG.fighter;
 
+  // **`locomotionMode` is opt-in and its default is unchanged**, which is the whole of why it is a
+  // parameter rather than something derived here. `src/main.ts` computes it from the pair, and a
+  // bench that did the same would move every Warrior-versus-Warrior number in
+  // `docs/measurements.md` from legacy locomotion onto the supported carrier -- a change to shared
+  // execution-layer code with no bout either side of it, which is the one thing `AGENTS.md` says
+  // must not happen quietly. A golem's locomotion *is* the physical supported port, so a bout with
+  // one in it passes "supported" and gets a Warrior on the same carrier; `stepControlledPair`
+  // refuses a pair where only one side has a physical V1 port, which is the check that makes this
+  // impossible to get half right.
+  const locomotionWorld = locomotionMode === "supported" ? flatSupportedWorldRegistry() : undefined;
+
   const left = unitDefinition(leftUnit).build({
       scene,
       side: "left", origin: Vector3.Zero(), facing: 0,
       mind: leftMind ?? policyMind(policyForUnit(leftUnit, leftPolicy), seeds[0]), loadout: leftLoadout,
+      golem: leftGolem,
       materials,
+      locomotionMode,
+      locomotionWorld,
     });
   const right = unitDefinition(rightUnit).build({
       scene,
@@ -242,7 +259,10 @@ export function runBout({
       facing: Math.PI,
       mind: rightMind ?? policyMind(policyForUnit(rightUnit, rightPolicy), seeds[1]),
       loadout: rightLoadout,
+      golem: rightGolem,
       materials,
+      locomotionMode,
+      locomotionWorld,
     });
 
   const leftRecord = sideRecord(leftPolicy);
@@ -316,8 +336,8 @@ export function runBout({
   // the same two transitions, so the bout this bench runs is the bout the page
   // runs and not a second implementation of one.
   const matchup = {
-    left: { unit: leftUnit, policy: leftPolicy, control: "mind" },
-    right: { unit: rightUnit, policy: rightPolicy, control: "mind" },
+    left: { unit: leftUnit, policy: leftPolicy, control: "mind", golem: leftGolem },
+    right: { unit: rightUnit, policy: rightPolicy, control: "mind", golem: rightGolem },
   };
   let state = begin(selectScreen(matchup), matchup);
   const ring = () => ({

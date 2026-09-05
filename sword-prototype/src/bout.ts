@@ -100,6 +100,45 @@ export const EQUIPMENT: readonly { name: WeaponKind; label: string }[] = [
   { name: "empty", label: "Bare fist" },
 ];
 
+/**
+ * One effector socket's pick: a chain from the ladder and a terminal on the end of it.
+ *
+ * Two strings and not one, because the overview's whole design for an effector is that the chain
+ * and the terminal are chosen **independently** -- the chain owns motion and the terminal owns
+ * what is on the end, and a single id would be a picker offering a fixed shelf of pairs somebody
+ * had to write down. `"none"` is the terminal of a chain that carries its own cap; see
+ * `NO_TERMINAL` in `src/golem/build.ts`, which is where the legal pairs live.
+ */
+export interface GolemEffectorSetup {
+  chain: string;
+  terminal: string;
+}
+
+/**
+ * A golem corner: one module id per slot of the fixed five-slot body plan.
+ *
+ * Plain strings, and declared here rather than beside the modules, for exactly the reason the
+ * comment at the top of this file gives: `tests/bout.test.mjs` runs this module under Node with no
+ * DOM and no Babylon anywhere in its graph, and `src/golem/` is Babylon from its first import. The
+ * *rules* about a build -- which pairs exist, which slot a two-socket terminal spends -- live in
+ * `src/golem/build.ts` beside the definitions they are about; what lives here is the shape a
+ * matchup carries and the reducers a screen edits it through.
+ *
+ * A `UnitLoadout` is what fills a Warrior's two hands, and this is what replaces it for a golem:
+ * a golem has no held equipment at all, because a golem's weapons are its body. Modding the unit
+ * is choosing equipment.
+ */
+export interface GolemSetup {
+  locomotion: string;
+  torso: string;
+  head: string;
+  primary: GolemEffectorSetup;
+  secondary: GolemEffectorSetup;
+}
+
+/** Which of a golem's slots a reducer is being pointed at. */
+export type GolemSlotName = "locomotion" | "torso" | "head";
+
 export interface SideSetup {
   /** Which body. One kind for now; see `UNITS`. */
   unit: string;
@@ -110,7 +149,24 @@ export interface SideSetup {
   handA: string;
   /** The secondary. `empty` is a choice rather than an absence. */
   handB: string;
+  /**
+   * The five-slot build, for a unit that is assembled rather than equipped.
+   *
+   * Optional, and absent for every unit that has hands: a Warrior's two pickers say what it is
+   * carrying and a golem's five say what it is *made of*, and a field that was present-but-ignored
+   * on three quarters of the registry would be a field nothing reads on the bodies that have it.
+   * `withUnit` installs the unit's own default when a corner becomes a golem.
+   */
+  golem?: GolemSetup;
 }
+
+const copyGolem = (setup: GolemSetup): GolemSetup => ({
+  locomotion: setup.locomotion,
+  torso: setup.torso,
+  head: setup.head,
+  primary: { ...setup.primary },
+  secondary: { ...setup.secondary },
+});
 
 export interface Matchup {
   left: SideSetup;
@@ -137,6 +193,15 @@ export interface UnitSelectionRules {
   /** Null means every policy is compatible. */
   readonly compatiblePolicies: readonly string[] | null;
   readonly defaultPolicy: string;
+  /**
+   * The build a corner gets when it becomes this unit, or absent for a unit that is not assembled.
+   *
+   * The golem's answer to `defaultLoadout`, and it arrives through the same narrow structural view
+   * for the same reason: `units.ts` owns meshes and Babylon builders and this module cannot import
+   * it without giving up its engine-free test graph, so the screen passes the definition's own
+   * answer across the boundary rather than the definition.
+   */
+  readonly defaultGolem?: GolemSetup;
 }
 
 /**
@@ -176,9 +241,14 @@ export function humanSide(matchup: Matchup): Side | null {
 
 const other = (side: Side): Side => (side === "left" ? "right" : "left");
 
+const copySide = (side: SideSetup): SideSetup => ({
+  ...side,
+  ...(side.golem ? { golem: copyGolem(side.golem) } : {}),
+});
+
 const copy = (matchup: Matchup): Matchup => ({
-  left: { ...matchup.left },
-  right: { ...matchup.right },
+  left: copySide(matchup.left),
+  right: copySide(matchup.right),
 });
 
 export function withUnit(
@@ -197,9 +267,74 @@ export function withUnit(
       next[side].handA = rules.defaultLoadout.primary;
       next[side].handB = rules.defaultLoadout.secondary;
     }
+    // A build, on the other hand, is not a saved user choice about *this* unit: a golem's five
+    // slots mean nothing to a Warrior and a Warrior's two hands mean nothing to a golem, so a
+    // corner that becomes an assembled unit is given that unit's own default and a corner that
+    // stops being one keeps its build in case it comes back. The asymmetry with the policy above
+    // is the point -- a policy names something both bodies could have, and a build does not.
+    if (rules.defaultGolem && !next[side].golem) next[side].golem = copyGolem(rules.defaultGolem);
     // A policy is a saved user choice, not body repair. An incompatible one
     // remains visible and blocks Fight until the player chooses a real driver.
   }
+  return next;
+}
+
+/**
+ * Put one module in one of a golem's three single-socket slots.
+ *
+ * Refused, by returning exactly the matchup it was handed, for a corner that is not an assembled
+ * unit at all. A screen cannot offer this control for a Warrior and a harness that reached for it
+ * would be asking a body with two hands which torso it would like.
+ */
+export function withGolemSlot(
+  matchup: Matchup,
+  side: Side,
+  slot: GolemSlotName,
+  id: string,
+): Matchup {
+  if (!matchup[side].golem) return matchup;
+  const next = copy(matchup);
+  const build = next[side].golem;
+  if (!build) return matchup;
+  build[slot] = id;
+  return next;
+}
+
+/**
+ * Put a chain and a terminal in one of a golem's two effector sockets.
+ *
+ * **The two-socket rule lives here, and it is the club's rule with a different subject.** A mace
+ * is one weapon that claims both effector sockets, exactly as a club is one weapon that takes both
+ * hands -- so choosing a two-socket terminal in either socket fills both, and choosing anything
+ * else in a socket whose partner is holding half a mace moves that partner onto the pair being
+ * chosen. It moves rather than emptying, which is where this parts company with the hand rule:
+ * `empty` is a real thing to hold and a golem has no empty socket -- every socket carries a
+ * module, and the nearest thing to nothing is rung 0's capped socket, which is a choice somebody
+ * makes rather than a fallback. `withEquipment` above states the same rule for hands and says why it is here
+ * rather than in the DOM: the screen re-reads the whole matchup after every change precisely
+ * because a change to one control can legitimately move another.
+ *
+ * `twoSocket` is passed in rather than looked up, for the reason the whole file is written this
+ * way: which terminals claim two sockets is a fact about `src/golem/`, and this module may not
+ * import it without dragging Babylon into a test graph that has none. `src/setup.ts` and
+ * `src/golem/build.ts` are where the predicate comes from, and `golemSetupRefusal` states the same
+ * rule again where a build that never went near a screen is checked.
+ */
+export function withGolemEffector(
+  matchup: Matchup,
+  side: Side,
+  socket: "primary" | "secondary",
+  pick: GolemEffectorSetup,
+  twoSocket: (pick: GolemEffectorSetup) => boolean,
+): Matchup {
+  if (!matchup[side].golem) return matchup;
+  const next = copy(matchup);
+  const build = next[side].golem;
+  if (!build) return matchup;
+  const other = socket === "primary" ? "secondary" : "primary";
+  build[socket] = { ...pick };
+  if (twoSocket(pick)) build[other] = { ...pick };
+  else if (twoSocket(build[other])) build[other] = { ...pick };
   return next;
 }
 

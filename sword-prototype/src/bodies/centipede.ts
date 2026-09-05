@@ -83,6 +83,17 @@ const blankBody = (hands: Record<HandName, HandView> = NO_HANDS): BodyView => ({
 /** A low, authoritative nine-part chain. It owns no hands and accepts no gear. */
 export class Centipede implements Combatant {
   readonly articulated = null;
+  /**
+   * Null, and that is a scope statement rather than a capability claim.
+   *
+   * A person can drive a centipede -- the setup screen offers "you" for either side whatever the
+   * unit -- but mid-bout takeover was never wired for one: `main.ts` gated on the concrete
+   * `Fighter` and the crawler has no cursor pose to seed from anyway, because it is aimed by
+   * turning the whole body. Session 08 replaced that gate with this port and deliberately did not
+   * widen this body while doing so; turning it on means deciding what a centipede's `drivenPose`
+   * answers, which is a decision about how jaws change hands and not a line to add in passing.
+   */
+  readonly humanDriver = null;
   readonly control: HumanoidControlEndpoint;
   readonly kind = "centipede";
   readonly side: Side;

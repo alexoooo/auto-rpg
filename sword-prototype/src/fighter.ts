@@ -27,7 +27,7 @@ import { Figure, type FigureController, type FigureMaterials } from "./figure.ts
 import { Arm } from "./arm.ts";
 import { handsFor, isShield, type Weapon, type WeaponKind } from "./weapon.ts";
 import type { Striking } from "./combat.ts";
-import type { Combatant, LocomotionMode } from "./units.ts";
+import type { Combatant, DrivenPose, LocomotionMode } from "./units.ts";
 import { HumanoidControlEndpoint, type HumanoidHumanSource } from "./humanoid-control.ts";
 import { stepControlledPair } from "./control-host.ts";
 import { vitality } from "./bout.ts";
@@ -37,6 +37,8 @@ import { fighterPostureIsSupported } from "./supported-locomotion-state.ts";
 import {
   HANDS,
   NEUTRAL,
+  cursorsForPoses,
+  handOffset,
   idleMind,
   otherHand,
   type ArmPose,
@@ -434,6 +436,16 @@ const blankProjectile = (owner: "self" | "opponent"): ProjectileView => ({
 
 export class Fighter {
   readonly articulated: Fighter = this;
+  /**
+   * The takeover capability port. See `Combatant.humanDriver`.
+   *
+   * `this`, because a Warrior is a body a person can drive and always has been. What changed in
+   * Session 08 is that the host stopped asking whether a body is a `Fighter` in order to find that
+   * out: a golem answers the same three questions from a completely different anatomy, and the
+   * predicate that conflated the two is `isArticulatedCombatant`, which survives for the question
+   * it actually asks.
+   */
+  readonly humanDriver: Fighter = this;
   readonly control: HumanoidControlEndpoint;
   readonly locomotion: PhysicalSupportedLocomotionPort | null;
   readonly kind: "warrior" | "broot";
@@ -1413,6 +1425,62 @@ export class Fighter {
    */
   armPoses(): ArmPoses {
     return { primary: this.arms.primary.angles(), secondary: this.arms.secondary.angles() };
+  }
+
+  /**
+   * What a takeover seeds from and measures against. See `DrivenPose` in `src/units.ts`.
+   *
+   * Every line of this was inline in `main.ts`'s `handOver` until Session 08, which needed the
+   * same three answers from a body that is not a `Fighter`. Nothing about the Warrior's answers
+   * changed: the cursor still comes from `cursorForPose` on both arms, the command shift is still
+   * `handOffset` of the primary arm's own commanded angles, and the refusal is still the sentence
+   * a severed sword arm earns.
+   */
+  drivenPose(): DrivenPose {
+    const armed = this.armed;
+    return Object.freeze({
+      cursors: armed ? cursorsForPoses(this.armPoses()) : null,
+      // A severed arm cannot be taken over into a pose it no longer has. `update` returns before
+      // `aimArm` once the arm is lost, so there is nothing commanding it and nothing to be
+      // continuous with. The body is still worth taking, so the refusal is of the seed.
+      refusal: armed ? null : "the sword arm is off, so there is no pose to seed from",
+      command: handOffset(this.armAngles()),
+      // `tipPositionToRef` rather than `tipPosition`: the matrix-backed accessor stamps the render
+      // id and converts every later reader that frame into a reader of this sample. A measurement
+      // must not move the thing it measures.
+      tip: this.sword
+        ? this.sword.tipPositionToRef(new Vector3())
+        : this.hand.mesh.position.clone(),
+    });
+  }
+
+  /** The pelvis: what an overhead camera sits behind. See `Combatant.chaseRoot`. */
+  chaseRoot(): AbstractMesh {
+    // Pelvis, not torso: leaning or twisting the chest must not roll the camera or swing its
+    // bearing away from the locomotion heading.
+    return this.pelvis.mesh;
+  }
+
+  /**
+   * How fast the point is going and how squarely the blade is moving into its own edge.
+   *
+   * Shown live rather than only on contact, because the useful skill is learning to turn the wrist
+   * *before* the blade arrives, and a number that only appears after a hit teaches that far more
+   * slowly. It lived in `src/main.ts` until Session 08 gave the readout a second kind of body to
+   * ask; the arithmetic is unchanged, including the 0.4 m/s floor below which a direction means
+   * nothing.
+   */
+  strikeReadout(): { readonly tipSpeed: number; readonly edgeAlignment: number } {
+    const weapon = this.sword;
+    if (!weapon) return { tipSpeed: 0, edgeAlignment: 0 };
+    const tip = weapon.tipPosition();
+    const velocity = weapon.velocityAt(tip);
+    const speed = velocity.length();
+    if (speed < 0.4) return { tipSpeed: weapon.tipSpeed(), edgeAlignment: 0 };
+    return {
+      tipSpeed: weapon.tipSpeed(),
+      edgeAlignment: Math.abs(Vector3.Dot(velocity.scale(1 / speed), weapon.edgeDirection())),
+    };
   }
 
   /** False once the sword arm has been cut off it. */

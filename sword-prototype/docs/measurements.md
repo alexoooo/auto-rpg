@@ -9741,3 +9741,134 @@ the pose the head is built in.
 - `torso.plated` was measured only with the shared waist motor. Whether 236 kg on a 1500 N·m waist
   reads as armoured or as sluggish is the gate's to say, and if the answer is sluggish the honest
   next move is a lighter plate rather than a bigger motor.
+
+## Session 08 — the assembled golem, in the arena
+
+Every number in this section is from the **Node arena harness**: `NullEngine`, real Havok, the
+same `stepPair` loop the page runs with the render half taken out, driven through
+`scripts/measure.mjs` as a library or through the same recipe inline. None of it is comparable
+with a page reading or with a figure from `scripts/golem-bench.mjs` — the two harnesses that have
+been compared here agree on converged behaviour and disagree by about 9 % on the Warrior's peak
+transient with identical code. Everything below is a measurement. **No human gate has been asked
+about a golem, so nothing here is a verdict.**
+
+### The default golem
+
+Biped legs, a plain trunk, a plain head, a blade on the wrist chain in the primary socket and a
+plate on the wrist chain in the secondary. Assembled, standing, before it is asked for anything:
+
+| what | metres |
+|:---|---:|
+| waist socket above the floor | 1.020 |
+| primary effector socket above the floor | 1.480 |
+| crown | 2.100 |
+| vital height (the trunk core's own centre) | 1.290 |
+| primary reach, socket to blade point at full extension | 1.780 |
+| footprint radius | (the biped's own) |
+
+Eighteen parts, and its bar is its own body: the modules' declared vitality points are scaled at
+assembly to sum to `GOLEM_ASSEMBLY.vitalityTotal`. Two of the eighteen are fatal — the head and
+the pelvis — which is the pair `beaten()` reads.
+
+### The arms did lag the body, and it was not a lag
+
+The first reading `AGENTS.md` says to take of a driven limb is its distance from its own anchor. On
+a walking golem it found a real defect: `arm-core.ts` composed its commanded point on
+`GolemSocket.world`, which is by contract the socket's position *at construction*, so the anchor
+stayed where the golem was built and the arm was dragged after it. One golem walking forward for
+ten seconds, covering 11.82 m:
+
+| commanded point built on | peak primary anchor stray | peak published tip speed |
+|:---|---:|---:|
+| `socket.world`, the build-time frame | **10 449.1 mm** | 10.16 m/s |
+| the live socket, recomputed per step | **0.6 mm** | 3.62 m/s |
+
+The stray is the walk itself, to within the length of the arm. The tip speed is the same defect
+read from the other end: a limb hauled along behind a body moves fast without swinging at anything.
+Session 07's torso and head already recomputed their sockets live and said why; this was the third
+module that needed it and the first that could be caught, because a bench stand never moves.
+
+The same ten-second walk, after the fix:
+
+| reading | value |
+|:---|---:|
+| distance covered | 11.82 m |
+| peak carrier-to-root lag | 0.017 m/s |
+| peak driven leg joint error | 0.247 rad |
+| mean foot slip while planted | 105.2 mm/s |
+| substeps with supported posture | 2543 / 2543 |
+| first posture loss | never |
+| self-contacts | 0 of 12 256 contacts |
+
+### The plate and the whip, re-taken on a real torso
+
+Session 04 bounded the plate's size and the whip's length against the bench stand: a
+0.44 × 0.78 × 0.40 slab under a socket 1.42 m off the ground. A real golem is a different body —
+the socket is 60 mm higher, the trunk is 0.62 × 0.54 × 0.32 on a waist rather than a slab, and
+there is a floor. Each terminal swept corner to corner through the whole cursor window plus the
+guard and thrust levels, on an assembled golem:
+
+| terminal on the top chain | socket height | min tip to a trunk part's centre | min tip height | max tip from its socket |
+|:---|---:|---:|---:|---:|
+| plate | 1.480 m | 0.346 m | 0.768 m | 1.004 m |
+| whip | 1.480 m | **0.103 m** | 0.792 m | 1.635 m |
+| blade (control) | 1.479 m | 0.625 m | 0.751 m | 1.798 m |
+
+Two things the bench could not have said. **Neither terminal reaches the floor**, so the ground is
+not the binding constraint the stand's underside was. And **the whip's lash comes within 103 mm of
+a trunk part's centre** — closer than the trunk's own half-depth — so on a real golem the whip
+passes through its owner rather than beside it. That is legal by the layer table, which is what
+makes a whip possible at all, and it is a thing to look at rather than a number to accept: it is
+exactly the sort of self-intersection the overview's fifth frozen rule chose to allow.
+
+### The bout, against the Warrior duelist
+
+The golem is on `idle`, because `idle` is the only policy its registry row admits: the scripted
+policies are written for a Warrior's arm, their ranges are a weapon's length in disguise, and
+pointing one at a golem would measure a policy against a body it has never seen. **So this is a
+measurement of the bout and not of a fight.** Eight side-swapped bouts, 60 s cap, seed 20260904, a
+fresh Havok per bout, the Warrior carrying a sword:
+
+| | value |
+|:---|---:|
+| golem wins | 0 / 8 |
+| duelist wins | 0 / 8 |
+| drawn at the cap | 8 / 8 |
+| damage the duelist dealt, per bout | 55.13 |
+| damage the golem dealt | 0 (it is idle) |
+| limbs severed | 0 |
+| the golem's bar after 60 s | 0.924 |
+| the golem's parts the duelist reached | 18 of 18 |
+
+**A Warrior duelist cannot finish a golem.** At 55 damage a minute against this body the bar would
+take about thirteen minutes to empty, and no single blow came near severing anything: the duelist
+reaches every part, including the head and the trunk core, and takes 7.6 % of the golem off in a
+capped bout. Whether that is "a golem is made of stone" or "the numbers are wrong" is not a
+question this harness can answer, and Session 09's mind will change one half of it by giving the
+golem something to do back.
+
+The vitality total's own row, which is the same eight bouts run twice:
+
+| `vitalityTotal` | drawn | damage | bar after 60 s |
+|---:|---:|---:|---:|
+| 1.0 | 8/8 | 55.13 | 0.979 |
+| 3.6 | 8/8 | 55.13 | 0.924 |
+
+Identical bouts. The number decides how fast the bar falls in front of a person and nothing else
+yet, and `src/golem/config.ts` carries the argument that chose 3.6.
+
+### What is owed, for the assembly
+
+- **The human gate.** Nobody has driven a golem. Every number above is a headless harness and none
+  of them answers whether it reads as one body, whether a severed module falling off reads as a
+  wound, or whether any of it feels like Die by the Sword.
+- **A golem is effectively unkillable by the Warrior duelist at these numbers.** Reported rather
+  than tuned: raising a blade's damage or lowering a golem's health to make the bout finish would
+  be tuning against a proxy before a person has looked, which is the pattern this plan set exists
+  to stop.
+- **The arena overlay.** `G` still draws the Warrior rig view and attaches nothing for a golem
+  bout. The plan asked for one of the bench overlay generalised or the rig view widened; this
+  session built neither, because the golem's instrument is its module views and `Golem.effectorView`
+  is the seam a later one would draw from.
+- **The whip's 103 mm** wants an eye rather than a threshold.
+- Nothing has measured a golem against a golem. Session 09 is the first that can.

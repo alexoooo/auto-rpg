@@ -214,7 +214,13 @@ test("humanoid_policy_handover_keeps_the_exact_command_on_both_sides_of_the_seam
   endpoint.installHuman();
   endpoint.driver.step(FIXED);
 
-  assert.equal(seeded, poses);
+  // The seed that crosses the seam is a **cursor**, not a pose, since session 08: a golem's
+  // effectors are chains with their own mappings and their own inverses, so the humanoid's
+  // `cursorForPose` runs on this side of the boundary and what a person is handed is the answer
+  // both bodies can give. Compared per field rather than by identity for that reason.
+  for (const name of ["primary", "secondary"]) {
+    assert.deepEqual(seeded[name], cursorForPose(poses[name], name), `${name} seed`);
+  }
   for (const name of ["primary", "secondary"]) {
     const cursor = cursorForPose(poses[name], name);
     assert.equal(applied[name].pointerX, cursor.pointerX, `${name} X`);

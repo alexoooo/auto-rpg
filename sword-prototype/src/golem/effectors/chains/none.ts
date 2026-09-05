@@ -1,6 +1,7 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
 
+import type { HandCursor } from "../../../mind.ts";
 import { COLLIDES, LAYER } from "../../../physics.ts";
 import { capsulePart, joint } from "../../../rig.ts";
 import { CHAIN_NONE } from "../../config.ts";
@@ -21,6 +22,9 @@ import { RigidStrike } from "../striker.ts";
 
 /** No axes, so nothing here is ever read as a command. Declared once so both callers agree. */
 const NO_AXES: readonly EffectorAxisView[] = Object.freeze([]);
+
+/** The centre of the window: the seed a chain with no cursor mapping owes a takeover. */
+const NO_CURSOR: HandCursor = Object.freeze({ pointerX: 0, pointerY: 0, roll: 0, wristBend: 0 });
 
 /**
  * How the cap is bolted to the socket.
@@ -159,11 +163,38 @@ export const noneChain = defineChain({
       settledBand: C.settledBand,
     });
     const commanded = new Vector3();
-    // The cap's own direction out of the socket, fixed for the life of the chain because
-    // nothing here can turn. Taken from the build rotation rather than re-derived, so the
-    // commanded point and the built body cannot disagree.
-    const capDirection = new Vector3();
-    new Vector3(0, 1, 0).rotateByQuaternionToRef(rotation, capDirection);
+    const capLocal = new Vector3();
+    const capWorld = new Vector3();
+    const capSocket = new Vector3();
+    // The cap's own direction out of the socket, in the **mount's** frame rather than in the
+    // world's. Nothing on this rung can turn relative to its socket -- the cap is welded -- but
+    // the socket itself turns and walks the moment a golem is standing under it, and a direction
+    // frozen at build would make the published commanded point drift away from a cap that had not
+    // moved an inch relative to anything it is bolted to.
+    {
+      const world = new Vector3();
+      new Vector3(0, 1, 0).rotateByQuaternionToRef(rotation, world);
+      // Into the mount's frame once, at build, using the mount's build rotation -- which is what
+      // `GolemSocket.rotation` is. Everything after this is a rotation *out* of that frame by
+      // whatever the mount's live orientation happens to be.
+      const inverse = socket.rotation.clone();
+      inverse.conjugateInPlace();
+      world.rotateByQuaternionToRef(inverse, capLocal);
+    }
+    /** Where the socket is now, world, into a ref this chain owns. */
+    const socketWorld = (): Vector3 => {
+      socket.local.rotateByQuaternionToRef(
+        socket.mount.mesh.rotationQuaternion ?? Quaternion.Identity(), capSocket,
+      );
+      return capSocket.addInPlace(socket.mount.mesh.position);
+    };
+    /** And which way it points now. */
+    const capDirectionNow = (): Vector3 => {
+      capLocal.rotateByQuaternionToRef(
+        socket.mount.mesh.rotationQuaternion ?? Quaternion.Identity(), capWorld,
+      );
+      return capWorld;
+    };
 
     return Object.freeze({
       parts,
@@ -179,11 +210,17 @@ export const noneChain = defineChain({
       stroke: () => "idle" as const,
       anchor: () => null,
       anchorStray: () => null,
+      // Every cursor position commands the same pose, because no cursor position commands
+      // anything at all -- so a takeover of a body carrying rung 0 has nothing to rebase and the
+      // honest seed is the centre of the window. Allocated once, like everything else published
+      // from here.
+      cursor: () => NO_CURSOR,
       // The commanded end is where a rigid cap on a stand that does not move *has* to be, so
       // the readout's target-versus-actual here is the solver's own error and nothing else --
       // which is exactly what a noise floor is.
       commandedEnd: (distanceFromSocket: number) =>
-        commanded.copyFrom(capDirection).scaleInPlace(distanceFromSocket).addInPlace(socket.world),
+        commanded.copyFrom(capDirectionNow()).scaleInPlace(distanceFromSocket)
+          .addInPlace(socketWorld()),
       // Nothing to let go of: the cap is welded to the socket and no motor was ever pointed at
       // it. A no-op that is stated rather than absent, because a chain that could not answer
       // this at all would be a chain a two-socket terminal silently failed to make passive.

@@ -2881,3 +2881,70 @@ export const HEAD_RAM = {
     followTorque: 80,
   },
 };
+
+/**
+ * The assembly: the numbers that belong to a whole golem rather than to any one of its modules.
+ *
+ * Appended by Session 08, which is the first session that has a whole golem to have numbers about.
+ * Everything here is a fact about the *body plan* -- five modules bolted together -- and none of it
+ * is reachable from a module, which is why none of it could be written until now.
+ */
+export const GOLEM_ASSEMBLY = {
+  /**
+   * What the assembled body's vitality weights are scaled to sum to.
+   *
+   * **A golem's parts declare vitality in points and the assembly turns them into a bar**, and the
+   * reason is that a module cannot know what it is bolted to. `CONFIG.body.vitalWeight` is a
+   * Warrior's table for a Warrior's twelve parts and sums to 3.6, which is a deliberate
+   * over-subscription: a ruined head or torso is worth 1.0 and therefore spends the whole bar on
+   * its own. A golem has no such fixed anatomy. A biped with two wrist-blade arms declares 25.5
+   * points and one carrying a mace declares a different number, so a weight that meant a fixed
+   * fraction of a bar for one build would mean a different fraction for the next -- and the
+   * modules' own numbers were written as placeholders for exactly this reason (`CHAIN_NONE`'s say
+   * so in as many words).
+   *
+   * So the rule is **a body's bar is its own body**: the declared points are scaled so the whole
+   * assembly sums to this, and what a part is worth is its share of the golem it is part of. The
+   * one-line consequence, and the reason the number is not 1: at a total of 1 a golem could only
+   * be exhausted by being destroyed entirely, which makes the bar unreadable and hands every
+   * verdict to the two fatal parts. At 3.6 a golem's bar empties on the same fraction of its own
+   * weighted body as a Warrior's does -- 1/3.6, 27.8 % -- which is a proportion somebody chose by
+   * playing rather than a number this session invented.
+   *
+   * **Measured, and the measurement could not separate the two**, which is worth saying plainly
+   * rather than dressing the choice up as a result. Node arena harness, 8 side-swapped bouts per
+   * row, an `idle` golem on the default build against a Warrior sword duelist, 60 s cap, seed
+   * 20260904, a fresh Havok per bout:
+   *
+   * | total | golem wins | duelist wins | drawn at the cap | damage to the golem | its bar after 60 s |
+   * | ---: | ---: | ---: | ---: | ---: | ---: |
+   * | 1.0 | 0/8 | 0/8 | 8/8 | 55.13 | 0.979 |
+   * | 3.6 | 0/8 | 0/8 | 8/8 | 55.13 | 0.924 |
+   *
+   * Identical bouts, because nothing in a 60-second bout comes near either threshold: the duelist
+   * reaches all eighteen of the golem's parts and takes 7.6 % of the bar at 3.6 and 2.1 % at 1.0.
+   * So what the number decides today is **how fast the bar falls in front of a person**, not who
+   * wins, and the argument above is what chose it. `docs/measurements.md` carries the rest of the
+   * table and what it does not say.
+   */
+  vitalityTotal: 3.6,
+
+  /**
+   * The base frame's box, metres, and why there is one at all.
+   *
+   * `GolemSocket.mount` is "the body this module hangs from" and the locomotion slot inverts it:
+   * the root is what decides where the ground is, so it is built first and there is nothing above
+   * it yet. It still needs a mount, because every module is built against one. So the assembly
+   * builds this: an invisible, massless, `ANIMATED` anchor on a collision mask of zero, sitting
+   * exactly on the waist point, which stands for the frame the locomotion module was bolted into.
+   *
+   * It is kept for the golem's whole life rather than disposed after the build, and that is
+   * defensive rather than necessary: the biped reads its mount only at construction once the mount
+   * is `ANIMATED`, but a later locomotion module that read it per substep would find a freed Havok
+   * body, and a body that costs 8 mm of nothing is cheaper than that failure.
+   *
+   * 0.02 m because the smallest thing Havok is comfortable with is not zero and because nothing
+   * ever touches it: mask 0 both ways means it is in no broadphase pair at all. 2026-09-04.
+   */
+  baseSize: 0.02,
+};

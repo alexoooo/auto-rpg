@@ -1,7 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
 
-import type { HandIntent } from "../../../mind.ts";
+import type { HandCursor, HandIntent } from "../../../mind.ts";
 import { capsulePart, joint, type Part } from "../../../rig.ts";
 import { AnchorDrive, DEFAULT_ANCHOR_AXES } from "../../anchor-drive.ts";
 import { CHAIN_REACH } from "../../config.ts";
@@ -74,6 +74,17 @@ const spanned = (t: number, min: number, max: number): number =>
   min + ((clamp(t, -1, 1) + 1) / 2) * (max - min);
 
 /**
+ * And back: where the cursor has to sit for `value` to be the number this span produced.
+ *
+ * Immediately beside its forward direction on purpose. The one inverse this directory has got
+ * wrong was written in another file from the mapping it inverts, and the plausible-but-wrong
+ * version agreed with the right one for every positive input -- so a handover test passed against
+ * a deliberately broken inverse until both sides of centre were sampled.
+ */
+const unspanned = (value: number, min: number, max: number): number =>
+  max === min ? 0 : clamp(((value - min) / (max - min)) * 2 - 1, -1, 1);
+
+/**
  * The two-bone solution at a given reach: the shoulder's offset and the elbow's bend, radians.
  *
  * `beta` is the elbow bend, straight from the cosine rule and single-valued because the elbow
@@ -136,6 +147,14 @@ export interface ArmCore {
   stroke(): EffectorStroke;
   anchorPoint(): Vector3;
   anchorStray(): number;
+  /**
+   * The two aiming axes of the cursor that command the pose this core is commanding.
+   *
+   * `roll` and `wristBend` are the wrist's and are zero here: rung 2 has no orientation to
+   * express, so rung 3 overwrites those two and rung 2 answers the honest zero. See
+   * `BuiltChain.cursor`.
+   */
+  cursor(): HandCursor;
   command(next: HandIntent): void;
   step(dt: number): void;
   /** Let go of the anchor and keep the linkage. See `BuiltChain.unmotorise`. */
@@ -454,11 +473,48 @@ export function buildArmCore(ctx: ModuleBuild, narrowed: ChainLimits | null): Ar
     forearm: new Vector3(),
     lateral: new Vector3(),
     target: new Vector3(),
+    socket: new Vector3(),
     inverse: new Quaternion(),
   };
 
   const mountRotation = (): Quaternion =>
     socket.mount.mesh.rotationQuaternion ?? Quaternion.Identity();
+
+  /**
+   * Where this chain's socket is **now**, world, into a ref this core owns.
+   *
+   * `GolemSocket.world` is by contract the socket's position *at construction*, which is what the
+   * bodies and the joints above were built against and is all a chain bolted to the bench's
+   * kinematic block ever needs. Session 08 bolts one to a torso on a walking carrier, and a
+   * commanded point taken from the build-time world is the pose the arm should hold on a golem
+   * that stayed where it was put: the anchor would be sent to a fixed point in the arena and the
+   * limb would trail its own shoulder by however far the golem had walked.
+   *
+   * **Measured, and it is not a lag, it is the whole walk.** One default golem walking forward for
+   * ten seconds in the Node arena harness (2026-09-04, `.review/golem-measure.mjs`) covers 11.82 m,
+   * and the peak stray between the driven hand and its own anchor over that walk is:
+   *
+   * | commanded point built on | peak primary anchor stray | peak tip speed |
+   * | --- | --- | --- |
+   * | `socket.world`, the build-time frame | **10449.1 mm** | 10.16 m/s |
+   * | the live socket, below | **0.6 mm** | 3.62 m/s |
+   *
+   * The stray is the distance walked, to within the reach of the arm, because that is exactly what
+   * it was: the anchor stayed at the arena origin and the golem walked away from it, dragging the
+   * limb against its own stops the whole way. The tip speed is the same defect read from the other
+   * end -- a limb hauled along behind a body is moving fast without swinging at anything.
+   * `AGENTS.md` says a driven limb not within a few millimetres of its own anchor is stuck on
+   * something rather than posed wrongly; here it was stuck on the past.
+   *
+   * `mesh.position` and `mesh.rotationQuaternion` and nothing else: the world matrix
+   * short-circuits on the render id and reading it stamps that id. Session 07's torso and head
+   * recompute the same way and say so; this is the third statement of one rule, and the reason it
+   * is stated three times is that all three modules are driven from a mount that can move.
+   */
+  const socketWorld = (): Vector3 => {
+    socket.local.rotateByQuaternionToRef(mountRotation(), scratch.socket);
+    return scratch.socket.addInPlace(socket.mount.mesh.position);
+  };
 
   /** A point at `distance` from the socket in the direction (swing, lift), world. */
   const pointAt = (swing: number, lift: number, distance: number, into: Vector3): Vector3 => {
@@ -466,7 +522,7 @@ export function buildArmCore(ctx: ModuleBuild, narrowed: ChainLimits | null): Ar
     const cosLift = Math.cos(lift);
     scratch.local.set(Math.sin(az) * cosLift, Math.sin(lift), Math.cos(az) * cosLift);
     scratch.local.rotateByQuaternionToRef(mountRotation(), into);
-    return into.scaleInPlace(distance).addInPlace(socket.world);
+    return into.scaleInPlace(distance).addInPlace(socketWorld());
   };
 
   /**
@@ -478,7 +534,7 @@ export function buildArmCore(ctx: ModuleBuild, narrowed: ChainLimits | null): Ar
    * two inverses could.
    */
   const sphericalOf = (world: Vector3, into: ArmCommand): void => {
-    scratch.read.copyFrom(world).subtractInPlace(socket.world);
+    scratch.read.copyFrom(world).subtractInPlace(socketWorld());
     mountRotation().conjugateToRef(scratch.inverse);
     scratch.read.rotateByQuaternionToRef(scratch.inverse, scratch.read);
     const distance = scratch.read.length();
@@ -599,6 +655,19 @@ export function buildArmCore(ctx: ModuleBuild, narrowed: ChainLimits | null): Ar
     },
 
     stroke: (): EffectorStroke => phase,
+
+    // `slewed`, which is the anchor's own rate-limited point read back through `sphericalOf` --
+    // so this is the pose the chain is *commanding*, not the pose the limb has reached. That is
+    // the same choice `Arm.angles()` makes for the Warrior, and it is what makes the first
+    // command after a handover identical to the last command before it rather than to whatever
+    // lag the drive happened to be carrying. Allocates one record per takeover, which is where
+    // it is called.
+    cursor: (): HandCursor => ({
+      pointerX: unspanned(slewed.swing, L.swingMin, L.swingMax) * outboard,
+      pointerY: unspanned(slewed.lift, L.liftMin, L.liftMax),
+      roll: 0,
+      wristBend: 0,
+    }),
 
     command(next: HandIntent): void {
       if (severed) return;

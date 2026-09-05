@@ -1,17 +1,19 @@
-import { handover, policyMind, splitMind, type ArmPoses, type FighterView, type Intent, type Mind } from "./mind.ts";
-import type { HumanOwnership } from "./input.ts";
+import { cursorsForPoses, handoverFromCursors, policyMind, splitMind, type ArmPoses, type FighterView, type Intent, type Mind } from "./mind.ts";
 import type { BoutRecorder } from "./recorder.ts";
 import type { Side } from "./physics.ts";
-import type { ControlEndpoint, ControlRecordingPort, DriverStopReason, InstalledDriver } from "./control-host.ts";
+import type { ControlEndpoint, ControlRecordingPort, DriverStopReason, HumanDriverSource, InstalledDriver } from "./control-host.ts";
 
 export const HUMANOID_CONTROL_SURFACE = "humanoid-v1" as const;
 
-/** Typed page-only dependency. Headless bodies omit it and therefore cannot claim human control. */
-export interface HumanoidHumanSource {
-  readonly mind: Mind;
-  readonly ownership: HumanOwnership;
-  seed(view: FighterView, poses: ArmPoses): void;
-}
+/**
+ * Typed page-only dependency. Headless bodies omit it and therefore cannot claim human control.
+ *
+ * An alias since Session 08, because there is one person and there are now two control surfaces:
+ * the golem's endpoint installs the same object through the same three members. The name survives
+ * at every call site that had it, and `HumanDriverSource` in `control-host.ts` carries the reason
+ * the seed is a cursor rather than a pose.
+ */
+export type HumanoidHumanSource = HumanDriverSource;
 
 export interface HumanoidControlOptions {
   readonly initialMind: Mind;
@@ -89,10 +91,15 @@ export class HumanoidControlEndpoint implements ControlEndpoint {
   installHuman(): void {
     const human = this.options.human;
     if (!human) throw new Error(`control surface ${this.surface} has no human adapter`);
+    // A humanoid arm's pose, inverted here into the cursor that commands it. The conversion is on
+    // this side of the seam because it is the *humanoid's* inverse: `cursorForAzimuth` is written
+    // for a seven-axis arm and mirrored per hand, and a golem chain's own inverse answers the same
+    // question from an entirely different mapping. What crosses the seam is the answer.
     const poses = this.options.poseSeed?.() ?? null;
-    if (poses) human.seed(this.options.view, poses);
+    const seed = poses ? cursorsForPoses(poses) : null;
+    if (seed) human.seed(this.options.view, seed);
     const shared = splitMind(human.mind, this.factory(this.selectedPolicy), human.ownership);
-    this.installMind(poses ? handover(shared, poses) : shared);
+    this.installMind(seed ? handoverFromCursors(shared, seed) : shared);
   }
 
   releaseHuman(): void { this.installPolicy(this.selectedPolicy); }

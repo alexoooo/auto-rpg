@@ -5,7 +5,7 @@ import { CONFIG } from "./config";
 import { horizontalForward, orbitFraming } from "./camera";
 import { buildArena } from "./arena";
 import { refreshShadowCasters, type RoomOcclusionTarget } from "./arena-room";
-import { Fighter, stepPair } from "./fighter";
+import { stepPair } from "./fighter";
 import { prepareWarriorFigure } from "./figure";
 import { Arrow } from "./arrow";
 import { Combat } from "./combat";
@@ -25,14 +25,17 @@ import { flatSupportedWorldRegistry } from "./supported-locomotion-production";
 import type { Side } from "./physics";
 import {
   HANDS,
-  cursorForPose,
-  handover,
+  handoverFromCursors,
   humanMind,
-  poseShiftMm,
-  type ArmPose,
   type Mind,
 } from "./mind";
-import { loadoutForUnit, locomotionModeForPair, unitDefinition, type Combatant } from "./units";
+import {
+  loadoutForUnit,
+  locomotionModeForPair,
+  unitDefinition,
+  type Combatant,
+  type DrivableCombatant,
+} from "./units";
 import type { HumanoidHumanSource } from "./humanoid-control";
 import {
   begin,
@@ -46,19 +49,6 @@ import {
   type Ring,
   type SideSetup,
 } from "./bout";
-
-/**
- * Where the point of a fighter's primary weapon is, or its fist if it has none.
- *
- * The takeover readings are millimetre comparisons across one control step, and
- * a hand holding nothing still has a place -- so this answers with the knuckles
- * rather than refusing. Every call allocates, and every call is on a takeover
- * rather than in a loop.
- */
-const tipOf = (fighter: Fighter): Vector3 =>
-  fighter.sword
-    ? fighter.sword.tipPositionToRef(new Vector3())
-    : fighter.hand.mesh.position.clone();
 
 const need = <T extends HTMLElement>(id: string): T => {
   const element = document.getElementById(id);
@@ -131,6 +121,21 @@ interface HandReading {
 }
 
 /** A takeover: the body taken, and the body given back, if there was one. */
+/**
+ * How far a body's commanded business end jumped, in millimetres.
+ *
+ * `poseShiftMm` in `mind.ts` is this with an `ArmPose` in front of it: it turns two humanoid arm
+ * poses into two points and subtracts them. Session 08 needed the same number from a golem, whose
+ * effector has no `ArmPose` and whose commanded point is published directly, so the subtraction
+ * moved here and each body answers with a point. Millimetres because every acceptance and every
+ * rig readout in this directory is written in them, and because a handover worth complaining
+ * about is hundreds of them while a good one is single figures.
+ */
+const commandShiftMm = (
+  before: { readonly x: number; readonly y: number; readonly z: number },
+  after: { readonly x: number; readonly y: number; readonly z: number },
+): number => Math.hypot(after.x - before.x, after.y - before.y, after.z - before.z) * 1000;
+
 interface TakeoverReading {
   /** Simulation seconds, on `Combat`'s clock -- the one `HitReport.at` uses. */
   at: number;
@@ -259,15 +264,11 @@ async function boot(): Promise<void> {
       // in, exactly as a takeover does: the cursor is absolute, so a hand taken
       // over without seeding snaps to wherever the mouse happens to be at the
       // full 850 N the grip can pull.
-      const fighter = yours().articulated;
-      if (!fighter) return;
-      if (!fighter.armed) return;
-      const seed = cursorForPose(fighter.armPoses()[controls.state.actingHand], controls.state.actingHand);
-      const hand = controls.state[controls.state.actingHand];
-      hand.pointerX = seed.pointerX;
-      hand.pointerY = seed.pointerY;
-      hand.roll = seed.roll;
-      hand.wristBend = seed.wristBend;
+      const body = yours().humanDriver;
+      if (!body) return;
+      const found = body.drivenPose().cursors;
+      if (!found) return;
+      Object.assign(controls.state[controls.state.actingHand], found[controls.state.actingHand]);
       handNotice = controls.state.actingHand === "primary" ? HAND_A_TEXT : HAND_B_TEXT;
       handLeft = CONFIG.camera.noticeSeconds;
     },
@@ -310,14 +311,14 @@ async function boot(): Promise<void> {
   const humanSource: HumanoidHumanSource = {
     mind: you,
     ownership: controls.ownership,
-    seed: (view, poses) => {
+    // A cursor and not a pose, since session 08: a golem's effectors are chains with their own
+    // mappings and their own inverses, so what crosses this seam is the answer both bodies can
+    // give rather than a humanoid arm's angles only one of them has.
+    seed: (view, cursors) => {
       controls.state.posture.crouch = view.self.crouch;
       controls.state.posture.trunkLean = view.self.trunkLean;
       controls.state.posture.trunkTwist = view.self.trunkTwist;
-      for (const name of HANDS) {
-        const seed = cursorForPose(poses[name], name);
-        Object.assign(controls.state[name], seed);
-      }
+      for (const name of HANDS) Object.assign(controls.state[name], cursors[name]);
     },
   };
 
@@ -361,6 +362,7 @@ async function boot(): Promise<void> {
         humanActive: matchup.left.control === "you",
         human: leftDefinition.humanAdapter ? humanSource : undefined,
         loadout: loadoutFor(matchup.left),
+        golem: matchup.left.golem,
         materials: arena.materials,
         locomotionMode,
         locomotionWorld,
@@ -375,6 +377,7 @@ async function boot(): Promise<void> {
         humanActive: matchup.right.control === "you",
         human: rightDefinition.humanAdapter ? humanSource : undefined,
         loadout: loadoutFor(matchup.right),
+        golem: matchup.right.golem,
         materials: arena.materials,
         locomotionMode,
         locomotionWorld,
@@ -436,16 +439,18 @@ async function boot(): Promise<void> {
   const ownPosture = need<HTMLInputElement>("own-posture");
   const ownWrist = need<HTMLInputElement>("own-wrist");
   const seedOwnedChannels = (): void => {
-    const body = yours();
-    const fighter = body.articulated;
-    if (!fighter) return;
-    controls.state.posture.crouch = fighter.view.self.crouch;
-    controls.state.posture.trunkLean = fighter.view.self.trunkLean;
-    controls.state.posture.trunkTwist = fighter.view.self.trunkTwist;
-    const poses = fighter.armPoses();
+    const body = yours().humanDriver;
+    if (!body) return;
+    controls.state.posture.crouch = body.view.self.crouch;
+    controls.state.posture.trunkLean = body.view.self.trunkLean;
+    controls.state.posture.trunkTwist = body.view.self.trunkTwist;
+    // Only the two channels the checkbox is about. Taking the whole seed here would move the
+    // cursor as well, which is a takeover and not a change of who owns the wrist.
+    const found = body.drivenPose().cursors;
+    if (!found) return;
     for (const name of HANDS) {
-      controls.state[name].roll = poses[name].roll;
-      controls.state[name].wristBend = poses[name].wristBend;
+      controls.state[name].roll = found[name].roll;
+      controls.state[name].wristBend = found[name].wristBend;
     }
   };
   const updateOwnership = (): void => {
@@ -518,9 +523,9 @@ async function boot(): Promise<void> {
    * for.
    */
   const pending: {
-    fighter: Fighter;
+    body: DrivableCombatant;
     reading: HandReading;
-    pose: ArmPose;
+    command: { readonly x: number; readonly y: number; readonly z: number };
     tip: Vector3;
   }[] = [];
   /** The last dozen takeovers, so "five times in one bout" is a thing you can
@@ -595,10 +600,11 @@ async function boot(): Promise<void> {
    * seconds. Which policy it is comes from the matchup, which is what the setup
    * screen's still-enabled policy picker on your own side is for.
    */
-  const handOver = (fighter: Fighter, side: Side, incoming: Mind): HandReading => {
+  const handOver = (body: DrivableCombatant, side: Side, incoming: Mind): HandReading => {
+    const found = body.drivenPose();
     const reading: HandReading = {
       side,
-      from: fighter.mind.name,
+      from: body.mind.name,
       to: incoming.name,
       seeded: false,
       refused: null,
@@ -611,9 +617,7 @@ async function boot(): Promise<void> {
       tipMm: Number.NaN,
     };
 
-    if (fighter.armed) {
-      const pose = fighter.armAngles();
-      const poses = fighter.armPoses();
+    if (found.cursors) {
       // The person's own cursor is rebased as well as the mind's, and the two
       // are not the same act. Wrist orientation is an absolute policy output,
       // seeded with the cursor so the handover begins from one whole pose. The two pointer axes are absolute by
@@ -622,46 +626,23 @@ async function boot(): Promise<void> {
       // takeover frame itself exact, and `handover`'s rebase window is what
       // carries it across the frames after that.
       if (incoming === you) {
-        controls.state.posture.crouch = fighter.view.self.crouch;
-        controls.state.posture.trunkLean = fighter.view.self.trunkLean;
-        controls.state.posture.trunkTwist = fighter.view.self.trunkTwist;
+        controls.state.posture.crouch = body.view.self.crouch;
+        controls.state.posture.trunkLean = body.view.self.trunkLean;
+        controls.state.posture.trunkTwist = body.view.self.trunkTwist;
         // Both hands, because whichever one the cursor is not on is still being commanded
         // from a pose it knows nothing about.
-        for (const name of HANDS) {
-          const seed = cursorForPose(poses[name], name);
-          const hand = controls.state[name];
-          hand.pointerX = seed.pointerX;
-          hand.pointerY = seed.pointerY;
-          hand.roll = seed.roll;
-          hand.wristBend = seed.wristBend;
-        }
+        for (const name of HANDS) Object.assign(controls.state[name], found.cursors[name]);
       }
-      fighter.mind = handover(incoming, poses);
+      body.mind = handoverFromCursors(incoming, found.cursors);
       reading.seeded = true;
-      pending.push({
-        fighter,
-        reading,
-        pose,
-        tip: tipOf(fighter),
-      });
     } else {
-      // A severed arm cannot be taken over into a pose it no longer has.
-      // `Fighter.update` returns before `aimArm` once the arm is lost, so there
-      // is nothing commanding it and nothing to be continuous with: seeding from
-      // the angles it happens to still be carrying would be writing a cursor
-      // position that describes a pose that stopped existing when the limb came
-      // off. The body is still worth taking -- it walks, it turns, it can be
-      // hit -- so the refusal is of the seed and names itself, rather than of
-      // the takeover.
-      reading.refused = "the sword arm is off, so there is no pose to seed from";
-      fighter.mind = incoming;
-      pending.push({
-        fighter,
-        reading,
-        pose: fighter.armAngles(),
-        tip: tipOf(fighter),
-      });
+      // No pose to be continuous with -- a Warrior whose sword arm is off, a golem with both
+      // effectors gone. The body is still worth taking, so the refusal is of the seed and names
+      // itself rather than of the takeover, and the body says which sentence.
+      reading.refused = found.refusal;
+      body.mind = incoming;
     }
+    pending.push({ body, reading, command: found.command, tip: found.tip });
     return reading;
   };
 
@@ -669,7 +650,7 @@ async function boot(): Promise<void> {
     if (state.phase === "select") return null;
 
     const before = humanSide(state.matchup);
-    const target = (side === "left" ? bout.left : bout.right).articulated;
+    const target = (side === "left" ? bout.left : bout.right).humanDriver;
     if (!target) return null;
 
     // No branch for "you already drive this one", deliberately, and it is the
@@ -681,7 +662,7 @@ async function boot(): Promise<void> {
 
     let released: HandReading | null = null;
     if (before && before !== side) {
-      const leaving = (before === "left" ? bout.left : bout.right).articulated;
+      const leaving = (before === "left" ? bout.left : bout.right).humanDriver;
       if (!leaving) return null;
       // A whole policy, not a split one: nobody is driving that body any more, so
     // both of its hands go back to the mind the corner names.
@@ -709,12 +690,13 @@ async function boot(): Promise<void> {
 
   const settlePending = (): void => {
     for (const read of pending) {
-      read.reading.commandMm = poseShiftMm(read.pose, read.fighter.armAngles());
-      // `tipPositionToRef` rather than `tipPosition`, for the reason `weapon.ts`
-      // gives at length: the matrix-backed accessor stamps the render id as a
-      // side effect and converts every later reader that frame into a reader of
-      // this sample. A measurement must not move the thing it measures.
-      read.reading.tipMm = Vector3.Distance(read.tip, tipOf(read.fighter)) * 1000;
+      // Both readings come back through the same `drivenPose` the seed came from, so the before
+      // and the after are the same question asked twice rather than two questions that happen to
+      // agree. `commandShiftMm` is `poseShiftMm`'s arithmetic with the pose already resolved to a
+      // point, which is what let a golem answer it at all.
+      const now = read.body.drivenPose();
+      read.reading.commandMm = commandShiftMm(read.command, now.command);
+      read.reading.tipMm = Vector3.Distance(read.tip, now.tip) * 1000;
     }
     pending.length = 0;
   };
@@ -893,7 +875,7 @@ async function boot(): Promise<void> {
       // its own.
       // Pelvis, not torso: leaning or twisting the chest must not roll the
       // camera or swing its bearing away from locomotion heading.
-      const world = follow.articulated?.pelvis.mesh.getWorldMatrix() ?? null;
+      const world = follow.chaseRoot?.()?.getWorldMatrix() ?? null;
       const horizontal = world
         ? horizontalForward(world.m[8], world.m[10], forward.x, forward.z)
         : horizontalForward(forward.x, forward.z, 0, 1);
@@ -1068,12 +1050,16 @@ async function boot(): Promise<void> {
       );
 
     const driven = yours();
+    const strike = driven.strikeReadout?.() ?? null;
     hud.update(
       {
         fps: engine.getFps(),
         physicsMs,
-        tipSpeed: driven.articulated?.sword?.tipSpeed() ?? 0,
-        edgeAlignment: driven.articulated ? edgeAlignmentNow(driven.articulated) : 0,
+        // Both from the body, which is what let the readout follow a golem without the host
+        // learning what a golem's business end is. A body with nothing to report answers absent
+        // and both gauges read zero, exactly as they did for a Warrior holding nothing.
+        tipSpeed: strike?.tipSpeed ?? 0,
+        edgeAlignment: strike?.edgeAlignment ?? 0,
         meshes: arena.scene.meshes.length,
         rig: rigview.readout(),
         driving: humanSide(state.matchup),
@@ -1210,23 +1196,6 @@ async function boot(): Promise<void> {
   beginButton.disabled = false;
   presentation.showSetup(true);
   presentation.showPaused(false);
-}
-
-/**
- * How squarely the blade is moving into its own edge right now.
- *
- * Shown live rather than only on contact, because the useful skill is learning
- * to turn the wrist *before* the blade arrives, and a number that only appears
- * after a hit teaches that far more slowly.
- */
-function edgeAlignmentNow(fighter: Fighter): number {
-  const weapon = fighter.sword;
-  if (!weapon) return 0;
-  const tip = weapon.tipPosition();
-  const velocity = weapon.velocityAt(tip);
-  const speed = velocity.length();
-  if (speed < 0.4) return 0;
-  return Math.abs(Vector3.Dot(velocity.scale(1 / speed), weapon.edgeDirection()));
 }
 
 boot().catch((error: unknown) => {
