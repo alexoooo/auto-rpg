@@ -133,8 +133,11 @@ export const noneChain = defineChain({
 
     const terminal = Object.freeze({
       parts,
-      striker,
+      strikers: Object.freeze([striker]),
       tipOffset: C.capLength,
+      // No second socket and therefore no trailing grip. Null rather than zero: zero would be a
+      // perfectly held grip that does not exist.
+      gripStray: () => null,
       sever: severCap,
       dispose: () => { /* the chain owns the cap and disposes it below. */ },
     });
@@ -181,6 +184,10 @@ export const noneChain = defineChain({
       // which is exactly what a noise floor is.
       commandedEnd: (distanceFromSocket: number) =>
         commanded.copyFrom(capDirection).scaleInPlace(distanceFromSocket).addInPlace(socket.world),
+      // Nothing to let go of: the cap is welded to the socket and no motor was ever pointed at
+      // it. A no-op that is stated rather than absent, because a chain that could not answer
+      // this at all would be a chain a two-socket terminal silently failed to make passive.
+      unmotorise: () => { /* rung 0 has no drive to release */ },
       sever: () => {
         severCap();
         weld?.dispose();

@@ -13,6 +13,7 @@ import { materialForGolemRole } from "../../materials.ts";
 import {
   defineChain,
   type BuiltChain,
+  type ChainLimits,
   type EffectorAxisView,
   type GolemPart,
   type ModuleAxisEnvelope,
@@ -74,10 +75,20 @@ export const wristChain = defineChain({
   massKg: CHAIN_REACH.collarMass + CHAIN_REACH.upperMass + CHAIN_REACH.foreMass
     + CHAIN_WRIST.ringMass + CHAIN_WRIST.wristMass,
 
-  build(ctx: ModuleBuild): BuiltChain {
+  build(ctx: ModuleBuild, limits: ChainLimits | null): BuiltChain {
     const R = CHAIN_REACH;
     const W = CHAIN_WRIST;
-    const core = buildArmCore(ctx);
+    const core = buildArmCore(ctx, limits);
+    // **A terminal may take the wrist away and may not give it more.** A mace is a rigid bar
+    // between two arms, and a roll of the driven wrist swings the *other* arm's grip through an
+    // arc the length of the bar -- so a two-socket terminal pins both of these at zero and the
+    // overview's terminal table already says what that means: on a mace, `roll` means nothing.
+    // Min against the chain's own number, so a narrowing cannot widen a stop.
+    const rollLimit = limits?.rollMax === null || limits?.rollMax === undefined
+      ? W.rollMax : Math.min(W.rollMax, Math.abs(limits.rollMax));
+    const bendLimit = limits?.bendMax === null || limits?.bendMax === undefined
+      ? W.bendMax : Math.min(W.bendMax, Math.abs(limits.bendMax));
+    const outerReach = core.reachable.reachMax;
     const outboard = ctx.socket.outboard;
     // The **forearm's** build frame, which is not the golem's: the core builds its arm bent, and
     // both wrist links are built at joint angle zero against the link they hang from.
@@ -203,14 +214,14 @@ export const wristChain = defineChain({
     const wristEnvelopeAxes: readonly ModuleAxisEnvelope[] = Object.freeze([
       ...core.envelopeAxes,
       Object.freeze({
-        id: "roll", unit: "rad" as const, min: W.rollMin, max: W.rollMax, rate: W.rollRate,
+        id: "roll", unit: "rad" as const, min: -rollLimit, max: rollLimit, rate: W.rollRate,
       }),
       Object.freeze({
-        id: "bend", unit: "rad" as const, min: W.bendMin, max: W.bendMax, rate: W.bendRate,
+        id: "bend", unit: "rad" as const, min: W.bendMin, max: bendLimit, rate: W.bendRate,
       }),
     ]);
 
-    const span = R.reachMax + W.ringLength + W.wristLength;
+    const span = outerReach + W.ringLength + W.wristLength;
     const envelope: ModuleEnvelope = Object.freeze({
       axes: wristEnvelopeAxes,
       reach: span,
@@ -287,8 +298,8 @@ export const wristChain = defineChain({
       command(next: HandIntent): void {
         if (severed) return;
         core.command(next);
-        wantedRoll = clamp(next.roll * outboard, W.rollMin, W.rollMax);
-        wantedBend = clamp(next.wristBend, 0, 1) * W.bendMax;
+        wantedRoll = clamp(next.roll * outboard, -rollLimit, rollLimit);
+        wantedBend = clamp(next.wristBend, 0, 1) * bendLimit;
       },
 
       step(dt: number): void {
@@ -348,11 +359,25 @@ export const wristChain = defineChain({
           .copyFrom(forearm)
           .scaleInPlace(Math.cos(bend))
           .addInPlace(scratch.cross.scaleInPlace(Math.sin(bend)));
-        const past = distanceFromSocket - R.reachMax - W.ringLength;
+        const past = distanceFromSocket - outerReach - W.ringLength;
         return scratch.end
           .scaleInPlace(past)
           .addInPlace(forearm.scaleInPlace(W.ringLength))
           .addInPlace(core.commandedHand());
+      },
+
+      /**
+       * Let go of the position drive and **keep the wrist motors on**.
+       *
+       * The one place a golem's `unmotorise` is not "turn everything off", and the reason is
+       * a degree count rather than a preference: a trailing wrist left free adds two
+       * unconstrained axes to a loop that three grip constraints already determine exactly, so
+       * the last link would flop about inside a joint nothing was holding. The pair here owns
+       * the link's *shape* and not its place, which is the half of the split rung 3's whole
+       * design turns on -- and with a mace on the end both targets are pinned at zero anyway.
+       */
+      unmotorise(): void {
+        core.unmotorise();
       },
 
       sever(): void {

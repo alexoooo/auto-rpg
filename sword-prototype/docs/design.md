@@ -1509,3 +1509,78 @@ decelerates against gravity rather than against the drive. The thrust carries 47
 its drive left it against 13.6 mm with the follow phase removed; the cut carries 0.371 rad against
 0.050. Both numbers stop short of a joint stop on purpose, and both tables record the setting that
 did not.
+
+### The terminal shelf, and the seam a two-socket terminal needed
+
+Session 04 filled the shelf the overview names: a **plate** that blocks by being in the way, a
+**mace** that claims both effector sockets, and a **whip** that is a chain of bodies. A terminal is
+a body, a weld, a striker, a layer and a shell, and if a terminal file ever reads `HandIntent` the
+chain/terminal factoring has leaked.
+
+**A terminal may narrow the chain that carries it, and that is the one thing it decides about
+control.** `EffectorTerminalDefinition.limits` is a total record of nullable numbers — the
+reachable shell plus the wrist's two — and a chain applies each as a *tightening* against its own,
+so a terminal can never grant reach it does not have. Null is "this terminal takes nothing from
+this axis", said once rather than by transcribing the chain's constants. Nothing about it is a
+refusal branch: the chain clamps into the narrowed shell before the anchor is ever handed a target,
+which is frozen rule 3 with a second author. A mace pins the yaw, the roll and the bend and keeps
+the lift and reach; a plate gives up two thirds of the wrist's flexion and keeps everything else; a
+whip gives up 0.40 rad of elevation and keeps the roll it needs.
+
+**The two-socket seam is `ModuleBuild.companion` and `BuiltChain.unmotorise`, and neither is a
+control channel.** `effectorModule` builds the driven chain in `ctx.socket` with the terminal's
+limits, builds a second chain of the same definition in `ctx.companion` with none, calls
+`unmotorise` on it, and hands both welds to the terminal. The trailing chain is stepped and never
+commanded: stepping keeps its own joint motors' ceilings written, and commanding it would be the
+second motor. `unmotorise` is not `sever` — every joint and every stop stays, and rung 3's wrist
+pair stays on at its zero targets, because a wrist left free would add two unconstrained axes to a
+loop that three grip constraints already determine exactly.
+
+The refusals are refusals rather than fallbacks and there are four: a chain that carries its own
+terminal cannot be given one, a chain that hands out a weld must be given one, a two-socket
+terminal must be given a second socket that is not the first, and a terminal must offer at least
+one striker. A mace that quietly built a one-handed bar would be the shield-that-shipped-as-a-club
+failure with the sockets swapped.
+
+**`BuiltTerminal.strikers` is a list now, business end first.** A whip's bite is its last three
+beads: one that scored only with the final capsule would mostly miss, and one that scored with all
+six would bruise with its own handle. The first entry is where the tip and the edge are read from,
+so a rigid terminal's one-entry list is the old contract unchanged.
+
+**Layers: golem modules reuse the existing `*_ARM` and `*_SWORD` side bits and take none of their
+own.** The decision and its argument live in `src/physics.ts` beside the table they are about. The
+part worth repeating here is why a plate is refused the `*_SHIELD` bit: the four-layers-per-side
+split exists to buy exactly one pair — a shield collides with its owner's trunk — and that pair is
+the one thing a golem plate must not have. The held shield needed it because a redundant seven-axis
+arm could be commanded into its owner's chest; a low-axis chain with a published envelope cannot,
+so a board through its own torso is an envelope fault fixed in the chain. That also makes the whip
+possible at all: six capsules on spherical joints overlap at every seam by construction, and they
+sit on a layer whose collide mask does not contain that layer.
+
+**A plate is held the way a buckler is, not the way a heater shield is.** Its own +Y is the face
+normal and it welds through the chain's ordinary mount, so it faces wherever the arm points, which
+is always directly away from its owner — the rule the owner asked for, and the reason
+`mountFor("buckler")` is `mountFor("sword")`. On a wrist chain the roll and the *bend* together are
+what point the face: rolling about the limb's own axis spins a board about its own normal and shows
+nothing, so the roll picks the direction the face tips and the bend picks how far. On rungs 1 and 2
+the facing is a function of the pose, which is the same honest limitation rung 2 already has about
+a blade's edge.
+
+**A mace is a closed kinematic loop, and its grip separation is measured rather than configured.**
+Both chains are built in the same pose mirrored by their sockets' own `outboard`, so the two weld
+points are exactly the socket separation apart and the bar is built to span whatever they are — a
+grip that did not coincide with its weld at construction would be a constraint born violated, which
+is the violation the solver clears by flinging the thing. It is also the one terminal that composes
+its own mount rather than taking the chain's: a bar runs *across* from grip to grip where every
+other terminal runs *along* the limb, and that frame offset is the terminal's to declare.
+
+**A whip is physics rather than control.** No lash controller, no per-segment target, no stroke of
+its own; the first bead is welded so `roll` is which way the lash starts, and the rest are on
+limited spherical joints so the chain cannot fold through itself. It is offered on the wrist chain
+alone, because without a roll axis a lash has no start.
+
+**Two effectors on the bench at once.** `P` puts a module in each socket and `F` then moves the
+*cursor* rather than the module, so the limb the cursor left holds whatever it was last given —
+which is what an arena fighter's off hand does, and the only way to ask whether a blade and a plate
+on one stand read as one body. A module that claims both sockets cannot share the stand and the
+picker says so.

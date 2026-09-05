@@ -7,6 +7,7 @@ import { AnchorDrive, DEFAULT_ANCHOR_AXES } from "../../anchor-drive.ts";
 import { CHAIN_REACH } from "../../config.ts";
 import { materialForGolemRole } from "../../materials.ts";
 import {
+  type ChainLimits,
   type EffectorAxisView,
   type EffectorStroke,
   type EffectorStrokeKind,
@@ -137,8 +138,29 @@ export interface ArmCore {
   anchorStray(): number;
   command(next: HandIntent): void;
   step(dt: number): void;
+  /** Let go of the anchor and keep the linkage. See `BuiltChain.unmotorise`. */
+  unmotorise(): void;
   sever(): void;
   dispose(): void;
+}
+
+/**
+ * The limits this core actually spans, commands and publishes.
+ *
+ * `CHAIN_REACH` is where they come from and a terminal's `ChainLimits` is what may narrow
+ * three of them, so this is the one place either is read. Stated as its own record rather than
+ * spread through the mapping, because the defect it prevents is specific: `spanned`, `clampInto`
+ * and the published `ReachEnvelope` are three statements of the same shell, and a narrowing
+ * applied to two of them is an envelope that says one thing and clamps to another.
+ */
+interface CoreLimits {
+  readonly reachMin: number;
+  readonly reachMax: number;
+  readonly swingMin: number;
+  readonly swingMax: number;
+  readonly liftMin: number;
+  readonly liftMax: number;
+  readonly carryMin: number;
 }
 
 /** Which stroke is running. `EffectorStroke` is the *phase*; this is the kind. */
@@ -154,8 +176,26 @@ type StrokeKind = "none" | "thrust" | "cut";
 export const ARM_STROKES: readonly EffectorStrokeKind[] =
   Object.freeze<EffectorStrokeKind[]>(["thrust", "cut", "cover"]);
 
-export function buildArmCore(ctx: ModuleBuild): ArmCore {
+export function buildArmCore(ctx: ModuleBuild, narrowed: ChainLimits | null): ArmCore {
   const R = CHAIN_REACH;
+  // **The terminal narrows and the chain clamps**, and a narrowing can only ever *tighten*: a
+  // floor takes the larger of the two and a ceiling the smaller, so a terminal that stated a
+  // wider number than the chain's own would grant nothing, which is the direction a terminal is
+  // not allowed to move. `null` is "this terminal takes nothing from this axis" and is what
+  // keeps the plate from transcribing six of `CHAIN_REACH`'s constants in order to move one.
+  const atLeast = (own: number, wanted: number | null): number =>
+    wanted === null ? own : Math.max(own, wanted);
+  const atMost = (own: number, wanted: number | null): number =>
+    wanted === null ? own : Math.min(own, wanted);
+  const L: CoreLimits = Object.freeze({
+    reachMin: atLeast(R.reachMin, narrowed?.reachMin ?? null),
+    reachMax: atMost(R.reachMax, narrowed?.reachMax ?? null),
+    swingMin: atLeast(R.swingMin, narrowed?.swingMin ?? null),
+    swingMax: atMost(R.swingMax, narrowed?.swingMax ?? null),
+    liftMin: atLeast(R.liftMin, narrowed?.liftMin ?? null),
+    liftMax: atMost(R.liftMax, narrowed?.liftMax ?? null),
+    carryMin: atLeast(R.carryMin, narrowed?.carryMin ?? null),
+  });
   const socket = ctx.socket;
   const outboard = socket.outboard;
   const facing = socket.rotation;
@@ -179,8 +219,12 @@ export function buildArmCore(ctx: ModuleBuild): ArmCore {
   // bent 1.39 rad, comfortably inside every stop and 0.96 rad off the straight singularity. It is
   // also inside the envelope, so the first command the cursor gives is a *move* rather than a
   // step out of an unreachable pose.
-  const buildLift = R.liftMin;
-  const buildReach = R.reachNeutral;
+  // Clamped into the limits rather than taken raw, because a narrowing that put the build pose
+  // outside the envelope would make the first command the cursor gives a *step out of an
+  // unreachable pose* -- which is the shape of the failure rung 1's `jointMin` records, a
+  // violation the solver clears on step one by throwing the limb at 9.95 m/s.
+  const buildLift = clamp(R.liftMin, L.liftMin, L.liftMax);
+  const buildReach = clamp(R.reachNeutral, L.reachMin, L.reachMax);
   const buildBones = twoBone(buildReach);
   const upperPitch = buildLift + Math.PI / 2 - buildBones.alpha;
   const forePitch = upperPitch + buildBones.beta;
@@ -342,28 +386,28 @@ export function buildArmCore(ctx: ModuleBuild): ArmCore {
 
   // --- the envelope -------------------------------------------------------------------------
   const reachable: ReachEnvelope = Object.freeze({
-    reachMin: R.reachMin, reachMax: R.reachMax,
-    swingMin: R.swingMin, swingMax: R.swingMax,
-    liftMin: R.liftMin, liftMax: R.liftMax,
-    carryMin: R.carryMin,
+    reachMin: L.reachMin, reachMax: L.reachMax,
+    swingMin: L.swingMin, swingMax: L.swingMax,
+    liftMin: L.liftMin, liftMax: L.liftMax,
+    carryMin: L.carryMin,
   });
   // Reach first, because the readout's settle, arrival and overshoot are taken on the first
   // published axis and `CHAIN_REACH.settledBand` is stated in metres against it.
   const envelopeAxes: readonly ModuleAxisEnvelope[] = Object.freeze([
     Object.freeze({
-      id: "reach", unit: "m" as const, min: R.reachMin, max: R.reachMax, rate: R.anchorRate,
+      id: "reach", unit: "m" as const, min: L.reachMin, max: L.reachMax, rate: R.anchorRate,
     }),
     Object.freeze({
-      id: "swing", unit: "rad" as const, min: R.swingMin, max: R.swingMax,
+      id: "swing", unit: "rad" as const, min: L.swingMin, max: L.swingMax,
       // The angular rate is not a limit this chain owns: what is rate-limited is the *point*, in
       // metres per second, so the fastest an angle can move is that ceiling divided by the
       // horizontal reach it is moving at. Published at `reachMax`, which is the slowest and
       // therefore the honest one for a mind planning against it.
-      rate: R.anchorRate / R.reachMax,
+      rate: R.anchorRate / L.reachMax,
     }),
     Object.freeze({
       id: "lift", unit: "rad" as const, min: R.liftMin, max: R.liftMax,
-      rate: R.anchorRate / R.reachMax,
+      rate: R.anchorRate / L.reachMax,
     }),
   ]);
 
@@ -391,6 +435,8 @@ export function buildArmCore(ctx: ModuleBuild): ArmCore {
   const strokeTarget: ArmCommand = { swing: 0, lift: 0, reach: 0 };
   let thrustHeld = false;
   let severed = false;
+  /** Set once by `unmotorise`: this limb is being carried rather than driven. */
+  let passive = false;
 
   const axisViews = [
     { id: "reach", commanded: buildReach, achieved: buildReach },
@@ -453,13 +499,13 @@ export function buildArmCore(ctx: ModuleBuild): ArmCore {
    * short one is given, and neither is refused by a branch anywhere downstream.
    */
   const clampInto = (into: ArmCommand, swing: number, lift: number, reach: number): void => {
-    into.reach = clamp(reach, R.reachMin, R.reachMax);
-    into.lift = clamp(lift, R.liftMin, R.liftMax);
-    let s = clamp(swing, R.swingMin, R.swingMax);
+    into.reach = clamp(reach, L.reachMin, L.reachMax);
+    into.lift = clamp(lift, L.liftMin, L.liftMax);
+    let s = clamp(swing, L.swingMin, L.swingMax);
     const horizontal = into.reach * Math.cos(into.lift);
     if (horizontal > 1e-6) {
-      const floor = Math.asin(clamp(R.carryMin / horizontal, -1, 1));
-      if (s < floor) s = Math.min(floor, R.swingMax);
+      const floor = Math.asin(clamp(L.carryMin / horizontal, -1, 1));
+      if (s < floor) s = Math.min(floor, L.swingMax);
     }
     into.swing = s;
   };
@@ -535,7 +581,7 @@ export function buildArmCore(ctx: ModuleBuild): ArmCore {
       scratch.commandedHand.copyFrom(anchor.commandedPoint()),
 
     commandedForearm: (): Vector3 => {
-      const { alpha, beta } = twoBone(clamp(slewed.reach, R.reachMin, R.reachMax));
+      const { alpha, beta } = twoBone(clamp(slewed.reach, L.reachMin, L.reachMax));
       const forearmPitch = slewed.lift + Math.PI / 2 - alpha + beta;
       const az = outboard * slewed.swing;
       const across = Math.sin(forearmPitch);
@@ -556,10 +602,10 @@ export function buildArmCore(ctx: ModuleBuild): ArmCore {
 
     command(next: HandIntent): void {
       if (severed) return;
-      wanted.swing = spanned(next.pointerX * outboard, R.swingMin, R.swingMax);
+      wanted.swing = spanned(next.pointerX * outboard, L.swingMin, L.swingMax);
       // `guard` is a level and it wins over `thrust`, so holding it keeps the limb chambered and
       // a press of thrust on top of it is the cut rather than an extension.
-      wanted.lift = next.guard ? R.guardLift : spanned(next.pointerY, R.liftMin, R.liftMax);
+      wanted.lift = next.guard ? R.guardLift : spanned(next.pointerY, L.liftMin, L.liftMax);
       wanted.reach = next.guard ? R.reachGuard : next.thrust ? R.reachThrust : R.reachNeutral;
       // A stroke is an edge, not a level -- `src/buttons.ts`'s rule. Holding the button does not
       // chain strokes, and a stroke already running is not restarted by a second press.
@@ -571,6 +617,17 @@ export function buildArmCore(ctx: ModuleBuild): ArmCore {
 
     step(dt: number): void {
       if (severed) return;
+      if (passive) {
+        // A trailing limb is carried, so there is no command to slew and no anchor to send it
+        // to -- but the achieved half is still published, because it is what the mace's grip
+        // reading is compared against and because a limb whose axis views froze at their build
+        // values would report a trailing arm that never moved.
+        sphericalOf(handPoint(), achieved);
+        axisViews[0].achieved = achieved.reach;
+        axisViews[1].achieved = achieved.swing;
+        axisViews[2].achieved = achieved.lift;
+        return;
+      }
 
       // The reach lag runs whatever the stroke is doing, so that when a stroke ends the limb
       // returns to where the cursor is *now* rather than to where it was when the button went
@@ -630,6 +687,16 @@ export function buildArmCore(ctx: ModuleBuild): ArmCore {
       axisViews[0].achieved = achieved.reach;
       axisViews[1].achieved = achieved.swing;
       axisViews[2].achieved = achieved.lift;
+    },
+
+    unmotorise(): void {
+      if (passive) return;
+      passive = true;
+      // The anchor's constraint goes and the anchor's body stays, which is exactly
+      // `AnchorDrive.release`. Nothing else moves: the yaw, pitch and elbow joints and every
+      // one of their stops are what makes the trailing limb an *arm* rather than a rope, and
+      // they are the half of the linkage that is still doing a job.
+      anchor.release();
     },
 
     sever(): void {

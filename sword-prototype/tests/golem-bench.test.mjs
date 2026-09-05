@@ -22,11 +22,12 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { PhysicsConstraintAxis } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 
 import { CONFIG } from "../src/config.ts";
-import { COLLIDES, LAYER } from "../src/physics.ts";
+import { COLLIDES, LAYER, collisionFilterIsExact } from "../src/physics.ts";
 import { capsulePart } from "../src/rig.ts";
 import { AnchorDrive, slewTowards } from "../src/golem/anchor-drive.ts";
 import {
-  ANCHOR_DRIVE, BENCH_READOUT, CHAIN_PITCH, CHAIN_REACH, CHAIN_WRIST,
+  ANCHOR_DRIVE, BENCH_READOUT, BENCH_STAND, CHAIN_PITCH, CHAIN_REACH, CHAIN_WRIST,
+  TERMINAL_MACE, TERMINAL_PLATE, TERMINAL_WHIP,
 } from "../src/golem/config.ts";
 import { BenchReadout, blankSample } from "../src/golem/readout.ts";
 import {
@@ -112,11 +113,20 @@ test("the pair builder refuses a chain that carries its own terminal", async () 
 // Build, publish and dispose.
 // ---------------------------------------------------------------------------------------
 
-const ANCHORED = new Set(["effector.reach.blade", "effector.wrist.blade"]);
+/** Which chains drive an anchor, which is what decides whether the view publishes one. */
+const anchored = (id) => id.startsWith("effector.reach.") || id.startsWith("effector.wrist.");
 
-for (const id of [
-  "effector.none", "effector.pitch.blade", "effector.reach.blade", "effector.wrist.blade",
-]) {
+/**
+ * Every effector the registry offers, taken from the registry.
+ *
+ * A list here would be a hand-maintained copy of `GOLEM_MODULES`, and `AGENTS.md` carries the
+ * rule about those: it went stale for two sessions the last time one was written out. Session 04
+ * took the shelf from four pairs to eleven, and every one of them has to build, publish, filter
+ * on its own leaves and dispose clean without anybody adding a name here.
+ */
+const EFFECTOR_IDS = GOLEM_MODULES.filter((o) => o.mode === "effector").map((o) => o.id);
+
+for (const id of EFFECTOR_IDS) {
   test(`${id} builds, publishes a view and disposes without leaving a body behind`, async () => {
     const arena = await createHeadlessArena({ populateDefaultGeometry: false });
     const scene = arena.scene;
@@ -124,16 +134,25 @@ for (const id of [
     const before = scene.meshes.length;
     const module = golemModule(id).build({
       scene, side: "left", name: "census", socket: stand.socket("primary"),
+      companion: stand.socket("secondary"),
       layers: golemLayers("left"), materials: stand.materials,
     });
     try {
       assert.ok(module.parts.length > 0, "a module with no parts is a module with no body");
-      assert.equal(module.strikers.length, 1, "an effector offers exactly one striker");
+      // **At least one, and a whip has three.** Session 02's "exactly one" was right for a rigid
+      // terminal and wrong for a chain of bodies: a whip that scored only with its final bead
+      // would mostly miss, and one that scored with all six would bruise with its own handle.
+      assert.ok(module.strikers.length >= 1, "a terminal that offers no striker scores nothing");
+      assert.equal(module.strikers.length, id.endsWith(".whip") ? 3 : 1);
       const view = module.view();
       assert.ok(view, "an effector publishes a view");
       assert.equal(view.slot, "primary");
       assert.equal(view.stroke, "idle");
-      if (ANCHORED.has(id)) {
+      // A trailing grip's error is a two-socket terminal's reading and nobody else's. Null rather
+      // than zero for the rest, which would read as a grip held perfectly by a limb that is not
+      // there.
+      assert.equal(view.gripStray === null, !id.endsWith(".mace"));
+      if (anchored(id)) {
         // The anchor as a **field on the view**, which is what Session 02 asked for rather than
         // an overlay reaching into a chain. Rungs 2 and 3 are the first with one to publish.
         assert.ok(view.anchor, `${id} drives an anchor and must publish where it is`);
@@ -143,9 +162,10 @@ for (const id of [
         assert.equal(view.anchorStray, null, "neither Session 02 chain has an anchor");
         assert.equal(view.anchor, null);
       }
-      // An edge to report is the *terminal's* answer: rung 0's cap bites with mass, so an edge
-      // alignment taken off it would be a number that means nothing and the readout says n/a.
-      assert.equal(view.edge === null, id === "effector.none");
+      // An edge to report is the *terminal's* answer: rung 0's cap bites with mass and so do the
+      // plate, the mace and the whip, so an edge alignment taken off any of them would be a
+      // number that means nothing and the readout says n/a. Only the blade has one.
+      assert.equal(view.edge !== null, id.endsWith(".blade"));
       assert.ok(module.envelope().reach > 0);
 
       // The filter on the **leaf**, read back. Setting a mask on a `PhysicsShapeContainer`
@@ -160,6 +180,24 @@ for (const id of [
         assert.equal(collides & LAYER.LEFT_ARM, 0, `${part.id} collides with its own arm layer`);
         assert.equal(collides & LAYER.LEFT_TRUNK, 0, `${part.id} collides with its own trunk`);
         assert.equal(collides & LAYER.LEFT_SWORD, 0, `${part.id} collides with its own blade`);
+        // **And the filter-exactness helper the layer table already owns**, which is the check
+        // the session plan asks for by name. Every golem part is a single leaf and never a
+        // `PhysicsShapeContainer`, so the container and the leaf are the same shape and this
+        // reads back true -- and it stops reading back true the moment somebody builds a
+        // compound and sets the mask on the wrapper.
+        assert.equal(
+          collisionFilterIsExact(part.part.shape, [part.part.shape], membership, collides), true,
+          `${part.id}'s filter did not read back as it was written`,
+        );
+        assert.equal(part.part.shape.numChildren ?? 0, 0,
+          `${part.id} is a compound shape; its masks have to go on each child`);
+      }
+      // The plate is refused the shield bit deliberately -- see `golemLayersFor` in
+      // `src/physics.ts`. Asserted rather than trusted, because taking it would import the one
+      // pair frozen rule 5 forbids and nothing else in the suite would notice.
+      for (const part of module.parts) {
+        assert.notEqual(part.part.shape.filterMembershipMask, LAYER.LEFT_SHIELD,
+          `${part.id} took the held shield's own layer, which collides with its owner's trunk`);
       }
     } finally {
       module.dispose();
@@ -445,6 +483,7 @@ async function onStand(id, slot = "primary") {
   const socket = stand.socket(slot);
   const module = golemModule(id).build({
     scene, side: "left", name: `t.${slot}`, socket,
+    companion: stand.socket(slot === "primary" ? "secondary" : "primary"),
     layers: golemLayers("left"), materials: stand.materials,
   });
   for (const part of module.parts) plugin.setActivationControl(part.part.body, 1);
@@ -998,4 +1037,266 @@ test("nothing a golem publishes reaches the world transform through a world matr
   for (const root of roots) walk(root);
   assert.deepEqual(offenders, [],
     "a golem reader reached the world transform through a matrix that stamps the render id");
+});
+
+// ---------------------------------------------------------------------------------------
+// Session 04's terminals: the plate, the mace and the whip.
+// ---------------------------------------------------------------------------------------
+
+test("a two-socket terminal refuses a build that offers it one socket", async () => {
+  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const stand = buildGolemStand(arena.scene, { side: "left" });
+  const ctx = {
+    scene: arena.scene, side: "left", name: "one-socket", socket: stand.socket("primary"),
+    layers: golemLayers("left"), materials: stand.materials,
+  };
+  try {
+    // A refusal and not a fallback. A mace that quietly built a one-handed bar when handed one
+    // socket is the shield-that-shipped-as-a-club failure with the sockets swapped: it would
+    // compile, pass `tsc`, pass the build, and put a 42 kg bar on one arm with the second grip
+    // constraining nothing.
+    assert.throws(() => golemModule("effector.reach.mace").build(ctx),
+      /claims both effector sockets/);
+    // And the same socket handed over twice, which is the shape a caller reaches for by accident.
+    assert.throws(() => golemModule("effector.reach.mace").build({
+      ...ctx, companion: stand.socket("primary"),
+    }), /handed over twice/);
+    // The control: with a real second socket it builds. Without this the two refusals above are
+    // satisfied by a mace that cannot be built at all.
+    const built = golemModule("effector.reach.mace").build({
+      ...ctx, companion: stand.socket("secondary"),
+    });
+    assert.ok(built.parts.some((part) => part.id.includes(".trailing.")),
+      "a mace has to put a limb in the second socket, not just a constraint");
+    built.dispose();
+  } finally {
+    stand.dispose();
+    arena.dispose();
+  }
+});
+
+test("the mace's trailing grip is a constraint and its driven grip is a motor", async () => {
+  // **The honest signature of the arrangement the club's sweep forces.** Two position motors on
+  // one rigid body fight, so the trailing chain carries no drive at all and is held to the bar by
+  // a plain ball joint. A constraint is solved and a force-capped motor lags -- so the passive
+  // grip's error has to sit *below* the driven grip's, by a lot, and a run where it does not is a
+  // run where the trailing arm has started pushing back.
+  //
+  // Measured in the Node bench, 2026-09-04: 0.008 mm at the trailing grip against 331.61 mm of
+  // anchor stray on the reach chain, and 0.099 mm against 300.82 mm on the wrist chain. The
+  // bounds below are provisional and are to be re-taken after the owner's gate.
+  for (const id of ["effector.reach.mace", "effector.wrist.mace"]) {
+    const run = await runGolemBench({ moduleId: id });
+    assert.ok(run.peakGripStrayMm !== null, `${id} published no trailing grip error`);
+    assert.ok(run.state.peakAnchorStrayMm !== null, `${id} drives an anchor and must publish it`);
+    assert.ok(run.peakGripStrayMm < run.state.peakAnchorStrayMm,
+      `${id}: the passive grip strayed ${run.peakGripStrayMm} mm against ${run.state.peakAnchorStrayMm}`
+      + " mm at the driven grip, which is the wrong way round for an unmotorised grip");
+    assert.ok(run.peakGripStrayMm < 1,
+      `${id}: a solved constraint held its grip to ${run.peakGripStrayMm} mm`);
+    assert.equal(run.state.selfContacts, 0, `${id}: a golem's own parts must never collide`);
+    assert.equal(run.state.contacts, 0, `${id}: nothing should reach the floor or the walls`);
+    assert.equal(run.state.stuckSteps, 0, `${id}: an error that stops converging is stuck`);
+  }
+});
+
+test("the mace narrows the chain it is on, and the chain publishes the narrowing", async () => {
+  // Frozen rule 3 with a second author: a rigid bar between two arms makes most of the driven
+  // arm's envelope unreachable for the *other* arm, so the terminal states what it takes and the
+  // chain clamps to it before the anchor is ever handed a target. The arithmetic that produced
+  // the two zeroes is beside `TERMINAL_MACE.limits`.
+  const withMace = await runGolemBench({ moduleId: "effector.reach.mace" });
+  const withBlade = await runGolemBench({ moduleId: "effector.reach.blade" });
+
+  assert.equal(withMace.envelope.reachable.swingMin, 0);
+  assert.equal(withMace.envelope.reachable.swingMax, 0);
+  assert.equal(withMace.envelope.reachable.reachMax, TERMINAL_MACE.limits.reachMax);
+  // The control, and it is the half that makes this an assertion rather than a restatement of the
+  // config: the same chain with a one-socket terminal on it publishes its own full envelope.
+  assert.equal(withBlade.envelope.reachable.swingMin, CHAIN_REACH.swingMin);
+  assert.equal(withBlade.envelope.reachable.swingMax, CHAIN_REACH.swingMax);
+  assert.equal(withBlade.envelope.reachable.reachMax, CHAIN_REACH.reachMax);
+  // Elevation is left alone by both, which is what makes a mace worth having: it raises and falls
+  // over the chain's whole range and only the yaw is gone.
+  assert.equal(withMace.envelope.reachable.liftMin, CHAIN_REACH.liftMin);
+  assert.equal(withMace.envelope.reachable.liftMax, CHAIN_REACH.liftMax);
+
+  // And on a wrist chain the roll and the bend go too, which is the overview's "nothing; a mace
+  // has no edge" written as two published axes.
+  const wrist = await runGolemBench({ moduleId: "effector.wrist.mace" });
+  const roll = wrist.envelope.axes.find((axis) => axis.id === "roll");
+  const bend = wrist.envelope.axes.find((axis) => axis.id === "bend");
+  // `===` rather than `assert.equal`, which compares with `Object.is` and would call a
+  // published -0 a failure: the roll's floor is written as the negative of a limit that a mace
+  // pins at zero, and -0 and 0 are the same commanded roll.
+  assert.ok(roll.min === 0 && roll.max === 0, `a mace published a roll of ${roll.min}..${roll.max}`);
+  assert.ok(bend.max === 0, `a mace published a bend of up to ${bend.max}`);
+  const wristBlade = await runGolemBench({ moduleId: "effector.wrist.blade" });
+  assert.equal(wristBlade.envelope.axes.find((axis) => axis.id === "roll").max, CHAIN_WRIST.rollMax);
+});
+
+test("the whip's lash outruns the wrist that flicks it, outside both exclusion windows", async () => {
+  const run = await runGolemBench({ moduleId: "effector.wrist.whip" });
+  const state = run.state;
+
+  // **Zero contacts is the load-bearing one here**, and it is not a tidiness check. The lash
+  // hangs, so a whip longer than the room under the socket lies on the floor at rest, and a
+  // contact opens a 0.25 s tip-speed exclusion window -- one every step, which would make every
+  // reading of a whip excluded and the terminal unmeasurable. The length and the elevation limit
+  // beside `TERMINAL_WHIP` were chosen against this number.
+  assert.equal(state.contacts, 0, "the lash reached the floor; see TERMINAL_WHIP.segments");
+  assert.equal(state.selfContacts, 0, "a golem's own parts must never collide with each other");
+  assert.equal(state.excludedContactSteps, 0);
+  assert.equal(state.stuckSteps, 0);
+
+  // The lash carries after the wrist has stopped, which is the whole of what a whip is, and the
+  // peak is outside both mandatory windows. Measured 27.27 m/s in the Node bench, 2026-09-04,
+  // against the same chain's blade at 26.75 m/s -- and the blade's peak is a *driven* stroke
+  // while this one is beads carrying through. Provisional, to be re-taken after the owner's gate.
+  assert.ok(state.peakTipSpeedDriven > 15,
+    `the lash peaked at ${state.peakTipSpeedDriven} m/s, which is a rope being carried rather than cracked`);
+  assert.ok(state.peakTipSpeedRaw <= state.peakTipSpeedDriven * 1.02,
+    `the lash's fastest moment was ${state.peakTipSpeedRaw} m/s inside an exclusion window`);
+
+  // **The chain underneath is not disturbed by what is hanging off it**, which is what says the
+  // whip is physics rather than control: the anchor stray outside every stroke stays at the order
+  // the same chain reads with a 1.30 kg blade on it. Measured 1.08 mm against the blade's 4.64.
+  assert.ok(state.idleAnchorStrayMm !== null && state.idleAnchorStrayMm < 20,
+    `the whip pulled its own chain ${state.idleAnchorStrayMm} mm off its anchor`);
+  // And the reading that is *not* a tracking error, asserted as what it is so nobody quotes it as
+  // one: `commandedEnd` answers for a rigid extension of the arm and a lash is not one, so "tip
+  // to command" is the droop. It is large by construction and that is the terminal working.
+  assert.ok(state.peakTipErrorMm > 300,
+    "a lash that tracked a rigid extension of the arm would be a stick, not a whip");
+});
+
+test("the multi-body whip disposes without leaving a body, a constraint or a live observer", async () => {
+  // Six bodies, six constraints and six shells against a blade's one of each, so this is where a
+  // disposal order that works by accident stops working. **Active observers rather than array
+  // length**: Babylon marks an observer `_willBeUnregistered` immediately and splices it on a
+  // zero-delay timer, so a census taken synchronously after disposal sees every correct removal as
+  // a leak unless it filters -- which `tests/integration.test.mjs` learned while auditing 25
+  // rebuilds.
+  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const scene = arena.scene;
+  const stand = buildGolemStand(scene, { side: "left" });
+  const census = () => ({
+    meshes: scene.meshes.length,
+    bodies: scene.getPhysicsEngine().getBodies().length,
+    beforePhysicsObservers: scene.onBeforePhysicsObservable.observers
+      .filter((observer) => !observer._willBeUnregistered).length,
+  });
+  try {
+    const baseline = census();
+    for (let round = 0; round < 3; round += 1) {
+      const module = golemModule("effector.wrist.whip").build({
+        scene, side: "left", name: `whip.${round}`, socket: stand.socket("primary"),
+        companion: stand.socket("secondary"),
+        layers: golemLayers("left"), materials: stand.materials,
+      });
+      assert.equal(
+        module.parts.filter((part) => part.id.includes('.whip.')).length, TERMINAL_WHIP.segments,
+        "a whip's beads are parts like any other, and each is severable");
+      const control = scene.onBeforePhysicsObservable.add(() => module.step(SUBSTEP));
+      scene._renderId += 1;
+      scene._advancePhysicsEngineStep(1000 * FRAME);
+      scene.onBeforePhysicsObservable.remove(control);
+      module.dispose();
+      assert.deepEqual(census(), baseline,
+        `round ${round}: disposing the whip left meshes, bodies or a live observer behind`);
+    }
+  } finally {
+    stand.dispose();
+    arena.dispose();
+  }
+});
+
+test("every terminal on every chain runs its own scripted sequence touching nothing", async () => {
+  // The blanket check the session plan asks for, over the registry rather than over a list. Every
+  // pair on the shelf, each through the sequence its own terminal wants, and the two numbers that
+  // say the layer table and the envelope are both doing their jobs.
+  for (const id of EFFECTOR_IDS) {
+    const run = await runGolemBench({ moduleId: id });
+    assert.equal(run.state.selfContacts, 0, `${id}: a golem's own parts must never collide`);
+    assert.equal(run.state.contacts, 0, `${id}: nothing on the stand should reach the floor`);
+    assert.equal(run.state.stuckSteps, 0, `${id}: an error that stops converging is stuck`);
+    // A striker per pair, and the whip's three, offered to `Combat` rather than merely built.
+    assert.ok(run.envelope.reach > 0, `${id} publishes no reach`);
+  }
+});
+
+test("a plate keeps clear of its own stand everywhere in its own envelope", async () => {
+  // **Frozen rule 5 has no self-collision pair for the plate, so this is what stands in for
+  // one.** The held shield collided with its owner's trunk because a redundant seven-axis arm
+  // could be commanded into it; a low-axis chain with a published envelope cannot, and the
+  // session plan says plainly that a plate seen through its own torso is an envelope fault to be
+  // fixed in the chain. Nothing in the solver will ever report it -- the layers forbid the pair --
+  // so the only way to know is to measure the geometry.
+  //
+  // Corners from `mesh.position` and `mesh.rotationQuaternion` and nothing else, which is the
+  // same rule everything else here reads a world transform by.
+  const S = BENCH_STAND;
+  const P = TERMINAL_PLATE;
+  const halfStand = new Vector3(S.width / 2, S.height / 2, S.depth / 2);
+  const standCentre = new Vector3(0, S.centreHeight, 0);
+  const half = new Vector3(P.height / 2, P.thickness / 2, P.width / 2);
+
+  for (const id of ["effector.reach.plate", "effector.wrist.plate"]) {
+    const rig = await onStand(id);
+    try {
+      const board = rig.module.parts.find((part) => part.id.endsWith(".plate")).part;
+      const corner = new Vector3();
+      let deepest = -Infinity;
+      let worst = null;
+      const sample = () => {
+        for (const sx of [-1, 0, 1]) {
+          for (const sy of [-1, 1]) {
+            for (const sz of [-1, -0.5, 0, 0.5, 1]) {
+              corner.set(sx * half.x, sy * half.y, sz * half.z);
+              corner.rotateByQuaternionToRef(
+                board.mesh.rotationQuaternion ?? Quaternion.Identity(), corner,
+              );
+              corner.addInPlace(board.mesh.position).subtractInPlace(standCentre);
+              const inside = Math.min(
+                halfStand.x - Math.abs(corner.x),
+                halfStand.y - Math.abs(corner.y),
+                halfStand.z - Math.abs(corner.z),
+              );
+              if (inside > deepest) {
+                deepest = inside;
+                worst = [...rig.module.view().axes.map((axis) => axis.commanded.toFixed(2))];
+              }
+            }
+          }
+        }
+      };
+      const watch = rig.scene.onBeforePhysicsObservable.add(sample);
+      // The corners of the envelope, held long enough to arrive, and swept between rather than
+      // teleported -- the transit is where a board swings back under the block, and a grid of
+      // held poses would step straight over it.
+      for (const guard of [false, true]) {
+        for (const pointerY of [-1, -0.4, 0.4, 1]) {
+          for (const pointerX of [-1, -0.3, 0.4, 1]) {
+            rig.hand.pointerX = pointerX;
+            rig.hand.pointerY = pointerY;
+            rig.hand.guard = guard;
+            rig.hand.roll = pointerX;
+            rig.hand.wristBend = guard ? 1 : 0;
+            rig.run(50);
+          }
+        }
+      }
+      rig.scene.onBeforePhysicsObservable.remove(watch);
+      // Measured in the Node bench, 2026-09-04: the deepest approach over this sweep is **101.6
+      // mm** clear on the reach chain and **84.2 mm** on the wrist chain. Provisional as figures,
+      // and to be re-taken after the owner's gate; what is not provisional is the sign, which is
+      // the thing the frozen rule is about. Watched go red against a `bendMax` of 1.0 in
+      // `TERMINAL_PLATE.limits`, which puts a corner 8 mm inside the block.
+      assert.ok(deepest < 0,
+        `${id}: a plate corner reached ${(deepest * 1000).toFixed(1)} mm inside the stand at`
+        + ` command ${worst}; the envelope is wrong, and it is fixed in the chain`);
+    } finally {
+      rig.dispose();
+    }
+  }
 });

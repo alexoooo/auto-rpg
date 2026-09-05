@@ -154,6 +154,8 @@ export const pitchChain = defineChain({
     let appliedPhase: EffectorStroke | null = null;
     let thrustHeld = false;
     let severed = false;
+    /** Set once by `unmotorise`: this limb is carried by something rather than driven. */
+    let passive = false;
 
     const axisView = { id: "pitch", commanded: commandedPitch, achieved: commandedPitch };
     const axes: readonly EffectorAxisView[] = Object.freeze([axisView]);
@@ -199,7 +201,7 @@ export const pitchChain = defineChain({
     };
 
     const writeMotor = (): void => {
-      if (!hinge || severed) return;
+      if (!hinge || severed || passive) return;
       if (phase === "idle") {
         if (appliedPhase !== "idle") {
           hinge.setAxisMotorType(HINGE, PhysicsConstraintMotorType.POSITION);
@@ -256,7 +258,7 @@ export const pitchChain = defineChain({
       },
 
       step(dt: number): void {
-        if (severed || !hinge) return;
+        if (severed || passive || !hinge) return;
         // The command keeps moving through a stroke, so that when the stroke ends the limb
         // returns to where the cursor is *now* rather than to where it was when the button
         // went down.
@@ -292,6 +294,20 @@ export const pitchChain = defineChain({
           socket.mount.mesh.rotationQuaternion ?? Quaternion.Identity(), scratch.end,
         );
         return scratch.end.scaleInPlace(distanceFromSocket).addInPlace(socket.world);
+      },
+
+      /**
+       * Drop the torque to nothing and keep the hinge and its stops.
+       *
+       * On this rung the drive *is* the joint motor, so there is no anchor to release and
+       * letting go means a ceiling of zero rather than a constraint disposed. The stops stay,
+       * which is the point: a trailing limb is still an arm with a range, not a rope.
+       */
+      unmotorise(): void {
+        if (!hinge || severed || passive) return;
+        passive = true;
+        hinge.setAxisMotorType(HINGE, PhysicsConstraintMotorType.NONE);
+        hinge.setAxisMotorMaxForce(HINGE, 0);
       },
 
       sever(): void {

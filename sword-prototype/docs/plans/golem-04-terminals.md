@@ -1,7 +1,27 @@
 # Session 04 -- terminals: plate, mace and whip
 
-**Status (2026-09-04): planned.** Depends on 03 (or on 02 with the ladder stopped at rung 1).
-Human gate: not yet asked.
+**Status (2026-09-04): implemented, human gate not yet asked.** The plate, the mace and the whip
+are built and registered on every chain that can carry them, the two-socket seam exists, and the
+bench shows two effectors at once.
+
+No rung of the ladder has been through its own gate either, so all three terminals were built on
+all four chains as the plan's "every accepted chain" instructs, and the owner's later verdict is
+what subtracts rather than a guess made here.
+
+| terminal | none | pitch | reach | wrist |
+| --- | --- | --- | --- | --- |
+| **plate** | not offered: rung 0 hands out no weld | built. 28.40 kg, reach 0.500 m, peak tip 3.31 m/s, 0 contacts, clears the stand by 106 mm | built. 47.20 kg, reach 0.880 m, peak tip 4.68 m/s, idle anchor stray 13.06 mm, clears by 101.6 mm | built. 51.30 kg, reach 1.140 m, peak tip 5.71 m/s, idle stray 5.41 mm, wander at rest 209.3 mm, clears by 84.2 mm |
+| **mace** | not offered: rung 0 hands out no weld | built. 60.80 kg, trailing grip stray 0.001 mm, settle 0.517 s, overshoot 0.554 rad | built. 98.40 kg, trailing grip 0.008 mm against 331.61 mm at the driven grip; yaw pinned, reach capped at 0.66 m | built. 106.60 kg, trailing grip 0.099 mm against 300.82 mm; yaw, roll and bend all pinned at 0 |
+| **whip** | not offered | not offered: without a roll axis a lash has no start | not offered, same reason | built. 34.58 kg, 6 beads x 0.11 m, **peak tip 27.27 m/s**, idle anchor stray 1.08 mm, 0 contacts, elevation floor raised to -0.55 |
+
+Every figure is the Node bench (`scripts/golem-bench.mjs`), never the page, and every one of them
+is a measurement rather than a verdict. Zero self-contacts and zero stuck steps on all ten pairs.
+`docs/measurements.md` carries the tables the three narrowings were chosen from, the three readings
+this shelf makes meaningless, and what is owed.
+
+**Thresholds in `tests/golem-bench.test.mjs` are provisional**, as Sessions 02 and 03 marked
+theirs: they are pinned from the 2026-09-04 Node bench run, they are not regression floors, and
+they are to be re-taken after the owner has driven each of these with a mouse.
 
 ## Outcome
 

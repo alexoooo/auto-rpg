@@ -6,6 +6,9 @@ import { pitchChain } from "./effectors/chains/pitch.ts";
 import { reachChain } from "./effectors/chains/reach.ts";
 import { wristChain } from "./effectors/chains/wrist.ts";
 import { bladeTerminal } from "./effectors/terminals/blade.ts";
+import { maceTerminal } from "./effectors/terminals/mace.ts";
+import { plateTerminal } from "./effectors/terminals/plate.ts";
+import { whipTerminal } from "./effectors/terminals/whip.ts";
 import {
   effectorSlot,
   type BuiltModule,
@@ -88,6 +91,14 @@ export interface GolemBenchOption {
   readonly mode: GolemBenchMode;
   readonly slots: readonly GolemSlot[];
   readonly massKg: number;
+  /**
+   * How many of its slot's sockets this option claims. Two for a mace and one for everything
+   * else, taken from the definition rather than written down here.
+   *
+   * The bench reads it and nothing else does yet: two-effector mode puts one module in each
+   * socket, and a module that has already claimed both cannot share the stand with a second.
+   */
+  readonly sockets: 1 | 2;
   build(ctx: ModuleBuild): BenchModule;
 }
 
@@ -102,6 +113,7 @@ function benchOption<Command>(
     mode,
     slots: definition.slots,
     massKg: definition.massKg,
+    sockets: definition.sockets ?? 1,
     build(ctx: ModuleBuild): BenchModule {
       const built: BuiltModule<Command> = definition.build(ctx);
       return Object.freeze({
@@ -141,9 +153,12 @@ export const EFFECTOR_CHAINS = {
   wrist: wristChain,
 } as const satisfies { readonly [K in ChainId]?: EffectorChainDefinition & { readonly id: K } };
 
-/** The terminal shelf, same rule. Session 04 appends `plate`, `mace` and `whip`. */
+/** The terminal shelf, same rule. Session 04 appended `plate`, `mace` and `whip`. */
 export const EFFECTOR_TERMINALS = {
   blade: bladeTerminal,
+  plate: plateTerminal,
+  mace: maceTerminal,
+  whip: whipTerminal,
 } as const satisfies {
   readonly [K in TerminalId]?: EffectorTerminalDefinition & { readonly id: K };
 };
@@ -167,7 +182,18 @@ export const GOLEM_MODULES: readonly GolemBenchOption[] = Object.freeze([
   benchOption(effectorModule(EFFECTOR_CHAINS.pitch, EFFECTOR_TERMINALS.blade), "effector", handChannel),
   benchOption(effectorModule(EFFECTOR_CHAINS.reach, EFFECTOR_TERMINALS.blade), "effector", handChannel),
   benchOption(effectorModule(EFFECTOR_CHAINS.wrist, EFFECTOR_TERMINALS.blade), "effector", handChannel),
-  // Session 04: each accepted chain against plate, mace and whip.
+  // Session 04's terminals, on every chain that can carry them. **The absences are the design
+  // rather than a gap.** A pair that is not here is a pair that cannot be built: rung 0 hands out
+  // no weld at all, so nothing pairs with it; and the whip is offered on the wrist chain alone,
+  // because a lash's start is which way the roll points it and rungs 1 and 2 have no roll to
+  // point with. The overview's terminal table is where both of those are argued.
+  benchOption(effectorModule(EFFECTOR_CHAINS.pitch, EFFECTOR_TERMINALS.plate), "effector", handChannel),
+  benchOption(effectorModule(EFFECTOR_CHAINS.reach, EFFECTOR_TERMINALS.plate), "effector", handChannel),
+  benchOption(effectorModule(EFFECTOR_CHAINS.wrist, EFFECTOR_TERMINALS.plate), "effector", handChannel),
+  benchOption(effectorModule(EFFECTOR_CHAINS.pitch, EFFECTOR_TERMINALS.mace), "effector", handChannel),
+  benchOption(effectorModule(EFFECTOR_CHAINS.reach, EFFECTOR_TERMINALS.mace), "effector", handChannel),
+  benchOption(effectorModule(EFFECTOR_CHAINS.wrist, EFFECTOR_TERMINALS.mace), "effector", handChannel),
+  benchOption(effectorModule(EFFECTOR_CHAINS.wrist, EFFECTOR_TERMINALS.whip), "effector", handChannel),
   // Session 05: locomotion.biped and its siblings, with mode "locomotion".
   // Session 07: torso.plain, torso.plated, head.plain, head.ram.
 ]);

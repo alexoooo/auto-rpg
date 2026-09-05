@@ -340,8 +340,16 @@ const SCRATCH_SHARE_OF_DURABLE = { min: 0.02, max: 0.25 };
 // two occurrences: unlike session 02's, neither is named by the overview, which describes the
 // ladder in a table rather than by path. The 24 that remain are sessions 04 to 11 naming what
 // they intend to create.
+//
+// **Re-taken 2026-09-04 from golem session 04's own failing run: 24 -> 21.** Three occurrences
+// went because session 04 built the three terminal files its plan promised,
+// `src/golem/effectors/terminals/plate.ts`, `src/golem/effectors/terminals/mace.ts` and
+// `src/golem/effectors/terminals/whip.ts`. Three files and three occurrences: like session 03's
+// and unlike session 02's, none of them is named by the overview, which describes the terminal
+// shelf in a table rather than by path. The 21 that remain are sessions 05 to 11 naming what they
+// intend to create.
 const PLAN_SURFACE = {
-  noSuchFile: 24,
+  noSuchFile: 21,
   ambiguousFile: 0,
   anchorIntoDeletedFile: 0,
   orphanContinuation: 0,

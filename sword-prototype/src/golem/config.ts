@@ -1216,3 +1216,463 @@ export const CHAIN_WRIST = {
   linearDamping: 0.7,
   angularDamping: 3,
 };
+
+/**
+ * The plate terminal: a slab of stone on the end of an arm, which blocks by being in the way.
+ *
+ * **It is a buckler's hold and not a heater shield's, and that is the one real decision in this
+ * block.** `docs/design.md` records both, and they are different mounts rather than different
+ * sizes: a strapped shield's face is square *across* the forearm and needs a hand frame, a
+ * radial seed and a reach ceiling to keep the board off its owner's own chest, while a buckler
+ * "faces wherever the arm points, which is always directly away from its owner, and that is the
+ * whole of the rule the owner asked for". A golem has no hand to strap anything to, and the
+ * session plan asks for exactly the second rule: the plate points away from its owner's centre
+ * along the sphere of the chain's reach, as squarely as the chain allows. So the plate's own +Y
+ * is its face normal -- `Weapon`'s shield convention, unchanged -- and it welds through the
+ * chain's ordinary `LIMB_MOUNT`, which puts that normal out along the limb.
+ *
+ * What `roll` then means on a wrist chain is the pair rather than the roll alone: rolling about
+ * the limb's own axis spins a square board about its own normal and shows nothing, and the
+ * *bend* is what tips the normal off the limb -- so the roll chooses the direction the face
+ * tips and the bend chooses how far. On rungs 1 and 2 the facing is a function of the pose and
+ * there is no command that changes it, which is the same honest limitation rung 2 already has
+ * about a blade's edge.
+ */
+export const TERMINAL_PLATE = {
+  /**
+   * The board, metres: across, through, and along.
+   *
+   * **Smaller than a Warrior's heater shield, and the size is measured rather than chosen.**
+   * `CONFIG.shield` is 0.44 x 0.60 x 0.014 for a board strapped across a forearm; the first draft
+   * of this block kept those proportions and the bench refused them. The clearance table beside
+   * `limits` below is the whole account: a 0.42 x 0.54 board on a wrist chain reaches 127 mm
+   * *inside* the bench stand, and the only narrowing that saves it is pinning the roll -- which
+   * is the one command a plate has.
+   *
+   * 0.32 x 0.42 is what clears on all three chains with the roll left free. The thickness is
+   * nearly six times the steel one and is not a scaling: a stone board 14 mm thick is a flagstone
+   * edge-on, and the shell that dresses it has a chamfer and a rim to carve. 2026-09-04.
+   *
+   * `width` is local **Z** -- the arm plane's lateral, which is the axis the board is carried
+   * outboard along -- `thickness` is local **Y**, the face normal, and `height` is local **X**,
+   * the chain's own swing-plane tangent. That is `Weapon`'s shield frame for the normal, so
+   * `RigidStrike` reads a plate's "tip" as the centre of its outer face with no second convention
+   * anywhere; the other two are named for what they *are* on a limb rather than for a picture.
+   */
+  width: 0.32,
+  height: 0.42,
+  thickness: 0.080,
+  /**
+   * How far the board's near face stands off the weld, metres.
+   *
+   * `CONFIG.shield.standOff` is 0.055 and carries the account of why it was halved from 0.11:
+   * 110 mm is a plate held clear of the arm on a bar, which is a buckler's hold. A golem plate
+   * *is* held out on the end of the limb, so this number is here for the opposite reason -- it is
+   * the gap between the wrist bearing and the back of the board, and 80 mm is what keeps that
+   * bearing's own shell from being drawn inside the slab. Swept for clearance as well and it is
+   * the wrong lever there: pushing the board further out along the limb makes a *bent* wrist
+   * worse rather than better, because it lengthens the arm the bend swings the board through --
+   * measured, 0.18 m of stand-off took the wrist chain from 127 mm inside the stand to 200 mm.
+   * 2026-09-04.
+   */
+  standOff: 0.080,
+  /**
+   * How far the board is carried outboard of the limb's own axis, metres, to the board's centre.
+   *
+   * 0.16 is exactly `width / 2`, which puts the board's **inboard edge on the limb's axis**. That
+   * is the largest offset that still reads as a board on the end of an arm rather than a plate
+   * floating beside one -- which is the gate's own question about this terminal, so it bounds the
+   * number from above as firmly as clearance bounds it from below.
+   *
+   * **And on a wrist chain it is not a guard at all**, which is worth stating because the first
+   * draft treated it as one: the offset runs along the *link's* lateral, and the roll turns that
+   * lateral about the limb, so a rolled wrist carries the board wherever the roll points and the
+   * word "outboard" stops meaning anything. It is a real guard on rungs 1 and 2, which have no
+   * roll, and on rung 3 what does the work is the board's size and the bend cap. 2026-09-04.
+   */
+  outboardOffset: 0.16,
+  /**
+   * Mass, kilograms.
+   *
+   * Arithmetic, like every other mass in this file: 0.32 x 0.42 x 0.080 is 0.010752 m3 and stone
+   * at 2600 kg/m3 makes that 28.0 kg, less about a third for the chamfer the shell draws, which
+   * is 19. It is deliberately **not** brought down to something an arm would find easy: a golem's
+   * shield is a slab, weight comes from a finite force budget against real mass (frozen rule 4),
+   * and what a 19 kg board does to a chain tuned against a 1.30 kg blade is a measurement for the
+   * bench rather than a number to pre-empt. The static load it adds at the hand is 186 N against
+   * an anchor ceiling of 3900, so it is held; what it costs is acceleration, which is the point.
+   * 2026-09-04.
+   */
+  mass: 19.0,
+  /**
+   * Health and vitality weight.
+   *
+   * Above the blade's 60 and below the upper arm's 120: a plate is the piece you want to lose
+   * before an arm and after a sword. Placeholders until Session 08 scores a golem, declared
+   * because the contract requires them. 2026-09-04.
+   */
+  health: 140,
+  vitalityWeight: 0.8,
+  /** `CHAIN_REACH`'s pair, unchanged: a slab of stone is not a loose pendulum. 2026-09-04. */
+  linearDamping: 0.7,
+  angularDamping: 3,
+  /**
+   * The shell: how far the chamfered face is inset from the board's own edge, metres, and how
+   * proud the rim stands as a fraction of the board's thickness.
+   *
+   * Cosmetic and carrying no authority whatsoever -- the collider is the slab above and nothing
+   * in `plateShell` creates a body. Chosen by eye against the stand, 2026-09-04.
+   */
+  chamferInset: 0.060,
+  rimProud: 0.55,
+  /**
+   * What the board takes away from whatever chain carries it: the wrist's flexion, and nothing
+   * else.
+   *
+   * **This is frozen rule 5 paid for in the currency the rule names.** There is no
+   * self-collision pair for a plate -- the held shield needed one because a redundant seven-axis
+   * arm could be commanded into its owner's chest, and a low-axis chain with a published envelope
+   * cannot -- so if the bench shows a board through its own torso on a legal command, the
+   * envelope is wrong and the chain is where it is fixed. Nothing in the solver will ever report
+   * it, because the layers forbid the pair; the only way to know is to measure the geometry.
+   *
+   * Measured in the Node bench, 2026-09-04, by sampling the board's own collider corners from
+   * `mesh.position` and `mesh.rotationQuaternion` against the stand's box, over a driven sweep of
+   * 32 envelope corners crossed with three rolls and three flexions. Positive is clearance;
+   * negative is a board inside the block. The offset is `width / 2` throughout:
+   *
+   *     board                   bendMax   pitch   reach   wrist
+   *     0.42 x 0.54 x 0.05      free       120      76    -127
+   *     0.42 x 0.54 x 0.05      0.8        ---     ---     -77
+   *     0.34 x 0.44 x 0.08      0.8        103      98      -6
+   *     0.32 x 0.42 x 0.08      0.8        106     104       9
+   *     0.32 x 0.42 x 0.08      0.7        106     104      28
+   *     0.32 x 0.42 x 0.08      0.6        106     104      58
+   *     0.30 x 0.38 x 0.08      0.6        109     112      84
+   *
+   * **Two findings came out of that sweep and neither was expected.** The first is that the
+   * *roll* is what breaks it: at 0.42 x 0.54 the only narrowing that clears the wrist chain is
+   * `rollMax` 0, because the outboard offset runs along the link's lateral and a roll turns that
+   * lateral about the limb -- so a rolled wrist carries the board back over the golem whatever
+   * the offset says. Pinning the roll was refused outright: the roll and the bend together are
+   * the only command a plate has, and a plate that cannot be turned is a plate on a rung-2 chain
+   * with two extra bodies in it. The board was made smaller instead.
+   *
+   * The second is that `swingMin` stops mattering at this size -- the reach and pitch columns are
+   * 104 and 106 mm at every value from the chain's own -0.50 through -0.20 -- so the first
+   * draft's cross-body narrowing is gone. A plate keeps the chain's whole swing, reach and
+   * elevation, and gives up 0.97 rad of the wrist's 1.57 rad of flexion.
+   *
+   * 0.6 is taken: 58 mm of clearance on the chain that binds, against 9 mm at 0.8 and a board
+   * inside the block at 1.0. It is still 34 degrees of tilt on top of a free roll, which is a
+   * face that can be pointed. `tests/golem-bench.test.mjs` re-takes the whole sweep and fails on
+   * the sign. 2026-09-04.
+   */
+  limits: {
+    reachMin: null,
+    reachMax: null,
+    swingMin: null,
+    swingMax: null,
+    liftMin: null,
+    liftMax: null,
+    carryMin: null,
+    rollMax: null,
+    bendMax: 0.6,
+  },
+};
+
+/**
+ * The mace terminal: one rigid bar, two grips, and the only terminal that claims both sockets.
+ *
+ * **The measured lesson it is built on is the Warrior club's and it is not negotiable.** Two
+ * position motors on one rigid body do not add up, they fight: swept, the trailing grip made
+ * every column worse at every setting -- mean commanded-to-actual hand error 34.45 mm with no
+ * trailing motor against 90.30 mm at half of one, with the *reversal* rate falling as it got
+ * worse, which is what says it is a steady tug-of-war rather than chatter
+ * (`CONFIG.club.trailingGrip`). So the primary socket's chain carries the anchor and the
+ * secondary socket's chain is unmotorised and held to the bar by a plain ball joint.
+ *
+ * ## What it costs the chain, which is the whole yaw, and is arithmetic rather than a feel
+ *
+ * Both chains are built in the same pose, mirrored by their sockets' own `outboard`, so the two
+ * weld points are exactly the socket separation apart -- `BENCH_STAND.socketSide` x 2 =
+ * **0.68 m** -- and the bar's grip separation `D` is therefore *measured at build* rather than
+ * configured. There is no other value it could take: a grip that did not coincide with its weld
+ * at construction would be a constraint born violated, which is the violation the solver clears
+ * by flinging the thing.
+ *
+ * That makes the pair a closed loop with exactly three degrees of freedom, the driven arm's.
+ * Write the driven weld at azimuth `az`, elevation `l` and reach `r` from its own socket; the
+ * bar's own axis is fixed in the driven link's frame, invariant under the shoulder's pitch
+ * because that pitch is about the link's own X, and carried round by the yaw. The trailing
+ * grip's distance from the trailing socket then comes out as
+ *
+ *     |v|^2 = r^2 + 2 A r cos(l) sin(az) + 2 A^2 (1 - cos az),   A = 0.68
+ *
+ * and the two terms in `az` are what kill it. At `az = 0` the whole thing collapses to
+ * `|v| = r`: the trailing arm is the driven arm's mirror image, and every reach and every
+ * elevation is reachable. Away from zero it is not close:
+ *
+ *     az rad   |v| at r = 0.30   |v| at r = 0.66   what the trailing arm can do
+ *      +0.00        0.300             0.660        both mirror the driven arm exactly
+ *      +0.10        0.377             0.729        0.780 m is full extension; the elbow locks
+ *      +0.30        0.501             0.921        unreachable
+ *      -0.10        0.220             0.590        0.217 m is the elbow's own fold limit
+ *      -0.30        0.086             0.451        unreachable: the grip is inside the socket
+ *
+ * **So a two-socket terminal costs the chain its yaw entirely**, and the honest expression of
+ * that is `swingMin = swingMax = 0` rather than a narrow band that would be feasible at one
+ * reach and not at another. The lift and the reach survive intact, which is why a mace is still
+ * worth having: it raises, falls, pushes out and pulls in over the chain's whole range, and it
+ * does it with two arms that are exact mirror images -- which is also what should make the
+ * trailing arm look attached rather than dragged.
+ *
+ * `roll` and `bend` go with the yaw and for the same reason at a shorter lever: a roll of the
+ * driven wrist swings the far grip through an arc 0.68 m in radius. The overview's terminal
+ * table already says what `roll` means on a mace -- "nothing; a mace has no edge" -- and this is
+ * that sentence written as two zeroes.
+ *
+ * 2026-09-04, arithmetic, checked against the Node bench by the mace assertions in
+ * `tests/golem-bench.test.mjs`.
+ */
+export const TERMINAL_MACE = {
+  /**
+   * How far the bar reaches past the **trailing** grip, metres, to the butt.
+   *
+   * Short on purpose. Every centimetre here moves the centre of mass back toward the arm that
+   * has no motor, and an unmotorised arm exerts no joint torque at all -- it is carried, so the
+   * driven arm pays for whatever the balance point puts on the far side of the far grip. 0.10 m
+   * is a butt that is visible past the second fist and nothing more. 2026-09-04.
+   */
+  buttReach: 0.10,
+  /**
+   * How far the bar reaches past the **driven** grip, metres, to the far end of the head.
+   *
+   * The whole of the weapon's leverage, and the number that decides which side of the driven
+   * grip the mass falls on. With the grips 0.68 m apart, a 0.10 m butt and this at 0.44, the bar
+   * is 1.22 m tip to tip and its centre of mass lands 25 mm *beyond* the driven grip -- so the
+   * driven arm carries the head and the trailing arm steadies the butt, which is the arrangement
+   * an unmotorised grip can sustain. Shorter and the balance crosses to the passive side; longer
+   * and the head sweeps the floor at `liftMin`. 2026-09-04.
+   */
+  headReach: 0.44,
+  /**
+   * The haft's collider radius, metres.
+   *
+   * Slender, per the frozen rule, and the one leaf the whole terminal has: the head is drawn by
+   * the shell and weighed by the mass and the balance point below, because a second leaf would
+   * mean a `PhysicsShapeContainer` and a container's own filter is a shape nothing consults that
+   * reads back garbage. 2026-09-04.
+   */
+  haftRadius: 0.045,
+  /**
+   * What the drawn head measures across, metres.
+   *
+   * **The one place on a golem where the shell is wider than the collider, and it is stated
+   * rather than hidden.** The collider is a single capsule of `haftRadius` for the whole bar, so
+   * the drawn head stands 40 mm proud of it on every side: a mace therefore bites along the
+   * haft's own line and a glancing contact with the outermost 40 mm of the drawn ball registers
+   * nothing. Cosmetics never carry authority, and here that cuts the way that costs rather than
+   * the way that cheats -- the head can only ever score *less* than it looks, never more. If
+   * that difference ever matters, the answer is a second `GolemPart` for the head with its own
+   * body, not a wider capsule: a bar 170 mm across is not a slender collider, and a container
+   * with two leaves is the filter trap. Chosen by eye against the stand, 2026-09-04.
+   */
+  headDiameter: 0.17,
+  /**
+   * Mass, kilograms.
+   *
+   * Arithmetic: a 1.22 m capsule of radius 0.045 is 0.007571 m3, and stone at 2600 kg/m3 makes
+   * that 19.7 kg; a bronze head of radius 0.085 is 0.002572 m3, and bronze at 8800 kg/m3 makes
+   * that 22.6 kg. 42 is the pair, rounded -- and the head being the denser half is the whole of
+   * what a maul is. It is heavier than the arm that swings it. 2026-09-04.
+   */
+  mass: 42.0,
+  /**
+   * Where it balances, as a fraction of the bar's own length measured from the butt.
+   *
+   * `CONFIG.club.balancePoint` is the same idea in metres and carries the argument: a sword
+   * balances a hand's width ahead of the guard so it turns about the wrist, and this balances
+   * most of the way out, so it takes real time to start and cannot be stopped once it is going.
+   * Derived rather than felt: a uniform 19.7 kg haft centred at the middle of a 1.22 m bar and a
+   * 22.6 kg head centred one head-radius inside the tip put the centre of mass at 0.73 of the
+   * length from the butt. Stated as a fraction rather than in metres because the bar's length
+   * depends on the socket separation, which is the golem's business and not this block's.
+   *
+   * **What it has to clear is the driven grip, and by 0.11 m it does.** The driven grip sits at
+   * 0.78 m from the butt of a 1.22 m bar, or 0.64 of the length, so the mass falls on the head
+   * side of the arm that is actually driving it. An unmotorised arm exerts no joint torque at
+   * all, so the driven arm carries the whole bar whatever the balance; what the balance decides
+   * is how much of that arrives as a *moment* on the weld rather than as a force at the hand,
+   * and 0.11 m of lever is about a seventh of the grip separation. 2026-09-04.
+   */
+  balanceFraction: 0.73,
+  /**
+   * The cone the **trailing** grip allows, radians, about each of its three axes.
+   *
+   * A ball joint and not a weld, and the difference is a degree count. The trailing chain has
+   * three axes; a point constraint spends exactly three and leaves the loop determined, while a
+   * weld would spend six on a chain that has three, which is a solver asked to satisfy an
+   * impossible pose every step. Near pi, so the grip is free rather than limited: what stops the
+   * trailing arm going anywhere silly is its own shoulder and elbow stops, which is where a limb
+   * limit belongs. 2026-09-04.
+   */
+  gripCone: 3.0,
+  health: 200,
+  vitalityWeight: 1.4,
+  /** `CHAIN_REACH`'s pair, unchanged. 2026-09-04. */
+  linearDamping: 0.7,
+  angularDamping: 3,
+  /**
+   * What the pair takes away from whatever chain carries it. The derivation is in this block's
+   * own header, and the table of `|v|` there is what picked the two zeroes.
+   *
+   * `reachMax` is 0.66 rather than `CHAIN_REACH.reachMax`'s 0.72, and the 60 mm is the
+   * follow-through's: a thrust's drive ends at the commanded ceiling and the limb carries about
+   * 47 mm past it, which at 0.72 would leave the *trailing* arm at 0.767 m against a full
+   * extension of 0.780 -- an elbow arriving at its own stop, which is a motor and a limit
+   * pushing at each other. At 0.66 the same overshoot leaves 70 mm of bend in hand. 2026-09-04.
+   */
+  limits: {
+    reachMin: null,
+    reachMax: 0.66,
+    swingMin: 0,
+    swingMax: 0,
+    liftMin: null,
+    liftMax: null,
+    carryMin: null,
+    rollMax: 0,
+    bendMax: 0,
+  },
+};
+
+/**
+ * The whip terminal: a chain of light stone beads on spherical joints, and no new driven axis.
+ *
+ * **It is physics rather than control**, which is the session plan's frozen choice and is worth
+ * stating as what it rules out: there is no lash controller, no per-segment target, and no
+ * stroke of its own. The wrist flicks and the beads do what beads do. Offered on the wrist chain
+ * alone, because without a roll axis a lash has no start -- `roll` is which way it goes out.
+ *
+ * **The first bead is welded and the rest are jointed**, which is the same sentence read twice.
+ * A whip hung off a spherical joint at the wrist would hang straight down whatever the arm did
+ * and `roll` would move nothing at all; welded, the first bead is the arm's, and the lash starts
+ * where the wrist points it.
+ *
+ * **`velocityAt` is the right question here, and the answer is not obvious.** `AGENTS.md`
+ * records that `linear + w x r` is right for a blade and wrong for an arrow, and the reason is
+ * not rigidity: it is whether the rotation was there *before* the contact. An arrow has none in
+ * flight, so any `w` at its contact point was put there by the contact, and over a 0.36 m
+ * half-shaft that is tens of metres a second of pure error -- measured, 5.6 m/s reported for a
+ * 48 m/s shot. A whip bead is the opposite case in its strongest form: it is turning about the
+ * joint above it precisely *because* the lash is cracking, that turn is put there by the chain,
+ * and it is the entire reason the end of a whip goes faster than the hand that drives it. So a
+ * bead is scored the way a blade is, through `RigidStrike`, and the ordinary post-contact
+ * exclusion window is what keeps the frame *after* a hit out of the readings.
+ */
+export const TERMINAL_WHIP = {
+  /**
+   * How many beads, and how long each is, metres.
+   *
+   * **The length is bounded by the floor rather than by taste, and that is the finding this
+   * terminal produced.** Every other terminal here is rigid and stands out along the arm; a lash
+   * hangs, so what decides how long it may be is how much room there is under the socket. The
+   * wrist chain's weld point sits at **0.705 m** at the bottom corner of its own envelope --
+   * `liftMin` and `reachMax` together, arithmetic from `CHAIN_REACH`'s two-bone solution -- and a
+   * lash longer than that lies on the floor at rest. That is not a cosmetic problem: a contact
+   * opens a 0.25 s tip-speed exclusion window, a lash resting on the ground opens one every step,
+   * and every reading the bench takes would then be excluded. A whip that cannot be measured is a
+   * whip nobody can argue about.
+   *
+   * 6 x 0.11 is 0.66 m, and the `limits` below buy the room for it by taking elevation. Together
+   * they leave about 0.14 m under the last bead at the worst pose a stroke reaches -- checked as
+   * zero contacts over the scripted lash sequence in the Node bench, which is what settles it
+   * rather than this paragraph. A longer lash is Session 08's to have, once a golem has a torso
+   * that stands taller than a bench stand. 2026-09-04.
+   */
+  segments: 6,
+  segmentLength: 0.11,
+  /** Slender, per the frozen rule, and slender is also what makes it read as a lash rather than
+   *  as a rope of sausages. Chosen by eye, 2026-09-04. */
+  segmentRadius: 0.022,
+  /**
+   * Mass per bead, kilograms.
+   *
+   * Arithmetic: a capsule 0.11 m tip to tip at radius 0.022 is 0.0001450 m3, and stone at
+   * 2600 kg/m3 makes that 0.377 kg, rounded to 0.38. Six of them is 2.3 kg -- about two blades,
+   * which is a lash with real weight in it, and weight is exactly what the gate's own question
+   * about this terminal is asking about. 2026-09-04.
+   */
+  segmentMass: 0.38,
+  /**
+   * How far each joint may bend and twist, radians.
+   *
+   * Not free: a bead pair with no limit folds back through itself, which is a self-intersecting
+   * rope rather than a heavy chain, and adjacent beads are on a layer whose collide mask does
+   * not contain that layer, so nothing would stop it. 0.85 rad is about 49 degrees a joint,
+   * which over seven joints is more curl than any command here produces. The twist is tighter,
+   * because a twist about the lash's own axis moves nothing visible and only costs the solver
+   * work. Chosen by eye, 2026-09-04.
+   */
+  jointCone: 0.85,
+  jointTwist: 0.30,
+  /**
+   * Damping per bead.
+   *
+   * Above the arm's 0.7 and 3, deliberately: a chain of eight bodies on seven joints has seven
+   * modes to ring in and nothing driving any of them, so what a lash does after a flick is
+   * decided here and nowhere else. Chosen by eye against the stand and reported rather than
+   * swept -- the sweep that would settle it is a *feel* sweep, and this session ends at a gate
+   * a person answers. 2026-09-04.
+   */
+  linearDamping: 0.6,
+  angularDamping: 4.0,
+  /**
+   * How many beads at the far end actually bite.
+   *
+   * The session plan's "the last few segments". Three is the last 0.39 m of a 1.04 m lash: the
+   * part that is travelling, and the part a person aiming a whip is aiming. Scoring with all
+   * eight would let the handle bruise, which is a weapon with an option nobody designed -- the
+   * argument `scoring.ts` makes for refusing the buckler its punch. 2026-09-04.
+   */
+  strikingSegments: 3,
+  /** Per bead. Small: a bead is the cheapest thing on a golem to lose. 2026-09-04. */
+  health: 24,
+  vitalityWeight: 0.15,
+  /**
+   * What the lash takes from the chain: elevation, and nothing else.
+   *
+   * The trade this terminal makes, as one number. A lash has no pose it cannot reach -- it hangs
+   * -- so nothing here is about the whip's own kinematics; it is about the room under the
+   * shoulder. The wrist chain's weld point is a function of the commanded elevation, and the
+   * bottom of the lash is that height less the whole lash:
+   *
+   *     liftMin   lowest weld point   under a 0.66 m lash   under a 0.84 m lash
+   *      -0.95          0.705 m              0.05 m               -0.14 m
+   *      -0.75          0.86                 0.20                  0.02
+   *      -0.55          1.01                 0.35                  0.17
+   *      -0.30          1.24                 0.58                  0.40
+   *
+   * Arithmetic from `CHAIN_REACH`'s two-bone solution at `reachMax`, which is where the weld
+   * point is lowest. The rows are not the whole story, because an *achieved* pose is not a
+   * commanded one: a cut's follow-through carries the elevation about 0.39 rad past where the
+   * drive left it, which from -0.55 reaches about -0.94 and drops the weld to roughly 0.80 m. The
+   * 0.66 m lash still clears by about 0.14 m there and the 0.84 m one does not clear at all,
+   * which is what picked the two numbers together.
+   *
+   * -0.55 gives up 0.40 rad of the chain's 2.00 rad of elevation, which is real, and is the
+   * honest price of a lash on a shoulder 1.42 m off the ground. Everything else is left alone --
+   * a whip needs the roll most of all, because the roll is what the lash starts from. 2026-09-04.
+   */
+  limits: {
+    reachMin: null,
+    reachMax: null,
+    swingMin: null,
+    swingMax: null,
+    liftMin: -0.55,
+    liftMax: null,
+    carryMin: null,
+    rollMax: null,
+    bendMax: null,
+  },
+};

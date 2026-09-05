@@ -227,6 +227,18 @@ export interface EffectorView {
    * readout says "n/a" rather than printing one.
    */
   readonly edge: Vector3 | null;
+  /**
+   * How far a **trailing** grip is from the point of the terminal it grips, metres, or null
+   * for a terminal that claims one socket.
+   *
+   * The mace's own reading, and the honest signature of the arrangement the club's measured
+   * lesson forces: two position motors on one rigid body fight, so the second socket's chain
+   * carries no drive at all and is held to the shaft by a plain constraint instead. A
+   * constraint is solved, a force-capped motor lags -- so this number must stay *below*
+   * `anchorStray`, which is the driven grip's, and a run where it does not is a run where the
+   * trailing arm has started pushing back. `tests/golem-bench.test.mjs` asserts the pair.
+   */
+  readonly gripStray: number | null;
 }
 
 /** Which layers a module's bodies belong to and collide with. */
@@ -269,6 +281,17 @@ export interface ModuleBuild {
   readonly socket: GolemSocket;
   readonly layers: GolemLayers;
   readonly materials: GolemMaterialPalette;
+  /**
+   * The golem's *other* effector socket, for a terminal that claims both of them.
+   *
+   * Optional rather than required, and that is a decision about merging as much as about the
+   * contract: every other slot ignores it, three call sites construct a `ModuleBuild` today and
+   * two more sessions are appending to this tree at the same time. What keeps it from being a
+   * silent hole is that `effectorModule` **refuses** at build, by name, when a two-socket
+   * terminal is handed a context without one -- the same refusal it already makes for a chain
+   * paired with a terminal it cannot take.
+   */
+  readonly companion?: GolemSocket | null;
 }
 
 export interface BuiltModule<Command> {
@@ -299,6 +322,16 @@ export interface GolemModuleDefinition<Command> {
   readonly slots: readonly GolemSlot[];
   readonly label: string;
   readonly massKg: number;
+  /**
+   * How many of its slot's sockets this module occupies. Absent means one.
+   *
+   * Optional, and only an effector carrying a two-socket terminal ever sets it: locomotion, the
+   * torso and the head each fill a slot that has one socket, so a required field would be a
+   * number three other sessions had to write down in order to say "the ordinary thing". What
+   * reads it is the bench, which refuses to put a second effector on the stand beside a module
+   * that has already claimed both sockets.
+   */
+  readonly sockets?: 1 | 2;
   build(ctx: ModuleBuild): BuiltModule<Command>;
 }
 
@@ -354,14 +387,30 @@ export function weldRotation(
 export interface BuiltTerminal {
   readonly parts: readonly GolemPart[];
   /**
-   * The terminal's own striker, which is also where the tip is read from.
+   * Every body of this terminal that scores, **the business end first**.
    *
-   * `Striking.tipPosition()` is already the "where is the business end" question, so a
-   * terminal answers it once rather than publishing a second point beside it.
+   * A list rather than one striker because a whip is a chain of bodies and its bite is the last
+   * few segments of it: a whip that scored only with its final capsule would be a whip that
+   * mostly misses, and one that scored with all of them would be a rope that bruises with its
+   * own handle. The first entry is where the tip and the edge are read from --
+   * `Striking.tipPosition()` is already the "where is the business end" question, so a terminal
+   * answers it once rather than publishing a second point beside it.
+   *
+   * `effectorModule` refuses an empty list at build: a terminal that cannot hit anything is a
+   * terminal with no striker, and a module offering zero strikers to `Combat` is a weapon that
+   * silently scores nothing -- which is the shape of the defect that let an archer land 80
+   * arrows a bout for 0 kills.
    */
-  readonly striker: Striking;
+  readonly strikers: readonly Striking[];
   /** How far the business end is from the weld point, metres. */
   readonly tipOffset: number;
+  /**
+   * How far a trailing grip is from the point of this terminal it grips, metres.
+   *
+   * Null for every terminal that claims one socket, which is every one but the mace. See
+   * `EffectorView.gripStray` for what the number is for.
+   */
+  gripStray(): number | null;
   /**
    * Cut loose: stop scoring, and become debris.
    *
@@ -372,6 +421,47 @@ export interface BuiltTerminal {
    */
   sever(): void;
   dispose(): void;
+}
+
+/**
+ * The narrower envelope a terminal forces on whatever chain carries it.
+ *
+ * **A terminal still contributes nothing to control**, and this is the one place that sentence
+ * needs saying carefully. A two-socket terminal is a rigid bar between two arms, which is a
+ * closed kinematic loop: the driven arm's three axes fix the whole loop, and most of the driven
+ * arm's own envelope puts the *other* arm's grip somewhere that arm cannot reach. So the
+ * terminal states what it makes unreachable, the chain clamps to it before the anchor is ever
+ * handed a target, and neither knows why the other exists. That is frozen rule 3 with a second
+ * author, not a refusal branch: a command outside the pair's reach is not in the envelope at
+ * all. The arithmetic that produced the mace's numbers is beside them in `config.ts`.
+ *
+ * **Total, and every field nullable.** Total, so a terminal cannot quietly omit the one limit
+ * that mattered -- adding an axis here turns every narrowing terminal red rather than leaving
+ * one of them silently unnarrowed. Nullable, so that "this terminal takes nothing from this
+ * axis" is said once rather than by transcribing the chain's own constant, which is the
+ * second-copy defect this directory keeps paying for. Each number is applied as a *tightening*
+ * against the chain's own -- a `max` on a floor and a `min` on a ceiling -- so a terminal can
+ * never grant reach it does not have, whatever it states.
+ *
+ * A chain that has no such axis ignores the fields that name it and says so: rungs 0 and 1
+ * ignore all nine, and rung 2 ignores the two wrist rows.
+ */
+export interface ChainLimits {
+  /** The reach shell, metres, as `ReachEnvelope` states it. */
+  readonly reachMin: number | null;
+  readonly reachMax: number | null;
+  /** Outboard-signed azimuth limits, radians. Negative is across the body. */
+  readonly swingMin: number | null;
+  readonly swingMax: number | null;
+  /** Elevation limits, radians. */
+  readonly liftMin: number | null;
+  readonly liftMax: number | null;
+  /** The least outboard offset from the socket the target may have, metres. */
+  readonly carryMin: number | null;
+  /** The roll a wrist may be commanded to, radians, symmetric. Zero pins the roll. */
+  readonly rollMax: number | null;
+  /** The flexion a wrist may be commanded to, radians. Zero pins the bend. */
+  readonly bendMax: number | null;
 }
 
 export interface BuiltChain {
@@ -405,6 +495,23 @@ export interface BuiltChain {
    * direction from the answer, which is the same rule stated twice in two places.
    */
   commandedEnd(distanceFromSocket: number): Vector3;
+  /**
+   * Let go of the drive and keep the linkage: what a **trailing** limb is.
+   *
+   * The measured lesson, from the Warrior's two-handed club and restated for a golem: two
+   * position motors on one rigid body do not add up, they fight. Swept, the trailing grip made
+   * every column worse at every setting -- mean hand error 34.45 mm at no trailing motor
+   * against 90.30 mm at half of one -- because two chains hanging off two sockets can reach
+   * different poses and two motors asked for poses their chains disagree about pull against
+   * each other. So the second socket's chain of a two-socket effector is built, jointed, and
+   * then told this: its position drive lets go, and it is carried by the thing it grips.
+   *
+   * It is **not** `sever`. Sever takes the joints down and the limb falls off; this keeps every
+   * joint and every stop, and keeps whatever motors hold the link's own shape rather than its
+   * place -- rung 3's wrist pair stays on at its zero targets, because a wrist left free would
+   * add two unconstrained axes to a loop that is exactly determined without them.
+   */
+  unmotorise(): void;
   sever(): void;
   dispose(): void;
 }
@@ -414,7 +521,15 @@ export interface EffectorChainDefinition {
   readonly axes: 0 | 1 | 3 | 5;
   readonly label: string;
   readonly massKg: number;
-  build(ctx: ModuleBuild): BuiltChain;
+  /**
+   * `limits` is the narrowing whatever terminal is on the end demands, or null for none.
+   *
+   * A second parameter rather than a field on `ModuleBuild`, because it is a fact about this
+   * *pair* and not about the golem the pair is bolted to -- and because a chain that has no
+   * such axis can go on declaring `build(ctx)` and stay assignable, which is what keeps rungs 0
+   * and 1 out of a change that is not about them.
+   */
+  build(ctx: ModuleBuild, limits: ChainLimits | null): BuiltChain;
 }
 
 export interface EffectorTerminalDefinition {
@@ -424,7 +539,17 @@ export interface EffectorTerminalDefinition {
   readonly bite: "edge" | "point" | "mass" | "none";
   readonly label: string;
   readonly massKg: number;
-  build(ctx: ModuleBuild, onto: ChainWeld): BuiltTerminal;
+  /** What this terminal makes unreachable, or null when it narrows nothing. */
+  readonly limits: ChainLimits | null;
+  /**
+   * `trailing` is the second socket's weld for a terminal whose `sockets` is 2, and null for
+   * every other -- which is what a one-socket terminal ignores without a branch.
+   *
+   * **A terminal reads no `HandIntent` and takes no command channel**, and the signature is
+   * where that is enforced rather than merely stated: what arrives here is two weld frames, a
+   * scene and a palette, and there is nothing in any of them a person could have pressed.
+   */
+  build(ctx: ModuleBuild, onto: ChainWeld, trailing: ChainWeld | null): BuiltTerminal;
 }
 
 /**

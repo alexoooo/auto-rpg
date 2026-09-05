@@ -48,6 +48,9 @@ export const bladeTerminal = defineTerminal({
   bite: "edge",
   label: "blade",
   massKg: TERMINAL_BLADE.mass,
+  // One socket, one body, nothing taken away: a blade on the end of an arm reaches everywhere
+  // the arm does. Session 04's mace is the only terminal in the shelf that narrows anything.
+  limits: null,
 
   build(ctx: ModuleBuild, onto: ChainWeld): BuiltTerminal {
     const B = TERMINAL_BLADE;
@@ -113,8 +116,11 @@ export const bladeTerminal = defineTerminal({
 
     return Object.freeze({
       parts,
-      striker,
+      strikers: Object.freeze([striker]),
       tipOffset: B.tipOffset,
+      // One socket, so there is no trailing grip to be away from anything. Null rather than
+      // zero, which would read as a grip held perfectly.
+      gripStray: () => null,
       sever: () => {
         striker.sever();
         // On the leaf, which for a one-box terminal is the shape itself. Writing a container's

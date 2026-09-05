@@ -250,6 +250,59 @@ export function collisionFilterIsExact(
 }
 
 /**
+ * Which layers a **golem's** own bodies belong to and collide with.
+ *
+ * **The decision, taken in Session 04 and written here because this is the file that owns it:
+ * golem modules reuse the existing `*_ARM` and `*_SWORD` side bits. They take no `*_GOLEM_*`
+ * bits of their own, and a golem's plate deliberately does *not* take the `*_SHIELD` bit.**
+ *
+ * A structural link -- a collar, an upper arm, a forearm, a wrist -- is on the side's `arm`
+ * layer, whose row is world, the far side, the far side's supported anatomy and debris. It does
+ * not contain the arm layer, so two links of one golem never touch; it does not contain the
+ * trunk layer, so a link never touches the torso it hangs from. A terminal -- blade, plate,
+ * mace, whip -- is on the side's `sword` layer, whose row has the same shape. So the frozen
+ * rule "a golem's own parts never collide with each other" is true **by construction rather
+ * than by aspiration**, and a self-contact count above zero is a filter set wrongly rather than
+ * a body plan that touches itself. It is also what makes a whip possible at all: eight capsules
+ * on spherical joints overlap at every seam by construction, and they are on a layer whose
+ * collide mask does not contain that layer.
+ *
+ * **Why the plate is refused the shield bit**, which is the only part of this that is a real
+ * choice rather than a restatement. The four-layers-per-side split exists to buy exactly one
+ * pair -- a shield collides with its owner's trunk -- and that pair is the one thing a golem
+ * plate must not have. The held shield needed it because a *redundant* seven-axis arm could be
+ * commanded into its owner's chest and something had to stop the board there. A golem effector
+ * is a low-axis chain that publishes an envelope and clamps a command into it before the anchor
+ * is ever handed a target, so the pose is not refused, it is not in the envelope at all. Taking
+ * the shield bit would import a permanent contact between a heavy plate and the very chain
+ * driving it, which is the friction the table above was written to prevent and which cost this
+ * directory 1687 undetected contacts between a sword and its own upper arm. If the bench ever
+ * shows a plate through its own torso on a legal command, the envelope is wrong and the chain
+ * is where it is fixed.
+ *
+ * **Why no new bits.** There is room -- 21 of 31 usable bits are spoken for -- so this is not a
+ * budget argument. It is the rule about second copies: a `*_GOLEM_STRIKE` row would be
+ * `*_SWORD`'s row transcribed, and a transcribed row is a row that drifts, in the one table in
+ * this directory where a wrong entry is invisible until somebody counts contacts. Nothing in
+ * any filter here has ever asked "is this a golem", and until something does, a new bit would
+ * be a distinction with no reader.
+ *
+ * The filter still goes on the **leaf**: every golem part is a single `PhysicsShapeBox`,
+ * `PhysicsShapeCapsule` or `PhysicsShapeSphere` and never a `PhysicsShapeContainer`, because a
+ * container's own mask is a shape nothing consults that reads back garbage. `collisionFilterIsExact`
+ * above is what `tests/golem-bench.test.mjs` asks per part.
+ */
+export const golemLayersFor = (side: Side) => {
+  const layers = layersFor(side);
+  return {
+    body: layers.arm,
+    bodyCollidesWith: layers.armCollides,
+    strike: layers.sword,
+    strikeCollidesWith: layers.swordCollides,
+  };
+};
+
+/**
  * Bring the solver up on a scene, with the settings the whole prototype was
  * tuned against.
  *

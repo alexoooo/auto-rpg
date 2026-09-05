@@ -93,11 +93,103 @@ export const REACH_SEQUENCE = Object.freeze([
     roll: 1.1, wristBend: 0.7 },
 ]);
 
-/** Which scripted sequence a module wants: a point-commanded chain gets the longer one. */
-export const sequenceFor = (moduleId) =>
-  moduleId.startsWith("effector.reach.") || moduleId.startsWith("effector.wrist.")
+/**
+ * The plate's sequence: cover the centre line, turn the face away, and bash.
+ *
+ * A plate is judged on where its *face* points, which no other terminal has an opinion about, so
+ * the two phases the session plan names are the two this sequence exists for. `cover` takes the
+ * cursor to the inboard edge with `guard` held, which is a plate asked to stand in front of its
+ * owner -- and the mapping clamps it to the plate's own narrowed swing rather than refusing it,
+ * which is frozen rule 3 doing its job with a second author. `turn` then rolls and bends, which
+ * on a wrist chain is the pair that points the face and on the other rungs is ignored, and `away`
+ * sweeps to the far side with the roll reversed.
+ *
+ * `bash` is the plate's whole offensive vocabulary: one `thrust` press, scored as a mass bite at
+ * fist weight.
+ */
+export const PLATE_SEQUENCE = Object.freeze([
+  { name: "rest", until: 1.20, pointerX: 0, pointerY: 0, guard: false, thrust: false },
+  { name: "cover", until: 2.80, pointerX: -1, pointerY: 0.3, guard: true, thrust: false,
+    from: { pointerX: 0, pointerY: 0 } },
+  { name: "hold", until: 3.80, pointerX: -1, pointerY: 0.3, guard: true, thrust: false },
+  { name: "turn", until: 4.60, pointerX: -1, pointerY: 0.3, guard: true, thrust: false,
+    roll: 1.2, wristBend: 0.8, from: { roll: 0, wristBend: 0 } },
+  { name: "away", until: 6.00, pointerX: 1, pointerY: -0.2, guard: false, thrust: false,
+    roll: -1.2, wristBend: 0.2,
+    from: { pointerX: -1, pointerY: 0.3, roll: 1.2, wristBend: 0.8 } },
+  { name: "bash", until: 6.10, pointerX: 1, pointerY: -0.2, guard: false, thrust: true,
+    roll: -1.2, wristBend: 0.2 },
+  { name: "recover", until: 8.00, pointerX: 0.3, pointerY: 0, guard: false, thrust: false,
+    roll: 0, wristBend: 0 },
+]);
+
+/**
+ * The mace's sequence: raise, chop, and shove, with the swing left where it has to be.
+ *
+ * **Nothing here moves `pointerX`, and that is the sequence telling the truth about the
+ * terminal rather than avoiding a problem.** A mace pins the chain's yaw at zero -- the
+ * arithmetic is beside `TERMINAL_MACE.limits` -- so a script that swept the cursor sideways would
+ * be measuring the clamp rather than the weapon. What is left is what a two-handed maul actually
+ * does: it goes up, it comes down, and it is pushed out.
+ *
+ * `chop` is `thrust` pressed while `guard` is held, which is the arm core's cut; with the swing
+ * clamped it degenerates into a pure downward sweep, which is a chop. `shove` is the plain thrust.
+ */
+export const MACE_SEQUENCE = Object.freeze([
+  { name: "rest", until: 1.20, pointerX: 0, pointerY: 0, guard: false, thrust: false },
+  { name: "raise", until: 2.60, pointerX: 0, pointerY: 1, guard: false, thrust: false,
+    from: { pointerY: 0 } },
+  { name: "chamber", until: 3.60, pointerX: 0, pointerY: 0.8, guard: true, thrust: false },
+  { name: "chop", until: 3.75, pointerX: 0, pointerY: 0.8, guard: true, thrust: true },
+  { name: "settle", until: 5.20, pointerX: 0, pointerY: 0.2, guard: false, thrust: false },
+  { name: "shove", until: 5.30, pointerX: 0, pointerY: 0.2, guard: false, thrust: true },
+  { name: "recover", until: 7.00, pointerX: 0, pointerY: 0, guard: false, thrust: false },
+]);
+
+/**
+ * The whip's sequence: chamber high and inboard, then lash across with the roll reversing.
+ *
+ * A lash is the one terminal whose interesting number is produced by *nothing the chain did* --
+ * the beads carry through after the wrist has stopped -- so the sequence is built round one hard
+ * flick rather than round a settle. `chamber` sweeps the cursor high and across with the roll
+ * wound the other way; `lash` reverses the roll inside a sixth of a second while the cut runs,
+ * which is what cracks it; `carry` holds still and lets the beads do the rest, which is where the
+ * peak lives.
+ *
+ * A sweep and not a jump, wherever a phase is about the wobble: a teleported cursor gives the lash
+ * no momentum to carry, which is the reading that says nothing.
+ */
+export const WHIP_SEQUENCE = Object.freeze([
+  { name: "rest", until: 1.40, pointerX: 0.2, pointerY: -0.2, guard: false, thrust: false },
+  { name: "chamber", until: 2.60, pointerX: -0.6, pointerY: 0.8, guard: true, thrust: false,
+    roll: -1.2, from: { pointerX: 0.2, pointerY: -0.2, roll: 0 } },
+  { name: "lash", until: 2.75, pointerX: 0.9, pointerY: -0.4, guard: true, thrust: true,
+    roll: 1.2, from: { pointerX: -0.6, pointerY: 0.8, roll: -1.2 } },
+  { name: "carry", until: 4.20, pointerX: 0.9, pointerY: -0.4, guard: false, thrust: false,
+    roll: 1.2 },
+  { name: "recover", until: 6.50, pointerX: 0.2, pointerY: -0.2, guard: false, thrust: false,
+    roll: 0 },
+]);
+
+/**
+ * Which scripted sequence a module wants.
+ *
+ * **The terminal is asked first and the chain second**, which is a change Session 04 made and is
+ * worth a sentence: Session 02's rule was that a terminal changes mass but not the command, so one
+ * sequence per chain was right. That stopped being true the moment a terminal could narrow the
+ * chain's envelope -- a mace with the yaw pinned run through `REACH_SEQUENCE` would spend half its
+ * phases against a clamp, and the marks would report the clamp. A plate and a whip need their own
+ * for the opposite reason: each is judged on something (a face, a lash) the blade sequence never
+ * asks for.
+ */
+export const sequenceFor = (moduleId) => {
+  if (moduleId.endsWith(".mace")) return MACE_SEQUENCE;
+  if (moduleId.endsWith(".whip")) return WHIP_SEQUENCE;
+  if (moduleId.endsWith(".plate")) return PLATE_SEQUENCE;
+  return moduleId.startsWith("effector.reach.") || moduleId.startsWith("effector.wrist.")
     ? REACH_SEQUENCE
     : BENCH_SEQUENCE;
+};
 
 /** A whole `Intent`, because a bench option adapts the command rather than being handed one. */
 const benchIntent = () => ({
@@ -190,11 +282,15 @@ export async function runGolemBench({
     })]);
   };
 
+  // The other socket, handed over whether or not the option wants it. A one-socket terminal
+  // ignores it; a mace refuses to build without it, by name, in `effector.ts`.
+  const companionSlot = slot === "primary" ? "secondary" : "primary";
   const module = option.build({
     scene,
     side,
     name: `golem.${side}.${slot}`,
     socket: stand.socket(slot),
+    companion: stand.socket(companionSlot),
     layers: golemLayers(side),
     materials: stand.materials,
   });
@@ -214,6 +310,13 @@ export async function runGolemBench({
   const sample = blankSample();
   const intent = benchIntent();
   let t = 0;
+  // **A trailing grip's own error, kept beside the readout rather than inside it.** It is a
+  // two-socket terminal's number and nothing else has one, so putting it in `BenchReadout` would
+  // give every other option a column that is permanently null. What it is *for* is the comparison
+  // in `tests/golem-bench.test.mjs`: a constraint is solved and a force-capped motor lags, so the
+  // passive grip's error must stay under the driven grip's, and a run where it does not is a run
+  // where the trailing arm has started pushing back.
+  let peakGripStrayMm = null;
 
   const control = scene.onBeforePhysicsObservable.add(() => {
     module.step(SUBSTEP);
@@ -235,6 +338,12 @@ export async function runGolemBench({
         sample.edgeX = view.edge.x;
         sample.edgeY = view.edge.y;
         sample.edgeZ = view.edge.z;
+      }
+      // Outside the startup window, for the reason every other peak here excludes it: a limb
+      // lifting out of its build pose is not the thing being measured.
+      if (view.gripStray !== null && t >= BENCH_READOUT.startupExclusionSeconds) {
+        const mm = view.gripStray * 1000;
+        peakGripStrayMm = peakGripStrayMm === null ? mm : Math.max(peakGripStrayMm, mm);
       }
     }
     sample.contacts = contacts;
@@ -274,6 +383,8 @@ export async function runGolemBench({
       envelope: module.envelope(),
       marks,
       state: readout.state(),
+      /** Null for every one-socket terminal, which is every one but the mace. */
+      peakGripStrayMm,
     };
   } finally {
     scene.onBeforePhysicsObservable.remove(control);
@@ -467,6 +578,10 @@ async function main() {
   }
   process.stdout.write("\n");
   for (const line of formatReadout(run.state)) process.stdout.write(`  ${line}\n`);
+  if (run.peakGripStrayMm !== null) {
+    process.stdout.write(`  trailing grip stray ${run.peakGripStrayMm.toFixed(3)} mm peak`
+      + ` (against ${fixed(run.state.peakAnchorStrayMm, 2)} mm at the driven grip)\n`);
+  }
 }
 
 // `import.meta.main` is Node 22.13's spelling and this directory pins that engine floor.

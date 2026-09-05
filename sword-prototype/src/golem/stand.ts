@@ -2,7 +2,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 
-import { layersFor, type Side } from "../physics.ts";
+import { golemLayersFor, layersFor, type Side } from "../physics.ts";
 import { boxPart, type Part } from "../rig.ts";
 import { BENCH_STAND } from "./config.ts";
 import { golemMaterials, materialForGolemRole, type GolemMaterialPalette } from "./materials.ts";
@@ -11,33 +11,27 @@ import { type GolemLayers, type GolemSlot, type GolemSocket } from "./module.ts"
 /**
  * Which layers a golem's own bodies belong to and collide with.
  *
- * Derived from the existing per-side table rather than given new bits, and the derivation is
- * what buys the frozen rule "a golem's own parts never collide with each other" **by
- * construction rather than by aspiration**:
+ * **The decision and its whole argument live in `src/physics.ts`**, beside the table they are
+ * about: golem modules reuse the existing `*_ARM` and `*_SWORD` side bits, take no
+ * `*_GOLEM_*` bits, and a plate is deliberately refused the `*_SHIELD` bit because the only
+ * thing that bit buys is the one pair a golem must not have. Session 04 moved it there rather
+ * than restating it here, because a layer rule stated in two files is a layer rule that will
+ * be edited in one of them.
  *
- * - Structural links sit on the side's `arm` layer, whose collide mask is world, the far side
- *   and debris. It does not contain the arm layer, so two links never touch; it does not
- *   contain the trunk layer, so a link never touches the stand it hangs from.
- * - A terminal sits on the side's `sword` layer, whose mask is the same shape. A blade
- *   therefore passes through its owner, which is what the layer table already argues for and
- *   what the overview's rule 5 restates for golems.
+ * What is left here is the typing: `golemLayersFor` cannot name `GolemLayers` without
+ * `physics.ts` importing `module.ts`, which imports `physics.ts` back for `Side`. So the
+ * structural answer comes from there and the name is put on it here, which is a cycle avoided
+ * rather than a second opinion.
  *
- * So zero self-contact is an assertion here and not a hope, and
+ * Zero self-contact is therefore an assertion rather than a hope, and
  * `tests/golem-bench.test.mjs` counts it over the whole scripted sequence rather than
- * trusting this paragraph. Note the second half of that lesson from the construct experiment:
+ * trusting that paragraph. Note the second half of that lesson from the construct experiment:
  * a self-contact count of zero proves nothing about pairs the filters never admitted -- which
  * is exactly the case here, and is why the count is reported as what it is (a check that no
  * pair was admitted by accident) rather than as evidence of physicality.
  */
-export const golemLayers = (side: Side): GolemLayers => {
-  const layers = layersFor(side);
-  return Object.freeze({
-    body: layers.arm,
-    bodyCollidesWith: layers.armCollides,
-    strike: layers.sword,
-    strikeCollidesWith: layers.swordCollides,
-  });
-};
+export const golemLayers = (side: Side): GolemLayers =>
+  Object.freeze(golemLayersFor(side));
 
 export interface GolemStand {
   readonly block: Part;

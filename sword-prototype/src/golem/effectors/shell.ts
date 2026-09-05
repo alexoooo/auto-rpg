@@ -94,6 +94,125 @@ export function boneShell(scene: Scene, options: BoneShellOptions): readonly Abs
   ]);
 }
 
+export interface PlateShellOptions {
+  readonly name: string;
+  readonly host: Mesh;
+  /** The collider slab's own extents in its local X, Y and Z, metres. */
+  readonly size: Vector3;
+  /** How far the chamfered face is inset from the slab's edge, metres. */
+  readonly chamferInset: number;
+  /** How proud the bronze rim stands, as a fraction of the slab's thickness. */
+  readonly rimProud: number;
+  readonly materials: GolemMaterialPalette;
+}
+
+/**
+ * A chamfered face and a bronze rim over the plate's own slab.
+ *
+ * Two primitives, and each is there for a reason a flat box does not answer. The **chamfer** is
+ * a smaller slab set proud of the outer face, so the board reads as carved from a block rather
+ * than sawn from a sheet -- the same argument `boneShell`'s ridge carries. The **rim** is a
+ * slightly oversized thin slab at the board's own mid-plane, so a band of bronze shows all the
+ * way round the edge from any angle, which is what tells a person at a glance which way the
+ * board faces.
+ *
+ * Neither creates a body, a shape or a constraint, and both are `isPickable = false`. The
+ * collider is the slab underneath: cosmetics never carry authority, and a rim that stood proud
+ * in the *collider* would be a plate that blocks 30 mm wider than it looks.
+ */
+export function plateShell(scene: Scene, options: PlateShellOptions): readonly AbstractMesh[] {
+  const s = options.size;
+  const inset = options.chamferInset;
+  const chamfer = MeshBuilder.CreateBox(`${options.name}.chamfer`, {
+    width: Math.max(0.02, s.x - inset * 2),
+    height: s.y * 0.6,
+    depth: Math.max(0.02, s.z - inset * 2),
+  }, scene);
+  chamfer.material = materialForGolemRole(options.materials, "armour");
+
+  const rim = MeshBuilder.CreateBox(`${options.name}.rim`, {
+    width: s.x + 0.03, height: s.y * options.rimProud, depth: s.z + 0.03,
+  }, scene);
+  rim.material = materialForGolemRole(options.materials, "joint");
+
+  return Object.freeze([
+    // Proud of the **outer** face, which is the slab's own +Y: that is the face normal in
+    // `Weapon`'s shield frame and the direction the plate is asked to point.
+    attach(chamfer, options.host, new Vector3(0, s.y * 0.5, 0)),
+    attach(rim, options.host, Vector3.Zero()),
+  ]);
+}
+
+export interface BarShellOptions {
+  readonly name: string;
+  readonly host: Mesh;
+  /** The head's diameter, metres, and where its centre sits along the host's own +Y. */
+  readonly headDiameter: number;
+  readonly headAt: number;
+  /** Where each grip collar sits along the host's own +Y, metres. */
+  readonly grips: readonly number[];
+  /** The haft's collider radius, metres. The collars are authored around it. */
+  readonly haftRadius: number;
+  readonly materials: GolemMaterialPalette;
+}
+
+/**
+ * A head at one end and a collar at each grip: what a two-handed bar looks like.
+ *
+ * The head is drawn here and **weighed** in `TERMINAL_MACE.mass` and `balanceFraction`, which is
+ * the one place in this file where a shell and a number have to agree: the collider is a single
+ * capsule the length of the whole bar, because a second leaf would mean a
+ * `PhysicsShapeContainer` and a container's own collision filter is a shape nothing consults.
+ * So the head's mass is real and its *shape* is cosmetic, and a session that moves the drawn
+ * head has to move the balance point with it.
+ *
+ * The collars are what make the trailing arm read as gripping rather than touching, which is the
+ * gate's own question about this terminal.
+ */
+export function barShell(scene: Scene, options: BarShellOptions): readonly AbstractMesh[] {
+  const head = MeshBuilder.CreateSphere(`${options.name}.head`, {
+    diameter: options.headDiameter, segments: 12,
+  }, scene);
+  head.material = materialForGolemRole(options.materials, "armour");
+  const drawn: AbstractMesh[] = [attach(head, options.host, new Vector3(0, options.headAt, 0))];
+
+  for (const [index, at] of options.grips.entries()) {
+    const collar = MeshBuilder.CreateCylinder(`${options.name}.grip${index}`, {
+      diameter: options.haftRadius * 2.5, height: options.haftRadius * 2.2, tessellation: 14,
+    }, scene);
+    collar.material = materialForGolemRole(options.materials, "joint");
+    // A cylinder is built along its own +Y and the bar runs along +Y, so a collar needs no turn.
+    drawn.push(attach(collar, options.host, new Vector3(0, at, 0)));
+  }
+  return Object.freeze(drawn);
+}
+
+export interface BeadShellOptions {
+  readonly name: string;
+  readonly host: Mesh;
+  readonly radius: number;
+  /** Where the bead sits along the host's own +Y, metres: the segment's far end. */
+  readonly at: number;
+  readonly materials: GolemMaterialPalette;
+}
+
+/**
+ * One bronze bead at a lash segment's far end.
+ *
+ * The whip's own colliders are drawn -- a bead is a capsule and a capsule is what it looks like,
+ * the same case the blade makes for being its own mesh -- so all this adds is the knuckle at
+ * each joint, which is what stops eight identical capsules reading as a rope of sausages. At the
+ * segment's **far** end for `boneShell`'s reason: put at the near end it would sit inside the
+ * bead above it, and put nowhere at all the joints are visible gaps.
+ */
+export function beadShell(scene: Scene, options: BeadShellOptions): readonly AbstractMesh[] {
+  const bead = MeshBuilder.CreateSphere(`${options.name}.bead`, {
+    diameter: options.radius * 2.5, segments: 8,
+  }, scene);
+  bead.material = materialForGolemRole(options.materials, "joint");
+  return Object.freeze([attach(bead, options.host, new Vector3(0, options.at, 0))]);
+}
+
 export interface BallShellOptions {
   readonly name: string;
   readonly host: Mesh;

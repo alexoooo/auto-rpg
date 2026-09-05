@@ -5,6 +5,7 @@ import { CHAIN_REACH } from "../../config.ts";
 import {
   defineChain,
   type BuiltChain,
+  type ChainLimits,
   type ModuleBuild,
   type ModuleEnvelope,
 } from "../../module.ts";
@@ -39,13 +40,19 @@ export const reachChain = defineChain({
   label: "reach - yaw, pitch, elbow",
   massKg: CHAIN_REACH.collarMass + CHAIN_REACH.upperMass + CHAIN_REACH.foreMass,
 
-  build(ctx: ModuleBuild): BuiltChain {
+  build(ctx: ModuleBuild, limits: ChainLimits | null): BuiltChain {
     const R = CHAIN_REACH;
-    const core = buildArmCore(ctx);
+    const core = buildArmCore(ctx, limits);
+    // **The narrowed number, read back out of the core rather than out of `CHAIN_REACH`.** A
+    // two-socket terminal takes reach away from this chain, and the weld point's own distance
+    // from the socket is what `effector.ts` adds the terminal's length to. Reading the config
+    // block here instead would publish a reach the mapping cannot command, which is a second
+    // statement of the same shell -- the exact defect `CoreLimits` exists to prevent.
+    const outerReach = core.reachable.reachMax;
 
     const envelope: ModuleEnvelope = Object.freeze({
       axes: core.envelopeAxes,
-      reach: R.reachMax,
+      reach: outerReach,
       strokes: ARM_STROKES,
       reachable: core.reachable,
       settledBand: R.settledBand,
@@ -69,7 +76,7 @@ export const reachChain = defineChain({
       // `effector.ts` adds the terminal's length to it once at build to get the tip distance --
       // and because "how far the business end travels at full extension" is what the envelope's
       // own field says it is.
-      reach: R.reachMax,
+      reach: outerReach,
 
       command: (next: HandIntent) => core.command(next),
       step: (dt: number) => core.step(dt),
@@ -91,13 +98,14 @@ export const reachChain = defineChain({
        * report a geometry error as a tracking error.
        */
       commandedEnd(distanceFromSocket: number): Vector3 {
-        const beyond = distanceFromSocket - R.reachMax;
+        const beyond = distanceFromSocket - outerReach;
         return commandedEnd
           .copyFrom(core.commandedForearm())
           .scaleInPlace(beyond)
           .addInPlace(core.commandedHand());
       },
 
+      unmotorise: () => core.unmotorise(),
       sever: () => core.sever(),
       dispose: () => core.dispose(),
     });
