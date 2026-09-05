@@ -1112,9 +1112,19 @@ export const TERMINAL_PLATE = {
    * *inside* the bench stand, and the only narrowing that saves it is pinning the roll -- which
    * is the one command a plate has.
    *
-   * 0.32 x 0.42 is what clears on all three chains with the roll left free. The thickness is
-   * nearly six times the steel one and is not a scaling: a stone board 14 mm thick is a flagstone
-   * edge-on, and the shell that dresses it has a chamfer and a rim to carve. 2026-09-04.
+   * 0.28 x 0.42 is what clears on all three chains with the roll left free **against the golem's
+   * own torso**, which is not the box the first two drafts of this line were measured against. The
+   * thickness is nearly six times the steel one and is not a scaling: a stone board 14 mm thick is
+   * a flagstone edge-on, and the shell that dresses it has a chamfer and a rim to carve.
+   *
+   * **It was 0.32 until 2026-09-05, and the 40 mm came off to buy back what `outboardOffset` spent
+   * -- see that block for the whole account.** In one sentence: the clearance sweep measured the
+   * board against `BENCH_STAND`, which is 0.44 m wide, and a plain torso is 0.62 m wide with the
+   * same 0.34 m socket, so the bench block is 90 mm narrower on each side and is *not* a
+   * conservative stand-in for the body. Narrowing the board is the lever that pays for a limb
+   * passing through the middle of it; every 10 mm off the width is 5 mm the inboard edge does not
+   * reach toward the chest, and it costs area a shield would rather keep.
+   * 2026-09-04, re-measured 2026-09-05.
    *
    * `width` is local **Z** -- the arm plane's lateral, which is the axis the board is carried
    * outboard along -- `thickness` is local **Y**, the face normal, and `height` is local **X**,
@@ -1122,7 +1132,7 @@ export const TERMINAL_PLATE = {
    * `RigidStrike` reads a plate's "tip" as the centre of its outer face with no second convention
    * anywhere; the other two are named for what they *are* on a limb rather than for a picture.
    */
-  width: 0.32,
+  width: 0.28,
   height: 0.42,
   thickness: 0.080,
   /**
@@ -1149,30 +1159,63 @@ export const TERMINAL_PLATE = {
    * middle of is what a shield looks like; a board a limb holds by its edge is a door.
    *
    * **It is also a guard, and that is why it is 0.12 and not 0**, which is the part the eye
-   * cannot see. On rung 1 the offset is the *only* thing keeping the board out of the block: that
-   * chain has one hinge and no swing, the socket stands 0.12 m outboard of the stand's own face
-   * (`BENCH_STAND.socketSide` 0.34 against a half-width of 0.22), and a 0.32 m board centred on
-   * the limb reaches 0.16 m inboard of it -- 0.04 m inside the face before anything rotates.
-   * Swept, deepest approach in mm over the whole envelope, positive is clearance:
+   * cannot see. On rung 1 the offset is the *only* thing keeping the board out of the body: that
+   * chain has one hinge and no swing, so nothing else can be given up to buy clearance.
    *
-   *     offset   plate limits              pitch   reach   wrist
-   *      0.16     as shipped 09-04           107     -34    -198
-   *      0.16     as below                   107      84      63
-   *      0.12     as below                    72      72      48
-   *      0.08     as below                    33      46     -80
-   *      0.08     carry -0.10, reach 0.55     33     218      95
-   *      0.04     as shipped 09-04            -4    -141    -200
-   *      0.00     as shipped 09-04           -40    -191    -199
-   *      0.00     carry 0, lift -0.30, 0.55  -40     220     149
+   * ## The box this was measured against was the wrong box, and the first fix shipped a clip
    *
-   * **A centred board cannot be made to clear rung 1 at this board width**, at any narrowing:
-   * rung 1 has no axis to narrow, so the last row is -40 mm however much envelope is given up.
-   * The two levers that would buy it are a narrower board and a wider socket separation -- the
-   * arithmetic is `width / 2 <= socketSide - BENCH_STAND.width / 2`, so 0.24 m is where a centred
-   * board stops overlapping the block before anything rotates -- and both are the owner's call
-   * rather than a measurement's. 0.12 is the most of the complaint that can be paid for out of
-   * clearance alone: the limb now passes through the board rather than holding its edge, with
-   * 72 mm in hand on the chain that binds.
+   * **`BENCH_STAND` is 0.44 m wide and a plain torso is 0.62 m wide, both with a socket at 0.34.**
+   * So the bench block clears the shoulder by 0.12 m and the real chest clears it by **0.03 m**,
+   * and a sweep comfortably clear of the block can be inside the body. The block is *taller* than
+   * the torso, so it is conservative below the socket and optimistic beside it -- exactly the
+   * direction that hides a board resting against a chest. Nothing had ever measured the real one:
+   * the 0.16 this was built at happened to be clear of both, and the 0.12 first shipped on
+   * 2026-09-05 was not. Deepest approach in mm over the whole envelope, positive is clearance,
+   * at the limits below:
+   *
+   *     offset  width   chain   bench   plain torso   plated torso
+   *      0.16    0.32   pitch     107        19            18
+   *      0.16    0.32   reach      84       113           104
+   *      0.16    0.32   wrist      63        71            61
+   *      0.14    0.32   pitch      89         1             0
+   *      0.14    0.32   wrist      58        17             7
+   *      0.12    0.32   pitch      72       -13           -17
+   *      0.12    0.32   wrist      48         2            -8
+   *      0.12    0.28   pitch      92         3             3
+   *      0.12    0.28   reach      82       101            81
+   *      0.12    0.28   wrist      48        33            23
+   *      0.12    0.24   wrist      51        42            32
+   *      0.08    0.28   wrist     -77       -65           -77
+   *      0.00    0.32   wrist       2       -29           -40   (sockets moved out to 0.46)
+   *
+   * **Every row of that sweep held the board's mass at the 19.0 kg it had while it was 0.32 wide**,
+   * because the sweep was looking for a width and mass is not a width. Shipping it meant `mass`
+   * following the volume down to 16.6, and a lighter board sags less on a chain that is holding it
+   * out at arm's length, so the shipped configuration re-reads better than its own row above:
+   *
+   *     offset  width  mass   chain   bench   plain torso   plated torso
+   *      0.12    0.28  16.6   pitch      91         5             1
+   *      0.12    0.28  16.6   reach      80       110           100
+   *      0.12    0.28  16.6   wrist      41        72            52
+   *
+   * `defaultGolemSetup` hangs the plate on the **wrist** chain, so the in-game shield is that
+   * chain's row: at 0.12 x 0.32 it cleared a plain chest by 2 mm and was 8 mm *inside* a plated
+   * one, and at 0.12 x 0.28 x 16.6 kg it has 72 and 52 mm in hand -- while keeping a limb that
+   * passes through the board rather than holding its edge, which was the complaint this offset is
+   * here to answer. `tests/golem-bench.test.mjs` measures all three boxes now, so the block can no
+   * longer say clear while the body is not.
+   *
+   * The margin that binds is **rung 1 against a plated chest, at 1 mm**. It is a real margin
+   * rather than a rounding, and no build hangs a plate on rung 1, but it is the number any future
+   * change to this terminal, `CHAIN_PITCH` or `TORSO_PLATED` should expect to break first.
+   *
+   * **A centred board is not reachable on this body**, and that is measured rather than argued.
+   * A rolling wrist sweeps the board through a disc about the limb, so a centred 0.32 m board
+   * needs 0.16 m of shoulder outboard of the chest and the sockets give it 0.03. Moving them to
+   * 0.46 still reads -29 mm, because `carryMin` lets the arm swing 0.15 m inboard of its own
+   * socket and carries the board back in. A centred shield therefore needs the sockets moved *and*
+   * the swing envelope narrowed -- two changes to the golem's silhouette and its reach, which are
+   * the owner's calls and not a measurement's.
    *
    * **And on a wrist chain it is not a guard at all**, which is worth stating because the first
    * draft treated it as one: the offset runs along the *link's* lateral, and the roll turns that
@@ -1185,16 +1228,19 @@ export const TERMINAL_PLATE = {
   /**
    * Mass, kilograms.
    *
-   * Arithmetic, like every other mass in this file: 0.32 x 0.42 x 0.080 is 0.010752 m3 and stone
-   * at 2600 kg/m3 makes that 28.0 kg, less about a third for the chamfer the shell draws, which
-   * is 19. It is deliberately **not** brought down to something an arm would find easy: a golem's
+   * Arithmetic, like every other mass in this file: 0.28 x 0.42 x 0.080 is 0.009408 m3 and stone
+   * at 2600 kg/m3 makes that 24.5 kg, less the same 32 % for the chamfer the shell draws, which is
+   * 16.6. It was 19.0 while the board was 0.32 wide, and it moves with the width rather than being
+   * left behind -- a mass held still while its own volume changes is a density nobody chose.
+   *
+   * It is deliberately **not** brought down to something an arm would find easy: a golem's
    * shield is a slab, weight comes from a finite force budget against real mass (frozen rule 4),
-   * and what a 19 kg board does to a chain tuned against a 1.30 kg blade is a measurement for the
-   * bench rather than a number to pre-empt. The static load it adds at the hand is 186 N against
-   * an anchor ceiling of 3900, so it is held; what it costs is acceleration, which is the point.
-   * 2026-09-04.
+   * and what a 16.6 kg board does to a chain tuned against a 1.30 kg blade is a measurement for
+   * the bench rather than a number to pre-empt. The static load it adds at the hand is 163 N
+   * against an anchor ceiling of 3900, so it is held; what it costs is acceleration, which is the
+   * point. 2026-09-04, re-derived 2026-09-05.
    */
-  mass: 19.0,
+  mass: 16.6,
   /**
    * Health and vitality weight.
    *

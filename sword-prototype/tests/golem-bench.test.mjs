@@ -27,7 +27,7 @@ import { capsulePart } from "../src/rig.ts";
 import { AnchorDrive, slewTowards } from "../src/golem/anchor-drive.ts";
 import {
   ANCHOR_DRIVE, BENCH_READOUT, BENCH_STAND, CHAIN_PITCH, CHAIN_REACH, CHAIN_WRIST,
-  TERMINAL_MACE, TERMINAL_PLATE, TERMINAL_WHIP,
+  TERMINAL_MACE, TERMINAL_PLATE, TERMINAL_WHIP, TORSO_PLAIN, TORSO_PLATED,
 } from "../src/golem/config.ts";
 import { BenchReadout, blankSample } from "../src/golem/readout.ts";
 import {
@@ -1364,7 +1364,7 @@ test("every terminal on every chain runs its own scripted sequence touching noth
   }
 });
 
-test("a plate keeps clear of its own stand everywhere in its own envelope", async () => {
+test("a plate keeps clear of its own stand and of a real torso in its own envelope", async () => {
   // **Frozen rule 5 has no self-collision pair for the plate, so this is what stands in for
   // one.** The held shield collided with its owner's trunk because a redundant seven-axis arm
   // could be commanded into it; a low-axis chain with a published envelope cannot, and the
@@ -1374,11 +1374,46 @@ test("a plate keeps clear of its own stand everywhere in its own envelope", asyn
   //
   // Corners from `mesh.position` and `mesh.rotationQuaternion` and nothing else, which is the
   // same rule everything else here reads a world transform by.
+  //
+  // **The stand is not the body, and measuring only the stand is how a clip shipped.** This test
+  // checked `BENCH_STAND` alone until 2026-09-05: 0.44 m wide, socket at 0.34, so the shoulder
+  // stands 0.12 m clear of the block's own face. A plain torso is 0.62 m wide with the *same*
+  // 0.34 socket, which leaves 0.03 m -- the bench block is 90 mm narrower on each side and is not
+  // a conservative stand-in laterally, however conservative it is below the socket, where it is
+  // the taller box. A `TERMINAL_PLATE.outboardOffset` of 0.12 read 48 mm clear of the block on the
+  // wrist chain, which is the chain `defaultGolemSetup` actually hangs the shield on, and 2 mm
+  // clear of a plain chest and 8 mm *inside* a plated one. The board was narrowed to 0.28 to buy
+  // that back; this test is here so the next such change cannot be graded against the wrong box.
+  //
+  // So all three boxes, every chain, one sign each.
   const S = BENCH_STAND;
   const P = TERMINAL_PLATE;
-  const halfStand = new Vector3(S.width / 2, S.height / 2, S.depth / 2);
-  const standCentre = new Vector3(0, S.centreHeight, 0);
   const half = new Vector3(P.height / 2, P.thickness / 2, P.width / 2);
+
+  // The bench block sits where `buildGolemStand` puts it. The torsos are placed *relative to the
+  // socket the stand built*, which is the honest way round: a golem's shoulder is wherever its
+  // trunk's `socketSide`/`socketHeight`/`socketFront` put it, so inverting those from the socket
+  // this module is actually hanging from lands the chest exactly where it would be in a game.
+  const boxesFor = (socketWorld) => {
+    const sign = Math.sign(socketWorld.x) || 1;
+    const boxes = [{
+      name: "bench stand",
+      centre: new Vector3(0, S.centreHeight, 0),
+      half: new Vector3(S.width / 2, S.height / 2, S.depth / 2),
+    }];
+    for (const [name, T] of [["plain torso", TORSO_PLAIN], ["plated torso", TORSO_PLATED]]) {
+      boxes.push({
+        name,
+        centre: new Vector3(
+          socketWorld.x - sign * T.socketSide,
+          socketWorld.y - T.socketHeight,
+          socketWorld.z - T.socketFront,
+        ),
+        half: new Vector3(T.coreWidth / 2, T.coreHeight / 2, T.coreDepth / 2),
+      });
+    }
+    return boxes;
+  };
 
   // All three rungs, where this used to check two. Rung 1 was the omission that mattered: it has
   // no swing and no reach, so `TERMINAL_PLATE.outboardOffset` is the only thing standing between
@@ -1388,9 +1423,11 @@ test("a plate keeps clear of its own stand everywhere in its own envelope", asyn
     const rig = await onStand(id);
     try {
       const board = rig.module.parts.find((part) => part.id.endsWith(".plate")).part;
+      const boxes = boxesFor(rig.socket.world);
+      const deepest = boxes.map(() => -Infinity);
+      const worst = boxes.map(() => null);
       const corner = new Vector3();
-      let deepest = -Infinity;
-      let worst = null;
+      const at = new Vector3();
       const sample = () => {
         for (const sx of [-1, 0, 1]) {
           for (const sy of [-1, 1]) {
@@ -1399,15 +1436,18 @@ test("a plate keeps clear of its own stand everywhere in its own envelope", asyn
               corner.rotateByQuaternionToRef(
                 board.mesh.rotationQuaternion ?? Quaternion.Identity(), corner,
               );
-              corner.addInPlace(board.mesh.position).subtractInPlace(standCentre);
-              const inside = Math.min(
-                halfStand.x - Math.abs(corner.x),
-                halfStand.y - Math.abs(corner.y),
-                halfStand.z - Math.abs(corner.z),
-              );
-              if (inside > deepest) {
-                deepest = inside;
-                worst = [...rig.module.view().axes.map((axis) => axis.commanded.toFixed(2))];
+              corner.addInPlace(board.mesh.position);
+              for (let b = 0; b < boxes.length; b += 1) {
+                corner.subtractToRef(boxes[b].centre, at);
+                const inside = Math.min(
+                  boxes[b].half.x - Math.abs(at.x),
+                  boxes[b].half.y - Math.abs(at.y),
+                  boxes[b].half.z - Math.abs(at.z),
+                );
+                if (inside > deepest[b]) {
+                  deepest[b] = inside;
+                  worst[b] = [...rig.module.view().axes.map((axis) => axis.commanded.toFixed(2))];
+                }
               }
             }
           }
@@ -1440,15 +1480,33 @@ test("a plate keeps clear of its own stand everywhere in its own envelope", asyn
         }
       }
       rig.scene.onBeforePhysicsObservable.remove(watch);
-      // Measured in the Node bench, 2026-09-05, over the widened sweep above: **72 mm** clear on
-      // the pitch chain, **72 mm** on the reach chain and **48 mm** on the wrist chain. Watched go
-      // red four ways -- against `TERMINAL_PLATE.limits` with any one of its three new floors
-      // taken out (-8, 0 and -85 mm respectively), and against an `outboardOffset` of 0.08
-      // (-80 mm). Provisional as figures and to be re-taken after the owner's gate; what is not
-      // provisional is the sign, which is the thing the frozen rule is about.
-      assert.ok(deepest < 0,
-        `${id}: a plate corner reached ${(deepest * 1000).toFixed(1)} mm inside the stand at`
-        + ` command ${worst}; the envelope is wrong, and it is fixed in the chain`);
+      // Measured in the Node bench, 2026-09-05, over the widened sweep above, in mm of clearance
+      // at the deepest approach of the whole envelope:
+      //
+      //     chain   bench stand   plain torso   plated torso
+      //     pitch        91             5              1
+      //     reach        80           110            100
+      //     wrist        41            72             52
+      //
+      // **The margin that binds is rung 1 against a plated chest: 1 mm.** It is a real margin and
+      // not a rounding, but it is thin enough that any change to `TERMINAL_PLATE`, `CHAIN_PITCH`
+      // or `TORSO_PLATED` should expect to be the thing that breaks this. Two things take the edge
+      // off it: no build in the game hangs a plate on rung 1 -- `defaultGolemSetup` picks the
+      // wrist chain for both hands -- and rung 1 has one hinge and no swing, so it is also the one
+      // chain where the *only* lever is the board's own geometry. The in-game row is the wrist's,
+      // and it has 41 mm in hand on the block and 52 on the worst torso.
+      //
+      // Watched go red four ways at the width this was tuned at -- against `TERMINAL_PLATE.limits`
+      // with any one of its three floors taken out (-8, 0 and -85 mm on the block), and against an
+      // `outboardOffset` of 0.08 (-80 mm) -- and, on the torsos, by the shipped 0.12 x 0.32 that
+      // this test could not see. Provisional as figures and to be re-taken after the owner's gate;
+      // what is not provisional is the sign, which is the thing the frozen rule is about.
+      for (let b = 0; b < boxes.length; b += 1) {
+        assert.ok(deepest[b] < 0,
+          `${id}: a plate corner reached ${(deepest[b] * 1000).toFixed(1)} mm inside the`
+          + ` ${boxes[b].name} at command ${worst[b]}; the envelope is wrong, and it is fixed in`
+          + ` the chain`);
+      }
     } finally {
       rig.dispose();
     }

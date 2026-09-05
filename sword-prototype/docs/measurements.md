@@ -10802,8 +10802,13 @@ so every intermediate pose is in the envelope too.
 
 ### Finding 1, the half-shield: paid for as far as clearance allows
 
+> **Everything in this sub-section down to "Finding 3" was measured against the wrong box, and
+> the 0.12 it concludes with shipped a clip into the golem's own chest.** It is kept as written
+> because the correction below is only legible against it. Read
+> [the correction](#finding-1-again-the-bench-block-is-not-the-body) before using any number here.
+
 `TERMINAL_PLATE.outboardOffset` went 0.16 → 0.12 m. It cannot go to 0. Deepest approach over the
-whole envelope, in mm, positive is clearance:
+whole envelope **against `BENCH_STAND`**, in mm, positive is clearance:
 
 | offset | plate limits | pitch | reach | wrist |
 |---:|:---|---:|---:|---:|
@@ -10822,7 +10827,8 @@ and a 0.32 m board centred on the limb reaches 0.16 m inboard of it — 40 mm in
 anything rotates. The two levers that would buy a centred board are a **narrower board** and a
 **wider socket separation** (`width / 2 <= socketSide - BENCH_STAND.width / 2`, so 0.24 m of board),
 and both are the owner's call rather than a measurement's. 0.12 is the most of the complaint that
-clearance alone can pay: the limb passes through the board rather than holding its edge.
+clearance alone can pay: the limb passes through the board rather than holding its edge. (The
+narrowing turned out to be the lever that was taken, five hours later — see below.)
 
 Three narrowings on the plate's own envelope bought the other half — `reachMin` 0.45, `liftMin`
 −0.30, `carryMin` −0.15 — and all three are needed:
@@ -10840,6 +10846,79 @@ change bought. That sweep crossed the envelope with `guard`, which set a short r
 wrist *together*; long-and-bent was not a pose the surface could express, so it was never swept,
 and it is 188 mm inside the block. `reach` and `wristBend` are separate continuous channels now and
 `tests/golem-bench.test.mjs` sweeps them separately.
+
+### Finding 1 again: the bench block is not the body
+
+The owner read the section above and asked two questions — *"are you saying that we have no control
+over the shape of the shield?"* and *"why would it pass through the chest when the arm is drawn in
+and low? does it not have collision detection turned on? why would it pass through itself?"* — and
+both were right in a way the section above was not.
+
+The second one first, because it is the defect. **A golem's own parts never collide** (frozen rule
+5, `golemLayersFor` in `src/physics.ts`), so nothing in the solver can ever report a board resting
+in a chest; the geometry test is the whole of the check. And that test measured the board against
+**`BENCH_STAND`**, which is 0.44 m wide, while a plain torso is **0.62 m wide with the same 0.34 m
+socket**. The block clears the shoulder by 0.12 m, the real chest by 0.03. The bench block is
+90 mm narrower on each side and is *not* a conservative stand-in laterally, however conservative it
+is below the socket, where it is the taller box. The 0.16 this terminal was built at happened to be
+clear of both. The 0.12 committed in `859f695` was not:
+
+| offset | width | chain | bench stand | plain torso | plated torso |
+|---:|---:|:---|---:|---:|---:|
+| 0.16 | 0.32 | pitch | 107 | 19 | 18 |
+| 0.16 | 0.32 | reach | 84 | 113 | 104 |
+| 0.16 | 0.32 | wrist | 63 | 71 | 61 |
+| 0.14 | 0.32 | pitch | 89 | 1 | 0 |
+| 0.14 | 0.32 | wrist | 58 | 17 | 7 |
+| 0.12 | 0.32 | pitch | 72 | **−13** | **−17** |
+| 0.12 | 0.32 | wrist | 48 | **2** | **−8** |
+| 0.12 | 0.28 | pitch | 92 | 3 | 3 |
+| 0.12 | 0.28 | reach | 82 | 101 | 81 |
+| 0.12 | 0.28 | wrist | 48 | 33 | 23 |
+| 0.12 | 0.24 | wrist | 51 | 42 | 32 |
+| 0.08 | 0.28 | wrist | −77 | −65 | −77 |
+| 0.00 | 0.32 | wrist | 2 | −29 | −40 |
+
+`defaultGolemSetup` hangs both plates on the **wrist** chain, so the in-game shield is that chain's
+row: as committed it cleared a plain chest by 2 mm and sat 8 mm inside a plated one. Rung 1 was
+−13 and −17, and rung 1 is not in any build, but it is in the bench page and it is what the
+clearance argument above was written around.
+
+Now the first question, which the section above answered too confidently. **The board's shape is
+entirely ours to choose** — it is three numbers in `TERMINAL_PLATE` — and the claim that a centred
+board is "geometrically impossible at any narrowing" was true only of the *stand*, where rung 1's
+board reaches 40 mm inside a block it can never rotate away from. Against the body the arithmetic
+is different and worse, and it is a different argument: a rolling wrist sweeps the board through a
+disc about the limb, so a centred 0.32 m board needs 0.16 m of shoulder outboard of the chest and
+the sockets give it 0.03. Moving the sockets out to 0.46 m still reads −29 mm on the wrist chain,
+because `carryMin` lets the arm swing 0.15 m inboard of its own socket and carries the board back
+in with it. So a centred shield needs the sockets moved **and** the swing envelope narrowed — two
+changes to the golem's silhouette and its reach, which are the owner's calls and not a
+measurement's. That is a much smaller claim than the one made above, and it is the true one.
+
+The owner chose **0.12 offset and 0.28 width**. The mass follows the volume rather than being left
+behind — 0.28 × 0.42 × 0.080 m³ of stone at 2600 kg/m³, less the same 32 % for the shell's chamfer,
+is 16.6 kg against the old 19.0 — and a lighter board sags less on a chain holding it out at arm's
+length, which is worth more than the sweep row above predicted:
+
+| chain | bench stand | plain torso | plated torso |
+|:---|---:|---:|---:|
+| pitch | 91 | **5** | **1** |
+| reach | 80 | 110 | 100 |
+| **wrist** (the in-game one) | **41** | **72** | **52** |
+
+The margin that binds is rung 1 against a plated chest, at 1 mm. It is a real margin and not a
+rounding, no build hangs a plate on rung 1, and rung 1 is the one chain whose only lever is the
+board's own geometry — but it is the number the next change to this terminal will break first.
+
+**What actually stops this recurring is that the test now measures all three boxes.**
+`tests/golem-bench.test.mjs` builds the two torsos from the socket the stand hands it — inverting
+`socketSide`/`socketHeight`/`socketFront` puts the chest exactly where a game would — and asserts
+the sign for every chain against every box. Watched go red by re-applying the shipped 0.32 × 19.0 kg
+board: −13.4 mm inside a plain torso on rung 1, which is the row above to the tenth of a
+millimetre. The contract in `src/physics.ts` says that if the bench ever shows a plate through its
+own torso on a legal command, the envelope is wrong and the chain is where it is fixed. It could
+not have shown it. It can now.
 
 ### Finding 3, the gait: it was worse than "doesn't look right"
 
@@ -10952,9 +11031,14 @@ after the third stale table:
 - **Tests 2 to 5 of the playtest protocol have not been run**, and neither has a second look at
   test 1. Every number above is a proxy, and this plan set exists because proxies have gone green
   three times while the screen stayed wrong.
-- **The shield is centred as far as clearance allows and no further.** Whether 0.12 m reads as
-  symmetrical to the owner's eye is unanswered; if it does not, the next move is a narrower board or
-  a wider socket separation, and both change how the golem is built.
+- **The shield is centred as far as clearance allows and no further.** The offset is 0.12 m on a
+  board narrowed to 0.28 x 0.42 at 16.6 kg, which is the narrowing half of the two levers; whether
+  it reads as symmetrical to the owner's eye is unanswered. If it does not, what is left is a
+  **wider socket separation together with a narrower swing envelope** — the sockets alone do not
+  do it, measured — and both change how the golem is built and how far it can reach across itself.
+- **Rung 1 clears a plated chest by 1 mm.** No build hangs a plate there, and rung 1 has no axis to
+  give up, so this is a standing thin margin rather than a thing to fix; it is recorded so the next
+  change to the plate or the plated torso knows what it is about to break.
 - **Golem versus golem still does not end.** Nothing here was tuned to make it end.
 - **"The default build against one changed slot" was not re-taken.** `npm run measure --only golem`
   reached the first of its ten variations — `locomotion.wheel`, 0/40 both ways, drawn 40 of 40,
