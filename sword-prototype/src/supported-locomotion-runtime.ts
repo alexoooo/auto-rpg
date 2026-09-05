@@ -19,7 +19,7 @@ export interface HorizontalMove extends HorizontalPoint { readonly yaw: number }
 
 export interface FootprintProvenance {
   readonly profileId: string;
-  readonly source: "fighter-bind-geometry" | "construct-bind-geometry";
+  readonly source: "fighter-bind-geometry" | "construct-bind-geometry" | "golem-bind-geometry";
   readonly measuredAt: string;
 }
 
@@ -44,7 +44,11 @@ export function deriveLocomotionFootprint(input: Readonly<{
 }>): LocomotionFootprint {
   const provenance = input.provenance;
   if (!provenance.profileId || !provenance.measuredAt ||
-      !["fighter-bind-geometry", "construct-bind-geometry"].includes(provenance.source)) {
+      // `golem-bind-geometry` added 2026-09-04 by golem session 05: a golem's footprint is
+      // measured from its own bind pose exactly as the other two are, and labelling it as a
+      // construct's would be a provenance that names a body plan this tree no longer has.
+      !["fighter-bind-geometry", "construct-bind-geometry", "golem-bind-geometry"]
+        .includes(provenance.source)) {
     throw new Error("locomotion footprint requires bind-geometry profile provenance");
   }
   return Object.freeze({

@@ -6,6 +6,7 @@ import type { Striking } from "../combat.ts";
 import type { HandIntent, HandName } from "../mind.ts";
 import type { Side } from "../physics.ts";
 import type { Part } from "../rig.ts";
+import type { StandableWorldRegistry } from "../supported-locomotion-runtime.ts";
 import type { GolemMaterialPalette } from "./materials.ts";
 
 /**
@@ -269,6 +270,17 @@ export interface ModuleBuild {
   readonly socket: GolemSocket;
   readonly layers: GolemLayers;
   readonly materials: GolemMaterialPalette;
+  /**
+   * The world-query registry a locomotion module navigates against. Appended by Session 05.
+   *
+   * Optional because only one slot of the five has any use for one: navigation is what the
+   * locomotion module does and no effector, torso or head asks the world where it may stand. It
+   * is on `ModuleBuild` rather than on the locomotion contract because a *pair* of golems must
+   * share exactly one registry -- `resolvePhysicalSupportedPair` throws if the two ports disagree
+   * about which -- so the thing that builds both has to be able to hand the same one to each. A
+   * module given none builds `flatSupportedWorldRegistry()` and owns it.
+   */
+  readonly world?: StandableWorldRegistry;
 }
 
 export interface BuiltModule<Command> {

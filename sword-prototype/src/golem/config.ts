@@ -1216,3 +1216,568 @@ export const CHAIN_WRIST = {
   linearDamping: 0.7,
   angularDamping: 3,
 };
+
+/**
+ * The bench stand when a **locomotion** module is on it, appended by Session 05.
+ *
+ * `BENCH_STAND` above is a fixed anchor: an `ANIMATED`, massless slab that a limb hangs from and
+ * pushes against. A locomotion module inverts that relationship -- it is the base and the slab is
+ * its load -- so the block it carries has to be a real `DYNAMIC` mass with a real weight on a soft
+ * waist, or the bench would be asking a pair of legs to move nothing. The session plan freezes it
+ * in one sentence: "the stand becomes a real torso block on top of the module under test."
+ *
+ * Everything else about the stand is unchanged, including the effector socket offsets: the block
+ * is the same slab, put somewhere else and let go of.
+ */
+export const BENCH_STAND_LOCOMOTION = {
+  /**
+   * Where the ride block's own bottom face -- which is the locomotion socket -- sits above the
+   * floor, metres.
+   *
+   * **This is the bench fixture's number and a locomotion module has to reach the floor from
+   * it.** It is the same contract `BENCH_STAND.socketHeight` states for an effector: the stand
+   * decides where the socket is, and a module builds itself from there. A biped whose segments
+   * summed to something else would be built with its soles buried in the slab or hanging above
+   * it, and `tests/golem-locomotion.test.mjs` measures the built sole against the floor rather
+   * than trusting the two blocks to agree.
+   *
+   * 1.02 is `LOCOMOTION_BIPED`'s own segment sum -- foot 0.12 + shin 0.32 + thigh 0.40 +
+   * pelvis 0.18 above the hip -- and was chosen there against a Warrior's 0.86 m of leg, because
+   * a golem is bigger than a person and its legs still have to look like legs. It puts the
+   * effector sockets at 1.02 + 0.39 + 0.39 = 1.80 m, against 1.42 m on the effector stand: the
+   * assembled golem is a head taller than the bench slab suggests, which is the first place that
+   * has actually been stated as a number. 2026-09-04.
+   */
+  socketHeight: 1.02,
+  /**
+   * The ride block's mass, kilograms.
+   *
+   * Arithmetic, at stone's 2600 kg/m3, like every other mass in this file: 0.44 x 0.78 x 0.40 is
+   * 0.137280 m3 and that is 356.9 kg. It is a large number beside 203.2 kg of biped, and it is
+   * the honest one -- a torso-sized block of stone weighs that. What it decides is the specific
+   * impulse a shove is worth (`LOCOMOTION_BIPED.shoveImpulseNs`), how hard the ragdoll lands, and
+   * nothing at all about how fast the golem walks, because the carrier is a bodyless record and
+   * the admitted root is `ANIMATED` while it is upright. 2026-09-04.
+   */
+  mass: 356.9,
+  /**
+   * The waist's motor ceiling, newton-metres, and its solver damping.
+   *
+   * The overview's design is a torso that "sits on the locomotion root through a soft motorised
+   * waist", and Session 07 builds the real one. This is the bench's stand-in and its job is only
+   * to keep 356.9 kg of slab upright over the pelvis while the legs work underneath, and to let
+   * it lurch when the golem is shoved.
+   *
+   * Swept in the Node bench over the whole scripted locomotion sequence, `--sweep waistTorque`,
+   * read as the peak lean of the block away from the pelvis while the golem is *upright* and the
+   * peak over the whole run, which includes the knockdown:
+   *
+   *     waistTorque   upright lean, rad   peak lean, rad   root up-dot at its worst
+   *          800            0.3593            0.3625                 -0.063
+   *         2000            0.3662            0.3662                 -0.090
+   *         5000            0.0379            0.3542                 -0.053
+   *        12000            0.0159            0.0159                 -0.037
+   *
+   * **The two columns are the whole argument and they pull opposite ways.** Below 5000 the slab
+   * lolls: 0.36 rad is 21 degrees of lean while the golem is doing nothing but walk, and the two
+   * columns being equal says the shove adds nothing a walk was not already doing. At 12000 they
+   * are equal again from the other end -- the waist is stiff enough that a knockdown no longer
+   * moves the slab on it at all. 5000 is the row where they separate: 2.2 degrees of walking
+   * lean, and 20 degrees when the golem is shoved, which is the lurch a person can see before the
+   * root is even released. 2026-09-04, the Node bench.
+   */
+  waistTorque: 5000,
+  waistDamping: 6,
+  /** How far the block may lean and twist on the waist, radians. A slab, not a hinge. */
+  waistLean: 0.35,
+  waistTwist: 0.25,
+};
+
+/**
+ * The biped: a pelvis carrier on two legs of thigh, shin and foot.
+ *
+ * **Read the frozen choice before any number here.** Continuous dynamic-root balance was tried at
+ * 240 Hz and both humanoid bodies lost foot evidence and fell inside the then-current grace *at
+ * rest*, so this module does not balance. `VirtualLocomotionCarrier` resolves where the golem is
+ * allowed to be, the pelvis is `ANIMATED` and follows it, and the legs prove support, sell the
+ * motion and take the hits. Every number below is therefore about one of three things: whether
+ * the legs *look* like they are carrying the body, whether they publish honest support evidence,
+ * or what a knockdown and a rise are worth. None of them is about balance, and no motor ceiling
+ * here is holding the golem up.
+ *
+ * **The carrier drags by design, so the gait has to sell it.** That is the session plan's own
+ * sentence and it is what the human gate is about. `meanFootSlipBudgetMps` below is the closest a
+ * number gets to it and it is not close: a foot that slides is certainly wrong, and a foot that
+ * does not slide is not thereby right.
+ */
+export const LOCOMOTION_BIPED = {
+  /**
+   * The pelvis: the admitted physical root, and the only fatal part in the module.
+   *
+   * A box rather than a capsule, because it is the thing the torso bolts onto and a socket frame
+   * on a rounded end is a socket whose position moves when the body rolls. 0.44 wide matches the
+   * slab it carries -- the ribs and the hips are the same width on this body -- 0.34 deep matches
+   * the slab, and 0.24 tall is what puts the hip pivots inside it with the socket 0.18 above them.
+   * Mass is arithmetic at stone's 2600 kg/m3: 0.44 x 0.24 x 0.34 = 0.035904 m3, 93.4 kg.
+   * 2026-09-04.
+   */
+  pelvisWidth: 0.44,
+  pelvisHeight: 0.24,
+  pelvisDepth: 0.34,
+  pelvisMass: 93.4,
+  pelvisHealth: 260,
+  pelvisVitalityWeight: 3,
+
+  /**
+   * Where a hip pivot is: above the floor, and out from the centreline. Metres.
+   *
+   * 0.84 is the sum of the segments below (foot 0.12 + shin 0.32 + thigh 0.40), so the leg is
+   * built straight and standing rather than pre-bent, and the socket lands at 0.84 + 0.18 = 1.02
+   * -- `BENCH_STAND_LOCOMOTION.socketHeight`. 0.19 out is a stance 0.38 m wide at the hips
+   * against a Warrior's 0.21; wider, because the body above it is 0.44 m across.
+   *
+   * **The pivots sit inside the pelvis box** (which spans 0.78 to 1.02), 0.06 below its bottom
+   * face at 0.90 -- no: the box spans 0.90 +- 0.12, so 0.84 is 0.06 inside its lower half, which
+   * is a hip in a pelvis rather than a leg pinned to a corner. 2026-09-04.
+   */
+  hipHeight: 0.84,
+  hipSide: 0.19,
+  /**
+   * How far below the pelvis's own centre the hip pivots sit, metres.
+   *
+   * 0.06 puts them inside the box's lower half rather than on its bottom face, which is a hip in
+   * a pelvis rather than a leg pinned to a corner, and it is the number that closes the socket
+   * arithmetic: the socket is `pelvisHeight/2 + hipInset + thigh + shin + foot` above the sole,
+   * which is 0.12 + 0.06 + 0.40 + 0.32 + 0.12 = 1.02. 2026-09-04.
+   */
+  hipInset: 0.06,
+
+  /**
+   * Thigh, shin and foot: the segments, and their masses at stone's 2600 kg/m3.
+   *
+   * 0.40 + 0.32 = 0.72 m of leg against a Warrior's 0.44 + 0.42 = 0.86, which is deliberately
+   * *shorter* on a taller body: the golem's mass is in its trunk, and a long thin leg under a
+   * 357 kg slab reads as a stilt. The radii taper 0.088 to 0.074 for the reason `CHAIN_REACH`
+   * gives -- a limb that does not taper is a pair of pipes -- and both are slender by the frozen
+   * rule beside the 0.44 m body they carry.
+   *
+   * Masses: the thigh is a 0.224 m cylinder plus a sphere (0.005450 + 0.002855 = 0.008305 m3,
+   * 21.6 kg); the shin a 0.172 m cylinder plus a sphere (0.002959 + 0.001697 = 0.004657 m3,
+   * 12.1 kg); the foot a solid slab 0.20 x 0.12 x 0.34 (0.008160 m3, 21.2 kg).
+   *
+   * **The foot is a slab and it is 0.34 m long**, which is 47 % of the leg -- much more than a
+   * person's 26 %. That is not a stylistic choice: the sole is the only thing that publishes
+   * support evidence, and the support query admits a hit whose x/z lies under the footprint only
+   * if its y is inside the 0.18 m step envelope, so a small foot spends more of each stride
+   * outside that envelope and the 0.35 s support grace starts doing work it was not meant to do.
+   * A wide flat foot is also what a stone golem's foot looks like. 2026-09-04.
+   */
+  thighLength: 0.40,
+  thighRadius: 0.088,
+  thighMass: 21.6,
+  thighHealth: 150,
+  thighVitalityWeight: 1.4,
+
+  shinLength: 0.32,
+  shinRadius: 0.074,
+  shinMass: 12.1,
+  shinHealth: 120,
+  shinVitalityWeight: 1.1,
+
+  footLength: 0.34,
+  footWidth: 0.20,
+  footHeight: 0.12,
+  footMass: 21.2,
+  footHealth: 110,
+  footVitalityWeight: 0.9,
+
+  /**
+   * How much grip a sole has, against the arena floor's own 0.9. **Swept.**
+   *
+   * The one number where the carrier's design shows through most sharply. The pelvis is dragged
+   * by a keyframe, so a planted foot is being pulled over the ground whatever the gait does; high
+   * friction makes it stick and the leg stretches against its own joints, low friction makes it
+   * skate.
+   *
+   * Swept in the Node bench over `WALK_SEQUENCE` -- eight seconds of flat ground and no course,
+   * because a gait number read through a leg jammed on a step is a reading of the step. "planted"
+   * counts the substeps of 1919 in which *some* sole was in contact at all:
+   *
+   *     friction   mean planted slip mm/s   planted substeps   peak joint lag rad
+   *       0.15            742.4                1919/1919             0.065
+   *       0.35            743.7                1919/1919             0.071
+   *       0.45            226.1                1919/1919             0.220
+   *       0.55            114.7                1919/1919             0.247
+   *       0.65            616.4                1649/1919             0.904
+   *       0.80            692.3                1235/1919             0.963
+   *
+   * **The curve has a floor and the two sides of it are different failures.** Below 0.45 the sole
+   * simply slides: the carrier drags the root at 1.2 m/s and the foot goes with it, which is the
+   * 742 mm/s. Above 0.55 the sole *sticks*, and because the root is keyframed rather than
+   * balanced, a stuck foot is levered off the floor by the hip's own swing -- which is what the
+   * planted column falling to 1235 of 1919 says, and it is the worse failure of the two, because
+   * the body is then off the ground for a third of the walk.
+   *
+   * 0.55 is the floor of both columns, and it is also the friction a stone foot on a stone floor
+   * should have; two independent arguments for one number is the only reason both are quoted.
+   * 2026-09-04, the Node bench.
+   */
+  footFriction: 0.55,
+
+  /**
+   * The joint ranges the *gait* commands, radians, and the stops that stand outside them.
+   *
+   * Sign convention is the Warrior's exactly (`legPose` in `src/fighter.ts`): the hip and knee
+   * angles are joint ANGULAR_X targets, they add along the chain, and the leg's vertical
+   * extension is `thigh cos(hip) + shin cos(hip + knee)`. The ankle holds the sole level, so its
+   * target is `-(hip + knee)`.
+   *
+   * **Every stop is checked against the pose the legs are *built* in, which is all three angles
+   * at zero.** Session 03 found a chain built in its own singularity and a joint stop that did
+   * not admit its own build pose, and Havok cleared that violation by throwing a blade tip at
+   * 9.95 m/s from a motionless stand. So `kneeJointMin` and `ankleJointMin` are negative and the
+   * hip's range spans zero: the legs are built straight and standing, and nothing is against a
+   * stop at t = 0.
+   *
+   * **`hipAbduct` is the splits limit and it is the number the session plan singles out.** A leg
+   * that can reach the splits looks broken the first time it is hit. At 0.20 rad a foot moves
+   * 0.72 sin(0.20) = 0.143 m sideways, so the widest stance the body can be knocked into is
+   * 2 x (0.19 + 0.143) = 0.67 m -- a braced stance. At 0.60 rad it would be 1.19 m, which is a
+   * golem doing the splits. `hipTwist` is narrower still for the same reason, a leg that can spin
+   * at the hip having no pose it should ever be in. 2026-09-04.
+   */
+  hipSwingMin: -1.10,
+  hipSwingMax: 0.50,
+  hipAbduct: 0.20,
+  hipTwist: 0.15,
+  hipJointMin: -1.30,
+  hipJointMax: 0.70,
+
+  kneeTargetMin: 0,
+  kneeTargetMax: 2.10,
+  kneeJointMin: -0.05,
+  kneeJointMax: 2.30,
+
+  ankleTargetMin: -0.95,
+  ankleTargetMax: 0.50,
+  ankleJointMin: -1.15,
+  ankleJointMax: 0.70,
+  /** How far an ankle may roll, radians. A foot that can turn over is a foot that catches. */
+  ankleRoll: 0.14,
+
+  /**
+   * The stride, as a function of how fast the carrier is going. **The gait rule, in three
+   * numbers.**
+   *
+   * Cadence is proportional to speed rather than fixed, so the feet keep pace with the ground
+   * instead of scuffing along it, and the swing amplitude fades with speed so that standing still
+   * straightens the legs on its own -- no idle pose, and no blend between the two to get wrong.
+   * That is `legPose`'s design and it is the precedent the session plan names; what is new here
+   * is that the speed the cadence reads is the **carrier's committed speed**, not the root's, so
+   * a golem stopped by a wall stops stepping rather than marching on the spot.
+   *
+   * `strideCadence` is in radians of stride phase per metre travelled, so one whole cycle covers
+   * `2 pi / cadence` metres and one step covers half of that. Chosen as arithmetic and then
+   * measured: a swing of `strideSwing` about a leg of 0.72 m moves a foot
+   * `2 x 0.72 x sin(0.50) = 0.690` m fore-and-aft, so a step of the same length wants
+   * `cadence = pi / 0.690 = 4.55`. Swept in the Node bench, read as the slip of a planted sole:
+   *
+   *     cadence   peak planted slip mm/s   mean slip mm/s   steps per second at 1.2 m/s
+   *        2.5           1104.6                 402.9                 0.95
+   *        3.5            737.2                 251.7                 1.34
+   *        4.4            531.6                 166.1                 1.68
+   *        5.5            604.3                 208.4                 2.10
+   *        7.0            812.9                 297.6                 2.67
+   *
+   * **The minimum is at the arithmetic**, which is the thing worth recording: the cadence that
+   * makes a foot stand still is the one whose step length equals the stride's own foot excursion,
+   * and both too slow and too fast are worse. 4.4 is taken.
+   *
+   * `strideSwing` is the hip amplitude at full speed. 0.50 rad is 29 degrees, against a Warrior's
+   * 0.62; smaller on a heavier body, and it is what the cadence above was solved against, so
+   * moving one moves the other. `kneeLiftScale` is how much the swing leg's knee folds as it
+   * comes through, as a multiple of the hip swing -- 1.4 lifts the sole about 0.13 m at full
+   * speed, which clears the ground and stays inside the 0.18 m step envelope the support query
+   * admits, so the swing foot's evidence goes stale for as little of the cycle as possible.
+   * 2026-09-04, the Node bench.
+   */
+  strideCadence: 4.4,
+  strideSwing: 0.50,
+  kneeLiftScale: 2.4,
+  kneeLiftPhase: 1.5,
+
+  /**
+   * How close a sole has to be to the ground before the instrument calls it planted, metres.
+   *
+   * **Deliberately much tighter than the support query's own envelope, and the difference is the
+   * point.** `LocomotionFootprint.stepHeightM` is 0.18 m and it is the tolerance on *support
+   * evidence*: a sole that high still publishes a standable contact, which is right, because the
+   * alternative is a body that loses its support the instant a foot leaves the floor. But a foot
+   * 0.18 m up is not bearing weight, and measuring "slip" over one is measuring the swing leg
+   * travelling forward at twice the body's speed -- which is what a walk is supposed to do. The
+   * first draft did exactly that and reported 1233 mm/s of mean "slip" against a carrier
+   * travelling at 1200, which is the shape of a reading that is about something else.
+   *
+   * 0.02 m is a sole in contact, allowing for the shallow penetration the solver leaves.
+   * 2026-09-04.
+   */
+  plantBandM: 0.02,
+
+  /**
+   * How fast a commanded joint angle may move, radians per second.
+   *
+   * The same ceiling `CHAIN_PITCH.targetRate` is and for the same measured reason: past the rate
+   * at which the command outruns the limb, what moves the limb stops being the command and
+   * becomes a motor closing a large error, and the motion stops being shaped by anything a person
+   * did.
+   *
+   * Swept in the Node bench over `WALK_SEQUENCE`:
+   *
+   *     rate rad/s   mean planted slip mm/s   planted   peak sole lift mm
+   *          2               423.1          1838/1919          87.8
+   *          4               683.1          1430/1919         185.1
+   *          6               114.7          1919/1919         209.3
+   *         10               117.0          1919/1919         209.2
+   *         20               117.0          1919/1919         209.2
+   *
+   * **10 and 20 are the same run to the digit**, which says the limiter has stopped binding on
+   * the gait at all: at 1.2 m/s the hip sweeps 1.0 rad in 0.6 s, which is 1.7 rad/s, and the
+   * knee's fold is the fastest thing here at about 5 rad/s. What this number actually decides is
+   * therefore the *crouch* and the step onto a new command after a knockdown, and 6.0 is the
+   * smallest value at which the walk is unaffected -- taken there rather than higher for the
+   * reason rung 1 gives, that a command which arrives instantly stops shaping the motion.
+   * 2026-09-04, the Node bench.
+   */
+  targetRate: 6.0,
+
+  /**
+   * The three motor ceilings, newton-metres. **Swept, and they are ceilings and not stiffnesses.**
+   *
+   * Weight comes from a finite force budget against real mass. What each one has to hold: a hip
+   * carries 54.9 kg of leg on a lever that reaches 0.60 m, which is 323 N.m held horizontal and
+   * 155 N.m at the stride's own 0.50 rad; a knee carries 33.3 kg at about 0.30 m, 98 N.m; an
+   * ankle carries 21.2 kg at 0.06 m, 12 N.m.
+   *
+   * Swept in the Node bench over `WALK_SEQUENCE`, each against the other two held at the values
+   * below. "lag" is the peak commanded-to-achieved joint error over all six driven angles while
+   * upright; "planted" counts the substeps of 1919 in which some sole was in contact:
+   *
+   *     hipTorque   mean planted slip mm/s   lag rad   planted     sole lift mm
+   *         300              347.3            1.140   1197/1919        215.0
+   *         600              681.4            0.990   1378/1919        212.4
+   *         800              376.2            0.816   1909/1919        209.5
+   *         900              114.7            0.247   1919/1919        209.3
+   *        1100              141.1            0.247   1919/1919        208.6
+   *        1600              173.1            0.957   1865/1919        208.7
+   *        3000              740.0            0.966   1863/1919        209.2
+   *
+   * 900 is taken. Below it the hip cannot carry 54.9 kg of leg through the swing and the body
+   * spends a third of the walk off the ground; above 1100 the readings get *worse* again, which
+   * is not what a stiffer joint is supposed to do and is the clearest evidence here that what
+   * shapes this gait is the rate-limited command rather than the motor -- the same finding rung 1
+   * recorded from the other side, that overshoot falls as torque rises.
+   *
+   *     kneeTorque   mean slip   lag rad   planted        ankleTorque   mean slip   lag rad
+   *         200        685.5      0.947   1259/1919             60         732.4     0.254
+   *         350        403.6      0.945   1778/1919            140         124.8     0.250
+   *         450        118.9      0.250   1919/1919            220         114.7     0.247
+   *         500        114.7      0.247   1919/1919            320         118.4     0.249
+   *         600        136.2      0.247   1919/1919            600         249.6     0.844
+   *         900        642.1      0.968   1437/1919           1200         128.0     0.256
+   *        1800        578.3      1.098   1400/1919
+   *
+   * 500 and 220 are the middles of their own flat regions rather than the edges of them, which is
+   * deliberate: the columns either side of each are within a few per cent, and a number chosen at
+   * the edge of a plateau is a number one solver change moves off it. Neither is a headroom
+   * argument -- raising either past its plateau makes the readings worse, and the house rule is
+   * that a ceiling raised without a measured table beside it is not raised. 2026-09-04, the Node
+   * bench.
+   */
+  hipTorque: 900,
+  kneeTorque: 500,
+  ankleTorque: 220,
+
+  /**
+   * What those three ceilings fall to while the body is fallen, as a fraction.
+   *
+   * **A ragdoll whose legs are still holding their pose is a stumble, not a knockdown.** Measured
+   * before this existed: a shove 51 times the golem's own fall threshold tipped the root to an
+   * up-dot of 0.816 and dropped the assembly 0.23 m, because the leg motors went on driving their
+   * gait targets at full torque under a released root and simply held it up. `CONFIG.body`'s
+   * `deadJointStrength` is 0.08 and makes exactly this argument for a corpse; this is that number
+   * for a knockdown, restored the moment the rise completes.
+   *
+   *     fallenTorqueScale   root up-dot at its worst   lowest the socket reached
+   *              1.00                +0.816                       0.791 m
+   *              0.30                +0.184                       0.489
+   *              0.08                -0.053                       0.367
+   *              0.00                +0.226                       0.484
+   *
+   * A negative up-dot is the root past horizontal, which is what a knockdown is; the socket
+   * starts at 1.020 m. **The 0.00 row is the finding and it is not what was expected**: with no
+   * tone at all the legs fold flat under the falling body and prop it at 0.484 m, while at 0.08
+   * they stay long enough to be fallen over and the assembly reaches 0.367 m. Zero is also a body
+   * that has been let go of, which is the same reason the stroke follow-throughs on the effector
+   * chains are not zero either. 0.08 is taken, and it is `CONFIG.body.deadJointStrength` exactly.
+   * 2026-09-04, the Node bench.
+   */
+  fallenTorqueScale: 0.08,
+
+  /** Solver damping on the leg joints' driven axes. A position motor is a spring, and a spring
+   *  with no damper rings -- the finding `CHAIN_WRIST.motorDamping` records, and the same
+   *  caveat: Babylon writes it through `if (l.damping)`, so what matters is set against unset.
+   *  6 is the middle of the range over which nothing changed there. 2026-09-04. */
+  motorDamping: 6,
+  /** `CONFIG.arm`'s pair, unchanged, for the reason every other block here copies them.
+   *  2026-09-04. */
+  linearDamping: 0.7,
+  angularDamping: 3,
+
+  /**
+   * Crouch: the carrier's height range, and how fast it moves between the ends of it.
+   *
+   * `crouchDepth` 0.16 m takes the socket from 1.02 to 0.86 m. It is solved through the same law
+   * of cosines the Warrior uses rather than animated as an offset, so the sole stays on the floor
+   * while the hip drops: at full crouch the hip-to-ankle distance is 0.56 m against a standing
+   * 0.72, which is a knee bent 1.369 rad and a hip carried 0.594 rad back. Deeper was refused
+   * rather than tuned -- at 0.24 m the ankle would need 0.97 rad to keep the sole flat and
+   * `ankleTargetMin` is 0.95, so the sole would start to tilt and the support evidence with it.
+   *
+   * `crouchResponse` is a first-order response in 1/s and `heightRate` is the ceiling on top of
+   * it, in m/s: the same two-in-series shape as `CHAIN_REACH.reachResponse` against `anchorRate`,
+   * and for the same reason -- a press wants a move that starts fast and eases in, and a ceiling
+   * is what stops the first control step being a snap. 8 and 0.9 put a full crouch at about
+   * 0.35 s, which is `src/input.ts`'s own `crouchSlewPerSecond` arriving at the same answer from
+   * the other end. 2026-09-04.
+   */
+  crouchDepth: 0.16,
+  crouchResponse: 8,
+  heightRate: 0.9,
+
+  /**
+   * The virtual carrier's own ceilings.
+   *
+   * `DEFAULT_SUPPORTED_CARRIER` is 1.6 m/s, 9 m/s2, 2.4 rad/s and 14 rad/s2, and it is a
+   * Warrior's. A golem is slower and turns worse, which is the whole of what makes it a different
+   * thing to drive: 1.2 m/s is 75 % of a Warrior's supported walk, and 4.0 m/s2 means it takes
+   * 0.30 s to reach it against a Warrior's 0.18. The yaw pair is scaled the same way.
+   *
+   * **These are the carrier's ceilings, not the legs'.** Nothing in the gait limits how fast the
+   * golem travels; the gait reads the speed the carrier committed to and lays a stride over it.
+   * Chosen by eye against the Warrior's numbers rather than swept, because what they decide is
+   * how the golem *handles*, which is the gate's question and not a bench's. 2026-09-04.
+   */
+  carrier: {
+    maxSpeedMps: 1.2,
+    maxAccelerationMps2: 4.0,
+    maxYawSpeedRadS: 1.6,
+    maxYawAccelerationRadS2: 6.0,
+  },
+
+  /**
+   * The navigation footprint: the disc the carrier reserves, and how tall the assembly is.
+   *
+   * 0.34 m is the golem's own plan silhouette rather than a guess: the pelvis is 0.44 x 0.34, so
+   * its half-diagonal is 0.278 m, and a foot's outer far corner sits at
+   * `(0.19 + 0.10, 0.17)` = 0.336 m from the centreline. The larger of the two, rounded up.
+   * `heightM` 1.80 is the top of the carried block (1.02 + 0.78), which is what a doorway
+   * clearance query would want. Both are measured from the bind geometry, which is what
+   * `deriveLocomotionFootprint` insists on: navigation geometry is never borrowed from combat
+   * perception. 2026-09-04.
+   */
+  footprintRadius: 0.34,
+  footprintHeight: 1.80,
+
+  /**
+   * The stability authority this module publishes, per boundary.
+   *
+   * `braceCapacityMultiplier` 1.5 is `SUPPORTED_LOCOMOTION_V1.BRACE_CAPACITY_MULTIPLIER` exactly:
+   * a golem is braced by construction -- it is a stone slab on two stone legs -- so it stands
+   * where a Warrior would need to be bracing deliberately. It multiplies both frozen thresholds,
+   * so a golem staggers at 0.009 m/s of specific impulse and falls at 0.021 rather than at 0.006
+   * and 0.014.
+   *
+   * `gaitStabilityScaleMin` is what that capacity falls to at full carrier speed, and it is the
+   * one live field in the authority: a body in mid-stride has one foot down and is easier to put
+   * over than one standing still, so the scale runs linearly from 1 at rest to 0.75 at 1.2 m/s.
+   * At full speed the fall threshold is therefore 0.0158 m/s rather than 0.021, which is a golem
+   * caught mid-step. The state machine multiplies the two and refuses a scale outside (0, 1], so
+   * it is clamped. 2026-09-04.
+   */
+  braceCapacityMultiplier: 1.5,
+  gaitStabilityScaleMin: 0.75,
+
+  /**
+   * The bench's knockdown: **an impulse, in newton-seconds, applied to the carried block.**
+   *
+   * A shove is an impulse and not a force, and no force may be applied from outside the solver.
+   * It does two things in the same control step and both are needed: `applyImpulse` on the block
+   * so the slab visibly lurches, and a `horizontal-shove` stability event queued into the port so
+   * the state machine sees the same transfer in its own mass-independent units. Inferring one
+   * from the other was refused -- "do not infer an event from a side effect that has a second
+   * cause" -- so the bench states the transfer once and spends it twice.
+   *
+   * 600 N.s against 560.1 kg of supported mass is a specific impulse of 1.071 m/s, which is 51
+   * times the golem's own braced fall threshold of 0.021: this is a knockdown and not a bracket.
+   * Bracketed in the Node bench over the whole scripted sequence, applied laterally to the block
+   * one second after the golem stops walking:
+   *
+   *     impulse N.s   specific m/s   what the state machine did   root up-dot   lowest socket
+   *          10          0.0179          stayed supported            +1.000        0.791 m
+   *          12          0.0214          fell, rose in 1.158 s       +0.518        0.620
+   *         200          0.3571          fell, rose in 1.158 s       +0.810        0.536
+   *         600          1.0712          fell, rose in 1.158 s       -0.053        0.367
+   *        1600          2.8566          fell, rose in 1.158 s       -0.134        0.365
+   *
+   * **The 10 and 12 rows are the frozen threshold itself, straddled to the newton-second.** The
+   * golem's braced fall boundary is `FALL_SPECIFIC_IMPULSE_MPS` 0.014 times a brace capacity of
+   * 1.5, which is 0.021 m/s, which against this body's real 560.1 kg is 11.76 N.s -- and 10 stays
+   * up while 12 goes down. That is the frozen constant landing exactly where it says it does on a
+   * body it was never measured against, and it is worth more than the setting.
+   *
+   * 600 is the bench key, chosen for the *drop* rather than for the threshold: 200 N.s is over
+   * the line but only tips the root to an up-dot of 0.81, which reads as a stumble, and 1600
+   * buys 2 mm more drop for two and a half times the impulse. 2026-09-04, the Node bench.
+   */
+  shoveImpulseNs: 600,
+
+  /**
+   * What a planted sole is allowed to slide, metres per second. **A budget, not a target.**
+   *
+   * The carrier drags by design: the pelvis is keyframed onto a resolved position and a foot on
+   * the floor is pulled along with it, so a slip of exactly zero is not available at any cadence.
+   * What this bounds is the part that is *not* the design -- a stride whose length has come loose
+   * from the speed it is laid over, which is the "legs moving while the body is dragged" failure
+   * the human gate asks about in as many words.
+   *
+   * **It is a budget on the mean and not on the peak, and that is a measurement decision.**
+   * Measured over `WALK_SEQUENCE` at the settings above: mean 114.7 mm/s against a carrier
+   * travelling at 1200, so a sole in contact holds about 90 % of the ground it is standing on.
+   * The *peak* over the same run is 3874.5 mm/s and it is not a defect: it is one instant of one
+   * stride at which the only sole inside the plant band is the swing foot passing through, and a
+   * maximum therefore reports the walk rather than the slip. `plantedSteps` is the reading that
+   * catches a golem with nothing on the ground, and over the same run it is 1919 of 1919.
+   *
+   * 0.30 m/s is the measured mean with a margin of about two and a half, and it is
+   * **provisional** in exactly the sense Sessions 02 and 03 marked their thresholds: a floor
+   * under a regression, not a claim that this looks like walking. Over the *whole* scripted
+   * sequence -- which strafes and turns with a fore-aft stride, and crouch-walks -- the same mean
+   * is 419.5 mm/s, and that is recorded rather than budgeted because a fore-aft stride under a
+   * sideways carrier is a known open thing rather than a regression. 2026-09-04, the Node bench.
+   */
+  meanFootSlipBudgetMps: 0.30,
+
+  /**
+   * How long a knockdown and the rise after it are allowed to take, seconds.
+   *
+   * Not free parameters: `SUPPORTED_LOCOMOTION_V1` fixes the fallen dwell at 0.35 s and the rise
+   * at 0.45 s, so the floor is 0.80 s from the fall to standing again and this budget is that
+   * plus the time the request takes to be believed. Measured over the scripted sequence, the
+   * whole knockdown-to-supported interval is **1.158 s** and it is the same figure at every shove
+   * from 12 N.s to 1600: the sequence holds the command still for 0.70 s after the shove so the
+   * fallen dwell can elapse, and the rise then takes the actuator's own 0.45 s. 1.60 s leaves
+   * room for a rise that is interrupted once and still completes. **Provisional**, same sense.
+   * 2026-09-04, the Node bench.
+   */
+  riseBudgetSeconds: 1.60,
+};

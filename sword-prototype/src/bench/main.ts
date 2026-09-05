@@ -32,10 +32,12 @@ import {
   type BenchModule,
   type GolemBenchOption,
 } from "../golem/registry.ts";
-import { buildGolemStand, golemLayers } from "../golem/stand.ts";
+import { buildLocomotionCourse, registerLocomotionCourse } from "../golem/locomotion/course.ts";
+import { buildGolemStand, golemLayers, type GolemStand } from "../golem/stand.ts";
 import { EFFECTOR_SLOTS, type GolemSlot } from "../golem/module.ts";
 import { Controls } from "../input.ts";
 import { attachPhysics } from "../physics.ts";
+import { flatSupportedWorldRegistry } from "../supported-locomotion-production.ts";
 import { BenchOverlay } from "./overlay.ts";
 
 // Side effect, and a load-bearing one: the HDR loader registers itself on import, exactly as
@@ -158,14 +160,32 @@ async function main(): Promise<void> {
   floor.material = surfaces.ground;
   floor.isPickable = false;
   floor.receiveShadows = true;
-  const stand = buildGolemStand(scene, {
-    side: "left", ground: Vector3.Zero(), facing: Quaternion.Identity(),
-  });
   const layers = golemLayers("left");
+
+  /**
+   * The world the carrier navigates against, and the course it navigates around.
+   *
+   * Built once and outliving every module rebuild, because a query registry is a fact about the
+   * room rather than about what is on the stand -- and because `StandableWorldRegistry.register`
+   * throws on a duplicate id, so re-registering the same course per rebuild would fail loudly on
+   * the second press of `R`. Handed to every module through `ModuleBuild.world`; an effector
+   * ignores it, which is why this is not a dispatch on what kind of module is up.
+   */
+  const world = flatSupportedWorldRegistry();
+  registerLocomotionCourse(world);
+  const course = buildLocomotionCourse(scene, surfaces.ground);
 
   // --- what is on the stand ---------------------------------------------------------------
   let slot: GolemSlot = "primary";
   let option: GolemBenchOption = GOLEM_MODULES[0];
+  /**
+   * **The stand is rebuilt with the module, because which slot is filled decides what it is.**
+   * For four of the five slots it is the fixed `ANIMATED` anchor Session 02 built; for locomotion
+   * it is a real `DYNAMIC` torso block that the module carries, which is what the session plan
+   * means by "the stand becomes a real torso block on top of the module under test". `stand.ts`
+   * owns that distinction and takes the slot; nothing here switches on a mode.
+   */
+  let stand: GolemStand | null = null;
   let module: BenchModule | null = null;
   let overlay: BenchOverlay | null = null;
   let rigWanted = false;
@@ -196,6 +216,8 @@ async function main(): Promise<void> {
     overlay = null;
     module?.dispose();
     module = null;
+    stand?.dispose();
+    stand = null;
   };
 
   const build = (): void => {
@@ -203,10 +225,13 @@ async function main(): Promise<void> {
     elapsed = 0;
     contacts = 0;
     selfContacts = 0;
+    stand = buildGolemStand(scene, {
+      side: "left", ground: Vector3.Zero(), facing: Quaternion.Identity(), slot,
+    });
     const socket = stand.socket(slot);
     module = option.build({
       scene, side: "left", name: `golem.bench.${slot}`, socket, layers,
-      materials: stand.materials,
+      materials: stand.materials, world,
     });
     readout = new BenchReadout({ settledBand: module.envelope().settledBand });
     overlay = new BenchOverlay(scene, socket, module.envelope());
@@ -322,12 +347,19 @@ async function main(): Promise<void> {
 
   // The number keys are the bench's own, because `Controls` has no opinion about them: its
   // default branch drops an unhandled code into the held set, so a digit is inert there.
-  const onDigit = (event: KeyboardEvent): void => {
+  const onBenchKey = (event: KeyboardEvent): void => {
+    // **A shove is an impulse, not a force**, and what it is worth is the module's own number
+    // with its own bracket beside it. The bench presses the button; it does not decide how hard.
+    // `B` is free in `Controls`, whose default branch drops an unhandled code into the held set.
+    if (event.code === "KeyB") {
+      module?.fixture?.shove?.();
+      return;
+    }
     if (!event.code.startsWith("Digit")) return;
     const wanted = Number(event.code.slice(5));
     if (Number.isInteger(wanted) && wanted >= 1 && wanted <= 9) pick(wanted);
   };
-  window.addEventListener("keydown", onDigit);
+  window.addEventListener("keydown", onBenchKey);
 
   // --- control on the physics clock --------------------------------------------------------
   // `onBeforePhysicsObservable`, not the render loop. The fixed-step accumulator takes several
@@ -370,9 +402,16 @@ async function main(): Promise<void> {
   // Framed on the middle of the working envelope rather than on the stand: the limb hangs from
   // 1.42 m and reaches 1.14 m out and down, so the thing being looked at is in front of and
   // below the block, not inside it.
+  //
+  // **Taken from the block each frame rather than fixed**, which is the same offset for an
+  // effector -- that block never moves -- and is what keeps a walking golem in shot. The block is
+  // the right thing to follow rather than the module's own root: it is where the torso is on
+  // every slot, and reading `mesh.position` costs nothing and stamps no render id.
+  const FOCUS_OFFSET = Object.freeze(new Vector3(0, 0.07, 0.35));
   const focus = new Vector3(0, 1.10, 0.35);
   const goal = new Vector3();
   const placeCamera = (dt: number, snap: boolean): void => {
+    if (stand) focus.copyFrom(stand.block.mesh.position).addInPlace(FOCUS_OFFSET);
     const gesture = controls.camera;
     // `orbitFraming` and the gesture state are `src/camera.ts`'s, so middle-drag orbit,
     // Shift+middle-drag pan and the wheel behave exactly as they do in the arena. The bench's
@@ -416,7 +455,8 @@ async function main(): Promise<void> {
         ...(view ? view.axes.map((axis) =>
           `${axis.id}: commanded ${axis.commanded.toFixed(4)}  achieved ${axis.achieved.toFixed(4)}`) : []),
         "",
-        ...formatReadout(state),
+        ...(view ? formatReadout(state) : []),
+        ...(module?.fixture ? module.fixture.lines() : []),
         "",
         controls.isActive ? "" : "PAUSED -- Space or Esc resumes",
       ].join("\n");
@@ -443,7 +483,8 @@ async function main(): Promise<void> {
    */
   Object.assign(window as unknown as Record<string, unknown>, {
     __golem: {
-      scene, camera, engine, stand, readout, controls,
+      scene, camera, engine, readout, controls, world, course,
+      get stand() { return stand; },
       get module() { return module; },
       get option() { return option; },
       step: (frames = 1) => {
@@ -467,11 +508,11 @@ async function main(): Promise<void> {
 
   window.addEventListener("resize", () => engine.resize());
   window.addEventListener("beforeunload", () => {
-    window.removeEventListener("keydown", onDigit);
+    window.removeEventListener("keydown", onBenchKey);
     controls.dispose();
     teardown();
+    course.dispose();
     room.dispose();
-    stand.dispose();
   });
 }
 
