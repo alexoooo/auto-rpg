@@ -10130,3 +10130,166 @@ multileg 2 m from the stand puts it on the page course's own 0.12 m step, where 
   the motor rather than by reversing it, so a sign error that happened to be self-consistent would
   not have been caught by that control alone — though the page's own `0.530 m / 1.261 rad` reading
   is an independent check of the sign in the right direction.
+
+## Session 09: the central mind
+
+**Nothing here is a verdict.** Session 09's human gate has not been asked, and the questions it asks
+— does it look like it is fighting, does it use what it has, does it stop doing things for no reason
+— are not answerable by any table below. Every threshold pinned from these runs is marked
+provisional in `tests/golem-mind.test.mjs` and none is described as a regression floor. The plan's
+own frozen choice says the dynamism measures become floors only after the owner says it looks like a
+fight; that has not happened, so they were not taken.
+
+**Harness: `npm run measure -- --only golem --bouts 8 --seed 20260904`**, which is a new section of
+the same bench every Warrior table above was taken on: `NullEngine`, real Havok, no rendering,
+`stepPair` on the physics observable at 240 Hz and the bout clock at 60. Two things about it belong
+in the header rather than in a footnote.
+
+**Every golem bout runs on the supported carrier and it is asked for by name.** `runBout` defaults
+`locomotionMode` to legacy because every Warrior figure in this document was taken there. A golem's
+locomotion *is* the physical V1 port, and `stepControlledPair` refuses a pair where only one side
+has one — so a golem cell that forgot the line does not produce a quietly wrong number, it throws
+before the first frame. The Warrior in the mixed cells is therefore on the supported carrier too,
+which is a different Warrior from the one in the `duelist vs swinger` tables and must not be put in
+a column with it.
+
+**The Havok module is shared across bouts here**, as it is for every distribution run on this bench,
+rather than fresh per bout. Session 08's arena cell was a scratch script that made a fresh one each
+time. That is one of at least two reasons the `idle` control below does not reproduce Session 08's
+figure to the digit, and the section named "The bout, against the Warrior duelist" should be read as
+a different cell rather than as the same cell at an earlier commit.
+
+### The mind against the Warrior duelist, with the control beside it in the same run
+
+Eight side-swapped bouts per cell, 60 s cap, seed 20260904, the Warrior carrying a sword. The `idle`
+row is the control and is run here rather than quoted, because a control taken on another day in
+another harness is not one.
+
+| golem's policy | golem wins | duelist wins | drawn at cap | bout length, s | golem damage/bout | duelist damage/bout | severs | golem's bar at the end | duelist's bar at the end |
+|:---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `idle` (control) | 0 / 8 | 0 / 8 | 8 / 8 | 60.02 | 0.0 | 59.8 | 0 | 0.920 | 1.000 |
+| `golem-duelist` | **8 / 8** | 0 / 8 | 0 / 8 | 30.92 (20.53–45.52) | 20.4 | 93.5 | **6** | 0.875 | 0.000 |
+
+**The golem wins every bout and the bouts finish.** Session 08 measured this pairing with the only
+policy the golem's registry row then admitted and got eight draws at the cap, and wrote that "a
+Warrior duelist cannot finish a golem" and that Session 09 "will change one half of it by giving the
+golem something to do back". Both halves moved: the golem finishes the Warrior in half the cap, and
+the Warrior still cannot finish the golem — 12.5 % of the bar in thirty-one seconds. That is three
+times the control's rate per second, not the same rate: a golem that closes is a golem the Warrior
+can reach, and the Warrior's damage went from 1.00 to 3.02 a second because of it.
+
+**Two things in that row are not the mind's doing and should not be read as its merit.** The
+golem's vitality total is 3.6 and the Warrior's is 1, which is the whole of why a body dealing 20.4
+damage a bout beats one dealing 93.5. And the six severs are the golem taking a Warrior's limbs off,
+which is a blade's damage table meeting a human's part health rather than a tactic — the golem
+itself lost nothing.
+
+**What is not in the table and matters more than what is:** nobody has watched it. An 8/8 win rate
+is exactly the shape of number that has turned green three times in this repository while the thing
+on the screen stayed wrong, which is the premise the whole plan set was written from.
+
+### The golem against itself
+
+Eight bouts, the default build on both sides, same cap and seed.
+
+| | wins | damage/bout | contacts/bout | severs | bar at the end | peak tip driven, m/s |
+|:---|---:|---:|---:|---:|---:|---:|
+| golem A | 0 / 8 | 142.6 | 444.6 | 0 | 0.797 | 22.62 (17.76–27.75) |
+| golem B | 0 / 8 | 142.1 | 438.4 | 0 | 0.799 | 21.15 (17.98–22.71) |
+
+Drawn 8/8 at the cap. **Two golems cannot finish each other either, and this is the first time
+anything has looked.** They land five times the contacts of the golem's Warrior cell and deal
+seven times the damage, and after sixty seconds both bars are still four-fifths full. Session 08's
+"effectively unkillable at these numbers" survives its own session and is now a statement about the
+body rather than about the Warrior's sword. The two sides agree to within 0.5 damage a bout and
+0.002 of a bar, which is the mirror cell doing its job: the arena's left-right asymmetry is not
+what any of the numbers above is measuring.
+
+Reported rather than tuned, for the third time in this plan set: raising a terminal's damage or
+lowering a golem's health until this cell finishes would be tuning a proxy before a person has
+looked.
+
+### The default build against one changed slot
+
+Eight side-swapped bouts per cell, both sides on `golem-duelist`, the default build
+(`locomotion.biped` / `torso.plain` / `head.plain`, `wrist`+`blade` primary, `wrist`+`plate`
+secondary) against itself with exactly one slot moved. Ten accepted variations; every candidate went
+through `golemSetupRefusal` rather than being trusted, and a two-socket terminal takes the secondary
+with it because that is the reducer's rule.
+
+| slot moved to | default damage/bout | variant damage/bout | default contacts | variant contacts | variant severs | variant bar |
+|:---|---:|---:|---:|---:|---:|---:|
+| `locomotion.wheel` | 93.3 | 125.0 | 368.1 | 372.1 | 0 | 0.842 |
+| `locomotion.multileg` | 98.4 | 79.0 | 379.0 | 352.9 | 0 | 0.871 |
+| `torso.plated` | 110.0 | 128.2 | 384.1 | 405.8 | 0 | 0.849 |
+| `head.ram` | 128.3 | **171.8** | 577.4 | 486.6 | **2** | 0.826 |
+| primary `none`+`none` | 72.5 | **13.7** | 573.0 | 126.5 | 0 | 0.869 |
+| primary `pitch`+`blade` | 62.4 | 11.6 | 341.9 | 457.9 | 0 | 0.900 |
+| primary `reach`+`blade` | 97.3 | 88.4 | 494.3 | 305.0 | 0 | 0.853 |
+| primary `wrist`+`plate` | 63.8 | **5.2** | 575.4 | 145.3 | 0 | 0.912 |
+| primary `wrist`+`mace` | 72.6 | 8.3 | 648.3 | 198.5 | 0 | 0.888 |
+| primary `wrist`+`whip` | 122.5 | 101.3 | 491.9 | 144.6 | 0 | 0.824 |
+
+**Every one of the ten drew 8/8 at the cap**, which is the golem-against-golem result again and the
+reason no win column is printed here: the sweep separates builds by what they do, not by what they
+win, because at these numbers nothing wins.
+
+**The mind reads capabilities and the table shows it doing so.** A golem whose primary socket is
+capped (`none`+`none`) still fights — 13.7 damage a bout and 126.5 contacts, from its secondary and
+its head — rather than standing still. That is what
+`a_golem_with_capped_sockets_closes_and_fights_with_its_head` asserts over four seconds, measured
+here over a full bout instead. Two shields
+(`wrist`+`plate` in both sockets) is the floor at 5.2, and a mace at 8.3 is barely above it, which is
+Session 04's pinned swing arriving in a bout: a mace cannot turn its own weapon and has to aim with
+the trunk.
+
+**The ram head is the only variation that severs anything**, and it deals the most damage of any
+variant in the table. Session 07 added the ram to the striker table because a head traces a 0.36 m
+arc and lands under the club's floor; this is the first evidence that the row it was given produces
+a body that fights differently, rather than one that merely scores.
+
+**Two cautions about reading down the "default" column.** It moves from 62.4 to 128.3 across rows,
+and that is not noise — it is the same build against ten different opponents, so each row's pair is
+comparable and the column is not. And `primary pitch+blade` is the one row where the variant lands
+*more* contacts than the default while dealing a fifth of the damage, which is a chain reaching
+without arriving; it is a thing to look at rather than a number to accept.
+
+### The null control did not move
+
+`npm run measure -- --only duelist-swinger --bouts 120`, seed 20260823, run because this session
+edited `src/mind.ts`, `src/units.ts` and `src/humanoid-control.ts` — shared execution-layer code
+that every Warrior bout goes through.
+
+| | Session 08's HEAD | this session |
+|:---|---:|---:|
+| duelist wins | 59/120 = 49.2 % | 59/120 = 49.2 % |
+| bout length, s | 3.48 (1.42–7.85) | 3.48 (1.42–7.85) |
+| scoring contacts | 1460 / 1674 | 1460 / 1674 |
+| severs | 10 / 0 | 10 / 0 |
+| final-blow regions | Head 69, Torso 33, Pelvis 10, … | identical |
+
+**Every printed figure is identical**, which the change's shape predicts. `Policy` gained a
+`surface` field that only `drivers` in `src/units.ts` reads; `drivers` gained a filter that returns
+the same five rows for a Warrior it returned before; `BodyView.capabilities` is optional and a
+Warrior leaves it absent; and the two control-surface constants moved to a leaf without changing
+their values. Nothing on a Warrior's path evaluates differently.
+
+### What is owed, for the mind
+
+- **The human gate**, which is the whole of it. Three bouts against the Warrior duelist, two against
+  itself, then a takeover mid-bout. Nothing above answers whether it looks like it is fighting.
+- **The dynamism floors were not taken.** Ground path, lateral excursion, accumulated heading, orbit
+  switches, completed attacks and unlabelled passive intervals against the Warrior-versus-Warrior
+  distribution in the same harness — the plan says these become floors after the owner says yes, and
+  the owner has not been asked. Pinning them now is the exact inversion this plan set exists to stop.
+- **`golem-idle` was not built, and the omission is a decision.** The plan named two policies.
+  `idle` in `src/mind.ts` already stands a golem up with its cursor centred, `Policy.surface` is
+  null for it because standing still is a command any body executes, and every figure in Session
+  08's baseline was taken on it. A second idle under a golem name would be two names for one
+  behaviour and would split the control condition in half.
+- **The 8/8 win rate is a proxy and is not evidence of anything the owner cares about.** It would
+  read the same for a mind that walked in a straight line into a body it outlasts.
+- **Nothing here was measured against a golem that has lost a module mid-bout.** Six severs happened
+  to the Warrior, none to the golem; a golem that loses an arm to something is Session 10's subject
+  and this mind has never been asked what it does afterwards.
+- **`primary pitch+blade`'s 457.9 contacts for 11.6 damage** wants an eye rather than a threshold.

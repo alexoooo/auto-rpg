@@ -4,6 +4,7 @@
 //     npm run measure -- --bouts 20      -- fewer, while you are iterating
 //     npm run measure -- --only swing    -- the swinger's stroke on its own
 //     npm run measure -- --only duelist-swinger --verbose
+//     npm run measure -- --only golem      -- the golem mind, its control and the build sweep
 //     npm run measure -- --seed 777001   -- a second, independent corpus
 //     npm run measure -- --selftest      -- one bout twice in isolated solvers
 //
@@ -42,6 +43,8 @@ import { blankIntent } from "../src/policies.ts";
 import { ACTION_TUNING } from "../src/action-primitives.ts";
 import { advance, begin, selectScreen } from "../src/bout.ts";
 import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
+import { defaultGolemSetup, golemChainOptions, golemHeadOptions, golemLocomotionOptions,
+  golemSetupRefusal, golemTerminalOptions, golemTorsoOptions } from "../src/golem/build.ts";
 import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, combatRecorder, sampleBoutRecorder,
   wireBoutRecorder } from "../src/recorder.ts";
 
@@ -991,6 +994,170 @@ function reportFistCells(count, seed) {
   }
 }
 
+// ---- the golem's mind -------------------------------------------------------
+
+/**
+ * A golem bout is on the supported carrier, and it has to be asked for by name.
+ *
+ * `runBout` defaults `locomotionMode` to legacy on purpose -- every Warrior figure in
+ * `docs/measurements.md` was taken there and a bench that quietly switched would move all of them.
+ * A golem's locomotion *is* the physical V1 port, and `stepControlledPair` refuses a pair where
+ * only one side has one, so a golem cell that forgot this line would not produce a wrong number:
+ * it throws "supported locomotion pair construction produced only one physical V1 port" before the
+ * first frame. That refusal is the reason this is a constant rather than a habit.
+ */
+const GOLEM_LOCOMOTION_MODE = "supported";
+
+const SWORD = { primary: "sword", secondary: "empty" };
+
+/** One side of a golem cell: a unit, a policy, and a build if the unit is a golem. */
+const golemSide = (policy, golem) => ({ unit: "golem", policy, golem, loadout: undefined });
+const warriorSide = (policy) => ({ unit: "warrior", policy, golem: undefined, loadout: SWORD });
+
+/**
+ * N side-swapped bouts of one pairing, reported per *side role* rather than per policy name.
+ *
+ * `runMatchup` above keys its statistics by policy name, which is exactly right when both corners
+ * are Warriors and is wrong here twice over: a mirror golem cell has one name on both sides, and a
+ * build sweep pits `golem-duelist` against `golem-duelist` with two different bodies under them.
+ * What a reader of this section wants to know is what the *left role* did, so the roles carry the
+ * labels and the swap is undone when the record is filed.
+ */
+function runGolemCell(a, b, count, seed) {
+  const stats = Object.fromEntries([a, b].map((role) => [role.label, {
+    wins: 0, damage: 0, hits: 0, severs: 0, vitality: 0, driven: [],
+  }]));
+  let drawn = 0;
+  const seconds = [];
+  for (let i = 0; i < count; i += 1) {
+    const swapped = i % 2 === 1;
+    const left = swapped ? b : a;
+    const right = swapped ? a : b;
+    const seeds = [seedFor(seed, i, swapped ? 1 : 0), seedFor(seed, i, swapped ? 0 : 1)];
+    const ends = { left: 1, right: 1 };
+    const result = runBout({
+      left: left.policy, right: right.policy,
+      leftUnit: left.unit, rightUnit: right.unit,
+      leftGolem: left.golem, rightGolem: right.golem,
+      leftLoadout: left.loadout, rightLoadout: right.loadout,
+      locomotionMode: GOLEM_LOCOMOTION_MODE,
+      seeds,
+      onSample(sample) {
+        ends.left = sample.left.view.self.vitality;
+        ends.right = sample.right.view.self.vitality;
+      },
+    });
+    seconds.push(result.seconds);
+    if (result.winner === null) drawn += 1;
+    for (const [side, role] of [["left", left], ["right", right]]) {
+      const into = stats[role.label];
+      const record = result[side];
+      into.damage += record.damage;
+      into.hits += record.hits;
+      into.severs += record.severs;
+      into.vitality += ends[side];
+      into.driven.push(record.peakTipDriven);
+      if (result.winner === side) into.wins += 1;
+    }
+  }
+  return { stats, drawn, seconds };
+}
+
+const golemRow = (cell, role, stats, count) =>
+  `  ${cell.padEnd(30)} ${role.padEnd(16)} ` +
+  `${String(stats.wins).padStart(4)}/${count}  ` +
+  `${(stats.damage / count).toFixed(1).padStart(11)}  ` +
+  `${(stats.hits / count).toFixed(1).padStart(8)}  ` +
+  `${String(stats.severs).padStart(6)}  ` +
+  `${(stats.vitality / count).toFixed(3).padStart(7)}  ` +
+  `${span(stats.driven).padStart(19)}`;
+
+const GOLEM_COLUMNS =
+  "  cell                           role              wins  damage/bout  contacts  severs  bar end  peak tip driven m/s";
+
+/**
+ * The one-slot variations of the default build.
+ *
+ * "Each accepted build" is a cross product of three locomotion modules, two torsos, two heads and
+ * every chain-terminal pair in both sockets, which is four figures of bouts and would say nothing
+ * a reader could hold. One slot moved at a time from the default *is* the comparison the sweep is
+ * for: it attributes a difference to the module that was changed, which the cross product cannot
+ * do. Every candidate goes through `golemSetupRefusal` rather than being trusted, so a pair the
+ * registry stops offering drops out of this table instead of throwing in the middle of a run.
+ */
+function golemVariants(base) {
+  const out = [];
+  const push = (label, setup) => {
+    if (golemSetupRefusal(setup) === null) out.push({ label, setup });
+  };
+  for (const option of golemLocomotionOptions()) {
+    if (option.id !== base.locomotion) push(option.id, { ...base, locomotion: option.id });
+  }
+  for (const option of golemTorsoOptions()) {
+    if (option.id !== base.torso) push(option.id, { ...base, torso: option.id });
+  }
+  for (const option of golemHeadOptions()) {
+    if (option.id !== base.head) push(option.id, { ...base, head: option.id });
+  }
+  for (const chain of golemChainOptions()) {
+    if (chain.id === base.primary.chain) continue;
+    const terminals = golemTerminalOptions(chain.id);
+    // The base's own terminal where the chain still offers it, and the chain's first otherwise --
+    // so a chain row differs from the default in the chain alone wherever that is possible.
+    const terminal = terminals.some((option) => option.id === base.primary.terminal)
+      ? base.primary.terminal : terminals[0]?.id;
+    if (terminal === undefined) continue;
+    push(`primary ${chain.id}+${terminal}`, { ...base, primary: { chain: chain.id, terminal } });
+  }
+  for (const terminal of golemTerminalOptions(base.primary.chain)) {
+    if (terminal.id === base.primary.terminal) continue;
+    // A two-socket terminal claims both sockets, so the secondary follows it rather than the build
+    // being dropped. That is the reducer in `src/bout.ts`'s rule, restated where a build that never
+    // went near the screen is made.
+    const primary = { chain: base.primary.chain, terminal: terminal.id };
+    const alone = { ...base, primary };
+    push(`primary ${base.primary.chain}+${terminal.id}`,
+      golemSetupRefusal(alone) === null ? alone : { ...base, primary, secondary: primary });
+  }
+  return out;
+}
+
+function reportGolemCells(count, seed) {
+  const base = defaultGolemSetup();
+  const cell = (label, a, b) => {
+    const { stats, drawn, seconds } = runGolemCell(a, b, count, seed);
+    for (const role of [a, b]) console.log(golemRow(label, role.label, stats[role.label], count));
+    console.log(`  ${" ".repeat(30)} drawn at the cap ${drawn}/${count}, bout length ${span(seconds)} s`);
+  };
+
+  console.log(`\n=== the golem against the Warrior duelist -- ${count} side-swapped bouts per cell ===`);
+  console.log(GOLEM_COLUMNS);
+  for (const policy of ["idle", "golem-duelist"]) {
+    // `idle` first and in the same run, because it is the control every golem number in
+    // `docs/measurements.md` is read against and a control taken on another day in another
+    // harness is not one. Session 08 recorded 0/8 either way at 55.13 damage a bout.
+    cell(`golem ${policy} vs duelist`,
+      { ...golemSide(policy, base), label: `golem ${policy}` },
+      { ...warriorSide("duelist"), label: "warrior duelist" });
+  }
+
+  console.log(`\n=== the golem against itself -- ${count} bouts, the default build on both sides ===`);
+  console.log(GOLEM_COLUMNS);
+  cell("default vs default",
+    { ...golemSide("golem-duelist", base), label: "golem A" },
+    { ...golemSide("golem-duelist", base), label: "golem B" });
+
+  const variants = golemVariants(base);
+  console.log(`\n=== the default build against one changed slot -- ${count} side-swapped bouts per cell, ` +
+    `${variants.length} variations ===`);
+  console.log(GOLEM_COLUMNS);
+  for (const variant of variants) {
+    cell(variant.label,
+      { ...golemSide("golem-duelist", base), label: "default" },
+      { ...golemSide("golem-duelist", variant.setup), label: "variant" });
+  }
+}
+
 function reportShieldArcherCells(count, seed) {
   console.log(`\n=== shields against archer -- ${count} side-swapped bouts per cell ===`);
   console.log("  defence     shots  plate contacts  wounds  damage  vitality  defender wins");
@@ -1133,5 +1300,6 @@ for (const [a, b] of MATCHUPS) {
 }
 if (!only || only === "fists") reportFistCells(bouts, runSeed);
 if (!only || only === "shield-archer") reportShieldArcherCells(bouts, runSeed);
+if (!only || only === "golem") reportGolemCells(bouts, runSeed);
 console.log(`\nseed ${runSeed}, ${((Date.now() - started) / 1000).toFixed(1)} s of wall clock`);
 }

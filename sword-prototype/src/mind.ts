@@ -37,6 +37,18 @@ import {
 } from "./policies.ts";
 import { CONFIG } from "./config.ts";
 import { crawlerMind } from "./bodies/centipede.ts";
+// The two surface tags, from the leaf that owns them. Taking either from its own endpoint would
+// close a run-time cycle -- both endpoints import this file for values, and `POLICIES` below reads
+// the tag while this module is still evaluating. `control-surfaces.ts` imports nothing at all.
+import {
+  GOLEM_CONTROL_SURFACE as GOLEM_SURFACE,
+  HUMANOID_CONTROL_SURFACE as HUMANOID_SURFACE,
+} from "./control-surfaces.ts";
+// The golem's own mind, registered here for the reason every other policy is: the list *is* the
+// registry the setup screen builds its picker from, so a policy that exists is selectable and a
+// policy that is selectable exists. It reaches this file for types only, so the edge runs one way
+// at run time and there is no cycle to be careful about.
+import { golemDuelistMind } from "./golem/golem-policies.ts";
 
 /**
  * What a fighter can ask for.
@@ -387,6 +399,23 @@ export interface BodyView {
   naturalAttacks: Readonly<Record<string, NaturalAttackView>>;
   /** Optional for legacy bodies; constructs publish every installed mounted striker here. */
   effectors?: readonly EffectorView[];
+  /**
+   * What this body's own modules can be asked for, or absent for a body that is not assembled.
+   *
+   * **Present on `self` and never on an opponent**, which is the whole argument for it being here
+   * rather than reachable through a handle on the body. A mind gets one thing, `FighterView`, and
+   * frozen rule 3 of the golem plan says the module publishes what it can reach and the mind picks
+   * inside it -- so a golem mind that could not read an envelope would have to reach past
+   * `Mind.decide` for one, which is the seam this file exists to keep shut. What a mind is entitled
+   * to know about the thing *in front* of it is unchanged: where it is, how fast it is going, how
+   * far its arms go (`reach`) and what is on the end of them (`HandView.weapon`).
+   *
+   * Optional, and the type is reached through an inline `import type` -- the idiom `units.ts`
+   * already uses for `ProjectileView` -- so this module gains no import, no run-time graph and no
+   * opinion about what a golem is. A body that is not assembled leaves it absent, which is why the
+   * two hand-written `FighterView` fixtures in `tests/` still carry every field a real view does.
+   */
+  capabilities?: import("./golem/module.ts").GolemCapabilities;
   /** Position on the floor. */
   ground: Vector3;
   /** Heading in radians, zero down +Z turning toward +X, as everywhere here. */
@@ -1049,6 +1078,27 @@ export interface Policy {
   /** What the picker shows. */
   readonly label: string;
   /**
+   * Which control surface this policy's commands are shaped for, or null for any body.
+   *
+   * **The field that stops a golem's mind being offered for a Warrior.** `UnitDefinition`'s
+   * `compatiblePolicies` says "null means every policy", and it meant that safely for exactly as
+   * long as every policy in this list drove one kind of body. Session 09 adds one that does not:
+   * `golem-duelist` reads `BodyView.capabilities`, aims in an effector socket's own frame and
+   * commits a stroke the golem's chains own, and a Warrior handed it would be a body driven by a
+   * mind that has never seen it -- which is the same sentence the golem's own registry row already
+   * writes the other way round about `duelist`.
+   *
+   * Null rather than a wildcard string, and `idle` is the only one that takes it: standing still
+   * with the cursor centred is a command any body can execute, it is the control condition every
+   * measurement in `docs/measurements.md` is taken against, and Session 08's whole golem baseline
+   * was recorded on it. A second idle under a golem name would be two names for one behaviour and
+   * would split that baseline in half.
+   *
+   * Read by `drivers` in `src/units.ts` and nowhere else, so a unit's picker is the intersection of
+   * this and its own `compatiblePolicies` rather than a hand-kept third list.
+   */
+  readonly surface: string | null;
+  /**
    * Build one.
    *
    * The seed is optional and the picker never passes one, so a policy chosen
@@ -1064,11 +1114,12 @@ export interface Policy {
 }
 
 export const POLICIES: readonly Policy[] = [
-  { name: "idle", label: "Idle", create: idleMind },
-  { name: "swinger", label: "Swinger", create: swingerMind },
-  { name: "duelist", label: "Duelist", create: duelistMind },
-  { name: "archer", label: "Archer", create: archerMind },
-  { name: "crawler", label: "Crawler", create: crawlerMind },
+  { name: "idle", label: "Idle", surface: null, create: idleMind },
+  { name: "swinger", label: "Swinger", surface: HUMANOID_SURFACE, create: swingerMind },
+  { name: "duelist", label: "Duelist", surface: HUMANOID_SURFACE, create: duelistMind },
+  { name: "archer", label: "Archer", surface: HUMANOID_SURFACE, create: archerMind },
+  { name: "crawler", label: "Crawler", surface: HUMANOID_SURFACE, create: crawlerMind },
+  { name: "golem-duelist", label: "Golem duelist", surface: GOLEM_SURFACE, create: golemDuelistMind },
 ];
 
 /**

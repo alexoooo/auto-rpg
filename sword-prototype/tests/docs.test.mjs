@@ -390,8 +390,16 @@ const SCRATCH_SHARE_OF_DURABLE = { min: 0.02, max: 0.25 };
 // 8. Neither number describes the merge, and the arithmetic that "obviously" gives 5 is exactly
 // what this pin's own header forbids -- so this one is the merged run's, taken from its output.
 // What remains is sessions 09 to 11 naming what they intend to create.
+//
+// **Re-taken 2026-09-05 from this session's own failing run: 5 -> 2.** Session 09 wrote the three
+// files its plan named -- `src/golem/tactics.ts`, `src/golem/golem-policies.ts` and
+// `tests/golem-mind.test.mjs` -- and each stopped being unverifiable the moment it existed. The
+// two that remain are `docs/plans/golem-10-body-parts-as-loot.md` naming `src/golem/parts-bin.ts`
+// and `tests/golem-loot.test.mjs`, which exist on the unmerged `golem-10` branch and therefore do
+// not exist here. That is the pin working: a counter taken from a tree is a statement about that
+// tree, and this tree has not seen those files yet.
 const PLAN_SURFACE = {
-  noSuchFile: 5,
+  noSuchFile: 2,
   ambiguousFile: 0,
   anchorIntoDeletedFile: 0,
   orphanContinuation: 0,

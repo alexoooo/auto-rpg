@@ -3,7 +3,10 @@ import type { BoutRecorder } from "./recorder.ts";
 import type { Side } from "./physics.ts";
 import type { ControlEndpoint, ControlRecordingPort, DriverStopReason, HumanDriverSource, InstalledDriver } from "./control-host.ts";
 
-export const HUMANOID_CONTROL_SURFACE = "humanoid-v1" as const;
+// Declared in `control-surfaces.ts`, which imports nothing, and re-exported here where every
+// caller already looks for it. See that file for the cycle that moved it.
+import { HUMANOID_CONTROL_SURFACE } from "./control-surfaces.ts";
+export { HUMANOID_CONTROL_SURFACE };
 
 /**
  * Typed page-only dependency. Headless bodies omit it and therefore cannot claim human control.

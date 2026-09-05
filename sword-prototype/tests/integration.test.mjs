@@ -15,6 +15,7 @@ import { CONFIG } from "../src/config.ts";
 import { defaultMatchup, EQUIPMENT, withEquipment } from "../src/bout.ts";
 import { Fighter, stepPair } from "../src/fighter.ts";
 import { policyMind, POLICIES } from "../src/mind.ts";
+import { HUMANOID_CONTROL_SURFACE } from "../src/control-surfaces.ts";
 import { attachPhysics, COLLIDES, LAYER, layersFor } from "../src/physics.ts";
 import { Quiver } from "../src/arrow.ts";
 import { composeTactic, handActionOption, movementIntent } from "../src/options.ts";
@@ -60,7 +61,17 @@ test("every_setup_loadout_and_policy_builds_steps_finishes_and_disposes", () => 
     const loadout = { primary: matchup.left.handA, secondary: matchup.left.handB };
     reachable.set(`${loadout.primary}/${loadout.secondary}`, loadout);
   }
-  for (const policy of POLICIES) {
+  // Every policy this matchup's body can actually be handed. `defaultMatchup()` is two Warriors
+  // and `EQUIPMENT` is a Warrior's hands, so the loop's subject is the humanoid surface; since
+  // Session 09 `POLICIES` also holds `golem-duelist`, which `policyForUnit` refuses for a Warrior
+  // by design. Filtering by the same field the picker filters by keeps this test asserting "every
+  // policy that can reach this body survives a bout" rather than quietly asserting a count.
+  // `golem-duelist` is exercised over a real golem in `tests/golem-mind.test.mjs`.
+  const applicable = POLICIES.filter((policy) =>
+    policy.surface === null || policy.surface === HUMANOID_CONTROL_SURFACE);
+  assert.ok(applicable.length >= 5 && applicable.length < POLICIES.length,
+    "the surface filter admits the humanoid policies and holds something back");
+  for (const policy of applicable) {
     for (const [label, loadout] of reachable) {
       let samples = 0;
       const result = runBout({

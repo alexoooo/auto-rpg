@@ -3,7 +3,7 @@ import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 
 import type { Striking } from "../combat.ts";
-import type { HandCursor, HandIntent, HandName } from "../mind.ts";
+import type { BodyView, HandCursor, HandIntent, HandName } from "../mind.ts";
 import type { Side } from "../physics.ts";
 import type { Part } from "../rig.ts";
 import type { StandableWorldRegistry } from "../supported-locomotion-runtime.ts";
@@ -663,3 +663,94 @@ export const NO_ENVELOPE_AXES: readonly ModuleAxisEnvelope[] = Object.freeze([])
 
 /** A module that can be asked for no stroke at all. Same reason: one empty, not three. */
 export const NO_STROKES: readonly EffectorStrokeKind[] = Object.freeze([]);
+
+// ------------------------------------------------------------------ what a mind is shown
+//
+// Everything below is the same envelope, narrowed onto the questions a **policy** asks. It lives
+// here rather than in `mind.ts` because the module contract is the authority on what a module can
+// be asked for and what it can reach, and a second record over there would be the second copy this
+// directory keeps paying for. `BodyView.capabilities` reaches it through an inline `import type`,
+// which is the idiom `units.ts` already uses for `ProjectileView`, so `mind.ts` gains no import and
+// nothing that loads a policy gains a graph.
+
+/**
+ * What one effector socket can be asked for, as a mind is shown it.
+ *
+ * **Four facts, and every one of them is a fact a mind cannot get any other way.** `HandView`
+ * already carries where the business end is, how fast it is going, how far it goes and whether it
+ * is still attached, so none of that is repeated here: what is missing from a view of the *world*
+ * is what this limb is *for*, and that is what this is.
+ *
+ * - `strokes` is the pair speaking. The chain says which strokes exist -- a pitch chain chops and
+ *   covers, an arm chain also cuts -- and a rung 0 socket says the empty list, which is how a mind
+ *   learns that an effector cannot attack without knowing that rung 0 is called `none`.
+ * - `reachable` is the shell the cursor spans, or **null for a module whose command is not a
+ *   point**. That null is the capability and not an omission: rungs 0 and 1 have no azimuth at
+ *   all, so a mind reading null learns that this arm cannot be aimed across the body and that
+ *   whatever turning is wanted has to come from the trunk or the carrier.
+ * - `rollMax` is zero when the terminal cannot be turned by this chain -- every rung below 3, and
+ *   a mace on any rung, because a mace has no edge to point. A mind that placed an edge on one of
+ *   those would be spending a command channel nobody reads.
+ * - `bendMax` is the same statement for the wrist's flexion.
+ *
+ * There is deliberately no `id`, no `chain` and no `terminal`. A mind that switched on one of
+ * those would be a second copy of the ladder living outside the registry, which is the leak
+ * Session 09 was told to watch for: a new option on the shelf must need no new mind.
+ */
+export interface EffectorCapability {
+  readonly strokes: readonly EffectorStrokeKind[];
+  readonly reachable: ReachEnvelope | null;
+  /** The roll this chain may be commanded to, radians, symmetric. Zero when it has no roll axis. */
+  readonly rollMax: number;
+  /** The flexion this chain may be commanded to, radians. Zero when it has no bend axis. */
+  readonly bendMax: number;
+}
+
+/**
+ * What an assembled golem's own modules can be asked for.
+ *
+ * **Self-knowledge, and published on `self` alone.** A body knows what its own limbs can do and
+ * cannot see the inside of somebody else's, which is the same rule `FighterView` already keeps
+ * about the opponent's intentions -- what a mind is entitled to know about the thing in front of
+ * it is where it is and how fast it is moving, and `BodyView.reach` and `HandView.weapon` already
+ * say the rest. So `Golem.describe` never writes this into an opponent's record, and a golem
+ * looking at another golem sees exactly what a Warrior looking at one sees.
+ *
+ * Built once, at assembly, and never rewritten: every number in it is fixed at build. What changes
+ * during a bout is whether a module is still attached, and `HandView.lost` is where that is said.
+ */
+export interface GolemCapabilities {
+  readonly effectors: Readonly<Record<HandName, EffectorCapability>>;
+  /**
+   * How far the trunk may twist, radians, from the torso's own envelope.
+   *
+   * The number that turns `BodyView.trunkTwist` -- which is published normalized -- back into the
+   * angle a mind needs in order to know which way its own effector sockets are pointing. Without
+   * it a mind aiming an arm in the socket's frame would be out by the whole of the twist, and a
+   * golem carrying a mace -- whose swing is pinned to zero, so the *only* way it can point its
+   * weapon is the trunk -- would have no way to aim at all.
+   */
+  readonly trunkTwistMax: number;
+  /**
+   * How far the carrier can lower its sockets, metres. Zero for a carrier that cannot crouch.
+   *
+   * Straight out of the locomotion module's `heightRange`, because crouch is a carrier property
+   * rather than a pose: the biped has a range and the wheel does not, and a mind asking either of
+   * them to crouch is asking about the carrier rather than about a leg.
+   */
+  readonly crouchTravel: number;
+}
+
+/**
+ * A golem's own view of itself: `BodyView` plus what its modules can be asked for.
+ *
+ * The extension Session 09's plan asks for, and the field it adds is **optional on `BodyView`**
+ * rather than present-and-empty. That is deliberate on two counts. A non-golem mind ignores it by
+ * never looking, so no scripted policy changes behaviour and no number in `docs/measurements.md`
+ * moves. And the two hand-written `FighterView` fixtures in `tests/` -- which are plain objects
+ * that `tsc` never sees, and which both threw on the first substep the day the view grew a
+ * required field -- go on carrying every field a real view does, because this is not one.
+ */
+export interface GolemView extends BodyView {
+  capabilities: GolemCapabilities;
+}

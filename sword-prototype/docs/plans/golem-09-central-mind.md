@@ -1,6 +1,13 @@
 # Session 09 -- the central mind
 
-**Status (2026-09-04): planned.** Depends on 08. Human gate: not yet asked.
+**Status (2026-09-05): implemented, human gate not yet asked.** `src/golem/tactics.ts` is the
+state machine, `src/golem/golem-policies.ts` registers `golem-duelist`, `Policy.surface` and the
+surface filter in `drivers` keep each mind on the body it was written for, and
+`tests/golem-mind.test.mjs` is 12 tests with every threshold marked provisional. Against the
+Warrior duelist it wins 8/8 where Session 08's control drew 8/8 at the cap; against itself it
+draws 8/8; the ten one-slot variations and the null control are in `docs/measurements.md`. No
+dynamism floor was pinned, because the plan says those follow the owner's yes and it has not been
+given. `golem-idle` was deliberately not built -- see the header of `src/golem/golem-policies.ts`.
 
 ## Outcome
 

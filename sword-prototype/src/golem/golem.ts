@@ -49,9 +49,13 @@ import { golemMaterials, type GolemMaterialPalette } from "./materials.ts";
 import {
   partArmour,
   type BuiltModule,
+  type EffectorCapability,
+  type GolemCapabilities,
   type GolemPart,
   type GolemSlot,
   type GolemSocket,
+  type GolemView,
+  type ModuleAxisEnvelope,
 } from "./module.ts";
 import type { BuiltTorso, TorsoCommand } from "./torso/torso.ts";
 
@@ -106,6 +110,10 @@ import type { BuiltTorso, TorsoCommand } from "./torso/torso.ts";
 
 const UP = Object.freeze(new Vector3(0, 1, 0));
 const clamp01 = (value: number): number => (value < 0 ? 0 : value > 1 ? 1 : value);
+
+/** The ceiling a published axis declares, or zero when the module has no such axis. */
+const axisCeiling = (axes: readonly ModuleAxisEnvelope[], id: string): number =>
+  axes.find((axis) => axis.id === id)?.max ?? 0;
 
 /** The narrowest thing this file needs from a module, so one list can hold all five. */
 interface MountedModule {
@@ -399,8 +407,14 @@ export class Golem implements Combatant {
       : null;
     if (this.ram) this.natural.ram = this.ram;
 
+    // **The capabilities go on `self` and are written once.** Every number in them is fixed at
+    // build -- an envelope is what a module can be asked for, not what it is doing -- so publishing
+    // them per step would be 240 writes a second of a constant. What changes during a bout is
+    // whether a module is still attached, and `HandView.lost` is where `describe` says that.
+    const self = blankBody() as GolemView;
+    self.capabilities = this.golemCapabilities();
     this.view = {
-      self: blankBody(),
+      self,
       opponent: blankBody(),
       projectiles: [],
       measure: Number.POSITIVE_INFINITY,
@@ -625,6 +639,46 @@ export class Golem implements Combatant {
    */
   effectorEnvelope(hand: HandName): ReturnType<BuiltModule<HandIntent>["envelope"]> | null {
     return this.effectors[hand]?.module.envelope() ?? null;
+  }
+
+  /**
+   * The same envelopes, narrowed onto the questions a mind asks, and published on `self`.
+   *
+   * **This is the answer to "should the envelope be on the view".** `Mind.decide` is handed a
+   * `FighterView` and nothing else -- that is the one seam, and a policy that could reach for the
+   * body would be a policy that could pose a limb -- so a mind that had to ask `effectorEnvelope`
+   * could not exist without widening the seam. Frozen rule 3 says the module publishes what it can
+   * reach and the mind picks inside it, and this is where "publishes" happens for an assembled body.
+   *
+   * **Self only, and never into an opponent's record.** A body knows what its own limbs can do and
+   * cannot see the inside of somebody else's; what a mind is entitled to know about the thing in
+   * front of it is where it is, how fast it is going, how far its arms go and what is on the end of
+   * them, and `BodyView.reach` and `HandView.weapon` already publish all four for every unit. So
+   * `describe` is untouched, no Warrior's view gains a key, and a golem looking at a golem sees
+   * exactly what a Warrior looking at one sees.
+   *
+   * `rollMax` and `bendMax` are read out of the published axes by id, which is the same idiom
+   * `normalisedAxis` below already uses for the trunk's lean and twist: an axis id is part of the
+   * envelope's own vocabulary, and a chain that has no such axis simply has no entry and answers
+   * zero. That is how a mace arrives as "there is nothing here to turn" rather than as a special
+   * case for a module id.
+   */
+  private golemCapabilities(): GolemCapabilities {
+    const effector = (hand: HandName): EffectorCapability => {
+      const envelope = this.effectors[hand]?.module.envelope() ?? null;
+      return Object.freeze({
+        strokes: envelope ? envelope.strokes : [],
+        reachable: envelope ? envelope.reachable : null,
+        rollMax: envelope ? Math.max(0, axisCeiling(envelope.axes, "roll")) : 0,
+        bendMax: envelope ? Math.max(0, axisCeiling(envelope.axes, "bend")) : 0,
+      });
+    };
+    const range = this.locomotionModule.heightRange;
+    return Object.freeze({
+      effectors: Object.freeze({ primary: effector("primary"), secondary: effector("secondary") }),
+      trunkTwistMax: Math.max(0, axisCeiling(this.torsoModule.envelope().axes, "twist")),
+      crouchTravel: Math.max(0, range.standM - range.crouchM),
+    });
   }
 
   /** The locomotion module's own instrument, for a harness that wants the walk rather than the arm. */

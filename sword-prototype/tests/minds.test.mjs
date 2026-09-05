@@ -293,7 +293,7 @@ function drive(mind, seconds, viewFor) {
 test("the picker offers exactly the policies that exist", () => {
   assert.deepEqual(
     POLICIES.map((policy) => policy.name),
-    ["idle", "swinger", "duelist", "archer", "crawler"],
+    ["idle", "swinger", "duelist", "archer", "crawler", "golem-duelist"],
   );
   for (const policy of POLICIES) {
     assert.equal(policyMind(policy.name, 1).name, policy.name);

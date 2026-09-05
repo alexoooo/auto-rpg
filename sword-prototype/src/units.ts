@@ -14,7 +14,7 @@ import type { ControlEndpoint } from "./control-host.ts";
 import type { SupportedLocomotionPort } from "./supported-locomotion.ts";
 import type { StabilityEvent } from "./supported-locomotion-state.ts";
 import type { StandableWorldRegistry } from "./supported-locomotion-runtime.ts";
-import type { HumanoidHumanSource } from "./humanoid-control.ts";
+import { HUMANOID_CONTROL_SURFACE, type HumanoidHumanSource } from "./humanoid-control.ts";
 import { handsFor, isWeaponKind, WEAPON_KINDS, type WeaponKind } from "./hands.ts";
 import { POLICIES, splitMind, type HandCursors, type HandName, type Mind } from "./mind.ts";
 import type { Side } from "./physics.ts";
@@ -266,7 +266,22 @@ const humanoidDurability = (scale = 1): Readonly<Record<string, number>> => Obje
   warriorParts.map((part) => [part, CONFIG.body.partHealth * scale *
     (part === "torso" ? CONFIG.body.torsoHealth : part === "pelvis" ? CONFIG.body.pelvisHealth : 1)]),
 ));
-const drivers = (names: readonly string[] | null) => Object.freeze(POLICIES
+/**
+ * The picker rows for one unit: the intersection of what its surface admits and what it names.
+ *
+ * **Two filters and neither is a list somebody keeps by hand.** `Policy.surface` is what the policy
+ * itself was written for, so a mind that aims in a golem effector socket's own frame never appears
+ * for a Warrior and `duelist`'s arming-sword ranges never appear for a golem. `compatiblePolicies`
+ * is what this unit declines on top of that, and `null` there goes on meaning what its own comment
+ * says -- every policy this body's surface admits -- rather than every policy in the program.
+ *
+ * The order that produced this: `drivers(null)` returned the whole of `POLICIES`, which was exactly
+ * right for as long as every policy in it drove one kind of body. Session 09 added one that does
+ * not, and without the surface filter a Warrior's picker would have offered it and `policyForUnit`
+ * would have said yes.
+ */
+const drivers = (surface: string, names: readonly string[] | null) => Object.freeze(POLICIES
+  .filter((policy) => policy.surface === null || policy.surface === surface)
   .filter((policy) => names === null || names.includes(policy.name))
   .map(({ name, label }) => Object.freeze({ name, label })));
 const policyFactory = (unit: string, options: readonly { readonly name: string }[]) =>
@@ -299,9 +314,9 @@ const warrior: UnitDefinition = Object.freeze({
   defaultLoadout: humanoidDefault,
   hands: 2,
   compatiblePolicies: null,
-  driverOptions: drivers(null),
+  driverOptions: drivers(HUMANOID_CONTROL_SURFACE, null),
   humanAdapter: true,
-  controlSurface: "humanoid-v1",
+  controlSurface: HUMANOID_CONTROL_SURFACE,
   supportedLocomotionPort: SUPPORTED_LOCOMOTION_PORT_V1,
   defaultPolicy: "idle",
   anatomy: Object.freeze({
@@ -337,9 +352,9 @@ const broot: UnitDefinition = Object.freeze({
   defaultLoadout: humanoidDefault,
   hands: 2,
   compatiblePolicies: null,
-  driverOptions: drivers(null),
+  driverOptions: drivers(HUMANOID_CONTROL_SURFACE, null),
   humanAdapter: true,
-  controlSurface: "humanoid-v1",
+  controlSurface: HUMANOID_CONTROL_SURFACE,
   supportedLocomotionPort: SUPPORTED_LOCOMOTION_PORT_V1,
   defaultPolicy: "idle",
   anatomy: Object.freeze({
@@ -384,9 +399,9 @@ const centipede: UnitDefinition = Object.freeze({
   defaultLoadout: emptyLoadout,
   hands: 0,
   compatiblePolicies: Object.freeze(["crawler"]),
-  driverOptions: drivers(["crawler"]),
+  driverOptions: drivers(HUMANOID_CONTROL_SURFACE, ["crawler"]),
   humanAdapter: true,
-  controlSurface: "humanoid-v1",
+  controlSurface: HUMANOID_CONTROL_SURFACE,
   supportedLocomotionPort: null,
   defaultPolicy: "crawler",
   anatomy: Object.freeze({ parts: centipedeParts, vitalityWeights: centipedeWeights,
@@ -416,11 +431,17 @@ const centipede: UnitDefinition = Object.freeze({
  * both hand pickers are disabled for this row and the five slot pickers are what a corner edits,
  * through `SideSetup.golem`.
  *
- * `compatiblePolicies` is `idle` alone, and that is honest rather than restrictive: the scripted
- * policies in `src/policies.ts` are written for a Warrior's arm -- their ranges are a weapon's
- * length in disguise and their stroke geometry is a right arm's -- and pointing one at a golem
- * would be measuring a policy against a body it has never seen. Session 09 is the golem's mind.
+ * `compatiblePolicies` is the golem's own mind and the control condition, and the exclusion is
+ * still the one Session 08 wrote down: the scripted policies in `src/policies.ts` are written for a
+ * Warrior's arm -- their ranges are a weapon's length in disguise and their stroke geometry is a
+ * right arm's -- so pointing one at a golem would be measuring a policy against a body it has never
+ * seen. `idle` survives because standing still is a command any body can execute and because
+ * Session 08's whole baseline was taken on it, which makes it the thing Session 09's numbers are
+ * read against. The exclusion now runs both ways: `Policy.surface` keeps `golem-duelist` out of a
+ * Warrior's picker for exactly the mirror reason.
  */
+const GOLEM_POLICIES: readonly string[] = Object.freeze(["idle", "golem-duelist"]);
+
 const golem: UnitDefinition = Object.freeze({
   kind: "golem",
   label: "Golem",
@@ -428,12 +449,14 @@ const golem: UnitDefinition = Object.freeze({
   loadouts: freezeLoadouts([{ primary: "empty", secondary: "empty" }]),
   defaultLoadout: emptyLoadout,
   hands: 2,
-  compatiblePolicies: Object.freeze(["idle"]),
-  driverOptions: drivers(["idle"]),
+  compatiblePolicies: GOLEM_POLICIES,
+  driverOptions: drivers(GOLEM_CONTROL_SURFACE, GOLEM_POLICIES),
   humanAdapter: true,
   controlSurface: GOLEM_CONTROL_SURFACE,
   supportedLocomotionPort: SUPPORTED_LOCOMOTION_PORT_V1,
-  defaultPolicy: "idle",
+  // The golem's own mind, so a corner that becomes a golem opens on a body that fights rather than
+  // on the control condition. `idle` stays selectable and stays the thing measurements compare to.
+  defaultPolicy: "golem-duelist",
   defaultGolem: defaultGolemSetup(),
   /**
    * **A golem has no per-unit anatomy, and an empty record is the honest answer.**

@@ -39,7 +39,10 @@ import type { BoutRecorder } from "../recorder.ts";
  * direction the one-seam rule allows and the whole reason a mouse can drive a golem at all.
  */
 
-export const GOLEM_CONTROL_SURFACE = "golem-v1" as const;
+// Declared in `src/control-surfaces.ts`, which imports nothing, and re-exported here where every
+// caller already looks for it. See that file for the cycle that moved it.
+import { GOLEM_CONTROL_SURFACE } from "../control-surfaces.ts";
+export { GOLEM_CONTROL_SURFACE };
 
 export interface GolemControlOptions {
   readonly initialMind: Mind;
