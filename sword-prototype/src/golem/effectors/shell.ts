@@ -50,17 +50,26 @@ export interface BoneShellOptions {
 }
 
 /**
- * A carved slab and a proud ridge, per bone.
+ * A carved slab, a proud ridge and a bronze bearing at the far end, per bone.
  *
- * Two primitives rather than one because a single box reads as a crate: the narrower ridge set
- * proud of the slab is what makes a limb look carved rather than extruded, and it is the cheapest
- * thing that does. The bearing that belongs at each joint is `ballShell`'s, carried by the link
- * on the *inboard* side of that joint, so a chain gets one per joint by construction.
+ * Three primitives rather than one, and each earns its place. A single box reads as a crate, so
+ * the narrower ridge set proud of it is what makes a limb look carved rather than extruded. And
+ * the bearing is at the bone's **distal** end rather than its proximal one, which is not
+ * arbitrary: put at the proximal end it would sit inside whatever bearing the link above already
+ * carries, and put nowhere at all -- which is what the first draft did -- the joints are visible
+ * gaps between two slabs and the limb reads as a stack of boxes with air between them. Distal
+ * gives exactly one bearing per joint: the collar's `ballShell` covers the shoulder, the upper
+ * arm's covers the elbow, the forearm's covers the wrist.
+ *
+ * The slab runs the bone's **full length** for the same reason. Cut short by a radius it left a
+ * 70 mm gap at every joint, which the bearing then has to hide rather than decorate.
+ *
+ * Chosen by eye against the stand with the blade on, 2026-09-04.
  */
 export function boneShell(scene: Scene, options: BoneShellOptions): readonly AbstractMesh[] {
   const wide = options.radius * 2;
   const slab = MeshBuilder.CreateBox(`${options.name}.slab`, {
-    width: wide, height: options.length - options.radius, depth: wide * 0.88,
+    width: wide, height: options.length, depth: wide * 0.88,
   }, scene);
   slab.material = materialForGolemRole(options.materials, "shell");
 
@@ -69,10 +78,19 @@ export function boneShell(scene: Scene, options: BoneShellOptions): readonly Abs
   }, scene);
   ridge.material = materialForGolemRole(options.materials, "armour");
 
+  const bearing = MeshBuilder.CreateCylinder(`${options.name}.bearing`, {
+    diameter: wide * 1.16, height: wide * 1.06, tessellation: 16,
+  }, scene);
+  bearing.material = materialForGolemRole(options.materials, "joint");
+
   return Object.freeze([
     attach(slab, options.host, Vector3.Zero()),
     // Proud along the bone's own -Z, which is the face the bench camera starts on.
     attach(ridge, options.host, new Vector3(0, -options.length * 0.06, -wide * 0.52)),
+    // Lying across the bone, because the axis a bearing is drawn about is the axis its joint
+    // turns about, and every joint below the shoulder here turns about the limb's own lateral.
+    attach(bearing, options.host, new Vector3(0, -options.length / 2, 0),
+      Quaternion.RotationAxis(new Vector3(0, 0, 1), Math.PI / 2)),
   ]);
 }
 
