@@ -1,7 +1,11 @@
 # Session 10 -- body parts as loot
 
-**Status (2026-09-04): planned.** Depends on 08. May run in parallel with 09. Human gate: not yet
-asked.
+**Status (2026-09-04): implemented, human gate not yet asked.** A module whose socket a blow broke
+with the rest of it in one piece survives the verdict as a checksummed parts-bin entry the setup
+screen can fit back on, at the durability it came off with and drawn worn by the salvaged damage-wear
+shader; measured in the Node arena at a blade's own 0.8696 of its module and in the page at the
+shader's own two wear thresholds read off the pixels, with all ten mutations of the rule and the
+codec watched red. Thresholds provisional.
 
 ## Outcome
 

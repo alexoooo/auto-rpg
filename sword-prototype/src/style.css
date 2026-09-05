@@ -472,6 +472,18 @@ body {
   min-width: 0;
 }
 
+/* The parts bin is one thing under two corners, because there is one of it: it is the browser's,
+   not a fighter's. Full width in the same grid rather than a sibling of it, so it stays inside
+   the element `src/setup.ts` owns and `index.html` goes on knowing nothing about salvage. */
+.bin-row {
+  grid-column: 1 / -1;
+}
+
+.bin-row .note {
+  margin: 6px 0 9px;
+  text-align: left;
+}
+
 @media (max-width: 700px) {
   #matchup {
     grid-template-columns: 1fr;

@@ -398,8 +398,28 @@ const SCRATCH_SHARE_OF_DURABLE = { min: 0.02, max: 0.25 };
 // and `tests/golem-loot.test.mjs`, which exist on the unmerged `golem-10` branch and therefore do
 // not exist here. That is the pin working: a counter taken from a tree is a statement about that
 // tree, and this tree has not seen those files yet.
+//
+// **Re-taken 2026-09-04 from golem session 10's own failing run, on its own branch: 5 -> 3.**
+// Session 10 built the two files its plan promised -- `src/golem/parts-bin.ts` and
+// `tests/golem-loot.test.mjs` -- and each accounted for exactly one occurrence. The 3 that remain
+// are session 09's tactics, golem-policies and golem-mind files, named without code spans here
+// precisely because they do not exist yet and this file is scanned by the rule above. So this
+// number is a branch's and not the merge's, for the fourth time in this comment: the coordinator
+// re-takes it from the merged tree's own failing run.
+//
+// **Re-taken 2026-09-05 by the coordinator from the merged tree's own failing run: 5 -> 0.**
+// Both notes above are branch numbers and neither describes this tree: session 09 read 2 without
+// session 10's two files in front of it, session 10 read 3 without session 09's three. The
+// arithmetic that "obviously" gives 0 is what this pin's own header forbids, so this one is the
+// merged run's -- and it happens to land where the arithmetic would have, which is a fact about
+// this merge rather than a licence to skip the run next time. Twice in this comment the two
+// branches' numbers summed to something the merged tree disagreed with.
+//
+// Zero, and it should stay zero for the rest of this plan set. Every file the eleven plans promise
+// now exists; session 11 promises none and deletes the plans themselves. The first non-zero
+// reading after this line is a new plan naming a file, and the header's rule applies to it.
 const PLAN_SURFACE = {
-  noSuchFile: 2,
+  noSuchFile: 0,
   ambiguousFile: 0,
   anchorIntoDeletedFile: 0,
   orphanContinuation: 0,

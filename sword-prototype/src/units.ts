@@ -164,6 +164,15 @@ export interface Combatant {
    * to remove.
    */
   strikeReadout?(): { readonly tipSpeed: number; readonly edgeAlignment: number };
+  /**
+   * What this body's own modules are worth, or absent for a body that is not assembled from any.
+   *
+   * The verdict's parts-bin settlement is the only reader, and the same argument as the two ports
+   * above applies: "what came off you, and how worn is what is still on you" has an answer for an
+   * assembled body and no answer at all for a Warrior, whose arm is three bones and a held sword
+   * rather than a module somebody could fit onto something else.
+   */
+  moduleReport?(): readonly import("./golem/parts-bin.ts").GolemModuleReport[];
   readonly limbs: Limb[];
   readonly strikers: Striking[];
   readonly costume: readonly AbstractMesh[];
@@ -454,8 +463,12 @@ const golem: UnitDefinition = Object.freeze({
   humanAdapter: true,
   controlSurface: GOLEM_CONTROL_SURFACE,
   supportedLocomotionPort: SUPPORTED_LOCOMOTION_PORT_V1,
-  // The golem's own mind, so a corner that becomes a golem opens on a body that fights rather than
-  // on the control condition. `idle` stays selectable and stays the thing measurements compare to.
+  // **Read by callers that name no policy, and never by the setup screen.** `withUnit` in
+  // `src/bout.ts` treats a policy as a saved user choice rather than body repair, so a corner that
+  // becomes a golem keeps whatever it had and an incompatible one blocks Fight until a person
+  // picks; this field is what `unitDefinition().build` falls back to, which is `scripts/measure.mjs`
+  // and the tests. Its own mind rather than `idle`, so a harness that asks for "a golem" gets a
+  // body that fights. `idle` stays selectable and stays the thing measurements compare against.
   defaultPolicy: "golem-duelist",
   defaultGolem: defaultGolemSetup(),
   /**

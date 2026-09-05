@@ -175,6 +175,19 @@ export const golemEffector = (chain: string, terminal: string): GolemEffectorOpt
     option.chain === chain && (option.terminal ?? "none") === terminal) ?? null;
 
 /**
+ * One effector option by its own id, which is how the parts bin names a salvaged module.
+ *
+ * The bin stores the registry's own id -- `effector.wrist.blade` -- rather than a chain and a
+ * terminal, because that string is what the registry already guarantees is unique and buildable.
+ * This is the way back, and `isGolemEffectorOption` beside it is the shelf predicate
+ * `decodePartsBin` refuses an unknown id against.
+ */
+export const golemEffectorOption = (id: string): GolemEffectorOption | null =>
+  GOLEM_EFFECTORS.find((option) => option.id === id) ?? null;
+
+export const isGolemEffectorOption = (id: string): boolean => golemEffectorOption(id) !== null;
+
+/**
  * The spelling a `GolemSetup` uses for "this chain carries its own terminal".
  *
  * `null` would have been the honest type and is the wrong one for a `<select>` value and for a
@@ -282,6 +295,18 @@ export function golemSetupRefusal(setup: GolemSetup): string | null {
   if (primary.sockets === 2 || secondary.sockets === 2) {
     if (primary.id !== secondary.id) {
       return `"${primary.id}" and "${secondary.id}" ask for three effector sockets and a golem has two`;
+    }
+  }
+  // A salvaged module's durability, checked where a build that never went near the screen is
+  // checked. Refused rather than clamped: a build asking for a blade at 1.4 is a build somebody
+  // wrote by hand or a parts bin that got past its own codec, and quietly making it a fresh blade
+  // is the substitution this session's codec exists to refuse.
+  for (const socket of ["primary", "secondary"] as const) {
+    const durability = setup[socket].durability;
+    if (durability === undefined) continue;
+    if (typeof durability !== "number" || !Number.isFinite(durability) ||
+        durability <= 0 || durability > 1) {
+      return `the ${socket} socket is fitted at durability ${JSON.stringify(durability)}, which is not a fraction above zero`;
     }
   }
   return null;
