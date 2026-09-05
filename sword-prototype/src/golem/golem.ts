@@ -53,6 +53,8 @@ import {
   type GolemSlot,
   type GolemSocket,
 } from "./module.ts";
+import { moduleDurability, type GolemModuleReport } from "./parts-bin.ts";
+import { refreshGolemWear, seedGolemWear, type GolemWearTie } from "./wear.ts";
 import type { BuiltTorso, TorsoCommand } from "./torso/torso.ts";
 
 /**
@@ -123,6 +125,16 @@ interface AssembledModule {
   readonly built: MountedModule;
   readonly limbs: Limb[];
   severed: boolean;
+  /**
+   * What was left of this module at the instant a **blow** broke its socket, or null.
+   *
+   * Null until then, and null forever for a module that came off because the golem died -- the
+   * carrier letting go is not a part being cut off. It is a snapshot rather than a reading taken
+   * later because `sever` zeroes every one of the module's parts on its way past, so the facts the
+   * loot rule reads stop existing one line after this is written. See `parts-bin.ts` for the rule
+   * itself; what is recorded here is only what was true.
+   */
+  loot: { readonly durability: number; readonly intact: boolean } | null;
 }
 
 /** One effector socket: which module answers for it, and how the golem talks to it. */
@@ -236,6 +248,8 @@ export class Golem implements Combatant {
   private readonly owned = new Set<AbstractMesh>();
   private readonly moduleOfLimb = new Map<Limb, AssembledModule>();
   private readonly occlusion: Vector3[] = [];
+  /** Every shell's wear binding, tied to the limb whose health drives it. See `src/golem/wear.ts`. */
+  private readonly wear: GolemWearTie[] = [];
 
   private readonly geometry: {
     readonly reach: number;
@@ -262,7 +276,14 @@ export class Golem implements Combatant {
     const setup = options.setup;
     const name = `${options.side}.golem`;
     const layers = golemLayersFor(options.side);
-    this.materials = golemMaterials(scene, options.side);
+    // **`procedural-pbr`, so that wear is visible at all.** The salvaged damage-wear shader is what
+    // draws a worn module -- cracks darkening below a health ratio of 0.75 and at their worst by
+    // 0.10 -- and until this session nothing in the tree ever asked for the shader path, so the
+    // plugin bound its uniforms into a define that was always off. `selectGolemSurfaceMode` is the
+    // audit that falls back to `mapped-pbr` where the GLSL path, high precision or derivatives are
+    // missing, and `bindForSubMesh` falls back again if the compile itself reduces -- so asking is
+    // safe on a machine that cannot do it. Session 10, 2026-09-04.
+    this.materials = golemMaterials(scene, options.side, "procedural-pbr");
     const facing = Quaternion.RotationAxis(UP, options.facing);
 
     const locomotionDefinition = golemLocomotion(setup.locomotion);
@@ -349,7 +370,10 @@ export class Golem implements Combatant {
       ...build(primarySocket, "primary"),
       companion: secondarySocket,
     }));
-    this.register("primary", plan.primary.id, primaryModule);
+    // The one place a fitted second-hand module is a second-hand module: it is built exactly as a
+    // new one is and then started at the durability the bin remembers, which is what makes the
+    // shelf and the bin the same shelf. See `register`.
+    this.register("primary", plan.primary.id, primaryModule, setup.primary.durability);
     const primary: MountedEffector = Object.freeze({
       option: plan.primary, module: primaryModule, socket: primarySocket, driven: "primary",
     });
@@ -360,7 +384,7 @@ export class Golem implements Combatant {
         ...build(secondarySocket, "secondary"),
         companion: primarySocket,
       }));
-      this.register("secondary", plan.secondary.id, secondaryModule);
+      this.register("secondary", plan.secondary.id, secondaryModule, setup.secondary.durability);
       secondary = Object.freeze({
         option: plan.secondary, module: secondaryModule, socket: secondarySocket,
         driven: "secondary" as HandName,
@@ -438,9 +462,22 @@ export class Golem implements Combatant {
    * on their cosmetics because on the bench nothing picks anything. Choosing what a click may
    * choose is the assembly's business, which is why it is done once, here, on the meshes this
    * body then admits to owning.
+   *
+   * **`durability` is how a salvaged module arrives second-hand.** One number, applied once, in the
+   * one place a golem's parts get their health: `maxHealth` is what the module declared and
+   * `health` is that times the fraction the bin remembered. So a fitted blade at 0.62 is a blade
+   * that has already taken 38 % of what it can take -- it wears through sooner, it lowers the whole
+   * body's vitality bar by its own share, and it is drawn cracked from the first frame. Absent is
+   * one, which is every module built new off the shelf and every module of every other slot.
+   *
+   * It is a **uniform** scale over the module's parts rather than a per-part record, and that is a
+   * stated simplification: the bin holds "one of these, this worn" and nothing about which piece
+   * the blow found. A per-part save would be a body description format, which is exactly what the
+   * salvaged surface and material files were cut free of.
    */
-  private register(slot: GolemSlot, id: string, built: MountedModule): void {
-    const record: AssembledModule = { slot, id, built, limbs: [], severed: false };
+  private register(slot: GolemSlot, id: string, built: MountedModule, durability = 1): void {
+    const record: AssembledModule = { slot, id, built, limbs: [], severed: false, loot: null };
+    const worn = Number.isFinite(durability) ? Math.max(0, Math.min(1, durability)) : 1;
     for (const part of built.parts) {
       const limb: Limb = {
         key: part.id,
@@ -451,7 +488,7 @@ export class Golem implements Combatant {
         // whichever bone was struck. So no individual part owns an attachment constraint, and
         // `Golem.sever` breaks the module's own joints instead.
         attachment: null,
-        health: part.health,
+        health: part.health * worn,
         maxHealth: part.health,
         severed: false,
         lastHitAt: -999,
@@ -467,6 +504,9 @@ export class Golem implements Combatant {
         this.costume.push(mesh);
         this.owned.add(mesh);
       }
+      // Wear is seeded here for the same reason a pick is decided here: the shell passes through
+      // this loop and nowhere else, and a module builder has no idea what it was fitted at.
+      this.wear.push({ of: limb, bindings: seedGolemWear(slot, part.id, part.shell, worn) });
     }
     for (const striker of built.strikers) this.strikers.push(striker);
     this.modules.push(record);
@@ -705,6 +745,9 @@ export class Golem implements Combatant {
       this.ram.ready = stroke === "idle";
       this.ram.active = stroke === "drive";
     }
+    // Presentation, once per substep, and it feeds nothing: the shader reads a health ratio this
+    // body already publishes on `BodyView.health`, and no rule anywhere reads it back.
+    refreshGolemWear(this.wear);
     if (this.vitality <= 0) this.die();
   }
 
@@ -931,6 +974,16 @@ export class Golem implements Combatant {
   sever(limb: Limb, direction: Vector3): void {
     const module = this.moduleOfLimb.get(limb);
     if (!module || module.severed) return;
+    // **Before the zeroing, because the zeroing destroys what the loot rule reads.** `severs` in
+    // `src/scoring.ts` refuses to sever a piece whose health is still above zero, so the struck
+    // piece is always down by the time this runs -- which is why "intact" is every part *but* that
+    // one. A module with a second piece already at zero was cut to pieces rather than cut off, and
+    // is debris. Recorded here rather than inferred later because this is the sever itself: a
+    // reading taken from the outside would be inferring an event from a side effect.
+    module.loot = Object.freeze({
+      durability: moduleDurability(module.limbs),
+      intact: module.limbs.every((part) => part === limb || part.health > 0),
+    });
     module.severed = true;
     for (const part of module.limbs) {
       part.severed = true;
@@ -956,6 +1009,31 @@ export class Golem implements Combatant {
     // *body's* half of the rule and not a second copy of it -- what happens here is that the golem
     // stops being driven, and what happens there is that the bout ends.
     if (module.limbs.some((part) => part.fatal === true)) this.die();
+  }
+
+  /**
+   * What each of this golem's five modules is worth, for the verdict to read.
+   *
+   * The one accessor Session 10 added to this file, and it is deliberately one rather than two:
+   * `AssembledModule` is private, so a verdict that wants to know what came off has to be handed
+   * something -- and the same call answers the other half, which is how worn a module *still on the
+   * body* is, because a module fitted from the parts bin has to carry its remaining durability back
+   * into the bin when the bout ends. Two accessors would have been the same walk twice.
+   *
+   * It publishes facts and applies no rule. Whether a severed module is loot is
+   * `partsBinLoot` in `src/golem/parts-bin.ts`, which is pure, has no Babylon in its graph, and can
+   * therefore be argued with.
+   */
+  moduleReport(): readonly GolemModuleReport[] {
+    return Object.freeze(this.modules.map((module) => Object.freeze({
+      slot: module.slot,
+      id: module.id,
+      severed: module.severed,
+      // A severed module's durability is the snapshot; a live one's is read now. There is no third
+      // case: `sever` records before it zeroes, and nothing else changes `loot`.
+      durability: module.loot ? module.loot.durability : moduleDurability(module.limbs),
+      severedIntact: module.severed && module.loot !== null && module.loot.intact,
+    })));
   }
 
   // -------------------------------------------------------------------------------- end of life
@@ -1012,6 +1090,7 @@ export class Golem implements Combatant {
     this.modules.length = 0;
     this.effectorModules.length = 0;
     this.occlusion.length = 0;
+    this.wear.length = 0;
     this.byBody.clear();
     this.owned.clear();
     this.moduleOfLimb.clear();

@@ -164,6 +164,15 @@ export interface Combatant {
    * to remove.
    */
   strikeReadout?(): { readonly tipSpeed: number; readonly edgeAlignment: number };
+  /**
+   * What this body's own modules are worth, or absent for a body that is not assembled from any.
+   *
+   * The verdict's parts-bin settlement is the only reader, and the same argument as the two ports
+   * above applies: "what came off you, and how worn is what is still on you" has an answer for an
+   * assembled body and no answer at all for a Warrior, whose arm is three bones and a held sword
+   * rather than a module somebody could fit onto something else.
+   */
+  moduleReport?(): readonly import("./golem/parts-bin.ts").GolemModuleReport[];
   readonly limbs: Limb[];
   readonly strikers: Striking[];
   readonly costume: readonly AbstractMesh[];

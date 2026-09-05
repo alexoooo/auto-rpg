@@ -390,8 +390,16 @@ const SCRATCH_SHARE_OF_DURABLE = { min: 0.02, max: 0.25 };
 // 8. Neither number describes the merge, and the arithmetic that "obviously" gives 5 is exactly
 // what this pin's own header forbids -- so this one is the merged run's, taken from its output.
 // What remains is sessions 09 to 11 naming what they intend to create.
+//
+// **Re-taken 2026-09-04 from golem session 10's own failing run, on its own branch: 5 -> 3.**
+// Session 10 built the two files its plan promised -- `src/golem/parts-bin.ts` and
+// `tests/golem-loot.test.mjs` -- and each accounted for exactly one occurrence. The 3 that remain
+// are session 09's tactics, golem-policies and golem-mind files, named without code spans here
+// precisely because they do not exist yet and this file is scanned by the rule above. So this
+// number is a branch's and not the merge's, for the fourth time in this comment: the coordinator
+// re-takes it from the merged tree's own failing run.
 const PLAN_SURFACE = {
-  noSuchFile: 5,
+  noSuchFile: 3,
   ambiguousFile: 0,
   anchorIntoDeletedFile: 0,
   orphanContinuation: 0,

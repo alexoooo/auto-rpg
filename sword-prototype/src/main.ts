@@ -21,6 +21,14 @@ import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, combatRecorder, sampleBout
 import { advanceActiveHostTimers, ArenaPresentation, pauseHost, presentRebuiltFrame, restartHost, resumeHost,
   runHostFrame, type RunningHost } from "./host-run";
 import { SetupScreen } from "./setup";
+import { golemEffector, golemEffectorOption, isGolemEffectorOption } from "./golem/build";
+import {
+  browserPartsBinStorage,
+  partsBinLoot,
+  PartsBin,
+  type FittedPart,
+  type PartsBinTake,
+} from "./golem/parts-bin";
 import { flatSupportedWorldRegistry } from "./supported-locomotion-production";
 import type { Side } from "./physics";
 import {
@@ -45,6 +53,7 @@ import {
   selectScreen,
   takeBody,
   toSelect,
+  withGolemEffector,
   type Matchup,
   type Ring,
   type SideSetup,
@@ -196,7 +205,18 @@ async function boot(): Promise<void> {
    * checks.
    */
   let state = selectScreen(defaultMatchup());
-  const setup = new SetupScreen(need("matchup"), state.matchup, Object.freeze({}), beginButton);
+  /**
+   * The parts bin: what this browser has taken off beaten golems, and nothing else.
+   *
+   * Built before the setup screen because the screen offers what is in it, and handed the shelf's
+   * own predicate because `decodePartsBin` refuses a stored module id this build cannot make rather
+   * than dropping it. `browserPartsBinStorage` answers null in every context that has no
+   * `localStorage` or refuses to hand one over, and every read and write inside the bin is wrapped
+   * -- a private window, cleared site data and a full quota are three failures with one honest
+   * answer, which is an empty bin and a sentence on the screen.
+   */
+  const partsBin = new PartsBin(browserPartsBinStorage(), isGolemEffectorOption);
+  const setup = new SetupScreen(need("matchup"), state.matchup, Object.freeze({}), beginButton, partsBin);
 
   const controls = new Controls(canvas, {
     onReset: () => {
@@ -707,6 +727,72 @@ async function boot(): Promise<void> {
     right: { parts: bout.right.limbs, lastBlow: bout.sides[1].combat.lastWound },
   });
 
+  /** What the last verdict handed over, for the banner. Empty when nothing was taken. */
+  let salvageNotice = "";
+
+  /**
+   * The One Must Fall loop, closed at the verdict.
+   *
+   * **No in-arena pickup**, which is the session's own frozen choice: the winner collects here,
+   * once, when the bout is decided. Picking a part up mid-bout is a later idea and is written down
+   * as one in `docs/design.md` rather than built.
+   *
+   * Three things happen and they are deliberately in this order. Every bin entry that was **fitted**
+   * onto the person's own golem reports what is left of it, so wear carries forward and a part
+   * worn to nothing leaves the bin. If the person **won**, the beaten body's own module report is
+   * put through the loot rule and whatever qualifies is appended. Then the matchup's own sockets
+   * are re-pointed at what the bin now holds, so `R` refights with the arm as it is rather than as
+   * it was -- and a socket whose entry is *gone* keeps its stale key on purpose, because the setup
+   * screen refuses a build naming one by name and quietly making it a fresh module is the
+   * substitution this whole session is written against.
+   *
+   * Only when a person is in the ring. "The winner collects" needs somebody to collect for, and a
+   * bout of two policies has nobody.
+   */
+  const collectSalvage = (): void => {
+    salvageNotice = "";
+    const mine = humanSide(state.matchup);
+    if (!mine) return;
+    const ours = mine === "left" ? bout.left : bout.right;
+    const theirs = mine === "left" ? bout.right : bout.left;
+    const build = state.matchup[mine].golem;
+    const ourModules = ours.moduleReport?.() ?? [];
+
+    const fitted: FittedPart[] = [];
+    const counted = new Set<string>();
+    for (const socket of ["primary", "secondary"] as const) {
+      const key = build?.[socket].salvage;
+      // A two-socket terminal is one module named by both sockets, so the same entry must be
+      // reported once. `counted` is what makes a mace one part rather than two.
+      if (key === undefined || counted.has(key)) continue;
+      counted.add(key);
+      const found = ourModules.find((module) => module.slot === socket);
+      if (!found) continue;
+      fitted.push({ key, durability: found.durability, severed: found.severed });
+    }
+
+    const won = state.outcome?.winner === mine;
+    const taken: readonly PartsBinTake[] = won ? partsBinLoot(theirs.moduleReport?.() ?? []) : [];
+    partsBin.settle({ fitted, taken });
+
+    let next = state.matchup;
+    for (const socket of ["primary", "secondary"] as const) {
+      const pick = build?.[socket];
+      if (!pick || pick.salvage === undefined) continue;
+      const held = partsBin.entry(pick.salvage);
+      if (!held) continue;
+      next = withGolemEffector(next, mine, socket, { ...pick, durability: held.durability },
+        (candidate) => (golemEffector(candidate.chain, candidate.terminal)?.sockets ?? 1) === 2);
+    }
+    state = { ...state, matchup: next };
+
+    if (taken.length > 0) {
+      salvageNotice = `TAKEN &mdash; ${taken
+        .map((part) => `${golemEffectorOption(part.id)?.label ?? part.id} at ${Math.round(part.durability * 100)}%`)
+        .join(", ")}`;
+    }
+  };
+
   // The control loop runs on the physics clock, not the render clock.
   //
   // Babylon's accumulator takes several fixed solver steps per rendered frame,
@@ -985,7 +1071,12 @@ async function boot(): Promise<void> {
       // `Combat` counts on, so the cap and a report's timestamp are comparable.
       // Only while the fight is actually running: an arena paused in place
       // must not quietly run out its ten-minute safety cap.
+      const wasFighting = state.phase === "fight";
       state = advanceFight(state, ring(), dt, bout.ending);
+      // The verdict edge, and the only place the parts bin is written. Read from the phase pair
+      // rather than from the outcome, because an outcome stays set for as long as the bout is over
+      // and collecting once per frame from then on would fill the bin with the same arm forever.
+      if (wasFighting && state.phase === "over") collectSalvage();
       // Observers remain installed after the verdict: blood, corpse integration,
       // rendering and camera all continue after attack authority has ended.
       const driven = yours();
@@ -1018,6 +1109,8 @@ async function boot(): Promise<void> {
     const decided = state.outcome;
     const banner = [
       decided ? `BOUT OVER &mdash; ${decided.text} &mdash; R to restart` : "",
+      // What the winner kept, beside the verdict that earned it and never without one.
+      decided ? salvageNotice : "",
       // Ahead of the lock's own line, because it is the mode you just entered and
       // the one a click is about to be spent on.
       takeover.isArmed ? TAKE_TEXT : "",

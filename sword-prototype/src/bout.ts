@@ -112,6 +112,24 @@ export const EQUIPMENT: readonly { name: WeaponKind; label: string }[] = [
 export interface GolemEffectorSetup {
   chain: string;
   terminal: string;
+  /**
+   * Which parts-bin entry this socket is wearing, by that bin's own key, or absent for a module
+   * built new off the shelf.
+   *
+   * Two optional scalars rather than one, because they have two different readers and neither can
+   * answer for the other. **The body reads `durability`**: a module is built at that fraction of
+   * its own health, so a fitted second-hand blade starts the bout worn and looks it. **The bin
+   * reads `salvage`**: at the verdict it needs to know which stored entry was on the body, so it
+   * can carry the wear forward or drop an entry that has reached zero. A field that named only the
+   * key would make `src/golem/` read a browser's storage to build a body; one that named only the
+   * durability would leave the bin unable to tell which of two blades at 0.6 came back.
+   *
+   * Plain scalars, so `copyGolem`'s spread copies them and a matchup still survives a
+   * `structuredClone` and a URL, which is the whole reason this shape is strings and numbers.
+   */
+  salvage?: string;
+  /** What the fitted module is built at, greater than zero and at most one. Absent means new. */
+  durability?: number;
 }
 
 /**
@@ -333,8 +351,13 @@ export function withGolemEffector(
   if (!build) return matchup;
   const other = socket === "primary" ? "secondary" : "primary";
   build[socket] = { ...pick };
+  // **A salvaged module is one thing, and it is fitted once.** A two-socket terminal genuinely is
+  // one module in both sockets, so both sockets naming the same bin entry is the truth about it.
+  // The third branch is the one that would lie: a socket moved off half a mace is being given a
+  // *different* module, and copying the salvage key across with the pair would fit one stored part
+  // onto two arms and report it twice at the verdict. It is moved onto the shelf's own version.
   if (twoSocket(pick)) build[other] = { ...pick };
-  else if (twoSocket(build[other])) build[other] = { ...pick };
+  else if (twoSocket(build[other])) build[other] = { chain: pick.chain, terminal: pick.terminal };
   return next;
 }
 
