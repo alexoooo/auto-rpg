@@ -9576,3 +9576,168 @@ knows or not.
   was driven by hand through `__golem.step`, because Chrome does not paint a hidden tab, and it
   walked, crouched to 0.925 m, took the `B` shove to an up-dot of -0.137 and rose back to 1.020 m
   with 0 self-contacts. Those are page numbers and none of them belongs beside a column above.
+
+## Session 07: the torso and the head, on a third harness
+
+**Every number below is from the Node torso bench** — `scripts/golem-torso-bench.mjs`,
+`NullEngine`, real Havok, no rendering — and none of it may be put in a column with a page reading
+or with a figure from `scripts/golem-bench.mjs`. There are three harnesses in this directory now.
+The two that have been compared agree on converged behaviour and disagree by about 9 % on the
+Warrior's peak transient with identical code, and putting two of them in one column has already
+produced a regression report about a build where nothing had changed.
+
+Every threshold in `tests/golem-torso-head.test.mjs` is **provisional**, pinned from the
+2026-09-04 run and to be re-taken after the owner's gate, exactly as Sessions 02 and 03 marked
+theirs. No number here is a verdict.
+
+The scripted sequence is: settle, lean to full and hold, square up, twist to full and hold,
+untwist and settle, take a shove, hold a guard, release, lunge, recover — 13.6 s. `trunkLean` and
+`trunkTwist` are slewed at `CONFIG.controls.postureSlewPerSecond`, which is `src/input.ts`'s own
+arrow-key rate restated because `input.ts` cannot be loaded by Node.
+
+### The waist, on both options, with a ram head on the neck
+
+| | lean arrival | lean overshoot | twist arrival | twist overshoot | lag mm | wander at rest |
+|:---|---:|---:|---:|---:|---:|---:|
+| `torso.plain` | 0.708 s | 0.0348 rad | 0.533 s | 0.0037 rad | 61.7 | 19.99 mm |
+| `torso.plated` | 0.508 s | 0.0132 rad | 0.517 s | 0.0037 rad | 64.5 | 22.56 mm |
+
+Zero contacts and zero self-contacts over both runs, and zero stuck steps. The self-contact count
+proves only that no pair was admitted by accident — the layer table never offers one — which is
+the honest half of that reading and the half the construct experiment recorded.
+
+**The lean torque was chosen against a joint stop rather than against a feel.** At 900 N·m the
+plain trunk's overshoot is 0.2025 rad against a commanded 0.42 and a stop 0.20 outside it, so the
+trunk arrives at its own limit; the full table is beside `TORSO_WAIST.leanTorque`. At 600 both
+options are stuck (458 and 541 steps). Above 1500 the overshoot goes to nothing and the residual
+wander climbs — 21.7 mm at 1500 against 26.9 at 3200 — which is a stiffer trunk rather than a
+better one.
+
+### The head, on the stand
+
+| | guard arrival | guard overshoot | tip wander at rest | peak tip, driven |
+|:---|---:|---:|---:|---:|
+| `head.plain` | 0.308 s | 0.0103 rad | 0.399 mm | 0.98 m/s |
+| `head.ram` | 0.450 s | 0.1738 rad | 0.599 mm | 2.37 m/s |
+
+### The shove, and the bob
+
+`BENCH_SHOVE` is **84 N·s applied as an impulse** — a shove is an impulse, and no force may be
+applied from outside the solver. The number is the momentum of a ram plate at the lunge speed this
+same harness measures, so the bench shove is what one of this session's own golems can hit you
+with. It is aimed across and a little back, so the neck's second axis is exercised as well as the
+first. Every body has `pl.setActivationControl(body, 1)` before a reading is believed.
+
+| stack | bob peak | decayed to a tenth in | yaw the shove produced |
+|:---|---:|---:|---:|
+| plain trunk + plain head | 37.94 mm | 0.958 s | 0.0205 rad |
+| plain trunk + ram head | 40.60 mm | 0.792 s | 0.0964 rad |
+| plated trunk + plain head | 37.72 mm | 1.000 s | 0.0137 rad |
+| plated trunk + ram head | 41.14 mm | 0.817 s | 0.0892 rad |
+
+Two instrument corrections are recorded because both produced a number that was a reading of the
+window rather than of the body. The bob meter's window originally ran to the end of the script, so
+the "bob" it reported was the guard and the lunge that come after the shove — 490 mm of it, against
+the 40 a shove actually produces. And its settle band was a fixed 8 mm, which is *below the
+standing noise floor of the thing being measured* (a trunk's own tip wanders about 20 mm at rest),
+so every row reported the window's own length back as a settle time; it is a tenth of the blow's
+own peak now.
+
+### The lunge
+
+Read with both mandatory exclusion windows applied — the first 0.6 s, and 0.25 s after any
+contact.
+
+| stack | peak tip, driven | drive ended at | deepest | carried past the drive | stop |
+|:---|---:|---:|---:|---:|---:|
+| plain trunk + ram | 3.36 m/s | 0.4463 rad | 1.4540 rad | 1.0077 rad | 1.55 rad |
+| plated trunk + ram | 3.21 m/s | 0.4414 rad | 1.3839 rad | 0.9425 rad | 1.55 rad |
+
+**Every setting is bounded by the same thing: the stroke must not arrive at the neck's own stop.**
+`driveRate` 9, `driveSeconds` 0.05 and `followSeconds` 0.02 are each the largest value in their
+column whose stroke still clears it; one row further on in any of them and the head reaches 1.56
+and bounces. The four tables are beside `HEAD_RAM.lunge`.
+
+**A stronger neck motor abolishes the stroke**, which is the finding of the pitch-torque sweep and
+is worth its own line: the follow-through is the head coasting until the position motor takes it
+back, so raising that motor's ceiling raises the brake. The lunge's carry falls from 0.909 rad at
+260 N·m to 0.440 at 420 and to 0.003 at 1200. Below 260 the head cannot hold its own guard
+(overshoot above 1.1 rad, and 300–507 stuck steps). The window is narrow in both directions and
+there is no headroom in either.
+
+### A lunge goes down, not across, and that changed the fixture
+
+Measured on the head alone: a nod carries the plate about **35 mm further forward and 460 mm
+further down**. The plate traces an arc about a hinge that is already behind and below it, so what
+a ram does to something in front of it is come down on top of it. A vertical slab placed where the
+plate could reach turned out to be a slab the plate was already resting against, and a stroke that
+begins in contact cannot accelerate — 1.23 m/s and no wound. The test's target is a
+free-standing post the head comes down onto.
+
+The forward half of a lunge is the **waist**: a full lean carries the whole head 220 mm, which is
+six times what the nod does. A head module cannot command a waist it does not own, and does not
+need to — a person leans with the arrow keys and fires with the left button, and both arrive as
+one `Intent`.
+
+### The ram found a hole in the damage model
+
+The plate arrives at the **contact** at 1.3–1.8 m/s, which is slower than the tip and is read
+after the solver has resolved the contact. On the club's row — floor 2.2 m/s — that scores exactly
+nothing, so the whole option was inert.
+
+Two separate effects were measured on the way to that:
+
+- **A dynamic target is not optional in this fixture.** `Striking.velocityAt` reads the striker's
+  velocity in the contact callback, which runs after the solver has resolved it, so a blow against
+  an immovable target reports the speed it left with. The same post at mass 0 reported 0.49 m/s
+  where a 12 kg one reports 1.78. Same family as the arrow's recorded 38.4 against a true 48.0.
+- **A dynamic hammer is the same defect on the other side.** A 4 kg hammer thrown at 8 m/s into a
+  torso core reported **0.784 m/s** and scored `weak` for zero damage; the armour fixture drives an
+  `ANIMATED` hammer, which arrives at exactly the speed it was given in both runs.
+
+`ram` is a `Striker` row of its own now. Its floor and reference are the club's carried across at
+equal kinetic energy: a rigid body pivoting about a hinge presents `I / d²` at the contact, which
+for an 81 kg head at 0.16 m and a 21 kg plate at 0.36 m is about **37 kg** against a club's 3.4, so
+every speed scales by `sqrt(3.4/37) = 0.303` — 0.65 m/s and 3.30 m/s. On the measured contacts that
+is **0.42 to 0.73 damage**, which is a real blow and a small one. Whether a ram should hurt more is
+a balance question a fight has to answer and a bench cannot.
+
+### Armour, measured through the real `Combat`
+
+One `ANIMATED` hammer at 8 m/s, edge square to its travel, driven into each torso's core through
+`Combat` — so the blow is scored by `src/scoring.ts` exactly as a blow in the arena is and the
+armour is spent at `Combatant.applyDamage`.
+
+| core | pre-armour | applied | ratio |
+|:---|---:|---:|---:|
+| `torso.plain`, armour 0.10 | 1.4375 | 1.2938 | 0.900 |
+| `torso.plated`, armour 0.34 | 1.4375 | 0.9488 | 0.660 |
+
+The pre-armour figures are equal to within 2 × 10⁻⁷ — a float32 round trip through the solver —
+which is asserted, because without it "the plated one took less" could be a measurement of two
+different blows.
+
+**Six mutations were watched red**, on 2026-09-04, against `tests/golem-torso-head.test.mjs`:
+`armouredDamage` ignoring its armour argument; the two torsos' armour fractions exchanged; the ram
+lunge's drive rate set to zero; the waist torque put back to the 900 that reaches its own stop; a
+plain head given the ram's plate and lunge; and the neck's bottom stop moved so it no longer admits
+the pose the head is built in.
+
+### What is owed, for the torso and the head
+
+- **The human gate.** Everything above is one headless harness and no number in it answers any of
+  the overview's three questions. The page bench shows both slots and stands a head on a trunk;
+  nobody has driven it.
+- The ram's damage is small and the numbers behind `CONFIG.combat.ramMinSpeed` are a derivation
+  rather than a fight. `Striking.damageScale` is the seam if the owner wants a ram to hurt more,
+  and it should be spent against a bout rather than against a bench.
+- The neck's second axis is not commanded by anything, by design. Whether a head that a shove turns
+  5.5 degrees reads as alive or as a loose bolt is exactly the sort of question this file cannot
+  answer.
+- The waist's rate limit does not bind for a person — `src/input.ts` already slews the arrow keys
+  more slowly than `TORSO_WAIST.leanRate` allows — so what makes a trunk read as heavy is the
+  torque cap against real mass and nothing else. It binds for a policy, and Session 09 is its
+  first reader.
+- `torso.plated` was measured only with the shared waist motor. Whether 236 kg on a 1500 N·m waist
+  reads as armoured or as sluggish is the gate's to say, and if the answer is sluggish the honest
+  next move is a lighter plate rather than a bigger motor.

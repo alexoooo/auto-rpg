@@ -367,8 +367,23 @@ const SCRATCH_SHARE_OF_DURABLE = { min: 0.02, max: 0.25 };
 // locomotion files for four, and 3 + 4 = 7 is exactly the fall. The 17 that remain are sessions
 // 06 to 11 naming what they intend to create. Take the next one from its own failing run too: two
 // branches re-pinning the same counter is what made this note necessary.
+//
+// **Re-taken 2026-09-04 from golem session 07's own failing run: 24 -> 17.** Seven occurrences
+// went because session 07 built the seven files its plan promised: `src/golem/torso/torso.ts`,
+// `src/golem/torso/plain.ts`, `src/golem/torso/plated.ts`, `src/golem/head/head.ts`,
+// `src/golem/head/plain.ts`, `src/golem/head/ram.ts` and `tests/golem-torso-head.test.mjs`. Seven
+// files and seven occurrences: like session 03's and unlike session 02's, none of them is named by
+// the overview, which describes the body plan in a table rather than by path. The 17 that remain
+// are sessions 04 to 11 naming what they intend to create.
+//
+// **Re-taken 2026-09-04 from the merged tree's own failing run, sessions 04, 05 and 07 together:
+// 24 -> 10.** Session 07 branched off the same 24 as the other two and re-pinned to 17 -- the same
+// number three parallel sessions' arithmetic keeps landing on from different directions, and the
+// third demonstration in this comment that a counter re-pinned on a branch is a counter measured
+// against a tree that does not exist. 3 + 4 + 7 = 14 is the whole fall. The 10 that remain are
+// sessions 06 and 08 to 11 naming what they intend to create.
 const PLAN_SURFACE = {
-  noSuchFile: 17,
+  noSuchFile: 10,
   ambiguousFile: 0,
   anchorIntoDeletedFile: 0,
   orphanContinuation: 0,

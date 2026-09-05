@@ -67,6 +67,14 @@ import "@babylonjs/core/Materials/Textures/Loaders/hdrTextureLoader.js";
  * fighter's off hand does. A module that claims both sockets (a mace) cannot share the stand and
  * the picker says so rather than building half of one.
  *
+ * **A trunk gets a head stood on it**, which is Session 07's, and it is asked as a capability
+ * rather than looked up in a table: whatever is on the stand is asked for a `head` socket, only a
+ * torso has one, and the last head-slot option anybody picked is what goes on it. The gate that
+ * needs it is the one the session plan actually asks -- lean a trunk *with a head on it* and see
+ * whether the head bobs. `controls.ownership.posture` is set true for the same gate's sake:
+ * `Controls` gates the arrow keys on ownership because in the arena a policy steers the body, and
+ * on a bench the person is the only driver there is.
+ *
  * **It carries no list of what it can show.** The picker is built from `GOLEM_MODULES` in
  * `src/golem/registry.ts`, grouped by the mode each registration declares, and the number keys
  * select from the registry's own order. Session 03's chains, Session 04's terminals, Session
@@ -204,12 +212,53 @@ async function main(): Promise<void> {
   // than silently building half of it.
   let slot: GolemSlot = "primary";
   let paired = false;
+  /**
+   * The first registered option that can fill a slot, which is what that slot starts holding.
+   *
+   * **A refusal rather than a fallback.** Session 04 seeded all five entries of `chosen` with
+   * `GOLEM_MODULES[0]`, which was harmless while every registration was an effector and is not
+   * any more: Sessions 05 and 07 put a locomotion module, two trunks and two heads on the page,
+   * and a rung-0 effector sitting in the `head` entry would be built into a neck the moment a
+   * torso asked for one -- an effector in a slot whose channel it cannot read, which is a silent
+   * substitution of exactly the kind the `never`-defaulted unions elsewhere exist to prevent. A
+   * slot with no registered option is a bench that cannot show that slot, so it says so by name
+   * at bring-up instead of standing the wrong thing there.
+   */
+  const firstFor = (which: GolemSlot): GolemBenchOption => {
+    const found = GOLEM_MODULES.find((entry) => entry.slots.includes(which));
+    if (!found) throw new Error(`no registered golem module fills the ${which} slot`);
+    return found;
+  };
+  /**
+   * What each slot is holding, whether or not it is on the stand right now.
+   *
+   * Keyed by slot rather than by mode, which is what lets the head the bench stands on a trunk be
+   * the same record as the head the picker shows: `chosen.head` *is* "the last head-slot option
+   * anybody picked", so Session 07's separate `headOption` is this entry and not a second copy of
+   * it. Picking a head therefore both shows it on the stand and chooses which head rides the next
+   * torso, with nothing anywhere asking what kind of thing an option is.
+   */
   const chosen: Record<GolemSlot, GolemBenchOption> = {
-    locomotion: GOLEM_MODULES[0], torso: GOLEM_MODULES[0], head: GOLEM_MODULES[0],
-    primary: GOLEM_MODULES[0], secondary: GOLEM_MODULES[0],
+    locomotion: firstFor("locomotion"), torso: firstFor("torso"), head: firstFor("head"),
+    primary: firstFor("primary"), secondary: firstFor("secondary"),
   };
   const built = new Map<GolemSlot, BenchModule>();
   const overlays = new Map<GolemSlot, BenchOverlay>();
+  /**
+   * The head standing on whatever is on the stand, when the thing on the stand has a neck.
+   *
+   * **Capability, not mode**, which is Session 07's rule kept verbatim: nothing here asks what
+   * kind of module is selected, it asks the built module whether it hosts a `head` socket -- which
+   * only a torso does -- and stands `chosen.head` on it. That is what lets the owner answer the
+   * gate the session plan actually asks: lean a trunk *with a head on it*, and watch the head bob
+   * when the trunk moves.
+   *
+   * Its own variable rather than a sixth entry in `built`, because it is not on the stand: it is
+   * on the thing on the stand. The distinction is load-bearing at teardown -- its neck joint is
+   * anchored into the host's body, so it has to go first -- and `built` is a map whose iteration
+   * order says nothing about what is jointed to what.
+   */
+  let carried: BenchModule | null = null;
   /**
    * **The stand is rebuilt with the module, because which slot is filled decides what it is.**
    * For four of the five slots it is the fixed `ANIMATED` anchor Session 02 built; for locomotion
@@ -270,12 +319,17 @@ async function main(): Promise<void> {
     releaseWatchers();
     for (const overlay of overlays.values()) overlay.dispose();
     overlays.clear();
+    // **Down the way it was built up**, and that ordering is the whole of this function. Every
+    // constraint here points from a body at one level into the body below it, and
+    // `PhysicsBody.dispose` walks straight past whatever is constraining it -- so disposing a host
+    // first leaves a live constraint pointing at a freed Havok body. Same rule and same reason as
+    // terminal-before-chain in `effectorModule`: the carried head is jointed into the trunk, the
+    // trunk and every effector are jointed into the stand's block, so it is head, then modules,
+    // then stand.
+    carried?.dispose();
+    carried = null;
     for (const module of built.values()) module.dispose();
     built.clear();
-    // The stand goes **last**, after everything standing on it. Every module is jointed into the
-    // block's own body and `PhysicsBody.dispose` walks straight past whatever is constraining
-    // it, so taking the block down first would leave a constraint pointing at a freed Havok
-    // body. Same rule and same reason as terminal-before-chain in `effectorModule`.
     stand?.dispose();
     stand = null;
   };
@@ -337,6 +391,19 @@ async function main(): Promise<void> {
     readout = new BenchReadout({
       settledBand: built.get(slot)?.envelope().settledBand ?? CHAIN_PITCH.settledBand,
     });
+
+    // Ask what is being driven whether it carries a head, and stand one on it if it does. The
+    // **acting** module is the one asked, which is exact rather than a narrowing of Session 07's
+    // "whatever is on the stand": only a trunk hosts a neck, a trunk fills a slot that has no
+    // second socket, and `pairRefusal` therefore refuses to put anything beside one.
+    const neck = built.get(slot)?.socket?.("head") ?? null;
+    if (neck) {
+      carried = chosen.head.build({
+        scene, side: "left", name: "golem.bench.head", socket: neck, layers,
+        materials: rebuilt.materials, world,
+      });
+      for (const part of carried.parts) watch(part.part.body);
+    }
     renderPicker();
   };
 
@@ -375,6 +442,7 @@ async function main(): Promise<void> {
     lines.push(paired
       ? `  pair: on, ${chosen[other(slot)].label} in the ${other(slot)} socket   (P)`
       : `  pair: off${refusal === null ? "" : ` -- ${refusal}`}   (P)`);
+    if (carried) lines.push(`  carrying: ${chosen.head.label}`);
     lines.push("  keys 1-9, 0, then shift+1-9");
     pickerPanel.innerHTML = lines.join("\n");
   };
@@ -382,9 +450,22 @@ async function main(): Promise<void> {
   const pick = (wanted: number): void => {
     const ordered = golemBenchModes().flatMap((mode) => golemModulesForMode(mode));
     const picked = ordered[wanted - 1];
-    if (!picked || picked.id === chosen[slot].id) return;
-    chosen[slot] = picked;
-    if (!picked.slots.includes(slot)) slot = picked.slots[0];
+    if (!picked) return;
+    // **The option is remembered under a slot it can actually fill.** Session 04 wrote
+    // `chosen[slot] = picked` and then moved `slot` if the option did not fit, which was correct
+    // for as long as every registration was an effector offered in both hands -- the move never
+    // fired. Sessions 05 and 07 register modules that fit exactly one slot each, so picking a
+    // biped from the primary socket used to file it under `primary` and then build whatever was
+    // filed under `locomotion`, which is an effector in a socket whose channel it cannot read.
+    // Choosing the target first is the same one line pointed at the slot the option names.
+    //
+    // Filing by slot is also what makes a head remembered: `chosen.head` is the last head-slot
+    // option anybody picked, so looking at `head.ram` and then at `torso.plated` stands the ram
+    // on the plated trunk, with nothing here asking what kind of thing either of them is.
+    const target = picked.slots.includes(slot) ? slot : picked.slots[0];
+    if (target === slot && picked.id === chosen[target].id) return;
+    chosen[target] = picked;
+    slot = target;
     build();
   };
 
@@ -461,6 +542,14 @@ async function main(): Promise<void> {
     },
     onPrimaryDown: () => false,
   });
+  // **The person owns their own posture here, and without this line a torso has no writer.**
+  // `Controls` gates the arrow keys on `ownership.posture`, which is false by default because in
+  // the arena a policy is steering the body while the person spends the mouse on one hand. There
+  // is no policy on the bench: the person is the only driver, so `Intent.posture.trunkLean` and
+  // `trunkTwist` are theirs to write and nothing else would ever write them. A command channel
+  // with no writer is a button a person cannot press and it looks exactly like a body that does
+  // not work -- which is on record for `Intent.natural`, one channel over, and cost a session.
+  controls.ownership.posture = true;
   controls.start();
   // **The default view is from the side, because that is where the swing is.** Rung 1 turns in
   // the sagittal plane, and a camera on the arena's own default bearing looks straight down it:
@@ -517,6 +606,10 @@ async function main(): Promise<void> {
     // matter: a limb that is not stepped is a limb whose own joint motors never get their
     // ceilings written, and a readout fed from two modules at once would be two columns in one.
     for (const each of built.values()) each.step(SUBSTEP);
+    // And whatever is standing on one of them. A head's neck drive runs on the same clock as
+    // everything else; a module that is not stepped is a module whose joint motors never get
+    // their ceilings written.
+    carried?.step(SUBSTEP);
     const module = built.get(slot);
     if (!module) return;
     const view = module.view();
@@ -587,12 +680,18 @@ async function main(): Promise<void> {
 
     if (controls.isActive) {
       // Once per rendered frame, which is what a control boundary is: a button press and a
-      // cursor position are frame events. `step` above is what runs at 240 Hz. **The whole
-      // `Intent` goes to both modules** and each takes its own socket's channel out of it, which
-      // is the one-seam rule: the person drives one hand at a time and the other limb holds
-      // whatever that hand's channel last said, exactly as an arena fighter's does.
+      // cursor position are frame events. `step` above is what runs at 240 Hz.
+      //
+      // **One command, handed to every module on the page.** Each module's registration says
+      // which channel of it to read -- an effector takes the hand of the socket it was built
+      // into, a trunk takes `posture`, a head takes `natural` -- so two effectors, a trunk and
+      // the head riding it are all driven by the same `Intent` a person produced, with nothing
+      // here switching on what any of them is. The person drives one hand at a time and the
+      // other limb holds whatever that hand's channel last said, exactly as an arena fighter's
+      // does.
       const intent = controls.sample(dt);
       for (const each of built.values()) each.command(intent);
+      carried?.command(intent);
     } else {
       controls.sampleCamera(dt);
     }
@@ -607,7 +706,11 @@ async function main(): Promise<void> {
       readoutPanel.textContent = [
         harnessLine,
         `module ${chosen[slot].id}`,
-        paired ? `beside ${chosen[other(slot)].id} in the ${other(slot)} socket` : "one effector on the stand",
+        // "one module", not "one effector": the stand carries a trunk or a pair of legs as
+        // readily as an arm now, and a readout that says otherwise is a wrong comment printed
+        // sixty times a second.
+        paired ? `beside ${chosen[other(slot)].id} in the ${other(slot)} socket` : "one module on the stand",
+        ...(carried ? [`carrying ${chosen.head.id}`] : []),
         `socket ${slot}   stroke ${view ? view.stroke : "n/a"}`,
         ...(view ? view.axes.map((axis) =>
           `${axis.id}: commanded ${axis.commanded.toFixed(4)}  achieved ${axis.achieved.toFixed(4)}`) : []),
@@ -654,6 +757,10 @@ async function main(): Promise<void> {
       get stand() { return stand; },
       get module() { return built.get(slot) ?? null; },
       get modules() { return built; },
+      // The head riding whatever is on the stand. It is a real body on the page and `modules` is
+      // keyed by what is *on* the stand, so without this there is no way to reach it from a
+      // console -- which is how Session 07's gate gets looked at from a background window.
+      get carried() { return carried; },
       get option() { return chosen[slot]; },
       get paired() { return paired; },
       step: (frames = 1) => {

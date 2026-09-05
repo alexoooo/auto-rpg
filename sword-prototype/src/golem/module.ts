@@ -67,7 +67,29 @@ export interface GolemPart {
   readonly vitalityWeight: number;
   /** Whether losing this piece ends the golem. No effector part is. */
   readonly fatal: boolean;
+  /**
+   * The fraction of a scored blow this piece's own armour absorbs, 0 to just under 1.
+   *
+   * **Optional, and absent means bare stone**, which is what every effector part is: a limb made
+   * of carved rock is thick rather than armoured, and thick is not armour. Session 07's plated
+   * torso is the first piece with a non-zero one, and the difference between it and the plain
+   * torso is exactly this number handed to the same rule.
+   *
+   * The rule itself is `armouredDamage` in `src/scoring.ts` -- pure, and beside the rest of the
+   * damage model rather than in a golem file -- and it is spent at `Combatant.applyDamage`,
+   * which is the existing seam by which a body turns raw scoring damage into applied damage. So
+   * armour is not a special case anywhere: it is a field on a part, a number in a pure function,
+   * and a body that already had somewhere to put the answer.
+   *
+   * Read through `partArmour` below and nowhere else, so the default lives in one place rather
+   * than as a `?? 0` at every caller -- which is the "a caller holding its own copy of a rule"
+   * defect `AGENTS.md` records, in its cheapest possible form.
+   */
+  readonly armour?: number;
 }
+
+/** How much of a blow this piece takes off, with the absent case answered once. */
+export const partArmour = (part: GolemPart): number => part.armour ?? 0;
 
 /** One driven axis, in the module's own terms. */
 export interface ModuleAxisEnvelope {
@@ -314,8 +336,32 @@ export interface BuiltModule<Command> {
   /** Once per physics substep, at 240 Hz, from `scene.onBeforePhysicsObservable`. */
   step(dt: number): void;
   envelope(): ModuleEnvelope;
-  /** Effectors only; every other slot answers null. */
+  /**
+   * What this module is doing, or null for a module with no business end.
+   *
+   * It said "effectors only" when Session 02 wrote it, because effectors were the only modules
+   * that existed. Session 07's torso and head publish one too, and the reason is the readout
+   * rather than a widening of what an effector is: `BenchReadout` owns both mandatory tip-speed
+   * exclusion windows, the settle and arrival timing and the wander-at-rest floor, and every one
+   * of those questions is asked of a waist and a neck exactly as it is asked of an arm. A torso's
+   * tip is its neck socket and a head's is its brow or its ram plate; neither has an anchor or an
+   * edge, and both answer null for those, which the record already allows for.
+   *
+   * The type keeps its name because renaming it would touch every file Sessions 02 and 03 wrote
+   * for no behaviour at all. What it means is "what a driven module publishes each control step".
+   */
   view(): EffectorView | null;
+  /**
+   * Where a module offers to carry another one, or null for a slot it does not host.
+   *
+   * Optional, because most modules host nothing: an effector is the end of the chain. A torso is
+   * the first module that hosts others -- it carries the two effector sockets and the neck -- and
+   * this is how it hands them out, in exactly the shape `buildGolemStand` already hands out its
+   * own. That matters twice over: the bench can stand a head on a torso without knowing what
+   * either of them is, and Session 08 mounts real effectors on the same call rather than on a
+   * second seam invented for the assembly.
+   */
+  socket?(slot: GolemSlot): GolemSocket | null;
   sever(): void;
   dispose(): void;
 }

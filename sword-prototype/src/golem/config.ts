@@ -2241,3 +2241,643 @@ export const LOCOMOTION_BIPED = {
    */
   riseBudgetSeconds: 1.60,
 };
+
+/**
+ * The waist: the joint every torso option hangs on, and the motors that hold it.
+ *
+ * A subsystem block rather than a copy in each option, because what differs between a plain
+ * torso and a plated one is mass, breadth and range -- **not the hardware**. Sharing the torque
+ * cap is the point rather than an economy: frozen rule 4 says weight comes from a finite force
+ * budget against real mass, so the same motor against 236 kg of plated stone has to lag more
+ * than it does against 139 kg of plain, and giving the heavier option a bigger motor would be
+ * exactly the "raise the ceiling until the complaint goes away" move the house rule forbids.
+ *
+ * **Two hinges in series rather than one two-axis waist**, for the reason
+ * `CHAIN_REACH.collarLength` gives: a `Physics6DoFConstraint` with two free angular axes
+ * decomposes the relative rotation in an order this directory has never established, and the
+ * achieved lean and twist are read back from that decomposition. A hinge is one free angular
+ * axis with the other two locked, which is the shape rungs 1 to 3 already proved.
+ */
+export const TORSO_WAIST = {
+  /**
+   * The waist ball: a stone bearing centred **on** the mount's socket, so both hinge pivots are
+   * the same point and the waist is one place rather than two.
+   *
+   * The same construction as `CHAIN_REACH.collarLength`, for the same reason. A capsule 0.30 m
+   * tip to tip at radius 0.14 is a 0.02 m cylinder plus a sphere: 0.001232 + 0.011494 =
+   * 0.012726 m3, and stone at 2600 kg/m3 makes that 33 kg. Arithmetic, like every other mass in
+   * this file; chosen by eye against the stand, 2026-09-04.
+   */
+  ballLength: 0.30,
+  ballRadius: 0.14,
+  ballMass: 33,
+  ballHealth: 120,
+  ballVitalityWeight: 1,
+
+  /**
+   * The joint stops stand this far outside each option's commanded range, radians.
+   *
+   * `CHAIN_REACH.jointMargin`'s number and argument unchanged: a command that sits against a
+   * joint stop is a motor and a limit pushing at each other every step. **Both hinges are built
+   * at joint angle exactly zero**, which is inside every option's stops by at least its own
+   * `leanMax`/`twistMax` plus this -- the check `CHAIN_PITCH.jointMin` records paying for.
+   * 2026-09-04.
+   */
+  jointMargin: 0.20,
+
+  /**
+   * The waist motors' torque ceilings, newton-metres. **Swept, and they are not the same number.**
+   *
+   * `--sweep leanTorque`, read at the "lean" mark, with `head.ram` on the neck. "lag" is the peak
+   * distance from the neck frame to where it is being asked to be, outside the startup window;
+   * "wander" is how far that frame moves once it has arrived and held:
+   *
+   *     N.m    plain: arrival  overshoot   lag mm   wander mm   stuck | plated: arrival  overshoot   lag mm   stuck
+   *      600      (never)       0.2061      342.8    (never)     458  |   0.479 s        0.0250      305.5     541
+   *      900       1.417 s      0.2025      169.3     19.950       0  |   1.246          0.1042      112.4       0
+   *     1500       0.708        0.0348       61.7     21.748       0  |   0.508          0.0132       64.5       0
+   *     2200       0.525        0.0024       41.1     24.370       0  |   0.508          0.0003       42.9       0
+   *     3200       0.525        0.0007       30.7     26.852       0  |   0.508          0.0003       34.7       0
+   *     5000       0.525        0.0007       24.5     22.768       0  |   0.508          0.0003       28.6       0
+   *
+   * **A trunk is an inverted pendulum and that is what the table is about.** The core's centre of
+   * mass is above the lean hinge, so gravity's moment does not restore a lean, it *deepens* one --
+   * and the motor is holding the trunk back rather than holding it up. At 600 N.m it cannot: both
+   * options accumulate hundreds of stuck steps, which is the instrument's name for an error that
+   * is outside the band and not converging.
+   *
+   * **900 N.m is where it fails in the more interesting way, and it is why the setting is 1500.**
+   * The plain trunk's overshoot there is 0.2025 rad against a commanded 0.42 and a stop that
+   * stands `jointMargin` = 0.20 outside it -- so the trunk carries past its target and *arrives at
+   * its own joint stop*, which is a motor and a limit pushing at each other and is the buzz
+   * `arm.ts`'s wrist was rewritten to get rid of. `tests/golem-torso-head.test.mjs` asserts the
+   * overshoot stays inside that margin, and it is red at 900.
+   *
+   * 1500 is taken: the smallest ceiling at which neither option reaches its stop and neither is
+   * stuck, with 0.035 rad of real carry-past left on the plain trunk and 0.013 on the plated one.
+   * Above it the overshoot goes to nothing -- 2200 is already 0.0024 -- and the residual wander
+   * climbs from 21.7 mm to 26.9. That is a stiffer trunk rather than a better one, and the same
+   * shape `CHAIN_PITCH.motorTorque` records: overshoot falls as torque rises, which is the
+   * opposite of a spring and is what says the *command* rather than the motor shapes the move.
+   *
+   * **The twist needs less, and the reason is gravity rather than tuning.** The twist axis is the
+   * mount's own vertical, so the trunk's weight exerts no moment about it at all and the motor is
+   * only accelerating a yaw inertia. `--sweep twistTorque`, read at the "twist" mark:
+   *
+   *     N.m    plain: arrival  overshoot | plated: arrival  overshoot
+   *      300      0.533 s       0.0073   |   0.517 s        0.0064
+   *      600      0.533         0.0041   |   0.517          0.0038
+   *      900      0.533         0.0037   |   0.517          0.0037
+   *     1500      0.533         0.0037   |   0.517          0.0037
+   *     2200      0.533         0.0037   |   0.517          0.0037
+   *     3200      0.533         0.0037   |   0.517          0.0037
+   *
+   * Every column is flat from 900 upward on both options, so 900 is the smallest ceiling at which
+   * the readings stop moving. Giving it the lean's 1500 would be headroom bought with nothing
+   * measured behind it, which is the move the house rule forbids. 2026-09-04, the Node torso
+   * bench.
+   */
+  leanTorque: 1500,
+  twistTorque: 900,
+
+  /**
+   * How fast the *commanded* lean and twist may move, radians per second.
+   *
+   * The same ceiling `CHAIN_WRIST.rollRate` is, and set by the same argument about a number that
+   * lives in another file: `CONFIG.controls.postureSlewPerSecond` is 1.8 and `src/input.ts`
+   * already slews `trunkLean` and `trunkTwist` at that rate between the arrow keys -- in
+   * *normalized* units, so against `TORSO_PLAIN.leanMax` of 0.42 rad a person's own fastest lean
+   * is 0.756 rad/s and their fastest twist is 0.99 rad/s. These sit just above both, so a
+   * person's key press is not double-limited and a policy writing `posture.trunkLean` directly --
+   * which nothing slews for it -- is held to the same ceiling a person is.
+   *
+   * **So the rate limit is not what makes a trunk read as heavy here, and that is a real
+   * difference from the effector rungs.** A mouse can cross its window in one frame, so
+   * `CHAIN_PITCH.targetRate` binds hard for a person; an arrow key cannot, so this one binds only
+   * for a policy. What is left to carry the weight is the torque cap against real mass, which is
+   * why that is the number with the sweep beside it. 2026-09-04.
+   */
+  leanRate: 0.8,
+  twistRate: 1.0,
+
+  /**
+   * The waist hinges' solver damping.
+   *
+   * `CHAIN_WRIST.motorDamping`'s finding carried across: a position motor is a spring and a
+   * spring with no damper rings, and Babylon writes the value through `if (l.damping)`, so what
+   * matters is whether it is set rather than what it is set to. 6 is that block's setting
+   * unchanged. 2026-09-04.
+   */
+  motorDamping: 6,
+
+  /** `CONFIG.arm`'s damping pair, as every golem link uses. 2026-09-04. */
+  linearDamping: 0.7,
+  angularDamping: 3,
+
+  /**
+   * The band the readout calls "arrived", radians.
+   *
+   * The first published axis of a torso is the **lean**, in radians, so this is 0.02 rad on an
+   * angle exactly as `CHAIN_PITCH.settledBand` is. 2026-09-04.
+   */
+  settledBand: 0.02,
+};
+
+/**
+ * `torso.plain`: lighter, wider at the waist, and barely armoured.
+ *
+ * **Mechanical, not cosmetic**, which is the session's frozen choice and the reason there is no
+ * third option with a different silhouette: an option that changes nothing physical is a shell.
+ * Against `torso.plated` this one is 97 kg lighter, leans half as far again and twists two
+ * thirds further, and takes very nearly the whole of any blow that lands on its core.
+ *
+ * The socket frames are the other half of the difference and they are geometry, not decoration:
+ * a broader torso holds its effectors wider and a taller one holds them higher, so the two
+ * options really do reach and cover differently.
+ */
+export const TORSO_PLAIN = {
+  /**
+   * The core: a carved stone chest, metres.
+   *
+   * 0.62 x 0.54 x 0.32 against `BENCH_STAND`'s 0.44 x 0.78 x 0.40 slab, which is the
+   * Warrior-scale stand-in the effector rungs were benched on. Wider and shallower than that slab
+   * and rather shorter, because a golem's chest is a slab of stone across the shoulders rather
+   * than a human ribcage. Chosen by eye against the stand, 2026-09-04.
+   */
+  coreWidth: 0.62,
+  coreHeight: 0.54,
+  coreDepth: 0.32,
+  /**
+   * Mass, kilograms.
+   *
+   * 0.62 x 0.54 x 0.32 is 0.10714 m3, and stone at 2600 kg/m3 would make a **solid** billet of
+   * that 279 kg. It is not solid: a golem's trunk is a carved shell around a vitality core, so
+   * this is half the box, 0.05357 m3 = 139 kg. The fill fraction is the decision and it is stated
+   * rather than hidden in a density -- the same distinction `TERMINAL_BLADE.mass` draws when it
+   * refuses to derive a sword's mass from its collider's volume. 2026-09-04.
+   */
+  coreMass: 139,
+  coreHealth: 260,
+  coreVitalityWeight: 3,
+  /**
+   * Armour on the core: the fraction of a scored blow the stone absorbs.
+   *
+   * Spent through `armouredDamage` in `src/scoring.ts` and applied at `Combatant.applyDamage`,
+   * which is the existing seam by which a body turns raw scoring damage into applied damage --
+   * so a plated torso is not a special case anywhere in the damage model, it is a different
+   * number handed to the same rule.
+   *
+   * 0.10 is "carved stone and nothing else": a plain torso is thick, and thick is not armour.
+   * The whole of the mechanical difference is the gap to `TORSO_PLATED.coreArmour`, and it is
+   * measured rather than asserted -- `tests/golem-torso-head.test.mjs` drives one hammer at one
+   * speed into both cores through the real `Combat` and compares what each one lost.
+   * 2026-09-04.
+   */
+  coreArmour: 0.10,
+
+  /**
+   * Where the two effector sockets sit, in the core's own frame, metres.
+   *
+   * `socketSide` is 0.34, which is `BENCH_STAND.socketSide` exactly -- so an effector bolted to a
+   * plain torso hangs where every rung-0 to rung-3 measurement in this file was taken, and none
+   * of them has to be re-taken to be compared with a real body. `socketHeight` is 0.19 of a 0.27
+   * half-height, so the shoulders are near the top of the chest and not on top of it.
+   * 2026-09-04.
+   */
+  socketSide: 0.34,
+  socketHeight: 0.19,
+  socketFront: 0.0,
+  /** Where the neck socket sits above the core's centre: the top face. 2026-09-04. */
+  neckHeight: 0.27,
+
+  /**
+   * The commanded waist range, radians at `|trunkLean| = 1` and `|trunkTwist| = 1`.
+   *
+   * 0.42 rad is 24 degrees of lean and 0.55 is 32 degrees of twist. Wider than `TORSO_PLATED`'s
+   * on both axes, which is this option's half of the trade: it is the lighter, looser trunk and
+   * the one that can turn to follow a cut. Chosen by eye against the stand -- an anatomy decision
+   * rather than a feel one, and the frozen rule is that a command lives inside the envelope so
+   * the mapping simply spans it. 2026-09-04.
+   */
+  leanMax: 0.42,
+  twistMax: 0.55,
+};
+
+/**
+ * `torso.plated`: heavier, narrower at the waist, and armoured on the core.
+ *
+ * Every difference from `TORSO_PLAIN` is physical. It is 70 % heavier, so the shared waist motor
+ * has to work harder for less; it leans two thirds as far and twists three fifths as far; and it
+ * takes a third of any blow off its own core. It is also broader and taller, so its effectors are
+ * held 40 mm wider and 20 mm higher, which is more reach and more cover paid for in mass.
+ */
+export const TORSO_PLATED = {
+  /**
+   * The core, metres: the plain chest with slabs on it.
+   *
+   * 0.70 x 0.60 x 0.36 against the plain torso's 0.62 x 0.54 x 0.32 -- 40 mm wider, 60 mm taller
+   * and 40 mm deeper, which is a plate's thickness on every face. Chosen by eye against the
+   * stand, 2026-09-04.
+   */
+  coreWidth: 0.70,
+  coreHeight: 0.60,
+  coreDepth: 0.36,
+  /**
+   * Mass, kilograms.
+   *
+   * 0.70 x 0.60 x 0.36 is 0.1512 m3, which solid would be 393 kg. The fill fraction is 0.60
+   * against the plain torso's 0.50 -- the same hollow core with thicker walls and armour slabs
+   * over them -- so 0.09072 m3 = 236 kg. 2026-09-04.
+   */
+  coreMass: 236,
+  coreHealth: 320,
+  coreVitalityWeight: 3,
+  /**
+   * Armour on the core.
+   *
+   * 0.34 against the plain torso's 0.10, so the same scored blow costs this core about three
+   * quarters of what it costs a plain one -- 0.66/0.90 = 0.733. That ratio is the assertion
+   * `tests/golem-torso-head.test.mjs` makes physically, and the number was chosen to be large
+   * enough to feel and small enough that a plated torso is still killed by being hit.
+   * 2026-09-04.
+   */
+  coreArmour: 0.34,
+
+  /** Wider and higher than the plain torso's, because the chest is. 2026-09-04. */
+  socketSide: 0.38,
+  socketHeight: 0.21,
+  socketFront: 0.0,
+  /** The top face of a taller core. 2026-09-04. */
+  neckHeight: 0.30,
+
+  /**
+   * The commanded waist range, radians.
+   *
+   * 0.28 rad is 16 degrees of lean and 0.34 is 19 degrees of twist, against the plain torso's 24
+   * and 32. Armour does not bend, and this is that stated as the option's cost rather than as a
+   * comment on a mesh. 2026-09-04.
+   */
+  leanMax: 0.28,
+  twistMax: 0.34,
+};
+
+/**
+ * The neck: what both head options are carried on, and the motors that hold a head up.
+ *
+ * A subsystem block for the reason `TORSO_WAIST` is one: the two head options differ by what is
+ * bolted to the front of the head and by whether the head can attack at all, **not** by the
+ * hardware holding it. Sharing the neck is what makes the ram's extra mass show up as a heavier
+ * head on the same motor rather than as a differently-tuned one.
+ *
+ * **Two hinges in series, and only one of them is commanded.** The pitch is the one a person
+ * moves: rest, `guard`, and the ram's lunge are all pitch. The yaw is held at zero on a soft
+ * ceiling and nothing ever asks it for anything, which is deliberate -- a head on a single hinge
+ * can only bob in the sagittal plane, and what the gate asks about is whether the head bobs and
+ * recoils rather than sitting rigid. A blow from the side has to be able to turn it.
+ */
+export const HEAD_NECK = {
+  /**
+   * The neck, metres: a short stone column between the torso's neck socket and the head.
+   *
+   * A capsule 0.20 m tip to tip at radius 0.075 is a 0.05 m cylinder plus a sphere:
+   * 0.000884 + 0.001767 = 0.002651 m3, 6.9 kg at stone's 2600 kg/m3. Chosen by eye against the
+   * stand, 2026-09-04.
+   */
+  neckLength: 0.20,
+  neckRadius: 0.075,
+  neckMass: 6.9,
+  neckHealth: 80,
+  neckVitalityWeight: 0.8,
+
+  /**
+   * The head block, metres and kilograms. **Shared by both options, which is the point.**
+   *
+   * 0.34 x 0.32 x 0.36 is 0.039168 m3; at a fill of 0.80 -- a carved block is very nearly solid,
+   * unlike a torso -- that is 0.031334 m3 and 81 kg. `HEAD_RAM` adds a plate to the front of this
+   * and changes nothing else about it, so the difference the bench measures between the two
+   * options is the plate and not a second set of numbers. 2026-09-04.
+   */
+  headWidth: 0.34,
+  headHeight: 0.32,
+  headDepth: 0.36,
+  headMass: 81,
+  headHealth: 140,
+  headVitalityWeight: 2,
+
+  /**
+   * Armour on the head, as a fraction absorbed. See `TORSO_PLAIN.coreArmour` for the rule.
+   *
+   * 0.05: a carved block is thick and thick is not armour, and the head is the **fatal** part, so
+   * making it hard to kill would be making the golem hard to kill. Shared, because the ram's
+   * plate is a weapon rather than a helmet -- giving the ram a tougher head as well would be two
+   * changes wearing one name. 2026-09-04.
+   */
+  headArmour: 0.05,
+  /**
+   * Where the brow is, metres along the head's own +Z from its centre.
+   *
+   * The head's business end, which is what the bench readout takes its tip position, tip speed
+   * and bob from -- and the point the ram's plate is welded to, so the two options are measured
+   * at the same place. Half the block's depth. 2026-09-04.
+   */
+  browOffset: 0.18,
+
+  /**
+   * The commanded pitch range, radians, measured as a nod: 0 is head up and level, positive is
+   * chin down and crown forward.
+   *
+   * `restPitch` is 0. The commanded floor of -0.30 is a little of the head tipped back; the
+   * ceiling of 0.75 is the deepest duck either option asks for, and it is short of where a stroke
+   * may carry the head. **What `guard` holds is not here**: it is the one pose the two options
+   * decide for themselves, because a head with a plate on it presents the plate and a head
+   * without one ducks behind its own crown. 2026-09-04.
+   */
+  pitchMin: -0.30,
+  pitchMax: 0.75,
+  restPitch: 0,
+  /**
+   * The pitch hinge's hard stops, radians, which are wider than the commanded range.
+   *
+   * The stop is not the envelope, and **the stop has to admit the build pose**: the head is built
+   * at pitch exactly 0, which is 0.50 inside the bottom stop. `CHAIN_PITCH.jointMin` records what
+   * getting that wrong costs -- a chain constructed 0.10 rad outside its own limit threw a blade
+   * tip at 9.95 m/s on a stand that was doing nothing. 2026-09-04.
+   */
+  pitchJointMin: -0.50,
+  pitchJointMax: 1.55,
+
+  /**
+   * The yaw hinge's stops, radians, either side of the build pose.
+   *
+   * Nothing commands the yaw; it is held at zero and these are how far a blow may turn the head
+   * before the stop takes it. 0.60 rad is 34 degrees each way -- enough to read as a head being
+   * knocked round and short of a head on backwards. 2026-09-04.
+   */
+  yawJointMin: -0.60,
+  yawJointMax: 0.60,
+
+  /**
+   * How fast the commanded pitch may move, radians per second. **Swept on both options, and they
+   * disagree.**
+   *
+   * The same ceiling `CHAIN_PITCH.targetRate` is: past the rate at which the command outruns the
+   * limb, what moves the limb is no longer the command, it is the motor closing a large error --
+   * and the motion stops being shaped by anything a person did. `--sweep pitchRate`, on the stand
+   * with no trunk under it so the guard step is a step the instrument can see, read at the "guard"
+   * mark:
+   *
+   *     rad/s   plain: arrival  overshoot   lag mm | ram: arrival  overshoot   lag mm
+   *      0.8      0.850 s        0.0009      28.9  |  0.475 s      0.0012      432.0
+   *      1.4      0.483          0.0034      28.9  |  0.271        0.0046      430.8
+   *      2.2      0.308          0.0103      28.9  |  0.450        0.1738      402.4
+   *      3.5      0.300          0.0801      42.9  |  0.771        0.5658      434.7
+   *      6.0      0.504          0.2891      99.0  |  0.567        0.3246      436.6
+   *
+   * **The two options put the knee in different places, and the heavier one sets the ceiling.**
+   * On the plain head the command still leads the limb at 3.5 -- arrival is still improving -- and
+   * abandons it at 6, where arrival gets *worse* while the overshoot triples. On the ram, which
+   * carries 21 kg further out, that turn happens one row earlier: at 3.5 the arrival goes from
+   * 0.450 s to 0.771 and the overshoot from 0.17 rad to 0.57.
+   *
+   * 2.2 is taken: the fastest rate at which the ram's command still leads its own head, and the
+   * first at which a commanded nod carries visibly past its target and comes back -- 0.174 rad on
+   * the ram, which is what the gate's "does the head bob and recoil rather than sit rigid" is
+   * about. It costs the plain head 0.037 s of arrival against 1.4 and buys the ram everything.
+   * The ram's lag column is a lunge and not a nod: `peakTipErrorMm` excludes the startup window
+   * and the half-second after a stroke, and this stroke's return takes longer than that.
+   * 2026-09-04, the Node torso bench.
+   */
+  pitchRate: 2.2,
+
+  /**
+   * The neck motors' torque ceilings, newton-metres. **Swept, and the pitch has a ceiling above
+   * which the ram stops being a ram.**
+   *
+   * `--sweep pitchTorque`, on the stand, read at the "guard" mark. "carried" is how far the lunge
+   * goes past where its drive left it, which is the whole difference between a velocity event and
+   * a pose sequence:
+   *
+   *     N.m    plain: arrival  overshoot   stuck | ram: arrival  overshoot   deepest   carried
+   *       80      (never)       0.8744       507 |  (never)      1.1974      1.6004    0.0008
+   *      160       0.579 s      0.1377         0 |  (never)      1.1652      1.6303    0.0000
+   *      260       0.308        0.0103         0 |  0.450 s      0.1738      1.3589    0.9088
+   *      420       0.308        0.0042         0 |  0.258        0.0278      0.8845    0.4397
+   *      700       0.308        0.0042         0 |  0.171        0.0000      0.5902    0.1453
+   *     1200       0.308        0.0042         0 |  0.171        0.0000      0.4479    0.0030
+   *
+   * **The bottom two rows are a head that cannot hold itself up** -- an overshoot above 1.1 rad
+   * against a 0.55 guard is a head that has flopped to its stop, and the plain option racks up 507
+   * stuck steps doing it. What is more interesting is the top: **a stronger neck motor makes the
+   * lunge worse and then abolishes it.** The follow-through is the head coasting on its own
+   * momentum until the position motor takes it back, so raising that motor's ceiling is raising
+   * the brake: the carry falls from 0.909 rad at 260 to 0.440 at 420 and to 0.003 at 1200, where
+   * the stroke is a pose sequence with the pose arriving instantly.
+   *
+   * 260 is taken: the lowest ceiling at which both options hold their guard, and the highest at
+   * which the ram still has a stroke. It is a narrow window and that is worth saying rather than
+   * hiding -- there is no headroom here in either direction.
+   *
+   * **The yaw is a different question entirely: nothing commands it, so what is being set is how
+   * far a blow may turn the head.** `--sweep yawTorque`, read at the "shove" mark, where the bench
+   * delivers `BENCH_SHOVE`'s 84 N.s across the head as an impulse:
+   *
+   *     N.m    yaw the shove produced   tip bob mm   decayed to a tenth in
+   *       15          0.0690 rad           20.5            0.483 s
+   *       30          0.0825               23.3            0.508
+   *       60          0.0817               29.1            0.625
+   *       90          0.0655               32.2            0.596
+   *      200          0.0278               32.8            0.708
+   *      900          0.0245               32.5            0.704
+   *
+   * The excursion collapses between 60 and 200 -- 0.082 rad is a head knocked 4.7 degrees off
+   * square and 0.024 is a head that barely notices -- and above 200 nothing moves at all. 60 is
+   * taken as the highest ceiling at which a shove still visibly turns the head, and the motor
+   * still walks it back inside two thirds of a second. **Whether that reads as a head or as a
+   * loose bolt is the owner's to say at the gate**; what the table establishes is only where the
+   * compliance is and is not. 2026-09-04, the Node torso bench.
+   */
+  pitchTorque: 260,
+  yawTorque: 60,
+
+  /** `CHAIN_WRIST.motorDamping`'s setting and argument, unchanged. 2026-09-04. */
+  motorDamping: 6,
+  /** `CONFIG.arm`'s damping pair. 2026-09-04. */
+  linearDamping: 0.7,
+  angularDamping: 3,
+  /** The first published axis of a head is the pitch, in radians. 2026-09-04. */
+  settledBand: 0.02,
+};
+
+/**
+ * `head.plain`: a fatal carved block on a neck, and no attack at all.
+ *
+ * It is the control condition for the ram in the strictest sense: the same neck, the same head
+ * block, the same `guard`, and no `Striking` anywhere. `Intent.natural.thrust` reaches it and it
+ * does nothing with it, exactly as a hand slot is inert on a body with no hands.
+ */
+export const HEAD_PLAIN = {
+  /**
+   * What `guard` holds, radians of nod. **One number, and it is the whole of this option.**
+   *
+   * A block with a single field looks like an oversight and is not: `HEAD_NECK` deliberately
+   * holds everything the two options share -- the neck, the head block, its mass, its armour and
+   * its brow -- so that the difference the bench measures between plain and ram is the plate and
+   * the lunge, and not a second set of numbers that could drift. What is genuinely this option's
+   * own is how far it ducks.
+   *
+   * 0.70 rad is 40 degrees: a deep duck that puts the crown between the enemy and the face, which
+   * is what a head with nothing on it does. `HEAD_RAM.guardPitch` is much shallower, because a
+   * plate presented at 40 degrees is pointing at the floor. It is a **level** rather than a
+   * stroke -- the rule `src/buttons.ts` states -- and it is short of `HEAD_NECK.pitchMax`, so a
+   * guard is a pose and not a limit. Chosen by eye against the stand, 2026-09-04.
+   */
+  guardPitch: 0.70,
+};
+
+/**
+ * `head.ram`: the plain head with a bronze plate on its brow and one attack.
+ *
+ * **The risk is the design.** The head is the fatal part, and the ram's whole attack is a
+ * velocity event that puts the fatal part into the contact -- a golem built this way gambles the
+ * thing that ends it in order to land a blow, and that is deliberate rather than a side effect
+ * somebody failed to notice.
+ *
+ * The centipede is the precedent and the shape is copied rather than reinvented: a striker with
+ * `hand` null and a stable `effectorId`, driven from `Intent.natural`, on a body that publishes
+ * no hand for it. What is different is that a centipede's bite is its whole locomotion and a
+ * ram's lunge is one joint's velocity event.
+ */
+export const HEAD_RAM = {
+  /**
+   * The ram plate, metres: a bronze wedge across the brow.
+   *
+   * 0.30 wide, 0.14 out from the brow, 0.16 tall. It is a separate rigid body welded once to the
+   * head, for the reason `TERMINAL_BLADE` is: scoring, severing and Session 10's loot all want a
+   * striker to be an identifiable body, and the construct experiment recorded that compound child
+   * shapes cannot be told apart by engine handle. Chosen by eye, 2026-09-04.
+   */
+  plateWidth: 0.30,
+  plateLength: 0.14,
+  plateThickness: 0.16,
+  /**
+   * Mass, kilograms.
+   *
+   * 0.30 x 0.14 x 0.16 is 0.00672 m3 of bronze at 8800 kg/m3, which would be 59 kg for a solid
+   * billet. A ram plate is a shell over the stone brow rather than a block of bronze: at a fill
+   * of 0.35 that is 0.002352 m3 and 21 kg. 2026-09-04.
+   */
+  plateMass: 21,
+  plateHealth: 90,
+  plateVitalityWeight: 0.6,
+  /**
+   * Where the plate's own leading edge is, metres along its own +Y from the weld.
+   *
+   * The whole length: the plate is welded at the brow and its point is the far face. Stated as
+   * its own number for the reason `TERMINAL_BLADE.tipOffset` is -- `Striking.tipPosition` is what
+   * the readout takes lunge tip speed from, and a tip offset that quietly disagreed with the
+   * geometry would move every speed reading here. 2026-09-04.
+   */
+  plateTipOffset: 0.14,
+
+  /**
+   * What `guard` holds, radians of nod, against `HEAD_PLAIN.guardPitch`'s 0.70.
+   *
+   * 0.40 rad is 23 degrees: the plate levelled at whatever is in front, which is a ram's guard
+   * and is also the chamber its lunge starts from. A plain head ducks nearly twice as far because
+   * it has nothing to present and everything to hide. The same level-not-a-stroke rule applies to
+   * both. Chosen by eye against the stand, 2026-09-04.
+   */
+  guardPitch: 0.40,
+
+  /**
+   * The lunge: a velocity event through the neck, not a pose sequence.
+   *
+   * The same three phases and the same argument as `CHAIN_PITCH.chop`. `drive` runs the pitch
+   * motor in VELOCITY mode forward at `driveRate` for `driveSeconds`; `follow` keeps the velocity
+   * target with the torque dropped to `followTorque`, so 102 kg of head and plate coasts on its
+   * own momentum; then the position motor takes over again at full torque and brings the head
+   * back to whatever the buttons are asking for.
+   *
+   * **The waist half of the lunge is the person's, and that is not a shortfall.** The session
+   * plan describes a lunge "through the neck and waist", and a head module cannot command a waist
+   * it does not own -- one seam, and `Intent` is not widened for this. What a person actually has
+   * is both at once: the arrow keys lean the trunk and the left button fires the neck, and a
+   * lunge with the trunk already leaning is longer than one without. Session 09's mind writes the
+   * same two channels.
+   *
+   * **Every setting is bounded by the same thing: the stroke must not *arrive* at the neck's own
+   * stop.** A limb slamming into its own limit is a motor and a limit pushing at each other, and
+   * `HEAD_NECK.pitchJointMax` is 1.55 rad -- the nod at which a head is pointing straight down.
+   * Read on the plain trunk; "deepest" is the deepest pitch the stroke reaches and "carried" is
+   * how far past where the drive left it:
+   *
+   *     driveRate   peak tip   deepest   carried   clears the 1.55 stop by
+   *         4        1.52 m/s   0.3927    0.1890         1.157 rad
+   *         6        2.22       0.8428    0.5391         0.707
+   *         9        3.36       1.4540    1.0077         0.096
+   *        13        4.31       1.5630    1.0184        -0.013   arrives at the stop
+   *        18        4.34       1.5646    1.0147        -0.015   arrives at the stop
+   *        26        4.36       1.5669    1.0124        -0.017   arrives at the stop
+   *
+   *     driveSeconds   peak tip   deepest   carried   what happens
+   *         0.03        2.56 m/s   0.7825    0.5237   barely leaves the chamber
+   *         0.05        3.36       1.4540    1.0077   stops 0.096 rad short of the stop
+   *         0.07        3.76       1.5622    0.9650   arrives at the stop
+   *         0.09        3.80       1.5658    0.7760   arrives at the stop
+   *         0.14        3.80       1.5978    0.3621   the drive alone reaches it; no follow left
+   *
+   *     followSeconds   deepest   carried past the drive
+   *         0.00        1.3025           0.8562
+   *         0.01        1.3795           0.9332
+   *         0.02        1.4540           1.0077
+   *         0.04        1.5575           1.1112   arrives at the stop
+   *         0.08        1.5687           1.1224   arrives at the stop
+   *
+   *     driveTorque   peak tip   deepest   carried
+   *         260        1.56 m/s   0.3958    0.2046
+   *         500        2.57       1.0099    0.6754
+   *         900        3.36       1.4540    1.0077
+   *        1600        3.38       1.4609    1.0117
+   *        2800        3.38       1.4609    1.0117
+   *
+   *     followTorque   deepest   carried
+   *          0         1.4015    0.9552
+   *         15         1.4119    0.9656
+   *         35         1.4253    0.9790
+   *         80         1.4540    1.0077
+   *        200         1.5208    1.0745   0.03 rad from the stop
+   *
+   * `driveRate` 9, `driveSeconds` 0.05 and `followSeconds` 0.02 are each the largest value in
+   * their column whose stroke still clears the stop, and together they give **3.36 m/s at the
+   * plate's point** with 1.008 rad of the stroke's 1.454 bought by momentum rather than by the
+   * drive. `driveTorque` 900 is where the peak stops moving -- 1600 and 2800 return 3.38 -- so it
+   * is the smallest ceiling at which the reading has saturated, which is the same rule
+   * `CHAIN_WRIST.rollTorque` was set by. `followTorque` 80 is about a ninth of the drive, the same
+   * fraction `CHAIN_PITCH.chop.followTorque` takes, and it is the largest that still leaves a
+   * tenth of a radian between the stroke and the stop.
+   *
+   * **`driveTorque` is not `HEAD_NECK.pitchTorque` and that is the one asymmetry here.** The neck
+   * holds a head up at 260 N.m because anything stiffer arrests the follow-through; a lunge is the
+   * whole body committing and drives at 900. The two numbers are doing opposite jobs on the same
+   * hinge, which is why they are two numbers.
+   *
+   * **What this is worth as a blow is small, and the reason is in the damage model rather than
+   * here.** The plate arrives at the *contact* at 1.3 to 1.8 m/s -- slower than the tip, and read
+   * after the solver has resolved the contact -- which on the club's own ramp is nothing at all.
+   * `CONFIG.combat.ramMinSpeed` and `ramReferenceSpeed` are that ramp re-derived for a head on a
+   * hinge, and they carry the arithmetic. 2026-09-04, the Node torso bench.
+   */
+  lunge: {
+    driveRate: 9,
+    driveSeconds: 0.05,
+    followSeconds: 0.02,
+    /**
+     * The drive's own torque ceiling, newton-metres, **which is deliberately not
+     * `HEAD_NECK.pitchTorque`.** The table is in the block comment above; the short of it is that
+     * the neck holds a head up at 260 because anything stiffer arrests the follow-through, and a
+     * lunge is the whole body committing. 2026-09-04.
+     */
+    driveTorque: 900,
+    followTorque: 80,
+  },
+};

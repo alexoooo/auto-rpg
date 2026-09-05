@@ -350,16 +350,26 @@ npm run dev             # http://localhost:5180, strictPort
   whether a suspiciously large diff is real; compare it against plain `--numstat` and any
   file where the two disagree has had its endings rewritten.
 
-  **Which file is which, measured rather than assumed.** Most of `src/` is LF, but **six
+  **Which file is which, measured rather than assumed.** Most of `src/` is LF, but **five
   files are pure CRLF in `HEAD`** and always have been:
 
   | CRLF | LF | Mixed |
   | --- | --- | --- |
-  | `src/arena.ts`, `src/combat.ts`, `src/physics.ts`, `src/rig.ts`, `src/scoring.ts`, `scripts/fetch-polyhaven.mjs` | everything else in `src/`, `tests/`, `scripts/`, `asset-src/` | `src/style.css` |
+  | `src/arena.ts`, `src/combat.ts`, `src/physics.ts`, `src/rig.ts`, `scripts/fetch-polyhaven.mjs` | everything else in `src/`, `tests/`, `scripts/`, `asset-src/` | `src/style.css`, `src/scoring.ts` |
 
   `src/style.css` is genuinely mixed -- 468 CR against 492 LF -- and has been since before
   any of this. A session that "tidied" its bare-LF lines turned a 126-line addition into a
   150/24 diff and had to be undone.
+
+  **`src/scoring.ts` moved from the first column to the third on 2026-09-04, and it was never
+  in the first one.** It was six files here and it is five: measured at `870190d`, before the
+  golem plan set touched anything, `scoring.ts` carried **338 CR against 435 LF** -- 338 CRLF
+  lines and 97 bare-LF ones -- so it has been mixed for as long as this entry has claimed it
+  was pure. The correction matters in the direction the paragraph below states: a `\r\n`
+  pattern silently matches nothing on the 97, exactly as an `\n` pattern silently matches
+  nothing on the 338. Match the *region* you are editing, not the file. Session 07's golem
+  ram row appended 56 more bare-LF lines to the tail of it, which is why the live numbers are
+  now 338 against 491.
 
   So: **match whatever ending the file you are editing already has**, check before you write,
   and do not normalise anything wholesale on the way past. The practical trap is a script

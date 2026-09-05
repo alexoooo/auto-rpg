@@ -1,7 +1,29 @@
 # Session 07 -- torso and head modules
 
-**Status (2026-09-04): planned.** Depends on 02. May run in parallel with 03 to 05. Human gate:
-not yet asked.
+**Status (2026-09-04): implemented, human gate not yet asked.** All four options are registered
+and appear on the bench; every threshold below is provisional and pinned from the Node torso
+bench, as Sessions 02 and 03 marked theirs.
+
+- **`torso.plain`** — 139 kg core on a shared soft waist, 24 degrees of lean and 32 of twist, 10 %
+  armour on the core, effectors held at 0.34 m and the neck at 0.54 m above the waist; measured
+  0.708 s to arrive at a full lean carrying 0.035 rad past it, 0.533 s to arrive at a full twist,
+  61.7 mm of peak lag and no stuck steps.
+- **`torso.plated`** — the same waist motor against 236 kg, 16 degrees of lean and 19 of twist,
+  34 % armour, effectors 40 mm wider and 20 mm higher; measured 0.508 s and 0.013 rad of carry, and
+  it takes 0.660 of a scored blow where the plain torso takes 0.900, through `armouredDamage` in
+  `src/scoring.ts` at the `Combatant.applyDamage` seam and no special case anywhere.
+- **`head.plain`** — a fatal 81 kg block on a two-axis neck, no striker and no lunge; measured
+  0.308 s to reach its guard, 0.40 mm of tip wander at rest, and a shove of 84 N·s moves it 37.9 mm
+  and is a tenth of that within 0.958 s.
+- **`head.ram`** — the same neck and block with a 21 kg bronze plate and a lunge fired from
+  `Intent.natural.thrust`; measured 3.36 m/s at the plate's point with 1.008 rad of the stroke's
+  1.454 bought by momentum, landing 0.42 to 0.73 damage on a post through the real `Combat`, while
+  the plain head files nothing on the same fixture.
+
+Two things the gate should know before driving it. The lunge goes **down**, not across — the
+forward half of it is the waist, which a person supplies with the arrow keys — and the ram needed
+its own row in the bite table, because the club's 2.2 m/s floor is a statement about 3.4 kg on the
+end of an arm and a head on a hinge arrives at 1.3 to 1.8 m/s.
 
 ## Outcome
 

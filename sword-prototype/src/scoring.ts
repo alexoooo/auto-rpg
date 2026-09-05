@@ -253,6 +253,29 @@ const BITE: Record<Striker, Bite> = {
     scale: (t) => t.biteScale,
     severQuality: () => 1,
   },
+  /**
+   * A golem's ram plate: mass, on a hinge, and the first row here whose two speeds are not a
+   * hand's.
+   *
+   * `how: "mass"` for the club's reason -- there is no edge to place and no point to arrive
+   * straight, and everything it does is speed. What is not the club's is the ramp that speed is
+   * measured against, and the argument is the one `arrow` already makes in the other direction:
+   * this model is speed and alignment and knows nothing about mass, so a floor of 2.2 m/s is a
+   * statement about a 3.4 kg club rather than about arriving hard. Measured on the Node torso
+   * bench, a ram lunge lands at 1.3 to 1.8 m/s and would score exactly nothing on the club's row.
+   * The two numbers in `CONFIG.combat` are that row carried across at equal kinetic energy and
+   * they carry the arithmetic.
+   *
+   * **It never severs.** `severQuality` at 1 is unreachable, the same idiom `inert` and `arrow`
+   * use to say never: taking a limb off wants an edge and a swing, and a head-butt is neither.
+   */
+  ram: {
+    how: "mass",
+    floor: (t) => t.ramMinSpeed,
+    reference: (t) => t.ramReferenceSpeed,
+    scale: (t) => t.ramScale,
+    severQuality: () => 1,
+  },
 };
 
 /**
@@ -432,4 +455,37 @@ export function severs(
   const bite = BITE[by];
   if (bite.how === "none") return false;
   return score.quality > bite.severQuality(tuning) && score.kind !== "slap";
+}
+
+/**
+ * What a blow costs a piece that is armoured.
+ *
+ * The whole of the armour rule, in one pure function, because the alternative is what a body
+ * experiment always reaches for first: a branch inside the body that says "if this is the plated
+ * one, halve it". That is a special case, and this directory has a name for what happens next --
+ * a caller holding its own copy of a rule is the same defect as a missing table row and is much
+ * harder to see. So armour is a *number* on a part, this is the rule, and `Combatant.applyDamage`
+ * is the seam that already existed for a body to turn raw scoring damage into applied damage.
+ *
+ * **It runs after `scoreHit` and never inside it, and that ordering is a design decision rather
+ * than an implementation detail.** Armour does not change what a blow *was*: a cut through plate
+ * is still a cut, it still has the quality it was delivered with, and `severs` still reads that
+ * quality against the same bar. What armour changes is how much of the blow the piece pays for,
+ * which is exactly the arithmetic below and nothing else. Fold it into the score instead and a
+ * plated torso would quietly become harder to dismember as well as harder to hurt, which is two
+ * mechanics wearing one number -- the shape the axe's two refuted knobs had.
+ *
+ * `armour` is the fraction absorbed: 0 is bare, 0.34 keeps a third of the blow off. One is
+ * refused rather than clamped, because a piece that takes no damage at all is a bug wearing a
+ * setting's clothes -- there is no sequence of blows that ends it, so a bout against one cannot
+ * be won. Same argument, and the same refusal, as `evaluateProjectileImpact`'s bounds check.
+ */
+export function armouredDamage(raw: number, armour: number): number {
+  if (!Number.isFinite(raw) || !Number.isFinite(armour)) {
+    throw new Error("armoured damage takes finite damage and a finite armour fraction");
+  }
+  if (armour < 0 || armour >= 1) {
+    throw new Error(`armour must be a fraction absorbed in [0, 1), got ${armour}`);
+  }
+  return raw <= 0 ? 0 : raw * (1 - armour);
 }

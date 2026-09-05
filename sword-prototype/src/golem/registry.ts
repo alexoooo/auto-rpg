@@ -1,8 +1,13 @@
 import type { Striking } from "../combat.ts";
-import type { HandIntent, Intent } from "../mind.ts";
+import type { HandIntent, Intent, NaturalIntent } from "../mind.ts";
 import { formatLocomotion, locomotionCommand } from "./locomotion.ts";
 import { bipedModule } from "./locomotion/biped.ts";
 import { effectorModule } from "./effectors/effector.ts";
+import { headPlain } from "./head/plain.ts";
+import { headRam } from "./head/ram.ts";
+import { torsoPlain } from "./torso/plain.ts";
+import { torsoPlated } from "./torso/plated.ts";
+import type { TorsoCommand } from "./torso/torso.ts";
 import { noneChain } from "./effectors/chains/none.ts";
 import { pitchChain } from "./effectors/chains/pitch.ts";
 import { reachChain } from "./effectors/chains/reach.ts";
@@ -21,6 +26,7 @@ import {
   type GolemModuleDefinition,
   type GolemPart,
   type GolemSlot,
+  type GolemSocket,
   type ModuleBuild,
   type ModuleEnvelope,
   type TerminalId,
@@ -109,6 +115,15 @@ export interface BenchModule {
   step(dt: number): void;
   envelope(): ModuleEnvelope;
   view(): EffectorView | null;
+  /**
+   * Where this module offers to carry another one, forwarded from the built module.
+   *
+   * Present on the bench's own view of a module because the bench is the first thing that wants
+   * to stand one module on another: a torso carries a head, and the gate for Session 07 asks the
+   * owner to lean a trunk *with a head on it*. Optional and slot-keyed, so nothing on the page has
+   * to know what a torso is -- it asks whatever is on the stand whether it has a neck.
+   */
+  socket?(slot: GolemSlot): GolemSocket | null;
   sever(): void;
   dispose(): void;
 }
@@ -149,7 +164,12 @@ function benchOption<Command, Built extends BuiltModule<Command> = BuiltModule<C
     massKg: definition.massKg,
     sockets: definition.sockets ?? 1,
     build(ctx: ModuleBuild): BenchModule {
+      // `Built`, not `BuiltModule<Command>`: Session 05's fixture hook needs the module's own
+      // richer surface (a locomotion module returns a `BuiltLocomotion`) and Session 07's socket
+      // forwarding needs only the contract, so the narrower annotation would have cost the
+      // fixture its type and bought nothing.
       const built: Built = definition.build(ctx);
+      const hosts = built.socket;
       return Object.freeze({
         parts: built.parts,
         strikers: built.strikers,
@@ -158,6 +178,10 @@ function benchOption<Command, Built extends BuiltModule<Command> = BuiltModule<C
         step: (dt: number) => built.step(dt),
         envelope: () => built.envelope(),
         view: () => built.view(),
+        // Forwarded rather than re-derived, and only when the module has one. A module that hosts
+        // nothing keeps the field absent, which is what lets the bench ask every option the same
+        // question without a table of which ones can answer it.
+        ...(hosts ? { socket: (slot: GolemSlot) => hosts.call(built, slot) } : {}),
         sever: () => built.sever(),
         dispose: () => built.dispose(),
       });
@@ -171,6 +195,29 @@ const handChannel = (intent: Intent, ctx: ModuleBuild): HandIntent => {
   if (!hand) throw new Error(`an effector cannot be built into the ${ctx.socket.slot} slot`);
   return intent[hand];
 };
+
+/**
+ * A trunk reads the posture channel, and only the two numbers of it that are its own.
+ *
+ * `Intent.posture` also carries `crouch`, which belongs to the locomotion module -- so this is a
+ * narrowing and not a forwarding, which is the direction the one-seam rule allows. No allocation:
+ * `PostureIntent` already satisfies `TorsoCommand` structurally, so the whole adapter is a field
+ * read at a control boundary.
+ */
+const postureChannel = (intent: Intent): TorsoCommand => intent.posture;
+
+/**
+ * A head reads the natural channel: the two buttons a body with no hands is driven by.
+ *
+ * **This is the writer the rule is about.** A command channel with no writer is a button a person
+ * cannot press, and it looks exactly like a body that does not work -- which is on record for
+ * this exact channel: Session 17 gave a natural striker its own `Intent.natural`, the body side
+ * moved onto it, every test drove it, and the *host* side was left behind, so somebody could take
+ * a centipede, walk it around and find the attack button dead. The writers are
+ * `applyButtonPose` in `src/buttons.ts` for a person and `Mind.decide` for a policy; this is
+ * where what they wrote arrives.
+ */
+const naturalChannel = (intent: Intent): NaturalIntent => intent.natural;
 
 /**
  * The chain ladder, as far as it has actually been built.
@@ -236,7 +283,11 @@ export const GOLEM_MODULES: readonly GolemBenchOption[] = Object.freeze([
     shove: () => built.shove(),
   })),
   // Session 06: locomotion.wheel and locomotion.multileg.
-  // Session 07: torso.plain, torso.plated, head.plain, head.ram.
+  // Session 07's two trunks and two heads, on the same one-line seam as everything above.
+  benchOption(torsoPlain, "torso", postureChannel),
+  benchOption(torsoPlated, "torso", postureChannel),
+  benchOption(headPlain, "head", naturalChannel),
+  benchOption(headRam, "head", naturalChannel),
 ]);
 
 export const golemModule = (id: string): GolemBenchOption | null =>

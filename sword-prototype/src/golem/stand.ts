@@ -71,9 +71,20 @@ export interface GolemStandOptions {
  * shoulder -- which is what the first version of this function did for every slot that was not
  * `secondary`.
  *
- * `torso` and `head` are **provisional and are Session 07's to move.** They are filled in here
- * only because a total `Record` is what makes the check above worth anything; nothing builds
- * against them yet.
+ * **One rule, in three cases, and it is about which face of the block a module bolts to.** The
+ * block stands in for whatever is *below* the module being benched, so:
+ *
+ * - an **effector** hangs off the shoulder line, which is the block's side at `socketHeight`;
+ * - **locomotion** bolts to the block's **bottom** face and builds downward to the floor, because
+ *   it is the thing the block stands on rather than a thing that hangs from it;
+ * - the **torso** and the **head** bolt to the block's **top** face, because what a bench torso
+ *   needs under it is a pelvis and what a bench head needs under it is a trunk.
+ *
+ * Sessions 05 and 07 wrote that rule at the same time and each got one case the other did not:
+ * 05 knew locomotion goes underneath and left torso and head marked provisional, 07 put torso and
+ * head on the top face and had no locomotion slot to place. This is the reconciliation, not the
+ * two stacked -- 07's own spelling of the top face is `socketHeight` and 05's is `height / 2`,
+ * which are the same 0.39 m and therefore the same point.
  */
 const socketFrame = (slot: GolemSlot): { local: Vector3; outboard: number } => {
   const S = BENCH_STAND;
@@ -88,8 +99,10 @@ const socketFrame = (slot: GolemSlot): { local: Vector3; outboard: number } => {
     // what sits above it is the load.
     case "locomotion":
       return { local: new Vector3(0, -S.height / 2, 0), outboard: 1 };
+    // The block's top face. Session 05 had the torso at the block's centre as a placeholder it
+    // said aloud was Session 07's to move; Session 07 moved it, and a trunk welded at the centre
+    // of the slab it is supposed to sit on would be half buried in it.
     case "torso":
-      return { local: new Vector3(0, 0, 0), outboard: 1 };
     case "head":
       return { local: new Vector3(0, S.height / 2, 0), outboard: 1 };
     default: {
@@ -100,17 +113,22 @@ const socketFrame = (slot: GolemSlot): { local: Vector3; outboard: number } => {
 };
 
 /**
- * The bench stand: a kinematic block with one socket frame on each side.
+ * The bench stand: one stone block, with a socket frame for every slot.
  *
  * Frozen by the session plan: an `ANIMATED` stone block at Warrior torso height with one socket
  * frame at shoulder height on each side. It does not move, lean or fall, and that is the point
  * -- the bench exists to judge one module in isolation, so everything that is not the module
- * has to be incapable of contributing to what is being looked at. Session 05 puts a real torso
- * under the socket; the socket frame contract does not change.
+ * has to be incapable of contributing to what is being looked at.
  *
  * `ANIMATED` rather than a zero-mass static body, so that the solver treats it as infinitely
  * heavy and a limb pushing against it simply stops, and so that a later torso can move the same
  * frames without the modules hanging off them being rebuilt.
+ *
+ * **The one slot that inverts that is locomotion**, appended by Session 05: a locomotion module
+ * is the base and the block is its load, so for that slot alone the block is `DYNAMIC`, weighs
+ * what a torso-sized slab of stone weighs and stands at the height the locomotion socket is
+ * expected at. `options.slot` is what decides it, and it is the *only* thing that does -- nothing
+ * here asks what kind of module is being built.
  */
 export function buildGolemStand(scene: Scene, options: GolemStandOptions): GolemStand {
   const S = BENCH_STAND;
@@ -137,6 +155,11 @@ export function buildGolemStand(scene: Scene, options: GolemStandOptions): Golem
   });
 
   const socketFor = (slot: GolemSlot): GolemSocket => {
+    // Every slot's frame comes from `socketFrame` above, which is a switch with a `never`
+    // default: a slot added to the union without a frame is a compile error rather than a socket
+    // that quietly lands on the right shoulder. Session 07 wrote the same rule inline here as a
+    // pair of `effectorSlot` ternaries; the table is where it lives now, because the third case
+    // -- locomotion, underneath -- has no ternary to hide in.
     const frame = socketFrame(slot);
     const outboard = frame.outboard;
     const local = frame.local;
