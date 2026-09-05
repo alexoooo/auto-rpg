@@ -848,6 +848,40 @@ export const CONFIG = {
     biteReferenceSpeed: 8,
 
     /**
+     * A golem's ram plate: the first striker here that is a *body part on a hinge* rather than a
+     * thing an arm swings, and the reason it needs its own two speeds.
+     *
+     * **The damage model is speed and alignment and knows nothing about mass**, so every floor
+     * and reference above is a number for the mass a hand can accelerate. `BITE.arrow`'s own
+     * comment makes this argument once already -- "`combat.referenceSpeed` is 11 m/s and that is
+     * a **blade's** number" -- and a ram is the same problem pointed the other way.
+     *
+     * Measured, 2026-09-04, the Node torso bench: a ram lunge puts its plate into a contact at
+     * **1.3 to 1.8 m/s**, because a head traces a 0.36 m arc about a hinge and cannot reach a
+     * blade's tip speed however hard it is driven. Scored on the club's row that is below
+     * `minCrushSpeed` and does literally nothing -- a whole option that cannot land a blow, which
+     * is what these two numbers exist to prevent.
+     *
+     * They are the club's carried across at equal kinetic energy, which is the one comparison the
+     * two situations share. A rigid body pivoting about a hinge presents an effective mass of
+     * `I / d^2` at a point `d` from that hinge: the head is 81 kg at 0.16 m and the plate 21 kg
+     * at 0.36 m, so `I` is about 4.8 kg.m2 and `I / 0.36^2` is **37 kg** against
+     * `CONFIG.club.mass` of 3.4. Equal energy scales every speed by `sqrt(3.4 / 37) = 0.303`:
+     *
+     *     club             ram
+     *     2.2 m/s floor    0.65 m/s
+     *     11 m/s reference 3.30 m/s
+     *
+     * `ramScale` is `crushScale` unchanged, from the same argument: at its own reference a ram
+     * arrives with a club's energy, so it is worth a club's blow. On the measured contacts that
+     * comes to **0.55 to 0.73 damage** -- a real blow and a small one. Whether a ram should hurt
+     * more than that is a balance question a fight has to answer and a bench cannot. 2026-09-04.
+     */
+    ramScale: 1.7,
+    ramMinSpeed: 0.65,
+    ramReferenceSpeed: 3.3,
+
+    /**
      * The axe, which cuts, but not like a blade does.
      *
      * **One number, and it is the only one that survived.** The axe was drafted

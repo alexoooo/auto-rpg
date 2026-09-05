@@ -76,7 +76,7 @@ export type WeaponKind =
  * the rows of it that a hand can actually take -- so the narrow list is
  * computed from the wide table rather than written beside it.
  */
-export type Striker = WeaponKind | "arrow" | "bite";
+export type Striker = WeaponKind | "arrow" | "bite" | "ram";
 
 /**
  * What a kind *is*, as one row per kind, and the whole reason this file was
@@ -177,6 +177,12 @@ const GRIPS: Record<Striker, Grip> = {
   arrow: { hands: 0, carry: "loosed", heldWeapon: false, use: "strike", point: true, bothEdges: false },
   // A body-owned natural striker. It is neither offered to a hand nor mounted.
   bite: { hands: 0, carry: "loosed", heldWeapon: false, use: "strike", point: true, bothEdges: false },
+  // A golem's ram plate: `bite`'s row with `point` false, because a plate arrives flat and there
+  // is no tip to bury. It is driven from the same natural channel the jaws are, and
+  // `carry: "loosed"` is what keeps it out of `WEAPON_KINDS` -- nothing offers it to a hand and
+  // the setup screen never sees it. Appended at the end, so `STRIKER_KINDS` grows without moving
+  // any existing kind's index (`strikerIndex` in `action-primitives.ts` is a feature column).
+  ram: { hands: 0, carry: "loosed", heldWeapon: false, use: "strike", point: false, bothEdges: false },
 };
 
 /**
