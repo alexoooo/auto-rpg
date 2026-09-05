@@ -348,6 +348,54 @@ test("a_walking_golems_effector_stays_on_its_own_anchor", async (t) => {
     `the primary shoulder ran ${(peakShoulderLag * 1000).toFixed(0)} mm out from its own feet`);
 });
 
+/**
+ * **A mace pins the swing, and the assembled body's published envelope says so.**
+ *
+ * Session 04 left this owed in as many words: a mace sets `swingMin = swingMax = 0`, so a golem
+ * carrying one cannot turn its weapon with its arm and has to turn with the torso or the carrier's
+ * yaw, and Session 09's mind will need to read that rather than discover it. The terminal declares
+ * it, the chain folds it into its own limits before it publishes anything, and this asks the
+ * *assembled* body -- which is the only place the two halves meet.
+ *
+ * The blade beside it is the control, and it is what makes this test say something: an envelope
+ * that reported zero for every build would pass the mace half on its own.
+ */
+test("a_mace_pins_the_swing_on_the_envelope_the_assembled_golem_publishes", async (t) => {
+  const base = defaultGolemSetup();
+  const blade = await standAGolem(t);
+  const wide = blade.golem.effectorEnvelope("primary")?.reachable;
+  assert.ok(wide, "a blade on the top chain publishes a reachable set");
+  assert.ok(wide.swingMax - wide.swingMin > 0.5,
+    `the control's swing spans ${(wide.swingMax - wide.swingMin).toFixed(3)} rad`);
+
+  const mace = await standAGolem(t, {
+    setup: {
+      ...base,
+      primary: { chain: "wrist", terminal: "mace" },
+      secondary: { chain: "wrist", terminal: "mace" },
+    },
+  });
+  const pinned = mace.golem.effectorEnvelope("primary")?.reachable;
+  assert.ok(pinned, "a mace publishes a reachable set too");
+  // `Math.abs`, and not because zero is being approached: `ReachEnvelope.swing` is
+  // outboard-signed, so a limit of zero on the secondary socket arrives as a **negative zero**
+  // and `assert.equal` tells `-0` and `0` apart. Asserting the magnitude says the thing meant --
+  // there is no azimuth here at all -- without asserting which side of nothing it is on.
+  assert.equal(Math.abs(pinned.swingMin), 0);
+  assert.equal(Math.abs(pinned.swingMax), 0);
+  // Both sockets answer, because one module fills both, and both answer the same zero span --
+  // which is the honest description of one bar held in two hands.
+  const other = mace.golem.effectorEnvelope("secondary")?.reachable;
+  assert.ok(other);
+  assert.equal(other.swingMax - other.swingMin, 0);
+  assert.equal(other.reachMax, pinned.reachMax);
+  // The roll goes with it: a mace has no edge, so there is nothing for a wrist to point.
+  const roll = mace.golem.effectorEnvelope("primary")?.axes.find((axis) => axis.id === "roll");
+  assert.ok(roll, "rung 3 publishes a roll axis whatever is on the end of it");
+  assert.equal(Math.abs(roll.min), 0);
+  assert.equal(Math.abs(roll.max), 0);
+});
+
 // ---------------------------------------------------------------------------------------
 // Severing: what comes off, what is left, and what it leaves on the floor.
 // ---------------------------------------------------------------------------------------

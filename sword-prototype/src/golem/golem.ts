@@ -606,6 +606,27 @@ export class Golem implements Combatant {
     return this.effectors[hand]?.module.view() ?? null;
   }
 
+  /**
+   * What one effector socket can be asked for, or null when nothing answers for it.
+   *
+   * Frozen rule 3 in the overview: the module publishes what it can reach, and the mouse mapping
+   * and the mind both pick inside it, so a controller never receives an unreachable target and
+   * never needs a refusal branch for one. `FighterView` carries no envelope -- it is a view of the
+   * *world*, and what a limb can do is a fact about the limb -- so this is where a mind reaches for
+   * it, and the reason it exists before there is a mind to read it is the one thing an envelope has
+   * to be able to say out loud.
+   *
+   * **A mace pins the swing.** `TERMINAL_MACE.limits` states `swingMin = swingMax = 0`, the chain
+   * folds it into its own limits before it publishes anything, and the `ReachEnvelope` that comes
+   * back therefore reports an azimuth range of exactly zero. A golem carrying one **cannot turn
+   * its weapon with its arm** and has to turn with the torso's twist or the carrier's yaw. That is
+   * a fact about the body a mind must read rather than discover, which is why it is asserted in
+   * `tests/golem-arena.test.mjs` rather than left in a comment.
+   */
+  effectorEnvelope(hand: HandName): ReturnType<BuiltModule<HandIntent>["envelope"]> | null {
+    return this.effectors[hand]?.module.envelope() ?? null;
+  }
+
   /** The locomotion module's own instrument, for a harness that wants the walk rather than the arm. */
   locomotionEvidence(): ReturnType<BuiltLocomotion["evidence"]> {
     return this.locomotionModule.evidence();
