@@ -108,12 +108,24 @@ const FAMILY = Object.freeze({ plain: 0, stone: 1, bronze: 2, rune: 3 } satisfie
 // material whose bind happened to discover the reduction first.
 const pluginsByAudit = new WeakMap<object, Set<GolemProceduralSurfacePlugin>>();
 
+// `golemSurface0` and `golemSurfaceExtents` are **not** declared here, and that is the whole of a
+// defect this file carried from the day it was salvaged until Session 10 first asked for the
+// shader path. `getUniforms` below already registers both in the material's uniform buffer, and
+// Babylon injects that declaration into the fragment shader itself -- so declaring them again in
+// `CUSTOM_FRAGMENT_DEFINITIONS` is a GLSL redefinition and the effect will not compile:
+//
+//     FRAGMENT SHADER ERROR: 0:782: 'golemSurface0' : redefinition
+//     ERROR: 0:783: 'golemSurfaceExtents' : redefinition
+//
+// It stayed invisible because nothing in this tree ever requested `procedural-pbr`: the define was
+// always off, the custom code was compiled out, and every check the file has -- `tsc`, the build,
+// the headless tests under `NullEngine`, which has no standard derivatives and therefore falls
+// back to `mapped-pbr` before the shader is reached -- passed with the shader unbuilt. It took a
+// real browser, in a real bout, to say so. Measured in Chrome on the page, 2026-09-04.
 const GLSL_DEFINITIONS = `
 #ifdef GOLEM_PROCEDURAL
 varying vec3 vGolemObjectPosition;
 varying vec3 vGolemObjectNormal;
-uniform vec4 golemSurface0;
-uniform vec3 golemSurfaceExtents;
 
 float golemHash(vec3 p) {
   p = fract(p * 0.1031);
