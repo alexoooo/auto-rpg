@@ -10671,3 +10671,69 @@ build.
 The cadence table above `chamberSeconds` was **not** re-swept. Its bolded row is the row that ships,
 so the choice it records is still the choice; only its three absolute damage figures are stale, and
 that is now written beside it.
+
+## The playtest, entry 1 — 2026-09-05, the owner at the page
+
+**The first human gate answer in this plan set.** Recorded in the owner's own terms, and it is a
+qualified yes on Session 09's first question and a list of defects on the rest. Nothing here was
+measured by an agent; the numbers underneath each finding were taken afterwards, to find the cause.
+
+**Test 1, `golem-duelist` against the Warrior duelist, and a takeover of each side.**
+
+> "yes, it does actually look like it's fighting, but with issues"
+
+Question 1 of Session 09's gate — *does it look like it is fighting* — is answered **yes, with
+defects**. Questions 2 and 3 were not reached. The defects, and what each turned out to be:
+
+1. **"the golem shield is like a half-shield, it sticks out to the side (not symmetrical)"**
+   Cause, read from the config rather than guessed: `TERMINAL_PLATE.outboardOffset` is 0.16 m and
+   `width` is 0.32 m, so the offset is exactly `width / 2` and **the limb's axis sits on the board's
+   inboard edge**. The block's own comment calls 0.16 "the largest offset that still reads as a
+   board on the end of an arm rather than a plate floating beside one". That was a guess about an
+   eye, published as a bound, and the eye has now disagreed with it.
+
+2. **"the shield also appears to always just be held above the golem head, which doesn't do very
+   much"** — measured, and the cause is not the terminal. Over a 10 s bout, default build:
+
+   | | value |
+   |:---|---:|
+   | commanded `pointerY`, secondary | −0.030 (level; the span is [−0.95, 1.05]) |
+   | achieved anchor elevation | **42.8°** |
+   | plate tip height | 1.998 m |
+   | its own socket height | 1.464 m |
+   | the golem's crown | 2.100 m |
+   | frames with `guard` held, secondary | **100.0 %** |
+   | frames with `guard` held, primary | 88.2 % |
+
+   `arm-core.ts`'s `command` reads `wanted.lift = next.guard ? R.guardLift : spanned(pointerY, …)`,
+   and `CHAIN_ARM.guardLift` is 0.80 rad — **45.8°**, against a measured 42.8° with sag. So while
+   `guard` is held the chain **discards the commanded elevation entirely**, and the secondary holds
+   guard for the whole bout. The mind computes a cover aim against the threat's own tip, offsets it
+   by `coverLift`, and every bit of that is thrown away.
+
+   **This is a frozen-rule-3 violation in the direction nobody was watching for.** The rule says the
+   module publishes what it can reach and the mind picks inside it. Here the module publishes a
+   span, accepts a pick inside it, and then overrides it with a constant — so the seam holds for the
+   mind's *azimuth*, which is honoured, and is broken for its elevation. Nothing tested it because
+   every test asserts commands lie *inside* the envelope, which they do.
+
+3. **"strafing and rotating doesn't look right, the golems look like they're just floating"**
+   Two separate causes in `biped.ts`, both read from the source:
+   - `carrierSpeed()` is `hypot(localForward, localRight)`, so a strafe advances the stride — but
+     `bipedPose` is **sagittal only**: hips swing fore and aft and the knee lifts. Strafing plays a
+     forward-walk cycle while the body translates sideways, which is a skate.
+   - **`yaw` is not in `carrierSpeed()` at all.** Turning in place gives speed 0, so `swing` is 0
+     and the legs do not move while the body rotates. That is the floating, exactly.
+
+4. **"it appears too tough"** — a Warrior chipping 1–2 % a blow at the head. Already on record and
+   reported rather than tuned; the owner has set golem-versus-Warrior balance aside deliberately:
+   *"if golem works well then we can just make it a golem fighting game"*.
+
+5. **"it's difficult to control the sword"** under takeover. Not yet diagnosed, but finding 2 is a
+   candidate: while the right button is held, a person's cursor elevation is discarded by the same
+   line, on the same chain.
+
+**What this entry demonstrates about the order of work.** Every one of findings 1 to 3 was invisible
+to 642 tests and to every table in this document. Finding 2 in particular sat behind a green suite
+whose assertion — *every emitted hand command lies inside the published envelope* — remained true
+the whole time, because the command was inside the envelope and then ignored.

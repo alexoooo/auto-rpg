@@ -1,6 +1,13 @@
 # Session 09 -- the central mind
 
-**Status (2026-09-05): implemented, human gate not yet asked.** `src/golem/tactics.ts` is the
+**Status (2026-09-05): implemented; gate question 1 answered yes with defects, 2 and 3 not yet
+reached.** The owner drove it on 2026-09-05 and said "yes, it does actually look like it's
+fighting, but with issues". The issues and their measured causes are the playtest's first entry
+in `docs/measurements.md`; the one that belongs to this session is that `guard` makes the arm
+chain discard the elevation this mind commands, so the cover aim it computes is thrown away 100
+% of the time on the secondary. Not accepted, and no dynamism floor pinned.
+
+**Originally (2026-09-05): implemented, human gate not yet asked.** `src/golem/tactics.ts` is the
 state machine, `src/golem/golem-policies.ts` registers `golem-duelist`, `Policy.surface` and the
 surface filter in `drivers` keep each mind on the body it was written for, and
 `tests/golem-mind.test.mjs` is 12 tests with every threshold marked provisional. Against the
