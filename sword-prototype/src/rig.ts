@@ -112,6 +112,29 @@ export function boxPart(
   return finish(scene, mesh, PhysicsShapeType.BOX, opts);
 }
 
+/**
+ * A wheel, a roller or a drum: `height` is the length along local Y and the shape is a
+ * cylinder about that same axis.
+ *
+ * The fourth primitive here, added 2026-09-04 for the golem's wheel locomotion module. A sphere
+ * rolls in every direction and a capsule's ends are hemispheres, so neither is a wheel: what a
+ * wheel needs is a flat-ended disc whose contact with the floor is a line across its tread and
+ * whose inertia is a disc's about one axis. Babylon derives the cylinder's own axis from the
+ * mesh's **local** bounding box, so a wheel is built by rotating the *mesh* to lay the axle
+ * across the body -- exactly as `capsulePart`'s limbs run along their own local Y.
+ */
+export function cylinderPart(
+  scene: Scene,
+  opts: PartOptions & { height: number; diameter: number; tessellation?: number },
+): Part {
+  const mesh = MeshBuilder.CreateCylinder(
+    opts.name,
+    { height: opts.height, diameter: opts.diameter, tessellation: opts.tessellation ?? 24 },
+    scene,
+  );
+  return finish(scene, mesh, PhysicsShapeType.CYLINDER, opts);
+}
+
 const LINEAR = [
   PhysicsConstraintAxis.LINEAR_X,
   PhysicsConstraintAxis.LINEAR_Y,

@@ -9921,3 +9921,212 @@ entry to entry by copying rather than by re-running, which is what a figure repe
 nine places in this file invites. The house rule says every measurement names its harness; it does
 not yet say that a repeated measurement names the run it came from, and this is the case for
 saying so.
+
+## Session 06: the wheel and the multileg, and whether the contract carries a difference
+
+**Nothing here is a verdict.** Session 06's human gate has not been asked. The two options exist to
+answer whether the locomotion contract carries a real difference in feel; what this section records
+is what the code *did* when it was measured, and the thresholds pinned from these runs in
+`tests/golem-locomotion.test.mjs` are marked provisional there for the same reason.
+
+**Harness: the Node bench** (`scripts/golem-bench.mjs`, `NullEngine`, real Havok, no rendering)
+unless a paragraph says otherwise. The page bench's readings are the page bench's and are kept in
+their own paragraph at the end, never in a column with these.
+
+### The three bodies, side by side
+
+| | biped | wheel | multileg |
+| --- | ---: | ---: | ---: |
+| module mass | 203.20 kg | 368.30 kg | 275.40 kg |
+| supported mass, with the 356.9 kg block | 560.10 | 725.20 | 632.30 |
+| stands / crouches to | 1.020 / 0.860 m | 1.160 / 1.160 | 0.640 / 0.640 |
+| carrier speed, acceleration | 1.2 m/s, 4.0 m/s² | 2.0, 6.5 | 0.8, 3.0 |
+| carrier yaw, yaw acceleration | 1.6 rad/s, 6.0 rad/s² | 2.6, 10.0 | 0.7, 3.0 |
+| footprint radius | 0.340 m | 0.420 | 0.500 |
+| brace × standing gait scale | 1.5 × 1.00 | 1.0 × 0.70 | 2.6 × 1.00 |
+| fall threshold standing, m/s | 0.0210 | 0.0098 | 0.0364 |
+| ...the same in newton-seconds | 11.76 | 7.11 | 23.02 |
+| bodies / driven joints | 7 / 6 | 2 / 1 | 19 / 18 |
+
+### The two comparisons, which are the whole point of the session
+
+Run over `LOCOMOTION_SEQUENCE` with only `shoveImpulseNs` overridden, so the three bodies differ in
+nothing but themselves:
+
+| impulse | biped | wheel | multileg |
+| ---: | --- | --- | --- |
+| 10 N·s | stayed supported | **fell, rose in 1.158 s** | stayed supported |
+| 12 N·s | **fell, rose in 1.158 s** | fell, rose in 1.158 s | **stayed supported** |
+
+**Mutation-proven, because a green comparison that cannot go red is the defect this directory
+calls the worst one available.** Giving the wheel the biped's authority (brace 1.5, standing scale
+1.00) makes it survive 10 N·s and the first assertion goes red; taking the multileg's brace down to
+1.0 makes it fall at 12 N·s and the second does. Exactly those two tests went red and nothing else
+did, which is the second half of the claim: the difference arrives through the two published
+`StabilityAuthority` fields and through no special case anywhere.
+
+### The knockdown brackets, per module
+
+Each module's own threshold straddled to the newton-second, over `LOCOMOTION_SEQUENCE`:
+
+| module | frozen arithmetic | in N·s | measured up | measured down |
+| --- | --- | ---: | ---: | ---: |
+| biped | 0.014 × 1.5 | 11.76 | 10 | 12 |
+| wheel | 0.014 × 1.0 × 0.70 | 7.11 | 6 | 8 |
+| multileg | 0.014 × 2.6 | 23.02 | 20 | 24 |
+
+**A frozen constant measured on a Warrior lands exactly where it says it does on all three.** The
+full impulse tables are beside each `shoveImpulseNs` in `src/golem/config.ts`.
+
+**And a threshold crossed is not a body on the floor.** The impulse each module needs before a
+person would call it knocked down is a different multiple of its own threshold on each body:
+
+| module | bench shove | multiple of threshold | worst root up-dot | socket, standing → lowest |
+| --- | ---: | ---: | ---: | --- |
+| biped | 600 N·s | 51× | −0.053 | 1.020 → 0.367 m |
+| wheel | 1600 | 225× | −0.093 | 1.160 → 0.368 |
+| multileg | 2400 | 104× | −0.338 | 0.640 → 0.512 |
+
+At 200 N·s the wheel is twenty-eight times over its threshold and still at an up-dot of 0.985; at
+900 N·s the multileg is thirty-nine times over and still at 0.952 with its socket where it started,
+because a 0.80 m wide base 0.64 m tall is shunted rather than tipped. The state machine's boundary
+is a decaying ledger in mass-independent units and the visible topple is mass against base
+geometry; they are separate systems and the ratio between them is not a constant.
+
+### The wheel rolls, and the number that says so is not the wheel's velocity
+
+Read over `FAST_WALK_SEQUENCE` — three seconds of rolling rather than six, because at 2.0 m/s six
+seconds is 12 m and the headless arena's ring posts are at 9.5 m. Measured once by accident: the
+carried block finished such a run leaning 1.539 rad off the root and the axle read 1.409 rad out of
+its fork, which is a true reading of a golem wrapped round a post and a false one of a walk.
+
+| reading | wheel | (biped, for scale) |
+| --- | ---: | ---: |
+| substeps with the contact in the plant band | 1199 of 1199 | 1919 of 1919 |
+| mean material slip of the contact patch | **0.019 mm/s**, against a carrier at 2000 | 114.7 mm/s at 1200 |
+| peak | 0.35 mm/s | 3874.5 mm/s |
+| axle out of its own fork, peak | 0.0007 rad | n/a |
+| peak / mean carrier-to-root lag | 0.027 / 0.0033 m/s | 0.017 / 0.0013 |
+| world contacts / self-contacts | 972 / 0 | 10096 / 0 |
+
+**The slip is the material velocity of the tread against the floor, `v + ω × r`**, and not the
+wheel's own velocity — a wheel dragged with its tread locked and a wheel rolling perfectly both
+move their *centres* at the carrier's speed. The instrument's own control is the spin-torque sweep:
+
+| spin torque N·m | mean contact slip | | tread friction | mean contact slip |
+| ---: | ---: | --- | ---: | ---: |
+| 120 | 780.6 mm/s | | 0.35 | 0.0 mm/s |
+| 352 | 46.1 | | 0.55 | 0.0 |
+| 700 | 0.1 | | 0.70 | 0.0 |
+| 1200 | 0.0 | | 0.85 | 0.0 |
+| 2400 | 0.0 | | 1.20 | 0.0 |
+
+**Grip does not bind at all and torque decides everything**, which was not expected: on the biped
+the friction sweep is the sharpest column in the block. The reason is that a motor strong enough to
+hold the rolling condition leaves almost no tangential force at the patch for a coefficient to
+limit. 352 N·m is the arithmetic value — a disc of 259.4 kg at 0.42 m taken to 4.76 rad/s in
+0.31 s — and it is a wheel that is 97.7 % rolling; 120 is a wheel being dragged.
+
+**The wheel also cannot strafe**, which is a clamp into its published envelope rather than a
+refusal: a `strafe: 1` command reaches the carrier as `localRight: 0` and the carrier does not move
+sideways at all, where the same command through the same seam moves a biped more than half a metre.
+
+### The multileg walks a tripod, and three pads are always down
+
+Read over `WALK_SEQUENCE` at the settings that shipped:
+
+| reading | multileg | (biped, for scale) |
+| --- | ---: | ---: |
+| substeps with some pad in contact | 1919 of 1919 | 1919 of 1919 |
+| worst live pad count, watched per substep | 3 of 6 | n/a |
+| mean slip of the stillest planted pad | 118.9 mm/s at 800 (85 % held) | 114.7 at 1200 (90 %) |
+| peak slip of the stillest planted pad | 1361.4 mm/s | 3874.5 |
+| peak joint lag over the driven angles | 0.2028 rad over 18 | 0.2469 over 6 |
+| peak swing-pad clearance | 68.6 mm | 209.3 |
+| peak / mean carrier-to-root lag | 0.013 / 0.0008 m/s | 0.017 / 0.0013 |
+| longest interval with no fresh binding | 0.000 s | 0.000 |
+| first posture loss / minimum root up-dot | never / 1.000 | never / 1.000 |
+| world contacts / self-contacts | 25492 / 0 | 10096 / 0 |
+
+**The pad count is bimodal and that is the tripod showing up in the instrument.** Sampled once a
+rendered frame over the walk, it is 3 for 195 frames and 6 for 208, with five frames in between:
+one tripod down while the other swings, and both down at the crossover twice a cycle. It never
+falls below three. A count is still sensor evidence and not a posture verdict — the posture
+predicate is what says the body is standing, and over the same run it never goes false.
+
+### Four things the multileg's sweeps said
+
+**The biped's rate limit is inside this body's gait, and the rule that chose it still picks the
+number.** `targetRate` 6.0 is "the smallest value at which the walk is unaffected" on a biped,
+where 6, 10 and 20 are the same run to the digit. Here 6 costs 206.1 mm/s of slip and 0.4979 rad of
+lag against 118.9 and 0.2028 at 10, and 10 and 20 are identical — because this knee folds at
+`0.34 × 2.4 × 8.96 = 7.3 rad/s`, a third faster than the biped's. Same rule, different answer, 10.
+
+**Below a floor the sweeps are sharp and above it they are noise.** Hip torque 40 leaves the body
+off the ground for a fifth of the walk (1561 of 1919 planted); 120, 180 and 240 give mean slips of
+88.9, 118.9 and 61.4 with no monotonic structure at all. What these tables establish is where the
+bad regions are, and a number picked off the low point of one of those columns would be a number
+picked from noise. 180, 60 and 30 are the middles of their plateaus.
+
+**The lowest slip in the knee-lift column is a scuff.** `kneeLiftScale` 1.2 reads 24.8 mm/s — the
+best number anywhere in this block — and lifts a pad 22.5 mm, barely past the 20 mm plant band.
+2.4 costs 118.9 mm/s and lifts 68.6. The column and the thing the column is about disagree, and the
+option that makes six legs read as legs is the one that was taken.
+
+**`fallenTorqueScale` does nothing on either new module**, which is worth recording precisely
+because it is the sharpest sweep in the biped's own block (up-dot +0.816 at 1.00 against −0.053 at
+0.08). The wheel's one motor is a *velocity* motor on a free axis and has no pose to prop the body
+up with; the multileg's eighteen at 180/60/30 N·m are holding 77.4 kg of leg under 632 kg of golem.
+Both keep 0.08 on the argument rather than on the column.
+
+### What the multileg's socket height costs, stated as a number
+
+| | biped | wheel | multileg |
+| --- | ---: | ---: | ---: |
+| locomotion socket | 1.020 m | 1.160 | 0.640 |
+| block centre | 1.410 | 1.550 | 1.030 |
+| effector sockets | 1.800 | 1.940 | 1.420 |
+| top of the carried block, where a head goes | 1.800 | 1.940 | 1.420 |
+| navigation footprint radius | 0.340 | 0.420 | 0.500 |
+
+A multileg golem's arms and head sit **380 mm lower** than a biped's and its carrier reserves a disc
+**47 % wider**. That is the trade the frozen choice names, and `tests/golem-locomotion.test.mjs`
+asserts the arithmetic so it cannot drift.
+
+### The page bench, which is a different harness and never in a column above
+
+Driven by hand through `__golem.step` and `__golem.render`, because Chrome does not paint a hidden
+tab. The wheel rolled 0.530 m while turning 1.261 rad about its axle — `0.530 / 0.42 = 1.262`, so
+it rolled without slipping — and reported a mean contact slip of 0.0 mm/s at 2.000 m/s. `B` put it
+on its side at an up-dot of −0.059 with the socket at 0.360 m, and walking forward stood it back up
+at 1.160 m. The multileg walked with 6 of 6 bindings fresh, 0.1004 rad of joint lag, 66.8 mm of pad
+lift and 152.5 mm/s of mean slip at 0.800 m/s; `B` put it on its back at an up-dot of −0.348 with
+the socket at 0.512 m, and it rose. Zero self-contacts on both. **None of those numbers belongs
+beside a Node bench column**, and one artefact of driving by hand is worth knowing: walking the
+multileg 2 m from the stand puts it on the page course's own 0.12 m step, where the joint lag reads
+1.44 rad and the pads hang 0.22 m up — a true reading of a leg on a step.
+
+### What is owed for the wheel and the multileg
+
+- **The human gate**, which is the whole of what these two were built for. Nothing above says
+  whether three options *feel* different in the hands; it says their carrier ceilings, socket
+  heights and fall thresholds are different, which is not the same claim.
+- **The multileg does not read as an insect.** On the page it is a low table with six stubby
+  vertical legs under a block, because the legs are built in the sagittal plane with no splay. That
+  is a description rather than a verdict, and the honest fix if the owner dislikes it is a splayed
+  build pose, which changes the leg solve rather than a number.
+- **The wheel's gait numbers are read over a shorter walk than the other two** (3 s against 6),
+  for the ring-post reason above. No gait figure is compared across modules anyway — what is
+  compared is the knockdown, over a sequence all three finish inside the ring — but the two columns
+  are not the same run and must not be added.
+- **Neither new module has been through the physical obstacle corpus.** The wall, step, ledge,
+  slope and occupied-recovery cells are still the biped's alone. A 0.50 m footprint against a
+  0.34 m one is exactly the sort of thing that would behave differently at the curb, and nobody has
+  looked.
+- **A fallen multileg's own recovery separation is untested against a second golem.** The pair cell
+  is a pair of bipeds; two 0.50 m footprints need 1.00 m of separation against the biped's 0.68, and
+  `MAX_RECOVERY_SEPARATION_M` is 0.35.
+- **The wheel's spin has no reverse-sign test.** The slip instrument was mutation-proven by starving
+  the motor rather than by reversing it, so a sign error that happened to be self-consistent would
+  not have been caught by that control alone — though the page's own `0.530 m / 1.261 rad` reading
+  is an independent check of the sign in the right direction.

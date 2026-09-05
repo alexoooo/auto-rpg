@@ -61,6 +61,23 @@ export interface GolemStandOptions {
    * Defaults to `primary`, so every existing caller keeps exactly the stand it had.
    */
   readonly slot?: GolemSlot;
+  /**
+   * Where the locomotion socket sits above the floor, metres. Appended by Session 06.
+   *
+   * **A locomotion module's stand height is the module's, not the fixture's**, and that is the
+   * whole of what this adds. Session 05 froze `BENCH_STAND_LOCOMOTION.socketHeight` at 1.02 --
+   * the biped's own segment sum -- and said a locomotion module has to reach the floor from it,
+   * which was exactly right while the biped was the only one. Session 06's wheel stands at 1.16
+   * and its multileg at 0.64, and those are not a bench detail: **the socket height is the trade**
+   * -- a lower socket is a lower effector and a lower head, and a module that quietly built itself
+   * to a fixture's number instead of its own would be hiding it. So the module declares
+   * `heightRange.standM` and the stand puts the block there.
+   *
+   * Ignored for every slot but `locomotion`, where the block is the load rather than the anchor.
+   * Absent means `BENCH_STAND_LOCOMOTION.socketHeight`, so the biped's stand is unchanged to the
+   * digit and every reading Session 05 took through it still stands.
+   */
+  readonly socketHeight?: number;
 }
 
 /**
@@ -140,7 +157,13 @@ export function buildGolemStand(scene: Scene, options: GolemStandOptions): Golem
   // A locomotion module carries the block; every other slot hangs from it. The block's height,
   // mass and motion type all follow from that one distinction and nothing else does.
   const carrying = (options.slot ?? "primary") === "locomotion";
-  const centreHeight = carrying ? L.socketHeight + S.height / 2 : S.centreHeight;
+  // The module's own stand height when it has one, and the fixture's when it does not. See
+  // `GolemStandOptions.socketHeight`: three locomotion options now stand at three different
+  // heights, and which one the block sits at is a fact about the module rather than about the
+  // bench.
+  const centreHeight = carrying
+    ? (options.socketHeight ?? L.socketHeight) + S.height / 2
+    : S.centreHeight;
 
   const block = boxPart(scene, {
     name: `${name}.block`,

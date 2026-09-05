@@ -346,6 +346,10 @@ async function main(): Promise<void> {
     // rebuilt here rather than once at bring-up.
     const rebuilt = buildGolemStand(scene, {
       side: "left", ground: Vector3.Zero(), facing: Quaternion.Identity(), slot,
+      // Session 06: three locomotion options stand at three different heights -- 1.02, 1.16 and
+      // 0.64 -- and where the block sits is a fact about the module rather than about the bench.
+      // Null for every other slot, where the stand is the fixed anchor and this is ignored.
+      socketHeight: chosen[slot].standHeightM ?? undefined,
     });
     stand = rebuilt;
 

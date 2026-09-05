@@ -8,10 +8,16 @@ import { PhysicsMotionType, PhysicsShapeType } from
 import { PhysicsAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate.js";
 
 import { CONFIG } from "../src/config.ts";
-import { BENCH_STAND_LOCOMOTION, LOCOMOTION_BIPED } from "../src/golem/config.ts";
+import {
+  BENCH_STAND, BENCH_STAND_LOCOMOTION, LOCOMOTION_BIPED, LOCOMOTION_MULTILEG, LOCOMOTION_WHEEL,
+} from "../src/golem/config.ts";
 import { locomotionCommand } from "../src/golem/locomotion.ts";
 import { bipedModule, bipedPose, bipedStandHeight } from "../src/golem/locomotion/biped.ts";
 import { LOCOMOTION_COURSE } from "../src/golem/locomotion/course.ts";
+import {
+  MULTILEG_LEGS, multilegModule, multilegPose, multilegStandHeight,
+} from "../src/golem/locomotion/multileg.ts";
+import { wheelModule, wheelStandHeight } from "../src/golem/locomotion/wheel.ts";
 import { golemModule } from "../src/golem/registry.ts";
 import { buildGolemStand, golemLayers } from "../src/golem/stand.ts";
 import { COLLIDES, LAYER } from "../src/physics.ts";
@@ -20,7 +26,9 @@ import { flatSupportedWorldRegistry } from "../src/supported-locomotion-producti
 import { SUPPORTED_CARRIER_V1 } from "../src/supported-locomotion-runtime.ts";
 import { SUPPORTED_LOCOMOTION_V1, constructPostureIsSupported } from
   "../src/supported-locomotion-state.ts";
-import { LOCOMOTION_SEQUENCE, WALK_SEQUENCE, runGolemLocomotion } from "../scripts/golem-bench.mjs";
+import {
+  LOCOMOTION_SEQUENCE, WALK_SEQUENCE, runGolemLocomotion, walkSequenceFor,
+} from "../scripts/golem-bench.mjs";
 import { createHeadlessArena } from "../scripts/golem-headless-arena.mjs";
 
 /**
@@ -676,4 +684,502 @@ test("the_course_is_registered_as_a_body_and_as_a_query_collider_for_every_piece
     },
   });
   assert.equal(run.course, true);
+});
+
+// ======================================================================================
+// Session 06: the wheel and the multileg.
+//
+// **The two assertions that matter are comparisons rather than absolutes**, and they are at the
+// bottom of this file: the same shove the biped survives knocks the wheel down, and the shove that
+// fells the biped does not fell the multileg. Everything above them is what makes those two
+// meaningful -- that each body is built where it says it is, that each one's difference arrives
+// through the `StabilityAuthority` fields rather than through a special case, and that neither is
+// the biped with a different mesh.
+//
+// Every threshold here is **provisional** in the same sense as the biped's above: the human gate
+// for this session has not been asked, and this plan set exists because three body experiments
+// each cleared a scalar proxy while the owner's judgement stayed red.
+// ======================================================================================
+
+const W = LOCOMOTION_WHEEL;
+const ML = LOCOMOTION_MULTILEG;
+
+/** One built locomotion module of any kind, on a stand at that module's own socket height. */
+async function moduleFixture(definition, { prepare = null, populateDefaultGeometry = true } = {}) {
+  const arena = await createHeadlessArena({ populateDefaultGeometry });
+  const scene = arena.scene;
+  const plugin = scene.getPhysicsEngine().getPhysicsPlugin();
+  const world = flatSupportedWorldRegistry();
+  const stand = buildGolemStand(scene, {
+    side: "left", ground: Vector3.Zero(), facing: Quaternion.Identity(), slot: "locomotion",
+    // **The module's own height, not the fixture's.** Three options stand at three heights and a
+    // module built to somebody else's would bury its contact in the block or hang it in the air.
+    socketHeight: definition.heightRange.standM,
+  });
+  const prepared = prepare ? prepare({ scene, world, stand }) : null;
+  const module = definition.build({
+    scene, side: "left", name: `golem.test.${definition.id}`, socket: stand.socket("locomotion"),
+    layers: golemLayers("left"), materials: stand.materials, world,
+  });
+  plugin.setActivationControl(stand.block.body, 1);
+  for (const part of module.parts) plugin.setActivationControl(part.part.body, 1);
+  const control = scene.onBeforePhysicsObservable.add(() => module.step(SUBSTEP));
+  return {
+    arena, scene, stand, module, world, prepared,
+    dispose: () => {
+      scene.onBeforePhysicsObservable.remove(control);
+      module.dispose();
+      stand.dispose();
+      arena.dispose();
+    },
+  };
+}
+
+/** What a module's own declared fall threshold is worth in newton-seconds, standing still. */
+const fallThresholdNs = (module, supportedMassKg) =>
+  SUPPORTED_LOCOMOTION_V1.FALL_SPECIFIC_IMPULSE_MPS *
+  module.authority().braceCapacityMultiplier * module.authority().gaitStabilityScale *
+  supportedMassKg;
+
+// --------------------------------------------------------------------------- pure geometry
+
+test("the_wheel_and_the_multileg_are_registered_and_declare_exactly_the_locomotion_slot",
+  () => {
+    for (const [id, definition, massKg] of [
+      ["locomotion.wheel", wheelModule, W.yokeMass + W.wheelMass],
+      ["locomotion.multileg", multilegModule,
+        ML.chassisMass + 6 * (ML.femurMass + ML.shinMass + ML.footMass)],
+    ]) {
+      const option = golemModule(id);
+      assert.ok(option, `${id} is not in GOLEM_MODULES`);
+      assert.equal(option.mode, "locomotion");
+      assert.deepEqual([...option.slots], ["locomotion"]);
+      assert.ok(Math.abs(option.massKg - massKg) < 1e-9,
+        `${id} publishes ${option.massKg} kg against its own parts' ${massKg}`);
+      // The stand height is forwarded from the definition rather than written down in the
+      // registry, so the bench cannot put the block anywhere but where the module expects it.
+      assert.equal(option.standHeightM, definition.heightRange.standM);
+    }
+    assert.deepEqual(wheelModule.supportBindings.map(({ role }) => role), ["wheel"]);
+    assert.deepEqual(multilegModule.supportBindings.map(({ role }) => role),
+      MULTILEG_LEGS.map((leg) => leg.role));
+    // Six bindings, and they are six *distinct* names: a duplicate role would make the support
+    // query answer twice for one pad and count a body with one leg down as a body with two.
+    assert.equal(new Set(multilegModule.supportBindings.map(({ role }) => role)).size, 6);
+  });
+
+test("neither_new_option_has_a_height_range_and_both_say_so_in_the_same_field", () => {
+  // **Half the point of offering more than one locomotion option**, and it is stated in the
+  // contract's own record rather than in a comment: `LocomotionHeightRange.crouchM` equal to
+  // `standM` *is* "this carrier does not crouch". `defineLocomotion` admits it because its guard
+  // is `crouchM <= standM`, and the biped's own range is what says the field means anything.
+  assert.equal(wheelModule.heightRange.crouchM, wheelModule.heightRange.standM);
+  assert.equal(multilegModule.heightRange.crouchM, multilegModule.heightRange.standM);
+  // The control: a module that *does* crouch, so the equality above is a fact about these two
+  // rather than about the field.
+  assert.ok(bipedModule.heightRange.crouchM < bipedModule.heightRange.standM);
+  assert.ok(Math.abs(wheelModule.heightRange.standM - wheelStandHeight()) < 1e-12);
+  assert.ok(Math.abs(multilegModule.heightRange.standM - multilegStandHeight()) < 1e-12);
+});
+
+test("the_three_options_stand_at_three_heights_and_the_multileg_publishes_what_that_costs", () => {
+  // **The trade, published rather than hidden.** The session plan asks for the multileg's socket
+  // height and what it costs in reach and head height, and the honest place for that is a number
+  // every caller can read: `heightRange.standM` is where the torso bolts on, so everything above
+  // it moves with it. The bench stand puts the block's centre half its height above the socket and
+  // the effector sockets `BENCH_STAND.socketHeight` above that centre.
+  const socket = (module) => module.heightRange.standM;
+  assert.ok(Math.abs(socket(bipedModule) - 1.020) < 1e-9);
+  assert.ok(Math.abs(socket(wheelModule) - 1.160) < 1e-9);
+  assert.ok(Math.abs(socket(multilegModule) - 0.640) < 1e-9);
+  // What that is worth where a limb and a head actually hang, on the bench's own stand geometry.
+  const effector = (module) => socket(module) + BENCH_STAND.height / 2 + BENCH_STAND.socketHeight;
+  const headTop = (module) => socket(module) + BENCH_STAND.height;
+  assert.ok(Math.abs(effector(bipedModule) - 1.800) < 1e-9);
+  assert.ok(Math.abs(effector(multilegModule) - 1.420) < 1e-9);
+  assert.ok(Math.abs(effector(wheelModule) - 1.940) < 1e-9);
+  assert.ok(Math.abs(headTop(multilegModule) - (headTop(bipedModule) - 0.380)) < 1e-9,
+    "the multileg's head does not sit exactly its own socket shortfall below the biped's");
+  // And the third face of the same trade: a wider body reserves a bigger disc, so it stops
+  // further from every wall and needs more room to pass another golem.
+  assert.ok(multilegModule.footprint.radiusM > wheelModule.footprint.radiusM);
+  assert.ok(wheelModule.footprint.radiusM > bipedModule.footprint.radiusM);
+});
+
+test("every_multileg_joint_stop_admits_its_own_build_pose_and_the_gait_stays_inside_it", () => {
+  // Session 03 found a chain built in its own singularity and a joint stop that did not admit its
+  // own build pose, and Havok cleared that violation by throwing a blade tip at 9.95 m/s from a
+  // motionless stand. **Six legs is six times the opportunity**, so all eighteen angles are
+  // checked -- at rest, and over the whole product of stride phase and speed.
+  const rest = multilegPose(0, 0);
+  for (const leg of rest.legs) {
+    for (const [name, value] of Object.entries(leg)) {
+      assert.ok(Math.abs(value) < 1e-9, `${name} is ${value} in the build pose, not zero`);
+    }
+  }
+  assert.ok(Math.abs(rest.hipDrop) < 1e-9);
+  for (const [name, min, max] of [
+    ["hip", ML.hipJointMin, ML.hipJointMax],
+    ["knee", ML.kneeJointMin, ML.kneeJointMax],
+    ["ankle", ML.ankleJointMin, ML.ankleJointMax],
+  ]) {
+    assert.ok(min < 0 && max > 0, `the ${name} stop does not strictly admit the build pose`);
+  }
+  assert.ok(ML.hipJointMin < ML.hipSwingMin && ML.hipJointMax > ML.hipSwingMax);
+  assert.ok(ML.kneeJointMin < ML.kneeTargetMin && ML.kneeJointMax > ML.kneeTargetMax);
+  assert.ok(ML.ankleJointMin < ML.ankleTargetMin && ML.ankleJointMax > ML.ankleTargetMax);
+
+  for (let phase = 0; phase < Math.PI * 2; phase += Math.PI / 24) {
+    for (const speed of [0, 0.2, 0.5, ML.carrier.maxSpeedMps, ML.carrier.maxSpeedMps * 2]) {
+      const pose = multilegPose(phase, speed);
+      assert.equal(pose.legs.length, 6);
+      for (const leg of pose.legs) {
+        assert.ok(leg.hip >= ML.hipSwingMin - 1e-9 && leg.hip <= ML.hipSwingMax + 1e-9);
+        assert.ok(leg.knee >= ML.kneeTargetMin - 1e-9 && leg.knee <= ML.kneeTargetMax + 1e-9);
+        assert.ok(leg.ankle >= ML.ankleTargetMin - 1e-9 && leg.ankle <= ML.ankleTargetMax + 1e-9);
+      }
+      assert.ok(pose.hipDrop >= -1e-9 && pose.hipDrop <= ML.femurLength + ML.shinLength);
+    }
+  }
+  // The splits limit, measured at the pad as the biped's is: a leg that can reach the splits looks
+  // broken the first time it is hit, and this body's stance is already 0.80 m wide.
+  const legLength = ML.femurLength + ML.shinLength;
+  const stanceWidthM = 2 * (ML.hipSide + legLength * Math.sin(ML.hipAbduct));
+  assert.ok(stanceWidthM < 0.95,
+    `the abduction stop opens the stance to ${stanceWidthM.toFixed(3)} m`);
+  const splits = 2 * (ML.hipSide + legLength * Math.sin(1.2));
+  assert.ok(splits > 1.5, "the control case is not a splits pose, so the bound above proves nothing");
+});
+
+test("the_tripod_is_a_tripod_and_the_two_halves_are_half_a_cycle_apart", () => {
+  // **The one thing about this gait a reader has to be able to check**, and no slip or lift number
+  // would catch it: three legs at one phase and three at the other is a tripod, but *which* three
+  // decides whether the thing walks or limps. Left-front, left-rear and right-middle together.
+  const groups = new Map();
+  for (const leg of MULTILEG_LEGS) {
+    groups.set(leg.phase, [...(groups.get(leg.phase) ?? []), leg.role]);
+  }
+  assert.equal(groups.size, 2, "the gait is not two groups");
+  assert.deepEqual([...groups.keys()].sort((a, b) => a - b), [0, Math.PI]);
+  assert.deepEqual(groups.get(0), ["left-front-pad", "left-rear-pad", "right-middle-pad"]);
+  assert.deepEqual(groups.get(Math.PI), ["left-middle-pad", "right-front-pad", "right-rear-pad"]);
+  // A tripod is three legs that are not all on one side and not all at one station: an alternating
+  // pair of *those* is what keeps the centre of the base under the body through the whole cycle.
+  for (const group of groups.values()) {
+    const members = MULTILEG_LEGS.filter((leg) => group.includes(leg.role));
+    assert.equal(new Set(members.map((leg) => leg.side)).size, 2, "a tripod is all on one side");
+    assert.equal(new Set(members.map((leg) => leg.station)).size, 3,
+      "a tripod does not span all three stations");
+  }
+  // And the pose really does put them out of phase: at the moment one group's hips are at their
+  // extreme, the other's are at the opposite one.
+  const pose = multilegPose(Math.PI / 2, ML.carrier.maxSpeedMps);
+  for (const [index, leg] of MULTILEG_LEGS.entries()) {
+    const partner = MULTILEG_LEGS.findIndex((other) => other.phase !== leg.phase);
+    assert.ok(Math.abs(pose.legs[index].hip + pose.legs[partner].hip) < 1e-9,
+      "the two tripods are not opposed");
+  }
+});
+
+// --------------------------------------------------------- the built bodies, in a real solver
+
+test("the_built_wheel_touches_the_floor_and_its_axle_lies_across_the_fork", async () => {
+  const f = await moduleFixture(wheelModule);
+  try {
+    const wheel = partNamed(f.module, ".wheel");
+    // The tread's lowest point is on the floor the socket implies. The two numbers live in
+    // different places on purpose -- the stand's socket height comes from the module and the
+    // wheel's radius from its own block -- so this is what stops them agreeing by coincidence.
+    assert.ok(Math.abs(wheel.mesh.position.y - W.wheelRadius) < 1e-6,
+      `the axle is at ${wheel.mesh.position.y} m against a radius of ${W.wheelRadius}`);
+    assert.ok(Math.abs(wheelStandHeight() - wheelModule.heightRange.standM) < 1e-12);
+    // **The weld frame, which is the fling this build is shaped to avoid.** A cylinder is built
+    // along its own local Y and the wheel has to lie across the body, so the mesh is turned a
+    // quarter turn: local +Y must come out as the golem's own lateral, or the hinge is a violation
+    // the solver clears by throwing the wheel.
+    const axle = new Vector3(0, 1, 0);
+    axle.rotateByQuaternionToRef(wheel.mesh.rotationQuaternion, axle);
+    assert.ok(Math.abs(Math.abs(axle.x) - 1) < 1e-6,
+      `the axle points (${axle.x.toFixed(4)}, ${axle.y.toFixed(4)}, ${axle.z.toFixed(4)})`);
+    assert.equal(f.module.root.body.getMotionType(), PhysicsMotionType.ANIMATED);
+    assert.equal(f.module.adapter.sample().motionType, "animated");
+    // A motionless golem's fastest part: a joint built outside its own stop is cleared by Havok
+    // flinging the limb, and the tell is a large part speed in the first tenth of a second on a
+    // body that has been asked to do nothing at all.
+    drive(f.module, {});
+    step(f.scene, 0.25);
+    let peak = 0;
+    for (const { part } of f.module.parts) {
+      peak = Math.max(peak, part.body.getLinearVelocity().length());
+    }
+    assert.ok(peak < 0.5, `a motionless wheel golem's fastest part reached ${peak.toFixed(3)} m/s`);
+    assert.ok(constructPostureIsSupported(f.module.postureEvidence()),
+      JSON.stringify(f.module.postureEvidence()));
+  } finally { f.dispose(); }
+});
+
+test("the_built_multileg_pads_land_on_the_floor_the_stand_socket_implies", async () => {
+  const f = await moduleFixture(multilegModule);
+  try {
+    for (const leg of MULTILEG_LEGS) {
+      const pad = partNamed(f.module, `pad${leg.suffix}`);
+      const sole = pad.mesh.position.y - ML.footHeight / 2;
+      assert.ok(Math.abs(sole) < 1e-6, `${leg.suffix} pad is ${sole} m off the floor at build`);
+    }
+    assert.ok(Math.abs(multilegStandHeight() - multilegModule.heightRange.standM) < 1e-12);
+    assert.equal(f.module.root.body.getMotionType(), PhysicsMotionType.ANIMATED);
+    drive(f.module, {});
+    step(f.scene, 0.25);
+    let peak = 0;
+    for (const { part } of f.module.parts) {
+      peak = Math.max(peak, part.body.getLinearVelocity().length());
+    }
+    assert.ok(peak < 0.5, `a motionless multileg's fastest part reached ${peak.toFixed(3)} m/s`);
+    assert.ok(constructPostureIsSupported(f.module.postureEvidence()));
+  } finally { f.dispose(); }
+});
+
+test("neither_new_body_collides_with_itself_and_both_do_collide_with_the_world", async () => {
+  // Two halves, and the second is the one that matters. `selfCollisionCount === 0` proves nothing
+  // about pairs the filters never admitted -- so the zero is checked *beside* a positive world
+  // contact count, which is what says the parts are on a layer that solves against the floor at
+  // all rather than one that solves against nothing.
+  //
+  // **The floor for that count is per module and the difference is not a defect.** Babylon reports
+  // a *started* collision, not one per substep of a contact that is already there -- so a walking
+  // body, whose six or two pads leave the floor and come back twice a stride, logs thousands, and
+  // a wheel that keeps one continuous patch logs a handful (measured: 12 over two seconds of
+  // rolling, against 20 000-odd for the same two seconds of multileg). A count that is large for a
+  // walker and small for a roller is the two bodies being different, and what the assertion needs
+  // from it is only that it is **not zero**, because zero is what a filter pair that was never
+  // admitted looks like.
+  for (const [definition, floor] of [[wheelModule, 0], [multilegModule, 100]]) {
+    const f = await moduleFixture(definition);
+    try {
+      drive(f.module, { forward: 1 });
+      step(f.scene, 2);
+      const state = f.module.readout();
+      assert.equal(state.selfContacts, 0, `${definition.id}'s own parts collided with each other`);
+      assert.ok(state.contacts > floor,
+        `${definition.id}: only ${state.contacts} world contacts, so nothing is on the floor`);
+      const layers = golemLayers("left");
+      for (const { part } of f.module.parts) {
+        // Filters go on leaves. A `PhysicsShapeContainer`'s mask is consulted by nothing and reads
+        // back garbage -- a shape set to 8 returned 383476 -- so this reads the leaf back.
+        assert.equal(part.shape.filterMembershipMask, layers.body);
+        assert.equal(part.shape.filterCollideMask, layers.bodyCollidesWith);
+      }
+      assert.ok((layers.bodyCollidesWith & LAYER.WORLD) !== 0, "a pad cannot touch the world");
+      assert.equal(layers.bodyCollidesWith & layers.body, 0, "a leg can touch another leg");
+    } finally { f.dispose(); }
+  }
+});
+
+test("a_wheel_rolls_rather_than_slides_and_a_weak_motor_is_the_control", async () => {
+  // **The one claim the wheel exists to make**, and the reading is the *material* velocity of the
+  // piece of tread against the floor -- `v + omega x r` -- rather than the wheel's own velocity,
+  // which is the carrier's speed whether it rolls or is dragged.
+  const rolling = await runGolemLocomotion({
+    moduleId: "wheel", sequence: walkSequenceFor("wheel") });
+  assert.equal(rolling.state.plantedSteps, rolling.state.steps,
+    `${rolling.state.steps - rolling.state.plantedSteps} substeps had the tread off the floor`);
+  assert.ok(rolling.state.meanFootSlipMps <= W.meanContactSlipBudgetMps,
+    `mean contact slip ${(rolling.state.meanFootSlipMps * 1000).toFixed(1)} mm/s against a budget `
+    + `of ${(W.meanContactSlipBudgetMps * 1000).toFixed(0)}`);
+  // **The mutation control, and without it the assertion above is satisfied by a reading that is
+  // structurally zero.** A slip computed wrongly -- from the axle rather than from the tread, say
+  // -- would report a perfect roll for any spin at all. Starve the motor and the same instrument
+  // has to report a skid: at 120 N.m the wheel cannot be turned at the rate the ground passes
+  // under it and the tread drags.
+  const skidding = await runGolemLocomotion({
+    moduleId: "wheel", sequence: walkSequenceFor("wheel"),
+    overrides: [[W, { wheelSpinTorque: 120 }]],
+  });
+  assert.ok(skidding.state.meanFootSlipMps > 10 * rolling.state.meanFootSlipMps + 0.1,
+    `a starved spin motor still read ${(skidding.state.meanFootSlipMps * 1000).toFixed(1)} mm/s, `
+    + "so the slip reading is not about the tread");
+  // And the axle stayed in its fork through both: this column is not a motor lag on a wheel, it is
+  // how far the hinge has been levered out of its own frame.
+  assert.ok(rolling.state.peakJointErrorRad < 0.05,
+    `the axle read ${rolling.state.peakJointErrorRad.toFixed(4)} rad out of its fork`);
+});
+
+test("a_wheel_cannot_strafe_and_the_envelope_is_where_it_says_so", async () => {
+  // Frozen rule 3: the module publishes what it can reach and the command is clamped into that
+  // before the carrier is ever handed it. There is no refusal branch anywhere -- a sideways
+  // command is simply not in the envelope.
+  const f = await moduleFixture(wheelModule);
+  try {
+    drive(f.module, { strafe: 1 });
+    step(f.scene, 1.5);
+    const diagnostic = f.module.port.diagnostic();
+    assert.equal(diagnostic.requested.localRight, 0,
+      "a sideways command reached the carrier, so the clamp is not in the command path");
+    assert.ok(Math.abs(f.module.port.carrierGround().x) < 1e-6,
+      `the wheel strafed to x=${f.module.port.carrierGround().x}`);
+    const axis = f.module.envelope().axes.find((entry) => entry.id === "strafe");
+    assert.ok(axis, "the wheel publishes no strafe axis, so nothing says it cannot strafe");
+    assert.equal(axis.min, 0);
+    assert.equal(axis.max, 0);
+    // The control: the same command through the same seam does move a biped sideways, so the
+    // assertion above is about the wheel and not about the harness.
+    const g = await fixture();
+    try {
+      drive(g.module, { strafe: 1 });
+      step(g.scene, 1.5);
+      assert.ok(Math.abs(g.module.port.carrierGround().x) > 0.5,
+        "the control biped did not strafe either, so this fixture cannot show the difference");
+    } finally { g.dispose(); }
+  } finally { f.dispose(); }
+});
+
+test("a_multileg_tripod_always_has_three_pads_down_and_they_hold_their_ground", async () => {
+  // **Foot contact does not prove a body is standing, and this body is where that bites hardest**
+  // because it always has something touching the floor. So the pad count is checked *beside* the
+  // posture predicate and the first-loss time, which is the trio the trap demands.
+  const run = await runGolemLocomotion({ moduleId: "multileg", sequence: WALK_SEQUENCE });
+  const state = run.state;
+  assert.equal(state.plantedSteps, state.steps,
+    `${state.steps - state.plantedSteps} substeps of the walk had no pad in contact at all`);
+  assert.equal(state.firstPostureLossSeconds, null);
+  assert.equal(state.minUpDot, 1);
+  assert.equal(state.longestSupportGapSeconds, 0);
+  assert.ok(state.meanFootSlipMps <= ML.meanFootSlipBudgetMps,
+    `mean planted slip ${(state.meanFootSlipMps * 1000).toFixed(1)} mm/s against a budget of `
+    + `${(ML.meanFootSlipBudgetMps * 1000).toFixed(0)}`);
+  // The swing tripod really leaves the ground -- a stride whose pads never lift is a scuff -- and
+  // stays inside the support query's own step envelope so its evidence never goes stale.
+  assert.ok(state.peakSoleLiftM > 0.04,
+    `the swing pads only cleared ${(state.peakSoleLiftM * 1000).toFixed(1)} mm`);
+  assert.ok(state.peakSoleLiftM < bipedModule.footprint.stepHeightM,
+    `a pad lifted ${(state.peakSoleLiftM * 1000).toFixed(1)} mm, past the step envelope`);
+  assert.equal(state.selfContacts, 0);
+
+  // Three down at every substep, watched live: the readout's planted count is a "some pad" count,
+  // and "some" is not what a tripod claims.
+  const f = await moduleFixture(multilegModule);
+  try {
+    drive(f.module, { forward: 1 });
+    let worst = 6;
+    for (let frame = 0; frame * FRAME < 3; frame += 1) {
+      step(f.scene, FRAME);
+      if (frame * FRAME > 1) worst = Math.min(worst, f.module.evidence().plantedFeet);
+    }
+    assert.ok(worst >= 3, `the tripod fell to ${worst} pads on the ground`);
+  } finally { f.dispose(); }
+});
+
+// ------------------------------------------------------- the knockdown, per module and across
+
+test("each_module_falls_at_its_own_declared_threshold_and_not_at_the_biped_s", async () => {
+  // The bracket, taken the cheap way: an authored transfer queued straight into the port, which is
+  // the same mass-independent unit the state machine works in, so a whole scripted sequence is not
+  // needed to find the crossing. The measured newton-second brackets over `LOCOMOTION_SEQUENCE`
+  // are in `docs/measurements.md` and in each block's `shoveImpulseNs` comment.
+  for (const [definition, supportedMassKg] of [
+    [wheelModule, W.yokeMass + W.wheelMass + BENCH_STAND_LOCOMOTION.mass],
+    [multilegModule, ML.chassisMass + 6 * (ML.femurMass + ML.shinMass + ML.footMass)
+      + BENCH_STAND_LOCOMOTION.mass],
+  ]) {
+    const f = await moduleFixture(definition);
+    try {
+      drive(f.module, {});
+      step(f.scene, 1);
+      const threshold = fallThresholdNs(f.module, supportedMassKg);
+      assert.ok(Math.abs(f.module.port.diagnostic().stability.fallAtMps * supportedMassKg
+        - threshold) < 1e-9);
+      f.module.port.queueStabilityEvent({ horizontalShoveNs: [threshold * 0.9, 0] });
+      step(f.scene, 0.2);
+      assert.notEqual(f.module.port.state, "fallen",
+        `${definition.id} fell at 90 % of its own declared threshold`);
+      // 1.2 x rather than the 0.3 that would top the first one up: **the ledger decays**, at a
+      // frozen 0.020 m/s per second, so 0.2 s of standing there has already spent more of the
+      // first shove than a small second one would replace. One transfer that crosses the boundary
+      // on its own is what this half is about.
+      f.module.port.queueStabilityEvent({ horizontalShoveNs: [threshold * 1.2, 0] });
+      step(f.scene, 0.2);
+      assert.equal(f.module.port.state, "fallen",
+        `${definition.id} stayed up past its own declared threshold`);
+      assert.equal(f.module.root.body.getMotionType(), PhysicsMotionType.DYNAMIC,
+        `${definition.id}'s root was not released to the ragdoll`);
+    } finally { f.dispose(); }
+  }
+});
+
+test("the_same_shove_the_biped_survives_knocks_the_wheel_down", async () => {
+  // **The first of the two assertions that matter**, and it is a comparison rather than a number:
+  // if both options merely fell over at some impulse the locomotion contract would have carried no
+  // difference at all, whatever the config blocks said. 10 N.s is Session 05's own measured "leaves
+  // the biped standing" row.
+  const SHOVE = 10;
+  const biped = await runGolemLocomotion({
+    moduleId: "biped", sequence: LOCOMOTION_SEQUENCE,
+    overrides: [[LOCOMOTION_BIPED, { shoveImpulseNs: SHOVE }]],
+  });
+  const wheel = await runGolemLocomotion({
+    moduleId: "wheel", sequence: LOCOMOTION_SEQUENCE,
+    overrides: [[W, { shoveImpulseNs: SHOVE }]],
+  });
+  assert.equal(biped.state.firstFallenSeconds, null,
+    `${SHOVE} N.s felled the biped, so this comparison is about the wrong impulse`);
+  assert.ok(wheel.state.firstFallenSeconds !== null,
+    `${SHOVE} N.s left the wheel standing: the contract carried no difference`);
+  assert.ok(wheel.state.recoveredSeconds !== null, "the wheel never came back to supported");
+  assert.ok(wheel.state.riseSeconds > 0 && wheel.state.riseSeconds <= W.riseBudgetSeconds,
+    `the wheel's rise took ${wheel.state.riseSeconds} s against ${W.riseBudgetSeconds}`);
+  // And the mechanism is the declared authority rather than a special case: the same frozen
+  // constant, multiplied by each module's own two published fields.
+  assert.ok(wheel.state.selfContacts === 0 && biped.state.selfContacts === 0);
+});
+
+test("the_shove_that_fells_the_biped_does_not_fell_the_multileg", async () => {
+  // **The second of the two.** 12 N.s is Session 05's own measured "puts the biped down" row, and
+  // the multileg's declared brace capacity is what stands it up under the same transfer.
+  const SHOVE = 12;
+  const biped = await runGolemLocomotion({
+    moduleId: "biped", sequence: LOCOMOTION_SEQUENCE,
+    overrides: [[LOCOMOTION_BIPED, { shoveImpulseNs: SHOVE }]],
+  });
+  const multileg = await runGolemLocomotion({
+    moduleId: "multileg", sequence: LOCOMOTION_SEQUENCE,
+    overrides: [[ML, { shoveImpulseNs: SHOVE }]],
+  });
+  assert.ok(biped.state.firstFallenSeconds !== null,
+    `${SHOVE} N.s left the biped standing, so this comparison is about the wrong impulse`);
+  assert.equal(multileg.state.firstFallenSeconds, null,
+    `${SHOVE} N.s felled the multileg: the contract carried no difference`);
+  assert.equal(multileg.state.firstPostureLossSeconds, null);
+  assert.equal(multileg.state.minUpDot, 1);
+  assert.equal(multileg.state.selfContacts, 0);
+});
+
+test("the_bench_shove_each_module_ships_with_actually_puts_that_module_over", async () => {
+  // **A threshold crossed is not a body on the floor, and the two are further apart on some bodies
+  // than on others.** The state machine's boundary is a decaying ledger in mass-independent units;
+  // whether a person sees a knockdown is mass and base geometry. Each module's `shoveImpulseNs` is
+  // therefore chosen for the *drop* rather than for the threshold, exactly as the biped's 600 was,
+  // and the ratios are wildly different: 51x the threshold for the biped, 225x for the wheel and
+  // 104x for the multileg. The numbers are in `docs/measurements.md`.
+  //
+  // The floors below are each module's own measured drop with a margin, and they are **not** the
+  // same fraction: a wheel falls from 1.160 m to 0.368 (0.32 of standing) and a multileg from
+  // 0.640 to 0.512 (0.80), because a body that is already 0.64 m tall and 0.80 m wide has much
+  // less height to lose. Quoting one fraction for both would be a threshold that is slack on one
+  // body and impossible on the other.
+  for (const [id, module, floor] of [
+    ["wheel", wheelModule, 0.60],
+    ["multileg", multilegModule, 0.85],
+  ]) {
+    const run = await runGolemLocomotion({ moduleId: id, sequence: LOCOMOTION_SEQUENCE });
+    assert.ok(run.state.minUpDot < 0.2,
+      `${id}: its own bench shove only tilted the root to an up-dot of ${run.state.minUpDot}`);
+    assert.ok(run.state.minHeightM < module.heightRange.standM * floor,
+      `${id}: the socket only came down to ${run.state.minHeightM.toFixed(3)} m`);
+    assert.ok(run.state.riseSeconds > 0 && run.state.riseSeconds <= 1.60,
+      `${id}: the rise took ${run.state.riseSeconds} s`);
+    assert.ok(run.state.riseSeconds >= SUPPORTED_LOCOMOTION_V1.FALLEN_DWELL_S +
+      SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S - 1e-9,
+    `${id}: the rise beat the frozen dwell plus the frozen rising duration, which is impossible`);
+    assert.equal(run.state.selfContacts, 0);
+  }
 });

@@ -1812,3 +1812,83 @@ does not implement. A golem refreshes its root velocity sample in `observe`, whi
 call of the substep, and runs the gait, the substep close-out **and every upper module's `step`**
 in `afterLocomotion`, which is the first moment the carrier has agreed where the golem is. Stepping
 the arms before it would drive them at a shoulder the world had not yet placed.
+
+## The wheel and the multileg, and what the locomotion contract had to carry
+
+Session 06 put two more options into the locomotion slot. They were not built to fill a shelf:
+they exist to answer whether the contract Session 05 landed carries a real difference in feel, or
+whether every option through it is a biped with a different mesh. **The answer is the two
+comparisons rather than either option's own numbers** — the shove the biped survives puts the
+wheel down, and the shove that fells the biped leaves the multileg standing — and both arrive
+through the `StabilityAuthority` a module publishes per boundary and through nothing else.
+Mutation-proven: give the wheel the biped's brace and gait scale and the first comparison goes
+red; take the multileg's brace away and the second does.
+
+### Three bodies, one contract, and where the difference actually lives
+
+| | biped | wheel | multileg |
+| --- | ---: | ---: | ---: |
+| module mass | 203.20 kg | 368.30 kg | 275.40 kg |
+| socket stands / crouches to | 1.020 / 0.860 m | 1.160 / 1.160 | 0.640 / 0.640 |
+| carrier speed, acceleration | 1.2 m/s, 4.0 m/s2 | 2.0, 6.5 | 0.8, 3.0 |
+| carrier yaw | 1.6 rad/s | 2.6 | 0.7 |
+| footprint radius | 0.34 m | 0.42 | 0.50 |
+| brace capacity x standing gait scale | 1.5 x 1.00 | 1.0 x 0.70 | 2.6 x 1.00 |
+| fall threshold, standing | 0.0210 m/s | 0.0098 | 0.0364 |
+| ...in newton-seconds on the bench | 11.76 | 7.11 | 23.02 |
+| support bindings | 2 soles | 1 tread | 6 pads |
+
+**Nothing in `src/supported-locomotion*.ts` changed.** The contract was allowed to grow and did
+not have to: `LocomotionHeightRange.crouchM === standM` was already what "this carrier does not
+crouch" meant, `StabilityAuthority` already carried both multipliers, and the support-binding list
+was already of any length. The one thing that did move is the *bench*: `buildGolemStand` takes the
+module's own `heightRange.standM` as `socketHeight` instead of the frozen 1.02, because three
+options stand at three heights and the height is the trade rather than a fixture detail.
+
+### The wheel: a spin derived from the carrier, and what makes it a wheel rather than a skid
+
+One `ANIMATED` yoke, one `DYNAMIC` cylinder under it on a free hinge, and a `VELOCITY` motor whose
+target is `carrier speed / wheelRadius`. **The spin is derived from the carrier and never from the
+wheel's own rotation**, which is the same no-feedback rule the biped's gait follows and for the
+same recorded reason. The wheel is the only part of the golem that touches the world.
+
+The reading that says whether it works is the **material velocity of the piece of tread against
+the floor**, `v + omega x r` — not the wheel's own velocity, which is the carrier's speed whether
+the thing rolls or is dragged. It is differenced from transforms rather than read across the
+plugin boundary, so it costs nothing per substep.
+
+Two decisions worth carrying forward. **A wheel cannot strafe**, so the module clamps
+`localRight` to zero and publishes a strafe axis whose range is `0..0`: frozen rule 3, a command
+clamped into the envelope before the carrier sees it, with no refusal branch anywhere. And **the
+shell is not decoration on this one option** — a featureless disc turning about its own axis looks
+exactly like a disc standing still, so the bronze spokes and rim cleats are what let a person
+answer the gate's own question at all.
+
+### The multileg: a tripod is the gait and the support proof at once
+
+Six short legs on a low wide chassis, in two groups of three half a cycle apart — left-front,
+left-rear and right-middle against the other three. Because an alternating tripod always has three
+pads down, being mid-stride costs this body almost nothing where it costs a biped a foot, and that
+is why its gait stability scale falls only to 0.90 against the biped's 0.75. The same field says
+two different true things about two bodies.
+
+**Foot contact does not prove a body is standing, and this is the body that bites hardest**,
+because it always has something touching the floor. The posture claim is the same three signals
+together — root-up, root-above-pads and stack-above-root — and the pad count sits beside them as
+sensor evidence, never as a verdict.
+
+**What the option costs is published rather than hidden.** The socket sits at 0.640 m against the
+biped's 1.020, so an effector socket that a biped puts at 1.800 m lands at 1.420 and everything
+above it moves with it; and the navigation footprint is 0.50 m against 0.34, so it stops further
+from every wall and needs more room to pass another golem. Those are in `LOCOMOTION_MULTILEG`
+beside the numbers that cause them, and `tests/golem-locomotion.test.mjs` asserts the arithmetic.
+
+### One thing all three blocks now say, and it was not expected
+
+**A threshold crossed and a body on the floor are different questions.** The state machine's
+boundary is a decaying ledger in mass-independent units; whether a person sees a knockdown is mass
+against base geometry, and the two are not the same size. The bench shove each module ships with
+is 51x its own threshold for the biped, 104x for the multileg and 225x for the wheel — so each
+module's `shoveImpulseNs` is chosen for the *drop* and its threshold is bracketed separately. A
+multileg shoved at thirty-nine times its threshold is still standing at an up-dot of 0.95, because
+a 0.80 m wide base 0.64 m tall is shunted rather than tipped.

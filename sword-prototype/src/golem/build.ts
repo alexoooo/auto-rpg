@@ -14,6 +14,8 @@ import { effectorModule } from "./effectors/effector.ts";
 import { headPlain } from "./head/plain.ts";
 import { headRam } from "./head/ram.ts";
 import { bipedModule } from "./locomotion/biped.ts";
+import { multilegModule } from "./locomotion/multileg.ts";
+import { wheelModule } from "./locomotion/wheel.ts";
 import type { LocomotionModuleDefinition } from "./locomotion.ts";
 import type {
   ChainId,
@@ -79,7 +81,7 @@ const optionOf = (id: string): GolemSlotOption => {
  * the registry's `locomotion` mode name the same set, and fails naming any that is missing.
  */
 export const GOLEM_LOCOMOTION: readonly LocomotionModuleDefinition[] =
-  Object.freeze([bipedModule]);
+  Object.freeze([bipedModule, wheelModule, multilegModule]);
 
 const TORSOS: readonly TorsoModuleDefinition[] = Object.freeze([torsoPlain, torsoPlated]);
 const HEADS: readonly HeadModuleDefinition[] = Object.freeze([headPlain, headRam]);
