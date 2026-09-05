@@ -17,10 +17,16 @@ const wasmBinary = await readFile(wasmPath);
 /**
  * The physics-bearing arena geometry: ground slab, the room's wall colliders and the ring of
  * posts. Renamed from `populateConstructLabArena` on 2026-09-04 and inlined here, because its
- * `src/construct/lab-arena.ts` home went with the construct tree while both surviving callers
- * of this harness -- the Warrior/Warrior locomotion corpus and the supported-fist trigger
- * test -- need a floor to stand on. The geometry is byte-for-byte what the construct module
- * built; nothing here is new, so no measurement taken through it moves.
+ * `src/construct/lab-arena.ts` home went with the construct tree while the two callers this
+ * harness had on that date -- the Warrior/Warrior locomotion corpus and the supported-fist
+ * trigger test -- needed a floor to stand on. The geometry is byte-for-byte what the construct
+ * module built; nothing here is new, so no measurement taken through it moves.
+ *
+ * **Eight callers as of 2026-09-05**, not two: the four golem suites and the three benches the
+ * plan set added all came through here. "Both surviving callers" was true when it was written
+ * and stopped being true four sessions later, which is what a count in a comment does. The
+ * number is `grep -rl golem-headless-arena src tests scripts` and is not worth re-pinning here
+ * again -- what matters is that this is now shared geometry rather than a fixture for two.
  */
 function populateArena(scene) {
   if (!scene.getPhysicsEngine()) throw new Error("headless arena requires physics before geometry");

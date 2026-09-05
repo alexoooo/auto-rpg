@@ -133,7 +133,17 @@ function mulberry32(seed: number): () => number {
 
 /** Can this effector be asked for a stroke at all? A capped socket cannot. */
 export const canAttack = (cap: EffectorCapability): boolean => cap.strokes.includes("thrust");
-/** Is its stroke a swept cut, or only the chop a one-axis chain has? */
+/**
+ * Is its stroke a swept cut, or only the chop a one-axis chain has?
+ *
+ * **No reader as of 2026-09-05, and kept deliberately** -- the same treatment
+ * `src/supported-locomotion-production.ts` gives its scheduler seam, and for the same reason.
+ * `strokes` has exactly three names and this is one of the three predicates that read it; a
+ * vocabulary published two-thirds of the way is worse than one published whole, and the mind
+ * currently dispatches on `canAttack` and `canCover` because the difference between a chop and a
+ * cut has not yet changed what it does. Written down so nobody deletes it as dead and nobody
+ * assumes it is load-bearing.
+ */
 export const canCut = (cap: EffectorCapability): boolean => cap.strokes.includes("cut");
 /** Can it be held as a guard? Everything but a capped socket can. */
 export const canCover = (cap: EffectorCapability): boolean => cap.strokes.includes("cover");
@@ -317,6 +327,13 @@ export const GOLEM_TACTICS = {
    * | x0.7 | 8.63 | 71.2 | 41.9 |
    * | **x1.0** | **10.52** | **73.9** | **31.5** |
    * | x1.4 | 7.31 | 55.5 | 23.1 |
+   *
+   * **The three absolutes in that table are stale as of 2026-09-05 and the choice is not.** x1.0
+   * ships and x1.0 is bolded, so the row picked is still the row measured; but 10.52 damage a bout
+   * was this cell before the chamber and roll constants beside it moved, and the same cell now reads
+   * 20.38. The ratios between the three rows are what this table was for and they were not re-taken,
+   * so read it as an ordering rather than as a magnitude. `chamberSwing` below carries the re-swept
+   * numbers and the reason.
    */
   chamberSeconds: 0.22,
   commitSeconds: 0.22,
@@ -330,19 +347,31 @@ export const GOLEM_TACTICS = {
    * pair is half of the module's own cut sweep, which is what puts the middle of the sweep on the
    * mark: an arm chain's cut carries the target 0.99 rad inboard and 0.77 rad down over its drive.
    *
-   * Swept on the default golem, 8 side-swapped bouts, seed 20260904, Node arena harness:
+   * **Re-swept 2026-09-05 against `golem-duelist` vs the Warrior duelist**, default build, 8
+   * side-swapped bouts, seed 20260904, Node arena harness, with `cutRoll` held at its shipped 0.30:
    *
-   * | swing / lift | golem damage / bout | mean contact speed, m/s |
-   * |---|---:|---:|
-   * | 0.25 / 0.20 | 6.04 | 5.11 |
-   * | **0.50 / 0.39** | **10.52** | **6.28** |
-   * | 0.75 / 0.58 | 9.13 | 6.44 |
-   * | 1.00 / 0.77 | 5.86 | 6.51 |
+   * | swing / lift | golem damage / bout | mean contact speed, m/s | mean scored alignment | wins | severs |
+   * |---|---:|---:|---:|---:|---:|
+   * | **0.05 / 0.04** | **20.38** | **7.98** | **0.739** | **8/8** | **6** |
+   * | 0.25 / 0.20 | 16.77 | 7.31 | 0.643 | 7/8 | 4 |
+   * | 0.50 / 0.39 | 11.81 | 7.00 | 0.705 | 7/8 | 2 |
+   * | 0.75 / 0.58 | 10.75 | 7.39 | 0.681 | 8/8 | 3 |
+   * | 1.00 / 0.77 | 6.09 | 7.46 | 0.593 | 5/8 | 4 |
    *
-   * The far end of that sweep is the shape the envelope predicts rather than a failure of the
+   * **The table this replaces bolded 0.50 / 0.39 and the code has always shipped 0.05 / 0.04**,
+   * which reads like a decimal slip and is not one: the old grid started at 0.25 and so never
+   * covered the value beside it, and on this cell 0.05 is nearly twice as good as the row that was
+   * bolded. Re-run before the correction was written, because "the constant disagrees with its own
+   * table" has two explanations and only a measurement separates them. A table whose grid excludes
+   * the shipped value is the failure worth remembering here.
+   *
+   * Monotone, and the far end is the shape the envelope predicts rather than a failure of the
    * stroke: chambered past 0.75 rad the pose is against the outboard limit before the button goes
-   * down, so the sweep starts from wherever the clamp put it and the speed stops improving while
-   * the aim gets worse.
+   * down, so the sweep starts from wherever the clamp put it and the aim gets worse while the speed
+   * does not improve. What the near end says is less comfortable and belongs to the human gate
+   * rather than to this table -- **the least windup wins**, so on these numbers form loses to
+   * frequency, and whether a golem that barely chambers *looks* like it is fighting is exactly the
+   * question no column here can answer.
    */
   chamberSwing: 0.05,
   chamberLift: 0.04,
@@ -373,7 +402,17 @@ export const GOLEM_TACTICS = {
   coverLift: -0.15,
 
   /**
-   * How far the wrist is turned to put the edge along the sweep, radians, signed by the socket.
+   * How far the wrist is turned to put the edge along the sweep, radians, the same sign in both
+   * sockets.
+   *
+   * **Not signed by the socket, and the correction is dated 2026-09-05** because this sentence
+   * used to say it was. `aimAt` already multiplies the swing by `outboard`, so by the time a roll
+   * is written the aim is in the socket's own frame and mirroring the roll on top of it turns the
+   * off hand's edge the wrong way twice. Measured rather than argued, because the default build
+   * cannot tell: its secondary is a plate, which covers rather than cuts, so signed and unsigned
+   * are identical to the digit there -- 20.38 damage, 0.739 alignment, 8/8, both. With a blade in
+   * both sockets they separate, and unsigned is the better of the two: 0.736 alignment and 17.54
+   * damage against 0.630 and 16.90, same cell and seed as the sweep below.
    *
    * **A constant chosen from a sweep, and not a servo.** The alternative was to derive it from the
    * commanded stroke the way `rollForStroke` does for a Warrior, and the derivation there is a page
@@ -383,13 +422,22 @@ export const GOLEM_TACTICS = {
    * scored -- which is the number `src/scoring.ts` raises to the power of `combat.edgeExponent`, so
    * it is worth its square:
    *
-   * | roll | mean scored alignment | golem damage / bout |
-   * |---:|---:|---:|
-   * | -1.20 | 0.331 | 6.98 |
-   * | -0.60 | 0.472 | 9.02 |
-   * | 0.00 | 0.596 | 9.71 |
-   * | **0.60** | **0.688** | **10.52** |
-   * | 1.20 | 0.559 | 8.84 |
+   * **Re-swept 2026-09-05**, same cell and seed as `chamberSwing` above, with the chamber held at
+   * its shipped 0.05 / 0.04:
+   *
+   * | roll | mean scored alignment | golem damage / bout | wins | severs |
+   * |---:|---:|---:|---:|---:|
+   * | -1.20 | 0.533 | 16.39 | 8/8 | 0 |
+   * | -0.60 | 0.613 | 16.87 | 8/8 | 0 |
+   * | 0.00 | 0.711 | 16.49 | 8/8 | 1 |
+   * | **0.30** | **0.739** | **20.38** | **8/8** | **6** |
+   * | 0.60 | 0.673 | 16.78 | 7/8 | 3 |
+   * | 1.20 | 0.525 | 19.79 | 5/8 | 4 |
+   *
+   * The old grid stepped in 0.60 and so stepped over the shipped 0.30, which is where both the
+   * alignment peak and the damage peak sit. 1.20 is the row to be careful with: it deals nearly as
+   * much damage on the worst alignment in the table and wins three fewer bouts, which is a body
+   * flailing rather than one cutting, and is why alignment is in this table beside damage.
    *
    * Written only when `rollMax` is above zero, which is rung 3 and no earlier: every chain below it
    * chose its edge at build because a chain with no roll axis has to, and a mace has no edge at all.

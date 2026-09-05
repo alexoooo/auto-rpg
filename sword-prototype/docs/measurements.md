@@ -10585,3 +10585,89 @@ nothing in it is a verdict, and no floor is pinned anywhere below.
   does not branch on the swept-cut-versus-chop distinction, so the predicate is residue of a
   question the mind decided not to ask. This directory's own rule about a field with no reader is
   what it is an instance of.
+
+## 2026-09-05: three constants re-swept, because a table disagreed with the code beside it
+
+*Not a session. A coordinator's audit of what sessions 09 and 11 left, recorded here because two of
+the three answers are measurements and the third is a correction to a claim this document's own
+convention would otherwise have carried forward.*
+
+Session 11 read `src/golem/tactics.ts` and reported that three constants ship at values their own
+bolded sweep rows contradict: `chamberSwing` at 0.05 against a bolded 0.50, `chamberLift` at 0.04
+against 0.39, and `cutRoll` at 0.30 against 0.60. Its inference was a decimal slip, which is the
+obvious reading and is wrong.
+
+**Harness**: the same cell the sweeps name — `golem-duelist` on the default build against the
+Warrior duelist with a sword, 8 side-swapped bouts, 60 s cap, seed 20260904, supported carrier,
+Node arena. One constant moved at a time, everything else at its shipped value. The cell was
+verified against the recorded run first and reproduces it to the digit: 20.38 damage a bout, 81.6
+contacts, 6 severs, 30.92 s.
+
+### The chamber, re-swept
+
+| swing / lift | damage / bout | mean contact speed, m/s | mean scored alignment | wins | severs |
+|:---|---:|---:|---:|---:|---:|
+| **0.05 / 0.04 (ships)** | **20.38** | **7.98** | **0.739** | **8/8** | **6** |
+| 0.25 / 0.20 | 16.77 | 7.31 | 0.643 | 7/8 | 4 |
+| 0.50 / 0.39 (was bolded) | 11.81 | 7.00 | 0.705 | 7/8 | 2 |
+| 0.75 / 0.58 | 10.75 | 7.39 | 0.681 | 8/8 | 3 |
+| 1.00 / 0.77 | 6.09 | 7.46 | 0.593 | 5/8 | 4 |
+
+### The cut roll, re-swept
+
+| roll | mean scored alignment | damage / bout | wins | severs |
+|---:|---:|---:|---:|---:|
+| -1.20 | 0.533 | 16.39 | 8/8 | 0 |
+| -0.60 | 0.613 | 16.87 | 8/8 | 0 |
+| 0.00 | 0.711 | 16.49 | 8/8 | 1 |
+| **0.30 (ships)** | **0.739** | **20.38** | **8/8** | **6** |
+| 0.60 (was bolded) | 0.673 | 16.78 | 7/8 | 3 |
+| 1.20 | 0.525 | 19.79 | 5/8 | 4 |
+
+**The shipped values are the measured best on both axes and the tables were stale.** The old
+chamber grid started at 0.25 and so never covered the value sitting beside it; the old roll grid
+stepped in 0.60 and so stepped over 0.30. A sweep whose grid excludes the shipped constant cannot
+say whether the constant is right, and this one was published as though it had.
+
+**One row wants an eye rather than a threshold.** Roll 1.20 deals 19.79 damage a bout on the worst
+alignment in its table and wins three fewer bouts — a body flailing rather than one cutting. It is
+the reason alignment is printed beside damage here; on damage alone it would read as second best.
+
+**And one reading is a question for the human gate rather than an answer.** The chamber sweep is
+monotone and the winner is the least windup: on these numbers form loses to frequency. Whether a
+golem that barely chambers *looks* like it is fighting is exactly what no column above can say, and
+it is now the most specific thing the owner's playtest has to look at.
+
+### `cutRoll` is not signed by the socket, and its comment said it was
+
+Corrected in place rather than deleted, per the house rule. `aimAt` already multiplies the swing by
+`outboard`, so by the time a roll is written the aim is in the socket's own frame; mirroring the
+roll on top turns the off hand's edge the wrong way twice.
+
+Measured rather than argued, and **the default build cannot tell**: its secondary is a plate, which
+covers rather than cuts, so signed and unsigned are identical to the digit there — 20.38 damage,
+0.739 alignment, 8/8, both. With a blade in both sockets they separate:
+
+| | mean scored alignment | damage / bout | severs | length, s |
+|:---|---:|---:|---:|---:|
+| unsigned (ships) | 0.736 | 17.54 | 0 | 24.28 |
+| signed by the socket | 0.630 | 16.90 | 2 | 31.31 |
+
+A claim about a code path that the default configuration cannot exercise is the shape worth
+remembering: the test that would have caught it had to be run on a build nobody had a reason to
+build.
+
+### Three stale comments corrected, no behaviour changed
+
+- `src/input.ts` said twice that the middle mouse button toggles the pointer lock. It does not:
+  the middle button is the camera, orbit or pan with shift, and the lock is `L` with no pointer
+  binding at all.
+- `scripts/golem-headless-arena.mjs` said it had "both surviving callers". It has eight — the four
+  golem suites and three benches came through it after that sentence was written.
+- `.gitattributes` pinned two `public/assets/kaykit-knight.*` files the demolition deleted. Dropped;
+  the four `asset-src/armour/kaykit-*` extracts it also pins are still tracked, checked with
+  `git ls-files` rather than assumed.
+
+The cadence table above `chamberSeconds` was **not** re-swept. Its bolded row is the row that ships,
+so the choice it records is still the choice; only its three absolute damage figures are stale, and
+that is now written beside it.

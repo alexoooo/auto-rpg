@@ -48,7 +48,11 @@ import { CAMERA_ZOOM_NOTCHES, dragCamera, slewCameraZoom, type CameraGestureStat
  * declines to deliver, which is what left the arm stuck in a guard with nothing
  * held. Only the actions are edge-triggered, because they must fire once per
  * press rather than for as long as a finger rests on a button: the target pick
- * on the left button and the lock toggle on the middle one.
+ * on the left button.
+ *
+ * **Corrected 2026-09-05**: this sentence used to end "and the lock toggle on the middle one".
+ * The middle button drives the camera -- orbit, or pan with shift -- and the lock is `L` and has
+ * no pointer binding at all. Two comments in this file said the same wrong thing.
  */
 
 /** Host-only switches; ownership is not part of the combat command. */
@@ -178,7 +182,9 @@ export class Controls {
     canvas.addEventListener("contextmenu", this.onContextMenu);
     // Chrome opens its autoscroll widget on a middle click, which captures the
     // pointer and stops delivering movement until it is dismissed. That matters
-    // more now that the middle button toggles the lock and players will use it.
+    // because the middle button is the camera -- orbit, or pan with shift -- so a
+    // player holds it down for whole seconds at a time. (It does not toggle the
+    // lock; that is `L`. Corrected 2026-09-05.)
     window.addEventListener("auxclick", this.onAuxClick);
   }
 

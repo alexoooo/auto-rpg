@@ -1,5 +1,11 @@
 # These deterministic source extracts are pinned byte-for-byte.  Keep the
 # extractor's explicit LF output intact on Windows checkouts.
+#
+# The two `public/assets/kaykit-knight.*` pins were dropped on 2026-09-05: the demolition deleted
+# both files and `scripts/derive-kaykit-knight.mjs` that wrote them, so the patterns matched nothing.
+# `docs/deleted-paths.md` is where those paths are on record. The `asset-src/armour/kaykit-*` lines
+# below stay, because those four extracts are still tracked -- checked with `git ls-files`, not
+# assumed.
 asset-src/armour/**/*.obj text eol=lf
 asset-src/armour/**/LICENSE.txt text eol=lf
 asset-src/armour/**/SOURCE.txt text eol=lf
@@ -7,5 +13,3 @@ asset-src/armour/kaykit-adventurers-1.0/*.glb binary
 asset-src/armour/kaykit-adventurers-1.0/*.json text eol=lf
 asset-src/body/**/*.obj text eol=lf
 asset-src/body/**/SOURCE.txt text eol=lf
-public/assets/kaykit-knight.glb binary
-public/assets/kaykit-knight.profile.json text eol=lf
