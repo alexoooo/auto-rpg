@@ -554,12 +554,15 @@ test("rung 2's elbow is a single-valued function of the hand target", async () =
       `the two passes did not reach the same hand targets (worst ${worstHand} in axis units)`);
     // **Measured both ways**, which is the only thing that makes this an assertion rather than a
     // hope: 0.34 mm over the whole grid as the chain stands, and **17.08 mm** with the shoulder
-    // opened to three axes -- a fiftyfold move, and the bound below sits five times above the
-    // clean figure and five times under the mutated one. Note what the mutation had to be: adding
-    // a *twist* axis alone did **not** move the number at all, because a position-only anchor
-    // exerts no torque about the upper arm's own axis and nothing excites the spare degree of
-    // freedom. The Warrior's rope elbow needs a six-axis pin to drive it, which is a finding in
-    // its own right and is recorded in `docs/measurements.md`.
+    // opened to three angular axes -- a fiftyfold move, and the bound below sits five times above
+    // the clean figure and five times under the mutated one.
+    //
+    // **And it has a known blind spot, stated here rather than discovered later.** Opening only
+    // the shoulder's *twist* -- the upper arm free about its own long axis, which is exactly the
+    // spare axis a seven-axis Warrior arm has -- leaves the chain inside this bound, so this test
+    // stays green against a genuinely redundant chain. A position-only anchor exerts no torque
+    // about that axis, so nothing excites it. The Warrior's rope elbow needs a six-axis pin to
+    // drive it; `docs/measurements.md` carries the account.
     //
     // Provisional, pinned from the 2026-09-04 Node bench run, to be re-taken after the owner's
     // gate.

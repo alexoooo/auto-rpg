@@ -1451,3 +1451,61 @@ unavoidable there; what makes it not a robot arm is the torque cap, the target r
 stroke shape, and the bench measures exactly those three. `docs/measurements.md` has the sweeps,
 with the harness named on every figure. **Whether it reads as a limb is the owner's answer and no
 number in this directory can stand in for it** — that is the whole reason this plan set exists.
+
+## Unique pose by construction: the reach and wrist chains
+
+Rungs 2 and 3 are the ones the anchor idea had to survive. The recorded Warrior defects — an elbow
+that wrapped around the back, a shield hand that swung behind the trunk — are the overview's
+*candidate* explanation of a seven-axis chain asked for a six-axis pose: a spare axis means a
+command near the envelope's edge resolves to the least-violation pose rather than to the pose
+anybody meant. These two rungs remove the redundancy and look at what is left.
+
+**Three driven axes against a three-dimensional target.** `src/golem/effectors/chains/arm-core.ts`
+builds a yaw collar at the socket, an upper arm pitching about the collar's lateral and an elbow
+bending about that same lateral, and pins the forearm's far end with a **position-only** anchor.
+Both shoulder pivots sit exactly on the socket, so the whole arm lies in one vertical plane and the
+yaw chooses the plane — and a yaw-then-pitch gimbal *is* spherical coordinates about the socket,
+which is what makes the mapping from a target point to a pose one line of trigonometry rather than
+a solver. Three axes against three linear constraints leaves nothing over, so the elbow's position
+is a single-valued function of the hand target. That is asserted rather than claimed: a grid of the
+envelope visited twice from opposite directions puts the elbow **0.34 mm** apart, against
+**17.08 mm** with the shoulder opened to three axes.
+
+**Two hinges in series rather than one two-axis joint, twice, for two different reasons.** At the
+shoulder the envelope arithmetic depends on the decomposition being exactly yaw-then-pitch, and a
+`Physics6DoFConstraint` with two free angular axes decomposes in an order this directory has never
+established. At the wrist both axes are motorised so the order matters less, but a decomposition
+that is gimbal-locked somewhere in the working range would be a wrist that stops answering at one
+particular roll. A hinge — one free angular axis, the other two locked — cannot be either.
+
+**Ownership is split by axis, not doubled.** On rung 3 the anchor drives three linear axes and no
+angular ones; the wrist's two motors drive two angular axes and no linear ones. There is no
+six-axis hand pin anywhere in a golem. The Warrior's wrist was left angularly *free* precisely
+because its grip motor already owned orientation and the two fought, and when a roll sign was wrong
+the shoulder cone refused the twist and the solver paid for the orientation out of the position —
+504 mm of hand-to-anchor stray. Here an orientation the wrist cannot reach costs the position
+nothing, measured at 0.03 mm of stray while the roll is driven past its own stop.
+
+**The envelope is the mechanism, not a guard.** `ModuleEnvelope.reachable` is a sphere shell about
+the socket — two radii, a swing range, a lift range and a minimum outboard carry — and the mapping
+clamps into it *before the anchor is ever handed a target*. The carry is what makes "hand across
+the sternum" not a pose a controller refuses but a pose that is not in the envelope: it couples the
+swing to the reach and the lift, so a long cross-body command is clamped where a short one is
+allowed. The Warrior does the opposite — `Arm.aim` reads an azimuth, decides it is impossible and
+substitutes another — and that substitution is a controller arguing with a command. Nothing
+downstream of the clamp has a refusal branch, which is frozen rule 3 in one sentence.
+
+**Everything outboard-signed, so there is one mirror and it is stated once.** `swing` is the
+azimuth times the socket's own outboard sign, so one envelope record and one set of stroke rates
+serve both sockets. The roll is the one quantity that genuinely mirrors — the mirror image of a
+rotation about the limb's own axis is its negative — and the bend deliberately does not, because a
+rotation about the arm plane's lateral is a motion inside that plane. Both halves are asserted by
+driving one command into both sockets and comparing the tips as reflections.
+
+**A stroke is a velocity event here too, said the other way round.** Rung 1 switches its hinge
+motor to VELOCITY and drops the torque; an anchor has no velocity mode, so its stroke lifts the
+*rate* ceiling for the drive and drops the *force* ceiling for the follow, and the limb
+decelerates against gravity rather than against the drive. The thrust carries 47.1 mm past where
+its drive left it against 13.6 mm with the follow phase removed; the cut carries 0.371 rad against
+0.050. Both numbers stop short of a joint stop on purpose, and both tables record the setting that
+did not.

@@ -1,6 +1,18 @@
 # Session 03 -- unique-pose arms: rungs 2 and 3
 
-**Status (2026-09-04): planned.** Depends on 02 with rung 1 accepted. Human gate: not yet asked.
+**Status (2026-09-04): implemented, human gate not yet asked.**
+
+Rung 2 (`reach`) is a yaw collar, an upper arm and a forearm on a position-only anchor: three
+driven axes against a three-dimensional target, with the elbow's position measured at 0.34 mm of
+disagreement over a grid of the envelope visited from both directions, against 17.08 mm with the
+shoulder opened to three axes. Rung 3 (`wrist`) adds a roll ring and a bend link whose two motors
+are the only owners of orientation, and a roll driven past its own stop costs the position 0.03 mm
+of anchor stray. The envelope is published as a clamped sphere shell with a minimum outboard
+carry and the mapping clamps into it before the anchor is ever handed a target, so nothing
+downstream has a refusal branch. Both rungs run the scripted sequence with zero contacts and zero
+stuck steps; rung 3 rings for 1.75 s from its build pose where rungs 0, 1 and 2 settle inside 0.5,
+and that number is recorded rather than judged. Every threshold added to
+`tests/golem-bench.test.mjs` is provisional and is not a regression floor.
 
 ## Outcome
 

@@ -9040,3 +9040,165 @@ was found by sweeping a number rather than by reading the code.
 The human gate. The owner opens `bench.html`, drives each chain with the mouse for about a
 minute, and answers the overview's three questions. No number above can be substituted for that,
 and the thresholds pinned from these runs become regression floors only after a yes.
+
+## Golem rungs 2 and 3 — unique-pose arms — 2026-09-04
+
+Same two harnesses and the same rule: **the Node bench and the page bench are never one column.**
+Everything below is the **Node bench** (`scripts/golem-bench.mjs`, `NullEngine`, real Havok, no
+rendering) unless a paragraph says otherwise, and every sweep is reproduced beside the number it
+set in `src/golem/config.ts`. Nothing here is a verdict. Rungs 2 and 3 are implemented and the
+human gate has not been asked.
+
+Rungs 2 and 3 run a longer scripted sequence than rungs 0 and 1, because they read `pointerX`,
+`roll` and `wristBend` and the Session 02 sequence moves none of them: ten phases, of which
+`across` sweeps to the inboard edge inside the envelope, `clamp` demands the same edge at thrust
+reach where it is *outside* the envelope, and `cut` presses thrust while guard is held. Phases with
+a `from` are **sweeps rather than jumps**, for the reason this file already records about the
+Warrior's wobble.
+
+### The end-to-end readings, per rung
+
+| | rung 1 `pitch` | rung 2 `reach` | rung 3 `wrist` |
+| --- | --- | --- | --- |
+| driven mass, kg | 10.70 | 29.50 | 33.60 |
+| driven axes | 1 | 3 | 5 |
+| peak tip speed on an ordinary move | 9.10 m/s | 8.71 | 14.53 |
+| peak tip speed on a stroke | 15.07 m/s | 22.20 | 26.75 |
+| peak tip-to-command, outside startup and strokes | — | 60.0 mm | 378.3 mm |
+| peak anchor stray while idle | n/a | 3.73 mm | 4.64 mm |
+| peak anchor stray including strokes | n/a | 164.03 mm | 114.03 mm |
+| tip wander at rest | 2.876 mm | 11.605 mm | 194.049 mm |
+| contacts / self-contacts | 0 / 0 | 0 / 0 | 0 / 0 |
+| stuck steps | 0 | 0 | 0 |
+
+The **anchor stray while idle** is the reading `AGENTS.md` says to take first, and it is the one
+that says these chains are not stuck on anything: 3.73 and 4.64 mm against the Warrior's 242.88 mm
+over its own sweep in this same harness. The stroke figure is the other half and it is large *by
+design* — a follow-through is the limb leaving its anchor — which is why the two are reported
+separately and why the readout gained a stroke-exclusion window to tell them apart.
+
+The **page bench** (`bench.html`, WebGL, real Havok), driven with the cursor rather than by the
+script, and not comparable with the column above: rung 2 read tip-to-command 20.36 mm live and
+39.07 mm peak outside startup and strokes, anchor stray 2.83 mm peak while idle and 0.05 mm live,
+tip wander at rest 0.000 mm, 0 contacts; rung 3 read tip-to-command 7.93 mm live and 88.41 mm
+peak, anchor stray 0.19 mm peak while idle and 0.02 mm live, tip wander at rest 133.342 mm, 0
+contacts.
+
+### The anchor drive's first reader, and what it found about Session 02's numbers
+
+`ANCHOR_DRIVE` was written in Session 02 with no page-side reader and said so: its 1400 N and
+6 m/s were derived by scaling the Warrior's measured 850 N and rung 1's swept 6 rad/s, and its own
+comment asked Session 03 to sweep them against a real chain. Both moved, and in opposite
+directions.
+
+**The force was too low by a factor of nearly three, and the sweep says why it does not matter
+much.** At 29.5 kg driven, the same authority per kilogram as the Warrior's arm is 3860 N. Swept
+over 1400 to 14000, every figure of an ordinary commanded move stops changing above 3900 —
+8.71 m/s peak, 59.9 mm of lag, 11.605 mm of wander at 3900, at 9000 and at 14000 alike. **The rate
+limit and not the force is what shapes a commanded move here**, and 3900 is simply the smallest
+ceiling at which that is true.
+
+**The rate was too high by a factor of five, and that one matters a great deal.** 6 m/s at the hand
+is about 34 m/s at the tip, because the blade's point is 1.52 m from the socket against the hand's
+0.72 and the forearm turns about the elbow as well. At 6 m/s the guard raise took 0.05 s and peaked
+at **34.46 m/s**; at 1.2 m/s it takes 0.24 s and peaks at 8.71, which is the band rung 1's own
+guard step occupies. A full traverse of the envelope now takes about 1.2 s.
+
+One row of the force sweep is an outlier and it reproduces exactly: **6000 N** gives 1704.9 mm of
+lag, 563.15 mm of idle stray and 43 stuck steps, four runs out of four, while 5000 N and 7000 N
+both give 59.9 / 3.2 / 0. Traced, it is one interval during the `chamber` phase where the limb
+hangs for about a second and frees itself. It is not the setting and it has not been chased down.
+
+### The rope-elbow assertion, and the mutation that was needed to make it fail
+
+The load-bearing test of the session. A grid of the envelope — four cursor columns, three rows,
+guard on and off, 24 cells — visited once forward and once in reverse, comparing where the elbow
+ended up for the same commanded hand target.
+
+| | worst hand disagreement | worst elbow disagreement |
+| --- | --- | --- |
+| as built | 0.0000030 | **0.34 mm** |
+| shoulder opened to three angular axes | 0.0000134 | **17.08 mm** |
+
+Fifty times, and the bound in `tests/golem-bench.test.mjs` sits at 3 mm — five times above the
+clean figure and five under the mutated one.
+
+**The mutation that was needed is itself the finding.** Adding a *twist* axis to the shoulder alone
+— the upper arm free to rotate about its own long axis, which is exactly the spare axis a
+seven-axis Warrior arm has — leaves the chain **inside the 3 mm bound**, so the assertion stays
+green with a genuinely redundant chain under it. What turns it red is the full three-axis shoulder.
+The mechanism is that a position-only anchor exerts no torque about the upper arm's own axis, so
+nothing excites that particular spare freedom and the chain sits wherever it was left. **The
+Warrior's rope elbow needs a six-axis pin to drive it**, which is a sharper statement of the
+overview's candidate cause than the overview makes, and it says a redundant chain on a
+position-only anchor may be far better behaved than the same chain on a six-axis one. Nobody should
+read that as licence to reintroduce redundancy — it is a lead, and it is also the exact reason this
+assertion should not be trusted to catch *every* spare axis somebody adds later.
+
+The mirror assertion was mutation-checked the same way: removing the outboard sign from the wrist's
+roll put the two sockets **1209.3 mm** from being reflections, against a 20 mm bound.
+
+### Two things the arithmetic could not have told us, both found by looking
+
+**The chain was built in its own singularity.** Every other chain here is built hanging straight
+down, which for a one-bone limb is right. For a two-bone limb it is the configuration in which a
+force at the hand has no moment arm about the elbow at all, so the anchor cannot bend it. Built
+straight, the peak anchor stray over the scripted sequence was **531.20 mm**, all of it in the
+first tenth of a second while the elbow levered itself off its own stop; built at `lift = liftMin,
+reach = reachNeutral` — elbow bent 1.55 rad, 0.96 rad off the singularity — it is 2.8 mm.
+
+**The bench slab was wider than its own sockets allowed.** `BENCH_STAND.width` was 0.62, so the
+face stood at 0.31 against sockets at 0.34: 30 mm of clearance, less than rung 1's own link radius
+of 0.062. **Rung 1's link therefore overlapped the slab by 32 mm for the whole of Session 02**,
+invisibly, because the arm layer and the trunk layer do not collide so there was no contact to
+notice. Rungs 2 and 3 make it worse: an elbow can reach 0.42 m out horizontally, so with the ribs
+at 0.31 the elbow passes through the slab at any inboard swing at all, and the swing limit that
+would prevent it is 0.15 rad. Narrowed to 0.44, the arithmetic closes at `swingMin = -0.50`.
+
+### Two defects found in the instrument, both by running a new chain through it
+
+**"Wander at rest" read the first axis and only the first axis.** Rungs 2 and 3 publish reach,
+swing and lift, and a cursor sweeping across the window at constant reach moves the limb through
+most of its envelope while the *reach* never changes — so the readout called it at rest and
+reported **925.03 mm of tip wander at rest** on a chain whose real floor is a fraction of a
+millimetre. It is a union over the first axis and the commanded *point* now, and the union rather
+than a replacement is deliberate: the instrument's own synthetic tests feed an axis and no point,
+and they still mean what they meant.
+
+**A stroke does not stop when its last phase does.** The readings about a limb being *stuck* — the
+tip-to-command lag and the anchor stray — were being taken during the recovery after a stroke, when
+the limb is a long way from its anchor because the follow phase deliberately dropped the drive's
+force ceiling. Measured, the cut's stray peaks at 387.3 mm during the phase *after* the one it runs
+in and is back under a millimetre 0.42 s after the follow ends. `BENCH_READOUT.strokeExclusionSeconds`
+is 0.5 and is the same idiom as the post-contact window.
+
+### The wrist rings, and this is the number the gate has to look at
+
+Rungs 0, 1 and 2 all settle from their build pose inside 0.5 s. Rung 3 takes **1.75 s**, and after
+a quarter-second flick of the roll and bend it leaves 145.8 mm of tip wander behind it. A position
+motor is a spring and a spring with no damper rings, which is the same finding
+`CONFIG.arm.gripAngularDamping` records for the Warrior's sword.
+
+What helps: giving the wrist hinges solver damping at all, which halves it (208.8 mm to 83.2 mm of
+wander over the scripted sequence, and 2.1 s to 1.75 s of settle). What does not: the *value* of
+that damping (identical at 1, 3, 6, 12 and 30 — Babylon writes it through `if (l.damping)`, so the
+only real distinction is set against unset), the wrist links' own angular damping (194.0 mm at 3
+against 166.1 at 60, a twentyfold sweep for a seventh of the ring), and the motor torques, whose
+best rows are 71.5 mm at a bend torque of 60 against 83.2 at 120 — bought with 275 mm more lag.
+
+**Whether a wrist that rings for the better part of two seconds reads as weight or as a fault is
+the owner's to say.** It is recorded here as a measurement because that is the only thing it is.
+
+### What is owed, for rungs 2 and 3
+
+- The human gate, per rung, on the page. Everything above is the Node bench except where it says
+  otherwise, and no number in either harness answers the overview's three questions.
+- The `settle` and `arrival` columns are not informative on a point-commanded chain. They are taken
+  on the first published axis, and a cursor sweep opens one "step" that spans the whole sweep — so
+  rung 2 reports 2.888 s of settle over a move that lasted about that long. The columns that carry
+  meaning here are the lag, the wander, the two strays and the peaks.
+- The cut's `swingRate` and `liftRate` were chosen by eye against the envelope's width and were not
+  swept in their own right; the cut's `driveSeconds`, `followSeconds` and `strokeRate` were.
+- Rung 2's edge direction is a function of its target, because the pose is unique and there is no
+  command that turns the blade without moving the hand. The bench prints the edge lead for it
+  anyway; it is a fact about the geometry rather than about anything a person did.
