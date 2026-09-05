@@ -1,3 +1,4 @@
+import { BUTTON_REACH } from "./buttons.ts";
 import type { BodyView, FighterView, Intent } from "./mind.ts";
 import { HANDS, STRIKER_KINDS, isShield, isStriking, type HandName, type Striker, type WeaponKind } from "./hands.ts";
 
@@ -202,9 +203,16 @@ export function freshIntent(): Intent {
     forward: 0, strafe: 0, turn: 0, actingHand: "primary",
     natural: { thrust: false, guard: false },
     posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },
-    primary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
-    secondary: { pointerX: ACTION_TUNING.restPointerX, pointerY: ACTION_TUNING.restPointerY,
+    // `BUTTON_REACH.neutral` rather than a number of this table's own, and the
+    // import is deliberate: this is what an un-pressed hand asks for, `buttons.ts`
+    // is where that is decided, and it imports nothing at all -- so there is no
+    // mutable table behind it and no second copy to drift. The rule this file is
+    // held to forbids `config.ts` specifically, and for a reason that does not
+    // apply here: `CONFIG` is mutable from the console on purpose.
+    primary: { pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
       roll: 0, wristBend: 0, thrust: false, guard: false },
+    secondary: { pointerX: ACTION_TUNING.restPointerX, pointerY: ACTION_TUNING.restPointerY,
+      reach: BUTTON_REACH.neutral, roll: 0, wristBend: 0, thrust: false, guard: false },
   };
 }
 

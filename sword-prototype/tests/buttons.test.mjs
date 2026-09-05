@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   AUXILIARY,
+  BUTTON_REACH,
   PRIMARY,
   SECONDARY,
   applyButtonPose,
@@ -10,6 +11,7 @@ import {
   nextDraw,
   nextSpent,
   poseFromButtons,
+  reachFromButtons,
   releaseButtons,
 } from "../src/buttons.ts";
 
@@ -35,8 +37,8 @@ function hand({ picksTarget = () => false, acting = "primary" } = {}) {
   // a third slot and the host never wrote it.
   const channels = {
     natural: { thrust: false, guard: false },
-    primary: { thrust: false, guard: false },
-    secondary: { thrust: false, guard: false },
+    primary: { thrust: false, guard: false, reach: BUTTON_REACH.neutral },
+    secondary: { thrust: false, guard: false, reach: BUTTON_REACH.neutral },
   };
 
   const apply = (swallowed = 0) => {
@@ -85,6 +87,22 @@ function hand({ picksTarget = () => false, acting = "primary" } = {}) {
 }
 
 const open = { thrust: false, guard: false };
+
+/**
+ * The same two buttons on a hand slot, which carries the reach they stand for as
+ * well.
+ *
+ * A hand has a reach axis and a set of jaws does not, so `Controls.state` grew a
+ * third field on the two hand slots and not on `natural` -- and every assertion
+ * below that compares a whole slot has to know which of the two shapes it is
+ * looking at. Deriving it here rather than writing the number out is the point:
+ * the host is the thing under test, so an expectation that hard-coded -5/7 would
+ * pass a mapping that had quietly stopped agreeing with `reachFromButtons`.
+ */
+const handPose = (thrust, guard) => ({
+  thrust, guard, reach: reachFromButtons({ thrust, guard }),
+});
+const openHand = handPose(false, false);
 
 /** Every way two-or-more press/release pairs can be shuffled without a release overtaking its press. */
 function interleavings(...streams) {
@@ -142,14 +160,15 @@ test("one press reaches the acting hand and the natural striker together", () =>
     const spare = acting === "primary" ? "secondary" : "primary";
     const h = hand({ acting });
     h.down(RIGHT);
-    assert.deepEqual({ ...h.channels[acting] }, { thrust: false, guard: true });
+    assert.deepEqual({ ...h.channels[acting] }, handPose(false, true));
     assert.deepEqual({ ...h.channels.natural }, { thrust: false, guard: true },
       "the guard is the same guard for jaws as for a hand");
-    assert.deepEqual({ ...h.channels[spare] }, open, "the hand the cursor is not on is untouched");
+    assert.deepEqual({ ...h.channels[spare] }, openHand,
+      "the hand the cursor is not on is untouched");
 
     h.down(LEFT);
     assert.deepEqual({ ...h.channels.natural }, { thrust: true, guard: true });
-    assert.deepEqual({ ...h.channels[spare] }, open);
+    assert.deepEqual({ ...h.channels[spare] }, openHand);
 
     h.up(LEFT);
     h.up(RIGHT);
@@ -167,17 +186,17 @@ test("a cancelled gesture releases the jaws as well as both hands", () => {
   h.channels.secondary.guard = true;
   h.cancel();
   assert.deepEqual({ ...h.channels.natural }, open);
-  assert.deepEqual({ ...h.channels.primary }, open);
-  assert.deepEqual({ ...h.channels.secondary }, open);
+  assert.deepEqual({ ...h.channels.primary }, openHand);
+  assert.deepEqual({ ...h.channels.secondary }, openHand);
 });
 
 test("the reported gesture ends with the hand open", () => {
   const h = hand();
   const table = [
-    [() => h.down(RIGHT), { thrust: false, guard: true }],
-    [() => h.down(LEFT), { thrust: true, guard: true }],
-    [() => h.up(RIGHT), { thrust: true, guard: false }],
-    [() => h.up(LEFT), open],
+    [() => h.down(RIGHT), handPose(false, true)],
+    [() => h.down(LEFT), handPose(true, true)],
+    [() => h.up(RIGHT), handPose(true, false)],
+    [() => h.up(LEFT), openHand],
   ];
   for (const [step, expected] of table) {
     step();
@@ -204,7 +223,7 @@ test("every ordering of press and release across left and right ends with the ha
       assert.equal(h.state.thrust, down.has(LEFT), `thrust after ${edge}${button} of ${trace}`);
       assert.equal(h.state.guard, down.has(RIGHT), `guard after ${edge}${button} of ${trace}`);
     }
-    assert.deepEqual({ ...h.state }, open);
+    assert.deepEqual({ ...h.state }, openHand);
   }
 });
 
@@ -226,7 +245,7 @@ test("the middle button joins any ordering without disturbing the pose", () => {
       assert.equal(h.state.thrust, down.has(LEFT));
       assert.equal(h.state.guard, down.has(RIGHT));
     }
-    assert.deepEqual({ ...h.state }, open);
+    assert.deepEqual({ ...h.state }, openHand);
   }
 });
 
@@ -235,13 +254,13 @@ test("a release the browser never delivers is repaired by the next event", () =>
   h.down(RIGHT);
   h.down(LEFT);
   h.loseUp(RIGHT);
-  assert.deepEqual({ ...h.state }, { thrust: true, guard: true }, "still stale, nothing has arrived");
+  assert.deepEqual({ ...h.state }, handPose(true, true), "still stale, nothing has arrived");
 
   h.move();
-  assert.deepEqual({ ...h.state }, { thrust: true, guard: false }, "a twitch of the mouse repairs it");
+  assert.deepEqual({ ...h.state }, handPose(true, false), "a twitch of the mouse repairs it");
 
   h.up(LEFT);
-  assert.deepEqual({ ...h.state }, open);
+  assert.deepEqual({ ...h.state }, openHand);
 });
 
 test("a release lost with nothing else held is repaired the same way", () => {
@@ -249,7 +268,7 @@ test("a release lost with nothing else held is repaired the same way", () => {
   h.down(RIGHT);
   h.loseUp(RIGHT);
   h.move();
-  assert.deepEqual({ ...h.state }, open);
+  assert.deepEqual({ ...h.state }, openHand);
 });
 
 test("a press whose release was lost is a fresh press, not a continuing one", () => {
@@ -269,7 +288,7 @@ test("a pointercancel mid-chord opens the hand", () => {
   h.down(RIGHT);
   h.down(LEFT);
   h.cancel();
-  assert.deepEqual({ ...h.state }, open);
+  assert.deepEqual({ ...h.state }, openHand);
 
   h.down(LEFT);
   assert.equal(h.state.thrust, true, "the pointer coming back is a working hand again");
@@ -293,7 +312,7 @@ test("a click spent on selecting a target does not become a thrust when the mous
 
   // Chording a guard onto the spent click must not raise the thrust either.
   h.down(RIGHT);
-  assert.deepEqual({ ...h.state }, { thrust: false, guard: true });
+  assert.deepEqual({ ...h.state }, handPose(false, true));
   h.up(RIGHT);
 
   h.up(LEFT);
@@ -302,22 +321,22 @@ test("a click spent on selecting a target does not become a thrust when the mous
   h.move();
   assert.equal(h.state.thrust, true, "and stays one for the whole hold");
   h.up(LEFT);
-  assert.deepEqual({ ...h.state }, open);
+  assert.deepEqual({ ...h.state }, openHand);
 });
 
 test("the middle button never asks the hand reducer to toggle target lock", () => {
   const h = hand();
   h.down(MIDDLE);
-  assert.deepEqual({ ...h.state }, open, "the camera gesture moves no part of the arm");
+  assert.deepEqual({ ...h.state }, openHand, "the camera gesture moves no part of the arm");
 
   h.move();
   h.down(LEFT);
-  assert.deepEqual({ ...h.state }, { thrust: true, guard: false });
+  assert.deepEqual({ ...h.state }, handPose(true, false));
 
   h.up(LEFT);
   h.up(MIDDLE);
   h.down(MIDDLE);
-  assert.deepEqual({ ...h.state }, open);
+  assert.deepEqual({ ...h.state }, openHand);
 });
 
 test("a spent bit lasts exactly as long as the button that owes it", () => {

@@ -24,7 +24,9 @@ import { RigidStrike } from "../striker.ts";
 const NO_AXES: readonly EffectorAxisView[] = Object.freeze([]);
 
 /** The centre of the window: the seed a chain with no cursor mapping owes a takeover. */
-const NO_CURSOR: HandCursor = Object.freeze({ pointerX: 0, pointerY: 0, roll: 0, wristBend: 0 });
+const NO_CURSOR: HandCursor = Object.freeze({
+  pointerX: 0, pointerY: 0, reach: 0, roll: 0, wristBend: 0,
+});
 
 /**
  * How the cap is bolted to the socket.

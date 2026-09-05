@@ -50,7 +50,15 @@ export interface ReadoutSample {
   cmdX: number;
   cmdY: number;
   cmdZ: number;
-  /** Whether a stroke is running. A stroke's target error is enormous by design. */
+  /**
+   * Whether a stroke is running. A stroke's target error is enormous by design.
+   *
+   * **Always false for every chain since Session 12**, which took the scripted strokes out of the
+   * arm entirely: a chain that follows a commanded point is never inside a phase. The field is
+   * kept because `head.ts`'s ram still runs a real lunge and still fills it, and because the
+   * exclusion it drives is correct for anything that ever does again. What it must no longer be
+   * asked to do is stand in for "the limb has stopped" -- see `BENCH_READOUT.restTipSpeed`.
+   */
   stroking: boolean;
   /** Metres from the driven body to its own anchor, or null for a chain with no anchor. */
   anchorStray: number | null;
@@ -168,14 +176,26 @@ export interface ReadoutState {
   readonly anchorStrayMm: number | null;
   readonly peakAnchorStrayMm: number | null;
   /**
-   * The same peak with the startup window and every stroke excluded.
+   * The same peak taken only while the command is standing still, outside the startup window.
    *
-   * **This is the "is it stuck on something" reading**, and the unfiltered one above is not: a
-   * follow-through drops the drive's force ceiling on purpose, so the limb leaves its anchor by
-   * design and the run's peak stray is a measurement of the stroke. A driven limb that is not
-   * within a few millimetres of its own anchor *while nothing is asking it to be anywhere else*
-   * is not posed wrongly, it is stuck on something -- which is the reading `AGENTS.md` says to
-   * take first, and it is this one.
+   * **This is the "is it stuck on something" reading**, and the unfiltered one above is not: an
+   * anchor hauling a limb across the shell at its rate ceiling leaves it behind by design, so the
+   * run's peak stray is a measurement of the move. A driven limb that is not within a few
+   * millimetres of its own anchor *while nothing is asking it to be anywhere else* is not posed
+   * wrongly, it is stuck on something -- which is the reading `AGENTS.md` says to take first, and
+   * it is this one.
+   *
+   * **The gate was "outside every stroke" until 2026-09-05, and it stopped meaning anything.**
+   * Session 12 deleted the scripted strokes, so `stroking` is false on every sample of every arm
+   * chain and the exclusion excluded nothing: this read 59.9 mm on `effector.reach.blade` -- the
+   * peak of the whole run, the same number as `peakAnchorStrayMm` -- against the 3.73 mm the same
+   * limb reads when it is actually holding still. That is the second instrument in this file to
+   * fail the same way and for the same reason; `BENCH_READOUT.restTipSpeed` is the first, and both
+   * fixes are the same move, from a phase the body used to publish to a question about what is
+   * actually happening. The italics above are the specification and they always were: *while
+   * nothing is asking it to be anywhere else* is the command standing still, which is a condition
+   * this class already computes for the wander floor and which holds for a chain that never had a
+   * stroke concept at all.
    */
   readonly idleAnchorStrayMm: number | null;
   /**
@@ -390,12 +410,19 @@ export class BenchReadout {
       || commandPointRate > R.commandStillRate;
 
     // --- the noise floor: how far the tip moves while nothing is asking it to -------------
-    // Three conditions, and the third one is the one that was missing at first. A command that
-    // has stopped moving is not the same thing as a limb that has stopped moving: after a chop
-    // the cursor has been still the whole time while the limb swings back through most of its
-    // range, and counting that as wander at rest read **1185 mm** on a chain whose real floor is
-    // a fraction of a millimetre. Wander at rest means the limb is where it was told to be and
-    // is staying there.
+    // Four conditions, and the fourth is here because the third stopped meaning anything. A
+    // command that has stopped moving is not the same thing as a limb that has stopped moving:
+    // after a chop the cursor has been still the whole time while the limb swings back through
+    // most of its range, and counting that as wander at rest read **1185 mm** on a chain whose
+    // real floor is a fraction of a millimetre. `!stroking` was what caught that, and Session 12
+    // deleted the scripted strokes, so it is now true on every sample of every chain -- measured
+    // straight away as 194 mm of wander becoming 902 mm on an unchanged limb.
+    //
+    // `this.tipSpeed <= R.restTipSpeed` asks the same question without needing a phase to be
+    // published, which is the version that should always have been here: wander at rest means
+    // the limb is where it was told to be and is *staying* there, and a limb doing 3 m/s is
+    // doing neither whoever asked it to.
+    //
     // "Arrived" is not "inside the band this instant": it is inside the band and having been
     // there for `stepHoldSeconds`. Without the second half the reference point is planted the
     // moment a settling overshoot crosses back through the band edge, so the rest of the settle
@@ -405,8 +432,16 @@ export class BenchReadout {
     else if (this.insideBandSince === null) this.insideBandSince = next.t;
     const arrived = this.insideBandSince !== null
       && next.t - this.insideBandSince >= R.stepHoldSeconds;
-    const atRest = !next.stroking && !commandMoved && arrived
+    // The pose has settled: nothing is asking the limb to be anywhere else and it has been where
+    // it was asked to be for `stepHoldSeconds`. This is the half of "at rest" that is about the
+    // *driven body*, and it is what the anchor's idle stray is taken over.
+    const settledPose = !next.stroking && !commandMoved && arrived
       && next.t >= R.startupExclusionSeconds;
+    // And the whole of it, which additionally asks the *terminal* to have stopped. The two are
+    // deliberately not one condition: a whip's beads go on swinging for the whole run, so a lash
+    // is never at rest by this measure and never should be -- but the chain holding it has settled
+    // perfectly, and the anchor reading is about that chain.
+    const atRest = settledPose && this.tipSpeed <= R.restTipSpeed;
     if (!atRest) {
       this.resting = false;
     } else if (!this.resting) {
@@ -502,7 +537,14 @@ export class BenchReadout {
     if (next.anchorStray !== null) {
       const mm = next.anchorStray * 1000;
       if (this.peakAnchorStray === null || mm > this.peakAnchorStray) this.peakAnchorStray = mm;
-      if (settledEnough && (this.idleAnchorStray === null || mm > this.idleAnchorStray)) {
+      // `settledPose` is the whole of "while nothing is asking it to be anywhere else", and it
+      // replaces `!stroking` on the argument the field's own doc gives: a stroke was one way for a
+      // command to be running ahead of a limb on purpose, and it is no longer the only one or even
+      // a live one. The `arrived` half of it is doing as much work as the still command: a command
+      // that has just stopped after crossing the shell at the anchor's rate ceiling leaves the hand
+      // tens of millimetres behind it for as long as the catch-up takes, and counting that reads
+      // 45.2 mm on a limb whose settled figure is 3.7.
+      if (settledPose && (this.idleAnchorStray === null || mm > this.idleAnchorStray)) {
         this.idleAnchorStray = mm;
       }
     }

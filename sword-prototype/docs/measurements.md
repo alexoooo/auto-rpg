@@ -10737,3 +10737,232 @@ defects**. Questions 2 and 3 were not reached. The defects, and what each turned
 to 642 tests and to every table in this document. Finding 2 in particular sat behind a green suite
 whose assertion — *every emitted hand command lies inside the published envelope* — remained true
 the whole time, because the command was inside the envelope and then ignored.
+
+## Session 12 — 2026-09-05: what the playtest's first three findings cost to fix
+
+The owner's answer to entry 1 was not a list of tuning requests. It was a statement of what the
+body is for:
+
+> "what I want is for the AI to be able to have free control of both arms, to block and push and
+> attack whichever way it can — limited only by the physics and the intelligence of the policy. I
+> don't want some hard-coded scripting or stuff like that. so if there are any fundamental
+> [limitations], they need to be removed — the underlying model needs to be capable of free form
+> fully continuous simultaneous control of all the joints."
+
+Everything below follows from that sentence rather than from the defect list, which is why finding 2
+was answered by deleting a feature and findings 1 and 3 by measuring one.
+
+### The command surface, widened — and what it was actually carrying before
+
+`HandIntent` gained `reach`, a continuous −1..1 fraction of whatever reach shell the chain
+publishes, and `guard` and `thrust` stopped being read by any chain. They are still in the
+vocabulary and they are still what a mouse button produces — `src/buttons.ts` turns a held right
+button into a reach the way a policy would — but the *body* no longer sees a button and decides a
+pose from it.
+
+What that replaced, instrumented over eight bouts of `golem-duelist` against the Warrior duelist
+before the change:
+
+| | reading |
+|:---|---:|
+| distinct reaches the policy asked for, per hand | **1** |
+| distinct elevations the policy asked for | 1916 |
+| depth of the reach shell it was driving | 0.42 m |
+| frames on which the chain ran a scripted stroke and ignored the policy | 11 % |
+| frames with `guard` held, secondary hand | 100.0 % |
+
+A hand that asks for one distinct distance across a whole bout is not choosing a distance. The
+three preset distances the two booleans could name — 0.36, 0.54 and 0.66 m — were the whole of
+what the surface could say, and `guard` being held for the entire bout meant the secondary hand was
+pinned at one of them for the entire bout. Two of the three presets are deleted; `reachNeutral`
+survives as the distance the chain is *built* at and is no longer a command anything can produce.
+
+**Finding 2 was inside that same line.** `arm-core.ts` read `wanted.lift = next.guard ? guardLift :
+spanned(pointerY, ...)`, so a held guard discarded the commanded elevation and substituted 0.80 rad
+— which is why the shield sat at 42.8° above the socket for the whole bout no matter what the mind
+asked for. It is deleted rather than tuned. All three positional axes now come from the command.
+
+### Two engine defects the widened surface exposed
+
+Neither was reachable while reach was three presets, and both are older than this session.
+
+**1. The anchor's rate limit was a box, not a sphere.** `AnchorDrive` slewed x, y and z toward the
+commanded point independently, each capped at `linearRate`. A diagonal move therefore ran up to
+√3 ≈ 1.73 times faster than an axial one — and because the axes are *world* axes, how fast a golem's
+arm could move depended on which way the golem was facing. Found by a rung-2 bench test that read
+**8.39 m/s against a 5 m/s ceiling**. Fixed with a true vector rate limit.
+
+**2. The anchor carried the hand outside the published envelope, in transit.** Straight-line
+interpolation between two poses that are both on the reach shell cuts a chord *inside* it: two
+shell poses 1.8 rad apart at 0.54 m dip to 0.335 m at the midpoint, 0.205 m inside `reachMin`. The
+plate found it by ending up 22.3 mm inside its own stand. This is frozen rule 3 — the module
+publishes what it can reach and the mind picks inside it — undone by the limiter rather than by
+either party. Fixed by slewing in the chain's own spherical coordinates and re-clamping each step,
+so every intermediate pose is in the envelope too.
+
+### Finding 1, the half-shield: paid for as far as clearance allows
+
+`TERMINAL_PLATE.outboardOffset` went 0.16 → 0.12 m. It cannot go to 0. Deepest approach over the
+whole envelope, in mm, positive is clearance:
+
+| offset | plate limits | pitch | reach | wrist |
+|---:|:---|---:|---:|---:|
+| 0.16 | as shipped 09-04 | 107 | −34 | −198 |
+| 0.16 | as shipped now | 107 | 84 | 63 |
+| **0.12** | **as shipped now** | **72** | **72** | **48** |
+| 0.08 | as shipped now | 33 | 46 | −80 |
+| 0.04 | as shipped 09-04 | −4 | −141 | −200 |
+| 0.00 | as shipped 09-04 | −40 | −191 | −199 |
+| 0.00 | carry 0, lift −0.30, reach 0.55 | −40 | 220 | 149 |
+
+**A centred board is geometrically impossible on rung 1 at this board width, at any narrowing.**
+Rung 1 is one hinge with no swing; it has no axis to give up, so its row is −40 mm however much
+envelope is surrendered on the other two. The socket stands 0.12 m outboard of the stand's face
+and a 0.32 m board centred on the limb reaches 0.16 m inboard of it — 40 mm inside the block before
+anything rotates. The two levers that would buy a centred board are a **narrower board** and a
+**wider socket separation** (`width / 2 <= socketSide - BENCH_STAND.width / 2`, so 0.24 m of board),
+and both are the owner's call rather than a measurement's. 0.12 is the most of the complaint that
+clearance alone can pay: the limb passes through the board rather than holding its edge.
+
+Three narrowings on the plate's own envelope bought the other half — `reachMin` 0.45, `liftMin`
+−0.30, `carryMin` −0.15 — and all three are needed:
+
+| carry | liftMin | reachMin | pitch | reach | wrist |
+|---:|---:|---:|---:|---:|---:|
+| −0.15 | — | — | 72 | −81 | −200 |
+| −0.15 | — | 0.45 | 72 | −8 | −200 |
+| −0.15 | −0.30 | — | 72 | 0 | −73 |
+| — | −0.30 | 0.45 | 72 | 43 | −85 |
+| **−0.15** | **−0.30** | **0.45** | **72** | **72** | **48** |
+
+**The 2026-09-04 sweep could not have found this**, and that is the clearest thing the vocabulary
+change bought. That sweep crossed the envelope with `guard`, which set a short reach and a bent
+wrist *together*; long-and-bent was not a pose the surface could express, so it was never swept,
+and it is 188 mm inside the block. `reach` and `wristBend` are separate continuous channels now and
+`tests/golem-bench.test.mjs` sweeps them separately.
+
+### Finding 3, the gait: it was worse than "doesn't look right"
+
+Mean planted-sole slip, mm/s, over a six-second full-speed command. The carrier is travelling at
+1200 mm/s, so a sole slipping at 1200 is holding nothing at all.
+
+| command | before | after | the carrier |
+|:---|---:|---:|---:|
+| walk | 114.7 | 114.7 | 1200 |
+| **strafe** | **1135.9** | **536.3** | 1200 |
+| turn in place | 239.6 | 183.8 | — |
+
+The strafing golem's feet were holding 5 % of the ground they stood on. Two independent causes,
+both in `bipedPose`, and the split between them is worth recording because the smaller-looking one
+was the larger half:
+
+- **The knee lift scaled on the fore-aft part of the travel**, so a side-stepping golem never
+  picked a foot up at all and dragged both soles through the whole cycle. Scaling it on the travel's
+  *magnitude* is worth **434 mm/s**.
+- **The hip's abduction axis was never written.** A stride had no sideways component to lay over a
+  sideways command. Adding `strideAbduct` is worth the other **166 mm/s**.
+
+`ABDUCT_SIGN` is measured rather than derived, and the sweep is in the source: at +0.16 the strafe
+read 841 mm/s and at −0.16 it read 536, against 702 with the axis left at zero. A sign guessed from
+a handedness argument would have shipped a gait that braced *against* the travel and still called
+itself a fix.
+
+Turning was a separate bug in the same file: `carrierSpeed()` did not include `yaw`, so a golem
+spinning in place computed a stride speed of zero and stood perfectly still while it rotated. The
+cadence now runs off `bipedFootSpeed`, which is what the *feet* are doing rather than what the body
+is: a turn in place moves each sole at `maxYawSpeedRadS * hipSide` = 0.304 m/s while the body's own
+speed is 0.
+
+`strideAbduct` shipped at 0.16 rather than the 0.20 that measures best, because 0.20 *is*
+`hipAbduct` — it would command the joint onto its own stop at every stride peak, which is a motor
+and a limit pushing at each other and is the buzz this directory has removed twice. The margin
+costs 50 mm/s.
+
+### The arena, either side of it all
+
+Eight side-swapped bouts, seed 20260904, 60 s cap — the same cell every table in `tactics.ts` is
+taken on. Session 09's row is quoted from this document above; the other two are from this session.
+
+| cell | wins | golem damage/bout | damage taken/bout | bout length, s |
+|:---|---:|---:|---:|---:|
+| Session 09, `golem-duelist` vs Warrior | 8 / 8 | 20.4 | 93.5 | 30.92 |
+| after the vocabulary change | 8 / 8 | 17.16 | 48.39 | 8.83 |
+| after the gait fix as well | 8 / 8 | 16.53 | 46.90 | **8.30** |
+| golem vs golem, before the gait fix | 0 / 8 | 201.04 | 217.96 | 60.02 (drawn) |
+| golem vs golem, after | 0 / 8 | 226.84 | 228.83 | 60.02 (drawn) |
+
+Re-taken at 40 side-swapped bouts in `npm run measure --only golem`, the shipped cell reads
+**40 / 40** wins, 16.8 damage dealt and 44.5 taken a bout, 8.45 s (3.15–20.68), 11 severs, and the
+Warrior's bar at 0.012 — so the eight-bout row is not a small sample flattering it.
+
+**The golem finishes a Warrior in a quarter of the time it took in Session 09**, and almost all of
+that came from the vocabulary rather than from the gait — a hand that can choose its distance
+closes and commits, where a hand with three presets could only be at one of them.
+
+**And two golems still cannot finish each other.** They land more on each other than before (227
+against 201 damage a bout) and it changes nothing: sixty seconds, both alive, drawn 8 of 8. At 40
+bouts through `npm run measure` the same cell reads **0 / 40**, drawn 40 of 40, 224.2 against 221.3
+damage a bout over 1059 contacts each, with both bars still at **0.71** when the cap arrives —
+against Session 09's 0.80, so a minute of this session's work moved the outcome by nine points of a
+health bar and not past the cap. It is the fourth session in a row this cell has been reported
+rather than tuned. It is the cell that bears
+directly on *"if golem works well then we can just make it a golem fighting game"*, and it is the
+one number in this document that says the game as described does not currently end.
+
+### The null control did not move
+
+`src/mind.ts`, `src/buttons.ts` and `src/input.ts` are shared execution-layer code, and the rule is
+that a change to them needs a bout either side. Duelist versus swinger, 24 bouts, seed 20260823,
+run in a worktree at the parent commit and again in this tree:
+
+| | before | after |
+|:---|---:|---:|
+| duelist wins | 15 / 24 (62.5 %) | 15 / 24 (62.5 %) |
+| bout length, s | 3.24 (1.42–7.20) | 3.24 (1.42–7.20) |
+| duelist damage/bout | 8.86 | 8.86 |
+| swinger damage/bout | 7.93 | 7.93 |
+| duelist scoring contacts | 274 | 274 |
+| edge alignment, median | 0.624 | 0.624 |
+
+Identical to every printed digit. The Warrior does not read `HandIntent.reach`; its arm still takes
+its distance from `thrust` and `guard` inside `src/arm.ts`, which is why adding the field moved
+nothing.
+
+### Four stale comments corrected, no behaviour changed
+
+Found by re-deriving the arithmetic beside each number, which is the rule this directory adopted
+after the third stale table:
+
+- `CHAIN_PITCH`'s doc listed "the stroke shape" as one of the three things that make rung 1 not a
+  robot arm, and described the chop that was deleted. The follow-through it claimed survives the
+  deletion — driven from `pitchMax` to `pitchMin` at the rate limit the limb still swings 0.06 rad
+  past its own floor and comes back — but it comes from finite torque against real mass, not from a
+  velocity event.
+- `carryMin`'s doc derived its second figure at `reachGuard`, a preset that no longer exists.
+  Re-derived at the shell's own floor: `asin(-0.24 / 0.30)` = −0.93 rad.
+- `kneeLiftScale`'s doc said "1.4 lifts the sole about 0.13 m". The field holds 2.4, which lifts it
+  **209.3 mm**; 1.4 lifts 97.5 mm. Both numbers in that sentence were wrong.
+- The same sentence claimed the lift "stays inside the 0.18 m step envelope the support query
+  admits". `SUPPORTED_CARRIER_V1.STEP_HEIGHT_M` is how high a *ledge* the carrier will climb and
+  says nothing about a swing foot on flat ground. The reading that does bear on it is
+  `longestSupportGapSeconds`, which is 0.
+
+### What this entry owes
+
+- **Tests 2 to 5 of the playtest protocol have not been run**, and neither has a second look at
+  test 1. Every number above is a proxy, and this plan set exists because proxies have gone green
+  three times while the screen stayed wrong.
+- **The shield is centred as far as clearance allows and no further.** Whether 0.12 m reads as
+  symmetrical to the owner's eye is unanswered; if it does not, the next move is a narrower board or
+  a wider socket separation, and both change how the golem is built.
+- **Golem versus golem still does not end.** Nothing here was tuned to make it end.
+- **"The default build against one changed slot" was not re-taken.** `npm run measure --only golem`
+  reached the first of its ten variations — `locomotion.wheel`, 0/40 both ways, drawn 40 of 40,
+  bars 0.720 and 0.653 — and was stopped there. Every cell in that table is golem-against-golem,
+  every one of them draws at the cap, and finishing it costs about six hours of wall clock to learn
+  that nine more pairs also draw. Session 09's table stands; it should be re-taken in full the first
+  time anything makes that cell finish.
+- `CHAIN_PITCH.targetRate` was swept at 6, 9 and 12 in the arena and every column was identical to
+  the digit — because `defaultGolemSetup` builds both hands on the *wrist* chain, so rung 1 is not
+  in an arena bout at all. Whether rung 1's limb should move faster is a question only the bench
+  page can answer, by eye.

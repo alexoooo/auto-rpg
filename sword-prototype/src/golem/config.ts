@@ -280,13 +280,6 @@ export const CHAIN_PITCH = {
   /** Where the limb rests with the cursor centred: `pointerY` 0 maps to the middle of the
    *  range, so the middle of the window is a limb held level-ish. 2026-09-04. */
   restPitch: 1.225,
-  /**
-   * `guard` raises to a high preset, radians.
-   *
-   * 1.95 is 112 deg -- the limb up and forward, the blade high, which is what a guard is. Not
-   * `pitchMax`, so a guard is a pose and not a limit. Chosen by eye, 2026-09-04.
-   */
-  guardPitch: 1.95,
 
   /**
    * The target rate limit, radians per second. One of the three numbers that decide whether
@@ -350,81 +343,27 @@ export const CHAIN_PITCH = {
    */
   motorTorque: 320,
 
+
   /**
-   * The chop, which is a velocity event and not a pose sequence. The third of the three.
+   * ## What used to be here: `chop`, and why rung 1 has no stroke either
    *
-   * `drive` runs the hinge's motor in VELOCITY mode downward at `driveRate` for
-   * `driveSeconds`. `follow` keeps the same velocity target with the torque dropped to
-   * `followTorque`, so the limb coasts on its own momentum and decelerates against gravity
-   * rather than against the motor. Then the position motor takes over again at full torque and
-   * brings the limb back to whatever the cursor has been asking for the whole time.
+   * **Deleted in Session 12 alongside rung 3's `thrust` and `cut`.** The chop swapped this
+   * hinge's motor out of POSITION into VELOCITY, drove it downward at `driveRate` 12 rad/s for
+   * `driveSeconds` 0.05, held it at `followTorque` 40 N.m for `followSeconds` 0.04, and swapped
+   * back. Its three tables were real measurements of a real thing and they are in
+   * `docs/measurements.md`.
    *
-   * **The follow phase is what makes it a stroke rather than a pose, and here is the evidence.**
-   * At `driveRate` 12 and `driveSeconds` 0.05 the drive always leaves the limb at 0.905 rad.
-   * What varies is how far past that it carries, measured as the deepest pitch the tip ever
-   * reaches over the whole stroke:
+   * What none of them could ask is what happened to the commander meanwhile: `commandedPitch`
+   * went on slewing toward whatever was being asked for and went on being written to a motor
+   * that was no longer in position mode, so for 0.09 s the limb moved at the chain's chosen
+   * speed in the chain's chosen direction and the person or policy driving it had no say. One
+   * axis instead of three, and otherwise the same defect `CHAIN_REACH` records above.
    *
-   *     followSeconds   deepest pitch reached   carried past the drive
-   *         0.00              0.520 rad                0.385 rad
-   *         0.01              0.434                    0.471
-   *         0.02              0.341                    0.564
-   *         0.04              0.097                    0.808
-   *
-   * Twice the follow-through at a **ninth of the drive's torque**, which is the whole claim: the
-   * extra 0.42 rad is momentum and gravity, not a motor. A pose sequence stops where the pose
-   * says and has no row in this table at all.
-   *
-   * **`driveSeconds` is 0.05 and not longer because of the joint stop.** The commanded range's
-   * floor is 0.30 rad and the hard stop is at -0.05, and a stroke is allowed to overshoot into
-   * that margin -- but it must not *arrive* there, because a limb slamming into its own stop is
-   * a motor and a limit pushing at each other, which is the buzz `arm.ts`'s wrist was rewritten
-   * to get rid of. Measured deepest pitch, `followSeconds` held at 0.04:
-   *
-   *     driveSeconds   deepest pitch   what happens
-   *         0.05           0.097        clears the stop by 0.147 rad
-   *         0.06           0.022        clears it by 0.072
-   *         0.07          -0.062        arrives at the stop
-   *         0.08          -0.081        arrives at the stop and rebounds off it
-   *         0.14          -0.088        the drive alone reaches the stop; no follow-through
-   *
-   * The 0.14 row is the first draft's setting and is why this table exists: the drive ran the
-   * whole way to the stop, so the follow phase had nothing left to carry and the stroke was a
-   * pose sequence with a bounce on the end of it. `tests/golem-bench.test.mjs` is what found it,
-   * by asserting the limb goes *further* during the follow than during the drive.
-   *
-   * **`driveRate` sets the speed and saturates.** Peak tip speed with the first 0.6 s and 0.25 s
-   * after any contact excluded, as the measurement record requires:
-   *
-   *     driveRate   peak tip on the chop
-   *         6             9.31 m/s
-   *         9            11.64
-   *        12            15.07
-   *        16            18.21
-   *        22            18.21
-   *
-   * 16 and 22 return the same figure, which is the torque cap refusing to accelerate 10.7 kg any
-   * harder inside 0.05 s -- so above 16 the number in this block stops describing the stroke.
-   *
-   * 12 is taken, and the comparison it was chosen against is the Warrior duelist's own driven
-   * peak over the standard 120-bout corpus: mean 16.00 m/s, range 0.00 to 43.13
-   * (`docs/measurements.md`). A golem chop at 15.07 m/s therefore arrives just under a Warrior's
-   * average committed cut -- inside the band this directory's own weapons occupy rather than
-   * above it. 2026-09-04, the Node bench.
+   * Rung 1's speed is now `targetRate` against `motorTorque`, which is where a one-axis limb's
+   * speed should always have come from. `guardPitch` went at the same time and for the same
+   * reason `guardLift` did: it overwrote the commanded pitch on a held button.
    */
-  chop: {
-    driveRate: 12,
-    driveSeconds: 0.05,
-    followSeconds: 0.04,
-    /**
-     * The follow-through's torque cap, newton-metres.
-     *
-     * Not zero. Zero is a limb that has been let go of, and the difference between letting go
-     * and easing off is the whole of what follow-through means: 40 N.m is about an eighth of
-     * the drive, enough to keep the stroke on its line and nowhere near enough to hold it up.
-     * 2026-09-04.
-     */
-    followTorque: 40,
-  },
+
 
   /**
    * Damping on the link, per `CONFIG.arm`'s pair.
@@ -578,6 +517,33 @@ export const BENCH_READOUT = {
    * which is exactly zero. 2026-09-04.
    */
   commandStillRate: 1e-3,
+  /**
+   * How slowly the business end has to be moving before "at rest" means anything, m/s.
+   *
+   * **This condition replaces `stroking` and it exists because that one stopped working.** Wander
+   * at rest is "how far the tip moves while nothing is asking it to", and it needs to know that
+   * the *limb* has stopped, not only that the command has. Three conditions used to say so: the
+   * command is still, the first axis has been inside its band for `stepHoldSeconds`, and no
+   * scripted stroke is running. The third was doing more work than it looked like -- after a chop
+   * the cursor is still, the first axis is inside its band, and the limb is swinging back through
+   * most of its range, and counting that read **1185 mm** on a chain whose real floor is a
+   * fraction of a millimetre.
+   *
+   * Session 12 removed the scripted strokes, so `stroking` is now false always and that guard
+   * guards nothing. Measured immediately: the same bench sequence went from 194 mm of wander at
+   * rest to 902 mm without the limb having got any worse, because the window had quietly opened
+   * onto every settle in the run. An instrument that reports a number four times larger for a
+   * reason that has nothing to do with the thing measured is the "green instrument that measures
+   * nothing" this file already records once, arriving from the other direction.
+   *
+   * The replacement asks the question directly and needs no phase to be published: a limb moving
+   * at more than 50 mm/s is not at rest. It is body-agnostic, it holds for a chain with no anchor
+   * and no stroke concept at all, and unlike a band on the tip error it is not defeated by the
+   * plate's constant `outboardOffset` floor. 0.05 m/s is two and a half band-widths per second at
+   * `CHAIN_REACH.settledBand`; below it a limb cannot leave the band it has arrived in inside a
+   * `stepHoldSeconds` hold. 2026-09-05.
+   */
+  restTipSpeed: 0.05,
 };
 
 /**
@@ -672,33 +638,29 @@ export const CHAIN_REACH = {
    * pushing at each other, and it is the failure rung 1's `jointMin` table records arriving
    * through a joint limit.
    *
-   * `reachMin` is 0.38, which is an elbow bent 2.137 rad against a stop at 2.35. It is
-   * proportionally much longer than the Warrior's `reachGuard` of 0.28/0.69 = 41 %, and that is
+   * `reachMin` is 0.30, which is an elbow bent 2.137 rad against a stop at 2.35. It is
+   * proportionally much shorter than the Warrior's `reachGuard` of 0.28/0.69 = 41 %, and that is
    * forced rather than chosen: two bones of 0.42 and 0.36 fold to 0.06 m, so the *stop* is what
    * decides how close the hand may come and a golem's elbow does not fold flat.
    *
-   * `reachGuard` at 0.42 and `reachNeutral` at 0.60 are 0.18 m apart, which matters for a reason
-   * that is about the instrument rather than the limb: `BENCH_READOUT.stepThreshold` is 0.15 in
-   * the first published axis's own unit, and the first axis here is the reach in metres, so a
-   * guard step closer together than that would never be *detected* as a step and the bench would
-   * report no settle time at all. Chosen by eye and then checked against that. 2026-09-04.
+   * **These two are now the whole of it.** `reachGuard` 0.36 and `reachThrust` 0.66 stood beside
+   * them until Session 12 and were the arm's only reachable distances, because reach was taken
+   * from two booleans; `HandIntent.reach` spans this shell continuously now and the presets went
+   * with the buttons that chose them. `src/buttons.ts` keeps all three as *fractions of this
+   * shell*, so a person holding a button still gets the same three poses to the millimetre.
+   *
+   * The prose above this block used to say 0.70, 0.38, 0.42 and 0.60 for four numbers that are
+   * 0.72, 0.30, 0.36 and 0.54, which is the third stale table this directory has turned up and
+   * the reason the arithmetic in these comments is now re-derived whenever the block is touched.
+   *
+   * `reachNeutral` survives and does exactly one job: it is the **build pose**, the distance the
+   * chain is constructed at. It is no longer a command anything can produce, and a commander
+   * asking for `reach: 0` gets 0.51, the middle of the shell, which is 30 mm short of it.
+   * 2026-09-04, amended 2026-09-05.
    */
   reachMin: 0.30,
   reachMax: 0.72,
-  reachGuard: 0.36,
   reachNeutral: 0.54,
-  reachThrust: 0.66,
-  /**
-   * How fast the commanded reach follows the button, as a first-order response in 1/s.
-   *
-   * `CONFIG.arm.reachResponse` is 9 and this is that unchanged. The session plan freezes the
-   * mapping's *shape* as the Warrior's `Arm.aim`, and the reach lag is the one part of that shape
-   * which is a response rather than a ceiling: a rate limit moves at the same speed whether the
-   * command jumped a millimetre or a metre, and what a button press wants is a move that starts
-   * fast and eases in. The anchor's own `anchorRate` is the ceiling on top of it, and the two are
-   * in series on purpose -- see that number for which one binds. 2026-09-04.
-   */
-  reachResponse: 9,
 
   /**
    * The envelope's angular limits, radians, **outboard-signed**.
@@ -745,9 +707,11 @@ export const CHAIN_REACH = {
    * It bites where a cross-body command is *long* and not where it is short, which is the
    * coupling that makes it an envelope rather than an azimuth limit: at `reachMax` and level, the
    * floor on the swing is `asin(-0.24 / 0.70)` = -0.35 rad, so a cursor at the inboard edge is
-   * clamped by 0.15 rad -- about 100 mm at the hand. At `reachGuard` the floor is -0.61 rad,
-   * outside `swingMin` entirely, so a short guard may cross as far as the anatomy allows.
-   * 2026-09-04.
+   * clamped by 0.15 rad -- about 100 mm at the hand. Drawn in to `reachMin` the same floor is
+   * `asin(-0.24 / 0.30)` = -0.93 rad, outside `swingMin` entirely, so a hand held close may cross
+   * as far as the anatomy allows. The second figure used to be quoted at the deleted `reachGuard`
+   * preset of 0.36; it is re-derived here at the shell's own floor, which is the number the
+   * continuous `HandIntent.reach` can actually reach. 2026-09-04, amended 2026-09-05.
    */
   carryMin: -0.24,
 
@@ -845,14 +809,33 @@ export const CHAIN_REACH = {
    * it produced a guard raise that peaked at **34.46 m/s** and took 0.05 s. A stone arm does not
    * raise its guard in a twentieth of a second.
    *
-   * 1.2 is taken: the fastest rate whose guard step stays inside the band rung 1's own guard step
-   * occupies (8.71 m/s here against 9.10 there), whose lag stays at the order of the Warrior's own
-   * anchor readings, and above which the residual wander climbs and does not come back. A full
-   * traverse of the envelope takes about 1.2 s at this rate, which is slow -- and slow is what a
-   * finite force budget against 29.5 kg of stone is supposed to look like. 2026-09-04, the Node
-   * bench.
+   * 1.2 was taken on that table: the fastest rate whose guard step stayed inside the band rung
+   * 1's own guard step occupies (8.71 m/s here against 9.10 there), whose lag stayed at the order
+   * of the Warrior's own anchor readings, and above which the residual wander climbed and did not
+   * come back.
+   *
+   * ## Why it is not 1.2 any more
+   *
+   * **Because 1.2 was never what the arm could do; it was what the arm could do between strokes.**
+   * The stroke machine lifted this ceiling to 5 m/s for a thrust and 3 for a cut, so the fast
+   * half of the arm's behaviour was behind a button and this number governed the slow half. With
+   * the strokes gone there is one ceiling and it has to be the whole arm's, or a policy would be
+   * capped at a speed no commander was ever actually held to -- the "hard-coded scripting" made
+   * permanent instead of removed, which is the opposite of what Session 12 is for.
+   *
+   * Re-swept 2026-09-05 with the chain a pure follower, `golem-duelist` against the Warrior
+   * duelist, 8 side-swapped bouts, seed 20260904. See `docs/measurements.md` for the table this
+   * value came off.
+   *
+   * A rate ceiling on the *command* is still the right instrument and is kept for the reason the
+   * table above gives: past the rate at which the command outruns the limb, what moves the limb
+   * is the motor closing a large error rather than anything the commander did, and that is the
+   * "robot arm" failure in its exact mechanical form. What changed is that the number now bounds
+   * a whole arm rather than an arm with its best behaviour taken out and put behind a button.
+   * The mouse's own step -- a cursor can cross the window in a frame -- is still absorbed here,
+   * which is why the ceiling was not simply removed.
    */
-  anchorRate: 1.2,
+  anchorRate: 5,
 
   /**
    * Damping on the three links, per `CONFIG.arm`'s pair and rung 1's.
@@ -876,157 +859,37 @@ export const CHAIN_REACH = {
   settledBand: 0.02,
 
   /**
-   * `cover`: what `guard` holds the limb at.
+   * ## What used to be here, and where it went: `guardLift`, `thrust` and `cut`
    *
-   * A **level and not a stroke**, which is the rule `src/buttons.ts` states for a press and which
-   * matters here because the two are wired to the same hand: holding `guard` is a pose, and
-   * pressing `thrust` while it is held is the cut. `guardLift` of 0.80 rad is the limb up and
-   * forward with the blade high, which is what a guard is, and it is short of `liftMax` so a
-   * guard is a pose and not a limit. The swing is left to the cursor, so a guard can be held
-   * high-inboard or high-outboard. Chosen by eye, 2026-09-04.
+   * **Deleted in Session 12, not moved and not superseded by a better number.** Three blocks
+   * stood here and between them they were the whole of what an arm did to its commander:
+   *
+   * - `guardLift`, 0.80 rad, "what `guard` holds the limb at". It overwrote the commanded
+   *   elevation whenever the button was held, so a mind that asked its shield arm for 2001
+   *   distinct elevations across eight bouts got 0.80 rad on every one of them -- which is what
+   *   put the plate above the golem's own head in the page, and is the defect the owner reported
+   *   at the first human gate.
+   * - `thrust`, a three-phase velocity event: `driveSeconds` 0.03 at `strokeRate` 5 m/s, then
+   *   `followSeconds` 0.06 with the force dropped to `followForce` 500 N.
+   * - `cut`, the same machine sweeping swing and lift at 9 and 7 rad/s for `driveSeconds` 0.11.
+   *
+   * Every one of those numbers was swept and every sweep is still in `docs/measurements.md`,
+   * where a table of a thing that no longer exists belongs. What the sweeps could not ask is the
+   * question that removed them: while a stroke ran, `clampInto` was handed the script's target
+   * instead of the commander's, so the policy did not have its own arm -- measured at 11 % of
+   * frames against the Warrior duelist and 15.8 % against another golem. A body that decides,
+   * on a button, to move at its own speed in its own direction is not a body a mind is driving.
+   *
+   * Nothing replaced them. Reach became a continuous channel on `HandIntent`, elevation became
+   * unconditional, and speed became what it should always have been: how fast a commander moves
+   * its own target against `anchorForce` and 29.5 kg of stone. A person still gets the three
+   * poses those buttons used to give -- `src/buttons.ts` synthesizes them, to the millimetre --
+   * because a mouse is an impoverished input device and a policy is not.
+   *
+   * `reachGuard`, `reachThrust` and `reachResponse` went with them and for the same reason;
+   * `reachNeutral` survives above, where it is now only the build pose.
    */
-  guardLift: 0.80,
 
-  /**
-   * `thrust`: a velocity event along the current aim, with follow-through and return.
-   *
-   * The anchor's analogue of rung 1's motor-velocity chop, and the same three phases. `drive`
-   * sends the commanded hand to `reachMax` with the rate ceiling lifted to `strokeRate`, so the
-   * command really does move and the limb is chasing something that is going somewhere. `follow`
-   * holds that command with the anchor's **force** dropped to `followForce`, so the limb coasts
-   * on its own momentum and decelerates against gravity rather than against the motor. Then the
-   * full ceiling comes back and the limb returns to whatever the cursor has been asking for the
-   * whole time.
-   *
-   * **The follow phase is what makes it a stroke rather than a pose**, and the evidence is the
-   * same shape as rung 1's: the furthest the hand reaches is past where the drive left it. The
-   * drive always ends at 0.6742 m; what varies is how far past that the limb carries.
-   *
-   *     followSeconds   furthest reach   carried past the drive
-   *          0.00           0.6878 m            0.0136 m
-   *          0.02           0.7087              0.0345
-   *          0.04           0.7209              0.0467
-   *          0.06           0.7213              0.0471
-   *          0.10           0.7213              0.0471
-   *
-   * Three and a half times the follow-through at an eighth of the drive's force ceiling, which is
-   * the whole claim; it saturates at 0.06 and 0.10 buys nothing. **And it stops at 0.7213 m, which
-   * is `reachMax`** -- the envelope's own outer edge -- rather than at the arm's extension.
-   *
-   * `driveSeconds` is 0.03 for the reason rung 1's is 0.05: a stroke may overshoot into the margin
-   * but it must not *arrive* at a stop.
-   *
-   *     driveSeconds   reach at the drive's end   furthest reach   what happens
-   *         0.02                0.6184 m               0.7811 m     arrives at full extension
-   *         0.03                0.6742                 0.7213       stops at the envelope's edge
-   *         0.04                0.6783                 0.6794       the follow has nothing left
-   *         0.05                0.6591                 0.6794       likewise
-   *         0.07                0.6604                 0.6794       likewise
-   *         0.10                0.6599                 0.6794       likewise
-   *
-   * The 0.02 row is the failure: 0.7811 m against a full extension of 0.780, which is the arm
-   * straight and jammed against the elbow's own stop. Past 0.03 the opposite happens -- the
-   * command arrives at `reachThrust` while the drive is still running at full force, so the drive
-   * *brakes* the limb and the follow phase inherits nothing to carry. That is a pose sequence with
-   * extra steps, and it is what the first draft of this block shipped.
-   *
-   * `strokeRate` is 5 m/s, read at the thrust mark:
-   *
-   *     strokeRate   peak tip on the thrust
-   *          3             15.92 m/s
-   *          5             20.58
-   *          8             14.15
-   *         12             10.13
-   *         16             10.30
-   *
-   * **The turn at 8 is rung 1's own finding again in different units**: past 5 m/s the command
-   * outruns the limb, the drive ends with the limb still being accelerated by a motor closing an
-   * error rather than by anything a person did, and the stroke gets *slower*. 5 is the knee, and
-   * 20.58 m/s sits between rung 1's chop at 15.07 and the Warrior duelist's own driven peak of
-   * mean 16.00 m/s over the standard 120-bout corpus. 2026-09-04, the Node bench.
-   */
-  thrust: {
-    driveSeconds: 0.03,
-    followSeconds: 0.06,
-    /** The rate ceiling during a stroke, m/s. Lifted, not removed: see `anchorRate`. */
-    strokeRate: 5,
-    /**
-     * The follow-through's force ceiling, newtons.
-     *
-     * Not zero. Zero is a limb that has been let go of, and the difference between letting go and
-     * easing off is the whole of what follow-through means -- rung 1 says the same thing about
-     * its own 40 N.m against 320. 500 N against 3900 is about an eighth, which is the same
-     * fraction. 2026-09-04.
-     */
-    followForce: 500,
-  },
-
-  /**
-   * `cut`: the target swept along an arc inside the envelope, also as a velocity event.
-   *
-   * Down and inboard, which is the classic diagonal cut, and **mirrored for free** because
-   * `swing` is outboard-signed: one set of rates serves both sockets and there is no place for a
-   * sign to be got backwards.
-   *
-   * It is triggered by `thrust` **while `guard` is held**, which is not an extra control surface:
-   * `guard` is already a level and `thrust` already an edge, and a chambered guard is where a cut
-   * starts from anyway. That also settles what would otherwise be a real problem -- a cut swept
-   * from wherever the cursor happens to be has nowhere to go when the cursor is already at the
-   * inboard edge -- because `cover` puts the limb high before the cut runs.
-   *
-   * The clamp applies to a stroke's target exactly as it does to a cursor's: frozen rule 3 has no
-   * exception for strokes, so a cut that would carry the hand across the sternum stops at the
-   * envelope rather than being refused.
-   *
-   * The follow-through, measured as the swing and lift the limb carries past where the drive left
-   * it. The drive always ends at swing 0.0450 and lift 0.2490:
-   *
-   *     followSeconds   furthest swing   lowest lift   swing carried past the drive
-   *          0.00          -0.0046         0.1982              0.050 rad
-   *          0.03          -0.2033         0.0351              0.248
-   *          0.07          -0.3261        -0.1029              0.371
-   *          0.12          -0.3396        -0.1394              0.385
-   *          0.20          -0.3396        -0.1394              0.385
-   *
-   * Seven times the carry of no follow phase at all, saturating at 0.12; 0.07 is the knee.
-   *
-   *     driveSeconds   swing at the drive's end   furthest swing   what happens
-   *         0.05                0.5912                 0.2301       barely leaves the chamber
-   *         0.08                0.2528                -0.2747
-   *         0.11                0.0450                -0.3261       0.17 rad inside `swingMin`
-   *         0.15               -0.1461                -0.4538       0.05 rad inside it
-   *         0.22               -0.4954                -0.6881       arrives at the yaw stop
-   *
-   * 0.11 is taken, and the 0.22 row is why the table exists: the *achieved* swing is not clamped
-   * -- only the command is -- so a long enough drive carries the limb through the envelope and
-   * into the joint stop 0.20 rad outside it, which is a motor and a limit pushing at each other.
-   *
-   * `strokeRate` is 3 m/s, read at the cut mark:
-   *
-   *     strokeRate   peak tip on the cut   anchor stray during the stroke
-   *          3            22.20 m/s                 164.03 mm
-   *          5            32.57                     365.54
-   *          8            36.59                     348.63
-   *         12            28.63                     369.40
-   *         16            28.02                     376.36
-   *
-   * 3 is taken, and the column that decides it is the second rather than the first: above 3 the
-   * cut throws the limb a third of a metre from its own anchor and peaks past 30 m/s, which is
-   * beyond the Warrior duelist's mean committed cut of 16.00 m/s and most of the way to its
-   * recorded maximum of 43.13. 22.20 m/s is a heavy stone limb cutting hard; 36.59 is a limb being
-   * flung. 2026-09-04, the Node bench.
-   */
-  cut: {
-    driveSeconds: 0.11,
-    followSeconds: 0.07,
-    /** How fast the commanded swing travels inboard during the drive, rad/s. */
-    swingRate: 9,
-    /** And how fast it falls, rad/s. The two together are the diagonal. */
-    liftRate: 7,
-    /** The rate ceiling during the sweep, m/s, and the follow-through's force, newtons. */
-    strokeRate: 3,
-    followForce: 500,
-  },
 };
 
 /**
@@ -1279,18 +1142,46 @@ export const TERMINAL_PLATE = {
   /**
    * How far the board is carried outboard of the limb's own axis, metres, to the board's centre.
    *
-   * 0.16 is exactly `width / 2`, which puts the board's **inboard edge on the limb's axis**. That
-   * is the largest offset that still reads as a board on the end of an arm rather than a plate
-   * floating beside one -- which is the gate's own question about this terminal, so it bounds the
-   * number from above as firmly as clearance bounds it from below.
+   * **The owner's first playtest called this out by eye and it was right.** At the 0.16 this was
+   * built at -- exactly `width / 2`, the board's inboard edge on the limb's axis -- the golem
+   * carries the whole slab off to one side, and the report was "the golem shield is like a
+   * half-shield, it sticks out to the side (not symmetrical)". A board a limb passes through the
+   * middle of is what a shield looks like; a board a limb holds by its edge is a door.
+   *
+   * **It is also a guard, and that is why it is 0.12 and not 0**, which is the part the eye
+   * cannot see. On rung 1 the offset is the *only* thing keeping the board out of the block: that
+   * chain has one hinge and no swing, the socket stands 0.12 m outboard of the stand's own face
+   * (`BENCH_STAND.socketSide` 0.34 against a half-width of 0.22), and a 0.32 m board centred on
+   * the limb reaches 0.16 m inboard of it -- 0.04 m inside the face before anything rotates.
+   * Swept, deepest approach in mm over the whole envelope, positive is clearance:
+   *
+   *     offset   plate limits              pitch   reach   wrist
+   *      0.16     as shipped 09-04           107     -34    -198
+   *      0.16     as below                   107      84      63
+   *      0.12     as below                    72      72      48
+   *      0.08     as below                    33      46     -80
+   *      0.08     carry -0.10, reach 0.55     33     218      95
+   *      0.04     as shipped 09-04            -4    -141    -200
+   *      0.00     as shipped 09-04           -40    -191    -199
+   *      0.00     carry 0, lift -0.30, 0.55  -40     220     149
+   *
+   * **A centred board cannot be made to clear rung 1 at this board width**, at any narrowing:
+   * rung 1 has no axis to narrow, so the last row is -40 mm however much envelope is given up.
+   * The two levers that would buy it are a narrower board and a wider socket separation -- the
+   * arithmetic is `width / 2 <= socketSide - BENCH_STAND.width / 2`, so 0.24 m is where a centred
+   * board stops overlapping the block before anything rotates -- and both are the owner's call
+   * rather than a measurement's. 0.12 is the most of the complaint that can be paid for out of
+   * clearance alone: the limb now passes through the board rather than holding its edge, with
+   * 72 mm in hand on the chain that binds.
    *
    * **And on a wrist chain it is not a guard at all**, which is worth stating because the first
    * draft treated it as one: the offset runs along the *link's* lateral, and the roll turns that
    * lateral about the limb, so a rolled wrist carries the board wherever the roll points and the
    * word "outboard" stops meaning anything. It is a real guard on rungs 1 and 2, which have no
-   * roll, and on rung 3 what does the work is the board's size and the bend cap. 2026-09-04.
+   * roll, and on rung 3 what does the work is the board's size and the narrowing below.
+   * 2026-09-05.
    */
-  outboardOffset: 0.16,
+  outboardOffset: 0.12,
   /**
    * Mass, kilograms.
    *
@@ -1367,15 +1258,52 @@ export const TERMINAL_PLATE = {
    * inside the block at 1.0. It is still 34 degrees of tilt on top of a free roll, which is a
    * face that can be pointed. `tests/golem-bench.test.mjs` re-takes the whole sweep and fails on
    * the sign. 2026-09-04.
+   *
+   * ## The three narrowings beside it, and why the 2026-09-04 sweep could not have found them
+   *
+   * **That sweep could not reach the poses that break this**, and the reason is the vocabulary
+   * Session 12 replaced. Reach was two presets on two buttons, so the bench's clearance sweep
+   * crossed its envelope corners with `guard` -- which set a *short* reach and a bent wrist
+   * together, and `thrust`, which set a long reach and a straight one. Long-and-bent and
+   * short-and-level were not poses the command surface could express, so they were not swept, and
+   * one of them is 188 mm inside the block. `reach` is a continuous channel now and the sweep
+   * crosses it as its own axis; the hole was there the whole time and the button was hiding it.
+   *
+   * Deepest approach in mm over the whole envelope, at `outboardOffset` 0.12, positive is
+   * clearance. `carry`, `lift` and `reach` are this block's own floors; `--` is the chain's:
+   *
+   *     carry   liftMin   reachMin    pitch   reach   wrist
+   *     -0.15    --         --          72     -81    -200
+   *     -0.15    --         0.45        72      -8    -200
+   *     -0.15    -0.30      --          72       0     -73
+   *      --      -0.30      0.45        72      43     -85
+   *     -0.20    -0.30      0.45        72      41     -41
+   *     -0.15    -0.30      0.45        72      72      48
+   *     -0.10    -0.30      0.45        72      81      82
+   *     -0.05    -0.30      0.45        72     111      84
+   *     -0.15    -0.50      0.55        72     202     -84
+   *
+   * **All three are needed and none of them is the one that looked obvious.** `carryMin` alone
+   * does nothing at short reach, because the floor it imposes is `asin(carryMin / h)` and `h` is
+   * small when the arm is drawn in and lowered -- so the drawn-in cross-body pose the plate dies
+   * on is *inside* the carry rule by construction. `liftMin` alone leaves the long cross-body
+   * poses. `reachMin` alone leaves the low ones. The triple is what closes the corner.
+   *
+   * What each costs, stated plainly because it is expressiveness and not clearance: the plate
+   * cannot be drawn closer than 0.45 m (it has 0.27 m of the chain's 0.42 m of reach travel), it
+   * cannot be lowered below -0.30 rad (it keeps 1.35 rad of the chain's 2.00), and it cannot be
+   * carried further than 0.15 m inboard of its own socket, which is still 0.19 m *outboard of the
+   * golem's centreline*. A shield that cannot be tucked against the chest or dropped to the hip
+   * is a shield being held where a shield is held. 2026-09-05.
    */
   limits: {
-    reachMin: null,
+    reachMin: 0.45,
     reachMax: null,
     swingMin: null,
     swingMax: null,
-    liftMin: null,
+    liftMin: -0.30,
     liftMax: null,
-    carryMin: null,
+    carryMin: -0.15,
     rollMax: null,
     bendMax: 0.6,
   },
@@ -1964,15 +1892,58 @@ export const LOCOMOTION_BIPED = {
    * `strideSwing` is the hip amplitude at full speed. 0.50 rad is 29 degrees, against a Warrior's
    * 0.62; smaller on a heavier body, and it is what the cadence above was solved against, so
    * moving one moves the other. `kneeLiftScale` is how much the swing leg's knee folds as it
-   * comes through, as a multiple of the hip swing -- 1.4 lifts the sole about 0.13 m at full
-   * speed, which clears the ground and stays inside the 0.18 m step envelope the support query
-   * admits, so the swing foot's evidence goes stale for as little of the cycle as possible.
-   * 2026-09-04, the Node bench.
+   * comes through, as a multiple of the hip swing: at the 2.4 shipped here the swing sole clears
+   * **209.3 mm** at full speed, against 97.5 at 1.4. Re-measured 2026-09-05 because the sentence
+   * here said "1.4 lifts the sole about 0.13 m", which was a number for a value this field has
+   * not held and was wrong for that value too.
+   *
+   * **And the clause after it was wrong in kind, not just in digits.** It said the lift "stays
+   * inside the 0.18 m step envelope the support query admits", which reads as a constraint and is
+   * not one: `SUPPORTED_CARRIER_V1.STEP_HEIGHT_M` is how high a *ledge* the carrier will step up
+   * onto, and it has nothing to say about how far a cosmetic swing foot rises off flat ground.
+   * The reading that does bear on the support query is `longestSupportGapSeconds`, and over the
+   * walk it is 0 at this lift -- the planted sole never stops being evidence, because the two
+   * feet are half a cycle apart and only one of them is ever in the air. 2026-09-04, corrected
+   * 2026-09-05, the Node bench.
    */
   strideCadence: 4.4,
   strideSwing: 0.50,
   kneeLiftScale: 2.4,
   kneeLiftPhase: 1.5,
+
+  /**
+   * The hip's *abduction* amplitude at full sideways travel, radians. The strafe's `strideSwing`.
+   *
+   * **A separate number from `strideSwing` because the joint it drives is a different size.** The
+   * hip flexes through `hipSwingMin..hipSwingMax`, 1.60 rad of range, and abducts through
+   * `+/-hipAbduct`, 0.40 rad of it -- the splits limit this whole file is shaped by. So a golem
+   * side-steps in a shuffle rather than a stride, and that is anatomy rather than a compromise: at
+   * 0.16 rad each sole moves 0.72 sin(0.16) = 0.115 m off its own hip, which against a stance of
+   * 2 x 0.19 m is a foot that never crosses the centreline.
+   *
+   * Swept over a six-second full-speed strafe, reading the stillest planted sole's slip in mm/s --
+   * which is what "floating" is, and the instrument was already here:
+   *
+   *     strideAbduct   mean slip   peak slip
+   *       0 (axis idle)   702.1      2291.5
+   *       0.08            638.2      2220.1
+   *       0.12            588.5      2172.4
+   *       0.16            536.3      2159.3
+   *       0.20 (= stop)   486.5      2160.4
+   *
+   * **The zero row is not the state this replaced**, and the difference between the two is worth
+   * more than the sweep is. Before any of this the same strafe read **1135.9 mm/s** -- 95 % of the
+   * carrier's own 1200 -- because the knee lift scaled on the *fore-aft* part of the travel, so a
+   * strafing golem dragged both soles through the whole cycle without ever picking one up. Lifting
+   * the feet is worth 434 mm/s and swinging them sideways is worth another 166; the first is the
+   * larger half and neither is the whole.
+   *
+   * 0.16 is taken over 0.20: the 0.20 row *is* `hipAbduct`, so it commands the joint onto its own
+   * stop at every stride peak, and a commanded angle at a stop is a motor and a limit pushing at
+   * each other -- the buzz this directory has removed twice. It buys 50 mm/s. 2026-09-05, the
+   * Node bench.
+   */
+  strideAbduct: 0.16,
 
   /**
    * How close a sole has to be to the ground before the instrument calls it planted, metres.

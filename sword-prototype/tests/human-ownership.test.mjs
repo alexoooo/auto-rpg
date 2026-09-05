@@ -11,11 +11,13 @@ const intent = (base, actingHand = "primary") => ({
   natural: { thrust: base === 0, guard: base !== 0 },
   posture: { trunkLean: base + 4, trunkTwist: base + 5, crouch: base + 6 },
   primary: {
-    pointerX: base + 7, pointerY: base + 8, roll: base + 9, wristBend: base + 10,
+    pointerX: base + 7, pointerY: base + 8, reach: base + 15,
+    roll: base + 9, wristBend: base + 10,
     thrust: base === 0, guard: base !== 0,
   },
   secondary: {
-    pointerX: base + 11, pointerY: base + 12, roll: base + 13, wristBend: base + 14,
+    pointerX: base + 11, pointerY: base + 12, reach: base + 16,
+    roll: base + 13, wristBend: base + 14,
     thrust: base !== 0, guard: base === 0,
   },
 });
@@ -50,6 +52,10 @@ test("ai_assist_remains_the_owner_when_direct_body_control_is_disabled", () => {
   assert.notDeepEqual(policy.natural, human.natural, "the two sides really disagree here");
   assert.equal(out.primary.pointerX, human.primary.pointerX);
   assert.equal(out.primary.pointerY, human.primary.pointerY);
+  // Reach is on the position side of the split, so it follows the two pointer
+  // axes and not the wrist -- see `composeHand`. A person holding the buttons is
+  // holding the extension whether or not they own the wrist.
+  assert.equal(out.primary.reach, human.primary.reach);
   assert.equal(out.primary.roll, policy.primary.roll);
   assert.equal(out.primary.wristBend, policy.primary.wristBend);
   assert.deepEqual(out.secondary, policy.secondary);

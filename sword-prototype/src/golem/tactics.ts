@@ -9,7 +9,7 @@
 // `src/action-primitives.ts`: those strokes are shaped for a Warrior's seven-axis arm and their
 // ranges are an arming sword's length, and reaching for them here is the exact mistake this
 // session was told to avoid.
-import { isShield } from "../hands.ts";
+import { isShield, type Striker } from "../hands.ts";
 import type { BodyView, FighterView, HandIntent, HandName, Intent } from "../mind.ts";
 import type { EffectorCapability, GolemCapabilities } from "./module.ts";
 
@@ -27,6 +27,7 @@ import type { EffectorCapability, GolemCapabilities } from "./module.ts";
  * | can this effector attack at all | `capabilities.effectors[hand].strokes` carries `thrust` |
  * | is a stroke a swept cut or a chop | the same list carries `cut` |
  * | can it be held as a guard | the same list carries `cover` |
+ * | how far the business end may be sent | `reachable.reachMin`/`reachMax`, against `HandView.reach` |
  * | can the arm be aimed across the body | `reachable` is non-null and its swing span is non-zero |
  * | can the terminal be turned to face | `rollMax` is above zero |
  * | how far the business end goes | `HandView.reach` |
@@ -40,6 +41,17 @@ import type { EffectorCapability, GolemCapabilities } from "./module.ts";
  * `cut`, so a golem carrying one chops rather than sweeping; an arm chain publishes all three; a
  * capped socket publishes none and this mind will not try to fight with it. A plate is described
  * as a shield, so it is what the golem covers with and it attacks only when nothing else can.
+ *
+ * **`strokes` is a description and no longer a menu, as of 2026-09-05.** It used to be both: the
+ * mind read it to decide what it could ask for, and then asked for it by pressing a button that a
+ * scripted sweep inside the chain executed. Session 12 deleted those sweeps -- an arm chain is now
+ * a pure follower of a commanded point, and `thrust` and `guard` are levels a body may read rather
+ * than poses a body imposes -- so the list survives as an advertisement and nothing else. The
+ * consequence for this file is the whole of the rewrite below: **the mind owns its own stroke**.
+ * A cut is this mind sweeping the commanded point through the mark on its own clock, at its own
+ * rate, over its own arc, and the only thing that decides whether the limb gets there is the force
+ * budget. There is no edge to press and nothing that starts on a rising edge; every frame of an
+ * exchange is a position and a reach that a person with a mouse could have asked for.
  *
  * **Every hand command is inside the envelope by construction.** The two aiming axes are written
  * by inverting the *published* span -- `unspan` is `spanned` in `arm-core.ts` read backwards and
@@ -312,12 +324,20 @@ export const GOLEM_TACTICS = {
   /**
    * The three legs of one exchange, in seconds.
    *
-   * `chamberSeconds` is what the arm is given to get to the chambered pose before the button goes
-   * down, and it is the number the drive's own rate limit decides: the anchor moves the commanded
-   * point at 1.2 m/s outside a stroke, so a chamber that crosses most of the shell wants about two
-   * tenths. `commitSeconds` has to outlast the module's own stroke, which is 0.18 s for an arm
-   * chain's cut and 0.09 s for a one-axis chop -- and outlasting it is free, because a stroke is an
-   * edge and a held button starts nothing. `recoverSeconds` is the guard going back up.
+   * `chamberSeconds` is what the arm is given to get to the chambered pose, and it is the number
+   * the drive's own rate limit decides: the anchor moves the commanded point at `CHAIN_REACH
+   * .anchorRate` m/s, so a chamber that crosses most of the shell wants about two tenths.
+   * `commitSeconds` has to outlast `strokeSeconds` below, which is the sweep this mind now drives
+   * itself; the remainder is the follow-through, and it is the interval during which the command
+   * sits still at the end of the arc and the limb goes on arriving at it. `recoverSeconds` is the
+   * guard going back up.
+   *
+   * **The second sentence used to be about a button and a module's own stroke, and is dated
+   * 2026-09-05.** It read "`commitSeconds` has to outlast the module's own stroke, which is 0.18 s
+   * for an arm chain's cut", which was true while the chain owned the sweep and is now a statement
+   * about a script that no longer exists. The arithmetic survives the change unaltered -- 0.11 s of
+   * drive inside a 0.22 s commit is exactly the cadence that was measured -- because the rewrite
+   * reproduced the old motion from the mind's side before changing any of it.
    *
    * Swept together as one cadence multiplier on the default golem, 8 side-swapped bouts, seed
    * 20260904, Node arena harness:
@@ -372,9 +392,177 @@ export const GOLEM_TACTICS = {
    * rather than to this table -- **the least windup wins**, so on these numbers form loses to
    * frequency, and whether a golem that barely chambers *looks* like it is fighting is exactly the
    * question no column here can answer.
+   *
+   * ## Re-swept 2026-09-05, and the monotone is gone
+   *
+   * Both tables above were taken while the *chain* owned the sweep, so a chamber could only slide a
+   * fixed-length arc along itself: chambering further left the arc ending less far past the mark
+   * and bought nothing. That is the shape the old table has, and it was predicted to be an artefact
+   * before it was re-measured. It was. Same cell, 32 side-swapped bouts, with the mind driving the
+   * arc from `+chamberSwing` to `-followSwing`, so a deeper chamber makes the arc genuinely longer:
+   *
+   * | swing / lift | damage taken / bout | seconds to win | damage dealt | mean alignment | severs |
+   * |---|---:|---:|---:|---:|---:|
+   * | **0.05 / 0.04** | **63.58** | 12.68 | 18.17 | **0.640** | **13** |
+   * | 0.75 / 0.58 | 63.79 | 11.67 | 17.03 | 0.594 | 4 |
+   *
+   * 3.3x between the ends of the old grid; a dead heat on damage taken between the ends of this
+   * one, with the deep chamber a second faster and the shallow one cutting better. A 16-bout grid
+   * across all five of the old rows says the same thing -- 11.80 s to 13.52 s, no ordering.
+   *
+   * **So this constant is now nearly free, and the human gate is what should spend it.** The
+   * measurement no longer has an opinion worth overriding a person's eye with, and "does a golem
+   * that visibly winds up look more like it is fighting" is exactly the question the owner is being
+   * asked to answer. It ships at 0.05 because that is fewer changes at once and because alignment
+   * and severs both prefer it, and it is flagged here as the first knob to turn if the answer to
+   * that question is no.
    */
   chamberSwing: 0.05,
   chamberLift: 0.04,
+
+  /**
+   * The sweep the mind drives through the mark: how far past it the arc carries, radians, and how
+   * long the commanded point takes to travel the whole arc.
+   *
+   * **This is the stroke, and as of 2026-09-05 it lives here rather than inside the chain.** Until
+   * Session 12 a cut was an event: the mind pressed two buttons and `arm-core.ts` swept its own
+   * target 0.99 rad inboard and 0.77 rad down at 9 and 7 rad/s over a 0.11 s drive, followed by
+   * 0.07 s of follow-through at a raised force. The mind could choose *when*, and nothing else --
+   * not the arc, not the rate, not where in the arc the mark fell. These four numbers are that
+   * stroke restated as something a mind chooses, and their defaults were picked to reproduce it to
+   * the digit: the arc runs from `+chamberSwing` outboard of the mark to `-followSwing` inboard of
+   * it, so with the shipped chamber the commanded point travels 0.05 + 0.94 = 0.99 rad and
+   * 0.04 + 0.73 = 0.77 rad over `strokeSeconds`, which is 9 and 7 rad/s.
+   *
+   * **What changes is what `chamberSwing` now means.** It used to shift a fixed-length sweep, so
+   * chambering further only moved where in the arc the mark fell -- and the measured answer was
+   * that the least windup won, which is the shape a shifted arc predicts and not a fighting
+   * observation. Now the chamber is one end of the arc and the follow is the other, so chambering
+   * further makes the arc *longer* and, at a fixed `strokeSeconds`, faster. That is the windup a
+   * person recognizes, and it is a testable prediction: the monotone "least windup wins" ordering
+   * in `chamberSwing`'s own table should reverse, up to the point where the force budget refuses
+   * the extra rate. Re-swept below.
+   *
+   * A chain that cannot be pointed across the body sweeps neither, and gets the same chop it always
+   * got: `raise` steps to zero and rung 1's own rate limit is the whole of the motion.
+   */
+  followSwing: 0.94,
+  followLift: 0.73,
+  /**
+   * How long the commanded point takes to travel the whole arc, seconds.
+   *
+   * Swept on the default golem against the Warrior duelist, **32 side-swapped bouts**, seed
+   * 20260904, 60 s cap, Node arena harness, 2026-09-05. Every row wins every bout, so the columns
+   * that separate them are how long that took and what it cost:
+   *
+   * | strokeSeconds | seconds to win | damage taken / bout | damage dealt | peak anchor stray, mm |
+   * |---:|---:|---:|---:|---:|
+   * | 0.11 | 12.68 | 63.58 | 18.17 | 657 |
+   * | **0.15** | **10.18** | **52.86** | 15.53 | **543** |
+   *
+   * **The slower command is the faster stroke, and that is the force budget talking.** 0.11 is
+   * where the deleted `CHAIN_REACH.cut` drove -- 0.99 rad over 0.11 s is its 9 rad/s -- and asking
+   * for it costs 21 % more time to win and 20 % more damage taken than asking for two thirds of it.
+   * The stray column is the reason and it is the same reading `CHAIN_REACH.anchorRate` was chosen
+   * on: past the rate the anchor's newtons can actually deliver against the arm's mass, commanding
+   * harder only opens the gap between where the hand is told to be and where it is, and a hand that
+   * is 657 mm behind its own command is not swinging along the arc the mind picked. A wider grid at
+   * 16 bouts read 20.72 s at 0.05 and 14.28 s at 0.20, so the interior optimum is real and not a
+   * monotone cut off at the end of the range.
+   */
+  strokeSeconds: 0.15,
+
+  /**
+   * Where the business end is held on the reach axis, normalized on the published shell.
+   *
+   * **Three numbers that used to be two booleans**, and the reason they are here is Session 12: a
+   * `guard` press pulled an arm chain in to 0.36 m and a `thrust` press drove it out to 0.66 m, and
+   * those were the only two distances any policy could ever ask for. Measured over 8 bouts before
+   * the change: the golem asked for **one** distinct reach per hand against a shell 0.42 m deep.
+   * The channel is continuous now and these are where this policy chooses to sit on it -- a
+   * starting point on a line, not the line itself.
+   *
+   * Normalized rather than metres, deliberately, and this is the same argument `writeAim` makes
+   * about `raise`: -1 is drawn fully in and +1 fully out on whatever shell the fitted chain
+   * publishes, so a whip and a stub arm both guard "drawn in" without this file knowing either
+   * one's length. The one place a distance is honest is the strike, and that is not a constant at
+   * all -- it is `reachForDistance` of the actual gap to the mark, so the golem extends as far as
+   * it needs to reach what it is hitting and no further.
+   *
+   * **The split between the two is the terminal's own description and not a socket.** A shield is
+   * held drawn in, because what a board does it does by being between two bodies; anything else
+   * held as a guard is put *out*, on the line the threat is coming down, because what a blade does
+   * as a guard it does by being where the other blade has to pass. `isShield` is the same predicate
+   * this file already uses to decide which hand attacks and which way a cover is turned, so a golem
+   * with a plate in each socket covers with both and one with two blades meets both, and neither
+   * case is a branch on what is fitted where.
+   *
+   * Swept separately, default golem -- blade in the primary, plate in the secondary -- against the
+   * Warrior duelist, seed 20260904, Node arena harness. Every row of both wins every bout, so the
+   * column is damage taken:
+   *
+   * | `guardReach`, the blade | damage taken / bout | seconds to win | 32 bouts |
+   * |---:|---:|---:|---|
+   * | -0.70 | 63.58 | 12.68 | the old `guard` button's distance |
+   * | 0.00 | 51.95 | 10.72 | |
+   * | **0.70** | **42.10** | **8.15** | |
+   * | 1.00 | 43.06 | 9.32 | against the outboard stop |
+   *
+   * | `shieldReach`, the plate | damage taken / bout | seconds to win | 16 bouts |
+   * |---:|---:|---:|---|
+   * | -1.00 | 60.66 | 15.48 | against the inboard stop |
+   * | **-0.70** | **60.01** | **11.88** | |
+   * | -0.30 | 78.11 | 13.84 | |
+   * | 0.20 | 69.21 | 13.30 | |
+   * | 0.70 | 80.89 | 17.41 | |
+   *
+   * **The two go opposite ways and that is the whole of why the split exists.** Held at the same
+   * -0.70 the golem takes a third more damage than it needs to, and the reason is legible in the
+   * geometry: an arm drawn in is 0.36 m of anchor plus a blade that is pointing wherever the wrist
+   * left it, which meets an incoming point about at the golem's own chest. Out at 0.70 the same
+   * blade meets it two thirds of a metre earlier, which is both a parry and a threat. A plate has
+   * almost no overhang to put anywhere, so extending it only walks the board away from the body it
+   * is covering -- and the row at 0.70 is 35 % more damage taken and the slowest in the table.
+   *
+   * -0.70 is also, to three decimal places, where the deleted `guard` button used to put an arm
+   * chain's anchor: 0.36 m on a 0.30..0.72 shell is -0.714. So the shield row that ships is the
+   * pose the body used to impose on everything, and the blade row that ships is one the old
+   * vocabulary could not ask for at all.
+   */
+  guardReach: 0.70,
+  shieldReach: -0.70,
+  chamberReach: -0.70,
+
+  /**
+   * Where along the business end the cut is meant to land, as a fraction of the terminal's overhang
+   * measured back from the point.
+   *
+   * The other half of `reachForDistance`, and the number that says a cut is not a poke. See that
+   * function for why 0 -- the point exactly on the mark -- costs half the golem's damage.
+   *
+   * Swept on the default golem against the Warrior duelist, 16 side-swapped bouts, seed 20260904,
+   * Node arena harness, 2026-09-05:
+   *
+   * | bite | seconds to win | damage / bout | wins | severs |
+   * |---:|---:|---:|---:|---:|
+   * | 0.00 | 50.03 | 10.90 | 3/8 | 3 |
+   * | 0.31 | 13.16 | 15.57 | 16/16 | 4 |
+   * | 0.45 | 13.09 | 18.81 | 16/16 | 5 |
+   * | 0.55 | 14.09 | 18.24 | 16/16 | 6 |
+   * | **0.66** | **11.88** | 17.58 | **16/16** | 7 |
+   * | 0.80 | 11.88 | 17.88 | 16/16 | 8 |
+   *
+   * (The 0.00 row is the 8-bout run that found the problem, and is left at 8 because there was no
+   * question left to answer once three quarters of the bouts had stopped being wins.)
+   *
+   * **0.66 and 0.80 are the same body, digit for digit, and that is what picks 0.66.** Above about
+   * two thirds the answer saturates against `reachMax` at every distance this mind commits from,
+   * so every larger value is "fully extended" written differently -- and 0.66 is the largest one
+   * that is still the derivation rather than a constant in disguise. Below the inner radius, where
+   * a golem that has been crowded actually is, it goes on drawing the arm in and the rows above it
+   * do not.
+   */
+  strikeBite: 0.66,
 
   /**
    * Where a cover is held, in the same vocabulary: across the line and a little below it.
@@ -559,12 +747,19 @@ function aimAt(socket: Point, mark: Point, frameHeading: number, outboard: numbe
 }
 
 /**
- * Write the two aiming axes of one hand, inside the published span and nowhere else.
+ * Write the three positional axes of one hand, inside the published span and nowhere else.
  *
  * The branch is the capability and not a body: an effector with no reachable set has no point to
  * command, so `pointerX` is a channel nothing reads and `pointerY` spans whatever single axis the
  * chain does have. `raise` is what that chain is asked for instead -- normalized, because the only
  * honest thing a mind can say about an axis it cannot see the units of is "as far up as you go".
+ *
+ * **`reach` is the third axis and it arrives already normalized**, because that is the vocabulary
+ * the channel is in: -1 is drawn fully in against `reachMin` and +1 is fully out against `reachMax`,
+ * on whatever shell this chain happens to publish. A caller that has a *distance* rather than a
+ * fraction converts it with `reachForDistance` first, which is the only place in this file where a
+ * length is turned into a command. Passing it through here rather than writing it at the call site
+ * keeps "every hand command is inside the envelope by construction" true of one function.
  */
 function writeAim(
   hand: HandIntent,
@@ -574,16 +769,71 @@ function writeAim(
   swingOffset: number,
   liftOffset: number,
   raise: number,
+  reach: number,
 ): void {
   const shell = cap.reachable;
   if (!shell) {
     hand.pointerX = 0;
     hand.pointerY = clamp(raise, -1, 1);
+    hand.reach = 0;
     return;
   }
   hand.pointerX = unspan(aim.swing + swingOffset, shell.swingMin, shell.swingMax) * outboard;
   hand.pointerY = unspan(aim.lift + liftOffset, shell.liftMin, shell.liftMax);
+  hand.reach = clamp(reach, -1, 1);
 }
+
+/**
+ * Where the reach axis has to sit for the mark to fall on the business end.
+ *
+ * **The one derivation in this file, and it is a coordinate change rather than a tuning.** The
+ * shell publishes where the *anchor* may be put -- `reachMin` to `reachMax`, metres from the socket
+ * -- and `HandView.reach` says where the *business end* is when that anchor is at its outboard
+ * stop. The difference between the two is what the terminal adds on the end of the chain, whatever
+ * terminal is bolted on: a blade and its wrist overhang the anchor by most of a metre, a plate by
+ * almost nothing, and neither this function nor its callers has to know which is fitted.
+ *
+ * `bite` is where along that overhang the mark is wanted, as a fraction of it from the tip: 0 puts
+ * the point exactly on the mark and 1 puts the anchor there with the whole terminal beyond. **It
+ * exists because 0 is the wrong answer for a cut and the measurement says so plainly.** Written
+ * first without it -- point on the mark, which is the obvious reading of "reach for what you are
+ * hitting" -- the golem's damage against the Warrior halved, from 20.38 a bout to 10.90, and its
+ * record went from 8 wins in 8 to 3. Two reasons, and they are the same reason twice: an arm long
+ * enough to put its point on a target is an arm drawn most of the way in, so the sweep has the
+ * short lever arm *and* only the last centimetre of edge is anywhere near the opponent. A cut wants
+ * the target crossed by the middle of the blade with the arm out, which is what the deleted
+ * `reachThrust` constant had been doing by accident: 0.66 m of anchor against a 1.39 m hold put the
+ * mark about a third of the way down from the point.
+ *
+ * `unspan` clamps the answer into the shell, so a mark further away than the chain can be sent
+ * arrives as full extension rather than as a refusal -- frozen rule 3, at the one place in this
+ * file where a length becomes a command. A chain with no reachable set answers zero, for the reason
+ * `writeAim` gives about `pointerX`: a command written into an axis that does not exist is a
+ * channel nobody reads.
+ */
+function reachForDistance(
+  metres: number,
+  reach: number,
+  cap: EffectorCapability,
+  bite: number,
+): number {
+  const shell = cap.reachable;
+  if (!shell) return 0;
+  const overhang = reach - shell.reachMax;
+  return unspan(metres - overhang * (1 - bite), shell.reachMin, shell.reachMax);
+}
+
+/**
+ * How far out a hand holds its cover, normalized on its own shell.
+ *
+ * The one place the two guard distances are chosen between, and the question it asks is what the
+ * terminal *is* rather than which socket it is in -- so a golem with a plate in each hand covers
+ * with both drawn in, one with two blades meets the threat with both out, and the default build
+ * does one of each without this file knowing that is what it has. See `GOLEM_TACTICS.guardReach`
+ * for the two sweeps and for why they go opposite ways.
+ */
+const coverReachFor = (weapon: Striker): number =>
+  isShield(weapon) ? GOLEM_TACTICS.shieldReach : GOLEM_TACTICS.guardReach;
 
 /** A blank command this mind owns and overwrites in place; `decide` runs 240 times a second. */
 const freshGolemIntent = (): Intent => ({
@@ -593,8 +843,8 @@ const freshGolemIntent = (): Intent => ({
   actingHand: "primary",
   natural: { thrust: false, guard: false },
   posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },
-  primary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
-  secondary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
+  primary: { pointerX: 0, pointerY: 0, reach: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
+  secondary: { pointerX: 0, pointerY: 0, reach: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
 });
 
 /** What the tactics expose to a test and to the policy that names them. */
@@ -757,6 +1007,14 @@ export function golemTactics(seed: number): GolemTactics {
         guardMark.x = them.ground.x; guardMark.y = them.shoulder.y; guardMark.z = them.ground.z;
       }
       aimAt(socket, mark, trunkHeading, me.outboard, aim);
+      // How far out the reach axis has to be for the business end to arrive *on* the mark. Not a
+      // constant and not a preset: the golem extends as far as the thing it is hitting is away,
+      // clamped into its own shell, so an opponent inside the inner radius is struck with a drawn
+      // arm and one at the far edge with a straight one. This is the whole of what the deleted
+      // `reachThrust` used to say, said from the outside and about the fight rather than about
+      // the chain.
+      const strikeReach =
+        reachForDistance(distance(socket, mark), reach, cap, GOLEM_TACTICS.strikeBite);
 
       // ---- the feet ----------------------------------------------------------------------------
       const bearing = Math.atan2(them.ground.x - self.ground.x, them.ground.z - self.ground.z);
@@ -818,8 +1076,13 @@ export function golemTactics(seed: number): GolemTactics {
         aimAt(spareSocket, guardMark, trunkHeading, self.hands[spare].outboard, cover);
         const across = isShield(self.hands[spare].weapon)
           ? -GOLEM_TACTICS.coverAcross : GOLEM_TACTICS.coverAcross;
+        // The cover's distance is written rather than pressed: until 2026-09-05 this line was
+        // `off.guard = true` and the pull-in was the chain's, which is why the off hand had exactly
+        // one distance for the whole of every bout. `guard` is still written below because it is
+        // still true -- this hand *is* covering, and a body that reads the level is entitled to
+        // know -- but nothing on the default golem reads it and no pose depends on it any more.
         writeAim(off, spareCap, cover, self.hands[spare].outboard,
-          across, GOLEM_TACTICS.coverLift, 1);
+          across, GOLEM_TACTICS.coverLift, 1, coverReachFor(self.hands[spare].weapon));
         off.roll = 0;
         off.wristBend = spareCap.bendMax > 0 ? GOLEM_TACTICS.coverBend : 0;
         off.thrust = false;
@@ -827,6 +1090,7 @@ export function golemTactics(seed: number): GolemTactics {
       } else {
         off.pointerX = 0;
         off.pointerY = 0;
+        off.reach = 0;
         off.roll = 0;
         off.wristBend = 0;
         off.thrust = false;
@@ -839,13 +1103,16 @@ export function golemTactics(seed: number): GolemTactics {
         ? (chambering || committing ? GOLEM_TACTICS.cutBend : GOLEM_TACTICS.coverBend) : 0;
 
       if (stance === "approach" || stance === "measure" || stance === "withdraw") {
-        // A guard held, on the covering line. `guard` is a level: on an arm chain it pulls the
-        // business end in and raises it, and on a one-axis chain it raises the whole limb, and
-        // either way it is what "between exchanges" looks like.
+        // A guard held, on the covering line: the business end drawn in to `guardReach` and raised
+        // onto the line the threat is coming down. That used to be one boolean, and the boolean is
+        // still written -- it says truthfully that this hand is covering -- but the *pose* is three
+        // continuous axes now, which is what lets a guard be held anywhere in the shell rather than
+        // at the one distance a chain happened to pick.
         hand.guard = canCover(cap);
         hand.thrust = false;
         aimAt(socket, guardMark, trunkHeading, me.outboard, cover);
-        writeAim(hand, cap, cover, me.outboard, 0, GOLEM_TACTICS.coverLift, 1);
+        writeAim(hand, cap, cover, me.outboard, 0, GOLEM_TACTICS.coverLift, 1,
+          coverReachFor(me.weapon));
 
         if (stance === "withdraw") {
           intent.forward = -1;
@@ -889,38 +1156,61 @@ export function golemTactics(seed: number): GolemTactics {
       elapsed += dt;
 
       if (stance === "chamber") {
-        // The button is up and the guard is down, so the chain's own `wanted` pose is what the
-        // cursor says and the stroke will start from there. Chambered outboard and above the mark
-        // by half the sweep the module is about to run, which is what puts the middle of that sweep
-        // on it -- and a chain with no azimuth is simply raised, because there is nothing else it
-        // can be asked for.
+        // The windup: outboard of the mark, above it, and drawn in. This is one end of the arc the
+        // commit is about to sweep, and the whole of what the chamber is for -- the further it is
+        // taken the longer that arc is and the faster the point has to travel it, because
+        // `strokeSeconds` does not move. A chain with no azimuth is simply raised, because there is
+        // nothing else it can be asked for.
         hand.guard = false;
         hand.thrust = false;
         writeAim(hand, cap, aim, me.outboard,
-          canSwing(cap) ? GOLEM_TACTICS.chamberSwing : 0, GOLEM_TACTICS.chamberLift, 1);
+          canSwing(cap) ? GOLEM_TACTICS.chamberSwing : 0, GOLEM_TACTICS.chamberLift, 1,
+          GOLEM_TACTICS.chamberReach);
         if (elapsed >= GOLEM_TACTICS.chamberSeconds) goTo("commit");
         return intent;
       }
 
       if (stance === "commit") {
-        // **Both buttons, and the order is the capability.** A press with the guard held is the
-        // swept cut on a chain that has one and the chop on a chain that does not, which is why
-        // there is no branch here: the pair decides what the stroke *is*, and the module decides
-        // what it does. Holding both starts nothing further -- a stroke is an edge -- so the mind
-        // may sit on the buttons until it is ready to recover.
-        hand.guard = canCover(cap);
+        // **The stroke, driven from here.** Until 2026-09-05 these six lines pressed two buttons
+        // and waited: the pair `guard + thrust` named a swept cut on a chain that had one and a
+        // chop on a chain that did not, and `arm-core.ts` ran the arc. There is no such script now,
+        // and if this stance still pressed buttons the golem would stand with its arm on the mark
+        // for 0.22 s and hit nothing.
+        //
+        // So the arc is swept here, in the same published vocabulary every other pose in this file
+        // is written in: from the chambered end, through the mark, to `followSwing` inboard and
+        // `followLift` below it, linearly over `strokeSeconds`. The mark is crossed a
+        // `chamberSwing / (chamberSwing + followSwing)` fraction of the way along, and what happens
+        // after `t` reaches 1 is the follow-through -- the command sits at the end of the arc for
+        // the rest of `commitSeconds` while the limb goes on arriving, which is what the deleted
+        // `followSeconds` was and is free here because a position held is not an event repeated.
+        //
+        // Nothing in it is rate-limited by this file. The commanded point travels the arc on the
+        // clock; whether the limb *follows* is the anchor's force budget against real mass, which
+        // is frozen rule 4 and the only thing that should ever be the binding constraint.
+        const swept = canSwing(cap) ? 1 : 0;
+        const t = GOLEM_TACTICS.strokeSeconds > 0
+          ? clamp(elapsed / GOLEM_TACTICS.strokeSeconds, 0, 1)
+          : 1;
+        hand.guard = false;
         hand.thrust = true;
-        writeAim(hand, cap, aim, me.outboard, 0, 0, 0);
+        writeAim(hand, cap, aim, me.outboard,
+          swept * (GOLEM_TACTICS.chamberSwing
+            - t * (GOLEM_TACTICS.chamberSwing + GOLEM_TACTICS.followSwing)),
+          GOLEM_TACTICS.chamberLift - t * (GOLEM_TACTICS.chamberLift + GOLEM_TACTICS.followLift),
+          0,
+          GOLEM_TACTICS.chamberReach + t * (strikeReach - GOLEM_TACTICS.chamberReach));
         if (elapsed >= GOLEM_TACTICS.commitSeconds) goTo("recover");
         return intent;
       }
 
       // Recover: the guard goes back up immediately and the aim walks back to the covering line
-      // under it, because the limb is what is slow and the button is not.
+      // under it, because the limb is what is slow and the command is not.
       hand.guard = canCover(cap);
       hand.thrust = false;
       aimAt(socket, guardMark, trunkHeading, me.outboard, cover);
-      writeAim(hand, cap, cover, me.outboard, 0, GOLEM_TACTICS.coverLift, 1);
+      writeAim(hand, cap, cover, me.outboard, 0, GOLEM_TACTICS.coverLift, 1,
+        coverReachFor(me.weapon));
       if (elapsed >= GOLEM_TACTICS.recoverSeconds) {
         cooldown = GOLEM_TACTICS.cooldown;
         prefer = spare;

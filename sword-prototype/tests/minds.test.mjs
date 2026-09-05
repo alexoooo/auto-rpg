@@ -985,14 +985,16 @@ test("the person keeps the feet and the hand the mouse is on", () => {
 
   // Position and buttons are theirs; wrist orientation is policy-owned.
   assert.deepEqual(out.primary, {
-    pointerX: 0.4, pointerY: -0.3, roll: -1.1, wristBend: 0, thrust: true, guard: false,
+    pointerX: 0.4, pointerY: -0.3, reach: NEUTRAL.primary.reach,
+    roll: -1.1, wristBend: 0, thrust: true, guard: false,
   });
   // And the spare one takes the policy's plan **for that same hand** -- not the
   // plan it made for the hand it is attacking with. That distinction is the
   // whole of this rule: a policy plans a hand by what is in it, so its secondary
   // plan is a plan for the secondary's weapon.
   assert.deepEqual(out.secondary, {
-    pointerX: 0.15, pointerY: -0.05, roll: 1.4, wristBend: 0, thrust: false, guard: true,
+    pointerX: 0.15, pointerY: -0.05, reach: NEUTRAL.secondary.reach,
+    roll: 1.4, wristBend: 0, thrust: false, guard: true,
   });
 });
 
@@ -1124,8 +1126,10 @@ test("the policy's attack does not follow the person round to the other arm", ()
   // shield, take the sword, and the old rule copied `theirs[theirs.actingHand]` --
   // the swing -- onto whichever arm was spare. That arm was the shield's. The
   // board was being swung on the commit stroke of a cut, for the whole bout.
-  const cut = { pointerX: -0.9, pointerY: 0.8, roll: -0.93, wristBend: 0, thrust: false, guard: false };
-  const cover = { pointerX: 0.55, pointerY: 0.1, roll: 1.2, wristBend: 0, thrust: false, guard: false };
+  const cut = { pointerX: -0.9, pointerY: 0.8, reach: NEUTRAL.primary.reach,
+    roll: -0.93, wristBend: 0, thrust: false, guard: false };
+  const cover = { pointerX: 0.55, pointerY: 0.1, reach: NEUTRAL.secondary.reach,
+    roll: 1.2, wristBend: 0, thrust: false, guard: false };
   const policy = twoHanded("swinger", "primary", { primary: cut, secondary: cover });
 
   for (const acting of ["primary", "secondary"]) {

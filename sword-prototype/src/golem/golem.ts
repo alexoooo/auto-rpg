@@ -581,8 +581,8 @@ export class Golem implements Combatant {
    */
   private cursorSeed(): HandCursors | null {
     const seed: HandCursors = {
-      primary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0 },
-      secondary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0 },
+      primary: { pointerX: 0, pointerY: 0, reach: 0, roll: 0, wristBend: 0 },
+      secondary: { pointerX: 0, pointerY: 0, reach: 0, roll: 0, wristBend: 0 },
     };
     let found = false;
     for (const hand of HANDS) {

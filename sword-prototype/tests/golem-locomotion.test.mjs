@@ -12,7 +12,9 @@ import {
   BENCH_STAND, BENCH_STAND_LOCOMOTION, LOCOMOTION_BIPED, LOCOMOTION_MULTILEG, LOCOMOTION_WHEEL,
 } from "../src/golem/config.ts";
 import { locomotionCommand } from "../src/golem/locomotion.ts";
-import { bipedModule, bipedPose, bipedStandHeight } from "../src/golem/locomotion/biped.ts";
+import {
+  bipedFootSpeed, bipedModule, bipedPose, bipedStandHeight,
+} from "../src/golem/locomotion/biped.ts";
 import { LOCOMOTION_COURSE } from "../src/golem/locomotion/course.ts";
 import {
   MULTILEG_LEGS, multilegModule, multilegPose, multilegStandHeight,
@@ -24,6 +26,7 @@ import { COLLIDES, LAYER } from "../src/physics.ts";
 import { resolvePhysicalSupportedPair } from "../src/supported-locomotion-production.ts";
 import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
 import { SUPPORTED_CARRIER_V1 } from "../src/supported-locomotion-runtime.ts";
+import { BUTTON_REACH } from "../src/buttons.ts";
 import { SUPPORTED_LOCOMOTION_V1, constructPostureIsSupported } from
   "../src/supported-locomotion-state.ts";
 import {
@@ -64,7 +67,7 @@ test("the_biped_is_built_standing_and_every_joint_stop_admits_that_build_pose", 
   // own build pose, and Havok cleared that violation by throwing a blade tip at 9.95 m/s from a
   // motionless stand. The legs here are built with all three angles at zero, so every stop has to
   // contain zero -- strictly, so the build pose is not sitting *on* a limit either.
-  const rest = bipedPose(0, 0, 0);
+  const rest = bipedPose(0, 0, 0, 0, 0);
   for (const [name, value] of Object.entries(rest)) {
     // Not exactly zero: the law of cosines at full extension puts its own argument a float ulp
     // past 1, and `acos` of that is 2e-8 rather than 0. A nanoradian is not a build-pose
@@ -89,12 +92,23 @@ test("the_biped_is_built_standing_and_every_joint_stop_admits_that_build_pose", 
 test("no_commanded_leg_pose_leaves_its_own_range_or_reaches_the_splits", () => {
   // A leg that can reach the splits looks broken the first time it is hit. The splits are an
   // *abduction* limit, so the number to check is what the hip's Z stop allows the stance to open
-  // to -- and, separately, that the fore-aft gait never commands an angle outside its own range,
-  // over the whole product of stride phase, speed and crouch rather than at a few points.
+  // to -- and, separately, that the gait never commands an angle outside its own range, over the
+  // whole product of stride phase, travel and crouch rather than at a few points.
+  //
+  // **The travel is a vector here and it used to be a scalar**, which is the shape of the
+  // 2026-09-05 gait fix and the reason this sweep is a table rather than a list of speeds. The
+  // pose takes normalised fractions of the carrier's own ceilings -- `forward`, `right`, `turn`,
+  // each -1..1 -- so the sweep has to cross the diagonals and the over-unit commands the mind is
+  // free to send, not just a forward speed in metres.
+  const MOVES = [
+    [0, 0, 0], [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0],
+    [0.7, 0.7, 0], [-0.7, 0.7, 0], [0, 0, 1], [0, 0, -1],
+    [1, 0, 1], [0, 1, 1], [0.6, -0.6, -0.8], [2, 0, 0], [0, 2, 2], [-2, -2, -2],
+  ];
   for (let phase = 0; phase < Math.PI * 2; phase += Math.PI / 24) {
-    for (const speed of [0, 0.3, 0.7, B.carrier.maxSpeedMps, B.carrier.maxSpeedMps * 2]) {
+    for (const [forward, right, turn] of MOVES) {
       for (const crouch of [0, 0.25, 0.5, 1]) {
-        const pose = bipedPose(phase, speed, crouch);
+        const pose = bipedPose(phase, forward, right, turn, crouch);
         for (const hip of [pose.hipLeft, pose.hipRight]) {
           assert.ok(hip >= B.hipSwingMin - 1e-9 && hip <= B.hipSwingMax + 1e-9, `hip ${hip}`);
         }
@@ -105,9 +119,37 @@ test("no_commanded_leg_pose_leaves_its_own_range_or_reaches_the_splits", () => {
           assert.ok(ankle >= B.ankleTargetMin - 1e-9 && ankle <= B.ankleTargetMax + 1e-9,
             `ankle ${ankle}`);
         }
+        // The lateral half of the stride stays inside the abduction stop it shares with the
+        // splits bound below -- the axis is written now, so the stop has to be checked and not
+        // merely declared.
+        for (const abduct of [pose.abductLeft, pose.abductRight]) {
+          assert.ok(abduct >= -B.hipAbduct - 1e-9 && abduct <= B.hipAbduct + 1e-9,
+            `abduct ${abduct}`);
+        }
         assert.ok(pose.hipDrop >= -1e-9 && pose.hipDrop <= B.thighLength + B.shinLength);
       }
     }
+  }
+  // A pure forward walk asks for no abduction at all, and a pure turn asks for none either: the
+  // yaw is a fore-aft differential between the two hips and nothing else. Without this the sweep
+  // above would pass on a gait that shuffled sideways while walking in a straight line.
+  for (let phase = 0; phase < Math.PI * 2; phase += Math.PI / 12) {
+    for (const [forward, right, turn] of [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]]) {
+      const pose = bipedPose(phase, forward, right, turn, 0);
+      assert.ok(Math.abs(pose.abductLeft) < 1e-12 && Math.abs(pose.abductRight) < 1e-12,
+        `a move of (${forward}, ${right}, ${turn}) abducts by ${pose.abductLeft}`);
+    }
+  }
+  // ...and a pure side-step asks for no hip flexion, for the same reason read the other way.
+  for (let phase = 0; phase < Math.PI * 2; phase += Math.PI / 12) {
+    const pose = bipedPose(phase, 0, 1, 0, 0);
+    const rest = bipedPose(0, 0, 0, 0, 0);
+    assert.ok(Math.abs(pose.hipLeft - rest.hipLeft) < 1e-12,
+      `a pure side-step swings the hip fore-aft by ${pose.hipLeft - rest.hipLeft}`);
+    // ...and abducts by exactly the stride amplitude, which is the axis this file did not write
+    // at all before 2026-09-05 and the half of the fix that is visible in a single pose.
+    assert.ok(Math.abs(Math.abs(pose.abductLeft) - B.strideAbduct * Math.abs(Math.sin(phase)))
+      < 1e-12, `a pure side-step abducts by ${pose.abductLeft} at phase ${phase}`);
   }
   // The widest stance the hip's own abduction stop can be knocked into, measured at the sole.
   const legLength = B.thighLength + B.shinLength;
@@ -119,6 +161,28 @@ test("no_commanded_leg_pose_leaves_its_own_range_or_reaches_the_splits", () => {
   assert.ok(splits > 1.3, "the control case is not a splits pose, so the bound above proves nothing");
 });
 
+test("the_stride_cadence_is_driven_by_how_fast_the_feet_go_and_not_by_the_body", () => {
+  // `bipedFootSpeed` is what advances the stride phase, and it is the *feet's* speed rather than
+  // the carrier's. The two are the same for a walk and they are not the same for a turn in place,
+  // where the body's speed is zero and the feet are still going somewhere -- which is why a golem
+  // spinning on the spot used to stand perfectly still and rotate. The claim is arithmetic:
+  const max = B.carrier.maxSpeedMps;
+  assert.ok(Math.abs(bipedFootSpeed({ forward: 0, right: 0, yaw: 0 })) < 1e-12,
+    "a standing golem's feet are moving");
+  assert.ok(Math.abs(bipedFootSpeed({ forward: 1, right: 0, yaw: 0 }) - max) < 1e-12);
+  assert.ok(Math.abs(bipedFootSpeed({ forward: 0, right: -1, yaw: 0 }) - max) < 1e-12,
+    "a full-speed side-step does not read as full-speed travel");
+  // A turn in place: each hip sits `hipSide` off the axis, so the soles trace circles at
+  // `maxYawSpeedRadS * hipSide` and both feet are equally busy.
+  const spun = bipedFootSpeed({ forward: 0, right: 0, yaw: 1 });
+  assert.ok(Math.abs(spun - B.carrier.maxYawSpeedRadS * B.hipSide) < 1e-12,
+    `a turn in place moves the feet at ${spun.toFixed(4)} m/s`);
+  assert.ok(spun > 0.2, "the turn case is too slow to prove the cadence is driven at all");
+  // And it saturates rather than running away, because a stride laid over an over-unit command
+  // would be a cadence the carrier never travels at.
+  assert.ok(bipedFootSpeed({ forward: 4, right: 4, yaw: 4 }) <= max + 1e-12);
+});
+
 test("the_crouch_is_solved_so_the_sole_stays_on_the_floor", () => {
   // Solved through the law of cosines for the height the carrier wants, rather than animated as an
   // unrelated pelvis offset. The claim is arithmetic and it is worth checking as arithmetic: at
@@ -127,7 +191,7 @@ test("the_crouch_is_solved_so_the_sole_stays_on_the_floor", () => {
   const extension = (hip, knee) =>
     B.thighLength * Math.cos(hip) + B.shinLength * Math.cos(hip + knee);
   for (const crouch of [0, 0.2, 0.5, 0.8, 1]) {
-    const pose = bipedPose(0, 0, crouch);
+    const pose = bipedPose(0, 0, 0, 0, crouch);
     const wanted = B.thighLength + B.shinLength - crouch * B.crouchDepth;
     assert.ok(Math.abs(extension(pose.hipLeft, pose.kneeLeft) - wanted) < 1e-9,
       `crouch ${crouch} does not solve to its own height`);
@@ -192,8 +256,14 @@ const drive = (module, { forward = 0, strafe = 0, turn = 0, crouch = 0 } = {}) =
     forward, strafe, turn, actingHand: "primary",
     natural: { thrust: false, guard: false },
     posture: { trunkLean: 0, trunkTwist: 0, crouch },
-    primary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
-    secondary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
+    primary: {
+      pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+      roll: 0, wristBend: 0, thrust: false, guard: false,
+    },
+    secondary: {
+      pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+      roll: 0, wristBend: 0, thrust: false, guard: false,
+    },
   }));
 };
 
@@ -372,6 +442,54 @@ test("a_planted_sole_holds_its_ground_within_the_budget_written_in_the_module_fi
   assert.equal(state.longestSupportGapSeconds, 0);
   assert.equal(state.firstPostureLossSeconds, null);
   assert.equal(state.minUpDot, 1);
+});
+
+/** The same six seconds, sent sideways and then spun on the spot. See the test below. */
+const STRAFE_SEQUENCE = Object.freeze([
+  { name: "stand", until: 1.00, forward: 0, strafe: 0, turn: 0, crouch: 0 },
+  { name: "strafe", until: 7.00, forward: 0, strafe: 1, turn: 0, crouch: 0 },
+  { name: "stop", until: 8.00, forward: 0, strafe: 0, turn: 0, crouch: 0 },
+]);
+
+const TURN_SEQUENCE = Object.freeze([
+  { name: "stand", until: 1.00, forward: 0, strafe: 0, turn: 0, crouch: 0 },
+  { name: "turn", until: 7.00, forward: 0, strafe: 0, turn: 1, crouch: 0 },
+  { name: "stop", until: 8.00, forward: 0, strafe: 0, turn: 0, crouch: 0 },
+]);
+
+test("a_sole_holds_its_ground_sideways_and_in_a_spin_too_and_not_only_in_a_walk", async () => {
+  // **The walk above was the only command this bench ever read a slip number over**, and the
+  // owner's first playtest is what found that: "strafing and rotating doesn't look right, the
+  // golem feel look like they're just floating for these motions". They were. Measured here
+  // afterwards, the same instrument read **1135.9 mm/s** of mean planted-sole slip through a
+  // full-speed side-step -- 95 % of the 1200 the carrier was travelling at, so the feet were
+  // holding essentially nothing and the body was being dragged past them. The walk read 114.7
+  // over the identical six seconds, which is why nothing was red.
+  //
+  // Two things were wrong and both are in `bipedPose`. The knee lift scaled on the *fore-aft*
+  // part of the travel, so a strafing golem never picked a foot up at all; and the hip's
+  // abduction axis was never written, so a stride had no sideways component to lay over a
+  // sideways command. Fixing the lift is worth 434 mm/s and adding the axis another 166.
+  //
+  // The budgets below are separate from `meanFootSlipBudgetMps` and looser than it, and that is
+  // honest rather than convenient: a side-step is a shuffle within a narrow abduction stop, so
+  // its stride is shorter than its travel and some drag is designed in. What they catch is a
+  // return to a gait that has come loose from the direction it is going.
+  for (const [name, sequence, budget, measured] of [
+    ["strafe", STRAFE_SEQUENCE, 0.70, 536.3],
+    ["turn", TURN_SEQUENCE, 0.30, 183.8],
+  ]) {
+    const run = await runGolemLocomotion({ moduleId: "biped", sequence });
+    const state = run.state;
+    assert.equal(state.plantedSteps, state.steps,
+      `${state.steps - state.plantedSteps} substeps of the ${name} had no sole in contact`);
+    assert.ok(state.meanFootSlipMps <= budget,
+      `${name}: mean planted slip ${(state.meanFootSlipMps * 1000).toFixed(1)} mm/s against a `
+      + `budget of ${(budget * 1000).toFixed(0)}, measured at ${measured} on 2026-09-05`);
+    assert.equal(state.longestSupportGapSeconds, 0);
+    assert.equal(state.firstPostureLossSeconds, null);
+    assert.equal(state.minUpDot, 1);
+  }
 });
 
 // ------------------------------------------------- the physical obstacle corpus, real Havok

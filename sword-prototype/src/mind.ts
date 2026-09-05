@@ -12,6 +12,11 @@ import type { HumanOwnership } from "./input.ts";
 // than a type-only one and still cost a headless harness nothing: there is no
 // graph behind it to pull in.
 import { HANDS, otherHand, type HandName, type WeaponKind } from "./hands.ts";
+// The mouse adapter's own reach constants. `buttons.ts` imports nothing at all -- which is what
+// makes it loadable by a Node test, and what makes this edge safe in a file whose whole value is
+// that Babylon and the DOM are not in its graph. The rest intents below need the same neutral a
+// person's un-pressed hand asks for, and stating it twice is how two of them would part company.
+import { BUTTON_REACH } from "./buttons.ts";
 // The dependency on `policies.ts` runs one way only: `policies.ts` takes
 // `Intent`, `Mind` and `FighterView` from here and all three of them are types,
 // so they erase and there is no module cycle at run time. That is worth the
@@ -53,17 +58,32 @@ import { golemDuelistMind } from "./golem/golem-policies.ts";
 /**
  * What a fighter can ask for.
  *
- * **A policy plays with the controller you play with.** It gets a cursor
- * position, a reach, a thrust, a guard and movement axes, and nothing else. It
- * cannot set a joint angle, place the blade, or ask for a pose the solver would
- * refuse a person.
+ * **A policy plays with the controller you play with**, and Session 12 changed
+ * which half of that sentence is load-bearing. It used to mean that the *policy*
+ * was held down to what a mouse can say -- two aiming axes and two buttons per
+ * hand -- with everything else, the reach and the shape of a stroke, decided
+ * inside the body. Measured, that left `golem-duelist` asking for one distinct
+ * reach and one distinct roll per hand across eight bouts while the chain it was
+ * driving ran a scripted stroke on 11 % of frames and ignored the policy's own
+ * commands for the duration.
  *
- * That is a constraint and not a limitation, and it is worth being explicit
- * about the difference. An AI that could pose the arm directly would be a
- * different game's AI, and beating it would prove nothing about whether *this*
- * arm is worth fighting with. It also makes taking over a body nearly free: it
- * is a swap of which `Mind` a fighter reads from, and the physics never notices
- * that anything happened.
+ * The target is the opposite: free-form, continuous, simultaneous control of
+ * every joint, limited by the physics and by the intelligence of the policy and
+ * by nothing else. So the surface was widened to the body's own continuous
+ * command space -- `reach` joined the two aiming axes -- and the scripting moved
+ * *out* of the body and into the drivers. A mouse is now a thin producer of
+ * points in that space: `src/buttons.ts` turns a held right button into a reach
+ * the way a policy would, instead of the arm turning it into a pose nobody
+ * asked for.
+ *
+ * The property that made the old rule worth keeping survives intact, and it is
+ * why the surface was widened rather than bypassed. Taking over a body mid-bout
+ * is still a swap of which `Mind` a fighter reads from, the physics still never
+ * notices, and there is still exactly one command vocabulary -- so there is no
+ * AI-only channel, no pose a policy can ask for that a person cannot, and no
+ * second surface to keep in step with this one. What a body will *accept* is
+ * published on its own envelope, which is frozen rule 3: the module publishes
+ * what it can reach and the mind picks inside it.
  *
  * This was `type Intent = InputState` until session 15 -- an alias onto the
  * DOM-side input state, on the argument that two structurally identical
@@ -176,6 +196,42 @@ export interface HandIntent {
   /** Cursor position up the window, -1 (bottom) to +1 (top). */
   pointerY: number;
   /**
+   * How far out the hand is asked to sit: -1 fully drawn in, +1 fully extended,
+   * as a fraction of whatever reach shell the chain publishes.
+   *
+   * **The channel this surface was missing, and it is here for a measurement
+   * rather than for a symmetry.** A golem's arm has three positional degrees of
+   * freedom -- swing, lift and reach -- and until this field existed the command
+   * surface carried two of them. Reach came from `thrust` and `guard` instead,
+   * which quantized it to three preset distances chosen by two booleans, so a
+   * policy driving a golem could ask for 0.36 m, 0.54 m or 0.66 m and nothing in
+   * between. Instrumented over eight bouts of `golem-duelist` against the
+   * Warrior duelist, the policy asked for **one** distinct reach per hand and
+   * 1916 distinct elevations. The arm it was driving has a reach shell 0.42 m
+   * deep.
+   *
+   * That is the difference between a body a mind drives and a body a mind
+   * triggers, and the target is the former: free-form, continuous, simultaneous
+   * control of every joint, limited by the physics and by the policy's own
+   * judgement and by nothing else. This field is one third of one arm's
+   * position, and it was the third that had no way of being asked for.
+   *
+   * Normalized rather than metres, for the reason every other axis here is: the
+   * surface is shared by bodies whose arms are different lengths, and a command
+   * in metres would mean a different pose on each of them. The chain spans it
+   * onto its own published `reachMin`..`reachMax`, which is frozen rule 3 -- the
+   * module publishes what it can reach and the mind picks inside it.
+   *
+   * **A body with no reach axis reads nothing here**, exactly as rung 0 reads no
+   * field at all and rungs 0 to 2 have no roll to read. That includes the
+   * Warrior: `Arm.aim` still takes its reach from the two buttons and filters it
+   * at `arm.reachResponse`, unchanged, and every Warrior number in
+   * `docs/measurements.md` is a number about that arm. What a body will accept
+   * is published on its envelope; this is the vocabulary, and not a promise that
+   * every body speaks all of it.
+   */
+  reach: number;
+  /**
    * Wrist roll in radians. Absolute, not a per-frame delta, because the control
    * loop runs several times per rendered frame and would otherwise apply the
    * same increment more than once.
@@ -183,6 +239,24 @@ export interface HandIntent {
   roll: number;
   /** Anatomical wrist bend, normalized: 0 straight through 1 at ninety degrees. */
   wristBend: number;
+  /**
+   * The two buttons.
+   *
+   * **They are levels a body may read; they are no longer poses a body
+   * imposes.** Session 12 took two jobs off them. `guard` used to overwrite the
+   * commanded elevation on a golem's arm, so a mind that asked its shield arm
+   * for 2001 distinct elevations over eight bouts had every one of them thrown
+   * away and replaced by 0.80 rad -- which is what held the plate above the
+   * golem's own head in the page, and is the defect the owner reported. And
+   * `thrust` used to start a scripted stroke inside the chain, during which the
+   * commander's own swing and lift were ignored for its duration.
+   *
+   * What they mean now is what `src/buttons.ts` says they mean: a press is an
+   * edge and a hold is a level, and a *driver* -- the mouse adapter, or a policy
+   * -- turns them into positions. The Warrior's arm still reads them directly,
+   * because that arm's reach has always been a button-driven filter and moving
+   * it would move every measured Warrior number for a gain nobody asked for.
+   */
   thrust: boolean;
   guard: boolean;
 }
@@ -581,11 +655,18 @@ export const NEUTRAL: Intent = Object.freeze({
   // outer object would leave both hands writable through a reference anybody
   // holds -- and the whole point of freezing this is that a policy handed the
   // neutral intent cannot quietly turn it into its own.
-  primary: Object.freeze({ pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false }),
+  primary: Object.freeze({
+    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    roll: 0, wristBend: 0, thrust: false, guard: false,
+  }),
   // The off hand rests rather than points. See `arm.restPointerY`.
   secondary: Object.freeze({
     pointerX: CONFIG.arm.restPointerX,
     pointerY: CONFIG.arm.restPointerY,
+    // The same reach a neutral hand asks for. A resting arm is not a drawn-in
+    // one, and `guard` is what used to pull a hand in: a rest intent that pulled
+    // in by default would be that coupling put back through the front door.
+    reach: BUTTON_REACH.neutral,
     roll: 0,
     wristBend: 0,
     thrust: false,
@@ -771,6 +852,11 @@ function composeHand(into: HandIntent, position: HandIntent, orientation: HandIn
   const composed: HandIntent = {
     pointerX: position.pointerX,
     pointerY: position.pointerY,
+    // Position, not orientation: reach is where the hand *is*, and the driver
+    // holding the buttons is the one who decides it. Putting it on the
+    // orientation side would hand one driver the aim of an arm and another its
+    // extension.
+    reach: position.reach,
     thrust: position.thrust,
     guard: position.guard,
     roll: orientation.roll,
@@ -820,20 +906,37 @@ export interface ArmPose {
  * where the arm already is, and the first command after a handover is exactly
  * the command the previous driver had left standing.
  *
- * `reach` is deliberately *not* inverted, and that is not an omission. Reach is
- * not a cursor axis: `aimArm` takes it from the thrust and guard buttons and
- * then filters it toward the wanted value at `arm.reachResponse`, which is 9 per
- * second -- so it is already continuous across a handover by construction, and
- * carries whatever the arm had rather than snapping. A driver who takes a body
+ * **`reach` was deliberately not inverted here, and Session 12 changed half of
+ * that.** The old argument was sound for the body it was about and is still
+ * sound for it: `aimArm` takes a Warrior's reach from the thrust and guard
+ * buttons and filters it toward the wanted value at `arm.reachResponse`, which
+ * is 9 per second, so it is continuous across a handover by construction and
+ * carries whatever the arm had rather than snapping. A driver taking a Warrior
  * with the guard button held simply starts pulling the hand in from where it
- * was, at the same rate a guard always pulls it in. There is no cursor position
- * that could express a reach anyway, which is the deeper reason: the controller
- * has two aiming axes and reach is not one of them.
+ * was. That has not changed, and this function still describes a Warrior.
+ *
+ * What the argument also said was that there is no cursor position that could
+ * express a reach, because the controller has two aiming axes and reach is not
+ * one of them. That was a claim about the *command surface*, and the surface was
+ * the thing that turned out to be wrong: `HandIntent.reach` exists now, a golem
+ * chain reads it as its third positional degree of freedom, and a golem
+ * effector's own `cursor()` inverts it. So the field is on `HandCursor` and this
+ * function fills it honestly, from the pose it was handed, against the Warrior's
+ * own reach span -- unread by `Arm`, which still uses its buttons, and correct
+ * for the one thing a `HandCursor` is for, which is being interpolated away from
+ * during a rebase.
  */
 export function cursorForPose(pose: ArmPose, hand: HandName = "primary"): HandCursor {
+  const A = CONFIG.arm;
   return {
     pointerX: cursorForAzimuth(pose.azimuth, hand),
     pointerY: cursorForElevation(pose.elevation),
+    // `reachGuard` to `reachMax` is the span the two buttons already move this
+    // arm through, so this is that arm's own shell and not an invented one.
+    reach: A.reachMax === A.reachGuard
+      ? 0
+      : Math.max(-1, Math.min(1,
+        ((pose.reach - A.reachGuard) / (A.reachMax - A.reachGuard)) * 2 - 1)),
     roll: pose.roll,
     wristBend: pose.wristBend,
   };
@@ -842,9 +945,15 @@ export function cursorForPose(pose: ArmPose, hand: HandName = "primary"): HandCu
 /**
  * Where a cursor has to sit for one effector to be commanded into the pose it is in.
  *
- * The four aiming fields of a `HandIntent` and nothing else: `thrust` and `guard` are buttons
- * rather than places, and `reach` is not a cursor axis at all -- see the note above `cursorForPose`
- * for why inverting it would be inventing a fifth axis the controller does not have.
+ * The five *placing* fields of a `HandIntent` and nothing else: `thrust` and `guard` are buttons
+ * rather than places, and a button needs no inverse because a press is an edge that has already
+ * been paid out by the time a handover happens.
+ *
+ * `reach` joined this list in Session 12 and had to. It became a commandable axis of the arm, so
+ * a handover that did not carry it would hand the incoming driver a hand at 0.66 m and a command
+ * of 0.54 m -- a 120 mm step, at the anchor's own ceiling, with a blade on the end, which is
+ * precisely the teleport this whole mechanism exists to prevent. The note above `cursorForPose`
+ * records the argument for the opposite decision, and what changed under it.
  *
  * Declared as its own type because a golem answers it from somewhere else entirely. A Warrior's
  * arm is a seven-axis chain whose cursor mapping lives in `policies.ts`, and a golem effector is a
@@ -854,6 +963,8 @@ export function cursorForPose(pose: ArmPose, hand: HandName = "primary"): HandCu
 export interface HandCursor {
   pointerX: number;
   pointerY: number;
+  /** Normalized into the chain's own reach shell. Zero on a chain with no reach axis. */
+  reach: number;
   roll: number;
   wristBend: number;
 }
@@ -1056,6 +1167,11 @@ export function handoverFromCursors(
         to.guard = want.guard;
         to.pointerX = from.pointerX + (want.pointerX - from.pointerX) * t;
         to.pointerY = from.pointerY + (want.pointerY - from.pointerY) * t;
+        // Interpolated with the other two placing axes, not passed through with
+        // the buttons. On a golem this is the difference between an arm that
+        // slides out over the rebase window and one that is told to cross
+        // 120 mm on the first step after a takeover.
+        to.reach = from.reach + (want.reach - from.reach) * t;
         to.roll = from.roll + (want.roll - from.roll) * t;
         to.wristBend = from.wristBend + (want.wristBend - from.wristBend) * t;
       }

@@ -21,6 +21,7 @@
  */
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
+import { BUTTON_REACH, reachFromButtons } from "../src/buttons.ts";
 import { CONFIG } from "../src/config.ts";
 import {
   BENCH_READOUT, BENCH_STAND_LOCOMOTION, CHAIN_PITCH, CHAIN_REACH, CHAIN_WRIST, LOCOMOTION_BIPED,
@@ -53,11 +54,32 @@ const SUBSTEP = 1 / CONFIG.world.physicsHz;
  * floor it reports is a reading of the settled harness rather than of the limb arriving.
  */
 export const BENCH_SEQUENCE = Object.freeze([
+  // **Every step of this used to hold `pointerY` at 0 and move the limb with the two buttons**, and
+  // on 2026-09-05 that stopped moving it at all: `guard` was `CHAIN_PITCH.guardPitch` and `thrust`
+  // was the chop, and Session 12 deleted both. The sequence went on running, reported settle,
+  // overshoot and wander for every mark, and read a peak driven tip speed of **0.00007 m/s** on a
+  // limb that never left its build pose. A bench whose whole table is green about a limb that did
+  // nothing is the "green instrument that measures nothing" this directory has recorded twice.
+  //
+  // So the marks keep their names and their clocks up to 3.20 s -- `rest`, `guard` and `return` are
+  // the two settles every rung 1 table in `docs/measurements.md` is read off, and they are the same
+  // two poses -- but the axis moved is the one rung 1 actually has. 0.784 is where `guardPitch`'s
+  // 1.95 rad sits on the published 0.30..2.15 span, so the `guard` mark is the same pose it always
+  // was, asked for through the channel a mind now has.
   { name: "rest", until: 1.00, pointerY: 0, guard: false, thrust: false },
-  { name: "guard", until: 2.20, pointerY: 0, guard: true, thrust: false },
+  { name: "guard", until: 2.20, pointerY: 0.784, guard: true, thrust: false },
   { name: "return", until: 3.20, pointerY: 0, guard: false, thrust: false },
-  { name: "chop", until: 3.25, pointerY: 0, guard: false, thrust: true },
-  { name: "recover", until: 5.00, pointerY: 0, guard: false, thrust: false },
+  // And the chop, which is now a *command* and not an event: chambered at the top of the range and
+  // then asked for the bottom of it in 0.20 s, which is 9.25 rad/s against a chain whose
+  // `targetRate` is 6. Asking for more than the chain can give on purpose is what makes this a
+  // reading of the chain's own ceiling rather than of the number in the script -- the same property
+  // `REACH_SEQUENCE.extend` has, and the reason rung 1's peak tip speed is now a measurement of
+  // `targetRate * reach` and nothing else.
+  { name: "chamber", until: 4.00, pointerY: 1, guard: false, thrust: false,
+    from: { pointerY: 0 } },
+  { name: "chop", until: 4.20, pointerY: -1, guard: false, thrust: true,
+    from: { pointerY: 1 } },
+  { name: "recover", until: 6.20, pointerY: 0, guard: false, thrust: false },
 ]);
 
 /**
@@ -100,6 +122,19 @@ export const REACH_SEQUENCE = Object.freeze([
     roll: 1.1, wristBend: 0.7, from: { roll: 0, wristBend: 0 } },
   { name: "recover", until: 10.00, pointerX: 0.4, pointerY: 0.2, guard: false, thrust: false,
     roll: 1.1, wristBend: 0.7 },
+  // **The axis Session 12 added, swept rather than stepped.** Every phase above takes its reach
+  // from the two buttons, which is what a person's mouse does and is right for the phases those
+  // names describe -- but it can only ever visit three of the 0.42 m the shell is deep. This
+  // phase names `reach` itself and sweeps it from the inboard stop to the outboard one over
+  // 1.2 s, which is the only phase in this file that asks the third positional degree of freedom
+  // to do anything a policy could ask it to do.
+  //
+  // Appended at the end rather than inserted, deliberately: every mark above it keeps the clock
+  // it has always had, so no table in `docs/measurements.md` moves because a phase was added.
+  { name: "extend", until: 11.20, pointerX: 0.4, pointerY: 0.2, guard: false, thrust: false,
+    roll: 1.1, wristBend: 0.7, reach: 1, from: { reach: -1 } },
+  { name: "hold", until: 12.20, pointerX: 0.4, pointerY: 0.2, guard: false, thrust: false,
+    roll: 1.1, wristBend: 0.7, reach: 1 },
 ]);
 
 /**
@@ -205,8 +240,14 @@ const benchIntent = () => ({
   forward: 0, strafe: 0, turn: 0, actingHand: "primary",
   natural: { thrust: false, guard: false },
   posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },
-  primary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
-  secondary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
+  primary: {
+    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    roll: 0, wristBend: 0, thrust: false, guard: false,
+  },
+  secondary: {
+    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    roll: 0, wristBend: 0, thrust: false, guard: false,
+  },
 });
 
 /**
@@ -238,6 +279,21 @@ function applyStep(hand, step, phaseStart, now) {
   hand.wristBend = blend("wristBend");
   hand.guard = step.guard;
   hand.thrust = step.thrust;
+  // **The reach, from the buttons, through the same adapter a person's mouse goes through.**
+  // Session 12 took reach off the two booleans inside the chain and put it on the command, so a
+  // script that set only `guard` and `thrust` would now hold every phase at one distance and
+  // every table taken over this sequence would be about an arm that never extended. Deriving it
+  // here with `reachFromButtons` keeps each phase meaning what its name has always meant -- a
+  // `guard` phase draws in, a `thrust` phase extends -- and keeps the bench driving the module
+  // through exactly the mapping the page drives it through, which is the property that makes a
+  // bench number a claim about the game.
+  //
+  // A phase may name `reach` itself, and a phase that does gets the axis swept continuously
+  // rather than stepped between presets. That is the only way to measure the new channel, and
+  // `REACH_SEQUENCE.extend` below is where it is used.
+  hand.reach = step.reach === undefined && (!step.from || step.from.reach === undefined)
+    ? reachFromButtons(step)
+    : blend("reach");
 }
 
 export async function runGolemBench({
@@ -735,36 +791,24 @@ const LOCOMOTION_SWEEPS = {
  * say which move produced it and the reach sequence has ten phases.
  */
 const SWEEPS = {
-  rate: { block: CHAIN_PITCH, key: "targetRate", values: [2.5, 4, 6, 9, 14, 30], mark: "guard" },
+  // **Rung 1's whole speed, not its speed between chops.** `chop.driveRate` used to sit beside
+  // this and swept the *other* ceiling -- the one a scripted velocity event ran at -- so between
+  // them the two numbers described an arm with two top speeds and a button to choose. There is
+  // one now, and this sweep is about all of it.
+  rate: { block: CHAIN_PITCH, key: "targetRate", values: [2.5, 4, 6, 9, 12, 16, 30], mark: "guard" },
   torque: { block: CHAIN_PITCH, key: "motorTorque", values: [120, 200, 320, 500, 900], mark: "guard" },
-  chop: { block: CHAIN_PITCH.chop, key: "driveRate", values: [6, 9, 12, 16, 22], mark: "guard" },
   force: {
     block: CHAIN_REACH, key: "anchorForce",
     values: [1400, 2400, 3900, 6000, 9000, 14000], mark: "guard",
   },
+  // The same widening as `rate` above, in the units an anchor works in: the four sweeps that
+  // stood here after this one were `thrust.followSeconds`, `thrust.strokeRate`, `cut.strokeRate`,
+  // `thrust.driveSeconds` and `cut.swingRate`, and every one of them tuned a script that no
+  // longer exists. Their tables are in `docs/measurements.md`. This range now runs up past the
+  // old stroke rates because those *were* this ceiling with a button held.
   reachRate: {
     block: CHAIN_REACH, key: "anchorRate",
-    values: [1.0, 1.2, 1.5, 1.8, 2.2, 3.0], mark: "guard",
-  },
-  thrustFollow: {
-    block: CHAIN_REACH.thrust, key: "followSeconds",
-    values: [0, 0.02, 0.04, 0.06, 0.10], mark: "thrust",
-  },
-  thrustRate: {
-    block: CHAIN_REACH.thrust, key: "strokeRate",
-    values: [3, 5, 8, 12, 16], mark: "thrust",
-  },
-  cutRate: {
-    block: CHAIN_REACH.cut, key: "strokeRate",
-    values: [3, 5, 8, 12, 16], mark: "cut",
-  },
-  thrustDrive: {
-    block: CHAIN_REACH.thrust, key: "driveSeconds",
-    values: [0.03, 0.05, 0.07, 0.10, 0.16], mark: "thrust",
-  },
-  cutSweep: {
-    block: CHAIN_REACH.cut, key: "swingRate",
-    values: [4, 6, 9, 13, 18], mark: "cut",
+    values: [1.2, 2.0, 3.0, 5.0, 8.0, 12.0], mark: "extend",
   },
   wristTorque: {
     block: CHAIN_WRIST, key: "rollTorque",

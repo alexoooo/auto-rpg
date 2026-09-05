@@ -13,7 +13,7 @@ import { CONFIG } from "./config";
 import { otherHand, type HandIntent, type HandName, type Intent } from "./mind.ts";
 
 export type { HandIntent, HandName };
-import { applyButtonPose, maskOfButton, nextSpent, poseFromButtons, releaseButtons, PRIMARY } from "./buttons";
+import { applyButtonPose, maskOfButton, nextSpent, poseFromButtons, releaseButtons, BUTTON_REACH, PRIMARY } from "./buttons";
 import { CAMERA_ZOOM_NOTCHES, dragCamera, slewCameraZoom, type CameraGestureState } from "./camera";
 
 /**
@@ -130,13 +130,22 @@ export class Controls {
     // centipede, steer it, and never close its jaws.
     natural: { thrust: false, guard: false },
     posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },
-    primary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
+    primary: {
+      pointerX: 0, pointerY: 0,
+      // What an un-pressed hand asks of a reach axis. `applyButtonPose` writes
+      // this field on every button event and `releaseButtons` puts it back here,
+      // so this is only where it begins -- but beginning it anywhere else would
+      // extend a golem's arm for the one frame before the first pointer event.
+      reach: BUTTON_REACH.neutral,
+      roll: 0, wristBend: 0, thrust: false, guard: false,
+    },
     // The hand the mouse is not on starts at rest, not out in front. It stays
     // wherever it was left the moment `F` moves the cursor off it, which is what
     // `onSwapHands` seeds -- this is only where it begins.
     secondary: {
       pointerX: CONFIG.arm.restPointerX,
       pointerY: CONFIG.arm.restPointerY,
+      reach: BUTTON_REACH.neutral,
       roll: 0,
       wristBend: 0,
       thrust: false,

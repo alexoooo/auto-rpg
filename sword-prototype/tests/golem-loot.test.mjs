@@ -30,6 +30,7 @@ import { attachPhysics, COLLIDES, LAYER } from "../src/physics.ts";
 import { severs } from "../src/scoring.ts";
 import { unitDefinition } from "../src/units.ts";
 import { vitality } from "../src/bout.ts";
+import { BUTTON_REACH } from "../src/buttons.ts";
 import {
   defaultGolemSetup,
   golemEffectorOption,
@@ -56,12 +57,32 @@ const FRAME_MS = 1000 / 60;
 // A real assembled golem, standing, so that something can actually be cut off it.
 // ---------------------------------------------------------------------------------------
 
+/**
+ * A hand slot's neutral reach, from the mouse adapter rather than written out.
+ *
+ * The blank below is a hand-written `Intent` and `tsc` never sees it, which is
+ * the trap this directory has its own rule about -- and it went off on the day
+ * Session 12 gave `HandIntent` a third positional axis. A blank with no `reach`
+ * hands the chain `undefined`, `spanned` answers `NaN`, and the anchor is driven
+ * at a target that is not a place: `a_walking_golems_effector_stays_on_its_own
+ * _anchor` read **6031.7 mm** of stray, which is the arm having left. Taking the
+ * value from `src/buttons.ts` rather than typing 1/7 is the same argument the
+ * bench script makes: a fixture that hard-codes the number would go on passing
+ * after the mapping it is standing in for had changed. `buttons.ts` imports
+ * nothing, so no test's import graph grows a scene by reading it.
+ */
 const blankIntent = () => ({
   forward: 0, strafe: 0, turn: 0, actingHand: "primary",
   natural: { thrust: false, guard: false },
   posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },
-  primary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
-  secondary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
+  primary: {
+    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    roll: 0, wristBend: 0, thrust: false, guard: false,
+  },
+  secondary: {
+    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    roll: 0, wristBend: 0, thrust: false, guard: false,
+  },
 });
 
 const scripted = (name, intent) => ({ name, decide: () => intent });

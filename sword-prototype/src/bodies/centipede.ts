@@ -365,8 +365,12 @@ export function crawlerMind(): Mind {
     forward: 0, strafe: 0, turn: 0, actingHand: null,
     natural: { thrust: false, guard: false },
     posture: { crouch: 0, trunkLean: 0, trunkTwist: 0 },
-    primary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
-    secondary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
+    // `reach` is blank here like every other hand field, and for the same reason:
+    // a creature with no hands publishes `hands` as a frozen empty object, so
+    // nothing ever reads either slot. It is carried because a command carries
+    // both hands whatever the body is.
+    primary: { pointerX: 0, pointerY: 0, reach: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
+    secondary: { pointerX: 0, pointerY: 0, reach: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
   });
   const out = intent();
   return { name: "crawler", decide(view) {

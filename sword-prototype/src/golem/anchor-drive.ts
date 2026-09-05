@@ -53,7 +53,17 @@ export interface AnchorDriveParameters {
   readonly linearForce: number;
   /** Force ceiling on each driven angular axis, newton-metres. */
   readonly angularForce: number;
-  /** Ceiling on how fast the commanded point may move, metres per second. */
+  /**
+   * Ceiling on how fast the commanded point may move, metres per second.
+   *
+   * On the **point**, and not on each of its coordinates. Until 2026-09-05 this was applied
+   * componentwise -- `slewTowards` on x, then y, then z -- which is a box and not a ball: a
+   * diagonal move ran at up to sqrt(3) times this, and rung 2's bench read 8.39 m/s of hand
+   * speed against a 5 m/s ceiling. Worse than the factor is what it was a factor of. The three
+   * components are **world** axes, so the ceiling depended on which way the golem happened to be
+   * facing: a golem turned 45 degrees got a measurably faster arm than the same golem facing
+   * down an axis, for the same command. A limb's speed limit is a fact about the limb.
+   */
   readonly linearRate: number;
   /** Ceiling on how fast the commanded frame may turn, radians per second. */
   readonly angularRate: number;
@@ -160,6 +170,7 @@ export class AnchorDrive {
     stray: new Vector3(),
     pinned: new Vector3(),
     step: new Quaternion(),
+    toTarget: new Vector3(),
   };
   private released = false;
 
@@ -274,12 +285,24 @@ export class AnchorDrive {
     if (this.released) return;
     const p = this.parameters;
 
+    // **The linear rate limit, on the point rather than on its coordinates.** Three scalar
+    // slews would bound each world axis separately, which bounds the point inside a box: the
+    // corner of that box is sqrt(3) times the edge, so a diagonal command moved half again as
+    // fast as a straight one and, because the axes are the world's, the same command moved at
+    // different speeds depending on which way the golem faced. See `linearRate` above.
+    //
+    // `slewTowards` still states the rule and this is the same rule in three dimensions: walk
+    // toward the target along the straight line to it, at most `rate * dt` of the way, and stop
+    // on it rather than past it.
     const rate = this.linearRateNow;
-    this.commanded.set(
-      slewTowards(this.commanded.x, target.x, rate, dt),
-      slewTowards(this.commanded.y, target.y, rate, dt),
-      slewTowards(this.commanded.z, target.z, rate, dt),
-    );
+    const step = rate * dt;
+    target.subtractToRef(this.commanded, this.scratch.toTarget);
+    const distance = this.scratch.toTarget.length();
+    if (distance <= step || distance < 1e-12) {
+      this.commanded.copyFrom(target);
+    } else {
+      this.commanded.addInPlace(this.scratch.toTarget.scaleInPlace(step / distance));
+    }
 
     // The angular rate limit, as a fraction of the way round: `Quaternion.Dot` gives the
     // cosine of half the angle between two unit quaternions, so this is the turn the command

@@ -33,9 +33,18 @@ export const COMBAT_FIELDS = Object.freeze(
   ["forward", "strafe", "turn", "actingHand", "natural", "posture", "primary", "secondary"].sort(),
 );
 
-/** `HandIntent`: the six fields that belong to one hand. */
+/**
+ * `HandIntent`: the seven fields that belong to one hand.
+ *
+ * `reach` joined them in Session 12, when the third positional axis stopped
+ * being something a golem's arm derived from the two buttons for itself and
+ * became something whoever is driving asks for. It is a position and not a
+ * level, so it sits beside the two pointer axes rather than beside the buttons
+ * -- see `composeHand`, which splits a hand between two drivers along exactly
+ * that line.
+ */
 export const HAND_INTENT_FIELDS = Object.freeze(
-  ["pointerX", "pointerY", "roll", "wristBend", "thrust", "guard"].sort(),
+  ["pointerX", "pointerY", "reach", "roll", "wristBend", "thrust", "guard"].sort(),
 );
 
 /** `NaturalIntent`: two buttons and no pose, because jaws are aimed by turning. */
@@ -60,7 +69,8 @@ export const INTENT_FIELDS = Object.freeze([
   "forward", "strafe", "turn", "actingHand", "natural.thrust", "natural.guard",
   "posture.trunkLean", "posture.trunkTwist", "posture.crouch",
   ...["primary", "secondary"].flatMap((hand) =>
-    ["pointerX", "pointerY", "roll", "wristBend", "thrust", "guard"].map((field) => `${hand}.${field}`)),
+    ["pointerX", "pointerY", "reach", "roll", "wristBend", "thrust", "guard"]
+      .map((field) => `${hand}.${field}`)),
 ]);
 
 const readPath = (value, path) => path.split(".").reduce(

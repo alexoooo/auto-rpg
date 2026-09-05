@@ -83,9 +83,62 @@ export interface ButtonPose {
  */
 export interface ButtonChannels {
   natural: ButtonPose;
-  primary: ButtonPose;
-  secondary: ButtonPose;
+  primary: HandButtonChannel;
+  secondary: HandButtonChannel;
 }
+
+/**
+ * A hand slot: the two buttons, and the reach they are asked to stand for.
+ *
+ * A hand has a reach axis and a set of jaws does not, which is the whole of why
+ * this type exists and `natural` keeps the bare `ButtonPose`. `HandIntent`
+ * satisfies it structurally, so `Controls.state` is still handed to
+ * `applyButtonPose` without a translation.
+ */
+export interface HandButtonChannel extends ButtonPose {
+  reach: number;
+}
+
+/**
+ * What each button state asks of a chain's reach axis, as a fraction of the
+ * envelope: -1 is fully drawn in and +1 is fully extended.
+ *
+ * **This is the mouse's half of Session 12's restructuring, and where it lives
+ * is the point of the change.** A golem's arm used to derive its own reach from
+ * these two booleans, three preset distances deep, inside the chain -- so a
+ * policy driving that arm had no way to ask for anything else, and the body was
+ * making a decision on behalf of every commander whether they wanted it or not.
+ * The chain now reads `HandIntent.reach` and nothing else, and this is where a
+ * *person* holding a button gets one: an adapter turning an impoverished input
+ * device into a point in the body's own continuous command space, which is
+ * exactly what a policy does and is no longer something the arm does for them.
+ *
+ * The three numbers are the golem chain's own former presets -- `reachGuard`
+ * 0.36, `reachNeutral` 0.54 and `reachThrust` 0.66 against a shell of
+ * 0.30..0.72 -- carried across into the normalized channel, so a person holding
+ * the same buttons gets the same three poses to the millimetre and nothing a
+ * human gate has already looked at moved underneath it. Stated as fractions
+ * rather than as metres because the adapter must not know one body's
+ * dimensions: 14 % of the envelope drawn in, a little past the middle at rest,
+ * 86 % extended.
+ */
+export const BUTTON_REACH = Object.freeze({
+  guard: -5 / 7,
+  neutral: 1 / 7,
+  thrust: 5 / 7,
+});
+
+/**
+ * The reach a held button asks for.
+ *
+ * `guard` beats `thrust`, which is the precedence the chain used to apply and
+ * is what makes "hold guard and press thrust" a cut from a chambered hand
+ * rather than an extension. It survives the move because it is a statement
+ * about what the two buttons mean together, and that has always belonged to
+ * whoever is pressing them.
+ */
+export const reachFromButtons = (pose: ButtonPose): number =>
+  pose.guard ? BUTTON_REACH.guard : pose.thrust ? BUTTON_REACH.thrust : BUTTON_REACH.neutral;
 
 /**
  * Put one press on the acting hand **and** on the natural striker.
@@ -115,6 +168,11 @@ export interface ButtonChannels {
 export function applyButtonPose(into: ButtonChannels, hand: "primary" | "secondary", pose: ButtonPose): void {
   into[hand].thrust = pose.thrust;
   into[hand].guard = pose.guard;
+  // The reach the press stands for, written on the hand only: a natural striker
+  // has no reach axis, and inventing one for it would be the `zoom` mistake in
+  // miniature -- a channel with a writer, no reader and every appearance of
+  // being load-bearing.
+  into[hand].reach = reachFromButtons(pose);
   into.natural.thrust = pose.thrust;
   into.natural.guard = pose.guard;
 }
@@ -133,6 +191,12 @@ export function releaseButtons(into: ButtonChannels): void {
     slot.thrust = false;
     slot.guard = false;
   }
+  // And the pose those buttons stood for. A hand left at `BUTTON_REACH.thrust`
+  // with nothing held is the same class of bug as an arm left in the guard pose
+  // after a lost release -- which is the reported bug this whole file exists to
+  // make impossible -- only now it is a position rather than a level, so it
+  // would persist until the next press instead of until the next mouse move.
+  for (const slot of [into.primary, into.secondary]) slot.reach = BUTTON_REACH.neutral;
 }
 
 /** The pose the held buttons ask for, less whatever those presses already paid for. */

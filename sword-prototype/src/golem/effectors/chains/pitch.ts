@@ -78,9 +78,11 @@ const pointerForPitch = (pitch: number): number => {
  *
  * **The whole chain is one number.** Pitch is measured as lift from hanging straight down, so 0
  * is a limb at rest, pi/2 is a limb held out horizontally in front, and the range stops short
- * of folding back over the stand. `pointerY` spans it; `guard` raises to a preset; `thrust`
- * runs a chop. Nothing here reads `pointerX`, `roll` or `wristBend`, which is the frozen rule
- * "a chain that has no use for a field ignores it".
+ * of folding back over the stand. `pointerY` spans it, continuously, and that is the entire
+ * command surface: `guard` and `thrust` used to raise this limb to a preset and run a chop at
+ * it, and since Session 12 they do nothing here at all. Nothing here reads `pointerX`, `roll` or
+ * `wristBend` either, which is the frozen rule "a chain that has no use for a field ignores
+ * it".
  *
  * **There is no redundancy at all, by construction, and that is the point.** The overview names
  * a spare axis as one of four *candidate* causes of the elbow-behind-the-back that three body
@@ -102,11 +104,16 @@ const pointerForPitch = (pitch: number): number => {
  *    may move, so a flicked cursor is a sweep and not a snap. A Warrior's anchor has no such
  *    limit, which is exactly why it keyframes onto its commanded pose on the first control step
  *    and reads 77 m/s of tip speed while standing still.
- * 3. **The stroke shape.** `thrust` is a velocity event, not a pose sequence: the motor is
- *    switched to VELOCITY and driven down, then the torque is dropped so the limb coasts
- *    through on its own momentum, and only then does the position motor take it back to
- *    whatever the cursor has been asking for the whole time. A pose sequence stops where the
- *    pose says; this carries past and that is the follow-through.
+ * 3. **Nothing is scripted, and the follow-through is what proves it.** This used to read "the
+ *    stroke shape", and what it described was a chop: `thrust` swapped the hinge to VELOCITY,
+ *    drove it down at a fixed 12 rad/s, dropped the torque so the limb coasted, and handed the
+ *    limb back. It carried past its target, so it *looked* like physics, and it was a script --
+ *    a button that took the limb away from its commander for 0.09 s and moved it at its own
+ *    speed. Session 12 deleted it on the owner's instruction that the mind must have "free
+ *    control of both arms, limited only by the physics and the intelligence of the policy". The
+ *    follow-through did not go with it: driven from pitchMax to pitchMin at the rate limit, the
+ *    limb still swings 0.06 rad past its own floor and comes back, because a finite torque
+ *    against real mass is what was producing that overshoot the whole time.
  *
  * Each of those three carries its sweep in `src/golem/config.ts`, as the house rule requires,
  * and none of them is a claim that the result looks right. That is the owner's to say.
@@ -164,10 +171,6 @@ export const pitchChain = defineChain({
     // swings. Starting here and slewing up makes the first move a move.
     let commandedPitch = 0;
     let wantedPitch = P.restPitch;
-    let phase: EffectorStroke = "idle";
-    let phaseTime = 0;
-    let appliedPhase: EffectorStroke | null = null;
-    let thrustHeld = false;
     let severed = false;
     /** Set once by `unmotorise`: this limb is carried by something rather than driven. */
     let passive = false;
@@ -180,8 +183,11 @@ export const pitchChain = defineChain({
       })]),
       reach: P.linkLength,
       // A chop and a raised guard, and no cut: a cut is the target swept along an arc, and a
-      // one-axis chain has no arc to sweep it along that is not the chop it already runs.
-      // `reachable` is null because this chain's command is an angle rather than a point.
+      // one-axis chain has no arc to sweep it along. As on rung 3 this list says what the module
+      // is *good for* and not what it will run for you -- see `ARM_STROKES` in `arm-core.ts` for
+      // the distinction and for why Session 12 left both lists standing after taking the scripts
+      // out from under them. `reachable` is null because this chain's command is an angle rather
+      // than a point.
       strokes: PITCH_STROKES,
       reachable: null,
       settledBand: P.settledBand,
@@ -234,23 +240,24 @@ export const pitchChain = defineChain({
 
     const writeMotor = (): void => {
       if (!hinge || severed || passive) return;
-      if (phase === "idle") {
-        if (appliedPhase !== "idle") {
-          hinge.setAxisMotorType(HINGE, PhysicsConstraintMotorType.POSITION);
-          hinge.setAxisMotorMaxForce(HINGE, P.motorTorque);
-        }
-        hinge.setAxisMotorTarget(HINGE, -commandedPitch);
-      } else if (appliedPhase !== phase) {
-        hinge.setAxisMotorType(HINGE, PhysicsConstraintMotorType.VELOCITY);
-        // Positive joint velocity is the limb going *down*, because the joint angle is the
-        // negative of the pitch. A chop is downward.
-        hinge.setAxisMotorTarget(HINGE, P.chop.driveRate);
-        hinge.setAxisMotorMaxForce(
-          HINGE, phase === "drive" ? P.motorTorque : P.chop.followTorque,
-        );
-      }
-      appliedPhase = phase;
+      // **One motor mode, written once at build, and a target every step.** The chop used to
+      // swap this hinge from POSITION to VELOCITY for 0.09 s, drive it at a fixed 12 rad/s and
+      // swap it back -- during which the commanded pitch went on slewing and went on being
+      // ignored, because the motor it was written to was no longer in position mode. That is the
+      // one-axis version of the lock-out `arm-core.ts` records: a chain deciding, on a button,
+      // that it would rather move at its own speed than at its commander's. Rung 1's speed now
+      // comes from how fast the commander moves `wantedPitch` against `P.targetRate` and the
+      // torque cap, which is the same sentence rung 3 answers to.
+      hinge.setAxisMotorTarget(HINGE, -commandedPitch);
     };
+    // **Armed once, here, and never re-armed.** The mode and the ceiling used to be written
+    // inside `writeMotor` behind an `appliedPhase !== phase` guard, which armed the motor on the
+    // first call as a side effect of the chop machine's bookkeeping. With the chop gone that
+    // guard went too, and a motor whose type is never set is a hinge with no drive at all -- a
+    // limb that hangs. Writing a native solver object once at build rather than 240 times a
+    // second is also the rule `LOCOMOTION_BIPED.armMotors` states for the same reason.
+    hinge?.setAxisMotorType(HINGE, PhysicsConstraintMotorType.POSITION);
+    hinge?.setAxisMotorMaxForce(HINGE, P.motorTorque);
     writeMotor();
 
     return Object.freeze({
@@ -275,35 +282,21 @@ export const pitchChain = defineChain({
       ownTerminal: null,
       reach: P.linkLength,
 
+      /**
+       * One axis, one channel, no branch on either button.
+       *
+       * `reach` is not read here and neither is `pointerX`: this rung has one degree of freedom
+       * and `pointerY` is it, which is the frozen rule "a chain that has no use for a field
+       * ignores it" answered honestly rather than by inventing a use.
+       */
       command(next: HandIntent): void {
         if (severed) return;
-        wantedPitch = next.guard ? P.guardPitch : pitchForPointer(next.pointerY);
-        // A stroke is an edge, not a level -- the same rule `buttons.ts` states for a press.
-        // Holding the button does not chain chops, and a chop that is already running is not
-        // restarted by a second press: a velocity event has a length and re-triggering it
-        // halfway through would make it a pose sequence with extra steps.
-        if (next.thrust && !thrustHeld && phase === "idle") {
-          phase = "drive";
-          phaseTime = 0;
-        }
-        thrustHeld = next.thrust;
+        wantedPitch = pitchForPointer(next.pointerY);
       },
 
       step(dt: number): void {
         if (severed || passive || !hinge) return;
-        // The command keeps moving through a stroke, so that when the stroke ends the limb
-        // returns to where the cursor is *now* rather than to where it was when the button
-        // went down.
         commandedPitch = slewTowards(commandedPitch, wantedPitch, P.targetRate, dt);
-
-        if (phase !== "idle") {
-          phaseTime += dt;
-          const limit = phase === "drive" ? P.chop.driveSeconds : P.chop.followSeconds;
-          if (phaseTime >= limit) {
-            phase = phase === "drive" ? "follow" : "idle";
-            phaseTime = 0;
-          }
-        }
         writeMotor();
 
         axisView.commanded = commandedPitch;
@@ -312,7 +305,9 @@ export const pitchChain = defineChain({
 
       envelope: () => envelope,
       axes: () => axes,
-      stroke: () => phase,
+      // Always idle: this chain runs no scripted velocity event, so it is never inside one.
+      // See `ArmCore.stroke` for the whole of the argument and for what it costs the readout.
+      stroke: (): EffectorStroke => "idle",
       // No anchor on this rung: the hinge's own motor is the drive, so there is no second frame
       // to stray from. Session 03's chains have one and fill both of these in.
       anchor: () => null,
@@ -323,14 +318,15 @@ export const pitchChain = defineChain({
        *
        * `pointerX`, `roll` and `wristBend` are zero because nothing on this rung reads them --
        * the frozen rule "a chain that has no use for a field ignores it", answered from the
-       * other side. Taken from `commandedPitch`, which is where the rate limiter has got to
-       * rather than where the cursor was, so the first command after a handover is the command
-       * the outgoing driver had left standing. A `guard` held at the moment of the swap is
-       * unrecoverable from a cursor and is meant to be: guard is a button, and the incoming
-       * driver's own button decides.
+       * other side. `reach` joins that list here, and on this rung it really is a zero rather
+       * than an omission: there is one link on one hinge and no distance to command. Taken from
+       * `commandedPitch`, which is where the rate limiter has got to rather than where the cursor
+       * was, so the first command after a handover is the command the outgoing driver had left
+       * standing.
        */
-      cursor: (): HandCursor =>
-        ({ pointerX: 0, pointerY: pointerForPitch(commandedPitch), roll: 0, wristBend: 0 }),
+      cursor: (): HandCursor => ({
+        pointerX: 0, pointerY: pointerForPitch(commandedPitch), reach: 0, roll: 0, wristBend: 0,
+      }),
 
       commandedEnd(distanceFromSocket: number): Vector3 {
         // The commanded limb direction at the commanded pitch, in the mount's frame, carried

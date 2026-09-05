@@ -32,6 +32,7 @@ import { partArmour } from "../src/golem/module.ts";
 import { RigidStrike } from "../src/golem/effectors/striker.ts";
 import { GOLEM_MODULES, golemModule } from "../src/golem/registry.ts";
 import { buildGolemStand, golemLayers } from "../src/golem/stand.ts";
+import { BUTTON_REACH } from "../src/buttons.ts";
 import { createHeadlessArena } from "../scripts/golem-headless-arena.mjs";
 import { runTorsoBench } from "../scripts/golem-torso-bench.mjs";
 
@@ -44,8 +45,14 @@ const benchIntent = () => ({
   forward: 0, strafe: 0, turn: 0, actingHand: "primary",
   natural: { thrust: false, guard: false },
   posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },
-  primary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
-  secondary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
+  primary: {
+    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    roll: 0, wristBend: 0, thrust: false, guard: false,
+  },
+  secondary: {
+    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    roll: 0, wristBend: 0, thrust: false, guard: false,
+  },
 });
 
 // ---------------------------------------------------------------------------------------

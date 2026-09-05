@@ -96,12 +96,21 @@ import {
 
 const UP = Object.freeze(new Vector3(0, 1, 0));
 
+/**
+ * Which way a positive hip abduction target carries a foot, relative to the golem's own right.
+ *
+ * Measured on the bench rather than derived from the frames -- see `bipedPose`, which carries both
+ * columns of the sweep that decided it. It is a fact about how Havok reads this constraint's Z
+ * axis against the frames `joint` builds, and the only honest way to learn it was to drive it.
+ */
+const ABDUCT_SIGN = -1;
+
 const clamp = (value: number, low: number, high: number): number =>
   value < low ? low : value > high ? high : value;
 
 const wrapAngle = (value: number): number => Math.atan2(Math.sin(value), Math.cos(value));
 
-/** The six joint angles one stride phase asks for, plus how far the hip has dropped. */
+/** The eight joint angles one stride phase asks for, plus how far the hip has dropped. */
 export interface BipedPose {
   readonly hipLeft: number;
   readonly hipRight: number;
@@ -109,6 +118,17 @@ export interface BipedPose {
   readonly kneeRight: number;
   readonly ankleLeft: number;
   readonly ankleRight: number;
+  /**
+   * The hip's abduction, radians, about the joint's own Z -- the leg swung sideways.
+   *
+   * **This axis was motorised and never written until 2026-09-05**, which is what made a strafe
+   * look like a slide: the legs ran a fore-aft walk cycle underneath a body that was travelling
+   * sideways, so every planted sole skated. Measured, the stillest planted sole slid at
+   * **1136 mm/s** during a full-speed strafe, against a carrier doing 1200 -- the feet were
+   * holding nothing at all. See `LOCOMOTION_BIPED.strideAbduct`.
+   */
+  readonly abductLeft: number;
+  readonly abductRight: number;
   /** How far below the standing hip the supporting leg puts it, metres. */
   readonly hipDrop: number;
 }
@@ -127,12 +147,44 @@ export interface BipedPose {
  * follow a deep crouch past its own stop -- at which point the sole tilts, which is what a person
  * squatting on a flat floor also does.
  */
-export function bipedPose(phase: number, speedMps: number, crouch: number): BipedPose {
+/**
+ * How fast the *feet* are travelling over the ground, metres per second, for a committed move.
+ *
+ * The stride's cadence is per metre of foot travel rather than per metre of body travel, and on a
+ * turn in place those are not the same number: the body goes nowhere and each foot walks a circle
+ * of radius `hipSide`. Written beside `bipedPose` because it is the same decomposition -- a yaw is
+ * a fore-aft differential of `yaw * maxYawSpeedRadS * hipSide` and the two feet's speeds are
+ * averaged, which for a pure walk is the walk's speed and for a pure pivot is the pivot's.
+ */
+export function bipedFootSpeed(
+  move: { forward: number; right: number; yaw: number },
+): number {
   const B = LOCOMOTION_BIPED;
-  const amount = clamp(speedMps / B.carrier.maxSpeedMps, 0, 1);
-  const swing = B.strideSwing * amount;
+  const spin = clamp(move.yaw, -1, 1) * B.carrier.maxYawSpeedRadS;
+  const differential = (spin * B.hipSide) / B.carrier.maxSpeedMps;
+  const left = Math.min(1, Math.hypot(move.forward + differential, move.right));
+  const right = Math.min(1, Math.hypot(move.forward - differential, move.right));
+  return ((left + right) / 2) * B.carrier.maxSpeedMps;
+}
+
+export function bipedPose(
+  phase: number, forward: number, right: number, turn: number, crouch: number,
+): BipedPose {
+  const B = LOCOMOTION_BIPED;
   const step = Math.sin(phase);
   const opposite = Math.sin(phase + Math.PI);
+
+  // **Each foot gets its own travel, and a yaw is a fore-aft differential and nothing else.**
+  // Rotating about +Y at w carries a point at `(x, 0, 0)` to a velocity of `(0, 0, -w x)`, and
+  // both hips sit on the lateral axis at `hipSide * sign` -- so a turn in place asks the outside
+  // foot to go forward by exactly as much as it asks the inside foot to go back, and asks neither
+  // of them to go sideways. That is the arithmetic and it needs no sign to be guessed: `legSign`
+  // is -1 for the left leg and +1 for the right, the same field the hips are placed from.
+  const spin = clamp(turn, -1, 1) * B.carrier.maxYawSpeedRadS;
+  const legForward = (legSign: number): number =>
+    forward - (spin * B.hipSide * legSign) / B.carrier.maxSpeedMps;
+  const forwardLeft = legForward(-1);
+  const forwardRight = legForward(1);
 
   const thigh = B.thighLength;
   const shin = B.shinLength;
@@ -144,22 +196,60 @@ export function bipedPose(phase: number, speedMps: number, crouch: number): Bipe
   // than swinging out in front of it as the knee folds. Straight from `legPose`.
   const crouchHip = -Math.atan2(shin * Math.sin(crouchKnee), thigh + shin * kneeCos);
 
-  const hipLeft = clamp(crouchHip + step * swing, B.hipSwingMin, B.hipSwingMax);
-  const hipRight = clamp(crouchHip + opposite * swing, B.hipSwingMin, B.hipSwingMax);
+  // **The stride is a vector and not a scalar**, which is the whole of the strafe fix. The swing
+  // *amplitude* is how fast this foot is travelling and the *direction* is which way, so a pure
+  // side-step is the same walk cycle turned a quarter turn rather than a forward walk played
+  // underneath a body that is sliding. Taken per leg, because the yaw differential above makes
+  // the two legs' travel genuinely different.
+  const travelLeft = Math.min(1, Math.hypot(forwardLeft, right));
+  const travelRight = Math.min(1, Math.hypot(forwardRight, right));
+  const alongOf = (f: number, r: number): { fore: number; side: number } => {
+    const size = Math.hypot(f, r);
+    return size > 1e-9 ? { fore: f / size, side: r / size } : { fore: 0, side: 0 };
+  };
+  const alongLeft = alongOf(forwardLeft, right);
+  const alongRight = alongOf(forwardRight, right);
+  const swingLeft = B.strideSwing * travelLeft;
+  const swingRight = B.strideSwing * travelRight;
+
+  const hipLeft = clamp(crouchHip + step * swingLeft * alongLeft.fore,
+    B.hipSwingMin, B.hipSwingMax);
+  const hipRight = clamp(crouchHip + opposite * swingRight * alongRight.fore,
+    B.hipSwingMin, B.hipSwingMax);
+  // **The lateral half of the same stride.** `strideAbduct` is a smaller amplitude than
+  // `strideSwing` because the hip's abduction stop is narrower than its flexion stop -- the
+  // splits limit this file is shaped by -- so a side-step is a shuffle rather than a stride, and
+  // that is anatomy rather than a compromise.
+  //
+  // `ABDUCT_SIGN` is measured and not derived. The fore-aft convention could be read off the
+  // walk that already worked -- a planted foot has to travel backwards under the body, and a
+  // walk that reads 115 mm/s of slip is a walk whose sign is right -- but nothing in this file
+  // had ever written the Z axis, so its direction was a fifty-fifty guess. Swept both ways over a
+  // full-speed strafe: +0.16 read 841 mm/s of planted-sole slip and -0.16 read 536, against 702
+  // with the axis left at zero. A guess would have shipped a gait that braced *against* the
+  // travel and still called itself a fix.
+  const abductLeft = clamp(ABDUCT_SIGN * step * B.strideAbduct * travelLeft * alongLeft.side,
+    -B.hipAbduct, B.hipAbduct);
+  const abductRight = clamp(ABDUCT_SIGN * opposite * B.strideAbduct * travelRight * alongRight.side,
+    -B.hipAbduct, B.hipAbduct);
   // The knee folds only on the way through, which is what `max(0, -sin(phase + kneeLiftPhase))`
   // is: a half-cycle of lift, phase-shifted so it peaks at mid-swing -- where the hip is passing
-  // through neutral and the sole most needs to be off the floor.
+  // through neutral and the sole most needs to be off the floor. It scales on the *magnitude* of
+  // the travel and not on its fore-aft part, so a foot swinging sideways or around a pivot is
+  // lifted off the floor exactly as a foot swinging forward is. It was the fore-aft part until
+  // 2026-09-05, which meant a strafing golem dragged both soles through the whole cycle.
   const kneeLeft = clamp(
-    crouchKnee + Math.max(0, -Math.sin(phase + B.kneeLiftPhase)) * swing * B.kneeLiftScale,
+    crouchKnee + Math.max(0, -Math.sin(phase + B.kneeLiftPhase)) * swingLeft * B.kneeLiftScale,
     B.kneeTargetMin, B.kneeTargetMax);
   const kneeRight = clamp(
-    crouchKnee + Math.max(0, -Math.sin(phase + B.kneeLiftPhase + Math.PI)) * swing * B.kneeLiftScale,
+    crouchKnee + Math.max(0, -Math.sin(phase + B.kneeLiftPhase + Math.PI))
+      * swingRight * B.kneeLiftScale,
     B.kneeTargetMin, B.kneeTargetMax);
   const extension = (hip: number, knee: number): number =>
     thigh * Math.cos(hip) + shin * Math.cos(hip + knee);
 
   return Object.freeze({
-    hipLeft, hipRight, kneeLeft, kneeRight,
+    hipLeft, hipRight, kneeLeft, kneeRight, abductLeft, abductRight,
     // **The ankle levels the sole against the whole chain, and levelling it against the crouch
     // alone was measured and refused.** The idea was that a swing foot pitched toe-up clears the
     // ground; the sign says otherwise. A positive rotation about the joint's own +X carries the
@@ -500,6 +590,7 @@ export const bipedModule = defineLocomotion({
     const watchers: [PhysicsBody, Observer<unknown>][] = [];
     const commanded = {
       hipLeft: 0, hipRight: 0, kneeLeft: 0, kneeRight: 0, ankleLeft: 0, ankleRight: 0,
+      abductLeft: 0, abductRight: 0,
     };
     const evidence = blankLocomotionEvidence();
     const readout = new LocomotionReadout();
@@ -634,11 +725,23 @@ export const bipedModule = defineLocomotion({
         : pelvis.mesh.position.y - meanSoleY(),
     });
 
-    const carrierSpeed = (): number => {
+    /**
+     * What the carrier committed to this boundary, in its own normalised terms.
+     *
+     * All three are fractions of the carrier's own ceilings and that is the port's convention
+     * rather than this module's: `PhysicalSupportedLocomotionPort` divides the achieved
+     * displacement by `maxSpeedMps * dt` and the achieved turn by `maxYawSpeedRadS * dt` before
+     * publishing them, so what comes back is -1..1 on every axis.
+     */
+    const carrierMove = (): { forward: number; right: number; yaw: number } => {
       const allowed = port?.priorAllowed() ?? null;
-      if (!allowed) return 0;
-      return Math.min(1, Math.hypot(allowed.localForward, allowed.localRight)) *
-        B.carrier.maxSpeedMps;
+      if (!allowed) return { forward: 0, right: 0, yaw: 0 };
+      return { forward: allowed.localForward, right: allowed.localRight, yaw: allowed.yaw };
+    };
+
+    const carrierSpeed = (): number => {
+      const move = carrierMove();
+      return Math.min(1, Math.hypot(move.forward, move.right)) * B.carrier.maxSpeedMps;
     };
 
     const authority = (): StabilityAuthority => {
@@ -781,9 +884,17 @@ export const bipedModule = defineLocomotion({
     port = activePort;
 
 
-    const writeLeg = (leg: BipedLeg, hip: number, knee: number, ankle: number): void => {
+    const writeLeg = (
+      leg: BipedLeg, hip: number, knee: number, ankle: number, abduct: number,
+    ): void => {
       if (leg.severed) return;
       leg.hip?.setAxisMotorTarget(PhysicsConstraintAxis.ANGULAR_X, hip);
+      // **`armMotors` has armed this axis since Session 05 and nothing ever wrote a target to
+      // it**, so it held zero at `hipTorque` all the way through every strafe -- a motor actively
+      // keeping the legs from stepping sideways while the carrier slid the body sideways past
+      // them. Writing it is the whole of the strafe fix; `BipedPose.abductLeft` carries what it
+      // was worth.
+      leg.hip?.setAxisMotorTarget(PhysicsConstraintAxis.ANGULAR_Z, abduct);
       leg.knee?.setAxisMotorTarget(PhysicsConstraintAxis.ANGULAR_X, knee);
       leg.ankle?.setAxisMotorTarget(PhysicsConstraintAxis.ANGULAR_X, ankle);
     };
@@ -813,7 +924,7 @@ export const bipedModule = defineLocomotion({
       }
     };
     armMotors(1);
-    for (const leg of legs) writeLeg(leg, 0, 0, 0);
+    for (const leg of legs) writeLeg(leg, 0, 0, 0, 0);
     let limp = false;
 
     const gait = (dt: number): void => {
@@ -827,11 +938,17 @@ export const bipedModule = defineLocomotion({
         limp = wantedLimp;
         armMotors(limp ? B.fallenTorqueScale : 1);
       }
-      const speed = carrierSpeed();
-      stride += speed * B.strideCadence * dt;
+      const move = carrierMove();
+      // **The stride advances with the feet and not with the body**, which is what makes a turn in
+      // place step at all. `carrierSpeed` is the *body's* speed and it is zero for a pivot, so the
+      // phase used to stand still through the whole of one -- a golem rotating on the spot with
+      // its legs frozen, which is the second half of what the owner saw. A foot on a pivot travels
+      // at `yaw * hipSide` whatever the body does, and `bipedPose` has already worked out each
+      // foot's own travel, so this asks it rather than re-deriving it.
+      stride += bipedFootSpeed(move) * B.strideCadence * dt;
       crouchLevel += clamp((wantedCrouch - crouchLevel) * B.crouchResponse * dt,
         -B.heightRate * dt, B.heightRate * dt);
-      const pose = bipedPose(stride, speed, crouchLevel);
+      const pose = bipedPose(stride, move.forward, move.right, move.yaw, crouchLevel);
       hipDrop = pose.hipDrop;
       // The *commanded* angle is rate-limited, which is the ceiling that makes a flicked key a
       // move rather than a snap -- the same argument `CHAIN_PITCH.targetRate` carries. Nothing
@@ -844,8 +961,12 @@ export const bipedModule = defineLocomotion({
       commanded.kneeRight = slewTowards(commanded.kneeRight, pose.kneeRight, B.targetRate, dt);
       commanded.ankleLeft = slewTowards(commanded.ankleLeft, pose.ankleLeft, B.targetRate, dt);
       commanded.ankleRight = slewTowards(commanded.ankleRight, pose.ankleRight, B.targetRate, dt);
-      writeLeg(legs[0], commanded.hipLeft, commanded.kneeLeft, commanded.ankleLeft);
-      writeLeg(legs[1], commanded.hipRight, commanded.kneeRight, commanded.ankleRight);
+      commanded.abductLeft = slewTowards(commanded.abductLeft, pose.abductLeft, B.targetRate, dt);
+      commanded.abductRight = slewTowards(commanded.abductRight, pose.abductRight, B.targetRate, dt);
+      writeLeg(legs[0], commanded.hipLeft, commanded.kneeLeft, commanded.ankleLeft,
+        commanded.abductLeft);
+      writeLeg(legs[1], commanded.hipRight, commanded.kneeRight, commanded.ankleRight,
+        commanded.abductRight);
     };
 
     const readEvidence = (dt: number): void => {

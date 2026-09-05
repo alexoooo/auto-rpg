@@ -38,6 +38,7 @@ import {
   golemModule,
 } from "../src/golem/registry.ts";
 import { buildGolemStand, golemLayers } from "../src/golem/stand.ts";
+import { BUTTON_REACH } from "../src/buttons.ts";
 import { createHeadlessArena } from "../scripts/golem-headless-arena.mjs";
 import { runGolemBench } from "../scripts/golem-bench.mjs";
 
@@ -49,8 +50,14 @@ const benchIntent = () => ({
   forward: 0, strafe: 0, turn: 0, actingHand: "primary",
   natural: { thrust: false, guard: false },
   posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },
-  primary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
-  secondary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
+  primary: {
+    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    roll: 0, wristBend: 0, thrust: false, guard: false,
+  },
+  secondary: {
+    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    roll: 0, wristBend: 0, thrust: false, guard: false,
+  },
 });
 
 // ---------------------------------------------------------------------------------------
@@ -330,8 +337,21 @@ test("rung 1 tracks its command, strokes and never touches itself", async () => 
   assert.ok(Math.abs(state.excludedStartupSteps - startupSteps) <= 1,
     `${state.excludedStartupSteps} startup steps excluded, expected about ${startupSteps}`);
   assert.equal(state.excludedContactSteps, 0);
-  assert.ok(state.peakTipSpeedDriven > 12 && state.peakTipSpeedDriven < 18,
-    `the chop peaked at ${state.peakTipSpeedDriven} m/s outside both exclusion windows`);
+  // **What the peak is a reading of moved on 2026-09-05, and so did the number.** It used to be
+  // `CHAIN_PITCH.chop.driveRate` -- a scripted 12 rad/s velocity event -- and read 12 to 18 m/s.
+  // There is no script; the sequence's `chop` mark asks for the bottom of the range in 0.20 s,
+  // which is 9.25 rad/s against a chain whose `targetRate` is 6, so what is measured is the
+  // chain's own ceiling carried across its own reach and then whatever the link's momentum adds
+  // on top. The floor is that ceiling exactly, which is the assertion that the limb reaches the
+  // rate it is allowed; the ceiling on the reading is 1.6x it, which is the assertion that a
+  // one-axis limb is not slamming its stop and rebounding. Measured 9.40 m/s against a 6.84 m/s
+  // commanded ceiling, Node bench, 2026-09-05.
+  const rateCeiling = CHAIN_PITCH.targetRate * run.envelope.reach;
+  assert.ok(state.peakTipSpeedDriven > rateCeiling,
+    `the chop peaked at ${state.peakTipSpeedDriven} m/s against a commanded ${rateCeiling} m/s`);
+  assert.ok(state.peakTipSpeedDriven < rateCeiling * 1.6,
+    `the chop peaked at ${state.peakTipSpeedDriven} m/s, well past the ${rateCeiling} m/s the`
+    + " command can ask for, which is a limb rebounding off its own stop");
   // **The raw peak is not larger than the driven one**, which says the fastest thing this limb
   // ever did was the stroke -- nothing inside either exclusion window beat it. That is the
   // property the two windows exist to protect, and it is worth asserting rather than merely
@@ -360,13 +380,21 @@ test("rung 1 tracks its command, strokes and never touches itself", async () => 
   assert.ok(state.tipWanderMm < 6, `rung 1 wandered ${state.tipWanderMm} mm at rest`);
 });
 
-test("rung 1's chop is a velocity event, not a pose sequence", async () => {
-  // The distinction the whole rung turns on, and the only way to see it is to watch the stroke
-  // rather than its endpoints: a pose sequence stops where the pose says, and a velocity event
-  // carries past its own target and comes back. So this drives the limb by hand and records
-  // what the achieved angle was at the end of each stroke phase, and how deep the whole stroke
-  // actually went -- **sampled on the physics clock**, because the phases are 0.05 s and 0.04 s
-  // long and a per-frame sample at 60 Hz would step straight over one of them.
+test("rung 1 follows its command at a rate limit, and its buttons do nothing at all", async () => {
+  // **This test used to be called "rung 1's chop is a velocity event, not a pose sequence", and
+  // the thing it named no longer exists.** Session 12 took the scripted strokes out from under
+  // every chain: `thrust` swapped this hinge to VELOCITY for 0.09 s, drove it at a fixed
+  // 12 rad/s and swapped it back, and the whole time the commanded pitch went on slewing and
+  // went on being ignored. That is a chain deciding, on a button, that it would rather move at
+  // its own speed than at its commander's -- which is the one thing the owner ruled out: free
+  // control of the limb, limited only by the physics, and no hard-coded scripting underneath it.
+  //
+  // So what is asserted is what rung 1 now *is*, and it is the stronger statement of the two: a
+  // pure rate-limited position follower, whose only input is where the cursor is and whose speed
+  // is the ceiling in `CHAIN_PITCH.targetRate` against the torque cap. The old test's subject --
+  // the follow-through -- has not gone away, it has moved to where it belongs: the limb still
+  // lags a moving command and still carries past a stopped one, and the last two assertions here
+  // are the same reading the deleted ones took, off a command instead of off a script.
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
   const scene = arena.scene;
   const plugin = scene.getPhysicsEngine().getPhysicsPlugin();
@@ -376,16 +404,23 @@ test("rung 1's chop is a velocity event, not a pose sequence", async () => {
     layers: golemLayers("left"), materials: stand.materials,
   });
 
-  const seen = { idle: null, drive: null, follow: null };
-  let previousPhase = "idle";
-  let strokes = 0;
+  // Sampled on the physics clock and not per frame: the rate ceiling is a statement about the
+  // step the commander actually takes, and a 60 Hz sample of a 240 Hz slew would average four
+  // of them together and could not see a single one that was too big.
+  const phases = new Set();
+  let previousCommanded = null;
+  let worstRate = 0;
   let deepest = Infinity;
+  let watching = false;
   const control = scene.onBeforePhysicsObservable.add(() => {
     module.step(SUBSTEP);
     const view = module.view();
-    if (view.stroke === "drive" && previousPhase !== "drive") strokes += 1;
-    previousPhase = view.stroke;
-    seen[view.stroke] = view.axes[0].achieved;
+    phases.add(view.stroke);
+    const command = view.axes[0].commanded;
+    if (watching && previousCommanded !== null) {
+      worstRate = Math.max(worstRate, Math.abs(command - previousCommanded) / SUBSTEP);
+    }
+    previousCommanded = command;
     deepest = Math.min(deepest, view.axes[0].achieved);
   });
 
@@ -399,63 +434,89 @@ test("rung 1's chop is a velocity event, not a pose sequence", async () => {
         scene._advancePhysicsEngineStep(1000 * FRAME);
       }
     };
+    const achieved = () => module.view().axes[0].achieved;
+    const commanded = () => module.view().axes[0].commanded;
 
     step(90);
-    const settled = seen.idle;
+    const settled = achieved();
     assert.ok(Math.abs(settled - CHAIN_PITCH.restPitch) < CHAIN_PITCH.settledBand,
       `the limb rested at ${settled} instead of ${CHAIN_PITCH.restPitch}`);
+
+    // **Both buttons, held, for two seconds, and nothing may move.** This is the assertion the
+    // deleted one inverted: it checked that a held `thrust` chopped once and did not chain a
+    // second chop, and the rule it was enforcing -- a press pays for one thing -- is now
+    // enforced by there being nothing to pay for. `thrust` and `guard` are driver-side inputs
+    // that a mind writes and a *chain with somewhere to put them* reads; this rung has one
+    // degree of freedom and `pointerY` is it, so both are a no-op here by construction, and this
+    // is what construction looks like from outside.
+    intent.primary.thrust = true;
+    intent.primary.guard = true;
+    step(120);
+    assert.ok(Math.abs(achieved() - settled) < CHAIN_PITCH.settledBand,
+      `holding both buttons moved the limb from ${settled} to ${achieved()}`);
+
+    // And now the sweep, with the buttons still held down for the whole of it, so that the
+    // cursor is provably the only thing moving this limb.
+    watching = true;
+    intent.primary.pointerY = 1;
+    step(60);
+    assert.ok(Math.abs(commanded() - CHAIN_PITCH.pitchMax) < 1e-6,
+      `the cursor at the top of the window asked for ${commanded()}, not ${CHAIN_PITCH.pitchMax}`);
     deepest = Infinity;
 
-    intent.primary.thrust = true;
-    step(1);
-    intent.primary.thrust = false;
-    // Past the drive and the follow together: 0.05 + 0.04 s is under six frames at 60 Hz, and
-    // the per-substep capture above has already recorded the last sample of each phase.
-    step(6);
-    const endOfDrive = seen.drive;
-    const endOfFollow = seen.follow;
-    // Then let the position motor arrest it. The deepest point of the stroke is reached *after*
-    // the follow ends, which is the whole of what follow-through means.
+    // **The rate limit, timed rather than inspected.** The command is flicked from the top of
+    // the window to the bottom in one frame -- a mouse can do that and a stone arm cannot -- and
+    // what is measured is how long the commanded angle takes to get there. The span is 1.85 rad
+    // and the ceiling is 6 rad/s, so it may not arrive before 0.308 s however hard it is asked.
+    // Measured 19 frames, 0.3167 s, which is the first 60 Hz frame boundary past that floor, at a
+    // worst single-substep rate of 6.000 rad/s exactly. 2026-09-05, the Node bench.
+    intent.primary.pointerY = -1;
+    let frames = 0;
+    while (commanded() > CHAIN_PITCH.pitchMin + 1e-9 && frames < 120) {
+      step(1);
+      frames += 1;
+    }
+    const span = CHAIN_PITCH.pitchMax - CHAIN_PITCH.pitchMin;
+    const floorSeconds = span / CHAIN_PITCH.targetRate;
+    assert.ok(frames * FRAME >= floorSeconds,
+      `the command crossed the whole ${span} rad span in ${frames * FRAME} s, against a`
+      + ` ${CHAIN_PITCH.targetRate} rad/s ceiling that needs ${floorSeconds} s`);
+    // The other side of it: a limit that is never reached is a limit nothing is measuring. The
+    // command is asking for the far end on every step of this, so it must be moving at the
+    // ceiling on every step of it too, and arrive within a frame or two of the floor.
+    assert.ok(frames * FRAME < floorSeconds + 3 * FRAME,
+      `the command took ${frames * FRAME} s to cross a span the ceiling crosses in`
+      + ` ${floorSeconds} s; something other than the rate limit is slowing it`);
+    assert.ok(worstRate <= CHAIN_PITCH.targetRate * 1.001,
+      `the commanded angle moved at ${worstRate} rad/s against a ${CHAIN_PITCH.targetRate} ceiling`);
+
+    // **The limb carries past the stopped command and comes back**, which is the follow-through
+    // the deleted test was about, read here off the only thing that now produces it: a finite
+    // torque cap against real mass. A position motor stiff enough to move stone would stop dead
+    // on the last commanded angle and this would be red.
+    //
+    // **And it must not arrive at its own joint stop.** A motor and a limit pushing at each
+    // other is the buzz the Warrior's wrist was rewritten to remove, and it is why the
+    // commandable span stops short of the hinge's: `pointerY` at -1 asks for 0.30 rad and the
+    // stop is at -0.05, so the 0.35 rad between them is the room the limb has to overshoot in.
+    // Measured: deepest 0.240 rad, which is 0.060 past the command and 0.290 clear of the stop.
     step(30);
-    const deepestOfStroke = deepest;
+    assert.ok(deepest > CHAIN_PITCH.jointMin + 0.05,
+      `the limb reached ${deepest}, against a hard stop at ${CHAIN_PITCH.jointMin}`);
+    assert.ok(deepest < CHAIN_PITCH.pitchMin,
+      `the limb stopped at ${deepest} without carrying past the ${CHAIN_PITCH.pitchMin} it was`
+      + " asked for; a limb that never overshoots a stopped command is a limb with no momentum");
 
-    assert.equal(strokes, 1, "a thrust must run exactly one drive phase");
-    assert.ok(endOfDrive !== null && endOfFollow !== null,
-      "a stroke without both phases has no follow-through");
-    assert.ok(endOfDrive < settled - 0.2,
-      `the chop moved the limb from ${settled} to ${endOfDrive}, which is not a chop`);
-    assert.ok(endOfFollow < endOfDrive,
-      `the limb stopped at ${endOfDrive} instead of carrying through past it to ${endOfFollow}`);
-    // **The follow-through proper.** The limb goes on past the end of the stroke, against a
-    // position motor that is by then pulling it back at full torque. A pose sequence cannot do
-    // this, and neither can a velocity event whose drive already used up the range.
-    // Measured 0.808 rad past the drive's end with `followSeconds` at 0.04, against 0.385 with
-    // the follow phase removed entirely -- the table beside `CHAIN_PITCH.chop` carries all four
-    // rows. Bounding it at 0.6 is what makes this an assertion about the follow-through rather
-    // than about a stroke happening at all. Provisional, pinned from the 2026-09-04 Node bench
-    // run, to be re-taken after the owner's gate.
-    assert.ok(endOfDrive - deepestOfStroke > 0.6,
-      `the drive ended at ${endOfDrive} and the stroke carried only to ${deepestOfStroke}`);
-    assert.ok(deepestOfStroke < endOfFollow - 0.2,
-      `the stroke ended at ${endOfFollow} and carried only to ${deepestOfStroke}`);
-    // **And it must not arrive at its own joint stop.** A limb slamming into a limit is a motor
-    // and a limit pushing at each other, which is the buzz the Warrior's wrist was rewritten to
-    // remove. The first draft's 0.14 s drive reached the stop with the drive alone and rebounded
-    // off it, which is what the two tables beside `CHAIN_PITCH.chop` now record.
-    assert.ok(deepestOfStroke > CHAIN_PITCH.jointMin + 0.05,
-      `the stroke reached ${deepestOfStroke}, against a hard stop at ${CHAIN_PITCH.jointMin}`);
-
+    intent.primary.pointerY = 0;
+    intent.primary.thrust = false;
+    intent.primary.guard = false;
     step(180);
-    assert.ok(Math.abs(seen.idle - settled) < CHAIN_PITCH.settledBand,
-      `the limb finished the stroke at ${seen.idle} instead of returning to ${settled}`);
+    assert.ok(Math.abs(achieved() - settled) < CHAIN_PITCH.settledBand,
+      `the limb finished at ${achieved()} instead of returning to ${settled}`);
 
-    // Held, not repeated. A stroke is an edge and holding the button must not chain chops --
-    // the same rule `src/buttons.ts` states for every action a press pays for once.
-    intent.primary.thrust = true;
-    step(240);
-    assert.equal(strokes, 2, "the first press of a held button must still chop");
-    step(240);
-    assert.equal(strokes, 2, "holding thrust chained a second chop; a stroke is an edge");
+    // Every sample of all of that, and there is one phase in the set.
+    assert.deepEqual([...phases], ["idle"],
+      "rung 1 published a stroke phase; it runs no scripted event and is never inside one");
   } finally {
     scene.onBeforePhysicsObservable.remove(control);
     module.dispose();
@@ -629,24 +690,36 @@ test("rung 2 clamps a cross-body command into the envelope instead of refusing i
     // is stated about. The stand is built at the origin facing +Z, so the centreline is x = 0.
     const lateral = () => outboard * rig.handPoint().x;
 
-    // Fully inboard at guard reach: short, so the carry rule does not bite and the limb goes
-    // where it is told. This is the control -- without it, the assertion below is satisfied by a
-    // chain that simply cannot swing inboard at all.
+    // **The two reaches used to be the two buttons, and on 2026-09-05 they stopped being
+    // anything.** This drove the short pose with `guard` and the long one with `thrust`, and
+    // Session 12 deleted both preset distances in favour of a continuous `reach` on `HandIntent`
+    // -- so both poses became the same pose, and `R.reachThrust` became `undefined`, which made
+    // the floor below `NaN` and every comparison against it false. A clamp test that cannot tell
+    // its two poses apart and compares against a non-number is the "green instrument measuring
+    // nothing" shape twice over.
+    //
+    // What replaces them is what the rule was always about: the *distance*, commanded directly.
+    // `reach` at -1 is `reachMin` and at +1 is `reachMax`, and the coupling under test is that
+    // the same inboard cursor is given a pose at one and clamped out of it at the other.
+
+    // Fully inboard, drawn all the way in: short, so the carry rule does not bite and the limb
+    // goes where it is told. This is the control -- without it, the assertion below is satisfied
+    // by a chain that simply cannot swing inboard at all. At `reachMin` the floor is
+    // `asin(-0.24 / 0.30)` = -0.93 rad, outside `swingMin` entirely.
     rig.hand.pointerX = -1;
     rig.hand.pointerY = 0;
-    rig.hand.guard = true;
+    rig.hand.reach = -1;
     rig.run(150);
-    const guarded = rig.module.view().axes[1].achieved;
-    assert.ok(guarded < -0.4,
-      `a short cross-body guard reached only ${guarded} rad of swing, so nothing was clamped`);
+    const drawn = rig.module.view().axes[1].achieved;
+    assert.ok(drawn < -0.4,
+      `a short cross-body command reached only ${drawn} rad of swing, so nothing was clamped`);
 
-    // The same cursor at thrust reach, which is outside the envelope: the carry floor at
-    // `reachThrust` is `asin(carryMin / (reachThrust * cos lift))`, well above `swingMin`.
-    rig.hand.guard = false;
-    rig.hand.thrust = true;
+    // The same cursor at full extension, which is outside the envelope: the carry floor at
+    // `reachMax` is `asin(carryMin / (reachMax * cos lift))`, well above `swingMin`.
+    rig.hand.reach = 1;
     rig.run(240);
     const reached = rig.module.view().axes[1].achieved;
-    const floor = Math.asin(R.carryMin / R.reachThrust);
+    const floor = Math.asin(R.carryMin / R.reachMax);
     assert.ok(reached > floor - 0.08,
       `the clamp let the hand to ${reached} rad of swing against a floor of ${floor}`);
     assert.ok(reached < R.swingMax,
@@ -752,57 +825,115 @@ test("rung 3's wrist owns orientation and the anchor never pays for it", async (
   }
 });
 
-test("rung 2's thrust is a velocity event, not a pose sequence", async () => {
-  // The same distinction rung 1's chop test makes, in the units an anchor works in: a pose
-  // sequence stops where the pose says, and a velocity event carries past its own command and
-  // comes back. The anchor's analogue of switching a motor to VELOCITY is dropping its *force*
-  // ceiling while the command holds, so the limb decelerates against gravity rather than against
-  // the drive.
+test("rung 2 follows its command at a rate limit, and its buttons do nothing at all", async () => {
+  // **The same rewrite as rung 1's, in the units an anchor works in.** This was "rung 2's thrust
+  // is a velocity event, not a pose sequence": `thrust` dropped the anchor's force ceiling for
+  // `followSeconds` so the hand coasted past its own command, and Session 12 deleted the whole
+  // machine. What is left is the thing that made it a limb in the first place -- a point that is
+  // rate-limited in metres per second, hauled by a finite force against real mass -- and it is
+  // what this now measures.
+  //
+  // `reach` is the axis to measure it on: with the cursor held still the commanded point moves
+  // radially, so the anchor's ceiling in metres per second and the reach axis in metres per
+  // second are the same number, and no projection has to be trusted to read one off the other.
   const rig = await onStand("effector.reach.blade");
   try {
     const R = CHAIN_REACH;
+    // Off the centreline and slightly lifted, so that the carry floor tested above is not what is
+    // being measured here, and drawn all the way in to start.
     rig.hand.pointerX = 0.4;
     rig.hand.pointerY = 0.2;
+    rig.hand.reach = -1;
     rig.run(180);
 
-    let atDriveEnd = null;
+    // Sampled on the physics clock and not per frame, for the reason rung 1's test states: a
+    // 60 Hz sample of a 240 Hz slew averages four steps together and cannot see a single bad one.
+    const phases = new Set();
+    let previousCommanded = null;
+    let worstRate = 0;
     let furthest = 0;
-    let phases = 0;
-    let previous = "idle";
+    let watching = false;
     const watch = rig.scene.onBeforePhysicsObservable.add(() => {
       const view = rig.module.view();
-      if (view.stroke === "drive" && previous !== "drive") phases += 1;
-      if (previous === "drive" && view.stroke !== "drive") atDriveEnd = view.axes[0].achieved;
-      previous = view.stroke;
+      phases.add(view.stroke);
+      const command = view.axes[0].commanded;
+      if (watching && previousCommanded !== null) {
+        worstRate = Math.max(worstRate, Math.abs(command - previousCommanded) / SUBSTEP);
+      }
+      previousCommanded = command;
       furthest = Math.max(furthest, view.axes[0].achieved);
     });
-    rig.hand.thrust = true;
-    rig.run(1);
-    rig.hand.thrust = false;
-    rig.run(90);
-    rig.scene.onBeforePhysicsObservable.remove(watch);
 
-    assert.equal(phases, 1, "a thrust must run exactly one drive phase");
-    assert.ok(atDriveEnd !== null, "a stroke without a drive phase has no follow-through");
-    // **The follow-through proper**, measured as the reach the hand carries to past where the
-    // drive left it. Measured 47.1 mm with `followSeconds` at 0.06 against 13.6 mm with the
-    // follow phase removed entirely; the table beside `CHAIN_REACH.thrust` carries all five rows.
-    // Provisional, pinned from the 2026-09-04 Node bench run.
-    assert.ok(furthest - atDriveEnd > 0.025,
-      `the drive ended at ${atDriveEnd} m and the stroke carried only to ${furthest} m`);
-    // **And it must not arrive at the arm's own extension.** A limb slamming into its own stop is
-    // a motor and a limit pushing at each other, which is the buzz `arm.ts`'s wrist was rewritten
-    // to get rid of -- and driving the stroke to `reachMax` instead of `reachThrust` did exactly
-    // that, 0.7812 m against a full extension of 0.780.
-    assert.ok(furthest < R.upperLength + R.foreLength - 0.03,
-      `the stroke carried the hand to ${furthest} m against a full extension of`
-      + ` ${R.upperLength + R.foreLength} m`);
+    try {
+      const settled = rig.module.view().axes[0].achieved;
+      assert.ok(Math.abs(settled - R.reachMin) < R.settledBand,
+        `the hand drew in to ${settled} m instead of ${R.reachMin} m`);
 
-    // Held, not repeated: a stroke is an edge and holding the button must not chain them.
-    rig.hand.thrust = true;
-    rig.run(240);
-    rig.run(240);
-    assert.equal(phases, 1, "the watcher was removed, so this is a control on the count above");
+      // **Both buttons, held, for two seconds, and nothing may move.** This replaces the deleted
+      // "held, not repeated" control, and it is the same rule stated from the other side: a press
+      // used to pay for one chop, and now there is nothing for it to pay for. A mind writes
+      // `thrust` and `guard` for whatever reads them; this chain has a continuous `reach` and no
+      // use for either, which is the frozen rule "a chain that has no use for a field ignores it".
+      rig.hand.thrust = true;
+      rig.hand.guard = true;
+      rig.run(120);
+      const held = rig.module.view().axes[0].achieved;
+      assert.ok(Math.abs(held - settled) < R.settledBand,
+        `holding both buttons moved the hand from ${settled} m to ${held} m`);
+
+      // **The rate limit, timed rather than inspected**, with the buttons still held down for the
+      // whole of it so the reach channel is provably the only thing moving this hand. The span is
+      // 0.42 m and the ceiling is 5 m/s, so the command may not arrive before 0.084 s however
+      // hard it is asked.
+      //
+      // **Writing that down is what found the componentwise limiter.** The first draft of this
+      // read 0.0667 s and 8.39 m/s, because `AnchorDrive` slewed x, y and z separately -- a box
+      // and not a ball, whose corner is sqrt(3) times its edge, and whose axes are the *world's*,
+      // so a golem's arm was faster for facing diagonally. `AnchorDrive.linearRate` carries the
+      // account. Measured after the fix: 6 frames, 0.100 s, 5.000 m/s.
+      watching = true;
+      furthest = 0;
+      rig.hand.reach = 1;
+      let frames = 0;
+      while (rig.module.view().axes[0].commanded < R.reachMax - 1e-9 && frames < 120) {
+        rig.run(1);
+        frames += 1;
+      }
+      const span = R.reachMax - R.reachMin;
+      const floorSeconds = span / R.anchorRate;
+      assert.ok(frames * FRAME >= floorSeconds,
+        `the command crossed the whole ${span} m span in ${frames * FRAME} s, against a`
+        + ` ${R.anchorRate} m/s ceiling that needs ${floorSeconds} s`);
+      assert.ok(frames * FRAME < floorSeconds + 3 * FRAME,
+        `the command took ${frames * FRAME} s to cross a span the ceiling crosses in`
+        + ` ${floorSeconds} s; something other than the rate limit is slowing it`);
+      assert.ok(worstRate <= R.anchorRate * 1.001,
+        `the commanded point moved at ${worstRate} m/s against a ${R.anchorRate} m/s ceiling`);
+
+      rig.run(90);
+
+      // **The hand carries past the stopped command and comes back**, which is the follow-through
+      // the deleted test was about, read off the only thing that now produces it: a finite force
+      // ceiling against real mass. An anchor stiff enough to move stone would stop dead on
+      // `reachMax` and this would be red.
+      assert.ok(furthest > R.reachMax,
+        `the hand stopped at ${furthest} m without carrying past the ${R.reachMax} m it was asked`
+        + " for; a limb that never overshoots a stopped command is a limb with no momentum");
+      // **And it must not arrive at the arm's own extension.** A limb slamming into its own stop
+      // is a motor and a limit pushing at each other, which is the buzz `arm.ts`'s wrist was
+      // rewritten to get rid of -- and the deleted stroke driving to `reachMax` instead of the
+      // old `reachThrust` did exactly that, 0.7812 m against a full extension of 0.780. This is
+      // the worst case the chain has: the whole span, commanded in one frame, at the ceiling.
+      // Measured 0.7505 m, which is 30.5 mm past the command and 29.5 mm short of the stop.
+      assert.ok(furthest < R.upperLength + R.foreLength - 0.02,
+        `the hand carried to ${furthest} m against a full extension of`
+        + ` ${R.upperLength + R.foreLength} m`);
+
+      assert.deepEqual([...phases], ["idle"],
+        "rung 2 published a stroke phase; it runs no scripted event and is never inside one");
+    } finally {
+      rig.scene.onBeforePhysicsObservable.remove(watch);
+    }
   } finally {
     rig.dispose();
   }
@@ -821,9 +952,12 @@ test("rungs 2 and 3 track their commands with zero contacts over the scripted se
 
     // **The reading `AGENTS.md` says to take first.** A driven limb that is not within a few
     // millimetres of its own anchor while nothing is asking it to be anywhere else is not posed
-    // wrongly, it is stuck on something. Measured 3.73 mm on rung 2 and 4.64 mm on rung 3 against
-    // a Warrior's 242.88 mm over its own sweep. Provisional, pinned from the 2026-09-04 Node
-    // bench run.
+    // wrongly, it is stuck on something. Measured 6.96 mm on rung 2 and 2.17 mm on rung 3 against
+    // a Warrior's 242.88 mm over its own sweep. Provisional, re-taken on the 2026-09-05 Node
+    // bench: the sequence these run under is continuous reach rather than two buttons now, so the
+    // 3.73 and 4.64 the block used to quote were read over a command this bench can no longer
+    // send. Rung 2's figure roughly doubled and rung 3's roughly halved, and neither is near the
+    // bound.
     assert.ok(state.idleAnchorStrayMm !== null && state.idleAnchorStrayMm < 20,
       `${id} strayed ${state.idleAnchorStrayMm} mm from its own anchor outside every stroke`);
     // The strokes are the other half, and they stray by design -- a follow-through is the limb
@@ -1158,9 +1292,14 @@ test("the whip's lash outruns the wrist that flicks it, outside both exclusion w
   assert.ok(state.peakTipSpeedRaw <= state.peakTipSpeedDriven * 1.02,
     `the lash's fastest moment was ${state.peakTipSpeedRaw} m/s inside an exclusion window`);
 
-  // **The chain underneath is not disturbed by what is hanging off it**, which is what says the
-  // whip is physics rather than control: the anchor stray outside every stroke stays at the order
-  // the same chain reads with a 1.30 kg blade on it. Measured 1.08 mm against the blade's 4.64.
+  // **The chain underneath is pulled by what is hanging off it, and by how much is the reading.**
+  // Measured 17.27 mm on the 2026-09-05 bench against the same chain's 2.17 mm with a 1.30 kg
+  // blade on it -- eight times as far, and the claim this block used to make, that the two were of
+  // the same order at 1.08 against 4.64, is not true of the command sequence the bench sends now.
+  // It is still what a rope should do rather than a tracking failure: the beads go on swinging
+  // after the wrist has settled, and a settled wrist being tugged 17 mm by a rope that is still
+  // moving is the mass being real. The 20 mm bound below is now a thin margin rather than a
+  // comfortable one, so a change that crosses it wants reading before it is re-pinned.
   assert.ok(state.idleAnchorStrayMm !== null && state.idleAnchorStrayMm < 20,
     `the whip pulled its own chain ${state.idleAnchorStrayMm} mm off its anchor`);
   // And the reading that is *not* a tracking error, asserted as what it is so nobody quotes it as
@@ -1241,7 +1380,11 @@ test("a plate keeps clear of its own stand everywhere in its own envelope", asyn
   const standCentre = new Vector3(0, S.centreHeight, 0);
   const half = new Vector3(P.height / 2, P.thickness / 2, P.width / 2);
 
-  for (const id of ["effector.reach.plate", "effector.wrist.plate"]) {
+  // All three rungs, where this used to check two. Rung 1 was the omission that mattered: it has
+  // no swing and no reach, so `TERMINAL_PLATE.outboardOffset` is the only thing standing between
+  // its board and the block, and it is therefore the chain that decides how far that offset can
+  // come down. It is also the only one of the three no narrowing can help.
+  for (const id of ["effector.pitch.plate", "effector.reach.plate", "effector.wrist.plate"]) {
     const rig = await onStand(id);
     try {
       const board = rig.module.parts.find((part) => part.id.endsWith(".plate")).part;
@@ -1274,24 +1417,35 @@ test("a plate keeps clear of its own stand everywhere in its own envelope", asyn
       // The corners of the envelope, held long enough to arrive, and swept between rather than
       // teleported -- the transit is where a board swings back under the block, and a grid of
       // held poses would step straight over it.
-      for (const guard of [false, true]) {
-        for (const pointerY of [-1, -0.4, 0.4, 1]) {
-          for (const pointerX of [-1, -0.3, 0.4, 1]) {
-            rig.hand.pointerX = pointerX;
-            rig.hand.pointerY = pointerY;
-            rig.hand.guard = guard;
-            rig.hand.roll = pointerX;
-            rig.hand.wristBend = guard ? 1 : 0;
-            rig.run(50);
+      //
+      // **The outer two loops used to be one loop over `guard`, and that is how the envelope hole
+      // this test now catches stayed hidden for a day.** A button set the reach and the flexion
+      // *together* -- `guard` meant short-and-bent and its absence meant long-and-straight -- so
+      // half of the grid below was not a pose the command surface could express, and the corner
+      // that is 188 mm inside the block lives in that half. `reach` and `wristBend` are separate
+      // continuous channels now and they are swept separately, which is the whole reason the
+      // vocabulary was changed and a fair statement of what it bought.
+      for (const reach of [-1, 0, 1]) {
+        for (const bend of [0, 0.5, 1]) {
+          for (const pointerY of [-1, -0.4, 0.4, 1]) {
+            for (const pointerX of [-1, -0.3, 0.4, 1]) {
+              rig.hand.pointerX = pointerX;
+              rig.hand.pointerY = pointerY;
+              rig.hand.reach = reach;
+              rig.hand.roll = pointerX;
+              rig.hand.wristBend = bend;
+              rig.run(40);
+            }
           }
         }
       }
       rig.scene.onBeforePhysicsObservable.remove(watch);
-      // Measured in the Node bench, 2026-09-04: the deepest approach over this sweep is **101.6
-      // mm** clear on the reach chain and **84.2 mm** on the wrist chain. Provisional as figures,
-      // and to be re-taken after the owner's gate; what is not provisional is the sign, which is
-      // the thing the frozen rule is about. Watched go red against a `bendMax` of 1.0 in
-      // `TERMINAL_PLATE.limits`, which puts a corner 8 mm inside the block.
+      // Measured in the Node bench, 2026-09-05, over the widened sweep above: **72 mm** clear on
+      // the pitch chain, **72 mm** on the reach chain and **48 mm** on the wrist chain. Watched go
+      // red four ways -- against `TERMINAL_PLATE.limits` with any one of its three new floors
+      // taken out (-8, 0 and -85 mm respectively), and against an `outboardOffset` of 0.08
+      // (-80 mm). Provisional as figures and to be re-taken after the owner's gate; what is not
+      // provisional is the sign, which is the thing the frozen rule is about.
       assert.ok(deepest < 0,
         `${id}: a plate corner reached ${(deepest * 1000).toFixed(1)} mm inside the stand at`
         + ` command ${worst}; the envelope is wrong, and it is fixed in the chain`);

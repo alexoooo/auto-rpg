@@ -23,10 +23,37 @@ import { ballShell, boneShell } from "../shell.ts";
  * The shoulder and elbow both rungs 2 and 3 are built on: three driven axes and one point.
  *
  * Rung 3 is "the reach chain plus a wrist", and this file is what that sentence means in code.
- * Everything about *where the hand is* -- the geometry, the joint stops, the mouse mapping, the
- * envelope, the clamp, the strokes and the anchor -- lives here and is shared verbatim, so the
- * two rungs cannot drift apart on the half they have in common. What `reach.ts` and `wrist.ts`
- * own is only what hangs off the end of it.
+ * Everything about *where the hand is* -- the geometry, the joint stops, the command mapping, the
+ * envelope, the clamp and the anchor -- lives here and is shared verbatim, so the two rungs cannot
+ * drift apart on the half they have in common. What `reach.ts` and `wrist.ts` own is only what
+ * hangs off the end of it.
+ *
+ * **This chain is a pure follower, and Session 12 is what made it one.** It used to do three
+ * things to its commander on top of following them, and all three were removed together because
+ * they were the same mistake three times:
+ *
+ * - `guard` overwrote the commanded elevation with a constant. Instrumented over eight bouts,
+ *   `golem-duelist` asked its shield arm for **2001 distinct elevations and got 0.80 rad every
+ *   time**, which is what held the plate above the golem's own head in the page.
+ * - the reach was taken from the two buttons, three preset distances deep, so the arm's third
+ *   positional degree of freedom had no continuous channel at all: **one distinct reach per hand
+ *   over the same eight bouts**, against a shell 0.42 m deep.
+ * - `thrust` started a scripted stroke -- a fixed sweep at a fixed rate for a fixed duration --
+ *   during which `clampInto` was handed the *script's* target instead of the commander's, so the
+ *   policy lost its own arm for the duration. **11 % of frames against the Warrior duelist,
+ *   15.8 % against another golem.**
+ *
+ * What replaced them is one sentence: the chain spans three normalized channels onto its own
+ * published envelope, clamps, and hands the anchor the result. Speed is what a commander gets by
+ * moving its target quickly against a finite force budget and real mass, which is frozen rule 4
+ * and is the only place speed should ever have come from. The scripting did not disappear -- a
+ * mouse still needs it, and `src/buttons.ts` is where a person's held button becomes a reach --
+ * it moved to the side of the seam that knows who is asking.
+ *
+ * **The published `EffectorStroke` is therefore always `idle` here.** That phase was the phase of
+ * a scripted velocity event, and there is no script; a chain being driven fast by a commander is
+ * not in a phase, it is being driven fast. What the module still publishes on its envelope is
+ * `ARM_STROKES`, which is a different claim and survives unchanged -- see the note there.
  *
  * **The kinematics, because the envelope arithmetic depends on them.** The collar yaws about the
  * socket's own vertical; the upper arm pitches about the collar's lateral; the elbow bends about
@@ -182,15 +209,21 @@ interface CoreLimits {
   readonly carryMin: number;
 }
 
-/** Which stroke is running. `EffectorStroke` is the *phase*; this is the kind. */
-type StrokeKind = "none" | "thrust" | "cut";
-
 /**
- * What these chains can be asked for.
+ * What these chains are **good for**, which is not the same claim as what they will run.
  *
- * `cover` is in the list and runs as a held level rather than as a phase, which is the
- * `src/buttons.ts` distinction: a press pays once and a hold is a state. A mind reading this
- * learns that the module can be asked to cover, not that covering has a follow-through.
+ * Session 12 removed the scripted strokes from this file and left this list exactly as it was,
+ * because the list was never read as a command menu. Its three readers are
+ * `tactics.ts`'s `canAttack`, `canCut` and `canCover`, and every one of them asks a capability
+ * question: is there a striker on the end of this thing, does it have an edge, can it be
+ * interposed. A three-axis arm with a blade on it can be driven point-first, edge-first and
+ * across, and that is what these three names say. Nothing here promises that pressing a button
+ * makes the chain do any of it -- the chain follows a commanded point and nothing else.
+ *
+ * The distinction is worth the paragraph because the old comment made the opposite claim ("a
+ * mind reading this learns that the module can be asked to cover"), and a mind that believed it
+ * would be waiting for a body to cover on its behalf. It will not. It has to hold the plate
+ * where it wants the plate, every frame, which is the whole of the change.
  */
 export const ARM_STROKES: readonly EffectorStrokeKind[] =
   Object.freeze<EffectorStrokeKind[]>(["thrust", "cut", "cover"]);
@@ -439,20 +472,17 @@ export function buildArmCore(ctx: ModuleBuild, narrowed: ChainLimits | null): Ar
   // for the same reason, and `slewed` below is read back out of it, so the published command
   // starts there too rather than at a mapped cursor.
   const wanted: ArmCommand = { swing: 0, lift: buildLift, reach: buildReach };
-  /** The clamped demand: where the mapping wants the hand, before the anchor's rate limit. */
+  /** The clamped demand: where the mapping wants the hand, before the rate limit. */
   const demanded: ArmCommand = { swing: 0, lift: buildLift, reach: buildReach };
+  /**
+   * The rate-limited command, **in the chain's own coordinates**, which is what the anchor is
+   * handed. See `stepToward` for why the limiting happens here rather than at the anchor.
+   */
+  const sent: ArmCommand = { swing: 0, lift: buildLift, reach: buildReach };
   /** The same after the rate limit, read back out of the anchor. This is what is published. */
   const slewed: ArmCommand = { swing: 0, lift: buildLift, reach: buildReach };
   /** Where the hand actually got to, in the same three terms. Allocated once, read every step. */
   const achieved: ArmCommand = { swing: 0, lift: buildLift, reach: buildReach };
-  let heldReach = buildReach;
-  let phase: EffectorStroke = "idle";
-  let kind: StrokeKind = "none";
-  let phaseTime = 0;
-  let appliedForce = R.anchorForce;
-  let appliedRate = R.anchorRate;
-  const strokeTarget: ArmCommand = { swing: 0, lift: 0, reach: 0 };
-  let thrustHeld = false;
   let severed = false;
   /** Set once by `unmotorise`: this limb is being carried rather than driven. */
   let passive = false;
@@ -566,15 +596,41 @@ export function buildArmCore(ctx: ModuleBuild, narrowed: ChainLimits | null): Ar
     into.swing = s;
   };
 
-  const setForce = (newtons: number): void => {
-    if (newtons === appliedForce) return;
-    appliedForce = newtons;
-    anchor.setLinearForce(newtons);
-  };
-  const setRate = (metresPerSecond: number): void => {
-    if (metresPerSecond === appliedRate) return;
-    appliedRate = metresPerSecond;
-    anchor.setLinearRate(metresPerSecond);
+  /**
+   * Walk the sent command toward the demanded one, by at most `metres` of hand travel.
+   *
+   * **The rate limit belongs here and not at the anchor, and 2026-09-05 is when that was
+   * measured rather than argued.** `AnchorDrive` slews its commanded *point* along the straight
+   * line to the target, and a straight line between two poses on this chain's shell passes
+   * *inside* the shell: swinging the hand from one side of the envelope to the other -- 1.8 rad
+   * apart at 0.54 m -- cuts a chord whose closest approach to the socket is 0.335 m, so the
+   * commanded hand was dragged 0.205 m inside `reachMin` on the way. That is frozen rule 3 undone
+   * by the thing it clamps for: the mapping clamps every *pose* into the envelope, and then the
+   * limiter interpolated between two clamped poses through a place the envelope forbids. The
+   * plate found it, as the plate found the last one -- a board on a hand drawn that far in
+   * reaches 22.3 mm inside the stand, which `tests/golem-bench.test.mjs` fails on the sign of.
+   *
+   * So the interpolation runs in `(swing, lift, reach)`, where the envelope is a box and a floor
+   * and a convex combination of two admissible commands stays admissible, and the *step* is
+   * measured in metres of hand travel so that the ceiling is still `anchorRate` and still means
+   * what it says. `ds` is the arc length that pose change moves the hand through: `dr` radially,
+   * `r dlift` in elevation and `r cos(lift) dswing` laterally, which is the metric on this
+   * coordinate system and not an approximation of one.
+   *
+   * The anchor keeps its own limiter, which is now a backstop rather than the mechanism: it
+   * still catches the first control step, where its command starts at the built hand's actual
+   * world position rather than at a mapped pose.
+   */
+  const stepToward = (from: ArmCommand, to: ArmCommand, metres: number): void => {
+    const radius = from.reach;
+    const forward = to.reach - from.reach;
+    const elevation = (to.lift - from.lift) * radius;
+    const lateral = (to.swing - from.swing) * radius * Math.cos(from.lift);
+    const travel = Math.hypot(forward, elevation, lateral);
+    const fraction = travel <= metres || travel < 1e-12 ? 1 : metres / travel;
+    from.reach += (to.reach - from.reach) * fraction;
+    from.lift += (to.lift - from.lift) * fraction;
+    from.swing += (to.swing - from.swing) * fraction;
   };
 
   const handPoint = (): Vector3 => {
@@ -590,23 +646,6 @@ export function buildArmCore(ctx: ModuleBuild, narrowed: ChainLimits | null): Ar
       upper.mesh.rotationQuaternion ?? Quaternion.Identity(), scratch.elbow,
     );
     return scratch.elbow.addInPlace(upper.mesh.position);
-  };
-
-  const beginStroke = (next: StrokeKind): void => {
-    kind = next;
-    phase = "drive";
-    phaseTime = 0;
-    strokeTarget.swing = demanded.swing;
-    strokeTarget.lift = demanded.lift;
-    strokeTarget.reach = demanded.reach;
-  };
-
-  const endStroke = (): void => {
-    kind = "none";
-    phase = "idle";
-    phaseTime = 0;
-    setForce(R.anchorForce);
-    setRate(R.anchorRate);
   };
 
   return Object.freeze({
@@ -654,7 +693,21 @@ export function buildArmCore(ctx: ModuleBuild, narrowed: ChainLimits | null): Ar
       return scratch.lateral;
     },
 
-    stroke: (): EffectorStroke => phase,
+    /**
+     * Always `idle`, and that is the honest answer rather than a stub.
+     *
+     * `EffectorStroke` is the phase of a *scripted* velocity event: a drive at a lifted rate
+     * followed by a coast at a dropped force. This chain runs no script, so it is never in one.
+     * A limb being driven hard by a commander is not in a phase; it is being driven hard, and
+     * what says so is the tip speed and the anchor stray the readout already carries.
+     *
+     * The bench's own statistics change shape because of this and the change is a gain. Both
+     * harnesses exclude "strokes" from their peak tip-to-command window, on the correct argument
+     * that a scripted stroke deliberately runs its command ahead of the limb -- so with nothing
+     * excluded any more, those numbers report what a free-form arm actually does instead of what
+     * it does between the interesting moments. They will read worse and they will be true.
+     */
+    stroke: (): EffectorStroke => "idle",
 
     // `slewed`, which is the anchor's own rate-limited point read back through `sphericalOf` --
     // so this is the pose the chain is *commanding*, not the pose the limb has reached. That is
@@ -665,23 +718,30 @@ export function buildArmCore(ctx: ModuleBuild, narrowed: ChainLimits | null): Ar
     cursor: (): HandCursor => ({
       pointerX: unspanned(slewed.swing, L.swingMin, L.swingMax) * outboard,
       pointerY: unspanned(slewed.lift, L.liftMin, L.liftMax),
+      // The third one, and it had to join the other two the moment reach became a commanded
+      // axis: an incoming driver whose reach channel said something else would be asking this
+      // hand to cross up to 0.42 m on its first step, at the anchor's ceiling, with a blade on
+      // the end. That is the teleport `cursorForPose` exists to prevent, arriving through the
+      // axis nobody had to invert while the buttons owned it.
+      reach: unspanned(slewed.reach, L.reachMin, L.reachMax),
       roll: 0,
       wristBend: 0,
     }),
 
+    /**
+     * Three normalized channels onto three published axes, and nothing else.
+     *
+     * **No branch on `thrust` or `guard` anywhere in this function**, which is the whole of
+     * Session 12 stated as a property a reader can check by looking. Both buttons are still on
+     * the command and both still mean something -- to `src/buttons.ts`, which turns a person's
+     * held button into the `reach` below, and to a policy, which may read its own. Neither is
+     * something this chain does to whoever is driving it.
+     */
     command(next: HandIntent): void {
       if (severed) return;
       wanted.swing = spanned(next.pointerX * outboard, L.swingMin, L.swingMax);
-      // `guard` is a level and it wins over `thrust`, so holding it keeps the limb chambered and
-      // a press of thrust on top of it is the cut rather than an extension.
-      wanted.lift = next.guard ? R.guardLift : spanned(next.pointerY, L.liftMin, L.liftMax);
-      wanted.reach = next.guard ? R.reachGuard : next.thrust ? R.reachThrust : R.reachNeutral;
-      // A stroke is an edge, not a level -- `src/buttons.ts`'s rule. Holding the button does not
-      // chain strokes, and a stroke already running is not restarted by a second press.
-      if (next.thrust && !thrustHeld && phase === "idle") {
-        beginStroke(next.guard ? "cut" : "thrust");
-      }
-      thrustHeld = next.thrust;
+      wanted.lift = spanned(next.pointerY, L.liftMin, L.liftMax);
+      wanted.reach = spanned(next.reach, L.reachMin, L.reachMax);
     },
 
     step(dt: number): void {
@@ -698,47 +758,23 @@ export function buildArmCore(ctx: ModuleBuild, narrowed: ChainLimits | null): Ar
         return;
       }
 
-      // The reach lag runs whatever the stroke is doing, so that when a stroke ends the limb
-      // returns to where the cursor is *now* rather than to where it was when the button went
-      // down. Rung 1 keeps its own command moving through a chop for exactly this reason.
-      heldReach += (wanted.reach - heldReach) * (1 - Math.exp(-R.reachResponse * dt));
+      // **One clamp, one target, no phase.** The commanded reach used to run through a
+      // first-order lag at `reachResponse` on its way here, on the argument that what a button
+      // press wants is a move that starts fast and eases in. A button press does want that; a
+      // continuous command does not, and two limiters in series on one axis meant the reach
+      // answered a policy's step more slowly than the swing and the lift beside it did. The
+      // anchor's own rate ceiling is the single limiter now, and it is the same one all three
+      // axes go through.
+      clampInto(demanded, wanted.swing, wanted.lift, wanted.reach);
+      // And the rate limit, in the same coordinates the clamp is written in, so that every point
+      // the anchor is ever handed is inside the envelope rather than merely every point the
+      // mapping asks for. The second clamp is cheap insurance and not decoration: the carry floor
+      // is a curve in these coordinates and a straight interpolation between two poses that both
+      // clear it is not obliged to.
+      stepToward(sent, demanded, R.anchorRate * dt);
+      clampInto(sent, sent.swing, sent.lift, sent.reach);
 
-      if (phase !== "idle") {
-        const S = kind === "cut" ? R.cut : R.thrust;
-        phaseTime += dt;
-        if (phase === "drive") {
-          setRate(S.strokeRate);
-          if (kind === "cut") {
-            strokeTarget.swing -= R.cut.swingRate * dt;
-            strokeTarget.lift -= R.cut.liftRate * dt;
-            strokeTarget.reach = R.reachThrust;
-          } else {
-            // `reachThrust` and **not** `reachMax`: the envelope's outer edge has to be somewhere
-            // the follow-through can carry the limb *into* rather than somewhere the drive
-            // arrives at. Driven to `reachMax` instead, the hand measured 0.7812 m from its own
-            // socket against a full extension of 0.780 -- the arm straight, jammed against the
-            // elbow's own stop, which is a motor and a limit pushing at each other and is the
-            // buzz `arm.ts`'s wrist was rewritten to get rid of. The table beside `thrust` in
-            // `config.ts` is what found it.
-            strokeTarget.reach = R.reachThrust;
-          }
-          if (phaseTime >= S.driveSeconds) {
-            phase = "follow";
-            phaseTime = 0;
-            // The force ceiling drops and the command holds: the limb coasts on its own momentum
-            // and decelerates against gravity rather than against the motor. That is the whole
-            // difference between a velocity event and a pose sequence.
-            setForce(S.followForce);
-          }
-        } else if (phaseTime >= S.followSeconds) {
-          endStroke();
-        }
-      }
-
-      if (phase === "idle") clampInto(demanded, wanted.swing, wanted.lift, heldReach);
-      else clampInto(demanded, strokeTarget.swing, strokeTarget.lift, strokeTarget.reach);
-
-      pointAt(demanded.swing, demanded.lift, demanded.reach, scratch.target);
+      pointAt(sent.swing, sent.lift, sent.reach, scratch.target);
       // The rotation handed over never changes, because no angular axis is motorised on this
       // anchor: the wrist owns orientation on rung 3 and nothing owns it on rung 2. Passing the
       // build frame rather than a live one keeps that visible -- a rotation that moved here would

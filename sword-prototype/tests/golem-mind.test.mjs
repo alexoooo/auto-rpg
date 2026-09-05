@@ -44,6 +44,7 @@ import { POLICIES } from "../src/mind.ts";
 import { unitDefinition } from "../src/units.ts";
 import { defaultGolemSetup } from "../src/golem/build.ts";
 import { GOLEM_TACTICS, canAttack, golemTactics, innerReach, unspan } from "../src/golem/tactics.ts";
+import { BUTTON_REACH } from "../src/buttons.ts";
 
 process.env.SWORD_MEASURE_LIBRARY = "1";
 const { freshHavok, runBout } = await import("../scripts/measure.mjs");
@@ -144,12 +145,32 @@ async function standAGolem(t, setup = defaultGolemSetup()) {
   return golem;
 }
 
+/**
+ * A hand slot's neutral reach, from the mouse adapter rather than written out.
+ *
+ * The blank below is a hand-written `Intent` and `tsc` never sees it, which is
+ * the trap this directory has its own rule about -- and it went off on the day
+ * Session 12 gave `HandIntent` a third positional axis. A blank with no `reach`
+ * hands the chain `undefined`, `spanned` answers `NaN`, and the anchor is driven
+ * at a target that is not a place: `a_walking_golems_effector_stays_on_its_own
+ * _anchor` read **6031.7 mm** of stray, which is the arm having left. Taking the
+ * value from `src/buttons.ts` rather than typing 1/7 is the same argument the
+ * bench script makes: a fixture that hard-codes the number would go on passing
+ * after the mapping it is standing in for had changed. `buttons.ts` imports
+ * nothing, so no test's import graph grows a scene by reading it.
+ */
 const blankIntent = () => ({
   forward: 0, strafe: 0, turn: 0, actingHand: "primary",
   natural: { thrust: false, guard: false },
   posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },
-  primary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
-  secondary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
+  primary: {
+    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    roll: 0, wristBend: 0, thrust: false, guard: false,
+  },
+  secondary: {
+    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    roll: 0, wristBend: 0, thrust: false, guard: false,
+  },
 });
 
 /**
@@ -569,7 +590,7 @@ test("the_mind_is_deterministic_under_a_fixed_seed_and_varies_without_one", asyn
 test("every_hand_command_over_a_whole_bout_sits_inside_the_published_envelope", async () => {
   let checked = 0;
   let wired = false;
-  runBout({
+  const bout = runBout({
     left: "golem-duelist", right: "duelist",
     leftUnit: "golem", rightUnit: "warrior",
     leftGolem: defaultGolemSetup(),
@@ -587,28 +608,66 @@ test("every_hand_command_over_a_whole_bout_sits_inside_the_published_envelope", 
       };
     },
   });
-  assert.ok(checked > 2000, `only ${checked} commands were observed`);
+  // **The bound is the bout's own length and not a constant**, because the constant went red the
+  // first time the golem got faster. It was `checked > 2000`, which is 8.3 s of control at 240 Hz,
+  // and it held only while a golem-versus-Warrior bout took that long to resolve. The 2026-09-05
+  // gait fix -- a stride that has a sideways half, so a strafe carries the body instead of
+  // dragging it -- brought the same bout in at 3.23 s, and 774 commands over a bout that lasted
+  // 776 control steps is complete coverage rather than a shortfall. A count pinned to wall clock
+  // was measuring how quickly the golem wins, which is not what this test is about.
+  const steps = Math.round(bout.seconds * CONFIG.world.physicsHz);
+  assert.ok(checked >= steps - 10,
+    `only ${checked} of the bout's ${steps} control steps were observed`);
+  // ...and the bout has to be a real one, so a build that resolves on frame one cannot pass by
+  // observing nothing and matching it.
+  assert.ok(checked > 500, `only ${checked} commands were observed`);
 });
 
 /**
- * It fights: it lands blows, it completes strokes, and it does not stop doing things.
+ * It fights: it lands blows, it completes exchanges, and it does not stop doing things.
  *
  * **A green counter cannot rescue a red bout**, which is why the passive-interval budget is not
  * asserted on its own: a zero-damage corpus once had zero stuck steps and zero capability losses
  * because its action loop never progressed. So the assertion is the pair -- the mind lands real
  * scored blows *and* never spends longer than the budget in range with nothing running.
  *
- * The budget is **provisional** and is the 2026-09-05 reading rounded up, not a target. Measured
- * over these two bouts: the longest in-range interval with the primary's stroke idle was 1.55 s,
- * against a cadence whose own chamber-plus-recover is 0.52 s and whose cooldown and patience can
- * add 1.9 s more before it makes an opening of its own.
+ * **What "doing something" is read from moved on 2026-09-05, and the old reading is now blind.**
+ * This counted `EffectorStroke` transitions off the primary's own view, on the argument that a
+ * chain running a scripted stroke is a body doing something. Session 12 deleted those scripts: an
+ * arm chain follows a commanded point and is never in a phase, so `stroke` is `"idle"` on every
+ * sample of every bout and this test failed with "the golem completed only 0 strokes" against a
+ * golem that was winning both bouts in under nine seconds. A counter that reads zero on a body
+ * fighting well is measuring something that has stopped existing.
+ *
+ * So it reads the mind instead, which is where an exchange now lives: the tactics are built here
+ * and handed in, `stance` is the field they publish for exactly this, and a completed exchange is
+ * the edge from `commit` to `recover`. That is a stronger statement than the old one as well as a
+ * live one -- a stroke phase said the *body* had been asked for something, and this says the mind
+ * carried a decision all the way through.
+ *
+ * **The floor is a rate and not a count, and that is forced by the bouts getting shorter.** Eight
+ * completed strokes was reachable when a bout ran its full twenty seconds; the golem now wins the
+ * right-corner bout in 3.60 s, and asking for eight exchanges inside it would be asking the mind
+ * to fight faster for having won sooner. One per two seconds is a floor against a cadence whose
+ * own chamber-plus-commit-plus-recover is 0.74 s and whose cooldown adds 0.30 s more, so it is
+ * about half the rate the machine can physically run at.
+ *
+ * Both budgets are **provisional** and are 2026-09-05 readings, not targets. Measured over these
+ * two bouts: 7 exchanges in 8.92 s from the left corner and 2 in 3.60 s from the right, and the
+ * longest in-range interval outside an exchange was 0.47 s -- against a cadence whose cooldown and
+ * patience can legitimately add 2.2 s before it makes an opening of its own, which is what the
+ * 3.0 s budget is sized for and why it is not tightened onto the reading.
  */
 test("the_golem_mind_lands_blows_and_does_not_stall_while_it_is_in_range", async () => {
   for (const golemLeft of [true, false]) {
     let worstPassive = 0;
     let run = 0;
-    let strokes = 0;
-    let held = false;
+    let exchanges = 0;
+    let previous = "approach";
+    // Built here rather than left to the picker, because `stance` is the thing being read and a
+    // mind the harness constructed for itself is one this test cannot see inside.
+    const tactics = golemTactics(SEED);
+    const watched = { name: "golem-duelist", decide: (view, dt) => tactics.decide(view, dt) };
     const result = runBout({
       left: golemLeft ? "golem-duelist" : "duelist",
       right: golemLeft ? "duelist" : "golem-duelist",
@@ -622,6 +681,7 @@ test("the_golem_mind_lands_blows_and_does_not_stall_while_it_is_in_range", async
       seeds: [SEED, SEED + 17],
       maxSeconds: 20,
       physics: await freshHavok(),
+      [golemLeft ? "leftMind" : "rightMind"]: watched,
       onSample: ({ left, right, dt }) => {
         const golem = golemLeft ? left : right;
         const foe = golemLeft ? right : left;
@@ -629,14 +689,17 @@ test("the_golem_mind_lands_blows_and_does_not_stall_while_it_is_in_range", async
         const cap = self.capabilities.effectors.primary;
         const gap = Math.hypot(self.shoulder.x - foe.view.self.shoulder.x,
           self.shoulder.z - foe.view.self.shoulder.z);
-        const stroke = golem.effectorView("primary")?.stroke ?? "idle";
-        if (stroke !== "idle" && !held) strokes += 1;
-        held = stroke !== "idle";
+        const stance = tactics.stance;
+        if (previous === "commit" && stance === "recover") exchanges += 1;
+        previous = stance;
+        // Anything but the three legs of one exchange is the mind not currently committing to
+        // anything, which is what the budget below is about.
+        const busy = stance === "chamber" || stance === "commit" || stance === "recover";
         // "In range" is the golem's own published shell: inside the far edge and outside the near
-        // one is where a stroke can actually land, and both numbers are the module's.
+        // one is where a blow can actually land, and both numbers are the module's.
         const inside = gap <= self.hands.primary.reach &&
           gap >= innerReach(self.hands.primary.reach, cap);
-        if (inside && stroke === "idle") { run += dt; worstPassive = Math.max(worstPassive, run); }
+        if (inside && !busy) { run += dt; worstPassive = Math.max(worstPassive, run); }
         else run = 0;
       },
     });
@@ -645,7 +708,9 @@ test("the_golem_mind_lands_blows_and_does_not_stall_while_it_is_in_range", async
       `the golem landed ${golem.hits} contacts from the ${golemLeft ? "left" : "right"} corner`);
     assert.ok(golem.damage > 1,
       `the golem scored ${golem.damage.toFixed(2)} damage, which is a bout it did not fight`);
-    assert.ok(strokes >= 8, `the golem completed only ${strokes} strokes`);
+    const wanted = Math.max(1, Math.floor(result.seconds / 2));
+    assert.ok(exchanges >= wanted,
+      `the golem completed ${exchanges} exchanges in ${result.seconds.toFixed(2)} s, wanting ${wanted}`);
     assert.ok(worstPassive < 3.0,
       `the golem stood in its own range doing nothing for ${worstPassive.toFixed(2)} s`);
   }
