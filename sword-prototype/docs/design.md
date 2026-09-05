@@ -1391,6 +1391,74 @@ The full list is in `AGENTS.md`. The three that shaped the code rather than the 
   table beside the number in `config.ts`.** Every number in the `arm` block was set that
   way and each one carries its table.
 
+## The golem, and the order of work it exists to reverse
+
+*The golem work, 2026-09-04 to 2026-09-05, in eleven landed sessions. **No human gate in it has
+been asked.** Nothing in any of the sections below is a verdict, no number quoted in them is a
+regression floor, and every threshold those sessions pinned into a test is marked provisional in
+that test.*
+
+**A golem is a fixed body plan of five slots, each filled by one pre-made module.** Three body
+experiments came before it and the section above records why all three were closed. The finding
+they share is the one this design is built on: **each was gated by a scalar proxy that turned green
+while the owner's judgement stayed red** — anchor stray in millimetres, dynamism path length,
+stuck-step counts. So the order of work is reversed here. A person looks first, and a metric becomes
+a regression floor only after a person has said yes.
+
+| slot | reads from `Intent` | options built |
+| --- | --- | --- |
+| locomotion | `forward`, `strafe`, `turn`, `posture.crouch` | `locomotion.biped`, `locomotion.wheel`, `locomotion.multileg` |
+| torso | `posture.trunkLean`, `posture.trunkTwist` | `torso.plain`, `torso.plated` |
+| primary effector | `primary: HandIntent` | a chain and a terminal, picked independently |
+| secondary effector | `secondary: HandIntent` | the same shelf; a two-socket terminal claims both |
+| head | `natural: NaturalIntent` | `head.plain`, `head.ram` |
+
+Those five channels are the existing `Intent` split exactly, so a mouse and a scripted mind drive a
+golem through the seam they already drove a Warrior through. **`Intent` was not widened for any of
+it**, which is the one-seam rule holding under a body plan it was not designed for: `Golem.applyIntent`
+fans the same eight fields onto five modules and every module *narrows*. The golem's control
+endpoint, `src/golem/golem-control.ts` on the surface tag `golem-v1`, is a clone of the humanoid one
+rather than a shared base class — and the clone is the decision. The tag exists so a driver built
+for one body cannot be installed on the other, and a base class both inherited would make its
+`install` check the only thing keeping them apart. `ControlEndpoint` in `src/control-host.ts` is
+already the shared abstraction, and it is an interface.
+
+**The human-first gate, and why the proxies came second.** A module is accepted by the owner driving
+it on the bench with the mouse for about a minute and answering three questions: does it read as a
+limb rather than as a robot arm or a rope; does its motion carry weight — lag, follow-through,
+recoil; does anything look wrong — pose flips, jitter, self-contact, a stroke that does not stop
+where it should. The answers are the verdict and no measurement substitutes for them. What the
+benches are *for* is the other half: they say what the code does, they catch the defects an eye
+cannot see (a mask that admits a pair, a motor that keeps hauling a severed chain, a peak taken
+during a contact), and they are what makes a regression detectable **once** a person has said yes.
+That is the whole of the reordering — the proxies were not dropped, they were demoted from gate to
+instrument. The stop rule goes with it: a rung or a module gets at most two correction sessions, and
+if the owner still says no the record says so and the ladder stops at the last accepted rung, rather
+than tuning against a number until it goes green.
+
+**The chain ladder, and why every rung stays.**
+
+| rung | chain | driven axes | what the chain is given | terminals offered on it |
+| --- | --- | ---: | --- | --- |
+| 0 | `none` | 0 | nothing; the socket carries its own cap | none — it is its own terminal |
+| 1 | `pitch` | 1 | one pitch angle from `pointerY` | blade, plate, mace |
+| 2 | `reach` | 3 | a point, from pointer azimuth/elevation and reach | blade, plate, mace |
+| 3 | `wrist` | 5 | rung 2 plus roll and bend | blade, plate, mace, whip |
+
+Eleven effector options, which is not the full grid: `none` pairs with nothing because rung 0
+carries its own cap, and the whip is offered on rung 3 alone because without a roll axis a lash has
+no start. The pairing is a `Record` over the legal pairs, so an unbuilt pair is a compile error
+rather than a silent substitution — the failure that once put a shield in the arena as a club.
+
+**The ladder is an order of construction, not a replacement sequence, and every rung stays a
+pickable option.** Rung 3 is not "the good one" with three drafts behind it. Rung 0 is what makes
+the body plan complete without effectors and gives the bench a noise floor measured on something
+that cannot move. Rung 1 is one hinge and one angle, and a body built from two of them is a
+different fighter rather than a worse one. Rung 2 is where the pose becomes unique. Only rung 3 can
+be asked to turn an edge or start a lash without moving the hand, and it is also the only rung that
+rings. Each rung is a trade a person picks, so the shelf is the design; a ladder that discarded its
+lower rungs would have three fewer bodies in it and exactly one arm.
+
 ## The golem module contract, and the bench that judges one module at a time
 
 A golem is a fixed body plan of five slots — locomotion, torso, two effectors and a head — each
@@ -1442,7 +1510,10 @@ Warrior's anchor is teleported to wherever the cursor says, which is why a Warri
 onto its commanded pose on the first control step and reads 77 m/s of tip speed while standing
 still. A golem's command is bounded in how fast it may move, so the first step is a move.
 
-**The first two rungs of the chain ladder exist and neither is accepted.** Rung 0 (`none`) is a
+**The first two rungs of the chain ladder exist and neither is accepted.** *(Session 02 wrote that
+on 2026-09-04, when they were the only two. Corrected 2026-09-05: all four rungs exist — rungs 2
+and 3 are the section immediately below — and none of the four is accepted, because no human gate
+in this work has been asked.)* Rung 0 (`none`) is a
 capped socket with no driven axis, and it is there so the body plan is complete without effectors
 and so the bench has a noise floor measured on something that cannot move. Rung 1 (`pitch`) is one
 hinge, a short stone link and a blade. For a one-axis chain task space and joint space are the
@@ -1673,7 +1744,8 @@ registry. And the bench stand now takes the slot it is about to carry: for four 
 fixed `ANIMATED` anchor Session 02 built, and for locomotion it is a real `DYNAMIC` torso block on a
 soft motorised waist, because a locomotion module is the base and the slab is its load. Session 07
 will replace that stand-in with a torso module, and who then owns the waist joint is an open
-question this session states rather than settles.
+question this session states rather than settles. *(Settled 2026-09-04 by the assembly, under "The
+assembled golem" below: build order forces it and the torso owns the waist.)*
 
 ## The torso and the head, and the option that gambles its own fatal part
 
@@ -1892,6 +1964,62 @@ is 51x its own threshold for the biped, 104x for the multileg and 225x for the w
 module's `shoveImpulseNs` is chosen for the *drop* and its threshold is bracketed separately. A
 multileg shoved at thirty-nine times its threshold is still standing at an up-dot of 0.95, because
 a 0.80 m wide base 0.64 m tall is shunted rather than tipped.
+
+## The central mind, which knows capabilities and not modules
+
+*Session 09, 2026-09-04. Implemented; the human gate has not been asked.*
+
+One scripted policy, `golem-duelist`, in `src/golem/tactics.ts` with its name and registration in
+`src/golem/golem-policies.ts`. Frozen rule 9 says there is no learning in this work — three full
+learned runs failed promotion under the construct experiment and the ladder never opened — so the
+mind is a state machine, and if learning ever comes back it comes back as parameter tuning of this
+machine rather than as a second kind of mind.
+
+**Six stances, and half of them run to the end once started.** `GolemStance` is
+`approach | measure | withdraw | chamber | commit | recover`. Range and opening decide the first
+three; `chamber`, `commit` and `recover` test no range at all and hand over on their own clocks,
+which is what stops a mind changing its mind at 240 Hz. `withdraw` returns before the chamber test,
+so a golem backing out of its own reach cannot commit on the way. The one rate the file keeps
+between steps about the world is the low-passed closing speed; everything else is recomputed.
+
+**It reads module-declared capability and never a module id.** There is no chain name, no terminal
+name and no switch on an id anywhere in it, and `EffectorCapability` carries no `id` field
+precisely so that there cannot be. What the mind asks is `strokes.includes("thrust")` and the same
+for `"cover"`, whether the published `reachable` shell has any swing width at all, and whether
+`rollMax` and `bendMax` are above zero. A pinned yaw is a mace and the mind never learns the word.
+**A new option on the shelf must need no new mind**, and that is the test of whether the module
+contract was worth having.
+
+**Every range is a fraction of a published reach, never a distance**, and the trap it avoids is
+recorded rather than imagined: the Warrior duelist's `hold` is a constant "just inside the 1.45 m
+the point of the blade reaches", and handed an axe the same policy stood a quarter of a metre
+outside its own range and swung at the air — 31 blows against a sword's 398. **The inner radius
+of the module's own reach shell is a floor on that fraction**, because a hold inside it is a
+distance at which the arm is already past the mark — without the floor the default build held
+1.39 m against an inner radius of 1.36 and churned in its own hysteresis band.
+
+**It is not a servo.** The aim is a function of two published positions and the clock; it never
+reads where the limb *got to* and steps the command toward it. That controller winds up and the
+measurement is in `AGENTS.md`: 237 of 420 steps pinned against a stop with the hand 137 mm off its
+own anchor. The one achieved value it does read, the trunk's twist, is used only as a coordinate
+transform.
+
+**The two seams that let one mind read three bodies.** Threat selection walks the opponent's two
+hand records and skips a shield, which works against a Warrior, a Broot and another golem alike
+because a golem fills `hands` with its own effector records rather than inventing a second list.
+And the aim mark is a column over the opponent's ground position at their *published* shoulder
+height, so a body on the floor brings the mark down and the crouch derives itself — there is no
+`downed` branch.
+
+**One golem policy, not two, and the omission is a decision.** `idle` in `src/mind.ts` already
+stands a golem up with its cursor centred; `Policy.surface` is null for it because standing still
+is a command any body executes, and every baseline figure was taken on it. A second idle under a
+golem name would be two names for one behaviour and would split the control condition in half.
+`Policy.surface` is also the whole of the gate, and it runs both ways: it keeps `swinger`,
+`duelist`, `archer` and `crawler` out of a golem's picker and keeps `golem-duelist` out of a
+Warrior's. The list in `src/mind.ts` *is* the registry the setup screen builds from, so a policy
+that exists is selectable and a policy that is selectable exists.
+
 ## Body parts as loot
 
 *Session 10, 2026-09-04. Implemented; the human gate has not been asked.*

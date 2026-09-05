@@ -127,11 +127,14 @@ that presentation failure too.
 A bout is chosen before it is fought. The curtain carries a left corner and a right corner —
 a unit, a policy, and whether that side is driven by a mind or by you — and the Fight button
 starts what is on it. There is one of you, so taking a side gives the other one back to its
-policy. Four policies ship: **idle** stands there and can be cut apart, **swinger** walks
-in and cuts on a fixed cadence without ever looking at your guard, **duelist** holds
-measure, guards between exchanges, and commits when your point leaves the line, and
-**archer** keeps its distance and shoots — give it a bow, or it will simply back away from
-you all day. A bout ends when its one derived vitality bar reaches zero, or when the clock
+policy. Six policies ship and a corner is only ever offered the ones its own body can take:
+**idle** stands there and can be cut apart, **swinger** walks in and cuts on a fixed cadence
+without ever looking at your guard, **duelist** holds measure, guards between exchanges, and
+commits when your point leaves the line, **archer** keeps its distance and shoots — give it a
+bow, or it will simply back away from you all day, **crawler** drives the centipede, and
+**golem duelist** drives a golem. The filter runs both ways: a swordsman's mind is not offered
+a body with no hands, and the golem's is not offered to a Warrior. A bout ends when its one
+derived vitality bar reaches zero, or when the clock
 runs out. Zero head or torso health is fatal by itself; serious combined wounds elsewhere
 can spend the same bar without erasing the local health that drives severing and disability.
 The banner names the winner and the blow that did it.
@@ -251,6 +254,81 @@ handover are therefore seeded from the pose they find — the cursor does not mo
 meaning is rebased — and `__sword.takeover.last` reports how far the hand was actually
 asked to jump on the frame it changed hands.
 
+## The golem
+
+A golem has no hands, and that is the point of it. After *One Must Fall*: **weapons are body
+parts.** There is no held item and no grip anywhere on it — a sword is a blade at the end of
+an arm and a shield is a plate at the end of an arm, and the plate is no more special than
+the blade. Every visual glitch the warriors never lost is an artefact of a grip: fingers
+clipping through a shield, a handle that was not visibly held, a weld whose frame had to
+agree with a hand's. A golem has nothing to grip with, so it has none of them. Cut an arm off
+and what falls on the floor is a real object.
+
+It is **five slots, each filled by one pre-made module**, chosen on the curtain before the
+fight:
+
+| Slot | Picks from |
+| --- | --- |
+| **Legs** | biped — two legs on a carrier; wheel — one rolling body on a fork; multileg — six short legs on a wide base |
+| **Trunk** | plain, or plated — heavier, better armoured, and it leans and twists less |
+| **Head** | plain, or ram — a plate on the front and a lunge that fires with the left button |
+| **Primary arm** and **Primary end** | the arm and what is on the end of it, picked separately |
+| **Secondary arm** and **Secondary end** | the same shelf again |
+
+An arm is a **chain** and the thing on its end is a **terminal**, and they are picked
+independently because they answer different questions. The chain owns all of the motion:
+`none` is a capped socket that can only shove, `pitch` is one hinge, `reach` puts the end
+wherever you point, and `wrist` adds roll and bend on top of that. The terminal is a
+**blade**, a **plate**, a **mace** or a **whip**, and it owns none of the motion — only its
+weight, its edge and its shape. A mace takes both sockets and fills them together; a whip is
+offered on the wrist arm alone, because without a roll axis a lash has nowhere to start. That
+is eleven arms in all, and every one of them is a different body rather than a worse version
+of the best one.
+
+Two minds can drive it — **idle** and **golem duelist** — and `C` takes it over mid-bout
+exactly as it takes over a warrior. The golem duelist knows nothing about which modules it is
+wearing: it asks each arm what strokes it has and how far it reaches, and every range it
+keeps is a fraction of that answer rather than a distance. Bolt something new on and it needs
+no new mind.
+
+**Win a bout against a golem and whichever of its arms came off intact is yours** — an arm cut
+off at the shoulder is loot, an arm hacked to pieces is debris, and legs are neither, because
+a body coming apart is not a part coming off. A **Parts bin** sits under the corners, kept in
+this browser: each entry is a module and how much life it has left, and the *fitted from*
+picker beside each arm puts one back on a new body at the durability it has. It looks
+second-hand, because remaining durability drives the wear on its own stone. **Empty the bin**
+clears it. Be warned that this is a loop and not yet a game — nothing charges you for a new
+module, so a salvaged one is strictly worse than buying the same thing fresh, and the only
+reason to fit one is to see it.
+
+### The bench page
+
+<http://localhost:5180/bench.html> is a second page that stands **one module at a time** on a
+fixed block, so that what you are judging is that module and not a whole fight. It is the
+page the whole design is gated on: a person drives a module with the mouse for about a minute
+and answers three questions — does it read as a limb rather than a robot arm or a rope, does
+its motion carry weight, and does anything look wrong. No measurement substitutes for that
+answer, which is why the bench exists at all.
+
+| Input | Does |
+| --- | --- |
+| Mouse, left button, right button | exactly as in the arena — the cursor is where the module is asked to be, left thrusts, right guards |
+| 1–9, 0, then Shift+1–9 | pick a module; the picker lists them in that order with the key beside each |
+| P | pair — put a second effector in the other socket. A two-socket module cannot share the stand and the picker says so |
+| F | move the cursor to the other socket; the limb it leaves holds whatever it was last given |
+| Arrows | lean and twist the trunk — the bench hands you posture, which the arena does not |
+| W / S, A / D, Q / E, Left Shift | walk, strafe, turn and crouch — locomotion modules only |
+| B | shove — a measured impulse, locomotion modules only |
+| Tab | the readout, which names its own harness on its first line |
+| G | the rig overlay on the stand, with the shell off |
+| R | rebuild the module from the file |
+| Space / Esc | pause and resume; this stops physics, not just input |
+| Middle drag, wheel | orbit and zoom the camera |
+
+`__golem` on that page exposes the stand, the modules and a `step(frames)` that advances the
+world by hand — which is how it is measured in a background tab, since Chrome will not paint
+one.
+
 ## How it is built
 
 **Babylon.js** for rendering and **Havok** for physics, both running natively in the
@@ -262,7 +340,9 @@ the same articulated anatomy at 1.18x scale, with 1.64x mass, 1.30x local health
 motor force, but 0.88x walking and turning speed. **Centipede** is a separate
 nine-body low crawler with no hands or equipment: its head carries a natural bite, its eight
 segments can be severed, and losing the head or exhausting weighted segment vitality is
-fatal. The typed unit registry refuses incompatible policy and equipment selections by name.
+fatal. **Golem** is the fourth and it is not a person at all: five slots of stone bolted
+together, described below. The typed unit registry refuses incompatible policy and equipment
+selections by name.
 
 The pelvis is **animated** as the planted locomotion frame; the torso is **genuinely
 simulated** on a motorised waist, so it can lean and twist above the hips. Everything from
@@ -385,12 +465,13 @@ the committed healthy-load asset contains none of their triangles.
 
 ## Status
 
-Working: Warrior, Broot and Centipede combatants; articulated arms, anatomically bounded
+Working: Warrior, Broot, Centipede and Golem combatants; articulated arms, anatomically bounded
 wrists, moving trunks and crouch; blades,
 shields, bows and bare hands, contact scoring, dismemberment, one derived vitality state,
 clean verdict shutdown, blood, policies that fight with the controller you use, live
 takeover of either body, two cameras, the rig overlay and authored arena and equipment
-surfaces.
+surfaces. The golem's five slots, its module bench at `bench.html`, its own scripted mind and
+its parts bin all run; none of it has been through a human gate.
 
 The skinned warriors now separate flesh, neutral woven cloth, leather and worked
 steel with authored UVs and shared PBR maps. Only the surcoat/skirt material is constructed per
@@ -433,8 +514,22 @@ the fixed Effigy constructs, and the KayKit Knight. Nothing they measured is los
 [docs/measurements.md](docs/measurements.md) carries every number and the harness that took
 it, and `docs/design.md` says under "What was removed on 2026-09 and why" what each attempt
 was for. The finding they share is that each was gated by a scalar proxy that turned green
-while the owner's judgement stayed red, which is why the golem plan set that replaces them
+while the owner's judgement stayed red, which is why the golem that replaces them
 puts a person's look first.
+
+**The golem is what replaced them, and it is the whole of what changed.** Eleven sessions
+between 2026-09-04 and 2026-09-05 built it: the module contract and the bench that judges one
+module at a time, four arms and four ends for them, three ways of getting about, two trunks
+and two heads, the assembled body in the arena, a mind that fights with it, and severed parts
+that survive the verdict and can be fitted before the next bout. The reason it is built in
+that order — one module, one gate, one answer — is the finding above. **Nothing in it has
+been accepted.** No human gate has been asked, every threshold the sessions pinned into a
+test is marked provisional in that test, and none of the dynamism measures the previous
+experiments were gated on has been taken, because taking them before somebody has looked is
+the exact mistake that closed the other three. What is built, what was measured and what is
+still owed are in [docs/design.md](docs/design.md) and
+[docs/measurements.md](docs/measurements.md); the sessions' own files under `docs/plans/`
+carry the open questions until they are answered.
 
 The mechanics, controls, unit and evaluation-contract sessions of that topic are
 implemented: pause/restart correctness, projectile and shield behaviour, unarmed engagement,
@@ -466,6 +561,12 @@ Two commands beyond the usual, both from this directory and both deliberately ou
 `npm test`, because a default test run that takes minutes is one nobody runs:
 
 ```powershell
-npm run measure        # runs bouts headlessly and prints the policy table, about 90 s
+npm run measure        # runs bouts headlessly and prints the policy table
 npm run asset:verify   # checks the committed warrior.glb still fits the rig
 ```
+
+The first one used to be described here as taking about 90 seconds. Measured on 2026-09-05 it
+takes **2350 seconds** — thirty-nine minutes — because it now defaults to 40 bouts a cell and the
+golem cells run two golems to a 60-second cap. Pass `--only <section>` (`posture`, `swing`,
+`fists`, `shield-archer`, `golem`, or a matchup like `duelist-swinger`) and `--bouts <n>` unless
+you actually want all of it.

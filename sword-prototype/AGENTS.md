@@ -22,6 +22,18 @@ npm run asset:fetch     # one-time: the CC0 environment map, ~1.5 MB, digest-pin
 npm run dev             # http://localhost:5180, strictPort
 ```
 
+**Two pages come up on that one server**, and both are named in `vite.config.ts` because Vite's
+default input is `index.html` alone -- a second page that works in dev and is absent from `dist` is
+a config failure wearing a routing failure's clothes. `/` is the arena; `/bench.html` is the golem
+module bench, one module at a time on a fixed block.
+
+Everything else `package.json` defines: `check`, `test`, `build`, `preview`, `measure`,
+`asset:build`, `asset:review`, `asset:verify`, `asset:qualify`, `asset:dimensions`,
+`texture:fetch`, `texture:verify`, `armour:fetch`, `armour:verify`, `armour:extract`. **Checked
+2026-09-05**: every `npm run` command named anywhere in this file, `README.md` or `docs/design.md`
+still exists, and no command is defined here that the manifest does not have. The forge, learning
+and playtest commands went with their code on 2026-09-04 and no document still calls one.
+
 ## Traps that have already cost time
 
 - **Physics must be enabled before any body is created.** `buildArena` brings up Havok
@@ -242,6 +254,17 @@ npm run dev             # http://localhost:5180, strictPort
   **100 m/s**. Related: **a swing measured from rest is a floor on a swing measured in
   flight, not an estimate of it** -- the swinger's commit stroke peaks at 22.2 m/s from a
   settled chamber and at 40 as the fourth leg of a running cycle.
+
+  **A golem stroke needs a third window of the same idiom, and it is not a tip-speed one.**
+  `BENCH_READOUT.strokeExclusionSeconds` is 0.5 s, and what it protects is the *stuck* readings --
+  the tip-to-command lag and the anchor stray -- rather than the peak. A stroke does not stop when
+  its last phase does: the follow phase deliberately drops the drive's force ceiling so the limb
+  leaves its anchor, and measured, the cut's stray peaks at 387.3 mm during the phase *after* the
+  one it runs in and is back under a millimetre 0.42 s after the follow ends. Take a lag reading
+  inside that and you have measured a follow-through and called it a limb hanging up. The whip is
+  where the windows and the subject collide: a lash long enough to be interesting touches the floor
+  at rest, one contact per step would exclude every reading of it, and that -- rather than taste --
+  is what bounded the lash's length.
 - **A green test can assert nothing, and that is the worst defect this directory
   produces**, because it is invisible by construction. The only way to know a test is not
   that is to mutate the thing it is about and watch it go red. Doing so has already rewritten
@@ -338,7 +361,13 @@ npm run dev             # http://localhost:5180, strictPort
   `constructor(private readonly scene: Scene)` fails to parse with "TypeScript parameter
   property is not supported in strip-only mode". One of them anywhere in what a harness
   imports blocks the whole harness, so those files use fields and assignments instead.
-- **This tree is mixed, on Windows, with `core.autocrlf` false and no `.gitattributes`.** Git
+- **This tree is mixed, on Windows, with `core.autocrlf` false and no `.gitattributes` that
+  covers any of it.** *(Corrected 2026-09-05: "no `.gitattributes`" was wrong. There are two --
+  the repository root's, which names no `sword-prototype/` path at all, and
+  `sword-prototype/.gitattributes`, whose nine patterns are all under `asset-src/armour/`,
+  `asset-src/body/` and `public/assets/`, pinning deterministic extracts to LF. Two of those nine
+  now name files the 2026-09-04 demolition deleted. Nothing in `src/`, `tests/`, `scripts/` or
+  `docs/` is covered by either, so the rest of this entry stands unchanged.)* Git
   therefore stores exactly the bytes written, and a tool that rewrites a file with the
   platform's line ending silently converts the whole thing. Nothing breaks and every check
   still passes -- but `git diff` then reports the file as wholly replaced, a 90-line change
@@ -366,6 +395,16 @@ npm run dev             # http://localhost:5180, strictPort
   both are and were pure LF. `src/physics.ts` is 159 CRLF against 129 bare-LF lines, with a
   bare-LF block in the middle that session 04 found by hand while editing it. `src/rig.ts`
   (197/0) and `scripts/fetch-polyhaven.mjs` (74/0) are the two the table got right.
+
+  **Re-measured 2026-09-05 at `4d0a5e2`, by counting bytes and not by quoting the paragraph
+  above.** The classification is unchanged and four of the six counts are not, which is the reason
+  to re-take them rather than repeat them. CRLF against *bare* LF, in `HEAD` and in the working
+  tree alike (they agree): `src/arena.ts` 0/200 and `src/combat.ts` 0/635, both still pure LF;
+  `src/rig.ts` **220/0** and `scripts/fetch-polyhaven.mjs` 74/0, both still pure CRLF;
+  `src/physics.ts` **159/182**, `src/scoring.ts` **338/153** and `src/style.css` **506/215**, all
+  three still mixed. `style.css` lost 226 bare-LF lines when the Forge's stylesheet went on
+  2026-09-04, which is why its bare-LF count fell rather than rose while every CR count in the tree
+  stayed exactly where it was. Nothing in eleven sessions of golem work changed a single CR.
 
   `src/style.css` is genuinely mixed -- **506 CRLF lines against 441 bare-LF ones** at
   `2be433a`, not the 468/492 this entry claimed -- and has been since before any of this. A
@@ -466,10 +505,14 @@ npm run dev             # http://localhost:5180, strictPort
 - **`grep -c $'\r'` is not a line-ending check.** It reported every line of a pure-LF file as
   containing a carriage return, which sent a whole file through a needless CRLF conversion
   and produced a 292-line diff on a four-line change. This repository has `core.autocrlf =
-  false` and a `.gitattributes` that pins only a handful of files, so **each file's real
-  endings are whatever is committed** and they are not uniform: `src/scoring.ts` and
+  false` and a `.gitattributes` that pins only a handful of asset extracts, so **each file's real
+  endings are whatever is committed** and they are not uniform: ~~`src/scoring.ts` and
   `src/combat.ts` are CRLF, `src/config.ts` and every test file are LF, and `src/style.css`
-  is genuinely mixed. Count bytes in Python (`data.count(b"\r\n")` against
+  is genuinely mixed.~~ *(Struck 2026-09-05. This sentence is a second, uncorrected copy of the
+  table above and it is wrong the same way: `src/combat.ts` carries **no CR at all** and
+  `src/scoring.ts` is mixed rather than CRLF. The entry above carries the measured
+  classification; two statements of one fact in one file is how the wrong one survives a
+  correction, so read that one and not this.)* Count bytes in Python (`data.count(b"\r\n")` against
   `data.count(b"\n")`), and gate the commit on `git diff --numstat` being identical to
   `git diff --ignore-cr-at-eol --numstat`.
 - **A caller holding its own copy of a rule is the same defect as a missing table row, and
@@ -600,8 +643,9 @@ npm run dev             # http://localhost:5180, strictPort
   `tests/integration.test.mjs` learned this while auditing 25 rebuilds; it still catches a
   genuinely live callback because marked observers no longer participate in notification.
 
-**The next four entries are about code deleted on 2026-09-04** -- the KayKit Knight and the
-construct/Forge trees. They are kept because the lessons are about Babylon, Havok and how a body
+**The next five entries are about code deleted on 2026-09-04** -- the KayKit Knight and the
+construct/Forge trees. *(Counted 2026-09-05: this said "four" and there are five, which is what a
+count in prose does when a bullet is appended under it.)* They are kept because the lessons are about Babylon, Havok and how a body
 experiment goes wrong, not about the units that taught them; the tests and files they name resolve
 through `docs/deleted-paths.md`. Read them as findings, not as descriptions of the current tree.
 
@@ -653,9 +697,83 @@ through `docs/deleted-paths.md`. Read them as findings, not as descriptions of t
   a clean-looking mount that could no longer aim; the accepted socket offset changes mounting,
   not the controller's joint response.
 
+**The next five entries are what the golem work paid for**, 2026-09-04 to 2026-09-05. Like the
+group above they are about Havok, the docs gate and how a durable record rots, rather than about
+the body that taught them.
+
+- **The docs gate resolves a file reference against the *working tree*, so an untracked file can
+  make a rotted reference look live -- on one machine, indefinitely.** `tests/docs.test.mjs`
+  builds its resolution index with `walk(ROOT, RESOLVE_SKIP, () => true)` and asks the tree
+  *before* it asks `docs/deleted-paths.md`, which is right (a path can be deleted and later
+  re-added) and has this hole: `RESOLVE_SKIP` holds `node_modules`, `dist`, `.deps-stage`,
+  `.review` and `.git`, and nothing else -- so every other ignored, untracked, machine-local
+  directory is in the index, and resolution is by path *suffix*. **The live instance is the span
+  reading rows.jsonl in `docs/measurements.md`** (written without backticks here on purpose, so
+  that this entry does not become a second one): it names the output file of a runner deleted on
+  2026-09-04, and it resolves only because this machine still holds that name three directories
+  deep under .tools/, untracked, matched by a `.gitignore` line. The same
+  commit is green here and red in a fresh worktree. **Verification recipe:**
+  `git worktree add <tmp> HEAD`, junction `node_modules` in at both levels, then
+  `node --test tests/docs.test.mjs`; run it before believing that a docs gate you have not
+  changed is telling you about the repository rather than about your disk. The class is the point
+  and the instance is only an example: strike the span, name it in `NOT_A_PATH_TARGETS` as the
+  generated artefact name it is, or have the resolver ignore untracked paths. The third closes the
+  class.
+
+- **On a low-axis chain the anchor's *rate limit* shapes a commanded move and its force ceiling
+  does not, and a hand rate is not a tip rate.** Both halves were got wrong at once by scaling the
+  Warrior's numbers. Swept over 1400 N to 14000 N on a 29.5 kg chain, every figure of an ordinary
+  move stops changing above about 3900 -- 8.71 m/s of peak, 59.9 mm of lag and 11.605 mm of wander
+  read identically at 3900, 9000 and 14000 -- so a force ceiling chosen for authority is a number
+  with no reader. The rate is the opposite: 6 m/s **at the hand** is about 34 m/s at the tip,
+  because the point sits 1.52 m from the socket against the hand's 0.72 and the forearm turns
+  about the elbow as well, and the guard raise duly peaked at 34.46 m/s until the rate came down
+  to 1.2. If a limb reads as a teleport, look at the rate limit and at the lever between the
+  driven point and the measured one, not at the torque. (One row of that force sweep reproduces as
+  an outlier 4 times out of 4 -- 6000 N gives 1704.9 mm of lag where 5000 and 7000 give 59.9 -- and
+  has never been explained.)
+
+- **A collision filter that forbids a pair also forbids every piece of evidence that the pair
+  would have been bad.** The counterpart of the container-mask trap above, and it bit the golem's
+  plate. A golem's parts are on layers that cannot touch each other, so nothing in the solver will
+  ever report a board inside its own torso; a self-contact count of zero is a check that no pair
+  was admitted by accident and is not a clearance measurement. The only way to know was to sample
+  the board's collider corners from `mesh.position` and `mesh.rotationQuaternion` against the
+  trunk's box over a driven sweep, and at a held shield's proportions that came back **-127 mm** --
+  a quarter of the board inside the body, silently, through every green test. What it cost: the
+  board is smaller than it was drawn, it gives up 0.97 rad of the wrist's 1.57 rad of flexion, and
+  pushing it further out along the limb *deepened* the intrusion to -200 mm because that lengthens
+  the arm the bend swings it through. If a layer table exists to prevent a pair, the geometry that
+  pair would have reported has to be measured some other way or it is not measured at all.
+
+- **A golem bout on the measure bench must pass `locomotionMode: "supported"`, and the pair step
+  throws if you forget.** `runBout` defaults it to legacy on purpose -- every Warrior figure in
+  `docs/measurements.md` was taken there and a bench that quietly switched would move all of them
+  -- while a golem's locomotion *is* the physical V1 port. `stepControlledPair` refuses a pair
+  where only one side has one and throws "supported locomotion pair construction produced only one
+  physical V1 port" before the first frame, which is the good failure: a forgotten line cannot
+  produce a quietly wrong number. Two consequences to carry: the Warrior in a mixed golem cell is
+  therefore on the supported carrier and is **not** the Warrior of the `duelist vs swinger` tables,
+  and `scripts/measure.mjs` shares one Havok module across a run where a scratch script makes a
+  fresh one per bout -- same shape, different cell, different column.
+
+- **A comment can be wrong about a code path in a way no test will ever catch, because it is a
+  claim about behaviour rather than behaviour.** A golem row asserted that `defaultPolicy:
+  "golem-duelist"` meant a corner that becomes a golem opens on a body that fights. It does not:
+  `withUnit` in `src/bout.ts` treats a policy as a saved user choice and never installs a unit's
+  default -- which that function's own comment says in as many words -- and the field is only the
+  fallback in `unitDefinition().build` for a caller that names no policy. It was found by driving
+  the setup screen and noticing the picker still said `idle`. Nothing in 642 tests would have
+  caught it. The rule that follows is the green-test rule pointed at prose: **a sentence about a
+  code path is asserted by executing the path, and until somebody does, it is a hypothesis with
+  good formatting.**
+
 ## House rules
 
-Seven, and each one was paid for.
+Thirteen, and each one was paid for. *(Counted 2026-09-05: this said "seven", which is what a
+count in prose does when six more rules are appended under it. Two of the thirteen are about the
+construct qualification system deleted on 2026-09-04 and are kept as findings, the way the traps
+above their heading are.)*
 
 - **A policy plays with the controller a person plays with.** `Mind.decide` returns an
   `Intent`, and `Controls.state` is annotated as one -- so the person and the AI hand a
@@ -779,6 +897,14 @@ all of them are right, because the house style here points at the line that does
 ratio holds over every grammar it has been taken under -- it was 101 of 206 under the two-spelling
 sweep that decided it -- and `docs/measurements.md` names the space for each.
 
+**"The same change" takes two commits, and that phrasing is what hides it** *(corrected
+2026-09-05)*. The generator reads `git log --diff-filter=D` over **committed** history, so while a
+deletion sits only in the working tree the log has nothing to report and a regeneration run there
+reproduces the register you already had. The sequence is: commit the deletion, then regenerate,
+then commit the register -- and **the docs gate is legitimately red in between**, which is a state
+to expect rather than to debug. Say so in the second commit message, because a bisect landing on
+the first one otherwise finds a red tree with no explanation in it.
+
 **A line-shifting edit is invisible to that gate**, which is its one real limit: an anchor that
 still lands inside its file but now points one line off is neither out of range nor unresolvable.
 Keep an edit above an anchor line-neutral, or re-point what it moved.
@@ -829,6 +955,16 @@ only by swinging. Changes to how the game rewards a blow belong there, with a te
 Two commands beyond the usual, both slow and both deliberately outside `npm test`:
 
 ```powershell
-npm run measure        # bouts, headless, about 90 s -- prints the policy table
+npm run measure        # bouts, headless -- prints the policy table. NOT 90 s any more; see below
 npm run asset:verify   # checks the committed warrior.glb still fits the rig
 ```
+
+**`npm run measure` at its defaults took 2350.3 s on 2026-09-05** -- thirty-nine minutes, exit 0,
+seed 20260823, on the development host -- against the "about 90 s" this line and `README.md` have
+both claimed since before the golem section existed. Nothing is wrong: `--bouts` defaults to 40 and
+the golem cells run pairs of golems to a 60 s cap, so the run is doing about twenty-six times the
+work the estimate was written for. What follows is operational rather than a defect. **Reach for
+`--only <section>` and not for the bare command**: `posture`, `swing`, a `<a>-<b>` matchup name,
+`fists`, `shield-archer` and `golem` are the sections, and `--bouts` is a flag. Budget the whole
+run as a thing you start and come back to, and expect the process to hold about 3 GB of resident
+memory by the end, because the Havok module is shared across bouts here rather than rebuilt.

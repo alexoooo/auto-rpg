@@ -17,6 +17,11 @@ peak transient with identical code** -- 264.97 mm in the page against 242.88 mm 
 bench -- and why is not established. See "The arm's parity" below for what was eliminated.
 Neither is wrong. Putting them in one column is.
 
+**"There are two" was true when it was written and is not true now (2026-09-05).** The golem work
+added three more, and two spellings of one of them that are also not one column. They are named
+once, with the sections that belong to each, under "The golem benches" below; the rule above is
+unchanged and applies to all of them.
+
 **Combat-value unit note (2026-09-01):** historical damage and durability rows recorded before
 ruleset v2 remain in their measured legacy units. Divide those values by 20 only when comparing
 their scale with fresh v2 evidence; the historical tables themselves are not rewritten.
@@ -8884,6 +8889,53 @@ both contact-speed distributions. Wall clock 20.6 s before and 20.7 s after, whi
 this corpus can see, which is the thing session 16 shipped green without checking and the reason the
 rule exists. It says nothing about how anything looks; that is step 10's business and the owner's.
 
+## The golem benches, and which section belongs to which — 2026-09-05
+
+Everything from here to the end of this file is golem work: eleven sessions between 2026-09-04 and
+2026-09-05. It was taken on **five harnesses**, and the rule at the top of this file governs all of
+them without exception — **no two of them ever share a column**. They are named once here so that a
+section below can name one in a line, and so that a reader who arrives at a table knows which
+instrument produced it before reading the number.
+
+| harness | what it is | the sections that are its |
+| --- | --- | --- |
+| **the Node effector bench** | `scripts/golem-bench.mjs` — `NullEngine`, real Havok, no rendering; one module on a fixed stand, driven by a scripted command sequence at 240 Hz | "Golem effector bench", "Golem rungs 2 and 3", "The golem terminal shelf", "Golem locomotion bench", "Session 06: the wheel and the multileg" |
+| **the Node torso bench** | `scripts/golem-torso-bench.mjs` — the same recipe with a trunk and a head on the stand where an arm would be | "Session 07: the torso and the head" |
+| **the Node arena** | `NullEngine`, real Havok, the real arena and a real *pair* of bodies: the same `stepPair` loop the page runs with the render half taken out | "Session 08 — the assembled golem", "Session 09: the central mind", "Session 10: body parts as loot" |
+| **the page bench** | `bench.html` — WebGL, real Havok, the same modules on the same stand, driven by hand through `__golem.step` because Chrome does not paint a hidden tab | the explicitly-labelled page paragraphs inside the sections above, and nothing else |
+| **the page** | `http://localhost:5180/` — the game, the arena, a person at the mouse | Session 10's wear readings, and every human gate, none of which has been asked |
+
+**The Node arena has two spellings and they are not one column either.** `npm run measure -- --only
+golem` is one; a test's or a scratch script's own stand (`tests/golem-loot.test.mjs` has one) is the
+other. The measure bench **shares one Havok module across every bout in a run**, as it does for
+every distribution table above, while a scratch script made a fresh one per bout — which is one of
+at least two reasons the Warrior duelist deals 59.8 damage a bout against an idle golem in Session
+09's control where Session 08's cell read 55.13 for the same quantity. Same shape, different cell.
+That is the fifth instance in this directory of the rule the first paragraph of this file states,
+and the first one where both cells were headless.
+
+**A golem bout on the measure bench has to ask for the supported carrier by name.** `runBout`
+defaults `locomotionMode` to legacy on purpose, because every Warrior figure above was taken there.
+The good part is that forgetting the line does not produce a quietly wrong number: `stepControlledPair`
+refuses a pair where only one side has a physical V1 port and throws before the first frame. It also
+means the Warrior in a mixed golem cell is on the supported carrier too, and is therefore **a
+different Warrior from the one in the `duelist vs swinger` tables above.**
+
+`scripts/golem-headless-arena.mjs` is not a sixth harness despite the name. It is the shared scene
+fixture — ground slab, room walls, ring posts — that the two Node benches and the golem tests all
+build on, salvaged from the construct lab arena on 2026-09-04; the Warrior/Warrior locomotion corpus
+and the supported-fist trigger test call it too. No number is attributed to it.
+
+**Three exclusion windows apply below, not two, and the third is not a tip-speed one.** The two
+mandatory tip-speed windows are the directory's own — the first 0.6 s, because a chain keyframes
+onto its commanded pose on the first control step, and 0.25 s after any contact. The golem work
+added a third of the same idiom over a different reading:
+`BENCH_READOUT.strokeExclusionSeconds` is 0.5 s, because the readings about a limb being *stuck*
+were being taken during the recovery after a stroke, when the limb is deliberately a long way from
+its anchor. The whip is the case where the windows and the subject collide — a lash at rest touches
+the floor, and one contact every step would exclude every reading of it — and that is what bounded
+the lash's length rather than taste.
+
 ## Golem effector bench — 2026-09-04
 
 **Nothing here is a verdict.** Session 02's human gate has not been asked, and this plan set
@@ -10388,3 +10440,148 @@ never refreshed during a bout). The one watched by hand: deleting the checksum b
 - **The banner's name for a salvaged module is the registry's label**, which reads
   "wrist - reach plus roll and bend + blade at 87%". It is accurate and it is not a name a person
   would use.
+
+## What the golem work still owes — 2026-09-05
+
+Gathered from every session's own "what is owed" block above and deduplicated. Those blocks stay
+where they are, beside the numbers they qualify; this is the one list. Nothing in it is scheduled,
+nothing in it is a verdict, and no floor is pinned anywhere below.
+
+### The two that everything else is behind
+
+1. **The owner's playtest, which has not happened.** No human gate in the eleven sessions has been
+   asked or answered, and every one of them ends at one. The protocol the plan set names: every
+   effector option against the Warrior duelist, every locomotion option against `golem-duelist`,
+   one bout per torso and head option, two loot cycles -- bouts chosen by the owner and not by a
+   script, each getting one line of build, opponent, verdict and the answers to the three
+   questions. Until it exists, every threshold in `tests/golem-bench.test.mjs` and its siblings
+   stays provisional by its own comment, and no number anywhere above may be quoted as a floor.
+   Three body experiments before this one cleared every proxy they were gated on and the owner said
+   no to all three; that is why the order is this way round and not the other.
+2. **The dynamism floors were not taken, and taking them first would be the exact inversion this
+   work exists to stop.** Ground path, lateral excursion, accumulated heading, orbit switches,
+   completed attacks and unlabelled passive intervals, against the Warrior-versus-Warrior
+   distribution in the same harness. They become floors after the owner says it looks like a fight.
+
+### Measured, and deliberately left untuned before the gate
+
+- **Rung 3 rings**: 194 mm of tip wander at rest and 1.75 s to settle, against under 0.5 s for
+  rungs 0 to 2. Solver damping on the hinges halves it, and only set-versus-unset matters because
+  Babylon tests the field's truthiness. Tuning it before the gate is the pattern this work exists
+  to break, so it was not tuned.
+- **Anchor force 6000 N is an outlier and it reproduces 4 out of 4**: 1704.9 mm of lag and 43 stuck
+  steps, while 5000 N and 7000 N both read 59.9 mm and none. Traced to one interval in the
+  `chamber` phase where the limb hangs for about a second and frees itself. Unexplained, and it is
+  not the shipped setting.
+- **A golem is effectively unkillable by the Warrior duelist at these numbers.** Raising a blade's
+  damage or lowering a golem's health to make the bout finish would be tuning against a proxy
+  before a person has looked.
+- **`chop.followTorque` is unpinned by any test**: raising it to the drive's leaves the suite
+  green. It is justified by its own config table alone, on purpose.
+
+### Numbers chosen by eye or derived rather than swept
+
+- The cut's `swingRate` and `liftRate` on rungs 2 and 3, chosen against the envelope's width. The
+  cut's `driveSeconds`, `followSeconds` and `strokeRate` were swept.
+- The mace's `buttReach`, `headReach` and `balanceFraction`, derived so the centre of mass falls on
+  the driven side of the driven grip. The arithmetic is in the config block; no sweep against feel
+  exists, because feel is what the gate is for.
+- The whip's damping and joint cone, for the same reason.
+
+### Instruments that are honest about their own limits
+
+- The `settle` and `arrival` columns are not informative on a point-commanded chain: a cursor sweep
+  opens one "step" spanning the whole sweep. The lag, the wander, the two strays and the peaks are
+  the columns that carry meaning there.
+- Foot slip has no peak budget. The mean is budgeted and measured; the peak is reported and
+  explained. A sharper instrument would gate the peak on a sole planted for several substeps.
+- The wheel's gait figures are read over a 3 s walk against the other two modules' 6 s. No gait
+  figure is compared across modules -- the knockdown is -- but those columns are not one run.
+- The wheel's spin has no reverse-sign test: the slip instrument was mutation-proven by starving
+  the motor rather than by reversing it. The page's own reading is an independent check of the
+  sign, in the right direction, and it is not a test.
+- **A self-contact count of zero proves nothing about pairs the filters never admitted.** Every
+  such count above is a check that no pair was admitted by accident and is not evidence of
+  physicality. Where clearance actually mattered -- the plate against its own torso -- it had to be
+  measured as geometry, because no solver was ever going to report it.
+- **The bench that produced most of this file is no longer a 90-second command.** Timed
+  2026-09-05: `npm run measure` at its defaults (`--bouts 40`, seed 20260823) ran for **2350.3 s**
+  of wall clock and exited 0, holding about 3 GB resident at the end because the Havok module is
+  shared across bouts rather than rebuilt. `README.md` and `AGENTS.md` both said "about 90 s",
+  which was written before the golem section existed and is now wrong by a factor of twenty-six;
+  both are corrected. This is a fact about the command and not about anything it measured, and no
+  figure in this file moves because of it.
+
+### Bench fixtures that two of these numbers are actually about
+
+- The plate's size and the whip's length were both bounded by the bench stand's slab hanging below
+  a socket 1.42 m off the ground. A real torso on real legs now exists, and both are worth
+  re-taking against the body that carries them.
+- `torso.plated` was measured only with the shared waist motor. Whether 236 kg on a 1500 N-m waist
+  reads as armoured or as sluggish is the gate's to say, and if the answer is sluggish the honest
+  next move is a lighter plate rather than a bigger motor.
+
+### Behaviour nobody has looked at yet
+
+- **The multileg does not read as an insect** -- on the page it is a low table with six stubby
+  vertical legs, because they are built in the sagittal plane with no splay. That is a description
+  and not a verdict; the honest fix is a splayed build pose, which changes the leg solve rather
+  than a number.
+- **Neither the wheel nor the multileg has been through the physical obstacle corpus.** The wall,
+  step, ledge, slope and occupied-recovery cells are still the biped's alone, and a 0.50 m
+  footprint against a 0.34 m one is exactly what would behave differently at a curb.
+- **A fallen multileg's recovery separation is untested against a second golem.** The pair cell is
+  two bipeds; two 0.50 m footprints need 1.00 m against the biped's 0.68, and
+  `MAX_RECOVERY_SEPARATION_M` is 0.35.
+- **A strafe and a turn are walked with a fore-aft stride**, and the mean planted slip over the
+  scripted sequence is 419.5 mm/s against 114.7 for a straight walk. Recorded rather than budgeted,
+  because a side-step gait is a design decision and not a regression.
+- **The carrier does not climb.** Step height is a tolerance on support *evidence*, not a step a
+  carrier ascends, and nothing above claims otherwise.
+- **The arena overlay does not exist for a golem.** `G` still draws the Warrior rig view and
+  attaches nothing for a golem bout; `Golem.effectorView` is the seam a later session would draw
+  from.
+- **The neck's second axis is commanded by nothing, by design.** Whether a head that a shove turns
+  5.5 degrees reads as alive or as a loose bolt is not a question this file can answer.
+- **The ram's damage is small** and the numbers behind its minimum speed are a derivation rather
+  than a fight. `Striking.damageScale` is the seam if the owner wants it to hurt, and it should be
+  spent against a bout rather than against a bench.
+- **The plate's bash is a mass bite at fist weight, and that has a live dissent.** `src/scoring.ts`
+  refuses a held buckler its punch on the ground that a scoring shield hands every policy an
+  offensive option nobody designed. That argument is about a held shield in a body with a choice;
+  a golem's plate is a body part. If the mind starts bashing rather than covering, this is the
+  first row to look at.
+- **The whip's 103 mm** and **`primary pitch+blade`'s 457.9 contacts for 11.6 damage** each want an
+  eye rather than a threshold.
+- **The 8/8 win rate is a proxy** and is evidence of nothing the owner cares about; it would read
+  the same for a mind that walked in a straight line into a body it outlasts.
+- **Nothing has been measured against a golem that lost a module mid-bout**, and **no bout has
+  severed a module by fighting.** Every sever measured was driven through the body's own armour
+  seam into the same `sever` call `Combat` makes -- the production path minus the scoring.
+- **The look of the golem changed** when the procedural stone shader was finally asked for and
+  compiled. That is a visual change the owner has not seen and did not ask for.
+- **Nothing charges for a shelf part**, so a salvaged module is strictly worse than the same module
+  new and there is no reason to fit one. The loop is closed; it is not yet a game.
+- **The banner names a salvaged module by the registry's label** -- "wrist - reach plus roll and
+  bend + blade at 87%" -- which is accurate and is not a name a person would use.
+
+### Found 2026-09-05 while writing this record, by reading the source rather than by a run
+
+- **Three constants in `src/golem/tactics.ts` ship at values their own bolded sweep rows
+  contradict.** `cutRoll` is 0.30 where its table bolds 0.60; `chamberSwing` and `chamberLift` are
+  0.05 and 0.04 where their table bolds 0.50 and 0.39 -- which is also what the paragraph above
+  them derives, as half of the arm chain's own cut sweep of 0.99 rad inboard and 0.77 rad down. The
+  other constants that carry sweep tables -- `holdFraction`, `strikeFraction`, `coverAcross`,
+  `trunkSweep` -- all match their bolded rows, which is what makes these three stand out. Which of
+  the two is right is not decidable from this document and nothing is changed on the strength of
+  it: either the values are a decimal slip, or they were re-chosen after the sweep and the tables
+  were not re-taken. Neither reading satisfies the house rule that every number carries the sweep
+  that set it, so this is owed rather than noted.
+- **`cutRoll`'s own doc comment says it is "signed by the socket" and the code applies no sign.**
+  Every other outboard-signed quantity in that file carries one, so the two effectors roll the same
+  way in world terms.
+- **`canCut` is exported from `src/golem/tactics.ts` and has no reader** anywhere in `src/`,
+  `tests/`, `scripts/` or the page. The commit branch says in its own comment that it deliberately
+  does not branch on the swept-cut-versus-chop distinction, so the predicate is residue of a
+  question the mind decided not to ask. This directory's own rule about a field with no reader is
+  what it is an instance of.
