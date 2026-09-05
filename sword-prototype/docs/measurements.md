@@ -9901,8 +9901,23 @@ default to `undefined`, which is what it passed before by omitting them.
 quietly re-recording.** "The null control did not move, again" above reports 66/120 = 55.0 %,
 bout 3.52 (1.42–8.98), 1496 / 1670 scoring contacts for the same command and the same seed. That
 figure was taken before the golem plan set began; at `e5a7f97` the same command already answers
-59/120. So the move happened somewhere in sessions 01 to 07 — the demolition alone deleted a great
-deal of what shared this execution layer — and it is **not** this session's. Seven wins in 120 is
-0.6 standard deviations and could be noise, but the bout-length range and the contact counts moved
-too, so the trajectories genuinely differ. Whoever wants the cause has a cheap bisect: five commits,
-one command, twenty seconds each.
+59/120. Seven wins in 120 is 0.6 standard deviations and could be noise, but the bout-length
+range and the contact counts moved too, so the trajectories genuinely differ.
+
+**Where it moved is already answered in this document, and the answer is: before any of this.**
+"The demolition's null control" above ran the same command at `2be433a` — the commit *before*
+session 01's first edit — in a detached worktree with `node_modules` junctioned in, and got
+**59 / 61 / 0, bout 3.48 (1.42–7.85), 1460 / 1674 scoring contacts**: the figures this session
+measures, not the 66/120 ones. So the golem plan set did not move it. It was already 59 when the
+plan set began, and the drift belongs somewhere between whenever the 66 was last genuinely re-run
+and `2be433a`.
+
+That correction is the whole value of this entry. Two tables in one document disagreed about the
+same command at the same seed, and the one that names the commit it ran at is the one that settles
+it: **a bisect over the five golem commits would have found nothing, because the cause is not
+inside them.** Anybody who still wants it should bisect *backwards* from `2be433a` through the
+effigy sessions, and should first check the cheaper possibility — that 66/120 was carried from
+entry to entry by copying rather than by re-running, which is what a figure repeated verbatim at
+nine places in this file invites. The house rule says every measurement names its harness; it does
+not yet say that a repeated measurement names the run it came from, and this is the case for
+saying so.
