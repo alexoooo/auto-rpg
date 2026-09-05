@@ -350,16 +350,31 @@ npm run dev             # http://localhost:5180, strictPort
   whether a suspiciously large diff is real; compare it against plain `--numstat` and any
   file where the two disagree has had its endings rewritten.
 
-  **Which file is which, measured rather than assumed.** Most of `src/` is LF, but **five
-  files are pure CRLF in `HEAD`** and always have been:
+  **Which file is which, measured rather than assumed.** Most of `src/` is LF, and **two
+  files are pure CRLF in `HEAD`**:
 
   | CRLF | LF | Mixed |
   | --- | --- | --- |
-  | `src/arena.ts`, `src/combat.ts`, `src/physics.ts`, `src/rig.ts`, `scripts/fetch-polyhaven.mjs` | everything else in `src/`, `tests/`, `scripts/`, `asset-src/` | `src/style.css`, `src/scoring.ts` |
+  | `src/rig.ts`, `scripts/fetch-polyhaven.mjs` | everything else in `src/`, `tests/`, `scripts/`, `asset-src/`, **including `src/arena.ts` and `src/combat.ts`** | `src/style.css`, `src/scoring.ts`, `src/physics.ts` |
 
-  `src/style.css` is genuinely mixed -- 468 CR against 492 LF -- and has been since before
-  any of this. A session that "tidied" its bare-LF lines turned a 126-line addition into a
-  150/24 diff and had to be undone.
+  **Four of this table's six original cells were wrong, and the whole point of the section
+  above is that nobody re-ran the recipe against the table it introduced.** Re-measured
+  2026-09-04 by the golem plan set's coordinator, twice -- once with the `git show | tr -dc`
+  recipe printed below, once with a direct byte count in Python -- and confirmed against
+  `2be433a`, the commit before that plan set began, so none of it is damage the golem work
+  did. `src/arena.ts` carries **0** CR against 200 LF and `src/combat.ts` **0** against 635:
+  both are and were pure LF. `src/physics.ts` is 159 CRLF against 129 bare-LF lines, with a
+  bare-LF block in the middle that session 04 found by hand while editing it. `src/rig.ts`
+  (197/0) and `scripts/fetch-polyhaven.mjs` (74/0) are the two the table got right.
+
+  `src/style.css` is genuinely mixed -- **506 CRLF lines against 441 bare-LF ones** at
+  `2be433a`, not the 468/492 this entry claimed -- and has been since before any of this. A
+  session that "tidied" its bare-LF lines turned a 126-line addition into a 150/24 diff and
+  had to be undone.
+
+  So the rule that survives is **match the region you are editing, not the file**: three of
+  the files here are mixed, and a belief that a whole file is CRLF is precisely what produces
+  a wholesale rewrite.
 
   **`src/scoring.ts` moved from the first column to the third on 2026-09-04, and it was never
   in the first one.** It was six files here and it is five: measured at `870190d`, before the
