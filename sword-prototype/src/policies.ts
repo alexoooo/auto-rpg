@@ -2,8 +2,8 @@
 // runs a TypeScript file by stripping its types, and its ESM resolver insists on
 // the extension where Vite does not care.
 //
-// `config.ts` is the *only* run-time import in this file, and that is a property
-// worth keeping rather than an accident. `config.ts` imports nothing at all, so
+// `config.ts`, `hands.ts` and `rng.ts` are the only run-time imports in this file, and that
+// is a property worth keeping rather than an accident. Each of them imports nothing at all, so
 // a policy can be put in front of a hand-written view in `tests/minds.test.mjs`
 // with no Babylon, no scene and no bout anywhere in the graph -- which is what
 // makes those tests cost milliseconds instead of seconds. The geometry below is
@@ -27,6 +27,9 @@ import {
   type HandName,
 } from "./hands.ts";
 import type { BodyView, FighterView, HandIntent, Intent, Mind } from "./mind.ts";
+// The seeded generator every policy's cadence jitter draws from. It lived here until 2026-09-05;
+// `rng.ts` says why it moved and `tests/rng.test.mjs` pins that the stream did not change.
+import { mulberry32, randomSeed } from "./rng.ts";
 import { ACTION_SHOT_TIMING, ACTION_STROKE_TIMING, actionAimAt, actionArcherAim, actionCoverAt, actionDistance, actionShotPhase, bareCrowdDistance, bareHoldDistance,
   actionStrokePose, actionStrokeReading, actionStrokeRoll, applyActionPosture, blankThreat, freshIntent, selectThreat, strokePoint,
   type ThreatView } from "./action-primitives.ts";
@@ -660,29 +663,6 @@ function turnToward(view: FighterView, target: Point, gain: number): number {
   const wanted = Math.atan2(target.x - here.x, target.z - here.z);
   return clamp(angleTo(view.self.facing, wanted) * gain, -1, 1);
 }
-
-/**
- * A small deterministic generator, so that "N bouts" means N different bouts and
- * not one bout run N times.
- *
- * Mulberry32. It is here rather than in the harness because the variation has to
- * be in the *policies'* own timing -- their cadence jitter and their start
- * offsets -- and not in the physics: nudging a body to make a distribution is
- * measuring a different simulator each time, and the point of a distribution is
- * that every sample is the same simulator.
- */
-function mulberry32(seed: number): () => number {
-  let state = seed >>> 0;
-  return () => {
-    state = (state + 0x6d2b79f5) | 0;
-    let t = Math.imul(state ^ (state >>> 15), 1 | state);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-/** A seed for a policy nobody gave one to. The picker is one such caller. */
-export const randomSeed = (): number => (Math.random() * 0x100000000) >>> 0;
 
 /**
  * The naive opponent, and the one you should beat.

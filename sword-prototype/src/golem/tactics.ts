@@ -2,14 +2,17 @@
 // TypeScript file by stripping its types, and its ESM resolver insists on the extension where Vite
 // does not care.
 //
-// **This file imports no value at all.** `hands.ts` is the one exception and it imports nothing
-// itself, which is the property that lets a whole bout of this mind's cadence be stepped in front
+// **This file imports no value at all.** `hands.ts` and `rng.ts` are the two exceptions and each
+// imports nothing itself, which is the property that lets a whole bout of this mind's cadence be stepped in front
 // of a hand-written view with no Babylon, no scene and no solver anywhere in the graph -- the same
 // property `policies.ts` keeps and for the same reason. In particular it does **not** import
 // `src/action-primitives.ts`: those strokes are shaped for a Warrior's seven-axis arm and their
 // ranges are an arming sword's length, and reaching for them here is the exact mistake this
 // session was told to avoid.
 import { isShield, type Striker } from "../hands.ts";
+// The same seeded stream `policies.ts` draws from, for the same argument, from the one file both
+// may import. This file carried its own copy until 2026-09-05; `rng.ts` says why it moved.
+import { mulberry32 } from "../rng.ts";
 import type { BodyView, FighterView, HandIntent, HandName, Intent } from "../mind.ts";
 import type { EffectorCapability, GolemCapabilities } from "./module.ts";
 
@@ -121,25 +124,6 @@ export const unspan = (value: number, min: number, max: number): number =>
 interface Point { x: number; y: number; z: number }
 
 const distance = (a: Point, b: Point): number => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
-
-/**
- * A small deterministic generator, so that N bouts means N different bouts.
- *
- * Mulberry32, the same one `policies.ts` carries and for the same argument: the variation has to be
- * in the policy's own cadence and not in the physics, because nudging a body to make a distribution
- * is measuring a different simulator every time. A second copy rather than an import, because that
- * one lives in a file whose ranges are a Warrior's and this file deliberately imports no value from
- * it; six lines of a named public algorithm is the cheaper of the two duplications.
- */
-function mulberry32(seed: number): () => number {
-  let state = seed >>> 0;
-  return () => {
-    state = (state + 0x6d2b79f5) | 0;
-    let t = Math.imul(state ^ (state >>> 15), 1 | state);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 // ------------------------------------------------------------------------------- the capabilities
 

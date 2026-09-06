@@ -12,8 +12,8 @@ import { assertCompleteView } from "./fixtures/view.mjs";
  * The policies, argued with rather than watched.
  *
  * No Babylon, no scene, no bout and no solver anywhere in this file's import
- * graph: `policies.ts` imports `config.ts` and nothing else at run time, and
- * `config.ts` imports nothing at all. That is what lets a whole cycle of a
+ * graph: `policies.ts` imports `config.ts`, `hands.ts` and `rng.ts` at run time,
+ * and each of those imports nothing at all. That is what lets a whole cycle of a
  * policy's cadence be stepped in a fraction of a millisecond, and it is why
  * these live in `npm test` while the bouts live behind `npm run measure`.
  *
