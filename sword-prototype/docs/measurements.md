@@ -11776,3 +11776,126 @@ at 0.07 because the blade cell is the regression cell and 0.15 is one noisy row.
   its hand to a point, and the refusal is tested rather than the row being silently absent.
 - The whip's reversal is unconfirmed by the cell. A lash that *cracks* would need the bead chain
   to carry a wave, and eight beads on damped cones may simply not.
+
+## Session 03 of the matchup set — 2026-09-06: the matchup screen, two bodies behind a sheet
+
+What the owner asked for: a visual matchup screen, left and right randomised, click to
+randomise either side, run the fight, golem-only. What this session shipped: `randomGolemSetup`
+and `describeGolemSetup` in `src/golem/build.ts`; a per-side seed, `withGolemBuild`,
+`golemMatchup` and the `?matchup=` codec in `src/bout.ts`; a rewritten `SetupScreen` in
+`src/setup.ts` with Randomize, Customize, a caption and a seed note per corner; a showcase
+phase in `src/main.ts` that builds both bodies with physics off and frames them from
+`CONFIG.camera.showcase`; the sheet in `src/style.css`. Nothing here is the owner's eye, which
+is the gate: can they tell what each golem is before the fight starts.
+
+### What the option lists offer, and what a draw does with them
+
+The draw is a pure function of the stream it is handed, over the lists the dropdowns are filled
+from. Counted from the registry on 2026-09-06 by a scratch script over `build.ts`:
+
+| slot | options |
+|---|---:|
+| locomotion | 3 (biped, wheel, multileg) |
+| trunk | 2 (plain, plated) |
+| head | 2 (plain, ram) |
+| chain none | 1 terminal (none) |
+| chain pitch | 4 (blade, plate, mace, fist) |
+| chain reach | 5 (blade, plate, mace, maul, fist) |
+| chain wrist | 6 (blade, plate, mace, whip, maul, fist) |
+| effectors, total | 16, of which 2 (the mauls) claim both sockets |
+
+So a build is one of 3 × 2 × 2 × (14² + 2) = **2376** legal assemblies, against the 804 the plan
+guessed before Sessions 01 and 02 added the fist, the one-socket mace and the maul. The draw
+picks the primary socket's chain, then a terminal from that chain's list, then the secondary the
+same way, and if either draw is a two-socket terminal it is copied to both sockets; the refusal
+is then asked as a guard. `tests/golem-random.test.mjs`, seed 20260906, 400 draws:
+
+| fact | number |
+|---|---:|
+| draws refused by `golemSetupRefusal` | 0 of 400 |
+| draws in which both hands hold a maul | 57 of 400 |
+| distinct chain-and-terminal pairs drawn | 16 of 16 offered, none outside the registry |
+| biped / wheel / multileg | 140 / 129 / 131 |
+| plain / plated trunk | 206 / 194 |
+| plain / ram head | 182 / 218 |
+
+The maul's 57 of 400 is the price of the both-sockets rule: two of sixteen effector rows are
+mauls, but a maul drawn in *either* socket claims the pair, so the pair lands at roughly twice
+the per-row share. That is a fact about the screen's draw and not a judgement about the
+matchup; the tournament (Session 04) samples builds through the same function, so it is a fact
+about the tournament's pool too, and the reference pool of named builds is where a flat share
+would be restored if it mattered. A stream of zeros draws the first option of every slot and a
+stream just under one draws the last, which is the test that the draw reads nothing but its
+stream: no clock, no `Math.random`.
+
+Six captions from seed 7, as the corner shows them:
+
+```
+wheel, plain trunk, plain head; wrist + maul in both hands
+biped, plated trunk, ram head; none, capped, reach + plate
+biped, plated trunk, plain head; none, capped, pitch + mace
+biped, plated trunk, ram head; wrist + plate, none, capped
+multileg, plated trunk, ram head; reach + maul in both hands
+biped, plain trunk, plain head; wrist + maul in both hands
+```
+
+### The screen in Chrome
+
+Checked on port 5180 with the hidden-tab discipline from `AGENTS.md`, frames stepped by hand.
+Everything below is what the page reported through `__sword` and what the screenshots showed,
+in the order it was tried.
+
+- **Boot with no link.** The showcase pair (two default golems, both minds) stood at their start
+  marks with the sheet across the bottom of the window; `scene.physicsEnabled` false; the boot
+  note *Havok ready*.
+- **Randomize, left then right.** Each press rebuilt both bodies, rewrote the caption under that
+  corner (*biped, plain trunk, plain head; pitch + plate, reach + plate*, then *wheel, plated
+  trunk, plain head; wrist + fist, wrist + blade*), wrote a seed note, and rewrote the URL with
+  the pair; the other corner's caption and seed were unchanged.
+- **Fight.** Phase `fight`, physics on, the curtain gone, the HUD back; a punch landed within the
+  first seconds and the vitality bar read 74 %.
+- **Leave.** Phase `select`, physics off, the sheet back over the two fought bodies where they
+  stood, not rebuilt; the HUD, the mode line and the direct-controls checkboxes hidden
+  (`visibility: hidden` by the body selector).
+- **Customize.** The nine pickers and the bin row appeared under that corner; changing the head
+  to ram rewrote the caption and turned the seed note into *picked by hand*; the URL followed.
+- **A refused link.** `?matchup=` naming `head.of.lettuce` was accepted by shape, refused by the
+  registry, and the boot note read *The link was refused and the showcase pair is shown
+  instead: no golem head module "head.of.lettuce"*, with the showcase pair standing and Fight
+  enabled.
+- **A hand-written link.** A multileg ram-headed maul golem driven by *you* against a wheel with
+  a whip and a blade, seed 2610147011 on the right: both captions, the seed note, the policy
+  selects and the control radios read back what the link said.
+
+### The framing, and the two things the first framing got wrong
+
+`CONFIG.camera.showcase` as first written put the look point at chest height (0.95 m) 5.6 m
+out, and the initial bearing at +π/2. Two faults, both from the screenshot and neither from
+a number:
+
+| | first | shipped |
+|---|---:|---:|
+| distance to the look point | 5.6 m | 5.2 m |
+| height above the floor | 2.4 m | 2.4 m |
+| look height | 0.95 m | 0.15 m |
+| starting bearing | +π/2 | −π/2 |
+| orbit period | 48 s | 48 s |
+
+At a look height of 0.95 the sheet, which covers the bottom two fifths of the window, crossed
+both pairs of knees; at 0.15 the bodies stand in the top three fifths with a wheel golem's
+head and a maul chambered overhead under the top edge. At +π/2 the *right* fighter stood on
+the left of the frame above the *left* corner of the sheet; −π/2 is the bearing at which the
+two corners and the two bodies read as the same pair. Both values were tried live through
+`__sword.config` before being written into `src/config.ts`.
+
+### What this session owes
+
+- The owner's eye: open the screen, randomise each side several times, fight, leave, and do it
+  again. Can they tell what each golem is before Fight. The status line in
+  `docs/plans/matchup-03-matchup-screen.md` waits on that verdict.
+- The orbit is 48 s and was chosen by argument (a turn a person notices makes the pickers harder
+  to read), not by watching it turn; a hidden tab renders no motion.
+- A caption is words. Whether *wrist + maul in both hands* reads as the body above it, or
+  whether the body needs a label in the arena, is the gate's question and not this entry's.
+- The tournament's build pool is this draw, so the maul's double share (57 of 400) is a fact
+  Session 04 inherits and its reference pool of named builds should say whether it minds.

@@ -400,6 +400,67 @@ Fight button -- `style.css` already capped the panel height and scrolled it
 because the list plus the matchup overflowed a laptop window, which is a Fight button below
 the fold. A controls sheet is also something you want mid-fight, which a curtain cannot be.
 
+## The matchup screen, which is the arena with the physics off
+
+The setup screen used to be a form: a unit picker, two hand pickers, nine golem dropdowns, a
+policy select. It told you what a golem was made of in the registry's own words and showed you
+none of it, and the owner's request for this set was the opposite -- *see* two bodies, draw a
+new one for either side, and start the fight. Four decisions carried it.
+
+**A random build is a pure function of a seeded stream.** `randomGolemSetup` in
+`src/golem/build.ts` draws one id per slot from the same option lists the dropdowns are filled
+from -- three locomotions, two trunks, two heads, and a chain-and-terminal pair per socket from
+the sixteen effectors the registry offers -- and then asks `golemSetupRefusal` the question the
+screen asks of a hand-picked build. The lists only offer legal ids, so the refusal is a guard
+rather than a search, and the test says so: four hundred draws, none refused. A two-socket
+terminal drawn in either socket claims both, which is the maul rule from Session 02 applied at
+draw time rather than repaired afterwards. The function reads the stream it is handed and
+nothing else, which is what lets a seed be a name for a body: the corner records the draw as
+`SideSetup.seed`, the caption under the build says *seed 2610147011*, and the URL carries it.
+The moment a hand edits a drawn build the seed is dropped, because the build is no longer the
+draw, and the caption says *picked by hand* instead. That rule lives in the reducers in
+`src/bout.ts`, next to the two-socket mirror, for the reason everything in that file is there.
+
+**The showcase is the arena with the physics off.** A golem body exists only through Havok --
+there is no mesh to preview without building the joints -- so the two bodies on the setup screen
+are built at their start marks through the same `buildBout` path a fight uses, and the scene's
+physics is simply disabled until Fight, the way `leave` already disables it when a fight is
+abandoned. Randomize rebuilds through the same `rebuild` that a hand edit does, so the other
+side is rebuilt identically and the bodies you see are exactly the bodies that will fight;
+there is no second representation to drift. The camera is chosen by *phase*, not by camera
+mode: while `state.phase` is `select`, `placeCamera` in `src/main.ts` frames the midpoint of
+both fighters' feet from `CONFIG.camera.showcase` and walks round the pair once every 48 s,
+and the owner's orbit and zoom gestures still apply on top. The look point is nearly at the
+feet (0.15 m) rather than at the chest, because the sheet covers the bottom two fifths of the
+window and a body centred on the frame stands with its knees behind the panel. It starts
+side-on with the left fighter on the left of the frame, so the two corners of the sheet and the
+two bodies above them read as the same pair.
+
+**The sheet is a sheet over a live arena, not a curtain.** `#curtain` is still the element
+`ArenaPresentation` shows for setup and hides for a fight, and `tests/host-run.test.mjs` still
+reads the HTML as text for its balance, but it no longer paints over the arena: it is a
+bottom-aligned grid with a gradient that is transparent through its middle, and its panel is a
+full-width bottom sheet with two corners, a policy line, and Fight. The fight's HUD, the
+tip-speed readout and the direct-controls checkboxes are hidden while the sheet is up, by a
+selector on the body rather than by the host, because a readout for a fight that has not
+started is noise on a showcase.
+
+**Golem-only, with the dropdowns behind a toggle.** The unit picker and the hand pickers are
+gone from the screen, by the owner's decision; the Warrior, the Broot and the Centipede stay
+in code, in `withUnit`, in the URL codec and in the headless measure as regression cells, and
+`golemMatchup` in `src/bout.ts` is what the screen opens with. Each corner's *Customize* button
+reveals the nine per-slot selects and the parts bin, so a hand-picked build and the loot shelf
+keep working exactly as before; the bin row only exists while a corner has its pickers open.
+The matchup round-trips through `?matchup=<JSON>`: `matchupQuery` writes it and
+`matchupFromQuery` reads it back, refusing by *shape* -- a missing side, a control that is
+neither mind nor you, two of you, a seed that is not a number, a socket without a terminal --
+and accepting a well-shaped link that names ids the registry does not have, because that is
+`golemSetupRefusal`'s question and the host asks it next, falling back to the showcase pair
+with a boot note that says which id was refused. The screen tells the host about a change
+through one callback, `onSelection`, and the host rebuilds bodies only when a unit, a build or
+the hands changed and nothing is refused; a policy or control change is a matchup change with
+no body behind it.
+
 ## Dying, which is not the same as losing
 
 `over` not stopping the world was the right call about the *bout* and, for a long time, it

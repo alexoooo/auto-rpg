@@ -1,6 +1,18 @@
 # Session 03 -- the matchup screen
 
-**Status (2026-09-05): planned.**
+**Status (2026-09-06): implemented; the human gate is open.** Everything under *Implement*
+landed. What the plan did not say: Randomize rebuilds both bodies through the same `rebuild`
+a hand edit uses, so the other side comes back identically and there is no one-sided rebuild
+path to keep honest; the parts bin lives behind Customize and its row only exists while a
+corner's pickers are open; the showcase camera frames the midpoint of both fighters' feet from
+5.2 m out and 2.4 m up with the look point 0.15 m off the floor, starting side-on with the left
+fighter on the left of the frame, because the sheet covers the bottom two fifths of the window
+and a look point at the chest put both pairs of knees behind it. The unit picker is gone;
+the Warrior, Broot and Centipede stay in code and in the URL codec. Checked in Chrome on port
+5180 on 2026-09-06 with the hidden-tab discipline: draws on both sides rebuilt the bodies and
+rewrote caption, seed and URL; Fight ran a bout; leaving brought the sheet back over the
+fought bodies with physics off; Customize opened the nine pickers and a hand edit dropped the
+seed. The owner's verdict on the gate below goes here.
 
 ## Outcome
 

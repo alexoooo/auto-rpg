@@ -21,7 +21,13 @@ import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, combatRecorder, sampleBout
 import { advanceActiveHostTimers, ArenaPresentation, pauseHost, presentRebuiltFrame, restartHost, resumeHost,
   runHostFrame, type RunningHost } from "./host-run";
 import { SetupScreen } from "./setup";
-import { golemEffector, golemEffectorOption, isGolemEffectorOption } from "./golem/build";
+import {
+  defaultGolemSetup,
+  golemEffector,
+  golemEffectorOption,
+  golemSetupRefusal,
+  isGolemEffectorOption,
+} from "./golem/build";
 import {
   browserPartsBinStorage,
   partsBinLoot,
@@ -47,8 +53,10 @@ import {
 import type { HumanoidHumanSource } from "./humanoid-control";
 import {
   begin,
-  defaultMatchup,
+  golemMatchup,
   humanSide,
+  matchupFromQuery,
+  matchupQuery,
   pauseAction,
   selectScreen,
   takeBody,
@@ -204,7 +212,23 @@ async function boot(): Promise<void> {
    * only check by starting a browser and waiting a minute is a rule nobody
    * checks.
    */
-  let state = selectScreen(defaultMatchup());
+  /**
+   * What the screen opens on: the link's matchup if the page was opened from one, and the
+   * showcase pair otherwise.
+   *
+   * A link is refused twice before it is trusted, and each refusal is named on the boot note
+   * rather than swallowed. `matchupFromQuery` refuses by shape; a well-shaped link whose ids the
+   * registry does not have is refused by `golemSetupRefusal` *here*, before any body is built
+   * from it, because the showcase builds its bodies at boot and `buildBout` throws on a build it
+   * cannot assemble -- a page that died on a stale link would be a page nobody could open.
+   */
+  const linked = matchupFromQuery(window.location.search);
+  const linkRefusal = linked === null
+    ? (window.location.search.length > 1 ? "the link's matchup was not the right shape" : null)
+    : [linked.left.golem, linked.right.golem]
+      .map((build) => (build ? golemSetupRefusal(build) : null))
+      .find((refusal) => refusal !== null) ?? null;
+  let state = selectScreen(linked && linkRefusal === null ? linked : golemMatchup(defaultGolemSetup()));
   /**
    * The parts bin: what this browser has taken off beaten golems, and nothing else.
    *
@@ -216,7 +240,29 @@ async function boot(): Promise<void> {
    * answer, which is an empty bin and a sentence on the screen.
    */
   const partsBin = new PartsBin(browserPartsBinStorage(), isGolemEffectorOption);
-  const setup = new SetupScreen(need("matchup"), state.matchup, Object.freeze({}), beginButton, partsBin);
+  /**
+   * The screen's answer to "what should the arena show now".
+   *
+   * Every change a person makes on the sheet lands here with the whole matchup. The state takes
+   * it -- the screen is the phase's editor and `begin` reads the screen's selection anyway --
+   * and the bodies behind the sheet are rebuilt **only when a body changed**: a policy or a
+   * control is a fact about who drives, and rebuilding two golems for it would be a flicker for
+   * nothing. The link is rewritten on every change, so the address bar is always the pair on
+   * screen and copying it is copying the matchup. Refused builds are not rebuilt, because
+   * `buildBout` would throw on them; the Fight button is already disabled with the reason.
+   */
+  const bodies = (matchup: Matchup): string => JSON.stringify([
+    matchup.left.unit, matchup.left.golem, matchup.left.handA, matchup.left.handB,
+    matchup.right.unit, matchup.right.golem, matchup.right.handA, matchup.right.handB,
+  ]);
+  const onSelection = (matchup: Matchup): void => {
+    if (state.phase !== "select") return;
+    const changed = bodies(matchup) !== bodies(state.matchup);
+    state = selectScreen(matchup);
+    window.history.replaceState(null, "", matchupQuery(matchup));
+    if (changed && setup.refusal === null) rebuild();
+  };
+  const setup = new SetupScreen(need("matchup"), state.matchup, beginButton, partsBin, onSelection);
 
   const controls = new Controls(canvas, {
     onReset: () => {
@@ -444,6 +490,10 @@ async function boot(): Promise<void> {
   };
 
   let bout = buildBout(state.matchup);
+  // The showcase is the arena with physics off, from the first frame: two bodies standing at
+  // their marks exactly as built, with no gravity to sag them and no mind to move them, until
+  // Fight enables the solver through `resumeHost`. `leave` puts it back this way.
+  arena.scene.physicsEnabled = false;
 
   /**
    * The fighter you are looking through, and the one opposite it.
@@ -900,6 +950,7 @@ async function boot(): Promise<void> {
         return;
       }
       state = begin(state, setup.selection);
+      window.history.replaceState(null, "", matchupQuery(state.matchup));
       rebuild();
     }
     presentation.showSetup(false);
@@ -937,9 +988,47 @@ async function boot(): Promise<void> {
   const focus = new Vector3();
   const forward = new Vector3();
 
+  /**
+   * Where the showcase camera is on its slow walk round the pair, radians; see `placeCamera`.
+   * It starts side-on with the left fighter on the left of the frame, which is the one bearing
+   * at which the two corners of the sheet and the two bodies above them read as the same pair.
+   */
+  let showcaseBearing = -Math.PI * 0.5;
+  const showcaseMid = new Vector3();
+
   const placeCamera = (follow: CameraSubject, dt: number, snap: boolean): void => {
     const C = CONFIG.camera;
     const P = C[C.mode];
+
+    // **The showcase framing, by phase and not by mode.** Behind the sheet there is no fight to
+    // follow, so the camera looks at the midpoint of the two fighters' feet and walks round
+    // them, and `C.mode` -- a person's choice of how to watch a fight -- is not read and not
+    // touched. The gesture state still applies: the wheel and an orbit drag work on the pair
+    // exactly as they work on one fighter. The bearing carries over from frame to frame, so a
+    // Randomize, whose rebuild snaps the camera, snaps it to where it already was.
+    if (state.phase === "select") {
+      const W = C.showcase;
+      showcaseBearing += dt * (Math.PI * 2) / W.orbitSeconds;
+      const gesture = controls.camera;
+      const bearing = showcaseBearing + gesture.yaw;
+      forward.set(Math.sin(bearing), 0, Math.cos(bearing));
+      const leftFeet = bout.left.feetPosition();
+      const rightFeet = bout.right.feetPosition();
+      showcaseMid.set(
+        (leftFeet.x + rightFeet.x) / 2 + gesture.panX, 0, (leftFeet.z + rightFeet.z) / 2 + gesture.panZ,
+      );
+      orbitFraming(gesture, W.distance, W.height, orbit);
+      cameraGoal
+        .copyFrom(showcaseMid)
+        .subtractInPlace(forward.scale(orbit.distance))
+        .addInPlaceFromFloats(0, orbit.height, 0);
+      lookGoal.copyFrom(showcaseMid).addInPlaceFromFloats(0, W.lookHeight, 0);
+      const blend = snap ? 1 : 1 - Math.exp(-C.followResponse * dt);
+      arena.camera.position.addInPlace(cameraGoal.subtract(arena.camera.position).scale(blend));
+      focus.addInPlace(lookGoal.subtract(focus).scale(blend));
+      arena.camera.setTarget(focus);
+      return;
+    }
 
     // The one thing the two modes disagree about, and the reason this is a mode
     // rather than a second camera.
@@ -1285,7 +1374,9 @@ async function boot(): Promise<void> {
     },
   });
 
-  bootNote.textContent = "Havok ready.";
+  bootNote.textContent = linkRefusal === null
+    ? "Havok ready."
+    : `Havok ready. The link was refused and the showcase pair is shown instead: ${linkRefusal}`;
   beginButton.disabled = false;
   presentation.showSetup(true);
   presentation.showPaused(false);

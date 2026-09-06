@@ -8,7 +8,10 @@ import {
   beaten,
   begin,
   defaultMatchup,
+  golemMatchup,
   humanSide,
+  matchupFromQuery,
+  matchupQuery,
   pauseAction,
   restart,
   selectScreen,
@@ -19,6 +22,9 @@ import {
   verdict,
   withControl,
   withEquipment,
+  withGolemBuild,
+  withGolemEffector,
+  withGolemSlot,
   withPolicy,
   withUnit,
 } from "../src/bout.ts";
@@ -680,4 +686,110 @@ test("a bout opens with the loadout every measurement was taken from", () => {
     assert.equal(opening[side].handA, "sword");
     assert.equal(opening[side].handB, "empty");
   }
+});
+
+// ---------------------------------------------------------------- the matchup set's Session 03
+
+/** A build written by hand: these reducers read no registry, so the ids need only be strings. */
+const HAND_BUILD = Object.freeze({
+  locomotion: "locomotion.biped",
+  torso: "torso.plain",
+  head: "head.plain",
+  primary: { chain: "wrist", terminal: "blade" },
+  secondary: { chain: "wrist", terminal: "plate" },
+});
+
+const golemCorner = (build = HAND_BUILD) => withGolemBuild(golemMatchup(build), "left", build, 7);
+
+test("the showcase opens with two golems, both driven by their own mind, and nobody yours", () => {
+  const matchup = golemMatchup(HAND_BUILD);
+  assert.equal(humanSide(matchup), null);
+  for (const side of ["left", "right"]) {
+    assert.equal(matchup[side].unit, "golem");
+    assert.equal(matchup[side].control, "mind");
+    assert.deepEqual(matchup[side].golem, HAND_BUILD);
+    assert.notEqual(matchup[side].golem, HAND_BUILD, "the build is copied, not kept");
+    assert.equal(matchup[side].seed, undefined, "a build nobody drew has no seed");
+    // The policy is the registry's own name for the golem mind, checked against the registry.
+    assert.ok(POLICIES.some((policy) => policy.name === matchup[side].policy),
+      `policy "${matchup[side].policy}" is one the code has`);
+  }
+});
+
+test("a drawn build is installed with its seed, on that side only, and copied", () => {
+  const drawn = { ...HAND_BUILD, head: "head.ram", primary: { chain: "reach", terminal: "mace" } };
+  const before = golemMatchup(HAND_BUILD);
+  const after = withGolemBuild(before, "right", drawn, 1842);
+  assert.deepEqual(after.right.golem, drawn);
+  assert.notEqual(after.right.golem, drawn);
+  assert.equal(after.right.seed, 1842);
+  assert.deepEqual(after.left, before.left, "the other corner is untouched");
+  assert.equal(before.right.seed, undefined, "the matchup handed in is not mutated");
+});
+
+test("a build cannot be installed on a corner that is not a golem", () => {
+  const matchup = defaultMatchup();
+  assert.equal(withGolemBuild(matchup, "left", HAND_BUILD, 3), matchup);
+});
+
+test("editing a drawn build by hand drops its seed, because it is no longer the draw", () => {
+  const drawn = golemCorner();
+  assert.equal(drawn.left.seed, 7);
+  const oneSocket = () => false;
+  assert.equal(withGolemSlot(drawn, "left", "head", "head.ram").left.seed, undefined);
+  assert.equal(withGolemSlot(drawn, "left", "torso", "torso.plated").left.seed, undefined);
+  assert.equal(
+    withGolemEffector(drawn, "left", "secondary", { chain: "pitch", terminal: "fist" }, oneSocket).left.seed,
+    undefined,
+  );
+  // And the seed survives every change that is not a change to the build.
+  assert.equal(withPolicy(drawn, "left", "idle").left.seed, 7);
+  assert.equal(withControl(drawn, "left", "you").left.seed, 7);
+  assert.equal(withControl(drawn, "right", "you").left.seed, 7);
+  assert.equal(withGolemSlot(drawn, "right", "head", "head.ram").left.seed, 7,
+    "editing the other corner leaves this one's seed");
+});
+
+test("a matchup round-trips through its own query string, seeds and salvage included", () => {
+  let matchup = withGolemBuild(golemMatchup(HAND_BUILD), "right", {
+    ...HAND_BUILD,
+    primary: { chain: "wrist", terminal: "blade", salvage: "k1", durability: 0.6 },
+  }, 99);
+  matchup = withControl(matchup, "left", "you");
+  matchup = withPolicy(matchup, "right", "idle");
+  const query = matchupQuery(matchup);
+  assert.match(query, /^\?matchup=/);
+  assert.deepEqual(matchupFromQuery(query), matchup);
+  // The Warrior matchup too: the codec is the matchup's shape, not the golem's.
+  assert.deepEqual(matchupFromQuery(matchupQuery(defaultMatchup())), defaultMatchup());
+});
+
+test("a link that is not a matchup is refused by shape rather than repaired", () => {
+  const good = golemMatchup(HAND_BUILD);
+  const encode = (value) => `?matchup=${encodeURIComponent(JSON.stringify(value))}`;
+  assert.equal(matchupFromQuery(""), null, "no parameter at all");
+  assert.equal(matchupFromQuery("?other=1"), null);
+  assert.equal(matchupFromQuery("?matchup=%7Bnot json"), null, "unparseable");
+  assert.equal(matchupFromQuery(encode([])), null, "an array is not a matchup");
+  assert.equal(matchupFromQuery(encode({ left: good.left })), null, "one side");
+  assert.equal(matchupFromQuery(encode({ ...good, right: { ...good.right, control: "them" } })), null,
+    "a control that is neither mind nor you");
+  assert.equal(matchupFromQuery(encode({ ...good, right: { ...good.right, policy: 3 } })), null,
+    "a policy that is not a string");
+  assert.equal(matchupFromQuery(encode({ ...good, left: { ...good.left, seed: "7" } })), null,
+    "a seed that is not a number");
+  assert.equal(matchupFromQuery(encode({ ...good, left: { ...good.left, golem: { torso: "x" } } })), null,
+    "a build missing slots");
+  assert.equal(matchupFromQuery(encode({
+    ...good, left: { ...good.left, golem: { ...HAND_BUILD, primary: { chain: "wrist" } } },
+  })), null, "a socket missing its terminal");
+  assert.equal(matchupFromQuery(encode({
+    ...good, left: { ...good.left, golem: { ...HAND_BUILD, primary: { chain: "wrist", terminal: "blade", durability: "worn" } } },
+  })), null, "a durability that is not a number");
+  assert.equal(matchupFromQuery(encode({
+    left: { ...good.left, control: "you" }, right: { ...good.right, control: "you" },
+  })), null, "two of you");
+  // A well-shaped link naming ids the registry does not have is *not* this codec's refusal.
+  const strange = { ...good, left: { ...good.left, golem: { ...HAND_BUILD, head: "head.of.lettuce" } } };
+  assert.deepEqual(matchupFromQuery(encode(strange)), strange);
 });

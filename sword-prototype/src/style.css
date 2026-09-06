@@ -308,19 +308,35 @@ body {
 
 /* ---------- curtain ---------- */
 
+/* A sheet along the bottom of a live arena rather than a wall in front of an empty one:
+   the two golems the sheet describes are standing behind it, and the point of the screen
+   since the matchup set's Session 03 is that you can see them. The gradient darkens the
+   floor of the frame under the sheet and leaves the middle, where the bodies are, alone. */
 #curtain {
   position: fixed;
   inset: 0;
   display: grid;
-  place-items: center;
-  background: radial-gradient(ellipse at 50% 40%, rgba(22, 24, 30, 0.9), rgba(6, 7, 9, 0.97));
-  backdrop-filter: blur(3px);
+  align-items: end;
+  justify-items: center;
+  background: linear-gradient(to bottom, rgba(6, 7, 9, 0.55) 0, rgba(6, 7, 9, 0) 18%,
+    rgba(6, 7, 9, 0) 48%, rgba(6, 7, 9, 0.78) 100%);
   z-index: 10;
   transition: opacity 260ms ease, visibility 260ms;
 }
 
 #curtain.gone {
   opacity: 0;
+  visibility: hidden;
+}
+
+/* The fight's readouts -- tip speed, edge alignment, the vitality bars, the mode line and the
+   direct-control checkboxes -- are about a fight, and behind the sheet there is none yet. They
+   showed through the moment the curtain stopped being a wall, reading 0.0 over two golems
+   nobody had started. Hidden while the sheet is up, by the sheet's own state, so nothing in
+   `src/main.ts` has to know the HUD exists. */
+body:has(#curtain:not(.gone)) #hud,
+body:has(#curtain:not(.gone)) #mode,
+body:has(#curtain:not(.gone)) #direct-controls {
   visibility: hidden;
 }
 
@@ -452,20 +468,37 @@ body {
 
 /* ---------- the setup screen ---------- */
 
-/* Two complete matchup corners need more than the old single-dialog width.
-   Bound the setup panel to the viewport itself so the second corner never
-   becomes an off-screen horizontal scroll target. Help keeps its own width. */
+/* The sheet: as wide as the window, sitting on its bottom edge, with a lede in one column
+   and two corners beside a Fight button. Help keeps its own width. */
 #curtain > .panel {
   box-sizing: border-box;
-  max-width: 860px;
-  width: calc(100vw - 40px);
+  max-width: none;
+  width: 100vw;
+  max-height: calc(100vh - 24px);
+  padding: 14px 26px 14px;
+  border-width: 1px 0 0;
+  border-radius: 0;
+  background: rgba(10, 11, 14, 0.74);
+  backdrop-filter: blur(6px);
+}
+
+#curtain > .panel h1 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+#curtain > .panel .lede {
+  margin: 0 0 12px;
+  max-width: 960px;
+  font-size: 11.5px;
+  line-height: 1.5;
 }
 
 #matchup {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  margin: 0 0 20px;
+  margin: 0 0 12px;
 }
 
 #matchup > .corner {
@@ -490,18 +523,75 @@ body {
   }
 
   #curtain > .panel {
-    width: calc(100vw - 16px);
-    padding: 22px 18px 20px;
+    padding: 12px 14px;
   }
 }
 
 /* Tucked up under the two corners it describes, and set ragged rather than
-   centred: it is three sentences about three things, and centring it makes the
+   centred: it is two sentences about two things, and centring it makes the
    eye hunt for where each one starts. */
 #policies {
-  margin: -12px 0 18px;
+  margin: -4px 0 10px;
   text-align: left;
   line-height: 1.55;
+}
+
+/* The build, in one line, and where it came from. The caption is the whole answer to "what
+   is that" -- it is what the owner's gate for the screen asks -- so it is the ink's colour and
+   the corner's largest text; the seed under it is a number for a bug report, and dim. */
+.caption {
+  margin: 6px 0 0;
+  color: var(--ink);
+  font-size: 12.5px;
+  line-height: 1.45;
+  min-height: 18px;
+}
+
+.seed-note {
+  margin: 1px 0 0;
+  color: var(--dim);
+  font-size: 10.5px;
+  min-height: 14px;
+}
+
+.corner-actions {
+  display: flex;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.corner-actions .action {
+  width: auto;
+  padding: 7px 12px;
+  font-size: 11px;
+}
+
+.corner-actions .action + .action {
+  margin-top: 0;
+}
+
+/* Policy and control side by side under the buttons: two short fields, and stacking them
+   would push the Fight button down for nothing. */
+.corner-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: end;
+}
+
+/* The nine slot pickers, behind the Customize toggle, in a grid of their own so a corner
+   with them open is wide rather than tall. */
+.customize {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0 10px;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--edge);
+}
+
+.customize[hidden] {
+  display: none;
 }
 
 #policies b {

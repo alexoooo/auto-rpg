@@ -19,27 +19,26 @@
     <div id="curtain">
       <div class="panel">
         <section>
-          <h1>Sword prototype</h1>
+          <h1>Golem matchup</h1>
           <p class="lede">
-            The blade is a physical object. There is no attack button &mdash; you swing by
-            moving your arm, and you cut by driving the edge through something at speed.
-            Two fighters of one kind stand in the ring. Choose who drives each of them: a
-            policy, or you &mdash; and change your mind mid-fight with <b>C</b>, which lets
-            you step into either body without the blade jumping.
+            Two golems stand in the ring behind this sheet, and what each one is built from is
+            the line under its name. <b>Randomize</b> draws a new body for that side; every
+            weapon is a physical object, and a golem fights with whatever it was built with.
+            Choose who drives each of them: its own mind, or you &mdash; and change your mind
+            mid-fight with <b>C</b>, which lets you step into either body without the arm
+            jumping.
           </p>
           <!-- Filled by src/setup.ts from the unit and policy registries, so an
                option that is offered is one the code actually has. -->
           <div id="matchup"></div>
-          <!-- What the three policies do. Prose for somebody about to press
-               Fight, so it lives here rather than as a field on the registry that
+          <!-- What the policies a golem can be given do. Prose for somebody about to
+               press Fight, so it lives here rather than as a field on the registry that
                `src/setup.ts` reads: the code has no use for it, and a policy is
                chosen once at the start of a bout rather than browsed. -->
           <p class="note" id="policies">
-            <b>Idle</b> stands there and can be cut apart. <b>Swinger</b> walks in and
-            cuts on a fixed cadence, never once looking at your guard &mdash; so its
-            openings are learnable, which is the whole of how you beat it.
-            <b>Duelist</b> holds measure, guards between exchanges, and commits when
-            your point leaves the line.
+            <b>Idle</b> stands there and can be taken apart. <b>Duelist</b> is the golem's
+            own mind: it holds measure, guards between exchanges, and commits with whatever
+            it was built with &mdash; a cut, a smash, a punch, a lash, or its head.
           </p>
           <button id="begin" class="action" type="button">Fight</button>
           <p class="note" id="boot-note">Loading Havok&hellip;</p>

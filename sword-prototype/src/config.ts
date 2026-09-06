@@ -1489,6 +1489,35 @@ export const CONFIG = {
        *  than at the waist that Overhead's 0.9 aims at from much further ahead. */
       lookHeight: 1.15,
     },
+
+    /**
+     * The showcase: both golems in one frame, from a camera that walks round them.
+     *
+     * Not a third mode. The two modes above are readings of a *fight*, and each follows one
+     * fighter; this is the framing the matchup screen stands behind, where there is no fight yet
+     * and nobody to follow, so `placeCamera` reads it by phase rather than by `mode`, and the
+     * mode a person chose is untouched when the fight starts. The look point is the midpoint of
+     * the two fighters' feet, raised by `lookHeight`; the camera stands `distance` back along a
+     * bearing that turns once every `orbitSeconds`, `height` up. The wheel and an orbit drag
+     * still apply, through the same `orbitFraming`, because a person looking at a body they are
+     * about to fight with may want to look closer.
+     *
+     * The numbers frame two golems 2.6 m apart in the top three fifths of the window, which is
+     * the part the sheet leaves clear: the look point is nearly at the feet, so the bodies stand
+     * above the centre of the frame rather than on it, and a wheel golem's head (1.16 m of
+     * stand plus the trunk) and a maul chambered overhead both stay under the top edge. A range
+     * of about 5.7 m to the look point, dropping 24 degrees, a little flatter than Overhead
+     * because the thing being read here is a silhouette rather than a blade's place in the arena.
+     * Slow, because a turn a person notices is a turn that makes the pickers harder to read.
+     * Checked in Chrome on 2026-09-06 with a look height of 0.95 first, which put the sheet
+     * across both pairs of knees.
+     */
+    showcase: {
+      distance: 5.2,
+      height: 2.4,
+      lookHeight: 0.15,
+      orbitSeconds: 48,
+    },
   },
 
   targeting: {

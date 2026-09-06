@@ -1,4 +1,4 @@
-import type { GolemSetup } from "../bout.ts";
+import type { GolemEffectorSetup, GolemSetup } from "../bout.ts";
 import type { WeaponKind } from "../hands.ts";
 import {
   CHAIN_PITCH,
@@ -271,6 +271,78 @@ export function defaultGolemSetup(): GolemSetup {
     primary: { chain: topChain, terminal: "blade" },
     secondary: { chain: topChain, terminal: "plate" },
   };
+}
+
+/**
+ * A build drawn at random, one option per slot, from the same lists the pickers offer.
+ *
+ * **A pure, seeded function.** `rng` is a stream in [0, 1) -- `mulberry32` from `src/rng.ts` is
+ * the one every caller uses -- and the same stream draws the same build, so a matchup that
+ * records its seed (`SideSetup.seed`) can be drawn again by anyone with the number. It imports
+ * nothing new: the option lists are the registry's own, resolved above, and `golemSetupRefusal`
+ * is the gate, exactly as it is for a build off the screen.
+ *
+ * **The draw is per slot and per socket, and a terminal is drawn from its chain's own shelf.**
+ * A chain first, uniformly from the chains that are offered at all, then a terminal uniformly
+ * from what that chain is offered with -- so a whip, which the wrist alone carries, is as likely
+ * as any other wrist terminal and no likelier than that. A two-socket terminal drawn in either
+ * socket claims both, which is the reducer's rule in `src/bout.ts` applied at the draw rather than
+ * after it. The refusal loop is a guard and not a search: every id drawn is one the registry
+ * offers, so it should never turn, and it throws rather than spin if it does.
+ */
+export function randomGolemSetup(rng: () => number): GolemSetup {
+  const pick = <T>(items: readonly T[]): T => {
+    if (items.length === 0) throw new Error("a golem slot with nothing to draw from");
+    return items[Math.min(items.length - 1, Math.floor(rng() * items.length))];
+  };
+  const socket = (): GolemEffectorSetup => {
+    const chain = pick(golemChainOptions()).id;
+    return { chain, terminal: pick(golemTerminalOptions(chain)).id };
+  };
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const primary = socket();
+    const secondary = (golemEffector(primary.chain, primary.terminal)?.sockets ?? 1) === 2
+      ? { ...primary }
+      : socket();
+    const both = (golemEffector(secondary.chain, secondary.terminal)?.sockets ?? 1) === 2;
+    const setup: GolemSetup = {
+      locomotion: pick(golemLocomotionOptions()).id,
+      torso: pick(golemTorsoOptions()).id,
+      head: pick(golemHeadOptions()).id,
+      primary: both ? { ...secondary } : primary,
+      secondary,
+    };
+    if (golemSetupRefusal(setup) === null) return setup;
+  }
+  throw new Error("eight random golem builds in a row were refused, which the option lists forbid");
+}
+
+/**
+ * One line a person can read a build off, for the screen's caption and the tournament's log.
+ *
+ * Short words rather than the registry's labels, because a label like "wrist - reach plus roll
+ * and bend" is written for a picker with one row to read and a caption has five. The chain's
+ * name is the word before its dash; a terminal is its own label; a capped chain says so; a maul
+ * says it is in both hands, because that is the one build whose two sockets are one thing.
+ */
+export function describeGolemSetup(setup: GolemSetup): string {
+  const short = (label: string): string => label.split(" - ")[0];
+  const slot = (id: string, options: readonly GolemSlotOption[]): string =>
+    short(options.find((option) => option.id === id)?.label ?? id);
+  const hand = (pick: GolemEffectorSetup): string => {
+    const chain = slot(pick.chain, golemChainOptions());
+    if (pick.terminal === NO_TERMINAL) return `${chain}, capped`;
+    return `${chain} + ${slot(pick.terminal, golemTerminalOptions(pick.chain))}`;
+  };
+  const primary = golemEffector(setup.primary.chain, setup.primary.terminal);
+  const arms = primary?.sockets === 2
+    ? `${hand(setup.primary)} in both hands`
+    : `${hand(setup.primary)}, ${hand(setup.secondary)}`;
+  return [
+    slot(setup.locomotion, golemLocomotionOptions()),
+    slot(setup.torso, golemTorsoOptions()),
+    slot(setup.head, golemHeadOptions()),
+  ].join(", ") + `; ${arms}`;
 }
 
 /**

@@ -176,6 +176,17 @@ export interface SideSetup {
    * `withUnit` installs the unit's own default when a corner becomes a golem.
    */
   golem?: GolemSetup;
+  /**
+   * The seed `golem` was drawn from, or absent for a build somebody picked by hand.
+   *
+   * A record and not an input: `randomGolemSetup` in `src/golem/build.ts` is a pure function of
+   * a seeded stream, so a corner that remembers its seed is a corner anyone can draw again, and
+   * that is what makes a bad matchup reportable -- "seed 1842 on the left" is a bug report and
+   * "the one with the whip" is not. It is set by `withGolemBuild` and dropped by every reducer
+   * that edits the build by hand, because a build with one slot changed is no longer the draw.
+   * A plain number, so it survives `structuredClone` and `matchupQuery` with the rest.
+   */
+  seed?: number;
 }
 
 const copyGolem = (setup: GolemSetup): GolemSetup => ({
@@ -315,6 +326,7 @@ export function withGolemSlot(
   const build = next[side].golem;
   if (!build) return matchup;
   build[slot] = id;
+  delete next[side].seed;
   return next;
 }
 
@@ -358,7 +370,143 @@ export function withGolemEffector(
   // onto two arms and report it twice at the verdict. It is moved onto the shelf's own version.
   if (twoSocket(pick)) build[other] = { ...pick };
   else if (twoSocket(build[other])) build[other] = { chain: pick.chain, terminal: pick.terminal };
+  delete next[side].seed;
   return next;
+}
+
+/**
+ * Put a whole build in a golem corner, and record where it came from.
+ *
+ * The Randomize button, and the one reducer that *sets* `SideSetup.seed` rather than dropping
+ * it. The build arrives already drawn -- this module may not import `src/golem/build.ts`, for the
+ * reason at the top of the file -- and is copied rather than kept, so the screen's later edits to
+ * the corner cannot reach back into whatever the caller drew from. Refused, by returning exactly
+ * the matchup it was handed, for a corner that is not an assembled unit: `withUnit` is how a
+ * corner becomes one, and a build installed on a Warrior would be five slots nothing reads.
+ */
+export function withGolemBuild(
+  matchup: Matchup,
+  side: Side,
+  build: GolemSetup,
+  seed: number,
+): Matchup {
+  if (!matchup[side].golem) return matchup;
+  const next = copy(matchup);
+  next[side].golem = copyGolem(build);
+  next[side].seed = seed;
+  return next;
+}
+
+/**
+ * The showcase: two golems, both driven by their own mind.
+ *
+ * What the matchup screen opens on since the matchup set's Session 03, and it differs from
+ * `defaultMatchup` in both of the ways that screen exists for. Golems on both sides, because the
+ * screen is golem-only by the owner's decision and a Warrior is a regression cell rather than a
+ * fighter to watch. Two minds rather than the left side yours, because the thing the screen is
+ * for is *watching* -- "high level fighting for random body layout matchups" is the owner's
+ * sentence -- and the radio button that hands you a body is one click away. The build is passed
+ * in for the reason `withGolemBuild` gives; `unit` and `policy` are the registry's own ids,
+ * spelled here because this module cannot ask the registry, and `tests/bout.test.mjs` checks
+ * them against it.
+ */
+export function golemMatchup(build: GolemSetup): Matchup {
+  const side = (): SideSetup => ({
+    unit: "golem",
+    policy: "golem-duelist",
+    control: "mind",
+    handA: "empty",
+    handB: "empty",
+    golem: copyGolem(build),
+  });
+  return { left: side(), right: side() };
+}
+
+/**
+ * A matchup as a query string, and back.
+ *
+ * So that a pair of builds can be handed to somebody -- or to a bug report -- as a link. The
+ * codec is JSON under one parameter, because a matchup is a small tree of strings and numbers
+ * and a bespoke spelling of it would be a second schema to keep in step with `SideSetup`.
+ * `matchupFromQuery` is a **refusal by shape**: anything that is not two sides of the right
+ * fields with the right types is null, never a repaired matchup, for the reason the parts bin's
+ * codec gives -- a link that half-decodes into the default build is a link that lies about what
+ * was fought. Whether the ids in a well-shaped link exist is not this module's question; the
+ * screen's `refusal` asks the registry that, exactly as it does for a matchup off a restart.
+ */
+export const MATCHUP_PARAM = "matchup";
+
+export function matchupQuery(matchup: Matchup): string {
+  const params = new URLSearchParams();
+  params.set(MATCHUP_PARAM, JSON.stringify(matchup));
+  return `?${params.toString()}`;
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const readEffector = (value: unknown): GolemEffectorSetup | null => {
+  if (!isRecord(value)) return null;
+  if (typeof value.chain !== "string" || typeof value.terminal !== "string") return null;
+  const pick: GolemEffectorSetup = { chain: value.chain, terminal: value.terminal };
+  if (value.salvage !== undefined) {
+    if (typeof value.salvage !== "string") return null;
+    pick.salvage = value.salvage;
+  }
+  if (value.durability !== undefined) {
+    if (typeof value.durability !== "number" || !Number.isFinite(value.durability)) return null;
+    pick.durability = value.durability;
+  }
+  return pick;
+};
+
+const readGolem = (value: unknown): GolemSetup | null => {
+  if (!isRecord(value)) return null;
+  if (typeof value.locomotion !== "string" || typeof value.torso !== "string"
+    || typeof value.head !== "string") return null;
+  const primary = readEffector(value.primary);
+  const secondary = readEffector(value.secondary);
+  if (!primary || !secondary) return null;
+  return { locomotion: value.locomotion, torso: value.torso, head: value.head, primary, secondary };
+};
+
+const readSide = (value: unknown): SideSetup | null => {
+  if (!isRecord(value)) return null;
+  if (typeof value.unit !== "string" || typeof value.policy !== "string"
+    || typeof value.handA !== "string" || typeof value.handB !== "string") return null;
+  if (value.control !== "mind" && value.control !== "you") return null;
+  const side: SideSetup = {
+    unit: value.unit, policy: value.policy, control: value.control,
+    handA: value.handA, handB: value.handB,
+  };
+  if (value.golem !== undefined) {
+    const golem = readGolem(value.golem);
+    if (!golem) return null;
+    side.golem = golem;
+  }
+  if (value.seed !== undefined) {
+    if (typeof value.seed !== "number" || !Number.isFinite(value.seed)) return null;
+    side.seed = value.seed;
+  }
+  return side;
+};
+
+export function matchupFromQuery(search: string): Matchup | null {
+  const raw = new URLSearchParams(search).get(MATCHUP_PARAM);
+  if (raw === null) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!isRecord(parsed)) return null;
+  const left = readSide(parsed.left);
+  const right = readSide(parsed.right);
+  if (!left || !right) return null;
+  // There is one of you: the invariant every reducer keeps and a hand-written link could break.
+  if (left.control === "you" && right.control === "you") return null;
+  return { left, right };
 }
 
 export function withPolicy(matchup: Matchup, side: Side, policy: string): Matchup {

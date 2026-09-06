@@ -1,7 +1,6 @@
 import {
-  EQUIPMENT,
   withControl,
-  withEquipment,
+  withGolemBuild,
   withGolemEffector,
   withGolemSlot,
   withPolicy,
@@ -13,6 +12,7 @@ import {
 } from "./bout";
 import {
   NO_TERMINAL,
+  describeGolemSetup,
   golemChainOptions,
   golemEffector,
   golemEffectorOption,
@@ -21,14 +21,16 @@ import {
   golemSetupRefusal,
   golemTerminalOptions,
   golemTorsoOptions,
+  randomGolemSetup,
   type GolemSlotOption,
 } from "./golem/build";
 import type { PartsBin } from "./golem/parts-bin";
-import { supportsLoadoutForUnit, UNITS, unitDefinition } from "./units";
+import { mulberry32, randomSeed } from "./rng";
+import { unitDefinition } from "./units";
 import type { Side } from "./physics";
 
 /**
- * The nine `<select>`s a golem corner adds, and what each edits.
+ * The nine `<select>`s a golem corner keeps behind its Customize toggle, and what each edits.
  *
  * Seven of them are the body plan. Nine and not five, because the two effector slots are **two**
  * choices each: the overview's whole design for an effector is that the chain and the terminal are
@@ -60,6 +62,9 @@ type GolemField = typeof GOLEM_FIELDS[number]["field"];
 /** The value of the salvage picker's first option: a module built new rather than fitted. */
 const OFF_THE_SHELF = "";
 
+/** The unit a Randomize on a corner that is not yet a golem turns it into. */
+const GOLEM_UNIT = "golem";
+
 /** How worn a bin entry is, as a person reads it. */
 const wearLabel = (id: string, durability: number): string => {
   const label = golemEffectorOption(id)?.label ?? id;
@@ -67,30 +72,35 @@ const wearLabel = (id: string, durability: number): string => {
 };
 
 /**
- * The screen before the fight.
+ * The screen before the fight, and since the matchup set's Session 03 a screen you can see
+ * *through*: the two golems it describes are standing in the arena behind it.
  *
- * It is the only thing inside `#curtain`, because setup genuinely replaces the
- * arena: there is no bout to look at yet. Pause is a compact sibling in the game
- * view and never routes through this class, so focusing a screenshot tool cannot
- * turn a standing fight into character selection.
+ * It is the only thing inside `#curtain`, and the curtain is a bottom sheet over a live arena now
+ * rather than a wall in front of an empty one. Pause is a compact sibling in the game view and
+ * never routes through this class, so focusing a screenshot tool cannot turn a standing fight into
+ * character selection.
  *
- * The two corners are generated from `UNITS` and `POLICIES` rather than written
- * out in `index.html`, so an option that exists is selectable and an option that
- * is selectable exists. Hand-written markup is how a picker ends up offering a
- * policy the code no longer has, and the failure is silent right up until
- * somebody selects it.
+ * Two corners and nothing else in the way of a picker. Each corner is a one-line caption of the
+ * build, a Randomize button, a policy picker, the control radios, and a Customize toggle that
+ * reveals the nine slot pickers for anyone who wants a hand-picked body or a salvaged arm. The
+ * unit picker left the screen with this session: golem-only is the owner's decision, and the
+ * Warrior, the Broot and the Centipede stay in code, in `withUnit`, and in the headless measure as
+ * regression cells. The pickers are generated from the registries rather than written out in
+ * `index.html`, so an option that exists is selectable and an option that is selectable exists.
  *
- * This holds the live selection and `src/bout.ts` holds the rules that constrain
- * it -- notably that there is one of you, so taking a side gives the other back
- * to its policy. Two radio groups cannot express that between them, because
- * neither knows the other exists; `withControl` does, and `render` puts its
- * answer back into both groups. That is why every change re-reads the whole
- * screen from the matchup instead of trusting the control that was just
- * clicked.
+ * This holds the live selection and `src/bout.ts` holds the rules that constrain it -- notably
+ * that there is one of you, so taking a side gives the other back to its policy. Two radio groups
+ * cannot express that between them, because neither knows the other exists; `withControl` does,
+ * and `render` puts its answer back into both groups. That is why every change re-reads the whole
+ * screen from the matchup instead of trusting the control that was just clicked.
+ *
+ * **The host is told, not asked.** `onSelection` fires after every change a person makes here,
+ * with the matchup as it now stands, and `src/main.ts` is what decides whether the bodies behind
+ * the sheet have to be rebuilt to match. The screen owns the selection; the arena owns the bodies;
+ * neither reads the other's state.
  */
 export class SetupScreen {
   private readonly host: HTMLElement;
-  private readonly unavailableUnits: Readonly<Record<string, string>>;
   private matchup: Matchup;
   /**
    * The parts bin, or null for a screen with no salvage at all.
@@ -100,30 +110,34 @@ export class SetupScreen {
    * different states the screen shows differently.
    */
   private readonly bin: PartsBin | null;
+  private readonly onSelection: ((matchup: Matchup) => void) | null;
 
-  private readonly units: Record<Side, HTMLSelectElement>;
+  private readonly captions: Record<Side, HTMLElement>;
+  private readonly seeds: Record<Side, HTMLElement>;
   private readonly policies: Record<Side, HTMLSelectElement>;
-  private readonly hands: Record<"handA" | "handB", Record<Side, HTMLSelectElement>>;
   private readonly golem: Record<GolemField, Record<Side, HTMLSelectElement>>;
-  private readonly handFields: Record<"handA" | "handB", Record<Side, HTMLElement>>;
   private readonly golemFields: Record<GolemField, Record<Side, HTMLElement>>;
+  private readonly customizePanels: Record<Side, HTMLElement>;
+  private readonly customizeButtons: Record<Side, HTMLButtonElement>;
   private readonly controls: Record<Side, HTMLInputElement[]>;
   private readonly beginButton: HTMLButtonElement | null;
   private readonly binRow: HTMLElement;
   private readonly binNote: HTMLElement;
+  /** Which corners have their slot pickers open. Screen state, not matchup state. */
+  private readonly customizing: Record<Side, boolean> = { left: false, right: false };
 
   constructor(
     host: HTMLElement,
     matchup: Matchup,
-    unavailableUnits: Readonly<Record<string, string>> = Object.freeze({}),
     beginButton: HTMLButtonElement | null = null,
     bin: PartsBin | null = null,
+    onSelection: ((matchup: Matchup) => void) | null = null,
   ) {
     this.host = host;
-    this.unavailableUnits = unavailableUnits;
     this.matchup = matchup;
     this.beginButton = beginButton;
     this.bin = bin;
+    this.onSelection = onSelection;
 
     host.innerHTML = `${this.corner("left", "Left")}${this.corner("right", "Right")}${this.binPanel()}`;
 
@@ -136,26 +150,20 @@ export class SetupScreen {
       left: one<T>(`[data-side="left"][data-field="${field}"]`),
       right: one<T>(`[data-side="right"][data-field="${field}"]`),
     });
-
     const wrapper = <T extends HTMLElement>(field: string): Record<Side, T> => ({
       left: one<T>(`[data-side="left"][data-wrap="${field}"]`),
       right: one<T>(`[data-side="right"][data-wrap="${field}"]`),
     });
 
-    this.units = pick<HTMLSelectElement>("unit");
+    this.captions = pick<HTMLElement>("caption");
+    this.seeds = pick<HTMLElement>("seed");
     this.policies = pick<HTMLSelectElement>("policy");
-    this.hands = {
-      handA: pick<HTMLSelectElement>("handA"),
-      handB: pick<HTMLSelectElement>("handB"),
-    };
-    this.handFields = {
-      handA: wrapper<HTMLElement>("handA"),
-      handB: wrapper<HTMLElement>("handB"),
-    };
     this.golem = Object.fromEntries(GOLEM_FIELDS.map(({ field }) =>
       [field, pick<HTMLSelectElement>(field)])) as Record<GolemField, Record<Side, HTMLSelectElement>>;
     this.golemFields = Object.fromEntries(GOLEM_FIELDS.map(({ field }) =>
       [field, wrapper<HTMLElement>(field)])) as Record<GolemField, Record<Side, HTMLElement>>;
+    this.customizePanels = wrapper<HTMLElement>("customize");
+    this.customizeButtons = pick<HTMLButtonElement>("customize");
     this.controls = {
       left: [...host.querySelectorAll<HTMLInputElement>('[data-side="left"][data-field="control"]')],
       right: [...host.querySelectorAll<HTMLInputElement>('[data-side="right"][data-field="control"]')],
@@ -163,12 +171,10 @@ export class SetupScreen {
     this.binRow = one<HTMLElement>('[data-field="partsBin"]');
     this.binNote = one<HTMLElement>('[data-field="partsBinNote"]');
 
-    // One delegated listener rather than six. The controls are built here and
-    // never replaced -- `render` writes values into them -- so there is nothing
-    // to rebind and nothing to leak.
+    // One delegated listener rather than one per control. The controls are built here and
+    // never replaced -- `render` writes values into them -- so there is nothing to rebind and
+    // nothing to leak. A button is not a `change`, so the clicks have their own.
     host.addEventListener("change", this.onChange);
-    // A button is not a `change`, so the reset needs its own delegated listener. Same argument:
-    // one on the host, nothing to rebind.
     host.addEventListener("click", this.onClick);
     this.render();
   }
@@ -185,7 +191,8 @@ export class SetupScreen {
    * because the thing you want after a bout is the same bout again. Nothing else
    * edits the matchup, so this is usually a no-op -- and it is called anyway,
    * because "the screen happens to still have it" is not the same promise as
-   * "the screen is showing what is about to be fought".
+   * "the screen is showing what is about to be fought". It does not fire
+   * `onSelection`: the host is the caller, and already knows.
    */
   show(matchup: Matchup): void {
     this.matchup = matchup;
@@ -216,46 +223,41 @@ export class SetupScreen {
   }
 
   private corner(side: Side, title: string): string {
-    const options = (items: readonly { name: string; label: string }[]): string =>
-      items.map((item) => `<option value="${item.name}">${item.label}</option>`).join("");
-
     // The policy picker stays enabled on the side a person is driving, and that
     // is not an oversight. Session 07 lets you leave a body mid-fight, and the
     // one you leave picks its policy back up -- so what is chosen here is what
     // that fighter becomes the moment you step out of it, which is worth being
     // able to set before you step in.
     return `
-      <div class="corner">
+      <div class="corner" data-side="${side}">
         <div class="corner-title">${title}</div>
-        <label class="field">
-          <span class="field-name">Unit</span>
-          <select data-side="${side}" data-field="unit">${options(UNITS)}</select>
-        </label>
-        <label class="field">
-          <span class="field-name">Policy</span>
-          <select data-side="${side}" data-field="policy"></select>
-        </label>
-        <label class="field" data-side="${side}" data-wrap="handA">
-          <span class="field-name">Hand A</span>
-          <select data-side="${side}" data-field="handA">${options(EQUIPMENT)}</select>
-        </label>
-        <label class="field" data-side="${side}" data-wrap="handB">
-          <span class="field-name">Hand B</span>
-          <select data-side="${side}" data-field="handB">${options(EQUIPMENT)}</select>
-        </label>
-        ${GOLEM_FIELDS.map(({ field, label }) => `
-        <label class="field" data-side="${side}" data-wrap="${field}" hidden>
-          <span class="field-name">${label}</span>
-          <select data-side="${side}" data-field="${field}"></select>
-        </label>`).join("")}
-        <div class="field">
-          <span class="field-name">Control</span>
-          <span class="choice">
-            <label><input type="radio" name="control-${side}" value="mind"
-              data-side="${side}" data-field="control" /> mind</label>
-            <label><input type="radio" name="control-${side}" value="you"
-              data-side="${side}" data-field="control" /> you</label>
-          </span>
+        <p class="caption" data-side="${side}" data-field="caption"></p>
+        <p class="seed-note" data-side="${side}" data-field="seed"></p>
+        <div class="corner-actions">
+          <button class="action" type="button" data-side="${side}" data-field="randomize">Randomize</button>
+          <button class="action quiet" type="button" data-side="${side}" data-field="customize">Customize</button>
+        </div>
+        <div class="corner-row">
+          <label class="field">
+            <span class="field-name">Policy</span>
+            <select data-side="${side}" data-field="policy"></select>
+          </label>
+          <div class="field">
+            <span class="field-name">Control</span>
+            <span class="choice">
+              <label><input type="radio" name="control-${side}" value="mind"
+                data-side="${side}" data-field="control" /> mind</label>
+              <label><input type="radio" name="control-${side}" value="you"
+                data-side="${side}" data-field="control" /> you</label>
+            </span>
+          </div>
+        </div>
+        <div class="customize" data-side="${side}" data-wrap="customize" hidden>
+          ${GOLEM_FIELDS.map(({ field, label }) => `
+          <label class="field" data-side="${side}" data-wrap="${field}">
+            <span class="field-name">${label}</span>
+            <select data-side="${side}" data-field="${field}"></select>
+          </label>`).join("")}
         </div>
       </div>
     `;
@@ -268,22 +270,6 @@ export class SetupScreen {
     if (side !== "left" && side !== "right") return;
 
     switch (target.dataset.field) {
-      case "unit":
-        this.matchup = withUnit(
-          this.matchup,
-          side,
-          target.value,
-          unitDefinition(target.value),
-        );
-        break;
-      case "handA":
-      case "handB":
-        // Straight through the reducer, club rule and all. The screen does not
-        // know that choosing a club fills both hands; `render` below re-reads
-        // every control from the matchup afterwards, which is the same
-        // arrangement that lets `withControl` move the *other* corner.
-        this.matchup = withEquipment(this.matchup, side, target.dataset.field, target.value);
-        break;
       case "policy":
         this.matchup = withPolicy(this.matchup, side, target.value);
         break;
@@ -353,7 +339,54 @@ export class SetupScreen {
         return;
     }
     this.render();
+    this.onSelection?.(this.matchup);
   };
+
+  private readonly onClick = (event: Event): void => {
+    const target = event.target;
+    if (!(target instanceof HTMLButtonElement)) return;
+    switch (target.dataset.field) {
+      case "partsBinReset":
+        this.emptyBin();
+        break;
+      case "randomize": {
+        const side = target.dataset.side as Side | undefined;
+        if (side !== "left" && side !== "right") return;
+        this.randomize(side);
+        break;
+      }
+      case "customize": {
+        // Screen state and not matchup state, so it is not a reducer and it does not tell the
+        // host: opening the pickers changes nothing about what is going to be fought.
+        const side = target.dataset.side as Side | undefined;
+        if (side !== "left" && side !== "right") return;
+        this.customizing[side] = !this.customizing[side];
+        this.render();
+        return;
+      }
+      default:
+        return;
+    }
+    this.render();
+    this.onSelection?.(this.matchup);
+  };
+
+  /**
+   * A fresh build for one corner, from a fresh seed, and the seed kept on the corner.
+   *
+   * The draw is `randomGolemSetup` over `mulberry32` of a seed nobody chose, which is the same
+   * generator every seeded thing in this tree uses -- so the number the corner then shows is
+   * enough to draw this body again anywhere. A corner that is not a golem yet is made one first,
+   * through `withUnit` with the golem's own rules, exactly as the old unit picker did it.
+   */
+  private randomize(side: Side): void {
+    const seed = randomSeed();
+    const build = randomGolemSetup(mulberry32(seed));
+    if (!this.matchup[side].golem) {
+      this.matchup = withUnit(this.matchup, side, GOLEM_UNIT, unitDefinition(GOLEM_UNIT));
+    }
+    this.matchup = withGolemBuild(this.matchup, side, build, seed);
+  }
 
   /**
    * Empty the bin, and take every salvage pick off the screen with it.
@@ -365,10 +398,7 @@ export class SetupScreen {
    * a stated choice; a bin refused by its own codec is not, which is why only this path clears the
    * picks.
    */
-  private readonly onClick = (event: Event): void => {
-    const target = event.target;
-    if (!(target instanceof HTMLButtonElement)) return;
-    if (target.dataset.field !== "partsBinReset") return;
+  private emptyBin(): void {
     this.bin?.reset();
     for (const side of ["left", "right"] as const) {
       const build = this.matchup[side].golem;
@@ -381,8 +411,7 @@ export class SetupScreen {
           (candidate) => (golemEffector(candidate.chain, candidate.terminal)?.sockets ?? 1) === 2);
       }
     }
-    this.render();
-  };
+  }
 
   private render(): void {
     for (const side of ["left", "right"] as const) {
@@ -393,17 +422,19 @@ export class SetupScreen {
         : [{ name: setup.policy, label: `${setup.policy} (incompatible)` }, ...definition.driverOptions];
       this.policies[side].innerHTML = policyOptions
         .map((driver) => `<option value="${driver.name}">${driver.label}</option>`).join("");
-      for (const option of this.units[side].options) {
-        const unavailableReason = this.unavailableUnits[option.value];
-        option.disabled = unavailableReason !== undefined;
-        option.title = unavailableReason ?? "";
-      }
-      // **A corner shows one vocabulary or the other.** A Warrior carries equipment and a golem is
-      // assembled from modules; offering both at once would be a screen that says a golem can hold
-      // a sword. `SideSetup.golem` is the presence that decides, and `withUnit` is what installs
-      // it -- so nothing here asks which unit a corner is.
+      // **The caption is the build, in one line, and the seed is where it came from.** A corner
+      // that is not a golem -- a Warrior put there from the console, or a link -- is captioned
+      // by its unit and its hands rather than left blank, and has no pickers to open.
       const build = setup.golem ?? null;
-      for (const hand of ["handA", "handB"] as const) this.handFields[hand][side].hidden = build !== null;
+      this.captions[side].textContent = build
+        ? describeGolemSetup(build)
+        : `${definition.label} with ${setup.handA} and ${setup.handB}`;
+      this.seeds[side].textContent = !build ? ""
+        : setup.seed !== undefined ? `seed ${setup.seed}` : "picked by hand";
+      const open = build !== null && this.customizing[side];
+      this.customizePanels[side].hidden = !open;
+      this.customizeButtons[side].disabled = build === null;
+      this.customizeButtons[side].textContent = open ? "Done" : "Customize";
       for (const { field } of GOLEM_FIELDS) this.golemFields[field][side].hidden = build === null;
       if (build) {
         const fill = (field: GolemField, items: readonly GolemSlotOption[], value: string): void => {
@@ -445,29 +476,10 @@ export class SetupScreen {
           }
         }
       }
-      for (const hand of ["handA", "handB"] as const) {
-        const field = this.hands[hand][side];
-        for (const option of field.options) {
-          // Judge the result of the reducer, rather than this option beside an
-          // unchanged other hand. That distinction keeps the existing route
-          // from bow+bow to sword+empty enabled while a unit with a fixed
-          // authored pair stays exact.
-          const candidate = withEquipment(this.matchup, side, hand, option.value)[side];
-          option.disabled = !supportsLoadoutForUnit(
-            setup.unit,
-            candidate.handA,
-            candidate.handB,
-          );
-        }
-        field.disabled = definition.hands === 0;
-      }
       for (const option of this.policies[side].options) {
         option.disabled = !definition.driverOptions.some((driver) => driver.name === option.value);
       }
-      this.units[side].value = setup.unit;
       this.policies[side].value = setup.policy;
-      this.hands.handA[side].value = setup.handA;
-      this.hands.handB[side].value = setup.handB;
       for (const button of this.controls[side]) {
         button.checked = button.value === setup.control;
         button.disabled = button.value === "you" && !definition.humanAdapter;
@@ -490,13 +502,14 @@ export class SetupScreen {
    * is a bin that was stored and did not survive its own checksum or its own shape, and it says so
    * by name rather than quietly reading as empty -- that sentence is the reader the codec's
    * refusals exist for. **Empty** is the first run, and is not a failure. Anything else is the
-   * list, and the row is hidden entirely when there is nothing to salvage into, so a matchup of
-   * two Warriors is the screen it was before this session.
+   * list. The row is shown only while a corner has its pickers open, because the bin is something
+   * you fit from, and the showcase's two lines and two buttons are what the screen is for.
    */
   private renderBin(): void {
     const anyGolem = this.matchup.left.golem !== undefined || this.matchup.right.golem !== undefined;
-    this.binRow.hidden = !anyGolem;
-    if (!anyGolem) return;
+    const anyOpen = this.customizing.left || this.customizing.right;
+    this.binRow.hidden = !anyGolem || !anyOpen;
+    if (this.binRow.hidden) return;
     if (!this.bin) {
       this.binNote.textContent = "no parts bin in this window, so nothing can be salvaged";
       return;
@@ -525,7 +538,8 @@ export class SetupScreen {
       // The build's own refusal, by name, from the file that owns the legal pairs. It should be
       // unreachable through the pickers -- every option offered is one the registry has and the
       // two-socket rule is applied by the reducer -- which is exactly why it is checked here: a
-      // matchup can also arrive from a restart, from `toSelect`, or from a console assignment.
+      // matchup can also arrive from a restart, from `toSelect`, from a link, or from a console
+      // assignment.
       if (setup.golem) {
         const refusal = golemSetupRefusal(setup.golem);
         if (refusal) return refusal;
