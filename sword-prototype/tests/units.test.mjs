@@ -126,11 +126,11 @@ test("the_golem_is_assembled_rather_than_equipped_and_answers_to_its_own_surface
   assert.equal(golem.supportedLocomotionPort, "supported-locomotion-v1");
   assert.deepEqual([...golem.equipment], ["empty"]);
   assert.deepEqual(golem.loadouts, [{ primary: "empty", secondary: "empty" }]);
-  // Its own mind and the control condition, in that order and nothing else. `idle` stays because
+  // Its own minds and the control condition, in that order and nothing else. `idle` stays because
   // standing still is a command any body executes and because Session 08's baseline was taken on
   // it; every scripted policy in `src/policies.ts` stays out because its ranges are a Warrior's
-  // arming sword in disguise.
-  assert.deepEqual([...(golem.compatiblePolicies ?? [])], ["idle", "golem-duelist"]);
+  // arming sword in disguise. The fencer follows the duelist, which stays the baseline.
+  assert.deepEqual([...(golem.compatiblePolicies ?? [])], ["idle", "golem-duelist", "golem-fencer"]);
   assert.ok(golem.defaultGolem, "a golem corner opens on a build");
   for (const slot of ["locomotion", "torso", "head"]) {
     assert.equal(typeof golem.defaultGolem[slot], "string", slot);

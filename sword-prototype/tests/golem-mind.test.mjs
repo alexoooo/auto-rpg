@@ -48,6 +48,7 @@ import { defaultGolemSetup } from "../src/golem/build.ts";
 import {
   GOLEM_TACTICS, canAttack, golemTactics, innerReach, tacticalRanges, unspan,
 } from "../src/golem/tactics.ts";
+import { GOLEM_TACTICS_V2, golemFencer, slotHealth, strokeReader } from "../src/golem/tactics-v2.ts";
 import { BUTTON_REACH } from "../src/buttons.ts";
 
 process.env.SWORD_MEASURE_LIBRARY = "1";
@@ -85,7 +86,7 @@ test("a_units_picker_never_offers_a_mind_written_for_the_other_control_surface",
   const names = (unit) => unit.driverOptions.map(({ name }) => name);
   assert.ok(!names(warrior).includes("golem-duelist"),
     `a Warrior's picker offers ${names(warrior).join(", ")}`);
-  assert.deepEqual(names(golem), ["idle", "golem-duelist"]);
+  assert.deepEqual(names(golem), ["idle", "golem-duelist", "golem-fencer"]);
   assert.throws(() => unitDefinition("warrior").createPolicy("golem-duelist"),
     /does not support policy/);
   assert.throws(() => unitDefinition("golem").createPolicy("duelist"),
@@ -98,6 +99,7 @@ test("a_units_picker_never_offers_a_mind_written_for_the_other_control_surface",
   }
   assert.equal(POLICIES.find((policy) => policy.name === "idle").surface, null);
   assert.equal(POLICIES.find((policy) => policy.name === "golem-duelist").surface, "golem-v1");
+  assert.equal(POLICIES.find((policy) => policy.name === "golem-fencer").surface, "golem-v1");
 });
 
 // ---------------------------------------------------------------------------------------
@@ -1010,4 +1012,407 @@ test("two_golems_fight_at_arms_length_and_the_bout_goes_somewhere", async () => 
   assert.ok(loser < 0.45,
     `after ${result.seconds.toFixed(1)} s the weaker golem is still at ${loser.toFixed(3)},`
     + ` which does not finish inside the cap`);
+});
+
+// ---------------------------------------------------------------------------------------
+// The fencer: the same machine with the other fighter read into it. Session 05 of the matchup set.
+// ---------------------------------------------------------------------------------------
+
+/** A fencer's table with some rows moved, for one test, without touching what the others read. */
+const fencerWith = (over) => ({ ...GOLEM_TACTICS_V2, ...over });
+
+/**
+ * Their arm as the fixture shows it: the primary tip put at a fraction of its reach from its
+ * own socket, pointed at my primary socket or straight up, and optionally driven toward me
+ * over the steps that follow so the gap rate the mind keeps reads as closing.
+ */
+function theirArm(fixture, { extension, toward = true }) {
+  const hand = fixture.opponent.hands.primary;
+  const mine = fixture.self.hands.primary.shoulder;
+  const dx = mine.x - hand.shoulder.x;
+  const dy = mine.y - hand.shoulder.y;
+  const dz = mine.z - hand.shoulder.z;
+  const length = Math.hypot(dx, dy, dz) || 1;
+  const along = extension * hand.reach;
+  if (toward) {
+    hand.tip.x = hand.shoulder.x + (dx / length) * along;
+    hand.tip.y = hand.shoulder.y + (dy / length) * along;
+    hand.tip.z = hand.shoulder.z + (dz / length) * along;
+  } else {
+    hand.tip.x = hand.shoulder.x;
+    hand.tip.y = hand.shoulder.y + along;
+    hand.tip.z = hand.shoulder.z;
+  }
+  fixture.opponent.tip.x = hand.tip.x;
+  fixture.opponent.tip.y = hand.tip.y;
+  fixture.opponent.tip.z = hand.tip.z;
+}
+
+/**
+ * Step the mind for `seconds`, with their whole body walking in on me at `closing` m/s along
+ * the floor, collecting what the caller wants. The body and not the point alone, because the
+ * reader's commit is an arm held *drawn* while its point closes -- the duelist reaches for a mark
+ * past the point and its trunk carries the arm in -- and a point flying out of a still body is
+ * an arm extending, which the reader rightly reads as the guard going back out.
+ */
+function drive(fixture, mind, seconds, { closing = 0, each = null } = {}) {
+  const them = fixture.opponent;
+  const mine = fixture.self.ground;
+  for (let step = 0; step < Math.round(seconds * CONFIG.world.physicsHz); step += 1) {
+    if (closing !== 0) {
+      const dx = mine.x - them.ground.x;
+      const dz = mine.z - them.ground.z;
+      const length = Math.hypot(dx, dz) || 1;
+      const move = Math.min(closing * FIXED, Math.max(0, length - 0.5));
+      const shift = (point) => { point.x += (dx / length) * move; point.z += (dz / length) * move; };
+      shift(them.ground); shift(them.shoulder); shift(them.tip);
+      for (const name of ["primary", "secondary"]) { shift(them.hands[name].shoulder); shift(them.hands[name].tip); }
+      fixture.measure = Math.hypot(fixture.self.shoulder.x - them.shoulder.x, fixture.self.shoulder.z - them.shoulder.z);
+    }
+    fixture.clock += FIXED;
+    const intent = mind.decide(fixture, FIXED);
+    if (each) each(intent, step);
+  }
+}
+
+/**
+ * The reader, with no body behind it, on the profile the duelist's own stroke makes: a guard held
+ * out, the arm drawing in, the point coming at me with the arm drawn, the arm going back out.
+ * `GOLEM_TACTICS_V2.readSeconds` carries the table these thresholds were read off; what is
+ * asserted here is that the reader says what that table says it says.
+ */
+test("the_stroke_reader_tells_a_chamber_a_commit_and_a_recover_from_the_arms_extension", () => {
+  const reader = strokeReader();
+  const seen = [];
+  const feed = (seconds, extension, gapRate) => {
+    for (let step = 0; step < Math.round(seconds * CONFIG.world.physicsHz); step += 1) {
+      seen.push(reader.update(extension, gapRate, FIXED));
+    }
+  };
+  feed(0.5, 0.88, 0);
+  assert.equal(reader.phase, "idle", "a guard held out is idle");
+  assert.ok(seen.every((phase) => phase === "idle"), "a guard was read as something before any stroke");
+  // Drawing in: the extension falls at about one reach a second, which is the duelist's chamber.
+  for (let step = 0; step < 36; step += 1) reader.update(0.88 - (step / 36) * 0.18, 0.5, FIXED);
+  assert.equal(reader.phase, "chamber", `an arm drawing in reads as ${reader.phase}`);
+  feed(0.15, 0.60, -3.0);
+  assert.equal(reader.phase, "commit", `an arm drawn with its point closing reads as ${reader.phase}`);
+  feed(0.10, 0.88, 0);
+  assert.equal(reader.phase, "recover", `the moment after a commit reads as ${reader.phase}`);
+  feed(GOLEM_TACTICS_V2.readRecoverSeconds, 0.88, 0);
+  assert.equal(reader.phase, "idle", "the recover window has run out");
+
+  // A guard being adjusted is not a chamber: the arm out past the guard extension, whatever
+  // the point is doing.
+  const still = strokeReader();
+  for (let step = 0; step < 120; step += 1) still.update(0.90, step % 2 ? 3 : -3, FIXED);
+  assert.equal(still.phase, "idle");
+
+  // The switch: off, every phase is idle, and the features that read one are inert.
+  const blind = strokeReader(fencerWith({ readStroke: false }));
+  for (let step = 0; step < 60; step += 1) blind.update(0.5, -4, FIXED);
+  assert.equal(blind.phase, "idle");
+});
+
+/**
+ * Counter-timing, feature 2, on a synthetic arm: while their point is coming at me the fencer's
+ * feet go back and no exchange starts; the moment their arm is read recovering, it chambers,
+ * in line or not. The duelist under the same view waits for its patience, which is the
+ * control -- and the fencer with `counterTiming` off is the same control.
+ */
+test("the_fencer_voids_a_read_commit_and_strikes_into_the_recover_behind_it", async (t) => {
+  const golem = await standAGolem(t);
+  const run = (tactics) => {
+    const fixture = fixtureOf(golem.view);
+    const mind = golemFencer(SEED, tactics);
+    // Out of range, with their point off the line, for long enough that the start-of-bout
+    // cooldown is spent: nothing fires out of reach, and an opening every step keeps patience
+    // from being banked against the moment the range closes.
+    place(fixture, { x: 0.3, z: 4.5 });
+    theirArm(fixture, { extension: 0.88, toward: false });
+    drive(fixture, mind, 2.5);
+    assert.equal(mind.stance, "approach");
+    // Now inside both reaches with their arm drawn, in line, and the body walking it in: a
+    // commit as the reader defines one, and neither an opening nor patience.
+    place(fixture, { x: 0.3, z: 1.75 });
+    fixture.opponent.reach = 1.78;
+    theirArm(fixture, { extension: 0.62 });
+    let forward = 0;
+    let exchanges = 0;
+    const phases = new Set();
+    drive(fixture, mind, 0.20, {
+      closing: 1.5,
+      each: (intent) => {
+        forward = Math.min(forward, intent.forward);
+        phases.add(mind.phase);
+        if (process.env.DBG) console.log("dbg", mind.phase, mind.stance, fixture.opponent.hands.primary.tip.z.toFixed(3), fixture.self.hands.primary.shoulder.z.toFixed(3), fixture.opponent.hands.primary.shoulder.z.toFixed(3));
+        if (mind.stance === "chamber" || mind.stance === "commit" || mind.stance === "feint") exchanges += 1;
+      },
+    });
+    const commitRead = phases.has("commit");
+    // Their arm back on guard, out past the guard extension and still on my line, so that the
+    // only thing that can fire an exchange is the recover being read.
+    theirArm(fixture, { extension: 0.88 });
+    let chamberedAt = -1;
+    drive(fixture, mind, 0.30, {
+      each: (intent, step) => {
+        if (chamberedAt < 0 && (mind.stance === "chamber" || mind.stance === "commit")) chamberedAt = step * FIXED;
+      },
+    });
+    return { forward, exchanges, commitRead, chamberedAt, phase: mind.phase };
+  };
+
+  const fencer = run(GOLEM_TACTICS_V2);
+  assert.ok(fencer.commitRead, "their drawn, closing arm was never read as a commit");
+  assert.ok(fencer.forward <= -GOLEM_TACTICS_V2.voidStep + 1e-9,
+    `the feet were asked for ${fencer.forward.toFixed(2)} during their commit, and a void is a step back`);
+  assert.equal(fencer.exchanges, 0, "an exchange was started into their commit");
+  assert.ok(fencer.chamberedAt >= 0 && fencer.chamberedAt < GOLEM_TACTICS_V2.readRecoverSeconds,
+    `the fencer chambered ${fencer.chamberedAt.toFixed(2)} s into their recover`);
+
+  const patient = run(fencerWith({ counterTiming: false, voidDuringCommit: false }));
+  assert.ok(patient.forward > -GOLEM_TACTICS_V2.voidStep + 0.05,
+    "with the void off the feet still stepped back");
+  assert.equal(patient.chamberedAt, -1,
+    "with counter-timing off the fencer still chambered into the recover, so the recover was not what fired it");
+});
+
+/**
+ * A stop-hit, feature 2's third rule: the longer arm strikes the moment their point closes on
+ * it, from a chamber cut to `stopHitChamberSeconds`. The same drive with the reaches equal is
+ * the control, and so is the switch.
+ */
+test("the_longer_arm_stop_hits_a_point_that_closes_on_it", async (t) => {
+  const golem = await standAGolem(t);
+  const run = (tactics, theirReach) => {
+    const fixture = fixtureOf(golem.view);
+    const mind = golemFencer(SEED, tactics);
+    place(fixture, { x: 0.3, z: 4.5 });
+    theirArm(fixture, { extension: 0.88, toward: false });
+    drive(fixture, mind, 2.5);
+    place(fixture, { x: 0.3, z: 1.85 });
+    fixture.opponent.reach = theirReach;
+    for (const name of ["primary", "secondary"]) fixture.opponent.hands[name].reach = theirReach;
+    // Their arm out on guard and its point walking in at me: a body closing, not a stroke.
+    theirArm(fixture, { extension: 0.88 });
+    let chamberedAt = -1;
+    let committedAt = -1;
+    drive(fixture, mind, 0.25, {
+      closing: 2.0,
+      each: (intent, step) => {
+        if (chamberedAt < 0 && mind.stance === "chamber") chamberedAt = step * FIXED;
+        if (committedAt < 0 && mind.stance === "commit") committedAt = step * FIXED;
+      },
+    });
+    return { chamberedAt, committedAt };
+  };
+  const longer = run(GOLEM_TACTICS_V2, 1.14);
+  assert.ok(longer.chamberedAt >= 0, "the longer arm never chambered on a closing point");
+  assert.ok(longer.committedAt >= 0 &&
+    longer.committedAt - longer.chamberedAt <= GOLEM_TACTICS_V2.stopHitChamberSeconds + 2 * FIXED,
+    `the stop-hit's chamber lasted ${(longer.committedAt - longer.chamberedAt).toFixed(3)} s`);
+  const equal = run(GOLEM_TACTICS_V2, 1.78);
+  assert.equal(equal.chamberedAt, -1, "an equal arm stop-hit a body merely walking in");
+  const off = run(fencerWith({ stopHit: false }), 1.14);
+  assert.equal(off.chamberedAt, -1, "with the stop-hit off the longer arm still struck at a closing point");
+});
+
+/**
+ * Reach asymmetry, feature 3, from the short side: a fist against a blade holds outside the
+ * blade and does not commit from there -- the duelist would, on patience, and walk the stroke
+ * in -- and goes in on the walk axis when their arm is read recovering.
+ */
+test("the_shorter_arm_holds_outside_and_goes_in_on_their_recover", async (t) => {
+  const golem = await standAGolem(t, setupWith({
+    primary: { chain: "wrist", terminal: "fist" }, secondary: { chain: "wrist", terminal: "fist" },
+  }));
+  const fixture0 = fixtureOf(golem.view);
+  const reach = fixture0.self.hands.primary.reach;
+  const theirReach = 1.78;
+  assert.ok(reach < theirReach * (1 - GOLEM_TACTICS_V2.reachEdge), `a fist at ${reach} m is not the shorter arm against ${theirReach}`);
+  const run = (tactics) => {
+    const fixture = fixtureOf(golem.view);
+    const mind = golemFencer(SEED, tactics);
+    // At their reach, which is where both minds hold against a longer arm.
+    place(fixture, { x: 0.3, z: theirReach });
+    fixture.opponent.reach = theirReach;
+    for (const name of ["primary", "secondary"]) fixture.opponent.hands[name].reach = theirReach;
+    theirArm(fixture, { extension: 0.88, toward: false });
+    let strokes = 0;
+    let forwardMax = -1;
+    drive(fixture, mind, 4.0, {
+      each: (intent) => {
+        if (intent.primary.thrust || intent.secondary.thrust) strokes += 1;
+        forwardMax = Math.max(forwardMax, intent.forward);
+      },
+    });
+    const held = { strokes, forwardMax, inside: mind.inside };
+    // Their arm commits and recovers; the shorter arm should go in during the recover.
+    theirArm(fixture, { extension: 0.62 });
+    drive(fixture, mind, 0.15, { closing: 3.0 });
+    theirArm(fixture, { extension: 0.88, toward: false });
+    let forwardIn = -1;
+    drive(fixture, mind, 0.25, { each: (intent) => { forwardIn = Math.max(forwardIn, intent.forward); } });
+    return { held, forwardIn };
+  };
+  const fencer = run(GOLEM_TACTICS_V2);
+  assert.equal(fencer.held.strokes, 0, "the shorter arm struck from outside its own reach");
+  assert.ok(fencer.held.forwardMax < 0.5, `the shorter arm walked in on nothing, forward ${fencer.held.forwardMax.toFixed(2)}`);
+  assert.equal(fencer.held.inside, false);
+  assert.ok(fencer.forwardIn >= 1 - 1e-9, `on their recover the shorter arm's feet were asked for ${fencer.forwardIn.toFixed(2)}`);
+  const duelistLike = run(fencerWith({ closeOnRecover: false }));
+  assert.ok(duelistLike.held.strokes > 0, "with the rule off the fencer still never committed on patience from their reach");
+});
+
+/**
+ * Target selection, feature 4: the exchange is aimed at the reachable slot with the least
+ * published health, by `targetMargin` under the trunk, and at the trunk otherwise. The keys
+ * are the ones a golem publishes -- side, body, slot, part -- and the slot is what is read.
+ */
+test("the_fencer_aims_at_the_slot_with_the_least_health_when_it_can_reach_it", async (t) => {
+  const golem = await standAGolem(t);
+  // The feature ships off -- the mirror tournament read it as a loss on the vitality bar -- so
+  // the choice is tested with it on, and the default is asserted last.
+  const chosen = (health, tactics = fencerWith({ targetByHealth: true })) => {
+    const fixture = fixtureOf(golem.view);
+    const mind = golemFencer(SEED, tactics);
+    place(fixture, { x: 0.3, z: 1.5 });
+    fixture.opponent.health = health;
+    theirArm(fixture, { extension: 0.88, toward: false });
+    const targets = new Set();
+    drive(fixture, mind, 4.0, {
+      each: () => { if (mind.stance === "chamber" || mind.stance === "commit") targets.add(mind.target); },
+    });
+    assert.ok(targets.size > 0, "no exchange happened in four seconds at strike range");
+    return [...targets];
+  };
+  const whole = {
+    "x.golem.trunk.core": 1, "x.golem.trunk.waist": 1, "x.golem.head.head": 1, "x.golem.head.neck": 1,
+    "x.golem.primary.upperArm": 1, "x.golem.primary.forearm": 1, "x.golem.secondary.upperArm": 1,
+    "x.golem.legs.thighL": 1,
+  };
+  assert.deepEqual(chosen(whole), ["trunk"], "a whole body is struck at the trunk");
+  assert.deepEqual(chosen({ ...whole, "x.golem.primary.forearm": 0.4 }), ["primary"],
+    "a worn arm inside the margin was not chosen");
+  assert.deepEqual(chosen({ ...whole, "x.golem.primary.forearm": 0.9 }), ["trunk"],
+    "an arm barely worn was chosen over the trunk");
+  assert.deepEqual(chosen({ ...whole, "x.golem.head.neck": 0.3 }), ["head"]);
+  assert.deepEqual(chosen({ ...whole, "x.golem.primary.forearm": 0 }), ["trunk"],
+    "a slot with a part gone is not a target");
+  assert.equal(GOLEM_TACTICS_V2.targetByHealth, false, "the feature ships off, on the tournament row");
+  assert.deepEqual(chosen({ ...whole, "x.golem.primary.forearm": 0.4 }, GOLEM_TACTICS_V2),
+    ["trunk"], "with the feature off the trunk is the only mark");
+
+  const bySlot = {};
+  slotHealth({ ...whole, "x.golem.primary.forearm": 0.4, "x.golem.primary.upperArm": 0.7 }, bySlot);
+  assert.equal(bySlot.primary, 0.4, "a slot's health is its least part");
+  assert.equal(bySlot.locomotion, -1, "a slot with no part published is absent, not whole");
+});
+
+/**
+ * The two-weapon combination, feature 7: with a blade in each socket the spare hand's stroke
+ * starts as the acting hand's arc ends, so the two thrusts overlap or nearly do. With the
+ * feature off the hands take turns, an exchange apart.
+ */
+test("the_second_blade_strikes_into_the_first_ones_follow_through", async (t) => {
+  const golem = await standAGolem(t, setupWith({ secondary: { chain: "wrist", terminal: "blade" } }));
+  const run = (tactics) => {
+    const fixture = fixtureOf(golem.view);
+    const mind = golemFencer(SEED, tactics);
+    place(fixture, { x: 0.0, z: 1.5 });
+    theirArm(fixture, { extension: 0.88, toward: false });
+    let combos = 0;
+    let wasCombo = false;
+    let closest = Infinity;
+    const lastThrust = { primary: -Infinity, secondary: -Infinity };
+    const wasThrust = { primary: false, secondary: false };
+    drive(fixture, mind, 6.0, {
+      each: (intent, step) => {
+        const now = step * FIXED;
+        for (const name of ["primary", "secondary"]) {
+          if (intent[name].thrust && !wasThrust[name]) {
+            const other = name === "primary" ? "secondary" : "primary";
+            closest = Math.min(closest, now - lastThrust[other]);
+            lastThrust[name] = now;
+          }
+          wasThrust[name] = intent[name].thrust;
+        }
+        if (mind.combo && !wasCombo) combos += 1;
+        wasCombo = mind.combo;
+        assertInsideEnvelope(intent, fixture.self, `two blades step ${step}`);
+      },
+    });
+    return { combos, closest };
+  };
+  const on = run(GOLEM_TACTICS_V2);
+  assert.ok(on.combos > 0, "no combination was started in six seconds of two blades in range");
+  assert.ok(on.closest < 0.30, `the second blade's stroke started ${on.closest.toFixed(2)} s after the first's`);
+  const off = run(fencerWith({ comboFraction: 0 }));
+  assert.equal(off.combos, 0);
+  assert.ok(off.closest > GOLEM_TACTICS_V2.recoverSeconds,
+    `with the combination off the hands struck ${off.closest.toFixed(2)} s apart`);
+});
+
+/**
+ * The feint, feature 6: a chamber shown and taken back. With every chamber a feint and their
+ * arm idle, the stance runs chamber-shaped into `feint`, steps back for the feint's length,
+ * and returns to measure without a commit.
+ */
+test("a_feint_is_a_chamber_taken_back_without_a_commit", async (t) => {
+  const golem = await standAGolem(t);
+  const fixture = fixtureOf(golem.view);
+  const mind = golemFencer(SEED, fencerWith({ feintFraction: 1 }));
+  place(fixture, { x: 0.3, z: 1.5 });
+  theirArm(fixture, { extension: 0.88, toward: false });
+  const stances = [];
+  let backSteps = 0;
+  let commits = 0;
+  drive(fixture, mind, 5.0, {
+    each: (intent) => {
+      if (stances[stances.length - 1] !== mind.stance) stances.push(mind.stance);
+      if (mind.stance === "feint" && intent.forward <= -1 + 1e-9) backSteps += 1;
+      if (mind.stance === "commit") commits += 1;
+    },
+  });
+  assert.ok(stances.includes("feint"), `no feint in ${stances.join(" > ")}`);
+  assert.equal(commits, 0, `a feint became a commit: ${stances.join(" > ")}`);
+  for (let i = 0; i < stances.length - 1; i += 1) {
+    if (stances[i] === "feint") assert.equal(stances[i + 1], "measure", `a feint went to ${stances[i + 1]}`);
+  }
+  assert.ok(backSteps >= Math.round(GOLEM_TACTICS_V2.feintBackSeconds * CONFIG.world.physicsHz) - 2,
+    `the feint stepped back for ${backSteps} steps`);
+});
+
+/**
+ * The same two claims the duelist makes, of the fencer: every command over a grid of places sits
+ * inside the published envelope, on the builds whose sockets differ most, and one seed is one
+ * bout.
+ */
+test("the_fencer_stays_inside_the_envelope_and_is_deterministic_under_a_seed", async (t) => {
+  for (const [label, setup] of [
+    ["the default golem", defaultGolemSetup()],
+    ["two blades", setupWith({ secondary: { chain: "wrist", terminal: "blade" } })],
+    ["the maul", setupWith({ primary: MAUL, secondary: MAUL })],
+    ["fists", setupWith({ primary: { chain: "wrist", terminal: "fist" }, secondary: { chain: "pitch", terminal: "fist" } })],
+  ]) {
+    const golem = await standAGolem(t, setup);
+    const fixture = fixtureOf(golem.view);
+    sweepPlaces(fixture, golemFencer(SEED), label, 0.35);
+  }
+  const golem = await standAGolem(t);
+  const trace = (seed) => {
+    const fixture = fixtureOf(golem.view);
+    const mind = golemFencer(seed);
+    const out = [];
+    for (const z of [3.5, 1.6, 1.2]) {
+      place(fixture, { x: 0.3, z });
+      drive(fixture, mind, 2.0, {
+        each: (intent) => out.push(`${intent.primary.pointerX.toFixed(6)},${intent.primary.pointerY.toFixed(6)},` +
+          `${intent.primary.thrust ? 1 : 0}${intent.forward.toFixed(6)},${mind.stance}`),
+      });
+    }
+    return out.join("|");
+  };
+  assert.equal(trace(SEED), trace(SEED), "one seed, one bout");
+  assert.notEqual(trace(SEED), trace(SEED + 1), "two seeds, two bouts");
 });

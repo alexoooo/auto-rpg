@@ -27,7 +27,11 @@ in as small tables a policy reads for its own build class.
 
 ## Implement
 
-1. The tuning script, reusing the tournament harness and a champion-table writer.
+1. The tuning script, reusing the tournament harness and a champion-table writer. Session 05
+   left the two hooks it needs: `runJobs` takes `overrides`, a table of fencer constants the
+   worker assigns over `GOLEM_TACTICS_V2` before its first bout, and `--cross --mirror` rates
+   two minds on one body, which is the only pool a fitness can be read from (random pairs of
+   bodies rated the fencer with every feature off within noise of every feature on).
 2. The champion table module and the `golem-champion` registration.
 3. Tests: one seeded generation on two workers produces a table; the policy loads it and runs a
    real headless bout; a version mismatch is refused by name.

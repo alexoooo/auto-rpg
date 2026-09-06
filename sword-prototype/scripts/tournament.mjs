@@ -119,7 +119,7 @@ export function policyPairs(policies) {
  * The job list: `pairings` draws of two builds from the pool, each run twice with the sides
  * swapped and the seeds swapped with them, policies cycling over the ordered pairs.
  */
-export function scheduleJobs({ pool, policies, pairings, seed, cap }) {
+export function scheduleJobs({ pool, policies, pairings, seed, cap, cross = false, mirror = false }) {
   const golem = unitDefinition("golem");
   for (const policy of policies) {
     if (!golem.driverOptions.some((option) => option.name === policy)) {
@@ -128,11 +128,22 @@ export function scheduleJobs({ pool, policies, pairings, seed, cap }) {
   }
   if (pool.length === 0) throw new Error("a tournament needs a build to run");
   const rng = mulberry32(seed ^ 0x0b0e);
-  const pairs = policyPairs(policies);
+  // `cross` drops the mirror pairs, so a run that exists to compare two policies spends its
+  // whole budget on bouts between them; a mirror bout rates no policy and half a default run is
+  // mirrors. The class ratings lose nothing, since a mirror bout on one class rated no class.
+  const pairs = cross ? policyPairs(policies).filter(([a, b]) => a !== b) : policyPairs(policies);
+  if (pairs.length === 0) throw new Error("--cross wants at least two policies");
+  // `mirror` puts one build on both sides of every pairing, so what differs across a bout is
+  // the mind alone. Over random pairs of bodies the body decides most bouts before either mind
+  // has done anything -- a maul wins 232 of 234 against anything that is not one -- and a policy
+  // rated on that pool is rated on a coin the body has already flipped. Session 05 of the
+  // matchup set added it for exactly that reason; `docs/measurements.md` has the two tables.
   const jobs = [];
   for (let pairing = 0; pairing < pairings; pairing += 1) {
     const a = pool[Math.min(pool.length - 1, Math.floor(rng() * pool.length))];
-    const b = pool[Math.min(pool.length - 1, Math.floor(rng() * pool.length))];
+    const drawn = pool[Math.min(pool.length - 1, Math.floor(rng() * pool.length))];
+    // Drawn either way, so a mirror run and a plain run under one seed walk the same stream.
+    const b = mirror ? a : drawn;
     const [policyA, policyB] = pairs[pairing % pairs.length];
     const sideA = { build: a.name, setup: a.setup, policy: policyA, seed: seedFor(seed, pairing, 0) };
     const sideB = { build: b.name, setup: b.setup, policy: policyB, seed: seedFor(seed, pairing, 1) };
@@ -306,7 +317,7 @@ const workerUrl = new URL("./tournament-worker.mjs", import.meta.url);
  * file is written in order while the run is still going. A worker that throws fails the run,
  * by design: a tournament with a hole in it is not the tournament its seed names.
  */
-export function runJobs(jobs, { workers, onRow = null, onProgress = null }) {
+export function runJobs(jobs, { workers, onRow = null, onProgress = null, overrides = null }) {
   return new Promise((resolvePromise, reject) => {
     const rows = new Array(jobs.length).fill(null);
     let next = 0;
@@ -330,7 +341,7 @@ export function runJobs(jobs, { workers, onRow = null, onProgress = null }) {
     if (jobs.length === 0) { resolvePromise(rows); return; }
     const count = Math.max(1, Math.min(workers, jobs.length));
     for (let i = 0; i < count; i += 1) {
-      const worker = new Worker(workerUrl);
+      const worker = new Worker(workerUrl, { workerData: { overrides } });
       pool.push(worker);
       worker.on("message", (message) => {
         if (message.type === "ready") { feed(worker); return; }
@@ -358,19 +369,22 @@ export function runJobs(jobs, { workers, onRow = null, onProgress = null }) {
  * header's `date` field and nowhere else.
  */
 export async function runTournament({
-  seed, bouts, workers, policies, random, cap, out, onProgress = null,
+  seed, bouts, workers, policies, random, cap, out, onProgress = null, overrides = null, cross = false,
+  mirror = false,
 }) {
   const pool = buildPool({ seed, random });
-  const jobs = scheduleJobs({ pool, policies, pairings: Math.ceil(bouts / 2), seed, cap });
+  const jobs = scheduleJobs({ pool, policies, pairings: Math.ceil(bouts / 2), seed, cap, cross, mirror });
   mkdirSync(dirname(out), { recursive: true });
   const header = {
     version: TOURNAMENT_VERSION, seed, date: new Date().toISOString(), policies, bouts: jobs.length, cap, random,
+    overrides, cross, mirror,
     pool: pool.map(({ name, setup, caption }) => ({ name, setup, caption })),
   };
   const lines = [JSON.stringify(header)];
   writeFileSync(out, `${lines[0]}\n`);
   const rows = await runJobs(jobs, {
     workers,
+    overrides,
     onRow(row) {
       const line = JSON.stringify(row);
       lines.push(line);
@@ -379,6 +393,31 @@ export async function runTournament({
     onProgress,
   });
   return { header, pool, jobs, rows, summary: summarize(rows), out };
+}
+
+/**
+ * `--override name=value,name=value` for the fencer's table, `GOLEM_TACTICS_V2`: every worker
+ * assigns these over it before its first bout, and the run's header records them. Numbers and
+ * the two booleans parse; anything else is refused, because a value that arrives as a string
+ * would compare as one at 240 Hz and never say so. Null when there are none, so a header from
+ * before this flag reads the same as one written with it empty.
+ */
+export function parseOverrides(text) {
+  const entries = text.split(",").map((pair) => pair.trim()).filter(Boolean);
+  if (entries.length === 0) return null;
+  const overrides = {};
+  for (const entry of entries) {
+    const at = entry.indexOf("=");
+    if (at <= 0) throw new Error(`--override wants name=value, got "${entry}"`);
+    const name = entry.slice(0, at).trim();
+    const raw = entry.slice(at + 1).trim();
+    const value = raw === "true" ? true : raw === "false" ? false : Number(raw);
+    if (typeof value === "number" && !Number.isFinite(value)) {
+      throw new Error(`--override ${name}: "${raw}" is neither a number nor true/false`);
+    }
+    overrides[name] = value;
+  }
+  return overrides;
 }
 
 // `isMainThread` because a worker inherits the main script's `argv`, and a worker that imports
@@ -409,16 +448,20 @@ if (isMain) {
     const policies = flag("policies", "golem-duelist").split(",").map((name) => name.trim()).filter(Boolean);
     const random = Math.max(0, Number(flag("random", 20)));
     const cap = Number(flag("cap", 60));
+    const overrides = parseOverrides(flag("override", ""));
+    const cross = argv.includes("--cross");
+    const mirror = argv.includes("--mirror");
     const stamp = new Date().toISOString().replace(/[-:]/g, "").slice(0, 13);
     // Concatenated rather than a template, because the docs gate reads a backticked span that ends
     // in a file extension as a path reference, and this one is a name the run makes up.
     const out = resolve(flag("out", "tournaments/" + stamp + "-" + seed + "-" + policies.join("+") + ".jsonl"));
     if (existsSync(out)) throw new Error(`${out} exists; name another with --out`);
     console.log(`seed ${seed}, ${bouts} bouts, ${workers} workers, cap ${cap} s, policies ${policies.join(", ")}, ` +
-      `${REFERENCE_BUILDS.length} reference builds + ${random} drawn`);
+      `${REFERENCE_BUILDS.length} reference builds + ${random} drawn${cross ? ", cross pairs only" : ""}${mirror ? ", one build both sides" : ""}` +
+      (overrides ? `, overriding ${JSON.stringify(overrides)}` : ""));
     let lastReport = 0;
     const { rows, summary } = await runTournament({
-      seed, bouts, workers, policies, random, cap, out,
+      seed, bouts, workers, policies, random, cap, out, overrides, cross, mirror,
       onProgress({ done, total, seconds }) {
         if (done === total || seconds - lastReport >= 10) {
           lastReport = seconds;

@@ -127,12 +127,13 @@ that presentation failure too.
 A bout is chosen before it is fought. The curtain carries a left corner and a right corner —
 a unit, a policy, and whether that side is driven by a mind or by you — and the Fight button
 starts what is on it. There is one of you, so taking a side gives the other one back to its
-policy. Six policies ship and a corner is only ever offered the ones its own body can take:
+policy. Seven policies ship and a corner is only ever offered the ones its own body can take:
 **idle** stands there and can be cut apart, **swinger** walks in and cuts on a fixed cadence
 without ever looking at your guard, **duelist** holds measure, guards between exchanges, and
 commits when your point leaves the line, **archer** keeps its distance and shoots — give it a
 bow, or it will simply back away from you all day, **crawler** drives the centipede, and
-**golem duelist** drives a golem. The filter runs both ways: a swordsman's mind is not offered
+**golem duelist** drives a golem and **golem fencer** drives one while reading the other
+golem's arm. The filter runs both ways: a swordsman's mind is not offered
 a body with no hands, and the golem's is not offered to a Warrior. A bout ends when its one
 derived vitality bar reaches zero, or when the clock
 runs out. Zero head or torso health is fatal by itself; serious combined wounds elsewhere
@@ -285,11 +286,14 @@ offered on the wrist arm alone, because without a roll axis a lash has nowhere t
 is eleven arms in all, and every one of them is a different body rather than a worse version
 of the best one.
 
-Two minds can drive it — **idle** and **golem duelist** — and `C` takes it over mid-bout
-exactly as it takes over a warrior. The golem duelist knows nothing about which modules it is
-wearing: it asks each arm what strokes it has and how far it reaches, and every range it
-keeps is a fraction of that answer rather than a distance. Bolt something new on and it needs
-no new mind.
+Three minds can drive it — **idle**, **golem duelist** and **golem fencer** — and `C` takes it
+over mid-bout exactly as it takes over a warrior. The golem duelist knows nothing about which
+modules it is wearing: it asks each arm what strokes it has and how far it reaches, and every
+range it keeps is a fraction of that answer rather than a distance. Bolt something new on and it
+needs no new mind. The golem fencer is the same machine reading the other golem as well: how far
+its arm is drawn tells the fencer a chamber from a commit from a recover, and it strikes into the
+recover, steps out of the commit, stop-hits a point that closes on a longer arm, feints, and
+brings its second weapon in behind its first.
 
 **Win a bout against a golem and whichever of its arms came off intact is yours** — an arm cut
 off at the shoulder is loot, an arm hacked to pieces is debris, and legs are neither, because

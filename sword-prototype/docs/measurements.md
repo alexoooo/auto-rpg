@@ -12051,3 +12051,289 @@ fencer has to keep while it moves the rating.
 - The pitch blade, the plate-as-weapon and the capped-with-plate draws are punching bags. Whether
   the stroke shapes can make the first two into weapons is a Session 02 question the baseline
   reopens; the third is a build the random draw should perhaps not offer.
+
+## Session 05 of the matchup set — 2026-09-06: the fencer, a reader that had to be rebuilt, and a tournament that had to be mirrored
+
+What the plan asked for: a second scripted golem mind with eight features, each a constant with
+a tournament row, and one real-bout test "the fencer beats the duelist over N seeds" if the
+tournament says so. What shipped: `src/golem/tactics-v2.ts` as `golem-fencer`, registered
+beside the duelist and offered on the matchup screen; eight synthetic-view tests in
+`tests/golem-mind.test.mjs`; `--override`, `--cross` and `--mirror` in `scripts/tournament.mjs`
+with their tests; the tables below. The real-bout test is not added, because the tournament does
+not say so, and the last section says what it says instead.
+
+### The reader the plan described could not be built, and why
+
+The plan's phase reader was tip speed: rising is a chamber, the peak a commit, falling a recover.
+It was built first, on the opponent's published `tipSpeed` low-passed over 50 ms, and run
+against a real duelist in the mirror cell. It read the guard as a commit in 7102 samples of 9823.
+The signal, per true stance of the watched duelist (seed 11, default build both sides, 20 s):
+
+| true stance | samples | tip speed p10 / p50 / p90, m/s |
+|:--|--:|--:|
+| approach | 1389 | 1.4 / 6.9 / 19.6 |
+| measure | 426 | 0.6 / 5.3 / 18.5 |
+| chamber | 901 | 4.3 / 9.8 / 24.2 |
+| commit | 901 | 4.3 / 10.9 / 22.6 |
+| recover | 1182 | 1.7 / 6.7 / 15.2 |
+
+A golem's blade point rides 1.78 m out on a solver-driven arm whose guard mark moves with the
+opponent every step, so the point is never still: a median of 5 to 11 m/s and a ninetieth
+percentile of 15 to 24 in every stance, the guard included, and no threshold on it separates
+anything. Low-passing it over 30, 100 or 200 ms moves the quantiles in and separates nothing.
+The Warrior's tip, on a scripted arm, does sit still on guard, which is where the plan's
+picture came from.
+
+What does separate the stances is the arm's **extension** -- the point's distance from its own
+socket as a fraction of the hand's published reach -- because the duelist chambers drawn in and
+strikes for a mark a third of the blade past the point:
+
+| true stance | extension p10 / p50 / p90 | its rate, 1/s | gap rate to my socket, m/s |
+|:--|--:|--:|--:|
+| approach | 0.72 / 0.88 / 0.91 | -1.09 / 0.04 / 0.95 | -3.2 / 0.0 / 4.6 |
+| measure | 0.81 / 0.89 / 0.91 | -0.66 / 0.01 / 0.63 | -4.3 / 0.0 / 5.0 |
+| chamber | 0.58 / 0.75 / 0.89 | -2.23 / -0.87 / 0.25 | -3.8 / 1.8 / 7.3 |
+| commit | 0.45 / 0.61 / 0.76 | -2.01 / 0.30 / 2.64 | -8.1 / -2.6 / 3.4 |
+| recover | 0.61 / 0.85 / 0.93 | -0.61 / 0.45 / 1.79 | -3.2 / -0.3 / 4.4 |
+
+Seed 31 reads the same to the second decimal on extension and its rate. Tip elevation was the
+third signal tried; it follows the guard mark and was dropped. The shipped reader is on
+extension, its rate, and the closing rate of their point on my socket: a commit is the arm drawn
+under 0.72 with the point closing faster than 1.0 m/s; a chamber is the arm drawing in faster
+than 0.4/s under 0.80, held until it is back out past 0.82; a recover is the 0.40 s after either;
+idle is the rest. Against the true stance over three seeds, 60 s in all, as a fraction of each
+stance's samples:
+
+| true stance, read as | idle | chamber | commit | recover |
+|:--|--:|--:|--:|--:|
+| approach | 56 % | 20 % | 2 % | 21 % |
+| measure | 78 % | 7 % | 0 % | 15 % |
+| chamber | 34 % | 57 % | 3 % | 6 % |
+| commit | 1 % | 26 % | **59 %** | 14 % |
+| recover | 2 % | 9 % | 11 % | **78 %** |
+
+A commit is read as a commit or, early, as the chamber it grew out of, and as the guard in one
+sample in a hundred; a recover is read as one four times in five. That is the reader the
+tactics stand on, and it is a good deal worse than the one the plan imagined.
+
+### What the fencer does with the read, and what fires in a real bout
+
+The eight features and their switches are the table at the head of `src/golem/tactics-v2.ts`.
+Which of them fire depends on the matchup, and a mirror matchup -- the same build both sides --
+turns three of them off by construction: the stop-hit wants a longer arm, the two-weapon
+combination wants a second striker (only the `two-blades` reference build has one), and the ram
+wants a ram head. Counted over four seeds a build, the fencer against the duelist on the same
+body, 60 s cap:
+
+| build | fencer w/d/l | dealt / taken a bout | seconds | counters | other exchanges | feints | void, s |
+|:--|:--|--:|--:|--:|--:|--:|--:|
+| default | 2/0/0 | 118 / 83 | 26 | 7.0 | 13.5 | 4.0 | 0.7 |
+| mace | 1/0/3 | 127 / 141 | 11 | 4.5 | 2.5 | 1.5 | 0.4 |
+| whip | 2/0/2 | 86 / 93 | 44 | 3.8 | 9.5 | 2.3 | 7.0 |
+| plated | 3/0/1 | 124 / 119 | 32 | 13.8 | 10.0 | 3.5 | 1.2 |
+| multileg | 1/0/3 | 93 / 121 | 36 | 9.0 | 5.3 | 1.5 | 2.5 |
+
+A counter is an exchange started because their arm was read recovering; the rest are the
+duelist's own triggers, an opening or patience. Stop-hits, combinations and rams: none, as
+above. So on a mirror the fencer *is* the duelist plus a counter trigger, a void, a feint, a
+target choice and a guard distance by weapon, and that is what the tournament rates.
+
+### Over random pairs of bodies, the body decides and no policy can be read
+
+`npm run tournament -- --bouts 512 --workers 16 --random 20 --cap 60 --seed 20260906 --policies
+golem-duelist,golem-fencer --cross`, three times, the fencer with every feature on, with every
+feature off (`--override readStroke=false,closeOnRecover=false,targetByHealth=false,
+feintFraction=0,comboFraction=0,guardByTheirs=false,longStandOff=1.0`), and with the reader
+alone off:
+
+| fencer | wins of 512, draws as a half | decided |
+|:--|--:|--:|
+| every feature on | 254.5 | 395 |
+| every feature off | 248 | 388 |
+| reader off | 257 | 388 |
+
+The win count over 512 head-to-head bouts has a standard deviation of about 11, and the three
+rows are inside one of it. A first run of 256 bouts on all pairs had read the fencer at Elo 1018
+to the duelist's 982, which is the same nothing with a smaller sample. The Session 04 baseline
+had already said why: a maul wins 232 of 234 against anything that is not a maul, and a policy
+rated on random pairs is rated on a coin the body flipped first.
+
+### `--mirror`: one build on both sides, and what each feature is worth there
+
+`--mirror` keeps the pool and the seed and puts the first-drawn build on both sides of every
+pairing (the second draw is made and discarded, so one seed names one walk through the pool
+whichever flags are on). With `--cross`, every bout is the fencer against the duelist on one
+body, and the mind is the only thing that differs. The same 512-bout run, seed 20260906, twelve
+times:
+
+| run | `--override` | fencer wins of 512 | blade/long, of 134 | mace/long, of 56 | maul/long, of 72 | whip/long, of 48 | fist/mid, of 34 |
+|:--|:--|--:|--:|--:|--:|--:|--:|
+| every feature on | | 256.5 | 70.5 | 25.5 | 32 | 24 | 19 |
+| every feature off | the seven switches above | 264 | 67.5 | 30 | 43.5 | 22 | 14 |
+| no reader | `readStroke=false` | 263.5 | 73 | 31 | 28 | 27 | 19 |
+| no counter | `counterTiming=false` | **241** | 61.5 | 28 | 32 | 18.5 | 14 |
+| no void | `voidDuringCommit=false` | 249.5 | 62 | 30 | 29 | 23 | 20 |
+| no stop-hit | `stopHit=false` | 263 | 72 | 25.5 | 32 | 27.5 | 20 |
+| no walk-in on recover | `closeOnRecover=false` | 253 | 68 | 25.5 | 32 | 23 | 19 |
+| no target by health | `targetByHealth=false` | **265** | 79.5 | 27 | 31 | 24.5 | 18 |
+| no feint | `feintFraction=0` | 264.5 | 69.5 | 31 | 31 | 28.5 | 18 |
+| no combination | `comboFraction=0` | **235** | 57.5 | 19 | 32 | 24 | 17 |
+| no ram on recover | `ramOnRecover=false` | 253.5 | 69 | 24 | 32 | 24 | 19 |
+| no guard by weapon | `guardByTheirs=false` | 260.5 | 72 | 28 | 34 | 25 | 16 |
+
+The other three classes the pool draws -- `none/short`, `plate/short` and the mid-band
+blades, maces and plates -- are bodies that cannot finish each other and drew every bout in
+every row (8 of 14, 37.5 of 74, 40 of 80, to the half point), so they are left out of the
+table and are the reason a third of a mirror run is drawn. The standard deviation of the
+total is about 11 and of the blade column about 5.8. Read with that in hand:
+
+- **Nothing clears two sigma.** The fencer with every feature on is the duelist, on one body,
+  to the coin. The counter (strike into their recover) and the combination are the two
+  features whose removal costs wins, 15.5 and 21.5, and the void is the third at 7; target
+  selection by health is the one whose removal gains them, 8.5 in all and 9 of them on blades.
+- **Where the reader earns anything, it is on blades, fists and whips**, the bodies whose
+  bouts run 25 to 45 s and have exchanges enough for a read to matter. A maul mirror is over in
+  4 s and a mace mirror in 9, and there the first smash decides; the every-feature-off row wins
+  the maul class 43.5 of 72 against 32 for every feature on, and no single switch reproduces
+  it, so it is an interaction or the one outlier a table of 96 cells is owed.
+- **Target by health is switched off** on this row, with the mechanism beside it in the
+  table's doc comment: the bout is won on the vitality bar, the trunk carries most of it, and
+  an exchange spent on a worn hand is an exchange not spent on the bar. A mind that wants a
+  sever wants the feature, and it stays as a switch for Session 07 to weigh.
+
+The reader's own constants were swept the same way, 512 mirror bouts a row:
+
+| constant | shipped | tried | fencer wins of 512 |
+|:--|--:|--:|--:|
+| `readRecoverSeconds` | 0.40 | 0.25 | 258 |
+| | | 0.60 | 249 |
+| `readSeconds` | 0.05 | 0.03 | 245.5 |
+| | | 0.10 | 256 |
+| `readCommitExtension` | 0.72 | 0.65 | 256.5 |
+| `readClosing` | 1.0 | 0.5 | 243 |
+| `feintFraction` | 0.20 | 0.40 | 261 |
+| `voidStep`, `voidStrafe` | 0.8, 0.9 | 1.0, 0 | 259 |
+| `comboChamberSeconds`, `feintHoldSeconds`, `feintBackSeconds` | 0.10, 0.18, 0.22 | 0.08, 0.10, 0.15 | 267.5, and 82 of 134 on blades |
+
+None of it moves the total past noise either, which is the honest shape of a machine whose
+reads are right three times in five and whose opponent is already a competent version of
+itself. The shipped values stay where the signal tables put them. One row of this sweep was
+worth more than its number: `voidStep=1.2` took the whole run down at the locomotion's door,
+because the fencer wrote the step to the intent unclamped, and the write is clamped now.
+
+### The two runs that stand: 1024 bouts mirrored, and 1024 over random pairs
+
+With target selection off, forty random draws beside the dozen reference builds, and the
+seed the baseline used. First the mirror, `npm run tournament -- --bouts 1024 --workers 12
+--random 40 --cap 60 --seed 20260906 --policies golem-duelist,golem-fencer --cross --mirror`,
+raw rows in `tournaments/fencer-20260906-mirror.jsonl`:
+
+| | fencer | duelist |
+|:--|--:|--:|
+| head to head, draws as a half | **527 / 1024** | 497 / 1024 |
+| w / d / l | 364 / 326 / 334 | 334 / 326 / 364 |
+| Elo | 1008 | 992 |
+| damage a bout | 80.9 | 81.8 |
+| contacts a bout | 248.0 | 258.8 |
+| severs | 365 | 340 |
+| winner bar | 0.521 | 0.543 |
+| inside own inner radius | 5.2 % | 5.2 % |
+| bouts with a lead change | 55.4 % | |
+| p50 length, s | 30.1 | |
+
+And by class, the fencer's wins / draws / losses on one body against the duelist:
+
+| class | bouts | fencer w / d / l | fencer Elo | duelist Elo | p50 s |
+|:--|--:|:--|--:|--:|--:|
+| blade/long | 206 | **121 / 12 / 73** | 1081 | 919 | 29.9 |
+| whip/long | 80 | 44 / 4 / 32 | 1034 | 966 | 36.5 |
+| fist/mid | 82 | 42 / 0 / 40 | 1031 | 969 | 9.4 |
+| maul/long | 156 | 80 / 0 / 76 | 1024 | 976 | 3.4 |
+| mace/long | 116 | 51 / 0 / 65 | 1003 | 997 | 8.1 |
+| fist/short | 74 | 20 / 25 / 29 | 929 | 1071 | 49.0 |
+| none/short, plate/short, the mid bands | 310 | drawn but for 25 | | | 60.0 |
+
+The total is 1.9 standard deviations above the coin, and the blade class 3.3: on a long-reach
+blade the fencer beats the duelist three bouts in five, and that is the sentence this session
+can stand behind. The whip is the same shape with a fifth the sample. The heavy weapons are a
+coin, decided in the first four to eight seconds by whoever smashes first, and the fencer's
+extra beat before its first exchange -- a feint roll, a void, a read -- costs it on the mace.
+The blade wins live on the *drawn* blades, not the reference ones: on the default build the
+fencer is 9 to 11, on the plated 12 to 8, on the two-blades 6 to 2, on the ram-blade 13 to
+17, and it is the forty random bodies -- longer chains, second strikers, odd carriers --
+where it pulls ahead. So the real-bout test the plan made conditional, "the fencer beats the
+duelist over N seeds", is **withheld**: on the one body a test would run it does not, and a
+test that draws a body the fencer happens to win on would assert the draw.
+
+Then the plan's own verification line, all pairs over the random pool, `npm run tournament --
+--bouts 1024 --workers 12 --random 40 --cap 60 --seed 20260906 --policies
+golem-duelist,golem-fencer`, raw rows in `tournaments/fencer-20260906-random.jsonl`:
+
+| | fencer | duelist |
+|:--|--:|--:|
+| head to head, 512 cross bouts, draws as a half | **271** | 241 |
+| against itself, 256 mirror pairs | 256 | 256 |
+| Elo | 1021 | 979 |
+| damage a bout | 85.6 | 92.2 |
+| severs | 435 | 392 |
+| winner bar | 0.780 | 0.802 |
+
+| class | fencer Elo | duelist Elo | fencer w / d / l | duelist w / d / l |
+|:--|--:|--:|:--|:--|
+| maul/long | 1445 | 1440 | 133 / 0 / 7 | 123 / 0 / 19 |
+| mace/long | 1256 | 1321 | 89 / 0 / 29 | 91 / 0 / 23 |
+| fist/mid | 1143 | 979 | 44 / 8 / 18 | 39 / 5 / 50 |
+| blade/long | 1000 | 990 | 72 / 40 / 96 | 59 / 42 / 81 |
+| whip/long | 862 | 856 | 20 / 23 / 45 | 12 / 27 / 49 |
+
+The same story from the other side: 30 bouts of 512 ahead, 1.3 standard deviations, the
+maul rating the body and not the mind at 1445 to 1440, the mace the fencer's one class behind,
+and the fist -- a punch is a short, fast stroke whose recover the reader catches -- its one
+class clearly ahead. The structural columns are inside the band the owner approved for the
+duelist: damage and contacts a bout a little under the duelist's, severs a little over,
+winner bar 0.78 against 0.80, and no more time inside the inner radius.
+
+A last check that the two effects the ablation named do not add: the shorter feint and
+combination timings that read 267.5 alone, run with target selection off, read 257.5. They
+were one draw of the noise, and the shipped timings stand.
+
+### What this session says about the plan
+
+The plan imagined a reader on tip speed, a fencer that beats the duelist, and a table with a
+row per feature. It got a reader on extension (the tip-speed one cannot be built on this
+body), a fencer that beats the duelist on long blades and nowhere else it can be shown, and
+the table. The rows say that most of the eight features are inert on a mirror by
+construction, that the two that do work -- the counter and the second weapon -- are worth
+fifteen to twenty bouts in five hundred, that one was a loss and is off, and that the rest
+are switches with a number beside them waiting for Session 07 to move them together instead
+of one at a time. That is less than the plan wanted and exactly what the tournament can
+support, and the sharper instrument it needed, `--mirror`, is the thing most worth keeping.
+
+### What this session owes
+
+- The owner watches the fencer against the duelist on three random matchups and against itself
+  on two, and says whether it looks like it is reading the other fighter; the status line in
+  `docs/plans/matchup-05-tactics-v2.md` waits on that. The numbers above say it reads a
+  recover four times in five and turns that into three wins in five on a long blade, and
+  nothing about whether that is visible.
+- The reader is right 57 to 78 % of the time and a mind that acted on a better one would be a
+  different mind. The next reader is not more thresholds on the same three signals; it is
+  either a memory of *their* rhythm (the duelist's chamber and commit run on fixed clocks, so
+  the time since their last commit predicts the next one better than any extension does) or
+  the calibrated duel model Session 06 is about to build anyway.
+- On the mace and the maul the fencer's extra beat before its first exchange is a loss, and a
+  matchup-aware "do not feint, do not void, smash first" for a heavy weapon on both sides is
+  one constant away; it is left for Session 07 to find with the rest, because the rows here
+  say the single-switch signal is under the noise at 512 bouts and the tuner has the budget to
+  read it at 5000.
+- A third of every mirror run is drawn by bodies that cannot finish each other (pitch blades,
+  capped arms, plate on plate). They cost a third of every run's budget and rate nothing;
+  the tournament could skip a build whose mirror the baseline already showed drawn, and the
+  Session 04 note that the draw should perhaps not offer them stands.
+- `--override` moves top-level rows only; `guardReachVs.club`, the one nested constant, was
+  ablated through its switch and never swept. A dotted path is a small change to
+  `parseOverrides` and the worker when the tuner wants it.
+- The combination is the feature the mirror pool sees least -- it needs a second striker and
+  the reference dozen has one such build -- and the row that says it is worth 21.5 bouts rests
+  on the random draws that happen to carry one. A pool drawn to have a second striker on half
+  its builds would rate it properly.

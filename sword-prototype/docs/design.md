@@ -513,6 +513,63 @@ own inner radius, the fraction of bouts with a lead change, and the median lengt
 to a JSON-lines file under `tournaments/`, gitignored, refused on reading by version; what is
 committed is the summary in `docs/measurements.md` with the seed that regenerates the file.
 
+## The fencer, which reads the other arm and times its own against it
+
+*Session 05 of the matchup set, 2026-09-06. Implemented; the human gate is open.*
+
+A second scripted golem mind, `golem-fencer`, in `src/golem/tactics-v2.ts`, registered beside
+the duelist in `src/golem/golem-policies.ts`, `src/mind.ts` and `src/units.ts`, and offered on
+the same golem surface. The duelist does not move: it is the baseline every tournament reads the
+fencer against, and the plan's rule that the new file *starts as a copy* is kept in the one
+sense that matters and dropped in the other. The state machine is written out again in full,
+because that is the thing that changes; the arithmetic under it -- `writeAim`, `aimAt`,
+`reachForDistance`, `watch`, the stroke shapes and the capability predicates -- is imported
+from the duelist's file with its behaviour untouched, because a second copy of the envelope rule
+would be a second place for it to be wrong.
+
+**It reads the duelist's view and nothing more.** The frozen choice from Session 00 stands: an
+opponent publishes positions, tip speeds, its hands' weapons and reach, and per-part health, and
+never its capabilities. Every one of the fencer's eight features is a constant in
+`GOLEM_TACTICS_V2` with a switch, so a tournament can turn it off with `--override name=value`
+and say what it was worth, and `golemFencer` takes the table as an argument so a test can hand
+it a copy with one feature off. The features are: reading their stroke's phase; counter-timing
+(strike into their recover, void during their commit, stop-hit a point that closes on a longer
+arm); reach asymmetry (the longer arm holds the stand-off, the shorter one walks in on their
+recover and stays inside once in); target selection by the slot with the least published
+health; the ram chosen by matchup; a feint; the second weapon striking into the first one's
+follow-through; and a guard distance chosen by their weapon kind.
+
+**The phase is read from the arm's extension, not from the point's speed.** The plan said tip
+speed -- rising is a chamber, the peak a commit, falling a recover -- and the first reader was
+written that way and read a duelist's guard as a commit in seven samples of ten. The reason is
+the body, not the reader: a golem's blade point rides 1.78 m out on a solver-driven arm, and its
+published speed sits between 5 and 20 m/s in every stance, median 6.9 approaching, 9.8
+chambering, 10.9 committing, 6.7 recovering. There is no threshold on it that separates
+anything. What does separate the stances is the arm's *extension*, the distance from its point
+to its own socket as a fraction of the hand's published reach: the duelist guards at about
+0.88, chambers drawn in to 0.75, commits at 0.61 with the point closing on my socket, and
+recovers extending back out to 0.85. So a commit is an arm drawn under a threshold whose point
+is closing faster than a threshold; a chamber is an arm drawing in; a recover is the window
+after either; idle is the rest. The confusion matrix against the duelist's true stance and the
+quantile tables the thresholds sit on are in the reader's doc comment and in
+`docs/measurements.md`. The lesson for the sessions after this one is the general one: a
+signal the plan names is a hypothesis about the body, and the body is asked first.
+
+**The tournament needs one body on both sides to see a mind at all.** Over random pairs of
+bodies the body decides most bouts before either mind has done anything -- the Session 04
+baseline had a maul winning 232 of 234 against anything that was not one -- and a policy rated
+on that pool is rated on a coin the body already flipped: the fencer with every feature off
+came within noise of the fencer with every feature on. `scripts/tournament.mjs` therefore
+gained `--cross`, which spends the whole budget on bouts between different policies, and
+`--mirror`, which puts one build on both sides of every pairing so that what differs across a
+bout is the mind alone. The second draw is still made and discarded under `--mirror`, so one
+seed names one walk through the pool whichever flags are on. What the mirror tournament says
+about each feature is in `docs/measurements.md`, and is the only reason a feature is on: the
+counter and the second weapon earn their keep, target selection by health lost bouts on the
+vitality bar and ships off, and the rest are switches with a number beside them. Over 1024
+mirrored bouts the fencer takes 527 to the duelist's 497, and on a long blade 121 to 73; on
+the heavy weapons it is a coin, decided by whoever smashes first.
+
 ## Dying, which is not the same as losing
 
 `over` not stopping the world was the right call about the *bout* and, for a long time, it

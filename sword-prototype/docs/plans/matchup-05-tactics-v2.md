@@ -1,6 +1,19 @@
 # Session 05 -- hand-coded tactics v2, `golem-fencer`
 
-**Status (2026-09-05): planned. Needs 02 and 04.**
+**Status (2026-09-06): implemented; the human gate is open.** `src/golem/tactics-v2.ts` is
+`golem-fencer`, registered in `src/golem/golem-policies.ts`, `src/mind.ts` and `src/units.ts`;
+eight tests on synthetic views in `tests/golem-mind.test.mjs`; `--override`, `--cross` and
+`--mirror` in `scripts/tournament.mjs` with their tests. Three departures from what is written
+below, each recorded in the Session 05 entry of `docs/measurements.md`: the file imports the
+duelist's helpers rather than copying them, so the envelope rule has one home; the phase is read
+from the arm's *extension* and not from tip speed, because a golem's point runs at 5-20 m/s in
+every stance; and the tournament row per feature is a `--mirror` row, one build on both sides,
+because over random pairs of bodies the body decides the bout before either mind has acted. What
+it says: 527 of 1024 mirrored bouts to the duelist's 497, 121 to 73 on long blades, a coin on
+the heavy weapons, and 271 to 241 over random pairs; target selection by health lost bouts and
+ships off. The real-bout test "the fencer beats the duelist over N seeds" is **withheld**: on
+the default build the fencer is 9 to 11, and the blade wins live on the drawn bodies. The owner
+has not watched it.
 
 ## Outcome
 

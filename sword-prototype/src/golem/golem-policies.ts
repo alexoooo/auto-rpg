@@ -1,5 +1,6 @@
 import type { Intent, Mind } from "../mind.ts";
 import { golemTactics } from "./tactics.ts";
+import { golemFencer } from "./tactics-v2.ts";
 
 /**
  * The golem's entry in the policy picker.
@@ -33,6 +34,22 @@ export function golemDuelistMind(seed = (Math.random() * 0x100000000) >>> 0): Mi
   const tactics = golemTactics(seed);
   return {
     name: "golem-duelist",
+    decide: (view, dt): Intent => tactics.decide(view, dt),
+  };
+}
+
+/**
+ * The second golem mind, the one that reads the other fighter. Session 05 of the matchup set.
+ *
+ * Same factory shape and same seed argument, for the same reasons. The paragraph above about
+ * one mind and not two still holds for `idle`: what this adds is not a second control condition
+ * but a second *contender*, and `golem-duelist` goes on being run in every tournament so that a
+ * rating this one earns is earned against a thing that did not move.
+ */
+export function golemFencerMind(seed = (Math.random() * 0x100000000) >>> 0): Mind {
+  const tactics = golemFencer(seed);
+  return {
+    name: "golem-fencer",
     decide: (view, dt): Intent => tactics.decide(view, dt),
   };
 }

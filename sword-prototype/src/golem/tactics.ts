@@ -96,7 +96,7 @@ import type { EffectorCapability, GolemCapabilities } from "./module.ts";
 
 // --------------------------------------------------------------------------------- small arithmetic
 
-const clamp = (value: number, low: number, high: number): number =>
+export const clamp = (value: number, low: number, high: number): number =>
   value < low ? low : value > high ? high : value;
 
 /** Shortest signed way round from one heading to another, in radians. */
@@ -121,9 +121,9 @@ export const unspan = (value: number, min: number, max: number): number =>
   max === min ? 0 : clamp(((value - min) / (max - min)) * 2 - 1, -1, 1);
 
 /** The one shape any position in a view has to have to be read here. */
-interface Point { x: number; y: number; z: number }
+export interface Point { x: number; y: number; z: number }
 
-const distance = (a: Point, b: Point): number => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+export const distance = (a: Point, b: Point): number => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 
 // ------------------------------------------------------------------------------- the capabilities
 
@@ -226,7 +226,7 @@ export function tacticalRanges(
 }
 
 /** The first natural striker that is ready, or null. By iteration, never by name. */
-function readyNatural(body: BodyView): { readonly reach: number } | null {
+export function readyNatural(body: BodyView): { readonly reach: number } | null {
   for (const key of Object.keys(body.naturalAttacks)) {
     const attack = body.naturalAttacks[key];
     if (attack.ready) return attack;
@@ -901,14 +901,18 @@ export type GolemStance =
   "approach" | "measure" | "withdraw" | "chamber" | "commit" | "recover" | "ram";
 
 /** What is worth watching, copied out of the view rather than held as a reference into it. */
-interface Threat {
+export interface Threat {
   readonly tip: Point;
   readonly shoulder: Point;
   tipSpeed: number;
+  /** What the watched hand holds; the primary's when nothing qualifies. Read by the fencer, not here. */
+  weapon: WeaponKind;
+  /** How far the watched hand reaches, so its extension can be read as a fraction. The fencer's too. */
+  reach: number;
 }
 
 /** Where the aim wants the business end, in the socket's own published vocabulary. */
-interface Aim {
+export interface Aim {
   /** Outboard-signed azimuth, radians: positive is away from the golem. */
   swing: number;
   /** Elevation, radians. */
@@ -927,13 +931,15 @@ interface Aim {
  * is left, the faster point is the one to watch. When nothing qualifies it falls back to the body's
  * own published point, which is the honest answer for a body whose weapon is its head.
  */
-function watch(them: BodyView, into: Threat): Threat {
-  let best: { tip: Point; shoulder: Point; speed: number } | null = null;
+export function watch(them: BodyView, into: Threat): Threat {
+  let best: { tip: Point; shoulder: Point; speed: number; weapon: WeaponKind; reach: number } | null = null;
   for (const name of ["primary", "secondary"] as const) {
     const hand = them.hands[name];
     if (hand.lost || isShield(hand.weapon)) continue;
     if (!best || hand.tipSpeed > best.speed) {
-      best = { tip: hand.tip, shoulder: hand.shoulder, speed: hand.tipSpeed };
+      best = {
+        tip: hand.tip, shoulder: hand.shoulder, speed: hand.tipSpeed, weapon: hand.weapon, reach: hand.reach,
+      };
     }
   }
   const tip = best ? best.tip : them.tip;
@@ -941,6 +947,8 @@ function watch(them: BodyView, into: Threat): Threat {
   into.tip.x = tip.x; into.tip.y = tip.y; into.tip.z = tip.z;
   into.shoulder.x = shoulder.x; into.shoulder.y = shoulder.y; into.shoulder.z = shoulder.z;
   into.tipSpeed = best ? best.speed : them.tipSpeed;
+  into.weapon = best ? best.weapon : them.hands.primary.weapon;
+  into.reach = best ? best.reach : them.reach;
   return into;
 }
 
@@ -954,7 +962,7 @@ function watch(them: BodyView, into: Threat): Threat {
  * transform and not a feedback term: the socket really is where the trunk really is, and nothing
  * downstream of this writes the trunk.
  */
-function aimAt(socket: Point, mark: Point, frameHeading: number, outboard: number, into: Aim): Aim {
+export function aimAt(socket: Point, mark: Point, frameHeading: number, outboard: number, into: Aim): Aim {
   const dx = mark.x - socket.x;
   const dy = mark.y - socket.y;
   const dz = mark.z - socket.z;
@@ -980,7 +988,7 @@ function aimAt(socket: Point, mark: Point, frameHeading: number, outboard: numbe
  * length is turned into a command. Passing it through here rather than writing it at the call site
  * keeps "every hand command is inside the envelope by construction" true of one function.
  */
-function writeAim(
+export function writeAim(
   hand: HandIntent,
   cap: EffectorCapability,
   aim: Aim,
@@ -1030,7 +1038,7 @@ function writeAim(
  * `writeAim` gives about `pointerX`: a command written into an axis that does not exist is a
  * channel nobody reads.
  */
-function reachForDistance(
+export function reachForDistance(
   metres: number,
   reach: number,
   cap: EffectorCapability,
@@ -1190,7 +1198,7 @@ export const STROKE_SHAPES: Record<WeaponKind, StrokeShape> = Object.freeze({
  * Not `Object.assign` and not a spread, because `Intent` is overwritten in place 240 times a
  * second and the reader on the other side of it keeps the object it was handed.
  */
-const mirror = (from: HandIntent, into: HandIntent): void => {
+export const mirror = (from: HandIntent, into: HandIntent): void => {
   into.pointerX = from.pointerX;
   into.pointerY = from.pointerY;
   into.reach = from.reach;
@@ -1201,7 +1209,7 @@ const mirror = (from: HandIntent, into: HandIntent): void => {
 };
 
 /** A blank command this mind owns and overwrites in place; `decide` runs 240 times a second. */
-const freshGolemIntent = (): Intent => ({
+export const freshGolemIntent = (): Intent => ({
   forward: 0,
   strafe: 0,
   turn: 0,
@@ -1231,7 +1239,9 @@ export function golemTactics(seed: number): GolemTactics {
 
   const aim: Aim = { swing: 0, lift: 0, horizontal: 0 };
   const cover: Aim = { swing: 0, lift: 0, horizontal: 0 };
-  const threat: Threat = { tip: { x: 0, y: 0, z: 0 }, shoulder: { x: 0, y: 0, z: 0 }, tipSpeed: 0 };
+  const threat: Threat = {
+    tip: { x: 0, y: 0, z: 0 }, shoulder: { x: 0, y: 0, z: 0 }, tipSpeed: 0, weapon: "empty", reach: 0,
+  };
   const mark: Point = { x: 0, y: 0, z: 0 };
   const guardMark: Point = { x: 0, y: 0, z: 0 };
 

@@ -12,9 +12,10 @@
 // that runs in the low hundreds, and the measure it is compared against in
 // `docs/measurements.md` shares one module across a run, which is the standing warning that the
 // two are different cells.
-import { parentPort } from "node:worker_threads";
+import { parentPort, workerData } from "node:worker_threads";
 
 import { innerReach } from "../src/golem/tactics.ts";
+import { GOLEM_TACTICS_V2 } from "../src/golem/tactics-v2.ts";
 import { freshHavok, runBout } from "./bout-runner.mjs";
 import { armedHand } from "./tournament.mjs";
 
@@ -124,4 +125,13 @@ parentPort.on("message", (message) => {
     (error) => parentPort.postMessage({ type: "error", index: message.job.index, message: String(error?.stack ?? error) }),
   );
 });
+// The fencer's table, moved before the first bout and for the life of this worker: a row from a
+// run with `--override` is a row of the fencer as overridden, and the run's header says how.
+if (workerData?.overrides) {
+  for (const name of Object.keys(workerData.overrides)) {
+    if (!(name in GOLEM_TACTICS_V2)) throw new Error(`--override ${name}: not a row of GOLEM_TACTICS_V2`);
+  }
+  Object.assign(GOLEM_TACTICS_V2, workerData.overrides);
+}
+
 parentPort.postMessage({ type: "ready" });

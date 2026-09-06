@@ -53,7 +53,7 @@ import {
 // registry the setup screen builds its picker from, so a policy that exists is selectable and a
 // policy that is selectable exists. It reaches this file for types only, so the edge runs one way
 // at run time and there is no cycle to be careful about.
-import { golemDuelistMind } from "./golem/golem-policies.ts";
+import { golemDuelistMind, golemFencerMind } from "./golem/golem-policies.ts";
 
 /**
  * What a fighter can ask for.
@@ -1236,6 +1236,7 @@ export const POLICIES: readonly Policy[] = [
   { name: "archer", label: "Archer", surface: HUMANOID_SURFACE, create: archerMind },
   { name: "crawler", label: "Crawler", surface: HUMANOID_SURFACE, create: crawlerMind },
   { name: "golem-duelist", label: "Golem duelist", surface: GOLEM_SURFACE, create: golemDuelistMind },
+  { name: "golem-fencer", label: "Golem fencer", surface: GOLEM_SURFACE, create: golemFencerMind },
 ];
 
 /**

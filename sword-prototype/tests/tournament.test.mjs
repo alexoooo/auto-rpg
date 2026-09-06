@@ -22,6 +22,7 @@ import {
   buildPool,
   elo,
   formatSummary,
+  parseOverrides,
   policyPairs,
   readRows,
   reachBand,
@@ -207,4 +208,50 @@ test("two_workers_over_four_short_bouts_twice_write_the_same_rows_under_one_seed
   assert.equal(first.summary.byPolicy[0].bouts, 8);
   assert.ok(first.summary.byClass.length >= 1);
   for (const entry of first.summary.byClass) assert.match(entry.name, /^golem-duelist @ \w+\/(short|mid|long)$/);
+});
+
+test("cross_drops_the_mirror_pairs_and_mirror_puts_one_build_on_both_sides", () => {
+  const pool = buildPool({ seed: SEED, random: 3 });
+  const policies = ["golem-duelist", "golem-fencer"];
+  const plain = scheduleJobs({ pool, policies, pairings: 8, seed: SEED, cap: 30 });
+  const cross = scheduleJobs({ pool, policies, pairings: 8, seed: SEED, cap: 30, cross: true });
+  assert.ok(plain.some((job) => job.left.policy === job.right.policy), "a plain schedule has mirror-policy bouts");
+  assert.ok(cross.every((job) => job.left.policy !== job.right.policy), "a cross schedule has none");
+  assert.equal(cross.length, 16, "cross spends the same budget");
+  assert.throws(() => scheduleJobs({ pool, policies: ["golem-duelist"], pairings: 2, seed: SEED, cap: 30, cross: true }), /at least two/);
+  const mirror = scheduleJobs({ pool, policies, pairings: 8, seed: SEED, cap: 30, cross: true, mirror: true });
+  assert.ok(mirror.every((job) => job.left.build === job.right.build), "one build on both sides of every bout");
+  assert.ok(plain.some((job) => job.left.build !== job.right.build), "which a plain schedule does not do");
+  // The mirror run draws the same first build per pairing the plain run did: the second draw
+  // is made and discarded, so one seed names one walk through the pool whichever flags are on.
+  // (The odd jobs are the side-swapped halves, whose left is the other draw.)
+  const firsts = (jobs) => jobs.filter((_, index) => index % 2 === 0).map((job) => job.left.build);
+  assert.deepEqual(firsts(mirror), firsts(cross));
+  assert.ok(new Set(mirror.map((job) => job.left.build)).size > 1, "and the builds still vary bout to bout");
+});
+
+test("overrides_are_name_value_pairs_the_worker_applies_to_the_fencer_and_refuses_when_unknown", async (t) => {
+  assert.equal(parseOverrides(""), null);
+  assert.deepEqual(parseOverrides("comboFraction=0, stopHit=false,readSeconds=0.1,voidDuringCommit=true"), {
+    comboFraction: 0, stopHit: false, readSeconds: 0.1, voidDuringCommit: true,
+  });
+  assert.throws(() => parseOverrides("comboFraction"), /name=value/);
+  assert.throws(() => parseOverrides("comboFraction=lots"), /neither a number/);
+  const dir = mkdtempSync(join(tmpdir(), "sword-tournament-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const run = (name, overrides) => runTournament({
+    seed: SEED, bouts: 4, workers: 2, policies: ["golem-duelist", "golem-fencer"], random: 2, cap: 4,
+    out: join(dir, name), overrides, cross: true, mirror: true,
+  });
+  const result = await run("overridden.jsonl", { comboFraction: 0 });
+  assert.equal(result.rows.length, 4);
+  for (const r of result.rows) {
+    assert.notEqual(r.left.policy, r.right.policy);
+    assert.equal(r.left.build, r.right.build);
+  }
+  const back = readRows(join(dir, "overridden.jsonl"));
+  assert.deepEqual(back.header.overrides, { comboFraction: 0 }, "the header says how the fencer was overridden");
+  assert.equal(back.header.cross, true);
+  assert.equal(back.header.mirror, true);
+  await assert.rejects(run("refused.jsonl", { noSuchRow: 1 }), /not a row of GOLEM_TACTICS_V2/);
 });
