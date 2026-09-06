@@ -408,12 +408,15 @@ export function withGolemBuild(
  * sentence -- and the radio button that hands you a body is one click away. The build is passed
  * in for the reason `withGolemBuild` gives; `unit` and `policy` are the registry's own ids,
  * spelled here because this module cannot ask the registry, and `tests/bout.test.mjs` checks
- * them against it.
+ * them against it. The policy is the fencer, because it led the final table of the matchup
+ * set -- 0.560 points a bout over random pairs of bodies on seed 20260906, 3,072 bouts, five
+ * minds, Session 09 of the matchup set in `docs/measurements.md` -- and the screen is the
+ * random-pairs cell; the picker offers the other four.
  */
 export function golemMatchup(build: GolemSetup): Matchup {
   const side = (): SideSetup => ({
     unit: "golem",
-    policy: "golem-duelist",
+    policy: "golem-fencer",
     control: "mind",
     handA: "empty",
     handB: "empty",

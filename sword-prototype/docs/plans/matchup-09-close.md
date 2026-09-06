@@ -1,6 +1,14 @@
 # Session 09 -- the durable record
 
-**Status (2026-09-05): planned. Needs 08.**
+**Status (2026-09-06): implemented; the human gate is open.** The final table, policy by
+build class on both pools with the structural measures, and the pointer table to every
+number of the set are the Session 09 entry of `../measurements.md`; the matchup screen's
+default policy is the fencer, which led that table over random pairs of bodies, named with
+its seed in `../../src/bout.ts`, and the picker offers all five golem minds; `../design.md`
+carries a section per session from 03 on and the weapons of 01 and 02 under the golem's own
+sections; no file was deleted in this set, so `../deleted-paths.md` stands as it was; the
+overview's status line is updated and its gates are listed there, all open. Verdict: awaiting
+the owner.
 
 ## Outcome
 

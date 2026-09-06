@@ -1,8 +1,9 @@
 # Matchup -- live roadmap
 
-> **2026-09-05 status: plan set written, session 00 landed, nothing accepted.** Ten files, one
-> per landable session. Sessions 01 to 09 are open. Every session from 01 on ends at a human gate
-> that the owner records in that session's status line; an agent may not write "accepted" there.
+> **2026-09-06 status: every session implemented, nothing accepted.** Ten files, one per
+> landable session. Sessions 01 to 09 have all landed on `main` between 2026-09-05 and
+> 2026-09-06, each with its status line reading "implemented; the human gate is open"; every
+> gate below is the owner's to answer, and an agent may not write "accepted" in any of them.
 > The golem plan set (`golem-00-overview.md` and its eleven session files) stays in place beside
 > this one: its own gates are still open and this set does not answer them.
 
@@ -100,3 +101,23 @@ generator from 03. Session 02 needs the impulse row from 01.
 Each session names its own gate. The set as a whole has one: the owner opens the matchup screen,
 randomises both sides a dozen times, watches each fight, and says whether it reads as high-level
 fighting. Until that is written into this file by the owner, the status line above stays as it is.
+
+The gates, listed at the close-out (Session 09, 2026-09-06), all open:
+
+| session | the owner is asked | verdict |
+| --- | --- | --- |
+| 01 | whether a leaned ram reads as a blow that hurts, and a fist as a punch | open |
+| 02 | whether the mace and the maul read as strong attacks and the whip as a lash with reach | open |
+| 03 | whether the matchup screen, randomised a dozen times, shows the bodies and starts the fight | open |
+| 04 | whether the harness's first table is believable against what the owner sees | open |
+| 05 | whether the fencer reads as fencing against the duelist on random matchups | open |
+| 06 | whether the planner reads as choosing, and the replan cost is unfelt | open |
+| 07 | whether a champion that rates higher also looks better, class by class | open |
+| 08 | whether the neural contender can be told from the champion, and which reads better | open |
+| 09 | the set's one gate above: a dozen random matchups, and whether it reads as high-level fighting | open |
+
+What the final table says, for the owner's eye to check against: the fencer leads over random
+pairs of bodies at 0.560 points a bout on seed 20260906, and is the matchup screen's default;
+the three minds built on it -- planner, champion, neural -- rate level with what they were built
+on and a few hundredths below the fencer; the structural measures stayed inside the approved band
+for all five. The set's Session 09 entry in `../measurements.md` holds the table by build class.

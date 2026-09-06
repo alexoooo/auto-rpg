@@ -13152,3 +13152,109 @@ than the defaults, one flag on the mind, so that the one structural difference f
 teacher is measured rather than argued from; and a census of which asks the network answers
 differently from the champion, by arm class, since 0.14 % of asks is 45 decisions and the
 random-pairs table suggests they were not all for the worse.
+
+## Session 09 of the matchup set — 2026-09-06: the final table, and where each of the five minds stands on it
+
+The close-out. Nothing here is a new measurement: the two tournaments below are Session 08's
+evaluation runs, read once more by build class so that the set's last table is the one the
+plan asked for, policy by build class with the structural measures beside it. Seed 20260906,
+the twelve reference builds and forty draws, every pair of the five golem minds, 3,072 bouts
+each way, 32 workers, the 60 s cap; the raw logs are `tournaments/neural-20260906-mirror.jsonl`
+and `tournaments/neural-20260906-random.jsonl`, gitignored as every log is.
+
+### The five minds, whole
+
+| pool | mind | points / bout | bar margin | w/d/l | damage / bout | contacts | winner bar | inside inner | lead changed | p50 s |
+|:--|:--|--:|--:|:--|--:|--:|--:|--:|--:|--:|
+| random pairs | **fencer** | **0.560** | +0.076 | 531/315/384 | 97.9 | 182.1 | 0.799 | 3.9 % | 25.9 % | 23.4 |
+| random pairs | duelist | 0.535 | +0.048 | 498/320/412 | 85.9 | 174.4 | 0.807 | 7.2 % | 25.4 % | 22.1 |
+| random pairs | neural | 0.483 | −0.019 | 346/490/388 | 76.1 | 154.6 | 0.828 | 4.8 % | 21.6 % | 37.3 |
+| random pairs | planner | 0.466 | −0.050 | 310/526/394 | 79.2 | 171.2 | 0.804 | 5.3 % | 24.2 % | 41.6 |
+| random pairs | champion | 0.457 | −0.055 | 290/543/397 | 93.2 | 156.0 | 0.827 | 3.5 % | 22.8 % | 46.1 |
+| mirrored | duelist | **0.532** | +0.025 | 440/428/362 | 80.9 | 254.4 | 0.540 | 6.2 % | 51.5 % | 30.9 |
+| mirrored | fencer | 0.523 | +0.010 | 463/360/407 | 90.4 | 230.3 | 0.513 | 5.7 % | 56.7 % | 26.6 |
+| mirrored | planner | 0.490 | −0.005 | 382/442/406 | 81.4 | 220.0 | 0.533 | 7.3 % | 54.5 % | 34.4 |
+| mirrored | neural | 0.478 | −0.024 | 361/449/414 | 81.3 | 233.8 | 0.519 | 6.7 % | 54.5 % | 36.7 |
+| mirrored | champion | 0.477 | −0.007 | 347/479/404 | 79.4 | 255.1 | 0.538 | 5.9 % | 52.9 % | 38.6 |
+
+The matchup screen's cell is random pairs, and the fencer leads it by two and a half
+hundredths over the duelist and by eight over the rest; on the mirrored pool the duelist and
+the fencer are a hundredth apart, which at 1,230 bouts is inside one σ. The matchup screen's
+default policy is therefore the fencer, named with this seed in `src/bout.ts`, and the picker
+offers the other four.
+
+### Policy by build class
+
+Points a bout for the mind holding a body of that class -- the armed terminal and the reach
+band it was published at -- with the bouts it was read from in parentheses; the best mind of
+a row in bold. A class is what the tournament reads of the build, so a fist and a capped
+socket are different rows here where the champion's own table folds them together.
+
+Random pairs, where a body's class is most of the outcome and the mind is the rest:
+
+| build class | bouts | duelist | fencer | planner | champion | neural |
+|:--|--:|--:|--:|--:|--:|--:|
+| blade/long | 1148 | 0.436 (234) | **0.453** (192) | 0.360 (260) | 0.415 (234) | 0.384 (228) |
+| plate/short | 840 | 0.325 (160) | 0.366 (164) | **0.380** (158) | 0.334 (202) | 0.359 (156) |
+| maul/long | 832 | 0.918 (184) | **0.966** (176) | 0.750 (182) | 0.746 (132) | 0.829 (158) |
+| mace/long | 788 | 0.794 (172) | **0.855** (138) | 0.690 (150) | 0.676 (162) | 0.623 (166) |
+| fist/mid | 542 | 0.645 (86) | **0.701** (144) | 0.544 (102) | 0.439 (106) | 0.553 (104) |
+| whip/long | 524 | **0.417** (102) | 0.409 (116) | 0.302 (106) | 0.370 (100) | 0.395 (100) |
+| blade/mid | 480 | 0.289 (102) | **0.390** (82) | 0.368 (102) | 0.321 (98) | 0.328 (96) |
+| fist/short | 390 | 0.428 (76) | 0.415 (94) | 0.352 (64) | **0.481** (80) | 0.428 (76) |
+| plate/mid | 272 | 0.224 (58) | 0.175 (60) | 0.307 (44) | 0.288 (52) | **0.319** (58) |
+| none/short | 198 | **0.515** (34) | 0.450 (40) | 0.310 (42) | 0.339 (28) | 0.509 (54) |
+| mace/mid | 130 | **0.364** (22) | 0.229 (24) | 0.275 (20) | 0.306 (36) | 0.214 (28) |
+
+Mirrored, where the body is the same on both sides and the mind is the whole difference:
+
+| build class | bouts | duelist | fencer | planner | champion | neural |
+|:--|--:|--:|--:|--:|--:|--:|
+| blade/long | 1120 | 0.490 (206) | **0.583** (204) | 0.487 (238) | 0.512 (242) | 0.435 (230) |
+| maul/long | 884 | **0.543** (188) | 0.518 (164) | 0.454 (196) | 0.470 (164) | 0.517 (172) |
+| plate/short | 824 | 0.530 (150) | **0.566** (160) | 0.471 (170) | 0.478 (180) | 0.463 (164) |
+| mace/long | 748 | **0.565** (168) | 0.564 (140) | 0.458 (144) | 0.419 (142) | 0.484 (154) |
+| fist/mid | 596 | **0.581** (86) | 0.471 (174) | 0.543 (128) | 0.443 (96) | 0.482 (112) |
+| whip/long | 492 | **0.583** (90) | 0.458 (106) | 0.561 (90) | 0.486 (106) | 0.430 (100) |
+| blade/mid | 460 | 0.500 (110) | 0.500 (68) | 0.500 (96) | 0.500 (100) | 0.500 (86) |
+| fist/short | 404 | **0.537** (94) | 0.500 (94) | 0.446 (56) | 0.500 (72) | 0.494 (88) |
+| plate/mid | 260 | 0.481 (52) | 0.475 (40) | **0.583** (54) | 0.422 (58) | 0.536 (56) |
+| none/short | 204 | 0.510 (50) | 0.479 (48) | 0.461 (38) | 0.517 (30) | **0.539** (38) |
+| mace/mid | 152 | 0.500 (36) | 0.500 (32) | 0.500 (20) | 0.500 (40) | 0.500 (24) |
+
+Reading the class rows with their bout counts in view: the blade on a long chain is the only
+class read from more than a thousand bouts, and there the fencer leads on both pools, by
+nine hundredths mirrored, which is three σ at that count. The maul and the mace on long chains
+win most of their random pairs under any mind, because a maul is the body doing the fighting
+(Session 02's table); the fencer takes those rows too. Every row under 200 bouts is a reading
+of noise with a mind's name on it, and `blade/mid` and `mace/mid` mirrored are all draws:
+those bodies cannot reach each other's vitals in sixty seconds under any of the five.
+
+### Where the numbers of the set are
+
+| what | where | seed |
+|:--|:--|:--|
+| replan cost of the planner: 0.09 ms on a quiet host, 0.3 to 1.4 ms with 32 workers loading it, against a 5 ms budget | Session 06 entry | 20260906 |
+| the duel model: 48 states a pair, 192 roots, fitted from the exchange log | Session 06 entry, `src/golem/duel-model-tables.ts` | 20260906 |
+| the tuning run: 16 + 8 × 6 generations, about a hundred thousand bouts, five hours | Session 07 entry, `src/golem/tactics-champions.ts` | 20260907 |
+| the training run: 384 bouts recorded, 31,919 asks, 12 generations, 19,584 bouts, one hour | Session 08 entry, `src/golem/neural-weights.ts` | 20260908 |
+| the weapons: impulse row, ram, fist, mace, maul, whip | Sessions 01 and 02 entries | -- |
+| the matchup screen | Session 03 entry | -- |
+| the harness and its first tables | Session 04 entry | 20260906 |
+| the fencer's features, each behind a tournament row | Session 05 entry | 20260906 |
+
+### What the set says, at its end
+
+The owner asked for strong AI for random body layouts and expected honestly that the learned
+minds might not be the strongest. They are not. Across four sessions of minds the hand-coded
+fencer of Session 05 is the best of the five on the cell the screen shows, the duelist of the
+golem set is second and within noise of it on the mirrored pool, and the three minds built on
+top of the fencer -- the planner searching a model, the champion tuning the numbers, the
+network imitating the champion -- each confirm level with what they were built on and rate a
+few hundredths below the fencer on the pool the search never saw. The structural columns are
+inside the band the owner approved for every one of the five. What limited the three was not
+the ideas but the harness's noise at the budget of a session: σ 0.032 for 384 bouts, so a
+change worth a hundredth costs a night to see, and Sessions 06 to 08 each spent their hours
+finding that out in their own way and wrote the number down. The set's one gate is the
+owner's, unchanged: a dozen random matchups on the screen, and whether it reads as
+high-level fighting.
