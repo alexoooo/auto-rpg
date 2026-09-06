@@ -298,7 +298,9 @@ export function runBout({
       stepPair(left, right, FIXED, now);
       sampleBoutRecorder(recorder, left, right, FIXED, now);
     }
-    if (onSample) onSample({ left, right, dt: FIXED, clock: now });
+    // The records ride along so a sampler can read damage dealt as it stands; the tournament
+    // worker's exchange log (Session 06 of the matchup set) is the one that does.
+    if (onSample) onSample({ left, right, dt: FIXED, clock: now, records: { left: leftRecord, right: rightRecord } });
     const struck = Math.max(
       sides[0].combat.lastHit ? sides[0].combat.lastHit.at : -Infinity,
       sides[1].combat.lastHit ? sides[1].combat.lastHit.at : -Infinity,

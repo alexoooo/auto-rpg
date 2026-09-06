@@ -14,10 +14,14 @@
 // two are different cells.
 import { parentPort, workerData } from "node:worker_threads";
 
+import { observe, stateKey } from "../src/golem/duel-model.ts";
 import { innerReach } from "../src/golem/tactics.ts";
+import { GOLEM_PLANNER } from "../src/golem/planner.ts";
 import { GOLEM_TACTICS_V2 } from "../src/golem/tactics-v2.ts";
+import { policyMind } from "../src/mind.ts";
+import { policyForUnit } from "../src/units.ts";
 import { freshHavok, runBout } from "./bout-runner.mjs";
-import { armedHand } from "./tournament.mjs";
+import { EXCHANGE_FLICKER_SECONDS, EXCHANGE_WINDOW_SECONDS, armedHand } from "./tournament.mjs";
 
 /** The dead band a lead has to clear before it counts, in bar fraction; the Session 11 number. */
 const LEAD_DEAD_BAND = 0.02;
@@ -43,8 +47,77 @@ function insideOwnInnerRadius(view) {
   return gap < near;
 }
 
+/** The options that run between exchanges; a window of one is cut at the cap. */
+const FREE_OPTIONS = new Set(["hold", "close", "withdraw", "circle"]);
+
+/**
+ * The exchange log of one side, when its mind is a fencer: one record per option window, in
+ * the duel model's vocabulary. The state is read off the fencer's own reading and the view,
+ * the damage off the bout's records, both as they stand at the sample.
+ *
+ * A window of a free option closes when the option changes or at the cap. A window of an
+ * exchange option -- strike, feint, wait, ram -- runs until the fencer is free again, however
+ * long the exchange takes, because the blow lands at the end of the commit and the riposte in
+ * the recover, and a window cut at half a second put a strike's damage and its cost into the
+ * record after it, where the search could only reach them through a transition. Whole, the
+ * record says what one decision cost and earned and where it left the duel.
+ */
+function exchangeLogger(mind, side) {
+  const fencer = mind.fencer;
+  if (!fencer) return null;
+  const other = side === "left" ? "right" : "left";
+  const records = [];
+  let open = null;
+  const stateNow = (sample) => stateKey(observe(fencer.reading, sample[side].view.opponent.reach));
+  return {
+    records,
+    sample(sample) {
+      const state = stateNow(sample);
+      const dealt = sample.records[side].damage;
+      const taken = sample.records[other].damage;
+      const option = fencer.option;
+      if (open !== null && option !== open.option && sample.clock - open.at < EXCHANGE_FLICKER_SECONDS) {
+        open.option = option;
+      }
+      const changed = open !== null && option !== open.option;
+      const capped = open !== null && sample.clock - open.at >= EXCHANGE_WINDOW_SECONDS;
+      const settled = open === null || FREE_OPTIONS.has(open.option) || fencer.reading.mine === "free";
+      if (open !== null && settled && (changed || capped)) {
+        records.push({
+          state: open.state, option: open.option,
+          dealt: dealt - open.dealt, taken: taken - open.taken,
+          seconds: sample.clock - open.at, next: state,
+        });
+        open = null;
+      }
+      if (open === null) open = { state, option, dealt, taken, at: sample.clock };
+    },
+    close(sample) {
+      if (open === null) return;
+      const state = stateNow(sample);
+      records.push({
+        state: open.state, option: open.option,
+        dealt: sample.records[side].damage - open.dealt, taken: sample.records[other].damage - open.taken,
+        seconds: sample.clock - open.at, next: state,
+      });
+      open = null;
+    },
+  };
+}
+
 async function runJob(job) {
   const physics = await freshHavok();
+  // The minds are built here and handed in, rather than left to `runBout` to build from the
+  // policy names, so that this file can hold the fencer's handle for the exchange log. Same
+  // factory, same seed, so a row is the row `runBout` would have made on its own.
+  const minds = {
+    left: policyMind(policyForUnit("golem", job.left.policy), job.seeds[0]),
+    right: policyMind(policyForUnit("golem", job.right.policy), job.seeds[1]),
+  };
+  const loggers = workerData?.exchanges
+    ? { left: exchangeLogger(minds.left, "left"), right: exchangeLogger(minds.right, "right") }
+    : { left: null, right: null };
+  let lastSample = null;
   const ends = { left: 1, right: 1 };
   const inside = { left: 0, right: 0 };
   const reach = { left: null, right: null };
@@ -63,8 +136,13 @@ async function runJob(job) {
     seeds: job.seeds,
     maxSeconds: job.cap,
     physics,
+    leftMind: minds.left,
+    rightMind: minds.right,
     onSample(sample) {
       samples += 1;
+      lastSample = sample;
+      loggers.left?.sample(sample);
+      loggers.right?.sample(sample);
       for (const side of ["left", "right"]) {
         const view = sample[side].view;
         ends[side] = view.self.vitality;
@@ -101,7 +179,11 @@ async function runJob(job) {
       peakTipDriven: record.peakTipDriven,
     };
   };
-  return {
+  if (lastSample !== null) {
+    loggers.left?.close(lastSample);
+    loggers.right?.close(lastSample);
+  }
+  const row = {
     index: job.index,
     pairing: job.pairing,
     swapped: job.swapped,
@@ -113,6 +195,10 @@ async function runJob(job) {
     left: side("left"),
     right: side("right"),
   };
+  if (workerData?.exchanges) {
+    row.exchanges = { left: loggers.left?.records ?? null, right: loggers.right?.records ?? null };
+  }
+  return row;
 }
 
 parentPort.on("message", (message) => {
@@ -125,13 +211,15 @@ parentPort.on("message", (message) => {
     (error) => parentPort.postMessage({ type: "error", index: message.job.index, message: String(error?.stack ?? error) }),
   );
 });
-// The fencer's table, moved before the first bout and for the life of this worker: a row from a
-// run with `--override` is a row of the fencer as overridden, and the run's header says how.
+// The fencer's table and the planner's, moved before the first bout and for the life of this
+// worker: a row from a run with `--override` is a row of the minds as overridden, and the run's
+// header says how. A name is looked up on the planner first, so `explore=0.5` is a planner row.
 if (workerData?.overrides) {
-  for (const name of Object.keys(workerData.overrides)) {
-    if (!(name in GOLEM_TACTICS_V2)) throw new Error(`--override ${name}: not a row of GOLEM_TACTICS_V2`);
+  for (const [name, value] of Object.entries(workerData.overrides)) {
+    if (name in GOLEM_PLANNER) GOLEM_PLANNER[name] = value;
+    else if (name in GOLEM_TACTICS_V2) GOLEM_TACTICS_V2[name] = value;
+    else throw new Error(`--override ${name}: not a row of GOLEM_TACTICS_V2 or GOLEM_PLANNER`);
   }
-  Object.assign(GOLEM_TACTICS_V2, workerData.overrides);
 }
 
 parentPort.postMessage({ type: "ready" });

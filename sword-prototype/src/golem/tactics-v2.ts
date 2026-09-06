@@ -3,6 +3,7 @@
 // it, so a whole bout of this mind's cadence can be stepped in front of a hand-written view.
 import { isShield, type Striker, type WeaponKind } from "../hands.ts";
 import { mulberry32 } from "../rng.ts";
+import type { DuelOption, DuelReading, MyPhase } from "./duel-model.ts";
 import type { BodyView, FighterView, HandIntent, HandName, Intent } from "../mind.ts";
 import type { EffectorCapability, GolemCapabilities } from "./module.ts";
 import {
@@ -282,6 +283,16 @@ const FENCER = {
    * meeting; a blade put out to meet a maul is a blade the maul goes through. The whip and the
    * shield rows are the sword's until a sweep separates them.
    */
+  // ---- 9. a director, when one is attached ------------------------------------------------
+
+  /**
+   * How often a director is asked between exchanges. Session 06 hangs the planner here: the
+   * fencer publishes what it can do and what it reads, the director names an option, and the
+   * fencer runs it until the next ask or until the option starts an exchange, which then runs
+   * to its end as every exchange does. Six asks a second, which is the plan's 4 to 8 Hz.
+   */
+  replanSeconds: 0.167,
+
   guardByTheirs: true,
   guardReachVs: {
     sword: 0.70, axe: 0.70, bow: 0.70, shield: 0.70, buckler: 0.70,
@@ -449,8 +460,23 @@ export interface GolemFencer {
   readonly combo: boolean;
   /** Whether the shorter arm has closed and is holding inside. */
   readonly inside: boolean;
+  /** The option in force, in the duel model's vocabulary: what the fencer is doing, as a name. */
+  readonly option: DuelOption;
+  /** What the fencer reads this step, for the duel model to discretise. */
+  readonly reading: DuelReading;
+  /** The options open this step, which is what a director chooses among. */
+  readonly available: readonly DuelOption[];
   decide(view: FighterView, dt: number): Intent;
 }
+
+/**
+ * A director names the fencer's next option, from the ones open, given what it reads. The
+ * planner is one; a test can be another. It is asked every `replanSeconds` between exchanges
+ * and once more the step an exchange ends, and never during one.
+ */
+export type DuelDirector = (
+  available: readonly DuelOption[], reading: DuelReading, view: FighterView,
+) => DuelOption;
 
 /** One hand's stroke in flight: which hand, its shape, and its own clock. */
 interface Stroke {
@@ -460,7 +486,9 @@ interface Stroke {
   chamberSeconds: number;
 }
 
-export function golemFencer(seed: number, T: FencerTactics = GOLEM_TACTICS_V2): GolemFencer {
+export function golemFencer(
+  seed: number, T: FencerTactics = GOLEM_TACTICS_V2, director: DuelDirector | null = null,
+): GolemFencer {
   const random = mulberry32(seed);
   const intent = freshGolemIntent();
   const reader = strokeReader(T);
@@ -507,6 +535,17 @@ export function golemFencer(seed: number, T: FencerTactics = GOLEM_TACTICS_V2): 
 
   let ramFired = false;
   let ramFiredAt = 0;
+
+  /** The option in force, named for the log and the model. */
+  let option: DuelOption = "hold";
+  /** The director's last answer, cleared when an exchange ends so the next step asks again. */
+  let directed: DuelOption | null = null;
+  let sinceAsk = Number.POSITIVE_INFINITY;
+  const available: DuelOption[] = [];
+  const reading: DuelReading = {
+    gap: 0, strike: 0, slack: 0, gapRate: 0, theirWeapon: "empty", myWeapon: "empty",
+    theirs: "idle", mine: "free",
+  };
 
   const goTo = (next: FencerStance): void => {
     stance = next;
@@ -783,20 +822,38 @@ export function golemFencer(seed: number, T: FencerTactics = GOLEM_TACTICS_V2): 
         coverReachFor(me.weapon, theirWeapon));
     };
 
-    /** Enter a chamber: pick the target, roll the feint, set the chamber's length. */
-    const enterExchange = (quick: boolean): void => {
+    /**
+     * Enter a chamber: pick the target, roll the feint (or take the director's word for it),
+     * set the chamber's length.
+     */
+    const enterExchange = (quick: boolean, forceFeint: boolean | null = null): void => {
       target = chooseTarget(them, socket, reach, cap, trunkHeading, me.outboard);
       chamberSeconds = quick ? Math.min(shape.chamberSeconds, T.stopHitChamberSeconds)
         : shape.chamberSeconds;
-      const feint = !quick && T.feintFraction > 0 &&
+      const feint = forceFeint !== null ? forceFeint : !quick && T.feintFraction > 0 &&
         (theirs === "idle" || theirs === "chamber") && random() < T.feintFraction;
+      if (feint) option = "feint";
       nextPrefer = spare;
       ranged = 0;
       goTo(feint ? "feint" : "chamber");
     };
 
+    // ---- what the model reads (Session 06) -------------------------------------------------
+    reading.gap = gap;
+    reading.strike = strike;
+    reading.slack = slack;
+    reading.gapRate = gapRate;
+    reading.theirWeapon = theirWeapon;
+    reading.myWeapon = me.weapon;
+    reading.theirs = theirs;
+    reading.mine = stance === "recover" ? "recover"
+      : stance === "approach" || stance === "measure" || stance === "withdraw" ? "free"
+      : "exchange" as MyPhase;
+
     if (stance === "approach" || stance === "measure" || stance === "withdraw") {
       holdGuard();
+      option = stance === "withdraw" ? "withdraw"
+        : stance === "approach" && intent.forward > 0.3 ? "close" : "hold";
 
       if (stance === "withdraw") {
         intent.forward = -1;
@@ -826,31 +883,89 @@ export function golemFencer(seed: number, T: FencerTactics = GOLEM_TACTICS_V2): 
       // feet go back and across and no exchange is started. A stop-hit is the exception below.
       const theyCanReach = gap <= them.reach + slack;
       const voiding = T.voidDuringCommit && theirs === "commit" && theyCanReach && !headfirst;
-      if (voiding) {
+      if (voiding && director === null) {
         // Clamped here and not trusted from the table: a `--override voidStep=1.2` once took a
         // whole tournament down at the locomotion's door, and the envelope is this file's to keep.
         intent.forward = -clamp(T.voidStep, 0, 1);
         intent.strafe = clamp(circle * T.voidStrafe, -1, 1);
+        option = "withdraw";
       }
 
       // Feature 3, the shorter arm's entry: it holds outside until their arm is recovering or
       // patience is gone, then walks in with the guard up. The latch above takes over once it
       // is inside, and the hold distance with it.
-      if (T.closeOnRecover && shorter && !inside && !headfirst && !voiding &&
+      if (director === null && T.closeOnRecover && shorter && !inside && !headfirst && !voiding &&
         (theirs === "recover" || sinceOpening > patience)) {
         intent.forward = 1;
         intent.strafe = 0;
+        option = "close";
       }
 
       // The shorter arm does not commit from outside: a stroke from beyond its own reach is a
       // chamber spent walking, and its way in is the entry above.
-      const handCould = gap <= strike && canAttack(cap) &&
-        !(T.closeOnRecover && shorter && !inside);
+      const handReaches = gap <= strike && canAttack(cap);
+      const handCould = handReaches && !(T.closeOnRecover && shorter && !inside);
       const ramCould = natural !== null && (
         bodyGap <= natural.reach + T.ramLunge ||
         (T.ramOnRecover && theirs === "recover" && bodyGap <= natural.reach + T.ramRecoverLunge));
+      // ---- a director, when one is attached (Session 06) ------------------------------------
+      // The fencer's own triggers below are not consulted; the director's option is run until
+      // the next ask, and an option that cannot be run this step -- a strike from out of range,
+      // a ram with no head -- closes instead, which is what the fencer would do on its way to it.
+      // What is open is what the body can do, not what the fencer's rules would allow: the
+      // shorter arm's refusal to commit from outside the latch (feature 3) is a tactic, and a
+      // director that inherited it held in range with a strike it was never offered, because the
+      // fencer reads an equal arm as the shorter one and the latch is not a state the model sees.
+      if (director !== null) {
+        sinceAsk += dt;
+        const armed = cooldown <= 0;
+        available.length = 0;
+        available.push("hold", "close", "withdraw", "circle");
+        if (handReaches && armed) available.push("strike", "feint");
+        if (handReaches) available.push("wait");
+        if (ramCould && armed) available.push("ram");
+        if (directed === null || sinceAsk >= T.replanSeconds || !available.includes(directed)) {
+          directed = director(available, reading, view);
+          sinceAsk = 0;
+        }
+        option = directed;
+        switch (directed) {
+          case "close":
+            intent.forward = 1;
+            intent.strafe = 0;
+            break;
+          case "withdraw":
+            intent.forward = -clamp(T.voidStep, 0, 1);
+            intent.strafe = clamp(circle * T.voidStrafe, -1, 1);
+            break;
+          case "circle":
+            intent.forward = 0;
+            intent.strafe = circle;
+            break;
+          case "strike":
+            if (handReaches && armed) { sinceOpening = 0; enterExchange(false, false); }
+            else { intent.forward = 1; intent.strafe = 0; }
+            break;
+          case "feint":
+            if (handReaches && armed) { sinceOpening = 0; enterExchange(false, true); }
+            else { intent.forward = 1; intent.strafe = 0; }
+            break;
+          case "wait":
+            if (handReaches && armed && theirs === "recover") { sinceOpening = 0; enterExchange(false, false); }
+            break;
+          case "ram":
+            if (ramCould && armed) { ranged = 0; goTo("ram"); }
+            else { intent.forward = 1; intent.strafe = 0; }
+            break;
+          default:
+            break;
+        }
+        return;
+      }
+
       if (cooldown <= 0 && ramCould && headfirst) {
         ranged = 0;
+        option = "ram";
         goTo("ram");
         return;
       }
@@ -858,6 +973,7 @@ export function golemFencer(seed: number, T: FencerTactics = GOLEM_TACTICS_V2): 
       // Feature 2, the stop-hit: the longer arm strikes the moment their point closes on it.
       if (T.stopHit && longer && handCould && gapRate < -T.stopHitClosing && theirs !== "recover") {
         sinceOpening = 0;
+        option = "strike";
         enterExchange(true);
         return;
       }
@@ -869,8 +985,10 @@ export function golemFencer(seed: number, T: FencerTactics = GOLEM_TACTICS_V2): 
         sinceOpening = 0;
         if (ramCould && (!handCould || random() < T.ramFraction)) {
           ranged = 0;
+          option = "ram";
           goTo("ram");
         } else {
+          option = counter ? "wait" : "strike";
           enterExchange(false);
         }
       }
@@ -955,6 +1073,7 @@ export function golemFencer(seed: number, T: FencerTactics = GOLEM_TACTICS_V2): 
       // A pair never takes turns; two hands do, unless the second has just had its turn.
       prefer = caps.pairedHands ? "primary" : nextPrefer;
       ranged = 0;
+      directed = null;
       goTo(gap <= hold ? "measure" : "approach");
     }
   };
@@ -965,6 +1084,9 @@ export function golemFencer(seed: number, T: FencerTactics = GOLEM_TACTICS_V2): 
     get target(): TargetSlot { return target; },
     get combo(): boolean { return combo !== null; },
     get inside(): boolean { return inside; },
+    get option(): DuelOption { return option; },
+    get reading(): DuelReading { return reading; },
+    get available(): readonly DuelOption[] { return available; },
     decide(view: FighterView, dt: number): Intent {
       plan(view, dt);
       if (view.self.capabilities?.pairedHands) mirror(intent.primary, intent.secondary);

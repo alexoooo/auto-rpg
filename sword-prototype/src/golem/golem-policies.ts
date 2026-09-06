@@ -1,6 +1,7 @@
 import type { Intent, Mind } from "../mind.ts";
 import { golemTactics } from "./tactics.ts";
-import { golemFencer } from "./tactics-v2.ts";
+import { golemPlanner } from "./planner.ts";
+import { golemFencer, type GolemFencer } from "./tactics-v2.ts";
 
 /**
  * The golem's entry in the policy picker.
@@ -46,10 +47,28 @@ export function golemDuelistMind(seed = (Math.random() * 0x100000000) >>> 0): Mi
  * but a second *contender*, and `golem-duelist` goes on being run in every tournament so that a
  * rating this one earns is earned against a thing that did not move.
  */
-export function golemFencerMind(seed = (Math.random() * 0x100000000) >>> 0): Mind {
+export function golemFencerMind(seed = (Math.random() * 0x100000000) >>> 0): Mind & { fencer: GolemFencer } {
   const tactics = golemFencer(seed);
   return {
     name: "golem-fencer",
+    fencer: tactics,
     decide: (view, dt): Intent => tactics.decide(view, dt),
+  };
+}
+
+/**
+ * The third golem mind, the one that searches. Session 06 of the matchup set.
+ *
+ * The fencer's executor under a director that solves the duel model from the state it reads;
+ * `fencer` is published for the same reason it is on the fencer's own mind, so the tournament
+ * worker's exchange log can read the option in force and a planner's rows can calibrate the
+ * next tables. Same seed argument, same reasons.
+ */
+export function golemPlannerMind(seed = (Math.random() * 0x100000000) >>> 0): Mind & { fencer: GolemFencer } {
+  const planner = golemPlanner(seed);
+  return {
+    name: "golem-planner",
+    fencer: planner.fencer,
+    decide: (view, dt): Intent => planner.decide(view, dt),
   };
 }

@@ -317,7 +317,20 @@ const workerUrl = new URL("./tournament-worker.mjs", import.meta.url);
  * file is written in order while the run is still going. A worker that throws fails the run,
  * by design: a tournament with a hole in it is not the tournament its seed names.
  */
-export function runJobs(jobs, { workers, onRow = null, onProgress = null, overrides = null }) {
+/**
+ * The window cap of the exchange log, seconds. An option that runs longer than this is cut into
+ * windows so that a long hold is several records of "nothing happened" and not one, which is
+ * what makes the transition table's rows comparable: every record is at most this long.
+ */
+export const EXCHANGE_WINDOW_SECONDS = 0.5;
+/**
+ * An option that lasted under this was a flicker -- the void switching on and off as the read
+ * of their arm flickers between chamber and commit at 240 Hz -- and not a decision. The window
+ * keeps its start and takes the new option's name, so the log holds no zero-length records.
+ */
+export const EXCHANGE_FLICKER_SECONDS = 0.05;
+
+export function runJobs(jobs, { workers, onRow = null, onProgress = null, overrides = null, exchanges = false }) {
   return new Promise((resolvePromise, reject) => {
     const rows = new Array(jobs.length).fill(null);
     let next = 0;
@@ -341,7 +354,7 @@ export function runJobs(jobs, { workers, onRow = null, onProgress = null, overri
     if (jobs.length === 0) { resolvePromise(rows); return; }
     const count = Math.max(1, Math.min(workers, jobs.length));
     for (let i = 0; i < count; i += 1) {
-      const worker = new Worker(workerUrl, { workerData: { overrides } });
+      const worker = new Worker(workerUrl, { workerData: { overrides, exchanges } });
       pool.push(worker);
       worker.on("message", (message) => {
         if (message.type === "ready") { feed(worker); return; }
@@ -370,20 +383,20 @@ export function runJobs(jobs, { workers, onRow = null, onProgress = null, overri
  */
 export async function runTournament({
   seed, bouts, workers, policies, random, cap, out, onProgress = null, overrides = null, cross = false,
-  mirror = false,
+  mirror = false, exchanges = false,
 }) {
   const pool = buildPool({ seed, random });
   const jobs = scheduleJobs({ pool, policies, pairings: Math.ceil(bouts / 2), seed, cap, cross, mirror });
   mkdirSync(dirname(out), { recursive: true });
   const header = {
     version: TOURNAMENT_VERSION, seed, date: new Date().toISOString(), policies, bouts: jobs.length, cap, random,
-    overrides, cross, mirror,
+    overrides, cross, mirror, exchanges,
     pool: pool.map(({ name, setup, caption }) => ({ name, setup, caption })),
   };
   const lines = [JSON.stringify(header)];
   writeFileSync(out, `${lines[0]}\n`);
   const rows = await runJobs(jobs, {
-    workers,
+    workers, exchanges,
     overrides,
     onRow(row) {
       const line = JSON.stringify(row);
@@ -451,17 +464,20 @@ if (isMain) {
     const overrides = parseOverrides(flag("override", ""));
     const cross = argv.includes("--cross");
     const mirror = argv.includes("--mirror");
+    // `--exchanges` puts the fencer sides' option windows on every row, for the duel model's
+    // calibration (`scripts/calibrate-duel-model.mjs`). Rows grow by a few kilobytes each.
+    const exchanges = argv.includes("--exchanges");
     const stamp = new Date().toISOString().replace(/[-:]/g, "").slice(0, 13);
     // Concatenated rather than a template, because the docs gate reads a backticked span that ends
     // in a file extension as a path reference, and this one is a name the run makes up.
     const out = resolve(flag("out", "tournaments/" + stamp + "-" + seed + "-" + policies.join("+") + ".jsonl"));
     if (existsSync(out)) throw new Error(`${out} exists; name another with --out`);
     console.log(`seed ${seed}, ${bouts} bouts, ${workers} workers, cap ${cap} s, policies ${policies.join(", ")}, ` +
-      `${REFERENCE_BUILDS.length} reference builds + ${random} drawn${cross ? ", cross pairs only" : ""}${mirror ? ", one build both sides" : ""}` +
+      `${REFERENCE_BUILDS.length} reference builds + ${random} drawn${cross ? ", cross pairs only" : ""}${mirror ? ", one build both sides" : ""}${exchanges ? ", exchange log on" : ""}` +
       (overrides ? `, overriding ${JSON.stringify(overrides)}` : ""));
     let lastReport = 0;
     const { rows, summary } = await runTournament({
-      seed, bouts, workers, policies, random, cap, out, overrides, cross, mirror,
+      seed, bouts, workers, policies, random, cap, out, overrides, cross, mirror, exchanges,
       onProgress({ done, total, seconds }) {
         if (done === total || seconds - lastReport >= 10) {
           lastReport = seconds;

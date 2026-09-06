@@ -49,6 +49,7 @@ import {
   GOLEM_TACTICS, canAttack, golemTactics, innerReach, tacticalRanges, unspan,
 } from "../src/golem/tactics.ts";
 import { GOLEM_TACTICS_V2, golemFencer, slotHealth, strokeReader } from "../src/golem/tactics-v2.ts";
+import { golemPlanner } from "../src/golem/planner.ts";
 import { BUTTON_REACH } from "../src/buttons.ts";
 
 process.env.SWORD_MEASURE_LIBRARY = "1";
@@ -86,7 +87,7 @@ test("a_units_picker_never_offers_a_mind_written_for_the_other_control_surface",
   const names = (unit) => unit.driverOptions.map(({ name }) => name);
   assert.ok(!names(warrior).includes("golem-duelist"),
     `a Warrior's picker offers ${names(warrior).join(", ")}`);
-  assert.deepEqual(names(golem), ["idle", "golem-duelist", "golem-fencer"]);
+  assert.deepEqual(names(golem), ["idle", "golem-duelist", "golem-fencer", "golem-planner"]);
   assert.throws(() => unitDefinition("warrior").createPolicy("golem-duelist"),
     /does not support policy/);
   assert.throws(() => unitDefinition("golem").createPolicy("duelist"),
@@ -100,6 +101,7 @@ test("a_units_picker_never_offers_a_mind_written_for_the_other_control_surface",
   assert.equal(POLICIES.find((policy) => policy.name === "idle").surface, null);
   assert.equal(POLICIES.find((policy) => policy.name === "golem-duelist").surface, "golem-v1");
   assert.equal(POLICIES.find((policy) => policy.name === "golem-fencer").surface, "golem-v1");
+  assert.equal(POLICIES.find((policy) => policy.name === "golem-planner").surface, "golem-v1");
 });
 
 // ---------------------------------------------------------------------------------------
@@ -1415,4 +1417,111 @@ test("the_fencer_stays_inside_the_envelope_and_is_deterministic_under_a_seed", a
   };
   assert.equal(trace(SEED), trace(SEED), "one seed, one bout");
   assert.notEqual(trace(SEED), trace(SEED + 1), "two seeds, two bouts");
+});
+
+// ---------------------------------------------------------------------------------------
+// A director over the fencer, and the planner that is one. Session 06 of the matchup set.
+// ---------------------------------------------------------------------------------------
+
+/**
+ * A director names the option; the fencer runs it and its own triggers stand aside. Two
+ * directors on the same synthetic view: one that always says withdraw keeps the feet going back
+ * and starts no exchange with their arm on guard in range, where the fencer alone would have
+ * chambered; one that says strike the moment a strike is open starts one on that step. Between
+ * them, the ask cadence: the director is consulted again only after `replanSeconds`, or when
+ * what it named stops being open.
+ */
+test("a_directed_fencer_runs_the_option_it_is_handed_and_asks_again_on_the_cadence", async (t) => {
+  const golem = await standAGolem(t);
+  const run = (choose) => {
+    const fixture = fixtureOf(golem.view);
+    const asks = [];
+    const mind = golemFencer(SEED, GOLEM_TACTICS_V2, (available, reading, view) => {
+      asks.push({ available: [...available], gap: reading.gap, theirs: reading.theirs, mine: reading.mine, clock: fixture.clock });
+      assert.equal(view, fixture, "the director sees the view the fencer decided on");
+      return choose(available);
+    });
+    place(fixture, { x: 0.3, z: 4.5 });
+    theirArm(fixture, { extension: 0.88, toward: false });
+    drive(fixture, mind, 2.5);
+    const asksOutOfRange = asks.length;
+    assert.ok(asks.every((ask) => !ask.available.includes("strike")), "a strike was open from out of range");
+    // Inside my strike range (1.64 m at this build) with their arm on guard: a strike is open,
+    // and nothing of theirs is read.
+    place(fixture, { x: 0.3, z: 1.5 });
+    theirArm(fixture, { extension: 0.88 });
+    let forward = 0;
+    let exchanges = 0;
+    let firstExchangeAt = -1;
+    const options = new Set();
+    drive(fixture, mind, 1.0, {
+      each: (intent, step) => {
+        forward = Math.min(forward, intent.forward);
+        options.add(mind.option);
+        if (mind.stance === "chamber" || mind.stance === "commit" || mind.stance === "feint") {
+          exchanges += 1;
+          if (firstExchangeAt < 0) firstExchangeAt = step * FIXED;
+        }
+      },
+    });
+    return { asks, asksOutOfRange, forward, exchanges, firstExchangeAt, options, mind };
+  };
+
+  const backing = run(() => "withdraw");
+  assert.equal(backing.exchanges, 0, "a fencer told to withdraw started an exchange anyway");
+  assert.ok(backing.forward < 0, `the feet were asked for ${backing.forward.toFixed(2)} under a withdraw`);
+  assert.deepEqual([...backing.options], ["withdraw"]);
+  const inRange = backing.asks.slice(backing.asksOutOfRange);
+  assert.ok(inRange.length >= 5 && inRange.length <= 7,
+    `${inRange.length} asks over a second at replanSeconds ${GOLEM_TACTICS_V2.replanSeconds}`);
+  assert.ok(inRange.some((ask) => ask.available.includes("strike") && ask.available.includes("wait")),
+    "in range with the cooldown spent, a strike and a wait were never on offer");
+  assert.equal(inRange[0].theirs, "idle");
+  assert.equal(inRange[0].mine, "free");
+  assert.equal(backing.mind.available.length, 7, `${backing.mind.available.join(",")} is not every option but the ram`);
+
+  const striking = run((available) => available.includes("strike") ? "strike" : "close");
+  assert.ok(striking.exchanges > 0, "a fencer told to strike never chambered");
+  // The last ask was made out of range and named a close; the strike is named at the next
+  // ask, which is the cadence and not the step.
+  assert.ok(striking.firstExchangeAt < GOLEM_TACTICS_V2.replanSeconds + FIXED,
+    `the strike was named at the first ask it was open and started ${striking.firstExchangeAt.toFixed(3)} s in`);
+  assert.ok(striking.options.has("strike"));
+  // While the exchange ran the director was not asked: the exchange is the fencer's to finish.
+  const during = striking.asks.slice(striking.asksOutOfRange).filter((ask) => ask.mine === "exchange");
+  assert.equal(during.length, 0, "the director was asked in the middle of an exchange");
+});
+
+/**
+ * The planner is the director the duel model makes, over a real bout: it replans on the
+ * fencer's cadence, every replan is a plan over the checked-in tables, and the whole of it costs
+ * what the model test measured and not what a physics rollout would. The bout is short for the
+ * reason the duelist's is; the claim is that the mind runs, chooses and stays in budget.
+ */
+test("the_planner_drives_a_real_bout_replanning_on_the_cadence_inside_its_budget", async () => {
+  const setup = defaultGolemSetup();
+  const planner = golemPlanner(SEED);
+  const options = new Map();
+  const result = runBout({
+    left: "golem-planner", right: "golem-fencer",
+    leftUnit: "golem", rightUnit: "golem",
+    leftGolem: setup, rightGolem: setup,
+    locomotionMode: "supported",
+    leftMind: { name: "golem-planner", fencer: planner.fencer, decide: (view, dt) => planner.decide(view, dt) },
+    seeds: [SEED, SEED + 17],
+    maxSeconds: 8,
+    physics: await freshHavok(),
+    onSample: () => {
+      const option = planner.fencer.option;
+      options.set(option, (options.get(option) ?? 0) + 1);
+    },
+  });
+  assert.ok(result.seconds >= 7.9, `the bout ran ${result.seconds.toFixed(1)} s`);
+  assert.ok(planner.replans >= 8 * 3 && planner.replans <= 8 * 8,
+    `${planner.replans} replans over ${result.seconds.toFixed(1)} s is not four to eight a second`);
+  assert.ok(planner.lastPlan !== null && planner.lastPlan.values.length === 8);
+  const perReplan = planner.totalMs / planner.replans;
+  console.log(`planner: ${planner.replans} replans, ${perReplan.toFixed(3)} ms each, options ${[...options].map(([k, v]) => `${k} ${v}`).join(", ")}`);
+  assert.ok(perReplan < 5, `${perReplan.toFixed(2)} ms a replan is over the budget`);
+  assert.ok(options.size >= 2, `the planner ran one option the whole bout: ${[...options.keys()].join(",")}`);
 });

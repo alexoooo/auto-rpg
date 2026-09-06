@@ -12337,3 +12337,256 @@ support, and the sharper instrument it needed, `--mirror`, is the thing most wor
   the reference dozen has one such build -- and the row that says it is worth 21.5 bouts rests
   on the random draws that happen to carry one. A pool drawn to have a second striker on half
   its builds would rate it properly.
+
+## Session 06 of the matchup set — 2026-09-06: a duel model fitted from the log, a planner over it, and three things the log got wrong before it was a model
+
+What the plan asked for: a look-ahead mind, `golem-planner`, searching a short horizon over an
+abstract duel model calibrated from the tournament logs and handing its choice to the fencer's
+executor; tables refused by version; tests that the search waits against a commit and strikes
+into a recover; the replan cost measured. What shipped: `src/golem/duel-model.ts` (the state,
+the records, the tables, the fit, the search), `src/golem/duel-model-tables.ts` (generated,
+checked in), `scripts/calibrate-duel-model.mjs`, `src/golem/planner.ts` registered as
+`golem-planner` and offered on the matchup screen; an exchange log in the tournament harness
+behind `--exchanges`, because the rows the plan meant to fit from carry no exchanges; a
+director hook on the fencer; six tests in `tests/duel-model.test.mjs`, two in
+`tests/golem-mind.test.mjs`, one in `tests/tournament.test.mjs`. And three rounds of
+calibration where the plan imagined one, for the reasons in the middle of this entry. What it
+says at the end: the planner is level with the fencer and the duelist on mirrored builds and
+behind both over random pairs, and the reason is in the last section.
+
+### The model is smaller than the plan drew it
+
+The plan's state carried the gap, its rate, both phases and timers, both bars, the reach pair
+and the weapon-kind pair. What is fitted is four factors: the gap as a pair of booleans (I can
+reach them, they can reach me: `out`, `theirs`, `mine`, `both`), their phase as the fencer's
+reader gives it (`idle`, `chamber`, `commit`, `recover`), my own (`free`, `exchange`,
+`recover`), and whether each armed hand holds a club (`nn`, `hn`, `nh`, `hh`), 48 states per
+weapon pair and 192 in all. The gap rate was dropped after the first draft: the reader's
+`commit` already carries it (a commit *is* a drawn arm whose point is closing), and a factor
+that tripled the states tripled the table checked in for them. The bars are not in the state
+either; they enter as weights on what the search values, below. Eight options, the ones the
+fencer already executes: `hold`, `close`, `withdraw`, `circle`, `strike`, `wait` (strike into
+their recover), `feint`, `ram`.
+
+Every cell is a sum of damage dealt and taken over the option windows that began in that state
+under that option, and is read out shrunk toward its parents by a pseudo-count of four: the
+full cell toward the same cell without the weapon pair, that toward the option's mean over the
+whole log. A transition row is used whole when it has four records, else the coarse row
+re-prefixed with the pair, else the state itself. An option the log never saw is not valued at
+zero, which would make it look free: it is left out of the search at every depth.
+
+The search is finite-horizon expectimax over all 48 states of the root's pair, six windows
+deep at a discount of 0.9. The tables are read out once per pair per process (every cell's
+expected dealt and taken, its successors as indices), so a replan is the dynamic program alone:
+
+| what | cost |
+|:--|--:|
+| replan on the checked-in tables, 400 searches over all 192 roots, quiet host | 0.09 ms |
+| the same measured inside a real bout against the fencer, host otherwise quiet | 0.09 to 0.21 ms |
+| the same with 32 tournament workers loading the host | 0.3 to 1.4 ms |
+| the plan's budget | 5 ms |
+| the deleted 2026-09-04 planner | 4.28 ms |
+
+The fencer asks its director every `replanSeconds` (0.167 s, six times a second) between
+exchanges and not at all during one; a 30 s bout is about 100 replans.
+
+### The harness had to log exchanges before anything could be fitted
+
+A tournament row is a result and its structural measures; it carries no exchanges. The worker
+now keeps a logger per fencer side under `--exchanges`: one record per option window with the
+state it began in, the option, damage dealt and taken while it ran, its length, and the state it
+ended in. A free option's window (hold, close, withdraw, circle) is cut at half a second; an
+option that changed under 50 ms after the last was a flicker (the void switching with the read
+of their arm at 240 Hz) and renames the window rather than closing it. An exchange option's
+window runs to the end of the exchange, for the reason in round two below.
+
+### Round one: the fencer's own log, and a planner that stepped back for twenty seconds
+
+Two logged tournaments on a seed apart from the evaluation seed (20260907), the duelist and the
+fencer, 2048 random pairs and 1024 mirrored, gave 217,569 windows from 2560 fencer-side bouts:
+
+| run | bouts | fencer / duelist | windows |
+|:--|--:|:--|--:|
+| random pairs, all pairings | 2048 | 531 / 493 of 1024 head to head, Elo 1023 / 977 | 136,520 |
+| mirrored builds, cross only | 1024 | 484 / 540 of 1024, Elo 980 / 1020 | 81,049 |
+
+(The mirror on this seed went to the duelist by 56 where the evaluation seed's went to the
+fencer by 30; both are inside the σ≈16 of 1024 mirrored bouts, and together they say the two
+minds are level on the pool as a whole, which Session 05 also said.)
+
+Fitted at a prune of ten (a transition successor seen under ten times in 217,569 windows is
+dropped; the same 687 outcome cells and 130 KB against 208 KB at two), these tables sent the
+planner backward. In a 20 s default-build bout against the fencer it sat in `out/recover` and
+`out/chamber` and chose `withdraw` for 1653 and 1202 samples of 4800, never closed, and drew.
+The values said why: from every out-of-range state `close` was the option with the most damage
+taken, because the fencer's log only closes where its rules close -- during their recover, on
+the shorter arm -- and gets hit walking in; and `ram` was the best option almost everywhere in
+range, because the fencer only rams when its arms cannot attack, so every ram window in the log
+came from a body with nothing else. A log of a mind following its rules is not an experiment on
+the options, and a table fitted from it says what the rules did, not what the options cost.
+
+Two answers, both kept. `aggression` (0.5): dealt damage weighs that much over taken from the
+first step, because a bout is decided on the bar at the cap and a draw is not a result the
+model can see; the lead moves the weights after that by `caution` (the leader guards, the
+trailer chases). And `explore`: at that fraction of asks the director answers with a random
+open option instead of the search's, seeded, zero in play, and set by `--override explore=0.5`
+for a calibration run so that every option is tried from every state. (`--override` now reads
+a name against `GOLEM_PLANNER` first and `GOLEM_TACTICS_V2` second.)
+
+### Round two: exploring, and a window that ends where the exchange does
+
+With the planner exploring at 0.5 on the round-one tables (2048 random pairs and 1024 mirrored,
+three policies, cross), its 73,349 mirror-side windows covered what the fencer's could not:
+`close` from out of range 6530 times against the fencer's handful, `circle` 9409 times against
+none. Refitted from all four logs (575,899 windows, 840 cells), the planner still drew the 20 s
+bout, holding in range. The values showed the second defect, this time in the log's windows and
+not its coverage: a strike's window was cut at half a second, which is the chamber and the
+commit, so the blow (landing at the commit's end) and the riposte (in the recover) fell into
+the record *after* the strike, labelled with whatever option the fencer named next, and the
+search could reach them only through a transition. The logger now lets an exchange option's
+window run until the fencer is free again:
+
+| option | windows in an 8-bout smoke | p10 / p50 / p90 s |
+|:--|--:|--:|
+| hold | 273 | 0.10 / 0.28 / 0.50 |
+| close | 192 | 0.08 / 0.28 / 0.52 |
+| withdraw | 138 | 0.07 / 0.18 / 0.52 |
+| strike | 76 | 0.65 / 0.97 / 0.98 |
+| wait | 14 | 0.57 / 0.82 / 0.98 |
+| feint | 15 | 0.40 / 0.40 / 0.42 |
+| ram | 58 | 0.58 / 0.60 / 0.90 |
+
+A strike is one record of about a second now, with what it earned, what it cost and where it
+left the duel, which is what a decision is. The calibration was run again on the same seed with
+the same three policies and the planner exploring (309,346 windows), and the planner, fitted
+from it, lost the 60 s default-build bout to both minds at the bar's end, 0.00 against 0.73 and
+0.70, holding in range for 5904 samples of 9700 with `hold` valued at 40.8 against `close` at
+39.5 and no strike on offer.
+
+### Round three: the latch the director inherited
+
+No strike on offer, in range, with the arm free: the fencer's own rule 3 (the shorter arm does
+not commit from outside its latch, it closes during their recover and stays inside) was gating
+the options the director was given, and the fencer reads an *equal* arm as the shorter one
+(`reach` is the strike range, 1.64 m on the default build, against their published 1.78).
+Under its own triggers the fencer walks in on their recover and latches; under a director that
+walk-in is off, `close` was valued below `hold`, and the planner stood at the edge of its reach
+for a bout with a strike it could never be handed. What is open to a director is now what the
+body can do, `gap <= strike` and an arm that can attack; the latch stays a tactic of the
+undirected fencer. The calibration was run a third time (291,669 windows, 456 cells, 328
+transition rows, 110 KB), and the checked-in tables are fitted from that round alone. The
+exploring planner in that run, half its asks answered at random and on the previous tables,
+was already level on mirrors: 167.5 of 342 against the fencer, 162 against the duelist.
+
+### What the tournament says
+
+Evaluation seed 20260906, three policies, cross pairings, 1536 bouts each so that every pair
+has 512 (σ≈11), the planner at `aggression` 0.5, `caution` 1, horizon 6, discount 0.9, no
+exploration. Mirrored builds (`tournaments/planner-20260906-mirror.jsonl`):
+
+| pair | wins for the first named / drawn / lost | for the first, draws as a half |
+|:--|:--|--:|
+| planner v fencer | 177 / 154 / 181 | 254 / 512 |
+| planner v duelist | 166 / 169 / 177 | 250.5 / 512 |
+| fencer v duelist | 181 / 159 / 172 | 260.5 / 512 |
+
+Random pairs (`tournaments/planner-20260906-random.jsonl`):
+
+| pair | wins / drawn / lost | for the first |
+|:--|:--|--:|
+| planner v fencer | 149 / 142 / 221 | 220 / 512 |
+| planner v duelist | 162 / 139 / 211 | 231.5 / 512 |
+| fencer v duelist | 195 / 133 / 184 | 261.5 / 512 |
+
+By class on the mirrors, planner against fencer, wins for the planner / drawn / lost:
+
+| class | record | class | record |
+|:--|:--|:--|:--|
+| blade/long | 50 / 14 / 50 | maul/long | 45 / 0 / 29 |
+| mace/long | 16 / 0 / 26 | whip/long | 18 / 8 / 20 |
+| fist/mid | 23 / 0 / 25 | fist/short | 18 / 12 / 16 |
+| plate/short | 1 / 50 / 13 | blade/mid, mace/mid, plate/mid, none/short | drawn but 6 of 76 |
+
+And over random pairs, keyed by the planner's own class: blade/long 27 / 24 / 49, plate/short
+12 / 37 / 26, mace/long 18 / 2 / 30, fist/short 11 / 14 / 23, maul/long 32 / 0 / 34, whip/long
+12 / 17 / 14, fist/mid 18 / 6 / 20.
+
+The structural columns, on the mirrors: the planner deals 89.5 a bout to the fencer's 84.0 and
+the duelist's 85.0, makes 233 contacts to their 250 and 261, wins with a bar of 0.522 to
+0.515 and 0.518, spends 6.2 % of the bout inside its own inner radius to 5.7 and 5.6, and
+its bouts run a median 32.0 s to 30.5 and 31.4. Nothing there is outside the band the owner
+approved, and nothing there is a different fighter.
+
+**Reading it.** On one body against itself the planner is the fencer's equal and the
+duelist's, inside noise, and the class table says where the search is worth something: the
+maul, where 45 to 29 is the one clear edge in the run (the model's `ram` and `strike` cells
+for a club are the heaviest in the table, and the search takes the first heavy blow the
+fencer's patience makes it wait for), and the blade at long reach, where 50 to 50 is a fencer
+that has been matched and not beaten. On random pairs it loses to both, 220 and 231.5 of 512,
+and the class rows say the loss is on the blade and the shorter weapons against bodies that are
+not their own: 27 to 49 on a long blade, 12 to 26 on a plate. The tables carry the weapon pair
+as a club-or-not bit and nothing else about the other body, so a planner on a long blade
+facing a maul or a whip is searching a table fitted mostly from blades facing blades, and the
+fencer's rules, which read reach and weapon kind directly, know things about that body the
+model does not. That is the plan's "reach pair" factor, dropped here for the table's size, and
+it is the first thing the next calibration should put back.
+
+### The sweep, one row per constant
+
+Planner against fencer, mirrored builds, cross, 1024 bouts on the evaluation seed (σ≈16); the
+planner's score with draws as a half, and the long-blade class beside it because that is where
+the rows differ most. The shipped setting is from the three-policy run above, 512 bouts, and
+scales to 508.
+
+| setting | planner of 1024 | won / drawn / lost | blade/long, planner won / drawn / lost |
+|:--|--:|:--|:--|
+| shipped: aggression 0.5, caution 1, horizon 6, discount 0.9 | 254 of 512 | 177 / 154 / 181 | 50 / 14 / 50 |
+| aggression 0 | 447.5 | 262 / 371 / 391 | 41 / 53 / 112 |
+| aggression 1 | 488.5 | 332 / 313 / 379 | 89 / 18 / 99 |
+| horizon 3 | 504.5 | 342 / 325 / 357 | 84 / 27 / 95 |
+| horizon 12 | 485 | 319 / 332 / 373 | 80 / 22 / 104 |
+| caution 0 | 488.5 | 328 / 321 / 375 | 84 / 20 / 102 |
+| caution 2 | 465.5 | 290 / 351 / 383 | 61 / 41 / 104 |
+
+Nothing in the sweep beats the shipped setting, and two rows say something. `aggression` at
+zero is sixty bouts worse and draws a third of the run, 53 of 206 on the long blade against 14
+shipped: with dealt and taken weighed evenly the search finds nothing worth starting, which is
+the round-one finding again with the tables fixed. `caution` at two is forty worse and draws
+more too: a mind that guards a lead that hard at a cap of 60 s hands the bar back. The horizon
+rows are inside noise of each other, three windows as good as twelve, which says the model's
+transitions carry little beyond a second and a half and that the plan's "about six" was not
+the number that mattered. Session 07 moves these together with the fencer's; here each has
+its row.
+
+### What this session says about the plan
+
+The plan imagined one calibration and a planner that beat the fencer. It got three
+calibrations, each forced by a defect the planner's own behaviour exposed -- a log that was not
+an experiment, a window that ended before the blow, a latch the director inherited -- and a
+planner that matches the fencer on one body and trails it across bodies. The model is the right
+shape and the search costs nothing; what it lacks is the body of the fighter across from it.
+The plan's numbers for the cost and the cadence are met with room to spare, and its test for
+the search (wait into a commit, strike into a recover) holds on synthetic tables and on the
+fitted ones.
+
+### What this session owes
+
+- The owner watches the planner against the fencer on random matchups and says whether it
+  looks like it is waiting for something rather than hesitating; the status line in
+  `docs/plans/matchup-06-planner.md` waits on that.
+- The reach pair belongs in the state. Three bands of their reach against mine (shorter,
+  equal, longer) triples the table to 144 states a pair; at 110 KB for 48 that is affordable,
+  and the random-pair rows above are the case for it.
+- The tables are fitted from one exploring round of 3072 bouts. A second round with the
+  shipped planner exploring on *these* tables would be the first step of the iteration the
+  plan's "calibrated from tournament logs" implies, and `--override explore=0.5 --exchanges`
+  is the whole of the command.
+- `aggression`, `caution`, horizon and discount each have a mirror row below and no more. They
+  are Session 07's to move together, on the tuner's budget.
+- The default build's mirror is one cell the planner loses to both minds at the cap, while the
+  pool says level. One cell is one cell; it is recorded because the owner will watch that one
+  first.
+- The exchange log is per fencer side and the duelist logs nothing, so a duelist's windows are
+  never fitted and the model has never seen the duelist's guard from the inside. That is by
+  construction (the duelist has no options) and is why the random-pair tables are the fencer's
+  and the planner's view of the duelist and not the duelist's of them.

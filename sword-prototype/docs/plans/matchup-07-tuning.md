@@ -31,7 +31,11 @@ in as small tables a policy reads for its own build class.
    left the two hooks it needs: `runJobs` takes `overrides`, a table of fencer constants the
    worker assigns over `GOLEM_TACTICS_V2` before its first bout, and `--cross --mirror` rates
    two minds on one body, which is the only pool a fitness can be read from (random pairs of
-   bodies rated the fencer with every feature off within noise of every feature on).
+   bodies rated the fencer with every feature off within noise of every feature on). Session
+   06 extended `--override` to the rows of `GOLEM_PLANNER` (looked up first), so the planner's
+   `aggression`, `caution`, `horizon` and `discount` are the tuner's to move with the fencer's,
+   and `explore=0.5` with `--exchanges` is a calibration run of the duel model, which the tuner
+   can rerun on its own champions.
 2. The champion table module and the `golem-champion` registration.
 3. Tests: one seeded generation on two workers produces a table; the policy loads it and runs a
    real headless bout; a version mismatch is refused by name.
