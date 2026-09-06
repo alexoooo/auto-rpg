@@ -12590,3 +12590,335 @@ fitted ones.
   never fitted and the model has never seen the duelist's guard from the inside. That is by
   construction (the duelist has no options) and is why the random-pair tables are the fencer's
   and the planner's view of the duelist and not the duelist's of them.
+
+## Session 07 of the matchup set — 2026-09-06: the tuner, the champion, and what a tournament can and cannot tell seventy-one numbers
+
+What the plan asked for: a (1+λ) evolution strategy over the fencer's numeric vector and the
+planner's weights, fitness the Elo against a frozen league on the mirrored pool, per build
+class and once generally, on the tournament harness; champions checked in as small tables with
+the run seed and date, refused by version; a policy `golem-champion` reading the table for its
+own class; three tests; and the long run, overnight-scale on the 32 threads, with its table
+here beside the structural measures. What shipped: `scripts/tune.mjs`, `src/golem/champion.ts`
+(the table's shape, the arm class, the mind), `src/golem/tactics-champions.ts` (generated),
+`golem-champion` registered in `src/golem/golem-policies.ts`, `src/mind.ts` and `src/units.ts`;
+the harness gained contenders (a name the worker builds as a champion over a vector, so the
+league stays frozen while a candidate plays) and explicit pairs (each contender against the
+league and never against another); five tests in `tests/tune.test.mjs` and one in
+`tests/golem-mind.test.mjs`. Three departures, each with its reason below: the table is keyed
+by an *arm class* the mind reads of itself and not by the tournament's build class; the
+fitness is the bar margin against the league and not Elo; and the general vector is where the
+class searches start, not only where a class without a row falls.
+
+### The genome and the search
+
+Seventy-one rows as the long run had them: the 67 numeric rows of `GOLEM_TACTICS_V2` and
+`horizon`, `discount`, `aggression`, `caution` of `GOLEM_PLANNER`; sixty-two since, because a
+census after the run found nine of the fencer's rows that no override can move, under "nine
+rows a champion cannot move" below. `explore` is not a row, because it is zero in play
+by construction; the eight switches are not rows, because Session 05 measured each on and off
+and the tuner would move a boolean by flipping it, which is the sweep it already had. A bound
+per row from its default: a positive row moves by a log-normal factor of width `sigma` inside
+a quarter to four times its default, a zero or negative row (`shieldReach`, `chamberReach`,
+`coverLift`, `withdrawLean`) by a normal step of `sigma` scales inside two scales either side,
+a `Fraction` and the discount capped at one, the horizon rounded and at least one. A child
+moves each row with probability `rate` and at least one row.
+
+The fitness of a vector is read against a league of the three shipped minds, the duelist, the
+fencer and the planner, on the mirrored pool -- one body on both sides, the only pool a mind
+can be rated on (Session 05) -- with `bouts` bouts against each league policy. The parent and
+its λ children are scored in one run on one seed, each contender's schedule drawn from the
+seed alone, so that every contender meets the same bodies with the same streams:
+
+| what differs between two contenders | what their rows do |
+|:--|:--|
+| nothing the fencer read this bout (`patience` under a director, `aggression` by 0.01 %) | identical to the byte |
+| a control gain by 0.01 % (`turnGain`, `closeGain`) | a fresh draw: the bout is chaotic past the first decision that differs |
+
+That second row is why the fitness is noisy however the bouts are paired, and the table below
+is the floor. Five vectors that differ from the defaults by at most 0.01 % of one row, 192
+bouts each against the league on one seed, 32 workers:
+
+| vector | points / bout | bar margin | w/d/l | per-bout spread, points | per-bout spread, margin |
+|:--|--:|--:|:--|--:|--:|
+| defaults | 0.503 | +0.007 | 76/41/75 | 0.443 | 0.437 |
+| `turnGain` × 1.0001 | 0.438 | −0.049 | 64/40/88 | 0.440 | 0.447 |
+| `closeGain` × 1.0001 | 0.453 | −0.045 | 68/38/86 | 0.445 | 0.452 |
+| `patience` × 1.0001 | 0.503 | +0.007 | 76/41/75 | 0.443 | 0.437 |
+| `aggression` × 1.0001 | 0.503 | +0.007 | 76/41/75 | 0.443 | 0.437 |
+
+The per-bout spread is 0.44 for both readings, so the margin buys no quiet over the points; it
+is the fitness because it is what the cap decides on and it tells a bout won by a bar from one
+won by a hair, which a hill-climb wants. Over 192 bouts a contender the mean's σ is 0.032 and
+the difference of two contenders' means has σ 0.045; the 0.05 and 0.065 in the table are that
+noise and nothing else. The search therefore runs at 384 bouts a contender for the general
+vector (σ of a difference 0.032) and 288 for a class (0.037), and a child replaces the parent
+only when it beats it by 0.03 on the shared seed; a change worth less than a few hundredths of
+the bar is below what this harness can see at this budget, and is not worth a table.
+
+Throughput on the dev host, this session's contender bouts at the 60 s cap:
+
+| workers | bouts/s |
+|--:|--:|
+| 16 | 5.9 |
+| 32 | 6.1 |
+
+### The census, and the arm class
+
+The champion reads its class off its own first view -- the armed hand's weapon kind, the reach
+band its published reach falls in, `paired-` when both sockets hold one terminal -- and not off
+the terminal module the tournament's build class names, because the frozen choice of Session
+00 is that a mind reads capabilities and a view and never module ids. The tuner's census runs
+one idle bout of a tenth of a second per build and takes the class the worker read at the
+first sample, which is the reading the mind makes. The pool of the long run, twelve reference
+builds and forty draws on seed 20260907:
+
+| arm class | builds | the reference builds in it |
+|:--|--:|:--|
+| `paired-club/long` | 12 | maul |
+| `sword/long` | 9 | default, two-blades, ram-blade, wheel, multileg, plated |
+| `empty/short` | 9 | ram-capped |
+| `empty/mid` | 6 | fists |
+| `club/long` | 4 | mace |
+| `sword/mid` | 4 | pitch-blade |
+| `club/mid` | 3 | -- |
+| `whip/long` | 3 | whip |
+| `shield/mid` | 2 | -- |
+
+Two things the build class tells apart fall together here: a fist and a capped socket are both
+`empty/short` or `empty/mid` by their reach, since to the mind both are a hand holding nothing;
+and a mace on a long chain is `club/long` beside the maul's `paired-club/long`, separated by
+the pairing and not the module. Every class with three builds was tuned; `shield/mid` plays
+the general vector.
+
+### The long run
+
+Seed 20260907, the pool above, the league of the three shipped minds, 32 workers, the 60 s
+cap. The general vector first: sixteen generations of one parent and four children at 384
+bouts a contender, then the confirmation of the survivor against the defaults at 576 bouts
+each on a seed the search never drew. Then each class with three or more builds, six
+generations of one parent and three children at 288 bouts a contender from the general
+champion, confirmed the same way. The parent is rescored every generation on that
+generation's seed, which is why its column moves: the same vector read −0.053 in one
+generation and +0.050 in another, which is the σ of 0.032 doing what σ does.
+
+| search | generations | accepted | bouts | minutes | confirmed: champion | defaults | margin, champion | defaults |
+|:--|--:|--:|--:|--:|--:|--:|--:|--:|
+| general | 16 × (1+4) | 4 | 31,872 | 81.6 | **0.498** | 0.477 | −0.008 | −0.023 |
+| `paired-club/long` | 6 × (1+3) | 3 | 8,064 | 7.2 | **0.514** | 0.487 | +0.017 | −0.022 |
+| `club/mid` | 6 × (1+3) | 1 | 8,064 | 30.9 | **0.519** | 0.494 | +0.086 | +0.059 |
+| `empty/short` | 6 × (1+3) | 1 | 8,064 | 23.4 | **0.503** | 0.474 | −0.008 | −0.025 |
+| `club/long` | 6 × (1+3) | 1 | 8,064 | 7.8 | **0.481** | 0.469 | −0.007 | −0.027 |
+| `sword/mid` | 6 × (1+3) | 1 | 8,064 | 33.3 | **0.504** | 0.497 | −0.009 | −0.004 |
+| `whip/long` | 6 × (1+3) | 1 | 8,064 | 34.5 | **0.566** | 0.504 | +0.120 | +0.026 |
+| `sword/long` | 6 × (1+3) | 4 | 8,064 | 22.6 | 0.514 | **0.532** | +0.012 | +0.044 |
+| `empty/mid` | 6 × (1+3) | 0 | 8,064 | 18.2 | 0.431 | **0.438** | −0.022 | −0.050 |
+
+The minutes are the class's own: a maul or a mace decides a bout in four seconds and a class
+of them tunes at sixteen bouts a second; a `club/mid` bout runs to the cap and the class
+takes half an hour. The whole run, general and eight classes, was 99,840 bouts in about
+five hours of the host, some 20,000 bouts an hour against the plan's 70,000 and exactly what
+Session 04 measured; the `sword/mid` and `whip/long` classes were run twice, for the reason
+under "what went wrong", and the second run is the one in the table.
+
+The confirmations are read as points per bout, the champion's and the defaults' each against
+the three league minds on the held-out seed, and the two are one σ (0.032) apart in the
+general row and a fraction of one in most class rows. What the table says is not that the
+champion is strong; it says the search found a vector that does not lose to the defaults on
+a seed it never saw, in every row but two. Those two are the shipping rule: `sword/long`
+accepted four children over six generations, the most of any class, and then confirmed
+below the defaults by 0.018, and `empty/mid` accepted none and its unchanged general vector
+confirmed 0.007 below the defaults on fists. The first is the winner's curse in the open --
+four acceptances at a 0.03 margin on a reading with σ 0.037 will include a lucky draw -- and
+the rule that a vector confirming below the defaults is left out of the table was written
+after seeing it. Both classes play the general vector.
+
+The structural columns of each confirmation, the champion's row and the defaults' row
+against the same league on the same seed:
+
+| class | vector | damage / bout | contacts | severs | winner bar | inside inner | lead changed | p50 s | w/d/l |
+|:--|:--|--:|--:|--:|--:|--:|--:|--:|:--|
+| general | champion | 96.1 | 198.3 | 225 | 0.544 | 9.2 % | 58.5 % | 18.5 | 218/138/220 |
+| general | defaults | 92.5 | 196.2 | 207 | 0.568 | 9.8 % | 55.6 % | 20.9 | 200/149/227 |
+| `paired-club/long` | champion | 75.9 | 16.9 | 294 | 0.703 | 36.8 % | 54.5 % | 3.7 | 296/0/280 |
+| `paired-club/long` | defaults | 76.2 | 16.6 | 280 | 0.685 | 37.7 % | 58.7 % | 3.8 | 280/1/295 |
+| `club/mid` | champion | 66.7 | 759.9 | 198 | 0.300 | 11.9 % | 50.2 % | 60.0 | 90/418/68 |
+| `club/mid` | defaults | 59.0 | 771.6 | 179 | 0.352 | 13.9 % | 47.0 % | 60.0 | 64/441/71 |
+| `empty/short` | champion | 139.2 | 109.1 | 45 | 0.395 | 0.7 % | 66.8 % | 36.1 | 183/214/179 |
+| `empty/short` | defaults | 134.7 | 117.1 | 49 | 0.368 | 0.8 % | 64.6 % | 35.7 | 163/220/193 |
+| `club/long` | champion | 110.3 | 62.8 | 345 | 0.424 | 5.8 % | 75.0 % | 7.8 | 277/0/299 |
+| `club/long` | defaults | 101.6 | 57.8 | 305 | 0.427 | 5.4 % | 66.3 % | 8.5 | 249/42/285 |
+| `sword/mid` | champion | 32.4 | 619.2 | 156 | 0.278 | 2.0 % | 28.3 % | 60.0 | 66/449/61 |
+| `sword/mid` | defaults | 32.4 | 675.4 | 151 | 0.384 | 3.4 % | 27.4 % | 60.0 | 63/447/66 |
+| `whip/long` | champion | 59.1 | 99.8 | 323 | 0.769 | 0.0 % | 46.0 % | 43.8 | 222/208/146 |
+| `whip/long` | defaults | 49.7 | 88.2 | 262 | 0.772 | 0.0 % | 40.1 % | 60.0 | 142/297/137 |
+| `sword/long` (dropped) | champion | 104.0 | 251.5 | 383 | 0.540 | 0.6 % | 72.2 % | 27.1 | 287/18/271 |
+| `sword/long` (dropped) | defaults | 103.7 | 240.3 | 398 | 0.568 | 0.2 % | 69.6 % | 28.8 | 298/17/261 |
+| `empty/mid` (dropped) | champion | 199.6 | 74.7 | 75 | 0.383 | 0.0 % | 67.4 % | 14.6 | 222/53/301 |
+| `empty/mid` (dropped) | defaults | 186.6 | 71.9 | 52 | 0.367 | 0.4 % | 74.7 % | 13.9 | 224/56/296 |
+
+Read the shipped rows against the band the owner approved: more damage a bout in every
+shipped row but the maul's and the pitch-blade's, where it is level; contacts within a few
+percent in every row but the whip's, so no row bought its points by flailing; the inside-inner
+fraction down or level in every row, so none bought them face to face; the lead changing in
+more bouts in every row but the maul's. The winner keeps a little less of its bar in the general
+row and in `sword/mid`, where the champion wins closer fights, which the owner's eye has to
+read for itself. Two rows are the ones to look at twice. `club/mid`: three builds, every bout
+to the cap, and the champion turns draws into 90 wins against 68 losses where the defaults had
+64 against 71 -- a mace on a mid chain that the defaults could not make decide is decided a
+little more often, by 13 % more damage. And `whip/long`, the one row two σ clear of the
+defaults: 19 % more damage a bout with 13 % more contacts, a median bout that ends at 43.8 s
+where the defaults ran to the cap, and 89 draws turned into 80 wins and 9 losses. Its vector is
+nine rows from the general: the strike gate a tenth closer (`strikeFraction` 0.92 → 0.81), a
+wider circle (`circleMin` 1.3 → 1.76), a receding opponent read at 0.97 m/s rather than 0.6,
+and a planner that discounts less steeply (0.73 → 0.85) -- a lash that gets in a little closer,
+keeps moving, and does not chase a golem that is backing off.
+
+### Nine rows a champion cannot move
+
+A row that moves no decision leaves the bout identical to the byte under common random
+numbers, which is a test. One contender per genome row with that row moved -- half again on a
+positive row, a scale up on a zero or negative one, two down on the horizon -- each meeting
+the duelist on nine builds, one per arm class, on the seeds the defaults met them on, 15 s
+bouts, 1,296 bouts in all: 45 rows moved at least one build's bout and 26 moved none. Nine of
+the 26 cannot move one, by construction: the eight rows of the sword's stroke shape
+(`chamberSwing`, `chamberLift`, `chamberReach`, `followSwing`, `followLift`, `strokeSeconds`,
+`chamberSeconds`, `cutRoll`) are read by `STROKE_SHAPES.sword` live from the duelist's
+`GOLEM_TACTICS`, never from the fencer's copy, so an override of the fencer's row is a number
+nothing reads; and `guardReach` is read only with `guardByTheirs` off, which it is not. The
+other seventeen (`strikeFraction` moved down, `outOfLine`, `theirCommit`, `receding`,
+`patience`, `withdrawSeconds`, `crowdedSeconds`, `ramSeconds`, `ramFraction`, the two
+`stopHit` rows, `reachEdge`, `longStandOff`, `insideSlack`, `targetMargin`, `ramRecoverLunge`,
+`feintFraction`) are rows the fencer reads that a 15 s mirrored bout against the duelist did
+not reach, and most of them say why: the stop-hit, the long stand-off, the inside slack and the
+reach edge are the reach-asymmetry tactics, and on the mirrored pool both arms are the same
+length. The search that ran had all seventy-one rows, so its mutation budget spent nine
+seventy-firsts on nothing and four of the general champion's "moved" rows (`chamberLift`,
+`followSwing`, `strokeSeconds`, `cutRoll`) were passengers. `GENOME` is now the sixty-two rows
+a champion can move, `INERT_ROWS` in `scripts/tune.mjs` names the nine and a test holds the
+sword's shape keys out, and the shipped table carries none of them. That the reach-asymmetry
+rows cannot be tuned on the mirrored pool is a limit of the fitness and not of the census, and
+the first thing a later run should change is a pool that mirrors the mind and not the arm.
+
+### What moved
+
+The general champion moved 19 of the 62 rows from the defaults. The ones that moved most,
+with what each is:
+
+| row | default | champion | what it is |
+|:--|--:|--:|:--|
+| `readDrawRate` | 0.40 | 0.88 | the extension rate that reads as a chamber: the champion waits for a clearer draw before calling a stroke |
+| `replanSeconds` | 0.167 | 0.303 | the planner replans at 3.3 Hz, not 6: it holds a choice nearly twice as long |
+| `closeGain` | 1.80 | 2.55 | it closes harder on the gap it wants |
+| `slackFraction` | 0.06 | 0.094 | a wider hysteresis band on both range gates |
+| `crowdedSeconds` | 2.50 | 1.64 | it gives up on fighting from a crowded inside sooner (a row the census did not reach in 15 s; the confirmation ran to 60) |
+| `ramRecoverLunge` | 0.60 | 0.39 | a narrower gate on the charge into their recover: the ram fires from 0.39 m beyond the plate, not 0.6 |
+| `readGuardExtension` | 0.82 | 0.61 | their chamber is read as over sooner, once the arm is back out past 0.61 of full rather than 0.82 |
+| `discount` | 0.90 | 0.73 | the search weights the next exchange over the one after it more steeply |
+| `voidStrafe` | 0.90 | 0.75 | the feet asked across less hard during a void |
+| `caution` | 1.00 | 1.11 | a lead moves the weights a little more |
+
+The rest are `followSeconds`, `shieldReach`, `coverAcross`, `coverBend`, `ramLeanSeconds`,
+`ramSeconds`, `ramFollowSeconds`, `readSeconds` and `readClosing`, none by more than a third.
+The class rows moved from the general champion by between eight and nineteen rows each
+(`paired-club/long` 19, `club/long` 11, `sword/mid` 10, `whip/long` 9, `club/mid` 8,
+`empty/short` 8), the inert nine not counted. The `empty/short` row, the
+capped socket that fights with its head, is the one with a reading in it: `horizon` 6 → 5,
+`aggression` 0.50 → 0.39, `longStandOff` 1.06 → 0.72 -- a body with no arm to speak of plans
+shorter and presses less, which is what a ram that has to wait for its moment wants; the
+stand-off row is one the mirrored pool does not reach, and rode along.
+
+### The evaluation, on a pool the search never saw
+
+The shipped table against the three shipped minds on the evaluation seed 20260906 -- twelve
+reference builds and forty draws the tuner never met, so the class rows meet bodies their
+census did not count -- 3,072 bouts each way, every pair of distinct policies, once mirrored
+and once over random pairs of bodies, 32 workers, the 60 s cap:
+
+| pool | policy | points / bout | bar margin | w/d/l | damage / bout | contacts | winner bar | inside inner | lead changed | p50 s |
+|:--|:--|--:|--:|:--|--:|--:|--:|--:|--:|--:|
+| mirrored | fencer | **0.534** | +0.019 | 570/501/465 | 79.5 | 277.9 | 0.530 | 6.0 % | 50.8 % | 33.6 |
+| mirrored | duelist | 0.510 | +0.024 | 548/472/516 | 80.3 | 268.6 | 0.552 | 6.2 % | 51.1 % | 30.5 |
+| mirrored | champion | 0.480 | −0.000 | 475/524/537 | 81.5 | 267.9 | 0.558 | 7.2 % | 51.0 % | 32.6 |
+| mirrored | planner | 0.476 | −0.043 | 451/559/526 | 72.5 | 264.4 | 0.549 | 6.1 % | 49.0 % | 36.2 |
+| random pairs | fencer | **0.527** | +0.010 | 628/362/546 | 71.2 | 190.7 | 0.833 | 4.9 % | 20.5 % | 20.7 |
+| random pairs | duelist | 0.515 | +0.048 | 577/428/531 | 96.8 | 190.7 | 0.852 | 6.3 % | 23.0 % | 24.1 |
+| random pairs | champion | 0.494 | −0.004 | 476/567/493 | 67.2 | 163.4 | 0.840 | 5.5 % | 18.2 % | 32.5 |
+| random pairs | planner | 0.464 | −0.054 | 413/599/524 | 79.4 | 168.0 | 0.812 | 4.8 % | 20.1 % | 36.6 |
+
+Head to head, wins for the row with draws as a half, 512 bouts a cell (σ of a cell's points
+about 0.02):
+
+| pool | champion v duelist | champion v fencer | champion v planner |
+|:--|--:|--:|--:|
+| mirrored | 244.5 / 512 (0.478) | 237.5 / 512 (0.464) | 255 / 512 (0.498) |
+| random pairs | 261.5 / 512 (0.511) | 241 / 512 (0.471) | 257 / 512 (0.502) |
+
+So on a pool it never saw the champion is the planner it was tuned from, and a little more:
+level with it head to head on both pools, three hundredths above it over the whole random
+pool and inside the noise of it on the mirror, and behind the fencer on both by three to five
+hundredths, which is two to three σ. The general vector's confirmation gain of 0.021 on the tuning pool
+did not carry: what it bought was a pool, not a mind. The fencer of Session 05 is the best of
+the four on this pool, on both of them, and the plan's ordering -- planner or champion above
+the fencer -- is not what the harness says.
+
+The class rows tell it apart. The champion's arm-class rows against the fencer on the mirror,
+wins for the champion:
+
+| arm class of both | vector played | w/d/l | points | bar margin |
+|:--|:--|:--|--:|--:|
+| `whip/long` | its own row | 24/0/10 | **0.706** | +0.295 |
+| `paired-club/long` | its own row | 44/0/38 | 0.537 | +0.090 |
+| `empty/short` | its own row | 3/9/2 | 0.536 | −0.001 |
+| `sword/mid` | its own row | 0/22/0 | 0.500 | +0.052 |
+| `club/mid` | its own row | 0/18/0 | 0.500 | +0.076 |
+| `shield/mid` | general | 2/38/2 | 0.500 | +0.046 |
+| `club/long` | its own row | 28/0/36 | 0.438 | −0.023 |
+| `shield/short` | general | 1/60/13 | 0.419 | −0.100 |
+| `sword/long` | general (dropped) | 43/22/71 | **0.397** | −0.073 |
+| `empty/mid` | general (dropped) | 8/0/18 | 0.308 | −0.101 |
+
+The whip's row is the one real thing the run found: on builds its search never met it takes
+24 of 34 decided bouts from the fencer with three tenths of a bar to spare, and against the
+duelist it gives 19 to 22 and against the planner draws 43 of 54. Where the champion loses the tournament is the class
+with the most builds: on `sword/long`, nine of the twelve reference builds and the general
+vector, it takes 43 of 136 from the fencer, and the planner it was tuned from takes 49 of
+140 -- the general vector made the biggest class a little worse, and the class's own search,
+the one the shipping rule dropped, had confirmed below the defaults too. A sword on a long
+chain is the matchup the fencer's hand-set numbers were swept on for a session and the
+tournament of 20260906 says those numbers are still the best anyone has for it. The plan's
+own check, 64 bouts of planner against champion at the default settings, reads 15 / 32 for
+the champion: the same level.
+
+The structural columns of the champion on the evaluation pool sit where the planner's do --
+damage a bout within a few percent of the fencer's on the mirror and below it over random
+pairs, contacts the lowest of the four over random pairs, the inside-inner fraction and the
+lead-change rate inside the band -- so nothing here is a rating bought with flailing, which is
+the gate's question. It is also not a rating.
+
+### Two things that went wrong, and two that are owed
+
+**A child took a class down.** In the fourth `sword/mid` generation the run died with `job 864
+failed in a worker: Error: supported locomotion localRight must be finite and within -1..1`:
+a child had pushed `strafe` above one, the fencer wrote `circle * strafe` into the intent
+unclamped, and the locomotion port refused it. The fencer now clamps the strafe it writes, the
+three rows it writes into the intent as a fraction of full (`strafe`, `voidStep`, `voidStrafe`)
+are bounded at one in the genome, and the two unfinished classes were rerun from the general
+champion. A row with a hard bound at the body is a bound the genome has to know about; the
+others of that kind were found by reading the intent writer, not by waiting for the next crash.
+
+**The winner's curse, above,** and the rule it produced; and the nine inert rows, above,
+found after the run and taken out of the genome for the next.
+
+**The duel model is owed a calibration on the champion's log.** The planner under the champion
+searches tables fitted in Session 06 from an exchange log of the default fencer at `explore
+0.5`; a champion whose read thresholds and replan rate moved plays exchanges the tables were
+not fitted from. The tuner has the machinery (`--exchanges` with the champion as a contender)
+and the run is the first thing Session 09 should spend an hour on.
+
+**The budget was the noise's, not the host's.** At σ 0.032 for a 384-bout reading, an
+acceptance margin of 0.03 is one σ, and sixteen generations accepted four children of which
+the confirmation says the sum was worth 0.02 of a point. Halving the noise costs four times the
+bouts. The honest statement of what this run bought is a vector that confirms a little above
+the defaults with structural columns inside the approved band, in a tuning budget of about
+three hours of the host; a run that could tell a 0.01 improvement would be a night, and is what
+the plan's overnight was for.

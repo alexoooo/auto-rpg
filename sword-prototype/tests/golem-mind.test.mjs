@@ -50,6 +50,7 @@ import {
 } from "../src/golem/tactics.ts";
 import { GOLEM_TACTICS_V2, golemFencer, slotHealth, strokeReader } from "../src/golem/tactics-v2.ts";
 import { golemPlanner } from "../src/golem/planner.ts";
+import { NO_CHAMPIONS, golemChampionMind } from "../src/golem/champion.ts";
 import { BUTTON_REACH } from "../src/buttons.ts";
 
 process.env.SWORD_MEASURE_LIBRARY = "1";
@@ -87,7 +88,7 @@ test("a_units_picker_never_offers_a_mind_written_for_the_other_control_surface",
   const names = (unit) => unit.driverOptions.map(({ name }) => name);
   assert.ok(!names(warrior).includes("golem-duelist"),
     `a Warrior's picker offers ${names(warrior).join(", ")}`);
-  assert.deepEqual(names(golem), ["idle", "golem-duelist", "golem-fencer", "golem-planner"]);
+  assert.deepEqual(names(golem), ["idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion"]);
   assert.throws(() => unitDefinition("warrior").createPolicy("golem-duelist"),
     /does not support policy/);
   assert.throws(() => unitDefinition("golem").createPolicy("duelist"),
@@ -102,6 +103,7 @@ test("a_units_picker_never_offers_a_mind_written_for_the_other_control_surface",
   assert.equal(POLICIES.find((policy) => policy.name === "golem-duelist").surface, "golem-v1");
   assert.equal(POLICIES.find((policy) => policy.name === "golem-fencer").surface, "golem-v1");
   assert.equal(POLICIES.find((policy) => policy.name === "golem-planner").surface, "golem-v1");
+  assert.equal(POLICIES.find((policy) => policy.name === "golem-champion").surface, "golem-v1");
 });
 
 // ---------------------------------------------------------------------------------------
@@ -1524,4 +1526,55 @@ test("the_planner_drives_a_real_bout_replanning_on_the_cadence_inside_its_budget
   console.log(`planner: ${planner.replans} replans, ${perReplan.toFixed(3)} ms each, options ${[...options].map(([k, v]) => `${k} ${v}`).join(", ")}`);
   assert.ok(perReplan < 5, `${perReplan.toFixed(2)} ms a replan is over the budget`);
   assert.ok(options.size >= 2, `the planner ran one option the whole bout: ${[...options.keys()].join(",")}`);
+});
+
+/**
+ * The champion is the planner with a table's numbers, and which numbers is decided by the arm
+ * class it reads off its first view: a blade at full extension takes the `sword/long` row and a
+ * body with both sockets capped falls through to the general one. Built at the first view and
+ * not before, so `fencer` is null until then, which the tournament worker's exchange log reads
+ * per sample for. The table is refused by version by name, as the duel model's is.
+ */
+test("the_champion_reads_its_arm_class_off_its_first_view_and_plays_the_row_for_it", async () => {
+  const entry = (cls, over) => ({
+    class: cls, builds: 1, generations: 0, bouts: 0, score: 0, baseline: 0, margin: 0, baselineMargin: 0,
+    fencer: {}, planner: {}, ...over,
+  });
+  const tables = {
+    ...NO_CHAMPIONS,
+    general: entry("general", { planner: { aggression: 0.3 } }),
+    classes: { "sword/long": entry("sword/long", { fencer: { replanSeconds: 0.25 }, planner: { aggression: 0.7 } }) },
+  };
+  const bout = async (setup) => {
+    const mind = golemChampionMind(SEED, tables);
+    assert.equal(mind.name, "golem-champion");
+    assert.equal(mind.fencer, null, "no fencer before the first view");
+    assert.equal(mind.armClass, null);
+    const result = runBout({
+      left: "golem-champion", right: "golem-fencer",
+      leftUnit: "golem", rightUnit: "golem",
+      leftGolem: setup, rightGolem: setup,
+      locomotionMode: "supported",
+      leftMind: mind,
+      seeds: [SEED, SEED + 3],
+      maxSeconds: 3,
+      physics: await freshHavok(),
+    });
+    return { mind, result };
+  };
+  const blade = await bout(defaultGolemSetup());
+  assert.ok(blade.result.seconds >= 2.9, `the bout ran ${blade.result.seconds.toFixed(1)} s`);
+  assert.equal(blade.mind.armClass, "sword/long");
+  assert.equal(blade.mind.entry.class, "sword/long");
+  assert.ok(blade.mind.fencer !== null && blade.mind.planner.replans > 0, "the planner under it never planned");
+  const capped = await bout({
+    ...defaultGolemSetup(), head: "head.ram",
+    primary: { chain: "none", terminal: "none" }, secondary: { chain: "none", terminal: "none" },
+  });
+  assert.equal(capped.mind.armClass, "empty/short");
+  assert.equal(capped.mind.entry.class, "general", "a class without a row plays the general vector");
+  assert.throws(() => golemChampionMind(SEED, { ...NO_CHAMPIONS, version: 0 }), /version 0; this build reads version 1/);
+  // The shipped table loads through the picker, whatever it holds.
+  const shipped = unitDefinition("golem").createPolicy("golem-champion");
+  assert.equal(shipped.name, "golem-champion");
 });

@@ -734,7 +734,10 @@ export function golemFencer(
       circle = -circle;
       circleLeft = T.circleMin + random() * (T.circleMax - T.circleMin);
     }
-    intent.strafe = circle * T.strafe;
+    // Clamped like `voidStep` below and for the same reason: the locomotion port refuses a
+    // strafe outside -1..1 by throwing, and a tuner's child with `strafe` at 1.05 took a class
+    // run down at its fourth generation (Session 07).
+    intent.strafe = clamp(circle * T.strafe, -1, 1);
     intent.forward = clamp((gap - hold) * T.closeGain, -1, 1);
 
     // ---- the posture -----------------------------------------------------------------------

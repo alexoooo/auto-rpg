@@ -14,6 +14,7 @@
 // two are different cells.
 import { parentPort, workerData } from "node:worker_threads";
 
+import { armClass, golemChampion } from "../src/golem/champion.ts";
 import { observe, stateKey } from "../src/golem/duel-model.ts";
 import { innerReach } from "../src/golem/tactics.ts";
 import { GOLEM_PLANNER } from "../src/golem/planner.ts";
@@ -63,16 +64,19 @@ const FREE_OPTIONS = new Set(["hold", "close", "withdraw", "circle"]);
  * record says what one decision cost and earned and where it left the duel.
  */
 function exchangeLogger(mind, side) {
-  const fencer = mind.fencer;
-  if (!fencer) return null;
+  // Read per sample and not once: the champion builds its fencer at its first view, when it
+  // knows its own arm's class, so before the first step there is none to read.
+  if (!("fencer" in mind)) return null;
   const other = side === "left" ? "right" : "left";
   const records = [];
   let open = null;
-  const stateNow = (sample) => stateKey(observe(fencer.reading, sample[side].view.opponent.reach));
+  const stateNow = (fencer, sample) => stateKey(observe(fencer.reading, sample[side].view.opponent.reach));
   return {
     records,
     sample(sample) {
-      const state = stateNow(sample);
+      const fencer = mind.fencer;
+      if (!fencer) return;
+      const state = stateNow(fencer, sample);
       const dealt = sample.records[side].damage;
       const taken = sample.records[other].damage;
       const option = fencer.option;
@@ -93,8 +97,9 @@ function exchangeLogger(mind, side) {
       if (open === null) open = { state, option, dealt, taken, at: sample.clock };
     },
     close(sample) {
-      if (open === null) return;
-      const state = stateNow(sample);
+      const fencer = mind.fencer;
+      if (open === null || !fencer) return;
+      const state = stateNow(fencer, sample);
       records.push({
         state: open.state, option: open.option,
         dealt: sample.records[side].damage - open.dealt, taken: sample.records[other].damage - open.taken,
@@ -105,14 +110,27 @@ function exchangeLogger(mind, side) {
   };
 }
 
+/**
+ * The mind a side plays: the policy by name, or a contender -- a name the tuner gave a vector,
+ * built as a champion over that vector with the seed the policy would have had, so a contender
+ * row is the row `golem-champion` would make with that vector in its table. `fencer` is
+ * published for the exchange log, as the planner's own mind publishes it.
+ */
+function mindFor(policy, seed) {
+  const contender = workerData?.contenders?.[policy];
+  if (contender === undefined) return policyMind(policyForUnit("golem", policy), seed);
+  const champion = golemChampion(seed, { class: policy, builds: 0, generations: 0, bouts: 0, score: 0, baseline: 0, margin: 0, baselineMargin: 0, ...contender });
+  return { name: policy, fencer: champion.fencer, decide: (view, dt) => champion.decide(view, dt) };
+}
+
 async function runJob(job) {
   const physics = await freshHavok();
   // The minds are built here and handed in, rather than left to `runBout` to build from the
   // policy names, so that this file can hold the fencer's handle for the exchange log. Same
   // factory, same seed, so a row is the row `runBout` would have made on its own.
   const minds = {
-    left: policyMind(policyForUnit("golem", job.left.policy), job.seeds[0]),
-    right: policyMind(policyForUnit("golem", job.right.policy), job.seeds[1]),
+    left: mindFor(job.left.policy, job.seeds[0]),
+    right: mindFor(job.right.policy, job.seeds[1]),
   };
   const loggers = workerData?.exchanges
     ? { left: exchangeLogger(minds.left, "left"), right: exchangeLogger(minds.right, "right") }
@@ -122,6 +140,7 @@ async function runJob(job) {
   const inside = { left: 0, right: 0 };
   const reach = { left: null, right: null };
   const bodyReach = { left: null, right: null };
+  const arm = { left: null, right: null };
   const hands = { left: armedHand(job.left.setup), right: armedHand(job.right.setup) };
   let samples = 0;
   let leader = null;
@@ -149,6 +168,7 @@ async function runJob(job) {
         if (reach[side] === null) {
           reach[side] = view.self.hands[hands[side]].reach;
           bodyReach[side] = view.self.reach;
+          arm[side] = armClass(view.self);
         }
         if (insideOwnInnerRadius(view)) inside[side] += 1;
       }
@@ -175,6 +195,10 @@ async function runJob(job) {
       vitality: ends[name],
       reach: reach[name],
       bodyReach: bodyReach[name],
+      // The arm class the champion mind reads of itself (Session 07), beside the build class
+      // the rating is keyed by; added without a version bump, since a reader of the older rows
+      // finds every column it had.
+      arm: arm[name],
       insideInner: samples === 0 ? 0 : inside[name] / samples,
       peakTipDriven: record.peakTipDriven,
     };

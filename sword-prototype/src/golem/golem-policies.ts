@@ -1,6 +1,8 @@
 import type { Intent, Mind } from "../mind.ts";
 import { golemTactics } from "./tactics.ts";
+import { golemChampionMind as championMind, type GolemChampionMind } from "./champion.ts";
 import { golemPlanner } from "./planner.ts";
+import { GOLEM_CHAMPIONS } from "./tactics-champions.ts";
 import { golemFencer, type GolemFencer } from "./tactics-v2.ts";
 
 /**
@@ -71,4 +73,17 @@ export function golemPlannerMind(seed = (Math.random() * 0x100000000) >>> 0): Mi
     fencer: planner.fencer,
     decide: (view, dt): Intent => planner.decide(view, dt),
   };
+}
+
+/**
+ * The fourth golem mind, the tuned one. Session 07 of the matchup set.
+ *
+ * The planner over the fencer with the numbers `scripts/tune.mjs` found for the arm class the
+ * mind reads off its first view, from the checked-in `GOLEM_CHAMPIONS`. `fencer` is a getter
+ * here and not a field, because the fencer is built at the first view, when the class is known;
+ * the tournament worker's exchange log reads it per sample for that reason. Same seed argument,
+ * same reasons.
+ */
+export function golemChampionMind(seed = (Math.random() * 0x100000000) >>> 0): GolemChampionMind {
+  return championMind(seed, GOLEM_CHAMPIONS);
 }

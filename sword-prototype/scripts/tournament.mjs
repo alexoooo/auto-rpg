@@ -29,6 +29,7 @@ import { pathToFileURL } from "node:url";
 import { Worker, isMainThread } from "node:worker_threads";
 
 import { defaultGolemSetup, describeGolemSetup, golemSetupRefusal, randomGolemSetup } from "../src/golem/build.ts";
+import { REACH_BANDS, reachBand } from "../src/golem/champion.ts";
 import { mulberry32 } from "../src/rng.ts";
 import { unitDefinition } from "../src/units.ts";
 
@@ -40,16 +41,13 @@ export const ELO_K = 24;
 export const ELO_START = 1000;
 
 /**
- * The edges of the reach bands a build class is made of, metres of `BodyView.reach` as the body
- * publishes it at the first sample. Short is a capped socket or a fist; mid is a mace, a plate or
- * a whip; long is a blade or a maul at full extension. A build's class is its armed terminal
- * crossed with its band, so a rating can say "blades at long reach" without naming a chain.
+ * The reach bands a build class is made of live in `src/golem/champion.ts` since Session 07,
+ * because the champion mind reads its own arm's band off its view with the same edges; they are
+ * re-exported here so a reader of the tournament finds them where Session 04 put them. A build's
+ * class is its armed terminal crossed with its band, so a rating can say "blades at long reach"
+ * without naming a chain.
  */
-export const REACH_BANDS = Object.freeze([
-  { name: "short", below: 1.0 },
-  { name: "mid", below: 1.5 },
-  { name: "long", below: Infinity },
-]);
+export { REACH_BANDS, reachBand };
 
 const setup = (over) => ({ ...defaultGolemSetup(), ...over });
 const both = (chain, terminal) => ({ primary: { chain, terminal }, secondary: { chain, terminal } });
@@ -118,12 +116,27 @@ export function policyPairs(policies) {
 /**
  * The job list: `pairings` draws of two builds from the pool, each run twice with the sides
  * swapped and the seeds swapped with them, policies cycling over the ordered pairs.
+ *
+ * `contenders` names minds that are not policies the golem offers: a name the tuner made up
+ * for a vector, which the worker builds as a champion over that vector (Session 07). `pairs`
+ * replaces the cycle over every ordered pair with the ones given, so a run can rate each of
+ * several contenders against a league and never against each other; the builds and the seeds
+ * per pairing come from the seed alone whatever the pairs are, which is what lets the tuner
+ * put every contender in front of the same bodies with the same streams.
  */
-export function scheduleJobs({ pool, policies, pairings, seed, cap, cross = false, mirror = false }) {
+export function scheduleJobs({
+  pool, policies, pairings, seed, cap, cross = false, mirror = false, contenders = null, pairs = null,
+}) {
   const golem = unitDefinition("golem");
   for (const policy of policies) {
+    if (contenders !== null && policy in contenders) continue;
     if (!golem.driverOptions.some((option) => option.name === policy)) {
       throw new Error(`"${policy}" is not a policy the golem offers`);
+    }
+  }
+  if (pairs !== null) {
+    for (const pair of pairs) for (const policy of pair) {
+      if (!policies.includes(policy)) throw new Error(`pair names "${policy}", which is not among the run's policies`);
     }
   }
   if (pool.length === 0) throw new Error("a tournament needs a build to run");
@@ -131,8 +144,8 @@ export function scheduleJobs({ pool, policies, pairings, seed, cap, cross = fals
   // `cross` drops the mirror pairs, so a run that exists to compare two policies spends its
   // whole budget on bouts between them; a mirror bout rates no policy and half a default run is
   // mirrors. The class ratings lose nothing, since a mirror bout on one class rated no class.
-  const pairs = cross ? policyPairs(policies).filter(([a, b]) => a !== b) : policyPairs(policies);
-  if (pairs.length === 0) throw new Error("--cross wants at least two policies");
+  const cycle = pairs !== null ? pairs : cross ? policyPairs(policies).filter(([a, b]) => a !== b) : policyPairs(policies);
+  if (cycle.length === 0) throw new Error(pairs !== null ? "pairs is empty" : "--cross wants at least two policies");
   // `mirror` puts one build on both sides of every pairing, so what differs across a bout is
   // the mind alone. Over random pairs of bodies the body decides most bouts before either mind
   // has done anything -- a maul wins 232 of 234 against anything that is not one -- and a policy
@@ -144,7 +157,7 @@ export function scheduleJobs({ pool, policies, pairings, seed, cap, cross = fals
     const drawn = pool[Math.min(pool.length - 1, Math.floor(rng() * pool.length))];
     // Drawn either way, so a mirror run and a plain run under one seed walk the same stream.
     const b = mirror ? a : drawn;
-    const [policyA, policyB] = pairs[pairing % pairs.length];
+    const [policyA, policyB] = cycle[pairing % cycle.length];
     const sideA = { build: a.name, setup: a.setup, policy: policyA, seed: seedFor(seed, pairing, 0) };
     const sideB = { build: b.name, setup: b.setup, policy: policyB, seed: seedFor(seed, pairing, 1) };
     jobs.push({ index: jobs.length, pairing, swapped: false, cap, left: sideA, right: sideB, seeds: [sideA.seed, sideB.seed] });
@@ -161,10 +174,6 @@ export function armedHand(build) {
 /** The terminal in that hand. */
 export function armedTerminal(build) {
   return build[armedHand(build)].terminal;
-}
-
-export function reachBand(reach) {
-  return REACH_BANDS.find((band) => reach < band.below).name;
 }
 
 /**
@@ -330,7 +339,9 @@ export const EXCHANGE_WINDOW_SECONDS = 0.5;
  */
 export const EXCHANGE_FLICKER_SECONDS = 0.05;
 
-export function runJobs(jobs, { workers, onRow = null, onProgress = null, overrides = null, exchanges = false }) {
+export function runJobs(jobs, {
+  workers, onRow = null, onProgress = null, overrides = null, exchanges = false, contenders = null,
+}) {
   return new Promise((resolvePromise, reject) => {
     const rows = new Array(jobs.length).fill(null);
     let next = 0;
@@ -354,7 +365,7 @@ export function runJobs(jobs, { workers, onRow = null, onProgress = null, overri
     if (jobs.length === 0) { resolvePromise(rows); return; }
     const count = Math.max(1, Math.min(workers, jobs.length));
     for (let i = 0; i < count; i += 1) {
-      const worker = new Worker(workerUrl, { workerData: { overrides, exchanges } });
+      const worker = new Worker(workerUrl, { workerData: { overrides, exchanges, contenders } });
       pool.push(worker);
       worker.on("message", (message) => {
         if (message.type === "ready") { feed(worker); return; }
@@ -383,20 +394,20 @@ export function runJobs(jobs, { workers, onRow = null, onProgress = null, overri
  */
 export async function runTournament({
   seed, bouts, workers, policies, random, cap, out, onProgress = null, overrides = null, cross = false,
-  mirror = false, exchanges = false,
+  mirror = false, exchanges = false, contenders = null, pairs = null, pool = null,
 }) {
-  const pool = buildPool({ seed, random });
-  const jobs = scheduleJobs({ pool, policies, pairings: Math.ceil(bouts / 2), seed, cap, cross, mirror });
+  pool ??= buildPool({ seed, random });
+  const jobs = scheduleJobs({ pool, policies, pairings: Math.ceil(bouts / 2), seed, cap, cross, mirror, contenders, pairs });
   mkdirSync(dirname(out), { recursive: true });
   const header = {
     version: TOURNAMENT_VERSION, seed, date: new Date().toISOString(), policies, bouts: jobs.length, cap, random,
-    overrides, cross, mirror, exchanges,
+    overrides, cross, mirror, exchanges, contenders, pairs,
     pool: pool.map(({ name, setup, caption }) => ({ name, setup, caption })),
   };
   const lines = [JSON.stringify(header)];
   writeFileSync(out, `${lines[0]}\n`);
   const rows = await runJobs(jobs, {
-    workers, exchanges,
+    workers, exchanges, contenders,
     overrides,
     onRow(row) {
       const line = JSON.stringify(row);

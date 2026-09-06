@@ -635,6 +635,71 @@ snapshot of a Havok world in this tree and the arena's allocator history is not 
 state. It is a chooser among the fencer's options, and the fencer is still what answers the
 physics.
 
+## The champion, which is the planner with its numbers moved by a tournament
+
+Session 07 of the matchup set. The fourth golem mind, `golem-champion`, adds no tactic. It is
+the planner of Session 06 over the fencer of Session 05 with the numbers of their two tables
+replaced by a row of a checked-in table, `GOLEM_CHAMPIONS` in
+`src/golem/tactics-champions.ts`, which `scripts/tune.mjs` writes and which is refused on load
+by version and by any row the two tables no longer have. The mind reads which row is its own
+off the first view it is handed: the *arm class* is the armed hand's weapon kind crossed with
+the reach band its published reach falls in, with `paired-` in front when both sockets hold one
+terminal, and a class the table has no row for plays the general vector. That is the class a
+mind can read of itself and not the tournament's build class, which names the terminal module;
+the frozen choice that a mind reads capabilities and a view and never module ids stands, and
+the two things the tournament tells apart that fall together here -- a fist and a capped
+socket are both `empty/short` -- fall together because to the mind they are both a hand that
+holds nothing.
+
+**The search is a (1+λ) evolution strategy, and what it climbs is the bar.** Every numeric row
+of the fencer's table that the fencer reads and the four the planner plays with -- `explore`
+stays zero, and the eight rows of the sword's stroke shape are read from the duelist's table
+and not the fencer's, so a champion cannot move them -- sixty-two rows, each with a bound made
+from its default, a quarter to four times a positive row and two scales either side of a zero
+or negative one, a fraction capped at one, the horizon an integer; a child moves
+each row with a small probability by a log-normal factor, and never moves nothing. The parent
+and its λ children are scored together against a frozen league -- the duelist, the fencer, the
+planner -- on the mirrored pool, where one body fights itself and the mind is the whole
+difference, each contender's schedule drawn from the generation's seed alone so that all of
+them meet the same bodies with the same streams. The fitness is the bar margin, a contender's
+own vitality less its opponent's at the end, averaged; the points per bout are scored beside
+it and are what the table reports. Not the Elo the plan named, because in a run where the
+league's ratings float with every contender's results Elo is not a frozen scale, and the same
+league at a fixed denominator orders the contenders the same way. A child replaces the parent
+when it beats it by a margin on the shared seed, the seed changes every generation, and the
+vector that comes out is scored once more against the defaults on a seed the search never saw,
+which is the number the table carries: a winner is the best of several draws and its own
+score is not to be believed. The search is per arm class after a general vector, on a census
+of the pool that reads each build's class off a real body the way the mind will.
+
+**What the noise allows.** A bout's outcome is chaotic past the first decision that
+differs, so two vectors a hundredth of a percent apart on a control gain read as different as
+two strangers, and the fitness of a vector at 384 bouts has a σ of 0.032 on the bar. The long
+run of seed 20260907 -- sixteen generations for the general vector, six for each of eight arm
+classes, about a hundred thousand bouts in five hours of the host -- bought a general vector
+that confirms at 0.498 against 0.477 for the defaults on a seed the search never saw, one σ,
+and six class rows that confirm above the defaults by between 0.007 and 0.062; the two that
+confirmed below, `sword/long` after four acceptances and `empty/mid` after none, are the
+winner's curse and are not in the table. The structural columns beside every rating stayed
+inside the band the owner approved -- more damage a bout at the same contacts, less time inside
+the inner radius, the lead changing in more bouts -- and the one row clear of the noise is the
+whip's, which turned a third of its draws into wins by getting in a tenth closer and circling
+wider. On the evaluation seed the search never saw, though, the champion is the planner it
+was tuned from and a little more -- level with it head to head, behind the fencer by three to
+five hundredths on both the mirrored pool and random pairs -- and the fencer's hand-set
+numbers remain the best anyone has for a sword on a long chain, which is the biggest class.
+What a run of this size cannot tell is a change worth less than a few
+hundredths of the bar, and the table says so in every number it carries; `docs/measurements.md`
+has the run, the confirmations with their structural columns, the rows each vector moved, and
+a census that found nine rows the search had been moving for nothing.
+
+**What it does not do.** It does not retune the duel model: the planner under the champion
+searches tables fitted from a log of the default fencer, and a champion whose stroke timings
+moved is searched with a model of the strokes that did not; a calibration run on the
+champion's own log is owed. The switches of Session 05 stay where they were measured. And the
+table is not what the owner's gate reads: a champion that rates higher and reads worse on the
+structural columns beside every rating is reported in `docs/measurements.md` and not shipped.
+
 ## Dying, which is not the same as losing
 
 `over` not stopping the world was the right call about the *bout* and, for a long time, it
