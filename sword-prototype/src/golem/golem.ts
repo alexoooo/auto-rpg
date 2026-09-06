@@ -502,8 +502,8 @@ export class Golem implements Combatant {
         // whichever bone was struck. So no individual part owns an attachment constraint, and
         // `Golem.sever` breaks the module's own joints instead.
         attachment: null,
-        health: part.health * worn,
-        maxHealth: part.health,
+        health: part.health * GOLEM_ASSEMBLY.healthScale * worn,
+        maxHealth: part.health * GOLEM_ASSEMBLY.healthScale,
         severed: false,
         lastHitAt: -999,
         vitalityWeight: part.vitalityWeight,

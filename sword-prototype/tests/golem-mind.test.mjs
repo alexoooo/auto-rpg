@@ -43,7 +43,9 @@ import { attachPhysics, COLLIDES, LAYER } from "../src/physics.ts";
 import { POLICIES } from "../src/mind.ts";
 import { unitDefinition } from "../src/units.ts";
 import { defaultGolemSetup } from "../src/golem/build.ts";
-import { GOLEM_TACTICS, canAttack, golemTactics, innerReach, unspan } from "../src/golem/tactics.ts";
+import {
+  GOLEM_TACTICS, canAttack, golemTactics, innerReach, tacticalRanges, unspan,
+} from "../src/golem/tactics.ts";
 import { BUTTON_REACH } from "../src/buttons.ts";
 
 process.env.SWORD_MEASURE_LIBRARY = "1";
@@ -769,4 +771,111 @@ test("the_tactics_ranges_are_fractions_of_a_published_reach_and_not_lengths", ()
   assert.equal(unspan(-0.5, -0.5, 1.3), -1);
   assert.equal(unspan(1.3, -0.5, 1.3), 1);
   assert.ok(Math.abs(unspan(0.4, -0.5, 1.3)) < 1e-9);
+});
+
+/**
+ * The stand-off is a floor under `hold`, and only an opponent with a long arm raises it.
+ *
+ * **The half of the range rule that was missing until 2026-09-05.** Every gate in `tactics.ts` was
+ * a fraction of what *this* body publishes, which is what the session trap asks for and is only
+ * half of an answer: a hold distance is where the fight happens and a fight has two bodies in it.
+ * Against the Warrior duelist the fractions were swept on, 0.78 of a golem's 1.78 m arm is well
+ * outside a 0.45 m one and the tuning is right. Against another golem it is 0.78 of *theirs* too,
+ * and both bodies drive to a distance at which both are already in range -- measured, two default
+ * golems stood 1.31 m apart on the floor for a whole bout, hit each other 10 times a second at
+ * 5.64 m/s, and neither bar emptied in 60 seconds.
+ *
+ * So this asserts the shape and not the value: below the fraction the floor is inert and every
+ * number this file was tuned with survives untouched, and at the mirror it binds and puts the hold
+ * at the opponent's own reach. The invariant `strike > hold` has to survive both, because a commit
+ * gate inside the hold distance is a mind that never commits from where it chose to stand.
+ */
+test("the_stand_off_is_a_floor_under_hold_that_only_a_long_arm_raises", async (t) => {
+  const golem = await standAGolem(t);
+  const self = golem.view.self;
+  const cap = self.capabilities.effectors.primary;
+  const reach = self.hands.primary.reach;
+  const standOff = GOLEM_TACTICS.standOffFraction;
+
+  // No opponent at all, and an opponent whose arm is short enough that the floor cannot bind:
+  // both must read exactly what the two self-fractions alone produce.
+  const alone = tacticalRanges(reach, cap);
+  const short = tacticalRanges(reach, cap, (alone.hold / standOff) * 0.5);
+  assert.deepEqual({ ...short }, { ...alone },
+    "a short-armed opponent moved a gate that is a fraction of this body's own reach");
+
+  // The mirror: the same body in front, so the floor is the whole story.
+  const mirror = tacticalRanges(reach, cap, reach);
+  assert.ok(mirror.hold >= reach * standOff - 1e-9,
+    `against its own reach of ${reach.toFixed(3)} m the golem still holds at`
+    + ` ${mirror.hold.toFixed(3)} m, which is inside the arm in front of it`);
+  assert.ok(mirror.hold > alone.hold,
+    "the mirror match did not move the hold distance at all, so the floor is not wired in");
+
+  for (const [label, ranges] of [["alone", alone], ["mirror", mirror]]) {
+    assert.ok(ranges.strike >= ranges.hold + ranges.slack - 1e-9,
+      `${label}: strike ${ranges.strike.toFixed(3)} is not outside hold ${ranges.hold.toFixed(3)}`);
+    assert.ok(ranges.hold >= ranges.near,
+      `${label}: the hold distance is inside the shell's own inner radius`);
+  }
+});
+
+/**
+ * Two golems fight each other at arm's length, and the fight goes somewhere.
+ *
+ * **The defect this is the guard against is a draw**, and it survived four sessions because
+ * nothing asserted it: golem against golem ran to the 60 s cap 40 times out of 40, at 224 damage
+ * a bout against a bar worth about 736 of it. Two things were wrong and they compound. The mind
+ * stood inside the other's reach, so its strokes met a body already too close and arrived at
+ * 5.64 m/s against a `referenceSpeed` of 11.0; and a golem's declared part health was written in
+ * its own units before there was a weapon to measure it against, so 2620 points of it stood
+ * against the Warrior's sword `damageScale`.
+ *
+ * The bout here is deliberately short -- a fifth of the cap -- because what is being asserted is a
+ * *rate* rather than an outcome, and a test that ran a golem bout to its end would cost more than
+ * the rest of this file put together. A bar that has come down this far in 14 s is a bout that
+ * ends; the spacing bound beside it is the other half, and is what the owner actually saw.
+ */
+test("two_golems_fight_at_arms_length_and_the_bout_goes_somewhere", async () => {
+  const setup = defaultGolemSetup();
+  const floorGaps = [];
+  const bars = { left: 1, right: 1 };
+  const result = runBout({
+    left: "golem-duelist", right: "golem-duelist",
+    leftUnit: "golem", rightUnit: "golem",
+    leftGolem: setup, rightGolem: setup,
+    locomotionMode: "supported",
+    seeds: [SEED, SEED + 17],
+    maxSeconds: 14,
+    physics: await freshHavok(),
+    onSample: ({ left, right }) => {
+      const a = left.view.self.ground;
+      const b = right.view.self.ground;
+      floorGaps.push(Math.hypot(a.x - b.x, a.z - b.z));
+      bars.left = left.view.self.vitality;
+      bars.right = right.view.self.vitality;
+    },
+  });
+  floorGaps.sort((x, y) => x - y);
+  const median = floorGaps[Math.floor(floorGaps.length / 2)];
+  const loser = Math.min(bars.left, bars.right);
+
+  // **Both bounds were placed by watching this bout go red with each half of the fix taken back
+  // out**, which is the only way to know a threshold is a threshold and not a decoration. At this
+  // seed, over the same 14 s:
+  //
+  //     GOLEM_TACTICS.standOffFraction / GOLEM_ASSEMBLY.healthScale   median gap   weaker bar
+  //      1.00 / 0.25   as shipped                                       1.729 m       0.168
+  //      0    / 0.25   the mind blind to the arm in front of it         1.367 m       0.691
+  //      1.00 / 1.0    a stone body against a person's weapon           1.669 m       0.909
+  //      0    / 1.0    the pair the owner watched                       1.367 m       0.923
+  //
+  // So the spacing bound sits between 1.367 and 1.729 and the bar bound between 0.168 and 0.691,
+  // and neither half of the fix can be lost without one of them saying so. Provisional as figures
+  // and to be re-taken after the owner's gate; the separations are what is not provisional.
+  assert.ok(median > 1.5,
+    `two golems held ${median.toFixed(3)} m apart on the floor, which is chest to chest`);
+  assert.ok(loser < 0.45,
+    `after ${result.seconds.toFixed(1)} s the weaker golem is still at ${loser.toFixed(3)},`
+    + ` which does not finish inside the cap`);
 });

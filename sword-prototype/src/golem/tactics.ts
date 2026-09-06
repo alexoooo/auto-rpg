@@ -207,14 +207,34 @@ export interface TacticalRanges {
  * 1.14 m against a 0.82 fraction's 0.94 m, so without the floor rung 1 would hold a fifth of a
  * metre inside its own tip and never strike from where it stood.
  *
+ * **The stand-off is the opponent's reach, and it is the one gate here that is not about me.**
+ * Everything else in this function is a fraction of what *this* body publishes, which was the
+ * whole of the lesson the session trap states -- and taken alone it is only half of one. A hold
+ * distance is a distance at which the fight happens, and a fight has two people in it: standing
+ * 0.78 of my own reach out is outside a Warrior's 0.45 m arm and a long way *inside* another
+ * golem's 1.78 m one. Measured, two default golems held 1.49 m apart on a 1.78 m reach and stood
+ * chest to chest at 1.31 m on the floor for the whole bout, which is what the owner watched and
+ * called going straight into each other's face. So `standOffFraction` is a multiple of
+ * `BodyView.reach` **as published by the body in front**, and it is a floor and never a ceiling:
+ * against a shorter opponent it does not bind and the numbers this file was swept at are
+ * untouched.
+ *
  * Exported because it is the one piece of arithmetic in this file whose *shape* is worth asserting
  * rather than whose behaviour is: `tests/golem-mind.test.mjs` asks it of every registered build's
  * real published capability, which is a question a bout cannot answer for a build nobody ran.
+ * `theirReach` defaults to zero -- an opponent with no arms cannot be stood off from -- so the
+ * shape assertions that do not have a second body to hand still read the same ranges they did.
  */
-export function tacticalRanges(reach: number, cap: EffectorCapability): TacticalRanges {
+export function tacticalRanges(
+  reach: number, cap: EffectorCapability, theirReach = 0,
+): TacticalRanges {
   const slack = reach * GOLEM_TACTICS.slackFraction;
   const near = innerReach(reach, cap);
-  const hold = Math.max(reach * GOLEM_TACTICS.holdFraction, near + slack);
+  const hold = Math.max(
+    reach * GOLEM_TACTICS.holdFraction,
+    near + slack,
+    theirReach * GOLEM_TACTICS.standOffFraction,
+  );
   return Object.freeze({
     near, hold, slack,
     strike: Math.max(reach * GOLEM_TACTICS.strikeFraction, hold + slack),
@@ -269,10 +289,68 @@ export const GOLEM_TACTICS = {
    * opponent, too close and the arm is inside its own inner radius before the stroke starts. The
    * pair is swept together because `strike` has to stay outside `hold` or the mind never commits
    * from where it chose to stand.
+   *
+   * **That table is a Warrior's table, and it decides nothing against another golem.** The cell
+   * above is 0.45 m of opponent arm; a golem's is 1.78 m, and `standOffFraction` below floors the
+   * hold distance at the *opponent's* reach, which is 1.78 m and above everything in this column.
+   * So these two fractions still choose where a golem stands against a person and no longer choose
+   * where it stands against its own kind. Noted 2026-09-05; the numbers are unchanged and still
+   * the ones that were measured.
    */
   holdFraction: 0.78,
   /** The furthest a commit is taken from, as the same fraction. Outside `hold` by construction. */
   strikeFraction: 0.92,
+  /**
+   * The floor under `hold`, as a fraction of **the opponent's** published reach.
+   *
+   * The two fractions above are properties of my own arm and say nothing about how far the thing
+   * in front of me can hit from. Against the Warrior duelist they were swept against, that is
+   * harmless: 0.45 m of arm is nowhere near the 1.39 m a golem's own fraction asks for, so this
+   * floor never binds and every number in this file keeps the cell it was measured in. Against
+   * another golem it is the whole story -- the reaches are equal, so 0.78 of mine is 0.78 of
+   * theirs, and both bodies drive to a distance at which both are already in range.
+   *
+   * **This is the half of the range rule the session trap did not state**, and the omission is
+   * the one the owner watched: *"they basically just go right into each others face and kinda
+   * flail around, rarely hitting each other."* Measured, before this existed -- two default golems
+   * held 1.49 m apart shoulder to shoulder on a 1.78 m reach, 1.31 m apart on the floor, inside
+   * their own inner radius 6.8 % of the time, mid-exchange 54 % of the time, landing 10 contacts
+   * a second at 5.64 m/s against a `referenceSpeed` of 11.0. The flail and the feeble contact are
+   * one defect: a stroke that meets a body already too close never gets up to speed.
+   *
+   * Swept golem against golem, 8 side-swapped bouts, seed 20260904, Node arena harness,
+   * 2026-09-05, at the shipped health:
+   *
+   * | standOff | damage/bout | contact speed | alignment | severs | anchor stray |
+   * |---:|---:|---:|---:|---:|---:|
+   * | 0 (the old behaviour) | 209.6 | 5.64 | 0.507 | 0 | 1008 mm |
+   * | 0.85 | 250.9 | 5.75 | 0.520 | 0 | 726 |
+   * | 0.95 | 285.5 | 6.54 | 0.546 | 0 | 779 |
+   * | **1.00** | **292.4** | **7.35** | **0.558** | 0 | 11820 |
+   * | 1.05 | 281.8 | 7.88 | 0.573 | 2 | 20605 |
+   * | 1.15 | 202.9 | 8.41 | 0.605 | 3 | 82737 |
+   *
+   * 1.00 is the peak and it is also the only row with a sentence behind it: **stand where their
+   * point just reaches you and no closer.** Past it the contacts keep getting cleaner and there
+   * are fewer of them, which is a golem missing.
+   *
+   * The stray column is a red herring and is left in because it looked like one and was not. A
+   * peak of 11.8 m is not the command outrunning the force budget: chased down, it is a *severed*
+   * arm, `HandView.lost` true, lying on the floor as debris while the anchor it no longer has goes
+   * on being asked for. With a limb still attached the distribution improves -- median 1.8 mm and
+   * p99 256 mm at 1.00, against 1.6 mm and 363 mm at 0 -- and crown height never leaves 2.10 m,
+   * so nobody is falling over.
+   *
+   * **The Warrior cell is byte-identical at 0, 1.00 and 1.15**, which is the isolation this shape
+   * was chosen for: 14.90 damage, 40.39 taken, 7.06 m/s, 0.607, 8/8, 8.28 s in all three. A floor
+   * that only a long arm raises cannot disturb a tuning taken against a short one.
+   *
+   * One consequence worth naming: against a golem, `strikeFraction` no longer decides anything.
+   * `strike` is `max(reach * 0.92, hold + slack)` and the second term wins at 1.887 m, so the
+   * commit gate is now the hold distance plus the hysteresis band. Against a Warrior it is still
+   * the fraction. 2026-09-05.
+   */
+  standOffFraction: 1.00,
   /**
    * The hysteresis band on both range gates, as the same fraction.
    *
@@ -313,10 +391,17 @@ export const GOLEM_TACTICS = {
   /**
    * Seconds of no opening after which it makes one, and seconds after an exchange before another.
    *
-   * `patience` is the one thing here that is not a reaction, and it is what stops golem versus
-   * golem running to the cap: two bodies that both wait for an opening never find one, because a
-   * covering arm is by definition in line. Shorter than `duelist`'s 2.4 because a golem's cut is
-   * 0.18 s of stroke on top of a 0.22 s chamber, so its exchanges are further apart to begin with.
+   * `patience` is the one thing here that is not a reaction: two bodies that both wait for an
+   * opening never find one, because a covering arm is by definition in line. Shorter than
+   * `duelist`'s 2.4 because a golem's cut is 0.18 s of stroke on top of a 0.22 s chamber, so its
+   * exchanges are further apart to begin with.
+   *
+   * **It used to claim this is "what stops golem versus golem running to the cap", and that claim
+   * was false when it was written.** Golem against golem drew 40 of 40 at the cap; the golems were
+   * mid-exchange 54 % of the time, so patience was doing its job and the deadlock was somewhere
+   * else entirely -- the spacing (`standOffFraction`) and the health pool
+   * (`GOLEM_ASSEMBLY.healthScale`). Corrected 2026-09-05. The value is unchanged; only the sentence
+   * claiming credit for an outcome that had not happened is gone.
    */
   patience: 1.6,
   cooldown: 0.30,
@@ -962,7 +1047,7 @@ export function golemTactics(seed: number): GolemTactics {
       // against an inner radius of 1.36 m, and a mace's 1.06 m against 1.00 m, so both stood inside
       // their own hysteresis band and churned between holding and giving ground.
       const reach = me.reach;
-      const { near, hold, strike, slack } = tacticalRanges(reach, cap);
+      const { near, hold, strike, slack } = tacticalRanges(reach, cap, them.reach);
       const gap = distance(socket, them.shoulder);
 
       // ---- what their business end is doing ----------------------------------------------------

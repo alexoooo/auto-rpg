@@ -11050,3 +11050,160 @@ after the third stale table:
   the digit — because `defaultGolemSetup` builds both hands on the *wrist* chain, so rung 1 is not
   in an arena bout at all. Whether rung 1's limb should move faster is a question only the bench
   page can answer, by eye.
+
+## Session 12b — 2026-09-05: why two golems could not finish each other
+
+The owner watched the first golem-against-golem bout and reported two things:
+
+> "they have a bad fighting style, they basically just go right into each others face and kinda
+> flail around, rarely hitting each other"
+>
+> "when they do hit each other, it doesn't do much damage -- but I'm not sure if it's because they
+> have too much health, or attack is too weak, or both"
+
+Both are real, both were measured, and the answer to the second is **both, and they are the same
+mismatch**. What follows is the reading, the two changes, and what they cost.
+
+### The spacing: a range rule that only knew about one of the two bodies
+
+`GOLEM_TACTICS.holdFraction` and `strikeFraction` are dimensionless multiples of `HandView.reach`,
+which is the whole of the lesson the session trap states -- `duelist.hold` was once an arming
+sword's length written as a decimal, and an axe handed to it swung at the air. Dimensionless in
+*whose* reach was never asked. Both gates are fractions of **mine**.
+
+Against the Warrior duelist they were swept on, that is invisible: 0.78 of a golem's 1.78 m arm is
+1.39 m and a Warrior's arm is 0.45 m, so the golem stands outside a range the Warrior has to cross.
+Against another golem the reaches are equal, so 0.78 of mine is 0.78 of theirs and both bodies
+drive to a distance at which both are already inside. Instrumented over 8 bouts, `gap` being the
+mind's own measure of shoulder to shoulder:
+
+| | before | after |
+|:---|---:|---:|
+| `hold`, the distance it drives to | 1.467 m | 1.780 m |
+| gap, median | 1.491 | 1.805 |
+| centre to centre on the floor, median | **1.310** | **1.710** |
+| frames inside its own inner radius | 6.8 % | 0.0 % |
+| frames mid-exchange (chamber, commit, recover) | 54 % | 56 % |
+| contacts a bout | 606 | 551 |
+| damage a contact | 0.343 | 0.542 |
+| contact speed | 5.64 m/s | 7.19 |
+| scored alignment | 0.505 | 0.563 |
+
+Two chests 0.71 m apart, with 1.78 m of arm each, swinging 10 times a second and landing a third
+of a point each time. **The flail and the feeble contact are one defect**: a stroke that meets a
+body already too close never gets up to speed, and `CONFIG.combat.referenceSpeed` is 11.0 m/s.
+"Rarely hitting each other" is the one part of the report the log disagrees with -- they hit
+constantly, and it reads as missing because almost nothing registers.
+
+The fix is `GOLEM_TACTICS.standOffFraction`, a floor under `hold` at a fraction of the **opponent's**
+published reach. Swept golem against golem, 8 side-swapped bouts, seed 20260904:
+
+| standOff | damage/bout | speed | alignment | severs |
+|---:|---:|---:|---:|---:|
+| 0 (the old behaviour) | 209.6 | 5.64 | 0.507 | 0 |
+| 0.85 | 250.9 | 5.75 | 0.520 | 0 |
+| 0.95 | 285.5 | 6.54 | 0.546 | 0 |
+| **1.00** | **292.4** | **7.35** | **0.558** | 0 |
+| 1.05 | 281.8 | 7.88 | 0.573 | 2 |
+| 1.15 | 202.9 | 8.41 | 0.605 | 3 |
+
+1.00 is the peak, and it is also the only row with a sentence behind it: *stand where their point
+just reaches you, and no closer*. Past it the contacts go on getting cleaner and there are fewer of
+them, which is a golem missing.
+
+**The Warrior cell is byte-identical at 0, 1.00 and 1.15** -- 14.90 damage, 40.39 taken, 7.06 m/s,
+0.607 alignment, 8/8, 8.28 s in all three. That is the property the shape was chosen for: a floor
+that only a long arm raises cannot disturb a tuning taken against a short one. Every number in
+`tactics.ts` keeps the cell it was measured in.
+
+One consequence is worth naming. Against a golem, `strikeFraction` no longer decides anything:
+`strike` is `max(reach * 0.92, hold + slack)` and the second term wins at 1.887 m. Against a
+Warrior it is still the fraction.
+
+#### A stray that was not what it looked like
+
+The sweep's anchor-stray column read 11 820 mm at the chosen row, which is a hand eleven metres
+from where it was told to be and would have been reason enough to refuse the value. It is not that:
+chased down bout by bout, the peak sits on a hand with `HandView.lost` true -- a **severed** arm,
+re-layered onto `DEBRIS` and lying on the floor, while the anchor it no longer has goes on being
+asked for. With a limb still attached the distribution *improves*: median 1.8 mm and p99 256 mm at
+1.00 against 1.6 mm and 363 mm at 0, and crown height never leaves 2.100 m in any bout at either
+value, so nobody is falling over. Recorded because it cost half an hour and would cost it again.
+
+### The damage: a stone body swinging a person's weapon
+
+| | golem | Warrior |
+|:---|---:|---:|
+| parts | 23 | 13 |
+| declared health, summed | **2620** | **74** |
+| damage its whole bar is worth | ~736 | ~15 |
+| its weapon's `Striker` kind | `sword` | `sword` |
+| `damageScale` that kind carries | 2.3 | 2.3 |
+
+That is the whole of it. A golem's part health was written module by module, in its own units,
+before there was anything to hit it with; the blade bolted to its wrist is registered as a sword
+and takes a person's arming-sword bite. Fifty to one on the pool, one to one on the weapon. At the
+shipped spacing the two trade 3.5 damage a second, so a golem bout would take **three and a half
+minutes** -- and the cap is sixty seconds, which is why it drew 40 times out of 40.
+
+Where the damage lands says the same thing from the other side. Of 202.3 damage in one bout: 42 %
+on arms, 23 % on the two weapons, 25 % on core and head, 10 % on legs. Two thirds of it goes into
+whatever is between two bodies standing 0.7 m apart.
+
+`GOLEM_ASSEMBLY.healthScale` is the conversion, applied once in `Golem.register` beside the
+`durability` scale that was already there. The modules' numbers stay a ratio table -- a pelvis at
+260 against a rollRing at 50 is a relation somebody chose -- and one number carries the absolute,
+which is also the one number a sweep can move. 16 side-swapped bouts a row, `standOffFraction` at
+1.00, seed 20260904:
+
+| healthScale | a bar is worth | damage/bout | decided | severs | seconds |
+|---:|---:|---:|---:|---:|---:|
+| 1.0 | 736 | 292.4 | 0/16 | 0 | 60.0 (the cap) |
+| 0.35 | 258 | 140.3 | 16/16 | 8 | 41.4 |
+| 0.30 | 221 | 117.7 | 15/16 | 8 | 36.3 |
+| **0.25** | **184** | **93.8** | **16/16** | **7** | **29.0** |
+| 0.20 | 147 | 78.6 | 16/16 | 8 | 24.1 |
+
+**0.25 is chosen and not measured-best**, because there is no best in that column: every row below
+0.35 ends every bout, and what is being picked is how long a fight between two stone bodies should
+last. 29 seconds is about six times a Warrior duel's 5.2, which is the right order for a body of
+this mass, and it leaves a golem 655 points of part health -- nine times a Warrior's 74, which is
+what a golem should be. 0.30 is refused for a reason rather than a taste: one bout in sixteen still
+ran to the cap.
+
+### Where the matchup stands now
+
+16 side-swapped bouts either side, seed 20260904:
+
+| | before | after |
+|:---|---:|---:|
+| golem vs golem, decided | **0/16** | **16/16** |
+| seconds to a decision | 60.0 (the cap) | 29.0 |
+| contacts a bout | 606 | 182 |
+| damage a contact | 0.343 | 0.516 |
+| contact speed | 5.64 m/s | 7.08 |
+| centre to centre, median | 1.310 m | 1.710 |
+| golem vs Warrior duelist, golem wins | 16/16 | 14/16 |
+
+The last row is the price and it is reported rather than fixed: a golem at a quarter of its old
+health is no longer safe from a person. The owner's standing instruction is that golem against
+Warrior does not have to be balanced -- *"if golem works well then we can just make it a golem
+fighting game"* -- so the Warrior cell is a regression check from here and not a target.
+
+### What this entry owes
+
+- **Nobody has looked at it yet.** Every number above is a proxy, the bout is 29 seconds of
+  something on a screen, and this plan set exists because proxies have gone green three times while
+  the owner's judgement stayed red. The whole of finding 1 and finding 3 are still owed a look too.
+- **`withdraw` is now dead code in a mirror match** -- 0.0 % of frames, because the mind never gets
+  inside its own inner radius against a body it stands off from. It still fires against a Warrior
+  (1.1 %). Not removed: it is the branch that handles being crowded, and being crowded is a thing a
+  person driving a golem will do on purpose.
+- **The health sweep was taken at one stand-off and the stand-off sweep at one health.** They are
+  not independent -- a lighter body dies before the spacing has time to matter -- and the pair has
+  not been swept as a grid. The two chosen rows were re-measured together, which is weaker than a
+  grid and is what there was time for.
+- **`GOLEM_ASSEMBLY.vitalityTotal` was not touched**, and it is the third lever: at 3.6 a golem's
+  bar empties on 27.8 % of its own weighted body. Raising it would shorten bouts without changing
+  how many blows a part takes, which is a different feel from this change and worth a sweep if 29
+  seconds reads long.

@@ -2955,6 +2955,53 @@ export const GOLEM_ASSEMBLY = {
   vitalityTotal: 3.6,
 
   /**
+   * What a point of a module's declared health is worth, applied once to every part of every
+   * module a golem assembles.
+   *
+   * **The modules' health numbers are a ratio table and this is what converts it to the weapon's
+   * scale.** Every `health` in this file was written before there was a golem to hit with
+   * anything: they are relative -- a pelvis at 260 against a rollRing at 50 -- and the relation is
+   * the part somebody chose. What was never chosen is the absolute, and the absolute is the only
+   * thing that decides whether a bout ends. So the ratios stay where they are and one number
+   * carries the conversion, which is also the one number a sweep can move.
+   *
+   * The mismatch it exists to fix, measured 2026-09-05: a golem is **2620 points of health across
+   * 23 parts** and a Warrior is **74 across 13**. Its bar is worth about **736 damage** and a
+   * Warrior's ends at about **15**. And the weapon on the end of its arm is registered
+   * `kind: "sword"`, so it takes `CONFIG.combat.damageScale` of 2.3 -- the same bite a person's
+   * arming sword has. A stone body on its own scale, swinging a weapon on somebody else's. Golem
+   * against golem therefore drew 40 times out of 40 at the 60 s cap, which is what the owner
+   * reported as *"when they do hit each other, it doesn't do much damage."*
+   *
+   * Swept golem against golem with `GOLEM_TACTICS.standOffFraction` at its shipped 1.00, 16
+   * side-swapped bouts per row, seed 20260904, Node arena harness:
+   *
+   * | healthScale | a bar is worth | damage/bout | decided | severs | seconds |
+   * |---:|---:|---:|---:|---:|---:|
+   * | 1.0 | 736 | 292.4 | 0/16 | 0 | 60.0 (the cap) |
+   * | 0.35 | 258 | 140.3 | 16/16 | 8 | 41.4 |
+   * | 0.30 | 221 | 117.7 | 15/16 | 8 | 36.3 |
+   * | **0.25** | **184** | **93.8** | **16/16** | **7** | **29.0** |
+   * | 0.20 | 147 | 78.6 | 16/16 | 8 | 24.1 |
+   *
+   * 0.25 is chosen rather than measured-best, because there is no best in that column: every row
+   * below 0.35 ends every bout and what is being picked is **how long a fight between two stone
+   * bodies should last**. 29 seconds is about six times a Warrior duel's 5.2, which is the right
+   * order for a body of this mass, and it leaves a golem 655 points of part health -- nine times a
+   * Warrior's 74, which is what a golem should be. 0.30 is refused for a concrete reason and not a
+   * taste: one bout in sixteen still ran to the cap.
+   *
+   * What it costs is that a golem is no longer safe from a person. Against the Warrior duelist it
+   * now wins 14 of 16 rather than all of them, and that is reported rather than fixed: the owner's
+   * standing instruction is that golem against Warrior does not have to be balanced.
+   *
+   * Applied in `Golem.register`, the one place a golem's parts get their health, beside the
+   * `durability` scale that was already there. `maxHealth` moves with it, so a bar reads the same
+   * fraction it always did and only the number of blows behind that fraction changes. 2026-09-05.
+   */
+  healthScale: 0.25,
+
+  /**
    * The base frame's box, metres, and why there is one at all.
    *
    * `GolemSocket.mount` is "the body this module hangs from" and the locomotion slot inverts it:
