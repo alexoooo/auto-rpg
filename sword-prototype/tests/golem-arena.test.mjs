@@ -31,7 +31,10 @@ import { CONFIG } from "../src/config.ts";
 import { attachPhysics, COLLIDES, LAYER, collisionFilterIsExact, golemLayersFor } from "../src/physics.ts";
 import { unitDefinition } from "../src/units.ts";
 import { vitality } from "../src/bout.ts";
-import { GOLEM_ASSEMBLY } from "../src/golem/config.ts";
+import { GOLEM_ASSEMBLY, TERMINAL_MAUL } from "../src/golem/config.ts";
+
+/** The maul's one azimuth, as the terminal declares it; the test reads it back off the body. */
+const GOLEM_MAUL_SWING = TERMINAL_MAUL.limits.swingMin;
 import {
   GOLEM_EFFECTORS,
   GOLEM_LOCOMOTION,
@@ -112,37 +115,46 @@ test("every_registered_golem_module_is_a_module_an_assembly_can_actually_build",
 });
 
 /**
- * How sockets are allocated, and how a mace claims both.
+ * How sockets are allocated, and how a maul claims both.
  *
- * A golem has exactly two effector sockets. Every terminal but the mace claims one; the mace is a
- * rigid bar between two arms and claims both, which is the same shape as the club taking two
- * hands. The assembly expresses that as **one module built into the primary socket with the
- * secondary handed over as its `companion`** -- so `plan.secondary` is null and nothing is built
- * there -- and a build asking for a mace beside anything else is refused by name rather than
- * quietly given three sockets.
+ * A golem has exactly two effector sockets. Every terminal but the maul claims one; the maul is a
+ * long bar with both hands on one grip and claims both, which is the same shape as the club
+ * taking two hands. The assembly expresses that as **one module built into the primary socket
+ * with the secondary handed over as its `companion`** -- so `plan.secondary` is null and nothing
+ * is built there -- and a build asking for a maul beside anything else is refused by name rather
+ * than quietly given three sockets. The mace was the two-socket terminal until the matchup set's
+ * Session 02 made it one-handed; it is the control here now.
  */
 test("a_two_socket_terminal_claims_both_effector_sockets_and_a_third_is_refused_by_name", () => {
-  const mace = GOLEM_EFFECTORS.find((option) => option.terminal === "mace");
-  assert.ok(mace, "the mace is registered on at least one chain");
-  assert.equal(mace.sockets, 2);
+  const maul = GOLEM_EFFECTORS.find((option) => option.terminal === "maul");
+  assert.ok(maul, "the maul is registered on at least one chain");
+  assert.equal(maul.sockets, 2);
   for (const option of GOLEM_EFFECTORS) {
-    assert.equal(option.sockets, option.terminal === "mace" ? 2 : 1, option.id);
+    assert.equal(option.sockets, option.terminal === "maul" ? 2 : 1, option.id);
   }
 
   const both = {
     ...defaultGolemSetup(),
-    primary: { chain: mace.chain, terminal: "mace" },
-    secondary: { chain: mace.chain, terminal: "mace" },
+    primary: { chain: maul.chain, terminal: "maul" },
+    secondary: { chain: maul.chain, terminal: "maul" },
   };
   assert.equal(golemSetupRefusal(both), null);
   const plan = golemEffectorPlan(both);
-  assert.equal(plan.primary.id, mace.id);
-  assert.equal(plan.secondary, null, "a mace is one module, so the second socket builds nothing");
+  assert.equal(plan.primary.id, maul.id);
+  assert.equal(plan.secondary, null, "a maul is one module, so the second socket builds nothing");
 
-  const mismatched = { ...both, secondary: { chain: mace.chain, terminal: "blade" } };
+  const mismatched = { ...both, secondary: { chain: maul.chain, terminal: "blade" } };
   const refusal = golemSetupRefusal(mismatched);
   assert.match(refusal ?? "", /three effector sockets/);
-  assert.match(refusal ?? "", /mace/);
+  assert.match(refusal ?? "", /maul/);
+
+  // The control: a mace beside a blade is two one-socket modules and builds both.
+  const mace = GOLEM_EFFECTORS.find((option) => option.terminal === "mace");
+  assert.ok(mace && mace.sockets === 1, "the mace is one-handed");
+  const pair = { ...both, primary: { chain: mace.chain, terminal: "mace" },
+    secondary: { chain: mace.chain, terminal: "blade" } };
+  assert.equal(golemSetupRefusal(pair), null);
+  assert.ok(golemEffectorPlan(pair).secondary, "a mace leaves the second socket to be built");
 });
 
 test("a_build_naming_a_pair_the_registry_does_not_have_is_refused_by_name", () => {
@@ -370,18 +382,20 @@ test("a_walking_golems_effector_stays_on_its_own_anchor", async (t) => {
 });
 
 /**
- * **A mace pins the swing, and the assembled body's published envelope says so.**
+ * **A maul pins the swing, and the assembled body's published envelope says so.**
  *
- * Session 04 left this owed in as many words: a mace sets `swingMin = swingMax = 0`, so a golem
- * carrying one cannot turn its weapon with its arm and has to turn with the torso or the carrier's
- * yaw, and Session 09's mind will need to read that rather than discover it. The terminal declares
- * it, the chain folds it into its own limits before it publishes anything, and this asks the
- * *assembled* body -- which is the only place the two halves meet.
+ * Session 04 left this owed in as many words for the mace, and the matchup set's Session 02
+ * moved it to the maul: `TERMINAL_MAUL.limits` sets `swingMin = swingMax`, so a golem carrying
+ * one cannot turn its weapon with its arm and has to turn with the torso or the carrier's yaw,
+ * and the mind reads that rather than discovers it. The terminal declares it, the chain folds it
+ * into its own limits before it publishes anything, and this asks the *assembled* body -- which
+ * is the only place the two halves meet.
  *
- * The blade beside it is the control, and it is what makes this test say something: an envelope
- * that reported zero for every build would pass the mace half on its own.
+ * The blade and the one-handed mace beside it are the controls, and they are what make this test
+ * say something: an envelope that reported one azimuth for every build would pass the maul half
+ * on its own.
  */
-test("a_mace_pins_the_swing_on_the_envelope_the_assembled_golem_publishes", async (t) => {
+test("a_maul_pins_the_swing_on_the_envelope_the_assembled_golem_publishes", async (t) => {
   const base = defaultGolemSetup();
   const blade = await standAGolem(t);
   const wide = blade.golem.effectorEnvelope("primary")?.reachable;
@@ -389,32 +403,42 @@ test("a_mace_pins_the_swing_on_the_envelope_the_assembled_golem_publishes", asyn
   assert.ok(wide.swingMax - wide.swingMin > 0.5,
     `the control's swing spans ${(wide.swingMax - wide.swingMin).toFixed(3)} rad`);
 
-  const mace = await standAGolem(t, {
+  const maul = await standAGolem(t, {
     setup: {
       ...base,
-      primary: { chain: "wrist", terminal: "mace" },
-      secondary: { chain: "wrist", terminal: "mace" },
+      primary: { chain: "wrist", terminal: "maul" },
+      secondary: { chain: "wrist", terminal: "maul" },
     },
   });
-  const pinned = mace.golem.effectorEnvelope("primary")?.reachable;
-  assert.ok(pinned, "a mace publishes a reachable set too");
-  // `Math.abs`, and not because zero is being approached: `ReachEnvelope.swing` is
-  // outboard-signed, so a limit of zero on the secondary socket arrives as a **negative zero**
-  // and `assert.equal` tells `-0` and `0` apart. Asserting the magnitude says the thing meant --
-  // there is no azimuth here at all -- without asserting which side of nothing it is on.
-  assert.equal(Math.abs(pinned.swingMin), 0);
-  assert.equal(Math.abs(pinned.swingMax), 0);
-  // Both sockets answer, because one module fills both, and both answer the same zero span --
+  const pinned = maul.golem.effectorEnvelope("primary")?.reachable;
+  assert.ok(pinned, "a maul publishes a reachable set too");
+  // `Math.abs`, because `ReachEnvelope.swing` is outboard-signed: the maul's one azimuth is
+  // inboard of the socket by half a radian, and which sign that arrives with is the socket's
+  // business. Asserting the magnitude and the zero span says the thing meant -- there is one
+  // azimuth here, and it is not straight ahead.
+  assert.equal(Math.abs(pinned.swingMin), Math.abs(GOLEM_MAUL_SWING));
+  assert.equal(pinned.swingMax - pinned.swingMin, 0);
+  // Both sockets answer, because one module fills both, and both answer the same span --
   // which is the honest description of one bar held in two hands.
-  const other = mace.golem.effectorEnvelope("secondary")?.reachable;
+  const other = maul.golem.effectorEnvelope("secondary")?.reachable;
   assert.ok(other);
   assert.equal(other.swingMax - other.swingMin, 0);
   assert.equal(other.reachMax, pinned.reachMax);
-  // The roll goes with it: a mace has no edge, so there is nothing for a wrist to point.
-  const roll = mace.golem.effectorEnvelope("primary")?.axes.find((axis) => axis.id === "roll");
+  // The roll goes with it: a maul has no edge, so there is nothing for a wrist to point, and the
+  // wrist could not hold 48 kg bent anyway.
+  const roll = maul.golem.effectorEnvelope("primary")?.axes.find((axis) => axis.id === "roll");
   assert.ok(roll, "rung 3 publishes a roll axis whatever is on the end of it");
   assert.equal(Math.abs(roll.min), 0);
   assert.equal(Math.abs(roll.max), 0);
+
+  // The second control: a one-handed mace on the same chain swings and rolls with it.
+  const mace = await standAGolem(t, {
+    setup: { ...base, primary: { chain: "wrist", terminal: "mace" } },
+  });
+  const free = mace.golem.effectorEnvelope("primary")?.reachable;
+  assert.ok(free && free.swingMax - free.swingMin > 0.5, "a one-handed mace swings with its arm");
+  const maceRoll = mace.golem.effectorEnvelope("primary")?.axes.find((axis) => axis.id === "roll");
+  assert.ok(maceRoll && maceRoll.max > 0, "a one-handed mace rolls with its wrist");
 });
 
 // ---------------------------------------------------------------------------------------
@@ -609,15 +633,17 @@ test("twenty_five_golem_rebuilds_return_every_counted_resource_to_baseline", asy
       .filter((observer) => !observer._willBeUnregistered).length,
   });
 
-  // Every build shape the picker can reach, cycled: the default, a mace claiming both sockets, a
-  // whip, a fist on two chains, a plated trunk and a ram head. A rebuild census over one build
-  // would not see a module that leaks only when it is fitted.
+  // Every build shape the picker can reach, cycled: the default, a maul claiming both sockets, a
+  // one-handed mace, a whip, a fist on two chains, a plated trunk and a ram head. A rebuild census
+  // over one build would not see a module that leaks only when it is fitted.
   const base = defaultGolemSetup();
   const builds = [
     base,
     { ...base, torso: "torso.plated", head: "head.ram" },
+    { ...base, primary: { chain: "wrist", terminal: "maul" },
+      secondary: { chain: "wrist", terminal: "maul" } },
     { ...base, primary: { chain: "wrist", terminal: "mace" },
-      secondary: { chain: "wrist", terminal: "mace" } },
+      secondary: { chain: "reach", terminal: "plate" } },
     { ...base, primary: { chain: "wrist", terminal: "whip" } },
     { ...base, primary: { chain: "wrist", terminal: "fist" },
       secondary: { chain: "reach", terminal: "fist" } },

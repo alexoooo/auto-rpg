@@ -321,10 +321,10 @@ export function withGolemSlot(
 /**
  * Put a chain and a terminal in one of a golem's two effector sockets.
  *
- * **The two-socket rule lives here, and it is the club's rule with a different subject.** A mace
+ * **The two-socket rule lives here, and it is the club's rule with a different subject.** A maul
  * is one weapon that claims both effector sockets, exactly as a club is one weapon that takes both
  * hands -- so choosing a two-socket terminal in either socket fills both, and choosing anything
- * else in a socket whose partner is holding half a mace moves that partner onto the pair being
+ * else in a socket whose partner is holding half a maul moves that partner onto the pair being
  * chosen. It moves rather than emptying, which is where this parts company with the hand rule:
  * `empty` is a real thing to hold and a golem has no empty socket -- every socket carries a
  * module, and the nearest thing to nothing is rung 0's capped socket, which is a choice somebody
@@ -353,7 +353,7 @@ export function withGolemEffector(
   build[socket] = { ...pick };
   // **A salvaged module is one thing, and it is fitted once.** A two-socket terminal genuinely is
   // one module in both sockets, so both sockets naming the same bin entry is the truth about it.
-  // The third branch is the one that would lie: a socket moved off half a mace is being given a
+  // The third branch is the one that would lie: a socket moved off half a maul is being given a
   // *different* module, and copying the salvage key across with the pair would fit one stored part
   // onto two arms and report it twice at the verdict. It is moved onto the shelf's own version.
   if (twoSocket(pick)) build[other] = { ...pick };

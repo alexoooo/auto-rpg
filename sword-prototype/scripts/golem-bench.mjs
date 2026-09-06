@@ -168,18 +168,42 @@ export const PLATE_SEQUENCE = Object.freeze([
 ]);
 
 /**
- * The mace's sequence: raise, chop, and shove, with the swing left where it has to be.
+ * The one-handed mace's sequence: the blade's, because a mace since the matchup set's Session 02
+ * takes nothing from the chain and is judged on the same strokes at twenty times the mass. What
+ * the bench reports for it beside the blade -- tip speed, stray, contacts -- is the cost of the
+ * mass and nothing else.
+ */
+export const MACE_SEQUENCE = REACH_SEQUENCE;
+
+/**
+ * The maul's sequence: raise, hold, smash, and shove, with the swing left where it has to be.
  *
  * **Nothing here moves `pointerX`, and that is the sequence telling the truth about the
- * terminal rather than avoiding a problem.** A mace pins the chain's yaw at zero -- the
- * arithmetic is beside `TERMINAL_MACE.limits` -- so a script that swept the cursor sideways would
+ * terminal rather than avoiding a problem.** A maul pins the chain's yaw inboard -- the
+ * arithmetic is beside `TERMINAL_MAUL.limits` -- so a script that swept the cursor sideways would
  * be measuring the clamp rather than the weapon. What is left is what a two-handed maul actually
  * does: it goes up, it comes down, and it is pushed out.
  *
- * `chop` is `thrust` pressed while `guard` is held, which is the arm core's cut; with the swing
- * clamped it degenerates into a pure downward sweep, which is a chop. `shove` is the plain thrust.
+ * `rest` is long, and the length is the measurement: the trailing hand starts a socket apart from
+ * the grip and the grip is taken when it arrives, so the time `gripTakenAt` reports is the
+ * seam's own first number. `smash` is `thrust` pressed while `guard` is held, which is the arm
+ * core's cut; with the swing clamped it degenerates into a pure downward sweep. `shove` is the
+ * plain thrust.
  */
-export const MACE_SEQUENCE = Object.freeze([
+export const MAUL_SEQUENCE = Object.freeze([
+  { name: "rest", until: 1.60, pointerX: 0, pointerY: 0, guard: false, thrust: false },
+  { name: "raise", until: 2.80, pointerX: 0, pointerY: 0.9, guard: false, thrust: false,
+    from: { pointerY: 0 } },
+  { name: "chamber", until: 3.80, pointerX: 0, pointerY: 0.9, guard: true, thrust: false },
+  { name: "smash", until: 4.00, pointerX: 0, pointerY: -0.8, guard: true, thrust: true,
+    from: { pointerY: 0.9 } },
+  { name: "settle", until: 5.40, pointerX: 0, pointerY: 0.2, guard: false, thrust: false },
+  { name: "shove", until: 5.50, pointerX: 0, pointerY: 0.2, guard: false, thrust: true },
+  { name: "recover", until: 7.20, pointerX: 0, pointerY: 0, guard: false, thrust: false },
+]);
+
+/** What the two-socket bar this replaced ran; kept as a name so an old readout can be reread. */
+export const MACE_TWO_SOCKET_SEQUENCE = Object.freeze([
   { name: "rest", until: 1.20, pointerX: 0, pointerY: 0, guard: false, thrust: false },
   { name: "raise", until: 2.60, pointerX: 0, pointerY: 1, guard: false, thrust: false,
     from: { pointerY: 0 } },
@@ -228,6 +252,7 @@ export const WHIP_SEQUENCE = Object.freeze([
  */
 export const sequenceFor = (moduleId) => {
   if (moduleId.endsWith(".mace")) return MACE_SEQUENCE;
+  if (moduleId.endsWith(".maul")) return MAUL_SEQUENCE;
   if (moduleId.endsWith(".whip")) return WHIP_SEQUENCE;
   if (moduleId.endsWith(".plate")) return PLATE_SEQUENCE;
   return moduleId.startsWith("effector.reach.") || moduleId.startsWith("effector.wrist.")
@@ -302,6 +327,12 @@ export async function runGolemBench({
   side = "left",
   sequence = null,
   overrides = null,
+  /**
+   * A reading the readout does not take, called once per physics step with `{ t, view, module }`.
+   * For a harness that wants one number off a live module -- the whip's lash reach is measured
+   * this way -- rather than a column every other option would carry as null.
+   */
+  probe = null,
 } = {}) {
   const option = golemModule(moduleId);
   if (!option) {
@@ -382,6 +413,8 @@ export async function runGolemBench({
   // passive grip's error must stay under the driven grip's, and a run where it does not is a run
   // where the trailing arm has started pushing back.
   let peakGripStrayMm = null;
+  /** When a two-socket terminal's second grip was first held: the seam's own first number. */
+  let gripTakenAt = null;
 
   const control = scene.onBeforePhysicsObservable.add(() => {
     module.step(SUBSTEP);
@@ -406,9 +439,14 @@ export async function runGolemBench({
       }
       // Outside the startup window, for the reason every other peak here excludes it: a limb
       // lifting out of its build pose is not the thing being measured.
-      if (view.gripStray !== null && t >= BENCH_READOUT.startupExclusionSeconds) {
-        const mm = view.gripStray * 1000;
-        peakGripStrayMm = peakGripStrayMm === null ? mm : Math.max(peakGripStrayMm, mm);
+      if (view.gripStray !== null) {
+        if (gripTakenAt === null) gripTakenAt = t;
+        // Outside the join, too: the step the grip is taken is the one step its error is the
+        // join distance rather than the solver's.
+        if (t >= BENCH_READOUT.startupExclusionSeconds && t > gripTakenAt) {
+          const mm = view.gripStray * 1000;
+          peakGripStrayMm = peakGripStrayMm === null ? mm : Math.max(peakGripStrayMm, mm);
+        }
       }
     }
     sample.contacts = contacts;
@@ -416,6 +454,7 @@ export async function runGolemBench({
     contacts = 0;
     selfContacts = 0;
     readout.sample(sample);
+    probe?.({ t, view, module });
     t += SUBSTEP;
   });
 
@@ -448,8 +487,11 @@ export async function runGolemBench({
       envelope: module.envelope(),
       marks,
       state: readout.state(),
-      /** Null for every one-socket terminal, which is every one but the mace. */
+      /** Null for every one-socket terminal, which is every one but the maul, and null for the
+       *  maul until its second hand arrives. */
       peakGripStrayMm,
+      /** Seconds into the run at which the second grip was first held; null if it never was. */
+      gripTakenAt,
     };
   } finally {
     scene.onBeforePhysicsObservable.remove(control);
@@ -1038,6 +1080,9 @@ async function main() {
   }
   process.stdout.write("\n");
   for (const line of formatReadout(run.state)) process.stdout.write(`  ${line}\n`);
+  if (run.gripTakenAt !== null) {
+    process.stdout.write(`  second grip taken at ${run.gripTakenAt.toFixed(3)} s\n`);
+  }
   if (run.peakGripStrayMm !== null) {
     process.stdout.write(`  trailing grip stray ${run.peakGripStrayMm.toFixed(3)} mm peak`
       + ` (against ${fixed(run.state.peakAnchorStrayMm, 2)} mm at the driven grip)\n`);

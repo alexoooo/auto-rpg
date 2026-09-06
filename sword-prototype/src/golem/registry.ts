@@ -16,6 +16,7 @@ import { reachChain } from "./effectors/chains/reach.ts";
 import { wristChain } from "./effectors/chains/wrist.ts";
 import { bladeTerminal } from "./effectors/terminals/blade.ts";
 import { maceTerminal } from "./effectors/terminals/mace.ts";
+import { maulTerminal } from "./effectors/terminals/maul.ts";
 import { plateTerminal } from "./effectors/terminals/plate.ts";
 import { fistTerminal } from "./effectors/terminals/fist.ts";
 import { whipTerminal } from "./effectors/terminals/whip.ts";
@@ -256,13 +257,15 @@ export const EFFECTOR_CHAINS = {
 } as const satisfies { readonly [K in ChainId]?: EffectorChainDefinition & { readonly id: K } };
 
 /** The terminal shelf, same rule. Session 04 appended `plate`, `mace` and `whip`; the matchup
- *  set's Session 01 appended `fist`. */
+ *  set's Session 01 appended `fist` and its Session 02 the `maul`, taking the two-socket bar
+ *  from the mace. */
 export const EFFECTOR_TERMINALS = {
   blade: bladeTerminal,
   plate: plateTerminal,
   mace: maceTerminal,
   whip: whipTerminal,
   fist: fistTerminal,
+  maul: maulTerminal,
 } as const satisfies {
   readonly [K in TerminalId]?: EffectorTerminalDefinition & { readonly id: K };
 };
@@ -298,6 +301,12 @@ export const GOLEM_MODULES: readonly GolemBenchOption[] = Object.freeze([
   benchOption(effectorModule(EFFECTOR_CHAINS.reach, EFFECTOR_TERMINALS.mace), "effector", handChannel),
   benchOption(effectorModule(EFFECTOR_CHAINS.wrist, EFFECTOR_TERMINALS.mace), "effector", handChannel),
   benchOption(effectorModule(EFFECTOR_CHAINS.wrist, EFFECTOR_TERMINALS.whip), "effector", handChannel),
+  // The matchup set's maul, on the two chains that can bring a second hand to a point. Rung 1
+  // has one axis and cannot, and `effectorModule` refuses the pair by name rather than building
+  // a second hand that waves near the haft; the absence here is that refusal, stated in the
+  // shelf.
+  benchOption(effectorModule(EFFECTOR_CHAINS.reach, EFFECTOR_TERMINALS.maul), "effector", handChannel),
+  benchOption(effectorModule(EFFECTOR_CHAINS.wrist, EFFECTOR_TERMINALS.maul), "effector", handChannel),
   // The matchup set's fist, on every chain that hands out a weld: a punch needs no roll and no
   // reach, only a chain that can throw a ball.
   benchOption(effectorModule(EFFECTOR_CHAINS.pitch, EFFECTOR_TERMINALS.fist), "effector", handChannel),

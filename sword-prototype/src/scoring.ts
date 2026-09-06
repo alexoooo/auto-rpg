@@ -218,6 +218,29 @@ const BITE: Record<Striker, Bite> = {
    * does something at a speed a sword does not.
    */
   club: {
+    // `impulse` since 2026-09-05, for the reason the fist's row gives: there are golem clubs
+    // now. The Warrior's publishes no mass and lands on `clubReferenceMassKg`, which is its own
+    // 3.4 kg, so it scores byte for byte what it did; a golem's mace publishes what it weighs and
+    // a maul publishes more, and the same speed arriving with eight times the mass behind it is
+    // worth eight times the blow. The row says what a kilogram of club is worth and the striker
+    // says how many there are.
+    how: "impulse",
+    floor: (t) => t.minCrushSpeed,
+    reference: (t) => t.referenceSpeed,
+    scale: (t) => t.crushScale,
+    referenceMassKg: (t) => t.clubReferenceMassKg,
+    severQuality: () => 0,
+  },
+  /**
+   * A lash: the club's speeds and scale, with no mass behind it.
+   *
+   * `mass` and not `impulse`, deliberately. A whip bead is half a kilogram and its whole
+   * argument is speed -- the end of a lash outruns the wrist that flicked it -- so a row that
+   * weighed it would score a crack at 20 m/s as a sixth of a Warrior's club at the same speed,
+   * which is the opposite of what a whip is. Everything the whip did under the club's row before
+   * it had a kind of its own, it does here; what changed is what a *mind* reads off it.
+   */
+  whip: {
     how: "mass",
     floor: (t) => t.minCrushSpeed,
     reference: (t) => t.referenceSpeed,

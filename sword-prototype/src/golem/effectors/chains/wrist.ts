@@ -13,6 +13,7 @@ import { materialForGolemRole } from "../../materials.ts";
 import {
   defineChain,
   type BuiltChain,
+  type ChainCrossing,
   type ChainLimits,
   type EffectorAxisView,
   type GolemPart,
@@ -72,13 +73,23 @@ export const wristChain = defineChain({
   id: "wrist",
   axes: 5,
   label: "wrist - reach plus roll and bend",
+  // Unloaded: what a wrist under a blade weighs. Under a heavier terminal the ring and the link
+  // are cast up to `CHAIN_WRIST.carryRatio` of it, and this figure does not follow them.
   massKg: CHAIN_REACH.collarMass + CHAIN_REACH.upperMass + CHAIN_REACH.foreMass
     + CHAIN_WRIST.ringMass + CHAIN_WRIST.wristMass,
 
-  build(ctx: ModuleBuild, limits: ChainLimits | null): BuiltChain {
+  build(
+    ctx: ModuleBuild, limits: ChainLimits | null, crossing: ChainCrossing | null, carriedKg: number,
+  ): BuiltChain {
     const R = CHAIN_REACH;
     const W = CHAIN_WRIST;
-    const core = buildArmCore(ctx, limits);
+    // **Cast to the load.** The ring and the link weigh what the config says or
+    // `carryRatio` of the terminal, whichever is more: the mass ratio across a locked hinge is
+    // what the solver can or cannot hold, and the argument is beside `CHAIN_WRIST.carryRatio`.
+    // A blade is under the floor and gets the config's figures unchanged.
+    const ringMass = Math.max(W.ringMass, W.carryRatio * carriedKg);
+    const wristMass = Math.max(W.wristMass, W.carryRatio * carriedKg);
+    const core = buildArmCore(ctx, limits, crossing);
     // **A terminal may take the wrist away and may not give it more.** A mace is a rigid bar
     // between two arms, and a roll of the driven wrist swings the *other* arm's grip through an
     // arc the length of the bar -- so a two-socket terminal pins both of these at zero and the
@@ -109,7 +120,7 @@ export const wristChain = defineChain({
       rotation: facing,
       height: W.ringLength,
       radius: W.ringRadius,
-      mass: W.ringMass,
+      mass: ringMass,
       layer: ctx.layers.body,
       collidesWith: ctx.layers.bodyCollidesWith,
       material: stone,
@@ -121,7 +132,7 @@ export const wristChain = defineChain({
       rotation: facing,
       height: W.wristLength,
       radius: W.wristRadius,
-      mass: W.wristMass,
+      mass: wristMass,
       layer: ctx.layers.body,
       collidesWith: ctx.layers.bodyCollidesWith,
       material: stone,
@@ -141,7 +152,14 @@ export const wristChain = defineChain({
       axisChild: new Vector3(0, 1, 0),
       perpParent: new Vector3(0, 0, 1),
       perpChild: new Vector3(0, 0, 1),
-      swing: { x: { min: W.rollMin - W.jointMargin, max: W.rollMax + W.jointMargin } },
+      // **The stop follows the narrowing, by the margin.** A terminal that pins the roll or the
+      // bend has said the motor holds zero, and a stop left at the chain's own full range would
+      // leave a 60 Nm motor alone against whatever the terminal weighs: a maul's 48 kg at 0.66 m
+      // is 310 Nm, and the wrist under it bent to its full stop and hung the head at a right
+      // angle. With the stop at the pinned limit plus the margin, the constraint carries the
+      // load and the motor only tidies. The yaw hinge in `arm-core.ts` follows the same rule
+      // outward for a crossing. 2026-09-06.
+      swing: { x: { min: -rollLimit - W.jointMargin, max: rollLimit + W.jointMargin } },
       damping: W.motorDamping,
     });
 
@@ -152,8 +170,8 @@ export const wristChain = defineChain({
       pivotChild: new Vector3(0, W.wristLength / 2, 0),
       swing: {
         x: BEND_SIGN < 0
-          ? { min: BEND_SIGN * W.bendMax - W.jointMargin, max: W.jointMargin }
-          : { min: -W.jointMargin, max: BEND_SIGN * W.bendMax + W.jointMargin },
+          ? { min: BEND_SIGN * bendLimit - W.jointMargin, max: W.jointMargin }
+          : { min: -W.jointMargin, max: BEND_SIGN * bendLimit + W.jointMargin },
       },
       damping: W.motorDamping,
     });
@@ -241,6 +259,8 @@ export const wristChain = defineChain({
       wristDir: new Vector3(),
       cross: new Vector3(),
       end: new Vector3(),
+      weldNow: new Vector3(),
+      sendHand: new Vector3(),
     };
     // Hoisted, because these five readings run 240 times a second per effector and a fresh
     // `Vector3` per axis per step is exactly the per-view allocation `describeFighter` was
@@ -249,6 +269,9 @@ export const wristChain = defineChain({
     const AXIS_Y = Object.freeze(new Vector3(0, 1, 0));
     const AXIS_DOWN = Object.freeze(new Vector3(0, -1, 0));
     const AXIS_Z = Object.freeze(new Vector3(0, 0, 1));
+    /** The weld point in the wrist link's own frame: its far end. Handed out as the weld's pivot
+     *  and read live by `commandWeldTo`, so the two cannot disagree about where the weld is. */
+    const WELD_PIVOT = Object.freeze(new Vector3(0, -W.wristLength / 2, 0));
     const rotate = (local: Vector3, by: Quaternion | null, into: Vector3): Vector3 => {
       local.rotateByQuaternionToRef(by ?? Quaternion.Identity(), into);
       return into;
@@ -287,7 +310,7 @@ export const wristChain = defineChain({
 
       weld: Object.freeze({
         link,
-        pivot: new Vector3(0, -W.wristLength / 2, 0),
+        pivot: WELD_PIVOT.clone(),
         world: beyond(W.ringLength + W.wristLength),
         rotation: facing.clone(),
         mount: LIMB_MOUNT,
@@ -300,6 +323,22 @@ export const wristChain = defineChain({
         core.command(next);
         wantedRoll = clamp(next.roll * outboard, -rollLimit, rollLimit);
         wantedBend = clamp(next.wristBend, 0, 1) * bendLimit;
+      },
+
+      /**
+       * The weld point is a wrist's length past the hand point, so the hand is sent to the
+       * world point less that offset -- read **as it currently is**, from the wrist link's own
+       * transform, rather than as the build pose. The offset turns with the roll and the bend,
+       * and a fixed one would send the hand to where the weld would be if the wrist were
+       * straight, which it is not for most of a stroke. Self-correcting rather than exact: the
+       * offset is achieved and the target is commanded, and the two meet when the weld arrives.
+       */
+      commandWeldTo(world: Vector3): void {
+        if (severed) return;
+        rotate(WELD_PIVOT, link.mesh.rotationQuaternion, scratch.weldNow);
+        scratch.weldNow.addInPlace(link.mesh.position);
+        scratch.sendHand.copyFrom(world).subtractInPlace(scratch.weldNow).addInPlace(core.hand());
+        core.commandPoint(scratch.sendHand);
       },
 
       step(dt: number): void {

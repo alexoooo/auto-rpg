@@ -182,6 +182,27 @@ test("a club takes a limb off by crushing through it", () => {
   assert.equal(severs(blow, 5, "club"), false, "a limb with health left stays on");
 });
 
+test("a club's blow scales with the mass behind it, and a whip's does not", () => {
+  // `BITE.club` is an `impulse` row since the matchup set's Session 01 and reads
+  // `clubReferenceMassKg` since Session 02: a golem's mace and maul are the Warrior's club's
+  // kind at five and fourteen times its mass, and a blow from either is worth that much more at
+  // the same speed. A contact that publishes no mass is scored at the reference, byte for byte
+  // what the speed ramp gave before -- which is what keeps every club test above true.
+  const contact = { speed: 14, edgeAlignment: 0, bladeAlignment: 0, nearTip: false };
+  const plain = scoreHit(contact, "club");
+  assert.deepEqual(scoreHit({ ...contact, massKg: T.clubReferenceMassKg }, "club"), plain);
+  const heavy = scoreHit({ ...contact, massKg: T.clubReferenceMassKg * 4 }, "club");
+  assert.ok(Math.abs(heavy.damage - plain.damage * 4) < 1e-9,
+    `four clubs' mass scored ${heavy.damage} against ${plain.damage}`);
+  assert.equal(heavy.kind, "crush");
+  // The whip is the club's row with the mass taken back out, deliberately: its beads are half a
+  // kilogram each and a lash's whole bite is speed. Same floor, same ramp, blind to mass.
+  assert.equal(biteFloor("whip"), biteFloor("club"));
+  const lash = scoreHit(contact, "whip");
+  assert.deepEqual(scoreHit({ ...contact, massKg: 40 }, "whip"), lash);
+  assert.ok(lash.damage > 0);
+});
+
 test("a club's floor is lower than a blade's", () => {
   // A blade arriving slowly is a blade being leaned on. A club arriving slowly is
   // still several kilograms of wood.

@@ -9,7 +9,7 @@
 // `src/action-primitives.ts`: those strokes are shaped for a Warrior's seven-axis arm and their
 // ranges are an arming sword's length, and reaching for them here is the exact mistake this
 // session was told to avoid.
-import { isShield, type Striker } from "../hands.ts";
+import { isShield, type Striker, type WeaponKind } from "../hands.ts";
 // The same seeded stream `policies.ts` draws from, for the same argument, from the one file both
 // may import. This file carried its own copy until 2026-09-05; `rng.ts` says why it moved.
 import { mulberry32 } from "../rng.ts";
@@ -427,6 +427,16 @@ export const GOLEM_TACTICS = {
   chamberSeconds: 0.22,
   commitSeconds: 0.22,
   recoverSeconds: 0.30,
+  /**
+   * The least follow-through any stroke shape is given, seconds.
+   *
+   * A commit ends at `max(commitSeconds, shape.strokeSeconds + followSeconds)`: the sword's
+   * 0.15 s stroke inside a 0.22 s commit is the cadence measured above and this leaves it byte
+   * for byte where it was, while a smash whose `strokeSeconds` is 0.22 is not cut off at the
+   * bottom of its arc by a constant written for a cut. 0.07 is the sword's own remainder,
+   * 0.22 - 0.15, stated once. 2026-09-06.
+   */
+  followSeconds: 0.07,
 
   /**
    * How far outboard and above the aim the stroke is chambered, radians.
@@ -709,9 +719,10 @@ export const GOLEM_TACTICS = {
    * How far the trunk turns into the blow, normalized to its own envelope.
    *
    * Chambered one way and swept the other, so the trunk is turning *through* the exchange rather
-   * than holding a pose. It matters most where it matters at all: a mace pins the swing to zero, so
-   * a golem carrying one cannot turn its weapon with its arm and the trunk is the only thing that
-   * can. Measured on a mace golem, peak driven tip speed over 8 bouts, seed 20260904, Node arena
+   * than holding a pose. It matters most where it matters at all: a maul pins the swing (the
+   * two-socket mace did, until the matchup set's Session 02), so a golem carrying one cannot turn
+   * its weapon with its arm and the trunk is the only thing that can. Measured on the two-socket
+   * mace golem of the time, peak driven tip speed over 8 bouts, seed 20260904, Node arena
    * harness:
    *
    * | trunk sweep | mace peak driven tip speed, m/s | mace damage / bout |
@@ -1043,6 +1054,152 @@ function reachForDistance(
 const coverReachFor = (weapon: Striker): number =>
   isShield(weapon) ? GOLEM_TACTICS.shieldReach : GOLEM_TACTICS.guardReach;
 
+/**
+ * The arc one exchange sweeps, in the same published vocabulary every pose in this file is
+ * written in: offsets from the aim, in radians and metres, over seconds.
+ *
+ * One shape per weapon kind, because a mind that swept the sword's cut with a mace planned a
+ * slash for a thing with no edge, and one that swept it with a whip planned a slash for a rope.
+ * The chamber is where the arc starts relative to the mark; the follow is where it ends; the
+ * commit walks the cursor from one to the other over `strokeSeconds` and then holds the end for
+ * the follow-through. Nothing here is a raw hand command and nothing is rate-limited: the arc is
+ * commanded on the clock and whether the limb follows is the anchor's force budget against the
+ * mass on the end of it, which is frozen rule 4.
+ */
+export interface StrokeShape {
+  /** Where the arc starts, outboard of the mark, radians. Zero for a chain with no azimuth. */
+  readonly chamberSwing: number;
+  /** Where the arc starts, above the mark, radians. */
+  readonly chamberLift: number;
+  /** How far the reach axis is drawn in for the chamber, in `writeAim`'s normalised reach. */
+  readonly chamberReach: number;
+  /** Where the arc ends, inboard of the mark, radians. */
+  readonly followSwing: number;
+  /** Where the arc ends, below the mark, radians. */
+  readonly followLift: number;
+  /** How long the cursor takes to sweep the arc, seconds. */
+  readonly strokeSeconds: number;
+  /**
+   * How long the chamber is held before the commit, seconds.
+   *
+   * On the shape and not only in `GOLEM_TACTICS` because of what the whip's first sweep found:
+   * a wrist rolls at `CHAIN_WRIST.rollRate`, 2.5 rad/s, and a chamber of 0.22 s moves it 0.55
+   * rad from wherever it was -- so a wind-up of -1.0 and one of 0 were the same 0.55 rad twitch
+   * and produced the same bout to the last digit. A wind-up is a thing that takes time, and the
+   * shape that asks for one has to buy it here.
+   */
+  readonly chamberSeconds: number;
+  /** How much the feet are asked to close during the commit, added to `forward`. */
+  readonly stepIn: number;
+  /** The roll held through the chamber, radians: the wind-up. Only a wrist reads it. */
+  readonly windRoll: number;
+  /** The roll held through every other stance, radians: the edge's alignment for a cut. */
+  readonly roll: number;
+}
+
+/**
+ * The sword's row reads `GOLEM_TACTICS` live rather than copying it, because those five constants
+ * carry the sweeps that chose them and a harness moves them with `Object.assign`; a snapshot would
+ * leave the tables beside them describing numbers the blade no longer used.
+ */
+const CUT: StrokeShape = Object.freeze({
+  get chamberSwing() { return GOLEM_TACTICS.chamberSwing; },
+  get chamberLift() { return GOLEM_TACTICS.chamberLift; },
+  get chamberReach() { return GOLEM_TACTICS.chamberReach; },
+  get followSwing() { return GOLEM_TACTICS.followSwing; },
+  get followLift() { return GOLEM_TACTICS.followLift; },
+  get strokeSeconds() { return GOLEM_TACTICS.strokeSeconds; },
+  get chamberSeconds() { return GOLEM_TACTICS.chamberSeconds; },
+  stepIn: 0,
+  get windRoll() { return GOLEM_TACTICS.cutRoll; },
+  get roll() { return GOLEM_TACTICS.cutRoll; },
+});
+
+/**
+ * One arc per weapon kind. A total record, so a kind added to `hands.ts` without a stroke here
+ * is a compile error rather than a hand that quietly cuts with whatever it holds.
+ *
+ * Every number that is not the sword's has a sweep row in `docs/measurements.md` under Session 02
+ * of the matchup set, taken on the golem-vs-golem cell with the terminal the row is for; the
+ * shipped value is the bolded row. A whip's row is `whip`, its own kind since that session.
+ */
+export const STROKE_SHAPES: Record<WeaponKind, StrokeShape> = Object.freeze({
+  sword: CUT,
+  // A golem holds neither, and a described one would be cut with: the nearest stroke to what an
+  // axe does, and a bow has no stroke at all.
+  axe: CUT,
+  bow: CUT,
+  /**
+   * The bash: a short push out through the mark with the feet closing behind it. Almost no arc
+   * -- a plate has no edge and no head, and what it does is arrive -- so the stroke is the reach
+   * axis and the step, and the cursor barely moves.
+   */
+  shield: {
+    chamberSwing: 0.10, chamberLift: 0.05, chamberReach: -0.70,
+    followSwing: 0.30, followLift: 0.10, strokeSeconds: 0.12, chamberSeconds: 0.22, stepIn: 0.6,
+    windRoll: 0, roll: 0,
+  },
+  buckler: {
+    chamberSwing: 0.10, chamberLift: 0.05, chamberReach: -0.70,
+    followSwing: 0.30, followLift: 0.10, strokeSeconds: 0.12, chamberSeconds: 0.22, stepIn: 0.6,
+    windRoll: 0, roll: 0,
+  },
+  /**
+   * The smash: chambered high and drawn in, brought down through the mark and past it, with the
+   * feet closing under the blow. Longer than a cut because the thing on the end is twenty to
+   * forty times a blade's mass and the anchor's budget is the same; a cursor that outran the
+   * head by the whole arc would arrive before it and hold at the bottom while the head was still
+   * at the top. Little swing, because a mace goes down rather than across and a maul has no
+   * azimuth at all. No roll, because there is no edge to align.
+   */
+  club: {
+    chamberSwing: 0.20, chamberLift: 0.85, chamberReach: -0.40,
+    followSwing: 0.50, followLift: 0.90, strokeSeconds: 0.22, chamberSeconds: 0.22, stepIn: 0.8,
+    windRoll: 0, roll: 0,
+  },
+  /**
+   * The punch: straight out from a chamber drawn all the way in, with a step behind it. A fist
+   * has no edge and no reach to speak of, so what it has is the reach axis's whole travel and
+   * the feet.
+   */
+  empty: {
+    chamberSwing: 0.05, chamberLift: 0.0, chamberReach: -0.85,
+    followSwing: 0.25, followLift: 0.15, strokeSeconds: 0.12, chamberSeconds: 0.22, stepIn: 0.5,
+    windRoll: 0, roll: 0,
+  },
+  /**
+   * The lash: chambered wide and high with the wrist wound one way, swept across the mark with
+   * it reversed. Wider than any cut because the beads carry after the wrist has stopped and the
+   * arc is what gives them something to carry; the roll reversal inside the stroke is what cracks
+   * it, and is the reason a whip is offered on the wrist chain alone. The chamber is held longer
+   * than any other because the reversal is a wrist turning at 2.5 rad/s, and 0.40 s is a radian
+   * of wind: see `StrokeShape.chamberSeconds`. **The sweep is flat.** Chambers of 0.22 to 1.00 s
+   * and wind-ups of -1.0, 0 and +1.0 all land within the 16-bout noise of each other, so the
+   * reversal is an argument the cell has not confirmed, and the table says so.
+   */
+  whip: {
+    chamberSwing: 0.70, chamberLift: 0.45, chamberReach: -0.30,
+    followSwing: 1.20, followLift: 0.40, strokeSeconds: 0.20, chamberSeconds: 0.40, stepIn: 0,
+    windRoll: -1.0, roll: 1.0,
+  },
+});
+
+/**
+ * Write one hand's command over the other's, field by field: what a paired grip is told.
+ *
+ * Not `Object.assign` and not a spread, because `Intent` is overwritten in place 240 times a
+ * second and the reader on the other side of it keeps the object it was handed.
+ */
+const mirror = (from: HandIntent, into: HandIntent): void => {
+  into.pointerX = from.pointerX;
+  into.pointerY = from.pointerY;
+  into.reach = from.reach;
+  into.roll = from.roll;
+  into.wristBend = from.wristBend;
+  into.thrust = from.thrust;
+  into.guard = from.guard;
+};
+
 /** A blank command this mind owns and overwrites in place; `decide` runs 240 times a second. */
 const freshGolemIntent = (): Intent => ({
   forward: 0,
@@ -1140,366 +1297,398 @@ export function golemTactics(seed: number): GolemTactics {
     return self.hands[want].lost && !self.hands[other].lost ? other : want;
   };
 
-  return {
-    get stance(): GolemStance { return stance; },
+  /**
+   * One step of the machine, writing `intent` in place. `decide` below is the whole of what
+   * wraps it: a paired grip's second channel is a copy of its first, made once after the plan
+   * rather than at each of the plan's exits.
+   */
+  const plan = (view: FighterView, dt: number): void => {
+    const self = view.self;
+    const them = view.opponent;
+    const caps = self.capabilities;
+    // A body with no published capabilities is not a golem, and this mind has nothing to say
+    // about one. Refused by standing still rather than by throwing: the picker and the registry
+    // are what keep this from happening, and a mind that took a bout down would be a worse
+    // failure than one that visibly does nothing.
+    if (!caps) return;
 
-    decide(view: FighterView, dt: number): Intent {
-      const self = view.self;
-      const them = view.opponent;
-      const caps = self.capabilities;
-      // A body with no published capabilities is not a golem, and this mind has nothing to say
-      // about one. Refused by standing still rather than by throwing: the picker and the registry
-      // are what keep this from happening, and a mind that took a bout down would be a worse
-      // failure than one that visibly does nothing.
-      if (!caps) return intent;
+    const trunkHeading = self.facing + self.trunkTwist * caps.trunkTwistMax;
 
-      const trunkHeading = self.facing + self.trunkTwist * caps.trunkTwistMax;
+    // **A pair is one attacker, driven from the primary channel.** Both sockets hold one
+    // terminal, the body reads the primary and sends the second hand after it, and a mind that
+    // alternated between them wrote half its exchanges into a channel nothing reads -- which
+    // is what the two-socket mace's whole record was.
+    attacker = caps.pairedHands ? "primary" : chooseAttacker(self, caps, prefer);
+    const spare: HandName = attacker === "primary" ? "secondary" : "primary";
+    intent.actingHand = attacker;
+    const cap = caps.effectors[attacker];
+    const spareCap = caps.effectors[spare];
+    const hand = intent[attacker];
+    const off = intent[spare];
+    const me = self.hands[attacker];
+    const socket = me.shoulder;
+    // The arc this weapon is swung through, by the kind the body describes it as. A maul and a
+    // mace are both `club` and both smashed; which is in hand is `pairedHands`' business.
+    const shape = STROKE_SHAPES[me.weapon];
 
-      attacker = chooseAttacker(self, caps, prefer);
-      const spare: HandName = attacker === "primary" ? "secondary" : "primary";
-      intent.actingHand = attacker;
-      const cap = caps.effectors[attacker];
-      const spareCap = caps.effectors[spare];
-      const hand = intent[attacker];
-      const off = intent[spare];
-      const me = self.hands[attacker];
-      const socket = me.shoulder;
+    // ---- ranges, all of them fractions of a published reach ---------------------------------
+    //
+    // **The inner radius is a floor on where it stands, and that is derived rather than tuned.**
+    // `near` is the closest the business end can be brought to its own socket, out of the same
+    // published shell the far edge comes from, so a hold distance inside it is a distance at
+    // which the arm is already past the mark before the stroke starts -- and a golem that chose
+    // one would spend the whole bout backing off from a range it had picked for itself. Measured
+    // before the floor existed: the default build's `holdFraction` of 0.78 puts it 1.39 m out
+    // against an inner radius of 1.36 m, and a mace's 1.06 m against 1.00 m, so both stood inside
+    // their own hysteresis band and churned between holding and giving ground.
+    const reach = me.reach;
+    // Body to body on the floor, for the one exchange that is made with the body rather than
+    // with an effector on a socket: a ram's reach is published from the neck, which stands over
+    // the carrier's own centre, and the thing it is driven at is the other carrier's.
+    const bodyGap = Math.hypot(them.ground.x - self.ground.x, them.ground.z - self.ground.z);
+    const natural = readyNatural(self);
+    // **A body whose only striker is natural fights at that striker's range**, and inside the
+    // other fighter's. The stand-off floor in `tacticalRanges` is the rule that keeps a golem
+    // out of a longer arm's reach while its own can still land; a golem with capped sockets
+    // and a plate on its brow has 0.68 m of reach against a blade's 1.78, and stood off at
+    // 1.78 m it fought nobody -- measured, 0.3 charges a bout and 0 of 8 against the default
+    // golem, with the range histogram showing it never inside 1.2 m. Its exchange is the ram,
+    // so its hold is the fraction of the ram's own reach every hand holds at -- which is
+    // chest to chest, and is meant to be: held at the entry gate instead, 0.95 m, it fired
+    // from a standing start and landed 4 of 26 lunges a bout on a Warrior, against 6 of 14
+    // when it was already pushing in -- its strike is the gate, and its inner radius is
+    // nothing, because a head-butt has no distance that is too close. That is the risk the
+    // option is: it goes in with its fatal part or it does not go in at all.
+    const headfirst = natural !== null && !canAttack(cap) && !canAttack(spareCap);
+    const ranges = headfirst
+      ? Object.freeze({
+        near: 0,
+        hold: natural.reach * GOLEM_TACTICS.holdFraction,
+        strike: natural.reach + GOLEM_TACTICS.ramLunge,
+        slack: natural.reach * GOLEM_TACTICS.slackFraction,
+      })
+      : tacticalRanges(reach, cap, them.reach);
+    const { near, hold, strike, slack } = ranges;
+    const gap = headfirst ? bodyGap : distance(socket, them.shoulder);
 
-      // ---- ranges, all of them fractions of a published reach ---------------------------------
-      //
-      // **The inner radius is a floor on where it stands, and that is derived rather than tuned.**
-      // `near` is the closest the business end can be brought to its own socket, out of the same
-      // published shell the far edge comes from, so a hold distance inside it is a distance at
-      // which the arm is already past the mark before the stroke starts -- and a golem that chose
-      // one would spend the whole bout backing off from a range it had picked for itself. Measured
-      // before the floor existed: the default build's `holdFraction` of 0.78 puts it 1.39 m out
-      // against an inner radius of 1.36 m, and a mace's 1.06 m against 1.00 m, so both stood inside
-      // their own hysteresis band and churned between holding and giving ground.
-      const reach = me.reach;
-      // Body to body on the floor, for the one exchange that is made with the body rather than
-      // with an effector on a socket: a ram's reach is published from the neck, which stands over
-      // the carrier's own centre, and the thing it is driven at is the other carrier's.
-      const bodyGap = Math.hypot(them.ground.x - self.ground.x, them.ground.z - self.ground.z);
-      const natural = readyNatural(self);
-      // **A body whose only striker is natural fights at that striker's range**, and inside the
-      // other fighter's. The stand-off floor in `tacticalRanges` is the rule that keeps a golem
-      // out of a longer arm's reach while its own can still land; a golem with capped sockets
-      // and a plate on its brow has 0.68 m of reach against a blade's 1.78, and stood off at
-      // 1.78 m it fought nobody -- measured, 0.3 charges a bout and 0 of 8 against the default
-      // golem, with the range histogram showing it never inside 1.2 m. Its exchange is the ram,
-      // so its hold is the fraction of the ram's own reach every hand holds at -- which is
-      // chest to chest, and is meant to be: held at the entry gate instead, 0.95 m, it fired
-      // from a standing start and landed 4 of 26 lunges a bout on a Warrior, against 6 of 14
-      // when it was already pushing in -- its strike is the gate, and its inner radius is
-      // nothing, because a head-butt has no distance that is too close. That is the risk the
-      // option is: it goes in with its fatal part or it does not go in at all.
-      const headfirst = natural !== null && !canAttack(cap) && !canAttack(spareCap);
-      const ranges = headfirst
-        ? Object.freeze({
-          near: 0,
-          hold: natural.reach * GOLEM_TACTICS.holdFraction,
-          strike: natural.reach + GOLEM_TACTICS.ramLunge,
-          slack: natural.reach * GOLEM_TACTICS.slackFraction,
-        })
-        : tacticalRanges(reach, cap, them.reach);
-      const { near, hold, strike, slack } = ranges;
-      const gap = headfirst ? bodyGap : distance(socket, them.shoulder);
+    // ---- what their business end is doing ----------------------------------------------------
+    watch(them, threat);
+    const tipGap = distance(threat.tip, socket);
+    if (lastGap >= 0 && dt > 0) {
+      const rate = (tipGap - lastGap) / dt;
+      gapRate += (rate - gapRate) * (1 - Math.exp(-12 * dt));
+    }
+    lastGap = tipGap;
 
-      // ---- what their business end is doing ----------------------------------------------------
-      watch(them, threat);
-      const tipGap = distance(threat.tip, socket);
-      if (lastGap >= 0 && dt > 0) {
-        const rate = (tipGap - lastGap) / dt;
-        gapRate += (rate - gapRate) * (1 - Math.exp(-12 * dt));
-      }
-      lastGap = tipGap;
+    const bladeX = threat.tip.x - threat.shoulder.x;
+    const bladeY = threat.tip.y - threat.shoulder.y;
+    const bladeZ = threat.tip.z - threat.shoulder.z;
+    const bladeLength = Math.hypot(bladeX, bladeY, bladeZ) || 1;
+    const towardX = socket.x - them.shoulder.x;
+    const towardY = socket.y - them.shoulder.y;
+    const towardZ = socket.z - them.shoulder.z;
+    const towardLength = Math.hypot(towardX, towardY, towardZ) || 1;
+    const inLine =
+      (bladeX * towardX + bladeY * towardY + bladeZ * towardZ) / (bladeLength * towardLength);
+    const opening = inLine < GOLEM_TACTICS.outOfLine ||
+      (threat.tipSpeed > GOLEM_TACTICS.theirCommit && gapRate > GOLEM_TACTICS.receding);
+    sinceOpening = opening ? 0 : sinceOpening + dt;
+    if (cooldown > 0) cooldown -= dt;
+    if (crowdedGrace > 0) crowdedGrace -= dt;
 
-      const bladeX = threat.tip.x - threat.shoulder.x;
-      const bladeY = threat.tip.y - threat.shoulder.y;
-      const bladeZ = threat.tip.z - threat.shoulder.z;
-      const bladeLength = Math.hypot(bladeX, bladeY, bladeZ) || 1;
-      const towardX = socket.x - them.shoulder.x;
-      const towardY = socket.y - them.shoulder.y;
-      const towardZ = socket.z - them.shoulder.z;
-      const towardLength = Math.hypot(towardX, towardY, towardZ) || 1;
-      const inLine =
-        (bladeX * towardX + bladeY * towardY + bladeZ * towardZ) / (bladeLength * towardLength);
-      const opening = inLine < GOLEM_TACTICS.outOfLine ||
-        (threat.tipSpeed > GOLEM_TACTICS.theirCommit && gapRate > GOLEM_TACTICS.receding);
-      sinceOpening = opening ? 0 : sinceOpening + dt;
-      if (cooldown > 0) cooldown -= dt;
-      if (crowdedGrace > 0) crowdedGrace -= dt;
+    // ---- the marks ---------------------------------------------------------------------------
+    //
+    // The attack aims at a column over their own footprint at the height of their published
+    // shoulder, which is live: a body that has fallen brings the mark down with it, and that is
+    // what makes the crouch below fire without anybody writing a `downed` branch. The guard
+    // covers their point when it is actually extended toward me -- nearer to my socket than their
+    // own shoulder is -- and their chest when it is not, so a blade that has been chambered or cut
+    // off does not drag the plate round to point at the floor.
+    mark.x = them.ground.x;
+    mark.y = them.shoulder.y;
+    mark.z = them.ground.z;
+    if (tipGap < towardLength) {
+      guardMark.x = threat.tip.x; guardMark.y = threat.tip.y; guardMark.z = threat.tip.z;
+    } else {
+      guardMark.x = them.ground.x; guardMark.y = them.shoulder.y; guardMark.z = them.ground.z;
+    }
+    aimAt(socket, mark, trunkHeading, me.outboard, aim);
+    // How far out the reach axis has to be for the business end to arrive *on* the mark. Not a
+    // constant and not a preset: the golem extends as far as the thing it is hitting is away,
+    // clamped into its own shell, so an opponent inside the inner radius is struck with a drawn
+    // arm and one at the far edge with a straight one. This is the whole of what the deleted
+    // `reachThrust` used to say, said from the outside and about the fight rather than about
+    // the chain.
+    const strikeReach =
+      reachForDistance(distance(socket, mark), reach, cap, GOLEM_TACTICS.strikeBite);
 
-      // ---- the marks ---------------------------------------------------------------------------
-      //
-      // The attack aims at a column over their own footprint at the height of their published
-      // shoulder, which is live: a body that has fallen brings the mark down with it, and that is
-      // what makes the crouch below fire without anybody writing a `downed` branch. The guard
-      // covers their point when it is actually extended toward me -- nearer to my socket than their
-      // own shoulder is -- and their chest when it is not, so a blade that has been chambered or cut
-      // off does not drag the plate round to point at the floor.
-      mark.x = them.ground.x;
-      mark.y = them.shoulder.y;
-      mark.z = them.ground.z;
-      if (tipGap < towardLength) {
-        guardMark.x = threat.tip.x; guardMark.y = threat.tip.y; guardMark.z = threat.tip.z;
-      } else {
-        guardMark.x = them.ground.x; guardMark.y = them.shoulder.y; guardMark.z = them.ground.z;
-      }
-      aimAt(socket, mark, trunkHeading, me.outboard, aim);
-      // How far out the reach axis has to be for the business end to arrive *on* the mark. Not a
-      // constant and not a preset: the golem extends as far as the thing it is hitting is away,
-      // clamped into its own shell, so an opponent inside the inner radius is struck with a drawn
-      // arm and one at the far edge with a straight one. This is the whole of what the deleted
-      // `reachThrust` used to say, said from the outside and about the fight rather than about
-      // the chain.
-      const strikeReach =
-        reachForDistance(distance(socket, mark), reach, cap, GOLEM_TACTICS.strikeBite);
+    // ---- the feet ----------------------------------------------------------------------------
+    const bearing = Math.atan2(them.ground.x - self.ground.x, them.ground.z - self.ground.z);
+    intent.turn = clamp(angleTo(self.facing, bearing) * GOLEM_TACTICS.turnGain, -1, 1);
 
-      // ---- the feet ----------------------------------------------------------------------------
-      const bearing = Math.atan2(them.ground.x - self.ground.x, them.ground.z - self.ground.z);
-      intent.turn = clamp(angleTo(self.facing, bearing) * GOLEM_TACTICS.turnGain, -1, 1);
+    circleLeft -= dt;
+    if (circleLeft <= 0) {
+      circle = -circle;
+      circleLeft = GOLEM_TACTICS.circleMin
+        + random() * (GOLEM_TACTICS.circleMax - GOLEM_TACTICS.circleMin);
+    }
+    intent.strafe = circle * GOLEM_TACTICS.strafe;
+    intent.forward = clamp((gap - hold) * GOLEM_TACTICS.closeGain, -1, 1);
 
-      circleLeft -= dt;
-      if (circleLeft <= 0) {
-        circle = -circle;
-        circleLeft = GOLEM_TACTICS.circleMin
-          + random() * (GOLEM_TACTICS.circleMax - GOLEM_TACTICS.circleMin);
-      }
-      intent.strafe = circle * GOLEM_TACTICS.strafe;
-      intent.forward = clamp((gap - hold) * GOLEM_TACTICS.closeGain, -1, 1);
+    // ---- the posture -------------------------------------------------------------------------
+    //
+    // The trunk turns *through* an exchange -- chambered one way and swept the other -- which is
+    // the only way a golem carrying a weapon with no azimuth of its own can put speed into it.
+    // The crouch is derived rather than chosen: when the mark is below the lowest elevation the
+    // arm can be pointed at, the shortfall in height is what the carrier has to make up, and
+    // `crouchTravel` is how much of that it has. A carrier with no range answers zero and the
+    // whole expression is skipped, which is a wheel refusing a command it cannot honour rather
+    // than a branch on which module is fitted.
+    const chambering = stance === "chamber";
+    const committing = stance === "commit";
+    intent.posture.trunkTwist = chambering
+      ? me.outboard * GOLEM_TACTICS.trunkSweep
+      : committing ? -me.outboard * GOLEM_TACTICS.trunkSweep : 0;
+    const ramming = stance === "ram";
+    intent.posture.trunkLean = committing ? GOLEM_TACTICS.commitLean
+      : ramming ? GOLEM_TACTICS.ramLean
+      : stance === "withdraw" ? GOLEM_TACTICS.withdrawLean : 0;
+    intent.posture.crouch = 0;
+    if (cap.reachable && caps.crouchTravel > 1e-6) {
+      const shortfall = (cap.reachable.liftMin - aim.lift) * aim.horizontal;
+      intent.posture.crouch = clamp(shortfall / caps.crouchTravel, 0, 1);
+    }
 
-      // ---- the posture -------------------------------------------------------------------------
-      //
-      // The trunk turns *through* an exchange -- chambered one way and swept the other -- which is
-      // the only way a golem carrying a weapon with no azimuth of its own can put speed into it.
-      // The crouch is derived rather than chosen: when the mark is below the lowest elevation the
-      // arm can be pointed at, the shortfall in height is what the carrier has to make up, and
-      // `crouchTravel` is how much of that it has. A carrier with no range answers zero and the
-      // whole expression is skipped, which is a wheel refusing a command it cannot honour rather
-      // than a branch on which module is fitted.
-      const chambering = stance === "chamber";
-      const committing = stance === "commit";
-      intent.posture.trunkTwist = chambering
-        ? me.outboard * GOLEM_TACTICS.trunkSweep
-        : committing ? -me.outboard * GOLEM_TACTICS.trunkSweep : 0;
-      const ramming = stance === "ram";
-      intent.posture.trunkLean = committing ? GOLEM_TACTICS.commitLean
-        : ramming ? GOLEM_TACTICS.ramLean
-        : stance === "withdraw" ? GOLEM_TACTICS.withdrawLean : 0;
-      intent.posture.crouch = 0;
-      if (cap.reachable && caps.crouchTravel > 1e-6) {
-        const shortfall = (cap.reachable.liftMin - aim.lift) * aim.horizontal;
-        intent.posture.crouch = clamp(shortfall / caps.crouchTravel, 0, 1);
-      }
+    // ---- the head ----------------------------------------------------------------------------
+    //
+    // The duck is a level and is held whenever the golem is not mid-exchange, on both heads: a
+    // plain head has no striker and still has a neck to pull in; on a ram it is the plate
+    // presented, which is the chamber the lunge starts from. The lunge is an edge and is spent
+    // inside the `ram` stance only, once the lean has been asked for long enough to be moving
+    // the head -- and never through the arms' own stroke, because a body that head-butts
+    // through its own cut is a body putting its fatal part into its own blade. Until
+    // 2026-09-05 this was a level held whenever the opponent was inside the plate's reach, and
+    // `GOLEM_TACTICS.ramLean` says what that cost.
+    intent.natural.guard = !chambering && !committing;
+    if (ramming && natural !== null && !ramFired && elapsed >= GOLEM_TACTICS.ramLeanSeconds &&
+      bodyGap <= natural.reach + GOLEM_TACTICS.ramBite) {
+      ramFired = true;
+      ramFiredAt = elapsed;
+    }
+    intent.natural.thrust = ramming && ramFired;
 
-      // ---- the head ----------------------------------------------------------------------------
-      //
-      // The duck is a level and is held whenever the golem is not mid-exchange, on both heads: a
-      // plain head has no striker and still has a neck to pull in; on a ram it is the plate
-      // presented, which is the chamber the lunge starts from. The lunge is an edge and is spent
-      // inside the `ram` stance only, once the lean has been asked for long enough to be moving
-      // the head -- and never through the arms' own stroke, because a body that head-butts
-      // through its own cut is a body putting its fatal part into its own blade. Until
-      // 2026-09-05 this was a level held whenever the opponent was inside the plate's reach, and
-      // `GOLEM_TACTICS.ramLean` says what that cost.
-      intent.natural.guard = !chambering && !committing;
-      if (ramming && natural !== null && !ramFired && elapsed >= GOLEM_TACTICS.ramLeanSeconds &&
-        bodyGap <= natural.reach + GOLEM_TACTICS.ramBite) {
-        ramFired = true;
-        ramFiredAt = elapsed;
-      }
-      intent.natural.thrust = ramming && ramFired;
+    // ---- the hand that is not striking --------------------------------------------------------
+    //
+    // Planned first and from the same reading, so a plate is placed against the point that is
+    // actually coming rather than against whatever the last cut left the cursor pointing at. What
+    // it does is decided by what it is: a described shield covers the incoming line, anything else
+    // that can be held as a guard holds one offset outboard so the pair covers a wedge rather than
+    // resting against itself, and a capped socket is left where it is because nothing reads it.
+    if (!caps.pairedHands && !self.hands[spare].lost && canCover(spareCap)) {
+      const spareSocket = self.hands[spare].shoulder;
+      aimAt(spareSocket, guardMark, trunkHeading, self.hands[spare].outboard, cover);
+      const across = isShield(self.hands[spare].weapon)
+        ? -GOLEM_TACTICS.coverAcross : GOLEM_TACTICS.coverAcross;
+      // The cover's distance is written rather than pressed: until 2026-09-05 this line was
+      // `off.guard = true` and the pull-in was the chain's, which is why the off hand had exactly
+      // one distance for the whole of every bout. `guard` is still written below because it is
+      // still true -- this hand *is* covering, and a body that reads the level is entitled to
+      // know -- but nothing on the default golem reads it and no pose depends on it any more.
+      writeAim(off, spareCap, cover, self.hands[spare].outboard,
+        across, GOLEM_TACTICS.coverLift, 1, coverReachFor(self.hands[spare].weapon));
+      off.roll = 0;
+      off.wristBend = spareCap.bendMax > 0 ? GOLEM_TACTICS.coverBend : 0;
+      off.thrust = false;
+      off.guard = true;
+    } else {
+      off.pointerX = 0;
+      off.pointerY = 0;
+      off.reach = 0;
+      off.roll = 0;
+      off.wristBend = 0;
+      off.thrust = false;
+      off.guard = false;
+    }
 
-      // ---- the hand that is not striking --------------------------------------------------------
-      //
-      // Planned first and from the same reading, so a plate is placed against the point that is
-      // actually coming rather than against whatever the last cut left the cursor pointing at. What
-      // it does is decided by what it is: a described shield covers the incoming line, anything else
-      // that can be held as a guard holds one offset outboard so the pair covers a wedge rather than
-      // resting against itself, and a capped socket is left where it is because nothing reads it.
-      if (!self.hands[spare].lost && canCover(spareCap)) {
-        const spareSocket = self.hands[spare].shoulder;
-        aimAt(spareSocket, guardMark, trunkHeading, self.hands[spare].outboard, cover);
-        const across = isShield(self.hands[spare].weapon)
-          ? -GOLEM_TACTICS.coverAcross : GOLEM_TACTICS.coverAcross;
-        // The cover's distance is written rather than pressed: until 2026-09-05 this line was
-        // `off.guard = true` and the pull-in was the chain's, which is why the off hand had exactly
-        // one distance for the whole of every bout. `guard` is still written below because it is
-        // still true -- this hand *is* covering, and a body that reads the level is entitled to
-        // know -- but nothing on the default golem reads it and no pose depends on it any more.
-        writeAim(off, spareCap, cover, self.hands[spare].outboard,
-          across, GOLEM_TACTICS.coverLift, 1, coverReachFor(self.hands[spare].weapon));
-        off.roll = 0;
-        off.wristBend = spareCap.bendMax > 0 ? GOLEM_TACTICS.coverBend : 0;
-        off.thrust = false;
-        off.guard = true;
-      } else {
-        off.pointerX = 0;
-        off.pointerY = 0;
-        off.reach = 0;
-        off.roll = 0;
-        off.wristBend = 0;
-        off.thrust = false;
-        off.guard = false;
-      }
+    // ---- the exchange -------------------------------------------------------------------------
+    // The wind-up is the chamber's roll and the shape's `roll` is every other stance's: the
+    // same number for a cut, and a whip's lash is the reversal between the two.
+    hand.roll = cap.rollMax > 0
+      ? clamp(chambering ? shape.windRoll : shape.roll, -cap.rollMax, cap.rollMax) : 0;
+    hand.wristBend = cap.bendMax > 0
+      ? (chambering || committing ? GOLEM_TACTICS.cutBend : GOLEM_TACTICS.coverBend) : 0;
 
-      // ---- the exchange -------------------------------------------------------------------------
-      hand.roll = cap.rollMax > 0 ? clamp(GOLEM_TACTICS.cutRoll, -cap.rollMax, cap.rollMax) : 0;
-      hand.wristBend = cap.bendMax > 0
-        ? (chambering || committing ? GOLEM_TACTICS.cutBend : GOLEM_TACTICS.coverBend) : 0;
-
-      if (stance === "approach" || stance === "measure" || stance === "withdraw") {
-        // A guard held, on the covering line: the business end drawn in to `guardReach` and raised
-        // onto the line the threat is coming down. That used to be one boolean, and the boolean is
-        // still written -- it says truthfully that this hand is covering -- but the *pose* is three
-        // continuous axes now, which is what lets a guard be held anywhere in the shell rather than
-        // at the one distance a chain happened to pick.
-        hand.guard = canCover(cap);
-        hand.thrust = false;
-        aimAt(socket, guardMark, trunkHeading, me.outboard, cover);
-        writeAim(hand, cap, cover, me.outboard, 0, GOLEM_TACTICS.coverLift, 1,
-          coverReachFor(me.weapon));
-
-        if (stance === "withdraw") {
-          intent.forward = -1;
-          if (elapsed > GOLEM_TACTICS.withdrawSeconds || gap > near + slack) {
-            // **A withdraw that did not open the range is a withdraw that is not going to.** A
-            // golem walks at its carrier's speed and a Warrior closes faster than that, so a body
-            // crowded against a wall would give ground, fail, give ground again, and never strike
-            // -- which is the flicker this grace exists to stop. After it, being crowded is a thing
-            // the golem fights from rather than a thing it answers, which is what a person does.
-            if (gap < near) crowdedGrace = GOLEM_TACTICS.crowdedSeconds;
-            ranged = 0;
-            goTo("measure");
-          }
-          elapsed += dt;
-          return intent;
-        }
-
-        ranged += dt;
-        if (gap < near && crowdedGrace <= 0 && ranged > GOLEM_TACTICS.rangeDwell) {
-          ranged = 0;
-          goTo("withdraw");
-          return intent;
-        }
-        if (stance === "approach") {
-          if (gap <= hold && ranged > GOLEM_TACTICS.rangeDwell) { ranged = 0; goTo("measure"); }
-        } else if (gap > strike + slack && ranged > GOLEM_TACTICS.rangeDwell) {
-          ranged = 0;
-          goTo("approach");
-        }
-
-        // Which exchange, if either. A hand exchange is gated as it always was: an opening or
-        // patience run out, inside the strike range, with an effector that can be asked for a
-        // stroke. A ram is gated on its own striker's published reach plus the distance the lean
-        // and the step buy, and it is *chosen* rather than reflexed: a body that can also strike
-        // with a hand rams a seeded fraction of its openings, and a body that cannot rams every
-        // time its cooldown allows, because a ram is the only exchange it has. The roll is made
-        // once per opening, here, and not once per step -- a per-step roll at 240 Hz is a
-        // certainty wearing a probability's name.
-        const handCould = gap <= strike && canAttack(cap);
-        const ramCould = natural !== null &&
-          bodyGap <= natural.reach + GOLEM_TACTICS.ramLunge;
-        if (cooldown <= 0 && ramCould && headfirst) {
-          ranged = 0;
-          goTo("ram");
-        } else if (cooldown <= 0 && (handCould || ramCould) &&
-          (opening || sinceOpening > patience)) {
-          patience = GOLEM_TACTICS.patience * (0.8 + random() * 0.4);
-          sinceOpening = 0;
-          ranged = 0;
-          goTo(ramCould && (!handCould || random() < GOLEM_TACTICS.ramFraction) ? "ram" : "chamber");
-        }
-        return intent;
-      }
-
-      elapsed += dt;
-
-      if (stance === "ram") {
-        // The whole body's exchange. The posture section above has already leaned the trunk in and
-        // the head section has fired the neck on the clock; what is left is the feet, which step
-        // straight in for the length of the stance rather than circling, and the hands, which
-        // cover -- a golem that rams through its own cut puts its fatal part into its own blade,
-        // and one that rams with its guard down puts it into the other one's.
-        intent.forward = 1;
-        intent.strafe = 0;
-        hand.guard = canCover(cap);
-        hand.thrust = false;
-        aimAt(socket, guardMark, trunkHeading, me.outboard, cover);
-        writeAim(hand, cap, cover, me.outboard, 0, GOLEM_TACTICS.coverLift, 1,
-          coverReachFor(me.weapon));
-        // Two ways out. Fired: the follow-through, which is the neck's own velocity event
-        // running out while the body keeps coming, and then the guard goes back up. Not fired
-        // inside the budget: the charge did not close the range, and a charge that keeps going
-        // is a body walking into a guard with its head first.
-        if (ramFired ? elapsed - ramFiredAt >= GOLEM_TACTICS.ramFollowSeconds
-          : elapsed >= GOLEM_TACTICS.ramSeconds) goTo("recover");
-        return intent;
-      }
-
-      if (stance === "chamber") {
-        // The windup: outboard of the mark, above it, and drawn in. This is one end of the arc the
-        // commit is about to sweep, and the whole of what the chamber is for -- the further it is
-        // taken the longer that arc is and the faster the point has to travel it, because
-        // `strokeSeconds` does not move. A chain with no azimuth is simply raised, because there is
-        // nothing else it can be asked for.
-        hand.guard = false;
-        hand.thrust = false;
-        writeAim(hand, cap, aim, me.outboard,
-          canSwing(cap) ? GOLEM_TACTICS.chamberSwing : 0, GOLEM_TACTICS.chamberLift, 1,
-          GOLEM_TACTICS.chamberReach);
-        if (elapsed >= GOLEM_TACTICS.chamberSeconds) goTo("commit");
-        return intent;
-      }
-
-      if (stance === "commit") {
-        // **The stroke, driven from here.** Until 2026-09-05 these six lines pressed two buttons
-        // and waited: the pair `guard + thrust` named a swept cut on a chain that had one and a
-        // chop on a chain that did not, and `arm-core.ts` ran the arc. There is no such script now,
-        // and if this stance still pressed buttons the golem would stand with its arm on the mark
-        // for 0.22 s and hit nothing.
-        //
-        // So the arc is swept here, in the same published vocabulary every other pose in this file
-        // is written in: from the chambered end, through the mark, to `followSwing` inboard and
-        // `followLift` below it, linearly over `strokeSeconds`. The mark is crossed a
-        // `chamberSwing / (chamberSwing + followSwing)` fraction of the way along, and what happens
-        // after `t` reaches 1 is the follow-through -- the command sits at the end of the arc for
-        // the rest of `commitSeconds` while the limb goes on arriving, which is what the deleted
-        // `followSeconds` was and is free here because a position held is not an event repeated.
-        //
-        // Nothing in it is rate-limited by this file. The commanded point travels the arc on the
-        // clock; whether the limb *follows* is the anchor's force budget against real mass, which
-        // is frozen rule 4 and the only thing that should ever be the binding constraint.
-        const swept = canSwing(cap) ? 1 : 0;
-        const t = GOLEM_TACTICS.strokeSeconds > 0
-          ? clamp(elapsed / GOLEM_TACTICS.strokeSeconds, 0, 1)
-          : 1;
-        hand.guard = false;
-        hand.thrust = true;
-        writeAim(hand, cap, aim, me.outboard,
-          swept * (GOLEM_TACTICS.chamberSwing
-            - t * (GOLEM_TACTICS.chamberSwing + GOLEM_TACTICS.followSwing)),
-          GOLEM_TACTICS.chamberLift - t * (GOLEM_TACTICS.chamberLift + GOLEM_TACTICS.followLift),
-          0,
-          GOLEM_TACTICS.chamberReach + t * (strikeReach - GOLEM_TACTICS.chamberReach));
-        if (elapsed >= GOLEM_TACTICS.commitSeconds) goTo("recover");
-        return intent;
-      }
-
-      // Recover: the guard goes back up immediately and the aim walks back to the covering line
-      // under it, because the limb is what is slow and the command is not.
+    if (stance === "approach" || stance === "measure" || stance === "withdraw") {
+      // A guard held, on the covering line: the business end drawn in to `guardReach` and raised
+      // onto the line the threat is coming down. That used to be one boolean, and the boolean is
+      // still written -- it says truthfully that this hand is covering -- but the *pose* is three
+      // continuous axes now, which is what lets a guard be held anywhere in the shell rather than
+      // at the one distance a chain happened to pick.
       hand.guard = canCover(cap);
       hand.thrust = false;
       aimAt(socket, guardMark, trunkHeading, me.outboard, cover);
       writeAim(hand, cap, cover, me.outboard, 0, GOLEM_TACTICS.coverLift, 1,
         coverReachFor(me.weapon));
-      if (elapsed >= GOLEM_TACTICS.recoverSeconds) {
-        cooldown = GOLEM_TACTICS.cooldown;
-        prefer = spare;
-        ranged = 0;
-        goTo(gap <= hold ? "measure" : "approach");
+
+      if (stance === "withdraw") {
+        intent.forward = -1;
+        if (elapsed > GOLEM_TACTICS.withdrawSeconds || gap > near + slack) {
+          // **A withdraw that did not open the range is a withdraw that is not going to.** A
+          // golem walks at its carrier's speed and a Warrior closes faster than that, so a body
+          // crowded against a wall would give ground, fail, give ground again, and never strike
+          // -- which is the flicker this grace exists to stop. After it, being crowded is a thing
+          // the golem fights from rather than a thing it answers, which is what a person does.
+          if (gap < near) crowdedGrace = GOLEM_TACTICS.crowdedSeconds;
+          ranged = 0;
+          goTo("measure");
+        }
+        elapsed += dt;
+        return;
       }
+
+      ranged += dt;
+      if (gap < near && crowdedGrace <= 0 && ranged > GOLEM_TACTICS.rangeDwell) {
+        ranged = 0;
+        goTo("withdraw");
+        return;
+      }
+      if (stance === "approach") {
+        if (gap <= hold && ranged > GOLEM_TACTICS.rangeDwell) { ranged = 0; goTo("measure"); }
+      } else if (gap > strike + slack && ranged > GOLEM_TACTICS.rangeDwell) {
+        ranged = 0;
+        goTo("approach");
+      }
+
+      // Which exchange, if either. A hand exchange is gated as it always was: an opening or
+      // patience run out, inside the strike range, with an effector that can be asked for a
+      // stroke. A ram is gated on its own striker's published reach plus the distance the lean
+      // and the step buy, and it is *chosen* rather than reflexed: a body that can also strike
+      // with a hand rams a seeded fraction of its openings, and a body that cannot rams every
+      // time its cooldown allows, because a ram is the only exchange it has. The roll is made
+      // once per opening, here, and not once per step -- a per-step roll at 240 Hz is a
+      // certainty wearing a probability's name.
+      const handCould = gap <= strike && canAttack(cap);
+      const ramCould = natural !== null &&
+        bodyGap <= natural.reach + GOLEM_TACTICS.ramLunge;
+      if (cooldown <= 0 && ramCould && headfirst) {
+        ranged = 0;
+        goTo("ram");
+      } else if (cooldown <= 0 && (handCould || ramCould) &&
+        (opening || sinceOpening > patience)) {
+        patience = GOLEM_TACTICS.patience * (0.8 + random() * 0.4);
+        sinceOpening = 0;
+        ranged = 0;
+        goTo(ramCould && (!handCould || random() < GOLEM_TACTICS.ramFraction) ? "ram" : "chamber");
+      }
+      return;
+    }
+
+    elapsed += dt;
+
+    if (stance === "ram") {
+      // The whole body's exchange. The posture section above has already leaned the trunk in and
+      // the head section has fired the neck on the clock; what is left is the feet, which step
+      // straight in for the length of the stance rather than circling, and the hands, which
+      // cover -- a golem that rams through its own cut puts its fatal part into its own blade,
+      // and one that rams with its guard down puts it into the other one's.
+      intent.forward = 1;
+      intent.strafe = 0;
+      hand.guard = canCover(cap);
+      hand.thrust = false;
+      aimAt(socket, guardMark, trunkHeading, me.outboard, cover);
+      writeAim(hand, cap, cover, me.outboard, 0, GOLEM_TACTICS.coverLift, 1,
+        coverReachFor(me.weapon));
+      // Two ways out. Fired: the follow-through, which is the neck's own velocity event
+      // running out while the body keeps coming, and then the guard goes back up. Not fired
+      // inside the budget: the charge did not close the range, and a charge that keeps going
+      // is a body walking into a guard with its head first.
+      if (ramFired ? elapsed - ramFiredAt >= GOLEM_TACTICS.ramFollowSeconds
+        : elapsed >= GOLEM_TACTICS.ramSeconds) goTo("recover");
+      return;
+    }
+
+    if (stance === "chamber") {
+      // The windup: outboard of the mark, above it, and drawn in. This is one end of the arc the
+      // commit is about to sweep, and the whole of what the chamber is for -- the further it is
+      // taken the longer that arc is and the faster the point has to travel it, because
+      // `strokeSeconds` does not move. A chain with no azimuth is simply raised, because there is
+      // nothing else it can be asked for.
+      hand.guard = false;
+      hand.thrust = false;
+      writeAim(hand, cap, aim, me.outboard,
+        canSwing(cap) ? shape.chamberSwing : 0, shape.chamberLift, 1,
+        shape.chamberReach);
+      if (elapsed >= shape.chamberSeconds) goTo("commit");
+      return;
+    }
+
+    if (stance === "commit") {
+      // **The stroke, driven from here.** Until 2026-09-05 these six lines pressed two buttons
+      // and waited: the pair `guard + thrust` named a swept cut on a chain that had one and a
+      // chop on a chain that did not, and `arm-core.ts` ran the arc. There is no such script now,
+      // and if this stance still pressed buttons the golem would stand with its arm on the mark
+      // for 0.22 s and hit nothing.
+      //
+      // So the arc is swept here, in the same published vocabulary every other pose in this file
+      // is written in: from the chambered end, through the mark, to `followSwing` inboard and
+      // `followLift` below it, linearly over `strokeSeconds`. The mark is crossed a
+      // `chamberSwing / (chamberSwing + followSwing)` fraction of the way along, and what happens
+      // after `t` reaches 1 is the follow-through -- the command sits at the end of the arc for
+      // the rest of `commitSeconds` while the limb goes on arriving, which is what the deleted
+      // `followSeconds` was and is free here because a position held is not an event repeated.
+      //
+      // Nothing in it is rate-limited by this file. The commanded point travels the arc on the
+      // clock; whether the limb *follows* is the anchor's force budget against real mass, which
+      // is frozen rule 4 and the only thing that should ever be the binding constraint.
+      //
+      // **Since 2026-09-06 the arc is the weapon's**, from `STROKE_SHAPES`: a cut for a blade,
+      // a smash for a club, a punch for a fist, a lash for a whip. The feet close by the
+      // shape's `stepIn` on top of whatever the range asked for, which is the half of a smash
+      // and a punch that the arm does not do, and the commit lasts at least the shape's own
+      // stroke plus `followSeconds`.
+      const swept = canSwing(cap) ? 1 : 0;
+      const t = shape.strokeSeconds > 0
+        ? clamp(elapsed / shape.strokeSeconds, 0, 1)
+        : 1;
+      hand.guard = false;
+      hand.thrust = true;
+      intent.forward = clamp(intent.forward + shape.stepIn, -1, 1);
+      writeAim(hand, cap, aim, me.outboard,
+        swept * (shape.chamberSwing - t * (shape.chamberSwing + shape.followSwing)),
+        shape.chamberLift - t * (shape.chamberLift + shape.followLift),
+        0,
+        shape.chamberReach + t * (strikeReach - shape.chamberReach));
+      const commitEnds = Math.max(GOLEM_TACTICS.commitSeconds,
+        shape.strokeSeconds + GOLEM_TACTICS.followSeconds);
+      if (elapsed >= commitEnds) goTo("recover");
+      return;
+    }
+
+    // Recover: the guard goes back up immediately and the aim walks back to the covering line
+    // under it, because the limb is what is slow and the command is not.
+    hand.guard = canCover(cap);
+    hand.thrust = false;
+    aimAt(socket, guardMark, trunkHeading, me.outboard, cover);
+    writeAim(hand, cap, cover, me.outboard, 0, GOLEM_TACTICS.coverLift, 1,
+      coverReachFor(me.weapon));
+    if (elapsed >= GOLEM_TACTICS.recoverSeconds) {
+      cooldown = GOLEM_TACTICS.cooldown;
+      // A pair never takes turns: there is one weapon, and the channel it is driven from.
+      prefer = caps.pairedHands ? "primary" : spare;
+      ranged = 0;
+      goTo(gap <= hold ? "measure" : "approach");
+    }
+  };
+
+  return {
+    get stance(): GolemStance { return stance; },
+
+    decide(view: FighterView, dt: number): Intent {
+      plan(view, dt);
+      // The second hand of a pair is told what the first was, whole: the body sends it to the
+      // same point anyway, and a channel that said something else would be a channel the body
+      // ignores and a test cannot read.
+      if (view.self.capabilities?.pairedHands) mirror(intent.primary, intent.secondary);
       return intent;
     },
   };

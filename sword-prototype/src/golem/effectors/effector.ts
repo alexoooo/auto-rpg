@@ -37,21 +37,32 @@ import {
  * ## The two-socket seam
  *
  * Session 03 left this file pairing one chain with one terminal, and
- * `EffectorTerminalDefinition.sockets` declared but unread. A mace is what reads it, and what a
- * mace needs is a second chain in the golem's other socket with **no drive of its own**:
+ * `EffectorTerminalDefinition.sockets` declared but unread. Session 04's mace read it and built
+ * the second chain **unmotorised**, held to a bar at a second grip, on the club's measured
+ * lesson that two position motors on one rigid body fight (`CONFIG.club.trailingGrip`). That
+ * was true and it was also the whole of why the mace did nothing: a carried arm adds no force,
+ * a second grip on straight arms pins the swing, the roll and the bend, and the weapon scored
+ * 8.3 damage a bout against a blade's 72.6.
+ *
+ * The matchup set's Session 02 replaced it with the maul, and the seam is now the other thing
+ * the club's sweep could not try: **two motors, one point.** The fight in that sweep was two
+ * anchors asked for poses their chains disagreed about; two anchors asked for the *same* point
+ * are two force budgets pulling one way.
  *
  * - the chain in `ctx.socket` is built with the terminal's `limits` and is the one that is
- *   commanded, stepped, published and measured -- it carries the anchor;
- * - the chain in `ctx.companion` is built, stepped so its own joint motors keep their targets,
- *   and then `unmotorise`d, so its position drive lets go before a single solver step runs. It
- *   is never handed a command;
- * - the terminal is welded to the first chain's weld and held to the second's by a plain
- *   constraint of its own making.
+ *   commanded, published and measured -- it carries the weld;
+ * - the chain in `ctx.companion` is built with no narrowing, keeps its drive, and is sent every
+ *   step to the driven chain's **commanded** weld point through `BuiltChain.commandWeldTo`. It
+ *   is never handed a cursor: what it follows is where the first hand has been told to be, not
+ *   where it is, so a lagging driven hand is not a target that lags with it;
+ * - the terminal is welded to the first chain's weld and takes its second grip on the second
+ *   chain itself, once that hand arrives (`BuiltTerminal.step`). The two chains are built
+ *   mirrored, so at construction the second hand is a socket-separation away from the grip and a
+ *   constraint built then would be born violated.
  *
- * That split is the club's measured lesson and not a preference: two position motors on one
- * rigid body fight, and the sweep beside `CONFIG.club.trailingGrip` has no setting at which the
- * second one helps. What the second chain contributes is its mass, its inertia, its stops and a
- * limb that is visibly attached.
+ * A chain that cannot bring its hand to a point -- rung 1, with one axis -- cannot share a grip,
+ * and a two-socket terminal on one is refused at build by name rather than built with a second
+ * hand waving somewhere near the haft.
  */
 export function effectorModule(
   chain: EffectorChainDefinition,
@@ -69,7 +80,7 @@ export function effectorModule(
     massKg: chain.massKg * sockets + (terminal?.massKg ?? 0),
 
     build(ctx: ModuleBuild): BuiltModule<HandIntent> {
-      const built = chain.build(ctx, terminal?.limits ?? null);
+      const built = chain.build(ctx, terminal?.limits ?? null, null, terminal?.massKg ?? 0);
 
       // The trailing chain is built before the terminal, because the terminal needs its weld --
       // and everything built here is taken down again if any of the four refusals fires, which
@@ -85,7 +96,7 @@ export function effectorModule(
           if (terminal && !built.weld) {
             throw new Error(`${id}: chain "${chain.id}" carries its own terminal and cannot take "${terminal.id}"`);
           }
-          if (sockets === 2) {
+          if (sockets === 2 && terminal) {
             const companion = ctx.companion ?? null;
             if (!companion) {
               throw new Error(`${id}: this terminal claims both effector sockets and the build offers one`);
@@ -94,13 +105,26 @@ export function effectorModule(
               throw new Error(`${id}: the ${companion.slot} socket was handed over twice`);
             }
             // The same chain definition, mirrored by its own socket's `outboard`, and built with
-            // no narrowing: nothing commands it, so an envelope for it would be an envelope with
-            // no reader.
-            second = chain.build({ ...ctx, name: `${ctx.name}.trailing`, socket: companion }, null);
+            // no narrowing: it is sent to a point rather than a cursor, so what bounds it is its
+            // own shell and the narrowing is the *driven* chain's business -- the terminal's
+            // `limits` are what keep the shared grip inside this chain's reach.
+            if (!terminal.crossing) {
+              throw new Error(`${id}: terminal "${terminal.id}" claims both sockets and grants its second hand no crossing`);
+            }
+            // The whole mass again, not half: which hand the bar leans on depends on the pose,
+            // and a ring cast for half a maul is a ring that sags whenever it is the one holding it.
+            second = chain.build(
+              { ...ctx, name: `${ctx.name}.trailing`, socket: companion },
+              null, terminal.crossing, terminal.massKg,
+            );
             if (!second.weld) {
               throw new Error(`${id}: chain "${chain.id}" hands out no weld for a trailing grip`);
             }
-            second.unmotorise();
+            if (!second.commandWeldTo) {
+              throw new Error(
+                `${id}: chain "${chain.id}" cannot bring its hand to a point, so it cannot share a grip`,
+              );
+            }
           }
 
           let made: BuiltTerminal | null = null;
@@ -176,17 +200,24 @@ export function effectorModule(
         command: (next: HandIntent) => built.command(next),
         step: (dt: number) => {
           built.step(dt);
-          // Stepped and never commanded. A trailing chain's own joint motors write their
-          // ceilings here -- rung 3's wrist pair sets its max force per step -- so skipping this
-          // would leave a wrist hinge holding a target at whatever force Havok defaults to,
-          // which is a number nothing in this directory has ever chosen.
-          trailing?.step(dt);
+          if (trailing) {
+            // **To the commanded weld, not the achieved one.** `commandedEnd` at the chain's own
+            // reach is where the driven weld has been told to be after the rate limit, which is
+            // the one point both anchors can agree on; the achieved weld is wherever the mass
+            // has let the first hand get to so far, and a second hand chasing that would arrive
+            // late by construction and pull the first one back toward where it already was.
+            trailing.commandWeldTo?.(built.commandedEnd(built.reach));
+            trailing.step(dt);
+          }
+          // After both chains, so that a grip taken this step is taken against where the hands
+          // are after their drives have been written.
+          end.step?.(dt);
         },
         envelope: () => envelope,
         view: () => view,
-        // The driven chain's, and never the trailing one's. A mace's second arm is carried
-        // rather than commanded, so it has no pose of its own to seed and asking it would hand a
-        // takeover the cursor for an arm nobody drives.
+        // The driven chain's, and never the trailing one's. A maul's second arm follows the
+        // first's commanded point rather than a cursor of its own, so it has no pose of its own
+        // to seed and asking it would hand a takeover the cursor for an arm nobody drives.
         cursor: () => built.cursor(),
         sever: () => {
           if (severed) return;

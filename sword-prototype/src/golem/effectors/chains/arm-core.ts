@@ -7,6 +7,7 @@ import { AnchorDrive, DEFAULT_ANCHOR_AXES } from "../../anchor-drive.ts";
 import { CHAIN_REACH } from "../../config.ts";
 import { materialForGolemRole } from "../../materials.ts";
 import {
+  type ChainCrossing,
   type ChainLimits,
   type EffectorAxisView,
   type EffectorStroke,
@@ -183,6 +184,15 @@ export interface ArmCore {
    */
   cursor(): HandCursor;
   command(next: HandIntent): void;
+  /**
+   * Send the hand point toward a world point. See `BuiltChain.commandWeldTo`.
+   *
+   * `sphericalOf` and nothing else: the point is read back into the same three coordinates
+   * `command` writes, and everything downstream of `wanted` -- the clamp, the rate limit, the
+   * anchor -- is the same code for both, so a point commanded this way is inside the envelope by
+   * exactly the argument a cursor is.
+   */
+  commandPoint(world: Vector3): void;
   step(dt: number): void;
   /** Let go of the anchor and keep the linkage. See `BuiltChain.unmotorise`. */
   unmotorise(): void;
@@ -228,7 +238,9 @@ interface CoreLimits {
 export const ARM_STROKES: readonly EffectorStrokeKind[] =
   Object.freeze<EffectorStrokeKind[]>(["thrust", "cut", "cover"]);
 
-export function buildArmCore(ctx: ModuleBuild, narrowed: ChainLimits | null): ArmCore {
+export function buildArmCore(
+  ctx: ModuleBuild, narrowed: ChainLimits | null, crossing: ChainCrossing | null,
+): ArmCore {
   const R = CHAIN_REACH;
   // **The terminal narrows and the chain clamps**, and a narrowing can only ever *tighten*: a
   // floor takes the larger of the two and a ceiling the smaller, so a terminal that stated a
@@ -242,11 +254,15 @@ export function buildArmCore(ctx: ModuleBuild, narrowed: ChainLimits | null): Ar
   const L: CoreLimits = Object.freeze({
     reachMin: atLeast(R.reachMin, narrowed?.reachMin ?? null),
     reachMax: atMost(R.reachMax, narrowed?.reachMax ?? null),
-    swingMin: atLeast(R.swingMin, narrowed?.swingMin ?? null),
+    // **The one widening**, and the type it arrives in is the whole argument for why it is
+    // allowed: see `ChainCrossing`. A crossing replaces the two inboard floors outright rather
+    // than composing with them, because "at least this far inboard" composed with "at most that
+    // far" by `atLeast` is the chain's own floor again.
+    swingMin: crossing ? crossing.swingMin : atLeast(R.swingMin, narrowed?.swingMin ?? null),
     swingMax: atMost(R.swingMax, narrowed?.swingMax ?? null),
     liftMin: atLeast(R.liftMin, narrowed?.liftMin ?? null),
     liftMax: atMost(R.liftMax, narrowed?.liftMax ?? null),
-    carryMin: atLeast(R.carryMin, narrowed?.carryMin ?? null),
+    carryMin: crossing ? crossing.carryMin : atLeast(R.carryMin, narrowed?.carryMin ?? null),
   });
   const socket = ctx.socket;
   const outboard = socket.outboard;
@@ -347,8 +363,12 @@ export function buildArmCore(ctx: ModuleBuild, narrowed: ChainLimits | null): Ar
   // The yaw hinge's own axis is the socket's vertical, handed to `joint` as `axisParent`, so this
   // constraint's ANGULAR_X *is* the yaw and every other axis is locked. That is what makes it a
   // hinge, and what makes the chain's degree count exactly three.
-  const yawJointMin = outboard > 0 ? R.swingMin - R.jointMargin : -R.swingMax - R.jointMargin;
-  const yawJointMax = outboard > 0 ? R.swingMax + R.jointMargin : -R.swingMin + R.jointMargin;
+  // The stop follows the envelope's inboard edge *outward* only: a crossing that widened the
+  // envelope past the chain's own floor would otherwise be a command the mapping admits and the
+  // hinge refuses, which is a motor and a limit pushing at each other. A narrowing never moves it.
+  const swingFloor = Math.min(R.swingMin, L.swingMin);
+  const yawJointMin = outboard > 0 ? swingFloor - R.jointMargin : -R.swingMax - R.jointMargin;
+  const yawJointMax = outboard > 0 ? R.swingMax + R.jointMargin : -swingFloor + R.jointMargin;
   let yaw: Physics6DoFConstraint | null = joint(ctx.scene, socket.mount, collar, {
     pivotParent: socket.local,
     pivotChild: Vector3.Zero(),
@@ -742,6 +762,13 @@ export function buildArmCore(ctx: ModuleBuild, narrowed: ChainLimits | null): Ar
       wanted.swing = spanned(next.pointerX * outboard, L.swingMin, L.swingMax);
       wanted.lift = spanned(next.pointerY, L.liftMin, L.liftMax);
       wanted.reach = spanned(next.reach, L.reachMin, L.reachMax);
+    },
+
+    commandPoint(world: Vector3): void {
+      if (severed) return;
+      // Unclamped here, deliberately: `step` clamps every demand through `clampInto` on its
+      // way to the anchor, and a second clamp here would be the same shell stated twice.
+      sphericalOf(world, wanted);
     },
 
     step(dt: number): void {

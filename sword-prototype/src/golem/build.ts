@@ -107,18 +107,23 @@ export const golemHead = (id: string): HeadModuleDefinition | null => byId(HEADS
  * swung, which is what `isShield` is asked about and what a plate is for.
  *
  * A `Record` over every terminal, so a terminal added without a description is a compile error
- * rather than a hand that silently reads as empty. The mace and the whip are both `club`, which is
- * their bite row as well: a mind planning either is planning a thing that arrives with mass. The
- * fist is `empty`, the Warrior's bare hand, and that is honest twice over: it is the kind its
- * striker scores by, and a mind planning a punch plans the same short straight stroke a hand with
- * nothing in it makes -- the difference is eight kilograms of stone, which the scoring row is
- * handed and the planner is not.
+ * rather than a hand that silently reads as empty. The mace and the maul are both `club`, which
+ * is their bite row as well: a mind planning either is planning a thing that arrives with mass and
+ * is smashed down through its mark, and which of the two it holds it learns from
+ * `pairedHands` rather than from a name. The whip is `whip`, a kind of its own since the
+ * matchup set's Session 02: it was `club` before that, and a mind reading `club` off a rope
+ * planned an overhead smash for a thing whose whole stroke is a wide sweep. The fist is
+ * `empty`, the Warrior's bare hand, and that is honest twice over: it is the kind its striker
+ * scores by, and a mind planning a punch plans the same short straight stroke a hand with nothing
+ * in it makes -- the difference is eight kilograms of stone, which the scoring row is handed and
+ * the planner is not.
  */
 const TERMINAL_DESCRIPTION: Record<TerminalId, WeaponKind> = Object.freeze({
   blade: "sword",
   plate: "shield",
   mace: "club",
-  whip: "club",
+  maul: "club",
+  whip: "whip",
   fist: "empty",
 });
 
@@ -277,7 +282,7 @@ export function defaultGolemSetup(): GolemSetup {
  * slot and the offending id.
  *
  * **The socket rule is the interesting one.** A golem has exactly two effector sockets, and a
- * mace claims both -- so a build that puts a two-socket terminal in one slot and anything else in
+ * maul claims both -- so a build that puts a two-socket terminal in one slot and anything else in
  * the other is asking for three sockets from a body that has two. The reducer in `bout.ts` fills
  * the other slot with the same pair when a two-socket terminal is picked, exactly as the club's
  * two-handed rule already does for a Warrior; this is the same rule stated where a build that

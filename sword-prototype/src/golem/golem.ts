@@ -150,7 +150,7 @@ interface MountedEffector {
   readonly option: GolemEffectorOption;
   readonly module: BuiltModule<HandIntent>;
   readonly socket: GolemSocket;
-  /** Which hand channel drives it. For a mace this is `primary` in both sockets. */
+  /** Which hand channel drives it. For a maul this is `primary` in both sockets. */
   readonly driven: HandName;
 }
 
@@ -370,10 +370,11 @@ export class Golem implements Combatant {
 
     const primarySocket = this.torsoModule.socket("primary");
     const secondarySocket = this.torsoModule.socket("secondary");
-    // **How a mace claims both sockets.** One module, built into the primary socket, handed the
-    // secondary as its `companion`; `effectorModule` builds the second chain there, unmotorises
-    // it, and holds the terminal to it with a plain constraint. `plan.secondary` is null in that
-    // case, so nothing else is built and both hand records answer for the same module.
+    // **How a maul claims both sockets.** One module, built into the primary socket, handed the
+    // secondary as its `companion`; `effectorModule` builds the second chain there, sends it
+    // every step to the first chain's commanded weld point, and the terminal takes its grip on it
+    // once it arrives. `plan.secondary` is null in that case, so nothing else is built and both
+    // hand records answer for the same module.
     const primaryModule = plan.primary.definition.build(Object.freeze({
       ...build(primarySocket, "primary"),
       companion: secondarySocket,
@@ -670,12 +671,13 @@ export class Golem implements Combatant {
    * it, and the reason it exists before there is a mind to read it is the one thing an envelope has
    * to be able to say out loud.
    *
-   * **A mace pins the swing.** `TERMINAL_MACE.limits` states `swingMin = swingMax = 0`, the chain
+   * **A maul pins the swing.** `TERMINAL_MAUL.limits` states `swingMin = swingMax`, the chain
    * folds it into its own limits before it publishes anything, and the `ReachEnvelope` that comes
-   * back therefore reports an azimuth range of exactly zero. A golem carrying one **cannot turn
-   * its weapon with its arm** and has to turn with the torso's twist or the carrier's yaw. That is
-   * a fact about the body a mind must read rather than discover, which is why it is asserted in
-   * `tests/golem-arena.test.mjs` rather than left in a comment.
+   * back therefore reports an azimuth range of exactly zero -- the shared grip has to stay inside
+   * the trailing arm's reach, and an inboard swing is where that is true. A golem carrying one
+   * **cannot turn its weapon with its arm** and has to turn with the torso's twist or the
+   * carrier's yaw. That is a fact about the body a mind must read rather than discover, which is
+   * why it is asserted in `tests/golem-arena.test.mjs` rather than left in a comment.
    */
   effectorEnvelope(hand: HandName): ReturnType<BuiltModule<HandIntent>["envelope"]> | null {
     return this.effectors[hand]?.module.envelope() ?? null;
@@ -718,6 +720,9 @@ export class Golem implements Combatant {
       effectors: Object.freeze({ primary: effector("primary"), secondary: effector("secondary") }),
       trunkTwistMax: Math.max(0, axisCeiling(this.torsoModule.envelope().axes, "twist")),
       crouchTravel: Math.max(0, range.standM - range.crouchM),
+      // The one place the mind learns both sockets hold one terminal: the records are the same
+      // object, because `plan.secondary` was null and the primary answered for both.
+      pairedHands: this.effectors.secondary === this.effectors.primary,
     });
   }
 

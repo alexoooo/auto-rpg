@@ -23,7 +23,9 @@
 // | write `GOLEM_TACTICS.cutRoll` without the `rollMax > 0` guard | the envelope test |
 // | write `GOLEM_TACTICS.coverBend` without the `bendMax > 0` guard | the envelope test |
 // | drop the `canAttack(cap)` guard on the commit gate | the capped-socket test |
-// | hold `trunkTwist` at zero through an exchange | the mace test |
+// | hold `trunkTwist` at zero through an exchange | the maul test |
+// | drop the `mirror` of the primary into the secondary when `pairedHands` | the paired-hands test |
+// | use `CUT` for every weapon kind instead of `STROKE_SHAPES[me.weapon]` | the smash test |
 // | seed the mulberry stream from `Math.random()` rather than the argument | the determinism test |
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -57,6 +59,7 @@ const FRAME_MS = 1000 / 60;
 const SEED = 20260904;
 
 const MACE = { chain: "wrist", terminal: "mace" };
+const MAUL = { chain: "wrist", terminal: "maul" };
 const setupWith = (over) => ({ ...defaultGolemSetup(), ...over });
 
 // ---------------------------------------------------------------------------------------
@@ -361,7 +364,8 @@ test("a_hand_written_golem_view_carries_every_field_the_real_one_publishes", asy
 test("every_hand_command_the_mind_emits_sits_inside_the_published_envelope", async (t) => {
   for (const [label, setup] of [
     ["default", defaultGolemSetup()],
-    ["mace", setupWith({ primary: MACE, secondary: MACE })],
+    ["mace", setupWith({ primary: MACE, secondary: { chain: "reach", terminal: "plate" } })],
+    ["maul", setupWith({ primary: MAUL, secondary: MAUL })],
     ["pitch", setupWith({ primary: { chain: "pitch", terminal: "blade" },
       secondary: { chain: "pitch", terminal: "plate" } })],
     ["whip", setupWith({ primary: { chain: "wrist", terminal: "whip" },
@@ -380,23 +384,24 @@ test("every_hand_command_the_mind_emits_sits_inside_the_published_envelope", asy
 });
 
 /**
- * A mace pins the swing, so the mind turns the body instead.
+ * A maul pins the swing, so the mind turns the body instead.
  *
- * The capability fact Session 08 left written down for this one to read: `TERMINAL_MACE.limits`
- * states `swingMin = swingMax = 0`, the chain folds it into its own limits before it publishes
- * anything, and a golem carrying one **cannot turn its weapon with its arm**. What the mind must do
- * about it is turn with the trunk or the carrier, and what it must not do is keep writing an
- * azimuth into a channel that has one value.
+ * The capability fact Session 08 left written down for this one to read, moved from the mace to
+ * the maul by the matchup set's Session 02: `TERMINAL_MAUL.limits` states `swingMin = swingMax`,
+ * the chain folds it into its own limits before it publishes anything, and a golem carrying one
+ * **cannot turn its weapon with its arm**. What the mind must do about it is turn with the trunk
+ * or the carrier, and what it must not do is keep writing an azimuth into a channel that has one
+ * value.
  *
  * The blade beside it is the control, and it is what makes this test say something: a mind that
- * never wrote `pointerX` at all would pass the mace half on its own.
+ * never wrote `pointerX` at all would pass the maul half on its own.
  */
-test("a_mace_is_aimed_with_the_trunk_because_its_own_swing_is_pinned", async (t) => {
-  const mace = await standAGolem(t, setupWith({ primary: MACE, secondary: MACE }));
+test("a_maul_is_aimed_with_the_trunk_because_its_own_swing_is_pinned", async (t) => {
+  const mace = await standAGolem(t, setupWith({ primary: MAUL, secondary: MAUL }));
   const maceFixture = fixtureOf(mace.view);
   const shell = maceFixture.self.capabilities.effectors.primary.reachable;
-  assert.ok(shell, "a mace still publishes a reachable shell");
-  assert.equal(shell.swingMax - shell.swingMin, 0, "a mace has exactly one azimuth");
+  assert.ok(shell, "a maul still publishes a reachable shell");
+  assert.equal(shell.swingMax - shell.swingMin, 0, "a maul has exactly one azimuth");
 
   const run = (fixture, label) => {
     const mind = golemTactics(SEED);
@@ -409,12 +414,22 @@ test("a_mace_is_aimed_with_the_trunk_because_its_own_swing_is_pinned", async (t)
     const self = fixture.self;
     const reach = self.hands.primary.reach;
     const shell = self.capabilities.effectors.primary.reachable;
-    const at = ((reach - (shell.reachMax - shell.reachMin)) + reach * 0.92) / 2;
+    // The middle of the shell, whatever its depth: a maul's is 0.06 m deep, and the old
+    // `(inner + 0.92 reach) / 2` stood outside it.
+    const at = reach - (shell.reachMax - shell.reachMin) / 2;
     const bearing = 0.55;
-    place(fixture, { x: Math.sin(bearing) * at, z: Math.cos(bearing) * at });
-    const gap = Math.hypot(self.hands.primary.shoulder.x - fixture.opponent.shoulder.x,
-      self.hands.primary.shoulder.y - fixture.opponent.shoulder.y,
-      self.hands.primary.shoulder.z - fixture.opponent.shoulder.z);
+    // The placement is of the opponent's body and the gap is from the primary *shoulder*, which
+    // stands a socket's width off the body's line, so the two differ; a blade's shell is 0.42 m
+    // deep and did not notice, and a maul's is 0.06 m deep and does. Corrected until they agree.
+    let scale = 1;
+    let gap = 0;
+    for (let round = 0; round < 4; round += 1) {
+      place(fixture, { x: Math.sin(bearing) * at * scale, z: Math.cos(bearing) * at * scale });
+      gap = Math.hypot(self.hands.primary.shoulder.x - fixture.opponent.shoulder.x,
+        self.hands.primary.shoulder.y - fixture.opponent.shoulder.y,
+        self.hands.primary.shoulder.z - fixture.opponent.shoulder.z);
+      scale *= at / gap;
+    }
     assert.ok(gap > reach - (shell.reachMax - shell.reachMin) && gap < reach,
       `${label} was placed at ${gap.toFixed(3)} m, outside its own shell`);
     for (let step = 0; step < CONFIG.world.physicsHz * 6; step += 1) {
@@ -426,16 +441,116 @@ test("a_mace_is_aimed_with_the_trunk_because_its_own_swing_is_pinned", async (t)
     return { pointer, twist };
   };
 
-  const withMace = run(maceFixture, "the mace golem");
+  const withMace = run(maceFixture, "the maul golem");
   assert.equal(withMace.pointer, 0,
     "a pinned swing has one azimuth, so no cursor position asks for another");
   assert.ok(withMace.twist > 0.3,
-    `a mace golem turned its trunk by at most ${withMace.twist.toFixed(3)} of its envelope`);
+    `a maul golem turned its trunk by at most ${withMace.twist.toFixed(3)} of its envelope`);
 
   const blade = await standAGolem(t);
   const withBlade = run(fixtureOf(blade.view), "the blade golem");
   assert.ok(withBlade.pointer > 0.2,
     `an arm that can swing was only asked for ${withBlade.pointer.toFixed(3)} of its cursor`);
+});
+
+/**
+ * The stroke is the weapon's: a mace is smashed from overhead and stepped into, a blade is cut.
+ *
+ * `STROKE_SHAPES` is read by `HandView.weapon`, and the two rows this reads are `club` -- the
+ * chamber high, the feet closing by `stepIn` through the commit -- and `sword`, which is the
+ * cut that was the only stroke until the matchup set's Session 02. Both golems are stood where a
+ * strike is on, the same way the maul test stands them, and what is compared is the highest the
+ * cursor was raised while chambering and how much the commit added to `forward`. The blade is
+ * the control on both counts: it chambers low and steps in by nothing.
+ */
+test("a_mace_is_smashed_overhead_and_stepped_into_and_a_blade_is_not", async (t) => {
+  const run = (fixture, label) => {
+    const mind = golemTactics(SEED);
+    const self = fixture.self;
+    const reach = self.hands.primary.reach;
+    const shell = self.capabilities.effectors.primary.reachable;
+    const at = ((reach - (shell.reachMax - shell.reachMin)) + reach * 0.92) / 2;
+    place(fixture, { x: 0, z: at });
+    let chamberLift = -Infinity;
+    let chamberForward = 0;
+    let chambers = 0;
+    let commitForward = 0;
+    let commits = 0;
+    for (let step = 0; step < CONFIG.world.physicsHz * 6; step += 1) {
+      fixture.clock += FIXED;
+      const intent = mind.decide(fixture, FIXED);
+      if (mind.stance === "chamber") {
+        chamberLift = Math.max(chamberLift, intent.primary.pointerY);
+        chamberForward += intent.forward;
+        chambers += 1;
+      } else if (mind.stance === "commit") {
+        commitForward += intent.forward;
+        commits += 1;
+      }
+      assertInsideEnvelope(intent, self, `${label} step ${step}`);
+    }
+    assert.ok(chambers > 0 && commits > 0, `${label} never struck`);
+    return { chamberLift, stepIn: commitForward / commits - chamberForward / chambers };
+  };
+
+  const mace = await standAGolem(t, setupWith({ primary: MACE,
+    secondary: { chain: "reach", terminal: "plate" } }));
+  const maceFixture = fixtureOf(mace.view);
+  assert.equal(maceFixture.self.hands.primary.weapon, "club");
+  const smash = run(maceFixture, "the mace golem");
+  const blade = await standAGolem(t);
+  const cut = run(fixtureOf(blade.view), "the blade golem");
+
+  assert.ok(smash.chamberLift > cut.chamberLift + 0.3,
+    `a mace chambered at ${smash.chamberLift.toFixed(3)} against a blade's ${cut.chamberLift.toFixed(3)}`);
+  assert.ok(smash.stepIn > 0.3,
+    `a mace's commit added ${smash.stepIn.toFixed(3)} of forward to its chamber's`);
+  assert.ok(Math.abs(cut.stepIn) < 0.05,
+    `a blade's commit moved the feet by ${cut.stepIn.toFixed(3)}, and a cut does not step`);
+});
+
+/**
+ * A maul is swung with both hands on one grip: one attacker, and the second hand written as the
+ * first.
+ *
+ * `GolemCapabilities.pairedHands` is the one fact the mind is told -- not the module's name --
+ * and what it does with it is `mirror` the primary's seven fields into the secondary every step,
+ * so a bar the body drives from the primary socket is never asked by the secondary for a guard
+ * on the other side. The default golem is the control: its two hands are two, and they differ.
+ */
+test("a_maul_is_swung_with_both_hands_on_one_grip", async (t) => {
+  const FIELDS = ["pointerX", "pointerY", "reach", "roll", "wristBend", "thrust", "guard"];
+  const differs = (intent) => FIELDS.some((field) => intent.primary[field] !== intent.secondary[field]);
+  const run = (fixture, label) => {
+    const mind = golemTactics(SEED);
+    let apart = 0;
+    let steps = 0;
+    for (const z of [0.9, 1.4, 2.2, 3.5]) {
+      place(fixture, { x: 0.15, z });
+      for (let step = 0; step < CONFIG.world.physicsHz * 2; step += 1) {
+        fixture.clock += FIXED;
+        const intent = mind.decide(fixture, FIXED);
+        if (differs(intent)) apart += 1;
+        steps += 1;
+        assertInsideEnvelope(intent, fixture.self, `${label} step ${step}`);
+      }
+    }
+    return { apart, steps };
+  };
+
+  const maul = await standAGolem(t, setupWith({ primary: MAUL, secondary: MAUL }));
+  const maulFixture = fixtureOf(maul.view);
+  assert.equal(maulFixture.self.capabilities.pairedHands, true, "a maul publishes paired hands");
+  const paired = run(maulFixture, "the maul golem");
+  assert.equal(paired.apart, 0,
+    `the maul's second hand was asked for something else on ${paired.apart} of ${paired.steps} steps`);
+
+  const blade = await standAGolem(t);
+  const bladeFixture = fixtureOf(blade.view);
+  assert.equal(bladeFixture.self.capabilities.pairedHands, false);
+  const two = run(bladeFixture, "the default golem");
+  assert.ok(two.apart > two.steps / 2,
+    `the default golem's two hands agreed on ${two.steps - two.apart} of ${two.steps} steps`);
 });
 
 /**

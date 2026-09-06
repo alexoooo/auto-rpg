@@ -55,7 +55,17 @@ export type WeaponKind =
   | "shield"
   | "buckler"
   | "club"
-  | "empty";
+  | "empty"
+  /**
+   * A lash: a golem's whip terminal, described to the thing that plans it.
+   *
+   * Appended by the matchup set's Session 02 and **not on the Warrior's shelf** -- see
+   * `Grip.offered`. It exists because a mind reading `club` off a whip planned a smash for a
+   * rope, and the two want opposite strokes: a smash goes down through the mark and a lash goes
+   * wide across it. `src/golem/tactics.ts`'s stroke shapes are keyed by this union, which is
+   * why the distinction has to be a kind rather than a module id nobody may read.
+   */
+  | "whip";
 
 /**
  * Everything that can hurt somebody, which is **not** the same list.
@@ -153,6 +163,17 @@ interface Grip {
    * that becomes a number.
    */
   bothEdges: boolean;
+  /**
+   * Whether the Warrior's shelf offers it.
+   *
+   * True for every kind `weapon.ts` has a builder for: the picker lists it, a loadout may name
+   * it, and a `<select>` value that spells it is trusted. False for the whip, which is a golem
+   * terminal's *description* to a mind and has no rigid body a Warrior's hand could weld to --
+   * `WeaponKind` is the vocabulary `HandView.weapon` speaks, and since 2026-09-05 it is wider
+   * than the shelf. `WEAPON_KINDS` and `isWeaponKind` read this; `STRIKER_KINDS` does not,
+   * because a feature column and a bite row want every kind whatever hand it is in.
+   */
+  offered: boolean;
 }
 
 /**
@@ -163,26 +184,32 @@ interface Grip {
  * row is a null check in front of every question.
  */
 const GRIPS: Record<Striker, Grip> = {
-  sword: { hands: 1, carry: "held", heldWeapon: true, use: "strike", point: true, bothEdges: true },
-  axe: { hands: 1, carry: "held", heldWeapon: true, use: "strike", point: false, bothEdges: false },
+  sword: { hands: 1, carry: "held", heldWeapon: true, use: "strike", point: true, bothEdges: true, offered: true },
+  axe: { hands: 1, carry: "held", heldWeapon: true, use: "strike", point: false, bothEdges: false, offered: true },
   // Two hands, like the club, and for the same reason the club takes two: one
   // holds it and the other works it. `mountFor` gives it the blade's mount, so
   // its +Y runs out along the arm and **an arrow flies where the arm points**.
-  bow: { hands: 2, carry: "held", heldWeapon: true, use: "shoot", point: false, bothEdges: false },
-  shield: { hands: 1, carry: "strapped", heldWeapon: true, use: "cover", point: false, bothEdges: false },
-  buckler: { hands: 1, carry: "held", heldWeapon: true, use: "cover", point: false, bothEdges: false },
-  club: { hands: 2, carry: "held", heldWeapon: true, use: "strike", point: false, bothEdges: false },
-  empty: { hands: 1, carry: "held", heldWeapon: false, use: "strike", point: false, bothEdges: false },
+  bow: { hands: 2, carry: "held", heldWeapon: true, use: "shoot", point: false, bothEdges: false, offered: true },
+  shield: { hands: 1, carry: "strapped", heldWeapon: true, use: "cover", point: false, bothEdges: false, offered: true },
+  buckler: { hands: 1, carry: "held", heldWeapon: true, use: "cover", point: false, bothEdges: false, offered: true },
+  club: { hands: 2, carry: "held", heldWeapon: true, use: "strike", point: false, bothEdges: false, offered: true },
+  empty: { hands: 1, carry: "held", heldWeapon: false, use: "strike", point: false, bothEdges: false, offered: true },
   // Not a weapon, and every field says so honestly rather than by omission.
-  arrow: { hands: 0, carry: "loosed", heldWeapon: false, use: "strike", point: true, bothEdges: false },
+  arrow: { hands: 0, carry: "loosed", heldWeapon: false, use: "strike", point: true, bothEdges: false, offered: false },
   // A body-owned natural striker. It is neither offered to a hand nor mounted.
-  bite: { hands: 0, carry: "loosed", heldWeapon: false, use: "strike", point: true, bothEdges: false },
+  bite: { hands: 0, carry: "loosed", heldWeapon: false, use: "strike", point: true, bothEdges: false, offered: false },
   // A golem's ram plate: `bite`'s row with `point` false, because a plate arrives flat and there
   // is no tip to bury. It is driven from the same natural channel the jaws are, and
   // `carry: "loosed"` is what keeps it out of `WEAPON_KINDS` -- nothing offers it to a hand and
   // the setup screen never sees it. Appended at the end, so `STRIKER_KINDS` grows without moving
   // any existing kind's index (`strikerIndex` in `action-primitives.ts` is a feature column).
-  ram: { hands: 0, carry: "loosed", heldWeapon: false, use: "strike", point: false, bothEdges: false },
+  ram: { hands: 0, carry: "loosed", heldWeapon: false, use: "strike", point: false, bothEdges: false, offered: false },
+  // A golem's lash, held in one socket and swung, with nothing a point could be driven with and
+  // no edge. `offered: false` is what keeps it off the Warrior's shelf: there is no builder for
+  // it in `weapon.ts`, and a kind without a builder that reached the picker would be the
+  // shield-that-shipped-as-a-club defect one row down. Appended, so no existing kind's index
+  // in `STRIKER_KINDS` moves.
+  whip: { hands: 1, carry: "held", heldWeapon: true, use: "strike", point: false, bothEdges: false, offered: false },
 };
 
 /**
@@ -193,6 +220,14 @@ const GRIPS: Record<Striker, Grip> = {
  * unions goes through here.
  */
 const held = (kind: Striker): kind is WeaponKind => GRIPS[kind].carry !== "loosed";
+
+/**
+ * Is this a thing the Warrior's shelf offers?
+ *
+ * Narrower than `held` by exactly one row, the whip, and kept as its own predicate so that the
+ * two questions -- "can a hand hold it" and "does a Warrior have one" -- stay two questions.
+ */
+const offered = (kind: Striker): kind is WeaponKind => held(kind) && GRIPS[kind].offered;
 
 /**
  * Every kind that is actually a thing, in the order the picker offers them.
@@ -210,7 +245,7 @@ const held = (kind: Striker): kind is WeaponKind => GRIPS[kind].carry !== "loose
  * "nobody carries this" -- rather than as a name to skip, so the next thing that
  * is shot rather than held needs no edit here.
  */
-export const WEAPON_KINDS: readonly WeaponKind[] = (Object.keys(GRIPS) as Striker[]).filter(held);
+export const WEAPON_KINDS: readonly WeaponKind[] = (Object.keys(GRIPS) as Striker[]).filter(offered);
 
 /**
  * Every kind that can hurt somebody, in the same declaration order.
@@ -245,7 +280,7 @@ export const STRIKER_KINDS: readonly Striker[] = Object.keys(GRIPS) as Striker[]
  * is something a hand takes.
  */
 export const isWeaponKind = (value: string): value is WeaponKind =>
-  Object.hasOwn(GRIPS, value) && held(value as Striker);
+  Object.hasOwn(GRIPS, value) && offered(value as Striker);
 
 /**
  * The same question asked as a conversion, for the one caller that has to hand

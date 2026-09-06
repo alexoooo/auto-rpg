@@ -617,6 +617,11 @@ export class Weapon {
     // but `empty` is a member of the union and the exhaustiveness check below
     // cannot narrow it away on its own. Refused here rather than silently built.
     if (opts.kind === "empty") throw new Error("an empty hand has no weapon body");
+    // The whip is a golem terminal's description to a mind, not a thing on the Warrior's shelf
+    // (`GRIPS.whip.offered` is false, so no picker, loadout or `<select>` can name it); it is
+    // in the union so a mind can tell a lash from a smash, and refused here for the reason the
+    // empty hand is.
+    if (opts.kind === "whip") throw new Error("a whip is a golem's lash and has no Warrior body");
 
     if (opts.kind !== "sword") {
       // Exhaustive, and it is worth the extra line. This was a ternary whose

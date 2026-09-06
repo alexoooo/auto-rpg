@@ -224,6 +224,7 @@ const PARRY_LABEL: Record<WeaponKind, string> = {
   buckler: "Buckler",
   club: "Club",
   empty: "Hand",
+  whip: "Lash",
 };
 
 /**

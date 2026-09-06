@@ -27,7 +27,7 @@ import { capsulePart } from "../src/rig.ts";
 import { AnchorDrive, slewTowards } from "../src/golem/anchor-drive.ts";
 import {
   ANCHOR_DRIVE, BENCH_READOUT, BENCH_STAND, CHAIN_PITCH, CHAIN_REACH, CHAIN_WRIST,
-  TERMINAL_MACE, TERMINAL_PLATE, TERMINAL_WHIP, TORSO_PLAIN, TORSO_PLATED,
+  TERMINAL_MACE, TERMINAL_MAUL, TERMINAL_PLATE, TERMINAL_WHIP, TORSO_PLAIN, TORSO_PLATED,
 } from "../src/golem/config.ts";
 import { BenchReadout, blankSample } from "../src/golem/readout.ts";
 import {
@@ -146,19 +146,20 @@ for (const id of EFFECTOR_IDS) {
     });
     try {
       assert.ok(module.parts.length > 0, "a module with no parts is a module with no body");
-      // **At least one, and a whip has three.** Session 02's "exactly one" was right for a rigid
+      // **At least one, and a whip has four.** Session 02's "exactly one" was right for a rigid
       // terminal and wrong for a chain of bodies: a whip that scored only with its final bead
-      // would mostly miss, and one that scored with all six would bruise with its own handle.
+      // would mostly miss, and one that scored with all eight would bruise with its own handle.
       assert.ok(module.strikers.length >= 1, "a terminal that offers no striker scores nothing");
-      assert.equal(module.strikers.length, id.endsWith(".whip") ? 3 : 1);
+      assert.equal(module.strikers.length, id.endsWith(".whip") ? TERMINAL_WHIP.strikingSegments : 1);
       const view = module.view();
       assert.ok(view, "an effector publishes a view");
       assert.equal(view.slot, "primary");
       assert.equal(view.stroke, "idle");
-      // A trailing grip's error is a two-socket terminal's reading and nobody else's. Null rather
-      // than zero for the rest, which would read as a grip held perfectly by a limb that is not
-      // there.
-      assert.equal(view.gripStray === null, !id.endsWith(".mace"));
+      // A trailing grip's error is a two-socket terminal's reading and nobody else's, and null
+      // for that one too at build: the maul takes its second grip when the second hand arrives,
+      // and a reading of the distance to a grip nobody holds is not a stray. Null rather than
+      // zero, which would read as a grip held perfectly by a limb that is not there.
+      assert.equal(view.gripStray, null);
       if (anchored(id)) {
         // The anchor as a **field on the view**, which is what Session 02 asked for rather than
         // an overlay reaching into a chain. Rungs 2 and 3 are the first with one to publish.
@@ -1174,7 +1175,7 @@ test("nothing a golem publishes reaches the world transform through a world matr
 });
 
 // ---------------------------------------------------------------------------------------
-// Session 04's terminals: the plate, the mace and the whip.
+// Session 04's terminals -- the plate, the mace and the whip -- and the matchup set's maul.
 // ---------------------------------------------------------------------------------------
 
 test("a two-socket terminal refuses a build that offers it one socket", async () => {
@@ -1185,47 +1186,73 @@ test("a two-socket terminal refuses a build that offers it one socket", async ()
     layers: golemLayers("left"), materials: stand.materials,
   };
   try {
-    // A refusal and not a fallback. A mace that quietly built a one-handed bar when handed one
+    // A refusal and not a fallback. A maul that quietly built a one-handed bar when handed one
     // socket is the shield-that-shipped-as-a-club failure with the sockets swapped: it would
-    // compile, pass `tsc`, pass the build, and put a 42 kg bar on one arm with the second grip
+    // compile, pass `tsc`, pass the build, and put a 48 kg bar on one arm with the second grip
     // constraining nothing.
-    assert.throws(() => golemModule("effector.reach.mace").build(ctx),
+    assert.throws(() => golemModule("effector.reach.maul").build(ctx),
       /claims both effector sockets/);
     // And the same socket handed over twice, which is the shape a caller reaches for by accident.
-    assert.throws(() => golemModule("effector.reach.mace").build({
+    assert.throws(() => golemModule("effector.reach.maul").build({
       ...ctx, companion: stand.socket("primary"),
     }), /handed over twice/);
     // The control: with a real second socket it builds. Without this the two refusals above are
-    // satisfied by a mace that cannot be built at all.
-    const built = golemModule("effector.reach.mace").build({
+    // satisfied by a maul that cannot be built at all.
+    const built = golemModule("effector.reach.maul").build({
       ...ctx, companion: stand.socket("secondary"),
     });
     assert.ok(built.parts.some((part) => part.id.includes(".trailing.")),
-      "a mace has to put a limb in the second socket, not just a constraint");
+      "a maul has to put a limb in the second socket, not just a constraint");
     built.dispose();
+    // And the one-socket mace beside it is the control the other way: one weld, one arm, and a
+    // companion handed to it is simply not read.
+    const mace = golemModule("effector.reach.mace").build(ctx);
+    assert.ok(!mace.parts.some((part) => part.id.includes(".trailing.")),
+      "a one-handed mace built a second limb");
+    mace.dispose();
   } finally {
     stand.dispose();
     arena.dispose();
   }
 });
 
-test("the mace's trailing grip is a constraint and its driven grip is a motor", async () => {
-  // **The honest signature of the arrangement the club's sweep forces.** Two position motors on
-  // one rigid body fight, so the trailing chain carries no drive at all and is held to the bar by
-  // a plain ball joint. A constraint is solved and a force-capped motor lags -- so the passive
-  // grip's error has to sit *below* the driven grip's, by a lot, and a run where it does not is a
-  // run where the trailing arm has started pushing back.
+test("a chain that cannot bring its hand to a point cannot share a grip", async () => {
+  // The pitch chain has one axis and no anchor, so there is no point it can be sent to; the
+  // registry does not offer it a maul, and this is the refusal underneath that, for the caller
+  // who builds the pair by hand. The wording is the frozen one `effector.ts` gives.
+  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const stand = buildGolemStand(arena.scene, { side: "left" });
+  try {
+    const { effectorModule } = await import("../src/golem/effectors/effector.ts");
+    assert.throws(() => effectorModule(EFFECTOR_CHAINS.pitch, EFFECTOR_TERMINALS.maul).build({
+      scene: arena.scene, side: "left", name: "pitch-maul", socket: stand.socket("primary"),
+      companion: stand.socket("secondary"), layers: golemLayers("left"), materials: stand.materials,
+    }), /cannot bring its hand to a point/);
+  } finally {
+    stand.dispose();
+    arena.dispose();
+  }
+});
+
+test("the maul's second hand arrives, takes the grip, and holds it as a constraint does", async () => {
+  // **Two motors, one point.** The driven chain is commanded and the trailing chain is sent to
+  // the driven chain's commanded weld, so the two do not fight; the grip is taken when the second
+  // hand gets there, and from then on it is a solved ball joint. A constraint is solved and a
+  // force-capped motor lags, so the grip's error sits far below the driven anchor's -- a run
+  // where it does not is a run where the trailing arm has started pushing back.
   //
-  // Measured in the Node bench, 2026-09-04: 0.008 mm at the trailing grip against 331.61 mm of
-  // anchor stray on the reach chain, and 0.099 mm against 300.82 mm on the wrist chain. The
-  // bounds below are provisional and are to be re-taken after the owner's gate.
-  for (const id of ["effector.reach.mace", "effector.wrist.mace"]) {
+  // Measured in the Node bench, 2026-09-06: the grip taken at 0.246 s on the reach chain and
+  // 0.462 s on the wrist chain, 0.043 and 0.085 mm of grip stray against 206 and 230 mm at the
+  // driven anchor. The bounds below are provisional and are to be re-taken after the owner's gate.
+  for (const id of ["effector.reach.maul", "effector.wrist.maul"]) {
     const run = await runGolemBench({ moduleId: id });
+    assert.ok(run.gripTakenAt !== null && run.gripTakenAt < 2,
+      `${id}: the second hand took ${run.gripTakenAt} s to reach the grip`);
     assert.ok(run.peakGripStrayMm !== null, `${id} published no trailing grip error`);
     assert.ok(run.state.peakAnchorStrayMm !== null, `${id} drives an anchor and must publish it`);
     assert.ok(run.peakGripStrayMm < run.state.peakAnchorStrayMm,
-      `${id}: the passive grip strayed ${run.peakGripStrayMm} mm against ${run.state.peakAnchorStrayMm}`
-      + " mm at the driven grip, which is the wrong way round for an unmotorised grip");
+      `${id}: the grip strayed ${run.peakGripStrayMm} mm against ${run.state.peakAnchorStrayMm}`
+      + " mm at the driven anchor, which is the wrong way round for a solved joint");
     assert.ok(run.peakGripStrayMm < 1,
       `${id}: a solved constraint held its grip to ${run.peakGripStrayMm} mm`);
     assert.equal(run.state.selfContacts, 0, `${id}: a golem's own parts must never collide`);
@@ -1234,39 +1261,95 @@ test("the mace's trailing grip is a constraint and its driven grip is a motor", 
   }
 });
 
-test("the mace narrows the chain it is on, and the chain publishes the narrowing", async () => {
-  // Frozen rule 3 with a second author: a rigid bar between two arms makes most of the driven
-  // arm's envelope unreachable for the *other* arm, so the terminal states what it takes and the
-  // chain clamps to it before the anchor is ever handed a target. The arithmetic that produced
-  // the two zeroes is beside `TERMINAL_MACE.limits`.
+test("the maul narrows the chain it is on, the mace does not, and the chain publishes both", async () => {
+  // Frozen rule 3 with a second author: two hands on one grip can only meet where both arms
+  // reach, so the terminal states what it takes and the chain clamps to it before the anchor is
+  // ever handed a target. The arithmetic that produced the numbers is beside
+  // `TERMINAL_MAUL.limits`.
+  const withMaul = await runGolemBench({ moduleId: "effector.reach.maul" });
   const withMace = await runGolemBench({ moduleId: "effector.reach.mace" });
   const withBlade = await runGolemBench({ moduleId: "effector.reach.blade" });
 
-  assert.equal(withMace.envelope.reachable.swingMin, 0);
-  assert.equal(withMace.envelope.reachable.swingMax, 0);
-  assert.equal(withMace.envelope.reachable.reachMax, TERMINAL_MACE.limits.reachMax);
-  // The control, and it is the half that makes this an assertion rather than a restatement of the
-  // config: the same chain with a one-socket terminal on it publishes its own full envelope.
-  assert.equal(withBlade.envelope.reachable.swingMin, CHAIN_REACH.swingMin);
-  assert.equal(withBlade.envelope.reachable.swingMax, CHAIN_REACH.swingMax);
-  assert.equal(withBlade.envelope.reachable.reachMax, CHAIN_REACH.reachMax);
-  // Elevation is left alone by both, which is what makes a mace worth having: it raises and falls
-  // over the chain's whole range and only the yaw is gone.
-  assert.equal(withMace.envelope.reachable.liftMin, CHAIN_REACH.liftMin);
-  assert.equal(withMace.envelope.reachable.liftMax, CHAIN_REACH.liftMax);
+  const M = TERMINAL_MAUL.limits;
+  assert.equal(withMaul.envelope.reachable.swingMax - withMaul.envelope.reachable.swingMin, 0,
+    "a maul has one azimuth");
+  assert.equal(Math.abs(withMaul.envelope.reachable.swingMin), Math.abs(M.swingMin));
+  assert.equal(withMaul.envelope.reachable.reachMax, M.reachMax);
+  assert.equal(withMaul.envelope.reachable.liftMax, M.liftMax);
+  // The controls, and they are the half that makes this an assertion rather than a restatement
+  // of the config: the same chain with a one-socket terminal on it publishes its own full
+  // envelope -- and since the matchup set's Session 02 the mace is one of those. What it takes
+  // from a chain is the wrist's bend and nothing the reach chain has.
+  for (const [label, run] of [["blade", withBlade], ["mace", withMace]]) {
+    assert.equal(run.envelope.reachable.swingMin, CHAIN_REACH.swingMin, label);
+    assert.equal(run.envelope.reachable.swingMax, CHAIN_REACH.swingMax, label);
+    assert.equal(run.envelope.reachable.reachMax, CHAIN_REACH.reachMax, label);
+    assert.equal(run.envelope.reachable.liftMin, CHAIN_REACH.liftMin, label);
+    assert.equal(run.envelope.reachable.liftMax, CHAIN_REACH.liftMax, label);
+  }
 
-  // And on a wrist chain the roll and the bend go too, which is the overview's "nothing; a mace
-  // has no edge" written as two published axes.
-  const wrist = await runGolemBench({ moduleId: "effector.wrist.mace" });
-  const roll = wrist.envelope.axes.find((axis) => axis.id === "roll");
-  const bend = wrist.envelope.axes.find((axis) => axis.id === "bend");
+  // On a wrist chain the maul takes the roll and the bend too, for the wrist's reason beside
+  // `TERMINAL_MAUL.limits`; the mace keeps its roll and loses its bend, for the reason beside
+  // `TERMINAL_MACE.limits`.
+  const axis = (run, id) => run.envelope.axes.find((entry) => entry.id === id);
+  const wristMaul = await runGolemBench({ moduleId: "effector.wrist.maul" });
   // `===` rather than `assert.equal`, which compares with `Object.is` and would call a
-  // published -0 a failure: the roll's floor is written as the negative of a limit that a mace
+  // published -0 a failure: the roll's floor is written as the negative of a limit that a maul
   // pins at zero, and -0 and 0 are the same commanded roll.
-  assert.ok(roll.min === 0 && roll.max === 0, `a mace published a roll of ${roll.min}..${roll.max}`);
-  assert.ok(bend.max === 0, `a mace published a bend of up to ${bend.max}`);
+  assert.ok(axis(wristMaul, "roll").min === 0 && axis(wristMaul, "roll").max === 0,
+    `a maul published a roll of ${axis(wristMaul, "roll").min}..${axis(wristMaul, "roll").max}`);
+  assert.ok(axis(wristMaul, "bend").max === 0,
+    `a maul published a bend of up to ${axis(wristMaul, "bend").max}`);
+  const wristMace = await runGolemBench({ moduleId: "effector.wrist.mace" });
+  assert.equal(axis(wristMace, "roll").max, CHAIN_WRIST.rollMax, "a mace rolls with its wrist");
+  assert.equal(axis(wristMace, "bend").max, TERMINAL_MACE.limits.bendMax);
+  assert.ok(axis(wristMace, "bend").max === 0, "a mace is swung straight off the forearm");
   const wristBlade = await runGolemBench({ moduleId: "effector.wrist.blade" });
-  assert.equal(wristBlade.envelope.axes.find((axis) => axis.id === "roll").max, CHAIN_WRIST.rollMax);
+  assert.equal(axis(wristBlade, "roll").max, CHAIN_WRIST.rollMax);
+  assert.equal(axis(wristBlade, "bend").max, CHAIN_WRIST.bendMax);
+});
+
+test("a wrist is cast to the load it carries, and a blade's is what the config says", async () => {
+  // `CHAIN_WRIST.carryRatio`'s whole reason: an 18 kg bar on a 1.8 kg ring is a mass ratio the
+  // solver does not hold, and the cure is the ring's mass. Read back off the built parts rather
+  // than the config, because the rule lives in `wrist.ts` and a config with the number in it
+  // and a chain that ignored it would pass a test that read the config.
+  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const stand = buildGolemStand(arena.scene, { side: "left" });
+  const ctx = {
+    scene: arena.scene, side: "left", name: "cast", socket: stand.socket("primary"),
+    companion: stand.socket("secondary"), layers: golemLayers("left"), materials: stand.materials,
+  };
+  const massOf = (module, suffix) =>
+    module.parts.find((part) => part.id.endsWith(suffix)).part.body.getMassProperties().mass;
+  try {
+    const blade = golemModule("effector.wrist.blade").build(ctx);
+    // Havok stores mass as float32, so the config's 1.8 comes back as 1.7999999523.
+    assert.ok(Math.abs(massOf(blade, ".rollRing") - CHAIN_WRIST.ringMass) < 1e-6);
+    assert.ok(Math.abs(massOf(blade, ".wrist") - CHAIN_WRIST.wristMass) < 1e-6);
+    blade.dispose();
+    const mace = golemModule("effector.wrist.mace").build(ctx);
+    const cast = CHAIN_WRIST.carryRatio * TERMINAL_MACE.mass;
+    assert.ok(cast > CHAIN_WRIST.ringMass, "the mace is over the floor, or this test says nothing");
+    assert.ok(Math.abs(massOf(mace, ".rollRing") - cast) < 1e-6);
+    assert.ok(Math.abs(massOf(mace, ".wrist") - cast) < 1e-6);
+    mace.dispose();
+  } finally {
+    stand.dispose();
+    arena.dispose();
+  }
+});
+
+test("a one-handed mace on the wrist chain tracks its command", async () => {
+  // The number the whole of `carryRatio` and the mace's bend pin were bought with: before them
+  // the tip stood 552 mm from its command on average with the ring folded 36 degrees off the
+  // forearm; after, 51 mm. Measured 2026-09-06; the bound is loose because the mass is real and
+  // the anchor's force budget is frozen rule 4. Zero contacts is the bar not reaching the floor.
+  const run = await runGolemBench({ moduleId: "effector.wrist.mace" });
+  assert.ok(run.state.tipErrorMm < 120,
+    `the mace's tip stood ${run.state.tipErrorMm} mm from its command on average`);
+  assert.equal(run.state.contacts, 0);
+  assert.equal(run.state.selfContacts, 0);
 });
 
 test("the whip's lash outruns the wrist that flicks it, outside both exclusion windows", async () => {
@@ -1286,16 +1369,24 @@ test("the whip's lash outruns the wrist that flicks it, outside both exclusion w
   // The lash carries after the wrist has stopped, which is the whole of what a whip is, and the
   // peak is outside both mandatory windows. Measured 27.27 m/s in the Node bench, 2026-09-04,
   // against the same chain's blade at 26.75 m/s -- and the blade's peak is a *driven* stroke
-  // while this one is beads carrying through. Provisional, to be re-taken after the owner's gate.
+  // while this one is beads carrying through. Re-taken 2026-09-06 with the lash at eight beads
+  // of 0.16 m: 19.55 m/s, slower because the rope is twice as long and heavy and the same wrist
+  // flicks it. Provisional, to be re-taken after the owner's gate.
   assert.ok(state.peakTipSpeedDriven > 15,
     `the lash peaked at ${state.peakTipSpeedDriven} m/s, which is a rope being carried rather than cracked`);
-  assert.ok(state.peakTipSpeedRaw <= state.peakTipSpeedDriven * 1.02,
+  // The raw peak is allowed to stand above the driven one by what the startup window hides and
+  // nothing more: the lash is built straight, 1.28 m out along the limb, and drops in the first
+  // 0.6 s at 21.49 m/s against the 19.55 m/s driven peak (2026-09-06). With zero post-contact
+  // steps asserted above, the startup window is the only one there is, so a raw peak far above
+  // the driven one would be a stroke being hidden rather than a rope being dropped.
+  assert.ok(state.peakTipSpeedRaw <= state.peakTipSpeedDriven * 1.2,
     `the lash's fastest moment was ${state.peakTipSpeedRaw} m/s inside an exclusion window`);
 
   // **The chain underneath is pulled by what is hanging off it, and by how much is the reading.**
   // Measured 17.27 mm on the 2026-09-05 bench against the same chain's 2.17 mm with a 1.30 kg
   // blade on it -- eight times as far, and the claim this block used to make, that the two were of
   // the same order at 1.08 against 4.64, is not true of the command sequence the bench sends now.
+  // 13.77 mm on 2026-09-06 with the longer lash, which hangs lower and swings less.
   // It is still what a rope should do rather than a tracking failure: the beads go on swinging
   // after the wrist has settled, and a settled wrist being tugged 17 mm by a rope that is still
   // moving is the mass being real. The 20 mm bound below is now a thin margin rather than a

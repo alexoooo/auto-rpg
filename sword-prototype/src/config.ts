@@ -832,6 +832,13 @@ export const CONFIG = {
      */
     crushScale: 1.7,
     minCrushSpeed: 2.2,
+    /**
+     * What the club's row was written for, kilograms: `CONFIG.club.mass`, restated here so the
+     * row can be read without the weapon block. A striker that publishes no mass is scored at
+     * exactly this, which is how every Warrior number stayed byte-identical when the row moved
+     * onto `impulse`; a golem's mace and maul publish their own. 2026-09-05.
+     */
+    clubReferenceMassKg: 3.4,
 
     /**
      * The fist. These are deliberately below steel: a clean 9 m/s punch is

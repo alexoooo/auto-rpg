@@ -50,7 +50,7 @@ export type ChainId = "none" | "pitch" | "reach" | "wrist";
 
 /** The terminal shelf. `blade` is built in Session 02; `plate`, `mace` and `whip` are
  *  Session 04's; `fist` is Session 01 of the matchup set's. */
-export type TerminalId = "blade" | "plate" | "mace" | "whip" | "fist";
+export type TerminalId = "blade" | "plate" | "mace" | "whip" | "fist" | "maul";
 
 /**
  * One severable piece of a module.
@@ -487,10 +487,21 @@ export interface BuiltTerminal {
   /**
    * How far a trailing grip is from the point of this terminal it grips, metres.
    *
-   * Null for every terminal that claims one socket, which is every one but the mace. See
-   * `EffectorView.gripStray` for what the number is for.
+   * Null for every terminal that claims one socket, which is every one but the maul, and null
+   * for the maul until its second hand has taken the grip. See `EffectorView.gripStray` for what
+   * the number is for.
    */
   gripStray(): number | null;
+  /**
+   * Something to do each physics step, for the one terminal that has any.
+   *
+   * A terminal still contributes nothing to control, and this is not a control hook: nothing
+   * about a command reaches it. It exists for the maul, whose second grip is a constraint that
+   * cannot be built until the trailing hand is at the grip and is therefore *taken* on the step
+   * it arrives. Every rigid one-socket terminal omits it, and `effectorModule` calls it after
+   * both chains have stepped.
+   */
+  step?(dt: number): void;
   /**
    * Cut loose: stop scoring, and become debris.
    *
@@ -586,7 +597,27 @@ export interface BuiltChain {
    */
   commandedEnd(distanceFromSocket: number): Vector3;
   /**
-   * Let go of the drive and keep the linkage: what a **trailing** limb is.
+   * Send this chain's **weld point** toward a world point, inside its own envelope.
+   *
+   * The paired-grip seam, and the second way a chain may be commanded: the first is `command`,
+   * which is a cursor in the chain's own vocabulary, and this is a point in the world that
+   * belongs to *another* chain -- the driven chain's commanded weld, which is where a maul's
+   * second hand is sent every step so that both anchors pull one point and their force budgets
+   * add rather than fight. It clamps into the envelope like every other command, so a point the
+   * chain cannot reach is answered with the nearest pose it can.
+   *
+   * Optional, because only a chain that can bring its hand to an arbitrary point can honour it:
+   * rungs 2 and 3 can, rung 1 has one axis and cannot, and rung 0 has nothing. `effectorModule`
+   * refuses a two-socket terminal on a chain without it, by name.
+   */
+  commandWeldTo?(world: Vector3): void;
+  /**
+   * Let go of the drive and keep the linkage: what a **carried** limb is.
+   *
+   * The two-socket mace's seam, from 2026-09-04 until the matchup set's Session 02 replaced the
+   * carried grip with a paired one (`commandWeldTo`). Kept, because it is a true capability of
+   * a chain and the bench's readout still asks a limb to go passive; nothing in the effector
+   * module calls it any more.
    *
    * The measured lesson, from the Warrior's two-handed club and restated for a golem: two
    * position motors on one rigid body do not add up, they fight. Swept, the trailing grip made
@@ -606,6 +637,26 @@ export interface BuiltChain {
   dispose(): void;
 }
 
+/**
+ * How far across the body a **trailing** chain may be sent, replacing its own inboard floors.
+ *
+ * The one place in the whole contract where a terminal *widens* an envelope instead of narrowing
+ * it, and it is stated as its own type so that the exception cannot leak into `ChainLimits`. A
+ * chain's own `swingMin` and `carryMin` are what keep its elbow out of the trunk it hangs from,
+ * and they bound a hand that could be commanded *anywhere* -- low, close, and across. A trailing
+ * chain of a paired grip is commanded nowhere: it is sent to the driven chain's weld, and the
+ * driven chain's narrowing is what decides where that weld can be. So the terminal that owns both
+ * is the one thing that knows the shared grip stands in front of the trunk, and it says so here
+ * with two numbers, both derived beside `TERMINAL_MAUL`. Everything else about the trailing
+ * chain -- its reach, its elevation, its stops -- is its own.
+ */
+export interface ChainCrossing {
+  /** The inboard swing floor, radians, in the chain's own outboard-positive convention. */
+  readonly swingMin: number;
+  /** The inboard carry floor, metres from the socket, negative inboard. See `CHAIN_REACH.carryMin`. */
+  readonly carryMin: number;
+}
+
 export interface EffectorChainDefinition {
   readonly id: ChainId;
   readonly axes: 0 | 1 | 3 | 5;
@@ -618,8 +669,21 @@ export interface EffectorChainDefinition {
    * *pair* and not about the golem the pair is bolted to -- and because a chain that has no
    * such axis can go on declaring `build(ctx)` and stay assignable, which is what keeps rungs 0
    * and 1 out of a change that is not about them.
+   *
+   * `crossing` is the widening a trailing chain of a paired grip is granted, or null for none;
+   * `effectorModule` passes it only to the chain it builds in `ctx.companion`. A chain with no
+   * swing ignores it the way it ignores `limits`.
+   *
+   * `carriedKg` is the terminal's mass, so a chain can be **cast to its load**: a 1.8 kg ring
+   * hinged to an 18 kg bar is a mass ratio the solver does not hold -- the roll hinge sagged 36
+   * degrees off the forearm under a mace on the first bench, with every axis of it locked -- and
+   * the only cure Havok offers is to make the carrying links heavy enough. `wrist.ts` scales its
+   * ring and link by `CHAIN_WRIST.carryRatio`; the reach chain's 8.8 kg forearm held a 27 kg bar
+   * to 1.3 mm and ignores the number until a bench says otherwise. Zero for a capped socket.
    */
-  build(ctx: ModuleBuild, limits: ChainLimits | null): BuiltChain;
+  build(
+    ctx: ModuleBuild, limits: ChainLimits | null, crossing: ChainCrossing | null, carriedKg: number,
+  ): BuiltChain;
 }
 
 export interface EffectorTerminalDefinition {
@@ -631,6 +695,12 @@ export interface EffectorTerminalDefinition {
   readonly massKg: number;
   /** What this terminal makes unreachable, or null when it narrows nothing. */
   readonly limits: ChainLimits | null;
+  /**
+   * What the **trailing** chain of a two-socket terminal is granted so its hand can cross to the
+   * shared grip. Required of a terminal that claims two sockets and meaningless on one that
+   * claims one; `effectorModule` refuses the former without it.
+   */
+  readonly crossing?: ChainCrossing;
   /**
    * `trailing` is the second socket's weld for a terminal whose `sockets` is 2, and null for
    * every other -- which is what a one-socket terminal ignores without a branch.
@@ -740,6 +810,18 @@ export interface GolemCapabilities {
    * them to crouch is asking about the carrier rather than about a leg.
    */
   readonly crouchTravel: number;
+  /**
+   * Whether both effector sockets hold one terminal.
+   *
+   * A maul is one module in two sockets, driven from the primary channel, with the second hand
+   * sent to the same grip the first is commanded to. A mind that did not know this alternated
+   * its attacks between two hands that are one weapon and wrote half of every bout's exchanges
+   * into a channel the body never reads -- which is what the two-socket mace did for its whole
+   * life. When true the mind treats the pair as one attacker and writes the spare hand a copy of
+   * the acting one. It still reads no module id: this is a fact about the body's shape, not its
+   * name.
+   */
+  readonly pairedHands: boolean;
 }
 
 /**

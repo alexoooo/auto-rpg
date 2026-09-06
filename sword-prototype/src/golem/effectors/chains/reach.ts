@@ -5,6 +5,7 @@ import { CHAIN_REACH } from "../../config.ts";
 import {
   defineChain,
   type BuiltChain,
+  type ChainCrossing,
   type ChainLimits,
   type ModuleBuild,
   type ModuleEnvelope,
@@ -40,9 +41,11 @@ export const reachChain = defineChain({
   label: "reach - yaw, pitch, elbow",
   massKg: CHAIN_REACH.collarMass + CHAIN_REACH.upperMass + CHAIN_REACH.foreMass,
 
-  build(ctx: ModuleBuild, limits: ChainLimits | null): BuiltChain {
+  // `carriedKg` is not read: the forearm is 8.8 kg and held a 27 kg bar to 1.3 mm of tip error
+  // on the bench; the rule is the wrist's until a heavier terminal says otherwise.
+  build(ctx: ModuleBuild, limits: ChainLimits | null, crossing: ChainCrossing | null): BuiltChain {
     const R = CHAIN_REACH;
-    const core = buildArmCore(ctx, limits);
+    const core = buildArmCore(ctx, limits, crossing);
     // **The narrowed number, read back out of the core rather than out of `CHAIN_REACH`.** A
     // two-socket terminal takes reach away from this chain, and the weld point's own distance
     // from the socket is what `effector.ts` adds the terminal's length to. Reading the config
@@ -79,6 +82,8 @@ export const reachChain = defineChain({
       reach: outerReach,
 
       command: (next: HandIntent) => core.command(next),
+      // The weld point *is* the hand point on this rung, so the core's answer is the whole of it.
+      commandWeldTo: (world: Vector3) => core.commandPoint(world),
       step: (dt: number) => core.step(dt),
       envelope: () => envelope,
       axes: () => core.axes,

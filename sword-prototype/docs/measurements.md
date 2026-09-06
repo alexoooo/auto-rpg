@@ -11563,3 +11563,216 @@ construction, and `tests/scoring.test.mjs` says so.
   punch reads as too heavy on the screen, the reference is the number to move, not the ball.
 - **The `ramBite` and `ramLunge` sweeps were taken before one-blow-per-lunge** and at scale 3.4;
   the ordering held on re-measurement at the final numbers but the tables are the old ones.
+
+## Session 02 of the matchup set — 2026-09-06: the mace, the maul, the whip, and the stroke each one wants
+
+What the owner asked for, in order: the mace "should be a strong attack", and on being asked, a
+one-handed mace *and* a maul where both hands meet at one point on the handle; the whip should
+reach. What this session shipped: `STROKE_SHAPES` in `src/golem/tactics.ts`, one arc per
+`WeaponKind`; a one-socket mace on the blade's pattern; a two-socket maul with both hands on one
+grip and the second motor aimed at the first motor's point; eight beads of whip with a kind of
+its own and a measured reach. Every number below is from `scripts/golem-bench.mjs` (the bench
+tables), `npm run measure -- --only golem --bouts 8` seed 20260823 (the variant table), or a
+scratch harness over `runBout` at 16 side-swapped bouts, seed 20260904, one Havok realm per row
+and 37 rows in parallel on the 32-thread desktop (the sweeps). Nothing here is the owner's eye,
+which is the gate.
+
+### Two things the bench said that the plan did not
+
+**A wrist is cast to the load it carries.** The first bench of the one-socket mace on the wrist
+chain put the tip 552 mm from its command on average, and a probe of the successive link
+orientations found the roll ring 36 degrees off the forearm *at rest*, with every axis of that
+hinge but the roll locked. Nothing was commanded wrong and no motor was short: Havok solves a
+locked axis iteratively, and a 1.8 kg ring between an 18 kg bar and a 14.9 kg upper arm is
+thrown the residual every step. The sweep that found the cure, mace at 18 kg on the wrist chain,
+`REACH_SEQUENCE`:
+
+| ring / link mass | ring off forearm at rest | tip to command, mean | blade tip to command |
+|---:|---:|---:|---:|
+| 1.8 / 2.3 kg (as built) | 35.9° | 552 mm | 15.65 mm |
+| ×2 | 6.1° | 150 mm | 11.96 |
+| ×3 | 0.7° | 71 mm | 11.15 |
+| **×4** | 3.2° | **38 mm** | 11.43 |
+
+At 8 kg of mace the unmodified links still sagged 7.4°. So `CHAIN_WRIST.carryRatio` (0.4) floors
+the ring and the link at that fraction of the terminal's mass, which is the ×4 row for the mace,
+19 kg of ring for the maul, and no change at all for the blade (0.4 of 1.30 kg is under both
+floors; the blade's wrist bench is byte-identical before and after: 26.36 m/s, 15.65 mm, 2.17 mm
+of idle stray). The reach chain's 8.8 kg forearm held a 27 kg mace to 1.34 mm and is not cast.
+
+**The mace's bend is pinned, and the maul's roll and bend with it.** With the wrist cast and the
+bend free, the 18 kg mace still folded the wrist: 0.28 rad past zero at rest and 1.64 rad against
+a command of 1.10 in the roll-and-bend phase, 307 mm of mean tip error. `CHAIN_WRIST.bendTorque`
+is 120 Nm and the head at its lever is 89; a motor does not hold what its stop can. Pinned, the
+stop closes to the margin (the wrist's stops follow the narrowing now, ± `jointMargin`) and the
+mean is 51 mm. A mace is swung straight off the forearm, and it rolls with its wrist. The maul
+at 48 kg × 0.66 m is 310 Nm, and its first wrist bench hung the head at a right angle; roll and
+bend both pinned.
+
+### The bench
+
+`node scripts/golem-bench.mjs --chain <chain> --terminal <terminal>`, the terminal's own
+sequence (`MACE_SEQUENCE` is the blade's; `MAUL_SEQUENCE` rests, raises, chambers, smashes and
+shoves with `pointerX` never moved; `WHIP_SEQUENCE` unchanged):
+
+| module | peak tip driven | tip to command mean | idle anchor stray | grip taken | grip stray | contacts |
+|:---|---:|---:|---:|---:|---:|---:|
+| wrist + blade (control) | 26.36 m/s | 15.65 mm | 2.17 mm | — | — | 0 |
+| wrist + mace | 9.32 | 51.06 | 77.98 | — | — | 0 |
+| reach + mace (27 kg run) | 6.65 | 1.34 | — | — | — | 0 |
+| wrist + maul | 9.47 | 91.12 | 230.16 | 0.462 s | 0.085 mm | 0 |
+| reach + maul | 7.52 | 4.17 | 98.05 | 0.246 s | 0.043 mm | 0 |
+| wrist + whip | 19.55 | 1782 (the droop; see the test) | 13.77 | — | — | 0 |
+
+The maul's grip stray is the number the whole two-hands-one-grip argument rests on: the trailing
+hand is *sent to the driven chain's commanded weld* every step and joined by a ball joint when it
+arrives, so the two anchors pull the same target, and a solved joint holds to a tenth of a
+millimetre against two hundred at the driven anchor. The idle anchor stray of the heavy bars (78
+and 230 mm) is the mass being real against a fixed anchor budget, and is what "heavy" costs.
+
+**The whip's reach** is measured rather than summed: peak distance from the weld to the last bead's
+far end over the scripted lash and carry is 1.088 m (at the start of the carry), against 0.49 m
+hanging settled and 1.28 m built straight. `TERMINAL_WHIP.lashReach` publishes 1.09. Floor
+contacts 0 with `liftMin` −0.30; the exclusion window hides nothing but the built-straight lash
+dropping in the first 0.6 s (raw peak 21.49 against 19.55 driven, 0 post-contact steps).
+
+### The variant table, re-taken
+
+`npm run measure -- --only golem --bouts 8`, the default build (wrist + blade, reach + plate)
+against one changed slot. The rows this session touched, with Session 01's beside them:
+
+| primary slot | wins | damage / bout | contacts | per contact | severs | bar end | bout length |
+|:---|---:|---:|---:|---:|---:|---:|---:|
+| wrist + mace (was two-socket, 8.3 dmg) | **8/8** | 101.5 | 63.9 | 1.59 | 10 | 0.890 | 7.5 s |
+| wrist + maul (new) | **8/8** | 95.1 | 21.0 | **4.53** | 14 | 0.941 | 5.8 s |
+| wrist + whip (was 101.3 vs 122.5) | 2/8 | 67.1 | 153.0 | 0.44 | 3 | 0.149 | 30.5 s |
+| wrist + fist (was 0/8, 687) | 2/8 | 1518.2 | 490.6 | 3.09 | 0 | 0.078 | 48.3 s |
+| default (blade) in those cells | — | 10–170 | 32–878 | 0.19–0.41 | — | — | — |
+
+The blade's own cells did not move: default vs default 115.7 / 103.2 damage at 302 / 281
+contacts, 28.6 s bouts, against Session 01's band. The fist's 1518 is Session 01's 687 with a
+punch behind it -- overkill on parts already at nothing, as that entry explains; it still loses.
+
+**What the mace and the maul are.** A mace golem kills the default golem in seven and a half
+seconds every time, with a third of the blade's contacts at five times the damage each; a maul
+does it in under six with one fourteenth of the contacts at twelve times each and severs on most
+of its landed blows. The plan's target for the mace was "within the blade's band with fewer,
+heavier blows" and it is *past* the band; for the maul "at or above the blade with the highest
+damage per contact of any terminal", which it is. Whether a weapon that wins every bout in six
+seconds is a strong attack or a balance problem is the owner's call and the tournament sessions'
+material, not this session's; nothing here was tuned to make it so, and the mass sweeps below
+say the number is not sensitive to the head.
+
+### The sweeps
+
+Every shape row, on the golem-vs-golem cell with the terminal the row is for in the primary
+socket, 16 bouts a row. The shipped value is bold. Read the whole table before any one row: at
+16 bouts a row the wins move by ±3 and the damage by ±8 between reruns of the same
+configuration, and the rows below are mostly inside that.
+
+**The club's smash, on the mace** (variant wins / damage / contacts / per contact / severs / bout s):
+
+| row | wins | dmg | contacts | per contact | severs | s |
+|:---|---:|---:|---:|---:|---:|---:|
+| **shipped** (0.20 / 0.85 / −0.40 / 0.50 / 0.90 / 0.22 s / step 0.8) | 16/16 | 108.5 | 60.9 | 1.78 | 24 | 7.1 |
+| strokeSeconds 0.15 | 16 | 109.7 | 69.4 | 1.58 | 25 | 8.7 |
+| strokeSeconds 0.30 | 16 | 110.6 | 52.7 | 2.10 | 22 | 6.9 |
+| strokeSeconds 0.40 | 16 | 107.8 | 58.9 | 1.83 | 25 | 6.9 |
+| chamberLift 0.5 | 16 | 106.5 | 60.6 | 1.76 | 23 | 6.6 |
+| chamberLift 1.0 | 16 | 103.4 | 61.6 | 1.68 | 25 | 7.5 |
+| chamberReach −0.7 | 16 | 111.0 | 64.9 | 1.71 | 22 | 8.7 |
+| followLift 0.5 | 16 | 102.8 | 68.1 | 1.51 | 23 | 8.4 |
+| stepIn 0 | 16 | 99.8 | 58.8 | 1.70 | 25 | 8.0 |
+| `TERMINAL_MACE.mass` 12 kg | 16 | 120.0 | 90.4 | 1.33 | 18 | 8.9 |
+| `TERMINAL_MACE.mass` 27 kg | 16 | 104.7 | 57.2 | 1.83 | 25 | 8.0 |
+
+**The same smash, on the maul:**
+
+| row | wins | dmg | contacts | per contact | severs | s |
+|:---|---:|---:|---:|---:|---:|---:|
+| **shipped** | 16/16 | 102.8 | 26.1 | 3.94 | 26 | 5.0 |
+| strokeSeconds 0.15 | 16 | 112.8 | 31.6 | 3.57 | 24 | 5.8 |
+| strokeSeconds 0.30 | 16 | 92.7 | 31.4 | 2.95 | 24 | 5.9 |
+| strokeSeconds 0.40 | 16 | 100.5 | 35.8 | 2.81 | 24 | 6.5 |
+| chamberLift 0.3 | 16 | 96.4 | 19.3 | 5.01 | 27 | 3.7 |
+| chamberLift 0.5 | 16 | 97.3 | 21.0 | 4.63 | 28 | 4.2 |
+| chamberReach −0.7 | 16 | 99.4 | 24.3 | 4.09 | 25 | 5.2 |
+| followLift 0.5 | 16 | 99.8 | 30.1 | 3.32 | 24 | 5.5 |
+| stepIn 0 | 16 | 100.8 | 40.8 | 2.47 | 25 | 7.0 |
+| stepIn 1.0 | 16 | 107.5 | 37.5 | 2.87 | 26 | 5.8 |
+| `TERMINAL_MAUL.mass` 30 kg | 16 | 108.5 | 24.7 | 4.40 | 26 | 5.7 |
+| `TERMINAL_MAUL.mass` 64 kg | 16 | 111.6 | 57.6 | 1.94 | 20 | 8.6 |
+
+Every row wins every bout, so what the table orders is *how*: the step-in is what turns a maul's
+blows from forty taps at 2.5 into twenty-six at 3.9, a lower chamber lands harder and sooner
+(5.0 a contact at 0.3, bouts of 3.7 s) but is a smash that starts from the shoulder rather than
+overhead, and 64 kg is slower than 48 and lands more often for less. The shipped row is kept
+because nothing in the bracket beats it by more than the noise and it is the one that reads as
+an overhead smash, which is what the gate asks.
+
+**The whip's lash.** The first sweep found `windRoll` −1.0 and 0 producing the same bout to the
+last digit; the cause was the wrist's 2.5 rad/s roll rate against a 0.22 s chamber (0.55 rad of
+wind either way), so `StrokeShape.chamberSeconds` was added and the whip swept again at a 0.60 s
+chamber, then the chamber itself swept. Two blocks, one per chamber the row was run under; the
+shipped values are chamberSwing 0.70, chamberLift 0.45, followSwing 1.20, roll 1.0, windRoll
+−1.0, strokeSeconds 0.20, and chamberSeconds 0.40 (variant wins / damage / contacts / per
+contact / severs, with the default golem's damage in the same bouts):
+
+| row | chamber | wins | dmg | contacts | per contact | severs | default dmg |
+|:---|---:|---:|---:|---:|---:|---:|---:|
+| all shipped values | 0.22 s | 10/16 | 85.3 | 164.8 | 0.52 | 18 | 118.5 |
+| windRoll 0 | 0.22 | 10 | 85.3 | 164.8 | 0.52 | 18 | 118.5 |
+| chamberLift 0.1 | 0.22 | 6 | 74.2 | 159.3 | 0.47 | 12 | 116.2 |
+| chamberLift 0.7 | 0.22 | 12 | 92.3 | 174.8 | 0.53 | 23 | 118.5 |
+| chamberSwing 0.4 | 0.22 | 6 | 74.3 | 149.3 | 0.50 | 11 | 117.1 |
+| followSwing 0.6 | 0.22 | 9 | 83.3 | 163.8 | 0.51 | 16 | 117.2 |
+| followSwing 0.75 | 0.22 | 8 | 79.2 | 158.1 | 0.50 | 16 | 116.2 |
+| followSwing 0.94 | 0.22 | 12 | 89.7 | 164.9 | 0.54 | 24 | 124.3 |
+| followSwing 1.5 | 0.22 | 7 | 79.0 | 164.4 | 0.48 | 13 | 112.8 |
+| roll 0.3 | 0.22 | 6 | 71.1 | 156.4 | 0.45 | 12 | 118.6 |
+| strokeSeconds 0.12 | 0.22 | 10 | 87.1 | 176.4 | 0.49 | 19 | 123.1 |
+| strokeSeconds 0.3 | 0.22 | 9 | 81.3 | 157.7 | 0.52 | 16 | 115.8 |
+| all shipped values | 0.60 s | 9 | 81.8 | 174.7 | 0.47 | 15 | 118.5 |
+| windRoll 0 | 0.60 | 9 | 83.6 | 170.5 | 0.49 | 17 | 112.4 |
+| windRoll +1.0 (wound the stroke's way, no reversal) | 0.60 | 10 | 86.2 | 180.2 | 0.48 | 19 | 119.9 |
+| chamberLift 0.1 | 0.60 | 8 | 77.6 | 173.0 | 0.45 | 15 | 113.7 |
+| chamberSwing 1.0 | 0.60 | 10 | 83.0 | 156.6 | 0.53 | 19 | 116.2 |
+| followSwing 0.6 | 0.60 | 13 | 88.3 | 179.7 | 0.49 | 24 | 122.2 |
+| followSwing 0.94 | 0.60 | 9 | 83.1 | 172.6 | 0.48 | 16 | 118.2 |
+| roll 0.3 | 0.60 | 9 | 84.1 | 181.5 | 0.46 | 16 | 119.6 |
+| strokeSeconds 0.3 | 0.60 | 11 | 89.6 | 198.4 | 0.45 | 19 | 124.6 |
+| **chamberSeconds 0.40** (shipped) | 0.40 | 10 | 92.0 | 184.4 | 0.50 | 16 | 118.4 |
+| chamberSeconds 1.00 | 1.00 | 11 | 85.1 | 196.4 | 0.43 | 20 | 124.6 |
+
+**Flat.** Every whip row is inside the noise of every other, the reversal included -- the same row at the two chambers moves by up to 4 wins and 9 damage on its own, and no other row moves further than that from its shipped neighbour, so the
+wind-up is an argument the cell has not confirmed and the row comment says so; 0.40 s ships as
+the shortest chamber that gets the wrist a radian of wind, which is the argument rather than the
+number. What the table does say is structural and consistent across all sixteen rows: the whip
+golem splits its bouts with the default (6 to 13 of 16 across the rows, 2 of 8 in the variant table)
+at *two thirds of the damage* and *two and a half times the severs* -- a lash takes limbs off,
+and that is how it wins the bouts it wins. The plan's target, "beats or matches the blade at
+range", it does not meet on damage and does on wins.
+
+**The fist's punch** (`empty`): shipped 4/16 wins at 1523 damage (overkill, see above),
+followSwing 0.45 / 0.6 / 0.9: 3 / 9 / 4 wins; stepIn 0 / 0.5 / 1.0: 1 / 4 / 7; chamberReach
+−0.5: 1; strokeSeconds 0.2: 2. The step-in is the only row with a slope, and a fist that closes
+harder wins more; 0.5 stays because 1.0 is the clamp and the bracket is two points. **The
+plate's bash** (`shield`, plate in the primary socket): 0/16 wins at every row, stepIn 0.6 / 0
+drawn at the cap 5 / 9 of 16 -- the bash's step is what makes those bouts end. **The sword's
+`followSeconds`** 0 / 0.07 / 0.15: identical to 0.07 at 0 (the commit is `max(commitSeconds,
+strokeSeconds + followSeconds)` and 0.22 wins either way) and 10/16 at 0.15 against 8/16; kept
+at 0.07 because the blade cell is the regression cell and 0.15 is one noisy row.
+
+### What this session owes
+
+- The owner's eye on the bench and in the arena: does a smash read as a smash, does a maul read
+  as two hands behind one blow, does the whip reach. The status line in
+  `docs/plans/matchup-02-mace-maul-whip.md` waits on it.
+- The mace and the maul win every bout in under eight seconds. That is the strong attack asked
+  for and it is also a matchup the tournament (Session 04) will have to rate honestly; if the
+  answer is "too strong", the mass sweeps say the head is not the knob (12 to 27 kg on the
+  mace, 30 to 64 on the maul, all 16/16) and the stroke's `stepIn` and `chamberLift` are.
+- The maul is not offered on the pitch chain: it has one axis and no anchor, so it cannot bring
+  its hand to a point, and the refusal is tested rather than the row being silently absent.
+- The whip's reversal is unconfirmed by the cell. A lash that *cracks* would need the bead chain
+  to carry a wave, and eight beads on damped cones may simply not.

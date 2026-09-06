@@ -1584,9 +1584,11 @@ did not.
 ### The terminal shelf, and the seam a two-socket terminal needed
 
 Session 04 filled the shelf the overview names: a **plate** that blocks by being in the way, a
-**mace** that claims both effector sockets, and a **whip** that is a chain of bodies. A terminal is
-a body, a weld, a striker, a layer and a shell, and if a terminal file ever reads `HandIntent` the
-chain/terminal factoring has leaked.
+**mace** that claimed both effector sockets, and a **whip** that is a chain of bodies. The matchup
+set's Session 02 (2026-09-06) reworked two of those and added a third: the mace is one-handed now,
+the two-socket bar is the **maul** and both hands hold it at one point, and the whip is twice the
+lash it was. A terminal is a body, a weld, a striker, a layer and a shell, and if a terminal file
+ever reads `HandIntent` the chain/terminal factoring has leaked.
 
 **A terminal may narrow the chain that carries it, and that is the one thing it decides about
 control.** `EffectorTerminalDefinition.limits` is a total record of nullable numbers — the
@@ -1594,29 +1596,59 @@ reachable shell plus the wrist's two — and a chain applies each as a *tighteni
 so a terminal can never grant reach it does not have. Null is "this terminal takes nothing from
 this axis", said once rather than by transcribing the chain's constants. Nothing about it is a
 refusal branch: the chain clamps into the narrowed shell before the anchor is ever handed a target,
-which is frozen rule 3 with a second author. A mace pins the yaw, the roll and the bend and keeps
-the lift and reach; a plate gives up two thirds of the wrist's flexion and keeps everything else; a
-whip gives up 0.40 rad of elevation and keeps the roll it needs.
+which is frozen rule 3 with a second author. A maul pins the yaw half a radian inboard and, on a
+wrist chain, the roll and the bend, and keeps a 6 cm band of reach and most of the lift; a mace
+pins the wrist's bend and nothing else; a plate gives up two thirds of the wrist's flexion and
+keeps everything else; a whip gives up 0.30 rad of elevation and keeps the roll it needs.
 
-**The two-socket seam is `ModuleBuild.companion` and `BuiltChain.unmotorise`, and neither is a
-control channel.** `effectorModule` builds the driven chain in `ctx.socket` with the terminal's
-limits, builds a second chain of the same definition in `ctx.companion` with none, calls
-`unmotorise` on it, and hands both welds to the terminal. The trailing chain is stepped and never
-commanded: stepping keeps its own joint motors' ceilings written, and commanding it would be the
-second motor. `unmotorise` is not `sever` — every joint and every stop stays, and rung 3's wrist
-pair stays on at its zero targets, because a wrist left free would add two unconstrained axes to a
-loop that three grip constraints already determine exactly.
+**The two-socket seam is `ModuleBuild.companion`, `BuiltChain.commandWeldTo` and
+`ChainCrossing`, and the second motor is aimed at the first motor's point.** The bar this
+replaced was two grips on two straight arms, and its whole record was the reason it went: two
+position motors on one rigid body fight, so the trailing arm was unmotorised and the terminal
+pinned three axes to keep the loop determined, and what was left could be aimed with the trunk
+alone -- 8.3 damage a bout against the blade's 72.6. The maul is one grip, and the argument is
+one sentence: two motors asked for different poses fight, two motors asked for the same point add.
+`effectorModule` builds the driven chain in `ctx.socket` with the terminal's limits, builds a
+second chain of the same definition in `ctx.companion` with no limits and the terminal's
+*crossing*, and every step sends the trailing chain's weld to the driven chain's *commanded* weld
+through `commandWeldTo` -- the commanded point and not the achieved one, so the two anchors pull
+the same target and the second is never chasing the first's error. The trailing chain keeps its
+motors. The terminal welds the bar to the driven hand at build and watches the trailing hand
+close on the grip; on the first step it is within `TERMINAL_MAUL.joinWithin` a ball joint is made
+with its frames composed from where the two bodies actually are, so it is born satisfied. Until
+then `gripStray` is null and the bench reports when it stopped being so (0.25 s on the reach
+chain, 0.46 s on the wrist chain). A ball joint and not a weld, and the difference is a degree
+count: the trailing chain has three axes and a point constraint spends exactly three, so the loop
+is determined and the driven wrist's own roll and bend stay its own.
 
-The refusals are refusals rather than fallbacks and there are four: a chain that carries its own
+**The crossing is the one widening in the module contract.** Two ordinary arm envelopes cannot
+meet: each keeps its hand a tenth of a metre outboard of the centreline, so two hands are never
+closer than 0.20 m. The maul stands its grip at the driven chain's inboard edge, and the trailing
+chain is granted `ChainCrossing` -- a swing floor and a carry floor past the centreline -- in place
+of its own. It replaces the floors and nothing else, and only a terminal that claims both sockets
+can hand one out; a one-socket terminal has no trailing chain to grant it to.
+
+The refusals are refusals rather than fallbacks and there are six: a chain that carries its own
 terminal cannot be given one, a chain that hands out a weld must be given one, a two-socket
-terminal must be given a second socket that is not the first, and a terminal must offer at least
-one striker. A mace that quietly built a one-handed bar would be the shield-that-shipped-as-a-club
-failure with the sockets swapped.
+terminal must be given a second socket that is not the first, a chain that cannot bring its hand
+to a point cannot share a grip (the pitch chain has one axis and no anchor, so it is not offered
+a maul), a two-socket terminal must grant its second hand a crossing, and a terminal must offer at
+least one striker. A maul that quietly built a one-handed bar would be the
+shield-that-shipped-as-a-club failure with the sockets swapped.
 
-**`BuiltTerminal.strikers` is a list now, business end first.** A whip's bite is its last three
+**`BuiltTerminal.strikers` is a list now, business end first.** A whip's bite is its last four
 beads: one that scored only with the final capsule would mostly miss, and one that scored with all
-six would bruise with its own handle. The first entry is where the tip and the edge are read from,
-so a rigid terminal's one-entry list is the old contract unchanged.
+eight would bruise with its own handle. The first entry is where the tip and the edge are read
+from, so a rigid terminal's one-entry list is the old contract unchanged.
+
+**A chain is cast to its load.** `EffectorChainDefinition.build` is handed the terminal's mass,
+and the wrist chain floors its ring and link at `CHAIN_WRIST.carryRatio` of it. The number this
+was bought with: an 18 kg mace on a 1.8 kg ring stood the ring 36 degrees off the forearm at
+rest with every axis of that hinge but the roll locked, because Havok solves a locked axis
+iteratively and a light body between a heavy one and the world is thrown the residual every step.
+Nothing was commanded wrong and no motor was short; the same links at four times the mass held
+the bar to 3 degrees, and the blade's wrist, under the floor, did not move. The reach chain's
+8.8 kg forearm held a 27 kg bar to 1.3 mm and ignores the number until a bench says otherwise.
 
 **Layers: golem modules reuse the existing `*_ARM` and `*_SWORD` side bits and take none of their
 own.** The decision and its argument live in `src/physics.ts` beside the table they are about. The
@@ -1637,18 +1669,51 @@ nothing, so the roll picks the direction the face tips and the bend picks how fa
 the facing is a function of the pose, which is the same honest limitation rung 2 already has about
 a blade's edge.
 
-**A mace is a closed kinematic loop, and its grip separation is measured rather than configured.**
-Both chains are built in the same pose mirrored by their sockets' own `outboard`, so the two weld
-points are exactly the socket separation apart and the bar is built to span whatever they are — a
-grip that did not coincide with its weld at construction would be a constraint born violated, which
-is the violation the solver clears by flinging the thing. It is also the one terminal that composes
-its own mount rather than taking the chain's: a bar runs *across* from grip to grip where every
-other terminal runs *along* the limb, and that frame offset is the terminal's to declare.
+**A mace is a blade at fourteen times the mass, and the wrist cannot hold it bent.** One socket,
+one capsule welded at its butt along the limb exactly as the blade is, 0.80 m and 18 kg balanced
+0.63 of the way out, a bronze head drawn 40 mm proud of a collider that bites along the haft's own
+line. It takes the wrist's bend and nothing else: `CHAIN_WRIST.bendTorque` is 120 Nm and the head
+at its lever is 89, and the bench with the bend free had the wrist folded past its own stop at
+rest and overshooting by half a radian when commanded. Pinned, the stop closes to the margin and
+the constraint carries the load, and a mace is swung straight off the forearm -- which is what a
+person does with one too. It swings and rolls with its arm. Its blow is the club's row with the
+mass put back, so a bench-speed mace is worth five Warrior clubs.
+
+**A maul is the strongest thing on the shelf, and what it costs is the yaw.** 1.30 m and 48 kg,
+both hands on one grip 0.35 m from the butt, a ball at the head; `club`, scored by impulse at
+fourteen Warrior clubs. The bar runs out along the driven limb from the grip, which is the blade's
+frame unchanged, so the terminal composes no mount of its own and the striker's tip is the head.
+What it gives up is the argument above: one azimuth, half a radian inboard, and the mind turns
+the body to aim it. On the wrist chain the ring is cast to 19 kg to carry it and the wrist's
+roll and bend are pinned, because 48 kg at 0.66 m is 310 Nm against a 120 Nm motor and the first
+bench hung the head at a right angle.
 
 **A whip is physics rather than control.** No lash controller, no per-segment target, no stroke of
 its own; the first bead is welded so `roll` is which way the lash starts, and the rest are on
 limited spherical joints so the chain cannot fold through itself. It is offered on the wrist chain
-alone, because without a roll axis a lash has no start.
+alone, because without a roll axis a lash has no start. Eight beads of 0.16 m since the matchup
+set's Session 02, 1.28 m built straight, and it publishes 1.09 m -- the peak distance from the weld
+to the tip over a scripted lash and carry, measured, because `tacticalRanges` stands a golem where
+its tip lands and a lash published at its straightened length stood 0.3 m too far out and lashed
+at air. It is its own `WeaponKind` now, `whip`, so the mind can tell a lash from a smash; the
+kind is held and not offered, so the Warrior's shelf does not grow by it, and its scoring row is
+the club's ramp deliberately blind to mass, because a bead is half a kilogram and a lash's whole
+bite is speed.
+
+**The stroke is the weapon's.** Until this session the mind had one arc, a cut, and applied it to
+a plate, a club and a lash alike. `STROKE_SHAPES` in `src/golem/tactics.ts` is a total record
+over `WeaponKind`: a sword cuts as before (its row reads `GOLEM_TACTICS` live, so the sweeps
+beside those constants still describe the numbers the blade uses); a club is chambered high and
+drawn in, brought down through the mark and past it over a longer stroke, with the feet closing
+under the blow by a `stepIn` the commit adds to whatever the range asked for; a fist punches
+straight out from a chamber drawn all the way in; a shield bashes -- almost no arc, the reach axis
+and a step; a whip is chambered wide with the wrist wound one way and swept across the mark with
+it reversed, which is what cracks it. Every number that is not the sword's has a sweep row in
+`docs/measurements.md`. The mind picks the row by `HandView.weapon` and still reads no module
+id; which club it holds -- one hand or two -- it learns from one new capability,
+`GolemCapabilities.pairedHands`, and when that is true it treats the pair as one attacker and
+writes the second hand's seven fields as the first's every step, so a bar the body drives from the
+primary socket is never asked by the secondary for a guard on the other side.
 
 **Two effectors on the bench at once.** `P` puts a module in each socket and `F` then moves the
 *cursor* rather than the module, so the limb the cursor left holds whatever it was last given —
@@ -1889,7 +1954,7 @@ body the posture predicate's third signal is measured against.
 **Sockets.** A golem has exactly two effector sockets and they are exactly the two hand names, so
 `HandName` fits without a third vocabulary, `splitMind` has a hand to give the person, and the
 hand-keyed behaviour record keeps working. A head files its blows with `hand` null through the
-body-neutral channel, as a centipede's jaws do. A **mace claims both**: one module built into the
+body-neutral channel, as a centipede's jaws do. A **maul claims both**: one module built into the
 primary socket with the secondary handed over as `ModuleBuild.companion`, so `effectorPlan.secondary`
 is null and nothing else is built there. The reducer fills both sockets when a two-socket terminal
 is picked, which is the club's two-handed rule with a different subject, and `golemSetupRefusal`

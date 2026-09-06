@@ -1,6 +1,15 @@
 # Session 02 -- stroke shapes, a one-handed mace, a two-handed maul, a longer whip
 
-**Status (2026-09-05): planned. Needs 01.**
+**Status (2026-09-06): implemented; the human gate is open.** Stroke shapes by weapon kind,
+a one-socket mace, the two-hands-one-grip maul, an eight-bead whip with its own kind; the bench,
+the tests, the variant table and the shape sweeps are in `docs/measurements.md` under Session 02 of
+the matchup set. Two things the numbers said that the plan did not: a wrist is cast to the load it
+carries (`CHAIN_WRIST.carryRatio`), because an 18 kg bar on a 1.8 kg ring is a mass ratio the
+solver does not hold; and the whip's wind-up needed its own `chamberSeconds`, because a 0.22 s
+chamber turns a wrist 0.55 rad and a wind-up of -1.0 and of 0 were the same bout to the last digit.
+The mace and the maul win every bout against the default build in under eight seconds, which is
+a strong attack and possibly a balance the AI sessions will have to answer; the whip splits its
+bouts with the default at less damage and more severs. The owner's eye on the bench decides.
 
 ## Outcome
 

@@ -18,7 +18,7 @@ import { beadShell } from "../shell.ts";
 import { RigidStrike } from "../striker.ts";
 
 /**
- * The whip: six stone beads on five spherical joints, welded to the end of a wrist.
+ * The whip: eight stone beads on seven spherical joints, welded to the end of a wrist.
  *
  * **It is physics rather than control**, which is the session plan's frozen choice and is worth
  * stating as what it rules out: no lash controller, no per-segment target, no stroke of its own,
@@ -52,9 +52,10 @@ import { RigidStrike } from "../striker.ts";
  * ## Two readings this terminal makes meaningless, said here rather than discovered later
  *
  * - **"Tip to command" is not a tracking error for a whip.** `commandedEnd` answers where a
- *   *rigid* extension of the arm 1.64 m long would have its far end, and a lash is not one. The
- *   number it produces is the lash's droop, which is near a metre at rest and is a property of
- *   the whip rather than a fault in the chain. The chain's own tracking reading is `anchorStray`.
+ *   *rigid* extension of the arm (the chain's reach plus `TERMINAL_WHIP.lashReach`) would have
+ *   its far end, and a lash is not one. The number it produces is the lash's droop, which is
+ *   most of a metre at rest and is a property of the whip rather than a fault in the chain. The
+ *   chain's own tracking reading is `anchorStray`.
  * - **A whip's peak tip speed is a reading about the lash and not about the drive**, and it is
  *   the one figure here that is genuinely interesting: a bead goes far faster than the wrist that
  *   flicked it, which is the whole point of the terminal and the reason the exclusion windows
@@ -79,7 +80,7 @@ export const whipTerminal = defineTerminal({
 
     // Built in the frame the weld demands and hung straight out along the limb, which is where
     // `LIMB_MOUNT.perp` points. Every bead is built in the *same* frame at joint angle exactly
-    // zero: a chain of five joints built with any of them out of true is five violations the
+    // zero: a chain of seven joints built with any of them out of true is seven violations the
     // solver clears at once, and the tell would be a lash that leaves the wrist at speed on the
     // first step of a stand that is doing nothing.
     const rotation = weldRotation(onto.mount, onto.rotation);
@@ -145,7 +146,10 @@ export const whipTerminal = defineTerminal({
     for (let back = 0; back < striking; back += 1) {
       const index = beads.length - 1 - back;
       strikers.push(new RigidStrike(beads[index], {
-        kind: "club",
+        // `whip` since the matchup set's Session 02: the club's speeds and scale with no mass
+        // behind them (`scoring.ts` says why a lash is not scored by impulse), and a kind of its
+        // own so that a mind can plan a sweep for it rather than the club's smash.
+        kind: "whip",
         effectorId: `${name}.${index}.lash`,
         hand,
         tipAlong: W.segmentLength / 2,
@@ -170,12 +174,14 @@ export const whipTerminal = defineTerminal({
     return Object.freeze({
       parts,
       strikers: Object.freeze(strikers),
-      tipOffset: W.segmentLength * beads.length,
+      // Where the lash *lands* rather than the segment sum: a rope's reach is measured, and the
+      // number and its measurement are beside `TERMINAL_WHIP.lashReach`.
+      tipOffset: W.lashReach,
       gripStray: () => null,
       sever: () => {
         for (const striker of strikers) striker.sever();
         // Every bead relayers, and each on **its own leaf**: a whip is the one terminal here with
-        // more than one body, and a session that relayered only the first would leave five
+        // more than one body, and a session that relayered only the first would leave seven
         // capsules on the golem's own strike layer with nothing holding them.
         for (const bead of beads) {
           bead.shape.filterMembershipMask = LAYER.DEBRIS;
@@ -186,7 +192,7 @@ export const whipTerminal = defineTerminal({
         for (const striker of strikers) striker.sever();
         // **Constraints first, from the far end back.** `PhysicsBody.dispose` releases the Havok
         // body and walks straight past whatever is constraining it, so a bead disposed before its
-        // own joints leaves a constraint pointing at freed memory -- and with five of them a
+        // own joints leaves a constraint pointing at freed memory -- and with seven of them a
         // whip is where that would first be noticed. From the end back rather than from the
         // start, so no constraint is ever left holding a body that has already gone.
         for (let index = joints.length - 1; index >= 0; index -= 1) {
