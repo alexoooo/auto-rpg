@@ -2995,6 +2995,14 @@ export const GOLEM_ASSEMBLY = {
    * now wins 14 of 16 rather than all of them, and that is reported rather than fixed: the owner's
    * standing instruction is that golem against Warrior does not have to be balanced.
    *
+   * **What says the choice landed is the shape of the bout rather than its length.** 16 side-swapped
+   * bouts with both bars sampled every frame: the winner ends at 0.577 of its own bar and never
+   * above 0.705, 12 of 16 change hands at least once, and 7 of 16 are won by the body that was
+   * losing. The Warrior cell that this one is measured against does worse on all three -- 7 of 16,
+   * 5 of 16, and a winner's bar anywhere from 0.023 to 0.912. A health scale set too low would show
+   * up here first, as a stomp with an untouched winner, and it does not. `docs/measurements.md`
+   * session 12b carries the full table and the stroke-level profile beside it.
+   *
    * Applied in `Golem.register`, the one place a golem's parts get their health, beside the
    * `durability` scale that was already there. `maxHealth` moves with it, so a bar reads the same
    * fraction it always did and only the number of blows behind that fraction changes. 2026-09-05.

@@ -11190,6 +11190,112 @@ health is no longer safe from a person. The owner's standing instruction is that
 Warrior does not have to be balanced -- *"if golem works well then we can just make it a golem
 fighting game"* -- so the Warrior cell is a regression check from here and not a target.
 
+### Is it a sensible fight now? -- what the exchange is actually made of
+
+The two changes above end the bout. They do not by themselves say the fight is *good*, and the
+owner's instruction was to keep going until it is. So the exchange was taken apart, and the useful
+frame turned out to be the **stroke** rather than the contact: contacts on one effector separated
+by less than 0.25 s of combat clock are one pass of one blade, and counting passes is the only way
+to compare a golem with a person without the raking inflating one of them.
+
+8 bouts a side, seed 20260904, at the shipped settings:
+
+| per landed stroke | golem | Warrior duelist |
+|:---|---:|---:|
+| blows it books | 3.21 | 3.13 |
+| damage it does | 2.11 | 2.30 |
+| median blows | 2 | 2 |
+| p90 blows | 7 | 7 |
+| inter-contact gap, p50 | 0.100 s | 0.100 s |
+
+**The golem's exchange is structurally a Warrior's exchange.** That was worth knowing because the
+raw contact counts say the opposite -- 510 contacts a bout against 77 -- and the difference is
+entirely bout length and body count, not a different kind of fighting. Broken out by effector, both
+sides summed over 235 s of bouts:
+
+| effector | strokes/s, one body | blows/stroke | damage/stroke |
+|:---|---:|---:|---:|
+| golem `primary.blade.edge` | 0.90 -- 1.06 | 4.33 | 3.13 |
+| golem `secondary.plate.bash` | 0.62 -- 0.81 | 1.67 | 0.71 |
+| Warrior `primary.weapon` | 0.88 | 3.13 | 2.30 |
+
+A golem lands about **one blade stroke a second, and each one hits harder than a person's**: 4.3
+limbs raked for 3.13 against 3.1 for 2.30. It is not swinging faster than a person despite being
+enormous, which is what "flailing" would have looked like in this table and is what the spacing fix
+removed. The plate's row is the guard hand scraping as it moves -- 1.7 blows for 0.71 -- and it is
+discussed under the dissolved hypotheses below.
+
+What is left is durability: a golem absorbs roughly **29 blade strokes** before its bar empties
+where a Warrior absorbs **4.4**, so a golem is about six and a half times as hard to put down while
+carrying a weapon of the same mass. That is a defensible number for a stone body rather than an
+obviously right one, and it is the number to move if 29 seconds ever reads long.
+
+#### Whether a bout is a contest or a stomp
+
+The last thing a table can say about a fight is whether it was one. 16 side-swapped bouts, the
+vitality of both bodies sampled every frame, a lead counted only outside a 0.02 dead band:
+
+| | golem vs golem | Warrior vs Warrior |
+|:---|---:|---:|
+| decided | 16/16 | 16/16 |
+| seconds, p10 / p50 / p90 | 22.1 / 28.6 / 36.0 | 2.9 / 5.9 / 7.7 |
+| winner's remaining bar, mean | **0.577** | 0.400 |
+| winner's bar, p10 / p90 | 0.494 / 0.705 | 0.023 / 0.912 |
+| bouts with at least one lead change | **12/16** | 7/16 |
+| bouts the first leader lost | **7/16** | 5/16 |
+
+By every column here the golem cell is now the *better* of the two. The winner ends meaningfully
+hurt and in a tight band -- half its bar, never more than 0.71 -- where a Warrior duel can end with
+the winner untouched at 0.91 or nearly dead at 0.02. Three bouts in four change hands at least
+once and seven in sixteen are won by the body that was losing. Whatever else is wrong with the
+golem fight, it is not a coin flip and it is not a stomp.
+
+That is as far as proxies go, and this page's own history is the reason to stop there and say so:
+three previous sessions turned every table green while the owner's judgement stayed red. Somebody
+has to watch it.
+
+#### Two hypotheses that dissolved, and are recorded so nobody chases them twice
+
+**The plate is not stealing the attack.** The contact profile shows `empty:plate.bash` taking 21 %
+of scoring blows, and `src/golem/effectors/terminals/plate.ts` registers its striker as
+`kind: "empty"` -- a bare fist's bite row -- with a header that names exactly this as the thing to
+look at. `isShield` reads `GRIPS[kind].use === "cover"` and `empty` is `use: "strike"`, so the
+inference was that `chooseAttacker` sees an armed hand and alternates onto the shield.
+
+It does not, and the reason is that `src/golem/build.ts` already split the two questions. Its
+`TERMINAL_DESCRIPTION` record maps `plate: "shield"` for `HandView.weapon`, which is what a *policy*
+reads, while `Striking.kind` stays `empty`, which is what *scoring* reads. Instrumented at runtime,
+the golem's hands publish `primary sword (isShield false)` and `secondary shield (isShield true)`,
+so `chooseAttacker` never picks the plate hand and `coverReachFor` gives it `shieldReach` as
+designed. The 21 % is the guard hand scraping a body that is standing in front of it, at 6.30 m/s
+against the blade's 9.13, and it is 14 % of damage rather than 21 %.
+
+**A golem never blocks, and that is deliberate.** The same run counted **0 blocks in 4081 contacts**,
+against 46.2 % of a Warrior duel's contacts. That looks alarming and is `src/golem/golem.ts`'s
+`parriedBy()` returning null unconditionally, with a comment explaining it: a held shield is a
+separate object a fighter interposes, whereas a golem's plate is a *module* with health, a vitality
+weight and a socket that can break, so a blade stopped by a plate is filed as a **wound to the
+plate** rather than as a parry. The profile confirms the plate really is doing a guard's job -- it
+takes 19 % of everything that lands on a golem.
+
+**And the golem's blade is not underpowered.** The obvious third move was to give golem terminals
+the `Striking.damageScale` seam that `combat.ts` documents as blueprint-owned and that no golem
+effector sets. The measurement says not to: the golem blade is 0.80 m and **1.30 kg** against a
+Warrior arming sword's **1.35 kg**. It is the same weapon on a longer arm, so a scale of 1 is the
+honest number and the whole mismatch really was on the health side, where it has now been fixed.
+
+#### One asymmetry found on the way, not fixed
+
+`BodyView.reach` -- the field `tacticalRanges` now reads as `theirReach` -- means different things
+on the two bodies. A golem publishes `geometry.reach`, 1.78 m, which is also what its hand strikes
+at. A Warrior publishes `armConfig.reachNeutral`, **0.45 m**, while its `HandView.reach` with a
+sword is **1.39 m**. So the stand-off floor understates a Warrior's threat by a factor of three.
+It does not affect the cell that matters -- against a golem the floor reads a golem's honest 1.78 --
+and against a Warrior the golem's own `holdFraction` produces 1.39 anyway, which is why the Warrior
+cell came out byte-identical. Recorded because "byte-identical" was partly a coincidence of two
+numbers landing on 1.39, and because a body publishing its neutral reach where another publishes
+its extended one will bite something eventually.
+
 ### What this entry owes
 
 - **Nobody has looked at it yet.** Every number above is a proxy, the bout is 29 seconds of

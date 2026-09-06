@@ -70,6 +70,18 @@ import { RigidStrike } from "../striker.ts";
  * two hands and a choice. It is recorded here because it is the closest thing to a dissent this
  * decision has, and because if Session 09's mind starts bashing with the plate rather than
  * covering with it, this row is the first place to look.
+ *
+ * **It was looked at on 2026-09-05 and the row is not at fault.** In a golem-versus-golem bout the
+ * plate books 21 % of scoring blows, which is what the dissent above predicts would look wrong, and
+ * it is not the mind choosing it: `src/golem/build.ts`'s `TERMINAL_DESCRIPTION` publishes a plate to
+ * a *policy* as `HandView.weapon: "shield"` while this striker stays `empty` for *scoring*, so the
+ * two questions never met. Measured at runtime, a golem's hands read `primary sword (isShield
+ * false)` and `secondary shield (isShield true)`; `chooseAttacker` therefore never selects the plate
+ * hand and `coverReachFor` gives it `shieldReach`. The 21 % is the guard hand scraping a body that
+ * is standing in front of it -- 1.67 blows a pass for 0.71 damage at 6.30 m/s, against the blade's
+ * 4.33 for 3.13 at 9.13 -- and it is 14 % of damage rather than 21 %. The plate is also doing a
+ * guard's work while it does it: 19 % of everything that lands on a golem lands here.
+ * `docs/measurements.md` session 12b has the tables.
  */
 export const plateTerminal = defineTerminal({
   id: "plate",
