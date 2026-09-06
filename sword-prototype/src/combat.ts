@@ -61,6 +61,17 @@ export interface Striking {
   readonly damageScale?: number;
   /** Authored zero-wound contact transfer, expressed as target velocity change. */
   readonly authoredSpecificImpulseMps?: number;
+  /**
+   * The mass this striker arrives with, kilograms, for a kind whose bite row is `impulse`.
+   *
+   * Published by the effector that knows it -- a ram plate's is the plate plus what the neck and
+   * the trunk put behind it; a stone fist's is the knuckle -- and read by nothing but the scorer,
+   * which hands it to `scoreHit` as `Contact.massKg`. Absent for every hand-held weapon, and
+   * absent is the row's own reference mass, so a Warrior's fist scores exactly what it did before
+   * this field existed. Never estimated here from the body: `Combat` has a handle and no idea
+   * what fraction of a golem is behind the contact.
+   */
+  readonly impactMassKg?: number;
   /** Immutable physical facts shared with the live projectile body. */
   readonly projectileImpact?: Readonly<{
     readonly massKg: number;
@@ -575,6 +586,7 @@ export class Combat {
           edgeAlignment: alongEdge,
           bladeAlignment: Math.abs(shaftAlignment),
           nearTip: Vector3.Distance(point, weapon.tipPosition()) < C.thrustTipZone,
+          massKg: weapon.impactMassKg,
         },
         weapon.kind,
       );

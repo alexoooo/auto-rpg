@@ -1816,6 +1816,57 @@ and it is the third time this directory has found a table answering for a kind i
 attacks. `head.plain` keeps the same neck, the same block and the same guard with no plate and no
 lunge, so the trade is a real one and the control for measuring it is exact.
 
+### The ram that did not hurt, and the impulse row
+
+The owner watched the ram and asked whether it did no damage because it had too little force or
+because health was too high. Neither, quite: it landed, and it was worth a fifth of a blade
+stroke, and the reasons were on both sides of the contact.
+
+**The damage model was mass-blind.** `scoreHit` was a speed ramp for every kind: the ram row
+above scored 37 kg of head and plate exactly as it would have scored a fist, because nothing on
+the striker said what was arriving. The fix is a fifth bite mechanism, **`impulse`**, beside
+`edge`, `point`, `mass` and `none`: the row's speed ramp times the mass the striker publishes
+over the row's reference mass. A striker that publishes nothing gets a ratio of one, which is
+why every Warrior number is byte-identical -- a Warrior's fist is still 0.9 at 9 m/s -- and why
+the `empty` and `ram` rows could move onto it without a second table. `Striking.impactMassKg`
+is the field, `RigidStrike` carries it, and the ram plate publishes 74 kg: its own 37 with one
+hinge-mass of trunk behind it, because the trunk is what a leaned lunge throws. `ramScale` was
+then set by sweep so that a landed lunge is two blade strokes at the median and four at the
+ninetieth percentile; the tables are in `docs/measurements.md` under Session 01 of the matchup
+set.
+
+**The mind fired half a lunge, once.** `natural.thrust` was written as a level in the stances
+where the trunk was upright, and the head fires on the rising edge: a golem rammed once a bout,
+with its waist doing nothing. The ram is now an **exchange** in `src/golem/tactics.ts`, a stance
+of its own between the gate and `recover`: the trunk leans to `ramLean`, the feet drive in, the
+hands go to cover, and the neck is fired once the lean has had `ramLeanSeconds` to start the head
+moving and the other body is inside `ramBite` of the plate. Two findings from the sweep are the
+opposite of what was expected. A deep lean *slows* the blow, because the hinge goes down with the
+trunk and the plate meets the body on the descending half of its arc, so the lean is shallow. And
+a golem with arms never rams in a mirror bout, because two golems hold at each other's reach and
+a plate reaches 0.68 m; the entry gate is narrow on purpose, since a wide one made an armed golem
+charge from its hold and never close (five charges a bout, none fired, two more losses). A capped
+golem fights at the ram's own range instead of the stand-off floor, chest to chest, which is the
+risk the option is.
+
+**And the plate scored things that were not blows.** A plate is a weapon for the length of a
+lunge and a brow the rest of the time, and unguarded it scored the other fighter's blade for
+hitting it and a guard it was leaning on once every `hitCooldown` -- eleven scored contacts per
+lunge. `RigidStrike` now takes an optional **gate** in `Combat`'s own refusal vocabulary: the
+head refuses every contact outside `armedSeconds` of a drive as `inactive-action`, and claims
+one blow per lunge, refusing the rest as its own attribution. `tests/golem-torso-head.test.mjs`
+drives the same post both ways.
+
+### The fist
+
+A stone ball on the end of a chain. Rung 0's cap already says what a golem's bare hand is worth
+-- 3.5 kg bolted to a socket that cannot move, so a shove -- and the fist is the hand a chain can
+throw: eight kilograms at 0.09 m radius, striker kind `empty`, scored on the same impulse row as
+a Warrior's punch with the mass filled in. It has no control code and narrows nothing; a punch
+is whatever stroke the chain makes, which for the mind is the straight short stroke a hand with
+nothing in it makes, because `TERMINAL_DESCRIPTION` describes it as `empty` to a policy. Offered
+on every chain that hands out a weld.
+
 ## The assembled golem
 
 Five modules bolted together, driven through one `Intent`, and hittable. `src/golem/golem.ts` is

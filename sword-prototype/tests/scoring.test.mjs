@@ -297,6 +297,44 @@ test("a_slow_fist_is_a_shove_worth_nothing", () => {
   assert.equal(severs(fist, -500, "empty"), false);
 });
 
+/**
+ * The `impulse` rows score by the mass that arrives, and only when a mass is published.
+ *
+ * A Warrior's fist publishes nothing and is worth what it always was, to the digit: that is the
+ * pin that lets the golem's stone fist and the ram plate share the Warrior's rows. A striker that
+ * does publish a mass scores it as a straight ratio over the row's reference -- eight kilograms
+ * of stone over a human fist's 0.65, or a plate arriving with a trunk behind it over the bare
+ * plate the ram's speeds were derived for.
+ */
+test("a_published_mass_scales_an_impulse_row_and_no_mass_leaves_it_alone", () => {
+  const bare = scoreHit(
+    { speed: 9, edgeAlignment: 1, bladeAlignment: 1, nearTip: true },
+    "empty",
+  );
+  const stone = scoreHit(
+    { speed: 9, edgeAlignment: 1, bladeAlignment: 1, nearTip: true, massKg: 8 },
+    "empty",
+  );
+  assert.equal(bare.damage, 0.9, "a Warrior's fist is worth what it was before mass existed");
+  assert.equal(stone.kind, "crush");
+  assert.ok(Math.abs(stone.damage - 0.9 * (8 / CONFIG.combat.fistReferenceMassKg)) < 1e-9,
+    `a stone fist scored ${stone.damage}`);
+
+  const plate = scoreHit(
+    { speed: CONFIG.combat.ramReferenceSpeed, edgeAlignment: 0, bladeAlignment: 0, nearTip: false },
+    "ram",
+  );
+  const leaned = scoreHit(
+    { speed: CONFIG.combat.ramReferenceSpeed, edgeAlignment: 0, bladeAlignment: 0, nearTip: false,
+      massKg: 2 * CONFIG.combat.ramReferenceMassKg },
+    "ram",
+  );
+  assert.equal(plate.damage, CONFIG.combat.ramScale, "a bare plate at reference is one scale");
+  assert.ok(Math.abs(leaned.damage - 2 * plate.damage) < 1e-9,
+    "twice the reference mass is twice the blow");
+  assert.equal(severs(leaned, -500, "ram"), false, "a head-butt never takes a limb off");
+});
+
 test("no kind that scores nothing can ever take a limb off", () => {
   const hard = { speed: 40, edgeAlignment: 1, bladeAlignment: 1, nearTip: true };
   for (const kind of WEAPON_KINDS) {

@@ -42,6 +42,16 @@ export interface Contact {
   bladeAlignment: number;
   /** Whether the contact landed in the business end of the point. */
   nearTip: boolean;
+  /**
+   * The mass behind the contact, kilograms, for the kinds whose row says `impulse`.
+   *
+   * Absent for every hand-held weapon, and absent means "the row's own reference mass", so a row
+   * that reads it and a striker that never publishes it agree byte for byte with the speed ramp
+   * that was here before. Published by a striker that knows what it weighs -- a ram plate on a
+   * hinged head, a stone fist -- and never estimated by `combat.ts`, which has a body handle and
+   * no idea what fraction of the golem is arriving behind it.
+   */
+  massKg?: number;
 }
 
 export interface Score {
@@ -80,8 +90,15 @@ interface Bite {
    * its whole length, has no cut to lose to and no tip zone to be inside, and a
    * blade's arithmetic applied to one would have scored a hit anywhere along the
    * shaft as a slap. Its own branch is four lines and says what an arrow is.
+   *
+   * `impulse` is `mass` with the mass in it. The speed ramp is unchanged; what it scales is the
+   * contact's published mass over the row's `referenceMassKg`, so a blow at the reference speed
+   * with the reference mass behind it is worth exactly `scale` and a heavier one is worth more
+   * in proportion. A row goes on `impulse` when the thing swinging it is not always the same
+   * arm: a ram plate arrives with a head and a lean behind it, a golem's fist is a stone knuckle
+   * and a Warrior's is a hand, and the two cannot be one number.
    */
-  how: "edge" | "point" | "mass" | "none";
+  how: "edge" | "point" | "mass" | "impulse" | "none";
   /** Contact speed below which it does nothing, and the readout says so. */
   floor: (tuning: Tuning) => number;
   /**
@@ -101,6 +118,14 @@ interface Bite {
   reference: (tuning: Tuning) => number;
   /** Damage at `reference` for a blow of quality 1. */
   scale: (tuning: Tuning) => number;
+  /**
+   * The mass at which an `impulse` row is worth `scale`, kilograms.
+   *
+   * Only an `impulse` row reads it. A contact that publishes no mass is scored at exactly this,
+   * which is what keeps a row's conversion to `impulse` a no-op for every striker that has not
+   * been taught to publish -- `tests/scoring.test.mjs` pins the fist's number across it.
+   */
+  referenceMassKg?: (tuning: Tuning) => number;
   /**
    * How well a blow has to be placed before it may take a limb off.
    *
@@ -235,12 +260,20 @@ const BITE: Record<Striker, Bite> = {
     scale: () => 1,
     severQuality: () => 1,
   },
-  /** A bare fist: mass without an edge, point, or severing path. */
+  /**
+   * A bare fist: mass without an edge, point, or severing path.
+   *
+   * `impulse` rather than `mass` since 2026-09-05, because there are two fists now. The
+   * Warrior's is 0.65 kg of hand and publishes nothing, so it lands on `fistReferenceMassKg`
+   * and scores what it always did; a golem's is a stone knuckle on the end of a stone arm and
+   * publishes its own mass, so it scores as the heavier thing it is. Same row, one number apart.
+   */
   empty: {
-    how: "mass",
+    how: "impulse",
     floor: (t) => t.fistMinSpeed,
     reference: (t) => t.fistReferenceSpeed,
     scale: (t) => t.fistScale,
+    referenceMassKg: (t) => t.fistReferenceMassKg,
     // `mass` scores quality 1; the strict comparison in `severs` makes this
     // unreachable without teaching a fist a special-case exemption there.
     severQuality: () => 1,
@@ -257,23 +290,27 @@ const BITE: Record<Striker, Bite> = {
    * A golem's ram plate: mass, on a hinge, and the first row here whose two speeds are not a
    * hand's.
    *
-   * `how: "mass"` for the club's reason -- there is no edge to place and no point to arrive
-   * straight, and everything it does is speed. What is not the club's is the ramp that speed is
-   * measured against, and the argument is the one `arrow` already makes in the other direction:
-   * this model is speed and alignment and knows nothing about mass, so a floor of 2.2 m/s is a
-   * statement about a 3.4 kg club rather than about arriving hard. Measured on the Node torso
-   * bench, a ram lunge lands at 1.3 to 1.8 m/s and would score exactly nothing on the club's row.
-   * The two numbers in `CONFIG.combat` are that row carried across at equal kinetic energy and
-   * they carry the arithmetic.
+   * `how: "impulse"`, and it was `mass` for its first day. There is no edge to place and no
+   * point to arrive straight, and everything it does is speed and what is behind the speed. The
+   * ramp is not the club's, and the argument is the one `arrow` already makes in the other
+   * direction: a floor of 2.2 m/s is a statement about a 3.4 kg club rather than about arriving
+   * hard. Measured on the Node torso bench, a ram lunge lands at 1.3 to 1.8 m/s and would score
+   * exactly nothing on the club's row. The two speeds in `CONFIG.combat` are that row carried
+   * across at equal kinetic energy for the plate's own effective mass, and `ramReferenceMassKg`
+   * is that mass -- so a plate swung by the neck alone is worth what the first day's row said,
+   * and one that arrives with the trunk leaning in behind it is worth what the head publishes
+   * for it, which is more. The plate is what says how heavy it is; this row only says what a
+   * kilogram of it is worth.
    *
    * **It never severs.** `severQuality` at 1 is unreachable, the same idiom `inert` and `arrow`
    * use to say never: taking a limb off wants an edge and a swing, and a head-butt is neither.
    */
   ram: {
-    how: "mass",
+    how: "impulse",
     floor: (t) => t.ramMinSpeed,
     reference: (t) => t.ramReferenceSpeed,
     scale: (t) => t.ramScale,
+    referenceMassKg: (t) => t.ramReferenceMassKg,
     severQuality: () => 1,
   },
 };
@@ -396,6 +433,15 @@ export function scoreHit(
 
   if (bite.how === "mass") {
     return { kind: "crush", quality: 1, damage: bite.scale(tuning) * hard };
+  }
+
+  if (bite.how === "impulse") {
+    // The club's arithmetic with the mass put back. Quality stays 1 for the club's reason --
+    // there is nothing to place -- and the weight is a plain ratio against the row's reference,
+    // so a striker that publishes nothing is scored at exactly the ratio 1 the ramp assumed.
+    const reference = bite.referenceMassKg?.(tuning) ?? 1;
+    const weight = contact.massKg !== undefined && reference > 0 ? contact.massKg / reference : 1;
+    return { kind: "crush", quality: 1, damage: bite.scale(tuning) * hard * weight };
   }
 
   if (bite.how === "point") {

@@ -1,6 +1,8 @@
 import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
-import type { Striking } from "../../combat.ts";
+import type { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
+
+import type { CombatRefusalEvent, Striking } from "../../combat.ts";
 import type { HandName } from "../../mind.ts";
 import type { Striker } from "../../scoring.ts";
 import type { Part } from "../../rig.ts";
@@ -33,6 +35,11 @@ export class RigidStrike implements Striking {
   readonly effectorId: string;
   readonly hand: HandName | null;
   readonly body: Part["body"];
+  readonly impactMassKg: number | undefined;
+  private readonly gate: {
+    readonly refusal: (body: PhysicsBody) => CombatRefusalEvent["reason"] | null;
+    readonly claim: (body: PhysicsBody) => boolean;
+  } | null;
 
   private readonly part: Part;
   /** How far the business end is from the body's own centre, along local +Y. */
@@ -52,11 +59,38 @@ export class RigidStrike implements Striking {
     readonly effectorId: string;
     readonly hand: HandName | null;
     readonly tipAlong: number;
+    /**
+     * What arrives behind the contact, kilograms, for a kind scored on an `impulse` row.
+     *
+     * The terminal's number and not the body's: a body handle knows its own mass and nothing
+     * about what is welded, hinged or leaning behind it, and a striker that guessed would score
+     * a ram plate as 21 kg of bronze with nothing pushing it. Omitted, the row scores at its own
+     * reference mass, which is the Warrior's fist and the first day's ram.
+     */
+    readonly impactMassKg?: number;
+    /**
+     * Which contacts are blows, for a striker that is only sometimes striking.
+     *
+     * A blade on an arm is a weapon every moment it is in a hand, and every contact above its
+     * floor is a cut or a slap; the four geometric answers are all it needs. A ram plate is a
+     * body part that is a weapon for the length of a lunge and a brow the rest of the time, and
+     * without this it scored the other fighter's blade for hitting it, and scored a guard it
+     * was leaning on once every `hitCooldown` for as long as the carrier pushed. `refusal` says
+     * whether the striker is armed at all, in `Combat`'s own vocabulary; `claim` is asked once
+     * per admitted contact and is where "one blow per lunge per body" lives. Both are the
+     * owning module's, because only it knows when its stroke is in flight.
+     */
+    readonly gate?: {
+      readonly refusal: (body: PhysicsBody) => CombatRefusalEvent["reason"] | null;
+      readonly claim: (body: PhysicsBody) => boolean;
+    };
   }) {
     this.part = part;
     this.kind = options.kind;
     this.effectorId = options.effectorId;
     this.hand = options.hand;
+    this.impactMassKg = options.impactMassKg;
+    this.gate = options.gate ?? null;
     this.tipAlong = options.tipAlong;
     this.body = part.body;
     // Havok emits no per-body contacts until this is enabled. `Combat` scores from them and
@@ -66,6 +100,14 @@ export class RigidStrike implements Striking {
 
   get spent(): boolean {
     return this.severed;
+  }
+
+  refusalForContact(body: PhysicsBody): CombatRefusalEvent["reason"] | null {
+    return this.gate ? this.gate.refusal(body) : null;
+  }
+
+  claimContact(body: PhysicsBody): boolean {
+    return this.gate ? this.gate.claim(body) : true;
   }
 
   /** A severed terminal is debris: it stops scoring, exactly as a dropped weapon does. */

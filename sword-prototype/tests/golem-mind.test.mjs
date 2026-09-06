@@ -366,6 +366,8 @@ test("every_hand_command_the_mind_emits_sits_inside_the_published_envelope", asy
       secondary: { chain: "pitch", terminal: "plate" } })],
     ["whip", setupWith({ primary: { chain: "wrist", terminal: "whip" },
       secondary: { chain: "reach", terminal: "plate" } })],
+    ["fist", setupWith({ primary: { chain: "wrist", terminal: "fist" },
+      secondary: { chain: "pitch", terminal: "fist" } })],
     ["capped", setupWith({ head: "head.ram",
       primary: { chain: "none", terminal: "none" },
       secondary: { chain: "none", terminal: "none" } })],
@@ -457,18 +459,33 @@ test("a_capped_socket_is_never_asked_for_a_stroke_and_a_ram_head_is", async (t) 
   let lunges = 0;
   let handStrokes = 0;
   let closing = 0;
+  let fired = 0;
+  let leaningWhileFiring = 0;
+  let wasThrust = false;
   // Close enough for the head, which is what the natural attack's own published reach decides.
   place(fixture, { x: 0.1, z: 0.45 });
   for (let step = 0; step < CONFIG.world.physicsHz * 4; step += 1) {
     fixture.clock += FIXED;
     const intent = mind.decide(fixture, FIXED);
     if (intent.natural.thrust) lunges += 1;
+    if (intent.natural.thrust && !wasThrust) fired += 1;
+    if (intent.natural.thrust && intent.posture.trunkLean > 0) leaningWhileFiring += 1;
+    wasThrust = intent.natural.thrust;
     if (intent.primary.thrust || intent.secondary.thrust) handStrokes += 1;
     if (intent.forward > 0) closing += 1;
     assertInsideEnvelope(intent, fixture.self, `capped step ${step}`);
   }
   assert.equal(handStrokes, 0, "a capped socket was asked for a stroke it does not have");
   assert.ok(lunges > 0, "a golem with no arms never used the head it does have");
+  // **An edge, not a level, and leaning in.** The head fires on the rising edge of `thrust` and
+  // ignores it held, so a mind that wrote it true and left it would ram once a bout; and the
+  // forward half of a lunge is the waist, so a thrust with the trunk upright is half a blow.
+  // Measured before either was so: one lunge in four seconds, and 0.48 damage a contact against
+  // a blade stroke's 3.6. Session 01 of the matchup set.
+  assert.ok(fired > 1, `the thrust was written as a level: ${fired} rising edge(s) in four seconds`);
+  assert.ok(lunges < CONFIG.world.physicsHz * 4 * GOLEM_TACTICS.ramFollowSeconds * 2,
+    `the thrust was held for ${lunges} of ${CONFIG.world.physicsHz * 4} steps`);
+  assert.equal(leaningWhileFiring, lunges, "a ram was fired with the trunk upright");
 
   // And that it still closes when the opponent is out at walking distance.
   place(fixture, { x: 0, z: 4.0 });

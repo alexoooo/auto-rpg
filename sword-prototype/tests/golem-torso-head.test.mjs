@@ -618,7 +618,7 @@ test("the plated torso takes less of the same scored blow than the plain one", a
  * Nothing is built touching it. A body built overlapping another on a layer that forbids the
  * overlap deadlocks the chain driving it, and the symptom is a pose rather than an error.
  */
-async function lungeAtPost(headId, top) {
+async function lungeAtPost(headId, top, fire = true) {
   const arena = await createHeadlessArena();
   const scene = arena.scene;
   const plugin = scene.getPhysicsEngine().getPhysicsPlugin();
@@ -650,7 +650,9 @@ async function lungeAtPost(headId, top) {
     sever: () => {},
   };
   const reports = [];
-  const combat = new Combat("left", head.strikers, (event) => reports.push(event.report));
+  const refusals = [];
+  const combat = new Combat("left", head.strikers, (event) => reports.push(event.report),
+    (event) => refusals.push(event));
   combat.attach(target);
 
   // The head's own bodies watched for contacts, so "it scored nothing" can be told apart from
@@ -676,7 +678,7 @@ async function lungeAtPost(headId, top) {
       // `intent.natural.thrust` by hand here would be testing a channel a person cannot reach,
       // which is the defect this whole channel was rebuilt to stop. The right button holds a
       // guard, the left fires once.
-      const buttons = now >= 0.8 && now < 1.6 ? SECONDARY : now >= 2.2 && now < 2.3 ? PRIMARY : 0;
+      const buttons = now >= 0.8 && now < 1.6 ? SECONDARY : fire && now >= 2.2 && now < 2.3 ? PRIMARY : 0;
       applyButtonPose(intent, "primary", poseFromButtons(buttons, 0));
       head.command(intent);
       scene._renderId += 1;
@@ -684,7 +686,7 @@ async function lungeAtPost(headId, top) {
       combat.advance(FRAME);
     }
     scene.onBeforePhysicsObservable.remove(control);
-    return { reports, contacts };
+    return { reports, refusals, contacts };
   } finally {
     for (const [body, observer] of observers) body.getCollisionObservable().remove(observer);
     combat.dispose();
@@ -721,6 +723,37 @@ test("the ram's lunge scores on a post and the plain head scores nothing on the 
 
   assert.deepEqual(plain.reports, [],
     "a plain head has no striker, so `Combat` watches nothing and files nothing");
+});
+
+/**
+ * A plate is a weapon for the length of a lunge and a brow the rest of the time.
+ *
+ * Measured before the gate: a ram head on a capped-arms golem scored eleven contacts a lunge,
+ * because the plate scored the other fighter's blade for hitting it and scored a guard it was
+ * leaning on once every `hitCooldown` for as long as the carrier pushed. The gate is in
+ * `src/golem/head/head.ts`, in `Combat`'s own refusal vocabulary: outside `armedSeconds` of a
+ * drive a contact is refused as `inactive-action`; inside it the plate scores once per lunge and
+ * per body. The fixture is the same post, raised to where the ram's guard rests on it, and the
+ * one thing that changes is whether the lunge is ever fired.
+ */
+test("a ram plate touched outside a lunge scores nothing, and a lunge scores once", async () => {
+  const guard = await lungeAtPost("head.ram", 1.72, false);
+  assert.ok(guard.contacts > 0,
+    "the raised post is meant to be inside the ram head's own guard and was not touched");
+  assert.deepEqual(guard.reports, [], "a plate scored a post it was resting on");
+  assert.ok(guard.refusals.some((event) => event.reason === "inactive-action"),
+    "the contact was never offered to the striker, so the gate was not what refused it");
+
+  // The lunge half on the post the ram comes down onto: from a guard resting on the raised post
+  // the neck has nothing to drive through, and a blow under the ram's own floor is not a blow.
+  const lunge = await lungeAtPost("head.ram", 1.44, true);
+  const claimed = lunge.refusals.filter((event) => event.reason === "module-attribution").length;
+  assert.ok(lunge.contacts > 1,
+    `the plate met the post ${lunge.contacts} time(s): one-blow-per-lunge has nothing to refuse`);
+  assert.equal(lunge.reports.length, 1,
+    `one lunge, ${lunge.reports.length} report(s) over ${lunge.contacts} contact(s), ${claimed} refused`);
+  assert.ok(lunge.reports[0].damage > 0, "the one report was not a blow");
+  assert.ok(claimed > 0, "every contact after the first is refused as the module's own");
 });
 
 test("a plain head touching a post throughout still scores nothing on it", async () => {

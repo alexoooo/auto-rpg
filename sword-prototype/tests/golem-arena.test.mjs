@@ -610,8 +610,8 @@ test("twenty_five_golem_rebuilds_return_every_counted_resource_to_baseline", asy
   });
 
   // Every build shape the picker can reach, cycled: the default, a mace claiming both sockets, a
-  // whip, a plated trunk and a ram head. A rebuild census over one build would not see a module
-  // that leaks only when it is fitted.
+  // whip, a fist on two chains, a plated trunk and a ram head. A rebuild census over one build
+  // would not see a module that leaks only when it is fitted.
   const base = defaultGolemSetup();
   const builds = [
     base,
@@ -619,6 +619,8 @@ test("twenty_five_golem_rebuilds_return_every_counted_resource_to_baseline", asy
     { ...base, primary: { chain: "wrist", terminal: "mace" },
       secondary: { chain: "wrist", terminal: "mace" } },
     { ...base, primary: { chain: "wrist", terminal: "whip" } },
+    { ...base, primary: { chain: "wrist", terminal: "fist" },
+      secondary: { chain: "reach", terminal: "fist" } },
     { ...base, primary: { chain: "pitch", terminal: "blade" },
       secondary: { chain: "pitch", terminal: "plate" } },
   ];

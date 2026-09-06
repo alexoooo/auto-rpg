@@ -842,6 +842,14 @@ export const CONFIG = {
     fistScale: 0.9,
     fistMinSpeed: 3.5,
     fistReferenceSpeed: 9,
+    /**
+     * The fist the three numbers above were set for, kilograms: `body.handMass`, restated here
+     * rather than read from there because a scoring row is a statement about a blow and not
+     * about a rig. A Warrior's fist publishes no mass and is scored at exactly this, so the row
+     * going on `impulse` moved nothing the Warrior does; a golem's stone fist publishes its own
+     * and is worth its own weight in the same units. 2026-09-05.
+     */
+    fistReferenceMassKg: 0.65,
     /** Centipede's committed lunge: damaging, point-like, and never severing. */
     biteScale: 1.2,
     biteMinSpeed: 2.8,
@@ -872,14 +880,39 @@ export const CONFIG = {
      *     2.2 m/s floor    0.65 m/s
      *     11 m/s reference 3.30 m/s
      *
-     * `ramScale` is `crushScale` unchanged, from the same argument: at its own reference a ram
-     * arrives with a club's energy, so it is worth a club's blow. On the measured contacts that
-     * comes to **0.55 to 0.73 damage** -- a real blow and a small one. Whether a ram should hurt
-     * more than that is a balance question a fight has to answer and a bench cannot. 2026-09-04.
+     * `ramScale` was `crushScale` unchanged on its first day, from the same argument: at its own
+     * reference a ram arrives with a club's energy, so it is worth a club's blow. On the measured
+     * contacts that came to **0.55 to 0.73 damage** -- a real blow and a small one, a fifth of a
+     * blade stroke's 3.13, and the owner watched a ram land and asked why it did not hurt.
+     *
+     * **The fight answered the balance question, 2026-09-05.** Two things were wrong and the
+     * table was one of them. The model was mass-blind, so the 37 kg above counted for nothing
+     * beyond moving two speeds; and the mind fired the neck alone with the trunk upright, so the
+     * waist half of the lunge the head's own comment describes never happened. The row is now
+     * `impulse` -- `ramReferenceMassKg` is the 37 kg the two speeds were derived for, and the
+     * plate publishes what it actually arrives with (`HEAD_RAM.impactMassKg`) -- and `ramScale`
+     * is set so that a leaned lunge is a whole-body blow: worth two or three blade strokes, rare,
+     * and paid for with the fatal part. Swept on a capped-sockets ram golem, 8 side-swapped
+     * bouts, seed 20260905, Node arena harness -- the damage a landed blow is worth at the median,
+     * against the 3.61 a golem's blade stroke was worth in the mirror cell the same day:
+     *
+     *     ramScale   vs golem: damage / landed contact   ram damage / bout   vs warrior: damage / contact   bout
+     *        1.7          1.37                               75.4                  1.48                   41.6 s
+     *        3.4          2.73                              150.8                  3.00                   36.2
+     *        6            4.82                              266.1                  6.78                   27.8
+     *        9            7.23                              399.1                 10.50                   21.7
+     *       12            9.64                              532.1                 14.00                   21.7
+     *
+     * 9: a landed ram is two blade strokes at the median and four at the ninetieth percentile
+     * (14.9), and a perfect one at the reference speed with the published mass behind it is 18,
+     * an eighth of a golem's head. Rare, because a lunge is one blow and lands one time in ten
+     * against a Warrior's guard. The table is in `docs/measurements.md` under Session 01 of the
+     * matchup set. 2026-09-05.
      */
-    ramScale: 1.7,
+    ramScale: 9,
     ramMinSpeed: 0.65,
     ramReferenceSpeed: 3.3,
+    ramReferenceMassKg: 37,
 
     /**
      * The axe, which cuts, but not like a blade does.

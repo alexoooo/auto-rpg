@@ -27,6 +27,7 @@ export const headRam: HeadModuleDefinition = headModule("head.ram", "ram head", 
     plateHealth: HEAD_RAM.plateHealth,
     plateVitalityWeight: HEAD_RAM.plateVitalityWeight,
     plateTipOffset: HEAD_RAM.plateTipOffset,
+    impactMassKg: HEAD_RAM.impactMassKg,
     lunge: HEAD_RAM.lunge,
   },
 });

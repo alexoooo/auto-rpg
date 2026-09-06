@@ -108,13 +108,18 @@ export const golemHead = (id: string): HeadModuleDefinition | null => byId(HEADS
  *
  * A `Record` over every terminal, so a terminal added without a description is a compile error
  * rather than a hand that silently reads as empty. The mace and the whip are both `club`, which is
- * their bite row as well: a mind planning either is planning a thing that arrives with mass.
+ * their bite row as well: a mind planning either is planning a thing that arrives with mass. The
+ * fist is `empty`, the Warrior's bare hand, and that is honest twice over: it is the kind its
+ * striker scores by, and a mind planning a punch plans the same short straight stroke a hand with
+ * nothing in it makes -- the difference is eight kilograms of stone, which the scoring row is
+ * handed and the planner is not.
  */
 const TERMINAL_DESCRIPTION: Record<TerminalId, WeaponKind> = Object.freeze({
   blade: "sword",
   plate: "shield",
   mace: "club",
   whip: "club",
+  fist: "empty",
 });
 
 /** One chain-and-terminal pair the registry actually offers. */

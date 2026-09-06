@@ -97,12 +97,16 @@ export interface RamTuning {
   readonly plateHealth: number;
   readonly plateVitalityWeight: number;
   readonly plateTipOffset: number;
+  /** What the plate arrives with behind it, kilograms; `Striking.impactMassKg`. */
+  readonly impactMassKg: number;
   readonly lunge: {
     readonly driveRate: number;
     readonly driveSeconds: number;
     readonly followSeconds: number;
     readonly driveTorque: number;
     readonly followTorque: number;
+    /** Seconds after the drive begins during which the plate is a weapon. */
+    readonly armedSeconds: number;
   };
 }
 
@@ -302,11 +306,31 @@ export function headModule(id: string, label: string, tuning: HeadTuning): HeadM
           // session has no evidence that one is wanted.
           kind: "ram",
           effectorId: `${ctx.name}.ram`,
+          impactMassKg: ram.impactMassKg,
           // **Null, because a head is not a hand.** `Combat` routes a null hand to the
           // body-neutral channel already; this is the centipede's rule with the alias it still
           // carries taken out, because a golem head has no `HandView` to pretend to be.
           hand: null,
           tipAlong: ram.plateTipOffset - ram.plateLength / 2,
+          // **A plate is a weapon for the length of a lunge and a brow the rest of the time.**
+          // Without this gate it scored whatever touched it: the other fighter's blade, for
+          // hitting a guard, at the plate's own speed; and a guard it was leaning on, once every
+          // `hitCooldown`, for as long as the carrier pushed -- measured at eleven scored
+          // contacts per lunge on a capped-arms golem charging into a plate. Armed from the
+          // drive for `armedSeconds`, which outlasts the follow because the head goes on
+          // arriving under its own momentum; and **one blow per lunge**, whatever it meets
+          // first, which is what a head-butt is. Per body it met, a lunge into a guard was
+          // billed three times -- plate, wrist and blade, 151 scored contacts per 100 lunges
+          // on a capped golem against the default one -- and a guard that is hit is a blow
+          // that was stopped, not three that landed.
+          gate: {
+            refusal: () => (armed() ? null : "inactive-action"),
+            claim: () => {
+              if (struck) return false;
+              struck = true;
+              return true;
+            },
+          },
         });
       }
 
@@ -391,6 +415,12 @@ export function headModule(id: string, label: string, tuning: HeadTuning): HeadM
       let appliedPhase: EffectorStroke | null = null;
       let thrustHeld = false;
       let severed = false;
+      /** Seconds since the last lunge's drive began; nothing has been fired at Infinity. */
+      let lungeAge = Infinity;
+      /** Whether this lunge has already struck something. Cleared when the next one fires. */
+      let struck = false;
+      const armed = (): boolean =>
+        ram !== null && (phase !== "idle" || lungeAge < ram.lunge.armedSeconds);
 
       const axisViews = [
         { id: "pitch", commanded: 0, achieved: 0 },
@@ -537,6 +567,8 @@ export function headModule(id: string, label: string, tuning: HeadTuning): HeadM
           if (ram && next.thrust && !thrustHeld && phase === "idle") {
             phase = "drive";
             phaseTime = 0;
+            lungeAge = 0;
+            struck = false;
           }
           thrustHeld = next.thrust;
         },
@@ -547,6 +579,7 @@ export function headModule(id: string, label: string, tuning: HeadTuning): HeadM
           // to whatever the buttons are asking for *now* rather than to what they said when the
           // press landed.
           commandedPitch = slewTowards(commandedPitch, wantedPitch, N.pitchRate, dt);
+          lungeAge += dt;
 
           if (phase !== "idle" && ram) {
             phaseTime += dt;

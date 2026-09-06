@@ -1,6 +1,12 @@
 # Session 01 -- momentum scoring, a ram that leans in, and a fist
 
-**Status (2026-09-05): planned.**
+**Status (2026-09-05): implemented; the human gate is open.** The impulse row, the gated plate,
+the ram exchange and the fist landed with their sweep tables; `docs/measurements.md` has the
+before/after. The ram's mass is the plate plus one hinge-mass of trunk (74 kg) rather than a
+lean-weighted share, because the lean turned out to slow the blow rather than add to it and a
+weight that rewarded leaning would have rewarded the wrong thing. Two constants are inert in
+this mind and say so in their own comments: `ramSeconds` and `ramFraction`, because an armed
+golem is never inside the entry gate in a mirror bout. Session 05 chooses the ram by matchup.
 
 ## Outcome
 

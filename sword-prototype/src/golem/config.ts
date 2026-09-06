@@ -1652,6 +1652,47 @@ export const TERMINAL_WHIP = {
 };
 
 /**
+ * The fist terminal: a stone ball on the end of a chain, appended by Session 01 of the matchup
+ * set. `src/golem/effectors/terminals/fist.ts` builds it.
+ *
+ * Rung 0's cap already answers "what is a golem's bare hand worth": 3.5 kg bolted to a socket
+ * that cannot move, so a shove. This is the hand a chain can throw, and it is heavier than the
+ * cap on purpose: a punch is scored by the mass that arrives, and a knuckle no heavier than the
+ * cap would be a blade's stroke with a fifth of a blade's damage.
+ */
+export const TERMINAL_FIST = {
+  /**
+   * The ball's radius, metres.
+   *
+   * 0.09 m is a fist 180 mm across, twice the cap's width and a little wider than the pitch
+   * chain's own link (0.062 radius), which is what a fist on the end of a forearm looks like
+   * rather than a marble on a stick. Chosen by eye against the stand, 2026-09-05.
+   */
+  radius: 0.09,
+  /**
+   * Mass, kilograms.
+   *
+   * A 0.09 m sphere is 0.003054 m3, and stone at 2600 kg/m3 makes that 7.9 kg, rounded to 8.
+   * Arithmetic rather than a sweep, like the cap's; what it decides is the fist's whole worth,
+   * because the striker publishes it as `impactMassKg` and the `empty` bite row is
+   * `impulse`: a blow is the speed ramp times 8 over `fistReferenceMassKg`'s 0.65. At the
+   * Warrior's reference speed that is 11, an eighth of a golem's head; the chain that throws it
+   * reaches nothing like that speed, and the row in `docs/measurements.md` under Session 01
+   * of the matchup set says what it did reach. 2026-09-05.
+   */
+  mass: 8.0,
+  /**
+   * Health and vitality weight for the one part.
+   *
+   * 120 against the blade's 60: a ball of stone is the hardest thing to take off a golem short
+   * of its core, and the blade is a slab of steel ten millimetres thick. The vitality weight is
+   * the blade's, because losing a hand is losing a hand whatever was on it. 2026-09-05.
+   */
+  health: 120,
+  vitalityWeight: 0.4,
+};
+
+/**
  * The bench stand when a **locomotion** module is on it, appended by Session 05.
  *
  * `BENCH_STAND` above is a fixed anchor: an `ANIMATED`, massless slab that a limb hangs from and
@@ -2803,6 +2844,23 @@ export const HEAD_RAM = {
    * geometry would move every speed reading here. 2026-09-04.
    */
   plateTipOffset: 0.14,
+  /**
+   * What the plate arrives with behind it, kilograms, published as `Striking.impactMassKg` and
+   * scored against `CONFIG.combat.ramReferenceMassKg`.
+   *
+   * The reference is the neck alone: 37 kg is the plate's effective mass `I / d^2` about the
+   * pitch hinge, which is what the two ram speeds were derived from. A lunge is not the neck
+   * alone. The mind that fires it leans the trunk in on the same step, and a trunk leaning is
+   * the golem's core -- 139 kg plain, 236 plated -- translating toward the contact behind the
+   * head; a lunge with the trunk already leaning is the one the head module's own comment calls
+   * "longer", and the measurements record it landing faster. What is published here is the
+   * plate's 37 with one hinge-mass of trunk behind it, 74 kg, which scores a leaned lunge at
+   * twice the neck-alone number at the same speed. Not derived from the core's mass, because a
+   * core that had wheels under it would publish a different number for the same blow, and a
+   * striker's mass is a fact about the blow. Set with `ramScale`; the table is in
+   * `docs/measurements.md`. 2026-09-05.
+   */
+  impactMassKg: 74,
 
   /**
    * What `guard` holds, radians of nod, against `HEAD_PLAIN.guardPitch`'s 0.70.
@@ -2896,6 +2954,30 @@ export const HEAD_RAM = {
     driveRate: 9,
     driveSeconds: 0.05,
     followSeconds: 0.02,
+    /**
+     * How long after the drive begins the plate is still a weapon, seconds.
+     *
+     * The drive and the follow together are 0.07 s, and the stroke is nowhere near over then:
+     * the table above records 1.008 rad of its 1.454 bought by momentum after the drive let go,
+     * and a head with the trunk leaning behind it is still arriving when the neck's own event
+     * has ended. Outside this window the plate is a brow -- a thing the other fighter's blade
+     * hits, a thing the carrier leans on -- and scores nothing, which is the gate
+     * `src/golem/head/head.ts` puts on the striker. Swept on a capped-sockets ram golem, 8
+     * side-swapped bouts, seed 20260905, Node arena harness, as the fraction of lunges that
+     * scored:
+     *
+     *     armedSeconds   vs golem: landed   ram damage / bout   vs warrior: landed   ram damage / bout
+     *        0.10           66 %              132.0                 9 %                11.5
+     *        0.25           70 %              139.7                 9 %                11.8
+     *        0.40           79 %              150.8                12 %                13.6
+     *        0.60           82 %              150.8                13 %                14.8
+     *        1.00           85 %              155.2                14 %                14.5
+     *
+     * 0.40 is the knee: past it the extra landings are a plate still counted as a weapon while
+     * the head is being brought back up, which is a brow scoring for being walked into. The
+     * table is in `docs/measurements.md`, Session 01 of the matchup set. 2026-09-05.
+     */
+    armedSeconds: 0.40,
     /**
      * The drive's own torque ceiling, newton-metres, **which is deliberately not
      * `HEAD_NECK.pitchTorque`.** The table is in the block comment above; the short of it is that

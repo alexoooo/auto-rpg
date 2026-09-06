@@ -744,11 +744,150 @@ export const GOLEM_TACTICS = {
   crowdedSeconds: 2.5,
   /** Seconds `approach` and `measure` must each be held before the other may be entered. */
   rangeDwell: 0.18,
+
+  // ---- the ram exchange ---------------------------------------------------------------------
+  //
+  // **A ram is an exchange the whole body makes, not a reflex the head has.** Until 2026-09-05 the
+  // natural channel was written as a level -- `thrust` whenever a natural striker was ready, the
+  // opponent inside its reach, and the arms between strokes -- with the trunk upright. That was
+  // half a lunge twice over: the head edge-triggers, so a level held high fired once and then
+  // never again until the range opened; and the head's own comment says the forward half of a
+  // lunge is the waist, which nothing was asking for. Measured over 8 bouts against the default
+  // golem, a ram head with default arms landed 16.5 plate contacts a bout at a median 1.40 m/s
+  // and 0.48 damage each -- exactly a blade contact's 0.48 -- and a ram head with capped arms
+  // lost 8 of 8. The owner watched one land and asked why it did not hurt.
+  //
+  // So the ram is a stance of its own, entered from `approach` or `measure` the way `chamber` is,
+  // and for its whole length the trunk leans in, the feet step in, the plate is presented, and the
+  // neck fires once the lean has had time to start moving the head.
+  //
+  // **Every number here was swept on the two cells where a ram can actually land**, 8
+  // side-swapped bouts each, seed 20260905, Node arena harness, `ramScale` 9 unless the row says
+  // otherwise: a ram head on capped sockets against the default golem ("vs golem") and against
+  // the Warrior duelist ("vs warrior"). The default-armed ram golem is not one of those cells,
+  // and the range histogram says why: two golems hold at each other's reach, the floor gap is
+  // under 1.2 m for 0.0 % of a mirror bout, and a plate reaches 0.68 m. `docs/measurements.md`
+  // under Session 01 of the matchup set has every row with its columns.
+
+  /**
+   * How far the trunk leans into a ram, normalized, against `commitLean`'s 0.40.
+   *
+   * **Shallow, and the sweep is why.** A lean was expected to add speed and it takes it away: a
+   * trunk tipped forward carries the hinge down with it, so the plate meets the other body on
+   * the descending half of its arc. Contact speed at the median, vs warrior, with what a landed
+   * blow was worth:
+   *
+   * | lean | speed p50 m/s | damage / landed contact | landed | ram damage / bout |
+   * |---:|---:|---:|---:|---:|
+   * | **0.3** | **2.40** | **5.05** | 17 % | **15.8** |
+   * | 0.6 | 2.42 | 4.54 | 14 % | 12.7 |
+   * | 0.9 | 1.95 | 3.99 | 14 % | 10.5 |
+   * | 1.0 | 1.19 | 2.85 | 18 % | 12.7 |
+   *
+   * Vs golem the four rows are within noise of each other (135 to 143 a bout), because there the
+   * plate meets a guard held at chest height whichever way the trunk is tipped. Taken at
+   * `ramScale` 3.4, before that was set; the ordering is what the row is for.
+   */
+  ramLean: 0.3,
+  /**
+   * Seconds the lean and the step are given before the neck is fired.
+   *
+   * The two cells disagree and the target cell wins. Against a golem the plate meets the guard
+   * early and every tenth of a second waited is a lunge not made; against a Warrior a longer run
+   * in lands more often, but from far fewer lunges:
+   *
+   * | seconds | vs golem: rams / bout | landed | ram damage / bout | vs warrior: rams | landed | ram damage |
+   * |---:|---:|---:|---:|---:|---:|---:|
+   * | 0.08 | 61.8 | 80 % | 133.0 | 37.1 | 7 % | 11.3 |
+   * | **0.18** | 55.9 | 81 % | **138.4** | 20.3 | 14 % | 10.5 |
+   * | 0.30 | 50.6 | 74 % | 108.3 | 20.8 | 27 % | 18.9 |
+   * | 0.45 | 44.9 | 72 % | 83.2 | 9.8 | 45 % | 12.5 |
+   *
+   * At `ramScale` 3.4. 0.08 looked best on lunges alone and was the worst row on the Warrior by
+   * a distance -- 5 of 8 and a bar at 0.28 -- because a neck fired from a standing start puts
+   * the fatal part out with nothing behind it.
+   */
+  ramLeanSeconds: 0.18,
+  /**
+   * The charge's whole budget, seconds: a ram that has not fired by now goes back to guard.
+   *
+   * **Inert at every value swept**, and kept because it is the branch that ends a whiff. Swept
+   * 0.4, 0.6, 0.9 and 1.3 on both capped cells and every column was identical to the last
+   * digit, because the entry gate (`ramLunge`) is inside the fire gate (`ramBite`), so a body
+   * that starts a charge is already inside the distance it fires from and the budget never
+   * binds. It would bind for an entry gate wider than the fire gate, which the `ramLunge` row
+   * refuses; it is here so that the choice is a number and not a hole.
+   */
+  ramSeconds: 0.6,
+  /**
+   * Metres beyond the plate's published reach, floor gap, at which a ram may be entered.
+   *
+   * On the capped cells the four rows are within noise (vs golem 399 to 429 a bout, vs warrior
+   * 21 to 32) because a capped golem holds chest to chest and is always inside every gate. What
+   * decides it is the armed golem, which the gate is really about:
+   *
+   * | metres | default arms vs golem: charges / bout | rams fired | result | vs warrior: charges | fired | landed |
+   * |---:|---:|---:|---:|---:|---:|---:|
+   * | **0.35** | 0.0 | 0.0 | 5/3 | 0.3 | 0.1 | 0 % |
+   * | 0.7 | 0.0 | 0.0 | 5/3 | 2.4 | 2.0 | 0 % |
+   * | 1.1 | 5.0 | 0.0 | 3/5 | 5.1 | 2.9 | 4 % |
+   * | 1.5 | 6.0 | 0.0 | 1/7 | 5.8 | 3.3 | 4 % |
+   *
+   * A wide gate makes an armed golem charge from its hold distance, and a charge against a body
+   * that keeps its distance at the same carrier speed never closes: five charges a bout, none
+   * fired, and two more losses. So the gate is narrow, and in this mind a golem with arms rams
+   * only when the other body is already on it -- which in a mirror bout is never. Choosing the
+   * ram by matchup is Session 05's.
+   */
+  ramLunge: 0.35,
+  /**
+   * Metres beyond the plate's published reach, floor gap, inside which the neck is fired.
+   *
+   * | metres | vs golem: landed | ram damage / bout | vs warrior: landed | ram damage / bout |
+   * |---:|---:|---:|---:|---:|
+   * | 0.25 | 135 % | 190.2 | 44 % | 20.7 |
+   * | **0.35** | 164 % | **278.0** | 33 % | 16.9 |
+   * | 0.45 | 151 % | 251.4 | 27 % | 13.9 |
+   * | 0.60 | 151 % | 251.4 | 27 % | 13.9 |
+   *
+   * At `ramScale` 3.4, before a lunge was one blow (the "landed" column over 100 % is the plate
+   * being billed per body it met; `src/golem/head/head.ts` says why that changed). 0.45 and
+   * 0.60 are the same row because the entry gate is 0.35 and nothing enters further out.
+   */
+  ramBite: 0.35,
+  /**
+   * Seconds the stance holds after the neck has fired, before the guard goes back up.
+   *
+   * | seconds | vs golem: rams / bout | ram damage / bout | vs warrior: result | bar end |
+   * |---:|---:|---:|---:|---:|
+   * | **0.10** | 57.5 | **117.7** | 7/0/1 | 0.41 |
+   * | 0.25 | 50.8 | 102.5 | 6/1/1 | 0.41 |
+   * | 0.40 | 44.9 | 89.6 | 6/2/0 | 0.20 |
+   * | 0.60 | 38.9 | 80.4 | 6/0/2 | 0.19 |
+   *
+   * At `ramScale` 3.4. The plate stays armed for `HEAD_RAM.lunge.armedSeconds` whatever this
+   * says, so a short follow costs the blow nothing and buys the next one sooner; a long one is
+   * a golem standing with its head out.
+   */
+  ramFollowSeconds: 0.1,
+  /**
+   * The fraction of openings a golem that could strike with a hand spends on a ram instead.
+   *
+   * **Inert in this mind, and the row says so rather than the comment claiming otherwise.**
+   * Swept 0, 0.25, 0.5 and 1.0 on the default-armed ram golem against both opponents and every
+   * column was identical, because the roll is made only once the other body is inside
+   * `ramLunge` of the plate, and with arms to hold a distance with that never happens: 0.0
+   * charges a bout vs golem, 0.3 vs warrior, at every fraction. It is the seam Session 05's
+   * fencer chooses through, and it is left at a quarter so that a mind which does get there
+   * rams sometimes and not always.
+   */
+  ramFraction: 0.25,
 } as const;
 
 // ---------------------------------------------------------------------------------- the machine
 
-export type GolemStance = "approach" | "measure" | "withdraw" | "chamber" | "commit" | "recover";
+export type GolemStance =
+  "approach" | "measure" | "withdraw" | "chamber" | "commit" | "recover" | "ram";
 
 /** What is worth watching, copied out of the view rather than held as a reference into it. */
 interface Threat {
@@ -968,9 +1107,15 @@ export function golemTactics(seed: number): GolemTactics {
   let gapRate = 0;
   let lastGap = -1;
 
+  /** Whether this ram's neck has been fired, and when on the stance's own clock. */
+  let ramFired = false;
+  let ramFiredAt = 0;
+
   const goTo = (next: GolemStance): void => {
     stance = next;
     elapsed = 0;
+    ramFired = false;
+    ramFiredAt = 0;
   };
 
   /**
@@ -1031,8 +1176,34 @@ export function golemTactics(seed: number): GolemTactics {
       // against an inner radius of 1.36 m, and a mace's 1.06 m against 1.00 m, so both stood inside
       // their own hysteresis band and churned between holding and giving ground.
       const reach = me.reach;
-      const { near, hold, strike, slack } = tacticalRanges(reach, cap, them.reach);
-      const gap = distance(socket, them.shoulder);
+      // Body to body on the floor, for the one exchange that is made with the body rather than
+      // with an effector on a socket: a ram's reach is published from the neck, which stands over
+      // the carrier's own centre, and the thing it is driven at is the other carrier's.
+      const bodyGap = Math.hypot(them.ground.x - self.ground.x, them.ground.z - self.ground.z);
+      const natural = readyNatural(self);
+      // **A body whose only striker is natural fights at that striker's range**, and inside the
+      // other fighter's. The stand-off floor in `tacticalRanges` is the rule that keeps a golem
+      // out of a longer arm's reach while its own can still land; a golem with capped sockets
+      // and a plate on its brow has 0.68 m of reach against a blade's 1.78, and stood off at
+      // 1.78 m it fought nobody -- measured, 0.3 charges a bout and 0 of 8 against the default
+      // golem, with the range histogram showing it never inside 1.2 m. Its exchange is the ram,
+      // so its hold is the fraction of the ram's own reach every hand holds at -- which is
+      // chest to chest, and is meant to be: held at the entry gate instead, 0.95 m, it fired
+      // from a standing start and landed 4 of 26 lunges a bout on a Warrior, against 6 of 14
+      // when it was already pushing in -- its strike is the gate, and its inner radius is
+      // nothing, because a head-butt has no distance that is too close. That is the risk the
+      // option is: it goes in with its fatal part or it does not go in at all.
+      const headfirst = natural !== null && !canAttack(cap) && !canAttack(spareCap);
+      const ranges = headfirst
+        ? Object.freeze({
+          near: 0,
+          hold: natural.reach * GOLEM_TACTICS.holdFraction,
+          strike: natural.reach + GOLEM_TACTICS.ramLunge,
+          slack: natural.reach * GOLEM_TACTICS.slackFraction,
+        })
+        : tacticalRanges(reach, cap, them.reach);
+      const { near, hold, strike, slack } = ranges;
+      const gap = headfirst ? bodyGap : distance(socket, them.shoulder);
 
       // ---- what their business end is doing ----------------------------------------------------
       watch(them, threat);
@@ -1112,7 +1283,9 @@ export function golemTactics(seed: number): GolemTactics {
       intent.posture.trunkTwist = chambering
         ? me.outboard * GOLEM_TACTICS.trunkSweep
         : committing ? -me.outboard * GOLEM_TACTICS.trunkSweep : 0;
+      const ramming = stance === "ram";
       intent.posture.trunkLean = committing ? GOLEM_TACTICS.commitLean
+        : ramming ? GOLEM_TACTICS.ramLean
         : stance === "withdraw" ? GOLEM_TACTICS.withdrawLean : 0;
       intent.posture.crouch = 0;
       if (cap.reachable && caps.crouchTravel > 1e-6) {
@@ -1123,15 +1296,20 @@ export function golemTactics(seed: number): GolemTactics {
       // ---- the head ----------------------------------------------------------------------------
       //
       // The duck is a level and is held whenever the golem is not mid-exchange, on both heads: a
-      // plain head has no striker and still has a neck to pull in. The lunge is an edge and is
-      // spent only when there is a striker that is ready and the opponent is inside its own
-      // published reach -- and only while the arms are between strokes, because a body that
-      // head-butts through its own cut is a body putting its fatal part into its own blade.
-      const natural = readyNatural(self);
+      // plain head has no striker and still has a neck to pull in; on a ram it is the plate
+      // presented, which is the chamber the lunge starts from. The lunge is an edge and is spent
+      // inside the `ram` stance only, once the lean has been asked for long enough to be moving
+      // the head -- and never through the arms' own stroke, because a body that head-butts
+      // through its own cut is a body putting its fatal part into its own blade. Until
+      // 2026-09-05 this was a level held whenever the opponent was inside the plate's reach, and
+      // `GOLEM_TACTICS.ramLean` says what that cost.
       intent.natural.guard = !chambering && !committing;
-      intent.natural.thrust = natural !== null &&
-        view.measure <= natural.reach &&
-        (stance === "recover" || stance === "measure" || !canAttack(cap));
+      if (ramming && natural !== null && !ramFired && elapsed >= GOLEM_TACTICS.ramLeanSeconds &&
+        bodyGap <= natural.reach + GOLEM_TACTICS.ramBite) {
+        ramFired = true;
+        ramFiredAt = elapsed;
+      }
+      intent.natural.thrust = ramming && ramFired;
 
       // ---- the hand that is not striking --------------------------------------------------------
       //
@@ -1212,17 +1390,53 @@ export function golemTactics(seed: number): GolemTactics {
           goTo("approach");
         }
 
-        if (cooldown <= 0 && gap <= strike && canAttack(cap) &&
+        // Which exchange, if either. A hand exchange is gated as it always was: an opening or
+        // patience run out, inside the strike range, with an effector that can be asked for a
+        // stroke. A ram is gated on its own striker's published reach plus the distance the lean
+        // and the step buy, and it is *chosen* rather than reflexed: a body that can also strike
+        // with a hand rams a seeded fraction of its openings, and a body that cannot rams every
+        // time its cooldown allows, because a ram is the only exchange it has. The roll is made
+        // once per opening, here, and not once per step -- a per-step roll at 240 Hz is a
+        // certainty wearing a probability's name.
+        const handCould = gap <= strike && canAttack(cap);
+        const ramCould = natural !== null &&
+          bodyGap <= natural.reach + GOLEM_TACTICS.ramLunge;
+        if (cooldown <= 0 && ramCould && headfirst) {
+          ranged = 0;
+          goTo("ram");
+        } else if (cooldown <= 0 && (handCould || ramCould) &&
           (opening || sinceOpening > patience)) {
           patience = GOLEM_TACTICS.patience * (0.8 + random() * 0.4);
           sinceOpening = 0;
           ranged = 0;
-          goTo("chamber");
+          goTo(ramCould && (!handCould || random() < GOLEM_TACTICS.ramFraction) ? "ram" : "chamber");
         }
         return intent;
       }
 
       elapsed += dt;
+
+      if (stance === "ram") {
+        // The whole body's exchange. The posture section above has already leaned the trunk in and
+        // the head section has fired the neck on the clock; what is left is the feet, which step
+        // straight in for the length of the stance rather than circling, and the hands, which
+        // cover -- a golem that rams through its own cut puts its fatal part into its own blade,
+        // and one that rams with its guard down puts it into the other one's.
+        intent.forward = 1;
+        intent.strafe = 0;
+        hand.guard = canCover(cap);
+        hand.thrust = false;
+        aimAt(socket, guardMark, trunkHeading, me.outboard, cover);
+        writeAim(hand, cap, cover, me.outboard, 0, GOLEM_TACTICS.coverLift, 1,
+          coverReachFor(me.weapon));
+        // Two ways out. Fired: the follow-through, which is the neck's own velocity event
+        // running out while the body keeps coming, and then the guard goes back up. Not fired
+        // inside the budget: the charge did not close the range, and a charge that keeps going
+        // is a body walking into a guard with its head first.
+        if (ramFired ? elapsed - ramFiredAt >= GOLEM_TACTICS.ramFollowSeconds
+          : elapsed >= GOLEM_TACTICS.ramSeconds) goTo("recover");
+        return intent;
+      }
 
       if (stance === "chamber") {
         // The windup: outboard of the mark, above it, and drawn in. This is one end of the arc the

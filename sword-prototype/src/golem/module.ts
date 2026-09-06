@@ -48,8 +48,9 @@ export const effectorSlot = (slot: GolemSlot): HandName | null =>
  */
 export type ChainId = "none" | "pitch" | "reach" | "wrist";
 
-/** The terminal shelf. `blade` is built in Session 02; the other three are Session 04's. */
-export type TerminalId = "blade" | "plate" | "mace" | "whip";
+/** The terminal shelf. `blade` is built in Session 02; `plate`, `mace` and `whip` are
+ *  Session 04's; `fist` is Session 01 of the matchup set's. */
+export type TerminalId = "blade" | "plate" | "mace" | "whip" | "fist";
 
 /**
  * One severable piece of a module.

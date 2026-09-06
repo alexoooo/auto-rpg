@@ -11313,3 +11313,253 @@ its extended one will bite something eventually.
   bar empties on 27.8 % of its own weighted body. Raising it would shorten bouts without changing
   how many blows a part takes, which is a different feel from this change and worth a sweep if 29
   seconds reads long.
+
+## Session 01 of the matchup set — 2026-09-05: the ram that did not hurt, and the fist
+
+The owner watched the ram head and asked:
+
+> "the head-attack ram was cool, but didn't do damage -- is that because it doesn't have enough
+> force, or health still too high?"
+
+**Neither, and both sides of the contact were wrong.** The ram landed, and a landed ram was worth
+0.48 damage at the median -- the same 0.48 a blade *contact* was worth in the mirror bout, a
+seventh of what a blade *stroke* delivers. The damage model scored a 37 kg plate as a speed ramp
+with no mass in it, and the mind fired the neck once a bout with the trunk upright, which is half
+a lunge. Then, once those two were fixed, the plate turned out to be scoring things that were not
+blows at all. Every number below is from a scratch harness over `runBout` in `scripts/measure.mjs`,
+8 side-swapped bouts unless stated, seed 20260905, the ram-headed golem against the default golem
+("vs golem") and against the Warrior duelist ("vs warrior"), with default arms or with both sockets
+capped.
+
+### Before
+
+| ram head, default arms, vs golem | |
+|:---|---:|
+| result | 5/3 |
+| ram contacts a bout | 16.5 |
+| contact speed, median | 1.40 m/s |
+| damage a scoring contact, median | 0.48 |
+| ram damage a bout | 10.7 |
+| blade contact damage in the same bouts, median | 0.48 |
+
+Capped arms vs golem: **0/8**, 11.7 damage a bout. A body with nothing but a ram lost every bout
+and did nothing with it.
+
+### Three defects on the way to a number
+
+1. **The thrust was a level and the head fires on an edge.** `natural.thrust` was written true
+   for as long as the mind was in a stance with the trunk upright; `src/golem/head/head.ts`
+   fires on the rising edge and ignores the level. One lunge per bout, waist doing nothing.
+   Fixed by making the ram a stance of its own that fires once and leaves.
+2. **The entry gate measured the nearest part.** `view.measure` is the nearest point of the other
+   body, which in a mirror bout is a blade held out in front; a gate on it let the head charge
+   into steel. Fixed by gating on the floor gap between the two carriers, which is what a neck
+   over the trunk's own centre is driven at.
+3. **The plate scored whatever touched it.** Eleven scored contacts per lunge on a capped golem:
+   the other fighter's blade hitting the plate was filed as a ram blow at the plate's own speed,
+   and a guard the plate was leaning on was billed once every `hitCooldown` for as long as the
+   carrier pushed. Fixed with a gate on the striker (`RigidStrike.gate`, in `Combat`'s own
+   refusal vocabulary): armed for `armedSeconds` after a drive, one blow per lunge.
+
+Two more were found by the range histogram rather than by a contact count. A headfirst golem
+stood off at the *opponent's* reach, 1.78 m, and never came inside 1.2 m at all: 0.3 charges a
+bout, 0/8. It now fights at its own natural striker's range. And held at the entry gate, 0.95 m
+of floor gap, it fired from a standing start and landed 4 of 26 lunges a bout on a Warrior,
+against 6 of 14 when it was already pushing in; the hold is now a fraction of the plate's reach,
+chest to chest.
+
+### The impulse row
+
+`scoreHit` gained a fifth mechanism, `impulse`: the row's speed ramp times the striker's published
+mass over the row's reference mass, ratio one when nothing is published. The `empty` and `ram`
+rows moved onto it. The Warrior's fist and every existing scoring test are byte-identical, and the
+new test in `tests/scoring.test.mjs` pins both halves. The plate publishes 74 kg: its own 37 with
+one hinge-mass of trunk behind it. A lean-weighted share, which the plan proposed, was refused once
+the lean sweep below showed that leaning *slows* the blow: a mass that rewarded leaning would have
+rewarded the wrong thing.
+
+### The sweeps
+
+All on the two capped cells, where a ram can land; the armed cells appear where they decide
+something. `ramScale` 3.4 unless the table says otherwise, because the scale was set last.
+
+**`ramLean`, the trunk lean into the charge (vs warrior).** A lean carries the hinge down with it
+and the plate meets the body on the descending half of its arc:
+
+| lean | speed p50 m/s | damage / landed | landed | ram damage / bout |
+|---:|---:|---:|---:|---:|
+| **0.3** | **2.40** | **5.05** | 17 % | **15.8** |
+| 0.6 | 2.42 | 4.54 | 14 % | 12.7 |
+| 0.9 | 1.95 | 3.99 | 14 % | 10.5 |
+| 1.0 | 1.19 | 2.85 | 18 % | 12.7 |
+
+Vs golem the four rows sit between 135 and 143 a bout, within noise.
+
+**`ramLeanSeconds`, how long the lean and the step get before the neck fires.**
+
+| seconds | vs golem rams / bout | landed | ram dmg / bout | vs warrior rams | landed | ram dmg | result |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0.08 | 61.8 | 80 % | 133.0 | 37.1 | 7 % | 11.3 | 5/2/1 |
+| **0.18** | 55.9 | 81 % | **138.4** | 20.3 | 14 % | 10.5 | 8/0/0 |
+| 0.30 | 50.6 | 74 % | 108.3 | 20.8 | 27 % | 18.9 | 8/0/0 |
+| 0.45 | 44.9 | 72 % | 83.2 | 9.8 | 45 % | 12.5 | 8/0/0 |
+
+The target cell wins the disagreement. 0.08 was the worst Warrior row by a distance, bar 0.28,
+because a neck fired from a standing start puts the fatal part out with nothing behind it.
+
+**`ramSeconds`, the charge's budget: inert.** 0.4, 0.6, 0.9 and 1.3 gave identical columns on
+both cells to the last digit (vs golem 102.5 a bout, vs warrior 13.1 to 15.3), because the entry
+gate is inside the fire gate and a body that starts a charge is already where it fires from.
+Kept as the branch that ends a whiff.
+
+**`ramLunge`, the entry gate beyond the plate's reach.** The capped cells are within noise (vs
+golem 386.6 to 428.6 a bout, vs warrior 20.7 to 32.0, at scale 9). The armed golem is what the
+gate is about:
+
+| metres | armed vs golem: charges / bout | fired | result | armed vs warrior: charges | fired | landed | result |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| **0.35** | 0.0 | 0.0 | 5/3 | 0.3 | 0.1 | 0 % | 7/1 |
+| 0.7 | 0.0 | 0.0 | 5/3 | 2.4 | 2.0 | 0 % | 8/0 |
+| 1.1 | 5.0 | 0.0 | 3/5 | 5.1 | 2.9 | 4 % | 6/2 |
+| 1.5 | 6.0 | 0.0 | 1/7 | 5.8 | 3.3 | 4 % | 6/2 |
+
+A wide gate makes an armed golem charge from its hold, and a charge at a body retreating at the
+same carrier speed never closes: five charges a bout, none fired, two more losses.
+
+**`ramBite`, the fire gate.** Taken before one-blow-per-lunge, so "landed" is over 100 % where
+the plate was billed per body it met:
+
+| metres | vs golem landed | ram dmg / bout | vs warrior landed | ram dmg / bout |
+|---:|---:|---:|---:|---:|
+| 0.25 | 135 % | 190.2 | 44 % | 20.7 |
+| **0.35** | 164 % | **278.0** | 33 % | 16.9 |
+| 0.45 | 151 % | 251.4 | 27 % | 13.9 |
+| 0.60 | 151 % | 251.4 | 27 % | 13.9 |
+
+0.45 and 0.60 are the same row: nothing enters further out than 0.35.
+
+**`ramFollowSeconds`, the hold after firing.**
+
+| seconds | vs golem rams / bout | ram dmg / bout | vs warrior result | bar end |
+|---:|---:|---:|---:|---:|
+| **0.10** | 57.5 | **117.7** | 7/0/1 | 0.41 |
+| 0.25 | 50.8 | 102.5 | 6/1/1 | 0.41 |
+| 0.40 | 44.9 | 89.6 | 6/2/0 | 0.20 |
+| 0.60 | 38.9 | 80.4 | 6/0/2 | 0.19 |
+
+The plate stays armed for `armedSeconds` whatever the stance does, so a short follow costs the
+blow nothing.
+
+**`HEAD_RAM.lunge.armedSeconds`, how long after a drive the plate is a weapon.**
+
+| seconds | vs golem landed | ram dmg / bout | vs warrior landed | ram dmg / bout | result |
+|---:|---:|---:|---:|---:|---:|
+| 0.10 | 66 % | 132.0 | 9 % | 11.5 | 7/1/0 |
+| 0.25 | 70 % | 139.7 | 9 % | 11.8 | 7/1/0 |
+| **0.40** | 79 % | **150.8** | 12 % | 13.6 | 8/0/0 |
+| 0.60 | 82 % | 150.8 | 13 % | 14.8 | 8/0/0 |
+| 1.00 | 85 % | 155.2 | 14 % | 14.5 | 8/0/0 |
+
+0.40 is the knee; past it the extra landings are a brow scoring for being walked into while the
+head is brought back up.
+
+**`ramFraction`, the roll an armed golem makes between a ram and a hand stroke: inert.** 0, 0.25,
+0.5 and 1.0 gave identical rows on both armed cells, because the roll is only made inside the
+entry gate and an armed golem is never there: 0.0 charges a bout vs golem, 0.3 vs warrior.
+Recorded as inert in its own comment rather than dressed up; Session 05 chooses the ram by
+matchup.
+
+**`CONFIG.combat.ramScale`, last.** Against the 3.61 a golem's blade stroke was worth in the
+mirror cell the same day:
+
+| scale | vs golem dmg / landed p50 | ram dmg / bout | bar end foe | vs warrior dmg / contact | bout |
+|---:|---:|---:|---:|---:|---:|
+| 1.7 | 1.37 | 75.4 | 0.74 | 1.48 | 41.6 s |
+| 3.4 | 2.73 | 150.8 | 0.64 | 3.00 | 36.2 |
+| 6 | 4.82 | 266.1 | 0.58 | 6.78 | 27.8 |
+| **9** | **7.23** | 399.1 | 0.52 | 10.50 | 21.7 |
+| 12 | 9.64 | 532.1 | 0.46 | 14.00 | 21.7 |
+
+9: a landed ram is two blade strokes at the median and four at the ninetieth percentile, and a
+perfect one at reference speed with the published mass behind it is 18, an eighth of a golem's
+head.
+
+### After
+
+16 side-swapped bouts a cell:
+
+| cell | result | rams / bout | landed | damage / landed p50 | p90 | ram damage / bout | my bar | their bar | seconds |
+|:---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| ram, default arms, vs golem | 9/7/0 | **0.0** | – | – | – | 0.0 | 0.38 | 0.27 | 31.3 |
+| ram, capped, vs golem | 1/1/14 | 63.9 | 78 % | 6.95 | 14.87 | 410.0 | 0.60 | 0.52 | 59.0 |
+| ram, default arms, vs warrior | 15/1/0 | 0.1 | 0 % | – | – | 0.0 | 0.78 | 0.04 | 8.6 |
+| ram, capped, vs warrior | 16/0/0 | 22.6 | 10 % | 5.67 | 13.32 | 17.0 | 0.61 | 0.06 | 22.7 |
+
+Read honestly:
+
+- **A capped golem now fights.** From 0/8 in 36 s to fourteen draws at the cap with both bars
+  around half, and 410 ram damage a bout. What it hits is the other golem's guard: of 889
+  scoring contacts, 319 were on a plate, 306 on a blade, 132 on a wrist and 68 on a head. The
+  damage is real -- the blade and plate are parts with health -- but a ram cannot sever and a
+  golem dies by its head or core, so a body that only rams and a body it cannot get past are a
+  draw. That is the option as built, not a defect to hide.
+- **An armed golem never rams in a mirror bout**, and the range histogram says why: the floor gap
+  between two default golems is under 1.2 m for 0.0 % of a bout and under 1.4 m for 0.1 %, and a
+  plate reaches 0.68 m. The armed-ram row is 9/7 against 5/3 before, which is the same coin at
+  16 bouts instead of 8. The `head.ram` variant row in the 8-bout table below says the same
+  (3/8 with 0 rams).
+- **Against a Warrior a ram lands one time in ten** and is worth 5.67 at the median when it does,
+  on the head 31 times and the hand 12 of 45.
+
+### The fist
+
+`src/golem/effectors/terminals/fist.ts`: an 8 kg stone ball, 0.09 m radius, on any chain, striker
+kind `empty` publishing its mass. Bench, `node scripts/golem-bench.mjs --chain <c> --terminal fist`:
+
+| chain | peak tip speed, driven | anchor stray peak | contacts |
+|:---|---:|---:|---:|
+| pitch | 4.22 m/s | n/a | 0 |
+| reach | 10.04 | 59.2 mm | 0 |
+| wrist | 9.37 | 75.0 mm | 0 |
+
+The variant table, `npm run measure -- --only golem --bouts 8`, seed 20260823, the default build
+(wrist + blade) against the same build with a fist in the primary socket:
+
+| primary wrist+fist | wins | damage / bout | contacts | severs | bar end | peak tip driven |
+|:---|---:|---:|---:|---:|---:|---:|
+| default (blade) | **8/8** | 170.7 | 691.1 | 6 | 0.370 | 32.08 m/s |
+| variant (fist) | 0/8 | 687.2 | 322.8 | 0 | 0.051 | 17.56 |
+
+**A punch is heavy and it loses every bout, and both halves are right.** 2.1 raw damage a contact
+against the blade's 0.25 is the impulse arithmetic: eight kilograms over a human fist's 0.65. But
+the 687 is mostly overkill. A punch never severs, a part's health is not floored at zero in
+`Golem.applyDamage`, and the guard it lands on -- a blade, a plate, a wrist -- goes to nothing and
+stays there taking blows that count for nothing on the bar. Meanwhile the fist golem's reach is
+0.62 m shorter than a blade's on the same chain (0.18 against 0.80 past the weld), so it stands
+inside the blade's stand-off and is cut to pieces: six severs against it, none by it, bar 0.05.
+The stroke it throws is still the blade's cut, because stroke shapes by weapon kind are Session
+02's; a straight punch is owed there, and the reach asymmetry is Session 05's to fight around.
+
+### The regression rows
+
+Unchanged within noise. Default against default: 4/8 each way, 87.6 and 84.5 damage a bout, 28.3
+s a bout (Session 12b: 29.0). Blade contact damage in the mirror, median 0.51 (12b: 0.516). The
+golem against the Warrior duelist 7/8 (12b: 14/16). The Warrior's own rows are byte-identical by
+construction, and `tests/scoring.test.mjs` says so.
+
+### What this entry owes
+
+- **Nobody has looked at it.** The gate is the owner watching a capped ram golem against the
+  default, and a fist in each socket against the default. The numbers say a ram lands and is worth
+  two strokes; whether it *reads* as a charge is the owner's.
+- **The armed golem's ram is a seam with nothing through it.** `ramFraction` and `ramSeconds` are
+  inert in this mind and say so. The exchange exists for Session 05's fencer to choose through,
+  when it reads an opponent recovering inside plate reach.
+- **The ram's mass is one number.** 74 kg is the plate and one hinge-mass of trunk, chosen by
+  argument rather than by sweep; `ramScale` was swept with it fixed, so the pair is what was
+  tuned, not each alone.
+- **The fist's reference is a bare knuckle on both sides.** 0.65 kg is a human fist's mass and 8
+  is a stone ball's; neither counts the arm behind it. A ratio of twelve is what that gives. If a
+  punch reads as too heavy on the screen, the reference is the number to move, not the ball.
+- **The `ramBite` and `ramLunge` sweeps were taken before one-blow-per-lunge** and at scale 3.4;
+  the ordering held on re-measurement at the final numbers but the tables are the old ones.
