@@ -2,7 +2,7 @@ import type { BodyView, FighterView, Intent } from "../mind.ts";
 import type { HandName } from "../hands.ts";
 import { GOLEM_PLANNER, golemPlanner, type GolemPlanner, type PlannerTactics } from "./planner.ts";
 import { canAttack } from "./tactics.ts";
-import { GOLEM_TACTICS_V2, type FencerTactics, type GolemFencer } from "./tactics-v2.ts";
+import { GOLEM_TACTICS_V2, type AskHook, type FencerTactics, type GolemFencer } from "./tactics-v2.ts";
 
 /**
  * The golem's fourth scripted mind, `golem-champion`: the planner with its numbers moved by a
@@ -141,9 +141,9 @@ export function championTactics(entry: ChampionEntry | null): { fencer: FencerTa
 }
 
 /** A planner over the fencer with an entry's numbers; the tuner's contenders are built here too. */
-export function golemChampion(seed: number, entry: ChampionEntry | null): GolemPlanner {
+export function golemChampion(seed: number, entry: ChampionEntry | null, onAsk: AskHook | null = null): GolemPlanner {
   const { fencer, planner } = championTactics(entry);
-  return golemPlanner(seed, undefined, planner, fencer);
+  return golemPlanner(seed, undefined, planner, fencer, onAsk);
 }
 
 export interface GolemChampionMind {
@@ -162,7 +162,7 @@ export interface GolemChampionMind {
  * is the planner over that entry from then on. Built lazily because a policy's factory takes a
  * seed and nothing else, and the class is in the view.
  */
-export function golemChampionMind(seed: number, tables: ChampionTables): GolemChampionMind {
+export function golemChampionMind(seed: number, tables: ChampionTables, onAsk: AskHook | null = null): GolemChampionMind {
   checkChampions(tables);
   let planner: GolemPlanner | null = null;
   let cls: string | null = null;
@@ -177,7 +177,7 @@ export function golemChampionMind(seed: number, tables: ChampionTables): GolemCh
       if (planner === null) {
         cls = armClass(view.self);
         entry = championEntry(tables, cls);
-        planner = golemChampion(seed, entry);
+        planner = golemChampion(seed, entry, onAsk);
       }
       return planner.decide(view, dt);
     },

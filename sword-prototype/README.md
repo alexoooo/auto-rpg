@@ -127,15 +127,16 @@ that presentation failure too.
 A bout is chosen before it is fought. The curtain carries a left corner and a right corner —
 a unit, a policy, and whether that side is driven by a mind or by you — and the Fight button
 starts what is on it. There is one of you, so taking a side gives the other one back to its
-policy. Nine policies ship and a corner is only ever offered the ones its own body can take:
+policy. Ten policies ship and a corner is only ever offered the ones its own body can take:
 **idle** stands there and can be cut apart, **swinger** walks in and cuts on a fixed cadence
 without ever looking at your guard, **duelist** holds measure, guards between exchanges, and
 commits when your point leaves the line, **archer** keeps its distance and shoots — give it a
 bow, or it will simply back away from you all day, **crawler** drives the centipede, and
 **golem duelist** drives a golem, **golem fencer** drives one while reading the other
 golem's arm, **golem planner** drives one by searching a duel model fitted from the
-tournament's own log, and **golem champion** is the planner with the numbers a tuning run
-found for the arm it is holding. The filter runs both ways: a swordsman's mind is not offered
+tournament's own log, **golem champion** is the planner with the numbers a tuning run
+found for the arm it is holding, and **golem neural** is the fencer under a small network
+that was first taught the champion's choices and then searched. The filter runs both ways: a swordsman's mind is not offered
 a body with no hands, and the golem's is not offered to a Warrior. A bout ends when its one
 derived vitality bar reaches zero, or when the clock
 runs out. Zero head or torso health is fatal by itself; serious combined wounds elsewhere
@@ -288,8 +289,8 @@ offered on the wrist arm alone, because without a roll axis a lash has nowhere t
 is eleven arms in all, and every one of them is a different body rather than a worse version
 of the best one.
 
-Five minds can drive it — **idle**, **golem duelist**, **golem fencer**, **golem planner** and
-**golem champion** — and `C` takes it
+Six minds can drive it — **idle**, **golem duelist**, **golem fencer**, **golem planner**,
+**golem champion** and **golem neural** — and `C` takes it
 over mid-bout exactly as it takes over a warrior. The golem duelist knows nothing about which
 modules it is wearing: it asks each arm what strokes it has and how far it reaches, and every
 range it keeps is a fraction of that answer rather than a distance. Bolt something new on and it
@@ -302,7 +303,12 @@ from the tournament's exchange log names one of those options, and the fencer ru
 golem champion is that planner with its sixty-two numbers moved by an evolutionary search
 on the tournament harness, one vector per kind of arm and one for the rest, read off a table
 checked in with the run's seed; it reads which arm it holds off its own first view and takes
-the row for it.
+the row for it. The golem neural is the fencer under a network of 8,328 weights instead of
+the planner's search: it reads the same open options, reading and view into fifty-six numbers
+and names the open option with the highest logit, from weights checked in with the seed and
+date of the run that made them; the run first fitted the network to the champion's own
+choices, which it learned almost exactly, and then searched the weights on the tournament
+harness.
 
 **Win a bout against a golem and whichever of its arms came off intact is yours** — an arm cut
 off at the shoulder is loot, an arm hacked to pieces is debris, and legs are neither, because

@@ -478,6 +478,15 @@ export type DuelDirector = (
   available: readonly DuelOption[], reading: DuelReading, view: FighterView,
 ) => DuelOption;
 
+/**
+ * What a hook on a director sees at every ask: the same three things the director did, and
+ * the option it named. Session 08 hangs the neural contender's teacher log here, so that the
+ * network is fitted to what the champion chose from what the champion saw.
+ */
+export type AskHook = (
+  available: readonly DuelOption[], reading: DuelReading, view: FighterView, option: DuelOption,
+) => void;
+
 /** One hand's stroke in flight: which hand, its shape, and its own clock. */
 interface Stroke {
   hand: HandName;

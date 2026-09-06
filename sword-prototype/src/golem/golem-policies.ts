@@ -3,6 +3,7 @@ import { golemTactics } from "./tactics.ts";
 import { golemChampionMind as championMind, type GolemChampionMind } from "./champion.ts";
 import { golemPlanner } from "./planner.ts";
 import { GOLEM_CHAMPIONS } from "./tactics-champions.ts";
+import { golemNeural } from "./neural.ts";
 import { golemFencer, type GolemFencer } from "./tactics-v2.ts";
 
 /**
@@ -86,4 +87,20 @@ export function golemPlannerMind(seed = (Math.random() * 0x100000000) >>> 0): Mi
  */
 export function golemChampionMind(seed = (Math.random() * 0x100000000) >>> 0): GolemChampionMind {
   return championMind(seed, GOLEM_CHAMPIONS);
+}
+
+/**
+ * The fifth golem mind, the learned one. Session 08 of the matchup set.
+ *
+ * The fencer's executor under a network that names the option, from the checked-in
+ * `NEURAL_WEIGHTS`; `fencer` is published for the exchange log as the others publish it.
+ * Same seed argument, same reasons.
+ */
+export function golemNeuralMind(seed = (Math.random() * 0x100000000) >>> 0): Mind & { fencer: GolemFencer } {
+  const neural = golemNeural(seed);
+  return {
+    name: "golem-neural",
+    fencer: neural.fencer,
+    decide: (view, dt): Intent => neural.decide(view, dt),
+  };
 }

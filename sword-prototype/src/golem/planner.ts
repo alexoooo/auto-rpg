@@ -5,7 +5,9 @@ import {
   type DuelModelTables, type DuelOption, type Plan,
 } from "./duel-model.ts";
 import { DUEL_MODEL_TABLES } from "./duel-model-tables.ts";
-import { GOLEM_TACTICS_V2, golemFencer, type FencerTactics, type GolemFencer } from "./tactics-v2.ts";
+import {
+  GOLEM_TACTICS_V2, golemFencer, type AskHook, type FencerTactics, type GolemFencer,
+} from "./tactics-v2.ts";
 
 /**
  * The golem's third scripted mind, `golem-planner`: the fencer's executor with the fencer's own
@@ -74,7 +76,7 @@ export interface GolemPlanner {
 
 export function golemPlanner(
   seed: number, tables: DuelModelTables = DUEL_MODEL_TABLES, P: PlannerTactics = GOLEM_PLANNER,
-  T: FencerTactics = GOLEM_TACTICS_V2,
+  T: FencerTactics = GOLEM_TACTICS_V2, onAsk: AskHook | null = null,
 ): GolemPlanner {
   checkDuelModel(tables);
   let lastPlan: Plan | null = null;
@@ -96,11 +98,13 @@ export function golemPlanner(
     lastPlan = planOption(tables, state, available, weights, { horizon: P.horizon, discount: P.discount });
     replans += 1;
     totalMs += performance.now() - started;
+    let option = lastPlan.option;
     if (P.explore > 0 && random() < P.explore) {
       explored += 1;
-      return available[Math.floor(random() * available.length)] ?? lastPlan.option;
+      option = available[Math.floor(random() * available.length)] ?? lastPlan.option;
     }
-    return lastPlan.option;
+    onAsk?.(available, reading, view, option);
+    return option;
   });
   return {
     fencer,

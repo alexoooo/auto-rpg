@@ -88,7 +88,7 @@ test("a_units_picker_never_offers_a_mind_written_for_the_other_control_surface",
   const names = (unit) => unit.driverOptions.map(({ name }) => name);
   assert.ok(!names(warrior).includes("golem-duelist"),
     `a Warrior's picker offers ${names(warrior).join(", ")}`);
-  assert.deepEqual(names(golem), ["idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion"]);
+  assert.deepEqual(names(golem), ["idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-neural"]);
   assert.throws(() => unitDefinition("warrior").createPolicy("golem-duelist"),
     /does not support policy/);
   assert.throws(() => unitDefinition("golem").createPolicy("duelist"),
@@ -104,6 +104,7 @@ test("a_units_picker_never_offers_a_mind_written_for_the_other_control_surface",
   assert.equal(POLICIES.find((policy) => policy.name === "golem-fencer").surface, "golem-v1");
   assert.equal(POLICIES.find((policy) => policy.name === "golem-planner").surface, "golem-v1");
   assert.equal(POLICIES.find((policy) => policy.name === "golem-champion").surface, "golem-v1");
+  assert.equal(POLICIES.find((policy) => policy.name === "golem-neural").surface, "golem-v1");
 });
 
 // ---------------------------------------------------------------------------------------

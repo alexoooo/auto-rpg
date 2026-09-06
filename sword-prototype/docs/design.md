@@ -700,6 +700,73 @@ champion's own log is owed. The switches of Session 05 stay where they were meas
 table is not what the owner's gate reads: a champion that rates higher and reads worse on the
 structural columns beside every rating is reported in `docs/measurements.md` and not shipped.
 
+## The neural contender, which is the fencer under a network that picks what the planner searched for
+
+Session 08 of the matchup set. The fifth golem mind, `golem-neural`, adds no tactic and writes
+no hand command. The fencer of Session 05 publishes, between exchanges, what it can do this
+step and what it reads of the other arm; the planner of Session 06 answers by searching a duel
+model; this mind answers by reading the same three things -- the open options, the reading, and
+the view -- into fifty-six numbers, running a checked-in network forward, and naming the open
+option with the highest logit. The fencer runs it until it asks again, on its own
+`replanSeconds` cadence, or until it starts an exchange, which then runs to its end. That is the
+plan's "the network picks one of the executor's options at about eight hertz; the executor runs
+the exchange", and it has the same semi-Markov shape the planner has: a decision carries its
+own duration, which is however long the fencer takes to ask again. The frozen choice that a
+mind reads capabilities and a view and never module ids stands: the features are a pure
+function of the reading, the open list and the view, versioned in
+`src/golem/neural-features.ts`, and a table trained on another version of them is refused by
+name.
+
+**The network is small and owes nothing to anyone.** A multilayer perceptron in
+`src/golem/neural-net.ts`, fifty-six inputs, two hidden layers of sixty-four with tanh, a linear
+head of eight read through a softmax over the options that are open, 8,328 weights; seeded
+initial weights, a forward pass that allocates nothing, and a backward pass forty lines long
+checked against finite differences in `tests/neural.test.mjs`. The mask is the whole reason the
+head is not a plain softmax: the network only ever competes among what the body can do this
+step, so it is never trained toward, and can never name, a strike it cannot make. The choice is
+the argmax and not a draw, so a bout under a seed is the bout.
+
+**Where the weights come from is two steps, and the first is a departure from the plan.** The
+plan said evolution strategies from scratch over the tuner's machinery. A network at
+indifference loses every bout to the league, and a fitness that reads 0 for every child of a
+loser has no gradient to climb, so the search would have spent its budget finding out that
+hold is better than nothing. `scripts/train-neural.mjs` therefore first fits the network to the
+champion: the champion plays the league on the mirrored pool with a hook on its director, every
+ask is a sample -- the features, the option it took, which options were open -- and the network
+is trained by gradient descent on the masked cross-entropy of those choices, a tenth held out
+to say how often it agrees with the teacher on asks it never saw. Then the search: OpenAI-ES
+over the weights, a population of antithetic pairs around the mean, each rated on the harness
+against the frozen league exactly as the tuner rates a vector, rank utilities, a step of fixed
+length along the estimated gradient, the seed changing every generation. Three candidates come
+out -- the imitated network, the final mean, and the generation that rated highest -- and all
+three are confirmed on a seed the search never saw beside the champion on the same schedule;
+the one that confirms highest is what `NEURAL_WEIGHTS` in `src/golem/neural-weights.ts`
+holds, with the versions, seed, date, teacher, agreement, and the confirmation it earned.
+
+**What this bought.** A mind that cannot be told from its teacher. The champion recorded 31,919
+asks over 384 mirrored bouts against the league; thirty epochs fitted the network to 99.7 % of
+the held-out tenth of them, because a director that is a deterministic search over a few
+hundred discretised states is a table this network learns to the last row. Twelve generations
+of the search, 19,584 bouts, moved the weights by a fifteenth of their length and the answer on
+nineteen of those asks: an imitation this confident has logit margins a σ 0.05 perturbation
+cannot flip, so every child played the champion's game and the fitnesses were noise. On the
+evaluation seed the search never saw, against the four shipped minds on the mirrored pool and
+on random pairs, the neural mind is level with the champion head to head on the one and three
+hundredths above it on the other, behind the fencer and the duelist by four to eight
+hundredths exactly as the champion and the planner are, with the champion's structural
+columns. It does not beat the hand-coded champion. It is the hand-coded champion, in a form
+that can be trained, running on the fencer's default numbers rather than the tuned rows;
+`docs/measurements.md` has the collection census, the imitation, the search, the confirmation
+of three candidates and the evaluation.
+
+**What it does not do.** It does not choose a target: the fencer's target selection is the
+fencer's, as it is under the planner. It does not learn from its own play: the samples are the
+champion's, the search is against a frozen league, and a run of the trainer that let the
+network play itself would be a different session. And the policy-gradient trainer the plan
+named as the fallback is not written: the honest reading of the run is that the budget's
+limit is the noise of the harness and not the search, the same wall Session 07 hit, and a
+second optimiser does not move that wall.
+
 ## Dying, which is not the same as losing
 
 `over` not stopping the world was the right call about the *bout* and, for a long time, it

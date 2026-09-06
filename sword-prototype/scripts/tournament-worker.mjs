@@ -14,10 +14,14 @@
 // two are different cells.
 import { parentPort, workerData } from "node:worker_threads";
 
-import { armClass, golemChampion } from "../src/golem/champion.ts";
-import { observe, stateKey } from "../src/golem/duel-model.ts";
+import { armClass, golemChampion, golemChampionMind } from "../src/golem/champion.ts";
+import { DUEL_OPTIONS, observe, stateKey } from "../src/golem/duel-model.ts";
+import { FEATURE_COUNT, neuralFeatures } from "../src/golem/neural-features.ts";
+import { golemNeural } from "../src/golem/neural.ts";
+import { NEURAL_WEIGHTS } from "../src/golem/neural-weights.ts";
 import { innerReach } from "../src/golem/tactics.ts";
-import { GOLEM_PLANNER } from "../src/golem/planner.ts";
+import { GOLEM_CHAMPIONS } from "../src/golem/tactics-champions.ts";
+import { GOLEM_PLANNER, golemPlanner } from "../src/golem/planner.ts";
 import { GOLEM_TACTICS_V2 } from "../src/golem/tactics-v2.ts";
 import { policyMind } from "../src/mind.ts";
 import { policyForUnit } from "../src/units.ts";
@@ -111,14 +115,60 @@ function exchangeLogger(mind, side) {
 }
 
 /**
- * The mind a side plays: the policy by name, or a contender -- a name the tuner gave a vector,
- * built as a champion over that vector with the seed the policy would have had, so a contender
- * row is the row `golem-champion` would make with that vector in its table. `fencer` is
- * published for the exchange log, as the planner's own mind publishes it.
+ * A hook on a director that keeps every ask as a sample for the neural trainer (Session 08):
+ * the features as the network would read them, the option taken, and a bitmask of what was
+ * open. Packed once at the end of the bout into typed arrays the row carries back.
  */
-function mindFor(policy, seed) {
+function askRecorder() {
+  const scratch = new Float64Array(FEATURE_COUNT);
+  const xs = [];
+  const ys = [];
+  const opens = [];
+  return {
+    hook(available, reading, view, option) {
+      neuralFeatures(reading, available, view, scratch);
+      xs.push(Float32Array.from(scratch));
+      ys.push(DUEL_OPTIONS.indexOf(option));
+      let bits = 0;
+      DUEL_OPTIONS.forEach((name, j) => { if (available.includes(name)) bits |= 1 << j; });
+      opens.push(bits);
+    },
+    pack() {
+      const x = new Float32Array(xs.length * FEATURE_COUNT);
+      xs.forEach((features, i) => x.set(features, i * FEATURE_COUNT));
+      return { x, y: Uint8Array.from(ys), open: Uint8Array.from(opens) };
+    },
+  };
+}
+
+/**
+ * The mind a side plays: the policy by name, or a contender. A contender is a name the tuner
+ * gave a vector, built as a champion over that vector with the seed the policy would have had,
+ * so a contender row is the row `golem-champion` would make with that vector in its table; or
+ * (Session 08) a name over `weights`, built as the neural mind over them; or a name over
+ * `policy`, which is that policy under another name, so a confirmation can meet the shipped
+ * champion on the same schedule as the candidates. `fencer` is published for the exchange
+ * log, as the planner's own mind publishes it. A recorder, when the run records a teacher,
+ * hooks the director of the planner or the champion; no other policy has one.
+ */
+function mindFor(policy, seed, recorder = null) {
   const contender = workerData?.contenders?.[policy];
-  if (contender === undefined) return policyMind(policyForUnit("golem", policy), seed);
+  if (contender === undefined) {
+    if (recorder !== null) {
+      if (policy === "golem-champion") return golemChampionMind(seed, GOLEM_CHAMPIONS, recorder.hook);
+      if (policy === "golem-planner") {
+        const planner = golemPlanner(seed, undefined, undefined, undefined, recorder.hook);
+        return { name: policy, fencer: planner.fencer, decide: (view, dt) => planner.decide(view, dt) };
+      }
+      throw new Error(`"${policy}" cannot be recorded: only the planner and the champion have a director to hook`);
+    }
+    return policyMind(policyForUnit("golem", policy), seed);
+  }
+  if (contender.policy !== undefined) return policyMind(policyForUnit("golem", contender.policy), seed);
+  if (contender.weights !== undefined) {
+    const neural = golemNeural(seed, { ...NEURAL_WEIGHTS, weights: contender.weights });
+    return { name: policy, fencer: neural.fencer, decide: (view, dt) => neural.decide(view, dt) };
+  }
   const champion = golemChampion(seed, { class: policy, builds: 0, generations: 0, bouts: 0, score: 0, baseline: 0, margin: 0, baselineMargin: 0, ...contender });
   return { name: policy, fencer: champion.fencer, decide: (view, dt) => champion.decide(view, dt) };
 }
@@ -128,9 +178,13 @@ async function runJob(job) {
   // The minds are built here and handed in, rather than left to `runBout` to build from the
   // policy names, so that this file can hold the fencer's handle for the exchange log. Same
   // factory, same seed, so a row is the row `runBout` would have made on its own.
+  const recorders = {
+    left: workerData?.record && job.left.policy === workerData.record ? askRecorder() : null,
+    right: workerData?.record && job.right.policy === workerData.record ? askRecorder() : null,
+  };
   const minds = {
-    left: mindFor(job.left.policy, job.seeds[0]),
-    right: mindFor(job.right.policy, job.seeds[1]),
+    left: mindFor(job.left.policy, job.seeds[0], recorders.left),
+    right: mindFor(job.right.policy, job.seeds[1], recorders.right),
   };
   const loggers = workerData?.exchanges
     ? { left: exchangeLogger(minds.left, "left"), right: exchangeLogger(minds.right, "right") }
@@ -221,6 +275,9 @@ async function runJob(job) {
   };
   if (workerData?.exchanges) {
     row.exchanges = { left: loggers.left?.records ?? null, right: loggers.right?.records ?? null };
+  }
+  if (workerData?.record) {
+    row.samples = { left: recorders.left?.pack() ?? null, right: recorders.right?.pack() ?? null };
   }
   return row;
 }

@@ -340,7 +340,7 @@ export const EXCHANGE_WINDOW_SECONDS = 0.5;
 export const EXCHANGE_FLICKER_SECONDS = 0.05;
 
 export function runJobs(jobs, {
-  workers, onRow = null, onProgress = null, overrides = null, exchanges = false, contenders = null,
+  workers, onRow = null, onProgress = null, overrides = null, exchanges = false, contenders = null, record = null,
 }) {
   return new Promise((resolvePromise, reject) => {
     const rows = new Array(jobs.length).fill(null);
@@ -365,7 +365,7 @@ export function runJobs(jobs, {
     if (jobs.length === 0) { resolvePromise(rows); return; }
     const count = Math.max(1, Math.min(workers, jobs.length));
     for (let i = 0; i < count; i += 1) {
-      const worker = new Worker(workerUrl, { workerData: { overrides, exchanges, contenders } });
+      const worker = new Worker(workerUrl, { workerData: { overrides, exchanges, contenders, record } });
       pool.push(worker);
       worker.on("message", (message) => {
         if (message.type === "ready") { feed(worker); return; }

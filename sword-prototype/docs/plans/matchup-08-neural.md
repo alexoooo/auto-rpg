@@ -1,6 +1,23 @@
 # Session 08 -- a neural contender, `golem-neural`
 
-**Status (2026-09-05): planned. Needs 07.**
+**Status (2026-09-06): implemented; the human gate is open.** `src/golem/neural-features.ts`,
+`src/golem/neural-net.ts`, `src/golem/neural.ts`, `src/golem/neural-weights.ts` (generated
+by the run of seed 20260908), `scripts/train-neural.mjs`, `golem-neural` registered in
+`src/golem/golem-policies.ts`, `src/mind.ts` and `src/units.ts`; the planner's and the
+champion's director gained an ask hook, and the harness's worker three more kinds of
+contender; seven tests in `tests/neural.test.mjs`. Three departures from what is written
+below, each recorded in the Session 08 entry of `docs/measurements.md`: the search starts
+from an imitation of the champion's own asks and not from indifference, since a network at
+indifference has no fitness gradient against a league tuned for four sessions; the teacher
+is the champion, so the network is first the champion's director as 8,328 numbers, which it
+learned to 99.7 % held-out agreement; and what ships is the best of three confirmed
+candidates, the imitated network, the final mean and the peak generation, not the final mean
+by right. The honest table: the search moved the decisions on nineteen of 31,919 asks, the
+shipped mind is level with the champion on the mirrored evaluation pool and three hundredths
+above it on random pairs, behind the fencer and the duelist as the champion is, with the
+champion's structural columns. It does not beat the hand-coded champion; it is the champion in
+a trainable form. The policy-gradient fallback is not written, for the reason the entry gives:
+the wall is the noise of the fitness, not the optimiser. Verdict: awaiting the owner.
 
 ## Outcome
 

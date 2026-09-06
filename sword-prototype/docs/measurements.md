@@ -12922,3 +12922,233 @@ bouts. The honest statement of what this run bought is a vector that confirms a 
 the defaults with structural columns inside the approved band, in a tuning budget of about
 three hours of the host; a run that could tell a 0.01 improvement would be a night, and is what
 the plan's overnight was for.
+
+## Session 08 of the matchup set — 2026-09-06: the neural contender, which learned the champion in an hour and then could not be told from it
+
+What the plan asked for: a network that picks among the fencer's tactical options at about
+eight hertz, features a versioned pure function of the view and the executor's state, a
+dependency-free multilayer perceptron of two hidden layers of 64, trained by evolution
+strategies on the tournament harness against the frozen league, checked in as a versioned
+weights table, loaded by a policy `golem-neural`, refused by version; three tests; and an
+honest report against the champion whichever way it goes. What shipped:
+`src/golem/neural-features.ts` (fifty-six columns), `src/golem/neural-net.ts` (the network,
+its masked softmax and its backward pass), `src/golem/neural.ts` (the table's shape, the
+refusals, the mind), `src/golem/neural-weights.ts` (generated), `scripts/train-neural.mjs`,
+`golem-neural` registered in `src/golem/golem-policies.ts`, `src/mind.ts` and `src/units.ts`;
+the director of the planner and the champion gained a hook a recorder hangs on, and the
+harness's worker learned three more kinds of contender (a name over weights, a name over a
+policy, and a policy under record); seven tests in `tests/neural.test.mjs`. Three departures,
+each with its reason below: the search starts from an imitation of the champion and not from
+indifference; the teacher is the champion, so the network is first the champion's director
+written as 8,328 numbers; and what ships is the best of three confirmations -- the imitated
+network, the final mean, and the peak generation -- and not the final mean.
+
+### The features and the network
+
+Fifty-six columns, named in `FEATURE_NAMES` so a table and a test can say which is which: a
+bias; the gap scaled, the gap over my strike range, the gap beyond it, the gap rate, whether I
+reach and whether they do; both reaches and their difference; my weapon and theirs, one-hot
+over sword, club, whip, empty, shield and buckler; both vitalities and the lead; the least
+health fraction of each of five slots on each side, a missing slot zero; both tip speeds;
+their phase, one-hot over idle, chamber, commit and recover, and mine over free, exchange and
+recover; paired hands; whether a natural attack is ready and how far it reaches; the clock;
+and which of the eight options is open. Everything is clamped to a small range so a weight
+starts at the same scale whatever column it reads. The network is 56 → 64 → 64 → 8, tanh
+hidden layers, a linear head read through a softmax over the open options only, 8,328
+weights; Glorot-uniform initial weights under a seed, biases zero. The backward pass is
+checked against central differences at 10⁻⁶ on every weight of a 3 → 4 → 3 network, and the
+gradient of a closed option's head row is exactly zero, which is the mask doing what it is for.
+
+### Departure: the champion first, by imitation
+
+The plan's search was evolution strategies from scratch. Session 07 measured the fitness noise
+at σ 0.032 for 384 bouts, and a network at indifference -- a uniform draw among the open
+options -- loses to the league by a margin far larger than any child of it differs from any
+other, so the first generations would have rated seventeen strangers against a wall and moved
+along noise. The trainer therefore records the champion first: it plays the three league minds
+on the mirrored pool with a hook on its director, and every ask is a sample.
+
+| collection | value |
+|:--|--:|
+| bouts, mirrored, champion against duelist / fencer / planner | 384 |
+| asks recorded | 31,919 |
+| asks per bout | 83 |
+| options open per ask, mean | 4.85 |
+| wall, 32 workers | 78 s |
+
+What the champion chose, and how often each option was there to choose:
+
+| option | taken | share of asks | open | taken when open |
+|:--|--:|--:|--:|--:|
+| hold | 14,127 | 44.3 % | 31,919 | 44.3 % |
+| withdraw | 4,585 | 14.4 % | 31,919 | 14.4 % |
+| close | 3,318 | 10.4 % | 31,919 | 10.4 % |
+| ram | 2,702 | 8.5 % | 3,655 | 73.9 % |
+| strike | 2,527 | 7.9 % | 5,804 | 43.5 % |
+| feint | 2,199 | 6.9 % | 5,804 | 37.9 % |
+| wait | 1,367 | 4.3 % | 11,998 | 11.4 % |
+| circle | 1,094 | 3.4 % | 31,919 | 3.4 % |
+
+Thirty epochs of Adam at 10⁻³, batches of 64, a tenth held out by a seeded shuffle:
+
+| imitation | value |
+|:--|--:|
+| samples / held out | 28,728 / 3,191 |
+| loss after epoch 1 / 30 | 0.330 / 0.005 |
+| held-out agreement after epoch 1 / 30 | 98.3 % / 99.7 % |
+| wall | 47 s |
+
+The agreement is not a surprise once it is read: the champion's director is the planner's
+search over a duel model whose state is a handful of discretised bits -- reach, phase pair,
+gap band, weapon pair -- and `explore` is zero in play, so the choice is a deterministic
+function of a few hundred states, every one of which the features spell out. A network of
+this size learns a table of that size to the last ask. What it cannot learn from these
+samples is anything the champion never did.
+
+### The search
+
+OpenAI-ES from the imitated weights: a population of sixteen, which is eight antithetic pairs
+of perturbations at σ 0.05 a weight around the mean, plus the mean itself; every one of the
+seventeen rated against the league on the mirrored pool over 32 bouts a league member, 96 a
+contender, the schedule drawn from the generation's seed so that all seventeen meet the same
+bodies with the same streams; rank utilities over the sixteen children, a step of length α 0.5
+along the normalised estimated gradient. Twelve generations, 19,584 bouts, 59 minutes of the
+host at 32 workers.
+
+| generation | seed | bouts | mean: points / bar margin | best child | worst child | gradient norm | wall |
+|--:|--:|--:|--:|--:|--:|--:|--:|
+| 1 | 2667729264 | 1,632 | 0.552 / +0.053 | minus-3 +0.060 | plus-3 −0.017 | 40.7 | 245 s |
+| 2 | 1029430203 | 1,632 | 0.479 / +0.062 | minus-6 +0.089 | plus-1 +0.022 | 37.9 | 318 s |
+| 3 | 3683861986 | 1,632 | 0.484 / −0.004 | plus-8 −0.003 | plus-7 −0.059 | 33.3 | 274 s |
+| 4 | 2045300269 | 1,632 | 0.500 / +0.036 | plus-1 +0.046 | plus-7 +0.000 | 36.9 | 293 s |
+| 5 | 371214420 | 1,632 | 0.542 / +0.123 | plus-2 +0.161 | minus-2 +0.106 | 38.2 | 285 s |
+| 6 | 3027890847 | 1,632 | 0.479 / −0.045 | plus-3 −0.017 | minus-2 −0.061 | 39.5 | 286 s |
+| 7 | 1387363526 | 1,632 | 0.448 / −0.014 | minus-2 +0.009 | plus-2 −0.039 | 32.7 | 292 s |
+| 8 | 4035896577 | 1,632 | 0.510 / −0.008 | minus-4 +0.018 | plus-7 −0.058 | 34.0 | 313 s |
+| 9 | 2395369288 | 1,632 | 0.417 / −0.065 | plus-5 −0.038 | plus-1 −0.102 | 39.1 | 264 s |
+| 10 | 790620659 | 1,632 | 0.521 / +0.019 | minus-3 +0.043 | plus-5 −0.004 | 25.3 | 267 s |
+| 11 | 3445035578 | 1,632 | 0.458 / −0.088 | minus-5 −0.063 | plus-1 −0.121 | 37.8 | 366 s |
+| 12 | 1806474341 | 1,632 | 0.443 / −0.041 | minus-7 −0.002 | plus-7 −0.059 | 36.9 | 341 s |
+
+Read down the mean's column: it wanders between 0.417 and 0.552 from one generation to the
+next, which is the seed changing under it and not the weights, since at 96 bouts a contender
+the σ of a reading is about 0.064 and the whole population of a generation -- best child to
+worst -- spans about two of those. The gradient norm is the norm of a sum of rank utilities
+over noise and says nothing either way. What the search did to the decisions is the next
+section's first table.
+
+### The confirmation, and what the search moved
+
+Four candidates on a seed the search never saw, 128 bouts a league member each, beside the
+champion under its own name on the same schedule:
+
+| candidate | points / bout | bar margin | w/d/l | damage / bout | contacts | severs | winner bar | inside inner | lead changed | p50 s |
+|:--|--:|--:|:--|--:|--:|--:|--:|--:|--:|--:|
+| final mean, generation 12 (**shipped**) | 0.488 | −0.018 | 120/135/129 | 97.6 | 220.5 | 114 | 0.527 | 8.2 % | 56.3 % | 29.2 |
+| imitated, before the search | 0.482 | −0.022 | 117/136/131 | 97.7 | 222.5 | 114 | 0.520 | 8.2 % | 56.3 % | 30.1 |
+| peak, the mean after generation 5 | 0.482 | −0.018 | 117/136/131 | 97.1 | 222.1 | 114 | 0.520 | 8.2 % | 56.3 % | 30.1 |
+| champion, the teacher | 0.479 | −0.006 | 126/116/142 | 106.5 | 217.3 | 109 | 0.532 | 7.4 % | 55.7 % | 28.9 |
+
+All four are within one σ of one another and of the teacher, and the trainer shipped the one
+that confirmed highest, which is the rule it was given and not a finding. The finding is in
+the second table. The samples the network was fitted to are the champion's own asks, so the
+three networks can be put to the same 31,919 asks and compared with the teacher and with each
+other:
+
+| pair | agree on the champion's asks |
+|:--|--:|
+| imitated vs champion | 99.84 % |
+| shipped vs champion | 99.86 % |
+| shipped vs imitated | 99.94 % |
+
+Twelve generations and 19,584 bouts moved the network's answer on nineteen of 31,919 asks --
+nine of them circle to wait -- while moving the weight vector by 1.7 of its 25.4 length. The
+reason is the imitation's own success: thirty epochs drove the loss to 0.005, which is logits
+with margins of five or more between the taken option and the next, and a perturbation of
+σ 0.05 a weight through two tanh layers moves a logit by a fraction of one. So every child of
+every generation played the champion's game to the ask, the sixteen fitnesses of a generation
+were sixteen readings of the same policy under sixteen noise draws, and the estimated gradient
+pointed along the noise. A σ large enough to flip decisions would make children that lose to
+the league at once, the wall the plan's from-scratch search would have met on its first
+generation; the σ that keeps them competitive does not explore. That is a property of doing
+evolution strategies on top of a confident imitation at this bout budget, and it is the
+honest answer to whether the search improved the network: it could not tell, because it could
+not move.
+
+### The evaluation, on a pool the search never saw
+
+The shipped weights beside the four shipped minds on the evaluation seed 20260906 -- the
+twelve reference builds and forty draws, the same pool Session 07 evaluated on -- 3,072 bouts
+each way, every pair of distinct policies, once mirrored and once over random pairs of bodies,
+32 workers, the 60 s cap. Five policies make ten pairs where Session 07's four made six, so
+every policy meets about 1,230 bouts here against 1,536 there and the per-policy numbers are
+not the same table; the ordering is what carries over.
+
+| pool | policy | points / bout | bar margin | w/d/l | damage / bout | contacts | severs | winner bar | inside inner | lead changed | p50 s |
+|:--|:--|--:|--:|:--|--:|--:|--:|--:|--:|--:|--:|
+| mirrored | duelist | **0.532** | +0.025 | 440/428/362 | 80.9 | 254.4 | 455 | 0.540 | 6.2 % | 51.5 % | 30.9 |
+| mirrored | fencer | 0.523 | +0.010 | 463/360/407 | 90.4 | 230.3 | 443 | 0.513 | 5.7 % | 56.7 % | 26.6 |
+| mirrored | planner | 0.490 | −0.005 | 382/442/406 | 81.4 | 220.0 | 413 | 0.533 | 7.3 % | 54.5 % | 34.4 |
+| mirrored | neural | 0.478 | −0.024 | 361/449/414 | 81.3 | 233.8 | 404 | 0.519 | 6.7 % | 54.5 % | 36.7 |
+| mirrored | champion | 0.477 | −0.007 | 347/479/404 | 79.4 | 255.1 | 429 | 0.538 | 5.9 % | 52.9 % | 38.6 |
+| random pairs | fencer | **0.560** | +0.076 | 531/315/384 | 97.9 | 182.1 | 567 | 0.799 | 3.9 % | 25.9 % | 23.4 |
+| random pairs | duelist | 0.535 | +0.048 | 498/320/412 | 85.9 | 174.4 | 557 | 0.807 | 7.2 % | 25.4 % | 22.1 |
+| random pairs | neural | 0.483 | −0.019 | 346/490/388 | 76.1 | 154.6 | 453 | 0.828 | 4.8 % | 21.6 % | 37.3 |
+| random pairs | planner | 0.466 | −0.050 | 310/526/394 | 79.2 | 171.2 | 398 | 0.804 | 5.3 % | 24.2 % | 41.6 |
+| random pairs | champion | 0.457 | −0.055 | 290/543/397 | 93.2 | 156.0 | 399 | 0.827 | 3.5 % | 22.8 % | 46.1 |
+
+Head to head, points for the row out of the pair's bouts:
+
+| pool | neural vs champion | neural vs planner | neural vs fencer | neural vs duelist |
+|:--|--:|--:|--:|--:|
+| mirrored | 153 / 306 (0.500) | 159 / 306 (0.520) | 133.5 / 306 (0.436) | 140 / 306 (0.458) |
+| random pairs | 162.5 / 306 (0.531) | 170 / 306 (0.556) | 131.5 / 306 (0.430) | 127 / 306 (0.415) |
+
+And the plan's own verification line, `npm run tournament -- --bouts 64 --policies
+golem-champion,golem-neural` on the default seed: champion 16/33/15, neural 18/27/19, which
+is level, as sixty-four bouts can say it.
+
+**Reading it.** The neural contender is where its teacher is: level with the champion on the
+mirrored pool to the half-point, three hundredths above it on random pairs and head to head
+there, one or two σ; behind the fencer and the duelist by four to eight hundredths on both
+pools, which is where the champion and the planner also are, and which Session 07 already
+reported. The structural columns are the champion's -- the same damage a bout, the same
+contacts, the same share of bouts with the lead changing, the same time inside the inner
+radius -- because the decisions are. The one thing that is not the champion's is the
+executor: the neural mind runs the fencer on its default table, not on the champion's tuned
+rows for the arm class, so what fought here is the champion's director over the fencer's
+hand-set numbers, and on random pairs that combination rated a little above the champion
+itself. Session 07 found the tuned rows worth a few hundredths at most on this pool and this
+is the same statement made from the other side.
+
+So: it does not beat the hand-coded champion, and it was not expected to. It is the champion,
+written as 8,328 numbers by an hour of imitation, and a search that could not move it.
+
+### What this session says about the plan
+
+**The action space held.** Not one hand command was written by the network; every option it
+named the fencer already had, and the mask kept it from naming one the body could not take.
+The semi-Markov shape the plan asked for is the fencer's own ask cadence, which costs the
+network nothing to respect because it is never asked between.
+
+**Imitation is what made a contender out of a network in a session**, and it is a departure
+the plan should keep: a search from scratch against a league of minds that have been tuned
+for four sessions would have had nothing to climb. What imitation cannot do is find anything
+the teacher did not do, and the search on top of it, at the σ that keeps children
+competitive, found that it could not move the decisions either. The from-scratch fitness wall
+and the on-top-of-imitation exploration wall are the same wall seen from two sides: the
+harness's noise at the bout budget a session can spend.
+
+**The policy-gradient fallback was not written**, and this entry says why rather than leaving
+it owed: a second optimiser over the same fitness signal does not lower the σ of that signal.
+What would move this contender is not another optimiser but a fitness with less noise per
+bout -- the bar margin already, perhaps a per-exchange credit from the exchange log rather
+than a per-bout one -- or self-play with the network on both sides, where the samples are its
+own and the teacher's ceiling is gone. Both are a session, not a fallback.
+
+**What is owed**, beside Session 07's calibration of the duel model on the champion's log,
+which stands: an evaluation of the neural mind on the champion's tuned fencer rows rather
+than the defaults, one flag on the mind, so that the one structural difference from its
+teacher is measured rather than argued from; and a census of which asks the network answers
+differently from the champion, by arm class, since 0.14 % of asks is 45 decisions and the
+random-pairs table suggests they were not all for the worse.

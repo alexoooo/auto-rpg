@@ -449,7 +449,7 @@ const centipede: UnitDefinition = Object.freeze({
  * read against. The exclusion now runs both ways: `Policy.surface` keeps `golem-duelist` out of a
  * Warrior's picker for exactly the mirror reason.
  */
-const GOLEM_POLICIES: readonly string[] = Object.freeze(["idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion"]);
+const GOLEM_POLICIES: readonly string[] = Object.freeze(["idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-neural"]);
 
 const golem: UnitDefinition = Object.freeze({
   kind: "golem",
