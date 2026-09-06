@@ -28,9 +28,9 @@ a config failure wearing a routing failure's clothes. `/` is the arena; `/bench.
 module bench, one module at a time on a fixed block.
 
 Everything else `package.json` defines: `check`, `test`, `build`, `preview`, `measure`,
-`asset:build`, `asset:review`, `asset:verify`, `asset:qualify`, `asset:dimensions`,
+`tournament`, `asset:build`, `asset:review`, `asset:verify`, `asset:qualify`, `asset:dimensions`,
 `texture:fetch`, `texture:verify`, `armour:fetch`, `armour:verify`, `armour:extract`. **Checked
-2026-09-05**: every `npm run` command named anywhere in this file, `README.md` or `docs/design.md`
+2026-09-06**: every `npm run` command named anywhere in this file, `README.md` or `docs/design.md`
 still exists, and no command is defined here that the manifest does not have. The forge, learning
 and playtest commands went with their code on 2026-09-04 and no document still calls one.
 

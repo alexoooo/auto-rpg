@@ -53,7 +53,9 @@ test("the_bench_report_carries_the_versioned_records_from_the_shared_recorder", 
   assert.equal(result.engagementInstrumentVersion, ENGAGEMENT_INSTRUMENT_VERSION);
   assert.equal(result.behaviour.left.seconds > 0, true);
   assert.equal(result.behaviour.right.seconds > 0, true);
-  const source = await readFile(new URL("../scripts/measure.mjs", import.meta.url), "utf8");
+  // The bout loop moved from `scripts/measure.mjs` to `scripts/bout-runner.mjs` in Session 04 of
+  // the matchup set; the measure re-exports `runBout` and the text being asserted is the runner's.
+  const source = await readFile(new URL("../scripts/bout-runner.mjs", import.meta.url), "utf8");
   assert.match(source, /wireBoutRecorder\(recorder, left, right\)/,
     "the bench attaches both bodies through the shared intent adapter");
   assert.match(source, /combatRecorder\(recorder, "left"/,

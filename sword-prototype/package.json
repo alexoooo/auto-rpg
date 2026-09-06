@@ -13,6 +13,7 @@
     "check": "tsc --noEmit",
     "test": "node --test tests/*.test.mjs",
     "measure": "node scripts/measure.mjs",
+    "tournament": "node scripts/tournament.mjs",
     "asset:build": "node scripts/run-blender.mjs",
     "asset:review": "node scripts/run-blender.mjs --review",
     "asset:verify": "node scripts/run-blender.mjs --verify",

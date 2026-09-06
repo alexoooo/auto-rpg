@@ -11899,3 +11899,155 @@ two corners and the two bodies read as the same pair. Both values were tried liv
   whether the body needs a label in the arena, is the gate's question and not this entry's.
 - The tournament's build pool is this draw, so the maul's double share (57 of 400) is a fact
   Session 04 inherits and its reference pool of named builds should say whether it minds.
+
+## Session 04 of the matchup set — 2026-09-06: the tournament harness, and the duelist's baseline over random bodies
+
+What the plan asked for: a seeded, parallel tournament over random and reference builds with a
+rating per policy and per policy-by-build-class, the structural columns beside each, and a first
+full run of `golem-duelist` against itself as the baseline every later policy is read against.
+What shipped: `scripts/bout-runner.mjs`, `scripts/tournament.mjs`, `scripts/tournament-worker.mjs`,
+`npm run tournament`, `tests/tournament.test.mjs`, and the run below. The raw log is
+`tournaments/baseline-20260906-duelist.jsonl`, gitignored, and `npm run tournament -- --bouts 1024
+--workers 32 --random 40 --cap 60 --seed 20260906` writes it again to the byte below its header.
+
+### The extraction moved nothing
+
+`runBout`, `buildArena`, `seedFor` and `sideRecord` left `scripts/measure.mjs` for
+`scripts/bout-runner.mjs`. `npm run measure -- --only golem --bouts 8` was run before and after,
+seed 20260823, and the two outputs are identical line for line outside the wall-clock line: two
+cells against the Warrior, the mirror cell, and the seventeen one-slot variants, 37 rows of
+numbers. The wall clock was 230.3 s before and 356.6 s after, and the difference is that the
+second run shared the machine with the tournament below, which is the reason a wall-clock line
+is excluded from a comparison and nothing else is.
+
+### What a run costs
+
+| | number |
+|:---|---:|
+| a fresh Havok module, `freshHavok`, p50 / p90 of 10 | 17.1 / 35.6 ms |
+| one worker, 120 bouts at a 10 s cap, RSS at bout 40 / 80 / 120 | 307 / 305 / 315 MB |
+| 256 bouts at a 60 s cap on 8 workers, nothing else running | 4.2 bouts a second |
+| the same 256 on 16 workers | **5.5** bouts a second |
+| the same 256 on 32 workers | 5.1 bouts a second, 51.9 s |
+| 32 workers, 1024 bouts, with the measure and a probe running beside it | 200.8 s, 5.1 bouts a second |
+
+The three bracket runs wrote the same 256 rows to the byte, and so did the first 256 of the
+baseline, which is the reproducibility claim checked at three worker counts rather than at the
+test's two. A fresh module per bout costs a fiftieth of a bout and the process does not grow:
+the plan's frozen choice of one realm per worker is kept as one *arena* per worker, and the
+module under it is new for every job, which is what makes a row a function of its seed and not
+of its worker.
+
+**Sixteen workers beat thirty-two, and eight are three quarters of either.** The dev host has
+16 cores and 32 threads, and a golem bout is not the kind of work a second thread on a core
+helps: two bodies of a dozen constraints each on the supported carrier, solved iteratively,
+which the measure runs in about 1.3 s single-threaded. Eight workers get 0.53 bouts a second
+each, sixteen 0.34, thirty-two 0.16 -- the machine is saturated at sixteen and past it the
+threads take turns. So `--workers` defaults to half the hardware threads rather than all of
+them, with this table as the reason, and the plan's guess of twenty bouts a second, made from
+the Warrior cell's 250x real time, is a factor of four too high. Session 07's overnight budget
+is therefore about 20,000 bouts an hour, not 70,000, and its plan file should be read with that
+number.
+
+### The baseline: `golem-duelist` against itself, 1024 bouts
+
+Seed 20260906, 512 pairings each run side-swapped, 12 reference builds and 40 seeded draws in
+the pool, a 60 s cap, one policy.
+
+| | number |
+|:---|---:|
+| decided / at the cap | 776 / 248 |
+| bout length p10 / p50 / p90 | 3.7 / 21.2 / 60.0 s |
+| damage a side a bout, mean | 93.5 |
+| contacts a side a bout, mean | 207.8 |
+| severs, total | 825 |
+| winner's remaining bar, mean | 0.792 |
+| samples inside one's own inner radius | 5.8 % |
+| bouts with a lead change | 296 of 1024 |
+| decided bouts the first leader lost | 193 of 776 |
+| pairings the same build won both ways / split / with a draw either way | 331 / 37 / 144 |
+
+One policy rates itself at 1000 by construction; the classes are where the table says something.
+Elo per build class, K = 24, walked in job order, from the bouts whose two classes differ:
+
+| class | elo | bouts | w / d / l | damage | contacts | severs | winner bar | inside inner | lead changed | p50 s |
+|:---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| maul / long | **1563** | 282 | 256 / 0 / 26 | 85.8 | 20.0 | 345 | 0.899 | 26.4 % | 24.1 % | 4.6 |
+| mace / long | 1325 | 232 | 177 / 1 / 54 | 102.6 | 135.7 | 212 | 0.815 | 3.2 % | 33.6 % | 9.8 |
+| blade / long | 1041 | 390 | 131 / 89 / 170 | 63.6 | 332.2 | 140 | 0.699 | 3.4 % | 33.1 % | 33.1 |
+| fist / mid | 1030 | 164 | 85 / 7 / 72 | 361.2 | 109.2 | 0 | 0.740 | 0.1 % | 48.8 % | 12.5 |
+| none / short | 996 | 66 | 21 / 17 / 28 | 93.2 | 62.2 | 0 | 0.806 | 0.0 % | 39.4 % | 26.2 |
+| fist / short | 923 | 158 | 46 / 29 / 83 | 173.8 | 173.9 | 0 | 0.651 | 0.0 % | 48.1 % | 31.0 |
+| mace / mid | 899 | 36 | 3 / 17 / 16 | 40.8 | 248.7 | 11 | 0.864 | 0.0 % | 16.7 % | 57.0 |
+| whip / long | 822 | 176 | 31 / 51 / 94 | 47.0 | 104.6 | 46 | 0.614 | 8.0 % | 27.3 % | 30.9 |
+| plate / short | 812 | 278 | 26 / 140 / 112 | 28.4 | 262.6 | 40 | 0.663 | 0.1 % | 16.2 % | 60.0 |
+| blade / mid | 799 | 180 | 0 / 100 / 80 | 26.5 | 422.2 | 31 | — | 4.9 % | 13.3 % | 60.0 |
+| plate / mid | 790 | 86 | 0 / 45 / 41 | 40.7 | 384.4 | 0 | — | 0.4 % | 14.0 % | 60.0 |
+
+A class is the armed terminal crossed with the band the hand's published reach falls in (short
+under 1.0 m, mid under 1.5, long above), so `blade / mid` is the blade on the pitch chain at
+1.14 m and `fist / short` is a fist on the pitch chain. The reference builds, each side of each
+bout it was in:
+
+| build | bouts | wins | draws | damage a bout | severs |
+|:---|---:|---:|---:|---:|---:|
+| default | 44 | 19 | 10 | 74.4 | 19 |
+| two-blades | 16 | 13 | 0 | 107.9 | 8 |
+| mace | 20 | 17 | 0 | 88.8 | 17 |
+| maul | 44 | 38 | 0 | 84.8 | 49 |
+| whip | 36 | 4 | 15 | 41.9 | 7 |
+| fists | 18 | 14 | 0 | 155.0 | 0 |
+| ram-capped | 32 | 15 | 4 | 73.2 | 0 |
+| ram-blade | 66 | 30 | 19 | 76.7 | 29 |
+| wheel | 32 | 6 | 6 | 48.6 | 6 |
+| multileg | 32 | 12 | 10 | 82.7 | 17 |
+| plated | 38 | 14 | 4 | 48.8 | 14 |
+| pitch-blade | 46 | 0 | 20 | 13.3 | 0 |
+
+### What the baseline says, before anybody tunes against it
+
+**The maul is the fight.** Maul against anything that is not a maul: 232 wins of 234, in a
+median 4.6 s, with a quarter of its samples inside its own inner radius, which is the one class
+that closes through the stand-off. Session 02 recorded the mace and the maul winning 16 of 16
+against the default in under eight seconds and said the tournament would have to rate that
+honestly; this is that rating, and a policy tuned on this pool without a maul row of its own is
+a policy tuned to survive a maul. The six draws in the pool that carry one (draw-1, 6, 8, 11,
+23 and 27) fill the top of the build table for the same reason.
+
+**Three things cannot win at all, and they are body facts rather than mind facts.** The blade on
+the pitch chain: 0 of 46 for the reference build and 0 of 180 for its class, at 13 damage a
+bout against the wrist blade's 74. The plate as the armed terminal, 0 of 86 at mid reach and 26
+of 278 at short: a bash was 0 of 16 in Session 02 and it is 0 of 86 here. And a capped primary
+with a plate behind it (draw-2, draw-17): about one point of damage in a whole bout. None of
+these is a tactic the mind could choose differently; they are terminals that the stroke shapes
+of Session 02 did not make into weapons, and a tournament pool with them in it is a pool with
+three kinds of punching bag. The reference pool question the gate asks is therefore also
+whether `pitch-blade` belongs in it, and the answer this run suggests is that it belongs as a
+regression cell and not as a body a rating should stand on.
+
+**A quarter of bouts reach the cap.** 248 of 1024 ran to 60 s, almost all of them in the classes
+above and in whip and plate pairings, where two bodies that cannot finish each other stand off
+for a minute. The measure's cap is the same 60 s, so this is the same fact the variant table
+shows as `drawn at the cap 7/8` on the pitch blade.
+
+**The fist's damage is the overkill artefact**, 361 a bout at mid reach against a bar worth 184,
+recorded in Session 02 and not repaired here: damage past the bar is still counted. The column
+is honest about contacts and severs; read the fist's damage as "it emptied the bar and kept
+punching".
+
+**What is left is the contest.** Between two blades at long reach, or a mace and a blade, the
+duelist's own numbers hold: a winner at 0.70 to 0.82 of its bar, a lead change in a third of
+bouts, and a first leader who loses one decided bout in four. Those are the columns Session 05's
+fencer has to keep while it moves the rating.
+
+### What this session owes
+
+- The owner reads the baseline and the reference pool and says whether it is the right dozen;
+  the status line in `docs/plans/matchup-04-tournament.md` waits on that.
+- A tournament of one policy rates classes and not the policy. The first row with two names in
+  it is Session 05's, and the policy matrix `formatSummary` prints is empty until then.
+- Five and a half bouts a second on sixteen workers, not twenty on thirty-two, and Session 07's
+  budget line is wrong by that factor until it is rewritten.
+- The pitch blade, the plate-as-weapon and the capped-with-plate draws are punching bags. Whether
+  the stroke shapes can make the first two into weapons is a Session 02 question the baseline
+  reopens; the third is a build the random draw should perhaps not offer.

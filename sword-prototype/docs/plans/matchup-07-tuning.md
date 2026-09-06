@@ -19,7 +19,9 @@ in as small tables a policy reads for its own build class.
   the fencer's executor with the planner, reading the table for its own class.
 - **Long runs are the session's own work** (owner's decision, 2026-09-05): overnight-scale on
   the 32 threads, raw logs gitignored, tables and a `docs/measurements.md` entry committed.
-  Roughly 20 bouts a second across the host, about 70,000 an hour.
+  Roughly 20 bouts a second across the host, about 70,000 an hour -- **measured in Session 04 at
+  5.5 bouts a second on 16 workers, about 20,000 an hour**; the budget below is a quarter of
+  what this line first said.
 - **The owner's judgement gate still applies.** A champion that rates higher and reads worse on
   the structural measures is reported, not shipped.
 

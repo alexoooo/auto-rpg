@@ -1,6 +1,19 @@
 # Session 04 -- the tournament harness
 
-**Status (2026-09-05): planned. Needs 03.**
+**Status (2026-09-06): implemented; the human gate is open.** Everything under *Implement*
+landed: `scripts/bout-runner.mjs` holds `runBout`, the arena builder, `seedFor` and the side
+record, moved without a line changing, and the measure's golem section printed the same tables
+before and after; `scripts/tournament.mjs` and `scripts/tournament-worker.mjs`, `npm run
+tournament`, `tournaments/` gitignored; `tests/tournament.test.mjs` runs two workers over four
+bouts twice under one seed and gets the same rows; the baseline is in `docs/measurements.md`.
+One departure from the frozen choices, recorded here rather than quietly: each worker still
+holds one arena and runs its bouts one after another, but every bout gets a **fresh Havok
+module** through `freshHavok`, because a module keeps allocator and solver history across a
+disposed world (Session 11 of the sword work measured it flipping a winner) and a row that
+depended on which worker ran it would not reproduce under its seed. The reach band of a build
+class is the armed hand's published reach, not the body's, because a capped primary publishes
+the cap's length on the body while the secondary does the fighting. The owner's verdict on the
+reference pool goes here.
 
 ## Outcome
 

@@ -461,6 +461,58 @@ through one callback, `onSelection`, and the host rebuilds bodies only when a un
 the hands changed and nothing is refused; a policy or control change is a matchup change with
 no body behind it.
 
+## The tournament, which is the measure run a thousand times at once
+
+Every policy the matchup set adds after this is judged on one instrument, and the instrument
+had to exist before the first of them did. `npm run tournament` runs seeded golem-versus-golem
+bouts across every hardware thread, over a pool of random and named builds, and prints an Elo
+per policy and per policy-by-build-class with the structural columns beside each. Four
+decisions, and one of them departs from the plan.
+
+**The bout is the measure's bout, in a file of its own.** `runBout`, the arena builder, the
+seed mixer and the per-side record moved from `scripts/measure.mjs` to `scripts/bout-runner.mjs`
+without a line of them changing, and the measure imports them back and re-exports the two the
+tests already used as a library. The golem section of the measure was run before and after the
+move and printed the same tables to the digit, which is the only proof that an extraction
+extracted. The runner sets no bout cap: the page's 600 s and the measure's 60 s each stay where
+their arguments live, and the tournament passes its own on every job.
+
+**A job is plain data and a run is a function of its seed.** The pool is the twelve reference
+builds in `scripts/tournament.mjs` -- the default, two blades, the mace, the maul, the whip, a
+pair of fists, a ram head with capped arms, a ram head with the default arms, the wheel, the
+multileg, the plated trunk, and a blade on the pitch chain -- plus as many seeded draws from
+`randomGolemSetup` as `--random` asks for, each captioned by `describeGolemSetup` in the file's
+header line. A pairing is two draws from that pool and one of the ordered policy pairs, and it
+is run twice, sides and seeds swapped. Every seed in it comes from `--seed` alone, through
+`mulberry32` for the draws and the measure's `seedFor` for the bouts, so a surprising row can
+be replayed rather than argued about.
+
+**One arena per worker thread, and a fresh Havok module per bout: the departure.** The plan
+froze one Havok realm per worker with the bouts sequential inside it, and the bouts are
+sequential; what `scripts/tournament-worker.mjs` adds is `freshHavok` before each one. Session
+11 of the sword work found that a disposed world leaves allocator and solver history in the
+module, enough to flip a winner between two bouts with identical commands, and a tournament
+row that depended on which worker ran the job and what it had run before would not be the row
+its seed names. Rows come back in whatever order thirty-two workers finish them and are written
+in index order as the contiguous prefix grows, so the file two runs produce under one seed is
+the same file to the byte below its header, and `tests/tournament.test.mjs` asks exactly that
+of two workers over four bouts, twice. The instance costs about a twentieth of a bout. A worker
+that throws fails the run rather than leaving a hole, because a tournament with a hole in it is
+not the tournament its seed names either.
+
+**Elo, walked in index order, per policy and per policy-by-class.** A build class is the
+armed terminal crossed with the reach band its hand was published at -- `blade/long`,
+`mace/mid`, `none/short` -- with the band read off the *hand's* reach and not the body's,
+because `BodyView.reach` is the primary socket's and a capped primary with a whip behind it
+publishes the cap's 0.24 m there while lashing at two. A mirror bout of one policy on one
+class moves no rating and is kept for its columns. The columns travel with every row and are
+printed beside every rating, because they are the measures that earned the owner's first yes
+and a rating that rose while they fell would be a rating of the wrong thing: damage and
+contacts a bout, severs, the winner's remaining bar, the fraction of samples spent inside one's
+own inner radius, the fraction of bouts with a lead change, and the median length. Raw rows go
+to a JSON-lines file under `tournaments/`, gitignored, refused on reading by version; what is
+committed is the summary in `docs/measurements.md` with the seed that regenerates the file.
+
 ## Dying, which is not the same as losing
 
 `over` not stopping the world was the right call about the *bout* and, for a long time, it
