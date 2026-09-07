@@ -51,7 +51,7 @@ What the code and the logs say the flail is, read before any code moved:
 | session | outcome | after |
 | --- | --- | --- |
 | [00](style-00-overview.md) | this file; the instruments that see a stroke; the set's baseline table | -- |
-| [01](style-01-contact-rules.md) | one claim per part per stroke; a blow on a hand slot booked as a block | 00 |
+| [01](style-01-contact-rules.md) | one claim per part per stroke; a blow on a hand slot booked as a block; the mace, maul and fist balanced against the blade by a target band | 00 |
 | [02](style-02-stroke-bench.md) | tip speed at the mark on the bench; committed stroke shapes; the parry's arrival time | 01 |
 | [03](style-03-executor-and-form.md) | the third executor with fifteen options and event asks; `golem-form` | 02 |
 | [04](style-04-skirmisher.md) | `golem-skirmisher`: out of reach, in on their recover, out again | 03 |
@@ -127,7 +127,7 @@ stays as it is.
 | session | the owner is asked | verdict |
 | --- | --- | --- |
 | 00 | whether the fencer's baseline row reads as the flail they saw | open |
-| 01 | whether a blow that lands reads as one blow, and whether bouts now run too long | open |
+| 01 | whether a blow that lands reads as one blow, whether bouts now run too long, and whether a maul against a blade is a fight | open |
 | 02 | whether a stroke near the reference speed exists inside the arm's budget | open |
 | 03 | whether a cut reads as a cut and a circle reads as intent | open |
 | 04 | whether the skirmisher reads as hit-and-run rather than as running | open |
