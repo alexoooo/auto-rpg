@@ -1130,6 +1130,69 @@ something were asked again on a held-out seed, where one of them changed sign. F
 five sessions have now ended that way, which is worth saying in one place: on this executor the
 constants are not where the wins are, and a new *rule* is worth more than a swept number.
 
+## The decision log, and what a reward is
+
+The four styles are hand-written and the three minds after them are not; what stands between the
+two halves of this set is a *signal*. The matchup set's learned mind had one number a bout — the
+bar margin at the end — against a per-bout spread of 0.44, and its record says the search hit a
+noise wall rather than a ceiling. A bout is about five hundred and fifty director asks. Attributing
+the bout's outcome to all of them equally is what made the wall; attributing it to each of them
+separately is this section.
+
+**A decision is the window from one ask to the next.** The third executor asks its director when
+nothing is directed, when the cadence elapses, on an event — their arm's phase turning, a parry
+releasing — and when an exchange ends; between two asks the mind does exactly what the first one
+said, so nothing happens in that window that is not attributable to it. That is what makes the
+recorder a hook on the director and nothing else: it needs no join with the exchange log and no
+second reading of the bout. It closes the open decision with the two vitalities as they stand,
+opens the next with the same two numbers on the same step, and marks the last one `done` at the
+bout's end.
+
+**A reward is `dealt − taken` over that window**, each read off the bar rather than off the
+combat records: their vitality when the decision was taken less their vitality when the next one
+was, and mine likewise. Because each close reads the same two numbers the next open records, the
+windows telescope, and the sum of a side's rewards over a bout is its bar margin — to a part in
+ten to the ninth, which is a test on a real bout in `tests/tournament.test.mjs` and the one
+mechanical claim of the session. If that identity ever broke, every value fitted to this log
+would be fitted to a reward that is not the score, and it would not show up as anything but a
+slightly worse mind.
+
+**Nothing is read that the mind could not read.** The two vitalities and the clock are on the
+view the director was handed. The features are the same: `src/golem/style-features.ts` is the
+neural set of the matchup set rebuilt over the wider reading — the same fifty-six columns, an
+open block over fifteen options rather than eight, and six columns for a rhythm that no
+hand-written style consults and that any of them could have. The fourteen things the third
+executor's reading adds over the second's, rhythm aside, are deliberately *not* columns: almost
+all of them are already in the open mask, and the ones that are not are the readings the styles
+were written around, which a learner has no business being handed for free.
+
+**Exploration is a wrapper, and its order matters.** A log taken from a director that always
+answers the same way has no rows at all for the options that style refuses, and a value fitted to
+it can say nothing about them. So a recorded side may answer a fraction of its asks with a
+uniform draw from what is *open*, which keeps every row a row the body could have played. The
+wrapper sits between the director and the hook rather than the other way round, so the log
+records the option that was **played** and pays it the reward that followed; the other order
+would have logged the style's preference against the exploration's outcome, which is the one
+mistake here that no later number would reveal. The director is asked either way and its answer
+thrown away on an exploring ask, so a style with a stream of its own walks the same stream at
+either setting, and at zero there is no wrapper at all — the recorded mind is the shipped one, to
+the byte, which a run of the harness checks by comparing the rows.
+
+**The clock a window is measured on is the view's**, which advances a rendered frame at a time
+while the executor is stepped four times a frame. So two asks inside one frame — the cadence, and
+then an event as their arm turns over — are zero seconds apart, and a window may legitimately have
+no duration. That is the honest number rather than a rounding of it: a blow is stamped off the same
+clock, so nothing can have been booked between them either. A discount over these durations has to
+be able to take a zero.
+
+**The file is columns and lives beside the run.** `scripts/decision-log.mjs` owns the format:
+seven arrays end to end behind a JSON header — the features single precision, because they are
+readings of a physical body good to four digits at best, and the three reward columns double,
+because they are differences of two vitalities a few thousandths apart whose sum has to come back
+as the bar margin exactly. Version 1, the matchup set's three arrays with no rewards and an
+eight-bit mask, is refused by name and has no converter: a fitted-Q iteration handed one would
+train on rewards of zero and never say so.
+
 ## Dying, which is not the same as losing
 
 `over` not stopping the world was the right call about the *bout* and, for a long time, it

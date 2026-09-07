@@ -1,6 +1,51 @@
 # Session 08 -- the league, and the decision log
 
-**Status (2026-09-06): planned. Needs 05, 06, 07.**
+**Status (2026-09-07): implemented; the human gate is open. The log telescopes; the league
+cannot tell seven of nine minds apart.** The two leagues, the two-part corpus, the option-by-option
+reward table and every number below are in the Session 08 entry of `../measurements.md`.
+
+**The league's finding is about bodies, not minds.** Pooled over the nine, three of eleven build
+classes can finish a bout -- a long maul decides 94.2 % of its bouts, a long mace 58.8 %, a long
+blade 7.1 % -- and the other eight decide between 0.0 % and 1.1 %, so 78 % of the mirrored league
+ends on the 60 s cap. Only two policy rows are away from zero on the bar, `golem-brawler` at
++0.0270 +- 0.0052 and `golem-duelist` at -0.0263 +- 0.0057; the seven between them span 0.024 bar
+and four of thirty-six ordered matrix pairs reach two standard errors, against the 1.8 chance
+would give. **A style is worth six times as much on the body that can kill**: on a long maul the
+nine run 0.622 down to 0.411 and the brawler's bar there is +0.1553 +- 0.0209, with the two styles
+holding both ends of that order. On a long blade every mind throws about 113 strokes a bout at
+0.51 damage each, five parts to a stroke -- Session 01's one-claim rule stopped a stroke billing
+one part five times and never could stop it billing five parts once.
+
+**Both of this file's estimates were wrong.** A recorded side takes **253 decisions a bout**, not
+about 80, because the executor asks on their phase changes and at the end of every exchange as
+well as on the cadence; and the per-decision reward has **sigma 0.0105 bar**, not 0.05 to 0.1,
+because a bout's margin is now divided among 253 windows. 72.7 % of windows carry a reward of
+exactly zero and 2.9 % run zero seconds, which is legal: the view clock is quantised to 1/60 s
+while the control step is 1/240 s, so two asks inside one frame are zero seconds apart. The two
+corpus halves are 1,149,249 labelled decisions, three times what Session 10's budget assumed, at
+about 65 MB a thousand bouts.
+
+**The rewards inside a mirrored bout are very nearly independent**, which nobody predicted: 259
+windows at sigma 0.01016 predict a margin sigma of 0.1635 and the measured one is 0.1788, nine per
+cent over. On random pairs the same arithmetic gives 0.1665 against 0.4151, so the autocorrelation
+is the build mismatch rather than the fight. The option table is a conditional mean and not a
+treatment effect -- `void`, `duck` and `parry` are named when a stroke is already coming -- but its
+sign structure is clean: `strike`, `cut` and `shove` are the only options with a positive mean,
+and the six exchange options are 13.7 % of asks, 44.4 % of the seconds and 67.6 % of the damage
+dealt.
+
+**Two precision problems the telescoping test found.** The reward columns had to become `Float64`:
+at `Float32` the sum was 0.008561126654967666 against a margin of 0.008561125627647437, because
+the identity is a sum of five hundred catastrophic cancellations. And a decision window may be
+exactly zero seconds long, for the frame-clock reason above; the assertion is `seconds >= 0` and
+the cause is written into the recorder, the test and `../design.md`.
+
+**`--record "*"` means every style, not every mind with a director.** The planner and the champion
+sit on the second executor with a 56-column feature set, and one samples file holds one kind; a
+nine-mind league recorded with `"*"` would otherwise have thrown at the merge after twenty-five
+minutes of bouts. Separately, `runTournament` was rewriting the whole log on every row -- 295 GB
+of writes for this session's 148 MB corpus file -- and appends now.
+
 
 ## Outcome
 
@@ -83,6 +128,15 @@ git diff --check -- .
 
 ## What remains
 
-This session does not lower the per-bout σ; it changes attribution, so that 384 bouts are about
+This session does not lower the per-bout sigma; it changes attribution, so that 384 bouts are about
 thirty thousand labelled decisions rather than one scalar. Whether that is enough is Session 10's
-number.
+number. Measured: a recorded side takes 253 decisions a bout, so 384 bouts with both sides
+recorded are about a hundred and ninety thousand labelled decisions, not thirty.
+
+Two things this session leaves behind. **The samples file has no policy column**, so the four
+styles merge into one stream and the clean causal read that explore 0.3 makes available -- an
+option a style never prefers appears only through exploration, so its rows are unconfounded --
+cannot be taken from this corpus. Fitted Q does not need it and adding it costs a re-run, so it is
+recorded here rather than done. And **this file's own count of the options is stale**: it says
+thirteen, and the executor has shipped fifteen since the owner added `thrust` and `duck`; the
+feature module and the sixteen-bit mask were built against the fifteen.

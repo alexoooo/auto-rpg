@@ -178,18 +178,29 @@ export async function census(pool, { workers, seed }) {
  * from the seed alone, so all of them meet the same bodies with the same streams, `bouts`
  * bouts against each league policy, mirrored. Returns the summary rows keyed by contender,
  * with `score` the points per bout.
+ *
+ * **Session 08 of the style set makes four of the run's choices arguments.** `mirror` was the
+ * hard-coded `true` above and stays the default, because a search wants the pool where the mind
+ * is the whole difference; a *confirmation* wants random pairs as well, since that is the pool
+ * the picker's default is read off, and it wants them under the same common random numbers. The
+ * other three -- `record`, `explore` and `behaviour` -- ride through to the workers so that a
+ * confirmation can take its decision log and its behaviour records in the same bouts it is
+ * scored on, rather than in a second run whose draw is a different draw.
  */
-export async function evaluate({ contenders, league, pool, seed, bouts, workers, cap, onProgress = null }) {
+export async function evaluate({
+  contenders, league, pool, seed, bouts, workers, cap, onProgress = null,
+  mirror = true, record = null, explore = 0, behaviour = false,
+}) {
   const names = Object.keys(contenders);
   const jobs = [];
   for (const name of names) {
     const scheduled = scheduleJobs({
       pool, policies: [name, ...league], pairings: Math.ceil(bouts / 2) * league.length, seed, cap,
-      mirror: true, contenders, pairs: league.map((policy) => [name, policy]),
+      mirror, contenders, pairs: league.map((policy) => [name, policy]),
     });
     for (const job of scheduled) jobs.push({ ...job, index: jobs.length });
   }
-  const rows = await runJobs(jobs, { workers, contenders, onProgress });
+  const rows = await runJobs(jobs, { workers, contenders, record, explore, behaviour, onProgress });
   const summary = summarize(rows);
   const margins = {};
   for (const row of rows) {

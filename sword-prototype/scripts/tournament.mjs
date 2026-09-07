@@ -22,7 +22,7 @@
 // whose classes differ; a mirror bout of one policy on one class rates nothing and is kept for
 // its structural columns. Pool and pairings, never best-of-N: the dev host runs 32 bouts at
 // once and a bracket is a queue.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -32,6 +32,7 @@ import { defaultGolemSetup, describeGolemSetup, golemSetupRefusal, randomGolemSe
 import { REACH_BANDS, reachBand } from "../src/golem/champion.ts";
 import { mulberry32 } from "../src/rng.ts";
 import { unitDefinition } from "../src/units.ts";
+import { mergeSamples, writeSamples } from "./decision-log.mjs";
 
 /** Bumped when a row's shape changes; `--read` refuses a file written under another. */
 export const TOURNAMENT_VERSION = 1;
@@ -547,7 +548,7 @@ export function strokeColumns(strokes) {
 
 export function runJobs(jobs, {
   workers, onRow = null, onProgress = null, overrides = null, exchanges = false, contenders = null, record = null,
-  behaviour = false,
+  behaviour = false, explore = 0,
 }) {
   return new Promise((resolvePromise, reject) => {
     const rows = new Array(jobs.length).fill(null);
@@ -572,7 +573,7 @@ export function runJobs(jobs, {
     if (jobs.length === 0) { resolvePromise(rows); return; }
     const count = Math.max(1, Math.min(workers, jobs.length));
     for (let i = 0; i < count; i += 1) {
-      const worker = new Worker(workerUrl, { workerData: { overrides, exchanges, contenders, record, behaviour } });
+      const worker = new Worker(workerUrl, { workerData: { overrides, exchanges, contenders, record, behaviour, explore } });
       pool.push(worker);
       worker.on("message", (message) => {
         if (message.type === "ready") { feed(worker); return; }
@@ -602,28 +603,54 @@ export function runJobs(jobs, {
 export async function runTournament({
   seed, bouts, workers, policies, random, cap, out, onProgress = null, overrides = null, cross = false,
   mirror = false, exchanges = false, contenders = null, pairs = null, pool = null, behaviour = false,
+  record = null, explore = 0, samples = null,
 }) {
   pool ??= buildPool({ seed, random });
   const jobs = scheduleJobs({ pool, policies, pairings: Math.ceil(bouts / 2), seed, cap, cross, mirror, contenders, pairs });
   mkdirSync(dirname(out), { recursive: true });
   const header = {
     version: TOURNAMENT_VERSION, seed, date: new Date().toISOString(), policies, bouts: jobs.length, cap, random,
-    overrides, cross, mirror, exchanges, behaviour, contenders, pairs,
+    overrides, cross, mirror, exchanges, behaviour, contenders, pairs, record, explore,
     pool: pool.map(({ name, setup, caption }) => ({ name, setup, caption })),
   };
-  const lines = [JSON.stringify(header)];
-  writeFileSync(out, `${lines[0]}\n`);
+  writeFileSync(out, `${JSON.stringify(header)}\n`);
+  // The decision samples come off the rows as typed arrays and are kept out of the JSON line: a
+  // Float32Array through `JSON.stringify` is an object with one key a number, several megabytes a
+  // bout and unreadable at the far end. They are lifted here, the row is written without them,
+  // and the run's samples go beside the log as one binary file.
+  const parts = [];
+  let kind = null;
   const rows = await runJobs(jobs, {
-    workers, exchanges, contenders, behaviour,
+    workers, exchanges, contenders, behaviour, record, explore,
     overrides,
     onRow(row) {
-      const line = JSON.stringify(row);
-      lines.push(line);
-      writeFileSync(out, lines.join("\n") + "\n");
+      if (row.samples) {
+        for (const side of ["left", "right"]) {
+          const pack = row.samples[side];
+          if (!pack || pack.y.length === 0) continue;
+          if (kind !== null && pack.kind !== kind) {
+            throw new Error(`this run records ${kind} samples and ${pack.kind} ones; one file holds one feature set`);
+          }
+          kind = pack.kind;
+          parts.push(pack);
+        }
+        delete row.samples;
+      }
+      // Appended, not rewritten. The rows arrive in index order, so the file this builds is the
+      // file a rewrite built; what it is not is quadratic. A run with `--exchanges --behaviour`
+      // carries several kilobytes a row, and rewriting a thirty-megabyte file four thousand times
+      // is sixty gigabytes of writing for a twenty-minute run.
+      appendFileSync(out, JSON.stringify(row) + "\n");
     },
     onProgress,
   });
-  return { header, pool, jobs, rows, summary: summarize(rows), out };
+  let log = null;
+  if (samples !== null && kind !== null) {
+    const merged = mergeSamples(parts, { kind, bouts: rows.length });
+    const { bytes } = writeSamples(samples, merged);
+    log = { path: samples, kind, count: merged.count, bytes };
+  }
+  return { header, pool, jobs, rows, summary: summarize(rows), out, samples: log };
 }
 
 /**
@@ -691,17 +718,33 @@ if (isMain) {
     // stroke columns and the four engagement ones are on every row already; this is for a
     // question they were not chosen to answer, and it costs a kilobyte or two a row.
     const behaviour = argv.includes("--behaviour");
+    // `--record golem-form,golem-guardian` or `--record *` takes the decision log of every
+    // recorded side: one row per director ask, with the damage the two bars took until the next
+    // one. `*` means every *style* in the run and passes over every other mind, so a league run
+    // records the four styles and leaves the duelist, the planner and the champion alone -- the
+    // last two have a director to hook as well, but on the older executor, whose columns are a
+    // different feature set, and one samples file holds one of those.
+    // `--explore` answers that fraction of a recorded side's asks with a uniform draw from what
+    // is open, which is what puts rows in the log for options the style never names.
+    const record = flag("record", null);
+    const recorded = record === null ? null : record === "*" ? "*" : record.split(",").map((n) => n.trim()).filter(Boolean);
+    const explore = Math.max(0, Number(flag("explore", 0)));
     const stamp = new Date().toISOString().replace(/[-:]/g, "").slice(0, 13);
     // Concatenated rather than a template, because the docs gate reads a backticked span that ends
     // in a file extension as a path reference, and this one is a name the run makes up.
     const out = resolve(flag("out", "tournaments/" + stamp + "-" + seed + "-" + policies.join("+") + ".jsonl"));
     if (existsSync(out)) throw new Error(`${out} exists; name another with --out`);
+    // Beside the log and not inside it: the samples are typed arrays and the log is JSON lines.
+    const samples = recorded === null ? null : flag("samples", out.replace(/[.]jsonl$/, "") + ".bin");
+    if (samples !== null && existsSync(samples)) throw new Error(`${samples} exists; name another with --samples`);
     console.log(`seed ${seed}, ${bouts} bouts, ${workers} workers, cap ${cap} s, policies ${policies.join(", ")}, ` +
       `${REFERENCE_BUILDS.length} reference builds + ${random} drawn${cross ? ", cross pairs only" : ""}${mirror ? ", one build both sides" : ""}${exchanges ? ", exchange log on" : ""}${behaviour ? ", behaviour records on" : ""}` +
+      (recorded === null ? "" : `, recording ${record}${explore > 0 ? ` at explore ${explore}` : ""}`) +
       (overrides ? `, overriding ${JSON.stringify(overrides)}` : ""));
     let lastReport = 0;
-    const { rows, summary } = await runTournament({
+    const { rows, summary, samples: written } = await runTournament({
       seed, bouts, workers, policies, random, cap, out, overrides, cross, mirror, exchanges, behaviour,
+      record: recorded, explore, samples,
       onProgress({ done, total, seconds }) {
         if (done === total || seconds - lastReport >= 10) {
           lastReport = seconds;
@@ -711,5 +754,8 @@ if (isMain) {
     });
     console.log(formatSummary(summary));
     console.log(`\n${rows.length} rows in ${out}`);
+    if (written !== null) {
+      console.log(`${written.count} decisions (${written.kind} features) in ${written.path}, ${(written.bytes / 1048576).toFixed(1)} MB`);
+    }
   }
 }

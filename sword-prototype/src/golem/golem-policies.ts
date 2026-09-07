@@ -5,11 +5,14 @@ import { golemPlanner } from "./planner.ts";
 import { GOLEM_CHAMPIONS } from "./tactics-champions.ts";
 import { golemNeural } from "./neural.ts";
 import { golemFencer, type GolemFencer } from "./tactics-v2.ts";
-import { golemForm } from "./styles/form.ts";
-import { golemBrawler } from "./styles/brawler.ts";
-import { golemGuardian } from "./styles/guardian.ts";
-import { golemSkirmisher } from "./styles/skirmisher.ts";
-import type { GolemStyled } from "./tactics-v3.ts";
+import { FORM, formDirector, golemForm } from "./styles/form.ts";
+import { BRAWLER, brawlerDirector, golemBrawler } from "./styles/brawler.ts";
+import { GUARDIAN, guardianDirector, golemGuardian } from "./styles/guardian.ts";
+import { SKIRMISHER, golemSkirmisher, skirmisherDirector } from "./styles/skirmisher.ts";
+import {
+  exploringDirector, golemStyled, watchedDirector,
+  type GolemStyled, type StyleAskHook, type StyleDirector,
+} from "./tactics-v3.ts";
 
 /**
  * The golem's entry in the policy picker.
@@ -175,6 +178,71 @@ export function golemBrawlerMind(seed = (Math.random() * 0x100000000) >>> 0): Mi
   const styled = golemBrawler(seed);
   return {
     name: "golem-brawler",
+    styled,
+    decide: (view, dt): Intent => styled.decide(view, dt),
+  };
+}
+
+/**
+ * Every style by name: how to build its director over its own table. Session 08 of the style set.
+ *
+ * The four `golem*Mind` factories above each build one style and hand back a mind; this is the
+ * same four taken apart, so that something else can put a hook and an exploration wrapper
+ * *between* the director and the executor. The tournament worker is what wants that -- a recorded
+ * side is a style playing its own game with a log taken off the wire -- and the alternative was a
+ * fourth argument on each of the four factories and a name-to-factory table in the worker beside
+ * this one, which is two lists of the same four names that could drift apart.
+ *
+ * A style registers here and in `src/mind.ts`; a mind that is not a style has no entry, which is
+ * what `directedMind` refuses on.
+ */
+export const STYLE_DIRECTORS: Readonly<Record<string, (seed: number) => StyleDirector>> = Object.freeze({
+  "golem-form": (seed) => formDirector(seed, FORM),
+  "golem-skirmisher": (seed) => skirmisherDirector(seed, SKIRMISHER),
+  "golem-guardian": (seed) => guardianDirector(seed, GUARDIAN),
+  "golem-brawler": (seed) => brawlerDirector(seed, BRAWLER),
+});
+
+/**
+ * The table each style plays, by policy name.
+ *
+ * These are the style modules' own objects and not copies, so a run that has written into one
+ * through `--override form.cutLean=0.8` is a run whose `directedMind` reads the overridden row.
+ * The worker keeps a second map of the same four tables under the *prefixes* that flag uses; the
+ * two are different keys onto the same objects and neither can drift, because both name the
+ * exported constant.
+ */
+export const STYLE_POLICY_TABLES = Object.freeze({
+  "golem-form": FORM, "golem-skirmisher": SKIRMISHER, "golem-guardian": GUARDIAN, "golem-brawler": BRAWLER,
+});
+
+/**
+ * A style built for a run that is taking a decision log: the director, an exploration wrapper
+ * around it, and a hook around that.
+ *
+ * **The order of the two wrappers is the whole point.** Exploring inside and watching outside
+ * means the log records the option that was *played*, which is the one the reward that follows
+ * belongs to; the other order would log the style's preference and pay it the exploration's
+ * reward, which is the one mistake that would make every number in Sessions 09 and 10 wrong and
+ * would not show up as anything but a slightly worse fit.
+ *
+ * The exploration stream is seeded apart from the mind's own so that a style whose director
+ * rolls -- the form's circle duty, the skirmisher's feint -- walks the same stream at explore 0.3
+ * as at 0; at explore 0 there is no wrapper at all and the mind is the shipped one to the byte.
+ */
+export function directedMind(
+  policy: string, seed = (Math.random() * 0x100000000) >>> 0,
+  onAsk: StyleAskHook | null = null, explore = 0,
+): Mind & { styled: GolemStyled } {
+  const make = STYLE_DIRECTORS[policy];
+  if (make === undefined) {
+    throw new Error(`"${policy}" is not a style: it has no director to hook, and only a style has one`);
+  }
+  const explored = exploringDirector(make(seed), explore, (seed ^ 0x5ec0de5) >>> 0);
+  const styled = golemStyled(seed, STYLE_POLICY_TABLES[policy as keyof typeof STYLE_POLICY_TABLES],
+    onAsk === null ? explored : watchedDirector(explored, onAsk));
+  return {
+    name: policy,
     styled,
     decide: (view, dt): Intent => styled.decide(view, dt),
   };

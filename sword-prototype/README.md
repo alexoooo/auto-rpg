@@ -338,6 +338,15 @@ point at the head when the head is the softest thing it can reach; a body whose 
 its head charges instead. It never asks for a step back, and the one evasion it allows itself is
 a step off a committed point from *outside* their reach, where there is still ground behind it.
 
+None of those four learned anything. The three minds that follow them are fitted to a **decision
+log** the harness can now take: `npm run tournament — --record golem-form,golem-guardian` (or
+`--record *`) writes one row per director ask beside the run's log — what the mind read, the
+option it played, which options were open, and the damage the two bars took until the next ask --
+and `--explore 0.3` answers that fraction of a recorded side's asks with a uniform draw from
+what is open, so the log has rows for options that style would never name. A side's rewards add
+up to its bar margin exactly, which is what makes a per-decision number a score rather than a
+guess; `docs/design.md` has the argument and `docs/measurements.md` the sizes.
+
 **Win a bout against a golem and whichever of its arms came off intact is yours** — an arm cut
 off at the shoulder is loot, an arm hacked to pieces is debris, and legs are neither, because
 a body coming apart is not a part coming off. A **Parts bin** sits under the corners, kept in

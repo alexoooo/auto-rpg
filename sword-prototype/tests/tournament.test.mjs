@@ -13,6 +13,8 @@ import { join } from "node:path";
 
 import { golemSetupRefusal } from "../src/golem/build.ts";
 import { DUEL_OPTIONS, fitDuelModel } from "../src/golem/duel-model.ts";
+import { STYLE_OPTIONS, exploringDirector } from "../src/golem/tactics-v3.ts";
+import { STYLE_FEATURE_COUNT } from "../src/golem/style-features.ts";
 import { collectRecords, pruneTransitions, renderTablesModule } from "../scripts/calibrate-duel-model.mjs";
 import {
   ELO_START,
@@ -30,6 +32,7 @@ import {
   policyPairs,
   readRows,
   reachBand,
+  runJobs,
   runTournament,
   scheduleJobs,
   strokeColumns,
@@ -403,4 +406,158 @@ test("exchanges_puts_the_fencers_option_windows_on_every_row_and_the_model_fits_
   });
   assert.equal(plain.rows[0].exchanges, undefined);
   assert.equal(collectRecords([join(dir, "plain.jsonl")]).skipped, 2);
+});
+
+/**
+ * The decision log, on a real run over two workers. Session 08 of the style set.
+ *
+ * The claim that matters is the telescoping one: a side's rewards are the damage the two bars
+ * took between one ask and the next, and every close reads the same two numbers the next open
+ * records, so their sum over a bout is the bar margin the row reports. If that identity ever
+ * breaks -- a window opened without being closed, a close reading a stale vitality -- then every
+ * value fitted to this log in Sessions 09 and 10 is fitted to a reward that is not the score,
+ * which is the one failure that would not show up as anything but a slightly worse mind.
+ *
+ * The rest is shape: one decision a row across all seven columns, a taken option that was open,
+ * exactly one decision marked the side's last, positive durations, an exchange window longer
+ * than the cadence because the executor is not interruptible inside one, and the windows tiling
+ * the bout from the first ask to the last sample.
+ */
+test("a_recorded_style_logs_one_decision_an_ask_and_its_rewards_telescope_to_the_bar_margin", { timeout: 300_000 }, async () => {
+  const pool = buildPool({ seed: SEED, random: 0 }).filter((build) => build.name === "default" || build.name === "mace");
+  assert.equal(pool.length, 2);
+  const jobs = scheduleJobs({
+    pool, policies: ["golem-brawler", "golem-fencer"], pairings: 2, seed: SEED, cap: 3, mirror: true,
+  });
+  const rows = await runJobs(jobs, { workers: 2, record: ["golem-brawler"] });
+  assert.equal(rows.length, 4);
+  let decisions = 0;
+  for (const row of rows) {
+    for (const [me, them] of [["left", "right"], ["right", "left"]]) {
+      const pack = row.samples[me];
+      if (row[me].policy !== "golem-brawler") { assert.equal(pack, null, "an unrecorded side wrote a log"); continue; }
+      assert.equal(pack.kind, "style");
+      const count = pack.y.length;
+      assert.ok(count > 8, `${count} decisions in a three-second bout`);
+      assert.equal(pack.x.length, count * STYLE_FEATURE_COUNT);
+      for (const column of ["open", "dealt", "taken", "seconds", "done"]) {
+        assert.equal(pack[column].length, count, `${column} is not one a decision`);
+      }
+      let sum = 0;
+      let ended = 0;
+      let elapsed = 0;
+      for (let i = 0; i < count; i += 1) {
+        const option = STYLE_OPTIONS[pack.y[i]];
+        assert.ok(option !== undefined, `decision ${i} took option ${pack.y[i]}`);
+        assert.ok((pack.open[i] >> pack.y[i] & 1) === 1, `decision ${i} took ${option}, which was not open`);
+        // Never negative, and zero is legal: the clock a view carries advances a rendered frame
+        // at a time while the executor is stepped four times a frame, so two asks in one frame --
+        // the cadence and then an event on their phase turning -- are zero seconds apart. The cap
+        // closes the last decision wherever it stands, so that is the one window that may also be
+        // shorter than the cadence.
+        const last = pack.done[i] === 1;
+        assert.ok(pack.seconds[i] >= 0, `decision ${i} ran ${pack.seconds[i]} s`);
+        if (!last && ["strike", "cut", "thrust", "feint", "shove", "ram"].includes(option)) {
+          assert.ok(pack.seconds[i] > 0.167, `a ${option} was asked again after ${pack.seconds[i]} s, inside the cadence`);
+        }
+        sum += pack.dealt[i] - pack.taken[i];
+        elapsed += pack.seconds[i];
+        ended += pack.done[i];
+      }
+      assert.equal(ended, 1, `${ended} decisions were marked the side's last`);
+      assert.equal(pack.done[count - 1], 1, "the last decision is not the one marked done");
+      assert.ok(Math.abs(sum - pack.margin) < 1e-9,
+        `the rewards sum to ${sum} and the side's margin is ${pack.margin}`);
+      assert.ok(Math.abs(pack.margin - (row[me].vitality - row[them].vitality)) < 1e-9,
+        "the pack's margin is not the row's");
+      assert.equal(pack.winner, row.winner);
+      assert.ok(Math.abs(elapsed - row.seconds) < 0.1,
+        `the windows cover ${elapsed} s of a ${row.seconds} s bout`);
+      decisions += count;
+    }
+  }
+  assert.ok(decisions > 48, `${decisions} decisions over four three-second bouts`);
+  // And a run that records at explore 0 is the run that would have happened with no recorder.
+  const plain = await runJobs(jobs, { workers: 2 });
+  assert.deepEqual(plain.map((row) => ({ ...row, samples: undefined })),
+    rows.map((row) => ({ ...row, samples: undefined })),
+    "recording moved a bout");
+});
+
+/**
+ * The other half of the recording apparatus: the wrapper that makes a director answer at random
+ * some of the time, so the log has rows for options the style never names.
+ *
+ * At zero it is not a wrapper at all -- the director itself comes back, which is what makes "a
+ * recorded run at explore 0 is the shipped mind to the byte" a fact about the object graph rather
+ * than a hope about a random stream. At one every answer is drawn from what is open, which is the
+ * property the log depends on: an exploring ask must still be an ask the body could have played,
+ * or the reward attached to it is the reward of something that never happened.
+ */
+test("exploring_at_zero_is_the_director_itself_and_at_one_never_names_a_closed_option", () => {
+  // A director with a will of its own: it always wants the one option that is never open here.
+  let asked = 0;
+  const stubborn = () => { asked += 1; return "ram"; };
+  assert.equal(exploringDirector(stubborn, 0, 7), stubborn, "explore 0 wrapped the director");
+  assert.equal(exploringDirector(stubborn, -1, 7), stubborn, "a negative fraction is not an exploration");
+  const open = ["hold", "close", "circle", "strike", "shove"];
+  const explored = exploringDirector(stubborn, 1, 7);
+  const named = new Set();
+  for (let i = 0; i < 400; i += 1) {
+    const answer = explored(open, null, null);
+    assert.ok(open.includes(answer), `${answer} was not open`);
+    named.add(answer);
+  }
+  assert.equal(asked, 400, "the director is asked on an exploring ask too, so its own stream walks the same way");
+  assert.deepEqual([...named].sort(), [...open].sort(), "the draw never reached some of the open options");
+  // Half the time, at a half: the wrapper's own stream, not the director's.
+  let kept = 0;
+  const half = exploringDirector(stubborn, 0.5, 11);
+  for (let i = 0; i < 400; i += 1) if (half(["ram", "hold", "close"], null, null) === "ram") kept += 1;
+  assert.ok(kept > 200 && kept < 320, `${kept} of 400 asks kept the director's answer`);
+  // Every option a style may name has a bit in the mask and a column in the features.
+  assert.equal(STYLE_OPTIONS.length, 15);
+  assert.ok(STYLE_FEATURE_COUNT > STYLE_OPTIONS.length);
+});
+
+/**
+ * The exchange log over the third executor. Session 08 of the style set.
+ *
+ * The log was written for the fencer and reads the option in force off `mind.fencer`; a style
+ * publishes the same thing under `mind.styled`, because the two executors have different option
+ * vocabularies and a log that called both `fencer` would be a log in which `cut` and `strike`
+ * were the same column. What this asks is that the windows come out at all, that they are named
+ * in the style's own fifteen, and that the four acts Session 08 added to the free set are cut at
+ * the cap rather than run on as exchanges.
+ */
+test("the_exchange_log_reads_a_styled_mind_and_files_the_option_names_that_style_uses", { timeout: 300_000 }, async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "sword-tournament-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const result = await runTournament({
+    seed: SEED, bouts: 4, workers: 2, policies: ["golem-form", "golem-brawler"], random: 2, cap: 4,
+    out: join(dir, "styled.jsonl"), cross: true, exchanges: true,
+  });
+  assert.equal(result.rows.length, 4);
+  let windows = 0;
+  const named = new Set();
+  for (const row of result.rows) {
+    for (const side of ["left", "right"]) {
+      const log = row.exchanges[side];
+      assert.ok(Array.isArray(log) && log.length > 0, `a styled row with no windows on the ${side}`);
+      for (const w of log) {
+        assert.ok(STYLE_OPTIONS.includes(w.option), `${w.option} is not a style option`);
+        assert.match(w.state, /^(nn|hn|nh|hh)\/(out|theirs|mine|both)\/(idle|chamber|commit|recover)\/(free|exchange|recover)$/);
+        // The bout's end closes the last window where it stands, and the clock a sample carries
+        // advances a frame at a time, so a window opened in the frame the cap fell is zero long.
+        assert.ok(w === log[log.length - 1] ? w.seconds >= 0 : w.seconds > 0, `a window of ${w.seconds} s`);
+        if (["hold", "close", "withdraw", "circle", "void", "retreat", "parry"].includes(w.option)) {
+          assert.ok(w.seconds <= EXCHANGE_WINDOW_SECONDS + 1 / 60 + 1e-6, `a ${w.option} window of ${w.seconds} s`);
+        }
+        named.add(w.option);
+        windows += 1;
+      }
+    }
+  }
+  assert.ok(windows > 40, `${windows} windows over four four-second bouts`);
+  assert.ok(named.size >= 3, `only ${[...named].join(", ")} were ever in force`);
 });

@@ -334,6 +334,25 @@ export interface StyleReading extends DuelReading {
   paired: boolean;
   /** Whether there is a spare hand that could be asked to cover. */
   spareCanCover: boolean;
+  /**
+   * The rhythm: six clocks no shipped style reads, kept for the decision log. Session 08.
+   *
+   * Every one of them is a fact a mind can take from the view it is handed each step -- a phase
+   * it has been watching, a count it has been keeping, a vitality it saw fall -- so a learner
+   * that reads them reads nothing the hand-written styles could not have read and did not.
+   * `theirsSeconds` and `mineSeconds` are how long the current phase has been in force, not how
+   * long the last one lasted; the three `since` clocks are infinity until the thing has happened
+   * once.
+   */
+  theirsSeconds: number;
+  mineSeconds: number;
+  /** How many times their arm has committed in this bout. */
+  theirCommits: number;
+  sinceTheirCommit: number;
+  /** Seconds since I last opened an exchange of any kind, a feint included. */
+  sinceMyStroke: number;
+  /** Seconds since either vitality last fell, which is the last time anything landed either way. */
+  sinceContact: number;
 }
 
 /**
@@ -534,6 +553,18 @@ export function golemStyled(
   let ramFired = false;
   let ramFiredAt = 0;
 
+  /** The rhythm clocks behind the six reading fields of the same names. */
+  let theirsSeconds = 0;
+  let mineSeconds = 0;
+  let theirCommits = 0;
+  let sinceTheirCommit = Number.POSITIVE_INFINITY;
+  let sinceMyStroke = Number.POSITIVE_INFINITY;
+  let sinceContact = Number.POSITIVE_INFINITY;
+  let lastRhythmTheirs: StrokePhase = "idle";
+  let lastMine: MyPhase = "free";
+  /** Both vitalities added, at the last step; negative before the first. */
+  let lastVitalities = -1;
+
   let option: StyleOption = "hold";
   /** The option that opened the exchange in flight, which is what `chamberAbort` offers back. */
   let exchangeOption: StyleOption = "strike";
@@ -550,6 +581,9 @@ export function golemStyled(
     near: 0, hold: 0, theirReach: 0, inside: false, cooldown: 0,
     sinceTheirExchange: Number.POSITIVE_INFINITY, lead: 0, weakestSlot: "trunk", intercept: null,
     longer: false, shorter: false, headfirst: false, paired: false, spareCanCover: false,
+    theirsSeconds: 0, mineSeconds: 0, theirCommits: 0,
+    sinceTheirCommit: Number.POSITIVE_INFINITY, sinceMyStroke: Number.POSITIVE_INFINITY,
+    sinceContact: Number.POSITIVE_INFINITY,
   };
 
   const goTo = (next: StyleStance): void => {
@@ -851,6 +885,30 @@ export function golemStyled(
       if (parryRelease <= 0 || !spareCanCover) { parrying = false; released = true; }
     }
 
+    // ---- the rhythm, advanced once a step and read at the ask ---------------------------------
+    // These are the six clocks of `StyleReading` that nothing in this file acts on: the executor
+    // keeps them because it is the only thing that sees every step, and `src/golem/style-features.ts`
+    // is what reads them. `mine` is computed here rather than in the reading below because the
+    // rhythm needs to compare it with the last step's.
+    const mine: MyPhase = stance === "recover" ? "recover"
+      : stance === "free" || stance === "circle" || stance === "retreat" || stance === "duck" ? "free"
+      : "exchange";
+    theirsSeconds = theirs === lastRhythmTheirs ? theirsSeconds + dt : 0;
+    mineSeconds = mine === lastMine ? mineSeconds + dt : 0;
+    if (theirs === "commit" && lastRhythmTheirs !== "commit") { theirCommits += 1; sinceTheirCommit = 0; }
+    else sinceTheirCommit += dt;
+    lastRhythmTheirs = theirs;
+    lastMine = mine;
+    sinceMyStroke += dt;
+    // A contact is a vitality that fell, either side's: the only reading of "something landed"
+    // available to a mind that is handed two bars and no combat log. Both are added so that one
+    // test catches either, and the epsilon is there because a bar is a float that is rewritten
+    // every step.
+    const vitalities = self.vitality + them.vitality;
+    if (lastVitalities >= 0 && vitalities < lastVitalities - 1e-9) sinceContact = 0;
+    else sinceContact += dt;
+    lastVitalities = vitalities;
+
     // ---- what the director reads ---------------------------------------------------------------
     reading.gap = gap;
     reading.strike = strike;
@@ -859,9 +917,7 @@ export function golemStyled(
     reading.theirWeapon = theirWeapon;
     reading.myWeapon = me.weapon;
     reading.theirs = theirs;
-    reading.mine = stance === "recover" ? "recover"
-      : stance === "free" || stance === "circle" || stance === "retreat" || stance === "duck" ? "free"
-      : "exchange" as MyPhase;
+    reading.mine = mine;
     reading.near = near;
     reading.hold = hold;
     reading.theirReach = them.reach;
@@ -876,6 +932,12 @@ export function golemStyled(
     reading.headfirst = headfirst;
     reading.paired = paired;
     reading.spareCanCover = spareCanCover;
+    reading.theirsSeconds = theirsSeconds;
+    reading.mineSeconds = mineSeconds;
+    reading.theirCommits = theirCommits;
+    reading.sinceTheirCommit = sinceTheirCommit;
+    reading.sinceMyStroke = sinceMyStroke;
+    reading.sinceContact = sinceContact;
 
     // ---- what a body could be asked for this step ----------------------------------------------
     // What is open is what the body can do, not what a tactic would allow. v2 learned this the
@@ -914,6 +976,7 @@ export function golemStyled(
       // The option in force and not the shape's name, so that a `wait` that fires on their recover
       // is logged as the counter it is and `chamberAbort` offers it back under its own name.
       exchangeOption = option;
+      sinceMyStroke = 0;
       nextPrefer = spare;
       goTo(kind === "feint" ? "feint" : "chamber");
     };
@@ -1232,5 +1295,33 @@ export function watchedDirector(director: StyleDirector, onAsk: StyleAskHook): S
     const option = director(available, reading, view);
     onAsk(available, reading, view, option);
     return option;
+  };
+}
+
+/**
+ * A director that answers at random a fraction of the time, so a log has something to compare.
+ *
+ * A decision log taken from a director that always answers the same way is a log in which every
+ * option but the ones that style names has no rows at all, and a value fitted to it can say
+ * nothing about the ones it never saw. `explore` is the fraction of asks answered with a uniform
+ * draw from what is *open*, which keeps every row of the log a row the body could have played.
+ *
+ * **The director is asked either way**, and its answer thrown away on an exploring ask, so that
+ * a style with a stream of its own -- the form's circle duty, the skirmisher's feint roll --
+ * walks the same stream at explore 0.3 as at 0 and the two logs differ only in the answers. The
+ * roll is drawn from a stream of this wrapper's own for the same reason.
+ *
+ * At `explore` zero the director is handed back unwrapped: a run that records at zero is the run
+ * that would have happened with no recorder at all, to the byte, and that is a test.
+ */
+export function exploringDirector(
+  director: StyleDirector, explore: number, seed: number,
+): StyleDirector {
+  if (!(explore > 0)) return director;
+  const random = mulberry32(seed);
+  return (available, reading, view) => {
+    const answer = director(available, reading, view);
+    if (random() >= explore) return answer;
+    return available[Math.min(available.length - 1, Math.floor(random() * available.length))];
   };
 }

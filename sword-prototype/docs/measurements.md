@@ -15742,3 +15742,357 @@ a stroke. Getting there was never the problem for that class.
 8. **The 60 s cap is in front of the gate for the sixth time.** Four bouts in five end on it in
    the sweep pool. The one exception in the whole session is the paired maul, and the exception is
    the shape of the problem: bouts end when a body can finish, and most of these bodies cannot.
+
+## Session 08 of the style set — 2026-09-07: a league in which three bodies out of eleven can finish a fight, and a log that pays each decision what it earned
+
+What the plan asked for: the league of all nine minds over 4,096 bouts mirrored and 4,096 over
+random pairs, by policy and by build class with every structural column and the mind-against-mind
+matrix; and the signal the learned minds of Sessions 09 and 10 will train on -- every director
+decision of a recorded side, with its features, the option it took, the options that were open,
+the damage dealt and taken until the next decision, the seconds it ran and whether it was the
+side's last. What shipped: `src/golem/style-features.ts` at 69 columns, `exploringDirector` and
+six rhythm fields on the reading in `src/golem/tactics-v3.ts`, `directedMind` and the style
+factory table in `src/golem/golem-policies.ts`, a new `scripts/decision-log.mjs` holding a
+version-2 columnar samples file, `decisionRecorder` in `scripts/tournament-worker.mjs`, the
+`--record`, `--explore` and `--samples` flags on `scripts/tournament.mjs`, five new tests, and
+four runs: two leagues and a two-part corpus. Logs are `tournaments/style08-league-mirror.jsonl`,
+`tournaments/style08-league-random.jsonl`, `tournaments/style08-corpus-random.jsonl` and
+`tournaments/style08-corpus-mirror.jsonl`, each corpus half carrying a `.bin` of the same name.
+
+**The league's finding is not about a mind.** Pooled over all nine minds in the mirrored league,
+**three of the eleven build classes can finish a bout and eight cannot**: a long maul decides
+94.2 % of its bouts, a long mace 58.8 %, a long blade 7.1 %, and every other class -- mid blade,
+short plate, short and mid fist, whip, mid mace, mid plate, the unarmed one -- decides between
+0.0 % and 1.1 %. That is 78 % of the whole league on the 60 s cap and it is the same 78 % whichever
+of the nine minds is holding the body. The reach draw, not the director, is what a tournament on
+random bodies mostly measures, and every points column in this entry has to be read against that.
+
+**And the flail the owner complained about is a weapon class.** On a long maul a side throws 34.3
+strokes a bout at 3.09 damage each; on a long blade the same nine minds throw 112.9 strokes at
+0.51 damage each, five parts to a stroke, for 58.6 damage a bout that finishes nobody. Session 01
+put one claim per part per stroke into the contact rules and the blows column did not fall to the
+one or two it predicted -- it sits at 5.1 on a long blade -- because those are five *different*
+parts: a long blade driven through a body sweeps it. The rule stopped a stroke billing one part
+five times; it does not stop a stroke billing five parts once each, and after four styles the
+long blade is still a mind touching a body a hundred and thirteen times a minute for half a point
+of damage a touch.
+
+### The league, mirrored: 4,096 bouts, 903 decided
+
+Both sides on the same body, so a row is the mind and nothing else. `--bouts 4096 --cross
+--random 40 --cap 60 --seed 20260906` over `golem-duelist,golem-fencer,golem-planner,
+golem-champion,golem-neural,golem-form,golem-skirmisher,golem-guardian,golem-brawler`. Points are
+wins plus half the draws over bouts; the bar is the mean of my vitality minus theirs at the end,
+with its standard error beside it, and it is the column with the resolution -- 903 of 4,096 bouts
+produced a winner, so a points column at 22 % decided is mostly reporting who drew.
+
+| policy | points | w/d/l | bar | inside inner | strokes | blows | dmg/stroke | v@blow | caught | catches | commit | severs | idle m | clinch s |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `golem-brawler` | 0.524 | 125/697/82 | **+0.0270 ± 0.0052** | 28.0 % | 81.8 | 5.96 | 0.79 | 3.9 | 36.7 % | 29.5 | 54.6 % | 0.13 | 1.1 | 1.1 |
+| `golem-neural` | 0.511 | 105/714/85 | +0.0012 ± 0.0056 | 9.9 % | 81.6 | 4.36 | 0.69 | 4.5 | 41.4 % | 37.4 | 50.2 % | 0.12 | 4.7 | 1.4 |
+| `golem-fencer` | 0.505 | 109/709/100 | +0.0024 ± 0.0056 | 9.2 % | 87.4 | 4.65 | 0.73 | 4.8 | 42.8 % | 41.1 | 54.3 % | 0.12 | 3.3 | 1.3 |
+| `golem-champion` | 0.502 | 113/696/109 | +0.0099 ± 0.0058 | 10.5 % | 85.5 | 4.26 | 0.79 | 5.0 | 44.8 % | 42.8 | 55.2 % | 0.13 | 4.3 | 1.5 |
+| `golem-planner` | 0.497 | 101/711/106 | −0.0144 ± 0.0056 | 11.3 % | 83.9 | 4.12 | 0.72 | 4.7 | 43.2 % | 41.0 | 53.4 % | 0.11 | 4.5 | 1.5 |
+| `golem-skirmisher` | 0.496 | 84/729/91 | +0.0025 ± 0.0051 | 9.2 % | 90.0 | 4.17 | 0.70 | 4.7 | 43.3 % | 41.5 | 56.9 % | 0.09 | 3.2 | 1.2 |
+| `golem-guardian` | 0.496 | 94/708/102 | +0.0010 ± 0.0052 | 16.0 % | 86.0 | 4.75 | 0.76 | 4.6 | 41.9 % | 40.7 | 56.6 % | 0.10 | 0.6 | 1.1 |
+| `golem-duelist` | 0.489 | 87/723/108 | −0.0263 ± 0.0057 | 11.0 % | 87.0 | 4.53 | 0.75 | 4.9 | 43.6 % | 42.7 | 54.9 % | 0.10 | 3.7 | 1.3 |
+| `golem-form` | 0.481 | 85/699/120 | −0.0030 ± 0.0053 | 12.9 % | 88.0 | 4.58 | 0.76 | 4.9 | 44.2 % | 42.6 | 59.1 % | 0.09 | 1.5 | 1.0 |
+
+**Only two rows are away from zero on the bar and they are the ends of the table**: the brawler at
++0.0270 ± 0.0052, five standard errors up, and the duelist at −0.0263 ± 0.0057, four and a half
+down. The seven between them span 0.024 bar and none of them is two standard errors from zero.
+Whatever four sessions of style work bought, it did not buy a points spread: the mirrored league
+is one mind clearly ahead, one clearly behind, and seven that a 4,096-bout tournament cannot tell
+apart. The mind-against-mind matrix says the same thing in another shape: of its thirty-six
+ordered pairs **four reach two standard errors**, against the 1.8 that thirty-six coin flips
+would produce on their own, and the largest of the four is the brawler over the champion at
+0.566 on 114 bouts, 2.6 standard errors.
+
+**What the styles do buy is a shape, and the shape is in the columns.** Three of the four hold
+the three lowest idle-travel numbers in the league -- the guardian at 0.6 m of tangential drift
+in quiet samples, the brawler at 1.1, the form at 1.5, against 3.3 to 4.7 for all five of the
+matchup set's minds -- which is the strafe the plan set was written against, measured. The
+brawler spends 28.0 % of the bout inside its own inner radius and the guardian 16.0 %, against
+9.2 % to 11.3 % for everything else. The form takes the highest committed fraction of the nine at
+59.1 %. None of that is worth a tenth of a point on the scoreboard, and all of it is what the
+owner will be looking at on the screen.
+
+### The league, over random pairs: 4,096 bouts, 973 decided
+
+The same nine, the same seed, `--random 40` without `--mirror`, so each side draws its own body.
+
+| policy | points | bar | standardised points | standardised bar |
+| --- | --- | --- | --- | --- |
+| `golem-neural` | 0.525 | +0.0331 ± 0.0113 | 0.526 | +0.0269 |
+| `golem-brawler` | 0.507 | +0.0076 ± 0.0121 | 0.505 | +0.0125 |
+| `golem-duelist` | 0.499 | −0.0036 ± 0.0126 | 0.499 | −0.0029 |
+| `golem-form` | 0.497 | −0.0111 ± 0.0132 | 0.499 | +0.0110 |
+| `golem-champion` | 0.496 | −0.0016 ± 0.0114 | 0.487 | −0.0147 |
+| `golem-guardian` | 0.496 | −0.0071 ± 0.0125 | 0.505 | −0.0147 |
+| `golem-skirmisher` | 0.495 | +0.0174 ± 0.0129 | 0.504 | +0.0061 |
+| `golem-fencer` | 0.494 | −0.0061 ± 0.0129 | 0.508 | +0.0273 |
+| `golem-planner` | 0.492 | −0.0280 ± 0.0119 | 0.494 | −0.0248 |
+
+The standardised columns reweight each mind's cells to the pooled distribution over (my class,
+their class) -- 120 cells, 94 % to 98 % of each mind covered -- so that a mind which drew more
+mauls is not paid for it. Standardising moves the fencer from eighth to second and the champion
+from fifth to ninth, which is the size of the draw's effect on a 4,096-bout random-pairs
+tournament: **about 0.014 points, most of the spread of the table**. The one row that survives
+both readings is `golem-neural`, first on points and first standardised.
+
+### By build class: the three bodies that can finish, and the eight that cannot
+
+Pooled over the nine minds, mirrored league, one row a class and every side of that class in it.
+
+| class | sides | decided | dmg/bout | strokes | blows | dmg/stroke | severs | mean s |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `maul/long` | 1144 | **94.2 %** | 99.8 | 34.3 | 4.62 | **3.09** | 0.46 | 34.9 |
+| `mace/long` | 1020 | 58.8 % | 93.8 | 97.3 | 5.07 | 1.13 | 0.28 | 47.9 |
+| `blade/long` | 1588 | 7.1 % | 58.6 | 112.9 | 5.08 | 0.51 | 0.05 | 59.1 |
+| `plate/short` | 1092 | 1.1 % | 11.0 | 62.5 | 5.46 | 0.14 | 0.00 | 59.8 |
+| `fist/short` | 544 | 0.4 % | 8.4 | 51.9 | 4.04 | 0.26 | 0.00 | 60.0 |
+| `blade/mid` | 616 | 0.3 % | 2.4 | 60.8 | 5.70 | 0.04 | 0.00 | 59.9 |
+| `fist/mid` | 784 | 0.0 % | 21.4 | 115.6 | 3.19 | 0.18 | 0.00 | 60.0 |
+| `plate/mid` | 340 | 0.0 % | 13.3 | 84.3 | 9.04 | 0.19 | 0.00 | 60.0 |
+| `whip/long` | 612 | 0.0 % | 9.6 | 189.0 | 1.98 | 0.05 | 0.00 | 60.0 |
+| `mace/mid` | 192 | 0.0 % | 3.9 | 46.2 | 2.39 | 0.09 | 0.00 | 60.0 |
+| `none/short` | 260 | 0.0 % | 1.2 | 25.0 | 0.88 | 0.04 | 0.00 | 60.0 |
+
+Read down the damage-a-stroke column: 3.09, 1.13, 0.51, and then eight numbers under 0.3. That
+column is the fight, and it is set by the weapon before any mind touches it. The best cell in the
+league by a distance is `golem-brawler @ maul/long`, 93/8/55 mirrored at elo 1127 with 78.4 %
+of the bout inside its own inner radius and a mean bout of 34.2 s; on random pairs the same cell
+is 104/23/9 at elo 1324, the highest number in either file.
+
+**The one place a mind is worth a lot is the one body that can finish.** On a long maul,
+mirrored, the nine minds run brawler 0.622, duelist 0.533, skirmisher 0.514, fencer 0.500,
+planner 0.485, neural 0.483, guardian 0.480, champion 0.443, form 0.411 -- a spread of 0.21
+points where the whole-league spread was 0.04 -- and the brawler's bar there is
+**+0.1553 ± 0.0209**, seven standard errors, against +0.0270 pooled. A style is worth six times
+as much on the body that kills as it is averaged over the pool, and the two styles hold both
+ends: the brawler first, the form last. On a long blade the same nine run 0.524 down to 0.471
+and nothing is outside noise on points -- though the bar is not silent even there, and it is
+unkind to the styles: the guardian at −0.0802 ± 0.0115 and the form at −0.0551 ± 0.0107 against
+the champion at +0.0705 ± 0.0144. A style that waits for an opening is losing the attrition it
+cannot win outright.
+
+A whip throws 189 strokes a bout for 9.6 damage. A mid plate bills 9.04 parts a stroke for 0.19
+damage a stroke. Neither of those is a mind failing; both are Session 12b's unfinishable bodies,
+now measured at 4,096 bouts with the stroke instruments, and both are exactly the cells the
+close-out will have to decide whether to keep in the pool at all.
+
+### The decision log: what was built
+
+A decision is the window from one ask of the director to the next. The new executor asks when
+nothing is directed, when the cadence elapses, on an event and when an exchange ends, so nothing
+happens between two asks that is not attributable to the first of them; that is what makes the
+window a unit of credit rather than a slice of clock. The recorder is therefore a director hook
+and needs no join with anything else. On each ask it closes the open decision with `dealt` =
+their vitality at the previous ask minus their vitality now, `taken` the same for mine, and
+`seconds` elapsed; then it opens the next with the feature vector, the option taken and the mask
+of options that were open. A close at the end of the bout marks that decision `done`.
+
+Because each close reads the same two vitalities the next open records, the sum telescopes:
+**Σ(dealt − taken) over a side is exactly that side's bar margin**, and a test asserts it to 1e-9
+on a real three-second bout. Two things had to change for that identity to hold rather than
+nearly hold.
+
+- **The reward columns are `Float64`.** At `Float32` the test failed at 1e-9 and passed at 1e-7:
+  the rewards summed to 0.008561126654967666 and the margin was 0.008561125627647437. A margin is
+  a difference of two numbers near 1 and the rewards are differences near 1e-3, so the identity is
+  a sum of 500 catastrophic cancellations; single precision cannot carry it. `x` stays `Float32`
+  -- it is 69 columns times millions of rows and it is network input -- and the four reward
+  columns are double. The reason is written into the format's own comment, because the obvious
+  future edit is to make them all one type.
+- **A decision window may be zero seconds long, legitimately.** `scripts/bout-runner.mjs`
+  advances the combat clock once a rendered frame at 1/60 s while the physics observable that
+  drives the mind fires four times a frame at 1/240 s. So two asks inside one frame read the same
+  `view.clock` and the window between them is exactly 0. The first draft of the test asserted
+  `seconds > 0` and failed on decision 5 of the first bout it saw. The assertion is now
+  `seconds >= 0` and the cause is written in three places: the recorder, the test and
+  `docs/design.md`. A zero-length window carries a zero reward and is legal input to Session 09.
+
+The features are `src/golem/style-features.ts`, version 1, 69 columns: the 56 of
+`src/golem/neural-features.ts` rebuilt over the new reading with the open block widened
+from the fencer's eight options to the fifteen of `STYLE_OPTIONS`, plus six rhythm clocks that no shipped style reads -- seconds in
+their phase, seconds in mine, their commits so far scaled per ten seconds, and seconds since
+their last commit, my last stroke and the last contact by anybody. Those six exist because the
+learner of Session 10 is allowed to notice a rhythm the hand-written directors do not, and the
+only honest way to allow that is to put the clocks in the vector before anyone has looked at them.
+
+Three smaller decisions are worth the record.
+
+- **Exploration wraps the director, and the hook wraps the exploration.** `exploringDirector`
+  lives in the executor's file, takes its own seeded stream, and at `explore` 0 returns the
+  director unwrapped, so a recorded run at explore 0 is the shipped mind to the byte -- a test
+  runs a tournament with `--record` at explore 0 and asserts the rows equal an unrecorded run's
+  row for row. The order matters more than it looks: watching outside means the log records the
+  option that was *played*, which is the one the reward that follows belongs to. The other order
+  would log the style's preference and pay it the exploration's reward, and the effect on Sessions
+  09 and 10 would not show up as anything but a slightly worse fit.
+- **`--record "*"` means every style, not every mind with a director.** The planner and the
+  champion have directors too, but they sit on the second executor with a different reading and a
+  56-column feature set, and one samples file holds one kind. A nine-mind league recorded with
+  `"*"` would otherwise have thrown at the merge, after twenty-five minutes of bouts. The
+  restriction is in the worker, the flag's comment and `collect`'s doc block.
+- **The recorder is flat typed arrays, and the log is appended.** The first draft kept an array
+  of `Float32Array(69)` per decision; a full corpus is over two million of those and the object
+  headers alone are the run. It now grows four flat arrays by doubling from 256 and slices at
+  `pack()`. Separately, `runTournament` was rewriting the whole `.jsonl` on every row, which costs
+  half the square of the bout count times the row size -- 295 GB of writes for this session's 148 MB corpus log -- and it appends now; because
+  the rows arrive in index order the bytes are unchanged.
+
+The samples file is version 2, in a new `scripts/decision-log.mjs` that `train-neural.mjs` now
+re-exports from: a header plus seven columns -- `x` `Float32`, `y` `Uint8`, `open` `Uint16` (was
+`Uint8`; fifteen options do not fit in eight bits), `dealt`/`taken`/`seconds` `Float64`, `done`
+`Uint8`. A version 1 file is refused by name, with the reason: it carries no rewards.
+
+### The five tests, and the two things one of them found
+
+`tests/tournament.test.mjs` gained three tests and `tests/neural.test.mjs` two, and an existing
+round-trip test grew the refusal; the suite went from 763 tests to 768 and stays at zero
+failures.
+
+- **The telescoping test** runs four real three-second mirrored bouts on two workers with
+  `record: ["golem-brawler"]`, and asserts that the rewards sum to the side's bar margin within
+  1e-9, that the margin equals `row[me].vitality − row[them].vitality`, that exactly one decision
+  is `done`, that every duration is at or above zero, that every taken option was open, and that
+  a decision that opened an exchange and is not the bout's last ran longer than the 0.167 s
+  cadence. It is the session's mechanical gate and it is the test that found both of the
+  precision problems above.
+- **The identity assertion**, at the end of the same test, runs those four bouts again with no
+  recorder at all and compares the rows field by field. That is what makes "explore 0 is the
+  shipped mind to the byte" a claim rather than an intention; the exploring wrapper's own test
+  proves the other half of it, that at 0 the director comes back unwrapped rather than wrapped in
+  a stream that happens never to fire.
+- **The round-trip test** writes a synthetic version-2 samples file, reads it back column by
+  column, and then writes the header the matchup set wrote -- the same one without a version --
+  and asserts the reader refuses it by name.
+- **The feature test** builds a style reading on the published fixture and checks the vector is
+  69 long, finite everywhere, that the open block is the mask and nothing else, and that the six
+  rhythm columns are inside their clamps.
+- **The collection test** runs `collect` over two workers with `record: "*"` and `explore: 0.34`
+  and asserts both sides' sequences come back merged with one kind and the bout count summed.
+
+### The corpus, and the first per-decision numbers this project has had
+
+`--bouts 4096 --cross --random 40 --cap 60 --seed 20260908 --record "*" --explore 0.3
+--exchanges --behaviour` over the same nine, then the same at `--bouts 1024 --mirror`. Twenty-six
+minutes and seven. Four of the nine minds are styles, so 44 % of sides are recorded: 3,616 sides
+of 8,192 on random pairs and 904 of 2,048 mirrored.
+
+| | random pairs | mirrored |
+| --- | --- | --- |
+| bouts | 4,096 | 1,024 |
+| recorded sides | 3,616 | 904 |
+| decisions | 914,906 | 234,343 |
+| decisions a recorded side | **253.0** | 259.2 |
+| mean window | 0.203 s | 0.199 s |
+| seconds covered a side | 51.4 of a 52.5 s bout | 51.6 of 52.1 |
+| zero-reward windows | 72.7 % | 71.8 % |
+| zero-second windows | 2.9 % | 3.6 % |
+| σ of the per-decision reward | **0.01047 bar** | 0.01016 |
+| samples file | 265 MB, 64.8 MB a thousand bouts | 68 MB, 66.3 MB a thousand bouts |
+
+**The plan's two estimates were both wrong, in opposite directions.** It expected about 80
+decisions a side and got 253 -- an ask every 0.2 s over a 52 s bout, because the executor asks on
+their phase changes and at the end of every exchange as well as on the 0.167 s cadence, and a
+bout with two golems in it changes phase a great deal. And it expected the per-decision reward to
+have a σ of 0.05 to 0.1 bar; it is **0.0105**, five to ten times smaller, for the arithmetic
+reason that a bout's whole margin is now divided among 253 windows instead of one. Three quarters
+of those windows carry a reward of exactly zero.
+
+That is not the objection to per-decision credit it looks like. A per-bout scalar at σ 0.032 gave
+384 bouts' worth of 384 numbers; this gives 4,096 bouts' worth of 915 thousand, and the two
+corpus halves together are **1,149,249 labelled decisions**, three times the 340 thousand
+Session 10's budget was written against.
+
+**And the rewards inside a mirrored bout are very nearly independent, which nobody expected.**
+If a side's 259 windows were independent draws from the pooled reward distribution, its bar
+margin would have σ = √259 × 0.01016 = 0.1635; the measured margin σ on the mirrored corpus is
+**0.1788**, nine per cent above the independent sum. On random pairs the same arithmetic gives
+0.1665 against a measured 0.4151, two and a half times over. So the autocorrelation everyone
+would have predicted -- a side that is winning goes on winning -- is almost entirely the *build
+mismatch* rather than the fight: on matched bodies one decision's reward says almost nothing
+about the next one's and a fit sees close to the sample size it was handed, while on random pairs
+the effective sample is about six times smaller than the row count. That is worth remembering
+when Session 10 reports a confirmation on the random pool.
+
+**Where the credit actually sits.** The six exchange options -- `strike`, `cut`, `feint`,
+`thrust`, `shove`, `ram` -- are 13.7 % of the asks and 44.4 % of the seconds, and they deal
+67.6 % of all the damage a recorded side deals while taking 49.6 % of what it takes. The other
+nine options are two thirds of the decisions, a fifth of a second each, and mostly a zero.
+
+### The option-by-option reward table
+
+The mean of `dealt − taken` over every decision that took each option, pooled over the four
+styles at explore 0.3, with the standard error and the share of asks at which the option was open
+at all. Rewards are in bar (one bar is a full vitality).
+
+| option | taken (random) | share | open | reward, random pairs | reward, mirrored |
+| --- | --- | --- | --- | --- | --- |
+| `strike` | 11,324 | 1.2 % | 25.9 % | **+4.05e−3 ± 2.5e−4** | +1.65e−3 ± 5.2e−4 |
+| `shove` | 21,235 | 2.3 % | 16.7 % | **+4.04e−3 ± 1.5e−4** | +5.64e−4 ± 3.8e−4 |
+| `cut` | 58,049 | 6.3 % | 39.6 % | **+1.24e−3 ± 1.0e−4** | **+1.35e−3 ± 1.6e−4** |
+| `circle` | 126,353 | 13.8 % | 98.7 % | −1.18e−5 ± 1.8e−5 | −7.34e−5 ± 2.8e−5 |
+| `hold` | 219,038 | 23.9 % | 98.7 % | −1.38e−4 ± 1.3e−5 | −4.93e−5 ± 2.6e−5 |
+| `withdraw` | 34,704 | 3.8 % | 98.7 % | −1.57e−4 ± 4.1e−5 | −2.01e−4 ± 8.9e−5 |
+| `close` | 153,390 | 16.8 % | 98.7 % | −1.66e−4 ± 1.6e−5 | −5.81e−5 ± 3.4e−5 |
+| `thrust` | 3,737 | 0.4 % | 11.4 % | −1.98e−4 ± 2.5e−4 | −1.68e−4 ± 2.7e−4 |
+| `retreat` | 101,439 | 11.1 % | 100.0 % | −4.06e−4 ± 2.1e−5 | −2.88e−4 ± 7.2e−5 |
+| `parry` | 31,922 | 3.5 % | 18.6 % | −4.49e−4 ± 4.1e−5 | −2.17e−4 ± 4.2e−5 |
+| `wait` | 18,360 | 2.0 % | 53.2 % | −4.66e−4 ± 1.1e−4 | +5.00e−4 ± 2.0e−4 |
+| `void` | 70,417 | 7.7 % | 98.7 % | −5.72e−4 ± 3.5e−5 | −4.38e−4 ± 5.9e−5 |
+| `duck` | 34,013 | 3.7 % | 26.4 % | −6.14e−4 ± 5.9e−5 | −6.80e−4 ± 9.5e−5 |
+| `feint` | 11,020 | 1.2 % | 25.8 % | −6.58e−4 ± 1.4e−4 | **−1.54e−3 ± 3.0e−4** |
+| `ram` | 19,905 | 2.2 % | 14.3 % | **−1.17e−3 ± 8.6e−5** | +2.11e−5 ± 1.1e−4 |
+
+**This table is a conditional mean and not a treatment effect, and the difference is the whole
+reason Session 10 exists.** `void`, `duck` and `parry` are named when a stroke is already coming;
+their windows are short and they end with damage on my bar because the damage was on its way
+before the option was chosen. Reading the table as advice would say "never parry", which is
+false. What it does show honestly is the *sign structure*: three options -- `strike`, `cut`,
+`shove` -- carry a positive mean in the pool they were measured in, and everything else is at or
+below zero, so the value of a decision in this game is concentrated in the ones that commit.
+
+Two rows differ between the pools by more than their errors, and both say the same thing.
+`shove` is +4.04e−3 on random pairs and +5.64e−4 mirrored; `ram` is −1.17e−3 on random pairs and
+zero mirrored. Both of those are the maul: against a mismatched body a shove converts, and
+against a matched one it is a way of spending a second. `feint` is the only option that is clearly
+*worse* on matched bodies than mismatched ones, at −1.54e−3 ± 3.0e−4, which is a fifth of a
+strike's gain thrown away per feint, and it is a row Session 09's tactician tables will have to
+explain.
+
+### What this session did not settle
+
+- **The corpus has no policy column.** One samples file holds one feature set, and it merges the
+  four styles into one stream; nothing in it says which style took a decision. Fitted Q does not
+  need that -- the state is the features -- but it means the clean causal read that explore 0.3
+  makes available cannot be taken here. An option a style *never* prefers appears in the log only
+  through exploration, so its rows are unconfounded within the states where it was open; without
+  a policy column there is no way to select them. Adding the column costs a re-run of the corpus
+  and it is not on Session 09's or 10's path, so it is recorded rather than done.
+- **The league cannot separate seven of nine minds.** 4,096 mirrored bouts put a standard error
+  of 0.005 bar on a policy row and the seven middle minds span 0.024. Nothing short of the
+  overnight session will change that, and the honest reading of Sessions 04 to 07 is that four
+  styles bought a *shape* -- idle travel, inside-inner, committed fraction, and a maul cell worth
+  0.155 bar -- and did not buy a rating.
+- **Eight of eleven build classes still cannot finish a bout**, which is Session 12b's finding
+  measured again at eight times the bouts and with the stroke instruments on. It caps every
+  points column in this set at about 22 % resolution and it is the first thing the close-out has
+  to decide about: either the pool changes, or the cap changes, or the tables go on being mostly
+  draws.
+- **The blade rake survives Session 01.** A long blade bills five parts a stroke, 113 strokes a
+  bout, at half a point each. The one-claim rule stopped a stroke billing one part five times and
+  it was never going to stop a stroke billing five parts once. Whether that reads as flailing is
+  the owner's call at the gate, and this entry is the first place the number has been put in
+  front of them by weapon class rather than by mind.
+
+### Gate
+
+Mechanical: `a_recorded_style_logs_one_decision_an_ask_and_its_rewards_telescope_to_the_bar_margin`
+passes at 1e-9 on four real bouts, and the suite is 768 tests with zero failures. The owner's
+half is the league table read against what they have seen of the four styles -- and the three
+numbers to read it against are that the brawler is the only mind clearly ahead of zero on the
+bar, that a long maul decides 94 % of its bouts while eight of eleven bodies decide none, and
+that a long blade throws 113 strokes a bout for half a point of damage each.

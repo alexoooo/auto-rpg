@@ -9,12 +9,16 @@
 // is a table the mind loads.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { DUEL_OPTIONS } from "../src/golem/duel-model.ts";
 import { FEATURE_COUNT, FEATURE_NAMES, NEURAL_FEATURES_VERSION, neuralFeatures } from "../src/golem/neural-features.ts";
+import {
+  STYLE_FEATURE_COUNT, STYLE_FEATURE_NAMES, styleFeatures, styleOpenMask, styleOpenOf,
+} from "../src/golem/style-features.ts";
+import { STYLE_OPTIONS } from "../src/golem/tactics-v3.ts";
 import { backward, forward, initWeights, maskedSoftmax, netScratch, netSize, pickOpen } from "../src/golem/neural-net.ts";
 import { NEURAL_LAYOUT, NEURAL_VERSION, checkNeuralWeights, golemNeural } from "../src/golem/neural.ts";
 import { NEURAL_WEIGHTS } from "../src/golem/neural-weights.ts";
@@ -153,7 +157,13 @@ test("imitation_recovers_a_rule_it_is_shown", () => {
     }
     y[i] = best;
   }
-  const samples = { x, y, open, count, bouts: 0 };
+  // Session 08's file carries the four reward columns beside the three the fit reads; the rule
+  // this test is about is in the features, so the rewards here are only a shape to round-trip.
+  const dealt = Float64Array.from({ length: count }, (_, i) => (i % 7) / 100);
+  const taken = Float64Array.from({ length: count }, (_, i) => (i % 5) / 100);
+  const seconds = Float64Array.from({ length: count }, (_, i) => 0.125 + (i % 3) / 8);
+  const done = Uint8Array.from({ length: count }, (_, i) => (i === count - 1 ? 1 : 0));
+  const samples = { kind: "neural", x, y, open: Uint16Array.from(open), count, bouts: 0, dealt, taken, seconds, done };
   const epochs = [];
   const fitted = imitate(samples, { seed: SEED, epochs: 12, rate: 3e-3, onEpoch: (e) => epochs.push(e) });
   assert.equal(epochs.length, 12);
@@ -165,16 +175,29 @@ test("imitation_recovers_a_rule_it_is_shown", () => {
   const again = imitate(samples, { seed: SEED, epochs: 2 });
   const twice = imitate(samples, { seed: SEED, epochs: 2 });
   assert.deepEqual(Array.from(again.weights), Array.from(twice.weights));
-  // Samples survive the file.
+  // Samples survive the file, rewards and all, and the older format is refused by name.
   const dir = mkdtempSync(join(tmpdir(), "neural-samples-"));
   try {
     const path = join(dir, "samples.bin");
     writeSamples(path, samples);
     const back = readSamples(path);
+    assert.equal(back.kind, "neural");
     assert.equal(back.count, count);
     assert.deepEqual(Array.from(back.y), Array.from(y));
     assert.deepEqual(Array.from(back.open), Array.from(open));
     assert.deepEqual(Array.from(back.x.subarray(0, 100)), Array.from(x.subarray(0, 100)));
+    assert.deepEqual(Array.from(back.dealt.subarray(0, 20)), Array.from(dealt.subarray(0, 20)));
+    assert.deepEqual(Array.from(back.taken.subarray(0, 20)), Array.from(taken.subarray(0, 20)));
+    assert.deepEqual(Array.from(back.seconds.subarray(0, 20)), Array.from(seconds.subarray(0, 20)));
+    assert.equal(back.done[count - 1], 1);
+    assert.equal(back.done.reduce((sum, d) => sum + d, 0), 1);
+    // A version 1 file: the same header without a version, which is what the matchup set wrote.
+    const older = join(dir, "older.bin");
+    const header = Buffer.from(JSON.stringify({ count, width: FEATURE_COUNT, features: NEURAL_FEATURES_VERSION, bouts: 0 }));
+    const length = Buffer.alloc(4);
+    length.writeUInt32LE(header.length);
+    writeFileSync(older, Buffer.concat([length, header, Buffer.from(x.buffer), Buffer.from(y.buffer), Buffer.from(open.buffer)]));
+    assert.throws(() => readSamples(older), /version 1 samples file, which carries no rewards/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -279,4 +302,102 @@ test("one_generation_of_the_trainer_on_two_workers_makes_a_table_the_mind_loads"
   const loaded = golemNeural(SEED, parsed);
   assert.equal(loaded.asks, 0);
   assert.throws(() => renderNeuralModule({ ...table, weights: table.weights.slice(1) }), /hold 8327 numbers/);
+});
+
+/**
+ * The third executor's feature set, beside the second's. Session 08 of the style set.
+ *
+ * The claim is that it is the older module rebuilt and not a new one: every column of the older
+ * set that is not an open flag is here under the same name, the open block is over the fifteen
+ * style options rather than the eight duel ones, and the six rhythm columns are the only
+ * additions. A column that moved without the version moving is what this catches.
+ */
+test("the_style_feature_vector_is_the_neural_one_rebuilt_over_the_wider_option_list", () => {
+  assert.equal(STYLE_FEATURE_NAMES.length, STYLE_FEATURE_COUNT);
+  assert.equal(new Set(STYLE_FEATURE_NAMES).size, STYLE_FEATURE_COUNT, "a column is named twice");
+  const older = FEATURE_NAMES.filter((name) => !name.startsWith("open:"));
+  const newer = STYLE_FEATURE_NAMES.filter((name) => !name.startsWith("open:"));
+  assert.deepEqual(newer.slice(0, older.length), older, "the older set is not a prefix of this one");
+  assert.deepEqual(newer.slice(older.length),
+    ["theirsSeconds", "mineSeconds", "theirCommits", "sinceTheirCommit", "sinceMyStroke", "sinceContact"]);
+  for (const option of STYLE_OPTIONS) {
+    assert.ok(STYLE_FEATURE_NAMES.includes(`open:${option}`), `no column says whether ${option} is open`);
+  }
+  assert.equal(STYLE_FEATURE_COUNT, FEATURE_COUNT - DUEL_OPTIONS.length + STYLE_OPTIONS.length + 6);
+  // The mask is fifteen bits of a sixteen-bit word, and reads back as the list it was made from.
+  const open = ["hold", "close", "strike", "ram"];
+  const bits = styleOpenMask(open);
+  assert.ok(bits > 0 && bits < 1 << 16);
+  assert.deepEqual(STYLE_OPTIONS.filter((_, j) => styleOpenOf(bits)[j]), STYLE_OPTIONS.filter((o) => open.includes(o)));
+  assert.equal(styleOpenMask([]), 0);
+  assert.equal(styleOpenMask(STYLE_OPTIONS), (1 << STYLE_OPTIONS.length) - 1);
+  const reading = {
+    gap: 1.2, strike: 1.0, slack: 0.2, gapRate: -0.3, theirWeapon: "sword", myWeapon: "club",
+    theirs: "commit", mine: "free",
+    theirsSeconds: 0.4, mineSeconds: 12, theirCommits: 3,
+    sinceTheirCommit: 0.4, sinceMyStroke: Number.POSITIVE_INFINITY, sinceContact: 2,
+  };
+  assert.throws(() => styleFeatures(reading, STYLE_OPTIONS, null, new Float64Array(STYLE_FEATURE_COUNT - 1)), /is 69/);
+  // A clock that has not happened yet is one, not an infinity that would poison every weight.
+  const view = {
+    clock: 20,
+    self: { reach: 1, vitality: 1, tipSpeed: 0, health: {}, hands: {}, naturalAttacks: {}, capabilities: null },
+    opponent: { reach: 1, vitality: 1, tipSpeed: 0, health: {}, hands: {}, naturalAttacks: {} },
+  };
+  const columns = styleFeatures(reading, open, view, new Float64Array(STYLE_FEATURE_COUNT));
+  assert.ok(Array.from(columns).every(Number.isFinite), "a column came back infinite");
+  const at = (name) => columns[STYLE_FEATURE_NAMES.indexOf(name)];
+  assert.equal(at("sinceMyStroke"), 1);
+  assert.ok(Math.abs(at("mineSeconds") - 1) < 1e-9, "a clock past ten seconds saturates at one");
+  assert.ok(Math.abs(at("theirsSeconds") - 0.04) < 1e-9);
+  assert.ok(Math.abs(at("theirCommits") - 1.5) < 1e-9, "commits are a rate over ten seconds");
+  assert.equal(at("theirs:commit"), 1);
+  assert.equal(at("open:ram"), 1);
+  assert.equal(at("open:cut"), 0);
+});
+
+/**
+ * A collection with `record: "*"`, which is how Sessions 09 and 10 take their corpus: both sides
+ * of every bout are styles, both are logged, and the exploration wrapper puts rows in the log for
+ * options neither style would ever have named.
+ *
+ * The claim is that the two sides are both there and both whole -- one decision a row across
+ * seven columns, an option that was open, exactly one decision a side marked done -- and that
+ * exploring reaches options the styles refuse: the guardian never names `withdraw` and the form
+ * never names `strike`, and after a third of the asks are drawn uniformly, the log has both.
+ */
+test("collect_over_two_workers_records_both_sides_and_exploring_reaches_options_a_style_refuses", { timeout: 300_000 }, async () => {
+  const pool = buildPool({ seed: SEED, random: 0 }).filter((build) => build.name === "default" || build.name === "mace");
+  assert.equal(pool.length, 2);
+  const both = await collect({
+    pool, teacher: "golem-form", league: ["golem-guardian"], seed: SEED, bouts: 4, workers: 2, cap: 3,
+    mirror: true, record: "*", explore: 0.34,
+  });
+  assert.equal(both.kind, "style");
+  assert.equal(both.bouts, 4);
+  assert.equal(both.width, STYLE_FEATURE_COUNT);
+  assert.ok(both.count > 40, `${both.count} decisions over four three-second bouts`);
+  assert.equal(both.x.length, both.count * STYLE_FEATURE_COUNT);
+  for (const column of ["y", "open", "dealt", "taken", "seconds", "done"]) {
+    assert.equal(both[column].length, both.count, `${column} is not one a decision`);
+  }
+  const named = new Set();
+  for (let i = 0; i < both.count; i += 1) {
+    assert.ok((both.open[i] >> both.y[i] & 1) === 1, `decision ${i} took an option that was not open`);
+    assert.ok(both.seconds[i] >= 0);
+    named.add(STYLE_OPTIONS[both.y[i]]);
+  }
+  // Eight sides over four bouts, each with exactly one last decision.
+  assert.equal(Array.from(both.done).reduce((sum, d) => sum + d, 0), 8, "one decision a side is the side's last");
+  assert.ok(named.has("withdraw") || named.has("retreat"),
+    `exploring named only ${[...named].sort().join(", ")}`);
+  assert.ok(named.size >= 6, `only ${named.size} of fifteen options were ever named`);
+  // Recording the teacher alone is half the log, and the same bouts.
+  const one = await collect({
+    pool, teacher: "golem-form", league: ["golem-guardian"], seed: SEED, bouts: 4, workers: 2, cap: 3,
+    mirror: true, explore: 0.34,
+  });
+  assert.equal(one.bouts, 4);
+  assert.equal(Array.from(one.done).reduce((sum, d) => sum + d, 0), 4, "one side a bout was recorded");
+  assert.ok(one.count < both.count, `${one.count} decisions for one side against ${both.count} for two`);
 });

@@ -16,7 +16,10 @@ import { parentPort, workerData } from "node:worker_threads";
 
 import { armClass, golemChampion, golemChampionMind } from "../src/golem/champion.ts";
 import { DUEL_OPTIONS, observe, stateKey } from "../src/golem/duel-model.ts";
+import { STYLE_DIRECTORS, directedMind } from "../src/golem/golem-policies.ts";
 import { FEATURE_COUNT, neuralFeatures } from "../src/golem/neural-features.ts";
+import { STYLE_FEATURE_COUNT, styleFeatures, styleOpenMask } from "../src/golem/style-features.ts";
+import { STYLE_OPTIONS } from "../src/golem/tactics-v3.ts";
 import { golemNeural } from "../src/golem/neural.ts";
 import { NEURAL_WEIGHTS } from "../src/golem/neural-weights.ts";
 import { GOLEM_TACTICS, innerReach } from "../src/golem/tactics.ts";
@@ -58,8 +61,16 @@ function insideOwnInnerRadius(view) {
   return gap < near;
 }
 
-/** The options that run between exchanges; a window of one is cut at the cap. */
-const FREE_OPTIONS = new Set(["hold", "close", "withdraw", "circle"]);
+/**
+ * The options that run between exchanges; a window of one is cut at the cap.
+ *
+ * Session 08 widens the set by the third executor's four non-exchange acts. A `void`, a `retreat`
+ * and a `parry` are things a body does *instead* of an exchange and are over in well under the
+ * cap, so a window of one that is still open at the cap is a style holding that act, not an
+ * exchange whose damage would land after the cut. Leaving them out would have filed a two-second
+ * retreat as one exchange window and put the next stroke's damage inside it.
+ */
+const FREE_OPTIONS = new Set(["hold", "close", "withdraw", "circle", "void", "retreat", "parry"]);
 
 /**
  * The exchange log of one side, when its mind is a fencer: one record per option window, in
@@ -76,7 +87,14 @@ const FREE_OPTIONS = new Set(["hold", "close", "withdraw", "circle"]);
 function exchangeLogger(mind, side) {
   // Read per sample and not once: the champion builds its fencer at its first view, when it
   // knows its own arm's class, so before the first step there is none to read.
-  if (!("fencer" in mind)) return null;
+  //
+  // A styled mind publishes `styled` where the five older ones publish `fencer`, and what is read
+  // off it here -- the option in force, the phase of the reading -- is on both, so this logger
+  // takes either. What the two do not share is the option *vocabulary*, which is why the
+  // executors publish under two names in the first place: a reader of these records has the run's
+  // policy names beside them and knows which fifteen or which eight it is reading.
+  const brain = "fencer" in mind ? "fencer" : "styled" in mind ? "styled" : null;
+  if (brain === null) return null;
   const other = side === "left" ? "right" : "left";
   const records = [];
   let open = null;
@@ -84,7 +102,7 @@ function exchangeLogger(mind, side) {
   return {
     records,
     sample(sample) {
-      const fencer = mind.fencer;
+      const fencer = mind[brain];
       if (!fencer) return;
       const state = stateNow(fencer, sample);
       const dealt = sample.records[side].damage;
@@ -107,7 +125,7 @@ function exchangeLogger(mind, side) {
       if (open === null) open = { state, option, dealt, taken, at: sample.clock };
     },
     close(sample) {
-      const fencer = mind.fencer;
+      const fencer = mind[brain];
       if (open === null || !fencer) return;
       const state = stateNow(fencer, sample);
       records.push({
@@ -121,30 +139,149 @@ function exchangeLogger(mind, side) {
 }
 
 /**
- * A hook on a director that keeps every ask as a sample for the neural trainer (Session 08):
- * the features as the network would read them, the option taken, and a bitmask of what was
- * open. Packed once at the end of the bout into typed arrays the row carries back.
+ * The two feature sets a recorded side can be logged in, by the executor it plays.
+ *
+ * `neural` is the second executor's fifty-six columns over the eight duel options, which the
+ * matchup set's trainer reads; `style` is the third executor's sixty-nine over the fifteen style
+ * options. A side is logged in the one its own mind reads, and the samples file says which.
  */
-function askRecorder() {
-  const scratch = new Float64Array(FEATURE_COUNT);
-  const xs = [];
-  const ys = [];
-  const opens = [];
+const RECORDER_KINDS = {
+  neural: { width: FEATURE_COUNT, features: neuralFeatures, options: DUEL_OPTIONS,
+    mask: (available) => { let bits = 0; DUEL_OPTIONS.forEach((n, j) => { if (available.includes(n)) bits |= 1 << j; }); return bits; } },
+  style: { width: STYLE_FEATURE_COUNT, features: styleFeatures, options: STYLE_OPTIONS, mask: styleOpenMask },
+};
+
+/**
+ * A hook on a director that keeps every ask as a *decision*: what the mind saw, what it played,
+ * and what the two bars did until the next ask. Session 08 of the style set.
+ *
+ * ## Why a hook is the whole recorder
+ *
+ * A director is asked when nothing is directed, when the cadence elapses, on an event, and when
+ * an exchange ends, and nothing happens in between that is not attributable to the last answer.
+ * So the window from one ask to the next *is* the decision, and this needs no join with the
+ * exchange log and no second reading of the bout: it closes the open decision with the damage
+ * the two bars took since it opened, opens the next one, and marks the last `done` at the end.
+ *
+ * ## Why the sum is the margin
+ *
+ * Each close reads the two vitalities and each open records the same two numbers on the same
+ * step, so the windows telescope exactly: Σ(dealt − taken) over a side is its vitality less its
+ * opponent's at the last sample, minus the same at the first ask, and the first ask is on the
+ * first step of the bout, before anything can have landed. That identity is the one mechanical
+ * claim of this session and `tests/tournament.test.mjs` asks it of a real bout.
+ *
+ * ## The clock, and why a window can be zero seconds long
+ *
+ * The seconds are the view's own clock, which advances one rendered frame at a time while the
+ * executor is stepped four times a frame, so two asks inside one frame -- the cadence, and then
+ * an event ask on their phase turning -- are the same clock and the window between them is zero.
+ * That is the honest number rather than a rounding of it: nothing is booked between them either,
+ * since a blow's timestamp is stamped off the same clock. Session 08's entry reports how often it
+ * happens, and a discount over these durations must be able to take a zero.
+ *
+ * ## What is read
+ *
+ * Only the view the mind was handed. The two vitalities are on it, the clock is on it, and
+ * nothing here reaches into the bout's records -- so a recorded side is told nothing an
+ * unrecorded one is not, and a run with `--record` differs from one without only in what is
+ * written down.
+ */
+function decisionRecorder(side, kind) {
+  const spec = RECORDER_KINDS[kind];
+  if (spec === undefined) throw new Error(`"${kind}" is not a feature set the recorder knows`);
+  const scratch = new Float64Array(spec.width);
+  // Seven growable columns rather than an array of little vectors. A sixty-second bout asks the
+  // director about five hundred times, so a run of four thousand keeps a couple of million
+  // decisions, and two million `Float32Array(69)` objects cost more in headers than in numbers.
+  // These double when they fill and are trimmed at the end, which the trainer reads as it is.
+  let capacity = 256;
+  let count = 0;
+  let xs = new Float32Array(capacity * spec.width);
+  let ys = new Uint8Array(capacity);
+  let opens = new Uint16Array(capacity);
+  let dealt = new Float64Array(capacity);
+  let taken = new Float64Array(capacity);
+  let seconds = new Float64Array(capacity);
+  let done = new Uint8Array(capacity);
+  const grow = () => {
+    const wider = capacity * 2;
+    const move = (array, Type, width = 1) => { const next = new Type(wider * width); next.set(array); return next; };
+    xs = move(xs, Float32Array, spec.width);
+    ys = move(ys, Uint8Array);
+    opens = move(opens, Uint16Array);
+    dealt = move(dealt, Float64Array);
+    taken = move(taken, Float64Array);
+    seconds = move(seconds, Float64Array);
+    done = move(done, Uint8Array);
+    capacity = wider;
+  };
+  /** The decision in flight: the two bars and the clock as they stood when it was taken. */
+  let live = null;
+  let last = null;
+  const shut = (mine, theirs, clock, ended) => {
+    if (live === null) return;
+    dealt[live.at] = live.theirs - theirs;
+    taken[live.at] = live.mine - mine;
+    seconds[live.at] = clock - live.clock;
+    done[live.at] = ended ? 1 : 0;
+    live = null;
+  };
   return {
     hook(available, reading, view, option) {
-      neuralFeatures(reading, available, view, scratch);
-      xs.push(Float32Array.from(scratch));
-      ys.push(DUEL_OPTIONS.indexOf(option));
-      let bits = 0;
-      DUEL_OPTIONS.forEach((name, j) => { if (available.includes(name)) bits |= 1 << j; });
-      opens.push(bits);
+      const mine = view.self.vitality;
+      const theirs = view.opponent.vitality;
+      shut(mine, theirs, view.clock, false);
+      if (count === capacity) grow();
+      spec.features(reading, available, view, scratch);
+      xs.set(scratch, count * spec.width);
+      ys[count] = spec.options.indexOf(option);
+      opens[count] = spec.mask(available);
+      live = { mine, theirs, clock: view.clock, at: count };
+      count += 1;
+    },
+    /** The bout's last sample closes the open decision and marks it the side's last. */
+    close(sample, winner) {
+      const view = sample[side].view;
+      shut(view.self.vitality, view.opponent.vitality, sample.clock, true);
+      last = { margin: view.self.vitality - view.opponent.vitality, winner };
     },
     pack() {
-      const x = new Float32Array(xs.length * FEATURE_COUNT);
-      xs.forEach((features, i) => x.set(features, i * FEATURE_COUNT));
-      return { x, y: Uint8Array.from(ys), open: Uint8Array.from(opens) };
+      return {
+        kind,
+        x: xs.slice(0, count * spec.width),
+        y: ys.slice(0, count),
+        open: opens.slice(0, count),
+        dealt: dealt.slice(0, count),
+        taken: taken.slice(0, count),
+        seconds: seconds.slice(0, count),
+        done: done.slice(0, count),
+        margin: last?.margin ?? 0, winner: last?.winner ?? null,
+      };
     },
   };
+}
+
+/**
+ * Whether this run records this policy, and in which feature set.
+ *
+ * `record` in the worker data is a list of policy names, or `"*"`. The star means **every style**
+ * and not every mind with a director: the planner and the champion have one too, but they are on
+ * the second executor and their asks are logged in its fifty-six columns over its eight options,
+ * and one samples file holds one feature set. A run that wants those two logged names them, and
+ * then it is a run about them. Naming a style and a champion together is refused where the file
+ * is written, with the two kinds in the message.
+ */
+function recorderKind(policy) {
+  const record = workerData?.record;
+  if (!record) return null;
+  const styled = policy in STYLE_DIRECTORS;
+  if (record === "*") return styled ? "style" : null;
+  const wanted = Array.isArray(record) ? record.includes(policy) : record === policy;
+  if (!wanted) return null;
+  if (styled) return "style";
+  if (policy === "golem-champion" || policy === "golem-planner") return "neural";
+  throw new Error(`"${policy}" cannot be recorded: only a style, the planner and the champion have a director to hook`);
 }
 
 /**
@@ -161,12 +298,18 @@ function mindFor(policy, seed, recorder = null) {
   const contender = workerData?.contenders?.[policy];
   if (contender === undefined) {
     if (recorder !== null) {
+      // A style goes through `directedMind`, which is the same four factories `src/mind.ts` names
+      // taken apart far enough to put the exploration wrapper and the hook between the director
+      // and the executor. At explore 0 with no hook it builds the shipped mind to the byte.
+      if (policy in STYLE_DIRECTORS) {
+        return directedMind(policy, seed, recorder.hook, workerData?.explore ?? 0);
+      }
       if (policy === "golem-champion") return golemChampionMind(seed, GOLEM_CHAMPIONS, recorder.hook);
       if (policy === "golem-planner") {
         const planner = golemPlanner(seed, undefined, undefined, undefined, recorder.hook);
         return { name: policy, fencer: planner.fencer, decide: (view, dt) => planner.decide(view, dt) };
       }
-      throw new Error(`"${policy}" cannot be recorded: only the planner and the champion have a director to hook`);
+      throw new Error(`"${policy}" cannot be recorded: only a style, the planner and the champion have a director to hook`);
     }
     return policyMind(policyForUnit("golem", policy), seed);
   }
@@ -184,9 +327,10 @@ async function runJob(job) {
   // The minds are built here and handed in, rather than left to `runBout` to build from the
   // policy names, so that this file can hold the fencer's handle for the exchange log. Same
   // factory, same seed, so a row is the row `runBout` would have made on its own.
+  const kinds = { left: recorderKind(job.left.policy), right: recorderKind(job.right.policy) };
   const recorders = {
-    left: workerData?.record && job.left.policy === workerData.record ? askRecorder() : null,
-    right: workerData?.record && job.right.policy === workerData.record ? askRecorder() : null,
+    left: kinds.left === null ? null : decisionRecorder("left", kinds.left),
+    right: kinds.right === null ? null : decisionRecorder("right", kinds.right),
   };
   const minds = {
     left: mindFor(job.left.policy, job.seeds[0], recorders.left),
@@ -335,6 +479,8 @@ async function runJob(job) {
   if (lastSample !== null) {
     loggers.left?.close(lastSample);
     loggers.right?.close(lastSample);
+    recorders.left?.close(lastSample, result.winner);
+    recorders.right?.close(lastSample, result.winner);
   }
   const row = {
     index: job.index,

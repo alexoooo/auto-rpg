@@ -50,8 +50,14 @@ import { FEATURE_COUNT, NEURAL_FEATURES_VERSION } from "../src/golem/neural-feat
 import { backward, forward, initWeights, netScratch, netSize } from "../src/golem/neural-net.ts";
 import { NEURAL_LAYOUT, NEURAL_VERSION, checkNeuralWeights } from "../src/golem/neural.ts";
 import { mulberry32 } from "../src/rng.ts";
+import { mergeSamples, readSamples, writeSamples } from "./decision-log.mjs";
 import { buildPool, runJobs, scheduleJobs } from "./tournament.mjs";
 import { DEFAULT_LEAGUE, evaluate } from "./tune.mjs";
+
+// The samples file moved to `scripts/decision-log.mjs` in Session 08 of the style set, when the
+// tournament itself learned to write one and the format grew the reward columns; it is re-exported
+// here because this is where the trainer's callers have always reached for it.
+export { readSamples, writeSamples };
 
 export const DEFAULT_TEACHER = "golem-champion";
 
@@ -73,68 +79,41 @@ export function neuralTable(weights, over = {}) {
 // ------------------------------------------------------------------------------- collection
 
 /**
- * The teacher plays the league on the mirrored pool with a hook on its director; every ask is
- * a sample. Returns the samples packed: `x` is `count × FEATURE_COUNT` floats, `y` the index
- * of the option taken, `open` a bitmask over `DUEL_OPTIONS` of what was open.
+ * A teacher plays the league with a hook on its director; every ask is a decision. Returns the
+ * samples packed: `x` is `count x width` floats, `y` the index of the option taken, `open` a
+ * bitmask of what was open, and the four reward columns -- `dealt`, `taken`, `seconds`, `done` --
+ * for the window from that ask to the next.
+ *
+ * **Session 08 makes three of the run's choices arguments.** `mirror` was hard-coded true and
+ * stays the default, since a teacher's asks are cleanest where the body is not the difference;
+ * `record` names which sides are logged and defaults to the teacher alone, `"*"` logging every
+ * style in the run; `explore` answers that fraction of a recorded side's asks
+ * with a uniform draw from what is open, which is what puts rows in the log for options the
+ * teacher never names. At explore 0 with the teacher recorded this is the call it always was.
  */
-export async function collect({ pool, teacher, league, seed, bouts, workers, cap, onProgress = null }) {
+export async function collect({
+  pool, teacher, league, seed, bouts, workers, cap, onProgress = null,
+  mirror = true, record = null, explore = 0,
+}) {
   const jobs = scheduleJobs({
     pool, policies: [teacher, ...league], pairings: Math.ceil(bouts / 2) * league.length, seed, cap,
-    mirror: true, pairs: league.map((policy) => [teacher, policy]),
+    mirror, pairs: league.map((policy) => [teacher, policy]),
   });
-  const rows = await runJobs(jobs, { workers, record: teacher, onProgress });
+  const rows = await runJobs(jobs, { workers, record: record ?? [teacher], explore, onProgress });
   const parts = [];
-  let count = 0;
+  let kind = null;
   for (const row of rows) {
     for (const side of ["left", "right"]) {
-      const samples = row.samples?.[side];
-      if (!samples || samples.y.length === 0) continue;
-      parts.push(samples);
-      count += samples.y.length;
+      const pack = row.samples?.[side];
+      if (!pack || pack.y.length === 0) continue;
+      if (kind !== null && pack.kind !== kind) {
+        throw new Error(`this collection holds ${kind} samples and ${pack.kind} ones; one file holds one feature set`);
+      }
+      kind = pack.kind;
+      parts.push(pack);
     }
   }
-  const x = new Float32Array(count * FEATURE_COUNT);
-  const y = new Uint8Array(count);
-  const open = new Uint8Array(count);
-  let at = 0;
-  for (const part of parts) {
-    x.set(part.x, at * FEATURE_COUNT);
-    y.set(part.y, at);
-    open.set(part.open, at);
-    at += part.y.length;
-  }
-  return { x, y, open, count, bouts: rows.length };
-}
-
-/** The samples as one binary file: a little JSON header, then the three arrays. */
-export function writeSamples(path, samples) {
-  const header = Buffer.from(JSON.stringify({ count: samples.count, width: FEATURE_COUNT, features: NEURAL_FEATURES_VERSION, bouts: samples.bouts }));
-  const length = Buffer.alloc(4);
-  length.writeUInt32LE(header.length);
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, Buffer.concat([
-    length, header,
-    Buffer.from(samples.x.buffer, samples.x.byteOffset, samples.x.byteLength),
-    Buffer.from(samples.y.buffer, samples.y.byteOffset, samples.y.byteLength),
-    Buffer.from(samples.open.buffer, samples.open.byteOffset, samples.open.byteLength),
-  ]));
-}
-
-export function readSamples(path) {
-  const file = readFileSync(path);
-  const length = file.readUInt32LE(0);
-  const header = JSON.parse(file.subarray(4, 4 + length).toString());
-  if (header.width !== FEATURE_COUNT || header.features !== NEURAL_FEATURES_VERSION) {
-    throw new Error(`${path} holds ${header.width}-wide samples of feature version ${header.features}; this build reads ${FEATURE_COUNT} of version ${NEURAL_FEATURES_VERSION}`);
-  }
-  let at = 4 + length;
-  const x = new Float32Array(header.count * FEATURE_COUNT);
-  Buffer.from(x.buffer).set(file.subarray(at, at + x.byteLength));
-  at += x.byteLength;
-  const y = Uint8Array.from(file.subarray(at, at + header.count));
-  at += header.count;
-  const open = Uint8Array.from(file.subarray(at, at + header.count));
-  return { x, y, open, count: header.count, bouts: header.bouts };
+  return mergeSamples(parts, { kind: kind ?? "neural", bouts: rows.length });
 }
 
 // -------------------------------------------------------------------------------- imitation
@@ -147,6 +126,9 @@ const openOf = (bits) => DUEL_OPTIONS.map((_, j) => (bits >> j & 1) === 1);
  * teacher on the held-out samples.
  */
 export function imitate(samples, { seed, epochs, batch = 64, rate = 1e-3, holdOut = 0.1, onEpoch = null }) {
+  if ((samples.kind ?? "neural") !== "neural") {
+    throw new Error(`these are ${samples.kind} samples; the neural contender is fitted on the second executor's columns`);
+  }
   const layout = NEURAL_LAYOUT;
   const weights = initWeights(layout, seed);
   const size = weights.length;
