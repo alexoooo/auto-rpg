@@ -24,6 +24,11 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
 import { CONFIG } from "../src/config.ts";
+// The posture bench stands one fighter up by hand rather than through `runBout`, so it is
+// the one section of this file that needs the class itself. Its three call sites had been
+// reaching for a name nothing imported since the harness was split, which is why a bare
+// `npm run measure` threw at the first bench while every `--only` cell past it worked.
+import { Fighter } from "../src/fighter.ts";
 import { policyMind } from "../src/mind.ts";
 import { blankIntent } from "../src/policies.ts";
 import { ACTION_TUNING } from "../src/action-primitives.ts";

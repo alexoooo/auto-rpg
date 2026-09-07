@@ -345,6 +345,94 @@ effectively invincible in ordinary play.
 The v1-to-v2 migration of the saved construct library, and the divide-by-20 that carried it, went
 with the Forge on 2026-09-04. The unit above is what survived it.
 
+### A blow is the energy that arrives, and a mechanism that spends it
+
+Until 2026-09-07 `scoreHit` was a speed ramp. Every kind had a floor in metres per second, a
+reference speed to divide by, a clamp at 1 and a per-weapon scale, and **the thing being hit did
+not enter the calculation at all**. That is why a 48 kg maul and a 0.65 kg fist arriving at the
+same speed differed only by whatever number somebody had written in the row that day; why the
+same maul was worth the same on a 9.4 kg arm link as on a 139 kg trunk; and why every new striker
+-- the ram plate, the stone fist, the whip bead -- needed a row and a reference mass of its own,
+each argued on its own afternoon against a Warrior, with no rule anywhere relating a stone fist
+to a sword.
+
+There is one rule now, and it is the physics:
+
+```text
+mu = m M / (m + M)                 the reduced mass of striker and struck part
+E  = 0.5 mu v^2                    v the striker's speed along the contact normal
+damage = quality * E / joulesPerDamage
+```
+
+`impactEnergyJ` in `src/scoring.ts` is those two lines and nothing else. Three things follow that
+were arguments before and are consequences now. **A heavier striker saturates**: `mu` tends to
+`M` as `m` grows, so a 48 kg head can give a 9.4 kg link no more than the link's own share, and
+only on a trunk does its mass pay in full -- on a limb a maul is a mace is a fist, and on a chest
+it is four and a half times what it was on the limb. **A part that cannot move takes everything**:
+Havok reports a mass of zero for a body it does not integrate, which means immovable rather than
+weightless, so `Combat` hands `impactEnergyJ` an `Infinity` and the striker's whole kinetic
+energy arrives. And **speed is squared**, so nothing saturates on that axis any more: a blade at
+22 m/s is worth four times one at 11, where the ramp paid both the same.
+
+Three mechanisms spend the energy, and a `BITE` row now carries a kind, a mechanism, a floor and
+one constant:
+
+- *blunt* -- club, whip, bare hand, stone fist, ram plate, plate bash -- `E / crushJoulesPerDamage`,
+  quality 1, because there is nothing to place;
+- *edge* -- sword, axe -- `quality * E / cutJoulesPerDamage`, the edge and blade alignment gating
+  it exactly as before, so a badly placed cut still pays almost nothing;
+- *point* -- thrust, arrow, a centipede's bite -- the projectile row's shape: the energy taken
+  again at the *axial* speed, a floor subtracted rather than gated, and what is left over
+  `PROJECTILE_PENETRATION_V1.joulesPerDamage`.
+
+The three constants are anchored on the Warrior so that the game the prototype was tuned against
+is still that game. A perfect 11 m/s cut with the 1.35 kg sword on a 68 kg torso is 2.3 damage
+and a square club blow at the same speed is 1.7, both to the digit they were before; that fixes
+`cutJoulesPerDamage` at 34.82 and `crushJoulesPerDamage` at 115.24, and the axe's 25.93 is the
+same arithmetic on its own row. Every other number in the game follows from the masses. The
+floors are the old speed floors restated: `cutFloorJ` 5.96 J is the sword's 3.0 m/s on a torso,
+`crushFloorJ` 7.84 J is the club's 2.2, `pointFloorJ` 1.12 J is the arrow's 8.0. Stated in joules
+they no longer answer only for the weapon they were derived from -- which is the whole point, and
+also why a Warrior's *punch* moved: 0.65 kg of hand needs 4.94 m/s to clear the same 7.84 J that
+3.4 kg of club clears at 2.2.
+
+What was retired with the ramp: `damageScale`, `chopScale`, `crushScale`, `fistScale` and
+`ramScale`; the nine speed floors and reference speeds those ceilings hung on; the three reference
+masses `clubReferenceMassKg`, `fistReferenceMassKg` and `ramReferenceMassKg`; and the `mass` and
+`impulse` mechanisms that existed only to write a mass ratio into a table. Every striker in the program
+publishes `Striking.impactMassKg` and the field is required, so a striker with no mass is a
+refusal rather than a zero.
+
+**The closing speed is the striker's own, projected on the contact normal, and that is a
+correction the measurements made to the plan.** The right physics is the striker's velocity less
+the part's, and it is not available here: a collision callback runs *after* Havok has solved the
+contact, so the part has already been given most of the striker's normal velocity by the time the
+callback asks. Measured over a golem bout, the relative normal speed reads 1.56 m/s at the median
+against the striker's own 2.25, and on a keyframed striker that cannot be slowed it collapses from
+8.0 m/s to 0.39. What survives is the projection, and it is what ends the rake: a golem's median
+contact arrives at 46 % of its tip speed, and squared that is a fifth of the energy, so a blade
+sliding along a body is worth almost nothing where the ramp paid it a fraction of a cut.
+
+**And one guard, because taking the lid off exposed something the lid was hiding.**
+`CONFIG.combat.impossibleSpeed` is 40 m/s: above it a contact is refused as `impossible-speed`
+rather than scored. The solver occasionally flings a striker -- 136 m/s in one measured fixture,
+149 m/s on the *old* model in the same instant of the same fixture -- and the ramp threw those
+numbers away by clamping at 11. Squared, they are a hundred and fifty times a clean cut and they
+end a bout in a second. The bar is placed above every blow measured in 1,710 real contacts (the
+fastest was 33.2 m/s) and far below every excursion, it is checked on the unprojected tip speed,
+and projectiles are exempt because a bow authors an arrow's speed. It is a refusal rather than a
+clamp so that a run can count how often it fires -- `runBout` passes `onRefusal` through for
+exactly that, and it fires on 0.65 % of golem contacts.
+
+**What the rule costs, which the reader of this section needs to know before using it.** The
+model is right about relative worth and it made the golems stop finishing: three quarters of
+every contact a golem lands is now under its own mechanism's floor, damage a stroke fell by a
+factor of six, and four bouts in five run out the 60 s cap. No constant is responsible -- the
+anchors are the Warrior's own unchanged numbers, and the club, the one striker with real mass
+behind it, still pays properly. What is missing is arriving speed along the normal, and the
+levers are the committed stroke shapes and the cap. The Session 03 entry of `measurements.md`
+carries the distributions; the state is the owner's to accept or move at that session's gate.
+
 ### One claim per part per stroke, and the two ways to be blocked
 
 A contact is billed once per part per `CONFIG.combat.hitCooldown`, 0.09 s, which is a rate rather
@@ -1425,15 +1513,19 @@ The sixth is the one worth generalising from, because it is not a missing branch
 `combat.ts` skipped the damage model for a contact too slow to matter -- a sound optimisation
 -- and skipped it on `minCutSpeed`, hard-coded, in a file with no business holding an opinion
 about a weapon's floor. So the club's own lower floor, which has a paragraph of config
-comment and a passing unit test, **never ran in an actual fight**. A second copy of a rule in
+comment and a passing unit test, **never ran in an actual fight**. (The floors are joules now and
+the early-out asks `biteFloorJ` and `biteMechanism` for both halves of the answer, so there is
+still exactly one copy of the rule; what changed is only what it is measured in.) A second copy of a rule in
 a caller is the same defect as a missing row, and it is harder to see because nothing about
 it looks like a table.
 
 **The answer is two tables and no comparisons.** `hands.ts` holds `GRIPS`, one row per kind,
 which is the *shape* of the thing: how many hands, how it is carried, what it is for, whether
 it has a point, whether it cuts on both sides of its edge axis. `scoring.ts` holds `BITE`,
-which is what a blow with it is *worth*: a floor, a scale and a sever bar, each as an
-accessor on the tuning so that the tuning stays a parameter. Both are `Record<..., ...>` over
+which is what a blow with it is *worth*: a mechanism, a floor, a joules-per-damage constant and
+a sever bar, each as an accessor on the tuning so that the tuning stays a parameter. (It was a
+floor, a *scale* and a sever bar until 2026-09-07, when the scale became arithmetic; the shape of
+the table is what survived, and it survived three new striker kinds.) Both are `Record<..., ...>` over
 the union, so a kind without a row does not compile, and every predicate above them is a
 field read. Adding the axe turned four of the six holes into `tsc` errors in one run.
 
@@ -1442,8 +1534,11 @@ field read. Adding the axe turned four of the six holes into `tsc` errors in one
 that module is that it does not -- but `hands.ts` imports **nothing at all**, so the copy had
 no job left.
 
-**An axe is a sword's row with one number changed, plus two facts about its shape.** It hits
-harder (`chopScale`), and that is the only thing in the damage table that differs. What it
+**An axe is a sword's row with one number changed, plus two facts about its shape.** It costs
+fewer joules a point of wound (`chopJoulesPerDamage` 25.93 against the sword's 34.82 -- a hand's
+width of edge carries the same energy further in than 840 mm of it), and that is the only thing
+in the damage table that differs. Since 2026-09-07 it also hits harder for a second reason the
+table cannot see: it weighs 1.40 kg against 1.35, and mass is in the physics now. What it
 pays is not in the table: no point, so a thrust is a shove; one edge, so a backhand arrives
 poll-first and is worth nothing; 27 % less reach; and its mass out at the head. The last two
 are `config.ts` meeting the arm's force ceiling, which is where a weapon's feel belongs.
@@ -2314,10 +2409,20 @@ person leans with the arrow keys and fires with the button, and the two arrive a
 ram.** The plate lands at 1.3–1.8 m/s at the contact, under the club's 2.2 m/s floor, so scored on
 the club's row the whole option did literally nothing. That floor is a statement about 3.4 kg on
 the end of an arm; a head on a hinge presents an effective mass of about 37 kg and arrives slowly.
-`ram` is therefore a `Striker` row of its own, with the club's two speeds carried across at equal
-kinetic energy (×0.303), and it never severs. It is the same argument `BITE.arrow` already makes
-in the other direction — "`combat.referenceSpeed` is 11 m/s and that is a **blade's** number" —
-and it is the third time this directory has found a table answering for a kind it did not know.
+`ram` was therefore given a `Striker` row of its own, with the club's two speeds carried across at
+equal kinetic energy (×0.303), and it never severs.
+
+**All four of the numbers that fix cost went with the ramp on 2026-09-07, and the row is now the
+club's exactly.** Two speeds, a reference mass and a scale of 9 were four ways of writing down
+what `0.5 mu v^2` says once: 74 kg into a 139 kg trunk core at 1.5 m/s is 54 J, which clears
+`crushFloorJ` six times over and is worth about half a point of wound. That is a long way below
+what `ramScale` paid, and it is the model's answer rather than a tuning — a ram is most of a body
+arriving *slowly*, and slowly is the term that is squared. The lever that would make a lunge hurt
+is how hard a hinged head can be driven, which lives in `HEAD_RAM.lunge.driveTorque` and in front
+of the owner, not in a scoring row. What the ram found in the damage model is still the same
+finding, twice over: a table written for one kind answers wrongly for every kind it does not
+know, and `BITE.arrow` makes the argument in the other direction — "`combat.referenceSpeed` is
+11 m/s and that is a **blade's** number".
 
 **The risk is the design.** A ram golem puts its fatal part into the contact every time it
 attacks. `head.plain` keeps the same neck, the same block and the same guard with no plate and no
@@ -2331,16 +2436,20 @@ stroke, and the reasons were on both sides of the contact.
 
 **The damage model was mass-blind.** `scoreHit` was a speed ramp for every kind: the ram row
 above scored 37 kg of head and plate exactly as it would have scored a fist, because nothing on
-the striker said what was arriving. The fix is a fifth bite mechanism, **`impulse`**, beside
-`edge`, `point`, `mass` and `none`: the row's speed ramp times the mass the striker publishes
-over the row's reference mass. A striker that publishes nothing gets a ratio of one, which is
-why every Warrior number is byte-identical -- a Warrior's fist is still 0.9 at 9 m/s -- and why
-the `empty` and `ram` rows could move onto it without a second table. `Striking.impactMassKg`
-is the field, `RigidStrike` carries it, and the ram plate publishes 74 kg: its own 37 with one
-hinge-mass of trunk behind it, because the trunk is what a leaned lunge throws. `ramScale` was
-then set by sweep so that a landed lunge is two blade strokes at the median and four at the
-ninetieth percentile; the tables are in `docs/measurements.md` under Session 01 of the matchup
-set.
+the striker said what was arriving. The first fix was a fifth bite mechanism, **`impulse`**,
+beside `edge`, `point`, `mass` and `none`: the row's speed ramp times the mass the striker
+publishes over the row's reference mass. A striker that published nothing got a ratio of one,
+which is why every Warrior number stayed byte-identical, and `ramScale` was then set by sweep so
+that a landed lunge was two blade strokes at the median and four at the ninetieth percentile;
+the tables are in `docs/measurements.md` under Session 01 of the matchup set.
+
+**That was a mass ratio written into a table, and on 2026-09-07 it became arithmetic.** `impulse`
+and `mass` are both gone, along with the two reference masses and the three scales, because
+`0.5 mu v^2` says all of it and says the half a ratio could not: what is being *hit*. The lasting
+part of that session is `Striking.impactMassKg`, which is now **required** of every striker in the
+program rather than optional — `RigidStrike` carries it, the Warrior's weapons read it off their
+own bodies, and the ram plate publishes 74 kg, its own 37 with one hinge-mass of trunk behind it,
+because the trunk is what a leaned lunge throws.
 
 **The mind fired half a lunge, once.** `natural.thrust` was written as a level in the stances
 where the trunk was upright, and the head fires on the rising edge: a golem rammed once a bout,
@@ -2367,9 +2476,15 @@ drives the same post both ways.
 ### The fist
 
 A stone ball on the end of a chain. Rung 0's cap already says what a golem's bare hand is worth
--- 3.5 kg bolted to a socket that cannot move, so a shove -- and the fist is the hand a chain can
-throw: eight kilograms at 0.09 m radius, striker kind `empty`, scored on the same impulse row as
-a Warrior's punch with the mass filled in. It has no control code and narrows nothing; a punch
+— 3.5 kg bolted to a socket that cannot move, so a shove — and the fist is the hand a chain can
+throw: eight kilograms at 0.09 m radius, striker kind `empty`, scored on the same blunt row as a
+Warrior's punch and differing from it only by mass. (It reads eight kilograms again since
+2026-09-07: `TERMINAL_FIST.mass` had drifted to 18 in commit `e1ff978` with the comment that
+derives 8 from stone at its radius left untouched, and under a row that could only multiply
+nothing noticed. Under energy the two fists are 0.64 kg and 7.56 kg of reduced mass against a
+torso, so the stone one is worth about twelve times the punch there and about five times it on a
+light limb — the ratio falls where the thing being hit can move, which is the half a scale could
+never express.) It has no control code and narrows nothing; a punch
 is whatever stroke the chain makes, which for the mind is the straight short stroke a hand with
 nothing in it makes, because `TERMINAL_DESCRIPTION` describes it as `empty` to a policy. Offered
 on every chain that hands out a weld.

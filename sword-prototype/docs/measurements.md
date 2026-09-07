@@ -13928,3 +13928,490 @@ The stroke rows above are also a standing argument for the plan's Session 01 fin
 counting: a weapon that reaches its highest speed 0.6 m from the thing it was aimed at, and then
 sweeps on through, is a weapon whose contacts are the follow-through brushing whatever is in the
 way. That is what a rake *is*, and the arc that fixes the miss is the one that should also fix it.
+
+## Session 03 of the style set — 2026-09-07: a blow is the energy that arrives, and what that cost
+
+What the plan asked for: every blow scored from the kinetic energy the struck part absorbs,
+turned into a wound by the striker's mechanism, with one argued constant per mechanism and no
+cap, ramp or per-weapon scale anywhere in a score row. What shipped: `impactEnergyJ` and a
+rewritten `scoreHit` in `src/scoring.ts`, seven constants in `CONFIG.combat` and seventeen
+retired, a
+required `Striking.impactMassKg` on every striker in the program, three new columns on
+`HitReport`, a guard against the solver that the old ramp had been hiding, forty-one tests in a
+rewritten `tests/scoring.test.mjs`, and the runs below. The raw logs are
+`tournaments/style03-mirror.jsonl`, `tournaments/style03-random.jsonl` and
+`tournaments/style03-classes.jsonl`, gitignored as every log is; the first two command lines are
+Session 00's with `--out` changed, and the third is `--bouts 2048 --random 40 --cap 60 --seed
+20260906 --policies golem-fencer`.
+
+**The headline is not the model, it is that the model split the game in two.** Every prediction
+the plan made about relative worth came true to the digit, and then the two halves of the
+prototype went opposite ways.
+
+On the Warrior the change is a straight improvement, and none of it was aimed at: half as many
+contacts score, the median scoring blow's edge alignment went from 0.555 to 0.918 and its speed
+from 6.4 to 9.9 m/s, `duelist vs duelist` takes 29 limbs off where it took 6, and the duelist
+beats the swinger **32/40 where it was 20/40** — reading an opening started paying, because a
+graze stopped.
+
+On the golem the same rule empties the fight out. Three quarters of every contact a golem lands
+is now under its own mechanism's floor, damage a stroke fell by a factor of six, and 785 of 1,024
+mirrored bouts run out the 60 s cap against 418 in Session 01. The difference between the two
+halves is measured and it is not the scoring: a Warrior lands at 9.9 m/s square, a golem lands at
+5.9 m/s tip speed of which a quarter is along the normal. The lever that names is stroke speed,
+which is Session 02's bench and Session 04's committed cut, and the cap, which is the owner's.
+
+One row broke outright, and it is a Warrior row: **bare hands stopped being a weapon.** 2,505
+punches at a target that does not move now produce one scoring contact and no damage.
+
+### The rule, and the three constants that anchor it
+
+```text
+mu = m M / (m + M)                 the reduced mass of striker and struck part
+E  = 0.5 mu v^2                    v the striker's speed along the contact normal
+damage = quality * E / joulesPerDamage
+```
+
+The constants are set so that the Warrior's full-speed blow with the Warrior's own weapon on a
+Warrior torso scores what it scored before, to the digit:
+
+| weapon | m, kg | mu against a 68 kg torso | E at 11 m/s | scored | joules a point |
+|:--|--:|--:|--:|--:|--:|
+| sword | 1.35 | 1.32372 | 80.09 | 2.3 | `cutJoulesPerDamage` 34.82 |
+| axe | 1.40 | 1.37176 | 82.99 | 3.2 | `chopJoulesPerDamage` 25.93 |
+| club | 3.40 | 3.23810 | 195.90 | 1.7 | `crushJoulesPerDamage` 115.24 |
+
+and the floors are the retired speed floors restated for the same weapon on the same torso:
+`cutFloorJ` 5.96 J is the sword's 3.0 m/s, `crushFloorJ` 7.84 J is the club's 2.2, `pointFloorJ`
+1.12 J is the arrow's 8.0. The seventh is `impossibleSpeed`, which is a guard rather than a score
+row and is argued below. What went with the ramp: the five scales `damageScale`, `chopScale`,
+`crushScale`, `fistScale` and `ramScale`; the nine speed floors and reference speeds they hung on,
+from `minCrushSpeed` to `arrowReference`; the three reference masses `clubReferenceMassKg`,
+`fistReferenceMassKg` and `ramReferenceMassKg` bolted on later; and the `mass` and `impulse`
+mechanisms that existed only to write a mass ratio into a table.
+
+### The prediction table, and what it says now
+
+The plan computed this from the masses before a line of the implementation existed. Every cell
+reproduces, and `tests/scoring.test.mjs` pins the rows to a twentieth of a point:
+
+| striker | speed m/s | on a 9.4 kg link | on a 139 kg trunk core | at full speed before |
+|:--|--:|--:|--:|--:|
+| blade, 1.30 kg, perfect | 9 / 11 | 1.33 / 1.98 | 1.50 / 2.24 | 2.3 |
+| mace, 18 kg | 9 | 2.17 | 5.60 | 9.0 |
+| maul, 48 kg | 8 | 2.18 | 9.91 | 24 |
+| stone fist, 8 kg | 9 | 1.52 | 2.66 | 25, at 18 kg |
+| plate bash, 16.6 kg | 6.3 | 1.03 | 2.55 | 0.9 |
+| whip bead, 0.57 kg | 20 | 0.93 | 0.99 | 1.7 |
+| Warrior fist, 0.65 kg | 9 | -- | 0.23 | 0.9 |
+
+The weapon triangle the owner asked for is in the two middle columns and it was not tuned in: on
+a limb a maul is a mace is a fist, because a 48 kg head can give a 9.4 kg link no more than the
+link's own share of the reduced mass; on a trunk the head pays, and the maul gains 4.54 times its
+own limb blow while the mace gains 2.58. The two rows that *fell* are the two that had a scale of
+their own. The Warrior's punch went from 0.9 to 0.23, because 0.65 kg of hand against a chest is
+26 J and a chest costs 115 J a point; the effective floor a fist feels moved with it, from
+3.5 m/s to 4.94 m/s, since a hand needs more speed than 3.4 kg of club to carry the same joules.
+And the ram lost `ramScale`'s factor of nine: 74 kg into a 139 kg core at the 1.5 m/s a hinged
+head reaches is 54 J and about half a point of wound. That is the model's answer rather than a
+tuning — a ram is most of a body arriving *slowly*, and slowly is the term that is squared — and
+the lever that would make a lunge hurt is `HEAD_RAM.lunge.driveTorque`, not a scoring row.
+
+### Two corrections the measurements made to the plan
+
+**The closing speed is the striker's own, not the relative one.** The plan asks for "the striker's
+velocity at the contact point less the part's, projected on the normal", which is the right
+physics and is not available: a Havok collision callback runs after the solver has resolved the
+contact, so the part has already been given most of the striker's normal velocity by the time the
+callback asks. Measured over one 12 s golem mirror, per contact:
+
+| | p10 | p50 | p90 |
+|:--|--:|--:|--:|
+| relative normal speed, m/s | 0.14 | 1.56 | 9.90 |
+| striker's own normal speed, m/s | 0.22 | 2.25 | 7.70 |
+| raw tip speed, m/s | 1.74 | 5.78 | 15.50 |
+| own normal / tip | 0.065 | 0.457 | 0.925 |
+
+On a keyframed striker the relative form does not merely undercount, it collapses: the armour
+bench's hammer arrives at 8.0 m/s and the relative normal speed reads **0.39**, because a hammer
+that cannot be slowed hands the whole of its normal velocity to the core inside the same step.
+That is the solver's answer to the contact and not the blow's arrival, which is the objection
+`src/combat.ts` already raises against scoring from `event.impulse`. What is lost by leaving the
+part's velocity out is a body walking into a cut, which now pays as though it had stood still.
+
+The projection itself is the half of the rule that ends the rake, and the fourth row of that table
+is why: a golem's median contact arrives at 46 % of its tip speed, and 0.457 squared is 0.21 of
+the energy.
+
+**And the sever bar stays.** The plan's outcome says "no cap, power, speed ramp or per-weapon
+scale anywhere in a score row", and `severQuality` survives all four words: it is not a scale on
+damage, it is the placement bar a cut has to clear before an emptied limb comes *off*, and taking
+it out would let a fist that never severs take an arm off by weight of joules.
+
+### The guard the old ramp was hiding
+
+Removing the damage ceiling exposed a defect older than this session. `tests/integration.test.mjs`
+runs a thrusting duelist against an idle warrior on seeds 11/22; at 1.10 s of that bout the
+sword's own material-point velocity reaches **136 m/s**. On the tree before this session, the same
+fixture at the same instant shows a fist at **149 m/s** — scored as 0.9 damage, because the ramp
+clamped at 11 m/s and threw the number away. Squared, 136 m/s is a hundred and fifty times a clean
+cut: the idle warrior lost its head at 1.14 s and the bout ended in 1.15 s, and the whole
+distribution that test measures became noise.
+
+So `CONFIG.combat.impossibleSpeed` is 40 m/s and a contact above it is refused as
+`impossible-speed` rather than scored. Where 40 comes from: 1,710 contacts over seven bouts —
+four golem mirrors on the first four pool builds and three Warrior pairs, arrows excluded — put
+the striker's tip speed at 5.41 m/s at the median, 24.85 at the 99th percentile, 31.30 at the
+99.9th and **33.24** at the maximum. 40 is above every blow in that sample and far below every
+excursion, so it clipped nothing there; a larger sample taken afterwards, 6,194 contacts over the
+whole reference pool, does find contacts above it, at the rate given below. Those two readings
+agree — an excursion is rare enough that 1,710 contacts can miss it and common enough that 6,194
+cannot — and it is the second that says the guard is doing work rather than sitting idle. It is
+checked on the unprojected tip speed rather than the closing speed, because what is being refused
+is a striker travelling impossibly fast whatever the manifold says; projectiles are exempt,
+because `CONFIG.arrow.speedMax` is 48 m/s and a bow authors an arrow's speed. It is a refusal
+rather than a clamp so that a run can count how often it fires — clamped, a 136 m/s blade would
+still be billed at 40 and would still take the head off.
+
+What it restored: the thrust fixture's head share at the `high` target reads 0.48, against 0.48
+on the tree before this session. The four rows of that test, contacts per bout by region:
+
+| target | head | torso | low group | before |
+|:--|--:|--:|--:|:--|
+| as-measured | 19 | 224 | 17 | 13 / 114 / 17 |
+| high | 138 | 133 | 19 | 76 / 66 / 15 |
+| vital | 3 | 291 | 30 | 6 / 295 / 32 |
+| low | 1 | 70 | 257 | 1 / 24 / 112 |
+
+Every row has more contacts in it because every one of the four bouts now runs to the 60 s cap
+instead of ending in 24 to 32 s, which is the same effect the golem cells show below. The cut
+fixture's two discriminating ratios both *improved*: the head share at the `high` target over the
+head share at `low` went from 5.96 to 8.49, and the leg ratio from 1.92 to 3.21.
+
+**How often it fires.** `runBout` grew an `onRefusal` pass-through so that the claim in the
+constant's own comment — that a refusal can be counted where a clamp cannot — is true of the
+harness as well as the type. Over the twelve reference builds, fencer against itself, 30 s each:
+**40 refusals against 6,194 contacts, 0.65 %**, beside 9,456 `inactive-action` and 2,156
+`module-attribution` refusals that were always there. On the Warrior fixtures, per 60 s bout: 6,
+12, 19 and 2 on the four thrust targets and 17, 19, 4 and 6 on the four cut targets. The one
+number to watch is the cut fixture's 99th percentile *reported* speed, 39.66 m/s at the
+`as-measured` target: blows are landing within one per cent of the bar. That is the bar sitting
+where it was measured to sit rather than a margin, and if a later session gives an arm more
+speed the sample it was drawn from has to be taken again.
+
+### Energy at the mark, per weapon, from the Session 02 bench
+
+The plan's input from Session 02 is speed at the mark, and this is what it is worth. The first
+five rows are the *shipped* strokes and the last three are the committed candidates the grid
+chose; the damage columns are what a square blow at that speed would score if it arrived.
+
+| module | m, kg | v at mark, m/s | on a link: J / damage | on a core: J / damage | vs the blade's link blow |
+|:--|--:|--:|--:|--:|--:|
+| blade | 1.30 | 15.23 | 132 / 3.80 | 149 / 4.29 | 1.00 |
+| mace | 18 | 18.48 | 1054 / 9.15 | 2721 / 23.61 | 7.96 |
+| maul | 48 | 2.18 | 19 / 0.16 | 85 / 0.74 | 0.14 |
+| fist | 8 | 4.12 | 37 / 0.32 | 64 / 0.56 | 0.28 |
+| plate | 16.6 | 2.24 | 15 / 0.13 | 37 / 0.32 | 0.11 |
+| `sword` committed | 1.30 | 22.34 | 285 / 8.18 | 321 / 9.23 | 2.15 |
+| `empty` committed | 8 | 12.45 | 335 / 2.91 | 586 / 5.09 | 2.54 |
+| `shield` committed | 16.6 | 11.10 | 370 / 3.21 | 914 / 7.93 | 2.80 |
+
+**Read the mace's row against Session 02's miss column and the answer to the plan's question is
+there.** A mace that arrived would be eight times a blade on a limb and twenty-four points on a
+trunk; it misses its mark by 0.73 m and its anchor strays 342 mm, so it arrives at nothing. The
+arm's force ceiling is *not* the binding constraint the plan asked about — the maul reaches its
+mark at 2.18 m/s against the blade's 15.23, which is a chain losing its head rather than a motor
+running out of force, and `CHAIN_REACH.anchorRate` is named as the lever and left where it is.
+The three committed rows are what Session 04 is handed: the same three modules at two to three
+times the arriving energy of their shipped strokes, from the shape alone.
+
+### What a contact is worth now, and the substitution that did it
+
+The whole reference pool, twelve builds, fencer against itself, 15 s a bout, every contact a
+striker made (arrows excluded; 3,065 of them):
+
+| striker | mechanism | floor J | n | tip v p50 | normal v p50 | ratio | E p50 | E p90 | under the floor | under it on tip speed |
+|:--|:--|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| sword | edge | 5.96 | 1574 | 5.87 | 1.46 | 0.25 | 1.0 | 27.7 | **73.8 %** | 27.7 % |
+| empty | blunt | 7.84 | 1079 | 3.63 | 0.80 | 0.22 | 0.8 | 18.8 | **78.9 %** | 37.8 % |
+| club | blunt | 7.84 | 229 | 4.43 | 1.70 | 0.38 | 13.6 | 226.7 | 41.0 % | 3.4 % |
+| whip | blunt | 7.84 | 169 | 6.06 | 1.48 | 0.24 | 0.4 | 6.3 | **94.7 %** | 54.8 % |
+| ram | blunt | 7.84 | 14 | 1.08 | 0.19 | 0.18 | 0.4 | 91.7 | 64.3 % | 50.0 % |
+
+**Three quarters of everything a golem lands is now under its own floor, and the median contact
+carries one joule.** The last column is the one that says why, and it is not the energy model. No
+floor moved: `cutFloorJ` 5.96 J *is* the retired 3.0 m/s, restated for the same sword on the same
+torso. What moved is the speed the floor is measured against. Scored on the raw tip speed the
+sword's median 5.87 m/s clears 3.0 comfortably and only 27.7 % of its contacts fall under; scored
+on the component along the contact normal — a median of 1.46 m/s, a quarter of the tip speed —
+73.8 % fall under. The projection is doing all of the work, and it is doing exactly what Session
+01's finding said it would: eleven per cent of what lands reaches a body, and the rest is a chain
+brushing a chain at a glancing angle. Under the ramp a glance and a blow were both worth about a
+third of a point. They are not the same event and now they are not the same number.
+
+The club's row is the model saying the same thing from the other side: 3.4 kg through a 0.38
+ratio still puts 13.6 J at the median and 226 J at the ninetieth, and it is the one striker in
+the pool whose median contact is a wound. And the whip is the case the plan named in advance —
+"if the whip's bead cannot pay the blunt floor at the speeds it reaches, the entry says so and the
+whip is reported as what it is rather than rescued". It cannot: 0.57 kg at 1.48 m/s of normal
+speed is 0.4 J against a 7.84 J floor, and **94.7 % of every whip contact in the pool is a slap.**
+A whip bead needs 5.2 m/s along the normal to bruise, and it reaches 1.5. That is reported, not
+rescued.
+
+### The baseline again, on the same seeds — and the bout that stops finishing
+
+Session 00's two command lines with `--out` changed, so that the third table differs from Session
+01's by this rule alone: the same twelve reference builds, the same 40 seeded draws, the same seed
+20260906, the same 60 s cap. Sessions 00 and 01 are recomputed here from their own logs with this
+session's script, so all six columns are like for like.
+
+| | mirrored 00 | mirrored 01 | mirrored 03 | random 00 | random 01 | random 03 |
+|:---|---:|---:|---:|---:|---:|---:|
+| decided / at the cap | 644 / 379 | 601 / 418 | **238 / 785** | 613 / 411 | 580 / 444 | **184 / 840** |
+| bout p10 / p50 / p90, s | 4.2 / 35.9 / 60 | 4.8 / 41.2 / 60 | **38.0 / 60 / 60** | 4.7 / 38.6 / 60 | 5.8 / 44.0 / 60 | **40.9 / 60 / 60** |
+| contacts a bout | 236.3 | 159.5 | **297.3** | 174.2 | 119.6 | **232.2** |
+| damage a contact | 0.339 | 0.476 | **0.154** | 0.473 | 0.587 | **0.130** |
+| damage a bout | 80.1 | 75.9 | **45.7** | 82.4 | 70.2 | **30.3** |
+| strokes a side | 33.2 | 40.1 | 79.4 | 26.8 | 31.8 | 62.9 |
+| blows a stroke, mean | 6.64 | 3.87 | 4.09 | 7.24 | 4.10 | 4.23 |
+| blows a stroke, p10 / p50 / p90 | 1.58 / 4.63 / 13.67 | 1.40 / 3.28 / 6.78 | 1.71 / 3.58 / 6.29 | 1.35 / 4.00 / 15.45 | 1.23 / 2.72 / 7.85 | 1.35 / 3.07 / 7.53 |
+| damage a stroke | 5.86 | 4.87 | **0.81** | 5.96 | 4.57 | **0.62** |
+| caught fraction | 0.582 | 0.470 | 0.445 | 0.559 | 0.459 | 0.469 |
+| catches a bout | 20.8 | 17.7 | 39.8 | 15.4 | 13.7 | 31.0 |
+| severs a bout | 0.36 | 0.33 | **0.12** | 0.35 | 0.33 | **0.09** |
+| blocks a bout | 0.0 | 103.4 | 199.6 | 0.0 | 65.5 | 138.9 |
+| winner's bar | 0.528 | 0.546 | 0.490 | 0.817 | 0.819 | 0.764 |
+
+**Seventy-seven per cent of mirrored bouts and eighty-two per cent of random ones now run out the
+clock, and damage a stroke fell by a factor of six.** Everything else in the table follows from
+those two lines: contacts, strokes, catches and blocks are all up by about the ratio the bouts
+got longer, because a bout that runs 60 s instead of 41 has more of everything in it, and severs
+are down by two thirds because a limb has to be emptied before it can be taken off.
+
+This is the plan's own arithmetic arriving, not a surprise in the model. The prediction table said
+a perfect blade blow is worth 1.5 to 2.2 on a golem body against the 2.3 it used to cap at; the
+projection then multiplies the *typical* blow by 0.25² ≈ 0.06; and Session 01's claim rule had
+already removed the raking that was paying for the rest. Each of the three is defensible on its
+own and the product of the three is a bout nobody wins.
+
+The natural reading — "the constants are too small" — is the one thing the measurements rule
+out. The anchors are pinned to the Warrior's own numbers, which have not moved, and the club's
+row above shows the model paying properly whenever the energy is actually there. What is missing
+is arriving speed along the normal, and the levers for that are named and already scheduled:
+Session 02's bench found `COMMITTED_SHAPES` worth two to three times the arriving energy of the
+shipped strokes, and Session 04's executor is what commits them. The 60 s cap is the other one,
+and it is the owner's to move, which the plan named in advance as its sixth risk and Session 01's
+entry already put in front of the gate.
+
+### Blows to empty a bar, per weapon
+
+The plan's fifth run. From the mirrored log, by the class of the arm doing the striking: contacts
+that side made, over the bar it took off the other body. A class is shown when it has at least
+forty sides; `paired-club/long` is the maul, `club/long` the mace, `shield/short` the
+plate-and-blade body, `empty/*` the stone fist.
+
+| class | sides | contacts a bar, 01 | contacts a bar, 03 | damage a bar, 01 | damage a bar, 03 | severs a bout, 01 → 03 |
+|:--|--:|--:|--:|--:|--:|:--|
+| sword/long | 412 | 289 | **921** | 113.9 | 145.5 | 0.55 → 0.11 |
+| paired-club/long | 312 | 23 | **184** | 141.9 | 165.2 | 0.51 → 0.46 |
+| shield/short | 292 | 1320 | **4320** | 127.9 | 141.2 | 0.07 → 0.00 |
+| club/long | 232 | 83 | **684** | 150.0 | 166.6 | 0.80 → 0.25 |
+| empty/short | 220 | 243 | **3368** | 187.2 | 131.2 | 0.00 → 0.00 |
+| empty/mid | 164 | 87 | **2387** | 221.3 | 156.0 | 0.00 → 0.00 |
+| whip/long | 160 | 183 | **10157** | 92.1 | 199.6 | 0.46 → 0.00 |
+| sword/mid | 148 | 5831 | **29460** | 164.1 | 148.6 | 0.01 → 0.00 |
+| shield/mid | 64 | 2199 | **7681** | 253.2 | 146.3 | 0.00 → 0.00 |
+| club/mid | 44 | 419 | **2277** | 103.3 | 121.6 | 0.41 → 0.02 |
+
+Two things to read here. The **damage a bar** column barely moves — 92 to 253 before, 121 to 200
+now — which is the check that nothing about vitality or the health pool changed; a point of damage
+still buys the same fraction of a bar. Everything that moved is in the contacts column, and it is
+the same finding as the floor table said one row at a time: it takes three to twenty times as many
+contacts to do the same work, because most of them are now worth nothing.
+
+The order, though, is the plan's outcome arriving intact. The maul at 184 contacts a bar and the
+mace at 684 are the two cheapest bodies in the pool by a wide margin, and the maul is the only
+class in the game whose *severs barely fell* (0.51 → 0.46) — 48 kg through a 0.38 normal ratio is
+still hundreds of joules. The whip needs ten thousand contacts, the mid-band sword thirty
+thousand. What the class table used to hide behind `crushScale` and `fistScale` it now says
+plainly: mass, at the speed these arms reach, is the only thing that pays.
+
+### The class table, the check the plan froze
+
+2,048 bouts under the fencer over random pairs, seed 20260906, the twelve reference builds and
+forty draws, 60 s cap; `tournaments/style03-classes.jsonl`. Points a bout for the side holding a
+body of that class, a draw counting a half, classes with forty sides or more. The "before" column
+is the fencer's column of the matchup set's close-out table, which is the number the plan quoted
+when it set the band; that run was the fencer against four other minds rather than against itself,
+so the two are the same measurement on slightly different pools and the comparison is a direction,
+not a difference.
+
+| class | sides | points a bout, before | points a bout, now | damage dealt | damage taken | contacts | severs | decided | p50 s |
+|:--|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| `paired-club/long`, the maul | 548 | 0.966 | **0.788** | 89.1 | 46.0 | 189 | 0.61 | **78 %** | 42.1 |
+| `club/long`, the mace | 486 | 0.855 | 0.507 | 81.2 | 49.5 | 486 | 0.17 | 37 % | 52.9 |
+| `club/mid` | 68 | -- | 0.478 | 9.6 | 31.6 | 204 | 0.00 | 4 % | 58.5 |
+| `shield/mid` | 178 | -- | 0.466 | 21.1 | 21.0 | 391 | 0.00 | 7 % | 58.8 |
+| `whip/long` | 374 | 0.41 | 0.463 | 8.4 | 35.8 | 245 | 0.01 | 9 % | 58.3 |
+| `sword/mid` | 334 | -- | 0.460 | 3.8 | 24.7 | 349 | 0.00 | 8 % | 57.7 |
+| `sword/long`, the blade | 776 | 0.45 | 0.448 | 56.8 | 47.4 | 440 | 0.09 | 23 % | 56.1 |
+| `empty/short` | 430 | -- | 0.442 | 5.9 | 31.4 | 186 | 0.00 | 12 % | 58.0 |
+| `shield/short`, the plate | 566 | 0.37 | 0.441 | 13.3 | 24.9 | 236 | 0.00 | 13 % | 57.0 |
+| `empty/mid`, the stone fist | 336 | 0.70 | 0.417 | 16.5 | 46.1 | 260 | 0.00 | 17 % | 56.9 |
+
+**Nine of the ten are inside the band the plan froze, where six of ten were before, and nothing
+was swept to put them there.** The three rows that moved are the three the prediction table said
+would move and no others: the stone fist from 0.70 to 0.417, the mace from 0.855 to 0.507, the
+maul from 0.966 to 0.788. The blade did not move at all — 0.45 to 0.448 — which is the anchoring
+working, since the blade is the weapon the constants were pinned on. The whip and the plate came
+*up*, from 0.41 and 0.37 to 0.463 and 0.441, not because they got better but because what used to
+beat them got worse.
+
+**And the band has stopped being able to see much.** Eight of those nine sit between 0.417 and
+0.507, which is a huddle around the draw and not a set of fair fights: 74 % of these bouts end at
+the cap. The `decided` column is the one that says so, and it is the column to read instead. Only
+the maul finishes what it starts, in 78 % of its bouts; the mace in 37 %, the blade in 23 %, and
+every remaining class in one bout in ten. A check that cannot tell "this body is balanced" from
+"this body cannot kill anything" has stopped being a check, and this session's answer to the
+plan's frozen rule is to report the failure of the rule rather than the pass.
+
+The maul at 0.788 is the one row outside the band, and the model says exactly why: 48 kg through
+the 0.38 normal-speed ratio a club reaches is hundreds of joules, it is the only class whose
+severs survived the change (0.61 a bout against the blade's 0.09), and it takes 189 contacts to
+the blade's 440 to do more damage. That is the weapon triangle the owner asked for standing up in
+the only cell that still resolves. Whether 0.788 is a fight or an execution is the gate's question
+and not this entry's; what the entry can say is that it was 0.966 before, and that nothing in the
+score row was touched to move it.
+
+### The Warrior cells, before and after — where the model is unambiguously better
+
+`npm run measure`, seed 20260823, 40 bouts a cell, taken twice: once on this session's tree and
+once with the whole session stashed, so the two columns differ by the scoring model and nothing
+else. **This is the half of the session with no bad news in it, and it is the control that says
+the golem's problem is the golem's stroke rather than the model.**
+
+| cell | before | after |
+|:--|:--|:--|
+| `swinger vs idle`, result | 40/40 | 40/40 |
+| bout length, s | 9.44 | 11.26 |
+| scoring contacts | 918 | **433** |
+| edge alignment, median | 0.555 | **0.918** |
+| contact speed, median m/s | 6.41 | **9.93** |
+| damage a bout | 15.31 | **20.28** |
+| severs | 41 | **65** |
+| `duelist vs swinger`, result | 20/40 vs 20/40 | **32/40 vs 8/40** |
+| bout length, s | 3.34 | 6.07 |
+| duelist damage / swinger damage | 8.58 / 8.59 | **9.49 / 5.02** |
+| `duelist vs duelist`, decided | 40/40 | 40/40 |
+| bout length, s | 6.06 | 8.01 |
+| scoring contacts | 1144 | **593** |
+| edge alignment, median | 0.619 | 0.741 |
+| contact speed, median m/s | 6.50 | **9.91** |
+| severs | 6 | **29** |
+
+Read the first block downward. Half as many contacts score, and the ones that do are a different
+event: the median scoring blow's edge alignment went from 0.555 to 0.918 and its speed from 6.4 to
+9.9 m/s. That is the model refusing to pay for a graze, exactly as designed, and the *consequence*
+is that the swinger does more damage than before, not less, and takes five limbs off where it took
+four. `duelist vs duelist` says it again from a two-sided fight: 6 severs became 29.
+
+The second block is the one worth the most. `duelist vs swinger` was a coin toss — 20/40 — and is
+now **32/40 to the duelist**. The duelist is the policy that holds measure, guards between
+exchanges and commits when the point leaves the line; the swinger walks in and cuts on a fixed
+cadence without looking. Under a speed ramp with a cap, both of them landed a great many
+half-scoring grazes and the difference between reading an opening and not reading one was worth
+almost nothing. Under energy it is worth two to one. **Skill started paying**, and no line of this
+session was aimed at that.
+
+The one Warrior row that got worse is the bare fist, and it got much worse:
+
+| bare-hands cell | before | after |
+|:--|:--|:--|
+| `unarmed-vs-idle`, punches landed of attempted | 423 / 2523 | **1 / 2505** |
+| damage a bout | 5.1 | **0.0** |
+| `duelist-vs-duelist` bare, damage a bout | 11.8 / 11.5 | 3.4 / 3.1 |
+| bout length, s | 47.5 | 59.5 |
+| `unarmed-vs-sword`, unarmed damage / bout length | 4.3 / 16.6 s | 1.4 / 42.5 s |
+| `sword-plus-empty-vs-sword`, result | 20W/20L | **32W/8L** |
+
+**Two and a half thousand punches at a target that does not move now produce one scoring contact
+and no damage at all.** The plan froze the punch moving from 0.9 to 0.23 and the owner agreed to
+it, but 0.23 is what a punch is worth *when it clears the floor*, and the floor moved with it:
+0.65 kg of hand needs 4.94 m/s to carry the 7.84 J that 3.4 kg of club carries at 2.2, and a
+Warrior's fist mostly does not get there. Bare hands are not a rebalanced weapon, they are no
+longer a weapon. That is a consequence of the model rather than a bug in it — `crushFloorJ` is
+the club's own retired floor, unmoved — and the two honest ways out are a floor per mechanism
+*and mass class* or a hand that is allowed to be heavier than 0.65 kg. Neither is this session's
+to choose. It is on the gate.
+
+The last row of that table is the same coin as `duelist vs swinger`: a swordsman with a spare
+hand went from an even fight to 32W/8L against a swordsman without one, because the shove that
+spare hand throws is now scored on what it actually carries.
+
+`shields against archer` moved a little and in the defender's favour: the shield's wins went 2/40
+to 5/40, the buckler's 9/40 to 13/40 and the empty hand's 3/40 to 7/40, with arrow damage a bout
+0.5 → 0.9, 2.2 → 2.3 and 1.1 → 0.7. The arrow row is the one constant the plan said it did not
+choose — 34 J a point was argued on its own day — and it has not moved.
+
+### The golem variant table, before and after
+
+`npm run measure -- --only golem --bouts 8`, seed 20260823, the same command Session 01's entry
+ran, taken on both trees. Wins are default versus variant, damage and contacts and severs are per
+role in the same order.
+
+| cell | before | after |
+|:--|:--|:--|
+| `default vs default` | 6/8 vs 1/8, 1 drawn, **39.5 s**, 287/264 contacts, 6/2 severs | 0/8 vs 0/8, **8 drawn**, 60.0 s, 605/598, 0/1 |
+| `primary wrist+maul` | 0/8 vs **8/8**, **9.6 s**, 52/42 contacts, 0/13 severs | 0/8 vs **4/8**, **56.4 s**, 378/336, 0/4 |
+| `primary wrist+mace` | 0/8 vs **8/8**, **12.1 s**, 71/76 contacts, 0/10 severs | 1/8 vs 0/8, 57.3 s, 542/478, 2/0 |
+| `primary wrist+fist` | 6/8 vs 1/8, 52.7 s, variant damage a bout **1135.0** | 0/8 vs 0/8, 60.0 s, variant damage a bout **37.2** |
+| `primary reach+blade` | 2/8 vs 6/8, 28.2 s | 0/8 vs 0/8, 8 drawn, 60.0 s |
+| `primary wrist+whip` | 3/8 vs 4/8, 45.4 s, 4/8 severs | 1/8 vs 0/8, 56.8 s, 3/0 severs |
+| `golem-duelist vs Warrior duelist` | golem 5/8, warrior 3/8, 14.2 s | golem **8/8**, warrior 0/8, 20.8 s |
+
+**The gate's question is answered in the second row.** "Whether a maul against a blade is a fight
+rather than an execution" was, before this session, an execution: a wrist-mounted maul took 8 of 8
+in a median 9.6 seconds with thirteen severs and 42 contacts. It is now 4 of 8 over 56 seconds.
+The mace's row is the same story one notch further — 8/8 in 12 s became 0/8 — and the stone fist's
+is the arithmetic of `fistScale` printed in full: **1,135 damage a bout**, against a body whose
+whole bar is worth about 150, and it still only won one bout in eight, because a hundred-point
+overkill and a one-point kill end a bout equally. That number is what "no per-weapon scale
+anywhere in a score row" was written to delete, and it is deleted.
+
+The cost is in the first row and in every row's third column: nine of the twelve variations are
+now drawn at the cap where none of them was, and `default vs default` books 605 contacts in 60 s
+where it booked 287 in 39. The same finding as every other table in this entry, from the twelfth
+angle.
+
+One row deserves its own line because it moved the other way: a golem holding a golem-duelist mind
+now beats the Warrior duelist **8/8** where it went 5/8, and it does so over a longer bout rather
+than a shorter one. The golem was already winning that cell; what changed is that the Warrior's
+grazes stopped topping its bar up.
+
+### What this leaves in front of the gate
+
+Four questions, in the order they matter.
+
+**Bare hands.** The one thing this session broke rather than rebalanced. A Warrior's punch clears
+`crushFloorJ` at 4.94 m/s and mostly does not get there, so 2,505 punches at an idle target score
+once. The floor is the club's own retired 2.2 m/s restated and nothing about it was chosen this
+session, which is exactly why it needs a decision: either a floor that knows the striker's mass
+class as well as its mechanism, or a hand that is heavier than 0.65 kg, or bare hands stay a
+grapple rather than a weapon. Three defensible answers and none of them mine.
+
+**The cap.** Session 01 put it in front of the gate at 41 % of bouts running out the clock and it
+is now 77 % and 82 %. Everything downstream of this session reads bouts: Session 04's styles are
+selected on points a bout, Sessions 08 to 10 learn from a per-decision reward whose terminal
+signal is a win, and a pool in which four bouts in five are drawn carries very little of either.
+This is the sixth of the plan's named risks arriving, and the number is the owner's.
+
+**The stroke.** The measurements say the constants are not the problem and the arriving speed is:
+a median contact at a quarter of its tip speed, and a tip speed the bench already showed can be
+raised by half. Session 02 chose `COMMITTED_SHAPES` worth two to three times the energy of the
+shipped strokes and Session 04's `cut` is what commits them; that is the first thing to try, and
+it is already the next session.
+
+**The whip and the light mid-band bodies.** `whip/long` at 94.7 % slaps and `sword/mid` at 29,460
+contacts a bar are not going to be fixed by a faster stroke. They are the plan's third named risk
+— bodies that cannot finish — and the model has now made them legible rather than creating them:
+under the ramp `sword/mid` already needed 5,831 contacts and it was simply nobody's column.

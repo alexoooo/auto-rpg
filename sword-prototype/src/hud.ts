@@ -262,6 +262,8 @@ export class Hud {
           <tr><th>efficiency</th><td>${Math.round(lastHit.projectile.penetrationEfficiency * 100)}%</td></tr>
           <tr><th>pre / post armour</th><td>${lastHit.projectile.preArmourDamage.toFixed(2)} / ${lastHit.projectile.postArmourDamage.toFixed(2)}</td></tr>
           ` : `<tr><th>edge</th><td>${Math.round(lastHit.edgeAlignment * 100)}%</td></tr>`}
+          <tr><th>closing</th><td>${lastHit.closingSpeed.toFixed(1)} m/s</td></tr>
+          <tr><th>arriving energy</th><td>${lastHit.energyJ.toFixed(1)} J</td></tr>
           <tr><th>solver impulse</th><td>${lastHit.solverImpulse.toFixed(2)}</td></tr>
         </table>
       `;

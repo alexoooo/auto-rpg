@@ -35,7 +35,7 @@ export class RigidStrike implements Striking {
   readonly effectorId: string;
   readonly hand: HandName | null;
   readonly body: Part["body"];
-  readonly impactMassKg: number | undefined;
+  readonly impactMassKg: number;
   /**
    * Every golem striker bills a part once a stroke. Not an option, on purpose.
    *
@@ -72,14 +72,16 @@ export class RigidStrike implements Striking {
     readonly hand: HandName | null;
     readonly tipAlong: number;
     /**
-     * What arrives behind the contact, kilograms, for a kind scored on an `impulse` row.
+     * What arrives behind the contact, kilograms. Required, for every kind.
      *
      * The terminal's number and not the body's: a body handle knows its own mass and nothing
      * about what is welded, hinged or leaning behind it, and a striker that guessed would score
-     * a ram plate as 21 kg of bronze with nothing pushing it. Omitted, the row scores at its own
-     * reference mass, which is the Warrior's fist and the first day's ram.
+     * a ram plate as 21 kg of bronze with nothing pushing it. It was optional until 2026-09-06,
+     * when a blow became worth the energy that arrives and there stopped being a reference mass
+     * to omit it in favour of -- a blade publishes 1.30 and a bead 0.57 now, where before only
+     * the three heavy terminals bothered.
      */
-    readonly impactMassKg?: number;
+    readonly impactMassKg: number;
     /**
      * Which contacts are blows, for a striker that is only sometimes striking.
      *

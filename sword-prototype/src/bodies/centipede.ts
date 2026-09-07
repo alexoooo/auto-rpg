@@ -32,6 +32,16 @@ const HUMANOID_HANDS = (): Record<HandName, HandView> => ({
 
 class BiteStrike implements Striking {
   readonly kind = "bite" as const;
+  /**
+   * What a jaw arrives with, kilograms: the head segment's own mass, read off the body the
+   * solver built rather than restated as a constant.
+   *
+   * A centipede's bite is its head arriving, and the head is one rigid body -- there is no
+   * separate jaw to weigh and nothing hinged behind it, so the body's mass is the honest answer
+   * and cannot drift from the rig. Required since 2026-09-06: a blow is worth the energy that
+   * arrives, and a striker that publishes no mass has no blow that can be priced.
+   */
+  readonly impactMassKg: number;
   readonly effectorId = "natural-bite";
   // Combat reports identify a hand. This source label is not published as a
   // HandView and does not fabricate an arm on the creature.
@@ -53,6 +63,7 @@ class BiteStrike implements Striking {
   constructor(head: Part, active: () => boolean, forward: () => Vector3) {
     this.head = head;
     this.body = head.body;
+    this.impactMassKg = head.body.getMassProperties().mass ?? 0;
     this.active = active;
     this.forward = forward;
     this.body.setCollisionCallbackEnabled(true);

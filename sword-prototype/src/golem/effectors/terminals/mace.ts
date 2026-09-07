@@ -29,12 +29,14 @@ import { RigidStrike } from "../striker.ts";
  * terminal on the shelf after the fist.
  *
  * It reads no `HandIntent`, like every terminal, and takes nothing from the chain: `limits` is
- * null. What makes it a mace rather than a blade is `TERMINAL_MACE.mass` -- twenty times the
- * blade's -- the balance point out toward the head, and the `club` bite row, which scores by
- * `impulse` since this session: the striker publishes the bar's own mass, and the same speed the
- * Warrior's 3.4 kg club arrives at is worth eight times as much when 27 kg of stone and bronze
- * arrive at it. "A club has no edge, so there is nothing to align with and no way to hold it
- * wrong. Everything it does is speed" -- and now, mass.
+ * null. What makes it a mace rather than a blade is `TERMINAL_MACE.mass` -- fourteen times the
+ * blade's -- the balance point out toward the head, and the `club` bite row, which since
+ * 2026-09-06 is `blunt`: the striker publishes the bar's own mass and the score is the energy
+ * that arrives. Against a golem's trunk core an 18 kg head at 9 m/s is 645 J and 5.6 points of
+ * wound, where the Warrior's 3.4 kg club at the same speed is 1.1; against a 9.4 kg limb the
+ * same head is 2.2, because a limb that light gets out of the way of anything heavy. "A club
+ * has no edge, so there is nothing to align with and no way to hold it wrong. Everything it does
+ * is speed" -- and now, mass, and what the mass meets.
  *
  * **One leaf.** The bar is a single capsule of the haft's radius, so the layer masks go on the
  * shape itself and `sever` can rewrite them. The head is drawn by the shell, wider than the

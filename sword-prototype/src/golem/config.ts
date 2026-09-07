@@ -1401,9 +1401,11 @@ export const TERMINAL_PLATE = {
  * It is built exactly as the blade is -- a capsule out along the limb from the weld point, every
  * axis locked -- and takes nothing from the chain: `limits` is null, so a mace on the wrist
  * chain rolls, bends and swings everywhere a blade does. What makes it a mace is `mass`,
- * `balanceFraction`, and the `club` bite row it is scored by, which since this session is
- * `impulse`: damage scales with the mass the striker publishes over the Warrior club's 3.4 kg
- * (`CONFIG.combat.clubReferenceMassKg`), and this one publishes its own.
+ * `balanceFraction`, and the `club` bite row it is scored by, which since 2026-09-06 is `blunt`:
+ * damage is the energy that arrives over `crushJoulesPerDamage`, and the mass the striker
+ * publishes is half of what decides that energy. The other half is what it hits -- 18 kg into a
+ * 9.4 kg link is 6.2 kg of reduced mass and into a 139 kg trunk core it is 15.9, so a mace is
+ * two and a half times the weapon against a body that it is against an arm.
  */
 export const TERMINAL_MACE = {
   /**
@@ -1776,7 +1778,9 @@ export const TERMINAL_WHIP = {
  * Rung 0's cap already answers "what is a golem's bare hand worth": 3.5 kg bolted to a socket
  * that cannot move, so a shove. This is the hand a chain can throw, and it is heavier than the
  * cap on purpose: a punch is scored by the mass that arrives, and a knuckle no heavier than the
- * cap would be a blade's stroke with a fifth of a blade's damage.
+ * cap would be a blade's stroke with a fifth of a blade's damage. How much heavier is settled by
+ * the stone rather than by the balance, which is what the mass row below had to be argued back
+ * to.
  */
 export const TERMINAL_FIST = {
   /**
@@ -1792,13 +1796,21 @@ export const TERMINAL_FIST = {
    *
    * A 0.09 m sphere is 0.003054 m3, and stone at 2600 kg/m3 makes that 7.9 kg, rounded to 8.
    * Arithmetic rather than a sweep, like the cap's; what it decides is the fist's whole worth,
-   * because the striker publishes it as `impactMassKg` and the `empty` bite row is
-   * `impulse`: a blow is the speed ramp times 8 over `fistReferenceMassKg`'s 0.65. At the
-   * Warrior's reference speed that is 11, an eighth of a golem's head; the chain that throws it
-   * reaches nothing like that speed, and the row in `docs/measurements.md` under Session 01
-   * of the matchup set says what it did reach. 2026-09-05.
+   * because the striker publishes it as `impactMassKg` and the `empty` bite row scores the
+   * energy that arrives -- and both the ball's weight in the solver and the weight behind the
+   * blow are this one number.
+   *
+   * **It was 18.0 for a day and the comment above never said so.** Commit `e1ff978` raised it
+   * with the derivation left standing, so the file argued 8 kg of stone and shipped a ball
+   * twice as dense as stone; under `impulse` that was worth 27 times a Warrior's punch, and the
+   * owner asked why a fist did more damage than a sword. Restored to the number the arithmetic
+   * gives, 2026-09-06, in the session that made a blow worth its energy: a 8 kg fist into a
+   * golem's 139 kg trunk core at 9 m/s is 2.7 points of wound, against a blade's 1.5 at the
+   * same speed and a maul's 9.9. What a heavier ball was reaching for is a real question and it
+   * belongs in `CHAIN_REACH.anchorForce`, where a mass that an arm cannot accelerate costs
+   * speed -- not in a scoring row that could not see the arm at all.
    */
-  mass: 18.0,
+  mass: 8.0,
   /**
    * Health and vitality weight for the one part.
    *
@@ -2963,20 +2975,24 @@ export const HEAD_RAM = {
    */
   plateTipOffset: 0.14,
   /**
-   * What the plate arrives with behind it, kilograms, published as `Striking.impactMassKg` and
-   * scored against `CONFIG.combat.ramReferenceMassKg`.
+   * What the plate arrives with behind it, kilograms, published as `Striking.impactMassKg`.
    *
-   * The reference is the neck alone: 37 kg is the plate's effective mass `I / d^2` about the
-   * pitch hinge, which is what the two ram speeds were derived from. A lunge is not the neck
-   * alone. The mind that fires it leans the trunk in on the same step, and a trunk leaning is
+   * The neck alone is 37 kg: the plate's effective mass `I / d^2` about the pitch hinge, which
+   * is what the ram's two retired speeds were derived from. A lunge is not the neck alone. The mind that fires it leans the trunk in on the same step, and a trunk leaning is
    * the golem's core -- 139 kg plain, 236 plated -- translating toward the contact behind the
    * head; a lunge with the trunk already leaning is the one the head module's own comment calls
    * "longer", and the measurements record it landing faster. What is published here is the
    * plate's 37 with one hinge-mass of trunk behind it, 74 kg, which scores a leaned lunge at
    * twice the neck-alone number at the same speed. Not derived from the core's mass, because a
    * core that had wheels under it would publish a different number for the same blow, and a
-   * striker's mass is a fact about the blow. Set with `ramScale`; the table is in
-   * `docs/measurements.md`. 2026-09-05.
+   * striker's mass is a fact about the blow. 2026-09-05.
+   *
+   * **What it is worth changed entirely on 2026-09-06 and this number did not.** It was scored
+   * against a 37 kg reference with a scale of 9 on top, which paid a landed lunge two blade
+   * strokes; it is now `0.5 * mu * v^2` over `crushJoulesPerDamage`, and 74 kg into a golem's
+   * 139 kg core at 1.5 m/s is 54 J and about half a point of wound. The mass was never the
+   * problem -- 1.5 m/s is -- and the lever that would fix it is `lunge.driveTorque` below
+   * rather than a scoring row. The entry under Session 03 of the style set reports the fall.
    */
   impactMassKg: 74,
 
@@ -3062,11 +3078,13 @@ export const HEAD_RAM = {
    * whole body committing and drives at 900. The two numbers are doing opposite jobs on the same
    * hinge, which is why they are two numbers.
    *
-   * **What this is worth as a blow is small, and the reason is in the damage model rather than
-   * here.** The plate arrives at the *contact* at 1.3 to 1.8 m/s -- slower than the tip, and read
-   * after the solver has resolved the contact -- which on the club's own ramp is nothing at all.
-   * `CONFIG.combat.ramMinSpeed` and `ramReferenceSpeed` are that ramp re-derived for a head on a
-   * hinge, and they carry the arithmetic. 2026-09-04, the Node torso bench.
+   * **What this is worth as a blow is small, and the reason is the speed rather than the model.**
+   * The plate arrives at the *contact* at 1.3 to 1.8 m/s -- slower than the tip, and read after
+   * the solver has resolved the contact. For two days that was answered by giving the ram a ramp
+   * of its own (`ramMinSpeed` 0.65, `ramReferenceSpeed` 3.3) so the same slow arrival scored a
+   * club's blow; since 2026-09-06 a blow is worth the energy that arrives and there is no ramp
+   * to re-derive, so 74 kg at 1.5 m/s is 54 J and reads as what it is -- most of a body arriving
+   * slowly, and slowly is the term that gets squared. 2026-09-04, the Node torso bench.
    */
   lunge: {
     driveRate: 9,
@@ -3168,8 +3186,8 @@ export const GOLEM_ASSEMBLY = {
    * The mismatch it exists to fix, measured 2026-09-05: a golem is **2620 points of health across
    * 23 parts** and a Warrior is **74 across 13**. Its bar is worth about **736 damage** and a
    * Warrior's ends at about **15**. And the weapon on the end of its arm is registered
-   * `kind: "sword"`, so it takes `CONFIG.combat.damageScale` of 2.3 -- the same bite a person's
-   * arming sword has. A stone body on its own scale, swinging a weapon on somebody else's. Golem
+   * `kind: "sword"`, so it took `CONFIG.combat.damageScale` of 2.3 -- the same bite a person's
+   * arming sword had, on the scoring model of the day. A stone body on its own scale, swinging a weapon on somebody else's. Golem
    * against golem therefore drew 40 times out of 40 at the 60 s cap, which is what the owner
    * reported as *"when they do hit each other, it doesn't do much damage."*
    *

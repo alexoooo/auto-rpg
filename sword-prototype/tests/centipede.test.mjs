@@ -36,12 +36,39 @@ test("centipede_refuses_every_hand_loadout_by_name", () => {
   assert.throws(() => policyForUnit("centipede", "duelist"), /centipede.*duelist/);
 });
 
+/**
+ * A bite is a point, and since 2026-09-06 a point with a mass behind it.
+ *
+ * The head segment weighs 7 kg and a Warrior's torso 68, so the reduced mass a jaw arrives with
+ * is `7 x 68 / 75` = 6.347 kg -- and every number below is that one and a speed. The row itself
+ * is the arrow's: `pointFloorJ` 1.12 J to get in, `PROJECTILE_PENETRATION_V1.joulesPerDamage`
+ * 34 J for a point of wound after that.
+ */
 test("a_bite_is_a_named_natural_striker_with_its_own_damage_row", () => {
-  const weak = scoreHit({ speed: 2, edgeAlignment: 1, bladeAlignment: 1, nearTip: true }, "bite");
-  const committed = scoreHit({ speed: 8, edgeAlignment: 0, bladeAlignment: 1, nearTip: true }, "bite");
+  const contact = (closingSpeed, bladeAlignment, edgeAlignment = 0) =>
+    ({ closingSpeed, strikerMassKg: 7, partMassKg: 68, edgeAlignment, bladeAlignment,
+      nearTip: true });
+
+  // A jaw that barely closes. 0.5 x 6.347 x 0.5^2 = 0.79 J, under the 1.12 J it costs to break
+  // skin, so nothing at all -- which is the floor doing its job rather than a speed table.
+  const weak = scoreHit(contact(0.5, 1), "bite");
+  assert.equal(weak.kind, "weak");
   assert.equal(weak.damage, 0);
+
+  // A jaw arriving across itself. The energy is there -- 8 m/s is 203 J -- and none of it is
+  // axial, so it is the same nothing. A point that does not arrive point-first is a stick.
+  const broadside = scoreHit(contact(8, 0), "bite");
+  assert.equal(broadside.damage, 0);
+
+  // A committed bite: 0.5 x 6.347 x 8^2 = 203.1 J, less the 1.12 floor, over 34 J a point.
+  const committed = scoreHit(contact(8, 1), "bite");
   assert.equal(committed.kind, "thrust");
-  assert.ok(committed.damage > 0);
+  assert.ok(Math.abs(committed.damage - (0.5 * (7 * 68) / 75 * 64 - 1.12) / 34) < 1e-9,
+    `a committed bite scored ${committed.damage}`);
+
+  // **A point never reads the edge**, which is what `how: "point"` means and is worth asserting
+  // rather than trusting: a jaw has no wrist to roll and no flat to hit with.
+  assert.deepEqual(scoreHit(contact(8, 1, 1), "bite"), committed);
 });
 
 test("centipede_builds_one_head_eight_segments_and_detaches_only_the_tailward_chain", async () => {

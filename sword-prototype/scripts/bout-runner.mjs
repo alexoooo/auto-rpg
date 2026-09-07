@@ -203,7 +203,7 @@ export function runBout({
   leftUnit = "warrior", rightUnit = "warrior",
   leftGolem = undefined, rightGolem = undefined,
   locomotionMode = undefined,
-  leftMind = null, rightMind = null, onSample = null, onEvent = null,
+  leftMind = null, rightMind = null, onSample = null, onEvent = null, onRefusal = null,
   onVerdict = null, postVerdictFrames = 0, postVerdictActionProbe = false, physics = havok,
   maxSeconds = CONFIG.bout.capSeconds,
 }) {
@@ -255,10 +255,18 @@ export function runBout({
     // of what is in them. This said `left.sword` until the hands were split, and
     // a `Combat` handed one weapon where it wanted a list threw on construction
     // -- which is to say `npm run measure` has not run since.
+    // `onRefusal` is the fourth argument because a refusal is the only thing `Combat`
+    // does that leaves no trace in the recorder: `impossible-speed` in particular is a
+    // refusal rather than a clamp precisely so that a run can count it, and a run could
+    // not count it while the harness dropped the callback on the floor.
     { fighter: left, combat: new Combat("left", left.strikers,
-      combatRecorder(recorder, "left", (event) => onEvent?.({ side: "left", ...event }))), record: leftRecord, last: null },
+      combatRecorder(recorder, "left", (event) => onEvent?.({ side: "left", ...event })),
+      onRefusal === null ? undefined : (event) => onRefusal({ side: "left", ...event })),
+      record: leftRecord, last: null },
     { fighter: right, combat: new Combat("right", right.strikers,
-      combatRecorder(recorder, "right", (event) => onEvent?.({ side: "right", ...event }))), record: rightRecord, last: null },
+      combatRecorder(recorder, "right", (event) => onEvent?.({ side: "right", ...event })),
+      onRefusal === null ? undefined : (event) => onRefusal({ side: "right", ...event })),
+      record: rightRecord, last: null },
   ];
   sides[0].combat.attach(right);
   sides[1].combat.attach(left);

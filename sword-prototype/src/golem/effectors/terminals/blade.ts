@@ -94,6 +94,10 @@ export const bladeTerminal = defineTerminal({
 
     const striker = new RigidStrike(part, {
       kind: "sword",
+      // What the edge arrives with, kilograms: the slab's own mass and nothing behind it. The
+      // arm is not counted, for the reason the fist's row gives -- what a chain drags is in the
+      // speed, not in the mass at the contact.
+      impactMassKg: B.mass,
       effectorId: `${name}.edge`,
       hand: effectorSlot(ctx.socket.slot),
       tipAlong: B.tipOffset - B.length / 2,

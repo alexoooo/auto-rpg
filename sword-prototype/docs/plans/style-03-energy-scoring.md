@@ -1,6 +1,10 @@
 # Session 03 -- energy scoring: a blow is worth the energy that arrives
 
-**Status (2026-09-06): planned. Needs 02.**
+**Status (2026-09-07): implemented; the human gate is open.** The anchoring, the prediction
+table against what landed, the class table against the band, energy at the mark per weapon and
+the Warrior cells before and after are in the Session 03 entry of `../measurements.md`; the
+model itself is in `../design.md`. Five things below were corrected by measurement and are
+marked where they stand.
 
 ## Outcome
 
@@ -153,3 +157,37 @@ in the game carries the energy to need one, so it is named here for the day a he
 arrives, not built. Whether the arm's force ceiling should follow the head is the bench's finding
 and the owner's row. If the whip's bead cannot pay the blunt floor at the speeds it reaches, the
 entry says so and the whip is reported as what it is rather than rescued.
+
+*Five corrections this session's measurements made to the file above, 2026-09-07.*
+
+*The **closing speed is the striker's own, projected on the normal, not the relative speed** this
+file asks for. A Havok collision callback runs after the solver has resolved the contact, so the
+part has already been given most of the striker's normal velocity when the callback asks; on a
+keyframed striker the relative form collapses an 8.0 m/s hammer to 0.39 m/s. The entry carries the
+per-contact distribution behind the substitution and what it costs, which is a body walking into a
+cut.*
+
+*The **fist stopped being a weapon, not just a weaker one**. This file froze the Warrior's punch
+moving from 0.9 to 0.23 and the owner agreed to it; what neither said is that the floor moves with
+the mass, so 0.65 kg of hand needs 4.94 m/s to carry the 7.84 J that 3.4 kg of club carries at
+2.2. Measured: 2,505 punches at an idle target produce one scoring contact and no damage, where
+before they produced 423 and 5.1 damage a bout. The entry puts three possible answers in front of
+the gate and takes none of them.*
+
+*The **whip cannot pay the blunt floor**, which this file's "What remains" named as a possibility:
+0.57 kg at the 1.48 m/s of normal speed a bead reaches is 0.4 J against a 7.84 J floor, and 94.7 %
+of every whip contact in the reference pool is a slap. It is reported, not rescued.*
+
+*A **guard against the solver had to ship with the model**. Removing the damage ceiling exposed
+strikers reaching 130 to 180 m/s in the solver, which the retired ramp had been clamping to 11 and
+throwing away; `CONFIG.combat.impossibleSpeed` is a sixth constant this file did not name, and the
+entry gives the 1,710-contact sample it was set from.*
+
+*The **class table almost passes its band, and the band stopped meaning much**. Nine of the ten
+classes with forty sides or more are inside 0.30 to 0.65 points a bout, against six of ten before,
+and the maul is outside the top of it at 0.788. But eight of those nine are huddled between 0.417
+and 0.507, and that is a drawn pool as much as it is a fair one: 74 % of the 2,048 bouts end at
+the 60 s cap with both bars standing and a draw is half a point to each. The check this file froze
+can no longer tell a body that cannot be beaten from a body that cannot finish, so the entry
+reports damage a bout, contacts a bar and the decided fraction beside it. The cap is in front of
+the gate.*

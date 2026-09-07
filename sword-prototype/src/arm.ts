@@ -182,6 +182,15 @@ class PhysicalFistTrigger implements NonSolvingStrikeTrigger {
  */
 export class FistStrike implements Striking {
   readonly kind = "empty" as const;
+  /**
+   * What a punch arrives with, kilograms: the hand the solver is already carrying.
+   *
+   * `CONFIG.arm.handMass` and not a scoring row's idea of a hand. It was `combat.fistReferenceMassKg`
+   * -- the same 0.65, restated in the balance block -- until a blow became worth the energy that
+   * arrives and there stopped being a row to restate it in. The forearm behind the fist is not
+   * counted, for the reason the golem's stone knuckle gives: what an arm contributes is speed.
+   */
+  readonly impactMassKg = CONFIG.arm.handMass;
   readonly hand: HandName;
   readonly effectorId: string;
   readonly body: Part["body"];
@@ -882,7 +891,8 @@ export class Arm {
    * That offset used to be `CONFIG.club.secondGrip`, written here -- one kind's
    * number, in a method whose whole subject is two-handedness in general. It is
    * the same defect as a missing table row and the same one `combat.ts` had with
-   * `minCutSpeed`: a caller holding a copy of something it has no business
+   * `minCutSpeed` (retired 2026-09-07, when the floors became joules): a caller
+   * holding a copy of something it has no business
    * knowing. A bow is what made it wrong; `Weapon.secondGrip` is where the answer
    * lives now, beside the builder that knows the geometry, and a kind that does
    * not answer does not compile.

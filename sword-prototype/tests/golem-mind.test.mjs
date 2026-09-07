@@ -978,12 +978,35 @@ test("the_stand_off_is_a_floor_under_hold_that_only_a_long_arm_raises", async (t
  *
  * **It is 25 s rather than the original 14 s because Session 01 of the style set slowed the
  * fight down on purpose.** One claim per part per stroke stopped a rake being billed six or seven
- * times, and the cost named in that plan is longer bouts: this exact cell now runs to 28.4 s
- * before one of the two is exhausted, which is still well inside the 60 s cap and is the
- * measurement that says the cap does not yet have to move. Running the fixture to 25 s is what
- * puts the four cells below back where they were -- at 14 s under the new rule the shipped pair
- * reads 0.688 and the mind blind to the arm in front of it reads 0.735, which is a difference no
- * threshold can be placed inside.
+ * times, and the cost named in that plan is longer bouts.
+ *
+ * **And since 2026-09-07 this cell does not finish inside the 60 s cap at all, which is the
+ * finding this docstring exists to carry rather than a threshold to be re-fitted around.**
+ * Session 03 of the style set scores a blow on `0.5 mu v^2` taken along the contact normal, and
+ * a golem's median contact arrives at 46 % of its tip speed -- so the median rake, squared, is
+ * worth a fifth of what the retired speed ramp paid it. Run to the cap, the weaker of the two
+ * reads 0.588 with no winner, having come down 0.125 over the last thirty seconds; at that rate
+ * the bout ends somewhere near 200 s. The lever is how fast a stroke arrives at the mark, which
+ * is Session 02's bench and Session 04's committed cut, and it is deliberately not a scoring
+ * row: `docs/measurements.md` under Session 03 reports the fall and leaves the 60 s cap in front
+ * of the owner, as the plan's sixth named risk says to.
+ *
+ * What that costs this test is the *bar's* half of the discrimination. Re-taken at 25 s on
+ * 2026-09-07:
+ *
+ *     GOLEM_TACTICS.standOffFraction / GOLEM_ASSEMBLY.healthScale   median gap   weaker bar
+ *      1.00 / 0.25   as shipped                                       1.670 m       0.783
+ *      0    / 0.25   the mind blind to the arm in front of it         1.299 m       0.776
+ *      1.00 / 1.0    a stone body against a person's weapon           1.670 m       0.946
+ *      0    / 1.0    the pair the owner watched                       1.299 m       0.944
+ *
+ * The bar no longer separates the stand-off at all -- 0.783 against 0.776 is nothing -- and
+ * still separates the health scale by a wide margin. So the two bounds below now hold one half
+ * of the fix each rather than both: lose the stand-off and the spacing bound says so, lose the
+ * health scale and the bar bound does. That is a weaker guard than the one it replaces and it is
+ * stated as one. Running to the cap would restore a little of it (0.588 shipped against 0.672
+ * blind, a margin of 0.084) at more than twice the cost, and a margin that thin is not worth
+ * buying.
  */
 test("two_golems_fight_at_arms_length_and_the_bout_goes_somewhere", async () => {
   const setup = defaultGolemSetup();
@@ -1010,23 +1033,20 @@ test("two_golems_fight_at_arms_length_and_the_bout_goes_somewhere", async () => 
   const loser = Math.min(bars.left, bars.right);
 
   // **Both bounds were placed by watching this bout go red with each half of the fix taken back
-  // out**, which is the only way to know a threshold is a threshold and not a decoration. At this
-  // seed, over the same 25 s, re-taken 2026-09-06 under the one-claim rule:
+  // out**, which is the only way to know a threshold is a threshold and not a decoration. The
+  // table is in the docstring above, and it has been re-taken three times now -- the figures move
+  // with every contact rule and will move again; the separations are what is not provisional.
   //
-  //     GOLEM_TACTICS.standOffFraction / GOLEM_ASSEMBLY.healthScale   median gap   weaker bar
-  //      1.00 / 0.25   as shipped                                       1.675 m       0.045
-  //      0    / 0.25   the mind blind to the arm in front of it         1.302 m       0.544
-  //      1.00 / 1.0    a stone body against a person's weapon           1.665 m       0.870
-  //      0    / 1.0    the pair the owner watched                       1.302 m       0.886
-  //
-  // So the spacing bound sits between 1.302 and 1.675 and the bar bound between 0.045 and 0.544,
-  // and neither half of the fix can be lost without one of them saying so. The figures moved with
-  // the contact rule and will move again; the separations are what is not provisional.
+  // The spacing bound sits between 1.299 and 1.670 and is where it has always been.
   assert.ok(median > 1.5,
     `two golems held ${median.toFixed(3)} m apart on the floor, which is chest to chest`);
-  assert.ok(loser < 0.45,
+  // The bar bound sits between 0.783 and 0.944, which is what is left of it: it says the golem's
+  // declared part health is still written to the scale of the weapon that has to cut it, and it
+  // no longer says anything about the stand-off. 0.85 is the midpoint of the two, rounded to a
+  // number somebody chose rather than one a run happened to produce.
+  assert.ok(loser < 0.85,
     `after ${result.seconds.toFixed(1)} s the weaker golem is still at ${loser.toFixed(3)},`
-    + ` which does not finish inside the cap`);
+    + ` which is a bout the weapon is not cutting into at all`);
 });
 
 // ---------------------------------------------------------------------------------------

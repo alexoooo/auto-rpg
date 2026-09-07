@@ -146,10 +146,13 @@ export const whipTerminal = defineTerminal({
     for (let back = 0; back < striking; back += 1) {
       const index = beads.length - 1 - back;
       strikers.push(new RigidStrike(beads[index], {
-        // `whip` since the matchup set's Session 02: the club's speeds and scale with no mass
-        // behind them (`scoring.ts` says why a lash is not scored by impulse), and a kind of its
-        // own so that a mind can plan a sweep for it rather than the club's smash.
+        // `whip` since the matchup set's Session 02, and a kind of its own so that a mind can
+        // plan a sweep for it rather than the club's smash. It scores on the blunt row like
+        // everything else that arrives without an edge; what makes it a lash is that one bead
+        // weighs 0.57 kg and reaches three times a club's speed, and `0.5 * mu * v^2` is where
+        // that trade is now settled rather than in a row that refused to weigh it.
         kind: "whip",
+        impactMassKg: W.segmentMass,
         effectorId: `${name}.${index}.lash`,
         hand,
         tipAlong: W.segmentLength / 2,

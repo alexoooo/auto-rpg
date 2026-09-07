@@ -921,6 +921,9 @@ test("post_solver_projectile_rotation_cannot_relabel_the_cached_contact_zone", (
     kind: "arrow", effectorId: "test-projectile", hand: null, spent: false, body,
     projectileImpact: { massKg: 0.12, lengthM: 0.5, radiusM: 0.01,
       penetrationEfficiency: 1 },
+    // `Striking.impactMassKg` is required of every striker since the scoring model became
+    // energy, and a projectile answers it with the same mass its frozen impact record carries.
+    impactMassKg: 0.12,
     projectilePoolIndex: 0, shotSerial: 0,
     allowsContact: () => true,
     velocityAt: () => new Vector3(0, 0, 42),
@@ -930,8 +933,17 @@ test("post_solver_projectile_rotation_cannot_relabel_the_cached_contact_zone", (
     tipPosition: () => new Vector3(0.5, 0, 0),
     impactTipPosition: () => new Vector3(0, 0, 0.5),
   };
+  // The struck part is a body double as well, and it answers the four questions `Combat` asks of
+  // one: what it weighs, where its centre is, and how it is moving there. A torso standing still
+  // makes the closing speed the arrow's own 42 m/s, which is the pose this test is about.
   const limb = { key: "torso", label: "Torso", health: 20, maxHealth: 20,
-    severed: false, lastHitAt: -999, part: { body: { applyImpulse: () => {} } } };
+    severed: false, lastHitAt: -999, part: { body: {
+      applyImpulse: () => {},
+      getMassProperties: () => ({ mass: 68 }),
+      getObjectCenterWorld: () => new Vector3(0, 0, 0),
+      getLinearVelocity: () => new Vector3(0, 0, 0),
+      getAngularVelocity: () => new Vector3(0, 0, 0),
+    } } };
   const combat = new Combat("left", [weapon]);
   combat.attach({ limbFor: () => limb, parriedBy: () => null, sever: () => {},
     applyDamage: (_target, damage) => { limb.health -= damage; return damage; } });

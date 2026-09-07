@@ -790,16 +790,147 @@ export const CONFIG = {
     leadGrip: 2,
   },
 
+  /**
+   * What a blow is worth: the energy that arrives, over the joules that mechanism costs a point
+   * of wound. Since 2026-09-06, and it replaced eighteen numbers with six.
+   *
+   * A striker of impact mass `m` meeting a part of mass `M` at closing speed `v` along the
+   * contact normal delivers to that part `E = 0.5 * mu * v^2`, with `mu = m M / (m + M)`, the
+   * reduced mass of the pair. That is the whole of the physics and it carries its own
+   * saturation: a 48 kg maul head on a 9.4 kg golem link can give the link no more than the
+   * link's share, and only on a trunk does the head's mass pay in full. `src/scoring.ts` holds
+   * the rule; these six numbers are all the balance there is in it.
+   *
+   * **Every constant is anchored on a Warrior blow that scored what it scored before this
+   * session**, so the model was fitted to the record and not the record to the model. Each row
+   * is that weapon's own mass against the Warrior torso's 68 kg (`CONFIG.body.torsoMass`), at
+   * `referenceSpeed`, divided by what the retired scale paid for it:
+   *
+   *     weapon   m kg    mu kg     E at 11 m/s   scored   J per damage
+   *     sword    1.35    1.32372      80.09       2.3        34.82
+   *     axe      1.40    1.37176      82.99       3.2        25.93
+   *     club     3.40    3.23810     195.90       1.7       115.24
+   *
+   * The floors are the retired speed floors restated the same way, so nothing about the
+   * Warrior's shove moved: `minCutSpeed` was 3.0 m/s, and `0.5 * 1.32372 * 3^2` is 5.96 J;
+   * `minCrushSpeed` was 2.2, and `0.5 * 3.23810 * 2.2^2` is 7.84 J; `minArrowSpeed` was 8.0 for
+   * a 0.035 kg arrow, whose reduced mass against a torso is 0.03498, and `0.5 * 0.03498 * 8^2`
+   * is 1.12 J.
+   *
+   * **What retired, and why none of it is missed.** `damageScale`, `chopScale`, `crushScale`,
+   * `fistScale` and `ramScale` were five ceilings each argued on its own day against a Warrior;
+   * `minCrushSpeed`, `fistMinSpeed`, `fistReferenceSpeed`, `biteMinSpeed`, `biteReferenceSpeed`,
+   * `ramMinSpeed`, `ramReferenceSpeed`, `minArrowSpeed` and `arrowReference` were the speed
+   * ramps those ceilings hung on; `clubReferenceMassKg`, `fistReferenceMassKg` and
+   * `ramReferenceMassKg` were the mass ratios bolted on later. Every one of them is now a
+   * consequence of `E` and a mechanism. The owner's question is what closed them --
+   * "why would a fist do more damage than a sword? that seems counter-intuitive" -- and the
+   * answer was that a stone fist's 25 and a perfect cut's 2.3 were set two sessions apart with
+   * no rule relating them.
+   */
   combat: {
-    /** Below this contact speed nothing cuts; the blade just shoves. */
-    minCutSpeed: 3.0,
-    /** Contact speed at which a square edge-on hit does full damage. */
+    /**
+     * The speed the three conversions above were read at, m/s.
+     *
+     * It is no longer a ramp -- nothing saturates at it and nothing is scored against it -- and
+     * it is kept because it is the anchor: move it and every joules-per-damage constant here has
+     * to be re-derived. `scripts/measure.mjs` also reads it as the speed a driven blade is
+     * expected to clear, which is a claim about an arm rather than about a score.
+     */
     referenceSpeed: 11.0,
-    /** How sharply damage falls off as the edge turns away from the cut. */
+    /** How sharply an edge's damage falls off as it turns away from the cut. */
     edgeExponent: 2.0,
     /** A thrust only counts if it lands within this distance of the tip. */
     thrustTipZone: 0.30,
-    damageScale: 2.3,
+
+    /**
+     * An edge, joules per point of wound. A sword's whole blade behind a placed cut.
+     *
+     * `0.5 * 1.32372 * 11^2 / 2.3`: the Warrior's 1.35 kg sword into a 68 kg torso at the
+     * reference speed, over the 2.3 that `damageScale` paid for exactly that blow. Quality
+     * multiplies it, so a badly placed cut still pays almost nothing.
+     */
+    cutJoulesPerDamage: 34.82,
+    /**
+     * An axe's edge, joules per point of wound. The same arm speed arriving through a hand's
+     * width of edge instead of through 840 mm of it.
+     *
+     * `0.5 * 1.37176 * 11^2 / 3.2`, from `chopScale`, which was the one number of the axe's
+     * three that the bench did not refuse. It is 75 % of the sword's, which is the 1.4 the
+     * physical argument asked for, arrived at from the other end.
+     */
+    chopJoulesPerDamage: 25.93,
+    /**
+     * Blunt, joules per point of wound: a club, a fist, a lash, a bash, a ram.
+     *
+     * `0.5 * 3.23810 * 11^2 / 1.7`, from `crushScale`. It costs three and a third times a
+     * sword's edge, which is the whole of the difference between placing a blow and arriving
+     * with one, and it is why a golem's 48 kg maul is worth two blade strokes on a trunk rather
+     * than the twenty-four the retired mass ratio paid it.
+     */
+    crushJoulesPerDamage: 115.24,
+    /**
+     * Below this much arriving energy an edge is weak: it shoves and does not bite.
+     *
+     * `0.5 * 1.32372 * 3^2`, the retired `minCutSpeed` of 3.0 m/s restated for the Warrior's own
+     * sword on a torso, so a blade being leaned on is exactly as harmless as it was.
+     */
+    cutFloorJ: 5.96,
+    /**
+     * Below this much arriving energy a blunt blow is a slap: it takes the shove path and scores
+     * nothing.
+     *
+     * `0.5 * 3.23810 * 2.2^2`, the retired `minCrushSpeed` of 2.2 m/s for the Warrior's 3.4 kg
+     * club on a torso. It is below the edge's floor in joules as well as in speed, which is the
+     * same statement the two speeds made: a blade that arrives slowly is a blade being leaned
+     * on, and a club that arrives slowly is still several kilograms of wood.
+     *
+     * What it costs elsewhere is worth saying plainly. A Warrior's 0.65 kg fist has to reach
+     * `sqrt(2 * 7.84 / 0.64385)` = 4.94 m/s on a torso to score at all, where `fistMinSpeed`
+     * asked 3.5; a punch is a slap over a wider band than it was, which is what a bare hand
+     * against a person is.
+     */
+    crushFloorJ: 7.84,
+    /**
+     * Below this much arriving axial energy a point does not bury itself.
+     *
+     * `0.5 * 0.03498 * 8^2`, the retired `minArrowSpeed` of 8.0 m/s for a 0.035 kg arrow whose
+     * reduced mass against a 68 kg torso is very nearly its own. Subtracted rather than gated,
+     * the way `PROJECTILE_PENETRATION_V1` already subtracts its speed floor: a point pays for
+     * the energy it had left after getting in.
+     */
+    pointFloorJ: 1.12,
+    /**
+     * The speed above which a striker is not swinging, it is exploding, m/s.
+     *
+     * **A guard against the solver, not a ceiling on a blow, and the difference is the reason
+     * this number is 40 and not 12.** Energy goes as the square of the speed and nothing clamps
+     * it any more, which is right -- and it means a contact the solver invents is billed as a
+     * killing blow instead of being lost in a ramp that saturated at 11 m/s. Measured on the
+     * fixture that found it (`tests/integration.test.mjs`'s thrusting duelist against an idle
+     * warrior, seeds 11/22): the blade reaches 136 m/s at 1.10 s and the same fixture on the
+     * *old* model shows a 149 m/s fist at the same instant scored as 0.9 damage, so the defect
+     * is older than this session and was invisible only because the ramp threw the number away.
+     * A blade at 136 m/s takes a head off and ends the bout in 1.15 s.
+     *
+     * Where 40 comes from: 1,710 contacts over seven bouts on 2026-09-07 -- four golem mirrors
+     * on the first four pool builds and three Warrior pairs, arrows excluded -- put the tip
+     * speed at 5.4 m/s at the median, 24.9 at the 99th percentile, 31.3 at the 99.9th and 33.2
+     * at the maximum. So 40 m/s is above every blow a striker in this program has been measured
+     * to land and far below every excursion, and it clips nothing in that sample. It is checked
+     * against the *unprojected* tip speed rather than the closing speed, because what is being
+     * refused is a striker travelling impossibly fast whatever the manifold says about it.
+     *
+     * Projectiles are exempt: `CONFIG.arrow.speedMax` is 48 m/s and a loosed arrow's speed is
+     * authored by the bow rather than found by the solver.
+     *
+     * It is a **refusal** rather than a clamp on purpose. Clamped, a 136 m/s blade would still
+     * be billed at 40 and still take the head off; refused, it is counted under
+     * `impossible-speed` where a run can see how often it fires, which is the number that says
+     * whether this is a guard or a crutch. `docs/measurements.md` under Session 03 has the rate.
+     */
+    impossibleSpeed: 40.0,
+
     /** Damage past a part's remaining health this far over severs it. */
     severMargin: 0.05,
     /**
@@ -810,6 +941,12 @@ export const CONFIG = {
      * sets rather than the bar. Beating a limb to nothing with the flat leaves
      * it ruined but attached, which is both more interesting and more honest
      * than letting a clumsy player dismember by accumulation.
+     *
+     * It survived the move to energy scoring untouched, and deliberately: a sever bar is a
+     * statement about *placement*, which the mechanism still measures, and folding it into the
+     * mechanism would have made every blunt striker sever or none of them -- a second mechanic
+     * riding on one change. `src/scoring.ts`'s `BITE` therefore keeps a fourth field beside the
+     * kind, the mechanism and the floor.
      */
     severQuality: 0.4,
     /** Impulse delivered to a limb the moment it comes free. */
@@ -840,182 +977,13 @@ export const CONFIG = {
      * strictly inside the gap that defines a stroke, and 0.20 is the round number that is.
      *
      * **Only a striker that asks for it is held to it**, through `Striking.strokeClaim`. Every
-     * golem striker is; the Warrior's weapons do not implement the field, so every pinned Warrior
-     * number in `tests/scoring.test.mjs` and the measure's Warrior cells are untouched by it.
+     * golem striker is; the Warrior's weapons do not implement the field, so the Warrior's own
+     * rake is unchanged and the measure's Warrior cells move by this session's scoring rule
+     * alone.
      */
     strokeClaimSeconds: 0.20,
     /** Seconds of cooldown per part, so one contact is not billed 60 times. */
     hitCooldown: 0.09,
-
-    /**
-     * The club, which does not cut.
-     *
-     * `crushScale` against `damageScale`'s 2.3: a club landing square is worth
-     * less than a sword landing perfectly, and far more than a sword landing
-     * badly. That is the trade the weapon is for -- you cannot place a blow with
-     * a club, so it should not need placing, and it should not out-damage a cut
-     * that somebody actually aimed.
-     *
-     * `minCrushSpeed` is below `minCutSpeed` because a blade that arrives slowly
-     * is a blade being leaned on and a club that arrives slowly is still several
-     * kilograms of wood. Neither number has been played with.
-     */
-    crushScale: 1.7,
-    minCrushSpeed: 2.2,
-    /**
-     * What the club's row was written for, kilograms: `CONFIG.club.mass`, restated here so the
-     * row can be read without the weapon block. A striker that publishes no mass is scored at
-     * exactly this, which is how every Warrior number stayed byte-identical when the row moved
-     * onto `impulse`; a golem's mace and maul publish their own. 2026-09-05.
-     */
-    clubReferenceMassKg: 3.4,
-
-    /**
-     * The fist. These are deliberately below steel: a clean 9 m/s punch is
-     * worth 0.9 damage and anything below 3.5 m/s is only a shove. The session
-     * 06 unarmed corpus in `docs/measurements.md` records both floors beside
-     * the resulting punches, blocks, damage and survival.
-     */
-    fistScale: 0.9,
-    fistMinSpeed: 3.5,
-    fistReferenceSpeed: 9,
-    /**
-     * The fist the three numbers above were set for, kilograms: `body.handMass`, restated here
-     * rather than read from there because a scoring row is a statement about a blow and not
-     * about a rig. A Warrior's fist publishes no mass and is scored at exactly this, so the row
-     * going on `impulse` moved nothing the Warrior does; a golem's stone fist publishes its own
-     * and is worth its own weight in the same units. 2026-09-05.
-     */
-    fistReferenceMassKg: 0.65,
-    /** Centipede's committed lunge: damaging, point-like, and never severing. */
-    biteScale: 1.2,
-    biteMinSpeed: 2.8,
-    biteReferenceSpeed: 8,
-
-    /**
-     * A golem's ram plate: the first striker here that is a *body part on a hinge* rather than a
-     * thing an arm swings, and the reason it needs its own two speeds.
-     *
-     * **The damage model is speed and alignment and knows nothing about mass**, so every floor
-     * and reference above is a number for the mass a hand can accelerate. `BITE.arrow`'s own
-     * comment makes this argument once already -- "`combat.referenceSpeed` is 11 m/s and that is
-     * a **blade's** number" -- and a ram is the same problem pointed the other way.
-     *
-     * Measured, 2026-09-04, the Node torso bench: a ram lunge puts its plate into a contact at
-     * **1.3 to 1.8 m/s**, because a head traces a 0.36 m arc about a hinge and cannot reach a
-     * blade's tip speed however hard it is driven. Scored on the club's row that is below
-     * `minCrushSpeed` and does literally nothing -- a whole option that cannot land a blow, which
-     * is what these two numbers exist to prevent.
-     *
-     * They are the club's carried across at equal kinetic energy, which is the one comparison the
-     * two situations share. A rigid body pivoting about a hinge presents an effective mass of
-     * `I / d^2` at a point `d` from that hinge: the head is 81 kg at 0.16 m and the plate 21 kg
-     * at 0.36 m, so `I` is about 4.8 kg.m2 and `I / 0.36^2` is **37 kg** against
-     * `CONFIG.club.mass` of 3.4. Equal energy scales every speed by `sqrt(3.4 / 37) = 0.303`:
-     *
-     *     club             ram
-     *     2.2 m/s floor    0.65 m/s
-     *     11 m/s reference 3.30 m/s
-     *
-     * `ramScale` was `crushScale` unchanged on its first day, from the same argument: at its own
-     * reference a ram arrives with a club's energy, so it is worth a club's blow. On the measured
-     * contacts that came to **0.55 to 0.73 damage** -- a real blow and a small one, a fifth of a
-     * blade stroke's 3.13, and the owner watched a ram land and asked why it did not hurt.
-     *
-     * **The fight answered the balance question, 2026-09-05.** Two things were wrong and the
-     * table was one of them. The model was mass-blind, so the 37 kg above counted for nothing
-     * beyond moving two speeds; and the mind fired the neck alone with the trunk upright, so the
-     * waist half of the lunge the head's own comment describes never happened. The row is now
-     * `impulse` -- `ramReferenceMassKg` is the 37 kg the two speeds were derived for, and the
-     * plate publishes what it actually arrives with (`HEAD_RAM.impactMassKg`) -- and `ramScale`
-     * is set so that a leaned lunge is a whole-body blow: worth two or three blade strokes, rare,
-     * and paid for with the fatal part. Swept on a capped-sockets ram golem, 8 side-swapped
-     * bouts, seed 20260905, Node arena harness -- the damage a landed blow is worth at the median,
-     * against the 3.61 a golem's blade stroke was worth in the mirror cell the same day:
-     *
-     *     ramScale   vs golem: damage / landed contact   ram damage / bout   vs warrior: damage / contact   bout
-     *        1.7          1.37                               75.4                  1.48                   41.6 s
-     *        3.4          2.73                              150.8                  3.00                   36.2
-     *        6            4.82                              266.1                  6.78                   27.8
-     *        9            7.23                              399.1                 10.50                   21.7
-     *       12            9.64                              532.1                 14.00                   21.7
-     *
-     * 9: a landed ram is two blade strokes at the median and four at the ninetieth percentile
-     * (14.9), and a perfect one at the reference speed with the published mass behind it is 18,
-     * an eighth of a golem's head. Rare, because a lunge is one blow and lands one time in ten
-     * against a Warrior's guard. The table is in `docs/measurements.md` under Session 01 of the
-     * matchup set. 2026-09-05.
-     */
-    ramScale: 9,
-    ramMinSpeed: 0.65,
-    ramReferenceSpeed: 3.3,
-    ramReferenceMassKg: 37,
-
-    /**
-     * The axe, which cuts, but not like a blade does.
-     *
-     * **One number, and it is the only one that survived.** The axe was drafted
-     * with three -- its own scale, its own speed floor and its own sever bar --
-     * and the bench refused two of them outright:
-     *
-     * - *Its own floor*, between the blade's 3.0 and the club's 2.2, on the
-     *   club's argument that a heavy head arriving slowly still bites. Over 24
-     *   bouts it moved the axe's total damage from 3339 to 3354, which is
-     *   nothing, and its blow *count* from 183 to 193, which is the same damage
-     *   spread over ten more contacts too slight to be worth counting. It only
-     *   ever changed what got called a blow.
-     * - *Its own sever bar*, 0.2 against the blade's 0.4, on the argument that
-     *   taking limbs off is what an axe is for. At 0.2 and at 0.4 the bench
-     *   returned **byte-identical** numbers, because an axe blow that empties a
-     *   limb has already landed at a quality well above either. The bar was
-     *   never the binding constraint and the weapon's own scale was doing all of
-     *   the work.
-     *
-     * So `chopScale` is the axe, and 3.2 is the v2-unit form of the 64 selected
-     * where two independent arguments meet.
-     * The physical one: the same arm speed arrives through a hand's width of
-     * edge rather than through 840 mm of it, which is worth something like 1.4
-     * times. The measured table below retains the legacy-v1 combat units in which
-     * 46 x 1.4 is 64.4. The `duelist` carrying it
-     * against `swinger`, 12 bouts a row:
-     *
-     * | chopScale | damage taken | dealt | died | killed | per blow |
-     * |---|---|---|---|---|---|
-     * | 46 | 412.5 | 136.4 | 5 | 6 | 13.3 |
-     * | 54 | 391.6 | 148.8 | 4 | 7 | 15.1 |
-     * | **64** | **354.0** | **155.6** | **3** | **8** | **17.2** |
-     * | 76 | 327.4 | 165.2 | 2 | 9 | 21.0 |
-     *
-     * The sword in the same seat takes 308.5, deals 201, dies 3 and kills 9 at
-     * 15.2 a blow. So 64 is where the axe survives as well as a sword while
-     * still landing fewer and heavier blows, and 76 is where it starts to
-     * out-damage a placed cut -- which would make the sword pointless, and is
-     * the thing this number is not allowed to do.
-     */
-    chopScale: 3.2,
-
-    /**
-     * The arrow, which needed a **second** number for a reason none of the
-     * hand-held kinds did.
-     *
-     * `referenceSpeed` is 11 m/s, and it is a *blade's* number: the speed a cut
-     * has to reach to be worth everything it can be worth. An arrow leaves the
-     * string at 48. Scored against 11, every arrow that arrives point-first --
-     * a half-drawn one at 22 as much as a full-drawn one at 48 -- saturates the
-     * speed term at 1 and does identical damage, so the draw would be a knob
-     * that changes nothing. That is precisely the shape of the two axe knobs the
-     * bench threw out last session, caught before it shipped rather than after.
-     *
-     * So `Bite` grew a `reference` beside its `floor`, both per kind, and the
-     * arrow's is `arrowReference`. At 42 a bow at `minDraw` lands 41 % of what a
-     * full one does, which is a draw worth holding.
-     *
-     * `minArrowSpeed` is well above the blade's 3.0 for the opposite reason:
-     * everything the other kinds do at 3 m/s is somebody leaning on a weapon,
-     * and an arrow at 3 m/s is one that has run out of flight and is falling.
-     */
-    minArrowSpeed: 8.0,
-    arrowReference: 42,
   },
 
   /**
@@ -1034,10 +1002,11 @@ export const CONFIG = {
     /**
      * Damage below which a contact draws nothing.
      *
-     * A blade at `minCutSpeed` scores near zero and a flat slap scores near
+     * A blade at its energy floor scores near zero and a flat slap scores near
      * zero, so this mostly separates "touched" from "cut". It is expressed in
      * damage rather than in speed so that it moves with the scoring rule instead
-     * of having to be re-derived every time `damageScale` changes.
+     * of having to be re-derived every time the scoring rule does -- which it did,
+     * wholesale, on 2026-09-06, and this number did not have to move.
      */
     minSpray: 0.075,
     /** Damage at which a spray is as big as it gets. `partHealth` is 5. */
@@ -1618,9 +1587,10 @@ export const CONFIG = {
      * of it is 4.4 m/s. That is brisk -- a walk-in is 2.9 m/s -- and it is well
      * under the 10 to 40 m/s a committed cut puts through the tip, so a rebase
      * can never be mistaken for an attack, and it cannot land one either:
-     * `combat.minCutSpeed` is 3.0 m/s at the *tip*, which a hand crossing at 4.4
-     * would clear, so this is the one number in the block that somebody should
-     * watch in the page. If a takeover is ever seen to cut, halve it.
+     * `combat.cutFloorJ` is 5.96 J, which a 1.35 kg blade meeting a torso clears
+     * at 3.0 m/s at the *tip* and a hand crossing at 4.4 would therefore pass, so
+     * this is the one number in the block that somebody should watch in the page.
+     * If a takeover is ever seen to cut, halve it.
      *
      * Set it to 0 and the bridge disappears, leaving exactly the seed the plan
      * for session 07 asks for and nothing else. That is kept working on purpose:

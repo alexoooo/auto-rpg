@@ -442,6 +442,18 @@ export class Weapon {
   readonly root: TransformNode;
   readonly body: PhysicsBody;
   readonly shape: PhysicsShapeContainer;
+  /**
+   * What this weapon arrives with, kilograms: the mass its own body was built with.
+   *
+   * Read back off the body rather than kept as a second copy of the config row, because there
+   * are five constructors here and a field set in four of them is a field that will one day be
+   * missed in the fifth. `Striking.impactMassKg` has required it since 2026-09-06, when a blow
+   * became worth the energy that arrives; before that a hand-held weapon published nothing and
+   * every scoring row carried a reference mass to stand in for it.
+   */
+  get impactMassKg(): number {
+    return this.body.getMassProperties().mass ?? 0;
+  }
 
   /**
    * Every leaf shape this weapon is made of, because **Havok filters on the

@@ -493,7 +493,11 @@ async function hammerBlow(torsoId) {
     collidesWith: COLLIDES.RIGHT_SWORD,
   });
   const striker = new RigidStrike(hammer, {
+    // The Warrior blade's own mass, because what this fixture is about is armour and not the
+    // weapon: a striker has had to publish one since a blow became worth the energy it carries,
+    // and 1.35 kg is the mass every anchoring constant in `CONFIG.combat` was derived at.
     kind: "sword", effectorId: "armour.hammer", hand: null, tipAlong: 0.25,
+    impactMassKg: CONFIG.sword.mass,
   });
 
   const limb = {
@@ -561,27 +565,41 @@ test("the plated torso takes less of the same scored blow than the plain one", a
   assert.equal(a.kind, "cut");
   assert.equal(b.kind, "cut");
 
-  // One blow, scored twice. If these differ, the two runs are not comparable and nothing below
-  // means anything -- which is the failure mode a "the plated one took less" assertion has by
-  // construction, and the reason this line is here rather than only the one after it.
-  assert.ok(Math.abs(a.preArmourDamage - b.preArmourDamage) < 1e-9,
+  // One blow, scored twice -- **and from 2026-09-06 the two scores are no longer the same
+  // number, because the part's own mass is now half of what a blow is worth.** A plated core is
+  // 236 kg against a plain one's 139, and against a 1.35 kg hammer the reduced masses are
+  // 1.35 x 139 / 140.35 = 1.33702 and 1.35 x 236 / 237.35 = 1.34232 -- a 0.40 % difference, so
+  // the plated core is struck 0.40 % harder before any armour is taken off it. That is the model
+  // saying something true (a heavier body absorbs the blow rather than recoiling from it) and it
+  // is 0.40 % against a `coreArmour` gap of tens of percent, so it cannot be what the assertion
+  // below is reading. The bound here is what makes that explicit: 1 % apart is the same blow,
+  // and anything wider means the two runs stopped being comparable and nothing under it means
+  // anything -- which is the failure mode a bare "the plated one took less" has by construction.
+  const spread = Math.abs(a.preArmourDamage - b.preArmourDamage) / a.preArmourDamage;
+  assert.ok(spread < 0.01,
     `the two runs scored different blows: ${a.preArmourDamage} against ${b.preArmourDamage}`);
+  assert.ok(b.preArmourDamage > a.preArmourDamage,
+    "the heavier core has to be struck harder, not softer, by the same hammer");
   assert.ok(a.preArmourDamage > 0, "a square cut at 8 m/s has to be worth something");
 
   // The rule, applied: each core paid its own fraction, and the plated one paid less.
   assert.ok(Math.abs(a.postArmourDamage - a.preArmourDamage * (1 - TORSO_PLAIN.coreArmour)) < 1e-9);
   assert.ok(Math.abs(b.postArmourDamage - b.preArmourDamage * (1 - TORSO_PLATED.coreArmour)) < 1e-9);
+  // The armour gap has to survive the 0.40 % the mass difference just gave the plated core back,
+  // and it does by a wide margin -- if it ever did not, the two lines above would be the ones
+  // that said so rather than this one quietly flipping.
   assert.ok(b.postArmourDamage < a.postArmourDamage,
     `the plated core took ${b.postArmourDamage} and the plain one ${a.postArmourDamage}`);
 
   // And the same blow through `src/scoring.ts` on its own, with no physics anywhere, agrees --
   // so what the arena does and what the pure rule says are one thing.
-  const contact = { speed: a.speed, edgeAlignment: 1, bladeAlignment: 0, nearTip: false };
+  const contact = { closingSpeed: a.closingSpeed, strikerMassKg: CONFIG.sword.mass,
+    partMassKg: a.partMassKg, edgeAlignment: 1, bladeAlignment: 0, nearTip: false };
   const raw = scoreHit(contact, "sword").damage;
   // A part in ten million, which is the width of the arena's own answer rather than a slack
-  // bound: `HitReport.speed` is a float32 round trip through the solver, so 8 m/s comes back as
-  // 8.0000004 and the two damages differ in the seventh decimal. Tighter than this is a test of
-  // Havok's float width; looser is a test of nothing.
+  // bound: the report's own columns are float32 round trips through the solver, so 8 m/s comes
+  // back as 8.0000004 and the two damages differ in the seventh decimal. Tighter than this is a
+  // test of Havok's float width; looser is a test of nothing.
   assert.ok(Math.abs(raw - a.preArmourDamage) < 1e-6,
     `the pure scorer says ${raw} and the arena says ${a.preArmourDamage}`);
   assert.ok(armouredDamage(raw, TORSO_PLATED.coreArmour) < armouredDamage(raw, TORSO_PLAIN.coreArmour));
@@ -711,15 +729,31 @@ test("the ram's lunge scores on a post and the plain head scores nothing on the 
   const wounds = ram.reports.filter((report) => report.damage > 0);
   assert.ok(wounds.length > 0, "the ram lunged and scored nothing");
   const best = wounds.reduce((a, b) => (b.damage > a.damage ? b : a));
-  // Its own row in `src/scoring.ts`, not the club's, and not because a ram is special: the club's
-  // floor is a statement about 3.4 kg on the end of an arm, and a head on a hinge arrives slower
-  // and far heavier. `CONFIG.combat.ramMinSpeed` carries that arithmetic.
-  assert.equal(best.weapon, "ram", "a ram plate bites with mass, on its own two speeds");
+  // The blunt row, which is now the club's row and every other blunt row as well. It had two
+  // speeds of its own until 2026-09-06, because a floor in metres per second is a statement
+  // about the mass a hand can accelerate and a head on a hinge arrives slower and far heavier;
+  // in joules there is one floor and 74 kg says the rest.
+  assert.equal(best.weapon, "ram", "a ram plate bites with the mass behind it");
   assert.equal(best.kind, "crush");
   assert.equal(best.key, "post");
   assert.equal(best.severed, false, "a head-butt does not take a limb off");
-  assert.ok(best.speed >= CONFIG.combat.ramMinSpeed,
-    `the scoring blow arrived at ${best.speed.toFixed(2)} m/s, under the ram's own floor`);
+  // **The post's own mass is half of what the blow is worth, and that is the point of the row.**
+  // The post is a free 12 kg body, so the reduced mass is 74 x 12 / 86 = 10.33 kg and not the
+  // plate's 74: a 74 kg head into something a sixth of its weight spends most of the lunge
+  // pushing the post away rather than into it. That is what `impactEnergyJ` is for, and it is
+  // why this assertion reads the post's mass out of the report rather than trusting the fixture
+  // -- if the post were ever built static, Havok would report 0 for it, `Combat` would read that
+  // as immovable and the reduced mass would jump to the whole 74, which is a different test.
+  assert.equal(best.partMassKg, 12, "the post is a free body and its mass is half the arithmetic");
+  const reduced = (HEAD_RAM.impactMassKg * 12) / (HEAD_RAM.impactMassKg + 12);
+  assert.ok(Math.abs(best.energyJ - 0.5 * reduced * best.closingSpeed ** 2) < 1e-6,
+    `the report's energy is not the reduced-mass one: ${best.energyJ}`);
+  // At the 1.3 to 1.8 m/s a lunge reaches, 10.33 kg is 8.7 to 16.7 J against `crushFloorJ`'s
+  // 7.84 -- over the floor, and still under a fifth of a point of wound, because
+  // `crushJoulesPerDamage` charges 115 J for one. The lever that would make a lunge hurt is
+  // `HEAD_RAM.lunge.driveTorque` and not a scoring row; Session 03 of the style set reports it.
+  assert.ok(best.energyJ >= CONFIG.combat.crushFloorJ,
+    `the scoring blow arrived with ${best.energyJ.toFixed(1)} J, under the blunt floor`);
 
   assert.deepEqual(plain.reports, [],
     "a plain head has no striker, so `Combat` watches nothing and files nothing");

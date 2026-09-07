@@ -26,13 +26,13 @@ import { RigidStrike } from "../striker.ts";
  * and a shell. It has no control code, for the reason `blade.ts` gives.
  *
  * **Scored by what arrives.** The striker's kind is `empty`, the Warrior's own bare hand, and
- * the bite row for that kind is `impulse`: damage is the speed ramp times the mass the striker
- * publishes over the row's reference, which for a fist is a human one (`fistReferenceMassKg`).
- * A Warrior's punch publishes nothing and scores as it always did; this one publishes
- * `TERMINAL_FIST.mass`, so the same punch at the same speed is worth twelve of the Warrior's --
- * which is what eight kilograms of stone arriving where a fist arrives should be worth, and
- * the row in `docs/measurements.md` under Session 01 of the matchup set says what it measured
- * against a blade on the same chain.
+ * the bite row for that kind is `blunt`: damage is `0.5 * mu * v^2` over `crushJoulesPerDamage`,
+ * with `mu` the reduced mass of the ball and whatever it hits. A Warrior's punch publishes its
+ * 0.65 kg hand and this one publishes `TERMINAL_FIST.mass`, 8 kg of stone -- so against a golem's
+ * trunk core the same punch at the same speed is worth about twelve of the Warrior's, and against
+ * a 9.4 kg limb about five, because a light limb gets out of the way of both. The row in
+ * `docs/measurements.md` under Session 03 of the style set says what it measured against a blade
+ * on the same chain.
  *
  * **One leaf.** `spherePart` builds a single `PhysicsShapeSphere`, so the layer masks go on the
  * shape itself and `sever` can rewrite them; a compound would take them on a container that

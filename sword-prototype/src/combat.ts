@@ -12,7 +12,7 @@ import type { WeaponKind } from "./weapon.ts";
 import type { Limb } from "./fighter.ts";
 import type { Combatant } from "./units.ts";
 import type { HandName } from "./hands.ts";
-import { biteFloor, evaluateProjectileImpact, scoreHit, severs,
+import { biteFloorJ, biteMechanism, evaluateProjectileImpact, impactEnergyJ, scoreHit, severs,
   type HitKind, type Striker } from "./scoring.ts";
 
 export type { HitKind };
@@ -62,16 +62,21 @@ export interface Striking {
   /** Authored zero-wound contact transfer, expressed as target velocity change. */
   readonly authoredSpecificImpulseMps?: number;
   /**
-   * The mass this striker arrives with, kilograms, for a kind whose bite row is `impulse`.
+   * The mass this striker arrives with, kilograms. **Required**, and that is the point.
    *
    * Published by the effector that knows it -- a ram plate's is the plate plus what the neck and
-   * the trunk put behind it; a stone fist's is the knuckle -- and read by nothing but the scorer,
-   * which hands it to `scoreHit` as `Contact.massKg`. Absent for every hand-held weapon, and
-   * absent is the row's own reference mass, so a Warrior's fist scores exactly what it did before
-   * this field existed. Never estimated here from the body: `Combat` has a handle and no idea
-   * what fraction of a golem is behind the contact.
+   * the trunk put behind it; a stone fist's is the knuckle; a Warrior's weapon is the mass its
+   * own body was built with -- and read by nothing but the scorer, which hands it to `scoreHit`
+   * as `Contact.strikerMassKg` and turns it into joules with the struck part's own mass.
+   *
+   * It was optional for a day and optional meant "the bite row's reference mass", which is how a
+   * golem's stone fist came to be scored against a human hand. Since 2026-09-06 a blow is worth
+   * the energy that arrives, there is no reference mass left to fall back on, and a striker with
+   * nothing to declare here is a striker whose blows cannot be priced -- so the field is required
+   * and the compiler is what finds the one that was not taught it. Never estimated here from the
+   * body: `Combat` has a handle and no idea what fraction of a golem is behind the contact.
    */
-  readonly impactMassKg?: number;
+  readonly impactMassKg: number;
   /** Immutable physical facts shared with the live projectile body. */
   readonly projectileImpact?: Readonly<{
     readonly massKg: number;
@@ -110,7 +115,7 @@ export interface Striking {
    *
    * It cost real numbers. An arrow that has struck goes on generating contacts
    * against the limb it is resting on, one every `hitCooldown`, and a limb that
-   * is moving drags it past `minArrowSpeed` often enough to be billed: over 12
+   * is moving drags it past the then `minArrowSpeed` often enough to be billed: over 12
    * bouts, 62 of the archer's "hits" averaged **2.9 damage** where a clean arrow
    * is worth 55, because most of them were the same handful of spent shafts
    * being scored eleven times a second. The speed floor was doing most of the
@@ -174,6 +179,22 @@ export interface HitReport {
   kind: HitKind;
   /** Speed of the blade at the contact point, m/s. */
   speed: number;
+  /**
+   * How fast the striker was arriving into the surface, m/s: its speed at the point projected on
+   * the contact normal.
+   *
+   * Beside `speed` and never more than it, which is the whole of this session's argument: a rake
+   * travels fast across a surface and arrives at nothing. `scoring.ts` scores from this one; the
+   * readout keeps both so the difference is visible in the log rather than only in the damage.
+   */
+  closingSpeed: number;
+  /** The struck part's own rigid-body mass, kilograms, as the scorer read it. */
+  partMassKg: number;
+  /**
+   * What arrived, joules: `impactEnergyJ` of the striker's mass, the part's, and the closing
+   * speed. The number the damage was computed from, kept so a blow can be argued with.
+   */
+  energyJ: number;
   /** How squarely the edge was travelling into the cut, 0..1. */
   edgeAlignment: number;
   /** What the solver actually resolved, kept as a diagnostic. */
@@ -220,7 +241,8 @@ export interface CombatReportEvent {
 }
 
 export interface CombatRefusalEvent {
-  readonly reason: "owner-contact" | "inactive-action" | "module-attribution";
+  readonly reason: "owner-contact" | "inactive-action" | "module-attribution"
+    | "impossible-speed";
   readonly effectorId: string;
   readonly at: number;
 }
@@ -330,6 +352,7 @@ export class Combat {
     velocity: new Vector3(),
     direction: new Vector3(),
     push: new Vector3(),
+    normal: new Vector3(),
   };
 
   constructor(side: Side, weapons: readonly (Striking | null)[], onReport?: (event: CombatReportEvent) => void,
@@ -461,6 +484,20 @@ export class Combat {
       return;
     }
     if (limb.severed) return;
+
+    // **A striker travelling this fast is the solver, not a blow, and it is refused by name.**
+    // Checked here rather than in `resolve` so that a contact nobody is going to score never
+    // spends a stroke claim below, and checked before the cooldown is stamped for the same
+    // reason. `CONFIG.combat.impossibleSpeed` carries the measurement that places it and the
+    // fixture that found it; the short version is that energy goes as the square of the speed,
+    // so a 136 m/s excursion that the retired ramp threw away is now a killing blow. Projectiles
+    // are exempt because a loosed arrow's speed is authored by the bow.
+    const arriving = weapon.velocityAt(event.point as Vector3).length();
+    if (!weapon.projectileImpact && arriving > CONFIG.combat.impossibleSpeed) {
+      this.onRefusal?.({ reason: "impossible-speed", effectorId: weapon.effectorId, at: this.clock });
+      return;
+    }
+
     const projectileKey = weapon.projectileImpact ? this.projectileIdentityKey(weapon) : null;
     if (projectileKey !== null ? this.projectileHits.has(projectileKey)
       : this.clock - limb.lastHitAt < CONFIG.combat.hitCooldown) return;
@@ -528,6 +565,11 @@ export class Combat {
       key: `block:${stopped.kind}`,
       kind: "weak",
       speed: velocity.length(),
+      // A block is not a wound and has no struck part, so the three scoring columns are zero
+      // rather than invented. `isBlock` is what tells the readout and the log which it is.
+      closingSpeed: 0,
+      partMassKg: 0,
+      energyJ: 0,
       edgeAlignment: 0,
       solverImpulse: event.impulse,
       damage: 0,
@@ -545,12 +587,64 @@ export class Combat {
     if (this.log.length > 24) this.log.length = 24;
   }
 
+  /**
+   * How fast the striker was arriving *into the surface* at the contact point, m/s.
+   *
+   * The striker's velocity at the point, projected on the contact normal. Only the normal
+   * component of a collision is lost to deformation -- the tangential part is friction's
+   * business -- so this is the speed that `impactEnergyJ` is entitled to square, and it is what
+   * separates a square blow from a rake: measured over a golem-versus-golem bout, a contact's
+   * normal speed is 46 % of its tip speed at the median and 93 % at the ninetieth percentile.
+   *
+   * **The struck part's own velocity is deliberately not subtracted, and that is a correction to
+   * the session plan made by measuring.** The plan asked for the striker's velocity *less the
+   * part's*, which is the right physics and unavailable here: a collision callback runs after
+   * Havok has solved the contact, so the part has already been given most of the striker's
+   * normal velocity by the time this is asked. Measured on the same bout, the relative normal
+   * speed reads 1.56 m/s at the median against the striker's own 2.25, and on a keyframed
+   * striker -- the armour bench's hammer, which cannot be slowed -- it collapses from 8.0 m/s to
+   * 0.39, because there the part absorbs the whole of it. That is the solver's answer to the
+   * contact and not the blow's arrival, which is the same objection this file's head raises
+   * against scoring from `event.impulse`. What is lost by leaving it out is a body walking into
+   * a cut, which pays as though it had stood still.
+   *
+   * **The magnitude of the projection, not the signed value**, and that is Havok's convention
+   * rather than a choice. The plugin hands `contactOnA.normal` to one observer and
+   * `contactOnB.normal` -- the same plane, the opposite way round -- to the other, so which side
+   * of the manifold a `Combat` is standing on decides the sign and nothing about the blow does.
+   *
+   * A manifold with no usable normal falls back to the unprojected speed, which is the generous
+   * reading: it is what the model scored before it learned to project. Havok populates the
+   * normal for every collision event that is not `COLLISION_FINISHED`, so this is a guard and
+   * not a path.
+   */
+  private closingSpeedAt(strikerVelocity: Vector3, event: IPhysicsCollisionEvent): number {
+    const normal = event.normal;
+    if (!normal) return strikerVelocity.length();
+    const unit = this.scratch.normal.copyFrom(normal);
+    const length = unit.length();
+    if (!(length > 1e-6)) return strikerVelocity.length();
+    return Math.abs(Vector3.Dot(strikerVelocity, unit)) / length;
+  }
+
   private resolve(weapon: Striking, limb: Limb, event: IPhysicsCollisionEvent): HitReport {
     const C = CONFIG.combat;
     const point = event.point as Vector3;
 
     const velocity = this.scratch.velocity.copyFrom(weapon.velocityAt(point));
     const speed = velocity.length();
+    // The mass the solver is actually carrying, read the same way the shove below reads it. A
+    // jointed part is effectively heavier than its own body -- an elbow drags an upper arm --
+    // so this errs in the striker's favour, which `Contact.partMassKg` says out loud.
+    //
+    // Havok reports 0 for a body it does not integrate -- a static post, a wall, a bench stand --
+    // and 0 there means immovable rather than weightless. `impactEnergyJ` takes that as
+    // `Infinity` and hands back the striker's whole kinetic energy, which is the right answer
+    // for hitting something that cannot move and the ceiling on every other answer.
+    const solverMassKg = limb.part.body.getMassProperties().mass ?? 0;
+    const partMassKg = solverMassKg > 0 ? solverMassKg : Infinity;
+    const closingSpeed = this.closingSpeedAt(velocity, event);
+    const energyJ = impactEnergyJ(weapon.impactMassKg, partMassKg, closingSpeed);
 
     const base = {
       by: this.side,
@@ -559,6 +653,9 @@ export class Combat {
       weapon: weapon.kind,
       solverImpulse: event.impulse,
       speed,
+      closingSpeed,
+      partMassKg,
+      energyJ,
       at: this.clock,
       point: point.clone(),
       velocity: velocity.clone(),
@@ -567,11 +664,18 @@ export class Combat {
 
     // The weapon's own floor, asked of the table rather than assumed to be the
     // blade's. This early-out exists to skip a divide and three dot products for
-    // a contact too slow to be worth anything, and that is all it is allowed to
+    // a contact too slight to be worth anything, and that is all it is allowed to
     // be: for most of a year it was `speed < C.minCutSpeed`, which meant a club
     // below 3.0 m/s never reached `scoreHit` and `minCrushSpeed` was a setting
     // that worked only in its unit test.
-    if (!weapon.projectileImpact && speed < biteFloor(weapon.kind) && weapon.kind !== "empty") {
+    //
+    // Blunt is exempt, where it used to be the bare fist alone. A sub-floor blunt contact is a
+    // **slap**: it scores nothing and still shoves, so it has to reach the shove path below,
+    // and the mechanism is what says which contacts those are rather than a list of kinds. A
+    // point's floor is against its *axial* energy, which is never more than this, so a contact
+    // that fails here would have failed there too.
+    if (!weapon.projectileImpact && energyJ < biteFloorJ(weapon.kind)
+      && biteMechanism(weapon.kind) !== "blunt") {
       return { ...base, kind: "weak", edgeAlignment: 0, damage: 0,
         preArmourDamage: 0, postArmourDamage: 0, severed: false };
     }
@@ -628,11 +732,12 @@ export class Combat {
       })()
       : scoreHit(
         {
-          speed,
+          closingSpeed,
+          strikerMassKg: weapon.impactMassKg,
+          partMassKg,
           edgeAlignment: alongEdge,
           bladeAlignment: Math.abs(shaftAlignment),
           nearTip: Vector3.Distance(point, weapon.tipPosition()) < C.thrustTipZone,
-          massKg: weapon.impactMassKg,
         },
         weapon.kind,
       );

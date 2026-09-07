@@ -400,12 +400,20 @@ while the world steps by the real frame delta, so the effective gain flickered f
 frame. It also torqued the sword toward an aim direction while the weld held the sword
 rigid to the hand — a contradiction whose only available answer is vibration.
 
-Damage comes from the blade's own speed at the contact point multiplied by how squarely
-that motion lines up with the edge — not from the impulse the solver reports. The solver
-impulse is real but dominated by how the contact resolved (mass ratios, penetration depth,
-substep luck), so tuning against it is tuning against noise. Speed times alignment is the
-quantity a player can feel themselves controlling. The impulse is still shown in the
-readout, because when the two disagree that is worth seeing.
+Damage comes from the **energy that arrives**: half the reduced mass of striker and struck
+part, times the square of the striker's speed along the contact normal, over a
+joules-per-damage constant for the mechanism — an edge, a point or something blunt — with the
+edge's alignment gating a cut exactly as it always did. Not from the impulse the solver
+reports: that is real but dominated by how the contact resolved (mass ratios, penetration
+depth, substep luck), so tuning against it is tuning against noise. The impulse is still shown
+in the readout beside the arriving energy, because when the two disagree that is worth seeing.
+
+The constants are anchored on the Warrior, so a perfect 11 m/s cut with the 1.35 kg sword on a
+68 kg torso is 2.3 damage and a square club blow at the same speed is 1.7 — both exactly what
+they were under the speed ramp this replaced. Everything else follows from the masses rather
+than from a per-weapon scale: a 48 kg maul is barely a mace on a 9.4 kg arm link and four and a
+half times itself on a 139 kg trunk, and a blade sliding *along* a body pays only for the little
+that went into it.
 
 The readout shows **one vitality bar per fighter**, not a row of competing limb-sized lives.
 Expand its critical-injuries diagnostic when you need to see which local parts are severed

@@ -190,6 +190,21 @@ test("an_empty_hand_builds_no_weapon_body_but_exposes_one_fist_striker", async (
   );
 });
 
+/**
+ * A struck part that answers the four questions `Combat` asks a body since blows became energy:
+ * what it weighs, where its centre is, and how it is translating and turning there.
+ *
+ * A Warrior torso standing still, so the closing speed along the contact normal is the striker's
+ * own speed and the reduced mass is the 1.32 kg the scoring constants were anchored on.
+ */
+const standingTorso = (onImpulse = () => {}) => ({
+  applyImpulse: onImpulse,
+  getMassProperties: () => ({ mass: CONFIG.body.torsoMass }),
+  getObjectCenterWorld: () => Vector3.Zero(),
+  getLinearVelocity: () => Vector3.Zero(),
+  getAngularVelocity: () => Vector3.Zero(),
+});
+
 test("a_slow_fist_slaps_and_shoves_without_hurting", () => {
   let contact;
   const impulses = [];
@@ -204,6 +219,10 @@ test("a_slow_fist_slaps_and_shoves_without_hurting", () => {
       }),
     },
     velocityAt: () => new Vector3(2, 0, 0),
+    // A bare hand, which is what the fist's floor was derived for: 0.65 kg against a 68 kg
+    // torso is 0.644 kg of reduced mass, and at 2 m/s that is 1.29 J against `crushFloorJ`'s
+    // 7.84. Slaps are now a band in joules rather than in speed, and this is well inside it.
+    impactMassKg: CONFIG.arm.handMass,
     edgeDirection: () => new Vector3(1, 0, 0),
     bladeDirection: () => new Vector3(0, 1, 0),
     tipPosition: () => Vector3.Zero(),
@@ -211,7 +230,7 @@ test("a_slow_fist_slaps_and_shoves_without_hurting", () => {
   const limb = {
     key: "torso", label: "Torso", health: 100, maxHealth: 100,
     severed: false, lastHitAt: -999,
-    part: { body: { applyImpulse: (impulse) => impulses.push(impulse.clone()) } },
+    part: { body: standingTorso((impulse) => impulses.push(impulse.clone())) },
   };
   const combat = new Combat("left", [weapon]);
   combat.attach({
@@ -238,6 +257,59 @@ test("a_slow_fist_slaps_and_shoves_without_hurting", () => {
   assert.notEqual(stability[0].horizontalShoveNs[0], 1, "the solver impulse was not substituted");
 });
 
+/**
+ * A striker travelling at a speed no arm can drive is the solver, and `Combat` refuses it.
+ *
+ * **This guard exists because the energy model took the lid off.** The retired speed ramp
+ * saturated at 11 m/s, so a blade the solver flung at 136 m/s was scored exactly as one swung at
+ * 11 and the excursion was invisible; `0.5 mu v^2` bills it at a hundred and fifty times a clean
+ * cut and ends the bout. The number, its measurement over 1,710 contacts, and the fixture that
+ * found it are in `CONFIG.combat.impossibleSpeed`. What is asserted here is the behaviour: above
+ * the bar nothing is reported, nothing is wounded, nothing is shoved and a named refusal is
+ * filed, and one step under it the same contact scores normally.
+ */
+test("a_striker_moving_faster_than_any_arm_is_refused_as_the_solver", () => {
+  const bench = (speed) => {
+    let contact;
+    const reports = []; const refusals = []; const impulses = [];
+    const weapon = {
+      kind: "sword", spent: false,
+      body: { getCollisionObservable: () => ({
+        add: (callback) => { contact = callback; return {}; }, remove: () => {},
+      }) },
+      velocityAt: () => new Vector3(speed, 0, 0),
+      impactMassKg: CONFIG.sword.mass,
+      edgeDirection: () => new Vector3(1, 0, 0),
+      bladeDirection: () => new Vector3(0, 1, 0),
+      tipPosition: () => Vector3.Zero(),
+    };
+    const limb = { key: "torso", label: "Torso", health: 1000, maxHealth: 1000, severed: false,
+      lastHitAt: -999, part: { body: standingTorso((impulse) => impulses.push(impulse.clone())) } };
+    const combat = new Combat("left", [weapon], (event) => reports.push(event),
+      (event) => refusals.push(event));
+    combat.attach({ limbFor: () => limb, parriedBy: () => null, sever: () => {} });
+    contact({ type: PhysicsEventType.COLLISION_STARTED, point: Vector3.Zero(), impulse: 1,
+      collidedAgainst: {}, normal: new Vector3(1, 0, 0) });
+    return { reports, refusals, impulses, limb };
+  };
+
+  const flung = bench(CONFIG.combat.impossibleSpeed + 0.01);
+  assert.deepEqual(flung.reports, [], "an impossible contact is not a blow and is not reported");
+  assert.equal(flung.impulses.length, 0, "and it does not shove either");
+  assert.equal(flung.limb.health, 1000);
+  assert.equal(flung.refusals.length, 1);
+  assert.equal(flung.refusals[0].reason, "impossible-speed");
+
+  // One step under the bar, and it is an ordinary very hard cut: the guard is a guard and not a
+  // ceiling, so nothing below it is touched at all.
+  const hard = bench(CONFIG.combat.impossibleSpeed - 0.01);
+  assert.deepEqual(hard.refusals, []);
+  assert.equal(hard.reports.length, 1);
+  assert.equal(hard.reports[0].report.kind, "cut");
+  assert.ok(hard.reports[0].report.damage > 0);
+  assert.equal(hard.impulses.length, 1);
+});
+
 test("combat_reports_every_contact_before_its_screen_log_is_truncated", () => {
   let contact;
   const reports = [];
@@ -246,9 +318,10 @@ test("combat_reports_every_contact_before_its_screen_log_is_truncated", () => {
     body: { getCollisionObservable: () => ({ add: (callback) => { contact = callback; return {}; }, remove: () => {} }) },
     velocityAt: () => new Vector3(2, 0, 0), edgeDirection: () => new Vector3(1, 0, 0),
     bladeDirection: () => new Vector3(0, 1, 0), tipPosition: () => Vector3.Zero(),
+    impactMassKg: CONFIG.arm.handMass,
   };
   const limb = { key: "torso", label: "Torso", health: 1000, maxHealth: 1000, severed: false,
-    lastHitAt: -999, part: { body: { applyImpulse: () => {} } } };
+    lastHitAt: -999, part: { body: standingTorso() } };
   const combat = new Combat("left", [weapon], (event) => reports.push(event));
   combat.attach({ limbFor: () => limb, parriedBy: () => null, sever: () => {} });
   for (let i = 0; i < 40; i += 1) {

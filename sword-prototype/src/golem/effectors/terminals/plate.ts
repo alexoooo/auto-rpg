@@ -60,8 +60,9 @@ import { RigidStrike } from "../striker.ts";
  *
  * ## What it is worth when it arrives
  *
- * `empty` -- the bare fist's row in the bite table: mass, at fist weight, with no edge, no point
- * and no severing path. The session plan's frozen choice is that a `thrust` bash is "a mass bite
+ * `empty` -- the bare fist's row in the bite table: blunt, with no edge, no point and no
+ * severing path, and since 2026-09-06 the board's own 16.6 kg published behind it rather than a
+ * row's idea of a hand. The session plan's frozen choice is that a `thrust` bash is "a mass bite
  * at low weight, like the fist", and `shield`'s own row is `inert`, which scores exactly zero
  * however hard it arrives. That is deliberately *not* what a golem's plate is: a golem's plate
  * is a body part rather than a board a policy is holding, and `scoring.ts`'s argument for
@@ -159,6 +160,11 @@ export const plateTerminal = defineTerminal({
 
     const striker = new RigidStrike(part, {
       kind: "empty",
+      // The slab, kilograms, and this is the whole of what a bash is worth. It published nothing
+      // until 2026-09-06 and was therefore scored at a Warrior's 0.65 kg hand -- a stone board
+      // that hit like a knuckle. Against a golem's trunk core the same board is now 14.8 kg of
+      // reduced mass, which is two and a half points of wound at the speed a chain gets it to.
+      impactMassKg: P.mass,
       effectorId: `${name}.bash`,
       hand: effectorSlot(ctx.socket.slot),
       // The centre of the board's **outer face**, which is where a bash lands. See the header

@@ -98,6 +98,18 @@ export class Arrow {
     readonly massKg: number; readonly lengthM: number; readonly radiusM: number;
     readonly penetrationEfficiency: number;
   }>;
+  /**
+   * The shaft's own mass, kilograms, which is the same number `projectileImpact` carries.
+   *
+   * Two fields for one fact, and deliberately: `projectileImpact` is the frozen physical record
+   * a live projectile is scored by, and `Striking.impactMassKg` is what *every* striker owes the
+   * scorer since 2026-09-06. A swung or resting arrow -- one that has already hit and is being
+   * dragged along a limb -- takes the second path, and an arrow that answered only the first
+   * would be a striker `Combat` could not price.
+   */
+  get impactMassKg(): number {
+    return this.projectileImpact.massKg;
+  }
   readonly projectilePoolIndex: number;
   /** Monotonic loose identity; unlike effectorId, this never names a recycled pool slot. */
   shotSerial: number | null = null;
@@ -138,7 +150,7 @@ export class Arrow {
    * The alias exists so that `Combat` can ask one question of a blade and of an
    * arrow. Without it a spent shaft resting against a moving limb is billed
    * every `hitCooldown` for as long as it lies there, and the limb drags it past
-   * `minArrowSpeed` often enough to matter: measured, it turned 62 "hits"
+   * the then `minArrowSpeed` -- `pointFloorJ` since 2026-09-07 -- often enough to matter: measured, it turned 62 "hits"
    * averaging 2.9 damage into what should have been a handful averaging forty.
    */
   get spent(): boolean {
@@ -378,7 +390,7 @@ export class Arrow {
    * enough for something that has already stopped.
    *
    * Note what does **not** need doing: nothing marks the arrow as spent for
-   * scoring. `combat.minArrowSpeed` is 8 m/s, `stickDamping` leaves it under
+   * scoring. A point's floor is 8 m/s of axial arrival, `stickDamping` leaves it under
    * four, and `Combat`'s early-out is the weapon's own floor -- so an arrow lying
    * against a limb cannot score again, by the rule that is already there rather
    * than by a second one bolted beside it.

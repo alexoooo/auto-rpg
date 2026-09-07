@@ -54,8 +54,11 @@ import { RigidStrike } from "../striker.ts";
  *
  * ## What it is worth when it arrives
  *
- * `club`, scored by `impulse` since this session with the bar's own 48 kg published: the same
- * speed the Warrior's club arrives at is worth fourteen of its blows. The mind's stroke for it is
+ * `club`, scored `blunt` since 2026-09-06 with the bar's own 48 kg published: 9.9 points of
+ * wound into a golem's 139 kg trunk core at 8 m/s, and 2.2 into a 9.4 kg limb -- which is a mace's
+ * number and very nearly a stone fist's, because the reduced mass of a heavy thing and a light
+ * one is the light one. On a limb a maul is a mace is a fist; on a body the head pays in full,
+ * and that is the weapon triangle rather than a table. The mind's stroke for it is
  * the smash `STROKE_SHAPES.club` describes, and which of the two clubs a golem holds it learns
  * from `GolemCapabilities.pairedHands` rather than from this file's name.
  */

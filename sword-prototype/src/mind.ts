@@ -690,7 +690,7 @@ export const NEUTRAL: Intent = Object.freeze({
  * maps that to an elevation of zero -- so idle holds its blade out level and
  * pointed at whatever it is facing, not by its side. Measured over 100 bouts
  * against `swinger`, that costs nothing: idle takes 17 381 contacts and scores
- * exactly zero damage, because every one of them is below `combat.minCutSpeed`.
+ * exactly zero damage, because not one of them arrives with `combat.cutFloorJ`.
  * It is still not what somebody reading "stands there, arms down" would expect
  * to see in the page, and whether a lowered guard is what was meant is a
  * decision somebody should take at a browser rather than a line to quietly
