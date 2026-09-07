@@ -1,6 +1,13 @@
 # Session 04 -- the third executor, and `golem-form`
 
-**Status (2026-09-06): planned. Needs 03.**
+**Status (2026-09-07): implemented; the human gate is open.** The executor, the style, the
+fifteen tests and the seventeen sweep rows are in the Session 04 entry of `../measurements.md`.
+Two of the plan's own checks came back negative and are recorded rather than worked around: the
+control row is 0.033 bar behind the fencer where frozen choice 4 said it must sit inside noise of
+it, and no constant of the style's own moves the bar outside two standard errors. The measured
+reason is in the entry -- the arm reaches 17.4 m/s driven and the blow that scores lands at 4.9,
+because 231 blocked contacts a bout swamp one cut every second and a half -- and it is a
+contact-rules question rather than an executor one.
 
 ## Outcome
 

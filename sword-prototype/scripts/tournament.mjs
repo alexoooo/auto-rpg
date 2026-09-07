@@ -627,8 +627,10 @@ export async function runTournament({
 }
 
 /**
- * `--override name=value,name=value` for the fencer's table, `GOLEM_TACTICS_V2`: every worker
- * assigns these over it before its first bout, and the run's header records them. Numbers and
+ * `--override name=value,name=value` for a mind's table: every worker assigns these over it
+ * before its first bout, and the run's header records them. A bare name is looked up on the
+ * planner, then the fencer's `GOLEM_TACTICS_V2`, then the third executor's `GOLEM_TACTICS_V3`; a
+ * dotted one, `form.cutLean=0.8`, is a row of that style's own copy. Numbers and
  * the two booleans parse; anything else is refused, because a value that arrives as a string
  * would compare as one at 240 Hz and never say so. Null when there are none, so a header from
  * before this flag reads the same as one written with it empty.

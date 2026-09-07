@@ -5,6 +5,8 @@ import { golemPlanner } from "./planner.ts";
 import { GOLEM_CHAMPIONS } from "./tactics-champions.ts";
 import { golemNeural } from "./neural.ts";
 import { golemFencer, type GolemFencer } from "./tactics-v2.ts";
+import { golemForm } from "./styles/form.ts";
+import type { GolemStyled } from "./tactics-v3.ts";
 
 /**
  * The golem's entry in the policy picker.
@@ -102,5 +104,24 @@ export function golemNeuralMind(seed = (Math.random() * 0x100000000) >>> 0): Min
     name: "golem-neural",
     fencer: neural.fencer,
     decide: (view, dt): Intent => neural.decide(view, dt),
+  };
+}
+
+/**
+ * The sixth golem mind, and the first one that is a *style*. Session 04 of the style set.
+ *
+ * The third executor under `formDirector`: a stand-off, a circle with a duty, a committed cut into
+ * their recover, an intercept parry on their commit. `styled` is published for the reason `fencer`
+ * is published on the five above -- the tournament worker's exchange log reads the option in force
+ * per sample -- and it is a second field rather than the same one because the two executors have
+ * different option vocabularies, and a log that called both `fencer` would be a log in which
+ * `cut` and `strike` were the same column. Same seed argument, same reasons.
+ */
+export function golemFormMind(seed = (Math.random() * 0x100000000) >>> 0): Mind & { styled: GolemStyled } {
+  const styled = golemForm(seed);
+  return {
+    name: "golem-form",
+    styled,
+    decide: (view, dt): Intent => styled.decide(view, dt),
   };
 }

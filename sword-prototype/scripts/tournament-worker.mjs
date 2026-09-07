@@ -23,6 +23,8 @@ import { GOLEM_TACTICS, innerReach } from "../src/golem/tactics.ts";
 import { GOLEM_CHAMPIONS } from "../src/golem/tactics-champions.ts";
 import { GOLEM_PLANNER, golemPlanner } from "../src/golem/planner.ts";
 import { GOLEM_TACTICS_V2 } from "../src/golem/tactics-v2.ts";
+import { GOLEM_TACTICS_V3 } from "../src/golem/tactics-v3.ts";
+import { FORM } from "../src/golem/styles/form.ts";
 import { policyMind } from "../src/mind.ts";
 import { policyForUnit } from "../src/units.ts";
 import { freshHavok, runBout } from "./bout-runner.mjs";
@@ -368,14 +370,30 @@ parentPort.on("message", (message) => {
     (error) => parentPort.postMessage({ type: "error", index: message.job.index, message: String(error?.stack ?? error) }),
   );
 });
-// The fencer's table and the planner's, moved before the first bout and for the life of this
-// worker: a row from a run with `--override` is a row of the minds as overridden, and the run's
-// header says how. A name is looked up on the planner first, so `explore=0.5` is a planner row.
+// Every mind's table, moved before the first bout and for the life of this worker: a row from a
+// run with `--override` is a row of the minds as overridden, and the run's header says how.
+//
+// **A bare name is looked up in one order and a style's is not looked up at all.** The planner
+// first, so `explore=0.5` is a planner row; then the fencer's, so `standOffFraction=1.06` is the
+// row four shipped minds read; then the third executor's, which is where a name only it has --
+// `cutLean`, `parryBite`, `duckSeconds` -- lands. A style's own table is reached through its
+// prefix, `form.standOffFraction`, and never through the bare name, because a style *is* a copy of
+// the executor's table with rows moved and there is no order in which one name could mean both.
+const STYLE_TABLES = { form: FORM };
 if (workerData?.overrides) {
   for (const [name, value] of Object.entries(workerData.overrides)) {
-    if (name in GOLEM_PLANNER) GOLEM_PLANNER[name] = value;
+    const dot = name.indexOf(".");
+    if (dot > 0) {
+      const table = STYLE_TABLES[name.slice(0, dot)];
+      const row = name.slice(dot + 1);
+      if (table === undefined) throw new Error(`--override ${name}: no style is called "${name.slice(0, dot)}"`);
+      if (!(row in table)) throw new Error(`--override ${name}: not a row of that style's table`);
+      table[row] = value;
+    }
+    else if (name in GOLEM_PLANNER) GOLEM_PLANNER[name] = value;
     else if (name in GOLEM_TACTICS_V2) GOLEM_TACTICS_V2[name] = value;
-    else throw new Error(`--override ${name}: not a row of GOLEM_TACTICS_V2 or GOLEM_PLANNER`);
+    else if (name in GOLEM_TACTICS_V3) GOLEM_TACTICS_V3[name] = value;
+    else throw new Error(`--override ${name}: not a row of GOLEM_TACTICS_V2, GOLEM_TACTICS_V3 or GOLEM_PLANNER`);
   }
 }
 

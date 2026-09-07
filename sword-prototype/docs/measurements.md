@@ -14415,3 +14415,211 @@ it is already the next session.
 contacts a bar are not going to be fixed by a faster stroke. They are the plan's third named risk
 — bodies that cannot finish — and the model has now made them legible rather than creating them:
 under the ramp `sword/mid` already needed 5,831 contacts and it was simply nobody's column.
+
+## Session 04 of the style set — 2026-09-07: a third executor that decides nothing, and the first style on it
+
+What the plan asked for: a third executor offering a director fifteen options — a committed cut,
+a thrust, an intercept parry, a shove, a duck, a purposeful circle, a void off the line of their
+point, a retreat that ends when the range opens — asked on events as well as on a cadence, with
+no reflexes of its own; and the first style over it, `golem-form`. What shipped:
+`src/golem/tactics-v3.ts` at 1,155 lines with nineteen new table rows,
+`src/golem/styles/form.ts` at 151, `golem-form` registered as the eleventh policy, fifteen new
+tests in `tests/golem-mind.test.mjs`, and the seventeen runs below. The raw logs are
+`tournaments/style04-default.jsonl`, `tournaments/style04-control.jsonl` and one file a row
+beside them, gitignored as every log is; each command line is
+`--bouts 512 --mirror --cross --random 40 --cap 60 --seed 20260906 --policies
+golem-form,golem-fencer` with the row's `--override` and nothing else.
+
+**The headline is that the executor works and the style does not pay.** Every option the plan
+asked for exists, executes through `writeAim` alone and is tested; `golem-form` names them in the
+proportions its rules say it should; and against the fencer on 512 mirrored bouts it is **0.023
+bar behind**, which is three and a half standard errors the wrong way. The control row, which
+is the same executor under v2's numbers, is 0.033 behind. Neither of those is inside noise of the
+fencer, which is the check frozen choice 4 put on the control, and the reason is measured below:
+it is not the executor and it is not the cut.
+
+### What the style actually does, which is what it says it does
+
+Four 30 s bouts of `golem-form` against `golem-fencer` on the default build, with a hook on the
+director. The left column is the shipped style, the right is the control row's overrides.
+
+| option | shipped | control (v2 numbers) |
+|:--|--:|--:|
+| `hold` | 217 (38.5 %) | 389 (67.1 %) |
+| `circle` | 136 (24.1 %) | — |
+| `cut` | 83 (14.7 %) | — |
+| `void` | 68 (12.1 %) | 98 (16.9 %) |
+| `parry` | 46 (8.2 %) | — |
+| `feint` | 14 (2.5 %) | 19 (3.3 %) |
+| `strike` | — | 72 (12.4 %) |
+| `thrust` | — | 2 (0.3 %) |
+
+and the stance the executor was in, per physics step, over the same bouts:
+
+| stance | shipped | control |
+|:--|--:|--:|
+| `free` | 28.8 % | 48.0 % |
+| `chamber` | 19.6 % | 13.6 % |
+| `recover` | 16.7 % | 18.2 % |
+| `commit` | 15.3 % | 13.7 % |
+| `circle` | 14.8 % | — |
+| `feint` | 4.7 % | 6.4 % |
+
+The circling duty reads 136/(136+217) = 38.5 % against the 40 % `circleDuty` asks for, which is
+the two-phase alternation doing its job -- a per-ask coin at six hertz against a 0.9 s circle
+would have read above 90 %. The style throws a cut every 1.4 s rather than the plan's every 2.5,
+because the counter rule fires on every recover the fencer shows and the fencer shows a lot of
+them; it is in an exchange 52 % of the time against the control's 46 %. Nothing here is the
+defect.
+
+### Where the cut goes, which is the whole of the answer
+
+Session 02's bench put the committed sword arc at **22.34 m/s across its mark, 0.070 m from it**,
+against the shipped stroke's 15.23 at 0.631 m. Session 04 ships that arc. In 512 real bouts:
+
+| | `golem-form` | `golem-fencer` |
+|:--|--:|--:|
+| peak driven tip speed, m/s | 17.36 | 17.76 |
+| speed at the scoring blow, m/s | 4.89 | 4.67 |
+| damage a stroke | 0.74 | 0.75 |
+| catches a bout | 40.8 | 41.4 |
+| blocks a bout | 231.2 | 226.3 |
+| inside inner | 8.2 % | 8.2 % |
+| severs a bout | 0.07 | 0.13 |
+
+**The arm reaches seventeen metres a second and the blow that scores lands at five.** Both minds
+do; the committed arc is not slower than the quick one and it is not faster where it counts. The
+gap is not the stroke shape and it is not the scoring model -- it is that a golem bout is two
+bodies in continuous contact, 231 blocked contacts a bout against roughly one cut every second
+and a half, so the contact that carries the most damage in a stroke's window is almost never the
+part of the stroke that was moving fast. That is the same reading Session 03's entry arrived at
+from the other side, and Session 02's bench cannot see it because a bench has one arm and no
+opponent.
+
+The intercept parry is the second measurement of the same thing. `golem-form` solves and throws
+about twenty parries a bout and books **five more blocks a bout than the fencer, out of 226 the
+fencer books by standing still**. A parry that arrives is worth almost exactly nothing while a
+plate left where it is catches forty strokes a bout by accident. The plan's expected signature
+for this style -- "catches > 0" -- was met by the mind it was supposed to distinguish itself from.
+
+### The seventeen rows
+
+Every row is `--bouts 512 --mirror --cross --random 40 --cap 60 --seed 20260906 --policies
+golem-form,golem-fencer` with the row's `--override` and nothing else, so the 512 pairings are
+the same 512 builds in every row. **`bar`** is `golem-form`'s vitality minus the fencer's at the
+end of the bout, which is the quantity `points` rounds off; it is reported because 78 % of these
+bouts end on the 60 s cap and points alone cannot separate two rows that both draw. Each row's
+log is a file of its own under `tournaments/`, named for the row.
+
+| row | points | bar | ±1 se | str/s | dmg/stroke | v@blow | commit % | catches | clinch s | dmg/bout | cap % |
+|:--|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| default (shipped) | 0.479 | −0.0233 | 0.0071 | 1.57 | 0.74 | 4.89 | 59.6 | 40.8 | 1.31 | 41.7 | 78.7 |
+| control, v2 numbers | 0.478 | −0.0332 | 0.0076 | 1.51 | 0.71 | 4.76 | 50.9 | 39.1 | 2.35 | 39.6 | 74.8 |
+| `standOffFraction` 1.00 | 0.493 | −0.0127 | 0.0075 | 1.56 | 0.77 | 4.87 | 59.7 | 40.0 | 1.10 | 41.3 | 79.1 |
+| `standOffFraction` 1.12 | 0.493 | −0.0041 | 0.0072 | 1.58 | 0.73 | 4.89 | 59.5 | 41.2 | 1.41 | 42.0 | 78.3 |
+| `cutLean` 0.4 | 0.479 | −0.0165 | 0.0076 | 1.56 | 0.73 | 4.83 | 56.2 | 40.5 | 1.21 | 39.4 | 77.1 |
+| `cutLean` 0.8 | 0.478 | −0.0101 | 0.0077 | 1.56 | 0.75 | 4.88 | 62.9 | 39.7 | 1.17 | 41.3 | 76.4 |
+| `cutSeconds` 0.15 | 0.484 | −0.0067 | 0.0068 | 1.57 | 0.75 | 4.98 | 59.7 | 41.1 | 1.29 | 43.0 | 78.9 |
+| `cutSeconds` 0.20 | 0.494 | −0.0139 | 0.0074 | 1.57 | 0.74 | 4.87 | 59.7 | 40.6 | 1.25 | 40.9 | 77.3 |
+| `cutSeconds` 0.28 | 0.494 | −0.0162 | 0.0075 | 1.54 | 0.75 | 4.75 | 60.7 | 40.3 | 1.18 | 40.0 | 78.1 |
+| `chamberAbort` off | 0.490 | −0.0143 | 0.0067 | 1.56 | 0.75 | 4.88 | 59.6 | 40.4 | 1.32 | 41.6 | 79.3 |
+| `parryBite` 0.3 | 0.475 | −0.0236 | 0.0076 | 1.56 | 0.75 | 4.90 | 59.6 | 40.9 | 1.31 | 41.9 | 77.5 |
+| `parryBite` 0.7 | 0.474 | −0.0209 | 0.0074 | 1.56 | 0.75 | 4.91 | 59.7 | 40.8 | 1.30 | 41.9 | 78.3 |
+| `idleStrafe` 0.55 | 0.483 | −0.0039 | 0.0071 | 1.55 | 0.76 | 4.77 | 58.9 | 38.9 | 1.38 | 39.4 | 78.7 |
+| `thrustSeconds` 0.10 | 0.479 | −0.0238 | 0.0073 | 1.56 | 0.74 | 4.90 | 59.6 | 40.7 | 1.32 | 41.6 | 78.5 |
+| `thrustSeconds` 0.16 | 0.479 | −0.0227 | 0.0071 | 1.56 | 0.74 | 4.89 | 59.6 | 40.8 | 1.31 | 41.7 | 78.7 |
+| `duckSeconds` 0.25 | 0.479 | −0.0233 | 0.0071 | 1.57 | 0.74 | 4.89 | 59.6 | 40.8 | 1.31 | 41.7 | 78.7 |
+| `duckSeconds` 0.50 | 0.479 | −0.0233 | 0.0071 | 1.57 | 0.74 | 4.89 | 59.6 | 40.8 | 1.31 | 41.7 | 78.7 |
+
+Every row shares the shipped row's seed, so the difference of the two bars is paired bout by bout
+and the between-build variance -- which is most of the σ -- comes out of it. That paired
+difference, against the shipped row:
+
+| row | bar moved by | se |
+|:--|--:|--:|
+| `idleStrafe` 0.55 | +0.0194 | 2.2 |
+| `standOffFraction` 1.12 | +0.0191 | 2.2 |
+| `cutSeconds` 0.15 | +0.0166 | 2.2 |
+| `cutLean` 0.8 | +0.0132 | 1.5 |
+| `standOffFraction` 1.00 | +0.0106 | 1.3 |
+| `cutSeconds` 0.20 | +0.0093 | 1.2 |
+| `chamberAbort` off | +0.0089 | 2.3 |
+| `cutSeconds` 0.28 | +0.0071 | 0.8 |
+| `cutLean` 0.4 | +0.0068 | 0.8 |
+| `parryBite` 0.7 | +0.0023 | 0.5 |
+| `thrustSeconds` 0.16 | +0.0005 | 0.9 |
+| `duckSeconds` 0.25 and 0.50 | 0.0000 | — |
+| `parryBite` 0.3 | −0.0003 | 0.1 |
+| `thrustSeconds` 0.10 | −0.0005 | 0.3 |
+| control, v2 numbers | −0.0099 | 1.1 |
+
+**Nothing here clears the two-σ rule after sixteen comparisons, and the three that come closest
+all point back at v2.** v2's meaningless strafe beats standing still, a faster arc beats the
+bench's best arc, and turning the style's own chamber abort off beats leaving it on -- the last
+of those on a much tighter error bar than the rest, because an abort changes behaviour only in a
+narrow window and every other bout in the pair is identical. The shipped numbers were not moved
+onto any of them: at sixteen comparisons a 2.2 σ row is what chance produces, and a set whose
+frozen choice is "a row inside two σ is reported as noise" does not get to keep the best of
+sixteen.
+
+**Three of the nineteen new rows are not exercised by this style at all.** `duckSeconds` 0.25 and
+0.50 reproduce the shipped row to the digit, because `formDirector` has no rule that names `duck`
+and the option is offered only under a point drawn above the socket; `thrustSeconds` moves the
+bar by half a thousandth, because the thrust is named twice in four bouts; and `parryBite` moves
+it by two thousandths. Those are Sessions 05 to 07's to sweep, under the styles that use them,
+and they are reported here as unexercised rather than as flat.
+
+### What is in the executor, and the two things the tests had to pin down
+
+Nineteen new table rows, fifteen options, and three of v2's rows carried in and documented as
+unread (`strafe`, `circleMin`, `circleMax` -- the free strafe timer this executor does not have).
+Two of the fifteen options are a signed direction, and a sign is where this kind of code goes
+wrong without failing:
+
+- **The circle's side.** A body's world right is its local `+X`, `(cos facing, -sin facing)` in
+  the floor plane; `HandView.outboard` is `+1` on the fighter's own right, which `socketFrame` in
+  `src/golem/stand.ts` fixes; and `Fighter` applies `intent.strafe` along that same vector. So
+  their armed hand's `outboard` and their `facing` name the world side their weapon is on, one dot
+  product converts it into my frame, and the circle goes the other way. The test flips their
+  `outboard` and asserts the commanded strafe flips with it.
+- **The void's side.** The floor normal of their tip's velocity, signed by which side of that line
+  my own socket sits on, so the step is off the line rather than across it.
+
+The intercept solve is `|p + v t - S|^2 = r^2` for the smallest positive root with the point
+closing, the closest approach when there is no root -- and only then within `r + parryMargin` --
+and the closest approach again when the root is further ahead than `parryHorizon`. The test
+compares the commanded hand position against the analytic intercept and asserts the command is
+inside the arm's envelope, and asserts nothing is offered for a line that misses.
+
+Fifteen tests were added. Three of them found real defects in the first draft, and all three were
+in the test rather than the code the first time round: a stroke that never opened because the
+seeded initial cooldown runs up to 1.1 s and only decrements while `decide` is called; a chamber
+that was never reached because a fixed 0.06 s wait misses the 0.167 s ask cadence; and a
+`reading.cooldown` that read 0.000 at an abort because the reading is filled *before* the ask, so
+the aborting step still publishes the pre-abort value. The fourth was in the code and is worth
+recording: `COMMITTED_SHAPES` was first written as getters onto a module-global table, which would
+have made `--override form.cutSeconds` move a number the style's own copy never read.
+
+### What this leaves in front of the gate
+
+The plan's gate asks whether a cut reads as a cut and whether the circle reads as intent, and
+that is the owner's to answer on the screen. What the numbers put beside it:
+
+1. **The control row failed its check, and the check was the wrong shape.** Frozen choice 4 said
+   the control -- the third executor under the second's numbers -- must sit inside noise of the
+   fencer. It is 0.033 bar behind it, four and a half standard errors. But the control is not the
+   fencer's *rules* under v2's numbers; it is `formDirector`'s seven rules under v2's numbers, and
+   form has no `close`, no stop-hit, no combo and no ram roll. So the row bounds the pair
+   (executor, director) and cannot separate them, which is a defect in the frozen choice rather
+   than in the executor. What can be said is the paired number: the shipped style is 0.0099 bar
+   ahead of that control at 1.1 σ, so the seven rows the style moves buy nothing measurable.
+2. **The style is 0.023 bar behind the fencer, and no constant of its own recovers that.**
+   Reported as it stands, per frozen choice 6.
+3. **The lever the measurements name is contact density, not the stroke.** A golem books 231
+   blocked contacts a bout and throws roughly one cut every second and a half. The arm reaches
+   17.4 m/s driven; the blow that carries a stroke's damage lands at 4.9. Until the two bodies
+   stop touching continuously, a faster arc, a deeper lean and a solved parry are all being
+   averaged into a rate of incidental contact, which is exactly why every constant above reads as
+   noise. That is a contact-rules question -- Session 01's territory -- and the second time this
+   set has arrived at it from a different direction.
+4. **The 60 s cap is in front of the gate for the third time.** 78.7 % of these bouts end on it.

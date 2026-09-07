@@ -1,9 +1,9 @@
 # Style -- live roadmap
 
-> **2026-09-07 status: Sessions 00 to 03 implemented; their human gates are open, and
+> **2026-09-07 status: Sessions 00 to 04 implemented; their human gates are open, and
 > nothing is accepted.**
-> Thirteen files, one per landable session. Sessions 04 to 12 are unimplemented and every gate,
-> Sessions 00's to 03's included, is open. Every session ends at a human gate that
+> Thirteen files, one per landable session. Sessions 05 to 12 are unimplemented and every gate,
+> Sessions 00's to 04's included, is open. Every session ends at a human gate that
 > the owner records in that session's status line; an agent may not write "accepted" there.
 > The golem set and the matchup set that came before this one were deleted at the owner's
 > request on 2026-09-06, every one of their sessions having landed; their durable record is
@@ -143,7 +143,7 @@ stays as it is.
 | 01 | whether a blow that lands reads as one blow, whether a blade stopped by a plate reads as a block, and whether bouts now run too long | open; the two re-taken baselines are in the Session 01 entry of `../measurements.md` |
 | 02 | whether a stroke near the reference speed exists inside the arm's budget | open; the grid and the parry are in the Session 02 entry of `../measurements.md`, and the answer turned out to be that speed was never the constraint -- the shipped cut misses by 0.63 m |
 | 03 | whether every blow's worth reads as its weight, and whether a maul against a blade is a fight | open; the anchoring, the prediction table, the class table and what the model cost the bout are in the Session 03 entry of `../measurements.md`, and the entry puts the 60 s cap in front of the gate for the second time |
-| 04 | whether a cut reads as a cut and a circle reads as intent | open |
+| 04 | whether a cut reads as a cut and a circle reads as intent | open; the option census, the seventeen sweep rows and the two checks that came back negative are in the Session 04 entry of `../measurements.md`, and the entry puts the 60 s cap in front of the gate for the third time |
 | 05 | whether the skirmisher reads as hit-and-run rather than as running | open |
 | 06 | whether the plate visibly meets the blade and the riposte follows it | open |
 | 07 | whether the brawler reads as a grappler pushing in | open |

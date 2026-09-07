@@ -904,6 +904,81 @@ named as the fallback is not written: the honest reading of the run is that the 
 limit is the noise of the harness and not the search, the same wall Session 07 hit, and a
 second optimiser does not move that wall.
 
+## The third executor, which has no tactics, and why the second one did not move
+
+Session 04 of the style set. The owner watched two golems get into each other's face and flail,
+and the diagnosis in the plan was not that the fencer chose badly -- it was that the fencer had
+nothing else to choose. Eight options, all of them a stroke or a step, one distance to keep and a
+strafe that flipped on a free timer. `src/golem/tactics-v3.ts` is a second executor beside
+`tactics-v2.ts` with **fifteen** options, and the whole of its design is one sentence: *it decides
+nothing.*
+
+**Why a new file and not an edit.** `golem-fencer`, `golem-planner`, `golem-champion` and
+`golem-neural` are all built on v2's eight options, and all three of the artifacts they read --
+the champion's tuned vectors, the duel model's fitted tables, `NEURAL_LAYOUT.outputs` -- are keyed
+to those eight by name and length. Widening v2's vocabulary would have made every one of them
+refuse to load, which is what their version checks are for. So the four old minds go on fighting
+in every tournament unchanged and rate the new ones, and the cost is a second executor of eleven
+hundred lines. Whether v2 can be retired once the old minds are re-based on v3 is a question this
+set records and does not answer.
+
+**The seam, which is the frozen choice the set stands on.** v2 has seven reflexes: the void on a
+read commit, the stop-hit on a closing point, the counter into a recover, patience, close-on-recover,
+and the feint and ram rolls. Every one of them is a rule the executor applies before its director
+is consulted, which means a v2 "style" is a director wearing somebody else's temper. In v3 all
+seven are gone from the executor and are rules in a director. `golemStyled(seed, table, director)`
+**throws on a null director** rather than falling back to a sensible default, because a default
+would be a reflex with a longer name. One trigger survives inside the executor, and it is named as
+such: `wait` is an option already chosen, held until their recover arrives.
+
+**What the fifteen options are, and what an executor owning them means.** `hold`, `close`,
+`withdraw`, `circle`, `void`, `retreat`, `strike`, `cut`, `feint`, `thrust`, `wait`, `parry`,
+`shove`, `duck`, `ram`. Seven of those are new, and each is a shape the second executor could not
+express:
+
+- `cut` is the committed arc Session 02's bench found -- a 1.20 rad chamber drawn 0.20 back over
+  0.32 s, swept in 0.20 -- with the feet walking in through the wind-up and the trunk leaning
+  `cutLean` into it. It opens `cutReachMetres` further out than a strike, because a stroke that
+  steps in is a stroke that may be started from outside the range it lands at.
+- `thrust` runs the point out along the reach axis at their vital height, which is the one act
+  that scores off tip speed without an arc; it is not offered to a terminal with no point.
+- `parry` solves `|p + v t - S|^2 = r^2` for their tip against the spare hand's guard shell,
+  takes the smallest positive root with the point closing, and sends the hand there through the
+  same `writeAim` every other command goes through. No root, or one further ahead than
+  `parryHorizon`, and the hand covers the closest approach instead -- a wall rather than a chase.
+  This is the first act in the program with a success and a failure in it.
+- `shove` puts both hands through their trunk fully extended and then recovers; `duck` is the
+  void of a body that would rather not move its feet; `circle` strafes toward the side their
+  weapon is *not* on; `void` steps back and off the floor normal of their tip's velocity.
+
+The last two are worth being precise about, because both are a sign and a sign is where this kind
+of code goes wrong quietly. A body's world right is its local `+X`, which is `(cos facing, -sin
+facing)` in the floor plane, and `HandView.outboard` is `+1` on the fighter's own right; the same
+vector is what `Fighter` applies `intent.strafe` along. So their armed hand's `outboard` and their
+`facing` give the world side their weapon is on, one dot product converts it into my frame, and
+the circle goes the other way. The void takes the floor normal of their tip velocity and signs it
+toward the side my own socket is on, so the step is off the line rather than across it. Both are
+tested by flipping the input and asserting the output flips.
+
+**Asks on events, not only on a cadence.** v2 asks its director every `replanSeconds`, 0.167 s.
+That is fine for choosing a stroke and useless for answering one: their commit is 0.22 s long, so
+a fixed cadence answers it on average an eighth of a second late. v3 asks at once when their read
+phase changes, when my own exchange ends, and when a parry releases, and it asks *mid-chamber*
+when `chamberAbort` is on and their phase has just turned to commit -- with only the exchange in
+progress, `parry` and `retreat` on the list, and choosing either abandoning the chamber at half
+cooldown. Commit, recover, ram and shove run to their end whatever happens, because a body that
+can take back a stroke it is already swinging is a body with no commitment in it at all.
+
+**A style, then, is a director and a table.** `src/golem/styles/form.ts` is `golem-form`, the
+first one, and it is ninety lines: seven rules in the order they are asked, and no eighth. Its
+table is `GOLEM_TACTICS_V3` with seven rows moved, reachable from the tournament as
+`--override form.cutLean=0.8` -- a bare `--override cutLean=0.8` moves the executor's default
+table and not the style's copy, which is a distinction the first draft of the override block got
+wrong. Two of those seven rows exist only so the control row can be written on a command line:
+`parryOnCommit` off is v2's reflex exactly, and `quickStrokes` on is v2's stroke shapes, which is
+the part of the control that no single number could reach. `docs/measurements.md` under Session 04
+has what each of the seven costs.
+
 ## Dying, which is not the same as losing
 
 `over` not stopping the world was the right call about the *bout* and, for a long time, it

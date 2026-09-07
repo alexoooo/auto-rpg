@@ -46,9 +46,13 @@ import { POLICIES } from "../src/mind.ts";
 import { unitDefinition } from "../src/units.ts";
 import { defaultGolemSetup } from "../src/golem/build.ts";
 import {
-  GOLEM_TACTICS, STROKE_SHAPES, canAttack, golemTactics, innerReach, tacticalRanges, unspan,
+  GOLEM_TACTICS, STROKE_SHAPES, aimAt, canAttack, golemTactics, innerReach, tacticalRanges, unspan,
 } from "../src/golem/tactics.ts";
 import { GOLEM_TACTICS_V2, golemFencer, slotHealth, strokeReader } from "../src/golem/tactics-v2.ts";
+import {
+  COMMITTED_SHAPES, GOLEM_TACTICS_V3, golemStyled, reachAt,
+} from "../src/golem/tactics-v3.ts";
+import { FORM, golemForm } from "../src/golem/styles/form.ts";
 import { golemPlanner } from "../src/golem/planner.ts";
 import { NO_CHAMPIONS, golemChampionMind } from "../src/golem/champion.ts";
 import { BUTTON_REACH } from "../src/buttons.ts";
@@ -89,7 +93,7 @@ test("a_units_picker_never_offers_a_mind_written_for_the_other_control_surface",
   const names = (unit) => unit.driverOptions.map(({ name }) => name);
   assert.ok(!names(warrior).includes("golem-duelist"),
     `a Warrior's picker offers ${names(warrior).join(", ")}`);
-  assert.deepEqual(names(golem), ["idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-neural"]);
+  assert.deepEqual(names(golem), ["idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-neural", "golem-form"]);
   assert.throws(() => unitDefinition("warrior").createPolicy("golem-duelist"),
     /does not support policy/);
   assert.throws(() => unitDefinition("golem").createPolicy("duelist"),
@@ -1733,4 +1737,702 @@ test("the_stroke_benchs_sequence_is_the_fencers_own_commit_to_the_digit", async 
     setupWith({ primary: { chain: "wrist", terminal: "whip" } }));
   assert.notEqual(lash.windRoll, lash.roll,
     "the whip's wind-up roll became its arc's, and with it the one shape that could tell them apart");
+});
+
+// ---------------------------------------------------------------------------------------
+// The third executor and the first style. Session 04 of the style set.
+//
+// The claims here are all of the same shape and it is worth naming it once: this executor has no
+// tactics, so every test hands it a director that names one option and asks what the body did
+// about it. A test that had to arrange for a reflex to fire could not tell a rule that was wrong
+// from a trigger that never went off, which is the thing four sessions of the fencer's tests
+// worked around.
+// ---------------------------------------------------------------------------------------
+
+/** A v3 table with some rows moved, for one test, without touching what the others read. */
+const styledWith = (over) => ({ ...GOLEM_TACTICS_V3, ...over });
+
+/**
+ * Put their body where the socket-to-shoulder gap is exactly what a test wants.
+ *
+ * `place` puts their shoulder a fixed 0.21 m outboard of the ground position it is given and at
+ * the height it is given, so lining the two shoulders up on one axis makes the gap a subtraction
+ * rather than a solve -- and a range test that has to search for its own range is a test whose
+ * failure message says nothing.
+ */
+function atGap(fixture, gap, over = {}) {
+  const socket = fixture.self.hands.primary.shoulder;
+  return place(fixture, { x: socket.x - 0.21, z: socket.z + gap, shoulderY: socket.y, ...over });
+}
+
+/** Give their watched hand a tip velocity, and the tip speed that goes with it. */
+function theirTipVelocity(fixture, { x = 0, y = 0, z = 0 }, name = "primary") {
+  const hand = fixture.opponent.hands[name];
+  hand.tipVelocity.x = x; hand.tipVelocity.y = y; hand.tipVelocity.z = z;
+  hand.tipSpeed = Math.hypot(x, y, z);
+  fixture.opponent.tipSpeed = Math.max(fixture.opponent.tipSpeed, hand.tipSpeed);
+}
+
+/** Step the mind while their point flies along the velocity it was given. */
+function flyTip(fixture, mind, seconds, { each = null, name = "primary" } = {}) {
+  const hand = fixture.opponent.hands[name];
+  const velocity = hand.tipVelocity;
+  for (let step = 0; step < Math.round(seconds * CONFIG.world.physicsHz); step += 1) {
+    hand.tip.x += velocity.x * FIXED;
+    hand.tip.y += velocity.y * FIXED;
+    hand.tip.z += velocity.z * FIXED;
+    fixture.opponent.tip.x = hand.tip.x;
+    fixture.opponent.tip.y = hand.tip.y;
+    fixture.opponent.tip.z = hand.tip.z;
+    fixture.clock += FIXED;
+    const intent = mind.decide(fixture, FIXED);
+    if (each) each(intent, step);
+  }
+}
+
+/** What distance a hand's reach command asks its business end for, in metres: `reachForDistance` back. */
+function commandedDistance(hand, self, name, bite) {
+  const cap = self.capabilities.effectors[name];
+  const shell = cap.reachable;
+  const overhang = self.hands[name].reach - shell.reachMax;
+  return spanned(hand.reach, shell.reachMin, shell.reachMax) + overhang * (1 - bite);
+}
+
+test("the_third_executor_refuses_to_run_without_a_director", () => {
+  assert.throws(() => golemStyled(SEED), /director/,
+    "an executor with no tactics of its own ran anyway");
+  assert.throws(() => golemStyled(SEED, GOLEM_TACTICS_V3, null), /director/);
+  assert.ok(golemStyled(SEED, GOLEM_TACTICS_V3, () => "hold"), "a director was refused");
+});
+
+test("a_circle_goes_toward_the_side_their_weapon_is_not_on_and_flips_with_it", async (t) => {
+  const golem = await standAGolem(t);
+  const run = (armSecond) => {
+    const fixture = fixtureOf(golem.view);
+    const mind = golemStyled(SEED, GOLEM_TACTICS_V3, () => "circle");
+    atGap(fixture, 1.5);
+    // `watch` picks the faster hand that is not a shield, so which hand is the threat is a speed
+    // and not a name. Both are given a weapon so that the pick is the speed's answer alone.
+    for (const name of ["primary", "secondary"]) fixture.opponent.hands[name].weapon = "sword";
+    fixture.opponent.hands.primary.tipSpeed = armSecond ? 1 : 4;
+    fixture.opponent.hands.secondary.tipSpeed = armSecond ? 4 : 1;
+    const strafes = [];
+    drive(fixture, mind, 0.5, { each: (intent) => strafes.push(intent.strafe) });
+    return strafes;
+  };
+  const armedRight = run(false);
+  const armedLeft = run(true);
+  assert.ok(armedRight.every((value) => value === armedRight[0]),
+    "a circle wandered while nothing about the other body changed");
+  assert.equal(Math.abs(armedRight[0]), GOLEM_TACTICS_V3.circleStrafe,
+    `a circle strafed at ${armedRight[0]} and not at circleStrafe`);
+  assert.equal(armedLeft[0], -armedRight[0],
+    `the circle went ${armedRight[0]} against their right hand and ${armedLeft[0]} against their left,`
+    + " and those should be opposite sides");
+});
+
+test("a_void_steps_back_and_off_the_line_their_point_is_travelling_on", async (t) => {
+  const golem = await standAGolem(t);
+  const run = (side) => {
+    const fixture = fixtureOf(golem.view);
+    const mind = golemStyled(SEED, GOLEM_TACTICS_V3, () => "void");
+    atGap(fixture, 1.5);
+    const socket = fixture.self.hands.primary.shoulder;
+    // Their point 1.2 m in front of my socket and 0.2 m to one side of it, flying straight down
+    // the -Z axis at 6 m/s: a line that will pass me by 0.2 m on that side.
+    const hand = fixture.opponent.hands.primary;
+    hand.tip.x = socket.x + side * 0.2;
+    hand.tip.y = socket.y;
+    hand.tip.z = socket.z + 1.2;
+    fixture.opponent.tip.x = hand.tip.x;
+    fixture.opponent.tip.y = hand.tip.y;
+    fixture.opponent.tip.z = hand.tip.z;
+    theirTipVelocity(fixture, { z: -6 });
+    const seen = [];
+    flyTip(fixture, mind, 0.1, { each: (intent) => seen.push({ forward: intent.forward, strafe: intent.strafe }) });
+    return seen[seen.length - 1];
+  };
+  const fromMyRight = run(1);
+  const fromMyLeft = run(-1);
+  assert.ok(fromMyRight.forward < -0.5,
+    `a void asked the feet for ${fromMyRight.forward.toFixed(2)} and a void is a step back`);
+  // The line passes on my +X side, so away from it is -X, which is a negative strafe; the sign
+  // is the whole claim, and it is the one a policy gets wrong in a way that reads as walking in.
+  assert.ok(fromMyRight.strafe < -0.8,
+    `their point passed 0.2 m to my right and the feet went ${fromMyRight.strafe.toFixed(2)}`);
+  assert.ok(fromMyLeft.strafe > 0.8,
+    `their point passed 0.2 m to my left and the feet went ${fromMyLeft.strafe.toFixed(2)}`);
+});
+
+test("a_parry_sends_the_spare_hand_to_where_their_point_crosses_its_guard_shell", async (t) => {
+  const golem = await standAGolem(t);
+  /**
+   * The guard shell the executor solves against, read off the same published capability it reads.
+   * The spare hand of the default build carries a plate, so the cover distance is `shieldReach`.
+   */
+  const shellOf = (view) => {
+    const cap = view.self.capabilities.effectors.secondary;
+    return reachAt(GOLEM_TACTICS_V3.shieldReach, view.self.hands.secondary.reach, cap);
+  };
+  const run = (missFraction) => {
+    const fixture = fixtureOf(golem.view);
+    const radius = shellOf(fixture);
+    const offset = radius * missFraction;
+    const mind = golemStyled(SEED, GOLEM_TACTICS_V3, (available) =>
+      available.includes("parry") ? "parry" : "hold");
+    atGap(fixture, 1.6);
+    const spare = fixture.self.hands.secondary.shoulder;
+    const hand = fixture.opponent.hands.primary;
+    hand.tip.x = spare.x + offset;
+    hand.tip.y = spare.y;
+    hand.tip.z = spare.z + 1.2;
+    fixture.opponent.tip.x = hand.tip.x;
+    fixture.opponent.tip.y = hand.tip.y;
+    fixture.opponent.tip.z = hand.tip.z;
+    theirTipVelocity(fixture, { z: -6 });
+    let last = null;
+    let sawParry = false;
+    flyTip(fixture, mind, 0.05, {
+      each: (intent) => {
+        last = { reach: intent.secondary.reach, guard: intent.secondary.guard, pointerX: intent.secondary.pointerX, pointerY: intent.secondary.pointerY };
+        sawParry = sawParry || mind.parrying;
+      },
+    });
+    return { radius, offset, last, sawParry, mind, fixture };
+  };
+
+  const met = run(0.5);
+  assert.ok(met.sawParry, "a parry was named and the executor never held one");
+  assert.ok(met.mind.reading.intercept !== null, "their point crossed the shell and no intercept was found");
+  assert.ok(met.mind.reading.intercept.t > 0 && met.mind.reading.intercept.t < 0.35,
+    `the intercept is ${met.mind.reading.intercept.t.toFixed(3)} s ahead of a point 1.2 m out at 6 m/s`);
+  // The point being met is on the shell, so what the hand was asked to reach for is the radius,
+  // and `parryMargin` is the tolerance the plan names for it.
+  const asked = commandedDistance(met.last, met.fixture.self, "secondary", GOLEM_TACTICS_V3.parryBite);
+  assert.ok(Math.abs(asked - met.radius) < GOLEM_TACTICS_V3.parryMargin,
+    `the spare hand was sent ${asked.toFixed(3)} m out to meet a shell of ${met.radius.toFixed(3)} m`);
+  assert.equal(met.last.guard, true, "a parrying hand is not covering");
+  assertInsideEnvelope(
+    { ...blankIntent(), secondary: { ...blankIntent().secondary, ...met.last } },
+    met.fixture.self, "parry");
+
+  // A line that misses the shell by half a metre is not a parry, and the guard is not moved for it.
+  const missed = run(1 + 0.5 / shellOf(fixtureOf(golem.view)));
+  assert.equal(missed.mind.reading.intercept, null,
+    "a point that passes half a metre outside the shell was offered as an intercept");
+  assert.equal(missed.sawParry, false, "the executor parried a line that misses");
+  assert.ok(!missed.mind.available.includes("parry"), "parry was on offer with no intercept to make");
+});
+
+test("a_cut_opens_a_hand_further_out_than_a_strike_and_walks_the_feet_in_behind_it", async (t) => {
+  const golem = await standAGolem(t);
+  const fixture = fixtureOf(golem.view);
+  // A director that only ever holds, so the sweep below reads what was *offered* rather than what
+  // an exchange it started did to the offer on the next step.
+  const mind = golemStyled(SEED, GOLEM_TACTICS_V3, () => "hold");
+  // The cooldown starts at a seeded offset of up to 1.1 s and counts down only while the mind is
+  // being asked, so the sweep is warmed up out of range first: without it the whole sweep runs
+  // with the hand still on its cooldown and every range answer is "nothing is open".
+  atGap(fixture, 3.0);
+  drive(fixture, mind, 1.5);
+  // The furthest gap each of the two opens at, found by walking the body out a centimetre at a
+  // time. The claim is a distance and not a flag, because `cutReachMetres` is the number the
+  // step-in is supposed to buy and a cut that opened at the strike range would still pass a flag.
+  let strikeAt = 0;
+  let cutAt = 0;
+  for (let gap = 1.0; gap < 2.6; gap += 0.01) {
+    atGap(fixture, gap);
+    fixture.clock += FIXED;
+    mind.decide(fixture, FIXED);
+    if (mind.available.includes("strike")) strikeAt = gap;
+    if (mind.available.includes("cut")) cutAt = gap;
+  }
+  assert.ok(strikeAt > 0 && cutAt > 0, `neither opened over the sweep: strike ${strikeAt}, cut ${cutAt}`);
+  assert.ok(cutAt - strikeAt > GOLEM_TACTICS_V3.cutReachMetres - 0.03
+    && cutAt - strikeAt < GOLEM_TACTICS_V3.cutReachMetres + 0.03,
+    `a cut opened ${(cutAt - strikeAt).toFixed(3)} m further out than a strike,`
+    + ` and cutReachMetres is ${GOLEM_TACTICS_V3.cutReachMetres}`);
+
+  // And it walks. Everything below is one committed cut, driven from the range it opens at.
+  const fresh = fixtureOf(golem.view);
+  const cutter = golemStyled(SEED, GOLEM_TACTICS_V3, (available) =>
+    available.includes("cut") ? "cut" : "hold");
+  atGap(fresh, cutAt - 0.02);
+  const chamber = [];
+  const commit = [];
+  const swings = [];
+  drive(fresh, cutter, 1.2, {
+    each: (intent) => {
+      if (cutter.stance === "chamber") chamber.push({ forward: intent.forward, lean: intent.posture.trunkLean });
+      if (cutter.stance === "commit") {
+        commit.push({ forward: intent.forward, lean: intent.posture.trunkLean });
+        swings.push(intent.primary.pointerX);
+      }
+    },
+  });
+  assert.ok(chamber.length > 0 && commit.length > 0, "the cut never ran");
+  for (const [name, steps] of [["chamber", chamber], ["commit", commit]]) {
+    assert.ok(steps.every((step) => step.forward > 0.99),
+      `the feet were not asked to close through the ${name} of a cut`);
+    assert.ok(steps.every((step) => Math.abs(step.lean - GOLEM_TACTICS_V3.cutLean) < 1e-9),
+      `the trunk leaned ${steps[0].lean} through the ${name} and cutLean is ${GOLEM_TACTICS_V3.cutLean}`);
+  }
+
+  // The arc sweeps *through* the mark rather than starting at it: the commanded azimuth crosses
+  // the aim's own bearing somewhere near the middle of the stroke. Session 02's whole finding was
+  // that the shipped stroke crossed 7 ms into a 150 ms arc, so the fraction is the reading.
+  const shape = COMMITTED_SHAPES.sword;
+  const zeroAt = shape.chamberSwing / (shape.chamberSwing + shape.followSwing);
+  assert.ok(zeroAt > 0.35 && zeroAt < 0.75,
+    `the committed arc crosses its own mark ${(zeroAt * 100).toFixed(0)} % of the way through`);
+  const crossed = swings.findIndex((value, index) => index > 0 && Math.sign(value - swings[0]) !== 0
+    && Math.abs(value - swings[0]) > 0.5 * Math.abs(swings[swings.length - 1] - swings[0]));
+  assert.ok(crossed > 0 && crossed < swings.length,
+    "the commanded azimuth never got half way from where it started to where it ended");
+  assert.ok(swings[0] > swings[swings.length - 1],
+    `the arc ran from ${swings[0].toFixed(3)} to ${swings[swings.length - 1].toFixed(3)},`
+    + " and a cut sweeps inboard");
+});
+
+test("a_shove_puts_both_hands_through_their_trunk_and_then_recovers", async (t) => {
+  const golem = await standAGolem(t);
+  const shoved = (setup) => async () => {
+    const body = setup === null ? golem : await standAGolem(t, setup);
+    const fixture = fixtureOf(body.view);
+    const mind = golemStyled(SEED, GOLEM_TACTICS_V3, (available) =>
+      available.includes("shove") ? "shove" : "hold");
+    atGap(fixture, 3.0);
+    drive(fixture, mind, 1.5);
+    const reach = fixture.self.hands.primary.reach;
+    atGap(fixture, mind.reading.near + 0.10 * reach);
+    const during = [];
+    let recoveredAt = -1;
+    drive(fixture, mind, 1.0, {
+      each: (intent, step) => {
+        if (mind.stance === "shove") {
+          during.push({
+            forward: intent.forward, lean: intent.posture.trunkLean,
+            primary: { ...intent.primary }, secondary: { ...intent.secondary },
+          });
+        } else if (during.length > 0 && recoveredAt < 0) recoveredAt = step * FIXED;
+      },
+    });
+    return { during, recoveredAt, fixture };
+  };
+
+  const { during, recoveredAt } = await shoved(null)();
+  assert.ok(during.length > 0, "a shove was named and never ran");
+  assert.ok(during.every((step) => step.forward > 0.99), "a shove did not walk in");
+  assert.ok(during.every((step) => Math.abs(step.lean - GOLEM_TACTICS_V3.shoveLean) < 1e-9),
+    `the trunk leaned ${during[0].lean} and shoveLean is ${GOLEM_TACTICS_V3.shoveLean}`);
+  for (const name of ["primary", "secondary"]) {
+    assert.ok(during.every((step) => step[name].reach === 1),
+      `the ${name} hand was not put all the way out through a shove`);
+    assert.ok(during.every((step) => step[name].thrust === true),
+      `the ${name} hand was not asked for a stroke through a shove`);
+  }
+  const seconds = during.length * FIXED;
+  assert.ok(Math.abs(seconds - GOLEM_TACTICS_V3.shoveSeconds) < 0.02,
+    `the shove ran ${seconds.toFixed(3)} s against shoveSeconds ${GOLEM_TACTICS_V3.shoveSeconds}`);
+  assert.ok(recoveredAt > 0, "the shove never ended");
+
+  // A paired grip has one command and two channels, and the executor must not be writing a
+  // second-hand shove into a hand that is holding the same haft.
+  const paired = await shoved(setupWith({ primary: MAUL, secondary: MAUL }))();
+  assert.equal(paired.fixture.self.capabilities.pairedHands, true);
+  assert.ok(paired.during.length > 0, "a paired body never shoved");
+  for (const step of paired.during) {
+    for (const axis of ["pointerX", "pointerY", "reach", "roll", "wristBend", "thrust", "guard"]) {
+      assert.equal(step.primary[axis], step.secondary[axis],
+        `a paired grip was given two different ${axis} commands during a shove`);
+    }
+  }
+});
+
+test("a_thrust_runs_the_point_out_along_the_reach_axis_at_their_vital_height", async (t) => {
+  const golem = await standAGolem(t);
+  const fixture = fixtureOf(golem.view);
+  const mind = golemStyled(SEED, GOLEM_TACTICS_V3, (available) =>
+    available.includes("thrust") ? "thrust" : "hold");
+  atGap(fixture, 3.0);
+  drive(fixture, mind, 1.5);
+  atGap(fixture, mind.reading.strike - 0.05);
+  const chamber = [];
+  const commit = [];
+  drive(fixture, mind, 0.8, {
+    each: (intent) => {
+      if (mind.stance === "chamber") chamber.push({ ...intent.primary });
+      if (mind.stance === "commit") commit.push({ ...intent.primary });
+    },
+  });
+  assert.ok(chamber.length > 0 && commit.length > 0, "the thrust never ran");
+  assert.ok(chamber.every((step) => Math.abs(step.reach - GOLEM_TACTICS_V3.thrustShapes.sword.chamberReach) < 1e-9),
+    `the chamber held the reach at ${chamber[0].reach} and the thrust draws to`
+    + ` ${GOLEM_TACTICS_V3.thrustShapes.sword.chamberReach}`);
+  assert.ok(commit[commit.length - 1].reach > commit[0].reach + 1.0,
+    `the commit ran the reach from ${commit[0].reach.toFixed(3)} to`
+    + ` ${commit[commit.length - 1].reach.toFixed(3)}, which is not running a point out`);
+  assert.ok(commit.every((step, index) => index === 0 || step.reach >= commit[index - 1].reach - 1e-9),
+    "the reach axis went backwards inside a thrust");
+
+  // The mark is their vital height and not the shoulder the trunk slot uses, and the point goes
+  // there rather than sweeping across it: what is recovered from the cursor is the aim itself,
+  // inside the twentieth of a radian the shape's offsets allow.
+  const self = fixture.self;
+  const cap = self.capabilities.effectors.primary;
+  const shell = cap.reachable;
+  const heading = self.facing + self.trunkTwist * self.capabilities.trunkTwistMax;
+  const socket = self.hands.primary.shoulder;
+  const outboard = self.hands.primary.outboard;
+  const them = fixture.opponent;
+  const at = { swing: 0, lift: 0, horizontal: 0 };
+  const vital = aimAt(socket, { x: them.ground.x, y: them.vitalHeight, z: them.ground.z }, heading, outboard, { ...at });
+  const vitalLift = vital.lift;
+  const vitalSwing = vital.swing;
+  const trunk = aimAt(socket, { x: them.ground.x, y: them.shoulder.y, z: them.ground.z }, heading, outboard, { ...at });
+  assert.ok(Math.abs(vitalLift - trunk.lift) > 0.10,
+    "the two marks are at the same height, so this test could not tell them apart");
+  const last = commit[commit.length - 1];
+  const lift = spanned(last.pointerY, shell.liftMin, shell.liftMax);
+  const swing = spanned(last.pointerX * outboard, shell.swingMin, shell.swingMax);
+  assert.ok(Math.abs(lift - vitalLift) < 0.08,
+    `the point was sent to a lift of ${lift.toFixed(3)}; their vital height is ${vitalLift.toFixed(3)}`
+    + ` and their shoulder ${trunk.lift.toFixed(3)}`);
+  assert.ok(Math.abs(swing - vitalSwing) < 0.08,
+    `the point was swept ${(swing - vitalSwing).toFixed(3)} rad off the mark, and a thrust does not sweep`);
+});
+
+test("a_thrust_is_not_offered_to_a_terminal_with_no_point", async (t) => {
+  const whip = await standAGolem(t, setupWith({ primary: { chain: "wrist", terminal: "whip" } }));
+  const fixture = fixtureOf(whip.view);
+  const mind = golemStyled(SEED, GOLEM_TACTICS_V3, () => "hold");
+  atGap(fixture, 3.0);
+  drive(fixture, mind, 1.5);
+  const offered = new Set();
+  for (let gap = 0.6; gap < 2.4; gap += 0.02) {
+    atGap(fixture, gap);
+    fixture.clock += FIXED;
+    mind.decide(fixture, FIXED);
+    for (const name of mind.available) offered.add(name);
+  }
+  assert.equal(fixture.self.hands.primary.weapon, "whip");
+  assert.ok(offered.has("strike"), "a whip was never offered a stroke at all, so this proves nothing");
+  assert.ok(offered.has("cut"), "a whip was never offered a cut");
+  assert.ok(!offered.has("thrust"), "a whip, which has no point, was offered a thrust");
+});
+
+/**
+ * Their arm drawn and closing on me from above, which is the one reading a duck is for.
+ *
+ * The recipe is the fencer's own commit drive with their shoulder raised a third of a metre, so
+ * that their point sits above my socket while the reader is calling it a commit; both conditions
+ * have to hold at once and a test that arranged only the phase would pass on a low thrust.
+ */
+function driveTheirCommit(fixture, mind, { each = null } = {}) {
+  const socket = fixture.self.hands.primary.shoulder;
+  const high = { shoulderY: socket.y + 0.35 };
+  atGap(fixture, 4.5, high);
+  theirArm(fixture, { extension: 0.88, toward: false });
+  drive(fixture, mind, 2.5);
+  atGap(fixture, 1.75, high);
+  fixture.opponent.reach = 1.78;
+  theirArm(fixture, { extension: 0.62 });
+  drive(fixture, mind, 0.25, { closing: 1.5, each });
+}
+
+test("a_duck_is_offered_under_a_committed_point_and_writes_the_crouch_itself", async (t) => {
+  const golem = await standAGolem(t);
+  const seen = [];
+  const watcher = golemStyled(SEED, GOLEM_TACTICS_V3, () => "hold");
+  const fixture = fixtureOf(golem.view);
+  driveTheirCommit(fixture, watcher, {
+    each: () => seen.push({ theirs: watcher.reading.theirs, duck: watcher.available.includes("duck") }),
+  });
+  const committing = seen.filter((step) => step.theirs === "commit");
+  const idling = seen.filter((step) => step.theirs === "idle");
+  assert.ok(committing.length > 0, "their drawn, closing arm was never read as a commit");
+  assert.ok(committing.every((step) => step.duck), "a duck was not offered under a committed point");
+  assert.ok(idling.every((step) => !step.duck), "a duck was offered against an arm doing nothing");
+
+  const ducker = golemStyled(SEED, GOLEM_TACTICS_V3, (available) =>
+    available.includes("duck") ? "duck" : "hold");
+  const fresh = fixtureOf(golem.view);
+  const crouches = [];
+  driveTheirCommit(fresh, ducker, {
+    each: (intent) => crouches.push({ stance: ducker.stance, crouch: intent.posture.crouch,
+      forward: intent.forward, strafe: intent.strafe }),
+  });
+  const ducking = crouches.filter((step) => step.stance === "duck");
+  assert.ok(ducking.length > 0, "a duck was named and never ran");
+  assert.ok(ducking.every((step) => step.crouch === GOLEM_TACTICS_V3.duckDepth),
+    `a duck crouched to ${ducking[0].crouch} and duckDepth is ${GOLEM_TACTICS_V3.duckDepth}`);
+  assert.ok(ducking.every((step) => step.forward === 0 && step.strafe === 0),
+    "a duck walked, and a duck is the void of a body that stays where it is");
+  // Long enough to be the constant and short enough to end: the drive above is 0.25 s and
+  // `duckSeconds` is 0.35, so what is asserted is that it was still ducking at the end of it.
+  assert.ok(ducking.length * FIXED > 0.10, `the duck ran ${(ducking.length * FIXED).toFixed(3)} s`);
+  assert.equal(ducker.stance, "duck");
+
+  // The head-first body's only void that is not a step: it has no hands to parry with and no
+  // reason to be offered a cut, and the duck is on the list for it all the same.
+  const capped = await standAGolem(t, setupWith({ head: "head.ram",
+    primary: { chain: "none", terminal: "none" }, secondary: { chain: "none", terminal: "none" } }));
+  const headFirst = golemStyled(SEED, GOLEM_TACTICS_V3, () => "hold");
+  const cappedFixture = fixtureOf(capped.view);
+  const offered = new Set();
+  driveTheirCommit(cappedFixture, headFirst, {
+    each: () => { for (const name of headFirst.available) offered.add(name); },
+  });
+  assert.equal(headFirst.reading.headfirst, true, "a capped golem did not read as head-first");
+  assert.ok(offered.has("duck"), "a body with no hands was not offered the one void it has");
+  for (const name of ["cut", "strike", "thrust", "parry", "shove"]) {
+    assert.ok(!offered.has(name), `a body with no hands was offered ${name}`);
+  }
+});
+
+test("the_director_is_asked_the_step_their_phase_turns_and_not_a_cadence_later", async (t) => {
+  const golem = await standAGolem(t);
+  const run = (eventAsks) => {
+    const fixture = fixtureOf(golem.view);
+    let asked = false;
+    const asks = [];
+    const phases = [];
+    const mind = golemStyled(SEED, styledWith({ eventAsks }), () => { asked = true; return "hold"; });
+    const socket = fixture.self.hands.primary.shoulder;
+    const high = { shoulderY: socket.y + 0.35 };
+    atGap(fixture, 4.5, high);
+    theirArm(fixture, { extension: 0.88, toward: false });
+    drive(fixture, mind, 2.5);
+    atGap(fixture, 1.75, high);
+    fixture.opponent.reach = 1.78;
+    theirArm(fixture, { extension: 0.62 });
+    asked = false;
+    drive(fixture, mind, 0.25, {
+      closing: 1.5,
+      each: (intent, step) => {
+        if (asked) asks.push(step);
+        asked = false;
+        phases.push(mind.reading.theirs);
+      },
+    });
+    const turned = phases.findIndex((phase, step) => step > 0 && phase !== phases[step - 1]);
+    return { asks, phases, turned };
+  };
+
+  const on = run(true);
+  assert.ok(on.turned > 0, "their phase never changed over the drive, so this proves nothing");
+  assert.ok(on.asks.includes(on.turned),
+    `their phase turned to ${on.phases[on.turned]} at step ${on.turned} and the asks were at`
+    + ` ${on.asks.join(",")}`);
+
+  const off = run(false);
+  assert.deepEqual(off.phases, on.phases, "the two runs did not read the same arm");
+  assert.ok(off.asks.length < on.asks.length,
+    `${off.asks.length} asks with the events off against ${on.asks.length} with them on`);
+  assert.ok(!off.asks.includes(off.turned),
+    "with event asks off the director was still asked on the step the phase turned");
+});
+
+test("a_chamber_is_taken_back_on_their_commit_only_when_chamberAbort_is_on", async (t) => {
+  const golem = await standAGolem(t);
+  const run = (chamberAbort) => {
+    const fixture = fixtureOf(golem.view);
+    // Names the cut when one is open, and leaves when the abort ask offers three things and no
+    // hold. Two answers, so what the switch decides is whether the second one is ever asked for.
+    const mind = golemStyled(SEED, styledWith({ chamberAbort }), (available) =>
+      !available.includes("hold") ? "retreat"
+        : available.includes("cut") ? "cut" : "hold");
+    const socket = fixture.self.hands.primary.shoulder;
+    const high = { shoulderY: socket.y + 0.35 };
+    atGap(fixture, 4.5, high);
+    theirArm(fixture, { extension: 0.88, toward: false });
+    drive(fixture, mind, 2.5);
+    // In range with their arm still on guard: the cut is named and the chamber starts. Stepped
+    // until it does rather than for a fixed span, because the ask is on a 0.167 s cadence and a
+    // fixed wait either misses the chamber or spends it.
+    atGap(fixture, 1.75, high);
+    fixture.opponent.reach = 1.78;
+    let waited = 0;
+    while (mind.stance !== "chamber" && waited < 0.4) {
+      drive(fixture, mind, FIXED);
+      waited += FIXED;
+    }
+    const chambered = mind.stance === "chamber";
+    // And now their arm draws and closes, so the reader turns to commit inside my own chamber.
+    theirArm(fixture, { extension: 0.62 });
+    // The stances in the order they were entered, so the claim is what the chamber went *to* and
+    // not merely what was seen: a cut's chamber is 0.32 s and its commit follows it either way.
+    const path = [];
+    let abortedWith = -1;
+    drive(fixture, mind, 0.45, {
+      closing: 1.5,
+      each: () => {
+        if (path.length === 0 || path[path.length - 1] !== mind.stance) path.push(mind.stance);
+        // The reading is filled before the ask, so the step that abandons the chamber still
+        // publishes the cooldown it had; what the abort cost shows up on the step after it.
+        if (mind.stance === "retreat") abortedWith = Math.max(abortedWith, mind.reading.cooldown);
+      },
+    });
+    return { chambered, path, abortedWith, mind };
+  };
+
+  const abort = run(true);
+  assert.ok(abort.chambered, "the cut was never chambered, so there was nothing to take back");
+  assert.deepEqual(abort.path.slice(0, 2), ["chamber", "retreat"],
+    `with chamberAbort on the chamber went ${abort.path.join(" -> ")}`);
+  assert.ok(Math.abs(abort.abortedWith - GOLEM_TACTICS_V3.cooldown / 2) < 0.02,
+    `an abandoned chamber left ${abort.abortedWith.toFixed(3)} s of cooldown and half of`
+    + ` ${GOLEM_TACTICS_V3.cooldown} is what it costs`);
+
+  const through = run(false);
+  assert.ok(through.chambered, "the control never chambered either");
+  assert.deepEqual(through.path.slice(0, 2), ["chamber", "commit"],
+    `with chamberAbort off the chamber went ${through.path.join(" -> ")}`);
+});
+
+/**
+ * The two switches the control row is made of, each doing the one thing it says.
+ *
+ * `parryOnCommit` off is v2's reflex -- their committed point is stepped away from and never met
+ * -- and `quickStrokes` on is v2's shapes, the part of the control the seconds alone cannot reach.
+ * Both are read through the same director, so what is asserted is the option the style *names*
+ * rather than the stance the executor ends up in: a control row that still parries is not a
+ * control, and one that still cuts is not measuring the arc it claims to.
+ */
+test("the_control_row_switches_take_the_parry_and_the_committed_arc_back_out", async (t) => {
+  const golem = await standAGolem(t);
+  const named = (over, drive_) => {
+    const seen = [];
+    const mind = golemForm(SEED, { ...FORM, ...over }, (available, reading, view, option) => seen.push(option));
+    drive_(fixtureOf(golem.view), mind);
+    return seen;
+  };
+  // Their point committing from outside my own cut range, so the answer is the threat rule's
+  // and not an abort of a stroke I had already started: patience is pushed out of the way and
+  // the gap is wider than `strike + cutReachMetres`, which leaves meeting it and leaving it.
+  const onACommit = (fixture, mind) => {
+    const socket = fixture.self.hands.primary.shoulder;
+    const high = { shoulderY: socket.y + 0.35 };
+    atGap(fixture, 4.5, high);
+    theirArm(fixture, { extension: 0.88, toward: false });
+    drive(fixture, mind, 2.5);
+    atGap(fixture, 2.10, high);
+    fixture.opponent.reach = 2.40;
+    theirArm(fixture, { extension: 0.62 });
+    drive(fixture, mind, 0.25, { closing: 1.5 });
+  };
+  const met = named({ patience: 99 }, onACommit);
+  const stepped = named({ patience: 99, parryOnCommit: false }, onACommit);
+  assert.ok(met.includes("parry"), "the shipped style never met their point, so this proves nothing");
+  assert.ok(!stepped.includes("parry"), "the control row parried");
+  assert.ok(stepped.includes("void"), "the control row neither met their point nor stepped off it");
+
+  // Patience alone, with their arm doing nothing: the one rule that opens an exchange without
+  // being handed a reading, so the stroke it names is the style's own choice of arc.
+  const outOfPatience = (fixture, mind) => {
+    atGap(fixture, 4.5);
+    drive(fixture, mind, 1.5);
+    atGap(fixture, 1.35);
+    drive(fixture, mind, 4.0);
+  };
+  const committed = named({ feintFraction: 0 }, outOfPatience);
+  const quick = named({ feintFraction: 0, quickStrokes: true }, outOfPatience);
+  assert.ok(committed.includes("cut"), "the shipped style never cut in four seconds of patience");
+  assert.ok(!committed.includes("strike"), "the shipped style threw the quick stroke");
+  assert.ok(quick.includes("strike"), "the control row never threw the quick stroke");
+  assert.ok(!quick.includes("cut"), "the control row cut");
+});
+
+test("golem_form_stays_inside_the_envelope_and_is_deterministic_under_a_seed", async (t) => {
+  for (const [label, setup] of [
+    ["the default golem", defaultGolemSetup()],
+    ["two blades", setupWith({ secondary: { chain: "wrist", terminal: "blade" } })],
+    ["the maul", setupWith({ primary: MAUL, secondary: MAUL })],
+    ["fists", setupWith({ primary: { chain: "wrist", terminal: "fist" }, secondary: { chain: "pitch", terminal: "fist" } })],
+    ["the ram head", setupWith({ head: "head.ram",
+      primary: { chain: "none", terminal: "none" }, secondary: { chain: "none", terminal: "none" } })],
+  ]) {
+    const golem = await standAGolem(t, setup);
+    const fixture = fixtureOf(golem.view);
+    sweepPlaces(fixture, golemForm(SEED), label, 0.35);
+  }
+  const golem = await standAGolem(t);
+  const trace = (seed) => {
+    const fixture = fixtureOf(golem.view);
+    const mind = golemForm(seed);
+    const out = [];
+    for (const z of [3.5, 1.6, 1.2]) {
+      place(fixture, { x: 0.3, z });
+      drive(fixture, mind, 2.0, {
+        each: (intent) => out.push(`${intent.primary.pointerX.toFixed(6)},${intent.primary.pointerY.toFixed(6)},` +
+          `${intent.primary.thrust ? 1 : 0}${intent.forward.toFixed(6)},${intent.strafe.toFixed(6)},${mind.stance}`),
+      });
+    }
+    return out.join("|");
+  };
+  assert.equal(trace(SEED), trace(SEED), "one seed, one bout");
+  assert.notEqual(trace(SEED), trace(SEED + 1), "two seeds, two bouts");
+});
+
+/**
+ * The thrust is a scoring act and not only a pose, which a synthetic view cannot say.
+ *
+ * A short bout against an idle golem under a director that closes and thrusts and does nothing
+ * else: what is asserted is that the contact model books at least one blow of kind `thrust`, which
+ * is the row `scoring.ts` reserves for a point arriving along its own axis. Everything else in
+ * this file's thrust test is a claim about the command; this is the claim about the blow.
+ */
+test("a_thrust_books_a_thrust_in_a_real_bout", async () => {
+  const setup = defaultGolemSetup();
+  const kinds = new Map();
+  const thrusting = golemStyled(SEED, GOLEM_TACTICS_V3, (available) =>
+    available.includes("thrust") ? "thrust" : "close");
+  runBout({
+    left: "golem-form", right: "idle",
+    leftUnit: "golem", rightUnit: "golem",
+    leftGolem: setup, rightGolem: setup,
+    locomotionMode: "supported",
+    leftMind: { name: "thrusting", decide: (view, dt) => thrusting.decide(view, dt) },
+    seeds: [SEED, SEED + 17],
+    maxSeconds: 10,
+    physics: await freshHavok(),
+    onEvent: (event) => {
+      if (event.side !== "left") return;
+      const kind = event.report.kind;
+      kinds.set(kind, (kinds.get(kind) ?? 0) + 1);
+    },
+  });
+  assert.ok((kinds.get("thrust") ?? 0) > 0,
+    `ten seconds of nothing but thrusts booked ${[...kinds].map(([k, n]) => `${n} ${k}`).join(", ") || "nothing"}`);
+});
+
+/**
+ * The whole thing, on a real body against the mind it has to beat: `golem-form` against
+ * `golem-fencer` for fourteen seconds on a fresh Havok.
+ *
+ * The claim is not a rating -- that is Session 04's tournament and lives in `docs/measurements.md`
+ * -- but that the third executor runs a real bout end to end: it lands, it takes damage, and it
+ * throws far fewer strokes than the fencer, which is the signature the style was built for.
+ */
+test("golem_form_fights_the_fencer_for_fourteen_seconds_and_lands", async () => {
+  const setup = defaultGolemSetup();
+  const blows = { left: 0, right: 0 };
+  const bars = { left: 1, right: 1 };
+  const result = runBout({
+    left: "golem-form", right: "golem-fencer",
+    leftUnit: "golem", rightUnit: "golem",
+    leftGolem: setup, rightGolem: setup,
+    locomotionMode: "supported",
+    seeds: [SEED, SEED + 17],
+    maxSeconds: 14,
+    physics: await freshHavok(),
+    onEvent: (event) => { blows[event.side] += 1; },
+    onSample: ({ left, right }) => {
+      bars.left = left.view.self.vitality;
+      bars.right = right.view.self.vitality;
+    },
+  });
+  assert.ok(result.seconds > 13, `the bout ran ${result.seconds.toFixed(1)} s of fourteen`);
+  assert.ok(blows.left > 0, "golem-form landed nothing at all in fourteen seconds");
+  assert.ok(Math.min(bars.left, bars.right) < 1, "neither golem took a scratch");
 });
