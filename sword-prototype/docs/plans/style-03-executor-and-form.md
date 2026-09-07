@@ -4,9 +4,9 @@
 
 ## Outcome
 
-A third executor, src/golem/tactics-v3.ts, that offers a director thirteen options including a
-committed cut, an intercept parry, a shove, a purposeful circle, a void off the line of their
-point and a retreat that ends when the range opens; that asks its director on events as well as
+A third executor, src/golem/tactics-v3.ts, that offers a director fifteen options including a
+committed cut, a thrust, an intercept parry, a shove, a duck, a purposeful circle, a void off
+the line of their point and a retreat that ends when the range opens; that asks its director on events as well as
 on a cadence; and that has no reflexes of its own. The first style over it, `golem-form`: few
 committed cuts, a parry on their commit, a circle with intent.
 
@@ -21,7 +21,7 @@ committed cuts, a parry on their commit, a circle with intent.
   v2 reflex -- the void, the stop-hit, the counter, patience, close-on-recover, the feint and ram
   rolls -- becomes a director's rule and is not in the executor.
 - **The options.** `hold`, `close`, `withdraw`, `circle`, `void`, `retreat`, `strike`, `cut`,
-  `feint`, `wait`, `parry`, `shove`, `ram`. A director is `(available, reading, view) => option`;
+  `feint`, `wait`, `parry`, `shove`, `thrust`, `duck`, `ram`. A director is `(available, reading, view) => option`;
   a hook of the same shape records asks. The reading extends v2's `DuelReading` with the near
   and hold ranges, their reach, whether I am latched inside, my cooldown, seconds since their
   last exchange, the vitality lead, the weakest reachable slot, the intercept (time and
@@ -58,13 +58,25 @@ committed cuts, a parry on their commit, a circle with intent.
   - `shove`: forward at full, trunk lean at `shoveLean`, both hands (`mirror` for a pair) at
     their trunk mark fully extended for `shoveSeconds`, then recover; open at the inner radius
     plus 0.15 of my reach. The plate and the fist score the impulse row; a blade scores a thrust.
+  - `thrust`: a point stroke along the reach axis rather than a cut. The chamber draws the reach
+    in, the commit extends it to full with the point on the mark at their vital height (the view
+    publishes `vitalHeight`), swing and lift offsets near zero, a step-in of `thrustStepIn`;
+    a blade scores the thrust row near its tip, a fist its punch. Offered when the weapon has a
+    point (`hasPoint` in `../../src/hands.ts`) or is empty; open at the strike range. Its
+    shape row per weapon kind sits beside the committed shapes.
+  - `duck`: crouch to `duckDepth` for `duckSeconds` with both hands covering and no walk, then
+    release. Crouch is derived from the aim today and never chosen, so this is the first use of
+    a posture axis as a decision. Offered while their phase is chamber or commit and their tip is
+    above my shoulder; it is the void of a body that cannot parry, head-first bodies included.
   - `ram`, `feint`, `wait`, `hold`, `close`, `withdraw`: as v2. Head-first bodies keep v2's ram
-    ranges, and `cut`, `strike`, `parry` and `shove` are never offered to them.
+    ranges, and `cut`, `strike`, `thrust`, `parry` and `shove` are never offered to them;
+    `duck` is, and is their only void that is not a step.
 - **The table**, the same widened shape as v2's so `--override` and later the tuner can move it:
   `idleStrafe` 0 (v2's 0.55 is the control value), `circleStrafe` 0.6, `circleSeconds` 0.9,
   `retreatSeconds` 1.2, `cutReachMetres` 0.30, `cutLean` 0.6, `parryHorizon` 0.35,
   `parryMargin` 0.15, `parryBite` 0.5, `chamberAbort` false, `shoveSeconds` 0.35, `shoveLean`
-  0.7, `eventAsks` true, and the committed shapes per weapon kind from Session 02. The worker's
+  0.7, `thrustSeconds` 0.12, `thrustStepIn` 0.4, `duckDepth` 1.0, `duckSeconds` 0.35,
+  `eventAsks` true, the committed shapes per weapon kind from Session 02 and the thrust shapes. The worker's
   override block sends bare names to the new table after v2's and the planner's; a `form.`
   prefix goes to the style's own table.
 - **Styles live one per file** under a new src/golem/styles/ directory, each exporting its
@@ -78,7 +90,8 @@ committed cuts, a parry on their commit, a circle with intent.
 
 Stand-off 1.06 of their reach. Between exchanges, `circle` at a seeded 40 % duty, else `hold`.
 Their commit inside their reach: `parry` if the spare can cover, else `void`. Their recover with
-`cut` open: `cut` (the counter). Patience 2.2 s: `cut`. `feint` on 0.15 of chambers. Never
+`cut` open: `cut` (the counter). Patience 2.2 s: `cut`, or `thrust` when the weakest reachable
+slot is the head. `feint` on 0.15 of chambers. Never
 `strike`. `chamberAbort` on. Expected signature: about 0.4 strokes a second, damage a stroke at
 or above 4, committed fraction at or above 0.7, catches above zero, idle travel low.
 
@@ -99,6 +112,12 @@ or above 4, committed fraction at or above 0.7, catches above zero, idle travel 
      the arc;
    - `shove` extends both hands fully at the trunk mark for `shoveSeconds` and then recovers;
      on a paired body both channels are equal;
+   - `thrust` drives the reach from the chamber's draw to full extension with the swing offset
+     near zero and the mark at their vital height, and is not offered to a whip or a plate; a
+     real short bout under a director that only thrusts books at least one report of kind
+     `thrust`;
+   - `duck` writes the crouch to `duckDepth` for `duckSeconds` and then releases it to the
+     derived value; it is offered to a head-first body on their commit and not on their idle;
    - the director is asked on the step their phase turns to commit, not `replanSeconds` later;
    - with `chamberAbort` on a chamber becomes a parry on their commit; off, the chamber runs;
    - every command over a whole synthetic bout sits inside the envelope (the file's place sweep),
@@ -110,7 +129,8 @@ or above 4, committed fraction at or above 0.7, catches above zero, idle travel 
    shapes, stand-off 1.00, no parry), which must sit inside noise of the fencer; then one row per
    constant: `standOffFraction` {1.00, 1.06, 1.12}, `cutLean` {0.4, 0.6, 0.8}, the committed
    stroke seconds at the bench's best and one step either side, `chamberAbort` on and off,
-   `parryBite` {0.3, 0.5, 0.7}, `idleStrafe` {0, 0.55}; each on points a bout with the contact
+   `parryBite` {0.3, 0.5, 0.7}, `idleStrafe` {0, 0.55}, `thrustSeconds` {0.10, 0.12, 0.16},
+   `duckSeconds` {0.25, 0.35, 0.5}; each on points a bout with the contact
    speed, damage a stroke, committed fraction, catches and clinch beside it.
 5. The entry in `../measurements.md`; `../design.md` gains a section on the third executor and
    why the second did not move; README.

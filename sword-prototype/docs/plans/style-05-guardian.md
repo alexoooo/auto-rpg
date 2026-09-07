@@ -18,7 +18,8 @@ shoves when they come inside: the defensive direction, and the first golem that 
   - the gap at or inside the inner radius plus 0.15 of my reach: `shove`;
   - patience 3.0 s: `cut`;
   - `chamberAbort` on;
-  - no spare cover (a lost spare, a paired grip): `void` in place of `parry`;
+  - no spare cover (a lost spare, a paired grip): `duck` when their tip is above my shoulder,
+    else `void`, in place of `parry`;
   - two blades: the spare blade parries at `parryBite` 0.5 and the riposte is the other hand, the
     executor's hand alternation carried over from v2.
 - **Intercept or wall is Session 02's number.** If the plate arrives inside about 0.10 s the
@@ -31,7 +32,8 @@ shoves when they come inside: the defensive direction, and the first golem that 
 2. Tests in `../../tests/golem-mind.test.mjs`: on the fixture with a scripted incoming tip the
    spare hand's command tracks the intercept for the whole commit and releases
    `readRecoverSeconds` after; `strike` is chosen on the first step of their recover; `shove`
-   fires inside the near radius; with no spare cover the same incoming tip yields `void`. One
+   fires inside the near radius; with no spare cover a high incoming tip yields `duck` and a low
+   one `void`. One
    real short bout.
 3. Runs, `--bouts 512 --mirror --cross --random 40 --cap 60 --seed 20260906`: `parryHorizon`
    {0.25, 0.35, 0.50}, `parryMargin` {0.10, 0.15, 0.25}, the riposte as `strike` against `cut`,

@@ -53,7 +53,7 @@ What the code and the logs say the flail is, read before any code moved:
 | [00](style-00-overview.md) | this file; the instruments that see a stroke; the set's baseline table | -- |
 | [01](style-01-contact-rules.md) | one claim per part per stroke; a blow on a hand slot booked as a block | 00 |
 | [02](style-02-stroke-bench.md) | tip speed at the mark on the bench; committed stroke shapes; the parry's arrival time | 01 |
-| [03](style-03-executor-and-form.md) | the third executor with thirteen options and event asks; `golem-form` | 02 |
+| [03](style-03-executor-and-form.md) | the third executor with fifteen options and event asks; `golem-form` | 02 |
 | [04](style-04-skirmisher.md) | `golem-skirmisher`: out of reach, in on their recover, out again | 03 |
 | [05](style-05-guardian.md) | `golem-guardian`: parry, riposte, shove | 03 |
 | [06](style-06-brawler.md) | `golem-brawler`: inside, shoving, hunting the weakest part | 03 |
@@ -81,7 +81,10 @@ on 07 and may run in parallel.
    the duel-model tables and the champion rows are all keyed to v2's eight options and would
    be refused on load if those grew.
 3. **A style is a director, not a fork of the executor.** All tactical reasoning is in the
-   director; the executor owns an exchange once started and has no reflexes of its own.
+   director; the executor owns an exchange once started and has no reflexes of its own. The
+   option vocabulary is fifteen (owner, 2026-09-06: thrust and duck added to the thirteen); a
+   style session may add an option only together with a rule that names it and a tournament
+   row, and the close-out reports how many of the fifteen each style ever named.
 4. **Sweeps select on points a bout with the structural columns beside them, never on damage a
    bout alone.** At 512 mirrored bouts σ is about 0.021 points a bout; a row inside two σ is
    reported as noise.

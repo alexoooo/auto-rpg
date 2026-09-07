@@ -17,6 +17,7 @@ hunting the weakest part: the inside direction, and the only mind that closes on
   - `close` until the gap is at or inside the inner radius plus slack;
   - then alternate `strike` with `strikeBite` 0.8 (the arm stays drawn) and the spare hand's
     bash through `comboFraction` 1;
+  - `thrust` at the head when inside and the head is the weakest reachable slot;
   - `shove` whenever the gap is at or inside the inner radius;
   - `ram` on their recover for a ram head;
   - `targetByHealth` on with `targetMargin` 0: the sever-hunter, since loot is the parts bin;
