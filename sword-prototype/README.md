@@ -127,7 +127,7 @@ that presentation failure too.
 A bout is chosen before it is fought. The curtain carries a left corner and a right corner —
 a unit, a policy, and whether that side is driven by a mind or by you — and the Fight button
 starts what is on it. There is one of you, so taking a side gives the other one back to its
-policy. Thirteen policies ship and a corner is only ever offered the ones its own body can take:
+policy. Fourteen policies ship and a corner is only ever offered the ones its own body can take:
 **idle** stands there and can be cut apart, **swinger** walks in and cuts on a fixed cadence
 without ever looking at your guard, **duelist** holds measure, guards between exchanges, and
 commits when your point leaves the line, **archer** keeps its distance and shoots — give it a
@@ -294,9 +294,9 @@ offered on the wrist arm alone, because without a roll axis a lash has nowhere t
 is eleven arms in all, and every one of them is a different body rather than a worse version
 of the best one.
 
-Nine minds can drive it — **idle**, **golem duelist**, **golem fencer**, **golem planner**,
-**golem champion**, **golem neural**, **golem form**, **golem skirmisher** and **golem
-guardian** — and `C` takes it
+Ten minds can drive it — **idle**, **golem duelist**, **golem fencer**, **golem planner**,
+**golem champion**, **golem neural**, **golem form**, **golem skirmisher**, **golem guardian**
+and **golem brawler** — and `C` takes it
 over mid-bout exactly as it takes over a warrior. The golem duelist knows nothing about which
 modules it is wearing: it asks each arm what strokes it has and how far it reaches, and every
 range it keeps is a fraction of that answer rather than a distance. Bolt something new on and it
@@ -327,10 +327,16 @@ at it, comes in for one committed cut on their recover, and owes itself a retrea
 exchange ends which only the range pays off. It has no parry and steps off a committed point
 instead, and a shorter arm than theirs gets a different set of rules, because standing outside a
 reach you cannot answer is not a plan. The golem guardian is the third and the defensive one: it
-stands at their reach rather than outside it, and it answers their arm on the way *back* -- before
-the stroke has started -- by putting its spare hand on the bearing to their point rather than by
-moving its feet, then ripostes into the recover with the quick stroke and shoves off anything that
-gets inside it.
+stands at their reach rather than outside it, and it answers their arm on the way *back* — before
+the stroke has started — by putting its spare hand on the bearing to their point rather than by
+moving its feet, then ripostes into the recover with the committed cut — the quick stroke
+is the row it ships against, on two seeds of measurement — and shoves off anything that gets
+inside it. The golem brawler is the fourth, and the only one that wants the distance every other
+mind is keeping: no stand-off at all, a hold that floors at its own inner radius, and from
+anywhere outside that a walk in. Inside it shoves, strikes short with either hand, and puts the
+point at the head when the head is the softest thing it can reach; a body whose only weapon is
+its head charges instead. It never asks for a step back, and the one evasion it allows itself is
+a step off a committed point from *outside* their reach, where there is still ground behind it.
 
 **Win a bout against a golem and whichever of its arms came off intact is yours** — an arm cut
 off at the shoulder is loot, an arm hacked to pieces is debris, and legs are neither, because

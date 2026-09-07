@@ -200,6 +200,27 @@ const STYLE = {
    */
   wallOnChamber: false,
   /**
+   * Whether a thrust is aimed by health like a cut and a strike are, or always at the trunk.
+   *
+   * Off by default, so every style written before Session 07 is byte-identical with it here, and
+   * off is what the executor did without being asked: `targetByHealth` has always steered a strike
+   * and a cut to the least-healthy reachable slot and has always left a thrust on the trunk. There
+   * was no argument for that -- a thrust runs its anchor out to wherever the mark is, and a head
+   * mark is as reachable as a trunk one -- and Session 07 found it by trying to write the
+   * sever-hunter's own rule, "thrust at the head when the head is the weakest slot", and finding
+   * that the second half of the sentence had nowhere to land.
+   *
+   * On, `weakestReachable` chooses the thrust's slot too, and the mark follows it. Both halves
+   * were needed and only the first was obvious: the mark for a thrust was hard-wired to the
+   * trunk's vital height in a branch that never looked at the chosen slot, so the first draft of
+   * this row could be swept on and off over 512 bouts and produce a byte-identical log.
+   *
+   * It is a capability and not a tactic: whether to want the soft part is still entirely the
+   * director's to say, through `targetByHealth` and `targetMargin`, and this only decides
+   * whether the point may follow.
+   */
+  thrustByHealth: false,
+  /**
    * May a chamber be abandoned when their arm turns to commit inside it?
    *
    * Off by default, because it is the one place this executor takes an option away mid-act and the
@@ -765,7 +786,14 @@ export function golemStyled(
 
     // ---- the marks ----------------------------------------------------------------------------
     const exchanging = stance === "chamber" || stance === "commit" || stance === "feint";
-    if (exchanging && thrusting) {
+    // A thrust at the trunk goes at the *vital height* rather than the shoulder line, which is
+    // where `slotMark` puts a trunk mark: a point driven along the reach axis is worth putting
+    // where the body is thickest. That is the only reason this branch exists, so it is written
+    // as what it is -- the trunk's own rule -- and a thrust that `thrustByHealth` has aimed
+    // somewhere else takes that slot's mark like every other stroke. Until Session 07 the test
+    // here was `thrusting` alone, which quietly threw the chosen slot away and is why the row
+    // above could be turned on and off over 512 bouts without moving a single byte of the log.
+    if (exchanging && thrusting && target === "trunk") {
       mark.x = them.ground.x; mark.y = them.vitalHeight; mark.z = them.ground.z;
     } else {
       slotMark(them, exchanging ? target : "trunk", mark);
@@ -864,7 +892,8 @@ export function golemStyled(
     const enterExchange = (kind: "strike" | "cut" | "thrust" | "feint"): void => {
       thrusting = kind === "thrust";
       cutting = kind === "cut";
-      target = thrusting || !T.targetByHealth ? "trunk"
+      const byHealth = T.targetByHealth && (!thrusting || T.thrustByHealth);
+      target = !byHealth ? "trunk"
         : weakestReachable(them, socket, reach, cap, trunkHeading, me.outboard, T.targetMargin);
       const source = cutting ? T.committedShapes[me.weapon]
         : thrusting ? T.thrustShapes[me.weapon]

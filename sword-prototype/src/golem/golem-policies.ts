@@ -6,6 +6,7 @@ import { GOLEM_CHAMPIONS } from "./tactics-champions.ts";
 import { golemNeural } from "./neural.ts";
 import { golemFencer, type GolemFencer } from "./tactics-v2.ts";
 import { golemForm } from "./styles/form.ts";
+import { golemBrawler } from "./styles/brawler.ts";
 import { golemGuardian } from "./styles/guardian.ts";
 import { golemSkirmisher } from "./styles/skirmisher.ts";
 import type { GolemStyled } from "./tactics-v3.ts";
@@ -149,7 +150,7 @@ export function golemSkirmisherMind(seed = (Math.random() * 0x100000000) >>> 0):
  * The eighth golem mind, and the third style. Session 06 of the style set.
  *
  * The same executor under `guardianDirector`: the cover sent out on their chamber rather than on
- * their commit, the quick stroke into their recover, a shove for anything that gets inside, and
+ * their commit, the committed cut into their recover, a shove for anything that gets inside, and
  * three seconds of patience before it starts anything itself. `styled` is published as the other
  * two are, and for the same reason. Same seed argument, same reasons.
  */
@@ -157,6 +158,23 @@ export function golemGuardianMind(seed = (Math.random() * 0x100000000) >>> 0): M
   const styled = golemGuardian(seed);
   return {
     name: "golem-guardian",
+    styled,
+    decide: (view, dt): Intent => styled.decide(view, dt),
+  };
+}
+
+/**
+ * The ninth golem mind, and the fourth style. Session 07 of the style set.
+ *
+ * The same executor under `brawlerDirector`: no stand-off at all, a hold that floors at its own
+ * inner radius, and a walk in whenever there is nothing better -- then the shove, the short
+ * stroke with either hand and the point at the softest slot it can reach. `styled` is published
+ * as the other three are, and for the same reason. Same seed argument, same reasons.
+ */
+export function golemBrawlerMind(seed = (Math.random() * 0x100000000) >>> 0): Mind & { styled: GolemStyled } {
+  const styled = golemBrawler(seed);
+  return {
+    name: "golem-brawler",
     styled,
     decide: (view, dt): Intent => styled.decide(view, dt),
   };

@@ -53,6 +53,7 @@ import {
   COMMITTED_SHAPES, GOLEM_TACTICS_V3, golemStyled, reachAt,
 } from "../src/golem/tactics-v3.ts";
 import { FORM, golemForm } from "../src/golem/styles/form.ts";
+import { BRAWLER, golemBrawler } from "../src/golem/styles/brawler.ts";
 import { GUARDIAN, golemGuardian } from "../src/golem/styles/guardian.ts";
 import { SKIRMISHER, golemSkirmisher } from "../src/golem/styles/skirmisher.ts";
 import { golemPlanner } from "../src/golem/planner.ts";
@@ -95,7 +96,7 @@ test("a_units_picker_never_offers_a_mind_written_for_the_other_control_surface",
   const names = (unit) => unit.driverOptions.map(({ name }) => name);
   assert.ok(!names(warrior).includes("golem-duelist"),
     `a Warrior's picker offers ${names(warrior).join(", ")}`);
-  assert.deepEqual(names(golem), ["idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-neural", "golem-form", "golem-skirmisher", "golem-guardian"]);
+  assert.deepEqual(names(golem), ["idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-neural", "golem-form", "golem-skirmisher", "golem-guardian", "golem-brawler"]);
   assert.throws(() => unitDefinition("warrior").createPolicy("golem-duelist"),
     /does not support policy/);
   assert.throws(() => unitDefinition("golem").createPolicy("duelist"),
@@ -2978,4 +2979,328 @@ test("golem_guardian_meets_a_real_fencers_chamber_and_the_form_never_gets_the_ch
   const forming = run((hook) => golemForm(SEED, FORM, hook), "golem-form");
   assert.equal(forming.onChamber, 0,
     `the form parried ${forming.onChamber} chambers, and \`wallOnChamber\` is off for it`);
+});
+
+// ---------------------------------------------------------------------------------------
+// The fourth style: `golem-brawler`, Session 07 of the style set. The inside direction.
+// ---------------------------------------------------------------------------------------
+
+/** The brawler, with a hook that writes down every ask: `guardianSaying` for the fourth style. */
+function brawlerSaying(seed, over = {}) {
+  const said = [];
+  const mind = golemBrawler(seed, { ...BRAWLER, ...over },
+    (available, reading, view, option) => said.push({
+      clock: view.clock, option, theirs: reading.theirs, gap: reading.gap,
+      near: reading.near, slack: reading.slack, theirReach: reading.theirReach,
+      offered: [...available],
+    }));
+  return { mind, said };
+}
+
+/**
+ * The rule that is really the absence of two rules: this style has no way of going backwards.
+ *
+ * Asked from every distance a bout offers -- well outside their point, at the strike band, at its
+ * own inner radius and inside it -- with their arm drawing in and going back out at each. Both
+ * ways back are on offer at every one of those asks, which is what makes the assertion worth
+ * making: nothing is stopping this style leaving but the director.
+ */
+test("the_brawler_never_names_a_step_backwards_and_walks_in_from_outside", async (t) => {
+  const golem = await standAGolem(t);
+  const { mind, said } = brawlerSaying(SEED);
+  const fixture = fixtureOf(golem.view);
+  for (const gap of [4.0, 2.4, 1.6, 1.2, 0.8, 0.5]) {
+    for (const extension of [0.88, 0.60, 0.88]) {
+      atGap(fixture, gap);
+      theirArm(fixture, { extension });
+      drive(fixture, mind, 0.40);
+    }
+  }
+  assert.ok(said.length > 20, `only ${said.length} asks over six distances`);
+  assert.ok(said.every((ask) => ask.offered.includes("withdraw") && ask.offered.includes("retreat")),
+    "a step backwards was not on offer at every ask, so refusing it proves nothing");
+  const back = said.filter((ask) => ask.option === "withdraw" || ask.option === "retreat");
+  assert.deepEqual(back, [], `the brawler named a step backwards ${back.length} times`);
+
+  // And the positive half: from outside its own hold it walks in, at every ask, with no roll.
+  const far = said.filter((ask) => ask.gap > ask.near + ask.slack && ask.theirs !== "commit");
+  assert.ok(far.length > 0, "no ask landed outside the inner radius");
+  assert.deepEqual([...new Set(far.map((ask) => ask.option))], ["close"],
+    "outside its hold the brawler named something other than the walk in");
+
+  // The one evasion, and its condition: their point driving in while there is still ground behind
+  // me to step into. This is the only reason `far` above has to be filtered at all.
+  const stepped = said.filter((ask) => ask.option === "void");
+  assert.ok(stepped.length > 0, "their point never drove at me, so the void rule was never asked");
+  assert.ok(stepped.every((ask) => ask.theirs === "commit" && ask.gap > ask.theirReach),
+    "the brawler stepped off the line from inside their reach, where there is nothing to step to");
+});
+
+/**
+ * Inside the inner radius it shoves; in the slack band just outside it, it strikes.
+ *
+ * The two are one rule read at two distances, and where the boundary is *not* is the point. The
+ * executor offers a shove out to `near + 0.15 * reach` and this style deliberately does not take
+ * it that far, because outside the radius the arm still has room to swing and a swing is worth
+ * more than a push. Both cases assert the offer as well as the answer, so a rule that stopped
+ * firing because the option stopped being offered would fail with the reason on the line.
+ */
+test("the_brawler_shoves_inside_its_radius_and_strikes_in_the_band_outside_it", async (t) => {
+  const golem = await standAGolem(t);
+  const at = (fraction) => {
+    const { mind, said } = brawlerSaying(SEED);
+    const fixture = fixtureOf(golem.view);
+    atGap(fixture, 2.0);
+    theirArm(fixture, { extension: 0.88, toward: false });
+    drive(fixture, mind, 1.2);
+    const near = mind.reading.near;
+    atGap(fixture, near * fraction);
+    theirArm(fixture, { extension: 0.88, toward: false });
+    const mark = said.length;
+    drive(fixture, mind, 1.2);
+    return said.slice(mark).filter((ask) => ask.theirs !== "commit");
+  };
+
+  const inside = at(0.85);
+  assert.ok(inside.length > 0, "the director was never asked from inside the inner radius");
+  assert.ok(inside.every((ask) => ask.gap <= ask.near), "the inside case was not actually inside");
+  const shoving = inside.filter((ask) => ask.offered.includes("shove"));
+  assert.ok(shoving.length > 0, "a shove was never on offer from inside the radius");
+  assert.deepEqual([...new Set(shoving.map((ask) => ask.option))], ["shove"],
+    "inside its own radius, with the shove open, the brawler named something else");
+
+  const band = at(1.04);
+  assert.ok(band.length > 0, "the director was never asked from the slack band");
+  assert.ok(band.every((ask) => ask.gap > ask.near && ask.gap <= ask.near + ask.slack),
+    "the band case did not land between the inner radius and the slack outside it");
+  const armed = band.filter((ask) => ask.offered.includes("shove"));
+  assert.ok(armed.length > 0, "the hand was never armed in the slack band");
+  assert.ok(armed.every((ask) => ask.offered.includes("strike")),
+    "a strike was not open where a shove was, and this band is well inside both offers");
+  assert.deepEqual([...new Set(armed.map((ask) => ask.option))], ["strike"],
+    "in the slack band, with both open, the brawler named something other than the stroke");
+
+  // What it does with the asks in between, which are the ones where the hand is still cooling:
+  // it walks in. A style with no rule for waiting has none for standing still either, and `hold`
+  // is a word this director says only if `closesAlways` is turned off.
+  const cooling = [...inside, ...band].filter((ask) => !ask.offered.includes("shove"));
+  assert.ok(cooling.length > 0, "no ask landed on a cooling hand, and the shove sets a cooldown");
+  assert.deepEqual([...new Set(cooling.map((ask) => ask.option))], ["close"],
+    "with nothing open to throw the brawler named something other than the walk in");
+});
+
+/**
+ * `strikeBite` on an inside stroke: which way it points, and the range at which it stops pointing.
+ *
+ * The plan asked for 0.80 and glossed it "the arm stays drawn". `reachForDistance` subtracts
+ * `overhang * (1 - bite)` from the distance to the mark before spanning it into the anchor axis,
+ * so a *larger* bite subtracts less and asks the anchor for *more*. The first half of this test is
+ * that direction, driven through the executor rather than read off the formula.
+ *
+ * The second half is the thing that decides how the Session 07 sweep can be read at all. The
+ * anchor axis clamps, and it clamps at `reachMax + overhang * (1 - bite)` metres -- which for
+ * every bite in the sweep is *inside* this style's own strike band. So at the range the brawler
+ * actually strikes from the row is inert: three different bites command the same fully extended
+ * anchor to the digit, and a sweep row that moves is a row that moved for some other reason.
+ */
+test("a_larger_strike_bite_asks_for_more_anchor_and_the_axis_is_saturated_where_this_style_strikes", async (t) => {
+  const golem = await standAGolem(t);
+  // A director that names one thing, which is how every test of this executor is written: a rule
+  // that had to fire to produce the command could not tell a wrong command from a trigger that
+  // never went off. Here it also gets a strike from inside the radius, where this style shoves.
+  const commanded = (bite, gap) => {
+    const mind = golemStyled(SEED, { ...BRAWLER, strikeBite: bite }, () => "strike");
+    const fixture = fixtureOf(golem.view);
+    atGap(fixture, 2.0);
+    theirArm(fixture, { extension: 0.88, toward: false });
+    drive(fixture, mind, 1.2);
+    atGap(fixture, gap);
+    theirArm(fixture, { extension: 0.88, toward: false });
+    let last = null;
+    // The end of the arc and not its start: the anchor runs from the shape's own `chamberReach`
+    // to the computed one over the sweep, so the first committed step is -0.70 whatever the bite.
+    drive(fixture, mind, 1.2, {
+      each: (intent) => { if (mind.stance === "commit") last = intent.primary.reach; },
+    });
+    assert.ok(last !== null, `no stroke was committed at bite ${bite} and gap ${gap.toFixed(2)}`);
+    return last;
+  };
+
+  const fixture = fixtureOf(golem.view);
+  const cap = fixture.self.capabilities.effectors.primary;
+  const reach = fixture.self.hands.primary.reach;
+  const near = innerReach(reach, cap);
+  const overhang = reach - cap.reachable.reachMax;
+
+  // Where the row is live: a mark close enough that neither bite has run the anchor to its stop.
+  const close = cap.reachable.reachMax + overhang * 0.2 - 0.30;
+  assert.ok(close < near, "the live band is not inside the inner radius, and this test assumes it is");
+  const drawn = commanded(0.66, close);
+  const extended = commanded(0.80, close);
+  assert.ok(drawn > -1 && extended < 1, `the axis was saturated at ${close.toFixed(2)} m after all`);
+  assert.ok(extended > drawn,
+    `bite 0.80 asked the anchor for ${extended.toFixed(4)} and 0.66 asked for ${drawn.toFixed(4)}`);
+
+  // Where this style actually strikes from, which is the slack band just outside the radius.
+  const band = near * 1.04;
+  const swept = [0.66, 0.80, 0.90].map((bite) => commanded(bite, band));
+  assert.deepEqual(swept, [1, 1, 1],
+    `at ${band.toFixed(2)} m the three swept bites asked for ${swept.join(", ")}`);
+  assert.equal(BRAWLER.strikeBite, 0.80, "the plan's number ships, and the sweep is where it is argued");
+});
+
+/**
+ * The sever-hunter, and the half of it the executor had to be taught.
+ *
+ * With `targetByHealth` on and `targetMargin` 0, a strike goes at the least-healthy reachable
+ * slot -- that much v2 has always done, and Session 04 carried it into v3 unchanged. A *thrust*
+ * did not: `enterExchange` aimed every thrust at the trunk whatever the table said, so the plan's
+ * rule "thrust at the head when the head is the weakest slot" had nowhere to land until
+ * `thrustByHealth` was added beside it. The control at the end is the same body, the same health
+ * and the same option with the row off, which is the whole of the row's claim.
+ */
+test("the_brawler_puts_its_point_where_the_health_is_lowest_and_the_row_takes_that_back", async (t) => {
+  const golem = await standAGolem(t);
+  const whole = {
+    "x.golem.trunk.core": 1, "x.golem.trunk.waist": 1, "x.golem.head.head": 1, "x.golem.head.neck": 1,
+    "x.golem.primary.upperArm": 1, "x.golem.primary.forearm": 1, "x.golem.secondary.upperArm": 1,
+    "x.golem.legs.thighL": 1,
+  };
+  const run = (health, over = {}) => {
+    const { mind, said } = brawlerSaying(SEED, over);
+    const fixture = fixtureOf(golem.view);
+    atGap(fixture, 2.0);
+    theirArm(fixture, { extension: 0.88, toward: false });
+    drive(fixture, mind, 1.2);
+    atGap(fixture, mind.reading.near * 1.04);
+    theirArm(fixture, { extension: 0.88, toward: false });
+    fixture.opponent.health = health;
+    const mark = said.length;
+    const marks = new Set();
+    // The first committed step, where the arc's own lift offset is the same whatever the mark is,
+    // so what is left between two runs is where the aim was pointed.
+    let lift = null;
+    drive(fixture, mind, 1.6, {
+      each: (intent) => {
+        if (mind.stance === "chamber" || mind.stance === "commit") marks.add(mind.target);
+        if (mind.stance === "commit" && lift === null) lift = intent.primary.pointerY;
+      },
+    });
+    const opened = said.slice(mark).filter((ask) => ask.offered.includes("strike"));
+    assert.ok(opened.length > 0, "the hand was never armed inside the strike band");
+    return { named: new Set(opened.map((ask) => ask.option)), marks: [...marks], lift };
+  };
+
+  const head = run({ ...whole, "x.golem.head.neck": 0.3 });
+  assert.deepEqual([...head.named], ["thrust"],
+    "with the head the softest slot the brawler named something other than the point");
+  assert.deepEqual(head.marks, ["head"], "the point did not go at the head");
+
+  const arm = run({ ...whole, "x.golem.primary.forearm": 0.4 });
+  assert.deepEqual([...arm.named], ["strike"], "a worn arm drew something other than the stroke");
+  assert.deepEqual(arm.marks, ["primary"], "the stroke did not go at the softest slot");
+
+  const off = run({ ...whole, "x.golem.head.neck": 0.3 }, { thrustByHealth: false });
+  assert.deepEqual([...off.named], ["thrust"], "the control never thrust, so it is not a control");
+  assert.deepEqual(off.marks, ["trunk"], "with `thrustByHealth` off the point still left the trunk");
+
+  // And the point actually went there. The slot is chosen in one place and the mark is built in
+  // another, and until Session 07 the second of the two never read the first: a thrust's mark was
+  // the trunk's vital height in a branch that did not look at the chosen slot, so this row could
+  // be swept on and off over 512 bouts and produce a byte-identical log. A head mark sits at the
+  // midpoint of crown and shoulder and a trunk thrust at 0.82 of the shoulder, so the aim is the
+  // assertion: same body, same option, same step of the arc, higher point.
+  assert.ok(head.lift !== null && off.lift !== null, "no thrust was committed in one of the two runs");
+  assert.ok(head.lift > off.lift + 1e-6,
+    `the head thrust was aimed at ${head.lift.toFixed(4)} and the trunk thrust at ${off.lift.toFixed(4)}`);
+  assert.equal(GOLEM_TACTICS_V3.thrustByHealth, false,
+    "the row ships off, so the three older styles and the four v2 minds are unmoved by it");
+});
+
+test("golem_brawler_stays_inside_the_envelope_and_is_deterministic_under_a_seed", async (t) => {
+  for (const [label, setup] of [
+    ["the default golem", defaultGolemSetup()],
+    ["two blades", setupWith({ secondary: { chain: "wrist", terminal: "blade" } })],
+    ["the maul", setupWith({ primary: MAUL, secondary: MAUL })],
+    ["fists", setupWith({ primary: { chain: "wrist", terminal: "fist" }, secondary: { chain: "pitch", terminal: "fist" } })],
+    ["the ram head", setupWith({ head: "head.ram",
+      primary: { chain: "none", terminal: "none" }, secondary: { chain: "none", terminal: "none" } })],
+  ]) {
+    const golem = await standAGolem(t, setup);
+    const fixture = fixtureOf(golem.view);
+    sweepPlaces(fixture, golemBrawler(SEED), label, 0.35);
+  }
+  const golem = await standAGolem(t);
+  const trace = (seed) => {
+    const fixture = fixtureOf(golem.view);
+    const mind = golemBrawler(seed);
+    const out = [];
+    // The trace starts inside the band this style throws from, and that ordering is the test.
+    // This director draws no numbers of its own -- it is the only one of the four that does not --
+    // so the one thing two seeds can move is the offset on the opening cooldown, and a trace that
+    // spent its first seconds walking in from 2.4 m would have spent that offset before it did
+    // anything, and would then be the same trace under every seed for no good reason.
+    for (const gap of [1.10, 0.90, 2.40]) {
+      atGap(fixture, gap);
+      theirArm(fixture, { extension: 0.88, toward: false });
+      drive(fixture, mind, 3.0, {
+        each: (intent) => out.push(`${intent.primary.pointerX.toFixed(6)},${intent.primary.pointerY.toFixed(6)},` +
+          `${intent.secondary.reach.toFixed(6)},${intent.secondary.guard ? 1 : 0},` +
+          `${intent.forward.toFixed(6)},${intent.strafe.toFixed(6)},${mind.stance}`),
+      });
+    }
+    return out.join("|");
+  };
+  assert.equal(trace(SEED), trace(SEED), "one seed, one bout");
+  assert.notEqual(trace(SEED), trace(SEED + 1), "two seeds, two bouts");
+});
+
+/**
+ * The whole thing on three real bodies: the default golem, the paired maul and the ram head.
+ *
+ * What is asserted is the signature the plan names and nothing more -- it gets inside and shoves,
+ * it lands something, and a body whose only weapon is its head charges. Whether any of that is
+ * worth a point on the bar is the Session 07 entry's question and not a fourteen-second bout's.
+ * The paired maul is here because it is the build every style in this set has to have an answer
+ * for: no spare hand to cover with, both channels mirrored, and no combination stroke.
+ */
+test("golem_brawler_gets_inside_three_real_bodies_and_the_ram_head_charges", async () => {
+  const physics = await freshHavok();
+  const run = (setup, label) => {
+    const asks = { total: 0, ram: 0, shove: 0, close: 0 };
+    const styled = golemBrawler(SEED, BRAWLER, (available, reading, view, option) => {
+      asks.total += 1;
+      if (option === "ram") asks.ram += 1;
+      if (option === "shove") asks.shove += 1;
+      if (option === "close") asks.close += 1;
+    });
+    const blows = { left: 0, right: 0 };
+    const result = runBout({
+      left: "golem-brawler", right: "golem-fencer",
+      leftUnit: "golem", rightUnit: "golem",
+      leftGolem: setup, rightGolem: defaultGolemSetup(),
+      locomotionMode: "supported",
+      seeds: [SEED, SEED + 17],
+      maxSeconds: 14,
+      physics,
+      leftMind: { name: "golem-brawler", styled, decide: (view, dt) => styled.decide(view, dt) },
+      rightMind: golemFencer(SEED + 17),
+      onEvent: (event) => { blows[event.side] += 1; },
+    });
+    assert.ok(asks.total > 0, `${label}: the brawler was never asked anything in fourteen seconds`);
+    return { ...asks, seconds: result.seconds, blows };
+  };
+
+  const plain = run(defaultGolemSetup(), "the default golem");
+  assert.ok(plain.close > 0, "the brawler never walked in, which is the only thing it does at range");
+  assert.ok(plain.shove > 0, `the brawler answered ${plain.total} asks and shoved on none of them`);
+  assert.ok(plain.blows.left > 0, "golem-brawler landed nothing at all in fourteen seconds");
+
+  const maul = run(setupWith({ primary: MAUL, secondary: MAUL }), "the paired maul");
+  assert.ok(maul.blows.left > 0, "a paired maul landed nothing at all in fourteen seconds");
+
+  const ram = run(setupWith({ head: "head.ram",
+    primary: { chain: "none", terminal: "none" }, secondary: { chain: "none", terminal: "none" } }),
+  "the ram head");
+  assert.ok(ram.ram > 0, `a body whose only weapon is its head charged on none of ${ram.total} asks`);
 });

@@ -1018,7 +1018,7 @@ wrong way round for a set whose whole purpose is how the fight reads.
 
 Session 06. `src/golem/styles/guardian.ts` is the defensive direction: it stands at their reach
 rather than outside it, answers their arm with its spare hand rather than with its feet, ripostes
-into the recover with the quick stroke and no step behind it, shoves what gets inside its inner
+into the recover with a cut and no step behind it, shoves what gets inside its inner
 radius, and only after all of that -- three seconds of nothing, the longest patience in the set --
 opens something of its own.
 
@@ -1068,6 +1068,67 @@ opponents have the *lowest* fraction of their strokes caught on its hand slots. 
 put a hand in the way of a stroke is the one whose hands are in the way least often. What it does
 own is the complaint this whole set exists for -- it clinches 1.04 s a bout in the mirror against
 a field of 1.1 to 1.8, and 1.39 on random pairs against 2.0 to 3.1.
+
+### The fourth style, and a row that could be swept without moving a byte
+
+Session 07. `src/golem/styles/brawler.ts` is the inside direction, and it is the opposite of the
+other three in the only thing they all agree on. `standOffFraction` is 0 and `holdFraction` is low
+enough that the hold falls through to its own floor -- the inner radius plus slack, which
+`styleRanges` derives rather than tunes -- so the distance every other mind is keeping is the
+distance this one is trying to get past. From outside that floor it closes. Inside it shoves; on
+the radius it strikes short with either hand; when the head is the softest thing it can reach it
+thrusts; a body whose only weapon is its head charges. It never names `withdraw` or `retreat`, and
+the one evasion it allows itself is a step off a committed point from *outside* their reach --
+inside it there is no ground behind it to step into, and it keeps coming.
+
+Three of the plan's rules for it turned out to be rules the executor already keeps, which is worth
+recording because each of them looked like work: the spare hand's bash is `comboFraction`, which
+has been 1.0 for every mind since v2 and is already skipped for a paired grip; a paired shove is
+already both channels; and `crowdedSeconds` -- which the plan asked to be set high so the crowding
+withdrawal would never fire -- is a v1 reflex that the third executor does not read at all.
+
+The two that were not free are both the same shape as Session 06's, and one of them is worse.
+
+`strikeBite` was asked for at 0.80 and glossed "the arm stays drawn". The row does the opposite:
+`reachForDistance` subtracts `overhang * (1 - bite)` from the distance to the mark, so a larger
+bite subtracts less and asks the anchor for *more*. That is a documentation error and it would
+not be worth a paragraph, except that chasing it down found the thing that is: the anchor axis
+clamps, and it clamps at `reachMax + overhang * (1 - bite)` metres, which for every value in the
+plan's sweep is *inside* this style's own strike band. At the range the brawler actually strikes
+from, all three swept bites command the same fully extended anchor to the digit. The row is not
+mis-tuned, it is inert, and a test pins both halves so the sweep rows can be read as the noise
+they are rather than as a preference.
+
+`thrustByHealth` is the other, and it took two goes to make it real. `targetByHealth` has steered
+strikes and cuts to the least-healthy reachable slot since v2 and has always left a thrust on the
+trunk, so the plan's rule "thrust at the head when the head is the weakest slot" had nowhere to
+land. A new capability row on the executor's table -- off by default, so the three older styles
+and the four v2 minds are byte-identical without it -- let `weakestReachable` choose a thrust's
+slot as well. It changed nothing. Swept on and off over 512 bouts it produced a **byte-identical
+log**, while the option census said the head was the weakest reachable slot at three asks in ten
+and the style was thrusting. The reason is that a thrust's mark is built in a different place from
+its slot, and the branch that built it never looked: `if (exchanging && thrusting)` put the mark
+at the trunk's vital height whatever the chosen slot was. The fix is to make that branch say what
+it means -- it is the trunk's own rule, that a point driven along the reach axis goes where the
+body is thickest -- so it now reads `thrusting && target === "trunk"` and every other slot takes
+its own mark like every other stroke. The lesson is not the bug. It is that **a sweep row that
+comes back at exactly zero deserves a look at the mechanism before it is reported as noise**: the
+first draft of this session's table would have reported a capability as worthless with a
+straight face.
+
+What it is worth is two things and neither of them is a constant. In the mirrored league of nine
+minds it is third on points, spends **31.6 % of the bout inside its own inner radius** against
+19.3 % for the next mind, and clinches **0.77 s a bout, the lowest of the nine** -- getting inside
+and standing there doing nothing turn out to be different, and this style does the first without
+the second. And on random pairs it wins the one build class nothing else in the set can finish a
+bout on: a paired maul, which is offered no parry, no cut and no combination stroke, and which
+every other style spends the bout circling. The brawler shoves it with both channels for +0.574 on
+the bar over 22 bouts, and **22.7 % of those bouts end on the 60 s cap against 80 % everywhere
+else**. Meanwhile every one of the nine swept rows -- the plan's four constants and the session's
+own three controls -- comes back inside two standard errors paired, and the two that looked like
+something were asked again on a held-out seed, where one of them changed sign. Four of this set's
+five sessions have now ended that way, which is worth saying in one place: on this executor the
+constants are not where the wins are, and a new *rule* is worth more than a swept number.
 
 ## Dying, which is not the same as losing
 

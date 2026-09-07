@@ -15397,3 +15397,348 @@ either way -- that is the owner's call and this file does not make it.
 8. **The 60 s cap is in front of the gate for the fifth time.** Three quarters of the guardian's
    bouts end on it (74.8 % on the plan's table, 76.6 % on the shipped one), and a defensive style
    is exactly the mind that turns a cap into a draw.
+
+## Session 07 of the style set — 2026-09-07: a style that reads at a glance, a sweep in which nothing moved, and a row that could be turned off without changing a byte
+
+What the plan asked for: a fourth style on the third executor, the inside direction -- no
+stand-off, a hold that floors at the inner radius, `close` until it is past that, `shove` inside
+it, short strikes with both hands, the sever-hunter's mark, `ram` for a head, and never a step
+back -- four constants swept, a league row against every shipped mind, and the blows-per-stroke
+column in its table because this is the style most exposed to what survives of raking. What
+shipped: `src/golem/styles/brawler.ts` at 120 lines, `golem-brawler` registered as the fourteenth
+policy, one new row on the executor's table and one line of the executor rewritten, six new tests,
+fifteen tournament runs -- ten sweep rows, three confirmation rows on a held-out seed and two
+league runs. Logs are `tournaments/style07-default.jsonl`, one file a row beside it, with
+`tournaments/style07-league-mirror.jsonl` and `tournaments/style07-league-random.jsonl` for the
+two leagues; every sweep command line is `--bouts 512 --mirror --cross --random 40 --cap 60
+--seed 20260906 --policies golem-brawler,golem-fencer` with the row's `--override` and nothing
+else, and the three confirmation rows are the same on `--seed 20260907`.
+
+**The style reads, and the sweep says nothing at all.** Against the fencer on the sweep pool it is
++0.0116 ± 0.0066 on the bar, and in the mirrored league it is third of nine minds on points.
+It spends 31.6 % of the mirrored league inside its own inner radius, against 19.3 % for the next
+mind and 8.6 % for the last -- no other mind in the set is within half of it -- and it
+clinches 0.77 s a bout, the **lowest in the league**, which is the answer to the obvious worry
+about a style built to get inside: getting inside and standing there doing nothing are different
+things, and this one does the first without the second. And then every constant the plan named
+comes back inside two standard errors of the row beside it, paired bout by bout: nine rows, the
+largest 1.7 standard errors, and the two that looked like they might be something were asked
+again on a seed this session had never used and one of them **changed sign**.
+
+**The finding worth the session is the shape of a zero.** `thrustByHealth` was added to the
+executor's table because the plan's rule -- thrust at the head when the head is the weakest
+reachable slot -- could not be said: `targetByHealth` has steered strikes and cuts to the
+soft part since v2 and has always left a thrust on the trunk. With the row on, the option census
+says the head is the weakest reachable slot at nearly a fifth of asks and the style thrusts. With
+the row swept off over 512 bouts, the log came back **byte-identical**. The reason is that a
+thrust's slot is chosen in one place and its mark is built in another, and the second never read
+the first: `if (exchanging && thrusting)` put the mark at the trunk's vital height whatever slot
+had been chosen. The row was real and the thing it fed was not. Session 06's headline was a
+capability that turned out to be free rather than good; this session's is a capability that was
+not even connected, and would have been reported as worthless with a straight face if the zero
+had been a little less exact.
+
+### What was built, and the three rules that were already there
+
+The director is six rules and no rolls at all -- the only one of the four styles that draws no
+random number of its own, which is why its determinism test has to start the trace inside the
+strike band: the executor's opening cooldown offset is the one thing two seeds can move, and a
+trace that spends its first seconds walking in has spent that offset before it does anything.
+
+Three of the plan's rules turned out to be rules the executor already keeps, and each of them
+looked like work:
+
+- the spare hand's bash is `comboFraction`, which has been 1.0 for every mind since v2 and is
+  already skipped for a paired grip;
+- a paired shove is already both channels, through the executor's `mirror`;
+- `crowdedSeconds` -- which the plan asked to be set high so the crowding withdrawal would
+  never fire -- is a v1 reflex that `src/golem/tactics-v3.ts` does not read at all.
+
+Two were not free.
+
+**`strikeBite` is inert at the range this style strikes from, and the plan's gloss of it is
+backwards.** The plan asked for 0.80 and called it "the arm stays drawn". `reachForDistance`
+subtracts `overhang * (1 - bite)` from the distance to the mark before spanning it into the anchor
+axis, so a *larger* bite subtracts less and asks the anchor for *more*. That is a documentation
+error and would not be worth a paragraph. What is worth one is what chasing it down found: the
+anchor axis clamps, and it clamps at `reachMax + overhang * (1 - bite)` metres, which for every
+value in the plan's sweep falls *inside* this style's own strike band. At the range the brawler
+actually strikes from, 0.66, 0.80 and 0.90 command the same fully extended anchor to the digit.
+`a_larger_strike_bite_asks_for_more_anchor_and_the_axis_is_saturated_where_this_style_strikes`
+pins both halves: the direction, driven through the executor at a mark close enough to be under
+the clamp, and the saturation, at the gap the director actually strikes from. The two `bite` rows
+in the sweep below are therefore not a preference and not even a measurement of a constant; they
+are two more samples of the same build.
+
+**`thrustByHealth` needed two changes and only the first was visible.** The row was added beside
+`wallOnChamber` on the executor's table, off by default so that the three older styles and the
+four v2 minds are byte-identical without it, and it makes `weakestReachable` choose a thrust's
+slot as `targetByHealth` already chose a strike's. That much was written, tested against
+`mind.target`, and swept -- and the swept log was byte-identical to the row's own control over
+512 bouts. The mark is built forty lines away from the slot, and the branch that built it did not
+look at the slot: a thrust went to the trunk's vital height and nothing else. It now reads
+`thrusting && target === "trunk"`, which is what the branch always meant -- a point driven
+along the reach axis goes where the body is thickest is the *trunk's* rule, not the thrust's
+-- and every other slot takes its own mark like every other stroke. With the row off the
+sweep log is still byte-identical across the change, which is the compatibility claim checked
+rather than argued. The test now asserts the commanded lift as well as the chosen slot, and
+reverting the one-line fix fails it.
+
+### The ten rows
+
+512 bouts each, `golem-brawler` against `golem-fencer`, seed 20260906, mirrored and cross with
+40 % random builds and a 60 s cap. Read from the brawler's side; same-policy bouts are dropped,
+because a mirror of a style against itself is half a point and a zero margin by construction.
+`inside%` is the fraction of control samples spent inside its own inner radius, `blw/st` is blows
+per stroke, `dealt` and `taken` are damage a bout.
+
+| row | points | bar | se | inside% | str/s | blw/st | dmg/st | dealt | severs | taken | clinch | bout s | capped% |
+| --- | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: |
+| default | 0.509 | +0.0116 | 0.0066 | 27.2 | 1.59 | 6.55 | 0.63 | 32.3 | 0.10 | 31.2 | 0.71 | 55.2 | 80.3 |
+| `strikeBite` 0.66 | 0.512 | +0.0121 | 0.0065 | 27.0 | 1.58 | 6.52 | 0.62 | 33.1 | 0.10 | 31.8 | 0.70 | 55.7 | 80.1 |
+| `strikeBite` 0.90 | 0.507 | +0.0102 | 0.0066 | 27.5 | 1.58 | 6.57 | 0.63 | 32.4 | 0.10 | 31.3 | 0.71 | 55.4 | 80.7 |
+| `shoveSeconds` 0.25 | 0.521 | +0.0159 | 0.0064 | 26.6 | 1.60 | 6.67 | 0.66 | 33.1 | 0.11 | 31.2 | 0.71 | 55.3 | 80.3 |
+| `shoveSeconds` 0.50 | 0.517 | +0.0074 | 0.0067 | 28.2 | 1.56 | 6.90 | 0.65 | 32.2 | 0.10 | 31.3 | 0.66 | 55.5 | 81.8 |
+| `targetMargin` 0.15 | 0.519 | +0.0107 | 0.0066 | 27.6 | 1.58 | 6.75 | 0.64 | 32.7 | 0.11 | 31.8 | 0.70 | 55.5 | 81.1 |
+| `comboChamberSeconds` 0.06 | 0.507 | +0.0065 | 0.0067 | 27.4 | 1.59 | 6.55 | 0.63 | 32.3 | 0.10 | 31.9 | 0.69 | 55.3 | 80.3 |
+| `targetByHealth` off | 0.504 | +0.0013 | 0.0064 | 27.3 | 1.58 | 6.74 | 0.63 | 33.0 | 0.09 | 32.7 | 0.70 | 55.7 | 81.3 |
+| `thrustByHealth` off | 0.510 | +0.0109 | 0.0066 | 26.8 | 1.58 | 6.59 | 0.63 | 32.7 | 0.10 | 31.5 | 0.71 | 55.2 | 80.5 |
+| `closesAlways` off | 0.502 | +0.0008 | 0.0067 | 19.7 | 1.59 | 6.16 | 0.66 | 35.1 | 0.10 | 35.0 | 0.88 | 54.8 | 78.9 |
+
+The fencer's own row in the same 512 bouts, for the plan's ship gate: 1.50 strokes a second, 6.92
+blows a stroke, **0.63 damage a stroke**, 0.09 severs, 0.70 s clinch, 27.1 % inside its own inner
+radius. The gate was that the brawler's damage a stroke must not fall below the fencer's baseline
+by more than Session 01's one-claim rule accounts for; it is 0.63 against 0.63, and there is
+nothing to account for. The brawler also throws *fewer* blows a stroke than the fencer does here,
+which is not what the named risk expected -- though the league below says the risk is real on
+other bodies.
+
+The instrument caveat is in that same line and is worth stating plainly: the fencer's `inside%` in
+these bouts is 27.1 against the brawler's 27.2. **`insideInner` is close to a property of the bout
+rather than of the mind** when the two bodies are the same size, because a brawler that walks in
+drags its opponent inside with it. It separates minds only across a field, which is what the
+league does.
+
+Every row differenced against the default bout by bout -- each row is the same schedule on the
+same seed, so row `index` is the same pairing on the same two builds in both logs, and pairing
+removes the between-build variance that is most of the ± 0.0066 above:
+
+| row | paired difference | |
+| --- | --: | --: |
+| `strikeBite` 0.66 | +0.0005 ± 0.0046 | 0.1 se |
+| `strikeBite` 0.90 | −0.0014 ± 0.0033 | −0.4 se |
+| `shoveSeconds` 0.25 | +0.0044 ± 0.0079 | 0.6 se |
+| `shoveSeconds` 0.50 | −0.0041 ± 0.0081 | −0.5 se |
+| `targetMargin` 0.15 | −0.0009 ± 0.0052 | −0.2 se |
+| `comboChamberSeconds` 0.06 | −0.0051 ± 0.0030 | −1.7 se |
+| `targetByHealth` off | −0.0103 ± 0.0062 | −1.7 se |
+| `thrustByHealth` off | −0.0006 ± 0.0022 | −0.3 se |
+| `closesAlways` off | −0.0108 ± 0.0081 | −1.3 se |
+
+Not one of them clears the set's noise rule. Two of them are worth reading as *tight* zeros rather
+than uncertain ones: `thrustByHealth` at −0.0006 ± 0.0022 and `strikeBite` 0.90 at
+−0.0014 ± 0.0033 are bounded well inside a hundredth of a bar, which for the bite is
+exactly what the saturation argument above predicts and for the thrust is the honest size of a
+capability that now works.
+
+### The two rows that moved at all, asked again on a seed this session had never used
+
+Neither of them changes what ships -- both are on in the table either way -- so this is
+not an adoption decision. It is the difference between reporting "inside the noise rule" and
+reporting an answer, on the only two questions in the sweep that were this session's own rather
+than the plan's. Same schedule, same 512 bouts, `--seed 20260907`, paired against that seed's own
+default row:
+
+| row | seed 20260906 | seed 20260907 | |
+| --- | --: | --: | --- |
+| `targetByHealth` off | −0.0103 ± 0.0062 | **+0.0082 ± 0.0065** | the sign changed |
+| `closesAlways` off | −0.0108 ± 0.0081 | −0.0044 ± 0.0085 | same sign, 1.3 se combined |
+
+**The sever-hunter is noise, and it is noise the honest way**: two independent seeds, opposite
+signs, neither clearing 1.7 standard errors. `targetByHealth` and `targetMargin` 0 stay in the
+table because they are what the plan asked for and because they cost nothing, not because they
+were shown to be worth anything. **The walk-in-by-default last line survives with the same sign
+twice** -- −0.0076 ± 0.0059 combined, still inside the rule -- and it is the only
+row in the session whose structural columns move at all: with `closesAlways` off, the inside
+fraction falls 27.2 % to 19.7 %, the clinch rises 0.71 s to 0.88, and both sides deal about three
+more damage a bout. That is the rule doing exactly what it says on the tin, for nothing on the
+bar, which by now is this set's most familiar result.
+
+The absolute columns of the 20260907 default row are quite different from 20260906's --
+37.4 % inside against 27.2, 0.88 damage a stroke against 0.63, +0.0252 on the bar against +0.0116
+-- because the 40 % random pool draws different builds under a different seed. That is why
+every claim above is a *paired* difference and none of them is a difference of two means.
+
+### The league: every shipped golem mind, mirrored and on random pairs
+
+1,024 bouts a run, nine minds, `--cross --random 40 --cap 60 --seed 20260906`, the second without
+`--mirror`. Points and the bar count only the bouts where the two policies differ; the structural
+columns keep every bout, because how a mind fights itself is still how it fights.
+
+Mirrored builds:
+
+| policy | points | bouts | bar | se | inside% | str/s | blows/st | dmg/st | severs | clinch s | dealt | taken | bout s |
+| --- | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: |
+| `golem-neural` | 0.531 | 226 | 0.0150 | 0.0107 | 9.8 | 1.29 | 4.24 | 0.80 | 0.16 | 1.39 | 35.1 | 34.7 | 53.8 |
+| `golem-champion` | 0.518 | 226 | 0.0128 | 0.0109 | 10.9 | 1.40 | 4.36 | 0.82 | 0.13 | 1.72 | 47.5 | 47.6 | 54.7 |
+| `golem-brawler` | 0.515 | 226 | 0.0099 | 0.0107 | 31.6 | 1.42 | 6.05 | 0.87 | 0.13 | 0.77 | 39.5 | 38.9 | 53.3 |
+| `golem-planner` | 0.509 | 226 | −0.0135 | 0.0100 | 12.2 | 1.48 | 3.57 | 0.69 | 0.12 | 1.41 | 39.2 | 41.4 | 55.1 |
+| `golem-guardian` | 0.496 | 226 | −0.0028 | 0.0103 | 19.3 | 1.50 | 5.03 | 0.91 | 0.13 | 1.10 | 44.8 | 44.4 | 53.7 |
+| `golem-fencer` | 0.493 | 226 | −0.0013 | 0.0105 | 11.6 | 1.65 | 4.35 | 0.86 | 0.10 | 1.42 | 49.0 | 47.7 | 55.0 |
+| `golem-skirmisher` | 0.493 | 226 | 0.0030 | 0.0101 | 8.8 | 1.53 | 4.08 | 0.76 | 0.09 | 1.15 | 43.0 | 41.4 | 55.0 |
+| `golem-duelist` | 0.477 | 240 | −0.0169 | 0.0099 | 8.6 | 1.43 | 4.86 | 0.69 | 0.06 | 1.52 | 38.7 | 40.8 | 56.3 |
+| `golem-form` | 0.469 | 226 | −0.0053 | 0.0095 | 15.4 | 1.61 | 4.13 | 0.78 | 0.07 | 1.19 | 42.9 | 42.7 | 54.2 |
+
+Random pairs:
+
+| policy | points | bouts | bar | se | inside% | str/s | blows/st | dmg/st | severs | clinch s | dealt | taken | bout s |
+| --- | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: |
+| `golem-neural` | 0.531 | 226 | 0.0255 | 0.0251 | 10.6 | 1.13 | 4.36 | 0.75 | 0.11 | 2.09 | 28.7 | 25.9 | 55.5 |
+| `golem-champion` | 0.524 | 226 | −0.0162 | 0.0229 | 10.5 | 1.15 | 3.98 | 0.64 | 0.12 | 2.04 | 30.2 | 32.9 | 56.5 |
+| `golem-form` | 0.513 | 226 | 0.0209 | 0.0282 | 19.5 | 1.48 | 7.31 | 0.83 | 0.15 | 1.58 | 38.5 | 37.5 | 54.0 |
+| `golem-fencer` | 0.509 | 226 | 0.0488 | 0.0285 | 12.9 | 1.38 | 5.72 | 0.75 | 0.13 | 1.42 | 39.3 | 34.9 | 54.3 |
+| `golem-duelist` | 0.498 | 240 | −0.0187 | 0.0217 | 10.4 | 1.30 | 5.83 | 0.64 | 0.09 | 2.57 | 35.2 | 35.3 | 55.9 |
+| `golem-planner` | 0.489 | 226 | −0.0519 | 0.0243 | 9.0 | 1.17 | 4.24 | 0.53 | 0.07 | 2.22 | 22.8 | 29.4 | 55.1 |
+| `golem-guardian` | 0.489 | 226 | 0.0061 | 0.0250 | 23.4 | 1.31 | 13.35 | 0.74 | 0.13 | 1.22 | 34.2 | 32.3 | 52.6 |
+| `golem-skirmisher` | 0.485 | 226 | 0.0063 | 0.0252 | 15.4 | 1.30 | 6.65 | 0.67 | 0.12 | 2.95 | 33.4 | 32.0 | 53.6 |
+| `golem-brawler` | 0.462 | 226 | −0.0197 | 0.0250 | 25.3 | 1.37 | 7.75 | 0.70 | 0.09 | 0.71 | 30.0 | 32.1 | 53.4 |
+
+**Third of nine mirrored and ninth of nine on random pairs** is the widest gap between the two
+pools any mind in this set has shown, and most of it is the draw rather than the mind. Split by
+whether it out-reaches the body in front of it -- the executor's own `reachEdge` of 0.12, the
+comparison `styleRanges` actually makes -- and reweighted onto the pooled mix of bands, the
+brawler is −0.006 ± 0.025, sixth of nine, against the fencer's +0.042 at the top and the
+planner's −0.044 at the bottom. It drew the shorter arm in 47 % of its random bouts against
+a pooled 40 %, and that is the whole of the difference between ninth and sixth.
+
+| mind | longer arm | level | shorter arm | standardised |
+| --- | --: | --: | --: | --: |
+| `golem-fencer` | +0.213 ± 0.047 | +0.072 ± 0.038 | −0.145 ± 0.040 | +0.042 ± 0.026 |
+| `golem-form` | +0.109 ± 0.047 | −0.024 ± 0.037 | −0.065 ± 0.049 | +0.012 ± 0.028 |
+| `golem-neural` | +0.179 ± 0.037 | −0.000 ± 0.035 | −0.152 ± 0.040 | +0.011 ± 0.023 |
+| `golem-guardian` | +0.144 ± 0.037 | −0.029 ± 0.050 | −0.132 ± 0.038 | −0.001 ± 0.024 |
+| `golem-skirmisher` | +0.122 ± 0.038 | −0.030 ± 0.048 | −0.111 ± 0.040 | −0.002 ± 0.024 |
+| `golem-brawler` | +0.132 ± 0.048 | −0.105 ± 0.037 | −0.093 ± 0.035 | −0.006 ± 0.025 |
+| `golem-duelist` | +0.101 ± 0.030 | +0.034 ± 0.030 | −0.144 ± 0.039 | −0.010 ± 0.020 |
+| `golem-champion` | +0.070 ± 0.031 | +0.083 ± 0.044 | −0.160 ± 0.039 | −0.018 ± 0.022 |
+| `golem-planner` | +0.039 ± 0.035 | −0.022 ± 0.040 | −0.139 ± 0.044 | −0.044 ± 0.024 |
+
+One cell in that table is this style's own and not the draw's: the brawler is the **only mind with
+a negative level-reach cell worse than its shorter-reach cell**, −0.105 ± 0.037 over 44
+bouts. Against an arm of its own length but a different weapon it is 2.8 standard errors under
+water, while in the mirrored league -- where level means the *same* body -- it is third.
+Walking in on a body whose reach matches yours and whose weapon does not is the one situation this
+director has no rule for, and it is the same missing branch Session 06 found in the guardian: no
+rule here reads `longer` or `shorter` either.
+
+### The five signatures the plan predicted, and the two that hold
+
+| the plan said | the mirrored league says | |
+| --- | --- | --- |
+| inside-inner 10 to 30 % | **31.6 %**, against 19.3 for the next mind and 8.6 for the last | holds, and then some |
+| clinch low despite the proximity | **0.77 s, lowest of the nine**, against 0.77 to 1.72 | holds |
+| the most strokes a bout | 1.42 a second, sixth of nine; the fencer throws 1.65 | fails |
+| the most severs | 0.13, tied third; the neural takes 0.16 | fails |
+| the lowest damage a stroke | 0.87, **third highest**; the planner and duelist are at 0.69 | fails |
+
+Three of the five fail, and the two that hold are the two that describe where the style stands
+rather than what it does when it gets there. That is a fair summary of the style: it is the only
+mind in the set that changes the *range* a bout is fought at, and once it is there it fights the
+way the executor fights.
+
+The one the plan was right to worry about is not in its own list. **Blows a stroke is 6.05 in the
+mirrored league, the highest of the nine**, against the fencer's 4.35 and the planner's 3.57; on
+random pairs it is 7.75, second to the guardian's 13.35. Session 01's one-claim rule charges for a
+part once per stroke, so what this column now counts is a stroke touching several *different*
+parts, which is exactly the drawn short stroke the owner called flailing. Damage a stroke says the
+strokes are worth having -- 0.87 mirrored, above the fencer -- so this is not the raking
+the rule was written against; but it is the column to watch, and it is the one number in this
+session that says the gate is a matter of taste rather than arithmetic.
+
+### What it names, and the ten options it never will
+
+Four bouts against the fencer on the default build, 509 asks, 120.1 s. `close` 79.0 %, `shove`
+10.0 %, `strike` 8.4 %, `thrust` 2.0 %, `void` 0.6 %. Five of fifteen options, and the whole of
+the distribution is one shape.
+
+`cut` was on offer at 32.4 % of asks and is never taken; `parry` at 28.1 %, `duck` at 45.8 %,
+`wait` at 78.0 %, `feint` at 29.1 %, and `hold`, `circle`, `withdraw` and `retreat` at every
+single ask -- none of them ever taken. A style that refuses ten of the fifteen options it is
+offered, at every distance and against every phase of theirs, is the most legible thing this set
+has produced, and it is the answer to "would a viewer be able to name what it is doing".
+
+Two details in the census are worth carrying. **`close` is named from inside the inner radius at
+22.2 % of all asks** -- that is `closesAlways` firing while the hand is still cooling from a
+shove, and it is where the 0.77 s clinch comes from: a body that keeps walking forward is a body
+that is not standing at nose length doing nothing. And **the head is the weakest reachable slot at
+18.3 % of asks** while `thrust` is named at 2.0 %, because the executor only offers a thrust with
+a pointed weapon and an armed hand, so the sever-hunter's own rule is asked far more often than it
+can be answered.
+
+### The body this style was actually built for
+
+The plan's "What remains" names the bodies that cannot finish each other and says the shove and
+the sever-hunter are the only levers this set has on them. Split by the brawler's own arm class on
+random pairs, one cell answers that emphatically and one refuses:
+
+| arm class | bouts | points | bar | se | inside% | str/s | blows/st | dmg/st | capped% |
+| --- | --: | --: | --: | --: | --: | --: | --: | --: | --: |
+| `paired-club/long` | 22 | 0.795 | 0.5739 | 0.0934 | 70.7 | 0.83 | 19.49 | 3.65 | 22.7 |
+| `shield/mid` | 12 | 0.500 | 0.1424 | 0.0534 | 0.9 | 1.41 | 6.12 | 0.40 | 100.0 |
+| `sword/long` | 32 | 0.484 | 0.0704 | 0.0573 | 54.9 | 1.58 | 4.90 | 0.39 | 84.4 |
+| `club/long` | 36 | 0.389 | 0.0469 | 0.0532 | 24.9 | 1.34 | 11.48 | 1.17 | 55.6 |
+| `club/mid` | 6 | 0.500 | −0.0969 | 0.0600 | 0.0 | 1.03 | 2.68 | 0.05 | 100.0 |
+| `empty/mid` | 12 | 0.417 | −0.1064 | 0.0936 | 0.1 | 1.57 | 3.12 | 0.10 | 83.3 |
+| `shield/short` | 30 | 0.350 | −0.1185 | 0.0470 | 0.0 | 1.04 | 7.95 | 0.30 | 70.0 |
+| `empty/short` | 26 | 0.462 | −0.1862 | 0.0525 | 0.0 | 1.09 | 3.74 | 0.15 | 92.3 |
+| `whip/long` | 12 | 0.417 | −0.2017 | 0.0986 | 41.6 | 3.98 | 1.69 | 0.07 | 83.3 |
+| `sword/mid` | 38 | 0.421 | −0.2643 | 0.0383 | 26.0 | 1.12 | 7.12 | 0.10 | 84.2 |
+
+**The paired maul is this style's body.** 0.795 points and +0.574 on the bar over 22 bouts, inside
+its own radius 70.7 % of the time, 3.65 damage a stroke, and -- the number that matters most
+-- **22.7 % of those bouts end on the cap against 80 % everywhere else**. The mirrored league
+says the same thing on the same build: +0.115 ± 0.041 over 42 bouts and 2.4 % capped. A paired
+grip is offered no parry, no cut and no combination stroke, so every other style in this set spends
+a maul bout circling; this one shoves with both channels and finishes. That is the strongest single
+result in the session and it is not in the plan's list of expectations.
+
+What it refuses is `sword/mid`, −0.264 ± 0.038 over 38 bouts, and `shield/short` and
+`empty/short` behind it. Those are exactly the bodies the plan hoped the shove would rescue, and
+the shove does not rescue them: a mid-band blade gets inside (26.0 %) and still deals 0.10 damage
+a stroke. Getting there was never the problem for that class.
+
+### What this leaves in front of the gate
+
+1. **The style reads and the numbers are ordinary.** Third of nine mirrored, sixth of nine on
+   random pairs once the reach draw is standardised out, +0.0116 ± 0.0066 against the fencer on
+   the sweep pool. It is not a better mind than the fencer and it does not need to be: it is a
+   mind that fights at a range no other mind in the set will go to, and the owner's question was
+   whether the golems behave in a way you can name.
+2. **Nothing in the sweep moved.** Nine paired rows, the largest 1.7 standard errors, and the two
+   that were this session's own questions asked again on a held-out seed -- one changed sign.
+   Four of this set's five sessions have now ended with every swept constant inside the noise
+   rule, which is itself worth saying out loud: **the constants are not where the wins are.**
+3. **A capability was shipped that could be turned off without changing a byte**, and the reason
+   was a mark built forty lines from the slot that chose it. It is fixed, tested from the
+   commanded lift rather than from the chosen slot, and the fix is a no-op with the row off. The
+   general lesson for the sessions that follow: a sweep row that comes back at *exactly* zero
+   deserves a look at the mechanism before it is reported as noise.
+4. **`strikeBite` is inert at this style's own range** because the anchor axis saturates, and the
+   plan's gloss of the row is backwards. Both are pinned by a test. The two `bite` rows in the
+   table are two more samples of the same build and should not be read as a preference.
+5. **Blows a stroke is the highest in the league** at 6.05 mirrored and 7.75 on random pairs. The
+   one-claim rule means those are different parts rather than the same part twice, and damage a
+   stroke is above the fencer's, so it is not the raking Session 01 was written against. It is
+   still the column on which this style could read as the flailing the owner complained about, and
+   it is the reason the human gate for this session is worth watching rather than reading.
+6. **The paired maul is the result the plan did not predict.** +0.574 on the bar and 22.7 % capped
+   against 80 % everywhere else: the one build class in the pool that no other style can finish a
+   bout on, finished. If any single number in this session argues for keeping the style, it is
+   that one.
+7. **It has no rule that branches on `longer` or `shorter`**, which is the same gap Session 06
+   found in the guardian, and the level-reach cell on random pairs (−0.105 ± 0.037) is
+   where it shows. Walking in on an arm your own length holding a weapon you cannot answer is a
+   decision this director cannot decline.
+8. **The 60 s cap is in front of the gate for the sixth time.** Four bouts in five end on it in
+   the sweep pool. The one exception in the whole session is the paired maul, and the exception is
+   the shape of the problem: bouts end when a body can finish, and most of these bodies cannot.
