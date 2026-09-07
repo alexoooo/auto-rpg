@@ -25,6 +25,7 @@ import { GOLEM_PLANNER, golemPlanner } from "../src/golem/planner.ts";
 import { GOLEM_TACTICS_V2 } from "../src/golem/tactics-v2.ts";
 import { GOLEM_TACTICS_V3 } from "../src/golem/tactics-v3.ts";
 import { FORM } from "../src/golem/styles/form.ts";
+import { SKIRMISHER } from "../src/golem/styles/skirmisher.ts";
 import { policyMind } from "../src/mind.ts";
 import { policyForUnit } from "../src/units.ts";
 import { freshHavok, runBout } from "./bout-runner.mjs";
@@ -379,7 +380,7 @@ parentPort.on("message", (message) => {
 // `cutLean`, `parryBite`, `duckSeconds` -- lands. A style's own table is reached through its
 // prefix, `form.standOffFraction`, and never through the bare name, because a style *is* a copy of
 // the executor's table with rows moved and there is no order in which one name could mean both.
-const STYLE_TABLES = { form: FORM };
+const STYLE_TABLES = { form: FORM, skirmisher: SKIRMISHER };
 if (workerData?.overrides) {
   for (const [name, value] of Object.entries(workerData.overrides)) {
     const dot = name.indexOf(".");

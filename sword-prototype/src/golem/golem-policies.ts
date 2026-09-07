@@ -6,6 +6,7 @@ import { GOLEM_CHAMPIONS } from "./tactics-champions.ts";
 import { golemNeural } from "./neural.ts";
 import { golemFencer, type GolemFencer } from "./tactics-v2.ts";
 import { golemForm } from "./styles/form.ts";
+import { golemSkirmisher } from "./styles/skirmisher.ts";
 import type { GolemStyled } from "./tactics-v3.ts";
 
 /**
@@ -121,6 +122,23 @@ export function golemFormMind(seed = (Math.random() * 0x100000000) >>> 0): Mind 
   const styled = golemForm(seed);
   return {
     name: "golem-form",
+    styled,
+    decide: (view, dt): Intent => styled.decide(view, dt),
+  };
+}
+
+/**
+ * The seventh golem mind, and the second style. Session 05 of the style set.
+ *
+ * The same executor under `skirmisherDirector`: a stand-off outside their reach that the style
+ * defends rather than keeps, one committed cut on their recover, and a retreat that is owed the
+ * moment the exchange ends and paid off only by the range. `styled` is published as the form's
+ * is, and for the same reason. Same seed argument, same reasons.
+ */
+export function golemSkirmisherMind(seed = (Math.random() * 0x100000000) >>> 0): Mind & { styled: GolemStyled } {
+  const styled = golemSkirmisher(seed);
+  return {
+    name: "golem-skirmisher",
     styled,
     decide: (view, dt): Intent => styled.decide(view, dt),
   };

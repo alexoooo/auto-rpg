@@ -53,6 +53,7 @@ import {
   COMMITTED_SHAPES, GOLEM_TACTICS_V3, golemStyled, reachAt,
 } from "../src/golem/tactics-v3.ts";
 import { FORM, golemForm } from "../src/golem/styles/form.ts";
+import { SKIRMISHER, golemSkirmisher } from "../src/golem/styles/skirmisher.ts";
 import { golemPlanner } from "../src/golem/planner.ts";
 import { NO_CHAMPIONS, golemChampionMind } from "../src/golem/champion.ts";
 import { BUTTON_REACH } from "../src/buttons.ts";
@@ -93,7 +94,7 @@ test("a_units_picker_never_offers_a_mind_written_for_the_other_control_surface",
   const names = (unit) => unit.driverOptions.map(({ name }) => name);
   assert.ok(!names(warrior).includes("golem-duelist"),
     `a Warrior's picker offers ${names(warrior).join(", ")}`);
-  assert.deepEqual(names(golem), ["idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-neural", "golem-form"]);
+  assert.deepEqual(names(golem), ["idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-neural", "golem-form", "golem-skirmisher"]);
   assert.throws(() => unitDefinition("warrior").createPolicy("golem-duelist"),
     /does not support policy/);
   assert.throws(() => unitDefinition("golem").createPolicy("duelist"),
@@ -2435,4 +2436,191 @@ test("golem_form_fights_the_fencer_for_fourteen_seconds_and_lands", async () => 
   assert.ok(result.seconds > 13, `the bout ran ${result.seconds.toFixed(1)} s of fourteen`);
   assert.ok(blows.left > 0, "golem-form landed nothing at all in fourteen seconds");
   assert.ok(Math.min(bars.left, bars.right) < 1, "neither golem took a scratch");
+});
+
+// ------------------------------------------------------------------ the skirmisher, Session 05
+//
+// Three claims about the director and one about the body. The director's claims are read off the
+// option it names rather than off the stance it ends in, because a style is what it says: the
+// executor's job is the same under every style and is tested above.
+
+/** The skirmisher with some rows moved, and a hook that records every option it names. */
+function skirmisherSaying(seed, over = {}) {
+  const said = [];
+  const mind = golemSkirmisher(seed, { ...SKIRMISHER, ...over },
+    (available, reading, view, option) => said.push({ clock: view.clock, option, theirs: reading.theirs, gap: reading.gap }));
+  return { mind, said };
+}
+
+/**
+ * Their arm at guard, out past the guard extension and not moving, which is what the reader
+ * calls idle. Everything the patience rule is about happens against this.
+ */
+function theirGuard(fixture) {
+  theirArm(fixture, { extension: 0.88 });
+}
+
+test("the_skirmisher_does_not_open_on_an_idle_opponent_before_its_patience", async (t) => {
+  const golem = await standAGolem(t);
+  const { mind, said } = skirmisherSaying(SEED);
+  const fixture = fixtureOf(golem.view);
+  atGap(fixture, 1.35);
+  theirGuard(fixture);
+  let firstExchange = -1;
+  drive(fixture, mind, 4.0, {
+    each: (intent, step) => {
+      const inExchange = mind.stance === "chamber" || mind.stance === "commit" || mind.stance === "feint";
+      if (firstExchange < 0 && inExchange) firstExchange = step * FIXED;
+    },
+  });
+  // `patience` is drawn once per exchange as `T.patience * (0.8 + random() * 0.4)`, so the floor
+  // of the bracket is what a test may assert on; the ceiling is 3.0 and the drive is 4.0.
+  assert.ok(firstExchange >= SKIRMISHER.patience * 0.8,
+    `the skirmisher opened at ${firstExchange.toFixed(2)} s against an arm that was doing nothing`);
+  assert.ok(firstExchange > 0, "the skirmisher never opened at all in four seconds, so this proves nothing");
+  const before = said.filter((ask) => ask.clock < SKIRMISHER.patience * 0.8).map((ask) => ask.option);
+  assert.ok(before.length > 0, "the director was never asked before its patience ran out");
+  for (const option of new Set(before)) {
+    assert.ok(option === "hold" || option === "circle",
+      `before its patience the skirmisher named ${option}, and against an idle arm it circles or stands`);
+  }
+});
+
+test("the_skirmisher_cuts_into_a_read_recover_at_the_first_ask_after_it", async (t) => {
+  const golem = await standAGolem(t);
+  const { mind, said } = skirmisherSaying(SEED, { patience: 99, feintFraction: 0 });
+  const fixture = fixtureOf(golem.view);
+  // Out of range first, so the seeded initial cooldown is spent before anything is asked of a
+  // hand; patience is pushed out of the way so that the only thing that can open is the recover.
+  atGap(fixture, 4.5);
+  theirArm(fixture, { extension: 0.88, toward: false });
+  drive(fixture, mind, 2.5);
+  atGap(fixture, 1.75);
+  fixture.opponent.reach = 1.78;
+  theirArm(fixture, { extension: 0.62 });
+  drive(fixture, mind, 0.25, { closing: 1.5 });
+  const committed = said.filter((ask) => ask.theirs === "commit");
+  assert.ok(committed.length > 0, "their drawn, closing arm was never read as a commit");
+  assert.ok(committed.every((ask) => ask.option === "void"),
+    `the skirmisher answered their commit with ${committed.map((a) => a.option).join(", ")}, and it has no parry`);
+
+  const beforeRecover = said.length;
+  theirArm(fixture, { extension: 0.88 });
+  drive(fixture, mind, 0.30);
+  const after = said.slice(beforeRecover);
+  const recovering = after.filter((ask) => ask.theirs === "recover");
+  assert.ok(recovering.length > 0, "the arm going back out was never read as a recover");
+  assert.equal(recovering[0].option, "cut",
+    `the first ask of their recover was answered with ${recovering[0].option}`);
+});
+
+test("an_exchange_owes_a_retreat_and_only_the_range_pays_it_off", async (t) => {
+  const golem = await standAGolem(t);
+  const { mind, said } = skirmisherSaying(SEED, { feintFraction: 0 });
+  const fixture = fixtureOf(golem.view);
+  atGap(fixture, 1.35);
+  theirGuard(fixture);
+  // Let patience open one exchange and let it run to its end.
+  drive(fixture, mind, 4.0);
+  const opened = said.findIndex((ask) => ask.option === "cut");
+  assert.ok(opened >= 0, "the skirmisher never opened an exchange, so nothing is owed");
+  const after = said.slice(opened + 1);
+  assert.ok(after.length > 0, "the exchange never ended inside the drive");
+  assert.equal(after[0].option, "retreat", `the ask after the exchange was answered with ${after[0].option}`);
+  // Still closed, so still owed: every ask until the gap opens is the same answer.
+  assert.ok(after.length >= 3, `only ${after.length} asks landed after the exchange`);
+  for (const ask of after.slice(0, 3)) {
+    assert.equal(ask.option, "retreat", `at a gap of ${ask.gap.toFixed(2)} the skirmisher named ${ask.option}`);
+  }
+
+  // Open the range by hand and the debt clears: the next answer is not a retreat.
+  const mark = said.length;
+  atGap(fixture, 3.2);
+  drive(fixture, mind, 0.6);
+  const opened2 = said.slice(mark);
+  assert.ok(opened2.length > 0, "no ask landed once the gap was opened");
+  assert.ok(opened2.every((ask) => ask.option !== "retreat"),
+    "the skirmisher went on retreating from outside their reach");
+});
+
+test("golem_skirmisher_stays_inside_the_envelope_and_is_deterministic_under_a_seed", async (t) => {
+  for (const [label, setup] of [
+    ["the default golem", defaultGolemSetup()],
+    ["two blades", setupWith({ secondary: { chain: "wrist", terminal: "blade" } })],
+    ["the maul", setupWith({ primary: MAUL, secondary: MAUL })],
+    ["fists", setupWith({ primary: { chain: "wrist", terminal: "fist" }, secondary: { chain: "pitch", terminal: "fist" } })],
+    ["the ram head", setupWith({ head: "head.ram",
+      primary: { chain: "none", terminal: "none" }, secondary: { chain: "none", terminal: "none" } })],
+  ]) {
+    const golem = await standAGolem(t, setup);
+    const fixture = fixtureOf(golem.view);
+    sweepPlaces(fixture, golemSkirmisher(SEED), label, 0.35);
+  }
+  const golem = await standAGolem(t);
+  const trace = (seed) => {
+    const fixture = fixtureOf(golem.view);
+    const mind = golemSkirmisher(seed);
+    const out = [];
+    // Four seconds a place rather than the form's two: this style's only seeded numbers are the
+    // patience jitter and the feint roll, and both of them are inside `openWith`, so a trace that
+    // never opens an exchange is the same trace under every seed. That is a property of the style
+    // and not a defect, and the test says so by driving long enough to open one.
+    for (const z of [3.5, 1.6, 1.2]) {
+      place(fixture, { x: 0.3, z });
+      drive(fixture, mind, 4.0, {
+        each: (intent) => out.push(`${intent.primary.pointerX.toFixed(6)},${intent.primary.pointerY.toFixed(6)},` +
+          `${intent.primary.thrust ? 1 : 0}${intent.forward.toFixed(6)},${intent.strafe.toFixed(6)},${mind.stance}`),
+      });
+    }
+    return out.join("|");
+  };
+  assert.equal(trace(SEED), trace(SEED), "one seed, one bout");
+  assert.notEqual(trace(SEED), trace(SEED + 1), "two seeds, two bouts");
+});
+
+/**
+ * The whole thing on a real body: `golem-skirmisher` against `golem-fencer` for fourteen seconds.
+ *
+ * The claim is the style's shape rather than its rating -- the rating is the tournament's and
+ * lives in `docs/measurements.md`. What is asserted is that the bout runs end to end, that the
+ * skirmisher lands, and that it asks its feet to go **backwards** more often than the fencer does.
+ *
+ * The measure is the commanded step and not the gap, and the first draft of this test got that
+ * wrong in a way worth recording: on a mirrored build the socket-to-socket gap is one number
+ * shared by both sides and every geometric column derived from it is symmetric, so "the skirmisher
+ * stayed further out than the fencer" is not a sentence that can be false. Worse, the version that
+ * compared the mean gap against a fencer-versus-fencer control *failed*: 1.808 m against 1.853,
+ * because a committed cut walks its feet in through the wind-up, so a style that comes in for one
+ * cut and leaves brings the pair closer than two styles that stand at their own points. That is a
+ * finding about the executor rather than a broken test, and the tournament in Session 05's entry
+ * is where it is measured properly.
+ */
+test("golem_skirmisher_fights_the_fencer_and_asks_its_feet_backwards_more_often", async () => {
+  const setup = defaultGolemSetup();
+  const back = { left: 0, right: 0 };
+  const blows = { left: 0, right: 0 };
+  const counting = (name, inner, side) => ({
+    name,
+    decide: (view, dt) => {
+      const intent = inner.decide(view, dt);
+      if (intent.forward < 0) back[side] += 1;
+      return intent;
+    },
+  });
+  const result = runBout({
+    left: "golem-skirmisher", right: "golem-fencer",
+    leftUnit: "golem", rightUnit: "golem",
+    leftGolem: setup, rightGolem: setup,
+    locomotionMode: "supported",
+    seeds: [SEED, SEED + 17],
+    maxSeconds: 14,
+    physics: await freshHavok(),
+    leftMind: counting("golem-skirmisher", golemSkirmisher(SEED), "left"),
+    rightMind: counting("golem-fencer", golemFencer(SEED + 17), "right"),
+    onEvent: (event) => { blows[event.side] += 1; },
+  });
+  assert.ok(result.seconds > 13, `the bout ran ${result.seconds.toFixed(1)} s of fourteen`);
+  assert.ok(blows.left > 0, "golem-skirmisher landed nothing at all in fourteen seconds");
+  assert.ok(back.left > back.right,
+    `the skirmisher asked for a step back on ${back.left} steps and the fencer on ${back.right}`);
 });

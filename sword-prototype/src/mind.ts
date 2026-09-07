@@ -55,7 +55,7 @@ import {
 // at run time and there is no cycle to be careful about.
 import {
   golemChampionMind, golemDuelistMind, golemFencerMind, golemFormMind, golemNeuralMind,
-  golemPlannerMind,
+  golemPlannerMind, golemSkirmisherMind,
 } from "./golem/golem-policies.ts";
 
 /**
@@ -1244,6 +1244,7 @@ export const POLICIES: readonly Policy[] = [
   { name: "golem-champion", label: "Golem champion", surface: GOLEM_SURFACE, create: golemChampionMind },
   { name: "golem-neural", label: "Golem neural", surface: GOLEM_SURFACE, create: golemNeuralMind },
   { name: "golem-form", label: "Golem form", surface: GOLEM_SURFACE, create: golemFormMind },
+  { name: "golem-skirmisher", label: "Golem skirmisher", surface: GOLEM_SURFACE, create: golemSkirmisherMind },
 ];
 
 /**

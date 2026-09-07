@@ -127,7 +127,7 @@ that presentation failure too.
 A bout is chosen before it is fought. The curtain carries a left corner and a right corner —
 a unit, a policy, and whether that side is driven by a mind or by you — and the Fight button
 starts what is on it. There is one of you, so taking a side gives the other one back to its
-policy. Eleven policies ship and a corner is only ever offered the ones its own body can take:
+policy. Twelve policies ship and a corner is only ever offered the ones its own body can take:
 **idle** stands there and can be cut apart, **swinger** walks in and cuts on a fixed cadence
 without ever looking at your guard, **duelist** holds measure, guards between exchanges, and
 commits when your point leaves the line, **archer** keeps its distance and shoots — give it a
@@ -294,8 +294,8 @@ offered on the wrist arm alone, because without a roll axis a lash has nowhere t
 is eleven arms in all, and every one of them is a different body rather than a worse version
 of the best one.
 
-Seven minds can drive it — **idle**, **golem duelist**, **golem fencer**, **golem planner**,
-**golem champion**, **golem neural** and **golem form** — and `C` takes it
+Eight minds can drive it — **idle**, **golem duelist**, **golem fencer**, **golem planner**,
+**golem champion**, **golem neural**, **golem form** and **golem skirmisher** — and `C` takes it
 over mid-bout exactly as it takes over a warrior. The golem duelist knows nothing about which
 modules it is wearing: it asks each arm what strokes it has and how far it reaches, and every
 range it keeps is a fraction of that answer rather than a distance. Bolt something new on and it
@@ -320,7 +320,12 @@ crosses its guard shell and sends the spare hand there, a two-handed shove, a du
 that goes toward the side their weapon is not on, and a void off the line of their point. That
 executor has no tactics at all — it refuses to run without a director — and `golem-form`'s own
 are ninety lines: stand a little further out, circle for two fifths of the idle time, meet a
-commit with the spare hand, and cut into the recover behind it.
+commit with the spare hand, and cut into the recover behind it. The golem skirmisher is the second
+style on the same executor and the opposite temperament: it stands outside their reach rather than
+at it, comes in for one committed cut on their recover, and owes itself a retreat the moment that
+exchange ends which only the range pays off. It has no parry and steps off a committed point
+instead, and a shorter arm than theirs gets a different set of rules, because standing outside a
+reach you cannot answer is not a plan.
 
 **Win a bout against a golem and whichever of its arms came off intact is yours** — an arm cut
 off at the shoulder is loot, an arm hacked to pieces is debris, and legs are neither, because

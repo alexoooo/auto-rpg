@@ -979,6 +979,41 @@ wrong. Two of those seven rows exist only so the control row can be written on a
 the part of the control that no single number could reach. `docs/measurements.md` under Session 04
 has what each of the seven costs.
 
+### The second style, which defends a range rather than a line
+
+Session 05. `src/golem/styles/skirmisher.ts` is the same executor under a different temper, and
+it is the first evidence that the frozen choice pays: a whole second fighting style is one file of
+rules and three numbers, because the body it drives already knows how to cut, leave and step off a
+line. Its rules, in the order they are asked: step off a committed point; pay off a retreat if one
+is owed; stop-hit if my arm is the longer one and their point is closing; cut into their recover,
+which is the only way in; cut on patience; and otherwise circle while nothing is happening and
+stand still while something is being drawn.
+
+Two of those are worth the ink. **The retreat is owed rather than taken**: it is raised the moment
+an exchange is named and lowered only by the gap exceeding their reach and slack, so the director
+re-answers `retreat` at every ask in between rather than naming it once and hoping. And the flag
+watches what the director *said*, not what the reading shows, which is a distinction that would
+have failed silently the other way round -- the executor asks its director only in the
+interruptible stances and every one of those reads `mine` as `free`, so the exchange-to-free
+transition is never sampled at an ask and the debt would never have been raised.
+
+**A shorter arm gets different rules**, because "stand outside their reach" is not a sentence an
+arm that cannot then reach back can act on. It alternates leaving and cutting, and answers their
+recover with `wait` -- a decision taken early and held, which fires the quick stroke the moment
+the opening arrives -- rather than with an arc that chambers for 0.32 s before it starts to
+sweep. A paired grip is offered no cut from outside its own strike range at all, so a skirmisher
+on a maul is a maul that circles and leaves; that is written into the file rather than hidden.
+
+The league says two things about all of that which the plan did not expect, and both are in
+`docs/measurements.md` under Session 05. The paired grip was written down as the style's weak
+class and is not one: `paired-club/long` is where the *fencer* is worst and where both v3 styles
+are ahead of it. The shorter arm's branch is the real defect. Out-reached, the skirmisher spends
+eight seconds of a sixty-second bout inside their point with nothing landing either way, against
+three for the fencer and the form, and the cause is in the rules above: a retreat by the shorter
+arm cannot clear a reach it does not have, so it times out still inside their point and the cut
+goes in from there. It costs almost nothing on the bar and a great deal on the eye, which is the
+wrong way round for a set whose whole purpose is how the fight reads.
+
 ## Dying, which is not the same as losing
 
 `over` not stopping the world was the right call about the *bout* and, for a long time, it

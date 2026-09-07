@@ -14623,3 +14623,387 @@ that is the owner's to answer on the screen. What the numbers put beside it:
    noise. That is a contact-rules question -- Session 01's territory -- and the second time this
    set has arrived at it from a different direction.
 4. **The 60 s cap is in front of the gate for the third time.** 78.7 % of these bouts end on it.
+
+## Session 05 of the style set — 2026-09-07: a style that defends a range, and the one number a sweep moved
+
+What the plan asked for: a second style on the third executor, the hit-and-run direction --
+outside their reach, in for one committed cut on their recover, out again the moment it ends --
+its four constants swept, and a league row against every shipped mind. What shipped:
+`src/golem/styles/skirmisher.ts` at 165 lines, `golem-skirmisher` registered as the twelfth
+policy, five new tests, nine sweep rows and two league runs. Logs are
+`tournaments/style05-default.jsonl`, one file a row beside it, and
+`tournaments/style05-league-mirror.jsonl` with `tournaments/style05-league-random.jsonl` for the
+two league runs; every sweep command line is
+`--bouts 512 --mirror --cross --random 40 --cap 60 --seed 20260906 --policies
+golem-skirmisher,golem-fencer` with the row's `--override` and nothing else.
+
+**The headline is that the second style works where the first did not, and that the plan's own
+number for it was backwards.** `golem-skirmisher` as it ships sits at +0.010 bar against
+the fencer at 1.5 standard errors -- inside the noise rule, which is to say level with the mind
+this set has to beat, where the form's −0.023 at 3.3 is outside it and is not. On the
+random-pairs league it is better than level: +0.061 ± 0.021 against the fencer's
+−0.019 ± 0.021 once both are standardised over the reach bands, 2.7 standard errors, which is
+the first time in this set a style has been *ahead* of the fencer on a pool. And the sweep moved
+a constant for the first time in the set: `patience` 2.0 against the planned 2.5 is 2.8 standard
+errors better with every structural column agreeing, so 2.0 is what ships and both league runs
+were re-taken under it.
+
+### What the style actually names
+
+Four 30 s bouts against the fencer on the default build, with a hook on the director, beside the
+form's own census from Session 04:
+
+| option | skirmisher | form |
+|:--|--:|--:|
+| `retreat` | 200 (40.0 %) | — |
+| `hold` | 105 (21.0 %) | 217 (38.5 %) |
+| `cut` | 76 (15.2 %) | 83 (14.7 %) |
+| `void` | 69 (13.8 %) | 68 (12.1 %) |
+| `circle` | 46 (9.2 %) | 136 (24.1 %) |
+| `feint` | 4 (0.8 %) | 14 (2.5 %) |
+| `parry` | — | 46 (8.2 %) |
+
+Two out of five asks are a retreat, and the executor is in the retreat stance for 17.9 % of every
+step of the bout. The circle collapses from the form's 24 % to 9 %, and that is the rule working
+rather than failing: this style circles only while their arm is doing nothing, and against a
+fencer their arm is almost never doing nothing. These are two minds a viewer can tell apart from
+the option log alone, which is the thing the set exists to produce.
+
+### The nine rows
+
+`bar` is the skirmisher's vitality less the fencer's at the end of the bout, as in Session 04, and
+for the same reason: four bouts in five end on the 60 s cap. The row marked **shipped** is the one
+the style now carries; the row marked *planned* is the value the plan named and the one every
+other row in this table was swept around.
+
+| row | points | bar | ±1 se | str/s | dmg/stroke | v@blow | commit % | catches | clinch s | dmg/bout | outside s | stall s | cap % |
+|:--|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| `patience` 2.5 *(planned)* | 0.501 | −0.0083 | 0.0073 | 1.55 | 0.74 | 4.88 | 57.7 | 40.3 | 1.52 | 41.1 | 1.48 | 2.19 | 79.5 |
+| `patience` 2.0 **(shipped)** | 0.504 | +0.0101 | 0.0067 | 1.59 | 0.77 | 4.95 | 59.1 | 40.8 | 1.35 | 42.2 | 1.71 | 1.92 | 80.1 |
+| `patience` 3.5 | 0.493 | −0.0150 | 0.0071 | 1.52 | 0.74 | 4.83 | 55.8 | 39.5 | 1.75 | 39.9 | 1.63 | 2.49 | 80.3 |
+| `standOffFraction` 1.06 | 0.499 | −0.0027 | 0.0073 | 1.55 | 0.76 | 4.90 | 58.1 | 39.8 | 1.51 | 40.8 | 1.53 | 2.41 | 79.5 |
+| `standOffFraction` 1.20 | 0.502 | +0.0103 | 0.0075 | 1.55 | 0.73 | 4.89 | 57.5 | 40.0 | 1.87 | 40.5 | 1.55 | 1.75 | 81.1 |
+| `feintFraction` 0 | 0.492 | +0.0029 | 0.0071 | 1.56 | 0.78 | 4.92 | 58.8 | 40.3 | 1.52 | 42.9 | 1.39 | 2.27 | 77.7 |
+| `feintFraction` 0.25 | 0.498 | −0.0119 | 0.0072 | 1.54 | 0.72 | 4.85 | 55.9 | 39.9 | 1.66 | 39.2 | 1.45 | 2.17 | 80.5 |
+| `retreatSeconds` 0.8 | 0.501 | −0.0083 | 0.0073 | 1.55 | 0.74 | 4.88 | 57.7 | 40.3 | 1.52 | 41.1 | 1.48 | 2.19 | 79.5 |
+| `retreatSeconds` 1.8 | 0.501 | −0.0083 | 0.0073 | 1.55 | 0.74 | 4.88 | 57.7 | 40.3 | 1.52 | 41.1 | 1.48 | 2.19 | 79.5 |
+
+Paired bout by bout against the planned row, which is what the seeds being shared makes possible:
+
+| row | bar moved by | se |
+|:--|--:|--:|
+| `standOffFraction` 1.20 | +0.0186 | 1.9 |
+| `patience` 2.0 | +0.0183 | **2.8** |
+| `feintFraction` 0 | +0.0111 | 1.6 |
+| `standOffFraction` 1.06 | +0.0056 | 0.6 |
+| `retreatSeconds` 0.8 and 1.8 | 0.0000 | — |
+| `feintFraction` 0.25 | −0.0036 | 0.5 |
+| `patience` 3.5 | −0.0067 | 1.1 |
+
+**`patience` 2.0 is the first row this set has moved a constant onto**, and it is moved on more
+than the bar: it also lands the harder stroke (0.77 against 0.74), at the higher contact speed,
+with the higher committed fraction, the *lower* clinch and the most disengaged seconds of any
+row in the table. Every column that could have disagreed agrees, which is what
+separates a real cell from the best of nine. The plan's argument for 2.5 -- coming in is this
+style's expensive act, so it should be slow to -- turns out to be backwards: a style that leaves
+after every exchange has to come back, and standing out there longer only gives them the ground
+for free.
+
+**`standOffFraction` 1.20 is not moved**, at 1.9 σ and with its structural columns split -- the
+best stall and the worst clinch and the worst damage a stroke in the table. Inside the noise rule,
+reported and left.
+
+**`retreatSeconds` is a constant this style never reads.** Both cells reproduce the planned row to
+the digit. The executor ends a retreat on `retreatSeconds` *or* on the gap exceeding their reach
+and slack, whichever comes first, and from a stand-off already outside their point the gap wins
+every time; the 0.8 s cell is never reached and the 1.8 s cell never binds. That is the plan's
+sweep asking about a number that does not exist in this style's behaviour, and it is reported as
+unexercised rather than as flat. It is the guardian's and the brawler's to bind, if theirs do.
+
+### The league: every shipped golem mind, mirrored and on random pairs
+
+Two runs at the set's seed, all seven fighting golem policies, every pairing, 1,024 bouts each:
+
+```powershell
+node scripts/tournament.mjs --bouts 1024 --mirror --cross --random 40 --cap 60 --seed 20260906 --policies golem-duelist,golem-fencer,golem-planner,golem-champion,golem-neural,golem-form,golem-skirmisher
+```
+
+and the same line without `--mirror`. Both were re-taken after `patience` moved to 2.0: a league
+that rates a mind whose numbers have since changed is a league of a mind that does not ship.
+
+`points` and `bar` count only the bouts where the two policies differ. A cross schedule pairs
+every policy with itself as well, and those bouts score half a point to each side with a bar of
+exactly zero, so leaving them in shrinks every row toward the middle by the same fraction and
+says nothing. The structural columns keep every bout, because how a mind fights itself is still
+how it fights.
+
+Mirrored -- both sides on the same build, so neither has a reach edge:
+
+| policy | points | bouts | bar | se | str/s | dmg/st | v@blow | commit% | catches | clinch s | dmg/bout | outside s | stall s |
+| --- | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: |
+| `golem-champion` | 0.512 | 290 | +0.0312 | 0.0106 | 1.59 | 0.73 | 4.96 | 54.3 | 41.4 | 1.57 | 47.1 | 2.48 | 0.66 |
+| `golem-form` | 0.509 | 290 | +0.0098 | 0.0103 | 1.53 | 0.78 | 4.62 | 58.7 | 40.3 | 1.04 | 44.5 | 1.24 | 1.65 |
+| `golem-neural` | 0.507 | 290 | −0.0126 | 0.0111 | 1.44 | 0.94 | 5.02 | 58.0 | 39.8 | 1.80 | 49.8 | 2.57 | 0.57 |
+| `golem-planner` | 0.497 | 292 | −0.0118 | 0.0085 | 1.50 | 0.67 | 4.82 | 54.6 | 41.9 | 1.61 | 42.1 | 2.72 | 0.58 |
+| `golem-duelist` | 0.495 | 302 | −0.0159 | 0.0105 | 1.58 | 0.85 | 5.10 | 57.3 | 46.1 | 1.79 | 49.7 | 1.54 | 0.42 |
+| `golem-fencer` | 0.495 | 294 | +0.0060 | 0.0104 | 1.37 | 0.78 | 4.68 | 54.3 | 32.2 | 1.81 | 40.1 | 2.70 | 0.66 |
+| `golem-skirmisher` | 0.486 | 290 | −0.0061 | 0.0094 | 1.59 | 0.78 | 5.24 | 59.5 | 43.5 | 1.21 | 45.9 | 1.92 | 1.51 |
+
+Random pairs -- two builds drawn independently, so a reach edge is the common case:
+
+| policy | points | bouts | bar | se | str/s | dmg/st | v@blow | commit% | catches | clinch s | dmg/bout | outside s | stall s |
+| --- | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: |
+| `golem-neural` | 0.541 | 290 | +0.0486 | 0.0208 | 1.13 | 0.78 | 4.82 | 53.8 | 31.3 | 2.67 | 32.9 | 6.92 | 1.20 |
+| `golem-duelist` | 0.515 | 302 | −0.0099 | 0.0220 | 1.35 | 0.71 | 5.16 | 58.7 | 37.6 | 2.22 | 35.9 | 1.38 | 1.10 |
+| `golem-skirmisher` | 0.503 | 290 | +0.0511 | 0.0229 | 1.27 | 0.65 | 4.94 | 60.9 | 35.5 | 3.95 | 37.1 | 3.13 | 1.96 |
+| `golem-fencer` | 0.498 | 294 | −0.0238 | 0.0215 | 1.28 | 0.64 | 4.81 | 53.6 | 33.0 | 1.93 | 33.6 | 1.61 | 1.36 |
+| `golem-planner` | 0.497 | 292 | −0.0046 | 0.0204 | 1.19 | 0.61 | 4.70 | 53.0 | 31.8 | 2.64 | 31.5 | 5.36 | 1.43 |
+| `golem-champion` | 0.490 | 290 | −0.0259 | 0.0202 | 1.27 | 0.62 | 4.93 | 55.4 | 32.4 | 2.34 | 30.8 | 6.53 | 1.17 |
+| `golem-form` | 0.455 | 290 | −0.0347 | 0.0243 | 1.35 | 0.65 | 5.13 | 60.7 | 30.7 | 1.78 | 36.4 | 1.81 | 0.81 |
+
+**The two pools disagree about this style, and the disagreement is its whole argument.** Mirrored,
+the skirmisher is last of seven on points and −0.006 on the bar; on random pairs it is third on
+points and the best bar in the league. A style whose first constant is `standOffFraction` 1.12 --
+stand at 1.12 of *their* reach -- is asking for a distance that only means something when its own
+reach is longer than theirs. A mirror never grants that. So the mirrored table is this style
+fighting with its premise removed, and the honest reading of its last place there is that the
+premise is load-bearing rather than decorative.
+
+The way to ask that question directly is to split the random pool by the reach edge, which is what
+the executor's own `longer`/`shorter` reading branches on. Bar margin by band, and the same
+figure standardised onto the pooled mix of bands (40 % longer, 21 % level, 40 % shorter) so that
+each mind is rated over the same opponents rather than over the builds its own draw happened to
+give it:
+
+| mind | longer arm | level | shorter arm | standardised |
+| --- | --: | --: | --: | --: |
+| `golem-skirmisher` | +0.236 ± 0.034 (108) | +0.051 ± 0.033 (58) | −0.110 ± 0.036 (124) | +0.061 ± 0.021 |
+| `golem-neural` | +0.200 ± 0.030 (120) | +0.018 ± 0.029 (60) | −0.100 ± 0.036 (110) | +0.043 ± 0.019 |
+| `golem-planner` | +0.132 ± 0.036 (104) | +0.007 ± 0.029 (70) | −0.132 ± 0.032 (118) | +0.001 ± 0.020 |
+| `golem-duelist` | +0.106 ± 0.033 (130) | −0.023 ± 0.029 (64) | −0.142 ± 0.040 (108) | −0.019 ± 0.021 |
+| `golem-fencer` | +0.106 ± 0.038 (114) | −0.067 ± 0.038 (46) | −0.119 ± 0.029 (134) | −0.019 ± 0.021 |
+| `golem-champion` | +0.070 ± 0.031 (112) | +0.028 ± 0.035 (60) | −0.144 ± 0.033 (118) | −0.024 ± 0.019 |
+| `golem-form` | +0.093 ± 0.039 (124) | −0.025 ± 0.036 (66) | −0.200 ± 0.040 (100) | −0.047 ± 0.023 |
+
+**The skirmisher converts a reach advantage better than any other mind that ships**, +0.236
+against the fencer's +0.106, a difference of 0.130 ± 0.051, and it is not paying for it when
+out-reached: −0.110 against the fencer's −0.119 and the form's −0.200. Standardised, it is
++0.061 ± 0.021 against the fencer's −0.019 ± 0.021, a difference of 0.080 ± 0.030 -- 2.7 standard
+errors, outside the noise rule. That is the first time in this set a style has been ahead of the
+fencer on a pool rather than level with it.
+
+Two cautions on that number. It is an observational split and not a controlled one: the bouts in
+each band are not the same bouts for two different minds, and the standardisation equalises the
+mix of bands but not the builds inside a band. And the ordering it produces is nearly the
+ordering of the raw random-pool bar, so it is a check on the build draw rather than a correction
+of it.
+
+### The five signatures the plan predicted, scored
+
+The plan named the shape it expected before any of it was run. Scored against the league, with
+the mirrored pool as the fair one for a structural column, since there both sides share a build:
+
+| the plan said | mirrored | random | holds? |
+|:--|:--|:--|:--|
+| the lowest clinch of any mind | 1.21, second to the form's 1.04 | 3.95, the **highest** in the league | no |
+| the highest retreat-outside seconds | 1.92, fourth behind 2.72 | 3.13, third behind 6.92 | no |
+| fewer strokes than the fencer | 1.59 against 1.37 | 1.27 against 1.28 | only just, and only here |
+| the highest damage a stroke | 0.78, third behind 0.94 | 0.65, third behind 0.78 | no |
+| the highest committed fraction | 59.5, the highest | 60.9, the highest | yes |
+
+One of five, and it is worth saying why the other four missed rather than filing them as a
+disappointment. Three of them -- clinch, outside seconds, damage a stroke -- were predicted on
+the assumption that a style which leaves after every exchange spends its bout far away. It does
+not: `outside s` counts seconds with nothing of mine in range *and* the gap past my own reach,
+and a retreat that ends the moment the gap clears their point does not get anywhere near that
+far. The instrument that does carry this style's signature is `stall s`, seconds with a target in
+range that I am not closing on: 1.51 mirrored against the four v2 minds' 0.42 to 0.66, and 1.96
+on random pairs, the highest in the league both times. Holding a line outside their point looks
+like a stall to the sampler, not like a retreat.
+
+### The clinch inversion, which is one branch and not the style
+
+The random pool's clinch is the sharpest of the misses -- 3.95 s a bout, the worst in the league,
+against a mirrored 1.21 that is the second best. Split by band it is not a whole-style number at
+all:
+
+| mind | band | n | clinch s | stall s | str/s |
+| --- | --- | --: | --: | --: | --: |
+| `golem-skirmisher` | longer | 108 | 0.61 | 1.66 | 1.59 |
+| `golem-skirmisher` | level | 58 | 1.41 | 2.11 | 1.37 |
+| `golem-skirmisher` | shorter | 124 | **8.04** | 2.14 | 0.96 |
+| `golem-form` | longer | 124 | 0.53 | 0.54 | 1.65 |
+| `golem-form` | level | 66 | 1.67 | 1.18 | 1.37 |
+| `golem-form` | shorter | 100 | 3.39 | 0.89 | 0.95 |
+| `golem-fencer` | longer | 114 | 0.77 | 1.64 | 1.55 |
+| `golem-fencer` | level | 46 | 1.57 | 2.36 | 1.27 |
+| `golem-fencer` | shorter | 134 | 3.05 | 0.77 | 1.05 |
+
+Out-reached, the skirmisher spends **eight seconds of a sixty-second bout inside their point with
+nothing landing either way**, against three for the fencer and the form. Everywhere else it is the
+quietest of the three. So this is the `shorter` branch of the director and nothing else, and the
+reason is visible in the rules once the number points at them: that branch alternates `retreat`
+and `cut`, and a retreat by the shorter arm cannot do what a retreat is for. The executor ends a
+retreat on the gap exceeding *their* reach and slack or on `retreatSeconds`, whichever comes
+first, and when their arm is the longer one the gap never gets there -- so the retreat times out
+still inside their point, the cut goes in from there, and the pair grinds. The style's other
+branches keep their distance; this one has no distance to keep.
+
+It is worth being exact about what that costs. On the bar, nothing much: out-reached the
+skirmisher is −0.110 ± 0.036, better than the form's −0.200 and level with the fencer's −0.119.
+What it costs is the reading, and the reading is the whole point of this set -- eight seconds a
+bout of two bodies close and still is the owner's original complaint in a column. It is named
+here as a defect of one branch, it is not fixed in this session because fixing it means giving
+the shorter arm a different plan rather than tuning a constant, and it is the first thing
+Session 06's guardian should be checked against, since the guardian is the style that is
+*supposed* to stand its ground.
+
+### One constant the sweep could not reach
+
+The band the skirmisher wins on is the band its swept constant does not govern. `styleRanges` in
+`src/golem/tactics-v3.ts` reads `theirReach * (longer ? T.longStandOff : T.standOffFraction)`, and
+`longStandOff` is 1.06, inherited from `GOLEM_TACTICS_V2` and untouched by this style's table. So
+`skirmisher.standOffFraction` 1.12 binds only when the two arms are within `reachEdge` of each
+other or mine is shorter -- which is every bout of the mirrored sweep pool this session swept it
+on, and none of the 108 longer-arm bouts where the style does its best work. The sweep is
+therefore valid for what it measured and silent about the case that matters most, and
+`skirmisher.longStandOff` is the obvious row for the next session that runs a bracket on this
+style.
+
+### The draws the plan named in advance
+
+The plan wrote the risk down before the run: "on the 60 s cap a skirmisher that lands little and
+takes nothing draws, and a draw is half a point." It happened, and it is the reason points and
+the bar rank this style differently on the random pool:
+
+| policy | wins | draws | losses | ahead on the bar in a draw |
+| --- | --: | --: | --: | --: |
+| `golem-planner` | 23 | 244 (84 %) | 25 | 108 of 244 (44 %) |
+| `golem-fencer` | 29 | 235 (80 %) | 30 | 99 of 235 (42 %) |
+| `golem-duelist` | 39 | 233 (77 %) | 30 | 123 of 233 (53 %) |
+| `golem-neural` | 41 | 232 (80 %) | 17 | 105 of 232 (45 %) |
+| `golem-champion` | 27 | 230 (79 %) | 33 | 111 of 230 (48 %) |
+| `golem-skirmisher` | 36 | 220 (76 %) | 34 | **131 of 220 (60 %)** |
+| `golem-form` | 28 | 208 (72 %) | 54 | 107 of 208 (51 %) |
+
+Three bouts in four end on the cap for every mind, and the skirmisher ends ahead in more of its
+own than anyone -- three in five -- for half a point each time. That is not an argument for
+changing the scoring; it is the reason this set selects on the bar and reports points beside it,
+and it is the fourth session running in which the 60 s cap is the number in front of the owner.
+
+### Where the third executor loses, by build class
+
+Mirrored, so both sides hold the same weapon and the column is a fair comparison. Classes with
+fewer than twenty bouts for any of the three are dropped as noise (`whip/long`, `shield/mid`,
+`club/mid`):
+
+| arm class | `fencer` bar (n) | `form` bar (n) | `skirmisher` bar (n) |
+| --- | --: | --: | --: |
+| `club/long` | +0.046 ± 0.042 (34) | +0.010 ± 0.041 (34) | +0.027 ± 0.039 (24) |
+| `empty/mid` | −0.021 ± 0.013 (20) | +0.013 ± 0.011 (26) | +0.009 ± 0.013 (22) |
+| `empty/short` | +0.005 ± 0.015 (36) | −0.006 ± 0.004 (34) | +0.008 ± 0.009 (28) |
+| `paired-club/long` | −0.071 ± 0.046 (42) | +0.076 ± 0.047 (46) | +0.019 ± 0.045 (42) |
+| `shield/short` | −0.005 ± 0.013 (60) | −0.006 ± 0.024 (38) | +0.035 ± 0.009 (36) |
+| `sword/long` | **+0.093 ± 0.038** (40) | −0.023 ± 0.020 (52) | **−0.064 ± 0.020** (78) |
+| `sword/mid` | +0.004 ± 0.003 (22) | −0.003 ± 0.001 (20) | −0.003 ± 0.003 (26) |
+
+**Both v3 styles lose the long sword and the fencer wins it**, and it is the class where the
+difference is largest and least ambiguous: +0.093 against −0.064 is 0.157 over a pooled standard
+error of 0.043, which is 3.7 of them. Long blade against long blade at equal reach is the case the committed cut was
+designed for, and it is the case v2's quick stroke still takes. That is a finding about the
+executor rather than about either style, both styles show it, and it is the strongest evidence
+this set has produced that the committed arc is not yet paying for its wind-up -- the same
+conclusion Session 04 reached from contact density, arrived at from the other end.
+
+The plan's own worry pointed the other way and was wrong. `paired-club/long` -- the grip that is
+offered no cut at all, so a skirmisher on it is "a maul that circles and rams" -- is where the
+fencer is worst (−0.071) and both v3 styles are ahead of it. Neither margin clears two standard
+errors, so this is reported and not claimed; but the class the plan flagged as the style's
+weakness is not one.
+
+### What was built, and the three things that had to be got right
+
+`src/golem/styles/skirmisher.ts` is 165 lines, of which 62 are code and the rest is why.
+The table is `GOLEM_TACTICS_V3` with three rows over it -- `standOffFraction` 1.12, `patience`
+2.0, `feintFraction` 0.10 -- reached from the command line as `--override skirmisher.patience=3.5`
+through the `skirmisher.` prefix registered in `STYLE_TABLES` in `scripts/tournament-worker.mjs`.
+Registration is the neural mind's path exactly: `golemSkirmisherMind` in
+`src/golem/golem-policies.ts`, a row in `POLICIES` in `src/mind.ts`, a name in `GOLEM_POLICIES` in
+`src/units.ts`, the three pinned name lists in `tests/minds.test.mjs`, `tests/units.test.mjs` and
+`tests/golem-mind.test.mjs`, and the two count sentences in `README.md`.
+
+Three things in it were wrong first and are worth the record.
+
+**The retreat could not be owed by watching the reading.** The plan says "every exchange ends:
+`retreat` at once", and the obvious way to know an exchange has ended is to watch `reading.mine`
+go from `exchange` back to `free`. That never fires, and it fails silently rather than loudly: the
+executor asks its director only in the interruptible stances and every one of them reads `mine`
+as `free`, so the ask that names a cut and the ask that lands after it are both `free` and the
+transition is never sampled. The director remembers what it *said* instead -- an `opening` flag
+raised inside `openWith` -- which is the only thing it can see. This was caught by reading before
+it was run, so it never reached a number, but a style that silently never retreats would have
+passed every column in the sweep as "a style that does not retreat much".
+
+**A test that compares two sides of a mirrored build cannot fail.** The real-bout test for this
+style went through three drafts. The first asserted the skirmisher spent more seconds outside
+reach than its opponent, which on a mirrored build is symmetric by construction and so was
+vacuous. The second compared the pair's mean gap against a fencer-versus-fencer control and
+failed honestly at 1.808 m against 1.853 -- the skirmisher *closes* the average distance, because
+a committed cut walks its feet in through its wind-up. The third counts what is actually
+asymmetric: the commanded intent, `intent.forward < 0`, on both sides of one bout. The docstring
+carries all three, and the second one's number, because the failure is the interesting part.
+
+**A two-second trace never opens an exchange.** The determinism test drives 4.0 s at each place
+rather than 2.0, because the only seeded numbers in this style are inside `openWith` -- the
+patience jitter and the feint roll -- and a trace that never opens an exchange never reads them,
+so two seeds would agree for the wrong reason and the test would pin nothing.
+
+### What this leaves in front of the gate
+
+The plan's gate asks whether it reads as hit-and-run rather than as running, and that is the
+owner's to answer on the screen. What the numbers put beside it:
+
+1. **The frozen choice pays.** A second fighting style, visibly a different mind, is one file of
+   rules and three numbers, because the executor already knew how to cut, leave and step off a
+   line. Session 04 could not show that with one style; this is the first evidence for it.
+2. **It is level with the fencer head to head, and ahead of it on random pairs.** +0.010 bar at
+   1.5 σ over 512 mirrored bouts against the fencer, inside the noise rule, where the form is
+   −0.023 at 3.3 and outside it. On the random-pairs league, standardised over the reach bands,
+   +0.061 ± 0.021 against the fencer's −0.019 ± 0.021 -- 2.7 σ, the first time in this set a
+   style has been ahead of the fencer on a pool rather than level with it. The difference
+   between the two styles is entirely in their rules: same executor, same shapes, same body.
+3. **It converts a reach advantage better than anything that ships.** +0.236 ± 0.034 with the
+   longer arm against the fencer's +0.106, and no worse than the field when out-reached. That
+   is the style's premise working: a stand-off at 1.12 of *their* reach only means something
+   when mine is the longer one. It is the most likely reason it is last of seven on points on
+   the mirrored pool, where nobody has an edge and the premise is unavailable -- though its bar
+   there is −0.006 ± 0.009, which is to say the mirrored pool cannot separate it from the
+   middle of the table either way.
+4. **One number moved, and the plan had it backwards.** `patience` 2.0 rather than 2.5.
+5. **The retreat shows up as standing off, not as distance.** Two asks in five are a retreat and
+   the executor is in the retreat stance for 17.9 % of every step, yet `outside s` reads 1.71
+   against the fencer's 1.66 in the same bouts -- five hundredths of a second apart. The column
+   that does separate them is `stall s`, 1.92 against 1.23, and in the league 1.51 against the
+   four v2 minds' 0.42 to 0.66. That is the honest reading of both instruments: `outside s`
+   counts seconds with nothing of mine in range *and* the gap past my own reach, so it rewards
+   a mind that is simply far away, while `stall s` counts seconds with a target in range that I
+   am not closing on, which is what holding a line outside their point actually looks like from
+   the sample stream. The plan predicted the skirmisher would lead on the first; it leads on the
+   second, and the first belongs to the planner at 2.72. The reason the distance does not open
+   is the one Session 04 measured: a committed cut walks its feet in through its own wind-up, so
+   the style that leaves is also the style that comes back in under power. The fourteen-second
+   test in `tests/golem-mind.test.mjs` records the first draft of this, which compared mean gaps
+   and failed -- the skirmisher held the pair at 1.808 m where two fencers stand at 1.853.
+6. **One branch is the owner's original complaint in a column, and it is named not fixed.**
+   Out-reached, the skirmisher spends 8.04 s of a bout inside their point with nothing landing
+   either way, against three for the fencer and the form; everywhere else it is the quietest of
+   the three. The `shorter` branch alternates `retreat` and `cut`, and a retreat by the shorter
+   arm never clears their reach, so it times out still inside their point. It costs almost
+   nothing on the bar and a great deal on the eye, which is the wrong way round for this set.
+7. **Both v3 styles lose the long sword and the fencer wins it**, +0.093 against −0.064 at 3.7
+   σ. That is the executor, not the style -- the case the committed cut was designed for is
+   the case v2's quick stroke still takes -- and it is the same conclusion Session 04 reached
+   from contact density, arrived at from the other end.
+8. **The 60 s cap is in front of the gate for the fourth time.** Four bouts in five end on it in
+   the sweep pool and three in four in the league, and the skirmisher ends ahead on the bar in
+   three fifths of its own draws for half a point each.

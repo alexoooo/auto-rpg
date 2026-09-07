@@ -1,6 +1,22 @@
 # Session 05 -- `golem-skirmisher`
 
-**Status (2026-09-06): planned. Needs 04.**
+**Status (2026-09-07): implemented; the human gate is open.** The style, its registration, the
+five tests, the nine sweep rows and the two league runs are in the Session 05 entry of
+`../measurements.md`. Three of the plan's own numbers came back other than it expected and are
+recorded rather than worked around. `patience` is 2.0 and not the planned 2.5, adopted at 2.8
+standard errors with every structural column agreeing -- the first constant this set has moved
+off a sweep. Four of the five predicted signatures do not hold: the style's mark is `stall s`
+and not `outside s`, because a retreat that ends the moment the gap clears their point never
+goes far. And `retreatSeconds` is a constant this style never reads, because the gap ends every
+retreat before the clock does; its two cells reproduce the default row to the digit and are
+reported as unexercised rather than as flat.
+
+Two findings from the league belong in front of the gate as much as the verdict does. Out-reached,
+the style spends 8.04 s of a bout inside their point with nothing landing either way, against
+three for the fencer and the form -- one branch of the director, named as a defect and not fixed
+here, because fixing it means giving the shorter arm a different plan rather than moving a
+number. And on `sword/long` at equal reach both v3 styles lose to the fencer at 3.7 standard
+errors, which is a reading about the executor rather than either style.
 
 ## Outcome
 
