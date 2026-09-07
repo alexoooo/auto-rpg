@@ -51,7 +51,7 @@ What the code and the logs say the flail is, read before any code moved:
 | session | outcome | after |
 | --- | --- | --- |
 | [00](style-00-overview.md) | this file; the instruments that see a stroke; the set's baseline table | -- |
-| [01](style-01-contact-rules.md) | one claim per part per stroke; a blow on a hand slot booked as a block | 00 |
+| [01](style-01-contact-rules.md) | one claim per part per stroke; the plate blocks, is never wounded and never wears; a blow on a held weapon booked as a block | 00 |
 | [02](style-02-stroke-bench.md) | tip speed at the mark on the bench, per weapon kind; committed stroke shapes; the parry's arrival time | 01 |
 | [03](style-03-energy-scoring.md) | every blow scored from the energy the struck part absorbs, through its mechanism; the Warrior's pins re-derived | 02 |
 | [04](style-04-executor-and-form.md) | the third executor with fifteen options and event asks; `golem-form` | 03 |
@@ -105,6 +105,10 @@ on 08 and may run in parallel.
    constant per mechanism; no cap, power, ramp or per-weapon scale is ever added to a score row
    again, and a weapon that is still too strong afterwards is answered in the body, in a row of
    its own. The Warrior's pinned scoring numbers may move (owner, 2026-09-06).
+9. **The plate is an indestructible damage sink.** Owner, 2026-09-06: a golem takes no damage
+   when its shield is hit, and the shield has unlimited life. It keeps its mass, because the
+   physics is what makes it block. Session 01 books it through the block path a Warrior's shield
+   already uses; the guardian of Session 06 is the style that uses it on purpose.
 
 ## Conventions for this plan set
 
@@ -134,7 +138,7 @@ stays as it is.
 | session | the owner is asked | verdict |
 | --- | --- | --- |
 | 00 | whether the fencer's baseline row reads as the flail they saw | open |
-| 01 | whether a blow that lands reads as one blow, and whether bouts now run too long | open |
+| 01 | whether a blow that lands reads as one blow, whether a blade stopped by a plate reads as a block, and whether bouts now run too long | open |
 | 02 | whether a stroke near the reference speed exists inside the arm's budget | open |
 | 03 | whether every blow's worth reads as its weight, and whether a maul against a blade is a fight | open |
 | 04 | whether a cut reads as a cut and a circle reads as intent | open |

@@ -60,6 +60,7 @@ git diff --check -- .
 
 ## What remains
 
-How fast a plate wears under Session 01's booking when a mind puts it in the way on purpose is
-this session's number to report; Session 01's "what remains" names where a durability change
-would go.
+The plate never wears (Session 01), so what this session reports instead is how much of what
+was thrown at the guardian its plate stopped, and whether the plate's stone mass is what keeps
+the parry from arriving in time; a lighter plate is a build variant for the owner to call, not a
+number this session moves.
