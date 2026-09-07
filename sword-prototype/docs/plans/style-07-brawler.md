@@ -1,6 +1,6 @@
-# Session 06 -- `golem-brawler`
+# Session 07 -- `golem-brawler`
 
-**Status (2026-09-06): planned. Needs 03.**
+**Status (2026-09-06): planned. Needs 04.**
 
 ## Outcome
 
@@ -9,7 +9,7 @@ hunting the weakest part: the inside direction, and the only mind that closes on
 
 ## Frozen choices
 
-- A director over Session 03's executor, in src/golem/styles/brawler.ts, registered as the
+- A director over Session 04's executor, in src/golem/styles/brawler.ts, registered as the
   others. Its rules:
   - `standOffFraction` 0 and a low `holdFraction`, so the hold floors at the inner radius plus
     slack; the executor's crowding withdrawal is never chosen (`crowdedSeconds` high in the

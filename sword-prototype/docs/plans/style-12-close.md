@@ -1,6 +1,6 @@
-# Session 11 -- close-out
+# Session 12 -- close-out
 
-**Status (2026-09-06): planned. Needs 10.**
+**Status (2026-09-06): planned. Needs 11.**
 
 ## Outcome
 

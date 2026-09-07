@@ -1,6 +1,6 @@
-# Session 07 -- the league, and the decision log
+# Session 08 -- the league, and the decision log
 
-**Status (2026-09-06): planned. Needs 04, 05, 06.**
+**Status (2026-09-06): planned. Needs 05, 06, 07.**
 
 ## Outcome
 
@@ -57,7 +57,7 @@ its duration and whether it was the side's last. The sum of a side's rewards is 
    the version 2 file round-trips and a version 1 file is refused; the exploring director at 0
    is identical and at 1 never names a closed option; `collect` over two workers with `"*"`
    returns both sides' sequences.
-4. The corpus for Sessions 08 and 09: random pairs 4,096 bouts and mirrored 1,024, every styled
+4. The corpus for Sessions 09 and 10: random pairs 4,096 bouts and mirrored 1,024, every styled
    side at explore 0.3, `--exchanges --behaviour` (about 16 minutes); kept under `tournaments/`.
 5. The entry: decisions a bout (about 80 a side expected), the σ of the per-decision reward
    (measured here for the first time; 0.05 to 0.1 bar expected), the fraction of zero-reward
@@ -84,5 +84,5 @@ git diff --check -- .
 ## What remains
 
 This session does not lower the per-bout σ; it changes attribution, so that 384 bouts are about
-thirty thousand labelled decisions rather than one scalar. Whether that is enough is Session 09's
+thirty thousand labelled decisions rather than one scalar. Whether that is enough is Session 10's
 number.

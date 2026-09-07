@@ -1,7 +1,7 @@
 # Style -- live roadmap
 
-> **2026-09-06 status: plan set written, nothing implemented, nothing accepted.** Twelve files,
-> one per landable session. Sessions 00 to 11 are open. Every session ends at a human gate that
+> **2026-09-06 status: plan set written, nothing implemented, nothing accepted.** Thirteen files,
+> one per landable session. Sessions 00 to 12 are open. Every session ends at a human gate that
 > the owner records in that session's status line; an agent may not write "accepted" there.
 > The golem set and the matchup set that came before this one were deleted at the owner's
 > request on 2026-09-06, every one of their sessions having landed; their durable record is
@@ -51,20 +51,21 @@ What the code and the logs say the flail is, read before any code moved:
 | session | outcome | after |
 | --- | --- | --- |
 | [00](style-00-overview.md) | this file; the instruments that see a stroke; the set's baseline table | -- |
-| [01](style-01-contact-rules.md) | one claim per part per stroke; a blow on a hand slot booked as a block; the mace, maul and fist balanced against the blade by a target band | 00 |
-| [02](style-02-stroke-bench.md) | tip speed at the mark on the bench; committed stroke shapes; the parry's arrival time | 01 |
-| [03](style-03-executor-and-form.md) | the third executor with fifteen options and event asks; `golem-form` | 02 |
-| [04](style-04-skirmisher.md) | `golem-skirmisher`: out of reach, in on their recover, out again | 03 |
-| [05](style-05-guardian.md) | `golem-guardian`: parry, riposte, shove | 03 |
-| [06](style-06-brawler.md) | `golem-brawler`: inside, shoving, hunting the weakest part | 03 |
-| [07](style-07-league-and-decision-log.md) | the league table of nine minds; the per-decision reward log | 04, 05, 06 |
-| [08](style-08-selector-and-tactician.md) | two table-fitted minds: `golem-selector`, `golem-tactician` | 07 |
-| [09](style-09-learner.md) | `golem-learner`: fitted Q-iteration on the decision log | 07 |
-| [10](style-10-overnight.md) | the overnight: learner rounds, the selector refitted, sweeps at scale | 08, 09 |
-| [11](style-11-close.md) | durable record, final table, the screen's default, gates listed | 10 |
+| [01](style-01-contact-rules.md) | one claim per part per stroke; a blow on a hand slot booked as a block | 00 |
+| [02](style-02-stroke-bench.md) | tip speed at the mark on the bench, per weapon kind; committed stroke shapes; the parry's arrival time | 01 |
+| [03](style-03-energy-scoring.md) | every blow scored from the energy the struck part absorbs, through its mechanism; the Warrior's pins re-derived | 02 |
+| [04](style-04-executor-and-form.md) | the third executor with fifteen options and event asks; `golem-form` | 03 |
+| [05](style-05-skirmisher.md) | `golem-skirmisher`: out of reach, in on their recover, out again | 04 |
+| [06](style-06-guardian.md) | `golem-guardian`: parry, riposte, shove | 04 |
+| [07](style-07-brawler.md) | `golem-brawler`: inside, shoving, hunting the weakest part | 04 |
+| [08](style-08-league-and-decision-log.md) | the league table of nine minds; the per-decision reward log | 05, 06, 07 |
+| [09](style-09-selector-and-tactician.md) | two table-fitted minds: `golem-selector`, `golem-tactician` | 08 |
+| [10](style-10-learner.md) | `golem-learner`: fitted Q-iteration on the decision log | 08 |
+| [11](style-11-overnight.md) | the overnight: learner rounds, the selector refitted, sweeps at scale | 09, 10 |
+| [12](style-12-close.md) | durable record, final table, the screen's default, gates listed | 11 |
 
-Sessions 04, 05 and 06 depend only on 03 and may run in parallel. Sessions 08 and 09 depend only
-on 07 and may run in parallel.
+Sessions 05, 06 and 07 depend only on 04 and may run in parallel. Sessions 09 and 10 depend only
+on 08 and may run in parallel.
 
 ## Frozen choices for this set
 
@@ -98,6 +99,12 @@ on 07 and may run in parallel.
    A mind that rates higher and reads worse is reported, not made the default.
 7. **Stop rule.** A session gets at most two correction sessions before its status line records
    the stop.
+8. **A blow is worth the energy that arrives.** Owner, 2026-09-06, on the fist, the mace and the
+   maul: not a cap, "physically or intuitively based". Session 03 scores every blow from the
+   kinetic energy the struck part absorbs, through the striker's mechanism, with one anchored
+   constant per mechanism; no cap, power, ramp or per-weapon scale is ever added to a score row
+   again, and a weapon that is still too strong afterwards is answered in the body, in a row of
+   its own. The Warrior's pinned scoring numbers may move (owner, 2026-09-06).
 
 ## Conventions for this plan set
 
@@ -127,21 +134,22 @@ stays as it is.
 | session | the owner is asked | verdict |
 | --- | --- | --- |
 | 00 | whether the fencer's baseline row reads as the flail they saw | open |
-| 01 | whether a blow that lands reads as one blow, whether bouts now run too long, and whether a maul against a blade is a fight | open |
+| 01 | whether a blow that lands reads as one blow, and whether bouts now run too long | open |
 | 02 | whether a stroke near the reference speed exists inside the arm's budget | open |
-| 03 | whether a cut reads as a cut and a circle reads as intent | open |
-| 04 | whether the skirmisher reads as hit-and-run rather than as running | open |
-| 05 | whether the plate visibly meets the blade and the riposte follows it | open |
-| 06 | whether the brawler reads as a grappler pushing in | open |
-| 07 | whether the league table agrees with what they see | open |
-| 08 | whether a mind that picks minds looks like one mind | open |
-| 09 | whether the learner behaves differently from its corpus, and better | open |
-| 10 | the learned-versus-hand-coded reading at scale | open |
-| 11 | the set's one gate above | open |
+| 03 | whether every blow's worth reads as its weight, and whether a maul against a blade is a fight | open |
+| 04 | whether a cut reads as a cut and a circle reads as intent | open |
+| 05 | whether the skirmisher reads as hit-and-run rather than as running | open |
+| 06 | whether the plate visibly meets the blade and the riposte follows it | open |
+| 07 | whether the brawler reads as a grappler pushing in | open |
+| 08 | whether the league table agrees with what they see | open |
+| 09 | whether a mind that picks minds looks like one mind | open |
+| 10 | whether the learner behaves differently from its corpus, and better | open |
+| 11 | the learned-versus-hand-coded reading at scale | open |
+| 12 | the set's one gate above | open |
 
 ## Session 00's own work: the instruments that see a stroke
 
-Besides writing these twelve files, Session 00 lands the columns the rest of the set selects on.
+Besides writing these thirteen files, Session 00 lands the columns the rest of the set selects on.
 
 - `../../scripts/tournament-worker.mjs`, in the job runner: pass `onEvent` to `runBout`; per
   side a stroke counter, where reports on one `effectorId` closer than 0.25 s (Session 12b's

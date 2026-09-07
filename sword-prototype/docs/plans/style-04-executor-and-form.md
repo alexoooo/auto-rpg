@@ -1,6 +1,6 @@
-# Session 03 -- the third executor, and `golem-form`
+# Session 04 -- the third executor, and `golem-form`
 
-**Status (2026-09-06): planned. Needs 02.**
+**Status (2026-09-06): planned. Needs 03.**
 
 ## Outcome
 
@@ -54,7 +54,7 @@ committed cuts, a parry on their commit, a circle with intent.
     command is `aimAt` and `writeAim` with `reachForDistance` at `parryBite`, recomputed every
     step while their phase is chamber or commit, released `readRecoverSeconds` after. Not
     offered to a paired grip or a lost spare. Session 02's arrival time decides intercept or
-    wall; Session 05 records which.
+    wall; Session 06 records which.
   - `shove`: forward at full, trunk lean at `shoveLean`, both hands (`mirror` for a pair) at
     their trunk mark fully extended for `shoveSeconds`, then recover; open at the inner radius
     plus 0.15 of my reach. The plate and the fist score the impulse row; a blade scores a thrust.
@@ -155,6 +155,6 @@ git diff --check -- .
 ## What remains
 
 Target selection by least health is carried over from v2 switched off; the brawler turns it on
-in Session 06. The intercept parry's true arrival is Session 02's number and Session 05's test.
+in Session 07. The intercept parry's true arrival is Session 02's number and Session 06's test.
 The executor is a second 1,100-line file beside v2's, and the close-out records whether v2 can be
 retired once the four older minds are re-based, which this set does not do.

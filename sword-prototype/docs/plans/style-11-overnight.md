@@ -1,6 +1,6 @@
-# Session 10 -- the overnight: learner rounds, the selector refitted, sweeps at scale
+# Session 11 -- the overnight: learner rounds, the selector refitted, sweeps at scale
 
-**Status (2026-09-06): planned. Needs 08, 09.**
+**Status (2026-09-06): planned. Needs 09, 10.**
 
 ## Outcome
 
@@ -18,8 +18,8 @@ log; and the two reward rows swept. Every run's seed and hours in the entry.
 - **The sweeps**: `winBonus` {0, 0.25} and `halfLife` {4, 8, 16} as confirmation rows on the
   held-out seed, common random numbers, both pools.
 - **The selector refit**: a fresh 24,576-bout random-pairs tournament with the learner and the
-  tactician among the candidates, the same script and shrinkage as Session 08.
-- **If Session 09 did not clear**, the rounds go first to the two levers the log names: feature
+  tactician among the candidates, the same script and shrinkage as Session 09.
+- **If Session 10 did not clear**, the rounds go first to the two levers the log names: feature
   regions never visited (more explore) and a residual that does not fall (a smaller rate);
   and if neither moves it, this file's status line records the stop under the set's stop rule.
 
@@ -47,4 +47,4 @@ git diff --check -- .
 
 ## What remains
 
-Nothing new is built here; what this session leaves is a number, and Session 11 records it.
+Nothing new is built here; what this session leaves is a number, and Session 12 records it.

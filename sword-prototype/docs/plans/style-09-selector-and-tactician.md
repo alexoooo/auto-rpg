@@ -1,13 +1,13 @@
-# Session 08 -- two table-fitted minds: `golem-selector` and `golem-tactician`
+# Session 09 -- two table-fitted minds: `golem-selector` and `golem-tactician`
 
-**Status (2026-09-06): planned. Needs 07.**
+**Status (2026-09-06): planned. Needs 08.**
 
 ## Outcome
 
-Two minds fitted from Session 07's runs as tables. The selector reads, at its first view, its own
+Two minds fitted from Session 08's runs as tables. The selector reads, at its first view, its own
 arm class and the opponent's weapon kind and reach band, looks up which registered mind wins that
 cell, and is that mind for the bout. The tactician is the matchup set's planner rebuilt over the
-new executor: a finer state, the thirteen options, tables fitted from the styles' exchange log.
+new executor: a finer state, the fifteen options, tables fitted from the styles' exchange log.
 
 ## Frozen choices
 
@@ -38,9 +38,9 @@ new executor: a finer state, the thirteen options, tables fitted from the styles
   existing tests say so.
 - The new state, in src/golem/style-model.ts, gains the reach pair (shorter, equal, longer at
   the fencer's `reachEdge`) beside the gap band, their phase, my phase and the heavy pair:
-  144 states per weapon pair, the thirteen options as actions, the shrinkage of the matchup set,
+  144 states per weapon pair, the fifteen options as actions, the shrinkage of the matchup set,
   successors seen under twenty times dropped. Tables in src/golem/style-model-tables.ts, fitted
-  by a new script scripts/calibrate-style-model.mjs from Session 07's exchange log.
+  by a new script scripts/calibrate-style-model.mjs from Session 08's exchange log.
 - The mind is `planOption` over those tables with the planner's lead-weighted dealt and taken
   from `../../src/golem/planner.ts`; the replan cost is measured against the 5 ms budget, with
   about 0.3 ms on a quiet host expected.
@@ -85,5 +85,5 @@ git diff --check -- .
 
 ## What remains
 
-The selector is refitted in Session 10 with the learner among its candidates. Mid-bout switching
+The selector is refitted in Session 11 with the learner among its candidates. Mid-bout switching
 waits for cells with enough bouts to tell a per-ask choice from noise.

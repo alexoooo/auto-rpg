@@ -1,6 +1,6 @@
-# Session 05 -- `golem-guardian`
+# Session 06 -- `golem-guardian`
 
-**Status (2026-09-06): planned. Needs 03.**
+**Status (2026-09-06): planned. Needs 04.**
 
 ## Outcome
 
@@ -9,7 +9,7 @@ shoves when they come inside: the defensive direction, and the first golem that 
 
 ## Frozen choices
 
-- A director over Session 03's executor, in src/golem/styles/guardian.ts, registered as the
+- A director over Session 04's executor, in src/golem/styles/guardian.ts, registered as the
   others. Its rules:
   - stand-off 1.00; `hold` with the ordinary cover between exchanges;
   - their chamber: `parry`, pre-positioned from the chamber read and refined every step through

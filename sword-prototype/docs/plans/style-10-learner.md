@@ -1,6 +1,6 @@
-# Session 09 -- `golem-learner`: fitted Q-iteration on the decision log
+# Session 10 -- `golem-learner`: fitted Q-iteration on the decision log
 
-**Status (2026-09-06): planned. Needs 07.**
+**Status (2026-09-06): planned. Needs 08.**
 
 ## Outcome
 
@@ -12,7 +12,7 @@ above the hand-coded ones, if the signal is what the record says it is.
 ## Frozen choices
 
 - **The network is the neural layout read as Q-values.** Inputs the style feature count, two
-  hidden layers of 64, outputs the thirteen options; the policy is the greedy open option
+  hidden layers of 64, outputs the fifteen options; the policy is the greedy open option
   through `pickOpen` from `../../src/golem/neural-net.ts`. Not a policy network with a policy
   gradient: the matchup set's neural entry already says a second optimiser over the same
   per-bout signal changes nothing.
@@ -54,7 +54,7 @@ above the hand-coded ones, if the signal is what the record says it is.
    differences with zero gradient off the taken row; the targets on three hand-built
    transitions; the refusals; one real round on two workers with 3 s bouts on two builds, then
    the module text, its refusal check, the mind loading and the picker offering it.
-5. The session's budget, at most four hours of wall: Session 07's corpus (about 340,000
+5. The session's budget, at most four hours of wall: Session 08's corpus (about 340,000
    decisions) fitted in about 25 minutes; three rounds of 2,048 random-pair bouts and 512
    self-play bouts each, about eight minutes of harness and thirty of fitting a round; the
    confirmation, four contenders on two pools at 1,536 bouts, about 37 minutes.
@@ -83,4 +83,4 @@ git diff --check -- .
 
 The residual risk is bias rather than noise: extrapolation to states the corpus never visited.
 The explore rounds exist to close it, and the decisions-moved column says whether the iteration
-converged. Session 10 spends the overnight on more rounds.
+converged. Session 11 spends the overnight on more rounds.

@@ -1,6 +1,6 @@
-# Session 04 -- `golem-skirmisher`
+# Session 05 -- `golem-skirmisher`
 
-**Status (2026-09-06): planned. Needs 03.**
+**Status (2026-09-06): planned. Needs 04.**
 
 ## Outcome
 
@@ -9,7 +9,7 @@ goes out again: the hit-and-run direction.
 
 ## Frozen choices
 
-- A director over Session 03's executor, in src/golem/styles/skirmisher.ts, registered as the
+- A director over Session 04's executor, in src/golem/styles/skirmisher.ts, registered as the
   others. Its rules, in terms of the reading:
   - stand-off 1.12 of their reach, 0.2 m outside a mirror opponent's point;
   - between exchanges, `circle` while their phase is idle and `hold` during their chamber;
