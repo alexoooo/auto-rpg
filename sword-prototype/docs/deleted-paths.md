@@ -175,6 +175,15 @@ them stale while leaving the argument unchanged.
 - `docs/plans/matchup-07-tuning.md`
 - `docs/plans/matchup-08-neural.md`
 - `docs/plans/matchup-09-close.md`
+- `docs/plans/style-03-executor-and-form.md`
+- `docs/plans/style-04-skirmisher.md`
+- `docs/plans/style-05-guardian.md`
+- `docs/plans/style-06-brawler.md`
+- `docs/plans/style-07-league-and-decision-log.md`
+- `docs/plans/style-08-selector-and-tactician.md`
+- `docs/plans/style-09-learner.md`
+- `docs/plans/style-10-overnight.md`
+- `docs/plans/style-11-close.md`
 - `public/assets/kaykit-knight.glb`
 - `public/assets/kaykit-knight.profile.json`
 - `scripts/arbalest-warrior-qualifier.mjs`
