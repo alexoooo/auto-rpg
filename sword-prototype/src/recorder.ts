@@ -93,7 +93,12 @@ export class BoutRecorder {
       contactId,
     };
     recordCombatEvent(this.records[striker], { ...factual, blocked: false });
-    if (event.blocked) {
+    // Two ways to be blocked, one booking. `blocked` is a contact that found a guard and did
+    // nothing -- a Warrior's shield, and since 2026-09-06 a golem's plate. `guarded` is a
+    // contact that found something the other body was *holding*: it wounds what it hit and is
+    // still a parry, and the defender is credited for it exactly the same way, on the same
+    // de-duplication. The striker's own row above books the contact and its damage either way.
+    if (event.blocked || event.guarded) {
       recordCombatEvent(this.records[opposite(striker)], { ...factual, damage: 0, blocked: true, defending: true });
     }
   }

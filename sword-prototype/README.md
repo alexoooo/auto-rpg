@@ -262,8 +262,10 @@ asked to jump on the frame it changed hands.
 
 A golem has no hands, and that is the point of it. After *One Must Fall*: **weapons are body
 parts.** There is no held item and no grip anywhere on it — a sword is a blade at the end of
-an arm and a shield is a plate at the end of an arm, and the plate is no more special than
-the blade. Every visual glitch the warriors never lost is an artefact of a grip: fingers
+an arm and a shield is a plate at the end of an arm. The plate is the one piece that is not
+like the others: it blocks what it meets, nothing ever wounds it, and it is no part of the
+vitality bar, which is what an indestructible damage sink means and is the owner's call of
+2026-09-06. Every visual glitch the warriors never lost is an artefact of a grip: fingers
 clipping through a shield, a handle that was not visibly held, a weld whose frame had to
 agree with a hand's. A golem has nothing to grip with, so it has none of them. Cut an arm off
 and what falls on the floor is a real object.

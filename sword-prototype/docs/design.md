@@ -345,6 +345,55 @@ effectively invincible in ordinary play.
 The v1-to-v2 migration of the saved construct library, and the divide-by-20 that carried it, went
 with the Forge on 2026-09-04. The unit above is what survived it.
 
+### One claim per part per stroke, and the two ways to be blocked
+
+A contact is billed once per part per `CONFIG.combat.hitCooldown`, 0.09 s, which is a rate rather
+than an event: a blade that sweeps through a torso and stays against it books a wound eleven times
+a second for as long as the two bodies are touching. On a Warrior that is rare, because an arm
+that has swung carries the blade away. On a golem it was the normal case, and Session 00 of the
+style set measured it -- **6.6 to 7.2 blows for one pass of one weapon** -- while the owner was
+watching the same fights and calling them a flail. The scoring system was paying for the flail.
+
+So a golem striker **claims a part for the length of a stroke**. `CONFIG.combat.strokeClaimSeconds`
+is 0.20 s -- longer than the burst a 0.15 s commit produces, shorter than the 0.30 s recover, and
+deliberately *inside* the 0.25 s gap at which the tournament's stroke instrument opens a new
+stroke, because a weapon held against a part books a blow every window exactly and a window equal
+to that gap would file each of a drag's blows as a stroke of its own. `Striking.strokeClaim` is an
+optional flag, and `Combat.onContact` drops a contact from a weapon carrying it when that weapon
+billed *this limb* inside the window, keyed by effector and limb key beside the existing per-limb
+cooldown. It is checked after the cooldown rather than before, so a
+contact the cooldown was going to drop never spends a claim. `RigidStrike` sets the flag for every
+golem terminal there is or will be; the Warrior's weapons do not implement the field, which is why
+every pinned Warrior cell in `tests/scoring.test.mjs` is byte-identical across the change.
+
+The claim is **per part**, not per stroke, and that is the half that is easy to get wrong. A rule
+that let one pass bill one part would have replaced a rake with a poke; a sword swept across a
+body should reach an arm and then a chest. In the arena fixture in `tests/golem-arena.test.mjs` a
+stroke bills 2.29 parts, and the tightest interval between two blows on one part by one weapon is
+exactly the window.
+
+**A plate is a shield.** The owner, 2026-09-06: "the shield is an indestructible damage sink". It
+is not a large health number -- `Golem.limbFor` refuses a shield's body outright, so
+`Combat.onContact` finds no limb to wound and takes the parry path a Warrior's shield has always
+taken, and `Golem.parriedBy` answers `{ kind: "shield" }` so the contact is filed as a
+`block:shield` report with zero damage. A plate is therefore untouched after forty blows or ten
+thousand. Its vitality weight is zero for the other half of the same sentence: a part no blow can
+reach that still carried 0.8 of a 3.6-point bar would have made a shielded golem 22 % unkillable,
+which is a different thing from a damage sink. It keeps its mass, because the mass is what makes
+it a wall.
+
+**A held weapon is the other kind of block, and it is still wounded.** `Limb.guarding` is true for
+every part of a module in a hand slot, set at assembly; `Combat` puts `guarded` on the report
+event, and `src/recorder.ts` credits the defender with a block on the same de-duplication a
+Warrior's shield gets, while the striker's own row books the contact and its damage. A blade that
+meets a blade is a parry that costs the blade, which is what a weapon's health row is for.
+
+Between them the two rules give the `blocks` column an identity rather than a threshold: every
+block either body books is either a plate stopping a blow or a blow that found something the other
+body was holding, and there is no third source. It also gives the column a value at all -- it read
+zero on all 4,096 sides of the Session 00 baseline, because before this nothing a golem had could
+block. The measured cost is longer bouts, and `docs/measurements.md` has the table.
+
 ## Setup is a screen; pause is a mode
 
 `Space` paused a fight and then, from the state pausing had put you in, did something else

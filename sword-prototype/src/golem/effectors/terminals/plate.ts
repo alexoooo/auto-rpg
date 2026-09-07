@@ -183,6 +183,9 @@ export const plateTerminal = defineTerminal({
         health: P.health,
         vitalityWeight: P.vitalityWeight,
         fatal: false,
+        // The one shield in the game. See `GolemPart.shield` for what that buys and costs, and
+        // `TERMINAL_PLATE.vitalityWeight` for why the row below it reads zero.
+        shield: true,
       }),
     ]);
 

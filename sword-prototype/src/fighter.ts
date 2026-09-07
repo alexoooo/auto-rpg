@@ -82,6 +82,16 @@ export interface Limb {
   readonly maxHealth: number;
   /** Per-body vitality metadata. Humanoids omit it and use CONFIG's table. */
   readonly vitalityWeight?: number;
+  /**
+   * Whether this piece is one the body holds in a hand rather than one it is made of.
+   *
+   * A blade that meets a blade is a parry, and it is a parry that costs the blade, which is what
+   * a weapon's health row is for. So a blow here is booked as a block *and* resolved as a wound;
+   * `Combat` puts `guarded` on the report and `src/recorder.ts` credits the defender. Absent
+   * means the piece is body, which is what every Warrior limb is: a Warrior's shield is a held
+   * object rather than a limb and answers through `parriedBy` instead.
+   */
+  readonly guarding?: boolean;
   readonly fatal?: boolean;
   severed: boolean;
   /** Simulation time of the last billed hit, for the per-part cooldown. */

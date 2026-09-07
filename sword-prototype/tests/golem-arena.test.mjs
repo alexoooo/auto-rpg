@@ -289,17 +289,31 @@ test("the_registrys_golem_dimensions_agree_with_an_assembled_default_golems_own_
  * unhurt. And because a module cannot know what it is bolted to, the declared points are scaled at
  * assembly so the whole body sums to `GOLEM_ASSEMBLY.vitalityTotal`; the argument for that number
  * is beside it in `src/golem/config.ts`.
+ *
+ * **A shield is the one part that must weigh nothing**, and it is asked for here through the same
+ * door the narrowphase uses rather than by reading a key: a part `parriedBy` answers for is a
+ * part no wound can land on, and one that carried a share of the bar would be a share of the bar
+ * that nothing could ever move. The owner asked for "an indestructible damage sink"; a golem 22 %
+ * of which cannot be killed is a different thing, and this is the assertion that keeps them apart.
  */
 test("an_assembled_golems_weights_are_its_own_and_a_wholly_ruined_body_reaches_zero", async (t) => {
   const stand = await standAGolem(t);
   const limbs = stand.golem.limbs;
   assert.ok(limbs.length > 0);
   let sum = 0;
+  let shields = 0;
   for (const limb of limbs) {
     assert.equal(typeof limb.vitalityWeight, "number", `${limb.key} declares no vitality weight`);
+    if (stand.golem.parriedBy(limb.part.body) !== null) {
+      shields += 1;
+      assert.equal(limb.vitalityWeight, 0, `${limb.key} stops blows and still carries bar`);
+      continue;
+    }
     assert.ok(limb.vitalityWeight > 0, `${limb.key} weighs nothing`);
     sum += limb.vitalityWeight;
   }
+  assert.equal(shields, 1,
+    `the default golem's plate is its one shield, and ${shields} parts answered to \`parriedBy\``);
   assert.ok(Math.abs(sum - GOLEM_ASSEMBLY.vitalityTotal) < 1e-9,
     `weights sum to ${sum} rather than ${GOLEM_ASSEMBLY.vitalityTotal}`);
   assert.equal(vitality(limbs), 1);
@@ -506,6 +520,34 @@ test("a_severed_effector_becomes_debris_and_the_golem_fights_on_with_the_other_o
 });
 
 /**
+ * A plate that has been cut off stops blocking, which is the one line a shield needed of its own.
+ *
+ * A shield is refused by `limbFor`, so a contact with one never reaches the line in
+ * `Combat.onContact` that drops a blow on a severed part -- and a severed arm re-layers onto
+ * `DEBRIS`, which blades still collide with. Without this the golem would go on parrying with an
+ * arm somebody had cut off and left on the floor. Asserted at the seam rather than through a
+ * bout, because what is being checked is one predicate with a before and an after.
+ */
+test("a_severed_plate_is_debris_and_stops_answering_for_the_golem", async (t) => {
+  const stand = await standAGolem(t);
+  stand.run(1.0);
+  const arm = moduleLimbs(stand.golem, "secondary");
+  const plate = arm.find((limb) => stand.golem.parriedBy(limb.part.body) !== null);
+  assert.ok(plate !== undefined, `the secondary arm carries no shield: ${arm.map((l) => l.key).join(", ")}`);
+  assert.deepEqual(stand.golem.parriedBy(plate.part.body), { kind: "shield" });
+  assert.equal(stand.golem.limbFor(plate.part.body), undefined, "a shield is addressable as a limb");
+
+  stand.golem.sever(arm[arm.length - 1], new Vector3(-1, 0.2, 0));
+  assert.equal(plate.severed, true, "the plate stayed on an arm that came off");
+  assert.equal(stand.golem.parriedBy(plate.part.body), null,
+    "a plate lying on the floor still parried for the body it fell off");
+  // And it is still not a limb, so the contact is dropped rather than resolved as a wound: both
+  // doors have to be shut or a blade would start scoring on debris.
+  assert.equal(stand.golem.limbFor(plate.part.body), undefined);
+  assert.equal(stand.golem.alive, true, "an arm off is a golem with a problem, not a dead golem");
+});
+
+/**
  * A decapitated golem is dead, and the bout's own rule is what says so.
  *
  * The head module declares its head part fatal and the locomotion module declares its pelvis
@@ -573,6 +615,138 @@ test("a_golem_and_a_warrior_duelist_reach_a_verdict_from_either_corner", async (
     const duelist = golemLeft ? result.right : result.left;
     assert.ok(duelist.hits > 0,
       `the duelist never reached the golem from the ${golemLeft ? "right" : "left"} corner`);
+  }
+});
+
+/**
+ * Session 01 of the style set's two contact rules, read off one real golem-versus-golem bout.
+ *
+ * **The rake is what this is against.** Before the rule, a blade that swept through a torso was
+ * billed once every `hitCooldown` -- 0.09 s -- for as long as the two bodies stayed in contact,
+ * so one pass of one weapon scored 6.6 to 7.2 times and the owner's "flail around" was, in the
+ * numbers, a scoring system that paid for it (Session 00's baseline, in `docs/measurements.md`).
+ * A golem striker now claims a part for `strokeClaimSeconds`; the Warrior's weapons do not set the
+ * flag, which is why `scoring.test.mjs` and every pinned Warrior cell are unmoved.
+ *
+ * The half that is easy to overdo is asserted beside it: a rule that let a stroke bill *one* part
+ * would have replaced a rake with a poke, and a sword swept across a body should reach an arm and
+ * then a chest. So the claim is per part, and a stroke here still bills 2.29 of them.
+ *
+ * **A plate is a shield and nothing can wound it**, at the owner's word, 2026-09-06: "the shield
+ * is an indestructible damage sink". The mechanism is not a large health number, and this is why
+ * the hundred blows the plan asked for are not counted out one by one -- the plate is not
+ * addressable as a limb at all. `Golem.limbFor` refuses its body, so `Combat.onContact` finds
+ * nothing to wound and takes the parry path that a Warrior's shield has always taken; the 53
+ * blows this fixture happens to land on it and ten thousand more would leave the same 35 points.
+ * Its vitality weight is zero for the other half of the same sentence: a part no blow can reach
+ * that still carried a share of the bar would be a share of the bar nothing could ever move.
+ *
+ * **A held weapon is the other kind of block: it is booked as one and it is still wounded.** A
+ * blade that meets a blade is a parry that costs the blade, which is what a weapon's health row is
+ * for, and the accounting is asserted as an identity rather than a threshold -- every block either
+ * body books is either a plate stopping a blow or a blow that found something the other body was
+ * holding, with no third source and nothing counted twice.
+ */
+test("a_golem_stroke_claims_each_part_once_and_a_plate_only_ever_blocks", async () => {
+  const setup = defaultGolemSetup();
+  const events = [];
+  const snapshot = {};
+  // Read the bodies while they are still alive. `runBout` disposes both at the verdict and a
+  // golem's `dispose` empties its own limb list, so a body asked afterwards reads as no body.
+  const read = (side, golem) => {
+    snapshot[side] = {
+      shields: golem.limbs.filter((limb) => golem.parriedBy(limb.part.body) !== null)
+        .map((limb) => ({
+          key: limb.key, health: limb.health, maxHealth: limb.maxHealth,
+          weight: limb.vitalityWeight, addressable: golem.limbFor(limb.part.body) !== undefined,
+        })),
+      woundedHeld: golem.limbs
+        .filter((limb) => limb.guarding === true && limb.health < limb.maxHealth - 1e-9)
+        .map((limb) => limb.key),
+    };
+  };
+  const result = runBout({
+    left: "golem-fencer", right: "golem-duelist",
+    leftUnit: "golem", rightUnit: "golem",
+    leftGolem: setup, rightGolem: setup,
+    locomotionMode: "supported",
+    seeds: [0x57010001, 0x57010002],
+    maxSeconds: 12,
+    physics: await freshHavok(),
+    onSample: ({ left, right }) => { read("left", left); read("right", right); },
+    onEvent: (event) => events.push(event),
+  });
+
+  // A ram's lunge reports with no hand and is a control event rather than a contact; the default
+  // build has none, and this is what says so instead of assuming it.
+  const contacts = events.filter((event) => event.hand !== null);
+  assert.equal(contacts.length, events.length, "a handless contact came off a build with no ram");
+  assert.ok(contacts.length > 100, `only ${contacts.length} contacts in 12 s`);
+  const wounds = contacts.filter((event) => !event.blocked);
+  const shieldBlocks = contacts.filter((event) => event.blocked);
+  const guardedHits = contacts.filter((event) => event.guarded === true);
+
+  // --- one claim per part per stroke ---------------------------------------------------------
+  let tightest = Infinity;
+  let repeats = 0;
+  const lastAt = new Map();
+  for (const event of wounds) {
+    const claim = `${event.side}\u0000${event.effectorId}\u0000${event.report.key}`;
+    const prior = lastAt.get(claim);
+    if (prior !== undefined) { tightest = Math.min(tightest, event.report.at - prior); repeats += 1; }
+    lastAt.set(claim, event.report.at);
+  }
+  assert.ok(repeats > 20, `only ${repeats} second blows on a part, which does not exercise the rule`);
+  assert.ok(tightest >= CONFIG.combat.strokeClaimSeconds - 1e-9,
+    `one striker billed one part twice ${tightest.toFixed(4)} s apart, inside the`
+    + ` ${CONFIG.combat.strokeClaimSeconds} s claim`);
+
+  // --- and a stroke still reaches more than one part ------------------------------------------
+  const open = new Map();
+  const strokes = [];
+  for (const event of wounds) {
+    const id = `${event.side}\u0000${event.effectorId}`;
+    let stroke = open.get(id);
+    if (stroke !== undefined && event.report.at - stroke.last >= CONFIG.combat.strokeClaimSeconds) {
+      strokes.push(stroke);
+      stroke = undefined;
+    }
+    if (stroke === undefined) { stroke = { parts: new Set(), last: event.report.at }; open.set(id, stroke); }
+    stroke.parts.add(event.report.key);
+    stroke.last = event.report.at;
+  }
+  for (const stroke of open.values()) strokes.push(stroke);
+  const parts = strokes.reduce((sum, stroke) => sum + stroke.parts.size, 0) / strokes.length;
+  assert.ok(parts > 1.5,
+    `a stroke billed ${parts.toFixed(2)} parts, which is a poke rather than a cut`);
+
+  // --- the plate blocks, is never wounded, and is no part of the bar ---------------------------
+  assert.ok(shieldBlocks.length > 25, `only ${shieldBlocks.length} blows were stopped by a plate`);
+  for (const event of shieldBlocks) {
+    assert.equal(event.report.key, "block:shield",
+      `a blocked contact reported ${event.report.key} rather than the shield`);
+    assert.equal(event.report.damage, 0, "a plate charged the striker for stopping a blow");
+  }
+  for (const side of ["left", "right"]) {
+    assert.equal(snapshot[side].shields.length, 1,
+      `${side} carried ${snapshot[side].shields.length} shields rather than its one plate`);
+    const [plate] = snapshot[side].shields;
+    assert.equal(plate.health, plate.maxHealth,
+      `${plate.key} came out of the bout at ${plate.health} of ${plate.maxHealth}`);
+    assert.equal(plate.weight, 0, `${plate.key} carries a share of a bar it can never lose`);
+    assert.equal(plate.addressable, false, `${plate.key} is still addressable as a limb`);
+    assert.ok(!wounds.some((event) => event.report.key === plate.key),
+      `a wound was filed against ${plate.key}`);
+  }
+
+  // --- a held weapon is booked as a block and wounded all the same ------------------------------
+  assert.equal(result.left.blocks + result.right.blocks, shieldBlocks.length + guardedHits.length,
+    "a block was booked that was neither a plate stopping a blow nor a blow on a held part");
+  assert.ok(guardedHits.length > 50, `only ${guardedHits.length} blows found a held part`);
+  for (const side of ["left", "right"]) {
+    assert.ok(snapshot[side].woundedHeld.some((key) => key.endsWith(".blade")),
+      `${side}'s blade parried ${guardedHits.length} times between the two of them and is unmarked:`
+      + ` ${snapshot[side].woundedHeld.join(", ") || "nothing it holds is marked"}`);
   }
 });
 

@@ -36,6 +36,18 @@ export class RigidStrike implements Striking {
   readonly hand: HandName | null;
   readonly body: Part["body"];
   readonly impactMassKg: number | undefined;
+  /**
+   * Every golem striker bills a part once a stroke. Not an option, on purpose.
+   *
+   * The rule is a property of *how a golem hits* rather than of any one terminal: a blade, a
+   * mace, a fist and a plate all arrive as a rigid body dragged across another one by a chain,
+   * and the rake Session 00 measured is the same rake in all four. Setting it here rather than
+   * six times in the terminals means a seventh terminal cannot be written without it. The
+   * Warrior's `Weapon` and `FistStrike` do not implement the field and are unaffected, which
+   * is what keeps every pinned Warrior number where it was. `CONFIG.combat.strokeClaimSeconds`
+   * carries the argument for the window.
+   */
+  readonly strokeClaim = true;
   private readonly gate: {
     readonly refusal: (body: PhysicsBody) => CombatRefusalEvent["reason"] | null;
     readonly claim: (body: PhysicsBody) => boolean;

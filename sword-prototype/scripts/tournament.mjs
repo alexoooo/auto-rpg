@@ -260,6 +260,11 @@ function structural(rows, pick) {
     bouts: sides.length,
     damage: mean(sides.map((side) => side.damage)),
     contacts: mean(sides.map((side) => side.contacts)),
+    // Session 01 of the style set gave this column a value. It read zero on every golem side of
+    // both Session 00 baselines because `Golem.parriedBy` returned null; now a plate stopping a
+    // blow and a blow that finds a held part are both booked here, so it belongs on the line
+    // beside the contacts it is a fraction of rather than only in the file.
+    blocks: mean(sides.map((side) => side.blocks)),
     severs: sides.reduce((sum, side) => sum + side.severs, 0),
     winnerBar: mean(winners),
     insideInner: mean(sides.map((side) => side.insideInner)),
@@ -316,10 +321,10 @@ const maybe = (value, digits, width) => (value === undefined ? pad("--", width) 
 
 export function formatSummary(summary) {
   const lines = [];
-  const columns = "   elo  bouts  w/d/l          damage/bout  contacts  severs  winner bar  inside inner  lead changed  p50 s";
+  const columns = "   elo  bouts  w/d/l          damage/bout  contacts  blocks  severs  winner bar  inside inner  lead changed  p50 s";
   const row = (entry) =>
     `${fixed(entry.rating, 0, 6)}  ${pad(entry.bouts, 5)}  ${pad(`${entry.wins}/${entry.draws}/${entry.losses}`, 12)}  ` +
-    `${fixed(entry.damage, 1, 11)}  ${fixed(entry.contacts, 1, 8)}  ${pad(entry.severs, 6)}  ` +
+    `${fixed(entry.damage, 1, 11)}  ${fixed(entry.contacts, 1, 8)}  ${fixed(entry.blocks, 1, 6)}  ${pad(entry.severs, 6)}  ` +
     `${fixed(entry.winnerBar, 3, 10)}  ${fixed(entry.insideInner * 100, 1, 11)}%  ${fixed(entry.leadChanged * 100, 1, 11)}%  ` +
     `${fixed(entry.seconds, 1, 5)}`;
   // The second block: what one stroke was. A rating says who won and the first block says how

@@ -13444,3 +13444,271 @@ record. Under `--behaviour` the whole enumerable behaviour record rides on the r
 two-worker byte-identical rerun test still passes with all of them, which is the claim that
 matters: every column is a function of the same events and samples the bout already produced, so
 a row is still a function of its seed.
+
+## Session 01 of the style set — 2026-09-06: one claim per stroke, and a plate that blocks
+
+What the plan asked for: contact rules that stop paying for a rake, a plate that blocks instead of
+absorbing, and the Session 00 baseline taken again on the same seeds so the rule's effect is one
+table. What shipped: `CONFIG.combat.strokeClaimSeconds`, an optional `Striking.strokeClaim` that
+every golem `RigidStrike` sets and no Warrior weapon implements, `GolemPart.shield` and the two
+doors it closes in `src/golem/golem.ts`, `Limb.guarding` and `CombatReportEvent.guarded`, a
+`blocks` column on the summary's first block, three new tests in `tests/golem-arena.test.mjs`, and
+the two runs below. The raw logs are `tournaments/style01-mirror.jsonl` and
+`tournaments/style01-random.jsonl`, gitignored; the command lines are Session 00's with
+`--out` changed.
+
+### The rule, and the one number the plan got wrong
+
+A golem striker claims a part for `strokeClaimSeconds` and may not bill that part again inside the
+window; it may bill other parts freely, so a cut that crosses an arm and then a trunk is two blows
+and a cut that saws one trunk is one. The plan named 0.25 s. **It shipped at 0.20, and the reason
+is the instrument Session 00 landed.**
+
+A weapon that stays in contact now books a blow every window *exactly*. Session 00's stroke
+instrument opens a new stroke when two blows on one effector are `STROKE_GAP_SECONDS` — 0.25 —
+apart or more. At a claim of 0.25 the two are the same number, so a drag lands precisely on the
+instrument's own boundary and each of its blows is filed as a stroke of its own, decided by
+floating-point noise. Measured over two plate-handed fencers for 30 s, which is the drag case at
+its worst:
+
+| claim, s | strokes a side | blows a stroke | same-part intervals on the 0.25 s boundary |
+|---:|---:|---:|---:|
+| 0.25 | 78.5 | 2.80 | 8.6 % |
+| **0.20** | **54.0** | **4.63** | **2.4 %** |
+| 0.15 | 40.0 | 5.29 | 0.5 % |
+| 0.09 | 43.5 | 6.28 | 1.4 % |
+
+About 1 % of intervals land within 5 ms of the boundary at any window well clear of it, so 8.6 %
+is the pile-up and 2.4 % is not. The claim has to be strictly inside the gap that defines a
+stroke; 0.20 is the round number that is, and it is still longer than the 0.15 s commit and
+shorter than the 0.30 s recover.
+
+### A plate is a shield, and a shield is not a large number
+
+`GolemPart.shield` is declared by exactly one part in the game. `Golem.limbFor` refuses that
+body, so `Combat.onContact` finds nothing to wound and takes the parry path a Warrior's board has
+always taken; `Golem.parriedBy` answers `{ kind: "shield" }` and the contact is filed as a
+`block:shield` report with zero damage. There is no health arithmetic involved and nothing to
+tune: the plate is untouched after forty blows or after ten thousand.
+
+`TERMINAL_PLATE.vitalityWeight` went from 0.8 to 0. It is the load-bearing half of the change and
+it is easy to miss: `distributeVitality` scales declared weights to `GOLEM_ASSEMBLY.vitalityTotal`
+3.6, so a part that cannot be wounded and still carried 0.8 of it would have made a shielded golem
+**22 % unkillable** — a bar with a floor at 0.22 that nothing could ever move. "An indestructible
+damage sink" and "the golem is 22 % indestructible" are different sentences and only the first one
+was asked for.
+
+One rule needed writing that the plan did not name. A severed arm re-layers onto `DEBRIS`, and
+debris and blades still collide; an ordinary severed limb is dropped by the line in
+`Combat.onContact` that checks `limb.severed`, but a shield never reaches that line, because it is
+not a limb. So `parriedBy` answers null for a severed shield, and a plate lying on the floor stops
+parrying for the body it fell off. `a_severed_plate_is_debris_and_stops_answering_for_the_golem`
+is that assertion.
+
+### And a blow on a held weapon is a block that still wounds
+
+`Limb.guarding` is true for every part of a module in a hand slot; `Combat` puts `guarded` on the
+report and `src/recorder.ts` credits the defender with a block on the same de-duplication a
+Warrior's shield gets, while the striker's own row books the contact and its damage as before.
+Between the two rules the `blocks` column has an identity rather than a threshold, and it is
+asserted as one: every block either body books is a plate stopping a blow or a blow that found
+something the other body was holding, with no third source.
+
+Where a contact goes now, over one 12 s bout of the two default builds
+(`a_golem_stroke_claims_each_part_once_and_a_plate_only_ever_blocks`, 240 contacts):
+
+| where it landed | contacts |
+|:---|---:|
+| a held part — the arm, its chain, or what the hand holds | 160 |
+| stopped by a plate | 53 |
+| the trunk, the head or the legs | 27 |
+
+**Eleven per cent of everything that lands reaches a body.** That is the owner's complaint stated
+as a number from the other side: the golems are not missing, they are hitting each other's arms.
+
+### The baseline again, on the same seeds
+
+Session 00's two command lines with `--out` changed: the same twelve reference builds, the same
+40 seeded draws, the same seed 20260906 and the same 60 s cap, so every bout is the same pair on
+the same numbers and only the rules moved.
+
+| | mirrored 00 | mirrored 01 | random 00 | random 01 |
+|:---|---:|---:|---:|---:|
+| decided / at the cap | 644 / 380 | 601 / 423 | 613 / 411 | 580 / 444 |
+| bout length p10 / p50 / p90, s | 4.2 / 35.9 / 60.0 | 4.8 / 41.2 / 60.0 | 4.7 / 38.6 / 60.0 | 5.8 / 44.0 / 60.0 |
+| contacts a bout | 236.3 | **159.5** | 174.2 | **119.6** |
+| damage a contact | 0.339 | **0.476** | 0.473 | **0.587** |
+| damage a bout | 80.1 | 75.9 | 82.4 | 70.2 |
+| blows a stroke, mean | 6.64 | **3.87** | 7.24 | **4.10** |
+| blows a stroke, p10 / p50 / p90 | 1.58 / 4.63 / 13.67 | 1.40 / 3.28 / 6.78 | 1.35 / 4.00 / 15.45 | 1.23 / 2.72 / 7.85 |
+| damage a stroke | 5.92 | 4.92 | 6.24 | 4.77 |
+| caught fraction | 0.582 | 0.470 | 0.559 | 0.459 |
+| catches a bout | 20.8 | 17.7 | 15.4 | 13.7 |
+| severs a bout | 0.36 | 0.33 | 0.35 | 0.33 |
+| **blocks a bout** | **0.0** | **103.4** | **0.0** | **65.5** |
+
+Every prediction the plan made came true in the direction and about the size it named: blows a
+stroke fell about two fifths, contacts fell about a third, damage a contact rose about two fifths,
+damage a bout fell a little, and bouts ran longer. The tail is the part worth reading twice. Of
+2,048 mirrored sides, those averaging **eleven or more blows a stroke fell from 327 to 52**, and
+the p90 halved from 13.67 to 6.78:
+
+| mean blows a stroke | 1 | 2 | 3 | 4-6 | 7-10 | 11+ |
+|:---|---:|---:|---:|---:|---:|---:|
+| sides, Session 00 | 164 | 251 | 277 | 667 | 338 | 327 |
+| sides, Session 01 | 231 | 417 | 452 | 698 | 174 | 52 |
+
+Mirrored, by policy:
+
+```
+  policy                 elo  bouts  w/d/l          damage/bout  contacts  blocks  severs  winner bar  inside inner  lead changed  p50 s
+  golem-neural          1012    404   100/187/117         69.7     160.2   111.2     127       0.552          5.6%         48.5%   50.3
+  golem-champion        1002    404   119/165/120         78.6     148.4    95.1     143       0.570          7.3%         51.0%   36.9
+  golem-fencer           999    416   132/160/124         74.2     183.9   115.0     136       0.532          7.3%         50.2%   37.0
+  golem-planner          998    408   110/183/115         77.8     132.1    87.7     130       0.516          6.1%         53.4%   44.8
+  golem-duelist          989    416   140/151/125         79.5     172.2   107.8     147       0.559          6.7%         49.8%   36.8
+
+  policy                strokes  blows  dmg/stroke  v@blow  caught%  catches  commit%  clinch s  idle m  tangent m  closing m  stall s  outside s
+  golem-neural             41.8   3.43        3.87     4.8    45.1%     17.9    53.8%       2.8     6.8       27.2       10.6      0.7        4.3
+  golem-champion           35.9   3.92        5.42     5.1    49.4%     16.9    59.5%       2.4     6.0       25.8       10.2      0.5        4.6
+  golem-fencer             42.6   4.42        5.11     5.0    45.4%     17.7    57.7%       2.0     3.4       23.0        6.6      0.7        1.5
+  golem-planner            38.8   3.27        4.74     4.9    46.4%     17.2    53.9%       2.7     7.9       28.3       10.0      0.7        5.5
+  golem-duelist            41.0   4.05        5.18     5.1    48.7%     18.8    57.9%       2.4     4.1       23.2        7.0      0.7        1.9
+```
+
+Random pairs, by policy:
+
+```
+  policy                 elo  bouts  w/d/l          damage/bout  contacts  blocks  severs  winner bar  inside inner  lead changed  p50 s
+  golem-champion        1083    404    117/199/88         78.9     100.8    49.0     132       0.814          4.6%         24.5%   56.7
+  golem-duelist         1016    416   153/135/128         79.2     137.4    78.9     152       0.844          6.9%         28.6%   28.5
+  golem-fencer           974    416   131/142/143         69.2     139.0    76.8     163       0.822          5.9%         29.1%   28.7
+  golem-planner          964    408    88/209/111         53.6     102.8    56.3      93       0.807          3.7%         20.1%   60.0
+  golem-neural           963    404    91/203/110         70.1     117.2    65.8     131       0.790          4.0%         23.5%   60.0
+
+  policy                strokes  blows  dmg/stroke  v@blow  caught%  catches  commit%  clinch s  idle m  tangent m  closing m  stall s  outside s
+  golem-champion           28.3   4.07        5.08     4.9    44.6%     12.2    57.0%       2.6    10.8       32.0        8.7      0.9       14.4
+  golem-duelist            35.5   3.88        5.01     5.1    48.1%     15.0    58.1%       2.8     3.1       23.4        6.1      0.9        2.8
+  golem-fencer             34.9   4.22        4.53     5.0    47.0%     14.3    55.9%       2.4     3.4       23.4        6.7      0.5        2.7
+  golem-planner            28.5   3.45        3.89     4.5    43.4%     12.7    47.2%       1.7     9.6       31.6        8.0      0.4       11.7
+  golem-neural             31.8   4.04        4.35     4.7    46.3%     14.0    52.4%       3.0     8.8       30.6        8.8      1.0        9.5
+```
+
+Session 00's caveat still holds and is worth repeating rather than assuming: **the Elo columns of
+a 1,024-bout run are not a finding.** Each side is rated from about 410 bouts, σ on points a bout
+is around 0.035, and the fencer duly sits at 999 mirrored and 974 on random pairs on the same
+seed. The matchup set's 4,096-bout table is the one that ranks these five. What this pair of runs
+is for is the stroke columns, which are means over 65,000 to 82,000 strokes.
+
+**The one number that should go to the gate is the cap.** Bouts that ran out the 60 s limit rose
+from 380 to 423 mirrored and from 411 to 444 on random pairs — 41 % and 43 % of the pool —
+and the median mirrored bout is 41.2 s against a 60 s ceiling. The plan named this in advance as
+"the number to move if so", and it is the owner's to move, not mine.
+
+### The variant table, under the new rules
+
+`npm run measure -- --only golem --bouts 8`, seed 20260823, 280 s of wall clock: the default
+build against itself, and then against one changed slot at a time, eight side-swapped bouts a
+cell. Damage, contacts and severs are per role, default first.
+
+| cell | wins, default vs variant | damage a bout | contacts | severs | bout, s |
+|:---|:---|---:|---:|---:|---:|
+| `default vs default` | 6/8 vs 1/8, 1 drawn | 96.7 / 79.8 | 287 / 264 | 6 / 2 | 39.5 |
+| `locomotion.wheel` | 6/8 vs 2/8 | 74.4 / 68.3 | 213 / 206 | 6 / 2 | 26.1 |
+| `locomotion.multileg` | 1/8 vs 7/8 | 75.0 / 104.7 | 239 / 283 | 1 / 7 | 35.0 |
+| `torso.plated` | 5/8 vs 3/8 | 95.2 / 87.7 | 298 / 259 | 5 / 3 | 42.4 |
+| `head.ram` | 2/8 vs 6/8 | 84.1 / 97.5 | 270 / 275 | 2 / 6 | 35.4 |
+| `primary none+none` | 0/8 vs 0/8, 8 drawn | 82.7 / 31.3 | 462 / 198 | 5 / 0 | 60.0 |
+| `primary pitch+blade` | 0/8 vs 0/8, 8 drawn | 103.5 / 46.3 | 459 / 259 | 8 / 0 | 60.0 |
+| `primary reach+blade` | 2/8 vs 6/8 | 66.7 / 105.1 | 226 / 248 | 2 / 9 | 28.2 |
+| `primary wrist+plate` | 3/8 vs 0/8, 5 drawn | 107.9 / 77.9 | 644 / 515 | 3 / 0 | 58.2 |
+| `primary wrist+mace` | 0/8 vs 8/8 | 23.6 / 106.0 | 71 / 76 | 0 / 10 | 12.1 |
+| `primary wrist+whip` | 3/8 vs 4/8, 1 drawn | 113.6 / 71.6 | 409 / 224 | 4 / 8 | 45.4 |
+| `primary wrist+maul` | 0/8 vs 8/8 | 21.3 / 91.7 | 52 / 42 | 0 / 13 | 9.6 |
+| `primary wrist+fist` | 6/8 vs 1/8, 1 drawn | 150.0 / **1135.0** | 679 / 407 | 5 / 0 | 52.7 |
+
+Nothing here reverses under the rule: the mace and the maul still end a bout in ten seconds and
+take every sever, the plate variant still cannot win a single cell out of eight, and a blade
+against a plate still runs to the cap. What changed is the size of the contact columns, which is
+the rule working — `primary wrist+plate` was booking 849 contacts a bout for the default side in
+the matchup set's last run of this table and books 644 now.
+
+**One row in it is not about this session and should not be read as if it were.** The fist variant
+books 1,135 damage a bout and wins one cell of eight; it read 687 against 0/8 the last time this
+table was taken, before any of the style set. A column that says a body dealt seven times the
+damage of the build that beats it is measuring something other than what reaches a bar, and the
+`--only golem` variant table has printed that for as long as it has existed. It is written down
+here rather than chased, because Session 03 replaces how a blow is scored anyway.
+
+### What the rule did not do, and what it did to the instrument
+
+Two honest negatives, because the point of an instrument is that it not flatter the rule it is
+measuring.
+
+**The stroke count went up, not down** — 67,922 to 82,026 mirrored. A stroke is still a burst of
+contacts with no 0.25 s gap in it, and blows on one part now arrive 0.20 s apart instead of 0.09,
+so a press that used to read as one long unbroken run is now more often cut in two. The drag table
+above measures the same thing from the other side: at 0.09 s, which is the old cooldown and no
+claim at all, two plate-handed fencers throw 43.5 strokes in 30 s; at 0.20 they throw 54.0.
+**About a quarter of the stroke count is the instrument rather than the fighting**, and it lands
+entirely on the bodies that press:
+
+| class, mirrored, 00 → 01 | strokes | blows | damage a stroke | contacts a bout |
+|:---|---:|---:|---:|---:|
+| `golem-champion @ maul/long` | 4.1 → 5.0 | 3.29 → 2.55 | 20.68 → 18.41 | 13.5 → 12.4 |
+| `golem-fencer @ blade/long` | 43.7 → 55.1 | 5.92 → 3.96 | 2.23 → 1.72 | 238.8 → 212.1 |
+| `golem-fencer @ plate/mid` | 76.2 → 102.5 | 11.48 → 5.99 | 0.83 → 0.48 | 794.8 → 518.2 |
+
+The maul, which lands three blows and ends the bout in four seconds, barely moved. The plate
+press, which is nothing but a drag, moved most: it was booking **794 contacts a bout** and now
+books 518, of which most are blocks. Untouched where there is no rake and largest where the rake
+is everything: that ordering is the signature of a measurement artefact, not of a change in
+behaviour. The fix is not a fourth constant. A stroke should be the effector's own phase, chamber
+to recover, which `driveStroke` already knows, rather than a gap between the contacts it happens
+to book. Sessions 02 and 03 open that seam for their own reasons, and the recommendation carried
+forward is that `strokes` be counted off the exchange when they do. Until then the column compares
+within a session and not across this rule change, which is why the table above prints both sides.
+
+**And the plate classes did not come up off the floor.** The plan expected a body whose weapon is
+a plate to stop being the worst thing to be. On this pool it was already drawing before the rule
+— `plate/short` scored 0.46 to 0.54 points a bout in Session 00 and 0.42 to 0.54 now — and what
+changed is that it draws having done less. Damage a bout fell from 31–42 to 18–31, contacts from
+357–570 to 209–316, and the winner's bar at the end rose from 0.43–0.62 to 0.62–0.87. A plate is a
+shield in both hands of both bodies, so a plate mirror is now two golems blocking each other
+politely for sixty seconds. **That is the rule working exactly as specified and it is also a worse
+fight**, and it is the plainest case in the set for Session 03's `shove`: a body with no edge
+needs an option that spends its mass, because spending its edge is no longer a thing it has.
+
+**And a stroke is still not one blow.** Decomposed over twelve fencer-versus-fencer bouts on eight
+drawn builds at a 30 s cap, seed 20260906:
+
+| | claim 0.25 | claim 0.20 |
+|:---|---:|---:|
+| strokes | 1,145 | 791 |
+| blows a stroke | 2.86 | 4.72 |
+| of which blocks | 0.55 | 0.86 |
+| wounding blows | 2.31 | 3.86 |
+| distinct parts wounded | 1.46 | 1.71 |
+| strokes that billed some part twice | 15.8 % | 30.6 % |
+
+The 0.25 column is the boundary collision and not a stricter rule: it reads better only because
+the instrument had shattered the strokes it was counting. At the shipped 0.20 a stroke deals 3.86
+wounding blows across 1.71 distinct parts, so **a part a stroke finds is still billed about 2.3
+times**, and 30.6 % of strokes bill one of them twice. A stroke can run to five blows before a
+0.25 s gap opens in it and the claim only spaces them by 0.20. The rake is halved, not ended, and
+ending it needs either the phase-based stroke above or a claim as long as an exchange — both of
+them changes to what a stroke *is* rather than to how hard one hits, and neither belongs here.
+
+### How often a weapon dies to a parry
+
+The plan's open question, and it matters more now that a hand and what it holds are what most
+blows find. Over 32 fencer-versus-fencer bouts on twelve drawn builds at the 60 s cap, seed
+20260906: **35 severs, 26 of them on a part a hand was holding, and something a hand was holding
+came off in 23 of the 32 bouts.** Of those 26: twelve blades, five roll-rings, four whip segments,
+two wrists, and one each of forearm, upper arm and fist.
+
+So yes, and it is not rare — a golem loses what it is fighting with in seven bouts out of ten, and
+the plate on the other arm goes on blocking after it. Nothing in the five shipped minds reads
+that: `slotHealth` picks a mark by health, and no mind asks whether its own hand is still holding
+anything. That is a director's job rather than an executor's, and `StyleReading` is already
+specified to carry `spareCanCover`, so the finding is recorded here and spent in Session 03.

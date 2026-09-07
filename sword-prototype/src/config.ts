@@ -814,6 +814,36 @@ export const CONFIG = {
     severQuality: 0.4,
     /** Impulse delivered to a limb the moment it comes free. */
     severKick: 3.4,
+    /**
+     * How long one striker holds its claim on one part, seconds.
+     *
+     * `hitCooldown` below says how often a *part* may be billed by anything; this says how often
+     * it may be billed **by the same striker**, and the two are different questions. A blade
+     * dragged across a trunk books a contact every `hitCooldown` for as long as it stays in
+     * contact, and Session 00 of the style set measured what that comes to: a stroke lands 6.6 to
+     * 7.2 times, and a tenth of all sides average more than fourteen. That is a rake being paid
+     * for as though it were fourteen cuts.
+     *
+     * A fifth of a second is longer than the burst a 0.15 s commit produces on the 0.09 s
+     * cooldown and shorter than the 0.30 s recover that follows it. Within it a striker may still
+     * bill *other* parts, so a cut that crosses an arm and then a trunk is two blows and a cut
+     * that saws one trunk is one.
+     *
+     * **It is 0.20 rather than the 0.25 the plan named, and the reason is the instrument.** A
+     * weapon that stays in contact books a blow every one of these windows exactly, and the
+     * tournament's stroke instrument opens a new stroke at a gap of `STROKE_GAP_SECONDS`, 0.25.
+     * At 0.25 the two are the same number: a drag lands precisely on the boundary and its every
+     * blow is filed as a stroke of its own, decided by float noise. Measured over two
+     * plate-handed fencers, 8.6 % of all same-part intervals sat within 5 ms of the boundary and
+     * the side threw 78.5 strokes in 30 s; at 0.20 that is 2.4 % and 54.0, against about 1 % of
+     * intervals landing there by chance at any window well clear of it. So the claim has to be
+     * strictly inside the gap that defines a stroke, and 0.20 is the round number that is.
+     *
+     * **Only a striker that asks for it is held to it**, through `Striking.strokeClaim`. Every
+     * golem striker is; the Warrior's weapons do not implement the field, so every pinned Warrior
+     * number in `tests/scoring.test.mjs` and the measure's Warrior cells are untouched by it.
+     */
+    strokeClaimSeconds: 0.20,
     /** Seconds of cooldown per part, so one contact is not billed 60 times. */
     hitCooldown: 0.09,
 

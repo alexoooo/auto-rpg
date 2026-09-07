@@ -166,6 +166,7 @@ test("the_summary_carries_a_policy_matrix_and_the_structural_columns_beside_ever
   assert.equal(a.bouts, 6);
   assert.equal(a.damage, 50);
   assert.equal(a.contacts, 100);
+  assert.equal(a.blocks, 0, "blocks is a mean beside the contacts it is a fraction of");
   assert.equal(a.winnerBar, 0.6);
   assert.equal(a.leadChanged, 1);
   assert.equal(a.seconds, 30);

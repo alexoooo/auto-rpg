@@ -1263,14 +1263,24 @@ export const TERMINAL_PLATE = {
    */
   mass: 16.6,
   /**
-   * Health and vitality weight.
+   * Health, and a vitality weight of zero.
    *
-   * Above the blade's 60 and below the upper arm's 120: a plate is the piece you want to lose
-   * before an arm and after a sword. Placeholders until Session 08 scores a golem, declared
-   * because the contract requires them. 2026-09-04.
+   * Health is above the blade's 60 and below the upper arm's 120 -- a plate would be the piece
+   * you want to lose before an arm and after a sword -- and **since 2026-09-06 nothing ever
+   * subtracts from it**. The plate is a shield: `GolemPart.shield` keeps it out of the body-to-
+   * limb map, so no wound can land on it, and this row survives only because the part contract
+   * requires a number and because a plate that one day stopped being a shield would want it.
+   *
+   * The weight is zero for the same reason and it is the load-bearing half. `distributeVitality`
+   * scales the declared weights to `GOLEM_ASSEMBLY.vitalityTotal`, so a part that cannot be
+   * wounded and still carried 0.8 of 3.6 would be 22 % of a bar that can never move -- a golem
+   * with a shield would be a golem that cannot be killed past 78 %. At zero its share goes to
+   * the parts that can be hurt, which is what the owner asked for read all the way through:
+   * "the shield is an indestructible damage sink", not "the golem is 22 % indestructible".
+   * 2026-09-04, the weight to zero 2026-09-06.
    */
   health: 140,
-  vitalityWeight: 0.8,
+  vitalityWeight: 0,
   /** `CHAIN_REACH`'s pair, unchanged: a slab of stone is not a loose pendulum. 2026-09-04. */
   linearDamping: 0.7,
   angularDamping: 3,

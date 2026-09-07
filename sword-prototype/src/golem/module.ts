@@ -87,6 +87,22 @@ export interface GolemPart {
    * defect `AGENTS.md` records, in its cheapest possible form.
    */
   readonly armour?: number;
+  /**
+   * Whether this piece is a shield: it stops blows, it is never wounded, and it never wears.
+   *
+   * Optional, and absent means an ordinary part. Exactly one piece in the game sets it -- the
+   * plate terminal -- and the ram head's brow plate deliberately does not, because that one is a
+   * weapon a body drives and takes the wounds of driving it. The owner, 2026-09-06: "I don't
+   * want the golem to take damage when their shield is hit, and I want it to have unlimited
+   * life -- i.e. the shield is an indestructible damage sink."
+   *
+   * A part that declares it is kept out of `Golem`'s body-to-limb map, so no rule downstream
+   * can wound it, and `Golem.parriedBy` names it instead, which puts it on the block path a
+   * Warrior's shield has always used. It keeps its health row, which is what the shape requires
+   * and is never subtracted from, and it keeps its mass, because the physics is what makes it a
+   * wall: a slab with no mass is flung by the blade it was meant to stop.
+   */
+  readonly shield?: boolean;
 }
 
 /** How much of a blow this piece takes off, with the absent case answered once. */

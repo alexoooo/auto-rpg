@@ -970,10 +970,19 @@ test("the_stand_off_is_a_floor_under_hold_that_only_a_long_arm_raises", async (t
  * its own units before there was a weapon to measure it against, so 2620 points of it stood
  * against the Warrior's sword `damageScale`.
  *
- * The bout here is deliberately short -- a fifth of the cap -- because what is being asserted is a
- * *rate* rather than an outcome, and a test that ran a golem bout to its end would cost more than
- * the rest of this file put together. A bar that has come down this far in 14 s is a bout that
- * ends; the spacing bound beside it is the other half, and is what the owner actually saw.
+ * The bout here is deliberately short of the cap because what is being asserted is a *rate*
+ * rather than an outcome, and a test that ran a golem bout to its end would cost more than the
+ * rest of this file put together. A bar that has come down this far is a bout that ends; the
+ * spacing bound beside it is the other half, and is what the owner actually saw.
+ *
+ * **It is 25 s rather than the original 14 s because Session 01 of the style set slowed the
+ * fight down on purpose.** One claim per part per stroke stopped a rake being billed six or seven
+ * times, and the cost named in that plan is longer bouts: this exact cell now runs to 28.4 s
+ * before one of the two is exhausted, which is still well inside the 60 s cap and is the
+ * measurement that says the cap does not yet have to move. Running the fixture to 25 s is what
+ * puts the four cells below back where they were -- at 14 s under the new rule the shipped pair
+ * reads 0.688 and the mind blind to the arm in front of it reads 0.735, which is a difference no
+ * threshold can be placed inside.
  */
 test("two_golems_fight_at_arms_length_and_the_bout_goes_somewhere", async () => {
   const setup = defaultGolemSetup();
@@ -985,7 +994,7 @@ test("two_golems_fight_at_arms_length_and_the_bout_goes_somewhere", async () => 
     leftGolem: setup, rightGolem: setup,
     locomotionMode: "supported",
     seeds: [SEED, SEED + 17],
-    maxSeconds: 14,
+    maxSeconds: 25,
     physics: await freshHavok(),
     onSample: ({ left, right }) => {
       const a = left.view.self.ground;
@@ -1001,17 +1010,17 @@ test("two_golems_fight_at_arms_length_and_the_bout_goes_somewhere", async () => 
 
   // **Both bounds were placed by watching this bout go red with each half of the fix taken back
   // out**, which is the only way to know a threshold is a threshold and not a decoration. At this
-  // seed, over the same 14 s:
+  // seed, over the same 25 s, re-taken 2026-09-06 under the one-claim rule:
   //
   //     GOLEM_TACTICS.standOffFraction / GOLEM_ASSEMBLY.healthScale   median gap   weaker bar
-  //      1.00 / 0.25   as shipped                                       1.729 m       0.168
-  //      0    / 0.25   the mind blind to the arm in front of it         1.367 m       0.691
-  //      1.00 / 1.0    a stone body against a person's weapon           1.669 m       0.909
-  //      0    / 1.0    the pair the owner watched                       1.367 m       0.923
+  //      1.00 / 0.25   as shipped                                       1.675 m       0.045
+  //      0    / 0.25   the mind blind to the arm in front of it         1.302 m       0.544
+  //      1.00 / 1.0    a stone body against a person's weapon           1.665 m       0.870
+  //      0    / 1.0    the pair the owner watched                       1.302 m       0.886
   //
-  // So the spacing bound sits between 1.367 and 1.729 and the bar bound between 0.168 and 0.691,
-  // and neither half of the fix can be lost without one of them saying so. Provisional as figures
-  // and to be re-taken after the owner's gate; the separations are what is not provisional.
+  // So the spacing bound sits between 1.302 and 1.675 and the bar bound between 0.045 and 0.544,
+  // and neither half of the fix can be lost without one of them saying so. The figures moved with
+  // the contact rule and will move again; the separations are what is not provisional.
   assert.ok(median > 1.5,
     `two golems held ${median.toFixed(3)} m apart on the floor, which is chest to chest`);
   assert.ok(loser < 0.45,

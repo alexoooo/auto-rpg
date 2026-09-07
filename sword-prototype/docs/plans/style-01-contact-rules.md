@@ -1,6 +1,8 @@
 # Session 01 -- contact rules, so a rake is not a cut
 
-**Status (2026-09-06): planned. Needs 00.**
+**Status (2026-09-06): implemented; the human gate is open.** The rules and the two re-taken
+baselines are in the Session 01 entry of `../measurements.md`; the rule itself is in
+`../design.md` under the scoring section.
 
 ## Outcome
 
@@ -14,7 +16,12 @@ blow is *worth* is Session 03's question, not this one's.
 
 - **One claim per part per stroke, on golem strikers only.** `CONFIG.combat` in
   `../../src/config.ts` gains `strokeClaimSeconds`, 0.25, the window Session 12b of the golem
-  set used to say what one pass of one blade is. `Striking` in `../../src/combat.ts` gains an
+  set used to say what one pass of one blade is. *Corrected on implementation, 2026-09-06: the
+  window shipped at **0.20**, because 0.25 is also `STROKE_GAP_SECONDS`, the gap at which Session
+  00's instrument opens a new stroke. A weapon held against a part books a blow every window
+  exactly, so at 0.25 a drag lands on the instrument's own boundary and each of its blows is
+  filed as a stroke of its own. The measurement and the argument are in `../measurements.md` and
+  beside the constant.* `Striking` in `../../src/combat.ts` gains an
   optional `strokeClaim` flag; in `onContact`, a weapon carrying it is dropped when it billed
   *this limb* inside the window, kept in a per-limb map by `effectorId` beside the existing
   per-limb `hitCooldown`. Every golem `RigidStrike` terminal under
@@ -66,8 +73,10 @@ blow is *worth* is Session 03's question, not this one's.
 ## Human gate
 
 The owner watches two random matchups and says whether a blow that lands reads as one blow,
-whether a blade stopped by a plate reads as a block, and whether bouts now run too long. Verdict
-into this file's status line.
+whether a blade stopped by a plate reads as a block, and whether bouts now run too long. The
+number for that last one: bouts that ran out the 60 s cap went from 380 to 423 of 1,024 mirrored
+and from 411 to 444 on random pairs, and the median mirrored bout is 41.2 s. Verdict into this
+file's status line.
 
 ## Verification
 
@@ -84,6 +93,17 @@ git diff --check -- .
 
 Whether a held weapon should also stop wounding when it parries is not decided here; the entry
 reports how often a blade dies to a parry, and if that number is the reason a mind never parries
-with its blade, the weapon's health row is the place and the owner's call. Whether the plate's
-mass should be lighter than stone so a parry can arrive in time is Session 02's arrival number
-and Session 06's question; the plate blocks whatever it weighs.
+with its blade, the weapon's health row is the place and the owner's call. *Measured on
+implementation, 2026-09-06: over 32 fencer-versus-fencer bouts, 26 of 35 severs were on a part a
+hand was holding and something held came off in 23 of the 32 bouts, twelve of them blades. So a
+blade does die to a parry, in most bouts, and the question is live rather than theoretical.*
+
+Whether the plate's mass should be lighter than stone so a parry can arrive in time is Session
+02's arrival number and Session 06's question; the plate blocks whatever it weighs.
+
+*Two things the entry found that this session does not fix. The `strokes` column inflated by
+about a quarter on bodies that press, because a claim window of 0.20 s inside a 0.25 s stroke gap
+cuts a long drag in two; the fix is to count a stroke off the effector's own phase, which
+Sessions 02 and 03 open the seam for. And the plate classes did not rise: a plate mirror now
+draws having done less damage than before, which is the rule working and a worse fight, and the
+lever for it is Session 03's `shove` rather than anything here.*

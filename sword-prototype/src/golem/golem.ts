@@ -111,6 +111,15 @@ import type { BuiltTorso, TorsoCommand } from "./torso/torso.ts";
  */
 
 const UP = Object.freeze(new Vector3(0, 1, 0));
+
+/**
+ * What a golem's plate is, in `Combat`'s vocabulary for things that stop a blow.
+ *
+ * `shield` rather than a kind of its own: `PARRY_LABEL` in `src/combat.ts` is a total record
+ * over `WeaponKind`, the readout already reads "Shield", and a plate is what the word means. One
+ * frozen object rather than a literal per call, because `parriedBy` is asked on every contact.
+ */
+const GOLEM_SHIELD: { readonly kind: WeaponKind } = Object.freeze({ kind: "shield" });
 const clamp01 = (value: number): number => (value < 0 ? 0 : value > 1 ? 1 : value);
 
 /** The ceiling a published axis declares, or zero when the module has no such axis. */
@@ -253,6 +262,15 @@ export class Golem implements Combatant {
   /** Each distinct effector module once, for commanding, stepping and disposal. */
   private readonly effectorModules: MountedEffector[] = [];
   private readonly byBody = new Map<PhysicsBody, Limb>();
+  /**
+   * The bodies that are shields: they stop blows and are never wounded.
+   *
+   * A set beside the map rather than a flag read off the limb, because the two questions it
+   * answers are asked from opposite ends -- `limbFor` has to *not* find them, and `parriedBy`
+   * has to find them -- and one membership test answers both. `GolemPart.shield` says what
+   * declares one and why.
+   */
+  private readonly shields = new Set<PhysicsBody>();
   private readonly owned = new Set<AbstractMesh>();
   private readonly moduleOfLimb = new Map<Limb, AssembledModule>();
   private readonly occlusion: Vector3[] = [];
@@ -509,10 +527,14 @@ export class Golem implements Combatant {
         lastHitAt: -999,
         vitalityWeight: part.vitalityWeight,
         fatal: part.fatal,
+        // A piece in a hand slot is something the golem is holding, and a blow on it is a parry
+        // that costs the thing parried with. `Limb.guarding` says what `Combat` does with it.
+        guarding: slot === "primary" || slot === "secondary",
       };
       this.limbs.push(limb);
       record.limbs.push(limb);
       this.byBody.set(part.part.body, limb);
+      if (part.shield) this.shields.add(part.part.body);
       this.moduleOfLimb.set(limb, record);
       for (const mesh of part.shell) {
         mesh.isPickable = true;
@@ -835,25 +857,53 @@ export class Golem implements Combatant {
   }
 
   owns(mesh: AbstractMesh): boolean { return this.owned.has(mesh); }
-  limbFor(body: PhysicsBody): Limb | undefined { return this.byBody.get(body); }
+  /**
+   * The limb a body is, unless that body is a shield, which is no limb at all.
+   *
+   * The map still holds the plate, because it is still a part with a health row, a module and a
+   * place in the published record; what it is not is somewhere a wound can land. Answering
+   * `undefined` here is what sends the contact down `Combat`'s parry path, and `parriedBy`
+   * below is what it finds when it gets there. `Golem` has no `damageTargetFor`, so this is
+   * the only door.
+   */
+  limbFor(body: PhysicsBody): Limb | undefined {
+    return this.shields.has(body) ? undefined : this.byBody.get(body);
+  }
   occlusionPoints(): readonly Vector3[] { return this.occlusion; }
 
   /**
-   * A golem has no guard that is not also a part of it, so nothing here is a parry.
+   * A golem's plate is a shield and stops what it meets; nothing else here is a parry.
    *
-   * A held shield is a separate object a fighter interposes and `Combat` files as a block; a
-   * golem's plate is a **module**, with health, a vitality weight and a socket joint that can be
-   * broken. So a blade stopped by a plate is a wound to the plate, which is the "weapons are body
-   * parts" rule taken to its conclusion and is why a plate wears out. Null rather than a body,
-   * exactly as the centipede answers, because there is no third thing to name.
+   * **This used to return null**, and the reasoning was that a golem's plate is a module with
+   * health and a socket joint, so a blade stopped by one is a wound to the plate -- "weapons are
+   * body parts" taken to its conclusion. The consequence was stated in the code and measured
+   * twice: a golem-versus-golem bout booked **0 blocks** where a Warrior duel books 46 %, and
+   * Session 00 of the style set found it still true across 4,096 sides of two baselines. The
+   * owner looked at that on 2026-09-06 and changed the rule rather than the readout: "I do want
+   * the shield to actually block ... I don't want the golem to take damage when their shield is
+   * hit, and I want it to have unlimited life -- i.e. the shield is an indestructible damage
+   * sink."
    *
-   * The consequence is worth stating in the numbers a profile will show, because it reads as a
-   * broken feature: **a golem-versus-golem bout books 0 blocks in 4081 contacts**, where a Warrior
-   * duel books 46 %. Nothing is missing. The blows a Warrior would file as parries a golem files as
-   * hits on the plate module, and the plate takes 19 % of everything that lands on a golem -- which
-   * is a guard doing a guard's job, recorded on the part rather than in the log.
+   * So the plate now answers here, which puts it on the same path a Warrior's board has always
+   * used: `Combat.onContact` asks this before it looks for a limb, finds no limb because
+   * `limbFor` refuses a shield, and books the contact through `parried` as a `block:shield`
+   * report with zero damage. Nothing wounds it, `TERMINAL_PLATE.vitalityWeight` is zero so it
+   * is no part of the bar, and it keeps its mass, because a slab that stops a blade has to be
+   * heavy enough to stop one.
+   *
+   * The ram head's brow plate is not a shield and is not here: that one is a weapon a body
+   * drives, and a weapon that could not be damaged would be a different decision.
+   *
+   * **A severed shield stops nothing.** An arm that has come off re-layers onto `DEBRIS`, and
+   * debris and blades still collide, so a plate lying on the floor goes on being asked about.
+   * When it was an ordinary limb the answer was written in `Combat.onContact`, which drops a
+   * contact on a severed part; a shield never reaches that line, so the rule has to be here or a
+   * golem would go on parrying with an arm somebody cut off.
    */
-  parriedBy(): { readonly kind: WeaponKind } | null { return null; }
+  parriedBy(body: PhysicsBody): { readonly kind: WeaponKind } | null {
+    if (!this.shields.has(body)) return null;
+    return this.byBody.get(body)?.severed === false ? GOLEM_SHIELD : null;
+  }
 
   /** A golem looses nothing; hand the cursor back rather than truncating the other body's. */
   publishProjectiles(_into: ProjectileView[], at: number): number { return at; }

@@ -89,6 +89,14 @@ export interface Striking {
   allowsSourceContact?(point: Vector3): boolean;
   /** Stateful effectors may accept at most one contact per target and action instance. */
   claimContact?(body: PhysicsBody): boolean;
+  /**
+   * Whether this striker bills a given part at most once per `strokeClaimSeconds`.
+   *
+   * Optional, and absent means the historical rule: every contact past `hitCooldown` is its own
+   * blow. See that constant in `config.ts` for what the difference is worth and why the Warrior
+   * is deliberately left on the old side of it.
+   */
+  readonly strokeClaim?: boolean;
   /** Mounted effectors name owner and inactive contacts instead of disappearing them. */
   refusalForContact?(body: PhysicsBody): CombatRefusalEvent["reason"] | null;
   /**
@@ -200,6 +208,15 @@ export interface CombatReportEvent {
   readonly effectorId: string;
   readonly hand: HandName | null;
   readonly blocked: boolean;
+  /**
+   * Whether the thing struck was a part the other body has in a hand.
+   *
+   * A blow that lands on a held weapon is a parry that costs the weapon: it wounds what it hit,
+   * so it is a real report with real damage and `blocked` is false, and it is also a block, so
+   * the defender is credited with one. `src/recorder.ts` is where those two readings meet.
+   * Absent is false, for every body that has no hands to speak of.
+   */
+  readonly guarded?: boolean;
 }
 
 export interface CombatRefusalEvent {
@@ -290,6 +307,17 @@ export class Combat {
   private active = true;
   private readonly onReport?: (event: CombatReportEvent) => void;
   private readonly onRefusal?: (event: CombatRefusalEvent) => void;
+
+  /**
+   * When each striker last billed each part, for `Striking.strokeClaim`.
+   *
+   * Keyed by the striker and the part together, because the rule is one claim per striker per
+   * part: a two-handed body sawing with both blades is two strokes, and one blade crossing two
+   * parts is two blows. Kept here rather than on the `Limb` beside `lastHitAt` because a limb
+   * is shared with the Warrior, which does not play by this rule and should not carry a map for
+   * it; `lastParryAt` above is the same idiom for the same reason.
+   */
+  private readonly strokeClaims = new Map<string, number>();
 
   /** The most recent meaningful contact, for the readout. */
   lastHit: HitReport | null = null;
@@ -438,11 +466,20 @@ export class Combat {
       : this.clock - limb.lastHitAt < CONFIG.combat.hitCooldown) return;
     if (projectileKey !== null) this.projectileHits.add(projectileKey);
 
+    // One claim per striker per part per stroke. Checked after the cooldown rather than before
+    // it, so a contact the cooldown was going to drop never spends a claim.
+    if (weapon.strokeClaim && projectileKey === null) {
+      const claim = `${weapon.effectorId}\u0000${limb.key}`;
+      if (this.clock - (this.strokeClaims.get(claim) ?? -999) < CONFIG.combat.strokeClaimSeconds) return;
+      this.strokeClaims.set(claim, this.clock);
+    }
+
     const report = this.resolve(weapon, limb, event);
     if (projectileKey === null) limb.lastHitAt = this.clock;
     this.lastHit = report;
     if (report.damage > 0) this.lastWound = report;
-    this.onReport?.({ report, effectorId: weapon.effectorId, hand: weapon.hand, blocked: false });
+    this.onReport?.({ report, effectorId: weapon.effectorId, hand: weapon.hand, blocked: false,
+      guarded: limb.guarding === true });
     this.log.unshift(report);
     if (this.log.length > 24) this.log.length = 24;
   }
@@ -466,12 +503,20 @@ export class Combat {
    * Rate-limited on the same clock as a real hit, because two blades resting
    * against each other generate a contact every step and would otherwise fill
    * the log with a single parry twenty-four times over.
+   *
+   * **A striker that claims claims its blocks too**, on `strokeClaimSeconds` rather than
+   * `hitCooldown`. A blade laid against a plate is one stroke stopped, and once the plate began
+   * answering `parriedBy` on 2026-09-06 the cooldown's rate booked eleven blocks a second for
+   * it: a fourteen-second bout of the default build booked 203 blocks in 227 contacts. The rule
+   * is per *effector* here rather than per part, because what is being counted is a stroke that
+   * did not get through, and it did not get through once however many surfaces it grazed.
    */
   private parried(weapon: Striking, event: IPhysicsCollisionEvent): void {
     const stopped = this.target?.parriedBy(event.collidedAgainst, event.point as Vector3);
     if (!stopped || !event.point) return;
     const prior = this.lastParryAt.get(weapon.effectorId) ?? -999;
-    if (this.clock - prior < CONFIG.combat.hitCooldown) return;
+    const window = weapon.strokeClaim ? CONFIG.combat.strokeClaimSeconds : CONFIG.combat.hitCooldown;
+    if (this.clock - prior < window) return;
     this.lastParryAt.set(weapon.effectorId, this.clock);
 
     const point = event.point as Vector3;
