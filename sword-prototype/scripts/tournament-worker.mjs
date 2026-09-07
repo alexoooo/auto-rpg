@@ -16,6 +16,7 @@ import { parentPort, workerData } from "node:worker_threads";
 
 import { armClass, golemChampion, golemChampionMind } from "../src/golem/champion.ts";
 import { DUEL_OPTIONS, observe, stateKey } from "../src/golem/duel-model.ts";
+import { styleObserve, styleStateKey } from "../src/golem/style-model.ts";
 import { STYLE_DIRECTORS, directedMind } from "../src/golem/golem-policies.ts";
 import { FEATURE_COUNT, neuralFeatures } from "../src/golem/neural-features.ts";
 import { STYLE_FEATURE_COUNT, styleFeatures, styleOpenMask } from "../src/golem/style-features.ts";
@@ -98,7 +99,16 @@ function exchangeLogger(mind, side) {
   const other = side === "left" ? "right" : "left";
   const records = [];
   let open = null;
-  const stateNow = (fencer, sample) => stateKey(observe(fencer.reading, sample[side].view.opponent.reach));
+  // The *state* vocabulary follows the executor as the option vocabulary does. Session 09 of the
+  // style set gave the third executor's model a reach pair beside the weapon pair, so a styled
+  // side's window is keyed `heavy/reach/gap/theirs/mine` where the second executor's is
+  // `heavy/gap/theirs/mine`. A reader picks the vocabulary off the run's policy names, which is
+  // the same thing it already had to do to know whether `strike` meant one of eight or one of
+  // fifteen. Logs written before this change key a styled side with four segments and cannot be
+  // fitted as a style model; the calibration run of Session 09 is where the five-segment ones start.
+  const stateNow = brain === "styled"
+    ? (styled, sample) => styleStateKey(styleObserve(styled.reading, sample[side].view.opponent.reach))
+    : (fencer, sample) => stateKey(observe(fencer.reading, sample[side].view.opponent.reach));
   return {
     records,
     sample(sample) {
@@ -296,14 +306,20 @@ function recorderKind(policy) {
  */
 function mindFor(policy, seed, recorder = null) {
   const contender = workerData?.contenders?.[policy];
+  const explore = workerData?.explore ?? 0;
   if (contender === undefined) {
+    // A style goes through `directedMind`, which is the same four factories `src/mind.ts` names
+    // taken apart far enough to put the exploration wrapper and the hook between the director and
+    // the executor. At explore 0 with no hook it builds the shipped mind to the byte.
+    //
+    // Exploring and recording are separate questions, and Session 09 is what separated them: a
+    // model calibration wants every option tried from every state and wants an *exchange* log,
+    // not a decision log, because a run that recorded every side of six thousand bouts would
+    // write most of a gigabyte of features nothing was going to read.
+    if (policy in STYLE_DIRECTORS && (recorder !== null || explore > 0)) {
+      return directedMind(policy, seed, recorder === null ? null : recorder.hook, explore);
+    }
     if (recorder !== null) {
-      // A style goes through `directedMind`, which is the same four factories `src/mind.ts` names
-      // taken apart far enough to put the exploration wrapper and the hook between the director
-      // and the executor. At explore 0 with no hook it builds the shipped mind to the byte.
-      if (policy in STYLE_DIRECTORS) {
-        return directedMind(policy, seed, recorder.hook, workerData?.explore ?? 0);
-      }
       if (policy === "golem-champion") return golemChampionMind(seed, GOLEM_CHAMPIONS, recorder.hook);
       if (policy === "golem-planner") {
         const planner = golemPlanner(seed, undefined, undefined, undefined, recorder.hook);

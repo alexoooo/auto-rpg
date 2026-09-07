@@ -1,6 +1,8 @@
 # Session 09 -- two table-fitted minds: `golem-selector` and `golem-tactician`
 
-**Status (2026-09-06): planned. Needs 08.**
+**Status (2026-09-07): implemented; the human gate is open. The selector leads the best style
+on random pairs and trails it on mirrored, and the mechanical bar is missed by a quarter of a
+standard error.**
 
 ## Outcome
 

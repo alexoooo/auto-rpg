@@ -1193,6 +1193,88 @@ as the bar margin exactly. Version 1, the matchup set's three arrays with no rew
 eight-bit mask, is refused by name and has no converter: a fitted-Q iteration handed one would
 train on rewards of zero and never say so.
 
+## The tactician, which is the planner over a vocabulary three times as wide
+
+Session 09 of the style set. The matchup set's planner searches a fitted duel model over eight
+options and forty-eight states a weapon pair; `golem-tactician` searches the same dynamic program
+over the third executor's fifteen options and a state that also knows whose arm is longer. It is
+the first mind in the set that can name a parry, a cut, a shove and a void without a rule saying
+when — every one of those is an act one of the four styles was written to make, and the tactician
+has none of their rules and all of their vocabulary.
+
+**The model was parametrised rather than copied.** `src/golem/duel-model.ts` gained a
+`ModelVocabulary`: a name, an option list, a key, a family, and the depth of the key's prefix.
+Everything below the fit — the three-level shrinkage, the successor counts, the finite-horizon
+expectimax — is one implementation reading that record, and `src/golem/style-model.ts` is data.
+The alternative was a second nine-hundred-line file with two constants changed, which is the
+shape a pair of tables drift apart in. That the refactor moved nothing is a test and not a
+claim: the checked-in `duel-model-tables.ts` is byte for byte what the parametrised renderer
+writes from the tables it holds, all 113,005 of them.
+
+**The state gains one dimension, and it is in the prefix.** Whether my arm is longer than theirs,
+shorter, or neither, at the same `reachEdge` every style already reads: a hundred and forty-four
+states a weapon pair instead of forty-eight. It sits beside the weapon pair in the key rather than
+in the coarse part, because neither reach nor weapon changes inside a bout — so a successor never
+leaves its family, and a replan still searches forty-eight states however many the tables hold.
+The reason for the dimension is the whole style set: the skirmisher has two sets of rules and the
+difference between them is the reach edge, the form's stand-off is a multiple of *their* reach,
+and Session 05 measured a reach advantage being converted. A model blind to it fits those bouts
+together and reports their average.
+
+**The third segment of the state is, in practice, a constant.** `mine` may read `free`,
+`exchange` or `recover`, and every window ever logged -- 742,012 under this vocabulary and
+291,669 under the duel model's -- reads `free`. `exchangeLogger` closes a window only at a
+settled sample and opens the next one there, and a settled sample is one where my phase is free,
+so no other value can begin a window. The rule is right; the constant is its side effect. What it
+means for the search is that sixteen of a family's forty-eight states can carry a cell and the
+other thirty-two resolve through the coarse and option levels of the shrinkage, which is what the
+shrinkage is for. Removing the segment would change `stateKey` and move v2, so it did not happen
+in the session that found it.
+
+**Its tables come from the styles' own exploring log**, fitted from a tournament run at
+`--explore` by `scripts/calibrate-style-model.mjs`, for the reason the planner's were: a style's
+unexplored log says only that a style's rules are what a style does, and a value fitted to it
+says that closing is where one gets hit. Session 09 had to retake that log rather than reuse
+Session 08's, because Session 08's windows were keyed with the *duel* model's four-segment state
+— the worker learned the fifth segment in this session, and a calibration script that quietly
+fitted the old keys would have fitted every reach pair together while claiming to tell them
+apart. It refuses them by name instead.
+
+## The selector, which is a mind that picks a mind
+
+Also Session 09. Nine minds ship and the league of Session 08 says none of them is best
+everywhere; `golem-selector` reads its own arm class and the class of the arm in front of it at
+its first view, looks the ordered pair up in a table fitted from a tournament, and is the winner
+of that cell for the rest of the bout. It adds no tactic at all. What it adds is the admission
+that "which mind is best" was always the wrong question and "which mind is best against that" is
+the one the harness can actually answer.
+
+**Reading the other body's class is the part that could have been wrong.** `armClass` reads
+capabilities — which hand can thrust, whether one terminal fills both sockets — and an opponent
+view carries none of that, by the frozen choice the golem set has kept since its Session 00. Both
+facts have a published shadow: the armed hand is the longest live hand that is not a shield, since
+a capped socket publishes its cap's 0.24 m against a blade's 1.4; and a paired grip is one
+effector in two sockets, so both hands publish the same socket in world space and their shoulders
+coincide to the millimetre. That the two reads agree is a *measurement* over the reference pool in
+`tests/selector.test.mjs` — one short bout per pair of builds, so every build stands on both sides
+of a view — and not an argument.
+
+**The winner's curse is the only real difficulty.** With sixty ordered class pairs and nine
+candidates, the best raw cell mean is a maximum over nine noisy numbers and is biased upward by
+about the noise; a table of raw cell winners would look excellent on its own fit and level on a
+held-out seed. Two rules answer it, both carried from the matchup set's tuning session. The score
+is shrunk cell toward my class toward the candidate's marginal, with a pseudo-count of thirty-two
+bouts a level — the same arithmetic the duel model shrinks an outcome cell by, with bouts where
+that has windows. And a cell's own winner then has to beat the *marginal* winner **at that cell**
+by 0.03 points a bout before it is allowed to play at all. On three bouts to nothing, the shrunk
+sweep still leads by about two thousandths of a point, and the margin rule is what refuses it.
+
+**Fixed at the first ask, and that is a decision.** Every candidate is a director over one of two
+executors, so switching mid-bout is a line of code. It is not this line: a cell has a few hundred
+bouts behind it, and a per-ask choice would need that much evidence per *state*. The selector is
+also the one golem mind that publishes neither `fencer` nor `styled`, so the exchange log skips
+it — a log labelled `golem-selector` would name an option vocabulary that changes with the body.
+
 ## Dying, which is not the same as losing
 
 `over` not stopping the world was the right call about the *bout* and, for a long time, it

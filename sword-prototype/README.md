@@ -127,7 +127,7 @@ that presentation failure too.
 A bout is chosen before it is fought. The curtain carries a left corner and a right corner —
 a unit, a policy, and whether that side is driven by a mind or by you — and the Fight button
 starts what is on it. There is one of you, so taking a side gives the other one back to its
-policy. Fourteen policies ship and a corner is only ever offered the ones its own body can take:
+policy. Sixteen policies ship and a corner is only ever offered the ones its own body can take:
 **idle** stands there and can be cut apart, **swinger** walks in and cuts on a fixed cadence
 without ever looking at your guard, **duelist** holds measure, guards between exchanges, and
 commits when your point leaves the line, **archer** keeps its distance and shoots — give it a
@@ -294,9 +294,9 @@ offered on the wrist arm alone, because without a roll axis a lash has nowhere t
 is eleven arms in all, and every one of them is a different body rather than a worse version
 of the best one.
 
-Ten minds can drive it — **idle**, **golem duelist**, **golem fencer**, **golem planner**,
-**golem champion**, **golem neural**, **golem form**, **golem skirmisher**, **golem guardian**
-and **golem brawler** — and `C` takes it
+Twelve minds can drive it — **idle**, **golem duelist**, **golem fencer**, **golem planner**,
+**golem champion**, **golem neural**, **golem form**, **golem skirmisher**, **golem guardian**,
+**golem brawler**, **golem tactician** and **golem selector** — and `C` takes it
 over mid-bout exactly as it takes over a warrior. The golem duelist knows nothing about which
 modules it is wearing: it asks each arm what strokes it has and how far it reaches, and every
 range it keeps is a fraction of that answer rather than a distance. Bolt something new on and it
@@ -346,6 +346,18 @@ and `--explore 0.3` answers that fraction of a recorded side's asks with a unifo
 what is open, so the log has rows for options that style would never name. A side's rewards add
 up to its bar margin exactly, which is what makes a per-decision number a score rather than a
 guess; `docs/design.md` has the argument and `docs/measurements.md` the sizes.
+
+The golem tactician is the first of the fitted minds: the planner's search moved onto the third
+executor, over its fifteen options and over a state that also knows whose arm is longer, with
+tables calibrated from the styles' own exploring log. It has no rules — the parry, the cut, the
+shove and the void are all open to it and what decides between them is what each of them cost in
+that state, a few hundred thousand half-second windows ago. The golem selector adds no tactic at
+all: at its first view it reads its own arm's class and the class of the arm in front of it,
+looks the pair up in a table fitted from twenty-four thousand bouts, and is whichever shipped
+mind wins that cell for the rest of the bout. Both the shrinkage and the rule that a cell's
+winner must beat the overall winner by three hundredths of a point before it may play are there
+for one reason: over a hundred cells and nine candidates, the best cell mean is a maximum over nine
+noisy numbers, and a table of raw cell winners is a table of noise.
 
 **Win a bout against a golem and whichever of its arms came off intact is yours** — an arm cut
 off at the shoulder is loot, an arm hacked to pieces is debris, and legs are neither, because

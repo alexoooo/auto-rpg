@@ -106,6 +106,54 @@ export function statesOf(heavy: HeavyPair): DuelState[] {
   return out;
 }
 
+/**
+ * How a model reads its own state space and option list, so that one dynamic program serves two
+ * executors. Session 09 of the style set.
+ *
+ * Everything below this line -- the fit, the shrinkage, the successor lists, the expectimax --
+ * only ever needs four things of a state: the key the tables are written under, how many leading
+ * segments of that key name the *family* the model keeps apart (the weapon pair here, the weapon
+ * pair and the reach pair in `style-model.ts`), the family's members in a fixed order, and the
+ * options that may be named. So those four are an argument, and the two vocabularies are data.
+ *
+ * The alternative was a second copy of the dynamic program keyed to fifteen options and a
+ * hundred and forty-four states, which is the same hundred lines with two constants changed and
+ * a place for them to drift apart.
+ *
+ * **`prefixDepth` and `prefix` have to agree**: `key(state)` is `prefix(state)` followed by the
+ * coarse part, and `coarseOf` cuts exactly `prefixDepth` segments off the front. A vocabulary
+ * that gets that wrong shrinks a cell toward the wrong parent and nothing throws.
+ */
+export interface ModelVocabulary<S, O extends string = string> {
+  /** Names the vocabulary in a cache key; two vocabularies never share a tables object. */
+  readonly name: string;
+  /** Stamped into the tables the fit writes, and checked by the module that loads them. */
+  readonly version: number;
+  readonly options: readonly O[];
+  /** Leading segments of a key that name the family. */
+  readonly prefixDepth: number;
+  prefix(state: S): string;
+  key(state: S): string;
+  /** Every state sharing this one's prefix, in a fixed order. */
+  family(state: S): readonly S[];
+}
+
+/** The vocabulary of the second executor: eight options, forty-eight states a weapon pair. */
+export const DUEL_VOCABULARY: ModelVocabulary<DuelState, DuelOption> = Object.freeze({
+  name: "duel",
+  version: DUEL_MODEL_VERSION,
+  options: DUEL_OPTIONS,
+  prefixDepth: 1,
+  prefix: (state: DuelState): string => state.heavy,
+  key: stateKey,
+  family: (state: DuelState): readonly DuelState[] => statesOf(state.heavy),
+});
+
+/** A key with its family prefix cut off: the middle level of the tables. */
+export function coarseOf(vocabulary: { readonly prefixDepth: number }, key: string): string {
+  return key.split("/").slice(vocabulary.prefixDepth).join("/");
+}
+
 /** What a state is read from: the fencer's own reading of the view, published for the model. */
 export interface DuelReading {
   /** Socket-to-shoulder gap, or body gap when fighting headfirst. */
@@ -149,7 +197,8 @@ export function theirReachOf(view: FighterView): number {
 export interface ExchangeRecord {
   /** `stateKey` of the state the window began in. */
   state: string;
-  option: DuelOption;
+  /** One of the executor's options; which fifteen or which eight is the run's policy names. */
+  option: string;
   /** Damage dealt and taken while the option ran. */
   dealt: number;
   taken: number;
@@ -209,15 +258,20 @@ const count = (into: Record<string, Record<string, number>>, key: string, next: 
   row[next] = (row[next] ?? 0) + 1;
 };
 
-const stripHeavy = (key: string): string => key.slice(key.indexOf("/") + 1);
-
-/** Fit the tables from records. Pure, so a test can fit a handful and read them back. */
+/**
+ * Fit the tables from records. Pure, so a test can fit a handful and read them back.
+ *
+ * The vocabulary is only read for `prefixDepth` and `version`, because a record already carries
+ * its state as a key; at the duel model's depth of one this cuts exactly what `stripHeavy` cut
+ * before it, so the checked-in tables re-render to the byte.
+ */
 export function fitDuelModel(
   records: readonly ExchangeRecord[],
   meta: { seed: number; date: string; bouts: number; windowSeconds: number; shrink?: number },
+  vocabulary: { readonly prefixDepth: number; readonly version: number } = DUEL_VOCABULARY,
 ): DuelModelTables {
   const tables: DuelModelTables = {
-    version: DUEL_MODEL_VERSION,
+    version: vocabulary.version,
     seed: meta.seed, date: meta.date, bouts: meta.bouts, records: records.length,
     windowSeconds: meta.windowSeconds, shrink: meta.shrink ?? 4,
     outcomes: {}, outcomesCoarse: {}, outcomesOption: {},
@@ -225,10 +279,11 @@ export function fitDuelModel(
   };
   for (const r of records) {
     cell(tables.outcomes, `${r.state}|${r.option}`, r.dealt, r.taken);
-    cell(tables.outcomesCoarse, `${stripHeavy(r.state)}|${r.option}`, r.dealt, r.taken);
+    cell(tables.outcomesCoarse, `${coarseOf(vocabulary, r.state)}|${r.option}`, r.dealt, r.taken);
     cell(tables.outcomesOption, r.option, r.dealt, r.taken);
     count(tables.transitions, `${r.state}|${r.option}`, r.next);
-    count(tables.transitionsCoarse, `${stripHeavy(r.state)}|${r.option}`, stripHeavy(r.next));
+    count(tables.transitionsCoarse,
+      `${coarseOf(vocabulary, r.state)}|${r.option}`, coarseOf(vocabulary, r.next));
   }
   return tables;
 }
@@ -243,16 +298,19 @@ export interface Outcome {
 }
 
 /** Expected damage dealt and taken for a state and option, shrunk level by level. */
-export function outcomeOf(tables: DuelModelTables, state: DuelState, option: DuelOption): Outcome {
+export function outcomeIn<S, O extends string>(
+  vocabulary: ModelVocabulary<S, O>, tables: DuelModelTables, state: S, option: O,
+): Outcome {
   const k = tables.shrink;
+  const key = vocabulary.key(state);
   const top = tables.outcomesOption[option];
   const topDealt = top && top.n > 0 ? top.dealt / top.n : 0;
   const topTaken = top && top.n > 0 ? top.taken / top.n : 0;
-  const mid = tables.outcomesCoarse[`${coarseKey(state)}|${option}`];
+  const mid = tables.outcomesCoarse[`${coarseOf(vocabulary, key)}|${option}`];
   const midN = mid ? mid.n : 0;
   const midDealt = ((mid ? mid.dealt : 0) + k * topDealt) / (midN + k);
   const midTaken = ((mid ? mid.taken : 0) + k * topTaken) / (midN + k);
-  const full = tables.outcomes[`${stateKey(state)}|${option}`];
+  const full = tables.outcomes[`${key}|${option}`];
   const n = full ? full.n : 0;
   return {
     dealt: ((full ? full.dealt : 0) + k * midDealt) / (n + k),
@@ -261,27 +319,40 @@ export function outcomeOf(tables: DuelModelTables, state: DuelState, option: Due
   };
 }
 
+/** The same over the second executor's vocabulary, which is what the planner and its tests call. */
+export function outcomeOf(tables: DuelModelTables, state: DuelState, option: DuelOption): Outcome {
+  return outcomeIn(DUEL_VOCABULARY, tables, state, option);
+}
+
 /**
  * Where a state and option lead: a distribution over next-state keys of the same weapon pair.
  * The full row when it has `shrink` records or more, else the coarse row re-prefixed with this
  * pair, else the state itself (an option the log never saw is assumed to change nothing).
  */
-export function transitionsOf(
-  tables: DuelModelTables, state: DuelState, option: DuelOption,
+export function transitionsIn<S, O extends string>(
+  vocabulary: ModelVocabulary<S, O>, tables: DuelModelTables, state: S, option: O,
 ): Array<[string, number]> {
-  const full = tables.transitions[`${stateKey(state)}|${option}`];
+  const key = vocabulary.key(state);
+  const full = tables.transitions[`${key}|${option}`];
   let total = 0;
   if (full) for (const n of Object.values(full)) total += n;
   if (full && total >= tables.shrink) {
-    return Object.entries(full).map(([key, n]) => [key, n / total]);
+    return Object.entries(full).map(([next, n]) => [next, n / total]);
   }
-  const coarse = tables.transitionsCoarse[`${coarseKey(state)}|${option}`];
+  const coarse = tables.transitionsCoarse[`${coarseOf(vocabulary, key)}|${option}`];
   total = 0;
   if (coarse) for (const n of Object.values(coarse)) total += n;
   if (coarse && total > 0) {
-    return Object.entries(coarse).map(([key, n]) => [`${state.heavy}/${key}`, n / total]);
+    return Object.entries(coarse).map(([next, n]) => [`${vocabulary.prefix(state)}/${next}`, n / total]);
   }
-  return [[stateKey(state), 1]];
+  return [[key, 1]];
+}
+
+/** The same over the second executor's vocabulary. */
+export function transitionsOf(
+  tables: DuelModelTables, state: DuelState, option: DuelOption,
+): Array<[string, number]> {
+  return transitionsIn(DUEL_VOCABULARY, tables, state, option);
 }
 
 // -------------------------------------------------------------------------------------- the plan
@@ -300,9 +371,9 @@ export interface PlanParameters {
   discount: number;
 }
 
-export interface Plan {
-  option: DuelOption;
-  /** The root's action values, in `DUEL_OPTIONS` order, `NaN` where the option was unavailable. */
+export interface Plan<O extends string = DuelOption> {
+  option: O;
+  /** The root's action values, in the vocabulary's option order, `NaN` where unavailable. */
   values: number[];
   /** How many state-option cells were evaluated. */
   evaluated: number;
@@ -314,8 +385,8 @@ export interface Plan {
  * the tables object, so a test that fits its own tables gets its own reading, and the checked-in
  * tables are read exactly once per process.
  */
-interface PairReading {
-  states: DuelState[];
+interface FamilyReading<S> {
+  states: readonly S[];
   index: Map<string, number>;
   /** Whether the log ever saw the option at all; one it never saw cannot be valued. */
   known: boolean[];
@@ -323,16 +394,19 @@ interface PairReading {
   taken: number[][];
   succ: Array<Array<Array<[number, number]>>>;
 }
-const readings = new WeakMap<DuelModelTables, Map<HeavyPair, PairReading>>();
+const readings = new WeakMap<DuelModelTables, Map<string, unknown>>();
 
-function readPair(tables: DuelModelTables, heavy: HeavyPair): PairReading {
-  let byPair = readings.get(tables);
-  if (byPair === undefined) readings.set(tables, byPair = new Map());
-  const cached = byPair.get(heavy);
-  if (cached !== undefined) return cached;
-  const states = statesOf(heavy);
+function readFamily<S, O extends string>(
+  vocabulary: ModelVocabulary<S, O>, tables: DuelModelTables, root: S,
+): FamilyReading<S> {
+  let byFamily = readings.get(tables);
+  if (byFamily === undefined) readings.set(tables, byFamily = new Map());
+  const cacheKey = `${vocabulary.name}/${vocabulary.prefix(root)}`;
+  const cached = byFamily.get(cacheKey);
+  if (cached !== undefined) return cached as FamilyReading<S>;
+  const states = vocabulary.family(root);
   const index = new Map<string, number>();
-  states.forEach((s, i) => index.set(stateKey(s), i));
+  states.forEach((s, i) => index.set(vocabulary.key(s), i));
   const dealt: number[][] = [];
   const taken: number[][] = [];
   const succ: Array<Array<Array<[number, number]>>> = [];
@@ -340,21 +414,21 @@ function readPair(tables: DuelModelTables, heavy: HeavyPair): PairReading {
     dealt.push([]);
     taken.push([]);
     succ.push([]);
-    for (const option of DUEL_OPTIONS) {
-      const o = outcomeOf(tables, states[i], option);
+    for (const option of vocabulary.options) {
+      const o = outcomeIn(vocabulary, tables, states[i], option);
       dealt[i].push(o.dealt);
       taken[i].push(o.taken);
       const list: Array<[number, number]> = [];
-      for (const [key, p] of transitionsOf(tables, states[i], option)) {
+      for (const [key, p] of transitionsIn(vocabulary, tables, states[i], option)) {
         const j = index.get(key);
         if (j !== undefined) list.push([j, p]);
       }
       succ[i].push(list);
     }
   }
-  const known = DUEL_OPTIONS.map((option) => (tables.outcomesOption[option]?.n ?? 0) > 0);
-  const reading = { states, index, known, dealt, taken, succ };
-  byPair.set(heavy, reading);
+  const known = vocabulary.options.map((option) => (tables.outcomesOption[option]?.n ?? 0) > 0);
+  const reading: FamilyReading<S> = { states, index, known, dealt, taken, succ };
+  byFamily.set(cacheKey, reading);
   return reading;
 }
 
@@ -369,22 +443,23 @@ function readPair(tables: DuelModelTables, heavy: HeavyPair): PairReading {
  * names a `circle`, so the tables fitted from its bouts say nothing about one, and a planner
  * that circled on that silence would be circling for no reason the model could give.
  */
-export function planOption(
-  tables: DuelModelTables, root: DuelState, available: readonly DuelOption[],
+export function planIn<S, O extends string>(
+  vocabulary: ModelVocabulary<S, O>, tables: DuelModelTables, root: S, available: readonly O[],
   weights: PlanWeights, params: PlanParameters,
-): Plan {
-  const { states, index, known, dealt, taken, succ } = readPair(tables, root.heavy);
-  const evaluated = states.length * DUEL_OPTIONS.length;
+): Plan<O> {
+  const { states, index, known, dealt, taken, succ } = readFamily(vocabulary, tables, root);
+  const options = vocabulary.options;
+  const evaluated = states.length * options.length;
   const horizon = Math.max(1, params.horizon);
   let previous = new Array<number>(states.length).fill(0);
   let rootValues: number[] = [];
-  const rootIndex = index.get(stateKey(root)) ?? 0;
+  const rootIndex = index.get(vocabulary.key(root)) ?? 0;
   for (let h = 1; h <= horizon; h += 1) {
     const next = new Array<number>(states.length).fill(0);
     for (let i = 0; i < states.length; i += 1) {
       let best = Number.NEGATIVE_INFINITY;
       const values: number[] = [];
-      for (let k = 0; k < DUEL_OPTIONS.length; k += 1) {
+      for (let k = 0; k < options.length; k += 1) {
         if (!known[k]) { values.push(Number.NEGATIVE_INFINITY); continue; }
         let value = weights.dealt * dealt[i][k] - weights.taken * taken[i][k];
         for (const [j, p] of succ[i][k]) value += params.discount * p * previous[j];
@@ -396,13 +471,21 @@ export function planOption(
     }
     previous = next;
   }
-  let option: DuelOption = available[0] ?? "hold";
+  let option: O = available[0] ?? options[0];
   let best = Number.NEGATIVE_INFINITY;
-  const values = DUEL_OPTIONS.map((name, k) => {
+  const values = options.map((name, k) => {
     if (!available.includes(name) || !known[k]) return Number.NaN;
     const value = rootValues[k];
     if (value > best) { best = value; option = name; }
     return value;
   });
   return { option, values, evaluated };
+}
+
+/** The same over the second executor's vocabulary, which is what the planner calls. */
+export function planOption(
+  tables: DuelModelTables, root: DuelState, available: readonly DuelOption[],
+  weights: PlanWeights, params: PlanParameters,
+): Plan {
+  return planIn(DUEL_VOCABULARY, tables, root, available, weights, params);
 }

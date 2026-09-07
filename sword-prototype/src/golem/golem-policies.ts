@@ -2,6 +2,9 @@ import type { Intent, Mind } from "../mind.ts";
 import { golemTactics } from "./tactics.ts";
 import { golemChampionMind as championMind, type GolemChampionMind } from "./champion.ts";
 import { golemPlanner } from "./planner.ts";
+import { golemSelectorMind as selectorMind } from "./selector.ts";
+import { SELECTOR_TABLE } from "./selector-table.ts";
+import { golemTactician } from "./tactician.ts";
 import { GOLEM_CHAMPIONS } from "./tactics-champions.ts";
 import { golemNeural } from "./neural.ts";
 import { golemFencer, type GolemFencer } from "./tactics-v2.ts";
@@ -245,5 +248,68 @@ export function directedMind(
     name: policy,
     styled,
     decide: (view, dt): Intent => styled.decide(view, dt),
+  };
+}
+
+/**
+ * The tenth golem mind, and the second one that searches: `golem-tactician`. Session 09 of the
+ * style set.
+ *
+ * The third executor under a plan solved from the style model, as `golem-planner` is the second
+ * executor under a plan solved from the duel model. `styled` is published for the reason the four
+ * styles publish it -- the tournament worker's exchange log reads the option in force per sample
+ * -- and it is `styled` and not `fencer` because the option vocabulary is the styles' fifteen.
+ * Same seed argument, same reasons.
+ */
+export function golemTacticianMind(seed = (Math.random() * 0x100000000) >>> 0): Mind & { styled: GolemStyled } {
+  const tactician = golemTactician(seed);
+  return {
+    name: "golem-tactician",
+    styled: tactician.styled,
+    decide: (view, dt): Intent => tactician.decide(view, dt),
+  };
+}
+
+/**
+ * Every golem mind the selector may become: the name a tournament row carries, and how to build
+ * one from a seed.
+ *
+ * **The selector itself is not in it**, which is the point of the list existing here rather than
+ * being read off `POLICIES` in `src/mind.ts`: a selector that could choose itself is a recursion
+ * with a seed, and the fit would have to score a candidate against a table it is inside. Nothing
+ * else is left out -- the duelist is in, and a cell where the mind that stands still wins is a
+ * cell worth knowing about.
+ *
+ * A mind registers here, in `src/mind.ts` and in `src/units.ts`, and the three lists are checked
+ * against each other by `tests/minds.test.mjs`.
+ */
+export const GOLEM_CANDIDATES: Readonly<Record<string, (seed: number) => Mind>> = Object.freeze({
+  "golem-duelist": golemDuelistMind,
+  "golem-fencer": golemFencerMind,
+  "golem-planner": golemPlannerMind,
+  "golem-champion": golemChampionMind,
+  "golem-neural": golemNeuralMind,
+  "golem-form": golemFormMind,
+  "golem-skirmisher": golemSkirmisherMind,
+  "golem-guardian": golemGuardianMind,
+  "golem-brawler": golemBrawlerMind,
+  "golem-tactician": golemTacticianMind,
+});
+
+/**
+ * The eleventh golem mind, the one that picks a mind: `golem-selector`. Session 09 of the style
+ * set.
+ *
+ * The checked-in `SELECTOR_TABLE` and the ten candidates above; everything else about it is in
+ * `src/golem/selector.ts`. It publishes neither `fencer` nor `styled`, because until the first view it is
+ * not yet any executor and after it the executor is the chosen mind's -- the exchange logger
+ * takes that as "no log", which is honest: a log labelled `golem-selector` would name a
+ * vocabulary that changes with the body. Same seed argument, same reasons.
+ */
+export function golemSelectorMind(seed = (Math.random() * 0x100000000) >>> 0): Mind {
+  const selector = selectorMind(seed, SELECTOR_TABLE, GOLEM_CANDIDATES);
+  return {
+    name: "golem-selector",
+    decide: (view, dt): Intent => selector.decide(view, dt),
   };
 }

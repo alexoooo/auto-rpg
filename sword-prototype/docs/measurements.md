@@ -16096,3 +16096,304 @@ half is the league table read against what they have seen of the four styles -- 
 numbers to read it against are that the brawler is the only mind clearly ahead of zero on the
 bar, that a long maul decides 94 % of its bouts while eight of eleven bodies decide none, and
 that a long blade throws 113 strokes a bout for half a point of damage each.
+
+## Session 09 of the style set — 2026-09-07: a model over a wider vocabulary, a mind that picks a mind, and a dimension of the state that was never anything but one value
+
+Two minds, both fitted rather than written. The tactician is the matchup set's planner moved onto
+the third executor: the same finite-horizon expectimax over the same shrunk tables, reading a
+state one dimension wider and choosing among fifteen options instead of eight. The selector is not
+a fighter at all — it reads its own arm and the arm in front of it at its first view, looks the
+pair up in a table fitted from a tournament, builds the mind that won that cell, and is that mind
+for the rest of the bout.
+
+The session's third result was not planned and is the one worth reading first.
+
+### The duel model became two vocabularies of one dynamic program
+
+`src/golem/duel-model.ts` had the fit, the three-level shrinkage, the successor lists and the
+expectimax written against eight options and a state keyed `heavy/gap/theirs/mine`. All of that
+needs exactly four things of a state: the key the tables are written under, how many leading
+segments of that key name the family the search may not leave, the family's members in a fixed
+order, and the options that may be named. Those four are now a `ModelVocabulary` argument, and
+the two models are data:
+
+| | `DUEL_VOCABULARY` | `STYLE_VOCABULARY` |
+| --- | --- | --- |
+| options | 8 | 15 |
+| state key | `heavy/gap/theirs/mine` | `heavy/reach/gap/theirs/mine` |
+| prefix depth | 1 (the weapon pair) | 2 (the weapon pair and the reach pair) |
+| states a family | 48 | 48 |
+| states in all | 192 | 576 |
+
+The reach pair is in the prefix and not in the coarse part on purpose: neither reach nor weapon
+changes inside a bout, so a successor list never leaves its family and a replan still visits
+forty-eight states, not five hundred and seventy-six. What grew is the table, not the search.
+
+The v2 tables re-render byte-identical under the refactor, which was the point of doing it this
+way. That is now a test rather than a claim: `the_shipped_duel_tables_are_what_the_parametrised_renderer_writes`
+renders the shipped `DUEL_MODEL_TABLES` object through the parametrised renderer and compares it
+to `src/golem/duel-model-tables.ts` on disk, all 113,005 bytes of it. It renders the object
+rather than re-fitting from the log on purpose: the log lives in `tournaments/`, which is not in
+the repository, so a re-fitting test would pass only on the machine that still had it.
+
+### The corpus, and why Session 08's could not be used
+
+The style model needs windows keyed under the style vocabulary, and Session 08's exchange log has
+none: the worker learned the fifth segment in *this* session, so every styled side in the older
+log wrote `nn/out/idle/free` where this model wants `nn/equal/out/idle/free`. The calibration
+refuses those by name rather than silently fitting a four-segment key as if it were a five-segment
+one, and prints how many it saw. A fresh corpus was run, seed 20260909, the four styles and the
+five older minds at `--explore 0.3`:
+
+| pool | bouts | rows with a styled side | windows |
+| --- | --- | --- | --- |
+| random, `--random 40` | 4,096 | 2,944 | 588,357 |
+| mirrored, `--random 40` | 1,024 | 736 | 153,655 |
+| both | 5,120 | 3,680 | 742,012 |
+
+Every option is exercised, over two orders of magnitude apart: hold 152,348, close 104,284,
+circle 98,613, retreat 72,985, cut 63,621, void 61,304, withdraw 37,686, shove 33,477, duck
+22,831, ram 21,058, parry 20,505, wait 18,589, strike 14,975, feint 13,794, thrust 5,942. The
+staleness counter read zero, which is the check that the corpus is this session's and not the
+last one's.
+
+At `--prune 20` the tables hold 2,209 outcome cells and 1,316 transition rows, 413 KB. The duel
+model's are 113 KB; the state space is three times wider and the option list nearly twice, so
+that is roughly proportional and not a surprise.
+
+### The dimension that was never anything but one value
+
+Coverage came out at 176 of 576 states. Broken down, the reason is not sparse sampling:
+
+| | seen | of |
+| --- | --- | --- |
+| weapon-and-reach families | 12 | 12 |
+| gap band x their phase, in every family | 16 | 16 |
+| my phase | **1** | 3 |
+
+Every family covers exactly the same sixteen of its forty-eight states, and the missing thirty-two
+are every state whose `mine` is `exchange` or `recover`. The v2 tables that have shipped since the
+matchup set's Session 06 have the same property and always have: 456 outcome cells, 291,669
+windows, `free` in every one. The third segment of the duel model's state has been a constant
+since the model was first fitted, and nobody had looked.
+
+The cause is in `exchangeLogger` in `scripts/tournament-worker.mjs`. A window closes only when it
+is *settled* -- the option in force is a free option, or `reading.mine` is `free` -- and the next
+window opens at that same sample. A free option's stance is free, circle, retreat or duck, all of
+which read as `free`. So a window can only ever open with my phase free, by construction. The
+rule itself is right and deliberate: it is what stops an exchange being chopped into fragments
+mid-stroke. The constant dimension is its side effect.
+
+It costs waste rather than error. `styleStatesOf` enumerates forty-eight states a family and
+sixteen of them can ever carry a cell, so two thirds of the expectimax's successor slots resolve
+through the coarse and option levels of the shrinkage rather than through a cell of their own --
+which is what the shrinkage is for, and the replan still fits its budget three times over. It is
+not fixed here because dropping the segment changes `stateKey`, and the frozen choice of this
+session is that the v2 tables re-render to the byte; it would also re-key a corpus that costs an
+hour to rebuild. The close-out is the session that decides whether v2 can be retired at all, and
+this belongs with that decision.
+
+### The tactician
+
+`golem-tactician` is `planIn` over the style tables with the planner's lead-weighted weights:
+`dealt = 1 + aggression + caution * max(0, -lead)`, `taken = 1 + caution * max(0, lead)`, horizon
+six windows, discount 0.9. It has no rules. Every act the four styles were written to make is in
+its vocabulary and none of the conditions they fire under are.
+
+The replan cost, which is the number the plan asked for, on an idle host:
+
+| | ms a search |
+| --- | --- |
+| standalone, over all 576 roots | 0.198 |
+| mean over a real 12 s bout (36 replans) | 0.191 |
+| budget | 5 |
+
+Twenty-six times the headroom. Two thirds of the states it walks can never hold a cell, as above,
+so a search over the reachable sixteen would be cheaper still -- but at 0.19 ms there is nothing
+to buy with it.
+
+What it named over that bout, on one build pair, is not a general statement but is worth putting
+next to the styles' signatures: strike 1,685 steps, circle 856, wait 253, retreat 39, hold 32,
+parry 14. It leans hard on two options.
+
+### The selector, and a table in which the body speaks louder than the mind
+
+The fit tournament: 24,576 bouts, seed 20260909, `--cross --random 60`, the nine hand-coded minds
+over fifty-six ordered pairs. 49,152 sides, none without an arm class, 100 cells, 897 cell-and-mind
+entries.
+
+The candidate list is nine and not ten. `GOLEM_CANDIDATES` registers every golem mind but the
+selector, which is ten, but the fit tournament was scheduled before the style tables existed and
+so could not include the tactician -- there is no bout in the log with a tactician in it, and a
+mind with no bouts cannot be chosen. Session 11 refits with the tactician and the learner among
+the candidates, which the plan already says.
+
+The marginal means, which is what a candidate is worth before any cell is consulted:
+
+| mind | bouts | points a bout |
+| --- | --- | --- |
+| golem-neural | 5,466 | 0.5192 |
+| golem-brawler | 5,452 | 0.5088 |
+| golem-fencer | 5,466 | 0.5077 |
+| golem-planner | 5,466 | 0.5027 |
+| golem-duelist | 5,466 | 0.4946 |
+| golem-champion | 5,466 | 0.4933 |
+| golem-guardian | 5,452 | 0.4933 |
+| golem-form | 5,466 | 0.4909 |
+| golem-skirmisher | 5,452 | 0.4895 |
+
+Thirty thousandths of a point separate the first from the last over five and a half thousand
+bouts each, and the standard error of one of those means is at most about 0.007 -- the Bernoulli
+bound, and draws score a half, so the truth is under it. The gap from the neural
+mind to the brawler is one standard error of their difference. **The marginal column is a
+ranking in name only**, and that is the honest reading of it: on random pairs the body has
+decided the bout before either mind has moved.
+
+The cells say the same thing far more loudly. The two halves of one body matchup:
+
+| cell | bouts | best score |
+| --- | --- | --- |
+| `paired-club/long` against `sword/long` | 1,444 | 0.898 |
+| `sword/long` against `paired-club/long` | 1,444 | 0.308 |
+
+The same nine minds on both sides. A two-handed club against a sword wins nine times in ten and
+loses seven in ten the other way round, and no mind in the set moves that by more than a few
+hundredths. That is the ceiling the selector is working under, and it is why the margin rule
+matters more than the fit does.
+
+Twenty-four of the hundred cells beat the marginal winner by the 0.03 the rule demands. Every one
+of them is a cell where *I* hold a club, a paired club, a whip or a sword -- the bodies that can
+actually finish a fight, which Session 08 measured as three of eleven build classes. The largest:
+
+| cell | bouts | plays | edge over the marginal |
+| --- | --- | --- | --- |
+| `paired-club/long` vs `paired-club/long` | 1,072 | golem-guardian | +0.168 |
+| `club/long` vs `paired-club/long` | 650 | golem-fencer | +0.126 |
+| `club/mid` vs `paired-club/long` | 434 | golem-guardian | +0.114 |
+| `club/long` vs `club/long` | 504 | golem-guardian | +0.109 |
+| `club/long` vs `sword/mid` | 418 | golem-brawler | +0.096 |
+
+And the rule refusing one, which is the part worth reading: `sword/long` against `sword/long`, the
+most-fought cell in the table at 1,664 bouts, has the fencer ahead at 0.517 against the marginal
+0.497. An edge of 0.020 on the largest sample in the run, and it does not play.
+
+### The confirmation, on a held-out seed with common random numbers
+
+Seed 3250907355 (`20260906 ^ 0xc0f1c0f1`), which no fit in this session saw: the corpus and the
+selector's tournament both ran on 20260909. Five contenders, each against the same nine-mind
+league over the same schedule, 1,548 bouts a contender a pool, 84.6 minutes for both pools.
+Because `evaluate` walks every contender over the same pairings from the same seed, row *j* of
+one contender met the same body with the same streams as row *j* of every other, so the paired
+differences below are far tighter than the differences of the means.
+
+**Random pairs**, which is the pool the gate is on:
+
+| contender | points a bout | winner's bar | w/d/l |
+| --- | --- | --- | --- |
+| **selector** | **0.5397 ± 0.0071** | +0.0546 ± 0.0099 | 310/1051/187 |
+| tactician | 0.5275 ± 0.0076 | +0.0586 ± 0.0105 | 323/987/238 |
+| fencer | 0.5171 ± 0.0078 | +0.0427 ± 0.0111 | 317/967/264 |
+| champion | 0.5120 ± 0.0067 | +0.0217 ± 0.0095 | 236/1113/199 |
+| brawler | 0.5113 ± 0.0069 | +0.0296 ± 0.0097 | 246/1091/211 |
+
+Paired, under common random numbers, which is the number to read:
+
+| difference | points a bout | winner's bar |
+| --- | --- | --- |
+| selector − brawler (the best style) | **+0.0284 ± 0.0068** | +0.0250 ± 0.0067 |
+| selector − champion | +0.0278 ± 0.0066 | +0.0329 ± 0.0056 |
+| selector − fencer | +0.0226 ± 0.0064 | +0.0119 ± 0.0062 |
+| selector − tactician | +0.0123 ± 0.0069 | −0.0040 ± 0.0064 |
+| tactician − fencer | +0.0103 ± 0.0072 | +0.0159 ± 0.0070 |
+| tactician − champion | +0.0155 ± 0.0069 | +0.0369 ± 0.0064 |
+
+**Mirrored**, where it goes the other way:
+
+| contender | points a bout | winner's bar | w/d/l |
+| --- | --- | --- | --- |
+| **brawler** | **0.5365 ± 0.0063** | +0.0275 ± 0.0043 | 253/1155/140 |
+| champion | 0.5103 ± 0.0069 | +0.0061 ± 0.0049 | 244/1092/212 |
+| selector | 0.4971 ± 0.0067 | +0.0064 ± 0.0045 | 211/1117/220 |
+| tactician | 0.4897 ± 0.0067 | −0.0062 ± 0.0047 | 200/1116/232 |
+| fencer | 0.4858 ± 0.0070 | −0.0109 ± 0.0052 | 214/1076/258 |
+
+Paired: brawler − selector +0.0394 ± 0.0094, brawler − tactician +0.0468 ± 0.0094.
+
+### Why the selector wins one pool and loses the other
+
+A mirrored bout gives both sides the same body, so its cell is always a diagonal one -- `X` against
+`X` -- and the table has ten of those against ninety off-diagonal. Only **two of the ten diagonal
+cells** beat the marginal winner by the margin, against twenty-two of the ninety off-diagonal:
+
+| diagonal cell | bouts | plays | edge |
+| --- | --- | --- | --- |
+| `sword/long` | 1,664 | golem-neural (fallback) | 0.020 |
+| `empty/short` | 1,148 | golem-neural (fallback) | 0.003 |
+| `paired-club/long` | 1,072 | golem-guardian | 0.168 |
+| `shield/short` | 788 | golem-neural (fallback) | 0.000 |
+| `club/long` | 504 | golem-guardian | 0.109 |
+| `whip/long` | 320 | golem-neural (fallback) | 0.000 |
+| `sword/mid` | 296 | golem-neural (fallback) | 0.000 |
+| `club/mid` | 156 | golem-neural (fallback) | 0.026 |
+| `empty/mid` | 100 | golem-neural (fallback) | 0.005 |
+| `shield/mid` | 44 | golem-neural (fallback) | 0.000 |
+
+So on the mirrored pool the selector is, eight times in ten, the neural mind wearing a table --
+and the neural mind is not what wins mirrored bouts, the brawler is. It is not a sample-size
+problem: the largest diagonal cell has 1,664 bouts and still no candidate separates from the
+marginal by three hundredths. It is that the marginal is computed over a fit pool that is nine
+parts off-diagonal, so on the diagonal the shrinkage pulls every candidate toward a default that
+was chosen elsewhere. The lever for Session 11 is to fit the selector on both pools rather than
+on random pairs alone.
+
+### The structural columns
+
+Random pairs, beside the fencer as the reference:
+
+| | strokes | blows/stroke | dmg/stroke | v@blow | commit | catches | clinch s | idle m | inside |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| selector | 64.3 | 4.43 | 0.93 | 4.8 | 56.5% | 31.7 | 2.9 | 6.2 | 19.4% |
+| tactician | 50.7 | 5.29 | **1.02** | 4.8 | 54.1% | 25.4 | 3.6 | **11.3** | 18.6% |
+| fencer | 71.2 | 4.50 | 0.94 | 5.2 | 57.9% | 34.0 | 2.4 | 3.0 | 16.7% |
+| champion | 62.8 | 4.11 | 0.91 | 5.1 | 57.7% | 31.7 | 3.0 | 7.8 | 14.4% |
+| brawler | 70.2 | **10.11** | 0.99 | 4.0 | 58.4% | 27.7 | 1.4 | 0.5 | **37.8%** |
+
+The selector's columns sit on the fencer's, which is what a mind that mostly plays a fencer
+imitation should look like. The tactician's do not: it throws thirty per cent fewer strokes than
+the fencer and gets the most damage out of each of them, which is the shape the styles were
+written to produce, and it walks eleven metres a bout doing nothing, which is nearly four times
+the fencer's and the one column of its that is out of band. It is a mind with no rule that says
+when to stop circling.
+
+Two columns are worth naming although they are nobody's fault this session. Every contender's
+median bout is 60.0 s -- the cap -- and roughly two thirds of every row is a draw. Session 08
+measured why: eight of eleven build classes cannot kill each other at all. And the brawler still
+books ten blows a stroke after Session 01's one-claim-per-part rule, which that session predicted
+would fall to one or two; on a body that shoves its way inside, one stroke still sweeps ten
+different parts.
+
+### Where the two minds land against the gate
+
+The plan's gate for the selector is *at or above the best style plus 0.03 over random pairs, with
+the columns in band, else reported as level and kept as a policy*. The measurement:
+
+| | |
+| --- | --- |
+| selector − best style (brawler), random pairs, paired | **+0.0284 ± 0.0068** |
+| what the gate asks for | +0.030 |
+| shortfall | 0.0016, which is a quarter of one standard error |
+
+**It does not clear.** It is also not level: +0.0284 ± 0.0068 is a four-sigma lead over the best
+style on the pool the gate names, and the selector is first of five contenders there. The plan
+offered two verdicts and the run landed between them, so this entry records the number rather
+than picking the nearer word. On the other pool the selector is third of five and 0.0394 ± 0.0094
+behind the brawler, and the section above says exactly why.
+
+The tactician was to be *reported wherever it lands*. It lands second of five on random pairs at
+0.5275 ± 0.0076, ahead of the fencer by +0.0103 ± 0.0072 and the champion by +0.0155 ± 0.0069 --
+neither of which is confident at 1,548 bouts -- and fourth of five on mirrored at 0.4897 ± 0.0067.
+It gets more out of a stroke than anything else in the run and wastes more distance between them
+than anything else in the run. It replans in 0.19 ms against a 5 ms budget.
+
+Neither mind is made the default by this session; the matchup screen offers both. What the owner
+is asked to watch is in the plan's gate line, and the status line records what they say.

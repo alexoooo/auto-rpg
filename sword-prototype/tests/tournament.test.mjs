@@ -15,7 +15,9 @@ import { golemSetupRefusal } from "../src/golem/build.ts";
 import { DUEL_OPTIONS, fitDuelModel } from "../src/golem/duel-model.ts";
 import { STYLE_OPTIONS, exploringDirector } from "../src/golem/tactics-v3.ts";
 import { STYLE_FEATURE_COUNT } from "../src/golem/style-features.ts";
-import { collectRecords, pruneTransitions, renderTablesModule } from "../scripts/calibrate-duel-model.mjs";
+import { DUEL_MODEL_TABLES } from "../src/golem/duel-model-tables.ts";
+import { DUEL_NAMING, collectRecords, pruneTransitions, renderTablesModule } from "../scripts/calibrate-duel-model.mjs";
+import { STYLE_NAMING } from "../scripts/calibrate-style-model.mjs";
 import {
   ELO_START,
   EXCHANGE_FLICKER_SECONDS,
@@ -409,6 +411,35 @@ test("exchanges_puts_the_fencers_option_windows_on_every_row_and_the_model_fits_
 });
 
 /**
+ * The refactor's one load-bearing claim: the shipped v2 tables still render to the byte.
+ *
+ * Session 09 parametrised `renderTablesModule` and the fit over a `ModelVocabulary` so that one
+ * dynamic program serves the duel model's eight options and the style model's fifteen. The
+ * frozen choice of the set is that v2 does not move, and the honest test of that is not that the
+ * refactored code runs -- it is that the artifact checked in before the refactor is exactly what
+ * the refactored renderer produces from it now.
+ *
+ * Rendering the shipped tables object rather than re-fitting from a log is deliberate: the log
+ * lives in `tournaments/`, which is not in the repository, so a test that re-fitted would pass
+ * only on the machine that happened to still have it. What this pins is the renderer, the
+ * default naming and the field order of the tables type, which is the part a later session can
+ * break without noticing.
+ */
+test("the_shipped_duel_tables_are_what_the_parametrised_renderer_writes", () => {
+  const text = renderTablesModule(DUEL_MODEL_TABLES, {
+    sources: ["tournaments/calib3-20260907-random.jsonl", "tournaments/calib3-20260907-mirror.jsonl"],
+    prune: 10,
+  });
+  const disk = readFileSync(new URL("../src/golem/duel-model-tables.ts", import.meta.url), "utf8");
+  assert.equal(text.length, disk.length, "the rendered module changed length");
+  assert.equal(text, disk, "the parametrised renderer no longer reproduces the shipped v2 tables");
+  // The naming the default vocabulary carries, so a wrong `naming` cannot pass by luck.
+  assert.equal(DUEL_NAMING.constant, "DUEL_MODEL_TABLES");
+  assert.equal(STYLE_NAMING.constant, "STYLE_MODEL_TABLES");
+  assert.notEqual(DUEL_NAMING.script, STYLE_NAMING.script);
+});
+
+/**
  * The decision log, on a real run over two workers. Session 08 of the style set.
  *
  * The claim that matters is the telescoping one: a side's rewards are the damage the two bars
@@ -546,7 +577,9 @@ test("the_exchange_log_reads_a_styled_mind_and_files_the_option_names_that_style
       assert.ok(Array.isArray(log) && log.length > 0, `a styled row with no windows on the ${side}`);
       for (const w of log) {
         assert.ok(STYLE_OPTIONS.includes(w.option), `${w.option} is not a style option`);
-        assert.match(w.state, /^(nn|hn|nh|hh)\/(out|theirs|mine|both)\/(idle|chamber|commit|recover)\/(free|exchange|recover)$/);
+        // Five segments and not four: a styled side's window is keyed by the style model's
+        // state, which carries the reach pair in front of the gap band. Session 09.
+        assert.match(w.state, /^(nn|hn|nh|hh)\/(shorter|equal|longer)\/(out|theirs|mine|both)\/(idle|chamber|commit|recover)\/(free|exchange|recover)$/);
         // The bout's end closes the last window where it stands, and the clock a sample carries
         // advances a frame at a time, so a window opened in the frame the cap fell is zero long.
         assert.ok(w === log[log.length - 1] ? w.seconds >= 0 : w.seconds > 0, `a window of ${w.seconds} s`);

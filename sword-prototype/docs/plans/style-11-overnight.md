@@ -17,8 +17,14 @@ log; and the two reward rows swept. Every run's seed and hours in the entry.
   newest 600,000 decisions; about two hours of harness and six of fitting.
 - **The sweeps**: `winBonus` {0, 0.25} and `halfLife` {4, 8, 16} as confirmation rows on the
   held-out seed, common random numbers, both pools.
-- **The selector refit**: a fresh 24,576-bout random-pairs tournament with the learner and the
-  tactician among the candidates, the same script and shrinkage as Session 09.
+- **The selector refit**: a fresh 24,576-bout tournament with the learner and the tactician among
+  the candidates, the same script and shrinkage as Session 09 -- but **fitted on both pools and
+  not on random pairs alone**. Session 09 measured why: a mirrored bout is always one of the ten
+  diagonal cells, only two of those ten beat the marginal winner by the margin, and the marginal
+  itself is computed over a fit pool that is nine parts off-diagonal, so on the diagonal the
+  shrinkage pulls every candidate toward a default chosen elsewhere. The selector led the best
+  style by +0.0284 +- 0.0068 on random pairs and trailed it by 0.0394 +- 0.0094 on mirrored,
+  which is that one fact and no other.
 - **If Session 10 did not clear**, the rounds go first to the two levers the log names: feature
   regions never visited (more explore) and a residual that does not fall (a smaller rate);
   and if neither moves it, this file's status line records the stop under the set's stop rule.
