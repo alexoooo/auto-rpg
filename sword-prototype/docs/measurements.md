@@ -15007,3 +15007,393 @@ owner's to answer on the screen. What the numbers put beside it:
 8. **The 60 s cap is in front of the gate for the fourth time.** Four bouts in five end on it in
    the sweep pool and three in four in the league, and the skirmisher ends ahead on the bar in
    three fifths of its own draws for half a point each.
+
+## Session 06 of the style set — 2026-09-07: a style that meets a stroke before it starts, and a capability that turned out to be free rather than good
+
+What the plan asked for: a third style on the third executor, the defensive direction -- at their
+reach rather than outside it, the parry out on their *chamber*, the riposte into their recover,
+a shove for whatever gets inside -- four constants swept, a league row against every shipped mind,
+and this file's status line to record whether an intercept or a wall shipped. What shipped:
+`src/golem/styles/guardian.ts` at 150 lines, `golem-guardian` registered as the thirteenth policy,
+one new row on the executor's table, six new tests, fourteen tournament runs -- ten sweep rows,
+two confirmation rows on a held-out seed and two switch rows re-asked of the table that ships --
+and two league runs. Logs
+are `tournaments/style06-default.jsonl`, one file a row beside it, with
+`tournaments/style06-league-mirror.jsonl` and `tournaments/style06-league-random.jsonl` for the
+two leagues; every sweep command line is `--bouts 512 --mirror --cross --random 40 --cap 60
+--seed 20260906 --policies golem-guardian,golem-fencer` with the row's `--override` and nothing
+else, and the two confirmation rows are the same on `--seed 20260907`.
+
+**The headline is a negative result about this session's own executor change, and it is worth
+more than a positive one would have been.** The style's opening rule could not be spoken at all
+until the executor was taught to place a cover where no crossing solves, so `wallOnChamber` was
+built; with it on, 132 of the guardian's 235 parries go out during a chamber instead of 14, which
+is the rule doing exactly what it was written to do. On the bar it is worth nothing: +0.0037 ±
+0.0058 in favour of switching it off, measured against the shipped table, and +0.0046 ± 0.0081
+against the plan's -- two runs, two tables, the same six tenths of a standard error, the same
+sign. It books four more blows a bout on a hand slot and takes 0.7 more damage, because a hand
+placed on a bearing leaves the body where it was and the `duck` and `void` it displaces do not.
+**A wall shipped, not an intercept**, and it is a wash.
+
+Two other things came back other than the plan expected. `ripostesQuick` ships **off**, against
+the plan's own frozen choice, on +0.027 ± 0.0075 over two independent seeds -- the second
+constant this set has moved off a sweep, and the first it has moved against a frozen choice rather
+than off a bracket. And **all four of the signatures the plan predicted in advance fail**,
+including the one that is a rate rather than a count: the mind built to put a hand in the way of a
+stroke has its hands in the way less often than any other mind in the league.
+
+### What was built, and the rule that could not be spoken
+
+The style file is 150 lines, 62 of them code, and reads like the other two: a table of six moved
+rows over the executor's, a `GuardianTactics` type that names the two rows only this style has,
+and a director of six rules whose order is the whole of it. The registration is the same five
+places as `golem-skirmisher` and the override prefix is `guardian.`.
+
+One thing was not the same, and it is the session's finding rather than its plumbing. **The first
+rule of the plan could not be spoken at all.** "Their chamber: `parry`" asks the executor for a
+cover against an arm that is drawing *back*, and `solveIntercept` in `src/golem/tactics-v3.ts`
+refuses exactly that: it solves the crossing of their published `tipVelocity` with my guard
+shell and returns null the moment the tip is not closing on the shell. A chambering arm's tip is
+going the wrong way by definition, so `parry` was never on offer during a chamber, and the
+director's first branch fell through to the second on every ask it was written for. Nothing
+errored; the style simply was not the style.
+
+The fix is a capability rather than a reflex, which is the set's frozen choice applied to the
+executor for the first time. `wallOnChamber` is a new table row, off in `GOLEM_TACTICS_V3` so
+that `golem-form`, `golem-skirmisher` and the four v2 minds are byte-identical without it, and
+when it is on and their read phase is `chamber` and no crossing solves, the executor places the
+spare hand on the bearing from my socket to their tip at the shell radius and calls it an
+intercept at `t = 0`. `Intercept` gained a `readonly wall: boolean` so the two are distinguishable
+in a decision log and in a test rather than only in the prose: a solved crossing is `wall: false`
+and a placed bearing is `wall: true`.
+
+That is also the answer to the plan's own open question, and it is worth being plain that it was
+answered by the code rather than by the bench. Session 02 measured the plate taking 0.89 s to
+settle over 0.40 m against a commit that runs in 0.20, which already said a true intercept of a
+committed stroke is not available to this body. The chamber branch says something stronger: for
+the half of the parries this style throws that go out before the stroke starts, there is no
+crossing to solve *in principle*, because the quantity the solver reads is pointing away. **A
+wall shipped, not an intercept**, and the status line of `docs/plans/style-06-guardian.md` says
+so.
+
+### What it names, and against which phase of theirs
+
+Four 30 s bouts on the default build against `golem-fencer`, every ask recorded through the
+style hook, with the phase the reader saw at that ask. The right-hand table is the same four
+bouts with `wallOnChamber` off and nothing else changed, which is the control this session's one
+executor change deserves.
+
+| option @ their phase | wall on | wall off |
+| --- | --: | --: |
+| `parry` @ chamber | 132 | 14 |
+| `parry` @ commit | 103 | 106 |
+| `duck` @ chamber | 1 | 152 |
+| `duck` @ commit | 86 | 123 |
+| `void` @ chamber | 0 | 20 |
+| `void` @ commit | 70 | 52 |
+| `strike` @ recover | 84 | 84 |
+| `feint` @ recover | 16 | 15 |
+| `hold` @ recover | 119 | 116 |
+| `hold` @ idle | 53 | 56 |
+| `strike` @ commit | 3 | 3 |
+| `cut` @ idle | 0 | 1 |
+| **asks** | **667** | **742** |
+
+Three things in that table are the session.
+
+**The wall is a bit over half of what this style throws.** 132 of its 235 parries go out during a
+chamber, and with the row off only 14 do -- the fourteen are the tail of the reader's chamber
+phase, which persists while the extension is still under 0.82 even after the tip has turned round
+and begun to close, so a crossing solves for them by ordinary means. The other 118 are strokes
+this style covers before they start, and they exist only because the executor was given the
+capability to place a hand where no crossing solves.
+
+**With the wall off, the body answers instead of the hand.** `duck` goes from 87 asks to 275 and
+becomes the style's most-named option; every chamber that was met with the plate is met by
+getting under it or stepping off it instead. That is not a worse style so much as a different
+one, and the points column below is what says whether it is worse.
+
+**Against a fencer this style never opens anything.** Not one `cut` on patience with the wall on
+and one in four bouts with it off, and no `shove` at all: the fencer's arm is in some named phase
+at essentially every ask, so the first three rules answer before the fourth and fifth are
+reached. `patience` 3.0 and `shoveLean` are therefore rows that this matchup cannot exercise, and
+the sweep below reports them from the random pool where other builds do reach them.
+
+### The ten rows
+
+`--bouts 512 --mirror --cross --random 40 --cap 60 --seed 20260906 --policies
+golem-guardian,golem-fencer`, one run a row, read from the guardian's side and with the
+same-policy bouts dropped from `points` and `bar` for the reason Session 05's table gives. The
+first eight rows move one thing off **the plan's** table; the ninth and tenth are the two switches
+this style added and are the session's own question rather than the plan's.
+
+| row | points | bar | se | str/s | dmg/str | commit% | blocks | catches | taken | clinch s | stall s | capped% |
+| --- | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: |
+| default (the plan's table) | 0.462 | -0.0396 | 0.0085 | 1.59 | 0.72 | 56.2 | 226.8 | 41.8 | 46.3 | 1.25 | 2.53 | 74.8 |
+| `parryHorizon` 0.25 | 0.463 | -0.0409 | 0.0080 | 1.59 | 0.72 | 56.3 | 229.2 | 41.9 | 46.1 | 1.24 | 2.53 | 75.0 |
+| `parryHorizon` 0.50 | 0.461 | -0.0454 | 0.0086 | 1.59 | 0.72 | 56.2 | 227.8 | 42.2 | 47.1 | 1.24 | 2.53 | 75.0 |
+| `parryMargin` 0.10 | 0.474 | -0.0321 | 0.0081 | 1.59 | 0.72 | 56.2 | 229.9 | 42.1 | 46.9 | 1.24 | 2.53 | 74.8 |
+| `parryMargin` 0.25 | 0.474 | -0.0280 | 0.0087 | 1.59 | 0.72 | 56.0 | 227.7 | 41.6 | 46.0 | 1.29 | 2.52 | 74.4 |
+| **`ripostesQuick` off** | **0.496** | **-0.0115** | 0.0079 | 1.56 | 0.78 | 59.1 | 234.1 | 39.9 | 42.2 | 1.14 | 2.56 | 76.6 |
+| `shoveLean` 0.5 | 0.472 | -0.0344 | 0.0088 | 1.58 | 0.72 | 54.3 | 227.3 | 42.1 | 47.4 | 1.29 | 2.40 | 75.6 |
+| `shoveLean` 0.9 | 0.461 | -0.0386 | 0.0088 | 1.59 | 0.72 | 56.5 | 227.4 | 41.9 | 46.7 | 1.22 | 2.52 | 75.0 |
+| `shovesInside` off | 0.474 | -0.0446 | 0.0088 | 1.53 | 0.70 | 51.7 | 230.0 | 40.0 | 45.4 | 1.26 | 3.06 | 74.0 |
+| `wallOnChamber` off | 0.464 | -0.0350 | 0.0081 | 1.58 | 0.71 | 55.3 | 223.0 | 42.2 | 44.8 | 1.32 | 2.54 | 76.8 |
+
+Every row is one seed, so row `index` is the same pairing on the same two builds in every log and
+the difference of two bar margins is paired; that removes the between-build variance, which is
+most of the spread. Paired against the default:
+
+```
+parryHorizon 0.25    -0.0013 +- 0.0066  (-0.2 se, n 512)
+parryHorizon 0.50    -0.0058 +- 0.0074  (-0.8 se, n 512)
+parryMargin  0.10    +0.0075 +- 0.0070  ( 1.1 se, n 512)
+parryMargin  0.25    +0.0116 +- 0.0087  ( 1.3 se, n 512)
+ripostesQuick off    +0.0281 +- 0.0102  ( 2.8 se, n 512)
+shoveLean    0.5     +0.0052 +- 0.0072  ( 0.7 se, n 512)
+shoveLean    0.9     +0.0010 +- 0.0044  ( 0.2 se, n 512)
+shovesInside off     -0.0050 +- 0.0070  (-0.7 se, n 512)
+wallOnChamber off    +0.0046 +- 0.0081  ( 0.6 se, n 512)
+```
+
+**Eight of the nine are noise and one is not.** The two parry constants are the least interesting
+result in the table and the most explicable: `parryHorizon` is the time beyond which a solved
+crossing is covered at its bearing instead of intercepted, and `parryMargin` is how far a line
+that misses the shell may miss it by -- and more than half of this style's parries are walls,
+placed at `t = 0` with no crossing to horizon and no miss to forgive. A constant that only the
+solver reads cannot move a style that mostly does not use the solver.
+
+### The second constant this set has moved off a sweep, and it was confirmed before it moved
+
+`ripostesQuick` off is +0.0281 at 2.8 standard errors, which is exactly the threshold Session 05
+moved `patience` on -- and this time it is one look of ten rather than one of eight, where 2.8
+sigma corrected for ten is at the edge rather than over it. So it was asked again on a seed
+neither table had seen, `--seed 20260907`, same pool, same schedule:
+
+| row | points | bar | se | str/s | dmg/str | commit% | blocks | catches | taken | clinch s |
+| --- | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: |
+| the plan's quick riposte | 0.492 | -0.0212 | 0.0094 | 1.69 | 0.89 | 52.8 | 244.3 | 49.9 | 55.5 | 1.38 |
+| the committed riposte | 0.504 | +0.0047 | 0.0082 | 1.70 | 0.95 | 57.2 | 251.5 | 47.6 | 53.0 | 1.00 |
+
+Paired, `+0.0259 +- 0.0110` -- the same sign, within a fifth of a standard error of the same size,
+and the same five structural columns moving the same way on both seeds: a harder stroke, a higher
+committed fraction, more blocks, less damage taken, less clinch. Combined the two seeds are
++0.027 +- 0.0075, 3.6 standard errors, which is past the multiple-comparison objection rather than
+inside it. **The style ships with `ripostesQuick` off**, against the plan's own frozen choice, and
+the plan file's status line says so.
+
+The argument the plan made for the quick stroke is written into the style file and it is worth
+saying exactly where it fails, because the arithmetic in it was never wrong. A riposte is thrown
+into the half second their arm is out of position, and the committed cut spends 0.32 s in the
+chamber before it begins to sweep; on those two numbers the arc cannot arrive. The premise is the
+part that is wrong: their recover runs 0.30 s and `GOLEM_TACTICS.cooldown` holds them for another
+0.30 before they can open anything, so the window is 0.60 s and not 0.40. A committed sword cut
+chambers for 0.32 s and crosses the mark 0.112 s into a 0.20 s arc that runs from +1.20 to
+-0.94 -- 0.43 s from the ask, comfortably inside a window that is half again as long as the
+rule was written against. What the sweep is
+measuring is not a faster arm; it is a window that was mis-measured by the plan and is twice as
+long as the rule it justified.
+
+### The two switches, asked again of the table that ships
+
+Every row above moves one thing off the *plan's* table, and the plan's table is no longer what
+ships. So the two rows this session's claim rests on were asked again against the shipped one --
+same seed, same pool, the reference being the `ripostesQuick` row, which *is* the shipped table on
+that seed.
+
+| row | points | bar | se | str/s | dmg/str | commit% | blocks | catches | taken | clinch s | stall s |
+| --- | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: |
+| shipped | 0.496 | -0.0115 | 0.0079 | 1.56 | 0.78 | 59.1 | 234.1 | 39.9 | 42.2 | 1.14 | 2.56 |
+| `wallOnChamber` off | 0.494 | -0.0078 | 0.0077 | 1.56 | 0.77 | 58.7 | 230.1 | 40.0 | 41.5 | 1.17 | 2.57 |
+| `shovesInside` off | 0.497 | -0.0091 | 0.0079 | 1.51 | 0.77 | 54.8 | 238.3 | 38.1 | 41.9 | 1.14 | 3.14 |
+
+```
+wallOnChamber off vs shipped   +0.0037 +- 0.0058  (0.6 se, n 512)
+shovesInside  off vs shipped   +0.0024 +- 0.0080  (0.3 se, n 512)
+```
+
+**The wall is free, and it is not good.** Twice now -- +0.0046 against the plan's table and
++0.0037 against the shipped one, both six tenths of a standard error in favour of switching it
+*off* -- the executor change this whole session was built around is worth nothing on the bar. It
+is not a cost either; two runs agree that it is a wash, which is a different and more useful
+answer than "it is inside noise" alone would be.
+
+What it does do is measurable and small, and it is measurable in both directions. On the shipped
+table the wall books **4.0 more blows a bout on a hand slot** (234.1 against 230.1) and takes
+**0.7 more damage a bout** (42.2 against 41.5); against the plan's table the same two numbers were
+3.8 and 1.5. It catches a little more and evades a great deal less, and the two nearly cancel. The
+census above says why in one line: with the wall off, 152 of the four bouts' chambers are met
+with `duck` and 20 with `void`, and both of those take the whole body off the line, while the
+wall puts one hand on the bearing and leaves the body standing where it was.
+
+Whether the hand is in the right place is a question this session did not answer and should not
+pretend to. The wall is placed on the bearing from my socket to their tip *at the moment of the
+ask*, and their tip then travels; a solved crossing on a commit is placed where the tip is going.
+That is the design, plainly, and it is the obvious hypothesis for why the 118 extra covers
+the census counts buy four blows a bout. Testing it means putting the plate back on Session
+02's bench with the tip moving, which is a session's work and not a paragraph's.
+
+**The shove is free on the bar and it is not free on the eye.** Off, it is +0.0024 at three tenths
+of a standard error -- nothing -- and near-range stall goes from 2.56 s a bout to 3.14, a fifth
+more of exactly the thing the owner complained about, with the committed fraction falling 59.1 %
+to 54.8. It ships on for the reason the set exists: a rule that costs nothing on the bar and buys
+half a second a bout of not standing in each other's face is a rule this set wants.
+
+### The league: every shipped golem mind, mirrored and on random pairs
+
+Eight minds now, 1024 bouts each pool, `--cross --random 40 --cap 60 --seed 20260906`, the
+mirrored run adding `--mirror`. Read out of the logs rather than off the runs' own printouts, and
+`points` and `bar` count only the bouts where the two policies differ, for the reason Session 05's
+table gives: a `--cross` schedule pairs every policy with itself, and those bouts score half a
+point and a bar of exactly zero to both sides.
+
+Mirrored -- both corners carry the same build, so the only difference in a bout is the mind:
+
+| policy | points | bouts | bar | se | str/s | dmg/st | commit% | blocks | catches | clinch s | dealt | taken | their caught% |
+| --- | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: |
+| `golem-champion` | 0.535 | 254 | 0.0302 | 0.0103 | 1.45 | 0.90 | 52.2 | 195.6 | 35.5 | 1.45 | 45.4 | 43.1 | 41.2 |
+| `golem-neural` | 0.512 | 254 | 0.0013 | 0.0120 | 1.58 | 0.75 | 56.4 | 222.8 | 43.3 | 1.75 | 45.5 | 44.9 | 45.2 |
+| `golem-guardian` | 0.508 | 254 | -0.0063 | 0.0107 | 1.40 | 0.81 | 57.5 | 201.3 | 36.5 | 1.04 | 42.3 | 44.2 | 40.1 |
+| `golem-skirmisher` | 0.504 | 254 | 0.0114 | 0.0090 | 1.57 | 0.73 | 56.5 | 206.5 | 40.8 | 1.31 | 40.1 | 38.9 | 40.9 |
+| `golem-fencer` | 0.502 | 256 | 0.0132 | 0.0128 | 1.51 | 0.97 | 58.0 | 210.6 | 38.6 | 1.61 | 48.4 | 45.6 | 43.6 |
+| `golem-planner` | 0.500 | 254 | -0.0164 | 0.0096 | 1.55 | 0.61 | 52.5 | 208.9 | 40.5 | 1.59 | 39.4 | 41.7 | 43.9 |
+| `golem-form` | 0.488 | 254 | -0.0011 | 0.0103 | 1.57 | 0.86 | 59.9 | 220.3 | 39.5 | 1.08 | 47.3 | 47.0 | 42.6 |
+| `golem-duelist` | 0.453 | 268 | -0.0307 | 0.0115 | 1.52 | 0.84 | 58.1 | 203.5 | 41.9 | 1.59 | 45.8 | 48.8 | 46.6 |
+
+Random pairs -- each corner draws its own build, which is why the bare rows here are not a
+comparison of minds and the standardised table below is:
+
+| policy | points | bouts | bar | se | str/s | dmg/st | commit% | blocks | catches | clinch s | dealt | taken | their caught% |
+| --- | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: |
+| `golem-neural` | 0.539 | 254 | 0.0424 | 0.0211 | 1.14 | 0.74 | 53.5 | 151.2 | 34.8 | 2.13 | 33.7 | 28.0 | 46.9 |
+| `golem-skirmisher` | 0.535 | 254 | 0.0443 | 0.0267 | 1.39 | 0.90 | 62.8 | 180.1 | 33.4 | 2.90 | 39.3 | 35.9 | 45.4 |
+| `golem-duelist` | 0.519 | 268 | 0.0352 | 0.0247 | 1.42 | 0.70 | 57.6 | 175.9 | 36.3 | 2.01 | 36.1 | 32.5 | 50.0 |
+| `golem-fencer` | 0.504 | 256 | 0.0209 | 0.0260 | 1.30 | 0.79 | 54.5 | 164.4 | 35.1 | 2.11 | 38.0 | 35.5 | 48.6 |
+| `golem-guardian` | 0.482 | 254 | -0.0301 | 0.0241 | 1.22 | 0.62 | 59.4 | 169.0 | 30.8 | 1.39 | 28.0 | 31.2 | 43.0 |
+| `golem-form` | 0.480 | 254 | -0.0253 | 0.0240 | 1.31 | 0.78 | 61.6 | 170.3 | 35.3 | 2.15 | 36.3 | 38.2 | 42.4 |
+| `golem-planner` | 0.472 | 254 | -0.0598 | 0.0185 | 1.25 | 0.49 | 52.3 | 154.5 | 30.1 | 2.60 | 27.5 | 35.3 | 45.0 |
+| `golem-champion` | 0.467 | 254 | -0.0298 | 0.0224 | 1.19 | 0.57 | 51.5 | 131.2 | 28.1 | 3.14 | 30.8 | 33.3 | 44.4 |
+
+Standardised over the reach bands the executor itself branches on -- `reachEdge` 0.12 as a
+fraction of their reach, which is exactly `longer` and `shorter` in `styleRanges` -- so that every
+mind is rated over the same mix of opponents rather than over the one it drew:
+
+| mind | longer arm | level | shorter arm | standardised |
+| --- | --: | --: | --: | --: |
+| `golem-neural` | +0.150 ± 0.034 (90) | +0.056 ± 0.038 (58) | −0.057 ± 0.033 (106) | +0.049 ± 0.020 |
+| `golem-skirmisher` | +0.219 ± 0.048 (100) | −0.014 ± 0.032 (58) | −0.102 ± 0.040 (96) | +0.043 ± 0.026 |
+| `golem-fencer` | +0.193 ± 0.042 (98) | −0.049 ± 0.037 (60) | −0.108 ± 0.043 (98) | +0.023 ± 0.025 |
+| `golem-duelist` | +0.159 ± 0.034 (126) | +0.066 ± 0.052 (44) | −0.138 ± 0.040 (98) | +0.022 ± 0.024 |
+| `golem-form` | +0.031 ± 0.042 (94) | +0.043 ± 0.044 (52) | −0.108 ± 0.036 (108) | −0.021 ± 0.024 |
+| `golem-champion` | +0.125 ± 0.034 (98) | −0.110 ± 0.034 (54) | −0.136 ± 0.037 (102) | −0.027 ± 0.021 |
+| `golem-guardian` | +0.077 ± 0.032 (104) | +0.006 ± 0.043 (50) | −0.160 ± 0.044 (100) | −0.032 ± 0.023 |
+| `golem-planner` | −0.010 ± 0.029 (102) | +0.021 ± 0.035 (48) | −0.146 ± 0.029 (104) | −0.057 ± 0.018 |
+
+Band shares: longer 40 %, level 21 %, shorter 40 %.
+
+**The verdict, plainly. The guardian is level in the mirror and behind on random pairs.** Mirrored
+it is third on points at 0.508 in a field where seven of eight minds sit inside one standard error
+of a half, which is a way of saying the mirrored pool cannot separate them; head to head against
+the fencer over the sweep's own 512 bouts it is -0.0115 ± 0.0079, level and a shade behind. On
+random pairs, standardised, it is -0.032 ± 0.023, seventh of eight and the worst of the three
+styles.
+
+**It is the worst mind in the league at surviving an arm longer than its own, and near the worst
+at using one.** Out-reached it is −0.160 against a field whose next worst is −0.146; with the
+longer arm it converts +0.077, where the skirmisher gets +0.219 and the fencer +0.193 out of the
+same advantage and only the form and the planner do less with it. The two halves have different
+causes and both are in the file rather than in the physics.
+
+The **longer** half is not the stand-off, and it would be easy to write that it was.
+`styleRanges` reads `longStandOff` and not `standOffFraction` when my arm is the longer one, so
+in that band the guardian stands exactly where the form and the skirmisher stand -- the same
+1.06 of their reach, inherited from v2 and swept by nobody. What differs is that **this is the
+only style in the set with no rule that branches on `longer` at all.** The skirmisher stop-hits a
+point that closes faster than `stopHitClosing` when its arm is the longer one and the fencer has
+the same reflex; the guardian's six rules never read the field. An arm that reaches further is
+worth something only to a mind that does something different with it, and this one does not,
+so it converts the advantage at about two fifths of the rate the fencer does.
+
+The **shorter** half is the stand-off, and it is the style's own first sentence taken literally.
+`standOffFraction` 1.00 puts the hold at their reach, and `hold` is a maximum, so an arm shorter
+than theirs holds at a distance from which it cannot reach them -- and then waits, because every
+rule it has is an answer to something they started. The skirmisher was given a whole second set
+of rules for this band for exactly this reason and still loses it at −0.102; the guardian was
+given none and loses it at −0.160, the worst cell in the table.
+
+### The four signatures the plan predicted, and the four that failed
+
+The plan wrote its expectation down in advance, which is the only thing that makes a check like
+this worth anything: "the highest catches and blocks of any mind, the lowest damage taken,
+strokes moderate, and on the opponent's rows the highest caught fraction." On the mirrored pool,
+where every bout is the same build both sides and the mind is the only difference:
+
+| the plan expected | where the guardian actually lands, of eight |
+| --- | --- |
+| the highest `blocks` | 201.3 -- **seventh**, ahead of only the champion; `golem-neural` books 222.8 |
+| the highest `catches` | 36.5 -- **seventh**, again ahead of only the champion |
+| the lowest damage taken | 44.2 -- **fourth lowest**; the skirmisher takes 38.9 |
+| the highest caught fraction on their rows | 40.1 % -- **the lowest of the eight** |
+| strokes moderate | 1.40 a second -- the lowest in the league, which is the one it got |
+
+Four for four against, and the fourth is the one that matters, because it is the only one of them
+that is about the parry rather than about the shape of the bout. `caughtFraction` on the
+opponent's row is the fraction of *their* strokes whose scoring blow landed on one of my hand
+slots -- how often my hands were in the way of their stroke. The mind built to put a hand in the
+way is the mind whose hands are in the way least often in the league.
+
+The first three failures are one fact wearing three hats and it is not a defence of the style so
+much as a warning about the columns: `blocks` and `catches` are *counts*, and a bout in which
+less is thrown has fewer of both. The guardian throws the fewest strokes a second of any mind
+(1.40 mirrored, against a 1.53 median) and deals the second least damage a bout on random pairs.
+A style that answers rather than opens makes a quieter bout, and a quieter bout books fewer of
+everything -- including the defensive columns that were supposed to be its signature. Session 07
+should read `catches` per stroke *thrown at me* rather than per bout; the column as it stands
+cannot tell a good guard from a short fight, and this is the first mind that makes that visible.
+
+The fourth failure is not that. `caughtFraction` is already a rate, it is already normalised by
+the strokes the opponent threw, and it is the lowest in the league. Taken with the two switch
+rows above -- the wall books four extra blows on the hand a bout and takes 0.7 extra damage -- the
+reading is consistent and it is not the one the plan wanted: **this style covers earlier and more
+often than any other, and is hit through the cover.**
+
+### What this leaves in front of the gate
+
+The human gate for this session is whether the plate visibly meets the blade and the riposte
+follows it. Eight things belong beside that question, and none of them is a reason to answer it
+either way -- that is the owner's call and this file does not make it.
+
+1. **The style's first rule needed a new capability, and the capability is free rather than
+   good.** `wallOnChamber` exists because `solveIntercept` cannot offer a parry against an arm
+   whose tip is going the wrong way, so without it the plan's opening rule was unsayable. With
+   it, 132 of the guardian's 235 parries go out during a chamber instead of 14. On the bar it is
+   +0.0037 ± 0.0058 in favour of switching it *off*, measured twice, on two different tables.
+   It is a wash.
+2. **A wall shipped, not an intercept**, which answers the question the plan left open -- and it
+   was answered by the executor rather than by Session 02's bench. There is no crossing to solve
+   before a stroke starts; the quantity the solver reads points away.
+3. **The second constant this set has moved off a sweep.** `ripostesQuick` ships off against the
+   plan's own frozen choice, at +0.0281 on seed 20260906 and +0.0259 on a held-out 20260907, 3.6
+   standard errors combined, with five structural columns agreeing on both. The plan's argument
+   was arithmetically right and rested on a window it had measured as 0.40 s when the code says
+   0.60.
+4. **Four of the four signatures the plan predicted do not hold**, and one of them -- the caught
+   fraction on the opponent's rows -- is a rate rather than a count and cannot be explained away
+   by the quieter bout. The style covers more often than any other mind and is hit through the
+   cover.
+5. **It is the worst mind in the league when out-reached** (−0.160 standardised, against a next
+   worst of −0.146) and near the worst at using a longer arm (+0.077 against the fencer's
+   +0.193). The second of those has a named cause that is not a number: it is the only style in
+   the set with no rule that branches on `longer`.
+6. **The one column it owns is the owner's own complaint.** Clinch is 1.04 s a bout mirrored and
+   1.39 s on random pairs, lowest in the league both times, against a field of 1.3--3.1; and its
+   `shovesInside` row says where half a second of that comes from -- near-range stall goes 2.56 s
+   to 3.14 with the shove off, for nothing on the bar either way.
+7. **`patience` 3.0 and the two `shoveLean` rows are unexercised against a fencer.** The option
+   census names no `cut` at all in four bouts: their arm is in some read phase at nearly every
+   ask, so the first three rules answer before patience is ever reached. Both `shoveLean` rows
+   come back inside a standard error, which is what an unexercised constant looks like, and the
+   sweep can only speak for the random pool's other builds.
+8. **The 60 s cap is in front of the gate for the fifth time.** Three quarters of the guardian's
+   bouts end on it (74.8 % on the plan's table, 76.6 % on the shipped one), and a defensive style
+   is exactly the mind that turns a cap into a draw.

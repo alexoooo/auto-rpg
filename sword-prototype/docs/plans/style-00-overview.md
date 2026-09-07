@@ -1,9 +1,9 @@
 # Style -- live roadmap
 
-> **2026-09-07 status: Sessions 00 to 05 implemented; their human gates are open, and
+> **2026-09-07 status: Sessions 00 to 06 implemented; their human gates are open, and
 > nothing is accepted.**
-> Thirteen files, one per landable session. Sessions 06 to 12 are unimplemented and every gate,
-> Sessions 00's to 05's included, is open. Every session ends at a human gate that
+> Thirteen files, one per landable session. Sessions 07 to 12 are unimplemented and every gate,
+> Sessions 00's to 06's included, is open. Every session ends at a human gate that
 > the owner records in that session's status line; an agent may not write "accepted" there.
 > The golem set and the matchup set that came before this one were deleted at the owner's
 > request on 2026-09-06, every one of their sessions having landed; their durable record is
@@ -145,7 +145,7 @@ stays as it is.
 | 03 | whether every blow's worth reads as its weight, and whether a maul against a blade is a fight | open; the anchoring, the prediction table, the class table and what the model cost the bout are in the Session 03 entry of `../measurements.md`, and the entry puts the 60 s cap in front of the gate for the second time |
 | 04 | whether a cut reads as a cut and a circle reads as intent | open; the option census, the seventeen sweep rows and the two checks that came back negative are in the Session 04 entry of `../measurements.md`, and the entry puts the 60 s cap in front of the gate for the third time |
 | 05 | whether the skirmisher reads as hit-and-run rather than as running | open; the nine sweep rows, the two league runs and the first constant this set has moved off a sweep (`patience` 2.0) are in the Session 05 entry of `../measurements.md`. The style is level with the fencer head to head and ahead of it on random pairs at 2.7 standard errors once both are standardised over the reach bands, and it converts a reach advantage better than any mind that ships. Four of the five signatures the plan predicted do not hold, one branch spends 8 s a bout inside their point doing nothing when out-reached, and the 60 s cap is in front of the gate for the fourth time |
-| 06 | whether the plate visibly meets the blade and the riposte follows it | open |
+| 06 | whether the plate visibly meets the blade and the riposte follows it | open; a wall shipped and not an intercept, because there is no crossing to solve before a stroke starts. The ten sweep rows, the two confirmation rows on a held-out seed, the two switch rows re-asked of the shipped table and the two league runs are in the Session 06 entry of `../measurements.md`. `wallOnChamber` puts 132 of the style's 235 parries out during a chamber against 14 without it and is worth nothing on the bar, twice measured; `ripostesQuick` ships off against this set's own frozen choice at 3.6 standard errors over two seeds, the second constant a sweep has moved; all four predicted signatures fail, including the one that is a rate; and the 60 s cap is in front of the gate for the fifth time |
 | 07 | whether the brawler reads as a grappler pushing in | open |
 | 08 | whether the league table agrees with what they see | open |
 | 09 | whether a mind that picks minds looks like one mind | open |

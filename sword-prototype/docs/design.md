@@ -1014,6 +1014,61 @@ arm cannot clear a reach it does not have, so it times out still inside their po
 goes in from there. It costs almost nothing on the bar and a great deal on the eye, which is the
 wrong way round for a set whose whole purpose is how the fight reads.
 
+### The third style, and the rule the executor could not say
+
+Session 06. `src/golem/styles/guardian.ts` is the defensive direction: it stands at their reach
+rather than outside it, answers their arm with its spare hand rather than with its feet, ripostes
+into the recover with the quick stroke and no step behind it, shoves what gets inside its inner
+radius, and only after all of that -- three seconds of nothing, the longest patience in the set --
+opens something of its own.
+
+Writing it found the first thing in this set that a style could not say. The plan's first rule is
+"their chamber: `parry`", and the executor answered it by never offering `parry` at all. The parry
+is a solved crossing: `solveIntercept` takes their published `tipVelocity`, intersects the ray
+with my guard shell, and returns null unless the tip is closing on the shell. An arm drawing back
+to chamber has a tip going the wrong way by construction, so the branch fell through on every ask
+it was written for, silently, and the style was not the style.
+
+What that is really saying is that the plan's open question -- intercept or wall -- was already
+decided, and not by the bench. Session 02 measured the plate taking 0.89 s to settle over 0.40 m
+against a commit that runs in 0.20, which says a true intercept of a *committed* stroke is not
+available to this body. The chamber says something stronger: for a stroke that has not started
+there is no crossing to solve in principle, because the quantity the solver reads points away.
+So `wallOnChamber` is a new row on the executor's table, off by default so that the two older
+styles and the four v2 minds are byte-identical without it, and when it is on the executor places
+the spare hand on the bearing from my socket to their tip at the shell radius and calls that an
+intercept at `t = 0`. `Intercept` gained a `wall` flag so a placed bearing and a solved crossing
+can be told apart in a test and in a log rather than only in prose. A wall shipped, not an
+intercept.
+
+It is a capability and not a reflex, which is the set's third frozen choice applied to the
+executor for the first time: the executor learned a new thing it *can* do, and every rule about
+when to do it is still in the director. `golem-form` and `golem-skirmisher` run with the row off
+and are unchanged to the byte.
+
+The measured effect is in `docs/measurements.md` under Session 06, and the shape of it is this:
+with the row on, 132 of the guardian's 235 parries go out during a chamber; with it off only
+fourteen do, and the chamber is answered by `duck` and `void` instead -- the body rather than the
+hand. **On the bar it is worth nothing**, measured twice on two different tables at six tenths of
+a standard error each time, and both times in favour of switching it off. It books four more blows
+a bout on a hand slot and takes 0.7 more damage, which is the trade written out: a hand placed on
+a bearing catches a little more and leaves the body standing where it was, and the evasions it
+displaces took the whole body off the line. The capability is free, not good, and the honest thing
+to say about a session built around it is that its own control row is the most interesting number
+in it.
+
+Two further things about this style are worth carrying here rather than leaving in the entry. Its
+riposte ships as the **committed cut and not the quick stroke**, against the plan's own frozen
+choice, on two independent seeds at 3.6 standard errors combined -- the plan's argument was that a
+riposte is the half second their arm is out of position and a cut chambers for 0.32 s, and the
+arithmetic was right about a window it had measured as 0.40 s when `recoverSeconds` 0.30 plus
+`cooldown` 0.30 makes it 0.60. And **all four of the signatures the plan predicted for it fail**,
+including the one that is a rate rather than a count: of the eight minds that ship, the guardian's
+opponents have the *lowest* fraction of their strokes caught on its hand slots. The mind built to
+put a hand in the way of a stroke is the one whose hands are in the way least often. What it does
+own is the complaint this whole set exists for -- it clinches 1.04 s a bout in the mirror against
+a field of 1.1 to 1.8, and 1.39 on random pairs against 2.0 to 3.1.
+
 ## Dying, which is not the same as losing
 
 `over` not stopping the world was the right call about the *bout* and, for a long time, it

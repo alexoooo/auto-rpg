@@ -183,6 +183,23 @@ const STYLE = {
   /** Where along the parrying terminal the intercept is met: `reachForDistance`'s bite. */
   parryBite: 0.5,
   /**
+   * Whether the spare is sent to a wall on the chamber read, before their point is closing.
+   *
+   * Off by default, so every style written before Session 06 is byte-identical with it here.
+   * On, it is Session 02's answer to a question that session asked and this executor had not
+   * yet been told: a plate takes 0.89 s to settle over 0.40 m, and a stroke's whole commit is
+   * 0.20 s, so an arm that waits for their point to start closing before it moves has already
+   * lost. `solveIntercept` needs a closing point and a chambering arm is drawing *away*, so
+   * during their chamber there is no intercept to solve and no parry is offered at all. This
+   * row makes one: the shell point on the bearing of their drawn tip, held until their commit
+   * turns it into a real intercept, which the step-by-step recompute then refines.
+   *
+   * It is a wall and not a prediction. It reads where their hand *is*, not where the arc will
+   * bring it, so a stroke that comes round the other side finds the cover on the wrong bearing.
+   * Buying the chamber's seconds is the whole of what it does.
+   */
+  wallOnChamber: false,
+  /**
    * May a chamber be abandoned when their arm turns to commit inside it?
    *
    * Off by default, because it is the one place this executor takes an option away mid-act and the
@@ -250,6 +267,13 @@ export interface Intercept {
   readonly t: number;
   /** Metres from the spare socket to the point being met. */
   readonly distance: number;
+  /**
+   * Whether this is a wall on the chamber read rather than a solved crossing.
+   *
+   * A director that wants to know the difference can: a wall is a bearing held in hope and an
+   * intercept is a point their tip is going to arrive at.
+   */
+  readonly wall: boolean;
 }
 
 /**
@@ -624,12 +648,33 @@ export function golemStyled(
       const miss = Math.hypot(qx - socket.x, qy - socket.y, qz - socket.z);
       if (t < 0 && miss > r + T.parryMargin) return null;
       meeting.x = qx; meeting.y = qy; meeting.z = qz;
-      return { t: closest, distance: miss };
+      return { t: closest, distance: miss, wall: false };
     }
     meeting.x = tip.x + vel.x * t;
     meeting.y = tip.y + vel.y * t;
     meeting.z = tip.z + vel.z * t;
-    return { t, distance: Math.hypot(meeting.x - socket.x, meeting.y - socket.y, meeting.z - socket.z) };
+    return {
+      t, distance: Math.hypot(meeting.x - socket.x, meeting.y - socket.y, meeting.z - socket.z),
+      wall: false,
+    };
+  };
+
+  /**
+   * The wall: the point on my guard shell that lies on the bearing of their drawn tip.
+   *
+   * No solve, because there is nothing yet to solve -- their arm is going backwards. `meeting` is
+   * filled the same way the intercept fills it, so the spare hand's command below does not care
+   * which of the two put it there, and `t` is zero because the answer is "now" rather than "in
+   * `t` seconds". Returns null only for a tip sitting on top of the socket, which has no bearing.
+   */
+  const wallAt = (tip: Point, socket: Point, r: number): Intercept | null => {
+    const dx = tip.x - socket.x, dy = tip.y - socket.y, dz = tip.z - socket.z;
+    const span = Math.hypot(dx, dy, dz);
+    if (span < 1e-6) return null;
+    meeting.x = socket.x + dx / span * r;
+    meeting.y = socket.y + dy / span * r;
+    meeting.z = socket.z + dz / span * r;
+    return { t: 0, distance: r, wall: true };
   };
 
   const plan = (view: FighterView, dt: number): void => {
@@ -762,6 +807,12 @@ export function golemStyled(
       ? reachAt(coverReachFor(self.hands[spare].weapon, theirWeapon), spareReach, spareCap) : 0;
     intercept = spareCanCover && !headfirst
       ? solveIntercept(threat.tip, tipVelocity, spareSocket, shellRadius) : null;
+    // Their chamber has no closing point in it, so a style that wants to be there before the
+    // commit gets a bearing instead of a crossing. `theirs` is read one block down for everything
+    // else and is already in hand here.
+    if (intercept === null && T.wallOnChamber && spareCanCover && !headfirst && theirs === "chamber") {
+      intercept = wallAt(threat.tip, spareSocket, shellRadius);
+    }
 
     // A parry is released `readRecoverSeconds` after their arm stops chambering or committing, and
     // the release is one of the three events the director is asked on.
@@ -1093,8 +1144,9 @@ export function golemStyled(
         off.guard = false;
       } else if (parrying && intercept !== null) {
         // The one command in this file computed from a solve rather than from a pose. It is
-        // recomputed every step while their arm is chambering or committing, which is what makes
-        // it an intercept and not a wall: `meeting` moved with their point on the step before.
+        // recomputed every step while their arm is chambering or committing, so a parry that
+        // started as a wall on the chamber read becomes a true intercept the moment their point
+        // begins to close: `meeting` is refilled every step by whichever of the two answered.
         aimAt(spareSocket, meeting, trunkHeading, self.hands[spare].outboard, spareAim);
         writeAim(off, spareCap, spareAim, self.hands[spare].outboard, 0, 0, 1,
           reachForDistance(distance(spareSocket, meeting), spareReach, spareCap, T.parryBite));

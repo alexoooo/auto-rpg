@@ -54,8 +54,8 @@ import {
 // policy that is selectable exists. It reaches this file for types only, so the edge runs one way
 // at run time and there is no cycle to be careful about.
 import {
-  golemChampionMind, golemDuelistMind, golemFencerMind, golemFormMind, golemNeuralMind,
-  golemPlannerMind, golemSkirmisherMind,
+  golemChampionMind, golemDuelistMind, golemFencerMind, golemFormMind, golemGuardianMind,
+  golemNeuralMind, golemPlannerMind, golemSkirmisherMind,
 } from "./golem/golem-policies.ts";
 
 /**
@@ -1245,6 +1245,7 @@ export const POLICIES: readonly Policy[] = [
   { name: "golem-neural", label: "Golem neural", surface: GOLEM_SURFACE, create: golemNeuralMind },
   { name: "golem-form", label: "Golem form", surface: GOLEM_SURFACE, create: golemFormMind },
   { name: "golem-skirmisher", label: "Golem skirmisher", surface: GOLEM_SURFACE, create: golemSkirmisherMind },
+  { name: "golem-guardian", label: "Golem guardian", surface: GOLEM_SURFACE, create: golemGuardianMind },
 ];
 
 /**

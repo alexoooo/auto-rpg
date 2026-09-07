@@ -6,6 +6,7 @@ import { GOLEM_CHAMPIONS } from "./tactics-champions.ts";
 import { golemNeural } from "./neural.ts";
 import { golemFencer, type GolemFencer } from "./tactics-v2.ts";
 import { golemForm } from "./styles/form.ts";
+import { golemGuardian } from "./styles/guardian.ts";
 import { golemSkirmisher } from "./styles/skirmisher.ts";
 import type { GolemStyled } from "./tactics-v3.ts";
 
@@ -139,6 +140,23 @@ export function golemSkirmisherMind(seed = (Math.random() * 0x100000000) >>> 0):
   const styled = golemSkirmisher(seed);
   return {
     name: "golem-skirmisher",
+    styled,
+    decide: (view, dt): Intent => styled.decide(view, dt),
+  };
+}
+
+/**
+ * The eighth golem mind, and the third style. Session 06 of the style set.
+ *
+ * The same executor under `guardianDirector`: the cover sent out on their chamber rather than on
+ * their commit, the quick stroke into their recover, a shove for anything that gets inside, and
+ * three seconds of patience before it starts anything itself. `styled` is published as the other
+ * two are, and for the same reason. Same seed argument, same reasons.
+ */
+export function golemGuardianMind(seed = (Math.random() * 0x100000000) >>> 0): Mind & { styled: GolemStyled } {
+  const styled = golemGuardian(seed);
+  return {
+    name: "golem-guardian",
     styled,
     decide: (view, dt): Intent => styled.decide(view, dt),
   };

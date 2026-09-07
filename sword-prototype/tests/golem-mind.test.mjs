@@ -53,6 +53,7 @@ import {
   COMMITTED_SHAPES, GOLEM_TACTICS_V3, golemStyled, reachAt,
 } from "../src/golem/tactics-v3.ts";
 import { FORM, golemForm } from "../src/golem/styles/form.ts";
+import { GUARDIAN, golemGuardian } from "../src/golem/styles/guardian.ts";
 import { SKIRMISHER, golemSkirmisher } from "../src/golem/styles/skirmisher.ts";
 import { golemPlanner } from "../src/golem/planner.ts";
 import { NO_CHAMPIONS, golemChampionMind } from "../src/golem/champion.ts";
@@ -94,7 +95,7 @@ test("a_units_picker_never_offers_a_mind_written_for_the_other_control_surface",
   const names = (unit) => unit.driverOptions.map(({ name }) => name);
   assert.ok(!names(warrior).includes("golem-duelist"),
     `a Warrior's picker offers ${names(warrior).join(", ")}`);
-  assert.deepEqual(names(golem), ["idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-neural", "golem-form", "golem-skirmisher"]);
+  assert.deepEqual(names(golem), ["idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-neural", "golem-form", "golem-skirmisher", "golem-guardian"]);
   assert.throws(() => unitDefinition("warrior").createPolicy("golem-duelist"),
     /does not support policy/);
   assert.throws(() => unitDefinition("golem").createPolicy("duelist"),
@@ -2623,4 +2624,358 @@ test("golem_skirmisher_fights_the_fencer_and_asks_its_feet_backwards_more_often"
   assert.ok(blows.left > 0, "golem-skirmisher landed nothing at all in fourteen seconds");
   assert.ok(back.left > back.right,
     `the skirmisher asked for a step back on ${back.left} steps and the fencer on ${back.right}`);
+});
+
+/** The guardian, with a hook that writes down every ask: `skirmisherSaying` for the third style. */
+function guardianSaying(seed, over = {}) {
+  const said = [];
+  const mind = golemGuardian(seed, { ...GUARDIAN, ...over },
+    (available, reading, view, option) => said.push({
+      clock: view.clock, option, theirs: reading.theirs, gap: reading.gap,
+      offered: [...available], intercept: reading.intercept,
+    }));
+  return { mind, said };
+}
+
+/**
+ * Their arm drawing in, which is the profile `the_stroke_reader...` pins as a chamber: the
+ * extension falls at about one reach a second and nothing else about the body moves, because a
+ * chamber is the arm and not the feet. Their point never closes here, which is the whole reason
+ * this is the hard case -- there is no intercept to solve against an arm going backwards.
+ */
+function theirChamber(fixture, mind, seconds, { from = 0.88, to = 0.60, hold = 0.30, lift = null, each = null } = {}) {
+  const drawSteps = Math.round(seconds * CONFIG.world.physicsHz);
+  // The draw, then the arm held drawn. The draw itself takes 0.28 s and a director is asked six
+  // times a second, so a helper that stopped at the bottom of the draw would be asking whether an
+  // ask happened to land in a window of that size rather than what the answer was. A held draw
+  // stays a chamber -- `drawing || (phase === "chamber" && extension < readGuardExtension)` -- so
+  // the hold is the same phase, given long enough to be asked about.
+  const total = drawSteps + Math.round(hold * CONFIG.world.physicsHz);
+  const tip = fixture.opponent.hands.primary.tip;
+  for (let step = 0; step < total; step += 1) {
+    const was = { x: tip.x, y: tip.y, z: tip.z };
+    const t = Math.min(1, (step + 1) / drawSteps);
+    theirArm(fixture, { extension: from + (to - from) * t });
+    // Every step, and before `decide`, because `theirArm` writes the tip back to the line between
+    // the two shoulders each time: a height set after the decision is a height the mind never saw.
+    if (lift !== null) {
+      tip.y = fixture.self.hands.primary.shoulder.y + lift;
+      fixture.opponent.tip.y = tip.y;
+    }
+    // The velocity the fixture publishes has to be the velocity the tip actually has, or the
+    // executor solves against one arm and reads another. Moving a tip by hand and leaving
+    // `tipVelocity` where it was is how the first draft of this helper offered a *solved*
+    // intercept against an arm going backwards, which made the control in the test below pass
+    // for a reason that had nothing to do with the control.
+    theirTipVelocity(fixture, {
+      x: (tip.x - was.x) / FIXED, y: (tip.y - was.y) / FIXED, z: (tip.z - was.z) / FIXED,
+    });
+    fixture.clock += FIXED;
+    const intent = mind.decide(fixture, FIXED);
+    if (each) each(intent, step);
+  }
+  theirTipVelocity(fixture, { x: 0, y: 0, z: 0 });
+}
+
+/**
+ * Out of range with their guard out, long enough that the seeded opening cooldown is spent, then
+ * closed to `gap` with the guard still out.
+ *
+ * The default gap is deliberately outside the shove band. `shove` is offered at every ask while
+ * the gap is inside `near + 0.15 * reach`, and the guardian takes it every time, so a test that
+ * warmed up at 1.6 m spent its whole window in a shove and its recover and was never asked
+ * anything -- which is how the first draft of the chamber test failed while the rule it was
+ * testing worked.
+ */
+function warmUp(fixture, mind, gap = 2.4) {
+  atGap(fixture, 4.5);
+  theirArm(fixture, { extension: 0.88, toward: false });
+  drive(fixture, mind, 2.5);
+  atGap(fixture, gap);
+  theirArm(fixture, { extension: 0.88 });
+  drive(fixture, mind, 0.10);
+}
+
+/**
+ * The first rule, and the one that needed the executor's `wallOnChamber` row to be sayable.
+ *
+ * An arm drawing back has no closing point in it, so `solveIntercept` -- which refuses anything
+ * that is not closing -- returns nothing and no parry is offered at all. The form is the control:
+ * same executor, same body, same scripted chamber, and it is never even given the option.
+ */
+test("the_guardian_meets_a_chamber_and_the_form_is_not_offered_the_chance", async (t) => {
+  const golem = await standAGolem(t);
+  const run = (make) => {
+    const said = [];
+    const mind = make((available, reading, view, option) =>
+      said.push({ option, theirs: reading.theirs, offered: [...available] }));
+    const fixture = fixtureOf(golem.view);
+    warmUp(fixture, mind);
+    theirChamber(fixture, mind, 0.28);
+    return said.filter((ask) => ask.theirs === "chamber");
+  };
+  const guarding = run((hook) => golemGuardian(SEED, { ...GUARDIAN, patience: 99 }, hook));
+  const forming = run((hook) => golemForm(SEED, { ...FORM, patience: 99 }, hook));
+
+  assert.ok(guarding.length > 0, "the arm drawing in was never read as a chamber, so this proves nothing");
+  assert.ok(guarding.every((ask) => ask.offered.includes("parry")),
+    "the guardian was not offered a parry against a chamber, so `wallOnChamber` is not doing its job");
+  assert.ok(guarding.every((ask) => ask.option === "parry"),
+    `the guardian answered a chamber with ${[...new Set(guarding.map((a) => a.option))].join(", ")}`);
+
+  assert.ok(forming.length > 0, "the control never read a chamber either");
+  assert.ok(forming.every((ask) => !ask.offered.includes("parry")),
+    "a parry was on offer against a chamber with `wallOnChamber` off");
+});
+
+/**
+ * What the wall is, geometrically, and what it stops being.
+ *
+ * On the chamber it is a bearing: the point on my guard shell that lies toward their drawn tip,
+ * `t` zero because the answer is "now", `wall` true because nothing was solved. The moment their
+ * point turns round and closes, the same recompute finds a real crossing and the flag goes off --
+ * which is the sentence "pre-positioned from the chamber read and refined through the commit"
+ * written as an assertion.
+ */
+test("the_wall_is_a_bearing_on_the_chamber_and_a_solved_crossing_on_the_commit", async (t) => {
+  const golem = await standAGolem(t);
+  const shell = (view) => reachAt(
+    GOLEM_TACTICS_V3.shieldReach, view.self.hands.secondary.reach, view.self.capabilities.effectors.secondary);
+  const { mind, said } = guardianSaying(SEED, { patience: 99 });
+  const fixture = fixtureOf(golem.view);
+  warmUp(fixture, mind);
+  const radius = shell(fixture);
+  let last = null;
+  theirChamber(fixture, mind, 0.28, { each: (intent) => { last = intent.secondary; } });
+
+  const walls = said.filter((ask) => ask.theirs === "chamber" && ask.intercept !== null);
+  assert.ok(walls.length > 0, "no intercept of any kind was found during the chamber");
+  assert.ok(walls.every((ask) => ask.intercept.wall === true),
+    "something was solved against an arm that is drawing backwards");
+  assert.ok(walls.every((ask) => ask.intercept.t === 0),
+    "a wall was reported as being some number of seconds ahead");
+  assert.ok(walls.every((ask) => Math.abs(ask.intercept.distance - radius) < 1e-9),
+    "a wall was placed somewhere other than on the guard shell");
+
+  // And the hand was actually sent there: the reach command asks for the shell's radius.
+  const asked = commandedDistance(last, fixture.self, "secondary", GUARDIAN.parryBite);
+  assert.ok(Math.abs(asked - radius) < GUARDIAN.parryMargin,
+    `the spare was sent ${asked.toFixed(3)} m out to a shell of ${radius.toFixed(3)} m`);
+  assert.equal(last.guard, true, "a parrying hand is not covering");
+  assertInsideEnvelope({ ...blankIntent(), secondary: { ...blankIntent().secondary, ...last } },
+    fixture.self, "wall");
+
+  // Now their point closes: the wall becomes an intercept without the director saying anything.
+  // The body walks in at 1.5 m/s and the tip is published as travelling with it, because
+  // `solveIntercept` reads `tipVelocity` and a point that the view says is standing still has
+  // no crossing to solve however fast the body carrying it is moving.
+  const mark = said.length;
+  fixture.opponent.reach = 1.78;
+  theirArm(fixture, { extension: 0.62 });
+  theirTipVelocity(fixture, { z: -1.5 });
+  drive(fixture, mind, 0.25, { closing: 1.5 });
+  const committed = said.slice(mark).filter((ask) => ask.theirs === "commit" && ask.intercept !== null);
+  assert.ok(committed.length > 0, "their drawn, closing arm was never read as a commit");
+  assert.ok(committed.some((ask) => ask.intercept.wall === false),
+    "a closing point was still being answered with a bearing rather than a crossing");
+});
+
+/**
+ * The riposte, and the reason it comes before the shove in the order.
+ *
+ * The ranges are read off the mind rather than written down here, because `strike` and
+ * `near + 0.15 * reach` are within a couple of hand-breadths of each other on this body and a
+ * hard-coded gap is a test that passes on one build and asks a different question on the next.
+ */
+test("the_guardian_ripostes_into_a_recover_on_the_first_ask_after_it", async (t) => {
+  const golem = await standAGolem(t);
+  const run = (over) => {
+    // `shovesInside` off for this one: the shove band and the strike band overlap on this body,
+    // so a riposte test at strike range with the shove on would be measuring which of two rules
+    // comes first in the order -- which is what the shove's own test below is for.
+    const { mind, said } = guardianSaying(SEED,
+      { patience: 99, feintFraction: 0, shovesInside: false, ...over });
+    const fixture = fixtureOf(golem.view);
+    warmUp(fixture, mind);
+    atGap(fixture, Math.max(0.1, mind.reading.strike - 0.10));
+    theirArm(fixture, { extension: 0.88 });
+    drive(fixture, mind, 0.20);
+    fixture.opponent.reach = 1.78;
+    theirArm(fixture, { extension: 0.62 });
+    theirTipVelocity(fixture, { z: -1.5 });
+    drive(fixture, mind, 0.25, { closing: 1.5 });
+    const mark = said.length;
+    theirArm(fixture, { extension: 0.88 });
+    theirTipVelocity(fixture, { x: 0, y: 0, z: 0 });
+    drive(fixture, mind, 0.30);
+    return said.slice(mark).filter((ask) => ask.theirs === "recover");
+  };
+
+  // What ships: the committed arc, which chambers for 0.32 s and still lands inside the 0.60 s
+  // their recover and their cooldown leave open. The plan asked for the quick stroke and two
+  // seeds of the Session 06 sweep took it back; the entry has both numbers.
+  const committed = run({});
+  assert.ok(committed.length > 0, "the arm going back out was never read as a recover");
+  assert.equal(committed[0].option, "cut",
+    `the first ask of their recover was answered with ${committed[0].option}`);
+
+  // The row exists so this is a command line and not an argument: on, the same opening is taken
+  // off the guard with the quick stroke instead, which is the plan's own frozen choice.
+  const quick = run({ ripostesQuick: true });
+  assert.ok(quick.length > 0, "the control never read a recover either");
+  assert.equal(quick[0].option, "strike",
+    `with \`ripostesQuick\` on the riposte was ${quick[0].option}`);
+});
+
+/** Anything inside the inner radius is shoved off, and `shovesInside` is how that is unsaid. */
+test("the_guardian_shoves_what_gets_inside_it_and_the_switch_takes_that_back", async (t) => {
+  const golem = await standAGolem(t);
+  const run = (over) => {
+    const { mind, said } = guardianSaying(SEED, { patience: 99, ...over });
+    const fixture = fixtureOf(golem.view);
+    warmUp(fixture, mind);
+    atGap(fixture, Math.max(0.1, mind.reading.near));
+    theirArm(fixture, { extension: 0.88 });
+    const mark = said.length;
+    drive(fixture, mind, 0.60);
+    return said.slice(mark);
+  };
+
+  const shoving = run({});
+  assert.ok(shoving.length > 0, "the director was never asked from inside the near radius");
+  assert.ok(shoving.every((ask) => ask.offered.includes("shove")),
+    "a shove was not on offer from inside the inner radius, so this proves nothing");
+  assert.ok(shoving.some((ask) => ask.option === "shove"),
+    `inside its own near radius the guardian named ${[...new Set(shoving.map((a) => a.option))].join(", ")}`);
+
+  const holding = run({ shovesInside: false });
+  assert.ok(holding.every((ask) => ask.option !== "shove"),
+    "the guardian shoved with `shovesInside` off");
+});
+
+/**
+ * A body with no spare cover has two answers and the height of their point picks between them.
+ *
+ * The paired maul is the case: `mirror` writes the acting hand over the other one, so there is no
+ * spare to send anywhere and `parry` is never offered however the chamber reads. `duck` is
+ * offered by the executor only for a point above my shoulder, so the two branches of `answer` are
+ * selected by exactly the condition the plan names for them.
+ */
+test("with_no_spare_cover_a_high_point_is_ducked_and_a_low_one_is_stepped_off", async (t) => {
+  const golem = await standAGolem(t, setupWith({ primary: MAUL, secondary: MAUL }));
+  const run = (lift) => {
+    const { mind, said } = guardianSaying(SEED, { patience: 99 });
+    const fixture = fixtureOf(golem.view);
+    warmUp(fixture, mind);
+    theirChamber(fixture, mind, 0.28, { lift });
+    return said.filter((ask) => ask.theirs === "chamber");
+  };
+
+  const high = run(0.30);
+  assert.ok(high.length > 0, "the drawing arm was never read as a chamber on the paired body");
+  assert.ok(high.every((ask) => !ask.offered.includes("parry")),
+    "a paired grip was offered a parry, and it has no spare hand to make one with");
+  assert.ok(high.every((ask) => ask.option === "duck"),
+    `a point above the shoulder was answered with ${[...new Set(high.map((a) => a.option))].join(", ")}`);
+
+  const low = run(-0.40);
+  assert.ok(low.length > 0, "the low case never read a chamber");
+  assert.ok(low.every((ask) => !ask.offered.includes("duck")),
+    "a duck was offered under a point below the shoulder");
+  assert.ok(low.every((ask) => ask.option === "void"),
+    `a point below the shoulder was answered with ${[...new Set(low.map((a) => a.option))].join(", ")}`);
+});
+
+test("golem_guardian_stays_inside_the_envelope_and_is_deterministic_under_a_seed", async (t) => {
+  for (const [label, setup] of [
+    ["the default golem", defaultGolemSetup()],
+    ["two blades", setupWith({ secondary: { chain: "wrist", terminal: "blade" } })],
+    ["the maul", setupWith({ primary: MAUL, secondary: MAUL })],
+    ["fists", setupWith({ primary: { chain: "wrist", terminal: "fist" }, secondary: { chain: "pitch", terminal: "fist" } })],
+    ["the ram head", setupWith({ head: "head.ram",
+      primary: { chain: "none", terminal: "none" }, secondary: { chain: "none", terminal: "none" } })],
+  ]) {
+    const golem = await standAGolem(t, setup);
+    const fixture = fixtureOf(golem.view);
+    sweepPlaces(fixture, golemGuardian(SEED), label, 0.35);
+  }
+  const golem = await standAGolem(t);
+  const trace = (seed) => {
+    const fixture = fixtureOf(golem.view);
+    const mind = golemGuardian(seed);
+    const out = [];
+    // Five seconds a place, because this style's only seeded numbers are the patience jitter and
+    // the feint roll and its patience is 3.0 -- the longest in the set. A trace shorter than the
+    // top of that bracket never opens an exchange, so it never reads either number and would be
+    // the same trace under every seed for a reason that has nothing to do with determinism.
+    for (const z of [3.5, 1.6, 1.2]) {
+      place(fixture, { x: 0.3, z });
+      drive(fixture, mind, 5.0, {
+        each: (intent) => out.push(`${intent.primary.pointerX.toFixed(6)},${intent.primary.pointerY.toFixed(6)},` +
+          `${intent.secondary.reach.toFixed(6)},${intent.secondary.guard ? 1 : 0},` +
+          `${intent.forward.toFixed(6)},${intent.strafe.toFixed(6)},${mind.stance}`),
+      });
+    }
+    return out.join("|");
+  };
+  assert.equal(trace(SEED), trace(SEED), "one seed, one bout");
+  assert.notEqual(trace(SEED), trace(SEED + 1), "two seeds, two bouts");
+});
+
+/**
+ * The whole thing on a real body: `golem-guardian` against `golem-fencer` for fourteen seconds.
+ *
+ * What is asserted is the one thing this style claims that no other does -- that the spare hand
+ * is *sent somewhere* on purpose, often, and before their point is closing. The count is of asks
+ * answered `parry` while their arm reads as a chamber, which is the rule the whole style is built
+ * around and which the form cannot produce at all: with `wallOnChamber` off there is no intercept
+ * to solve against an arm drawing back, so the option is never even on offer.
+ *
+ * Whether that is worth anything is not a question a fourteen-second bout can answer, and this
+ * test does not try. Session 04 measured a solved parry buying five blocks a bout on top of the
+ * 226 a body books by standing still; the Session 06 entry in `docs/measurements.md` is where the
+ * wall is put to the same question.
+ */
+test("golem_guardian_meets_a_real_fencers_chamber_and_the_form_never_gets_the_chance", async () => {
+  const setup = defaultGolemSetup();
+  const physics = await freshHavok();
+  const count = (make, name) => {
+    const walls = { asks: 0, onChamber: 0 };
+    const mind = make((available, reading, view, option) => {
+      walls.asks += 1;
+      if (option === "parry" && reading.theirs === "chamber") walls.onChamber += 1;
+    });
+    return {
+      walls,
+      mind: { name, styled: mind, decide: (view, dt) => mind.decide(view, dt) },
+    };
+  };
+  const run = (make, name) => {
+    const side = count(make, name);
+    const blows = { left: 0, right: 0 };
+    const result = runBout({
+      left: name, right: "golem-fencer",
+      leftUnit: "golem", rightUnit: "golem",
+      leftGolem: setup, rightGolem: setup,
+      locomotionMode: "supported",
+      seeds: [SEED, SEED + 17],
+      maxSeconds: 14,
+      physics,
+      leftMind: side.mind,
+      rightMind: golemFencer(SEED + 17),
+      onEvent: (event) => { blows[event.side] += 1; },
+    });
+    return { ...side.walls, seconds: result.seconds, blows };
+  };
+
+  const guarding = run((hook) => golemGuardian(SEED, GUARDIAN, hook), "golem-guardian");
+  assert.ok(guarding.seconds > 13, `the bout ran ${guarding.seconds.toFixed(1)} s of fourteen`);
+  assert.ok(guarding.asks > 0, "the guardian was never asked anything in fourteen seconds");
+  assert.ok(guarding.onChamber > 0,
+    `the guardian answered ${guarding.asks} asks and met a chamber on none of them`);
+  assert.ok(guarding.blows.left > 0, "golem-guardian landed nothing at all in fourteen seconds");
+
+  const forming = run((hook) => golemForm(SEED, FORM, hook), "golem-form");
+  assert.equal(forming.onChamber, 0,
+    `the form parried ${forming.onChamber} chambers, and \`wallOnChamber\` is off for it`);
 });
