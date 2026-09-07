@@ -40,7 +40,10 @@ import {
 import { buildGolemStand, golemLayers } from "../src/golem/stand.ts";
 import { BUTTON_REACH } from "../src/buttons.ts";
 import { createHeadlessArena } from "../scripts/golem-headless-arena.mjs";
-import { runGolemBench } from "../scripts/golem-bench.mjs";
+import {
+  COMMITTED_SHAPE_CANDIDATES, PARRY_ACROSS_METRES, PARRY_ARRIVED_METRES, STROKE_GUARD_SECONDS,
+  runGolemBench, runParryBench, runStrokeBench,
+} from "../scripts/golem-bench.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SUBSTEP = 1 / CONFIG.world.physicsHz;
@@ -1602,4 +1605,101 @@ test("a plate keeps clear of its own stand and of a real torso in its own envelo
       rig.dispose();
     }
   }
+});
+
+/**
+ * The stroke probe reads the mark once, and the shipped cut reaches it after its arc is over.
+ *
+ * Two claims and a correction. The claims: the swept phase crosses the mark's bearing exactly
+ * once, which is what makes "the mark reading" a single reading rather than the first of several;
+ * and the grid's chosen shape brings the blade inside a tenth of a metre of the mark, which is
+ * what `COMMITTED_SHAPE_CANDIDATES` is a claim about and is checked here so that lifting it into
+ * Session 03 is lifting something measured.
+ *
+ * The correction, dated 2026-09-06: the plan froze the probe as "the tip's mark-plane crossing",
+ * and on the shipped cut the crossing and the closest approach are **not the same instant**. The
+ * commanded point crosses the mark's bearing 7 ms into a 150 ms arc, the achieved point about
+ * 100 ms in, and the weapon is nearest the mark later still -- past the end of the arc, in the
+ * follow-through, because the arm is still extending when the azimuth has finished sweeping. So
+ * the crossing is counted and the closest approach is measured, and the two are asserted apart.
+ */
+test("the stroke probe reads the mark once, and the shipped cut arrives after its own arc", async () => {
+  const shipped = await runStrokeBench({ moduleId: "effector.wrist.blade" });
+  assert.equal(shipped.crossings, 1,
+    `the blade crossed the mark's bearing ${shipped.crossings} times inside one arc`);
+  assert.ok(shipped.crossedAt !== null && shipped.markAt !== null, "the probe read no mark at all");
+  const strokeEnds = STROKE_GUARD_SECONDS + shipped.shape.chamberSeconds + shipped.shape.strokeSeconds;
+  assert.ok(shipped.crossedAt < strokeEnds,
+    `the bearing was crossed at ${shipped.crossedAt.toFixed(3)} s, after the arc ended at ${strokeEnds.toFixed(3)}`);
+  assert.ok(shipped.markAt > shipped.crossedAt,
+    "the weapon was nearest the mark before it crossed its bearing, which is not a swing");
+  // Provisional, pinned from the 2026-09-06 Node bench: the shipped cut misses by 0.63 m and
+  // arrives 17 ms after its arc has finished. It is a defect and not a floor; Session 03 is
+  // where it is meant to move, and this assertion is what will say that it did.
+  assert.ok(shipped.missMetres > 0.4,
+    `the shipped cut now comes within ${shipped.missMetres.toFixed(3)} m of its mark; re-take the entry`);
+  assert.ok(shipped.markAt > strokeEnds,
+    `the shipped cut now arrives at ${shipped.markAt.toFixed(3)} s, inside its arc; re-take the entry`);
+
+  // What the grid chose, which is the row `COMMITTED_SHAPE_CANDIDATES` carries.
+  const chosen = COMMITTED_SHAPE_CANDIDATES.sword;
+  const best = await runStrokeBench({ moduleId: "effector.wrist.blade", shape: chosen });
+  assert.ok(best.missMetres < 0.10,
+    `the chosen cut misses by ${best.missMetres.toFixed(3)} m, and the candidate row claims`
+    + ` ${chosen.bench.missMetres}`);
+  assert.ok(best.speedAtMark > 15,
+    `the chosen cut arrives at ${best.speedAtMark.toFixed(2)} m/s against a claimed ${chosen.bench.speedAtMark}`);
+  assert.ok(best.peakAnchorStrayMm < 50,
+    `the chosen cut strayed ${best.peakAnchorStrayMm.toFixed(0)} mm from its own anchor`);
+
+  // A maul publishes one azimuth, so `canSwing` is false and the *commanded* arc is not swept at
+  // all: what runs is the reach half of the stroke and nothing else. Its crossings are the
+  // achieved point wandering across a bearing the command never moved -- one, on this run -- so
+  // the crossing count means nothing for it, which is the second half of why the closest approach
+  // is measured beside it rather than instead of it.
+  const maul = await runStrokeBench({ moduleId: "effector.wrist.maul" });
+  assert.equal(maul.sweeps, false, "a maul swept an azimuth it publishes one value of");
+  assert.equal(shipped.sweeps, true, "a blade did not sweep, so the column says nothing");
+  assert.ok(maul.markAt !== null, "the probe read nothing at all for a chain that cannot swing");
+  assert.ok(maul.missMetres > 0.5,
+    `a maul now comes within ${maul.missMetres.toFixed(3)} m of its mark without an arc at all`);
+});
+
+/**
+ * The parry is not an intercept, and the cover does not rest where it was sent.
+ *
+ * Session 05's guardian branches on the first number: a cover that arrives inside about a tenth of
+ * a second can be solved against the incoming point and refined while their arm commits, and one
+ * that does not has to be a wall pre-positioned off the chamber read. Measured 2026-09-06, the
+ * fastest cover on the bench -- a blade, the lightest thing a hand can put in the way -- takes
+ * 0.59 s to settle over 0.30 m, and a plate 0.89 s over 0.40 m. There is no intercept here.
+ *
+ * The second number is why the arrival is read against the tip's own resting place rather than
+ * against `commandedTip`: a plate held on a *static* cover command sits about 0.12 m off it and
+ * stays there, so a 50 mm arrival measured against the command never happens, for any command,
+ * however long the hold. `settleRippleMm` is what keeps that reading honest -- a cover still
+ * wobbling by more than the tolerance at the end of the hold has not settled, and its arrival is
+ * not to be believed.
+ */
+test("no cover on the bench arrives in time to be an intercept", async () => {
+  const blade = await runParryBench({ moduleId: "effector.wrist.blade" });
+  const plate = await runParryBench({ moduleId: "effector.wrist.plate" });
+  for (const [label, run] of [["a blade", blade], ["a plate", plate]]) {
+    assert.ok(Number.isFinite(run.arrivedSeconds),
+      `${label} never settled inside ${PARRY_ARRIVED_METRES} m of where it ended up`);
+    assert.ok(run.settleRippleMm < PARRY_ARRIVED_METRES * 1000,
+      `${label} was still wobbling ${run.settleRippleMm.toFixed(1)} mm at the end of the hold,`
+      + " so its arrival is a reading of a cover that had not stopped");
+    assert.ok(run.travelMetres > PARRY_ACROSS_METRES * 0.8,
+      `${label} moved ${run.travelMetres.toFixed(3)} m for a command of ${PARRY_ACROSS_METRES} m across`);
+    // Provisional and the point of the test: 0.10 s is the plan's gate for a true intercept.
+    assert.ok(run.arrivedSeconds > 0.10,
+      `${label} arrived in ${run.arrivedSeconds.toFixed(3)} s, which is an intercept;`
+      + " the guardian's branch is the other way and the entry is stale");
+  }
+  assert.ok(plate.standingOffsetMetres > PARRY_ARRIVED_METRES,
+    `a plate now rests ${plate.standingOffsetMetres.toFixed(3)} m from its own command, inside the`
+    + " arrival tolerance, so the arrival could be read against the command again");
+  assert.ok(blade.standingOffsetMetres < PARRY_ARRIVED_METRES,
+    "a blade no longer reaches its own cover command either, which is a chain fault and not a shape");
 });

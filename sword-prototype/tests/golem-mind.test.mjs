@@ -46,7 +46,7 @@ import { POLICIES } from "../src/mind.ts";
 import { unitDefinition } from "../src/units.ts";
 import { defaultGolemSetup } from "../src/golem/build.ts";
 import {
-  GOLEM_TACTICS, canAttack, golemTactics, innerReach, tacticalRanges, unspan,
+  GOLEM_TACTICS, STROKE_SHAPES, canAttack, golemTactics, innerReach, tacticalRanges, unspan,
 } from "../src/golem/tactics.ts";
 import { GOLEM_TACTICS_V2, golemFencer, slotHealth, strokeReader } from "../src/golem/tactics-v2.ts";
 import { golemPlanner } from "../src/golem/planner.ts";
@@ -55,6 +55,7 @@ import { BUTTON_REACH } from "../src/buttons.ts";
 
 process.env.SWORD_MEASURE_LIBRARY = "1";
 const { freshHavok, runBout } = await import("../scripts/measure.mjs");
+const { strokeSequence } = await import("../scripts/golem-bench.mjs");
 
 const wasm = new URL("../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm", import.meta.url);
 const FIXED = 1 / CONFIG.world.physicsHz;
@@ -1587,4 +1588,129 @@ test("the_champion_reads_its_arm_class_off_its_first_view_and_plays_the_row_for_
   // The shipped table loads through the picker, whatever it holds.
   const shipped = unitDefinition("golem").createPolicy("golem-champion");
   assert.equal(shipped.name, "golem-champion");
+});
+
+/**
+ * The stroke bench writes what the fencer writes, command for command, to the last digit.
+ *
+ * `driveStroke` and the acting hand's commit block are inside `golemFencer`'s closure and cannot
+ * be called from a bench, so `strokeSequence` in `scripts/golem-bench.mjs` is a **transcription**
+ * of them -- and a transcription is exactly the kind of thing that goes quietly wrong. A sign on
+ * `followLift`, a `windRoll` left as `roll`, `cutBend` where `coverBend` belongs: each of those
+ * compiles, each of them moves every number the grid is read on, and none of them is visible in
+ * the row. So the fencer is put in front of a real published view, driven until it chambers and
+ * commits, and every field of its acting hand's intent is compared with what the bench's own
+ * writers produce for the same shape, capability, socket, mark and heading at the same instant.
+ *
+ * **The clocks are aligned off the fencer's own stance changes, and they are off by one step.**
+ * `goTo` runs at the *end* of a stance block, after that block has written its command, so the
+ * first step on which `stance` reads "commit" still carries the chamber's pose and the arc's own
+ * first write lands one step later, at `elapsed` of exactly one physics step. Assuming otherwise
+ * -- which is the obvious reading, and was the first one written here -- compares the whole arc a
+ * step out of phase and fails on the guard command at the head of the chamber.
+ *
+ * The mark is the trunk's, which is where `slotMark` puts it with `targetByHealth` off -- the
+ * shipped setting -- and the heading is the published trunk twist, which a static fixture holds
+ * still. Both are asserted rather than assumed: if the fencer ever aimed somewhere else the
+ * comparison would fail, which is the failure this test is for.
+ */
+test("the_stroke_benchs_sequence_is_the_fencers_own_commit_to_the_digit", async (t) => {
+  const compare = async (label, setup) => {
+    const golem = await standAGolem(t, setup);
+    const fixture = fixtureOf(golem.view);
+    const caps = fixture.self.capabilities;
+    assert.ok(caps, `${label}: the stand published no capabilities`);
+    // Square on and just inside the strike range, so the exchange opens without a step to reach it.
+    const ranges = tacticalRanges(fixture.self.hands.primary.reach, caps.effectors.primary, 1.45);
+    place(fixture, { x: fixture.self.ground.x, z: fixture.self.ground.z + ranges.strike - 0.05 });
+    theirArm(fixture, { extension: 0.88 });
+
+    // No feint and no stop-hit, so the exchange that opens is the plain one the bench scripts.
+    const mind = golemFencer(7, fencerWith({ feintFraction: 0, stopHit: false }));
+    const seen = [];
+    drive(fixture, mind, 4.0, {
+      each: (intent) => {
+        const acting = intent[intent.actingHand];
+        seen.push({
+          stance: mind.stance, target: mind.target, actingHand: intent.actingHand,
+          pointerX: acting.pointerX, pointerY: acting.pointerY, reach: acting.reach,
+          roll: acting.roll, wristBend: acting.wristBend,
+          thrust: acting.thrust, guard: acting.guard,
+        });
+      },
+    });
+
+    // The first chamber that runs straight into a commit: a feint would not, and a stroke that
+    // was interrupted would not either.
+    let commitFrom = -1;
+    for (let step = 1; step < seen.length; step += 1) {
+      if (seen[step].stance === "commit" && seen[step - 1].stance === "chamber") {
+        commitFrom = step;
+        break;
+      }
+    }
+    assert.ok(commitFrom > 0,
+      `${label}: the fencer never chambered into a commit in 4 s at ${ranges.strike.toFixed(2)} m`);
+    let chamberFrom = commitFrom - 1;
+    while (chamberFrom > 0 && seen[chamberFrom - 1].stance === "chamber") chamberFrom -= 1;
+    const acting = seen[commitFrom].actingHand;
+    assert.equal(seen[chamberFrom].actingHand, acting,
+      `${label}: the acting hand changed inside one exchange`);
+    assert.equal(seen[commitFrom].target, "trunk",
+      `${label}: the fencer aimed somewhere other than the trunk, so the bench's mark is wrong`);
+
+    // The bench's own sequence, built from what the same body publishes.
+    const hand = fixture.self.hands[acting];
+    const cap = caps.effectors[acting];
+    const them = fixture.opponent;
+    const mark = new Vector3(them.ground.x, them.shoulder.y, them.ground.z);
+    const heading = fixture.self.facing + fixture.self.trunkTwist * caps.trunkTwistMax;
+    const shape = STROKE_SHAPES[hand.weapon];
+    const script = strokeSequence({
+      shape, cap, socket: hand.shoulder, mark, reach: hand.reach,
+      outboard: hand.outboard, heading, guardSeconds: 0,
+    });
+    const write = (name) => script.find((phase) => phase.name === name).write;
+    const blank = () => ({
+      pointerX: 0, pointerY: 0, reach: 0, roll: 0, wristBend: 0, thrust: false, guard: false,
+    });
+    const same = (want, got, where) => {
+      for (const key of ["pointerX", "pointerY", "reach", "roll", "wristBend"]) {
+        assert.ok(Math.abs(want[key] - got[key]) < 1e-12,
+          `${label} ${where}: the bench asked ${key} ${want[key]} and the fencer ${got[key]}`);
+      }
+      assert.equal(want.thrust, got.thrust, `${label} ${where}: thrust`);
+      assert.equal(want.guard, got.guard, `${label} ${where}: guard`);
+    };
+
+    // The chamber holds one pose, so every step of it is the same command and each is checked.
+    const chambered = blank();
+    write("chamber")(chambered, 0);
+    for (let step = chamberFrom + 1; step <= commitFrom; step += 1) {
+      same(chambered, seen[step], `chamber step ${step - chamberFrom - 1}`);
+    }
+    let checked = 0;
+    for (let step = commitFrom + 1; step < seen.length && seen[step].stance === "commit"; step += 1) {
+      const elapsed = (step - commitFrom) * FIXED;
+      const at = shape.strokeSeconds > 0 ? Math.max(0, Math.min(1, elapsed / shape.strokeSeconds)) : 1;
+      const want = blank();
+      write("stroke")(want, at);
+      same(want, seen[step], `arc at t=${at.toFixed(4)}`);
+      checked += 1;
+    }
+    assert.ok(checked >= Math.round(shape.strokeSeconds / FIXED),
+      `${label}: only ${checked} steps of the arc were compared,`
+      + ` and the arc is ${shape.strokeSeconds} s long`);
+    return shape;
+  };
+
+  await compare("the blade", defaultGolemSetup());
+  // The whip, because it is the **only** shape whose wind-up roll is not its arc's: every other
+  // kind has `windRoll === roll`, so a bench that wrote the arc's roll into the chamber would be
+  // indistinguishable from a faithful one on a blade. Watched red 2026-09-06 with exactly that
+  // mutation, green on the blade alone.
+  const lash = await compare("the whip",
+    setupWith({ primary: { chain: "wrist", terminal: "whip" } }));
+  assert.notEqual(lash.windRoll, lash.roll,
+    "the whip's wind-up roll became its arc's, and with it the one shape that could tell them apart");
 });

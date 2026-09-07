@@ -2131,6 +2131,32 @@ id; which club it holds -- one hand or two -- it learns from one new capability,
 writes the second hand's seven fields as the first's every step, so a bar the body drives from the
 primary socket is never asked by the secondary for a guard on the other side.
 
+**And since 2026-09-06 the stroke can be measured before a bout, which is how we found out that
+none of them lands.** `scripts/golem-bench.mjs --stroke` puts one module on the stand, transcribes
+`driveStroke` frame for frame through `strokeSequence`, and reads the closest approach of the whole
+anchor-to-tip segment to a mark at `tacticalRanges(...).strike`. On the shipped shapes a wrist
+blade comes no nearer than 0.63 m to what it was swung at, a mace 0.73 and a maul 1.29, and each
+reaches its highest speed on the way past. The cause is one thing: the stroke begins with the arm
+drawn fully in and asks it to be 1.64 m out a sixth of a second later, the anchor drive cannot
+extend that fast, and by the time the arm is out the azimuth has swept past the mark and taken the
+weapon with it. `--stroke --sweep stroke` runs the plan's 64-cell grid over the four shape axes and
+says what fixes it: a **wider chamber**, which starts the azimuth far enough outboard that the
+sweep is still crossing the mark when the arm has finished extending, and a **shallower draw**.
+Together they take the blade from 0.63 m to 0.070 m at 22 m/s. What they do not fix is a club —
+no cell of the grid brings a mace inside 0.47 m, and its anchor stray runs to 864 mm, which is the
+chain losing the head rather than the shape being wrong. `COMMITTED_SHAPE_CANDIDATES` carries the
+three kinds that do, each with the bench row that chose it; `docs/measurements.md` has the grid.
+
+**A cover is a wall and not an intercept, and that is measured too.** `--parry` holds the guard,
+commands it a quarter of a metre across as an *angle* on the swing axis — which is the only thing
+a mind can ask for — and reads how long it takes to settle. The fastest cover on the stand is a
+blade at 0.59 s; the plate a guardian would actually hold takes 0.89 s to travel 0.40 m and
+overshoots its resting place by 153 mm on the way. Nothing here can be solved against an incoming
+point mid-commit, so a parry has to be pre-positioned off the chamber read. The arrival is read
+against where the cover *ends up* rather than against `commandedTip`, because a plate on a static
+cover command rests 0.119 m short of it and stays there: an arrival measured against the command
+never happens, however long the hold, which is what the first version of that probe reported.
+
 **Two effectors on the bench at once.** `P` puts a module in each socket and `F` then moves the
 *cursor* rather than the module, so the limb the cursor left holds whatever it was last given —
 which is what an arena fighter's off hand does, and the only way to ask whether a blade and a plate

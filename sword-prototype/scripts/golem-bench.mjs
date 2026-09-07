@@ -18,11 +18,15 @@
  *     node scripts/golem-bench.mjs --module effector.none
  *     node scripts/golem-bench.mjs --chain pitch --terminal blade --sweep torque
  *     node scripts/golem-bench.mjs --chain pitch --terminal blade --json
+ *     node scripts/golem-bench.mjs --stroke
+ *     node scripts/golem-bench.mjs --stroke --sweep stroke --json
+ *     node scripts/golem-bench.mjs --parry
  */
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
 import { BUTTON_REACH, reachFromButtons } from "../src/buttons.ts";
 import { CONFIG } from "../src/config.ts";
+import { GOLEM_EFFECTORS } from "../src/golem/build.ts";
 import {
   BENCH_READOUT, BENCH_STAND_LOCOMOTION, CHAIN_PITCH, CHAIN_REACH, CHAIN_WRIST, LOCOMOTION_BIPED,
   LOCOMOTION_MULTILEG, LOCOMOTION_WHEEL,
@@ -35,6 +39,10 @@ import { buildLocomotionCourse, registerLocomotionCourse } from "../src/golem/lo
 import { BenchReadout, blankSample, formatReadout } from "../src/golem/readout.ts";
 import { GOLEM_MODULES, golemModule } from "../src/golem/registry.ts";
 import { buildGolemStand, golemLayers } from "../src/golem/stand.ts";
+import {
+  GOLEM_TACTICS, STROKE_SHAPES, aimAt, canCover, canSwing, distance, reachForDistance,
+  tacticalRanges, writeAim,
+} from "../src/golem/tactics.ts";
 import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
 import { createHeadlessArena } from "./golem-headless-arena.mjs";
 
@@ -293,6 +301,14 @@ const benchIntent = () => ({
 function applyStep(hand, step, phaseStart, now) {
   const span = Math.max(1e-9, step.until - phaseStart);
   const t = Math.max(0, Math.min(1, (now - phaseStart) / span));
+  // **A phase that writes itself, for a sequence whose commands are not a blend.** Every scripted
+  // sequence above names two poses and sweeps between them, which is what a hand-written cursor
+  // path is. Session 02's stroke sequence is not one: its arc goes through `writeAim`, which
+  // clamps into the published shell, so a phase interpolated between two clamped endpoints would
+  // be a straight line exactly where the mind's own command has a corner. A `write` phase is
+  // handed the same normalised `t` and computes the command itself, which is what makes the
+  // stroke bench a transcription of `driveStroke` rather than an imitation of it.
+  if (step.write) { step.write(hand, t); return; }
   const blend = (key) => {
     const to = step[key] ?? 0;
     if (!step.from || step.from[key] === undefined) return to;
@@ -341,8 +357,6 @@ export async function runGolemBench({
   if (!option.slots.includes(slot)) {
     throw new Error(`module "${moduleId}" does not fit the ${slot} slot`);
   }
-  const script = sequence ?? sequenceFor(moduleId);
-
   // Overrides are applied before the module is built, because geometry and joint limits are
   // read at construction and a motor ceiling is written onto a native solver object there.
   // Changing one afterwards is exactly the "needs applyTuning to push it across" case the
@@ -402,6 +416,15 @@ export async function runGolemBench({
   // The band comes from the module rather than from a chain this run may not even be about: rung
   // 1's first axis is an angle and rungs 2 and 3's is a distance, so one shared constant would be
   // a number whose unit depends on what happens to be on the stand.
+  // **The script, resolved now and not sooner.** A `sequence` may be a function of the module on
+  // the stand rather than a table, because Session 02's stroke sequence is computed against the
+  // module's own envelope, its own socket and the capability record a mind would read off it --
+  // none of which exists until the thing is built. Resolved here, before the control observer is
+  // installed, so a factory that also builds a probe has filled it before any sample arrives.
+  const script = typeof sequence === "function"
+    ? sequence({ module, socket: stand.socket(slot), envelope: module.envelope() })
+    : (sequence ?? sequenceFor(moduleId));
+
   const readout = new BenchReadout({ settledBand: module.envelope().settledBand });
   const sample = blankSample();
   const intent = benchIntent();
@@ -502,6 +525,567 @@ export async function runGolemBench({
     for (const [block, key, value] of restore.reverse()) block[key] = value;
   }
 }
+
+// ------------------------------------------------------------------------ the stroke bench
+
+/**
+ * The mind's own capability record, built from a bench module's published envelope.
+ *
+ * `Golem.golemCapabilities` writes these same four fields off the same envelope, and this is a
+ * second copy of three lines rather than an import because that method is private to an assembled
+ * golem and there is no golem on the stand. What keeps the copy honest is that every field is a
+ * read of something the module publishes: nothing here is a bench-only number, so a module whose
+ * envelope changes changes both readers together.
+ */
+export const capabilityOf = (module) => {
+  const envelope = module.envelope();
+  const ceiling = (id) => Math.max(0, envelope.axes.find((axis) => axis.id === id)?.max ?? 0);
+  return Object.freeze({
+    strokes: envelope.strokes,
+    reachable: envelope.reachable,
+    rollMax: ceiling("roll"),
+    bendMax: ceiling("bend"),
+  });
+};
+
+/** What a mind reads off the hand for a bench module, from the registry rather than a second table. */
+export const weaponOf = (moduleId) =>
+  GOLEM_EFFECTORS.find((option) => option.id === moduleId)?.weapon ?? "empty";
+
+/**
+ * How long the guard is held before the chamber, seconds.
+ *
+ * Long enough that the arm has arrived and stopped before the stroke starts, which is the one
+ * thing the bench has to buy that a bout gets for free: a fighter's guard has been up for as long
+ * as the last recover, and a stroke measured out of a limb still settling from its build pose
+ * would be measuring the settle.
+ */
+export const STROKE_GUARD_SECONDS = 0.5;
+
+const clampTo = (value, low, high) => (value < low ? low : value > high ? high : value);
+
+/**
+ * The commands one stroke emits, phase by phase, as a bench script.
+ *
+ * **This is `driveStroke` and the fencer's `holdGuard` written out against a stand instead of
+ * against an opponent**, and it is written out rather than called because the mind's copy is a
+ * closure over a whole `FighterView`. Every line below has a line in `src/golem/tactics-v2.ts`
+ * it is a transcription of, the arithmetic goes through the same `aimAt`, `writeAim` and
+ * `reachForDistance` the mind uses, and `tests/golem-bench.test.mjs` steps a real fencer on a
+ * fixture and asserts the two agree to the digit. That test is what makes a number off this
+ * bench a claim about the game rather than about the bench.
+ *
+ * What is deliberately *not* here is the step-in and the trunk lean. `StrokeShape.stepIn` adds to
+ * `Intent.forward` and the commit writes the posture, and the stand has neither feet nor a trunk
+ * -- so a bench row is the arm's own contribution, and the carrier's is swept in the arena
+ * through the contact-speed column instead.
+ */
+export function strokeSequence({
+  shape,
+  cap,
+  socket,
+  mark,
+  reach,
+  outboard = 1,
+  heading = 0,
+  guardMark = null,
+  guardReach = GOLEM_TACTICS.guardReach,
+  guardSeconds = STROKE_GUARD_SECONDS,
+}) {
+  const T = GOLEM_TACTICS;
+  const aim = aimAt(socket, mark, heading, outboard, { swing: 0, lift: 0, horizontal: 0 });
+  const cover = aimAt(socket, guardMark ?? mark, heading, outboard,
+    { swing: 0, lift: 0, horizontal: 0 });
+  const swept = canSwing(cap) ? 1 : 0;
+  const strikeReach = reachForDistance(distance(socket, mark), reach, cap, T.strikeBite);
+
+  const holdGuard = (hand) => {
+    hand.guard = canCover(cap);
+    hand.thrust = false;
+    writeAim(hand, cap, cover, outboard, 0, T.coverLift, 1, guardReach);
+    hand.roll = cap.rollMax > 0 ? clampTo(shape.roll, -cap.rollMax, cap.rollMax) : 0;
+    hand.wristBend = cap.bendMax > 0 ? T.coverBend : 0;
+  };
+  const chamber = (hand) => {
+    hand.guard = false;
+    hand.thrust = false;
+    writeAim(hand, cap, aim, outboard,
+      swept * shape.chamberSwing, shape.chamberLift, 1, shape.chamberReach);
+    hand.roll = cap.rollMax > 0 ? clampTo(shape.windRoll, -cap.rollMax, cap.rollMax) : 0;
+    hand.wristBend = cap.bendMax > 0 ? T.cutBend : 0;
+  };
+  const arc = (hand, t) => {
+    hand.guard = false;
+    hand.thrust = true;
+    writeAim(hand, cap, aim, outboard,
+      swept * (shape.chamberSwing - t * (shape.chamberSwing + shape.followSwing)),
+      shape.chamberLift - t * (shape.chamberLift + shape.followLift),
+      0,
+      shape.chamberReach + t * (strikeReach - shape.chamberReach));
+    hand.roll = cap.rollMax > 0 ? clampTo(shape.roll, -cap.rollMax, cap.rollMax) : 0;
+    hand.wristBend = cap.bendMax > 0 ? T.cutBend : 0;
+  };
+
+  // The commit runs until the arc has been swept *and* the follow-through has been held, which is
+  // `commitEnds` in the mind's own commit stance. A shape whose stroke is shorter than
+  // `commitSeconds` therefore holds the end of its arc for the difference, exactly as it does in
+  // a bout, and the mark crossing is inside the swept phase either way.
+  const commitEnds = Math.max(T.commitSeconds, shape.strokeSeconds + T.followSeconds);
+  const chamberEnds = guardSeconds + shape.chamberSeconds;
+  const strokeEnds = chamberEnds + shape.strokeSeconds;
+  const followEnds = chamberEnds + commitEnds;
+  return Object.freeze([
+    Object.freeze({ name: "guard", until: guardSeconds, write: holdGuard }),
+    Object.freeze({ name: "chamber", until: chamberEnds, write: chamber }),
+    Object.freeze({ name: "stroke", until: strokeEnds, write: arc }),
+    Object.freeze({ name: "follow", until: followEnds, write: (hand) => arc(hand, 1) }),
+    Object.freeze({ name: "recover", until: followEnds + T.recoverSeconds, write: holdGuard }),
+  ]);
+}
+
+/**
+ * The probe that reads the mark, and the one place this session corrected its own plan.
+ *
+ * The session plan froze the reading as "the step where the tip's swing angle about the socket
+ * passes the mark's bearing". *Corrected on implementation, 2026-09-06, for two reasons.* The
+ * first is that a bearing crossing does not exist for two of the five weapons the grid is over:
+ * `canSwing` is false for a chain carrying a two-socket terminal -- the maul publishes a swing
+ * range of exactly zero -- and for rung 1, which has no reachable set at all, so `driveStroke`
+ * multiplies the whole azimuth by zero and the tip never crosses any bearing however hard the arm
+ * swings. The second is that **the tip is not what arrives at the mark**. `reachForDistance` is
+ * called with `strikeBite` 0.5, which deliberately puts the mark about a third of the way down
+ * the blade from the point, so a bench that reported the tip's distance to the mark reported
+ * 0.63 m for a stroke that was landing exactly where the mind aimed it.
+ *
+ * So the reading is the **weapon's** closest approach: the step of the swept phase at which the
+ * segment from the chain's own anchor to the business end passes nearest the mark, and the speed
+ * of the point of that segment which is there. It exists for every weapon, it is one step per
+ * stroke by construction, and it is the number a contact would be scored on. The tip's own speed
+ * at the same step is reported beside it -- always the larger, and the one a peak column would
+ * have flattered -- along with how far back from the point the mark fell and how close the weapon
+ * actually came. The frozen bearing crossing is still counted, so the correction is visible on
+ * the row rather than assumed.
+ *
+ * Speeds are the published points differenced across one physics step. `EffectorView` publishes
+ * no velocity, and the terminal's own body velocity is not a point's on it -- a point on the end
+ * of a swinging limb carries the angular part too -- so the difference is the honest reading, and
+ * it is taken at `CONFIG.world.physicsHz` rather than at the frame rate.
+ */
+export function strokeProbe({ socket, mark, outboard = 1, heading = 0, from = 0, to = Infinity }) {
+  const markAim = aimAt(socket, mark, heading, outboard, { swing: 0, lift: 0, horizontal: 0 });
+  const aim = { swing: 0, lift: 0, horizontal: 0 };
+  const tipWas = new Vector3();
+  const anchorWas = new Vector3();
+  const along = new Vector3();
+  const toMark = new Vector3();
+  let have = false;
+  let side = 0;
+  let crossings = 0;
+  let crossedAt = null;
+  let nearest = null;
+  let peakTipSpeed = 0;
+  let peakStrayMm = null;
+
+  const probe = ({ t, view }) => {
+    if (!view) return;
+    const tip = view.tip;
+    const anchor = view.anchor ?? tip;
+    const tipSpeed = have ? Vector3.Distance(tip, tipWas) / SUBSTEP : 0;
+    const anchorSpeed = have ? Vector3.Distance(anchor, anchorWas) / SUBSTEP : 0;
+    tipWas.copyFrom(tip);
+    anchorWas.copyFrom(anchor);
+    have = true;
+    if (t < from || t > to) return;
+    if (tipSpeed > peakTipSpeed) peakTipSpeed = tipSpeed;
+    if (view.anchorStray !== null) {
+      const mm = view.anchorStray * 1000;
+      peakStrayMm = peakStrayMm === null ? mm : Math.max(peakStrayMm, mm);
+    }
+    // Where on the weapon the mark falls: the closest point of the segment from the chain's own
+    // anchor to the business end, which is the weapon itself for every terminal that has length
+    // and is the tip alone for a chain that publishes no anchor.
+    tip.subtractToRef(anchor, along);
+    const span = along.length();
+    mark.subtractToRef(anchor, toMark);
+    const u = span > 1e-9
+      ? Math.max(0, Math.min(1, Vector3.Dot(toMark, along) / (span * span)))
+      : 0;
+    const px = anchor.x + along.x * u;
+    const py = anchor.y + along.y * u;
+    const pz = anchor.z + along.z * u;
+    const miss = Math.hypot(px - mark.x, py - mark.y, pz - mark.z);
+    if (nearest === null || miss < nearest.miss) {
+      nearest = {
+        miss,
+        at: t,
+        speed: anchorSpeed + (tipSpeed - anchorSpeed) * u,
+        tipSpeed,
+        alongMetres: span * (1 - u),
+      };
+    }
+    aimAt(socket, tip, heading, outboard, aim);
+    const now = Math.sign(aim.swing - markAim.swing);
+    if (now !== 0) {
+      if (side !== 0 && now !== side) { crossings += 1; if (crossedAt === null) crossedAt = t; }
+      side = now;
+    }
+  };
+
+  const read = () => Object.freeze({
+    /** Metres a second of the point of the weapon that is at the mark. */
+    speedAtMark: nearest ? nearest.speed : 0,
+    /** Metres a second of the business end at the same step, which is always the larger. */
+    tipSpeedAtMark: nearest ? nearest.tipSpeed : 0,
+    /** How close the weapon actually came to the mark there, metres. */
+    missMetres: nearest ? nearest.miss : null,
+    /** How far back from the business end the mark fell, metres: where on the blade it landed. */
+    alongMetres: nearest ? nearest.alongMetres : null,
+    /** Seconds into the run at which that step fell. */
+    markAt: nearest ? nearest.at : null,
+    /** Bearing crossings inside the swept phase: zero for a chain that cannot swing. */
+    crossings,
+    crossedAt,
+    peakTipSpeedDriven: peakTipSpeed,
+    peakAnchorStrayMm: peakStrayMm,
+  });
+
+  return { probe, read };
+}
+
+/** How far across, and how far up, the parry command asks the cover to move. Metres. */
+export const PARRY_ACROSS_METRES = 0.25;
+export const PARRY_UP_METRES = 0.10;
+/** How close the cover has to be to its resting place to count as arrived. Metres. */
+export const PARRY_ARRIVED_METRES = 0.05;
+/** How long the cover is held after the command moves: long enough to stop moving. Seconds. */
+export const PARRY_HOLD_SECONDS = 2.0;
+
+/**
+ * The parry sequence: hold the cover, then ask for it a quarter of a metre across and a tenth up.
+ *
+ * The one number Session 05's guardian branches on. A parry that arrives inside about a tenth of
+ * a second can be a **true intercept** -- solved against the incoming tip and refined while their
+ * arm commits -- and one that does not has to be a **wall**, pre-positioned off the chamber read
+ * and held. The step is a single frame's command and then a hold, because that is the shape of
+ * the decision: a mind that has read a chamber writes one new cover point and lives with it.
+ *
+ * The hold runs two seconds rather than the sixth of a second a parry lasts, because the reading
+ * wanted is *where the cover ends up*, and a cover that has not stopped moving has no such place.
+ * What a mind gets in the sixth of a second it has is read off the arrival curve, not off the end.
+ */
+export function parrySequence({
+  cap,
+  socket,
+  mark,
+  outboard = 1,
+  heading = 0,
+  guardReach = GOLEM_TACTICS.shieldReach,
+  coverSeconds = 0.6,
+  holdSeconds = PARRY_HOLD_SECONDS,
+  across = PARRY_ACROSS_METRES,
+  up = PARRY_UP_METRES,
+}) {
+  const T = GOLEM_TACTICS;
+  const here = aimAt(socket, mark, heading, outboard, { swing: 0, lift: 0, horizontal: 0 });
+  // **The move is an angle, because the command is one.** A mind cannot ask a cover to go a
+  // quarter of a metre sideways: it can ask for a new bearing at the same reach, and how far the
+  // plate then travels is the cover's own radius times the angle. Moving the *mark* by 0.25 m
+  // instead -- the obvious reading of the plan's sentence -- asks for 0.15 rad at a mark 1.6 m
+  // away and moves a plate held at 0.4 m by 63 mm, which is not a parry and was measured being
+  // one before this comment existed.
+  const shell = cap.reachable;
+  const radius = shell
+    ? shell.reachMin + ((clampTo(guardReach, -1, 1) + 1) / 2) * (shell.reachMax - shell.reachMin)
+    : Math.max(1e-3, here.horizontal);
+  const hold = (swingOffset, liftOffset) => (hand) => {
+    hand.guard = canCover(cap);
+    hand.thrust = false;
+    writeAim(hand, cap, here, outboard, swingOffset, T.coverLift + liftOffset, 1, guardReach);
+    hand.roll = 0;
+    hand.wristBend = cap.bendMax > 0 ? T.coverBend : 0;
+  };
+  return Object.freeze([
+    Object.freeze({ name: "cover", until: coverSeconds, write: hold(0, 0) }),
+    Object.freeze({
+      name: "parry",
+      until: coverSeconds + holdSeconds,
+      write: hold(across / radius, up / radius),
+    }),
+  ]);
+}
+
+/**
+ * The parry probe: arrival, the standing offset, peak speed and overshoot.
+ *
+ * **Arrival is measured against where the cover ends up, not where it was sent.** Measured
+ * 2026-09-06: a plate held on a static cover command sits about 0.12 m off it and stays there,
+ * because the anchor drive's force cap and the mass on the end reach an equilibrium short of the
+ * commanded point; a 50 mm arrival read against `commandedTip` therefore never happens, for any
+ * command, however long the hold. So the target is the tip's own resting place at the end of the
+ * hold, `standingOffsetMetres` reports how far short of the command that is -- which is the number
+ * that says a cover does not go where a mind sends it -- and the hold is long enough to settle.
+ *
+ * **And it is read backwards**, because the target is not known while it is being approached.
+ * `ModuleAxisEnvelope.rate` caps how fast the *command* itself travels, so the commanded tip at
+ * the first step of the parry is still most of the way back at the cover. The history of the hold
+ * is scanned from the end for the first step after which the plate stays inside
+ * `PARRY_ARRIVED_METRES` of where it finished, which is `BenchReadout`'s own rule for
+ * `arrivalSeconds` in world space instead of axis space.
+ *
+ * `settleRippleMm` is what makes the reading self-checking: the largest excursion from the
+ * resting place over the last quarter second. A run whose ripple is near the arrival tolerance is
+ * a run whose hold was too short, and its arrival should not be believed.
+ */
+export function parryProbe({ from, settleSeconds = 0.25 }) {
+  const commanded = new Vector3();
+  const start = new Vector3();
+  const previous = new Vector3();
+  const toward = new Vector3();
+  const history = [];
+  let have = false;
+  let opened = false;
+  let peakSpeed = 0;
+
+  const probe = ({ t, view }) => {
+    if (!view) return;
+    const tip = view.tip;
+    const speed = have ? Vector3.Distance(tip, previous) / SUBSTEP : 0;
+    previous.copyFrom(tip);
+    have = true;
+    if (t < from) return;
+    if (!opened) { opened = true; start.copyFrom(tip); }
+    else if (speed > peakSpeed) peakSpeed = speed;
+    commanded.copyFrom(view.commandedTip);
+    history.push([t, tip.x, tip.y, tip.z]);
+  };
+
+  const read = () => {
+    if (!opened || history.length === 0) {
+      return Object.freeze({
+        arrivedSeconds: null, travelMetres: 0, standingOffsetMetres: null,
+        peakSpeedMps: 0, overshootMm: 0, settleRippleMm: null,
+      });
+    }
+    const [endAt, ex, ey, ez] = history[history.length - 1];
+    const gapTo = (x, y, z) => Math.hypot(x - ex, y - ey, z - ez);
+    let arrivedAt = null;
+    let ripple = 0;
+    for (let index = history.length - 1; index >= 0; index -= 1) {
+      const [t, x, y, z] = history[index];
+      const gap = gapTo(x, y, z);
+      if (t >= endAt - settleSeconds && gap > ripple) ripple = gap;
+      if (gap > PARRY_ARRIVED_METRES) break;
+      arrivedAt = t - from;
+    }
+    toward.set(ex - start.x, ey - start.y, ez - start.z);
+    const travel = toward.length();
+    if (travel > 1e-9) toward.scaleInPlace(1 / travel);
+    let overshootMm = 0;
+    for (const [, x, y, z] of history) {
+      const past = (x - ex) * toward.x + (y - ey) * toward.y + (z - ez) * toward.z;
+      if (past * 1000 > overshootMm) overshootMm = past * 1000;
+    }
+    return Object.freeze({
+      /** Seconds from the command moving to the cover settling where it finally rests. */
+      arrivedSeconds: arrivedAt,
+      /** How far the cover actually went, metres: the distance the arrival is an arrival over. */
+      travelMetres: travel,
+      /** How far short of its own command the cover rests, metres. A plate's is not small. */
+      standingOffsetMetres: Math.hypot(ex - commanded.x, ey - commanded.y, ez - commanded.z),
+      peakSpeedMps: peakSpeed,
+      /** The furthest it carried **past** its resting place along the way there, millimetres. */
+      overshootMm,
+      /** The largest wobble about the resting place over the last `settleSeconds`, millimetres. */
+      settleRippleMm: ripple * 1000,
+    });
+  };
+
+  return { probe, read };
+}
+/**
+ * Where the mark goes when nothing names one: the mind's own strike range, level with the socket.
+ *
+ * `tacticalRanges` is what decides how far a fencer stands off, so a bench mark at any other
+ * distance would be a stroke nobody throws. Level with the socket because the stand has no
+ * opponent to take a height from, and `--mark-height` is how a run asks for a lower one.
+ */
+export const markFor = (socket, envelope, cap, { distance: at = null, height = 0 } = {}) =>
+  new Vector3(socket.world.x, socket.world.y + height,
+    socket.world.z + (at ?? tacticalRanges(envelope.reach, cap).strike));
+
+/**
+ * One stroke on the bench, with its mark reading.
+ *
+ * The sequence and the probe are both built inside the run, because both need the socket and the
+ * capability and neither exists until the module has been put on the stand. `runGolemBench`
+ * resolves a function-valued `sequence` at exactly that point and before it installs the probe
+ * observer, so the holder below is filled before the first sample can arrive -- and the throw
+ * at the end of the run is what says so out loud rather than returning a row of zeroes.
+ */
+export async function runStrokeBench({
+  moduleId,
+  slot = "primary",
+  shape: shapeOverride = null,
+  mark: markOptions = null,
+  overrides = null,
+  guardSeconds = STROKE_GUARD_SECONDS,
+}) {
+  const kind = weaponOf(moduleId);
+  let reader = null;
+  let plan = null;
+  const run = await runGolemBench({
+    moduleId,
+    slot,
+    overrides,
+    probe: (payload) => reader?.probe(payload),
+    sequence: ({ module, socket }) => {
+      const cap = capabilityOf(module);
+      const envelope = module.envelope();
+      const shape = Object.freeze({ ...STROKE_SHAPES[kind], ...(shapeOverride ?? {}) });
+      const mark = markFor(socket, envelope, cap, markOptions ?? {});
+      const script = strokeSequence({
+        shape, cap, socket: socket.world, mark, reach: envelope.reach,
+        outboard: socket.outboard,
+        guardReach: kind === "shield" || kind === "buckler"
+          ? GOLEM_TACTICS.shieldReach : GOLEM_TACTICS.guardReach,
+        guardSeconds,
+      });
+      const swept = script.find((phase) => phase.name === "stroke");
+      const follow = script.find((phase) => phase.name === "follow");
+      reader = strokeProbe({
+        socket: socket.world, mark, outboard: socket.outboard,
+        from: swept.until - shape.strokeSeconds, to: follow.until,
+      });
+      plan = {
+        shape, mark, reach: envelope.reach, markMetres: distance(socket.world, mark),
+        sweeps: canSwing(cap),
+      };
+      return script;
+    },
+  });
+  if (!reader || !plan) throw new Error("the stroke bench's sequence never ran");
+  return Object.freeze({
+    harness: run.harness,
+    moduleId,
+    label: run.label,
+    weapon: kind,
+    massKg: run.massKg,
+    reach: plan.reach,
+    shape: plan.shape,
+    markMetres: plan.markMetres,
+    /**
+     * Whether the arc swept at all: false for a chain whose azimuth has one value.
+     *
+     * `driveStroke` multiplies the whole swing by `canSwing(cap)`, so a two-socket terminal --
+     * the maul publishes `swingMax === swingMin` -- runs the reach half of the stroke and none of
+     * the arc. Its `crossings` are then the *achieved* point wandering across a bearing the
+     * command never moved, which is not a stroke reading, and this column is what says so.
+     */
+    sweeps: plan.sweeps,
+    ...reader.read(),
+    state: run.state,
+  });
+}
+
+/** One parry on the bench: the plate sent across the line and the time it took to get there. */
+export async function runParryBench({
+  moduleId,
+  slot = "primary",
+  mark: markOptions = null,
+  overrides = null,
+  across = PARRY_ACROSS_METRES,
+  up = PARRY_UP_METRES,
+  coverSeconds = 0.6,
+  holdSeconds = PARRY_HOLD_SECONDS,
+}) {
+  let reader = null;
+  let travel = null;
+  const run = await runGolemBench({
+    moduleId,
+    slot,
+    overrides,
+    probe: (payload) => reader?.probe(payload),
+    sequence: ({ module, socket }) => {
+      const cap = capabilityOf(module);
+      const envelope = module.envelope();
+      const mark = markFor(socket, envelope, cap, markOptions ?? {});
+      reader = parryProbe({ from: coverSeconds });
+      travel = { across, up };
+      return parrySequence({
+        cap, socket: socket.world, mark, outboard: socket.outboard,
+        guardReach: GOLEM_TACTICS.shieldReach, coverSeconds, holdSeconds, across, up,
+      });
+    },
+  });
+  if (!reader) throw new Error("the parry bench's sequence never ran");
+  return Object.freeze({
+    harness: run.harness,
+    moduleId,
+    label: run.label,
+    massKg: run.massKg,
+    commanded: travel,
+    ...reader.read(),
+    state: run.state,
+  });
+}
+
+/**
+ * The grid, exactly as the session plan names it.
+ *
+ * Four axes and 64 cells a weapon: where the arc starts outboard of the mark, how long the sweep
+ * takes, how far in the chamber draws, and how long it is held. The prediction to check is that
+ * speed at the mark rises with the arc until the anchor stray runs away, and that the best stroke
+ * time lengthens as the arc does.
+ */
+export const STROKE_GRID = Object.freeze({
+  chamberSwing: Object.freeze([0.05, 0.4, 0.8, 1.2]),
+  strokeSeconds: Object.freeze([0.11, 0.15, 0.20, 0.28]),
+  chamberReach: Object.freeze([-0.70, -0.20]),
+  chamberSeconds: Object.freeze([0.22, 0.32]),
+});
+
+/**
+ * What the grid chose, per weapon kind, with the bench row that chose it.
+ *
+ * Session 03's `COMMITTED_SHAPES` is meant to be lifted from here: these are the four axes of
+ * `STROKE_GRID` at their best cell, laid over the kind's own `STROKE_SHAPES` entry, which keeps
+ * `followSwing`, `followLift`, `stepIn` and both rolls as the shipped stroke has them. Read on
+ * `missMetres` first and `speedAtMark` second, because a speed at a mark the weapon never reached
+ * is a number about nothing -- and on the shipped shapes the blade misses by 0.63 m.
+ *
+ * The rows are the 2026-09-06 grid, `node scripts/golem-bench.mjs --stroke --sweep stroke`, 320
+ * cells over the five wrist modules the arena fields. `club` has **no** entry, and that is the
+ * session's finding rather than an omission: no cell of the grid brings a mace within 0.47 m of
+ * its mark or a maul within 0.94 m, and the mace's anchor stray runs from 283 to 583 mm across
+ * the grid, which is the chain losing the head rather than a shape being wrong. `CHAIN_REACH`
+ * is the body's number and this set does not move it.
+ */
+export const COMMITTED_SHAPE_CANDIDATES = Object.freeze({
+  sword: Object.freeze({
+    chamberSwing: 1.20, strokeSeconds: 0.20, chamberReach: -0.20, chamberSeconds: 0.32,
+    /** miss 0.070 m, 22.34 m/s at the mark, peak 23.42, anchor stray 8 mm, on `effector.wrist.blade`. */
+    bench: Object.freeze({ missMetres: 0.070, speedAtMark: 22.34, peakAnchorStrayMm: 8 }),
+  }),
+  shield: Object.freeze({
+    chamberSwing: 1.20, strokeSeconds: 0.15, chamberReach: -0.70, chamberSeconds: 0.32,
+    /** miss 0.014 m, 11.10 m/s, stray 56 mm, on `effector.wrist.plate`: a third of the 0.22 s wind's stray for 4 mm. */
+    bench: Object.freeze({ missMetres: 0.014, speedAtMark: 11.10, peakAnchorStrayMm: 56 }),
+  }),
+  empty: Object.freeze({
+    chamberSwing: 1.20, strokeSeconds: 0.11, chamberReach: -0.20, chamberSeconds: 0.32,
+    /** miss 0.031 m, 12.45 m/s, stray 182 mm, on `effector.wrist.fist`. */
+    bench: Object.freeze({ missMetres: 0.031, speedAtMark: 12.45, peakAnchorStrayMm: 182 }),
+  }),
+});
+
+/** The modules the grid is taken on: one chain per weapon, the one the arena actually fields. */
+export const STROKE_BENCH_MODULES = Object.freeze([
+  "effector.wrist.blade",
+  "effector.wrist.mace",
+  "effector.wrist.maul",
+  "effector.wrist.fist",
+  "effector.wrist.plate",
+]);
 
 // ------------------------------------------------------------------- the locomotion harness
 
@@ -876,10 +1460,13 @@ const SWEEPS = {
 
 function parseArgs(argv) {
   const args = { chain: null, terminal: null, module: null, sweep: null, json: false,
-    slot: "primary", locomotion: null, course: false };
+    slot: "primary", locomotion: null, course: false, stroke: false, parry: false,
+    markDistance: null, markHeight: 0 };
   for (let index = 0; index < argv.length; index += 1) {
     const flag = argv[index];
     if (flag === "--json") { args.json = true; continue; }
+    if (flag === "--stroke") { args.stroke = true; continue; }
+    if (flag === "--parry") { args.parry = true; continue; }
     const value = argv[index + 1];
     switch (flag) {
       case "--chain": args.chain = value; index += 1; break;
@@ -889,6 +1476,8 @@ function parseArgs(argv) {
       case "--slot": args.slot = value; index += 1; break;
       case "--locomotion": args.locomotion = value ?? "biped"; index += 1; break;
       case "--course": args.course = true; break;
+      case "--mark-distance": args.markDistance = Number(value); index += 1; break;
+      case "--mark-height": args.markHeight = Number(value); index += 1; break;
       default: throw new Error(`unknown flag ${flag}`);
     }
   }
@@ -985,10 +1574,138 @@ async function mainLocomotion(args) {
   printLocomotion(run);
 }
 
+/**
+ * One line a stroke: what the weapon did at the mark, and what it cost the arm to do it.
+ *
+ * `miss` leads because a speed at a mark the weapon never reached is a number about nothing, and
+ * it is the column the grid is read on first.
+ */
+const strokeLine = (run) => `${run.moduleId.padEnd(24)}`
+  + ` miss ${run.missMetres.toFixed(3)} m`
+  + ` @ ${fixed(run.alongMetres, 3)} m back`
+  + `, v ${run.speedAtMark.toFixed(2)} m/s (tip ${run.tipSpeedAtMark.toFixed(2)})`
+  + `, peak ${run.peakTipSpeedDriven.toFixed(2)}`
+  + `, stray ${fixed(run.peakAnchorStrayMm, 1)} mm`
+  + `, at ${fixed(run.markAt, 3)} s`
+  + `, crossings ${run.crossings}`;
+
+const shapeLabel = (cell) => `swing ${cell.chamberSwing.toFixed(2)}`
+  + ` stroke ${cell.strokeSeconds.toFixed(2)}`
+  + ` draw ${cell.chamberReach.toFixed(2)}`
+  + ` wind ${cell.chamberSeconds.toFixed(2)}`;
+
+/** Every cell of `STROKE_GRID`, in the order the axes are written. */
+export function strokeGridCells(grid = STROKE_GRID) {
+  const cells = [];
+  for (const chamberSwing of grid.chamberSwing) {
+    for (const strokeSeconds of grid.strokeSeconds) {
+      for (const chamberReach of grid.chamberReach) {
+        for (const chamberSeconds of grid.chamberSeconds) {
+          cells.push(Object.freeze({ chamberSwing, strokeSeconds, chamberReach, chamberSeconds }));
+        }
+      }
+    }
+  }
+  return Object.freeze(cells);
+}
+
+async function mainStroke(args) {
+  const modules = args.module || args.chain
+    ? [idFor(args)]
+    : STROKE_BENCH_MODULES;
+  const markOptions = { distance: args.markDistance, height: args.markHeight };
+  if (args.sweep) {
+    if (args.sweep !== "stroke") {
+      throw new Error(`--stroke takes only "--sweep stroke", not "${args.sweep}"`);
+    }
+    const cells = strokeGridCells();
+    const rows = [];
+    for (const moduleId of modules) {
+      for (const shape of cells) {
+        const run = await runStrokeBench({ moduleId, slot: args.slot, shape, mark: markOptions });
+        rows.push({
+          moduleId, weapon: run.weapon, markMetres: run.markMetres, ...shape,
+          missMetres: run.missMetres, alongMetres: run.alongMetres,
+          speedAtMark: run.speedAtMark, tipSpeedAtMark: run.tipSpeedAtMark,
+          markAt: run.markAt, crossings: run.crossings,
+          peakTipSpeedDriven: run.peakTipSpeedDriven,
+          peakAnchorStrayMm: run.peakAnchorStrayMm,
+        });
+      }
+    }
+    if (args.json) { process.stdout.write(`${JSON.stringify(rows, null, 2)}\n`); return; }
+    process.stdout.write(`harness: ${HARNESS}\n\n`);
+    let seen = null;
+    for (const row of rows) {
+      if (row.moduleId !== seen) {
+        seen = row.moduleId;
+        process.stdout.write(`${row.moduleId} -- ${row.weapon},`
+          + ` mark ${row.markMetres.toFixed(3)} m out\n`);
+      }
+      process.stdout.write(`  ${shapeLabel(row)}:`
+        + ` miss ${row.missMetres.toFixed(3)} m`
+        + ` @ ${fixed(row.alongMetres, 3)} back,`
+        + ` v ${row.speedAtMark.toFixed(2)}`
+        + ` (tip ${row.tipSpeedAtMark.toFixed(2)}, peak ${row.peakTipSpeedDriven.toFixed(2)}),`
+        + ` stray ${fixed(row.peakAnchorStrayMm, 1)} mm\n`);
+    }
+    return;
+  }
+  const runs = [];
+  for (const moduleId of modules) {
+    runs.push(await runStrokeBench({ moduleId, slot: args.slot, mark: markOptions }));
+  }
+  if (args.json) {
+    process.stdout.write(`${JSON.stringify(runs.map((run) => ({ ...run, state: undefined })), null, 2)}\n`);
+    return;
+  }
+  process.stdout.write(`harness: ${HARNESS}\n\n`);
+  for (const run of runs) {
+    process.stdout.write(`${run.label}, mark ${run.markMetres.toFixed(3)} m out`
+      + ` on a ${run.reach.toFixed(2)} m reach, ${shapeLabel(run.shape)}\n`);
+    process.stdout.write(`  ${strokeLine(run)}\n`);
+  }
+}
+
+async function mainParry(args) {
+  const modules = args.module || args.chain ? [idFor(args)] : STROKE_BENCH_MODULES;
+  const runs = [];
+  for (const moduleId of modules) {
+    runs.push(await runParryBench({
+      moduleId, slot: args.slot,
+      mark: { distance: args.markDistance, height: args.markHeight },
+    }));
+  }
+  if (args.json) {
+    process.stdout.write(`${JSON.stringify(runs.map((run) => ({ ...run, state: undefined })), null, 2)}\n`);
+    return;
+  }
+  process.stdout.write(`harness: ${HARNESS}\n`);
+  process.stdout.write(`the cover asked ${PARRY_ACROSS_METRES.toFixed(2)} m across`
+    + ` and ${PARRY_UP_METRES.toFixed(2)} m up, held ${PARRY_HOLD_SECONDS.toFixed(1)} s\n\n`);
+  for (const run of runs) {
+    process.stdout.write(`${run.label}\n`);
+    process.stdout.write(`  arrived ${fixed(run.arrivedSeconds, 3)} s`
+      + ` over ${run.travelMetres.toFixed(3)} m,`
+      + ` resting ${fixed(run.standingOffsetMetres, 3)} m off its command,`
+      + ` peak ${run.peakSpeedMps.toFixed(2)} m/s,`
+      + ` overshoot ${run.overshootMm.toFixed(0)} mm,`
+      + ` ripple ${fixed(run.settleRippleMm, 1)} mm\n`);
+  }
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.locomotion) {
     await mainLocomotion(args);
+    return;
+  }
+  if (args.stroke) {
+    await mainStroke(args);
+    return;
+  }
+  if (args.parry) {
+    await mainParry(args);
     return;
   }
   const moduleId = idFor(args);

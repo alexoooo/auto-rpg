@@ -13712,3 +13712,219 @@ the plate on the other arm goes on blocking after it. Nothing in the five shippe
 that: `slotHealth` picks a mark by health, and no mind asks whether its own hand is still holding
 anything. That is a director's job rather than an executor's, and `StyleReading` is already
 specified to carry `spareCanCover`, so the finding is recorded here and spent in Session 03.
+
+## Session 02 of the style set — 2026-09-06: the stroke bench, and a cut that misses by two thirds of a metre
+
+What the plan asked for: a bench that emits, frame by frame, exactly what `driveStroke` emits, a
+probe on the tip at the mark, a 64-cell grid on four axes of the stroke shape, a parry sequence for
+the plate, and `COMMITTED_SHAPES` candidates for Session 03. What shipped: `strokeSequence`,
+`strokeProbe`, `parrySequence`, `parryProbe`, `markFor`, `runStrokeBench`, `runParryBench`,
+`STROKE_GRID`, `STROKE_BENCH_MODULES` and `COMMITTED_SHAPE_CANDIDATES` in
+`scripts/golem-bench.mjs`; the flags `--stroke`, `--stroke --sweep stroke`, `--parry`,
+`--mark-distance` and `--mark-height`; a `write` phase in `applyStep` so a scripted phase can
+compute its own command instead of being blended between two clamped poses; one test in
+`tests/golem-mind.test.mjs` and two in `tests/golem-bench.test.mjs`. 320 grid cells and ten bench
+runs, all deterministic and all on `NullEngine` with real Havok.
+
+**The headline is not a tuning row. The shipped cut never reaches the thing it is aimed at.** A
+wrist blade swung at a mark 1.64 m out comes no closer than 0.63 m to it, and it gets there 17 ms
+after its own arc has finished. Every number below is downstream of that.
+
+### The instrument the plan froze, and the two places it was wrong
+
+The plan named the probe "the tip's mark-plane crossing", reading `speedAtMark`,
+`tipErrorAtMark`, `peakTipSpeedDriven` and `peakAnchorStrayMm`. Two corrections, both dated
+2026-09-06 and both in the code beside the reading:
+
+- **The crossing and the arrival are not the same instant, and for two of the five modules there
+  is no crossing at all.** `driveStroke` multiplies the whole azimuth by `canSwing(cap)`, and a
+  maul publishes `swingMax === swingMin`, so its commanded arc does not sweep: what a crossing
+  counter reads on a maul is the achieved point wandering across a bearing the command never
+  moved. The row now carries `sweeps` to say which it is. On a blade, which does sweep, the
+  crossing is at 0.82 s and the closest approach at 0.89 s — the azimuth finishes its sweep while
+  the arm is still extending, so the weapon is nearest the mark *after* the arc is over.
+- **The reading is of the weapon, not of the point.** `reachForDistance` is called with
+  `strikeBite`, which deliberately puts the mark about a third of the way down the blade from the
+  point, so a tip-to-mark distance is *meant* to be large and measuring it flatters nothing. The
+  probe now takes the closest approach of the whole anchor-to-tip segment, reports `missMetres`
+  and how far back from the point the contact fell (`alongMetres`), and reports the speed of the
+  point of the weapon that is actually at the mark — always at or below the tip's own, which is
+  what a peak column would have flattered.
+
+The bench is a *transcription* of code that lives inside `golemFencer`'s closure and cannot be
+called from outside it, which is exactly the kind of thing that goes quietly wrong, so
+`tests/golem-mind.test.mjs` puts the shipped fencer in front of a real published view, drives it
+until it chambers and commits, and compares every field of its acting hand's intent with the
+bench's own writers, to the last digit, over a blade and over a whip. Three mutations were watched
+red on 2026-09-06: the sign on `followLift`, `cutBend` for `coverBend` in the chamber, and the
+arc's roll written into the wind-up. The last of those is green on a blade alone — the whip is the
+only kind whose `windRoll` differs from its `roll` — which is why the whip is in the test.
+
+One trap the test had to be built around: `goTo` runs at the *end* of a stance block, after that
+block has written its command, so the first step on which `stance` reads `commit` still carries
+the chamber's pose. A comparison that assumed otherwise is a step out of phase for the whole arc.
+
+### What the shipped strokes do at their marks
+
+The mark is `tacticalRanges(reach, cap).strike`, level with the socket — where a fencer opens an
+exchange from. `sw/st/dr/wd` is the shape's `chamberSwing`, `strokeSeconds`, `chamberReach`,
+`chamberSeconds`. One deterministic run each, guard 0.5 s then the stroke.
+
+| module | mark, m | reach, m | sw/st/dr/wd | miss, m | v at mark | tip v | peak v | anchor stray, mm | arrives, s | swept |
+|:--|--:|--:|:--|--:|--:|--:|--:|--:|--:|:--|
+| blade | 1.64 | 1.78 | 0.05/0.15/−0.70/0.22 | **0.631** | 15.23 | 15.23 | 19.87 | 9 | 0.887 | yes |
+| mace | 1.64 | 1.78 | 0.20/0.22/−0.40/0.22 | **0.733** | 18.48 | 18.48 | 18.71 | 342 | 0.962 | yes |
+| maul | 1.92 | 1.77 | 0.20/0.22/−0.40/0.22 | **1.285** | 2.18 | 3.63 | 6.86 | 221 | 1.008 | no |
+| fist | 1.07 | 1.16 | 0.05/0.12/−0.85/0.22 | **0.289** | 4.12 | 5.58 | 9.48 | 102 | 0.937 | yes |
+| plate | 1.05 | 1.14 | 0.10/0.12/−0.70/0.22 | **0.228** | 2.24 | 3.17 | 6.48 | 19 | 0.937 | yes |
+
+Read the first column and the rest is commentary. **Nothing lands.** The blade's peak driven tip
+speed is 19.9 m/s, which is nearly twice `combat.referenceSpeed`, and it reaches that speed
+0.63 m away from what it was swung at. The mechanism is the same one for every row and it is not
+subtle: the stroke starts with the arm drawn fully in — `chamberReach` −0.70 puts the blade's point
+0.65 m from the socket — and asks it to be 1.64 m out 0.15 s later. That is a metre of radial
+extension in a sixth of a second, the anchor drive cannot do it, and by the time the arm *is* out
+the azimuth has swept 0.94 rad past the mark's bearing and taken the blade with it. The arc and
+the extension are out of phase, and the mark falls in the gap.
+
+The maul is a second defect underneath the first: its mark is 1.92 m out and its published reach
+is 1.77, so `tacticalRanges` puts the range it opens an exchange at **outside its own arm**. That
+accounts for 0.15 m of a 1.29 m miss and none of the rest, which is the dead azimuth.
+
+### The grid: the arc is the lever, and the draw is the second one
+
+64 cells a module over `chamberSwing` {0.05, 0.4, 0.8, 1.2} × `strokeSeconds`
+{0.11, 0.15, 0.20, 0.28} × `chamberReach` {−0.70, −0.20} × `chamberSeconds` {0.22, 0.32}, five
+modules, 320 runs: `node scripts/golem-bench.mjs --stroke --sweep stroke`. Best miss and best
+speed at each arc width, taken over the other three axes:
+
+| module | swing 0.05 | 0.4 | 0.8 | 1.2 |
+|:--|--:|--:|--:|--:|
+| blade | 0.42 / 27.7 | 0.29 / 27.5 | 0.13 / 27.6 | **0.07** / 25.6 |
+| mace | 0.80 / 19.1 | **0.47** / 17.0 | 0.53 / 15.8 | 1.05 / 5.0 |
+| maul | 0.94 / 9.6 | 0.94 / 9.6 | 0.94 / 9.6 | 0.94 / 9.6 |
+| fist | 0.14 / 6.5 | 0.04 / 14.4 | **0.01** / 13.3 | **0.01** / 13.4 |
+| plate | 0.11 / 5.2 | 0.09 / 7.8 | 0.07 / 11.1 | **0.01** / 11.5 |
+
+*miss, m / speed at the mark, m/s — the two are from different cells.*
+
+**The plan predicted that speed at the mark rises with the arc until anchor stray runs away. It is
+half right, and the half it got wrong is the important one.** For a blade the speed does not rise
+with the arc at all — it is flat at 25 to 28 m/s across every width, and the stray never runs away
+(5 to 19 mm over the whole grid). What the arc buys is the *miss*, which falls sixfold. A wide
+chamber does not make the blade faster; it makes the blade arrive, by starting the azimuth far
+enough outboard that the sweep is still crossing the mark's bearing when the arm has finished
+extending. On the two weapons where stray does run away — the mace, 268 to 864 mm — it takes the
+speed with it, and the arc collapses rather than overshooting.
+
+The blade's two draws, at `chamberSeconds` 0.32 and 0.22 respectively:
+
+| swing \ stroke, draw −0.20 | 0.11 | 0.15 | 0.20 | 0.28 |
+|:--|--:|--:|--:|--:|
+| 0.05 | 0.49 / 26.1 | 0.52 / 21.8 | 0.56 / 17.6 | 0.56 / 12.0 |
+| 0.40 | 0.51 / 27.5 | 0.54 / 26.8 | 0.49 / 24.5 | 0.51 / 15.3 |
+| 0.80 | 0.21 / 26.8 | 0.24 / 25.2 | 0.24 / 25.0 | 0.24 / 19.5 |
+| 1.20 | 0.13 / 24.5 | 0.08 / 23.2 | **0.07 / 22.3** | 0.08 / 19.2 |
+
+| swing \ stroke, draw −0.70 | 0.11 | 0.15 | 0.20 | 0.28 |
+|:--|--:|--:|--:|--:|
+| 0.05 | 0.57 / 21.6 | 0.63 / 15.2 | 0.55 / 17.0 | 0.61 / 12.3 |
+| 0.40 | 0.37 / 21.3 | 0.32 / 16.6 | 0.29 / 11.7 | 0.60 / 12.1 |
+| 0.80 | 0.33 / 23.0 | 0.29 / 21.7 | 0.25 / 23.4 | 0.34 / 19.5 |
+| 1.20 | 0.39 / 24.8 | 0.32 / 23.9 | 0.35 / 23.4 | 0.19 / 21.5 |
+
+The draw is the second lever and it is worth about half the arc: the blade's best cell at a full
+draw misses by 0.155 m and at a shallow one by 0.070. Speed at the mark falls monotonically with
+stroke time in every row of both tables, so a shape read on speed alone would always name 0.11 s —
+and would miss by a quarter of a metre. **The plan's other prediction, that the best stroke time
+lengthens with the arc, holds on the miss and not on the speed**: at draw −0.20 the closest cell
+is 0.11 s at swing 0.05 and 0.20 s at swing 1.2.
+
+### What the grid chose, and the one kind it could not
+
+`COMMITTED_SHAPE_CANDIDATES` in `scripts/golem-bench.mjs`, read on the miss first and the speed
+second. Session 03 lays these four axes over the kind's own `STROKE_SHAPES` entry, which keeps
+`followSwing`, `followLift`, `stepIn` and both rolls as the shipped stroke has them.
+
+| kind | sw | st | dr | wd | miss, m | v at mark | stray, mm | against the shipped shape |
+|:--|--:|--:|--:|--:|--:|--:|--:|:--|
+| `sword` | 1.20 | 0.20 | −0.20 | 0.32 | 0.070 | 22.34 | 8 | 0.631 m at 15.23 |
+| `shield` | 1.20 | 0.15 | −0.70 | 0.32 | 0.014 | 11.10 | 56 | 0.228 m at 2.24 |
+| `empty` | 1.20 | 0.11 | −0.20 | 0.32 | 0.031 | 12.45 | 182 | 0.289 m at 4.12 |
+
+The shield's row takes `chamberSeconds` 0.32 over 0.22 deliberately: the 0.22 cell is 4 mm closer
+and 0.16 m/s faster and strays 159 mm against 56, and a cover that has left its own anchor by a
+sixth of a metre is a cover that is not where the mind thinks it is. **There is no `club` row, and
+that is a finding rather than an omission.** No cell of the grid brings a mace within 0.47 m of its
+mark or a maul within 0.94 m. The mace's anchor stray runs 268 to 864 mm across the grid and its
+best cells are its *narrow* ones — at swing 0.8 and 1.2 the speed at the mark collapses to 5.0 m/s
+and the arc simply does not happen. That is the chain losing the head, not a shape being wrong:
+`CHAIN_REACH.anchorRate` is the body's number and this plan set does not move it. The two club
+bodies are carried into Session 03 as their own class, as the plan's third named risk says.
+
+Anchor stray over the whole grid, which is the column that says which chains are driving what
+they carry:
+
+| module | stray, mm |
+|:--|--:|
+| blade | 5 .. 19 |
+| plate | 8 .. 194 |
+| fist | 11 .. 449 |
+| maul | 208 .. 312 |
+| mace | 268 .. 864 |
+
+### The parry, and the guardian's branch
+
+`node scripts/golem-bench.mjs --parry`: hold the cover 0.6 s, then command it 0.25 m across and
+0.10 m up and hold two seconds. The command is issued as an **angle** — `across / coverRadius` on
+the swing axis — because a mind cannot ask a cover to go a quarter of a metre sideways; it can
+ask for a new bearing at the same reach, and how far the plate then travels is the cover's own
+radius times the angle. Moving the *mark* by 0.25 m instead, which is the obvious reading of the
+plan's sentence, asks for 0.15 rad at a mark 1.6 m away and moves a plate held at 0.4 m by 63 mm.
+That is not a parry, and it was measured being one before the correction.
+
+| module | arrives, s | over, m | resting off its command, m | peak, m/s | overshoot, mm | ripple, mm |
+|:--|--:|--:|--:|--:|--:|--:|
+| blade | **0.59** | 0.303 | 0.002 | 11.08 | 61 | 0.0 |
+| plate | **0.89** | 0.400 | 0.119 | 5.41 | 153 | 20.7 |
+| fist | 1.46 | 0.361 | 0.002 | 7.20 | 197 | 37.6 |
+| mace | 1.96 | 0.554 | 0.056 | 5.78 | 446 | 56.3 |
+| maul | 1.97 | 0.141 | 0.172 | 3.88 | 156 | 54.4 |
+
+**The answer to the session's question is no.** The plan's gate for a true intercept was an
+arrival inside about 0.10 s. The fastest cover on the bench is a blade at 0.59 s and the plate the
+guardian will actually hold takes 0.89 s to settle over 0.40 m, overshooting its resting place by
+153 mm on the way. Session 05's guardian gets **a wall** — pre-positioned off the chamber read and
+held — and not an intercept solved against the incoming point. The mace and maul rows are not to
+be believed as arrivals at all: their `settleRippleMm` is above the 50 mm tolerance, which is the
+column saying they had not stopped moving when the hold ran out.
+
+The second column is why the arrival is read against the cover's own resting place rather than
+against `commandedTip`. **A plate held on a static cover command sits 0.119 m off it and stays
+there** — the anchor drive's force cap and the mass on the end reach an equilibrium short of the
+commanded point — so a 50 mm arrival measured against the command never happens, for any command,
+however long the hold. The first version of the probe measured exactly that and reported "never
+arrived" for a cover that had in fact settled in 0.89 s.
+
+### What the bench cannot say
+
+Four limits, all of them the plan's and all of them worth writing down before Session 03 reads
+these rows as if they were bout numbers.
+
+- **There is no carrier.** The stand holds the socket still, so `stepIn` and `trunkLean` do
+  nothing here and the mark does not move. Half of what a smash and a punch do is the feet, and
+  the bench cannot see it. Those go through `scoringSpeed` in the tournament, in Session 03.
+- **There is no opponent, so there is no body radius.** A miss of 0.07 m against a torso 0.22 m
+  wide is a hit and a miss of 0.63 m is not, but the bench measures the distance to a point and
+  the arena measures a contact against a shape. The column is a ranking, not a hit rate.
+- **The mark is one distance.** `markFor` puts it at `tacticalRanges(...).strike` because that is
+  the range a fencer opens an exchange from, and `--mark-distance` is how a run asks for another.
+  Every row above is at that one range and the shapes are not re-chosen for a closer one.
+- **One run a cell, and no seed.** The bench is deterministic and there is no noise column; a cell
+  that differs from its neighbour by a centimetre is inside whatever the solver's own variation is
+  and nothing here measures that. Only differences of the size the tables bold are claims.
+
+The stroke rows above are also a standing argument for the plan's Session 01 finding about stroke
+counting: a weapon that reaches its highest speed 0.6 m from the thing it was aimed at, and then
+sweeps on through, is a weapon whose contacts are the follow-through brushing whatever is in the
+way. That is what a rake *is*, and the arc that fixes the miss is the one that should also fix it.
