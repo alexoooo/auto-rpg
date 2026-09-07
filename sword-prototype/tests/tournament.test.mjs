@@ -32,6 +32,8 @@ import {
   reachBand,
   runTournament,
   scheduleJobs,
+  strokeColumns,
+  strokeInstrument,
   summarize,
 } from "../scripts/tournament.mjs";
 
@@ -121,6 +123,9 @@ const row = (index, leftPolicy, rightPolicy, winner, over = {}) => {
   const side = (policy) => ({
     policy, build: "default", setup: blade, seed: 1, damage: 50, contacts: 100, severs: 0, blocks: 0,
     vitality: winner === null ? 0.5 : 0.6, reach: 1.78, bodyReach: 1.78, insideInner: 0, peakTipDriven: 20,
+    strokes: 20, blows: 2.5, strokeDamage: 2.5, scoringSpeed: 7, caughtFraction: 0.25, catches: 5,
+    committedFraction: 0.5, clinchSeconds: 1.5, idleTravelMetres: 8, tangentialTravelMetres: 20,
+    radialClosingMetres: 6, nearRangeStallSeconds: 0.5, retreatOutsideReachSeconds: 2,
   });
   return { index, pairing: Math.floor(index / 2), swapped: index % 2 === 1, winner, ending: winner === null ? "time" : "exhausted",
     seconds: 30, leadChanges: 1, firstLeader: "left", left: side(leftPolicy), right: side(rightPolicy), ...over };
@@ -164,11 +169,83 @@ test("the_summary_carries_a_policy_matrix_and_the_structural_columns_beside_ever
   assert.equal(a.winnerBar, 0.6);
   assert.equal(a.leadChanged, 1);
   assert.equal(a.seconds, 30);
+  assert.equal(a.blows, 2.5, "the stroke columns are means over the sides beside the ratings");
+  assert.equal(a.caughtFraction, 0.25);
+  assert.equal(a.catches, 5);
+  assert.equal(a.idleTravelMetres, 8);
   assert.deepEqual(summary.byClass.map((entry) => entry.name).sort(), ["a @ blade/long", "b @ blade/long"]);
   const text = formatSummary(summary);
   assert.match(text, /=== policies -- 4 bouts, 3 decided ===/);
   assert.match(text, /=== policy against policy/);
   assert.match(text, /a @ blade\/long/);
+  assert.match(text, /=== policies, by the stroke/);
+  assert.match(text, /=== policy by build class, by the stroke ===/);
+  assert.match(text, /dmg\/stroke/);
+});
+
+test("a_file_written_before_the_stroke_columns_existed_still_summarises_and_prints_them_as_dashes", () => {
+  // The columns went on without a `TOURNAMENT_VERSION` bump, on the `arm` precedent, so
+  // `--read` of a tournament from the matchup set has to answer with what that file holds
+  // rather than with zeroes nobody measured.
+  const strip = (side) => {
+    const older = { ...side };
+    for (const column of ["strokes", "blows", "strokeDamage", "scoringSpeed", "caughtFraction", "catches",
+      "committedFraction", "clinchSeconds", "idleTravelMetres", "tangentialTravelMetres",
+      "radialClosingMetres", "nearRangeStallSeconds", "retreatOutsideReachSeconds"]) delete older[column];
+    return older;
+  };
+  const fresh = row(0, "a", "b", "left");
+  const older = { ...fresh, left: strip(fresh.left), right: strip(fresh.right) };
+  const summary = summarize([older]);
+  const a = summary.byPolicy.find((entry) => entry.name === "a");
+  assert.equal(a.damage, 50, "the columns the older file does carry are summarised as they were");
+  assert.equal(a.blows, undefined, "and one it does not is not invented");
+  assert.equal(a.clinchSeconds, undefined);
+  const text = formatSummary(summary);
+  assert.match(text, /=== policies, by the stroke/);
+  assert.match(text, /a {19}\s+--\s+--\s+--/, "an absent column prints as a dash");
+});
+
+test("a_burst_on_one_effector_is_one_stroke_and_its_scoring_blow_says_where_the_stroke_landed", () => {
+  // The rake this instrument exists to see: one pass of one blade booking three contacts on the
+  // per-part cooldown, then the other hand landing one of its own well after the window.
+  const instrument = strokeInstrument();
+  const blow = (effectorId, at, damage, key, speed) =>
+    instrument.event({ effectorId, hand: null, blocked: false, report: { at, damage, key, speed, kind: "clean" } });
+  instrument.posture(0.4, 0);
+  blow("left.primary", 1.00, 0.3, "x.golem.trunk.core", 6);
+  blow("left.primary", 1.09, 0.9, "x.golem.trunk.core", 8);
+  blow("left.primary", 1.18, 0.2, "x.golem.trunk.waist", 7);
+  instrument.posture(0, 0);
+  blow("left.secondary", 1.58, 0.4, "x.golem.secondary.plate", 4);
+  const strokes = instrument.close();
+  assert.equal(strokes.length, 2, "three contacts inside the window are one stroke, the other hand is another");
+  assert.equal(strokes[0].blows, 3);
+  assert.ok(Math.abs(strokes[0].damage - 1.4) < 1e-9);
+  assert.equal(strokes[0].key, "x.golem.trunk.core", "the scoring blow is the one that did the damage");
+  assert.equal(strokes[0].speed, 8);
+  assert.equal(strokes[0].caught, false, "a trunk is not a hand slot");
+  assert.equal(strokes[0].committed, true, "the body was leaning into it");
+  assert.equal(strokes[1].blows, 1);
+  assert.equal(strokes[1].caught, true, "a blow on a hand slot is one the other body caught");
+  assert.equal(strokes[1].committed, false);
+  const columns = strokeColumns(strokes);
+  assert.equal(columns.strokes, 2);
+  assert.equal(columns.blows, 2);
+  assert.ok(Math.abs(columns.strokeDamage - 0.9) < 1e-9);
+  assert.equal(columns.scoringSpeed, 6);
+  assert.equal(columns.caughtFraction, 0.5);
+  assert.equal(columns.committedFraction, 0.5);
+  // The window is a gap between contacts, not a length: a burst that keeps landing keeps the
+  // stroke open, and the first quiet quarter second ends it.
+  const second = strokeInstrument();
+  const long = (at) => second.event({ effectorId: "e", hand: null, blocked: false,
+    report: { at, damage: 1, key: "x.golem.trunk.core", speed: 5, kind: "clean" } });
+  for (const at of [0, 0.2, 0.4, 0.6]) long(at);
+  long(1.0);
+  assert.deepEqual(second.close().map((stroke) => stroke.blows), [4, 1]);
+  assert.deepEqual(strokeColumns([]), { strokes: 0, blows: 0, strokeDamage: 0, scoringSpeed: 0,
+    caughtFraction: 0, committedFraction: 0 }, "a side that never swung is zero, not a division by none");
 });
 
 test("two_workers_over_four_short_bouts_twice_write_the_same_rows_under_one_seed", async (t) => {
@@ -187,12 +264,19 @@ test("two_workers_over_four_short_bouts_twice_write_the_same_rows_under_one_seed
     for (const side of [r.left, r.right]) {
       assert.equal(side.policy, "golem-duelist");
       assert.ok(side.reach > 0 && side.bodyReach > 0, "the armed hand's reach was read off the view");
-      for (const column of ["damage", "contacts", "severs", "vitality", "insideInner", "peakTipDriven"]) {
+      for (const column of ["damage", "contacts", "severs", "vitality", "insideInner", "peakTipDriven",
+        "strokes", "blows", "strokeDamage", "scoringSpeed", "caughtFraction", "catches",
+        "committedFraction", "clinchSeconds", "idleTravelMetres", "tangentialTravelMetres",
+        "radialClosingMetres", "nearRangeStallSeconds", "retreatOutsideReachSeconds"]) {
         assert.equal(typeof side[column], "number", column);
         assert.ok(Number.isFinite(side[column]), column);
       }
       assert.ok(side.vitality >= 0 && side.vitality <= 1);
       assert.ok(side.insideInner >= 0 && side.insideInner <= 1);
+      assert.ok(Number.isInteger(side.strokes) && side.strokes >= 0, "strokes is a count");
+      assert.ok(side.caughtFraction >= 0 && side.caughtFraction <= 1);
+      assert.ok(side.committedFraction >= 0 && side.committedFraction <= 1);
+      assert.ok(side.blows === 0 || side.blows >= 1, "a stroke that exists booked at least one blow");
     }
     assert.ok(Number.isInteger(r.leadChanges) && r.leadChanges >= 0);
   }

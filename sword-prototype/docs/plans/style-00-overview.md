@@ -1,7 +1,8 @@
 # Style -- live roadmap
 
-> **2026-09-06 status: plan set written, nothing implemented, nothing accepted.** Thirteen files,
-> one per landable session. Sessions 00 to 12 are open. Every session ends at a human gate that
+> **2026-09-06 status: Session 00 implemented; its human gate is open, and nothing is accepted.**
+> Thirteen files, one per landable session. Sessions 01 to 12 are unimplemented and every gate,
+> Session 00's included, is open. Every session ends at a human gate that
 > the owner records in that session's status line; an agent may not write "accepted" there.
 > The golem set and the matchup set that came before this one were deleted at the owner's
 > request on 2026-09-06, every one of their sessions having landed; their durable record is
@@ -137,7 +138,7 @@ stays as it is.
 
 | session | the owner is asked | verdict |
 | --- | --- | --- |
-| 00 | whether the fencer's baseline row reads as the flail they saw | open |
+| 00 | whether the fencer's baseline row reads as the flail they saw | open; the row is in the Session 00 entry of `../measurements.md` |
 | 01 | whether a blow that lands reads as one blow, whether a blade stopped by a plate reads as a block, and whether bouts now run too long | open |
 | 02 | whether a stroke near the reference speed exists inside the arm's budget | open |
 | 03 | whether every blow's worth reads as its weight, and whether a maul against a blade is a fight | open |
@@ -152,6 +153,11 @@ stays as it is.
 | 12 | the set's one gate above | open |
 
 ## Session 00's own work: the instruments that see a stroke
+
+**Implemented 2026-09-06; the human gate below is open.** The numbers are in the Session 00 entry
+of `../measurements.md`: a stroke lands 6.6 to 7.2 blows, 58 % of strokes score on a hand slot,
+the `blocks` column is zero on all 4,096 sides of both baselines, and the committed column reads
+as movement rather than as arrival, for a reason the entry measures rather than asserts.
 
 Besides writing these thirteen files, Session 00 lands the columns the rest of the set selects on.
 

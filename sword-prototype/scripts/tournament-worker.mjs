@@ -19,14 +19,15 @@ import { DUEL_OPTIONS, observe, stateKey } from "../src/golem/duel-model.ts";
 import { FEATURE_COUNT, neuralFeatures } from "../src/golem/neural-features.ts";
 import { golemNeural } from "../src/golem/neural.ts";
 import { NEURAL_WEIGHTS } from "../src/golem/neural-weights.ts";
-import { innerReach } from "../src/golem/tactics.ts";
+import { GOLEM_TACTICS, innerReach } from "../src/golem/tactics.ts";
 import { GOLEM_CHAMPIONS } from "../src/golem/tactics-champions.ts";
 import { GOLEM_PLANNER, golemPlanner } from "../src/golem/planner.ts";
 import { GOLEM_TACTICS_V2 } from "../src/golem/tactics-v2.ts";
 import { policyMind } from "../src/mind.ts";
 import { policyForUnit } from "../src/units.ts";
 import { freshHavok, runBout } from "./bout-runner.mjs";
-import { EXCHANGE_FLICKER_SECONDS, EXCHANGE_WINDOW_SECONDS, armedHand } from "./tournament.mjs";
+import { CLINCH_QUIET_SECONDS, CLOSING_LAG_SECONDS, EXCHANGE_FLICKER_SECONDS, EXCHANGE_WINDOW_SECONDS,
+  armedHand, strokeColumns, strokeInstrument } from "./tournament.mjs";
 
 /** The dead band a lead has to clear before it counts, in bar fraction; the Session 11 number. */
 const LEAD_DEAD_BAND = 0.02;
@@ -197,6 +198,15 @@ async function runJob(job) {
   const arm = { left: null, right: null };
   const hands = { left: armedHand(job.left.setup), right: armedHand(job.right.setup) };
   let samples = 0;
+  // The stroke instruments, and the ground state they are stamped from. `lastContact` is shared:
+  // a bout is quiet when neither side has landed anything, which is what makes a clinch a clinch
+  // rather than a close-quarters exchange.
+  const strokes = { left: strokeInstrument(), right: strokeInstrument() };
+  const clinch = { left: 0, right: 0 };
+  const idle = { left: 0, right: 0 };
+  const gapLog = { left: [], right: [] };
+  const groundWas = { left: null, right: null };
+  let lastContact = Number.NEGATIVE_INFINITY;
   let leader = null;
   let firstLeader = null;
   let leadChanges = 0;
@@ -211,6 +221,10 @@ async function runJob(job) {
     physics,
     leftMind: minds.left,
     rightMind: minds.right,
+    onEvent(event) {
+      lastContact = event.report.at;
+      strokes[event.side].event(event);
+    },
     onSample(sample) {
       samples += 1;
       lastSample = sample;
@@ -225,6 +239,41 @@ async function runJob(job) {
           arm[side] = armClass(view.self);
         }
         if (insideOwnInnerRadius(view)) inside[side] += 1;
+        // Closing is a ground fact -- whether this body walked in -- so it is read off the two
+        // stances and not off the shoulders, which swing with every stroke. Read against the
+        // gap a tenth of a second ago rather than against the last sample: see
+        // `CLOSING_LAG_SECONDS`. The first tenth of a second of a bout has a shorter span and
+        // uses it, which is honest and is over before anything can land.
+        const them = view.opponent;
+        const ground = view.self.ground;
+        const gap = Math.hypot(ground.x - them.ground.x, ground.z - them.ground.z);
+        const log = gapLog[side];
+        log.push({ gap, clock: sample.clock });
+        while (log.length > 1 && sample.clock - log[0].clock > CLOSING_LAG_SECONDS) log.shift();
+        const span = sample.clock - log[0].clock;
+        const closing = span > 1e-6 ? (log[0].gap - gap) / span : 0;
+        strokes[side].posture(view.self.trunkLean, closing);
+        // Quiet is measured from the last contact either way, so a clinch is two bodies inside
+        // each other's reach doing nothing to each other, and idle travel is the sideways drift
+        // that happens while nothing is landing -- the strafe the plan calls a drift. The gap
+        // tested is `view.measure`, the mind's own shoulder-to-nearest-part reading, because
+        // that is what `reach` is comparable with and what the engagement instrument calls
+        // being outside reach on the other side of the same line.
+        const quiet = sample.clock - lastContact >= CLINCH_QUIET_SECONDS;
+        if (quiet && view.measure < them.reach * (1 + GOLEM_TACTICS.slackFraction)) {
+          clinch[side] += sample.dt;
+        }
+        const was = groundWas[side];
+        if (was !== null && quiet) {
+          const toward = { x: them.ground.x - ground.x, z: them.ground.z - ground.z };
+          const span = Math.hypot(toward.x, toward.z);
+          if (span > 1e-6) {
+            // The component of this step across the line between them, which is travel that did
+            // not change the distance; the radial half is the engagement record's own column.
+            idle[side] += Math.abs((ground.x - was.x) * (-toward.z / span) + (ground.z - was.z) * (toward.x / span));
+          }
+        }
+        groundWas[side] = { x: ground.x, z: ground.z };
       }
       const margin = ends.left - ends.right;
       const ahead = margin > LEAD_DEAD_BAND ? "left" : margin < -LEAD_DEAD_BAND ? "right" : null;
@@ -235,8 +284,14 @@ async function runJob(job) {
       }
     },
   });
+  const swung = { left: strokes.left.close(), right: strokes.right.close() };
+  const caught = {
+    left: swung.left.filter((stroke) => stroke.caught).length,
+    right: swung.right.filter((stroke) => stroke.caught).length,
+  };
   const side = (name) => {
     const record = result[name];
+    const engagement = result.behaviour?.[name]?.engagement;
     return {
       policy: job[name].policy,
       build: job[name].build,
@@ -255,6 +310,21 @@ async function runJob(job) {
       arm: arm[name],
       insideInner: samples === 0 ? 0 : inside[name] / samples,
       peakTipDriven: record.peakTipDriven,
+      // Session 00 of the style set: the columns that see a stroke rather than a contact. Added
+      // without a `TOURNAMENT_VERSION` bump, on the `arm` precedent -- a reader of an older
+      // file finds every column it had, and `structural` skips a column no row carries.
+      ...strokeColumns(swung[name]),
+      // Their strokes my hand slots stopped, which is the other half of `caughtFraction`: mine
+      // says how often I was caught, this says how often I caught.
+      catches: caught[name === "left" ? "right" : "left"],
+      clinchSeconds: clinch[name],
+      idleTravelMetres: idle[name],
+      // Four columns lifted whole from the engagement instrument, which computes them every bout
+      // and had no reader in the tournament until now.
+      tangentialTravelMetres: engagement?.tangentialTravelMetres ?? 0,
+      radialClosingMetres: engagement?.radialClosingMetres ?? 0,
+      nearRangeStallSeconds: engagement?.nearRangeStallSeconds ?? 0,
+      retreatOutsideReachSeconds: engagement?.retreatOutsideReachSeconds ?? 0,
     };
   };
   if (lastSample !== null) {
@@ -275,6 +345,12 @@ async function runJob(job) {
   };
   if (workerData?.exchanges) {
     row.exchanges = { left: loggers.left?.records ?? null, right: loggers.right?.records ?? null };
+  }
+  // `--behaviour` rides the whole behaviour record back, for a question the eight columns above
+  // were not chosen to answer. Its private trackers are non-enumerable, so this is what
+  // `JSON.stringify` would have written anyway.
+  if (workerData?.behaviour) {
+    row.behaviour = { left: result.behaviour.left, right: result.behaviour.right };
   }
   if (workerData?.record) {
     row.samples = { left: recorders.left?.pack() ?? null, right: recorders.right?.pack() ?? null };

@@ -13258,3 +13258,189 @@ change worth a hundredth costs a night to see, and Sessions 06 to 08 each spent 
 finding that out in their own way and wrote the number down. The set's one gate is the
 owner's, unchanged: a dozen random matchups on the screen, and whether it reads as
 high-level fighting.
+
+## Session 00 of the style set — 2026-09-06: the instruments that see a stroke, and the baseline they take
+
+What the plan asked for: the columns the rest of the set selects on, so that "the golems flail" is
+a number and not only an impression, and one baseline of the five shipped minds taken before any
+rule moves. What shipped: a stroke instrument in `scripts/tournament.mjs`, thirteen new per-side
+columns in `scripts/tournament-worker.mjs`, a `--behaviour` flag, a second column block in the
+summary, four new tests in `tests/tournament.test.mjs`, and the two runs below. The raw logs are
+`tournaments/style00-mirror.jsonl` and `tournaments/style00-random.jsonl`, gitignored;
+`npm run tournament -- --bouts 1024 --mirror --random 40 --cap 60 --seed 20260906 --policies
+golem-duelist,golem-fencer,golem-planner,golem-champion,golem-neural` writes the first again to
+the byte below its header, and the same line without `--mirror` writes the second.
+
+### What a stroke is
+
+A stroke is a burst of contacts booked by **one effector** with no gap of `STROKE_GAP_SECONDS`
+0.25 in it. Two hands swinging at once are two strokes; a blade that drags across a trunk and
+books four contacts on the 0.09 s per-part cooldown is one. Per stroke the instrument keeps the
+blows, the damage, and the **scoring blow** -- the largest damage of the burst -- with its speed,
+its kind and the part it found. That part is classified by its slot segment, the rule `slotHealth`
+in `src/golem/tactics-v2.ts` already uses over `side.golem.slot.part`: `primary` or `secondary` is
+**caught** (it landed on a hand slot -- the arm, its chain, or what the hand is holding), anything
+else is clean.
+
+The columns went onto the row without a `TOURNAMENT_VERSION` bump, on the `arm` precedent of
+Session 07 of the matchup set: a reader of an older file finds every column it had, `structural`
+takes the mean over the sides that carry a column rather than over all of them, and a column no
+side carries prints as `--` rather than as a zero nobody measured. `--read` of Session 04's
+`tournaments/baseline-20260906-duelist.jsonl` was run to check exactly that, and its first block
+is unchanged while its second is dashes.
+
+### The one constant that was measured rather than chosen
+
+A blow is **committed** if the striker's `trunkLean` was at or above 0.15 or the two stances were
+closing at or above 0.3 m/s when it landed. The lean is read straight off the view. The closing
+rate is not: the gap differenced from one 240 Hz sample to the next is a speed plus a step of
+solver noise, and it put five points on the committed column. Reading the gap
+`CLOSING_LAG_SECONDS` 0.1 back instead removes that, and a step-in still shows, because the
+chamber one would be part of runs 0.22 s.
+
+A longer window was tried and rejected. Over 4,566 blows of the fencer against itself on eight
+drawn builds:
+
+| lag, s | blows with closing ≥ 0.3 m/s | mean closing, m/s | mean \|closing\|, m/s |
+|---:|---:|---:|---:|
+| 0.05 | 28.9 % | 0.024 | 0.416 |
+| **0.10** | **29.2 %** | **0.031** | **0.395** |
+| 0.25 | 28.9 % | 0.050 | 0.364 |
+| 0.50 | 25.6 % | 0.067 | 0.307 |
+| 1.00 | 18.8 % | 0.089 | 0.242 |
+
+**The oscillation is not the filter's fault, it is the fighting.** At every window from a
+twentieth of a second to a full second the bodies are moving toward or away from each other at
+about a third of a metre a second and arriving nowhere: the mean closing rate at a blow is 0.03
+m/s and the mean magnitude is 0.40. So the shortest window that is not noise is the one kept, and
+**the committed column reads "the body was moving", not "the body went somewhere"**. Broken down
+over the same blows at that lag: lean only 20.9 %, closing only 23.7 %, both 5.4 %, neither
+50.0 %, with a mean lean at a blow of 0.050 against the fencer's commanded `commitLean` 0.40. What
+would move the net closing is an option that drives forward through the chamber and the commit,
+which is Session 04's `cut`; until then a rise in this column is a rise in movement.
+
+### The baseline: five minds, 1,024 bouts a pool, seed 20260906
+
+Twelve reference builds and 40 seeded draws, a 60 s cap, every ordered pair of the five policies.
+Mirrored means one build on both sides.
+
+| | mirrored | random pairs |
+|:---|---:|---:|
+| decided / at the cap | 644 / 380 | 613 / 411 |
+| bout length p10 / p50 / p90 | 4.2 / 35.9 / 60.0 s | 4.7 / 38.6 / 60.0 s |
+| strokes in the file | 67,922 | 54,824 |
+| strokes a second, mean | 1.16 | 0.87 |
+| blows a stroke, mean | 6.64 | 7.24 |
+| blows a stroke, p10 / p50 / p90 | 1.58 / 4.63 / 13.67 | 1.35 / 4.00 / 15.45 |
+| contacts a bout | 236.3 | 174.2 |
+| damage a contact | 0.339 | 0.473 |
+| caught fraction, mean | 0.582 | 0.559 |
+| committed fraction, p10 / p50 / p90 | 0.26 / 0.57 / 0.93 | 0.14 / 0.56 / 1.00 |
+| clinch seconds, mean | 2.42 | 2.39 |
+| sides that clinched at all | 1670 / 2048 | 1390 / 2048 |
+| **blocks booked, both pools, every side** | **0** | **0** |
+
+Mirrored, by policy:
+
+```
+  policy                strokes  blows  dmg/stroke  v@blow  caught%  catches  commit%  clinch s  idle m  tangent m  closing m  stall s  outside s
+  golem-fencer             34.0   7.77        6.08     5.2    58.6%     21.5    56.9%       2.2     4.1       23.1        6.4      1.0        1.8
+  golem-planner            32.4   5.21        5.56     5.1    56.2%     19.2    55.1%       2.5     7.9       27.6        9.7      0.6        5.6
+  golem-neural             34.9   6.13        5.01     5.1    57.6%     21.4    54.1%       2.7     6.7       26.3       10.4      0.6        4.5
+  golem-duelist            34.1   6.97        6.05     5.3    60.0%     22.3    58.6%       2.3     4.3       22.3        6.7      0.7        2.0
+  golem-champion           30.3   6.67        6.57     5.4    58.7%     19.3    60.2%       2.4     6.2       24.6        9.9      0.5        4.9
+```
+
+Random pairs, by policy:
+
+```
+  policy                strokes  blows  dmg/stroke  v@blow  caught%  catches  commit%  clinch s  idle m  tangent m  closing m  stall s  outside s
+  golem-champion           24.0   7.29        6.21     5.3    54.1%     13.5    57.8%       2.6    11.0       31.7        8.3      1.0       15.4
+  golem-planner            24.2   6.41        5.57     4.6    52.9%     13.4    47.2%       1.6     9.4       30.4        7.8      0.4       11.7
+  golem-duelist            30.2   6.91        6.46     5.4    56.6%     16.9    59.3%       2.6     3.0       22.1        6.0      0.8        2.8
+  golem-neural             26.4   7.09        5.97     5.0    58.7%     16.1    52.1%       2.9     9.2       29.6        8.6      0.9        9.8
+  golem-fencer             28.9   6.91        5.60     5.2    57.1%     16.9    55.8%       2.1     3.3       21.6        6.3      0.6        2.6
+```
+
+**The ratings in these two runs are not a finding and should not be read as one.** At 1,024 bouts
+over five policies each side is rated from about 410 bouts, where σ on points a bout is around
+0.035, and the Elo columns duly disagree with each other and with the matchup set's close-out --
+the fencer leads mirrored at 1034 and comes last on random pairs at 928, on the same seed. Session
+09 of the matchup set settled the five at 4,096 bouts and that table stands. What this run is for
+is the stroke columns, which are means over 55,000 to 68,000 strokes and are not close.
+
+### The rake, in one column
+
+**A stroke lands seven times.** That is the number the whole set now exists to answer. The plan
+guessed 4.3 from the 0.09 s per-part cooldown and a 0.15 s commit; measured over both pools it is
+6.6 to 7.2, with a tenth of all sides averaging more than fourteen. Of 2,048 sides in the mirrored
+pool, 164 averaged one blow a stroke, 251 two, 277 three, 667 four to six, 338 seven to ten, and
+327 **eleven or more**.
+
+The build class rows say which bodies do it, and they are the bodies that cannot hurt anything:
+
+```
+  policy @ class                        strokes  blows  dmg/stroke  v@blow  caught%  catches  commit%  clinch s  idle m
+  golem-champion @ maul/long                4.1   3.29       20.68     6.8    63.7%      2.7    87.1%       0.6     0.1
+  golem-fencer @ mace/long                 11.7   6.32       10.39     7.7    58.0%      7.3    67.3%       0.5     0.5
+  golem-fencer @ blade/long                43.7   5.92        2.23     8.5    76.4%     35.2    58.8%       4.1     2.3
+  golem-fencer @ plate/mid                 76.2  11.48        0.83     2.3    57.4%     53.6    51.4%       1.3     0.7
+  golem-duelist @ plate/short              49.8  14.81        0.70     2.7    66.6%     36.8    43.2%       1.9     9.0
+  golem-duelist @ blade/mid                52.8  14.06        0.34     1.8    72.5%     43.0    44.1%       2.4     3.2
+```
+
+A maul throws four strokes, lands three blows each, takes twenty damage a stroke and the bout is
+over in about three seconds. A plate throws fifty to eighty strokes, lands fifteen blows each, and
+takes seven tenths of one point of damage a stroke. Both are "flailing" in the owner's sense and
+only one of them is winning; the mid-reach blade at 0.34 damage a stroke over fourteen blows is
+the picture the complaint was about. Session 01 charges a part once per stroke and Session 03
+scores a blow by the energy that arrives, and this table is what the two of them will be read
+against.
+
+### Nothing blocks, and more than half of everything lands on an arm
+
+**The `blocks` column is zero on all 4,096 sides of both runs.** `Golem.parriedBy` returns null,
+so no golem contact ever takes the parry path, and that has been true since golems existed.
+
+What happens instead is now visible: **58 % of all strokes score on a hand slot** -- the arm, its
+chain, or the weapon or plate the hand is holding. The blade at long reach lands on an arm 76 % of
+the time, and the `catches` column says the same thing from the other side: a fencer on a mid-reach
+plate has 54 of the opponent's strokes stopped by its hands in one bout, and every one of them is
+booked today as an ordinary wound on the plate. The two rules Session 01 lands -- the plate as an
+indestructible damage sink booked through the block path, and a blow on a held weapon booked as a
+block that still wounds the weapon -- are aimed exactly here, and this is the number they move.
+
+### Clinch, and travel that goes nowhere
+
+Clinch seconds -- inside their reach plus slack with nothing landing either way for 0.75 s -- comes
+to about 2.4 s a bout on both pools, and 1,670 of 2,048 mirrored sides have some. It is small
+because the bodies are in near-continuous contact: 236 contacts in a 36 s bout leaves few quiet
+windows to be in. It is a column that will *rise* as Session 01 thins the contacts, and it is on
+the row now so that rise is one table.
+
+Travel splits in two, and the two disagree in a useful way. `idleTravelMetres`, this session's
+column, is a side's own sideways walking during those quiet windows only, and is 3 to 11 m.
+`tangentialTravelMetres`, lifted whole from the engagement instrument that has computed it every
+bout since the golem set and had no reader in the tournament until now, is the *relative*
+tangential travel over the whole bout, and is 22 to 32 m against 6 to 10 m of radial closing. Three
+to five metres of sideways drift for every metre of approach is the strafe the plan diagnosed --
+`strafe = ±0.55` on a free 1.3 to 2.6 s timer that never reads the opponent -- and it is now a
+column rather than an impression.
+
+### Speed at the blow
+
+The scoring blow lands at 5.0 to 5.4 m/s averaged over all builds, against `referenceSpeed` 11.
+By class it splits with the weapon: a long-reach blade scores at 8.5 m/s, a mace at 7.7, a maul at
+6.8, and a plate or a mid-reach blade at 1.8 to 2.7. The plan's estimate for the fencer was about
+7, which holds for the long arms and is twice what the short ones manage. Session 02's bench takes
+this apart per weapon kind against the arm's own budget, and Session 03 turns it into energy.
+
+### What is on the row now
+
+Per side: `strokes`, `blows`, `strokeDamage`, `scoringSpeed`, `caughtFraction`, `catches`,
+`committedFraction`, `clinchSeconds`, `idleTravelMetres`, and `tangentialTravelMetres`,
+`radialClosingMetres`, `nearRangeStallSeconds`, `retreatOutsideReachSeconds` from the behaviour
+record. Under `--behaviour` the whole enumerable behaviour record rides on the row as well. The
+two-worker byte-identical rerun test still passes with all of them, which is the claim that
+matters: every column is a function of the same events and samples the bout already produced, so
+a row is still a function of its seed.

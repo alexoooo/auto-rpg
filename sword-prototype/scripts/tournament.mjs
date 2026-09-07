@@ -223,6 +223,24 @@ const quantile = (xs, q) => {
   return sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))];
 };
 
+/**
+ * The mean of one column over the sides that carry it, or `undefined` if none do.
+ *
+ * A column added without a version bump is absent from every row of an older file, and
+ * `--read` of one has to summarise what is there rather than print zeroes that read as
+ * measurements. A side missing the column is skipped, not counted as zero, so a file where half
+ * the rows predate a column would still report the half that has it -- which cannot happen
+ * inside one run and is the honest answer if it ever does.
+ */
+const column = (sides, read) => {
+  const seen = [];
+  for (const side of sides) {
+    const value = read(side);
+    if (value !== undefined && value !== null) seen.push(value);
+  }
+  return seen.length === 0 ? undefined : mean(seen);
+};
+
 /** The structural columns for the sides `pick` selects, so a rating is never read alone. */
 function structural(rows, pick) {
   const sides = [];
@@ -247,6 +265,22 @@ function structural(rows, pick) {
     insideInner: mean(sides.map((side) => side.insideInner)),
     leadChanged: mean(changed),
     seconds: quantile(seconds, 0.5),
+    // Session 00 of the style set: what a stroke was, beside what a contact was. Every one of
+    // these is a mean over the sides that carry it, so a file written before they existed
+    // summarises without them rather than with zeroes.
+    strokes: column(sides, (side) => side.strokes),
+    blows: column(sides, (side) => side.blows),
+    strokeDamage: column(sides, (side) => side.strokeDamage),
+    scoringSpeed: column(sides, (side) => side.scoringSpeed),
+    caughtFraction: column(sides, (side) => side.caughtFraction),
+    catches: column(sides, (side) => side.catches),
+    committedFraction: column(sides, (side) => side.committedFraction),
+    clinchSeconds: column(sides, (side) => side.clinchSeconds),
+    idleTravelMetres: column(sides, (side) => side.idleTravelMetres),
+    tangentialTravelMetres: column(sides, (side) => side.tangentialTravelMetres),
+    radialClosingMetres: column(sides, (side) => side.radialClosingMetres),
+    nearRangeStallSeconds: column(sides, (side) => side.nearRangeStallSeconds),
+    retreatOutsideReachSeconds: column(sides, (side) => side.retreatOutsideReachSeconds),
   };
 }
 
@@ -277,6 +311,8 @@ export function summarize(rows) {
 
 const pad = (value, width) => String(value).padStart(width);
 const fixed = (value, digits, width) => pad(value.toFixed(digits), width);
+/** A column an older file does not carry prints as a dash rather than as a number nobody took. */
+const maybe = (value, digits, width) => (value === undefined ? pad("--", width) : fixed(value, digits, width));
 
 export function formatSummary(summary) {
   const lines = [];
@@ -286,9 +322,24 @@ export function formatSummary(summary) {
     `${fixed(entry.damage, 1, 11)}  ${fixed(entry.contacts, 1, 8)}  ${pad(entry.severs, 6)}  ` +
     `${fixed(entry.winnerBar, 3, 10)}  ${fixed(entry.insideInner * 100, 1, 11)}%  ${fixed(entry.leadChanged * 100, 1, 11)}%  ` +
     `${fixed(entry.seconds, 1, 5)}`;
+  // The second block: what one stroke was. A rating says who won and the first block says how
+  // much landed; neither can tell a cut from a rake, and the flail complaint this set answers is
+  // a complaint about strokes. Printed as its own table rather than widened onto the first,
+  // because thirteen columns on one line wrap in every terminal the run is read in.
+  const strokeColumns = "  strokes  blows  dmg/stroke  v@blow  caught%  catches  commit%  clinch s  idle m  tangent m  closing m  stall s  outside s";
+  const strokeRow = (entry) =>
+    `${maybe(entry.strokes, 1, 9)}  ${maybe(entry.blows, 2, 5)}  ${maybe(entry.strokeDamage, 2, 10)}  ` +
+    `${maybe(entry.scoringSpeed, 1, 6)}  ${maybe(entry.caughtFraction === undefined ? undefined : entry.caughtFraction * 100, 1, 6)}%  ` +
+    `${maybe(entry.catches, 1, 7)}  ${maybe(entry.committedFraction === undefined ? undefined : entry.committedFraction * 100, 1, 6)}%  ` +
+    `${maybe(entry.clinchSeconds, 1, 8)}  ${maybe(entry.idleTravelMetres, 1, 6)}  ${maybe(entry.tangentialTravelMetres, 1, 9)}  ` +
+    `${maybe(entry.radialClosingMetres, 1, 9)}  ${maybe(entry.nearRangeStallSeconds, 1, 7)}  ${maybe(entry.retreatOutsideReachSeconds, 1, 9)}`;
   lines.push(`=== policies -- ${summary.bouts} bouts, ${summary.decided} decided ===`);
   lines.push(`  ${"policy".padEnd(20)}${columns}`);
   for (const entry of summary.byPolicy) lines.push(`  ${entry.name.padEnd(20)}${row(entry)}`);
+  lines.push("");
+  lines.push("=== policies, by the stroke -- a stroke is one burst on one effector, 0.25 s apart ===");
+  lines.push(`  ${"policy".padEnd(20)}${strokeColumns}`);
+  for (const entry of summary.byPolicy) lines.push(`  ${entry.name.padEnd(20)}${strokeRow(entry)}`);
   if (summary.policies.length > 1) {
     lines.push("");
     lines.push("=== policy against policy -- wins for the row, draws as a half ===");
@@ -302,6 +353,10 @@ export function formatSummary(summary) {
   lines.push("=== policy by build class -- the armed terminal, and the reach band it was published at ===");
   lines.push(`  ${"policy @ class".padEnd(36)}${columns}`);
   for (const entry of summary.byClass) lines.push(`  ${entry.name.padEnd(36)}${row(entry)}`);
+  lines.push("");
+  lines.push("=== policy by build class, by the stroke ===");
+  lines.push(`  ${"policy @ class".padEnd(36)}${strokeColumns}`);
+  for (const entry of summary.byClass) lines.push(`  ${entry.name.padEnd(36)}${strokeRow(entry)}`);
   return lines.join("\n");
 }
 
@@ -339,8 +394,155 @@ export const EXCHANGE_WINDOW_SECONDS = 0.5;
  */
 export const EXCHANGE_FLICKER_SECONDS = 0.05;
 
+/**
+ * The gap that separates one stroke of one effector from the next, seconds.
+ *
+ * A pass of one blade books a burst of contacts on the per-part cooldown, 0.09 s apart, inside
+ * a single 0.15 s commit; a quarter second is longer than any such burst and shorter than the
+ * 0.30 s recover that follows one, so reports on one effector closer together than this are one
+ * stroke and the next one is another. It is the window Session 12b of the golem set used to say
+ * what one pass is, and Session 01 of this set charges for a part once inside the same window:
+ * what the instrument counts here is what the rule will later refuse to bill twice.
+ */
+export const STROKE_GAP_SECONDS = 0.25;
+
+/**
+ * What makes a blow committed: the body was leaning into it, or walking into it.
+ *
+ * Both are read off the striker's own published view at the sample the blow landed on --
+ * `trunkLean` as the solver achieved it, normalized, and the rate the two stances are closing,
+ * over `CLOSING_LAG_SECONDS`. A blow thrown from a standing body with a still gap is an arm
+ * reaching out, which is most of what the flail complaint is about; either number clearing its
+ * threshold says the body was behind it. The lean threshold is well under `commitLean` 0.40, so
+ * a real commit clears it part-way through the waist's slew, and the closing threshold is under
+ * the speed a walking step makes.
+ *
+ * **Read the closing half as "moving", not as "arriving".** Measured over the fencer's own
+ * bouts, a blow lands with the gap closing at 0.3 m/s or more about a quarter of the time and
+ * with it *opening* that fast about as often: the swing in and out nets 0.03 m/s. So a high
+ * committed column is not by itself a body that went somewhere, and the Session 00 entry says
+ * so beside the number. What would move the net is an option that drives forward through the
+ * chamber and the commit, which is Session 04's `cut`.
+ */
+export const COMMITTED_LEAN = 0.15;
+export const COMMITTED_CLOSING_MPS = 0.3;
+
+/** How long nothing may land, either way, before two bodies at touching distance are clinched. */
+export const CLINCH_QUIET_SECONDS = 0.75;
+
+/**
+ * How far back the closing rate is read, seconds.
+ *
+ * The gap differenced sample to sample at 240 Hz is a speed plus a step of solver noise, and it
+ * put five points on the committed column; read a tenth of a second back instead and that goes
+ * away, while a step-in still shows, since the chamber it would be part of runs 0.22 s. Reading
+ * the gap that far back is the whole of the filter -- no decay constant to pick and nothing
+ * carried between bouts.
+ *
+ * A longer window was measured and rejected. Over the fencer's own bouts the mean closing rate
+ * at a blow is 0.03 m/s at this lag and 0.09 m/s at a full second, while the mean *magnitude*
+ * is 0.40 and 0.24: the bodies swing in and out at a third of a metre a second and arrive
+ * nowhere, at every window that was tried. That is a fact about the fighting rather than about
+ * the filter, so the shortest window that is not noise is the one kept, and the Session 00
+ * entry in `docs/measurements.md` prints the table and says what the column therefore means.
+ */
+export const CLOSING_LAG_SECONDS = 0.1;
+
+/**
+ * Which slot a limb key names, over `side.golem.slot.part`; the rule `slotHealth` uses.
+ *
+ * A key with fewer than two segments is a block report (`block:shield`) or a body that is not a
+ * golem, and names no slot.
+ */
+export function slotOf(key) {
+  const parts = String(key).split(".");
+  return parts.length < 2 ? null : parts[parts.length - 2];
+}
+
+/**
+ * One side's strokes, gathered from the contact events its own effectors booked.
+ *
+ * The instrument exists because the row's `contacts` column cannot tell a cut from a rake: a
+ * stroke that drags a blade across a trunk books four contacts on the per-part cooldown and
+ * reads as four blows, and the baseline the set is measured against needs to know which. A
+ * stroke here is a burst on one effector; per stroke it keeps how many blows it booked, what
+ * they came to, and the one that scored most -- that blow's speed, kind and part, and whether
+ * the body was behind it. Two effectors swinging at once are two strokes, kept apart by their
+ * `effectorId`, which is why the open strokes are a map and not one slot.
+ *
+ * A blow on a hand slot is filed as **caught**: today it is a blade meeting a plate or another
+ * blade, which wounds what it hit and is counted nowhere; Session 01 books it as a block. The
+ * column is here first so the rule's effect is one table.
+ */
+export function strokeInstrument() {
+  const open = new Map();
+  const done = [];
+  let lean = 0;
+  let closing = 0;
+  const shut = (stroke) => {
+    const slot = stroke.key === null ? null : slotOf(stroke.key);
+    stroke.caught = slot === "primary" || slot === "secondary";
+    done.push(stroke);
+  };
+  return {
+    strokes: done,
+    /** The posture the next blow is stamped with, written once a sample from the striker's view. */
+    posture(nowLean, nowClosing) {
+      lean = nowLean;
+      closing = nowClosing;
+    },
+    event(event) {
+      const report = event.report;
+      let stroke = open.get(event.effectorId);
+      if (stroke !== undefined && report.at - stroke.last >= STROKE_GAP_SECONDS) {
+        shut(stroke);
+        stroke = undefined;
+      }
+      if (stroke === undefined) {
+        stroke = { blows: 0, damage: 0, best: -1, speed: 0, kind: null, key: null,
+          committed: false, caught: false, at: report.at, last: report.at };
+        open.set(event.effectorId, stroke);
+      }
+      stroke.blows += 1;
+      stroke.damage += report.damage;
+      stroke.last = report.at;
+      // Strictly greater, from a floor below zero, so the first blow of a stroke is the scoring
+      // blow until one beats it and a stroke that scored nothing still names where it landed.
+      if (report.damage > stroke.best) {
+        stroke.best = report.damage;
+        stroke.speed = report.speed;
+        stroke.kind = report.kind;
+        stroke.key = report.key;
+        stroke.committed = lean >= COMMITTED_LEAN || closing >= COMMITTED_CLOSING_MPS;
+      }
+    },
+    /** Close the strokes still open at the verdict and return them all, oldest first. */
+    close() {
+      for (const stroke of open.values()) shut(stroke);
+      open.clear();
+      done.sort((a, b) => a.at - b.at);
+      return done;
+    },
+  };
+}
+
+/** The stroke columns of one side, as means over its strokes; a side that never swung is zero. */
+export function strokeColumns(strokes) {
+  const count = strokes.length;
+  const per = (read) => (count === 0 ? 0 : strokes.reduce((total, stroke) => total + read(stroke), 0) / count);
+  return {
+    strokes: count,
+    blows: per((stroke) => stroke.blows),
+    strokeDamage: per((stroke) => stroke.damage),
+    scoringSpeed: per((stroke) => stroke.speed),
+    caughtFraction: per((stroke) => (stroke.caught ? 1 : 0)),
+    committedFraction: per((stroke) => (stroke.committed ? 1 : 0)),
+  };
+}
+
 export function runJobs(jobs, {
   workers, onRow = null, onProgress = null, overrides = null, exchanges = false, contenders = null, record = null,
+  behaviour = false,
 }) {
   return new Promise((resolvePromise, reject) => {
     const rows = new Array(jobs.length).fill(null);
@@ -365,7 +567,7 @@ export function runJobs(jobs, {
     if (jobs.length === 0) { resolvePromise(rows); return; }
     const count = Math.max(1, Math.min(workers, jobs.length));
     for (let i = 0; i < count; i += 1) {
-      const worker = new Worker(workerUrl, { workerData: { overrides, exchanges, contenders, record } });
+      const worker = new Worker(workerUrl, { workerData: { overrides, exchanges, contenders, record, behaviour } });
       pool.push(worker);
       worker.on("message", (message) => {
         if (message.type === "ready") { feed(worker); return; }
@@ -394,20 +596,20 @@ export function runJobs(jobs, {
  */
 export async function runTournament({
   seed, bouts, workers, policies, random, cap, out, onProgress = null, overrides = null, cross = false,
-  mirror = false, exchanges = false, contenders = null, pairs = null, pool = null,
+  mirror = false, exchanges = false, contenders = null, pairs = null, pool = null, behaviour = false,
 }) {
   pool ??= buildPool({ seed, random });
   const jobs = scheduleJobs({ pool, policies, pairings: Math.ceil(bouts / 2), seed, cap, cross, mirror, contenders, pairs });
   mkdirSync(dirname(out), { recursive: true });
   const header = {
     version: TOURNAMENT_VERSION, seed, date: new Date().toISOString(), policies, bouts: jobs.length, cap, random,
-    overrides, cross, mirror, exchanges, contenders, pairs,
+    overrides, cross, mirror, exchanges, behaviour, contenders, pairs,
     pool: pool.map(({ name, setup, caption }) => ({ name, setup, caption })),
   };
   const lines = [JSON.stringify(header)];
   writeFileSync(out, `${lines[0]}\n`);
   const rows = await runJobs(jobs, {
-    workers, exchanges, contenders,
+    workers, exchanges, contenders, behaviour,
     overrides,
     onRow(row) {
       const line = JSON.stringify(row);
@@ -478,17 +680,21 @@ if (isMain) {
     // `--exchanges` puts the fencer sides' option windows on every row, for the duel model's
     // calibration (`scripts/calibrate-duel-model.mjs`). Rows grow by a few kilobytes each.
     const exchanges = argv.includes("--exchanges");
+    // `--behaviour` puts the whole behaviour record of both sides on every row. The eight
+    // stroke columns and the four engagement ones are on every row already; this is for a
+    // question they were not chosen to answer, and it costs a kilobyte or two a row.
+    const behaviour = argv.includes("--behaviour");
     const stamp = new Date().toISOString().replace(/[-:]/g, "").slice(0, 13);
     // Concatenated rather than a template, because the docs gate reads a backticked span that ends
     // in a file extension as a path reference, and this one is a name the run makes up.
     const out = resolve(flag("out", "tournaments/" + stamp + "-" + seed + "-" + policies.join("+") + ".jsonl"));
     if (existsSync(out)) throw new Error(`${out} exists; name another with --out`);
     console.log(`seed ${seed}, ${bouts} bouts, ${workers} workers, cap ${cap} s, policies ${policies.join(", ")}, ` +
-      `${REFERENCE_BUILDS.length} reference builds + ${random} drawn${cross ? ", cross pairs only" : ""}${mirror ? ", one build both sides" : ""}${exchanges ? ", exchange log on" : ""}` +
+      `${REFERENCE_BUILDS.length} reference builds + ${random} drawn${cross ? ", cross pairs only" : ""}${mirror ? ", one build both sides" : ""}${exchanges ? ", exchange log on" : ""}${behaviour ? ", behaviour records on" : ""}` +
       (overrides ? `, overriding ${JSON.stringify(overrides)}` : ""));
     let lastReport = 0;
     const { rows, summary } = await runTournament({
-      seed, bouts, workers, policies, random, cap, out, overrides, cross, mirror, exchanges,
+      seed, bouts, workers, policies, random, cap, out, overrides, cross, mirror, exchanges, behaviour,
       onProgress({ done, total, seconds }) {
         if (done === total || seconds - lastReport >= 10) {
           lastReport = seconds;
