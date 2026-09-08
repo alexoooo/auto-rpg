@@ -189,10 +189,18 @@ const PROMISED_BY_A_PLAN = [];
 // resolution checks the working tree before the registry and why the registry is the
 // deletion log *minus* what exists. Pinned from both sides: a second re-added path
 // has to be looked at, and if this one stops being re-added somebody has to re-pin.
-// Measured 2026-08-25 at 503bd0a.
+// Measured 2026-08-25 at 503bd0a, re-pinned 2026-09-08 when Session 13 of the style set
+// added back two names the demolition of 2026-09-04 had taken out: `scripts/train-ppo.mjs`
+// and `tests/ppo.test.mjs` both belonged to the deleted learning tree's own PPO, over a
+// recurrent policy on the Forge's meta-actions, and neither shares a line with what stands
+// there now. They are the same *paths*, which is all this register is about, and they are
+// listed here rather than allowed to sit in the register because a live file in the
+// register is exactly the trap this pair of tests exists to catch.
 const DELETED_AND_BACK = [
   "asset-src/armour/quaternius-knight/Helmet3.obj",
   "scripts/fetch-textures.mjs",
+  "scripts/train-ppo.mjs",
+  "tests/ppo.test.mjs",
 ];
 
 // The two files outside this prototype that a durable reference may name. The

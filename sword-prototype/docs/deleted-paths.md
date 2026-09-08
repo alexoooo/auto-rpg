@@ -231,7 +231,6 @@ them stale while leaving the argument unchanged.
 - `scripts/train-meta-worker.mjs`
 - `scripts/train-meta.mjs`
 - `scripts/train-neat-qd.mjs`
-- `scripts/train-ppo.mjs`
 - `scripts/training-evaluator.mjs`
 - `scripts/warden-locomotion-ab.mjs`
 - `scripts/watch-construct.mjs`
@@ -406,7 +405,6 @@ them stale while leaving the argument unchanged.
 - `tests/neat-qd.test.mjs`
 - `tests/plateau.test.mjs`
 - `tests/playtest.test.mjs`
-- `tests/ppo.test.mjs`
 - `tests/preflight.test.mjs`
 - `tests/scaled-supported-locomotion.test.mjs`
 - `tests/supported-locomotion-evidence.test.mjs`

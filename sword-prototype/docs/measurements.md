@@ -17084,3 +17084,372 @@ decision at all rather than a reflex.
   fencer's rank because of it. Session 11's `vitalityTotal` work moved the number it could; the
   rest is a fact about weapons and reach.
 - **Nobody has watched any of this.** The set's one gate is Session 14's.
+
+## Session 13 of the style set — 2026-09-08: a reward that pays every step, and a step size that was spending 512 samples of 57,000
+
+Session 12 left a surface that can say things no mind in the set says, and one sentence to answer:
+*"the surface is proven expressive, not proven better … that is Session 13's to demonstrate or fail
+to."* This session fits a mind to it by proximal policy optimisation in mirrored self-play, against
+a reward that pays at every ask rather than once a bout.
+
+Nothing here is watched. By the owner's instruction of 2026-09-07 the set's one gate is Session
+14's, and what this session owes is the plan's mechanical bar: **the policy beats the
+uniform-command baseline by more than the widest gap between two hand-coded minds is worth at the
+settings Session 11 landed — d 0.235 on the paired bar margin, `golem-brawler` against
+`golem-duelist` — and its reward curve rises.**
+
+### The reward, and the identity it is built on
+
+`src/golem/reward.ts` pays `dealt - taken` between one ask and the next, in bar units, plus `win`
+0.5 at the last window and two small charges: `clinch` 0.004 a second and `idle` 0.004 a metre. The
+first term is not a design choice — it is Session 08's decision reward differenced finer, and it
+telescopes to the bar margin exactly. `tests/reward.test.mjs` asserts that on a real two-worker run
+at a three-second cap, over four bouts, to 1e-9, and asserts as well that the windows carry no more
+clinch or idle travel than the row reports and no less than 0.2 s of it.
+
+**A recorded ask is scored by the trainer against the same policy that played it.** Before any
+fit, `actionLogProb` was recomputed from the Float32 observations the worker wrote and compared
+against the log-probabilities the worker recorded: over 931 asks the mean absolute difference is
+**2.5e-8** and the worst is **1.4e-7**, which is Float32 storage and nothing else. A nonzero KL in
+what follows is therefore always the result of gradient steps and never of a plumbing mismatch
+between the two processes — the failure this check exists to rule out, because it would look
+exactly like a policy that will not learn.
+
+### The finding that rewrote the reporting: the self-play return is zero by construction
+
+Self-play is mirrored, both corners the current policy, and **both sides are recorded**. The two
+sides of one bout have bar margins that are exact negatives, so the mean return over a rollout is
+zero up to the penalties *whatever the policy learns*. The first version of this trainer printed
+that mean as its progress curve. It is not one, and no amount of training will make it one.
+
+The curve is therefore the **rating**: the policy against a held-out contender over the same bodies
+and the same seeds, paired, taken at iteration zero and every fifth iteration after it. The
+iteration-zero point matters more than it looks — the untrained policy is *not* the uniform
+baseline, it plays the mean of a randomly initialised head, which is a nearly constant command —
+and a session that reported only its last point could not tell a fit that worked from an
+initialisation that was already there.
+
+### The step size, and a fit that was spending 512 of the 57,000 samples it had collected
+
+The first real runs looked healthy and were not. The diagnosis came from adding one counter — how
+many Adam steps a fit actually applies — and reading it:
+
+Four configurations, three iterations each (two for the last), 32 mirrored bouts a cap of 60 s on
+30 workers, `--random 20 --epochs 4`, seed 20260913, ~57,000 asks a rollout. "Steps" is the number
+of minibatch Adam steps the fit applied out of the fourteen a rollout holds times four epochs.
+
+| rate | batch | target KL | steps a fit | KL at the end of the fit | clipped | explained variance |
+| ---: | ---: | ---: | --- | --- | --- | --- |
+| 3e-4 | 512 | 0.02 | **1, 1, 1** | 0.299, 0.042, 0.019 | 18.7 %, 11.1 %, 10.4 % | −0.790, 0.630, 0.715 |
+| 5e-5 | 4096 | 0.03 | 56, 52, 60 | 0.0057, 0.0072, 0.0069 | 3.4 %, 5.5 %, 4.8 % | 0.907, 0.947, 0.968 |
+| **1e-4** | **4096** | **0.03** | **56, 52** | **0.0078, 0.0108** | **5.6 %, 9.0 %** | **0.907, 0.951** |
+| 2e-4 | 4096 | 0.03 | **1** | 0.068 | 16.5 % | −0.809 |
+
+The first row is the defect. At a rate of 3e-4 the trust region stops the fit after its **first
+minibatch, every time**: 512 samples of the 57,000 the harness had just spent twenty seconds and
+thirty workers collecting, and the other 56,488 thrown away. The cause is Adam, and it is
+arithmetic rather than tuning. Adam divides by its own second moment, so a step is `rate` in
+magnitude whatever the gradient is; with the moments cold, `m/sqrt(v)` is exactly ±1 and every one
+of the 87,308 weights moves by exactly the learning rate in a direction one minibatch chose. A
+coherent ±`rate` move across a 256-wide last layer is a head displacement of order `256 · rate ·
+E|h|`, and at 3e-4 that is about a tenth of a normalised axis — roughly 0.18 nats on a spread of
+exp(−0.7). One step is the whole budget.
+
+That account is arithmetic and it can be checked, which is the only reason it is worth writing
+down. A move of `d` on every one of nine Gaussian means at a spread of exp(−0.7) is a KL of `9 d^2
+/ (2 sigma^2)`, so a first step whose head displacement is 0.1 predicts 0.18 nats; scaling the rate
+scales `d` and the KL by its square. Measured against that: 3e-4 gives 0.299 against a predicted
+0.18, 2e-4 gives 0.068 against 0.081, and 1e-4 gives 0.023 against 0.020. The middle two agree to a
+fifth, which is as close as an argument this crude gets to being a measurement.
+
+The fix is a batch large enough that the direction is worth taking and a rate small enough that
+taking it fifty-six times is inside the budget. **The last row is why the rate cannot simply go
+up**: at 2e-4 the first step alone lands at KL 0.068 and the fit stops again.
+
+**The trust region is load-bearing and not a formality.** With `--target-kl 0` on a real 48-bout
+run, iteration 1 fits cleanly at KL 0.045 and iteration 2 diverges to **KL 69.86** with 51.6 % of
+its samples clipped. What the region is checked *on* took three tries: the plain difference of
+log-probabilities is not a KL and goes negative, so a strict target passes the first minibatch on a
+negative number; k3, `exp(d) − 1 − d`, is unbiased and exponentially heavy-tailed, and a single
+sample at `d = 5` contributes 142 nats and trips a 4,096-sample batch at random. What ships is k2,
+`½(log r)²` — biased low, quadratic, and compared against a threshold rather than reported as a
+quantity, which is the case where that trade is the right one.
+
+**The first iteration of a run from scratch is spent the same way, and the resume says why.** In
+the shipping run below, iteration 1 stops after one step at a whole-rollout KL of 0.023 and
+iteration 2 applies all 56 at KL 0.010. The obvious reading is the cold Adam moments — and it is
+half of it — but the run was resumed at iteration 31 from a checkpoint that carries the weights and
+*not* the moments, so iteration 31 begins as cold in Adam as iteration 1 did, and it applied all
+sixty of its steps at KL 0.009. What iteration 31 has that iteration 1 does not is a **fitted
+critic**: explained variance 0.49 against −1.62, advantage standard deviation 0.038 against 0.243.
+With no baseline worth the name the advantage is very nearly the return, which is nearly a constant
+per episode, so the first gradient of a fresh run points the same way in most of the network at
+once — and Adam's first step, which is a sign and not a magnitude, moves all 87,308 weights that
+far together. It is the coherence and not the coldness that costs the iteration. It is left in
+rather than special-cased, because a run that needs its first iteration back is a run that is too
+short.
+
+**The critic's width is a knob and not a frozen choice**, because it does not ship. At 256×256 a
+fit took 130 s and explained 0.913 of the return's variance; at 64×64 it took 77 s and explained
+0.923. The trainer defaults to 64,64 and `--value-hidden` moves it.
+
+`logSigma` gets its own step size, ten times the head's. Both move ±`rate` an update because Adam
+does not care that one is nine numbers and the other 87,308, but the head's rate is set by the
+trust region, and at 1e-4 the spread could cross 0.17 of log-sigma over a whole run — a spread that
+cannot sharpen. The bandit test pins the multiplier to 1 rather than inheriting it, because a
+bandit's rate is a thousand times the arena's and at the default both its spreads reach the floor.
+
+### The run, and the trainer's own ledger
+
+Sixty iterations of 32 mirrored bouts at a 60 s cap on 30 workers, `--random 40`, seed 20260913:
+1,920 bouts and 3,348,480 asks of self-play, 109 minutes of iteration wall clock of which 79 % is
+the fit. It was run as two halves — thirty iterations, then a resume of thirty more from the
+checkpoint — and the resume is what produced the finding about cold moments above.
+
+Every fifth iteration of it below. `pen%` is the share of the absolute reward that the two
+penalties account for; `steps` is Adam steps applied out of the 56 to 64 a four-epoch fit at batch
+4,096 would apply if the trust region never fired; `sigma0` is the first axis's spread.
+
+| it | return | pen % | KL | clip % | H | EV | advSd | sigma0 | steps |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | −0.0706 | 37.3 | 0.02257 | 11.5 | 8.50 | −1.618 | 0.2434 | 0.497 | **1** |
+| 5 | −0.0423 | 24.1 | 0.01069 | 8.5 | 8.48 | 0.956 | 0.1113 | 0.498 | 60 |
+| 10 | −0.0570 | 32.6 | 0.00800 | 6.0 | 8.51 | 0.918 | 0.0514 | 0.492 | 64 |
+| 15 | −0.1375 | 89.0 | 0.00883 | 6.8 | 8.54 | 0.908 | 0.0250 | 0.495 | 60 |
+| 20 | −0.1014 | 47.5 | 0.00941 | 7.1 | 8.54 | 0.783 | 0.0290 | 0.505 | 56 |
+| 25 | −0.0682 | 26.0 | 0.00933 | 6.5 | 8.67 | 0.366 | 0.0403 | 0.518 | 56 |
+| 30 | −0.0698 | 35.9 | 0.00928 | 7.2 | 8.80 | 0.376 | 0.0310 | 0.524 | 56 |
+| 35 | −0.0625 | 17.9 | 0.03687 | 21.3 | 8.84 | 0.550 | 0.0393 | 0.527 | **31** |
+| 40 | −0.0827 | 53.6 | 0.00908 | 6.9 | 9.00 | 0.352 | 0.0206 | 0.538 | 60 |
+| 45 | −0.0628 | 35.3 | 0.00992 | 7.7 | 9.07 | 0.524 | 0.0286 | 0.536 | 60 |
+| 50 | −0.0634 | 22.5 | 0.01154 | 8.6 | 9.20 | 0.561 | 0.0479 | 0.548 | 60 |
+| 55 | −0.0622 | 25.5 | 0.00963 | 6.8 | 9.21 | 0.639 | 0.0326 | 0.551 | 56 |
+| 60 | −0.0653 | 22.8 | 0.00926 | 6.9 | 9.32 | 0.456 | 0.0348 | 0.556 | 56 |
+
+Sixty iterations, 1,920 mirrored bouts, **3,348,480 asks**, 6,554 s of iteration wall clock of
+which 1,411 s (21.5 %) is collection on thirty workers and the rest is a single-threaded fit; 3,095
+Adam steps; mean penalty share 0.294. **Seven iterations were stopped early by the trust region** —
+1, 35, 42, 43, 52, 53 and 58, at KL 0.045 to 0.090 — and iteration 1 is the odd one: it applied
+exactly one step, for the reason set out above — a cold critic makes the first gradient of a run
+coherent, and Adam's first step is a sign rather than a magnitude. The other six are the region
+doing its job on a rollout the fit found more to say about than usual, and they are not all the
+same size: iterations 35 and 52 spent two and three of their four epochs before stopping at KL
+0.045 and 0.090, and iterations 43 and 53 stopped after five and four minibatches. Twice — 42 then
+43, and 52 then 53 — a stopped iteration was followed by another that stopped after four or five
+minibatches, which is what a policy that has just moved further than usual looks like when it meets
+the next rollout already near the edge of its region. Both times the iteration after that fitted
+normally.
+
+The three columns that move monotonically are the ones to read. **Explained variance falls** from
+0.956 at iteration 5 to about 0.5 — not because the critic gets worse but because the advantage it
+has to explain shrinks: `advSd` falls from 0.243 to 0.031, a factor of eight, so the same absolute
+value error is a much larger share of a much smaller signal. **Entropy rises** 8.50 to 9.32 and
+**sigma rises** 0.497 to 0.556, which is the diagnosis this run leaves behind and the next
+session's first lever: advantages are standardised per fit, so the policy-gradient term on
+`logSigma` is of order one, and the entropy bonus's gradient there is exactly `entropy` per axis.
+At `--entropy 0.003` the two are comparable, and over sixty iterations the bonus wins. Nothing in
+the run diverges — KL sits at 0.009 with 7 % of samples clipped, iteration after iteration — it
+simply widens.
+
+### The curve, and the bar
+
+The rating is `golem-policy` playing its *mean* against two contenders over the same bodies from
+the same seeds on the held-out evaluation seed, paired by pairing: `uniformPilot`, which draws
+every axis uniformly across its published range and every gate on a coin, and `golem-driver`,
+Session 12's hand-coded mind on the same surface. The uniform baseline is the null hypothesis — it
+asks whether the policy is doing anything at all — and the driver is the thing worth beating. A
+hundred bouts a contender at each waypoint, and 1,030 at iterations 0, 30 and 60 — the three rows
+in bold. The iteration-zero row is the untrained checkpoint rebuilt from its seed and re-rated at
+the same size as the last point, because a curve whose first point is noisier than its last cannot
+say how much of the last one the fit earned.
+
+| iteration | bouts | bar over uniform | d | points over uniform | bar over driver | d |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| **0** | **1030** | **+0.0030 ± 0.0209** | **+0.009** | **+0.0175 ± 0.0217** | **−0.0987 ± 0.0213** | **−0.283** |
+| 5 | 100 | +0.0140 ± 0.0635 | +0.043 | +0.0950 ± 0.0568 | −0.0517 ± 0.0655 | −0.155 |
+| 10 | 100 | +0.0055 ± 0.0690 | +0.015 | +0.0700 ± 0.0574 | −0.0603 ± 0.0674 | −0.175 |
+| 15 | 100 | +0.0333 ± 0.0700 | +0.093 | +0.1350 ± 0.0774 | −0.0324 ± 0.0592 | −0.107 |
+| 20 | 100 | +0.0459 ± 0.0641 | +0.140 | +0.1200 ± 0.0625 | −0.0198 ± 0.0670 | −0.058 |
+| 25 | 100 | +0.0977 ± 0.0792 | +0.242 | +0.1650 ± 0.0668 | +0.0320 ± 0.0678 | +0.092 |
+| **30** | **1030** | **+0.0584 ± 0.0237** | **+0.150** | **+0.0840 ± 0.0235** | **−0.0432 ± 0.0218** | **−0.121** |
+| 35 | 100 | +0.0233 ± 0.0655 | +0.070 | +0.1000 ± 0.0539 | −0.0424 ± 0.0674 | −0.123 |
+| 40 | 100 | −0.0182 ± 0.0610 | −0.059 | +0.0650 ± 0.0602 | −0.0839 ± 0.0631 | −0.261 |
+| 45 | 100 | +0.0338 ± 0.0721 | +0.092 | +0.1400 ± 0.0698 | −0.0320 ± 0.0698 | −0.090 |
+| 50 | 100 | +0.1023 ± 0.0819 | +0.245 | +0.1550 ± 0.0719 | +0.0365 ± 0.0717 | +0.100 |
+| 55 | 100 | +0.0577 ± 0.0696 | +0.163 | +0.1250 ± 0.0715 | −0.0080 ± 0.0602 | −0.026 |
+| **60** | **1030** | **+0.0871 ± 0.0247** | **+0.216** | **+0.0917 ± 0.0223** | **−0.0145 ± 0.0206** | **−0.043** |
+
+Intervals are ±1.96 standard errors of the paired difference.
+
+**The curve rises, and the two ends of it are the measurement.** At iteration zero the policy plays
+the mean of a randomly initialised head, and over 1,030 bouts that is worth **+0.0030 ± 0.0209 of
+bar over the uniform command, d +0.009** — zero, as exactly as this instrument can say it. At
+iteration 60 it is +0.0871 ± 0.0247. The difference is **+0.0841 ± 0.0324 of bar, 5.1 standard
+errors**, and every part of it was put there by the fit rather than by the initialisation. That
+comparison is the one the iteration-zero point exists for, and it is why it was re-run at the full
+size: the 100-bout waypoint had said +0.0145 ± 0.0612, which would have left a sixth of the final
+effect unaccounted for.
+
+The eleven points in between are too small to read one at a time — a hundred bouts is about 52
+pairings, so a waypoint's Cohen's d carries a standard error near 0.14, wider than the whole
+effect, and +0.242 at iteration 25 against −0.059 at 40 is one policy seen through that error
+twice. What they support is a slope. A weighted least squares of the bar over uniform on the
+iteration number, each point weighted by its own inverse variance, gives **+1.29e-3 ± 2.53e-4 of
+bar an iteration, t = 5.10**, which is +0.0776 ± 0.0298 over the sixty run — the same rise the two
+endpoints give, from a fit that uses every point. Against `golem-driver` the slope is +1.29e-3 ±
+2.34e-4, t = 5.52.
+
+**The bar is not cleared.** At iteration 60, over 1,030 bouts a contender, the policy beats the
+uniform command by **+0.0871 ± 0.0247 of bar, d +0.216**. The plan asked for d 0.235 — the gap
+between `golem-brawler` and `golem-duelist` at the settings Session 11 landed. With 515 pairings
+the standard error on d is 0.044, so the measurement is **0.4 standard errors short of the bar**
+and its interval contains it. That is not a pass. A criterion stated in advance is worth having
+precisely because it is answered with the number that came out rather than the number that would
+have been convenient, and the number that came out is 0.216. Fifteen more iterations would very
+likely carry it over — the slope says so — and that is exactly the reason not to run them here:
+extending a run because its last measurement fell short, and then reporting the measurement that
+follows, is the winner's curse that the matchup set's Session 07 wrote a shrinkage rule against and
+that Session 11 of this set restated when it refused the best d in its own sweep. The run stops
+where it was planned to stop, and the lever goes to Session 14 named.
+
+Two things sit beside that and neither of them changes it. The first is that the same policy is now
+**level with `golem-driver`**: −0.0145 ± 0.0206 of bar, d −0.043, and +0.0063 ± 0.0126 of a point —
+against −0.0987 ± 0.0213 and d −0.283 at iteration zero, both measured at the same thousand bouts.
+A mind fitted from a random head, on a reward with four coefficients and no shaping, has closed the
+gap to the hand-coded mind Session 12 transcribed onto this same surface and measured level with
+the style it came from. The second is that the trend has not obviously flattened: fitted on the
+first half of the run the slope is +1.96e-3 ± 0.52e-3 of bar an iteration and on the second half
++1.14e-3 ± 0.56e-3, which is lower and not distinguishably so. The trust region fires on seven
+iterations of sixty rather than on none, and the spread is *widening* rather than sharpening.
+Whatever this run is, it is not converged, and the honest reading of the miss is that sixty
+iterations is where the hour stopped rather than where the curve did.
+
+### What the fitted mind does that the baseline does not
+
+The structural columns of the last rating, 1,030 bouts a contender over the same bodies from the
+same seeds. `bar` is the winner's own remaining bar; `inside` is the share of samples inside the
+inner radius; `stall` is `nearRangeStallSeconds`.
+
+| | points | w/d/l | bar | inside | strokes | blows | dmg/stroke | v@blow | commit % | clinch s | idle m | tangent m | stall s | damage | severs |
+| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| **fit** | 0.490 | 137/736/157 | **0.512** | **28.7 %** | 61.0 | **5.70** | 0.67 | 3.79 | 57.2 % | **2.78** | **4.03** | **21.8** | 3.25 | 20.6 | **108** |
+| driver | 0.484 | 185/627/218 | 0.362 | 19.3 % | 68.6 | 4.64 | **0.85** | **4.67** | **60.2 %** | 1.96 | 1.36 | 17.4 | **6.21** | **27.2** | 106 |
+| uniform | 0.399 | 80/661/289 | 0.367 | 12.9 % | **73.3** | 2.95 | 0.56 | 4.42 | 50.4 % | 2.70 | 1.74 | 18.7 | 1.30 | 22.5 | 67 |
+
+**What the fit has learned is not to lose.** It loses 157 bouts of 1,030 against the driver's 218
+and the uniform's 289, and it draws 736 — more than either. It deals the *least* total damage of
+the three, 20.6 against the driver's 27.2, throws the fewest strokes, and gets the least speed into
+them, 3.79 m/s against 4.67. On every column that a designer would have picked as the thing to
+maximise it is behind the hand-coded mind, and it is level with it on the bar. Whatever the reward
+paid for, it was not speed at the mark.
+
+Two columns say what it is doing instead. **When it wins it wins with half its bar left**:
+`winnerBar` 0.512 against 0.362 and 0.367, which is the largest gap in the table and is not
+explained by anything else in the row. And it **stays inside** — 28.7 % of samples within the inner
+radius against the driver's 19.3 % — where it lands **5.70 blows a stroke against 4.64**, severs a
+part 108 times to the driver's 106 while dealing three quarters of the damage, and stalls at near
+range for 3.25 s against the driver's 6.21. It is close, busy, and cheap with its strokes.
+`golem-brawler` is the mind this set built on purpose to fight there, and Session 07 measured it at
+31.6 % inside its own inner radius, in a league run before Session 11 moved the body's settings and
+so not a paired comparison; this policy reaches 28.7 % here with nothing in its reward that
+mentions distance.
+
+**The two penalties did not do what they were put in for, and this is where a reward table gets
+audited.** The fit is the worst of the three on both charged columns: 2.78 s of clinch against the
+driver's 1.96, and 4.03 m of idle travel against 1.36. At 0.004 apiece that is 0.027 of a bar a
+bout — close to a third of the +0.087 the whole effect is worth — and the policy pays it anyway,
+which means the standing and the sideways travel are worth more to it than the charge. The
+iteration-zero rating sharpens that: the untrained head already walked **4.2 idle metres** a bout
+and clinched 2.6 s, so after sixty iterations of being charged for both the policy has moved idle
+travel to 4.03 and clinch *up* to 2.78. The penalties are not dominating — their share of the
+absolute reward averages 29 % over the run and never runs away — so the run is not one to throw
+away; but a charged term that the fit does not reduce is a coefficient that has been argued and not
+swept, and that is the first row in what this session did not settle.
+
+### The axis census: what the policy writes that the hand-coded mind never writes
+
+24 bouts against `golem-driver` over 52 builds, seed 20260906, 1,203.6 s of fighting, every command
+the shipped mean wrote recorded as it was written.
+
+| axis | mean | sd | p50 | range used |
+| --- | ---: | ---: | ---: | --- |
+| `standOff` | 1.652 | 0.952 | 1.733 | [0.000, 3.000] |
+| `strafe` | −0.043 | 0.400 | −0.067 | [−1.000, 1.000] |
+| `lean` | 0.330 | 0.581 | 0.439 | [−1.000, 1.000] |
+| `advance` | 0.339 | 0.579 | 0.399 | [−1.000, 1.000] |
+| `targetHeight` | 0.459 | 0.252 | 0.458 | [0.000, 1.000] |
+| `targetLateral` | −0.243 | 0.575 | −0.341 | [−1.000, 1.000] |
+| `reach` | 0.192 | 0.628 | 0.199 | [−1.000, 1.000] |
+| `swing` | 0.566 | 0.229 | 0.560 | [0.000, 1.000] |
+| `bite` | 0.716 | 0.276 | 0.755 | [0.000, 1.000] |
+| `commit` | 0.242 | 0.428 | 0.000 | gate up on 4,433 of 18,326 asks |
+| `abort` | 0.596 | 0.491 | 1.000 | gate up on 59.6 % |
+| `parry` | 0.506 | 0.500 | 1.000 | gate up on 50.6 % |
+
+**All twelve are moved, and each of the nine spans its whole published range.** That is the column
+this set has been waiting on. Session 12 measured its own transcription and found that
+`golem-driver` moves **four** of the nine, never marks off the trunk axis, and commits at swing
+1.000 in 1,452 of 1,452 gates — which was the honest limit of writing a hand-coded style as a
+vector. The fitted policy marks off the axis (`targetLateral` −0.243 with a standard deviation of
+0.575), varies its stand-off across the full 0 to 3, and **commits at a mean swing of 0.508** over
+the 4,433 asks where the gate is up: it releases in the middle of the arc, not at the end of it,
+which is a thing no mind in this repository has ever done. Whatever else the fit did or did not
+achieve, it did not rediscover a hand-coded style.
+
+The other number worth its own line is the abort. The policy is asked **15.23 times a second** —
+6,807 of its 18,326 asks are the three events rather than the 12 Hz cadence — starts 76.2 strokes a
+bout and takes back **68.5 of them, 89.9 %**, against `golem-driver`'s 41.7 % and `golem-form`'s
+23.5 %. These are the executor's own counters — a stroke is a commit gate raised into a chamber and
+an abort is the abort gate raised while one is running, so an abort can fall before the arc has
+begun or after it has, and the 61.0 strokes a bout the rating table prints is a different quantity
+counted from contacts. Session 12 built the abort because v3's executor could only abandon a
+chamber and v4 can abandon a commit, and measured it as free over both pools; the first mind fitted
+on that surface uses it nine strokes in ten. All twelve refusal counters read zero over the whole
+census, so none of this is the executor clamping a command that could not be obeyed.
+
+### What this session did not settle
+
+- **One fit, one seed, one set of coefficients.** The reward table has four numbers and every one
+  of them was chosen by argument rather than by a sweep; `GOLEM_REWARD` ships in the artifact's
+  header precisely so that a later session can move them and tell the two policies apart. Nothing
+  here says 0.5 is the right win bonus or 0.004 the right clinch charge.
+- **The spread widens over the run, and the coefficient that does it is known.** Entropy goes 8.50
+  to 9.32 and sigma 0.497 to 0.556 over sixty iterations. Advantages are standardised per fit, so
+  the policy-gradient term on `logSigma` is of order one and the entropy bonus's is exactly
+  `--entropy` per axis; at 0.003 they are comparable and the bonus wins. Annealing it, or dropping
+  it an order of magnitude once the run is past its first few iterations, is the first thing to
+  try and this session did not try it.
+- **The critic is fitted and the policy is fitted little.** Explained variance is 0.95 by the third
+  iteration and about 0.5 by the sixtieth — not because the critic gets worse but because the
+  advantage it has to explain shrinks by a factor of eight, from an advantage standard deviation of
+  0.243 to 0.031. The actor is the half that moves slowly, and the trust region is why. A session
+  with a night rather than an hour would spend it on iterations, not on width.
+- **Sample cost, not wall clock, is now the binding constraint.** Collection is twenty-odd seconds
+  of a two-minute iteration on thirty workers and the fit is the rest: 3,095 Adam steps over
+  batches of 4,096 is 12.7 million sample-passes in 5,143 s, about **2,500 a second**,
+  single-threaded in JavaScript with the actor and the critic both on that thread. That is the
+  number to attack before anything else, and it is the argument the plan already recorded for SAC
+  — an off-policy method reuses a sample many times, and this one uses each sample four times and
+  throws it away.
+- **The uniform baseline is a null hypothesis and not an opponent.** It says whether a policy is
+  doing anything. It does not say whether what it is doing is fighting, and the only instrument
+  this set has for that question is the owner's eye at Session 14.
+- **The climbability probe Session 11 deferred is answered by this session's own curve rather than
+  re-run.** The question was whether a fitted mind can climb at all on this arena's signal; the
+  rating curve above is that question asked on the surface that replaced the fifteen options, and
+  re-running a fitted-Q over the superseded corpus would answer it about a vocabulary the set no
+  longer uses.
+- **The artifact is the largest thing this prototype ships.** 87,308 weights at five decimals is a
+  733.5 KB TypeScript module, and it takes the built registry chunk from 1,993 KB to 2,463 KB
+  (gzip 416 KB to 649 KB). Every learned artifact in the set ships as a module by the same rule and
+  none of the others is close; if a later session wants the width back it is the width, not the
+  format, that is the number to move.
+- **One worker died of a V8 fatal error and it is not diagnosed.** A 4,120-bout scratch rating of
+  the untrained checkpoint aborted at 256 bouts inside `stepSupportedLocomotionState`, called from
+  `beginControlStep` under the bout runner's physics observer — a fatal in the engine's own frame,
+  not a thrown exception, so the worker's process went with it. It happened once; the same rating
+  with three contenders instead of four ran 3,090 bouts to the end, and the sixty-iteration
+  training run and both thousand-bout ratings never saw it. It is recorded because Session 14 is
+  the one that runs overnight, and a run that dies at hour three with no stack above the engine
+  frame is a thing to have read about before rather than after.
+- **Nobody has watched any of this.** The set's one gate is Session 14's.

@@ -14,6 +14,7 @@ import { BRAWLER, brawlerDirector, golemBrawler } from "./styles/brawler.ts";
 import { GUARDIAN, guardianDirector, golemGuardian } from "./styles/guardian.ts";
 import { SKIRMISHER, golemSkirmisher, skirmisherDirector } from "./styles/skirmisher.ts";
 import { golemDriver } from "./styles/driver.ts";
+import { golemPolicy } from "./policy.ts";
 import {
   exploringDirector, golemStyled, watchedDirector,
   type GolemStyled, type StyleAskHook, type StyleDirector,
@@ -323,6 +324,25 @@ export function golemDriverMind(seed = (Math.random() * 0x100000000) >>> 0): Min
   };
 }
 
+/**
+ * The fourteenth golem mind, and the first fitted one over the fourth executor: `golem-policy`.
+ * Session 13 of the style set.
+ *
+ * The same command surface `golem-driver` writes by hand, written by a network instead. It plays
+ * the **mean** of its head and draws nothing, which is what makes a bout under a seed the bout;
+ * the trainer's rollouts are the only thing that ever samples. Like the driver it publishes
+ * `driven` and neither `fencer` nor `styled`, for the same reason: there is no option in force to
+ * log, only a command. Same seed argument, same reasons.
+ */
+export function golemPolicyMind(seed = (Math.random() * 0x100000000) >>> 0): Mind & { driven: GolemDriven } {
+  const policy = golemPolicy(seed);
+  return {
+    name: "golem-policy",
+    driven: policy.driven,
+    decide: (view, dt): Intent => policy.decide(view, dt),
+  };
+}
+
 export const GOLEM_CANDIDATES: Readonly<Record<string, (seed: number) => Mind>> = Object.freeze({
   "golem-duelist": golemDuelistMind,
   "golem-fencer": golemFencerMind,
@@ -336,6 +356,7 @@ export const GOLEM_CANDIDATES: Readonly<Record<string, (seed: number) => Mind>> 
   "golem-tactician": golemTacticianMind,
   "golem-learner": golemLearnerMind,
   "golem-driver": golemDriverMind,
+  "golem-policy": golemPolicyMind,
 });
 
 /**

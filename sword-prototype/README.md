@@ -127,7 +127,7 @@ that presentation failure too.
 A bout is chosen before it is fought. The curtain carries a left corner and a right corner —
 a unit, a policy, and whether that side is driven by a mind or by you — and the Fight button
 starts what is on it. There is one of you, so taking a side gives the other one back to its
-policy. Eighteen policies ship and a corner is only ever offered the ones its own body can take:
+policy. Nineteen policies ship and a corner is only ever offered the ones its own body can take:
 **idle** stands there and can be cut apart, **swinger** walks in and cuts on a fixed cadence
 without ever looking at your guard, **duelist** holds measure, guards between exchanges, and
 commits when your point leaves the line, **archer** keeps its distance and shoots — give it a
@@ -141,7 +141,9 @@ first of the styles — a third executor that offers a director a committed cut,
 parry, a shove, a thrust and a duck, under a style that stands off, circles with a duty and
 cuts into the recover it has been waiting for — and **golem driver** is that same style with
 no options at all, writing a stand-off, a strafe, a lean, a target and an arc as numbers
-twelve times a second into a fourth executor that can be interrupted mid-swing.
+twelve times a second into a fourth executor that can be interrupted mid-swing, and
+**golem policy** writes those same numbers from a network fitted against itself on the damage
+each twelfth of a second cost the two bars.
 The filter runs both ways: a swordsman's mind is not offered
 a body with no hands, and the golem's is not offered to a Warrior. A bout ends when its one
 derived vitality bar reaches zero, or when the clock
@@ -297,9 +299,10 @@ offered on the wrist arm alone, because without a roll axis a lash has nowhere t
 is eleven arms in all, and every one of them is a different body rather than a worse version
 of the best one.
 
-Thirteen minds can drive it — **idle**, **golem duelist**, **golem fencer**, **golem planner**,
+Fifteen minds can drive it — **idle**, **golem duelist**, **golem fencer**, **golem planner**,
 **golem champion**, **golem neural**, **golem form**, **golem skirmisher**, **golem guardian**,
-**golem brawler**, **golem tactician**, **golem selector** and **golem learner** — and `C` takes it
+**golem brawler**, **golem tactician**, **golem selector**, **golem learner**, **golem driver**
+and **golem policy** — and `C` takes it
 over mid-bout exactly as it takes over a warrior. The golem duelist knows nothing about which
 modules it is wearing: it asks each arm what strokes it has and how far it reaches, and every
 range it keeps is a fraction of that answer rather than a distance. Bolt something new on and it
@@ -370,6 +373,19 @@ fifteen minutes of a three-hour run, because the league it would have been fitte
 only 903 of 4,096 bouts and rates every mind in it within noise of one half: there is nothing in
 that to learn. Making a bout decidable comes first, and until it does this mind stands in the
 picker as machinery with no numbers in it.
+
+The golem driver and the golem policy are on a **fourth** executor, which has no options at all.
+Its ask is a command — nine numbers and three gates, twelve times a second: where to stand, which
+way to sidestep, how far to lean, whether to walk, where up and across their body to put the mark,
+how far out to hold the guard, how round an arc to cut with, where along the blade to cross the
+mark, and then commit, abort and parry. Nothing about it is a choice from a list, and it can be
+interrupted: a stroke already in flight is abandoned the step the abort gate goes up. The golem
+driver is `golem-form` transcribed onto that surface by hand, and it exists to say what the
+surface costs — it moves four of the nine axes and never once declines to commit. The golem
+policy writes all nine from a network of 87,308 weights that was never shown a hand-coded mind:
+it was fitted against copies of itself on what each twelfth of a second cost the two bars, which
+is the same per-decision signal the learner reads and the first one to be spent on an action space
+nobody wrote a vocabulary for.
 
 **Win a bout against a golem and whichever of its arms came off intact is yours** — an arm cut
 off at the shoulder is loot, an arm hacked to pieces is debris, and legs are neither, because

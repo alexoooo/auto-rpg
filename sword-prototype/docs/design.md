@@ -1506,6 +1506,120 @@ everywhere except on a long one-handed mace — the one body with a spare hand a
 1.21 damage — where it costs −0.174 ± 0.134. *When* to abandon a swing is a decision, and this is
 the first measurement in the set that says so.
 
+## The reward that pays every step, and the first mind fitted to win
+
+Session 13 of the style set. Every learned mind before this one was fitted to *imitate* — the
+neural mind to a hand-coded style's choices, the learner to a value function over fifteen names —
+and every one of them was scored, in the end, by one number a bout. `src/golem/reward.ts` and
+`src/golem/policy.ts` replace both halves of that: a reward that pays at every ask, and a policy
+that writes Session 12's nine numbers and three gates itself.
+
+**The reward's first term is not a choice.** It is `dealt - taken` between one ask and the next,
+in bar units, which is Session 08's decision reward differenced finer, and it telescopes for the
+same reason: each window closes on the two vitalities the next one opens on, so the undiscounted
+sum over a side is its final bar less its opponent's, *exactly*. `tests/reward.test.mjs` asserts
+that on a real two-worker run to 1e-9. A per-step reward that did not sum to the outcome would be
+a proxy, and this repository has one expensive memory of what proxies cost.
+
+Three things are laid over it, and each has to earn its place against the thing it is added to.
+`win` 0.5 is paid once, at the last window, to the winner and against the loser: the bar margin is
+already an outcome but a *continuous* one, and at the settings Session 11 landed, 493 of 1,024
+random-pair bouts decide and the rest end on the clock with both bars up, so a policy paid only in
+bar has no reason to prefer the last tenth that kills. `clinch` 0.004 a second and `idle` 0.004 a
+metre are charged on the two pathologies Session 00 built columns for — and they are charged from
+*those columns*, poured out of the tournament worker's own accumulators into whichever ask was
+open when the sample went by, rather than defined a second time. A policy paid to stop clinching
+is therefore paid against the number the league table will print about it. Both are small on
+purpose, because a mind paid to stop clinching can stop clinching by standing at the far wall, so
+every iteration reports what share of the return the penalties accounted for and a run where a
+penalty dominated is a run to throw away.
+
+Nothing is shaped toward a stroke, a parry, a stand-off, a target or a contact speed. Those are
+the decisions the policy exists to make.
+
+**The head is twelve numbers over two hidden layers of 256.** The first nine are the means of nine
+independent Gaussians in a normalised coordinate where each axis runs −1 to +1 across its own
+published range; the last three are the logits of three independent Bernoullis, which is what
+`commit`, `abort` and `parry` are. The spread is one `logSigma` an axis, a parameter and not an
+output, because a state-dependent spread collapses on the states a fit visits most and the states
+this one visits most at the start are the ones where nothing is happening. **A sample is clipped,
+not squashed**: the density the trainer differentiates is the density of the raw draw, so the
+surrogate is exact, and the executor's own clamp — which Session 12 built and counted — is what
+makes the command legal. A `tanh` squash would make the log-probability a function of the action's
+own value, and the one thing this arrangement must not do is let the number the trainer reads
+disagree with the number the body did. The shipped mind plays the mean; only the trainer draws.
+
+Width is the one free parameter that was never tried. `golem-neural`'s 2×64 over eight names could
+not be moved by an evolution strategy and `golem-learner`'s 2×64 over fifteen was stopped before
+its fit because the objective was flat; neither failure was diagnosed as width, and 256 is taken
+on the owner's instruction while the vocabulary and the signal are both being replaced, not as a
+claim that width was the problem.
+
+### Two things the trainer had to be rewritten around
+
+**The self-play return is not a progress curve, and cannot be.** `scripts/train-ppo.mjs` collects
+mirrored self-play — the same policy in both corners, both sides recorded — which is what makes
+the opponent improve with the agent, and the hand-coded league is held out entirely because a
+policy trained against the fencer learns the fencer. But the two sides of a mirrored bout have bar
+margins that are exact negatives, so the mean return over a rollout is zero up to the penalties
+*whatever the policy learns*. A session that plotted it would be plotting its own arithmetic. The
+curve is therefore the **rating**: the paired bar margin against a held-out contender over the same
+bodies and the same seeds, taken every `--evaluate` iterations and at iteration zero, so that the
+first point is the untrained policy rather than the first fitted one.
+
+The contender that makes the rating a null hypothesis is `uniformPilot` — a mind that draws every
+axis uniformly across its published range and every gate on a coin, out of a stream of its own so
+it never shares a draw with a fitted mind. It is not a good fighter and is not meant to be. It is
+the answer to "is this policy doing anything at all", which is the question a first fitted mind
+has to answer before any other.
+
+**Adam's step is ±`rate` per weight, so the rate and the batch are one knob.** Adam normalises by
+its own second moment, so a step is the learning rate in magnitude whatever the gradient's size,
+and a coherent move of ±`rate` across a 256-wide last layer is a head move of order `256 · rate ·
+E|h|` — which at rate 3e-4 is about 0.18 nats of KL in one step. With a 512-sample minibatch and a
+0.02 KL trust region, exactly **one** minibatch fitted inside the budget: the fit was spending 512
+of the 57,000 samples it had collected and throwing the rest away. The trust region was not the
+bug — with it removed, a real iteration diverged to a KL of 69.9 — the step geometry was. The
+calibration is in the Session 13 entry of `docs/measurements.md`; what it landed on is a batch of
+4,096 and a rate of 1e-4, at which all fifty-six minibatches of four epochs are applied and the
+fit ends at a KL of 0.008 with 6 % of samples clipped.
+
+The trust region itself is checked per minibatch, *before* the step, on the k2 estimator
+`½(log r)²`. The plain difference of log-probabilities is not a KL and goes negative, so a strict
+target would let the first minibatch through on a negative number; k3, `exp(d) − 1 − d`, is
+unbiased but exponentially heavy-tailed, and one sample at `d = 5` contributes 142 nats and trips
+a 4,096-sample batch at random. k2 is biased low and quadratic, and it is being compared against a
+threshold rather than reported as a quantity, which is the case where that trade is the right one.
+
+`logSigma` gets its own step size, ten times the head's by default. Both travel ±`rate` an update
+because Adam does not care that one of them is nine numbers and the other eighty-seven thousand,
+but the head's rate is set by how far the *policy* may move in one fit, and at the calibrated 1e-4
+the spread could cross 0.17 over a whole run, which is a spread that cannot sharpen.
+
+### What the first fit landed on
+
+Sixty iterations, 1,920 mirrored bouts, 3.35 million asks, under two hours. The mind that came out
+**misses the bar the session set itself and rises toward it**: against the uniform command over
+1,030 bouts a contender it is +0.0871 ± 0.0247 of bar, d +0.216, where the plan asked for the
+d 0.235 that separates `golem-brawler` from `golem-duelist`; a weighted fit through the thirteen
+rating points climbs at +1.29e-3 ± 2.53e-4 of bar an iteration, t 5.10, and has not flattened by
+iteration 60. Rated at the same thousand bouts, the untrained head is worth +0.0030 ± 0.0209 over
+the uniform command — nothing, as exactly as the instrument can say it — so the whole
++0.0841 ± 0.0324 between the two ends of the curve was put there by the fit. It ends level with
+`golem-driver`, −0.0145 ± 0.0206 of bar against −0.0987 ± 0.0213 at iteration zero — a mind
+fitted from a random head closing the whole distance to a hand-coded style on a reward with four
+coefficients and nothing shaped toward a stroke.
+
+What it does to get there is not what a designer would have shaped for, and that is the part worth
+keeping. It throws the fewest strokes of the three contenders, gets the least speed into them and
+deals the least total damage — and it loses least, draws most, and ends a win with **half its bar
+left**, 0.512 against the driver's 0.362. It is the two penalised columns, clinch and idle travel,
+that it is *worst* on: charged 0.004 apiece, they cost it about 0.027 of a bar a bout and it pays
+them, which says the standing and the sideways travel buy more than they cost. A reward table whose
+charged terms go up over sixty iterations is a table whose coefficients were argued rather than
+swept, and the artifact ships that table in its header so the next fit can be told apart from this
+one.
+
 ## Dying, which is not the same as losing
 
 `over` not stopping the world was the right call about the *bout* and, for a long time, it

@@ -31,9 +31,12 @@ import { GOLEM_CHAMPIONS } from "../src/golem/tactics-champions.ts";
 import { GOLEM_PLANNER, golemPlanner } from "../src/golem/planner.ts";
 import { GOLEM_TACTICS_V2 } from "../src/golem/tactics-v2.ts";
 import { GOLEM_TACTICS_V3 } from "../src/golem/tactics-v3.ts";
-import { GOLEM_TACTICS_V4 } from "../src/golem/tactics-v4.ts";
+import { GOLEM_TACTICS_V4, golemDriven } from "../src/golem/tactics-v4.ts";
 import { FORM } from "../src/golem/styles/form.ts";
 import { DRIVER } from "../src/golem/styles/driver.ts";
+import { ACTION_WIDTH, golemPolicy, uniformPilot } from "../src/golem/policy.ts";
+import { POLICY_WEIGHTS } from "../src/golem/policy-weights.ts";
+import { PILOT_FEATURE_COUNT } from "../src/golem/pilot.ts";
 import { BRAWLER } from "../src/golem/styles/brawler.ts";
 import { GUARDIAN } from "../src/golem/styles/guardian.ts";
 import { SKIRMISHER } from "../src/golem/styles/skirmisher.ts";
@@ -167,6 +170,115 @@ const RECORDER_KINDS = {
 };
 
 /**
+ * A rollout recorder for a pilot: what the policy saw, what it drew, and what the window paid.
+ * Session 13 of the style set.
+ *
+ * ## What it is, against the decision recorder above
+ *
+ * The same window and the same telescoping identity -- an ask opens one, the next ask closes it
+ * with what the two bars did -- and everything else about it is different, because a pilot's
+ * answer is not a name. Where the decision recorder keeps an option index and a fifteen-bit open
+ * mask, this keeps twelve numbers and the log-probability the draw *actually had*, which is the
+ * one column a trainer cannot recompute: by the time the surrogate is taken the weights have
+ * moved, and a ratio against a recomputed denominator is a ratio of one.
+ *
+ * ## Why the two penalty columns come through here rather than being derived
+ *
+ * `clinchSeconds` and `idleTravelMetres` are the tournament's own instruments, accumulated in the
+ * sample loop from the ground positions and the shared quiet clock, and Session 13's reward is
+ * charged from them. So the sample loop pours them into whichever window is open -- `spend` below
+ * -- instead of the reward recomputing a second definition off the reading. A policy is then paid
+ * against exactly the number the league table prints about it, which is the only arrangement in
+ * which the two can be read together.
+ *
+ * ## The raw observation, and not the normalised one
+ *
+ * What is written down is `pilotFeatures` before the policy's own normalisation, so that a run
+ * can accumulate the statistics it will freeze into the next iteration's table. The trainer
+ * normalises with the statistics that were in force when the rollout was taken, which are the
+ * ones the worker used, so the two agree to `Float32` and the first epoch's ratio is one to that
+ * precision rather than exactly one. The alternative -- writing the normalised columns -- makes
+ * the ratio exact and leaves the statistics with nothing to be computed from.
+ */
+function pilotRecorder(side) {
+  const width = PILOT_FEATURE_COUNT;
+  let capacity = 256;
+  let count = 0;
+  let xs = new Float32Array(capacity * width);
+  let as = new Float64Array(capacity * ACTION_WIDTH);
+  let logp = new Float64Array(capacity);
+  let dealt = new Float64Array(capacity);
+  let taken = new Float64Array(capacity);
+  let seconds = new Float64Array(capacity);
+  let clinch = new Float64Array(capacity);
+  let idle = new Float64Array(capacity);
+  let done = new Uint8Array(capacity);
+  const grow = () => {
+    const wider = capacity * 2;
+    const move = (array, Type, w = 1) => { const next = new Type(wider * w); next.set(array); return next; };
+    xs = move(xs, Float32Array, width);
+    as = move(as, Float64Array, ACTION_WIDTH);
+    logp = move(logp, Float64Array);
+    dealt = move(dealt, Float64Array);
+    taken = move(taken, Float64Array);
+    seconds = move(seconds, Float64Array);
+    clinch = move(clinch, Float64Array);
+    idle = move(idle, Float64Array);
+    done = move(done, Uint8Array);
+    capacity = wider;
+  };
+  let live = null;
+  let last = null;
+  const shut = (mine, theirs, clock, ended) => {
+    if (live === null) return;
+    dealt[live.at] = live.theirs - theirs;
+    taken[live.at] = live.mine - mine;
+    seconds[live.at] = clock - live.clock;
+    done[live.at] = ended ? 1 : 0;
+    live = null;
+  };
+  return {
+    step(policyStep, reading, view) {
+      const mine = view.self.vitality;
+      const theirs = view.opponent.vitality;
+      shut(mine, theirs, view.clock, false);
+      if (count === capacity) grow();
+      xs.set(policyStep.raw, count * width);
+      as.set(policyStep.action, count * ACTION_WIDTH);
+      logp[count] = policyStep.logp;
+      live = { mine, theirs, clock: view.clock, at: count };
+      count += 1;
+    },
+    /** The sample loop's two pathology instruments, charged to the window that is open. */
+    spend(clinchSeconds, idleMetres) {
+      if (live === null) return;
+      clinch[live.at] += clinchSeconds;
+      idle[live.at] += idleMetres;
+    },
+    close(sample, winner) {
+      const view = sample[side].view;
+      shut(view.self.vitality, view.opponent.vitality, sample.clock, true);
+      last = { margin: view.self.vitality - view.opponent.vitality, winner };
+    },
+    pack() {
+      return {
+        kind: "pilot",
+        x: xs.slice(0, count * width),
+        a: as.slice(0, count * ACTION_WIDTH),
+        logp: logp.slice(0, count),
+        dealt: dealt.slice(0, count),
+        taken: taken.slice(0, count),
+        seconds: seconds.slice(0, count),
+        clinch: clinch.slice(0, count),
+        idle: idle.slice(0, count),
+        done: done.slice(0, count),
+        margin: last?.margin ?? 0, winner: last?.winner ?? null,
+      };
+    },
+  };
+}
+
+/**
  * A hook on a director that keeps every ask as a *decision*: what the mind saw, what it played,
  * and what the two bars did until the next ask. Session 08 of the style set.
  *
@@ -293,6 +405,12 @@ function recorderKind(policy) {
   // A learned side is on the third executor whether it is named as a policy or handed in as a
   // `{q}` contender, and a round of Session 10's trainer records it under the contender's name.
   const contender = workerData?.contenders?.[policy];
+  // Session 13: a `{pi}` contender is the policy over the fourth executor, whose ask is a command
+  // and not a name, so it records its own columns and cannot be recorded as a decision.
+  if (contender?.pi !== undefined || policy === "golem-policy") {
+    const wanted = record === "*" || (Array.isArray(record) ? record.includes(policy) : record === policy);
+    return wanted ? "pilot" : null;
+  }
   const learned = policy === "golem-learner" || contender?.q !== undefined;
   const styled = policy in STYLE_DIRECTORS;
   if (record === "*") return styled || learned ? "style" : null;
@@ -301,6 +419,22 @@ function recorderKind(policy) {
   if (styled || learned) return "style";
   if (policy === "golem-champion" || policy === "golem-planner") return "neural";
   throw new Error(`"${policy}" cannot be recorded: only a style, the learner, the planner and the champion have a director to hook`);
+}
+
+/**
+ * A policy side over the weights a trainer is carrying, with the rollout hook when one is asked
+ * for. `sample` true is what a rollout plays and `false` is the shipped greedy read.
+ */
+function pilotMind(policy, seed, contender, recorder) {
+  const table = {
+    ...POLICY_WEIGHTS,
+    weights: contender.pi,
+    logSigma: contender.logSigma ?? POLICY_WEIGHTS.logSigma,
+    normalisation: contender.normalisation ?? POLICY_WEIGHTS.normalisation,
+  };
+  const mind = golemPolicy(seed, table, GOLEM_TACTICS_V4, recorder === null ? null : recorder.step,
+    contender.sample === true);
+  return { name: policy, driven: mind.driven, decide: (view, dt) => mind.decide(view, dt) };
 }
 
 /** A learned side over a table, with the hook and the epsilon a round asks for. */
@@ -338,6 +472,9 @@ function mindFor(policy, seed, recorder = null) {
     if (policy === "golem-learner" && (recorder !== null || explore > 0)) {
       return learnerMind(policy, seed, LEARNER_WEIGHTS.weights, explore, recorder);
     }
+    if (policy === "golem-policy" && recorder !== null) {
+      return pilotMind(policy, seed, { pi: POLICY_WEIGHTS.weights }, recorder);
+    }
     if (recorder !== null) {
       if (policy === "golem-champion") return golemChampionMind(seed, GOLEM_CHAMPIONS, recorder.hook);
       if (policy === "golem-planner") {
@@ -354,6 +491,18 @@ function mindFor(policy, seed, recorder = null) {
   if (contender.q !== undefined) {
     return learnerMind(policy, seed, contender.q, contender.explore ?? explore, recorder);
   }
+  // Session 13: `{pi, logSigma, normalisation, sample}` is the policy over the fourth executor,
+  // which is how a rollout plays the weights the trainer is carrying and how a confirmation plays
+  // the ones it wrote. `sample` false is the greedy mind, which is what a league row is.
+  if (contender.pi !== undefined) return pilotMind(policy, seed, contender, recorder);
+  // Session 13: `{uniform: true}` is the null hypothesis -- the same executor under a command
+  // drawn uniformly from its own ranges. It is not a policy, has no table and cannot be
+  // recorded; it exists so that the bar the session is written against is a row in the same
+  // table as the fit, run over the same pairings from the same seeds.
+  if (contender.uniform === true) {
+    const driven = golemDriven(seed, GOLEM_TACTICS_V4, uniformPilot(seed));
+    return { name: policy, driven, decide: (view, dt) => driven.decide(view, dt) };
+  }
   if (contender.weights !== undefined) {
     const neural = golemNeural(seed, { ...NEURAL_WEIGHTS, weights: contender.weights });
     return { name: policy, fencer: neural.fencer, decide: (view, dt) => neural.decide(view, dt) };
@@ -368,10 +517,9 @@ async function runJob(job) {
   // policy names, so that this file can hold the fencer's handle for the exchange log. Same
   // factory, same seed, so a row is the row `runBout` would have made on its own.
   const kinds = { left: recorderKind(job.left.policy), right: recorderKind(job.right.policy) };
-  const recorders = {
-    left: kinds.left === null ? null : decisionRecorder("left", kinds.left),
-    right: kinds.right === null ? null : decisionRecorder("right", kinds.right),
-  };
+  const recorderFor = (name, kind) => (
+    kind === null ? null : kind === "pilot" ? pilotRecorder(name) : decisionRecorder(name, kind));
+  const recorders = { left: recorderFor("left", kinds.left), right: recorderFor("right", kinds.right) };
   const minds = {
     left: mindFor(job.left.policy, job.seeds[0], recorders.left),
     right: mindFor(job.right.policy, job.seeds[1], recorders.right),
@@ -449,8 +597,11 @@ async function runJob(job) {
         // that is what `reach` is comparable with and what the engagement instrument calls
         // being outside reach on the other side of the same line.
         const quiet = sample.clock - lastContact >= CLINCH_QUIET_SECONDS;
+        let clinched = 0;
+        let drifted = 0;
         if (quiet && view.measure < them.reach * (1 + GOLEM_TACTICS.slackFraction)) {
-          clinch[side] += sample.dt;
+          clinched = sample.dt;
+          clinch[side] += clinched;
         }
         const was = groundWas[side];
         if (was !== null && quiet) {
@@ -459,9 +610,13 @@ async function runJob(job) {
           if (span > 1e-6) {
             // The component of this step across the line between them, which is travel that did
             // not change the distance; the radial half is the engagement record's own column.
-            idle[side] += Math.abs((ground.x - was.x) * (-toward.z / span) + (ground.z - was.z) * (toward.x / span));
+            drifted = Math.abs((ground.x - was.x) * (-toward.z / span) + (ground.z - was.z) * (toward.x / span));
+            idle[side] += drifted;
           }
         }
+        // Session 13: the same two numbers, charged to whichever ask is open, so that a policy's
+        // reward and this side's league columns are the one instrument read twice.
+        if (clinched > 0 || drifted > 0) recorders[side]?.spend?.(clinched, drifted);
         groundWas[side] = { x: ground.x, z: ground.z };
       }
       const margin = ends.left - ends.right;

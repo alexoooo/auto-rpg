@@ -1,6 +1,34 @@
 # Session 13 -- the dense reward, and PPO in self-play over the continuous surface
 
-**Status (2026-09-07): planned. Needs 12.**
+**Status (2026-09-08): landed; the mechanical bar is not cleared and the curve rises.**
+`../../src/golem/reward.ts` pays `dealt - taken` at every ask -- Session 08's decision reward
+differenced finer, telescoping to the bar margin to 1e-9 on a real run -- plus `win` 0.5 at the
+last window and two small charges on clinch and idle travel poured out of the tournament's own
+accumulators. `../../src/golem/policy.ts` is a 71 -> 256 -> 256 -> 12 head over Session 12's
+command vector, nine Gaussian means clipped rather than squashed and three Bernoulli gates, with
+one `logSigma` an axis; `../../scripts/train-ppo.mjs` fits it by PPO in mirrored self-play with
+the hand-coded league held out. Sixty iterations, 1,920 bouts, 3,348,480 asks, 109 minutes.
+**The bar is missed: d +0.216 against the d 0.235 the plan asked for**, measured on 1,030 bouts a
+contender where the standard error on d is 0.044, so it falls 0.4 standard errors short with its
+interval containing the target. **The curve rises**: rated at the same thousand bouts, the
+untrained head is worth +0.0030 +- 0.0209 over the uniform command -- nothing -- so the whole
+**+0.0841 +- 0.0324, 5.1 standard errors**, between the two ends was put there by the fit, and a
+weighted least squares over all thirteen rating points agrees at +1.29e-3 +- 2.53e-4 an iteration,
+t 5.10. The same policy ends **level with `golem-driver`** -- -0.0145 +- 0.0206 of bar, d -0.043,
+against -0.0987 +- 0.0213 and d -0.283 at iteration zero. Two findings rewrote the
+trainer around them: the self-play return is **zero by construction** (both sides of a mirrored
+bout have exactly negated margins, so the mean return is not a progress curve and the periodic
+rating is), and Adam's step is +-`rate` a weight whatever the gradient, so **the rate and the batch
+are one knob** -- at 3e-4 with a 512-sample minibatch the trust region stopped every fit after its
+first minibatch, spending 512 of the 57,000 samples a rollout had just collected. What the fitted
+mind does is not what a designer would have shaped for: it throws the fewest strokes, gets the
+least speed into them and deals the least damage of the three, and it loses least, draws most,
+stays inside the inner radius 28.7 % of the time and ends a win with **half its bar left**, 0.512
+against 0.362 and 0.367. The two penalty terms are the two columns it is *worst* on, which is a
+reward table audited rather than assumed. The named next lever is the spread: entropy rises 8.50
+to 9.32 and sigma 0.497 to 0.556 over the run, because at `--entropy 0.003` the bonus's gradient
+on `logSigma` is comparable to a standardised advantage's. See the Session 13 entry of
+`../measurements.md` and the section in `../design.md`.
 
 ## Outcome
 
