@@ -17328,7 +17328,8 @@ iterations is where the hour stopped rather than where the curve did.
 
 The structural columns of the last rating, 1,030 bouts a contender over the same bodies from the
 same seeds. `bar` is the winner's own remaining bar; `inside` is the share of samples inside the
-inner radius; `stall` is `nearRangeStallSeconds`.
+inner radius; `stall` is `nearRangeStallSeconds`. Every number is a mean a bout except `severs`,
+which is a count of parts taken off over the whole 1,030, and `damage` is what that side dealt.
 
 | | points | w/d/l | bar | inside | strokes | blows | dmg/stroke | v@blow | commit % | clinch s | idle m | tangent m | stall s | damage | severs |
 | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -17342,6 +17343,26 @@ the three, 20.6 against the driver's 27.2, throws the fewest strokes, and gets t
 them, 3.79 m/s against 4.67. On every column that a designer would have picked as the thing to
 maximise it is behind the hand-coded mind, and it is level with it on the bar. Whatever the reward
 paid for, it was not speed at the mark.
+
+**Both halves of the ledger, because `structural()` only reports one.** The column above is damage
+*dealt*; the question it leaves open is whether the fit's bar comes from hitting more or from being
+hit less, and that is answered by pairing each side with its opponent's row. 130 bouts a contender
+against the same league, dealt figures agreeing with the thousand-bout rating to within a few per
+cent:
+
+| contender | dealt | taken | net | contacts made | contacts taken | severs made | suffered | bar |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| **fit** | 20.54 | **20.46** | **+0.09** | 236.4 | **235.5** | 0.10 | 0.15 | −0.0158 |
+| uniform | 23.98 | **31.03** | **−7.05** | 197.8 | 259.9 | 0.03 | 0.23 | −0.1105 |
+| driver | 26.99 | 26.68 | +0.31 | 236.7 | 262.1 | 0.11 | 0.15 | +0.0092 |
+
+**The whole of the fit's advantage over the uniform command is on the taking side.** Random commands
+deal *more* damage than the fitted policy — 23.98 against 20.54 — and take 31.03 against 20.46: a
+half more than they give. The fit gives and takes the same amount. It is also hit less often (235.5
+contacts against 259.9) and less hard when it is: 0.087 of damage a contact taken, against uniform's
+0.119 and the driver's 0.102. Sixty iterations of a reward whose first term is `dealt − taken`
+moved the second term, not the first — which is exactly what a symmetric reward is entitled to do,
+and not what anyone watching would have predicted.
 
 Two columns say what it is doing instead. **When it wins it wins with half its bar left**:
 `winnerBar` 0.512 against 0.362 and 0.367, which is the largest gap in the table and is not

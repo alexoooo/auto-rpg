@@ -1613,7 +1613,10 @@ coefficients and nothing shaped toward a stroke.
 What it does to get there is not what a designer would have shaped for, and that is the part worth
 keeping. It throws the fewest strokes of the three contenders, gets the least speed into them and
 deals the least total damage — and it loses least, draws most, and ends a win with **half its bar
-left**, 0.512 against the driver's 0.362. It is the two penalised columns, clinch and idle travel,
+left**, 0.512 against the driver's 0.362. Paired against its own opponents' rows, the whole of its
+advantage over the uniform command is on the taking side: random commands deal 23.98 a bout and
+take 31.03, and the fitted policy deals 20.54 and takes 20.46. A reward whose first term is
+`dealt − taken` moved the second term and not the first. It is the two penalised columns, clinch and idle travel,
 that it is *worst* on: charged 0.004 apiece, they cost it about 0.027 of a bar a bout and it pays
 them, which says the standing and the sideways travel buy more than they cost. A reward table whose
 charged terms go up over sixty iterations is a table whose coefficients were argued rather than

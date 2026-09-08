@@ -24,7 +24,9 @@ first minibatch, spending 512 of the 57,000 samples a rollout had just collected
 mind does is not what a designer would have shaped for: it throws the fewest strokes, gets the
 least speed into them and deals the least damage of the three, and it loses least, draws most,
 stays inside the inner radius 28.7 % of the time and ends a win with **half its bar left**, 0.512
-against 0.362 and 0.367. The two penalty terms are the two columns it is *worst* on, which is a
+against 0.362 and 0.367. Both halves of the ledger say where that comes from: random commands deal
+23.98 a bout and take 31.03, the fit deals 20.54 and takes 20.46, so **the whole advantage over the
+baseline is on the taking side**. The two penalty terms are the two columns it is *worst* on, which is a
 reward table audited rather than assumed. The named next lever is the spread: entropy rises 8.50
 to 9.32 and sigma 0.497 to 0.556 over the run, because at `--entropy 0.003` the bonus's gradient
 on `logSigma` is comparable to a standardised advantage's. See the Session 13 entry of
