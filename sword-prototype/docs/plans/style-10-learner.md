@@ -1,6 +1,13 @@
 # Session 10 -- `golem-learner`: fitted Q-iteration on the decision log
 
-**Status (2026-09-06): planned. Needs 08.**
+**Status (2026-09-07): the machinery is implemented and the artifact is unfitted; the human gate
+is open.** The mind, the trainer, the value gradient, the tests and the harness contender are in
+and green; `LEARNER_WEIGHTS` on disk is zeros. The three-hour fit was started and stopped after
+fifteen minutes at the owner's direction. The reason is Session 08's own league read one step
+further: 903 of 4,096 bouts decided, every mind within noise of one half, seven of nine spanning
+0.024 points. That is a flat objective, and a value function fitted against it is fitted against a
+constant -- which is also the best explanation on record for why no learned mind of either set has
+ever beaten a hand-coded one. Making a bout decidable comes first; the fit is owed after it.
 
 ## Outcome
 

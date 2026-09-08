@@ -127,7 +127,7 @@ that presentation failure too.
 A bout is chosen before it is fought. The curtain carries a left corner and a right corner —
 a unit, a policy, and whether that side is driven by a mind or by you — and the Fight button
 starts what is on it. There is one of you, so taking a side gives the other one back to its
-policy. Sixteen policies ship and a corner is only ever offered the ones its own body can take:
+policy. Seventeen policies ship and a corner is only ever offered the ones its own body can take:
 **idle** stands there and can be cut apart, **swinger** walks in and cuts on a fixed cadence
 without ever looking at your guard, **duelist** holds measure, guards between exchanges, and
 commits when your point leaves the line, **archer** keeps its distance and shoots — give it a
@@ -294,9 +294,9 @@ offered on the wrist arm alone, because without a roll axis a lash has nowhere t
 is eleven arms in all, and every one of them is a different body rather than a worse version
 of the best one.
 
-Twelve minds can drive it — **idle**, **golem duelist**, **golem fencer**, **golem planner**,
+Thirteen minds can drive it — **idle**, **golem duelist**, **golem fencer**, **golem planner**,
 **golem champion**, **golem neural**, **golem form**, **golem skirmisher**, **golem guardian**,
-**golem brawler**, **golem tactician** and **golem selector** — and `C` takes it
+**golem brawler**, **golem tactician**, **golem selector** and **golem learner** — and `C` takes it
 over mid-bout exactly as it takes over a warrior. The golem duelist knows nothing about which
 modules it is wearing: it asks each arm what strokes it has and how far it reaches, and every
 range it keeps is a fraction of that answer rather than a distance. Bolt something new on and it
@@ -358,6 +358,15 @@ mind wins that cell for the rest of the bout. Both the shrinkage and the rule th
 winner must beat the overall winner by three hundredths of a point before it may play are there
 for one reason: over a hundred cells and nine candidates, the best cell mean is a maximum over nine
 noisy numbers, and a table of raw cell winners is a table of noise.
+
+The golem learner is the third and the only one that is not finished. It is the same network shape
+as the neural mind read as *values* rather than as choices -- what naming an option in a state is
+worth from there to the end of the bout -- and it is fitted from the decision log by fitted
+Q-iteration rather than from a teacher. Its weights on disk are zeros. The fit was stopped after
+fifteen minutes of a three-hour run, because the league it would have been fitted against decides
+only 903 of 4,096 bouts and rates every mind in it within noise of one half: there is nothing in
+that to learn. Making a bout decidable comes first, and until it does this mind stands in the
+picker as machinery with no numbers in it.
 
 **Win a bout against a golem and whichever of its arms came off intact is yours** — an arm cut
 off at the shoulder is loot, an arm hacked to pieces is debris, and legs are neither, because

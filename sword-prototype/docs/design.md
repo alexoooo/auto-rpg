@@ -1259,7 +1259,7 @@ coincide to the millimetre. That the two reads agree is a *measurement* over the
 `tests/selector.test.mjs` — one short bout per pair of builds, so every build stands on both sides
 of a view — and not an argument.
 
-**The winner's curse is the only real difficulty.** With sixty ordered class pairs and nine
+**The winner's curse is the only real difficulty.** With a hundred ordered class pairs and nine
 candidates, the best raw cell mean is a maximum over nine noisy numbers and is biased upward by
 about the noise; a table of raw cell winners would look excellent on its own fit and level on a
 held-out seed. Two rules answer it, both carried from the matchup set's tuning session. The score
@@ -1274,6 +1274,75 @@ executors, so switching mid-bout is a line of code. It is not this line: a cell 
 bouts behind it, and a per-ask choice would need that much evidence per *state*. The selector is
 also the one golem mind that publishes neither `fencer` nor `styled`, so the exchange log skips
 it — a log labelled `golem-selector` would name an option vocabulary that changes with the body.
+
+## The learner, which is fitted to what each decision earned
+
+Session 10. `golem-learner` is the
+same network shape as `golem-neural` -- the style feature count in, two hidden layers of
+sixty-four, one output an option -- read as *values* rather than as logits: what naming this
+option in this state is worth from here to the end of the bout, in bar units. The mind is three
+lines. Everything that matters is where the numbers came from.
+
+**The optimiser was never the problem.** The matchup set's neural entry is a record of a wall:
+one scalar a bout, sigma 0.032 points at 384 bouts, and an evolution strategy that could not move
+a confident imitation off the teacher it had copied. The natural next move is a better search.
+The move this set made instead was Session 08's: replace the *signal*. A side asks its director
+about 253 times a bout, each ask is paid the damage the two bars took until the next one, and the
+payments telescope to the bar margin exactly. That is three orders of magnitude more numbers out
+of the same tournament, and it is what makes a value function fittable at all.
+
+**The discount is by duration, not by step.** `gamma = 2^(-seconds / halfLife)` with a half-life
+of eight seconds, so a window that occupies six hold-lengths of the bout is discounted six holds'
+worth. This is not a detail. A per-step discount pays a mind for taking *many short decisions*,
+which is precisely the flail this whole set exists to remove: a committed cut is one decision
+that occupies half a second, and against a per-step discount it competes with six holds that
+occupy the same half second and are each discounted once. The semi-Markov form is the only one in
+which a slow act and a fast one are comparable, and it costs one line.
+
+**The target, and what is not in it.** For every decision, its own reward plus the discounted best
+of the *previous iteration's* values over the options that were open at the next decision; on the
+last decision of a side, the reward alone. The loss is the squared error at the taken option only
+-- nothing is said about the fourteen options that were not played, so nothing is learned about
+them from that row, which is what makes the fit off-policy and what lets the whole corpus of
+Session 08 be data even though a style wrote it. The optimiser is Adam at 1e-3, batch 128, three
+epochs an iteration, thirty iterations a fit, warm started between rounds.
+
+**The terminal bonus is defined on the bar and not on the winner, and that is a departure.** The
+plan asked for a bonus on the bout's result. The samples format was frozen in Session 08 and has
+no winner column, and the corpus on disk cost half an hour of the host to make, so what the file
+can answer is the sum of the side's own rewards -- which telescopes to its bar margin. Its sign
+is not always the recorded winner: a bout is also won by a kill. At `winBonus` zero, which is
+what ships, the two definitions cannot differ; a sweep off zero would be measuring the bar's
+sign, and it has not been run.
+
+**Two read-outs a sweep, and one of them is not a residual.** A falling training residual says
+nothing on its own -- a network with ten thousand weights can memorise sixty thousand rows -- so a
+tenth of the decisions take no gradient at all and are scored anyway. They are drawn by a shuffle
+of the whole buffer rather than by taking the last tenth of the file, because the file is ordered
+by bout and by side and its last tenth is a handful of matchups. The other column is the one that
+actually says whether the iteration has converged: how many decisions changed their *greedy*
+answer since the previous sweep. A residual can fall while the policy churns, and the policy is
+the only part of the fit that ever reaches the arena.
+
+**That the fit is correct is a claim tested away from the arena.** `tests/learner.test.mjs` builds
+a six-state semi-Markov chain -- durations of one or two seconds, one action closed in two states,
+and a root where the action paying a whole point immediately is worth 1.0 against the patient
+action's 2^(3/4) -- generates episodes under a uniform draw from what is open, and runs the
+trainer's own `fittedQ` on them. It recovers the optimal action in every state and every open
+value to within 0.05 of exact value iteration, in about a second and a half. The point of it is
+what it rules out: if a real fit does not learn, the fit is not what is wrong.
+
+**And it was never fitted, on purpose.** The trainer ran fifteen minutes of a three-hour fit
+against Session 08's corpus and was stopped. The reason is the league's own finding, read one step
+further than Session 08 read it: 903 of 4,096 bouts decided, points a bout within noise of one
+half for every mind in the run, and seven of the nine spanning 0.024 points. That is not a hard
+problem to learn -- it is a flat objective, and a value function fitted against it is fitted
+against a constant. A fit is worth its three hours only after a bout can be won, so the
+`LEARNER_WEIGHTS` on disk are zeros: the mind loads, the picker offers it, and every number in it
+is still owed. What the session leaves behind that is worth having is the machinery either side of
+the artifact -- the value gradient in `src/golem/neural-net.ts`, the paired-difference
+confirmation, and the chain test that separates "the fit is wrong" from "the arena has nothing to
+learn".
 
 ## Dying, which is not the same as losing
 

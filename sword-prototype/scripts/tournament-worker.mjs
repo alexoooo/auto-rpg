@@ -21,6 +21,8 @@ import { STYLE_DIRECTORS, directedMind } from "../src/golem/golem-policies.ts";
 import { FEATURE_COUNT, neuralFeatures } from "../src/golem/neural-features.ts";
 import { STYLE_FEATURE_COUNT, styleFeatures, styleOpenMask } from "../src/golem/style-features.ts";
 import { STYLE_OPTIONS } from "../src/golem/tactics-v3.ts";
+import { golemLearner } from "../src/golem/learner.ts";
+import { LEARNER_WEIGHTS } from "../src/golem/learner-weights.ts";
 import { golemNeural } from "../src/golem/neural.ts";
 import { NEURAL_WEIGHTS } from "../src/golem/neural-weights.ts";
 import { GOLEM_TACTICS, innerReach } from "../src/golem/tactics.ts";
@@ -285,13 +287,24 @@ function decisionRecorder(side, kind) {
 function recorderKind(policy) {
   const record = workerData?.record;
   if (!record) return null;
+  // A learned side is on the third executor whether it is named as a policy or handed in as a
+  // `{q}` contender, and a round of Session 10's trainer records it under the contender's name.
+  const contender = workerData?.contenders?.[policy];
+  const learned = policy === "golem-learner" || contender?.q !== undefined;
   const styled = policy in STYLE_DIRECTORS;
-  if (record === "*") return styled ? "style" : null;
+  if (record === "*") return styled || learned ? "style" : null;
   const wanted = Array.isArray(record) ? record.includes(policy) : record === policy;
   if (!wanted) return null;
-  if (styled) return "style";
+  if (styled || learned) return "style";
   if (policy === "golem-champion" || policy === "golem-planner") return "neural";
-  throw new Error(`"${policy}" cannot be recorded: only a style, the planner and the champion have a director to hook`);
+  throw new Error(`"${policy}" cannot be recorded: only a style, the learner, the planner and the champion have a director to hook`);
+}
+
+/** A learned side over a table, with the hook and the epsilon a round asks for. */
+function learnerMind(policy, seed, weights, explore, recorder) {
+  const learner = golemLearner(seed, { ...LEARNER_WEIGHTS, weights }, GOLEM_TACTICS_V3,
+    recorder === null ? null : recorder.hook, explore);
+  return { name: policy, styled: learner.styled, decide: (view, dt) => learner.decide(view, dt) };
 }
 
 /**
@@ -319,6 +332,9 @@ function mindFor(policy, seed, recorder = null) {
     if (policy in STYLE_DIRECTORS && (recorder !== null || explore > 0)) {
       return directedMind(policy, seed, recorder === null ? null : recorder.hook, explore);
     }
+    if (policy === "golem-learner" && (recorder !== null || explore > 0)) {
+      return learnerMind(policy, seed, LEARNER_WEIGHTS.weights, explore, recorder);
+    }
     if (recorder !== null) {
       if (policy === "golem-champion") return golemChampionMind(seed, GOLEM_CHAMPIONS, recorder.hook);
       if (policy === "golem-planner") {
@@ -330,6 +346,11 @@ function mindFor(policy, seed, recorder = null) {
     return policyMind(policyForUnit("golem", policy), seed);
   }
   if (contender.policy !== undefined) return policyMind(policyForUnit("golem", contender.policy), seed);
+  // A `{q, explore}` contender is the learner over weights the trainer is carrying, which is how
+  // a round plays the fit it has not written yet and how the confirmation plays the one it did.
+  if (contender.q !== undefined) {
+    return learnerMind(policy, seed, contender.q, contender.explore ?? explore, recorder);
+  }
   if (contender.weights !== undefined) {
     const neural = golemNeural(seed, { ...NEURAL_WEIGHTS, weights: contender.weights });
     return { name: policy, fencer: neural.fencer, decide: (view, dt) => neural.decide(view, dt) };

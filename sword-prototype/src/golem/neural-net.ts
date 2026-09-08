@@ -103,17 +103,31 @@ export function maskedSoftmax(logits: Float64Array, open: readonly boolean[], ou
   return out;
 }
 
-/** The open option with the highest logit. Deterministic: ties go to the first in `DUEL_OPTIONS` order. */
-export function pickOpen(logits: Float64Array, available: readonly DuelOption[]): DuelOption {
-  let best: DuelOption | null = null;
+/**
+ * The open option with the highest logit, out of a named vocabulary. Deterministic: ties go to
+ * the first in `options` order, which is what makes two builds of one table pick the same thing.
+ *
+ * The vocabulary is a parameter as of Session 10 of the style set, when a second head had to be
+ * read over the third executor's fifteen options; `pickOpen` below is this over the eight, and
+ * is the call `golem-neural` has always made.
+ */
+export function pickOpenIn<T extends string>(
+  options: readonly T[], logits: Float64Array, available: readonly T[],
+): T {
+  let best: T | null = null;
   let bestLogit = Number.NEGATIVE_INFINITY;
-  for (let j = 0; j < DUEL_OPTIONS.length; j += 1) {
-    const option = DUEL_OPTIONS[j];
+  for (let j = 0; j < options.length; j += 1) {
+    const option = options[j];
     if (!available.includes(option)) continue;
     if (best === null || logits[j] > bestLogit) { best = option; bestLogit = logits[j]; }
   }
   if (best === null) throw new Error("no option is open");
   return best;
+}
+
+/** The open option with the highest logit. Deterministic: ties go to the first in `DUEL_OPTIONS` order. */
+export function pickOpen(logits: Float64Array, available: readonly DuelOption[]): DuelOption {
+  return pickOpenIn(DUEL_OPTIONS, logits, available);
 }
 
 /**
@@ -133,12 +147,37 @@ export function backward(
   if (!open[target]) throw new Error(`the target option ${DUEL_OPTIONS[target]} is not open`);
   const loss = -Math.log(Math.max(probabilities[target], 1e-12));
   // dL/dlogit = p - onehot(target), zero on a closed option.
-  let delta = new Float64Array(logits.length);
+  const delta = new Float64Array(logits.length);
   for (let j = 0; j < logits.length; j += 1) delta[j] = open[j] ? probabilities[j] - (j === target ? 1 : 0) : 0;
+  backwardFrom(layout, weights, input, scratch, delta, grad);
+  return loss;
+}
+
+/**
+ * Backpropagation from a gradient already taken with respect to the output layer.
+ *
+ * This is the whole of `backward` below its first four lines, lifted out in Session 10 of the
+ * style set because a Q-network's loss is not a cross-entropy and shares nothing with one but
+ * this. The caller owns `delta` -- `dL/dlogit`, one number an output -- and it is read and not
+ * written; the gradient is *added* into `grad`, so a batch accumulates.
+ *
+ * `scratch` must hold the activations `forward` left there for this same input, which is what
+ * makes this a continuation of a forward pass rather than a function of its own.
+ */
+export function backwardFrom(
+  layout: NetLayout, weights: Float64Array, input: Float64Array, scratch: Float64Array[],
+  delta: Float64Array, grad: Float64Array,
+): void {
+  const w = widths(layout);
+  const layers = w.length - 1;
+  if (delta.length !== w[layers]) {
+    throw new Error(`the output layer is ${w[layers]} wide; the delta given is ${delta.length}`);
+  }
   // Offsets of each layer's block, computed once from the front.
   const offsets: number[] = [];
   let at = 0;
   for (let l = 0; l < layers; l += 1) { offsets.push(at); at += w[l + 1] * (w[l] + 1); }
+  let d = delta;
   for (let l = layers - 1; l >= 0; l -= 1) {
     const n = w[l];
     const m = w[l + 1];
@@ -146,20 +185,45 @@ export function backward(
     const base = offsets[l];
     const next = l === 0 ? null : new Float64Array(n);
     for (let j = 0; j < m; j += 1) {
-      const d = delta[j];
-      if (d === 0) continue;
+      const dj = d[j];
+      if (dj === 0) continue;
       const row = base + j * n;
       for (let k = 0; k < n; k += 1) {
-        grad[row + k] += d * x[k];
-        if (next !== null) next[k] += d * weights[row + k];
+        grad[row + k] += dj * x[k];
+        if (next !== null) next[k] += dj * weights[row + k];
       }
-      grad[base + m * n + j] += d;
+      grad[base + m * n + j] += dj;
     }
     if (next !== null) {
       // Through the tanh of the layer below.
       for (let k = 0; k < n; k += 1) next[k] *= 1 - x[k] * x[k];
-      delta = next;
+      d = next;
     }
   }
-  return loss;
+}
+
+/**
+ * The squared-error backward pass of a Q-network, for one sample, after `forward`.
+ *
+ * The head is read as a value an option rather than as logits, and the loss is on the *taken*
+ * option alone: nothing was observed about what the others would have paid, so nothing is
+ * asked of them, and every row of the output layer but one gets a zero gradient. That is
+ * fitted Q-iteration's one structural difference from a regression, and the reason a closed
+ * option cannot poison the fit even though the network still scores it.
+ *
+ * `delta[action]` is `Q[action] - target`, which is the gradient of one half the squared error;
+ * what is *returned* is the squared error itself, because that is the residual a run reports.
+ * The factor of two between them is a constant on the learning rate and is not corrected for.
+ */
+export function qBackward(
+  layout: NetLayout, weights: Float64Array, input: Float64Array, scratch: Float64Array[],
+  action: number, target: number, grad: Float64Array, delta: Float64Array,
+): number {
+  const q = scratch[scratch.length - 1];
+  if (action < 0 || action >= q.length) throw new Error(`option ${action} is not one of the ${q.length} the head scores`);
+  delta.fill(0);
+  const error = q[action] - target;
+  delta[action] = error;
+  backwardFrom(layout, weights, input, scratch, delta, grad);
+  return error * error;
 }

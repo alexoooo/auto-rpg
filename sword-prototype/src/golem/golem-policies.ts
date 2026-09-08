@@ -4,6 +4,7 @@ import { golemChampionMind as championMind, type GolemChampionMind } from "./cha
 import { golemPlanner } from "./planner.ts";
 import { golemSelectorMind as selectorMind } from "./selector.ts";
 import { SELECTOR_TABLE } from "./selector-table.ts";
+import { golemLearner } from "./learner.ts";
 import { golemTactician } from "./tactician.ts";
 import { GOLEM_CHAMPIONS } from "./tactics-champions.ts";
 import { golemNeural } from "./neural.ts";
@@ -283,6 +284,23 @@ export function golemTacticianMind(seed = (Math.random() * 0x100000000) >>> 0): 
  * A mind registers here, in `src/mind.ts` and in `src/units.ts`, and the three lists are checked
  * against each other by `tests/minds.test.mjs`.
  */
+/**
+ * The twelfth golem mind, the learned one: `golem-learner`. Session 10 of the style set.
+ *
+ * The checked-in `LEARNER_WEIGHTS` and the shipped v3 table, played greedy -- the epsilon the
+ * trainer's collecting rounds run at is the trainer's, not the shipped mind's. It publishes
+ * `styled` for the same reason the tactician does: its vocabulary is the styles' fifteen, so the
+ * exchange logger and the decision recorder can both read it. Same seed argument, same reasons.
+ */
+export function golemLearnerMind(seed = (Math.random() * 0x100000000) >>> 0): Mind & { styled: GolemStyled } {
+  const learner = golemLearner(seed);
+  return {
+    name: "golem-learner",
+    styled: learner.styled,
+    decide: (view, dt): Intent => learner.decide(view, dt),
+  };
+}
+
 export const GOLEM_CANDIDATES: Readonly<Record<string, (seed: number) => Mind>> = Object.freeze({
   "golem-duelist": golemDuelistMind,
   "golem-fencer": golemFencerMind,
@@ -294,13 +312,14 @@ export const GOLEM_CANDIDATES: Readonly<Record<string, (seed: number) => Mind>> 
   "golem-guardian": golemGuardianMind,
   "golem-brawler": golemBrawlerMind,
   "golem-tactician": golemTacticianMind,
+  "golem-learner": golemLearnerMind,
 });
 
 /**
  * The eleventh golem mind, the one that picks a mind: `golem-selector`. Session 09 of the style
  * set.
  *
- * The checked-in `SELECTOR_TABLE` and the ten candidates above; everything else about it is in
+ * The checked-in `SELECTOR_TABLE` and the eleven candidates above; everything else about it is in
  * `src/golem/selector.ts`. It publishes neither `fencer` nor `styled`, because until the first view it is
  * not yet any executor and after it the executor is the chosen mind's -- the exchange logger
  * takes that as "no log", which is honest: a log labelled `golem-selector` would name a
