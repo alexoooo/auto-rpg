@@ -127,7 +127,7 @@ that presentation failure too.
 A bout is chosen before it is fought. The curtain carries a left corner and a right corner —
 a unit, a policy, and whether that side is driven by a mind or by you — and the Fight button
 starts what is on it. There is one of you, so taking a side gives the other one back to its
-policy. Seventeen policies ship and a corner is only ever offered the ones its own body can take:
+policy. Eighteen policies ship and a corner is only ever offered the ones its own body can take:
 **idle** stands there and can be cut apart, **swinger** walks in and cuts on a fixed cadence
 without ever looking at your guard, **duelist** holds measure, guards between exchanges, and
 commits when your point leaves the line, **archer** keeps its distance and shoots — give it a
@@ -136,10 +136,13 @@ bow, or it will simply back away from you all day, **crawler** drives the centip
 golem's arm, **golem planner** drives one by searching a duel model fitted from the
 tournament's own log, **golem champion** is the planner with the numbers a tuning run
 found for the arm it is holding, **golem neural** is the fencer under a small network
-that was first taught the champion's choices and then searched, and **golem form** is the
+that was first taught the champion's choices and then searched, **golem form** is the
 first of the styles — a third executor that offers a director a committed cut, an intercept
 parry, a shove, a thrust and a duck, under a style that stands off, circles with a duty and
-cuts into the recover it has been waiting for. The filter runs both ways: a swordsman's mind is not offered
+cuts into the recover it has been waiting for — and **golem driver** is that same style with
+no options at all, writing a stand-off, a strafe, a lean, a target and an arc as numbers
+twelve times a second into a fourth executor that can be interrupted mid-swing.
+The filter runs both ways: a swordsman's mind is not offered
 a body with no hands, and the golem's is not offered to a Warrior. A bout ends when its one
 derived vitality bar reaches zero, or when the clock
 runs out. Zero head or torso health is fatal by itself; serious combined wounds elsewhere

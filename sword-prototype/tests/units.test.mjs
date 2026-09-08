@@ -131,7 +131,7 @@ test("the_golem_is_assembled_rather_than_equipped_and_answers_to_its_own_surface
   // it; every scripted policy in `src/policies.ts` stays out because its ranges are a Warrior's
   // arming sword in disguise. The fencer and the planner follow the duelist, which stays the
   // baseline.
-  assert.deepEqual([...(golem.compatiblePolicies ?? [])], ["idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-neural", "golem-form", "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-learner", "golem-selector"]);
+  assert.deepEqual([...(golem.compatiblePolicies ?? [])], ["idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-neural", "golem-form", "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-learner", "golem-driver", "golem-selector"]);
   assert.ok(golem.defaultGolem, "a golem corner opens on a build");
   for (const slot of ["locomotion", "torso", "head"]) {
     assert.equal(typeof golem.defaultGolem[slot], "string", slot);

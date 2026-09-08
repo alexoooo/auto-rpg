@@ -56,7 +56,7 @@ import {
 import {
   golemBrawlerMind, golemChampionMind, golemDuelistMind, golemFencerMind, golemFormMind,
   golemGuardianMind, golemNeuralMind, golemPlannerMind, golemSelectorMind, golemSkirmisherMind,
-  golemLearnerMind, golemTacticianMind,
+  golemDriverMind, golemLearnerMind, golemTacticianMind,
 } from "./golem/golem-policies.ts";
 
 /**
@@ -1250,6 +1250,7 @@ export const POLICIES: readonly Policy[] = [
   { name: "golem-brawler", label: "Golem brawler", surface: GOLEM_SURFACE, create: golemBrawlerMind },
   { name: "golem-tactician", label: "Golem tactician", surface: GOLEM_SURFACE, create: golemTacticianMind },
   { name: "golem-learner", label: "Golem learner", surface: GOLEM_SURFACE, create: golemLearnerMind },
+  { name: "golem-driver", label: "Golem driver", surface: GOLEM_SURFACE, create: golemDriverMind },
   { name: "golem-selector", label: "Golem selector", surface: GOLEM_SURFACE, create: golemSelectorMind },
 ];
 

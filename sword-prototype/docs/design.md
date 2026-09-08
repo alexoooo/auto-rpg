@@ -1441,6 +1441,71 @@ no longer being fitted against a constant.
 reaches a style's table. It is deliberately not a bare name: every other override in the tournament
 changes what a mind decides, and this one changes what it is deciding about.
 
+## The fourth executor, whose command is a vector, and the mind that can stop its own swing
+
+Session 12 of the style set. The third executor's fifteen options are a **partition**: naming `cut`
+names a stand-off, a lean, a target, a reach and an arc all at once, at values a table froze before
+the bout began. Every style in this set is therefore a different rule for picking among the same
+fifteen frozen bundles, and Session 11 measured what that costs — the paired criterion separates a
+mind from a mind that does nothing at d 0.70, and two hand-coded minds at 0.235. There is nothing
+left to choose between. `src/golem/tactics-v4.ts` replaces the vocabulary with numbers.
+
+**The command is nine numbers and three gates**, each clamped to its own declared range and each
+already something `writeAim` consumes: `standOff` as a fraction of *their* reach, `strafe`, `lean`,
+`advance`, `targetHeight` and `targetLateral` as a point on their body, `reach` as a fraction of
+the arm's, `swing` as a position between the thrust's arc and the committed cut's, and `bite`; then
+`commit`, `abort` and `parry`, which are the three things that cannot be continuous because an
+exchange either starts or does not. A `Pilot` in `src/golem/pilot.ts` is asked at **12 Hz** and on
+the same three events v3 is asked on, and the executor clamps every axis and counts every clamp, so
+that a mind writing outside the envelope is a number in a table rather than a body in an
+impossible pose. Twelve refusal counters over 1,418 s of real fighting read zero.
+
+**12 Hz is measured rather than preferred.** Three timescales in the body converge on about twenty
+asks a second and none supports more: the phase read is low-passed at `readSeconds` 0.05, a plate
+crosses its own guard shell in about 0.05 s at `CHAIN_REACH.anchorRate` 5 m/s, and the commit phase
+is 0.22 s long. Twelve is inside all three with room.
+
+**What is actually new is that the ask does not stop.** v3's executor owns an exchange once it has
+started; the only place it will take one back is mid-chamber, under `chamberAbort`, and once the
+arm is committed nothing can reach it. v4 asks through the whole stroke. Measured on the same 52
+bodies, `golem-form` is asked 5.20 times a second and `golem-driver` 14.52, and the difference is
+entirely asks inside strokes that v3 could not have interrupted. That is the feature: a feint, a
+stop-hit and a parry that abandons a swing already travelling are all now the same act — raise
+`abort` — rather than three named options with three frozen shapes.
+
+**`golem-driver` exists to make that claim falsifiable.** It is `golem-form` written out again as
+numbers: the same five rules in the same order, the same table rows, deviating in exactly three
+places its own doc names. The test that holds it is the strongest one available — a swing of 1.0 at
+its gates must reproduce v3's committed cut **command for command**, and `tests/tactics-v4.test.mjs`
+compares seven channels frame by frame through a whole exchange and asserts the spans are equal.
+142 frames agree.
+
+Four defects had to be fixed before they did, and the interesting thing about all four is that none
+is visible in a bout. The arc was interpolated as `a + s(b − a)`, which is not exact at `s = 1`. The
+half of the arc to write was picked from the clock rather than from the stance, and v3 transitions
+*after* writing. Two of v3's range gates lived in the executor and had not moved into the mind, so
+a ram-headed body could never charge and a maul could thrust. And the mark, the aim and the crouch
+were computed one step **before** the ask that wrote them.
+
+That last one is the class worth naming, because it is the failure mode this whole architecture
+invites: **on a surface where the mind writes and the executor reads, every quantity has a step at
+which it is read, and a quantity read one step early is a quantity from the last decision.** The
+mark was not wrong; it was the previous ask's mark, which is a perfectly plausible mark. Only a
+frame-exact comparison against something that already worked can find it, which is the argument for
+transcribing an existing style before writing a new one.
+
+**What the driver is worth is nearly nothing, and that is the result.** Its paired bar margin over
+the style it copies is −0.0069 ± 0.0811 on random pairs and −0.0218 ± 0.0262 mirrored, both
+containing zero, both smaller than the gap between the fencer and form — which itself changes sign
+between the two pools. The surface is proven *expressive*, not proven better, and the census says
+why: four of nine numbers are ever moved, `targetLateral` is zero at every ask, and the commit gate
+is raised at `swing` 1.000 in 1,452 of 1,452 gates. A transcription of a fifteen-option style is
+still a fifteen-option style. What it does differently is take back 41.7 % of its strokes against
+form's 23.5 %, on a fixed 15 % feint roll and an unconditional parry rule, and that is free
+everywhere except on a long one-handed mace — the one body with a spare hand and a stroke worth
+1.21 damage — where it costs −0.174 ± 0.134. *When* to abandon a swing is a decision, and this is
+the first measurement in the set that says so.
+
 ## Dying, which is not the same as losing
 
 `over` not stopping the world was the right call about the *bout* and, for a long time, it

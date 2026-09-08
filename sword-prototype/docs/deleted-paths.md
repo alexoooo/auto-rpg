@@ -184,6 +184,8 @@ them stale while leaving the argument unchanged.
 - `docs/plans/style-09-learner.md`
 - `docs/plans/style-10-overnight.md`
 - `docs/plans/style-11-close.md`
+- `docs/plans/style-11-overnight.md`
+- `docs/plans/style-12-close.md`
 - `public/assets/kaykit-knight.glb`
 - `public/assets/kaykit-knight.profile.json`
 - `scripts/arbalest-warrior-qualifier.mjs`

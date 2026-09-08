@@ -31,7 +31,9 @@ import { GOLEM_CHAMPIONS } from "../src/golem/tactics-champions.ts";
 import { GOLEM_PLANNER, golemPlanner } from "../src/golem/planner.ts";
 import { GOLEM_TACTICS_V2 } from "../src/golem/tactics-v2.ts";
 import { GOLEM_TACTICS_V3 } from "../src/golem/tactics-v3.ts";
+import { GOLEM_TACTICS_V4 } from "../src/golem/tactics-v4.ts";
 import { FORM } from "../src/golem/styles/form.ts";
+import { DRIVER } from "../src/golem/styles/driver.ts";
 import { BRAWLER } from "../src/golem/styles/brawler.ts";
 import { GUARDIAN } from "../src/golem/styles/guardian.ts";
 import { SKIRMISHER } from "../src/golem/styles/skirmisher.ts";
@@ -563,9 +565,12 @@ parentPort.on("message", (message) => {
 // **A bare name is looked up in one order and a style's is not looked up at all.** The planner
 // first, so `explore=0.5` is a planner row; then the fencer's, so `standOffFraction=1.06` is the
 // row four shipped minds read; then the third executor's, which is where a name only it has --
-// `cutLean`, `parryBite`, `duckSeconds` -- lands. A style's own table is reached through its
-// prefix, `form.standOffFraction`, and never through the bare name, because a style *is* a copy of
-// the executor's table with rows moved and there is no order in which one name could mean both.
+// `cutLean`, `parryBite`, `duckSeconds` -- lands; then the fourth's, which is where `askHz`,
+// `abortCooldown` and `strokeOutOfRange` land and nothing else does, because every other row of
+// that table is a row it inherited. A style's own table is reached through its prefix,
+// `form.standOffFraction` or `driver.strokeSwing`, and never through the bare name, because a
+// style *is* a copy of the executor's table with rows moved and there is no order in which one
+// name could mean both.
 //
 // **`body.` is the one prefix that is not a mind.** It reaches `GOLEM_ASSEMBLY`, which is how a
 // body is built rather than how it is driven -- `body.healthScale` and `body.vitalityTotal` are
@@ -574,7 +579,7 @@ parentPort.on("message", (message) => {
 // deliberately not a bare name: every other row here changes what a mind decides, and these
 // change what it is deciding *about*, which is not the same kind of row and should not answer to
 // the same kind of name.
-const STYLE_TABLES = { form: FORM, skirmisher: SKIRMISHER, guardian: GUARDIAN, brawler: BRAWLER };
+const STYLE_TABLES = { form: FORM, skirmisher: SKIRMISHER, guardian: GUARDIAN, brawler: BRAWLER, driver: DRIVER };
 if (workerData?.overrides) {
   for (const [name, value] of Object.entries(workerData.overrides)) {
     const dot = name.indexOf(".");
@@ -592,7 +597,8 @@ if (workerData?.overrides) {
     else if (name in GOLEM_PLANNER) GOLEM_PLANNER[name] = value;
     else if (name in GOLEM_TACTICS_V2) GOLEM_TACTICS_V2[name] = value;
     else if (name in GOLEM_TACTICS_V3) GOLEM_TACTICS_V3[name] = value;
-    else throw new Error(`--override ${name}: not a row of GOLEM_TACTICS_V2, GOLEM_TACTICS_V3 or GOLEM_PLANNER`);
+    else if (name in GOLEM_TACTICS_V4) GOLEM_TACTICS_V4[name] = value;
+    else throw new Error(`--override ${name}: not a row of GOLEM_TACTICS_V2, GOLEM_TACTICS_V3, GOLEM_TACTICS_V4 or GOLEM_PLANNER`);
   }
 }
 

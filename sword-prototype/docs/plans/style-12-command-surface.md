@@ -1,6 +1,24 @@
 # Session 12 -- the continuous command surface, and an executor that can be interrupted
 
-**Status (2026-09-07): planned. Needs 11.**
+**Status (2026-09-08): landed.** `../../src/golem/tactics-v4.ts` takes a vector -- nine clamped
+numbers and three gates -- asked at 12 Hz plus v3's three events, and `../../src/golem/styles/driver.ts`
+is `golem-form` transcribed onto it and registered as `golem-driver`. The gate's bar is answered on
+both pools: the paired margin over the style it was transcribed from is **-0.0069 +- 0.0811** on
+random pairs (d -0.013, points 0.504 +- 0.048) and **-0.0218 +- 0.0262** mirrored (d -0.125), each
+containing zero and each smaller than the d 0.089 that separates the fencer from form -- a gap that
+changes sign between the two pools. The transcription is held by a test that compares both
+executors command for command through a whole exchange: **142 frames, seven channels, exact**. It
+found four defects, none of them visible in a bout -- an arc mix that was inexact at swing 1.0, the
+arc half selected from the clock rather than from the stance, the mark and the aim computed one
+step *before* the ask that wrote them, and two of v3's range gates missing from the mind (a ram's
+stand-off, and the point offered from a weapon with no point). All twelve refusal counters read
+zero over 1,418 s of fighting on 52 bodies. The one behavioural difference the columns can see is
+the abort: the driver is asked 14.52 times a second against form's 5.20, because v3's executor owns
+an exchange once it starts, and it takes back **41.7 % of its strokes against form's 23.5 %** --
+free over both pools, and worth -0.174 +- 0.134 (d -0.600) on a long one-handed mace, the one body
+with a spare hand and a stroke worth 1.21 damage. Four of the nine numbers are ever moved: this
+mind never marks off the trunk axis and commits at swing 1.000 in 1,452 of 1,452 gates. See the
+Session 12 entry of `../measurements.md`.
 
 ## Outcome
 
@@ -26,7 +44,7 @@ that. Session 10's flat league is what that costs, measured.
 
 - **v3 does not move.** `../../src/golem/tactics-v3.ts` and the four styles over it keep fighting
   in every run unchanged, and stay the named baseline. The new executor is
-  src/golem/tactics-v4.ts, for the reason v3 was a new file: the style tables, the style model
+  `../../src/golem/tactics-v4.ts`, for the reason v3 was a new file: the style tables, the style model
   and the learner's layout are all keyed to fifteen options and would be refused on load.
 - **The rate is 12 Hz, and the number is measured rather than preferred.** Three timescales in
   the body converge on about twenty asks a second and none of them supports more: the phase read
@@ -53,12 +71,12 @@ that. Session 10's flat league is what that costs, measured.
 
 ## Implement
 
-1. src/golem/tactics-v4.ts: `StyleCommand`, `golemDriven(seed, T, pilot)`, the clamping and the
+1. `../../src/golem/tactics-v4.ts`: `StyleCommand`, `golemDriven(seed, T, pilot)`, the clamping and the
    refusal counters, `driveStroke` re-entered from a parameterised shape, the abort path.
-2. src/golem/pilot.ts: `Pilot = (reading, view) => StyleCommand`, the 12 Hz cadence and the
+2. `../../src/golem/pilot.ts`: `Pilot = (reading, view) => StyleCommand`, the 12 Hz cadence and the
    event asks, and `PILOT_FEATURES_VERSION` over `StyleReading`.
-3. src/golem/styles/driver.ts and its registration, as every style registers.
-4. Tests in tests/tactics-v4.test.mjs: every command inside the envelope over a synthetic bout;
+3. `../../src/golem/styles/driver.ts` and its registration, as every style registers.
+4. Tests in `../../tests/tactics-v4.test.mjs`: every command inside the envelope over a synthetic bout;
    an abort mid-chamber and mid-commit leaves the arm in a legal pose and charges the cooldown;
    the ask cadence is 12 Hz plus the events and not one ask more; a stroke driven at `bite` 1.0
    reproduces v3's arc to the digit; determinism under a seed.

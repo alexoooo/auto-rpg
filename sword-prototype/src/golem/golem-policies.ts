@@ -13,10 +13,12 @@ import { FORM, formDirector, golemForm } from "./styles/form.ts";
 import { BRAWLER, brawlerDirector, golemBrawler } from "./styles/brawler.ts";
 import { GUARDIAN, guardianDirector, golemGuardian } from "./styles/guardian.ts";
 import { SKIRMISHER, golemSkirmisher, skirmisherDirector } from "./styles/skirmisher.ts";
+import { golemDriver } from "./styles/driver.ts";
 import {
   exploringDirector, golemStyled, watchedDirector,
   type GolemStyled, type StyleAskHook, type StyleDirector,
 } from "./tactics-v3.ts";
+import type { GolemDriven } from "./tactics-v4.ts";
 
 /**
  * The golem's entry in the policy picker.
@@ -301,6 +303,26 @@ export function golemLearnerMind(seed = (Math.random() * 0x100000000) >>> 0): Mi
   };
 }
 
+/**
+ * The thirteenth golem mind, and the first one over the fourth executor: `golem-driver`.
+ * Session 12 of the style set.
+ *
+ * `golem-form` re-expressed as numbers -- the same five rules in the same order, writing a
+ * stand-off, a strafe, a lean, a target and an arc twelve times a second instead of naming one of
+ * fifteen options. It publishes neither `fencer` nor `styled`, and that is the honest answer
+ * rather than an omission: the exchange logger reads an *option in force*, and this mind has none
+ * to read -- what it has is a command, which is `driven` and is logged by the pilot's own hook.
+ * Same seed argument, same reasons.
+ */
+export function golemDriverMind(seed = (Math.random() * 0x100000000) >>> 0): Mind & { driven: GolemDriven } {
+  const driven = golemDriver(seed);
+  return {
+    name: "golem-driver",
+    driven,
+    decide: (view, dt): Intent => driven.decide(view, dt),
+  };
+}
+
 export const GOLEM_CANDIDATES: Readonly<Record<string, (seed: number) => Mind>> = Object.freeze({
   "golem-duelist": golemDuelistMind,
   "golem-fencer": golemFencerMind,
@@ -313,6 +335,7 @@ export const GOLEM_CANDIDATES: Readonly<Record<string, (seed: number) => Mind>> 
   "golem-brawler": golemBrawlerMind,
   "golem-tactician": golemTacticianMind,
   "golem-learner": golemLearnerMind,
+  "golem-driver": golemDriverMind,
 });
 
 /**

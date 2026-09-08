@@ -16867,3 +16867,220 @@ override reaches the assembly exactly as editing the two rows does, which is wha
   away in a week.
 - **Nobody has watched any of this.** By the owner's instruction of 2026-09-07 the set's one gate
   is Session 14's, and this entry asks for nothing.
+
+## Session 12 of the style set — 2026-09-08: a command that is a vector, and the four defects only a hundred and forty-two frames could find
+
+Session 11 closed on the finding that the vocabulary is the binding constraint, and said so with a
+number: the paired criterion resolves `zeros` at d 0.70 and `passive` at 0.47 and two hand-coded
+minds at 0.235, because fifteen frozen option bundles asked six times a second cannot express
+*when*. This session replaces the vocabulary. `src/golem/tactics-v4.ts` takes a **vector** — nine
+clamped numbers and three gates, asked at 12 Hz and on the same three events v3 is asked on — and
+`src/golem/styles/driver.ts` is `golem-form` written out again as numbers, so that the surface can
+be measured against the one thing it has to be able to say.
+
+Nothing here is watched. By the owner's instruction of 2026-09-07 the set's one gate is Session
+14's, and what this session owes is the plan's line: *"the mechanical answer that the driver is not
+worse than the style it was transcribed from."*
+
+### The answer
+
+Session 11's criterion, unchanged: the paired bar margin, one **pairing** being the same matchup
+twice with the corners and the seeds swapped, and Cohen's d on it. 1,024 bouts a pool, `--cross
+--random 40 --cap 60 --seed 20260906`, the post-Session-11 settings, three minds, 171 pairings a
+cell.
+
+| pool | cell | n | bar margin, first over second | d | points |
+| --- | --- | ---: | ---: | ---: | ---: |
+| mirrored | driver over **form** | 171 | **−0.0218 ± 0.0262** | **−0.125** | 0.481 ± 0.037 |
+| mirrored | driver over fencer | 171 | −0.0301 ± 0.0310 | −0.145 | 0.458 ± 0.034 |
+| mirrored | fencer over form | 170 | +0.0186 ± 0.0313 | +0.089 | 0.544 ± 0.038 |
+| random | driver over **form** | 171 | **−0.0069 ± 0.0811** | **−0.013** | 0.504 ± 0.048 |
+| random | driver over fencer | 171 | −0.0400 ± 0.0771 | −0.078 | 0.477 ± 0.046 |
+| random | fencer over form | 170 | −0.0369 ± 0.0881 | −0.063 | 0.491 ± 0.051 |
+
+Intervals are ± 1.96 standard errors of the paired mean. **The gate is answered: on both pools the
+driver's margin over the style it was transcribed from contains zero, and on random pairs — the
+pool the matchup screen actually draws from — the point estimate is a third of a percent of a bar
+and the points are 0.504.** Mirrored, it is a whisker behind, at a d smaller than the one the
+fencer and form separate by.
+
+The last row is the scale to read the rest against: **fencer over form changes sign between the two
+pools**, +0.089 mirrored and −0.063 random. Two minds that have been in this set since Session 03
+and Session 00 do not agree with themselves at |d| 0.09 across a change of pool, which is what a
+difference of this size is worth.
+
+The unpaired tables agree and are worth writing down for the columns beside them.
+
+| pool | policy | elo | w/d/l | damage/bout | winner bar | severs | p50 s |
+| --- | --- | ---: | --- | ---: | ---: | ---: | ---: |
+| mirrored, 414 of 1024 decided | golem-fencer | 1038 | 166/409/107 | 28.4 | 0.368 | 88 | 60.0 |
+| | golem-form | 996 | 132/401/149 | 28.7 | 0.369 | 64 | 60.0 |
+| | golem-driver | 966 | 116/410/158 | 27.1 | 0.304 | 46 | 60.0 |
+| random, 493 of 1024 decided | golem-form | 1027 | 168/349/165 | 23.8 | 0.743 | 78 | 60.0 |
+| | golem-driver | 991 | 153/365/166 | 21.5 | 0.718 | 88 | 60.0 |
+| | golem-fencer | 982 | 172/348/162 | 23.2 | 0.782 | 92 | 60.0 |
+
+| pool | policy | strokes | blows | dmg/stroke | v@blow | caught% | catches | commit% | clinch s | idle m | tangent m | stall s |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| mirrored | golem-fencer | 75.9 | 4.63 | 0.77 | 4.6 | 43.7 % | 32.6 | 53.9 % | 1.2 | 3.1 | 30.5 | 1.4 |
+| | golem-form | 76.3 | 4.35 | 0.84 | 4.9 | 42.6 % | 35.2 | 56.6 % | 0.9 | 1.7 | 23.2 | 3.3 |
+| | golem-driver | 74.3 | 4.57 | 0.77 | 4.7 | 44.2 % | 32.9 | **61.9 %** | 1.0 | 1.7 | 23.2 | 3.2 |
+| random | golem-form | 62.9 | 6.25 | 0.83 | 4.7 | 44.4 % | 27.1 | 58.8 % | 1.1 | 0.6 | 21.0 | 1.9 |
+| | golem-driver | 58.8 | 6.84 | 0.71 | 4.5 | 44.5 % | 26.5 | 58.6 % | 1.7 | 0.8 | 21.3 | 2.5 |
+| | golem-fencer | 63.6 | 5.85 | 0.76 | 4.7 | 42.6 % | 25.7 | 51.9 % | 1.2 | 1.9 | 27.2 | 1.7 |
+
+The driver's structural columns are form's, not the fencer's, which is the transcription showing:
+the same idle travel to the tenth of a metre, the same tangential travel to the tenth, the same
+stall, against a fencer that wastes twice the distance. What it does not share is `commit%`
+mirrored — 61.9 % against form's 56.6 % — and damage a stroke, 0.77 against 0.84. It leans into
+more of its strokes and gets less out of each. The rest of this entry is why.
+
+### The four defects a hundred and forty-two frames found
+
+The transcription is only worth what the test of it is worth, so the test is the strongest one
+available: **a swing of 1.0 at the driver's gates must reproduce v3's committed cut command for
+command**. `tests/tactics-v4.test.mjs` records both executors through one whole exchange on the
+same body under the same seed and compares seven channels — `pointerX`, `pointerY`, `reach`,
+`roll`, `wristBend`, `thrust`, `guard` — frame by frame. It agrees on 142 frames and asserts the
+spans are equal, so a stroke that is a frame long or a frame short fails too.
+
+Four things had to be fixed before it did. None of them is visible in a bout, and three of them
+were in the new executor:
+
+| what it did | what it does | how it showed |
+| --- | --- | --- |
+| interpolated the arc as `a + s(b − a)` | `(1 − s)a + sb`, which is exact at both ends | swing 1.0 gave `−0.20000000000000007` where v3 gives `−0.2` |
+| picked the half of the arc from the clock, `run < chamberSeconds` | takes the phase as an argument, because v3 picks it from the stance and transitions *after* writing | frame 77 of 142, `pointerX` off by 0.0099 |
+| wrote the mark, the aim and the crouch **before** the ask | writes them after, from the command the ask just returned | frame 0, `pointerY` off by 0.3666 rad — the first stroke frame used the neutral target height 0.5 |
+| offered the point stroke wherever it offered the cut, and floored a headfirst body's stand-off at their reach | v3's two gates: a point only inside `strike` and only from a weapon with one; a ram's hold has no `theirReach` term | the `ram-capped` body never charged, and a maul-armed one thrust |
+
+The third is the one the file was written twice to avoid and got wrong anyway, and it is worth
+naming as a class: **on a surface where the mind writes and the executor reads, every quantity has
+a step at which it is read, and a quantity read one step early is a quantity from the last
+decision.** The bug is not that the mark was wrong; it is that the mark was *last ask's*, and last
+ask's mark is a perfectly plausible mark, so nothing but a frame-exact comparison finds it.
+
+Seven mutations were each applied on its own, the file run, and the source restored, so the test's
+header table says what it actually catches rather than what it was hoped to. One mutation that was
+tried and is **not** in the table is swapping the commit gate ahead of the abort gate: it changes
+nothing, because the two branches are already exclusive by stance. That row was removed rather than
+left as a claim nobody had checked.
+
+Two more things were removed for the same reason. `PILOT_POLICY_TABLES` in
+`src/golem/golem-policies.ts` was exported with a doc claiming the tournament worker keys
+`--override` off it; nothing read it, and the worker uses its own `STYLE_TABLES` map. And
+`docs/deleted-paths.md` had been failing `tests/docs.test.mjs` since Session 11 renamed two plan
+files without regenerating it.
+
+### The census: what the driver actually writes
+
+Over 32 real bouts against `golem-form`, 1,418 s of fighting on the same 52-build pool, seed
+20260906, every command the pilot returned recorded at the ask (`.review/driver-census.mjs`, and
+`.review/form-census.mjs` for the row it is compared to):
+
+| | mean | p50 | range used | clamped to |
+| --- | ---: | ---: | --- | --- |
+| `standOff` | 1.627 | 1.060 | 0.602 … 3.000 | 0.2 … 3.0 |
+| `strafe` | 0.024 | 0.000 | −0.900 … 0.900 | −1 … 1 |
+| `lean` | 0.211 | 0.000 | −0.250 … 0.600 | −1 … 1 |
+| `advance` | 0.335 | 0.000 | −0.800 … 1.000 | −1 … 1 |
+| `targetHeight` | 0.666 | 0.661 | 0.529 … 0.850 | 0 … 1 |
+| `targetLateral` | 0.000 | 0.000 | 0.000 … 0.000 | −1 … 1 |
+| `reach` | 0.510 | 0.700 | 0.100 … 0.700 | 0 … 1 |
+| `swing` | 1.000 | 1.000 | 0.000 … 1.000 | 0 … 1 |
+| `bite` | 0.660 | 0.660 | 0.000 … 0.660 | 0 … 1 |
+| `commit` | 0.071 | 0 | gate | |
+| `abort` | 0.021 | 0 | gate | |
+| `parry` | 0.043 | 0 | gate | |
+
+**All twelve refusal counters are zero.** No command this mind wrote over 1,418 s of fighting was
+outside its declared range, on any of the 52 bodies — which is what the envelope test asserts over
+7 builds × 42 places × 3 heights and this asserts in the arena.
+
+The ask rate is **14.52 a second, of which 27.9 % are events** — the 12 Hz cadence plus their phase
+turning, my exchange ending and a parry releasing, and the events displace a due ask rather than
+adding to it. `golem-form` on the same pool is asked **5.20 a second**, because v3's executor owns
+an exchange once it starts and does not ask inside one. That ratio is the architectural change
+stated as a number: **the driver is asked about three times as often, and the extra asks are all
+inside strokes that v3 could not have interrupted.**
+
+Two columns say the transcription is narrower than the surface. `targetLateral` is 0.000 at every
+ask — this mind marks the trunk and nothing else — and `swing` at a raised commit gate averages
+**0.999 over 1,452 gates**, so the head-point branch fires perhaps twice a run. `golem-form`'s own
+option census over the same 32 bouts agrees to the count: 993 `cut`, 135 `feint`, and **2**
+`thrust`. Neither mind uses the point. Nine numbers are available and this mind moves four of them,
+which is the honest reading of what a transcription of a fifteen-option style can be.
+
+### The abort is the whole of the difference, and it is nearly free
+
+| | driver, 52 builds | form, 52 builds | driver, club/long | form, club/long |
+| --- | ---: | ---: | ---: | ---: |
+| asks a second | 14.52 | 5.20 | 16.73 | 5.39 |
+| strokes a bout | 32.3 | 35.3 | 24.1 | 25.0 |
+| **strokes taken back** | **41.7 %** | **23.5 %** | **48.5 %** | **21.2 %** |
+
+Form's 23.5 % is 135 feints plus 130 parries out of 352 abort asks; every one of those asks is
+mid-**chamber**, because `chamberAbort` is the only place v3 offers one. The driver's 41.7 % is the
+same feint roll plus an abort raised at *any* stance, the commit included. It takes back nearly
+twice as many strokes as the style it copies, and that is not a defect — it is the one thing the
+plan built the surface for, and it is the only behavioural difference between these two minds that
+the columns can see.
+
+**Over both pools it costs nothing.** Random pairs: d −0.013. Mirrored: d −0.125, inside its own
+interval. Where it does cost is one build class, and the class is the one where a stroke is worth
+the most.
+
+Mirrored, driver over form, split by the body both sides are standing in (the mirrored pool is the
+only one where this split means anything — in the random pool each cell's opponent mix is a
+different draw, and the same `club/long` cell there reads +0.41 ± 0.27):
+
+| class | n | bar margin | d | points | decided |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| **club/long** | 18 | **−0.1744 ± 0.1344** | **−0.600** | 0.361 ± 0.207 | 100 % |
+| club/mid | 5 | +0.0053 ± 0.0061 | +0.754 | 0.500 | 0 % |
+| empty/mid | 7 | +0.0422 ± 0.0708 | +0.441 | 0.500 | 0 % |
+| empty/short | 19 | −0.0147 ± 0.0457 | −0.144 | 0.487 ± 0.026 | 3 % |
+| paired-club/long | 27 | +0.0117 ± 0.0843 | +0.052 | 0.444 ± 0.121 | 100 % |
+| shield/mid | 4 | +0.0486 ± 0.0495 | +0.961 | 0.500 | 0 % |
+| shield/short | 28 | +0.0011 ± 0.0104 | +0.038 | 0.500 | 0 % |
+| sword/long | 37 | −0.0284 ± 0.0690 | −0.133 | 0.527 ± 0.102 | 68 % |
+| sword/mid | 11 | −0.0102 ± 0.0128 | −0.473 | 0.500 | 0 % |
+| whip/long | 15 | −0.0007 ± 0.0144 | −0.026 | 0.500 | 0 % |
+| all | 171 | −0.0218 ± 0.0262 | −0.125 | 0.481 ± 0.037 | — |
+
+One cell of ten is outside its interval, which under the null is about what one expects from ten;
+but this one has a mechanism, and the mechanism is measured. A one-handed mace at long reach is the
+build with the **spare hand and the expensive stroke**: form gets 1.21 damage a stroke out of it
+where a sword gets 0.49, and having a spare hand means the driver's `parryOnCommit` branch is live.
+The census on those seven builds reads `parry` at 0.094 mean against 0.043 over the pool — more
+than double — and 48.5 % of strokes taken back against 21.2 %. Form abandons a mace cut only if it
+has not begun; the driver abandons one that is already swinging, and a mace cut already swinging is
+the most valuable thing on the field. Its damage a stroke falls 1.21 → 1.05, its contact speed 6.5
+→ 6.1, and 56.3 % of what it does land is caught on a hand slot against form's 51.3 %.
+
+**No line is changed for this.** The mid-commit abort is the surface's whole reason for existing;
+what the number says is that using it at a fixed 15 % feint roll and an unconditional parry rule —
+which is all a transcription of a fifteen-option style can do — is worth about zero, and worth
+−0.17 of a bar on the one body where a stroke is expensive. *When* to take a stroke back is exactly
+the decision Session 13 exists to learn, and this is the first measurement that says it is a
+decision at all rather than a reflex.
+
+### What this session did not settle
+
+- **The surface is proven expressive, not proven better.** The gate asked whether a transcription
+  is not worse than its original, and the answer is that it is not. Nothing here shows that a
+  vector beats fifteen names; the whole case for it is that `targetLateral`, a swing between the
+  two arcs, a stand-off that moves and an abort timed on purpose are all now *sayable*, and none of
+  them is said by this mind. That is Session 13's to demonstrate or fail to.
+- **Nine numbers, four moved.** `targetLateral` is flat at zero, `swing` is 1.000 at all but a
+  handful of gates, `bite` takes one value, `reach` two. A learned policy that also uses four of
+  nine will have learned the same style by another route, and the census is the column that would
+  catch it.
+- **The `club/long` cell is a fixed rule meeting an expensive stroke, and no rule was tuned.**
+  `feintFraction` and `parryOnCommit` were left at form's values on purpose, because moving them
+  would have made the driver something other than a transcription and the gate unanswerable.
+- **A quarter of the pool still decides nothing**, unchanged from Session 11: mirrored, six of the
+  ten build classes above decide 0–3 % of their bouts, and the two pools disagree about the
+  fencer's rank because of it. Session 11's `vitalityTotal` work moved the number it could; the
+  rest is a fact about weapons and reach.
+- **Nobody has watched any of this.** The set's one gate is Session 14's.
