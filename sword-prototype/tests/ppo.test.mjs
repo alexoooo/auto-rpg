@@ -15,7 +15,9 @@
 // no physics, no opponent and no credit assignment over time, so a failure is a failure of this
 // file's code and of nothing else.
 //
-// **Seven mutations were watched red on 2026-09-08**, each applied alone and then restored:
+// **Ten mutations were watched red on 2026-09-08**, each applied alone and then restored. The
+// last three are Session 14's, added when the calibration made the reward table, the opponent and
+// the pool into knobs:
 //
 // | mutation in `scripts/train-ppo.mjs` | what went red |
 // |---|---|
@@ -26,6 +28,9 @@
 // | `mergeRollouts` reads the outcome as `winner === "left"` rather than as the pack's own side | the outcome test |
 // | `extendNormalisation` averages the two variances instead of composing them | the normalisation test |
 // | the trust region never fires, so a fit always runs every epoch | the target-KL test and the bandit |
+// | `mergeRollouts` ignores its table and always pays `GOLEM_REWARD` | the swept-table test |
+// | `rolloutPairs` returns one ordered pair against a named opponent instead of both | the corner test |
+// | `poolFor` filters on the *primary* terminal rather than the armed one | the pool test |
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -44,9 +49,10 @@ import { policyMind } from "../src/mind.ts";
 import { policyForUnit } from "../src/units.ts";
 import { mulberry32 } from "../src/rng.ts";
 import {
-  advantages, cohensD, explainedVariance, extendNormalisation, mergeRollouts, ppoFit,
-  renderPolicyModule, surrogateGrad, surrogateObjective,
+  advantages, cohensD, explainedVariance, extendNormalisation, mergeRollouts, poolFor, ppoFit,
+  renderPolicyModule, rolloutPairs, surrogateGrad, surrogateObjective,
 } from "../scripts/train-ppo.mjs";
+import { armedTerminal, buildPool } from "../scripts/tournament.mjs";
 
 const SEED = 20260913;
 
@@ -282,6 +288,89 @@ test("a_rollout_pays_the_win_term_to_the_side_that_won_and_charges_the_other", (
   assert.deepEqual(Array.from(merged.done), [0, 1, 0, 1, 0, 1]);
   assert.deepEqual(Array.from(merged.logp), [-1, -2, -1, -2, -1, -2],
     "the packs' log-probabilities were not laid end to end");
+});
+
+/**
+ * A swept table pays the same collected bouts differently, and the charge is reported apart.
+ *
+ * Session 14's calibration is a sweep over four coefficients that had been argued and never
+ * moved, and the only reason it can be a flag rather than a rebuild is that the reward is
+ * applied here, in the main thread, to packs that carry `dealt`, `taken`, `seconds`, `clinch`
+ * and `idle` raw. This pins that: one pack, three tables, three answers -- and `penalty`
+ * counting the clock alongside the two older charges, so a run under a non-zero `tick` reports
+ * the share its shaping actually took.
+ */
+test("a_rollout_pays_the_table_it_is_given_and_reports_every_charge_in_it", () => {
+  const raw = pack("left", "left", [0.1, 0.2]);
+  raw.clinch = Float64Array.from([1, 0]);
+  raw.idle = Float64Array.from([0, 2]);
+  raw.seconds = Float64Array.from([0.5, 0.25]);
+
+  const bare = mergeRollouts([raw], { win: 0, clinch: 0, idle: 0, tick: 0 });
+  assert.ok(Math.abs(bare.reward[0] - 0.1) < 1e-12, `${bare.reward[0]}`);
+  assert.ok(Math.abs(bare.reward[1] - 0.2) < 1e-12, "the win term was paid by a table that is all zeros");
+  for (const i of [0, 1]) assert.equal(bare.penalty[i], 0);
+
+  // The same two asks under a table with every row non-zero, each term checked on its own ask.
+  const T = { win: 2, clinch: 0.01, idle: 0.02, tick: 0.008 };
+  const full = mergeRollouts([raw], T);
+  assert.ok(Math.abs(full.reward[0] - (0.1 - 0.01 - 0.008 * 0.5)) < 1e-12, `${full.reward[0]}`);
+  assert.ok(Math.abs(full.reward[1] - (0.2 - 0.04 - 0.008 * 0.25 + 2)) < 1e-12, `${full.reward[1]}`);
+  // `penalty` is what the three charges took and never the win, which is the outcome and not shaping.
+  assert.ok(Math.abs(full.penalty[0] - (0.01 + 0.008 * 0.5)) < 1e-12, `${full.penalty[0]}`);
+  assert.ok(Math.abs(full.penalty[1] - (0.04 + 0.008 * 0.25)) < 1e-12,
+    `the win term was counted as a penalty: ${full.penalty[1]}`);
+
+  // No table at all is the shipped table, so every caller that does not care reads as it did.
+  const shipped = mergeRollouts([raw]);
+  assert.ok(Math.abs(shipped.reward[1] - (0.2 - 2 * GOLEM_REWARD.idle + GOLEM_REWARD.win)) < 1e-12,
+    `${shipped.reward[1]}`);
+});
+
+/**
+ * Against a named opponent the fit is collected from both corners, and against itself from one.
+ *
+ * A pairing draws its build before `scheduleJobs` swaps the sides, so the swap balances the
+ * corners within a pairing and not across the pool: an odd cycle would put the fit on the left
+ * for the first draw, the right for the second, and -- since the cycle length divides the
+ * schedule -- in a fixed corner for every *repeat* of a body. Two pairs make the cycle even.
+ */
+test("a_rollout_against_an_opponent_is_collected_from_both_corners", () => {
+  assert.deepEqual(rolloutPairs("fit", null), [["fit", "fit"]]);
+  const pairs = rolloutPairs("fit", "golem-driver");
+  assert.equal(pairs.length, 2, "the fit sat in one corner of every pairing");
+  assert.deepEqual(pairs, [["fit", "golem-driver"], ["golem-driver", "fit"]]);
+  for (const corner of [0, 1]) {
+    assert.equal(pairs.filter((pair) => pair[corner] === "fit").length, 1);
+  }
+});
+
+/**
+ * The decisive-pool filter keeps the weapon and not the hand it happens to be in.
+ *
+ * A build with a capped primary fights with its secondary, and `armedTerminal` is the function
+ * that knows it -- `buildClass` and the whole rating table are keyed through it. A filter that
+ * read `primary.terminal` instead would silently drop every capped-primary maul from a run whose
+ * whole point is that mauls are the bodies that can finish, and nothing downstream would say so.
+ */
+test("the_decisive_pool_keeps_the_armed_hand_and_not_the_primary", () => {
+  const seed = 20260906;
+  const whole = poolFor({ seed, random: 40 });
+  assert.deepEqual(whole.map((b) => b.name), buildPool({ seed, random: 40 }).map((b) => b.name),
+    "an empty terminal list is not the whole pool");
+
+  const heavy = poolFor({ seed, random: 40, terminals: ["maul", "mace"] });
+  assert.ok(heavy.length > 0 && heavy.length < whole.length, `${heavy.length} of ${whole.length}`);
+  for (const build of heavy) {
+    assert.ok(["maul", "mace"].includes(armedTerminal(build.setup)), build.caption);
+  }
+  // Every maul and mace in the whole pool is in it, capped primaries included.
+  const wanted = whole.filter((b) => ["maul", "mace"].includes(armedTerminal(b.setup)));
+  assert.deepEqual(heavy.map((b) => b.name), wanted.map((b) => b.name));
+  assert.ok(wanted.some((b) => b.setup.primary.terminal === "none"),
+    "the fixture has no capped-primary build, so this test cannot see the defect it is for");
+
+  assert.throws(() => poolFor({ seed, random: 0, terminals: ["trebuchet"] }), /no build in the pool/);
 });
 
 /**

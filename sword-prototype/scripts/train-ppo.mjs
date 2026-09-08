@@ -5,7 +5,9 @@
 //        [--entropy 0.003] [--rate 1e-4] [--value-rate 1e-3] [--sigma-rate 10x rate]
 //        [--epochs 4] [--batch 4096] [--target-kl 0.03]
 //        [--sigma-floor -3] [--sigma-roof 0.5] [--evaluate 5] [--eval-bouts 96]
-//        [--final-bouts 4x eval] [--value-hidden 64,64]
+//        [--final-bouts 4x eval] [--value-hidden 64,64] [--opponent golem-driver]
+//        [--terminals maul,mace]
+//        [--reward-win 0.5] [--reward-clinch 0.004] [--reward-idle 0.004] [--reward-tick 0]
 //        [--out src/golem/policy-weights.ts] [--log tournaments/ppo-....jsonl] [--resume f.json]
 //
 // **What is fitted.** Nine numbers and three gates a twelfth of a second, straight onto the fourth
@@ -26,16 +28,24 @@
 // strategy that could not move a confident imitation. This is about two hundred and fifty rewards
 // a side a bout instead of one.
 //
-// **Self-play, mirrored.** Both sides of every bout are the same weights on the same body, so a
-// bout is a fair test of the mind and *both* sides are data. The opposition therefore improves
-// exactly as fast as the policy does, which is the property Session 14's league exists to make
-// use of and which this session only has to not break: no fixed opponent to overfit, and no pool
-// of past selves yet either.
+// **Self-play, mirrored, and it is `--opponent` that turns it off.** Both sides of every bout are
+// the same weights on the same body, so a bout is a fair test of the mind and *both* sides are
+// data, and the opposition improves exactly as fast as the policy does. Session 14's calibration
+// found what that costs, and it is not small: see the next paragraph, and the entry in
+// `docs/measurements.md`. `--opponent <policy>` puts a fixed mind on the other side instead, in
+// both corners, with only the fit's own sides recorded -- half the samples a bout, and a mean
+// return that is not zero by construction.
 //
-// **The self-play return is not the progress curve, and cannot be.** Both sides of a mirrored bout
-// are recorded, and one side's bar margin is the other's negated exactly, so the mean return over
-// an iteration is zero up to the two penalties whatever the policy has learned. Anybody reading a
-// flat line there and concluding the fit had stalled would be reading an identity. The curve this
+// **The self-play return is not the progress curve, and cannot be -- and that is not only a
+// reporting problem.** Both sides of a mirrored bout are recorded, and one side's bar margin is
+// the other's negated exactly, so the mean return over an iteration is zero up to the two
+// penalties whatever the policy has learned. Anybody reading a flat line there and concluding the
+// fit had stalled would be reading an identity. Worse, the identity says *which terms a mirrored
+// fit can optimise in the mean at all*: the margin and `win` are both antisymmetric and cancel,
+// so the only two that survive are `clinch` and `idle`, and both of those are charges for
+// engaging. Session 13's fit found the equilibrium that permits -- standing at 2.27 times its
+// opponent's reach and swinging at nothing -- and Session 14's calibration is the measurement of
+// it. `--opponent` and the four `--reward-*` flags exist because of that finding. The curve this
 // session is written on is therefore the *rating*: the paired bar margin against the uniform
 // baseline over the same bodies and seeds, taken every `--evaluate` iterations *and at iteration
 // zero*, which is the same number the session's bar is stated in and is the only one that can move.
@@ -60,7 +70,17 @@
 // function's explained variance, the KL between the collecting policy and the fitted one, the
 // fraction of samples whose ratio was clipped, the entropy, and each `logSigma`. A KL that runs
 // away, an entropy that collapses, or a penalty that came to dominate the return is a run to stop
-// -- the last of those is `reward.ts`'s own instruction and this is where it is checked.
+// -- the last of those is `reward.ts`'s own instruction and this is where it is checked. The
+// penalty share counts every *charge* in the table, the clock included, and never `win`.
+//
+// **The four reward coefficients are flags, and a swept table may not ship.** They can be flags
+// only because `mergeRollouts` applies the table in the main thread, over packs that carry the
+// raw `dealt`, `taken`, `seconds`, `clinch` and `idle`, so the same collected bouts pay
+// differently under a different table and no worker has to be rebuilt. `--out` refuses a fit paid
+// under anything but `GOLEM_REWARD`, because `renderPolicyModule` writes the shipped table's
+// *name* into the generated module: a module saying `reward: GOLEM_REWARD` over weights fitted to
+// something else would be a lie with nothing in the tree able to catch it. Read the checkpoint
+// instead, or move the table in `src/golem/reward.ts` first.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { dirname, resolve } from "node:path";
@@ -75,7 +95,7 @@ import {
 } from "../src/golem/policy.ts";
 import { GOLEM_REWARD, stepReward } from "../src/golem/reward.ts";
 import { mulberry32 } from "../src/rng.ts";
-import { buildPool, runJobs, scheduleJobs } from "./tournament.mjs";
+import { armedTerminal, buildPool, runJobs, scheduleJobs } from "./tournament.mjs";
 import { columnsOf, meanOf, semOf } from "./train-learner.mjs";
 import { evaluate } from "./tune.mjs";
 
@@ -87,6 +107,9 @@ export const UNIFORM_NAME = "uniform";
 export const PPO_LEAGUE = Object.freeze([
   "golem-driver", "golem-form", "golem-brawler", "golem-duelist", "golem-fencer",
 ]);
+
+/** The reward table's four rows, so a run can say whether the table it paid is the shipped one. */
+const REWARD_KEYS = Object.freeze(["win", "clinch", "idle", "tick"]);
 
 const round5 = (x) => Math.round(x * 1e5) / 1e5;
 const round4 = (x) => Math.round(x * 1e4) / 1e4;
@@ -100,8 +123,14 @@ const round4 = (x) => Math.round(x * 1e4) / 1e4;
  * action it drew, the log-probability that draw actually had, and the four numbers the reward is
  * made of. `done` marks the last ask of a side, which is the only episode boundary there is --
  * see `advantages` for why this arena has no other kind.
+ *
+ * **The reward is applied here and not in the worker**, which is why a table can be swept at all:
+ * a pack carries `dealt`, `taken`, `seconds`, `clinch` and `idle` raw, so the same collected
+ * bouts would pay differently under a different table and the four coefficients are a flag rather
+ * than a rebuild. `reward` defaults to the shipped table so every caller that does not care reads
+ * as it did before.
  */
-export function mergeRollouts(parts) {
+export function mergeRollouts(parts, reward = GOLEM_REWARD) {
   let count = 0;
   for (const part of parts) count += part.logp.length;
   const width = PILOT_FEATURE_COUNT;
@@ -111,7 +140,13 @@ export function mergeRollouts(parts) {
     a: new Float64Array(count * ACTION_WIDTH),
     logp: new Float64Array(count),
     reward: new Float64Array(count),
-    /** What the two shaping terms took out of that reward, so a run can report their share. */
+    /**
+     * What the shaping charges took out of that reward, so a run can report their share.
+     *
+     * The three that are *charges* and not the outcome: clinch, idle travel and the clock. `win`
+     * is left in, because it is paid on the outcome and a share that counted it would say a run
+     * was dominated by shaping when what it was dominated by was winning.
+     */
     penalty: new Float64Array(count),
     seconds: new Float64Array(count),
     done: new Uint8Array(count),
@@ -137,8 +172,9 @@ export function mergeRollouts(parts) {
         dealt: part.dealt[i], taken: part.taken[i], seconds: part.seconds[i],
         clinchSeconds: part.clinch[i], idleMetres: part.idle[i], done, outcome,
       };
-      out.reward[at + i] = stepReward(w);
-      out.penalty[at + i] = stepReward({ ...w, clinchSeconds: 0, idleMetres: 0 }) - out.reward[at + i];
+      out.reward[at + i] = stepReward(w, reward);
+      const unshaped = stepReward({ ...w, clinchSeconds: 0, idleMetres: 0, seconds: 0 }, reward);
+      out.penalty[at + i] = unshaped - out.reward[at + i];
     }
     at += n;
   }
@@ -481,14 +517,71 @@ export function ppoFit(rollout, {
 // ------------------------------------------------------------------------------ the collection
 
 /**
- * One iteration's rollouts: mirrored self-play, both sides recorded, drawn rather than greedy.
+ * The pool an iteration collects on, optionally narrowed to the weapons that can finish a bout.
+ *
+ * **A body that cannot kill inside the cap contributes no signal, and worse than none.** Session
+ * 14's calibration put every build against a mirrored idle opponent: seven maul builds finish all
+ * twenty-eight of their bouts under `golem-driver`, thirteen blade builds finish 2 % of theirs,
+ * and everything else finishes none. On a body in that second group every action in the episode
+ * has the same return, so the advantage over it is the critic's residual -- and `ppoFit`
+ * normalises advantages across the whole batch, which scales that residual up to stand beside
+ * the real signal from the bodies that *can* decide. Thirty-eight of fifty-two draws are in the
+ * second group, so an unfiltered rollout is mostly amplified noise.
+ *
+ * `terminals` is a list of armed terminals to keep, matched by `armedTerminal` on the build's
+ * setup, so it names a weapon class and not a draw index and survives a change of seed. Empty is
+ * the whole pool, which is what every run before this flag did.
+ */
+export function poolFor({ seed, random, terminals = [] }) {
+  const pool = buildPool({ seed, random });
+  if (terminals.length === 0) return pool;
+  const kept = pool.filter((build) => terminals.includes(armedTerminal(build.setup)));
+  if (kept.length === 0) throw new Error(`no build in the pool is armed with ${terminals.join(" or ")}`);
+  return kept;
+}
+
+/**
+ * The ordered policy pairs an iteration's schedule cycles through.
+ *
+ * Self-play is the one pair of the fit against itself. Against a named opponent it is *two*
+ * pairs, the fit on the left and the fit on the right, so that the corner it is collected from
+ * alternates down the schedule. `scheduleJobs` runs every pairing twice with the sides swapped
+ * anyway, which balances the corners within a pairing; this balances them across the *bodies*,
+ * because a pairing draws its build before it is swapped and an odd cycle would put the fit in
+ * one corner for every draw of the pool.
+ */
+export function rolloutPairs(name, opponent) {
+  return opponent === null ? [[name, name]] : [[name, opponent], [opponent, name]];
+}
+
+/**
+ * One iteration's rollouts: mirrored bouts, drawn rather than greedy, the fit's sides recorded.
  *
  * `mirror` puts one build on both sides of a pairing, so what differs across a bout is the two
- * streams and nothing else; and because the two sides are the same weights, both packs are data
- * about the same policy and a bout is worth twice what it would be against a fixed opponent.
+ * streams and nothing else; and in self-play, because the two sides are the same weights, both
+ * packs are data about the same policy and a bout is worth twice what it would be against a
+ * fixed opponent.
+ *
+ * ## Why an opponent is a parameter, and what self-play alone cannot pay for
+ *
+ * `opponent` names the mind on the other side; null is self-play and is what Session 13 ran.
+ * It is a parameter because of an identity that session recorded and this one measured the cost
+ * of: **in a mirrored self-play bout the two sides' bar margins are exactly negated**, so every
+ * antisymmetric term of the reward -- the margin itself, and the win bonus -- sums to zero over
+ * the rollout whatever the policy does. Session 13's fit found the equilibrium that identity
+ * allows. On the default blade body against a motionless opponent it stands off at 2.27 of 3,
+ * aims 0.78 to the side, leans and steps *back*, and swings 56 times a bout at 40 m/s into
+ * empty air: 0 contacts, 0 damage, both bars still full at the cap. Nothing in a symmetric
+ * reward is against that, because the only terms whose mean over both sides is not zero were
+ * two penalties that both charge for engaging.
+ *
+ * Naming an opponent breaks the identity: the mean return becomes the thing the fit is actually
+ * asked for, which is beating somebody. Only the fit's own sides are recorded, so a bout is
+ * worth half what a self-play bout is worth in samples and considerably more in signal.
  */
 export async function collectRollouts({
   pool, weights, logSigma, norm, seed, bouts, workers, cap, name = FIT_NAME, onProgress = null,
+  reward = GOLEM_REWARD, opponent = null,
 }) {
   const contenders = {
     [name]: {
@@ -498,8 +591,9 @@ export async function collectRollouts({
     },
   };
   const jobs = scheduleJobs({
-    pool, policies: [name], pairings: Math.max(1, Math.ceil(bouts / 2)), seed, cap,
-    mirror: true, contenders, pairs: [[name, name]],
+    pool, policies: opponent === null ? [name] : [name, opponent],
+    pairings: Math.max(1, Math.ceil(bouts / 2)), seed, cap, mirror: true, contenders,
+    pairs: rolloutPairs(name, opponent),
   });
   const rows = await runJobs(jobs, { workers, contenders, record: [name], onProgress });
   const parts = [];
@@ -516,7 +610,7 @@ export async function collectRollouts({
       margin += pack.margin;
     }
   }
-  const rollout = mergeRollouts(parts);
+  const rollout = mergeRollouts(parts, reward);
   rollout.bouts = rows.length;
   rollout.decided = rows.length === 0 ? 0 : decided / rows.length;
   rollout.margin = parts.length === 0 ? 0 : margin / parts.length;
@@ -685,6 +779,19 @@ if (isMain) {
   const epochs = Math.max(1, Number(flag("epochs", 4)));
   const batch = Math.max(1, Number(flag("batch", 4096)));
   const targetKl = Math.max(0, Number(flag("target-kl", 0.03)));
+  // **The reward table is a knob, and until this flag it was four numbers nobody had swept.**
+  // `src/golem/reward.ts` argues each of them and the argument is a good one, but an argued
+  // coefficient is still a guess; what ships is `GOLEM_REWARD` and what a run may try is this.
+  // A run that moves them logs them in its header, and a run that fits weights to a table other
+  // than the shipped one may not write a module -- the generated header would name `GOLEM_REWARD`
+  // and be a lie about what paid for those weights.
+  const reward = Object.freeze({
+    win: Number(flag("reward-win", GOLEM_REWARD.win)),
+    clinch: Number(flag("reward-clinch", GOLEM_REWARD.clinch)),
+    idle: Number(flag("reward-idle", GOLEM_REWARD.idle)),
+    tick: Number(flag("reward-tick", GOLEM_REWARD.tick)),
+  });
+  const shippedReward = REWARD_KEYS.every((k) => reward[k] === GOLEM_REWARD[k]);
   const sigmaFloor = Number(flag("sigma-floor", -3));
   const sigmaRoof = Number(flag("sigma-roof", 0.5));
   const every = Math.max(0, Number(flag("evaluate", 5)));
@@ -697,6 +804,11 @@ if (isMain) {
     .split(",").map((s) => Math.max(1, Number(s.trim()))).filter((n) => Number.isFinite(n));
   const valueLayout = Object.freeze({ ...VALUE_LAYOUT, hidden: Object.freeze(valueHidden) });
   const league = flag("league", PPO_LEAGUE.join(",")).split(",").map((s) => s.trim()).filter(Boolean);
+  // Null is Session 13's mirrored self-play; a policy name is a fixed sparring partner, which is
+  // the one arrangement in which the mean return is not zero by construction.
+  const opponent = flag("opponent", null);
+  // A weapon class rather than a build list, for the reason `poolFor` gives.
+  const terminals = flag("terminals", "").split(",").map((t) => t.trim()).filter(Boolean);
   const resumeFrom = flag("resume", null);
   const write = flag("out", null);
   const stamp = new Date().toISOString().replace(/[-:]/g, "").slice(0, 13);
@@ -736,10 +848,10 @@ if (isMain) {
 
   log({
     type: "header", seed, date, version: POLICY_VERSION, features: PILOT_FEATURES_VERSION,
-    layout: POLICY_LAYOUT, valueLayout, reward: GOLEM_REWARD, league,
+    layout: POLICY_LAYOUT, valueLayout, reward, league,
     iterations, bouts, cap, random, workers, halfLife, lambda, clip, entropy, rate, valueRate,
     sigmaRate, epochs, batch, targetKl, sigmaFloor, sigmaRoof,
-    evaluate: every, evalBouts, finalBouts, resumeFrom,
+    evaluate: every, evalBouts, finalBouts, resumeFrom, opponent, terminals,
   });
   console.log(`ppo: seed ${seed}, ${iterations} iterations of ${bouts} mirrored bouts, `
     + `${netSize(POLICY_LAYOUT)} actor weights, ${workers} workers`);
@@ -790,10 +902,10 @@ if (isMain) {
 
   for (let iteration = startAt; iteration <= iterations; iteration += 1) {
     const started = Date.now();
-    const pool = buildPool({ seed: (seed ^ iteration) >>> 0, random });
+    const pool = poolFor({ seed: (seed ^ iteration) >>> 0, random, terminals });
     const rollout = await collectRollouts({
       pool, weights, logSigma, norm, seed: (seed + iteration * 7919) >>> 0, bouts, workers, cap,
-      onProgress: progress(`iteration ${iteration}`),
+      reward, opponent, onProgress: progress(`iteration ${iteration}`),
     });
     const collected = (Date.now() - started) / 1000;
     if (rollout.count === 0) throw new Error("an iteration collected no asks at all");
@@ -848,7 +960,7 @@ if (isMain) {
   if (rated !== null) for (const name of rated.names) if (name !== FIT_NAME) baselines[name] = rated.results[name].score;
   const table = policyTable(weights, logSigma, {
     seed, date, iterations, bouts: totalBouts, steps: totalSteps,
-    halfLife, lambda, clip, entropy, reward: GOLEM_REWARD,
+    halfLife, lambda, clip, entropy, reward,
     normalisation: {
       count: norm.count, mean: Array.from(norm.mean, round5), variance: Array.from(norm.variance, round5),
     },
@@ -856,6 +968,10 @@ if (isMain) {
   });
   log({ type: "weights", table: { ...table, weights: [] } });
   const text = renderPolicyModule(table);
+  if (write !== null && !shippedReward) {
+    throw new Error(`--out refuses a fit paid under ${JSON.stringify(reward)}, which is not GOLEM_REWARD; `
+      + "move the table in src/golem/reward.ts first, or read the checkpoint instead");
+  }
   if (write !== null) {
     writeFileSync(resolve(write), text);
     console.log(`  wrote ${write} (${(text.length / 1024).toFixed(1)} KB)`);

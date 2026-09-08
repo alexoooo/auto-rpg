@@ -1623,6 +1623,76 @@ charged terms go up over sixty iterations is a table whose coefficients were arg
 swept, and the artifact ships that table in its header so the next fit can be told apart from this
 one.
 
+### What a mirrored self-play reward can and cannot pay for
+
+Session 14's calibration, which is the first thing that asked the fitted mind to finish something.
+
+Put a golem against **itself** with one side on `idle` — a body that never moves, never blocks and
+never strikes back — and a bout asks one question with nothing in it but that one. Over 52 builds
+at four bouts each, `golem-driver` kills that dummy 46 times, a flat random command 11, and the
+fitted mind 9 — the fit is **less able to finish a stationary opponent than the uniform baseline it
+was rated against**, and it deals less damage than that baseline on every weapon class there is.
+Rolled up by the weapon in the armed hand the answer is sharper still: seven maul builds, and the
+driver finishes all twenty-eight of their bouts, leaving the dummy at 0.087 of its bar in a mean 21
+s; fourteen blade builds, and it finishes 2 % of them, because a blade deals 13.3 damage in 60 s
+where a maul deals 64.3, against a bar that costs somewhere between 55 and 80 damage to empty
+depending on where the damage lands. **Some layouts are decisive and it is the weapon that decides
+which** — the driver's blade leaves the `default` dummy at 0.626 of its bar after 60 s, which at
+that rate is about 160 s to finish, so a blade bout inside a 60 s cap is a draw before either mind
+has done anything wrong.
+
+What the fitted mind does on the bodies that *can* finish is the part that is about the reward. On
+the default blade body against that motionless opponent it holds station at **2.27 times its
+opponent's reach** (`hold = them.reach * command.standOff`, and the axis roof of 3 is out past
+their reach on purpose), leans back, steps back, aims four-fifths of the way to one side, and
+raises the commit gate on 99.5 % of asks — 56 strokes a bout, zero aborts, peak driven tip speed
+40.7 m/s, **0 contacts and 0.0 damage** across two full-length bouts. It is not a mind that will
+not commit. It is a mind that has learned to shadow-box out of range.
+
+The reward permitted that, and the reason is the identity the section above treats as a reporting
+problem. In a mirrored bout the two sides' bar margins are exactly negated, so the margin term sums
+to zero over the rollout; `win` is paid to one side and charged to the other, so it sums to zero
+too. **The only terms whose mean over both sides is not zero by construction are `clinch` and
+`idle` — and both are charges, and both charge for engaging.** The symmetric part of the reward,
+which is the only part a mirrored fit can move in the mean, is therefore maximised at exactly zero,
+by a policy that never enters their reach and never travels sideways; and swinging at air is free,
+because nothing in the table pays for a stroke. `src/golem/reward.ts` names this exact failure as
+the one it was watching for — *"a policy paid to stop clinching can stop clinching by standing at
+the far wall"* — and made both charges small to prevent it. Small was not the protection it needed:
+in mirrored self-play, small and *the only thing that averages* beats large and cancelling.
+
+Two knobs follow from that, both in `scripts/train-ppo.mjs`. The four reward coefficients became
+flags, which is possible only because `mergeRollouts` applies the table in the main thread over
+packs that carry `dealt`, `taken`, `seconds`, `clinch` and `idle` raw — so the same collected bouts
+pay differently under a different table and no worker has to know; `--out` refuses a fit paid under
+anything but `GOLEM_REWARD`, because the generated module names the shipped table and would
+otherwise be a lie nobody could catch. And `--opponent` puts a fixed mind on the other side instead
+of a copy of the fit, in both corners, which is the one arrangement in which the mean return is not
+zero by construction. The second is also the one-opponent case of what Session 14's league needs.
+
+The calibration also found a defect that is a coordinate rather than a reward, and it is the
+shorter half of the explanation. `commandFromAction` maps a normalised axis onto its published
+range by the range's midpoint, and `COMMAND_RANGES.standOff` is `[0, 3]`, so the zero of that axis
+— what a head with no signal emits, and what a flat draw averages to — is **1.5 times the
+opponent's reach**. A stroke opens at `max(reach * strikeFraction, near + slack)` with
+`strikeFraction` 0.92, so a blow in a mirror needs the socket inside about 0.92 of a reach; and the
+closing axis cannot make the difference up, because the feet settle at `hold − advance / closeGain`
+and `closeGain` is 1.8, so a *saturated* `advance` buys 0.56 m, which is 0.31 of a golem's 1.78 m
+arm. **From the zero of the action space, with the closing axis pinned at its maximum, a body
+stands at 1.19 of the opponent's reach and cannot touch them.** The roof of 3 is argued in
+`tactics-v4.ts` as out past any fight on purpose; the measurement says the *midpoint* of that range
+is already out of it, which puts the cost of the roof's generosity at the zero and not at the edge.
+
+Two readings of one set of weights follow from that, and they are not the same fighter.
+`golemPolicy`'s `sample` defaults false, so **the shipped `golem-policy` plays the head's mean
+command** — and the mean is standing at 2.27 of their reach. Drawn instead at the spread the head
+carries, the same weights kill the idle dummy 31 times in 208 rather than 9: three times the
+uniform baseline and two thirds of `golem-driver`'s 46. The mind has learned to strike and has not
+learned to stand where striking works, and shipping its mean is shipping the half of it that
+cannot reach. Narrowing the range changes what every number in `src/golem/policy-weights.ts` means
+and so needs a `POLICY_VERSION` bump and a refit; that and the choice of read are both Session
+14's, recorded here with their numbers so the choice is not made again by default.
+
 ## Dying, which is not the same as losing
 
 `over` not stopping the world was the right call about the *bout* and, for a long time, it

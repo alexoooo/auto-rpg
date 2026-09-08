@@ -17474,3 +17474,409 @@ census, so none of this is the executor clamping a command that could not be obe
   the one that runs overnight, and a run that dies at hour three with no stack above the engine
   frame is a thing to have read about before rather than after.
 - **Nobody has watched any of this.** The set's one gate is Session 14's.
+
+## Session 14 of the style set, calibration — 2026-09-08: the mind that learned to stand at 2.27 times their reach
+
+Session 13 shipped a fitted mind that missed its bar by 0.4 of a standard error and rose all the
+way to iteration 60, and recommended going on. Reading its structural table afterwards turned up
+one column that did not fit that story: the fit decides **28.5 %** of its bouts where
+`golem-driver` decides 39.1 % and *uniform random commands* decide 35.8 %. A mind less decisive
+than noise is not a mind three-quarters of the way to something, and Session 14 opens with the
+owner's condition on it:
+
+> if we're not able to have a winner in a fight — or at least a winner against a mirrored idle
+> opponent with a body that has a weapon — then there's no point in running that overnight.
+
+That sentence is a measurement, and it had never been taken. This section takes it.
+
+### The instrument: a body against itself, one side switched off
+
+`.review/idle-probe.mjs` plays every build in `buildPool({ seed: 20260906, random: 40 })` against
+**itself**, one side driven and the other on the `idle` policy, four bouts a build at the 60 s cap.
+The opponent never moves, never blocks, never steps away and never strikes back, so a bout asks one
+question with nothing else in it: on this body, can this mind finish something that is standing
+still? A layout that cannot decide here cannot decide anything; a mind that cannot decide here is
+not the body's fault.
+
+Four minds over the same 208 bouts, rolled up by `armedTerminal` — the hand a build actually
+fights with, which is its primary unless the primary is capped, and the same function the rating
+tables have been keyed by since Session 04. `golem-driver` is Session 12's hand-coded reference;
+`uniform` is the flat command draw the fit was rated against; and Session 13's fit appears twice,
+because there are two ways to read one set of weights and they are not the same fighter. **Greedy**
+is the head's mean command, which is what `golem-policy` ships (`golemPolicy`'s `sample` defaults
+false). **Drawn** is the same weights sampled at the same spread, which is what a rollout plays.
+
+| armed terminal | builds | driver always | driver | damage | greedy | damage | drawn | damage | uniform | damage |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| maul | 7 | **7 of 7** | **100 %** | 64.3 | 32 % | 26.3 | 57 % | 37.9 | 18 % | 34.8 |
+| mace | 8 | 3 of 8 | 53 % | 27.9 | 0 % | 4.7 | 28 % | 16.5 | 9 % | 7.2 |
+| blade | 14 | 0 of 14 | 2 % | 13.3 | 0 % | 0.5 | 11 % | 3.9 | 5 % | 4.8 |
+| plate | 9 | 0 of 9 | 0 % | 6.1 | 0 % | 0.5 | 0 % | 2.1 | 0 % | 10.7 |
+| fist | 8 | 0 of 8 | 0 % | 4.7 | 0 % | 0.4 | 0 % | 2.1 | 0 % | 9.3 |
+| whip | 4 | 0 of 4 | 0 % | 1.7 | 0 % | 0.7 | 0 % | 4.5 | 0 % | 2.1 |
+| none | 2 | 0 of 2 | 0 % | 0.3 | 0 % | 0.0 | 0 % | 0.0 | 0 % | 0.7 |
+
+Whole-pool totals: `golem-driver` kills the dummy in **46 of 208** bouts, the fit drawn in **31**,
+`uniform` in **11**, and the fit greedy — the shipped mind — in **9**. The dummy's remaining bar
+is the same story a decimal place quieter and is left out of the table for width: 0.087 under the
+driver's maul, 0.333 under the drawn fit's, 0.536 under uniform's, 0.563 under the greedy fit's.
+
+**The answer to the owner's condition is yes, and it is the maul that gives it.** Seven maul
+builds, four bouts each, twenty-eight kills out of twenty-eight for the driver, the dummy left at
+0.087 of its bar in a mean 21 s. That is a reliably decisive layout class; it is named by a
+property of the build rather than by a draw index, so it survives a change of seed.
+
+**The second answer is that the shipped read of the fit is the wrong read of it.** The greedy mind
+— the one that ships — is beaten by noise: a uniform command draw kills the dummy more often than
+it does and out-damages it on **every one of the seven weapon classes**, 34.8 against 26.3 on the
+maul, 4.8 against 0.5 on the blade, 10.7 against 0.5 on the plate. The same weights *drawn* kill 31
+times, three times uniform and two thirds of the driver, and out-damage uniform everywhere except
+the two classes that cannot fight at all. The mean of the distribution is worse than a coin and the
+distribution is three times better than one, which is a sentence about where the mean is standing
+and not about what the mind knows: **it has learned to strike and has not learned to stand where
+striking works.** Session 13 rated the greedy read at d +0.216 over that same uniform baseline on
+the paired bar margin, and that rating was not wrong; what it measured was a mind better at *not
+losing bar* than a random command, which against a mirrored copy of itself is the whole of the
+margin. Asked instead to take a bar off something that cannot resist, the mean is worse than the
+coin and the draw is not.
+
+**It also answers the half of the question the owner said was open** — *"we don't really know if
+it is due to bad body shape or bad AI yet"*. It is both, and the two separate cleanly by weapon:
+
+- **The body.** Fourteen blade builds, and the best hand-coded mind in the set finishes 2 % of
+  them. A blade deals 13.3 damage in 60 s where a maul deals 64.3, against a bar that costs between
+  55 and 80 damage to empty depending on where the damage lands. The driver's blade leaves the
+  `default` dummy at 0.626 after 60 s, which at that rate is about **160 s** to finish — what its
+  maul does in 21. The cap is not why a blade cannot finish; it is why a blade bout is a draw
+  *inside this harness*, and no mind fixes that.
+- **The mind.** On the one class where finishing is easy the fit's mean turns 100 % into 32 % and
+  the mace's 53 % into 0 %; its draw recovers those to 57 % and 28 %, which is most of the way back
+  and still not the driver. The bodies are the same bodies and the dummy is the same dummy.
+
+### What the fitted mind is actually doing, which is not what its self-play census suggested
+
+Session 13's census watched the fit against `golem-driver` and reported 76.2 strokes a bout with
+89.9 % of them aborted, which reads as a mind that will not commit. Against a motionless opponent
+on the `default` blade body, `.review/idle-census.mjs` over two full-length bouts says something
+else entirely. This is the greedy read — the head's mean command, one number an axis, no draw —
+which is the mind that ships and the one the row above kills nine times with:
+
+| axis | mean | sd | median | range |
+| --- | ---: | ---: | ---: | --- |
+| `standOff` | **2.271** | 0.402 | 2.309 | [1.218, 3.000] |
+| `advance` | −0.175 | 0.242 | −0.201 | [−0.607, 0.615] |
+| `lean` | −0.498 | 0.301 | −0.472 | [−1.000, 0.852] |
+| `targetLateral` | **0.783** | 0.278 | 0.904 | [−0.540, 1.000] |
+| `commit` | **0.995** | 0.069 | 1.000 | [0, 1] |
+| `abort` | **0.000** | 0.000 | 0.000 | [0, 0] |
+
+1,469 asks at 12.24 a second, **56 strokes a bout and zero aborts**, all twelve refusal counters at
+zero, peak driven tip speed **40.7 m/s** — and **0 contacts and 0.0 damage** across 120 s of
+fighting, both bars still full at the cap.
+
+`hold = them.reach * command.standOff` in `src/golem/tactics-v4.ts`, whose axis roof of 3 is
+documented there as being out past their reach on purpose. **The fitted mind has learned to hold
+station at 2.27 times its opponent's reach, lean back, step back, aim four-fifths of the way to one
+side, and swing as hard as the arm will go, 56 times a bout, at nothing.** It is not refusing to
+commit; it commits on 99.5 % of asks. It is shadow-boxing, deliberately, out of range.
+
+The two censuses are consistent once that is seen. Against `golem-driver` the *opponent* closes, so
+strokes begin inside a range the fit did not choose and the abort gate fires on nine of ten of
+them; against something that never comes, nothing ever gets close enough to abort.
+
+It also says exactly why the draw outfights the mean. The spread on that axis is `exp(logSigma[0])`
+0.553 of a normalised axis, which is 0.83 of a stand-off, so a drawn command reaches inside the
+opponent's reach on a tail the mean never visits — and a command is drawn twelve times a second,
+so a 60 s bout takes about seven hundred of them and spends a real fraction of itself in range. The
+mean stands at 2.27 and lands nothing; the same weights sampled around that mean land 31 kills.
+
+### Why the reward permitted it, which is the finding worth keeping
+
+Session 13 recorded the self-play return identity as a reporting problem — both sides of a
+mirrored bout have exactly negated bar margins, so the mean return is zero whatever the policy
+learns and the progress curve has to be a periodic rating instead. It is not only a reporting
+problem. It is a statement about which terms of the reward can be optimised at all.
+
+`GOLEM_REWARD` has four rows. The margin is antisymmetric between the two sides and sums to zero
+over a mirrored rollout. `win` is antisymmetric too, paid to one side and charged to the other, and
+sums to zero. **The only terms whose mean over both sides is not zero by construction are `clinch`
+and `idle` — and both are charges, and both are charges for engaging.** `clinch` bills a second
+spent inside their reach with nothing landing; `idle` bills a metre of sideways travel while
+nothing lands.
+
+So the symmetric part of the reward — the only part a mirrored self-play fit can move in the mean
+— is maximised at exactly zero, by a policy that never enters their reach and never travels
+sideways. Standing at 2.27 times their reach scores zero on both charges, and zero is the best
+symmetric score on offer. Everything else the fit does is free: swinging at air costs nothing,
+because `stepReward` has no term for a stroke.
+
+`src/golem/reward.ts` argued each coefficient and the arguments are good ones. It also names this
+exact failure as the one it was watching for — *"a policy paid to stop clinching can stop
+clinching by standing at the far wall, which scores well on every column here and is not a
+fighter"* — and made both charges small to prevent it. Small was not the protection it needed. In
+mirrored self-play, small and *the only thing that averages* beats large and cancelling.
+
+The trainer's own log shows the identity directly. Resumed from Session 13's checkpoint at
+iteration 61 with all three charges zeroed and every other setting held, the reported return is
+**exactly `0`** for five consecutive iterations, and so is the reported margin — not small and not
+noisy, but the arithmetic zero of a rollout in which every remaining term cancels between the
+sides. Its outcome size over those five iterations is 0.235, 0.179, 0.108, 0.281, 0.147, so the
+bouts were not empty; there was simply nothing in the mean for a gradient to hold on to.
+
+### Three knobs the trainer did not have
+
+All three are in `scripts/train-ppo.mjs` and all three exist because the sweep below could not be
+run without them. Each is watched by a mutation in `tests/ppo.test.mjs` that was run red before it
+was written down, which is this repository's rule for a knob that changes what a fit is paid.
+
+**`--reward-win`, `--reward-clinch`, `--reward-idle`, `--reward-tick`.** The four coefficients had
+been argued and never moved. The only reason they can be a flag rather than a rebuild is an
+accident of where the reward is applied: `mergeRollouts` runs in the main thread over packs that
+carry `dealt`, `taken`, `seconds`, `clinch` and `idle` raw, so the same collected bouts pay
+differently under a different table and no worker has to know. A run that moves them logs them in
+its header, and `--out` refuses a fit paid under anything but `GOLEM_REWARD`, because
+`renderPolicyModule` writes the shipped table's *name* into the generated module and a module
+saying `reward: GOLEM_REWARD` over weights fitted to something else would be a lie nobody could
+catch. `penalty` now counts the clock alongside the two older charges, so the penalty share a run
+reports is the share its shaping actually took; `win` stays out of it, because a share that counted
+the outcome would call a run shaping-dominated when what dominated it was winning.
+
+**`--opponent`.** Null is Session 13's mirrored self-play. A policy name puts a fixed sparring
+partner on the other side of every mirrored pairing, in both corners, with only the fit's own sides
+recorded — half the samples a self-play bout yields and, for the reason the last section gives,
+the only arrangement in which the mean return is not zero by construction. It is also what Session
+14's league needs anyway: a league is a distribution over opponents, and this is the one-opponent
+case of it.
+
+**`--terminals`.** A comma list of weapon classes, matched against `armedTerminal` and applied to
+`buildPool` before every rollout, refusing a list that leaves the pool empty. It exists because of
+the arm the next section opens with, and it is the difference between an iteration whose episodes
+mostly cannot deal damage and one whose episodes mostly can. The pool is still redrawn every
+iteration from `seed ^ iteration`, so the filter narrows the *class* of body and does not pin the
+bodies themselves.
+
+### A second V8 fatal, in the same place, with a frame the first one did not have
+
+Session 13 recorded one undiagnosed V8 fatal in `stepSupportedLocomotionState` and said it was
+recorded because Session 14 runs overnight. It happened again here, on the very first 208-bout
+`golem-driver` probe, about twenty bouts in, and this time the dump named the builtin:
+
+```
+0: BuiltinExitFrame [builtin: ObjectFreeze] freeze(...)
+1: stepSupportedLocomotionState [src/supported-locomotion-state.ts:249]
+2: beginControlStep [src/supported-locomotion-production.ts:~271]
+```
+
+Line 249 is the last `Object.freeze` of the transition, on a fresh object literal, and the `prior`
+argument in the frame is printed as `<Object deprecated-map = ...>`. `Object.freeze` on a literal
+cannot fail at the JavaScript level, so this is a fatal inside the engine and not a bug the type
+system can see; the plausible readings are a map-deprecation path in V8 and memory pressure from
+the WASM physics beside it, and this session did not chase either. It is not out of memory in the
+ordinary sense — 42 GB of the host's 64 were free at the time.
+
+What matters for the overnight is that a fatal takes the whole process, not one worker, so
+`runJobs` cannot recover from it and neither can a run built on `runJobs`. **The mitigation is
+already the design and now has a reason: `scripts/train-ppo.mjs` writes a checkpoint after every
+iteration and `--resume` restores from it, so a fatal at hour three costs one iteration.** The
+league script inherits that requirement, and the entry for the overnight should say how many times
+it was restarted.
+
+### The sweep, and how four experiments fitted on one desktop
+
+The owner named running several experiments at once as the highest-value optimisation available,
+on the reasoning that the open question is a sweep question and each run needs about one core for
+80 % of its time. That is what this was: **four `scripts/train-ppo.mjs` processes at seven workers
+apiece on the 16C/32T host**, all with `--evaluate 0` so that no core went to a league rating, and
+all but the two started from scratch resumed from Session 13's iteration-60 checkpoint at
+`--entropy 0.0003` (a fresh run keeps the shipped 0.003, because it has nothing to sharpen yet).
+Measured: an iteration costs 150–165 s against a single run's 109 s at thirty workers, and the
+host sat at 82 % with four of them going. **Call it 2.6 times the iterations an hour, for four
+answers instead of one.** The collection share is what pays for it — 65 s of a 155 s iteration at
+seven workers against 23 s of 109 at thirty — and the fit, which is single-threaded and is 80 % of
+a run, does not care how many neighbours it has.
+
+Two arms were replaced in the first fifteen minutes, once the census above had been read, and the
+replacements are the better half of the experiment. The entropy-only control went first: the census
+had already falsified the hypothesis it was there to test, because `commit` sits at a saturated
+0.995 and `abort` at a flat 0.000, which is not a gate being flipped by a wide spread. The
+heavier-`win` arm went second, for the reason the section above gives — `win` is antisymmetric, so
+doubling it in self-play changes nothing about the equilibrium it would have to break. What ran
+instead was the 2x2 that the diagnosis actually asks for, opponent against table:
+
+| arm | opponent | reward table | what it tests |
+| --- | --- | --- | --- |
+| c | itself | `clinch` 0, `idle` 0, `tick` 0.008 | the table alone: is the disengagement charge the whole of it |
+| e | `golem-driver` | shipped | the opponent alone: does breaking the identity do it |
+| f | `golem-driver` | `clinch` 0, `idle` 0, `tick` 0.008 | both |
+| g | `idle` | `clinch` 0, `idle` 0 | the curriculum stage: an opponent with no symmetry at all |
+
+`tick` is the one row of the table that is *symmetric and not a charge for engaging*: both sides
+pay for the clock, so a bout that ends is worth more to both of them than a bout that does not,
+which is the only pressure toward finishing that survives the mirror. Arm g is the owner's own bar
+turned into a training signal — against a motionless opponent nothing is taken, so the return is
+the damage dealt and `decided` is literally the fraction of bouts in which the fit killed the
+dummy, logged free every iteration.
+
+Arms `c`, `e` and `f` are all still fitting on the whole 52-build pool, and the next paragraph is
+why that made three of the four flat. `f` was stopped with `e` once that was understood: they name
+the same opponent and differ only in the clock, and neither was moving.
+
+Arm g answered within three iterations, and its answer was a defect rather than a result. Its
+return fell 0.264 -> 0.151 -> 0.042 while its explained variance *rose*, which is the shape of a
+critic getting better at predicting a return that is going nowhere. The cause is the pool. Thirty
+eight of the fifty two layouts cannot deal damage under any command, so most of an iteration's
+episodes carry a return of very nearly zero with a small spread; advantage normalisation divides
+by the standard deviation of the whole batch, so those episodes contribute pure critic residual at
+full weight and drown the seven maul layouts that carry the signal. The trainer had no way to say
+"fit on the bodies that can fight", so it got one: `--terminals maul,mace` filters the pool through
+`armedTerminal` before the rollout, and refuses a list that leaves the pool empty. The immediate
+effect is visible in one column: an iteration on the whole pool asks 750 to 960 questions a side,
+one on `maul,mace` against a motionless opponent 620 to 700, and one on `maul,mace` against
+`golem-driver` 460 to 640, because a bout that ends does not run to the cap.
+
+With the filter in hand the second generation of arms is the one worth reading. Four ran at a time
+throughout, each on seven workers; an arm that had answered was stopped and its slot reused, so the
+table below is a schedule and not a single batch. Every arm but one resumed Session 13's checkpoint
+at iteration 61, which is what makes the exception interesting.
+
+| arm | from | opponent | pool | table | bouts |
+| --- | --- | --- | --- | --- | ---: |
+| c | run 2 | itself | all 52 | `clinch` 0, `idle` 0, `tick` 0.008 | 32 |
+| e | run 2 | `golem-driver` | all 52 | shipped | 64 |
+| h | run 2 | `idle` | maul, mace | `clinch` 0, `idle` 0 | 64 |
+| j | run 2 | `golem-driver` | maul, mace | `clinch` 0, `idle` 0, `tick` 0.008 | 64 |
+| m | run 2 | `idle` | maul, mace | `clinch` 0, `idle` 0, `tick` 0.004 | 64 |
+| k | **scratch** | `idle` | **maul** | `clinch` 0, `idle` 0, `tick` 0.004 | 64 |
+| **p** | **scratch** | `idle` | maul, mace | `clinch` 0, `idle` 0, `tick` 0.004 | 64 |
+
+`h` and `m` are a controlled pair — same seed, same checkpoint, same pool, same opponent, and the
+clock charge the only difference — and their first iteration is byte-identical in every column
+except the return, which is the charge being applied to a rollout that was already collected.
+`m` and `p` are a second pair, differing only in whether they start from Session 13's weights.
+
+Two of the six were stopped as instruments rather than as results. `j` names `golem-driver` on the
+other side of a `maul,mace` pool, and its `decided` column ran at 83 % and 91 % — which reads like
+a triumph and is the opposite of one, because `decided` counts a bout with a winner and against the
+driver the winner is the driver; the column measures the sparring partner, and its margin was
+negative and falling. `k` is `p` on the maul alone, and seven builds at 64 bouts with the entropy
+bonus at its default 0.003 gave a `decided` sequence of 9, 75, 25, 41, 52, 6, 28, 2 %: a pool that
+small is not a measurement of anything at this bout count.
+
+### Where the zero of the action space stands, which is out of the fight
+
+The drift to 2.27 is a shorter walk than it looks, and the reason is a coordinate rather than a
+reward. `commandFromAction` maps a normalised axis onto its published range by its midpoint:
+`AXIS_CENTRE` is `(low + high) / 2` and `AXIS_HALF` is `(high - low) / 2`.
+`COMMAND_RANGES.standOff` is `[0, 3]`, so the centre of that axis — what a head with no signal
+emits, and what a flat draw averages to — is **1.5 times the opponent's reach**.
+
+A stroke opens at `strike = max(reach * strikeFraction, near + slack)` with `strikeFraction` 0.92,
+so in a mirror a blow needs the socket inside about 0.92 of a reach and the neutral stand-off holds
+it at 1.5. The closing axis cannot make that up. `intent.forward` is `clamp(keepHold + advance)`
+with `keepHold = clamp((gap - hold) * closeGain)` and `closeGain` 1.8, so the gap the feet settle
+at is `hold - advance / closeGain`: a *saturated* `advance` of +1 buys 0.56 m, which on a golem's
+1.78 m arm is 0.31 of a reach. From the zero of the action space, with the closing axis pinned at
+its maximum, a body stands at 1.19 of the opponent's reach and still cannot touch them.
+
+That is the reading behind two rows of the probe table that otherwise look like noise. The uniform
+draw kills eleven of 208 not because a random command is a bad fighter but because the *mean* of a
+random command is a stand-off of 1.5; it lands what it lands on the tail of the draw. And the
+fitted mind did not have to learn to run away — it started 0.5 of a reach outside the fight and
+the reward gave it no reason to come in. Session 13's `standOff` roof of 3 is argued in
+`tactics-v4.ts` as "out of any fight, and a mind that asks for more is asking to leave"; the
+measurement here says the *midpoint* of that range is already out of the fight, which makes the
+roof's generosity a cost paid at the zero rather than at the edge.
+
+It is recorded and not fixed in this session. Narrowing the range moves what every weight in
+`src/golem/policy-weights.ts` means, so the fix is a `POLICY_VERSION` bump and a refit; and the
+sweep below says the refit is not the expensive half of it. An arm started **fresh** reaches the
+same place as an arm resumed from Session 13's checkpoint in about the same number of iterations,
+which is what a stand-off half a reach from the coordinate's own zero should cost to unlearn.
+
+
+### What the sweep said
+
+Two columns are worth reading off an arm and they answer different questions. **`decided`** is the
+owner's bar turned into a per-iteration number — against a motionless opponent nothing is taken,
+so a decided bout is one the fit finished — but it is a fraction of 64 bouts and its standard
+error is six points, so a slope needs many iterations before it means anything. **Outcome size** is
+`episodeReturns`'s `bare`: the mean *absolute* unshaped return an episode, which is how much bar
+moved either way with the shaping charges taken off. It is continuous, it moves earlier, and it is
+the quieter of the two. A run is believed when both agree.
+
+The first four iterations of every resumed arm are a transient and not a trend. A checkpoint
+carries weights, spreads, normalisation and the iteration count and **not the Adam moments**, so a
+resume onto a *changed* objective begins with cold moments and a critic fitted to the old reward.
+Every resumed arm dipped before it climbed.
+
+| arm | its | decided, first 5 | last 5 | slope an iteration | t | outcome size, first 5 | last 5 | t |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| c | 15 | 16.4 % | 14.1 % | −0.39 pp | −0.75 | +0.177 | +0.151 | −0.71 |
+| e | 14 | 32.8 % | 32.8 % | −0.13 pp | −0.23 | +0.343 | +0.320 | −0.76 |
+| **h** | **35** | 32.8 % | **44.9 %** | **+0.49 pp** | **+2.51** | +0.555 | **+0.646** | **+2.01** |
+| **m** | **27** | 30.0 % | **41.8 %** | **+0.66 pp** | **+2.75** | +0.497 | **+0.627** | **+3.01** |
+| **p** | **24** | 28.9 % | **40.6 %** | **+0.73 pp** | **+1.77** | +0.399 | **+0.552** | **+2.10** |
+
+Three readings, in the order they matter.
+
+**Breaking the mirror is necessary and not sufficient.** Arm e names `golem-driver` on the other
+side, which makes the mean return a real quantity, and it is flat over fourteen iterations at
+32.8 % on both ends. Arm c leaves the mirror alone and moves only the table, and it is flat too, at
+14 %. Neither moved because both fit on the whole 52-build pool, where thirty eight layouts cannot
+deal damage under any command; advantage normalisation divides by the standard deviation of the
+whole batch, so those episodes push pure critic residual at full weight against the seven that
+carry the signal. **The opponent and the pool have to move together**, and the three arms that
+moved both are the three that climb.
+
+**The clock is not the lever, and the standing-off prior is not a trap.** Arms h and m are the same
+run with `tick` at 0 and 0.004 and nothing else different; they climb at +0.49 and +0.66 points an
+iteration and end within a standard error of each other. Arm p is arm m started from **scratch**
+rather than from Session 13's checkpoint, and it reaches the same place in about the same number of
+iterations. Whatever the fit had learned about standing at 2.27 reaches, it was not expensive to
+unlearn — which is what the coordinate reading above predicts, because the drift was half a reach
+from a zero that was already outside the fight.
+
+**On the probe, which is the bar rather than the training signal**, every climbing arm improves the
+weapon it trained on and none of them improves the pool total, because none of them trained on the
+pool:
+
+| mind | read | kills of 208 | maul | mace | builds it always kills |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `golem-driver` | — | **46** | **100 %** | 53 % | **10 of 52** |
+| arm m, 27 its | drawn | 31 | 71 % | 22 % | **5 of 52** |
+| arm h, 35 its | drawn | 31 | 68 % | 38 % | 4 of 52 |
+| Session 13 fit | drawn | 31 | 57 % | 28 % | 2 of 52 |
+| arm p, 24 its | drawn | 23 | 68 % | 13 % | 3 of 52 |
+| arm h, 35 its | greedy | 18 | 39 % | 22 % | 1 of 52 |
+| arm m, 27 its | greedy | 15 | 46 % | 6 % | 2 of 52 |
+| `uniform` | — | 11 | 18 % | 9 % | 0 of 52 |
+| Session 13 fit | greedy | 9 | 32 % | 0 % | 1 of 52 |
+
+The last column is the owner's sentence read literally: a build on which the mind killed the idle
+dummy in **all four** of its bouts. Session 13's fit managed two of fifty two and the shipped read
+of it one; twenty-seven iterations against a motionless opponent on the armed half of the pool take
+that to five, and on a maul that mind finishes 71 % of its bouts. `golem-driver` still does it on
+ten. The pool total does not move because the maul and mace gains are paid for on the blade, which
+those arms never saw — an honest cost of the filter and the reason `--terminals` is a knob for a
+calibration and not a setting for the league.
+
+### The answer to the condition, and what the overnight may run
+
+**Yes.** Reliably decisive layouts exist, they are named by a property of the build rather than by
+a draw index, and a mind in the tree finishes them: `golem-driver` kills a mirrored idle dummy on
+**all twenty-eight bouts of all seven maul builds**, and on ten of the fifty two builds in the pool
+it does it every time. A fitted mind clears the bar too, at 71 % of maul bouts and five builds
+always, after twenty-seven iterations of a retuned objective. The overnight is not blocked on the
+arena, and the reason a mirrored self-play fit was not clearing it is now a written identity with a
+number rather than a suspicion.
+
+What the league is allowed to assume, and what it is not:
+
+- **A league of self-play is the same identity again, with more players.** The opponent
+  distribution is not a detail of the league's design; it is the thing the design is for.
+- **Fitting on the whole pool spends most of an iteration on layouts that cannot fight.** The
+  filter is a calibration instrument. The league's answer has to be a weighting or a curriculum,
+  not a filter, because the shipped mind fights every body.
+- **The blade is a body problem and no mind fixes it inside a 60 s cap.** Fourteen of fifty two
+  builds are in that class. Either the cap moves, or the contact rules do, or the league reports
+  the blade as a draw class and says so.
