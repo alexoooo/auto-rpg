@@ -16397,3 +16397,473 @@ than anything else in the run. It replans in 0.19 ms against a 5 ms budget.
 
 Neither mind is made the default by this session; the matchup screen offers both. What the owner
 is asked to watch is in the plan's gate line, and the status line records what they say.
+
+## Session 11 of the style set — 2026-09-08: why a bout does not end, a criterion that fails at both ends, and one hypothesis that was good and wrong
+
+Every session of this set has put the 60 s cap in front of the owner's gate, eight times by the
+overview's count, and Session 08 said what it costs: eight of eleven build classes decide no bout,
+78 % of the mirrored league ends on the clock, seven of nine minds span 0.024 points. This session
+asks why a bout does not end, and what to move. It is first in the owner's programme of 2026-09-07
+for the reason they gave: *"Every downstream sample gets more informative; 500 bouts start saying
+what 5,000 say now. Cheap, and it multiplies everything after it."*
+
+Nothing here is chosen by watching. The owner's instruction is that the current fighting is too
+poor for variations of it to be judged, so every choice below answers to a number stated before
+the run.
+
+### What the body looks like at the last sample
+
+104 mirrored `golem-fencer` bouts over the pool `--random 40` builds — twelve named reference
+builds and forty drawn, 52 in all, two bouts each — seed 20260907, the shipped settings, both
+bodies read part by part at the last sample.
+
+| | |
+| --- | ---: |
+| decided before the cap | 30 of 104 |
+| endings | 74 time, 30 exhausted |
+| mean final vitality | 0.665 |
+| mean final vitality, drawn bouts only | 0.785 |
+| mean bout | 53.7 s; 60.0 over the drawn ones |
+| mean damage dealt a side | 55.1 |
+| injury spent a side, of the 3.600 declared | 0.348 |
+
+**The bar loses about a fifth of itself in a minute.** A bout needs four to five times the
+lethality it has, or four to five times the clock. It is a rate problem and not a conversion
+problem: what lands converts fine, there is not enough of it.
+
+Where the injury goes, over 208 sides:
+
+| segment | weight | share of the bar | spent | share of the spend | spent / weight |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| legs | 1.500 | 41.7 % | 0.026 | 7.5 % | 0.017 |
+| trunk | 0.636 | 17.7 % | 0.054 | 15.5 % | 0.085 |
+| primary | 0.626 | 17.4 % | 0.122 | 35.1 % | 0.195 |
+| head | 0.493 | 13.7 % | 0.104 | 29.9 % | 0.212 |
+| secondary | 0.346 | 9.6 % | 0.042 | 12.0 % | 0.121 |
+
+57.9 % of the weight is on parts that took any injury at all in that bout, and 93.7 % on part keys
+that took some in at least one of the 208 sides. `left.golem.trunk.waist` was touched
+in 0 of 104 sides and `right.golem.trunk.waist` in 1, and forty-four part keys average above 0.99
+of their health over the whole run — both feet and both shins of the biped, eight of the walker's
+femurs and most of its pads and shins, the shield plates, the socket caps, and the waist itself.
+`locomotion` **is** a target slot in `src/golem/tactics-v2.ts`,
+but `targetByHealth` is off in every table but the brawler's, so every stroke goes to the trunk
+mark at shoulder height and the legs are below the swing plane.
+
+### `healthScale` was calibrated before the rules it is now measured under
+
+Its own table in `src/golem/config.ts` chose 0.25 against **93.8 damage a bout over 29.0
+seconds, 16 of 16 decided**. The diagnostic above measures **55.1 over 53.7**, about a 3.2-fold fall
+in rate. Session 01's one claim per part per stroke is where it went: the number was not wrong
+when it was chosen, and the fight underneath it moved.
+
+### The criterion, and why it is not a judgement
+
+The response is the **bar margin across a gap of known width** — two minds that ought to differ —
+and the criterion is Cohen's d on it: the mean over the standard deviation, per pair. One **pair**
+is that matchup twice with the corners swapped, on one body and one seed; the pair is the unit,
+because the corner a body stands in decides more of a single bout than the mind in it does and
+only the swap cancels that.
+
+d is the right functional for three reasons and none of them is taste. Bouts needed to see a
+difference go as 1/d², which is exactly the owner's *"500 bouts start saying what 5,000 say now"*.
+It falls when a bout never ends, because the numerator collapses. And it falls when a bout is
+decided by one blow, because which body swings first is then a coin flip — the numerator collapses
+and the denominator does not. **A criterion that fails at both ends is one it is safe to
+maximise.** Guard columns are read beside it and never optimised: the fraction of bouts decided
+before the cap, the winner's own remaining bar, and — added once the sweep ran — how much
+dismemberment survives.
+
+### The first finding, before any lever moved
+
+`golem-form` played greedily against `golem-form` at explore 1.0, a uniform draw from whatever is
+open, which is the flail itself. 256 pairs, seed 20260907, the shipped settings:
+
+| | |
+| --- | ---: |
+| bar margin, greedy − uniform | +0.0171 |
+| d on the bar margin | 0.150 |
+| **points a bout, greedy** | **0.501** |
+| **d on points** | **0.005** |
+
+**Playing a style greedily wins no more bouts than drawing its options out of a hat.** On points
+the director is worth nothing whatever — 0.501 against a hat, an effect size of five thousandths —
+and only the finer bar margin sees it at all. That is the owner's *"mostly the golems get into
+each other's face and flail around"* as a number, and it is the strongest evidence on record that
+the objective and not the mind is what has been broken.
+
+One caveat governs every d below. **d is a noisy statistic at these sample sizes and its level
+depends on which forty builds are drawn into the pool**, and the draw comes from the run's seed.
+This same gap at these same settings reads **0.210** on 128 pairs of seed 20260907's pool,
+**0.150** on 256 pairs of it, and **0.316** on 128 pairs of seed 20260908's; a bootstrap 95 % at 128
+pairs is about ±0.15 wide either way. Half of any pool cannot finish a bout at all and which half
+it is moves the ratio. So every comparison in this entry is made *within* one run — one pool, one
+seed, one set of pairs, before against after — and no two d's from different runs are subtracted.
+
+### Screening pass: one lever at a time, 128 pairs, seed 20260907, the uniform gap
+
+| setting | d | bar margin | points | decided | winner's bar | decided under 8 s |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| control — `healthScale` 0.25, `vitalityTotal` 3.6 | 0.210 | +0.0237 ± 0.0100 | 0.492 | 30 % | 0.510 | 0 % |
+| `healthScale` 0.15 | 0.254 | +0.0352 ± 0.0122 | 0.523 | 40 % | 0.502 | 2 % |
+| `healthScale` 0.10 | 0.289 | +0.0484 ± 0.0148 | 0.521 | 51 % | 0.501 | 7 % |
+| `healthScale` 0.06 | 0.200 | +0.0467 ± 0.0206 | 0.527 | 59 % | 0.570 | 18 % |
+| `vitalityTotal` 5.4 | 0.252 | +0.0320 ± 0.0112 | 0.502 | 33 % | 0.328 | 0 % |
+| `vitalityTotal` 7.2 | 0.368 | +0.0468 ± 0.0112 | 0.543 | 39 % | 0.273 | 0 % |
+| leg weight × 0.25 | 0.130 | +0.0173 ± 0.0117 | 0.506 | 32 % | 0.368 | 0 % |
+| leg weight × 0 | 0.128 | +0.0170 ± 0.0117 | 0.496 | 33 % | 0.319 | 0 % |
+| `healthScale` 0.10 + leg weight × 0.25 | 0.174 | +0.0340 ± 0.0173 | 0.523 | 52 % | 0.410 | 7 % |
+
+**This pass ranked the cells and the ranking did not survive.** `vitalityTotal` 7.2 reads as the
+clear winner at 0.368 here and measures 0.219 on the cross below, at 256 pairs on the same gap.
+128 pairs puts a bootstrap interval of about ±0.17 on d, which is wider than the whole spread of
+the table, so nothing in this pass separates any cell from any other and it is kept only as the
+screen it was: it says which levers are worth a cross, not which value of one to take. The mistake
+is written down because it was made — the 0.368 was read as a finding before the interval was
+computed.
+
+**The one thing it did settle is the legs.** The diagnostic's headline — 41.7 % of the bar on
+parts absorbing 7.5 % of the injury — invites the inference that the bar is diluted by weight
+nothing can reach, and that concentrating it would concentrate the signal. A pure reallocation
+with the bar renormalised measures **0.130 and 0.128 against the control's 0.210**, and worse
+again in combination with more lethality. The inert weight was not diluting the signal, it was
+**damping the variance**: concentrating the bar onto the arm and the head makes one sever swing
+more of it, and the denominator grows faster than the numerator. Reallocation is refused on its
+own measurement, and it is written down because the argument for it was good and it was still
+wrong.
+
+**The unreachable weight was not unreachable either.** Pooled over all 208 sides of the
+diagnostic, **93.7 % of the declared weight sits on part keys that took injury in at least one of
+them**; it is only within a single bout that the figure is 57.9 %. Nothing on a golem is out of
+reach.
+What the legs have is a low *rate*, not a wall, and a lever aimed at a wall that is not there is
+the lever that measured worse than doing nothing.
+
+### The cross: `healthScale` × `vitalityTotal`, 256 pairs, seed 20260907, the uniform gap
+
+| setting | d | 95 % bootstrap | bar margin | d on points | points | decided | mean seconds | winner's bar | under 8 s |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| h 0.25, v 3.6 (control) | 0.150 | [0.03, 0.27] | 0.0171 | 0.005 | 0.501 | 30 % | 52.7 | 0.505 | 0 % |
+| h 0.25, v 7.2 | 0.219 | [0.09, 0.35] | 0.0303 | 0.167 | 0.535 | 38 % | 49.1 | 0.280 | 0 % |
+| h 0.25, v 10.8 | 0.219 | [0.09, 0.34] | 0.0338 | 0.214 | 0.549 | 47 % | 44.0 | 0.276 | 0 % |
+| h 0.15, v 3.6 | 0.157 | [0.03, 0.27] | 0.0232 | 0.042 | 0.509 | 39 % | 47.1 | 0.505 | 2 % |
+| h 0.15, v 7.2 | 0.177 | [0.05, 0.30] | 0.0311 | 0.235 | 0.555 | 49 % | 42.3 | 0.311 | 2 % |
+| h 0.15, v 10.8 | 0.223 | [0.11, 0.34] | 0.0452 | 0.193 | 0.551 | 57 % | 37.6 | 0.307 | 7 % |
+| h 0.10, v 3.6 | 0.159 | [0.04, 0.28] | 0.0295 | 0.105 | 0.526 | 49 % | 41.7 | 0.531 | 9 % |
+| h 0.10, v 7.2 | 0.201 | [0.08, 0.32] | 0.0464 | 0.182 | 0.549 | 57 % | 37.1 | 0.369 | 12 % |
+| h 0.10, v 10.8 | 0.190 | [0.07, 0.32] | 0.0467 | 0.158 | 0.545 | 64 % | 33.0 | 0.356 | 20 % |
+
+Individual cells are still inside each other's intervals; what the table supports is the shape of
+the two axes, which is consistent across all three rows of each. Along `vitalityTotal`, d rises at
+every health scale and the fast-kill column stays where it was. Along `healthScale` at fixed
+vitality, d barely moves and the fast-kill column runs away: 0 % → 2 % → 9 % at v 3.6, and 20 % at
+v 10.8.
+
+That asymmetry is mechanical and not a coincidence. `healthScale` makes an individual blow more
+decisive, which raises the variance as fast as it raises the mean — the criterion's second failure
+mode, working exactly as it was designed to. `vitalityTotal` changes *when a body counts as
+beaten*: it concedes at partial destruction rather than at total, which ends bouts sooner without
+making any single blow a coin flip.
+
+### The gap the decision was retaken on, and why the first one was wrong
+
+**A style against its own noise is the wrong gap to select on.** Across the whole cross above the
+uniform gap moves from 0.150 to about 0.22 and its interval never leaves the others'. Both corners
+of it are the *same executor* naming the same fifteen frozen bundles, so what the bar is asked to
+resolve is a difference in timing rather than in kind — which is exactly the thing the option
+vocabulary cannot express, and the premise Session 12 is written on.
+
+So three gaps of known width were run instead, and the decision retaken on the widest real one:
+
+- **`passive`** — the style against a director that only ever names `hold`. The maximal
+  behavioural difference the executor allows.
+- **`uniform`** — the style against itself at explore 1.0. The gap the screening pass optimised.
+- **`rival`** — `golem-brawler` against `golem-duelist`, the two ends of Session 08's league,
+  which was the widest difference between two designed minds on record and is the gap a league has
+  to resolve. (Neither league below has those two at its ends, at either setting — the twelve-mind
+  control run at the old numbers already puts the brawler eighth of twelve. That does not
+  invalidate the sweep, which used one fixed yardstick at every setting, but the yardstick was
+  chosen off an ordering this session went on to show was noise.)
+
+### Four gaps of known width, before and after
+
+128 pairs a cell, seed 20260908, the same pool and the same corner swap; the `rival` row is the
+192-pair sweep of the next section. `passive` and `uniform` are `golem-form` against a degenerate version of
+itself; `zeros` is `golem-fencer` against the shipped `golem-learner`, whose weights are still the
+zeros Session 10 left, so its head is a constant and it names the first open option at every ask.
+
+| gap | d before | d after | points before | points after | w/d/l after |
+| --- | ---: | ---: | ---: | ---: | :--- |
+| `zeros` — a real mind against a constant head | 0.600 | **0.704** | 0.586 | 0.654 | 100 / 135 / 21 |
+| `passive` — against a director that only ever names `hold` | 0.448 | 0.472 | 0.529 | 0.545 | 59 / 161 / 36 |
+| `uniform` — against itself at explore 1.0 | 0.316 | 0.301 | 0.531 | 0.541 | 70 / 137 / 49 |
+| `rival` — `golem-brawler` against `golem-duelist` | 0.163 | **0.235** | 0.491 | 0.529 | 192 pairs, below |
+
+**The table is ordered by how much of a mind is on the other side, and it reads monotonically.** A
+constant head is worth 0.70 of an effect size to beat; a director frozen on `hold`, 0.47; the same
+director destroyed by noise, 0.30; another *designed* mind, 0.24. The three above `rival` are all
+a mind against a non-mind, and they were never the thing a league has to resolve.
+
+**`rival` is the smallest and the one that moves most in proportion**, gaining 44 % of its own
+value against 17 % for `zeros`, 5 % for `passive`, and −5 % for `uniform`. A sweep run on the
+uniform gap would have selected nothing, which is what the first three passes of this session did.
+The reason is structural rather than statistical: at explore 1.0 both corners are the *same
+executor* naming the same fifteen frozen bundles, so the bar is asked to resolve a difference in
+timing inside one vocabulary rather than a difference in kind.
+
+**And the numbers nobody should be comfortable with are in the last two columns.** At the shipped
+settings `golem-form` played properly against a golem that only ever names `hold` wins 39 of 256,
+draws 193 and **loses 24**; at the chosen settings, 59 / 161 / 36. `golem-fencer` against a mind
+that is a constant wins 63 of 256 before and 100 after — it still draws 135 and loses 21 of them.
+A style that loses one bout in seven to an opponent that never attacks is not being measured
+through a broken instrument. It is being measured accurately, and the instrument is now sharp
+enough to say so.
+
+### The decision: the `rival` gap, 192 pairs a row, seed 20260908
+
+`golem-brawler` against `golem-duelist` over the same 52-build pool, 384 bouts a row, the
+corners swapped within each pair.
+
+| setting | d | 95 % bootstrap | bar margin | points | decided | mean s | winner's bar | under 8 s | severs a bout | decided bouts with a sever |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| h 0.25, v 3.6 (shipped) | 0.163 | [0.02, 0.30] | 0.0170 | 0.491 | 25 % | 54.0 | 0.567 | 0 % | 0.45 | 75 % |
+| h 0.25, v 5.4 | 0.215 | [0.08, 0.34] | 0.0292 | 0.509 | 26 % | 53.5 | 0.384 | 0 % | 0.35 | 56 % |
+| h 0.25, v 7.2 | 0.267 | [0.13, 0.40] | 0.0419 | 0.525 | 29 % | 51.7 | 0.322 | 0 % | 0.16 | 24 % |
+| h 0.25, v 10.8 | 0.305 | [0.17, 0.43] | 0.0612 | 0.577 | 38 % | 47.0 | 0.346 | 1 % | 0.01 | 1 % |
+| h 0.15, v 3.6 | 0.216 | [0.08, 0.35] | 0.0319 | 0.516 | 34 % | 48.6 | 0.598 | 3 % | 0.64 | 71 % |
+| h 0.10, v 3.6 | 0.191 | [0.05, 0.32] | 0.0370 | 0.543 | 43 % | 43.9 | 0.628 | 6 % | 0.77 | 62 % |
+| **h 0.15, v 5.4 (chosen)** | **0.235** | **[0.10, 0.37]** | **0.0447** | **0.529** | **36 %** | **47.5** | **0.448** | **3 %** | **0.48** | **51 %** |
+
+**At the shipped settings the best hand-coded mind loses its head-to-head against the worst**:
+0.491 points for the brawler against the duelist, which is the league's flatness in its purest
+form — the widest real difference between two minds on record does not reliably win a bout. At the
+chosen cell it is 0.529.
+
+**The two rows do different jobs, and that is why both moved.** `healthScale` decides how many
+bouts end at all — 25 % → 34 % → 43 % as it falls at a fixed bar — and it buys that by making an
+individual blow more decisive, which is why the winner's own bar *rises* with it, to 0.628. Those
+are stomps. `vitalityTotal` decides how much a mind's choices are worth when a bout does end: d
+rises monotonically, 0.163 → 0.215 → 0.267 → 0.305, and the winner's bar *falls*, which is a hard
+fight rather than a stomp. Together at 0.15 and 5.4 the winner ends on 0.448 of its own bar
+instead of 0.628, and the fast-kill column stays at 3 %.
+
+**The best d was refused, and the column that refused it is dismemberment.** `vitalityTotal`
+rescales every declared weight to sum to itself, so what it really sets is how much weighted
+destruction empties a bar:
+
+| `vitalityTotal` | a bar empties on | of the whole body | of what a bout reaches |
+| ---: | ---: | ---: | ---: |
+| 3.6 (shipped) | 1.000 of declared weight | 27.8 % | 29.0 % |
+| 5.4 (chosen) | 0.667 | 18.5 % | 19.3 % |
+| 7.2 | 0.500 | 13.9 % | 14.5 % |
+| 10.8 | 0.333 | 9.3 % | 9.7 % |
+
+At 10.8 a bar empties on less than any single module of the default build, so it empties **before
+anything comes off**: 1 % of decided bouts end with a part severed, against 75 % today. Fights
+would end with two intact-looking bodies, one of which falls over, and a bar that no longer
+describes the body it is drawn over is a worse defect than a small effect size. 0.10 on the health
+scale is refused for its own reasons — d is *lower* than 0.15's, its winner's bar is the highest
+in the table, and it doubles the bouts that are over before either body has done anything.
+
+5.4 is also under **5.95**, which is the total at which a severed primary arm begins emptying a
+default golem's whole bar on its own and `tests/golem-arena.test.mjs` stops being able to say
+that a golem fights on with the other one. The ceiling is arithmetic rather than taste: once
+`scaleVitality` has run, a module of share `s` carries weight `s × total` and so empties a bar
+alone at `total ≥ 1 / s`, and the default build's primary is 16.8 % of its bar. Running that test
+file at 5.9 passes and at 6.0 does not, which is how the number was bracketed. It is
+build-dependent rather than an invariant — nine of the fifty-two pool builds carry a primary
+heavier than a bar even at 3.6, and `draw-21`'s, at 41.3 % of its bar, does so from 2.42 up — but
+it is not a line to cross as a side effect of a sweep. At the chosen 5.4, seventeen of the
+fifty-two are already past it.
+
+### What the parity argument for 3.6 got wrong
+
+The row's own comment says 3.6 was chosen so that "a golem's bar empties on the same fraction of
+its own weighted body as a Warrior's does — 1/3.6, 27.8 %". **That comparison does not survive
+contact with the two anatomies.** A Warrior's 3.6 is deliberately over-subscribed onto a head and
+a torso worth 1.0 each, so a Warrior spends its whole bar on one ruined part; a golem's heaviest
+part is `legs.yoke` at 0.635 and its whole primary arm is 0.626, so the same 27.8 % has to be
+collected across most of a body. The number matched a Warrior's arithmetic and not a Warrior's
+death, which is why a golem had to be very nearly dismantled to lose.
+
+The comment is also explicit that when it was written the number "decides how fast the bar falls
+in front of a person, not who wins", and it measured that: at 1.0 and at 3.6 the golem-versus-
+duelist bouts were identical, because nothing came near either threshold. Golem against golem now
+does come near it. The number did not become wrong; it became load-bearing.
+
+### What no bar setting buys
+
+Thirteen of the fifty-two reference builds — a quarter of the pool — decide none of their 140
+screening bouts at any total tried, up to a `vitalityTotal` of 25.2. At 18, 28 of 52 builds decide
+**100 %** of their bouts and 20 decide **0 %**; among the live ones roughly every bout decides from
+10.8 up. The residual cap-hitting is bodies that cannot hurt each other — `ram-capped` and
+`pitch-blade` among them — which is Session 08's "eight of eleven build classes decide none"
+measured again per draw. It is a fact about weapons and reach, and no bar setting buys those
+bodies anything.
+
+### What it bought and what it cost, measured before and after on the same tree
+
+`npm run measure -- --only golem --bouts 8`, seed 20260823, run twice here: once with the old pair
+of numbers and once with the new, so nothing between Session 01 and today is in the difference.
+Eight side-swapped bouts a cell, thirteen cells, 104 bouts.
+
+| | h 0.25, v 3.6 | h 0.15, v 5.4 |
+| --- | ---: | ---: |
+| bouts drawn at the 60 s cap | **93 of 104** | **22 of 104** |
+| cells with no decided bout at all | 8 of 13 | **0 of 13** |
+| parts severed over the run | 25 | 64 |
+
+Cell by cell, drawn at the cap and the bout's own length:
+
+| cell | drawn, before | drawn, after | bout s, before | bout s, after |
+| --- | ---: | ---: | ---: | ---: |
+| `default vs default` | 8 | **0** | 60.0 | 34.1 |
+| `locomotion.wheel` | 5 | **0** | 58.1 | 26.0 |
+| `locomotion.multileg` | 8 | 1 | 60.0 | 39.3 |
+| `torso.plated` | 8 | **0** | 60.0 | 32.3 |
+| `head.ram` | 6 | **0** | 59.0 | 28.5 |
+| `primary reach+blade` | 8 | **0** | 60.0 | 45.7 |
+| `primary wrist+mace` | 7 | **0** | 57.3 | 29.3 |
+| `primary wrist+whip` | 7 | **0** | 56.8 | 42.5 |
+| `primary wrist+maul` | 4 | **0** | 56.4 | 34.7 |
+| `primary none+none` | 8 | 4 | 60.0 | 57.2 |
+| `primary pitch+blade` | 8 | 5 | 60.0 | 57.6 |
+| `primary wrist+fist` | 8 | 5 | 60.0 | 58.3 |
+| `primary wrist+plate` | 8 | 7 | 60.0 | 59.5 |
+
+**Eight of the thirteen cells now decide every one of their eight bouts and a ninth decides seven,
+and the four that do not are the four builds with nothing to cut with**: no primary at all, a
+blade on a pitch chain that cannot bring it to the mark, a plate, and a fist. Eight cells decided
+nothing at all before and every cell decides something now. Those four are Session 08's dead build
+classes appearing a third time, and they are not the bar's to fix. The sever count is the other
+half of the answer: 64 parts came off across the thirteen cells against 25, so the change made
+bouts end *and* made them end by taking a body apart.
+
+**The price is that a golem is no longer safe from a person, and by more than it was.**
+
+| cell | h 0.25, v 3.6 | h 0.15, v 5.4 |
+| --- | --- | --- |
+| `golem-duelist` vs the Warrior sword duelist | golem **8/8**, 20.8 s, golem's bar 0.746 | golem **3/8**, Warrior 5/8, 16.2 s, golem's bar 0.241 |
+| an `idle` golem vs the same duelist | 0/8 both, 8 drawn, golem's bar 0.890 | 0/8 both, 8 drawn, golem's bar 0.726 |
+
+A golem that beat a person eight times out of eight now loses five of eight. That is reported
+rather than fixed, under the owner's standing instruction that golem against Warrior does not have
+to be balanced — *"if golem works well then we can just make it a golem fighting game"*. The
+`idle` row is the same fact with no mind in it: a golem standing still keeps 0.726 of its bar over
+a capped minute of being cut, against 0.890 before, which is `vitalityTotal` doing exactly what
+its own comment said it decides — how fast the bar falls in front of a person.
+
+### The league, re-taken at both settings: every shipped mind, mirrored
+
+`--bouts 4096 --mirror --cross --random 40 --cap 60 --seed 20260906` over all twelve shipped golem
+minds, both sides on the same body so a row is the mind and nothing else. Run twice: once as
+shipped, and once at the old numbers through
+`--override body.healthScale=0.25,body.vitalityTotal=3.6` — the same seed, the same 4,096 bouts,
+the two rows of `GOLEM_ASSEMBLY` the only difference between the logs. **1,544 of 4,096 bouts
+decide against 913**, and 872 of them change hands.
+
+| policy | points, before | points, after | bar, before | bar, after | paired points | decided |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `golem-champion` | 0.5332 | **0.5506 ± 0.0120** | +0.0302 | +0.0335 | +0.0173 ± 0.0120 | 22.0 → 40.8 % |
+| `golem-fencer` | 0.5065 | 0.5353 ± 0.0118 | +0.0228 | **+0.0414** | +0.0288 ± 0.0129 | 25.8 → 39.3 % |
+| `golem-form` | 0.5137 | 0.5210 ± 0.0117 | +0.0178 | +0.0306 | +0.0072 ± 0.0113 | 21.8 → 38.2 % |
+| `golem-selector` | 0.4963 | 0.5141 ± 0.0120 | +0.0086 | +0.0016 | +0.0179 ± 0.0124 | 22.2 → 38.5 % |
+| `golem-brawler` | 0.4993 | 0.5126 ± 0.0103 | +0.0027 | +0.0099 | +0.0134 ± 0.0103 | 16.4 → 28.7 % |
+| `golem-tactician` | 0.5074 | 0.5119 ± 0.0109 | +0.0042 | +0.0081 | +0.0045 ± 0.0116 | 23.2 → 32.1 % |
+| `golem-neural` | 0.5130 | 0.5116 ± 0.0120 | +0.0110 | +0.0170 | −0.0014 ± 0.0135 | 23.6 → 40.3 % |
+| `golem-skirmisher` | 0.4919 | 0.5044 ± 0.0121 | +0.0074 | +0.0265 | +0.0126 ± 0.0118 | 25.3 → 39.8 % |
+| `golem-guardian` | 0.5052 | 0.4911 ± 0.0121 | +0.0104 | +0.0105 | −0.0141 ± 0.0120 | 21.0 → 39.4 % |
+| `golem-duelist` | 0.4914 | 0.4906 ± 0.0116 | −0.0075 | −0.0115 | −0.0007 ± 0.0115 | 20.5 → 37.3 % |
+| `golem-planner` | 0.5000 | 0.4790 ± 0.0119 | −0.0022 | −0.0158 | −0.0210 ± 0.0133 | 24.0 → 39.5 % |
+| `golem-learner` | 0.4405 | **0.3750 ± 0.0109** | −0.1076 | **−0.1549** | **−0.0655 ± 0.0095** | 21.7 → 38.1 % |
+
+**The bottom row is the result.** `LEARNER_WEIGHTS` is still the zeros Session 10 shipped — a
+network whose head is a constant, so the mind names the first open option at every ask, all bout.
+It is a stand-in for no mind at all, and it is the one row that moves under the lever by more than
+two standard errors: **−0.0655 ± 0.0095 of a point, paired bout for bout against its own self at
+the old settings.** Its distance from half goes from 6.8 standard errors to 11.5, its bar from
+12.0 below zero to 13.8, and the spread from the best mind to it goes 0.093 to 0.176. In Session
+08's league nothing at all was more than 5.2 standard errors from zero and the best mind beat the
+worst by 0.043. That is the sentence Session 10 stopped one step short of writing, and this
+session can write it: **the arena has something to learn.**
+
+**Nothing else in the table moves confidently, and that is the right outcome.** Ten of the eleven
+designed minds shuffle inside two standard errors of where they were, and the eleventh —
+`golem-fencer` at +0.0288 ± 0.0129 — is barely outside. Spearman's ρ between the two orderings is
+0.67, with the same mind first and the same one last. Seven of the twelve gain on points; of the
+five that lose, four (`golem-neural`, `golem-duelist`, `golem-guardian`, `golem-planner`) are
+inside 1.6 standard errors of no change and the fifth is the artifact. The lever was chosen to
+separate a mind from a non-mind and to stop paying for surviving the clock, not to promote a
+style, and the paired column says that is exactly and only what it did.
+
+**What the ordering does not preserve is Session 08's, and that was never the lever's doing.** The
+brawler was Session 08's one confident leader, +0.0270 ± 0.0052 on the bar, five standard errors
+up and the widest thing in that table. In this control it is eighth of twelve *before* the change
+and fifth after, so its lead was gone under a twelve-mind league at the old settings, not taken by
+the new ones. Session 08's own entry says seven of its nine sat inside noise of each other, and a
+ranking a 4,096-bout tournament could not resolve is not a fact for a later table to preserve.
+
+**One row still deserves its own reading: the brawler's bouts do not end.** 28.7 % of them decide
+against about 39 % for everything else, and 0.08 severs a bout against 0.14. Whatever the brawler
+does inside `near` — shove, grind, hunt the weakest slot — it is the least likely thing in the
+league to finish a body, at either setting. A flat objective hides exactly that, which is this
+session's argument in one row.
+
+### The same league on random pairs, where the matchup screen actually draws
+
+The same command without `--mirror`, so each side draws its own body, run at both settings the
+same way. **1,806 of 4,096 bouts decide against 970**, and 928 change hands.
+
+| policy | points, before | points, after | bar, before | bar, after | paired points | decided |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `golem-tactician` | 0.5253 | **0.5409** | +0.0657 | +0.0662 | +0.0156 ± 0.0093 | 27.7 → 43.6 % |
+| `golem-fencer` | 0.5166 | 0.5288 | +0.0435 | **+0.0795** | +0.0122 ± 0.0104 | 29.3 → 53.0 % |
+| `golem-selector` | 0.5179 | 0.5208 | +0.0148 | +0.0264 | +0.0030 ± 0.0094 | 23.8 → 41.7 % |
+| `golem-neural` | 0.5137 | 0.5188 | +0.0364 | +0.0351 | +0.0051 ± 0.0090 | 22.1 → 39.6 % |
+| `golem-form` | 0.4993 | 0.5130 | +0.0044 | −0.0021 | +0.0137 ± 0.0102 | 26.4 → 49.1 % |
+| `golem-guardian` | 0.4896 | 0.5089 | +0.0003 | +0.0156 | +0.0193 ± 0.0103 | 25.3 → 48.2 % |
+| `golem-skirmisher` | 0.4852 | 0.4933 | −0.0087 | +0.0241 | +0.0081 ± 0.0098 | 24.9 → 46.0 % |
+| `golem-champion` | 0.5058 | 0.4884 | −0.0216 | −0.0573 | −0.0173 ± 0.0101 | 17.1 → 36.7 % |
+| `golem-brawler` | 0.5022 | 0.4851 | −0.0139 | −0.0200 | −0.0171 ± 0.0088 | 19.2 → 38.4 % |
+| `golem-planner` | 0.4993 | 0.4841 | −0.0152 | −0.0449 | −0.0152 ± 0.0102 | 23.8 → 42.5 % |
+| `golem-duelist` | 0.4791 | 0.4748 | −0.0242 | −0.0151 | −0.0043 ± 0.0110 | 24.1 → 50.9 % |
+| `golem-learner` | 0.4658 | **0.4427** | −0.0823 | **−0.1076** | **−0.0231 ± 0.0095** | 20.5 → 39.1 % |
+
+**The second pool says the same thing more quietly.** The points spread goes 0.0595 to 0.0982, a
+65 % widening; ρ between the orderings is 0.80; and again **the only mind moving by more than two
+standard errors is the one that is not a mind**, at −0.0231 ± 0.0095. The zeros artifact loses
+less here than mirrored because a random draw hands it a body advantage half the time, which no
+amount of not having a mind can throw away.
+
+Two things this table does not say. The learner's bar separation is *not* better in standard
+errors — −0.0823 ± 0.0122 is 6.7 of them and −0.1076 ± 0.0185 is 5.8, because decided bouts widen
+every margin — so on this pool the case rests on points, where it goes 4.0 to 4.8. And the
+champion is the mind that paid: −0.0173 ± 0.0101 paired, its bar from −0.0216 to −0.0573, on the
+fewest decided bouts in the table at either setting. Like the brawler mirrored, what it had was a
+way of being ahead when the clock ran out.
+
+**Both controls are the first end-to-end use of `--override body.<row>`.** The old-settings random
+run was reproduced through the flag after an earlier one had picked the old values up by accident
+from a mid-run edit, and the two logs agree on the winner and the duration of all 4,096 bouts. The
+override reaches the assembly exactly as editing the two rows does, which is what
+`tests/tournament.test.mjs` asserts on four bouts and this asserts on four thousand.
+
+### What this session did not settle
+
+- **The vocabulary is now the binding constraint and the measurement says so.** `zeros` at d 0.70
+  and `passive` at 0.47 against `rival` at 0.235 is the whole of Session 12's premise: the bar
+  resolves a large behavioural difference easily, and two hand-coded minds are not a large
+  behavioural difference. Fifteen frozen option bundles asked for every 0.167 s cannot express
+  *when*, and every style in this set has been a different rule for choosing among the same
+  fifteen.
+- **A quarter of the pool still cannot finish a bout at any setting.** Thirteen of the fifty-two
+  reference builds, `ram-capped` and `pitch-blade` among them, decide none of their 140 screening
+  bouts at any `vitalityTotal` from 3.6 to 25.2. That is a fact about weapons and reach and it
+  belongs to whoever revisits the build space, not to the bar.
+- **The learner was not refitted.** `LEARNER_WEIGHTS` is still zeros. The plan's fifth step -- a
+  corpus re-collected here and the committed fitted-Q trainer re-run over it as a yes-or-no on
+  the gradient -- is the one item of this session left for the next, because Session 12 replaces
+  the option vocabulary the corpus is keyed to and a fit against the old fifteen would be thrown
+  away in a week.
+- **Nobody has watched any of this.** By the owner's instruction of 2026-09-07 the set's one gate
+  is Session 14's, and this entry asks for nothing.

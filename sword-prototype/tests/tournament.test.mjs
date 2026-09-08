@@ -351,6 +351,36 @@ test("overrides_are_name_value_pairs_the_worker_applies_to_the_fencer_and_refuse
 });
 
 /**
+ * `body.` is the prefix that reaches the assembly rather than a mind, and the thing worth
+ * asserting is that it *arrives*: a golem built under `body.healthScale` half of the shipped one
+ * has to take visibly more damage over the same four seconds, on the same seed, against the same
+ * opponent, or the flag is decoration.
+ *
+ * Session 11 of the style set added it because the two rows that decide whether a bout can be
+ * won -- `healthScale` and `vitalityTotal` -- were reachable only by editing the file, and a
+ * constant that cannot be swept from the harness is a constant chosen by argument. The refusal is
+ * asserted beside it for the same reason every other refusal in this file is: a misspelled row
+ * that silently does nothing would read exactly like a row that does nothing.
+ */
+test("the_body_prefix_reaches_the_assembly_and_a_thinner_bar_takes_more_of_it", async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "sword-tournament-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const run = (name, overrides) => runTournament({
+    seed: SEED, bouts: 4, workers: 2, policies: ["golem-fencer"], random: 2, cap: 4,
+    out: join(dir, name), overrides, mirror: true,
+  });
+  const shipped = await run("shipped.jsonl", null);
+  const thin = await run("thin.jsonl", { "body.healthScale": 0.05 });
+  const bar = (result) => result.rows.reduce((sum, r) => sum + r.left.vitality + r.right.vitality, 0)
+    / (2 * result.rows.length);
+  assert.ok(bar(thin) < bar(shipped) - 0.02,
+    `a fifth of the health should cost visibly more bar: ${bar(thin)} against ${bar(shipped)}`);
+  const back = readRows(join(dir, "thin.jsonl"));
+  assert.deepEqual(back.header.overrides, { "body.healthScale": 0.05 }, "the header says how the body was built");
+  await assert.rejects(run("refused-body.jsonl", { "body.noSuchRow": 1 }), /not a row of GOLEM_ASSEMBLY/);
+});
+
+/**
  * `--exchanges` puts the fencer's option windows on every row: per side, the state each window
  * began in, the option, what was dealt and taken while it ran, how long, and the state it
  * ended in, cut at the window cap. The duelist has no options and logs nothing, which the row

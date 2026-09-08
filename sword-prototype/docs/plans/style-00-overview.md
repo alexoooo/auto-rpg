@@ -1,10 +1,15 @@
 # Style -- live roadmap
 
-> **2026-09-07 status: Sessions 00 to 08 implemented; their human gates are open, and
+> **2026-09-08 status: Sessions 00 to 11 implemented; their human gates are open, and
 > nothing is accepted.**
-> Thirteen files, one per landable session. Sessions 09 to 12 are unimplemented and every gate,
-> Sessions 00's to 08's included, is open. Every session ends at a human gate that
+> Sixteen files, one per landable session. Sessions 12 to 15 are unimplemented and every gate,
+> Sessions 00's to 11's included, is open. Every session ends at a human gate that
 > the owner records in that session's status line; an agent may not write "accepted" there.
+> **Sessions 11 to 15 were rewritten on 2026-09-07** against the owner's four-step programme --
+> decisive bouts, a continuous command surface, PPO in self-play, then a checkpoint league -- and
+> the set's remaining human gate moved with it to Session 14, at their instruction: the current
+> fighting is too poor for variations of it to be judged, so nothing is put in front of them
+> until there is at least one non-trivial mind to look at.
 > The golem set and the matchup set that came before this one were deleted at the owner's
 > request on 2026-09-06, every one of their sessions having landed; their durable record is
 > `../design.md` and `../measurements.md`, and `../deleted-paths.md` lists their files.
@@ -63,8 +68,11 @@ What the code and the logs say the flail is, read before any code moved:
 | [08](style-08-league-and-decision-log.md) | the league table of nine minds; the per-decision reward log | 05, 06, 07 |
 | [09](style-09-selector-and-tactician.md) | two table-fitted minds: `golem-selector`, `golem-tactician` | 08 |
 | [10](style-10-learner.md) | `golem-learner`: fitted Q-iteration on the decision log | 08 |
-| [11](style-11-overnight.md) | the overnight: learner rounds, the selector refitted, sweeps at scale | 09, 10 |
-| [12](style-12-close.md) | durable record, final table, the screen's default, gates listed | 11 |
+| [11](style-11-decisive.md) | make a bout decidable: the lever measured by effect size per bout, not by taste | 10 |
+| [12](style-12-command-surface.md) | the continuous command surface at 12 Hz, and an executor that can be interrupted | 11 |
+| [13](style-13-dense-reward-and-ppo.md) | the dense reward and PPO in self-play over that surface | 12 |
+| [14](style-14-league.md) | league self-play: a main agent, a pool of past checkpoints, two exploiters | 13 |
+| [15](style-15-close.md) | durable record, final table, the screen's default, gates listed | 14 |
 
 Sessions 05, 06 and 07 depend only on 04 and may run in parallel. Sessions 09 and 10 depend only
 on 08 and may run in parallel.
@@ -137,6 +145,11 @@ randomises both sides a dozen times, watches each fight, and says whether the go
 a way they can name. Until that is written into this file by the owner, the status line above
 stays as it is.
 
+Sessions 11 to 15 name no gates of their own. The set's one gate is Session 14's, and it is the
+only thing put in front of the owner between here and there; every session before it answers to a
+mechanical bar it states in advance. That is the owner's instruction of 2026-09-07 and not a
+convenience: judging variations of a fight nobody can read is not a question a person can answer.
+
 | session | the owner is asked | verdict |
 | --- | --- | --- |
 | 00 | whether the fencer's baseline row reads as the flail they saw | open; the row is in the Session 00 entry of `../measurements.md` |
@@ -150,8 +163,11 @@ stays as it is.
 | 08 | whether the league table agrees with what they see | open; the two leagues, the two-part corpus of 1,149,249 labelled decisions and the option-by-option reward table are in the Session 08 entry of `../measurements.md`. The league's finding is about bodies rather than minds: three of eleven build classes can finish a bout -- a long maul decides 94.2 %, a long mace 58.8 %, a long blade 7.1 % -- and eight decide none, so 78 % of the mirrored league ends on the cap and the 60 s cap is in front of the gate for the seventh time. Only `golem-brawler` (+0.0270 +- 0.0052) and `golem-duelist` (-0.0263 +- 0.0057) are away from zero on the bar; the seven between span 0.024. **A style is worth six times as much on the body that can kill**: on a long maul the nine run 0.622 to 0.411 and the brawler's bar is +0.1553 +- 0.0209. A long blade still throws 113 strokes a bout at 0.51 damage each. The log telescopes to 1e-9 once the reward columns are `Float64`; a recorded side takes 253 decisions a bout, not the 80 the plan estimated, at sigma 0.0105 bar a decision, not 0.05 to 0.1; and on matched bodies those rewards are very nearly independent |
 | 09 | whether a mind that picks minds looks like one mind | open; the parametrised model, the 742,012-window corpus, the hundred-cell selector table and the two confirmations on a held-out seed are in the Session 09 entry of `../measurements.md`. The selector is first of five on random pairs and beats the best style by +0.0284 +- 0.0068 paired, which is four standard errors of a lead and 0.0016 under the 0.03 the gate asks for; on mirrored it is third and 0.0394 +- 0.0094 behind the brawler, because a mirrored bout is always one of the ten diagonal cells and eight of those fall back to the marginal winner. The tactician is second on random pairs, fourth mirrored, gets the most damage out of a stroke of anything in the run and walks eleven idle metres a bout doing it, and replans in 0.19 ms against a 5 ms budget. **The my-phase segment of both models' state has been a constant since the duel model was first fitted** -- 742,012 windows here and 291,669 there, `free` in every one -- because a window can only open at a settled sample; two thirds of the search's states can never hold a cell. Every contender's median bout is still the 60 s cap, in front of the gate for the eighth time |
 | 10 | whether the learner behaves differently from its corpus, and better | open, and not asked: the machinery is in and green and the artifact is zeros. The fit was stopped fifteen minutes into three hours because the objective it would have been fitted against is flat -- Session 08's league decides 903 of 4,096 bouts and rates nine minds within noise of one half. The value gradient, the paired-difference confirmation and a semi-Markov chain test that separates "the fit is wrong" from "the arena has nothing to learn" are what the session leaves behind. See the Session 10 entry of `../design.md` |
-| 11 | the learned-versus-hand-coded reading at scale | open |
-| 12 | the set's one gate above | open |
+| 11 | nothing; the bar is the effect size per bout and the session states it in advance | open, and not asked: `GOLEM_ASSEMBLY.healthScale` 0.25 -> 0.15 and `GOLEM_ASSEMBLY.vitalityTotal` 3.6 -> 5.4, both with their sweep tables in `../../src/golem/config.ts`. On the widest real gap between two minds -- `golem-brawler` against `golem-duelist` -- d on the paired bar margin goes 0.163 to 0.235, decided 25 % to 36 %, the winner's own bar 0.567 to 0.448, and the best hand-coded mind stops losing its head-to-head against the worst, 0.491 to 0.529. The best d in the sweep was refused because dismemberment disappears above about 7: at 10.8 one per cent of decided bouts end with a part off, against 75 % today. Two hypotheses were wrong and are written down -- moving the bar off the legs *lowers* the effect size, and a style against its own noise is the wrong gap to select on. The league was re-run at both settings over all twelve minds through `--override body.<row>`: mirrored, 1,544 of 4,096 bouts decide against 913 and the points spread goes 0.093 to 0.176; on random pairs, 1,806 against 970 and 0.060 to 0.098. The ordering holds -- Spearman's rho 0.67 and 0.80, same mind first and last on both pools -- and the only mind moving by more than two standard errors is `golem-learner`, whose table is still zeros. See the Session 11 entry of `../measurements.md` |
+| 12 | nothing; the bar is that a hand-coded mind transcribed onto the continuous surface is not worse than the one it was transcribed from | open, and not asked |
+| 13 | nothing; the bar is that the policy beats a uniform command by Session 11's effect size and its reward curve rises | open, and not asked |
+| 14 | the set's one gate above: a dozen random matchups, and whether the golems now behave in a way they can name | open |
+| 15 | nothing; the record only | open, and not asked |
 
 ## Session 00's own work: the instruments that see a stroke
 

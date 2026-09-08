@@ -25,6 +25,7 @@ import { golemLearner } from "../src/golem/learner.ts";
 import { LEARNER_WEIGHTS } from "../src/golem/learner-weights.ts";
 import { golemNeural } from "../src/golem/neural.ts";
 import { NEURAL_WEIGHTS } from "../src/golem/neural-weights.ts";
+import { GOLEM_ASSEMBLY } from "../src/golem/config.ts";
 import { GOLEM_TACTICS, innerReach } from "../src/golem/tactics.ts";
 import { GOLEM_CHAMPIONS } from "../src/golem/tactics-champions.ts";
 import { GOLEM_PLANNER, golemPlanner } from "../src/golem/planner.ts";
@@ -565,11 +566,23 @@ parentPort.on("message", (message) => {
 // `cutLean`, `parryBite`, `duckSeconds` -- lands. A style's own table is reached through its
 // prefix, `form.standOffFraction`, and never through the bare name, because a style *is* a copy of
 // the executor's table with rows moved and there is no order in which one name could mean both.
+//
+// **`body.` is the one prefix that is not a mind.** It reaches `GOLEM_ASSEMBLY`, which is how a
+// body is built rather than how it is driven -- `body.healthScale` and `body.vitalityTotal` are
+// the two Session 11 of the style set had to sweep against each other -- and it exists because a
+// constant that cannot be swept from the harness is a constant chosen by argument. It is
+// deliberately not a bare name: every other row here changes what a mind decides, and these
+// change what it is deciding *about*, which is not the same kind of row and should not answer to
+// the same kind of name.
 const STYLE_TABLES = { form: FORM, skirmisher: SKIRMISHER, guardian: GUARDIAN, brawler: BRAWLER };
 if (workerData?.overrides) {
   for (const [name, value] of Object.entries(workerData.overrides)) {
     const dot = name.indexOf(".");
-    if (dot > 0) {
+    if (dot > 0 && name.slice(0, dot) === "body") {
+      const row = name.slice(dot + 1);
+      if (!(row in GOLEM_ASSEMBLY)) throw new Error(`--override ${name}: not a row of GOLEM_ASSEMBLY`);
+      GOLEM_ASSEMBLY[row] = value;
+    } else if (dot > 0) {
       const table = STYLE_TABLES[name.slice(0, dot)];
       const row = name.slice(dot + 1);
       if (table === undefined) throw new Error(`--override ${name}: no style is called "${name.slice(0, dot)}"`);

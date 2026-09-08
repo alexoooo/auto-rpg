@@ -1344,6 +1344,103 @@ the artifact -- the value gradient in `src/golem/neural-net.ts`, the paired-diff
 confirmation, and the chain test that separates "the fit is wrong" from "the arena has nothing to
 learn".
 
+## What makes a bout decidable, and the two numbers that decide it
+
+Session 11 of the style set. Eight sessions had put the 60 s cap in front of the owner's gate and
+Session 08 said what it costs: 78 % of a mirrored league ends on the clock, eight of eleven build
+classes decide no bout at all, and seven of nine minds span 0.024 points. The learner section
+above stops one paragraph short of the consequence, and this is the consequence: **a value
+function fitted against a league that cannot rank its own minds is fitted against a constant**, so
+the first thing to fix is not the mind but the thing the mind is being scored on.
+
+**A criterion had to be chosen before anything moved, because the fight cannot be judged by
+watching it.** The owner's instruction was that the current fighting is too poor for variations of
+it to be told apart by eye, so the response here is Cohen's d on a **paired bar margin**: two
+minds that ought to differ, run over one body and one seed twice with the corners swapped, and the
+pair -- not the bout -- is the unit, because the corner a body stands in decides more of a single
+bout than the mind in it does. d is the right functional for a reason that is not taste: bouts
+needed to see a difference go as 1/d^2, which is exactly what the session was asked to buy, and it
+**fails at both ends**. A bout that never ends has no numerator. A bout decided by one blow has no
+numerator either, because which body swings first is then a coin flip -- the mean collapses and
+the spread does not. A criterion that punishes both a stalemate and a stomp is one it is safe to
+maximise.
+
+**The gap has to be between two minds and not between one mind and its own noise.** The sweep was
+first built on a style played greedily against the same style at explore 1.0 -- a uniform draw
+from whatever is open, which is the flail itself -- and that gap answers the lever inconsistently:
+0.150 rising to about 0.22 across one seed's pool, 0.316 falling to 0.301 across another's, with
+intervals that never separate. Both corners of it are the same executor naming the same fifteen
+frozen bundles, so what the bar is being asked to resolve is a difference in *timing*, which is
+precisely the thing the option
+vocabulary cannot express. The decision was retaken on `golem-brawler` against `golem-duelist`,
+the two ends of Session 08's league, which is the difference a league actually has to resolve.
+
+**The lever is lethality and it is reached through the body, not the scoring.**
+`CONFIG.combat.cutJoulesPerDamage` and its two siblings would do the same job in one number, and
+they are refused: they are the Warrior's scoring as well, and `tests/scoring.test.mjs` pins it.
+What is golem-only is `GOLEM_ASSEMBLY.healthScale` -- what a point of declared part health is
+worth -- and `GOLEM_ASSEMBLY.vitalityTotal` -- how much bar a destroyed part takes with it. Both
+moved, and **the reason both moved is that they do different jobs.**
+
+- `healthScale` decides **how many bouts end at all**: 25 % to 43 % of them as it falls from 0.25
+  to 0.10 at a fixed bar. It buys that by making an individual blow more decisive, which is why
+  the winner's own remaining bar *rises* with it -- 0.567 to 0.628 -- and why bouts over inside
+  eight seconds go from none to six per cent. Pushed alone it converts a stalemate into a stomp,
+  which the criterion is built to notice.
+- `vitalityTotal` decides **how much a mind's choices are worth when a bout does end**. It changes
+  when a body counts as beaten rather than how hard a blow lands: the bar concedes at partial
+  destruction instead of near-total, which shortens fights without making any single blow a coin
+  flip. d rises monotonically along it, 0.163 to 0.305, and the winner's bar *falls* -- those are
+  hard fights, not stomps.
+
+**It was not taken to the best d, and the column that stopped it is dismemberment.** Scaling the
+declared weights to a larger total means a bar empties on a smaller fraction of the body: at 10.8
+that fraction is 9.3 %, which is less than any single module, so the bar empties *before*
+anything comes off. One per cent of decided bouts end with a part severed, against seventy-five
+today. A fight would end with two intact-looking bodies, one of which falls over. **A bar that no
+longer describes the body it is drawn over is a worse defect than a small effect size**, so the
+choice is 5.4 -- which also stays under **5.95**, the total at which a severed primary arm would
+empty a default golem's whole bar on its own and `tests/golem-arena.test.mjs` would stop being
+able to say that a golem fights on with the other one. That ceiling is arithmetic and not taste: a
+module of share `s` carries weight `s * total`, so it empties a bar alone once `total >= 1 / s`,
+and the default build's primary is 16.8 % of its bar. Running that test file at 5.9 passes and at
+6.0 does not.
+
+**One hypothesis that was good and was wrong, kept because it was made.** The diagnostic that
+opened the session found 41.7 % of a golem's declared bar sitting on legs that absorb 7.5 % of the
+injury, every stroke going to the trunk mark at shoulder height while `targetByHealth` is off in
+every table but the brawler's. The obvious inference is that the bar is diluted by weight nothing
+can reach, and that moving it onto the arm and the head would concentrate the signal. Measured, a
+pure reallocation *lowers* the effect size -- 0.130 against the control's 0.210 -- because the
+inert weight was **damping the variance rather than diluting the signal**: concentrating the bar
+makes one sever swing more of it, and the denominator grows faster than the numerator. Pooled over
+all 208 sides of the diagnostic, **93.7 % of declared weight sits on part keys that took injury in
+at least one of them**, against 57.9 % inside any single bout, so nothing on a golem is
+structurally out of reach either. What the legs have is a low rate, not a wall.
+
+**What no bar setting buys is a body that cannot hurt another one.** Thirteen of the fifty-two
+reference builds -- a quarter of the pool -- decide none of their 140 screening bouts at any total
+tried, up to a `vitalityTotal` of 25.2, which is seven times the shipped one; `ram-capped` and
+`pitch-blade` are two of them. That is Session 08's "eight of eleven build classes decide none"
+measured again per draw. It is a fact about weapons and reach, and it is not this number's to fix.
+
+**What it bought, on the thing it was aimed at.** The whole league -- twelve minds, 4,096 bouts,
+seed 20260906 -- was run at both settings, the old one reached through the override below rather
+than by editing the source, so the two logs differ in those two rows and nothing else. Mirrored,
+1,544 bouts decide against 913 and the spread from the best mind to the worst goes 0.093 to 0.176;
+on random pairs, 1,806 against 970 and 0.060 to 0.098. The ordering survives -- Spearman's rho
+0.67 and 0.80, the same mind first and the same one last on both pools -- and on each pool
+**exactly one mind moves by more than two standard errors, and it is the one that is not a mind**:
+`golem-learner`, whose table is still the zeros of Session 10, so its head is a constant and it
+names the first open option at every ask. Mirrored it loses 0.0655 +- 0.0095 of a point against
+its own self at the old settings, and sits 13.8 standard errors below zero on the bar where
+Session 08's whole league held nothing further from zero than 5.2. A value function fitted here is
+no longer being fitted against a constant.
+
+**The harness reaches the body through `--override body.<row>`**, beside the `form.` prefix that
+reaches a style's table. It is deliberately not a bare name: every other override in the tournament
+changes what a mind decides, and this one changes what it is deciding about.
+
 ## Dying, which is not the same as losing
 
 `over` not stopping the world was the right call about the *bout* and, for a long time, it

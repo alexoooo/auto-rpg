@@ -3150,9 +3150,12 @@ export const GOLEM_ASSEMBLY = {
    * assembly sums to this, and what a part is worth is its share of the golem it is part of. The
    * one-line consequence, and the reason the number is not 1: at a total of 1 a golem could only
    * be exhausted by being destroyed entirely, which makes the bar unreadable and hands every
-   * verdict to the two fatal parts. At 3.6 a golem's bar empties on the same fraction of its own
-   * weighted body as a Warrior's does -- 1/3.6, 27.8 % -- which is a proportion somebody chose by
-   * playing rather than a number this session invented.
+   * verdict to the two fatal parts.
+   *
+   * **The number is 10.8 as of Session 11 of the style set, and was 3.6 for six sessions before
+   * that.** Everything below the next rule was written for 3.6 and is kept because the argument
+   * it makes is still the argument; what changed is that the number stopped being unobservable.
+   * The table after it is why it moved.
    *
    * **Measured, and the measurement could not separate the two**, which is worth saying plainly
    * rather than dressing the choice up as a result. Node arena harness, 8 side-swapped bouts per
@@ -3169,8 +3172,61 @@ export const GOLEM_ASSEMBLY = {
    * So what the number decides today is **how fast the bar falls in front of a person**, not who
    * wins, and the argument above is what chose it. `docs/measurements.md` carries the rest of the
    * table and what it does not say.
+   *
+   * ---
+   *
+   * **2026-09-08, Session 11 of the style set: 3.6 -> 5.4, because golem against golem does now
+   * come near the threshold.** The number did not become wrong. It became load-bearing.
+   *
+   * Two things the paragraphs above got right in 2026-09-05 and one they got wrong. Right: what
+   * this number sets is how fast the bar falls, and a total of 1 would hand every verdict to the
+   * fatal parts. Wrong: **the parity with a Warrior's 3.6 does not survive the two anatomies.** A
+   * Warrior's 3.6 is deliberately over-subscribed onto a head and a torso worth 1.0 each, so a
+   * Warrior can spend its whole bar on one ruined part; a golem's heaviest part is `legs.yoke` at
+   * 0.635 of 3.6 and its entire primary arm is 0.626, so the same 27.8 % has to be collected
+   * across most of a body. The number matched a Warrior's arithmetic and not a Warrior's death,
+   * and what that cost is that a golem had to be very nearly dismantled to lose.
+   *
+   * **What it is swept on.** `golem-brawler` against `golem-duelist` -- the best and the worst
+   * hand-coded minds of Session 08's league, which is the widest difference between two minds on
+   * record and the gap a league has to resolve -- 192 paired bouts a row with the corners swapped,
+   * seed 20260908. `d` is Cohen's d on the pair margin. It is the criterion because bouts needed
+   * to see a difference go as 1/d^2, and because it fails at *both* ends: a bout that never ends
+   * has no numerator, and a bout decided by one blow has no numerator either, since which body
+   * swings first is a coin flip.
+   *
+   * | total | d | points | decided | winner's bar | severed parts a bout | decided bouts with a sever |
+   * |---:|---:|---:|---:|---:|---:|---:|
+   * | 3.6 | 0.163 | 0.491 | 25 % | 0.567 | 0.45 | 75 % |
+   * | **5.4** | **0.215** | 0.509 | 26 % | 0.384 | 0.35 | 56 % |
+   * | 7.2 | 0.267 | 0.525 | 29 % | 0.322 | 0.16 | 24 % |
+   * | 10.8 | 0.305 | 0.577 | 38 % | 0.346 | 0.01 | 1 % |
+   *
+   * **d is monotone in this number and so is the disappearance of dismemberment, and 5.4 is
+   * chosen against the better d for that reason.** At 10.8 a bar empties on 9.3 % of the weighted
+   * body, which is less than any single module, so it empties *before* anything is destroyed: 1 %
+   * of decided bouts end with a part off, against 75 % today. Fights would end with two
+   * intact-looking bodies, one of which falls over, and a bar that no longer describes the body it
+   * is drawn over is a worse defect than a small effect size. `points` says the same trade is real
+   * -- at 3.6 the best hand-coded mind *loses* its head-to-head against the worst, 0.491.
+   *
+   * **5.4 is also under a hard ceiling at 5.95**, and the ceiling is arithmetic rather than taste.
+   * A module of share `s` carries weight `s * total` once `scaleVitality` has run, so it empties a
+   * whole bar on its own once `total >= 1 / s`; the default build's primary arm is 16.8 % of its
+   * bar, which puts that at 5.95. Above it a golem dies the instant an arm comes off and
+   * `tests/golem-arena.test.mjs` stops being able to say that a golem fights on with the other
+   * one -- confirmed by running that file at 5.9, which passes, and at 6.0, which does not. It is
+   * build-dependent rather than an invariant: nine of the fifty-two pool builds already carry a
+   * primary heavier than a bar at 3.6 and `draw-21`'s, at 41.3 % of its bar, does so from 2.42
+   * up. But it is not a line to cross as a side effect of a sweep.
+   *
+   * **What is left is not this number's to fix.** Thirteen of the fifty-two reference builds --
+   * a quarter of the pool -- decide none of their 140 screening bouts at any total tried, up to
+   * 25.2, because those bodies cannot hurt each other; `ram-capped` and `pitch-blade` are two of
+   * them. That is Session 08's "eight of eleven build classes decide none" measured again per
+   * draw; it is a fact about weapons and reach, and no bar setting buys those bodies anything.
    */
-  vitalityTotal: 3.6,
+  vitalityTotal: 5.4,
 
   /**
    * What a point of a module's declared health is worth, applied once to every part of every
@@ -3224,8 +3280,48 @@ export const GOLEM_ASSEMBLY = {
    * Applied in `Golem.register`, the one place a golem's parts get their health, beside the
    * `durability` scale that was already there. `maxHealth` moves with it, so a bar reads the same
    * fraction it always did and only the number of blows behind that fraction changes. 2026-09-05.
+   *
+   * ---
+   *
+   * **2026-09-08, Session 11 of the style set: 0.25 -> 0.15, because the fight this was calibrated
+   * against is not the fight it now governs.** The table above chose 0.25 on 93.8 damage a bout
+   * over 29.0 seconds with 16 of 16 decided. Measured again on 2026-09-07 over 104 mirrored
+   * `golem-fencer` bouts: **55.1 damage a bout over 53.7 seconds, 30 of 104 decided.** A 3.2-fold
+   * fall in rate, and Session 01's one claim per part per stroke -- which took away the rake -- is
+   * where it went. The number was not wrong when it was chosen; the fight underneath it moved.
+   *
+   * Swept beside `vitalityTotal` above, same pairing and criterion, `golem-brawler` against
+   * `golem-duelist`, 192 paired bouts a row, seed 20260908:
+   *
+   * | health | vitality | d | decided | winner's bar | severed parts a bout | under 8 s |
+   * |---:|---:|---:|---:|---:|---:|---:|
+   * | 0.25 | 3.6 | 0.163 | 25 % | 0.567 | 0.45 | 0 % |
+   * | 0.15 | 3.6 | 0.216 | 34 % | 0.598 | 0.64 | 3 % |
+   * | 0.10 | 3.6 | 0.191 | 43 % | 0.628 | 0.77 | 6 % |
+   * | 0.25 | 5.4 | 0.215 | 26 % | 0.384 | 0.35 | 0 % |
+   * | **0.15** | **5.4** | **0.235** | **36 %** | **0.448** | **0.48** | **3 %** |
+   *
+   * **The two rows do different jobs and that is why both moved.** This one decides how many bouts
+   * end at all -- 25 % to 43 % as it falls, at a fixed bar -- and `vitalityTotal` decides how much
+   * a mind's choices are worth when they do. Pushed on its own it buys decidedness by making a
+   * single blow decisive, which is why the winner's bar *rises* with it, to 0.628: those are
+   * stomps, and bouts over inside eight seconds go 0 % to 6 %. Paired with a shallower bar it does
+   * not: at 0.15 and 5.4 the winner ends on 0.448 of its own bar rather than 0.628, which is a
+   * fight rather than a stomp, and 0.48 parts a bout are severed against 0.45 today, so
+   * dismemberment survives the change and is if anything a little more common.
+   *
+   * 0.10 is refused although it decides the most bouts: d is *lower* than 0.15's, its winner's bar
+   * is the highest in the table, and it doubles the bouts that are over before either body has
+   * done anything. 0.06 was screened on 2026-09-07 and is worse again, 18 % of bouts inside eight
+   * seconds.
+   *
+   * **What it costs is still that a golem is not safe from a person, and by more than before.**
+   * The Session 12b table's 14 of 16 against the Warrior duelist was measured at 0.25; the row at
+   * 0.15 is in `docs/measurements.md`, Session 11 of the style set, and is reported rather than
+   * fixed, under the owner's standing instruction that golem against Warrior does not have to be
+   * balanced.
    */
-  healthScale: 0.25,
+  healthScale: 0.15,
 
   /**
    * The base frame's box, metres, and why there is one at all.
