@@ -21,9 +21,9 @@ import {
   golemSetupRefusal,
   golemTerminalOptions,
   golemTorsoOptions,
-  randomGolemSetup,
   type GolemSlotOption,
 } from "./golem/build";
+import { randomViableGolemSetup, randomViableOpponent, unviablePairNote } from "./golem/viability";
 import type { PartsBin } from "./golem/parts-bin";
 import { mulberry32, randomSeed } from "./rng";
 import { unitDefinition } from "./units";
@@ -123,6 +123,7 @@ export class SetupScreen {
   private readonly beginButton: HTMLButtonElement | null;
   private readonly binRow: HTMLElement;
   private readonly binNote: HTMLElement;
+  private readonly pairNote: HTMLElement;
   /** Which corners have their slot pickers open. Screen state, not matchup state. */
   private readonly customizing: Record<Side, boolean> = { left: false, right: false };
 
@@ -139,7 +140,8 @@ export class SetupScreen {
     this.bin = bin;
     this.onSelection = onSelection;
 
-    host.innerHTML = `${this.corner("left", "Left")}${this.corner("right", "Right")}${this.binPanel()}`;
+    host.innerHTML = `${this.corner("left", "Left")}${this.corner("right", "Right")}`
+      + `${this.pairPanel()}${this.binPanel()}`;
 
     const one = <T extends HTMLElement>(selector: string): T => {
       const found = host.querySelector<T>(selector);
@@ -170,6 +172,7 @@ export class SetupScreen {
     };
     this.binRow = one<HTMLElement>('[data-field="partsBin"]');
     this.binNote = one<HTMLElement>('[data-field="partsBinNote"]');
+    this.pairNote = one<HTMLElement>('[data-field="pairNote"]');
 
     // One delegated listener rather than one per control. The controls are built here and
     // never replaced -- `render` writes values into them -- so there is nothing to rebind and
@@ -220,6 +223,21 @@ export class SetupScreen {
         <button class="action quiet" type="button" data-field="partsBinReset">Empty the bin</button>
       </div>
     `;
+  }
+
+  /**
+   * One line about the *pair*, which is the one thing neither corner's caption can say.
+   *
+   * A hand-built matchup that `viablePair` refuses is fought anyway and Begin stays enabled: the
+   * owner can build anything, and a screen that disabled its own start button over a judgement
+   * about how a fight is likely to go would be the menu-restricting this session deliberately did
+   * not do. What it gets instead is the sentence, so that a minute of two things circling each
+   * other is a thing the screen warned about rather than a thing the prototype appeared not to
+   * know. The refusals in `refusal` are a different kind and still block Begin: those are builds
+   * the arena cannot assemble at all.
+   */
+  private pairPanel(): string {
+    return `<p class="note pair-note" data-field="pairNote" hidden></p>`;
   }
 
   private corner(side: Side, title: string): string {
@@ -374,14 +392,30 @@ export class SetupScreen {
   /**
    * A fresh build for one corner, from a fresh seed, and the seed kept on the corner.
    *
-   * The draw is `randomGolemSetup` over `mulberry32` of a seed nobody chose, which is the same
-   * generator every seeded thing in this tree uses -- so the number the corner then shows is
-   * enough to draw this body again anywhere. A corner that is not a golem yet is made one first,
-   * through `withUnit` with the golem's own rules, exactly as the old unit picker did it.
+   * The draw is over `mulberry32` of a seed nobody chose, which is the same generator every seeded
+   * thing in this tree uses -- so the number the corner then shows is enough to draw this body
+   * again anywhere. A corner that is not a golem yet is made one first, through `withUnit` with the
+   * golem's own rules, exactly as the old unit picker did it.
+   *
+   * **Viable, since Session 01 of the learn set, and that is the owner's first sentence about this
+   * plan set.** Before it, Random drew uniformly from 2,376 assemblies and a shade over half of
+   * the pairs two presses produced could not finish each other, so pressing it twice usually
+   * bought sixty seconds of two things circling.
+   *
+   * **It draws an opponent, not a body**, whenever there is already a golem in the other corner.
+   * That is not what the plan said and it is what the measurement forced: `viableBuild` turned out
+   * to accept every class on the shelf -- the maul finishes all seven, so the second admission rule
+   * admitted all seven -- and a per-body filter that refuses nothing cannot keep a pair on the
+   * screen honest. `randomViableOpponent` redraws until `viablePair` accepts the pair the owner is
+   * actually going to watch. The pickers behind Customize are untouched and still offer
+   * everything, because restricting a menu is a different act from redrawing a draw and only the
+   * second one was asked for.
    */
   private randomize(side: Side): void {
     const seed = randomSeed();
-    const build = randomGolemSetup(mulberry32(seed));
+    const other = this.matchup[side === "left" ? "right" : "left"].golem;
+    const rng = mulberry32(seed);
+    const build = other ? randomViableOpponent(rng, other) : randomViableGolemSetup(rng);
     if (!this.matchup[side].golem) {
       this.matchup = withUnit(this.matchup, side, GOLEM_UNIT, unitDefinition(GOLEM_UNIT));
     }
@@ -487,6 +521,13 @@ export class SetupScreen {
       }
     }
     this.renderBin();
+    // The note is DOM-free logic in `src/golem/viability.ts` and a string here, for the reason
+    // that module's doc comment gives: this file has no test, because the Node runner has no DOM.
+    const left = this.matchup.left.golem;
+    const right = this.matchup.right.golem;
+    const note = left && right ? unviablePairNote(left, right) : null;
+    this.pairNote.textContent = note ?? "";
+    this.pairNote.hidden = note === null;
     if (this.beginButton) {
       const reason = this.refusal;
       this.beginButton.disabled = reason !== null;

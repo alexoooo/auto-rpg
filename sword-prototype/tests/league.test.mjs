@@ -67,6 +67,7 @@ import {
   boutsPerOpponent, chosenSnapshots, formatRow, parseTerminals, snapshotIterations,
 } from "../scripts/rate-snapshots.mjs";
 import { poolFor } from "../scripts/train-ppo.mjs";
+import { VIABLE_TERMINALS, viableBuild } from "../src/golem/viability.ts";
 import {
   classCount, classRate, fisher, formatProbeRow, parseBaseline, probeRow,
 } from "../scripts/probe-snapshots.mjs";
@@ -508,7 +509,9 @@ test("the rating curve reads the snapshots off disk, refuses one that is not the
 test("the rating pool can be cut to the classes where a fight can end, and a typo cannot cut it silently", () => {
   assert.deepEqual(parseTerminals("maul,mace"), ["maul", "mace"]);
   assert.deepEqual(parseTerminals(" maul , Mace "), ["maul", "mace"], "a shell hands it spaces and a class is a name");
-  assert.deepEqual(parseTerminals(null), [], "no flag is the whole pool, which is what every run before this did");
+  assert.deepEqual(parseTerminals(null), [...VIABLE_TERMINALS],
+    "no flag is the viable set since Session 01 of the learn set, and `all` is the way back");
+  assert.deepEqual(parseTerminals("all"), ["all"]);
   // Empty is a refusal and not the whole pool: `--terminals ""` is a caller who meant to filter.
   assert.throws(() => parseTerminals(" , "), /--terminals wants weapon classes/);
   assert.throws(() => parseTerminals("maul,maul"), /repeats a class/);
@@ -517,7 +520,7 @@ test("the rating pool can be cut to the classes where a fight can end, and a typ
   // `scripts/league.mjs` uses -- and it is a *different* draw from the probe's, so its class counts
   // are its own. This is the pool a shipped number is measured on.
   const seed = (SEED ^ 0xc0f1c0f1) >>> 0;
-  const whole = poolFor({ seed, random: 40 });
+  const whole = poolFor({ seed, random: 40, terminals: parseTerminals("all") });
   const decisive = poolFor({ seed, random: 40, terminals: ["maul", "mace"] });
   assert.equal(whole.length, 52, "the evaluation pool is the twelve designed builds and forty draws");
   assert.equal(decisive.length, 20, "nine mauls and eleven maces are where a bout can be finished");
@@ -529,6 +532,13 @@ test("the rating pool can be cut to the classes where a fight can end, and a typ
   // The filter names a weapon class and not a draw index, so it survives a change of seed -- and a
   // class no build carries is an error rather than an empty pool and an hour of rating nothing.
   assert.throws(() => poolFor({ seed, random: 40, terminals: ["halberd"] }), /no build in the pool is armed with halberd/);
+  // And the default, which is what every script in the set now draws through. On the table
+  // Session 01 measured it is the whole fifty-two, because every class is viable -- a maul decides
+  // against all seven, so the second admission rule admitted all seven. The cut that matters lives
+  // in `VIABLE_PAIRS` and `--pairs viable`, not here.
+  const viable = poolFor({ seed, random: 40 });
+  assert.equal(viable.length, whole.length, `${viable.length} of ${whole.length}`);
+  for (const build of viable) assert.ok(viableBuild(build.setup), build.caption);
 });
 
 test("a rating row prints both baselines with their intervals and the fit's record", () => {

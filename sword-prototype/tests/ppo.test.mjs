@@ -31,6 +31,7 @@
 // | `mergeRollouts` ignores its table and always pays `GOLEM_REWARD` | the swept-table test |
 // | `rolloutPairs` returns one ordered pair against a named opponent instead of both | the corner test |
 // | `poolFor` filters on the *primary* terminal rather than the armed one | the pool test |
+// | `poolFor` still defaults to the whole pool, so the learn set's first frozen choice is off | the pool test |
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -49,10 +50,11 @@ import { policyMind } from "../src/mind.ts";
 import { policyForUnit } from "../src/units.ts";
 import { mulberry32 } from "../src/rng.ts";
 import {
-  advantages, cohensD, explainedVariance, extendNormalisation, mergeRollouts, poolFor, ppoFit,
-  renderPolicyModule, rolloutPairs, surrogateGrad, surrogateObjective,
+  advantages, cohensD, explainedVariance, extendNormalisation, mergeRollouts, parseTerminals,
+  poolFor, ppoFit, renderPolicyModule, rolloutPairs, surrogateGrad, surrogateObjective,
 } from "../scripts/train-ppo.mjs";
 import { armedTerminal, buildPool } from "../scripts/tournament.mjs";
+import { VIABLE_TERMINALS, viableBuild } from "../src/golem/viability.ts";
 
 const SEED = 20260913;
 
@@ -355,9 +357,9 @@ test("a_rollout_against_an_opponent_is_collected_from_both_corners", () => {
  */
 test("the_decisive_pool_keeps_the_armed_hand_and_not_the_primary", () => {
   const seed = 20260906;
-  const whole = poolFor({ seed, random: 40 });
+  const whole = poolFor({ seed, random: 40, terminals: ["all"] });
   assert.deepEqual(whole.map((b) => b.name), buildPool({ seed, random: 40 }).map((b) => b.name),
-    "an empty terminal list is not the whole pool");
+    "`all` is the word for the whole pool");
 
   const heavy = poolFor({ seed, random: 40, terminals: ["maul", "mace"] });
   assert.ok(heavy.length > 0 && heavy.length < whole.length, `${heavy.length} of ${whole.length}`);
@@ -371,6 +373,49 @@ test("the_decisive_pool_keeps_the_armed_hand_and_not_the_primary", () => {
     "the fixture has no capped-primary build, so this test cannot see the defect it is for");
 
   assert.throws(() => poolFor({ seed, random: 0, terminals: ["trebuchet"] }), /no build in the pool/);
+});
+
+/**
+ * The pool a run draws by default is the viable one, and the whole pool has a word.
+ *
+ * The learn set's first frozen choice, and it is a *default* rather than a flag because the flag
+ * already existed and no run passed it. What this asserts is the direction of the default -- an
+ * absent `terminals` is `VIABLE_TERMINALS` and not a hard-coded fifty-two -- and that the word
+ * back is exactly `all`, since a run that meant the whole pool and got the viable one would report
+ * a number about a pool it never measured.
+ *
+ * **On the table Session 01 measured the two pools are the same fifty-two builds**, because every
+ * class on the shelf is viable -- the maul decides against all seven, so the second admission rule
+ * admitted all seven. That is asserted, not glossed: this is the test that would have caught a
+ * default silently doing nothing, so it says so out loud, and a re-measurement that refuses a
+ * class turns the second assertion red rather than quietly making the default matter again.
+ */
+test("the_default_pool_is_the_viable_one_and_all_is_the_word_back_to_the_whole_pool", () => {
+  const seed = 20260906;
+  const whole = poolFor({ seed, random: 40, terminals: ["all"] });
+  const byDefault = poolFor({ seed, random: 40 });
+  assert.ok(byDefault.length > 0, `${byDefault.length} of ${whole.length}`);
+  assert.equal(byDefault.length, whole.length,
+    "the measured class table admits every class, so the default cuts nothing");
+  for (const build of byDefault) assert.ok(viableBuild(build.setup), build.caption);
+  assert.deepEqual(byDefault.map((b) => b.name),
+    whole.filter((b) => viableBuild(b.setup)).map((b) => b.name),
+    "every viable build in the pool is in it, and nothing else");
+  assert.deepEqual(byDefault, poolFor({ seed, random: 40, terminals: [...VIABLE_TERMINALS] }));
+  // The empty list still means the whole pool, unchanged: `POLICY_WEIGHTS` carries one from the
+  // run that fitted it, and reinterpreting that field would rewrite a shipped table's header.
+  assert.deepEqual(poolFor({ seed, random: 40, terminals: [] }).map((b) => b.name),
+    whole.map((b) => b.name));
+
+  // And the flag: no flag is the viable set, `all` is the whole pool, a typo is refused by name.
+  assert.deepEqual(parseTerminals(null), [...VIABLE_TERMINALS]);
+  assert.deepEqual(parseTerminals("all"), ["all"]);
+  assert.deepEqual(parseTerminals(" maul , Mace "), ["maul", "mace"]);
+  assert.throws(() => parseTerminals(" , "), /--terminals wants weapon classes/);
+  assert.throws(() => parseTerminals("maul,maul"), /repeats a class/);
+  assert.throws(() => parseTerminals("all,maul"), /cannot be narrowed/);
+  assert.throws(() => poolFor({ seed, random: 40, terminals: parseTerminals("malu") }),
+    /no build in the pool is armed with malu/);
 });
 
 /**

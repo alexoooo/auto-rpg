@@ -3,7 +3,7 @@
 //
 //   node scripts/rate-snapshots.mjs --dir tournaments/league-anchored [--bouts 200] [--workers 28]
 //                                   [--cap 60] [--random 40] [--only 8,16,24] [--out curve.jsonl]
-//                                   [--terminals maul,mace]
+//                                   [--terminals maul,mace|all]
 //
 // A league's own `--evaluate` is deliberately coarse: a rating costs bouts the fit could have had,
 // so a night at `--evaluate 25` leaves two or three points and no curve. The pool files hold the
@@ -30,6 +30,12 @@
 // read as "no change" on an instrument that could not have seen one. `--terminals maul,mace` rates
 // on the fifteen bodies where a fight can end, for the same bouts and the same seed.
 //
+// **It stopped being a flag and became the default on 2026-09-09**, with Session 01 of the learn
+// set: absent, `poolFor` draws through `VIABLE_TERMINALS` in `src/golem/viability.ts`, and
+// `--terminals all` is how the paragraph above's fifty-two-build pool is asked for. The paragraph
+// stands as the reason; what changed is which way round the default sits, because a flag that has
+// to be remembered on every run is a rule nothing enforces, and the owner's brief made it a rule.
+//
 // **A rating is only comparable to another rating on the same pool**, so a row carries the pool it
 // was measured on -- the count of builds and the classes kept -- rather than leaving two different
 // instruments looking alike in one log file. The unfiltered pool remains what the run's own
@@ -39,7 +45,8 @@ import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { PPO_LEAGUE, poolFor, ratePolicy } from "./train-ppo.mjs";
+import { VIABLE_TERMINALS } from "../src/golem/viability.ts";
+import { PPO_LEAGUE, parseTerminals, poolFor, poolSentence, ratePolicy } from "./train-ppo.mjs";
 import { loadLeague, poolPath, roleFromJson } from "./league.mjs";
 
 /** The iterations this directory has a checkpoint for, in the order they were taken. */
@@ -77,21 +84,16 @@ export function boutsPerOpponent(perContender, league = PPO_LEAGUE) {
 }
 
 /**
- * `--terminals maul,mace`: the weapon classes to keep, or the empty list for the whole pool.
+ * `--terminals maul,mace|all`: the weapon classes to keep. No flag is the viable set.
  *
- * Refused rather than silently emptied, for `chosenSnapshots`' reason -- a mistyped class is an
- * hour spent rating a pool nobody meant, and `poolFor` names the classes it could not find.
+ * It moved to `scripts/train-ppo.mjs` in Session 01 of the learn set, beside `poolFor`, because
+ * four scripts take the same word now and the parser was living downstream of half of them. It is
+ * re-exported from where it was written so that no caller and no test changed address.
  */
-export function parseTerminals(text) {
-  if (text === null || text === undefined) return [];
-  const kept = String(text).split(",").map((s) => s.trim().toLowerCase()).filter((s) => s !== "");
-  if (kept.length === 0) throw new Error("--terminals wants weapon classes, as in maul,mace");
-  if (new Set(kept).size !== kept.length) throw new Error(`--terminals repeats a class: ${text}`);
-  return kept;
-}
+export { parseTerminals };
 
 export async function rateSnapshots({
-  dir, bouts = 200, workers = 28, cap = 60, random = 40, only = null, terminals = [],
+  dir, bouts = 200, workers = 28, cap = 60, random = 40, only = null, terminals = VIABLE_TERMINALS,
   onRow = null,
 }) {
   const state = loadLeague(dir);
@@ -105,7 +107,7 @@ export async function rateSnapshots({
       : roleFromJson(JSON.parse(readFileSync(poolPath(dir, iteration), "utf8")));
     const rated = await ratePolicy({
       weights: role.weights, logSigma: role.logSigma, norm: role.norm,
-      pool, seed: (state.seed ^ 0xc0f1c0f1) >>> 0, bouts: per, workers, cap, mirror: true,
+      pool, seed: (state.seed ^ 0xc0f1c0f1) >>> 0, bouts: per, workers, cap, mirror: true, terminals,
     });
     const u = rated.differences.uniform;
     const d = rated.differences.driver;
@@ -114,6 +116,8 @@ export async function rateSnapshots({
       // The pool travels with the row. Two ratings on two pools are two instruments, and a log
       // file that does not say which one a row came from cannot be read six months later.
       pool: { builds: pool.length, terminals: [...terminals] },
+      // ^ the classes as asked for, so a row written under the viable default and a row written
+      // under `--terminals all` are two instruments a reader can tell apart six months later.
       uniform: { bar: u.bar, sem: u.barSem, d: u.d },
       driver: { bar: d.bar, sem: d.barSem, d: d.d },
       fit: rated.results.fit,
@@ -161,7 +165,7 @@ if (isMain) {
   const state = loadLeague(dir);
   const random = Number(flag("random", 40));
   const builds = poolFor({ seed: (state.seed ^ 0xc0f1c0f1) >>> 0, random, terminals }).length;
-  const on = terminals.length === 0 ? "the whole pool" : `${terminals.join(" and ")} only`;
+  const on = poolSentence(terminals);
   console.log(`${dir}: iteration ${state.iteration}, ${snapshots.length} snapshots, rating `
     + `${chosen.length + 1} at ${per} bouts an opponent (${per * PPO_LEAGUE.length} a contender) `
     + `over ${builds} builds, ${on}`);

@@ -6,7 +6,7 @@
 //        [--epochs 4] [--batch 4096] [--target-kl 0.03]
 //        [--sigma-floor -3] [--sigma-roof 0.5] [--evaluate 5] [--eval-bouts 96]
 //        [--final-bouts 4x eval] [--value-hidden 64,64] [--opponent golem-driver]
-//        [--terminals maul,mace]
+//        [--terminals maul,mace|all]   -- absent is the viable set; `all` is every build
 //        [--reward-win 0.5] [--reward-clinch 0.004] [--reward-idle 0.004] [--reward-tick 0]
 //        [--out src/golem/policy-weights.ts] [--log tournaments/ppo-....jsonl] [--resume f.json]
 //
@@ -106,6 +106,7 @@ import {
 } from "../src/golem/policy.ts";
 import { GOLEM_REWARD, stepReward } from "../src/golem/reward.ts";
 import { mulberry32 } from "../src/rng.ts";
+import { VIABLE_TERMINALS } from "../src/golem/viability.ts";
 import { armedTerminal, buildPool, runJobs, scheduleJobs } from "./tournament.mjs";
 import { columnsOf, meanOf, semOf } from "./train-learner.mjs";
 import { evaluate } from "./tune.mjs";
@@ -540,14 +541,65 @@ export function ppoFit(rollout, {
  * second group, so an unfiltered rollout is mostly amplified noise.
  *
  * `terminals` is a list of armed terminals to keep, matched by `armedTerminal` on the build's
- * setup, so it names a weapon class and not a draw index and survives a change of seed. Empty is
- * the whole pool, which is what every run before this flag did.
+ * setup, so it names a weapon class and not a draw index and survives a change of seed.
+ *
+ * **The default moved in Session 01 of the learn set, and the old default has a word.** It was the
+ * empty list and the whole pool; it is now `VIABLE_TERMINALS` from `src/golem/viability.ts`, and
+ * `all` is how a caller asks for the fifty-two builds back. That is the set's first frozen choice
+ * -- no pool spends a bout on a layout that cannot kill -- and the reason it is a *default* rather
+ * than a flag is that every script here had the flag already and none of them was passing it. The
+ * whole pool stays reachable because the close-out owes a final table on it, and for nothing else.
+ *
+ * A class no build carries is still an error naming the class, which is what makes a typo cost a
+ * refusal instead of an hour: `--terminals maul,malu` is refused by name, exactly as before.
+ *
+ * **Measured, the new default cuts nothing.** Session 01's table admitted every class on the shelf
+ * -- a maul decides against all seven, so the admission rule that was meant to let a plate fight a
+ * maul let everything fight a maul -- so `VIABLE_TERMINALS` is the whole shelf today and this pool
+ * is the same fifty-two builds `--terminals all` gives. That is written down rather than tidied
+ * away because the alternative is somebody later reading a default that does nothing and assuming
+ * it is broken. What it buys is the route: a re-measurement that refuses a class narrows every
+ * pool in the set without touching a caller. The cut that would buy the trainer bouts today is
+ * pairing a rollout through `viablePair`, which is a different change and not this one.
  */
-export function poolFor({ seed, random, terminals = [] }) {
-  const pool = buildPool({ seed, random });
+export function keepViable(pool, terminals = VIABLE_TERMINALS) {
+  // The empty list still means the whole pool, unchanged, and the *default* is what moved. That
+  // distinction is load-bearing rather than pedantic: `POLICY_WEIGHTS` carries `terminals: []`
+  // from the run that fitted it, and a build that reinterpreted that field would rewrite the
+  // header of a shipped table to say it was trained on a pool it never saw.
   if (terminals.length === 0) return pool;
+  if (terminals.length === 1 && terminals[0] === "all") return pool;
   const kept = pool.filter((build) => terminals.includes(armedTerminal(build.setup)));
   if (kept.length === 0) throw new Error(`no build in the pool is armed with ${terminals.join(" or ")}`);
+  return kept;
+}
+
+export function poolFor({ seed, random, terminals = VIABLE_TERMINALS }) {
+  return keepViable(buildPool({ seed, random }), terminals);
+}
+
+/**
+ * `--terminals maul,mace`: the weapon classes to keep. No flag is the viable set; `all` is the
+ * whole pool.
+ *
+ * Here rather than in `scripts/rate-snapshots.mjs`, where it was written, because four scripts now
+ * take the same word and that one already imports this file -- a shared parser living downstream
+ * of its users is a cycle waiting for the fifth caller. It is re-exported there so no caller
+ * changed.
+ *
+ * An empty string is refused rather than read as either pool, and that refusal is the point:
+ * `--terminals ""` is somebody who meant to filter and whose shell ate the argument, and both
+ * possible defaults would be an hour spent measuring a pool nobody asked for. A repeat is refused
+ * for the same reason -- it is a typo with a plausible reading.
+ */
+export function parseTerminals(text) {
+  if (text === null || text === undefined) return [...VIABLE_TERMINALS];
+  const kept = String(text).split(",").map((s) => s.trim().toLowerCase()).filter((s) => s !== "");
+  if (kept.length === 0) throw new Error("--terminals wants weapon classes, as in maul,mace");
+  if (new Set(kept).size !== kept.length) throw new Error(`--terminals repeats a class: ${text}`);
+  if (kept.includes("all") && kept.length > 1) {
+    throw new Error(`--terminals all is the whole pool and cannot be narrowed: ${text}`);
+  }
   return kept;
 }
 
@@ -674,11 +726,20 @@ export function episodeReturns(rollout) {
  * columns of one table and their difference is a paired difference. Cohen's d on that difference
  * is the set's criterion and has been since Session 03 of the matchup set -- a mind against its
  * own noise is not a number, and this is the arrangement in which it is one.
+ *
+ * **The pool is filtered here as well as by `poolFor`, and that is not redundancy.** A rating and
+ * a rollout have to be on the same builds or the curve is one instrument and the training is
+ * another; `terminals` defaults to the same `VIABLE_TERMINALS` and runs the same `keepViable`, so
+ * a caller that hands this function a whole pool by accident gets the viable one anyway and a
+ * caller that hands it a filtered pool loses nothing, the filter being idempotent. Two ratings on
+ * two pools are two instruments however alike they look, which is why `scripts/rate-snapshots.mjs`
+ * writes the pool it used into every row.
  */
 export async function ratePolicy({
   weights, logSigma, norm, league = PPO_LEAGUE, pool, seed, bouts, workers, cap,
-  mirror = true, onProgress = null,
+  mirror = true, onProgress = null, terminals = VIABLE_TERMINALS,
 }) {
+  pool = keepViable(pool, terminals);
   const contenders = {
     [FIT_NAME]: {
       pi: Array.from(weights), logSigma: Array.from(logSigma),
@@ -726,6 +787,23 @@ export function cohensD(diffs) {
  * imports nothing, so the table can name the coefficients it was fitted under rather than
  * copying them, and a build whose reward table has moved says so by not matching.
  */
+/**
+ * Which pool a header is talking about, in words.
+ *
+ * Absent and empty are both the whole pool, which is what a table fitted before Session 01 of the
+ * learn set was fitted on, and `all` is the whole pool asked for by name. What moved in that
+ * session is the *default* and not the meaning of the empty list -- `parseTerminals` never returns
+ * one now, so a run under the new default writes the three class names out and reads back as the
+ * list it is.
+ */
+export function poolSentence(terminals) {
+  if (terminals === undefined || terminals === null) return "the whole pool";
+  const kept = [...terminals];
+  if (kept.length === 0) return "the whole pool";
+  if (kept.length === 1 && kept[0] === "all") return "the whole pool";
+  return `pool builds armed with ${kept.join(" or ")}`;
+}
+
 export function renderPolicyModule(table, generator = "scripts/train-ppo.mjs") {
   checkPolicyWeights(table);
   const rows = [];
@@ -743,8 +821,7 @@ export function renderPolicyModule(table, generator = "scripts/train-ppo.mjs") {
     table.date
       ? `// Fitted ${table.date} from seed ${table.seed}: ${table.iterations} PPO iterations on ` +
         `${table.steps} asks from ${table.bouts} mirrored bouts against ` +
-        `${table.opponent ?? "itself"} on ${(table.terminals ?? []).length === 0 ? "the whole pool"
-          : `pool builds armed with ${table.terminals.join(" or ")}`}; half-life ` +
+        `${table.opponent ?? "itself"} on ${poolSentence(table.terminals)}; half-life ` +
         `${table.halfLife} s, lambda ${table.lambda}, clip ${table.clip}, entropy ${table.entropy}. ` +
         `Scored ${table.score.toFixed(3)} points a bout against ${beaten || "nothing"} on the held-out seed.`
       : "// Unfitted: zero weights, so that the mind loads; the trainer overwrites this file.",
@@ -823,8 +900,9 @@ if (isMain) {
   // Null is Session 13's mirrored self-play; a policy name is a fixed sparring partner, which is
   // the one arrangement in which the mean return is not zero by construction.
   const opponent = flag("opponent", null);
-  // A weapon class rather than a build list, for the reason `poolFor` gives.
-  const terminals = flag("terminals", "").split(",").map((t) => t.trim()).filter(Boolean);
+  // A weapon class rather than a build list, for the reason `poolFor` gives. Absent is the viable
+  // set since Session 01 of the learn set, and `--terminals all` is the whole fifty-two.
+  const terminals = parseTerminals(flag("terminals", null));
   const resumeFrom = flag("resume", null);
   const write = flag("out", null);
   const stamp = new Date().toISOString().replace(/[-:]/g, "").slice(0, 13);
@@ -884,9 +962,12 @@ if (isMain) {
    */
   const ratePoint = async (iteration, wanted) => {
     const eseed = (seed ^ 0xc0f1c0f1) >>> 0;
-    const epool = buildPool({ seed: eseed, random });
+    // The rating pool is drawn through the same filter the rollout pool is, so the curve and the
+    // training are on the same builds. Session 01 of the learn set; before it this was `buildPool`
+    // and a run could train on the fifteen bodies that can finish and be rated on all fifty-two.
+    const epool = poolFor({ seed: eseed, random, terminals });
     const result = await ratePolicy({
-      weights, logSigma, norm, league, pool: epool, seed: eseed,
+      weights, logSigma, norm, league, pool: epool, seed: eseed, terminals,
       bouts: Math.max(2, Math.ceil(wanted / league.length / 2) * 2),
       workers, cap, mirror: true, onProgress: progress(`rate ${iteration}`),
     });

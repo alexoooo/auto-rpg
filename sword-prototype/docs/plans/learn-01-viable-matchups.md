@@ -1,6 +1,13 @@
 # Session 01 -- viable matchups: one predicate, and every pool drawn through it
 
-**Status (2026-09-09): planned. Needs 00.**
+**Status (2026-09-09): landed.** The mechanical bar is **met**: the 256-bout `--pairs viable`
+tournament of `golem-fencer`, `golem-driver` and `golem-policy` at seed 20260906 decided 207 of
+256, **80.9 %**, against a bar of 80 % and the record's whole-pool 42.8 %. Met by two bouts, so
+it is met and not comfortable. The measurement did not reproduce the plan's placeholder guess:
+the second admission rule admitted **every** class through the maul, so `VIABLE_TERMINALS` is the
+whole shelf and `VIABLE_PAIRS` -- eleven of twenty-eight -- carries the predicate on its own.
+Both tables and what follows from them are in `../measurements.md`. The human gate below is the
+owner's and has not been asked.
 
 ## Outcome
 
@@ -30,7 +37,7 @@ that cannot kill, and the owner pressing Random gets a fight that can.
 
 ## Implement
 
-1. src/golem/viability.ts: `armedTerminal(setup)` moved here from `../../scripts/tournament.mjs`,
+1. `../../src/golem/viability.ts`: `armedTerminal(setup)` moved here from `../../scripts/tournament.mjs`,
    which re-exports it so no caller changes; `VIABLE_TERMINALS` and `VIABLE_PAIRS` as measured
    constants with their tables in the doc comment; `viableBuild(setup)`; `viablePair(a, b)`;
    `randomViableGolemSetup(rng, tries = 32)` which redraws `randomGolemSetup` from
@@ -49,7 +56,7 @@ that cannot kill, and the owner pressing Random gets a fight that can.
      VIABLE_PAIRS.has(pairKey(armedTerminal(a), armedTerminal(b)));
    ```
 
-2. scripts/viability.mjs: generates both tables. The first is `idleProbe` from
+2. `../../scripts/viability.mjs`: generates both tables. The first is `idleProbe` from
    `../../scripts/idle-probe.mjs` with `golem-driver` over `buildPool({seed, random})`, rolled up
    by `rollupByTerminal`. The second is a `golem-driver` mirror-off tournament -- `scheduleJobs`
    with `mirror: false` and `cross: true` from `../../scripts/tournament.mjs` -- with each row

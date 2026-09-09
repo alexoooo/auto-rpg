@@ -5,6 +5,7 @@
 //     npm run tournament -- --bouts 512 --workers 8        -- more, on fewer threads
 //     npm run tournament -- --policies golem-duelist,golem-fencer
 //     npm run tournament -- --seed 777001 --random 40      -- another corpus, a bigger random pool
+//     npm run tournament -- --pairs viable                 -- only matchups that can end
 //     npm run tournament -- --read tournaments/x.jsonl     -- the tables again, from the log
 //
 // Every bout is `scripts/bout-runner.mjs`'s, run in `scripts/tournament-worker.mjs` on a fresh
@@ -30,6 +31,7 @@ import { Worker, isMainThread } from "node:worker_threads";
 
 import { defaultGolemSetup, describeGolemSetup, golemSetupRefusal, randomGolemSetup } from "../src/golem/build.ts";
 import { REACH_BANDS, reachBand } from "../src/golem/champion.ts";
+import { armedHand, armedTerminal, viableBuild, viablePair } from "../src/golem/viability.ts";
 import { mulberry32 } from "../src/rng.ts";
 import { unitDefinition } from "../src/units.ts";
 import { mergeSamples, writeSamples } from "./decision-log.mjs";
@@ -124,9 +126,20 @@ export function policyPairs(policies) {
  * several contenders against a league and never against each other; the builds and the seeds
  * per pairing come from the seed alone whatever the pairs are, which is what lets the tuner
  * put every contender in front of the same bodies with the same streams.
+ *
+ * `viable` is `--pairs viable`, Session 01 of the learn set, and it is two rules and not one
+ * because the two arrangements ask different questions of the same predicate. A mirrored run puts
+ * one body on both sides, so what it needs is `viableBuild` -- and that is a filter on the pool,
+ * applied before any draw, so that a run's schedule is still a function of its seed over the list
+ * it is drawing from. A plain run draws two bodies, so what it needs is `viablePair`, and that
+ * cannot be a filter on a list of single builds: it is a rejection, taken at the draw, redrawing
+ * *both* sides so that neither corner is pinned by the refusal. It is a flag rather than the
+ * default here, unlike every pool script, because this is the harness the record's whole-pool
+ * tables were taken in and a tournament that quietly changed its own pool would invalidate them.
  */
 export function scheduleJobs({
   pool, policies, pairings, seed, cap, cross = false, mirror = false, contenders = null, pairs = null,
+  viable = false,
 }) {
   const golem = unitDefinition("golem");
   for (const policy of policies) {
@@ -141,6 +154,10 @@ export function scheduleJobs({
     }
   }
   if (pool.length === 0) throw new Error("a tournament needs a build to run");
+  if (viable) {
+    pool = pool.filter((build) => viableBuild(build.setup));
+    if (pool.length === 0) throw new Error("--pairs viable left no build in the pool");
+  }
   const rng = mulberry32(seed ^ 0x0b0e);
   // `cross` drops the mirror pairs, so a run that exists to compare two policies spends its
   // whole budget on bouts between them; a mirror bout rates no policy and half a default run is
@@ -153,9 +170,24 @@ export function scheduleJobs({
   // rated on that pool is rated on a coin the body has already flipped. Session 05 of the
   // matchup set added it for exactly that reason; `docs/measurements.md` has the two tables.
   const jobs = [];
+  const draw = () => pool[Math.min(pool.length - 1, Math.floor(rng() * pool.length))];
   for (let pairing = 0; pairing < pairings; pairing += 1) {
-    const a = pool[Math.min(pool.length - 1, Math.floor(rng() * pool.length))];
-    const drawn = pool[Math.min(pool.length - 1, Math.floor(rng() * pool.length))];
+    let a = draw();
+    let drawn = draw();
+    if (viable && !mirror) {
+      // Bounded, and it throws rather than settling for the last refusal: a pool whose every pair
+      // is refused is a caller who filtered twice, and a schedule quietly full of bouts the flag
+      // was meant to exclude is the "nearly right control" this directory keeps paying for.
+      let tries = 0;
+      while (!viablePair(a.setup, drawn.setup)) {
+        tries += 1;
+        if (tries > VIABLE_PAIRING_TRIES) {
+          throw new Error(`--pairs viable drew ${VIABLE_PAIRING_TRIES} refused pairs in a row from ${pool.length} builds`);
+        }
+        a = draw();
+        drawn = draw();
+      }
+    }
     // Drawn either way, so a mirror run and a plain run under one seed walk the same stream.
     const b = mirror ? a : drawn;
     const [policyA, policyB] = cycle[pairing % cycle.length];
@@ -167,15 +199,20 @@ export function scheduleJobs({
   return jobs;
 }
 
-/** The hand a build fights with: its primary, or its secondary when the primary is capped. */
-export function armedHand(build) {
-  return build.primary.terminal !== "none" ? "primary" : "secondary";
-}
+/**
+ * The hand a build fights with and the terminal in it, re-exported from where they now live.
+ *
+ * Both moved to `src/golem/viability.ts` in Session 01 of the learn set, because the viability
+ * predicate is by armed class and a predicate that ships in `src/` cannot import a script. They
+ * are re-exported here because every caller in the tree reached for them at this address --
+ * `scripts/tournament-worker.mjs`, `scripts/train-ppo.mjs`, `scripts/league.mjs`, the tests -- and
+ * a move that renames an import in six files is a move that costs six chances to get it wrong.
+ * `tests/tournament.test.mjs` asserts the re-export is the same function and not a second copy.
+ */
+export { armedHand, armedTerminal };
 
-/** The terminal in that hand. */
-export function armedTerminal(build) {
-  return build[armedHand(build)].terminal;
-}
+/** How many refused draws `--pairs viable` will take on one pairing before it gives up. */
+export const VIABLE_PAIRING_TRIES = 256;
 
 /**
  * `blade/long`, `mace/mid`, `none/short`: the class a rating row is keyed by. The reach is the
@@ -618,14 +655,14 @@ export function runJobs(jobs, {
 export async function runTournament({
   seed, bouts, workers, policies, random, cap, out, onProgress = null, overrides = null, cross = false,
   mirror = false, exchanges = false, contenders = null, pairs = null, pool = null, behaviour = false,
-  record = null, explore = 0, samples = null,
+  record = null, explore = 0, samples = null, viable = false,
 }) {
   pool ??= buildPool({ seed, random });
-  const jobs = scheduleJobs({ pool, policies, pairings: Math.ceil(bouts / 2), seed, cap, cross, mirror, contenders, pairs });
+  const jobs = scheduleJobs({ pool, policies, pairings: Math.ceil(bouts / 2), seed, cap, cross, mirror, contenders, pairs, viable });
   mkdirSync(dirname(out), { recursive: true });
   const header = {
     version: TOURNAMENT_VERSION, seed, date: new Date().toISOString(), policies, bouts: jobs.length, cap, random,
-    overrides, cross, mirror, exchanges, behaviour, contenders, pairs, record, explore,
+    overrides, cross, mirror, exchanges, behaviour, contenders, pairs, record, explore, viable,
     pool: pool.map(({ name, setup, caption }) => ({ name, setup, caption })),
   };
   writeFileSync(out, `${JSON.stringify(header)}\n`);
@@ -728,6 +765,16 @@ if (isMain) {
     const overrides = parseOverrides(flag("override", ""));
     const cross = argv.includes("--cross");
     const mirror = argv.includes("--mirror");
+    // `--pairs viable` draws only matchups `viablePair` accepts, which is the learn set's frozen
+    // choice applied to the one harness that does not take it by default. `all` is the word for
+    // what this script has always done, and it is spelled out rather than defaulted silently so
+    // that a run's shell history says which pool its table is about; anything else is refused,
+    // because a mistyped word that reads as "all" is an afternoon of the wrong measurement.
+    const pairsWord = flag("pairs", "all");
+    if (pairsWord !== "all" && pairsWord !== "viable") {
+      throw new Error(`--pairs takes "all" or "viable", not "${pairsWord}"`);
+    }
+    const viable = pairsWord === "viable";
     // `--exchanges` puts the fencer sides' option windows on every row, for the duel model's
     // calibration (`scripts/calibrate-duel-model.mjs`). Rows grow by a few kilobytes each.
     const exchanges = argv.includes("--exchanges");
@@ -755,13 +802,13 @@ if (isMain) {
     const samples = recorded === null ? null : flag("samples", out.replace(/[.]jsonl$/, "") + ".bin");
     if (samples !== null && existsSync(samples)) throw new Error(`${samples} exists; name another with --samples`);
     console.log(`seed ${seed}, ${bouts} bouts, ${workers} workers, cap ${cap} s, policies ${policies.join(", ")}, ` +
-      `${REFERENCE_BUILDS.length} reference builds + ${random} drawn${cross ? ", cross pairs only" : ""}${mirror ? ", one build both sides" : ""}${exchanges ? ", exchange log on" : ""}${behaviour ? ", behaviour records on" : ""}` +
+      `${REFERENCE_BUILDS.length} reference builds + ${random} drawn${viable ? ", viable pairs only" : ""}${cross ? ", cross pairs only" : ""}${mirror ? ", one build both sides" : ""}${exchanges ? ", exchange log on" : ""}${behaviour ? ", behaviour records on" : ""}` +
       (recorded === null ? "" : `, recording ${record}${explore > 0 ? ` at explore ${explore}` : ""}`) +
       (overrides ? `, overriding ${JSON.stringify(overrides)}` : ""));
     let lastReport = 0;
     const { rows, summary, samples: written } = await runTournament({
       seed, bouts, workers, policies, random, cap, out, overrides, cross, mirror, exchanges, behaviour,
-      record: recorded, explore, samples,
+      record: recorded, explore, samples, viable,
       onProgress({ done, total, seconds }) {
         if (done === total || seconds - lastReport >= 10) {
           lastReport = seconds;

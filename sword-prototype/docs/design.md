@@ -558,6 +558,12 @@ The moment a hand edits a drawn build the seed is dropped, because the build is 
 draw, and the caption says *picked by hand* instead. That rule lives in the reducers in
 `src/bout.ts`, next to the two-socket mirror, for the reason everything in that file is there.
 
+*(Session 01 of the learn set, 2026-09-09: the Randomize button draws through
+`randomViableOpponent` now, which is that same function rejected until the drawn body and the one
+already in the other corner are a pair that can finish each other. Everything in the paragraph
+above still holds -- it is the same stream, the same refusal and the same seed -- and the section
+on viability below says what is rejected and why. The nine pickers are unchanged.)*
+
 **The showcase is the arena with the physics off.** A golem body exists only through Havok --
 there is no mesh to preview without building the joints -- so the two bodies on the setup screen
 are built at their start marks through the same `buildBout` path a fight uses, and the scene's
@@ -1864,6 +1870,89 @@ that is only printed is one the optimiser is free to ignore, and the gap between
 and "it is paid for" is where a person's eye keeps landing. The causal test — one run with `tick`
 above a small positive number, scored on the two columns that already print — is designed, cheap
 and unrun, and is named here rather than in a plan file because the plan files are gone.
+
+## Viability: which pairs can end a bout, and every pool drawn through it
+
+Session 01 of the learn set, and the direct answer to the third claim above. The owner's brief for
+that set opens with one sentence -- *"only look at viable matchups, including the Random setup in
+the UI -- no time on layouts that can't kill"* -- and before this session there was nowhere in
+`src/` that sentence could be written down. `poolFor` in `scripts/train-ppo.mjs` could narrow a
+*training* pool by armed terminal and was the only thing in the tree that could; the rating, the
+two probes, the league and the screen's Random button all drew from the whole fifty-two.
+
+**What a viable pair is.** `src/golem/viability.ts` holds two measured constants and two
+predicates over them. `VIABLE_TERMINALS` is the weapon classes a pool draws from; `viableBuild`
+asks whether a body carries one, through `armedTerminal`, which classes a build by the terminal on
+the hand that fights and which moved here from `scripts/tournament.mjs` in the same change (that
+file re-exports it, so no caller moved with it). `VIABLE_PAIRS` is the unordered class pairs that
+can finish each other, keyed by `pairKey`; `viablePair` asks that of two bodies. Two questions and
+not one, deliberately: a class can be worth putting in a pool and still be a poor matchup against
+one particular other class, which is the case a plate against a maul makes.
+
+**The rule the constants were read off, which is two rules.** A class is viable when a hand-coded
+reference mind on it kills a motionless copy of itself in at least half its bouts, **or** when a
+random pair of it against an already-viable class decides at least half. The first is the floor: a
+class that cannot finish something which never moves, never blocks and never steps away finishes
+nothing. The second is what lets a plate fight a maul, and it is applied to a fixed point rather
+than in one pass, so the answer does not depend on the order the classes happen to be listed in.
+Both tables are `golem-driver`'s -- hand-written, and not a learned mind, because a viability set
+fitted around whatever the current fit is good at would move every time the fit moved and the pool
+a mind trains on would then be a function of that mind. `scripts/viability.mjs` regenerates both
+and prints the literal; the measured tables are in `measurements.md`.
+
+**The class is the unit, not the draw.** A draw index is a fact about one seed. "A maul finishes
+and a whip does not" is a fact about weapons, and it survives a change of seed, of pool size and of
+mind. The cost of that choice is stated rather than hidden: a class is admitted or refused whole,
+so a viable class carries a few builds that are individually hopeless and a refused one loses a few
+that were not. `scripts/viability.mjs` also lists by name any build that decided nothing at all,
+which is what a per-build column is for; on the 2026-09-09 table there were none, so the thirteen
+the record has counted since the matchup set are thirteen the *pairing* wasted rather than thirteen
+bodies that cannot fight.
+
+**What the measurement said, which is not what the plan expected.** The idle floor admitted `maul`
+at 98 % and `mace` at 53 % and nothing else -- a blade kills a motionless copy of itself once in a
+hundred and eleven bouts. Then the second rule admitted **every remaining class through the maul**:
+a maul decides 98 % against a blade, 97 % against a fist, 93 % against a plate, 87 % against a whip
+and 71 % against a body carrying no terminal at all. So `VIABLE_TERMINALS` is the whole shelf,
+`viableBuild` refuses nothing, and the predicate the set actually runs on is `VIABLE_PAIRS` --
+eleven of the twenty-eight unordered class pairs, with the floor falling cleanly between `blade vs
+mace` at 63 % and `mace vs plate` at 36 %. **No class is dead weight; only pairs are.** That is the
+frozen unit being wrong rather than the rule misfiring, and it is written here because two things
+follow from it that would otherwise look like bugs: a `--terminals` default that cuts nothing, and
+a Random button that has to draw an opponent rather than a body.
+
+**Every pool draws through it, and the whole pool has one word.** `poolFor` defaults `terminals` to
+`VIABLE_TERMINALS` and `ratePolicy` runs the same filter on whatever pool it is handed, so a rating
+and a rollout are on the same builds; `scripts/rate-snapshots.mjs`, `scripts/probe-snapshots.mjs`,
+`scripts/idle-probe.mjs` and `scripts/league.mjs` take the same default and the same
+`--terminals all` back to the fifty-two. On the measured table those are the same fifty-two, so
+what this bought the trainer today is a route and not a cut; the cut that would buy it something is
+pairing a *rollout* through `viablePair`, which is not in this session. The tournament is the
+exception and takes `--pairs viable` as an opt-in instead, because it is the harness the record's
+whole-pool tables were taken in and a default that quietly changed its pool would invalidate them.
+The empty list still means the whole pool everywhere -- what moved is the default, not the meaning
+-- because `POLICY_WEIGHTS` carries an empty one from the run that fitted it and a build that
+reinterpreted that field would rewrite a shipped table's header into a claim about a pool it never
+saw.
+
+**Random redraws; the menus do not shrink.** `randomViableGolemSetup` is `randomGolemSetup` over
+the same seeded stream, rejected until `viableBuild` accepts, so a drawn body is still a pure
+function of its seed and the caption's seed still names it. Because that predicate turned out to
+accept everything, the screen calls `randomViableOpponent` instead whenever there is already a
+golem in the other corner: same stream, same seed caption, redrawn until `viablePair` accepts the
+pair the owner is about to watch. Both throw past thirty-two refusals naming the class they last
+refused, the way the plain draw throws after eight. The nine pickers behind Customize are untouched
+and still offer everything: the owner can build anything by hand, a hand-built pair the predicate
+refuses is fought with one line of caption saying *these two cannot finish each other*, and Begin
+stays enabled. Restricting a menu is a different act from redrawing a draw and only the second one
+was asked for.
+
+**The one pair the app still opens on that this refuses.** `defaultGolemSetup` is a blade and
+`blade vs blade` decides 36 %, so the showcase mirror `src/main.ts` opens is a pair `viablePair`
+turns down. It is left standing on purpose: that build is the reference body a dozen sweeps in
+`measurements.md` were taken on, and moving it would strip the provenance off every constant they
+chose to improve one screen. `tests/bout.test.mjs` asserts the refusal rather than the acceptance,
+so the number is in front of whoever decides.
 
 ## Dying, which is not the same as losing
 

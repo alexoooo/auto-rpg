@@ -2,6 +2,7 @@
 //
 //   node scripts/idle-probe.mjs [--mind golem-policy] [--checkpoint run-checkpoint.json]
 //     [--read greedy|drawn] [--bouts 4] [--workers N] [--cap 60] [--seed 20260906] [--random 40]
+//     [--terminals maul,mace|all]
 //
 // Every bout is a build against *itself*, one side driven and the other on `idle`, so the only
 // question a row answers is whether this mind on this body can finish an opponent that never
@@ -23,7 +24,8 @@ import { availableParallelism } from "node:os";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { armedTerminal, buildPool, runJobs, seedFor } from "./tournament.mjs";
+import { armedTerminal, runJobs, seedFor } from "./tournament.mjs";
+import { parseTerminals, poolFor, poolSentence } from "./train-ppo.mjs";
 
 const meanOf = (xs) => (xs.length === 0 ? 0 : xs.reduce((a, b) => a + b, 0) / xs.length);
 
@@ -175,8 +177,13 @@ if (isMain) {
   const cap = Number(flag("cap", 60));
   const seed = Number(flag("seed", 20260906)) >>> 0;
   const random = Math.max(0, Number(flag("random", 40)));
-  const pool = buildPool({ seed, random });
-  console.log(`${label} vs idle: ${pool.length} builds x ${Math.ceil(bouts / 2) * 2} bouts, cap ${cap} s, seed ${seed}`);
+  // The viable set by default since Session 01 of the learn set, and `--terminals all` is the
+  // fifty-two. The probe is the instrument that *found* the unviable classes, so the whole pool
+  // being one word away is not a nicety here: it is how this table is re-taken.
+  const terminals = parseTerminals(flag("terminals", null));
+  const pool = poolFor({ seed, random, terminals });
+  console.log(`${label} vs idle: ${pool.length} builds x ${Math.ceil(bouts / 2) * 2} bouts, `
+    + `cap ${cap} s, seed ${seed}, ${poolSentence(terminals)}`);
   const result = await idleProbe({
     pool, name, contender, bouts, workers, cap, seed,
     onProgress: ({ done, total, seconds }) => {

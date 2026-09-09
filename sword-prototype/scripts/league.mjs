@@ -1,7 +1,7 @@
 // League self-play: a main agent, a pool of its own frozen past, and exploiters that hunt it.
 //
 //   node scripts/league.mjs [--iterations 40] [--bouts 64] [--workers N] [--seed 20260914]
-//     [--cap 60] [--random 40] [--terminals maul,mace] [--emphasise maul,mace] [--emphasis 3]
+//     [--cap 60] [--random 40] [--terminals maul,mace|all] [--emphasise maul,mace] [--emphasis 3]
 //     [--pool-every 4] [--pool-cap 8]
 //     [--exploiters 2] [--exploiter-every 1] [--share-self 1] [--share-pool 2] [--share-exploiter 1]
 //     [--anchor golem-driver] [--share-anchor 1]
@@ -43,11 +43,11 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { availableParallelism } from "node:os";
 
-import { armedTerminal, buildPool, runJobs, scheduleJobs } from "./tournament.mjs";
+import { armedTerminal, runJobs, scheduleJobs } from "./tournament.mjs";
 import { formatIdleProbe, idleProbe } from "./idle-probe.mjs";
 import {
-  FIT_NAME, PPO_LEAGUE, episodeReturns, extendNormalisation, mergeRollouts, poolFor, policyTable,
-  ppoFit, ratePolicy, renderPolicyModule,
+  FIT_NAME, PPO_LEAGUE, episodeReturns, extendNormalisation, mergeRollouts, parseTerminals,
+  poolFor, policyTable, ppoFit, ratePolicy, renderPolicyModule,
 } from "./train-ppo.mjs";
 import { POLICY_LAYOUT, POLICY_VERSION, VALUE_LAYOUT, freshNormalisation } from "../src/golem/policy.ts";
 import { PILOT_FEATURES_VERSION } from "../src/golem/pilot.ts";
@@ -687,7 +687,8 @@ if (isMain) {
   const cap = Number(flag("cap", 60));
   const random = Math.max(0, Number(flag("random", 40)));
   const workers = Math.max(1, Number(flag("workers", Math.max(1, availableParallelism() - 2))));
-  const terminals = flag("terminals", "").split(",").map((t) => t.trim()).filter(Boolean);
+  // Absent is the viable set since Session 01 of the learn set; `--terminals all` is every build.
+  const terminals = parseTerminals(flag("terminals", null));
   // The weighting, which is what a league is supposed to use where the calibration used a filter.
   const emphasise = flag("emphasise", "").split(",").map((t) => t.trim()).filter(Boolean);
   const emphasis = Math.max(1, Number(flag("emphasis", 3)));
@@ -822,7 +823,7 @@ if (isMain) {
       weights: role.weights, logSigma: role.logSigma, norm: role.norm,
       // The evaluation pool is the run's own, derived from the state seed exactly as the in-run
       // rating derives it, so a shipped number and a rating row are the same measurement.
-      pool: buildPool({ seed: eseed, random: head.random ?? random }), seed: eseed,
+      pool: poolFor({ seed: eseed, random: head.random ?? random, terminals }), seed: eseed, terminals,
       bouts: Math.max(2, Math.ceil(shipBouts / PPO_LEAGUE.length / 2) * 2), workers, cap, mirror: true,
       onProgress: progress(`rate ${ship}`),
     });
@@ -882,7 +883,7 @@ if (isMain) {
       ].map((v) => v.padStart(8)).join(" ")}`);
     }
     const probe = await idleProbe({
-      pool: buildPool({ seed: (seed ^ 0xc0f1c0f1) >>> 0, random }), name: MAIN_NAME,
+      pool: poolFor({ seed: (seed ^ 0xc0f1c0f1) >>> 0, random, terminals }), name: MAIN_NAME,
       contender: contenderFor(state.main, false), bouts: probeBouts, workers, cap,
       seed: (seed ^ 0xc0f1c0f1) >>> 0, onProgress: progress("idle probe"),
     });
@@ -915,11 +916,14 @@ if (isMain) {
     const ratePoint = async (iteration, wanted) => {
       const eseed = (seed ^ 0xc0f1c0f1) >>> 0;
       const result = await ratePolicy({
-        // The whole pool and not the training filter, as `train-ppo.mjs` rates: the number a
-        // session is written on is what the mind does against the bodies it will actually meet,
-        // and a run narrowed to one weapon class is narrowed for the gradient's sake alone.
+        // The same pool the iteration collected on, which is what changed in Session 01 of the
+        // learn set. It used to be the whole fifty-two on the argument that a session's number is
+        // what the mind does against the bodies it will actually meet -- and the bodies it will
+        // actually meet are the ones the screen now draws, which are the viable ones. A rating on
+        // a pool the rollout never saw is two instruments; `--terminals all` is still there for
+        // the close-out's table on everything.
         weights: state.main.weights, logSigma: state.main.logSigma, norm: state.main.norm,
-        pool: buildPool({ seed: eseed, random }), seed: eseed,
+        pool: poolFor({ seed: eseed, random, terminals }), seed: eseed, terminals,
         // `wanted` is the whole budget and `ratePolicy` spends it per contender per opponent, so
         // it is divided by the league's length the way the trainer divides it.
         bouts: Math.max(2, Math.ceil(wanted / PPO_LEAGUE.length / 2) * 2), workers, cap, mirror: true,

@@ -3,7 +3,7 @@
 //
 //   node scripts/probe-snapshots.mjs --dir tournaments/league-anchored [--bouts 4] [--workers 28]
 //                                    [--cap 60] [--seed 20260906] [--only 8,16] [--out curve.jsonl]
-//                                    [--baseline 9/28]
+//                                    [--baseline 9/28] [--terminals maul,mace|all]
 //
 // **Why this exists beside the rating curve rather than inside it.** On the night of 2026-09-08 the
 // three arms were flat on the bar rating -- changes of −0.020 to −0.049 against intervals of ±0.06
@@ -34,7 +34,8 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { buildPool } from "./tournament.mjs";
+import { VIABLE_TERMINALS } from "../src/golem/viability.ts";
+import { parseTerminals, poolFor, poolSentence } from "./train-ppo.mjs";
 import { contenderFor, loadLeague, poolPath, roleFromJson } from "./league.mjs";
 import { formatIdleProbe, idleProbe } from "./idle-probe.mjs";
 import { chosenSnapshots, snapshotIterations } from "./rate-snapshots.mjs";
@@ -142,10 +143,10 @@ export function probeRow(iteration, probe, baseline = null) {
 
 export async function probeSnapshots({
   dir, bouts = 4, workers = 28, cap = 60, seed = 20260906, random = 40, only = null,
-  baseline = null, onRow = null,
+  baseline = null, onRow = null, terminals = VIABLE_TERMINALS,
 }) {
   const state = loadLeague(dir);
-  const pool = buildPool({ seed, random });
+  const pool = poolFor({ seed, random, terminals });
   const chosen = chosenSnapshots(snapshotIterations(dir), only);
   const rows = [];
   for (const iteration of [...chosen, "main"]) {
@@ -187,7 +188,8 @@ if (isMain) {
   const dir = resolve(flag("dir", ""));
   const seed = Number(flag("seed", 20260906)) >>> 0;
   const random = Number(flag("random", 40));
-  const builds = buildPool({ seed, random }).length;
+  const terminals = parseTerminals(flag("terminals", null));
+  const builds = poolFor({ seed, random, terminals }).length;
   const only = flag("only", null);
   const out = flag("out", null);
   const baseline = parseBaseline(flag("baseline", null));
@@ -196,11 +198,11 @@ if (isMain) {
   const against = baseline === null ? ""
     : `, maul class tested against ${baseline.kills}/${baseline.bouts}`;
   console.log(`${dir}: iteration ${state.iteration}, probing ${chosen.length + 1} minds `
-    + `over ${builds} builds at seed ${seed}, cap ${flag("cap", 60)} s${against}`);
+    + `over ${builds} builds at seed ${seed}, ${poolSentence(terminals)}, cap ${flag("cap", 60)} s${against}`);
   let last = null;
   const { rows } = await probeSnapshots({
     dir, bouts: Number(flag("bouts", 4)), workers: Number(flag("workers", 28)),
-    cap: Number(flag("cap", 60)), seed, random, only, baseline,
+    cap: Number(flag("cap", 60)), seed, random, only, baseline, terminals,
     onRow: (row, probe) => { console.log(formatProbeRow(row, builds)); last = probe; },
   });
   if (last !== null) {

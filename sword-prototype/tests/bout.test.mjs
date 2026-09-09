@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { handsFor, isWeaponKind, WEAPON_KINDS } from "../src/hands.ts";
+import { defaultGolemSetup } from "../src/golem/build.ts";
+import { armedTerminal, viableBuild, viablePair } from "../src/golem/viability.ts";
 import {
   EQUIPMENT,
   advance,
@@ -714,6 +716,33 @@ test("the showcase opens with two golems, both driven by their own mind, and nob
     assert.ok(POLICIES.some((policy) => policy.name === matchup[side].policy),
       `policy "${matchup[side].policy}" is one the code has`);
   }
+});
+
+/**
+ * What the showcase opens on, measured against the predicate rather than assumed.
+ *
+ * `src/main.ts` opens the screen on `golemMatchup(defaultGolemSetup())`, so what the owner sees
+ * before touching anything is that build on **both** sides. Session 01 of the learn set measured
+ * what class pairs can finish each other and the answer for this one is: not this. The default is
+ * a blade, `blade vs blade` decided 287 of 796 bouts -- 36 % -- under `golem-driver`, and the
+ * floor is half. The opening mirror is a pair the module refuses.
+ *
+ * **It is recorded here instead of fixed, and that is a decision rather than an oversight.** The
+ * fix is to move `defaultGolemSetup` onto a maul, and that build is the reference body a dozen
+ * sweeps in `docs/measurements.md` were taken on -- "swept on the default golem, 8 side-swapped
+ * bouts, seed 20260904" appears beside constant after constant in `src/golem/tactics.ts` -- so
+ * moving it would strip the provenance off every one of them to improve one screen. What the
+ * owner picks the app up on is the owner's call, and this test is what puts the number in front
+ * of them. The two assertions are on the predicate and not on a weapon name, so a re-measurement
+ * that moves either table turns this red instead of leaving a stale claim in a comment.
+ */
+test("the showcase default is a body the draw can hand back, and a mirror that cannot finish", () => {
+  const build = defaultGolemSetup();
+  assert.ok(viableBuild(build), `the default is armed with a "${armedTerminal(build)}"`);
+  assert.equal(viablePair(build, build), false,
+    `"${armedTerminal(build)}" against itself is a pair the measured table admits`);
+  const matchup = golemMatchup(build);
+  assert.equal(viablePair(matchup.left.golem, matchup.right.golem), false);
 });
 
 test("a drawn build is installed with its seed, on that side only, and copied", () => {

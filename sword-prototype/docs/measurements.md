@@ -18633,3 +18633,163 @@ are stated in the entries those sessions wrote.
    the fourth executor still imports one of them, and re-basing them onto the continuous surface
    would move the baseline the learned minds are measured against — which this set refused on
    purpose, and a later one may not.
+
+## Session 01 of the learn set — 2026-09-09: every class can fight, eleven pairs in twenty-eight can finish, and a rule that admitted the whole shelf
+
+The learn set's first session, and the first measurement of a question the record had been counting
+without asking: *which matchups can end at all*. The style set's close-out reported that 42.8 % of
+random-pair bouts decide and left it there. This entry says which pairs the other 57 % are.
+
+**The harness.** `scripts/viability.mjs`, new with this session, run once at
+`--bouts 8 --seed 20260906 --random 40 --workers 30`: the 12 reference builds plus 40 seeded draws,
+52 builds, 60 s cap, `golem-driver` on every side. Two sweeps, 11,024 bouts, 3,342 s of wall clock
+on 30 workers. The reference mind is hand-written and not a learned one on purpose -- a viability
+set fitted around whatever the current fit happens to be good at moves every time the fit moves,
+and the pool a mind trains on would then be a function of that mind.
+
+### The idle floor: every build against a motionless copy of itself
+
+416 bouts, both corners, 8 a build. The dummy never moves, never blocks and never steps away, so a
+class that cannot empty its bar here cannot decide anything anywhere. `dummy bar left` is the
+motionless side's vitality when the bout ended, averaged.
+
+| armed terminal | builds | kill rate | dummy bar left |
+| --- | ---: | ---: | ---: |
+| maul | 7 | 98 % | 0.093 |
+| mace | 8 | 53 % | 0.428 |
+| blade | 14 | 1 % | 0.779 |
+| plate | 9 | 0 % | 0.899 |
+| fist | 8 | 0 % | 0.914 |
+| whip | 4 | 0 % | 0.968 |
+| none | 2 | 0 % | 0.990 |
+
+Two classes clear half and five do not, and what separates them is not a gradient: a maul empties a
+stationary opponent 55 times in 56, a blade once in 112. **Fourteen of the fifty-two builds are
+blades, and against a body that never moves they take it from full to 0.78 in sixty seconds.** That
+is the number the whole set was formed around, and it is worse than the 42.8 % headline suggested,
+because it is measured against an opponent that is not fighting back.
+
+### The random pairs: two different bodies, `golem-driver` on both sides
+
+10,608 bouts over 5,304 pairings, 4,903 decided, **46 %**, summed per unordered class pair. Every
+pair of distinct builds in the pool, 2 bouts a pairing, side-swapped.
+
+| class pair | bouts | decided |
+| --- | ---: | ---: |
+| maul vs maul | 196 | 100 % |
+| blade vs maul | 768 | 98 % |
+| fist vs maul | 402 | 97 % |
+| mace vs maul | 452 | 96 % |
+| maul vs plate | 494 | 93 % |
+| maul vs whip | 226 | 87 % |
+| fist vs mace | 534 | 76 % |
+| mace vs whip | 228 | 76 % |
+| mace vs mace | 224 | 74 % |
+| maul vs none | 92 | 71 % |
+| blade vs mace | 890 | 63 % |
+| mace vs plate | 606 | 36 % |
+| blade vs blade | 796 | 36 % |
+| blade vs whip | 408 | 32 % |
+| blade vs fist | 826 | 22 % |
+| blade vs plate | 1056 | 14 % |
+| mace vs none | 134 | 10 % |
+| plate vs whip | 312 | 10 % |
+| whip vs whip | 54 | 7 % |
+| fist vs plate | 608 | 7 % |
+| fist vs none | 128 | 5 % |
+| none vs plate | 114 | 5 % |
+| fist vs whip | 248 | 5 % |
+| plate vs plate | 288 | 4 % |
+| blade vs none | 162 | 2 % |
+| fist vs fist | 262 | 1 % |
+| none vs whip | 80 | 0 % |
+| none vs none | 20 | 0 % |
+
+The floor is half and it falls in exactly one place, between `blade vs mace` at 63 % and `mace vs
+plate` at 36 %. Eleven pairs are above it, seventeen below, and nothing sits within fifteen points
+of the line -- so the cut is a cliff on this seed rather than a threshold somebody had to choose
+well.
+
+**Every one of the eleven has a maul or a mace in it.** No pair of two classes from the bottom five
+decides anything: `blade vs blade` 36 %, `blade vs plate` 14 %, `plate vs plate` 4 %, `fist vs
+fist` 1 %. The 1,056 bouts of `blade vs plate` are the single largest cell in the table and 905 of
+them ran to the cap.
+
+### The rule, and the thing it said that the plan did not expect
+
+The plan froze a two-part admission rule: a class is viable when a reference mind on it kills a
+motionless copy of itself in at least half its bouts, **or** when a random pair of it against an
+already-viable class decides at least half. The first rule seeds `{maul, mace}` and nothing else.
+The second was meant to let a plate fight a maul.
+
+**It let everything fight a maul.** A maul decides 98 % against a blade, 97 % against a fist, 93 %
+against a plate, 87 % against a whip and 71 % against a body with no terminal at all, so the second
+rule admits all seven classes and `VIABLE_TERMINALS` is the whole shelf. The predicate that ships
+is therefore the *pair* table and nothing else:
+
+```ts
+export const VIABLE_TERMINALS: readonly string[] = Object.freeze([
+  "maul", "mace", "blade", "plate", "fist", "whip", "none",
+]);
+export const VIABLE_PAIRS: ReadonlySet<string> = new Set([
+  "blade|mace", "blade|maul", "fist|mace",
+  "fist|maul", "mace|mace", "mace|maul",
+  "mace|whip", "maul|maul", "maul|none",
+  "maul|plate", "maul|whip",
+]);
+```
+
+**No class is dead weight; only pairs are.** That is the plan's frozen unit being wrong rather than
+the rule misfiring, and three things follow that are worth having written down:
+
+- **The class filter cuts nothing.** `poolFor`, `ratePolicy`, `scripts/rate-snapshots.mjs`,
+  `scripts/probe-snapshots.mjs`, `scripts/idle-probe.mjs` and `scripts/league.mjs` all default to
+  `VIABLE_TERMINALS` now, and all of them draw the same fifty-two builds `--terminals all` gives.
+  What the session bought them is a route, not a cut: a re-measurement that refuses a class narrows
+  every pool in the set without touching a caller. The cut that would buy the trainer bouts today
+  is pairing a *rollout* through `viablePair`, and this session did not do it.
+- **Random on the screen had to change shape.** Drawing the two corners independently through a
+  per-body predicate that refuses nothing is drawing them at random, and 54 % of those pairs cannot
+  finish. `src/setup.ts` draws through `randomViableOpponent` instead -- the same seeded stream and
+  the same seed caption, redrawn until the pair the owner is about to watch is one that can end.
+- **Nothing in the pool is individually hopeless.** Every one of the 52 builds decided at least one
+  of its bouts. The thirteen the matchup set has been counting since it started are thirteen the
+  *pairing* wasted, not thirteen bodies that cannot fight.
+
+### The mechanical bar
+
+`npm run tournament -- --bouts 256 --pairs viable --random 40 --seed 20260906 --policies
+golem-fencer,golem-driver,golem-policy`, which the plan stated in advance: at least 80 % of bouts
+decided, where the record's whole-pool figure is 42.8 %.
+
+**207 of 256 decided, 80.9 %. Met, by two bouts.** No pairing in the record is one `viablePair`
+refuses. By class pair, over the three minds:
+
+| class pair | bouts | decided |
+| --- | ---: | ---: |
+| blade vs maul | 54 | 93 % |
+| blade vs mace | 40 | 50 % |
+| fist vs mace | 28 | 50 % |
+| mace vs maul | 28 | 100 % |
+| fist vs maul | 26 | 92 % |
+| maul vs plate | 18 | 100 % |
+| maul vs whip | 18 | 89 % |
+| mace vs whip | 14 | 79 % |
+| maul vs maul | 10 | 100 % |
+| mace vs mace | 10 | 80 % |
+| maul vs none | 10 | 80 % |
+
+The two cells holding the total down are the two nearest the floor in the sweep -- `blade vs mace`
+at 50 % here against 63 % there, `fist vs mace` at 50 % against 76 % -- which is what a bar resting
+on a cliff edge looks like at a twentieth of the sample. The margin is two bouts, so the bar is met
+and not comfortable, and a re-run at another seed could miss it.
+
+### What this entry does not say
+
+The floor was not swept: half was frozen in the plan. The cliff between 63 % and 36 % means any
+floor from 0.40 to 0.60 picks the same eleven pairs, so nothing here rests on the number being
+right so much as on the gap being wide. The pair matrix is by armed terminal only -- reach band is
+not in it, so a short maul against a long blade and a long maul against a long blade are one cell.
+And every number above is `golem-driver`'s: a class table taken under a mind that fights
+differently would differ, which is why `scripts/viability.mjs` takes `--mind` and why the constant
+ships beside the table rather than alone.
