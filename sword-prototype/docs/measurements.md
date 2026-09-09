@@ -18606,6 +18606,16 @@ the golems either stood just outside each other's reach or hugged. Both are alre
 and neither is priced by the reward, which is the finding the previous entry measured and this one
 inherits.
 
+### The plan files, which are gone
+
+Sixteen files under `docs/plans/`, `style-00-overview.md` through `style-15-close.md`, deleted at
+the owner's direction on 2026-09-09 in the commit after this entry, every one of their sessions
+having landed. The set follows the golem set and the matchup set before it: **the durable record
+is this file and `design.md`, and `deleted-paths.md` lists the files.** What the plan files carried
+that is not repeated above was a per-session gate table whose verdict column read "open, and not
+asked" in thirteen of fifteen rows, and the frozen choices each session was written against, which
+are stated in the entries those sessions wrote.
+
 ### What the set leaves owed, named rather than re-run
 
 1. **The control that separates opponent distribution from headroom from entropy.** Designed and
