@@ -10,9 +10,10 @@
 // weights and produces a log line with the fields a reader needs. Those are the five things this
 // file asserts, and it asserts them against independent arithmetic where there is any.
 //
-// **Eight mutations were watched red on 2026-09-08**, each applied alone and then restored:
+// **Twelve mutations were watched red on 2026-09-08**, each applied alone and then restored.
+// The first eight are in `scripts/league.mjs` and the last four in `scripts/rate-snapshots.mjs`:
 //
-// | mutation in `scripts/league.mjs` | what went red |
+// | mutation | what went red |
 // |---|---|
 // | `leaguePairs` pushes one slot an opponent and ignores the weight | both mix tests |
 // | `collectLeague` schedules `ceil(bouts / 2)` pairings without rounding to a whole cycle | the real turn's realised mix |
@@ -22,6 +23,10 @@
 // | `saveLeague` writes the playing pool as `taken` | the round trip and the real turn |
 // | `leagueMatrix` rolls the tripwire's columns off the left corner only | the tripwire test |
 // | `idleProbe` runs one corner of every pairing instead of both | the tripwire test |
+// | `snapshotIterations` sorts the file names rather than the numbers | the curve's snapshot list |
+// | `chosenSnapshots` filters a missing iteration away instead of refusing it | the curve's snapshot list |
+// | `boutsPerOpponent` does not round up to an even count | the curve's snapshot list |
+// | `formatRow` prints a hyphen for a negative margin | the curve's printed row |
 import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -37,6 +42,9 @@ import {
 } from "../scripts/league.mjs";
 import { armedTerminal, buildPool } from "../scripts/tournament.mjs";
 import { formatIdleProbe, idleProbe } from "../scripts/idle-probe.mjs";
+import {
+  boutsPerOpponent, chosenSnapshots, formatRow, snapshotIterations,
+} from "../scripts/rate-snapshots.mjs";
 import { POLICY_LAYOUT, POLICY_VERSION } from "../src/golem/policy.ts";
 import { netSize } from "../src/golem/neural-net.ts";
 
@@ -427,4 +435,42 @@ test("emphasising a weapon class repeats its builds in the draw list and drops n
   // A weighting is not a filter: every body the unweighted pool had is still drawable.
   assert.equal(new Set(weighted.map((b) => b.name)).size, new Set(pool.map((b) => b.name)).size);
   assert.ok(weighted.length > pool.length, "the emphasis did nothing at all");
+});
+
+// The offline rating curve. Everything expensive in `scripts/rate-snapshots.mjs` is `ratePolicy`,
+// which the trainer's own tests cover; what is worth a test here is the three decisions it makes
+// before spending a bout -- which snapshots exist, which of them were asked for, and how a budget
+// stated a contender becomes bouts an opponent. All three are cheap to get wrong and expensive to
+// notice, because the noticing happens after the bouts have been played.
+test("the rating curve reads the snapshots off disk, refuses one that is not there, and rounds its budget", () => {
+  const dir = mkdtempSync(join(tmpdir(), "curve-"));
+  writeFileSync(join(dir, "league.json"), "{}");
+  for (const iteration of [24, 8, 16]) writeFileSync(poolPath(dir, iteration), "{}");
+  writeFileSync(join(dir, "pool-notanumber.json"), "{}");
+  assert.deepEqual(snapshotIterations(dir), [8, 16, 24],
+    "the snapshots are the pool files, in the order they were taken, and nothing else in the directory");
+
+  assert.deepEqual(chosenSnapshots([8, 16, 24], null), [8, 16, 24], "no --only rates them all");
+  assert.deepEqual(chosenSnapshots([8, 16, 24], "24, 8"), [24, 8], "--only keeps the order it was asked in");
+  // A silent filter here is a morning spent rating nothing, so a missing iteration is an error
+  // rather than an empty list, and the message names the iteration that is missing.
+  assert.throws(() => chosenSnapshots([8, 16, 24], "8,12"), /no snapshot for iteration 12/);
+
+  // The budget is stated a contender and spent over the five hand-coded opponents, mirrored -- so
+  // the per-opponent count is the fifth rounded up to an even number, and never below one pair.
+  assert.equal(boutsPerOpponent(200, ["a", "b", "c", "d", "e"]), 40);
+  assert.equal(boutsPerOpponent(201, ["a", "b", "c", "d", "e"]), 42, "a budget that does not divide rounds up");
+  assert.equal(boutsPerOpponent(1, ["a", "b", "c", "d", "e"]), 2, "a rating is mirrored, so two is the floor");
+});
+
+test("a rating row prints both baselines with their intervals and the fit's record", () => {
+  const line = formatRow({
+    iteration: 16, bouts: 40, per: [],
+    uniform: { bar: 0.1254, sem: 0.0416 / 1.96, d: 0.302 },
+    driver: { bar: -0.0847, sem: 0.0409 / 1.96, d: -0.207 },
+    fit: { wins: 57, draws: 279, losses: 54 },
+  });
+  assert.match(line, /^ {5}16: uniform \+0\.1254 ±0\.0416 d \+0\.302/, "the iteration, the margin and its interval");
+  assert.match(line, /driver −0\.0847 ±0\.0409 d −0\.207/, "a negative margin prints a minus sign and not a hyphen");
+  assert.match(line, /w\/d\/l 57\/279\/54$/, "the record the margin came from");
 });

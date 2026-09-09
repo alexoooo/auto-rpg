@@ -1772,6 +1772,18 @@ The fourth is a separate probe and is the one that caught Session 13's fit, so i
 bouts; `scripts/idle-probe.mjs` is that probe, promoted out of `.review/` when the plan made its
 rollup a permanent column, because a tripwire in a gitignored directory is not one.
 
+**A rating during a run and a rating after it are the same instrument only if they are told to
+be.** `--evaluate n` spends bouts the fit would otherwise have had, so a night set to rate every
+twenty-five iterations leaves three points and no curve; and a run that stops when the morning
+comes never reaches its last iteration, so it never plays `--final-bouts` and never writes
+`--out`. Both are answered by the pool files, which already hold the weights of every snapshot the
+run took. `scripts/rate-snapshots.mjs` rates them afterwards on a machine that is no longer
+training, at whatever budget the morning can afford, through the same `ratePolicy` against the same
+two baselines on the same evaluation pool — the arm's own seed exclusive-or'd with `0xc0f1c0f1`,
+which is the derivation the runner uses. That last clause is the whole point of the script rather
+than a detail of it: a rating is only comparable to another rating taken on the same pool, so its
+rows sit beside the rows the run printed and beside the other arms, and beside nothing else.
+
 ## Dying, which is not the same as losing
 
 `over` not stopping the world was the right call about the *bout* and, for a long time, it
