@@ -1736,6 +1736,15 @@ the last value alone would reset a healthy exploiter about as often as a stalled
 sixty four bout rollout has a standard error worth several hundredths and the margin being watched
 is worth a few.
 
+**A hand-coded anchor is a fourth opponent and not a fourth role.** `--anchor <policy>` puts a
+shipped mind in the mix at `--share-anchor` slots and is off by default. The three roles above are
+the design; this is a hedge, and it costs no machinery because an opponent with no contender is
+already a policy played by name. What it hedges is the calibration's own finding — a league of
+selves is still one lineage, and both refits that moved this session moved against `golem-driver`
+rather than against a mirror. An anchored run can overfit to that single opponent, which is exactly
+what the exploiters are there to punish, so it stays a flag with a share rather than a default and
+a run that used it says so in its header.
+
 **Resumability is a requirement and not a convenience.** An overnight is hours of a machine and
 this session has already lost a long run to a V8 fatal, which takes the process and leaves the last
 write on disk as the only recovery. So the main and the exploiters ride in one state file under
