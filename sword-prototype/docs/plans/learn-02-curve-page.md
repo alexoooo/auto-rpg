@@ -1,6 +1,6 @@
 # Session 02 -- the learning-curve page
 
-**Status (2026-09-09): planned. Needs 01.**
+**Status (2026-09-09): landed.**
 
 ## Outcome
 

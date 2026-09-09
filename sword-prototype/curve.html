@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Learning curve</title>
+    <style>
+      /* This page's own sheet, for the reason `bench.html` gives for having one: `src/style.css`
+         is the arena's, and it is a setup curtain, a pause menu and a HUD that a chart has none
+         of. Nothing here is shared with either of the other two pages on purpose -- a rule the
+         arena needs would arrive here as a surprise. */
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; background: #0e1014; color: #e8eaf0;
+        font: 13px/1.5 ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace; }
+      body { display: grid; grid-template-columns: 26rem 1fr; grid-template-rows: auto 1fr;
+        grid-template-areas: "head head" "side main"; height: 100%; }
+
+      header { grid-area: head; display: flex; align-items: baseline; gap: 16px;
+        padding: 10px 16px; border-bottom: 1px solid rgba(150, 170, 200, 0.22); }
+      header h1 { margin: 0; font-size: 14px; font-weight: 600; color: #7fd4ff; }
+      #status { color: #b6bfd0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #status.bad { color: #ff8fa3; }
+
+      aside { grid-area: side; overflow: auto; padding: 12px 10px 24px 16px;
+        border-right: 1px solid rgba(150, 170, 200, 0.22); }
+      main { grid-area: main; overflow: auto; padding: 12px 16px 48px 16px; }
+
+      .run { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center;
+        padding: 2px 4px; border-radius: 4px; cursor: pointer; }
+      .run:hover { background: rgba(127, 212, 255, 0.08); }
+      .run .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .meta { color: #7d8798; }
+
+      #picker { margin: 0 0 12px 0; padding: 12px; border-radius: 6px;
+        border: 1px dashed rgba(150, 170, 200, 0.4); }
+      #picker.quiet { border-style: solid; border-color: rgba(150, 170, 200, 0.14); opacity: 0.6; }
+      #picker.over { border-color: #7fd4ff; background: rgba(127, 212, 255, 0.1); }
+      #picker p { margin: 0 0 8px 0; color: #b6bfd0; }
+
+      .panel { margin: 0 0 22px 0; padding: 10px 12px 12px 12px; border-radius: 6px;
+        background: rgba(20, 24, 32, 0.7); border: 1px solid rgba(150, 170, 200, 0.18); }
+      .panel.refused { border-color: rgba(255, 143, 163, 0.55); }
+      .panel h2 { margin: 0; font-size: 13px; font-weight: 600; color: #ffc65a; }
+      .panel .note { margin: 2px 0 8px 0; color: #7d8798; }
+      .panel.refused .note { color: #ff8fa3; }
+      .chart { display: block; width: 100%; height: 260px; }
+
+      .legend { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 6px; }
+      .key { display: inline-flex; align-items: center; gap: 6px; color: #b6bfd0; }
+      .key i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+      /* Everything below styles what `src/curve/chart.ts` builds. The chart carries no colours of
+         its own except the palette, which is per series and therefore has to be an attribute. */
+      .chart .rule { stroke: rgba(150, 170, 200, 0.14); stroke-width: 1; }
+      .chart .zero { stroke: rgba(150, 170, 200, 0.42); stroke-width: 1; }
+      .chart .tick { fill: #7d8798; font-size: 10px; }
+      .chart .tick.y { text-anchor: end; }
+      .chart .tick.x { text-anchor: middle; }
+      .chart .axis { fill: #7d8798; font-size: 10px; }
+      .chart .line { fill: none; stroke-width: 1.6; }
+      .chart .band { opacity: 0.14; stroke: none; }
+      .chart .snapshot { opacity: 0.85; }
+      .chart .watch:hover .snapshot { opacity: 1; r: 6; }
+      .chart .surface { fill: transparent; }
+      .chart .cursor { stroke: rgba(232, 234, 240, 0.5); stroke-width: 1; }
+      .chart .readout { font-size: 11px; }
+      .chart .hidden { display: none; }
+      .chart .empty { fill: #7d8798; font-size: 11px; }
+      .chart .refusal { fill: #ff8fa3; font-size: 11px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Learning curve</h1>
+      <div id="status">reading /runs/index.json</div>
+    </header>
+    <aside>
+      <!-- The drop zone is not a fallback. In the built page there is no run server behind
+           /runs/index.json -- the plugin in `vite.config.ts` has no `build` hook and is not
+           meant to -- so a failed fetch is how this page finds out where it is running, and a
+           curve can be shown on a machine that has never trained anything. -->
+      <div id="picker" class="quiet">
+        <p>Drop a train-ppo log, a league log or a curve here.</p>
+        <input id="file" type="file" multiple accept=".jsonl,.json" />
+      </div>
+      <div id="runs"></div>
+    </aside>
+    <!-- Every panel is built from `PANELS` in `src/curve/chart.ts` and a panel whose columns no
+         loaded run carries is not drawn, so nothing about which charts exist is written here. -->
+    <main id="panels"></main>
+    <script type="module" src="/src/curve/main.ts"></script>
+  </body>
+</html>
