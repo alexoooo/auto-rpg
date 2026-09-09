@@ -9,7 +9,7 @@ import { stepPair } from "./fighter";
 import { prepareWarriorFigure } from "./figure";
 import { Arrow } from "./arrow";
 import { Combat } from "./combat";
-import { Hud } from "./hud";
+import { Hud, type CommandReadout, type CommandSideReadout } from "./hud";
 import { Controls } from "./input";
 import { AimIndicator } from "./aim";
 import { Takeover, Targeting } from "./targeting";
@@ -19,7 +19,11 @@ import { advanceFight, FightEnd } from "./fight-end";
 import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, combatRecorder, sampleBoutRecorder,
   wireBoutRecorder } from "./recorder";
 import { advanceActiveHostTimers, ArenaPresentation, pauseHost, presentRebuiltFrame, restartHost, resumeHost,
-  runHostFrame, type RunningHost } from "./host-run";
+  runHostFrame, SKIM_SPEEDS, type RunningHost } from "./host-run";
+import {
+  installSnapshot, installedSnapshot, snapshotFromJson, snapshotProvenance,
+} from "./golem/snapshot";
+import type { GolemDriven } from "./golem/tactics-v4";
 import { SetupScreen } from "./setup";
 import {
   defaultGolemSetup,
@@ -57,6 +61,7 @@ import {
   humanSide,
   matchupFromQuery,
   matchupQuery,
+  MATCHUP_PARAM,
   pauseAction,
   selectScreen,
   takeBody,
@@ -222,13 +227,62 @@ async function boot(): Promise<void> {
    * from it, because the showcase builds its bodies at boot and `buildBout` throws on a build it
    * cannot assemble -- a page that died on a stale link would be a page nobody could open.
    */
+  const query = new URLSearchParams(window.location.search);
   const linked = matchupFromQuery(window.location.search);
   const linkRefusal = linked === null
-    ? (window.location.search.length > 1 ? "the link's matchup was not the right shape" : null)
+    // `has` rather than "is there any query at all", because there is a second parameter now.
+    // `?snapshot=...` on its own used to report the *matchup* as malformed, which is a refusal of
+    // something nobody wrote.
+    ? (query.has(MATCHUP_PARAM) ? "the link's matchup was not the right shape" : null)
     : [linked.left.golem, linked.right.golem]
       .map((build) => (build ? golemSetupRefusal(build) : null))
       .find((refusal) => refusal !== null) ?? null;
-  let state = selectScreen(linked && linkRefusal === null ? linked : golemMatchup(defaultGolemSetup()));
+
+  /**
+   * The snapshot the link asked for, fetched and installed **before the screen is built**.
+   *
+   * That ordering is forced rather than chosen. `Policy.create` is synchronous and `driverOptions`
+   * is what the picker renders from, so a table that arrived after `SetupScreen` was constructed
+   * would be a table the picker could not offer until something else redrew it. Boot is the one
+   * moment where waiting costs nothing, because the arena is behind the sheet either way.
+   *
+   * `/runs/` is the dev server's window onto the gitignored `tournaments/` directory, which
+   * Session 02 of this set adds; the path after it is the run's own, so
+   * a `snapshot` of league-anchored/pool-40.json is the fortieth iteration of the anchored league.
+   * `snapshotSide` says which corner takes it and `snapshotDraw=1` plays the head's draw instead of
+   * its mean -- two different fighters, per `policy.ts`'s note, so it is a parameter and not a
+   * default somebody has to remember.
+   *
+   * **A failure leaves the screen exactly as it was and says so on the boot note.** Everything that
+   * can go wrong here -- no middleware, a path with nothing at it, JSON that is not a snapshot, a
+   * table this build refuses by version -- is somebody's typo or somebody's stale run, and none of
+   * them is a reason for a page not to open.
+   */
+  const snapshotPath = query.get("snapshot");
+  const snapshotSide: Side = query.get("snapshotSide") === "right" ? "right" : "left";
+  const snapshotDrawn = query.get("snapshotDraw") === "1";
+  let snapshotNote = "";
+  if (snapshotPath !== null) {
+    try {
+      const response = await fetch(`/runs/${snapshotPath}`);
+      if (!response.ok) throw new Error(`/runs/${snapshotPath} answered ${response.status} ${response.statusText}`);
+      const { table, source } = snapshotFromJson(await response.json(), snapshotPath);
+      installSnapshot(table, { sample: snapshotDrawn, source });
+      snapshotNote = `Snapshot: ${snapshotProvenance()}.`;
+    } catch (error) {
+      snapshotNote = `The snapshot was refused: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  }
+
+  const withSnapshotPolicy = (matchup: Matchup, side: Side): Matchup => ({
+    ...matchup,
+    [side]: { ...matchup[side], policy: "golem-snapshot" },
+  } as Matchup);
+
+  const opening = linked && linkRefusal === null ? linked : golemMatchup(defaultGolemSetup());
+  let state = selectScreen(
+    installedSnapshot() === null ? opening : withSnapshotPolicy(opening, snapshotSide),
+  );
   /**
    * The parts bin: what this browser has taken off beaten golems, and nothing else.
    *
@@ -263,6 +317,62 @@ async function boot(): Promise<void> {
     if (changed && setup.refusal === null) rebuild();
   };
   const setup = new SetupScreen(need("matchup"), state.matchup, beginButton, partsBin, onSelection);
+
+  /**
+   * The same snapshot, without a server: drop a file on the page, or pick one.
+   *
+   * Two ways in because they answer two different situations and neither covers the other. `/runs/`
+   * needs a dev server with Session 02's middleware in it, which is the way to watch iteration 8
+   * and iteration 93 in a row without touching the mouse -- and a built page served from `dist`,
+   * or somebody handed one checkpoint out of a run on another machine, has no such route. A file
+   * off the disk needs nothing at all.
+   *
+   * The row is built here rather than in `index.html` because it is a diagnostics affordance for
+   * this session and not part of the sheet's argument, and because the whole of what it needs is
+   * an input and a handler; the drop target is the window, so the file can be let go anywhere.
+   * Both paths end in `installSnapshot`, which is the point of the slot: a snapshot fetched by the
+   * page, dropped on it, or picked from a file input are one installed table and not three.
+   */
+  const snapshotRow = document.createElement("p");
+  snapshotRow.className = "note";
+  const snapshotInput = document.createElement("input");
+  snapshotInput.type = "file";
+  snapshotInput.accept = ".json,application/json";
+  snapshotRow.append("Watch a snapshot -- drop a checkpoint, a pool member or a league state here, or ", snapshotInput);
+  bootNote.parentElement?.insertBefore(snapshotRow, bootNote);
+
+  const takeSnapshotFile = async (file: File): Promise<void> => {
+    try {
+      const { table, source } = snapshotFromJson(JSON.parse(await file.text()), file.name);
+      installSnapshot(table, { sample: snapshotDrawn, source });
+      bootNote.classList.remove("error");
+      bootNote.textContent = `Snapshot: ${snapshotProvenance()}.`;
+      // Only from the sheet. Installing mid-fight is allowed -- the table is what the *next* mind
+      // built from it will read -- but rewriting the matchup under a bout that is still standing
+      // would be the setup screen editing a fight, which is the boundary `ArenaPresentation` exists
+      // to keep. The picker picks it up the next time somebody leaves for setup.
+      if (state.phase !== "select") return;
+      state = selectScreen(withSnapshotPolicy(state.matchup, snapshotSide));
+      setup.show(state.matchup);
+      window.history.replaceState(null, "", matchupQuery(state.matchup));
+    } catch (error) {
+      bootNote.classList.add("error");
+      bootNote.textContent = `The snapshot was refused: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  };
+
+  snapshotInput.addEventListener("change", () => {
+    const file = snapshotInput.files?.[0];
+    if (file) void takeSnapshotFile(file);
+  });
+  // `dragover` has to be cancelled or the browser never fires `drop`, and an uncancelled drop
+  // navigates the tab to the file -- which loses the whole session rather than failing visibly.
+  window.addEventListener("dragover", (event) => { event.preventDefault(); });
+  window.addEventListener("drop", (event) => {
+    event.preventDefault();
+    const file = event.dataTransfer?.files?.[0];
+    if (file) void takeSnapshotFile(file);
+  });
 
   const controls = new Controls(canvas, {
     onReset: () => {
@@ -531,7 +641,19 @@ async function boot(): Promise<void> {
   ownPosture.addEventListener("change", updateOwnership);
   ownWrist.addEventListener("change", updateOwnership);
 
-  const hud = new Hud(need("hud"));
+  /**
+   * The diagnostics skim: extra fixed steps a frame, off by default.
+   *
+   * A `let` on the host rather than a number in `CONFIG`, because `AGENTS.md` has the rule and the
+   * scar for it -- a constant tuned for one harness does not become a player's by living in
+   * `config.ts` -- and this is neither a tuning surface nor a thing a bout should inherit. It is
+   * put back to 1 by `leave`, so a fight started after a skimmed one runs in real time whether or
+   * not anybody remembered to turn it off.
+   */
+  let skimSpeed = 1;
+  const hud = new Hud(need("hud"), (speed) => {
+    skimSpeed = SKIM_SPEEDS.includes(speed) ? speed : 1;
+  });
   const aim = new AimIndicator(arena.scene);
   const targeting = new Targeting(arena.scene, yours());
   targeting.attach(yours(), theirs());
@@ -897,6 +1019,7 @@ async function boot(): Promise<void> {
 
   const runningHost: RunningHost = {
     get active() { return controls.isActive; },
+    get speed() { return skimSpeed; },
     setPhysics: (enabled) => { arena.scene.physicsEnabled = enabled; },
     startControls: () => controls.start(),
     pauseControls: () => controls.pauseCombat(),
@@ -931,6 +1054,11 @@ async function boot(): Promise<void> {
    */
   const leave = (): void => {
     state = toSelect(state);
+    // The skim is a thing you turn on to watch one bout, not a setting. Left standing it would
+    // make the next fight -- possibly one somebody is playing -- run at four times the rate with
+    // nothing on screen saying why, which is the shape of defect the pause/curtain entry in
+    // `AGENTS.md` is about: a mode that outlives the screen it was chosen on.
+    skimSpeed = 1;
     controls.pause();
     arena.scene.physicsEnabled = false;
     takeover.cancel();
@@ -1141,12 +1269,109 @@ async function boot(): Promise<void> {
     noticeLeft = C.noticeSeconds;
   };
 
+  /**
+   * What each side is asking the executor for, for the readout.
+   *
+   * **Read off `GolemDriven` and off the bout's own engagement record, and nothing is computed
+   * here.** The command is the one in force -- the last ask, clamped -- and the gap is the one the
+   * pilot was handed on that ask, so the asked stand-off and the held stand-off are two readings
+   * from the same instant rather than one from the mind and one from the world.
+   *
+   * A mind with no `driven` contributes no entry and its half of the panel is empty. That is every
+   * hand-coded style below the fourth executor, every Warrior policy, and -- deliberately -- a body
+   * a person has just taken: `handoverFromCursors` and `splitMind` wrap the mind without
+   * republishing it, and a panel that went on printing the commands of a mind nobody is running any
+   * more would be worse than a panel that goes quiet.
+   */
+  /**
+   * The last ask count and the wall-clock instant it was read at, per side, and the rate between.
+   *
+   * A rate rather than an average, for the reason `CommandSideReadout.asksPerSecond` gives: the
+   * mind is stepped by the physics observable and the bout clock is the clamped frame delta, so
+   * the two disagree by however much this host is dropping. The smoothing is a plain one-pole
+   * filter on a window that is one frame wide, and it is reset with the rest of the readout when a
+   * body is rebuilt because the counter behind it belongs to a mind that no longer exists.
+   */
+  const askRate: Record<Side, { asks: number; at: number; rate: number }> = {
+    left: { asks: 0, at: 0, rate: 0 },
+    right: { asks: 0, at: 0, rate: 0 },
+  };
+  const askedPerSecond = (side: Side, asks: number): number => {
+    const seen = askRate[side];
+    const now = performance.now();
+    if (seen.at === 0 || asks < seen.asks) {
+      askRate[side] = { asks, at: now, rate: 0 };
+      return 0;
+    }
+    const seconds = (now - seen.at) / 1000;
+    if (seconds < 1e-3) return seen.rate;
+    const sampled = (asks - seen.asks) / seconds;
+    const rate = seen.rate === 0 ? sampled : seen.rate + (sampled - seen.rate) * 0.25;
+    askRate[side] = { asks, at: now, rate };
+    return rate;
+  };
+
+  const commandReadout = (): CommandReadout => {
+    const sides: CommandSideReadout[] = [];
+    for (const side of ["left", "right"] as const) {
+      const body = side === "left" ? bout.left : bout.right;
+      const mind = body.humanDriver?.mind as (Mind & { driven?: GolemDriven }) | undefined;
+      const driven = mind?.driven;
+      if (!mind || !driven) continue;
+      const engagement = bout.recorder.engagement[side];
+      const theirReach = driven.reading.theirReach;
+      sides.push({
+        side,
+        mind: mind.name,
+        provenance: mind.name === "golem-snapshot" ? snapshotProvenance() : null,
+        standOff: driven.command.standOff,
+        // The same coordinate the command is written in -- multiples of *their* published reach --
+        // because the whole value of the pair is that the two numbers can be subtracted.
+        heldOff: theirReach > 1e-6 ? driven.reading.gap / theirReach : 0,
+        advance: driven.command.advance,
+        strafe: driven.command.strafe,
+        lean: driven.command.lean,
+        commit: driven.command.commit,
+        abort: driven.command.abort,
+        parry: driven.command.parry,
+        phase: driven.phase,
+        stance: driven.stance,
+        asksPerSecond: askedPerSecond(side, driven.asks),
+        stallSeconds: engagement.nearRangeStallSeconds,
+        outsideReachSeconds: engagement.retreatOutsideReachSeconds,
+      });
+    }
+    return { skim: skimSpeed, sides };
+  };
+
   engine.runRenderLoop(() => {
     const rawDeltaMs = engine.getDeltaTime();
     const dt = Math.min(rawDeltaMs / 1000, CONFIG.world.maxFrameSeconds);
     if (dt <= 0) return;
 
-    runHostFrame(runningHost, () => {
+    runHostFrame(runningHost, (step) => {
+      // The skim's extra steps, and the reason they cannot change the step.
+      //
+      // At speed 1 this branch never runs and the frame is the frame it always was: the work
+      // below, then `scene.render()`, which advances physics off the engine's own delta. Above 1,
+      // every run after the first has to advance the world itself, and it does it exactly as
+      // `scripts/bout-runner.mjs` does -- bump the render id, then call the millisecond-valued
+      // `_advancePhysicsEngineStep`, which runs Babylon's fixed sub-step accumulator and notifies
+      // `onBeforePhysicsObservable` before each solver step. The solver's step is whatever
+      // `setSubTimeStep` fixed it at and is untouched; what changes is how many of them a rendered
+      // frame contains. `AGENTS.md`'s variable-timestep trap is the other thing, and it cost two
+      // sessions: scaling the delta handed to the solver is measured at 40 mm of tip wander.
+      //
+      // The render id has to move with it, or every world matrix read this frame freezes at its
+      // first sample -- the same trap the headless bench carries a line for.
+      if (step > 0) {
+        const internals = arena.scene as unknown as {
+          _renderId: number;
+          _advancePhysicsEngineStep(milliseconds: number): void;
+        };
+        internals._renderId += 1;
+        internals._advancePhysicsEngineStep(1000 * dt);
+      }
       controls.sample(dt);
       targeting.releaseIfSteering(controls.state.turn);
       // One owner of the cursor's outline at a time; see `Targeting.update`.
@@ -1245,6 +1470,7 @@ async function boot(): Promise<void> {
         meshes: arena.scene.meshes.length,
         rig: rigview.readout(),
         driving: humanSide(state.matchup),
+        command: commandReadout(),
       },
       bout,
       latest,
@@ -1374,9 +1600,12 @@ async function boot(): Promise<void> {
     },
   });
 
-  bootNote.textContent = linkRefusal === null
-    ? "Havok ready."
-    : `Havok ready. The link was refused and the showcase pair is shown instead: ${linkRefusal}`;
+  bootNote.textContent = [
+    linkRefusal === null
+      ? "Havok ready."
+      : `Havok ready. The link was refused and the showcase pair is shown instead: ${linkRefusal}`,
+    snapshotNote,
+  ].filter((part) => part !== "").join(" ");
   beginButton.disabled = false;
   presentation.showSetup(true);
   presentation.showPaused(false);

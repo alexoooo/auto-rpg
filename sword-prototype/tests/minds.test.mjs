@@ -293,10 +293,16 @@ function drive(mind, seconds, viewFor) {
 test("the picker offers exactly the policies that exist", () => {
   assert.deepEqual(
     POLICIES.map((policy) => policy.name),
-    ["idle", "swinger", "duelist", "archer", "crawler", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-neural", "golem-form", "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-learner", "golem-driver", "golem-policy", "golem-selector"],
+    ["idle", "swinger", "duelist", "archer", "crawler", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-neural", "golem-form", "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-learner", "golem-driver", "golem-policy", "golem-snapshot", "golem-selector"],
   );
   for (const policy of POLICIES) {
-    assert.equal(policyMind(policy.name, 1).name, policy.name);
+    // `golem-snapshot` is the one row whose `create` can refuse: it is a slot rather than a mind,
+    // and until a checkpoint has been fetched and installed there is nothing behind it. So it is
+    // asserted to refuse *by its own name* here, which is the same standard the unknown-policy test
+    // below holds `policyMind` to; that it builds a working mind once one is installed is
+    // `tests/snapshot.test.mjs`, which owns the slot.
+    if (policy.name === "golem-snapshot") assert.throws(() => policyMind(policy.name, 1), /golem-snapshot/);
+    else assert.equal(policyMind(policy.name, 1).name, policy.name);
     assert.ok(policy.label.length > 0, `${policy.name} needs a label for the screen`);
   }
 });
@@ -326,6 +332,12 @@ test("a_combat_intent_contains_no_camera_state", () => {
   // writes a field its blank did not declare is exactly as wrong as a blank that
   // carries one, and only stepping it says so.
   for (const policy of POLICIES) {
+    // The empty slot, skipped rather than filled: `golem-snapshot` is `golemPolicy` with a table
+    // off a file where `golem-policy` has the shipped one, so the mind this loop would drive is
+    // the mind it already drives one row above. Installing one here would put module state from
+    // `src/golem/snapshot.ts` into every later test in this file for a second copy of a covered
+    // claim. It is driven through this same field set in `tests/snapshot.test.mjs`.
+    if (policy.name === "golem-snapshot") continue;
     const mind = policyMind(policy.name, 20260824);
     for (const gap of [0.8, 1.4, 3.2]) {
       const out = mind.decide(facing({ gap }), FIXED);
@@ -1098,6 +1110,8 @@ test("human_play_keeps_locomotion_and_buttons_but_uses_policy_posture", () => {
 
 test("every_shipped_policy_keeps_roll_and_bend_inside_anatomical_limits", () => {
   for (const policy of POLICIES) {
+    // The empty slot, for the reason `a_combat_intent_contains_no_camera_state` gives above.
+    if (policy.name === "golem-snapshot") continue;
     const track = drive(policyMind(policy.name, 20260823), 8, (clock) =>
       facing({ gap: 0.9 + 0.6 * Math.sin(clock), mine: { primary: "axe", secondary: "shield" } }),
     );

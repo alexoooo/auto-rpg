@@ -4,7 +4,8 @@ import test from "node:test";
 
 import { begin, defaultMatchup, selectScreen } from "../src/bout.ts";
 import { advanceActiveHostTimers, ArenaPresentation, pauseHost, presentRebuiltFrame, restartHost, resumeHost,
-  runHostFrame } from "../src/host-run.ts";
+  runHostFrame, skimSteps, SKIM_SPEEDS } from "../src/host-run.ts";
+import { CONFIG } from "../src/config.ts";
 
 const visibilityTarget = () => {
   const classes = new Set(["gone"]);
@@ -119,6 +120,62 @@ test("a_paused_frame_freezes_simulation_but_keeps_camera_presentation_live", () 
   assert.deepEqual(stages, { mind: 0, combat: 0, arrow: 0, blood: 0, body: 0, camera: 1, occlusion: 1, aim: 0, rig: 0 });
   assert.equal(runHostFrame({ active: true }, advance, present), true);
   assert.deepEqual(stages, { mind: 1, combat: 1, arrow: 1, blood: 1, body: 1, camera: 2, occlusion: 2, aim: 1, rig: 1 });
+});
+
+/**
+ * The diagnostics skim, which multiplies the number of fixed steps and never the size of one.
+ *
+ * `AGENTS.md` carries the trap in as many words -- the solver must never see a variable timestep,
+ * and stepping by a raw frame delta was measured at 40 mm of tip wander against 0 mm fixed -- and
+ * it cost two sessions. So the assertion that matters is not that four steps happened; it is that
+ * **every one of the four was the same size as the one step a speed-1 frame runs**, which is what
+ * a mutation scaling the step instead of repeating it would break while still "running 4x". The
+ * simulated clock here is the sum of the steps a frame took, so a frame of skim is worth four
+ * frames of real time and the step is the step.
+ */
+test("a_skim_frame_runs_four_fixed_steps_of_the_size_one_frame_runs", () => {
+  const FRAME = 1 / CONFIG.world.physicsHz;
+  const taken = [];
+  const indices = [];
+  let presented = 0;
+  let clock = 0;
+  const advance = (step) => { indices.push(step); taken.push(FRAME); clock += FRAME; };
+  const present = () => { presented += 1; };
+
+  // Speed 1 is the arena, and it is the frame that existed before the skim did.
+  runHostFrame({ active: true, speed: 1 }, advance, present);
+  assert.deepEqual(indices, [0]);
+  assert.equal(clock, FRAME);
+
+  taken.length = 0; indices.length = 0; clock = 0;
+  runHostFrame({ active: true, speed: 4 }, advance, present);
+  // Four runs, handed which run they are on -- the index is what lets the page drive the solver by
+  // hand on the three the browser's own `scene.render()` will not cover.
+  assert.deepEqual(indices, [0, 1, 2, 3]);
+  assert.deepEqual(taken, [FRAME, FRAME, FRAME, FRAME]);
+  assert.equal(clock, 4 * FRAME);
+  // Presentation is once a frame at every speed: the camera and the room occlusion are about what
+  // is on screen, not about what the world did.
+  assert.equal(presented, 2);
+
+  // Pause outranks the skim, because pause is an authority gate and the skim is a diagnostic.
+  taken.length = 0; indices.length = 0;
+  assert.equal(runHostFrame({ active: false, speed: 4 }, advance, present), false);
+  assert.deepEqual(indices, []);
+  assert.equal(presented, 3);
+});
+
+test("a_speed_the_console_typed_is_clamped_rather_than_trusted", () => {
+  // `CONFIG` is deliberately mutable from the console and a speed of 400 typed into it would be a
+  // hang rather than a fast fight, so the roof is the list's own last entry.
+  assert.deepEqual([...SKIM_SPEEDS], [1, 2, 4]);
+  assert.equal(skimSteps(undefined), 1, "a host that never heard of the skim runs real time");
+  assert.equal(skimSteps(Number.NaN), 1);
+  assert.equal(skimSteps(0), 1);
+  assert.equal(skimSteps(-8), 1);
+  assert.equal(skimSteps(400), SKIM_SPEEDS[SKIM_SPEEDS.length - 1]);
+  assert.equal(skimSteps(2.4), 2);
+  for (const speed of SKIM_SPEEDS) assert.equal(skimSteps(speed), speed);
 });
 
 test("paused_presentation_timers_keep_the_exact_instant_the_player_stopped", () => {

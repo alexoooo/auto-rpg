@@ -52,9 +52,49 @@ export function presentRebuiltFrame(host: RebuiltFrameHost): void {
   host.render();
 }
 
+/**
+ * The speeds the skim offers, and the only values `runHostFrame` will run.
+ *
+ * Three, and 1 is not a speed but the absence of one: the arena is a real-time game and Session 03
+ * of the learn set adds no speed multiplier to the fight. What it adds is a diagnostics control for
+ * watching a snapshot, where a sixty-second bout between two minds that will not close is a minute
+ * of somebody's attention spent on nothing. 4 is the roof because the frame's work is done four
+ * times at 60 Hz and a host that fell behind would start dropping frames, which turns a skim into a
+ * slideshow of a fight nobody can read.
+ */
+export const SKIM_SPEEDS: readonly number[] = Object.freeze([1, 2, 4]);
+
+/**
+ * How many times a frame's simulation runs at a given skim speed.
+ *
+ * **It multiplies the number of fixed steps and never the size of one**, which is the whole of what
+ * makes this safe. `AGENTS.md` carries the trap in as many words -- the solver must never see a
+ * variable timestep, and stepping by a raw frame delta was measured at 40 mm of tip wander against
+ * 0 mm fixed -- and it cost two sessions. The pattern is `scripts/bout-runner.mjs`'s: its loop
+ * advances `scene._renderId` and calls `_advancePhysicsEngineStep` with a fixed frame's worth of
+ * milliseconds, once per simulated frame, and Babylon's own sub-step accumulator inside that call
+ * is what keeps the solver's step the size `setSubTimeStep` fixed it at. Running that loop body
+ * twice is two frames of the same simulation; scaling its argument would be a different simulator.
+ *
+ * Clamped rather than trusted, because `CONFIG` is deliberately mutable from the console and a
+ * speed of 400 typed into it would be a hang rather than a fast fight.
+ */
+export function skimSteps(speed: number | undefined): number {
+  if (speed === undefined || !Number.isFinite(speed)) return 1;
+  const roof = SKIM_SPEEDS[SKIM_SPEEDS.length - 1];
+  return Math.max(1, Math.min(roof, Math.round(speed)));
+}
+
 /** The browser-owned half of pause/restart, kept small enough to test without a DOM. */
 export interface RunningHost {
   readonly active: boolean;
+  /**
+   * The diagnostics skim, 1 by default and never anything but a `SKIM_SPEEDS` entry.
+   *
+   * Optional so that everything which only ever wanted `active` -- `pauseHost`, `resumeHost`, the
+   * fixtures that stand in for a browser -- keeps working unchanged and reads as speed 1.
+   */
+  readonly speed?: number;
   setPhysics(enabled: boolean): void;
   startControls(): void;
   pauseControls(): void;
@@ -96,13 +136,26 @@ export function restartHost(state: BoutState, host: RunningHost, resume: boolean
  * the two callbacks on opposite sides of this boundary prevents a camera fix from
  * accidentally advancing a mind, and prevents a later simulation edit from putting
  * the camera back behind the pause gate.
+ *
+ * **`advance` may run more than once, and it is handed which run it is on.** At speed 1 -- which is
+ * the arena, always, unless somebody has opened the diagnostics disclosure and asked for otherwise
+ * -- it runs exactly once and nothing about this frame is different from the frame before the skim
+ * existed. Above 1 it runs `skimSteps(host.speed)` times, and the index is what lets a caller do
+ * the one thing an extra run needs that the first does not: drive the solver itself. The page's
+ * first run is followed by `scene.render()`, which advances physics off the frame delta; every run
+ * after it has to advance the world by hand before doing the frame's work, which is
+ * `scripts/bout-runner.mjs`'s loop and nothing else. Presentation stays at one per frame, because
+ * the camera and the room occlusion are about what is on screen and not about what the world did.
  */
 export function runHostFrame(
-  host: Pick<RunningHost, "active">,
-  advance: () => void,
+  host: Pick<RunningHost, "active" | "speed">,
+  advance: (step: number) => void,
   present: () => void,
 ): boolean {
-  if (host.active) advance();
+  if (host.active) {
+    const steps = skimSteps(host.speed);
+    for (let step = 0; step < steps; step += 1) advance(step);
+  }
   present();
   return host.active;
 }

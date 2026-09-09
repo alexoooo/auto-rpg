@@ -15,11 +15,12 @@ import { GUARDIAN, guardianDirector, golemGuardian } from "./styles/guardian.ts"
 import { SKIRMISHER, golemSkirmisher, skirmisherDirector } from "./styles/skirmisher.ts";
 import { golemDriver } from "./styles/driver.ts";
 import { golemPolicy } from "./policy.ts";
+import { installedSnapshot } from "./snapshot.ts";
 import {
   exploringDirector, golemStyled, watchedDirector,
   type GolemStyled, type StyleAskHook, type StyleDirector,
 } from "./tactics-v3.ts";
-import type { GolemDriven } from "./tactics-v4.ts";
+import { GOLEM_TACTICS_V4, type GolemDriven } from "./tactics-v4.ts";
 
 /**
  * The golem's entry in the policy picker.
@@ -284,6 +285,12 @@ export function golemTacticianMind(seed = (Math.random() * 0x100000000) >>> 0): 
  * else is left out -- the duelist is in, and a cell where the mind that stands still wins is a
  * cell worth knowing about.
  *
+ * **`golem-snapshot` is the second thing left out**, and for a different reason than the selector's
+ * recursion: it is not a mind, it is a slot. What it plays depends on what the page happened to
+ * fetch, so a fitted selector row naming it would name a different opponent on every machine and a
+ * table fitted against it would be a table fitted against nothing in particular. A selector cell
+ * has to mean one mind.
+ *
  * A mind registers here, in `src/mind.ts` and in `src/units.ts`, and the three lists are checked
  * against each other by `tests/minds.test.mjs`.
  */
@@ -339,6 +346,48 @@ export function golemPolicyMind(seed = (Math.random() * 0x100000000) >>> 0): Min
   return {
     name: "golem-policy",
     driven: policy.driven,
+    decide: (view, dt): Intent => policy.decide(view, dt),
+  };
+}
+
+/**
+ * The fifteenth golem mind, and the only one whose weights are not in the tree: `golem-snapshot`.
+ * Session 03 of the learn set.
+ *
+ * `golem-policy`'s executor over whatever table the page has been handed -- a `train-ppo`
+ * checkpoint, a league pool member, a league's main -- from the module-level slot in
+ * `snapshot.ts`. Everything else about it is the policy mind: the same v4 executor, the same head,
+ * `driven` published for the readout and neither `fencer` nor `styled`, because there is no option
+ * in force to log. `lastHead` is published as well, which the shipped mind does not do, and it is
+ * here rather than there because this is the mind somebody is *watching*: the twelve numbers the
+ * network answered are what the command readout is a decoding of, and a person comparing iteration
+ * 8 with iteration 93 wants to be able to reach them from the console.
+ *
+ * **It refuses by name when the slot is empty**, which is the whole reason the slot exists. The
+ * alternative -- falling back to `POLICY_WEIGHTS` -- would give two names to the shipped mind and
+ * would make "I loaded iteration 40 and it fights exactly like the shipped one" an observation
+ * nobody could distinguish from a fetch that quietly failed. `src/units.ts` keeps the row out of
+ * the golem's `driverOptions` until something is installed, so the picker marks it incompatible in
+ * the same way it marks a policy the unit cannot take, and this refusal is what catches every other
+ * way of asking: a link, a restart, a console assignment, a test.
+ *
+ * The seed is the mind's own and does not come from the snapshot. A table's `seed` is the seed the
+ * *fit* ran under and reusing it here would make two golems on one snapshot fight in lockstep,
+ * which is the thing every factory in this file has a fresh seed to prevent.
+ */
+export function golemSnapshotMind(
+  seed = (Math.random() * 0x100000000) >>> 0,
+): Mind & { driven: GolemDriven; readonly lastHead: Float64Array } {
+  const held = installedSnapshot();
+  if (held === null) {
+    throw new Error('"golem-snapshot" has no snapshot installed: fetch a checkpoint, a pool member '
+      + "or a league state and install it before building the mind");
+  }
+  const policy = golemPolicy(seed, held.table, GOLEM_TACTICS_V4, null, held.sample);
+  return {
+    name: "golem-snapshot",
+    driven: policy.driven,
+    get lastHead(): Float64Array { return policy.lastHead; },
     decide: (view, dt): Intent => policy.decide(view, dt),
   };
 }

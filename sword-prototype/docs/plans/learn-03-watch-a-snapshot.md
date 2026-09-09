@@ -1,6 +1,6 @@
 # Session 03 -- watch a snapshot in the arena, and see what it is asking for
 
-**Status (2026-09-09): planned. Needs 01.**
+**Status (2026-09-09): landed.**
 
 ## Outcome
 

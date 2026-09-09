@@ -183,6 +183,9 @@ test("every_policy_returns_a_finite_zoom_free_combat_command", () => {
     }
   };
   for (const [index, policy] of POLICIES.entries()) {
+    // `golem-snapshot` is a slot rather than a mind: its factory refuses by name until a
+    // checkpoint has been installed, and nothing installs one in the Node runner.
+    if (policy.name === "golem-snapshot") continue;
     const inner = policy.create(500 + index);
     const mind = { name: inner.name, decide(view, dt) { const intent = inner.decide(view, dt); inspect(intent, policy.name); return intent; } };
     const result = runBout({

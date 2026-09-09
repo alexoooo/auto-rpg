@@ -115,10 +115,12 @@ test("a_table_is_refused_by_version_and_by_a_candidate_the_build_cannot_make", (
   assert.equal(checkSelector(SELECTOR_TABLE, Object.keys(GOLEM_CANDIDATES)).version, SELECTOR_VERSION);
   assert.equal(choose(NO_SELECTOR, "sword/long", "sword/long"), null, "a table of no candidates chooses nothing");
   // The candidates are the registered golem minds save the selector itself, which cannot pick
-  // itself without recursion and cannot be fitted against a table it is inside.
+  // itself without recursion and cannot be fitted against a table it is inside, and save
+  // `golem-snapshot`, which is a slot a fetch fills: a selector that could pick it would be a
+  // table whose meaning depends on which checkpoint the page happened to load.
   const registered = POLICIES.map((policy) => policy.name).filter((name) => name.startsWith("golem-"));
   assert.deepEqual([...Object.keys(GOLEM_CANDIDATES)].sort(),
-    registered.filter((name) => name !== "golem-selector").sort());
+    registered.filter((name) => name !== "golem-selector" && name !== "golem-snapshot").sort());
   assert.ok(!("golem-selector" in GOLEM_CANDIDATES));
 });
 

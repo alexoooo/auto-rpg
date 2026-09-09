@@ -103,8 +103,14 @@ test("legacy_units_keep_the_humanoid_surface_and_policy_factory", () => {
     // *surface* admits, not every policy in the program, and since Session 09 those differ:
     // `golem-duelist` is in `POLICIES` and is absent from this list, so the day the surface filter
     // in `drivers` is dropped a Warrior's picker grows a sixth row and this line goes red.
+    // `golem-snapshot` is compatible with the golem and is withheld from the picker until a
+    // checkpoint has been installed, which is how the setup screen is made to mark it incompatible
+    // without a second mechanism. It is the only row that can be in one list and not the other, and
+    // this loop runs with an empty slot, so it is subtracted here rather than the equality being
+    // loosened -- every other row must still be in both.
     assert.deepEqual(unit.driverOptions.map(({ name }) => name),
-      unit.compatiblePolicies ?? ["idle", "swinger", "duelist", "archer", "crawler"]);
+      (unit.compatiblePolicies ?? ["idle", "swinger", "duelist", "archer", "crawler"])
+        .filter((name) => name !== "golem-snapshot"));
     assert.equal(unit.createPolicy(unit.defaultPolicy).name, unit.defaultPolicy);
   }
 });
@@ -131,7 +137,7 @@ test("the_golem_is_assembled_rather_than_equipped_and_answers_to_its_own_surface
   // it; every scripted policy in `src/policies.ts` stays out because its ranges are a Warrior's
   // arming sword in disguise. The fencer and the planner follow the duelist, which stays the
   // baseline.
-  assert.deepEqual([...(golem.compatiblePolicies ?? [])], ["idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-neural", "golem-form", "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-learner", "golem-driver", "golem-policy", "golem-selector"]);
+  assert.deepEqual([...(golem.compatiblePolicies ?? [])], ["idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-neural", "golem-form", "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-learner", "golem-driver", "golem-policy", "golem-snapshot", "golem-selector"]);
   assert.ok(golem.defaultGolem, "a golem corner opens on a build");
   for (const slot of ["locomotion", "torso", "head"]) {
     assert.equal(typeof golem.defaultGolem[slot], "string", slot);

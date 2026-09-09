@@ -8,6 +8,11 @@ import type { GolemSetup, UnitSelectionRules } from "./bout.ts";
 import { defaultGolemDimensions, defaultGolemSetup } from "./golem/build.ts";
 import { Golem } from "./golem/golem.ts";
 import { GOLEM_CONTROL_SURFACE } from "./golem/golem-control.ts";
+// The snapshot slot, read to decide whether the golem's picker offers `golem-snapshot` at all and
+// what it calls the row. It reaches nothing this module already has: `snapshot.ts` imports the
+// policy head and the checker, and the policy head imports `mind.ts` for types only, so the edge
+// runs one way at run time exactly as `POLICIES` does below.
+import { installedSnapshot, snapshotOptionLabel } from "./golem/snapshot.ts";
 import { BROOT_PROFILE, Fighter, type FighterMaterials, type Limb } from "./fighter.ts";
 import type { Striking } from "./combat.ts";
 import type { ControlEndpoint } from "./control-host.ts";
@@ -448,8 +453,43 @@ const centipede: UnitDefinition = Object.freeze({
  * Session 08's whole baseline was taken on it, which makes it the thing Session 09's numbers are
  * read against. The exclusion now runs both ways: `Policy.surface` keeps `golem-duelist` out of a
  * Warrior's picker for exactly the mirror reason.
+ *
+ * **`golem-snapshot` is in this list and is not always in `driverOptions`**, which is the one place
+ * the two genuinely differ and is Session 03 of the learn set's doing. It is a policy this body can
+ * take -- it is the v4 executor over the same head `golem-policy` runs -- so it belongs here; what
+ * it needs beyond a name is a table, which is fetched into the slot in
+ * `src/golem/snapshot.ts` before the screen is built. Until something is in that slot the row is
+ * withheld from the picker, and `SetupScreen.render` therefore shows a matchup that names it as an
+ * option marked incompatible and disabled, exactly as it shows a policy a unit cannot take or a
+ * parts-bin entry that is no longer in the bin. The person sees what happened and Fight is blocked
+ * with the reason, which is the shape this screen already uses for every other refusal.
  */
-const GOLEM_POLICIES: readonly string[] = Object.freeze(["idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-neural", "golem-form", "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-learner", "golem-driver", "golem-policy", "golem-selector"]);
+const GOLEM_POLICIES: readonly string[] = Object.freeze(["idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-neural", "golem-form", "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-learner", "golem-driver", "golem-policy", "golem-snapshot", "golem-selector"]);
+
+/**
+ * The rows a golem's picker offers *now*, which is the only picker in the program that is not a
+ * constant.
+ *
+ * A getter rather than a field, and the reason is `Policy.create`'s signature: it is synchronous,
+ * so a snapshot's two megabytes have to be fetched and installed before a mind can be built from
+ * it, and the picker is rendered from this every time the setup screen redraws. So "is a snapshot
+ * loaded" is a question with a different answer at boot than after a drop, and a frozen array
+ * computed once at module evaluation could only ever answer it one way.
+ *
+ * The label carries the iteration and the score when there is one, because "Golem snapshot" on its
+ * own is a row that says nothing about which of ninety-three iterations is about to fight -- and
+ * the whole point of the session is being able to tell iteration 8 from iteration 93 by watching
+ * them.
+ */
+const golemDriverOptions = (): readonly { readonly name: string; readonly label: string }[] => {
+  const held = installedSnapshot();
+  const rows = drivers(GOLEM_CONTROL_SURFACE,
+    held === null ? GOLEM_POLICIES.filter((name) => name !== "golem-snapshot") : GOLEM_POLICIES);
+  if (held === null) return rows;
+  return Object.freeze(rows.map((row) => (row.name === "golem-snapshot"
+    ? Object.freeze({ name: row.name, label: snapshotOptionLabel() })
+    : row)));
+};
 
 const golem: UnitDefinition = Object.freeze({
   kind: "golem",
@@ -459,7 +499,7 @@ const golem: UnitDefinition = Object.freeze({
   defaultLoadout: emptyLoadout,
   hands: 2,
   compatiblePolicies: GOLEM_POLICIES,
-  driverOptions: drivers(GOLEM_CONTROL_SURFACE, GOLEM_POLICIES),
+  get driverOptions() { return golemDriverOptions(); },
   humanAdapter: true,
   controlSurface: GOLEM_CONTROL_SURFACE,
   supportedLocomotionPort: SUPPORTED_LOCOMOTION_PORT_V1,

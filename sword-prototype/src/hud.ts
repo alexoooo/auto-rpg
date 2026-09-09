@@ -33,6 +33,86 @@ export interface Telemetry {
    * move silently is a readout you can misread with complete confidence.
    */
   driving: Side | null;
+  /**
+   * What each side's mind is asking the executor for, and what it is getting.
+   *
+   * One field rather than seven, because the panel is one thing and a `Telemetry` whose fields have
+   * to be assembled in the right combination to mean anything is a record that can be half-filled.
+   * Empty `sides` is a bout of two minds that write no command -- every hand-coded style below the
+   * fourth executor -- and takes the tables away while leaving the disclosure, which also carries
+   * the skim.
+   */
+  command: CommandReadout;
+}
+
+/**
+ * What one side of the command readout says. Session 03 of the learn set.
+ *
+ * **Facts the mind published, decoded into the units the command is written in, and nothing
+ * inferred.** The rule is `FighterView`'s and it matters more here than usual: this panel exists so
+ * that somebody watching iteration 8 and iteration 93 can say what changed, and a readout that
+ * answered "it is being too cautious" instead of printing the stand-off it asked for would be a
+ * readout arguing with the fight rather than describing it.
+ *
+ * The pairing is the point. `standOff` is what the mind asked for and `heldOff` is what the body
+ * actually holds, both as multiples of the *other* body's published reach, which is the coordinate
+ * `StyleCommand.standOff` is written in. The two together are the owner's complaint stated as a
+ * number: a mind that "stays just out of reach" is one whose asked and held stand-off agree at
+ * something above 1, and a mind that hugs is one where both are near zero.
+ */
+export interface CommandSideReadout {
+  readonly side: Side;
+  /** The mind's own name, which is a wrapper's inner name when a takeover is rebasing. */
+  readonly mind: string;
+  /** Where a loaded table came from, or null for a mind whose weights are in the tree. */
+  readonly provenance: string | null;
+  /** Commanded stand-off, as a multiple of their published reach. */
+  readonly standOff: number;
+  /** The gap actually held, in the same coordinate. */
+  readonly heldOff: number;
+  readonly advance: number;
+  readonly strafe: number;
+  readonly lean: number;
+  readonly commit: number;
+  readonly abort: number;
+  readonly parry: number;
+  /** Their arm's phase as this mind reads it, and what this mind is doing about it. */
+  readonly phase: string;
+  readonly stance: string;
+  /**
+   * How often the pilot is being asked, per second of **wall clock**, over the last frame or two.
+   *
+   * Wall clock and not the bout clock, which is the opposite of what the rest of this panel does,
+   * and the reason is that the two are not the same clock when a frame is missed. A mind is
+   * stepped from the physics observable at the fixed sub-step rate, while `Combat.advance` counts
+   * the rendered frame's delta -- clamped at `maxFrameSeconds` so a stall cannot teleport a body.
+   * On a host that drops frames the mind therefore goes on asking in real time while the bout
+   * clock falls behind, and an average taken against the bout clock reads twenty times the
+   * cadence, which is a number about the host and not about the mind.
+   *
+   * What a person watching wants from this row is "is it still deciding, and how often", so it is
+   * a rate over the interval between readouts, lightly smoothed because a single frame's window is
+   * noisy. It reads about the tactics table's cadence at speed 1 and about four times it under the
+   * x4 skim, which is the readout's own check that the skim runs extra steps rather than a bigger
+   * one, and it falls to zero on pause because a paused mind is not asking.
+   */
+  readonly asksPerSecond: number;
+  /**
+   * The two habits the reward pays nothing for, running.
+   *
+   * `EngagementTracker` in `src/engagement.ts` has counted both since before the style set and
+   * `scripts/tournament.mjs` has printed both, and until this panel neither was visible while a
+   * bout was happening. They are here rather than in a post-bout table because the question they
+   * answer is "is it doing it *now*", which a total at the end cannot.
+   */
+  readonly stallSeconds: number;
+  readonly outsideReachSeconds: number;
+}
+
+export interface CommandReadout {
+  /** The diagnostics skim in force: 1, 2 or 4. See `SKIM_SPEEDS` in `src/host-run.ts`. */
+  readonly skim: number;
+  readonly sides: readonly CommandSideReadout[];
 }
 
 const KIND_LABEL: Record<HitReport["kind"], string> = {
@@ -99,9 +179,26 @@ export class Hud {
   private readonly rigCrouch: HTMLElement;
   private readonly rigWaist: HTMLElement;
   private readonly rigLimits: HTMLElement;
+  /**
+   * The two halves of the command readout, rewritten in place and never opened.
+   *
+   * `AGENTS.md`'s diagnostics rule is that nothing which changes state may open, close or navigate
+   * a surface a person owns. `update` writes into these two elements and never touches the `open`
+   * attribute of the disclosure holding them, so a panel somebody opened to watch a stand-off stays
+   * open through a verdict, a restart and a takeover, and one they left shut stays shut through all
+   * three. That is also why the readout ships shut: it is a diagnostic, not a gauge.
+   */
+  private readonly commandLists: Record<"left" | "right", HTMLElement>;
+  private readonly skimPicker: HTMLSelectElement;
   private visible = true;
 
-  constructor(host: HTMLElement) {
+  /**
+   * @param host where the readout is built.
+   * @param onSkim what to do when somebody picks a skim speed, or nothing at all for a host that
+   *   has no simulation to skim. The control is inert rather than absent in that case, because a
+   *   panel whose contents depend on who constructed it is a panel two people describe differently.
+   */
+  constructor(host: HTMLElement, onSkim: ((speed: number) => void) | null = null) {
     this.root = host;
     host.innerHTML = `
       <div class="hud-col hud-left">
@@ -142,6 +239,18 @@ export class Hud {
             <summary>critical injuries</summary>
             <div data-limbs-left></div>
             <div data-limbs-right></div>
+          </details>
+          <details class="injuries" data-commands>
+            <summary>command readout</summary>
+            <div class="limb"><span class="limb-name">skim
+              <select data-skim>
+                <option value="1">x1 real time</option>
+                <option value="2">x2</option>
+                <option value="4">x4</option>
+              </select>
+            </span></div>
+            <div data-command-left></div>
+            <div data-command-right></div>
           </details>
         </div>
         <div class="perf" data-perf></div>
@@ -187,6 +296,14 @@ export class Hud {
     this.rigWaist = pick("[data-rig-waist]");
     this.rigLimits = pick("[data-rig-limits]");
     this.rigPanel.style.display = "none";
+    this.commandLists = {
+      left: pick("[data-command-left]"),
+      right: pick("[data-command-right]"),
+    };
+    this.skimPicker = pick("[data-skim]") as HTMLSelectElement;
+    this.skimPicker.addEventListener("change", () => {
+      onSkim?.(Number(this.skimPicker.value));
+    });
   }
 
   toggle(): void {
@@ -292,8 +409,50 @@ export class Hud {
         `<div class="limb"><span class="limb-name">${title}: none</span></div>`;
     }
 
+    // The picker is a person's control and is written to only when the host disagrees with it,
+    // which happens on the one edge the person did not make: `leave` puts the skim back to 1 on the
+    // way to the setup screen, so a fight started after one that was being skimmed is real time.
+    const skim = String(telemetry.command.skim);
+    if (this.skimPicker.value !== skim) this.skimPicker.value = skim;
+    for (const side of ["left", "right"] as const) {
+      const found = telemetry.command.sides.find((entry) => entry.side === side) ?? null;
+      this.commandLists[side].innerHTML = found === null ? "" : commandRows(found);
+    }
+
     this.perf.textContent = `${telemetry.fps.toFixed(0)} fps · physics ${telemetry.physicsMs.toFixed(
       2,
     )} ms · ${telemetry.meshes} meshes`;
   }
+}
+
+/**
+ * One side of the command readout, as rows.
+ *
+ * A `hit-rows` table because that is what the panel above it already is and a diagnostics surface
+ * that invented its own layout would need `style.css` to be edited for it -- and `style.css` is not
+ * type-checked, so a class that does not exist is a silent nothing rather than an error.
+ *
+ * The gates are printed as the three words that are on, and as an em dash when none is, rather than
+ * as three zeros. A row of zeros reads as a mind that is not deciding anything; "commit" on its own
+ * reads as the one bit that changed, which is what somebody watching a stroke is looking for.
+ */
+function commandRows(read: CommandSideReadout): string {
+  const gates = [read.commit >= 0.5 ? "commit" : "", read.abort >= 0.5 ? "abort" : "",
+    read.parry >= 0.5 ? "parry" : ""].filter(Boolean);
+  const title = read.side === "left" ? "Left" : "Right";
+  return `
+    <div class="limb"><span class="limb-name">${title}: ${read.mind}</span></div>
+    ${read.provenance === null ? "" : `<div class="limb"><span class="limb-name">${read.provenance}</span></div>`}
+    <table class="hit-rows">
+      <tr><th>stand-off</th><td>${read.standOff.toFixed(2)} asked &middot; ${read.heldOff.toFixed(2)} held</td></tr>
+      <tr><th>advance</th><td>${read.advance.toFixed(2)}</td></tr>
+      <tr><th>strafe / lean</th><td>${read.strafe.toFixed(2)} / ${read.lean.toFixed(2)}</td></tr>
+      <tr><th>gates</th><td>${gates.length > 0 ? gates.join(", ") : "&mdash;"}</td></tr>
+      <tr><th>their phase</th><td>${read.phase}</td></tr>
+      <tr><th>stance</th><td>${read.stance}</td></tr>
+      <tr><th>asks</th><td>${read.asksPerSecond.toFixed(1)} /s</td></tr>
+      <tr><th>near-range stall</th><td>${read.stallSeconds.toFixed(1)} s</td></tr>
+      <tr><th>outside reach</th><td>${read.outsideReachSeconds.toFixed(1)} s</td></tr>
+    </table>
+  `;
 }

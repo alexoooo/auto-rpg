@@ -56,7 +56,7 @@ import {
 import {
   golemBrawlerMind, golemChampionMind, golemDuelistMind, golemFencerMind, golemFormMind,
   golemGuardianMind, golemNeuralMind, golemPlannerMind, golemSelectorMind, golemSkirmisherMind,
-  golemDriverMind, golemLearnerMind, golemPolicyMind, golemTacticianMind,
+  golemDriverMind, golemLearnerMind, golemPolicyMind, golemSnapshotMind, golemTacticianMind,
 } from "./golem/golem-policies.ts";
 
 /**
@@ -1252,6 +1252,13 @@ export const POLICIES: readonly Policy[] = [
   { name: "golem-learner", label: "Golem learner", surface: GOLEM_SURFACE, create: golemLearnerMind },
   { name: "golem-driver", label: "Golem driver", surface: GOLEM_SURFACE, create: golemDriverMind },
   { name: "golem-policy", label: "Golem policy", surface: GOLEM_SURFACE, create: golemPolicyMind },
+  // The one row whose `create` can refuse. Every other policy here is buildable from its name
+  // alone; this one plays a table the page fetched, so with the slot empty it throws by name --
+  // and `driverOptions` in `src/units.ts` keeps the row out of the picker until something is
+  // installed, which is how a person sees the refusal as an incompatible option rather than as a
+  // screen that will not start. See `golemSnapshotMind` for why a fallback to the shipped table
+  // was refused.
+  { name: "golem-snapshot", label: "Golem snapshot", surface: GOLEM_SURFACE, create: golemSnapshotMind },
   { name: "golem-selector", label: "Golem selector", surface: GOLEM_SURFACE, create: golemSelectorMind },
 ];
 
