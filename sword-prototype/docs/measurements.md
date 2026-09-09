@@ -18042,3 +18042,80 @@ What the league is allowed to assume, and what it is not:
 - **The blade is a body problem and no mind fixes it inside a 60 s cap.** Fourteen of fifty two
   builds are in that class. Either the cap moves, or the contact rules do, or the league reports
   the blade as a draw class and says so.
+
+## Session 14 of the style set, the league — 2026-09-08: three arms, differing in who they meet
+
+### What was launched, and why three of it
+
+The calibration above ends with a yes and with three things the league is not allowed to assume,
+and the one it settles least is the opponent distribution — which is the whole of the design. So
+the overnight runs **three arms rather than one**, nine workers each on the 16C/32T desktop:
+twenty-seven collectors and three main threads against thirty-two hardware threads, which is the
+concurrency the owner asked for in place of a sharded fit. They share `--seed 20260914` and all
+three start `--from tournaments/v2-pool-checkpoint.json`, so they are **paired**: the same
+fifty-two builds in the same order, the same iteration-0 weights, and any difference between
+them at iteration *n* is the opponent distribution rather than the draw.
+
+| arm | `--emphasise maul,mace --emphasis 3` | `--anchor golem-driver --share-anchor 1` |
+| --- | --- | --- |
+| `league-anchored` | yes | yes |
+| `league-pure` | yes | no |
+| `league-flat` | no | yes |
+
+That is a 2×2 with one cell missing, and the missing cell is the unweighted unanchored league. It
+was left out because the host holds three arms at nine workers and not four, and because the other
+three each answer a question the calibration raised: whether weighting toward the terminals that
+can finish helps when it is a weighting rather than the filter that hurt, whether a hand-coded
+opponent in the mix is worth its slot, and whether either matters at all.
+
+The common flags, which are the same in all three:
+
+```
+--iterations 300 --bouts 128 --exploiter-bouts 64 --workers 9 --cap 60 --random 40
+--exploiters 2 --exploiter-every 2 --pool-every 8 --pool-cap 8
+--entropy 0.0003 --evaluate 25 --eval-bouts 100 --final-bouts 400
+--seed 20260914 --from tournaments/v2-pool-checkpoint.json
+```
+
+`--entropy 0.0003` and not the shipped default of 0.003, for the reason measured two sections up:
+at 0.003 the bonus wins against the surrogate and the spread inflates for the whole run, and at
+0.0003 it sharpens in four runs of four.
+
+**All three rated identically at iteration 0, which is the check that the pairing holds.** Main
+against uniform, bar +0.1254 ± 0.0416 (d +0.302); main against `golem-driver`, +0.0847 ± 0.0409
+(d +0.207) — the same digits in all three logs, as they must be, since at iteration 0 the three
+arms are one set of weights. That number is **not** comparable to the 400-bout ratings in the
+calibration above: a league rates on its own evaluation pool, drawn at `seed ^ 0xc0f1c0f1`, which
+is a different fifty-two builds from the pool the calibration rated on. Inside the overnight it is
+the baseline every later rating is read against; across sections it is a different instrument.
+
+### What an iteration costs, and why three hundred of them will not happen
+
+Measured over the first four iterations of each arm, with all three running: a **main-only
+iteration is 315–365 s** and an **iteration that also trains the two exploiters is 620–698 s**. At
+`--exploiter-every 2` the mean is about 500 s, so ten hours is about seventy iterations an arm and
+not three hundred. `--iterations 300` was never a budget; it is a number large enough that the run
+does not stop before the morning does.
+
+The consequence is procedural and is the kind of thing that is annoying to discover at the end: **a
+run that never reaches its last iteration never plays `--final-bouts` and never writes `--out`.**
+So the arm that wins is shipped by resuming it for one more iteration with `--evaluate 1
+--final-bouts 400 --out src/golem/policy-weights.ts`, which spends one iteration of training that
+is thrown away to buy a rating that is not.
+
+### One instrument that does not compare across the arms
+
+`decided` — the share of an iteration's bouts that ended in a kill rather than on the 60 s cap — is
+the column that says whether a fight is a fight, and it is the column this whole session has been
+about. It is read **within** an arm over iterations and never **between** arms, because it is
+computed over the whole iteration and the arms do not meet the same opponents. `golem-driver`
+finishes bouts on its own; an arm that gives the anchor a slot books the anchor's kills inside its
+own `decided`, so the two anchored arms will read higher than `league-pure` for a reason that has
+nothing to do with their minds.
+
+`collectLeague` logs the margin against each opponent separately and the bouts played against each,
+but not `decided` against each — a gap noticed with three runs already in flight, where changing
+the runner would mean the watchdog resuming an arm onto different code in the middle of the night.
+It is closable offline and at no cost to the runs: the checkpoint matrix plays each pair on its own
+and reports the decided share per pairing, which is the same quantity split the way it needed to be
+split in the first place.
