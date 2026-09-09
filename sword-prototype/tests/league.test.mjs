@@ -10,8 +10,9 @@
 // weights and produces a log line with the fields a reader needs. Those are the five things this
 // file asserts, and it asserts them against independent arithmetic where there is any.
 //
-// **Twelve mutations were watched red on 2026-09-08**, each applied alone and then restored.
-// The first eight are in `scripts/league.mjs` and the last four in `scripts/rate-snapshots.mjs`:
+// **Fourteen mutations were watched red on 2026-09-08**, each applied alone and then restored.
+// Eight are in `scripts/league.mjs`, four in `scripts/rate-snapshots.mjs` and two in
+// `scripts/probe-snapshots.mjs`:
 //
 // | mutation | what went red |
 // |---|---|
@@ -27,6 +28,8 @@
 // | `chosenSnapshots` filters a missing iteration away instead of refusing it | the curve's snapshot list |
 // | `boutsPerOpponent` does not round up to an even count | the curve's snapshot list |
 // | `formatRow` prints a hyphen for a negative margin | the curve's printed row |
+// | `classRate` returns 0 for a class the pool does not carry | the probe curve's row |
+// | `formatProbeRow` prints the kill count where the rate belongs | the probe curve's row |
 import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -45,6 +48,7 @@ import { formatIdleProbe, idleProbe } from "../scripts/idle-probe.mjs";
 import {
   boutsPerOpponent, chosenSnapshots, formatRow, snapshotIterations,
 } from "../scripts/rate-snapshots.mjs";
+import { classRate, formatProbeRow } from "../scripts/probe-snapshots.mjs";
 import { POLICY_LAYOUT, POLICY_VERSION } from "../src/golem/policy.ts";
 import { netSize } from "../src/golem/neural-net.ts";
 
@@ -452,6 +456,9 @@ test("the rating curve reads the snapshots off disk, refuses one that is not the
 
   assert.deepEqual(chosenSnapshots([8, 16, 24], null), [8, 16, 24], "no --only rates them all");
   assert.deepEqual(chosenSnapshots([8, 16, 24], "24, 8"), [24, 8], "--only keeps the order it was asked in");
+  // Both curves append the live main after this list, so the empty list is how a caller asks for
+  // that row alone -- an endpoint reading, which is what an arm not worth a full curve gets.
+  assert.deepEqual(chosenSnapshots([8, 16, 24], "none"), [], "none is the empty list and not an error");
   // A silent filter here is a morning spent rating nothing, so a missing iteration is an error
   // rather than an empty list, and the message names the iteration that is missing.
   assert.throws(() => chosenSnapshots([8, 16, 24], "8,12"), /no snapshot for iteration 12/);
@@ -473,4 +480,30 @@ test("a rating row prints both baselines with their intervals and the fit's reco
   assert.match(line, /^ {5}16: uniform \+0\.1254 ±0\.0416 d \+0\.302/, "the iteration, the margin and its interval");
   assert.match(line, /driver −0\.0847 ±0\.0409 d −0\.207/, "a negative margin prints a minus sign and not a hyphen");
   assert.match(line, /w\/d\/l 57\/279\/54$/, "the record the margin came from");
+});
+
+// The decisiveness curve. `idleProbe` itself is covered where it lives; what is worth a test here
+// is the two places a row is *read* rather than measured -- an armed class the pool does not carry,
+// which must not read as a class that carries it and never kills, and the printed row, which is
+// the only form most of these numbers are ever seen in.
+test("a probe row distinguishes a class with no kills from a class with no builds", () => {
+  const byTerminal = [
+    { terminal: "maul", builds: 7, always: 5, killRate: 6 / 7, theirBar: 0.109, damage: 47.7 },
+    { terminal: "mace", builds: 8, always: 0, killRate: 0, theirBar: 0.825, damage: 11.2 },
+  ];
+  assert.equal(classRate(byTerminal, "maul"), 6 / 7, "the class the pool carries reads its rate");
+  assert.equal(classRate(byTerminal, "mace"), 0, "a class that carries builds and kills none reads zero");
+  // Not zero: a pool with no whip build says nothing about the whip, and a curve that prints 0 %
+  // there invites a reader to conclude the mind cannot finish one.
+  assert.equal(classRate(byTerminal, "whip"), null, "a class the pool does not carry reads null");
+
+  const line = formatProbeRow({
+    iteration: 32, kills: 12, bouts: 104, killRate: 12 / 104, always: 5, ever: 7,
+    maul: 6 / 7, mace: 0,
+  }, 52);
+  assert.match(line, /^ {5}32: {3}12\/104 = {2}11\.5%/, "the count, the denominator and the rate");
+  assert.match(line, /maul {2}86% {3}mace {3}0%/, "a class with no kills prints 0 % and not a dash");
+  assert.match(line, /always {2}5\/52 {3}ever {2}7\/52$/, "the two build counts the rollup turns on");
+  assert.match(formatProbeRow({ iteration: "main", kills: 0, bouts: 8, killRate: 0, always: 0,
+    ever: 0, maul: null, mace: null }, 4), /maul {3}-- {3}mace {3}--/, "an absent class prints a dash");
 });

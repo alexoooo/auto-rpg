@@ -39,10 +39,13 @@ export function snapshotIterations(dir) {
 /**
  * Which of them to rate. `--only` is a list and every entry must be a snapshot that exists: a
  * silent filter turns one mistyped iteration into a morning spent rating nothing and noticing
- * late, which is exactly the failure a cheap refusal is for.
+ * late, which is exactly the failure a cheap refusal is for. `none` is the one word it takes
+ * instead of numbers, and it means the empty list -- both curves append the live `main` after
+ * whatever this returns, so `none` is how a caller asks for that row and no others.
  */
 export function chosenSnapshots(snapshots, only) {
   if (only === null || only === undefined) return [...snapshots];
+  if (String(only).trim() === "none") return [];
   const wanted = String(only).split(",").map((s) => Number(s.trim()));
   const missing = wanted.filter((n) => !snapshots.includes(n));
   if (missing.length > 0) throw new Error(`no snapshot for iteration ${missing.join(", ")}`);
