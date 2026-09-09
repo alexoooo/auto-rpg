@@ -18357,3 +18357,52 @@ about a rating.** Mind against mind, blade decides a third of its bouts and plat
 bodies that decide nothing are the twelve carrying no weapon, fists or whips. The morning's first
 proposal — cut the criterion to maul and mace — would have thrown away twenty builds that do
 produce winners, and was corrected before it was acted on.
+
+### The human gate, and the two behaviours the owner's eye picked out
+
+The programme's only human gate, opened 2026-09-09 after everything above had landed. The owner
+watched several randomised matchups of the shipped `golem-policy` against itself and returned a
+qualified accept, in their own words: *"it's kind of OK in the sense that I can see it eventually
+turning into something good … if the acceptance is that something kind of ok-ish is happening, then
+yes I accept."* Recorded with the hedge, because the hedge is the finding. The same sentence named
+two behaviours: golems *"either staying just out of each other's reach or hugging the whole time"*,
+with the owner's own read that it *"could just be an indicator that they need more training"*.
+
+**It is not, and the run's own log says so before any new measurement does.** Over 93 iterations
+the fraction of training bouts that reach a decision went 0.412 → 0.381 on anchored, 0.346 → 0.372
+on pure and 0.274 → 0.261 on flat — first ten iterations against last ten — while mean episode
+length *rose* on all three, 744 → 777 steps, 780 → 786 and 846 → 862. Ninety-three iterations of
+this training bought bar margin and made fights longer. The penalty share of the return fell over
+the same span, 0.108 → 0.070 on flat and 0.095 → 0.079 on pure: the policy learned to stop paying
+the clinch charge, and the cheapest way to stop paying it is to leave.
+
+**Both behaviours were already instrumented and neither is priced.** `src/engagement.ts` has
+counted `nearRangeStallSeconds` — a viable attack in range, and no closing — and
+`retreatOutsideReachSeconds` — no viable attack, and the gap wider than anything the body can
+reach with — since long before this session, and `scripts/tournament.mjs` prints both. Neither
+appears in `RewardTable`, which holds `win`, `clinch`, `idle` and `tick`. Of those, `clinch` is
+charged only *inside* reach, `idle` only for the *tangential* component of quiet travel, and
+`tick` ships at zero on the argument that the 60 s cap is a measurement artifact. Two golems
+standing a step outside measure, moving only in and out, are charged nothing at all.
+
+192 bouts, seed 20260906, 32 drawn builds beside the reference pool, cap 60 s, every pair; per
+side, means:
+
+| mind | bout s | clinch s | stall s | outside s | decided |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `golem-fencer` | 44.6 | 1.5 | 1.7 | 1.1 | 52 % |
+| `golem-driver` | 45.4 | 2.0 | 5.7 | 1.8 | 42 % |
+| **`golem-policy`**, the shipped fit | **51.3** | **2.7** | **6.4** | **3.2** | **35 %** |
+
+**The eye was right, and it is worse than the mind it was meant to improve on.** The shipped fit
+holds the longest bouts, the most clinch, nearly four times the fencer's stall, three times its
+time outside reach, and finishes a third of its bouts where the fencer finishes half. The stroke
+columns say the same thing from the other side: on blade/long the fit starts 139.3 strokes a bout
+and takes back 81 % of them, on fist/mid 81 %, on mace/long 67 %, against `golem-driver`'s 15 % on
+maul/long. It is not idle. It winds up and withdraws, which is exactly what "staying just out of
+reach" looks like from a chair.
+
+**What this does not establish** is that the reward's hole *caused* it. The structure and the
+correlation are both here; the causal test is a run with `tick` above zero, or with the closing
+metre paid, against this one. That run is Session 15's, and it is now cheaper than the asymmetric
+experiment because the columns it would be scored on already exist.
