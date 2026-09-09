@@ -17491,12 +17491,13 @@ That sentence is a measurement, and it had never been taken. This section takes 
 
 ### The instrument: a body against itself, one side switched off
 
-`.review/idle-probe.mjs` plays every build in `buildPool({ seed: 20260906, random: 40 })` against
-**itself**, one side driven and the other on the `idle` policy, four bouts a build at the 60 s cap.
-The opponent never moves, never blocks, never steps away and never strikes back, so a bout asks one
-question with nothing else in it: on this body, can this mind finish something that is standing
-still? A layout that cannot decide here cannot decide anything; a mind that cannot decide here is
-not the body's fault.
+`scripts/idle-probe.mjs` — written as a scratch file in `.review/` and promoted when the league
+made its rollup a permanent column — plays every build in
+`buildPool({ seed: 20260906, random: 40 })` against **itself**, one side driven and the other on
+the `idle` policy, four bouts a build at the 60 s cap. The opponent never moves, never blocks,
+never steps away and never strikes back, so a bout asks one question with nothing else in it: on
+this body, can this mind finish something that is standing still? A layout that cannot decide here
+cannot decide anything; a mind that cannot decide here is not the body's fault.
 
 Four minds over the same 208 bouts, rolled up by `armedTerminal` — the hand a build actually
 fights with, which is its primary unless the primary is capped, and the same function the rating
@@ -17526,19 +17527,21 @@ builds, four bouts each, twenty-eight kills out of twenty-eight for the driver, 
 0.087 of its bar in a mean 21 s. That is a reliably decisive layout class; it is named by a
 property of the build rather than by a draw index, so it survives a change of seed.
 
-**The second answer is that the shipped read of the fit is the wrong read of it.** The greedy mind
-— the one that ships — is beaten by noise: a uniform command draw kills the dummy more often than
-it does and out-damages it on **every one of the seven weapon classes**, 34.8 against 26.3 on the
-maul, 4.8 against 0.5 on the blade, 10.7 against 0.5 on the plate. The same weights *drawn* kill 31
-times, three times uniform and two thirds of the driver, and out-damage uniform everywhere except
-the two classes that cannot fight at all. The mean of the distribution is worse than a coin and the
-distribution is three times better than one, which is a sentence about where the mean is standing
-and not about what the mind knows: **it has learned to strike and has not learned to stand where
-striking works.** Session 13 rated the greedy read at d +0.216 over that same uniform baseline on
-the paired bar margin, and that rating was not wrong; what it measured was a mind better at *not
-losing bar* than a random command, which against a mirrored copy of itself is the whole of the
-margin. Asked instead to take a bar off something that cannot resist, the mean is worse than the
-coin and the draw is not.
+**The second answer is that the shipped read of the fit is the weaker read of it on this
+instrument.** (Read that as written and no further: it was the sentence this section reached, and
+the section below on which read ships overturns the conclusion somebody would draw from it, on the
+rating rather than the probe.) The greedy mind — the one that ships — is beaten by noise: a uniform
+command draw kills the dummy more often than it does and out-damages it on **every one of the seven
+weapon classes**, 34.8 against 26.3 on the maul, 4.8 against 0.5 on the blade, 10.7 against 0.5 on
+the plate. The same weights *drawn* kill 31 times, three times uniform and two thirds of the
+driver, and out-damage uniform everywhere except the two classes that cannot fight at all. The mean
+of the distribution is worse than a coin and the distribution is three times better than one, which
+is a sentence about where the mean is standing and not about what the mind knows: **it has learned
+to strike and has not learned to stand where striking works.** Session 13 rated the greedy read at
+d +0.216 over that same uniform baseline on the paired bar margin, and that rating was not wrong;
+what it measured was a mind better at *not losing bar* than a random command, which against a
+mirrored copy of itself is the whole of the margin. Asked instead to take a bar off something that
+cannot resist, the mean is worse than the coin and the draw is not.
 
 **It also answers the half of the question the owner said was open** — *"we don't really know if
 it is due to bad body shape or bad AI yet"*. It is both, and the two separate cleanly by weapon:
@@ -17859,6 +17862,165 @@ that to five, and on a maul that mind finishes 71 % of its bouts. `golem-driver`
 ten. The pool total does not move because the maul and mace gains are paid for on the blade, which
 those arms never saw — an honest cost of the filter and the reason `--terminals` is a knob for a
 calibration and not a setting for the league.
+
+### The coordinate fix, and the one number that had to survive it
+
+`COMMAND_RANGES.standOff` went from `[0, 3]` to `[0, 2]`, `POLICY_VERSION` to 2, and
+`src/golem/policy-weights.ts` back to an unfitted placeholder until a fit under the new coordinate
+could replace it. The argument is in the section above and it is arithmetic: `commandFromAction`
+centres an axis on the midpoint of its published range, so a roof of 3 puts the zero of the
+stand-off axis — what an untrained head emits and what a flat draw averages to — at 1.5 times the
+opponent's reach, and a stroke opens at 0.92 of it. A roof of 2 puts that zero at 1.00, which is
+`freshCommand`'s neutral and `GOLEM_TACTICS_V4`'s own `standOffFraction`. Nothing about the range
+is a bound on what the mind may ask for; it is where the mind starts and what it drifts back to.
+
+The change moves what every weight in a fitted table means, which is what the version bump is for,
+and it also moves one mind that is not fitted at all. `src/golem/styles/driver.ts` clamps its own
+stand-off to the axis roof, so the number the whole calibration is written on — `golem-driver`
+kills a mirrored idle dummy in 46 of 208 bouts, on ten of fifty two builds every time — had to be
+re-measured rather than assumed. It is **unchanged to the bout**: 46 of 208, 22.1 %, ten of fifty
+two always and fourteen ever, and the by-weapon rollup is the same table to the third decimal
+(maul 7 of 7 always, mace 3 of 8, blade 2 %, the rest zero). The driver never asked for a
+stand-off above 2, so lowering the roof took nothing away from it; what it took away was a zero
+that no weapon could reach across.
+
+### The refit under the corrected coordinate, and the filter that cost more than it bought
+
+Two arms, both from scratch under the new range, both forty iterations of sixty four mirrored
+bouts against `golem-driver` at the 60 s cap under the shipped `GOLEM_REWARD`, seed 20260913,
+rated at iteration 0 and iteration 40 against `uniform` and the driver under common random
+numbers. They differ in one flag: one fits on `--terminals maul,mace` and the other on the whole
+fifty two build pool. Iteration 0 is one row rather than two, because both arms start from the
+same fresh weights and are rated under the same evaluation seed.
+
+| arm | bar over uniform | d | bar over driver | d | w/d/l |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| either arm, iteration 0 | −0.0450 ± 0.0588 | −0.150 | −0.0947 ± 0.0659 | −0.282 | — |
+| `--terminals maul,mace`, 40 | +0.0215 ± 0.0370 | +0.058 | −0.0494 ± 0.0355 | −0.138 | 51/257/82 |
+| **the whole pool, 40** | **+0.0480 ± 0.0372** | **+0.128** | **−0.0229 ± 0.0323** | **−0.070** | **57/279/54** |
+
+Iteration 0 is rated over 100 bouts a contender and iteration 40 over 390; the ± is 1.96 standard
+errors of the paired difference. Both arms cross the uniform baseline and neither reaches the
+driver. The unfiltered arm is the better of the two on both differences, and it is the only mind
+in this session whose win-loss ledger against the whole league is positive.
+
+**The filter is worse, and it is worse on the weapon it filtered for.** That is the surprise. On
+the idle probe — the same 208 bouts, the same seed, the same dummy — the arm that saw nothing but
+mauls and maces finishes fewer maul bouts than the arm that spent three quarters of every
+iteration on bodies that cannot fight at all:
+
+| arm | read | kills of 208 | maul | mace | blade | builds it always kills |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `golem-driver` | — | **46** | **100 %** | 53 % | 2 % | **10 of 52** |
+| the whole pool | drawn | **36** | **75 %** | **34 %** | 7 % | **3 of 52** |
+| `--terminals maul,mace` | drawn | 16 | 36 % | 9 % | 5 % | 0 of 52 |
+| the whole pool | greedy | 10 | 32 % | 3 % | 0 % | 0 of 52 |
+| `--terminals maul,mace` | greedy | 7 | 25 % | 0 % | 0 % | 0 of 52 |
+| `uniform` | — | 11 | 18 % | 9 % | 5 % | 0 of 52 |
+
+The drawn read of the unfiltered arm is the best fitted mind this programme has measured on this
+instrument — 36 kills where Session 13's fit took 31 and the best arm of the sweep took 31, three
+builds it finishes every time where Session 13 had two, and three quarters of its maul bouts. It
+is still short of the hand-coded driver on all three columns.
+
+Why the filter lost is not settled here, and the honest thing is to say what it rules out. The
+filter's argument was that thirty eight of fifty two layouts cannot deal damage under any command,
+so their episodes push pure critic residual through advantage normalisation at full weight and
+drown the seven that carry the signal. By the numbers the argument was made on, the filter worked:
+over the last ten iterations the filtered arm's episodes are worth more unshaped bar (0.66 against
+0.39), its critic explains more of them (0.55 against 0.48), and its advantages are larger (0.083
+against 0.050). All three are the filter doing exactly what it was for, and the arm still ends
+behind on both instruments — including on the maul, where it trained and the other arm did not.
+What that rules out is the simple form of the argument: a cleaner per-iteration gradient on the
+class that decides is not by itself worth more than seeing the rest of the pool. What it does not
+settle is why. A critic fitted on a quarter of the state space, and a policy that never had to
+keep a command sensible on a body with no weapon, are both live explanations, and telling them
+apart wants an arm that filters what the *policy* is scored on while leaving the critic its whole
+pool — a session's work, not a paragraph's.
+
+So `--terminals` stays what the plan said it was, a calibration instrument, and the league weights
+rather than filters: `--emphasise maul,mace --emphasis 3` repeats the armed builds in the sparring
+pool instead of removing the rest.
+
+### The entropy bonus was inflating the spread, and the sign of that is a measurement
+
+Something else moved in both v2 arms and it moved in the wrong direction. The policy's spread is
+nine numbers, `logSigma`, and the differential entropy of a diagonal Gaussian is their sum plus a
+constant, so `∂H/∂logSigma` is exactly **1** on every axis for every sample whatever the state:
+the entropy bonus contributes precisely its own coefficient to the gradient on the spread, always,
+and always upward. The surrogate's own force on the same nine numbers is the score function times
+the advantage, and the advantage shrinks as the critic fits. Two forces, one constant and one
+that decays: whichever is bigger sets the sign of the drift.
+
+Both signs are in the logs of this session, and the coefficient is what separates them:
+
+| run | entropy | its | d(mean logSigma)/it | t | d(H)/it | t |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| v2, whole pool | 0.003 | 40 | **+0.00143** | **+33.3** | +0.0122 | +28.8 |
+| v2, maul + mace | 0.003 | 40 | **+0.00072** | **+17.8** | +0.0068 | +17.7 |
+| sweep p | 0.003 | 24 | −0.00003 | −0.5 | −0.0003 | −0.4 |
+| sweep h | 0.0003 | 35 | −0.00144 | −22.4 | −0.0121 | −18.6 |
+| sweep m | 0.0003 | 27 | −0.00114 | −17.4 | −0.0089 | −13.2 |
+| sweep c | 0.0003 | 15 | −0.00093 | −8.1 | −0.0087 | −5.2 |
+| sweep e | 0.0003 | 14 | −0.00089 | −8.1 | −0.0093 | −6.9 |
+
+The entropy column is nine times the spread column to the third decimal in every row, which is the
+arithmetic above checking itself. At 0.0003 the spread sharpens in four runs out of four; at 0.003
+it inflates in the two that ran forty iterations and is flat in the one whose advantages stayed
+large the whole way (sweep p's advantage standard deviation was still 0.056 at its end after
+starting at 0.196, and it never got the long tail where the constant wins).
+
+That is a defect of the coefficient and not of the idea. A bonus of 0.003 was inherited from the
+first PPO session and never swept against a fitted critic; once the critic is good the advantages
+are worth a few hundredths and a constant 0.003 is not small beside them. **The league runs at
+0.0003**, which is the value four arms sharpened under, and the run's header records it.
+
+### Which read ships, decided on two instruments that disagreed
+
+The calibration left one thing owed. `golemPolicy`'s `sample` argument defaults false, so the
+shipped mind plays the **mean** of its head and the trainer's rollouts play the **draw**, and the
+probe above says the draw kills three and a half times as often. The plan's instruction was to
+decide that default on the re-measured numbers rather than on the convention, and the missing
+number was the other one: every rating this programme has taken has rated the mean, because
+`ratePolicy` fixes `sample: false`. So both reads of the same forty-iteration weights were put in
+front of the same five hand-coded minds, 400 bouts a contender, mirrored, under common random
+numbers.
+
+| read | points | bar | w/d/l | strokes | dmg/stroke | damage | clinch s |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| **mean** | **0.5225** | **+0.0036** | **67/284/49** | 65.5 | 0.64 | 21.2 | 2.0 |
+| drawn | 0.4775 | −0.0319 | 58/266/76 | 69.5 | 0.64 | 23.0 | 2.2 |
+| `golem-driver` | 0.4900 | +0.0064 | 72/248/80 | 64.2 | 0.85 | 25.8 | 2.7 |
+| `uniform` | 0.4313 | −0.0654 | 48/249/103 | 73.1 | 0.61 | 22.5 | 1.4 |
+
+| paired difference | bar | d |
+| --- | ---: | ---: |
+| drawn − mean | **−0.0355 ± 0.0305** | **−0.114** |
+| mean − `uniform` | +0.0690 ± 0.0376 | +0.180 |
+| drawn − `uniform` | +0.0335 ± 0.0339 | +0.097 |
+| mean − `golem-driver` | −0.0028 ± 0.0330 | −0.008 |
+| drawn − `golem-driver` | −0.0383 ± 0.0316 | −0.119 |
+
+**The two instruments disagree and they are both right.** The draw wins the probe 36 to 10 and
+loses the rating by 0.0355 of a bar, which is outside its own 95 % interval. There is no paradox
+in that: the draw's extra spread occasionally reaches a strike band the mean never enters, which
+is the whole of what a motionless dummy rewards, and it costs bar against an opponent that
+punishes a bad command. The rating is the criterion this set has selected on since Session 03 of
+the matchup set, and the probe is a tripwire built in this session to catch a mind that had got
+better at not fighting. A tripwire is not promoted to an objective because it produced a number
+somebody liked. **So the mean ships, `sample` stays false, and the reason is now a measurement.**
+
+What the probe is saying, read as a tripwire rather than as a score, is the same sentence the
+coordinate section wrote: the mean command still does not reach. That is a fit that is not
+finished, and the answer to it is the league rather than the sampler.
+
+The other line in that table is worth its own sentence. **The mean read of the unfiltered arm is
+level with `golem-driver`** — bar −0.0028 ± 0.0330, d −0.008 — over 400 bouts a contender against
+five hand-coded minds. It is the first time a fitted mind in this programme has drawn with the
+hand-coded reference on the criterion, and it is a draw and not a win: the driver still takes more
+damage off (25.8 to 21.2), still lands harder (0.85 a stroke to 0.64), and still finishes ten
+builds of the idle probe where this mind finishes none. `src/golem/policy-weights.ts` ships these
+weights, and the run that will replace them was launched the same night.
 
 ### The answer to the condition, and what the overnight may run
 

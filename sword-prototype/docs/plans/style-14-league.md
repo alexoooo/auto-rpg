@@ -1,6 +1,7 @@
 # Session 14 -- league self-play: a main agent, a pool of its past selves, and two exploiters
 
-**Status (2026-09-08): calibration landed; the league is not built.**
+**Status (2026-09-08): calibration landed; the runner, the matrix and the tripwire are built;
+three league arms were launched the night of 2026-09-08 and the human gate is not open.**
 
 ## Outcome
 
@@ -14,7 +15,7 @@ league runner.
 
 Session 13 landed a fit and this session opened by measuring the one thing the owner made a
 condition of the overnight: a winner against a mirrored idle opponent on a body that has a weapon.
-`.review/idle-probe.mjs` plays every build against itself with one side on `idle`. The full tables
+`scripts/idle-probe.mjs` plays every build against itself with one side on `idle`. The full tables
 are in `../measurements.md`; the four facts that change this plan are:
 
 1. **Decisive layouts exist and they are the maul.** Seven maul builds, four bouts each,
@@ -88,7 +89,7 @@ says which distribution to build.
    bump `POLICY_VERSION` to 2, because the change moves what every number in
    `src/golem/policy-weights.ts` means and the old table would load and lie about it; regenerate
    the module from this session's fit. `src/golem/styles/driver.ts` clamps its own stand-off to the
-   axis roof, so re-run `.review/idle-probe.mjs` on `golem-driver` afterwards -- a mind whose reach
+   axis roof, so re-run `scripts/idle-probe.mjs` on `golem-driver` afterwards -- a mind whose reach
    is more than twice its opponent's is the case where the new roof bites, and 46 of 208 is the
    number it has to keep. Then decide `golemPolicy`'s `sample` default on the re-measured numbers
    rather than on the convention: greedy is reproducible and drawn kills three times as often, and

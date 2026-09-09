@@ -287,6 +287,14 @@ function structural(rows, pick) {
     radialClosingMetres: column(sides, (side) => side.radialClosingMetres),
     nearRangeStallSeconds: column(sides, (side) => side.nearRangeStallSeconds),
     retreatOutsideReachSeconds: column(sides, (side) => side.retreatOutsideReachSeconds),
+    // Session 14: strokes started and strokes taken back, which only a fourth-executor mind
+    // carries. The abort *fraction* is the tripwire's number and is not stored -- it is a ratio
+    // of two means and a mean of ratios is not the same thing, so the two means ship and the
+    // reader divides.
+    asks: column(sides, (side) => side.asks),
+    eventAsks: column(sides, (side) => side.eventAsks),
+    strokesStarted: column(sides, (side) => side.strokesStarted),
+    aborts: column(sides, (side) => side.aborts),
   };
 }
 

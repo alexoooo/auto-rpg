@@ -213,15 +213,26 @@ export const COMMAND_GATES = ["commit", "abort", "parry"] as const;
 /**
  * What each axis will accept. Outside it the value is clamped and the refusal counted.
  *
- * `standOff` is the only one whose roof is not a physical one: three times their reach is out of
- * any fight, and a mind that asks for more is asking to leave rather than to stand somewhere. The
- * rest are the ranges the channels themselves publish -- `writeAim`'s reach axis is -1 to +1, a
+ * `standOff` is the only one whose roof is not a physical one, and Session 14's calibration moved
+ * it from 3 to 2. The argument for 3 was that a mind asking for more is asking to leave rather
+ * than to stand somewhere, which is true and was not the number that mattered: a policy head is
+ * read through `commandFromAction`, which centres an axis on the **midpoint** of the range it is
+ * given, so a roof of 3 puts the zero of the action space at 1.5 of the opponent's reach. A stroke
+ * opens at `max(reach * strikeFraction, near + slack)` with `strikeFraction` 0.92, and the feet
+ * settle at `hold - advance / closeGain` with `closeGain` 1.8, so from that zero a saturated
+ * `advance` still leaves a body at 1.19 of their reach and unable to touch them. A roof of 2 puts
+ * the zero at `freshCommand`'s neutral of 1 and the fencer's shipped `standOffFraction` of 1.00,
+ * which is a place a fight happens; 2 is still a stand-off no weapon in the set can cross. The
+ * measurement is in `docs/measurements.md` under Session 14's calibration, and moving this number
+ * is what `POLICY_VERSION` 2 refuses a version-1 table for.
+ *
+ * The rest are the ranges the channels themselves publish -- `writeAim`'s reach axis is -1 to +1, a
  * posture axis is -1 to +1, a bite is a fraction of an overhang -- and the swing is 0 to 1 because
  * it is a blend of two measured shapes and there is nothing outside them to blend toward.
  */
 export const COMMAND_RANGES: Readonly<Record<keyof StyleCommand, readonly [number, number]>> =
   Object.freeze({
-    standOff: [0, 3], strafe: [-1, 1], lean: [-1, 1], advance: [-1, 1],
+    standOff: [0, 2], strafe: [-1, 1], lean: [-1, 1], advance: [-1, 1],
     targetHeight: [0, 1], targetLateral: [-1, 1], reach: [-1, 1], swing: [0, 1], bite: [0, 1],
     commit: [0, 1], abort: [0, 1], parry: [0, 1],
   });

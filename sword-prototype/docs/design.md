@@ -1693,6 +1693,76 @@ cannot reach. Narrowing the range changes what every number in `src/golem/policy
 and so needs a `POLICY_VERSION` bump and a refit; that and the choice of read are both Session
 14's, recorded here with their numbers so the choice is not made again by default.
 
+### The league: a main agent, its own frozen past, and two hunters
+
+`scripts/league.mjs`. The calibration above says what a mirrored fit is paid for and the answer was
+"disengaging", so the league is not a nicety on top of self-play — it is the arrangement that makes
+the return mean anything at all. Three roles, and each of them exists to break a different way the
+previous arrangement could be gamed.
+
+The **main** is the agent being trained. Every iteration it plays a declared mixture of a frozen
+copy of itself, a draw from the stored past, and the current exploiters, and takes one PPO step on
+the rollout it recorded from its own side alone. The **pool** is every Nth checkpoint of the main,
+frozen, never trained, capped and thinned. The **exploiters** are policies seeded from the main and
+trained against a frozen copy of it and nothing else; the main trains back against them.
+
+**The mixture is slot counts and not probabilities.** `leaguePairs` turns `{name, weight}` into a
+cycle with one entry per slot, `scheduleJobs` walks that cycle with `pairing % cycle.length`, and
+`collectLeague` rounds the pairing count *up to a whole number of cycles*. Both halves matter. A
+share drawn from a random stream would be the declared share only in expectation, and an iteration
+is thirty two pairings, so "half the bouts against the pool" would land somewhere between a third
+and two thirds of them on any given night; and a cycle that does not divide the pairings gives its
+first entries an extra slot each, which is a bias that changes shape every time the pool grows. The
+few extra bouts the rounding buys are much cheaper than reasoning about either afterwards. What the
+pool's share is declared *for* is the group and not the entry — eight checkpoints at one slot each
+would be eight ninths of an iteration spent on frozen minds — so `spreadSlots` hands the group's
+slots out among its members and rotates the remainder with the iteration number, which is what
+stops the same members sitting out every time.
+
+**The past is thinned from the middle, not from the front.** The obvious rule — keep the newest K —
+is wrong for the claim the pool exists to support. Beating the mind you were four iterations ago is
+what a cycling pair does too; the claim worth checking is that the main beats *every* checkpoint
+older than K, and a window that slides forward throws away the long baseline that makes it worth
+anything. So `thinPool` never drops the oldest entry or the newest, and repeatedly removes whatever
+middle entry sits closest to its predecessor, which leaves a spacing that widens with age. Nothing
+is deleted from disk: an entry that has left the sparring cycle is still a row of the matrix, and
+the state file keeps `taken` — every snapshot ever written — beside the playing `pool`.
+
+**An exploiter is reset on best-against-best and not on its last rollout.** A hunter that has
+stopped gaining is a stale opponent taking a share of every iteration, so it is re-seeded from the
+current main, its Adam moments dropped with it. The rule is: the best of its last three margins
+against the frozen main does not beat the best of everything before them by 0.02 of a bar. Reading
+the last value alone would reset a healthy exploiter about as often as a stalled one, because a
+sixty four bout rollout has a standard error worth several hundredths and the margin being watched
+is worth a few.
+
+**Resumability is a requirement and not a convenience.** An overnight is hours of a machine and
+this session has already lost a long run to a V8 fatal, which takes the process and leaves the last
+write on disk as the only recovery. So the main and the exploiters ride in one state file under
+`--dir`, each pool entry is its own file beside it, and a killed run continues from `--resume`.
+Adam's moments are deliberately *not* saved, for the reason `train-ppo.mjs` gives: they are the
+shape of the last few gradients and not the mind, and a resumed role rebuilding them costs an
+iteration or two of a dip that the log shows and this paragraph explains. `--from` starts a fresh
+league's main from a trainer checkpoint, so an overnight need not re-learn what a day of
+single-opponent runs already paid for.
+
+**The matrix is the measurement, and the tripwire is what the matrix cannot see.** `--matrix` plays
+every stored pair from both corners with both sides greedy, and `matrixBreaks` names every pair
+where a newer mind fails to beat an older one — a run that progressed reads as one sign below the
+diagonal, and a cycling pair reads as a sign that changes as you walk it. A matrix is quadratic in
+its rows and a night at `--pool-every 4` takes thirty of them, so `--matrix-cap` thins the rows
+with the same `thinPool` the sparring cycle uses, which keeps the oldest and the newest so that the
+longest baseline in the run is always a row of the answer. That is a real claim and
+it is also a claim a mind can satisfy by getting better at not fighting, which is precisely the
+failure the calibration measured. So four columns are read every time the matrix is: the decided
+fraction, blows per stroke, the abort fraction, and the idle-dummy kill rate by weapon class. The
+first three come off the matrix's own rows for nothing — Session 14 added `strokesStarted` and
+`aborts` to the tournament row for them, on the `arm` precedent, because every other stroke column
+in that file is built from contact reports and a stroke that lands nothing lands nothing to count.
+The fourth is a separate probe and is the one that caught Session 13's fit, so it is worth its
+bouts; `scripts/idle-probe.mjs` is that probe, promoted out of `.review/` when the plan made its
+rollup a permanent column, because a tripwire in a gitignored directory is not one.
+
 ## Dying, which is not the same as losing
 
 `over` not stopping the world was the right call about the *bout* and, for a long time, it

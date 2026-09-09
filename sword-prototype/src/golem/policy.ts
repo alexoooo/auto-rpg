@@ -50,8 +50,28 @@ import {
  * rollouts play the draw, out of a stream of its own, so that at `sample` false nothing is drawn
  * at all and the greedy mind is byte for byte the mind it would be if this argument did not
  * exist. That is `golem-learner`'s rule, kept.
+ *
+ * **That default was re-decided on numbers in Session 14 rather than inherited, and the two
+ * instruments disagreed.** Against a mirrored idle dummy the same weights *drawn* finish 36 of 208
+ * bouts where the mean finishes 10 -- three and a half times as often, and the same ordering holds
+ * for every fit this programme has measured. Against the five hand-coded minds of the rating
+ * league, over 400 bouts a contender under common random numbers, the draw is **worse** than the
+ * mean by 0.0355 of a bar (+-0.0305, d -0.114), and the mean is the read that draws level with
+ * `golem-driver`. Those are not in conflict: the draw's extra spread occasionally reaches a strike
+ * band the mean never enters, which is what a motionless dummy rewards, and it costs bar against
+ * an opponent that punishes a bad command. The rating is the criterion the set selects on and the
+ * probe is a tripwire, so the mean ships -- and what the probe is saying is that the mean still
+ * does not reach, which is a fit that is not finished rather than a reason to ship its noise.
+ *
+ * **Version 2** is Session 14's, and the thing it refuses is subtle enough to be worth naming: the
+ * network did not change, the columns did not change, and a version-1 table would load and run.
+ * What changed is `COMMAND_RANGES.standOff`, from `[0, 3]` to `[0, 2]`, and every one of these
+ * weights is read through `commandFromAction`, which decodes an axis against the midpoint and the
+ * half-width of its range. So a version-1 number means a different stand-off under this build than
+ * it meant under the one that fitted it -- a table that still loads and quietly fights at a
+ * different distance, which is exactly the failure a version is for.
  */
-export const POLICY_VERSION = 1;
+export const POLICY_VERSION = 2;
 
 /** Nine means and three gate logits, in `COMMAND_AXES` then `COMMAND_GATES` order. */
 export const ACTION_AXES = COMMAND_AXES.length;
@@ -122,6 +142,11 @@ export interface PolicyWeights {
   readonly entropy: number;
   readonly reward: RewardTable;
   readonly normalisation: Normalisation;
+  /** Who the fit sparred with -- null is mirrored self-play -- and which armed hands its pool was
+   *  filtered to, empty being all of them. A mind fitted against one opponent on one weapon class
+   *  is a different mind, and the header is the only place a reader can be told. */
+  readonly opponent: string | null;
+  readonly terminals: readonly string[];
   /** The confirmation, and what it was measured against. */
   readonly score: number;
   readonly baselines: Readonly<Record<string, number>>;
@@ -434,6 +459,7 @@ export function freshPolicyTable(weights: readonly number[], logSigma: readonly 
     seed: 0, date: "", iterations: 0, bouts: 0, steps: 0,
     halfLife: 0, lambda: 0, clip: 0, entropy: 0,
     reward: GOLEM_REWARD, normalisation: freshNormalisation(),
+    opponent: null, terminals: [],
     score: 0, baselines: {}, logSigma, weights,
   };
 }

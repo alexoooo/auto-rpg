@@ -254,6 +254,47 @@ test("a_burst_on_one_effector_is_one_stroke_and_its_scoring_blow_says_where_the_
     caughtFraction: 0, committedFraction: 0 }, "a side that never swung is zero, not a division by none");
 });
 
+/**
+ * The abort columns, which exist only for a mind that has a fourth executor to ask.
+ *
+ * `golem-driver` publishes a `driven` handle and `golem-duelist` does not, so one side of these
+ * bouts carries `strokesStarted` and `aborts` and the other carries neither. That asymmetry is
+ * the assertion: a zero on the duelist's side would read as "started no strokes" rather than as
+ * "has no executor to ask", and `structural` skipping an absent column is what keeps a file from
+ * an older session summarising as though it had measured something.
+ */
+test("a_driven_mind_books_the_strokes_it_started_and_the_ones_it_took_back", { timeout: 300_000 }, async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "sword-aborts-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const { rows, summary } = await runTournament({
+    seed: SEED, bouts: 4, workers: 2, policies: ["golem-driver", "golem-duelist"], cross: true,
+    random: 2, cap: 8, out: join(dir, "aborts.jsonl"),
+  });
+  assert.ok(rows.length >= 4);
+  let started = 0;
+  for (const row of rows) {
+    for (const name of ["left", "right"]) {
+      const side = row[name];
+      if (side.policy === "golem-driver") {
+        for (const column of ["asks", "eventAsks", "strokesStarted", "aborts"]) {
+          assert.ok(Number.isInteger(side[column]) && side[column] >= 0, `${column} is a count`);
+        }
+        assert.ok(side.asks > 0, "a driven mind was asked at least once in eight seconds");
+        assert.ok(side.aborts <= side.strokesStarted, "more strokes were taken back than were started");
+        started += side.strokesStarted;
+      } else {
+        assert.equal(side.strokesStarted, undefined, "a mind with no executor handle invents no count");
+        assert.equal(side.aborts, undefined);
+      }
+    }
+  }
+  assert.ok(started > 0, "the driver never started a stroke, so the column says nothing");
+  const driver = summary.byPolicy.find((entry) => entry.name === "golem-driver");
+  const duelist = summary.byPolicy.find((entry) => entry.name === "golem-duelist");
+  assert.ok(Number.isFinite(driver.strokesStarted) && driver.strokesStarted > 0);
+  assert.equal(duelist.strokesStarted, undefined, "a policy that carries no such column is summarised without it");
+});
+
 test("two_workers_over_four_short_bouts_twice_write_the_same_rows_under_one_seed", async (t) => {
   const dir = mkdtempSync(join(tmpdir(), "sword-tournament-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));

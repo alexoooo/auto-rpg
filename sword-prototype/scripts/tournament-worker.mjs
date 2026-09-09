@@ -636,6 +636,11 @@ async function runJob(job) {
   const side = (name) => {
     const record = result[name];
     const engagement = result.behaviour?.[name]?.engagement;
+    // Session 14 of the style set: only a fourth-executor mind publishes a `driven` handle, and
+    // it is the one place a stroke that was *started* can be counted. Every other stroke column
+    // in this file is built from contact reports, so a stroke that lands nothing lands nothing
+    // to count -- which is exactly the behaviour a league has to be able to see.
+    const driven = minds[name]?.driven ?? null;
     return {
       policy: job[name].policy,
       build: job[name].build,
@@ -669,6 +674,15 @@ async function runJob(job) {
       radialClosingMetres: engagement?.radialClosingMetres ?? 0,
       nearRangeStallSeconds: engagement?.nearRangeStallSeconds ?? 0,
       retreatOutsideReachSeconds: engagement?.retreatOutsideReachSeconds ?? 0,
+      // Absent rather than zero for a mind that has no executor to ask, on the `arm` precedent:
+      // `structural` skips a column no row carries, and a zero here would read as "started no
+      // strokes" rather than as "was never asked".
+      ...(driven === null ? {} : {
+        asks: driven.asks,
+        eventAsks: driven.events,
+        strokesStarted: driven.strokes,
+        aborts: driven.aborts,
+      }),
     };
   };
   if (lastSample !== null) {
