@@ -1,7 +1,11 @@
 # Session 14 -- league self-play: a main agent, a pool of its past selves, and two exploiters
 
-**Status (2026-09-08): calibration landed; the runner, the matrix and the tripwire are built;
-three league arms were launched the night of 2026-09-08 and the human gate is not open.**
+**Status (2026-09-09): the three arms ran 93, 93 and 88 iterations and are stopped; the anchored
+arm's main is measured, shipped and evaluated; the human gate is not open.** The rating rose at
+t = +2.74 over the run once bought at 300 bouts rather than the 100 the run could afford, and the
+shipped mind beats the fit it replaced on the held-out asymmetric pool by +0.025 points a bout,
+paired — while still standing thirteenth of fourteen on that pool, because every instrument in the
+loop mirrors the body and the game does not. The numbers are in `../measurements.md`.
 
 ## Outcome
 

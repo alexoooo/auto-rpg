@@ -28,6 +28,35 @@ import { armedTerminal, buildPool, runJobs, seedFor } from "./tournament.mjs";
 const meanOf = (xs) => (xs.length === 0 ? 0 : xs.reduce((a, b) => a + b, 0) / xs.length);
 
 /**
+ * The per-build rows rolled up by armed terminal: the class's mean of the per-build rates, and
+ * the class's own table.
+ *
+ * **Both, because they answer different questions.** `killRate` is the mean of the builds' rates,
+ * which is what a row prints and what makes a class of seven builds comparable to a class of
+ * fourteen. `kills` and `bouts` are the integers, which is what a 2x2 test wants and what the mean
+ * cannot be turned back into once a bout is lost to a dead worker. It is a separate function from
+ * the probe so that it can be tested on a table with kills in it, rather than only on whatever a
+ * six-second fixture happens to finish.
+ */
+export function rollupByTerminal(builds) {
+  const byTerminal = new Map();
+  for (const t of builds) {
+    if (!byTerminal.has(t.terminal)) byTerminal.set(t.terminal, { terminal: t.terminal, builds: 0, always: 0, rate: 0, kills: 0, played: 0, theirBar: 0, damage: 0 });
+    const g = byTerminal.get(t.terminal);
+    g.builds += 1;
+    g.always += t.always ? 1 : 0;
+    g.rate += t.killRate;
+    g.kills += t.won;
+    g.played += t.bouts;
+    g.theirBar += t.theirBar;
+    g.damage += t.meanDamage;
+  }
+  return [...byTerminal.values()]
+    .map((g) => ({ terminal: g.terminal, builds: g.builds, always: g.always, kills: g.kills, bouts: g.played, killRate: g.rate / g.builds, theirBar: g.theirBar / g.builds, damage: g.damage / g.builds }))
+    .sort((a, b) => b.killRate - a.killRate);
+}
+
+/**
  * The probe: every build in `pool` against a motionless copy of itself, both corners.
  *
  * `name` is the policy the fighter plays. When `contender` is given it is that name's entry in
@@ -88,19 +117,7 @@ export async function idleProbe({
       terminal: armedTerminal(pool.find((b) => b.name === t.name).setup),
     }))
     .sort((a, b) => b.killRate - a.killRate || a.theirBar - b.theirBar);
-  const byTerminal = new Map();
-  for (const t of builds) {
-    if (!byTerminal.has(t.terminal)) byTerminal.set(t.terminal, { terminal: t.terminal, builds: 0, always: 0, rate: 0, theirBar: 0, damage: 0 });
-    const g = byTerminal.get(t.terminal);
-    g.builds += 1;
-    g.always += t.always ? 1 : 0;
-    g.rate += t.killRate;
-    g.theirBar += t.theirBar;
-    g.damage += t.meanDamage;
-  }
-  const classes = [...byTerminal.values()]
-    .map((g) => ({ terminal: g.terminal, builds: g.builds, always: g.always, killRate: g.rate / g.builds, theirBar: g.theirBar / g.builds, damage: g.damage / g.builds }))
-    .sort((a, b) => b.killRate - a.killRate);
+  const classes = rollupByTerminal(builds);
   const played = builds.reduce((sum, t) => sum + t.bouts, 0);
   const kills = builds.reduce((sum, t) => sum + t.won, 0);
   return {

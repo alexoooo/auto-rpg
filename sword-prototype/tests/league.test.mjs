@@ -10,9 +10,15 @@
 // weights and produces a log line with the fields a reader needs. Those are the five things this
 // file asserts, and it asserts them against independent arithmetic where there is any.
 //
-// **Nineteen mutations were watched red on 2026-09-08 and 2026-09-09**, each applied alone and
-// then restored. Thirteen are in `scripts/league.mjs`, four in `scripts/rate-snapshots.mjs` and
-// two in `scripts/probe-snapshots.mjs`:
+// **A sixth was added on 2026-09-09: the arithmetic a session's own numbers are quoted from.** The
+// decisiveness curve's rows are tested against a fixed baseline with Fisher's exact test, and a p
+// value in a measurements entry whose calculator lives in a scratch directory is not reproducible.
+// So the test lives beside the curve, and it is checked here against the same two-sided sum done
+// in exact integers -- arithmetic that shares no code with the log gamma the script uses.
+//
+// **Twenty-six mutations were watched red on 2026-09-08 and 2026-09-09**, each applied alone and
+// then restored. Twelve are in `scripts/league.mjs`, four in `scripts/rate-snapshots.mjs`, seven
+// in `scripts/probe-snapshots.mjs` and three in `scripts/idle-probe.mjs`:
 //
 // | mutation | what went red |
 // |---|---|
@@ -35,6 +41,13 @@
 // | `opponentSentence` drops the emphasis clause's trailing comma | the provenance test |
 // | `opponentSentence` counts the pool the arm has now rather than the one the snapshot met | the provenance test |
 // | `shipTable` passes the fit knobs through, as the end-of-run path did | the field test |
+// | `rollupByTerminal` counts the builds that always kill rather than the bouts they won | the class rollup |
+// | `rollupByTerminal` orders the classes by name rather than by how decisive they are | the class rollup |
+// | `classCount` hands back the mean of the per-build rates | the rollup, the table and the row |
+// | `probeRow` stores the maul rate where its table belongs | the curve row |
+// | `parseBaseline` defaults to the row this session happens to use | the baseline test |
+// | `fisher` keeps only the tables stricter than the observed one | the exact-arithmetic test |
+// | `fisher` sums the upper tail alone | the exact-arithmetic test |
 import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -49,11 +62,14 @@ import {
   statePath, thinPool, trainRole,
 } from "../scripts/league.mjs";
 import { armedTerminal, buildPool } from "../scripts/tournament.mjs";
-import { formatIdleProbe, idleProbe } from "../scripts/idle-probe.mjs";
+import { formatIdleProbe, idleProbe, rollupByTerminal } from "../scripts/idle-probe.mjs";
 import {
-  boutsPerOpponent, chosenSnapshots, formatRow, snapshotIterations,
+  boutsPerOpponent, chosenSnapshots, formatRow, parseTerminals, snapshotIterations,
 } from "../scripts/rate-snapshots.mjs";
-import { classRate, formatProbeRow } from "../scripts/probe-snapshots.mjs";
+import { poolFor } from "../scripts/train-ppo.mjs";
+import {
+  classCount, classRate, fisher, formatProbeRow, parseBaseline, probeRow,
+} from "../scripts/probe-snapshots.mjs";
 import { POLICY_LAYOUT, POLICY_VERSION, freshPolicyTable } from "../src/golem/policy.ts";
 import { netSize } from "../src/golem/neural-net.ts";
 
@@ -400,6 +416,15 @@ test("the_matrix_and_the_idle_probe_carry_the_tripwires_columns", { timeout: 600
   assert.equal(probe.builds.length, builds.length);
   assert.deepEqual(probe.builds.map((b) => b.terminal).sort(), ["blade", "maul"]);
   assert.equal(probe.byTerminal.reduce((sum, g) => sum + g.builds, 0), builds.length);
+  // The class carries its table as well as its mean, because the session's one test is a 2x2 on a
+  // class and a mean of per-build rates cannot be handed to a hypergeometric. Every bout belongs
+  // to exactly one class, so the two columns sum to the pool's own.
+  assert.equal(probe.byTerminal.reduce((sum, g) => sum + g.kills, 0), probe.kills);
+  assert.equal(probe.byTerminal.reduce((sum, g) => sum + g.bouts, 0), probe.bouts);
+  for (const g of probe.byTerminal) {
+    assert.deepEqual(classCount(probe.byTerminal, g.terminal), { kills: g.kills, bouts: g.bouts });
+    assert.ok(Number.isInteger(g.kills) && Number.isInteger(g.bouts), "a table is counted, not averaged");
+  }
   assert.equal(probe.kills, probe.builds.reduce((sum, b) => sum + b.won, 0));
   assert.ok(Math.abs(probe.killRate - probe.kills / probe.bouts) < 1e-9);
   assert.ok(probe.alwaysBuilds <= probe.everBuilds && probe.everBuilds <= probe.totalBuilds);
@@ -477,6 +502,35 @@ test("the rating curve reads the snapshots off disk, refuses one that is not the
   assert.equal(boutsPerOpponent(1, ["a", "b", "c", "d", "e"]), 2, "a rating is mirrored, so two is the floor");
 });
 
+// The pool the criterion is measured on. Thirty seven of the fifty two draws carry no weapon that
+// has ever finished a fight, so a rating averaged over all of them is mostly chip damage between
+// two minds that both fail to kill -- which is what `--terminals` exists to stop paying for.
+test("the rating pool can be cut to the classes where a fight can end, and a typo cannot cut it silently", () => {
+  assert.deepEqual(parseTerminals("maul,mace"), ["maul", "mace"]);
+  assert.deepEqual(parseTerminals(" maul , Mace "), ["maul", "mace"], "a shell hands it spaces and a class is a name");
+  assert.deepEqual(parseTerminals(null), [], "no flag is the whole pool, which is what every run before this did");
+  // Empty is a refusal and not the whole pool: `--terminals ""` is a caller who meant to filter.
+  assert.throws(() => parseTerminals(" , "), /--terminals wants weapon classes/);
+  assert.throws(() => parseTerminals("maul,maul"), /repeats a class/);
+
+  // The rating's pool is the run's own -- the state seed exclusive-ored with the same constant
+  // `scripts/league.mjs` uses -- and it is a *different* draw from the probe's, so its class counts
+  // are its own. This is the pool a shipped number is measured on.
+  const seed = (SEED ^ 0xc0f1c0f1) >>> 0;
+  const whole = poolFor({ seed, random: 40 });
+  const decisive = poolFor({ seed, random: 40, terminals: ["maul", "mace"] });
+  assert.equal(whole.length, 52, "the evaluation pool is the twelve designed builds and forty draws");
+  assert.equal(decisive.length, 20, "nine mauls and eleven maces are where a bout can be finished");
+  const unarmed = whole.filter((b) => armedTerminal(b.setup) === "none").length;
+  assert.equal(unarmed, 5, "five of the fifty two carry no weapon at all, and the rating averages them in");
+  for (const build of decisive) {
+    assert.ok(["maul", "mace"].includes(armedTerminal(build.setup)), "every kept build carries a kept weapon");
+  }
+  // The filter names a weapon class and not a draw index, so it survives a change of seed -- and a
+  // class no build carries is an error rather than an empty pool and an hour of rating nothing.
+  assert.throws(() => poolFor({ seed, random: 40, terminals: ["halberd"] }), /no build in the pool is armed with halberd/);
+});
+
 test("a rating row prints both baselines with their intervals and the fit's record", () => {
   const line = formatRow({
     iteration: 16, bouts: 40, per: [],
@@ -486,7 +540,9 @@ test("a rating row prints both baselines with their intervals and the fit's reco
   });
   assert.match(line, /^ {5}16: uniform \+0\.1254 ±0\.0416 d \+0\.302/, "the iteration, the margin and its interval");
   assert.match(line, /driver −0\.0847 ±0\.0409 d −0\.207/, "a negative margin prints a minus sign and not a hyphen");
-  assert.match(line, /w\/d\/l 57\/279\/54$/, "the record the margin came from");
+  // The decided fraction is the rating's own decisiveness, and on the unfiltered pool it is the
+  // number that says why the margin is insensitive: 279 of 390 bouts ended with both minds alive.
+  assert.match(line, /w\/d\/l 57\/279\/54 decided 28%$/, "the record the margin came from, and how much of it was a fight");
 });
 
 // The decisiveness curve. `idleProbe` itself is covered where it lives; what is worth a test here
@@ -513,6 +569,141 @@ test("a probe row distinguishes a class with no kills from a class with no build
   assert.match(line, /always {2}5\/52 {3}ever {2}7\/52$/, "the two build counts the rollup turns on");
   assert.match(formatProbeRow({ iteration: "main", kills: 0, bouts: 8, killRate: 0, always: 0,
     ever: 0, maul: null, mace: null }, 4), /maul {3}-- {3}mace {3}--/, "an absent class prints a dash");
+});
+
+// The test the session's one pre-registered comparison is made with. `fisher` is a Lanczos log
+// gamma and a loop over a hypergeometric, so the assertion worth making is against arithmetic that
+// shares none of that: the same two-sided sum in exact integers, where a table is a ratio of
+// binomial coefficients and nothing is approximated at all.
+const choose = (n, k) => {
+  if (k < 0 || k > n) return 0n;
+  let r = 1n;
+  for (let i = 0n; i < BigInt(k); i += 1n) r = (r * (BigInt(n) - i)) / (i + 1n);
+  return r;
+};
+const exactFisher = (killsA, boutsA, killsB, boutsB) => {
+  const kills = killsA + killsB;
+  const at = (a) => choose(boutsA, a) * choose(boutsB, kills - a);
+  const observed = at(killsA);
+  let p = 0n;
+  for (let a = Math.max(0, kills - boutsB); a <= Math.min(boutsA, kills); a += 1) {
+    if (at(a) <= observed) p += at(a);
+  }
+  return Number(p) / Number(choose(boutsA + boutsB, kills));
+};
+
+// The rollup on a table with kills in it. The tripwire's own probe runs at a six-second cap and
+// finishes nothing, so a mutation to the kill column survives every assertion made against it --
+// which is why the rollup is a function of its own and this fixture has a class that kills, a
+// class that does not, and a class of one build.
+test("a weapon class carries both the mean of its builds' rates and its own table", () => {
+  const build = (terminal, won, bouts) => ({
+    terminal, won, bouts, killRate: won / bouts, always: won === bouts,
+    theirBar: 1 - won / bouts, meanDamage: 10 * won,
+  });
+  const classes = rollupByTerminal([
+    build("maul", 4, 4), build("maul", 2, 4), build("maul", 0, 4),
+    build("blade", 0, 4), build("blade", 0, 4),
+    build("whip", 1, 4),
+  ]);
+  assert.deepEqual(classes.map((g) => g.terminal), ["maul", "whip", "blade"],
+    "the classes are ordered by how decisive they are, which is the order the tripwire is read in");
+  const maul = classes[0];
+  assert.equal(maul.builds, 3);
+  assert.equal(maul.always, 1, "one of the three finished every bout");
+  assert.equal(maul.kills, 6, "the class's kills are its builds' kills and not its builds that kill");
+  assert.equal(maul.bouts, 12);
+  // The two are different numbers here on purpose: the mean of 1, 0.5 and 0 is 0.5, and the pooled
+  // rate is 6 of 12. They agree when every build played the same number of bouts, and this class
+  // did -- so a fixture where they differ would not tell the two apart, and one where they agree
+  // says the printed rate is the mean and the table is the count.
+  assert.equal(maul.killRate, 0.5);
+  assert.equal(maul.kills / maul.bouts, 0.5);
+  assert.equal(classes[2].kills, 0, "a class that kills nothing carries a zero and not an absence");
+  assert.equal(classes[2].bouts, 8);
+  assert.deepEqual(classCount(classes, "whip"), { kills: 1, bouts: 4 }, "a class of one build is a class");
+});
+
+test("the two-sided p is the exact hypergeometric sum, and not a normal approximation of it", () => {
+  // The tables this session actually quotes, and two textbook ones. 12/14 is the anchored arm's
+  // maul class at 2 bouts a build, 9/28 the shipped fit's at 4, 3/4 against 1/4 the tea tasting.
+  for (const [ka, na, kb, nb] of [
+    [12, 14, 5, 14], [12, 14, 2, 14], [12, 14, 9, 28], [3, 4, 1, 4], [1, 10, 11, 14],
+    [0, 28, 0, 28], [28, 28, 0, 28], [9, 28, 9, 28], [1, 3, 20, 40], [7, 7, 2, 21],
+  ]) {
+    const got = fisher(ka, na, kb, nb);
+    assert.ok(Math.abs(got - exactFisher(ka, na, kb, nb)) < 1e-12,
+      `${ka}/${na} vs ${kb}/${nb}: ${got} is not the exact sum ${exactFisher(ka, na, kb, nb)}`);
+    // A 2x2 does not know which row was measured first, and a p that changed under a swap would
+    // mean the arm compared against a baseline is not the same claim as the baseline compared
+    // against the arm.
+    assert.ok(Math.abs(got - fisher(kb, nb, ka, na)) < 1e-12, "the table transposes");
+  }
+  // The tea tasting in closed form: the tables at least as unlikely as three of four are a = 0, 1,
+  // 3 and 4, which is (1 + 16 + 16 + 1) of the 70 ways to choose four of eight.
+  assert.ok(Math.abs(fisher(3, 4, 1, 4) - 34 / 70) < 1e-12, "the two-sided sum is both tails");
+  // Two rows that are the same fraction of the same denominator cannot be evidence of anything.
+  assert.equal(fisher(9, 28, 9, 28), 1, "identical rows read p = 1");
+  // The half of the sum that a one-sided test would drop. Quoted two-sided everywhere, so a
+  // reading that halves it is reading a different test than the one pre-registered.
+  assert.ok(fisher(12, 14, 9, 28) > 0.002 && fisher(12, 14, 9, 28) < 0.0026,
+    "the anchored arm's maul class against the shipped fit's, as the entry quotes it");
+});
+
+test("a class carries the table its test needs, and a baseline is parsed or refused", () => {
+  const byTerminal = [
+    { terminal: "maul", builds: 7, always: 5, kills: 24, bouts: 28, killRate: 6 / 7 },
+    { terminal: "mace", builds: 8, always: 0, kills: 0, bouts: 32, killRate: 0 },
+  ];
+  // The counts and not the rate: seven builds of four bouts, and the mean of the per-build rates
+  // is a different number from kills over bouts as soon as one bout is lost to a dead worker.
+  assert.deepEqual(classCount(byTerminal, "maul"), { kills: 24, bouts: 28 });
+  assert.deepEqual(classCount(byTerminal, "mace"), { kills: 0, bouts: 32 });
+  assert.equal(classCount(byTerminal, "whip"), null, "a class the pool does not carry has no table");
+
+  assert.deepEqual(parseBaseline("9/28"), { kills: 9, bouts: 28 });
+  assert.deepEqual(parseBaseline(" 9 / 28 "), { kills: 9, bouts: 28 }, "a shell may hand it spaces");
+  assert.equal(parseBaseline(null), null, "no baseline is no test, and not a default one");
+  // A default baseline is the failure this refusal exists for: the pre-registration names 9/28 on
+  // the command line so that the row it is tested against is in the shell history beside the p.
+  assert.throws(() => parseBaseline("9"), /--baseline wants kills\/bouts/);
+  assert.throws(() => parseBaseline("29/28"), /--baseline wants kills\/bouts/, "more kills than bouts");
+  assert.throws(() => parseBaseline("9/0"), /--baseline wants kills\/bouts/, "no bouts is no baseline");
+  assert.throws(() => parseBaseline("4.5/28"), /--baseline wants kills\/bouts/, "a kill is a whole bout");
+
+  const row = { iteration: 88, kills: 12, bouts: 104, killRate: 12 / 104, always: 5, ever: 7,
+    maul: 6 / 7, mace: 0, p: fisher(24, 28, 9, 28) };
+  assert.match(formatProbeRow(row, 52), /maul {2}86% p 0\.0001 {3}mace/,
+    "the p sits against the class it is a claim about");
+  assert.match(formatProbeRow({ ...row, p: null }, 52), /maul {2}86% {3}mace/,
+    "a row probed without a baseline prints the line it always printed");
+});
+
+// The row is what survives the run: the printed curve scrolls away and the log file is what the
+// entry is written from, so a field the row does not carry is a probe that has to be run again.
+test("a curve row carries the class table it was tested on, and says so when it was not tested", () => {
+  const probe = {
+    kills: 23, bouts: 208, killRate: 23 / 208, alwaysBuilds: 0, everBuilds: 12,
+    byTerminal: [
+      { terminal: "maul", builds: 7, always: 0, kills: 17, bouts: 28, killRate: 17 / 28 },
+      { terminal: "mace", builds: 8, always: 0, kills: 3, bouts: 32, killRate: 3 / 32 },
+    ],
+  };
+  const row = probeRow(88, probe, { kills: 9, bouts: 28 });
+  assert.equal(row.maulKills, 17, "the table and not the rate, so the row can be re-tested later");
+  assert.equal(row.maulBouts, 28);
+  assert.ok(Math.abs(row.p - fisher(17, 28, 9, 28)) < 1e-12, "against the baseline it was given");
+  assert.equal(row.iteration, 88);
+  assert.equal(row.ever, 12, "the probe's own names are flattened into the ones the curve prints");
+
+  // No baseline is null and not 1: a row that was never tested and a row that tested identical to
+  // its baseline are different facts, and a curve read months later cannot tell them apart if the
+  // untested row carries a p at all.
+  assert.equal(probeRow(88, probe).p, null);
+  // A pool with no maul build carries no table rather than a zero, for the reason `classRate` does.
+  const blades = { ...probe, byTerminal: [{ terminal: "blade", builds: 14, always: 0, kills: 0, bouts: 56, killRate: 0 }] };
+  assert.equal(probeRow(8, blades, { kills: 9, bouts: 28 }).maulKills, null);
+  assert.equal(probeRow(8, blades, { kills: 9, bouts: 28 }).p, null, "a class that is not there is not a p of 1");
 });
 
 // ---------------------------------------------------------------------------- shipping a mind

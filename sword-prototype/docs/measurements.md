@@ -18119,3 +18119,241 @@ the runner would mean the watchdog resuming an arm onto different code in the mi
 It is closable offline and at no cost to the runs: the checkpoint matrix plays each pair on its own
 and reports the decided share per pairing, which is the same quantity split the way it needed to be
 split in the first place.
+
+### The pool the criterion was averaging over, and the twelve bodies inside it that cannot fight
+
+The morning began by asking what the rating is made of. It is a paired bar margin over 52 builds —
+12 designed and 40 drawn from the run's own seed — and the question is whether a fight on those
+bodies can end at all. One rating of `league-anchored`'s main, 300 bouts a contender, broken down
+by the build's armed terminal:
+
+| class | builds | bouts | decided | fit − uniform | fit − driver |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| blade | 14 | 76 | 33 % | +0.1725 ±0.1066 | +0.0389 ±0.0863 |
+| mace | 11 | 44 | 52 % | +0.3130 ±0.1210 | +0.0834 ±0.1070 |
+| maul | 9 | 78 | 97 % | +0.3053 ±0.1219 | +0.1537 ±0.1170 |
+| plate | 6 | 32 | 22 % | +0.0798 ±0.0936 | +0.1669 ±0.1072 |
+| none | 5 | 30 | 0 % | +0.0078 ±0.0104 | −0.0045 ±0.0101 |
+| fist | 4 | 28 | 0 % | −0.0683 ±0.0388 | −0.0079 ±0.0403 |
+| whip | 3 | 12 | 0 % | −0.0067 ±0.0268 | −0.0478 ±0.0330 |
+
+**Twelve of the 52 produced no decided bout at all** — the five that carry no weapon, the four
+armed with fists and the three with whips — across 70 bouts, and their margins are ±0.01 to ±0.07
+of noise around zero. Roughly a quarter of every rating this programme has taken was spent on
+bodies that cannot produce a winner, and their near-zero margins pull the mean toward zero.
+
+**The correction this table forced on the session's own reasoning.** The morning first proposed
+cutting the criterion to maul and mace on the strength of the idle probe, where 38 of 52 builds
+cannot finish. That was the wrong instrument to reason from: the probe is one mind against a
+motionless copy of itself, and a rating is mind against mind where either side can finish. Blade
+decides a third of its bouts and carries a +0.17 margin; plate decides a fifth. Cutting to maul and
+mace would have thrown away twenty builds that do produce winners. The filter that shipped —
+`--terminals` in `scripts/rate-snapshots.mjs` — keeps every class that has ever produced one, which
+is 40 of the 52.
+
+### The decisiveness curve, and the two readings of the night before that it retracted
+
+`scripts/probe-snapshots.mjs` against every snapshot the arms wrote, at four bouts a build, cap
+60 s, seed 20260906, greedy read. The maul column is that class's own table — seven builds of four
+bouts — and the p is two-sided Fisher against the shipped fit's 9 of 28, computed by `fisher` in
+the same script, folded in from a scratch file that morning so that a number quoted here has a
+calculator in the tree.
+
+| mind | kills / bouts | maul | p vs 9/28 | mace | always of 52 | ever of 52 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `golem-driver`, the hand-written reference | 46/208 | 28/28 | — | 53 % | 10 | 14 |
+| the shipped fit, league iteration 0 | 10/208 | 9/28 | — | — | 0 | — |
+| anchored, it 8 | 14/208 | 14/28 | 0.277 | 0 % | 0 | 7 |
+| anchored, it 24 | 15/208 | 15/28 | 0.177 | 0 % | 2 | 6 |
+| anchored, it 40 | 18/208 | 14/28 | 0.277 | 6 % | 2 | 7 |
+| anchored, it 56 | 15/208 | 15/28 | 0.177 | 0 % | 0 | 7 |
+| anchored, it 64 | 23/208 | 18/28 | 0.032 | 3 % | 2 | 10 |
+| anchored, it 80 | 24/208 | 21/28 | 0.003 | 3 % | 3 | 9 |
+| anchored, it 88 | 21/208 | 16/28 | 0.106 | 9 % | 1 | 9 |
+| **anchored, main (it 93)** | 23/208 | 17/28 | **0.060** | 9 % | 0 | 12 |
+| pure, main (it 93) | 19/208 | 13/28 | 0.412 | 19 % | 1 | 9 |
+| flat, main (it 88) | 26/208 | 16/28 | 0.106 | 31 % | 4 | 8 |
+
+**The pre-registered test does not pass.** It was fixed before the data: the arm's last row against
+9 of 28 on the maul class, Fisher's exact two-sided, p < 0.01 rather than 0.05 because the morning
+makes about ten comparisons. Anchored's last row is 17 of 28 at p = 0.060 — not significant even at
+0.05. One row of the twelve clears 0.01, iteration 80 at 21 of 28, p = 0.003, and it was chosen by
+looking at the curve: it is reported as exploratory out of twelve, and the rows on either side of
+it read 14/28 and 16/28.
+
+**Two headline numbers from the night before were resolution artefacts, and both are withdrawn.**
+"86 % of maul kills" was 12 of 14 — two bouts a build, iteration 29. At four bouts a build the same
+arm reads 50 % to 64 % on every row of its curve, and the fit it was being compared against was
+measured at four. "Five of 52 builds always finished" was measured at two bouts as well, where a
+build needs two kills rather than four to qualify: at four bouts the anchored arm's last row
+finishes **zero** of 52 always. `golem-driver` finishes 10 of 52 always at the same four bouts and
+kills 46/208 against the best arm's 26/208. The gap to the hand-written reference did not close.
+
+**And a third: pure did not get worse on the probe.** The 2/104 reading that made pure the arm
+where two instruments agreed was iteration 29 at two bouts a build. At iteration 93 and four bouts
+its maul class is 13 of 28, above the starting fit's 9 of 28. Nothing here says pure declined.
+
+The three arms end level with each other on the class — 17, 16 and 13 of 28 — so the
+emphasis-versus-anchor ordering the iteration-29 probe appeared to show is not in the endpoint data
+either.
+
+### The rating at three hundred bouts, where the change the run made becomes visible
+
+The in-run rating spends 100 bouts a contender and carries ±0.042, and on it the night read as
+nothing happening: four points on each arm, all within one interval of iteration 0. Bought again
+offline at 300 bouts a contender, on `league-anchored`'s eleven snapshots and its main:
+
+| iteration | 8 | 16 | 24 | 32 | 40 | 48 | 56 | 64 | 72 | 80 | 88 | main |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| uniform | +0.1138 | +0.0995 | +0.1549 | +0.1474 | +0.1583 | +0.1239 | +0.1374 | +0.1593 | +0.1487 | +0.1477 | +0.1822 | +0.1717 |
+| ± | 0.0413 | 0.0451 | 0.0484 | 0.0476 | 0.0498 | 0.0477 | 0.0450 | 0.0466 | 0.0453 | 0.0479 | 0.0481 | 0.0486 |
+
+Ordinary least squares on the eleven snapshots gives **+0.00059 of a bar an iteration, t = +2.74**,
+about +0.05 across the run; against the fixed `golem-driver` baseline the slope is identical by
+construction, since the two margins differ by a constant. The endpoint difference on its own,
+main − it 8 = +0.058, is z = 1.78 treating the two as independent, which overstates the interval
+because both were measured against the same baseline columns under common random numbers.
+
+**How to read that, given this session's own rule about slopes.** The rule, written after four
+false trends in one night, is that roughly two of twenty-four watched slopes pass 2σ when nothing
+is happening, so a single slope is never a finding. This one is not one of twenty-four exploratory
+columns: it is the criterion's own curve, on the arm the session was about, at triple the bouts the
+run could afford. It is reported as what it is — one slope at t = 2.74, whose endpoint difference
+alone does not reach significance — and the claim it supports is narrow: **the overnight's "no
+measurable change" was a statement about a 100-bout instrument, not about the run.**
+
+Both baselines here are fixed minds, so a rating that rises cannot be a league getting easier. That
+answers the question the checkpoint matrix was queued to settle — progress against a moving target
+— without playing the matrix, and the matrix was cut from the morning for that reason.
+
+### What shipped, and on which instrument
+
+The candidates were the last three checkpoints of each arm, rated on the 40 armed builds at 600
+bouts a contender — twice the curve's precision, spent on the nine minds that could ship rather
+than on thirty-six curve points that could not.
+
+| arm | it 80 | it 88 | main |
+| --- | ---: | ---: | ---: |
+| **anchored** | +0.1699 ±0.0363 | +0.1431 ±0.0341 | **+0.1962 ±0.0342, d +0.460** |
+| flat | +0.1657 ±0.0310 | +0.1671 ±0.0314 | +0.1671 ±0.0314 |
+| pure | +0.1634 ±0.0341 | +0.1605 ±0.0362 | +0.1689 ±0.0348 |
+
+`league-anchored`'s main is the highest of the nine. It does not separate from `league-flat`'s main
+— the difference is +0.029 against z = 1.23 — so the tie-break fixed before these numbers existed
+applies: the probe's maul count, where anchored reads 17 of 28 against flat's 16 of 28. The two
+instruments pick the same mind, which is the only reason this ship is not a coin flip.
+
+Shipped at 400 bouts a contender on the **unfiltered** 52-build pool, which is the regression floor
+rather than the chooser — a mind that won the armed bodies by losing the other twelve would be
+caught here and nowhere else:
+
+    main − uniform   bar +0.1716 ±0.0215   d +0.399   points +0.1425 ±0.0242
+    main − driver    bar +0.0705 ±0.0200   d +0.176   points +0.0587 ±0.0244
+
+Iteration 0 of the same league rated +0.1254 ±0.0416 on that pool, so the shipped mind is +0.046
+above where the league started and comfortably inside the floor. `src/golem/policy-weights.ts`
+carries 93 iterations, 12,244 bouts and 9,472,734 asks of provenance, and the sentence naming the
+league it met.
+
+### Progress against a moving target, which is what it was not
+
+Named at iteration 66 and left for the morning: `league-pure`'s margin against its own league rose
+at +0.00061 an iteration, t +3.9, the largest of the three, while its fixed-baseline rating stood
+still. A main that beats its own frozen past while standing still against `uniform` and
+`golem-driver` has learnt the pool rather than the game, and the checkpoint matrix was queued to
+tell those apart. Two ratings settle it more directly than the matrix would have:
+
+| league-pure, armed pool, 600 bouts a contender | uniform | driver |
+| --- | ---: | ---: |
+| iteration 8 | +0.1198 ±0.0360 | −0.0001 ±0.0329 |
+| iteration 16 | +0.1003 ±0.0319 | −0.0196 ±0.0307 |
+| main, iteration 93 | +0.1689 ±0.0348 | +0.0491 ±0.0313 |
+
+Both baselines are fixed minds, so a rating measured against them cannot rise because the league
+softened. Pure gained +0.049 of a bar against `uniform` and +0.049 against `golem-driver` between
+its eighth iteration and its last. **The moving-target reading is not supported**, and the matrix
+was cut from the morning rather than run: it answers this question indirectly, and a fixed baseline
+answers it directly for a fifth of the machine time.
+
+### The held-out evaluation, where the two pools disagree about the same mind
+
+Fourteen policies, every pair, 4096 bouts a pool, seed 20260906, cap 60 s. The shipped mind is
+`golem-policy`.
+
+| mirrored pool, both sides on the same body | points a bout | bar margin |
+| --- | ---: | ---: |
+| `golem-selector` | 0.543 ±0.025 | +0.0255 ±0.0195 |
+| `golem-neural` | 0.536 ±0.025 | +0.0153 ±0.0213 |
+| **`golem-policy`**, fifth of fourteen | **0.524 ±0.023** | **+0.0379 ±0.0215** |
+| `golem-driver` | 0.456 ±0.026 | −0.0042 ±0.0212 |
+
+| random pairs, the two sides may differ | points a bout | bar margin |
+| --- | ---: | ---: |
+| `golem-selector` | 0.537 ±0.026 | +0.0209 ±0.0411 |
+| `golem-driver` | 0.529 ±0.028 | +0.0600 ±0.0442 |
+| **`golem-policy`**, thirteenth of fourteen | **0.465 ±0.025** | −0.0218 ±0.0418 |
+
+Same mind, same seed, same number of bouts. On mirrored bodies it carries the highest bar margin in
+the field and beats the hand-written reference head to head, 0.602 points a bout. On asymmetric
+pairs its interval excludes 0.5 — it is genuinely losing — and it loses to that same reference,
+0.443. By weapon class on the asymmetric pool: maul 0.750, mace 0.510, and **every other class
+below even** — blade 0.395, fist 0.415, whip 0.352, unarmed 0.292.
+
+**The explanation is structural and it indicts the whole instrument stack.** Training is mirrored
+self-play; the league's opponents meet the main on its own body; the rating mirrors; the idle probe
+is a build against a copy of itself. Every instrument that chose this mind puts it in front of its
+own shape. The one pool that does not is the one where it comes thirteenth, and that is the pool
+whose matchup the game actually has.
+
+**What the overnight bought, on that pool, paired.** The module this run replaced was the previous
+shipped fit — 40 PPO iterations against `golem-driver` alone — which is also the mind
+`league-anchored` started from at iteration 0. Re-run on the identical pairs, bodies and seeds, so
+the comparison is bout for bout:
+
+| shipped fit − the fit it replaced, 578 paired bouts | | |
+| --- | ---: | ---: |
+| points a bout | +0.0251 ±0.0209 | t +2.35 |
+| bar margin | +0.0745 ±0.0216 | t +6.77 |
+
+So the honest summary of the night is neither of the two readings taken alone: **the run improved
+the matchup the game has, measurably, on a pool nothing in the training loop optimises for — and
+the mind it produced is still second from last on that pool.** Both belong in the same sentence.
+
+### What this night did not answer
+
+1. **The missing cell.** The design is three of a 2×2 — emphasis and anchor, emphasis alone, anchor
+   alone — with no "neither" arm, so an interaction cannot be separated from two conditional main
+   effects. Every claim about "both are needed" is a claim about the three cells that exist. On the
+   morning's readings the three arms do not separate from each other at all: their mains sit at
+   +0.1962, +0.1689 and +0.1671 on the armed pool against intervals of ±0.035.
+2. **Opponent distribution against headroom against entropy.** The control run — the same
+   checkpoint resumed against `golem-driver` alone at the same entropy — is designed and costed at
+   about eighty minutes and was not run. It is the one experiment that separates what the anchor
+   did from what simply having more room to improve did. Owed to the record.
+3. **Whether anything transfers to an asymmetric fight by training.** The held-out split above says
+   the mind is a mirrored-fight specialist. Nothing here tests whether training on asymmetric pairs
+   fixes it, and that is the first experiment Session 15 should cost.
+4. **Five false trends in one night and a morning**, four reported and retracted, one written down
+   as a hypothesis before it died. The rule this session leaves behind: read a per-iteration column
+   over at least ten iterations, quote a slope only with its t, and expect two of roughly
+   twenty-four slopes past 2σ when nothing at all is happening.
+
+### Corrections this morning forced
+
+**"Seventy-five iterations produced no measurable change" was a statement about a 100-bout
+instrument.** At 300 bouts the anchored arm's rating rises at t = +2.74, and at 600 bouts on the
+armed pool both anchored and pure are about +0.05 of a bar above their own eighth iteration. The
+in-run rating spends bouts the fit could have had, and it cannot see what it cannot afford.
+
+**"86 % of maul kills" and "five builds always finished" were resolution artefacts**, both measured
+at two bouts a build on iteration 29 and both withdrawn above. At four bouts the same arm reads
+61 % and finishes zero of 52 builds always.
+
+**"Pure got worse on two instruments" is now zero instruments.** Its probe row at four bouts is 13
+of 28 against the starting fit's 9 of 28, and its fixed-baseline rating rose by +0.049.
+
+**"Thirty-eight of fifty-two bodies cannot decide a bout" is a fact about the idle probe and not
+about a rating.** Mind against mind, blade decides a third of its bouts and plate a fifth; the
+bodies that decide nothing are the twelve carrying no weapon, fists or whips. The morning's first
+proposal — cut the criterion to maul and mace — would have thrown away twenty builds that do
+produce winners, and was corrected before it was acted on.
