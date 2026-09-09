@@ -9,7 +9,7 @@
 //     [--from tournaments/some-run-checkpoint.json]
 //     [--matrix] [--matrix-bouts 32] [--matrix-lag 1] [--matrix-cap 10] [--probe-bouts 4]
 //     [--evaluate 5]
-//     [--out src/golem/policy-weights.ts]
+//     [--out src/golem/policy-weights.ts] [--ship 16|main] [--ship-bouts 400]
 //
 // **Why a pool and not a mirror.** Session 14's calibration measured what a mirrored self-play
 // reward can pay for and the answer was: the two sides' bar margins are exactly negated, so the
@@ -30,7 +30,15 @@
 // from the main and trained against a frozen copy of it alone; it finds the current habit fast,
 // and the main trains back against it. It is reset from the main when it stops gaining, because an
 // exploiter that has stopped gaining is a stale opponent taking a share of every rollout.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+//
+// **Why shipping is its own mode.** `--out` at the end of a run ships whatever the main happened
+// to be on the last iteration, and the reason to run a league is that the mind is not monotone --
+// the rating and probe curves are read afterwards, and they can say that `pool-16` was the better
+// mind. `--ship 16 --out <path>` writes that one instead, rating it on the run's own evaluation
+// pool and taking the provenance -- knobs, anchor, emphasis, and the bouts and asks spent *by
+// that iteration* -- from the run's own log rather than from whatever is retyped on the command
+// line. It writes nothing back into the league, so it is safe beside a running arm.
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { availableParallelism } from "node:os";
@@ -397,7 +405,7 @@ export const poolPath = (dir, iteration) => resolve(dir, poolName(iteration) + "
  */
 export function saveLeague(dir, state) {
   mkdirSync(dir, { recursive: true });
-  writeFileSync(statePath(dir), JSON.stringify({
+  const text = JSON.stringify({
     version: LEAGUE_VERSION, policy: POLICY_VERSION, features: PILOT_FEATURES_VERSION,
     seed: state.seed, date: state.date, iteration: state.iteration,
     bouts: state.bouts, steps: state.steps,
@@ -405,7 +413,14 @@ export function saveLeague(dir, state) {
     exploiters: state.exploiters.map(roleToJson),
     pool: state.pool.map(({ iteration }) => ({ iteration })),
     taken: state.taken.slice(),
-  }));
+  });
+  // Written aside and renamed into place, because this file is rewritten every iteration and a
+  // kill during a two megabyte write leaves JSON that `--resume` cannot parse -- which turns a
+  // crash the watchdog would have restarted into a lost night. The rename is atomic and replaces
+  // the old file on both platforms this runs on.
+  const temp = statePath(dir) + ".tmp";
+  writeFileSync(temp, text);
+  renameSync(temp, statePath(dir));
 }
 
 /** Read it back, refusing a state whose policy version is not this build's. */
@@ -434,6 +449,121 @@ export function poolLoader(dir) {
     if (!cache.has(iteration)) cache.set(iteration, roleFromJson(JSON.parse(readFileSync(poolPath(dir, iteration), "utf8"))));
     return cache.get(iteration);
   };
+}
+
+// ---------------------------------------------------------------- shipping a league's own mind
+
+/**
+ * The run's own log, rows in order, tolerating a half-written last line.
+ *
+ * `log()` appends one whole line at a time, so the only line a kill can leave truncated is the
+ * last one. Refusing the whole file over it would mean an arm that died at the wrong instant
+ * could not be read or shipped from, which is the opposite of what the log is kept for.
+ */
+export function readLog(dir) {
+  const lines = readFileSync(resolve(dir, "league.jsonl"), "utf8")
+    .split("\n").map((line) => line.trim()).filter(Boolean);
+  const rows = [];
+  lines.forEach((line, i) => {
+    try {
+      rows.push(JSON.parse(line));
+    } catch (error) {
+      if (i !== lines.length - 1) throw error;
+    }
+  });
+  return rows;
+}
+
+/**
+ * Which mind `--ship` means, checked against the snapshots the arm actually took.
+ *
+ * `main` is the live main. A number must be an iteration a snapshot was written at, and the
+ * refusal lists the ones there are -- because the failure it replaces is an `ENOENT` raised
+ * inside a `readFileSync` on a pool file nobody wrote, which reads as a corrupt arm.
+ */
+export function shippedIteration(state, which) {
+  if (which === null || which === undefined || which === MAIN_NAME) return state.iteration;
+  const iteration = Number(which);
+  if (!Number.isInteger(iteration) || !state.taken.includes(iteration)) {
+    throw new Error(`iteration ${which} is not a snapshot of this league; it took `
+      + `${state.taken.length === 0 ? "none" : state.taken.join(", ")}`);
+  }
+  return iteration;
+}
+
+/**
+ * What the run had spent by an iteration, summed from the log's own rows.
+ *
+ * `state.bouts` and `state.steps` are the totals at the arm's *current* iteration, so quoting
+ * them in a module shipped from an older snapshot credits that snapshot with training it never
+ * saw. A provenance line that is wrong in a generated artifact is wrong for as long as the file
+ * exists, and nobody re-derives it.
+ */
+export function spentBy(rows, upTo) {
+  let bouts = 0;
+  let steps = 0;
+  for (const row of rows) {
+    if (row.type === "iteration" && row.iteration <= upTo) {
+      bouts += row.bouts;
+      steps += row.steps;
+    }
+  }
+  return { bouts, steps };
+}
+
+/**
+ * The sentence a reader of the generated module gets, which the renderer cannot build itself.
+ *
+ * `renderPolicyModule` knows `--terminals` and nothing about a league's opponent mix, and it
+ * writes "on the whole pool" directly after this sentence. So the anchor and the emphasis are
+ * said here or nowhere -- and the emphasis clause has to read correctly *before* that "on the
+ * whole pool", because the pool really is the whole pool and the emphasis is only how often
+ * each of its builds comes up.
+ *
+ * `upTo` is the iteration being shipped, and the pool it names is the pool as it stood *before*
+ * that iteration: a snapshot from iteration 8 of a run that has since taken five past selves
+ * sparred with none of them, and saying otherwise credits it with opponents it never met.
+ */
+export function opponentSentence(state, head, upTo = Infinity) {
+  const selves = state.taken.filter((iteration) => iteration < upTo).length;
+  const exploiters = state.exploiters.length;
+  const parts = [];
+  if (selves > 0) parts.push(`${selves} of its own past selves`);
+  if (exploiters > 0) parts.push(`${exploiters} exploiter${exploiters === 1 ? "" : "s"}`);
+  if (head.anchor !== null && head.anchor !== undefined) parts.push(head.anchor);
+  // A league with an empty pool, no exploiters and no anchor is the mirror the league exists to
+  // get away from, and the module should say so rather than announce a league of nothing.
+  if (parts.length === 0) return "itself";
+  const emphasise = head.emphasise ?? [];
+  const drawn = emphasise.length === 0 ? ""
+    : `, with ${emphasise.join(" and ")} builds drawn ${head.emphasis} times as often,`;
+  const mix = parts.length === 1 ? parts[0]
+    : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+  return `a league of ${mix}${drawn}`;
+}
+
+/**
+ * The shipped table: the mind's numbers, and its provenance read off the run rather than retyped.
+ *
+ * Every field here is one `PolicyWeights` declares, and no field is one it does not. That is not
+ * tidiness: the generated module assigns an object literal to that type, so a spare knob in the
+ * header is an excess property and `npm run check` refuses the file the ship just wrote.
+ */
+export function shipTable(role, { state, head, iteration, spent, rated, date }) {
+  const baselines = {};
+  for (const name of rated.names) if (name !== FIT_NAME) baselines[name] = rated.results[name].score;
+  return policyTable(role.weights, role.logSigma, {
+    seed: state.seed, date, iterations: iteration, bouts: spent.bouts, steps: spent.steps,
+    halfLife: head.halfLife, lambda: head.lambda, clip: head.clip, entropy: head.entropy,
+    reward: head.reward ?? GOLEM_REWARD,
+    opponent: opponentSentence(state, head, iteration), terminals: head.terminals ?? [],
+    normalisation: {
+      count: role.norm.count,
+      mean: Array.from(role.norm.mean, round5),
+      variance: Array.from(role.norm.variance, round5),
+    },
+    score: rated.results[FIT_NAME].score, baselines,
+  });
 }
 
 /**
@@ -586,9 +716,16 @@ if (isMain) {
   // and cannot be moved from here, so `train-ppo.mjs`'s refusal has nothing to refuse.
   const write = flag("out", null);
   const matrixOnly = has("matrix");
+  // Ship a mind that is not the live main. `--ship 16` writes the module from `pool-16`, which is
+  // the answer whenever the rating curve says an older snapshot is the better mind -- and the
+  // curve is read after the run, when `--out` is long gone. It reads the arm and never writes to
+  // it, so unlike `--matrix` there is nothing it can do to a league in flight.
+  const ship = flag("ship", null);
+  const shipOnly = ship !== null;
   const every = Math.max(0, Number(flag("evaluate", 5)));
   const evalBouts = Math.max(2, Number(flag("eval-bouts", 96)));
   const finalBouts = Math.max(2, Number(flag("final-bouts", evalBouts * 4)));
+  const shipBouts = Math.max(2, Number(flag("ship-bouts", finalBouts)));
   const matrixBouts = Math.max(2, Number(flag("matrix-bouts", 32)));
   const matrixLag = Math.max(1, Number(flag("matrix-lag", 1)));
   const matrixCap = Math.max(2, Number(flag("matrix-cap", 10)));
@@ -620,10 +757,20 @@ if (isMain) {
   const progress = (label) => ({ done, total, seconds }) => {
     if (done % 128 === 0 || done === total) console.log(`  ${label}: ${done}/${total} bouts, ${seconds.toFixed(0)} s`);
   };
+  const printDifferences = (name, differences) => {
+    for (const [other, d] of Object.entries(differences)) {
+      console.log(`    ${name} - ${other.padEnd(8)} points ${d.points >= 0 ? "+" : ""}${d.points.toFixed(4)} `
+        + `+- ${d.pointsSem.toFixed(4)}  bar ${d.bar >= 0 ? "+" : ""}${d.bar.toFixed(4)} `
+        + `+- ${d.barSem.toFixed(4)}  d ${d.d >= 0 ? "+" : ""}${d.d.toFixed(3)}`);
+    }
+  };
   const date = new Date().toISOString().slice(0, 10);
 
   let state;
-  if (resume || matrixOnly) {
+  if (shipOnly && matrixOnly) {
+    throw new Error("--ship and --matrix are two read-only modes; run one and then the other");
+  }
+  if (resume || matrixOnly || shipOnly) {
     if (!existsSync(statePath(dir))) throw new Error(`${statePath(dir)} does not exist; drop --resume to start a league there`);
     if (from !== null) throw new Error("--from starts a new league; a resumed one already has a main");
     state = loadLeague(dir);
@@ -631,7 +778,7 @@ if (isMain) {
       throw new Error(`${statePath(dir)} carries ${state.exploiters.length} exploiters and --exploiters says `
         + `${exploiters}; a role cannot be added to or taken from a league in flight`);
     }
-    console.log(matrixOnly
+    console.log(matrixOnly || shipOnly
       ? `  read ${statePath(dir)} at iteration ${state.iteration}`
       : `  resuming at iteration ${state.iteration + 1} from ${statePath(dir)}`);
   } else {
@@ -661,7 +808,34 @@ if (isMain) {
   }
   const load = poolLoader(dir);
 
-  if (matrixOnly) {
+  if (shipOnly) {
+    if (write === null) throw new Error("--ship writes a module and needs somewhere to put it; pass --out <path>");
+    const rows = readLog(dir);
+    const head = rows.find((row) => row.type === "header");
+    if (head === undefined) throw new Error(`${out} has no header row, so the run's own knobs cannot be read`);
+    const iteration = shippedIteration(state, ship);
+    const role = ship === MAIN_NAME
+      ? state.main
+      : roleFromJson(JSON.parse(readFileSync(poolPath(dir, iteration), "utf8")));
+    const eseed = (state.seed ^ 0xc0f1c0f1) >>> 0;
+    const rated = await ratePolicy({
+      weights: role.weights, logSigma: role.logSigma, norm: role.norm,
+      // The evaluation pool is the run's own, derived from the state seed exactly as the in-run
+      // rating derives it, so a shipped number and a rating row are the same measurement.
+      pool: buildPool({ seed: eseed, random: head.random ?? random }), seed: eseed,
+      bouts: Math.max(2, Math.ceil(shipBouts / PPO_LEAGUE.length / 2) * 2), workers, cap, mirror: true,
+      onProgress: progress(`rate ${ship}`),
+    });
+    console.log(`  === ${ship} of ${dir}: ${rated.per} bouts a contender ===`);
+    printDifferences(ship, rated.differences);
+    const spent = spentBy(rows, iteration);
+    const table = shipTable(role, { state, head, iteration, spent, rated, date });
+    const text = renderPolicyModule(table, "scripts/league.mjs");
+    writeFileSync(resolve(write), text);
+    console.log(`  wrote ${write} (${(text.length / 1024).toFixed(1)} KB)`);
+    console.log(`  ${table.iterations} iterations, ${table.bouts} bouts, ${table.steps} asks, `
+      + `against ${table.opponent}`);
+  } else if (matrixOnly) {
     // A matrix is quadratic in its rows and a night at `--pool-every 4` takes thirty of them,
     // which is 435 pairs and three hours of bouts to read one table. `thinPool` is the right
     // thinning here for the same reason it is the right one in the sparring cycle: it keeps the
@@ -721,15 +895,19 @@ if (isMain) {
     });
     console.log(`log: ${out}`);
   } else {
-    log({
-      type: "header", seed, date, version: LEAGUE_VERSION, policy: POLICY_VERSION,
+    // Held as an object rather than logged inline, because `--out` builds the shipped module's
+    // provenance out of exactly this row -- the same one `--ship` reads back off disk later --
+    // so the two paths cannot drift into quoting different knobs for the same run.
+    const header = {
+      seed, date, version: LEAGUE_VERSION, policy: POLICY_VERSION,
       features: PILOT_FEATURES_VERSION, layout: POLICY_LAYOUT, valueLayout: LEAGUE_VALUE_LAYOUT,
       reward, iterations, bouts, exploiterBouts, cap, random, workers, terminals, from,
       emphasise, emphasis,
       poolEvery, poolCap, exploiters, exploiterEvery,
       shareSelf, sharePool, shareExploiter, anchor, shareAnchor, resetGain, resetPatience,
       evaluate: every, evalBouts, finalBouts, resumedAt: resume ? state.iteration : null, ...knobs,
-    });
+    };
+    log({ type: "header", ...header });
     console.log(`league: seed ${seed}, iterations ${state.iteration + 1}..${iterations} of ${bouts} bouts, `
       + `${state.exploiters.length} exploiters, pool cap ${poolCap}, ${workers} workers`);
 
@@ -748,11 +926,7 @@ if (isMain) {
         onProgress: progress(`rate ${iteration}`),
       });
       console.log(`  === rating after iteration ${iteration}: ${result.per} bouts a contender ===`);
-      for (const [other, d] of Object.entries(result.differences)) {
-        console.log(`    main - ${other.padEnd(8)} points ${d.points >= 0 ? "+" : ""}${d.points.toFixed(4)} `
-          + `+- ${d.pointsSem.toFixed(4)}  bar ${d.bar >= 0 ? "+" : ""}${d.bar.toFixed(4)} `
-          + `+- ${d.barSem.toFixed(4)}  d ${d.d >= 0 ? "+" : ""}${d.d.toFixed(3)}`);
-      }
+      printDifferences(MAIN_NAME, result.differences);
       log({ type: "rating", iteration, per: result.per, differences: result.differences, structural: result.results });
       return result;
     };
@@ -862,21 +1036,9 @@ if (isMain) {
       if (rated === null) {
         throw new Error("--out wants a rating to put in the module header; run with --evaluate above zero");
       }
-      const baselines = {};
-      for (const name of rated.names) if (name !== FIT_NAME) baselines[name] = rated.results[name].score;
-      const table = policyTable(state.main.weights, state.main.logSigma, {
-        seed, date, iterations: state.iteration, bouts: state.bouts, steps: state.steps,
-        ...knobs, reward,
-        // The header's `opponent` field is a sentence a reader of the generated module gets and
-        // nothing else; a league has no single opponent, so it says what it had instead.
-        opponent: `a league of ${state.taken.length} of its own past selves and ${state.exploiters.length} exploiters`,
-        terminals,
-        normalisation: {
-          count: state.main.norm.count,
-          mean: Array.from(state.main.norm.mean, round5),
-          variance: Array.from(state.main.norm.variance, round5),
-        },
-        score: rated.results[FIT_NAME].score, baselines,
+      const table = shipTable(state.main, {
+        state, head: header, iteration: state.iteration, date, rated,
+        spent: { bouts: state.bouts, steps: state.steps },
       });
       const text = renderPolicyModule(table, "scripts/league.mjs");
       writeFileSync(resolve(write), text);

@@ -1784,6 +1784,25 @@ which is the derivation the runner uses. That last clause is the whole point of 
 than a detail of it: a rating is only comparable to another rating taken on the same pool, so its
 rows sit beside the rows the run printed and beside the other arms, and beside nothing else.
 
+**Shipping a mind is not the same as shipping the last one.** `--out` at the end of a run writes
+whatever the main happened to be on the final iteration. That is the right default and the wrong
+answer whenever the rating and probe curves say an older snapshot was the better mind — and those
+curves are read after the run, when `--out` is long gone. `--ship <n|main> --out <path>` writes any
+snapshot the arm took, refusing an iteration it did not take and naming the ones it has, and it
+reads the run without writing anything back into it, so it is safe beside an arm still training.
+Three things about the header it writes are worth naming. The first was a live defect: the
+end-of-run path passed all twelve fit knobs into the module header, where `PolicyWeights` declares
+four — an object literal carrying the other eight is an excess property, so `npm run check` would
+have refused the file the ship had just written. It had never fired because no league had yet
+reached its last iteration. The second and third are hazards a later ship has that an end-of-run
+one does not: the provenance would have to be retyped on the shipping command line, so a night at
+`--entropy 0.0003` could be recorded under the trainer's default 0.003, and the bouts and asks to
+hand are the arm's totals now rather than what that snapshot saw. Both are answered by reading the
+run's own log — its header row for the knobs, the anchor and the emphasis, its iteration rows
+summed to the snapshot for the spend. The pool the sentence names is the pool as it stood *before*
+the shipped iteration, since a snapshot from iteration 8 of a run that has since taken five past
+selves sparred with none of them.
+
 ## Dying, which is not the same as losing
 
 `over` not stopping the world was the right call about the *bout* and, for a long time, it

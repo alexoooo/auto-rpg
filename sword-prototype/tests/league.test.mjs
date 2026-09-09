@@ -10,9 +10,9 @@
 // weights and produces a log line with the fields a reader needs. Those are the five things this
 // file asserts, and it asserts them against independent arithmetic where there is any.
 //
-// **Fourteen mutations were watched red on 2026-09-08**, each applied alone and then restored.
-// Eight are in `scripts/league.mjs`, four in `scripts/rate-snapshots.mjs` and two in
-// `scripts/probe-snapshots.mjs`:
+// **Nineteen mutations were watched red on 2026-09-08 and 2026-09-09**, each applied alone and
+// then restored. Thirteen are in `scripts/league.mjs`, four in `scripts/rate-snapshots.mjs` and
+// two in `scripts/probe-snapshots.mjs`:
 //
 // | mutation | what went red |
 // |---|---|
@@ -30,6 +30,11 @@
 // | `formatRow` prints a hyphen for a negative margin | the curve's printed row |
 // | `classRate` returns 0 for a class the pool does not carry | the probe curve's row |
 // | `formatProbeRow` prints the kill count where the rate belongs | the probe curve's row |
+// | `shippedIteration` takes any number rather than one the run snapshotted | the refusal test |
+// | `spentBy` sums every iteration row rather than those up to the snapshot | the spend test |
+// | `opponentSentence` drops the emphasis clause's trailing comma | the provenance test |
+// | `opponentSentence` counts the pool the arm has now rather than the one the snapshot met | the provenance test |
+// | `shipTable` passes the fit knobs through, as the end-of-run path did | the field test |
 import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -39,8 +44,8 @@ import { join } from "node:path";
 import {
   LEAGUE_VALUE_LAYOUT, MAIN_NAME, SELF_NAME, contenderFor, copyRole, emphasisedPool,
   exploiterName, exploiterStalled, freshRole, leagueMatrix, leaguePairs, loadLeague, matrixBreaks,
-  poolLoader, poolName, poolPath, roleFromCheckpoint, roleFromJson, roleToJson, saveLeague,
-  shareOf, spreadSlots,
+  opponentSentence, poolLoader, poolName, poolPath, readLog, roleFromCheckpoint, roleFromJson,
+  roleToJson, saveLeague, shareOf, shipTable, shippedIteration, spentBy, spreadSlots,
   statePath, thinPool, trainRole,
 } from "../scripts/league.mjs";
 import { armedTerminal, buildPool } from "../scripts/tournament.mjs";
@@ -49,7 +54,7 @@ import {
   boutsPerOpponent, chosenSnapshots, formatRow, snapshotIterations,
 } from "../scripts/rate-snapshots.mjs";
 import { classRate, formatProbeRow } from "../scripts/probe-snapshots.mjs";
-import { POLICY_LAYOUT, POLICY_VERSION } from "../src/golem/policy.ts";
+import { POLICY_LAYOUT, POLICY_VERSION, freshPolicyTable } from "../src/golem/policy.ts";
 import { netSize } from "../src/golem/neural-net.ts";
 
 const SEED = 20260914;
@@ -190,6 +195,8 @@ test("a league state round-trips, keeps every snapshot ever taken, and refuses a
   assert.equal(back.exploiters.length, 2);
   assert.deepEqual(back.pool.map((e) => e.iteration), [4, 12]);
   assert.deepEqual(back.taken, [4, 8, 12], "a mind thinned out of the sparring pool is still a row of the matrix");
+  assert.equal(existsSync(statePath(dir) + ".tmp"), false,
+    "the state is written aside and renamed into place, and the aside does not survive it");
   const raw = JSON.parse(readFileSync(statePath(dir), "utf8"));
   writeFileSync(statePath(dir), JSON.stringify({ ...raw, policy: POLICY_VERSION + 1 }));
   assert.throws(() => loadLeague(dir), /policy version/);
@@ -506,4 +513,100 @@ test("a probe row distinguishes a class with no kills from a class with no build
   assert.match(line, /always {2}5\/52 {3}ever {2}7\/52$/, "the two build counts the rollup turns on");
   assert.match(formatProbeRow({ iteration: "main", kills: 0, bouts: 8, killRate: 0, always: 0,
     ever: 0, maul: null, mace: null }, 4), /maul {3}-- {3}mace {3}--/, "an absent class prints a dash");
+});
+
+// ---------------------------------------------------------------------------- shipping a mind
+
+test("shipping refuses an iteration the run never snapshotted, and names the ones it has", () => {
+  const state = { iteration: 34, taken: [8, 16, 24, 32], exploiters: [] };
+  assert.equal(shippedIteration(state, MAIN_NAME), 34, "the live main is the arm's current iteration");
+  assert.equal(shippedIteration(state, null), 34, "and is what a ship with no iteration means");
+  assert.equal(shippedIteration(state, "16"), 16, "a stored snapshot arrives from the command line as a string");
+  // The refusal, and why it earns a branch: without it the next thing to happen is an ENOENT
+  // inside a `readFileSync` on a pool file nobody wrote, which reads as a corrupt arm.
+  assert.throws(() => shippedIteration(state, "17"), /not a snapshot of this league; it took 8, 16, 24, 32/);
+  assert.throws(() => shippedIteration({ iteration: 3, taken: [], exploiters: [] }, "0"), /it took none/);
+});
+
+test("a snapshot is credited with the training it saw and not with the run's total", () => {
+  const rows = [
+    { type: "header", seed: 1 },
+    { type: "iteration", iteration: 1, bouts: 132, steps: 100_000 },
+    { type: "iteration", iteration: 2, bouts: 130, steps: 90_000 },
+    { type: "rating", iteration: 2, per: 20 },
+    { type: "iteration", iteration: 3, bouts: 128, steps: 80_000 },
+  ];
+  assert.deepEqual(spentBy(rows, 2), { bouts: 262, steps: 190_000 }, "the rows up to the snapshot and no others");
+  assert.deepEqual(spentBy(rows, 3), { bouts: 390, steps: 270_000 });
+  assert.deepEqual(spentBy(rows, 0), { bouts: 0, steps: 0 }, "a snapshot at iteration 0 saw no training");
+});
+
+test("a killed run's log is still readable, because only its last line can be half-written", () => {
+  const dir = scratch();
+  const path = join(dir, "league.jsonl");
+  const whole = JSON.stringify({ type: "header", seed: SEED, anchor: null }) + "\n"
+    + JSON.stringify({ type: "iteration", iteration: 1, bouts: 4, steps: 10 }) + "\n";
+  writeFileSync(path, whole);
+  assert.equal(readLog(dir).length, 2);
+  writeFileSync(path, whole + '{"type":"iteration","iteration":2,"bo');
+  const rows = readLog(dir);
+  assert.equal(rows.length, 2, "the truncated append is dropped and the rest of the night is kept");
+  assert.equal(rows[1].iteration, 1);
+  // A broken line that is not the last one is a different fault -- the file is not what it claims
+  // to be -- and reading past it would quietly under-count whatever it held.
+  writeFileSync(path, '{"type":"header"' + "\n" + whole);
+  assert.throws(() => readLog(dir), /JSON/);
+});
+
+test("the shipped provenance names the anchor and the emphasis, and reads before the pool", () => {
+  const state = { taken: [8, 16, 24], exploiters: [freshRole(SEED), freshRole(SEED ^ 1)] };
+  const head = { anchor: "golem-driver", emphasise: ["maul", "mace"], emphasis: 3 };
+  // `renderPolicyModule` writes "on the whole pool" straight after this sentence, so the assertion
+  // is on the whole clause and not on the fragment: a comma in the wrong place is the failure.
+  assert.equal(`against ${opponentSentence(state, head)} on the whole pool`,
+    "against a league of 3 of its own past selves, 2 exploiters and golem-driver, with maul and "
+    + "mace builds drawn 3 times as often, on the whole pool");
+  assert.equal(opponentSentence(state, { anchor: null, emphasise: [], emphasis: 3 }),
+    "a league of 3 of its own past selves and 2 exploiters",
+    "an arm with neither says neither, rather than claiming it had them at a share of zero");
+  assert.equal(
+    opponentSentence({ taken: [4], exploiters: [freshRole(SEED)] }, { anchor: "golem-driver", emphasise: [] }),
+    "a league of 1 of its own past selves, 1 exploiter and golem-driver");
+  // The pool a snapshot met is the pool as it stood before it, not the one the arm has now. At
+  // iteration 8 of this run nothing had been stored yet, and the clause goes rather than reading
+  // "0 of its own past selves".
+  assert.equal(opponentSentence(state, head, 8),
+    "a league of 2 exploiters and golem-driver, with maul and mace builds drawn 3 times as often,");
+  assert.equal(opponentSentence(state, head, 24), "a league of 2 of its own past selves, 2 exploiters "
+    + "and golem-driver, with maul and mace builds drawn 3 times as often,");
+  assert.equal(opponentSentence({ taken: [], exploiters: [] }, { anchor: null, emphasise: [] }), "itself",
+    "a league with an empty pool, no exploiters and no anchor is the mirror, and says so");
+});
+
+test("a shipped table carries exactly the fields the policy type declares", () => {
+  const role = freshRole(SEED);
+  const rated = {
+    names: ["fit", "uniform", "driver"],
+    results: { fit: { score: 0.51 }, uniform: { score: 0.43 }, driver: { score: 0.49 } },
+  };
+  const head = {
+    halfLife: 4, lambda: 0.95, clip: 0.2, entropy: 0.0003, rate: 1e-4, valueRate: 1e-3,
+    epochs: 4, batch: 4096, targetKl: 0.03, sigmaFloor: -3, sigmaRoof: 0.5,
+    anchor: "golem-driver", emphasise: ["maul"], emphasis: 3, terminals: [], reward: null,
+  };
+  const table = shipTable(role, {
+    state: { seed: SEED, taken: [8, 16], exploiters: [] }, head, iteration: 16,
+    spent: { bouts: 2112, steps: 1_600_000 }, rated, date: "2026-09-09",
+  });
+  assert.equal(table.iterations, 16);
+  assert.equal(table.bouts, 2112, "the spend up to the snapshot, not the arm's running total");
+  assert.equal(table.opponent, "a league of 1 of its own past selves and golem-driver, with maul "
+    + "builds drawn 3 times as often,", "the pool as it stood before iteration 16, which was one mind");
+  assert.deepEqual(table.baselines, { uniform: 0.43, driver: 0.49 }, "every contender but the fit is a baseline");
+  assert.equal(table.score, 0.51);
+  // The one that matters. The generated module assigns this object to `PolicyWeights`, so a knob
+  // that is not a field of that type is an excess property and `npm run check` refuses the file
+  // the ship just wrote -- which is what the end-of-run path would have done with eleven of them.
+  assert.deepEqual(Object.keys(table).sort(), Object.keys(freshPolicyTable([], [])).sort(),
+    "the shipped table's fields are the type's fields, no more and no fewer");
 });
