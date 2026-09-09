@@ -16,6 +16,7 @@ import {
   armedHand as armedHandFromSrc,
   armedTerminal as armedTerminalFromSrc,
   viableBuild,
+  viableMirror,
   viablePair,
 } from "../src/golem/viability.ts";
 import { DUEL_OPTIONS, fitDuelModel } from "../src/golem/duel-model.ts";
@@ -148,10 +149,10 @@ test("a_build_class_is_the_armed_terminal_crossed_with_the_reach_band_the_hand_w
  * `--pairs viable`: the mirrored form filters the pool and the plain form rejects the draw.
  *
  * Two rules and not one, because a mirrored bout puts one body on both sides -- so what it needs
- * is `viableBuild` -- and a plain bout draws two, so what it needs is `viablePair`, which is not a
- * property any single build has. The schedule is still a function of its seed either way, which is
- * the property the whole harness stands on and is why the rejection redraws both corners rather
- * than pinning one.
+ * is `viableMirror`, can this class finish its own class -- and a plain bout draws two, so what it
+ * needs is `viablePair`, which is not a property any single build has. The schedule is still a
+ * function of its seed either way, which is the property the whole harness stands on and is why the
+ * rejection redraws both corners rather than pinning one.
  */
 test("pairs_viable_schedules_only_matchups_that_can_finish_and_still_repeats_under_its_seed", () => {
   const pool = buildPool({ seed: SEED, random: 20 });
@@ -167,14 +168,22 @@ test("pairs_viable_schedules_only_matchups_that_can_finish_and_still_repeats_und
     "the unfiltered schedule has refusable pairings in it, so this test can see the defect it is for");
   assert.deepEqual(scheduleJobs({ pool, policies: ["golem-driver"], pairings: 40, seed: SEED, cap: 30, viable: true }), viable);
 
-  // Mirrored, the pool is filtered by `viableBuild` before anything is drawn.
+  // Mirrored, the pool is filtered by `viableMirror` before anything is drawn -- and that is the
+  // one of the two rules that removes bodies, since `viableBuild` accepts every class on the
+  // measured table and `VIABLE_PAIRS` holds only two of the seven self-pairs.
   const mirrored = scheduleJobs({
     pool, policies: ["golem-driver"], pairings: 20, seed: SEED, cap: 30, mirror: true, viable: true,
   });
+  const wholeMirror = scheduleJobs({
+    pool, policies: ["golem-driver"], pairings: 20, seed: SEED, cap: 30, mirror: true,
+  });
   for (const job of mirrored) {
     assert.deepEqual(job.left.setup, job.right.setup, "a mirror is one body on both sides");
-    assert.ok(viableBuild(job.left.setup), job.left.build);
+    assert.ok(viableMirror(job.left.setup), job.left.build);
+    assert.ok(viablePair(job.left.setup, job.right.setup), job.left.build);
   }
+  assert.ok(wholeMirror.some((job) => !viableMirror(job.left.setup)),
+    "the unfiltered mirror draws bodies that cannot finish themselves, so the flag has something to do");
 
   // A pool with nothing viable in it is refused rather than scheduled empty. On the table
   // Session 01 measured no build is unviable -- every class is in `VIABLE_TERMINALS`, because the

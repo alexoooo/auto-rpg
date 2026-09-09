@@ -179,9 +179,12 @@ if (isMain) {
   const random = Math.max(0, Number(flag("random", 40)));
   // The viable set by default since Session 01 of the learn set, and `--terminals all` is the
   // fifty-two. The probe is the instrument that *found* the unviable classes, so the whole pool
-  // being one word away is not a nicety here: it is how this table is re-taken.
+  // being one word away is not a nicety here: it is how this table is re-taken. It is `mirror`
+  // because every bout here is a build against a copy of itself, so the default pool is the one
+  // `viableMirror` accepts -- and `scripts/viability.mjs`, which regenerates the table, calls
+  // `idleProbe` over `buildPool` directly and is not affected by that default.
   const terminals = parseTerminals(flag("terminals", null));
-  const pool = poolFor({ seed, random, terminals });
+  const pool = poolFor({ seed, random, terminals, mirror: true });
   console.log(`${label} vs idle: ${pool.length} builds x ${Math.ceil(bouts / 2) * 2} bouts, `
     + `cap ${cap} s, seed ${seed}, ${poolSentence(terminals)}`);
   const result = await idleProbe({

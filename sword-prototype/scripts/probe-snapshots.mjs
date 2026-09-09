@@ -146,7 +146,9 @@ export async function probeSnapshots({
   baseline = null, onRow = null, terminals = VIABLE_TERMINALS,
 }) {
   const state = loadLeague(dir);
-  const pool = poolFor({ seed, random, terminals });
+  // A probe bout is a build against a motionless copy of itself, which is a mirror, so the pool is
+  // the one `viableMirror` accepts: the maul and mace rows this table is read on.
+  const pool = poolFor({ seed, random, terminals, mirror: true });
   const chosen = chosenSnapshots(snapshotIterations(dir), only);
   const rows = [];
   for (const iteration of [...chosen, "main"]) {
@@ -189,7 +191,7 @@ if (isMain) {
   const seed = Number(flag("seed", 20260906)) >>> 0;
   const random = Number(flag("random", 40));
   const terminals = parseTerminals(flag("terminals", null));
-  const builds = poolFor({ seed, random, terminals }).length;
+  const builds = poolFor({ seed, random, terminals, mirror: true }).length;
   const only = flag("only", null);
   const out = flag("out", null);
   const baseline = parseBaseline(flag("baseline", null));

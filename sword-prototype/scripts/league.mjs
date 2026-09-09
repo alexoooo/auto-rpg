@@ -822,8 +822,10 @@ if (isMain) {
     const rated = await ratePolicy({
       weights: role.weights, logSigma: role.logSigma, norm: role.norm,
       // The evaluation pool is the run's own, derived from the state seed exactly as the in-run
-      // rating derives it, so a shipped number and a rating row are the same measurement.
-      pool: poolFor({ seed: eseed, random: head.random ?? random, terminals }), seed: eseed, terminals,
+      // rating derives it, so a shipped number and a rating row are the same measurement. Mirrored,
+      // so it is drawn through `viableMirror` and not merely through the class table.
+      pool: poolFor({ seed: eseed, random: head.random ?? random, terminals, mirror: true }),
+      seed: eseed, terminals,
       bouts: Math.max(2, Math.ceil(shipBouts / PPO_LEAGUE.length / 2) * 2), workers, cap, mirror: true,
       onProgress: progress(`rate ${ship}`),
     });
@@ -849,7 +851,9 @@ if (isMain) {
     // copy of itself would put a cell of exactly zero on the diagonal-but-one and read as a
     // broken pair, which is the one reading a progress check must not invent.
     if (!rows.includes(state.iteration)) entries.push({ name: MAIN_NAME, role: state.main });
-    const builds = poolFor({ seed: (seed ^ 0xa11) >>> 0, random, terminals });
+    // `leagueMatrix` schedules with `mirror: true`, so the pool is the mirrored one: a cell of the
+    // matrix is two minds on one body, and a body neither of them can finish is a cell of zero.
+    const builds = poolFor({ seed: (seed ^ 0xa11) >>> 0, random, terminals, mirror: true });
     const result = await leagueMatrix({
       builds, entries, seed: (seed ^ 0xc0f1c0f1) >>> 0, bouts: matrixBouts, workers, cap,
       onProgress: progress("matrix"),
@@ -883,7 +887,9 @@ if (isMain) {
       ].map((v) => v.padStart(8)).join(" ")}`);
     }
     const probe = await idleProbe({
-      pool: poolFor({ seed: (seed ^ 0xc0f1c0f1) >>> 0, random, terminals }), name: MAIN_NAME,
+      // The probe is a build against a motionless copy of *itself*, which is a mirror, so it draws
+      // the mirrored pool: the classes whose kill rate this table is worth reading.
+      pool: poolFor({ seed: (seed ^ 0xc0f1c0f1) >>> 0, random, terminals, mirror: true }), name: MAIN_NAME,
       contender: contenderFor(state.main, false), bouts: probeBouts, workers, cap,
       seed: (seed ^ 0xc0f1c0f1) >>> 0, onProgress: progress("idle probe"),
     });
@@ -923,7 +929,7 @@ if (isMain) {
         // a pool the rollout never saw is two instruments; `--terminals all` is still there for
         // the close-out's table on everything.
         weights: state.main.weights, logSigma: state.main.logSigma, norm: state.main.norm,
-        pool: poolFor({ seed: eseed, random, terminals }), seed: eseed, terminals,
+        pool: poolFor({ seed: eseed, random, terminals, mirror: true }), seed: eseed, terminals,
         // `wanted` is the whole budget and `ratePolicy` spends it per contender per opponent, so
         // it is divided by the league's length the way the trainer divides it.
         bouts: Math.max(2, Math.ceil(wanted / PPO_LEAGUE.length / 2) * 2), workers, cap, mirror: true,
@@ -938,7 +944,11 @@ if (isMain) {
 
     for (let iteration = state.iteration + 1; iteration <= iterations; iteration += 1) {
       const started = Date.now();
-      const builds = emphasisedPool(poolFor({ seed: (seed ^ iteration) >>> 0, random, terminals }), emphasise, emphasis);
+      // Mirrored, like the trainer's own rollouts: `collectLeague` puts one build in both
+      // corners, so the pool is the bodies that can finish themselves. The emphasis is a weighting
+      // over whatever survives that, which is why it is applied outside and not instead.
+      const builds = emphasisedPool(
+        poolFor({ seed: (seed ^ iteration) >>> 0, random, terminals, mirror: true }), emphasise, emphasis);
       // The present, frozen: the main as it stood when the iteration began. Both the main and the
       // exploiters play *this* copy rather than each other's moving weights, so an iteration is
       // one experiment and not a sequence of them, and the exploiters' margins are comparable

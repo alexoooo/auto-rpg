@@ -22,6 +22,7 @@ import {
 } from "../src/golem/build.ts";
 import {
   VIABLE_DRAW_TRIES,
+  VIABLE_MIRRORS,
   VIABLE_PAIRS,
   VIABLE_TERMINALS,
   armedTerminal,
@@ -31,6 +32,7 @@ import {
   randomViablePair,
   unviablePairNote,
   viableBuild,
+  viableMirror,
   viablePair,
 } from "../src/golem/viability.ts";
 import { mulberry32 } from "../src/rng.ts";
@@ -205,6 +207,33 @@ test("a_viable_pair_is_two_viable_bodies_that_the_pair_table_also_accepts", () =
     assert.equal(unviablePairNote(a, b), null);
   }
   assert.deepEqual(randomViablePair(mulberry32(7)), randomViablePair(mulberry32(7)));
+});
+
+/**
+ * A viable mirror is a class that can finish its own class, and there are two of them.
+ *
+ * There is no `randomViableMirror` draw, deliberately: nothing on the screen draws one, and the
+ * pools that want a mirror have a list of builds in front of them rather than a stream, so they
+ * filter with `viableMirror` instead. What is asserted here is the predicate itself -- that it is
+ * `viablePair` of a body with itself and stays that as the table moves, that `VIABLE_MIRRORS` is
+ * the self-pairs of `VIABLE_PAIRS` and not a second literal, and that it refuses most of the shelf.
+ */
+test("a_viable_mirror_is_a_body_that_can_finish_a_copy_of_itself", () => {
+  assert.deepEqual([...VIABLE_MIRRORS].sort(), ["mace", "maul"],
+    "two of the seven self-pairs are in the measured pair table");
+  for (const terminal of VIABLE_TERMINALS) {
+    assert.equal(VIABLE_MIRRORS.has(terminal), VIABLE_PAIRS.has(pairKey(terminal, terminal)),
+      `${terminal} against itself`);
+  }
+  // The named form and the pair form are the same question, over every body the draw can make.
+  const drawn = draws(20260906);
+  for (const setup of drawn) {
+    assert.equal(viableMirror(setup), viablePair(setup, setup), describeGolemSetup(setup));
+  }
+  // And it is a cut where `viableBuild` is not: every drawn body is viable, most cannot mirror.
+  const mirrors = drawn.filter(viableMirror).length;
+  assert.equal(drawn.filter(viableBuild).length, drawn.length, "the class table refuses nothing");
+  assert.ok(mirrors > 0 && mirrors < drawn.length / 2, `${mirrors} of ${drawn.length} bodies mirror`);
 });
 
 test("a_hand_built_pair_the_predicate_refuses_is_captioned_rather_than_blocked", () => {

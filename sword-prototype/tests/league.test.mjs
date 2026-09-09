@@ -66,8 +66,8 @@ import { formatIdleProbe, idleProbe, rollupByTerminal } from "../scripts/idle-pr
 import {
   boutsPerOpponent, chosenSnapshots, formatRow, parseTerminals, snapshotIterations,
 } from "../scripts/rate-snapshots.mjs";
-import { poolFor } from "../scripts/train-ppo.mjs";
-import { VIABLE_TERMINALS, viableBuild } from "../src/golem/viability.ts";
+import { keepViable, poolFor } from "../scripts/train-ppo.mjs";
+import { VIABLE_MIRRORS, VIABLE_TERMINALS, viableBuild, viableMirror } from "../src/golem/viability.ts";
 import {
   classCount, classRate, fisher, formatProbeRow, parseBaseline, probeRow,
 } from "../scripts/probe-snapshots.mjs";
@@ -533,12 +533,29 @@ test("the rating pool can be cut to the classes where a fight can end, and a typ
   // class no build carries is an error rather than an empty pool and an hour of rating nothing.
   assert.throws(() => poolFor({ seed, random: 40, terminals: ["halberd"] }), /no build in the pool is armed with halberd/);
   // And the default, which is what every script in the set now draws through. On the table
-  // Session 01 measured it is the whole fifty-two, because every class is viable -- a maul decides
-  // against all seven, so the second admission rule admitted all seven. The cut that matters lives
-  // in `VIABLE_PAIRS` and `--pairs viable`, not here.
+  // Session 01 measured the *class* half of it is the whole fifty-two, because every class is
+  // viable -- a maul decides against all seven, so the second admission rule admitted all seven.
   const viable = poolFor({ seed, random: 40 });
   assert.equal(viable.length, whole.length, `${viable.length} of ${whole.length}`);
   for (const build of viable) assert.ok(viableBuild(build.setup), build.caption);
+
+  // The league's pools are mirrored -- `collectLeague`, `leagueMatrix`, the rating and the idle
+  // probe all schedule one build into both corners -- so what they draw is the mirror pool, which
+  // is the maul and mace builds and nothing else. This is the cut the class filter could not make.
+  const mirrored = poolFor({ seed, random: 40, mirror: true });
+  assert.deepEqual(mirrored.map((b) => b.name), whole.filter((b) => viableMirror(b.setup)).map((b) => b.name),
+    "exactly the builds whose mirror is viable, and nothing else");
+  assert.equal(mirrored.length, 20, "the nine mauls and eleven maces are the ones that mirror");
+  for (const build of mirrored) assert.ok(VIABLE_MIRRORS.has(armedTerminal(build.setup)), build.caption);
+  // `all` is still the one word back to the whole pool, in the mirrored arrangement as in the plain
+  // one -- the close-out owes a table on the fifty-two and it is a mirrored table.
+  assert.deepEqual(poolFor({ seed, random: 40, terminals: parseTerminals("all"), mirror: true }).map((b) => b.name),
+    whole.map((b) => b.name));
+  // A rating is mirrored by default, so it runs the same filter on whatever pool it is handed: the
+  // two instruments cannot come apart by a caller passing the pool drawn for the other arrangement.
+  assert.deepEqual(keepViable(whole, [...VIABLE_TERMINALS], true).map((b) => b.name), mirrored.map((b) => b.name));
+  assert.throws(() => poolFor({ seed, random: 40, terminals: ["whip"], mirror: true }),
+    /no build armed with whip can finish a copy of itself/);
 });
 
 test("a rating row prints both baselines with their intervals and the fit's record", () => {

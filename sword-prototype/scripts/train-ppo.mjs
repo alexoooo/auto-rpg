@@ -106,7 +106,7 @@ import {
 } from "../src/golem/policy.ts";
 import { GOLEM_REWARD, stepReward } from "../src/golem/reward.ts";
 import { mulberry32 } from "../src/rng.ts";
-import { VIABLE_TERMINALS } from "../src/golem/viability.ts";
+import { VIABLE_TERMINALS, viableMirror } from "../src/golem/viability.ts";
 import { armedTerminal, buildPool, runJobs, scheduleJobs } from "./tournament.mjs";
 import { columnsOf, meanOf, semOf } from "./train-learner.mjs";
 import { evaluate } from "./tune.mjs";
@@ -553,29 +553,55 @@ export function ppoFit(rollout, {
  * A class no build carries is still an error naming the class, which is what makes a typo cost a
  * refusal instead of an hour: `--terminals maul,malu` is refused by name, exactly as before.
  *
- * **Measured, the new default cuts nothing.** Session 01's table admitted every class on the shelf
- * -- a maul decides against all seven, so the admission rule that was meant to let a plate fight a
- * maul let everything fight a maul -- so `VIABLE_TERMINALS` is the whole shelf today and this pool
- * is the same fifty-two builds `--terminals all` gives. That is written down rather than tidied
- * away because the alternative is somebody later reading a default that does nothing and assuming
- * it is broken. What it buys is the route: a re-measurement that refuses a class narrows every
- * pool in the set without touching a caller. The cut that would buy the trainer bouts today is
- * pairing a rollout through `viablePair`, which is a different change and not this one.
+ * **Measured, the class half of this cuts nothing.** Session 01's table admitted every class on the
+ * shelf -- a maul decides against all seven, so the admission rule that was meant to let a plate
+ * fight a maul let everything fight a maul -- so `VIABLE_TERMINALS` is the whole shelf and the
+ * class filter alone leaves the same fifty-two builds `--terminals all` gives. That is written down
+ * rather than tidied away because the alternative is somebody later reading a default that does
+ * nothing and assuming it is broken.
+ *
+ * **`mirror` is the half that does cut, and it is the arrangement almost every pool here uses.**
+ * `collectRollouts` schedules with `mirror: true` and so do `ratePolicy`, `leagueMatrix` and both
+ * idle probes: one build on both sides, so the pair a bout is actually fought on is
+ * `(class, class)`. Of the seven self-pairs only `maul|maul` and `mace|mace` are in `VIABLE_PAIRS`,
+ * so `viableMirror` keeps fifteen of the fifty-two builds at seed 20260906 and refuses thirty-seven
+ * -- the mirrored blades that decide 41 % of their bouts, the plates and fists at 2 %, the whips
+ * and the unarmed at 0 %. That is a real narrowing of what a mind will ever see and it is the learn
+ * set's first frozen choice applied where the bouts actually are; `--terminals all` puts them back
+ * for the close-out's table, for the mirror exactly as for the class.
  */
-export function keepViable(pool, terminals = VIABLE_TERMINALS) {
+export function keepViable(pool, terminals = VIABLE_TERMINALS, mirror = false) {
   // The empty list still means the whole pool, unchanged, and the *default* is what moved. That
   // distinction is load-bearing rather than pedantic: `POLICY_WEIGHTS` carries `terminals: []`
   // from the run that fitted it, and a build that reinterpreted that field would rewrite the
-  // header of a shipped table to say it was trained on a pool it never saw.
+  // header of a shipped table to say it was trained on a pool it never saw. `all` is the same
+  // escape said out loud, and both of them skip the mirror filter as well -- one word back to the
+  // whole pool, whatever arrangement is asking for it.
   if (terminals.length === 0) return pool;
   if (terminals.length === 1 && terminals[0] === "all") return pool;
   const kept = pool.filter((build) => terminals.includes(armedTerminal(build.setup)));
   if (kept.length === 0) throw new Error(`no build in the pool is armed with ${terminals.join(" or ")}`);
-  return kept;
+  if (!mirror) return kept;
+  const mirrors = kept.filter((build) => viableMirror(build.setup));
+  // A pool of blades asked for mirrored bouts is a caller who narrowed twice and will otherwise
+  // spend the night watching two identical blades not finish each other, so it is refused by name.
+  if (mirrors.length === 0) {
+    throw new Error(`no build armed with ${terminals.join(" or ")} can finish a copy of itself`);
+  }
+  return mirrors;
 }
 
-export function poolFor({ seed, random, terminals = VIABLE_TERMINALS }) {
-  return keepViable(buildPool({ seed, random }), terminals);
+/**
+ * The pool for one arrangement of bouts: `mirror` says both corners hold the same build.
+ *
+ * A caller that schedules with `mirror: true` -- the trainer's rollouts, the mirrored rating, the
+ * league's matrix, both idle probes -- passes it here, so the pool it draws from is one every
+ * member of which can finish itself. A caller that draws two different bodies leaves it off and
+ * rejects on the *pairing* instead, through `viablePair`, which is what `--pairs viable` in
+ * `scripts/tournament.mjs` does: a pair predicate cannot be a filter on a list of single builds.
+ */
+export function poolFor({ seed, random, terminals = VIABLE_TERMINALS, mirror = false }) {
+  return keepViable(buildPool({ seed, random }), terminals, mirror);
 }
 
 /**
@@ -734,12 +760,18 @@ export function episodeReturns(rollout) {
  * caller that hands it a filtered pool loses nothing, the filter being idempotent. Two ratings on
  * two pools are two instruments however alike they look, which is why `scripts/rate-snapshots.mjs`
  * writes the pool it used into every row.
+ *
+ * **The filter is run at this function's own `mirror`, which is what makes the two agree.** A
+ * rating defaults to mirrored bouts, so its pool is the one `viableMirror` accepts -- the same
+ * twenty builds the trainer's mirrored rollouts collect on -- and a caller that turns `mirror` off
+ * gets the class-filtered pool and rejects on the pairing, as a run over two different bodies must.
+ * Passing a pool drawn for the other arrangement is therefore not a way to end up rating on it.
  */
 export async function ratePolicy({
   weights, logSigma, norm, league = PPO_LEAGUE, pool, seed, bouts, workers, cap,
   mirror = true, onProgress = null, terminals = VIABLE_TERMINALS,
 }) {
-  pool = keepViable(pool, terminals);
+  pool = keepViable(pool, terminals, mirror);
   const contenders = {
     [FIT_NAME]: {
       pi: Array.from(weights), logSigma: Array.from(logSigma),
@@ -965,7 +997,9 @@ if (isMain) {
     // The rating pool is drawn through the same filter the rollout pool is, so the curve and the
     // training are on the same builds. Session 01 of the learn set; before it this was `buildPool`
     // and a run could train on the fifteen bodies that can finish and be rated on all fifty-two.
-    const epool = poolFor({ seed: eseed, random, terminals });
+    // `mirror` because the rating below is mirrored: both corners hold one build, so the pool has
+    // to be bodies that can finish themselves and not merely bodies something can finish.
+    const epool = poolFor({ seed: eseed, random, terminals, mirror: true });
     const result = await ratePolicy({
       weights, logSigma, norm, league, pool: epool, seed: eseed, terminals,
       bouts: Math.max(2, Math.ceil(wanted / league.length / 2) * 2),
@@ -999,7 +1033,10 @@ if (isMain) {
 
   for (let iteration = startAt; iteration <= iterations; iteration += 1) {
     const started = Date.now();
-    const pool = poolFor({ seed: (seed ^ iteration) >>> 0, random, terminals });
+    // `mirror` for the reason `collectRollouts` schedules with it: an iteration's bouts put one
+    // build in both corners, so a body that cannot finish itself is a whole episode of critic
+    // residual whatever the class table says something else could do to it.
+    const pool = poolFor({ seed: (seed ^ iteration) >>> 0, random, terminals, mirror: true });
     const rollout = await collectRollouts({
       pool, weights, logSigma, norm, seed: (seed + iteration * 7919) >>> 0, bouts, workers, cap,
       reward, opponent, onProgress: progress(`iteration ${iteration}`),

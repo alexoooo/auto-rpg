@@ -9,6 +9,12 @@ whole shelf and `VIABLE_PAIRS` -- eleven of twenty-eight -- carries the predicat
 Both tables and what follows from them are in `../measurements.md`. The human gate below is the
 owner's and has not been asked.
 
+**Closed out 2026-09-09.** The pools this set runs are *mirrored*, so the pair they are fought on is
+`(class, class)` and the class filter was not the predicate governing them. `viableMirror` --
+`viablePair` of a body with itself, two classes of the seven -- now filters every pool asked for
+mirrored bouts, which cuts the trainer's fifty-two builds to fifteen and lifts the mirrored decided
+fraction from 31 % to 88 % at 64 bouts. The cost and both numbers are in `../measurements.md`.
+
 ## Outcome
 
 A single answer to "can this pair end a bout" that lives in `../../src/`, is measured rather
@@ -70,7 +76,8 @@ that cannot kill, and the owner pressing Random gets a fight that can.
    are on the same builds; `../../scripts/rate-snapshots.mjs`, `../../scripts/probe-snapshots.mjs`,
    `../../scripts/idle-probe.mjs` and `../../scripts/league.mjs` take the same default and the same
    word. `--pairs viable` on `../../scripts/tournament.mjs` keeps only pairings `viablePair`
-   accepts; the mirrored form uses `viableBuild`.
+   accepts; the mirrored form uses `viableMirror` (it was written here as `viableBuild`, which the
+   close-out corrected: in a mirror the body a build has to be able to finish is itself).
 4. The screen. In `../../src/setup.ts` the Random button calls `randomViableGolemSetup`; the
    showcase default matchup in `../../src/bout.ts` is checked viable by a test rather than by
    hand; a hand-built pair that `viablePair` refuses gets one line in the caption, "these two

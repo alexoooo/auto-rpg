@@ -18784,6 +18784,50 @@ at 50 % here against 63 % there, `fist vs mace` at 50 % against 76 % -- which is
 on a cliff edge looks like at a twentieth of the sample. The margin is two bouts, so the bar is met
 and not comfortable, and a re-run at another seed could miss it.
 
+### The mirror, which the session's own frozen choice left open
+
+The tables above are about *pairs of different bodies*, and the pools this set actually runs are
+mirrored: `collectRollouts` and `collectLeague` schedule with `mirror: true`, `ratePolicy` and
+`leagueMatrix` do too, and an idle probe is a build against a motionless copy of itself. In every
+one of those the pair is `(class, class)`, and the only predicate standing in front of it was
+`viableBuild`, which refuses nothing. **Of the seven self-pairs the sweep measured, two clear the
+floor** -- `maul vs maul` at 100 % and `mace vs mace` at 74 %. The other five are `blade vs blade`
+36 %, `whip vs whip` 7 %, `plate vs plate` 4 %, `fist vs fist` 1 % and `none vs none` 0 %.
+
+`viableMirror` is that read of the pair table, and `VIABLE_MIRRORS` is derived from `VIABLE_PAIRS`
+rather than measured a second time. What it does to the pools, by build count:
+
+| pool | seed | before | after `viableMirror` | what survives |
+| --- | --- | ---: | ---: | --- |
+| the trainer's rollouts, and the idle probe's default | 20260906 | 52 | 15 | 7 maul, 8 mace |
+| the trainer's rating, at its own evaluation seed | 20260906 ^ 0xc0f1c0f1 | 52 | 19 | 12 maul, 7 mace |
+| a league's rating and matrix, at the record's league seed | 20260914 ^ 0xc0f1c0f1 | 52 | 20 | 9 maul, 11 mace |
+
+**What it costs is a maul-and-mace pool**, and the honest statement of the cost is that the record
+had already priced the bouts it removes: mirrored, a blade decides 41 % of its bouts, a plate and a
+fist 2 %, a whip and an unarmed body 0 %. Those were the bouts paying `ppoFit`'s batch
+normalisation for critic residual and paying a rating half a point by construction. A mind fitted
+through this pool never mirrors a blade, and whether that transfers to the whole pool is Session
+12's table, unchanged.
+
+**Measured, on the arrangement the trainer uses.**
+`npm run tournament -- --bouts 64 --mirror --random 40 --seed 20260906 --policies
+golem-fencer,golem-driver,golem-policy`, run twice, once with `--pairs viable` and once without:
+
+| mirrored pool | builds | bouts | decided |
+| --- | ---: | ---: | ---: |
+| the whole fifty-two | 52 | 64 | 20 = 31 % |
+| `viableMirror` only | 15 | 64 | 56 = 88 % |
+
+Nearly three times the decided fraction for the same bouts, and the 88 % sits above Session 01's
+random-pair bar of 80.9 % rather than below it -- a mirrored maul or mace is a more decisive fight
+than a random viable pairing, which the sweep's `maul vs maul` 100 % and `mace vs mace` 74 % already
+said. The classes on the filtered table are `maul/long`, `mace/long` and `mace/mid` and nothing
+else, which is what a maul-and-mace pool looks like from the rating side.
+
+`--terminals all` restores the fifty-two for the mirror as for the class, and is still there for the
+close-out. A narrowing to a class that has no viable mirror is refused by name rather than run.
+
 ### What this entry does not say
 
 The floor was not swept: half was frozen in the plan. The cliff between 63 % and 36 % means any

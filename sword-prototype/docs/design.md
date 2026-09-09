@@ -1925,15 +1925,34 @@ a Random button that has to draw an opponent rather than a body.
 `VIABLE_TERMINALS` and `ratePolicy` runs the same filter on whatever pool it is handed, so a rating
 and a rollout are on the same builds; `scripts/rate-snapshots.mjs`, `scripts/probe-snapshots.mjs`,
 `scripts/idle-probe.mjs` and `scripts/league.mjs` take the same default and the same
-`--terminals all` back to the fifty-two. On the measured table those are the same fifty-two, so
-what this bought the trainer today is a route and not a cut; the cut that would buy it something is
-pairing a *rollout* through `viablePair`, which is not in this session. The tournament is the
-exception and takes `--pairs viable` as an opt-in instead, because it is the harness the record's
-whole-pool tables were taken in and a default that quietly changed its pool would invalidate them.
-The empty list still means the whole pool everywhere -- what moved is the default, not the meaning
--- because `POLICY_WEIGHTS` carries an empty one from the run that fitted it and a build that
-reinterpreted that field would rewrite a shipped table's header into a claim about a pool it never
-saw.
+`--terminals all` back to the fifty-two. On the measured table the *class* filter leaves the same
+fifty-two, so by itself it bought a route and not a cut. The tournament is the exception and takes
+`--pairs viable` as an opt-in instead, because it is the harness the record's whole-pool tables were
+taken in and a default that quietly changed its pool would invalidate them. The empty list still
+means the whole pool everywhere -- what moved is the default, not the meaning -- because
+`POLICY_WEIGHTS` carries an empty one from the run that fitted it and a build that reinterpreted
+that field would rewrite a shipped table's header into a claim about a pool it never saw.
+
+**The mirror is where the cut actually falls, and it is a narrow pool.** Almost every bout the tree
+runs is *mirrored* -- `collectRollouts` and `collectLeague` schedule with `mirror: true`, so do
+`ratePolicy` and `leagueMatrix`, and an idle probe is a build against a motionless copy of itself --
+which means the pair a bout is fought on is `(class, class)` and the predicate that governs it is
+neither `viableBuild` nor a pairing rejection. `viableMirror(setup)` is `viablePair(setup, setup)`
+said once with a name, and `VIABLE_MIRRORS` is its class form, derived from the self-pairs of
+`VIABLE_PAIRS` rather than measured again. **Two classes have a viable mirror**, `maul` at 100 % and
+`mace` at 74 %; `blade|blade` at 36 %, `whip|whip` at 7 %, `plate|plate` at 4 %, `fist|fist` at 1 %
+and `none|none` at 0 % do not. So `poolFor({..., mirror: true})` and `keepViable(pool, terminals,
+mirror)` keep 15 of the 52 builds at seed 20260906 and 20 of 52 at the league's evaluation seed: a
+mirrored pool is a maul-and-mace pool, and a mind trained through one never mirrors a blade. That
+cost is named rather than hidden, and the reason it is worth paying is that the record had already
+priced those bouts -- mirrored, a blade decides 41 % of its bouts, a plate and a fist 2 %, a whip
+and an unarmed body 0 %, so they were buying amplified critic residual in a rollout and half a point
+by construction in a rating. Measured after the change, a 64-bout mirrored tournament of the three
+minds decides 87.5 % of its bouts on the mirror pool against 31.3 % on the whole one. `--terminals
+all` restores the fifty-two for the mirror exactly as for the class, which is the one word the
+close-out's final tables need; and `--terminals blade` on a script whose bouts are mirrored is
+refused by name -- *no build armed with blade can finish a copy of itself* -- rather than run for a
+night against the answer nobody wanted.
 
 **Random redraws; the menus do not shrink.** `randomViableGolemSetup` is `randomGolemSetup` over
 the same seeded stream, rejected until `viableBuild` accepts, so a drawn body is still a pure

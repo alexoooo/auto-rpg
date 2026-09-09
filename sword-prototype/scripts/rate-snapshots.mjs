@@ -97,7 +97,9 @@ export async function rateSnapshots({
   onRow = null,
 }) {
   const state = loadLeague(dir);
-  const pool = poolFor({ seed: (state.seed ^ 0xc0f1c0f1) >>> 0, random, terminals });
+  // Mirrored bouts below, so a mirrored pool: `viableMirror` and not merely the class table, which
+  // is what keeps a snapshot's rating on the builds its rollouts were collected on.
+  const pool = poolFor({ seed: (state.seed ^ 0xc0f1c0f1) >>> 0, random, terminals, mirror: true });
   const per = boutsPerOpponent(bouts);
   const chosen = chosenSnapshots(snapshotIterations(dir), only);
   const rows = [];
@@ -164,7 +166,7 @@ if (isMain) {
   const per = boutsPerOpponent(bouts);
   const state = loadLeague(dir);
   const random = Number(flag("random", 40));
-  const builds = poolFor({ seed: (state.seed ^ 0xc0f1c0f1) >>> 0, random, terminals }).length;
+  const builds = poolFor({ seed: (state.seed ^ 0xc0f1c0f1) >>> 0, random, terminals, mirror: true }).length;
   const on = poolSentence(terminals);
   console.log(`${dir}: iteration ${state.iteration}, ${snapshots.length} snapshots, rating `
     + `${chosen.length + 1} at ${per} bouts an opponent (${per * PPO_LEAGUE.length} a contender) `

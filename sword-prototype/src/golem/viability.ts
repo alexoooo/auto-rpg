@@ -120,14 +120,42 @@ import { randomGolemSetup } from "./build.ts";
  *
  * - `--terminals all` is today the same pool as the default, so every pool that filters by class
  *   alone -- `poolFor`, `ratePolicy`, and through them the trainer's rollouts and the two probes
- *   -- had nothing removed from it by this session. The word still works and the filter still
- *   refuses a class name with a typo; it simply has nothing to cut. Pairing a *rollout* through
- *   `viablePair` is the change that would buy the trainer something, and it is not this session's.
+ *   -- had nothing removed from it by the class filter. The word still works and the filter still
+ *   refuses a class name with a typo; it simply has nothing to cut. What the class filter could not
+ *   do, `viableMirror` does, and the section below is that.
  * - `defaultGolemSetup` is a blade and `blade vs blade` decides 36 %, so the showcase mirror the
  *   app opens on is a pair this module refuses. Moving the default is not available: it is the
  *   reference body a dozen sweeps in `docs/measurements.md` were taken on, and every one of those
  *   constants would lose its provenance. `tests/bout.test.mjs` records the fact instead, so it is
  *   a thing somebody decided rather than a thing nobody looked at.
+ *
+ * ## The mirror, which is the cut the class filter could not make
+ *
+ * A **viable mirror** is a body whose own class can finish its own class: `viableMirror(setup)` is
+ * `viablePair(setup, setup)`, and `VIABLE_MIRRORS` is the class-level form of it, derived from
+ * `VIABLE_PAIRS` rather than measured again so that a re-run of `scripts/viability.mjs` moves both
+ * together. **Two classes have one.** `maul|maul` decides 100 % and `mace|mace` 74 %; the other
+ * five self-pairs are `blade|blade` at 36 %, `plate|plate` at 4 %, `whip|whip` at 7 %, `fist|fist`
+ * at 1 % and `none|none` at 0 %, and none of them is in the pair table.
+ *
+ * It matters because most of the tree's bouts are mirrored and nobody had noticed the predicate did
+ * not cover them. `collectRollouts` in `scripts/train-ppo.mjs` schedules with `mirror: true`, so
+ * both corners hold the *same* build and the pair a rollout is actually collected on is
+ * `(class, class)` -- and `viableBuild`, which accepts every class, was the only thing standing in
+ * front of it. The mirrored rating in `ratePolicy`, `leagueMatrix`, and both probes against a
+ * motionless copy are the same arrangement. So a pool asked for mirrored bouts filters by
+ * `viableMirror` and a pool asked for random pairs rejects on the pairing through `viablePair`,
+ * which is what `--pairs viable` in `scripts/tournament.mjs` has always done for its plain runs.
+ *
+ * **This is a much sharper cut than the class filter, and it is a real narrowing.** Of the 52
+ * builds the default pool draws at seed 20260906, 15 have a viable mirror -- the 7 mauls and the 8
+ * maces of the idle table above -- and 37 do not, so a mirrored pool is a maul-and-mace pool and a
+ * mind trained on it never mirrors a blade. The honest statement of the cost is that the record
+ * already showed what those bouts were worth: mirrored, a blade decides 41 % of its bouts, a plate
+ * 2 %, a fist 2 %, and a whip and an unarmed body 0 %, so the 37 builds this removes were paying
+ * the batch normalisation in `ppoFit` for critic residual and paying a rating half a point by
+ * construction. `--terminals all` is the one word that puts them back, for the mirror as for the
+ * class, and the close-out's whole-pool table is why it exists.
  *
  * ## What the predicate is not
  *
@@ -173,12 +201,33 @@ export const VIABLE_PAIRS: ReadonlySet<string> = new Set([
 /** Two class names in one key, ordered so that a pair reads the same from either side. */
 export const pairKey = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`);
 
+/**
+ * The classes whose own class they can finish: `maul` and `mace`, and nothing else.
+ *
+ * Derived from `VIABLE_PAIRS` rather than written out, because it *is* the self-pairs of that table
+ * and a second literal would be a second thing to re-measure. A re-run of `scripts/viability.mjs`
+ * that admits a third mirror admits it here in the same paste.
+ */
+export const VIABLE_MIRRORS: ReadonlySet<string> = new Set(
+  VIABLE_TERMINALS.filter((terminal) => VIABLE_PAIRS.has(pairKey(terminal, terminal))),
+);
+
 /** Whether this body is worth putting in a pool at all. */
 export const viableBuild = (setup: GolemSetup): boolean => VIABLE_TERMINALS.includes(armedTerminal(setup));
 
 /** Whether these two bodies can finish each other. */
 export const viablePair = (a: GolemSetup, b: GolemSetup): boolean =>
   VIABLE_PAIRS.has(pairKey(armedTerminal(a), armedTerminal(b)));
+
+/**
+ * Whether this body can finish a copy of itself, which is the question a mirrored bout asks.
+ *
+ * `viablePair(setup, setup)` said once with a name, so that the five pools which schedule both
+ * corners from one build ask it in one word instead of each spelling out the argument twice. It is
+ * the predicate that does the work the class filter turned out not to do -- see the mirror section
+ * above -- and it refuses 37 of the 52 builds in the default pool where `viableBuild` refuses none.
+ */
+export const viableMirror = (setup: GolemSetup): boolean => VIABLE_MIRRORS.has(armedTerminal(setup));
 
 /**
  * The one line the setup screen puts under a hand-built pair the predicate refuses, or null.

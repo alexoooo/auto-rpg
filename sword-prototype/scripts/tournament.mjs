@@ -31,7 +31,7 @@ import { Worker, isMainThread } from "node:worker_threads";
 
 import { defaultGolemSetup, describeGolemSetup, golemSetupRefusal, randomGolemSetup } from "../src/golem/build.ts";
 import { REACH_BANDS, reachBand } from "../src/golem/champion.ts";
-import { armedHand, armedTerminal, viableBuild, viablePair } from "../src/golem/viability.ts";
+import { armedHand, armedTerminal, viableBuild, viableMirror, viablePair } from "../src/golem/viability.ts";
 import { mulberry32 } from "../src/rng.ts";
 import { unitDefinition } from "../src/units.ts";
 import { mergeSamples, writeSamples } from "./decision-log.mjs";
@@ -129,9 +129,12 @@ export function policyPairs(policies) {
  *
  * `viable` is `--pairs viable`, Session 01 of the learn set, and it is two rules and not one
  * because the two arrangements ask different questions of the same predicate. A mirrored run puts
- * one body on both sides, so what it needs is `viableBuild` -- and that is a filter on the pool,
- * applied before any draw, so that a run's schedule is still a function of its seed over the list
- * it is drawing from. A plain run draws two bodies, so what it needs is `viablePair`, and that
+ * one body on both sides, so what it needs is `viableMirror` -- can this class finish its own class
+ * -- and that is a filter on the pool, applied before any draw, so that a run's schedule is still a
+ * function of its seed over the list it is drawing from. It was `viableBuild` when the flag landed,
+ * which was the wrong question by one word: `viableBuild` asks whether *something* can finish this
+ * body, and in a mirror the something is the body. A plain run draws two bodies, so what it needs
+ * is `viablePair`, and that
  * cannot be a filter on a list of single builds: it is a rejection, taken at the draw, redrawing
  * *both* sides so that neither corner is pinned by the refusal. It is a flag rather than the
  * default here, unlike every pool script, because this is the harness the record's whole-pool
@@ -155,7 +158,10 @@ export function scheduleJobs({
   }
   if (pool.length === 0) throw new Error("a tournament needs a build to run");
   if (viable) {
-    pool = pool.filter((build) => viableBuild(build.setup));
+    // The mirrored question is `viableMirror` and the plain one is still `viableBuild`, which keeps
+    // out a body no class at all can finish before the pairing rejection has to discover it one
+    // refused draw at a time. Either way an empty pool is a refusal and not an empty schedule.
+    pool = pool.filter((build) => (mirror ? viableMirror(build.setup) : viableBuild(build.setup)));
     if (pool.length === 0) throw new Error("--pairs viable left no build in the pool");
   }
   const rng = mulberry32(seed ^ 0x0b0e);

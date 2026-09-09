@@ -32,6 +32,7 @@
 // | `rolloutPairs` returns one ordered pair against a named opponent instead of both | the corner test |
 // | `poolFor` filters on the *primary* terminal rather than the armed one | the pool test |
 // | `poolFor` still defaults to the whole pool, so the learn set's first frozen choice is off | the pool test |
+// | `poolFor` ignores `mirror`, so a mirrored rollout collects on bodies that cannot finish themselves | the pool test |
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -54,7 +55,7 @@ import {
   poolFor, ppoFit, renderPolicyModule, rolloutPairs, surrogateGrad, surrogateObjective,
 } from "../scripts/train-ppo.mjs";
 import { armedTerminal, buildPool } from "../scripts/tournament.mjs";
-import { VIABLE_TERMINALS, viableBuild } from "../src/golem/viability.ts";
+import { VIABLE_TERMINALS, viableBuild, viableMirror, viablePair } from "../src/golem/viability.ts";
 
 const SEED = 20260913;
 
@@ -389,6 +390,11 @@ test("the_decisive_pool_keeps_the_armed_hand_and_not_the_primary", () => {
  * admitted all seven. That is asserted, not glossed: this is the test that would have caught a
  * default silently doing nothing, so it says so out loud, and a re-measurement that refuses a
  * class turns the second assertion red rather than quietly making the default matter again.
+ *
+ * **The mirrored pool is where the predicate does cut**, and the second half of this test is about
+ * it: an iteration's rollouts put one build in both corners, so the pool is the fifteen builds
+ * `viableMirror` accepts and not the fifty-two. `all` has to restore the mirror too, or the
+ * close-out's whole-pool table cannot be taken in the arrangement every other table was taken in.
  */
 test("the_default_pool_is_the_viable_one_and_all_is_the_word_back_to_the_whole_pool", () => {
   const seed = 20260906;
@@ -402,6 +408,26 @@ test("the_default_pool_is_the_viable_one_and_all_is_the_word_back_to_the_whole_p
     whole.filter((b) => viableBuild(b.setup)).map((b) => b.name),
     "every viable build in the pool is in it, and nothing else");
   assert.deepEqual(byDefault, poolFor({ seed, random: 40, terminals: [...VIABLE_TERMINALS] }));
+
+  // And the pool a *mirrored* run draws, which is where the predicate stopped being decorative.
+  // Both corners hold one build, so the question is `viableMirror` and not `viableBuild`, and the
+  // two answers are as far apart as this module gets: none refused against thirty-seven.
+  const mirrored = poolFor({ seed, random: 40, mirror: true });
+  assert.deepEqual(mirrored.map((b) => b.name), whole.filter((b) => viableMirror(b.setup)).map((b) => b.name),
+    "exactly the builds whose mirror is viable, and nothing else");
+  assert.equal(mirrored.length, 15, `${mirrored.length} of ${whole.length}`);
+  for (const build of mirrored) {
+    assert.ok(["maul", "mace"].includes(armedTerminal(build.setup)), build.caption);
+    assert.ok(viablePair(build.setup, build.setup), build.caption);
+  }
+  // `all` restores the whole pool for the mirror too, which is the word the close-out's table needs.
+  assert.deepEqual(poolFor({ seed, random: 40, terminals: ["all"], mirror: true }).map((b) => b.name),
+    whole.map((b) => b.name));
+  assert.deepEqual(poolFor({ seed, random: 40, terminals: [], mirror: true }).map((b) => b.name),
+    whole.map((b) => b.name), "the empty list is still the whole pool, mirrored or not");
+  // A class narrowed to one that cannot mirror is refused by name rather than rated for a night.
+  assert.throws(() => poolFor({ seed, random: 40, terminals: ["blade"], mirror: true }),
+    /no build armed with blade can finish a copy of itself/);
   // The empty list still means the whole pool, unchanged: `POLICY_WEIGHTS` carries one from the
   // run that fitted it, and reinterpreting that field would rewrite a shipped table's header.
   assert.deepEqual(poolFor({ seed, random: 40, terminals: [] }).map((b) => b.name),
