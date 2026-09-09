@@ -340,9 +340,16 @@ export function formatSummary(summary) {
   // much landed; neither can tell a cut from a rake, and the flail complaint this set answers is
   // a complaint about strokes. Printed as its own table rather than widened onto the first,
   // because thirteen columns on one line wrap in every terminal the run is read in.
-  const strokeColumns = "  strokes  blows  dmg/stroke  v@blow  caught%  catches  commit%  clinch s  idle m  tangent m  closing m  stall s  outside s";
+  const strokeColumns = "  strokes  started  abort%  blows  dmg/stroke  v@blow  caught%  catches  commit%  clinch s  idle m  tangent m  closing m  stall s  outside s";
+  // `started` and `abort%` are the two columns a landed-stroke count cannot carry: every other
+  // column in this block is built from contact reports, so a stroke that was begun and taken back
+  // lands nothing and appears nowhere. Session 14 measured a fit that aborted 90 % of what it
+  // started and read as busy on `strokes` alone, which is why they are printed beside it.
+  const abortPercent = (entry) => (entry.aborts === undefined || entry.strokesStarted === undefined
+    || entry.strokesStarted === 0 ? undefined : (entry.aborts / entry.strokesStarted) * 100);
   const strokeRow = (entry) =>
-    `${maybe(entry.strokes, 1, 9)}  ${maybe(entry.blows, 2, 5)}  ${maybe(entry.strokeDamage, 2, 10)}  ` +
+    `${maybe(entry.strokes, 1, 9)}  ${maybe(entry.strokesStarted, 1, 7)}  ${maybe(abortPercent(entry), 0, 5)}%  ` +
+    `${maybe(entry.blows, 2, 5)}  ${maybe(entry.strokeDamage, 2, 10)}  ` +
     `${maybe(entry.scoringSpeed, 1, 6)}  ${maybe(entry.caughtFraction === undefined ? undefined : entry.caughtFraction * 100, 1, 6)}%  ` +
     `${maybe(entry.catches, 1, 7)}  ${maybe(entry.committedFraction === undefined ? undefined : entry.committedFraction * 100, 1, 6)}%  ` +
     `${maybe(entry.clinchSeconds, 1, 8)}  ${maybe(entry.idleTravelMetres, 1, 6)}  ${maybe(entry.tangentialTravelMetres, 1, 9)}  ` +

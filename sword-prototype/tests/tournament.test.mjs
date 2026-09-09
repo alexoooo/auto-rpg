@@ -293,6 +293,19 @@ test("a_driven_mind_books_the_strokes_it_started_and_the_ones_it_took_back", { t
   const duelist = summary.byPolicy.find((entry) => entry.name === "golem-duelist");
   assert.ok(Number.isFinite(driver.strokesStarted) && driver.strokesStarted > 0);
   assert.equal(duelist.strokesStarted, undefined, "a policy that carries no such column is summarised without it");
+  // And they are printed, because a column that only exists in the summary object is a column
+  // nobody reading a run will see. The abort fraction is derived at print time rather than
+  // summarised, so it is asserted against the two numbers it is derived from.
+  const text = formatSummary(summary);
+  const strokeBlock = text.slice(text.indexOf("=== policies, by the stroke"));
+  const lineFor = (name) => strokeBlock.split(/\r?\n/).find((l) => l.trimStart().startsWith(name));
+  assert.ok(strokeBlock.includes("strokes  started  abort%"), "the two columns are in the stroke header");
+  const share = `${((driver.aborts / driver.strokesStarted) * 100).toFixed(0)}%`;
+  const cells = lineFor("golem-driver").trim().split(/\s+/);
+  assert.deepEqual(cells.slice(1, 4), [driver.strokes.toFixed(1), driver.strokesStarted.toFixed(1), share],
+    "the driver's row prints the strokes it landed, the strokes it started, and the share it took back");
+  assert.deepEqual(lineFor("golem-duelist").trim().split(/\s+/).slice(2, 4), ["--", "--%"],
+    "a mind with no executor handle prints dashes for both");
 });
 
 test("two_workers_over_four_short_bouts_twice_write_the_same_rows_under_one_seed", async (t) => {
