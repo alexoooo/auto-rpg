@@ -11,8 +11,9 @@
 // whole bout of the cadence be stepped in milliseconds; the bout test is `scripts/measure.mjs`
 // used as a library, the same `NullEngine` arena and the same real Havok the page runs.
 //
-// **Seven mutations were watched red on 2026-09-08**, because the alternative is a suite that
-// agrees with its own setup. Each was applied on its own, the file run, and the source restored:
+// **Seven mutations were watched red on 2026-09-08, and an eighth on 2026-09-09**, because the
+// alternative is a suite that agrees with its own setup. Each was applied on its own, the file run,
+// and the source restored:
 //
 // | mutation in `src/golem/tactics-v4.ts` | what went red |
 // |---|---|
@@ -23,6 +24,7 @@
 // | charge a whole cooldown for an abort instead of `abortCooldown` | the abort test |
 // | read the gates only at an ask rather than every step | the abort test |
 // | floor the hold at `reach * holdFraction`, or at `near + slack`, the way v2 and v3 do | the stand-off test |
+// | *(2026-09-09)* have `holdFor` return `them.reach * standOff` whatever `holdMetres` says | the candidates test, on the flag turned up |
 //
 // One mutation that was tried and is **not** in the table: swapping the commit gate ahead of the
 // abort gate changes nothing, because the two branches are already exclusive by stance -- `abort`
@@ -46,6 +48,7 @@ import { attachPhysics, COLLIDES, LAYER } from "../src/physics.ts";
 import { unitDefinition } from "../src/units.ts";
 import { defaultGolemSetup } from "../src/golem/build.ts";
 import { BUTTON_REACH } from "../src/buttons.ts";
+import { GOLEM_TACTICS } from "../src/golem/tactics.ts";
 import { COMMITTED_SHAPES, GOLEM_TACTICS_V3, THRUST_SHAPES, golemStyled } from "../src/golem/tactics-v3.ts";
 import {
   COMMAND_AXES, COMMAND_GATES, COMMAND_RANGES, GOLEM_TACTICS_V4,
@@ -779,6 +782,85 @@ test("the_stand_off_is_the_minds_and_the_executor_floors_it_at_nothing", async (
   assert.ok(inner.forward > 0.9,
     `a stand-off of zero backed the body out of its own inner radius: forward ${inner.forward}`);
 });
+
+// ---------------------------------------------------------------------------------------
+// The four candidates Session 07 of the learn set landed behind flags.
+// ---------------------------------------------------------------------------------------
+
+/**
+ * Every candidate the probe measures is off in the table that ships, and off means inert.
+ *
+ * Two claims, and the second is the one worth having. That the rows *read* as the shipped values is
+ * a spelling check; what says a flag is really defaulted off is that a bout under the shipped table
+ * and a bout under the table with all four candidates written out at their defaults are the same
+ * bout to the digit. A row added to the executor and then read somewhere it should not be -- a
+ * `closeGain` that quietly moved, an `askHz` that rounds differently once it is spelled -- passes the
+ * first half and fails the second.
+ *
+ * `closeGain` is checked against the first executor's row rather than a literal because the whole
+ * point of the candidate is that 1.8 is inherited and not chosen: it has been the same number since
+ * `src/golem/tactics.ts`, through v2 and v3, and no session has ever measured whether it is right.
+ */
+test("the_four_candidates_default_to_what_ships_and_a_default_is_inert", async (t) => {
+  assert.equal(GOLEM_TACTICS_V4.holdMetres, false, "the metres flag shipped up");
+  assert.equal(GOLEM_TACTICS_V4.strokeOutOfRange, true, "the out-of-range gate shipped closed");
+  assert.equal(GOLEM_TACTICS_V4.askHz, PILOT_HZ, "the executor and the pilot disagree about cadence");
+  assert.equal(GOLEM_TACTICS_V4.closeGain, GOLEM_TACTICS.closeGain,
+    "the fourth executor's closing gain has drifted off the first's, which is where 1.8 comes from");
+
+  const golem = await standAGolem(t);
+  const trace = (table, command, z) => {
+    const fixture = place(fixtureOf(golem.view), { x: 0, z });
+    const driven = golemDriven(SEED, table, fixedPilot(command).pilot);
+    const frames = [];
+    drive(fixture, driven, 3.0, (intent) => {
+      const hand = intent[intent.actingHand];
+      frames.push([intent.forward, intent.strafe, hand.reach, hand.thrust ? 1 : 0,
+        driven.reading.hold, driven.strokes, driven.aborts]);
+    });
+    return frames;
+  };
+  const CLOSE = [{ standOff: 1.1, advance: 0.4, commit: 1 }, 1.6];
+  const shipped = trace(GOLEM_TACTICS_V4, ...CLOSE);
+  const spelled = trace({ ...GOLEM_TACTICS_V4,
+    holdMetres: false, strokeOutOfRange: true, askHz: PILOT_HZ, closeGain: GOLEM_TACTICS.closeGain },
+  ...CLOSE);
+  assert.deepEqual(spelled, shipped, "writing the four defaults out changed the bout");
+  assert.ok(shipped.length > 100, `only ${shipped.length} steps in three seconds`);
+
+  // And each flag, turned up on its own, moves something -- otherwise the row above is a test that
+  // four names exist and the probe would be measuring nothing at all. Three of them are asked at the
+  // close stand-off the row above uses; `strokeOutOfRange` cannot be, because it is a gate on being
+  // *out* of range and at a hold the arm can reach from there is nothing for it to gate. It is asked
+  // where it bites: held two and a half of their reach out, with the commit gate up the whole time.
+  const moved = (over, command, z) =>
+    !deepEqualish(trace({ ...GOLEM_TACTICS_V4, ...over }, command, z), trace(GOLEM_TACTICS_V4, command, z));
+  assert.ok(moved({ holdMetres: true }, ...CLOSE),
+    "holdMetres true changed nothing on a body of this reach");
+  assert.ok(moved({ closeGain: 3.6 }, ...CLOSE), "doubling the closing gain changed nothing");
+  assert.ok(moved({ strokeOutOfRange: false }, { standOff: 2.5, advance: 0, commit: 1 }, 2.6),
+    "gating the stroke on range changed nothing at a hold the arm cannot reach from");
+
+  // `askHz` is the fourth, and it is counted rather than compared, because a pilot that answers the
+  // same thing every ask -- which is what `fixedPilot` is -- produces the same bout at any cadence.
+  // What the flag buys is how often the mind is *consulted*, so that is what is asked for.
+  const askedAt = (askHz) => {
+    const fixture = place(fixtureOf(golem.view), { x: 0, z: 1.6 });
+    const { pilot, seen } = fixedPilot(CLOSE[0]);
+    drive(fixture, golemDriven(SEED, { ...GOLEM_TACTICS_V4, askHz, eventAsks: false }, pilot), 3.0);
+    return seen.asks;
+  };
+  const shippedAsks = askedAt(PILOT_HZ);
+  assert.ok(Math.abs(shippedAsks - PILOT_HZ * 3) <= 2,
+    `the shipped cadence asked ${shippedAsks} times in three seconds, not about ${PILOT_HZ * 3}`);
+  assert.ok(askedAt(24) > shippedAsks * 1.8,
+    `doubling the ask cadence took ${askedAt(24)} asks against ${shippedAsks}`);
+});
+
+/** Deep equality that answers rather than throws, for the four rows above. */
+function deepEqualish(a, b) {
+  try { assert.deepEqual(a, b); return true; } catch { return false; }
+}
 
 // ---------------------------------------------------------------------------------------
 // The seed, the refusal, and the columns.

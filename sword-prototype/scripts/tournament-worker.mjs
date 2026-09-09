@@ -31,9 +31,9 @@ import { GOLEM_CHAMPIONS } from "../src/golem/tactics-champions.ts";
 import { GOLEM_PLANNER, golemPlanner } from "../src/golem/planner.ts";
 import { GOLEM_TACTICS_V2 } from "../src/golem/tactics-v2.ts";
 import { GOLEM_TACTICS_V3 } from "../src/golem/tactics-v3.ts";
-import { GOLEM_TACTICS_V4, golemDriven } from "../src/golem/tactics-v4.ts";
+import { COMMAND_RANGES, GOLEM_TACTICS_V4, golemDriven } from "../src/golem/tactics-v4.ts";
 import { FORM } from "../src/golem/styles/form.ts";
-import { DRIVER } from "../src/golem/styles/driver.ts";
+import { DRIVER, driverPilot } from "../src/golem/styles/driver.ts";
 import { ACTION_WIDTH, golemPolicy, uniformPilot } from "../src/golem/policy.ts";
 import { POLICY_WEIGHTS } from "../src/golem/policy-weights.ts";
 import { PILOT_FEATURE_COUNT } from "../src/golem/pilot.ts";
@@ -445,6 +445,113 @@ function learnerMind(policy, seed, weights, explore, recorder) {
 }
 
 /**
+ * The pilots a pinned probe may wrap, by name. Session 07 of the learn set.
+ *
+ * **A table with no default branch, deliberately.** This directory's standing trap is that a
+ * ternary chain ending in a fallback is a silent substitution and not a dispatch -- `Weapon`'s
+ * constructor read `kind === "shield" ? buildShield : buildClub` and shipped a shield as a club
+ * through every green test. A probe whose base name was mistyped and quietly answered by the
+ * uniform pilot would produce a whole grid of rows about the wrong mind, printed in the same table
+ * as the right ones, with nothing anywhere saying so. So an unknown base is an error naming what
+ * the bases are.
+ *
+ * The two are the plan's two: `uniform` is the null -- the same executor under a command drawn
+ * uniformly from its own ranges, reading nothing -- and `golem-driver` is the designed mind over
+ * this executor, which is what "and under `golem-driver` with one axis overridden" asks for. Each
+ * is handed the cell's own table, so a cell that moves `askHz` moves it for the base as well as for
+ * the executor and the two cannot disagree about the cadence.
+ */
+const PROBE_BASES = Object.freeze({
+  uniform: (seed) => uniformPilot(seed),
+  "golem-driver": (seed, table) => driverPilot(seed, { ...DRIVER, ...table }),
+});
+
+/** Every axis and gate a pin may name, which is the command's own field set. */
+const PINNABLE = Object.freeze(Object.keys(COMMAND_RANGES));
+
+/**
+ * What one pinned cell wrote, accumulated per field over the asks: the recorded pack a test reads
+ * instead of trusting the code.
+ *
+ * Min, mean and max of every one of the twelve, and the mean is over asks rather than over steps
+ * because an ask is where a command comes from. The claim it exists to settle is "the pin
+ * overwrote exactly the axis named and nothing else": on a pinned axis min and max are the pinned
+ * value to the bit, and on every other axis under a base that varies they are not equal. A test
+ * that read the pinning code instead would be a test of the code it is about, which is the shape
+ * this directory calls a green test asserting nothing.
+ */
+function commandAxes() {
+  const sum = {};
+  const low = {};
+  const high = {};
+  let asks = 0;
+  for (const field of PINNABLE) { sum[field] = 0; low[field] = Infinity; high[field] = -Infinity; }
+  return {
+    take(command) {
+      asks += 1;
+      for (const field of PINNABLE) {
+        const value = command[field];
+        sum[field] += value;
+        if (value < low[field]) low[field] = value;
+        if (value > high[field]) high[field] = value;
+      }
+    },
+    pack() {
+      const out = { asks };
+      for (const field of PINNABLE) {
+        out[field] = asks === 0
+          ? { mean: 0, min: 0, max: 0 }
+          : { mean: sum[field] / asks, min: low[field], max: high[field] };
+      }
+      return out;
+    },
+  };
+}
+
+/**
+ * A probe side: a base pilot with one or more axes overwritten on every ask, over a table of this
+ * cell's own. Session 07 of the learn set.
+ *
+ * **The pin is applied to this file's own command object and never to the base's.** A pilot is
+ * entitled to hand back the same object every ask -- `freshCommand` is a function for exactly that
+ * reason and both bases do it -- so writing the pin into what the base returned would leave the pin
+ * standing in the base's own state, and a base that reads its previous answer would be reading the
+ * probe's. Copying all twelve fields out first makes the executor see what it would have seen
+ * anyway on every field the pin does not name, and makes the pin a fact about one ask.
+ *
+ * The table is spread over `GOLEM_TACTICS_V4` rather than assigned into it, so a cell that raises
+ * `closeGain` or drops `strokeOutOfRange` moves that cell and nothing else -- which is what lets a
+ * hundred and twenty-six cells share one run and one seed. `--override` is the other arrangement
+ * and it is a whole-run one; both exist and they are not the same instrument.
+ */
+function pinnedMind(policy, seed, contender) {
+  const make = PROBE_BASES[contender.base];
+  if (make === undefined) {
+    throw new Error(`"${policy}": a pinned probe's base is ${Object.keys(PROBE_BASES).join(" or ")}, not "${contender.base}"`);
+  }
+  const pins = contender.pinned ?? {};
+  for (const field of Object.keys(pins)) {
+    if (!PINNABLE.includes(field)) {
+      throw new Error(`"${policy}" pins "${field}", which is not one of the command's ${PINNABLE.length} fields`);
+    }
+    if (!Number.isFinite(pins[field])) throw new Error(`"${policy}" pins ${field} to ${pins[field]}`);
+  }
+  const table = { ...GOLEM_TACTICS_V4, ...(contender.table ?? {}) };
+  const base = make(seed, contender.table ?? {});
+  const axes = commandAxes();
+  const command = {};
+  const pilot = (reading, view) => {
+    const wanted = base(reading, view);
+    for (const field of PINNABLE) command[field] = wanted[field];
+    for (const field of Object.keys(pins)) command[field] = pins[field];
+    axes.take(command);
+    return command;
+  };
+  const driven = golemDriven(seed, table, pilot);
+  return { name: policy, driven, axes, decide: (view, dt) => driven.decide(view, dt) };
+}
+
+/**
  * The mind a side plays: the policy by name, or a contender. A contender is a name the tuner
  * gave a vector, built as a champion over that vector with the seed the policy would have had,
  * so a contender row is the row `golem-champion` would make with that vector in its table; or
@@ -503,12 +610,75 @@ function mindFor(policy, seed, recorder = null) {
     const driven = golemDriven(seed, GOLEM_TACTICS_V4, uniformPilot(seed));
     return { name: policy, driven, decide: (view, dt) => driven.decide(view, dt) };
   }
+  // Session 07 of the learn set: `{pinned, base, table}` is a base pilot with named axes
+  // overwritten on every ask, over a table of the cell's own. It is how a command axis is measured
+  // on the *executor* rather than on a learner -- a learner compensates for a bad axis and hides
+  // it, which is the whole reason that probe exists. A control cell pins nothing and is spelled
+  // `pinned: {}`, so the kind is `pinned !== undefined` and not "has a pin in it".
+  if (contender.pinned !== undefined) return pinnedMind(policy, seed, contender);
   if (contender.weights !== undefined) {
     const neural = golemNeural(seed, { ...NEURAL_WEIGHTS, weights: contender.weights });
     return { name: policy, fencer: neural.fencer, decide: (view, dt) => neural.decide(view, dt) };
   }
   const champion = golemChampion(seed, { class: policy, builds: 0, generations: 0, bouts: 0, score: 0, baseline: 0, margin: 0, baselineMargin: 0, ...contender });
   return { name: policy, fencer: champion.fencer, decide: (view, dt) => champion.decide(view, dt) };
+}
+
+/**
+ * The two distances the fourth executor decides everything from, sampled at the frame rate.
+ * Session 07 of the learn set.
+ *
+ * `gap` is `distance(my acting socket, their shoulder)` and `strike` is
+ * `max(myReach * strikeFraction, near + slack)`, both taken off `PilotReading` rather than
+ * recomputed here, which is the point: what the probe asks is whether the *executor's* own
+ * arithmetic puts the feet where the record says it does, so a second definition of the gap in
+ * this file would be measuring something else and calling it the same word.
+ *
+ * Everything is a mean over samples except `insideSeconds`, which is a sum of `dt` and is what
+ * "time inside strike" means in seconds rather than as a fraction of a bout that may have been
+ * cut short. Both are reported: a short bout and a distant one look the same on the fraction and
+ * different on the seconds.
+ */
+function geometryInstrument() {
+  let samples = 0;
+  let gap = 0;
+  let over = 0;
+  let strike = 0;
+  let strikeOver = 0;
+  let hold = 0;
+  let theirReach = 0;
+  let myReach = 0;
+  let inside = 0;
+  let insideSeconds = 0;
+  const safe = (x) => (x > 1e-6 ? x : 1);
+  return {
+    sample(reading, dt) {
+      samples += 1;
+      gap += reading.gap;
+      over += reading.gap / safe(reading.theirReach);
+      strike += reading.strike;
+      strikeOver += reading.strike / safe(reading.myReach);
+      hold += reading.hold;
+      theirReach += reading.theirReach;
+      myReach += reading.myReach;
+      if (reading.gap <= reading.strike) { inside += 1; insideSeconds += dt; }
+    },
+    pack() {
+      const per = (total) => (samples === 0 ? 0 : total / samples);
+      return {
+        gapSamples: samples,
+        gap: per(gap),
+        gapOverTheirReach: per(over),
+        strike: per(strike),
+        strikeOverMyReach: per(strikeOver),
+        hold: per(hold),
+        theirReach: per(theirReach),
+        myReach: per(myReach),
+        insideStrike: per(inside),
+        insideStrikeSeconds: insideSeconds,
+      };
+    },
+  };
 }
 
 async function runJob(job) {
@@ -542,6 +712,7 @@ async function runJob(job) {
   const clinch = { left: 0, right: 0 };
   const idle = { left: 0, right: 0 };
   const gapLog = { left: [], right: [] };
+  const geometry = { left: geometryInstrument(), right: geometryInstrument() };
   const groundWas = { left: null, right: null };
   let lastContact = Number.NEGATIVE_INFINITY;
   let leader = null;
@@ -576,6 +747,11 @@ async function runJob(job) {
           arm[side] = armClass(view.self);
         }
         if (insideOwnInnerRadius(view)) inside[side] += 1;
+        // Session 07 of the learn set: the executor's own gap and strike, off whichever side has a
+        // fourth-executor handle to publish them. A mind with no executor is sampled nowhere and
+        // its row carries no such column, on the `arm` precedent below.
+        const executor = minds[side]?.driven ?? null;
+        if (executor !== null) geometry[side].sample(executor.reading, sample.dt);
         // Closing is a ground fact -- whether this body walked in -- so it is read off the two
         // stances and not off the shoulders, which swing with every stroke. Read against the
         // gap a tenth of a second ago rather than against the last sample: see
@@ -682,7 +858,11 @@ async function runJob(job) {
         eventAsks: driven.events,
         strokesStarted: driven.strokes,
         aborts: driven.aborts,
+        ...geometry[name].pack(),
       }),
+      // Session 07: what a pinned probe actually wrote, per field. Only a pinned contender carries
+      // it, because only a pinned contender is a claim about what a command was.
+      ...(minds[name]?.axes === undefined ? {} : { commandAxes: minds[name].axes.pack() }),
     };
   };
   if (lastSample !== null) {

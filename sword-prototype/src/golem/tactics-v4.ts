@@ -96,7 +96,10 @@ type Widened<T> = {
 };
 
 /**
- * Every constant this executor has: v3's whole table, copied at load, and four rows of its own.
+ * Every constant this executor has: v3's whole table, copied at load, and five rows of its own.
+ *
+ * *(Four until Session 07 of the learn set, which added `holdMetres` as a candidate behind a flag.
+ * A count in prose is what this directory keeps getting wrong when a row is appended under it.)*
  *
  * The copy is taken at load for the reason v3 takes its copy of v2's. A harness that moves
  * `GOLEM_TACTICS_V3` after this module has loaded moves the four styles and not this file, which
@@ -151,6 +154,36 @@ const DRIVEN = {
    * the control row for the claim that removing it is worth anything.
    */
   strokeOutOfRange: true,
+  /**
+   * Whether `standOff` is a distance in metres rather than a multiple of *their* published reach.
+   *
+   * Off, and off is what ships. This row is Session 07 of the learn set's first candidate, landed
+   * behind a flag and measured by `scripts/axis-probe.mjs` before anything is asked to depend on it.
+   *
+   * **What it is for.** The zero of the action space is the midpoint of `COMMAND_RANGES.standOff`,
+   * because `commandFromAction` centres an axis on the midpoint of the range it is given. Under the
+   * reach multiple that zero is *one of somebody else's arms* -- so the same head output puts a body
+   * at 1.45 m in front of a sword and at 2.2 m in front of a maul, and the axis a policy is fitted
+   * on is a different physical distance in every matchup it meets. Under this flag the zero is
+   * 1.0 m and stays 1.0 m whoever is standing there, and what the axis means stops being a fact
+   * about the opponent.
+   *
+   * **Why a flag on this table and not a tenth axis.** A tenth axis widens `COMMAND_AXES`, which
+   * bumps `POLICY_VERSION` and refuses every table fitted before it; a flag changes what an existing
+   * axis *means* and the shipped table goes on loading and fighting exactly as it does today. The
+   * cost of the cheaper form is stated rather than hidden: a mind cannot hold both readings at once,
+   * so this is a choice made for a whole run and not a thing a policy can trade off inside a bout.
+   * If a run ever wants both, that is the tenth axis and it is a version bump; Session 09's manifest
+   * is where that argument belongs.
+   *
+   * The range does not move with the meaning, which is the one trap here. `COMMAND_RANGES.standOff`
+   * is [0, 2] either way, so under this flag the reachable stand-offs are 0 to 2 **metres** -- which
+   * covers every hold the set has measured (the fencer's shipped `standOffFraction` of 1.00 on a
+   * 1.78 m golem arm is 1.78 m) and clips a mind that wanted to stand further out than two metres,
+   * where under the multiple it could ask for 2 x 1.78. That clip is a real narrowing and is the
+   * thing an arm against the unchanged surface has to pay for.
+   */
+  holdMetres: false,
 };
 
 /** Every constant this executor has. `Widened` is why a harness can assign a number to any row. */
@@ -684,7 +717,14 @@ export function golemDriven(
     // those three are tactics: standing inside my own inner radius is a place a body may stand and
     // a place from which it cannot hit, which is a thing to be *charged* for and not forbidden.
     // What is left is a multiple of what the body in front publishes, which is the command.
-    let hold = them.reach * command.standOff;
+    //
+    // **Unless `holdMetres` is up**, in which case the command *is* the distance and the body in
+    // front is not consulted at all -- see that row's own note for why an absolute stand-off is a
+    // candidate. Said once, here, and read twice below, because the two readings of the stand-off
+    // are the reading the ask was taken at and the reading the ask just wrote and they must be the
+    // same arithmetic or the mind is told about a hold it is not being driven to.
+    const holdFor = (standOff: number): number => (T.holdMetres ? standOff : them.reach * standOff);
+    let hold = holdFor(command.standOff);
 
     if (T.closeOnRecover && shorter && !headfirst) {
       const ownStrike = Math.max(reach * T.strikeFraction, near + slack * 2);
@@ -849,7 +889,7 @@ export function golemDriven(
     // The stand-off is read a second time, because the one above it is the hold the reading was
     // taken at -- where this body is standing off *now*, which is what a mind asking "am I where I
     // meant to be" has to be told -- and this one is the hold the command just written asks for.
-    hold = them.reach * command.standOff;
+    hold = holdFor(command.standOff);
     const bearing = Math.atan2(them.ground.x - self.ground.x, them.ground.z - self.ground.z);
     intent.turn = clamp(angleTo(self.facing, bearing) * T.turnGain, -1, 1);
     const keepHold = clamp((gap - hold) * T.closeGain, -1, 1);

@@ -18837,3 +18837,304 @@ not in it, so a short maul against a long blade and a long maul against a long b
 And every number above is `golem-driver`'s: a class table taken under a mind that fights
 differently would differ, which is why `scripts/viability.mjs` takes `--mind` and why the constant
 ships beside the table rather than alone.
+
+## Session 07 of the learn set — 2026-09-09: an axis that is exact about the wrong body, a gate that destroys ninety-nine strokes in a hundred, and four predictions that all missed
+
+The learn set's action-surface probe: nine continuous axes and three gates, one pinned at a time on
+a viable body, and for each of them the number the record says it buys printed beside the number it
+actually buys. The record had derived every one of these claims and measured none of them. This
+entry is what the derivations were worth.
+
+**All four of the predictions the plan wrote in advance missed** against the fighting opponent, and
+one of the four held against the motionless one. That is not a bad session; it is the point of
+writing them down first. The interesting failures are below, and the one that matters is the first.
+
+### The harnesses, and why there are two of them
+
+`scripts/axis-probe.mjs`, new with this session. A cell is one command axis pinned to one value on
+every ask, over `uniformPilot` or `driverPilot` on every other axis, with an executor table of the
+cell's own; the pin lands through a `pinned` contender in `scripts/tournament-worker.mjs` and the
+row records the per-field minimum, mean and maximum of what the executor was actually handed, so
+the claim "this cell pinned exactly one axis" is read back out of the recording rather than trusted
+from the code. Common random numbers throughout: **one job list is drawn once and replayed for
+every cell with only the probed corner's policy name changed**, so two cells differ by their pin and
+by nothing else -- same bodies, same seeds, same schedule.
+
+Three runs, all on seed 20260906, all `--pairs viable` over the 12 reference builds plus 40 drawn
+ones, 60 s cap, 16 bouts a cell, 15 workers:
+
+| run | opponent | cells | bouts | log |
+| --- | --- | ---: | ---: | --- |
+| the full grid | `golem-driver` | 128 | 2,048 | `tournaments/learn07-driver.jsonl` |
+| the geometry | `idle` | 46 | 736 | `tournaments/learn07-idle.jsonl` |
+| the three flags | `idle` | 6 | 96 | `tournaments/learn07-idle-comparisons.jsonl` |
+
+2,880 bouts, about half an hour of wall clock. **The second and third runs exist because the first
+one cannot measure geometry.** A smoke run against `golem-driver` put the mean gap at about 1.6 m in
+every cell whatever `standOff` was pinned to, and the reason is not subtle: the opponent is holding
+a stand-off of its own, so the gap is a two-body outcome and the probed side gets roughly half a
+vote. `idle` -- the motionless opponent Session 01's viability floor used -- gives the probed side
+the whole vote, which is what "measure the executor" means. **The two are never mixed in a column**;
+every number below says which harness it came from.
+
+### `standOff`: exact to a centimetre about their reach, and worth nothing about mine
+
+Against a body that does not move, the executor's arithmetic is right to the centimetre above 0.8,
+and the record's derivation `hold = them.reach * standOff` needs no correction.
+
+| `standOff` | predicted gap/reach | vs `idle` | vs `golem-driver` | inside strike, `idle` | inside strike, driver |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.4 | 0.40 | 0.74 | 0.74 | 81 % | 83 % |
+| 0.6 | 0.60 | 0.75 | 0.77 | 79 % | 80 % |
+| 0.8 | 0.80 | 0.85 | 0.83 | 66 % | 72 % |
+| 1.0 | 1.00 | 1.02 | 0.89 | 37 % | 60 % |
+| 1.2 | 1.20 | 1.20 | 0.99 | 14 % | 43 % |
+| 1.4 | 1.40 | 1.40 | 1.05 | 3 % | 36 % |
+| 1.6 | 1.60 | 1.60 | 1.13 | 1 % | 27 % |
+| 1.8 | 1.80 | 1.79 | 1.18 | 0 % | 27 % |
+| 2.0 | 2.00 | 1.99 | 1.24 | 0 % | 23 % |
+
+Worst error above 0.8 against `idle` is **0.048 reach**; worst below is 0.335. The floor below 0.8 is
+physical rather than arithmetic: 0.4 and 0.6 both settle at 1.16 and 1.18 m, because two bodies
+cannot occupy the same metre. **The bottom third of the axis is one command.** A learner exploring
+uniformly spends a third of its `standOff` draws on draws that are indistinguishable.
+
+Against `golem-driver` the same nine pins move the gap from 1.17 m to 1.96 m -- 0.79 m of travel for
+2.53 m of command. **The axis is worth about a third of its face value in a fight**, and that is not
+a defect in the executor, it is what a stand-off is when the other body has one too.
+
+And now the finding this session is for. The probe records `theirReach` and `myReach` on every row,
+and over the viable pool they are not the same kind of quantity at all:
+
+| | mean | sd | min | max |
+| --- | ---: | ---: | ---: | ---: |
+| their reach (the axis's anchor) | 1.581 | 0.119 | 1.51 | 1.78 |
+| my reach (what `strike` is 0.92 of) | 1.426 | 0.406 | 0.52 | 1.78 |
+
+So the same pin controls the two ratios completely differently:
+
+| `standOff` | gap / **their** reach, sd | gap / **my** reach, sd |
+| ---: | ---: | ---: |
+| 0.8 | 0.85, sd 0.03 | 1.09, sd 0.60 |
+| 1.0 | 1.02, sd 0.02 | 1.30, sd 0.68 |
+| 1.4 | 1.40, sd 0.01 | 1.80, sd 0.94 |
+| 2.0 | 1.99, sd 0.01 | 2.54, sd 1.34 |
+
+**`standOff` is precise to two decimal places about a ratio that decides nothing, and has a standard
+deviation near 1.0 on the ratio that decides everything.** Whether a body can hit is `gap <=
+myReach * 0.92`; the axis is anchored to the opponent's published reach, which varies over the pool
+by 17 %, while the body's own varies by a factor of 3.4. One number on this axis means "well inside
+my range" on a long-armed build and "two of my reaches out" on a short-armed one, and a single
+policy shared across the pool cannot say "just inside my own range" at all. It is not that the axis
+is imprecise. It is that it is exact about the wrong body.
+
+### `advance`: the fixed point is real, and it buys half of what the record says
+
+The record derives that the feet settle where `keepHold + advance` crosses zero, at
+`gap = hold - advance / closeGain`. Against `idle` at `standOff` 1.5, measured against predicted, in
+metres:
+
+| `advance` | predicted | measured | inside strike | stall s |
+| ---: | ---: | ---: | ---: | ---: |
+| -1.00 | 2.93 | 3.31 | 0 % | 1.9 |
+| -0.50 | 2.65 | 2.65 | 0 % | 0.4 |
+| 0.00 | 2.37 | 2.37 | 1 % | 0.9 |
+| +0.50 | 2.09 | 2.09 | 6 % | 1.1 |
+| +0.75 | 1.96 | 1.93 | 11 % | 2.1 |
+| +1.00 | 1.82 | 1.55 | 44 % | 15.5 |
+
+**Five of the six rows land within four centimetres of the derivation.** The two ends do not, and
+they fail for opposite reasons: at -1 the body is walking backwards and the opponent is not chasing
+it, and at +1 it is pressed against the other body -- 15.5 s of stall in a 60 s cap, against 1.1 s
+at +0.5. So the fixed point is a real description of the executor over the interior of the axis and
+stops being one at the saturated ends.
+
+What a saturated advance is worth: at `standOff` 1.0 against `idle` it moves the gap from 1.60 m to
+1.12 m, **0.48 m**; at 1.5 it moves it from 2.37 m to 1.55 m, 0.82 m, of which the last 0.26 m is
+the bodies colliding rather than the arithmetic. The record's figure is 0.56 m. Call it right at the
+stand-off the record was written about and optimistic by 14 % in the middle of the range.
+
+### `strafe`: an axis that costs range and buys nothing measurable
+
+Against `idle` at `standOff` 1.0, `strafe` swept -1 to +1 in nine steps: the gap goes 1.73, 1.68,
+1.63, 1.60, **1.60**, 1.61, 1.63, 1.69, 1.76 -- a symmetric V with its floor at zero -- and time
+inside strike goes 27 %, 32 %, 35 %, 41 %, **40 %**, 40 %, 35 %, 30 %, 23 %. Strafing in either
+direction costs 15 cm of range and about 15 points of time inside strike, and the executor's hold
+has no term that compensates. At `standOff` 1.5 it is flatter still: 2.35 to 2.46 m across the whole
+sweep, and inside-strike never above 2 %.
+
+Damage tells the same story with more noise: against `golem-driver` at `standOff` 1.0 the nine
+strafe cells deal 32.8, 34.2, 29.1, 30.8, 30.9, 28.4, 25.7, 26.0, 28.2, which is a spread of 9
+points on 16 bouts a cell and no shape. **On this pool, over these bouts, `strafe` is an axis a
+learner can leave at zero.** That is a claim about the aggregate, not about a moment; nothing here
+says circling never matters, only that no setting of it beats standing still on average.
+
+### `swing` and `bite`: one of them does something and the other does not
+
+Both were pinned at 0, 0.5 and 1 with `commit` forced up, against `golem-driver`:
+
+| axis | value | strokes started | blows a stroke | damage dealt |
+| --- | ---: | ---: | ---: | ---: |
+| `swing` | 0 (thrust) | 125.2 | 8.81 | 21.1 |
+| `swing` | 0.5 | 131.9 | 10.36 | 21.2 |
+| `swing` | 1 (cut) | 152.8 | 8.34 | **34.4** |
+| `bite` | 0 | 131.6 | 11.38 | 24.0 |
+| `bite` | 0.5 | 134.5 | 11.12 | 23.6 |
+| `bite` | 1 | 131.8 | 10.97 | 23.5 |
+
+`swing` at 1 deals 63 % more than `swing` at 0 under `uniform`; under `golem-driver`'s other axes
+the same three cells deal 29.2, 33.0 and 29.1, which is nothing. **`bite` moves no column in either
+base**, which is the flattest result in the table: three pins across its whole range, two bases, and
+the largest gap in damage dealt is 0.5 on 24. Sixteen bouts a cell is not enough to call `swing`
+settled, but it is enough to say `bite` is not carrying its column.
+
+### The three gates, and the one that eats the surface
+
+Against `golem-driver`, under `uniform` on every other axis:
+
+| gate | strokes started | aborts | damage dealt | damage taken |
+| --- | ---: | ---: | ---: | ---: |
+| `commit` 0 | **0.0** | 0.0 | 27.8 | 39.6 |
+| `commit` 1 | 132.8 | 131.9 | 23.2 | 45.1 |
+| `abort` 0 | 24.6 | **0.0** | 23.3 | 45.5 |
+| `abort` 1 | 143.7 | **143.7** | 31.3 | 43.0 |
+| `parry` 0 | 98.4 | 97.8 | 26.9 | 45.9 |
+| `parry` 1 | 101.1 | 100.3 | 27.0 | 44.6 |
+
+`commit` does exactly what it says: forced down, not one stroke starts in 16 bouts.
+
+`abort` is the finding. Forced down, 24.6 strokes start and all of them finish. Forced up, 143.7
+start and **all 143.7 are aborted** -- and that row deals 34 % *more* damage than the one that never
+takes a stroke back, because the chamber and the recovery are themselves moving mass. Under
+`golem-driver`'s own gate policy the sign flips: 14.5 strokes and 31.5 damage with `abort` down
+against 56.0 strokes, 56.0 aborts and 26.5 damage with it up. Both are reported; they are different
+questions.
+
+The consequence for everything downstream is in the control row. **Under `uniform`, the control cell
+starts 103.6 strokes and aborts 102.8 of them -- 99.2 %.** A coin-flip abort gate resampled twelve
+times a second destroys essentially every stroke before it lands, so a learner exploring uniformly
+almost never observes a completed one. Any measurement taken over `uniform` that is downstream of a
+finished stroke is a measurement of the abort gate.
+
+`parry` is nearly inert, and where it is not, it is small and the sample is tiny. Split by the
+probed side's armed terminal, damage taken with the gate up minus with it down:
+
+| class | bouts | `golem-driver` harness | `uniform` harness |
+| --- | ---: | ---: | ---: |
+| blade | 4 | -5.2 | -7.2 |
+| mace | 2 | +3.8 | +4.6 |
+| maul | 8 | **0.0** | **0.0** |
+| fist | 2 | **0.0** | **0.0** |
+
+On maul and fist the bouts are identical to the digit -- the gate changes nothing at all on a body
+with nothing to parry with. On blades it is worth 5 to 7 points of damage taken over four bouts,
+which is a direction and not a number.
+
+### `askHz`: nothing, and slightly worse than nothing
+
+6, 12 and 24 asks a second, through the executor table:
+
+| `askHz` | dealt, `uniform` | dealt, `golem-driver` |
+| ---: | ---: | ---: |
+| 6 | 29.1 | 34.9 |
+| 12 | 26.1 | 34.2 |
+| 24 | 24.1 | 31.8 |
+
+Monotonically down in both bases, by 17 % and 9 % across a factor of four in cadence. The 71-column
+feature vector and the executor's own smoothing already carry the state between asks; asking more
+often buys a noisier command and nothing else. **The plan's `askHz` 24 candidate is dead on
+arrival**, and this is the cheapest finding in the entry -- it costs a learner four times the
+inference to be slightly worse.
+
+### The three flags this session landed, measured
+
+All three are rows on `GOLEM_TACTICS_V4` defaulted to what ships, spread per cell rather than
+assigned, so a cell moves and the shipped table does not. None of them changed a shipped constant
+and none of them widened `COMMAND_AXES`.
+
+**`strokeOutOfRange`, and the sign that depends on who you are fighting.** The shipped table lets a
+stroke start out of range; the flag closes that.
+
+| harness | | strokes started | blows a stroke | damage dealt |
+| --- | --- | ---: | ---: | ---: |
+| `golem-driver` | open (ships) | 132.8 | 10.88 | 23.2 |
+| `golem-driver` | gated | 94.5 | **15.38** | **29.9** |
+| `idle` | open (ships) | 193.0 | 2.61 | **35.2** |
+| `idle` | gated | 65.3 | 2.49 | 28.8 |
+
+Against a fighting opponent, gating out-of-range strokes throws away 29 % of strokes started, raises
+blows a stroke by 41 % and raises damage dealt by 29 %. Against a motionless one it throws away
+66 % of strokes started and *costs* 18 % of damage dealt -- because against a body that does not
+move, the stroke started while walking in arrives just as the body does. **The same flag is worth
++29 % and -18 % depending on the opponent**, which is exactly the shape of thing that belongs in a
+paired arm and not in a ship.
+
+**`closeGain`, and a candidate the plan had backwards.** The plan asks for `closeGain` raised so a
+saturated advance crosses from 1.5 reach to 0.9. The fixed point is `gap = hold - advance /
+closeGain`: raising `closeGain` makes a saturated advance buy **less** distance, not more. Measured
+at `standOff` 1.5 with `advance` 1 against `idle`, doubling it to 3.6 moved the gap from 1.55 m out
+to 1.75 m and dropped time inside strike from 44 % to 29 %, against a predicted move from 1.82 m to
+2.09 m. The arithmetic and the measurement agree with each other and disagree with the plan. **The
+candidate that does what the plan wanted is `closeGain` lowered, not raised.**
+
+**`holdMetres`, and the premise that did not survive the pool.** The flag makes `standOff` a
+distance in metres rather than a multiple of their published reach. It works -- on the bench body it
+holds 1.000 m whatever the opponent's reach, and in the pool at `standOff` 1.0 it holds a hold of
+exactly 1.000 (sd 0.000) against 1.581 (sd 0.119) for the reach multiple. But the spread it was
+meant to remove is not there to remove:
+
+| | commanded hold, sd | measured gap, sd, `idle` | measured gap, sd, driver |
+| --- | ---: | ---: | ---: |
+| reach multiple (ships) | 0.119 | 0.111 | 0.24 |
+| metres | 0.000 | 0.099 | 0.19 |
+
+**Their published reach spans 1.51 to 1.78 m over the whole viable pool -- a 17 % band -- so the
+reach multiple was never varying much in the first place.** Removing all of it buys 11 % less spread
+in the gap actually held against `idle` and 21 % against a fighting opponent. That is real and it is
+small, and it is small for a reason that points somewhere else: the quantity with the spread is
+**my** reach, 0.52 to 1.78 m, and `holdMetres` does not touch it.
+
+### The four predictions, scored
+
+Written into the plan before the run, and not reworded since.
+
+| # | prediction | vs `golem-driver` | vs `idle` |
+| ---: | --- | --- | --- |
+| 1 | the feet hold within 0.1 reach of `standOff` above 0.8, and not below | **MISSED** -- worst above 0.8 is 0.763 | **HELD** -- worst above 0.8 is 0.048, worst below 0.335 |
+| 2 | a saturated advance never crosses into strike from `standOff` 1.5 | **MISSED** -- inside strike 68.5 % | **MISSED** -- inside strike 44.3 % |
+| 3 | out-of-range strokes are a third of strokes started under `uniform` and land nothing | **MISSED** -- 28.8 % of strokes, and they land 4.50 blows a stroke *fewer* than in-range ones | **MISSED** -- 66.2 % of strokes, and they land 0.12 blows a stroke more |
+| 4 | `parry` on takes less damage than off on blade and plate, and not on maul | **MISSED** -- blade -5.2 and maul 0.0 as predicted, but no plate build was ever drawn onto the probed side | -- not run |
+
+**One of eight cells held.** Prediction 1 is the one worth reading twice: it is exactly right about
+the executor and exactly wrong about a fight, and nothing in the record distinguished those two
+readings before this run. Prediction 4 is not so much wrong as unmeasurable at this sample -- four
+blade bouts and no plate bouts at all, because `--pairs viable` draws the probed corner from
+matchups that can finish and plate is in few of them.
+
+### The candidates that come out of this, for Session 09's manifest
+
+Recommended, in order of what the numbers support:
+
+1. **`standOff` anchored to my own reach rather than theirs.** Not in the plan, and the strongest
+   result here: the axis has sd 0.01 on gap over their reach and sd 0.68 to 1.34 on gap over mine,
+   and mine is the one the strike threshold is a fraction of. A flag on the executor table, the same
+   shape as `holdMetres`, no change to `COMMAND_AXES`.
+2. **`strokeOutOfRange` false.** +29 % damage dealt and +41 % blows a stroke against a fighting
+   opponent, -18 % against a motionless one. A paired arm decides it; nothing else can.
+3. **`closeGain` lowered rather than raised** -- 0.9 rather than the plan's 3.6 -- if the goal is
+   still that a saturated advance crosses from 1.5 reach into strike. The plan's direction is
+   arithmetically the wrong way round.
+
+Not recommended:
+
+4. **`askHz` 24.** Measured worse in both bases, at four times the inference cost.
+5. **`holdMetres`.** It does what it says and what it says is worth 11 % to 21 % of a spread that is
+   already small, because the pool's published reaches only span 17 %. It stays in the tree behind
+   its flag, defaulted off, as the thing candidate 1 was built out of.
+6. **`bite` narrowed or dropped from the command.** Three pins across its range, two bases, no
+   column moved by more than noise. Worth a session's attention before it is worth a candidate.
+
+And one that is not a surface change at all: **`uniform` is not a usable exploration policy over
+this action space.** It aborts 99.2 % of the strokes it starts. Any learner that begins from a
+uniform prior over the twelve fields spends its first samples in a regime where the thing it is
+trying to learn about -- a stroke that finishes -- almost never happens.
