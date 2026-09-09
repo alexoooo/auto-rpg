@@ -142,8 +142,8 @@ parry, a shove, a thrust and a duck, under a style that stands off, circles with
 cuts into the recover it has been waiting for — and **golem driver** is that same style with
 no options at all, writing a stand-off, a strafe, a lean, a target and an arc as numbers
 twelve times a second into a fourth executor that can be interrupted mid-swing, and
-**golem policy** writes those same numbers from a network fitted against itself on the damage
-each twelfth of a second cost the two bars.
+**golem policy** writes those same numbers from a network fitted against a league of its own
+frozen past selves on the damage each twelfth of a second cost the two bars.
 The filter runs both ways: a swordsman's mind is not offered
 a body with no hands, and the golem's is not offered to a Warrior. A bout ends when its one
 derived vitality bar reaches zero, or when the clock
@@ -383,9 +383,13 @@ interrupted: a stroke already in flight is abandoned the step the abort gate goe
 driver is `golem-form` transcribed onto that surface by hand, and it exists to say what the
 surface costs — it moves four of the nine axes and never once declines to commit. The golem
 policy writes all nine from a network of 87,308 weights that was never shown a hand-coded mind:
-it was fitted against copies of itself on what each twelfth of a second cost the two bars, which
-is the same per-decision signal the learner reads and the first one to be spent on an action space
-nobody wrote a vocabulary for.
+it was fitted on what each twelfth of a second cost the two bars, which is the same per-decision
+signal the learner reads and the first one to be spent on an action space nobody wrote a
+vocabulary for. Ninety-three rounds of it played a league of its own frozen past selves and two
+hunters seeded from it, and the mind that came out is the best in the game on a body identical to
+its opponent's and near the bottom of fourteen when the two bodies differ — every instrument that
+chose it put it in front of its own shape, and the screen draws the other kind of fight. That is
+why the screen's default is still the fencer.
 
 **Win a bout against a golem and whichever of its arms came off intact is yours** — an arm cut
 off at the shoulder is loot, an arm hacked to pieces is debris, and legs are neither, because

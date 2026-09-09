@@ -1803,6 +1803,68 @@ summed to the snapshot for the spend. The pool the sentence names is the pool as
 the shipped iteration, since a snapshot from iteration 8 of a run that has since taken five past
 selves sparred with none of them.
 
+## The style set read as one document, and the three claims it actually established
+
+Session 15, the set's close-out. The sections above were each written by the session that did the
+work, and each is scoped to the pool it ran on — nine minds in Session 08, twelve in Session 11,
+fourteen at the end. **A ranking does not survive a change of pool and none of them claims it
+does.** What follows is the part that survives all three, read off the final table in
+`measurements.md`: fourteen policies, both pools, 4,096 bouts each, seed 20260906.
+
+**One: the arena can tell a mind from a non-mind, and can barely tell two minds apart.** The
+learned artifact that was never fitted — `golem-learner`, whose table on disk is still zeros, so
+the mind names the first open option at every ask — is last on both pools by 0.115 and 0.096 of a
+bar, while the thirteen real minds span 0.067 and 0.110 between themselves. Two hand-written
+styles differ from each other by less than a non-mind differs from the worst of them. That is the
+same result Session 11 selected the decidability lever on and it is the set's most durable single
+number; it is also the standing reason to gate a change on a *paired* difference between two
+designed minds rather than on a mind against its own noise.
+
+**Two: the body is worth about three times the mind, and the pool total is a maul statistic.** By
+the build's armed terminal, a mind's own spread across the seven classes averages 0.515 of a point
+and the spread across all fourteen minds inside a class averages 0.18. Every mind in the set wins
+a long maul and loses a whip. Spearman's ρ between a mind's overall standing and its rank inside a
+column runs maul +0.80, blade +0.56, mace +0.54, plate +0.42, unarmed +0.29, whip +0.16 and fist
++0.06 — so a pool average is a faithful statement about who fights well with a maul and says
+nothing whatever about who wins a fist fight. **Report a fit by weapon class; a pool total is a
+weighted opinion about the pool.** This is why Session 08's build-class reading is repeated in
+every session after it rather than summarised away.
+
+**Three: every instrument in the loop mirrors the body, and four of seven classes cannot decide in
+a mirror.** On identical bodies, plate decides 2 % of its bouts, fist 2 %, whip and unarmed none at
+all — 1,816 of 4,096 bouts, four in nine, returning exactly 0.500 for all fourteen minds. On random
+pairs the same classes decide 19 % to 33 %, because two different bodies is enough asymmetry for
+one of them to get through. Training is mirrored self-play; the league's opponents meet the main on
+its own body; `ratePolicy` mirrors; `scripts/idle-probe.mjs` is a build against a copy of itself.
+The one pool that is not mirrored is the one the matchup screen draws, and it is the pool on which
+the set's shipped fit comes thirteenth of fourteen while coming fifth on the mirror. **A fit is
+only as general as the least mirrored instrument that chose it, and this set had none.**
+
+### What the set shipped, and the one thing a person said about it
+
+`src/golem/policy-weights.ts` carries a 71 → 256 → 256 → 12 head, 87,308 numbers, fitted by PPO
+over 93 league iterations against eleven of its own frozen past selves, two exploiters and
+`golem-driver`. Against the fit it replaced it gains +0.0251 ± 0.0209 points a bout on held-out
+asymmetric pairs, paired bout for bout, t 2.35 — the run improved the matchup the game has, on a
+pool nothing in the training loop optimises for, and the mind it produced is still second from
+last on that pool. Both halves belong in the same sentence and the set closes with both.
+
+The owner watched it and accepted with a hedge: *"kind of OK … I can see it eventually turning
+into something good."* They named two behaviours unprompted — the golems stood just outside each
+other's reach, or hugged — and both are **instrumented and unpriced**. `nearRangeStallSeconds` and
+`retreatOutsideReachSeconds` in `src/engagement.ts` have counted exactly those two things since
+Session 00 and the tournament prints them; `RewardTable` in `src/golem/reward.ts` charges `clinch`
+only inside reach, `idle` only on the tangential component, and ships `tick` at zero. Ninety-three
+iterations optimised happily around behaviours nothing in the objective charges for, and the
+measured fit stalls 6.4 s a bout against the hand-coded fencer's 1.7 while deciding 35 % of its
+bouts against 52 %.
+
+**The general form of that, which is the sentence this set is worth keeping for:** an instrument
+that is only printed is one the optimiser is free to ignore, and the gap between "we measure it"
+and "it is paid for" is where a person's eye keeps landing. The causal test — one run with `tick`
+above a small positive number, scored on the two columns that already print — is designed, cheap
+and unrun, and is named here rather than in a plan file because the plan files are gone.
+
 ## Dying, which is not the same as losing
 
 `over` not stopping the world was the right call about the *bout* and, for a long time, it

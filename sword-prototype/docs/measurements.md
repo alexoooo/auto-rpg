@@ -18406,3 +18406,220 @@ reach" looks like from a chair.
 correlation are both here; the causal test is a run with `tick` above zero, or with the closing
 metre paid, against this one. That run is Session 15's, and it is now cheaper than the asymmetric
 experiment because the columns it would be scored on already exist.
+
+## Session 15 of the style set — 2026-09-09: the final table, and the four bodies in seven that a mirror cannot decide
+
+The set's close-out. **Nothing here is a new measurement.** Every number below is read back out of
+logs the set already paid for — `tournaments/heldout-20260909-mirror.jsonl` and
+`tournaments/heldout-20260909-random.jsonl`, written by Session 14's held-out evaluation: fourteen
+policies, every pair, 4,096 bouts a pool, `--random 40` over the 52-build reference pool, seed
+20260906, cap 60 s, at the two `GOLEM_ASSEMBLY` rows Session 11 landed. Session 14 quoted the four
+rows its argument needed. This prints all fourteen, adds the build classes, and says what the set
+is worth as a whole.
+
+### The final table, mirrored: every mind against its own body shape
+
+1,509 of 4,096 bouts decide, 36.8 %. Intervals are ±1.96 standard errors of the mean over that
+policy's own bouts, which is between 578 and 604 of them, so most of this ordering is inside its
+own noise and the table is read for its ends rather than its middle.
+
+| policy | bouts | points a bout | bar margin |
+| --- | ---: | ---: | ---: |
+| `golem-selector` | 578 | 0.543 ±0.025 | +0.0255 ±0.0195 |
+| `golem-neural` | 580 | 0.536 ±0.025 | +0.0153 ±0.0213 |
+| `golem-skirmisher` | 580 | 0.530 ±0.025 | +0.0221 ±0.0195 |
+| `golem-fencer` | 604 | 0.526 ±0.024 | +0.0208 ±0.0206 |
+| **`golem-policy`**, the set's shipped fit | 578 | 0.524 ±0.023 | **+0.0379 ±0.0215** |
+| `golem-form` | 580 | 0.523 ±0.027 | +0.0216 ±0.0206 |
+| `golem-champion` | 592 | 0.521 ±0.026 | +0.0123 ±0.0207 |
+| `golem-brawler` | 578 | 0.515 ±0.020 | +0.0153 ±0.0187 |
+| `golem-duelist` | 604 | 0.500 ±0.026 | +0.0092 ±0.0207 |
+| `golem-planner` | 604 | 0.483 ±0.023 | −0.0042 ±0.0208 |
+| `golem-guardian` | 580 | 0.479 ±0.025 | +0.0009 ±0.0188 |
+| `golem-tactician` | 578 | 0.465 ±0.024 | −0.0293 ±0.0209 |
+| `golem-driver` | 578 | 0.456 ±0.026 | −0.0042 ±0.0212 |
+| `golem-learner` | 578 | 0.395 ±0.022 | **−0.1447 ±0.0230** |
+
+### The final table on random pairs, which is the matchup the screen actually draws
+
+The same fourteen minds, the same seed, the same 4,096 bouts, each side drawing its own body.
+1,754 decide, 42.8 %. The bar intervals are twice as wide as the mirrored ones for the reason
+Session 11 gave: an asymmetric draw hands one side a body advantage and that variance is in every
+row.
+
+| policy | bouts | points a bout | bar margin |
+| --- | ---: | ---: | ---: |
+| `golem-selector` | 578 | 0.537 ±0.026 | +0.0209 ±0.0411 |
+| `golem-fencer` | 604 | 0.529 ±0.028 | +0.0324 ±0.0449 |
+| `golem-driver` | 578 | 0.529 ±0.028 | **+0.0600 ±0.0442** |
+| `golem-neural` | 580 | 0.516 ±0.025 | +0.0096 ±0.0406 |
+| `golem-form` | 580 | 0.511 ±0.028 | +0.0362 ±0.0460 |
+| `golem-tactician` | 578 | 0.508 ±0.025 | −0.0136 ±0.0416 |
+| `golem-champion` | 592 | 0.506 ±0.025 | +0.0112 ±0.0409 |
+| `golem-brawler` | 578 | 0.505 ±0.026 | +0.0128 ±0.0432 |
+| `golem-guardian` | 580 | 0.503 ±0.028 | +0.0211 ±0.0468 |
+| `golem-skirmisher` | 580 | 0.501 ±0.027 | +0.0183 ±0.0452 |
+| `golem-duelist` | 604 | 0.488 ±0.028 | +0.0077 ±0.0456 |
+| `golem-planner` | 604 | 0.471 ±0.025 | −0.0496 ±0.0408 |
+| **`golem-policy`**, the set's shipped fit | 578 | **0.465 ±0.025** | −0.0218 ±0.0418 |
+| `golem-learner` | 578 | 0.433 ±0.025 | **−0.1455 ±0.0390** |
+
+**Two things hold across both pools and nothing else does.** `golem-selector` is first on each,
+and `golem-learner` — whose table on disk is still the zeros Session 10 shipped, a stand-in for no
+mind at all — is last on each by a margin nothing else in the table comes near. Its bar is −0.1447
+mirrored and −0.1455 on random pairs; the next lowest is −0.0293 and −0.0496, so it sits 0.115 and
+0.096 of a bar below the worst real mind while the thirteen real minds span 0.067 and 0.110
+between themselves. That is the set's most durable single result, and it is the same one Session
+11 got: **the arena can tell a mind from a non-mind, and can barely tell two minds apart.**
+Everything between those two ends moves by less than its own interval, and the two orderings
+disagree about most of it.
+
+**The disagreement worth naming is the two minds on the fourth executor.** `golem-driver` is
+thirteenth mirrored and third on random pairs; `golem-policy`, fitted for 93 league iterations
+against mirrored self-play, is fifth mirrored and thirteenth on random pairs. Session 14 read that
+split for the fit and it holds for the transcription too, in the opposite direction: the hand-
+written command mind is the one that travels, and the one fitted in a mirror is the one that does
+not.
+
+### The same fourteen minds by the build's armed terminal, on random pairs
+
+Points a bout. Columns are ordered by how many bouts they carry; the `none` column spreads 260
+bouts over fourteen minds, about nineteen each, so it is printed rather than read.
+
+| policy | blade | plate | mace | fist | maul | whip | none |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `golem-selector` | 0.470 | 0.468 | 0.640 | 0.378 | 0.934 | 0.406 | 0.391 |
+| `golem-fencer` | 0.516 | 0.417 | 0.619 | 0.398 | 0.913 | 0.324 | 0.444 |
+| `golem-driver` | 0.480 | 0.438 | 0.635 | 0.350 | 0.892 | 0.250 | 0.389 |
+| `golem-neural` | 0.468 | 0.458 | 0.572 | 0.369 | 0.854 | 0.400 | 0.417 |
+| `golem-form` | 0.385 | 0.431 | 0.810 | 0.388 | 0.903 | 0.325 | 0.500 |
+| `golem-tactician` | 0.423 | 0.434 | 0.678 | 0.411 | 0.890 | 0.379 | 0.429 |
+| `golem-champion` | 0.432 | 0.411 | 0.594 | 0.436 | 0.786 | 0.380 | 0.458 |
+| `golem-brawler` | 0.397 | 0.500 | 0.517 | 0.391 | 0.893 | 0.353 | 0.425 |
+| `golem-guardian` | 0.414 | 0.375 | 0.750 | 0.340 | 0.821 | 0.344 | 0.450 |
+| `golem-skirmisher` | 0.426 | 0.443 | 0.671 | 0.370 | 0.879 | 0.333 | 0.333 |
+| `golem-duelist` | 0.478 | 0.422 | 0.583 | 0.314 | 0.777 | 0.348 | 0.409 |
+| `golem-planner` | 0.434 | 0.411 | 0.512 | 0.411 | 0.811 | 0.315 | 0.389 |
+| `golem-policy` | 0.395 | 0.432 | 0.510 | 0.415 | 0.750 | 0.352 | 0.292 |
+| `golem-learner` | 0.381 | 0.417 | 0.473 | 0.350 | 0.795 | 0.338 | 0.429 |
+| bouts a column | 2228 | 1476 | 1250 | 1236 | 1088 | 654 | 260 |
+
+**Every mind in the set wins a maul and loses a whip.** The maul column runs 0.934 to 0.750 and
+the whip column 0.406 to 0.250, and not one of the fourteen crosses one half in both. A mind's
+own spread across the seven classes averages **0.515 of a point**; the spread across all fourteen
+minds inside a class averages 0.18. This is Session 08's finding at the end of the set exactly as
+it was at the beginning — **the body is worth about three times the mind** — and no style, sweep,
+transcription or fit in fifteen sessions has moved that ratio.
+
+**The overall standing is mostly the maul column's ordering.** Spearman's ρ between
+the overall standing and each column: maul +0.80, blade +0.56, mace +0.54, plate +0.42, unarmed
++0.29, whip +0.16, **fist +0.06**. The pool's aggregate is a statement about who fights well with
+a long maul, faithfully, and about who wins a fist fight it says nothing at all. Reporting a fit
+by weapon class rather than as a pool total is the practice this set adopted at Session 08 and
+these seven numbers are why it has to stay.
+
+### The four columns a mirror cannot decide, which indicts the instrument the set was built on
+
+The same breakdown on the mirrored pool, as the fraction of bouts that end before the cap:
+
+| pool | maul | mace | blade | plate | fist | whip | none |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| mirrored | 97 % | 78 % | 41 % | 2 % | 2 % | 0 % | 0 % |
+| random pairs | 88 % | 62 % | 40 % | 21 % | 24 % | 33 % | 19 % |
+
+**On identical bodies, four of the seven armed classes decide essentially nothing** — 2 % of plate
+bouts, 2 % of fist, and not one whip or unarmed bout in 436. Every one of those is a draw, and a
+draw is half a point to both sides, so in the mirrored table above those four columns return
+exactly 0.500 for all fourteen minds and cannot rank anything. That is **1,816 of the 4,096 bouts,
+four in nine**, carrying no information at all in the instrument that chose the set's shipped
+mind.
+
+On random pairs the same classes decide 19 % to 33 %, because two different bodies is enough
+asymmetry for one of them to get through where two of the same is not. That is the mechanism
+behind Session 14's structural complaint stated as a number: training is mirrored self-play, the
+league's opponents meet the main on its own body, the rating mirrors, and the idle probe is a
+build against a copy of itself — so **the entire instrument stack was reading a pool in which four
+classes in seven return one half by construction.** The pool the game has does not do that, and it
+is the pool the shipped fit comes thirteenth on.
+
+### The screen's default, which does not change
+
+`golemMatchup` in `src/bout.ts` opens the matchup screen on `golem-fencer` on both sides,
+named there since the matchup set's Session 03 on that set's final table. This session re-cites it
+against this set's: second of fourteen on random pairs at 0.529 ±0.028, behind `golem-selector`'s
+0.537 ±0.026 by 0.008 with intervals of ±0.027 on each.
+
+**It stays the fencer, and the reason is the set's own rule.** Session 11 wrote that a ranking a
+4,096-bout tournament could not resolve is not a fact for a later table to preserve; promoting the
+selector over a gap a fifth the size of its own interval would be exactly that. The shipped
+`golem-policy` is not the default either, for a reason that is not close: it is thirteenth on the
+pool this screen draws. The picker offers all fifteen and the docstring now carries this table's
+seed and bout count instead of the older set's.
+
+### Every number this set produced, and where it is
+
+Fifteen sessions, one entry each in this file except where noted. Seeds are the tournament seeds
+each session reported against; `20260906` is the set's standing pool seed and a second seed in a
+row is that session's held-out confirmation.
+
+| session | what it produced | seed |
+| --- | --- | ---: |
+| 00 | the four instruments that see a stroke, and the fencer's baseline row | 20260906 |
+| 01 | one claim per part per stroke; the plate that blocks and never wears; two re-taken baselines | 20260906, 20260823 |
+| 02 | the stroke bench, tip speed at the mark by weapon kind, and a shipped cut that misses by 0.63 m | none; a bench |
+| 03 | every blow scored from absorbed energy through its mechanism; the Warrior's pins re-derived | 20260906, 20260823 |
+| 04 | the third executor, fifteen options, event asks; `golem-form`; the option census | 20260906 |
+| 05 | `golem-skirmisher`; nine sweep rows; `patience` 2.0, the set's first constant moved by a sweep | 20260906 |
+| 06 | `golem-guardian`; a wall and not an intercept; `ripostesQuick` shipped off at 3.6σ | 20260906, 20260907 |
+| 07 | `golem-brawler`; ten sweep rows in which not one constant moved the bar | 20260906, 20260907 |
+| 08 | the nine-mind league; the 1,149,249-decision corpus; three build classes in eleven can finish | 20260906, 20260908 |
+| 09 | `golem-selector` and `golem-tactician`; the 742,012-window model; the my-phase constant | 20260909 |
+| 10 | `golem-learner`'s machinery, green, with `LEARNER_WEIGHTS` zeros; **no entry here, see `design.md`** | — |
+| 11 | `healthScale` 0.25 → 0.15 and `vitalityTotal` 3.6 → 5.4, chosen on d per bout; both leagues re-run | 20260907, 20260908, 20260823, 20260906 |
+| 12 | the continuous command surface; `golem-driver`; four defects only 142 frames could find | 20260906 |
+| 13 | `src/golem/reward.ts` and the first PPO fit; the telescoping identity; the Adam trust-region bug | 20260913, 20260906 |
+| 14, calibration | the idle probe; the mind that stood at 2.27× their reach; the entropy-inflated spread | 20260913 |
+| 14, the league | three arms at 93/93/88 iterations; the decisiveness curve; the shipped fit; the held-out split | 20260914, 20260906 |
+| 15 | this entry: the fourteen-mind final table, both pools, by build class | 20260906 |
+
+The artifacts the set leaves on disk are `src/golem/reward.ts`, `src/golem/tactics-v4.ts`,
+`src/golem/policy.ts`, `src/golem/policy-weights.ts` (87,308 numbers, 93 iterations, 12,244 bouts
+and 9,472,734 asks of provenance in its own header), `scripts/league.mjs`,
+`scripts/rate-snapshots.mjs`, `scripts/idle-probe.mjs`, `src/engagement.ts`, and nine minds in
+`src/mind.ts` that did not exist before it.
+
+### The gates, and the one verdict the set got
+
+Fifteen sessions named a gate each and **thirteen were never asked**, by the owner's instruction of
+2026-09-07: the current fighting is too poor for variations of it to be judged, so nothing goes in
+front of a person until there is one non-trivial mind to look at. Sessions 11 through 15 named no
+gate of their own and answered a mechanical bar stated in advance instead — Session 11's effect
+size per bout, Session 12's "not worse than the mind it was transcribed from", Session 13's "beat
+a uniform command by d 0.235 and rise", each of which is recorded above with whether it was met.
+Session 13's was missed by 0.4 standard errors of d and is written down as missed.
+
+**The set's one human gate was Session 14's and it was answered on 2026-09-09.** The owner watched
+several randomised `golem-policy` matchups and accepted with a hedge — *"it's kind of OK in the
+sense that I can see it eventually turning into something good … so if the acceptance is that
+something kind of ok-ish is happening, then yes I accept"* — and named two behaviours unprompted:
+the golems either stood just outside each other's reach or hugged. Both are already instrumented
+and neither is priced by the reward, which is the finding the previous entry measured and this one
+inherits.
+
+### What the set leaves owed, named rather than re-run
+
+1. **The control that separates opponent distribution from headroom from entropy.** Designed and
+   costed at about eighty minutes in the Session 14 league entry, never run, and dropped at the
+   owner's direction when the set closed. Every claim about what the anchor bought is a claim about
+   three cells of a 2×2 whose fourth was never fitted.
+2. **The `tick` above zero run**, which is the causal test of whether the reward's unpriced
+   standoff caused the behaviour the gate named. It is a change to one coefficient of `RewardTable`
+   that ships at zero by an explicit decision recorded beside it, and the columns it would be
+   scored on — `nearRangeStallSeconds` and `retreatOutsideReachSeconds` — already print.
+3. **Whether training on asymmetric pairs transfers.** The held-out split says the shipped mind is
+   a mirrored-fight specialist; nothing in the set tests the fix, and the class table above says
+   the pool it would have to beat is one where the body is worth three times the mind.
+4. **`src/golem/tactics-v2.ts` and `tactics-v3.ts` cannot be retired.** Every mind but the two on
+   the fourth executor still imports one of them, and re-basing them onto the continuous surface
+   would move the baseline the learned minds are measured against — which this set refused on
+   purpose, and a later one may not.
