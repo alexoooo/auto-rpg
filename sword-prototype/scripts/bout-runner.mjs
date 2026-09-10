@@ -20,6 +20,16 @@
 // `CONFIG.bout.capSeconds`, which the page sets to 600 and the measure sets to 60 at
 // the top of its own file, where the argument for 60 lives. A caller that wants a cap
 // passes one; this module sets none.
+//
+// **So is the start separation, since Session 08 of the learn set, and its default does not
+// move.** A curriculum on start distance has to place the right corner somewhere other than
+// `CONFIG.fighter.separation`, and the cheapest wrong way to do that would have been to move
+// the config: every harness in this directory reads it -- the page, the measure, the arena, the
+// tests -- so a curriculum written there would silently restate every bout in
+// `docs/measurements.md` at a distance nobody had asked about. `separation` is therefore a
+// parameter whose default *is* the config, which means a caller that says nothing starts exactly
+// where it started before the flag existed, and `tests/tournament.test.mjs` pins that with a
+// byte-identical rerun beside the reading of a moved corner.
 import { readFile } from "node:fs/promises";
 
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
@@ -206,12 +216,17 @@ export function runBout({
   leftMind = null, rightMind = null, onSample = null, onEvent = null, onRefusal = null,
   onVerdict = null, postVerdictFrames = 0, postVerdictActionProbe = false, physics = havok,
   maxSeconds = CONFIG.bout.capSeconds,
+  separation = CONFIG.fighter.separation,
 }) {
   if (!Number.isFinite(maxSeconds) || maxSeconds <= 0) {
     throw new Error("runBout maxSeconds must be a positive finite number");
   }
+  // Refused rather than clamped, and by name: a schedule that parsed a stage wrongly would
+  // otherwise put two bodies inside one another and read as a physics failure three files away.
+  if (!Number.isFinite(separation) || separation <= 0) {
+    throw new Error("runBout separation must be a positive finite number of metres");
+  }
   const { engine, scene, materials } = buildArena(physics);
-  const F = CONFIG.fighter;
 
   // **`locomotionMode` is opt-in and its default is unchanged**, which is the whole of why it is a
   // parameter rather than something derived here. `src/main.ts` computes it from the pair, and a
@@ -236,7 +251,7 @@ export function runBout({
   const right = unitDefinition(rightUnit).build({
       scene,
       side: "right",
-      origin: new Vector3(0, 0, F.separation),
+      origin: new Vector3(0, 0, separation),
       facing: Math.PI,
       mind: rightMind ?? policyMind(policyForUnit(rightUnit, rightPolicy), seeds[1]),
       loadout: rightLoadout,

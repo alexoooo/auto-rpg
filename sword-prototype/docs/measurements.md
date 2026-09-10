@@ -19637,3 +19637,179 @@ above says a sweep over `outside` alone would be a wasted night on this pool, bu
 And it does not move the shipped table. `GOLEM_REWARD` still carries `closing`, `stall`, `outside`
 and `swing` at zero, `--out` still refuses a fit paid under any other table, and no arm here earned
 the right to change that.
+
+## Session 08 of the learn set -- 2026-09-10: three curricula, four arms from scratch, and a target figure that was the wrong column
+
+The owner asked for a start distance and for opponents by difficulty. Both are here as schedules, a
+weapon-class schedule is beside them, and four arms from the unfitted head ran 60 iterations each to
+say whether any of them learns faster than the shipped league did. **No arm cleared the bar.** The
+bar stands where it was written, and the session's most useful finding is about the bar itself.
+
+### What actually ran, exactly
+
+`docs/sweeps/learn-08-curriculum.json` through `scripts/sweep.mjs`, seed 20260915, every arm from
+scratch -- no `--from`, the unfitted head, the shipped reward table -- at `--shards 2`, so
+`floor((32 - 2) / 4) - 2` = **5 collector workers and 2 fit shards an arm**, twenty-eight threads
+between the four of them on an idle 16C/32T desktop. Common flags: 60 iterations, 64 bouts an
+iteration, `--cap 60`, `--evaluate 0`, the viable pool at 40 random draws. The four arms differ in
+one flag each:
+
+| arm | the one flag | what it tests |
+| --- | --- | --- |
+| a | none | the control |
+| b | `--separation-schedule 1.2:0,default:20` | starting inside the fight |
+| c | `--opponent-schedule idle:0,uniform:10,golem-driver:20,league:40` | opponents by difficulty |
+| d | `--terminals-schedule maul:0,maul+mace:15,viable:30` | classes by decidability |
+
+**All four reached iteration 60, exit 0, zero restarts, in 160 minutes of wall clock.** Mean
+iteration: a 156 s, b 160 s, c 117 s, d 154 s. Arm c is a quarter cheaper than the others for a
+reason worth writing down -- `idle` and `uniform` opponents produce shorter bouts and smaller packs,
+so an opponent curriculum buys throughput as well as whatever it buys the mind.
+
+The ratings are all four arms **in one `evaluate` call** per point, beside `uniform`,
+`golem-driver` and `golem-fencer`: seven contenders over one pool from one seed
+(20260915 ^ 0xc0f1c0f1), so the difference between two arms is a paired difference over the same
+bodies under the same streams rather than a difference of two means from two calls. Eight points an
+arm -- iterations 8, 16, 24, 32, 40, 48, 56 and 60 -- on **both** arrangements: mirrored over the 13
+viable mirror builds, and random viable pairs over 52. 150 bouts a contender on the curve, 300 at
+iteration 60.
+
+### The target figure is the record's `uniform` column, not its `golem-driver` one
+
+The plan's step 6 quotes "+0.1593 +- 0.0466 mirrored at iteration 64" as the shipped league's rating
+**against `golem-driver`**. It is not. That number is the `uniform` row of the eleven-snapshot table
+in this file's own overnight-league entry; the `golem-driver` column of the same rating is not
+tabulated there, and the two "differ by a constant" only within a single rating, not across
+instruments. Read literally, the bar asks for a driver margin no arm here comes within a factor of
+two of, and the honest thing is to report both readings and say which is which.
+
+**Two more reasons that number and these arms are not the same instrument**, both of which the
+briefing anticipated. The record's league ran on 52 unfiltered builds drawn from seed 20260906 --
+twelve of which produce no decided bout at all -- where these arms are rated on 40 viable draws at
+seed 20260915 ^ 0xc0f1c0f1. And the record's league was a warm-started league with a pool, two
+exploiters and an anchor, 128 bouts an iteration, running to iteration 93; these are lone
+`train-ppo` fits from the unfitted head at 64 bouts. **Arm a is the true control and the paired d
+against it is the number that means something.** The absolute crossing is reported below because it
+was asked for, with the caveat carried beside it.
+
+### Iterations to the target, both readings
+
+| arm | first at or above +0.1593 vs `golem-driver` | first at or above +0.1593 vs `uniform`, mirrored | at 60, vs `uniform`, mirrored |
+| --- | --- | --- | ---: |
+| a | never, either pool | iteration **24** (+0.1654 +-0.0644) | +0.1710 +-0.0526 |
+| b | never, either pool | iteration **48** (+0.1981 +-0.0736) | +0.2033 +-0.0503 |
+| c | never, either pool | iteration **40** (+0.1707 +-0.0623) | +0.1932 +-0.0501 |
+| d | never, either pool | iteration **8** (+0.1650 +-0.0602) | +0.1851 +-0.0518 |
+
+**The `uniform` column of that table is worth less than it looks.** Three of the four arms have an
+interval that straddles +0.1593 from iteration 8 onwards, and no arm's curve is monotone: arm a
+crosses at 24, falls back to +0.1324 at 32, and crosses again at 48. A "first crossing" read off a
+curve whose noise is the width of the thing being crossed is a coin, and it is reported as one.
+On **random viable pairs** -- the pool the set's fourth frozen choice calls the one that matters --
+**no arm reaches +0.1593 against `uniform` at any iteration**; the highest reading anywhere is arm c
+at iteration 56, +0.1346 +-0.0639.
+
+Against `golem-driver` the whole set is close to zero. The best driver margin any arm reaches is arm
+c on random pairs at iteration 56, **+0.0643 +-0.0657**, and at iteration 60 the four arms read
++0.0096, +0.0030, +0.0415 and +0.0162, every one of them inside its own interval of zero. Sixty
+iterations of a lone fit from scratch at 64 bouts does not produce a mind that beats the hand-written
+driver, with or without a curriculum, and that is the largest single fact in this entry.
+
+### The bar's second half: the paired d against arm a at iteration 60
+
+Random viable pairs, 300 bouts a contender, all four arms in one call:
+
+| arm - a | bar | +-1.96 sem | paired d | the same d mirrored |
+| --- | ---: | ---: | ---: | ---: |
+| b - a | -0.0066 | 0.0270 | **-0.028** | +0.074 |
+| c - a | +0.0319 | 0.0317 | **+0.114** | +0.047 |
+| d - a | +0.0066 | 0.0283 | **+0.026** | +0.028 |
+
+**The bar wanted d 0.2 and the best arm reads +0.114.** Arm c is the only arm above the control and
+it is a little over half the bar, on an interval that does not exclude zero. Neither half of the bar
+is met by any arm, so the session's verdict is that no curriculum cleared, and the bar is not moved.
+
+### The three arms, one at a time
+
+**Arm b -- starting them 1.2 m apart bought nothing, and it is not a bug.** b is at or below the
+control on random pairs at seven of the eight points, and its paired d against a at iteration 60 is
+-0.028. Its stage boundary is iteration 20, so 19 of its 60 iterations were collected at 1.2 m and
+41 at the config's 2.6 m; nothing in its curve marks the boundary. That is the cleanest reading in
+the session because it is the arm whose flag is most obviously doing something -- the corner is
+placed at 1.2 m and `tests/tournament.test.mjs` reads it off a real bout's first sample -- so this is
+a curriculum that ran and did not help, rather than a flag that was inert. Session 07's floor is the
+likely reason there is no room below it: the executor settles two bodies at about 1.17 m, so 1.2 m
+is roughly *at* the floor rather than inside the fight, and the stage is closer to "start them where
+they will end up" than to "start them in contact".
+
+**Arm c -- the only arm that ends above the control, and the only one that is cheaper.** c leads a on
+random pairs at six of eight points, ends +0.0319 +-0.0317 ahead at d +0.114, and carries the only
+non-trivial `golem-driver` margins in the table. Its four stages are `idle` for 9 iterations,
+`uniform` for 10, `golem-driver` for 20 and then self-play -- `league` in a lone fit is self-play,
+which is this session's own decision and is written into `docs/design.md`. Its cheapness is real and
+separate: 117 s an iteration against the control's 156, because two of its four stages are opponents
+that end bouts quickly. A curriculum that is 25 % cheaper and half a bar better is not nothing; it is
+under the bar, and it is the arm a longer session should re-run.
+
+**Arm d -- a real early gain on the mirrored pool that reverses at the second stage boundary.** d is
+the only arm ahead of the control at iteration 8 and 16 mirrored (d +0.156 and +0.149), which is the
+maul-only stage doing exactly what the plan predicted: five builds that always decide, and a fit that
+gets a signal from all of them. At iteration 24 -- the first snapshot after its `maul+mace` stage
+opens at 15 -- it is **d -0.230** against the control, the largest reversal anywhere in the table, and
+by 60 the whole thing is gone (+0.028). And none of the early gain is visible on random pairs (-0.052
+and -0.096 at 8 and 16), which says what the gain was: the maul stage trains for the mirrored pool,
+and the mirrored pool is not the one that matters.
+
+**Arm d's curriculum is shorter than it reads.** The training pool is mirrored, and `viableMirror`
+accepts only `maul|maul` and `mace|mace`, so at 40 random draws under seed 20260915 the three stages
+draw **5, 16 and 16** builds -- `viable` and `maul+mace` are the same sixteen bodies. d is a two-stage
+curriculum whose third boundary is a no-op, and its iteration-30 stage change should not be looked
+for in the curve.
+
+### One thing that did not move, measured rather than argued
+
+**`CONFIG.fighter.separation` does not move, and every measurement already in this file is
+untouched.** The start distance reaches a bout as an option on `runBout` defaulted to the config, so
+a caller that says nothing starts where it always started. Measured directly: a deterministic
+four-bout tournament -- seed 20260906, 4 bouts, 2 workers, `golem-duelist`, 2 drawn builds, cap 6 s --
+digests to
+
+    sha256 07ddaf3b6c5fdc414ef0ee999606d2c841bf384bf7f77386c1588e7be86cd434
+
+both before and after the change. `tests/tournament.test.mjs` pins the structural half of that in the
+tree -- a job nobody gave a distance carries no such field, the config's own number passed by name
+produces the same rows as passing nothing, and 1.2 m produces different rows -- and this digest is the
+byte-level half, taken once and recorded here rather than frozen into a test, since this prototype
+exempts itself from the root repository's golden-hash contracts.
+
+### Two deviations from the plan, both deliberate
+
+**Arm b's 1.2 is metres, not "units of the pair's larger reach".** The plan's step 5 table says the
+latter; its own frozen-choices section says the start separation is `runBout`'s, which places the
+right corner at a distance in metres, and the test the plan requires reads metres off a real bout's
+first sample. A reach-relative flag would be a second quantity resolved per pairing rather than per
+iteration, which is a different feature; metres is what was built, and it is what the header and
+every iteration row print.
+
+**`league` on a `train-ppo` arm is self-play rather than a refusal.** Arm c's last stage names
+`league` and a lone fit has no pool of frozen past selves to hand an iteration to. Refusing would
+have made the plan's own arm unrunnable; the nearest honest reading is self-play, which is what a
+lone `train-ppo` run does by default anyway, and the resolved schedule is in the header so a reader
+can see which script resolved the word.
+
+### What this entry does not say
+
+It does not say curricula do not work. It says that at these three schedules, from the unfitted head,
+over 60 iterations at 64 bouts, on this pool, none of them cleared a two-sided bar and one of them
+(c) ended half a bar above the control on the pool that matters. Sixty iterations from scratch is a
+short run -- the league this is being compared to spent 93 iterations at 128 bouts from a warm start
+-- and a curriculum whose whole claim is *speed of learning* is exactly the kind of thing a longer run
+could separate and this one could not.
+
+It does not settle a stage boundary. One schedule each was run, chosen from the plan; arm d's
+reversal at 24 is the only evidence in the table that a boundary is a real event, and it is one arm
+at one boundary.
+
+And it does not move anything shipped. `CONFIG.fighter.separation` is 2.6 m, `GOLEM_REWARD` is
+untouched, `src/golem/policy-weights.ts` still carries the league's mind, and no arm here earned the
+right to change any of that.

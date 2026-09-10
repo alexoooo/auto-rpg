@@ -1,6 +1,12 @@
 # Session 08 -- curriculum: where they start, and who they meet
 
-**Status (2026-09-09): planned. Needs 01, 04.**
+**Status (2026-09-10): landed.** All six steps implemented and the four arms run in full --
+60 iterations each, exit 0, zero restarts, 160 minutes. **No arm cleared the bar.** Against
+`golem-driver` no arm reaches +0.1593 on either pool at any iteration, and at iteration 60 the
+best arm leads the control by d +0.114 on random viable pairs against a bar of 0.2. Arm c, the
+opponent schedule, is the only arm above the control and is also a quarter cheaper an iteration.
+`docs/measurements.md` carries the table, the two deviations, and the finding that the target
+figure this plan quotes is the record's `uniform` column rather than its `golem-driver` one.
 
 ## Outcome
 

@@ -6,6 +6,7 @@
 //     npm run tournament -- --policies golem-duelist,golem-fencer
 //     npm run tournament -- --seed 777001 --random 40      -- another corpus, a bigger random pool
 //     npm run tournament -- --pairs viable                 -- only matchups that can end
+//     npm run tournament -- --separation 1.5               -- the corners start 1.5 m apart
 //     npm run tournament -- --read tournaments/x.jsonl     -- the tables again, from the log
 //
 // Every bout is `scripts/bout-runner.mjs`'s, run in `scripts/tournament-worker.mjs` on a fresh
@@ -139,10 +140,18 @@ export function policyPairs(policies) {
  * *both* sides so that neither corner is pinned by the refusal. It is a flag rather than the
  * default here, unlike every pool script, because this is the harness the record's whole-pool
  * tables were taken in and a tournament that quietly changed its own pool would invalidate them.
+ *
+ * `separation` is Session 08 of the learn set's start distance, in metres, and null is the whole
+ * of what "unchanged" means here: the field is left *off* the job rather than filled in with the
+ * config's own number, so a schedule that never fires produces the same job objects this function
+ * has always produced and `runBout`'s own default is what places the corner. A number is written
+ * onto every job of the run, because a curriculum stage is a property of the iteration and not of
+ * the pairing -- the two corners of a pairing are one bout run twice with the sides swapped, and
+ * two bouts started at two distances would not be that.
  */
 export function scheduleJobs({
   pool, policies, pairings, seed, cap, cross = false, mirror = false, contenders = null, pairs = null,
-  viable = false,
+  viable = false, separation = null,
 }) {
   const golem = unitDefinition("golem");
   for (const policy of policies) {
@@ -175,6 +184,10 @@ export function scheduleJobs({
   // has done anything -- a maul wins 232 of 234 against anything that is not one -- and a policy
   // rated on that pool is rated on a coin the body has already flipped. Session 05 of the
   // matchup set added it for exactly that reason; `docs/measurements.md` has the two tables.
+  if (separation !== null && (!Number.isFinite(separation) || separation <= 0)) {
+    throw new Error(`a start separation of ${separation} is not a distance`);
+  }
+  const start = separation === null ? {} : { separation };
   const jobs = [];
   const draw = () => pool[Math.min(pool.length - 1, Math.floor(rng() * pool.length))];
   for (let pairing = 0; pairing < pairings; pairing += 1) {
@@ -199,8 +212,8 @@ export function scheduleJobs({
     const [policyA, policyB] = cycle[pairing % cycle.length];
     const sideA = { build: a.name, setup: a.setup, policy: policyA, seed: seedFor(seed, pairing, 0) };
     const sideB = { build: b.name, setup: b.setup, policy: policyB, seed: seedFor(seed, pairing, 1) };
-    jobs.push({ index: jobs.length, pairing, swapped: false, cap, left: sideA, right: sideB, seeds: [sideA.seed, sideB.seed] });
-    jobs.push({ index: jobs.length, pairing, swapped: true, cap, left: sideB, right: sideA, seeds: [sideB.seed, sideA.seed] });
+    jobs.push({ index: jobs.length, pairing, swapped: false, cap, ...start, left: sideA, right: sideB, seeds: [sideA.seed, sideB.seed] });
+    jobs.push({ index: jobs.length, pairing, swapped: true, cap, ...start, left: sideB, right: sideA, seeds: [sideB.seed, sideA.seed] });
   }
   return jobs;
 }
@@ -661,14 +674,17 @@ export function runJobs(jobs, {
 export async function runTournament({
   seed, bouts, workers, policies, random, cap, out, onProgress = null, overrides = null, cross = false,
   mirror = false, exchanges = false, contenders = null, pairs = null, pool = null, behaviour = false,
-  record = null, explore = 0, samples = null, viable = false,
+  record = null, explore = 0, samples = null, viable = false, separation = null,
 }) {
   pool ??= buildPool({ seed, random });
-  const jobs = scheduleJobs({ pool, policies, pairings: Math.ceil(bouts / 2), seed, cap, cross, mirror, contenders, pairs, viable });
+  const jobs = scheduleJobs({ pool, policies, pairings: Math.ceil(bouts / 2), seed, cap, cross, mirror, contenders, pairs, viable, separation });
   mkdirSync(dirname(out), { recursive: true });
   const header = {
     version: TOURNAMENT_VERSION, seed, date: new Date().toISOString(), policies, bouts: jobs.length, cap, random,
     overrides, cross, mirror, exchanges, behaviour, contenders, pairs, record, explore, viable,
+    // Absent rather than null when nothing asked for one, so a file written before Session 08 of
+    // the learn set and a file written at the default are the same header.
+    ...(separation === null ? {} : { separation }),
     pool: pool.map(({ name, setup, caption }) => ({ name, setup, caption })),
   };
   writeFileSync(out, `${JSON.stringify(header)}\n`);
@@ -768,6 +784,16 @@ if (isMain) {
     const policies = flag("policies", "golem-duelist").split(",").map((name) => name.trim()).filter(Boolean);
     const random = Math.max(0, Number(flag("random", 20)));
     const cap = Number(flag("cap", 60));
+    // Session 08 of the learn set, and here for the probes rather than for the curriculum: a
+    // question about what a start distance does to a hand-coded mind is a tournament question, and
+    // asking it by editing `CONFIG.fighter.separation` would restate every other table in the
+    // record. Absent is absent, not the config's number written out, so a run that does not pass
+    // it writes the header it has always written.
+    const separationFlag = flag("separation", null);
+    const separation = separationFlag === null ? null : Number(separationFlag);
+    if (separation !== null && (!Number.isFinite(separation) || separation <= 0)) {
+      throw new Error(`--separation wants metres, not "${separationFlag}"`);
+    }
     const overrides = parseOverrides(flag("override", ""));
     const cross = argv.includes("--cross");
     const mirror = argv.includes("--mirror");
@@ -808,13 +834,13 @@ if (isMain) {
     const samples = recorded === null ? null : flag("samples", out.replace(/[.]jsonl$/, "") + ".bin");
     if (samples !== null && existsSync(samples)) throw new Error(`${samples} exists; name another with --samples`);
     console.log(`seed ${seed}, ${bouts} bouts, ${workers} workers, cap ${cap} s, policies ${policies.join(", ")}, ` +
-      `${REFERENCE_BUILDS.length} reference builds + ${random} drawn${viable ? ", viable pairs only" : ""}${cross ? ", cross pairs only" : ""}${mirror ? ", one build both sides" : ""}${exchanges ? ", exchange log on" : ""}${behaviour ? ", behaviour records on" : ""}` +
+      `${REFERENCE_BUILDS.length} reference builds + ${random} drawn${separation === null ? "" : `, starting ${separation} m apart`}${viable ? ", viable pairs only" : ""}${cross ? ", cross pairs only" : ""}${mirror ? ", one build both sides" : ""}${exchanges ? ", exchange log on" : ""}${behaviour ? ", behaviour records on" : ""}` +
       (recorded === null ? "" : `, recording ${record}${explore > 0 ? ` at explore ${explore}` : ""}`) +
       (overrides ? `, overriding ${JSON.stringify(overrides)}` : ""));
     let lastReport = 0;
     const { rows, summary, samples: written } = await runTournament({
       seed, bouts, workers, policies, random, cap, out, overrides, cross, mirror, exchanges, behaviour,
-      record: recorded, explore, samples, viable,
+      record: recorded, explore, samples, viable, separation,
       onProgress({ done, total, seconds }) {
         if (done === total || seconds - lastReport >= 10) {
           lastReport = seconds;

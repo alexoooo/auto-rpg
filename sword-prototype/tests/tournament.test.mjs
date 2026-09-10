@@ -11,7 +11,9 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { CONFIG } from "../src/config.ts";
 import { golemSetupRefusal } from "../src/golem/build.ts";
+import { runBout } from "../scripts/bout-runner.mjs";
 import {
   armedHand as armedHandFromSrc,
   armedTerminal as armedTerminalFromSrc,
@@ -433,6 +435,78 @@ test("two_workers_over_four_short_bouts_twice_write_the_same_rows_under_one_seed
   assert.equal(first.summary.byPolicy[0].bouts, 8);
   assert.ok(first.summary.byClass.length >= 1);
   for (const entry of first.summary.byClass) assert.match(entry.name, /^golem-duelist @ \w+\/(short|mid|long)$/);
+});
+
+/**
+ * The start distance: a job carries it, a bout starts at it, and a run that does not ask is the
+ * run it has always been.
+ *
+ * The second half is the load-bearing one and it is why this test is in this file rather than in
+ * `tests/ppo.test.mjs`. `CONFIG.fighter.separation` is read by the page, the measure, the arena
+ * and half the tests, so a curriculum on start distance written *there* would silently restate
+ * every bout in `docs/measurements.md` at a distance nobody had asked about. What is asserted is
+ * that the field is absent from a job nobody gave one to, that handing `runBout` the config's own
+ * number is byte-identical to handing it nothing over a real short tournament, and that a moved
+ * corner does move the bout -- because "absent equals default" is only worth something beside a
+ * check that the flag is not simply being dropped on the floor.
+ *
+ * The corner is read from the *first sample's* ground-to-ground gap of a real bout under real
+ * Havok, which is the same quantity `scripts/tournament-worker.mjs` differences for its closing
+ * rate. A test that read the origin it had just passed in would be satisfied by its own setup.
+ */
+test("a_job_starts_its_corner_where_it_says_and_a_run_that_asks_for_nothing_is_unchanged", { timeout: 300_000 }, async (t) => {
+  const pool = buildPool({ seed: SEED, random: 2 });
+  const bare = scheduleJobs({ pool, policies: ["golem-duelist"], pairings: 2, seed: SEED, cap: 6 });
+  for (const job of bare) {
+    assert.equal("separation" in job, false, "a job nobody gave a distance carries no such field");
+  }
+  const moved = scheduleJobs({ pool, policies: ["golem-duelist"], pairings: 2, seed: SEED, cap: 6, separation: 1.5 });
+  for (const job of moved) assert.equal(job.separation, 1.5, "a curriculum stage is on every job of its iteration");
+  // The distance is a distance, refused by name rather than clamped: a stage parsed wrongly would
+  // otherwise build two bodies inside one another and read as a physics failure three files away.
+  assert.throws(() => scheduleJobs({ pool, policies: ["golem-duelist"], pairings: 1, seed: SEED, cap: 6, separation: 0 }),
+    /is not a distance/);
+  assert.throws(() => runBout({ left: "idle", right: "idle", seeds: [1, 2], separation: -1 }),
+    /positive finite number of metres/);
+
+  // A real bout, read at the first sample the control loop publishes.
+  const firstGap = (job) => {
+    let gap = null;
+    runBout({
+      left: job.left.policy, right: job.right.policy, leftUnit: "golem", rightUnit: "golem",
+      leftGolem: job.left.setup, rightGolem: job.right.setup, locomotionMode: "supported",
+      seeds: job.seeds, maxSeconds: 0.2,
+      ...(job.separation === undefined ? {} : { separation: job.separation }),
+      onSample(sample) {
+        if (gap !== null) return;
+        const mine = sample.left.view.self.ground;
+        const theirs = sample.right.view.self.ground;
+        gap = Math.hypot(mine.x - theirs.x, mine.z - theirs.z);
+      },
+    });
+    return gap;
+  };
+  assert.ok(Math.abs(firstGap(moved[0]) - 1.5) < 1e-6,
+    `a job with separation 1.5 started ${firstGap(moved[0])} m apart`);
+  assert.ok(Math.abs(firstGap(bare[0]) - CONFIG.fighter.separation) < 1e-6,
+    "a job with no separation starts where the config puts it, which is where it always started");
+
+  // And the byte-identical rerun. The default said out loud writes the file the default unsaid
+  // writes, so nothing measured before this flag existed moved; a different distance writes a
+  // different file, so the flag is not being dropped.
+  const dir = mkdtempSync(join(tmpdir(), "sword-separation-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const run = (name, separation) => runTournament({
+    seed: SEED, bouts: 4, workers: 2, policies: ["golem-duelist"], random: 2, cap: 6,
+    out: join(dir, name), separation,
+  });
+  const unsaid = await run("unsaid.jsonl", null);
+  const said = await run("said.jsonl", CONFIG.fighter.separation);
+  const closer = await run("closer.jsonl", 1.2);
+  assert.deepEqual(said.rows, unsaid.rows, "the config's own distance passed by name is the same bouts");
+  assert.equal("separation" in unsaid.header, false, "a header nobody gave a distance carries no such field");
+  assert.equal(said.header.separation, CONFIG.fighter.separation);
+  assert.notDeepEqual(closer.rows, unsaid.rows, "starting 1.4 m closer is a different bout");
 });
 
 test("cross_drops_the_mirror_pairs_and_mirror_puts_one_build_on_both_sides", () => {

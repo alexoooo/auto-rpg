@@ -72,10 +72,13 @@ import { policyMind } from "../src/mind.ts";
 import { policyForUnit } from "../src/units.ts";
 import { mulberry32 } from "../src/rng.ts";
 import {
-  FitPool, PACK_COLUMNS, SHAPING_ROWS, advantages, checkpointFor, cohensD, explainedVariance,
-  extendNormalisation, mergeRollouts, momentsFromJson, momentsToJson, parseTerminals, poolFor,
-  ppoFit, renderPolicyModule, resumesOwnLog, rolloutPairs, surrogateGrad, surrogateObjective,
+  FitPool, PACK_COLUMNS, SCHEDULE_OPPONENTS, SHAPING_ROWS, advantages, checkpointFor, cohensD,
+  explainedVariance, extendNormalisation, mergeRollouts, momentsFromJson, momentsToJson,
+  opponentOf, parseOpponentStage, parseSchedule, parseSeparationStage, parseTerminals,
+  parseTerminalsStage, poolFor, ppoFit, renderPolicyModule, resumesOwnLog, rolloutPairs, scheduled,
+  surrogateGrad, surrogateObjective,
 } from "../scripts/train-ppo.mjs";
+import { CONFIG } from "../src/config.ts";
 import { shardSlice } from "../scripts/fit-worker.mjs";
 import { armedTerminal, buildPool } from "../scripts/tournament.mjs";
 import { VIABLE_TERMINALS, viableBuild, viableMirror, viablePair } from "../src/golem/viability.ts";
@@ -520,6 +523,73 @@ test("the_default_pool_is_the_viable_one_and_all_is_the_word_back_to_the_whole_p
   assert.throws(() => parseTerminals("all,maul"), /cannot be narrowed/);
   assert.throws(() => poolFor({ seed, random: 40, terminals: parseTerminals("malu") }),
     /no build in the pool is armed with malu/);
+});
+
+/**
+ * The curriculum grammar: stages, the value in force at an iteration, and the three refusals.
+ *
+ * The claim worth asserting is not that the parser parses -- it is that a constant and a one-stage
+ * schedule are the *same object*, because that is what lets `--separation 1.2` and
+ * `--separation-schedule 1.2:0` be one run rather than two runs that happen to fight the same
+ * bouts. A header carrying the raw text would differ between them and a reader six months later
+ * would have to decide whether that mattered.
+ *
+ * The boundaries are checked on both sides of every stage, which is the half of `scheduled` a
+ * fencepost error lives in: a stage that began at 20 must be in force *at* 20 and not at 19.
+ */
+test("a_schedule_is_stages_a_constant_is_one_stage_and_the_value_in_force_changes_at_the_boundary", () => {
+  assert.deepEqual(parseSchedule("1.0:0,2.5:20,4.0:40", Number),
+    [{ from: 0, value: 1 }, { from: 20, value: 2.5 }, { from: 40, value: 4 }]);
+  // A single value with no boundary is a constant from iteration zero, and is exactly what
+  // writing the boundary out gives, which is the whole of "the old flags stay".
+  assert.deepEqual(parseSchedule("1.2", Number), [{ from: 0, value: 1.2 }]);
+  assert.deepEqual(parseSchedule("1.2", Number), parseSchedule("1.2:0", Number));
+  assert.equal(parseSchedule(null, Number), null);
+
+  const stages = parseSchedule("1.0:0,2.5:20,4.0:40", Number);
+  assert.deepEqual([0, 1, 19, 20, 21, 39, 40, 41, 600].map((i) => scheduled(stages, i)),
+    [1, 1, 1, 2.5, 2.5, 2.5, 4, 4, 4]);
+  assert.equal(scheduled(parseSchedule("1.2", Number), 93), 1.2, "a constant is a constant forever");
+  assert.throws(() => scheduled([], 0), /and was handed none/);
+
+  // A schedule that runs backwards, or restates a boundary, is refused: whichever stage won would
+  // be an implementation detail standing where a decision should be.
+  assert.throws(() => parseSchedule("4.0:40,1.0:0", Number), /begins at iteration 40/);
+  assert.throws(() => parseSchedule("1.0:0,2.5:20,4.0:20", Number), /runs backwards/);
+  assert.throws(() => parseSchedule("1.0:0,2.5:20,4.0:10", Number), /runs backwards/);
+  // And one that starts anywhere but zero, because nothing would be in force for the first
+  // rollout and the three plausible answers to that are three different runs.
+  assert.throws(() => parseSchedule("1.0:5", Number), /nothing is in force before it/);
+  assert.throws(() => parseSchedule("1.0:2.5", Number), /is not an iteration/);
+  assert.throws(() => parseSchedule(" , ", Number), /wants value:from stages/);
+  assert.throws(() => parseSchedule(":4", Number), /names no value/);
+
+  // The three stage kinds. Metres or the config's own distance; a mind the golem offers or one of
+  // the three words; classes joined with a plus, which is how a list rides inside a comma list.
+  assert.equal(parseSeparationStage("1.2"), 1.2);
+  assert.equal(parseSeparationStage("default"), CONFIG.fighter.separation);
+  assert.throws(() => parseSeparationStage("close"), /neither metres nor the word default/);
+  assert.throws(() => parseSeparationStage("-1"), /neither metres nor the word default/);
+  for (const word of [...SCHEDULE_OPPONENTS, "idle", "golem-driver", "golem-fencer"]) {
+    assert.equal(parseOpponentStage(word), word);
+  }
+  assert.throws(() => parseOpponentStage("golem-drivr"), /neither a mind the golem offers nor/);
+  assert.deepEqual(parseTerminalsStage("maul"), ["maul"]);
+  assert.deepEqual(parseTerminalsStage("maul+mace"), ["maul", "mace"]);
+  assert.deepEqual(parseTerminalsStage("viable"), [...VIABLE_TERMINALS]);
+  assert.deepEqual(parseTerminalsStage("all"), ["all"]);
+  assert.throws(() => parseTerminalsStage("maul+maul"), /--terminals-schedule repeats a class/);
+  // A class nothing carries is refused where every other `--terminals` typo is refused -- at the
+  // draw, by name -- and not silently narrowed to nothing.
+  assert.throws(() => poolFor({ seed: SEED, random: 40, terminals: parseTerminalsStage("malu"), mirror: true }),
+    /no build in the pool is armed with malu/);
+
+  // `self` and `league` both mean self-play to a lone fit, which is the one place this file's
+  // vocabulary and `scripts/league.mjs`'s deliberately disagree, and it is said out loud.
+  assert.equal(opponentOf("self"), null);
+  assert.equal(opponentOf("league"), null);
+  assert.equal(opponentOf("uniform"), "uniform");
+  assert.equal(opponentOf("golem-driver"), "golem-driver");
 });
 
 /**

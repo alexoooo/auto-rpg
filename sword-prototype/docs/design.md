@@ -2096,6 +2096,54 @@ reports a *negative* contribution from that row, and that is deliberate — a sh
 absolute value per row would report a mind as more heavily shaped the more it was paid to fight,
 which is the opposite of the warning the share exists to give.
 
+## Three things a fit can walk across its iterations
+
+Session 08 of the learn set. A run's start distance, its opponent and its weapon pool were three
+constants; they are now three schedules, and a schedule is a string. `parseSchedule` in
+`scripts/train-ppo.mjs` reads `value:from` pairs separated by commas into `[{from, value}]`, and
+`scheduled(schedule, iteration)` returns the value of the last stage whose `from` is at or below
+the iteration. The grammar is small on purpose and refuses four things by name: a first stage that
+does not start at 0, boundaries that do not strictly increase, a `from` that is not a whole
+iteration count, and an empty value. A run whose curriculum was mis-typed should stop before it
+spends an hour, not after.
+
+**A constant is a one-stage schedule, which is what makes the old flags survive.** `--separation
+1.2` and `--separation-schedule 1.2:0` parse to the same `[{from: 0, value: 1.2}]` and are the same
+run, so nothing that passed a scalar had to change and nothing that reads a header has two shapes
+to handle. The pair is refused together -- naming both is a person saying one thing twice and
+possibly disagreeing with themselves -- and the resolved schedule goes into the header row, with
+the value in force written into every iteration row beside the numbers it produced. That last part
+is the one that matters six months later: a curve read off a log can say which stage a row was
+collected under without anybody having to re-derive it from the flags.
+
+- **`--separation-schedule`** is metres between the corners at the start of a bout, or the word
+  `default` for `CONFIG.fighter.separation`. It reaches the bout through the job: `scheduleJobs`
+  in `scripts/tournament.mjs` writes `separation` onto every job of an iteration,
+  `scripts/tournament-worker.mjs` hands it to `runBout`, and `runBout` in
+  `scripts/bout-runner.mjs` places the right corner there. **The config does not move**, and a job
+  without the field is a job that starts where every harness in this repository has always started
+  -- which is why the arena, the bench and every measurement already taken are untouched by this.
+  `runBout` refuses a non-positive or non-finite separation by name rather than clamping it,
+  because a schedule that parsed a stage wrongly would otherwise start two bodies inside one
+  another and read as a physics failure three files away.
+- **`--opponent-schedule`** takes `idle`, `uniform`, any `golem-` driver, `self`, or `league`.
+  `self` is the fit playing its own current weights, which is what a lone `train-ppo` run has
+  always done. `league` in `scripts/league.mjs` hands the iteration to the pool machinery -- the
+  declared mix of self, pool snapshots, exploiters and the anchor -- and in a lone `train-ppo` run
+  it means self-play, because there is no league pool beside a lone fit and the alternative was to
+  refuse a stage that a reader of the plan would reasonably write.
+- **`--terminals-schedule`** takes class lists joined with `+`, or the word `viable` for the whole
+  viable shelf. It sits *beside* `--terminals` rather than replacing it, and that is load-bearing
+  under the sweep runner: `armArgs` in `scripts/sweep.mjs` writes the sweep's one declared pool
+  onto every arm, because two arms rated on two pools are two instruments. So the schedule narrows
+  what an arm *trains* on while the pool it is *rated* on stays the sweep's, which is the only
+  arrangement in which a class curriculum can be compared to an arm that had none.
+
+**In a league the three touch the main's collection alone.** The exploiters and the pool are
+unaffected, because a curriculum for an opponent whose entire job is to find what the main cannot
+do is not a curriculum -- it is a handicap on the instrument. The one thing a class schedule does
+reach is which builds an exploiter is fitted over, and only when a schedule was actually asked for.
+
 ## Dying, which is not the same as losing
 
 `over` not stopping the world was the right call about the *bout* and, for a long time, it

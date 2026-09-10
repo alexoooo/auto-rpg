@@ -1,0 +1,23 @@
+{
+  "name": "learn-08-curriculum",
+  "note": "Session 08 of the learn set: four arms from the unfitted head that differ in nothing but a schedule, to say whether any curriculum reaches the shipped league's rating in fewer iterations than the league did. Arm a carries no schedule and is the control -- Session 06's five arms all failed to clear their bar, so the shipped reward table is what a is, and every number in this sweep that means anything is a paired difference against it. Arm b starts the corners 1.2 m apart and hands them back the config's 2.6 m at iteration 20, which is Session 07's finding used rather than avoided: the bottom third of standOff is dead because the executor cannot hold two bodies closer than about 1.17 m, so 1.2 m is the closest a start can be and still be a start. Arm c walks the opponent up by difficulty; league in a lone fit is self-play, because there is no league pool beside a train-ppo run. Arm d walks the weapon class up by decidability, and with a mirrored training pool viableMirror admits only maul|maul and mace|mace, so its third stage draws the same builds its second one did. From scratch on purpose: the question is speed of learning, and a curriculum that only helps a warm start is a different claim. No start is named here for docs/sweeps/learn-06-reward.json's reason -- tournaments/ is gitignored and a committed manifest that cannot run on a fresh clone is not one -- and here there is nothing to name, since every arm begins at the unfitted head. The pool is the viable one; --terminals-schedule narrows what an arm trains on and leaves the rating pool the declared one, which is what makes the four ratings comparable.",
+  "script": "train-ppo",
+  "seed": 20260915,
+  "pool": {
+    "random": 40
+  },
+  "rate": {
+    "bouts": 300
+  },
+  "common": [
+    "--iterations", "60",
+    "--bouts", "64",
+    "--cap", "60"
+  ],
+  "arms": [
+    { "name": "a", "flags": [] },
+    { "name": "b", "flags": ["--separation-schedule", "1.2:0,default:20"] },
+    { "name": "c", "flags": ["--opponent-schedule", "idle:0,uniform:10,golem-driver:20,league:40"] },
+    { "name": "d", "flags": ["--terminals-schedule", "maul:0,maul+mace:15,viable:30"] }
+  ]
+}

@@ -7,6 +7,9 @@
 //        [--sigma-floor -3] [--sigma-roof 0.5] [--evaluate 5] [--eval-bouts 96]
 //        [--final-bouts 4x eval] [--value-hidden 64,64] [--opponent golem-driver]
 //        [--terminals maul,mace|all]   -- absent is the viable set; `all` is every build
+//        [--separation 2.6] [--separation-schedule 1.2:0,default:20]
+//        [--opponent-schedule idle:0,uniform:10,golem-driver:20,league:40]
+//        [--terminals-schedule maul:0,maul+mace:15,viable:30]
 //        [--reward-win 0.5] [--reward-clinch 0.004] [--reward-idle 0.004] [--reward-tick 0]
 //        [--reward-closing 0] [--reward-stall 0] [--reward-outside 0] [--reward-swing 0]
 //        [--out src/golem/policy-weights.ts] [--log tournaments/ppo-....jsonl] [--resume f.json]
@@ -111,6 +114,41 @@
 // written at full precision where the weights are rounded to five places: a second moment is
 // around 1e-8 and `round5` would set it to zero, which is the same as not saving it.
 //
+// **A schedule is a string, parsed once, printed in the header, and in force in every iteration
+// row.** Session 08 of the learn set. Three of them -- where the bodies start, who the fit meets,
+// and which weapon classes the pool draws -- and one grammar: `value:from` pairs, the value in
+// force from that iteration on, so `--separation 1.2` and `--separation-schedule 1.2:0` are the
+// same run down to the header, which is what `parseSchedule` returning the normalised stages
+// rather than the text is for. There is no second code path for a constant, which is the whole
+// reason the old flags could stay: a constant is a one-stage schedule and the loop below reads
+// `scheduled(...)` at the top of every iteration whether anything ever changes or not.
+//
+// **The start separation is the bout runner's and `CONFIG.fighter.separation` does not move.** A
+// curriculum written into the config would have restated every bout in `docs/measurements.md`, the
+// arena included; `runBout` takes the distance as an option defaulted to the config, the flag
+// reaches it through the job, and a run that names no schedule writes the jobs it always wrote.
+// Session 07's probe is why the flag is worth having and also why a stage below about 1.2 m is not:
+// the bottom third of the `standOff` axis is dead, 0.4 and 0.6 of their reach both settling at
+// about 1.17 m, so a curriculum that starts the bodies closer than that starts them inside a
+// physical floor the executor cannot hold them out of.
+//
+// **`league` in a lone fit is self-play, and it is said out loud rather than refused.** The word
+// belongs to `scripts/league.mjs`, where an iteration has a pool of frozen past selves to hand the
+// schedule to. A `train-ppo` run has exactly one set of weights, so the nearest honest reading of
+// "now play the league" is "now play yourself", which is what it does -- and the header says which
+// script resolved it, because a schedule that meant two different things in two files without
+// saying so is the kind of quietly-inert flag this directory writes traps about.
+//
+// **`--terminals-schedule` sits *beside* `--terminals` where the other two replace their flags,
+// and that asymmetry is the sweep runner's.** `armArgs` in `scripts/sweep.mjs` writes `--terminals`
+// onto every arm's command line from the manifest's one declared pool, because the set's second
+// frozen choice is that two arms are comparable only on one pool. So a class curriculum cannot be
+// spelled by replacing that flag; it narrows the *training* pool on top of it, iteration by
+// iteration, and the pool the run is rated on stays the declared one. Measured, that curriculum is
+// shorter than it looks: the training pool is mirrored, `viableMirror` accepts only `maul|maul` and
+// `mace|mace`, so `viable` and `maul+mace` are the same sixteen builds at 40 draws and the only
+// stage that narrows anything is a `maul`-alone one, which is five.
+//
 // **`--shards` puts the fit on K threads and is not allowed to move a number.** Session 05 of the
 // learn set. The record's 109 s iteration is 86 s of `ppoFit` on one thread, and Session 04
 // measured the same shape from the other end: tripling an arm's collectors bought 1.29x because
@@ -131,6 +169,8 @@ import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Worker, isMainThread } from "node:worker_threads";
 
+import { CONFIG } from "../src/config.ts";
+import { unitDefinition } from "../src/units.ts";
 import { forward, initWeights, netScratch, netSize, backwardFrom } from "../src/golem/neural-net.ts";
 import { PILOT_FEATURE_COUNT, PILOT_FEATURES_VERSION } from "../src/golem/pilot.ts";
 import {
@@ -1070,15 +1110,131 @@ export function poolFor({ seed, random, terminals = VIABLE_TERMINALS, mirror = f
  * possible defaults would be an hour spent measuring a pool nobody asked for. A repeat is refused
  * for the same reason -- it is a typo with a plausible reading.
  */
-export function parseTerminals(text) {
+export function parseTerminals(text, what = "--terminals") {
   if (text === null || text === undefined) return [...VIABLE_TERMINALS];
   const kept = String(text).split(",").map((s) => s.trim().toLowerCase()).filter((s) => s !== "");
-  if (kept.length === 0) throw new Error("--terminals wants weapon classes, as in maul,mace");
-  if (new Set(kept).size !== kept.length) throw new Error(`--terminals repeats a class: ${text}`);
+  if (kept.length === 0) throw new Error(`${what} wants weapon classes, as in maul,mace`);
+  if (new Set(kept).size !== kept.length) throw new Error(`${what} repeats a class: ${text}`);
   if (kept.includes("all") && kept.length > 1) {
-    throw new Error(`--terminals all is the whole pool and cannot be narrowed: ${text}`);
+    throw new Error(`${what} all is the whole pool and cannot be narrowed: ${text}`);
   }
   return kept;
+}
+
+// -------------------------------------------------------------------------------- the schedules
+
+/**
+ * `value:from,value:from`: what a run is doing at each iteration, as ordered stages.
+ *
+ * Returns `[{from, value}]` with `from` the first iteration the value is in force on, and it is
+ * the *normalised* stages that go into a run's header rather than the text they were written as.
+ * That is what makes `--separation 1.2` and `--separation-schedule 1.2:0` the same run rather than
+ * two runs that happen to fight the same bouts: a header carrying the raw string would differ
+ * between them, and a header is the thing a reader six months later uses to decide whether two
+ * logs are comparable.
+ *
+ * A single entry with no colon is a constant from iteration zero, which is the whole of why the
+ * old scalar flags could stay. `parseValue` is the caller's, because the three schedules carry
+ * three different kinds of value and a parser that returned strings would put every refusal an
+ * hour into the run instead of at the top of it.
+ *
+ * Three things are refused and each is a run somebody would otherwise watch do the wrong thing.
+ * A stage that does not start at a whole non-negative iteration, because `2.5:20.5` is a typo with
+ * a plausible reading. A schedule whose first stage is not iteration zero, because there would
+ * then be no value in force when the first rollout is collected and the honest answers -- the
+ * config's, the first stage's, a throw -- are three different runs. And stages out of order or
+ * repeating a boundary, because `1.2:0,2.6:20,1.8:20` is two claims about iteration 20 and
+ * whichever one won would be an implementation detail rather than a decision.
+ */
+export function parseSchedule(text, parseValue = (raw) => raw, what = "a schedule") {
+  if (text === null || text === undefined) return null;
+  const entries = String(text).split(",").map((s) => s.trim()).filter((s) => s !== "");
+  if (entries.length === 0) throw new Error(`${what} wants value:from stages, as in 1.2:0,2.6:20`);
+  const stages = [];
+  for (const entry of entries) {
+    const at = entry.lastIndexOf(":");
+    const rawValue = (at < 0 ? entry : entry.slice(0, at)).trim();
+    const rawFrom = at < 0 ? "0" : entry.slice(at + 1).trim();
+    const from = Number(rawFrom);
+    if (rawFrom === "" || !Number.isInteger(from) || from < 0) {
+      throw new Error(`${what}: stage "${entry}" begins at "${rawFrom}", which is not an iteration`);
+    }
+    if (rawValue === "") throw new Error(`${what}: stage "${entry}" names no value`);
+    stages.push({ from, value: parseValue(rawValue, what) });
+  }
+  if (stages[0].from !== 0) {
+    throw new Error(`${what} begins at iteration ${stages[0].from}, so nothing is in force before `
+      + "it; a schedule's first stage is iteration 0");
+  }
+  for (let i = 1; i < stages.length; i += 1) {
+    if (stages[i].from > stages[i - 1].from) continue;
+    throw new Error(`${what} runs backwards: stage ${i} begins at ${stages[i].from} and the one `
+      + `before it at ${stages[i - 1].from}; stages are written in the order they happen`);
+  }
+  return stages;
+}
+
+/** The value a schedule has in force at an iteration: the last stage that has begun. */
+export function scheduled(schedule, iteration) {
+  if (!Array.isArray(schedule) || schedule.length === 0) {
+    throw new Error("scheduled wants the stages parseSchedule returns, and was handed none");
+  }
+  let value = schedule[0].value;
+  for (const stage of schedule) if (stage.from <= iteration) value = stage.value;
+  return value;
+}
+
+/**
+ * A separation stage: metres, or the word `default` for wherever the config starts a bout.
+ *
+ * `default` is in the grammar because a curriculum's last stage is almost always "and then the
+ * distance every other measurement in this directory was taken at", and spelling that as 2.6
+ * copies a number out of `src/config.ts` into a manifest that would not follow it if it moved.
+ */
+export function parseSeparationStage(raw, what = "--separation-schedule") {
+  if (raw === "default") return CONFIG.fighter.separation;
+  const metres = Number(raw);
+  if (!Number.isFinite(metres) || metres <= 0) {
+    throw new Error(`${what}: "${raw}" is neither metres nor the word default`);
+  }
+  return metres;
+}
+
+/** The two words an opponent stage takes that are not a mind: self-play, and the league's pool. */
+export const SCHEDULE_OPPONENTS = Object.freeze(["self", "league", UNIFORM_NAME]);
+
+/**
+ * An opponent stage: `self`, `league`, `uniform`, or a policy this body can actually be driven by.
+ *
+ * Checked here rather than left to `scheduleJobs` for the reason every refusal in this file is
+ * taken early: a stage that only fires at iteration 40 would otherwise cost forty iterations to
+ * discover, and the message a worker throws names the pairing rather than the flag.
+ */
+export function parseOpponentStage(raw, what = "--opponent-schedule") {
+  if (SCHEDULE_OPPONENTS.includes(raw)) return raw;
+  const golem = unitDefinition("golem");
+  if (golem.driverOptions.some((option) => option.name === raw)) return raw;
+  throw new Error(`${what}: "${raw}" is neither a mind the golem offers nor one of `
+    + `${SCHEDULE_OPPONENTS.join(", ")}`);
+}
+
+/** A terminals stage: classes joined with `+`, or `viable`, or `all`. */
+export function parseTerminalsStage(raw, what = "--terminals-schedule") {
+  if (raw === "viable") return [...VIABLE_TERMINALS];
+  return parseTerminals(raw.split("+").join(","), what);
+}
+
+/**
+ * What `collectRollouts` should be handed for an opponent word, which is null for the two that
+ * mean "yourself".
+ *
+ * `self` is mirrored self-play, the arrangement Session 13 of the style set ran and the one whose
+ * mean return is zero by construction. `league` is the same thing *here* and something else in
+ * `scripts/league.mjs`, which has a pool of frozen past selves to draw from; a lone fit has one
+ * set of weights and the honest reading of "play the league" over them is to play them.
+ */
+export function opponentOf(word) {
+  return word === "self" || word === "league" ? null : word;
 }
 
 /**
@@ -1119,10 +1275,21 @@ export function rolloutPairs(name, opponent) {
  * Naming an opponent breaks the identity: the mean return becomes the thing the fit is actually
  * asked for, which is beating somebody. Only the fit's own sides are recorded, so a bout is
  * worth half what a self-play bout is worth in samples and considerably more in signal.
+ *
+ * **`uniform` is an opponent here as well as a baseline, and it needs a contender of its own.**
+ * It is not a mind the golem offers -- it is the fourth executor under a command drawn uniformly
+ * from its own ranges, which `scripts/tournament-worker.mjs` builds from `{uniform: true}` -- so a
+ * schedule that names it has to put that record in front of `scheduleJobs` or the run is refused
+ * by a policy check that is otherwise exactly the refusal a typo wants. Written here rather than
+ * at every call site because Session 08 of the learn set's opponent curriculum names it and so
+ * would any successor.
+ *
+ * `separation` is that session's other half: null leaves the start distance where `runBout` puts
+ * it, and a number is the iteration's curriculum stage in metres.
  */
 export async function collectRollouts({
   pool, weights, logSigma, norm, seed, bouts, workers, cap, name = FIT_NAME, onProgress = null,
-  reward = GOLEM_REWARD, opponent = null,
+  reward = GOLEM_REWARD, opponent = null, separation = null,
 }) {
   const contenders = {
     [name]: {
@@ -1131,10 +1298,11 @@ export async function collectRollouts({
       sample: true,
     },
   };
+  if (opponent === UNIFORM_NAME) contenders[UNIFORM_NAME] = { uniform: true };
   const jobs = scheduleJobs({
     pool, policies: opponent === null ? [name] : [name, opponent],
     pairings: Math.max(1, Math.ceil(bouts / 2)), seed, cap, mirror: true, contenders,
-    pairs: rolloutPairs(name, opponent),
+    pairs: rolloutPairs(name, opponent), separation,
   });
   const rows = await runJobs(jobs, { workers, contenders, record: [name], onProgress });
   const parts = [];
@@ -1456,6 +1624,29 @@ if (isMain) {
   // A weapon class rather than a build list, for the reason `poolFor` gives. Absent is the viable
   // set since Session 01 of the learn set, and `--terminals all` is the whole fifty-two.
   const terminals = parseTerminals(flag("terminals", null));
+  // ---- Session 08 of the learn set's three curricula, each a one-stage schedule when it is a
+  // scalar. The two that replace a scalar flag refuse the pair, because a run given both would be
+  // a run whose header could not say which of them it obeyed; the class one sits beside
+  // `--terminals` for the reason this file's own note gives -- the sweep runner writes that flag
+  // onto every arm from the manifest's one declared pool, so a class curriculum narrows the
+  // *training* pool on top of it and the rating pool stays the declared one.
+  const separationFlag = flag("separation", null);
+  const separationText = flag("separation-schedule", null);
+  if (separationFlag !== null && separationText !== null) {
+    throw new Error("--separation is a one-stage --separation-schedule; pass one of them");
+  }
+  const separationSchedule = parseSchedule(
+    separationText ?? separationFlag ?? "default", parseSeparationStage, "--separation-schedule");
+  const opponentText = flag("opponent-schedule", null);
+  if (opponent !== null && opponentText !== null) {
+    throw new Error("--opponent is a one-stage --opponent-schedule; pass one of them");
+  }
+  const opponentSchedule = parseSchedule(
+    opponentText ?? opponent ?? "self", parseOpponentStage, "--opponent-schedule");
+  const terminalsText = flag("terminals-schedule", null);
+  const terminalsSchedule = terminalsText === null
+    ? [{ from: 0, value: [...terminals] }]
+    : parseSchedule(terminalsText, parseTerminalsStage, "--terminals-schedule");
   const resumeFrom = flag("resume", null);
   // Another run's weights with the iteration counter back at one and a log of its own, which is
   // what a sweep arm started from a shared checkpoint is. `--resume` continues a run; this begins
@@ -1528,10 +1719,24 @@ if (isMain) {
     iterations, bouts, cap, random, workers, shards, halfLife, lambda, clip, entropy, rate, valueRate,
     sigmaRate, epochs, batch, targetKl, sigmaFloor, sigmaRoof,
     evaluate: every, evalBouts, finalBouts, resumeFrom, from: startFrom, opponent, terminals,
+    // The three curricula as *stages* rather than as the text they were written as, which is what
+    // makes `--separation 1.2` and `--separation-schedule 1.2:0` the same header. `separation`
+    // beside them is the metres the run's *first* iteration is collected at rather than the value
+    // at iteration zero, because iteration one is the first one that exists and a header naming a
+    // distance no bout was ever fought at would be a lie in the one field a reader skims.
+    separation: scheduled(separationSchedule, startAt),
+    separationSchedule, opponentSchedule, terminalsSchedule,
   });
   console.log(`ppo: seed ${seed}, ${iterations} iterations of ${bouts} mirrored bouts, `
     + `${netSize(POLICY_LAYOUT)} actor weights, ${workers} workers, `
     + `${shards === 1 ? "one fit thread" : `${shards} fit shards`}`);
+  const stageLine = (name, schedule, render) => (schedule.length === 1
+    ? `  ${name}: ${render(schedule[0].value)} throughout`
+    : `  ${name}: ${schedule.map((s) => `${render(s.value)} from ${s.from}`).join(", ")}`);
+  console.log(stageLine("start", separationSchedule, (m) => `${m} m`));
+  console.log(stageLine("opponent", opponentSchedule,
+    (word) => (opponentOf(word) === null ? `${word} (self-play; this is not a league)` : word)));
+  console.log(stageLine("pool", terminalsSchedule, (classes) => classes.join("+")));
   // One pool for the run, because a minibatch step is milliseconds and a thread start is not.
   // `fitPool` rather than `pool`, which in the loop below is the iteration's *bodies*.
   const fitPool = shards > 1 ? await FitPool.open({ shards, valueLayout }) : null;
@@ -1590,10 +1795,16 @@ if (isMain) {
     // `mirror` for the reason `collectRollouts` schedules with it: an iteration's bouts put one
     // build in both corners, so a body that cannot finish itself is a whole episode of critic
     // residual whatever the class table says something else could do to it.
-    const pool = poolFor({ seed: (seed ^ iteration) >>> 0, random, terminals, mirror: true });
+    // The three stages in force this iteration, read once here so that the pool, the opposition,
+    // the start distance and the row that reports them are all the same three values.
+    const stageSeparation = scheduled(separationSchedule, iteration);
+    const stageOpponent = scheduled(opponentSchedule, iteration);
+    const stageTerminals = scheduled(terminalsSchedule, iteration);
+    const pool = poolFor({ seed: (seed ^ iteration) >>> 0, random, terminals: stageTerminals, mirror: true });
     const rollout = await collectRollouts({
       pool, weights, logSigma, norm, seed: (seed + iteration * 7919) >>> 0, bouts, workers, cap,
-      reward, opponent, onProgress: progress(`iteration ${iteration}`),
+      reward, opponent: opponentOf(stageOpponent), separation: stageSeparation,
+      onProgress: progress(`iteration ${iteration}`),
     });
     const collected = (Date.now() - started) / 1000;
     if (rollout.count === 0) throw new Error("an iteration collected no asks at all");
@@ -1613,6 +1824,10 @@ if (isMain) {
     norm = extendNormalisation(norm, rollout);
     const line = {
       type: "iteration", iteration, bouts: rollout.bouts, steps: rollout.count,
+      // The three curricula's values in force, on every row whether anything is scheduled or not.
+      // A curve drawn across a run where the pool narrowed at iteration 15 is a curve with a seam
+      // in it, and a row that did not carry the stage would leave a reader guessing where.
+      separation: stageSeparation, opponent: stageOpponent, terminals: stageTerminals,
       episodes: returns.length, decided: round4(rollout.decided), margin: round4(rollout.margin),
       ret: round5(meanOf(returns)), retSem: round5(semOf(returns)),
       length: round4(meanOf(lengths)), penaltyShare: round4(share),
@@ -1641,7 +1856,11 @@ if (isMain) {
       + `H ${fit.entropy.toFixed(2)}  EV ${fit.explainedAfter.toFixed(3)}  `
       + `sigma ${Math.exp(logSigma[0]).toFixed(3)}  `
       + `${fit.updates} steps${fit.stopped === null ? "" : ` (stopped in epoch ${fit.stopped.epoch})`}  `
-      + `${line.seconds.toFixed(0)} s (${collected.toFixed(0)} collect, ${fitted.toFixed(0)} fit)`);
+      + `${line.seconds.toFixed(0)} s (${collected.toFixed(0)} collect, ${fitted.toFixed(0)} fit)`
+      // Printed only when something is actually scheduled, so a run with no curriculum reads as it
+      // always has and a run with one says which stage the line above was collected under.
+      + (separationSchedule.length + opponentSchedule.length + terminalsSchedule.length === 3 ? ""
+        : `  [${stageSeparation} m, ${stageOpponent}, ${stageTerminals.join("+")}]`));
     writeFileSync(checkpoint, JSON.stringify({
       iteration, seed, date, bouts: totalBouts, steps: totalSteps,
       weights: Array.from(weights, round5), valueWeights: Array.from(valueWeights, round5),

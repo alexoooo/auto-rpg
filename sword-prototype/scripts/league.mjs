@@ -8,6 +8,8 @@
 //     [--anchor golem-driver] [--share-anchor 1]
 //     [--reward-win 0.5] [--reward-clinch 0.004] [--reward-idle 0.004] [--reward-tick 0]
 //     [--reward-closing 0] [--reward-stall 0] [--reward-outside 0] [--reward-swing 0]
+//     [--separation 2.6] [--separation-schedule 1.2:0,default:20]
+//     [--opponent-schedule league:0,golem-driver:20] [--terminals-schedule maul:0,viable:30]
 //     [--reset-gain 0.02] [--reset-patience 3] [--dir tournaments/league] [--resume]
 //     [--from tournaments/some-run-checkpoint.json]
 //     [--matrix] [--matrix-bouts 32] [--matrix-lag 1] [--matrix-cap 10] [--probe-bouts 4]
@@ -21,6 +23,15 @@
 // range, and `docs/measurements.md` has the census of one doing exactly that. A pool of frozen
 // past selves breaks the identity the same way `--opponent` did, and for the same reason: the
 // opponent is not a copy of the policy taking the gradient, so beating it is worth something.
+//
+// **The three schedules are Session 08 of the learn set's and they touch the main alone.** Where
+// the bodies start, who the main meets, and which weapon classes its pool draws, each a
+// `value:from` string parsed once and printed in the header. `league` is the word for the declared
+// mix this file computes for itself, so `--opponent-schedule league:0` is the run this script has
+// always been; any other stage puts one opponent at weight one in front of the main for those
+// iterations. The exploiters and the stored pool are deliberately outside all three: an exploiter
+// exists to find what the main cannot answer, and one trained on a narrowed pool at a curriculum's
+// distance is hunting somewhere the main is not.
 //
 // **Why the past and not only the present.** Self-play against the current self cycles. A counter
 // to a habit beats the habit, the habit returns to beat the counter, and the pair orbit forever
@@ -76,9 +87,10 @@ import { availableParallelism } from "node:os";
 import { armedTerminal, runJobs, scheduleJobs } from "./tournament.mjs";
 import { formatIdleProbe, idleProbe } from "./idle-probe.mjs";
 import {
-  FIT_NAME, FitPool, PPO_LEAGUE, REWARD_KEYS, episodeReturns, extendNormalisation, mergeRollouts,
-  momentsFromJson, momentsToJson, parseTerminals, poolFor, policyTable, ppoFit, ratePolicy,
-  renderPolicyModule,
+  FIT_NAME, FitPool, PPO_LEAGUE, REWARD_KEYS, UNIFORM_NAME, episodeReturns, extendNormalisation,
+  mergeRollouts, momentsFromJson, momentsToJson, parseOpponentStage, parseSchedule,
+  parseSeparationStage, parseTerminals, parseTerminalsStage, poolFor, policyTable, ppoFit,
+  ratePolicy, renderPolicyModule, scheduled,
 } from "./train-ppo.mjs";
 import {
   ACTION_AXES, POLICY_LAYOUT, POLICY_VERSION, VALUE_LAYOUT, freshNormalisation,
@@ -306,7 +318,7 @@ export function copyRole(role, seed, bornAt) {
  */
 export async function collectLeague({
   builds, role, opponents, seed, bouts, workers, cap, reward = GOLEM_REWARD,
-  name = MAIN_NAME, onProgress = null,
+  name = MAIN_NAME, onProgress = null, separation = null,
 }) {
   const contenders = { [name]: contenderFor(role, true) };
   for (const opponent of opponents) contenders[opponent.name] = opponent.contender;
@@ -320,6 +332,9 @@ export async function collectLeague({
   const jobs = scheduleJobs({
     pool: builds, policies: [name, ...opponents.map((o) => o.name)],
     pairings: Math.ceil(wanted / pairs.length) * pairs.length, seed, cap, mirror: true, contenders, pairs,
+    // Session 08 of the learn set's start distance. Null is the bout runner's own default, so a
+    // league that schedules nothing writes the jobs it always wrote.
+    separation,
   });
   const rows = await runJobs(jobs, { workers, contenders, record: [name], onProgress });
   const parts = [];
@@ -362,10 +377,10 @@ export async function collectLeague({
  */
 export async function trainRole({
   builds, role, opponents, moments, seed, bouts, workers, cap, reward = GOLEM_REWARD,
-  name = MAIN_NAME, onProgress = null, fit: knobs = {}, pool = null,
+  name = MAIN_NAME, onProgress = null, fit: knobs = {}, pool = null, separation = null,
 }) {
   const rollout = await collectLeague({
-    builds, role, opponents, seed, bouts, workers, cap, reward, name, onProgress,
+    builds, role, opponents, seed, bouts, workers, cap, reward, name, onProgress, separation,
   });
   if (rollout.count === 0) throw new Error(`${name} collected no asks at all`);
   const summary = episodeReturns(rollout);
@@ -782,6 +797,30 @@ if (isMain) {
   const shards = Math.max(1, Number(flag("shards", 8)));
   // Absent is the viable set since Session 01 of the learn set; `--terminals all` is every build.
   const terminals = parseTerminals(flag("terminals", null));
+  // ---- Session 08 of the learn set's three curricula, and here they touch **the main's
+  // collection and nothing else**. An exploiter's job is to find what the main cannot answer, so
+  // an exploiter trained on a narrowed pool, at a curriculum's start distance or against a
+  // curriculum's opponent is an exploiter hunting somewhere the main is not; and the stored pool
+  // is a record of past selves, which a schedule has no business editing. So the stages below are
+  // read at the top of the iteration and handed to the main's `trainRole` alone.
+  const separationFlag = flag("separation", null);
+  const separationText = flag("separation-schedule", null);
+  if (separationFlag !== null && separationText !== null) {
+    throw new Error("--separation is a one-stage --separation-schedule; pass one of them");
+  }
+  const separationSchedule = parseSchedule(
+    separationText ?? separationFlag ?? "default", parseSeparationStage, "--separation-schedule");
+  // `league` is this file's own word and means the declared mix -- self, the pool, the exploiters
+  // and the anchor at their shares -- which is what a league iteration does when nothing is
+  // scheduled. Any other stage replaces that mix for the iteration with one opponent at weight
+  // one, which is how a curriculum says "spend these ten iterations on the dummy".
+  const opponentText = flag("opponent-schedule", null);
+  const opponentSchedule = parseSchedule(
+    opponentText ?? "league", parseOpponentStage, "--opponent-schedule");
+  const terminalsText = flag("terminals-schedule", null);
+  const terminalsSchedule = terminalsText === null
+    ? [{ from: 0, value: [...terminals] }]
+    : parseSchedule(terminalsText, parseTerminalsStage, "--terminals-schedule");
   // The weighting, which is what a league is supposed to use where the calibration used a filter.
   const emphasise = flag("emphasise", "").split(",").map((t) => t.trim()).filter(Boolean);
   const emphasis = Math.max(1, Number(flag("emphasis", 3)));
@@ -1036,7 +1075,14 @@ if (isMain) {
       emphasise, emphasis,
       poolEvery, poolCap, exploiters, exploiterEvery,
       shareSelf, sharePool, shareExploiter, anchor, shareAnchor, resetGain, resetPatience,
-      evaluate: every, evalBouts, finalBouts, resumedAt: resume ? state.iteration : null, ...knobs,
+      evaluate: every, evalBouts, finalBouts, resumedAt: resume ? state.iteration : null,
+      // The three curricula as stages, normalised, so that a run given `--separation 1.2` and a
+      // run given `--separation-schedule 1.2:0` write the same header. The scalar beside them is
+      // the distance the *next* iteration will be collected at, which for a resumed run is the one
+      // it is about to fight rather than a value from before its own first row.
+      separation: scheduled(separationSchedule, state.iteration + 1),
+      separationSchedule, opponentSchedule, terminalsSchedule,
+      ...knobs,
     };
     log({ type: "header", ...header });
     console.log(`league: seed ${seed}, iterations ${state.iteration + 1}..${iterations} of ${bouts} bouts, `
@@ -1074,7 +1120,15 @@ if (isMain) {
       // Mirrored, like the trainer's own rollouts: `collectLeague` puts one build in both
       // corners, so the pool is the bodies that can finish themselves. The emphasis is a weighting
       // over whatever survives that, which is why it is applied outside and not instead.
+      // The three curricula in force this iteration. The pool below is the main's; the exploiters
+      // draw `terminals` and start where the config starts, which is the whole of "the main's
+      // collection only".
+      const stageSeparation = scheduled(separationSchedule, iteration);
+      const stageOpponent = scheduled(opponentSchedule, iteration);
+      const stageTerminals = scheduled(terminalsSchedule, iteration);
       const builds = emphasisedPool(
+        poolFor({ seed: (seed ^ iteration) >>> 0, random, terminals: stageTerminals, mirror: true }), emphasise, emphasis);
+      const exploiterBuilds = terminalsText === null ? builds : emphasisedPool(
         poolFor({ seed: (seed ^ iteration) >>> 0, random, terminals, mirror: true }), emphasise, emphasis);
       // The present, frozen: the main as it stood when the iteration began. Both the main and the
       // exploiters play *this* copy rather than each other's moving weights, so an iteration is
@@ -1082,23 +1136,36 @@ if (isMain) {
       // across a turn because they were all measured against the same opponent.
       const frozen = copyRole(state.main, (seed ^ 0x5e1f ^ iteration) >>> 0, iteration);
       const opponents = [];
-      if (shareSelf > 0) opponents.push({ name: SELF_NAME, weight: shareSelf, contender: contenderFor(frozen) });
-      const slots = spreadSlots(state.pool.length, sharePool, iteration);
-      state.pool.forEach((entry, i) => {
-        if (slots[i] > 0) {
-          opponents.push({ name: poolName(entry.iteration), weight: slots[i], contender: contenderFor(load(entry.iteration)) });
+      if (stageOpponent === "league") {
+        if (shareSelf > 0) opponents.push({ name: SELF_NAME, weight: shareSelf, contender: contenderFor(frozen) });
+        const slots = spreadSlots(state.pool.length, sharePool, iteration);
+        state.pool.forEach((entry, i) => {
+          if (slots[i] > 0) {
+            opponents.push({ name: poolName(entry.iteration), weight: slots[i], contender: contenderFor(load(entry.iteration)) });
+          }
+        });
+        if (shareExploiter > 0) {
+          for (let slot = 0; slot < state.exploiters.length; slot += 1) {
+            opponents.push({ name: exploiterName(slot), weight: shareExploiter, contender: contenderFor(state.exploiters[slot]) });
+          }
         }
-      });
-      if (shareExploiter > 0) {
-        for (let slot = 0; slot < state.exploiters.length; slot += 1) {
-          opponents.push({ name: exploiterName(slot), weight: shareExploiter, contender: contenderFor(state.exploiters[slot]) });
-        }
+        if (anchor !== null && shareAnchor > 0) opponents.push({ name: anchor, weight: shareAnchor });
+      } else if (stageOpponent === "self") {
+        // The frozen copy rather than the live main, for `leaguePairs`' reason: a role on both
+        // sides of a pair is a mirror whose reward sums to zero, and the copy is what makes
+        // "against itself" mean the mind that started the iteration.
+        opponents.push({ name: SELF_NAME, weight: 1, contender: contenderFor(frozen) });
+      } else if (stageOpponent === UNIFORM_NAME) {
+        opponents.push({ name: UNIFORM_NAME, weight: 1, contender: { uniform: true } });
+      } else {
+        // A shipped policy: an opponent with no contender, which is the anchor's own machinery.
+        opponents.push({ name: stageOpponent, weight: 1 });
       }
-      if (anchor !== null && shareAnchor > 0) opponents.push({ name: anchor, weight: shareAnchor });
       const turn = await trainRole({
         builds, role: state.main, opponents, moments: moments.main,
         seed: (seed + iteration * 7919) >>> 0, bouts, workers, cap, reward,
-        name: MAIN_NAME, fit: knobs, pool: fitPool, onProgress: progress(`iteration ${iteration}`),
+        name: MAIN_NAME, fit: knobs, pool: fitPool, separation: stageSeparation,
+        onProgress: progress(`iteration ${iteration}`),
       });
       let fitSeconds = turn.seconds;
       state.bouts += turn.rollout.bouts;
@@ -1112,7 +1179,7 @@ if (isMain) {
         for (let slot = 0; slot < state.exploiters.length; slot += 1) {
           const name = exploiterName(slot);
           const hunt = await trainRole({
-            builds, role: state.exploiters[slot], moments: moments[name],
+            builds: exploiterBuilds, role: state.exploiters[slot], moments: moments[name],
             opponents: [{ name: SELF_NAME, weight: 1, contender: contenderFor(frozen) }],
             seed: (seed + iteration * 7919 + 104_729 * (slot + 1)) >>> 0,
             bouts: exploiterBouts, workers, cap, reward, name, fit: knobs, pool: fitPool,
@@ -1145,6 +1212,9 @@ if (isMain) {
 
       const line = {
         type: "iteration", iteration, bouts: turn.rollout.bouts, steps: turn.rollout.count,
+        // The stages the main's turn was collected under, on every row whether one was scheduled
+        // or not; the exploiters' rows are not these and never were.
+        separation: stageSeparation, opponent: stageOpponent, terminals: stageTerminals,
         episodes: turn.summary.returns.length, decided: round5(turn.rollout.decided),
         margin: round5(turn.rollout.margin), byOpponent: turn.rollout.byOpponent,
         boutsByOpponent: turn.rollout.boutsByOpponent,

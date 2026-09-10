@@ -824,6 +824,9 @@ async function runJob(job) {
     locomotionMode: "supported",
     seeds: job.seeds,
     maxSeconds: job.cap,
+    // A job without the field starts where the config says, because `runBout` defaults it there;
+    // Session 08 of the learn set's curriculum writes a number onto every job of an iteration.
+    ...(job.separation === undefined || job.separation === null ? {} : { separation: job.separation }),
     physics,
     leftMind: minds.left,
     rightMind: minds.right,
