@@ -186,17 +186,24 @@ export async function census(pool, { workers, seed }) {
  * other three -- `record`, `explore` and `behaviour` -- ride through to the workers so that a
  * confirmation can take its decision log and its behaviour records in the same bouts it is
  * scored on, rather than in a second run whose draw is a different draw.
+ *
+ * **`viable` is the pairing predicate and only bites when `mirror` is off.** A mirrored pool has
+ * already been narrowed to builds that can finish themselves, so there is nothing left for a pair
+ * rule to say; over random pairs there is, and the learn set's fourth frozen choice is that the
+ * pool that matters is random *viable* pairs. Off by default, because every caller written before
+ * Session 09 of the learn set was rating on a mirror and would be measuring a different pool if
+ * this quietly turned on.
  */
 export async function evaluate({
   contenders, league, pool, seed, bouts, workers, cap, onProgress = null,
-  mirror = true, record = null, explore = 0, behaviour = false,
+  mirror = true, record = null, explore = 0, behaviour = false, viable = false,
 }) {
   const names = Object.keys(contenders);
   const jobs = [];
   for (const name of names) {
     const scheduled = scheduleJobs({
       pool, policies: [name, ...league], pairings: Math.ceil(bouts / 2) * league.length, seed, cap,
-      mirror, contenders, pairs: league.map((policy) => [name, policy]),
+      mirror, viable, contenders, pairs: league.map((policy) => [name, policy]),
     });
     for (const job of scheduled) jobs.push({ ...job, index: jobs.length });
   }

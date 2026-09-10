@@ -7,6 +7,8 @@
 //        [--root tournaments/sweeps] [--only arm-1,arm-2] [--from checkpoint.json]
 //        [--minutes 0] [--restarts 3]
 //        [--rate-bouts N]   -- absent is the manifest's own; 0 rates nothing
+//        [--paired a]       -- rate every arm in one call, paired against this arm; no run
+//        [--against golem-driver,golem-fencer] -- who the paired rating is played against
 //        [--status 30] [--dry-run]
 //        [any other flag]   -- handed to every arm ahead of its own flags
 //
@@ -78,9 +80,12 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { VIABLE_TERMINALS } from "../src/golem/viability.ts";
 import {
-  PPO_LEAGUE, checkpointFor, parseTerminals, poolFor, poolSentence, ratePolicy,
+  PPO_LEAGUE, checkpointFor, cohensD, contenderShape, parseTerminals, poolFor, poolSentence,
+  ratePolicy,
 } from "./train-ppo.mjs";
 import { boutsPerOpponent, rateSnapshots } from "./rate-snapshots.mjs";
+import { columnsOf, meanOf, semOf } from "./train-learner.mjs";
+import { evaluate } from "./tune.mjs";
 import { headSpecOf } from "../src/golem/policy.ts";
 
 /** This runner's own version, written into the copied manifest so a reader can refuse one. */
@@ -434,15 +439,16 @@ function armRow(arm, row) {
  * beside its league state as well as its live main. A `train-ppo` arm has one checkpoint rather
  * than a pool of them, so its row is the same measurement taken on that -- the same `ratePolicy`,
  * the same pool, the same seed.
- *
- * **The arm's shape comes off its own log header**, because Session 09 of the learn set made the
- * shape an arm-level flag: a checkpoint is weights and a normalisation and says nothing about the
- * head that wrote them, so an arm fitted under `--head mixed` rated as a Gaussian would be a
- * different mind wearing its weights. The header is the run's own first line and is the only place
- * that fact is written down.
  */
 
-/** An arm's declared shape, off the first line of the log it wrote; the shipped shape if silent. */
+/**
+ * An arm's declared shape, off the first line of the log it wrote; the shipped shape if silent.
+ *
+ * Session 09 of the learn set made the shape an arm-level flag, and a checkpoint is weights and a
+ * normalisation and says nothing about the head that wrote them -- so an arm fitted under
+ * `--head mixed` and rated as a Gaussian would be a different mind wearing its weights. The header
+ * is the run's own first line and is the only place that fact is written down.
+ */
 export function shapeOfLog(logPath) {
   if (!existsSync(logPath)) return {};
   const first = readFileSync(logPath, "utf8").split("\n", 1)[0];
@@ -498,6 +504,117 @@ export async function rateArms(manifest, { dir, bouts, workers, cap = 60, onRow 
   return rows;
 }
 
+/**
+ * Every arm in **one** evaluation call, so that arm minus arm is a paired difference.
+ *
+ * `rateArms` above rates each arm in a call of its own, which is fine for the question it was
+ * written for -- how far is this arm from the two fixed baselines -- and is not fine for the
+ * question a ten-arm sweep asks. Two arms rated in two calls met two draws of bodies, so the gap
+ * between their means carries the difference between the draws as well as the difference between
+ * the minds, and `armSummary`'s note says as much out loud. Putting every arm into one
+ * `evaluate` puts all of them in front of the same bodies from the same seeds: column k's row j
+ * and column l's row j are the same fight with a different mind in one corner, and the paired
+ * column of their differences is what the set's criterion has been written on since Session 03 of
+ * the matchup set.
+ *
+ * **The opponent sequence is checked rather than assumed.** The columns are split by who was in
+ * the other corner -- the bar against `golem-driver` is the number the bar is stated on -- and
+ * that split is only paired if every arm's block met the opponents in the same order. It does,
+ * because `evaluate` schedules each contender from the same seed; a build or a league that made
+ * it not do so would silently difference a bout against the driver from a bout against the
+ * fencer, so it is refused by name instead.
+ *
+ * **Two arrangements are two instruments and both are returned.** `mirror: false` with `viable`
+ * up is random viable pairs, which is the pool the set's fourth frozen choice calls the one that
+ * matters; `mirror: true` is one build in both corners, which is the pool every arm's rollouts
+ * were collected on and the one an arm can win by learning the pool rather than the fight. An arm
+ * that wins the mirror and loses the random pool is a specialist and has to be named as one.
+ */
+export async function ratePaired(manifest, {
+  dir, bouts, workers, cap = 60, control, league = PPO_LEAGUE, mirror = false, onProgress = null,
+}) {
+  const eseed = (manifest.seed ^ 0xc0f1c0f1) >>> 0;
+  const { random, terminals } = manifest.pool;
+  const pool = poolFor({ seed: eseed, random, terminals, mirror });
+  const contenders = {};
+  const at = {};
+  for (const arm of manifest.arms) {
+    const paths = armPaths(manifest, arm, dir);
+    const checkpoint = checkpointFor(paths.log);
+    if (!existsSync(checkpoint)) continue;
+    const saved = JSON.parse(readFileSync(checkpoint, "utf8"));
+    const shape = shapeOfLog(paths.log);
+    contenders[arm.name] = {
+      ...contenderShape({ features: shape.features, spec: shape.spec, tactics: shape.tactics }),
+      pi: saved.weights, logSigma: saved.logSigma, normalisation: saved.normalisation,
+      // The greedy read, because what would ship is the mode and not a draw from around it.
+      sample: false,
+    };
+    at[arm.name] = saved.iteration;
+  }
+  const names = Object.keys(contenders);
+  if (names.length === 0) throw new Error("no arm of this sweep has left a checkpoint to rate");
+  if (!names.includes(control)) {
+    throw new Error(`the control is "${control}", which is not among the rated arms `
+      + `(${names.join(", ")}); every number in this table is a difference against it`);
+  }
+  const per = boutsPerOpponent(bouts, league);
+  const { rows, results } = await evaluate({
+    contenders, league, pool, seed: eseed, bouts: per, workers, cap, mirror, viable: !mirror,
+    onProgress,
+  });
+  const block = rows.length / names.length;
+  if (!Number.isInteger(block)) {
+    throw new Error(`${rows.length} rows do not divide among ${names.length} arms`);
+  }
+  const facedBy = (k) => Array.from({ length: block }, (_, i) => {
+    const row = rows[k * block + i];
+    const me = row.left.policy === names[k] ? "left" : "right";
+    return row[me === "left" ? "right" : "left"].policy;
+  });
+  const order = facedBy(0);
+  for (let k = 1; k < names.length; k += 1) {
+    const theirs = facedBy(k);
+    for (let i = 0; i < block; i += 1) {
+      if (theirs[i] === order[i]) continue;
+      throw new Error(`bout ${i}: ${names[0]} met ${order[i]} and ${names[k]} met ${theirs[i]}, `
+        + "so the two columns are not the same fight and their difference is not paired");
+    }
+  }
+  const { points, bar } = columnsOf(rows, names);
+  const against = {};
+  for (const opponent of [...league, "all"]) {
+    const keep = [];
+    for (let i = 0; i < block; i += 1) if (opponent === "all" || order[i] === opponent) keep.push(i);
+    const control_ = keep.map((i) => bar[control][i]);
+    const table = {};
+    for (const name of names) {
+      const b = keep.map((i) => bar[name][i]);
+      const p = keep.map((i) => points[name][i]);
+      const diff = b.map((x, i) => x - control_[i]);
+      table[name] = {
+        arm: name, iteration: at[name], bouts: keep.length,
+        bar: meanOf(b), barSem: semOf(b), points: meanOf(p),
+        delta: meanOf(diff), deltaSem: semOf(diff), d: cohensD(diff),
+      };
+    }
+    against[opponent] = table;
+  }
+  return {
+    seed: eseed, mirror, control, names, league: [...league], bouts: per, block,
+    pool: { builds: pool.length, terminals: [...terminals], random },
+    at, against, results,
+  };
+}
+
+/** One arm's line of a paired table: its own bar, and its difference from the control. */
+export function formatPairedRow(row, control) {
+  const own = `bar ${signed(row.bar, 4)} +-${(1.96 * row.barSem).toFixed(4)}`;
+  if (row.arm === control) return `  ${row.arm.padEnd(4)} ${String(row.iteration).padStart(4)}  ${own}  (control)`;
+  return `  ${row.arm.padEnd(4)} ${String(row.iteration).padStart(4)}  ${own}  `
+    + `vs control ${signed(row.delta, 4)} +-${(1.96 * row.deltaSem).toFixed(4)}  d ${signed(row.d, 3)}`;
+}
+
 const signed = (x, places) => `${x >= 0 ? "+" : "-"}${Math.abs(x).toFixed(places)}`;
 
 /** One rated snapshot as a row of the paired table: the arm, the snapshot, and the two margins. */
@@ -537,7 +654,7 @@ if (isMain) {
   // committed manifest with two numbers turned down rather than a second manifest to keep in step.
   const OWN = Object.freeze([
     "manifest", "workers", "root", "only", "from", "minutes", "restarts", "rate-bouts", "rate-cap",
-    "status",
+    "status", "paired", "against",
   ]);
   const own = new Map();
   const extra = [];
@@ -585,7 +702,36 @@ if (isMain) {
   if (manifest.from !== null) console.log(`  every arm starts from ${manifest.from}`);
   if (minutes > 0) console.log(`  stopping every arm after ${minutes} minutes`);
 
-  if (own.has("dry-run")) {
+  if (own.has("paired")) {
+    // **A mode and not a step of the run.** The arms have to have stopped before this is a
+    // measurement at all -- a rating taken while ten trainers are collecting is a rating on a
+    // different clock -- and after a six-hour night the person asking for the table is not the
+    // process that launched the arms. So it reads what is on disk, starts nothing, and refuses a
+    // control that is not one of the arms it found.
+    const control = own.get("paired");
+    const against = (own.get("against") ?? PPO_LEAGUE.join(",")).split(",")
+      .map((name) => name.trim()).filter(Boolean);
+    const rateWorkers = Math.max(1, available - 2);
+    const out = [];
+    for (const mirror of [false, true]) {
+      const point = mirror ? "mirrored" : "random viable pairs";
+      console.log("");
+      console.log(`${manifest.name} on ${point}: every arm in one call against ${against.join(" and ")}, `
+        + `${boutsPerOpponent(rateBouts, against)} bouts an opponent, seed ${(manifest.seed ^ 0xc0f1c0f1) >>> 0}`);
+      const rated = await ratePaired(manifest, {
+        dir: root, bouts: rateBouts, workers: rateWorkers, cap, control, league: against, mirror,
+      });
+      out.push(rated);
+      console.log(`  pool: ${rated.pool.builds} builds, ${rated.block} bouts an arm`);
+      for (const opponent of [...against, "all"]) {
+        console.log(`  against ${opponent}:`);
+        for (const name of rated.names) console.log(formatPairedRow(rated.against[opponent][name], control));
+      }
+    }
+    writeFileSync(join(home, "paired.json"), JSON.stringify(out, null, 2) + "\n");
+    console.log("");
+    console.log(`  written to ${relative(HERE, join(home, "paired.json")).replaceAll("\\", "/")}`);
+  } else if (own.has("dry-run")) {
     for (const arm of manifest.arms) {
       console.log(`  ${arm.name}: node ${armArgs(manifest, arm, { workers, shards, root, extra }).join(" ")}`);
     }
