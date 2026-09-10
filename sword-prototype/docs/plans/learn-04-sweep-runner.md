@@ -1,6 +1,12 @@
 # Session 04 -- several experiments at once: the sweep runner
 
-**Status (2026-09-09): planned. Needs 01.**
+**Status (2026-09-09): landed. The mechanical bar is half met. The three arms' logs are
+identical through their first iteration once `seconds` -- a wall clock, and the only field of
+the row that cannot be a function of the seed -- is dropped; literal byte-identity was never
+available. The throughput half misses: three arms at ten workers did 2.15 times the iterations
+an hour that one 30-worker run of the same configuration did, against a bar of 2.4, because
+tripling an arm's workers makes it only 1.285 times faster and two thirds of a league iteration
+is a single thread. Reported rather than re-drawn; see docs/measurements.md.**
 
 ## Outcome
 

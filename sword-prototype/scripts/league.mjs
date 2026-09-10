@@ -5,6 +5,7 @@
 //     [--pool-every 4] [--pool-cap 8]
 //     [--exploiters 2] [--exploiter-every 1] [--share-self 1] [--share-pool 2] [--share-exploiter 1]
 //     [--anchor golem-driver] [--share-anchor 1]
+//     [--reward-win 0.5] [--reward-clinch 0.004] [--reward-idle 0.004] [--reward-tick 0]
 //     [--reset-gain 0.02] [--reset-patience 3] [--dir tournaments/league] [--resume]
 //     [--from tournaments/some-run-checkpoint.json]
 //     [--matrix] [--matrix-bouts 32] [--matrix-lag 1] [--matrix-cap 10] [--probe-bouts 4]
@@ -38,6 +39,24 @@
 // pool and taking the provenance -- knobs, anchor, emphasis, and the bouts and asks spent *by
 // that iteration* -- from the run's own log rather than from whatever is retyped on the command
 // line. It writes nothing back into the league, so it is safe beside a running arm.
+//
+// **The reward table became four flags in Session 04 of the learn set, and the argument against
+// that is still on the record below.** It was refused here because a league's product is a
+// checkpoint somebody ships, and a run paid under a table that is not `GOLEM_REWARD` cannot be
+// shipped without lying in the module header. What changed is that Session 06 sweeps the table and
+// the sweep runner's frozen choice is that an arm is a command line -- so a reward arm that could
+// only be a `train-ppo` arm would be a reward answer taken in a harness the mind does not ship
+// from. The flags are the trainer's own, spelled the same way, so one manifest reads across both
+// scripts; and the refusal the old comment wanted is kept where it belongs: `--out` refuses a run
+// paid under anything but the shipped table, and refuses it *before* the run rather than after it.
+//
+// **Adam's moments ride in `league.json` from the same session**, for the reason
+// `scripts/train-ppo.mjs` gives: an overnight expects to die, the sweep runner restarts it, and a
+// role that came back cold in Adam would spend its first iteration back taking the largest steps
+// the rate allows. The main and every exploiter carry their own three blocks. A state file written
+// before this carries none, which is read as "start cold" with a line saying so rather than as a
+// refusal -- the league version is about what a reader would *misread*, and a missing block cannot
+// be misread.
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -46,10 +65,13 @@ import { availableParallelism } from "node:os";
 import { armedTerminal, runJobs, scheduleJobs } from "./tournament.mjs";
 import { formatIdleProbe, idleProbe } from "./idle-probe.mjs";
 import {
-  FIT_NAME, PPO_LEAGUE, episodeReturns, extendNormalisation, mergeRollouts, parseTerminals,
-  poolFor, policyTable, ppoFit, ratePolicy, renderPolicyModule,
+  FIT_NAME, PPO_LEAGUE, REWARD_KEYS, episodeReturns, extendNormalisation, mergeRollouts,
+  momentsFromJson, momentsToJson, parseTerminals, poolFor, policyTable, ppoFit, ratePolicy,
+  renderPolicyModule,
 } from "./train-ppo.mjs";
-import { POLICY_LAYOUT, POLICY_VERSION, VALUE_LAYOUT, freshNormalisation } from "../src/golem/policy.ts";
+import {
+  ACTION_AXES, POLICY_LAYOUT, POLICY_VERSION, VALUE_LAYOUT, freshNormalisation,
+} from "../src/golem/policy.ts";
 import { PILOT_FEATURES_VERSION } from "../src/golem/pilot.ts";
 import { initWeights, netSize } from "../src/golem/neural-net.ts";
 import { GOLEM_REWARD } from "../src/golem/reward.ts";
@@ -160,9 +182,25 @@ export function exploiterStalled(history, { gain = 0.02, patience = 3 } = {}) {
  * `scheduleJobs` draws a build uniformly from the list it is handed, so a list with the maul
  * builds in it three times is three times the maul bouts and every other body still present. The
  * weighting is therefore exact rather than sampled, for `leaguePairs`' reason.
+ *
+ * **A class the list does not carry is refused by name, and that refusal was bought by Session 01
+ * of the learn set.** Every training pool in this file now draws through `viableMirror`, which
+ * keeps the classes that can finish a copy of themselves -- `maul` and `mace` -- and drops the
+ * other five. `--emphasise blade` was, from that session onwards, a flag that weighted a list the
+ * mirror filter had already emptied of blades: it did nothing, said nothing, and left the run
+ * looking exactly like the run that had been asked for. A flag that is quietly inert is the kind
+ * of thing this directory writes traps about, so the classes the list actually carries are named
+ * in the refusal -- which is also the shortest way to be told what the mirror filter left.
  */
 export function emphasisedPool(pool, terminals, weight) {
-  if (terminals.length === 0 || weight <= 1) return pool;
+  if (terminals.length === 0) return pool;
+  const present = [...new Set(pool.map((build) => armedTerminal(build.setup)))].sort();
+  const missing = terminals.filter((terminal) => !present.includes(terminal));
+  if (missing.length > 0) {
+    throw new Error(`--emphasise names ${missing.join(" and ")}, which no build in this pool carries; `
+      + `it draws ${present.length === 0 ? "nothing at all" : present.join(", ")}`);
+  }
+  if (weight <= 1) return pool;
   const times = Math.round(weight);
   const out = [];
   for (const build of pool) {
@@ -399,11 +437,15 @@ export const poolPath = (dir, iteration) => resolve(dir, poolName(iteration) + "
  * not, because a pool entry is written once and read many times and `--matrix` wants to load one
  * without loading the rest.
  *
- * What is *not* saved is Adam's moments, for `train-ppo.mjs`'s reason: they are the shape of the
- * last few gradients and not the mind. A resumed role begins cold in Adam and spends an iteration
- * or so getting its second moments back, which the log shows as a small dip and the entry names.
+ * **Adam's moments were what this file did not save, and Session 04 of the learn set changed
+ * that.** The old argument was that they are the shape of the last few gradients and not the mind,
+ * and that a resumed role spends an iteration getting its second moments back -- which is true and
+ * is the whole objection: an arm the sweep runner restarts three times overnight pays that
+ * iteration three times, and each one is a pass in which every weight moves by exactly the rate in
+ * whatever direction one minibatch chose. `moments` is a map from role name to the three blocks,
+ * the caller's object, and is optional: a state written without it reads back as cold.
  */
-export function saveLeague(dir, state) {
+export function saveLeague(dir, state, moments = null) {
   mkdirSync(dir, { recursive: true });
   const text = JSON.stringify({
     version: LEAGUE_VERSION, policy: POLICY_VERSION, features: PILOT_FEATURES_VERSION,
@@ -413,6 +455,10 @@ export function saveLeague(dir, state) {
     exploiters: state.exploiters.map(roleToJson),
     pool: state.pool.map(({ iteration }) => ({ iteration })),
     taken: state.taken.slice(),
+    adam: moments === null ? null : {
+      main: momentsToJson(moments[MAIN_NAME] ?? null),
+      exploiters: state.exploiters.map((_, slot) => momentsToJson(moments[exploiterName(slot)] ?? null)),
+    },
   });
   // Written aside and renamed into place, because this file is rewritten every iteration and a
   // kill during a two megabyte write leaves JSON that `--resume` cannot parse -- which turns a
@@ -439,7 +485,35 @@ export function loadLeague(dir) {
     // cycle and this list is why nothing is lost by that: the matrix reads `taken`, so a mind
     // that stopped being sparred with is still a row of the progress check.
     taken: (json.taken ?? (json.pool ?? []).map(({ iteration }) => iteration)).slice(),
+    adam: json.adam ?? null,
   };
+}
+
+/**
+ * The saved Adam blocks as a map from role name to the three of them, with what did not come back.
+ *
+ * Every role is answered, whether or not the file had anything for it, so the caller's `moments`
+ * map is complete after one call and a role that a later session adds to a league cannot end up
+ * without an entry. The warnings are named by role, because "the critic started cold" is a
+ * different fact about the main than about `exploiter-1`. A state file with no `adam` at all is
+ * every league written before Session 04 of the learn set: `saved` says so once, and the per-block
+ * warnings are held back, because three lines a role saying the same thing is noise.
+ */
+export function momentsFromLeague(json, roles) {
+  const sizes = {
+    actor: netSize(POLICY_LAYOUT), spread: ACTION_AXES, critic: netSize(LEAGUE_VALUE_LAYOUT),
+  };
+  const moments = {};
+  const warnings = [];
+  const saved = json?.adam !== null && json?.adam !== undefined;
+  const read = (name, block) => {
+    const got = momentsFromJson(block ?? null, sizes);
+    moments[name] = got.moments;
+    if (saved) for (const warning of got.warnings) warnings.push(`${name}: ${warning}`);
+  };
+  read(MAIN_NAME, json?.adam?.main ?? null);
+  for (let slot = 0; slot < roles; slot += 1) read(exploiterName(slot), json?.adam?.exploiters?.[slot] ?? null);
+  return { moments, warnings, saved };
 }
 
 /** A pool entry is a role written once; the loader caches, since an iteration reads all of them. */
@@ -746,11 +820,28 @@ if (isMain) {
     targetKl: Math.max(0, Number(flag("target-kl", 0.03))),
     sigmaFloor: Number(flag("sigma-floor", -3)), sigmaRoof: Number(flag("sigma-roof", 0.5)),
   };
-  // The reward table is not a flag here, unlike in the trainer. A league runs overnight and its
-  // product is a checkpoint somebody will ship; a run paid under a table that is not
-  // `GOLEM_REWARD` cannot be shipped without lying in the module header, and a flag whose only
-  // legal use is a throwaway is a flag that will eventually be used by accident.
-  const reward = GOLEM_REWARD;
+  // The reward table, four flags spelled exactly as `scripts/train-ppo.mjs` spells them so that
+  // one sweep manifest reads across both scripts. The old refusal's argument is kept and moved:
+  // what may not happen is *shipping* a run paid under a table that is not `GOLEM_REWARD`, because
+  // `renderPolicyModule` writes the shipped table's name into the module and a header saying
+  // `reward: GOLEM_REWARD` over weights fitted to something else is a lie nothing in the tree can
+  // catch. So the refusal is on `--out`, and it fires before the run rather than after it.
+  const reward = Object.freeze({
+    win: Number(flag("reward-win", GOLEM_REWARD.win)),
+    clinch: Number(flag("reward-clinch", GOLEM_REWARD.clinch)),
+    idle: Number(flag("reward-idle", GOLEM_REWARD.idle)),
+    tick: Number(flag("reward-tick", GOLEM_REWARD.tick)),
+  });
+  const shippedReward = REWARD_KEYS.every((key) => reward[key] === GOLEM_REWARD[key]);
+  if (write !== null && !shippedReward) {
+    throw new Error(`--out refuses a run paid under ${JSON.stringify(reward)}, which is not GOLEM_REWARD; `
+      + "move the table in src/golem/reward.ts first, or ship from the checkpoint instead");
+  }
+  // A run with no rating cannot write a module either, and finding that out after the last
+  // iteration is finding it out after the night. `--evaluate 0` is what the sweep runner passes.
+  if (write !== null && every === 0 && !shipOnly) {
+    throw new Error("--out wants a rating to put in the module header; run with --evaluate above zero");
+  }
 
   mkdirSync(dir, { recursive: true });
   const out = resolve(dir, "league.jsonl");
@@ -801,12 +892,16 @@ if (isMain) {
       pool: [], taken: [],
     };
   }
-  // Adam's moments are the caller's and are not in the state file, so a resumed run rebuilds them
-  // from its next few gradients. One object a role, held here for the length of the process.
-  const moments = { main: { actor: null, spread: null, critic: null } };
-  for (let slot = 0; slot < state.exploiters.length; slot += 1) {
-    moments[exploiterName(slot)] = { actor: null, spread: null, critic: null };
+  // Adam's moments, one block a role, read back off the state file since Session 04 of the learn
+  // set. A league written before that has none and starts cold, which is said once rather than
+  // per role: an arm the runner restarted is meant to be the same run, and the one way to tell it
+  // is not is that nobody printed a line.
+  const read = momentsFromLeague(state, state.exploiters.length);
+  const moments = read.moments;
+  if (!read.saved && (resume || matrixOnly || shipOnly)) {
+    console.log(`  ${statePath(dir)} carries no Adam moments; every role starts cold`);
   }
+  for (const warning of read.warnings) console.log(`  ${warning}`);
   const load = poolLoader(dir);
 
   if (shipOnly) {
@@ -1012,7 +1107,7 @@ if (isMain) {
         snapshot = iteration;
       }
       state.iteration = iteration;
-      saveLeague(dir, state);
+      saveLeague(dir, state, moments);
 
       const line = {
         type: "iteration", iteration, bouts: turn.rollout.bouts, steps: turn.rollout.count,

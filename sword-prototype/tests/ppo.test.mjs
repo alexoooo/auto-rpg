@@ -33,6 +33,9 @@
 // | `poolFor` filters on the *primary* terminal rather than the armed one | the pool test |
 // | `poolFor` still defaults to the whole pool, so the learn set's first frozen choice is off | the pool test |
 // | `poolFor` ignores `mirror`, so a mirrored rollout collects on bodies that cannot finish themselves | the pool test |
+// | `adamToJson` rounds the moments to five places, as the weights beside them are rounded | the resumed-fit test |
+// | `momentsFromJson` returns cold state for a block it was given | the resumed-fit test |
+// | `resumesOwnLog` compares the two file names rather than resolving both paths | the resume-path test |
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -51,8 +54,9 @@ import { policyMind } from "../src/mind.ts";
 import { policyForUnit } from "../src/units.ts";
 import { mulberry32 } from "../src/rng.ts";
 import {
-  advantages, cohensD, explainedVariance, extendNormalisation, mergeRollouts, parseTerminals,
-  poolFor, ppoFit, renderPolicyModule, rolloutPairs, surrogateGrad, surrogateObjective,
+  advantages, checkpointFor, cohensD, explainedVariance, extendNormalisation, mergeRollouts,
+  momentsFromJson, momentsToJson, parseTerminals, poolFor, ppoFit, renderPolicyModule,
+  resumesOwnLog, rolloutPairs, surrogateGrad, surrogateObjective,
 } from "../scripts/train-ppo.mjs";
 import { armedTerminal, buildPool } from "../scripts/tournament.mjs";
 import { VIABLE_TERMINALS, viableBuild, viableMirror, viablePair } from "../src/golem/viability.ts";
@@ -764,4 +768,180 @@ test("ppo_recovers_the_optimum_of_a_two_dimensional_continuous_bandit", () => {
   assert.ok(logSigma[1] < -1.2, `axis 1 kept a spread of exp(${logSigma[1]})`);
   assert.ok(logSigma[0] > -4 + 1e-9, "axis 0 sat on the floor rather than finding a spread");
   assert.ok(actionEntropy(head, logSigma) > -50, "the head collapsed to a point");
+});
+
+// ---------------------------------------------------------------------------------------
+// The thing that makes a restarted arm the same run.
+// ---------------------------------------------------------------------------------------
+
+/** The one problem's knobs, said once, so the three runs below cannot drift apart. */
+const BANDIT = Object.freeze({
+  target: Object.freeze([0.6, -0.45]),
+  layout: Object.freeze({ inputs: 4, hidden: Object.freeze([24]), outputs: ACTION_WIDTH }),
+  valueLayout: Object.freeze({ inputs: 4, hidden: Object.freeze([24]), outputs: 1 }),
+  perRound: 192,
+});
+
+/**
+ * One round of the bandit above, from a state that has been through JSON and back.
+ *
+ * The whole state crosses that boundary the way a checkpoint does -- the weights, the spreads, the
+ * critic and, when `carry` is on, Adam's three blocks -- and the round's own random stream is
+ * derived from the round number, exactly as `scripts/train-ppo.mjs` derives an iteration's seed
+ * from `seed + iteration * 7919`. So a "resumed" round here is a resumed round: nothing survives in
+ * a live object that a restarted process would not have had to read off disk. `moments` is passed
+ * in instead when the caller is the uninterrupted run, which is the only difference between the
+ * two arrangements and therefore the only thing this test is about.
+ */
+function banditRound(round, saved, { carry = true, moments = null } = {}) {
+  const { target, layout, valueLayout, perRound } = BANDIT;
+  const state = JSON.parse(saved);
+  const weights = Float64Array.from(state.weights);
+  const logSigma = Float64Array.from(state.logSigma);
+  const valueWeights = Float64Array.from(state.valueWeights);
+  const carried = moments ?? momentsFromJson(carry ? state.adam : null, {
+    actor: netSize(layout), spread: ACTION_AXES, critic: netSize(valueLayout),
+  }).moments;
+  const scratch = netScratch(layout);
+  const observation = Float64Array.from([1, 0.5, -0.25, 0]);
+  const draw = new Float64Array(ACTION_WIDTH);
+  const random = mulberry32(SEED + round * 7919);
+  const rollout = {
+    count: perRound, width: layout.inputs,
+    x: new Float32Array(perRound * layout.inputs),
+    a: new Float64Array(perRound * ACTION_WIDTH),
+    logp: new Float64Array(perRound),
+    reward: new Float64Array(perRound),
+    seconds: new Float64Array(perRound),
+    done: new Uint8Array(perRound).fill(1),
+  };
+  for (let i = 0; i < perRound; i += 1) {
+    const head = forward(layout, weights, observation, scratch);
+    rollout.logp[i] = sampleAction(head, logSigma, random, draw);
+    rollout.reward[i] = -((draw[0] - target[0]) ** 2) - ((draw[1] - target[1]) ** 2);
+    rollout.x.set(observation, i * layout.inputs);
+    rollout.a.set(draw, i * ACTION_WIDTH);
+  }
+  const fit = ppoFit(rollout, {
+    weights, logSigma, valueWeights, layout, valueLayout, norm: freshNormalisation(layout.inputs),
+    seed: SEED + round, halfLife: 1, lambda: 0.95, clip: 0.2, entropy: 0.0005, rate: 0.012,
+    // The trust region is off, where the bandit above runs at 0.02. It has a test of its own two
+    // sections up, and a round that stopped in its first epoch would make this one an assertion
+    // about one or three Adam updates rather than about all twelve of them carrying their moments
+    // across a restart -- which is the thing being claimed.
+    valueRate: 0.02, sigmaRate: 0.012, epochs: 4, batch: 64, targetKl: 0,
+    sigmaFloor: -4, sigmaRoof: 0.5, ...carried,
+  });
+  const next = { actor: fit.actor, spread: fit.spread, critic: fit.critic };
+  return {
+    moments: next,
+    saved: JSON.stringify({
+      weights: Array.from(weights), logSigma: Array.from(logSigma),
+      valueWeights: Array.from(valueWeights), adam: momentsToJson(next),
+    }),
+  };
+}
+
+/** The largest distance between two same-length lists of numbers, which is what 1e-9 is about. */
+const worstOf = (a, b) => a.reduce((most, x, i) => Math.max(most, Math.abs(x - b[i])), 0);
+
+/**
+ * A fit resumed with its Adam state is the uninterrupted fit; resumed without it, it is not.
+ *
+ * This is the whole justification for putting three flat arrays of eighty-seven thousand numbers
+ * into every checkpoint, so both halves are asserted and the second is the one that earns it. Adam
+ * divides by its own second moment, so with cold moments *every* weight moves by exactly the rate
+ * in whatever direction the first minibatch chose -- the calibration in `docs/measurements.md`
+ * measured that as about 0.18 nats in a single step at 3e-4, which is why the batch and the rate
+ * were retuned around it. A run restarted four times overnight pays that four times, and its curve
+ * carries four steps somebody would later try to read as learning.
+ *
+ * Two iterations is enough and is the plan's own number: after the first the moments are non-zero
+ * and the step counts are up, so the second is where a cold restart and a warm one part company.
+ * The tolerance is 1e-9 on every weight, which is equality for a double that has been through
+ * `JSON.stringify` -- the moments are written at full precision for exactly this reason, and
+ * rounding them the way the weights beside them are rounded turns this test red.
+ */
+test("a_fit_resumed_with_its_adam_state_is_the_uninterrupted_fit_and_without_it_is_not", () => {
+  const { layout, valueLayout, perRound } = BANDIT;
+  const start = JSON.stringify({
+    weights: Array.from(initWeights(layout, SEED)),
+    logSigma: Array.from(new Float64Array(ACTION_AXES).fill(-0.7)),
+    valueWeights: Array.from(initWeights(valueLayout, SEED + 1)),
+    adam: null,
+  });
+  const first = banditRound(1, start);
+  const warm = JSON.parse(banditRound(2, first.saved, { carry: true }).saved);
+  const cold = JSON.parse(banditRound(2, first.saved, { carry: false }).saved);
+  // The uninterrupted pair, holding the moments in memory the way a process that never died does.
+  const second = banditRound(2, first.saved, { moments: first.moments });
+  const uninterrupted = JSON.parse(second.saved);
+
+  // The state a restart reads is the state the first round wrote, and it has moments in it.
+  const written = JSON.parse(first.saved);
+  assert.equal(written.adam.actor.step, 4 * Math.ceil(perRound / 64), "every minibatch of every epoch took a step");
+  assert.equal(written.adam.actor.m.length, netSize(layout));
+  assert.equal(written.adam.spread.m.length, ACTION_AXES);
+  assert.ok(written.adam.critic.v.some((x) => x !== 0), "the critic's second moments are not all zero");
+
+  assert.ok(worstOf(warm.weights, uninterrupted.weights) < 1e-9,
+    `a resumed fit moved a weight by ${worstOf(warm.weights, uninterrupted.weights)}`);
+  assert.ok(worstOf(warm.logSigma, uninterrupted.logSigma) < 1e-9, "a resumed fit moved a spread");
+  assert.ok(worstOf(warm.valueWeights, uninterrupted.valueWeights) < 1e-9, "a resumed fit moved the critic");
+  // And the half that says the state is worth persisting: without it the same round is a different
+  // fit, by a margin many orders of magnitude past the tolerance above.
+  const drift = worstOf(cold.weights, uninterrupted.weights);
+  assert.ok(drift > 1e-4, `a fit resumed with cold moments differed by only ${drift}`);
+});
+
+/**
+ * Which `--resume` may append to an existing log, and which is a second run pointed at one.
+ *
+ * The refusal that a run does not append to another run's log is worth keeping, and was also --
+ * until Session 04 of the learn set -- refusing the one thing `--resume` exists for, so every
+ * hand-restarted run in the record started a second log file and its curve had to be stitched
+ * afterwards. The rule that separates the two cases is exact rather than a heuristic: the
+ * checkpoint being resumed is the checkpoint this log writes. Anything else is `--from`, which
+ * starts a fresh log from another run's weights.
+ */
+test("a_resume_continues_only_the_log_whose_own_checkpoint_it_names", () => {
+  assert.equal(checkpointFor("tournaments/arm-1.jsonl"), "tournaments/arm-1-checkpoint.json");
+  assert.equal(resumesOwnLog("tournaments/arm-1.jsonl", "tournaments/arm-1-checkpoint.json"), true);
+  // The same file said a different way is the same file, which is why both sides are resolved.
+  assert.equal(resumesOwnLog("tournaments/arm-1.jsonl", "tournaments/./arm-1-checkpoint.json"), true);
+  assert.equal(resumesOwnLog("tournaments/arm-1.jsonl", "tournaments/arm-2-checkpoint.json"), false,
+    "another arm's checkpoint is --from, not --resume");
+  assert.equal(resumesOwnLog("tournaments/arm-1.jsonl", null), false);
+});
+
+/**
+ * The three blocks survive JSON, and a block that cannot be used says which one and why.
+ *
+ * The width case is not hypothetical: `--value-hidden` moves the critic's size, so a checkpoint
+ * written under one width and resumed under another has value moments there is nothing sensible to
+ * do with. Starting that one block cold and naming it is the same answer `roleFromCheckpoint` in
+ * `scripts/league.mjs` gives for the value *weights*, and refusing the whole checkpoint over it
+ * would throw away a perfectly good actor.
+ */
+test("adam_moments_round_trip_and_a_block_of_the_wrong_width_starts_cold_by_name", () => {
+  const sizes = { actor: 6, spread: 2, critic: 3 };
+  const made = {
+    actor: { m: Float64Array.from([1e-9, -2, 3, 4, 5, 6]), v: Float64Array.from([1, 2, 3, 4, 5, 6]), step: 7 },
+    spread: { m: Float64Array.from([0.5, -0.5]), v: Float64Array.from([0.25, 0.25]), step: 7 },
+    critic: { m: Float64Array.from([1, 2, 3]), v: Float64Array.from([1, 2, 3]), step: 7 },
+  };
+  const back = momentsFromJson(JSON.parse(JSON.stringify(momentsToJson(made))), sizes);
+  assert.deepEqual(back.warnings, []);
+  assert.deepEqual(Array.from(back.moments.actor.m), Array.from(made.actor.m));
+  assert.equal(back.moments.actor.m[0], 1e-9, "a second moment survives at its own scale");
+  assert.equal(back.moments.critic.step, 7);
+
+  const narrow = momentsFromJson(momentsToJson(made), { ...sizes, critic: 4 });
+  assert.equal(narrow.moments.critic, null);
+  assert.deepEqual(Array.from(narrow.moments.actor.m), Array.from(made.actor.m), "the actor is untouched");
+  assert.deepEqual(narrow.warnings, ["critic moments 3 moments, not 4; that block starts cold"]);
+
+  const nothing = momentsFromJson(null, sizes);
+  assert.deepEqual(Object.values(nothing.moments), [null, null, null]);
+  assert.equal(nothing.warnings.length, 3, "a checkpoint written before this session says so per block");
 });

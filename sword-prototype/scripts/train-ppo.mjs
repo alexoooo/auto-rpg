@@ -9,6 +9,7 @@
 //        [--terminals maul,mace|all]   -- absent is the viable set; `all` is every build
 //        [--reward-win 0.5] [--reward-clinch 0.004] [--reward-idle 0.004] [--reward-tick 0]
 //        [--out src/golem/policy-weights.ts] [--log tournaments/ppo-....jsonl] [--resume f.json]
+//        [--from other-checkpoint.json]  -- another run's weights, a fresh log [--label arm-1]
 //
 // **What is fitted.** Nine numbers and three gates a twelfth of a second, straight onto the fourth
 // executor's command surface. Nothing chooses a name; there is no vocabulary between the network
@@ -92,6 +93,19 @@
 // *name* into the generated module: a module saying `reward: GOLEM_REWARD` over weights fitted to
 // something else would be a lie with nothing in the tree able to catch it. Read the checkpoint
 // instead, or move the table in `src/golem/reward.ts` first.
+//
+// **A restarted run is the same run, and that took three changes rather than one.** Session 04 of
+// the learn set runs several arms at once and restarts any that dies from its last checkpoint, so
+// "resumed" had to stop meaning "nearly the same". `--resume` continues *its own* log -- the
+// refusal that a run does not append to another run's log now excuses exactly the checkpoint that
+// log wrote and nothing else, which is `resumesOwnLog`. `--from` is the other half and is what the
+// old `--resume` was being used for by hand: another run's weights, a fresh log, the iteration
+// counter back at one. And the checkpoint carries `adam`, because Adam's moments are not a
+// convenience -- with cold moments every one of the 87,308 weights moves by exactly the rate in
+// the direction one minibatch chose, which is the calibration's own finding about the first
+// iteration of a run, and a run restarted four times overnight would pay it four times. They are
+// written at full precision where the weights are rounded to five places: a second moment is
+// around 1e-8 and `round5` would set it to zero, which is the same as not saving it.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { dirname, resolve } from "node:path";
@@ -121,7 +135,7 @@ export const PPO_LEAGUE = Object.freeze([
 ]);
 
 /** The reward table's four rows, so a run can say whether the table it paid is the shipped one. */
-const REWARD_KEYS = Object.freeze(["win", "clinch", "idle", "tick"]);
+export const REWARD_KEYS = Object.freeze(["win", "clinch", "idle", "tick"]);
 
 const round5 = (x) => Math.round(x * 1e5) / 1e5;
 const round4 = (x) => Math.round(x * 1e4) / 1e4;
@@ -345,6 +359,86 @@ const ADAM = Object.freeze({ beta1: 0.9, beta2: 0.999, eps: 1e-8 });
 /** One Adam state per parameter block, so the actor, the spread and the critic move separately. */
 function adamState(size) {
   return { m: new Float64Array(size), v: new Float64Array(size), step: 0 };
+}
+
+/**
+ * The three Adam blocks a fit carries, in the order a checkpoint writes them.
+ *
+ * Named rather than spelled out at each site because `scripts/league.mjs` persists the same three
+ * for the main and for every exploiter, and a fourth block added here should turn that file red
+ * rather than be quietly dropped from half the roles.
+ */
+export const MOMENT_KEYS = Object.freeze(["actor", "spread", "critic"]);
+
+/** One Adam block as JSON: the two moments flat, and the step count that debiases them. */
+export function adamToJson(state) {
+  if (state === null || state === undefined) return null;
+  return { m: Array.from(state.m), v: Array.from(state.v), step: state.step };
+}
+
+/**
+ * And back, at the width the reader expects, or null with a reason.
+ *
+ * A width mismatch is not an error and must not be: `--value-hidden` moves the critic's size, and
+ * a checkpoint written under a different one has value moments there is nothing sensible to do
+ * with -- the same case `roleFromCheckpoint` in `scripts/league.mjs` handles for the weights
+ * themselves. It starts that one block cold and says which, rather than refusing a checkpoint
+ * whose actor is perfectly good.
+ */
+export function adamFromJson(json, size) {
+  if (json === null || json === undefined) return { state: null, note: "absent" };
+  if (!Array.isArray(json.m) || !Array.isArray(json.v) || json.m.length !== json.v.length) {
+    return { state: null, note: "malformed" };
+  }
+  if (json.m.length !== size) return { state: null, note: `${json.m.length} moments, not ${size}` };
+  return {
+    state: { m: Float64Array.from(json.m), v: Float64Array.from(json.v), step: json.step ?? 0 },
+    note: null,
+  };
+}
+
+/** The three blocks together, for a checkpoint. */
+export function momentsToJson(moments) {
+  const out = {};
+  for (const key of MOMENT_KEYS) out[key] = adamToJson(moments?.[key] ?? null);
+  return out;
+}
+
+/**
+ * The three blocks read back, with a sentence a run prints for every one that did not come.
+ *
+ * The warnings are the point of the return shape. A resumed arm that silently started Adam cold
+ * would look like a resumed arm that did not, and the difference is a whole iteration of the
+ * largest steps the rate allows -- see this file's own note on the first iteration of a run.
+ */
+export function momentsFromJson(json, sizes) {
+  const moments = {};
+  const warnings = [];
+  for (const key of MOMENT_KEYS) {
+    const { state, note } = adamFromJson(json?.[key] ?? null, sizes[key]);
+    moments[key] = state;
+    if (note !== null) warnings.push(`${key} moments ${note}; that block starts cold`);
+  }
+  return { moments, warnings };
+}
+
+/** Where a run's checkpoint sits, given its log: one rule, because the sweep runner needs it too. */
+export const checkpointFor = (logPath) => logPath.replace(/\.jsonl$/, "") + "-checkpoint.json";
+
+/**
+ * Whether a `--resume` continues the log it is being pointed at, which is the one case that may
+ * append to an existing log.
+ *
+ * A run does not append to another run's log, and that refusal has been worth its keep -- but it
+ * also refused the one thing `--resume` is for, so every hand-restarted run in the record started
+ * a second log file and the curve had to be stitched afterwards. The rule that separates them is
+ * exact rather than a heuristic: the checkpoint being resumed is the checkpoint *this* log writes.
+ * Anything else -- another arm's checkpoint, a copy, a checkpoint from a different directory -- is
+ * `--from`, which starts a fresh log and says so in its header.
+ */
+export function resumesOwnLog(logPath, resumeFrom) {
+  if (resumeFrom === null || resumeFrom === undefined) return false;
+  return resolve(resumeFrom) === checkpointFor(resolve(logPath));
 }
 
 function adamStep(weights, grad, state, rate) {
@@ -936,13 +1030,27 @@ if (isMain) {
   // set since Session 01 of the learn set, and `--terminals all` is the whole fifty-two.
   const terminals = parseTerminals(flag("terminals", null));
   const resumeFrom = flag("resume", null);
+  // Another run's weights with the iteration counter back at one and a log of its own, which is
+  // what a sweep arm started from a shared checkpoint is. `--resume` continues a run; this begins
+  // one. Passing both is a caller who means one of them and would otherwise silently get the other.
+  const startFrom = flag("from", null);
+  if (resumeFrom !== null && startFrom !== null) {
+    throw new Error("--resume continues a run and --from begins one; pass one of them");
+  }
+  // Echoed into the header and nowhere else. A sweep gives every arm the same seed and the same
+  // start, so the log's own header cannot say which arm it is, and the file name is a fact about
+  // a directory rather than about the run.
+  const label = flag("label", null);
   const write = flag("out", null);
   const stamp = new Date().toISOString().replace(/[-:]/g, "").slice(0, 13);
   // Concatenated rather than interpolated: a backticked span that looks like a path is a durable
   // reference to the documentation tests, and this one names a file that never exists.
   const out = resolve(flag("log", "tournaments/ppo-" + stamp + "-" + seed + ".jsonl"));
-  const checkpoint = out.replace(/\.jsonl$/, "") + "-checkpoint.json";
-  if (existsSync(out)) throw new Error(`${out} exists; a run does not append to another run's log`);
+  const checkpoint = checkpointFor(out);
+  if (existsSync(out) && !resumesOwnLog(out, resumeFrom)) {
+    throw new Error(`${out} exists; a run does not append to another run's log. `
+      + `--resume ${checkpoint} continues this one; --from starts a fresh log from other weights`);
+  }
   mkdirSync(dirname(out), { recursive: true });
   const log = (line) => writeFileSync(out, JSON.stringify(line) + "\n", { flag: "a" });
   const progress = (label) => ({ done, total, seconds }) => {
@@ -960,24 +1068,39 @@ if (isMain) {
   let actor = null;
   let spread = null;
   let critic = null;
-  if (resumeFrom !== null) {
-    const saved = JSON.parse(readFileSync(resolve(resumeFrom), "utf8"));
+  const started = resumeFrom ?? startFrom;
+  if (started !== null) {
+    const saved = JSON.parse(readFileSync(resolve(started), "utf8"));
     weights = Float64Array.from(saved.weights);
     valueWeights = Float64Array.from(saved.valueWeights);
     logSigma = Float64Array.from(saved.logSigma);
     norm = saved.normalisation;
-    startAt = saved.iteration + 1;
-    totalBouts = saved.bouts ?? 0;
-    totalSteps = saved.steps ?? 0;
-    console.log(`  resuming at iteration ${startAt} from ${resumeFrom}`);
+    // Adam's moments make a restarted arm the same run rather than a warm start, so they are
+    // restored wherever they exist and their absence is said out loud rather than assumed away.
+    const read = momentsFromJson(saved.adam ?? null, {
+      actor: netSize(POLICY_LAYOUT), spread: ACTION_AXES, critic: netSize(valueLayout),
+    });
+    ({ actor, spread, critic } = read.moments);
+    for (const warning of read.warnings) console.log(`  ${started}: ${warning}`);
+    // A resume continues the run's own counters; a `--from` is a new run wearing another's mind,
+    // so its iterations, bouts and asks start where a fresh run's do and its log begins at one.
+    if (resumeFrom !== null) {
+      startAt = saved.iteration + 1;
+      totalBouts = saved.bouts ?? 0;
+      totalSteps = saved.steps ?? 0;
+      console.log(`  resuming at iteration ${startAt} from ${resumeFrom}`);
+    } else {
+      console.log(`  starting from the weights of ${startFrom} at iteration ${saved.iteration}, `
+        + "with a fresh log and the counters at zero");
+    }
   }
 
   log({
     type: "header", seed, date, version: POLICY_VERSION, features: PILOT_FEATURES_VERSION,
-    layout: POLICY_LAYOUT, valueLayout, reward, league,
+    layout: POLICY_LAYOUT, valueLayout, reward, league, label,
     iterations, bouts, cap, random, workers, halfLife, lambda, clip, entropy, rate, valueRate,
     sigmaRate, epochs, batch, targetKl, sigmaFloor, sigmaRoof,
-    evaluate: every, evalBouts, finalBouts, resumeFrom, opponent, terminals,
+    evaluate: every, evalBouts, finalBouts, resumeFrom, from: startFrom, opponent, terminals,
   });
   console.log(`ppo: seed ${seed}, ${iterations} iterations of ${bouts} mirrored bouts, `
     + `${netSize(POLICY_LAYOUT)} actor weights, ${workers} workers`);
@@ -1082,6 +1205,9 @@ if (isMain) {
       iteration, seed, date, bouts: totalBouts, steps: totalSteps,
       weights: Array.from(weights, round5), valueWeights: Array.from(valueWeights, round5),
       logSigma: Array.from(logSigma, round5), normalisation: norm,
+      // Full precision, unlike everything above it: a second moment is around 1e-8 and rounding it
+      // to five places is the same as not writing it at all.
+      adam: momentsToJson({ actor, spread, critic }),
     }));
 
     const last = iteration === iterations;

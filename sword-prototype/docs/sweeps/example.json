@@ -1,0 +1,32 @@
+{
+  "name": "league-throughput",
+  "note": "The worked example for scripts/sweep.mjs, and the manifest Session 04 of the learn set took its throughput bar on. Three arms of the shipped league configuration that differ in nothing: that is not an experiment, it is the measurement of how much the runner buys, and it is also the check that the runner is deterministic -- three arms sharing a seed and a start must write the same first iteration. A real sweep gives each arm one different flag and leaves everything else in common, which is the set's third frozen choice. No start is named here because tournaments/ is gitignored and a worked example that cannot run on a fresh clone is not one; pass --from to give every arm the same checkpoint, or leave it and they all start from the seed.",
+  "script": "league",
+  "seed": 20260915,
+  "pool": {
+    "random": 40
+  },
+  "rate": {
+    "bouts": 200
+  },
+  "common": [
+    "--iterations", "300",
+    "--bouts", "128",
+    "--exploiter-bouts", "64",
+    "--cap", "60",
+    "--exploiters", "2",
+    "--exploiter-every", "2",
+    "--pool-every", "8",
+    "--pool-cap", "8",
+    "--entropy", "0.0003",
+    "--emphasise", "maul,mace",
+    "--emphasis", "3",
+    "--anchor", "golem-driver",
+    "--share-anchor", "1"
+  ],
+  "arms": [
+    { "name": "arm-1", "flags": [] },
+    { "name": "arm-2", "flags": [] },
+    { "name": "arm-3", "flags": [] }
+  ]
+}

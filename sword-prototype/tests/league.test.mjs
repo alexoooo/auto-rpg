@@ -48,6 +48,14 @@
 // | `parseBaseline` defaults to the row this session happens to use | the baseline test |
 // | `fisher` keeps only the tables stricter than the observed one | the exact-arithmetic test |
 // | `fisher` sums the upper tail alone | the exact-arithmetic test |
+//
+// **Three more on 2026-09-09, with Session 04 of the learn set:**
+//
+// | mutation | what went red |
+// |---|---|
+// | `emphasisedPool` checks its classes only once it has decided the weighting is worth doing | the emphasis refusal |
+// | `saveLeague` writes one Adam block and gives every exploiter the main's | the moments round trip |
+// | `momentsFromLeague` reports a state file with no `adam` as though it had one | the moments round trip |
 import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -57,8 +65,8 @@ import { join } from "node:path";
 import {
   LEAGUE_VALUE_LAYOUT, MAIN_NAME, SELF_NAME, contenderFor, copyRole, emphasisedPool,
   exploiterName, exploiterStalled, freshRole, leagueMatrix, leaguePairs, loadLeague, matrixBreaks,
-  opponentSentence, poolLoader, poolName, poolPath, readLog, roleFromCheckpoint, roleFromJson,
-  roleToJson, saveLeague, shareOf, shipTable, shippedIteration, spentBy, spreadSlots,
+  momentsFromLeague, opponentSentence, poolLoader, poolName, poolPath, readLog, roleFromCheckpoint,
+  roleFromJson, roleToJson, saveLeague, shareOf, shipTable, shippedIteration, spentBy, spreadSlots,
   statePath, thinPool, trainRole,
 } from "../scripts/league.mjs";
 import { armedTerminal, buildPool } from "../scripts/tournament.mjs";
@@ -827,4 +835,89 @@ test("a shipped table carries exactly the fields the policy type declares", () =
   // the ship just wrote -- which is what the end-of-run path would have done with eleven of them.
   assert.deepEqual(Object.keys(table).sort(), Object.keys(freshPolicyTable([], [])).sort(),
     "the shipped table's fields are the type's fields, no more and no fewer");
+});
+
+// ------------------------------------------------------- what Session 04 of the learn set added
+
+/**
+ * A weapon class the draw list does not carry is refused, and the refusal says what it does carry.
+ *
+ * `--emphasise` went quietly inert in Session 01 of the learn set and nobody noticed until Session
+ * 04 went looking: every training pool in `scripts/league.mjs` now draws through `viableMirror`,
+ * which keeps the two classes that can finish a copy of themselves and drops the other five, so
+ * `--emphasise blade` weighted a list the mirror filter had already emptied of blades. It did
+ * nothing, it said nothing, and the run looked exactly like the run that had been asked for. What
+ * makes the refusal useful rather than merely correct is the second half of the message: a caller
+ * who has just been told their class is not there wants to know which classes are, and on a
+ * mirrored pool the answer is a surprise worth printing.
+ */
+test("emphasising_a_class_the_mirrored_pool_cannot_carry_is_refused_by_name", () => {
+  const pool = poolFor({ seed: SEED, random: 24, terminals: [...VIABLE_TERMINALS], mirror: true });
+  assert.ok(pool.length > 0);
+  assert.deepEqual([...new Set(pool.map((b) => armedTerminal(b.setup)))].sort(), ["mace", "maul"],
+    "a mirrored pool is a maul-and-mace pool, which is the fact the refusal exists to state");
+  assert.throws(() => emphasisedPool(pool, ["blade"], 3),
+    /--emphasise names blade, which no build in this pool carries; it draws mace, maul/);
+  // A weight of one is already inert by design, and that is not a reason to accept a class that is
+  // not there: the run would still be the run nobody asked for if the weight were later raised.
+  assert.throws(() => emphasisedPool(pool, ["blade"], 1), /no build in this pool carries/);
+  // Every class named has to be there, not merely one of them.
+  assert.throws(() => emphasisedPool(pool, ["maul", "whip"], 3), /names whip/);
+  // And the classes that are there still weight, which is the behaviour the refusal must not cost.
+  assert.equal(emphasisedPool(pool, ["maul"], 3).length > pool.length, true);
+});
+
+/**
+ * Adam's moments ride in `league.json`, one block a role, and a state without them starts cold.
+ *
+ * The eighth frozen choice is that an overnight run expects to die and Session 04's runner
+ * restarts it; what makes the restarted arm the same run rather than a warm start is this. The
+ * cost of getting it wrong is not an error but a number: a role that comes back cold spends its
+ * next fit taking the largest steps its rate allows, in whatever direction one minibatch chose,
+ * and the log shows a step somebody would later read as learning.
+ *
+ * The absence case is asserted as loudly as the presence one, because every league written before
+ * this session has no `adam` at all and must still load -- the league version is about what a
+ * reader would *misread*, and a missing block cannot be misread.
+ */
+test("a_leagues_adam_moments_round_trip_and_a_state_without_them_starts_cold", () => {
+  const dir = scratch();
+  const state = {
+    seed: SEED, date: "2026-09-09", iteration: 3, bouts: 10, steps: 100,
+    main: freshRole(SEED), exploiters: [freshRole(SEED + 1)], pool: [], taken: [],
+  };
+  const block = (size, step) => ({
+    m: Float64Array.from({ length: size }, (_, i) => (i + 1) * 1e-9),
+    v: Float64Array.from({ length: size }, (_, i) => (i + 1) * 1e-12),
+    step,
+  });
+  const moments = {
+    [MAIN_NAME]: {
+      actor: block(netSize(POLICY_LAYOUT), 12), spread: block(9, 12),
+      critic: block(netSize(LEAGUE_VALUE_LAYOUT), 12),
+    },
+    [exploiterName(0)]: {
+      actor: block(netSize(POLICY_LAYOUT), 4), spread: block(9, 4),
+      critic: block(netSize(LEAGUE_VALUE_LAYOUT), 4),
+    },
+  };
+  saveLeague(dir, state, moments);
+  const back = momentsFromLeague(loadLeague(dir), 1);
+  assert.equal(back.saved, true);
+  assert.deepEqual(back.warnings, [], "every block came back at the width it went in at");
+  assert.equal(back.moments[MAIN_NAME].actor.step, 12);
+  assert.equal(back.moments[exploiterName(0)].actor.step, 4, "an exploiter keeps its own optimiser");
+  // Full precision, where the weights beside them are rounded to five places: a second moment of
+  // 1e-12 rounded that way is zero, which is the same as not having saved it.
+  assert.equal(back.moments[MAIN_NAME].critic.v[0], 1e-12);
+  assert.deepEqual(Array.from(back.moments[MAIN_NAME].spread.m), Array.from(moments[MAIN_NAME].spread.m));
+
+  // A state written without them -- which is every league this repository has on disk -- loads,
+  // and says once that its roles are starting cold rather than three times a role.
+  saveLeague(dir, state);
+  const cold = momentsFromLeague(loadLeague(dir), 1);
+  assert.equal(cold.saved, false);
+  assert.deepEqual(cold.warnings, []);
+  assert.deepEqual(Object.keys(cold.moments), [MAIN_NAME, exploiterName(0)]);
+  assert.deepEqual(Object.values(cold.moments[MAIN_NAME]), [null, null, null]);
 });
