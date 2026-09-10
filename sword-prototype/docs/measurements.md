@@ -19138,3 +19138,140 @@ And one that is not a surface change at all: **`uniform` is not a usable explora
 this action space.** It aborts 99.2 % of the strokes it starts. Any learner that begins from a
 uniform prior over the twelve fields spends its first samples in a regime where the thing it is
 trying to learn about -- a stroke that finishes -- almost never happens.
+
+## Session 04 of the learn set — 2026-09-09: three arms an hour against one, and the two thirds of an iteration that no worker touches
+
+The learn set's fourth session ships `scripts/sweep.mjs`, which takes a manifest of arms, starts
+them all at once as separate processes off one seed and one checkpoint, divides the host's threads
+between them, restarts an arm that dies, and rates every arm on one pool when they stop. The
+mechanical bar the plan set for it is a throughput claim -- three arms at ten workers apiece do at
+least 2.4 times the iterations an hour that one 30-worker run of the same configuration does -- and
+a determinism claim: the three logs are byte-identical through their first iteration, because they
+share a seed and a start. **The determinism claim holds. The throughput claim misses, at 2.15.**
+
+**The harness.** Both halves are `scripts/sweep.mjs` on the committed worked example,
+docs/sweeps/example.json, which is the shipped league configuration of the style set's Session 14
+with the three evaluation flags dropped -- a sweep runs `--evaluate 0` and rates afterwards -- at
+this set's seed, 20260915, from tournaments/v2-pool-checkpoint.json. The two runs differ in one
+flag and nothing else:
+
+```powershell
+node scripts/sweep.mjs --manifest docs/sweeps/example.json --workers 32 --minutes 60 `
+  --from tournaments/v2-pool-checkpoint.json --rate-bouts 0 --status 600 --root tournaments/sweeps
+node scripts/sweep.mjs --manifest docs/sweeps/example.json --only arm-1 --workers 32 --minutes 60 `
+  --from tournaments/v2-pool-checkpoint.json --rate-bouts 0 --status 600 --root tournaments/sweeps-control
+```
+
+`--workers 32` is the host's thread count and not a per-arm number: the runner spends
+`floor((32 - 2) / arms)`, which is 10 apiece for three arms and 30 for one, and prints the
+arithmetic before it launches anything. The two hours ran back to back on the 16-core desktop with
+nothing else scheduled on it, 23:24-00:24 and 00:25-01:25 UTC, and `--rate-bouts 0` was passed so
+that the hour being measured is training and not the rating that would otherwise follow it.
+
+### The bar: 2.15 against 2.4
+
+| the hour | iterations | bouts | asks of the policy |
+| --- | ---: | ---: | ---: |
+| three arms at 10 workers | 9 + 10 + 9 = **28** | 3,600 | 2,140,383 |
+| one arm at 30 workers | **13** | 1,684 | 1,003,986 |
+| ratio | **2.154** | 2.138 | 2.132 |
+
+Three ways of counting the same hour agree to within 1 %, which is worth saying because iterations
+are not all the same size -- an even iteration trains two exploiters as well as the main, and a
+`--pool-every 8` iteration writes a snapshot -- so a ratio taken on iterations alone could have been
+an artefact of where the deadline fell. It is not. **The runner does about 2.15 times the work an
+hour that one wide run does, and the bar was 2.4.**
+
+The per-iteration seconds, which are what the ratio is made of:
+
+| | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| arm-1, 10 workers | 299 | 613 | 255 | 516 | 248 | 349 | 172 | 471 | 201 | | | | |
+| arm-2, 10 workers | 294 | 610 | 256 | 505 | 240 | 330 | 160 | 447 | 191 | 485 | | | |
+| arm-3, 10 workers | 298 | 616 | 257 | 518 | 248 | 347 | 176 | 478 | 200 | | | | |
+| alone, 30 workers | 190 | 425 | 184 | 384 | 194 | 305 | 151 | 422 | 176 | 425 | 177 | 337 | 176 |
+
+**Tripling the workers on one arm bought 1.285 times the speed**, over the nine iterations both
+arrangements ran: 347.1 s an iteration at ten workers against 269.9 s at thirty. Three of those is
+2.34, which is the steady-state figure and still short of 2.4. The remaining 0.19 is the deadline:
+each arm loses whatever iteration it was in the middle of when the hour ended, and three arms lose
+three of them. The three arms spent 9,779 of their 10,800 arm-seconds inside an iteration that
+finished -- 9.5 % thrown away, against 1.6 % for the single run -- and 2.34 discounted by that gap
+is 2.15, which is the measured number. A longer budget converges on 2.34, not on 2.4.
+
+### Why it is 1.285 and not 3
+
+The status lines say where the time goes. Iteration 7 is main-only, 128 bouts: its rollout took
+66 s on ten workers and 45 s on thirty, while the whole iteration took 172 s and 151 s. **The
+21 seconds a tripled worker count gave back is the entire difference between the two runs, and the
+106 seconds on either side of it did not move.** That remainder is `ppoFit` -- one thread, by
+construction, over eighty thousand samples of a 71-256-256-12 model and its critic -- plus the
+league's per-iteration bookkeeping. Two thirds of an iteration is a thread that more workers cannot
+help.
+
+The rollout's own scaling is short of linear too, for a reason the configuration makes unavoidable:
+128 bouts over 30 workers is four full waves and a ragged fifth of eight, and a wave costs whatever
+its slowest bout costs, up to the 60 s cap. At ten workers the same 128 bouts are almost thirteen
+even waves. A wide run pays for the ragged edge every iteration; a narrow one barely does.
+
+This is the shape the plan predicted -- "each run needs about one core for 80 % of its wall clock"
+was the reason for building a sweep runner at all -- and the measurement says the shape is right and
+the size was optimistic. Three arms is still much better than one. It is 2.15 times better and not
+2.4.
+
+### The determinism half, which holds
+
+Through its first iteration each arm's log is a header row and an iteration row. Compared across
+the three arms:
+
+| comparison | verbatim | with `seconds` dropped |
+| --- | --- | --- |
+| arm-1 against arm-2 | no | **identical** |
+| arm-1 against arm-3 | no | **identical** |
+
+`seconds` is the only field that differs anywhere in either comparison -- not the seed, the pool,
+the 128 bouts, the 81,618 steps, the 0.53906 decided fraction, the -0.08559 margin, the per-opponent
+breakdown, the KL, the clip fraction, the entropy, the nine log-sigmas. **It is also the one field
+of a row that cannot be a function of the seed**, being a wall clock read at the end of the
+iteration: 299.293, 294.427 and 298.049 seconds for the same arithmetic. Literal byte-identity was
+therefore never available, and the honest statement of the bar is the second column. It is recorded
+here rather than quietly relaxed, because a reader comparing two arms of a real experiment needs to
+know which single field to drop before concluding that an arm diverged.
+
+The same fact shows up at the other end of a run. The verification sweep -- three arms, one
+iteration each at `--bouts 8`, rated afterwards on 40 bouts an opponent -- put all three arms on
+`uniform +0.1044 +-0.0593 d +0.244` and `driver -0.1118 +-0.0597 d -0.260`, and the paired table it
+printed reads `+0.0000 of bar` for all three pairs. Three arms differing in nothing produce a paired
+margin of exactly zero, which is the calibration the criterion needs: whatever an experiment later
+measures as a difference between two arms is a difference the flags made.
+
+### What this entry does not say
+
+Nothing here is about learning. Both hours ran `--evaluate 0`, no arm was rated during the hour it
+was measured in, and neither run's main was compared against anything -- the numbers above are
+throughput and determinism only, and the 28 iterations are not a training result. The ratio is one
+configuration on one host: it is the *league*, whose iteration carries exploiters and a pool, and a
+`train-ppo` sweep with no exploiters spends a different fraction of itself in the fit. The 2.4 bar
+was set before any of this was measured, and what missed it is the arithmetic of the workload rather
+than the runner, which is why the number is reported rather than the bar re-drawn.
+
+Two smaller facts belong to the session and are tests rather than measurements, noted here because
+they are the reason an overnight sweep can be trusted. A fit resumed with its Adam state is the
+uninterrupted fit to within 1e-9 on every weight over two iterations of a bandit, and a fit resumed
+without it differs by more than 1e-4 -- which is why a checkpoint now carries three flat moment
+arrays at full precision, and why checkpoints grew from about 0.8 MB to about 4.7 MB to do it. And
+`--emphasise` now refuses a class the pool does not contain, by name, saying which classes it does
+contain: on a mirrored pool that is `mace, maul` and nothing else, so `--emphasise blade` had been
+weighting an empty list and saying nothing about it since the viability filter landed one session
+earlier.
+
+**The three-arm hour was not taken on an idle host, and the number is depressed by it.** Eight
+minutes in, another session of this set -- the action-surface probe of Session 07 -- ran about
+twenty-four Node processes for under a minute on the same machine. It shows in the table above as
+the three arms' second iteration: 613, 610 and 616 s against a 347 s mean. The three are within
+1 % of each other, so no arm was singled out and the *comparison between arms* is unaffected; but
+the hour they were racing against was run on a quiet host, so the ratio is a lower bound rather
+than a measurement. The single-thread fit is the larger term either way, which is why the entry
+above reads as it does. **The bar is owed a clean re-take**, and Session 05 of this set takes it
+on the same manifest with nothing else running, because Session 05 is the session that moves the
+106 s the workers cannot reach.
