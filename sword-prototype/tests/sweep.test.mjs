@@ -30,6 +30,15 @@
 // | `armArgs` puts the common flags ahead of the arm's own | the precedence test |
 // | `armArgs` omits `--evaluate 0` | the precedence test |
 // | `superviseArms` relaunches without `--resume` | the restart test |
+//
+// **Four more on 2026-09-09**, when Session 05 of the learn set gave the fit its own threads:
+//
+// | mutation | what went red |
+// |---|---|
+// | `workerBudget` takes the shards off at K = 1 as well | both budget tests, which is the line that keeps a `--shards 1` sweep comparable with Session 04's |
+// | `readManifest` lets an arm name `--shards` of its own | the shard-budget test |
+// | `armArgs` omits `--shards`, leaving the arm on the trainer's own default | the shard-budget test |
+// | `armArgs` leaves the command line's `--shards` in place beside the resolved one | the shard-budget test, on the count rather than the value, since the trainers take the first |
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
@@ -73,6 +82,54 @@ test("the_worker_budget_is_the_hosts_threads_less_two_split_between_the_arms", (
   // because a budget of zero is a run that collects nothing and says nothing about why.
   assert.equal(workerBudget(8, 4), 1);
   assert.throws(() => workerBudget(0, 32), /not a sweep/);
+});
+
+/**
+ * The fit's shards come off an arm's collectors, and only when the fit is actually split.
+ *
+ * Session 05 of the learn set. A single fit thread is the one this arithmetic has always folded
+ * into the collectors -- it is busy while they are idle -- so K = 1 has to leave every number
+ * above exactly where it was, which is what makes a `--shards 1` sweep the same comparison
+ * Session 04 measured its throughput bar with. A fit split K ways is K threads pinned at once and
+ * the collectors it displaces are real, so the whole K comes off: one arm at eight shards on this
+ * desktop is 22 collectors and 8 shards, which is the configuration Session 05 shipped and
+ * measured an end-to-end iteration at.
+ *
+ * And the count is the sweep's rather than an arm's, because the arms run at once on one host: an
+ * arm that took eight fit threads while its neighbours took one would be spending its neighbours'
+ * collectors, and the budget printed before the launch would be a number no arm was running at.
+ */
+test("the_fit_shards_come_off_each_arms_collector_budget_and_only_above_one", () => {
+  assert.equal(workerBudget(1, 32, 1), 30, "one shard is the fit thread the arithmetic already counts");
+  assert.equal(workerBudget(3, 32, 1), 10, "the number Session 04 measured its three-arm hour at");
+  assert.equal(workerBudget(1, 32, 8), 22, "the shipped configuration: 22 collectors beside 8 shards");
+  assert.equal(workerBudget(3, 32, 4), 6);
+  assert.equal(workerBudget(2, 32, 15), 1, "a budget of zero collectors is a run that collects nothing");
+  assert.throws(() => workerBudget(1, 32, 0), /not a fit/);
+
+  const manifest = {
+    name: "shard-sweep", script: "train-ppo", seed: 20260915,
+    arms: [{ name: "arm-1", flags: ["--shards", "8"] }, { name: "arm-2", flags: [] }],
+  };
+  assert.throws(() => readManifest(manifest), /names --shards/);
+  // In `common` it is one number for everybody, which is where it belongs.
+  const shared = readManifest({ ...manifest, common: ["--shards", "8"],
+    arms: [{ name: "arm-1", flags: [] }, { name: "arm-2", flags: [] }] });
+  assert.equal(shared.common.join(" "), "--shards 8");
+
+  // And whatever the number resolves to, the arm is told it. Both trainers default to eight and
+  // the runner defaults to one, so an arm left to its own default would take eight fit threads out
+  // of a budget computed for one -- the arm would be over its share and the sweep would not know.
+  // The resolved value is emitted once, ahead of everything, and taken back out of the flags it
+  // could have come from, so the launch line a reader sees says the number exactly once.
+  const told = armArgs(shared, shared.arms[0], {
+    workers: 6, shards: 8, root: "/runs", extra: ["--shards", "4", "--bouts", "8"],
+  });
+  assert.equal(flagValue(told, "shards"), "8", "the resolved number, not the arm's and not the line's");
+  assert.equal(told.filter((a) => a === "--shards").length, 1);
+  assert.equal(flagValue(told, "bouts"), "8", "and nothing else of the command line's was taken with it");
+  assert.equal(armArgs(shared, shared.arms[0], { workers: 6, root: "/runs" }).includes("--shards"), true,
+    "an arm is never left to a default the budget did not see");
 });
 
 // --------------------------------------------------------------------------------- the manifest

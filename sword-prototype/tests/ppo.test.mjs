@@ -36,15 +36,33 @@
 // | `adamToJson` rounds the moments to five places, as the weights beside them are rounded | the resumed-fit test |
 // | `momentsFromJson` returns cold state for a block it was given | the resumed-fit test |
 // | `resumesOwnLog` compares the two file names rather than resolving both paths | the resume-path test |
+//
+// **Four more were watched red on 2026-09-09**, when Session 05 of the learn set put the fit on
+// worker threads, and they are mutations of `scripts/fit-worker.mjs` as well as of the trainer:
+//
+// | mutation | what went red |
+// |---|---|
+// | `shardStep` scales by its own slice rather than by the whole minibatch | the sharded-equality test |
+// | `FitPool.bind` sends `freshNormalisation` instead of the run's frozen one | the sharded-equality test, and only because its rollout is normalised |
+// | the trust region is evaluated on a shard's own KL rather than the minibatch's | the sharded trust-region test, and the equality test with it |
+// | `shardSlice` gives every shard `floor(length / shards)`, dropping the remainder | the slice test alone, because a minibatch that divides evenly cannot see it |
+//
+// **One property this file deliberately cannot test is the one the design turns on.** `FitPool`
+// sums its shards' partials in shard order 0..K-1, and a pool that summed them in the order they
+// finished would still pass every assertion below -- reassociating a sum of a thousand doubles
+// moves it in its last bits and the bar is 1e-9. What a completion order would cost is
+// *reproducibility*: the same seed would answer differently on a busy host. So the order is a
+// property of the code and is argued where the code is, and this note is here so that a later
+// reader does not conclude from a green suite that it did not matter.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 import { forward, initWeights, netScratch, netSize } from "../src/golem/neural-net.ts";
 import {
-  ACTION_AXES, ACTION_GATES, ACTION_WIDTH, POLICY_LAYOUT, actionEntropy, actionLogProb,
-  checkPolicyWeights, commandFromAction, freshNormalisation, freshPolicyTable, golemPolicy,
-  meanAction, normalise, sampleAction, uniformPilot,
+  ACTION_AXES, ACTION_GATES, ACTION_WIDTH, POLICY_LAYOUT, VALUE_LAYOUT, actionEntropy,
+  actionLogProb, checkPolicyWeights, commandFromAction, freshNormalisation, freshPolicyTable,
+  golemPolicy, meanAction, normalise, sampleAction, uniformPilot,
 } from "../src/golem/policy.ts";
 import { POLICY_WEIGHTS } from "../src/golem/policy-weights.ts";
 import { COMMAND_AXES, COMMAND_GATES, COMMAND_RANGES, freshCommand } from "../src/golem/tactics-v4.ts";
@@ -54,10 +72,11 @@ import { policyMind } from "../src/mind.ts";
 import { policyForUnit } from "../src/units.ts";
 import { mulberry32 } from "../src/rng.ts";
 import {
-  advantages, checkpointFor, cohensD, explainedVariance, extendNormalisation, mergeRollouts,
-  momentsFromJson, momentsToJson, parseTerminals, poolFor, ppoFit, renderPolicyModule,
-  resumesOwnLog, rolloutPairs, surrogateGrad, surrogateObjective,
+  FitPool, advantages, checkpointFor, cohensD, explainedVariance, extendNormalisation,
+  mergeRollouts, momentsFromJson, momentsToJson, parseTerminals, poolFor, ppoFit,
+  renderPolicyModule, resumesOwnLog, rolloutPairs, surrogateGrad, surrogateObjective,
 } from "../scripts/train-ppo.mjs";
+import { shardSlice } from "../scripts/fit-worker.mjs";
 import { armedTerminal, buildPool } from "../scripts/tournament.mjs";
 import { VIABLE_TERMINALS, viableBuild, viableMirror, viablePair } from "../src/golem/viability.ts";
 
@@ -944,4 +963,352 @@ test("adam_moments_round_trip_and_a_block_of_the_wrong_width_starts_cold_by_name
   const nothing = momentsFromJson(null, sizes);
   assert.deepEqual(Object.values(nothing.moments), [null, null, null]);
   assert.equal(nothing.warnings.length, 3, "a checkpoint written before this session says so per block");
+});
+
+// ---------------------------------------------------------------------------------------
+// The fit split across threads, which is not allowed to be a different fit.
+// ---------------------------------------------------------------------------------------
+
+/** The critic the trainer's own CLI defaults to, which is narrower than the exported layout. */
+const TEST_VALUE_LAYOUT = Object.freeze({ ...VALUE_LAYOUT, hidden: Object.freeze([64, 64]) });
+
+/** A run whose frozen normalisation is a real one, so `normalise` is not the identity. */
+const RUN_CHECKPOINT = "tournaments/ppo-run1-checkpoint.json";
+
+/**
+ * A rollout at the shipped shape, under a normalisation that is emphatically not the identity.
+ *
+ * The columns are drawn from the run's own frozen mean and variance, so a shard that read the
+ * wrong normalisation -- or a fresh one, or none -- lands somewhere else on the tanh and the fit
+ * moves. That is the whole reason the fixture is built this way rather than from zero-mean noise:
+ * an identity normalisation is exactly the case that would hide getting this wrong, and the
+ * observation statistics are the thing the owner named as the place to be careful.
+ *
+ * The run's checkpoint is read when it is there -- 71 columns, one of them with variance exactly
+ * zero, which is the degenerate column the 1e-8 guard and the five-sigma clip exist for -- and
+ * the fallback is a made-up normalisation of the same shape, because the tournaments directory is
+ * gitignored and a test that only passes on the machine the run happened on is not one.
+ */
+function normalisedRollout(count = 4096) {
+  const width = PILOT_FEATURE_COUNT;
+  const layout = POLICY_LAYOUT;
+  const random = mulberry32(SEED + 55);
+  let norm;
+  let weights;
+  let logSigma;
+  if (existsSync(RUN_CHECKPOINT)) {
+    const saved = JSON.parse(readFileSync(RUN_CHECKPOINT, "utf8"));
+    norm = saved.normalisation;
+    weights = Float64Array.from(saved.weights);
+    logSigma = Float64Array.from(saved.logSigma);
+  } else {
+    norm = { count: 1_691_101, mean: [], variance: [] };
+    for (let k = 0; k < width; k += 1) {
+      norm.mean[k] = k === 0 ? 1 : (k % 7) - 3 + k / 40;
+      norm.variance[k] = k === 0 ? 0 : 0.05 + (k % 11) / 9;
+    }
+    weights = initWeights(layout, SEED + 56);
+    logSigma = new Float64Array(ACTION_AXES).fill(-0.66);
+  }
+  assert.ok(norm.mean.some((m) => m !== 0) && norm.variance.some((v) => v !== 1),
+    "the fixture's normalisation is the identity, which is the one case this test cannot see");
+  const scratch = netScratch(layout);
+  const observation = new Float64Array(width);
+  const raw = new Float64Array(width);
+  const draw = new Float64Array(ACTION_WIDTH);
+  const rollout = {
+    count, width,
+    x: new Float32Array(count * width),
+    a: new Float64Array(count * ACTION_WIDTH),
+    logp: new Float64Array(count),
+    reward: new Float64Array(count),
+    seconds: new Float64Array(count).fill(0.0833),
+    done: Uint8Array.from({ length: count }, (_, i) => (i % 37 === 36 ? 1 : 0)),
+  };
+  // Every episode has to end inside the rollout: `advantages` reads the value *after* the last
+  // ask and there is nothing after the last row, so a rollout whose tail is unterminated is all
+  // NaN and every comparison below would pass on two identical piles of it.
+  rollout.done[count - 1] = 1;
+  for (let i = 0; i < count; i += 1) {
+    for (let k = 0; k < width; k += 1) {
+      raw[k] = norm.mean[k] + Math.sqrt(norm.variance[k]) * (random() * 2 - 1) * 1.7;
+      rollout.x[i * width + k] = raw[k];
+    }
+    normalise(raw, norm, observation);
+    const head = forward(layout, weights, observation, scratch);
+    rollout.logp[i] = sampleAction(head, logSigma, random, draw);
+    rollout.a.set(draw, i * ACTION_WIDTH);
+    rollout.reward[i] = random() - 0.5;
+  }
+  return { rollout, norm, weights, logSigma };
+}
+
+/** The largest elementwise gap between two same-length runs of numbers. */
+const gapOf = (a, b) => {
+  let most = 0;
+  for (let i = 0; i < a.length; i += 1) most = Math.max(most, Math.abs(a[i] - b[i]));
+  return most;
+};
+
+test("a_shards_slice_covers_the_minibatch_exactly_once_and_in_index_order", () => {
+  for (const shards of [1, 2, 3, 4, 8, 12]) {
+    for (const [at, end] of [[0, 4096], [4096, 8192], [53_248, 56_370], [7, 8]]) {
+      let previous = at;
+      const seen = [];
+      for (let shard = 0; shard < shards; shard += 1) {
+        const { from, to } = shardSlice(at, end, shard, shards);
+        assert.equal(from, previous, `shard ${shard} of ${shards} does not start where the one before it ended`);
+        assert.ok(to >= from, `shard ${shard} of ${shards} runs backwards`);
+        for (let m = from; m < to; m += 1) seen.push(m);
+        previous = to;
+      }
+      assert.equal(previous, end, `${shards} shards of the range ending at ${end} stop at ${previous}`);
+      // In index order and not merely covering, which is what makes the reassociation a fixed one.
+      assert.deepEqual(seen, Array.from({ length: end - at }, (_, i) => at + i));
+    }
+  }
+});
+
+/**
+ * A sharded fit is the single thread's fit to 1e-9, on a rollout that is normalised.
+ *
+ * This is the session's bar and the set's ninth frozen choice made mechanical: the fit may go
+ * wider but it may not go anywhere else. Three things are asserted and each is a different way of
+ * being wrong.
+ *
+ * **At K = 1 the two are bit for bit the same number.** One shard walks the whole minibatch in
+ * index order and the main thread adds its single partial to zero, which is exact, so there is no
+ * tolerance to hide behind: if the loop moved to the worker is not the loop it was lifted from,
+ * this line is red at the first minibatch.
+ *
+ * **At K = 2 and K = 4 they agree to far better than the bar.** What differs is one fixed
+ * reassociation of a sum of a thousand terms, which is a last-bit effect; the measured gap on this
+ * fixture is around 1e-16 an actor weight against a bar of 1e-9, and it is *fixed* -- the partials
+ * are summed in shard order 0..K-1 and never in completion order, so two runs of this test on the
+ * same seed give the same numbers and the tolerance is about floating point rather than about
+ * scheduling.
+ *
+ * **The discrete read-out is identical rather than close.** The epoch count, the number of Adam
+ * steps and the clip fraction are the same values, the last because it is a count of ones over a
+ * count of samples and integers add exactly however they are grouped. The three float read-outs
+ * -- the KL, the entropy and the value loss -- are compared at the same 1e-9 as the weights,
+ * because they are sums the sharding reassociates in exactly the same way.
+ */
+test("a_sharded_fit_matches_the_single_thread_fit_to_1e_9", { timeout: 900_000 }, async () => {
+  const { rollout, norm } = normalisedRollout(4096);
+  const knobs = {
+    layout: POLICY_LAYOUT, valueLayout: TEST_VALUE_LAYOUT, norm, seed: SEED,
+    halfLife: 4, lambda: 0.95, clip: 0.2, entropy: 0.003, rate: 1e-3, valueRate: 1e-3,
+    sigmaRate: 1e-2, epochs: 2, batch: 1024, targetKl: 0, sigmaFloor: -3, sigmaRoof: 0.5,
+  };
+  const fresh = () => ({
+    weights: initWeights(POLICY_LAYOUT, SEED + 8),
+    logSigma: new Float64Array(ACTION_AXES).fill(-0.7),
+    valueWeights: initWeights(TEST_VALUE_LAYOUT, SEED + 9),
+  });
+
+  const alone = fresh();
+  const one = ppoFit(rollout, { ...knobs, ...alone });
+  assert.ok(one.updates > 4, `the single thread took only ${one.updates} Adam steps`);
+  assert.ok(one.clipFraction > 0, "no sample was clipped, so the clip branch is untested here");
+
+  for (const shards of [1, 2, 4]) {
+    const pool = await FitPool.open({ shards, layout: POLICY_LAYOUT, valueLayout: TEST_VALUE_LAYOUT });
+    const many = fresh();
+    let sharded;
+    try {
+      sharded = ppoFit(rollout, { ...knobs, ...many, shards, pool });
+    } finally {
+      await pool.close();
+    }
+    const bar = shards === 1 ? 0 : 1e-9;
+    const where = `at ${shards} shard${shards === 1 ? "" : "s"}`;
+    assert.ok(gapOf(alone.weights, many.weights) <= bar,
+      `${where} an actor weight moved by ${gapOf(alone.weights, many.weights)}`);
+    assert.ok(gapOf(alone.valueWeights, many.valueWeights) <= bar,
+      `${where} a critic weight moved by ${gapOf(alone.valueWeights, many.valueWeights)}`);
+    assert.ok(gapOf(alone.logSigma, many.logSigma) <= bar,
+      `${where} a spread moved by ${gapOf(alone.logSigma, many.logSigma)}`);
+    assert.equal(sharded.epochs, one.epochs, `${where} the fit ran a different number of epochs`);
+    assert.equal(sharded.updates, one.updates, `${where} the fit took a different number of steps`);
+    assert.equal(sharded.stopped, one.stopped, `${where} the trust region behaved differently`);
+    assert.equal(sharded.clipFraction, one.clipFraction, `${where} the clip fraction is not the same number`);
+    for (const key of ["kl", "entropy", "valueLoss", "explainedAfter", "advantageSd"]) {
+      assert.ok(Math.abs(sharded[key] - one[key]) <= 1e-9,
+        `${where} ${key} read ${sharded[key]} against ${one[key]}`);
+    }
+    // Adam's own state has to have travelled too, or a resumed sharded arm is a different run.
+    assert.ok(gapOf(one.actor.m, sharded.actor.m) <= bar,
+      `${where} the actor's first moments differ by ${gapOf(one.actor.m, sharded.actor.m)}`);
+    assert.equal(sharded.actor.step, one.actor.step);
+  }
+});
+
+/**
+ * The trust region stops on the same minibatch at K = 1 and at K = 4, and applies neither.
+ *
+ * The rollout is built so the first minibatch cannot trip: its recorded log-probabilities are the
+ * ones this very head gives those actions, so the KL of the collecting policy against the fitted
+ * one is zero before anything has moved. The rate is then large enough that the single Adam step
+ * that minibatch takes carries the policy well past the target, and the *second* minibatch trips.
+ * That is a controlled version of the case the region exists for, and it is the one the plan asks
+ * to see sharded: one step applied, the failing minibatch discarded, the same epoch named.
+ */
+test("the_trust_region_stops_on_the_same_minibatch_sharded_as_on_one_thread", { timeout: 300_000 }, async () => {
+  const width = 5;
+  const layout = { inputs: width, hidden: [16], outputs: ACTION_WIDTH };
+  const valueLayout = { inputs: width, hidden: [16], outputs: 1 };
+  const count = 512;
+  const random = mulberry32(SEED + 71);
+  const norm = { count: 4096, mean: [], variance: [] };
+  for (let k = 0; k < width; k += 1) { norm.mean[k] = 2 + k; norm.variance[k] = 0.25 + k / 3; }
+  const start = () => ({
+    weights: initWeights(layout, SEED + 11),
+    logSigma: new Float64Array(ACTION_AXES).fill(-0.7),
+    valueWeights: initWeights(valueLayout, SEED + 12),
+  });
+  const held = start();
+  const scratch = netScratch(layout);
+  const raw = new Float64Array(width);
+  const observation = new Float64Array(width);
+  const draw = new Float64Array(ACTION_WIDTH);
+  const rollout = {
+    count, width,
+    x: new Float32Array(count * width),
+    a: new Float64Array(count * ACTION_WIDTH),
+    logp: new Float64Array(count),
+    reward: new Float64Array(count),
+    seconds: new Float64Array(count).fill(0.0833),
+    done: Uint8Array.from({ length: count }, (_, i) => (i % 16 === 15 ? 1 : 0)),
+  };
+  for (let i = 0; i < count; i += 1) {
+    for (let k = 0; k < width; k += 1) {
+      raw[k] = norm.mean[k] + Math.sqrt(norm.variance[k]) * (random() * 2 - 1) * 1.5;
+      rollout.x[i * width + k] = raw[k];
+    }
+    normalise(raw, norm, observation);
+    const head = forward(layout, held.weights, observation, scratch);
+    // Drawn and then re-read at this same head, so the ratio starts at exactly one everywhere.
+    sampleAction(head, held.logSigma, random, draw);
+    rollout.a.set(draw, i * ACTION_WIDTH);
+    rollout.logp[i] = actionLogProb(head, held.logSigma, draw);
+    rollout.reward[i] = random() - 0.5;
+  }
+  const knobs = {
+    layout, valueLayout, norm, seed: SEED + 13, halfLife: 4, lambda: 0.95, clip: 0.2,
+    entropy: 0.003, rate: 0.25, valueRate: 0.01, sigmaRate: 0.25, epochs: 3, batch: 128,
+    targetKl: 0.02, sigmaFloor: -3, sigmaRoof: 0.5,
+  };
+  const alone = start();
+  const one = ppoFit(rollout, { ...knobs, ...alone });
+  assert.ok(one.stopped !== null, "the fixture never tripped the trust region on one thread");
+  assert.equal(one.stopped.epoch, 1, `the stop was in epoch ${one.stopped.epoch}`);
+  assert.equal(one.updates, 1, `${one.updates} minibatches were applied before the stop`);
+  assert.equal(one.epochs, 0, "an epoch that stopped part way through was counted as run");
+
+  const pool = await FitPool.open({ shards: 4, layout, valueLayout });
+  const many = start();
+  let sharded;
+  try {
+    sharded = ppoFit(rollout, { ...knobs, ...many, shards: 4, pool });
+  } finally {
+    await pool.close();
+  }
+  assert.ok(sharded.stopped !== null, "the sharded fit did not stop where the single thread did");
+  assert.equal(sharded.stopped.epoch, one.stopped.epoch);
+  assert.equal(sharded.updates, one.updates, "the shards applied a different number of minibatches");
+  assert.equal(sharded.epochs, one.epochs);
+  assert.ok(Math.abs(sharded.stopped.kl - one.stopped.kl) <= 1e-9,
+    `the failing minibatch measured ${sharded.stopped.kl} sharded against ${one.stopped.kl}`);
+  assert.ok(gapOf(alone.weights, many.weights) <= 1e-9, "the two stops left different weights behind");
+  assert.ok(gapOf(alone.logSigma, many.logSigma) <= 1e-9, "the two stops left different spreads behind");
+  assert.ok(gapOf(alone.valueWeights, many.valueWeights) <= 1e-9, "the two stops left different critics behind");
+});
+
+/**
+ * The bandit still finds its optimum with the fit on four threads.
+ *
+ * The equality test above is the strong claim and this is the one that would catch the failure
+ * equality cannot see: a pool that is self-consistently wrong in both halves of a comparison it is
+ * also the subject of. This is the same problem the single thread solves two sections up, at the
+ * same seed and the same knobs, with the loop on four shards -- so a head that does not arrive
+ * says the sharded loop is not the loop, whatever the two paths agree with each other about.
+ */
+test("a_bandit_fitted_on_four_shards_still_finds_its_optimum", { timeout: 300_000 }, async () => {
+  const target = [0.6, -0.45];
+  const width = 4;
+  const layout = { inputs: width, hidden: [24], outputs: ACTION_WIDTH };
+  const valueLayout = { inputs: width, hidden: [24], outputs: 1 };
+  const weights = initWeights(layout, SEED);
+  const valueWeights = initWeights(valueLayout, SEED + 1);
+  const logSigma = new Float64Array(ACTION_AXES).fill(-0.7);
+  const norm = freshNormalisation(width);
+  const random = mulberry32(SEED + 2);
+  const scratch = netScratch(layout);
+  const observation = Float64Array.from([1, 0.5, -0.25, 0]);
+  const draw = new Float64Array(ACTION_WIDTH);
+  const rounds = 90;
+  const perRound = 192;
+  const pool = await FitPool.open({ shards: 4, layout, valueLayout });
+  let state = { actor: null, spread: null, critic: null };
+  let last = 0;
+  try {
+    for (let round = 1; round <= rounds; round += 1) {
+      const rollout = {
+        count: perRound, width,
+        x: new Float32Array(perRound * width),
+        a: new Float64Array(perRound * ACTION_WIDTH),
+        logp: new Float64Array(perRound),
+        reward: new Float64Array(perRound),
+        seconds: new Float64Array(perRound),
+        done: new Uint8Array(perRound).fill(1),
+      };
+      let paid = 0;
+      for (let i = 0; i < perRound; i += 1) {
+        const head = forward(layout, weights, observation, scratch);
+        rollout.logp[i] = sampleAction(head, logSigma, random, draw);
+        rollout.reward[i] = -((draw[0] - target[0]) ** 2) - ((draw[1] - target[1]) ** 2);
+        rollout.x.set(observation, i * width);
+        rollout.a.set(draw, i * ACTION_WIDTH);
+        paid += rollout.reward[i];
+      }
+      last = paid / perRound;
+      const fit = ppoFit(rollout, {
+        weights, logSigma, valueWeights, layout, valueLayout, norm, seed: SEED + round,
+        halfLife: 1, lambda: 0.95, clip: 0.2, entropy: 0.0005, rate: 0.012, valueRate: 0.02,
+        sigmaRate: 0.012, epochs: 4, batch: 64, targetKl: 0.02, sigmaFloor: -4, sigmaRoof: 0.5,
+        shards: 4, pool, ...state,
+      });
+      state = { actor: fit.actor, spread: fit.spread, critic: fit.critic };
+    }
+  } finally {
+    await pool.close();
+  }
+  const head = forward(layout, weights, observation, scratch);
+  assert.ok(Math.abs(head[0] - target[0]) < 0.15, `axis 0 arrived at ${head[0]}, wanted ${target[0]}`);
+  assert.ok(Math.abs(head[1] - target[1]) < 0.15, `axis 1 arrived at ${head[1]}, wanted ${target[1]}`);
+  assert.ok(last > -0.06, `the last round paid ${last} a draw`);
+  assert.ok(logSigma[0] < -1.2, `axis 0 kept a spread of exp(${logSigma[0]})`);
+});
+
+/**
+ * A pool refuses the two mistakes that would otherwise be silent.
+ *
+ * A fit that names one shard count and is handed a pool of another would run at the pool's, which
+ * is a run whose header says something the run did not do; and a pool stepped before it has been
+ * bound would read whatever the last iteration left in shared memory, which is a fit on the
+ * previous rollout and is exactly the failure this file's opening note is about -- green, quiet,
+ * and not a fit.
+ */
+test("a_fit_pool_refuses_a_shard_count_it_does_not_have_and_a_step_before_its_binding", { timeout: 120_000 }, async () => {
+  const pool = await FitPool.open({ shards: 2, layout: POLICY_LAYOUT, valueLayout: TEST_VALUE_LAYOUT });
+  try {
+    assert.equal(pool.shards, 2);
+    assert.throws(() => ppoFit({ count: 0, width: 1 }, { shards: 4, pool }), /4 shards was handed a pool of 2/);
+    assert.throws(() => pool.step({ at: 0, end: 1, order: [0], weights: [], valueWeights: [], logSigma: [] }),
+      /only after it has been bound/);
+  } finally {
+    await pool.close();
+  }
+  await assert.rejects(async () => FitPool.open({ shards: 0 }), /not a pool/);
 });

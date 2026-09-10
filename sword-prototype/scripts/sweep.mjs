@@ -3,6 +3,7 @@
 //
 //   node scripts/sweep.mjs --manifest docs/sweeps/example.json
 //        [--workers 32]     -- the host's threads to divide; absent is availableParallelism()
+//        [--shards 1]       -- fit threads an arm; comes off the arm's collector budget
 //        [--root tournaments/sweeps] [--only arm-1,arm-2] [--from checkpoint.json]
 //        [--minutes 0] [--restarts 3]
 //        [--rate-bouts N]   -- absent is the manifest's own; 0 rates nothing
@@ -31,6 +32,22 @@
 // arms on the 32-thread desktop that is seven, which is the number the record measured 155 s an
 // iteration at; at three it is ten, and at one it is thirty, which is how the same manifest runs
 // the control the throughput bar is read against.
+//
+// **`--shards` comes off that budget, and only when it is more than one.** Session 05 of the learn
+// set put the fit on K threads, and K threads that are all busy at once are not the single fit
+// thread the paragraph above leaves inside the count. So a sharded sweep spends
+// `floor((available - 2) / arms) - shards` collectors an arm: one arm at eight shards on this host
+// is 22 collectors and 8 shards, which is the shipped configuration that session measured. At one
+// shard nothing comes off, which is what makes a `--shards 1` sweep the same arithmetic Session 04
+// measured its throughput bar with -- ten collectors for three arms, thirty for one.
+//
+// **The runner's own default is one, where both trainers default to eight, and it writes the
+// resolved number onto every arm's command line.** A trainer's default is the knee of a curve
+// measured with the whole host to itself; a sweep is the case where the host is not one run's, so
+// inheriting that default would have every arm quietly take eight fit threads out of a budget
+// computed for one. Saying the number explicitly is the same discipline `POOL_FLAGS` gets: the
+// value the budget was computed from is the value the arm is told, once, and the launch line a
+// reader sees is the whole of what the arm was told.
 //
 // **Nothing is rated during the run.** Every arm is launched with `--evaluate 0`, because a rating
 // steals the cores the collection is paying for and a rating taken mid-run on a busy host is a
@@ -86,6 +103,17 @@ export const RUNNER_FLAGS = Object.freeze(["seed", "from", "resume", "workers", 
 
 /** The two flags that say which bodies a run draws, which is what makes two ratings comparable. */
 export const POOL_FLAGS = Object.freeze(["random", "terminals"]);
+
+/**
+ * The flag an arm may not differ in, because the runner's own arithmetic is a function of it.
+ *
+ * `--shards` comes off every arm's collector budget, and the budget is one number for the sweep --
+ * the arms run at once on one host, so an arm that took eight fit threads while its neighbours took
+ * one would be spending the neighbours' collectors. It belongs in `common` or on the command line,
+ * where it is said once for everybody, and an arm that names it is refused by name rather than
+ * quietly given a budget computed for a different arm.
+ */
+export const BUDGET_FLAGS = Object.freeze(["shards"]);
 
 /** How many times a dead arm is put back on its feet before the runner gives up on it. */
 export const MAX_RESTARTS = 3;
@@ -182,7 +210,15 @@ export function readManifest(json) {
     }
     if (named.has(armName)) throw new Error(`two arms are called "${armName}"; a sweep's arms are told apart by name`);
     named.add(armName);
-    return { name: armName, flags: asFlags(entry.flags ?? [], `arm "${armName}"`) };
+    const flags = asFlags(entry.flags ?? [], `arm "${armName}"`);
+    for (const flag of BUDGET_FLAGS) {
+      if (flagValue(flags, flag) !== null || flags.includes(`--${flag}`)) {
+        throw new Error(`arm "${armName}" names --${flag}, which the runner divides the host's `
+          + "threads by and must therefore be the same for every arm; it belongs in common, or on "
+          + "the command line where it is handed to all of them");
+      }
+    }
+    return { name: armName, flags };
   });
   for (const [where, flags] of [["common", common], ...arms.map((arm) => [`arm "${arm.name}"`, arm.flags])]) {
     for (const flag of RUNNER_FLAGS) {
@@ -210,17 +246,24 @@ export function readManifest(json) {
 }
 
 /**
- * Collectors an arm: `floor((available - 2) / arms)`, and never fewer than one.
+ * Collectors an arm: `floor((available - 2) / arms)`, less the fit's shards, never fewer than one.
  *
  * The two that come off the top are the host's -- a desktop that cannot repaint is a desktop
  * somebody reboots in the middle of the night -- and the arm's own fit thread is left inside the
  * count on purpose: it is busy for four fifths of an iteration and the collectors are idle for
  * exactly that stretch, so counting it again would leave the machine short by one thread an arm at
  * the only moment they are all working. At 32 threads: one arm 30, three 10, four 7, eight 3.
+ *
+ * `shards` is Session 05 of the learn set's flag and comes off the top of an arm's share only when
+ * it is greater than one, which is not an inconsistency but the same argument twice. A single fit
+ * thread is the one this arithmetic has always folded into the collectors; a fit split K ways is K
+ * threads pinned at once, and the collectors it displaces are real. Keeping the K = 1 case exactly
+ * as it was is also what lets a `--shards 1` sweep be read against Session 04's own numbers.
  */
-export function workerBudget(arms, available = availableParallelism()) {
+export function workerBudget(arms, available = availableParallelism(), shards = 1) {
   if (!Number.isInteger(arms) || arms < 1) throw new Error(`a sweep of ${arms} arms is not a sweep`);
-  return Math.max(1, Math.floor((available - 2) / arms));
+  if (!Number.isInteger(shards) || shards < 1) throw new Error(`a fit of ${shards} shards is not a fit`);
+  return Math.max(1, Math.floor((available - 2) / arms) - (shards > 1 ? shards : 0));
 }
 
 /** Where an arm's run lives: its own directory for a league, one log in the sweep's for a fit. */
@@ -242,8 +285,12 @@ export function armPaths(manifest, arm, root) {
  *
  * The pool is emitted once, resolved, and taken back out of the arm's and the common flags: they
  * agree by `readManifest`'s refusal, so a second copy could only ever be the same words twice.
+ * `--shards` is emitted the same way and for a stronger reason -- the runner's budget arithmetic is
+ * a function of it, and a trainer left to its own default would take eight fit threads out of a
+ * collector budget computed for one. It is stripped from the command line's own flags too, since
+ * that is where a sweep is usually told the number and the resolved value is already here.
  */
-export function armArgs(manifest, arm, { workers, root, extra = [], resume = false }) {
+export function armArgs(manifest, arm, { workers, shards = 1, root, extra = [], resume = false }) {
   const paths = armPaths(manifest, arm, root);
   const args = [SWEEP_SCRIPTS[manifest.script], "--seed", String(manifest.seed)];
   if (manifest.script === "league") {
@@ -255,10 +302,10 @@ export function armArgs(manifest, arm, { workers, root, extra = [], resume = fal
     if (resume) args.push("--resume", checkpointFor(paths.log));
     else if (manifest.from !== null) args.push("--from", manifest.from);
   }
-  args.push("--workers", String(workers), "--evaluate", "0");
+  args.push("--workers", String(workers), "--shards", String(shards), "--evaluate", "0");
   args.push("--random", String(manifest.pool.random), "--terminals", manifest.pool.terminals.join(","));
-  const strip = (flags) => withoutFlags(flags, POOL_FLAGS);
-  return [...args, ...extra, ...strip(arm.flags), ...strip(manifest.common)];
+  const strip = (flags) => withoutFlags(flags, [...POOL_FLAGS, ...BUDGET_FLAGS]);
+  return [...args, ...withoutFlags(extra, BUDGET_FLAGS), ...strip(arm.flags), ...strip(manifest.common)];
 }
 
 /**
@@ -269,8 +316,10 @@ export function armArgs(manifest, arm, { workers, root, extra = [], resume = fal
  * a restart with a real trainer is to kill one, which makes the test a race against a process that
  * takes minutes to reach its first checkpoint.
  */
-export function spawnArm(arm, { manifest, workers, dir, extra = [], resume = false, spawn = spawnChild }) {
-  const args = armArgs(manifest, arm, { workers, root: dir, extra, resume });
+export function spawnArm(arm, {
+  manifest, workers, shards = 1, dir, extra = [], resume = false, spawn = spawnChild,
+}) {
+  const args = armArgs(manifest, arm, { workers, shards, root: dir, extra, resume });
   return { args, child: spawn(process.execPath, args, { cwd: HERE, stdio: ["ignore", "pipe", "pipe"] }) };
 }
 
@@ -303,7 +352,7 @@ function tail(previous, chunk) {
  * is lost is the iteration in flight.
  */
 export async function superviseArms(manifest, {
-  workers, dir, extra = [], spawn = spawnChild, restarts = MAX_RESTARTS, minutes = 0,
+  workers, shards = 1, dir, extra = [], spawn = spawnChild, restarts = MAX_RESTARTS, minutes = 0,
   status = 30, print = console.log, appendRow = null,
 }) {
   const write = appendRow ?? ((path, row) => {
@@ -316,7 +365,7 @@ export async function superviseArms(manifest, {
   const run = (entry, resume) => new Promise((done) => {
     const launch = (attempt) => {
       const { child, args } = spawnArm(entry.arm, {
-        manifest, workers, dir, extra, resume: resume || attempt > 0, spawn,
+        manifest, workers, shards, dir, extra, resume: resume || attempt > 0, spawn,
       });
       entry.child = child;
       entry.line = attempt === 0 ? "launched" : `relaunched (${attempt})`;
@@ -494,7 +543,10 @@ if (isMain) {
     manifest.arms = manifest.arms.filter((arm) => wanted.includes(arm.name));
   }
   const available = Number(own.get("workers") ?? availableParallelism());
-  const workers = workerBudget(manifest.arms.length, available);
+  // A pass-through flag the runner also has to read, because the collector budget is a function of
+  // it. The command line wins over the manifest's `common`, which is `armArgs`'s own precedence.
+  const shards = Math.max(1, Number(flagValue(extra, "shards") ?? flagValue(manifest.common, "shards") ?? 1));
+  const workers = workerBudget(manifest.arms.length, available, shards);
   const root = resolve(own.get("root") ?? "tournaments/sweeps");
   const minutes = Math.max(0, Number(own.get("minutes") ?? 0));
   const restarts = Math.max(0, Number(own.get("restarts") ?? MAX_RESTARTS));
@@ -505,13 +557,14 @@ if (isMain) {
   const started = new Date().toISOString();
 
   console.log(`sweep ${manifest.name}: ${manifest.arms.length} ${manifest.script} arms, seed ${manifest.seed}, `
-    + `${workers} workers each of ${available} available, ${poolLine(manifest.pool)}`);
+    + `${workers} workers${shards > 1 ? ` and ${shards} fit shards` : ""} each of ${available} available, `
+    + `${poolLine(manifest.pool)}`);
   if (manifest.from !== null) console.log(`  every arm starts from ${manifest.from}`);
   if (minutes > 0) console.log(`  stopping every arm after ${minutes} minutes`);
 
   if (own.has("dry-run")) {
     for (const arm of manifest.arms) {
-      console.log(`  ${arm.name}: node ${armArgs(manifest, arm, { workers, root, extra }).join(" ")}`);
+      console.log(`  ${arm.name}: node ${armArgs(manifest, arm, { workers, shards, root, extra }).join(" ")}`);
     }
   } else {
     for (const arm of manifest.arms) {
@@ -526,13 +579,15 @@ if (isMain) {
     // The copied manifest is the sweep's own record and is what Session 02's `readSweep` reads:
     // the arms as they were resolved, the budget the arithmetic gave them, and when they started.
     writeFileSync(join(home, "manifest.json"), JSON.stringify({
-      ...manifest, started, available, workers, minutes, extra,
+      ...manifest, started, available, workers, shards, minutes, extra,
       arms: manifest.arms.map((arm) => ({
         ...arm, log: relative(HERE, armPaths(manifest, arm, root).log).replaceAll("\\", "/"),
       })),
     }, null, 2) + "\n");
 
-    const summary = await superviseArms(manifest, { workers, dir: root, extra, minutes, restarts, status });
+    const summary = await superviseArms(manifest, {
+      workers, shards, dir: root, extra, minutes, restarts, status,
+    });
     console.log("");
     for (const arm of summary) {
       console.log(`  ${arm.name.padEnd(16)} exit ${arm.code}, ${arm.restarts} restart${arm.restarts === 1 ? "" : "s"}`);

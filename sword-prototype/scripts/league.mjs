@@ -1,6 +1,7 @@
 // League self-play: a main agent, a pool of its own frozen past, and exploiters that hunt it.
 //
-//   node scripts/league.mjs [--iterations 40] [--bouts 64] [--workers N] [--seed 20260914]
+//   node scripts/league.mjs [--iterations 40] [--bouts 64] [--workers N] [--shards 8]
+//     [--seed 20260914]
 //     [--cap 60] [--random 40] [--terminals maul,mace|all] [--emphasise maul,mace] [--emphasis 3]
 //     [--pool-every 4] [--pool-cap 8]
 //     [--exploiters 2] [--exploiter-every 1] [--share-self 1] [--share-pool 2] [--share-exploiter 1]
@@ -57,6 +58,15 @@
 // before this carries none, which is read as "start cold" with a line saying so rather than as a
 // refusal -- the league version is about what a reader would *misread*, and a missing block cannot
 // be misread.
+//
+// **`--shards` is the same flag `scripts/train-ppo.mjs` grew in Session 05 of the learn set**, and
+// it matters more here: a league iteration carries the main's fit and every exploiter's, so the
+// single thread is a larger share of it than it is of a trainer's. One `FitPool` is opened for the
+// run and every role's turn steps through it, because a pool that lived for a turn would pay a
+// thread start per role per iteration. What it may not do is move a number, which is the set's
+// ninth frozen choice and is tested in `tests/ppo.test.mjs` rather than asserted here. The default
+// is the trainer's default, eight, for the reason given there: it is the knee of the measured curve
+// and not its fastest point, and `--shards 1` is the code this script has always run.
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -65,7 +75,7 @@ import { availableParallelism } from "node:os";
 import { armedTerminal, runJobs, scheduleJobs } from "./tournament.mjs";
 import { formatIdleProbe, idleProbe } from "./idle-probe.mjs";
 import {
-  FIT_NAME, PPO_LEAGUE, REWARD_KEYS, episodeReturns, extendNormalisation, mergeRollouts,
+  FIT_NAME, FitPool, PPO_LEAGUE, REWARD_KEYS, episodeReturns, extendNormalisation, mergeRollouts,
   momentsFromJson, momentsToJson, parseTerminals, poolFor, policyTable, ppoFit, ratePolicy,
   renderPolicyModule,
 } from "./train-ppo.mjs";
@@ -351,23 +361,28 @@ export async function collectLeague({
  */
 export async function trainRole({
   builds, role, opponents, moments, seed, bouts, workers, cap, reward = GOLEM_REWARD,
-  name = MAIN_NAME, onProgress = null, fit: knobs = {},
+  name = MAIN_NAME, onProgress = null, fit: knobs = {}, pool = null,
 }) {
   const rollout = await collectLeague({
     builds, role, opponents, seed, bouts, workers, cap, reward, name, onProgress,
   });
   if (rollout.count === 0) throw new Error(`${name} collected no asks at all`);
   const summary = episodeReturns(rollout);
+  // Timed here rather than around the whole turn, because the claim Session 05 of the learn set
+  // makes is about this call and nothing else in the iteration; the pool is the caller's and is
+  // shared by every role, which is the point of a pool that lives for the run.
+  const started = Date.now();
   const fit = ppoFit(rollout, {
     weights: role.weights, logSigma: role.logSigma, valueWeights: role.valueWeights,
     norm: role.norm, seed: (seed ^ 0x1ea9e0) >>> 0, valueLayout: LEAGUE_VALUE_LAYOUT,
-    ...knobs, actor: moments.actor, spread: moments.spread, critic: moments.critic,
+    ...knobs, pool, actor: moments.actor, spread: moments.spread, critic: moments.critic,
   });
+  const seconds = (Date.now() - started) / 1000;
   moments.actor = fit.actor;
   moments.spread = fit.spread;
   moments.critic = fit.critic;
   role.norm = extendNormalisation(role.norm, rollout);
-  return { rollout, summary, fit };
+  return { rollout, summary, fit, seconds };
 }
 
 /**
@@ -761,6 +776,9 @@ if (isMain) {
   const cap = Number(flag("cap", 60));
   const random = Math.max(0, Number(flag("random", 40)));
   const workers = Math.max(1, Number(flag("workers", Math.max(1, availableParallelism() - 2))));
+  // The fit's own threads, Session 05 of the learn set. One is the single thread this script has
+  // always run, and is the only setting that allocates no shared memory at all.
+  const shards = Math.max(1, Number(flag("shards", 8)));
   // Absent is the viable set since Session 01 of the learn set; `--terminals all` is every build.
   const terminals = parseTerminals(flag("terminals", null));
   // The weighting, which is what a league is supposed to use where the calibration used a filter.
@@ -819,6 +837,9 @@ if (isMain) {
     epochs: Math.max(1, Number(flag("epochs", 4))), batch: Math.max(1, Number(flag("batch", 4096))),
     targetKl: Math.max(0, Number(flag("target-kl", 0.03))),
     sigmaFloor: Number(flag("sigma-floor", -3)), sigmaRoof: Number(flag("sigma-roof", 0.5)),
+    // A number and not the pool itself, because the header is written out of exactly this object
+    // and a worker pool does not go through `JSON.stringify`.
+    shards,
   };
   // The reward table, four flags spelled exactly as `scripts/train-ppo.mjs` spells them so that
   // one sweep manifest reads across both scripts. The old refusal's argument is kept and moved:
@@ -1011,7 +1032,10 @@ if (isMain) {
     };
     log({ type: "header", ...header });
     console.log(`league: seed ${seed}, iterations ${state.iteration + 1}..${iterations} of ${bouts} bouts, `
-      + `${state.exploiters.length} exploiters, pool cap ${poolCap}, ${workers} workers`);
+      + `${state.exploiters.length} exploiters, pool cap ${poolCap}, ${workers} workers, `
+      + `${shards === 1 ? "one fit thread" : `${shards} fit shards`}`);
+    // One pool for the whole run and every role in it.
+    const fitPool = shards > 1 ? await FitPool.open({ shards, valueLayout: LEAGUE_VALUE_LAYOUT }) : null;
 
     let rated = null;
     const ratePoint = async (iteration, wanted) => {
@@ -1066,8 +1090,9 @@ if (isMain) {
       const turn = await trainRole({
         builds, role: state.main, opponents, moments: moments.main,
         seed: (seed + iteration * 7919) >>> 0, bouts, workers, cap, reward,
-        name: MAIN_NAME, fit: knobs, onProgress: progress(`iteration ${iteration}`),
+        name: MAIN_NAME, fit: knobs, pool: fitPool, onProgress: progress(`iteration ${iteration}`),
       });
+      let fitSeconds = turn.seconds;
       state.bouts += turn.rollout.bouts;
       state.steps += turn.rollout.count;
 
@@ -1082,9 +1107,10 @@ if (isMain) {
             builds, role: state.exploiters[slot], moments: moments[name],
             opponents: [{ name: SELF_NAME, weight: 1, contender: contenderFor(frozen) }],
             seed: (seed + iteration * 7919 + 104_729 * (slot + 1)) >>> 0,
-            bouts: exploiterBouts, workers, cap, reward, name, fit: knobs,
+            bouts: exploiterBouts, workers, cap, reward, name, fit: knobs, pool: fitPool,
             onProgress: progress(`${name} ${iteration}`),
           });
+          fitSeconds += hunt.seconds;
           const gain = round5(hunt.rollout.byOpponent[SELF_NAME] ?? hunt.rollout.margin);
           state.exploiters[slot].history.push(gain);
           const stalled = exploiterStalled(state.exploiters[slot].history, { gain: resetGain, patience: resetPatience });
@@ -1122,6 +1148,9 @@ if (isMain) {
         advantageSd: round5(turn.fit.advantageSd), updates: turn.fit.updates,
         logSigma: Array.from(state.main.logSigma, round5),
         exploiters: hunts, snapshot, pool: state.pool.map((e) => e.iteration),
+        // Every `ppoFit` of the iteration -- the main's and each exploiter's -- against the whole
+        // of it, because the claim Session 05 of the learn set makes is about that ratio.
+        fitSeconds: round5(fitSeconds), shards,
         seconds: round5((Date.now() - started) / 1000),
       };
       log(line);
@@ -1131,7 +1160,7 @@ if (isMain) {
         + `decided ${(turn.rollout.decided * 100).toFixed(0)}%  KL ${turn.fit.kl.toFixed(5)}  `
         + `H ${turn.fit.entropy.toFixed(2)}  EV ${turn.fit.explainedAfter.toFixed(3)}  `
         + `sigma ${Math.exp(state.main.logSigma[0]).toFixed(3)}  ${turn.fit.updates} steps  `
-        + `${line.seconds.toFixed(0)} s`);
+        + `${line.seconds.toFixed(0)} s (${fitSeconds.toFixed(0)} fit)`);
       console.log(`         vs ${against}`);
       for (const hunt of hunts) {
         console.log(`         ${exploiterName(hunt.slot)} ${hunt.gain >= 0 ? "+" : ""}${hunt.gain.toFixed(4)} `
@@ -1141,6 +1170,9 @@ if (isMain) {
       const last = iteration === iterations;
       if (every > 0 && (last || iteration % every === 0)) rated = await ratePoint(iteration, last ? finalBouts : evalBouts);
     }
+    // Nothing below this fits anything, so the shards are done. They are unref'd, so a run that
+    // threw above still exits; this is the tidy path.
+    await fitPool?.close();
     if (write !== null) {
       if (rated === null) {
         throw new Error("--out wants a rating to put in the module header; run with --evaluate above zero");

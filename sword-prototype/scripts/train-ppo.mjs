@@ -1,7 +1,7 @@
 // Fit `golem-policy` by PPO on the dense reward, in mirrored self-play. Session 13 of the style set.
 //
 //   node scripts/train-ppo.mjs [--seed 20260913] [--iterations 30] [--bouts 32] [--cap 60]
-//        [--workers N] [--random 40] [--half-life 4] [--lambda 0.95] [--clip 0.2]
+//        [--workers N] [--shards 8] [--random 40] [--half-life 4] [--lambda 0.95] [--clip 0.2]
 //        [--entropy 0.003] [--rate 1e-4] [--value-rate 1e-3] [--sigma-rate 10x rate]
 //        [--epochs 4] [--batch 4096] [--target-kl 0.03]
 //        [--sigma-floor -3] [--sigma-roof 0.5] [--evaluate 5] [--eval-bouts 96]
@@ -106,10 +106,26 @@
 // iteration of a run, and a run restarted four times overnight would pay it four times. They are
 // written at full precision where the weights are rounded to five places: a second moment is
 // around 1e-8 and `round5` would set it to zero, which is the same as not saving it.
+//
+// **`--shards` puts the fit on K threads and is not allowed to move a number.** Session 05 of the
+// learn set. The record's 109 s iteration is 86 s of `ppoFit` on one thread, and Session 04
+// measured the same shape from the other end: tripling an arm's collectors bought 1.29x because
+// about two thirds of a league iteration is a thread no collector touches. `FitPool` below splits
+// each minibatch K ways over persistent workers, sums the K partials **in shard order 0..K-1** and
+// takes one Adam step here; the shuffle, the standardisation, the trust region and the read-out are
+// where they were. The set's ninth frozen choice is that this may not change a number, so the bar
+// is equality with the single thread to 1e-9 on a real rollout and the test in `tests/ppo.test.mjs`
+// is that comparison and not a bandit that happens to converge. **The default is eight, which is
+// the knee of the measured curve rather than its fastest point**: the first eight threads give back
+// 83 % of themselves and the next eight give back 27 %, so eight beside twenty-two collectors is
+// the shipped configuration and sixteen is merely the quickest. `--shards 1` allocates no shared
+// memory at all and runs the code this script has always run, which is what makes a comparison
+// against a number taken before this session repeatable.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { Worker, isMainThread } from "node:worker_threads";
 
 import { forward, initWeights, netScratch, netSize, backwardFrom } from "../src/golem/neural-net.ts";
 import { PILOT_FEATURE_COUNT, PILOT_FEATURES_VERSION } from "../src/golem/pilot.ts";
@@ -124,6 +140,7 @@ import { VIABLE_TERMINALS, viableMirror } from "../src/golem/viability.ts";
 import { armedTerminal, buildPool, runJobs, scheduleJobs } from "./tournament.mjs";
 import { columnsOf, meanOf, semOf } from "./train-learner.mjs";
 import { evaluate } from "./tune.mjs";
+import { CTL, COMMAND, FIT_ROLE, NOTE_BYTES, PARAM, SCALARS, readNote } from "./fit-worker.mjs";
 
 /** The name the rollouts and the evaluation give the fit, and the two it is rated against. */
 export const FIT_NAME = "fit";
@@ -354,6 +371,243 @@ export function surrogateGrad(
   return { logp, ratio, active, entropy: h, objective: Math.min(unclipped, bounded) + entropy * h };
 }
 
+// ------------------------------------------------------------------------------- the shard pool
+
+/** Where the shards' entry point lives, resolved once so a pool can be opened from any cwd. */
+const FIT_WORKER = new URL("./fit-worker.mjs", import.meta.url);
+
+/** How long the main thread will wait on a barrier before it decides a shard has died, in ms. */
+const BARRIER_TIMEOUT = 120_000;
+
+/**
+ * A persistent pool of worker threads that computes `ppoFit`'s minibatch gradients.
+ *
+ * **What it buys and what it costs.** The fit is the binding constraint of this plan set: the
+ * record's 109 s iteration is 86 s of `ppoFit` on one thread, and Session 04 measured the same
+ * fact from the other end -- three arms at ten collectors do 2.15 times the work of one arm at
+ * thirty, and not the 2.4 the bar wanted, because roughly two thirds of an iteration is a thread
+ * no collector can help. This is that thread cut K ways. It costs one `SharedArrayBuffer`
+ * allocation an iteration and three array copies a minibatch step, and it buys nothing at all in
+ * accuracy: the set's ninth frozen choice is that the sharded fit may not change a number.
+ *
+ * **The sum is taken in shard order and that is the whole design.** Each shard owns a contiguous
+ * slice of the minibatch by index, sums its slice's gradients into its own arrays, and counts up a
+ * barrier; the main thread then adds the K partials into one gradient triple **in shard order
+ * 0..K-1** and takes one Adam step. Floating-point addition is not associative, so a pool that
+ * summed in completion order would answer differently on every run of the same seed and there
+ * would be no test to write. What is left is a fixed reassociation of one sum, which moves a
+ * gradient in its last bits and a weight by far less than the 1e-9 the bar is stated at -- and at
+ * K = 1 moves nothing at all, because adding one partial to zero is exact. The equality test says
+ * both of those out loud.
+ *
+ * **Three arrays cross a step and five cross an iteration.** The rollout's `x`, `a` and `logp`,
+ * the standardised advantages and the returns are copied into shared memory once an iteration by
+ * `bind`, together with the frozen normalisation and the two surrogate constants; the weights, the
+ * critic's weights and the nine spreads are copied once a *step*, because Adam has just moved
+ * them. At the shipped layout that second copy is 87,308 + 8,833 + 9 doubles, about 770 KB, which
+ * is a memcpy against a minibatch of four thousand backward passes.
+ *
+ * **The shards block on Atomics and never return to their event loop.** A step is a few
+ * milliseconds and a message round trip is a scheduler decision. The one thing that must be a
+ * message is the binding, because a `SharedArrayBuffer` only reaches another thread through the
+ * port; the shard picks that up with `receiveMessageOnPort` from inside the wait, which is what
+ * keeps `bind` -- and therefore `ppoFit` -- synchronous.
+ */
+export class FitPool {
+  constructor({ shards, layout, valueLayout, workers, control, notes }) {
+    this.shards = shards;
+    this.layout = layout;
+    this.valueLayout = valueLayout;
+    this.size = netSize(layout);
+    this.valueSize = netSize(valueLayout);
+    this.workers = workers;
+    this.control = control;
+    this.ctl = new Int32Array(control);
+    this.notes = new Uint8Array(notes);
+    this.bound = null;
+    this.closed = false;
+    // The sums the caller reads, owned by the pool and rewritten by every step, so a minibatch
+    // allocates nothing. `ppoFit` hands them straight to `adamStep`.
+    this.grad = new Float64Array(this.size);
+    this.sigmaGrad = new Float64Array(ACTION_AXES);
+    this.valueGrad = new Float64Array(this.valueSize);
+  }
+
+  /**
+   * K threads started and waiting, with the module graph already imported.
+   *
+   * Asynchronous because a `Worker` is, and because a pool that returned before its threads had
+   * finished importing would put the cost of the import inside the first minibatch and call it a
+   * fit time. Every caller opens one pool for a whole run.
+   */
+  static async open({ shards, layout = POLICY_LAYOUT, valueLayout = VALUE_LAYOUT }) {
+    if (!Number.isInteger(shards) || shards < 1) throw new Error(`a fit pool of ${shards} shards is not a pool`);
+    const control = new SharedArrayBuffer(CTL.LENGTH * 4);
+    const notes = new SharedArrayBuffer(shards * NOTE_BYTES);
+    const workers = [];
+    await Promise.all(Array.from({ length: shards }, (_, shard) => new Promise((ready, fail) => {
+      const worker = new Worker(FIT_WORKER, {
+        workerData: { role: FIT_ROLE, shard, shards, control, notes },
+      });
+      // A shard that is waiting on Atomics is not work the process should stay alive for: a run
+      // that throws before it reaches `close` should still exit, and say why.
+      worker.unref();
+      workers.push(worker);
+      worker.once("message", () => ready());
+      worker.once("error", fail);
+    })));
+    return new FitPool({ shards, layout, valueLayout, workers, control, notes });
+  }
+
+  /** Every shard told what generation it is on, and waited for. */
+  #command(command) {
+    if (this.closed) throw new Error("this fit pool has been closed");
+    Atomics.store(this.ctl, CTL.DONE, 0);
+    Atomics.store(this.ctl, CTL.COMMAND, command);
+    Atomics.add(this.ctl, CTL.GENERATION, 1);
+    Atomics.notify(this.ctl, CTL.GENERATION);
+    if (command === COMMAND.QUIT) return;
+    for (;;) {
+      const done = Atomics.load(this.ctl, CTL.DONE);
+      if (done >= this.shards) break;
+      if (Atomics.wait(this.ctl, CTL.DONE, done, BARRIER_TIMEOUT) === "timed-out"
+        && Atomics.load(this.ctl, CTL.DONE) === done) {
+        throw new Error(`a fit shard has not answered in ${BARRIER_TIMEOUT / 1000} s; `
+          + `${done} of ${this.shards} finished`);
+      }
+    }
+    if (Atomics.load(this.ctl, CTL.ERROR) === 1) {
+      const said = [];
+      for (let shard = 0; shard < this.shards; shard += 1) {
+        const note = readNote(this.notes, shard);
+        if (note !== "") said.push(`shard ${shard}: ${note}`);
+      }
+      throw new Error(`a fit shard failed -- ${said.join(" | ")}`);
+    }
+  }
+
+  /**
+   * One iteration's rollout, advantages, returns and frozen normalisation put into shared memory.
+   *
+   * Fresh buffers rather than a grown capacity, because a rollout is about 57,000 asks at the
+   * shipped configuration and the whole binding is some tens of megabytes allocated once against
+   * an iteration that runs for a minute. `x` is widened from the pack's `Float32Array` here
+   * exactly as `ppoFit`'s own `load` widens it, which is lossless and is why the two paths read
+   * the same number.
+   *
+   * The normalisation is the one the rollout was *collected* under: both callers extend theirs
+   * with `extendNormalisation` after the fit returns and never during it, so what a shard reads
+   * cannot move while it is reading it. That is the invariant this session was told to be careful
+   * about, and the only place it could be broken is here.
+   */
+  bind(rollout, scaled, returns, norm, { clip = 0.2, entropy = 0 } = {}) {
+    const { count, width } = rollout;
+    const shared = (Kind, length) => new Kind(new SharedArrayBuffer(length * Kind.BYTES_PER_ELEMENT));
+    const bound = {
+      count, width,
+      x: shared(Float64Array, count * width),
+      a: shared(Float64Array, count * ACTION_WIDTH),
+      logp: shared(Float64Array, count),
+      scaled: shared(Float64Array, count),
+      returns: shared(Float64Array, count),
+      mean: shared(Float64Array, width),
+      variance: shared(Float64Array, width),
+      order: shared(Int32Array, count),
+      weights: shared(Float64Array, this.size),
+      valueWeights: shared(Float64Array, this.valueSize),
+      logSigma: shared(Float64Array, ACTION_AXES),
+      params: shared(Float64Array, PARAM.LENGTH),
+      grads: shared(Float64Array, this.shards * this.size),
+      sigmaGrads: shared(Float64Array, this.shards * ACTION_AXES),
+      valueGrads: shared(Float64Array, this.shards * this.valueSize),
+      scalars: shared(Float64Array, this.shards * SCALARS.LENGTH),
+    };
+    bound.x.set(rollout.x);
+    bound.a.set(rollout.a);
+    bound.logp.set(rollout.logp);
+    bound.scaled.set(scaled);
+    bound.returns.set(returns);
+    for (let k = 0; k < width; k += 1) { bound.mean[k] = norm.mean[k]; bound.variance[k] = norm.variance[k]; }
+    bound.params[PARAM.CLIP] = clip;
+    bound.params[PARAM.ENTROPY] = entropy;
+    this.bound = bound;
+    for (const worker of this.workers) {
+      worker.postMessage({
+        type: "bind", layout: this.layout, valueLayout: this.valueLayout,
+        size: this.size, valueSize: this.valueSize, count, width, normCount: norm.count,
+        x: bound.x.buffer, a: bound.a.buffer, logp: bound.logp.buffer,
+        scaled: bound.scaled.buffer, returns: bound.returns.buffer,
+        mean: bound.mean.buffer, variance: bound.variance.buffer, order: bound.order.buffer,
+        weights: bound.weights.buffer, valueWeights: bound.valueWeights.buffer,
+        logSigma: bound.logSigma.buffer, params: bound.params.buffer,
+        grads: bound.grads.buffer, sigmaGrads: bound.sigmaGrads.buffer,
+        valueGrads: bound.valueGrads.buffer, scalars: bound.scalars.buffer,
+      });
+    }
+    this.#command(COMMAND.BIND);
+    return this;
+  }
+
+  /**
+   * One minibatch, sharded, summed in shard order, and reported the way the inner loop reports it.
+   *
+   * The returned arrays are the pool's own and are rewritten by the next step, which is what keeps
+   * a minibatch free of allocation; `ppoFit` hands them to `adamStep` and never keeps them. The
+   * four scalars are the same four sums the single thread accumulates -- `kl`, the clipped count,
+   * the entropy and the value loss -- with the clipped count exact, being a sum of ones.
+   */
+  step({ at, end, epoch = 0, order, weights, valueWeights, logSigma }) {
+    const bound = this.bound;
+    if (bound === null) throw new Error("a fit pool steps only after it has been bound to a rollout");
+    for (let m = at; m < end; m += 1) bound.order[m] = order[m];
+    bound.weights.set(weights);
+    bound.valueWeights.set(valueWeights);
+    bound.logSigma.set(logSigma);
+    Atomics.store(this.ctl, CTL.AT, at);
+    Atomics.store(this.ctl, CTL.END, end);
+    Atomics.store(this.ctl, CTL.EPOCH, epoch);
+    this.#command(COMMAND.STEP);
+    // Shard order 0..K-1, over every block, and never a completion order. This is the line the
+    // equality test is about.
+    this.grad.fill(0);
+    this.sigmaGrad.fill(0);
+    this.valueGrad.fill(0);
+    let kl = 0;
+    let clipped = 0;
+    let entropy = 0;
+    let valueLoss = 0;
+    for (let shard = 0; shard < this.shards; shard += 1) {
+      const gradAt = shard * this.size;
+      for (let k = 0; k < this.size; k += 1) this.grad[k] += bound.grads[gradAt + k];
+      const sigmaAt = shard * ACTION_AXES;
+      for (let k = 0; k < ACTION_AXES; k += 1) this.sigmaGrad[k] += bound.sigmaGrads[sigmaAt + k];
+      const valueAt = shard * this.valueSize;
+      for (let k = 0; k < this.valueSize; k += 1) this.valueGrad[k] += bound.valueGrads[valueAt + k];
+      const scalarAt = shard * SCALARS.LENGTH;
+      kl += bound.scalars[scalarAt + SCALARS.KL];
+      clipped += bound.scalars[scalarAt + SCALARS.CLIPPED];
+      entropy += bound.scalars[scalarAt + SCALARS.ENTROPY];
+      valueLoss += bound.scalars[scalarAt + SCALARS.VALUE_LOSS];
+    }
+    return {
+      grad: this.grad, sigmaGrad: this.sigmaGrad, valueGrad: this.valueGrad,
+      kl, clipped, entropy, valueLoss, count: end - at,
+    };
+  }
+
+  /** The threads asked to stop, and waited for, so a run's exit is not a `terminate`. */
+  async close() {
+    if (this.closed) return;
+    this.#command(COMMAND.QUIT);
+    this.closed = true;
+    this.bound = null;
+    await Promise.all(this.workers.map((worker) => new Promise((done) => {
+      worker.once("exit", done);
+      worker.ref();
+    })));
+  }
+}
+
 const ADAM = Object.freeze({ beta1: 0.9, beta2: 0.999, eps: 1e-8 });
 
 /** One Adam state per parameter block, so the actor, the spread and the critic move separately. */
@@ -480,13 +734,25 @@ function adamStep(weights, grad, state, rate) {
  * calibrated 1e-4 that is 0.17 over thirty iterations, which is a spread that cannot sharpen. The
  * multiplier is the smallest fix that does not couple the two: the trust region still bounds what
  * a fit may do, and the floor and roof still bound where the spread may end up.
+ *
+ * **`pool` moves the inner loop onto worker threads and moves nothing else.** Session 05 of the
+ * learn set. With a `FitPool` the minibatch body below becomes one `pool.step`, whose K shards run
+ * the same loop over contiguous slices and whose partials the pool sums in shard order; everything
+ * outside it -- the shuffle, the standardisation, the trust region, the read-out, the Adam steps,
+ * the `stopped` path where the failing minibatch is not applied -- is the code it always was, on
+ * the thread it always ran on. `shards` is carried beside the pool so a caller says the number
+ * once and a mismatch is refused rather than silently ignored.
  */
 export function ppoFit(rollout, {
   weights, logSigma, valueWeights, layout = POLICY_LAYOUT, valueLayout = VALUE_LAYOUT,
   norm, seed, halfLife = 4, lambda = 0.95, clip = 0.2, entropy = 0.003,
   rate = 3e-4, valueRate = 1e-3, sigmaRate = null, epochs = 3, batch = 512, targetKl = 0.02,
   sigmaFloor = -3, sigmaRoof = 0.5, actor = null, spread = null, critic = null,
+  shards = 1, pool = null,
 }) {
+  if (pool !== null && pool.shards !== shards) {
+    throw new Error(`a fit of ${shards} shards was handed a pool of ${pool.shards}`);
+  }
   const spreadRate = sigmaRate === null ? rate * 10 : sigmaRate;
   const n = rollout.count;
   const width = rollout.width;
@@ -538,6 +804,10 @@ export function ppoFit(rollout, {
       entropy: seen.entropy / seen.count, valueLoss: seen.valueLoss / seen.count,
     };
   };
+  // The rollout, its advantages, its returns and the frozen normalisation into shared memory, once
+  // for the whole fit. Everything a shard reads after this is either constant for the iteration or
+  // written by the main thread between two barriers.
+  if (pool !== null) pool.bind(rollout, scaled, returns, norm, { clip, entropy });
   let ran = 0;
   let updates = 0;
   let stopped = null;
@@ -550,41 +820,61 @@ export function ppoFit(rollout, {
     seen.kl = 0; seen.clipped = 0; seen.entropy = 0; seen.valueLoss = 0; seen.count = 0;
     for (let at = 0; at < order.length; at += batch) {
       const end = Math.min(order.length, at + batch);
-      const scale = 1 / (end - at);
-      grad.fill(0);
-      sigmaGrad.fill(0);
-      valueGrad.fill(0);
       let batchKl = 0;
-      for (let m = at; m < end; m += 1) {
-        const i = order[m];
-        load(i);
-        const head = forward(layout, weights, observation, scratch);
-        delta.fill(0);
-        const term = surrogateGrad(head, logSigma, action, rollout.logp[i], scaled[i],
-          { clip, entropy }, scale, delta, sigmaGrad);
-        backwardFrom(layout, weights, observation, scratch, delta, grad);
-        // The critic, on the same forward-normalised observation and its own half of the batch.
-        const value = forward(valueLayout, valueWeights, observation, valueScratch)[0];
-        const error = value - returns[i];
-        valueDelta[0] = error * scale;
-        backwardFrom(valueLayout, valueWeights, observation, valueScratch, valueDelta, valueGrad);
-        // Half the squared change in the log-probability -- Schulman's k2 -- rather than either
-        // the plain difference or `exp(d) - 1 - d`. The plain difference is unbiased but *signed*,
-        // and goes negative on any batch the new policy happens to like better, which is useless
-        // as a trust region because that is one of the two directions worth catching. `exp(d)`
-        // is unbiased and non-negative but exponentially heavy tailed: one sample at `d = 5`
-        // contributes 142 nats, so a batch of five hundred trips on a single outlier and the
-        // criterion fires at random. This one is biased low by a third order term and is
-        // quadratic, which is the trade this needs -- it is being compared against a threshold,
-        // not reported as a quantity.
-        const moved = term.logp - rollout.logp[i];
-        const k2 = 0.5 * moved * moved;
-        batchKl += k2;
-        seen.kl += k2;
-        if (!term.active) seen.clipped += 1;
-        seen.entropy += term.entropy;
-        seen.valueLoss += error * error;
-        seen.count += 1;
+      // The three the Adam steps below read: this thread's own arrays, or the pool's summed ones.
+      let stepGrad = grad;
+      let stepSigmaGrad = sigmaGrad;
+      let stepValueGrad = valueGrad;
+      if (pool !== null) {
+        // One barrier instead of four thousand backward passes. The four sums come back as the
+        // shard-order totals of exactly the four the loop below accumulates; `clipped` is a count
+        // of ones and is therefore the same integer either way.
+        const sums = pool.step({ at, end, epoch, order, weights, valueWeights, logSigma });
+        stepGrad = sums.grad;
+        stepSigmaGrad = sums.sigmaGrad;
+        stepValueGrad = sums.valueGrad;
+        batchKl = sums.kl;
+        seen.kl += sums.kl;
+        seen.clipped += sums.clipped;
+        seen.entropy += sums.entropy;
+        seen.valueLoss += sums.valueLoss;
+        seen.count += sums.count;
+      } else {
+        const scale = 1 / (end - at);
+        grad.fill(0);
+        sigmaGrad.fill(0);
+        valueGrad.fill(0);
+        for (let m = at; m < end; m += 1) {
+          const i = order[m];
+          load(i);
+          const head = forward(layout, weights, observation, scratch);
+          delta.fill(0);
+          const term = surrogateGrad(head, logSigma, action, rollout.logp[i], scaled[i],
+            { clip, entropy }, scale, delta, sigmaGrad);
+          backwardFrom(layout, weights, observation, scratch, delta, grad);
+          // The critic, on the same forward-normalised observation and its own half of the batch.
+          const value = forward(valueLayout, valueWeights, observation, valueScratch)[0];
+          const error = value - returns[i];
+          valueDelta[0] = error * scale;
+          backwardFrom(valueLayout, valueWeights, observation, valueScratch, valueDelta, valueGrad);
+          // Half the squared change in the log-probability -- Schulman's k2 -- rather than either
+          // the plain difference or `exp(d) - 1 - d`. The plain difference is unbiased but *signed*,
+          // and goes negative on any batch the new policy happens to like better, which is useless
+          // as a trust region because that is one of the two directions worth catching. `exp(d)`
+          // is unbiased and non-negative but exponentially heavy tailed: one sample at `d = 5`
+          // contributes 142 nats, so a batch of five hundred trips on a single outlier and the
+          // criterion fires at random. This one is biased low by a third order term and is
+          // quadratic, which is the trade this needs -- it is being compared against a threshold,
+          // not reported as a quantity.
+          const moved = term.logp - rollout.logp[i];
+          const k2 = 0.5 * moved * moved;
+          batchKl += k2;
+          seen.kl += k2;
+          if (!term.active) seen.clipped += 1;
+          seen.entropy += term.entropy;
+          seen.valueLoss += error * error;
+          seen.count += 1;
+        }
       }
       // The trust region, enforced rather than only hoped for. The clip bounds each *sample's*
       // ratio and says nothing about how far the whole policy has moved, and this arena walks
@@ -600,12 +890,12 @@ export function ppoFit(rollout, {
         break outer;
       }
       updates += 1;
-      adamStep(weights, grad, actor, rate);
-      adamStep(logSigma, sigmaGrad, spread, spreadRate);
+      adamStep(weights, stepGrad, actor, rate);
+      adamStep(logSigma, stepSigmaGrad, spread, spreadRate);
       for (let j = 0; j < ACTION_AXES; j += 1) {
         logSigma[j] = Math.min(Math.max(logSigma[j], sigmaFloor), sigmaRoof);
       }
-      adamStep(valueWeights, valueGrad, critic, valueRate);
+      adamStep(valueWeights, stepValueGrad, critic, valueRate);
     }
     ran = epoch;
     readOut();
@@ -973,7 +1263,10 @@ export function policyTable(weights, logSigma, header) {
 
 // ------------------------------------------------------------------------------------- main
 
-const isMain = process.argv[1] !== undefined
+// `isMainThread` is not decoration. A worker inherits `process.argv` from the process that started
+// it, so a fit shard spawned by `node scripts/train-ppo.mjs` would otherwise read `argv[1]` as this
+// very file and start a second training run inside the thread that was meant to sum a gradient.
+const isMain = isMainThread && process.argv[1] !== undefined
   && pathToFileURL(resolve(process.argv[1])).href === import.meta.url;
 
 if (isMain) {
@@ -988,6 +1281,12 @@ if (isMain) {
   const cap = Number(flag("cap", 60));
   const random = Math.max(0, Number(flag("random", 40)));
   const workers = Math.max(1, Number(flag("workers", Math.max(1, availableParallelism() - 2))));
+  // How many threads the fit itself runs on. One is the single thread this script has always been,
+  // and is the only setting under which no `SharedArrayBuffer` is allocated at all. Session 05 of
+  // the learn set measured the curve and 8 is its knee on the 32-thread host; the default stays 1
+  // here because a `train-ppo` arm is usually one of several and the sweep runner is where the
+  // host's threads are divided.
+  const shards = Math.max(1, Number(flag("shards", 8)));
   const halfLife = Number(flag("half-life", 4));
   const lambda = Number(flag("lambda", 0.95));
   const clip = Number(flag("clip", 0.2));
@@ -1098,12 +1397,16 @@ if (isMain) {
   log({
     type: "header", seed, date, version: POLICY_VERSION, features: PILOT_FEATURES_VERSION,
     layout: POLICY_LAYOUT, valueLayout, reward, league, label,
-    iterations, bouts, cap, random, workers, halfLife, lambda, clip, entropy, rate, valueRate,
+    iterations, bouts, cap, random, workers, shards, halfLife, lambda, clip, entropy, rate, valueRate,
     sigmaRate, epochs, batch, targetKl, sigmaFloor, sigmaRoof,
     evaluate: every, evalBouts, finalBouts, resumeFrom, from: startFrom, opponent, terminals,
   });
   console.log(`ppo: seed ${seed}, ${iterations} iterations of ${bouts} mirrored bouts, `
-    + `${netSize(POLICY_LAYOUT)} actor weights, ${workers} workers`);
+    + `${netSize(POLICY_LAYOUT)} actor weights, ${workers} workers, `
+    + `${shards === 1 ? "one fit thread" : `${shards} fit shards`}`);
+  // One pool for the run, because a minibatch step is milliseconds and a thread start is not.
+  // `fitPool` rather than `pool`, which in the loop below is the iteration's *bodies*.
+  const fitPool = shards > 1 ? await FitPool.open({ shards, valueLayout }) : null;
 
   let rated = null;
   /**
@@ -1167,11 +1470,13 @@ if (isMain) {
     const collected = (Date.now() - started) / 1000;
     if (rollout.count === 0) throw new Error("an iteration collected no asks at all");
     const { returns, lengths, share, penalty, bare } = episodeReturns(rollout);
+    const fitStarted = Date.now();
     const fit = ppoFit(rollout, {
       weights, logSigma, valueWeights, valueLayout, norm, seed: (seed ^ iteration * 31) >>> 0,
       halfLife, lambda, clip, entropy, rate, valueRate, sigmaRate, epochs, batch, targetKl,
-      sigmaFloor, sigmaRoof, actor, spread, critic,
+      sigmaFloor, sigmaRoof, actor, spread, critic, shards, pool: fitPool,
     });
+    const fitted = (Date.now() - fitStarted) / 1000;
     ({ actor, spread, critic } = fit);
     totalBouts += rollout.bouts;
     totalSteps += rollout.count;
@@ -1190,7 +1495,10 @@ if (isMain) {
       epochsRun: fit.epochs, updates: fit.updates,
       stopped: fit.stopped === null ? null : round5(fit.stopped.kl),
       logSigma: Array.from(logSigma, round4),
-      collectSeconds: round4(collected), seconds: round4((Date.now() - started) / 1000),
+      // The two halves of an iteration said separately, because Session 05 of the learn set is a
+      // claim about one of them and a row that only carried the total could not be read against it.
+      collectSeconds: round4(collected), fitSeconds: round4(fitted), shards,
+      seconds: round4((Date.now() - started) / 1000),
     };
     log(line);
     console.log(`  it ${String(iteration).padStart(2)}: return ${line.ret >= 0 ? "+" : ""}${line.ret.toFixed(4)} `
@@ -1200,7 +1508,7 @@ if (isMain) {
       + `H ${fit.entropy.toFixed(2)}  EV ${fit.explainedAfter.toFixed(3)}  `
       + `sigma ${Math.exp(logSigma[0]).toFixed(3)}  `
       + `${fit.updates} steps${fit.stopped === null ? "" : ` (stopped in epoch ${fit.stopped.epoch})`}  `
-      + `${line.seconds.toFixed(0)} s`);
+      + `${line.seconds.toFixed(0)} s (${collected.toFixed(0)} collect, ${fitted.toFixed(0)} fit)`);
     writeFileSync(checkpoint, JSON.stringify({
       iteration, seed, date, bouts: totalBouts, steps: totalSteps,
       weights: Array.from(weights, round5), valueWeights: Array.from(valueWeights, round5),
@@ -1215,6 +1523,10 @@ if (isMain) {
       rated = await ratePoint(iteration, last ? finalBouts : evalBouts);
     }
   }
+
+  // The shards are done: everything after this is a rating and a module, and neither touches the
+  // fit. They are unref'd, so a run that threw above exits anyway; this is the tidy path.
+  await fitPool?.close();
 
   const baselines = {};
   if (rated !== null) for (const name of rated.names) if (name !== FIT_NAME) baselines[name] = rated.results[name].score;

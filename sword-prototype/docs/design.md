@@ -1809,6 +1809,69 @@ summed to the snapshot for the spend. The pool the sentence names is the pool as
 the shipped iteration, since a snapshot from iteration 8 of a run that has since taken five past
 selves sparred with none of them.
 
+## The fit on K threads, which has to be the same fit
+
+Session 05 of the learn set. `scripts/fit-worker.mjs`, and `FitPool` in `scripts/train-ppo.mjs`.
+
+**What was binding.** The record's 109 s `train-ppo` iteration is 23 s of collection on thirty
+worker threads and 86 s of `ppoFit` on one, and Session 04 measured the same fact from the other
+end: three arms at ten collectors apiece did 2.15 times the work of one arm at thirty, because
+about two thirds of a league iteration is the fit and the bookkeeping and no collector touches
+either. Adding collectors had run out of road. `backwardFrom` in `src/golem/neural-net.ts` adds one
+sample's gradient into the caller's array, and that is the seam a data-parallel fit needs: a
+minibatch's gradient is a sum over samples, and a sum splits.
+
+**The arrangement.** A minibatch is cut into K contiguous slices by index. Each shard walks its
+slice with the body of `ppoFit`'s inner loop -- `load`, `forward`, `surrogateGrad`, `backwardFrom`,
+the critic's pass, and the four running sums the read-out is made of -- into its own gradient triple
+in shared memory, and counts up a barrier. The main thread then adds the K partials into one triple
+**in shard order 0..K-1**, takes the three Adam steps, and goes on. The shuffle, the advantage
+standardisation, the trust region, the `stopped` path where a failing minibatch is discarded, and
+the read-out are where they were, on the thread they were always on.
+
+**The shard order is the design and not a detail of it.** Floating-point addition is not
+associative, so splitting a sum of four thousand terms K ways and adding the partials moves the
+answer in its last bits whatever order they go in. What a *fixed* order buys is that the move is the
+same move every time: the same seed gives the same weights on a busy host and on an idle one, and
+the equality test is a test rather than a coin. A pool that summed in completion order would pass
+every assertion in `tests/ppo.test.mjs` -- the effect is 1e-14 against a 1e-9 bar -- and would
+quietly make a run irreproducible. That is why the order is argued in the code and said again here.
+
+**The observation normalisation is frozen for the fit, and the shards get a copy of it.**
+`extendNormalisation` runs after the fit in both callers and never during it, so the mean and
+variance a shard reads are the ones the rollout was collected under; they cross once an iteration in
+`FitPool.bind` and no step can move them. The equality test loads a rollout whose normalisation is a
+real run's rather than the identity, because an identity normalisation is exactly the case that
+would hide getting this wrong: `normalise` would be the identity map and a shard reading a stale
+normalisation would agree with one reading a fresh one.
+
+**Shared memory, and what crosses when.** The rollout's `x`, `a` and `logp`, the standardised
+advantages, the returns, the frozen normalisation and the two surrogate constants cross once an
+iteration; the weights, the critic's weights and the nine spreads cross once a *step*, because Adam
+has just moved them -- three memcpys against four thousand backward passes. The shards block on
+`Atomics.wait` and are advanced by `Atomics.notify`, never returning to their event loops, because a
+step is milliseconds and a message round trip is a scheduler's decision. The one thing that must be
+a message is the binding, since a `SharedArrayBuffer` reaches another thread only through the port;
+a shard takes it with `receiveMessageOnPort` from inside the wait, which is what keeps `bind`
+synchronous and therefore `ppoFit` synchronous. An async `ppoFit` would have pushed `async` up
+through `trainRole` and every caller of it for no reason a number could see.
+
+**The pool lives for the run.** Unlike `runJobs`'s collectors, which are started per call, the fit
+shards are opened once and closed at the end: a minibatch step is milliseconds and a thread start is
+not, and there are forty of them in an iteration. `scripts/league.mjs` opens one pool and every
+role's turn -- the main's and each exploiter's -- steps through it, because a pool that lived for a
+turn would pay a thread start per role per iteration.
+
+**K is a flag and its default is the knee, which is eight.** Both trainers take `--shards` and both
+default to eight: on the measured curve the first eight threads return 83 % of themselves and the
+next eight return 27 %, so eight beside twenty-two collectors is the shipped configuration and
+sixteen is the fastest one. `scripts/sweep.mjs` defaults to *one* instead and writes the resolved
+number onto every arm's command line, because a sweep divides one host between arms and an arm that
+silently took the trainers' eight would be spending its neighbours' collectors; the runner subtracts
+K from each arm's budget, but only above one, so a `--shards 1` sweep is the same arithmetic
+Session 04 measured its throughput bar with. The curve, the knee and what the shipped configuration
+does end to end are in `docs/measurements.md`.
+
 ## The style set read as one document, and the three claims it actually established
 
 Session 15, the set's close-out. The sections above were each written by the session that did the

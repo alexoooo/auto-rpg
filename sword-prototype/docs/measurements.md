@@ -19275,3 +19275,217 @@ than a measurement. The single-thread fit is the larger term either way, which i
 above reads as it does. **The bar is owed a clean re-take**, and Session 05 of this set takes it
 on the same manifest with nothing else running, because Session 05 is the session that moves the
 106 s the workers cannot reach.
+
+*(Session 05 took it. The clean ratio is 2.077, which is lower than the 2.154 above, so the
+paragraph's suspicion was wrong: the interruption did not depress this measurement and 2.15 is not
+a lower bound. The second iteration it reads as the interruption's mark costs the same 613 s on a
+host with nothing else on it -- it is the first iteration that trains two exploiters. The re-take
+and what it says instead are in the Session 05 entry below.)*
+## Session 05 of the learn set — 2026-09-09: the fit on eight threads is the same fit, and an iteration that was 83 s is 28 s
+
+Session 04 ended with a debt: two thirds of a league iteration is a single thread, adding collectors
+had run out of road, and the throughput bar it missed was taken on a host that was not quiet. This
+session moved that thread and re-took that bar. Everything below was measured on the 16C/32T
+desktop with nothing else running, which for the second half is the whole point.
+
+### Equality first, because the session is not allowed to have moved a number
+
+The set's ninth frozen choice is that neither the sweep runner nor the sharded fit may change a
+number. The fit is data-parallel: a minibatch is cut into K contiguous slices, each shard sums its
+slice's gradients, and the main thread adds the K partials **in shard order 0..K-1** and takes one
+Adam step. Floating-point addition is not associative, so K > 1 cannot be bitwise identical to
+K = 1 and the question is only how far it moves and whether it moves the same way twice.
+
+The fit below is a real rollout, not a bandit: `tournaments/ppo-run1-checkpoint.json`'s weights and
+its 71-column observation normalisation, 32 mirrored bouts collected at that checkpoint's policy,
+**43,936 asks**, the shipped knobs (4 epochs, 4,096-sample minibatches, `--rate 1e-4`,
+`--target-kl 0.03`, a 64,64 critic). Each row is the same fit from the same starting weights, and
+the gaps are the largest absolute elementwise difference against the K = 1 result. The plan
+estimated that rollout at about 57,000 samples; 32 bouts at that checkpoint's policy are 43,936,
+and since every row below is the same rollout the ratios are unaffected by which of the two it is.
+
+| K | fit | of K = 1 | actor weight gap | critic gap | spread gap | KL | clip fraction |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 74.29 s | 1.000 | **0** | **0** | **0** | 0.011024080508297762 | 0.08464584850691916 |
+| 1 | 73.06 s | 0.983 | **0** | **0** | **0** | 0.011024080508297762 | 0.08464584850691916 |
+| 2 | 38.85 s | 0.523 | 3.9e-14 | 5.3e-16 | 1.2e-15 | 0.011024080508298183 | 0.08464584850691916 |
+| 4 | 20.79 s | 0.280 | 3.8e-14 | 1.5e-15 | 1.0e-15 | 0.011024080508297195 | 0.08464584850691916 |
+| 8 | 11.21 s | **0.151** | 5.9e-14 | 1.2e-15 | 1.8e-15 | 0.011024080508297101 | 0.08464584850691916 |
+| 12 | 8.06 s | 0.109 | 3.8e-14 | 1.1e-15 | 1.4e-15 | 0.011024080508297220 | 0.08464584850691916 |
+| 16 | 6.98 s | 0.094 | 5.2e-14 | 1.1e-15 | 2.0e-15 | 0.011024080508297208 | 0.08464584850691916 |
+
+**The bar was 1e-9 and the measurement is 6e-14**, over 87,308 actor weights, 8,833 critic weights
+and nine spreads, after 44 Adam steps each of which compounds whatever the last one moved. Two
+columns are worth reading separately. `clipFraction` is *exactly* equal at every K -- it is a count
+of samples over a threshold, and a count does not care in which order the samples were added, so a
+sharding that had put a sample in the wrong slice or in two slices would show here as an integer
+difference and not as a last-bit one. And the two K = 1 rows are bitwise identical to each other,
+including their timings being 1.7 % apart: at one shard the pool is not opened, no shared memory is
+allocated, and the code that runs is the code that ran before this session.
+
+The trust region was also compared, because it is the one path that decides whether a step happens
+at all. On a rollout whose second minibatch trips a `--target-kl` of 0.25 the fit stops on that
+minibatch at K = 1 and on the same minibatch at K = 4, with the same one applied update, the same
+zero completed epochs and the recorded `stopped.kl` agreeing to 1e-9. That test is in
+`tests/ppo.test.mjs` alongside the equality one.
+
+**What is not tested and is argued instead.** Reversing the shard summation order -- summing K-1
+down to 0 -- leaves every assertion above green, because 1e-14 is a long way inside 1e-9. The fixed
+order is therefore not defended by the equality test; it is defended by what it buys, which is that
+the same seed gives the same weights twice. A pool that summed in completion order would pass this
+table and would quietly make a run irreproducible, so the order is argued in `scripts/fit-worker.mjs`
+and in `docs/design.md` rather than asserted here. This is written down because a reader who
+mutation-tests the shard order will find it green and should know that was expected.
+
+### The curve, and why the default is eight rather than sixteen
+
+The same table, read as a scaling curve:
+
+| K | speedup | of the threads it was given | what the last threads bought |
+| --- | --- | --- | --- |
+| 2 | 1.91x | 96 % | 35.4 s for one thread |
+| 4 | 3.57x | 89 % | 9.0 s a thread |
+| 8 | **6.63x** | **83 %** | 2.4 s a thread |
+| 12 | 9.21x | 77 % | 0.79 s a thread |
+| 16 | 10.65x | 66 % | 0.27 s a thread |
+
+**Eight is the knee and it is the shipped default.** Every doubling up to eight returns better than
+four fifths of the threads it is handed; the four after it return a third of that, and the four
+after those an eighth. Sixteen is the fastest point on this curve and it is the wrong default for
+two reasons: it buys 4.2 s an iteration over eight while costing eight more threads, and the host it
+would spend them on is the same host the collection wants -- the shipped configuration is 22
+collectors beside 8 shards on a 32-thread machine, and there is no arrangement in which sixteen
+shards and a full collector pool both fit. What remains on the main thread -- `valuesOf` for the
+advantages, the GAE, the shuffle, the standardisation and the three Adam steps -- is what the curve
+flattens against, and at K = 16 it is most of the 7 s left.
+
+### The whole iteration, which was the bar
+
+One `train-ppo` iteration, same seed, same start, same 32 bouts, run twice with nothing else on the
+host: once in the record's shape and once in the shipped one.
+
+| | asks | collection | fit | iteration |
+| --- | --- | --- | --- | --- |
+| 30 collectors, 1 shard | 38,297 | 18.4 s | 64.7 s | **83.1 s** |
+| 22 collectors, 8 shards | 38,297 | 17.7 s | 9.9 s | **27.6 s** |
+| the same, second iteration | 38,920 | 13.6 s | 9.9 s | 23.5 s |
+| the record this is read against | -- | 23 s | 86 s | **109 s** |
+
+**27.6 s against a 50 s bar, and against the record's 109 s that is 3.95x.** Measured on this host
+on the same afternoon it is 3.01x, which is the honest paired number: the record was taken on a
+different rollout at a different iteration and 83.1 s is what the old arrangement does here. The fit
+itself is 0.153 of what it was, which is the K = 8 row of the curve arriving intact in a real run.
+
+Two things in that table are not the fit. Collection at 22 workers cost 17.7 s against 18.4 s at
+30 -- **eight fewer collectors cost 4 % of the collection**, because 32 bouts over 30 workers is two
+ragged waves and over 22 it is one full wave and a wave of ten, and a wave costs its slowest bout.
+That is why taking the collectors down to make room for the shards is nearly free at this bout
+count, and it is also why it would not be free at 128. And the second iteration is 4 s quicker than
+the first at both K, which is the collection getting shorter as the policy does, not the fit.
+
+The equality holds end to end as well as in the harness. The two runs' first iterations agree on
+every field the log prints: 38,297 asks, KL 0.01014, clip 0.0795, the same nine spreads, the same
+40 updates. Their *second* iterations do not -- 38,920 asks against 38,816 -- which is the finding
+Session 04 already recorded from the other direction: a 1e-14 difference in a weight is a different
+bout the moment it reaches the physics, so byte-identity across a whole run holds through the first
+iteration and no further. The first iteration is where the arithmetic is comparable, and it is
+identical.
+### Session 04's throughput bar, re-taken on a quiet host: 2.08, and the contamination was not the reason
+
+Session 04 measured its three-arm hour at 2.15 against a 2.4 bar and closed by saying the bar was
+owed a clean re-take, because another session had run about two dozen Node processes for under a
+minute eight minutes into the three-arm hour. This session owed that re-take and took it: the same
+two commands on the same manifest, the same seed, the same start, back to back from 22:41 to 23:41
+and 23:43 to 00:43 with nothing else on the host -- and at `--shards 1`, so that it is the
+arithmetic Session 04 measured and not this session's.
+
+| the hour | iterations | bouts | asks of the policy |
+| --- | ---: | ---: | ---: |
+| three arms at 10 collectors | 9 + 9 + 9 = **27** | 3,468 | 2,043,435 |
+| one arm at 30 collectors | **13** | 1,684 | 1,003,986 |
+| ratio | **2.077** | 2.059 | 2.035 |
+| Session 04's, on the busy host | 2.154 | 2.138 | 2.132 |
+
+**The clean number is 2.08, and it is lower than the contaminated one.** Session 04's suspicion was
+reasonable and wrong: the interruption it saw did not depress its ratio, and the sentence in that
+entry calling 2.15 a lower bound should be read as withdrawn. The two hours agree to about 4 %,
+which is the run-to-run spread of this measurement, and both are a long way short of 2.4.
+
+The per-iteration seconds say the same thing more sharply, because they can be laid on top of
+Session 04's:
+
+| | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| arm-1, 10 collectors | 271 | 614 | 269 | 545 | 263 | 381 | 195 | 509 | 206 | | | | |
+| arm-2, 10 collectors | 275 | 612 | 261 | 545 | 262 | 368 | 190 | 479 | 188 | | | | |
+| arm-3, 10 collectors | 269 | 615 | 264 | 551 | 268 | 380 | 195 | 502 | 204 | | | | |
+| alone, 30 collectors | 189 | 420 | 180 | 377 | 185 | 300 | 147 | 417 | 178 | 433 | 176 | 345 | 178 |
+
+**Session 04 read its second iteration as the mark the interruption left. It is not.** Its three
+arms did that iteration in 613, 610 and 616 s; on a host with nothing else on it at all they did it
+in 614, 612 and 615 s. Iteration 2 is the first one that trains two exploiters as well as the main,
+and it costs about 613 s at ten collectors whatever else is happening -- the 420 s the single wide
+run spends on the same iteration is the same shape. A number that reproduces to a second across a
+suspected contamination was never evidence of one, and the lesson is the general one: an iteration
+index is a configuration before it is an anomaly.
+
+Tripling an arm's collectors bought **1.35 times the speed** here -- 358.5 s an iteration at ten
+against 265.8 s over the same first nine at thirty -- against Session 04's 1.29. Three of those is
+2.22, and the deadline takes it to 2.08: the three arms spent 9,679 of their 10,800 arm-seconds
+inside an iteration that finished, 10.4 % thrown away, against 2.1 % for the single run. The shape
+of the explanation is exactly Session 04's and the reason is the one that session named, now
+measured directly rather than inferred: **the single wide run spent 2,521 of its 3,524 seconds
+inside `ppoFit`, which is 71.5 % of the hour on one thread.** For a ten-collector arm the same fit
+is 53.9 % of its longer iteration. That is the fraction no collector reaches, and it is what the
+first half of this session moved.
+
+**The determinism claim holds harder than Session 04 could state it.** That entry compared the three
+arms through their first iteration and had to drop `seconds` to do it. Over this hour all ten rows
+of all three logs -- the header and nine iterations -- are identical once `seconds` and `fitSeconds`
+are dropped, and those two fields are the only ones that differ anywhere: the same 1,156 bouts, the
+same 681,145 asks, the same margins, the same nine spreads, the same snapshots, iteration after
+iteration. Three arms that differ in nothing produce nothing but their own clocks, for a whole hour
+and not just for a first row.
+### The same three arms with the shards on: 3.46, which is the bar the runner could not reach alone
+
+The two hours above are the comparison Session 04 made, taken again. This third hour is the one the
+runner is actually for now: the same manifest, the same seed, the same start, the same sixty
+minutes, at `--shards 4` -- so each arm gets `floor((32 - 2) / 3) - 4` = **6 collectors and 4 fit
+shards**, thirty threads between the three of them, the same total the ten-collector hour spent.
+
+| the hour | iterations | bouts | asks of the policy | mean iteration | of it in the fit |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| three arms, 10 collectors, 1 shard | 27 | 3,468 | 2,043,435 | 358.5 s | 53.9 % |
+| three arms, 6 collectors, 4 shards | **45** | 5,844 | 3,499,137 | 225.7 s | **25.8 %** |
+| one arm, 30 collectors, 1 shard | 13 | 1,684 | 1,003,986 | 271.1 s | 71.5 % |
+
+**45 iterations against the wide run's 13 is 3.46, and the bar Session 04 missed was 2.4.** The
+three ways of counting agree to within 1 % again -- 3.462 on iterations, 3.470 on bouts, 3.485 on
+asks -- so the number is not an artefact of where the deadline fell. Against the same three arms at
+one shard it is 1.67x, and the four fewer collectors an arm cost some of the collection back: an
+arm's iteration went from 358.5 s to 225.7 s while its fit went from 53.9 % of that to 25.8 %, which
+is the K = 4 row of the curve arriving in a league rather than a trainer.
+
+Two things follow for Session 11, which is the session that will spend a night on this. The first is
+that the deadline waste that took 2.22 down to 2.08 is now much smaller -- 10,159 of 10,800
+arm-seconds were inside an iteration that finished, 5.9 % thrown away rather than 10.4 %, because a
+shorter iteration is a smaller thing to be halfway through. The second is that `--shards 4` is not
+obviously the right split and this hour does not settle it: the fit is now a quarter of an iteration
+and the collection is most of the rest, so the next threads are worth more to the collectors than to
+the shards, and the arithmetic that decides it is a curve this session did not measure -- the
+collection's scaling at 128 bouts, which is a different shape from the 32-bout one above because a
+wave costs its slowest bout. What is settled is that the runner clears 2.4 with the fit shared out
+and does not clear it without.
+### What this entry does not say
+
+Nothing here is about learning. All three hours and both end-to-end runs were `--evaluate 0`,
+nothing was rated, and the 85 league iterations are throughput and not a training result. The
+denominator of every ratio above is the same single wide run at one shard, because that is the
+denominator the bar was written against; it is not an answer to "what do the shards buy a run that
+already has the whole host", which would need a fourth hour this session did not spend. The
+equality table is one rollout at one shape -- 71-256-256-12 with a 64,64 critic, 44 Adam steps -- and
+what it establishes is that the arrangement is arithmetically sound, not that no rollout anywhere
+could drift further; the 1e-9 bar has five orders of magnitude of room in it and the reason to keep
+watching is that the gap grows with the number of steps compounded, not with K. And all of it is one
+host: a machine with fewer than 32 threads has a different knee, and the flag exists so that the
+number is said rather than assumed.

@@ -1,6 +1,11 @@
 # Session 05 -- the fit sharded across worker threads
 
-**Status (2026-09-09): planned. Needs 04.**
+**Status (2026-09-09): landed.** The mechanical bar is met on all three counts: equality with
+the single thread is 6e-14 against a 1e-9 bar on a real 43,936-ask rollout at a real
+normalisation (and bitwise at K = 1), the fit at K = 8 is 0.151 of K = 1 against a 0.35 bar, and
+the shipped configuration's iteration is 27.6 s against a 50 s bar and the record's 109 s. The
+default is eight, which is the knee and not the fastest point. Session 04's throughput bar was
+re-taken clean at `--shards 1` in the same session; both numbers are in `../measurements.md`.
 
 ## Outcome
 
@@ -35,7 +40,7 @@ iteration end to end for "a day of work", and the same fit serves the league unc
 
 ## Implement
 
-1. scripts/fit-worker.mjs: on `parentPort` a `bind` message carrying the shared views and the
+1. `../../scripts/fit-worker.mjs`: on `parentPort` a `bind` message carrying the shared views and the
    layouts; then per `step` message `{at, end, epoch}` over the shared `order` array: for each
    index in its slice, `load`, `forward`, `surrogateGrad`, `backwardFrom` into its own
    `grad`, `sigmaGrad`, `valueGrad`, and the scalars `kl`, `clipped`, `entropy`, `valueLoss`
