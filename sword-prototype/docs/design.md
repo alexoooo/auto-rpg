@@ -2144,6 +2144,161 @@ unaffected, because a curriculum for an opponent whose entire job is to find wha
 do is not a curriculum -- it is a handicap on the instrument. The one thing a class schedule does
 reach is which builds an exploiter is fitted over, and only when a schedule was actually asked for.
 
+## Four shapes a policy may be, and three rows an arm may drive
+
+Session 09 of the learn set. The owner asked for a different network or a different algorithm; what
+landed is a menu of single changes, each behind a version and a flag, so that the shipped table
+still loads and every one of them can be run as an arm beside an unchanged control. Nothing here
+is the default. `POLICY_VERSION` is 3 and `PILOT_FEATURES_VERSION` is 2, and the mind that ships is
+still a version-2 table over seventy-one columns with a Gaussian head -- which is the point: a
+build that could only read what it writes could not have put the control and its nine alternatives
+in one process, and the paired rating the whole session rests on would not have been possible.
+
+**The action vector is twelve numbers wide under every head and that is what makes this cheap.**
+What a head changes is the width of the *network's output row*, not the width of what it produces:
+`sampleAction` writes nine axis values and three gates whether an axis is a Gaussian mean, nine bin
+logits or two Beta shapes, so `commandFromAction`, the rollout pack's stride, the executor and every
+recorded run are untouched. `HeadSpec` in `src/golem/policy.ts` is the whole of the bookkeeping --
+one entry an axis saying which kind it is, where its parameters start in the row and how many it
+owns, plus where the gates start and where the state-dependent spreads start if there are any --
+and it is built once per table by name and shared, because a fit builds one per shard and a bout
+builds one per mind.
+
+`checkPolicyWeights` refuses nine things now rather than six, and three of them are new: a table
+whose declared version is older than the field it is using, a head name this build does not have,
+and a spread name it does not have. The first of those is not a typo check. A version-2 table that
+names a head is either a file somebody edited by hand or a *reader* that pasted its own default
+onto a file which never made that claim, and the shape a table declares has to be the shape it was
+fitted under or its weights mean something else. `assemble` in `src/golem/snapshot.ts` therefore
+deletes the head fields from a checkpoint that declares version 2 rather than defaulting them.
+
+### The two heads that are not Gaussians
+
+- **`--head mixed`** puts a nine-bin categorical on `standOff` and `advance` and leaves the other
+  seven axes Gaussian. Those two are the axes that decide range, and Session 07 measured why a
+  unimodal density is a poor way to ask about them: the bottom third of `standOff` is a physical
+  floor -- the executor settles two bodies at about 1.17 m however small the command -- so a
+  Gaussian that wants to put mass both at the floor and at a stand-off outside their reach has to
+  put mass in the middle as well, and the middle is where a body is hit. Nine bins can put mass on
+  two separated distances and nothing between them. `binCentre` tiles the published -1..+1 range
+  and `binOf` closes both ends, because a Gaussian axis is *clipped* at the range and a categorical
+  one has to answer for a value sitting exactly on it.
+- **`--head beta`** puts a Beta on `targetHeight`, `swing` and `bite`, which are exactly the three
+  axes whose published range is the unit interval. Under a Gaussian their draw is clipped, and a
+  clip is a lie the trainer is told: the body plays a value on the boundary while the density the
+  gradient is taken of says the draw was somewhere outside it, so every clipped draw contributes a
+  log-probability for an action that never happened. The shapes are `1 + softplus`, which keeps the
+  density unimodal and finite at both ends, and the greedy read is the *mode* rather than the mean
+  -- a Beta leaning hard on one end has a mean well inside the interval and a mode at the end, and
+  it is the end the policy is asking for. It costs `digamma`, `trigamma` and a Marsaglia-Tsang
+  gamma sampler, all of which are in `policy.ts` beside the head that needs them.
+
+### The spread, which may now be an output rather than a parameter
+
+`--sigma state` moves the nine spreads out of `logSigma` and into the network, one output an axis,
+squashed by a sigmoid into the same floor and roof the constant spread is clamped into. The
+argument *against* it is in `policy.ts` and has not changed: a spread that is a parameter is nine
+numbers a reader can print, and a spread that is a function of seventy-one columns is not. What
+changed is that the argument had never been measured, and an arm is how this repository settles
+that. Under the flag the `logSigma` Adam step is skipped entirely -- the gradient goes into the head
+through the squash, whose derivative is `(roof - floor) * p * (1 - p)` -- and the policy's own nine
+numbers are neither read nor written, which the gradient test asserts directly by checking that
+nothing lands in them and that moving them does not move the objective.
+
+### Nine columns of history
+
+`--features 2` widens the observation from seventy-one columns to eighty. The nine are three
+quantities -- the gap, its rate, and their tip speed -- each carried at three exponential decays of
+0.5, 0.75 and 0.875, which are memories of about two, four and eight asks: a sixth of a second, a
+third, and two thirds. Four asks is the number the plan named; the other two are there because the
+right window is not known, and the honest way to supply a middle whose width nobody has measured is
+to supply three and let the weights choose. The three quantities are the closing geometry and
+nothing else -- a trace of a one-hot phase is a fraction of the last few asks it was set, which is a
+quantity with a meaning but not one this session has an argument for.
+
+**This is the first thing in `pilot.ts` that is not a pure function of the reading**, and it is not
+being broken quietly. The nine live in a `PilotTrace` the mind owns for the length of a bout;
+`golemPolicy` makes one and hands the same one to every ask. A caller that made a fresh trace each
+ask would get nine copies of the raw column and no error anywhere, so an eighty-wide observation
+with no trace is refused by name rather than filled with zeros -- zeros are what a trace looks like
+at the start of every bout, and a silently traceless run would read as a fit that learned nothing
+from nine columns it never had. The first ask seeds all three decays at the reading itself rather
+than at zero, because a trace climbing out of its own initial transient would spend the first two
+thirds of a second of every bout describing itself.
+
+Version 2 **appends**: the first seventy-one columns are version 1's, unmoved, in the same order.
+`PILOT_FEATURES_DEFAULT` is 1 and `PILOT_FEATURES_VERSION` is 2, which are deliberately two
+different numbers -- the version a fit takes unless asked is not the newest one, because the
+default is what every table on disk means.
+
+### Entropy by a target, and entropy by a schedule
+
+The record measured the entropy bonus's gradient on `logSigma` as exactly one per axis whatever the
+state, which makes the coefficient a constant push against whatever the surrogate wants, and the
+drift's sign flips somewhere between 0.003 and 0.0003. Two ways out, and they are two arms because
+neither has been measured:
+
+- **`--entropy-target -1.0`** replaces the constant with a controller. The per-axis differential
+  entropy of the current spread is read off the fit -- `mean(logSigma) + (log 2*pi + 1) / 2` -- and
+  the coefficient is multiplied by `exp(rate * (target - H))` each iteration, which is Schulman's
+  dual on the temperature written multiplicatively so it cannot go negative. `--entropy-rate`
+  defaults to 0.05. It is refused together with `--sigma state`, by name, because the controller
+  reads a number that only exists when the spread is a parameter.
+- **`--entropy-anneal 0.003:0,0.0003:20`** is the same knob moved the cheap way, through the same
+  `parseSchedule` the three curricula use. Both are refused together with `--entropy` and with each
+  other, for `parseSchedule`'s usual reason: naming a constant and a schedule for one quantity is a
+  person saying one thing twice and possibly disagreeing with themselves.
+
+The coefficient in force and the per-axis entropy are written into every iteration row, so a curve
+read off a log can say what the fit was being paid without anybody re-deriving it from the flags.
+
+### A critic that sees both sides
+
+`--critic central` doubles the value network's input: this body's seventy-one columns and the
+opponent's, in that order. It is centralised training with decentralised execution -- the *policy*
+reads nothing extra, so the mind that would ship is unchanged and the artifact is unchanged; what
+changes is that the baseline subtracted from the return knows what the other body was doing, which
+is the standard remedy for a critic whose target is noisy because half the world is hidden from it.
+The peer columns come from a per-bout holder the two recorders share: each side's raw observation is
+left there as it is computed and read by the other at its next ask, so a peer column is one ask
+stale at worst and zero on the very first ask of a bout. That is a training artifact and is allowed
+to be approximate; it is gated on the run actually asking for it, so a run without the flag
+allocates and writes exactly what it did before.
+
+### Three executor rows, driven for one contender only
+
+Session 07 landed four candidates on `GOLEM_TACTICS_V4` as flags that default off. This session
+adds a fifth, `holdMyReach`, and -- more importantly -- a way to drive any of them **for the
+learner alone**.
+
+`--tactics holdMyReach=true` is not `--override`. An override moves `GOLEM_TACTICS_V4` inside the
+worker and therefore moves it for *both* corners, which measures what happens when the arena
+changes. `--tactics` moves the table one contender is built over, so the arm fights a shipped
+executor with a changed one: `contenderShape` carries the rows on the contender record and
+`pilotMind` in `scripts/tournament-worker.mjs` spreads them over the module table, which is the
+pattern `pinnedMind` was already using. That is the only arrangement in which "would this row help
+the mind that learned under it" is a question with an answer, and every row named must already
+exist on the table, because a misspelled row would otherwise be a flag that did nothing and an arm
+that measured its own control twice.
+
+**`holdMyReach` is the row the owner's complaint is actually about.** The complaint is that a mind
+cannot say "just inside my own range". Session 07 measured why: the stroke's own gate opens at
+`max(reach * strikeFraction, near + slack)`, which is 0.92 of *my* arm, while `standOff` -- the axis
+that decides where the feet stand -- is a multiple of *theirs*. Those are not close to being the
+same coordinate: over the viable pool their reach spans 17 % and mine spans a factor of 3.4, so the
+fraction of my own arm that the stroke gate is written in is a quantity no output of the policy can
+express. Under the flag `hold = me.reach * standOff` instead of `them.reach * standOff`. `holdMetres`
+wins if both are up, and the range on the axis does not move, so under this flag the reachable
+stand-offs are zero to twice my own arm -- narrower in metres than the reach multiple gives on the
+pool's shortest arm and wider on its longest, which is the whole of the difference.
+
+The other two are Session 07's own findings driven for the learner: `strokeOutOfRange=false`, which
+that session measured at +29 % damage against a fighting opponent and -18 % against a motionless
+one, and `closeGain=0.9`. The second is the plan's candidate with its sign corrected. The feet are a
+proportional controller, `forward = clamp(clamp((gap - hold) * closeGain, -1, 1) + advance)`, so
+they settle at `hold - advance / closeGain`: **raising** the gain makes a saturated `advance` buy
+*less* distance, not more, and what widens the window the closing axis can reach is lowering it.
+
 ## Dying, which is not the same as losing
 
 `over` not stopping the world was the right call about the *bout* and, for a long time, it
