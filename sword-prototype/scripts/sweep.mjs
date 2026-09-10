@@ -81,6 +81,7 @@ import {
   PPO_LEAGUE, checkpointFor, parseTerminals, poolFor, poolSentence, ratePolicy,
 } from "./train-ppo.mjs";
 import { boutsPerOpponent, rateSnapshots } from "./rate-snapshots.mjs";
+import { headSpecOf } from "../src/golem/policy.ts";
 
 /** This runner's own version, written into the copied manifest so a reader can refuse one. */
 export const SWEEP_VERSION = 1;
@@ -433,7 +434,28 @@ function armRow(arm, row) {
  * beside its league state as well as its live main. A `train-ppo` arm has one checkpoint rather
  * than a pool of them, so its row is the same measurement taken on that -- the same `ratePolicy`,
  * the same pool, the same seed.
+ *
+ * **The arm's shape comes off its own log header**, because Session 09 of the learn set made the
+ * shape an arm-level flag: a checkpoint is weights and a normalisation and says nothing about the
+ * head that wrote them, so an arm fitted under `--head mixed` rated as a Gaussian would be a
+ * different mind wearing its weights. The header is the run's own first line and is the only place
+ * that fact is written down.
  */
+
+/** An arm's declared shape, off the first line of the log it wrote; the shipped shape if silent. */
+export function shapeOfLog(logPath) {
+  if (!existsSync(logPath)) return {};
+  const first = readFileSync(logPath, "utf8").split("\n", 1)[0];
+  let header = null;
+  try { header = JSON.parse(first); } catch { return {}; }
+  if (header === null || typeof header !== "object" || header.type !== "header") return {};
+  return {
+    features: header.features ?? undefined,
+    spec: header.head === undefined && header.sigma === undefined ? undefined
+      : headSpecOf(header.head ?? "gaussian", header.sigma ?? "constant"),
+    tactics: header.tactics ?? null,
+  };
+}
 export async function rateArms(manifest, { dir, bouts, workers, cap = 60, onRow = null }) {
   const rows = [];
   const keep = (arm, row) => {
@@ -461,6 +483,7 @@ export async function rateArms(manifest, { dir, bouts, workers, cap = 60, onRow 
       weights: Float64Array.from(saved.weights), logSigma: Float64Array.from(saved.logSigma),
       norm: saved.normalisation, pool: builds,
       seed: eseed, bouts: boutsPerOpponent(bouts), workers, cap, mirror: true, terminals,
+      ...shapeOfLog(paths.log),
     });
     keep(arm, {
       iteration: saved.iteration, bouts: boutsPerOpponent(bouts), per: rated.per,

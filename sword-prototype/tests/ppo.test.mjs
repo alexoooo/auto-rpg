@@ -60,23 +60,25 @@ import { existsSync, readFileSync } from "node:fs";
 
 import { forward, initWeights, netScratch, netSize } from "../src/golem/neural-net.ts";
 import {
-  ACTION_AXES, ACTION_GATES, ACTION_WIDTH, POLICY_LAYOUT, VALUE_LAYOUT, actionEntropy,
-  actionLogProb, checkPolicyWeights, commandFromAction, freshNormalisation, freshPolicyTable,
-  golemPolicy, meanAction, normalise, sampleAction, uniformPilot,
+  ACTION_AXES, ACTION_GATES, ACTION_WIDTH, GAUSSIAN_HEAD, HEAD_BINS, POLICY_LAYOUT,
+  POLICY_VERSION, POLICY_VERSIONS_READ, SIGMA_FLOOR, SIGMA_ROOF, VALUE_LAYOUT, actionEntropy,
+  actionLogProb, axisLogSigma, binCentre, binOf, checkPolicyWeights, commandFromAction,
+  freshNormalisation, freshPolicyTable, golemPolicy, headSpecOf, meanAction, normalise,
+  policyLayout, sampleAction, uniformPilot,
 } from "../src/golem/policy.ts";
 import { POLICY_WEIGHTS } from "../src/golem/policy-weights.ts";
 import { COMMAND_AXES, COMMAND_GATES, COMMAND_RANGES, freshCommand } from "../src/golem/tactics-v4.ts";
 import { GOLEM_REWARD } from "../src/golem/reward.ts";
-import { PILOT_FEATURE_COUNT } from "../src/golem/pilot.ts";
+import { PILOT_FEATURE_COUNT, PILOT_FEATURE_COUNT_V2 } from "../src/golem/pilot.ts";
 import { policyMind } from "../src/mind.ts";
 import { policyForUnit } from "../src/units.ts";
 import { mulberry32 } from "../src/rng.ts";
 import {
   FitPool, PACK_COLUMNS, SCHEDULE_OPPONENTS, SHAPING_ROWS, advantages, checkpointFor, cohensD,
-  explainedVariance, extendNormalisation, mergeRollouts, momentsFromJson, momentsToJson,
-  opponentOf, parseOpponentStage, parseSchedule, parseSeparationStage, parseTerminals,
-  parseTerminalsStage, poolFor, ppoFit, renderPolicyModule, resumesOwnLog, rolloutPairs, scheduled,
-  surrogateGrad, surrogateObjective,
+  contenderShape, explainedVariance, extendNormalisation, mergeRollouts, momentsFromJson,
+  momentsToJson, opponentOf, parseEntropyStage, parseOpponentStage, parseSchedule,
+  parseSeparationStage, parseTactics, parseTerminals, parseTerminalsStage, poolFor, ppoFit,
+  renderPolicyModule, resumesOwnLog, rolloutPairs, scheduled, surrogateGrad, surrogateObjective,
 } from "../scripts/train-ppo.mjs";
 import { CONFIG } from "../src/config.ts";
 import { shardSlice } from "../scripts/fit-worker.mjs";
@@ -716,16 +718,33 @@ test("a_fitted_table_round_trips_through_the_module_text_and_drives_the_executor
   }
 });
 
-/** Six refusals, by name, and the shipped table passes all of them. */
+/**
+ * Nine refusals, by name, and the shipped table passes all of them.
+ *
+ * Six until Session 09 of the learn set, which put the head, the spread's provenance and the
+ * observation width behind flags and so made three more ways for a file and a build to disagree
+ * about what a row of weights means. **The third of them is the one that is not a typo check**: a
+ * version-2 table that names a head is a file somebody edited by hand or a reader that pasted this
+ * build's default onto a file that never claimed it, and either way the shape it declares is not
+ * the shape it was fitted under. That refusal is why `assemble` in snapshot.ts deletes the fields
+ * rather than defaulting them.
+ */
 test("a_table_this_build_cannot_read_is_refused_by_name", () => {
   checkPolicyWeights(POLICY_WEIGHTS);
   const bad = (over, pattern) => assert.throws(() => checkPolicyWeights({ ...POLICY_WEIGHTS, ...over }), pattern);
   bad({ version: 99 }, /version 99/);
   bad({ features: 99 }, /feature version 99/);
+  bad({ head: "gaussian" }, /version 2 and name a head/);
+  bad({ version: 3, head: "quadratic" }, /head "quadratic"/);
+  bad({ version: 3, sigma: "learned" }, /spread "learned"/);
   bad({ layout: { ...POLICY_LAYOUT, inputs: 7 } }, /layout|inputs/i);
   bad({ weights: [1, 2, 3] }, /weights|numbers/i);
   bad({ logSigma: [0, 0] }, /spread|logSigma|axes/i);
   bad({ normalisation: { count: 0, mean: [0], variance: [1] } }, /normalisation/i);
+  // The shipped table is version 2 and names no head on purpose: it was fitted before the field
+  // existed, and every arm of Session 09 had to be run beside it inside one process.
+  assert.equal(POLICY_WEIGHTS.version, 2);
+  assert.equal(POLICY_WEIGHTS.head, undefined, "the shipped table grew a head it was not fitted with");
 });
 
 /** The mind is in the picker under its own name and builds without a fit. */
@@ -1436,4 +1455,420 @@ test("a_fit_pool_refuses_a_shard_count_it_does_not_have_and_a_step_before_its_bi
     await pool.close();
   }
   await assert.rejects(async () => FitPool.open({ shards: 0 }), /not a pool/);
+});
+
+// ---------------------------------------------------------------------------------------
+// Session 09 of the learn set: three more shapes a head may take, and one more spread.
+// ---------------------------------------------------------------------------------------
+
+/**
+ * The five shapes this build fits under, named once so every test below runs all of them.
+ *
+ * The Gaussian with a constant spread is version 2's and is in the list on purpose: a suite that
+ * only exercised the new shapes would not notice the day the old one stopped agreeing with itself,
+ * and the whole argument for shipping the alternatives as *arms* is that the control is measured
+ * beside them through the same instrument.
+ */
+const HEADS = Object.freeze([
+  { name: "gaussian", spec: GAUSSIAN_HEAD },
+  { name: "mixed", spec: headSpecOf("mixed", "constant") },
+  { name: "beta", spec: headSpecOf("beta", "constant") },
+  { name: "state", spec: headSpecOf("gaussian", "state") },
+  { name: "mixed+state", spec: headSpecOf("mixed", "state") },
+]);
+
+/** `bench`, at a head's own output width. */
+function headBench(seed, spec, { inputs = 5, hidden = [7] } = {}) {
+  const layout = { inputs, hidden, outputs: spec.width };
+  const weights = initWeights(layout, seed);
+  const scratch = netScratch(layout);
+  const random = mulberry32(seed);
+  const input = Float64Array.from({ length: inputs }, () => random() * 2 - 1);
+  const logSigma = Float64Array.from({ length: ACTION_AXES }, () => -0.6 + random() * 0.4);
+  const action = new Float64Array(ACTION_WIDTH);
+  const head = forward(layout, weights, input, scratch);
+  const oldLogp = sampleAction(head, logSigma, random, action, spec);
+  return { layout, weights, scratch, input, logSigma, action, oldLogp };
+}
+
+/**
+ * Every head's gradient in its own outputs is its own central difference.
+ *
+ * **This is a rule the session was handed rather than a test somebody thought of.** A new
+ * distribution does not get an arm until its analytic gradient has been differenced against the
+ * surrogate it claims to be the gradient of. A sign lost in a softmax, a missing factor on a
+ * softplus chain, a squash whose derivative was written for the wrong variable -- none of those
+ * show up as anything but a curve that fails to rise, and a night of ten six-hour arms is the
+ * worst place in this tree to discover one.
+ *
+ * Differencing the *head* rather than the weights, for the reason the two tests at the top of this
+ * file give: `backwardFrom` has its own check and what is new here is the numbers handed to it.
+ * Under `sigma: "state"` that includes the nine spreads, which have moved from parameters of the
+ * policy to outputs of the network -- so the same loop covers the squash without a second test,
+ * and the assertion that `sigmaGrad` stays *empty* is what says they really moved.
+ */
+test("every_heads_gradient_in_its_own_outputs_is_its_central_difference", () => {
+  const knobs = { clip: 0.2, entropy: 0.01 };
+  const h = 1e-6;
+  for (const [at, { name, spec }] of HEADS.entries()) {
+    const { layout, weights, scratch, input, logSigma, action, oldLogp } = headBench(SEED + at * 13, spec);
+    const adv = at % 2 === 0 ? 0.7 : -1.3;
+    const head = Float64Array.from(forward(layout, weights, input, scratch));
+    const delta = new Float64Array(spec.width);
+    const sigmaGrad = new Float64Array(ACTION_AXES);
+    const term = surrogateGrad(head, logSigma, action, oldLogp, adv, knobs, 1, delta, sigmaGrad, spec);
+    assert.ok(Math.abs(term.ratio - 1) < 1e-9, `${name}: the bench head is not the collecting head`);
+    for (let j = 0; j < spec.width; j += 1) {
+      const was = head[j];
+      head[j] = was + h;
+      const up = surrogateObjective(head, logSigma, action, oldLogp, adv, knobs, spec);
+      head[j] = was - h;
+      const down = surrogateObjective(head, logSigma, action, oldLogp, adv, knobs, spec);
+      head[j] = was;
+      const numeric = -(up - down) / (2 * h);
+      assert.ok(Math.abs(delta[j] - numeric) < 1e-5 * (1 + Math.abs(numeric)),
+        `${name} output ${j}: analytic ${delta[j]}, numeric ${numeric}`);
+    }
+    if (spec.sigmaAt < 0) {
+      for (let j = 0; j < ACTION_AXES; j += 1) {
+        const was = logSigma[j];
+        logSigma[j] = was + h;
+        const up = surrogateObjective(head, logSigma, action, oldLogp, adv, knobs, spec);
+        logSigma[j] = was - h;
+        const down = surrogateObjective(head, logSigma, action, oldLogp, adv, knobs, spec);
+        logSigma[j] = was;
+        const numeric = -(up - down) / (2 * h);
+        assert.ok(Math.abs(sigmaGrad[j] - numeric) < 1e-5 * (1 + Math.abs(numeric)),
+          `${name} spread ${j}: analytic ${sigmaGrad[j]}, numeric ${numeric}`);
+      }
+    } else {
+      for (let j = 0; j < ACTION_AXES; j += 1) {
+        assert.equal(sigmaGrad[j], 0,
+          `${name}: a state-dependent spread wrote ${sigmaGrad[j]} into the policy's own parameter`);
+      }
+      // Nor are the parameters read: the objective does not move when they do.
+      const before = surrogateObjective(head, logSigma, action, oldLogp, adv, knobs, spec);
+      const moved = Float64Array.from(logSigma, (x) => x + 0.5);
+      assert.equal(surrogateObjective(head, moved, action, oldLogp, adv, knobs, spec), before,
+        `${name}: the objective still reads the policy's own spreads`);
+    }
+  }
+});
+
+/**
+ * A state-dependent spread lands inside its squash and moves with what it reads.
+ *
+ * Three claims, and the third is the one the arm rests on. That every spread is inside
+ * `[floor, roof]` whatever the network says, which is what a squash is for and a clamp would give
+ * too. That the ends are approached and never reached, which a clamp would *not*: a clamp has zero
+ * gradient outside its range, and a spread that walked out of one could never walk back. And that
+ * it is a function of the observation at all -- because a state-dependent sigma that came out the
+ * same everywhere would be a constant one with more weights, and would look exactly like this arm
+ * quietly succeeding at nothing.
+ */
+test("a_state_dependent_spread_is_squashed_and_is_a_function_of_what_it_reads", () => {
+  const spec = headSpecOf("gaussian", "state");
+  const layout = { inputs: 5, hidden: [7], outputs: spec.width };
+  const weights = initWeights(layout, SEED + 77);
+  const scratch = netScratch(layout);
+  const random = mulberry32(SEED + 78);
+  const constant = new Float64Array(ACTION_AXES).fill(-0.7);
+  const into = new Float64Array(ACTION_AXES);
+  const seen = [];
+  for (let trial = 0; trial < 32; trial += 1) {
+    const input = Float64Array.from({ length: 5 }, () => random() * 6 - 3);
+    const head = forward(layout, weights, input, scratch);
+    const ls = axisLogSigma(head, constant, spec, into);
+    for (let j = 0; j < ACTION_AXES; j += 1) {
+      assert.ok(ls[j] > SIGMA_FLOOR && ls[j] < SIGMA_ROOF,
+        `trial ${trial} axis ${j} is ${ls[j]}, outside the squash`);
+    }
+    seen.push(Float64Array.from(ls));
+  }
+  let moved = 0;
+  for (let j = 0; j < ACTION_AXES; j += 1) {
+    const low = Math.min(...seen.map((row) => row[j]));
+    const high = Math.max(...seen.map((row) => row[j]));
+    if (high - low > 1e-3) moved += 1;
+  }
+  assert.equal(moved, ACTION_AXES, `only ${moved} of ${ACTION_AXES} spreads changed with the observation`);
+  // And the policy's own nine are not read at all under this spread: nonsense in them changes nothing.
+  const head = forward(layout, weights, Float64Array.from([1, 0, -1, 0.5, 0]), scratch);
+  const a = Float64Array.from(axisLogSigma(head, constant, spec, into));
+  const b = Float64Array.from(axisLogSigma(head, new Float64Array(ACTION_AXES).fill(99), spec, into));
+  assert.deepEqual([...a], [...b], "the state-dependent spread read the policy's own parameters");
+  // A constant spread is the identity on them, which is what says version 2 is untouched.
+  const flat = axisLogSigma(head, constant, GAUSSIAN_HEAD, into);
+  assert.deepEqual([...flat], [...constant]);
+});
+
+/**
+ * A categorical axis tiles its range in nine bins, and a draw round-trips the bin it came from.
+ *
+ * The arithmetic here is silent everywhere else: `binOf(binCentre(b))` must be `b` for every bin,
+ * or the log-probability the trainer reads belongs to a different bin from the one the body
+ * played, and the ratio in the surrogate is a ratio of two unrelated numbers. The ends are the
+ * case worth naming -- a Gaussian axis is clipped at the range, so `binOf` has to answer for a
+ * value sitting exactly on it, and for one outside.
+ */
+test("the_categorical_axis_tiles_its_range_and_a_draw_round_trips_its_bin", () => {
+  assert.equal(HEAD_BINS, 9);
+  for (let b = 0; b < HEAD_BINS; b += 1) {
+    assert.equal(binOf(binCentre(b)), b, `bin ${b} did not round-trip`);
+    assert.ok(Math.abs(binCentre(b)) <= 1, `bin ${b} centres outside the range at ${binCentre(b)}`);
+  }
+  assert.ok(Math.abs(binCentre(0) + binCentre(HEAD_BINS - 1)) < 1e-12, "the bins are not symmetric about zero");
+  assert.equal(binOf(-1), 0);
+  assert.equal(binOf(1), HEAD_BINS - 1);
+  assert.equal(binOf(-4), 0, "a value under the range fell off the bottom bin");
+  assert.equal(binOf(4), HEAD_BINS - 1, "a value over the range fell off the top bin");
+  // Every bin is reachable from the draw, which is what says the sampler is not a mode-finder.
+  const spec = headSpecOf("mixed", "constant");
+  const head = new Float64Array(spec.width);
+  const logSigma = new Float64Array(ACTION_AXES).fill(-0.7);
+  const random = mulberry32(SEED + 91);
+  const action = new Float64Array(ACTION_WIDTH);
+  const bins = new Set();
+  const at = COMMAND_AXES.indexOf("standOff");
+  for (let i = 0; i < 600; i += 1) {
+    sampleAction(head, logSigma, random, action, spec);
+    bins.add(binOf(action[at]));
+  }
+  assert.equal(bins.size, HEAD_BINS, `a flat head reached ${bins.size} of ${HEAD_BINS} bins`);
+  // A head that is not flat concentrates, and the greedy read is the bin it concentrated on.
+  head[spec.at[at] + 7] = 6;
+  assert.equal(binOf(meanAction(head, new Float64Array(ACTION_WIDTH), spec)[at]), 7);
+});
+
+/**
+ * A Beta axis draws strictly inside the interval a clipped Gaussian would pile onto its ends.
+ *
+ * The three axes `head: "beta"` claims -- `targetHeight`, `swing` and `bite` -- are exactly the
+ * ones whose published range is the unit interval, and under a Gaussian their draw is *clipped*:
+ * the body sees a value on the boundary while the density the trainer differentiates says the draw
+ * was somewhere outside it. So what is asserted is the support, over enough draws to have hit a
+ * clip many times if there were one, and that every draw has a finite log-probability. That the
+ * density is the gradient's own is the business of the difference test above and is not restated.
+ */
+test("a_beta_axis_draws_strictly_inside_the_interval_a_clip_would_have_piled_onto", () => {
+  const spec = headSpecOf("beta", "constant");
+  const layout = { inputs: 4, hidden: [8], outputs: spec.width };
+  const weights = initWeights(layout, SEED + 31);
+  const scratch = netScratch(layout);
+  const random = mulberry32(SEED + 32);
+  const logSigma = new Float64Array(ACTION_AXES).fill(-0.7);
+  const action = new Float64Array(ACTION_WIDTH);
+  const head = forward(layout, weights, Float64Array.from([1, -0.5, 0.25, 0]), scratch);
+  const betas = ["targetHeight", "swing", "bite"].map((name) => COMMAND_AXES.indexOf(name));
+  const reach = betas.map(() => ({ low: Infinity, high: -Infinity }));
+  for (let i = 0; i < 800; i += 1) {
+    const logp = sampleAction(head, logSigma, random, action, spec);
+    assert.ok(Number.isFinite(logp), `draw ${i} has a log-probability of ${logp}`);
+    for (const [k, j] of betas.entries()) {
+      assert.ok(action[j] > -1 && action[j] < 1,
+        `draw ${i} on axis ${j} landed on the boundary at ${action[j]}`);
+      reach[k].low = Math.min(reach[k].low, action[j]);
+      reach[k].high = Math.max(reach[k].high, action[j]);
+    }
+  }
+  for (const [k, j] of betas.entries()) {
+    assert.ok(reach[k].high - reach[k].low > 0.3,
+      `axis ${j} only ever covered ${reach[k].low} to ${reach[k].high}`);
+  }
+  // The greedy read is inside the interval too, and a bout plays that rather than a draw.
+  const mean = meanAction(head, new Float64Array(ACTION_WIDTH), spec);
+  for (const j of betas) assert.ok(mean[j] > -1 && mean[j] < 1, `the mode on axis ${j} is ${mean[j]}`);
+  // The six axes this head does not claim are still Gaussians, and still read their own spread.
+  const other = COMMAND_AXES.map((_, j) => j).filter((j) => !betas.includes(j));
+  for (const j of other) assert.equal(spec.kinds[j], "gaussian", `axis ${j} is a ${spec.kinds[j]}`);
+});
+
+/**
+ * Every head recovers the optimum of the bandit whose answer is known before the run starts.
+ *
+ * The same problem the Gaussian head is put through above, run once per shape, with the paid axes
+ * chosen to be axes that shape actually changed: the two categorical ones under `mixed`, two of
+ * the three Beta ones under `beta`, and two Gaussians under `sigma: "state"`, where what changed
+ * is not the axis but where its spread comes from. **A head whose gradient is right and whose
+ * sampler is wrong passes the difference test above and fails this one**, which is the whole
+ * reason both exist.
+ *
+ * The tolerance differs by shape because the shapes answer at different resolutions: a categorical
+ * cannot do better than the centre of the bin its target is in, which is a quarter of the range
+ * wide, so it is asked for the right neighbourhood rather than the right number.
+ */
+test("every_head_recovers_the_optimum_of_the_bandit_it_is_paid_on", { timeout: 300_000 }, () => {
+  const width = 4;
+  for (const { name, spec, axes, target, tolerance } of [
+    { name: "mixed", spec: headSpecOf("mixed", "constant"), axes: [0, 3], target: [0.5, -0.5], tolerance: 0.2 },
+    { name: "beta", spec: headSpecOf("beta", "constant"), axes: [4, 7], target: [0.4, -0.5], tolerance: 0.2 },
+    { name: "state", spec: headSpecOf("gaussian", "state"), axes: [0, 1], target: [0.6, -0.45], tolerance: 0.2 },
+  ]) {
+    const layout = { inputs: width, hidden: [24], outputs: spec.width };
+    const valueLayoutHere = { inputs: width, hidden: [24], outputs: 1 };
+    const weights = initWeights(layout, SEED);
+    const valueWeights = initWeights(valueLayoutHere, SEED + 1);
+    const logSigma = new Float64Array(ACTION_AXES).fill(-0.7);
+    const norm = freshNormalisation(width);
+    const random = mulberry32(SEED + 2);
+    const scratch = netScratch(layout);
+    const observation = Float64Array.from([1, 0.5, -0.25, 0]);
+    const draw = new Float64Array(ACTION_WIDTH);
+    const rounds = 90;
+    const perRound = 192;
+    let state = { actor: null, spread: null, critic: null };
+    let first = 0;
+    let last = 0;
+    for (let round = 1; round <= rounds; round += 1) {
+      const rollout = {
+        count: perRound, width,
+        x: new Float32Array(perRound * width),
+        a: new Float64Array(perRound * ACTION_WIDTH),
+        logp: new Float64Array(perRound),
+        reward: new Float64Array(perRound),
+        seconds: new Float64Array(perRound),
+        done: new Uint8Array(perRound).fill(1),
+      };
+      let paid = 0;
+      for (let i = 0; i < perRound; i += 1) {
+        const head = forward(layout, weights, observation, scratch);
+        const logp = sampleAction(head, logSigma, random, draw, spec);
+        const reward = -((draw[axes[0]] - target[0]) ** 2) - ((draw[axes[1]] - target[1]) ** 2);
+        rollout.x.set(observation, i * width);
+        rollout.a.set(draw, i * ACTION_WIDTH);
+        rollout.logp[i] = logp;
+        rollout.reward[i] = reward;
+        paid += reward;
+      }
+      paid /= perRound;
+      if (round === 1) first = paid;
+      if (round === rounds) last = paid;
+      const fit = ppoFit(rollout, {
+        weights, logSigma, valueWeights, layout, valueLayout: valueLayoutHere, norm,
+        seed: SEED + round, spec,
+        halfLife: 1, lambda: 0.95, clip: 0.2, entropy: 0.0005, rate: 0.012, valueRate: 0.02,
+        sigmaRate: 0.012, epochs: 4, batch: 64, targetKl: 0.02, sigmaFloor: -4, sigmaRoof: 0.5,
+        ...state,
+      });
+      state = { actor: fit.actor, spread: fit.spread, critic: fit.critic };
+    }
+    const mean = meanAction(forward(layout, weights, observation, scratch), new Float64Array(ACTION_WIDTH), spec);
+    for (const [k, j] of axes.entries()) {
+      assert.ok(Math.abs(mean[j] - target[k]) < tolerance,
+        `${name} axis ${j} arrived at ${mean[j]}, wanted ${target[k]}`);
+    }
+    assert.ok(last > first + 0.2, `${name}: the mean reward went from ${first} to ${last}`);
+  }
+});
+
+/**
+ * A version-3 table round-trips through the module renderer, at every shape and both widths.
+ *
+ * What could go wrong and be invisible is a field that survives the fit and not the artifact: a
+ * head declared in memory, dropped by the renderer, and read back as a Gaussian by a build that
+ * has no way of knowing better -- weights of the right *count* under the wrong distribution, which
+ * loads, runs, and is a different mind. So every declared field is compared after the trip, and
+ * the layout with it, because the layout is the only field whose width the head decides.
+ */
+test("a_version_3_table_round_trips_through_the_module_text_at_every_shape", () => {
+  assert.equal(POLICY_VERSION, 3);
+  assert.deepEqual([...POLICY_VERSIONS_READ], [2, 3]);
+  const marker = "export const POLICY_WEIGHTS: PolicyWeights = ";
+  for (const { name, spec } of HEADS) {
+    for (const features of [1, 2]) {
+      const layout = policyLayout(features, spec);
+      assert.equal(layout.inputs, features === 1 ? PILOT_FEATURE_COUNT : PILOT_FEATURE_COUNT_V2);
+      assert.equal(layout.outputs, spec.width);
+      const table = {
+        ...freshPolicyTable(
+          // `|| 0` is not decoration: `Math.round` gives back a negative zero for a small negative
+          // number, `JSON.stringify` writes it as `0`, and the two are not `deepStrictEqual`.
+          Array.from({ length: netSize(layout) }, (_, k) => (Math.round(Math.sin(k) * 1e4) || 0) / 1e5),
+          Array.from({ length: ACTION_AXES }, (_, k) => -0.7 + k / 100), features, spec,
+        ),
+        seed: SEED, date: "2026-09-10", iterations: 60, bouts: 64, steps: 400,
+        halfLife: 4, lambda: 0.95, clip: 0.2, entropy: 0.003,
+        score: 0.5, baselines: { uniform: 0.3 },
+      };
+      assert.equal(table.version, 3);
+      assert.equal(table.head, spec.head);
+      assert.equal(table.sigma, spec.sigma);
+      checkPolicyWeights(table);
+      const text = renderPolicyModule(table);
+      const at = text.indexOf(marker);
+      assert.ok(at > 0, `${name}/${features}: the module does not export the table`);
+      const back = JSON.parse(text.slice(at + marker.length, -2)
+        .replace("\"reward\":GOLEM_REWARD", `"reward":${JSON.stringify(GOLEM_REWARD)}`));
+      for (const field of ["version", "features", "head", "sigma", "sigmaFloor", "sigmaRoof"]) {
+        assert.equal(back[field], table[field], `${name}/${features}: ${field} did not survive the module`);
+      }
+      assert.deepEqual(back.layout, { ...layout, hidden: [...layout.hidden] });
+      assert.deepEqual(back.weights, table.weights, `${name}/${features}: a weight moved`);
+      assert.deepEqual(back.logSigma, table.logSigma);
+      checkPolicyWeights(back);
+      // And the module says out loud which shape a reader is looking at.
+      assert.match(text, new RegExp(`version 3 over feature version ${features}`));
+    }
+  }
+  // The shipped table is the other half of the claim: it predates all of this and still loads.
+  checkPolicyWeights(POLICY_WEIGHTS);
+  assert.equal(POLICY_WEIGHTS.layout.inputs, PILOT_FEATURE_COUNT);
+  assert.equal(POLICY_WEIGHTS.layout.outputs, ACTION_WIDTH);
+});
+
+/**
+ * A contender carries its own shape and its own executor rows, and a misspelled row is refused.
+ *
+ * `--tactics` and `--override` are two different instruments and the difference is the whole of
+ * arms h, i and j: an override moves `GOLEM_TACTICS_V4` inside the worker and therefore moves it
+ * for **both** corners, which measures what happens when the arena changes. `--tactics` moves the
+ * table one contender is built over, so the arm fights a shipped executor with a changed one --
+ * which is the question "would this row help the mind that learned under it", and is the only form
+ * in which an executor row can be rated against a control at all.
+ *
+ * The refusal is the part that would otherwise be silent: a misspelled row is a flag that does
+ * nothing, and an arm that ran a flag that did nothing measured its own control twice.
+ */
+test("a_contender_carries_its_own_shape_and_its_own_executor_rows", () => {
+  assert.deepEqual(parseTactics("holdMyReach=true"), { holdMyReach: true });
+  assert.deepEqual(parseTactics("strokeOutOfRange=false"), { strokeOutOfRange: false });
+  assert.deepEqual(parseTactics("closeGain=0.9"), { closeGain: 0.9 });
+  assert.deepEqual(parseTactics("holdMyReach=true, closeGain=0.9"), { holdMyReach: true, closeGain: 0.9 });
+  assert.equal(parseTactics(null), null);
+  assert.equal(parseTactics(""), null);
+  assert.throws(() => parseTactics("holdMyReech=true"), /not a row of the fourth executor/);
+  assert.throws(() => parseTactics("closeGain"), /row=value/);
+  assert.throws(() => parseTactics("closeGain=quite a lot"), /neither a number nor a flag/);
+
+  // The shipped shape is the object a contender has always been: no head fields it did not ask for
+  // beyond the declaration, and no `tactics` key at all when nothing overrides the table.
+  const plain = contenderShape();
+  assert.equal(plain.version, POLICY_VERSION);
+  assert.equal(plain.features, 1);
+  assert.equal(plain.head, "gaussian");
+  assert.equal(plain.sigma, "constant");
+  assert.deepEqual(plain.layout, { ...POLICY_LAYOUT, hidden: [...POLICY_LAYOUT.hidden] });
+  assert.equal("tactics" in plain, false, "a contender under the shipped executor named a table");
+  assert.equal("tactics" in contenderShape({ tactics: {} }), false, "an empty table is still a table");
+
+  const spec = headSpecOf("mixed", "state");
+  const wide = contenderShape({ features: 2, spec, tactics: { holdMyReach: true } });
+  assert.equal(wide.features, 2);
+  assert.equal(wide.layout.inputs, PILOT_FEATURE_COUNT_V2);
+  assert.equal(wide.layout.outputs, spec.width);
+  assert.deepEqual(wide.tactics, { holdMyReach: true });
+  // And a table built to that shape loads, which is what the worker does with it.
+  checkPolicyWeights({
+    ...freshPolicyTable(new Array(netSize(wide.layout)).fill(0),
+      new Array(ACTION_AXES).fill(-0.7), 2, spec),
+    ...wide,
+  });
+
+  // The entropy stage, which is the other flag a manifest can spell wrong at no cost until it fires.
+  assert.equal(parseEntropyStage("0.003"), 0.003);
+  assert.equal(parseEntropyStage("0"), 0);
+  assert.throws(() => parseEntropyStage("-1"), /not an entropy coefficient/);
+  assert.throws(() => parseEntropyStage("lots"), /not an entropy coefficient/);
+  assert.deepEqual(parseSchedule("0.003:0,0.0003:20", parseEntropyStage),
+    [{ from: 0, value: 0.003 }, { from: 20, value: 0.0003 }]);
 });

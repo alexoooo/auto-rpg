@@ -55,9 +55,10 @@ import {
   blendArc, freshCommand, golemDriven,
 } from "../src/golem/tactics-v4.ts";
 import {
-  PILOT_FEATURE_COUNT, PILOT_FEATURE_NAMES, PILOT_FEATURE_VERSIONS_READ,
-  PILOT_FEATURES_DEFAULT, PILOT_FEATURES_VERSION, PILOT_HZ,
-  askCadence, pilotFeatures,
+  PILOT_FEATURE_COUNT, PILOT_FEATURE_COUNT_V2, PILOT_FEATURE_NAMES, PILOT_FEATURE_NAMES_V2,
+  PILOT_FEATURE_VERSIONS_READ, PILOT_FEATURES_DEFAULT, PILOT_FEATURES_VERSION, PILOT_HZ,
+  PILOT_TRACE_COLUMNS, PILOT_TRACE_DECAYS, PILOT_TRACE_NAMES,
+  askCadence, pilotFeatureCount, pilotFeatureNames, pilotFeatures, pilotTrace,
 } from "../src/golem/pilot.ts";
 import { DRIVER, golemDriver } from "../src/golem/styles/driver.ts";
 import { golemFencer } from "../src/golem/tactics-v2.ts";
@@ -158,7 +159,7 @@ function fixtureOf(view) {
 }
 
 /** Put the opponent somewhere, as a body of the same rough size, and re-derive `measure`. */
-function place(fixture, { x, z, facing = Math.PI, shoulderY = 1.42, crownY = 1.75 }) {
+function place(fixture, { x, z, facing = Math.PI, shoulderY = 1.42, crownY = 1.75, reach = 1.45 }) {
   const them = fixture.opponent;
   them.unit = "warrior";
   them.ground.x = x; them.ground.y = 0; them.ground.z = z;
@@ -166,7 +167,7 @@ function place(fixture, { x, z, facing = Math.PI, shoulderY = 1.42, crownY = 1.7
   them.shoulder.x = x + 0.21; them.shoulder.y = shoulderY; them.shoulder.z = z;
   them.crownHeight = crownY;
   them.vitalHeight = shoulderY * 0.82;
-  them.reach = 1.45;
+  them.reach = reach;
   them.collisionRadius = 0.22;
   them.tip.x = x; them.tip.y = shoulderY; them.tip.z = z - 0.8;
   them.tipSpeed = 1.0;
@@ -179,7 +180,7 @@ function place(fixture, { x, z, facing = Math.PI, shoulderY = 1.42, crownY = 1.7
     hand.shoulder.z = z;
     hand.tip.x = them.tip.x; hand.tip.y = them.tip.y; hand.tip.z = them.tip.z;
     hand.tipSpeed = name === "primary" ? 1.0 : 0;
-    hand.reach = 1.45;
+    hand.reach = reach;
   }
   const self = fixture.self;
   fixture.measure = Math.hypot(self.shoulder.x - them.shoulder.x, self.shoulder.z - them.shoulder.z);
@@ -858,6 +859,183 @@ test("the_four_candidates_default_to_what_ships_and_a_default_is_inert", async (
     `doubling the ask cadence took ${askedAt(24)} asks against ${shippedAsks}`);
 });
 
+// ---------------------------------------------------------------------------------------
+// The three rows Session 09 of the learn set drove an arm under.
+// ---------------------------------------------------------------------------------------
+
+/**
+ * `holdMyReach`: the zero of the stand-off axis stops being a fact about the body in front.
+ *
+ * **This is the row the whole session's reading of the owner's complaint rests on.** The complaint
+ * is that a mind cannot say "just inside my own range", and Session 07 measured why: the stroke's
+ * own gate opens at `max(reach * strikeFraction, near + slack)` -- 0.92 of *my* arm -- while the
+ * axis that decides where the feet stand is a multiple of *theirs*. Over the viable pool their
+ * reach spans 17 % and mine spans a factor of 3.4, so the two coordinates are not close to being
+ * the same coordinate, and no output of the policy expresses the fraction the body actually cares
+ * about. This row makes `standOff` a multiple of the acting hand's own reach instead.
+ *
+ * The claim is a **pair against a pair**, as `holdMetres`'s is: the same command driven at two
+ * opponents whose arms differ by half a metre, and what is asserted is that under the flag the
+ * hold does not move and under the multiple it moves by exactly the difference in their arms.
+ *
+ * That the number it settles on is *my own reach* and not some other constant is then established
+ * against something the executor publishes for its own reasons: `longer` and `shorter` compare my
+ * arm to theirs across a `reachEdge` band, so walking their arm either side of the measured hold
+ * flips them, and a hold that was reading anything but my reach would flip them somewhere else.
+ */
+test("hold_my_reach_reads_my_own_arm_and_the_shipped_row_reads_theirs", async (t) => {
+  assert.equal(GOLEM_TACTICS_V4.holdMyReach, false, "the own-reach flag shipped up");
+
+  const golem = await standAGolem(t);
+  const reading = (over, reach, standOff) => {
+    const fixture = place(fixtureOf(golem.view), { x: 0, z: 2.4, reach });
+    const driven = golemDriven(SEED, { ...GOLEM_TACTICS_V4, ...over, eventAsks: false },
+      fixedPilot({ standOff, commit: 0 }).pilot);
+    drive(fixture, driven, 0.5);
+    return driven.reading;
+  };
+
+  // The shipped row: the hold *is* their arm at a stand-off of one, whatever their arm is.
+  assert.ok(Math.abs(reading({}, 1.2, 1.0).hold - 1.2) < 1e-9);
+  assert.ok(Math.abs(reading({}, 1.7, 1.0).hold - 1.7) < 1e-9);
+
+  // The flag: the same hold against both, so half a metre of somebody else's arm buys nothing.
+  const mine = reading({ holdMyReach: true }, 1.2, 1.0).hold;
+  assert.equal(reading({ holdMyReach: true }, 1.7, 1.0).hold, mine,
+    `an own-reach hold read ${mine} against a 1.2 m arm and ` +
+    `${reading({ holdMyReach: true }, 1.7, 1.0).hold} against a 1.7 m one, which is what it exists not to do`);
+  // And it is still a multiple: the axis has not become a constant.
+  assert.ok(Math.abs(reading({ holdMyReach: true }, 1.2, 0.5).hold - mine / 2) < 1e-9,
+    "half the stand-off did not halve the hold");
+  assert.ok(Math.abs(reading({ holdMyReach: true }, 1.7, 1.6).hold - mine * 1.6) < 1e-9);
+  assert.ok(Math.abs(reading({ holdMyReach: true }, 1.2, 0).hold) < 1e-12, "a zero stand-off held somewhere");
+
+  // That the multiple is *my arm*, checked against a fact the executor publishes for its own
+  // reasons: `longer` and `shorter` bracket my reach against theirs across `reachEdge`.
+  const edge = GOLEM_TACTICS_V4.reachEdge;
+  assert.ok(mine > 0.5 && mine < 3, `the own-reach hold is ${mine} m, which is not an arm`);
+  const shortArm = reading({}, mine * (1 - edge * 2), 1.0);
+  const longArm = reading({}, mine * (1 + edge * 2), 1.0);
+  assert.equal(shortArm.longer, true, `against a ${(mine * (1 - edge * 2)).toFixed(2)} m arm I am not the longer`);
+  assert.equal(shortArm.shorter, false);
+  assert.equal(longArm.shorter, true, `against a ${(mine * (1 + edge * 2)).toFixed(2)} m arm I am not the shorter`);
+  assert.equal(longArm.longer, false);
+
+  // `holdMetres` wins if both are up, which is what that row's note says and is worth pinning:
+  // two flags that quietly composed would be a third reading of the axis nobody chose.
+  assert.equal(reading({ holdMetres: true, holdMyReach: true }, 1.2, 1.3).hold, 1.3);
+  assert.equal(reading({ holdMetres: true, holdMyReach: true }, 1.7, 1.3).hold, 1.3);
+
+  // Off, it is inert to the digit -- the same claim the four candidates before it are held to.
+  const trace = (over, reach) => {
+    const fixture = place(fixtureOf(golem.view), { x: 0, z: 1.6, reach });
+    const driven = golemDriven(SEED, { ...GOLEM_TACTICS_V4, ...over },
+      fixedPilot({ standOff: 1.1, advance: 0.4, commit: 1 }).pilot);
+    const frames = [];
+    drive(fixture, driven, 2.0, (intent) => {
+      frames.push([intent.forward, intent.turn, driven.reading.hold, driven.strokes]);
+    });
+    return frames;
+  };
+  assert.deepEqual(trace({ holdMyReach: false }, 1.45), trace({}, 1.45),
+    "writing the own-reach flag out at its default changed the bout");
+  assert.notDeepEqual(trace({ holdMyReach: true }, 1.45), trace({}, 1.45),
+    "the own-reach flag changed nothing on a body whose arm differs from theirs");
+});
+
+/**
+ * `strokeOutOfRange` false: a hand is not asked for a stroke it cannot land, and the gate bites.
+ *
+ * The shipped table lets a stroke start whatever the gap, which is deliberate -- a stroke thrown
+ * at nothing is a stroke that is already moving when they close, and Session 07 measured that as
+ * worth **+29 % damage against a fighting opponent and -18 % against a motionless one**. Which of
+ * those two the pool is made of is exactly what an arm is for, and this test only says the gate is
+ * real: out of range it stops every stroke, in range it stops none, and a mind that turned it off
+ * would notice on its own.
+ */
+test("the_out_of_range_gate_stops_a_stroke_it_cannot_land_and_stops_nothing_in_range", async (t) => {
+  const golem = await standAGolem(t);
+  const strokesAt = (over, command, z) => {
+    const fixture = place(fixtureOf(golem.view), { x: 0, z });
+    const driven = golemDriven(SEED, { ...GOLEM_TACTICS_V4, ...over, eventAsks: false },
+      fixedPilot(command).pilot);
+    drive(fixture, driven, 3.0);
+    return { strokes: driven.strokes, gap: driven.reading.gap };
+  };
+
+  // Held two and a half of their reach out, with the commit gate up the whole three seconds.
+  const FAR = [{ standOff: 2.5, advance: 0, commit: 1 }, 2.6];
+  const farShipped = strokesAt({}, ...FAR);
+  const farGated = strokesAt({ strokeOutOfRange: false }, ...FAR);
+  assert.ok(farShipped.strokes > 2,
+    `the shipped table threw ${farShipped.strokes} strokes from ${farShipped.gap.toFixed(2)} m out`);
+  assert.equal(farGated.strokes, 0,
+    `the gate let ${farGated.strokes} strokes go at ${farGated.gap.toFixed(2)} m, which is out of range`);
+
+  // Close enough to land, where the gate is a condition that is always true and costs nothing.
+  const NEAR = [{ standOff: 0.6, advance: 0.3, commit: 1 }, 1.2];
+  const nearShipped = strokesAt({}, ...NEAR);
+  const nearGated = strokesAt({ strokeOutOfRange: false }, ...NEAR);
+  assert.ok(nearShipped.strokes > 2, `only ${nearShipped.strokes} strokes in three seconds inside range`);
+  assert.equal(nearGated.strokes, nearShipped.strokes,
+    `the gate cost ${nearShipped.strokes - nearGated.strokes} strokes at ${nearShipped.gap.toFixed(2)} m, ` +
+    "which is inside the arm and is where it is supposed to be inert");
+});
+
+/**
+ * `closeGain` lowered, not raised: the feet settle at `hold - advance / closeGain`.
+ *
+ * **The plan asked for this row raised and the arithmetic is the other way round.** The feet are a
+ * proportional controller: `forward = clamp(clamp((gap - hold) * closeGain, -1, 1) + advance)`, so
+ * the gap at which they stop is `hold - advance / closeGain`, and *raising* the gain makes a
+ * saturated `advance` buy **less** distance rather than more. What widens the window the closing
+ * axis can reach is lowering it, which is what arm j drove.
+ *
+ * Measured rather than asserted from the formula: the fixed point is found by walking the opponent
+ * out along the line in centimetre steps and watching the sign of `forward`, which is what "settle"
+ * means for feet that are a gain and not a teleport, and the formula is then what it is compared
+ * against. The slack is two centimetres, which is the sweep's own step plus a step of physics.
+ */
+test("lowering_the_closing_gain_is_what_widens_what_the_advance_axis_buys", async (t) => {
+  const golem = await standAGolem(t);
+  const advance = 0.5;
+  /** The gap at which the feet change their mind, walked out in centimetre steps. */
+  const settles = (closeGain) => {
+    let previous = null;
+    for (let z = 0.7; z <= 3.6; z += 0.01) {
+      const fixture = place(fixtureOf(golem.view), { x: 0, z });
+      const driven = golemDriven(SEED, { ...GOLEM_TACTICS_V4, closeGain, eventAsks: false },
+        fixedPilot({ standOff: 1.0, advance, commit: 0 }).pilot);
+      let forward = 0;
+      drive(fixture, driven, 0.25, (intent) => { forward = intent.forward; });
+      const { gap, hold } = driven.reading;
+      if (previous !== null && previous.forward <= 0 && forward > 0) return { gap, hold };
+      previous = { forward, gap, hold };
+    }
+    assert.fail(`the feet never turned round at a closing gain of ${closeGain}`);
+    return null;
+  };
+
+  const shipped = settles(GOLEM_TACTICS_V4.closeGain);
+  const lowered = settles(0.9);
+  const raised = settles(3.6);
+  for (const [name, seen, gain] of [
+    ["shipped", shipped, GOLEM_TACTICS_V4.closeGain], ["lowered", lowered, 0.9], ["raised", raised, 3.6],
+  ]) {
+    const predicted = seen.hold - advance / gain;
+    assert.ok(Math.abs(seen.gap - predicted) < 0.02,
+      `the ${name} gain settled at ${seen.gap.toFixed(3)} m against a predicted ${predicted.toFixed(3)}`);
+  }
+  // The direction, said as the thing the plan had backwards: half the gain, twice the distance an
+  // advance of a half buys off the hold, and four times the shipped gain buys half of it.
+  assert.ok(lowered.gap < shipped.gap - 0.2,
+    `a gain of 0.9 settled at ${lowered.gap.toFixed(3)} m against the shipped ${shipped.gap.toFixed(3)}, ` +
+    "so lowering the gain did not buy the closing axis more distance");
+  assert.ok(raised.gap > shipped.gap + 0.1,
+    `a gain of 3.6 settled at ${raised.gap.toFixed(3)} m against the shipped ${shipped.gap.toFixed(3)}, ` +
+    "so raising it -- which is what the plan asked for -- did not buy less");
+});
+
 /** Deep equality that answers rather than throws, for the four rows above. */
 function deepEqualish(a, b) {
   try { assert.deepEqual(a, b); return true; } catch { return false; }
@@ -935,6 +1113,134 @@ test("the_pilot_feature_vector_is_the_published_width_and_is_finite_everywhere",
     }
   }
   assert.throws(() => pilotFeatures(driven.reading, fixture, new Float64Array(3)), /wide/);
+});
+
+/**
+ * Version 2's nine trailing columns are the exponential traces a hand-stepped recursion predicts.
+ *
+ * Session 09 of the learn set, and the one arm that changes what the mind can *see* rather than
+ * what it may write. The nine are three quantities -- the gap, its rate and their tip speed -- each
+ * carried at three decays, and the reason they are worth a test of their own is that they are the
+ * first columns in this file that are **not a pure function of the reading**: a trace is a function
+ * of every ask before it, and it lives in an object the mind owns for the length of a bout.
+ *
+ * So the assertion is the recursion itself, stepped by hand off the *raw* columns of the very same
+ * asks. Two failures it is here to catch and nothing else would: a trace that was re-seeded every
+ * ask, which is nine copies of the raw column and no error anywhere; and a trace stepped before the
+ * raw columns were written, which is the same nine numbers one ask stale and would read as a mind
+ * that learned slightly less than it should have.
+ *
+ * The other half is that version 2 **appends**: the same bout observed at both widths agrees on
+ * every one of version 1's seventy-one columns, ask for ask, because a version that moved a column
+ * would silently reinterpret every table on disk that names the other one.
+ */
+test("version_2s_nine_columns_are_the_trace_a_hand_stepped_recursion_predicts", async (t) => {
+  assert.equal(PILOT_FEATURE_COUNT_V2, PILOT_FEATURE_COUNT + PILOT_TRACE_NAMES.length);
+  assert.equal(PILOT_TRACE_NAMES.length, PILOT_TRACE_COLUMNS.length * PILOT_TRACE_DECAYS.length);
+  assert.deepEqual(PILOT_FEATURE_NAMES_V2.slice(0, PILOT_FEATURE_COUNT), [...PILOT_FEATURE_NAMES]);
+  assert.equal(new Set(PILOT_FEATURE_NAMES_V2).size, PILOT_FEATURE_COUNT_V2, "two columns share a name");
+  assert.deepEqual([...pilotFeatureNames(1)], [...PILOT_FEATURE_NAMES]);
+  assert.deepEqual([...pilotFeatureNames(2)], [...PILOT_FEATURE_NAMES_V2]);
+  assert.equal(pilotFeatureCount(1), PILOT_FEATURE_COUNT);
+  assert.equal(pilotFeatureCount(2), PILOT_FEATURE_COUNT_V2);
+  assert.throws(() => pilotFeatureNames(3), /version 3/);
+
+  const golem = await standAGolem(t);
+  const observe = (width, trace) => {
+    const fixture = place(fixtureOf(golem.view), { x: 0, z: 1.4 });
+    const into = new Float64Array(width);
+    const rows = [];
+    const driven = golemDriven(SEED, GOLEM_TACTICS_V4, (reading, view) => {
+      pilotFeatures(reading, view, into, trace);
+      rows.push(Float64Array.from(into));
+      return { ...freshCommand(), advance: 0.6, commit: 1 };
+    });
+    drive(fixture, driven, 3.0);
+    return { rows, driven, fixture };
+  };
+
+  const trace = pilotTrace();
+  assert.equal(trace.primed, false, "a fresh trace claims to have been stepped");
+  const wide = observe(PILOT_FEATURE_COUNT_V2, trace);
+  assert.ok(wide.rows.length > 30, `only ${wide.rows.length} asks in three seconds`);
+  assert.equal(trace.primed, true);
+
+  // The recursion, ask by ask, against the raw column it is a trace of.
+  for (const [q, name] of PILOT_TRACE_COLUMNS.entries()) {
+    const column = PILOT_FEATURE_NAMES.indexOf(name);
+    assert.ok(column >= 0, `the trace names "${name}", which is not a version-1 column`);
+    for (const [d, decay] of PILOT_TRACE_DECAYS.entries()) {
+      const at = PILOT_FEATURE_COUNT + q * PILOT_TRACE_DECAYS.length + d;
+      assert.equal(PILOT_FEATURE_NAMES_V2[at], `trace:${name}@${decay}`);
+      // The first ask *is* the reading rather than a fraction of it, which is what keeps a trace
+      // from spending the first two thirds of a second climbing out of its own transient.
+      let want = wide.rows[0][column];
+      for (const [ask, row] of wide.rows.entries()) {
+        if (ask > 0) want += (1 - decay) * (row[column] - want);
+        assert.ok(Math.abs(row[at] - want) < 1e-12,
+          `ask ${ask}, ${PILOT_FEATURE_NAMES_V2[at]}: read ${row[at]}, stepped ${want}`);
+      }
+    }
+  }
+
+  // **A trace of a constant is that constant**, and a body on a bench that does not integrate
+  // its own motion is very nearly one -- so the run above says the recursion is wired to the
+  // right column and cannot say the three decays are three different memories. That claim is
+  // made directly, on a square wave no executor standing still could produce: after a step the
+  // fastest decay is nearest the new reading and the slowest furthest, in that order, and every
+  // one of them is strictly between the value it left and the value it is going to.
+  const bench = pilotTrace();
+  const wave = [0.3, 0.3, 0.3, 2.7, 2.7, 2.7, 2.7, 0.3, 0.3];
+  const stepped = wave.map((gap) => Float64Array.from(
+    bench.step({ gap, gapRate: gap - 1.5 }, { opponent: { tipSpeed: gap } })));
+  for (const [q, name] of PILOT_TRACE_COLUMNS.entries()) {
+    const hand = PILOT_TRACE_DECAYS.map(() => null);
+    for (const [ask, gap] of wave.entries()) {
+      const now = q === 0 ? gap / 3 : q === 1 ? (gap - 1.5) / 2 : gap / 5;
+      for (const [d, decay] of PILOT_TRACE_DECAYS.entries()) {
+        hand[d] = hand[d] === null ? now : hand[d] + (1 - decay) * (now - hand[d]);
+        const at = q * PILOT_TRACE_DECAYS.length + d;
+        assert.ok(Math.abs(stepped[ask][at] - hand[d]) < 1e-12,
+          `${name}@${decay} at ask ${ask}: read ${stepped[ask][at]}, stepped ${hand[d]}`);
+      }
+      // Ordered by memory, on the ask the wave rises -- and only there, because the three have
+      // converged onto the low value by then and a fall four asks later would be asking the
+      // slowest one about a rise it has not finished.
+      if (ask === 3) {
+        const [fast, middle, slow] = PILOT_TRACE_DECAYS.map((_, d) => stepped[ask][q * 3 + d]);
+        const was = stepped[ask - 1][q * 3];
+        const rising = now > was;
+        assert.ok(rising ? fast > middle && middle > slow : fast < middle && middle < slow,
+          `${name} at ask ${ask}: the three decays read ${fast}, ${middle} and ${slow}, which ` +
+          "is not three different memories of one quantity");
+        for (const value of [fast, middle, slow]) {
+          assert.ok(rising ? value > was && value < now : value < was && value > now,
+            `${name} at ask ${ask}: a trace read ${value}, outside the step from ${was} to ${now}`);
+        }
+      }
+    }
+  }
+
+  // Version 2 appends. The same bout at the narrow width agrees on all seventy-one.
+  const narrow = observe(PILOT_FEATURE_COUNT, null);
+  assert.equal(narrow.rows.length, wide.rows.length, "the two widths were not the same bout");
+  for (const [ask, row] of narrow.rows.entries()) {
+    assert.deepEqual([...row], [...wide.rows[ask].slice(0, PILOT_FEATURE_COUNT)],
+      `ask ${ask} reads differently at the two widths`);
+  }
+
+  // A version-2 width with no trace is refused by name rather than filled with zeros, because
+  // zeros are what a trace looks like at the start of every bout and would read as a fit that
+  // learned nothing from nine columns it never had.
+  assert.throws(() => pilotFeatures(narrow.driven.reading, narrow.fixture,
+    new Float64Array(PILOT_FEATURE_COUNT_V2)), /trace/);
+  assert.throws(() => pilotFeatures(narrow.driven.reading, narrow.fixture,
+    new Float64Array(PILOT_FEATURE_COUNT_V2 + 1), trace), /wide/);
+
+  // A bout ends and the next one starts from the reading, not from the last bout's memory.
+  trace.reset();
+  assert.equal(trace.primed, false);
+  assert.deepEqual([...trace.values], new Array(PILOT_TRACE_NAMES.length).fill(0));
 });
 
 // ---------------------------------------------------------------------------------------

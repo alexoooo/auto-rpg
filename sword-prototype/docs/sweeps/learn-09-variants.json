@@ -1,0 +1,29 @@
+{
+  "name": "learn-09-variants",
+  "note": "Session 09 of the learn set: ten arms that differ from one another in exactly one thing, to say whether any of the network-and-algorithm variants the plan names -- or any of the three the owner's complaint about the surface names -- beats the shipped arrangement by a paired d of 0.2 on the bar margin against golem-driver over random viable pairs, without losing the mirror. Arm a carries nothing and is the control; every number in this sweep that means anything is a paired difference against it. b widens the observation to version 2, which adds three EWMA traces each of gap, radial speed and their tip speed -- 71 columns to 80 -- and is the only arm that changes what the mind can see. c puts a nine-bin categorical on standOff and advance, which are the two axes that decide range, because Session 07's probe found the bottom third of standOff to be a physical floor a unimodal density cannot get off and a categorical can put mass on two separated distances at once. d makes the nine spreads outputs of the network rather than parameters of the policy, squashed into the same floor and roof the fit clamps the constant one into; policy.ts argues against this and has never measured it, which is what makes it an arm. e replaces the fixed entropy coefficient with a controller that holds the per-axis differential entropy at -1.0 nat, and f replaces it with a schedule from 0.003 to 0.0003 over the first twenty iterations -- the same knob moved two ways, because Session 14's finding was that 0.003 is too much and neither the fix nor its shape has been measured. g gives the critic both sides' pilot columns, which is a training artifact and reads nothing the shipped mind reads. h, i and j are the three the owner's complaint is really about, and all three are executor rows driven for this contender only: h reads standOff as a multiple of the acting hand's own reach instead of the opponent's, because the stroke opens inside 0.92 of MINE while the axis is a multiple of THEIRS and over the viable pool theirs spans 17 % while mine spans a factor of 3.4, so 'just inside my own range' is not a thing the current surface can express at all; i drops the gate that lets a stroke start out of range, which Session 07 measured at +29 % damage against a fighting opponent and -18 % against a motionless one; j halves closeGain from 1.8 to 0.9, because the feet settle at hold - advance / closeGain and lowering the gain is what widens what advance can do -- the plan's 'raise it' is arithmetically backwards. From scratch on purpose: every one of these changes what a fit learns and not merely what it does afterwards, so a warm start would measure the wrong thing. No start is named here for docs/sweeps/learn-06-reward.json's reason -- tournaments/ is gitignored and a committed manifest that cannot run on a fresh clone is not one. The pool is the viable one and the reward table is the shipped one, so the only thing that moves between arms is the row in this file.",
+  "script": "train-ppo",
+  "seed": 20260915,
+  "pool": {
+    "random": 40
+  },
+  "rate": {
+    "bouts": 300
+  },
+  "common": [
+    "--iterations", "60",
+    "--bouts", "64",
+    "--cap", "60"
+  ],
+  "arms": [
+    { "name": "a", "flags": [] },
+    { "name": "b", "flags": ["--features", "2"] },
+    { "name": "c", "flags": ["--head", "mixed"] },
+    { "name": "d", "flags": ["--sigma", "state"] },
+    { "name": "e", "flags": ["--entropy-target", "-1.0"] },
+    { "name": "f", "flags": ["--entropy-anneal", "0.003:0,0.0003:20"] },
+    { "name": "g", "flags": ["--critic", "central"] },
+    { "name": "h", "flags": ["--tactics", "holdMyReach=true"] },
+    { "name": "i", "flags": ["--tactics", "strokeOutOfRange=false"] },
+    { "name": "j", "flags": ["--tactics", "closeGain=0.9"] }
+  ]
+}
