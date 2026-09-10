@@ -30,7 +30,7 @@ import test from "node:test";
 
 import { CONFIG } from "../src/config.ts";
 import { netSize } from "../src/golem/neural-net.ts";
-import { PILOT_FEATURE_COUNT, PILOT_FEATURES_VERSION } from "../src/golem/pilot.ts";
+import { PILOT_FEATURE_COUNT, PILOT_FEATURES_DEFAULT, PILOT_FEATURES_VERSION } from "../src/golem/pilot.ts";
 import { POLICY_LAYOUT, POLICY_VERSION } from "../src/golem/policy.ts";
 import {
   clearSnapshot, installSnapshot, installedSnapshot, snapshotFromJson, snapshotOptionLabel,
@@ -94,7 +94,10 @@ test("a_checkpoint_installs_and_carries_the_run_s_own_provenance", () => {
   const json = checkpointJson();
   const table = tableFromCheckpoint(json);
   assert.equal(table.version, POLICY_VERSION);
-  assert.equal(table.features, PILOT_FEATURES_VERSION);
+  // The *default* rather than the newest: Session 09 of the learn set added a second observation
+  // version behind a flag, and a file that does not name one is read under the version a fit takes
+  // when it is not asked for another -- which is still version 1, and is what the shipped mind is.
+  assert.equal(table.features, PILOT_FEATURES_DEFAULT);
   assert.equal(table.weights.length, netSize(POLICY_LAYOUT));
   assert.equal(table.normalisation.mean.length, PILOT_FEATURE_COUNT);
   // The five numbers the run paid for, not defaults. `iteration` becomes `iterations` because a
@@ -140,7 +143,7 @@ test("a_league_state_installs_its_main_and_is_refused_by_the_versions_it_names",
 });
 
 test("a_snapshot_from_a_moved_surface_is_refused_by_the_check_that_caught_it", () => {
-  // Four of `checkPolicyWeights`'s six refusals, reached through a reader rather than by handing
+  // Five of `checkPolicyWeights`'s nine refusals, reached through a reader rather than by handing
   // the checker a table directly, because the point is that a file cannot get past a reader.
   assert.throws(() => tableFromLeague(leagueJson({ policy: POLICY_VERSION + 1 })), /version/i);
   assert.throws(() => tableFromLeague(leagueJson({ features: PILOT_FEATURES_VERSION + 1 })),

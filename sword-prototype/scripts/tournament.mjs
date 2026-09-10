@@ -619,7 +619,7 @@ export function strokeColumns(strokes) {
 
 export function runJobs(jobs, {
   workers, onRow = null, onProgress = null, overrides = null, exchanges = false, contenders = null, record = null,
-  behaviour = false, explore = 0,
+  behaviour = false, explore = 0, central = false,
 }) {
   return new Promise((resolvePromise, reject) => {
     const rows = new Array(jobs.length).fill(null);
@@ -644,7 +644,7 @@ export function runJobs(jobs, {
     if (jobs.length === 0) { resolvePromise(rows); return; }
     const count = Math.max(1, Math.min(workers, jobs.length));
     for (let i = 0; i < count; i += 1) {
-      const worker = new Worker(workerUrl, { workerData: { overrides, exchanges, contenders, record, behaviour, explore } });
+      const worker = new Worker(workerUrl, { workerData: { overrides, exchanges, contenders, record, behaviour, explore, central } });
       pool.push(worker);
       worker.on("message", (message) => {
         if (message.type === "ready") { feed(worker); return; }

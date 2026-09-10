@@ -156,9 +156,35 @@ export function watchedPilot(pilot: Pilot, onAsk: PilotHook): Pilot {
  *
  * **Versioned by name.** `PILOT_FEATURE_NAMES` is the order and `PILOT_FEATURES_VERSION` is bumped
  * whenever a column is added, removed, moved or rescaled; an artifact carries the version it was
- * fitted on and is refused when it differs. **Scale**: every column is on the order of one.
+ * fitted on and is refused when its version is one this build cannot read. **Scale**: every column
+ * is on the order of one.
+ *
+ * ## Version 2, and why two versions are readable at once
+ *
+ * Session 09 of the learn set adds nine columns and does **not** retire the seventy-one. The
+ * shipped table in `policy-weights.ts` is a version-1 table, `POLICY_LAYOUT` is 71 wide, and an
+ * arm that widens the observation is an *arm* -- one of ten, run against a control on the same
+ * night -- rather than a decision. So this constant is the highest version this build publishes and
+ * `PILOT_FEATURE_VERSIONS_READ` is what it will load; `pilotFeatureCount` and `pilotFeatureNames`
+ * take the version, and `PILOT_FEATURE_COUNT` keeps meaning version 1's width, which is what every
+ * caller written before this session meant by it.
+ *
+ * A version is refused rather than inferred from a width for the usual reason: two versions that
+ * happened to be the same width would load each other's weights and fight at the wrong distance.
  */
-export const PILOT_FEATURES_VERSION = 1;
+export const PILOT_FEATURES_VERSION = 2;
+
+/** Every observation version this build can drive a mind under. Ordered, oldest first. */
+export const PILOT_FEATURE_VERSIONS_READ: readonly number[] = Object.freeze([1, 2]);
+
+/**
+ * The version a fit takes unless it is asked for another, which is version 1 and not the newest.
+ *
+ * Deliberate. Version 2 arrived as an *arm* of Session 09 and not as a replacement: the shipped
+ * mind reads version 1, the control of that sweep has to read what the shipped mind reads, and a
+ * default that quietly moved would have made every arm in the manifest a two-change arm.
+ */
+export const PILOT_FEATURES_DEFAULT = 1;
 
 const SLOTS: readonly TargetSlot[] = Object.freeze(["trunk", "head", "primary", "secondary", "locomotion"]);
 
@@ -184,6 +210,123 @@ export const PILOT_FEATURE_NAMES: readonly string[] = Object.freeze([
 
 export const PILOT_FEATURE_COUNT = PILOT_FEATURE_NAMES.length;
 
+// ------------------------------------------------------------------- the trace, version 2 only
+
+/**
+ * The three quantities version 2 remembers, and why these three and not any others.
+ *
+ * A pilot is asked twelve times a second and told nothing about the eleven asks before this one.
+ * Every column above is an instantaneous reading, so a mind cannot tell a gap of 1.4 m that has
+ * been 1.4 m for a second from one that was 2.2 m a quarter of a second ago, and cannot tell an
+ * opponent whose point is *accelerating* from one holding a speed. Those are the two facts a fight
+ * is made of, and the cheap version of a recurrent head is to hand them over as exponential traces
+ * rather than to give the network a memory of its own.
+ *
+ * The three are the *closing* geometry and nothing else: `gap`, its rate, and their tip speed.
+ * Health, phase and weapon class are already slow-moving or one-hot, and a trace of a one-hot is a
+ * fraction of the last few asks it was set -- a quantity with a meaning, but not one this session
+ * has an argument for. Three columns bought at a cost of nine is the trade; nine bought at a cost
+ * of fifty-one is a different session.
+ */
+export const PILOT_TRACE_COLUMNS: readonly string[] = Object.freeze(["gap", "gapRate", "theirTipSpeed"]);
+
+/**
+ * The three decays, which are the plan's "last four readings" written as a half-life each side of it.
+ *
+ * An exponential trace `t <- t + (1 - d)(x - t)` has a mean memory of `1 / (1 - d)` asks, so these
+ * are **two, four and eight** asks -- a sixth of a second, a third, and two thirds. Four is the
+ * number the plan names and the other two are there because the right window is not known: a mind
+ * that wants the instant already has the raw column beside it, and one that wants a whole exchange
+ * has the clock columns. What is missing is the middle, and the honest way to supply a middle whose
+ * width nobody has measured is to supply three and let the weights choose.
+ *
+ * Fixed rather than fitted, and stated here rather than on the table: a decay that moved between
+ * two runs would make two tables incomparable in a way no version could catch, because the columns
+ * would still be nine and still be called the same thing.
+ */
+export const PILOT_TRACE_DECAYS: readonly number[] = Object.freeze([0.5, 0.75, 0.875]);
+
+/** The nine names version 2 appends, quantity-major so that a reader can find one by eye. */
+export const PILOT_TRACE_NAMES: readonly string[] = Object.freeze(
+  PILOT_TRACE_COLUMNS.flatMap((column) => PILOT_TRACE_DECAYS.map((decay) => `trace:${column}@${decay}`)),
+);
+
+/** Version 2's order: version 1's seventy-one, unmoved, then the nine. */
+export const PILOT_FEATURE_NAMES_V2: readonly string[] = Object.freeze(
+  [...PILOT_FEATURE_NAMES, ...PILOT_TRACE_NAMES],
+);
+
+export const PILOT_FEATURE_COUNT_V2 = PILOT_FEATURE_NAMES_V2.length;
+
+/** The column order of an observation version, by name. Refuses a version this build cannot read. */
+export function pilotFeatureNames(version: number = PILOT_FEATURES_VERSION): readonly string[] {
+  if (version === 1) return PILOT_FEATURE_NAMES;
+  if (version === 2) return PILOT_FEATURE_NAMES_V2;
+  throw new Error(`pilot feature version ${version} is not one this build publishes; `
+    + `it reads ${PILOT_FEATURE_VERSIONS_READ.join(" and ")}`);
+}
+
+/** How wide an observation version is. The one number a layout and a normalisation are checked on. */
+export function pilotFeatureCount(version: number = PILOT_FEATURES_VERSION): number {
+  return pilotFeatureNames(version).length;
+}
+
+/**
+ * The nine numbers a version-2 observation carries between asks, and the object that owns them.
+ *
+ * **State, in a file whose whole promise was that a feature vector is a pure function of the
+ * reading.** That promise is not being broken quietly: a trace is by construction a function of
+ * more than one ask, so version 2's columns are a function of the reading *and of this object*, and
+ * the object is per-mind and per-bout. `golemPolicy` makes one and hands the same one to every ask,
+ * which is what makes a bout under a seed the bout; a caller that made a fresh trace each ask would
+ * get nine copies of the raw column and no error anywhere, which is why `step` seeds itself on its
+ * first call and `primed` says out loud whether it has been called.
+ *
+ * **The first ask is the reading and not a fraction of it.** A trace initialised at zero would
+ * spend its first eight asks climbing out of a transient that is a fact about the trace rather than
+ * about the fight, and at twelve hertz that is two thirds of a second of every bout. So the first
+ * call sets all three decays to the reading itself, and the difference between the columns after
+ * that is the difference the trace exists to publish.
+ */
+export interface PilotTrace {
+  /** The nine, in `PILOT_TRACE_NAMES` order. The caller reads and does not write. */
+  readonly values: Float64Array;
+  /** Whether `step` has been called, which is what tells a first ask from a later one. */
+  readonly primed: boolean;
+  /** Advance every decay by this ask's reading, and return the nine. */
+  step(reading: PilotReading, view: FighterView): Float64Array;
+  /** Forget everything, which is what the start of a bout is. */
+  reset(): void;
+}
+
+export function pilotTrace(): PilotTrace {
+  const values = new Float64Array(PILOT_TRACE_NAMES.length);
+  const now = new Float64Array(PILOT_TRACE_COLUMNS.length);
+  let primed = false;
+  return {
+    values,
+    get primed(): boolean { return primed; },
+    reset(): void { values.fill(0); primed = false; },
+    step(reading: PilotReading, view: FighterView): Float64Array {
+      // The same three scalings the raw columns use, so a trace and its own instantaneous column
+      // are on one scale and a weight that differences them is differencing like with like.
+      now[0] = clamp(reading.gap / 3, 0, 2);
+      now[1] = clamp(reading.gapRate / 2, -2, 2);
+      now[2] = clamp(view.opponent.tipSpeed / 5, 0, 2);
+      let at = 0;
+      for (let q = 0; q < PILOT_TRACE_COLUMNS.length; q += 1) {
+        for (let d = 0; d < PILOT_TRACE_DECAYS.length; d += 1, at += 1) {
+          values[at] = primed
+            ? values[at] + (1 - PILOT_TRACE_DECAYS[d]) * (now[q] - values[at])
+            : now[q];
+        }
+      }
+      primed = true;
+      return values;
+    },
+  };
+}
+
 const clamp = (x: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, x));
 
 /** A clock as a column: seconds over ten, and one for a thing that has not happened yet. */
@@ -195,14 +338,29 @@ const healthScratch: Record<TargetSlot, number> = { trunk: 0, head: 0, primary: 
 const healthColumn = (fraction: number): number => (fraction < 0 ? 0 : clamp(fraction, 0, 1));
 
 /**
- * Fill `into` with the columns for this ask. `into` is the caller's, `PILOT_FEATURE_COUNT` long,
- * so a pilot at twelve hertz allocates nothing; the return is the same array.
+ * Fill `into` with the columns for this ask. `into` is the caller's, so a pilot at twelve hertz
+ * allocates nothing; the return is the same array.
+ *
+ * **The width chooses the version, and the version chooses whether a trace is wanted.** `into` is
+ * either `PILOT_FEATURE_COUNT` long, which is version 1 and is what every caller written before
+ * Session 09 of the learn set hands over, or `PILOT_FEATURE_COUNT_V2` long, which is version 2 and
+ * needs the caller's own `PilotTrace` -- the nine trailing columns are a function of the asks
+ * before this one and there is nowhere else for them to live. A version-2 width with no trace is
+ * refused by name rather than filled with zeros, because zeros are what a trace looks like at the
+ * start of every bout and a silently traceless run would read as a fit that learned nothing from
+ * nine columns it never had.
  */
 export function pilotFeatures(
-  reading: PilotReading, view: FighterView, into: Float64Array,
+  reading: PilotReading, view: FighterView, into: Float64Array, trace: PilotTrace | null = null,
 ): Float64Array {
-  if (into.length !== PILOT_FEATURE_COUNT) {
-    throw new Error(`a pilot feature vector is ${PILOT_FEATURE_COUNT} wide; this one is ${into.length}`);
+  const wide = into.length === PILOT_FEATURE_COUNT_V2;
+  if (!wide && into.length !== PILOT_FEATURE_COUNT) {
+    throw new Error(`a pilot feature vector is ${PILOT_FEATURE_COUNT} wide at version 1 and `
+      + `${PILOT_FEATURE_COUNT_V2} at version 2; this one is ${into.length}`);
+  }
+  if (wide && trace === null) {
+    throw new Error(`a ${PILOT_FEATURE_COUNT_V2}-wide observation is version 2 and its last `
+      + `${PILOT_TRACE_NAMES.length} columns are a trace; pass the mind's own pilotTrace()`);
   }
   const self = view.self;
   const them = view.opponent;
@@ -269,5 +427,10 @@ export function pilotFeatures(
   into[i++] = clamp(reading.voidAxis, -1, 1);
   into[i++] = clamp(reading.weakestHeight, 0, 1);
   into[i++] = clamp(reading.weakestLateral, -1, 1);
+  // The tail of the tail: version 2's nine, advanced once an ask and appended in place.
+  if (wide && trace !== null) {
+    const traced = trace.step(reading, view);
+    for (let k = 0; k < traced.length; k += 1) into[i++] = traced[k];
+  }
   return into;
 }

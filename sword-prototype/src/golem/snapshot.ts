@@ -1,3 +1,4 @@
+import { PILOT_FEATURES_DEFAULT } from "./pilot.ts";
 import {
   checkPolicyWeights, freshPolicyTable, type Normalisation, type PolicyWeights,
 } from "./policy.ts";
@@ -34,9 +35,10 @@ import {
  *
  * A snapshot is `weights`, `logSigma` and a normalisation, and nothing else this build needs. It
  * is assembled by `freshPolicyTable` and handed straight to `checkPolicyWeights`, which is the
- * same six refusals the shipped table is loaded under: version, feature version, layout, weight
- * count, spread count and normalisation width. A checkpoint written by a run that moved the
- * surface therefore does not load, and the refusal names which check failed rather than the file.
+ * same nine refusals the shipped table is loaded under: version, feature version, a head named by
+ * a table too old to have one, the head's own name, the spread's, layout, weight count, spread
+ * count and normalisation width. A checkpoint written by a run that moved the surface therefore
+ * does not load, and the refusal names which check failed rather than the file.
  *
  * **The three formats carry different amounts of provenance, and this file does not invent any.**
  * `saveLeague` in `scripts/league.mjs` writes `policy` and `features` beside the weights, so
@@ -152,11 +154,25 @@ interface SnapshotHeader {
 function assemble(
   weights: readonly number[], logSigma: readonly number[], norm: Normalisation, header: SnapshotHeader,
 ): PolicyWeights {
-  return checkPolicyWeights({
-    ...freshPolicyTable(weights, logSigma),
+  const features = header.features ?? PILOT_FEATURES_DEFAULT;
+  const table: Record<string, unknown> = {
+    ...freshPolicyTable(weights, logSigma, features),
     ...header,
     normalisation: norm,
-  });
+  };
+  // **A file that names a version older than the head is not carrying one.** Session 09 of the
+  // learn set gave `freshPolicyTable` a head to declare, and every snapshot on disk was written
+  // before that field existed -- so pasting this build's default onto a file that says it is
+  // version 2 would invent a claim the file never made, and `checkPolicyWeights` refuses exactly
+  // that. The fields are removed rather than defaulted, which is what "this file does not invent
+  // any provenance" means when the provenance in question is a shape.
+  if ((table.version as number) < 3) {
+    delete table.head;
+    delete table.sigma;
+    delete table.sigmaFloor;
+    delete table.sigmaRoof;
+  }
+  return checkPolicyWeights(table as unknown as PolicyWeights);
 }
 
 /**
@@ -291,7 +307,7 @@ let installed: InstalledSnapshot | null = null;
  *
  * The table is checked again on the way in even though every path above has already checked it,
  * because this is exported and a caller that assembled a table some other way is exactly the
- * caller a version refusal exists for. It costs six comparisons once.
+ * caller a version refusal exists for. It costs nine comparisons once.
  */
 export function installSnapshot(
   table: PolicyWeights, { sample = false, source }: { sample?: boolean; source: SnapshotSource },

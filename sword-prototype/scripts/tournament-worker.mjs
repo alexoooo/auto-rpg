@@ -36,7 +36,7 @@ import { FORM } from "../src/golem/styles/form.ts";
 import { DRIVER, driverPilot } from "../src/golem/styles/driver.ts";
 import { ACTION_WIDTH, golemPolicy, uniformPilot } from "../src/golem/policy.ts";
 import { POLICY_WEIGHTS } from "../src/golem/policy-weights.ts";
-import { PILOT_FEATURE_COUNT } from "../src/golem/pilot.ts";
+import { PILOT_FEATURE_COUNT, pilotFeatureCount } from "../src/golem/pilot.ts";
 import { BRAWLER } from "../src/golem/styles/brawler.ts";
 import { GUARDIAN } from "../src/golem/styles/guardian.ts";
 import { SKIRMISHER } from "../src/golem/styles/skirmisher.ts";
@@ -207,12 +207,25 @@ const RECORDER_KINDS = {
  * ones the worker used, so the two agree to `Float32` and the first epoch's ratio is one to that
  * precision rather than exactly one. The alternative -- writing the normalised columns -- makes
  * the ratio exact and leaves the statistics with nothing to be computed from.
+ *
+ * ## The width, and the peer columns
+ *
+ * Session 09 of the learn set. `width` is the mind's own, because a version-2 observation is
+ * eighty columns and not seventy-one and a recorder that assumed the shipped width would write
+ * the wrong stride without ever throwing. `peer` is a two-field holder shared by the bout's two
+ * recorders: each side drops its latest raw observation into its own slot and copies whatever is
+ * in the other's, which is what `--critic central` reads. The peer's columns are one ask stale at
+ * worst and null on the very first ask of the bout, which is written as zeros -- a critic is a
+ * training artifact and a variance reduction, and half a tick of staleness in a baseline is not a
+ * correctness question. Nothing is recorded at all unless a run asked for it, so a collection
+ * without a central critic allocates and writes exactly what it did before.
  */
-function pilotRecorder(side) {
-  const width = PILOT_FEATURE_COUNT;
+function pilotRecorder(side, width = PILOT_FEATURE_COUNT, peer = null) {
+  const other = side === "left" ? "right" : "left";
   let capacity = 256;
   let count = 0;
   let xs = new Float32Array(capacity * width);
+  let ps = peer === null ? null : new Float32Array(capacity * width);
   let as = new Float64Array(capacity * ACTION_WIDTH);
   let logp = new Float64Array(capacity);
   let dealt = new Float64Array(capacity);
@@ -229,6 +242,7 @@ function pilotRecorder(side) {
     const wider = capacity * 2;
     const move = (array, Type, w = 1) => { const next = new Type(wider * w); next.set(array); return next; };
     xs = move(xs, Float32Array, width);
+    if (ps !== null) ps = move(ps, Float32Array, width);
     as = move(as, Float64Array, ACTION_WIDTH);
     logp = move(logp, Float64Array);
     dealt = move(dealt, Float64Array);
@@ -260,6 +274,11 @@ function pilotRecorder(side) {
       shut(mine, theirs, view.clock, false);
       if (count === capacity) grow();
       xs.set(policyStep.raw, count * width);
+      if (peer !== null) {
+        peer[side] = policyStep.raw;
+        const theirs = peer[other];
+        if (theirs !== null && theirs !== undefined && theirs.length === width) ps.set(theirs, count * width);
+      }
       as.set(policyStep.action, count * ACTION_WIDTH);
       logp[count] = policyStep.logp;
       live = { mine, theirs, clock: view.clock, at: count };
@@ -292,6 +311,7 @@ function pilotRecorder(side) {
       return {
         kind: "pilot",
         x: xs.slice(0, count * width),
+        ...(ps === null ? {} : { p: ps.slice(0, count * width) }),
         a: as.slice(0, count * ACTION_WIDTH),
         logp: logp.slice(0, count),
         dealt: dealt.slice(0, count),
@@ -456,15 +476,33 @@ function recorderKind(policy) {
 /**
  * A policy side over the weights a trainer is carrying, with the rollout hook when one is asked
  * for. `sample` true is what a rollout plays and `false` is the shipped greedy read.
+ *
+ * **A contender may declare its own shape and its own executor table.** Session 09 of the learn
+ * set. `version`, `features`, `layout`, `head`, `sigma` and the two spread bounds are the header
+ * fields `checkPolicyWeights` reads, defaulted to the shipped table's, so a contender fitted under
+ * a wider observation or a different head is a row in the same evaluation as the control instead
+ * of a second process; `tactics` is spread over `GOLEM_TACTICS_V4` exactly as `pinnedMind` spreads
+ * a probe cell's table, so an arm that flips `holdMyReach` or drops `strokeOutOfRange` flips it
+ * **for this contender only** and its opponent goes on fighting under the shipped executor. That
+ * distinction is the whole of arms h, i and j: `--override` moves the module table and therefore
+ * both corners, which measures a different question.
  */
 function pilotMind(policy, seed, contender, recorder) {
   const table = {
     ...POLICY_WEIGHTS,
+    version: contender.version ?? POLICY_WEIGHTS.version,
+    features: contender.features ?? POLICY_WEIGHTS.features,
+    layout: contender.layout ?? POLICY_WEIGHTS.layout,
     weights: contender.pi,
     logSigma: contender.logSigma ?? POLICY_WEIGHTS.logSigma,
     normalisation: contender.normalisation ?? POLICY_WEIGHTS.normalisation,
   };
-  const mind = golemPolicy(seed, table, GOLEM_TACTICS_V4, recorder === null ? null : recorder.step,
+  for (const field of ["head", "sigma", "sigmaFloor", "sigmaRoof"]) {
+    if (contender[field] !== undefined) table[field] = contender[field];
+  }
+  const T = contender.tactics === undefined
+    ? GOLEM_TACTICS_V4 : { ...GOLEM_TACTICS_V4, ...contender.tactics };
+  const mind = golemPolicy(seed, table, T, recorder === null ? null : recorder.step,
     contender.sample === true);
   return { name: policy, driven: mind.driven, decide: (view, dt) => mind.decide(view, dt) };
 }
@@ -775,9 +813,18 @@ async function runJob(job) {
   // policy names, so that this file can hold the fencer's handle for the exchange log. Same
   // factory, same seed, so a row is the row `runBout` would have made on its own.
   const kinds = { left: recorderKind(job.left.policy), right: recorderKind(job.right.policy) };
-  const recorderFor = (name, kind) => (
-    kind === null ? null : kind === "pilot" ? pilotRecorder(name) : decisionRecorder(name, kind));
-  const recorders = { left: recorderFor("left", kinds.left), right: recorderFor("right", kinds.right) };
+  // One holder per bout, shared by the two pilot recorders, and only when a run asked for the
+  // central critic's columns -- see `pilotRecorder`'s note.
+  const peer = workerData?.central === true ? { left: null, right: null } : null;
+  const pilotWidth = (policy) => pilotFeatureCount(workerData?.contenders?.[policy]?.features ?? 1);
+  const recorderFor = (name, kind, policy) => (
+    kind === null ? null
+      : kind === "pilot" ? pilotRecorder(name, pilotWidth(policy), peer)
+        : decisionRecorder(name, kind));
+  const recorders = {
+    left: recorderFor("left", kinds.left, job.left.policy),
+    right: recorderFor("right", kinds.right, job.right.policy),
+  };
   const minds = {
     left: mindFor(job.left.policy, job.seeds[0], recorders.left),
     right: mindFor(job.right.policy, job.seeds[1], recorders.right),

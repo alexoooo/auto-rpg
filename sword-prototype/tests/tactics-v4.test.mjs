@@ -55,7 +55,8 @@ import {
   blendArc, freshCommand, golemDriven,
 } from "../src/golem/tactics-v4.ts";
 import {
-  PILOT_FEATURE_COUNT, PILOT_FEATURE_NAMES, PILOT_FEATURES_VERSION, PILOT_HZ,
+  PILOT_FEATURE_COUNT, PILOT_FEATURE_NAMES, PILOT_FEATURE_VERSIONS_READ,
+  PILOT_FEATURES_DEFAULT, PILOT_FEATURES_VERSION, PILOT_HZ,
   askCadence, pilotFeatures,
 } from "../src/golem/pilot.ts";
 import { DRIVER, golemDriver } from "../src/golem/styles/driver.ts";
@@ -908,7 +909,12 @@ test("a_bout_under_a_seed_is_the_bout", async (t) => {
 test("the_pilot_feature_vector_is_the_published_width_and_is_finite_everywhere", async (t) => {
   assert.equal(PILOT_FEATURE_NAMES.length, PILOT_FEATURE_COUNT);
   assert.equal(new Set(PILOT_FEATURE_NAMES).size, PILOT_FEATURE_COUNT, "two columns share a name");
-  assert.equal(PILOT_FEATURES_VERSION, 1);
+  // Two versions are defined and version 1 is what a fit takes unless it is asked for another;
+  // Session 09 of the learn set added the second behind --features 2. Both are pinned, because a
+  // build that quietly moved the default would move what every table on disk means.
+  assert.equal(PILOT_FEATURES_VERSION, 2);
+  assert.equal(PILOT_FEATURES_DEFAULT, 1);
+  assert.deepEqual([...PILOT_FEATURE_VERSIONS_READ], [1, 2]);
 
   const golem = await standAGolem(t);
   const fixture = place(fixtureOf(golem.view), { x: 0, z: 1.4 });

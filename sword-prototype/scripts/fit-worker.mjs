@@ -48,7 +48,7 @@
 import { isMainThread, parentPort, receiveMessageOnPort, workerData } from "node:worker_threads";
 
 import { backwardFrom, forward, netScratch } from "../src/golem/neural-net.ts";
-import { ACTION_AXES, ACTION_WIDTH, normalise } from "../src/golem/policy.ts";
+import { ACTION_AXES, ACTION_WIDTH, headSpecOf, normalise } from "../src/golem/policy.ts";
 import { surrogateGrad } from "./train-ppo.mjs";
 
 /** What `workerData.role` says, so importing this module from the main thread runs nothing. */
@@ -143,9 +143,22 @@ export function readNote(notes, shard) {
  */
 function bindShard(message, shard, shards) {
   const { layout, valueLayout, size, valueSize, count, width } = message;
+  // The head the fit is under, rebuilt from the four fields the binding carries rather than posted
+  // as an object: a `HeadSpec` holds frozen arrays and a `Map` key, and the shard's copy has to be
+  // the one `headSpecOf` would have handed the main thread or the two are not the same head.
+  const spec = headSpecOf(
+    message.head ?? "gaussian", message.sigma ?? "constant",
+    message.sigmaFloor ?? undefined, message.sigmaRoof ?? undefined,
+  );
+  // A critic twice the observation's width is the central one: it reads this side's columns and
+  // then the opponent's, out of the peer array the recorder wrote.
+  const central = valueLayout.inputs === width * 2;
+  const peer = message.p === undefined || message.p === null
+    ? null : new Float64Array(message.p);
   return {
-    layout, valueLayout, count, width,
+    layout, valueLayout, count, width, spec, central,
     x: new Float64Array(message.x),
+    p: peer !== null && peer.length === count * width ? peer : null,
     a: new Float64Array(message.a),
     logp: new Float64Array(message.logp),
     scaled: new Float64Array(message.scaled),
@@ -174,8 +187,11 @@ function bindShard(message, shard, shards) {
     valueScratch: netScratch(valueLayout),
     raw: new Float64Array(width),
     observation: new Float64Array(width),
+    valueInput: central ? new Float64Array(width * 2) : null,
+    peerRaw: central ? new Float64Array(width) : null,
+    peerHalf: central ? new Float64Array(width) : null,
     action: new Float64Array(ACTION_WIDTH),
-    delta: new Float64Array(ACTION_WIDTH),
+    delta: new Float64Array(spec.width),
     valueDelta: new Float64Array(1),
   };
 }
@@ -192,7 +208,8 @@ function bindShard(message, shard, shards) {
  */
 export function shardStep(bound, at, end) {
   const { layout, valueLayout, scratch, valueScratch, raw, observation, action, delta, valueDelta } = bound;
-  const { grad, sigmaGrad, valueGrad, width } = bound;
+  const { grad, sigmaGrad, valueGrad, width, spec, central } = bound;
+  const valueInput = central ? bound.valueInput : observation;
   const clip = bound.params[PARAM.CLIP];
   const entropy = bound.params[PARAM.ENTROPY];
   const { from, to } = shardSlice(at, end, bound.shard, bound.shards);
@@ -209,17 +226,27 @@ export function shardStep(bound, at, end) {
     const row = i * width;
     for (let k = 0; k < width; k += 1) raw[k] = bound.x[row + k];
     normalise(raw, bound.norm, observation);
+    if (central) {
+      valueInput.set(observation, 0);
+      if (bound.p !== null) {
+        for (let k = 0; k < width; k += 1) bound.peerRaw[k] = bound.p[row + k];
+        normalise(bound.peerRaw, bound.norm, bound.peerHalf);
+        valueInput.set(bound.peerHalf, width);
+      } else {
+        valueInput.fill(0, width);
+      }
+    }
     const actionAt = i * ACTION_WIDTH;
     for (let k = 0; k < ACTION_WIDTH; k += 1) action[k] = bound.a[actionAt + k];
     const head = forward(layout, bound.weights, observation, scratch);
     delta.fill(0);
     const term = surrogateGrad(head, bound.logSigma, action, bound.logp[i], bound.scaled[i],
-      { clip, entropy }, scale, delta, sigmaGrad);
+      { clip, entropy }, scale, delta, sigmaGrad, spec);
     backwardFrom(layout, bound.weights, observation, scratch, delta, grad);
-    const value = forward(valueLayout, bound.valueWeights, observation, valueScratch)[0];
+    const value = forward(valueLayout, bound.valueWeights, valueInput, valueScratch)[0];
     const error = value - bound.returns[i];
     valueDelta[0] = error * scale;
-    backwardFrom(valueLayout, bound.valueWeights, observation, valueScratch, valueDelta, valueGrad);
+    backwardFrom(valueLayout, bound.valueWeights, valueInput, valueScratch, valueDelta, valueGrad);
     const moved = term.logp - bound.logp[i];
     const k2 = 0.5 * moved * moved;
     kl += k2;

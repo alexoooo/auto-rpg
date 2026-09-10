@@ -96,10 +96,11 @@ type Widened<T> = {
 };
 
 /**
- * Every constant this executor has: v3's whole table, copied at load, and five rows of its own.
+ * Every constant this executor has: v3's whole table, copied at load, and six rows of its own.
  *
- * *(Four until Session 07 of the learn set, which added `holdMetres` as a candidate behind a flag.
- * A count in prose is what this directory keeps getting wrong when a row is appended under it.)*
+ * *(Four until Session 07 of the learn set, which added `holdMetres` as a candidate behind a flag,
+ * and five until Session 09, which added `holdMyReach` beside it. A count in prose is what this
+ * directory keeps getting wrong when a row is appended under it.)*
  *
  * The copy is taken at load for the reason v3 takes its copy of v2's. A harness that moves
  * `GOLEM_TACTICS_V3` after this module has loaded moves the four styles and not this file, which
@@ -184,6 +185,40 @@ const DRIVEN = {
    * thing an arm against the unchanged surface has to pay for.
    */
   holdMetres: false,
+  /**
+   * Whether `standOff` is a multiple of *my own* reach rather than of theirs.
+   *
+   * Off, and off is what ships. Session 09 of the learn set's own candidate, and the one the whole
+   * set's reading of the owner's complaint rests on -- so it is stated at length.
+   *
+   * **What the complaint was.** A stroke opens when the mark is inside a fraction of the acting
+   * hand's own reach; Session 07 measured that fraction at 0.92 of *mine*. The axis that decides
+   * where the feet stand is a multiple of *theirs*. So the number a policy writes and the number
+   * that decides whether the stroke is thrown are denominated in two different bodies, and there is
+   * no output on the current surface that means "just inside my own range" -- not because the head
+   * is too small but because the coordinate does not exist. Over the viable pool that is not a
+   * quibble: Session 07 found *their* reach spanning 17 % across the pool while *mine* spans a
+   * factor of 3.4, so the axis a policy is fitted on is nearly constant in the quantity it is
+   * written in and enormously variable in the quantity it has to be right about.
+   *
+   * **What this row does.** `hold = me.reach * standOff`. The zero of the action space -- the
+   * midpoint of `COMMAND_RANGES.standOff`, which is 1.0 -- becomes exactly one of my own arms, and
+   * 0.92 of it, the distance at which the stroke opens, is a fixed output the head can name once
+   * and mean everywhere. A short-armed body asking for 0.92 stands close and a long-armed one
+   * asking for 0.92 stands far, and both are asking the same tactical question.
+   *
+   * **Why a flag and not a tenth axis**, and why it is exclusive with `holdMetres`: the argument is
+   * `holdMetres`'s, above, unchanged -- a flag changes what an existing axis means, so
+   * `COMMAND_AXES` and `POLICY_VERSION` do not move and the shipped table goes on loading. The two
+   * cannot both be up because they are two readings of one number; `holdMetres` wins if a harness
+   * raises both, which is stated so that the tie is a documented choice rather than a source order.
+   *
+   * The clip is the same trap and a different size. `COMMAND_RANGES.standOff` is [0, 2] either way,
+   * so under this flag the reachable stand-offs are 0 to twice my own reach -- which on the pool's
+   * shortest arm is a narrower window in metres than the reach multiple gave and on its longest a
+   * wider one. That is the narrowing an arm has to pay for.
+   */
+  holdMyReach: false,
 };
 
 /** Every constant this executor has. `Widened` is why a harness can assign a number to any row. */
@@ -720,10 +755,15 @@ export function golemDriven(
     //
     // **Unless `holdMetres` is up**, in which case the command *is* the distance and the body in
     // front is not consulted at all -- see that row's own note for why an absolute stand-off is a
-    // candidate. Said once, here, and read twice below, because the two readings of the stand-off
-    // are the reading the ask was taken at and the reading the ask just wrote and they must be the
-    // same arithmetic or the mind is told about a hold it is not being driven to.
-    const holdFor = (standOff: number): number => (T.holdMetres ? standOff : them.reach * standOff);
+    // candidate. **Or `holdMyReach`**, in which case it is a multiple of the acting hand's own
+    // reach instead of theirs, which is the coordinate the stroke's own gate is already written in.
+    // `holdMetres` wins if both are up; see its row. Said once, here, and read twice below, because
+    // the two readings of the stand-off are the reading the ask was taken at and the reading the ask
+    // just wrote and they must be the same arithmetic or the mind is told about a hold it is not
+    // being driven to.
+    const holdFor = (standOff: number): number => (
+      T.holdMetres ? standOff : (T.holdMyReach ? reach : them.reach) * standOff
+    );
     let hold = holdFor(command.standOff);
 
     if (T.closeOnRecover && shorter && !headfirst) {

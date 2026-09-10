@@ -172,13 +172,16 @@ import { Worker, isMainThread } from "node:worker_threads";
 import { CONFIG } from "../src/config.ts";
 import { unitDefinition } from "../src/units.ts";
 import { forward, initWeights, netScratch, netSize, backwardFrom } from "../src/golem/neural-net.ts";
-import { PILOT_FEATURE_COUNT, PILOT_FEATURES_VERSION } from "../src/golem/pilot.ts";
 import {
-  ACTION_AXES, ACTION_WIDTH, POLICY_LAYOUT, POLICY_VERSION, VALUE_LAYOUT,
-  actionEntropy, actionLogProb, checkPolicyWeights, entropyGrad, freshNormalisation,
-  freshPolicyTable, logProbGrad, normalise,
+  PILOT_FEATURE_COUNT, PILOT_FEATURE_VERSIONS_READ, PILOT_FEATURES_DEFAULT, pilotFeatureCount,
+} from "../src/golem/pilot.ts";
+import {
+  ACTION_AXES, ACTION_WIDTH, GAUSSIAN_HEAD, POLICY_LAYOUT, POLICY_VERSION, SIGMA_FLOOR, SIGMA_ROOF,
+  VALUE_LAYOUT, actionEntropy, actionLogProb, checkPolicyWeights, entropyGrad, freshNormalisation,
+  freshPolicyTable, headSpecOf, logProbGrad, normalise, policyLayout,
 } from "../src/golem/policy.ts";
 import { GOLEM_REWARD, stepReward } from "../src/golem/reward.ts";
+import { GOLEM_TACTICS_V4 } from "../src/golem/tactics-v4.ts";
 import { mulberry32 } from "../src/rng.ts";
 import { VIABLE_TERMINALS, viableMirror } from "../src/golem/viability.ts";
 import { armedTerminal, buildPool, runJobs, scheduleJobs } from "./tournament.mjs";
@@ -251,13 +254,18 @@ const round4 = (x) => Math.round(x * 1e4) / 1e4;
  * `penalty` is their sum -- so `closing`, the one row that pays, lowers the penalty exactly as
  * much as it raises the reward.
  */
-export function mergeRollouts(parts, reward = GOLEM_REWARD) {
+export function mergeRollouts(parts, reward = GOLEM_REWARD, width = PILOT_FEATURE_COUNT) {
   let count = 0;
   for (const part of parts) count += part.logp.length;
-  const width = PILOT_FEATURE_COUNT;
+  // Session 09 of the learn set: `p` is the *other* side's columns at the same ask, present only
+  // when the run asked for them, and it is what a central critic reads beside its own. It is
+  // allocated when the first pack carries it, so a collection without one is byte for byte the
+  // collection it was.
+  const central = parts.some((part) => part.p !== undefined && part.p !== null);
   const out = {
-    count, episodes: parts.length, width,
+    count, episodes: parts.length, width, central,
     x: new Float32Array(count * width),
+    ...(central ? { p: new Float32Array(count * width) } : {}),
     a: new Float64Array(count * ACTION_WIDTH),
     logp: new Float64Array(count),
     reward: new Float64Array(count),
@@ -293,6 +301,7 @@ export function mergeRollouts(parts, reward = GOLEM_REWARD) {
       }
     }
     out.x.set(part.x, at * width);
+    if (central && part.p !== undefined && part.p !== null) out.p.set(part.p, at * width);
     out.a.set(part.a, at * ACTION_WIDTH);
     out.logp.set(part.logp, at);
     out.seconds.set(part.seconds, at);
@@ -407,16 +416,36 @@ export function advantages(rollout, values, { halfLife = 4, lambda = 0.95 } = {}
   return { advantage, returns };
 }
 
-/** The critic's value at every row of a rollout, under the frozen normalisation. */
+/**
+ * The critic's value at every row of a rollout, under the frozen normalisation.
+ *
+ * A layout twice the rollout's width is the *central* critic of Session 09 of the learn set: it
+ * reads this side's columns and then the opponent's, in that order, both through the same frozen
+ * statistics -- the same columns seen from the other corner are the same kind of quantity, so
+ * there is one normalisation and not two. A rollout that carries no peer columns fills the second
+ * half with zeros rather than refusing, which is what a bout against a mind that has no pilot is.
+ */
 export function valuesOf(rollout, valueWeights, norm, layout = VALUE_LAYOUT) {
+  const width = rollout.width;
+  const central = layout.inputs === width * 2;
   const scratch = netScratch(layout);
-  const raw = new Float64Array(rollout.width);
-  const observation = new Float64Array(rollout.width);
+  const raw = new Float64Array(width);
+  const observation = new Float64Array(layout.inputs);
+  const half = central ? new Float64Array(width) : null;
   const out = new Float64Array(rollout.count);
   for (let i = 0; i < rollout.count; i += 1) {
-    const row = i * rollout.width;
-    for (let k = 0; k < rollout.width; k += 1) raw[k] = rollout.x[row + k];
+    const row = i * width;
+    for (let k = 0; k < width; k += 1) raw[k] = rollout.x[row + k];
     normalise(raw, norm, observation);
+    if (central) {
+      if (rollout.p !== undefined && rollout.p !== null) {
+        for (let k = 0; k < width; k += 1) raw[k] = rollout.p[row + k];
+        normalise(raw, norm, half);
+        observation.set(half, width);
+      } else {
+        observation.fill(0, width);
+      }
+    }
     out[i] = forward(layout, valueWeights, observation, scratch)[0];
   }
   return out;
@@ -449,10 +478,12 @@ export function explainedVariance(values, returns) {
  * maximised, and `surrogateGrad` below is its gradient; they are two functions rather than one so
  * that a test can difference the first and compare it against the second.
  */
-export function surrogateObjective(head, logSigma, action, oldLogp, adv, { clip = 0.2, entropy = 0 } = {}) {
-  const ratio = Math.exp(actionLogProb(head, logSigma, action) - oldLogp);
+export function surrogateObjective(
+  head, logSigma, action, oldLogp, adv, { clip = 0.2, entropy = 0 } = {}, spec = GAUSSIAN_HEAD,
+) {
+  const ratio = Math.exp(actionLogProb(head, logSigma, action, spec) - oldLogp);
   const bounded = Math.min(Math.max(ratio, 1 - clip), 1 + clip) * adv;
-  return Math.min(ratio * adv, bounded) + entropy * actionEntropy(head, logSigma);
+  return Math.min(ratio * adv, bounded) + entropy * actionEntropy(head, logSigma, spec);
 }
 
 /**
@@ -467,15 +498,16 @@ export function surrogateObjective(head, logSigma, action, oldLogp, adv, { clip 
  */
 export function surrogateGrad(
   head, logSigma, action, oldLogp, adv, { clip = 0.2, entropy = 0 } = {}, scale, delta, sigmaGrad,
+  spec = GAUSSIAN_HEAD,
 ) {
-  const logp = actionLogProb(head, logSigma, action);
+  const logp = actionLogProb(head, logSigma, action, spec);
   const ratio = Math.exp(logp - oldLogp);
   const unclipped = ratio * adv;
   const bounded = Math.min(Math.max(ratio, 1 - clip), 1 + clip) * adv;
   const active = unclipped <= bounded;
-  if (active) logProbGrad(head, logSigma, action, -adv * ratio * scale, delta, sigmaGrad);
-  if (entropy !== 0) entropyGrad(head, logSigma, -entropy * scale, delta, sigmaGrad);
-  const h = actionEntropy(head, logSigma);
+  if (active) logProbGrad(head, logSigma, action, -adv * ratio * scale, delta, sigmaGrad, spec);
+  if (entropy !== 0) entropyGrad(head, logSigma, -entropy * scale, delta, sigmaGrad, spec);
+  const h = actionEntropy(head, logSigma, spec);
   return { logp, ratio, active, entropy: h, objective: Math.min(unclipped, bounded) + entropy * h };
 }
 
@@ -522,10 +554,11 @@ const BARRIER_TIMEOUT = 120_000;
  * keeps `bind` -- and therefore `ppoFit` -- synchronous.
  */
 export class FitPool {
-  constructor({ shards, layout, valueLayout, workers, control, notes }) {
+  constructor({ shards, layout, valueLayout, spec, workers, control, notes }) {
     this.shards = shards;
     this.layout = layout;
     this.valueLayout = valueLayout;
+    this.spec = spec ?? GAUSSIAN_HEAD;
     this.size = netSize(layout);
     this.valueSize = netSize(valueLayout);
     this.workers = workers;
@@ -548,7 +581,7 @@ export class FitPool {
    * finished importing would put the cost of the import inside the first minibatch and call it a
    * fit time. Every caller opens one pool for a whole run.
    */
-  static async open({ shards, layout = POLICY_LAYOUT, valueLayout = VALUE_LAYOUT }) {
+  static async open({ shards, layout = POLICY_LAYOUT, valueLayout = VALUE_LAYOUT, spec = GAUSSIAN_HEAD }) {
     if (!Number.isInteger(shards) || shards < 1) throw new Error(`a fit pool of ${shards} shards is not a pool`);
     const control = new SharedArrayBuffer(CTL.LENGTH * 4);
     const notes = new SharedArrayBuffer(shards * NOTE_BYTES);
@@ -564,7 +597,7 @@ export class FitPool {
       worker.once("message", () => ready());
       worker.once("error", fail);
     })));
-    return new FitPool({ shards, layout, valueLayout, workers, control, notes });
+    return new FitPool({ shards, layout, valueLayout, spec, workers, control, notes });
   }
 
   /** Every shard told what generation it is on, and waited for. */
@@ -614,6 +647,7 @@ export class FitPool {
     const bound = {
       count, width,
       x: shared(Float64Array, count * width),
+      p: shared(Float64Array, (rollout.p === undefined || rollout.p === null ? 0 : count * width)),
       a: shared(Float64Array, count * ACTION_WIDTH),
       logp: shared(Float64Array, count),
       scaled: shared(Float64Array, count),
@@ -631,6 +665,7 @@ export class FitPool {
       scalars: shared(Float64Array, this.shards * SCALARS.LENGTH),
     };
     bound.x.set(rollout.x);
+    if (rollout.p !== undefined && rollout.p !== null) bound.p.set(rollout.p);
     bound.a.set(rollout.a);
     bound.logp.set(rollout.logp);
     bound.scaled.set(scaled);
@@ -642,8 +677,10 @@ export class FitPool {
     for (const worker of this.workers) {
       worker.postMessage({
         type: "bind", layout: this.layout, valueLayout: this.valueLayout,
+        head: this.spec.head, sigma: this.spec.sigma,
+        sigmaFloor: this.spec.floor, sigmaRoof: this.spec.roof,
         size: this.size, valueSize: this.valueSize, count, width, normCount: norm.count,
-        x: bound.x.buffer, a: bound.a.buffer, logp: bound.logp.buffer,
+        x: bound.x.buffer, p: bound.p.buffer, a: bound.a.buffer, logp: bound.logp.buffer,
         scaled: bound.scaled.buffer, returns: bound.returns.buffer,
         mean: bound.mean.buffer, variance: bound.variance.buffer, order: bound.order.buffer,
         weights: bound.weights.buffer, valueWeights: bound.valueWeights.buffer,
@@ -856,7 +893,7 @@ export function ppoFit(rollout, {
   norm, seed, halfLife = 4, lambda = 0.95, clip = 0.2, entropy = 0.003,
   rate = 3e-4, valueRate = 1e-3, sigmaRate = null, epochs = 3, batch = 512, targetKl = 0.02,
   sigmaFloor = -3, sigmaRoof = 0.5, actor = null, spread = null, critic = null,
-  shards = 1, pool = null,
+  shards = 1, pool = null, spec = GAUSSIAN_HEAD,
 }) {
   if (pool !== null && pool.shards !== shards) {
     throw new Error(`a fit of ${shards} shards was handed a pool of ${pool.shards}`);
@@ -883,10 +920,16 @@ export function ppoFit(rollout, {
   critic ??= adamState(valueSize);
   const scratch = netScratch(layout);
   const valueScratch = netScratch(valueLayout);
+  const central = valueLayout.inputs === width * 2;
   const raw = new Float64Array(width);
   const observation = new Float64Array(width);
+  // The critic's own input row: the actor's observation when it is the same width, and this side's
+  // columns followed by the opponent's when it is twice it.
+  const valueInput = central ? new Float64Array(width * 2) : observation;
+  const peerRaw = central ? new Float64Array(width) : null;
+  const peerHalf = central ? new Float64Array(width) : null;
   const action = new Float64Array(ACTION_WIDTH);
-  const delta = new Float64Array(ACTION_WIDTH);
+  const delta = new Float64Array(spec.width);
   const valueDelta = new Float64Array(1);
   const grad = new Float64Array(size);
   const sigmaGrad = new Float64Array(ACTION_AXES);
@@ -897,6 +940,16 @@ export function ppoFit(rollout, {
     const row = i * width;
     for (let k = 0; k < width; k += 1) raw[k] = rollout.x[row + k];
     normalise(raw, norm, observation);
+    if (central) {
+      valueInput.set(observation, 0);
+      if (rollout.p !== undefined && rollout.p !== null) {
+        for (let k = 0; k < width; k += 1) peerRaw[k] = rollout.p[row + k];
+        normalise(peerRaw, norm, peerHalf);
+        valueInput.set(peerHalf, width);
+      } else {
+        valueInput.fill(0, width);
+      }
+    }
     const at = i * ACTION_WIDTH;
     for (let k = 0; k < ACTION_WIDTH; k += 1) action[k] = rollout.a[at + k];
   };
@@ -958,13 +1011,14 @@ export function ppoFit(rollout, {
           const head = forward(layout, weights, observation, scratch);
           delta.fill(0);
           const term = surrogateGrad(head, logSigma, action, rollout.logp[i], scaled[i],
-            { clip, entropy }, scale, delta, sigmaGrad);
+            { clip, entropy }, scale, delta, sigmaGrad, spec);
           backwardFrom(layout, weights, observation, scratch, delta, grad);
-          // The critic, on the same forward-normalised observation and its own half of the batch.
-          const value = forward(valueLayout, valueWeights, observation, valueScratch)[0];
+          // The critic, on the same forward-normalised observation -- both sides' of it under a
+          // central critic -- and its own half of the batch.
+          const value = forward(valueLayout, valueWeights, valueInput, valueScratch)[0];
           const error = value - returns[i];
           valueDelta[0] = error * scale;
-          backwardFrom(valueLayout, valueWeights, observation, valueScratch, valueDelta, valueGrad);
+          backwardFrom(valueLayout, valueWeights, valueInput, valueScratch, valueDelta, valueGrad);
           // Half the squared change in the log-probability -- Schulman's k2 -- rather than either
           // the plain difference or `exp(d) - 1 - d`. The plain difference is unbiased but *signed*,
           // and goes negative on any batch the new policy happens to like better, which is useless
@@ -999,9 +1053,16 @@ export function ppoFit(rollout, {
       }
       updates += 1;
       adamStep(weights, stepGrad, actor, rate);
-      adamStep(logSigma, stepSigmaGrad, spread, spreadRate);
-      for (let j = 0; j < ACTION_AXES; j += 1) {
-        logSigma[j] = Math.min(Math.max(logSigma[j], sigmaFloor), sigmaRoof);
+      // Under `sigma: "state"` the spread is nine of the network's outputs and its gradient has
+      // already gone into `stepGrad`; the nine parameters are then not parameters at all and a
+      // step on them would be a step on a number nothing reads. The block is skipped rather than
+      // fed zeros so that a resumed checkpoint's spread moments stay exactly where the fit left
+      // them and a run that changed `--sigma` mid-way is visible rather than smoothed over.
+      if (spec.sigmaAt < 0) {
+        adamStep(logSigma, stepSigmaGrad, spread, spreadRate);
+        for (let j = 0; j < ACTION_AXES; j += 1) {
+          logSigma[j] = Math.min(Math.max(logSigma[j], sigmaFloor), sigmaRoof);
+        }
       }
       adamStep(valueWeights, stepValueGrad, critic, valueRate);
     }
@@ -1200,6 +1261,57 @@ export function parseSeparationStage(raw, what = "--separation-schedule") {
   return metres;
 }
 
+/**
+ * An entropy stage: the coefficient itself, which is a non-negative number and usually a small one.
+ *
+ * Session 09 of the learn set. `--entropy-anneal 0.003:0,0.0003:20` is the shape the plan names
+ * and it is the one schedule in this file whose *value* is a knob rather than a condition -- the
+ * other three change what a rollout is collected against, and this changes what the fit pays for
+ * the spread it collected under. Both are curricula and they are spelled the same way on purpose.
+ */
+export function parseEntropyStage(raw, what = "--entropy-anneal") {
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error(`${what}: "${raw}" is not an entropy coefficient`);
+  }
+  return value;
+}
+
+/**
+ * `--tactics holdMyReach=true,closeGain=1.2`: the executor rows this run's *own* contender drives
+ * under, for this contender only.
+ *
+ * Session 09 of the learn set, and the mechanism arms h, i and j are built on. `--override` is the
+ * other instrument and it is not the same one: an override moves `GOLEM_TACTICS_V4` inside the
+ * worker and therefore moves it for **both corners**, which measures what happens when the arena
+ * changes. This moves the table one contender is built over, so the arm fights a shipped executor
+ * with a changed one -- which is the question "would this row help the mind that learned under it"
+ * and is the only form in which an executor row can be rated against a control at all.
+ *
+ * Every row must already exist on the table, because a misspelled row would otherwise be a flag
+ * that did nothing and an arm that measured its control twice.
+ */
+export function parseTactics(text) {
+  if (text === null || text === undefined) return null;
+  const out = {};
+  for (const entry of String(text).split(",").map((x) => x.trim()).filter(Boolean)) {
+    const at = entry.indexOf("=");
+    if (at < 0) throw new Error(`--tactics wants row=value pairs, as in holdMyReach=true; got "${entry}"`);
+    const row = entry.slice(0, at).trim();
+    const raw = entry.slice(at + 1).trim();
+    if (!(row in GOLEM_TACTICS_V4)) {
+      throw new Error(`--tactics: "${row}" is not a row of the fourth executor's table`);
+    }
+    if (raw === "true" || raw === "false") out[row] = raw === "true";
+    else {
+      const value = Number(raw);
+      if (!Number.isFinite(value)) throw new Error(`--tactics: ${row}=${raw} is neither a number nor a flag`);
+      out[row] = value;
+    }
+  }
+  return Object.keys(out).length === 0 ? null : out;
+}
+
 /** The two words an opponent stage takes that are not a mind: self-play, and the league's pool. */
 export const SCHEDULE_OPPONENTS = Object.freeze(["self", "league", UNIFORM_NAME]);
 
@@ -1287,12 +1399,36 @@ export function rolloutPairs(name, opponent) {
  * `separation` is that session's other half: null leaves the start distance where `runBout` puts
  * it, and a number is the iteration's curriculum stage in metres.
  */
+/**
+ * The header fields a contender carries so that a worker builds the mind the fit is carrying.
+ *
+ * Session 09 of the learn set. Before it a contender was four fields and the shape was whatever
+ * the shipped module said; now an arm may read eighty columns, write a twenty-eight wide output
+ * row, or drive an executor with one row flipped, and every one of those has to reach the worker
+ * *per contender* rather than per process -- because the whole point of the session's rating is
+ * that the arms and the control meet in one `evaluate` call over one pool from one seed.
+ *
+ * `tactics` is the executor's own table and is left out entirely when nothing overrides it, so a
+ * contender under the shipped executor is the object it has always been.
+ */
+export function contenderShape({
+  features = PILOT_FEATURES_DEFAULT, spec = GAUSSIAN_HEAD, tactics = null,
+} = {}) {
+  return {
+    version: POLICY_VERSION, features, layout: policyLayout(features, spec),
+    head: spec.head, sigma: spec.sigma, sigmaFloor: spec.floor, sigmaRoof: spec.roof,
+    ...(tactics === null || Object.keys(tactics).length === 0 ? {} : { tactics }),
+  };
+}
+
 export async function collectRollouts({
   pool, weights, logSigma, norm, seed, bouts, workers, cap, name = FIT_NAME, onProgress = null,
   reward = GOLEM_REWARD, opponent = null, separation = null,
+  features = PILOT_FEATURES_DEFAULT, spec = GAUSSIAN_HEAD, tactics = null, central = false,
 }) {
   const contenders = {
     [name]: {
+      ...contenderShape({ features, spec, tactics }),
       pi: Array.from(weights), logSigma: Array.from(logSigma),
       normalisation: { count: norm.count, mean: Array.from(norm.mean), variance: Array.from(norm.variance) },
       sample: true,
@@ -1304,7 +1440,7 @@ export async function collectRollouts({
     pairings: Math.max(1, Math.ceil(bouts / 2)), seed, cap, mirror: true, contenders,
     pairs: rolloutPairs(name, opponent), separation,
   });
-  const rows = await runJobs(jobs, { workers, contenders, record: [name], onProgress });
+  const rows = await runJobs(jobs, { workers, contenders, record: [name], central, onProgress });
   const parts = [];
   let margin = 0;
   let decided = 0;
@@ -1319,7 +1455,7 @@ export async function collectRollouts({
       margin += pack.margin;
     }
   }
-  const rollout = mergeRollouts(parts, reward);
+  const rollout = mergeRollouts(parts, reward, pilotFeatureCount(features));
   rollout.bouts = rows.length;
   rollout.decided = rows.length === 0 ? 0 : decided / rows.length;
   rollout.margin = parts.length === 0 ? 0 : margin / parts.length;
@@ -1402,10 +1538,12 @@ export function episodeReturns(rollout) {
 export async function ratePolicy({
   weights, logSigma, norm, league = PPO_LEAGUE, pool, seed, bouts, workers, cap,
   mirror = true, onProgress = null, terminals = VIABLE_TERMINALS,
+  features = PILOT_FEATURES_DEFAULT, spec = GAUSSIAN_HEAD, tactics = null,
 }) {
   pool = keepViable(pool, terminals, mirror);
   const contenders = {
     [FIT_NAME]: {
+      ...contenderShape({ features, spec, tactics }),
       pi: Array.from(weights), logSigma: Array.from(logSigma),
       normalisation: { count: norm.count, mean: Array.from(norm.mean), variance: Array.from(norm.variance) },
       sample: false,
@@ -1542,9 +1680,11 @@ export function renderPolicyModule(table, generator = "scripts/train-ppo.mjs") {
 }
 
 /** The shipped table around a fit: the shape from `freshPolicyTable`, the run's own header on top. */
-export function policyTable(weights, logSigma, header) {
+export function policyTable(
+  weights, logSigma, header, features = PILOT_FEATURES_DEFAULT, spec = GAUSSIAN_HEAD,
+) {
   return {
-    ...freshPolicyTable(Array.from(weights, round5), Array.from(logSigma, round5)),
+    ...freshPolicyTable(Array.from(weights, round5), Array.from(logSigma, round5), features, spec),
     ...header,
   };
 }
@@ -1579,6 +1719,9 @@ if (isMain) {
   const lambda = Number(flag("lambda", 0.95));
   const clip = Number(flag("clip", 0.2));
   const entropy = Number(flag("entropy", 0.003));
+  // The coefficient in force this iteration; a schedule or a controller moves it, and with neither
+  // it is `entropy` from the first iteration to the last.
+  let entropyNow = entropy;
   const rate = Number(flag("rate", 1e-4));
   const valueRate = Number(flag("value-rate", 1e-3));
   const sigmaRate = Number(flag("sigma-rate", rate * 10));
@@ -1606,8 +1749,51 @@ if (isMain) {
     swing: Number(flag("reward-swing", GOLEM_REWARD.swing)),
   });
   const shippedReward = REWARD_KEYS.every((k) => reward[k] === GOLEM_REWARD[k]);
-  const sigmaFloor = Number(flag("sigma-floor", -3));
-  const sigmaRoof = Number(flag("sigma-roof", 0.5));
+  const sigmaFloor = Number(flag("sigma-floor", SIGMA_FLOOR));
+  const sigmaRoof = Number(flag("sigma-roof", SIGMA_ROOF));
+  // ---- Session 09 of the learn set: the observation, the head, the spread, the critic and the
+  // executor table, each one flag and each one arm. Every default is what shipped, so a run that
+  // names none of them is the run this script has always been.
+  const features = Number(flag("features", PILOT_FEATURES_DEFAULT));
+  if (!PILOT_FEATURE_VERSIONS_READ.includes(features)) {
+    throw new Error(`--features ${features}; this build reads ${PILOT_FEATURE_VERSIONS_READ.join(" and ")}`);
+  }
+  const headName = flag("head", "gaussian");
+  if (!["gaussian", "mixed", "beta"].includes(headName)) {
+    throw new Error(`--head ${headName}; this build reads gaussian, mixed and beta`);
+  }
+  const sigmaName = flag("sigma", "constant");
+  if (!["constant", "state"].includes(sigmaName)) {
+    throw new Error(`--sigma ${sigmaName}; this build reads constant and state`);
+  }
+  const spec = headSpecOf(headName, sigmaName, sigmaFloor, sigmaRoof);
+  const columns = pilotFeatureCount(features);
+  const layout = policyLayout(features, spec);
+  const criticName = flag("critic", "self");
+  if (!["self", "central"].includes(criticName)) {
+    throw new Error(`--critic ${criticName}; this build reads self and central`);
+  }
+  const central = criticName === "central";
+  const tactics = parseTactics(flag("tactics", null));
+  // ---- The entropy coefficient, which may now be a schedule or a controller and may not be both.
+  // A run that named two of the three would have a header that could not say which one moved the
+  // number, and the number is the whole of what those two arms are.
+  const entropyFlag = flag("entropy", null);
+  const entropyText = flag("entropy-anneal", null);
+  const entropyTarget = flag("entropy-target", null) === null ? null : Number(flag("entropy-target", null));
+  const entropyRate = Number(flag("entropy-rate", 0.05));
+  if (entropyText !== null && entropyFlag !== null) {
+    throw new Error("--entropy is a one-stage --entropy-anneal; pass one of them");
+  }
+  if (entropyTarget !== null && entropyText !== null) {
+    throw new Error("--entropy-target sets the coefficient and --entropy-anneal schedules it; pass one of them");
+  }
+  if (entropyTarget !== null && sigmaName === "state") {
+    throw new Error("--entropy-target reads the spread off logSigma, which --sigma state does not use; "
+      + "pass one of them");
+  }
+  const entropySchedule = parseSchedule(
+    entropyText ?? String(entropyFlag ?? entropy), parseEntropyStage, "--entropy-anneal");
   const every = Math.max(0, Number(flag("evaluate", 5)));
   const evalBouts = Math.max(2, Number(flag("eval-bouts", 96)));
   // The last rating is the session's number and the periodic ones are its curve, so they are not
@@ -1616,7 +1802,9 @@ if (isMain) {
   // The critic does not ship, so its width is a knob and not a frozen choice; the actor's is not.
   const valueHidden = flag("value-hidden", "64,64")
     .split(",").map((s) => Math.max(1, Number(s.trim()))).filter((n) => Number.isFinite(n));
-  const valueLayout = Object.freeze({ ...VALUE_LAYOUT, hidden: Object.freeze(valueHidden) });
+  const valueLayout = Object.freeze({
+    ...VALUE_LAYOUT, inputs: columns * (central ? 2 : 1), hidden: Object.freeze(valueHidden),
+  });
   const league = flag("league", PPO_LEAGUE.join(",")).split(",").map((s) => s.trim()).filter(Boolean);
   // Null is Session 13's mirrored self-play; a policy name is a fixed sparring partner, which is
   // the one arrangement in which the mean return is not zero by construction.
@@ -1676,10 +1864,10 @@ if (isMain) {
   };
 
   const date = new Date().toISOString().slice(0, 10);
-  let weights = initWeights(POLICY_LAYOUT, seed);
+  let weights = initWeights(layout, seed);
   let valueWeights = initWeights(valueLayout, (seed ^ 0x1c) >>> 0);
   let logSigma = new Float64Array(ACTION_AXES).fill(-0.7);
-  let norm = freshNormalisation(PILOT_FEATURE_COUNT);
+  let norm = freshNormalisation(columns);
   let startAt = 1;
   let totalBouts = 0;
   let totalSteps = 0;
@@ -1695,8 +1883,12 @@ if (isMain) {
     norm = saved.normalisation;
     // Adam's moments make a restarted arm the same run rather than a warm start, so they are
     // restored wherever they exist and their absence is said out loud rather than assumed away.
+    if (weights.length !== netSize(layout)) {
+      throw new Error(`${started} carries ${weights.length} actor weights and this run's shape wants `
+        + `${netSize(layout)}; a start is only a start under the head and the columns it was fitted on`);
+    }
     const read = momentsFromJson(saved.adam ?? null, {
-      actor: netSize(POLICY_LAYOUT), spread: ACTION_AXES, critic: netSize(valueLayout),
+      actor: netSize(layout), spread: ACTION_AXES, critic: netSize(valueLayout),
     });
     ({ actor, spread, critic } = read.moments);
     for (const warning of read.warnings) console.log(`  ${started}: ${warning}`);
@@ -1714,8 +1906,12 @@ if (isMain) {
   }
 
   log({
-    type: "header", seed, date, version: POLICY_VERSION, features: PILOT_FEATURES_VERSION,
-    layout: POLICY_LAYOUT, valueLayout, reward, league, label,
+    type: "header", seed, date, version: POLICY_VERSION, features,
+    layout, valueLayout, reward, league, label,
+    // Session 09 of the learn set's five, on every header whether they were named or not, so that
+    // a run at the defaults and a run that spelled the defaults out are the same header.
+    head: headName, sigma: sigmaName, critic: criticName, tactics,
+    entropySchedule, entropyTarget, entropyRate,
     iterations, bouts, cap, random, workers, shards, halfLife, lambda, clip, entropy, rate, valueRate,
     sigmaRate, epochs, batch, targetKl, sigmaFloor, sigmaRoof,
     evaluate: every, evalBouts, finalBouts, resumeFrom, from: startFrom, opponent, terminals,
@@ -1728,8 +1924,16 @@ if (isMain) {
     separationSchedule, opponentSchedule, terminalsSchedule,
   });
   console.log(`ppo: seed ${seed}, ${iterations} iterations of ${bouts} mirrored bouts, `
-    + `${netSize(POLICY_LAYOUT)} actor weights, ${workers} workers, `
+    + `${netSize(layout)} actor weights, ${workers} workers, `
     + `${shards === 1 ? "one fit thread" : `${shards} fit shards`}`);
+  console.log(`  head: ${headName} over ${spec.width} outputs, spread ${sigmaName}, `
+    + `observation version ${features} (${columns} columns), critic ${criticName} `
+    + `(${valueLayout.inputs} in)${tactics === null ? "" : `, tactics ${JSON.stringify(tactics)}`}`);
+  console.log(`  entropy: ${entropyTarget === null
+    ? (entropySchedule.length === 1
+      ? `${entropySchedule[0].value} throughout`
+      : entropySchedule.map((stage) => `${stage.value} from ${stage.from}`).join(", "))
+    : `held at H ${entropyTarget.toFixed(3)} an axis, coefficient from ${entropy} at rate ${entropyRate}`}`);
   const stageLine = (name, schedule, render) => (schedule.length === 1
     ? `  ${name}: ${render(schedule[0].value)} throughout`
     : `  ${name}: ${schedule.map((s) => `${render(s.value)} from ${s.from}`).join(", ")}`);
@@ -1739,7 +1943,7 @@ if (isMain) {
   console.log(stageLine("pool", terminalsSchedule, (classes) => classes.join("+")));
   // One pool for the run, because a minibatch step is milliseconds and a thread start is not.
   // `fitPool` rather than `pool`, which in the loop below is the iteration's *bodies*.
-  const fitPool = shards > 1 ? await FitPool.open({ shards, valueLayout }) : null;
+  const fitPool = shards > 1 ? await FitPool.open({ shards, layout, valueLayout, spec }) : null;
 
   let rated = null;
   /**
@@ -1763,6 +1967,7 @@ if (isMain) {
       weights, logSigma, norm, league, pool: epool, seed: eseed, terminals,
       bouts: Math.max(2, Math.ceil(wanted / league.length / 2) * 2),
       workers, cap, mirror: true, onProgress: progress(`rate ${iteration}`),
+      features, spec, tactics,
     });
     console.log(`  === rating after iteration ${iteration}: ${result.per} bouts a contender ===`);
     for (const name of result.names) {
@@ -1804,17 +2009,35 @@ if (isMain) {
     const rollout = await collectRollouts({
       pool, weights, logSigma, norm, seed: (seed + iteration * 7919) >>> 0, bouts, workers, cap,
       reward, opponent: opponentOf(stageOpponent), separation: stageSeparation,
+      features, spec, tactics, central,
       onProgress: progress(`iteration ${iteration}`),
     });
     const collected = (Date.now() - started) / 1000;
     if (rollout.count === 0) throw new Error("an iteration collected no asks at all");
     const { returns, lengths, share, rows: shareRows, penalty, bare } = episodeReturns(rollout);
     const fitStarted = Date.now();
+    // The coefficient this iteration pays. A schedule reads it off the stage; the controller
+    // leaves `entropyNow` wherever the *previous* iteration's spread put it, which is the whole of
+    // why it is updated after the fit and not before it -- a temperature chosen from a spread the
+    // fit has not produced yet is a controller reading its own output.
+    if (entropyTarget === null) entropyNow = scheduled(entropySchedule, iteration);
     const fit = ppoFit(rollout, {
-      weights, logSigma, valueWeights, valueLayout, norm, seed: (seed ^ iteration * 31) >>> 0,
-      halfLife, lambda, clip, entropy, rate, valueRate, sigmaRate, epochs, batch, targetKl,
-      sigmaFloor, sigmaRoof, actor, spread, critic, shards, pool: fitPool,
+      weights, logSigma, valueWeights, layout, valueLayout, norm, seed: (seed ^ iteration * 31) >>> 0,
+      halfLife, lambda, clip, entropy: entropyNow, rate, valueRate, sigmaRate, epochs, batch, targetKl,
+      sigmaFloor, sigmaRoof, actor, spread, critic, shards, pool: fitPool, spec,
     });
+    // Schulman's dual, in one line and on the axes only: the Gaussian half of the head's entropy
+    // is `logSigma + 0.5 (log 2pi + 1)` an axis and depends on nothing else, so the mean of the
+    // nine is the quantity a target is stated in and it is already sitting in the trainer's own
+    // array. Below the target the coefficient rises and above it falls, multiplicatively, which is
+    // what keeps a coefficient that has to travel two orders of magnitude from taking a hundred
+    // iterations to get there.
+    let axisEntropy = 0;
+    for (let j = 0; j < ACTION_AXES; j += 1) axisEntropy += logSigma[j] + 0.5 * (Math.log(2 * Math.PI) + 1);
+    axisEntropy /= ACTION_AXES;
+    if (entropyTarget !== null) {
+      entropyNow = Math.min(1, Math.max(1e-6, entropyNow * Math.exp(entropyRate * (entropyTarget - axisEntropy))));
+    }
     const fitted = (Date.now() - fitStarted) / 1000;
     ({ actor, spread, critic } = fit);
     totalBouts += rollout.bouts;
@@ -1843,6 +2066,10 @@ if (isMain) {
       epochsRun: fit.epochs, updates: fit.updates,
       stopped: fit.stopped === null ? null : round5(fit.stopped.kl),
       logSigma: Array.from(logSigma, round4),
+      // The coefficient this iteration was fitted at and the per-axis entropy it produced. On
+      // every row rather than only on a run that schedules one, for `separation`'s reason: a curve
+      // with a seam in it is unreadable if the rows do not say where the seam is.
+      entropyCoefficient: round5(entropyNow), axisEntropy: round4(axisEntropy),
       // The two halves of an iteration said separately, because Session 05 of the learn set is a
       // claim about one of them and a row that only carried the total could not be read against it.
       collectSeconds: round4(collected), fitSeconds: round4(fitted), shards,
@@ -1855,6 +2082,8 @@ if (isMain) {
       + `KL ${fit.kl.toFixed(5)}  clip ${(fit.clipFraction * 100).toFixed(1)}%  `
       + `H ${fit.entropy.toFixed(2)}  EV ${fit.explainedAfter.toFixed(3)}  `
       + `sigma ${Math.exp(logSigma[0]).toFixed(3)}  `
+      + (entropyTarget === null && entropySchedule.length === 1 ? ""
+        : `beta ${entropyNow.toExponential(1)} (H/axis ${axisEntropy.toFixed(2)})  `)
       + `${fit.updates} steps${fit.stopped === null ? "" : ` (stopped in epoch ${fit.stopped.epoch})`}  `
       + `${line.seconds.toFixed(0)} s (${collected.toFixed(0)} collect, ${fitted.toFixed(0)} fit)`
       // Printed only when something is actually scheduled, so a run with no curriculum reads as it
@@ -1884,12 +2113,12 @@ if (isMain) {
   if (rated !== null) for (const name of rated.names) if (name !== FIT_NAME) baselines[name] = rated.results[name].score;
   const table = policyTable(weights, logSigma, {
     seed, date, iterations, bouts: totalBouts, steps: totalSteps,
-    halfLife, lambda, clip, entropy, reward, opponent, terminals,
+    halfLife, lambda, clip, entropy: entropyNow, reward, opponent, terminals,
     normalisation: {
       count: norm.count, mean: Array.from(norm.mean, round5), variance: Array.from(norm.variance, round5),
     },
     score: rated === null ? 0 : rated.results[FIT_NAME].score, baselines,
-  });
+  }, features, spec);
   log({ type: "weights", table: { ...table, weights: [] } });
   const text = renderPolicyModule(table);
   if (write !== null && !shippedReward) {
