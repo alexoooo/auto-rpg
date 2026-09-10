@@ -2036,6 +2036,66 @@ turns down. It is left standing on purpose: that build is the reference body a d
 chose to improve one screen. `tests/bout.test.mjs` asserts the refusal rather than the acceptance,
 so the number is in front of whoever decides.
 
+## The four rows that charge for how a bout is fought
+
+Session 06 of the learn set, and the direct answer to the sentence two sections up: *an instrument
+that is only printed is one the optimiser is free to ignore.* `RewardTable` in
+`src/golem/reward.ts` had four rows — `win`, `clinch`, `idle`, `tick` — and the owner's two
+complaints landed on behaviours none of them touch. Standing just outside reach costs nothing:
+`clinch` is charged inside reach only, `idle` is the tangential component of a drift and a fighter
+holding station at 2.6 m is not drifting. Hugging costs `clinch`, which is 0.004 a second against a
+bar margin whose whole range is one point. So the table grew four rows, all of them shipped at
+zero, and each one is a coefficient on a quantity `src/engagement.ts` was already accumulating for
+the tournament to print.
+
+- **`closing`** pays `radialClosingMetres` — the metre of approach, radial component only, taken
+  ask to ask. It is a **credit** and the only one in the table.
+- **`stall`** charges `nearRangeStallSeconds`, the second spent inside striking distance without
+  striking.
+- **`outside`** charges `retreatOutsideReachSeconds`, the second spent backing away from an
+  opponent already out of reach.
+- **`swing`** charges a stroke that *finished* and landed nothing.
+
+**`closing` is the load-bearing one, and the reason is the mirror.** The identity this whole
+objective is built on is that `Σ(dealt − taken)` over a side telescopes to that side's final bar
+margin; every shaping row is laid over the top of it and none of it telescopes. In a mirrored bout
+the two sides' bar margins are equal and opposite and so is the `win` term, so averaging a mirrored
+pair annihilates both — and what survives is exactly the shaping. Every row the table had before
+this session is a *charge*, so the symmetric part of a mirror was a number that could only be made
+larger by doing less: the cheapest mirrored pair is two fighters who never approach, never clinch,
+never drift and never swing. Ninety-three iterations found that, which is what the owner was
+looking at. `closing` is the first row that pays a positive number for engaging, so it is the first
+row whose symmetric part rewards a pair for closing the distance rather than for standing still.
+`tests/reward.test.mjs` pins that property directly: the symmetric part of a mirrored pair under a
+non-zero `closing` is positive when both sides close and zero when neither does.
+
+**Why `swing` counts a finished stroke and not a started one.** The obvious definition is *a stroke
+that started and drew no blood*, and it is the wrong one. Over a uniform policy 99.2 % of strokes
+started are aborted before they commit, so any empty-stroke count taken that way is measuring the
+abort gate in `src/golem/tactics-v4.ts` and nothing else — it would charge a mind hardest for the
+one part of the executor that is working. `emptyStrokeInstrument` in
+`scripts/tournament-worker.mjs` therefore watches the stance machine rather than the contacts: a
+stroke opens when `strokes` advances, closes unscored when `aborts` advances, and books an empty
+only when the stance returns to `free` with no blow recorded in between. It has to be a second
+instrument beside `strokeInstrument` because that one is built from contact events and a stroke
+that lands nothing raises no event to be built from.
+
+**The rows are priced in the main thread, which is why they are flags rather than a rebuild.**
+Rollout packs carry the raw quantities — `PACK_COLUMNS` in `scripts/train-ppo.mjs` names all ten —
+and `mergeRollouts` multiplies by the table when the packs come home. One night's rollouts can be
+priced under five tables; a sweep arm is a coefficient on a command line. A pack written before
+this session is refused by the *name* of the column it lacks, because the alternative failure is
+silent: `undefined` times a coefficient is `NaN`, one `NaN` reward poisons every advantage in its
+episode through the backwards discount, and the log of such a run looks like a fit that simply
+stopped learning.
+
+**The share is reported per row.** `penaltyShare` stays the scalar it was, because `src/curve/runs.ts`
+reads it as one and a curve that silently blanks is worse than a curve with less in it;
+`penaltyRows` rides beside it with the seven shaping rows named. A run under a non-zero `closing`
+reports a *negative* contribution from that row, and that is deliberate — a share that took an
+absolute value per row would report a mind as more heavily shaped the more it was paid to fight,
+which is the opposite of the warning the share exists to give.
+
 ## Dying, which is not the same as losing
 
 `over` not stopping the world was the right call about the *bout* and, for a long time, it

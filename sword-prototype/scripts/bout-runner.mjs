@@ -308,7 +308,22 @@ export function runBout({
     }
     // The records ride along so a sampler can read damage dealt as it stands; the tournament
     // worker's exchange log (Session 06 of the matchup set) is the one that does.
-    if (onSample) onSample({ left, right, dt: FIXED, clock: now, records: { left: leftRecord, right: rightRecord } });
+    //
+    // `behaviour` is the bout recorder's own live records, and it rides for the same reason one
+    // step further on: `EngagementTracker` accumulates `radialClosingMetres`,
+    // `nearRangeStallSeconds` and `retreatOutsideReachSeconds` inside `sampleBoutRecorder`, which
+    // has just run, so a sampler that differences them ask to ask is reading the instrument the
+    // row will print rather than computing a second definition of it. Session 06 of the learn set
+    // charges three reward rows off exactly that difference. It is the same object every step --
+    // handing over a copy would cost a bout's worth of allocation to say nothing new -- so a
+    // reader takes the numbers it wants and does not keep the record.
+    if (onSample) {
+      onSample({
+        left, right, dt: FIXED, clock: now,
+        records: { left: leftRecord, right: rightRecord },
+        behaviour: recorder.records,
+      });
+    }
     const struck = Math.max(
       sides[0].combat.lastHit ? sides[0].combat.lastHit.at : -Infinity,
       sides[1].combat.lastHit ? sides[1].combat.lastHit.at : -Infinity,

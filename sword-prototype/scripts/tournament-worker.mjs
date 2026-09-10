@@ -182,7 +182,7 @@ const RECORDER_KINDS = {
  * one column a trainer cannot recompute: by the time the surrogate is taken the weights have
  * moved, and a ratio against a recomputed denominator is a ratio of one.
  *
- * ## Why the two penalty columns come through here rather than being derived
+ * ## Why the penalty columns come through here rather than being derived
  *
  * `clinchSeconds` and `idleTravelMetres` are the tournament's own instruments, accumulated in the
  * sample loop from the ground positions and the shared quiet clock, and Session 13's reward is
@@ -190,6 +190,14 @@ const RECORDER_KINDS = {
  * -- instead of the reward recomputing a second definition off the reading. A policy is then paid
  * against exactly the number the league table prints about it, which is the only arrangement in
  * which the two can be read together.
+ *
+ * **Session 06 of the learn set added four more of exactly that shape and no new mechanism.**
+ * `closing`, `stall` and `outside` are `EngagementTracker`'s own accumulators differenced ask to
+ * ask -- the very record the row's `radialClosingMetres`, `nearRangeStallSeconds` and
+ * `retreatOutsideReachSeconds` are read off at the end, sampled while it runs -- and `swing`
+ * counts the strokes that finished inside the window having landed nothing. Six raw quantities
+ * ride the pack now; the table that prices them is still applied in the main thread, so one
+ * night's collected bouts can be re-priced under any arm's coefficients without replaying a bout.
  *
  * ## The raw observation, and not the normalised one
  *
@@ -212,6 +220,10 @@ function pilotRecorder(side) {
   let seconds = new Float64Array(capacity);
   let clinch = new Float64Array(capacity);
   let idle = new Float64Array(capacity);
+  let closing = new Float64Array(capacity);
+  let stall = new Float64Array(capacity);
+  let outside = new Float64Array(capacity);
+  let swing = new Float64Array(capacity);
   let done = new Uint8Array(capacity);
   const grow = () => {
     const wider = capacity * 2;
@@ -224,6 +236,10 @@ function pilotRecorder(side) {
     seconds = move(seconds, Float64Array);
     clinch = move(clinch, Float64Array);
     idle = move(idle, Float64Array);
+    closing = move(closing, Float64Array);
+    stall = move(stall, Float64Array);
+    outside = move(outside, Float64Array);
+    swing = move(swing, Float64Array);
     done = move(done, Uint8Array);
     capacity = wider;
   };
@@ -249,11 +265,23 @@ function pilotRecorder(side) {
       live = { mine, theirs, clock: view.clock, at: count };
       count += 1;
     },
-    /** The sample loop's two pathology instruments, charged to the window that is open. */
-    spend(clinchSeconds, idleMetres) {
+    /**
+     * The sample loop's six raw quantities, charged to the window that is open.
+     *
+     * One record rather than six arguments, and the caller passes the same object every sample:
+     * this runs once a side once a control step, about 14,400 times a bout a side, and an
+     * argument list that grew from two to six was going to grow again. What it must not become is
+     * a place where a quantity is *computed*, which is why every field is written by the sample
+     * loop above from an instrument that already existed and this only pours.
+     */
+    spend(charge) {
       if (live === null) return;
-      clinch[live.at] += clinchSeconds;
-      idle[live.at] += idleMetres;
+      clinch[live.at] += charge.clinch;
+      idle[live.at] += charge.idle;
+      closing[live.at] += charge.closing;
+      stall[live.at] += charge.stall;
+      outside[live.at] += charge.outside;
+      swing[live.at] += charge.swing;
     },
     close(sample, winner) {
       const view = sample[side].view;
@@ -271,6 +299,10 @@ function pilotRecorder(side) {
         seconds: seconds.slice(0, count),
         clinch: clinch.slice(0, count),
         idle: idle.slice(0, count),
+        closing: closing.slice(0, count),
+        stall: stall.slice(0, count),
+        outside: outside.slice(0, count),
+        swing: swing.slice(0, count),
         done: done.slice(0, count),
         margin: last?.margin ?? 0, winner: last?.winner ?? null,
       };
@@ -681,6 +713,62 @@ function geometryInstrument() {
   };
 }
 
+/**
+ * Strokes that finished and hit nothing: the swing at the air, one side's, as it happens.
+ *
+ * Session 06 of the learn set, and the reason it is a separate instrument from `strokeInstrument`
+ * is that the two are built from opposite ends of the same event. `strokeInstrument` groups
+ * *contacts* into strokes, so a stroke that lands nothing lands nothing for it to group and is
+ * invisible there by construction -- which is exactly the stroke a reward row about missing has to
+ * be able to see. So this one is built from the executor's own lifecycle: `strokes` counts what it
+ * started, `aborts` what it abandoned, and the stance says where in the arc it is.
+ *
+ * **A stroke that was aborted is not an empty stroke, and getting that wrong would have made the
+ * row meaningless.** Session 07 of the learn set probed the action surface over a uniform policy
+ * and found **99.2 % of strokes started are aborted**: the executor's `abort` gate closes over the
+ * chamber before the arc runs. A count taken over strokes *started* would therefore be a
+ * measurement of that gate, and a reward charged from it would pay a policy to stop asking rather
+ * than to stop missing. What is counted here is a stroke that ran through chamber, commit and
+ * recover without an abort and recorded no contact of any kind -- blocked, guarded or clean, since
+ * a stroke a shield stopped is a stroke that reached something.
+ *
+ * The window closes when the stance returns to `free` rather than when the commit ends, so a blow
+ * that lands on the follow-through belongs to the stroke that threw it. The bout's last stroke, if
+ * the verdict interrupts it, is counted as nothing: it never finished, and a stroke cut off by a
+ * kill is not a stroke that missed.
+ */
+export function emptyStrokeInstrument() {
+  let startedSeen = 0;
+  let abortedSeen = 0;
+  let open = false;
+  let blows = 0;
+  let empty = 0;
+  return {
+    /** Total over the bout, for a caller that wants the column rather than the increments. */
+    get empty() { return empty; },
+    /** One contact this side's striker made, whoever or whatever it found. */
+    blow() { blows += 1; },
+    /** One control step of the executor's lifecycle; answers the empty strokes that just closed. */
+    sample(driven) {
+      if (driven.aborts > abortedSeen) {
+        abortedSeen = driven.aborts;
+        open = false;
+      }
+      if (driven.strokes > startedSeen) {
+        startedSeen = driven.strokes;
+        open = true;
+        blows = 0;
+        return 0;
+      }
+      if (!open || driven.stance !== "free") return 0;
+      open = false;
+      if (blows > 0) return 0;
+      empty += 1;
+      return 1;
+    },
+  };
+}
+
 async function runJob(job) {
   const physics = await freshHavok();
   // The minds are built here and handed in, rather than left to `runBout` to build from the
@@ -709,8 +797,18 @@ async function runJob(job) {
   // a bout is quiet when neither side has landed anything, which is what makes a clinch a clinch
   // rather than a close-quarters exchange.
   const strokes = { left: strokeInstrument(), right: strokeInstrument() };
+  const empties = { left: emptyStrokeInstrument(), right: emptyStrokeInstrument() };
   const clinch = { left: 0, right: 0 };
   const idle = { left: 0, right: 0 };
+  // What the engagement tracker's three accumulators read at the previous sample, so this step's
+  // charge is a difference and not a total. One record a side, written over every step.
+  const engaged = {
+    left: { closing: 0, stall: 0, outside: 0 },
+    right: { closing: 0, stall: 0, outside: 0 },
+  };
+  // The six raw quantities of one step, handed to the recorder and immediately overwritten. Reused
+  // rather than rebuilt for the reason `pilotRecorder.spend` gives: this is a per-control-step path.
+  const charge = { clinch: 0, idle: 0, closing: 0, stall: 0, outside: 0, swing: 0 };
   const gapLog = { left: [], right: [] };
   const geometry = { left: geometryInstrument(), right: geometryInstrument() };
   const groundWas = { left: null, right: null };
@@ -732,6 +830,7 @@ async function runJob(job) {
     onEvent(event) {
       lastContact = event.report.at;
       strokes[event.side].event(event);
+      empties[event.side].blow();
     },
     onSample(sample) {
       samples += 1;
@@ -790,9 +889,33 @@ async function runJob(job) {
             idle[side] += drifted;
           }
         }
-        // Session 13: the same two numbers, charged to whichever ask is open, so that a policy's
-        // reward and this side's league columns are the one instrument read twice.
-        if (clinched > 0 || drifted > 0) recorders[side]?.spend?.(clinched, drifted);
+        // Session 13, and Session 06 of the learn set beside it: the six raw quantities, charged
+        // to whichever ask is open, so that a policy's reward and this side's league columns are
+        // the one instrument read twice rather than two definitions that agree by accident.
+        //
+        // The three engagement numbers are *differences*. `EngagementTracker` accumulates over the
+        // whole bout and `sampleBoutRecorder` has already advanced it this step, so what belongs
+        // to the open ask is this reading less the last one. A tracker that has not run -- a mind
+        // with no published behaviour record -- leaves all three at zero, which is the same answer
+        // as a body that did not move.
+        const record = sample.behaviour?.[side]?.engagement ?? null;
+        charge.clinch = clinched;
+        charge.idle = drifted;
+        charge.closing = 0;
+        charge.stall = 0;
+        charge.outside = 0;
+        charge.swing = executor === null ? 0 : empties[side].sample(executor);
+        if (record !== null) {
+          const was = engaged[side];
+          charge.closing = record.radialClosingMetres - was.closing;
+          charge.stall = record.nearRangeStallSeconds - was.stall;
+          charge.outside = record.retreatOutsideReachSeconds - was.outside;
+          was.closing = record.radialClosingMetres;
+          was.stall = record.nearRangeStallSeconds;
+          was.outside = record.retreatOutsideReachSeconds;
+        }
+        if (charge.clinch > 0 || charge.idle > 0 || charge.closing > 0 || charge.stall > 0
+          || charge.outside > 0 || charge.swing > 0) recorders[side]?.spend?.(charge);
         groundWas[side] = { x: ground.x, z: ground.z };
       }
       const margin = ends.left - ends.right;
@@ -858,6 +981,12 @@ async function runJob(job) {
         eventAsks: driven.events,
         strokesStarted: driven.strokes,
         aborts: driven.aborts,
+        // Session 06 of the learn set: strokes that finished without an abort and touched nothing.
+        // It rides here rather than beside the contact-built stroke columns because it is built
+        // from the same executor handle the two above it are, and because `strokesStarted` less
+        // `aborts` less this is the count that actually connected -- three columns a reader can
+        // subtract, which one derived column would not have been.
+        emptyStrokes: empties[name].empty,
         ...geometry[name].pack(),
       }),
       // Session 07: what a pinned probe actually wrote, per field. Only a pinned contender carries

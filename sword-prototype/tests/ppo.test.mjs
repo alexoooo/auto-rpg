@@ -72,9 +72,9 @@ import { policyMind } from "../src/mind.ts";
 import { policyForUnit } from "../src/units.ts";
 import { mulberry32 } from "../src/rng.ts";
 import {
-  FitPool, advantages, checkpointFor, cohensD, explainedVariance, extendNormalisation,
-  mergeRollouts, momentsFromJson, momentsToJson, parseTerminals, poolFor, ppoFit,
-  renderPolicyModule, resumesOwnLog, rolloutPairs, surrogateGrad, surrogateObjective,
+  FitPool, PACK_COLUMNS, SHAPING_ROWS, advantages, checkpointFor, cohensD, explainedVariance,
+  extendNormalisation, mergeRollouts, momentsFromJson, momentsToJson, parseTerminals, poolFor,
+  ppoFit, renderPolicyModule, resumesOwnLog, rolloutPairs, surrogateGrad, surrogateObjective,
 } from "../scripts/train-ppo.mjs";
 import { shardSlice } from "../scripts/fit-worker.mjs";
 import { armedTerminal, buildPool } from "../scripts/tournament.mjs";
@@ -287,10 +287,19 @@ function pack(side, winner, rewards) {
     seconds: Float64Array.from({ length: n }, () => 0.0833),
     clinch: new Float64Array(n),
     idle: new Float64Array(n),
+    closing: new Float64Array(n),
+    stall: new Float64Array(n),
+    outside: new Float64Array(n),
+    swing: new Float64Array(n),
     done: Uint8Array.from({ length: n }, (_, i) => (i === n - 1 ? 1 : 0)),
     margin: rewards.reduce((a, b) => a + b, 0),
   };
 }
+
+/** A whole table, so a case can name only the rows it is about; a partial one prices to `NaN`. */
+const table = (over) => ({
+  win: 0, clinch: 0, idle: 0, tick: 0, closing: 0, stall: 0, outside: 0, swing: 0, ...over,
+});
 
 /**
  * The outcome is the pack's own side's, which is the one thing two mirrored packs disagree about.
@@ -319,38 +328,84 @@ test("a_rollout_pays_the_win_term_to_the_side_that_won_and_charges_the_other", (
 /**
  * A swept table pays the same collected bouts differently, and the charge is reported apart.
  *
- * Session 14's calibration is a sweep over four coefficients that had been argued and never
- * moved, and the only reason it can be a flag rather than a rebuild is that the reward is
- * applied here, in the main thread, to packs that carry `dealt`, `taken`, `seconds`, `clinch`
- * and `idle` raw. This pins that: one pack, three tables, three answers -- and `penalty`
- * counting the clock alongside the two older charges, so a run under a non-zero `tick` reports
- * the share its shaping actually took.
+ * Session 14's calibration is a sweep over coefficients that had been argued and never moved, and
+ * the only reason it can be a flag rather than a rebuild is that the reward is applied here, in
+ * the main thread, to packs that carry every quantity in `PACK_COLUMNS` raw. This pins that: one
+ * pack, three tables, three answers -- and `penalty` counting the clock alongside the older
+ * charges, so a run under a non-zero `tick` reports the share its shaping actually took.
+ *
+ * Session 06 of the learn set added four rows and one property worth stating on its own:
+ * `closing` is a *credit*, so it lowers `penalty` by exactly what it raises the reward. A share
+ * that took an absolute value per row would report a run as more shaped the more it was paid to
+ * fight, which is the opposite of what the share exists to warn about.
  */
 test("a_rollout_pays_the_table_it_is_given_and_reports_every_charge_in_it", () => {
   const raw = pack("left", "left", [0.1, 0.2]);
   raw.clinch = Float64Array.from([1, 0]);
   raw.idle = Float64Array.from([0, 2]);
   raw.seconds = Float64Array.from([0.5, 0.25]);
+  raw.closing = Float64Array.from([0.75, 0]);
+  raw.stall = Float64Array.from([0, 1.5]);
+  raw.outside = Float64Array.from([2.5, 0]);
+  raw.swing = Float64Array.from([0, 3]);
 
-  const bare = mergeRollouts([raw], { win: 0, clinch: 0, idle: 0, tick: 0 });
+  const bare = mergeRollouts([raw], table({}));
   assert.ok(Math.abs(bare.reward[0] - 0.1) < 1e-12, `${bare.reward[0]}`);
   assert.ok(Math.abs(bare.reward[1] - 0.2) < 1e-12, "the win term was paid by a table that is all zeros");
   for (const i of [0, 1]) assert.equal(bare.penalty[i], 0);
 
   // The same two asks under a table with every row non-zero, each term checked on its own ask.
-  const T = { win: 2, clinch: 0.01, idle: 0.02, tick: 0.008 };
+  const T = table({
+    win: 2, clinch: 0.01, idle: 0.02, tick: 0.008,
+    closing: 0.4, stall: 0.1, outside: 0.05, swing: 0.02,
+  });
   const full = mergeRollouts([raw], T);
-  assert.ok(Math.abs(full.reward[0] - (0.1 - 0.01 - 0.008 * 0.5)) < 1e-12, `${full.reward[0]}`);
-  assert.ok(Math.abs(full.reward[1] - (0.2 - 0.04 - 0.008 * 0.25 + 2)) < 1e-12, `${full.reward[1]}`);
-  // `penalty` is what the three charges took and never the win, which is the outcome and not shaping.
-  assert.ok(Math.abs(full.penalty[0] - (0.01 + 0.008 * 0.5)) < 1e-12, `${full.penalty[0]}`);
-  assert.ok(Math.abs(full.penalty[1] - (0.04 + 0.008 * 0.25)) < 1e-12,
+  assert.ok(Math.abs(full.reward[0] - (0.1 - 0.01 - 0.008 * 0.5 + 0.4 * 0.75 - 0.05 * 2.5)) < 1e-12,
+    `${full.reward[0]}`);
+  assert.ok(Math.abs(full.reward[1] - (0.2 - 0.04 - 0.008 * 0.25 - 0.1 * 1.5 - 0.02 * 3 + 2)) < 1e-12,
+    `${full.reward[1]}`);
+  // `penalty` is what the shaping rows took and never the win, which is the outcome and not shaping.
+  assert.ok(Math.abs(full.penalty[0] - (0.01 + 0.008 * 0.5 - 0.4 * 0.75 + 0.05 * 2.5)) < 1e-12,
+    `${full.penalty[0]}`);
+  assert.ok(Math.abs(full.penalty[1] - (0.04 + 0.008 * 0.25 + 0.1 * 1.5 + 0.02 * 3)) < 1e-12,
     `the win term was counted as a penalty: ${full.penalty[1]}`);
+  // And the split by row sums back to it, which is what `episodeReturns` divides to get a share.
+  for (const i of [0, 1]) {
+    const summed = SHAPING_ROWS.reduce((total, row) => total + full.charges[row][i], 0);
+    assert.ok(Math.abs(summed - full.penalty[i]) < 1e-12, `ask ${i}: ${summed} against ${full.penalty[i]}`);
+  }
+  assert.ok(Math.abs(full.charges.closing[0] - -0.4 * 0.75) < 1e-12,
+    `closing is a credit and was booked as ${full.charges.closing[0]}`);
+  assert.ok(Math.abs(full.charges.swing[1] - 0.02 * 3) < 1e-12, `${full.charges.swing[1]}`);
 
   // No table at all is the shipped table, so every caller that does not care reads as it did.
   const shipped = mergeRollouts([raw]);
   assert.ok(Math.abs(shipped.reward[1] - (0.2 - 2 * GOLEM_REWARD.idle + GOLEM_REWARD.win)) < 1e-12,
     `${shipped.reward[1]}`);
+});
+
+/**
+ * A pack written by an older worker is refused by column name, before a single reward is priced.
+ *
+ * The failure this replaces is silent and expensive rather than loud: `undefined` times a
+ * coefficient is `NaN`, one `NaN` reward poisons every advantage in its episode through the
+ * backwards discount in `advantages`, and what a run reports is a fit that has quietly stopped
+ * learning with no error anywhere in the log. Refusing by *name* is what makes the message
+ * actionable -- the column named says which session the pack predates -- and the length check
+ * beside it catches the other shape of the same defect, a column that exists and is not one an ask.
+ */
+test("a_rollout_refuses_a_pack_that_is_missing_a_column_by_the_name_of_the_column", () => {
+  for (const column of PACK_COLUMNS) {
+    const short = pack("left", "left", [0.1, 0.2]);
+    delete short[column];
+    assert.throws(() => mergeRollouts([short]), new RegExp(`no "${column}" column`),
+      `a pack with no ${column} was priced`);
+  }
+  const ragged = pack("left", "left", [0.1, 0.2]);
+  ragged.stall = new Float64Array(5);
+  assert.throws(() => mergeRollouts([ragged]), /"stall" column is 5 long over 2 asks/);
+  // And a whole pack still prices, so the refusal is not simply refusing everything.
+  assert.equal(mergeRollouts([pack("left", "left", [0.1, 0.2])]).count, 2);
 });
 
 /**

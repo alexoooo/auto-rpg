@@ -1,6 +1,15 @@
 # Session 06 -- reward shaping: pay the closing metre, charge the stall and the retreat
 
-**Status (2026-09-09): planned. Needs 01, 04.**
+**Status (2026-09-10): landed. The four rows, the flags, the tests, the manifest and the ratings
+are in; the bar was not cleared by any arm and has not been moved.** Five arms ran from the
+shipped league's `main` at 175 minutes of wall clock, reaching 28 or 29 of the 60 iterations asked
+for. On random viable pairs at `main` the best margin movement is arm b's d +0.091 against a bar of
+0.2, and the best behaviour movement is arm d's 0.98 of the control's `nearRangeStallSeconds` plus
+`retreatOutsideReachSeconds` against a bar of 0.5; all four non-control arms clear the third clause
+and none clears the first two. The finding the run did produce is in `../measurements.md`: the
+retreat outside reach is 0.2 s a bout in a mirror and 3.2 to 4.7 s on random pairs, so mirrored
+self-play almost never generates the quantity the owner's eye complained about, and a charge on it
+comes to 0.007 of the return. `GOLEM_REWARD` still ships all four rows at zero.
 
 ## Outcome
 

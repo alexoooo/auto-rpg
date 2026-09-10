@@ -7,6 +7,7 @@
 //     [--exploiters 2] [--exploiter-every 1] [--share-self 1] [--share-pool 2] [--share-exploiter 1]
 //     [--anchor golem-driver] [--share-anchor 1]
 //     [--reward-win 0.5] [--reward-clinch 0.004] [--reward-idle 0.004] [--reward-tick 0]
+//     [--reward-closing 0] [--reward-stall 0] [--reward-outside 0] [--reward-swing 0]
 //     [--reset-gain 0.02] [--reset-patience 3] [--dir tournaments/league] [--resume]
 //     [--from tournaments/some-run-checkpoint.json]
 //     [--matrix] [--matrix-bouts 32] [--matrix-lag 1] [--matrix-cap 10] [--probe-bouts 4]
@@ -41,7 +42,7 @@
 // that iteration* -- from the run's own log rather than from whatever is retyped on the command
 // line. It writes nothing back into the league, so it is safe beside a running arm.
 //
-// **The reward table became four flags in Session 04 of the learn set, and the argument against
+// **The reward table became flags in Session 04 of the learn set, and the argument against
 // that is still on the record below.** It was refused here because a league's product is a
 // checkpoint somebody ships, and a run paid under a table that is not `GOLEM_REWARD` cannot be
 // shipped without lying in the module header. What changed is that Session 06 sweeps the table and
@@ -841,7 +842,7 @@ if (isMain) {
     // and a worker pool does not go through `JSON.stringify`.
     shards,
   };
-  // The reward table, four flags spelled exactly as `scripts/train-ppo.mjs` spells them so that
+  // The reward table, eight flags spelled exactly as `scripts/train-ppo.mjs` spells them so that
   // one sweep manifest reads across both scripts. The old refusal's argument is kept and moved:
   // what may not happen is *shipping* a run paid under a table that is not `GOLEM_REWARD`, because
   // `renderPolicyModule` writes the shipped table's name into the module and a header saying
@@ -852,6 +853,13 @@ if (isMain) {
     clinch: Number(flag("reward-clinch", GOLEM_REWARD.clinch)),
     idle: Number(flag("reward-idle", GOLEM_REWARD.idle)),
     tick: Number(flag("reward-tick", GOLEM_REWARD.tick)),
+    // Session 06 of the learn set's four: the closing metre paid, and the stall, the retreat and
+    // the swing at the air charged. Every one of them is a coefficient on a quantity the league
+    // table already prints, which is what makes a table auditable against the row it moved.
+    closing: Number(flag("reward-closing", GOLEM_REWARD.closing)),
+    stall: Number(flag("reward-stall", GOLEM_REWARD.stall)),
+    outside: Number(flag("reward-outside", GOLEM_REWARD.outside)),
+    swing: Number(flag("reward-swing", GOLEM_REWARD.swing)),
   });
   const shippedReward = REWARD_KEYS.every((key) => reward[key] === GOLEM_REWARD[key]);
   if (write !== null && !shippedReward) {
@@ -1143,6 +1151,10 @@ if (isMain) {
         shares: Object.fromEntries(opponents.map((o) => [o.name, round5(shareOf(leaguePairs(opponents), o.name))])),
         ret: round5(meanOf(turn.summary.returns)), bare: round5(turn.summary.bare),
         length: round5(meanOf(turn.summary.lengths)), penaltyShare: round5(turn.summary.share),
+        // The share split by row, beside the total rather than instead of it: Session 02's curve
+        // page plots `penaltyShare` as a number off this very row.
+        penaltyRows: Object.fromEntries(
+          Object.entries(turn.summary.rows).map(([row, x]) => [row, round5(x)])),
         kl: round5(turn.fit.kl), clipFraction: round5(turn.fit.clipFraction),
         entropy: round5(turn.fit.entropy), explained: round5(turn.fit.explainedAfter),
         advantageSd: round5(turn.fit.advantageSd), updates: turn.fit.updates,

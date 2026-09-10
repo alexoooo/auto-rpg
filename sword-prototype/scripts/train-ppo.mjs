@@ -8,6 +8,7 @@
 //        [--final-bouts 4x eval] [--value-hidden 64,64] [--opponent golem-driver]
 //        [--terminals maul,mace|all]   -- absent is the viable set; `all` is every build
 //        [--reward-win 0.5] [--reward-clinch 0.004] [--reward-idle 0.004] [--reward-tick 0]
+//        [--reward-closing 0] [--reward-stall 0] [--reward-outside 0] [--reward-swing 0]
 //        [--out src/golem/policy-weights.ts] [--log tournaments/ppo-....jsonl] [--resume f.json]
 //        [--from other-checkpoint.json]  -- another run's weights, a fresh log [--label arm-1]
 //
@@ -72,7 +73,9 @@
 // fraction of samples whose ratio was clipped, the entropy, and each `logSigma`. A KL that runs
 // away, an entropy that collapses, or a penalty that came to dominate the return is a run to stop
 // -- the last of those is `reward.ts`'s own instruction and this is where it is checked. The
-// penalty share counts every *charge* in the table, the clock included, and never `win`.
+// penalty share counts every shaping row in the table, the clock included, and never `win`; since
+// Session 06 of the learn set the row also carries `penaltyRows`, that same share split by row,
+// because a table with four charges and a credit in it cannot be audited against one number.
 //
 // **The entropy bonus pushes the spread up by exactly its own coefficient, and 0.003 was too
 // much.** The differential entropy of a diagonal Gaussian is the sum of its `logSigma` plus a
@@ -85,9 +88,10 @@
 // default here is the historical 0.003 and is left alone so that older runs stay readable; what
 // the league runs at is 0.0003, and a run that means to sharpen should pass it.
 //
-// **The four reward coefficients are flags, and a swept table may not ship.** They can be flags
-// only because `mergeRollouts` applies the table in the main thread, over packs that carry the
-// raw `dealt`, `taken`, `seconds`, `clinch` and `idle`, so the same collected bouts pay
+// **The reward coefficients are flags, and a swept table may not ship.** Eight of them since
+// Session 06 of the learn set, which added the closing metre and the three habits the owner's eye
+// picked out. They can be flags only because `mergeRollouts` applies the table in the main thread,
+// over packs that carry every quantity in `PACK_COLUMNS` raw, so the same collected bouts pay
 // differently under a different table and no worker has to be rebuilt. `--out` refuses a fit paid
 // under anything but `GOLEM_REWARD`, because `renderPolicyModule` writes the shipped table's
 // *name* into the generated module: a module saying `reward: GOLEM_REWARD` over weights fitted to
@@ -151,8 +155,36 @@ export const PPO_LEAGUE = Object.freeze([
   "golem-driver", "golem-form", "golem-brawler", "golem-duelist", "golem-fencer",
 ]);
 
-/** The reward table's four rows, so a run can say whether the table it paid is the shipped one. */
-export const REWARD_KEYS = Object.freeze(["win", "clinch", "idle", "tick"]);
+/** The reward table's rows, so a run can say whether the table it paid is the shipped one. */
+export const REWARD_KEYS = Object.freeze([
+  "win", "clinch", "idle", "tick", "closing", "stall", "outside", "swing",
+]);
+
+/**
+ * The rows that are *shaping*, in the order a table lists them, which is what a share is taken of.
+ *
+ * `win` is not here and that is the whole of the distinction: it is paid on the outcome, so a
+ * share that counted it would say a run was dominated by shaping when what it was dominated by was
+ * winning. Every other row is a coefficient on a quantity a body accumulated by standing somewhere
+ * or doing something, and `src/golem/reward.ts` asks a run to report what fraction of the return
+ * they came to -- per row since Session 06 of the learn set, because a table with four charges in
+ * it cannot be audited against one number.
+ */
+export const SHAPING_ROWS = Object.freeze([
+  "clinch", "idle", "tick", "closing", "stall", "outside", "swing",
+]);
+
+/**
+ * The raw columns a pilot pack must carry, by name, before this file will price one.
+ *
+ * A pack collected by an older worker has fewer, and the failure without this check is silent and
+ * expensive: `undefined` times a coefficient is `NaN`, one `NaN` reward poisons its whole episode's
+ * advantages, and what a run reports is a fit that quietly stopped learning. Named rather than
+ * counted, so the message says which column and therefore which worker wrote the pack.
+ */
+export const PACK_COLUMNS = Object.freeze([
+  "dealt", "taken", "seconds", "clinch", "idle", "closing", "stall", "outside", "swing", "done",
+]);
 
 const round5 = (x) => Math.round(x * 1e5) / 1e5;
 const round4 = (x) => Math.round(x * 1e4) / 1e4;
@@ -168,10 +200,16 @@ const round4 = (x) => Math.round(x * 1e4) / 1e4;
  * see `advantages` for why this arena has no other kind.
  *
  * **The reward is applied here and not in the worker**, which is why a table can be swept at all:
- * a pack carries `dealt`, `taken`, `seconds`, `clinch` and `idle` raw, so the same collected
- * bouts would pay differently under a different table and the four coefficients are a flag rather
- * than a rebuild. `reward` defaults to the shipped table so every caller that does not care reads
- * as it did before.
+ * a pack carries the quantities in `PACK_COLUMNS` raw, so the same collected bouts would pay
+ * differently under a different table and the coefficients are a flag rather than a rebuild.
+ * `reward` defaults to the shipped table so every caller that does not care reads as it did before.
+ *
+ * **What each row took out is kept per row and not only in total**, which is Session 06 of the
+ * learn set's requirement of this function: a table with four charges and a credit in it is
+ * auditable against the behaviour it was meant to move only if a run can say which row did the
+ * moving. `charges` is one signed array a row, positive meaning taken out of the return, and
+ * `penalty` is their sum -- so `closing`, the one row that pays, lowers the penalty exactly as
+ * much as it raises the reward.
  */
 export function mergeRollouts(parts, reward = GOLEM_REWARD) {
   let count = 0;
@@ -184,13 +222,16 @@ export function mergeRollouts(parts, reward = GOLEM_REWARD) {
     logp: new Float64Array(count),
     reward: new Float64Array(count),
     /**
-     * What the shaping charges took out of that reward, so a run can report their share.
+     * What the shaping rows took out of that reward in total, so a run can report their share.
      *
-     * The three that are *charges* and not the outcome: clinch, idle travel and the clock. `win`
-     * is left in, because it is paid on the outcome and a share that counted it would say a run
-     * was dominated by shaping when what it was dominated by was winning.
+     * Every row of `SHAPING_ROWS` and nothing else: `win` is left in the reward, because it is paid
+     * on the outcome and a share that counted it would say a run was dominated by shaping when
+     * what it was dominated by was winning. `closing` is a credit and enters here negative, which
+     * is what makes the sum still the honest answer to "what did shaping do to this return".
      */
     penalty: new Float64Array(count),
+    /** The same number split by row, so a table can be audited against the row it was meant to move. */
+    charges: Object.fromEntries(SHAPING_ROWS.map((row) => [row, new Float64Array(count)])),
     seconds: new Float64Array(count),
     done: new Uint8Array(count),
   };
@@ -200,6 +241,16 @@ export function mergeRollouts(parts, reward = GOLEM_REWARD) {
     if (n === 0) continue;
     if (part.x.length !== n * width) {
       throw new Error(`a pack has ${part.x.length / n} columns; this build reads ${width}`);
+    }
+    for (const column of PACK_COLUMNS) {
+      const held = part[column];
+      if (held === undefined || held === null) {
+        throw new Error(`a pack carries no "${column}" column; this build prices `
+          + `${PACK_COLUMNS.join(", ")}, and a pack written by an older worker cannot be re-priced`);
+      }
+      if (held.length !== n) {
+        throw new Error(`a pack's "${column}" column is ${held.length} long over ${n} asks`);
+      }
     }
     out.x.set(part.x, at * width);
     out.a.set(part.a, at * ACTION_WIDTH);
@@ -213,11 +264,28 @@ export function mergeRollouts(parts, reward = GOLEM_REWARD) {
       const done = part.done[i] === 1;
       const w = {
         dealt: part.dealt[i], taken: part.taken[i], seconds: part.seconds[i],
-        clinchSeconds: part.clinch[i], idleMetres: part.idle[i], done, outcome,
+        clinchSeconds: part.clinch[i], idleMetres: part.idle[i],
+        closingMetres: part.closing[i], stallSeconds: part.stall[i],
+        outsideSeconds: part.outside[i], emptyStrokes: part.swing[i],
+        done, outcome,
       };
       out.reward[at + i] = stepReward(w, reward);
-      const unshaped = stepReward({ ...w, clinchSeconds: 0, idleMetres: 0, seconds: 0 }, reward);
-      out.penalty[at + i] = unshaped - out.reward[at + i];
+      // Each row's own contribution, signed so that positive is taken out of the return. Written
+      // out a row at a time rather than by differencing `stepReward` against a window with the
+      // quantities zeroed, which is how this read before there were seven of them: that spelling
+      // needed a list of field names kept in step with `RewardWindow` by hand, and a row added to
+      // one and forgotten in the other would have been counted in the reward and not in the share.
+      const charge = out.charges;
+      charge.clinch[at + i] = reward.clinch * part.clinch[i];
+      charge.idle[at + i] = reward.idle * part.idle[i];
+      charge.tick[at + i] = reward.tick * part.seconds[i];
+      charge.closing[at + i] = -reward.closing * part.closing[i];
+      charge.stall[at + i] = reward.stall * part.stall[i];
+      charge.outside[at + i] = reward.outside * part.outside[i];
+      charge.swing[at + i] = reward.swing * part.swing[i];
+      let total = 0;
+      for (const row of SHAPING_ROWS) total += charge[row][at + i];
+      out.penalty[at + i] = total;
     }
     at += n;
   }
@@ -1093,23 +1161,32 @@ export async function collectRollouts({
 /**
  * The undiscounted return of every episode, the asks it took, and what the shaping cost it.
  *
- * The *share* is the number `reward.ts` asks a run to report: the two penalties over the size of
+ * The *share* is the number `reward.ts` asks a run to report: the shaping rows over the size of
  * everything paid, where size is taken as an absolute value because the bar term is signed and a
  * ratio of two signed sums is not a share of anything. A run where that share is large is a run
  * whose policy was paid mostly for standing somewhere rather than for fighting, and the module's
  * instruction for it is to throw the run away.
+ *
+ * **`rows` is that share split by row, and it is what a reward arm is actually read on.** Session
+ * 06 of the learn set gave the table four more coefficients, and one number over all of them
+ * cannot say whether an arm's share came from the row the arm was about. Every entry is taken over
+ * the same denominator as `share`, so the rows sum to it exactly -- including `closing`, whose
+ * entry is negative because it pays. A rollout collected before those columns existed reports them
+ * as zero rather than as absent, which is what they were.
  */
 export function episodeReturns(rollout) {
   const returns = [];
   const lengths = [];
   const charges = [];
   const bares = [];
+  const perRow = Object.fromEntries(SHAPING_ROWS.map((row) => [row, 0]));
   let sum = 0;
   let charge = 0;
   let count = 0;
   for (let i = 0; i < rollout.count; i += 1) {
     sum += rollout.reward[i];
     charge += rollout.penalty?.[i] ?? 0;
+    for (const row of SHAPING_ROWS) perRow[row] += rollout.charges?.[row]?.[i] ?? 0;
     count += 1;
     if (rollout.done[i] === 1) {
       returns.push(sum);
@@ -1121,9 +1198,12 @@ export function episodeReturns(rollout) {
       count = 0;
     }
   }
+  const episodes = Math.max(1, charges.length);
   const penalty = charges.length === 0 ? 0 : charges.reduce((a, b) => a + b, 0) / charges.length;
   const bare = bares.length === 0 ? 0 : bares.reduce((a, b) => a + Math.abs(b), 0) / bares.length;
-  return { returns, lengths, penalty, bare, share: penalty + bare === 0 ? 0 : penalty / (penalty + bare) };
+  const scale = penalty + bare === 0 ? 0 : 1 / (penalty + bare);
+  const rows = Object.fromEntries(SHAPING_ROWS.map((row) => [row, (perRow[row] / episodes) * scale]));
+  return { returns, lengths, penalty, bare, rows, share: penalty * scale };
 }
 
 // ------------------------------------------------------------------------------ the evaluation
@@ -1178,7 +1258,47 @@ export async function ratePolicy({
       bar: meanOf(b), barSem: semOf(b), d: cohensD(b),
     };
   }
-  return { per, names, results, points, bar, differences };
+  return { per, names, results, points, bar, differences, behaviour: behaviourColumns(rows, names) };
+}
+
+/**
+ * What each contender *did* over the same bouts the margin was read from, a bout.
+ *
+ * Session 06 of the learn set needs this beside the bar margin and cannot take it from a second
+ * run: its bar has two halves -- an arm must beat the control on the margin *and* halve its stall
+ * and its retreat -- and two halves read off two sets of bouts are two instruments. So these come
+ * off the very rows `columnsOf` builds the paired columns from, indexed the same way, and a
+ * contender that is absent from its own block fails there rather than reading as a zero here.
+ *
+ * `stall` and `outside` are the tournament row's own `nearRangeStallSeconds` and
+ * `retreatOutsideReachSeconds`, which are `EngagementTracker`'s and are the same numbers the
+ * reward's `stall` and `outside` rows are charged from. `decided` is the fraction of bouts that
+ * ended in a verdict, which is the number that says whether a margin is a fight or chip damage.
+ * `emptyStrokes` is absent on a row whose mind has no fourth executor to publish one, and reads
+ * as zero here rather than as absent, because a mean over a mixed block would be a mean over two
+ * populations.
+ */
+export function behaviourColumns(rows, names) {
+  const per = rows.length / names.length;
+  if (!Number.isInteger(per)) throw new Error(`${rows.length} rows do not divide among ${names.length} contenders`);
+  const out = {};
+  for (let k = 0; k < names.length; k += 1) {
+    const name = names[k];
+    const totals = { stall: 0, outside: 0, emptyStrokes: 0, seconds: 0, decided: 0 };
+    for (let i = 0; i < per; i += 1) {
+      const row = rows[k * per + i];
+      const me = row.left.policy === name ? "left" : "right";
+      if (row[me].policy !== name) throw new Error(`row ${i} of the ${name} block names neither side`);
+      totals.stall += row[me].nearRangeStallSeconds ?? 0;
+      totals.outside += row[me].retreatOutsideReachSeconds ?? 0;
+      totals.emptyStrokes += row[me].emptyStrokes ?? 0;
+      totals.seconds += row.seconds;
+      if (row.winner !== null) totals.decided += 1;
+    }
+    out[name] = { bouts: per, ...Object.fromEntries(
+      Object.entries(totals).map(([column, total]) => [column, per === 0 ? 0 : total / per])) };
+  }
+  return out;
 }
 
 /** Cohen's d of a paired column: its mean over its own standard deviation. */
@@ -1308,6 +1428,14 @@ if (isMain) {
     clinch: Number(flag("reward-clinch", GOLEM_REWARD.clinch)),
     idle: Number(flag("reward-idle", GOLEM_REWARD.idle)),
     tick: Number(flag("reward-tick", GOLEM_REWARD.tick)),
+    // Session 06 of the learn set's four, spelled with the same prefix as the four above them
+    // rather than bare, because one sweep manifest's `common` block has to read across this script
+    // and `scripts/league.mjs` and a flag that meant one thing here and another there would be a
+    // manifest nobody could check by eye.
+    closing: Number(flag("reward-closing", GOLEM_REWARD.closing)),
+    stall: Number(flag("reward-stall", GOLEM_REWARD.stall)),
+    outside: Number(flag("reward-outside", GOLEM_REWARD.outside)),
+    swing: Number(flag("reward-swing", GOLEM_REWARD.swing)),
   });
   const shippedReward = REWARD_KEYS.every((k) => reward[k] === GOLEM_REWARD[k]);
   const sigmaFloor = Number(flag("sigma-floor", -3));
@@ -1469,7 +1597,7 @@ if (isMain) {
     });
     const collected = (Date.now() - started) / 1000;
     if (rollout.count === 0) throw new Error("an iteration collected no asks at all");
-    const { returns, lengths, share, penalty, bare } = episodeReturns(rollout);
+    const { returns, lengths, share, rows: shareRows, penalty, bare } = episodeReturns(rollout);
     const fitStarted = Date.now();
     const fit = ppoFit(rollout, {
       weights, logSigma, valueWeights, valueLayout, norm, seed: (seed ^ iteration * 31) >>> 0,
@@ -1488,6 +1616,11 @@ if (isMain) {
       episodes: returns.length, decided: round4(rollout.decided), margin: round4(rollout.margin),
       ret: round5(meanOf(returns)), retSem: round5(semOf(returns)),
       length: round4(meanOf(lengths)), penaltyShare: round4(share),
+      // The same share split by row. It rides beside `penaltyShare` rather than replacing it,
+      // which is a correction to Session 06's plan and not a shortcut: Session 02's curve page
+      // reads `penaltyShare` off a row as a number and plots it, so turning that field into an
+      // object would have made every new run's curve blank on a page nothing would have failed.
+      penaltyRows: Object.fromEntries(Object.entries(shareRows).map(([row, x]) => [row, round4(x)])),
       penalty: round5(penalty), bare: round5(bare),
       kl: round5(fit.kl), clipFraction: round4(fit.clipFraction), entropy: round4(fit.entropy),
       valueLoss: round5(fit.valueLoss), explained: round4(fit.explainedAfter),

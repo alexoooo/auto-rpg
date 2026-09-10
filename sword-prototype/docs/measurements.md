@@ -19489,3 +19489,151 @@ could drift further; the 1e-9 bar has five orders of magnitude of room in it and
 watching is that the gap grows with the number of steps compounded, not with K. And all of it is one
 host: a machine with fewer than 32 threads has a different knee, and the flag exists so that the
 number is said rather than assumed.
+
+## Session 06 of the learn set — 2026-09-10: four rows that charge for how a bout is fought, five arms, and a behaviour the training pool almost never produces
+
+The owner watched the shipped mind and named two things: the golems stand just outside each other's
+reach, or they hug. `RewardTable` charged for neither. This session gave it four new rows —
+`closing` (a credit, per metre of `radialClosingMetres`), `stall` (per second of
+`nearRangeStallSeconds`), `outside` (per second of `retreatOutsideReachSeconds`) and `swing` (per
+stroke that finished and landed nothing) — all shipped at zero, and ran five arms that differ in
+nothing but the table. **No arm cleared the bar.** The bar stands where it was written.
+
+### What actually ran, exactly
+
+`docs/sweeps/learn-06-reward.json` through `scripts/sweep.mjs`, seed 20260915, every arm starting
+from the shipped league's `main` written out as a checkpoint, 4 collector workers and 2 fit shards
+an arm out of 32 threads, all five arms at once on an idle 16C/32T desktop. Common flags: 128 bouts
+an iteration, `--cap 60`, two exploiters refit every second iteration, snapshots every 8,
+`--entropy 0.0003`, `--emphasise maul,mace --emphasis 3`, `--anchor golem-driver --share-anchor 1`,
+`--evaluate 0`, the viable pool at 40 random draws.
+
+**The plan asked for 60 iterations and the arms got 28 or 29.** A wall-clock budget of 175 minutes
+was set so that the rating could fit in the same session; iterations alternate about 260 s (no
+exploiter fit) with about 500-600 s (exploiter iterations), a mean of 362 s, so 175 minutes bought
+29 iterations for arm a and 28 for b, c, d and e. Every arm checkpoints every iteration, so what is
+rated below is where each arm actually got to, and no arm was dropped to buy iterations for the
+others. Snapshots exist at 8, 16 and 24, and `main` is the live weights.
+
+The ratings are `scripts/rate-snapshots.mjs` at 60 bouts an opponent — 300 a contender — on four
+points an arm and on **both** arrangements: mirrored over the 13 viable mirror builds, and random
+viable pairs over 52. The stall, retreat, empty-stroke and decided columns are read off the very
+bouts the margin is read from, which is what `behaviourColumns` in `scripts/train-ppo.mjs` exists
+for; a margin bar and a behaviour bar taken from two runs would be two instruments.
+
+### The bar, per arm
+
+An arm clears it by beating arm a by **d 0.2** on the paired bar margin against `golem-driver` on
+random viable pairs at its final snapshot, **and** halving arm a's `nearRangeStallSeconds` plus
+`retreatOutsideReachSeconds` a bout, **and** not losing to arm a mirrored by more than one standard
+error. All at `main`, on random viable pairs except the last column.
+
+| arm | table | d vs driver | Δd vs a | stall + outside | of a | mirrored vs a, paired | clears |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| a | shipped | +0.074 | — | 3.91 + 3.52 = **7.43 s** | 1.00 | — | control |
+| b | `tick` 0.004 | +0.166 | **+0.091** | 3.83 + 3.46 = 7.29 s | 0.98 | +0.0420 ± 0.0252 | no |
+| c | `closing` 0.02 | +0.074 | +0.000 | 4.36 + 3.99 = 8.36 s | 1.12 | −0.0055 ± 0.0238 | no |
+| d | `stall` `outside` 0.004 | +0.036 | −0.038 | 4.04 + 3.23 = **7.27 s** | 0.98 | −0.0056 ± 0.0245 | no |
+| e | c + d | +0.127 | +0.053 | 4.02 + 4.71 = 8.73 s | 1.17 | −0.0106 ± 0.0248 | no |
+
+**Nothing clears the first clause and nothing clears the second.** The best margin movement is arm
+b's Δd +0.091, less than half the bar, and the best behaviour movement is arm d's 0.98 of the
+control where the bar is 0.50. The third clause is the only one anything clears, and all four arms
+clear it: none of them lost to the control mirrored, which says the four rows are safe to carry and
+not that any of them is worth switching on. An arm that clears the margin and not the behaviour
+would have been the record's league again; this session did not even get that far.
+
+The mirrored column is genuinely paired: all five arms were rated on the same 13 builds under the
+same seed and the same 300 bouts, so the fit's per-bout bar column is index-aligned across arms and
+the difference is taken bout by bout. Arm b's t is 1.66 on 300 paired bouts.
+
+### The stall and the retreat, on both pools, against the reference
+
+This is the table the owner's eye asked for. Seconds a bout at `main`, off the same bouts as the
+margins above.
+
+| | a | b | c | d | e | `golem-driver` | `uniform` |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| random pairs, near-range stall | 3.91 | 3.83 | 4.36 | 4.04 | 4.02 | **5.35** | 2.90 |
+| random pairs, retreat outside reach | 3.52 | 3.46 | 3.99 | **3.23** | 4.71 | **1.28** | 1.30 |
+| random pairs, empty strokes | 6.41 | 6.82 | 7.62 | 6.62 | 7.66 | 0.87 | 0.18 |
+| random pairs, bout seconds | 49.0 | 48.4 | 47.7 | 47.7 | 48.9 | — | — |
+| random pairs, decided | 34 % | 38 % | 40 % | 39 % | 36 % | 39 % | 41 % |
+| mirrored, near-range stall | **1.80** | 2.59 | 2.98 | 1.89 | 2.31 | 2.61 | — |
+| mirrored, retreat outside reach | 0.23 | 0.21 | 0.20 | 0.21 | 0.21 | 0.17 | — |
+| mirrored, empty strokes | 1.11 | 1.28 | 1.31 | 1.43 | 1.40 | 0.82 | — |
+| mirrored, decided | 74 % | 71 % | 68 % | 68 % | 71 % | — | — |
+
+**Two rows in that table are the session's actual finding, and neither is the bar.**
+
+The first is that on random pairs a fit *stalls less than the hand-coded reference*, 3.9 s against
+`golem-driver`'s 5.35, and *retreats outside reach nearly three times as much*, 3.5 s against 1.28.
+The two behaviours the owner named as one complaint are not one behaviour: the hugging half is
+already better than the reference and the standing-off half is the whole of the gap. A charge split
+evenly between them, which is what arm d is, spends most of its coefficient on the half that was
+not broken.
+
+The second is the mirrored retreat row: **0.20 to 0.23 seconds a bout, against 3.2 to 4.7 on random
+pairs.** The training pool is mirrored self-play. Two identical bodies have identical reach, so
+"outside their reach and backing away" is a state a mirror almost cannot enter and a pair of
+different bodies enters constantly. At 0.004 a second, arm d's `outside` row came to **0.007 of the
+return** — the charge was real, correctly wired, and priced on a quantity the rollouts practically
+never generated. That is why arm d moved the retreat by 8 % rather than halving it, and it is not a
+coefficient problem: multiplying `outside` by ten multiplies 0.007 by ten and still charges for a
+behaviour the fit is never in a position to perform while training.
+
+### The penalty share per row
+
+Mean over each arm's iterations, from the `penaltyRows` object every iteration row now prints. A
+negative row is a credit.
+
+| arm | share | `clinch` | `idle` | `tick` | `closing` | `stall` | `outside` | `swing` |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| a | 0.028 | 0.014 | 0.013 | 0 | 0 | 0 | 0 | 0 |
+| b | 0.253 | 0.010 | 0.009 | **0.235** | 0 | 0 | 0 | 0 |
+| c | −0.243 | 0.018 | 0.019 | 0 | **−0.279** | 0 | 0 | 0 |
+| d | 0.103 | 0.015 | 0.013 | 0 | 0 | **0.068** | 0.007 | 0 |
+| e | −0.123 | 0.016 | 0.017 | 0 | **−0.257** | 0.091 | 0.009 | 0 |
+
+`closing` at 0.02 a metre is the largest single row anything in this tree has ever run: it pays back
+between a quarter and two fifths of the return, more than the whole margin the fit is trying to win,
+and it moved the bar margin by exactly nothing (arm c, Δd +0.000). Arm e, which is c and d together,
+is the arm with the *worst* retreat number in the table. Paying for the closing metre buys approach
+and the retreat that has to precede the next approach; the credit is on a quantity that can be
+manufactured by oscillating, and two of the five arms went and manufactured it.
+
+Arm b is the style set's owed causal test — `tick` above zero, run against the shipped table and
+nothing else different — and the answer is **a real but sub-bar margin gain and no behaviour
+change**: Δd +0.091 on random pairs, +0.042 ± 0.025 mirrored against the control, stall and retreat
+within 2 % of it. The clock buys margin by shortening nothing measurable.
+
+`swing` is implemented, tested, priced and **unmeasured**: no arm in this manifest set it. Its
+quantity is real — 6.4 to 7.7 finished-and-empty strokes a bout on random pairs against
+`golem-driver`'s 0.87 — and it is the largest untouched behavioural gap the ratings show.
+
+### One thing the arms agree on, which is worth more than the bar
+
+Every arm's iteration 1 has the same `margin`, −0.03384, to five places. The rollouts at iteration 1
+are collected from the same starting weights under the same seed, and the reward table is applied in
+the main thread by `mergeRollouts` afterwards; so five different tables over one identical rollout
+is exactly what the design claims and this is the run that shows it. The `penaltyShare` differs at
+that same iteration — 0.026, 0.243, −0.236, 0.086, −0.140 — which is the same five tables pricing
+the same quantities. Any of these arms could be re-priced under any other arm's table without
+collecting a bout.
+
+### What this entry does not say
+
+It does not say the four rows are worthless. It says that at these five coefficients, from these
+starting weights, over 28 iterations, none of them cleared a two-sided bar; 28 is under half the 60
+the plan asked for, and a shaping term that needs a fit to reorganise around it is exactly the kind
+of thing a short arm can miss. It says nothing about a run from scratch — every arm here starts from
+a mind that has already spent 93 iterations learning to do the thing the new rows charge for, and
+whether the table transfers to a cold start is Session 08's question.
+
+It does not settle a coefficient. One value each was run, chosen by argument; the `outside` finding
+above says a sweep over `outside` alone would be a wasted night on this pool, but says nothing about
+`stall` or `swing`, whose quantities are large in the mirror.
+
+And it does not move the shipped table. `GOLEM_REWARD` still carries `closing`, `stall`, `outside`
+and `swing` at zero, `--out` still refuses a fit paid under any other table, and no arm here earned
+the right to change that.

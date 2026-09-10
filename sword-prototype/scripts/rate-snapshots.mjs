@@ -3,7 +3,7 @@
 //
 //   node scripts/rate-snapshots.mjs --dir tournaments/league-anchored [--bouts 200] [--workers 28]
 //                                   [--cap 60] [--random 40] [--only 8,16,24] [--out curve.jsonl]
-//                                   [--terminals maul,mace|all]
+//                                   [--terminals maul,mace|all] [--mirror 1|0]
 //
 // A league's own `--evaluate` is deliberately coarse: a rating costs bouts the fit could have had,
 // so a night at `--evaluate 25` leaves two or three points and no curve. The pool files hold the
@@ -35,6 +35,20 @@
 // `--terminals all` is how the paragraph above's fifty-two-build pool is asked for. The paragraph
 // stands as the reason; what changed is which way round the default sits, because a flag that has
 // to be remembered on every run is a rule nothing enforces, and the owner's brief made it a rule.
+//
+// **`--mirror 0` is the other pool the learn set reads, and it arrived with Session 06.** Every
+// row this script wrote until then was a mirrored one -- one build in both corners -- because that
+// is what the league's own `--evaluate` does and a curve has to sit beside the run that made it.
+// The set's fourth frozen choice is that the pool that *matters* is random viable pairs: it is the
+// pool the screen draws and the one the shipped mind comes thirteenth on, where mirrored it comes
+// fifth. Both are wanted and neither replaces the other, so the arrangement is a flag and rides in
+// every row beside the pool, for the same reason the pool does: two ratings taken under two
+// arrangements are two instruments however alike the rows look.
+//
+// **The behaviour columns ride the same rows, and that is the point of them.** Session 06's bar is
+// two-sided -- an arm has to beat the control on the bar margin *and* halve its near-range stall
+// and its retreat outside reach -- and two halves read off two sets of bouts are two instruments
+// again. `behaviour` is `ratePolicy`'s own summary of the very bouts the margin was read from.
 //
 // **A rating is only comparable to another rating on the same pool**, so a row carries the pool it
 // was measured on -- the count of builds and the classes kept -- rather than leaving two different
@@ -94,12 +108,15 @@ export { parseTerminals };
 
 export async function rateSnapshots({
   dir, bouts = 200, workers = 28, cap = 60, random = 40, only = null, terminals = VIABLE_TERMINALS,
-  onRow = null,
+  mirror = true, onRow = null,
 }) {
   const state = loadLeague(dir);
-  // Mirrored bouts below, so a mirrored pool: `viableMirror` and not merely the class table, which
-  // is what keeps a snapshot's rating on the builds its rollouts were collected on.
-  const pool = poolFor({ seed: (state.seed ^ 0xc0f1c0f1) >>> 0, random, terminals, mirror: true });
+  // The pool is drawn at the arrangement it will be played at: `viableMirror` for a mirrored
+  // rating and `viablePair` for random pairs, which is what keeps a snapshot's rating on bodies
+  // that can finish the fight it is being scored on. Mirrored is what keeps a rating on the builds
+  // its rollouts were collected on; random pairs is the pool the set's fourth frozen choice calls
+  // the one that matters.
+  const pool = poolFor({ seed: (state.seed ^ 0xc0f1c0f1) >>> 0, random, terminals, mirror });
   const per = boutsPerOpponent(bouts);
   const chosen = chosenSnapshots(snapshotIterations(dir), only);
   const rows = [];
@@ -109,7 +126,7 @@ export async function rateSnapshots({
       : roleFromJson(JSON.parse(readFileSync(poolPath(dir, iteration), "utf8")));
     const rated = await ratePolicy({
       weights: role.weights, logSigma: role.logSigma, norm: role.norm,
-      pool, seed: (state.seed ^ 0xc0f1c0f1) >>> 0, bouts: per, workers, cap, mirror: true, terminals,
+      pool, seed: (state.seed ^ 0xc0f1c0f1) >>> 0, bouts: per, workers, cap, mirror, terminals,
     });
     const u = rated.differences.uniform;
     const d = rated.differences.driver;
@@ -120,8 +137,13 @@ export async function rateSnapshots({
       pool: { builds: pool.length, terminals: [...terminals] },
       // ^ the classes as asked for, so a row written under the viable default and a row written
       // under `--terminals all` are two instruments a reader can tell apart six months later.
+      // `mirror` is the same claim about the other axis: one build in both corners, or two.
+      mirror,
       uniform: { bar: u.bar, sem: u.barSem, d: u.d },
       driver: { bar: d.bar, sem: d.barSem, d: d.d },
+      // What the fit and the two baselines *did* over exactly these bouts, so a bar on the margin
+      // and a bar on the behaviour are read off one set of bouts rather than two.
+      behaviour: rated.behaviour,
       fit: rated.results.fit,
     };
     rows.push(row);
@@ -137,14 +159,23 @@ const signed = (x, places) => `${x >= 0 ? "+" : "−"}${Math.abs(x).toFixed(plac
  *
  * The record at the end is the decisiveness of the rating itself: on the unfiltered pool most of
  * these bouts are draws, and a margin built from draws is a margin built from chip damage.
+ *
+ * The stall and retreat seconds are appended only when the row carries a `behaviour` block, which
+ * is what lets this print a row written before Session 06 of the learn set as that session found
+ * it. A row that has one gets the two numbers the owner's eye asked about, because a rating whose
+ * margin improved while its fights got longer is the record's league again and the line should say
+ * so where somebody is watching it scroll past.
  */
 export function formatRow(row) {
   const { uniform: u, driver: d, fit } = row;
   const played = fit.wins + fit.draws + fit.losses;
   const decided = played === 0 ? 0 : (fit.wins + fit.losses) / played;
+  const mine = row.behaviour?.fit ?? null;
   return `  ${String(row.iteration).padStart(5)}: uniform ${signed(u.bar, 4)} ±${(1.96 * u.sem).toFixed(4)} `
     + `d ${signed(u.d, 3)}  |  driver ${signed(d.bar, 4)} ±${(1.96 * d.sem).toFixed(4)} d ${signed(d.d, 3)}`
-    + `  |  w/d/l ${fit.wins}/${fit.draws}/${fit.losses} decided ${(decided * 100).toFixed(0)}%`;
+    + `  |  w/d/l ${fit.wins}/${fit.draws}/${fit.losses} decided ${(decided * 100).toFixed(0)}%`
+    + (mine === null ? ""
+      : `  |  stall ${mine.stall.toFixed(2)} s outside ${mine.outside.toFixed(2)} s a bout`);
 }
 
 const isMain = process.argv[1] !== undefined
@@ -161,19 +192,20 @@ if (isMain) {
   const only = flag("only", null);
   const out = flag("out", null);
   const terminals = parseTerminals(flag("terminals", null));
+  const mirror = String(flag("mirror", "1")) !== "0";
   const snapshots = snapshotIterations(dir);
   const chosen = chosenSnapshots(snapshots, only);
   const per = boutsPerOpponent(bouts);
   const state = loadLeague(dir);
   const random = Number(flag("random", 40));
-  const builds = poolFor({ seed: (state.seed ^ 0xc0f1c0f1) >>> 0, random, terminals, mirror: true }).length;
+  const builds = poolFor({ seed: (state.seed ^ 0xc0f1c0f1) >>> 0, random, terminals, mirror }).length;
   const on = poolSentence(terminals);
   console.log(`${dir}: iteration ${state.iteration}, ${snapshots.length} snapshots, rating `
     + `${chosen.length + 1} at ${per} bouts an opponent (${per * PPO_LEAGUE.length} a contender) `
-    + `over ${builds} builds, ${on}`);
+    + `over ${builds} builds, ${on}, ${mirror ? "mirrored" : "on random pairs"}`);
   const { rows } = await rateSnapshots({
     dir, bouts, workers: Number(flag("workers", 28)), cap: Number(flag("cap", 60)),
-    random, only, terminals, onRow: (row) => console.log(formatRow(row)),
+    random, only, terminals, mirror, onRow: (row) => console.log(formatRow(row)),
   });
   if (out !== null) writeFileSync(resolve(out), rows.map((r) => JSON.stringify(r)).join("\n") + "\n");
 }

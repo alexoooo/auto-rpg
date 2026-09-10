@@ -1,0 +1,34 @@
+{
+  "name": "learn-06-reward",
+  "note": "Session 06 of the learn set: five arms of the shipped league configuration that differ in nothing but the reward table, to say which of the four new rows moves the mind and by how much. Arm a is the control and carries the shipped table; b is the clock alone, which is the style set's owed causal run for tick above zero; c pays the closing metre, which is the owner's own ask; d charges the near-range stall and the retreat outside reach, which are the two habits the owner's eye picked out and the record left unpriced; e is c and d together. Every other flag is common, which is the set's third frozen choice written down: the diff between two arms is the whole of the difference between them. No start is named here because tournaments/ is gitignored and a committed manifest that cannot run on a fresh clone is not one -- pass --from the shipped league's main, written out as a checkpoint, and every arm begins where the shipped mind did. The pool is the viable one: --terminals all is the only way back to the whole fifty-two, and no arm asks for it.",
+  "script": "league",
+  "seed": 20260915,
+  "pool": {
+    "random": 40
+  },
+  "rate": {
+    "bouts": 300
+  },
+  "common": [
+    "--iterations", "60",
+    "--bouts", "128",
+    "--exploiter-bouts", "64",
+    "--cap", "60",
+    "--exploiters", "2",
+    "--exploiter-every", "2",
+    "--pool-every", "8",
+    "--pool-cap", "8",
+    "--entropy", "0.0003",
+    "--emphasise", "maul,mace",
+    "--emphasis", "3",
+    "--anchor", "golem-driver",
+    "--share-anchor", "1"
+  ],
+  "arms": [
+    { "name": "a", "flags": [] },
+    { "name": "b", "flags": ["--reward-tick", "0.004"] },
+    { "name": "c", "flags": ["--reward-closing", "0.02"] },
+    { "name": "d", "flags": ["--reward-stall", "0.004", "--reward-outside", "0.004"] },
+    { "name": "e", "flags": ["--reward-closing", "0.02", "--reward-stall", "0.004", "--reward-outside", "0.004"] }
+  ]
+}
