@@ -88,6 +88,8 @@ import { contenderFor, loadLeague } from "./league.mjs";
 import { columnsOf, meanOf, semOf } from "./train-learner.mjs";
 import { evaluate } from "./tune.mjs";
 import { headSpecOf } from "../src/golem/policy.ts";
+import { PILOT_FEATURE_VERSIONS_READ, pilotFeatureCount } from "../src/golem/pilot.ts";
+import { netSize } from "../src/golem/neural-net.ts";
 
 /** This runner's own version, written into the copied manifest so a reader can refuse one. */
 export const SWEEP_VERSION = 1;
@@ -456,12 +458,44 @@ export function shapeOfLog(logPath) {
   let header = null;
   try { header = JSON.parse(first); } catch { return {}; }
   if (header === null || typeof header !== "object" || header.type !== "header") return {};
+  // `features` means two different things in the two headers this function reads, and the
+  // difference is not cosmetic. `train-ppo.mjs` writes the run's own `--features`, the version of
+  // the observation its weights are shaped by. `league.mjs` writes `PILOT_FEATURES_VERSION`, which
+  // is a compatibility stamp saying which feature code the build could load -- 2, for every league
+  // ever run here, all of which observe the 71-column version 1. A reader that believed the second
+  // spelling built an 80-column mind over 71 columns of weights, and the failure surfaced as
+  // "policy weights hold 87308 numbers; the layout wants 89612" thrown inside a tournament worker,
+  // after the pool had been drawn and the bouts had started. So where a header records the layout
+  // it actually ran -- both of them do -- the layout decides, because that is the number the
+  // weights on disk are shaped by and the field name is the thing in dispute.
+  const inputs = header.layout?.inputs;
+  const stated = header.features ?? undefined;
+  const measured = inputs === undefined ? undefined
+    : PILOT_FEATURE_VERSIONS_READ.find((version) => pilotFeatureCount(version) === inputs);
   return {
-    features: header.features ?? undefined,
+    features: measured ?? stated,
+    layout: header.layout ?? undefined,
     spec: header.head === undefined && header.sigma === undefined ? undefined
       : headSpecOf(header.head ?? "gaussian", header.sigma ?? "constant"),
     tactics: header.tactics ?? null,
   };
+}
+
+/**
+ * The shape a rating is about to build, checked against the weights it is about to build it over.
+ *
+ * This is the guard the session above wanted and did not have. A contender is a plain object handed
+ * across a worker boundary, so a shape that disagrees with its weights is not caught by anything
+ * until a net is allocated in another process, and by then the message names two numbers and no
+ * arm. Here it names the arm, the file, and both counts, and it costs one multiplication.
+ */
+export function checkShape(name, contender, weights) {
+  const wanted = netSize(contender.layout);
+  if (wanted === weights.length) return contender;
+  throw new Error(`arm ${name} holds ${weights.length} policy numbers and the shape this rating `
+    + `would build over them wants ${wanted} (${JSON.stringify(contender.layout)}, feature version `
+    + `${contender.features}); the run's own header is what decides the shape, so this is a `
+    + "disagreement between that header and this reader rather than a bad checkpoint");
 }
 export async function rateArms(manifest, {
   dir, bouts, workers, cap = 60, pools = ["mirror", "random"], onRow = null,
@@ -565,12 +599,12 @@ export async function ratePaired(manifest, {
       if (!existsSync(join(paths.home, "league.json"))) continue;
       const state = loadLeague(paths.home);
       const shape = shapeOfLog(paths.log);
-      contenders[arm.name] = {
+      contenders[arm.name] = checkShape(arm.name, {
         ...contenderFor(state.main, false, shape.tactics ?? null),
         ...contenderShape({ features: shape.features, spec: shape.spec, tactics: shape.tactics }),
         pi: Array.from(state.main.weights), logSigma: Array.from(state.main.logSigma),
         normalisation: state.main.norm, sample: false,
-      };
+      }, state.main.weights);
       at[arm.name] = state.iteration;
       continue;
     }
@@ -578,12 +612,12 @@ export async function ratePaired(manifest, {
     if (!existsSync(checkpoint)) continue;
     const saved = JSON.parse(readFileSync(checkpoint, "utf8"));
     const shape = shapeOfLog(paths.log);
-    contenders[arm.name] = {
+    contenders[arm.name] = checkShape(arm.name, {
       ...contenderShape({ features: shape.features, spec: shape.spec, tactics: shape.tactics }),
       pi: saved.weights, logSigma: saved.logSigma, normalisation: saved.normalisation,
       // The greedy read, because what would ship is the mode and not a draw from around it.
       sample: false,
-    };
+    }, saved.weights);
     at[arm.name] = saved.iteration;
   }
   const names = Object.keys(contenders);
@@ -696,7 +730,7 @@ export function armSummary(rows) {
   // Keyed on the arm *and* the arrangement since Session 10 of the learn set, because an arm now
   // writes a row a pool and keying on the name alone would silently drop one of the two -- and the
   // one it dropped would be whichever the loop happened to reach first.
-  for (const row of rows) last.set(`${row.arm} ${(row.pool?.mirror ?? row.mirror) === false ? "random" : "mirror"}`, row);
+  for (const row of rows) last.set(`${row.arm}::${(row.pool?.mirror ?? row.mirror) === false ? "random" : "mirror"}`, row);
   return [...last.values()];
 }
 

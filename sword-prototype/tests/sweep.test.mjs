@@ -43,13 +43,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { tmpdir } from "node:os";
 
 import {
-  MAX_RESTARTS, RUNNER_FLAGS, SWEEP_SCRIPTS, armArgs, armPaths, flagValue, poolLine, readManifest,
-  restartRow, superviseArms, withoutFlags, workerBudget,
+  MAX_RESTARTS, RUNNER_FLAGS, SWEEP_SCRIPTS, armArgs, armPaths, checkShape, flagValue, poolLine,
+  readManifest, restartRow, shapeOfLog, superviseArms, withoutFlags, workerBudget,
 } from "../scripts/sweep.mjs";
+import { netSize } from "../src/golem/neural-net.ts";
 import { VIABLE_TERMINALS } from "../src/golem/viability.ts";
 
 const SEED = 20260915;
@@ -397,4 +399,58 @@ test("the_committed_example_manifest_is_one_this_runner_can_read", () => {
     "the three arms of a throughput measurement differ in nothing, which is the point of it");
   assert.equal(workerBudget(manifest.arms.length, 32), 10, "ten workers an arm on the development host");
   assert.equal(manifest.from, null, "a committed manifest names no file under the gitignored tournaments/");
+});
+
+// ------------------------------ Session 10 of the learn set: one field name, two meanings
+
+/**
+ * A run's shape is read off the layout it recorded, not off the `features` field, because the two
+ * headers this reader accepts do not agree about what that field means.
+ *
+ * `scripts/train-ppo.mjs` writes its own `--features` there -- the version of the observation its
+ * weights are shaped by, 1 for 71 columns and 2 for 80. `scripts/league.mjs` writes
+ * `PILOT_FEATURES_VERSION`, a compatibility stamp saying which feature code the build could load,
+ * and that has been 2 for every league in this repository including the one that fitted the shipped
+ * mind over 71 columns. Read the second as though it were the first and you build an 80-column net
+ * over 87308 numbers.
+ *
+ * The cost of not having this test is measured rather than hypothetical: the failure does not
+ * appear in the reader, it appears as "policy weights hold 87308 numbers; the layout wants 89612"
+ * raised inside a tournament worker, one process away, after the pool has been drawn and the first
+ * bouts have started. Both halves are asserted here -- that the layout wins the disagreement, and
+ * that a disagreement which survives anyway is refused by name before a worker is spawned.
+ */
+test("a_run_shape_is_read_off_the_layout_it_recorded_rather_than_a_field_two_scripts_spell_differently", () => {
+  const dir = mkdtempSync(join(tmpdir(), "sweep-shape-"));
+  const write = (name, header) => {
+    const path = join(dir, name);
+    writeFileSync(path, `${JSON.stringify({ type: "header", ...header })}\n`, "utf8");
+    return path;
+  };
+  // A league header: the stamp says 2 and the layout says 71 columns, which is feature version 1.
+  const league = write("league.jsonl", {
+    seed: 20260915, features: 2, layout: { inputs: 71, hidden: [256, 256], outputs: 12 },
+  });
+  assert.equal(shapeOfLog(league).features, 1,
+    "the layout is the number the weights on disk are shaped by, so it settles the disagreement");
+  assert.deepEqual(shapeOfLog(league).layout, { inputs: 71, hidden: [256, 256], outputs: 12 });
+  // A train-ppo header, where the field means what the reader used to assume it meant. Nothing
+  // changes for it, because there the two agree.
+  const trainer = write("trainer.jsonl", {
+    seed: 20260915, features: 2, layout: { inputs: 80, hidden: [256, 256], outputs: 12 },
+  });
+  assert.equal(shapeOfLog(trainer).features, 2);
+  // A header from before layouts were recorded still reads its stated field rather than nothing.
+  assert.equal(shapeOfLog(write("old.jsonl", { seed: 1, features: 2 })).features, 2);
+  assert.deepEqual(shapeOfLog(join(dir, "absent.jsonl")), {});
+
+  // And the guard, which is the half that has to hold when a future header invents a third
+  // spelling. It names the arm and both counts, because the message it replaces named neither.
+  const layout = { inputs: 71, hidden: [256, 256], outputs: 12 };
+  const right = new Float64Array(netSize(layout));
+  assert.equal(checkShape("a", { layout, features: 1 }, right).layout, layout);
+  assert.throws(
+    () => checkShape("a", { layout: { inputs: 80, hidden: [256, 256], outputs: 12 }, features: 2 }, right),
+    /arm a holds 87308 policy numbers and the shape this rating would build over them wants 89612/);
+  rmSync(dir, { recursive: true, force: true });
 });
