@@ -22,17 +22,33 @@ npm run asset:fetch     # one-time: the CC0 environment map, ~1.5 MB, digest-pin
 npm run dev             # http://localhost:5180, strictPort
 ```
 
-**Two pages come up on that one server**, and both are named in `vite.config.ts` because Vite's
-default input is `index.html` alone -- a second page that works in dev and is absent from `dist` is
-a config failure wearing a routing failure's clothes. `/` is the arena; `/bench.html` is the golem
-module bench, one module at a time on a fixed block.
+**Three pages come up on that one server**, and all three are named in `vite.config.ts` because
+Vite's default input is `index.html` alone -- a second page that works in dev and is absent from
+`dist` is a config failure wearing a routing failure's clothes. `/` is the arena; `/bench.html` is
+the golem module bench, one module at a time on a fixed block; `/curve.html` is the learning-curve
+page, which draws any run under `tournaments/` and several of them overlaid. *(Third page added
+2026-09-09 by Session 02 of the learn set; it was two before.)* The curve page is also the one that
+needs the dev server for more than hot reload: the same config carries a **dev-only** plugin
+serving `tournaments/` read-only under `/runs/`, and the built page's listing fetch failing is how
+it learns to offer a drop zone instead.
 
 Everything else `package.json` defines: `check`, `test`, `build`, `preview`, `measure`,
 `tournament`, `asset:build`, `asset:review`, `asset:verify`, `asset:qualify`, `asset:dimensions`,
 `texture:fetch`, `texture:verify`, `armour:fetch`, `armour:verify`, `armour:extract`. **Checked
-2026-09-06**: every `npm run` command named anywhere in this file, `README.md` or `docs/design.md`
+2026-09-11**: every `npm run` command named anywhere in this file, `README.md` or `docs/design.md`
 still exists, and no command is defined here that the manifest does not have. The forge, learning
 and playtest commands went with their code on 2026-09-04 and no document still calls one.
+
+**The learning harness is `node scripts/<name>.mjs` and not an `npm run` script**, deliberately:
+each takes a dozen flags, an `npm run` alias would need `--` in front of every one of them, and a
+half-remembered alias is how a run gets taken at the wrong pool. `train-ppo` and `league` are the
+two trainers; `sweep` runs a manifest of arms at once and rates them paired; `fit-worker` is
+`sweep`'s and the trainers' sharded-fit thread and is never run by hand; `rate-snapshots` and
+`probe-snapshots` write curve rows for `/curve.html`; `idle-probe` is the motionless-dummy
+tripwire; `viability` regenerates the two tables behind `src/golem/viability.ts`; `axis-probe` pins
+one command axis at a time and prints predicted beside measured; `tournament` is the rating
+harness everything else is read against. Each one's flags are in its own header comment, which is
+the copy that cannot drift.
 
 ## Traps that have already cost time
 
@@ -767,6 +783,71 @@ the body that taught them.
   caught it. The rule that follows is the green-test rule pointed at prose: **a sentence about a
   code path is asserted by executing the path, and until somebody does, it is a hypothesis with
   good formatting.**
+
+**The next five entries are what the learn set paid for**, 2026-09-09 to 2026-09-11. They are
+about overnight training runs, the flags that configure them and the files they leave behind,
+rather than about any mind that came out of one -- which is just as well, because nothing did.
+
+- **One field name, two meanings, in two headers one reader reads.** `features` in a
+  `scripts/train-ppo.mjs` header is the run's own observation version; `features` in a
+  `scripts/league.mjs` header is `PILOT_FEATURES_VERSION`, a build stamp that has read 2 for every
+  league in this tree **including the one that fitted the 71-column mind that ships**. A reader
+  that believed the second built an 80-column net over 87,308 numbers and died inside a tournament
+  worker with a message naming two counts and no arm, after the pool had been drawn -- so the
+  failure arrives minutes in, from a thread, about a run it cannot name. The reader takes the shape
+  off the `layout` each header also records and asserts it against the weights before a worker is
+  spawned. The general form is worth more than the instance: **when two writers put the same key in
+  the same shaped header, a reader cannot tell which one it has**, and the fix is to derive the
+  quantity from something structural that both of them write. It was found by rating the arms at
+  two bouts an opponent *while they were still running*; had it been found when the night ended,
+  the night would have been unreadable until the next day. **Smoke-test the reader against a live
+  run, early, at a bout count that costs nothing.**
+- **`uniform` aborts 99.2 % of the strokes it starts, so any column downstream of a finished stroke
+  measured over it is a measurement of the abort gate.** The null pilot draws every field of the
+  command from its own published range twelve times a second, `abort` included, and a coin-flip
+  abort resampled that often destroys essentially every stroke before it lands: 103.6 strokes
+  started and 102.8 aborted in the control cell of the axis probe. Blows a stroke, damage a stroke,
+  scoring speed, caught fraction and committed fraction are all *per finished stroke*, so over
+  `uniform` they are computed on the 0.8 % that survived a gate nobody was asking about. Two things
+  follow. A baseline taken over `uniform` is not "the surface with no mind on it", it is the
+  surface with a sampler holding the emergency brake; use `golem-driver` when the question is about
+  a stroke. And **a learner warmed up from a uniform prior over this action space almost never
+  observes a completed stroke**, which is why no manifest in the set contains a uniform warm-up.
+- **A share that must be met in whole cycles is not the share you asked for, and the error grows as
+  the bout count falls.** `collectRollouts` splits an iteration's bouts between a mirrored
+  arrangement and random viable pairs, and each side must be a whole number of opponent *cycles* --
+  because a partial cycle would put the declared opponent mix and the realised one a whole opponent
+  apart. At 128 bouts over five opponents that rounding cost two bouts and turned a requested 0.500
+  into a realised 0.538. **At 32 bouts over six opponents it turned a requested 0.500 into a
+  realised 0.667**, and a four-hundred-iteration run was configured as half a mirror and trained on
+  two thirds of one. Nothing was wrong and nothing warned: the header records what it was given and
+  every iteration row records `mirrorShare`, `mirrorBouts` and `randomBouts`, and nobody read them
+  because a twenty-iteration pilot chosen on rating per hour reads the same 0.667 for every arm.
+  **Read the realised share off an iteration row before believing the flag**, and treat any
+  per-iteration budget small enough for rounding to bite as a configuration change rather than a
+  cost saving.
+- **`keepViable` narrows a list and cannot widen one, so handing a rating the wrong pool is silent
+  and is a factor of four.** A league that passed its own *mirrorable* builds to the random-pairs
+  rating was drawing two at a time from thirteen bodies while its header said fifty-two, and the
+  rating printed normally. It was found and fixed in Session 10 of the learn set, with a
+  consequence that has to stay written down: **random-pool numbers taken before that session are
+  not comparable with numbers taken after it.** The mirrored rating is untouched and
+  `ratingSeed(seed, "mirror")` is the identity, so every mirrored number in `docs/measurements.md`
+  still reproduces. The general shape is the filter-that-only-subtracts: a function that narrows is
+  safe to call twice and unsafe to call on the wrong list, and it cannot tell you which happened.
+  Same family as `--emphasise` weighting an empty class list for a session after the viability
+  filter landed -- it refuses by name now, and says which classes the pool does contain.
+- **The dev server's run listing walks exactly two levels, and a run one directory deeper is
+  invisible to a page that is working perfectly.** The `/runs/` listing's index names top-level
+  files under `tournaments/` and files in immediate subdirectories, and nothing below that. A
+  sweep writes its arms three levels down, so a pilot's arms never appeared on `/curve.html` while the long run's
+  own directory, two levels down, appeared and ticked over live. Nothing was changed to make this
+  work and nothing is broken; it is here because the next person to put a run one directory deeper
+  will spend an hour on the page. Its neighbour in the same family: **`scripts/rate-snapshots.mjs`
+  writes its curve file whole rather than appending to it**, so a rating pass killed by a timeout
+  loses everything it had done (ninety minutes, once), and a page that only redrew on a file
+  *growing* would sit on the previous take of a curve forever. `reachMoved` in `src/curve/runs.ts`
+  tests difference and not growth for exactly that reason, and a shorter file is one of its cases.
 
 ## House rules
 

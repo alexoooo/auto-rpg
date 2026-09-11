@@ -2036,6 +2036,161 @@ turns down. It is left standing on purpose: that build is the reference body a d
 chose to improve one screen. `tests/bout.test.mjs` asserts the refusal rather than the acceptance,
 so the number is in front of whoever decides.
 
+## The curve page, and the rule that a series carries its pool
+
+Session 02 of the learn set, and the first of the three things the owner's brief asked for before
+any learning idea. `curve.html` is a third Vite page beside the arena and the bench, named in
+`vite.config.ts` for the reason the other two are: Vite's default input is `index.html` alone, and
+a page that works under `npm run dev` and is absent from `dist` is a config failure wearing a
+routing failure's clothes.
+
+**The data stays where it is.** `tournaments/` is gitignored and outside `public/`, and copying a
+run into `public/` would either commit a night's logs or make the page lie about what it is
+showing. A dev-only plugin in `vite.config.ts` serves that directory read-only under `/runs/` with
+a JSON listing; it has no `build` hook, so the built page's listing fetch fails, and *that failure
+is how the page learns it has no run server* and offers a drop zone and a file input instead. A
+curve can therefore be shown on a machine that has never had this repository on it.
+
+**Readers are DOM-free and tested; the drawing is not.** `src/curve/runs.ts` is every row parser
+and every series builder as pure functions over text, because nothing here can be wrong in a way a
+screenshot shows -- a reader that takes `clipFraction` where it meant `kl`, or that drops the last
+row of a run still being written, draws a perfectly convincing line. `src/curve/chart.ts` is inline
+SVG over the arrays those functions return and decides nothing; `src/curve/main.ts` owns the
+elements. The rule is stated in the module rather than left as a habit: a function here that needs
+an element is in the wrong file, and one there that needs to know what a column means is too. No
+chart library, because six kinds of line and a band is not a dependency, and a dependency is
+something the docs gate would have to learn about.
+
+**Every series carries its pool, and that is the load-bearing rule rather than a label.**
+`scripts/rate-snapshots.mjs` has said it in its own header since the style set: a rating is only
+comparable to another rating on the same pool. A bar margin over fifty-two draws and a bar margin
+over the fifteen bodies a mirror admits are two instruments printing the same units, so `onePool`
+refuses to draw a set whose labels disagree and names the ones that differ. The label is built out
+of what the file said -- seed, random-pair count, terminal classes, build count -- rather than out
+of what a run of that name usually means, so two labels compare equal only when the two files said
+the same things. A refusal costs a click and a false overlay costs a conclusion.
+
+**Two fidelity facts a later column has to respect.** A `train-ppo` row and a league row are not
+the same row (`retSem` and `collectSeconds` belong to one, `byOpponent`, `shares`, `pool` and
+`snapshot` to the other), and one `Iteration` type carries both with `null` where the file said
+nothing -- never a zero, because a zero draws. And an iteration is not always a number: both curve
+scripts end their file with a row whose `iteration` is the string `main`, the live weights rather
+than a snapshot, which on an arm that stopped between snapshots is the only rating of where the run
+actually got to.
+
+## `golem-snapshot`: any checkpoint, playing in the arena
+
+Session 03 of the learn set. Nothing in `src/` had ever loaded a fitted table at run time.
+`golemPolicyMind` hard-wires `POLICY_WEIGHTS`, so the only mind a person could watch was the one a
+session had already decided to keep, and every intermediate a fit passed through sat in
+`tournaments/` as JSON readable only by a script that prints numbers. The owner asked for the
+opposite -- a way to watch the policy, or at least snapshots of it -- and watching iteration 8
+beside iteration 93 on one matchup is a question about behaviour that no rating column answers.
+
+**One policy name and a slot behind it.** `Policy.create(seed)` in `src/mind.ts` is synchronous and
+the setup screen renders its picker from `driverOptions` before any bout exists, while a table is a
+two-megabyte fetch. So the table is fetched first, installed by `installSnapshot` in
+`src/golem/snapshot.ts`, and the factory reads `installedSnapshot()`; an async factory would have
+made nineteen other policies async to serve one. `golem-snapshot` is in `GOLEM_POLICIES` in
+`src/units.ts` always and in `driverOptions` only when something is installed, which is the one
+place those two lists are deliberately not the same list. The slot holds one snapshot; a second
+slot -- two of them fighting each other -- is a one-line generalisation nobody has wanted yet.
+
+**Every table goes through `checkPolicyWeights`.** A snapshot is `weights`, `logSigma` and a
+normalisation, assembled by `freshPolicyTable` and handed to the same nine refusals the shipped
+table is loaded under. The three formats carry different amounts of provenance and the module
+invents none: `saveLeague` writes `policy` and `features` beside the weights so a league state is
+refused by version outright, while a `train-ppo` checkpoint carries neither and is read under this
+build's versions with the four shape checks catching a moved surface. That is honest rather than
+ideal, and it is written down because a change that moved no shape at all would be a rescaling of a
+column -- exactly what `PILOT_FEATURES_VERSION` exists for and exactly what a version-less file
+cannot be checked against.
+
+**Greedy and drawn are two fighters**, as the idle probe measured: the same weights drawn finish
+three and a half times as many bouts against a motionless dummy as the head's mean does. The
+readout names which one is playing, because a readout that did not would be a readout of an unnamed
+mind.
+
+**The readout is player-owned and off by default**, per this file's diagnostics rule: a `<details>`
+the player opens that no state change reopens. It shows what the mind asked the executor for beside
+what it got -- commanded stand-off against the gap actually held, advance, strafe, lean, the three
+gates, the stroke phase, asks a second -- and the two engagement seconds accruing from the bout's
+own `EngagementTracker`, so the behaviour the owner complained about is visible as a number while
+it is happening rather than only in a table afterwards. The diagnostics-only `x2`/`x4` skim beside
+it multiplies the fixed-step count a frame and moves no physics: the step is the same step, so a
+sixty-second bout can be watched in fifteen without any reading changing.
+
+## The sweep runner: several experiments at once
+
+Session 04 of the learn set. `scripts/sweep.mjs` takes a manifest of arms, starts them all at once
+off one seed and one starting checkpoint, divides the host's threads between them, restarts an arm
+that dies from its last checkpoint, and rates every arm on one pool when they stop. Every learning
+session in this set is a manifest for it, and the four that ran are committed under `docs/sweeps/`.
+
+**Why it exists.** Each open question the set is made of is a pair of arms differing in one flag,
+and a run needs about one core for four fifths of its wall clock. The owner called running several
+at once the highest-value option; the record had already measured it by hand at 2.6 times the
+answers an hour for the same host.
+
+**Processes, not threads.** An arm is a child `node scripts/train-ppo.mjs` or `node
+scripts/league.mjs` with its own worker pool, and the manifest is a list of command lines with the
+shared parts factored out -- every flag in it is a flag those scripts already parse. A runner that
+reached inside the fit would be a second trainer with its own numbers, and the set's ninth frozen
+choice is that neither the sweep runner nor the sharded fit may change a number.
+
+**The worker budget is arithmetic and it is printed**: `floor((availableParallelism - 2) / arms)`
+collectors an arm, minus `--shards` when that is above one, with two threads left for the host. The
+runner's own shard default is *one* where both trainers default to eight, and it writes the
+resolved number onto every arm's command line, because a trainer's default is the knee of a curve
+measured with the whole host to itself and a sweep is precisely the case where the host is not one
+run's.
+
+**Nothing is rated during the run.** Every arm launches with `--evaluate 0`: a rating steals the
+cores the collection is paying for, and a rating taken mid-run on a busy host is a rating on a
+different clock. `rateArms` afterwards puts every arm on one pool at one seed, and `ratePaired`
+puts every arm *in one call*, so arm-minus-arm is a paired difference over the same bodies under
+the same streams rather than a difference of two means from two calls. That is the set's criterion
+made into a function, and Session 04's own verification is its calibration: three arms differing in
+nothing produced a paired margin of exactly `+0.0000 of bar`.
+
+**A resumed arm is the same run.** The checkpoints carry the Adam moments as flat arrays from this
+session on -- which took a checkpoint from about 0.8 MB to about 4.7 MB -- so an arm restarted after
+a V8 fatal continues the same optimiser rather than starting a warm one, and the restart is
+appended to the arm's log as a row rather than hidden. A fit resumed with its moments equals the
+uninterrupted fit to 1e-9 over two iterations and one resumed without them does not, which is the
+whole argument for the size.
+
+## The axis probe: is each command axis buying what it claims
+
+Session 07 of the learn set. `scripts/axis-probe.mjs` pins one command axis to one value on every
+ask, over `uniform` or `golem-driver` on every other axis, and prints what the executor did with
+it beside what the record *predicted* it would do. The record had derived each of those claims --
+the feet settle at `hold - advance / closeGain`, a saturated advance buys 0.56 m, a stroke opens
+inside 0.92 of a reach -- off `src/golem/tactics-v4.ts` and had never put one in front of a body.
+
+**It measures the executor and never the learner**, deliberately and at some cost in realism. A
+fitted policy compensates for a bad axis -- it learns to write 1.4 where the axis means 0.9 -- and
+a rating taken over one hides the defect entirely, which is how a surface with a dead axis in it
+survives a whole plan set.
+
+**A cell is one pin and every cell fights the same bodies.** The pairings, the builds and the two
+per-side seeds are drawn once by `scheduleJobs` from the run's seed alone and replayed for every
+cell with only the probed corner's policy name changed, so two rows differ by their pin and by
+nothing else. The pin lands through a `pinned` contender in `scripts/tournament-worker.mjs`, and the
+row records the per-field minimum, mean and maximum of what the executor was actually handed -- so
+"this cell pinned exactly one axis" is read back out of the recording rather than trusted from the
+code.
+
+**There are two harnesses and they are never mixed in a column.** Against `golem-driver` the gap is
+a two-body outcome and the probed side gets roughly half a vote, which put every `standOff` cell at
+about 1.6 m in a smoke run; `idle` gives the probed side the whole vote, which is what "measure the
+executor" means. Every number the session recorded says which harness it came from.
+
+**Three candidate rows landed on `GOLEM_TACTICS_V4` and none of them ships.** `holdMetres`,
+`closeGain` and `strokeOutOfRange` are spread per cell rather than assigned, default to what ships,
+and widen nothing: a surface change is a version bump and a paired arm, never a silent edit, so a
+finding here becomes an arm in a later session and only an arm that clears a bar ships. None did.
+
 ## The four rows that charge for how a bout is fought
 
 Session 06 of the learn set, and the direct answer to the sentence two sections up: *an instrument
@@ -2479,6 +2634,88 @@ The control is hidden outright when the listing fetch fails, which is the built 
 is already how this page learns it has no run server behind it and offers a drop zone instead, and
 a timer re-fetching files nothing serves is a control that can do nothing. A run the person dropped
 onto the page is left exactly as it was for the same reason -- it has no path to re-fetch.
+
+## The learn set read as one document, and the four claims it established
+
+Session 12, the set's close-out. The sections above were each written by the session that did the
+work. What follows is the part that survives all twelve, and the first thing to say about it is
+the plainest: **twelve sessions, fourteen-plus paired arms, and not one learning arm cleared its
+bar.** That is a result and it is written in the same voice a success would be.
+
+**One: the mirror is not a weak signal, it is blind in one specific direction -- and every defect
+this set found lay in that direction.** The style set's close-out already said four of seven armed
+classes cannot decide a mirrored bout. This set found the sharper thing. `standOff` is a multiple
+of *their* reach while the stroke's own gate opens inside 0.92 of *mine*, and in a mirror those two
+are equal by construction (Session 07). Retreat outside reach is 0.2 s a bout mirrored and 3.2 to
+4.7 s a bout on random viable pairs, so the reward row written to charge for it came to 0.007 of
+the return and scaling the coefficient scales 0.007 (Session 06); the close-out re-takes the same
+asymmetry over fourteen minds and 8,192 bouts and reads a median of 0.20 s mirrored against 2.58 s
+on random viable pairs, while near-range stall -- the row beside it -- is 0.65 s and 0.74 s, which
+is no difference at all. Across ten arms fitted from
+scratch and six continued from the shipped mind, **every arm that gained on random viable pairs
+lost the mirror, and none went the other way** (Sessions 09 and 10). And the mechanism has a
+positive form as well as a negative one: the critic's explained variance is *higher* off the mirror
+-- 0.86 to 0.88 for the half-random arms against 0.765 for the two that stayed in one -- because in
+a mirror nothing in the observation predicts the winner, so a mirror hides the *information* that
+depends on the bodies differing as well as the errors that do. **A mirror cannot see any error that
+depends on the two bodies being different, and a mind fitted in one cannot learn the columns that
+would.**
+
+**Two: the compute worked and the learning did not, and the two are separately true.** The sharded
+fit is the single thread's answer to 6e-14 against a 1e-9 bar over 87,308 weights and 44 Adam
+steps, and it took the shipped configuration's iteration from 109 s to 27.6 s; the sweep runner
+missed its 2.4x bar at 2.08 on a clean re-take and reaches 3.46x with the shards switched on.
+Everything downstream of that throughput ran: ten arms in one night, six arms in another, four
+hundred iterations in a third, zero restarts in all three. **The bars that were about seconds were
+met and the bars that were about learning were not**, and no session in the set was short of
+compute at the point where it failed.
+
+**Three: more training is not what it needed, and this is now a t rather than an opinion.** Four
+hundred iterations, from scratch, at the configuration the set chose. Over the last hundred, three
+of twenty-five per-iteration columns are past two sigma and all three are the same column three
+ways -- the policy's own spread widening under a fixed entropy coefficient, mean `logSigma` at
+t 67, against a training margin at t 0.91 and a margin against the fencer at t -0.33. The record's
+own null expectation is about two of twenty-four past two sigma when nothing is happening. **The
+first two hundred iterations bought what there was to buy and the second two hundred bought the
+spread.**
+
+**Four, and it is the previous set's sentence proved rather than restated: an instrument that is
+only printed is one the optimiser is free to ignore -- and over a long enough run it will go the
+other way.** The same four hundred iterations took near-range stall from 2.57 to 6.27 seconds a
+bout, retreat outside reach from 5.29 to 9.16, and the decided fraction from 0.683 down to 0.550,
+while leaving a motionless dummy at 0.791 of its bar where iteration 8 left it at 0.613. The `stall`
+and `outside` coefficients were zero in that configuration, so nothing ever charged for either. A
+mind trained that long against an unpriced behaviour does not merely fail to improve it; it learns
+to stand further away, wait longer, swing less often and finish fewer fights, because those are
+free. Session 06's bar was two-sided for exactly this reason, and this run is the largest instance
+of the thing it was written to catch.
+
+### What the set shipped, which is nothing, and the best thing it found
+
+**No weights, no reward value, no executor row and no default moved.** `src/golem/policy-weights.ts`
+is still the table the style set's league fitted; `GOLEM_REWARD` still carries `closing`, `stall`,
+`outside` and `swing` at zero; `GOLEM_TACTICS_V4` has every candidate row off; `src/units.ts` still
+screens `golem-fencer`, which frozen choice 7 says stays the default until a learned mind clears
+Session 10's bar. What the set shipped is instruments: a predicate, a page, a snapshot slot, a
+sweep runner, a sharded fit, four reward rows, three schedules, four policy shapes, three executor
+rows, a mirror share and a second anchor -- all of them measured, all of them off.
+
+**The best single result is Session 10's arm c**: half the rollout on random viable pairs with
+`golem-fencer` as a second anchor beside `golem-driver`, which takes the control's -0.0981 against
+the fencer on random viable pairs to -0.0051 -- **d +0.301 over its own control, the largest
+arm-minus-control effect anywhere in the set**, and one of only two whose interval excludes zero.
+It is still not the bar, because Session 10's bar asks for d 0.2 *over the fencer* rather than over
+a control. That distinction is worth keeping as a methodological finding in its own right: **this
+set stated two kinds of bar and they are not the same kind.** Sessions 06, 08 and 09 asked for a d
+over a control arm, which is a question about a change; Sessions 10 and 11 asked for a d over a
+designed mind, which is a question about the state of the art. An arm can be the largest effect in
+the record on the first reading and level-at-best on the second, and arm c is.
+
+**And the two halves of the fencer bar came apart.** Every one of Session 10's six arms, the
+control included, beat `golem-driver` on the fifteen bodies a mirror admits and lost to
+`golem-fencer` on the fifty-two the game draws. The criterion was written to catch a specialist
+arm; it caught the entire table including the configuration that shipped, which says the specialism
+is in the training distribution rather than in any change made to it.
 
 ## Dying, which is not the same as losing
 
