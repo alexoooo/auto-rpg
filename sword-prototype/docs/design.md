@@ -2445,6 +2445,41 @@ it settle the disagreement, and `checkShape` asserts shape against weights befor
 spawned. The general rule the trap is an instance of: **where a header records both a claim and the
 thing the claim is about, the reader takes the thing.**
 
+## The curve page as a window rather than a report
+
+`curve.html` was written to draw a run that had finished. Session 11 of the learn set runs one
+league for a night and rates its snapshots from a second process as they appear, and the first
+thing the owner asked this whole set for was progress visibility -- which a page you have to
+reload is not. So the page re-reads, on a timer, through the same `readRun` a click goes through.
+
+**A timer and not a protocol.** There is no socket, no incremental parse and no second reader: the
+`live` box in the header arms a `setInterval` that re-fetches /runs/index.json and every ticked
+run that came off that server, and hands each one to the reader that already exists. A league log
+at four hundred iterations is a couple of megabytes and the dev server is the same machine, so
+re-reading the whole of it every ten seconds costs less than any of the machinery that would avoid
+doing so. The interval is not a setting, for the reason a number a person can turn up usually
+becomes a number somebody turns up to one second and then reports the page as slow.
+
+**The one judgement in it is whether to draw**, and it is `reachMoved` in `src/curve/runs.ts`
+rather than anything in `src/curve/main.ts`, because the page's own file has no logic a test could
+reach. A redraw rebuilds every panel's SVG and takes the cursor readout out from under whoever is
+reading it; twelve hours of ten-second ticks is four thousand chances to do that to somebody. So a
+re-read is drawn only when its `Reach` -- iterations, ratings, resumptions, and the half-written
+last line -- differs from the drawn one's. The test is difference and not growth on purpose:
+`scripts/rate-snapshots.mjs` writes a curve file *whole* rather than appending to it, so a re-take
+caught mid-write is a file that got shorter, and a page that only drew growth would sit on the
+previous take of a curve until something appended to it, which for a curve file is never.
+
+**A failed fetch is silence.** The same whole-file rewrite means there is a moment in every re-take
+where the file is short or briefly absent, and a page that turned that into a red status line would
+spend a night shouting about a condition that clears itself in milliseconds. What says a file has
+stopped moving is the clock on the status line, which is the last time anything was read.
+
+The control is hidden outright when the listing fetch fails, which is the built page: that failure
+is already how this page learns it has no run server behind it and offers a drop zone instead, and
+a timer re-fetching files nothing serves is a control that can do nothing. A run the person dropped
+onto the page is left exactly as it was for the same reason -- it has no path to re-fetch.
+
 ## Dying, which is not the same as losing
 
 `over` not stopping the world was the right call about the *bout* and, for a long time, it

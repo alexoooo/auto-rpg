@@ -294,6 +294,52 @@ export interface Run {
   readonly resumes: readonly Header[];
 }
 
+/**
+ * How far into a file a run has been read, which is the only thing about a run that moves while
+ * the harness is still writing it. Session 11 of the learn set.
+ *
+ * The page re-fetches on a timer now, so every ten seconds it holds two readings of the same file
+ * and has to decide whether to draw the second one. Redrawing unconditionally is the version that
+ * looks right and is not: `drawLines` builds fresh SVG, so a redraw takes the cursor readout out
+ * from under whatever the person was reading, and doing that six times a minute for twelve hours
+ * makes a page nobody can inspect while the thing it is about is happening. So the decision is
+ * made here, on counts, and `reachMoved` is what the timer asks.
+ *
+ * `skipped` rides with the three counts rather than being derived from them. A league appends and
+ * its half-written last line becomes a whole row, which shows up in `iterations`; a curve is
+ * rewritten whole by `scripts/rate-snapshots.mjs` every time it is re-taken, and a rewrite caught
+ * mid-flight is a file that got *shorter*. Both are movement and both are worth drawing -- which
+ * is why the test below the interface is inequality and not growth.
+ */
+export interface Reach {
+  readonly iterations: number;
+  readonly ratings: number;
+  readonly resumes: number;
+  readonly skipped: number;
+}
+
+/** What a run has in it, counted. */
+export function reachOf(run: Run): Reach {
+  return {
+    iterations: run.iterations.length, ratings: run.ratings.length,
+    resumes: run.resumes.length, skipped: run.skipped,
+  };
+}
+
+/**
+ * Whether a re-read is worth a redraw, which is whether anything in it is a different count.
+ *
+ * Not "is it longer". A run that shrank is a file being rewritten under the page, and a page that
+ * refused to draw that would sit on a stale curve until the next append -- which for a curve file,
+ * the one kind nothing ever appends to, is forever. Nothing read for the first time is unmoved, so
+ * a `null` before is movement.
+ */
+export function reachMoved(before: Reach | null, after: Reach): boolean {
+  if (before === null) return true;
+  return before.iterations !== after.iterations || before.ratings !== after.ratings
+    || before.resumes !== after.resumes || before.skipped !== after.skipped;
+}
+
 // ------------------------------------------------------------------------------------- the lexer
 
 interface Lines {

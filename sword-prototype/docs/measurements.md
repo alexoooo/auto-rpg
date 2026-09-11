@@ -20302,3 +20302,356 @@ And it does not move anything shipped. `src/golem/policy-weights.ts` is untouche
 `src/golem/reward.ts` is untouched, `GOLEM_TACTICS_V4` has every row off, and `src/units.ts` still
 screens `golem-fencer`, which frozen choice 7 says stays the default until a learned mind clears the
 bar. No arm did.
+
+## Session 11 of the learn set -- 2026-09-11: four hundred iterations, a curve that stops moving at two hundred, and a bar missed on both halves
+
+The question this session exists to answer is the owner's own first reading of the shipped mind --
+"does it just need more training" -- and the answer for this configuration is **no**, with a slope
+and a t rather than with a night that ended early. Four hundred iterations ran to completion, no
+restarts, five hours and twenty-two minutes. Over the last hundred of them **three of twenty-five
+per-iteration columns are past two sigma, and all three are the same column three ways**: the
+policy's own spread, widening under the entropy bonus. Every column that would say the mind is
+still learning -- the training margin, the decided fraction, the margin against each anchor, the
+critic's explained variance -- has a t under two. The record's own null expectation is about two of
+twenty-four past two sigma when nothing is happening.
+
+**The bar is missed on both halves and nothing ships.** At 600 bouts, seed 20260906, on random
+viable pairs the mind's margin over `golem-fencer` is **-0.0151 +-0.1113, d -0.024** where the bar
+asks **d +0.200**; mirrored against `golem-driver` it is **-0.1603 +-0.0668**, which is four and a
+half standard errors below zero where the bar allows one. Session 10's six arms all passed the
+mirrored half comfortably and all failed the random one. This run fails both, and the second
+failure is the more interesting of the two.
+### The pilot, which chose the bouts and settled `holdMyReach`
+
+Three arms of twenty iterations each, from scratch at seed 20260916, on the run's own arrangement --
+22 collectors and 8 fit shards, each arm with the whole machine, one after another rather than
+through the sweep runner, because the number being measured is seconds an iteration at the layout
+the run would use and the runner divides the host by the arm count.
+
+| arm | `--bouts` | seconds an iteration | fit | 20 iterations | random pairs vs `golem-fencer` at 20 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| b32 | 32 | **33.1** | 8.3 | 0.18 h | -0.1202 +-0.1276, d -0.238 |
+| b64 | 64 | 51.5 | 13.8 | 0.29 h | -0.2203 +-0.1424, d -0.392 |
+| b128 | 128 | 90.1 | 27.7 | 0.50 h | -0.0724 +-0.1365, d -0.134 |
+
+**No bout count bought more rating than another, so rating per hour was decided by the hour.** The
+three are inside their own standard errors of each other on the column the bar is stated on, and
+the ordering is not even monotone in bouts -- 64 is the worst of the three, which is what a null
+looks like. What separates them is the clock: at 33 s an iteration the plan's four hundred
+iterations cost 3.7 hours, at 51 s they cost 5.7, and at 90 s they cost 10.0, which on a host also
+paying for the rating curve does not fit a night. **32 is the only count that reaches the plan's
+own iteration count inside the budget**, and that is the whole of why it was chosen.
+
+It was the wrong choice, for a reason the pilot could have caught and did not. See the realised
+mirror share below.
+
+**`holdMyReach`, from scratch, at the run's configuration.** Session 09 measured this row at
+d +0.100 with every arm fitted from scratch; Session 10 measured it at d -0.039 continuing a mind
+fitted for ninety-three iterations with the row off, and said in as many words that nothing had
+asked the question a league fitted from scratch with the row on would answer. This pilot asks it:
+a fourth arm, `h32`, identical to `b32` but for `--tactics holdMyReach=true`, 20 iterations from
+scratch, rated in one paired call against `b32` at 300 bouts and seed 20260906.
+
+| pool | opponent | `b32` | `h32` | paired d |
+| --- | --- | ---: | ---: | ---: |
+| random pairs | `golem-fencer` | -0.238 | -0.232 | **-0.058** |
+| random pairs | `golem-driver` | +0.188 | -0.062 | **-0.457** |
+| random pairs | all five | -0.031 | -0.103 | -0.128 |
+| mirrored | `golem-fencer` | -0.816 | -0.900 | -0.063 |
+| mirrored | `golem-driver` | -0.758 | -0.539 | +0.181 |
+| mirrored | all five | -0.642 | -0.493 | +0.105 |
+
+**The row went into the run switched off, and the reading is that from scratch at this
+configuration it is a wash on the bar's own column and a loss against an anchor.** On the column
+the bar is stated on it is d -0.058, inside noise; on the whole random pool it is -0.128; the only
+signed number of any size is d -0.457 against `golem-driver` on random pairs, and `golem-driver` is
+one of the two minds this run puts in the other corner. A row that costs against an anchor at
+twenty iterations is not one to add to a four-hundred-iteration run on the strength of a
++0.100 measured under a different configuration. So Session 09's from-scratch reading did **not**
+reproduce here, `GOLEM_TACTICS_V4` keeps every row off, and `src/golem/tactics-v4.ts` is untouched
+by this session -- which is also why the run could have written weights at all, since
+`scripts/league.mjs` refuses `--out` under a tactics row the shipped table does not have.
+
+Twenty iterations is a short answer to a question about a four-hundred-iteration run, and this
+entry does not pretend otherwise. What it adds to the record is the third cell of a table that had
+two: from scratch with the row on and the mirror halved, the row is worth nothing on the bar's
+column and costs against the designed anchor.
+### What actually ran
+
+One arm, every core, under a watchdog that restarts from the last checkpoint and stops on a
+wall-clock deadline rather than an iteration count. `scripts/league.mjs` at seed 20260916 into
+tournaments/league-long: `--iterations 400 --bouts 32 --exploiter-bouts 16 --cap 60 --random 40
+--workers 22 --shards 8 --evaluate 0 --exploiters 2 --exploiter-every 2 --pool-every 8 --pool-cap 8
+--emphasise maul,mace --emphasis 3 --anchor golem-driver,golem-fencer --share-anchor 1
+--mirror-share 0.5 --select random --entropy 0.003`, **from scratch**.
+
+**05:20:24 to 10:42:47, four hundred iterations of four hundred, zero restarts, exit 0.** The
+twelve-hour budget bought the run twice over: 5.37 hours of iteration clock at a mean of 48.4
+seconds an iteration, of which 10.3 seconds is the sharded fit -- 21 % of the night in the fit and
+the rest collecting, which is Session 05's arithmetic holding at four hundred iterations rather
+than at fifty. 16,784 main-side bouts and 10.1 million environment steps. Fifty snapshots, one
+every eight iterations, all of them kept.
+
+**The run asked for half a mirror and trained on two thirds of one.** The header records the
+`--mirror-share 0.5` it was given; every per-iteration row records `mirrorShare` 0.66667, and
+`mirrorBouts` and `randomBouts` say why: 11,136 bouts mirrored against 5,648 not, over the whole
+run. The cause is the whole-cycle rule and the bout count the pilot chose. At iteration 10 the
+cycle is six opponents -- `self`, one pool snapshot at a double share, both exploiters and both
+anchors -- so 32 asked-for bouts round to a rollout of 42, and the smallest whole split the
+scheduler can make of that is 28 mirrored and 14 random. Session 10 measured the same rounding at
+128 bouts and it cost two bouts in 128, a realised share of 0.538 against an asked-for 0.500. At 32
+bouts the same rule costs a third of the distance between the two arrangements.
+
+**This is the session's own methodological finding and it is against the session.** The bout count
+was chosen on rating per hour, which is what the plan asked for, and rating per hour is blind to
+the realised mirror share because a twenty-iteration pilot reads it at the same 0.667 for every arm
+and nobody looked. The configuration under test was "mirror share 0.5, two anchors, `--select
+random`" and the configuration that ran was mirror share 0.667. Whether four hundred iterations at
+a true 0.5 would clear the bar is not a question this run answers, and the honest reading of the
+mirrored half of the bar is that a mind trained two thirds in a mirror lost the mirror anyway.
+### The page, watched while the run ran
+
+`curve.html` gained a `live` box in its header and `src/curve/main.ts` gained a ten-second
+`setInterval` over the reader it already had; the one judgement -- whether a re-read has anything
+the drawn one did not -- is `reachMoved` in `src/curve/runs.ts`, where a test can reach it, and the
+argument for every part of it is in `docs/design.md`. `tests/curve.test.mjs` gained one test over
+five cases: a first read moves, an identical re-read does not, an appended row moves, a *shorter*
+file moves, and a file caught with a half-written last line moves. The mutation check: replacing
+`reachMoved`'s body with a test for growth turns that test red, which is the case the shorter-file
+assertion exists for, because `scripts/rate-snapshots.mjs` writes a curve file whole.
+
+It was verified in Chrome against a league that was still running, and one trap came out of doing
+so. **The dev server's run listing walks exactly two levels** -- top-level files and files in
+immediate subdirectories -- so a run written three levels down is invisible to the page however
+correct the page is. The pilot's arms are three levels down and never appeared; the long run's own
+directory is two, and appeared, and ticked over while the run wrote to it. Nothing was changed to
+make this work; it is recorded because the next person to put a run one directory deeper will spend
+an hour on the page.
+### The per-iteration curve, read the way the record says to read one
+
+An ordinary least squares fit of each column on the iteration number, over a stated window, quoted
+with the t of its slope, and the expectation that about two of twenty-four columns are past two
+sigma when nothing is happening. Twenty-five columns, two windows.
+
+| column | 1..400 slope /100 it | t | 301..400 slope /100 it | t |
+| --- | ---: | ---: | ---: | ---: |
+| training margin | +0.0444 | **12.52** | +0.0230 | 0.91 |
+| decided fraction | -0.0362 | **-6.95** | -0.0442 | -1.17 |
+| return | +0.0710 | **11.71** | +0.0402 | 0.89 |
+| bare return | -0.0296 | **-6.56** | -0.0706 | -1.86 |
+| episode length | +12.90 | **4.24** | -4.94 | -0.23 |
+| KL | -0.00069 | **-3.36** | -0.00262 | -1.98 |
+| clip fraction | -0.0047 | **-4.34** | -0.0118 | -1.79 |
+| entropy | +0.913 | **272.84** | +0.936 | **70.51** |
+| explained variance | +0.0450 | **13.28** | +0.0392 | 1.66 |
+| advantage sd | -0.0076 | **-8.63** | -0.0044 | -1.53 |
+| `logSigma[0]` | +0.0867 | **102.96** | +0.1015 | **20.84** |
+| mean `logSigma` | +0.1055 | **242.55** | +0.0989 | **67.22** |
+| margin vs `self` | +0.0416 | **4.64** | -0.0392 | -0.64 |
+| margin vs `golem-driver` | +0.0514 | **4.89** | +0.0118 | 0.15 |
+| margin vs `golem-fencer` | +0.0643 | **6.46** | -0.0243 | -0.33 |
+| margin vs `exploiter-0` | +0.0356 | **4.05** | +0.0119 | 0.17 |
+| margin vs `exploiter-1` | +0.0284 | **3.28** | +0.0820 | 1.18 |
+| `exploiter-0` gain | +0.0535 | **7.92** | -0.0004 | -0.01 |
+| `exploiter-1` gain | +0.0368 | **5.72** | -0.0539 | -1.17 |
+| | **25 of 25** | | **3 of 25** | |
+
+The six columns the table leaves out are bookkeeping and are counted in both totals: episodes an
+iteration, fit updates, penalty share, the realised mirror share, seconds and fit seconds. All six
+move over the whole run and none of them moves over the last hundred.
+
+**Twenty-five of twenty-five columns move over the whole run and three of twenty-five move over its
+last quarter, and the three are the entropy and the two readings of the policy's spread.** That is
+the shape of a run that learned and then stopped, and it is the answer to "does it just need more
+training" for this configuration: the first two hundred iterations bought what there was to buy and
+the second two hundred bought the spread widening.
+
+Quarter by quarter, on the columns a reader would ask about:
+
+| iterations | training margin | vs `golem-fencer` | vs `golem-driver` | decided | entropy | explained variance |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1-100 | -0.0927 | -0.1981 | -0.1968 | 0.666 | 8.98 | 0.612 |
+| 101-200 | -0.0138 | -0.1042 | -0.1079 | 0.561 | 10.00 | 0.684 |
+| 201-300 | +0.0503 | **+0.0401** | -0.0393 | 0.602 | 10.90 | 0.745 |
+| 301-400 | +0.0361 | -0.0256 | -0.0458 | 0.538 | 11.71 | 0.735 |
+
+**The mind passes the fencer in training during the third quarter and comes back.** In-run margins
+are taken against a changing opponent cycle and are not the bar, but the shape is the same shape
+the bar found: level with the fencer and not ahead of it.
+
+**The one column that never stops is the policy's own spread, and it is worth naming as a defect
+rather than as a result.** Mean `logSigma` rises +0.1055 per hundred iterations with a t of 243
+over the whole run and is still rising at +0.0989 with a t of 67 over the last hundred; entropy
+goes from 8.98 in the first quarter to 11.71 in the last. Meanwhile the advantage standard
+deviation falls from 0.0818 to 0.0594. The entropy coefficient is a fixed 0.003 and the advantage
+signal it is traded against is shrinking, so the fixed coefficient buys a wider policy every
+iteration and the fit has less and less to spend against it. At this slope `logSigma` reaches the
+`sigmaRoof` of 0.5 at about iteration 1300. **Nothing in this run diverged and nothing collapsed;
+what it did was diffuse.** Session 09's entropy anneal -- measured there as its second-best arm and
+in Session 10 as a subtraction on a fifty-iteration continuation -- is the obvious thing to point
+at a four-hundred-iteration run, and no run in this record has done that.
+
+The exploiters are not idle: 67 re-seeds over the run, and both exploiter gains rise over the whole
+run and are flat over the last hundred, which is the same story the rest of the table tells.
+### The rating curve on both pools
+
+`scripts/rate-snapshots.mjs` from a second process, 300 bouts a point on each pool, the run's own
+instrument at its own evaluation seed, 29 points from iteration 8 to iteration 400. The column to
+read is `driver.d` -- the snapshot's bar margin against `golem-driver` under common random numbers,
+expressed as a d. It is a different instrument from the bar below and the two are not
+interchangeable; this one differences against the hand-written reference and the bar takes the
+mind's own margin.
+
+| pool | column | 8..400 slope /100 it | t | 301..400 slope /100 it | t | n |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| random pairs | vs `golem-driver`, d | +0.0106 | 1.12 | -0.0807 | -1.61 | 29 / 7 |
+| random pairs | vs `uniform`, d | +0.0082 | 0.93 | -0.0622 | -1.17 | 29 / 7 |
+| random pairs | decided | -0.0241 | **-4.35** | +0.0432 | 1.61 | 29 / 7 |
+| random pairs | stall, seconds a bout | +0.759 | **10.49** | +1.044 | 1.12 | 29 / 7 |
+| random pairs | outside reach, seconds | +0.554 | **2.82** | +0.769 | 1.19 | 29 / 7 |
+| random pairs | empty strokes a bout | -1.097 | **-13.04** | +0.237 | 0.60 | 29 / 7 |
+| mirrored | vs `golem-driver`, d | +0.0503 | **4.56** | +0.0649 | **2.63** | 29 / 7 |
+| mirrored | vs `uniform`, d | +0.0385 | **3.84** | +0.0919 | **3.44** | 29 / 7 |
+| mirrored | decided | -0.0441 | **-8.48** | -0.0275 | -1.47 | 29 / 7 |
+| mirrored | stall, seconds a bout | +0.306 | **5.18** | +1.507 | **3.37** | 29 / 7 |
+| mirrored | outside reach, seconds | +0.352 | **5.37** | +0.340 | 1.21 | 29 / 7 |
+| mirrored | empty strokes a bout | -0.295 | **-8.71** | -0.103 | -0.90 | 29 / 7 |
+
+**On the pool the bar is stated on the rating curve has no slope at all, over the whole run or over
+its last quarter; on the mirror it climbs the whole way and is still climbing at the end.** Random
+pairs: d -0.295 at iteration 8, -0.152 at 400, with a whole-curve t of 1.12. Mirrored: -0.665 at 8
+and -0.372 at 400, t 4.56, and the last hundred iterations alone carry t 2.63. That is the same
+split the bar found at 600 bouts, seen from the other instrument and across the whole night rather
+than at one point: **what four hundred iterations bought was the mirror, on a run that gave a third
+of its rollout to random pairs specifically in order to stop buying the mirror.**
+
+**And the behaviour columns are the part of this table that should worry a reader most.** Near-range
+stall on random viable pairs goes from 2.57 seconds a bout at iteration 8 to **6.27 at iteration
+400**, t 10.49; retreat outside reach from 5.29 to **9.16**, t 2.82; the decided fraction from 0.683
+to **0.550**, t -4.35. Mirrored the same three move the same way. Empty strokes fall hard, which is
+the one column moving the right way -- the mind stops swinging at nothing. Put together they
+describe a mind that over four hundred iterations learned to stand further away, wait longer, swing
+less often and finish fewer fights. Session 06's bar was two-sided precisely because a margin can
+improve while a fight gets worse to watch, and this run is the largest instance of that in the
+record: the rewards for stall and outside are weighted **zero** in this configuration, so nothing
+in the run ever charged for either.
+
+The run's own decided fraction says it from the training side: 0.666 over the first hundred
+iterations, 0.561, 0.602, and **0.538** over the last, mean 0.592 over the whole run.
+### The idle probe, by class, over four hundred iterations
+
+`scripts/probe-snapshots.mjs` at the same 29 points, 4 bouts a build at seed 20260906, against the
+motionless dummy: the tripwire that asks which weapon classes can finish a fight at all.
+
+| pool | reading | iteration 8 | iteration 400 | 8..400 slope /100 it | t |
+| --- | --- | ---: | ---: | ---: | ---: |
+| random pairs | kill rate, all 52 builds | 3.8 % | 3.8 % | -0.0051 | **-2.05** |
+| random pairs | maul | 25 % | 21 % | -0.0493 | **-2.72** |
+| random pairs | mace | 3 % | 6 % | +0.0112 | **3.13** |
+| random pairs | builds that ever killed | 5 of 52 | 4 of 52 | -0.478 | -1.83 |
+| random pairs | builds that always killed | 0 of 52 | 0 of 52 | -0.112 | -1.64 |
+| mirrored | kill rate, all 15 builds | 28.3 % | 26.7 % | +0.0007 | 0.08 |
+| mirrored | maul | 61 % | 57 % | +0.0071 | 0.36 |
+| mirrored | builds that ever killed | 7 of 15 | 7 of 15 | -0.136 | -0.78 |
+
+**Four hundred iterations did not change which classes can end a fight, and the three columns that
+are past two sigma are past it by a hair and in opposite directions.** `blade`, `plate`, `fist`,
+`whip` and `none` killed the dummy zero times at iteration 8 and zero times at iteration 400, on
+every one of the 29 points between. Only `maul` finishes reliably and `mace` occasionally, which is
+Session 01's finding unchanged by the largest training run in this record.
+
+The one column that moved in a direction worth naming is the dummy's remaining health. On random
+pairs at iteration 8 the mind left a `maul` opponent at 0.613 of its bar and a `blade` one at
+0.909; at iteration 400 it leaves them at **0.791** and **0.998**. **The mind does less damage to a
+target that does not move at the end of the run than at the beginning of it.** That is the same
+finding as the stall and outside columns above, read off a harness with no opponent policy in it at
+all, and it is the strongest single reason to read this run's margin gains as positional rather
+than as the golems fighting better.
+### The bar, re-taken at the end
+
+One `ratePaired` call an arrangement, **600 bouts**, 120 an opponent against `golem-driver`,
+`golem-form`, `golem-brawler`, `golem-duelist` and `golem-fencer`, greedy reads, at **seed 20260906
+named on the command line** -- the seed the bar is stated at, not the run's own. The mind rated is
+the run's live main at iteration 400. The two pools are the same forty draws arranged two ways: 52
+builds as random viable pairs, 15 as mirrors. Intervals are 1.96 standard errors. With one arm in
+the call the paired column against a control is empty by construction; every number below is the
+arm's own margin against the designed mind, which is what the bar is read on.
+
+| opponent | random viable pairs | own d | mirrored | own d |
+| --- | ---: | ---: | ---: | ---: |
+| `golem-driver` | +0.0400 +-0.1031 | +0.070 | **-0.1603 +-0.0668** | **-0.429** |
+| `golem-form` | +0.1532 +-0.1033 | +0.265 | -0.1964 +-0.0615 | -0.571 |
+| `golem-brawler` | +0.1569 +-0.1097 | +0.256 | -0.1808 +-0.0704 | -0.460 |
+| `golem-duelist` | +0.0133 +-0.1108 | +0.022 | -0.1762 +-0.0560 | -0.563 |
+| `golem-fencer` | **-0.0151 +-0.1113** | **-0.024** | -0.1307 +-0.0766 | -0.305 |
+| all five | +0.0697 +-0.0484 | +0.115 | -0.1689 +-0.0298 | -0.454 |
+
+**The bar asks d +0.200 against `golem-fencer` on random viable pairs and gets -0.024. It asks that
+the same mind not lose to `golem-driver` mirrored by more than one standard error and gets a loss
+of 4.7 of them.** Both halves are missed, the second by a distance. `src/units.ts` still screens
+`golem-fencer`, `src/golem/policy-weights.ts` is the mind the league shipped two sessions ago,
+`GOLEM_TACTICS_V4` has every row off, and nothing in this session ships.
+
+**Four hundred iterations from scratch reproduced Session 10's best continuation on the column the
+bar is stated on, and paid for it with the mirror.** Arm c of Session 10 -- the configuration this
+run was given, continued for fifty-one iterations from the shipped main -- read -0.0051 +-0.0624
+against the fencer on random pairs and **+0.0371** against `golem-driver` mirrored. This run reads
+-0.0151 against the fencer, the same number inside noise, and -0.1603 on the mirror. The difference
+between the two is heritage: arm c continued weights that had been fitted for ninety-three
+iterations entirely in a mirror, and it kept the mirror because it was given one. A run from
+scratch that spends a third of its rollout outside the mirror does not get that for free, and this
+is the first measurement in the record of what it costs.
+
+**The interval is the other thing that moved.** This mind's margin against the fencer on random
+pairs carries a standard error of 0.1113 where arm c's carried 0.0624, on the same 52 builds at the
+same bouts and the same seed -- the per-build spread is nearly twice as wide. It beats `golem-form`
+and `golem-brawler` by a quarter of a standard deviation apiece and is level with `golem-duelist`
+and the fencer; the whole-pool +0.115 is carried by two opponents out of five. **A mind that is
+uneven across the bodies is not the same object as a mind that is behind on all of them**, and the
+record has been reading a single averaged margin for both.
+### Deviations from the plan, all deliberate and all recorded
+
+**From scratch rather than `--from`.** The plan names the Session 10 winner or the shipped main as
+the run's starting weights. The session's brief resolved it the other way, and the run is from
+scratch. The reason is that the one question the set had not settled -- `holdMyReach` -- reads
+differently from scratch than by continuation, and a four-hundred-iteration run is the case where
+the from-scratch reading applies. The cost of the choice is visible in the mirrored half of the
+bar, above, and it is the deviation a reader should weigh hardest.
+
+**32 bouts rather than the plan's "64 to start".** The plan's frozen choice names 64 and says the
+pilot decides; the pilot chose 32 on rating per hour and the realised mirror share paid for it.
+
+**The rating curve is every 8 iterations to 56 and every 16 after it, not every 8 throughout.** A
+point is 300 bouts on each of two pools and a bout on this pool averages twenty seconds, so fifty
+points is about five hours of the same machine the run had already had for five. The spacing is
+uneven and is recorded rather than smoothed over; the slope below is taken over the points that
+exist and its n is quoted with it.
+
+**The rating watcher's first pass was killed by its own timeout and its work was lost.** A 90
+minute cap inside the watcher stopped a batch of eight snapshots after five of them, and because
+`scripts/rate-snapshots.mjs` writes its curve file whole rather than row by row, nothing was
+appended. The watcher now takes a few snapshots a call and has a twelve-hour cap. Nothing in the
+run was affected; about ninety minutes of rating was.
+
+**`--select` was inert, again.** At `--evaluate 0` there are no in-run rating rows for the flag to
+govern, so what `--select random` decides is which pool `--ship` would read. No ship was earned.
+
+### What this entry does not say
+
+It does not say the configuration cannot clear the bar. It says that this run of it, from scratch,
+at a realised mirror share of 0.667 rather than the 0.5 it asked for, reaches level with the fencer
+on random viable pairs and loses the mirror, and that the last hundred of its four hundred
+iterations moved nothing but the policy's spread. The second half of that is the durable part: more
+iterations of this run would not have helped, and the record now has a t rather than an opinion.
+
+It does not say the entropy coefficient is wrong. It says that at a fixed 0.003, over four hundred
+iterations, against an advantage standard deviation that falls from 0.082 to 0.059, the policy's
+spread rises monotonically with a t of 243 and is still rising at the end. An anneal is the obvious
+control and this session did not run one.
+
+It does not settle `holdMyReach` for a long run. It settles it for a twenty-iteration pilot from
+scratch at this configuration, where it is a wash on the bar's column and a loss against an anchor,
+and that is why the row went into the run switched off and is still off.
+
+And it does not move anything shipped. `src/golem/policy-weights.ts`, `src/golem/reward.ts`,
+`src/golem/tactics-v4.ts` and `src/units.ts` are all untouched by this session.

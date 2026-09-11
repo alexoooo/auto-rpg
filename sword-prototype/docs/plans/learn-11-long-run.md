@@ -1,6 +1,16 @@
 # Session 11 -- the long run, at the throughput 04 and 05 bought
 
-**Status (2026-09-09): planned. Needs 05, 10.**
+**Status (2026-09-11): landed. The bar was missed on both halves.** Four hundred iterations of
+four hundred, from scratch, no restarts, 05:20 to 10:42 on one host. The bar asked for a paired
+margin of d 0.2 over `golem-fencer` on random viable pairs at 600 bouts and seed 20260906 and got
+**d -0.024**; it asked that the same mind lose nothing to `golem-driver` mirrored beyond one
+standard error and got a loss of 4.7 of them. Nothing ships and `src/units.ts` still screens
+`golem-fencer`. The answer to "does it just need more training" for this configuration is **no**:
+over the last hundred iterations three of twenty-five per-iteration columns are past two sigma and
+all three are the policy's own spread widening under a fixed entropy coefficient. The curve, the
+pilot that chose the bout count and settled `holdMyReach`, the realised mirror share of 0.667 that
+the bout count cost, and the deviations are in `../measurements.md`. The human gate below is open
+and is the owner's to answer on the run's final snapshot through `golem-snapshot`.
 
 ## Outcome
 

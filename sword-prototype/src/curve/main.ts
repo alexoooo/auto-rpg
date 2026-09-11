@@ -28,9 +28,28 @@
  * so a page with a fixed set of charts would show half of them empty whichever kind was loaded --
  * and would have to be edited again the day Session 06 starts writing the stall columns. This way
  * the page grows a chart when the trainer grows a column.
+ *
+ * ## Why it re-fetches, and why that is a timer and not a socket
+ *
+ * Session 11 of the learn set runs one league for twelve hours and rates its snapshots from a
+ * second process as they appear, and the thing the owner asked for first was progress visibility
+ * -- which a page you have to reload is not. So `live` re-reads, on a timer, exactly the files the
+ * person has ticked, through the same `readRun` a click goes through: no second reader, no
+ * incremental parse, no protocol. A league log at four hundred iterations is a couple of megabytes
+ * and the dev server is on the same machine, so re-reading the whole of it every ten seconds costs
+ * less than deciding not to.
+ *
+ * The one judgement in it is `reachMoved`, and it lives in `runs.ts` where a test can reach it:
+ * a redraw rebuilds every panel's SVG and takes the cursor readout out from under whoever was
+ * reading it, so the page draws a re-read only when the re-read has something in it that the
+ * drawn one did not. A run the person dropped onto the page has no path to re-fetch and is left
+ * exactly as it was.
  */
 import { drawLines, PALETTE, PANELS, type Panel } from "./chart.ts";
-import { columnsOf, onePool, readRun, series, type Run, type Series } from "./runs.ts";
+import {
+  columnsOf, onePool, readRun, reachMoved, reachOf, series,
+  type Reach, type Run, type Series,
+} from "./runs.ts";
 
 /** One file the middleware offered, or one the person dropped. */
 interface Listing {
@@ -50,10 +69,16 @@ const panelHost = byId<HTMLDivElement>("panels");
 const status = byId<HTMLDivElement>("status");
 const picker = byId<HTMLDivElement>("picker");
 const fileInput = byId<HTMLInputElement>("file");
+const liveBox = byId<HTMLInputElement>("live");
+const liveLabel = byId<HTMLLabelElement>("live-label");
 
 /** Every run the page has read, in the order it read them, which is what fixes the palette. */
 const loaded = new Map<string, Run>();
 const selected = new Set<string>();
+/** What was in each of them when it was last drawn, which is what `reachMoved` is asked about. */
+const reached = new Map<string, Reach>();
+/** The ones that came down /runs, and therefore the only ones a timer has anywhere to look. */
+const served = new Set<string>();
 let listing: Listing[] = [];
 
 const bytes = (size: number): string =>
@@ -65,22 +90,31 @@ const say = (text: string, bad = false): void => {
   status.classList.toggle("bad", bad);
 };
 
+/** The wall clock, on every line the page says, because a live page's last word needs a time. */
+const clock = (): string => new Date().toTimeString().slice(0, 8);
+
 // ------------------------------------------------------------------------------- reading a run
 
-async function loadFromServer(path: string): Promise<void> {
+async function loadFromServer(path: string): Promise<boolean> {
   const response = await fetch(`/runs/${path}`);
   if (!response.ok) throw new Error(`${path}: the server said ${response.status}`);
-  take(path, await response.text());
+  served.add(path);
+  return take(path, await response.text());
 }
 
-function take(name: string, text: string): void {
+/** Read a file into the page, and say whether what came back is different from what is drawn. */
+function take(name: string, text: string): boolean {
   const run = readRun(text, name);
+  const now = reachOf(run);
+  const moved = reachMoved(reached.get(name) ?? null, now);
   loaded.set(name, run);
+  reached.set(name, now);
   selected.add(name);
   const skipped = run.skipped > 0 ? ", last row half-written" : "";
   const resumed = run.resumes.length > 0 ? `, resumed ${run.resumes.length}x` : "";
-  say(`${name}: ${run.kind}, ${run.iterations.length} iterations, ${run.ratings.length} ratings`
-    + `${resumed}${skipped} -- ${run.pool.label}`);
+  say(`${clock()} ${name}: ${run.kind}, ${run.iterations.length} iterations, `
+    + `${run.ratings.length} ratings${resumed}${skipped} -- ${run.pool.label}`);
+  return moved;
 }
 
 /** Load a file, and say what went wrong in the page rather than in a console nobody is watching. */
@@ -243,7 +277,8 @@ const drawable = (entry: Listing): boolean =>
   entry.path.endsWith(".jsonl") || entry.path.endsWith("/manifest.json")
   || entry.path === "manifest.json";
 
-async function findRuns(): Promise<void> {
+/** The listing, or null when there is nothing behind /runs to list. */
+async function fetchListing(): Promise<Listing[] | null> {
   try {
     const response = await fetch("/runs/index.json");
     if (!response.ok) throw new Error(String(response.status));
@@ -251,16 +286,92 @@ async function findRuns(): Promise<void> {
     const files = Array.isArray((body as { files?: unknown }).files)
       ? (body as { files: Listing[] }).files
       : [];
-    listing = files.filter(drawable);
-    picker.classList.add("quiet");
-    say(`${files.length} files under tournaments/`);
+    return files.filter(drawable);
   } catch {
+    return null;
+  }
+}
+
+async function findRuns(): Promise<void> {
+  const files = await fetchListing();
+  if (files === null) {
     // Not an error. The built page has no middleware behind it by design, so this is how it finds
-    // out it is the built page, and the drop zone is the answer rather than a fallback.
+    // out it is the built page, and the drop zone is the answer rather than a fallback -- and a
+    // live re-fetch of files no server is serving is a timer with nothing to do, so the control
+    // goes with it.
     picker.classList.remove("quiet");
+    liveLabel.classList.add("hidden");
     say("no run server here -- drop a log or a curve onto the page, or use the file button.");
+  } else {
+    listing = files;
+    picker.classList.add("quiet");
+    liveLabel.classList.remove("hidden");
+    say(`${clock()} ${files.length} drawable files under tournaments/`);
+    setLive(liveBox.checked);
   }
   render();
+}
+
+// --------------------------------------------------------------------------- watching a live run
+
+/**
+ * How often a ticked run is re-read. Ten seconds against a league iteration that is forty to four
+ * hundred seconds long, so the page is never more than one row behind what the harness has
+ * written, and the re-read costs a local file read and a parse rather than anything the run is
+ * using. It is not a setting: a number a person can turn up is a number somebody turns up to one
+ * second and then reports the page as slow.
+ */
+const LIVE_MILLISECONDS = 10_000;
+let ticking = 0;
+/** One refresh at a time, so a slow read cannot have two of itself fetching the same file. */
+let refreshing = false;
+
+/**
+ * Re-read the listing and every ticked run that came off the server, and draw if anything moved.
+ *
+ * A failed fetch is swallowed rather than reported. `scripts/rate-snapshots.mjs` writes a curve
+ * whole, so there is a moment in every re-take where the file is short or briefly absent, and a
+ * page that turned that into a red status line would spend a twelve-hour run shouting about a
+ * condition that clears itself in milliseconds. A file that is genuinely gone stops moving, which
+ * is what the status line's clock is for.
+ */
+async function refresh(): Promise<void> {
+  if (refreshing) return;
+  refreshing = true;
+  let moved = false;
+  try {
+    const files = await fetchListing();
+    if (files !== null) {
+      // The paths and not the sizes: a live run's size changes every iteration and re-rendering
+      // the list for that would redraw the panels under whoever is reading them. What earns a
+      // redraw here is a file that has appeared or gone -- a new snapshot curve, most of the time.
+      const before = listing.map((entry) => entry.path).join("\n");
+      listing = files;
+      if (files.map((entry) => entry.path).join("\n") !== before) moved = true;
+    }
+    for (const path of selected) {
+      if (!served.has(path)) continue;
+      try {
+        const response = await fetch(`/runs/${path}`);
+        if (!response.ok) continue;
+        if (take(path, await response.text())) moved = true;
+      } catch {
+        // See the note above: a file caught mid-rewrite is expected and the next tick has it.
+      }
+    }
+  } finally {
+    refreshing = false;
+  }
+  if (moved) render();
+}
+
+function setLive(on: boolean): void {
+  window.clearInterval(ticking);
+  ticking = 0;
+  if (!on) return;
+  ticking = window.setInterval(() => {
+    void refresh();
+  }, LIVE_MILLISECONDS);
 }
 
 async function takeFiles(files: FileList | null): Promise<void> {
@@ -277,6 +388,10 @@ async function takeFiles(files: FileList | null): Promise<void> {
 
 fileInput.addEventListener("change", () => {
   void takeFiles(fileInput.files);
+});
+liveBox.addEventListener("change", () => {
+  setLive(liveBox.checked);
+  if (liveBox.checked) void refresh();
 });
 document.addEventListener("dragover", (event) => {
   event.preventDefault();

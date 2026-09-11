@@ -34,8 +34,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  columnsOf, onePool, readCurve, readLeagueLog, readRun, readSweep, readTrainLog, series,
-  snapshotLink,
+  columnsOf, onePool, readCurve, readLeagueLog, readRun, readSweep, readTrainLog, reachMoved,
+  reachOf, series, snapshotLink,
 } from "../src/curve/runs.ts";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -302,4 +302,34 @@ test("a_sweep_manifest_reads_its_arms_and_refuses_what_it_cannot_compare", () =>
     () => readSweep(JSON.stringify({ ...manifest, script: "train-neural" }), {}),
     /names the script train-neural, and this page reads train-ppo and league/,
   );
+});
+
+test("a_re_read_is_drawn_only_when_it_has_something_the_drawn_one_did_not", () => {
+  // Session 11 of the learn set: the page re-reads a ticked run every ten seconds for the whole
+  // of a twelve-hour league, and a redraw rebuilds every panel's SVG under whoever is reading it.
+  // So the timer asks this before it draws, and these are the three shapes a re-read comes in.
+  const whole = readLeagueLog(LEAGUE, "league.jsonl");
+  const lines = LEAGUE.split("\n").filter((line) => line.trim() !== "");
+  const shorter = readLeagueLog(lines.slice(0, 4).join("\n") + "\n", "league.jsonl");
+
+  // Nothing read before is movement, or the first reading of a file would never be drawn.
+  assert.equal(reachMoved(null, reachOf(shorter)), true);
+  // The same file again is not. This is the case that happens on almost every tick, and it is the
+  // one the whole function exists for: twelve hours of ten-second ticks is four thousand redraws
+  // the page must not do.
+  assert.equal(reachMoved(reachOf(whole), reachOf(whole)), false);
+  assert.deepEqual(reachOf(whole), reachOf(readLeagueLog(LEAGUE, "league.jsonl")));
+  // An appended row is, which is a league that has finished another iteration.
+  assert.equal(reachMoved(reachOf(shorter), reachOf(whole)), true);
+  assert.equal(whole.iterations.length, shorter.iterations.length + 1);
+  // And so is a file that got *shorter*, because `scripts/rate-snapshots.mjs` writes a curve whole
+  // rather than appending to it: a page that only drew growth would sit on the previous take of a
+  // curve until something appended to it, which for a curve file is never.
+  assert.equal(reachMoved(reachOf(whole), reachOf(shorter)), true);
+
+  // The half-written last line rides in the reach for the same reason it is counted at all: a
+  // fragment that becomes a whole row is the page's only sign that the harness is still writing.
+  const mid = readLeagueLog(LEAGUE.slice(0, LEAGUE.length - 40), "league.jsonl");
+  assert.equal(mid.skipped, 1);
+  assert.equal(reachMoved(reachOf(mid), reachOf(whole)), true);
 });

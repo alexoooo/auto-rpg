@@ -19,8 +19,12 @@
       header { grid-area: head; display: flex; align-items: baseline; gap: 16px;
         padding: 10px 16px; border-bottom: 1px solid rgba(150, 170, 200, 0.22); }
       header h1 { margin: 0; font-size: 14px; font-weight: 600; color: #7fd4ff; }
-      #status { color: #b6bfd0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #status { color: #b6bfd0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        flex: 1 1 auto; }
       #status.bad { color: #ff8fa3; }
+      #live-label { color: #b6bfd0; display: inline-flex; align-items: center; gap: 6px;
+        flex: 0 0 auto; cursor: pointer; }
+      #live-label.hidden { display: none; }
 
       aside { grid-area: side; overflow: auto; padding: 12px 10px 24px 16px;
         border-right: 1px solid rgba(150, 170, 200, 0.22); }
@@ -74,6 +78,12 @@
     <header>
       <h1>Learning curve</h1>
       <div id="status">reading /runs/index.json</div>
+      <!-- Ticked by default, and hidden outright when the fetch above finds no run server: a
+           timer re-reading files nothing is serving is a control that cannot do anything. The
+           page draws a re-read only when it has something new in it -- `reachMoved` in
+           `src/curve/runs.ts` -- so leaving this on while nothing is training costs one small
+           fetch every ten seconds and never redraws. -->
+      <label id="live-label" class="hidden"><input id="live" type="checkbox" checked /> live</label>
     </header>
     <aside>
       <!-- The drop zone is not a fallback. In the built page there is no run server behind
