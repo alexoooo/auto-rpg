@@ -19813,3 +19813,212 @@ at one boundary.
 And it does not move anything shipped. `CONFIG.fighter.separation` is 2.6 m, `GOLEM_REWARD` is
 untouched, `src/golem/policy-weights.ts` still carries the league's mind, and no arm here earned the
 right to change any of that.
+
+## Session 09 of the learn set -- 2026-09-10: ten arms, one change each, and a bar nothing came within half of
+
+The owner asked for a different network or a different algorithm, and complained that a policy
+cannot say "just inside my own range". What landed is nine single changes behind versions and flags
+-- two new heads, a state-dependent spread, nine columns of history, two ways of paying for entropy,
+a critic that sees both sides, and three executor rows driven for the learner alone -- and one
+control, all ten fitted from scratch on one seed over one night. **No arm cleared the bar.** The
+best paired margin against `golem-driver` over random viable pairs is arm e at **d +0.161**, four
+fifths of the bar and on an interval that includes zero; and nine of the ten arms lose the mirror by
+more than one standard error. The bar is not moved.
+
+### What actually ran, exactly
+
+`docs/sweeps/learn-09-variants.json` through `scripts/sweep.mjs`, **one batch of ten arms**, seed
+20260915, every arm from scratch -- no `--from`, the unfitted head, the shipped `GOLEM_REWARD` -- at
+`--shards 1`, so `max(1, floor((32 - 2) / 10) - 0)` = **3 collector workers an arm**, thirty threads
+between the ten of them on an idle 16C/32T desktop. Common flags: 60 iterations, 64 bouts an
+iteration, `--cap 60`, `--evaluate 0`, the viable pool at 40 random draws. **All ten reached
+iteration 60, exit 0, zero restarts, in 333 minutes** -- 13:53 to 19:26, five and a half hours
+inside a six-hour budget. No iterations were cut and no arm was dropped. The paired rating took a
+further 25 minutes.
+
+The ten differ in exactly one thing each:
+
+| arm | the one flag | what it changes |
+| --- | --- | --- |
+| a | none | the control |
+| b | `--features 2` | the observation: 71 columns become 80 |
+| c | `--head mixed` | nine-bin categoricals on `standOff` and `advance` |
+| d | `--sigma state` | the nine spreads become outputs, not parameters |
+| e | `--entropy-target -1.0` | the entropy coefficient becomes a controller |
+| f | `--entropy-anneal 0.003:0,0.0003:20` | the same coefficient on a schedule |
+| g | `--critic central` | the value net reads both bodies' columns |
+| h | `--tactics holdMyReach=true` | `standOff` means a multiple of **my** reach |
+| i | `--tactics strokeOutOfRange=false` | no stroke may start out of range |
+| j | `--tactics closeGain=0.9` | the feet's proportional gain, halved |
+
+The rating is **all ten arms in one `evaluate` call** per point: ten contenders over one pool from
+one seed (20260915 ^ 0xc0f1c0f1 = 3250907330), against `golem-driver` and `golem-fencer`, 150 bouts
+an opponent and 300 an arm, greedy reads rather than draws. Both arrangements were taken: random
+viable pairs over 52 builds, and mirrored over the 13 viable mirror builds. Column k's row j and
+column l's row j are the same fight with a different mind in one corner, and `ratePaired` refuses
+outright if the opponents do not arrive in the same order in every arm's block, because a difference
+taken across two opponents is not a paired difference. The columns are then split by who was in the
+other corner, and the `golem-driver` split is the one the bar is stated on.
+
+### The bar, per arm
+
+Random viable pairs, 300 bouts an arm, iteration 60, paired against arm a. The bar asked for **d 0.2
+against `golem-driver`** and, beside it, no mirrored loss of more than one standard error.
+
+| arm | bar vs `golem-driver` | difference from a | **paired d** | the same d mirrored | verdict |
+| --- | ---: | ---: | ---: | ---: | --- |
+| a | -0.0143 +-0.0501 | -- | -- | -- | control |
+| b | -0.0132 +-0.0464 | +0.0011 +-0.0339 | **+0.003** | +0.025 | missed |
+| c | +0.0096 +-0.0489 | +0.0238 +-0.0314 | **+0.062** | -0.481 | missed |
+| d | -0.0185 +-0.0503 | -0.0042 +-0.0241 | **-0.014** | -0.131 | missed |
+| e | +0.0298 +-0.0485 | +0.0441 +-0.0223 | **+0.161** | -0.285 | missed |
+| f | +0.0264 +-0.0519 | +0.0407 +-0.0247 | **+0.135** | -0.132 | missed |
+| g | -0.0567 +-0.0518 | -0.0424 +-0.0248 | **-0.140** | -0.173 | missed |
+| h | +0.0212 +-0.0517 | +0.0355 +-0.0288 | **+0.100** | -0.117 | missed |
+| i | +0.0159 +-0.0496 | +0.0302 +-0.0279 | **+0.088** | -0.135 | missed |
+| j | +0.0137 +-0.0538 | +0.0280 +-0.0255 | **+0.089** | -0.208 | missed |
+
+The intervals are 1.96 standard errors. **Seven of the nine arms are above the control and none is
+within half a bar of clearing it.** The one arm that passes the bar's mirrored half -- b, at +0.025
+-- is the arm with no margin at all on the pool that matters.
+
+**The specialist arm the criterion was written to catch is not here, and its opposite is.** No arm
+wins the mirror and loses the random pool against `golem-driver`; what the table shows is the
+reverse -- every arm that gains on random viable pairs *loses* the mirror, and the two rankings are
+close to anticorrelated. That is a fact about the two pools rather than about any one arm. The
+mirrored pool is thirteen builds, all `maul|maul` or `mace|mace`, and it is the pool every one of
+these fits collected its rollouts on; the random pool is fifty-two builds of mismatched reach and
+mass, which is where a change to how range is read has anything to do. An arm that helps on the
+second and hurts on the first is a mind that has stopped over-fitting the thirteen, and the bar's
+two-sided form charges it for that. Against `golem-fencer` the same arms invert again: b, d, i and j
+lead the control mirrored, and b, c, g, h and j trail it on random pairs.
+
+### Arm h, which is what the owner's complaint is actually about
+
+**h is the only change in this repository that lets a policy say "just inside my own range", and it
+is worth half a bar.** Session 07 measured the mismatch: the stroke's own gate opens at `max(reach *
+strikeFraction, near + slack)`, 0.92 of the *acting hand's* arm, while `standOff` -- the axis that
+decides where the feet stand -- is a multiple of the *opponent's*. Over the viable pool their reach
+spans 17 % and mine spans a factor of 3.4, so the quantity the stroke gate is written in is one no
+output of the policy could name. `holdMyReach` swaps the multiplicand: `hold = me.reach * standOff`
+instead of `them.reach * standOff`, one executor-table row, defaulting off, driven **for the
+learner's contender only** through `--tactics` rather than through `--override`, so the arm fights a
+shipped executor with a changed one and the question "would this row help the mind that learned
+under it" has an answer. `COMMAND_AXES` did not move, `POLICY_VERSION` did not move for it, and the
+shipped table still loads -- it is Session 07's `holdMetres` pattern, and `holdMetres` still wins if
+both rows are up.
+
+It read **d +0.100** against `golem-driver` on random viable pairs, +0.0355 +-0.0288 on the bar
+margin -- the fourth-largest gain of the nine, and half the bar -- and it lost the mirror by 0.0593
++-0.0415, which is more than one standard error, so it fails the second half too. Two things beside
+the bar say the row is doing something rather than nothing. Its critic explains the most variance of
+any arm that did not change the observation (0.616 over the last ten iterations against the
+control's 0.446), and its bouts decide half again as often late in the run (0.277 against 0.184),
+which is what a mind standing at a distance it can actually reach from looks like. The honest
+summary is that the axis the owner called wrong is measurably wrong, that fixing it moves the fight,
+and that fixing it alone at 60 iterations from scratch does not clear a d of 0.2.
+
+### The other eight, one line each
+
+**b -- nine columns of history is the arm that most changed what a bout looks like.** Its bouts
+decide 69 % of the time against the control's 20 % and run 572 asks against 766, and it is a quarter
+cheaper an iteration (250 s against 323) for exactly that reason. None of it reaches the bar: +0.003
+against the driver, -0.100 against the fencer. A mind that can see the gap closing ends bouts; it
+does not yet win more of them.
+
+**c -- the categorical head is the largest effect in the session and it points the wrong way.** 80 %
+of its bouts decide, 491 asks an episode, 225 s an iteration -- the cheapest and the most decisive
+arm by a distance. On random pairs it is +0.062, inside noise. **Mirrored it is d -0.481, the
+largest single number in the table.** Nine bins can put mass on two separated distances, and what
+this arm learned to do with that was to commit, which decides bouts and loses the ones it decides
+against the thirteen bodies it trained on. It is the arm most worth re-running and the arm least
+safe to ship.
+
+**d -- a spread that is a function of the observation costs nothing and buys nothing.** d 0.014
+below the control on random pairs, -0.131 mirrored, the same episode length and the same decided
+rate as the control. Its KL is twice everyone else's (0.0210 against 0.0104), which is the one
+visible consequence: the trust region works harder when the spread can move with the state. The
+argument in `policy.ts` against turning nine printable numbers into a function has now been
+measured, and the measurement does not overturn it.
+
+**e -- the entropy controller is the best arm on the pool that matters, and it ran out of
+authority.** d +0.161, four fifths of the bar. The controller drove the coefficient monotonically
+from 3.0e-3 to **2.0e-5** over 60 iterations and never turned round, because the -1.0 nat target is
+far below where the spread actually sits: the control's per-axis entropy *rises* from 0.719 to 0.810
+over the run, e's falls only to 0.656, and a multiplicative dual can withdraw the bonus but cannot
+push past it into a penalty. So e is not a fit held at -1.0 nat; it is a fit whose entropy bonus was
+removed smoothly, and the target should be read off the control's own curve rather than guessed.
+
+**f -- the same knob on a schedule, and the session's determinism check.** d +0.135, second best.
+**f's first nineteen iterations are bit-identical to a's** -- every field of every row, the returns,
+the KL, the explained variance -- and they diverge at iteration 20, where its schedule steps from
+0.003 to 0.0003. That is the schedule wiring and the seed discipline confirmed in one reading at no
+cost, and it is why f and a can be compared at all. f ends with the second-highest explained
+variance in the session (0.576 over the last ten).
+
+**g -- the central critic is the only arm clearly below the control on both pools.** d -0.140
+against the driver and -0.169 over all opponents, and it is the most expensive arm (333 s an
+iteration) and the least decisive (14.7 % late). The peer columns are one ask stale by construction
+and zero on the first ask of a bout, and doubling the critic's input from 71 columns to 142 on 64
+bouts an iteration is a larger ask of a smaller signal. Nothing here says centralised training is
+wrong; it says this much of it, at this budget, is worse than not having it.
+
+**i -- refusing a stroke that cannot land is worth d +0.088, and it is not free.** It has the lowest
+decided rate in the session (11.4 % late), the longest episodes (791 asks), the worst return
+(-0.0968) and by far the worst critic (explained 0.296 against everyone else's 0.45 to 0.62).
+Session 07 measured this row at +29 % damage against a fighting opponent and -18 % against a
+motionless one, and this is what that trade looks like from inside a fit: a mind that throws fewer
+strokes gets a sparser reward and a noisier baseline, and still ends slightly ahead on the pool that
+matters.
+
+**j -- the plan's sign correction, worth d +0.089.** The feet are a proportional controller,
+`forward = clamp(clamp((gap - hold) * closeGain, -1, 1) + advance)`, so they settle at `hold -
+advance / closeGain`: **lowering** the gain is what widens the window a saturated `advance` can
+reach, and the plan's "raise it" is arithmetically backwards. Halved to 0.9 it gives the
+second-highest decided rate outside the two arms that changed the observation and the head (29.5 %)
+and the highest explained variance in the session (0.703 at iteration 60). It also has the worst
+fencer reading in the table (d -0.208), which is consistent with what the row does: a mind that can
+stand further out than the control does worse against the opponent that closes.
+
+### Three deviations from the plan, all deliberate
+
+**One batch of ten rather than two nights of four.** The plan's step 6 splits the arms over two
+runs. Ten arms at three workers each fit in one night on this desktop, and one batch is strictly
+better for the criterion: every arm meets the same pool from the same seed in the same process, so
+arm minus arm is paired all the way across the table rather than only within a night. The cost is
+three collector workers an arm instead of seven, which is why an iteration is 323 s here and 156 s
+in Session 08.
+
+**`commandFromAction` is untouched.** The plan expects the head change to reach it. It does not:
+`sampleAction` writes the bin centre into the same 12-wide action vector a Gaussian axis writes its
+draw into, so the rollout pack's stride, the executor, and every recorded run are unchanged, and
+what a head changes is only the width of the network's output row. That is the whole reason ten
+shapes could be rated in one call.
+
+**The plan names a pilot test file this tree does not have.** Its Verification block asks for a
+tests/pilot.test.mjs; there is no such file here and never was. The pilot's columns are tested in
+`tests/tactics-v4.test.mjs`, where version 2's nine trace columns are now asserted ask by ask
+against a hand-stepped recursion, and that file was substituted in the Verification run -- in this
+entry, and in the plan's own block, which was corrected rather than left naming nothing.
+
+### What this entry does not say
+
+It does not say these variants do not work. It says that at one flag each, from the unfitted head,
+over 60 iterations at 64 bouts on three workers, on this pool and this seed, none of nine reached a
+paired d of 0.2 against `golem-driver`, and that the two best -- e at +0.161 and f at +0.135 -- are
+the two arms that change how entropy is paid rather than anything about the network. Sixty
+iterations from scratch is a short run, and c and b, the two arms that visibly changed how a bout
+goes, are the two whose effect a longer run has the most room to separate.
+
+It does not settle a hyper-parameter. One entropy target was run, one anneal schedule, one gain, one
+set of trace decays; e's controller says the target was chosen badly and says nothing about whether
+a better-chosen one clears.
+
+It does not say the owner's complaint is answered. `holdMyReach` is the row that answers it, it is
+implemented, tested and defaulted off, and at 60 iterations it is worth half a bar and a mirrored
+loss. The surface is still wrong in the way Session 07 described; this session measured how much of
+the gap that wrongness explains, and the answer is: some, not most.
+
+And it does not move anything shipped. `src/golem/policy-weights.ts` is still the version-2 table
+the league fitted, `GOLEM_TACTICS_V4` still has every flag off, `PILOT_FEATURES_DEFAULT` is still 1,
+`GOLEM_REWARD` is untouched, and no arm here earned the right to change any of that.

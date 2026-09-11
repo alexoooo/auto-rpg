@@ -1,6 +1,16 @@
 # Session 09 -- network and algorithm variants
 
-**Status (2026-09-09): planned. Needs 04, 07.**
+**Status (2026-09-10): landed.** All six steps implemented, plus the three executor arms the
+owner's complaint asked for, and ten arms run in full -- 60 iterations each, exit 0, zero
+restarts, 333 minutes in one batch. **No arm cleared the bar.** Against `golem-driver` on random
+viable pairs at iteration 60 the best arm is e, the entropy controller, at d +0.161 against a bar
+of 0.2, and nine of the ten lose the mirror by more than one standard error. **Arm h -- `standOff`
+read as a multiple of the acting hand's own reach, which is the row the owner's complaint is
+actually about -- read d +0.100 and lost the mirror by 0.0593 +-0.0415.** The surface is
+measurably wrong in the way Session 07 said; fixing it alone is worth half a bar. Nothing shipped
+moved: `POLICY_VERSION` is 3 and `PILOT_FEATURES_VERSION` is 2, but every flag defaults off, the
+version-2 table still loads, and `docs/measurements.md` carries the full table, the three
+deviations, and the reading of the two pools.
 
 ## Outcome
 
@@ -72,7 +82,7 @@ is the record's specialist again.
 
 ```powershell
 npm run check
-node --test tests/ppo.test.mjs tests/pilot.test.mjs tests/docs.test.mjs
+node --test tests/ppo.test.mjs tests/tactics-v4.test.mjs tests/docs.test.mjs
 node scripts/train-ppo.mjs --iterations 1 --bouts 8 --workers 8 --head mixed --sigma state --evaluate 0 --seed 20260915
 node scripts/train-ppo.mjs --iterations 1 --bouts 8 --workers 8 --features 2 --entropy-target -1 --evaluate 0 --seed 20260915
 npm test
