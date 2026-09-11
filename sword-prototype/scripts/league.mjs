@@ -120,6 +120,7 @@ import {
 import { PILOT_FEATURES_VERSION } from "../src/golem/pilot.ts";
 import { initWeights, netSize } from "../src/golem/neural-net.ts";
 import { GOLEM_REWARD } from "../src/golem/reward.ts";
+import { GOLEM_TACTICS_V4 } from "../src/golem/tactics-v4.ts";
 
 /** The agent that is being trained, and the only side a league rollout records. */
 export const MAIN_NAME = "main";
@@ -1082,6 +1083,23 @@ if (isMain) {
   if (write !== null && !shippedReward) {
     throw new Error(`--out refuses a run paid under ${JSON.stringify(reward)}, which is not GOLEM_REWARD; `
       + "move the table in src/golem/reward.ts first, or ship from the checkpoint instead");
+  }
+  // The same refusal on the other table a run can be paid under, and it arrived with Session 10 of
+  // the learn set because that session's arms e and f carry one. `--tactics` moves the executor
+  // rows the learned mind drives under, and a mind fitted under `holdMyReach` reads the stand-off
+  // axis as a multiple of its own reach -- so the shipped weights would run on a surface that is
+  // not the one they learned, and nothing in the generated module could say so: `PolicyWeights`
+  // has no field for an executor table and adding one would be a field `checkPolicyWeights` does
+  // not declare. So the row is either in `GOLEM_TACTICS_V4` by the time the module is written, or
+  // the module is not written. A winning arm's row moves in the same commit as its weights.
+  if (write !== null && tactics !== null) {
+    const moved = Object.keys(tactics).filter((row) => tactics[row] !== GOLEM_TACTICS_V4[row]);
+    if (moved.length > 0) {
+      throw new Error(`--out refuses a run paid under ${JSON.stringify(tactics)}, which is not the `
+        + `shipped executor table: ${moved.join(", ")} ${moved.length === 1 ? "is" : "are"} not what `
+        + "GOLEM_TACTICS_V4 ships. Move the row in src/golem/tactics-v4.ts in the same commit as the "
+        + "weights, or ship from the checkpoint instead");
+    }
   }
   // A run with no rating cannot write a module either, and finding that out after the last
   // iteration is finding it out after the night. `--evaluate 0` is what the sweep runner passes.
