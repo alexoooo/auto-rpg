@@ -20022,3 +20022,283 @@ the gap that wrongness explains, and the answer is: some, not most.
 And it does not move anything shipped. `src/golem/policy-weights.ts` is still the version-2 table
 the league fitted, `GOLEM_TACTICS_V4` still has every flag off, `PILOT_FEATURES_DEFAULT` is still 1,
 `GOLEM_REWARD` is untouched, and no arm here earned the right to change any of that.
+
+## Session 10 of the learn set -- 2026-09-11: six arms, a mind brought level with the fencer, and a bar that asked for ahead
+
+Every trainer in this repository had put one build in both corners of every bout it ever scheduled.
+This session broke that: half a rollout on random viable pairs, a second hand-coded anchor in the
+opponent cycle, every rating taken under both arrangements and the selection made on one of them.
+Six arms, all resumed from the shipped mind's own main, fifty iterations each over one night.
+
+**No arm cleared the bar.** The bar asked for a paired margin of **d 0.2 over `golem-fencer` on
+random viable pairs**, and the best of the six is arm c at **d -0.007** -- level with the fencer,
+not ahead of it. The bar's second half, that the same mind not lose to `golem-driver` mirrored by
+more than one standard error, is passed by all six comfortably. **The bar is not moved and nothing
+ships.** `src/units.ts` still screens `golem-fencer`, `src/golem/policy-weights.ts` is the mind the
+league shipped in Session 09's predecessor, and `GOLEM_TACTICS_V4` still has every row off.
+
+What the session did buy is worth stating precisely, because it is the first movement on this axis
+the record has. The control -- the shipped league's own configuration, continued another
+forty-nine iterations -- sits at **-0.098 +-0.061 against `golem-fencer` on random viable pairs**,
+which is the finding the whole set exists because of: the learned mind loses to a designed one on
+the bodies the game actually draws. Arm c closes that to **-0.005 +-0.062**. The gain over the
+control is **+0.0931 +-0.0282, d +0.301**, the largest arm-minus-control effect in the table and one
+of only two in it whose interval excludes zero. Half a rollout that is not a mirror, plus a second
+anchor, takes the learned mind from clearly behind the fencer to level with it. Level is not the
+bar.
+
+### What actually ran, exactly
+
+`docs/sweeps/learn-10-league.json` through `scripts/sweep.mjs`, **one batch of six arms**, seed
+20260915, every arm resumed with `--from tournaments/league-anchored-main-checkpoint.json` -- the
+shipped mind's own main, not an unfitted head. That is the difference between this session and
+Session 09, where ten arms were fitted from scratch, and it is why fifty iterations is a fair budget
+here: the question is not whether a mind can be grown in a night, it is whether these four changes
+move the mind that is already shipped.
+
+At `--shards 1`, `workerBudget(6, 32, 1)` is `max(1, floor((32 - 2) / 6))` = **5 collector workers
+an arm**, thirty threads between the six of them on an idle 16C/32T desktop. Common flags: 128 bouts
+an iteration, `--cap 60`, `--exploiters 2 --exploiter-every 2 --pool-every 8 --pool-cap 8`,
+`--emphasise maul,mace --emphasis 3`, `--share-anchor 1`, `--select random`, `--evaluate 0`, the
+viable pool at 40 random draws.
+
+**All six ran to the 400 minute deadline and stopped there, exit 0, zero restarts** -- 20:30 on
+2026-09-10 to 03:10 on 2026-09-11. The manifest asks for 100 iterations and none of them got there:
+arms b and c reached **51**, and a, d, e and f reached **49**, at 450 to 490 seconds an iteration of
+which roughly 250 is the fit. That is the session's one deliberate cut and it was made in advance:
+six arms at five workers is half the throughput of Session 09's ten at three, and the instruction
+was to cut iterations before cutting arms. **40192 main-side bouts were collected over the six**,
+26910 of them mirrored and 13282 not.
+
+The six differ as follows. Arms a and d hold the mirror; b, c, e and f put half the rollout on
+random viable pairs. Arms c, e and f meet a second anchor.
+
+| arm | mirror share | anchors | other | what it tests |
+| --- | ---: | --- | --- | --- |
+| a | 1 | `golem-driver` | -- | the shipped league on the viable pool, the control |
+| b | 0.5 | `golem-driver` | -- | random pairs in training |
+| c | 0.5 | `golem-driver`, `golem-fencer` | -- | random pairs and the second anchor |
+| d | 1 | `golem-driver` | `--entropy 0.003` | the style set's unfitted 2x2 cell |
+| e | 0.5 | `golem-driver`, `golem-fencer` | `--tactics holdMyReach=true` | c plus the own-reach anchor |
+| f | 0.5 | `golem-driver`, `golem-fencer` | `holdMyReach`, `--entropy-anneal 0.003:0,0.0003:20` | e plus Session 09's best entropy arm |
+
+The determinism check the layout affords was taken and it passes. **a and d are bit-identical at
+iteration 1 and diverge at iteration 2**, which is where their entropy coefficients first reach a
+fit; **e and f likewise**. The first iteration of a run is a rollout before any fit, so arms that
+differ only in what the fit is paid have to agree there and nowhere after, and they do.
+
+### The share table survived the second axis, and the rollout grew by two bouts
+
+The property the flag was built on holds in the run rather than only in the test. At iteration 1,
+arm a and arm b both met `self`, `exploiter-0`, `exploiter-1` and `golem-driver` **32 bouts each**:
+the arrangement moved and the opponent mix did not. Arms c, e and f met five opponents at **26 bouts
+each**, both anchors alike: `golem-fencer` is a slot in the cycle, not half of `golem-driver`'s.
+
+The cost of insisting on whole cycles is visible and is worth naming. 128 bouts over five opponents
+is 25.6 cycles, which is not a number of cycles, so the split rounds each side up to one: 14 cycles
+mirrored and 12 random, **130 bouts rather than 128, and a realised share of 0.538 rather than
+0.500**. The header records the realised share and not the asked-for one, because a row that says
+0.5 over a rollout that was 0.538 is a row somebody has to correct later by counting bouts. Two
+bouts in 128 is 1.6 %, and the alternative -- letting a cycle be partial -- would have put the
+declared opponent mix and the realised one a whole opponent apart on a five-slot cycle, which is the
+thing the property exists to prevent.
+
+### What the rollouts looked like, before any rating
+
+The four arms that gave up half the mirror separate from the two that did not, on every in-run
+number, and they separate the same way. Means over each arm's last ten iterations:
+
+| arm | training margin | decided | KL | entropy | explained variance | episode length |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| a | -0.0076 | 0.583 | 0.0134 | 7.50 | 0.765 | 659 |
+| b | +0.0180 | 0.653 | 0.0116 | 7.54 | **0.874** | 624 |
+| c | +0.0146 | 0.656 | 0.0113 | 7.45 | **0.881** | 622 |
+| d | -0.0047 | 0.570 | 0.0113 | 8.65 | 0.772 | 676 |
+| e | +0.0182 | 0.649 | 0.0138 | 7.57 | **0.871** | 621 |
+| f | +0.0221 | 0.634 | 0.0135 | 7.99 | **0.859** | 624 |
+
+**The critic's explained variance is the largest and cleanest split in the session: 0.86 to 0.88 for
+every arm at half a mirror against 0.765 and 0.772 for the two that stayed in one.** The naive
+expectation is the reverse -- more variety in the bodies should be harder to predict -- and the
+reason it is not is the thing this whole session is about. In a mirror the two bodies are equal by
+construction, so nothing in the observation predicts the winner and the value head is reduced to
+reading the fight. On random viable pairs a large part of the outcome is set by the matchup itself,
+reach against reach and mass against mass, and those are columns the critic already has. A mirror
+does not merely hide the errors that depend on the bodies differing; it hides the *information* that
+depends on them differing, and a critic trained in one has never been paid for reading it.
+
+The rest of the table is consistent with that. The half-random arms decide seven bouts in a hundred
+more often and run forty fewer asks an episode, which is what mismatched reach does to a fight. The
+training margins are not comparable across the split -- b's +0.018 and a's -0.008 are taken against
+different opponent distributions -- and are quoted only to say that no arm collapsed. Arm d's
+entropy sits a whole nat above everyone's at 8.65, which is the 10x coefficient doing exactly what
+it is for, and f's 7.99 sits between d's and a's, which is the anneal.
+
+### The bar, per arm
+
+Both ratings are one `ratePaired` call an arrangement over the six arms at once, at **600 bouts an
+arm**, 120 an opponent against `golem-driver`, `golem-form`, `golem-brawler`, `golem-duelist` and
+`golem-fencer`, greedy reads rather than draws, at **seed 20260906 named on the command line** --
+the seed the bar is stated at, which is not the sweep's own. The mind rated is each arm's live main
+at the iteration it stopped on. Intervals are 1.96 standard errors.
+
+The two pools are the same forty draws arranged two ways: **52 builds as random viable pairs, 15 as
+mirrors**. Fifteen rather than the thirteen quoted elsewhere in this record, because the mirrorable
+count is a property of the draw and this table is taken at the bar's seed rather than the league's.
+
+**The bar** is the `golem-fencer` column of the random-pairs table at `d >= +0.200`, *and* the
+`golem-driver` column of the mirrored table at no worse than one standard error below zero.
+
+| arm | random pairs vs `golem-fencer` | **paired d** | mirrored vs `golem-driver` | paired d | verdict |
+| --- | ---: | ---: | ---: | ---: | --- |
+| a | -0.0981 +-0.0608 | **-0.147** | +0.0532 +-0.0343 | +0.141 | **missed** (control) |
+| b | -0.0680 +-0.0647 | **-0.096** | +0.0214 +-0.0322 | +0.061 | **missed** |
+| c | -0.0051 +-0.0624 | **-0.007** | +0.0371 +-0.0341 | +0.099 | **missed** |
+| d | -0.0717 +-0.0635 | **-0.103** | +0.0537 +-0.0302 | +0.162 | **missed** |
+| e | -0.0631 +-0.0612 | **-0.094** | +0.0569 +-0.0340 | +0.153 | **missed** |
+| f | -0.0769 +-0.0622 | **-0.113** | +0.0861 +-0.0310 | +0.253 | **missed** |
+
+**Every arm passes the mirrored half and every arm fails the random-pairs half, and the gap between
+the two halves is the session's finding rather than an accident of one arm.** Six minds, one of them
+the shipped configuration itself, all beat `golem-driver` on the fifteen bodies a mirror admits, and
+all six lose to `golem-fencer` on the fifty-two the game draws. The criterion was written two
+sessions ago to catch a mind that wins the mirror and loses the pool. It has now caught the entire
+table, including the control, which is a stronger statement than catching an arm: it says the
+specialism is in the training distribution and not in any one change made to it.
+
+The whole-pool splits, which the bar is not stated on but which say the same thing more quietly:
+
+| arm | random pairs, all five | **d vs control** | mirrored, all five | d vs control |
+| --- | ---: | ---: | ---: | ---: |
+| a | +0.0179 +-0.0272 | -- | +0.0141 +-0.0153 | -- |
+| b | +0.0408 +-0.0277 | +0.074 | +0.0226 +-0.0142 | +0.019 |
+| c | **+0.0697 +-0.0277** | **+0.168** | -0.0116 +-0.0151 | -0.052 |
+| d | +0.0412 +-0.0270 | +0.082 | **+0.0457 +-0.0139** | +0.070 |
+| e | +0.0306 +-0.0273 | +0.035 | +0.0201 +-0.0141 | +0.013 |
+| f | +0.0089 +-0.0269 | -0.027 | +0.0232 +-0.0145 | +0.020 |
+
+**The best arm on each pool is the worst or nearly the worst on the other.** c leads the random
+table and is the only arm below the control on the mirror; d leads the mirror and is fourth of six
+on random pairs against the fencer; f has the session's best single number anywhere -- d +0.253
+against `golem-driver` mirrored -- and the worst whole-pool number on random pairs. Session 09 found
+the two rankings close to anticorrelated across ten arms fitted from scratch. Six arms continued
+from a shipped mind reproduce it.
+
+### The four changes, isolated
+
+The arms were laid out so that neighbouring pairs differ in one thing, and they do, so the table
+decomposes. Gains are against the control on random viable pairs, whole pool and then the fencer
+split.
+
+**The mirror share alone is `b` minus `a`: +0.0229 +-0.0127 whole pool (d +0.074), +0.0301 +-0.0272
+against the fencer (d +0.101).** Positive on both, inside noise on both. Half a rollout that is not
+a mirror is worth something and this run cannot say it is worth more than nothing.
+
+**The second anchor alone is `c` minus `b`: a further +0.029 whole pool and a further +0.063 against
+the fencer.** It is the larger of the two by a factor of two, and it is the half that carries c's
+significance. That ordering is not obvious in advance and is worth keeping: putting a *designed*
+mind in the other corner as often as the first did more than randomising which bodies the two sides
+carry. The fencer is the opponent the bar is stated against, so some of this is teaching to the
+test -- but `golem-fencer` was in c's opponent cycle at one slot in five and the gain shows up on
+`golem-form` and `golem-duelist` as well, neither of which c ever met.
+
+**The entropy coefficient alone is `d` minus `a`: +0.0234 +-0.0116 whole pool (d +0.082).** The
+same size as the mirror share, from a flag that costs nothing, and it is the arm that most improves
+the *mirror*. Its rollouts show why: entropy 8.65 against the control's 7.50, a whole nat wider, and
+the spread never collapsed. The style set's unfitted 2x2 cell is worth about as much as the
+session's headline change, which is a result about how little any of this is worth at fifty
+iterations rather than a result about entropy.
+
+**`holdMyReach` alone is `c` minus `e`, and it is negative: -0.039 whole pool and -0.058 against the
+fencer.** Both arms are half a mirror with two anchors; e adds the row and nothing else. Session 09
+measured the same row at d +0.100 over its control when every arm was fitted from scratch, and here,
+continuing a mind that was fitted for ninety-three iterations under the row switched *off*, it
+costs. That is a coherent reading rather than a contradiction: the shipped weights encode a
+stand-off policy calibrated against the opponent's reach, and changing what the axis means
+mid-continuation invalidates part of what they already know. The row is still defaulted off, and
+what this session adds to the record is that it should be judged from scratch and not by
+continuation.
+
+**The entropy anneal alone is `f` minus `e`: -0.022 whole pool.** Session 09's second-best arm, on
+top of this session's configuration, subtracts. f's compensation is the mirror, where it posts the
+session's largest number against `golem-driver`.
+
+### Deviations from the plan, all deliberate and all recorded
+
+**Six arms rather than the plan's four, and iterations cut rather than arms.** The plan names four;
+six were run, adding d (the style set's unfitted entropy cell) and f (Session 09's best entropy arm
+on top of e). Six arms at five workers is half the per-arm throughput of four at seven, so the
+budget bought about fifty iterations an arm instead of the manifest's hundred. Cutting iterations
+rather than arms was the instruction and it was the right trade here for a specific reason: the two
+arms that would have been dropped, d and f, are the ones holding the mirror's best numbers, and
+without them the table would have shown the random share winning everywhere and would have been read
+as a cleaner result than it is.
+
+**`--share-random` and `--mirror-share` are the same knob and both are accepted.** The plan spells
+it the first way, counting slots against the mirror's implicit one; `scripts/train-ppo.mjs` spells
+it the second, as the fraction the scheduler takes. A run may pass one or the other and not both,
+because a header carrying two answers to "how much of this was a mirror" is worse than one carrying
+none.
+
+**`--select` was inert inside every arm, because the sweep runs at `--evaluate 0`.** With no rating
+rows written during a run there is no in-run pool admission for the flag to govern, so what
+`--select random` actually decides is which pool `--ship` and `--ship best` read afterwards. The
+flag is in every arm's header and did nothing during the arms; it would have done its work only on
+the ship step, which no arm earned.
+
+**Three additions the plan did not name.** `--tactics` and `--entropy-anneal` on
+`scripts/league.mjs`, without which arms e and f cannot exist; `--ship best`, which is the selection
+rule made into a flag; and a `mirror` axis on the idle probe, which is what lets the tripwire ask
+its question about two different bodies at all.
+
+**The random-pairs rating is a changed instrument.** `ratePolicy` now passes `viable: true` and a
+seed moved off the mirrored stream when it rates random pairs, and callers hand it the
+*class-filtered* pool rather than the mirrored one. The second is a bug fix with a measured cost:
+`keepViable` can narrow a list and cannot widen one, so a league that handed over its mirrorable
+builds was rating the random half on thirteen bodies drawn two at a time while its header said
+fifty-two. Numbers taken on the random pool before this session are not comparable with numbers
+taken after it. The mirrored rating is untouched and `ratingSeed(seed, "mirror")` is the identity,
+so every mirrored number in this record still reproduces.
+
+**The paired table could not be pointed at a league at all before this session.** `ratePaired` read
+a `train-ppo` checkpoint beside each arm's log, which a league never writes, so every league arm
+fell out of its loop and the mode refused with "no arm of this sweep has left a checkpoint to rate".
+It reads a league's own state now, takes `--rate-seed`, and carries `barD` beside `d` -- the arm's
+own margin against the designed mind, which is what a bar stated over `golem-fencer` is read on, as
+distinct from the arm-minus-control `d` the sweep was already reporting.
+
+**And one trap found by rating the arms early rather than at the end.** The `features` field means
+two different things in the two headers a sweep reads: `scripts/train-ppo.mjs` writes the run's own
+observation version, and `scripts/league.mjs` writes `PILOT_FEATURES_VERSION`, a build stamp that
+has read 2 for every league here including the one that fitted the shipped mind over 71 columns.
+Believing the second built an 80-column net over 87308 numbers and failed inside a tournament
+worker, naming two counts and no arm, after the pool had been drawn. The reader now takes the shape
+off the layout each header also records, and asserts it against the weights before a worker is
+spawned. This was found at half past nine in the evening by rating the running arms at two bouts an
+opponent; had it been found when the arms stopped, the night's numbers would have been unreadable
+until the following day.
+
+### What this entry does not say
+
+It does not say the mirror share does not work. It says that at half a rollout, over forty-nine
+iterations continued from a mind fitted entirely in a mirror, it is worth d +0.074 on the whole pool
+and d +0.101 against the fencer, both inside noise, and that adding a second designed anchor roughly
+triples the second of those and takes it outside noise. Every arm here is a continuation. The
+question a continuation cannot answer is what a league trained from scratch on this distribution
+would do, and that is the obvious next run rather than a longer version of this one.
+
+It does not say `holdMyReach` is wrong. It says the row costs about d 0.04 when it is switched on
+underneath weights that were fitted for ninety-three iterations with it off, and that Session 09's
+from-scratch reading of +0.100 and this session's continuation reading of -0.039 are answers to
+different questions. Nothing in either says which way it goes in a league fitted from scratch with
+the row on, which no run has done.
+
+It does not settle the bar's size. Six arms produced a best of d -0.007 where the bar asks +0.200,
+and the honest summary of that distance is that none of these changes is the change. The record now
+has ten single changes from Session 09 and four from this one, fourteen arms, and the largest paired
+margin over `golem-fencer` on the pool the game draws is level.
+
+And it does not move anything shipped. `src/golem/policy-weights.ts` is untouched,
+`src/golem/reward.ts` is untouched, `GOLEM_TACTICS_V4` has every row off, and `src/units.ts` still
+screens `golem-fencer`, which frozen choice 7 says stays the default until a learned mind clears the
+bar. No arm did.

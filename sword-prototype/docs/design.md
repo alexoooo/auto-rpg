@@ -2430,6 +2430,21 @@ the arm's own bar margin against the designed mind in the other corner and asks 
 They are different criteria, the line labels both, and a set that wants to take the screen's
 default off `golem-fencer` has to answer the second one.
 
+A third thing came with it, from the same session, and it is a naming trap rather than a feature.
+**The `features` field means two different things in the two headers a sweep reads.**
+`scripts/train-ppo.mjs` writes the run's own `--features` there: the version of the observation its
+weights are shaped by, 1 for 71 columns and 2 for 80. `scripts/league.mjs` writes
+`PILOT_FEATURES_VERSION`, which is a compatibility stamp saying what feature code the build could
+load, and that has read 2 for every league ever run in this tree -- including the one that fitted
+the shipped mind over 71 columns. A reader that takes the second spelling for the first builds an
+80-column net over 87308 numbers, and the failure does not surface in the reader: it is raised
+inside a tournament worker, one process away, naming two counts and no arm, after the pool has been
+drawn and the bouts have started. Both headers also record the layout they ran, which is the number
+the weights on disk are actually shaped by, so `shapeOfLog` reads the shape off the layout and lets
+it settle the disagreement, and `checkShape` asserts shape against weights before a worker is
+spawned. The general rule the trap is an instance of: **where a header records both a claim and the
+thing the claim is about, the reader takes the thing.**
+
 ## Dying, which is not the same as losing
 
 `over` not stopping the world was the right call about the *bout* and, for a long time, it

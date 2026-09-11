@@ -1,6 +1,12 @@
 # Session 10 -- league v2: train and rate on random viable pairs
 
-**Status (2026-09-09): planned. Needs 04, 06.**
+**Status (2026-09-11): landed. No arm cleared the bar.** Six arms rather than four, all resumed
+from the shipped mind's main, about fifty iterations each. The bar asked for a paired margin of
+d 0.2 over `golem-fencer` on random viable pairs at 600 bouts and seed 20260906; the best of the
+six is arm c at **d -0.007**, level with the fencer rather than ahead of it, up from the control's
+-0.147. All six pass the bar's second half, losing nothing to `golem-driver` mirrored. The bar is
+not moved, nothing shipped, and `src/units.ts` still screens `golem-fencer`. The table, the
+isolation of each of the four changes, and the deviations are in `docs/measurements.md`.
 
 ## Outcome
 
