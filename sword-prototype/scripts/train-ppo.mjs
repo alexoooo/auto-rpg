@@ -4,6 +4,7 @@
 //        [--workers N] [--shards 8] [--random 40] [--half-life 4] [--lambda 0.95] [--clip 0.2]
 //        [--entropy 0.003] [--rate 1e-4] [--value-rate 1e-3] [--sigma-rate 10x rate]
 //        [--epochs 4] [--batch 4096] [--target-kl 0.03]
+//        [--mirror-share 1] [--pools mirror,random]
 //        [--sigma-floor -3] [--sigma-roof 0.5] [--evaluate 5] [--eval-bouts 96]
 //        [--final-bouts 4x eval] [--value-hidden 64,64] [--opponent golem-driver]
 //        [--terminals maul,mace|all]   -- absent is the viable set; `all` is every build
@@ -1364,6 +1365,86 @@ export function rolloutPairs(name, opponent) {
 }
 
 /**
+ * How an iteration's pairings divide between the mirror and random viable pairs.
+ *
+ * Session 10 of the learn set, and the arithmetic is the same one `leaguePairs` is written on: a
+ * share drawn from a random stream is the declared share only in expectation, and an iteration is
+ * a few dozen pairings, so "half the bouts on random pairs" would land somewhere between a third
+ * and two thirds of them on any given night. Here it is exact.
+ *
+ * `cycle` is the length of the opponent cycle the schedule walks, and each half is a whole number
+ * of cycles for `collectLeague`'s reason: `scheduleJobs` takes `pairing % cycle.length`, so a half
+ * that ended mid-cycle would give the first entries of the cycle more slots than the last ones and
+ * the opponent mix would differ between the two halves of one iteration.
+ *
+ * **A share of exactly 1 or exactly 0 is not rounded at all**, and that is what keeps a run that
+ * names no share byte for byte the run it was: the old schedule is `pairings` mirrored pairings,
+ * and any rounding here -- however harmless -- would move the bouts of every run in the record.
+ * A share strictly between the two buys at least one cycle of each arrangement, because a flag
+ * that silently resolved to "all mirror" would be an arm that measured its control twice.
+ */
+export function boutSplit(pairings, mirrorShare, cycle = 1) {
+  if (!Number.isFinite(mirrorShare) || mirrorShare < 0 || mirrorShare > 1) {
+    throw new Error(`a mirror share of ${mirrorShare} is not a share; it runs from 0 to 1`);
+  }
+  if (mirrorShare === 1) return { mirror: pairings, random: 0 };
+  if (mirrorShare === 0) return { mirror: 0, random: pairings };
+  const cycles = Math.max(1, Math.ceil(pairings / cycle));
+  const mirrorCycles = cycles < 2
+    ? (mirrorShare >= 0.5 ? 1 : 0)
+    : Math.min(cycles - 1, Math.max(1, Math.round(cycles * mirrorShare)));
+  return { mirror: mirrorCycles * cycle, random: (cycles - mirrorCycles) * cycle };
+}
+
+/**
+ * The stream the random-pair half of an iteration is drawn from, which is not the mirror's.
+ *
+ * Two schedules from one seed draw the same pool indices in the same order, so a run whose two
+ * halves shared a seed would fight the same bodies twice over -- once against themselves and once
+ * against whatever the second draw happened to pair them with. The constant is arbitrary and is
+ * written down here so that a reader of a rollout can reproduce either half.
+ */
+export const RANDOM_HALF_SEED = 0xd0e5;
+
+/**
+ * One iteration's jobs: the mirrored half and the random-viable-pair half, laid end to end.
+ *
+ * Two calls to `scheduleJobs` and not one, because the two arrangements are two different
+ * questions of the same predicate and `scheduleJobs` answers each of them already -- a mirrored
+ * schedule wants a pool `viableMirror` has filtered, and a random-pair schedule wants a rejection
+ * at the draw through `viablePair`, which cannot be a filter on a list of single builds. What this
+ * adds is the split, the second stream, and the re-indexing: `runJobs` places a finished row at
+ * `row.index` in an array as long as the job list, so two schedules concatenated without renumbered
+ * indices would write the second half over the first.
+ *
+ * The opponent cycle is the same in both halves -- the same `pairs`, walked the same way -- so an
+ * arm that fights the pool and an anchor fights them in both arrangements at the declared shares.
+ */
+export function mixedSchedule({
+  pool, randomPool, policies, pairs, contenders, separation, pairings, seed, cap, mirrorShare = 1,
+}) {
+  const split = boutSplit(pairings, mirrorShare, pairs.length);
+  if (split.random > 0 && (randomPool === null || randomPool === undefined)) {
+    throw new Error(`a mirror share of ${mirrorShare} wants a pool to draw random pairs from; `
+      + "hand it poolFor with mirror off, drawn from the same seed as the mirrored one");
+  }
+  const jobs = [];
+  const add = (scheduled) => { for (const job of scheduled) jobs.push({ ...job, index: jobs.length }); };
+  if (split.mirror > 0) {
+    add(scheduleJobs({
+      pool, policies, pairings: split.mirror, seed, cap, mirror: true, contenders, pairs, separation,
+    }));
+  }
+  if (split.random > 0) {
+    add(scheduleJobs({
+      pool: randomPool, policies, pairings: split.random, seed: (seed ^ RANDOM_HALF_SEED) >>> 0,
+      cap, mirror: false, viable: true, contenders, pairs, separation,
+    }));
+  }
+  return { jobs, split };
+}
+
+/**
  * One iteration's rollouts: mirrored bouts, drawn rather than greedy, the fit's sides recorded.
  *
  * `mirror` puts one build on both sides of a pairing, so what differs across a bout is the two
@@ -1398,6 +1479,29 @@ export function rolloutPairs(name, opponent) {
  *
  * `separation` is that session's other half: null leaves the start distance where `runBout` puts
  * it, and a number is the iteration's curriculum stage in metres.
+ *
+ * ## `mirrorShare`, and why a mirror cannot see what this set found
+ *
+ * Session 10 of the learn set. `mirrorShare` is the fraction of an iteration's pairings that put
+ * one build in both corners; the rest are two *different* bodies that `viablePair` accepts, drawn
+ * from `randomPool` and rejected at the draw the way `--pairs viable` rejects. One is the training
+ * distribution this directory has always had and the other is the pool the game actually draws.
+ *
+ * The default is 1, which is that old distribution exactly -- and it is the defect two of this
+ * set's sessions independently walked into. Session 06 measured retreat outside reach at 0.2 s a
+ * bout mirrored and 3.2 to 4.7 s on random viable pairs, so the reward row written to charge for it
+ * came to 0.007 of the return: correctly wired, and priced on a state the rollouts practically
+ * never enter. Session 07 found that `standOff` is a multiple of *their* reach while the stroke
+ * opens inside 0.92 of *mine* -- and in a mirror the two reaches are equal by construction, so the
+ * defect is exactly invisible on the pool the fit trains on. A mirror is not a weak signal; it is
+ * blind in one direction, and what it cannot see is every error that depends on the two bodies
+ * differing.
+ *
+ * `randomPool` is that half's bodies and is the *class*-filtered pool rather than the mirrored one,
+ * because a pair predicate cannot be a filter on a list of single builds -- `poolFor` with `mirror`
+ * off is what to hand it, drawn from the same seed as `pool` so both halves are the same fifty-two
+ * draws seen two ways. It is required rather than defaulted whenever the share is below one: a
+ * caller who forgot it would otherwise get an iteration of mirrors and a flag that did nothing.
  */
 /**
  * The header fields a contender carries so that a worker builds the mind the fit is carrying.
@@ -1425,6 +1529,7 @@ export async function collectRollouts({
   pool, weights, logSigma, norm, seed, bouts, workers, cap, name = FIT_NAME, onProgress = null,
   reward = GOLEM_REWARD, opponent = null, separation = null,
   features = PILOT_FEATURES_DEFAULT, spec = GAUSSIAN_HEAD, tactics = null, central = false,
+  mirrorShare = 1, randomPool = null,
 }) {
   const contenders = {
     [name]: {
@@ -1435,10 +1540,11 @@ export async function collectRollouts({
     },
   };
   if (opponent === UNIFORM_NAME) contenders[UNIFORM_NAME] = { uniform: true };
-  const jobs = scheduleJobs({
-    pool, policies: opponent === null ? [name] : [name, opponent],
-    pairings: Math.max(1, Math.ceil(bouts / 2)), seed, cap, mirror: true, contenders,
-    pairs: rolloutPairs(name, opponent), separation,
+  const policies = opponent === null ? [name] : [name, opponent];
+  const pairs = rolloutPairs(name, opponent);
+  const { jobs, split } = mixedSchedule({
+    pool, randomPool, policies, pairs, contenders, separation,
+    pairings: Math.max(1, Math.ceil(bouts / 2)), seed, cap, mirrorShare,
   });
   const rows = await runJobs(jobs, { workers, contenders, record: [name], central, onProgress });
   const parts = [];
@@ -1459,6 +1565,12 @@ export async function collectRollouts({
   rollout.bouts = rows.length;
   rollout.decided = rows.length === 0 ? 0 : decided / rows.length;
   rollout.margin = parts.length === 0 ? 0 : margin / parts.length;
+  // The realised split, not the declared one, for `boutsByOpponent`'s reason: a share is a
+  // property of the schedule that ran and a row that only carried the flag could not say what the
+  // iteration actually fought. Two jobs a pairing, both corners, in both halves.
+  rollout.mirrorBouts = split.mirror * 2;
+  rollout.randomBouts = split.random * 2;
+  rollout.mirrorShare = rows.length === 0 ? 0 : (split.mirror * 2) / rows.length;
   return rollout;
 }
 
@@ -1513,6 +1625,31 @@ export function episodeReturns(rollout) {
 // ------------------------------------------------------------------------------ the evaluation
 
 /**
+ * The two arrangements a mind is rated under, in the order a row prints them.
+ *
+ * `mirror` is one build in both corners, which is the pool almost every rollout in this directory
+ * was collected on; `random` is two different bodies `viablePair` accepts, which is the pool the
+ * screen draws and the one the shipped mind comes thirteenth on. Named rather than left as a
+ * boolean because Session 10 of the learn set writes the word into every row it logs, and a row
+ * carrying `mirror: false` says what a pool is not rather than what it is.
+ */
+export const RATING_POOLS = Object.freeze(["mirror", "random"]);
+
+/**
+ * The seed one arrangement's bouts are drawn from, which is the caller's for the mirror.
+ *
+ * The mirror keeps the seed it was handed, so every mirrored rating in the record is the rating it
+ * was and a curve drawn across this session's change has no seam in it. The random half is moved
+ * off it, because two schedules from one seed walk the same stream and would draw the same pool
+ * indices in the same order -- which is not a second instrument, it is the first one wearing a
+ * different pairing rule.
+ */
+export const ratingSeed = (seed, which) => (which === "mirror" ? seed >>> 0 : (seed ^ 0x5a4d) >>> 0);
+
+/** An arrangement in the words a console line and a table heading both want. */
+export const poolWord = (which) => (which === "mirror" ? "the mirror" : "random viable pairs");
+
+/**
  * The fit, the uniform baseline and the shipped minds over one league, on a held-out seed.
  *
  * The number the session is written on is the **paired** one: `evaluate` puts every contender in
@@ -1534,13 +1671,35 @@ export function episodeReturns(rollout) {
  * twenty builds the trainer's mirrored rollouts collect on -- and a caller that turns `mirror` off
  * gets the class-filtered pool and rejects on the pairing, as a run over two different bodies must.
  * Passing a pool drawn for the other arrangement is therefore not a way to end up rating on it.
+ *
+ * ## `pools`, which is Session 10 of the learn set's "rated on both, selected on one"
+ *
+ * A rating on one arrangement cannot tell a mind that got better from a mind that got better *at
+ * the thirteen builds a mirror admits*, and Session 09's table is what that costs: across ten arms,
+ * every arm that gained on random viable pairs lost the mirror, and none the reverse. So a snapshot
+ * is rated on both and the two are printed side by side, and a specialist is visible the day it
+ * appears rather than at the close-out.
+ *
+ * `pools` is `["mirror", "random"]` -- or either alone, which is what the `mirror` boolean has
+ * always meant and remains the default. Each arrangement draws its own builds out of the pool it is
+ * handed and plays its own bouts: `viableMirror` filters for the mirrored one, `viablePair` rejects
+ * at the draw for the random one, and the two sets of bouts are disjoint by construction and by
+ * seed. **A caller asking for both hands over the class-filtered pool** -- `poolFor` with `mirror`
+ * off -- because filtering to the mirror first and asking for random pairs afterwards would draw
+ * random pairs out of thirteen maul-and-mace builds and call it the pool the game plays.
  */
 export async function ratePolicy({
   weights, logSigma, norm, league = PPO_LEAGUE, pool, seed, bouts, workers, cap,
   mirror = true, onProgress = null, terminals = VIABLE_TERMINALS,
-  features = PILOT_FEATURES_DEFAULT, spec = GAUSSIAN_HEAD, tactics = null,
+  features = PILOT_FEATURES_DEFAULT, spec = GAUSSIAN_HEAD, tactics = null, pools = null,
 }) {
-  pool = keepViable(pool, terminals, mirror);
+  const wanted = pools === null ? [mirror ? "mirror" : "random"] : [...pools];
+  for (const name of wanted) {
+    if (!RATING_POOLS.includes(name)) {
+      throw new Error(`"${name}" is not an arrangement this rating knows; it reads ${RATING_POOLS.join(" and ")}`);
+    }
+  }
+  if (new Set(wanted).size !== wanted.length) throw new Error(`a rating names ${wanted.join(", ")}; one pool is one rating`);
   const contenders = {
     [FIT_NAME]: {
       ...contenderShape({ features, spec, tactics }),
@@ -1552,19 +1711,34 @@ export async function ratePolicy({
     driver: { policy: "golem-driver" },
   };
   const names = Object.keys(contenders);
-  const { rows, results } = await evaluate({ contenders, league, pool, seed, bouts, workers, cap, mirror, onProgress });
-  const { per, points, bar } = columnsOf(rows, names);
-  const differences = {};
-  for (const other of names) {
-    if (other === FIT_NAME) continue;
-    const p = points[FIT_NAME].map((x, i) => x - points[other][i]);
-    const b = bar[FIT_NAME].map((x, i) => x - bar[other][i]);
-    differences[other] = {
-      points: meanOf(p), pointsSem: semOf(p),
-      bar: meanOf(b), barSem: semOf(b), d: cohensD(b),
+  const byPool = {};
+  for (const which of wanted) {
+    const mirrored = which === "mirror";
+    const builds = keepViable(pool, terminals, mirrored);
+    const { rows, results } = await evaluate({
+      contenders, league, pool: builds, seed: ratingSeed(seed, which), bouts, workers, cap,
+      mirror: mirrored, viable: !mirrored, onProgress,
+    });
+    const { per, points, bar } = columnsOf(rows, names);
+    const differences = {};
+    for (const other of names) {
+      if (other === FIT_NAME) continue;
+      const p = points[FIT_NAME].map((x, i) => x - points[other][i]);
+      const b = bar[FIT_NAME].map((x, i) => x - bar[other][i]);
+      differences[other] = {
+        points: meanOf(p), pointsSem: semOf(p),
+        bar: meanOf(b), barSem: semOf(b), d: cohensD(b),
+      };
+    }
+    byPool[which] = {
+      pool: which, mirror: mirrored, builds: builds.length,
+      per, names, results, points, bar, differences, behaviour: behaviourColumns(rows, names),
     };
   }
-  return { per, names, results, points, bar, differences, behaviour: behaviourColumns(rows, names) };
+  // The first arrangement asked for is also the return's own top level, so every caller written
+  // before this session -- which asked for one pool and read `differences` off the result -- is
+  // unchanged, and a caller that wants both reads `byPool`.
+  return { ...byPool[wanted[0]], pools: wanted, byPool };
 }
 
 /**
@@ -1775,6 +1949,19 @@ if (isMain) {
   }
   const central = criticName === "central";
   const tactics = parseTactics(flag("tactics", null));
+  // ---- Session 10 of the learn set: what fraction of an iteration is mirrored, and which
+  // arrangements a rating is taken under. Both defaults are what this script has always done.
+  const mirrorShare = Number(flag("mirror-share", 1));
+  if (!Number.isFinite(mirrorShare) || mirrorShare < 0 || mirrorShare > 1) {
+    throw new Error(`--mirror-share ${flag("mirror-share", 1)} is not a share; it runs from 0 to 1`);
+  }
+  const ratingPools = String(flag("pools", mirrorShare < 1 ? "mirror,random" : "mirror"))
+    .split(",").map((s) => s.trim()).filter(Boolean);
+  for (const which of ratingPools) {
+    if (!RATING_POOLS.includes(which)) {
+      throw new Error(`--pools ${which}; this build rates on ${RATING_POOLS.join(" and ")}`);
+    }
+  }
   // ---- The entropy coefficient, which may now be a schedule or a controller and may not be both.
   // A run that named two of the three would have a header that could not say which one moved the
   // number, and the number is the whole of what those two arms are.
@@ -1912,6 +2099,8 @@ if (isMain) {
     // a run at the defaults and a run that spelled the defaults out are the same header.
     head: headName, sigma: sigmaName, critic: criticName, tactics,
     entropySchedule, entropyTarget, entropyRate,
+    // Session 10 of the learn set's two, on every header for the same reason.
+    mirrorShare, pools: ratingPools,
     iterations, bouts, cap, random, workers, shards, halfLife, lambda, clip, entropy, rate, valueRate,
     sigmaRate, epochs, batch, targetKl, sigmaFloor, sigmaRoof,
     evaluate: every, evalBouts, finalBouts, resumeFrom, from: startFrom, opponent, terminals,
@@ -1962,32 +2151,47 @@ if (isMain) {
     // and a run could train on the fifteen bodies that can finish and be rated on all fifty-two.
     // `mirror` because the rating below is mirrored: both corners hold one build, so the pool has
     // to be bodies that can finish themselves and not merely bodies something can finish.
-    const epool = poolFor({ seed: eseed, random, terminals, mirror: true });
+    // The class-filtered pool rather than the mirrored one, because a rating on both arrangements
+    // draws each of them out of what it is handed -- see `ratePolicy`'s own note. At one pool this
+    // is the same fifteen builds `keepViable` gave before, filtered one call later.
+    const epool = poolFor({ seed: eseed, random, terminals, mirror: false });
     const result = await ratePolicy({
-      weights, logSigma, norm, league, pool: epool, seed: eseed, terminals,
+      weights, logSigma, norm, league, pool: epool, seed: eseed, terminals, pools: ratingPools,
       bouts: Math.max(2, Math.ceil(wanted / league.length / 2) * 2),
-      workers, cap, mirror: true, onProgress: progress(`rate ${iteration}`),
+      workers, cap, onProgress: progress(`rate ${iteration}`),
       features, spec, tactics,
     });
-    console.log(`  === rating after iteration ${iteration}: ${result.per} bouts a contender ===`);
-    for (const name of result.names) {
-      const r = result.results[name];
-      console.log(`    ${name.padEnd(8)} points ${meanOf(result.points[name]).toFixed(4)} `
-        + `bar ${meanOf(result.bar[name]) >= 0 ? "+" : ""}${meanOf(result.bar[name]).toFixed(4)}  `
-        + `w/d/l ${r.wins}/${r.draws}/${r.losses}  strokes ${(r.strokes ?? 0).toFixed(1)} `
-        + `dmg/stroke ${(r.strokeDamage ?? 0).toFixed(2)} clinch ${(r.clinchSeconds ?? 0).toFixed(1)}`);
+    for (const which of result.pools) {
+      const one = result.byPool[which];
+      console.log(`  === rating after iteration ${iteration} on ${poolWord(which)}: `
+        + `${one.per} bouts a contender over ${one.builds} builds ===`);
+      for (const name of one.names) {
+        const r = one.results[name];
+        console.log(`    ${name.padEnd(8)} points ${meanOf(one.points[name]).toFixed(4)} `
+          + `bar ${meanOf(one.bar[name]) >= 0 ? "+" : ""}${meanOf(one.bar[name]).toFixed(4)}  `
+          + `w/d/l ${r.wins}/${r.draws}/${r.losses}  strokes ${(r.strokes ?? 0).toFixed(1)} `
+          + `dmg/stroke ${(r.strokeDamage ?? 0).toFixed(2)} clinch ${(r.clinchSeconds ?? 0).toFixed(1)}`);
+      }
+      for (const [other, d] of Object.entries(one.differences)) {
+        console.log(`    fit - ${other.padEnd(8)} points ${d.points >= 0 ? "+" : ""}${d.points.toFixed(4)} `
+          + `+- ${d.pointsSem.toFixed(4)}  bar ${d.bar >= 0 ? "+" : ""}${d.bar.toFixed(4)} `
+          + `+- ${d.barSem.toFixed(4)}  d ${d.d >= 0 ? "+" : ""}${d.d.toFixed(3)}`);
+      }
     }
-    for (const [other, d] of Object.entries(result.differences)) {
-      console.log(`    fit - ${other.padEnd(8)} points ${d.points >= 0 ? "+" : ""}${d.points.toFixed(4)} `
-        + `+- ${d.pointsSem.toFixed(4)}  bar ${d.bar >= 0 ? "+" : ""}${d.bar.toFixed(4)} `
-        + `+- ${d.barSem.toFixed(4)}  d ${d.d >= 0 ? "+" : ""}${d.d.toFixed(3)}`);
-    }
+    const rounded = (one) => Object.fromEntries(Object.entries(one.differences).map(([k, d]) => [k, {
+      points: round4(d.points), pointsSem: round4(d.pointsSem),
+      bar: round4(d.bar), barSem: round4(d.barSem), d: round4(d.d),
+    }]));
     log({
       type: "rating", iteration, per: result.per,
       results: Object.fromEntries(Object.entries(result.results).map(([k, r]) => [k, { score: round4(r.score), margin: round4(r.margin), bouts: r.bouts }])),
-      differences: Object.fromEntries(Object.entries(result.differences).map(([k, d]) => [k, {
-        points: round4(d.points), pointsSem: round4(d.pointsSem),
-        bar: round4(d.bar), barSem: round4(d.barSem), d: round4(d.d),
+      // The first arrangement's table where it has always been, so Session 02's page reads a row
+      // written today exactly as it reads one written before this session; both of them under
+      // `byPool`, which is where a reader who wants the other one looks.
+      differences: rounded(result),
+      byPool: Object.fromEntries(result.pools.map((which) => [which, {
+        mirror: result.byPool[which].mirror, builds: result.byPool[which].builds,
+        per: result.byPool[which].per, differences: rounded(result.byPool[which]),
       }])),
       structural: result.results,
     });
@@ -2006,8 +2210,15 @@ if (isMain) {
     const stageOpponent = scheduled(opponentSchedule, iteration);
     const stageTerminals = scheduled(terminalsSchedule, iteration);
     const pool = poolFor({ seed: (seed ^ iteration) >>> 0, random, terminals: stageTerminals, mirror: true });
+    // The same fifty-two draws seen the other way: the class filter alone, so the random half can
+    // reject on the *pairing* the way `--pairs viable` does. Drawn only when a share asks for it,
+    // so an iteration at the default allocates exactly what it always did.
+    const randomBuilds = mirrorShare < 1
+      ? poolFor({ seed: (seed ^ iteration) >>> 0, random, terminals: stageTerminals, mirror: false })
+      : null;
     const rollout = await collectRollouts({
-      pool, weights, logSigma, norm, seed: (seed + iteration * 7919) >>> 0, bouts, workers, cap,
+      pool, randomPool: randomBuilds, mirrorShare,
+      weights, logSigma, norm, seed: (seed + iteration * 7919) >>> 0, bouts, workers, cap,
       reward, opponent: opponentOf(stageOpponent), separation: stageSeparation,
       features, spec, tactics, central,
       onProgress: progress(`iteration ${iteration}`),
@@ -2051,6 +2262,11 @@ if (isMain) {
       // A curve drawn across a run where the pool narrowed at iteration 15 is a curve with a seam
       // in it, and a row that did not carry the stage would leave a reader guessing where.
       separation: stageSeparation, opponent: stageOpponent, terminals: stageTerminals,
+      // The share the iteration actually fought, beside the bout counts it is a ratio of, on
+      // every row whether a share was named or not -- a curve across a run whose distribution
+      // moved is a curve with a seam in it and the row has to say where.
+      mirrorShare: round4(rollout.mirrorShare), mirrorBouts: rollout.mirrorBouts,
+      randomBouts: rollout.randomBouts,
       episodes: returns.length, decided: round4(rollout.decided), margin: round4(rollout.margin),
       ret: round5(meanOf(returns)), retSem: round5(semOf(returns)),
       length: round4(meanOf(lengths)), penaltyShare: round4(share),

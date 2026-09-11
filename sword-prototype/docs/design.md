@@ -2299,6 +2299,137 @@ proportional controller, `forward = clamp(clamp((gap - hold) * closeGain, -1, 1)
 they settle at `hold - advance / closeGain`: **raising** the gain makes a saturated `advance` buy
 *less* distance, not more, and what widens the window the closing axis can reach is lowering it.
 
+## A share of the bouts that is not a mirror, and a rating that is taken twice
+
+Session 10 of the learn set. A pool of frozen past selves breaks the identity in the *reward* --
+that is the argument the league was built on, three sections up -- and it leaves a second identity
+standing, which is quieter and which nothing in this repository had ever questioned: **every
+pairing any trainer here has ever scheduled put one build in both corners.** A mirrored rollout is
+one body fighting a copy of itself, so nothing the fit ever saw distinguished its own reach from
+the reach in front of it, and an error that only exists when the two differ cost it exactly
+nothing. The record has both halves of that written down before this session went looking:
+Session 06 measured the `outside` row at 0.007 of the return, and Session 07 found the stand-off
+axis anchored to *their* reach while the stroke gate opens inside 0.92 of *mine*. Neither could
+have been priced by a distribution in which the two are the same number.
+
+### The mirror share
+
+`--share-random 1` on `scripts/league.mjs`, or `--mirror-share 0.5`, which is the same knob said
+the other way and is the spelling `scripts/train-ppo.mjs` takes. The share table's spelling counts
+slots against the mirror's implicit one, so `--share-random 1` is half the bouts and
+`--share-random 3` is a quarter of them left mirrored; the fraction spelling names what the
+scheduler actually takes. A run may not pass both, because a header carrying two answers to "how
+much of this was a mirror" is worse than a header carrying none.
+
+`boutSplit` and `mixedSchedule` in `scripts/train-ppo.mjs` are the whole of the mechanism and they
+are four properties rather than a number:
+
+- **The split is in whole cycles of the opponent table.** `mixedSchedule` walks the same
+  `leaguePairs` cycle in both halves, so the declared opponent mix is the realised one on each side
+  of the split and an arm at half a mirror is not also an arm at a different opponent mix. The
+  arrangement and the opponent are two axes, and the test that says so is the one that counts bouts
+  by opponent at a share of one and a share of a half and finds the same table.
+- **One and zero are not rounded.** A share of exactly 1 returns the mirrored schedule and nothing
+  else, so every run in the record schedules byte-identically to the day it was run; a share of
+  exactly 0 returns no mirrored bouts at all rather than one cycle left over by arithmetic. A share
+  strictly between them always leaves at least one cycle of each, because a run whose header claims
+  both and whose bouts are all one is a run that says something its numbers do not.
+- **The two halves are two draws of the same pool, from one seed.** The mirrored half draws from
+  `poolFor({..., mirror: true})` -- the builds `viableMirror` accepts, which is 13 of 52 at the
+  league's evaluation seed -- and the random half from `poolFor({..., mirror: false})`, the
+  class-filtered list, *at the same seed*. Same bodies, two arrangements, and the random half's
+  bout seeds moved off the mirrored half's stream by a fixed constant so that the two are not the
+  same fights twice.
+- **The random half rejects at the draw, through `viablePair`.** A pair predicate cannot be a
+  filter on a list of single builds, which is the distinction the viability section above is built
+  on: `scheduleJobs` redraws until the pair is one that can finish itself, and refuses by name
+  after a bounded number of tries rather than settling for the last refusal.
+
+`runJobs` places a finished row at `row.index` in an array of `jobs.length`, so the two schedules
+are renumbered as they are concatenated. That is not a detail: two concatenated schedules that both
+started at zero would overwrite each other's first half and lose it without an error anywhere.
+
+The exploiters stay mirrored whatever the main does. An exploiter exists to find a hole in the main,
+and the cheapest way to lose that job is to spend half its bouts on a second axis of variation; the
+main's arrangement is the experiment and an exploiter is an instrument pointed at it.
+
+### The second anchor
+
+`--anchor` takes a list. `golem-driver,golem-fencer` is two slots of hand-coded mind in the
+opponent cycle at `--share-anchor 1`, not one slot split between them -- the second anchor is there
+to be met as often as the first, not to halve the first. They are the two designed minds that top
+the random-pairs table, and the owner's condition on *new* bots is untouched, because neither of
+these is new.
+
+The header field is still called `anchor`, singular, and holds the list as the comma string it was
+given. Every run already in `tournaments/` wrote a single name there, and renaming the field would
+have made those headers unreadable rather than merely older. `anchorList` is the reader, one name
+is a list of one, and `opponentSentence` -- which writes the provenance line into the shipped
+module -- names every anchor the mind actually met. A reader told "golem-driver" about a mind that
+also sparred a fencer has been told something false about what the weights in front of them were
+fitted against.
+
+### Rated on both, selected on one
+
+Every rating a league takes is now taken under **both** arrangements out of one `ratePolicy` call
+and printed side by side, and `--select random|mirror` says which of the two the ship step reads.
+`RATING_POOLS` is `["mirror", "random"]`, `ratingSeed(seed, "mirror")` is the identity -- so a
+mirrored rating taken today is the same measurement the record's old numbers were taken with -- and
+the random half is moved off that stream. `ratePolicy` narrows the pool it is handed at each
+arrangement's own question, `viableMirror` for one and the class filter for the other, which is why
+callers now hand it the class-filtered list: it can shrink a list and it cannot grow one, and a
+league that handed over its thirteen mirrorable builds was quietly rating the random half on
+thirteen bodies drawn two at a time.
+
+The asymmetry between "rated on both" and "selected on one" is the whole of the design. A mind that
+wins the thirteen builds a mirror admits and loses the fifty-two the game draws is a real failure
+mode -- the record found one, in a held-out split, months after shipping it -- and the cure is not
+to stop measuring the mirror but to stop *deciding* on it. So both numbers are printed at every
+snapshot, where a specialist is visible the day it appears; the pool the selection reads is one of
+them; and the shipped module's provenance quotes the pool that did the selecting, because a header
+whose `score` came off the mirror while the snapshot was chosen on random pairs would name a
+different measurement than the decision it records.
+
+`--ship best` is the selection rule made into a flag: out of the rating rows a run wrote, the
+snapshot the named pool ranks first by bar margin over the driver. Ties go to the *older* snapshot,
+because a later one is not evidence of anything by being later. A rating row written before this
+session carries `differences` and no `byPool`, and what it measured was the mirror -- so asked for
+its mirrored number it answers and asked for its random-pairs number it says it has none, rather
+than handing back the mirror under the other label.
+
+### The same axis on the two curves
+
+`scripts/rate-snapshots.mjs` and `scripts/probe-snapshots.mjs` take `--pools mirror,random` where
+the first took `--mirror 1|0` and the second took nothing, and both write **one row a pool a
+snapshot** with the arrangement inside the row's `pool` block, which is where `src/curve/runs.ts`
+keys a series' label. `Pool.mirror` is a third fact beside the classes and the build count and it
+governs the label with them, because the same fifty-two draws played mirrored and played as random
+viable pairs are two different sets of bodies. `--out` with two pools writes two files rather than
+one: `readCurve` refuses two pools in one curve file and is right to, and a script that wrote a
+file its own page will not open would be making a person do the split by hand.
+
+The idle probe grew the same axis, and there it changes what the floor means. Mirrored, the
+motionless body is a copy of the fighter's own and the row answers "can this mind on this body
+finish an opponent that never moves". On random pairs the motionless body is a different one
+`viablePair` accepts, and the row answers the question the record could not ask. The partners are
+walked in pool order rather than drawn, because a floor that moved with a draw index is a floor
+nobody could re-test, and a build with no viable partner is probed against itself with a count of
+how often that happened -- dropping it instead would silently change which bodies the class rollup
+is a mean over, which is the one thing a tripwire may not do.
+
+### What the paired table gained
+
+`ratePaired` in `scripts/sweep.mjs` is the instrument the set's criterion is stated on, and until
+this session it could not be pointed at a league at all: it read a `train-ppo` checkpoint beside
+each arm's log, which a league never writes, so every league arm fell out of the loop and the mode
+refused with "no arm of this sweep has left a checkpoint to rate". It reads `league.json` now. Two
+further things came with that. `--rate-seed` takes the table at a named seed, because a bar stated
+in a plan names its own seed and is taken at that seed or it is not that bar. And every row carries
+`barD` beside `d`: `d` is the arm minus the control arm and asks "did this change help", `barD` is
+the arm's own bar margin against the designed mind in the other corner and asks "does it beat it".
+They are different criteria, the line labels both, and a set that wants to take the screen's
+default off `golem-fencer` has to answer the second one.
+
 ## Dying, which is not the same as losing
 
 `over` not stopping the world was the right call about the *bout* and, for a long time, it

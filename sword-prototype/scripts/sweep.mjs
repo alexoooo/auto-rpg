@@ -83,7 +83,8 @@ import {
   PPO_LEAGUE, checkpointFor, cohensD, contenderShape, parseTerminals, poolFor, poolSentence,
   ratePolicy,
 } from "./train-ppo.mjs";
-import { boutsPerOpponent, rateSnapshots } from "./rate-snapshots.mjs";
+import { boutsPerOpponent, parsePools, rateSnapshots } from "./rate-snapshots.mjs";
+import { contenderFor, loadLeague } from "./league.mjs";
 import { columnsOf, meanOf, semOf } from "./train-learner.mjs";
 import { evaluate } from "./tune.mjs";
 import { headSpecOf } from "../src/golem/policy.ts";
@@ -462,7 +463,9 @@ export function shapeOfLog(logPath) {
     tactics: header.tactics ?? null,
   };
 }
-export async function rateArms(manifest, { dir, bouts, workers, cap = 60, onRow = null }) {
+export async function rateArms(manifest, {
+  dir, bouts, workers, cap = 60, pools = ["mirror", "random"], onRow = null,
+}) {
   const rows = [];
   const keep = (arm, row) => {
     const tagged = armRow(arm, row);
@@ -476,7 +479,7 @@ export async function rateArms(manifest, { dir, bouts, workers, cap = 60, onRow 
     if (manifest.script === "league") {
       if (!existsSync(join(paths.home, "league.json"))) continue;
       await rateSnapshots({
-        dir: paths.home, bouts, workers, cap, random, terminals,
+        dir: paths.home, bouts, workers, cap, random, terminals, pools,
         onRow: (row) => keep(arm, row),
       });
       continue;
@@ -484,22 +487,29 @@ export async function rateArms(manifest, { dir, bouts, workers, cap = 60, onRow 
     const checkpoint = checkpointFor(paths.log);
     if (!existsSync(checkpoint)) continue;
     const saved = JSON.parse(readFileSync(checkpoint, "utf8"));
-    const builds = poolFor({ seed: eseed, random, terminals, mirror: true });
+    // Class-filtered and not mirrored, so `ratePolicy` can narrow it again at each arrangement's
+    // own `mirror`: it can shrink the list it is handed and it cannot grow one, and a random-pairs
+    // rating over the thirteen mirrorable builds would be a pool nobody asked for.
+    const builds = poolFor({ seed: eseed, random, terminals, mirror: false });
     const rated = await ratePolicy({
       weights: Float64Array.from(saved.weights), logSigma: Float64Array.from(saved.logSigma),
       norm: saved.normalisation, pool: builds,
-      seed: eseed, bouts: boutsPerOpponent(bouts), workers, cap, mirror: true, terminals,
+      seed: eseed, bouts: boutsPerOpponent(bouts), workers, cap, terminals, pools,
       ...shapeOfLog(paths.log),
     });
-    keep(arm, {
-      iteration: saved.iteration, bouts: boutsPerOpponent(bouts), per: rated.per,
-      // The pool travels with the row, as it does in `scripts/rate-snapshots.mjs`, and for that
-      // file's reason: two ratings on two pools are two instruments however alike the rows look.
-      pool: { builds: builds.length, terminals: [...terminals] },
-      uniform: { bar: rated.differences.uniform.bar, sem: rated.differences.uniform.barSem, d: rated.differences.uniform.d },
-      driver: { bar: rated.differences.driver.bar, sem: rated.differences.driver.barSem, d: rated.differences.driver.d },
-      fit: rated.results.fit,
-    });
+    for (const which of pools) {
+      const on = rated.byPool[which];
+      keep(arm, {
+        iteration: saved.iteration, bouts: boutsPerOpponent(bouts), per: on.per,
+        // The pool travels with the row, as it does in `scripts/rate-snapshots.mjs`, and for that
+        // file's reason: two ratings on two pools are two instruments however alike the rows look.
+        pool: { builds: on.builds, terminals: [...terminals], mirror: on.mirror },
+        mirror: on.mirror,
+        uniform: { bar: on.differences.uniform.bar, sem: on.differences.uniform.barSem, d: on.differences.uniform.d },
+        driver: { bar: on.differences.driver.bar, sem: on.differences.driver.barSem, d: on.differences.driver.d },
+        fit: on.results.fit,
+      });
+    }
   }
   return rows;
 }
@@ -532,14 +542,38 @@ export async function rateArms(manifest, { dir, bouts, workers, cap = 60, onRow 
  */
 export async function ratePaired(manifest, {
   dir, bouts, workers, cap = 60, control, league = PPO_LEAGUE, mirror = false, onProgress = null,
+  seed = null,
 }) {
-  const eseed = (manifest.seed ^ 0xc0f1c0f1) >>> 0;
+  // The evaluation seed is the sweep's own unless a caller names one. A named one is how a bar
+  // stated in a plan at a fixed seed is taken *at that seed* rather than at whatever the arms
+  // happened to be run under: the criterion is a property of the fight, and a table measured on a
+  // pool the plan did not name is a table answering a question nobody asked. It is printed with
+  // the row, so the two can never be confused in the record.
+  const eseed = seed === null ? (manifest.seed ^ 0xc0f1c0f1) >>> 0 : seed >>> 0;
   const { random, terminals } = manifest.pool;
   const pool = poolFor({ seed: eseed, random, terminals, mirror });
   const contenders = {};
   const at = {};
   for (const arm of manifest.arms) {
     const paths = armPaths(manifest, arm, dir);
+    // A league arm's mind is the live main in `league.json` and not a trainer checkpoint, which it
+    // never writes. Without this branch every league sweep fell out of the loop here and the mode
+    // refused with "no arm of this sweep has left a checkpoint to rate" -- which is how Session 10
+    // of the learn set found that the paired table, the only instrument the set's criterion is
+    // stated on, could not be pointed at the script the set's arms are run with.
+    if (manifest.script === "league") {
+      if (!existsSync(join(paths.home, "league.json"))) continue;
+      const state = loadLeague(paths.home);
+      const shape = shapeOfLog(paths.log);
+      contenders[arm.name] = {
+        ...contenderFor(state.main, false, shape.tactics ?? null),
+        ...contenderShape({ features: shape.features, spec: shape.spec, tactics: shape.tactics }),
+        pi: Array.from(state.main.weights), logSigma: Array.from(state.main.logSigma),
+        normalisation: state.main.norm, sample: false,
+      };
+      at[arm.name] = state.iteration;
+      continue;
+    }
     const checkpoint = checkpointFor(paths.log);
     if (!existsSync(checkpoint)) continue;
     const saved = JSON.parse(readFileSync(checkpoint, "utf8"));
@@ -595,6 +629,13 @@ export async function ratePaired(manifest, {
       table[name] = {
         arm: name, iteration: at[name], bouts: keep.length,
         bar: meanOf(b), barSem: semOf(b), points: meanOf(p),
+        // The effect size of the arm's *own* bar margin against this opponent, which is a
+        // different criterion from the one beside it and is Session 10 of the learn set's bar. `d`
+        // is arm minus control and asks "did this change help"; `barD` is the mind against a
+        // designed mind over the same bouts and asks "does it beat it" -- which is the question a
+        // set that wants to take the screen's default off `golem-fencer` has to answer, and which
+        // no column of this table could answer before.
+        barD: cohensD(b),
         delta: meanOf(diff), deltaSem: semOf(diff), d: cohensD(diff),
       };
     }
@@ -602,14 +643,27 @@ export async function ratePaired(manifest, {
   }
   return {
     seed: eseed, mirror, control, names, league: [...league], bouts: per, block,
+    // Said out loud beside the seed, because a table taken at a seed the sweep was not run under
+    // is a different pool and a reader six months later has no other way to know which it holds.
+    rateSeed: seed === null ? null : seed >>> 0,
     pool: { builds: pool.length, terminals: [...terminals], random },
     at, against, results,
   };
 }
 
-/** One arm's line of a paired table: its own bar, and its difference from the control. */
+/**
+ * One arm's line of a paired table: its own bar against this opponent, its effect size against
+ * that opponent, and its difference from the control.
+ *
+ * The two `d`s are different criteria and the line says which is which. `own d` is the arm against
+ * the designed mind in the other corner, over these bouts, which is what a bar stated as "beats
+ * `golem-fencer` by d 0.2" means. `vs control` is the arm against the sweep's own control arm,
+ * which is what a sweep asks of a change. A line that printed one of them unlabelled would be read
+ * as the other by whoever came next.
+ */
 export function formatPairedRow(row, control) {
-  const own = `bar ${signed(row.bar, 4)} +-${(1.96 * row.barSem).toFixed(4)}`;
+  const own = `bar ${signed(row.bar, 4)} +-${(1.96 * row.barSem).toFixed(4)}`
+    + `${row.barD === undefined ? "" : ` own d ${signed(row.barD, 3)}`}`;
   if (row.arm === control) return `  ${row.arm.padEnd(4)} ${String(row.iteration).padStart(4)}  ${own}  (control)`;
   return `  ${row.arm.padEnd(4)} ${String(row.iteration).padStart(4)}  ${own}  `
     + `vs control ${signed(row.delta, 4)} +-${(1.96 * row.deltaSem).toFixed(4)}  d ${signed(row.d, 3)}`;
@@ -621,7 +675,8 @@ const signed = (x, places) => `${x >= 0 ? "+" : "-"}${Math.abs(x).toFixed(places
 export function formatRatingRow(row) {
   const u = row.uniform;
   const d = row.driver;
-  return `  ${row.arm.padEnd(16)} ${String(row.iteration).padStart(6)}  `
+  const on = (row.pool?.mirror ?? row.mirror) === false ? "rand" : "mirr";
+  return `  ${row.arm.padEnd(16)} ${String(row.iteration).padStart(6)} ${on}  `
     + `uniform ${signed(u.bar, 4)} +-${(1.96 * u.sem).toFixed(4)} d ${signed(u.d, 3)}  |  `
     + `driver ${signed(d.bar, 4)} +-${(1.96 * d.sem).toFixed(4)} d ${signed(d.d, 3)}`;
 }
@@ -638,7 +693,10 @@ export function formatRatingRow(row) {
  */
 export function armSummary(rows) {
   const last = new Map();
-  for (const row of rows) last.set(row.arm, row);
+  // Keyed on the arm *and* the arrangement since Session 10 of the learn set, because an arm now
+  // writes a row a pool and keying on the name alone would silently drop one of the two -- and the
+  // one it dropped would be whichever the loop happened to reach first.
+  for (const row of rows) last.set(`${row.arm} ${(row.pool?.mirror ?? row.mirror) === false ? "random" : "mirror"}`, row);
   return [...last.values()];
 }
 
@@ -654,7 +712,7 @@ if (isMain) {
   // committed manifest with two numbers turned down rather than a second manifest to keep in step.
   const OWN = Object.freeze([
     "manifest", "workers", "root", "only", "from", "minutes", "restarts", "rate-bouts", "rate-cap",
-    "status", "paired", "against",
+    "status", "paired", "against", "rate-seed", "rate-pools",
   ]);
   const own = new Map();
   const extra = [];
@@ -693,6 +751,9 @@ if (isMain) {
   const status = Math.max(0, Number(own.get("status") ?? 30));
   const cap = Number(own.get("rate-cap") ?? 60);
   const rateBouts = Math.max(0, Number(own.get("rate-bouts") ?? manifest.rate.bouts));
+  // A bar stated in a plan names its own seed, and it is taken at that seed or it is not that bar.
+  const rateSeed = own.has("rate-seed") ? Number(own.get("rate-seed")) >>> 0 : null;
+  const ratePools = parsePools(own.get("rate-pools") ?? null);
   const home = resolve(root, manifest.name);
   const started = new Date().toISOString();
 
@@ -713,13 +774,17 @@ if (isMain) {
       .map((name) => name.trim()).filter(Boolean);
     const rateWorkers = Math.max(1, available - 2);
     const out = [];
-    for (const mirror of [false, true]) {
+    for (const which of ratePools) {
+      const mirror = which === "mirror";
       const point = mirror ? "mirrored" : "random viable pairs";
       console.log("");
       console.log(`${manifest.name} on ${point}: every arm in one call against ${against.join(" and ")}, `
-        + `${boutsPerOpponent(rateBouts, against)} bouts an opponent, seed ${(manifest.seed ^ 0xc0f1c0f1) >>> 0}`);
+        + `${boutsPerOpponent(rateBouts, against)} bouts an opponent, seed `
+        + `${rateSeed === null ? (manifest.seed ^ 0xc0f1c0f1) >>> 0 : rateSeed}`
+        + `${rateSeed === null ? "" : " (named on the command line, not the sweep's own)"}`);
       const rated = await ratePaired(manifest, {
         dir: root, bouts: rateBouts, workers: rateWorkers, cap, control, league: against, mirror,
+        seed: rateSeed,
       });
       out.push(rated);
       console.log(`  pool: ${rated.pool.builds} builds, ${rated.block} bouts an arm`);
@@ -768,7 +833,7 @@ if (isMain) {
       console.log(`rating every arm on one pool: ${per} bouts an opponent, `
         + `${per * PPO_LEAGUE.length} a contender, seed ${(manifest.seed ^ 0xc0f1c0f1) >>> 0}`);
       const rows = await rateArms(manifest, {
-        dir: root, bouts: rateBouts, workers: Math.max(1, available - 2), cap,
+        dir: root, bouts: rateBouts, workers: Math.max(1, available - 2), cap, pools: ratePools,
         onRow: (row) => console.log(formatRatingRow(row)),
       });
       writeFileSync(join(home, "rating.jsonl"), rows.map((r) => JSON.stringify(r)).join("\n") + "\n");
@@ -781,6 +846,10 @@ if (isMain) {
       // paired d over one set of bodies.
       for (let i = 0; i < last.length; i += 1) {
         for (let j = i + 1; j < last.length; j += 1) {
+          // Only within one arrangement: a mirrored row minus a random-pairs row is two
+          // instruments subtracted, which is the mistake this whole session is about.
+          const mine = (last[i].pool?.mirror ?? last[i].mirror);
+          if (mine !== (last[j].pool?.mirror ?? last[j].mirror)) continue;
           const gap = last[i].uniform.bar - last[j].uniform.bar;
           console.log(`  ${last[i].arm} - ${last[j].arm}: ${signed(gap, 4)} of bar over uniform, `
             + `their own d ${signed(last[i].uniform.d, 3)} and ${signed(last[j].uniform.d, 3)}`);

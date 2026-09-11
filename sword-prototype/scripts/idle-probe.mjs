@@ -26,6 +26,7 @@ import { pathToFileURL } from "node:url";
 
 import { armedTerminal, runJobs, seedFor } from "./tournament.mjs";
 import { parseTerminals, poolFor, poolSentence } from "./train-ppo.mjs";
+import { viablePair } from "../src/golem/viability.ts";
 
 const meanOf = (xs) => (xs.length === 0 ? 0 : xs.reduce((a, b) => a + b, 0) / xs.length);
 
@@ -59,28 +60,60 @@ export function rollupByTerminal(builds) {
 }
 
 /**
- * The probe: every build in `pool` against a motionless copy of itself, both corners.
+ * The motionless bodies one build can be probed against, in pool order.
+ *
+ * Mirrored, that is the build itself and nothing else, which is what every probe in the record
+ * before Session 10 of the learn set ran. On random pairs it is every *other* build in the pool
+ * that `viablePair` accepts against it -- the same predicate the rollouts and the ratings reject
+ * on -- and the list is walked in order rather than drawn, because a probe is a floor and a floor
+ * that moved with a draw index would be a floor nobody could re-test.
+ *
+ * A build with no viable partner in the pool is probed against itself, with a note the caller can
+ * count. Dropping it instead would silently change which bodies the class rollup is a mean over,
+ * which is the one thing a tripwire may not do.
+ */
+export function probePartners(pool, build, mirror = true) {
+  if (mirror) return [build];
+  const partners = pool.filter((other) => other !== build && viablePair(build.setup, other.setup));
+  return partners.length === 0 ? [build] : partners;
+}
+
+/**
+ * The probe: every build in `pool` against a motionless body, both corners.
  *
  * `name` is the policy the fighter plays. When `contender` is given it is that name's entry in
  * the contenders table -- a checkpoint's weights, or `{uniform: true}` -- so a mind that has not
  * been shipped can stand on the same bar as one that has. `bouts` is per build and rounded up to
  * an even number, because a bout is run from both corners and a half pairing is not a thing.
+ *
+ * **`mirror` is Session 10 of the learn set and it is the same axis the ratings grew.** Mirrored,
+ * the motionless body is a copy of the fighter's own, and the row answers "can this mind on this
+ * body finish an opponent that never moves". Off, the motionless body is a different one
+ * `viablePair` accepts, and the row answers the question the record could not ask: whether the
+ * floor survives the two bodies differing. The table is keyed on the *fighter's* build either way,
+ * so the class rollup means the same thing in both and the two rows sit side by side.
  */
 export async function idleProbe({
   pool, name = "golem-policy", contender = null, bouts = 4, workers = 8, cap = 60, seed = 20260906,
-  onProgress = null,
+  mirror = true, onProgress = null,
 }) {
   if (pool.length === 0) throw new Error("an idle probe needs a build to run");
   const contenders = contender === null ? null : { [name]: contender };
   const per = Math.max(2, Math.ceil(bouts / 2) * 2);
   const jobs = [];
+  let lonely = 0;
   for (const [b, build] of pool.entries()) {
+    const partners = probePartners(pool, build, mirror);
+    if (!mirror && partners[0] === build) lonely += 1;
     for (let k = 0; k < per / 2; k += 1) {
       // The pairing index is the build's slot times a large stride, so a build's seeds do not
       // depend on how many builds came before it and a filtered pool probes the same fights.
       const pairing = b * 1024 + k;
+      // Walked rather than drawn, and walked from `k` so that a build asked for four bouts meets
+      // four different partners rather than the same one four times.
+      const against = partners[k % partners.length];
       const fighter = { build: build.name, setup: build.setup, policy: name, seed: seedFor(seed, pairing, 0) };
-      const dummy = { build: build.name, setup: build.setup, policy: "idle", seed: seedFor(seed, pairing, 1) };
+      const dummy = { build: against.name, setup: against.setup, policy: "idle", seed: seedFor(seed, pairing, 1) };
       jobs.push({ index: jobs.length, pairing, swapped: false, cap, left: fighter, right: dummy, seeds: [fighter.seed, dummy.seed] });
       jobs.push({ index: jobs.length, pairing, swapped: true, cap, left: dummy, right: fighter, seeds: [dummy.seed, fighter.seed] });
     }
@@ -127,6 +160,10 @@ export async function idleProbe({
     alwaysBuilds: builds.filter((t) => t.always).length,
     everBuilds: builds.filter((t) => t.won > 0).length,
     totalBuilds: builds.length, builds, byTerminal: classes,
+    // The arrangement, and how many builds had to fall back to a copy of themselves under it,
+    // because a random-pairs probe in which every build was lonely is a mirrored probe wearing
+    // the other word and the row should be able to say so.
+    mirror, lonely,
   };
 }
 

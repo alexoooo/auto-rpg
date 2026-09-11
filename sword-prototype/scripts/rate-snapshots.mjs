@@ -3,7 +3,7 @@
 //
 //   node scripts/rate-snapshots.mjs --dir tournaments/league-anchored [--bouts 200] [--workers 28]
 //                                   [--cap 60] [--random 40] [--only 8,16,24] [--out curve.jsonl]
-//                                   [--terminals maul,mace|all] [--mirror 1|0]
+//                                   [--terminals maul,mace|all] [--pools mirror,random]
 //
 // A league's own `--evaluate` is deliberately coarse: a rating costs bouts the fit could have had,
 // so a night at `--evaluate 25` leaves two or three points and no curve. The pool files hold the
@@ -36,6 +36,15 @@
 // stands as the reason; what changed is which way round the default sits, because a flag that has
 // to be remembered on every run is a rule nothing enforces, and the owner's brief made it a rule.
 //
+// **`--pools` replaced `--mirror 1|0` in Session 10 of the learn set, and it is not only a
+// rename.** One call rates a snapshot on both arrangements out of one `ratePolicy`, and this
+// script writes one row a pool a snapshot with the arrangement inside `pool` rather than beside
+// it -- which is where Session 02's curve page keys on it. `--out` with two pools writes two
+// files, one a pool, because `readCurve` refuses two pools in one curve file and it is right to:
+// a line drawn through thirteen mirrored builds and fifty-two random pairs is a line through two
+// instruments. The old flag's argument is the paragraph below and it still stands; what changed is
+// that both arrangements are now bought in one pass, so nobody has to remember to buy the second.
+//
 // **`--mirror 0` is the other pool the learn set reads, and it arrived with Session 06.** Every
 // row this script wrote until then was a mirrored one -- one build in both corners -- because that
 // is what the league's own `--evaluate` does and a curve has to sit beside the run that made it.
@@ -60,7 +69,9 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { VIABLE_TERMINALS } from "../src/golem/viability.ts";
-import { PPO_LEAGUE, parseTerminals, poolFor, poolSentence, ratePolicy } from "./train-ppo.mjs";
+import {
+  PPO_LEAGUE, RATING_POOLS, parseTerminals, poolFor, poolSentence, poolWord, ratePolicy,
+} from "./train-ppo.mjs";
 import { loadLeague, poolPath, roleFromJson } from "./league.mjs";
 
 /** The iterations this directory has a checkpoint for, in the order they were taken. */
@@ -106,17 +117,56 @@ export function boutsPerOpponent(perContender, league = PPO_LEAGUE) {
  */
 export { parseTerminals };
 
+/**
+ * `--pools mirror,random`: the arrangements to rate on, in the order the rows come out.
+ *
+ * A list and not a boolean because Session 10 of the learn set rates on both, and a list with an
+ * order because the order is the order of the rows and a reader of a log file should be able to
+ * predict it. A repeat is refused rather than quietly deduplicated: `--pools mirror,mirror` is a
+ * caller who meant `mirror,random` and would otherwise pay for the same measurement twice and get
+ * a curve file `readCurve` accepts, which is worse than an error.
+ */
+export function parsePools(text) {
+  if (text === null || text === undefined) return [...RATING_POOLS];
+  const kept = String(text).split(",").map((s) => s.trim().toLowerCase()).filter((s) => s !== "");
+  if (kept.length === 0) throw new Error("--pools wants arrangements, as in mirror,random");
+  if (new Set(kept).size !== kept.length) throw new Error(`--pools repeats an arrangement: ${text}`);
+  for (const which of kept) {
+    if (!RATING_POOLS.includes(which)) {
+      throw new Error(`--pools ${which}; this build rates on ${RATING_POOLS.join(" and ")}`);
+    }
+  }
+  return kept;
+}
+
+/**
+ * Where a curve goes when two arrangements were asked for: the pool's word before the extension.
+ *
+ * curve.jsonl becomes curve.mirror.jsonl and curve.random.jsonl, and a path with no
+ * extension simply gains the word. Split rather than interleaved because `readCurve` refuses two
+ * pools in one curve file, which is the right refusal -- a line drawn through thirteen mirrored
+ * builds and fifty-two random pairs is a line through two instruments -- and a script that wrote
+ * a file its own page will not open would be making the user do the split by hand.
+ */
+export function curvePath(out, which) {
+  const at = out.lastIndexOf(".");
+  const slash = Math.max(out.lastIndexOf("/"), out.lastIndexOf("\\"));
+  if (at <= slash + 1) return `${out}.${which}`;
+  return `${out.slice(0, at)}.${which}${out.slice(at)}`;
+}
+
 export async function rateSnapshots({
   dir, bouts = 200, workers = 28, cap = 60, random = 40, only = null, terminals = VIABLE_TERMINALS,
-  mirror = true, onRow = null,
+  pools = null, mirror = true, onRow = null,
 }) {
+  const wanted = pools === null ? [mirror ? "mirror" : "random"] : [...pools];
   const state = loadLeague(dir);
-  // The pool is drawn at the arrangement it will be played at: `viableMirror` for a mirrored
-  // rating and `viablePair` for random pairs, which is what keeps a snapshot's rating on bodies
-  // that can finish the fight it is being scored on. Mirrored is what keeps a rating on the builds
-  // its rollouts were collected on; random pairs is the pool the set's fourth frozen choice calls
-  // the one that matters.
-  const pool = poolFor({ seed: (state.seed ^ 0xc0f1c0f1) >>> 0, random, terminals, mirror });
+  // The pool is handed over class-filtered and `ratePolicy` narrows it again at each arrangement's
+  // own `mirror`: `viableMirror` for a mirrored rating, and nothing further for random pairs,
+  // which reject at the draw through `viablePair` because a pair predicate cannot be a filter on a
+  // list of single builds. Narrowing here instead would make the random rows a rating of thirteen
+  // mirrorable bodies drawn two at a time, which is a pool nobody asked for.
+  const pool = poolFor({ seed: (state.seed ^ 0xc0f1c0f1) >>> 0, random, terminals, mirror: false });
   const per = boutsPerOpponent(bouts);
   const chosen = chosenSnapshots(snapshotIterations(dir), only);
   const rows = [];
@@ -124,32 +174,43 @@ export async function rateSnapshots({
     const role = iteration === "main"
       ? state.main
       : roleFromJson(JSON.parse(readFileSync(poolPath(dir, iteration), "utf8")));
+    // One call, both arrangements: the two rows a snapshot writes come off one pass over its
+    // weights and out of one seed, so an arm that drifted between them cannot be the explanation
+    // for a gap between its own two rows.
     const rated = await ratePolicy({
       weights: role.weights, logSigma: role.logSigma, norm: role.norm,
-      pool, seed: (state.seed ^ 0xc0f1c0f1) >>> 0, bouts: per, workers, cap, mirror, terminals,
+      pool, seed: (state.seed ^ 0xc0f1c0f1) >>> 0, bouts: per, workers, cap, terminals,
+      pools: wanted,
     });
-    const u = rated.differences.uniform;
-    const d = rated.differences.driver;
-    const row = {
-      iteration, bouts: per, per: rated.per,
-      // The pool travels with the row. Two ratings on two pools are two instruments, and a log
-      // file that does not say which one a row came from cannot be read six months later.
-      pool: { builds: pool.length, terminals: [...terminals] },
-      // ^ the classes as asked for, so a row written under the viable default and a row written
-      // under `--terminals all` are two instruments a reader can tell apart six months later.
-      // `mirror` is the same claim about the other axis: one build in both corners, or two.
-      mirror,
-      uniform: { bar: u.bar, sem: u.barSem, d: u.d },
-      driver: { bar: d.bar, sem: d.barSem, d: d.d },
-      // What the fit and the two baselines *did* over exactly these bouts, so a bar on the margin
-      // and a bar on the behaviour are read off one set of bouts rather than two.
-      behaviour: rated.behaviour,
-      fit: rated.results.fit,
-    };
-    rows.push(row);
-    if (onRow !== null) onRow(row);
+    for (const which of wanted) {
+      const on = rated.byPool[which];
+      const u = on.differences.uniform;
+      const d = on.differences.driver;
+      const row = {
+        iteration, bouts: per, per: on.per,
+        // The pool travels with the row. Two ratings on two pools are two instruments, and a log
+        // file that does not say which one a row came from cannot be read six months later. The
+        // classes are the ones asked for, so a row written under the viable default and a row
+        // written under `--terminals all` are told apart; `mirror` is the same claim about the
+        // other axis -- one build in both corners, or two -- and it moved inside this block in
+        // Session 10 of the learn set, where `pool` is what Session 02's page keys the label on.
+        pool: { builds: on.builds, terminals: [...terminals], mirror: on.mirror },
+        // Kept beside it as well, because every row this script wrote between Sessions 06 and 10
+        // carried it there and a reader with both in front of them should not have to know when
+        // the field moved.
+        mirror: on.mirror,
+        uniform: { bar: u.bar, sem: u.barSem, d: u.d },
+        driver: { bar: d.bar, sem: d.barSem, d: d.d },
+        // What the fit and the two baselines *did* over exactly these bouts, so a bar on the margin
+        // and a bar on the behaviour are read off one set of bouts rather than two.
+        behaviour: on.behaviour,
+        fit: on.results.fit,
+      };
+      rows.push(row);
+      if (onRow !== null) onRow(row);
+    }
   }
-  return { state, rows, boutsPerOpponent: per };
+  return { state, rows, boutsPerOpponent: per, pools: wanted };
 }
 
 const signed = (x, places) => `${x >= 0 ? "+" : "−"}${Math.abs(x).toFixed(places)}`;
@@ -171,7 +232,11 @@ export function formatRow(row) {
   const played = fit.wins + fit.draws + fit.losses;
   const decided = played === 0 ? 0 : (fit.wins + fit.losses) / played;
   const mine = row.behaviour?.fit ?? null;
-  return `  ${String(row.iteration).padStart(5)}: uniform ${signed(u.bar, 4)} ±${(1.96 * u.sem).toFixed(4)} `
+  // The arrangement in the line and not only in the row, because two rows a snapshot now scroll
+  // past one after the other and a reader watching them go by has to be able to tell which is
+  // which without opening the file.
+  const on = (row.pool?.mirror ?? row.mirror) === false ? "rand" : "mirr";
+  return `  ${String(row.iteration).padStart(5)} ${on}: uniform ${signed(u.bar, 4)} ±${(1.96 * u.sem).toFixed(4)} `
     + `d ${signed(u.d, 3)}  |  driver ${signed(d.bar, 4)} ±${(1.96 * d.sem).toFixed(4)} d ${signed(d.d, 3)}`
     + `  |  w/d/l ${fit.wins}/${fit.draws}/${fit.losses} decided ${(decided * 100).toFixed(0)}%`
     + (mine === null ? ""
@@ -192,20 +257,40 @@ if (isMain) {
   const only = flag("only", null);
   const out = flag("out", null);
   const terminals = parseTerminals(flag("terminals", null));
-  const mirror = String(flag("mirror", "1")) !== "0";
+  // `--mirror 1|0` is still read, because the record has commands written down with it in them and
+  // a flag that silently becomes a no-op is worse than one that is gone. It is a one-entry
+  // `--pools` and the two may not both be passed.
+  const mirrorText = flag("mirror", null);
+  const poolsText = flag("pools", null);
+  if (mirrorText !== null && poolsText !== null) {
+    throw new Error("--mirror is a one-entry --pools; pass one of them");
+  }
+  const pools = mirrorText !== null
+    ? [String(mirrorText) === "0" ? "random" : "mirror"]
+    : parsePools(poolsText);
   const snapshots = snapshotIterations(dir);
   const chosen = chosenSnapshots(snapshots, only);
   const per = boutsPerOpponent(bouts);
   const state = loadLeague(dir);
   const random = Number(flag("random", 40));
-  const builds = poolFor({ seed: (state.seed ^ 0xc0f1c0f1) >>> 0, random, terminals, mirror }).length;
   const on = poolSentence(terminals);
   console.log(`${dir}: iteration ${state.iteration}, ${snapshots.length} snapshots, rating `
     + `${chosen.length + 1} at ${per} bouts an opponent (${per * PPO_LEAGUE.length} a contender) `
-    + `over ${builds} builds, ${on}, ${mirror ? "mirrored" : "on random pairs"}`);
+    + `${on}, on ${pools.map(poolWord).join(" and ")}`);
   const { rows } = await rateSnapshots({
     dir, bouts, workers: Number(flag("workers", 28)), cap: Number(flag("cap", 60)),
-    random, only, terminals, mirror, onRow: (row) => console.log(formatRow(row)),
+    random, only, terminals, pools, onRow: (row) => console.log(formatRow(row)),
   });
-  if (out !== null) writeFileSync(resolve(out), rows.map((r) => JSON.stringify(r)).join("\n") + "\n");
+  // One file a pool. `readCurve` refuses two pools in one curve and it is right to, so a caller
+  // who asked for both gets curve.jsonl split into curve.mirror.jsonl and
+  // curve.random.jsonl rather than a file the page will not open. One pool keeps the name it
+  // was given, so every command already written down still writes the file it always wrote.
+  if (out !== null) {
+    for (const which of pools) {
+      const mine = rows.filter((r) => (r.pool?.mirror ?? r.mirror) === (which === "mirror"));
+      const path = resolve(pools.length === 1 ? out : curvePath(out, which));
+      writeFileSync(path, mine.map((r) => JSON.stringify(r)).join("\n") + "\n");
+      console.log(`  wrote ${path} (${mine.length} rows on ${poolWord(which)})`);
+    }
+  }
 }

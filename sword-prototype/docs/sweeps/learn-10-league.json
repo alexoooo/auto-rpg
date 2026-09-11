@@ -1,0 +1,34 @@
+{
+  "name": "learn-10-league",
+  "note": "Session 10 of the learn set: six league arms that ask whether training on random viable pairs, rather than only in a mirror, produces the first learned mind that beats golem-fencer where the game is actually played. The mirror finding is the whole reason: every pairing any trainer in this tree has ever scheduled put one build in both corners, so nothing a mind saw ever distinguished its own reach from the reach in front of it, and an error that only exists when the two bodies differ cost the fit exactly nothing -- which is why Session 06's outside row is 0.007 of the return and why Session 07's stand-off is anchored to THEIR reach while the stroke opens inside 0.92 of MINE. Arm a is the shipped league's own configuration on the viable pool and is the control; every paired number in this sweep that means anything is a difference against it. b draws half the main's bouts as random viable pairs through viablePair and is the arm the session exists for. c adds golem-fencer beside golem-driver as a second anchor, each at share 1, because those are the two hand-coded minds that top the random-pairs table and the mind being fitted should meet the one it has to beat. d is the 2x2 cell the style set left unfitted: mirrored only, anchored, at the shipped entropy of 0.003 rather than the 0.0003 the shipped league resumed at, so that the record's claim about what the anchor bought can finally be separated from what having more room to improve bought, or withdrawn. e is c plus holdMyReach, Session 09's executor row that reads stand-off as a multiple of the acting hand's own reach instead of the opponent's -- the row the owner's complaint about the surface is really about, which read half a bar from scratch at sixty iterations and has never been given a warm start or a distribution in which it could pay. f is e plus Session 09's entropy anneal, which was the second best of that session's nine and is the only knob there that changes how the fit pays for spread rather than what it can see. If the night is short the arms to protect are b and c, and d is the one to drop: it answers a question the record owes itself rather than the question this session was written for. No start is named in this file for docs/sweeps/learn-06-reward.json's reason -- tournaments/ is gitignored and a committed manifest that cannot run on a fresh clone is not one -- so the shipped league's main is passed on the command line as --from tournaments/league-anchored-main-checkpoint.json, which is seed 20260914 at iteration 93 and is the mind in src/golem/policy-weights.ts. The pool is the viable one, the reward table is the shipped one, and the entropy is stated on every arm rather than shared, because arm f names a schedule and a run that carried both --entropy and --entropy-anneal would have a header that could not say which coefficient the fit paid.",
+  "script": "league",
+  "seed": 20260915,
+  "pool": {
+    "random": 40
+  },
+  "rate": {
+    "bouts": 600
+  },
+  "common": [
+    "--iterations", "100",
+    "--bouts", "128",
+    "--exploiter-bouts", "64",
+    "--cap", "60",
+    "--exploiters", "2",
+    "--exploiter-every", "2",
+    "--pool-every", "8",
+    "--pool-cap", "8",
+    "--emphasise", "maul,mace",
+    "--emphasis", "3",
+    "--share-anchor", "1",
+    "--select", "random"
+  ],
+  "arms": [
+    { "name": "a", "flags": ["--anchor", "golem-driver", "--entropy", "0.0003"] },
+    { "name": "b", "flags": ["--anchor", "golem-driver", "--mirror-share", "0.5", "--entropy", "0.0003"] },
+    { "name": "c", "flags": ["--anchor", "golem-driver,golem-fencer", "--mirror-share", "0.5", "--entropy", "0.0003"] },
+    { "name": "d", "flags": ["--anchor", "golem-driver", "--entropy", "0.003"] },
+    { "name": "e", "flags": ["--anchor", "golem-driver,golem-fencer", "--mirror-share", "0.5", "--tactics", "holdMyReach=true", "--entropy", "0.0003"] },
+    { "name": "f", "flags": ["--anchor", "golem-driver,golem-fencer", "--mirror-share", "0.5", "--tactics", "holdMyReach=true", "--entropy-anneal", "0.003:0,0.0003:20"] }
+  ]
+}

@@ -99,6 +99,11 @@ const textAt = (row: Row, key: string): string | null => {
   return typeof value === "string" ? value : null;
 };
 
+const boolAt = (row: Row, key: string): boolean | null => {
+  const value = row[key];
+  return typeof value === "boolean" ? value : null;
+};
+
 const numbersAt = (row: Row, key: string): number[] => {
   const value = row[key];
   if (!Array.isArray(value)) return [];
@@ -147,6 +152,18 @@ export interface Pool {
   readonly seed: number | null;
   /** The random-pair count the pool was drawn with, when the file says. */
   readonly random: number | null;
+  /**
+   * The arrangement: one build in both corners, or two the pair predicate accepts. Null when the
+   * file does not say, which is every curve row written before Session 06 of the learn set.
+   *
+   * It is a fact about the pool and not about the rating, which is why it lives here and governs
+   * the label with the rest of them. The same fifty-two draws played mirrored and played as random
+   * viable pairs are two different sets of bodies -- thirteen of them against all fifty-two -- and
+   * Session 10's own arms are the case that forced the field: an arm rates on both every snapshot
+   * now, so two rows of one curve can agree on seed, classes and count and still be two
+   * instruments.
+   */
+  readonly mirror: boolean | null;
   /** One line, and the only thing two series are compared on. */
   readonly label: string;
 }
@@ -162,6 +179,7 @@ export interface Pool {
 export function poolLabel(pool: Omit<Pool, "label">): string {
   const parts = [pool.terminals.length === 0 ? "whole pool" : [...pool.terminals].join("+")];
   if (pool.builds !== null) parts.push(`${pool.builds} builds`);
+  if (pool.mirror !== null) parts.push(pool.mirror ? "mirrored" : "random pairs");
   if (pool.random !== null) parts.push(`random ${pool.random}`);
   if (pool.seed !== null) parts.push(`seed ${pool.seed}`);
   return parts.join(", ");
@@ -173,6 +191,7 @@ const makePool = (over: Partial<Omit<Pool, "label">>): Pool => {
     builds: over.builds ?? null,
     seed: over.seed ?? null,
     random: over.random ?? null,
+    mirror: over.mirror ?? null,
   };
   return { ...facts, label: poolLabel(facts) };
 };
@@ -495,14 +514,15 @@ export function readRun(text: string, name: string): Run {
 
 /** A probe row's pool: the classes it rolled up, summed, because the row does not say. */
 function probePool(row: Row): Pool {
+  const mirror = boolAt(rowAt(row, "pool"), "mirror") ?? boolAt(row, "mirror");
   const byTerminal = row["byTerminal"];
-  if (!Array.isArray(byTerminal)) return makePool({});
+  if (!Array.isArray(byTerminal)) return makePool({ mirror });
   let builds = 0;
   for (const group of byTerminal) {
     if (!isRow(group)) continue;
     builds += numberAt(group, "builds") ?? 0;
   }
-  return makePool({ builds: builds === 0 ? null : builds });
+  return makePool({ builds: builds === 0 ? null : builds, mirror });
 }
 
 const PROBE_COLUMNS = ["killRate", "maul", "mace", "p", "always", "ever"] as const;
@@ -537,8 +557,14 @@ export function readCurve(text: string, name = "curve"): Run {
       throw new Error(`${name}: a curve row whose iteration is neither a number nor "main"`);
     }
     const stated = rowAt(row, "pool");
+    // `mirror` inside the pool block since Session 10 of the learn set, and beside it since
+    // Session 06; a row from either is read, and a row from before both leaves it null rather than
+    // guessing the arrangement it was probably taken under.
     const rowPool = "pool" in row
-      ? makePool({ builds: numberAt(stated, "builds"), terminals: textsAt(stated, "terminals") })
+      ? makePool({
+        builds: numberAt(stated, "builds"), terminals: textsAt(stated, "terminals"),
+        mirror: boolAt(stated, "mirror") ?? boolAt(row, "mirror"),
+      })
       : probePool(row);
     pool = rowPool;
     const differences: Record<string, Difference> = {};

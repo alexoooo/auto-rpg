@@ -5,7 +5,9 @@
 //     [--cap 60] [--random 40] [--terminals maul,mace|all] [--emphasise maul,mace] [--emphasis 3]
 //     [--pool-every 4] [--pool-cap 8]
 //     [--exploiters 2] [--exploiter-every 1] [--share-self 1] [--share-pool 2] [--share-exploiter 1]
-//     [--anchor golem-driver] [--share-anchor 1]
+//     [--anchor golem-driver,golem-fencer] [--share-anchor 1]
+//     [--share-random 1 | --mirror-share 0.5] [--select random|mirror]
+//     [--tactics holdMyReach=true] [--entropy-anneal 0.003:0,0.0003:20]
 //     [--reward-win 0.5] [--reward-clinch 0.004] [--reward-idle 0.004] [--reward-tick 0]
 //     [--reward-closing 0] [--reward-stall 0] [--reward-outside 0] [--reward-swing 0]
 //     [--separation 2.6] [--separation-schedule 1.2:0,default:20]
@@ -14,7 +16,7 @@
 //     [--from tournaments/some-run-checkpoint.json]
 //     [--matrix] [--matrix-bouts 32] [--matrix-lag 1] [--matrix-cap 10] [--probe-bouts 4]
 //     [--evaluate 5]
-//     [--out src/golem/policy-weights.ts] [--ship 16|main] [--ship-bouts 400]
+//     [--out src/golem/policy-weights.ts] [--ship 16|main|best] [--ship-bouts 400]
 //
 // **Why a pool and not a mirror.** Session 14's calibration measured what a mirrored self-play
 // reward can pay for and the answer was: the two sides' bar margins are exactly negated, so the
@@ -23,6 +25,25 @@
 // range, and `docs/measurements.md` has the census of one doing exactly that. A pool of frozen
 // past selves breaks the identity the same way `--opponent` did, and for the same reason: the
 // opponent is not a copy of the policy taking the gradient, so beating it is worth something.
+//
+// **A share of the bouts is not a mirror at all, and that is Session 10 of the learn set.** A pool
+// of past selves breaks the identity in the *reward*, which is the paragraph above; it leaves the
+// two bodies identical, which is a second identity and a much quieter one. Every pairing this
+// script scheduled before this session put one build in both corners, so nothing the main ever saw
+// distinguished its own reach from the reach in front of it, and an error that only exists when
+// the two differ cost the fit exactly nothing. The record has both halves of that: Session 06's
+// `outside` row is 0.007 of the return, and Session 07's stand-off is anchored to *their* reach
+// while the stroke opens inside 0.92 of *mine*. `--share-random 1` -- `--mirror-share 0.5` in the
+// trainer's spelling -- draws half the main's bouts as random pairs through `viablePair` instead,
+// both corners, the same opponent cycle, the same seed. The mirror keeps the other half, because
+// the mirror is where the property that made self-play work in the first place still holds.
+//
+// **Rated on both, selected on one.** Every rating this script takes is taken under both
+// arrangements out of one `ratePolicy` call and printed side by side, and `--select` says which of
+// the two `--ship best` reads and which one the shipped module's provenance quotes. The asymmetry
+// is deliberate: a mind that wins the thirteen builds a mirror admits and loses the fifty-two the
+// game draws is a real failure mode -- the record found one, months late, in a held-out split --
+// and the cure is not to stop measuring the mirror but to stop *deciding* on it.
 //
 // **The three schedules are Session 08 of the learn set's and they touch the main alone.** Where
 // the bodies start, who the main meets, and which weapon classes its pool draws, each a
@@ -87,10 +108,11 @@ import { availableParallelism } from "node:os";
 import { armedTerminal, runJobs, scheduleJobs } from "./tournament.mjs";
 import { formatIdleProbe, idleProbe } from "./idle-probe.mjs";
 import {
-  FIT_NAME, FitPool, PPO_LEAGUE, REWARD_KEYS, UNIFORM_NAME, episodeReturns, extendNormalisation,
-  mergeRollouts, momentsFromJson, momentsToJson, parseOpponentStage, parseSchedule,
-  parseSeparationStage, parseTerminals, parseTerminalsStage, poolFor, policyTable, ppoFit,
-  ratePolicy, renderPolicyModule, scheduled,
+  FIT_NAME, FitPool, PPO_LEAGUE, RATING_POOLS, REWARD_KEYS, UNIFORM_NAME, episodeReturns,
+  extendNormalisation, mergeRollouts, mixedSchedule, momentsFromJson, momentsToJson,
+  parseEntropyStage, parseOpponentStage, parseSchedule, parseSeparationStage, parseTactics,
+  parseTerminals, parseTerminalsStage, poolFor, policyTable, poolWord, ppoFit, ratePolicy,
+  renderPolicyModule, scheduled,
 } from "./train-ppo.mjs";
 import {
   ACTION_AXES, POLICY_LAYOUT, POLICY_VERSION, VALUE_LAYOUT, freshNormalisation,
@@ -263,8 +285,18 @@ export function freshRole(seed) {
   };
 }
 
-/** A role as a contender: the greedy read, because an opponent is a fixed mind and not a rollout. */
-export function contenderFor(role, sample = false) {
+/**
+ * A role as a contender: the greedy read, because an opponent is a fixed mind and not a rollout.
+ *
+ * `tactics` is Session 09 of the learn set's `--tactics`, and it is carried by every contender a
+ * *role* becomes and by none of the hand-coded anchors, which have no contender at all. That is
+ * the right split: the flag moves the executor table the learned mind drives under, so the mind's
+ * own frozen past selves and the exploiters that hunt it drive under it too -- they are the same
+ * mind -- while the anchor stays the shipped executor the arm is being measured against. Left off
+ * entirely when nothing overrides it, so a run that does not pass the flag packs the same bytes
+ * every run before it packed.
+ */
+export function contenderFor(role, sample = false, tactics = null) {
   return {
     pi: Array.from(role.weights, round5),
     logSigma: Array.from(role.logSigma, round5),
@@ -274,6 +306,7 @@ export function contenderFor(role, sample = false) {
       variance: Array.from(role.norm.variance, round5),
     },
     sample,
+    ...(tactics === null || Object.keys(tactics).length === 0 ? {} : { tactics }),
   };
 }
 
@@ -318,9 +351,10 @@ export function copyRole(role, seed, bornAt) {
  */
 export async function collectLeague({
   builds, role, opponents, seed, bouts, workers, cap, reward = GOLEM_REWARD,
-  name = MAIN_NAME, onProgress = null, separation = null,
+  name = MAIN_NAME, onProgress = null, separation = null, mirrorShare = 1, randomBuilds = null,
+  tactics = null,
 }) {
-  const contenders = { [name]: contenderFor(role, true) };
+  const contenders = { [name]: contenderFor(role, true, tactics) };
   for (const opponent of opponents) contenders[opponent.name] = opponent.contender;
   const pairs = leaguePairs(opponents, name);
   // Rounded up to a whole number of cycles, which is what makes the declared mix the realised
@@ -329,9 +363,13 @@ export async function collectLeague({
   // shares an iteration promised would be off by a fifth in a way that changes as the pool grows.
   // Buying a few extra bouts is much cheaper than reasoning about that afterwards.
   const wanted = Math.max(1, Math.ceil(bouts / 2));
-  const jobs = scheduleJobs({
-    pool: builds, policies: [name, ...opponents.map((o) => o.name)],
-    pairings: Math.ceil(wanted / pairs.length) * pairs.length, seed, cap, mirror: true, contenders, pairs,
+  // Session 10 of the learn set: the arrangement is a second axis over the same opponent cycle.
+  // `mixedSchedule` walks `pairs` in both halves, so the share table's mix holds whether a bout
+  // puts one build in both corners or two bodies `viablePair` accepts on either side of the arena.
+  const { jobs, split } = mixedSchedule({
+    pool: builds, randomPool: randomBuilds, policies: [name, ...opponents.map((o) => o.name)],
+    pairings: Math.ceil(wanted / pairs.length) * pairs.length, seed, cap, contenders, pairs,
+    mirrorShare,
     // Session 08 of the learn set's start distance. Null is the bout runner's own default, so a
     // league that schedules nothing writes the jobs it always wrote.
     separation,
@@ -363,6 +401,10 @@ export async function collectLeague({
   // The counts beside the means, because the declared mix and the realised one are two different
   // things and a run that only reported the means could not tell you which it had.
   rollout.boutsByOpponent = Object.fromEntries([...margins].map(([k, v]) => [k, v.length]));
+  // And the same distinction on the other axis: the arrangement the schedule realised.
+  rollout.mirrorBouts = split.mirror * 2;
+  rollout.randomBouts = split.random * 2;
+  rollout.mirrorShare = rows.length === 0 ? 0 : (split.mirror * 2) / rows.length;
   return rollout;
 }
 
@@ -378,9 +420,11 @@ export async function collectLeague({
 export async function trainRole({
   builds, role, opponents, moments, seed, bouts, workers, cap, reward = GOLEM_REWARD,
   name = MAIN_NAME, onProgress = null, fit: knobs = {}, pool = null, separation = null,
+  mirrorShare = 1, randomBuilds = null, tactics = null,
 }) {
   const rollout = await collectLeague({
     builds, role, opponents, seed, bouts, workers, cap, reward, name, onProgress, separation,
+    mirrorShare, randomBuilds, tactics,
   });
   if (rollout.count === 0) throw new Error(`${name} collected no asks at all`);
   const summary = episodeReturns(rollout);
@@ -579,15 +623,69 @@ export function readLog(dir) {
   return rows;
 }
 
+/** The word `--ship` takes instead of a number to mean "whichever the selected pool ranks first". */
+export const SHIP_BEST = "best";
+
+/**
+ * One arrangement's bar margin off a rating row, or null when the row does not carry one.
+ *
+ * A row written before Session 10 of the learn set has `differences` and no `byPool`, and what it
+ * measured was the mirror; a row written since carries both under `byPool` and repeats the first
+ * arrangement at the top level. So a mirrored reading falls back to the top level and a random one
+ * does not -- an old row asked for its random-pairs number has no answer, and inventing the
+ * mirrored one would be the "nearly right control" this directory keeps paying for.
+ */
+export function ratingOn(row, select, against = "driver") {
+  if (row === null || row === undefined || row.type !== "rating") return null;
+  const table = row.byPool?.[select]?.differences ?? (select === "mirror" ? row.differences : null);
+  const bar = table?.[against]?.bar;
+  return typeof bar === "number" ? bar : null;
+}
+
+/**
+ * The snapshot the named pool ranks first, out of the rating rows a run wrote.
+ *
+ * Session 10 of the learn set's "rated on both, selected on one": every snapshot is rated under
+ * both arrangements and the ship step picks on one of them, so that a mind which wins the thirteen
+ * builds a mirror admits and loses the fifty-two the game draws cannot be shipped by a number that
+ * never looked. `against` is the anchor the margin is taken over and is the driver, which is the
+ * opponent the run's own rating block plays; the session's bar is stated over `golem-fencer` and is
+ * taken afterwards by `scripts/sweep.mjs --paired`, on more bouts than a run can afford in flight.
+ *
+ * Ties go to the *older* snapshot, because a later one is not evidence of anything by being later
+ * and the earlier mind is the one with the longer record behind it.
+ */
+export function bestSnapshot(rows, select, taken, against = "driver") {
+  let best = null;
+  for (const row of rows) {
+    if (row.type !== "rating") continue;
+    if (!taken.includes(row.iteration)) continue;
+    const bar = ratingOn(row, select, against);
+    if (bar === null) continue;
+    if (best === null || bar > best.bar) best = { iteration: row.iteration, bar };
+  }
+  return best;
+}
+
 /**
  * Which mind `--ship` means, checked against the snapshots the arm actually took.
  *
- * `main` is the live main. A number must be an iteration a snapshot was written at, and the
- * refusal lists the ones there are -- because the failure it replaces is an `ENOENT` raised
- * inside a `readFileSync` on a pool file nobody wrote, which reads as a corrupt arm.
+ * `main` is the live main, `best` the one the selected pool ranks first. A number must be an
+ * iteration a snapshot was written at, and the refusal lists the ones there are -- because the
+ * failure it replaces is an `ENOENT` raised inside a `readFileSync` on a pool file nobody wrote,
+ * which reads as a corrupt arm.
  */
-export function shippedIteration(state, which) {
+export function shippedIteration(state, which, { rows = [], select = "mirror", against = "driver" } = {}) {
   if (which === null || which === undefined || which === MAIN_NAME) return state.iteration;
+  if (which === SHIP_BEST) {
+    const best = bestSnapshot(rows, select, state.taken, against);
+    if (best === null) {
+      throw new Error(`--ship ${SHIP_BEST} picks the snapshot this run's own rating ranks first on `
+        + `${poolWord(select)}, and no rating row of this league carries one; run it with `
+        + "--evaluate above zero, or name an iteration");
+    }
+    return best.iteration;
+  }
   const iteration = Number(which);
   if (!Number.isInteger(iteration) || !state.taken.includes(iteration)) {
     throw new Error(`iteration ${which} is not a snapshot of this league; it took `
@@ -617,6 +715,26 @@ export function spentBy(rows, upTo) {
 }
 
 /**
+ * The anchors a header names, out of the one field that holds them however many there are.
+ *
+ * `--anchor golem-driver,golem-fencer` is Session 10 of the learn set's second anchor and the
+ * field it writes is still called `anchor`, singular, because every run already in
+ * `tournaments/` wrote a single name there and a rename would make those headers unreadable
+ * rather than merely older. So the list is the general case and one name is a list of one.
+ */
+export function anchorList(anchor) {
+  if (anchor === null || anchor === undefined) return [];
+  const names = (Array.isArray(anchor) ? anchor : String(anchor).split(","))
+    .map((name) => String(name).trim()).filter(Boolean);
+  const seen = new Set();
+  for (const name of names) {
+    if (seen.has(name)) throw new Error(`--anchor names ${name} twice; one anchor is one share`);
+    seen.add(name);
+  }
+  return names;
+}
+
+/**
  * The sentence a reader of the generated module gets, which the renderer cannot build itself.
  *
  * `renderPolicyModule` knows `--terminals` and nothing about a league's opponent mix, and it
@@ -635,7 +753,10 @@ export function opponentSentence(state, head, upTo = Infinity) {
   const parts = [];
   if (selves > 0) parts.push(`${selves} of its own past selves`);
   if (exploiters > 0) parts.push(`${exploiters} exploiter${exploiters === 1 ? "" : "s"}`);
-  if (head.anchor !== null && head.anchor !== undefined) parts.push(head.anchor);
+  // `anchor` is a comma list since Session 10 of the learn set and was one name before it, and a
+  // header written either way has to name every anchor the mind actually met. A reader who is
+  // told "golem-driver" about a mind that also sparred a fencer has been told something false.
+  for (const name of anchorList(head.anchor)) parts.push(name);
   // A league with an empty pool, no exploiters and no anchor is the mirror the league exists to
   // get away from, and the module should say so rather than announce a league of nothing.
   if (parts.length === 0) return "itself";
@@ -837,7 +958,47 @@ if (isMain) {
   // to be too weak an opponent has exactly one cheap thing to try next, and this is it. A night
   // run with it on says so in its header.
   const anchor = flag("anchor", null);
+  const anchors = anchorList(anchor);
   const shareAnchor = Math.max(0, Number(flag("share-anchor", 1)));
+  // Session 10 of the learn set's arrangement axis, spelled twice because it is two things at
+  // once. `--share-random 1` is the plan's spelling and reads as the share table reads: the mirror
+  // holds one slot, random viable pairs hold `--share-random` of them, and `1` is therefore half
+  // the bouts. `--mirror-share 0.5` is `train-ppo.mjs`'s spelling and names the fraction the
+  // scheduler actually takes. They are the same knob and a run may not pass both, because a header
+  // carrying two answers to "how much of this was a mirror" is worse than a header carrying none.
+  const shareRandomText = flag("share-random", null);
+  const mirrorShareText = flag("mirror-share", null);
+  if (shareRandomText !== null && mirrorShareText !== null) {
+    throw new Error("--share-random is --mirror-share as a share-table slot count; pass one of them");
+  }
+  let mirrorShare = 1;
+  if (shareRandomText !== null) {
+    const shareRandom = Number(shareRandomText);
+    if (!Number.isFinite(shareRandom) || shareRandom < 0) {
+      throw new Error(`--share-random ${shareRandomText} is not a share; it counts slots against the mirror's one`);
+    }
+    mirrorShare = 1 / (1 + shareRandom);
+  } else if (mirrorShareText !== null) {
+    mirrorShare = Number(mirrorShareText);
+    if (!Number.isFinite(mirrorShare) || mirrorShare < 0 || mirrorShare > 1) {
+      throw new Error(`--mirror-share ${mirrorShareText} is not a share; it runs from 0 to 1`);
+    }
+  }
+  // Rated on both, selected on one. Every rating this run takes is taken under both arrangements;
+  // this says which of the two `--ship best` reads and which one the printed selection number is.
+  // The default is the mirror, so a run that does not pass it behaves as every earlier one did.
+  const select = flag("select", mirrorShare < 1 ? "random" : "mirror");
+  if (!RATING_POOLS.includes(select)) {
+    throw new Error(`--select ${select} is not a pool; it is one of ${RATING_POOLS.join(", ")}`);
+  }
+  // Both, always, and the selected one first. Rating both doubles what a rating costs and that is
+  // the price of the finding this session exists to act on: the record needed a held-out split and
+  // three months to discover that the shipped mind was a mirrored-fight specialist, and a run that
+  // prints both numbers every snapshot cannot hide one for that long. First place is not cosmetic
+  // -- `ratePolicy` repeats the first pool's tables at the top level of its result, and those are
+  // the tables `shipTable` writes into the module -- so the number a mind is picked on is the
+  // number it is shipped with.
+  const ratingPools = select === "mirror" ? ["mirror", "random"] : ["random", "mirror"];
   const resetGain = Number(flag("reset-gain", 0.02));
   const resetPatience = Math.max(1, Number(flag("reset-patience", 3)));
   const dir = resolve(flag("dir", "tournaments/league"));
@@ -869,9 +1030,26 @@ if (isMain) {
   // The fit's knobs are `train-ppo.mjs`'s, with its defaults, and are passed through unread: a
   // league that quietly fitted under different numbers than the trainer would make the two runs
   // incomparable, which is the whole reason the trainer's numbers were swept.
+  // The executor table this run's own learned minds drive under, Session 09 of the learn set's
+  // `--tactics`, spelled and parsed exactly as the trainer spells and parses it so one sweep
+  // manifest reads across both scripts. `null` when nothing overrides it, which is every run in
+  // `tournaments/` before this session and is the default here.
+  const tactics = parseTactics(flag("tactics", null));
+  // The entropy coefficient as a schedule, the trainer's `--entropy-anneal`. A league had a scalar
+  // before this session because a league had never wanted to move it; the arm that wants to is
+  // Session 09's f, which was the second-best of nine there and is worth one league arm here.
+  // `--entropy` is a one-stage schedule and the two may not both be passed, for the trainer's
+  // reason: a header that names two coefficients cannot say which one the fit paid.
+  const entropyFlag = flag("entropy", null);
+  const entropyText = flag("entropy-anneal", null);
+  if (entropyText !== null && entropyFlag !== null) {
+    throw new Error("--entropy is a one-stage --entropy-anneal; pass one of them");
+  }
+  const entropySchedule = parseSchedule(
+    entropyText ?? String(entropyFlag ?? 0.003), parseEntropyStage, "--entropy-anneal");
   const knobs = {
     halfLife: Number(flag("half-life", 4)), lambda: Number(flag("lambda", 0.95)),
-    clip: Number(flag("clip", 0.2)), entropy: Number(flag("entropy", 0.003)),
+    clip: Number(flag("clip", 0.2)), entropy: scheduled(entropySchedule, 0),
     rate: Number(flag("rate", 1e-4)), valueRate: Number(flag("value-rate", 1e-3)),
     sigmaRate: Number(flag("sigma-rate", Number(flag("rate", 1e-4)) * 10)),
     epochs: Math.max(1, Number(flag("epochs", 4))), batch: Math.max(1, Number(flag("batch", 4096))),
@@ -977,7 +1155,7 @@ if (isMain) {
     const rows = readLog(dir);
     const head = rows.find((row) => row.type === "header");
     if (head === undefined) throw new Error(`${out} has no header row, so the run's own knobs cannot be read`);
-    const iteration = shippedIteration(state, ship);
+    const iteration = shippedIteration(state, ship, { rows, select, against: "driver" });
     const role = ship === MAIN_NAME
       ? state.main
       : roleFromJson(JSON.parse(readFileSync(poolPath(dir, iteration), "utf8")));
@@ -985,15 +1163,24 @@ if (isMain) {
     const rated = await ratePolicy({
       weights: role.weights, logSigma: role.logSigma, norm: role.norm,
       // The evaluation pool is the run's own, derived from the state seed exactly as the in-run
-      // rating derives it, so a shipped number and a rating row are the same measurement. Mirrored,
-      // so it is drawn through `viableMirror` and not merely through the class table.
-      pool: poolFor({ seed: eseed, random: head.random ?? random, terminals, mirror: true }),
+      // rating derives it, so a shipped number and a rating row are the same measurement. Handed
+      // over class-filtered, because `ratePolicy` runs `viableMirror` itself for the mirrored
+      // arrangement and must be left something to draw two different bodies out of for the other.
+      pool: poolFor({ seed: eseed, random: head.random ?? random, terminals, mirror: false }),
       seed: eseed, terminals,
-      bouts: Math.max(2, Math.ceil(shipBouts / PPO_LEAGUE.length / 2) * 2), workers, cap, mirror: true,
+      bouts: Math.max(2, Math.ceil(shipBouts / PPO_LEAGUE.length / 2) * 2), workers, cap,
+      // Both arrangements here too, and the selected one first, because the provenance block of
+      // the module this is about to write quotes the first one. A shipped table whose `score` came
+      // off the mirror while the snapshot was chosen on random pairs would be a header that names
+      // a different measurement than the decision it records.
+      pools: ratingPools, tactics: head.tactics ?? tactics,
       onProgress: progress(`rate ${ship}`),
     });
     console.log(`  === ${ship} of ${dir}: ${rated.per} bouts a contender ===`);
-    printDifferences(ship, rated.differences);
+    for (const which of ratingPools) {
+      console.log(`  -- on ${poolWord(which)}${which === select ? " (selected)" : ""}`);
+      printDifferences(ship, rated.byPool[which].differences);
+    }
     const spent = spentBy(rows, iteration);
     const table = shipTable(role, { state, head, iteration, spent, rated, date });
     const text = renderPolicyModule(table, "scripts/league.mjs");
@@ -1053,7 +1240,7 @@ if (isMain) {
       // The probe is a build against a motionless copy of *itself*, which is a mirror, so it draws
       // the mirrored pool: the classes whose kill rate this table is worth reading.
       pool: poolFor({ seed: (seed ^ 0xc0f1c0f1) >>> 0, random, terminals, mirror: true }), name: MAIN_NAME,
-      contender: contenderFor(state.main, false), bouts: probeBouts, workers, cap,
+      contender: contenderFor(state.main, false, tactics), bouts: probeBouts, workers, cap,
       seed: (seed ^ 0xc0f1c0f1) >>> 0, onProgress: progress("idle probe"),
     });
     console.log("");
@@ -1074,14 +1261,15 @@ if (isMain) {
       reward, iterations, bouts, exploiterBouts, cap, random, workers, terminals, from,
       emphasise, emphasis,
       poolEvery, poolCap, exploiters, exploiterEvery,
-      shareSelf, sharePool, shareExploiter, anchor, shareAnchor, resetGain, resetPatience,
+      shareSelf, sharePool, shareExploiter, anchor, shareAnchor, mirrorShare, select,
+      resetGain, resetPatience,
       evaluate: every, evalBouts, finalBouts, resumedAt: resume ? state.iteration : null,
       // The three curricula as stages, normalised, so that a run given `--separation 1.2` and a
       // run given `--separation-schedule 1.2:0` write the same header. The scalar beside them is
       // the distance the *next* iteration will be collected at, which for a resumed run is the one
       // it is about to fight rather than a value from before its own first row.
       separation: scheduled(separationSchedule, state.iteration + 1),
-      separationSchedule, opponentSchedule, terminalsSchedule,
+      separationSchedule, opponentSchedule, terminalsSchedule, entropySchedule, tactics,
       ...knobs,
     };
     log({ type: "header", ...header });
@@ -1101,16 +1289,43 @@ if (isMain) {
         // actually meet are the ones the screen now draws, which are the viable ones. A rating on
         // a pool the rollout never saw is two instruments; `--terminals all` is still there for
         // the close-out's table on everything.
+        //
+        // Session 10 of the learn set rates on both arrangements out of one call, so a mirrored
+        // specialist is visible the day it appears rather than in a held-out split months later.
+        // `ratePolicy` builds each pool itself off `terminals` and `random`, mirrored through
+        // `viableMirror` and random through `viablePair`, from one seed. The *selected* pool is
+        // asked first, which is what puts its tables at the top level of the row and therefore in
+        // the shipped module's provenance: the number a mind is picked on is the number it is
+        // shipped with.
+        //
+        // The list handed over is the class-filtered one and *not* the mirrored one, which is the
+        // one-word change that makes two pools possible at all: `keepViable` runs again inside
+        // `ratePolicy` at each arrangement's own `mirror`, and it can narrow a list but it cannot
+        // widen one. Handing it the thirteen mirrorable builds would have rated the random half on
+        // thirteen bodies drawn two at a time -- a pool nobody asked for, quietly. The mirrored
+        // half is unchanged by this: a class filter run twice is the class filter.
         weights: state.main.weights, logSigma: state.main.logSigma, norm: state.main.norm,
-        pool: poolFor({ seed: eseed, random, terminals, mirror: true }), seed: eseed, terminals,
+        pool: poolFor({ seed: eseed, random, terminals, mirror: false }), seed: eseed, terminals,
         // `wanted` is the whole budget and `ratePolicy` spends it per contender per opponent, so
         // it is divided by the league's length the way the trainer divides it.
-        bouts: Math.max(2, Math.ceil(wanted / PPO_LEAGUE.length / 2) * 2), workers, cap, mirror: true,
+        bouts: Math.max(2, Math.ceil(wanted / PPO_LEAGUE.length / 2) * 2), workers, cap,
+        pools: ratingPools, tactics,
         onProgress: progress(`rate ${iteration}`),
       });
       console.log(`  === rating after iteration ${iteration}: ${result.per} bouts a contender ===`);
-      printDifferences(MAIN_NAME, result.differences);
-      log({ type: "rating", iteration, per: result.per, differences: result.differences, structural: result.results });
+      for (const which of ratingPools) {
+        console.log(`  -- on ${poolWord(which)}, ${result.byPool[which].builds} builds`
+          + `${which === select ? " (selected)" : ""}`);
+        printDifferences(MAIN_NAME, result.byPool[which].differences);
+      }
+      log({
+        type: "rating", iteration, per: result.per, select,
+        differences: result.differences, structural: result.results,
+        byPool: Object.fromEntries(ratingPools.map((which) => [which, {
+          pool: which, mirror: result.byPool[which].mirror, builds: result.byPool[which].builds,
+          differences: result.byPool[which].differences, structural: result.byPool[which].results,
+        }])),
+      });
       return result;
     };
     if (every > 0 && state.iteration === 0) rated = await ratePoint(0, evalBouts);
@@ -1130,6 +1345,15 @@ if (isMain) {
         poolFor({ seed: (seed ^ iteration) >>> 0, random, terminals: stageTerminals, mirror: true }), emphasise, emphasis);
       const exploiterBuilds = terminalsText === null ? builds : emphasisedPool(
         poolFor({ seed: (seed ^ iteration) >>> 0, random, terminals, mirror: true }), emphasise, emphasis);
+      // The other arrangement's pool, drawn from *the same seed* as the mirrored one and differing
+      // only in `mirror`, so the two halves of an iteration are the same draw seen two ways rather
+      // than two experiments sharing a log. Drawn only when a share of the bouts will use it, so a
+      // run at the default share does not pay `buildPool` twice for a list nothing reads. The
+      // emphasis applies here as it applies there: it is a weighting over whatever the class
+      // filter leaves, and the class filter is the only thing that differs between the two lists.
+      const randomBuilds = mirrorShare >= 1 ? null : emphasisedPool(
+        poolFor({ seed: (seed ^ iteration) >>> 0, random, terminals: stageTerminals, mirror: false }),
+        emphasise, emphasis);
       // The present, frozen: the main as it stood when the iteration began. Both the main and the
       // exploiters play *this* copy rather than each other's moving weights, so an iteration is
       // one experiment and not a sequence of them, and the exploiters' margins are comparable
@@ -1137,24 +1361,27 @@ if (isMain) {
       const frozen = copyRole(state.main, (seed ^ 0x5e1f ^ iteration) >>> 0, iteration);
       const opponents = [];
       if (stageOpponent === "league") {
-        if (shareSelf > 0) opponents.push({ name: SELF_NAME, weight: shareSelf, contender: contenderFor(frozen) });
+        if (shareSelf > 0) opponents.push({ name: SELF_NAME, weight: shareSelf, contender: contenderFor(frozen, false, tactics) });
         const slots = spreadSlots(state.pool.length, sharePool, iteration);
         state.pool.forEach((entry, i) => {
           if (slots[i] > 0) {
-            opponents.push({ name: poolName(entry.iteration), weight: slots[i], contender: contenderFor(load(entry.iteration)) });
+            opponents.push({ name: poolName(entry.iteration), weight: slots[i], contender: contenderFor(load(entry.iteration), false, tactics) });
           }
         });
         if (shareExploiter > 0) {
           for (let slot = 0; slot < state.exploiters.length; slot += 1) {
-            opponents.push({ name: exploiterName(slot), weight: shareExploiter, contender: contenderFor(state.exploiters[slot]) });
+            opponents.push({ name: exploiterName(slot), weight: shareExploiter, contender: contenderFor(state.exploiters[slot], false, tactics) });
           }
         }
-        if (anchor !== null && shareAnchor > 0) opponents.push({ name: anchor, weight: shareAnchor });
+        // Each anchor gets the same share, so `--share-anchor 1` with two of them is two slots of
+        // hand-coded mind in the cycle and not one slot split between them: the second anchor is
+        // there to be met as often as the first, not to halve the first.
+        if (shareAnchor > 0) for (const name of anchors) opponents.push({ name, weight: shareAnchor });
       } else if (stageOpponent === "self") {
         // The frozen copy rather than the live main, for `leaguePairs`' reason: a role on both
         // sides of a pair is a mirror whose reward sums to zero, and the copy is what makes
         // "against itself" mean the mind that started the iteration.
-        opponents.push({ name: SELF_NAME, weight: 1, contender: contenderFor(frozen) });
+        opponents.push({ name: SELF_NAME, weight: 1, contender: contenderFor(frozen, false, tactics) });
       } else if (stageOpponent === UNIFORM_NAME) {
         opponents.push({ name: UNIFORM_NAME, weight: 1, contender: { uniform: true } });
       } else {
@@ -1164,7 +1391,9 @@ if (isMain) {
       const turn = await trainRole({
         builds, role: state.main, opponents, moments: moments.main,
         seed: (seed + iteration * 7919) >>> 0, bouts, workers, cap, reward,
-        name: MAIN_NAME, fit: knobs, pool: fitPool, separation: stageSeparation,
+        name: MAIN_NAME, fit: { ...knobs, entropy: scheduled(entropySchedule, iteration) },
+        pool: fitPool, separation: stageSeparation,
+        mirrorShare, randomBuilds, tactics,
         onProgress: progress(`iteration ${iteration}`),
       });
       let fitSeconds = turn.seconds;
@@ -1180,9 +1409,14 @@ if (isMain) {
           const name = exploiterName(slot);
           const hunt = await trainRole({
             builds: exploiterBuilds, role: state.exploiters[slot], moments: moments[name],
-            opponents: [{ name: SELF_NAME, weight: 1, contender: contenderFor(frozen) }],
+            opponents: [{ name: SELF_NAME, weight: 1, contender: contenderFor(frozen, false, tactics) }],
             seed: (seed + iteration * 7919 + 104_729 * (slot + 1)) >>> 0,
-            bouts: exploiterBouts, workers, cap, reward, name, fit: knobs, pool: fitPool,
+            bouts: exploiterBouts, workers, cap, reward, name, pool: fitPool, tactics,
+            fit: { ...knobs, entropy: scheduled(entropySchedule, iteration) },
+            // The exploiters stay mirrored whatever the main does. Their job is to find a hole in
+            // the main and the cheapest way to lose that job is to spend half their bouts on a
+            // second axis of variation; the main's arrangement is the experiment, and an exploiter
+            // is an instrument pointed at the main rather than an arm of it.
             onProgress: progress(`${name} ${iteration}`),
           });
           fitSeconds += hunt.seconds;
@@ -1218,6 +1452,11 @@ if (isMain) {
         episodes: turn.summary.returns.length, decided: round5(turn.rollout.decided),
         margin: round5(turn.rollout.margin), byOpponent: turn.rollout.byOpponent,
         boutsByOpponent: turn.rollout.boutsByOpponent,
+        // The arrangement the schedule realised, beside the shares, for the shares' own reason: a
+        // declared share and a realised one are two different things and a row that printed only
+        // the declaration could not tell you which it had.
+        mirrorShare: round5(turn.rollout.mirrorShare),
+        mirrorBouts: turn.rollout.mirrorBouts, randomBouts: turn.rollout.randomBouts,
         shares: Object.fromEntries(opponents.map((o) => [o.name, round5(shareOf(leaguePairs(opponents), o.name))])),
         ret: round5(meanOf(turn.summary.returns)), bare: round5(turn.summary.bare),
         length: round5(meanOf(turn.summary.lengths)), penaltyShare: round5(turn.summary.share),

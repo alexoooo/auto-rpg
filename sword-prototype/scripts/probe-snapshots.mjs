@@ -4,6 +4,7 @@
 //   node scripts/probe-snapshots.mjs --dir tournaments/league-anchored [--bouts 4] [--workers 28]
 //                                    [--cap 60] [--seed 20260906] [--only 8,16] [--out curve.jsonl]
 //                                    [--baseline 9/28] [--terminals maul,mace|all]
+//                                    [--pools mirror,random]
 //
 // **Why this exists beside the rating curve rather than inside it.** On the night of 2026-09-08 the
 // three arms were flat on the bar rating -- changes of −0.020 to −0.049 against intervals of ±0.06
@@ -38,7 +39,7 @@ import { VIABLE_TERMINALS } from "../src/golem/viability.ts";
 import { parseTerminals, poolFor, poolSentence } from "./train-ppo.mjs";
 import { contenderFor, loadLeague, poolPath, roleFromJson } from "./league.mjs";
 import { formatIdleProbe, idleProbe } from "./idle-probe.mjs";
-import { chosenSnapshots, snapshotIterations } from "./rate-snapshots.mjs";
+import { chosenSnapshots, curvePath, parsePools, snapshotIterations } from "./rate-snapshots.mjs";
 
 /** The kill rate of one armed class, or null when the pool has no build carrying it. */
 export function classRate(byTerminal, terminal) {
@@ -132,6 +133,16 @@ export function probeRow(iteration, probe, baseline = null) {
   const maul = classCount(probe.byTerminal, "maul");
   return {
     iteration, kills: probe.kills, bouts: probe.bouts, killRate: probe.killRate,
+    // The pool block Session 02's curve page keys its label on, and the arrangement inside it,
+    // which is Session 10 of the learn set. A probe row carried its build count only in the rolled
+    // up `byTerminal` before this, which the page had to sum; it is said out loud now, and the
+    // arrangement beside it, because a mirrored probe and a random-pairs probe over the same
+    // builds are two instruments and a curve drawn through both is a curve through neither.
+    pool: {
+      builds: probe.totalBuilds ?? null, terminals: null, mirror: probe.mirror ?? true,
+      lonely: probe.lonely ?? 0,
+    },
+    mirror: probe.mirror ?? true,
     always: probe.alwaysBuilds, ever: probe.everBuilds,
     maul: classRate(probe.byTerminal, "maul"), mace: classRate(probe.byTerminal, "mace"),
     maulKills: maul === null ? null : maul.kills, maulBouts: maul === null ? null : maul.bouts,
@@ -143,36 +154,55 @@ export function probeRow(iteration, probe, baseline = null) {
 
 export async function probeSnapshots({
   dir, bouts = 4, workers = 28, cap = 60, seed = 20260906, random = 40, only = null,
-  baseline = null, onRow = null, terminals = VIABLE_TERMINALS,
+  baseline = null, onRow = null, terminals = VIABLE_TERMINALS, pools = null,
 }) {
+  const wanted = pools === null ? ["mirror"] : [...pools];
   const state = loadLeague(dir);
-  // A probe bout is a build against a motionless copy of itself, which is a mirror, so the pool is
-  // the one `viableMirror` accepts: the maul and mace rows this table is read on.
-  const pool = poolFor({ seed, random, terminals, mirror: true });
+  // One pool a probe, drawn at the arrangement the probe will be run at. Mirrored, it is the list
+  // `viableMirror` accepts: the maul and mace rows this table has always been read on. On random
+  // pairs it is the class-filtered list, and the motionless body is a different one `viablePair`
+  // accepts, which is the floor asked of the two bodies differing rather than of one body twice.
+  const poolFits = Object.fromEntries(wanted.map((which) =>
+    [which, poolFor({ seed, random, terminals, mirror: which === "mirror" })]));
   const chosen = chosenSnapshots(snapshotIterations(dir), only);
   const rows = [];
   for (const iteration of [...chosen, "main"]) {
     const role = iteration === "main"
       ? state.main
       : roleFromJson(JSON.parse(readFileSync(poolPath(dir, iteration), "utf8")));
-    const probe = await idleProbe({
-      pool, name: "fit", contender: contenderFor(role, false), bouts, workers, cap, seed,
-    });
-    const row = probeRow(iteration, probe, baseline);
-    rows.push(row);
-    if (onRow !== null) onRow(row, probe);
+    for (const which of wanted) {
+      const probe = await idleProbe({
+        pool: poolFits[which], name: "fit", contender: contenderFor(role, false), bouts, workers,
+        cap, seed, mirror: which === "mirror",
+      });
+      const row = probeRow(iteration, probe, baseline);
+      row.pool.terminals = [...terminals];
+      rows.push(row);
+      if (onRow !== null) onRow(row, probe);
+    }
   }
-  return { state, rows };
+  return { state, rows, pools: wanted };
 }
 
 const percent = (x) => (x === null ? "  --" : `${(x * 100).toFixed(0)}%`.padStart(4));
+
+// The paragraph the `--pools` flag needs, and it is the probe's own version of the rating's.
+//
+// **`--pools mirror,random` is Session 10 of the learn set.** Every probe in the record before it
+// put a build against a motionless copy of *itself*, so the floor it measured was a floor in a
+// world where the two bodies are the same one -- and the set's whole finding is that such a world
+// hides every error that depends on them differing. On random pairs the motionless body is a
+// different one `viablePair` accepts and the fighter's build still keys the row, so the class
+// rollup means the same thing and the two rows sit side by side. `--out` with two pools writes two
+// files for `readCurve`'s reason, exactly as the rating curve does.
 
 /** One line a snapshot: the rollup, then the two classes that can finish a bout. */
 export function formatProbeRow(row, builds) {
   // The p sits against the maul rate and not at the end of the line, because it is a statement
   // about that one class against the baseline and not about the pool total the row opens with.
   const p = row.p === null || row.p === undefined ? "" : ` p ${row.p.toFixed(4)}`;
-  return `  ${String(row.iteration).padStart(5)}: ${String(row.kills).padStart(4)}/${row.bouts}`
+  const on = (row.pool?.mirror ?? row.mirror) === false ? "rand" : "mirr";
+  return `  ${String(row.iteration).padStart(5)} ${on}: ${String(row.kills).padStart(4)}/${row.bouts}`
     + ` = ${((row.killRate) * 100).toFixed(1).padStart(5)}%   maul ${percent(row.maul)}${p}`
     + `   mace ${percent(row.mace)}   always ${String(row.always).padStart(2)}/${builds}`
     + `   ever ${String(row.ever).padStart(2)}/${builds}`;
@@ -191,7 +221,9 @@ if (isMain) {
   const seed = Number(flag("seed", 20260906)) >>> 0;
   const random = Number(flag("random", 40));
   const terminals = parseTerminals(flag("terminals", null));
-  const builds = poolFor({ seed, random, terminals, mirror: true }).length;
+  const pools = parsePools(flag("pools", "mirror"));
+  const builds = Object.fromEntries(pools.map((which) =>
+    [which, poolFor({ seed, random, terminals, mirror: which === "mirror" }).length]));
   const only = flag("only", null);
   const out = flag("out", null);
   const baseline = parseBaseline(flag("baseline", null));
@@ -200,18 +232,30 @@ if (isMain) {
   const against = baseline === null ? ""
     : `, maul class tested against ${baseline.kills}/${baseline.bouts}`;
   console.log(`${dir}: iteration ${state.iteration}, probing ${chosen.length + 1} minds `
-    + `over ${builds} builds at seed ${seed}, ${poolSentence(terminals)}, cap ${flag("cap", 60)} s${against}`);
+    + `over ${pools.map((which) => `${builds[which]} ${which}`).join(" and ")} builds at seed `
+    + `${seed}, ${poolSentence(terminals)}, cap ${flag("cap", 60)} s${against}`);
   let last = null;
   const { rows } = await probeSnapshots({
     dir, bouts: Number(flag("bouts", 4)), workers: Number(flag("workers", 28)),
-    cap: Number(flag("cap", 60)), seed, random, only, baseline, terminals,
-    onRow: (row, probe) => { console.log(formatProbeRow(row, builds)); last = probe; },
+    cap: Number(flag("cap", 60)), seed, random, only, baseline, terminals, pools,
+    onRow: (row, probe) => {
+      console.log(formatProbeRow(row, builds[probe.mirror === false ? "random" : "mirror"]));
+      last = probe;
+    },
   });
   if (last !== null) {
     console.log("");
     console.log(formatIdleProbe({ ...last, name: `${dir}, its last row, greedy` }));
   }
+  // One file a pool, for `readCurve`'s reason: it refuses two pools in one curve file, and a
+  // line drawn through a mirrored floor and a random-pairs one is a line through two
+  // instruments. One pool keeps the name it was given.
   if (out !== null) {
-    writeFileSync(resolve(out), rows.map((r) => JSON.stringify(r)).join("\n") + "\n");
+    for (const which of pools) {
+      const mine = rows.filter((r) => (r.pool?.mirror ?? r.mirror) === (which === "mirror"));
+      const path = resolve(pools.length === 1 ? out : curvePath(out, which));
+      writeFileSync(path, mine.map((r) => JSON.stringify(r)).join("\n") + "\n");
+      console.log(`  wrote ${path} (${mine.length} rows, ${which})`);
+    }
   }
 }

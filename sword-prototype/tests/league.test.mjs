@@ -63,19 +63,21 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
-  LEAGUE_VALUE_LAYOUT, MAIN_NAME, SELF_NAME, contenderFor, copyRole, emphasisedPool,
-  exploiterName, exploiterStalled, freshRole, leagueMatrix, leaguePairs, loadLeague, matrixBreaks,
-  momentsFromLeague, opponentSentence, poolLoader, poolName, poolPath, readLog, roleFromCheckpoint,
-  roleFromJson, roleToJson, saveLeague, shareOf, shipTable, shippedIteration, spentBy, spreadSlots,
-  statePath, thinPool, trainRole,
+  LEAGUE_VALUE_LAYOUT, MAIN_NAME, SELF_NAME, anchorList, bestSnapshot, collectLeague, contenderFor,
+  copyRole, emphasisedPool, exploiterName, exploiterStalled, freshRole, leagueMatrix, leaguePairs,
+  loadLeague, matrixBreaks, momentsFromLeague, opponentSentence, poolLoader, poolName, poolPath,
+  ratingOn, readLog, roleFromCheckpoint, roleFromJson, roleToJson, saveLeague, shareOf, shipTable,
+  shippedIteration, spentBy, spreadSlots, statePath, thinPool, trainRole,
 } from "../scripts/league.mjs";
 import { armedTerminal, buildPool } from "../scripts/tournament.mjs";
 import { formatIdleProbe, idleProbe, rollupByTerminal } from "../scripts/idle-probe.mjs";
 import {
   boutsPerOpponent, chosenSnapshots, formatRow, parseTerminals, snapshotIterations,
 } from "../scripts/rate-snapshots.mjs";
-import { keepViable, poolFor } from "../scripts/train-ppo.mjs";
-import { VIABLE_MIRRORS, VIABLE_TERMINALS, viableBuild, viableMirror } from "../src/golem/viability.ts";
+import { keepViable, mixedSchedule, poolFor } from "../scripts/train-ppo.mjs";
+import {
+  VIABLE_MIRRORS, VIABLE_TERMINALS, viableBuild, viableMirror, viablePair,
+} from "../src/golem/viability.ts";
 import {
   classCount, classRate, fisher, formatProbeRow, parseBaseline, probeRow,
 } from "../scripts/probe-snapshots.mjs";
@@ -573,7 +575,17 @@ test("a rating row prints both baselines with their intervals and the fit's reco
     driver: { bar: -0.0847, sem: 0.0409 / 1.96, d: -0.207 },
     fit: { wins: 57, draws: 279, losses: 54 },
   });
-  assert.match(line, /^ {5}16: uniform \+0\.1254 ±0\.0416 d \+0\.302/, "the iteration, the margin and its interval");
+  // `mirr` is the arrangement, which a row carries since Session 10 of the learn set and which a
+  // row written before it does not: two rows a snapshot scroll past one after the other now, and a
+  // reader watching them go by has to be able to tell which is which. A row with neither
+  // `pool.mirror` nor `mirror` reads as the mirror, because that is what every earlier row was.
+  assert.match(line, /^ {5}16 mirr: uniform \+0\.1254 ±0\.0416 d \+0\.302/, "the iteration, the margin and its interval");
+  assert.match(formatRow({
+    iteration: 16, bouts: 40, per: [], pool: { builds: 52, terminals: [], mirror: false },
+    uniform: { bar: 0.1254, sem: 0.0416 / 1.96, d: 0.302 },
+    driver: { bar: -0.0847, sem: 0.0409 / 1.96, d: -0.207 },
+    fit: { wins: 57, draws: 279, losses: 54 },
+  }), /^ {5}16 rand: /, "and a random-pairs row says so");
   assert.match(line, /driver −0\.0847 ±0\.0409 d −0\.207/, "a negative margin prints a minus sign and not a hyphen");
   // The decided fraction is the rating's own decisiveness, and on the unfiltered pool it is the
   // number that says why the margin is insensitive: 279 of 390 bouts ended with both minds alive.
@@ -599,7 +611,7 @@ test("a probe row distinguishes a class with no kills from a class with no build
     iteration: 32, kills: 12, bouts: 104, killRate: 12 / 104, always: 5, ever: 7,
     maul: 6 / 7, mace: 0,
   }, 52);
-  assert.match(line, /^ {5}32: {3}12\/104 = {2}11\.5%/, "the count, the denominator and the rate");
+  assert.match(line, /^ {5}32 mirr: {3}12\/104 = {2}11\.5%/, "the count, the denominator and the rate");
   assert.match(line, /maul {2}86% {3}mace {3}0%/, "a class with no kills prints 0 % and not a dash");
   assert.match(line, /always {2}5\/52 {3}ever {2}7\/52$/, "the two build counts the rollup turns on");
   assert.match(formatProbeRow({ iteration: "main", kills: 0, bouts: 8, killRate: 0, always: 0,
@@ -920,4 +932,176 @@ test("a_leagues_adam_moments_round_trip_and_a_state_without_them_starts_cold", (
   assert.deepEqual(cold.warnings, []);
   assert.deepEqual(Object.keys(cold.moments), [MAIN_NAME, exploiterName(0)]);
   assert.deepEqual(Object.values(cold.moments[MAIN_NAME]), [null, null, null]);
+});
+
+// ------------------------------------------------ Session 10 of the learn set: the other arrangement
+
+/**
+ * The share table survives the second axis, which is the one property that made it safe to add.
+ *
+ * A league's declared mix is a cycle of opponents and `mixedSchedule` walks that cycle twice --
+ * once over mirrored pairings and once over random viable ones -- so the arrangement and the
+ * opponent are independent. If they were not, an arm at half a mirror would be an arm at a
+ * different opponent mix as well, and every difference this session measures would be two changes
+ * wearing one flag.
+ */
+test("the_share_table_sums_the_same_when_half_the_bouts_are_not_a_mirror", () => {
+  const pool = poolFor({ seed: SEED, random: 40, terminals: ["maul", "mace"], mirror: true });
+  const random = poolFor({ seed: SEED, random: 40, terminals: ["maul", "mace"], mirror: false });
+  const opponents = [
+    { name: SELF_NAME, weight: 1 }, { name: "golem-driver", weight: 1 },
+    { name: "golem-fencer", weight: 1 },
+  ];
+  const pairs = leaguePairs(opponents, MAIN_NAME);
+  const shares = (mirrorShare) => {
+    const { jobs, split } = mixedSchedule({
+      pool, randomPool: random, policies: [MAIN_NAME, ...opponents.map((o) => o.name)],
+      pairings: 24, seed: SEED, cap: 60, contenders: { [MAIN_NAME]: {}, [SELF_NAME]: {} },
+      pairs, mirrorShare,
+    });
+    const count = new Map();
+    for (const job of jobs) {
+      if (job.swapped) continue;
+      const them = job.left.policy === MAIN_NAME ? job.right.policy : job.left.policy;
+      count.set(them, (count.get(them) ?? 0) + 1);
+    }
+    return { count, split, jobs };
+  };
+  const whole = shares(1);
+  const half = shares(0.5);
+  assert.deepEqual([...whole.count.entries()].sort(), [...half.count.entries()].sort(),
+    "the same opponents at the same counts, whichever arrangement the bouts were run in");
+  for (const opponent of opponents) {
+    assert.equal(half.count.get(opponent.name), 8, "three opponents over 24 pairings is eight each");
+    assert.equal(shareOf(pairs, opponent.name), 1 / 3);
+  }
+  assert.deepEqual(whole.split, { mirror: 24, random: 0 }, "a share of one schedules no random half");
+  assert.deepEqual(half.split, { mirror: 12, random: 12 });
+  // The indices are renumbered across the two schedules, because `runJobs` places a finished row
+  // at `row.index` in an array of `jobs.length`: two concatenated schedules that both started at
+  // zero would overwrite each other's first half and lose it silently.
+  assert.deepEqual(half.jobs.map((job) => job.index), half.jobs.map((_, i) => i));
+});
+
+/**
+ * The claim the plan asks for in as many words: a random-share pairing is never a mirror and is
+ * always one `viablePair` accepts.
+ *
+ * Both halves matter and they fail in opposite directions. A pairing that turned out to be a
+ * mirror would mean the flag bought nothing and an arm measured its control twice; a pairing
+ * `viablePair` refuses would mean a share of every iteration was spent on two bodies that cannot
+ * finish each other, which is the pool the set spent Session 01 getting away from.
+ */
+test("a_random_share_pairing_is_never_a_mirror_and_is_always_viable", () => {
+  const pool = poolFor({ seed: SEED, random: 40, terminals: [...VIABLE_TERMINALS], mirror: true });
+  const random = poolFor({ seed: SEED, random: 40, terminals: [...VIABLE_TERMINALS], mirror: false });
+  const pairs = [[MAIN_NAME, SELF_NAME]];
+  const { jobs, split } = mixedSchedule({
+    pool, randomPool: random, policies: [MAIN_NAME, SELF_NAME], pairings: 64, seed: SEED, cap: 60,
+    contenders: { [MAIN_NAME]: {}, [SELF_NAME]: {} }, pairs, mirrorShare: 0.5,
+  });
+  assert.deepEqual(split, { mirror: 32, random: 32 });
+  let mirrored = 0;
+  let drawn = 0;
+  for (const job of jobs) {
+    if (job.swapped) continue;
+    if (job.left.build === job.right.build) { mirrored += 1; continue; }
+    drawn += 1;
+    assert.equal(viablePair(job.left.setup, job.right.setup), true,
+      `${job.left.build} against ${job.right.build} is a pairing viablePair refuses`);
+  }
+  assert.equal(mirrored, 32, "the mirrored half is still one build in both corners");
+  assert.equal(drawn, 32, "and the random half drew two different bodies every time");
+  // Not merely "usually two different bodies": the mirrored half is drawn from the builds that can
+  // finish a copy of themselves and the random half from the whole class-filtered pool, so a
+  // schedule that had quietly used one list for both would show up here as a build count rather
+  // than as a repeated pair.
+  assert.ok(random.length > pool.length,
+    `the random half draws ${random.length} builds and the mirrored one ${pool.length}`);
+});
+
+/**
+ * Rated on both, selected on one: `--select` picks the snapshot the named pool ranks first, on a
+ * fixture where the two pools disagree about which snapshot that is.
+ *
+ * The disagreement is the whole test. Two pools that agreed would make any selection rule look
+ * correct, and the failure this guards against is a ship step that reads the mirror while the
+ * session's bar is stated on random pairs -- a mind picked by a number that never looked at the
+ * bodies the game draws.
+ */
+test("select_picks_the_snapshot_the_named_pool_ranks_first_where_the_two_disagree", () => {
+  const rating = (iteration, mirror, random) => ({
+    type: "rating", iteration, select: "random",
+    differences: { driver: { bar: random } },
+    byPool: {
+      random: { pool: "random", mirror: false, differences: { driver: { bar: random } } },
+      mirror: { pool: "mirror", mirror: true, differences: { driver: { bar: mirror } } },
+    },
+  });
+  const rows = [
+    { type: "header", seed: SEED },
+    rating(8, 0.05, 0.11),
+    rating(16, 0.22, 0.04),
+    rating(24, 0.18, 0.09),
+  ];
+  const state = { iteration: 27, taken: [8, 16, 24], exploiters: [] };
+  assert.equal(bestSnapshot(rows, "mirror", state.taken).iteration, 16);
+  assert.equal(bestSnapshot(rows, "random", state.taken).iteration, 8,
+    "the mirror's best is the random pool's worst, which is the specialist this rule exists to catch");
+  assert.equal(shippedIteration(state, "best", { rows, select: "random" }), 8);
+  assert.equal(shippedIteration(state, "best", { rows, select: "mirror" }), 16);
+  // A rating of a mind that is no longer in the pool is not a candidate: `--ship` writes a module
+  // from a pool file, and a snapshot the run thinned away has no file to write from.
+  assert.equal(bestSnapshot(rows, "random", [16, 24]).iteration, 24);
+  // A row written before this session carries `differences` and no `byPool`, and what it measured
+  // was the mirror. Asked for its random-pairs number it has none, and inventing the mirrored one
+  // would be the nearly-right control this directory keeps paying for.
+  const old = [{ type: "rating", iteration: 8, differences: { driver: { bar: 0.4 } } }];
+  assert.equal(ratingOn(old[0], "mirror"), 0.4);
+  assert.equal(ratingOn(old[0], "random"), null);
+  assert.equal(bestSnapshot(old, "random", [8]), null);
+  assert.throws(() => shippedIteration({ iteration: 9, taken: [8], exploiters: [] }, "best",
+    { rows: old, select: "random" }), /no rating row of this league carries one/);
+});
+
+/**
+ * Two anchors, and both of them in `byOpponent` with bouts against each.
+ *
+ * The count beside the mean is the half that matters here. A second anchor that was declared and
+ * never met would leave a mean of zero over zero bouts and a share table that still looked right,
+ * which is exactly how a share flag becomes a flag that does nothing.
+ */
+test("two_anchors_are_both_met_and_both_reported", { timeout: 600_000 }, async () => {
+  const builds = poolFor({ seed: SEED, random: 0, terminals: ["maul"], mirror: true });
+  const random = poolFor({ seed: SEED, random: 0, terminals: ["maul"], mirror: false });
+  const opponents = [
+    { name: "golem-driver", weight: 1 },
+    { name: "golem-fencer", weight: 1 },
+  ];
+  const rollout = await collectLeague({
+    builds, randomBuilds: random, role: freshRole(SEED), opponents, seed: SEED, bouts: 8,
+    workers: 2, cap: 8, mirrorShare: 0.5,
+  });
+  assert.deepEqual(Object.keys(rollout.byOpponent).sort(), ["golem-driver", "golem-fencer"]);
+  assert.equal(rollout.boutsByOpponent["golem-driver"], rollout.boutsByOpponent["golem-fencer"],
+    "each anchor gets its own slot in the cycle rather than half of one");
+  assert.ok(rollout.boutsByOpponent["golem-fencer"] > 0);
+  assert.equal(rollout.mirrorBouts + rollout.randomBouts, rollout.bouts);
+  assert.ok(rollout.randomBouts > 0, "and half of them were not a mirror");
+});
+
+/** The anchor field is one name or a list of them, and a repeat is a typo rather than two slots. */
+test("an_anchor_field_reads_as_a_list_however_many_names_it_holds", () => {
+  assert.deepEqual(anchorList(null), []);
+  assert.deepEqual(anchorList("golem-driver"), ["golem-driver"]);
+  assert.deepEqual(anchorList("golem-driver,golem-fencer"), ["golem-driver", "golem-fencer"]);
+  assert.deepEqual(anchorList(" golem-driver , golem-fencer "), ["golem-driver", "golem-fencer"]);
+  assert.throws(() => anchorList("golem-driver,golem-driver"), /names golem-driver twice/);
+  // The sentence the shipped module gets names every anchor the mind actually met, because a
+  // reader told "golem-driver" about a mind that also sparred a fencer has been told something
+  // false about what the weights in front of them were fitted against.
+  assert.equal(
+    opponentSentence({ taken: [8], exploiters: [] },
+      { anchor: "golem-driver,golem-fencer", emphasise: [] }),
+    "a league of 1 of its own past selves, golem-driver and golem-fencer");
 });

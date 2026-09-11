@@ -74,11 +74,12 @@ import { policyMind } from "../src/mind.ts";
 import { policyForUnit } from "../src/units.ts";
 import { mulberry32 } from "../src/rng.ts";
 import {
-  FitPool, PACK_COLUMNS, SCHEDULE_OPPONENTS, SHAPING_ROWS, advantages, checkpointFor, cohensD,
-  contenderShape, explainedVariance, extendNormalisation, mergeRollouts, momentsFromJson,
-  momentsToJson, opponentOf, parseEntropyStage, parseOpponentStage, parseSchedule,
-  parseSeparationStage, parseTactics, parseTerminals, parseTerminalsStage, poolFor, ppoFit,
-  renderPolicyModule, resumesOwnLog, rolloutPairs, scheduled, surrogateGrad, surrogateObjective,
+  FIT_NAME, FitPool, PACK_COLUMNS, RATING_POOLS, SCHEDULE_OPPONENTS, SHAPING_ROWS, advantages,
+  boutSplit, checkpointFor, cohensD, contenderShape, explainedVariance, extendNormalisation,
+  mergeRollouts, mixedSchedule, momentsFromJson, momentsToJson, opponentOf, parseEntropyStage,
+  parseOpponentStage, parseSchedule, parseSeparationStage, parseTactics, parseTerminals,
+  parseTerminalsStage, poolFor, poolWord, ppoFit, ratePolicy, ratingSeed, renderPolicyModule,
+  resumesOwnLog, rolloutPairs, scheduled, surrogateGrad, surrogateObjective,
 } from "../scripts/train-ppo.mjs";
 import { CONFIG } from "../src/config.ts";
 import { shardSlice } from "../scripts/fit-worker.mjs";
@@ -1871,4 +1872,111 @@ test("a_contender_carries_its_own_shape_and_its_own_executor_rows", () => {
   assert.throws(() => parseEntropyStage("lots"), /not an entropy coefficient/);
   assert.deepEqual(parseSchedule("0.003:0,0.0003:20", parseEntropyStage),
     [{ from: 0, value: 0.003 }, { from: 20, value: 0.0003 }]);
+});
+
+/**
+ * Session 10 of the learn set: one rating call, two arrangements, two difference tables, and the
+ * bouts behind them disjoint.
+ *
+ * The disjointness is the claim worth a test rather than the two tables. If the two halves shared
+ * their bouts, the pair of numbers would be one measurement printed twice with two labels on it --
+ * which is worse than having only the mirror, because it would look like corroboration. They are
+ * kept apart by two things and both are asserted: the arrangement moves the pool (`viableMirror`
+ * against the class filter) and `ratingSeed` moves the random half off the mirrored one's stream,
+ * so that a mirrored rating taken today is byte-identical to one taken before this session and the
+ * random half is not a re-labelling of it.
+ */
+test("ratePolicy_rates_two_pools_in_one_call_from_disjoint_bouts", { timeout: 600_000 }, async () => {
+  // The seeds first, because they are the half of the claim that costs nothing to check.
+  assert.deepEqual([...RATING_POOLS], ["mirror", "random"]);
+  assert.equal(ratingSeed(SEED, "mirror"), SEED >>> 0,
+    "the mirrored rating is on the stream it has always been on, or the record's old numbers move");
+  assert.notEqual(ratingSeed(SEED, "random"), ratingSeed(SEED, "mirror"));
+  assert.equal(poolWord("mirror"), "the mirror");
+  assert.equal(poolWord("random"), "random viable pairs");
+
+  // The whole viable class list and not a narrowed one, because the two pools have to be able to
+  // differ: every maul and mace build can finish a copy of itself, so a run filtered to those two
+  // classes would hand both arrangements the same list and the test would pass on a bug.
+  const pool = poolFor({ seed: SEED, random: 40, terminals: [...VIABLE_TERMINALS], mirror: false });
+  const rated = await ratePolicy({
+    weights: new Float64Array(netSize(POLICY_LAYOUT)),
+    logSigma: Float64Array.from({ length: ACTION_AXES }, () => -0.7),
+    norm: { count: 0, mean: new Array(PILOT_FEATURE_COUNT).fill(0), variance: new Array(PILOT_FEATURE_COUNT).fill(1) },
+    league: ["golem-driver"], pool, seed: SEED, bouts: 2, workers: 2, cap: 8,
+    terminals: [...VIABLE_TERMINALS], pools: ["mirror", "random"],
+  });
+  assert.deepEqual(rated.pools, ["mirror", "random"]);
+  assert.deepEqual(Object.keys(rated.byPool).sort(), ["mirror", "random"]);
+  // Two tables, each with a row a baseline, and the first pool asked for repeated at the top level
+  // so that every caller written before this session reads what it always read.
+  for (const which of ["mirror", "random"]) {
+    assert.deepEqual(Object.keys(rated.byPool[which].differences).sort(), ["driver", "uniform"]);
+  }
+  assert.deepEqual(rated.differences, rated.byPool.mirror.differences);
+  assert.equal(rated.byPool.mirror.mirror, true);
+  assert.equal(rated.byPool.random.mirror, false);
+  // The pool is narrowed at each arrangement's own question: `viableMirror` for one, the class
+  // filter for the other. A caller that handed over an already-mirrored list would see these two
+  // counts equal, which is how the league's own rating was quietly rating both halves on thirteen
+  // builds until this session.
+  assert.ok(rated.byPool.random.builds > rated.byPool.mirror.builds,
+    `${rated.byPool.random.builds} random builds against ${rated.byPool.mirror.builds} mirrored`);
+  // And the bouts themselves are two sets: mirrored bouts put one build in both corners, so every
+  // one of them is a body against itself, and the random half has at least one pairing that is not.
+  const mirroredBout = rated.byPool.mirror.results;
+  const randomBout = rated.byPool.random.results;
+  assert.equal(mirroredBout[FIT_NAME].bouts, randomBout[FIT_NAME].bouts,
+    "the same budget either way, so a difference between the tables is not a difference in bouts");
+  assert.notDeepEqual(mirroredBout, randomBout,
+    "two arrangements of the same minds over the same budget that agreed bout for bout would be "
+    + "one measurement wearing two labels");
+
+  // The refusals, which are cheap and are what stops a manifest's typo from buying the same
+  // measurement twice under two names.
+  await assert.rejects(() => ratePolicy({
+    weights: new Float64Array(netSize(POLICY_LAYOUT)),
+    logSigma: Float64Array.from({ length: ACTION_AXES }, () => -0.7),
+    norm: { count: 0, mean: new Array(PILOT_FEATURE_COUNT).fill(0), variance: new Array(PILOT_FEATURE_COUNT).fill(1) },
+    pool, seed: SEED, bouts: 2, workers: 1, cap: 8, pools: ["mirror", "mirror"],
+  }), /one pool is one rating/);
+  await assert.rejects(() => ratePolicy({
+    weights: new Float64Array(netSize(POLICY_LAYOUT)),
+    logSigma: Float64Array.from({ length: ACTION_AXES }, () => -0.7),
+    norm: { count: 0, mean: new Array(PILOT_FEATURE_COUNT).fill(0), variance: new Array(PILOT_FEATURE_COUNT).fill(1) },
+    pool, seed: SEED, bouts: 2, workers: 1, cap: 8, pools: ["mirror", "held-out"],
+  }), /is not an arrangement this rating knows/);
+});
+
+/**
+ * The mirror share, which is the share of a rollout's bouts that puts one build in both corners.
+ *
+ * Exactly one and exactly zero are not rounded, and that is the point of the branch: a run at the
+ * default has to schedule byte-identically to every run in the record, and a run at zero has to
+ * have no mirrored bouts at all rather than one cycle's worth left over by arithmetic.
+ */
+test("a_mirror_share_splits_a_rollout_by_whole_cycles_and_never_rounds_the_ends_away", () => {
+  assert.deepEqual(boutSplit(16, 1), { mirror: 16, random: 0 });
+  assert.deepEqual(boutSplit(16, 0), { mirror: 0, random: 16 });
+  assert.deepEqual(boutSplit(16, 0.5), { mirror: 8, random: 8 });
+  // Whole cycles, so the declared opponent mix is the realised one on both sides of the split.
+  assert.deepEqual(boutSplit(20, 0.5, 5), { mirror: 10, random: 10 });
+  assert.deepEqual(boutSplit(20, 0.25, 5), { mirror: 5, random: 15 });
+  // A share strictly between zero and one always leaves at least one cycle of each, however small
+  // the rollout or however lopsided the share: a run that asked for both and got one is a run
+  // whose header says something its bouts do not.
+  const tiny = boutSplit(10, 0.05, 5);
+  assert.equal(tiny.mirror, 5);
+  assert.equal(tiny.random, 5);
+  assert.deepEqual(boutSplit(1, 0.5, 1), { mirror: 1, random: 0 },
+    "a single pairing cannot be split, and a share at or above a half keeps the mirror");
+  assert.throws(() => boutSplit(16, 1.5), /is not a share/);
+  assert.throws(() => boutSplit(16, -0.1), /is not a share/);
+  // And a share that wants random pairs with no pool to draw them from is refused by name rather
+  // than drawing them out of the mirrored list, which would be thirteen bodies two at a time.
+  assert.throws(() => mixedSchedule({
+    pool: poolFor({ seed: SEED, random: 0, terminals: ["maul"], mirror: true }), randomPool: null,
+    policies: ["golem-driver"], pairs: [["golem-driver", "golem-driver"]], pairings: 4,
+    seed: SEED, cap: 8, mirrorShare: 0.5,
+  }), /wants a pool to draw random pairs from/);
 });
