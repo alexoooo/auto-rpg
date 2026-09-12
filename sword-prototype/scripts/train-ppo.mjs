@@ -484,6 +484,33 @@ export function explainedVariance(values, returns) {
   return total === 0 ? 0 : 1 - residual / total;
 }
 
+/**
+ * The advantages standardised over the whole rollout, and the spread they were divided by.
+ *
+ * Over the rollout and never over the minibatch, for the reason `ppoFit`'s own note gives: a
+ * minibatch here is a few hundred consecutive-ish asks and standardising inside one would give a
+ * quiet stretch of a bout the same spread as an exchange. A batch with no spread at all is left
+ * alone rather than divided by nothing, which is the degenerate case of a run where nothing has
+ * happened yet.
+ *
+ * **It is a function rather than six lines inside the fit because a second reader arrived.** The
+ * gradient-signal probe in `scripts/gradient-probe.mjs` has to hand the shards the same
+ * standardised advantages the fit hands them or it is measuring a different estimator from the one
+ * that takes the Adam step, and a copy of this arithmetic in that file is exactly the kind of
+ * near-identical second implementation that drifts without a test being able to see it. The
+ * extraction moves no number: the operations and their order are what they were, which is what
+ * `a_fit_at_the_shipped_knobs_is_the_fit_the_learn_sets_record_was_taken_on` pins.
+ */
+export function standardisedAdvantages(advantage, n) {
+  const mean = meanOf(Array.from(advantage));
+  let variance = 0;
+  for (let i = 0; i < n; i += 1) variance += (advantage[i] - mean) ** 2;
+  const sd = Math.sqrt(variance / Math.max(1, n));
+  const scaled = new Float64Array(n);
+  for (let i = 0; i < n; i += 1) scaled[i] = sd > 1e-9 ? (advantage[i] - mean) / sd : 0;
+  return { scaled, sd };
+}
+
 // ---------------------------------------------------------------------------------- the fit
 
 /**
@@ -870,6 +897,35 @@ function adamStep(weights, grad, state, rate) {
 }
 
 /**
+ * What the fit's shuffle is mixed with, so that a reader can reproduce an epoch's order.
+ *
+ * Arbitrary, as every such constant in this file is, and written down as a name because something
+ * outside the fit now has to draw the same stream: a probe that cut a rollout up with a stream of
+ * its own would be measuring a fair partition of a quantity nobody is optimising.
+ */
+export const FIT_SHUFFLE_SEED = 0x9907e0;
+
+/** The stream `ppoFit` shuffles each epoch's order from, given the fit's own seed. */
+export function fitShuffleRandom(seed) {
+  return mulberry32((seed ^ FIT_SHUFFLE_SEED) >>> 0);
+}
+
+/**
+ * One epoch's Fisher-Yates, in place, from the back.
+ *
+ * Extracted from `ppoFit`'s loop rather than copied into its second reader, and it moves nothing:
+ * the same swaps in the same order off the same stream, so a fit that shuffles through this
+ * function walks the order it always walked.
+ */
+export function fitShuffle(order, random) {
+  for (let i = order.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return order;
+}
+
+/**
  * One PPO update: `epochs` passes of minibatch Adam over the rollout, actor and critic together.
  *
  * The surrogate is the clipped one, `min(r A, clip(r, 1-e, 1+e) A)` with `r` the ratio of the
@@ -932,14 +988,9 @@ export function ppoFit(rollout, {
   const values = valuesOf(rollout, valueWeights, norm, valueLayout);
   const { advantage, returns } = advantages(rollout, values, { halfLife, lambda });
   const before = explainedVariance(values, returns);
-  // Standardised over the rollout; a batch with no spread at all is left alone rather than
-  // divided by nothing, which is the degenerate case of a run where nothing has happened yet.
-  const advMean = meanOf(Array.from(advantage));
-  let advVar = 0;
-  for (let i = 0; i < n; i += 1) advVar += (advantage[i] - advMean) ** 2;
-  const advSd = Math.sqrt(advVar / Math.max(1, n));
-  const scaled = new Float64Array(n);
-  for (let i = 0; i < n; i += 1) scaled[i] = advSd > 1e-9 ? (advantage[i] - advMean) / advSd : 0;
+  // Standardised over the rollout, in the one place that arithmetic lives since the probe became
+  // its second reader; `standardisedAdvantages` carries the argument and the extraction's bar.
+  const { scaled, sd: advSd } = standardisedAdvantages(advantage, n);
 
   const size = netSize(layout);
   const valueSize = netSize(valueLayout);
@@ -962,7 +1013,7 @@ export function ppoFit(rollout, {
   const grad = new Float64Array(size);
   const sigmaGrad = new Float64Array(ACTION_AXES);
   const valueGrad = new Float64Array(valueSize);
-  const random = mulberry32((seed ^ 0x9907e0) >>> 0);
+  const random = fitShuffleRandom(seed);
   const order = Array.from({ length: n }, (_, i) => i);
   const load = (i) => {
     const row = i * width;
@@ -1002,10 +1053,7 @@ export function ppoFit(rollout, {
   let stopped = null;
   outer:
   for (let epoch = 1; epoch <= epochs; epoch += 1) {
-    for (let i = order.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(random() * (i + 1));
-      [order[i], order[j]] = [order[j], order[i]];
-    }
+    fitShuffle(order, random);
     seen.kl = 0; seen.clipped = 0; seen.entropy = 0; seen.valueLoss = 0; seen.count = 0;
     for (let at = 0; at < order.length; at += batch) {
       const end = Math.min(order.length, at + batch);

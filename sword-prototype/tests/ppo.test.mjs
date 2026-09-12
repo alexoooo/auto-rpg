@@ -56,6 +56,17 @@
 // | `normalise` floors at `<=` rather than `<`, so a variance exactly at the constant is dead | the dead-column test, on the column that sits on the bound |
 // | `extendNormalisation` writes a sub-floor variance as it computed it | the written-variance test, and nothing else, because the reader floors it anyway |
 //
+// **Three more were watched red on 2026-09-12**, when Experiment B of the signal set took two
+// pieces of `ppoFit`'s body out into functions so that the gradient probe could reuse them rather
+// than copy them. The digest is the only assertion in this file whose subject is *sameness*, so
+// these are mutations that leave the fit correct and move it:
+//
+// | mutation | what went red |
+// |---|---|
+// | `standardisedAdvantages` divides by `n - 1` rather than `n`, which is the unbiased spread | the digest alone; every other assertion in this file is happy with either |
+// | `fitShuffle` walks the order forwards instead of from the back, which is still a shuffle | the digest, and the probe's own order test |
+// | `fitShuffleRandom` mixes the seed with `0x9907e1` | the digest, and the probe's own order test |
+//
 // **One property this file deliberately cannot test is the one the design turns on.** `FitPool`
 // sums its shards' partials in shard order 0..K-1, and a pool that summed them in the order they
 // finished would still pass every assertion below -- reassociating a sum of a thousand doubles
@@ -65,6 +76,7 @@
 // reader does not conclude from a green suite that it did not matter.
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 
 import { forward, initWeights, netScratch, netSize } from "../src/golem/neural-net.ts";
@@ -2194,4 +2206,98 @@ test("a_mirror_share_the_schedule_cannot_realise_is_refused_with_a_budget_that_c
   assert.equal(checkMirrorShare(4, 0.5, 1), 0.5);
   assert.equal(MIRROR_SHARE_TOLERANCE, 0.05);
   assert.equal(checkMirrorShare(1, 1, 1), 1, "a mirrored iteration is every iteration before Session 10");
+});
+
+// ---------------------------------------------------------------------------------------
+// The fit the record was taken on, which a probe beside it may not move.
+// ---------------------------------------------------------------------------------------
+
+/**
+ * A fit at fixed knobs over a fixed rollout, to the last bit, as a digest of everything it wrote.
+ *
+ * **Why a golden number, in a file whose whole argument is against them.** Every other assertion
+ * here is arithmetic against an independent computation, and that is the right instrument for
+ * "is this the gradient". It is the wrong instrument for the question this test asks, which is
+ * "is this the *same* gradient as yesterday's": an independent computation agrees with both sides
+ * of a refactor by construction. Thirteen sessions of the learn set, the whole of the style set's
+ * table and both of the signal set's experiments were measured on this code, and the gradient
+ * probe exists precisely to be read against those runs -- so an extraction made for the probe's
+ * benefit that moved a fit in its last bits would quietly invalidate the comparison the probe was
+ * built to inform. Nothing here says the fit is *right*; the rest of the file says that. This says
+ * it is unchanged.
+ *
+ * The digest was taken by running this fixture against `HEAD` and against the working tree in one
+ * process on 2026-09-12, before the probe's two extractions landed, and the two agreed exactly.
+ * The canonical form is the decimal spelling of every number rather than the bytes of the arrays,
+ * because a double's shortest round-tripping string is exact and does not depend on the machine's
+ * byte order.
+ *
+ * The fixture is chosen so the fit actually runs: the log-probabilities are this very head's, so
+ * the trust region does not fire on the first minibatch, and the rate is large enough that 16 % of
+ * the samples are outside the clip by the end -- which puts the clip branch, all three epochs, the
+ * nine spreads and the critic inside the digest. Those four are asserted separately as well, so a
+ * change that silences the fit fails with something more useful than a hash mismatch.
+ */
+const SHIPPED_FIT_DIGEST = "b875b49bfd46b75baf6bd9ab1d7c733a";
+
+test("a_fit_at_the_shipped_knobs_is_the_fit_the_learn_sets_record_was_taken_on", () => {
+  const width = 6;
+  const layout = { inputs: width, hidden: [12, 8], outputs: ACTION_WIDTH };
+  const valueLayout = { inputs: width, hidden: [10], outputs: 1 };
+  const count = 384;
+  const random = mulberry32(SEED + 101);
+  const norm = { count: 9000, mean: [], variance: [] };
+  for (let k = 0; k < width; k += 1) { norm.mean[k] = k - 2; norm.variance[k] = 0.3 + k / 5; }
+  const weights = initWeights(layout, SEED + 102);
+  const logSigma = new Float64Array(ACTION_AXES).fill(-0.55);
+  const valueWeights = initWeights(valueLayout, SEED + 103);
+  // The collecting head is the fitted one, so every ratio starts at exactly one and the trust
+  // region has something to move away from rather than tripping before the first Adam step.
+  const collecting = initWeights(layout, SEED + 102);
+  const collectingSigma = new Float64Array(ACTION_AXES).fill(-0.55);
+  const scratch = netScratch(layout);
+  const raw = new Float64Array(width);
+  const observation = new Float64Array(width);
+  const draw = new Float64Array(ACTION_WIDTH);
+  const rollout = {
+    count, width,
+    x: new Float32Array(count * width),
+    a: new Float64Array(count * ACTION_WIDTH),
+    logp: new Float64Array(count),
+    reward: new Float64Array(count),
+    seconds: new Float64Array(count).fill(0.0833),
+    done: Uint8Array.from({ length: count }, (_, i) => (i % 24 === 23 ? 1 : 0)),
+  };
+  rollout.done[count - 1] = 1;
+  for (let i = 0; i < count; i += 1) {
+    for (let k = 0; k < width; k += 1) {
+      raw[k] = norm.mean[k] + Math.sqrt(norm.variance[k]) * (random() * 2 - 1) * 1.6;
+      rollout.x[i * width + k] = raw[k];
+    }
+    normalise(raw, norm, observation);
+    const head = forward(layout, collecting, observation, scratch);
+    sampleAction(head, collectingSigma, random, draw);
+    rollout.a.set(draw, i * ACTION_WIDTH);
+    rollout.logp[i] = actionLogProb(head, collectingSigma, draw);
+    rollout.reward[i] = random() - 0.45;
+  }
+  const fit = ppoFit(rollout, {
+    weights, logSigma, valueWeights, layout, valueLayout, norm, seed: SEED + 104,
+    halfLife: 4, lambda: 0.95, clip: 0.2, entropy: 0.003, rate: 1e-3, valueRate: 1e-3,
+    sigmaRate: 1e-2, epochs: 3, batch: 128, targetKl: 0.03, sigmaFloor: -3, sigmaRoof: 0.5,
+  });
+  // The fixture doing what it was built to do, said out loud so a fit that stopped early or never
+  // clipped fails on the reason rather than on the hash.
+  assert.equal(fit.updates, 9, "three epochs of three minibatches is what this fixture is for");
+  assert.equal(fit.epochs, 3);
+  assert.equal(fit.stopped, null, "the trust region fired, so the digest is of a truncated fit");
+  assert.ok(fit.clipFraction > 0.1, `only ${fit.clipFraction} of the samples were clipped`);
+  assert.ok(logSigma.some((s) => s !== -0.55), "the spread never moved, so its step is not in the digest");
+  const canonical = [
+    ...weights, ...logSigma, ...valueWeights,
+    fit.kl, fit.clipFraction, fit.entropy, fit.valueLoss, fit.advantageSd,
+    fit.explainedBefore, fit.explainedAfter, fit.epochs, fit.updates,
+  ].map(String).join(",");
+  assert.equal(createHash("sha256").update(canonical).digest("hex").slice(0, 32), SHIPPED_FIT_DIGEST,
+    "the fit moved; whatever changed, every run in docs/measurements.md was taken before it");
 });
