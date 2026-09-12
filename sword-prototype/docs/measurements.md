@@ -22391,3 +22391,81 @@ hundredth of a second.** The arm whose stall doubles is `idle`, where the reward
 at all and the opponent cannot punish standing still because it never attacks. That is the second
 independent refutation of finding 3 in this entry, from a different instrument than the first, and
 the two agree.
+
+## Pre-registration -- 2026-09-12: the gradient-signal grid, written before the bouts
+
+The bracket above leaves one question standing and sharpens it. On the criterion, **not one of its
+four arms improves at two sigma in sixty iterations**, and the only column that clears two sigma is
+a decline. The four differed in their opponent and nothing else, so the flatness is not a property
+of any one matchup. **A correct optimiser handed a gradient that is mostly draw looks exactly like a
+flat curve from the outside**, and nothing in this record has ever looked at what the optimiser was
+handed -- every negative it carries is a statement about an outcome. `scripts/gradient-probe.mjs` is
+the instrument that looks at the input instead, and this is its design, fixed before any of it runs.
+Nothing below is a result.
+
+**The question.** Two halves of one shuffled epoch are two independent estimates of the same
+quantity, so the cosine between their summed gradients reads how much of a minibatch gradient is the
+gradient and how much is which bouts happened to be collected. Does that cosine rise with the bout
+count the way a sample mean's does, and **is it lower against a designed opponent than against a
+motionless one?** If it is, the flatness of the bracket's arms is a signal-to-noise problem and the
+bout count is the flag that was wrong. If the cosine is the same in both, noise is not why those arms
+are flat, and the fix is elsewhere.
+
+**The grid was chosen after the bracket and before these bouts, and the change is recorded rather
+than smoothed.** The menu in the closing table priced this experiment as four bout counts against
+`self`. The bracket then separated the opponents -- oppositely on its two measures, which is itself
+a reason not to spend the grid on the arm that merely won one of them -- so the opponent becomes the
+informative axis and the grid is `idle`, the arm Experiment A ran and the simplest task in the game,
+against `golem-fencer`, the mind the screen ships and the one the declared criterion is stated on.
+Those two are also the two extremes of opponent difficulty in the bracket. `self` is not in the grid,
+and the reason it is not is recorded here rather than left to look like an oversight.
+
+| axis | values |
+| --- | --- |
+| `--opponent` | `idle`, `golem-fencer` |
+| `--bouts` | 32, 64, 128, 256 |
+
+Eight cells, 30 iterations each, fit seed 20260917, the maul-and-mace viable pool, mirrored bodies,
+`--shards 4`. Every other knob is the shipped fit: `rate 1e-4`, `batch 4096`, `epochs 4`,
+`targetKl 0.03`. The two opponents run as two concurrent processes at 14 collectors each so that a
+cell of one is never timed against a cell of the other on a contended host.
+
+**The measure.** Per iteration the probe reports the cosine between the two half-gradients for the
+**actor**, the **critic** and the **spread** separately, with the entropy coefficient bound to
+`PROBE_ENTROPY` -- literally zero -- because the Gaussian entropy term is identical in both halves by
+construction and would pull every cosine toward 1 in proportion to its own share. The statistic is
+the **mean actor cosine over the 30 iterations of a cell**, with its standard error over iterations.
+The critic and spread cosines are reported beside it and are not the statistic: the critic's target
+is a return with no policy noise in it and its cosine is expected near 1, which is a control rather
+than a finding.
+
+**The prediction, stated before the data.**
+
+1. The actor cosine rises with bout count in both opponents, and roughly as `sqrt(n)` improves a
+   sample mean: if the 32-bout cell reads `c`, the 256-bout cell reads materially above it and the
+   four cells are monotone in bout count.
+2. The actor cosine at 32 bouts is **below +0.20 in both opponents** -- the smoke test read +0.0746
+   and +0.2119 at 8 bouts against `self`, and 8 bouts is not 32, so this is a prediction and not an
+   extrapolation.
+
+   > **A peek, disclosed because it happened after this prediction was written and bears against
+   > it.** Checking that the probe accepts `--opponent golem-fencer` at all cost one iteration of 4
+   > bouts, and it read an actor cosine of **+0.4100**. That is a single iteration from a fresh
+   > initialisation, where the policy is bad in a way every sample agrees about and the systematic
+   > part of the gradient is at its largest, so it is not a 30-iteration mean at 32 bouts. It is
+   > still evidence against prediction 2, and it is recorded here rather than remembered later.
+3. The `golem-fencer` cosine is **lower than the `idle` cosine at every bout count.**
+
+**The falsifier, which matters more than the prediction.** If the actor cosine is **flat in bout
+count** -- 256 bouts no better than 32 -- then the gradient's noise is not sampling noise in the bout
+draw, and buying more bouts is the wrong purchase however many hours it takes. That would point at
+the advantage estimator or the score function itself rather than at the sample budget, and it would
+retire the "run it longer and wider" reflex that thirteen sessions of the learn set were spent on.
+And if prediction 3 fails -- if fencer's cosine equals idle's -- then the bracket's flat and negative
+arms are **not** a signal-to-noise problem, and the next day belongs to the reward rows and the
+abort latch rather than to the bout count.
+
+**What no outcome of this grid licenses.** It ships no mind, moves no reward coefficient and moves no
+default. It does not even train: a probe iteration collects, fits, and reports an angle, and the
+weights it leaves behind are nobody's candidate. It buys one number that says which knob the next
+night should move.
