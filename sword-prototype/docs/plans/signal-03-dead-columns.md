@@ -1,6 +1,12 @@
 # Session 03 -- six columns divided by a ten-thousandth
 
-**Status (2026-09-11): planned. Needs 02.**
+**Status (2026-09-11): landed.** All five steps implemented. The mechanical bar was measured
+and *missed* -- d +0.028 on random viable pairs against the d >= +0.10 it asked for, with an
+interval that includes zero -- and the fix landed anyway, which is this plan's own wash branch: the
+mirrored refusal was satisfied exactly, +0.0000 +-0.0000 bout for bout over 600 bouts. Step 1's
+arithmetic reproduces the plan's figures and corrects one of its conclusions: only `reachEdge` of
+the six non-bias dead columns ever leaves its mean on the rating pool. The result, the wall clock
+and the mechanism that put both readers in one process are in `../measurements.md`.
 
 ## Outcome
 

@@ -21293,3 +21293,196 @@ is the case that works; a mirrored table should be read on its unpaired `barSem`
   a paragraph, a reader and a test about the trap. The field now records what the run actually ran;
   the reader that works around the old spelling stays, because the logs already on disk do not
   change.
+
+## Session 03 of the signal set -- 2026-09-11: seven columns the fit never varied, and a bar the repair misses by 0.07
+
+Seven of the shipped table's seventy-one normalisation columns have a fitted variance of exactly
+zero. `normalise` in `src/golem/policy.ts` divided by `sqrt(variance + 1e-8)`, so those seven were
+divided by a ten-thousandth and clipped at +-5 -- reached at a raw difference of a quarter of a
+millimetre -- into 256 first-layer weights that are still at their Glorot draw, because a column
+that never moved never took a gradient. This session floors the reader. **The bar is missed**: the
+repair is worth **d +0.028** on random viable pairs against a bar of d >= +0.10 with an interval
+excluding zero, and its interval includes zero. The plan's own wash branch applies and the fix
+lands as a correctness fix. No number in this entry was adjusted after it was taken.
+
+### First, before any bouts: the arithmetic the plan asked for, and the place it overstated
+
+**Instrument:** the shipped table read directly, plus sixteen random-viable bouts of `golem-policy`
+replayed through `runBout` at seed 20260906 with every observation and every command recorded --
+9658 asks in all.
+
+| quantity | value |
+| --- | --- |
+| Glorot half-width for this layer, sqrt(6/(71+256)) | 0.13546 |
+| its rms, the half-width over sqrt(3) | 0.07821 |
+| shipped first layer's rms, over 18176 numbers | 0.07846 |
+| `reachEdge`'s own column rms | 0.07851 |
+| the seven dead columns' rms | 0.07877 |
+| the sixty-four live columns' rms | 0.07842 |
+
+**The plan's arithmetic reproduces exactly.** The first layer of the shipped mind is, to three
+decimal places of rms, the draw it was initialised from on those seven columns. The seven are
+`bias`, `reachEdge`, `myWeapon:buckler`, `theirWeapon:buckler`, `myHealth:locomotion`,
+`theirHealth:locomotion` and `interceptWall`, and each is dead for its own reason. `bias` is a
+constant one. The two `buckler` one-hots are dead because no build in either pool holds a buckler.
+The two `locomotion` health slots are dead because `slotHealth` finds no such slot on any body in
+this tree and `healthColumn` reads an absent slot as zero. `interceptWall` is dead because
+`wallOnChamber` ships false, so `intercept.wall` is never true. And `reachEdge` is dead because the
+fit was mirrored and a mirror has no reach edge -- which is the one that matters, because a random
+viable pair has one.
+
+**But the plan's conclusion overstates it, and the correction is the reason this section exists.**
+The plan reasoned that six non-bias dead columns saturating at +-5 contribute a pre-activation sd of
+0.963 against the sixty-four live columns' 0.627, and called that "more than half the shipped
+mind's first hidden layer is unfitted noise". Over the 9658 asks, only **one** of the six ever
+leaves its mean at all:
+
+| dead column | asks off its mean | asks saturated at +-5 |
+| --- | --- | --- |
+| `reachEdge` | 88.90 % | 88.90 % |
+| `myWeapon:buckler` | 0.00 % | 0.00 % |
+| `theirWeapon:buckler` | 0.00 % | 0.00 % |
+| `myHealth:locomotion` | 0.00 % | 0.00 % |
+| `theirHealth:locomotion` | 0.00 % | 0.00 % |
+| `interceptWall` | 0.00 % | 0.00 % |
+
+The five that never move are the five whose causes above are structural rather than about the
+pool; only `reachEdge`'s cause goes away when the pool stops being a mirror. So the operative
+contribution is `reachEdge` alone at **0.393**, not 0.963 -- about 28 % of the first pre-activation's
+variance rather than more than half. The prediction that followed from 0.963 was therefore built on
+a figure four times the real one, which is worth knowing before reading the bar below.
+
+What the one live dead column is worth at the command surface, over the same 9658 asks, as the mean
+absolute displacement of each axis in normalised units when the floor is applied:
+
+| axis | mean abs displacement |
+| --- | --- |
+| `reach` | 0.3942 |
+| `bite` | 0.3620 |
+| `advance` | 0.2937 |
+| `targetLateral` | 0.2901 |
+| `strafe` | 0.2900 |
+| `standOff` | 0.2219 |
+| `targetHeight` | 0.1472 |
+| `lean` | 0.0918 |
+| `swing` | 0.0918 |
+
+Worst single ask, any axis: **0.8388**. This is not a small perturbation of the command -- it is a
+different mind on 88.9 % of the asks of a random viable pair -- which is what made the rating an
+experiment rather than a formality.
+
+### How two readers were put in one process, which the plan does not say how to do
+
+The fix is unconditional inside `normalise`, so both behaviours cannot exist in one process by a
+flag -- and a `ratePaired` call pairs bout by bout, so both arms must be in one call. The way out is
+that the floor is a **provable identity**, not an approximation: for a column with variance exactly
+0, `normalise` returns 0 for every raw value, so every product `W[j][k] * x[k]` that column feeds is
+zero, so *zeroing the 256 first-layer weights on each dead column reproduces the floored reader
+exactly*, on the unfixed tree, with the shipped variance array untouched. A contender carries its
+own `pi` and `normalisation`, so the two arms are the shipped weights and the shipped weights with
+1792 of their 87308 numbers set to zero.
+
+**It was checked rather than argued.** Over 20000 random observations the two readers' twelve head
+values differ by a worst absolute difference of **0**, not 1e-16. And at full scale the control arm
+was rated against the registered `golem-policy` in the same call: its paired `vsPolicy` column reads
+**+0.0000 +-0.0000, d +0.000** in every block of both pools, so the scaffolded control is the
+shipped mind bout for bout and not merely in the mean. Nothing here approximates a variance with a
+large number.
+
+### The bar, stated before the data and missed
+
+**Stated in the plan, unaltered:** two arms in one `ratePaired` call, 600 bouts, seed 20260906,
+random viable pairs and mirrored, against `golem-driver` and `golem-fencer` on Session 02's column.
+**Pass: on random viable pairs the fix's paired difference from the shipped arm is d >= +0.10 with
+an interval excluding zero.** Refusal, not a bar: the mirrored margin must not fall by more than one
+standard error.
+
+**Harness:** `ratePaired` from `scripts/sweep.mjs` over a two-arm manifest -- `ship` (the shipped
+table verbatim) and `fix` (the same table with the dead columns' first-layer weights zeroed) --
+with `--designed golem-driver,golem-fencer,golem-policy`. Five contenders a pool, 120 bouts an
+opponent, 600 bouts a contender, 6000 bouts in all. **30 workers on 16 cores / 32 threads; 728 s on
+random viable pairs (52 pool builds) and 692 s mirrored (15 builds).** Intervals are 95 %.
+
+| pool | opponent | bouts | `ship` bar | `fix` bar | fix - ship | d |
+| --- | --- | --- | --- | --- | --- | --- |
+| random viable pairs | all | 600 | +0.0220 +-0.0537 | +0.0300 +-0.0525 | **+0.0080 +-0.0227** | **+0.028** |
+| random viable pairs | golem-driver | 120 | -0.0077 +-0.1150 | +0.0294 +-0.1166 | +0.0371 +-0.0495 | +0.134 |
+| random viable pairs | golem-form | 120 | +0.0328 +-0.1290 | +0.0472 +-0.1313 | +0.0144 +-0.0504 | +0.051 |
+| random viable pairs | golem-brawler | 120 | +0.1412 +-0.1173 | +0.1362 +-0.1146 | -0.0050 +-0.0486 | -0.018 |
+| random viable pairs | golem-duelist | 120 | +0.0061 +-0.1111 | +0.0315 +-0.1096 | +0.0254 +-0.0449 | +0.101 |
+| random viable pairs | golem-fencer | 120 | -0.0624 +-0.1255 | -0.0945 +-0.1124 | -0.0321 +-0.0588 | -0.098 |
+| mirrored | all | 600 | +0.0038 +-0.0276 | +0.0038 +-0.0276 | **+0.0000 +-0.0000** | **+0.000** |
+
+**The bar is missed.** On the column and the bouts the bar names, the repair is worth +0.0080
++-0.0227 of a bar margin, d **+0.028** against a bar of +0.10, and the interval includes zero. The
+lean is positive at about 0.69 standard errors, and the five per-opponent blocks do not agree with
+each other: it is worth d +0.134 against `golem-driver` and d -0.098 against `golem-fencer`, which
+at 120 bouts a block is what five draws from a distribution centred near zero look like.
+
+**That is the plan's wash branch, not its revert branch.** The plan's revert condition is a fall
+beyond one standard error; this is a rise of two thirds of one. So the fix lands, and what the
+record says is that the defect cost nothing a 600-bout rating can see.
+
+**The refusal is satisfied in the strongest form available.** The mirrored margin did not merely
+fail to fall -- it did not move at all. `fix - ship` is **+0.0000 +-0.0000, d +0.000** over all 600
+mirrored bouts and in every one of the five mirrored opponent blocks, bout for bout. That is the
+prediction of the argument rather than a lucky draw: a mirror is the pool the table was fitted on,
+every dead column sits exactly at its mean there, and `(raw - mean) / 1e-4` is exactly 0 whichever
+reader computes it.
+
+**Two other things fell out of the same table.** The fix brings the shipped mind level with the
+fencer on the fencer's own column -- `vsFencer` moves from -0.0089 +-0.0266 to -0.0010 +-0.0258 over
+all 600 random-pair bouts, and `vsDriver` from -0.0210 to -0.0131 -- which is the same +0.008 read
+against a different reference and not an independent finding. And on the random-viable pool the
+designed minds' own bars over these 600 bouts were `golem-driver` +0.0430 +-0.0558, `golem-fencer`
++0.0309 +-0.0557, `golem-policy` +0.0220 +-0.0537.
+
+### Folded in: the shipped mind read drawn against the same mind read greedily
+
+The plan set folded one rating point into this session: the shipped table played by drawing from
+its Gaussian rather than by its mean, over the same bouts at the same seed. `ratePaired` hard-codes
+`sample: false` on every contender it builds, so this is `evaluate` from `scripts/tune.mjs` called
+directly with two contenders that differ in `sample` alone, at the same seed, the same pool, the
+same league and the same 600 bouts; the two blocks were asserted to have met the same opponent in
+the same order before any difference was formed, and `columnsOf`, `meanOf`, `semOf` and `cohensD`
+do the arithmetic exactly as `ratePaired` does. Taken on the post-fix tree.
+
+**Harness:** `evaluate` over the same pool as the bar above, 120 bouts an opponent, 600 bouts a
+read, 30 workers; 328 s on random viable pairs and 318 s mirrored. `pts` is points a bout on the
+tournament's own 1/0.5/0 scale; the bar columns are bar margins. Intervals are 95 %.
+
+| pool | opponent | bouts | greedy bar | greedy pts | drawn bar | drawn pts | drawn - greedy | d |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| random viable pairs | all | 600 | +0.0300 +-0.0525 | 0.5108 | +0.0313 +-0.0537 | 0.5267 | **+0.0014 +-0.0228** | **+0.005** |
+| random viable pairs | golem-driver | 120 | +0.0294 | 0.5167 | +0.0223 | 0.4667 | -0.0071 +-0.0553 | -0.023 |
+| random viable pairs | golem-form | 120 | +0.0472 | 0.5000 | +0.0445 | 0.5375 | -0.0028 +-0.0588 | -0.008 |
+| random viable pairs | golem-brawler | 120 | +0.1362 | 0.5708 | +0.1863 | 0.6583 | +0.0502 +-0.0465 | +0.193 |
+| random viable pairs | golem-duelist | 120 | +0.0315 | 0.5333 | -0.0304 | 0.5000 | -0.0619 +-0.0441 | -0.251 |
+| random viable pairs | golem-fencer | 120 | -0.0945 | 0.4333 | -0.0661 | 0.4708 | +0.0284 +-0.0472 | +0.107 |
+| mirrored | all | 600 | +0.0038 +-0.0276 | 0.4942 | +0.0040 +-0.0261 | 0.5000 | **+0.0002 +-0.0355** | **+0.000** |
+
+**Drawing is a wash on the bar and is not obviously one on points.** Over 600 random-pair bouts the
+drawn read's bar margin is +0.0014 +-0.0228 above the greedy one, d +0.005 -- as close to nothing as
+this instrument can report. But it takes **0.5267 points a bout against 0.5108**, about +0.016, on
+the same bouts. Those two readings are not in conflict: a draw from a spread of `exp(logSigma)`
+around the mean neither helps nor hurts the continuous margin on average, and yet wins a few more of
+the bouts that were going to be decided by a tenth either way. At 600 bouts +0.016 points is well
+inside the draw, so this is a direction to test and not a finding.
+
+**The per-opponent blocks disagree far more than the mean does**, from d -0.251 against
+`golem-duelist` to +0.193 against `golem-brawler`, which at 120 bouts a block is the usual five
+draws around zero. The mirror is the same nothing: +0.0002 +-0.0355, d +0.000.
+
+**And the mirror reproduces Session 02's anti-instrument finding for free.** On the mirrored pool
+the *paired* interval here is +-0.0355 against unpaired intervals of +-0.0276 and +-0.0261 on the
+very same bouts -- the paired column is about 30 % wider, exactly as the previous session's table
+said a differenced column is on a pool where both corners hold the same body. On random viable pairs
+it goes the other way, +-0.0228 against +-0.0525, which is the 2.3x the pairing is for.
+
+**One cross-check fell out of this run and is worth the line.** The greedy arm here is the shipped
+table on the post-fix tree, computed in a different script through a different entry point, and it
+reproduces the `fix` arm of the bar above *exactly* -- +0.0300 +-0.0525 and +0.0038 +-0.0276 on the
+two pools, and every one of the twelve per-opponent blocks to four decimals. So the zeroed-weight
+scaffold the bar was measured with and the floored reader that actually shipped are the same mind on
+the same bouts, which is the identity the section above argues and this is an independent reading
+of it.

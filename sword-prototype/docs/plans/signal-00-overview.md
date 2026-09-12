@@ -156,7 +156,10 @@ own files before any data exists.
 ## What must not move
 
 - `../../src/golem/policy-weights.ts`'s weight arrays, its `logSigma` and its header's provenance.
-  Session 03 regenerates its variance array alone.
+  Its variance array too: frozen choice 4 is that the file is not touched at all, and an earlier
+  draft of this line said Session 03 regenerates the variances. It does not, and the contradiction
+  was caught by that session. The whole correctness argument is that the reader changes and the
+  shipped table does not.
 - `../../src/units.ts`'s screened default and the two rows of `GOLEM_ASSEMBLY` the style set
   landed.
 - `../../tests/ppo.test.mjs`'s refusal tests, the sharded-equality tests at 1e-9 and the

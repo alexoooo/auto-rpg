@@ -175,11 +175,13 @@ import { unitDefinition } from "../src/units.ts";
 import { forward, initWeights, netScratch, netSize, backwardFrom } from "../src/golem/neural-net.ts";
 import {
   PILOT_FEATURE_COUNT, PILOT_FEATURE_VERSIONS_READ, PILOT_FEATURES_DEFAULT, pilotFeatureCount,
+  pilotFeatureNames,
 } from "../src/golem/pilot.ts";
 import {
-  ACTION_AXES, ACTION_WIDTH, GAUSSIAN_HEAD, POLICY_LAYOUT, POLICY_VERSION, SIGMA_FLOOR, SIGMA_ROOF,
-  VALUE_LAYOUT, actionEntropy, actionLogProb, checkPolicyWeights, entropyGrad, freshNormalisation,
-  freshPolicyTable, headSpecOf, logProbGrad, normalise, policyLayout,
+  ACTION_AXES, ACTION_WIDTH, DEAD_VARIANCE, GAUSSIAN_HEAD, POLICY_LAYOUT, POLICY_VERSION,
+  SIGMA_FLOOR, SIGMA_ROOF, VALUE_LAYOUT, actionEntropy, actionLogProb, checkPolicyWeights,
+  entropyGrad, flooredVariance, freshNormalisation, freshPolicyTable, headSpecOf, logProbGrad,
+  normalise, policyLayout,
 } from "../src/golem/policy.ts";
 import { GOLEM_REWARD, stepReward } from "../src/golem/reward.ts";
 import { GOLEM_TACTICS_V4 } from "../src/golem/tactics-v4.ts";
@@ -351,6 +353,18 @@ export function mergeRollouts(parts, reward = GOLEM_REWARD, width = PILOT_FEATUR
  * result is *frozen for the next whole iteration* -- collected under and fitted under -- because a
  * normalisation that moved between the draw and the gradient would make the log-probability the
  * trainer recomputes disagree with the one the body acted on.
+ *
+ * **A variance the composition puts below `DEAD_VARIANCE` is written as zero.** Session 03 of the
+ * signal set floors the *reader* as well, because the shipped table is not being rewritten and its
+ * seven dead columns can only be repaired there; flooring the writer too is so that the next table
+ * to ship a dead column says so on its face rather than in a fourteenth decimal. The composition
+ * itself is untouched -- Chan's form still runs on the numbers it always ran on -- but the floored
+ * value is what goes into `prior.variance` for the next batch, so a column that was already dead
+ * stays exactly dead (its `m2A`, its `m2` and its `delta` are all exactly zero, so this is
+ * provably a no-op for it) and a column merely *below* a millionth loses that millionth rather
+ * than carrying it forward. That is the intended trade: a column with a standard deviation under a
+ * thousandth is not a signal the fit can use, and a table that half-remembers one is worse than a
+ * table that says it is dead.
  */
 export function extendNormalisation(prior, rollout) {
   const width = rollout.width;
@@ -372,13 +386,15 @@ export function extendNormalisation(prior, rollout) {
   for (let k = 0; k < width; k += 1) {
     if (countA === 0) {
       out.mean[k] = mean[k];
-      out.variance[k] = n > 1 ? m2[k] / n : 1;
+      out.variance[k] = flooredVariance(n > 1 ? m2[k] / n : 1);
       continue;
     }
     const delta = mean[k] - prior.mean[k];
     out.mean[k] = prior.mean[k] + delta * (n / total);
     const m2A = prior.variance[k] * countA;
-    out.variance[k] = (m2A + m2[k] + delta * delta * (countA * n / total)) / total;
+    out.variance[k] = flooredVariance(
+      (m2A + m2[k] + delta * delta * (countA * n / total)) / total,
+    );
   }
   return out;
 }
@@ -2006,6 +2022,41 @@ export function poolSentence(terminals) {
   return `pool builds armed with ${kept.join(" or ")}`;
 }
 
+/**
+ * The columns of a table's normalisation the fit never varied, by feature name.
+ *
+ * A reader zeroes these (`normalise`, and the argument at `DEAD_VARIANCE`), so the generated header
+ * names them: a dead column is the one fact about a fitted table that is invisible in its numbers
+ * -- it looks like a zero among seventy others -- and is the difference between a mind that reads
+ * a column and a mind whose 256 weights on that column are still at their Glorot draw.
+ */
+export function deadColumnNames(table) {
+  const names = pilotFeatureNames(table.features);
+  const out = [];
+  const { variance } = table.normalisation;
+  for (let k = 0; k < variance.length; k += 1) {
+    if (variance[k] < DEAD_VARIANCE) out.push(names[k] ?? `column ${k}`);
+  }
+  return out;
+}
+
+/**
+ * The header's two lines about the dead columns, or its one line saying there are none.
+ *
+ * Two lines because seven feature names do not fit in a hundred columns, and the alternative --
+ * one long line -- is the kind of header nobody reads to the end of.
+ */
+export function deadColumnLines(table) {
+  const dead = deadColumnNames(table);
+  if (dead.length === 0) {
+    return ["// Dead columns: none -- every column of this table's fit varied."];
+  }
+  return [
+    "// Dead columns, never varied by this fit and therefore read as zero rather than divided by",
+    `// a ten-thousandth: ${dead.join(", ")}.`,
+  ];
+}
+
 export function renderPolicyModule(table, generator = "scripts/train-ppo.mjs") {
   checkPolicyWeights(table);
   const rows = [];
@@ -2027,6 +2078,7 @@ export function renderPolicyModule(table, generator = "scripts/train-ppo.mjs") {
         `${table.halfLife} s, lambda ${table.lambda}, clip ${table.clip}, entropy ${table.entropy}. ` +
         `Scored ${table.score.toFixed(3)} points a bout against ${beaten || "nothing"} on the held-out seed.`
       : "// Unfitted: zero weights, so that the mind loads; the trainer overwrites this file.",
+    ...deadColumnLines(table),
     "//",
     "// What an output means is in src/golem/policy.ts, what the columns are in src/golem/pilot.ts,",
     "// and what a step was paid in src/golem/reward.ts; a build that reads another version",

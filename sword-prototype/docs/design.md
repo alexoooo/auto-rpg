@@ -1809,6 +1809,49 @@ summed to the snapshot for the spend. The pool the sentence names is the pool as
 the shipped iteration, since a snapshot from iteration 8 of a run that has since taken five past
 selves sparred with none of them.
 
+### A column the fit never varied, and the ten-thousandth it was divided by
+
+Session 03 of the signal set, and it is a design statement rather than a measurement: **a column
+whose fitted variance is below `DEAD_VARIANCE` is read as zero rather than divided by a
+ten-thousandth.** The constant is 1e-6 and it lives in `src/golem/policy.ts` beside
+`normalise`, which is the only place it can do any good -- the shipped table is not being rewritten.
+
+The arrangement it repairs was an accident of two reasonable decisions meeting. `normalise` divides
+by `sqrt(variance + 1e-8)` and clips at five standard deviations, and the clip was written as the
+guard against exactly this case -- "a column that was constant over the rollouts has a variance near
+zero and would otherwise turn one unusual body into an enormous input". But a variance of *exactly*
+zero makes the divisor a ten-thousandth, so the clip is reached at a raw difference of a quarter of
+a millimetre, and what the guard actually does is convert a column the fit never saw move into a
+column that reads +5 or -5 and almost nothing in between. The shipped table has seven such columns
+of seventy-one: `bias`, `reachEdge`, both `buckler` one-hots, both `locomotion` health slots and
+`interceptWall`. They are zero because the fit was mirrored -- a mirror has no reach edge, and
+neither corner ever held a buckler or a wheel.
+
+**The weights reading them are not trained weights.** A column that is identically zero contributes
+nothing to any gradient, so the 256 first-layer weights on each of those seven are still at their
+Glorot draw: the shipped first layer's rms is 0.07846 against an initialisation rms of
+sqrt(6/(71+256))/sqrt(3) = 0.07821, and `reachEdge`'s own column is 0.07851. So on a body the fit
+never trained against -- which is every random viable pair -- six saturating inputs were multiplying
+untrained noise into the first hidden layer. `docs/measurements.md` has what that was worth.
+
+**Zero is not one option among several; it is the number the fit itself computed.** On every one of
+the 11,390,700 observations the table was accumulated over, the raw value of a dead column equalled
+its mean, so `(raw - mean) / 1e-4` was exactly 0. The floor is therefore provably a no-op on the
+whole of the fit's own data and differs only on inputs the fit never saw. That is the entire
+argument for calling this a correctness fix rather than a change of policy, and it is why
+`src/golem/policy-weights.ts` was not touched: **the reader changed and the table did not**. It is
+also why `checkPolicyWeights` does not refuse a zero variance -- the shipped table has seven and
+has to keep loading.
+
+The floor is applied in three places and each is a different claim. `normalise` floors at *read*
+time, which is the fix. `extendNormalisation` in `scripts/train-ppo.mjs` floors at *write* time, so
+that the next table to ship a dead column says so in its own numbers rather than in a fourteenth
+decimal; the composition arithmetic is untouched, but the floored value is what the next batch
+composes against, which for an already-dead column is provably the same number and for a column
+merely under a millionth discards that millionth. And `renderPolicyModule` names the dead columns
+by feature name in the generated header, because a dead column is the one fact about a fitted table
+that is invisible in its numbers -- it looks like a zero among seventy others.
+
 ## The fit on K threads, which has to be the same fit
 
 Session 05 of the learn set. `scripts/fit-worker.mjs`, and `FitPool` in `scripts/train-ppo.mjs`.

@@ -47,6 +47,15 @@
 // | the trust region is evaluated on a shard's own KL rather than the minibatch's | the sharded trust-region test, and the equality test with it |
 // | `shardSlice` gives every shard `floor(length / shards)`, dropping the remainder | the slice test alone, because a minibatch that divides evenly cannot see it |
 //
+// **Three more were watched red on 2026-09-11**, when Session 03 of the signal set put a floor
+// under a fitted variance. The first is the defect itself, restated as a mutation:
+//
+// | mutation | what went red |
+// |---|---|
+// | `normalise` drops the dead-column branch, so a zero variance divides by a ten-thousandth | the dead-column test, and the shipped table's pin in `tests/policy-perception.test.mjs` |
+// | `normalise` floors at `<=` rather than `<`, so a variance exactly at the constant is dead | the dead-column test, on the column that sits on the bound |
+// | `extendNormalisation` writes a sub-floor variance as it computed it | the written-variance test, and nothing else, because the reader floors it anyway |
+//
 // **One property this file deliberately cannot test is the one the design turns on.** `FitPool`
 // sums its shards' partials in shard order 0..K-1, and a pool that summed them in the order they
 // finished would still pass every assertion below -- reassociating a sum of a thousand doubles
@@ -60,7 +69,7 @@ import { existsSync, readFileSync } from "node:fs";
 
 import { forward, initWeights, netScratch, netSize } from "../src/golem/neural-net.ts";
 import {
-  ACTION_AXES, ACTION_GATES, ACTION_WIDTH, GAUSSIAN_HEAD, HEAD_BINS, POLICY_LAYOUT,
+  ACTION_AXES, ACTION_GATES, ACTION_WIDTH, DEAD_VARIANCE, GAUSSIAN_HEAD, HEAD_BINS, POLICY_LAYOUT,
   POLICY_VERSION, POLICY_VERSIONS_READ, SIGMA_FLOOR, SIGMA_ROOF, VALUE_LAYOUT, actionEntropy,
   actionLogProb, axisLogSigma, binCentre, binOf, checkPolicyWeights, commandFromAction,
   freshNormalisation, freshPolicyTable, golemPolicy, headSpecOf, meanAction, normalise,
@@ -632,6 +641,97 @@ test("the_frozen_normalisation_composes_across_iterations", () => {
   for (let k = 0; k < width; k += 1) assert.equal(into[k], 5, "an enormous column was not clipped");
 });
 
+/**
+ * A column the fit never varied reads zero, and every other column reads exactly what it did.
+ *
+ * Session 03 of the signal set. The clamp in `normalise` was written as the guard against a
+ * constant column and is the mechanism of the defect instead: the divisor for a zero variance is
+ * `sqrt(0 + 1e-8)`, a ten-thousandth, so the column saturates at +-5 on a difference of a quarter
+ * of a millimetre and hands the first layer a large input through weights that -- the column being
+ * constant over every row of the fit -- never took a gradient and are still at their Glorot draw.
+ *
+ * **Zero is not a choice among several, it is the value the fit itself saw.** On every row of the
+ * accumulation the raw value equalled the mean, so `(raw - mean) / 1e-4` was exactly 0. The second
+ * half of this test is therefore the more important one: on a table whose every column is live the
+ * function must be *bit for bit* what it was, because a correctness fix that moved a live column
+ * would be a policy change wearing a fix's clothes.
+ */
+test("a_dead_column_reads_zero_and_a_live_column_reads_exactly_what_it_read_before", () => {
+  const mean = [0, 0, 0, 0, 3];
+  const variance = [1, 0, 1e-9, DEAD_VARIANCE, 0.25];
+  const norm = { count: 100, mean, variance };
+  const width = mean.length;
+  const into = new Float64Array(width);
+
+  // 1e9 is the plan's own number and the mutation to watch is deleting the branch, which makes
+  // columns 1 and 2 read 5 -- the same thing a live column reads, which is the whole trouble.
+  normalise(Float64Array.from({ length: width }, () => 1e9), norm, into);
+  assert.deepEqual(Array.from(into), [5, 0, 0, 5, 5],
+    "a dead column read something, or a live one stopped clipping");
+  normalise(Float64Array.from({ length: width }, () => -1e9), norm, into);
+  assert.deepEqual(Array.from(into), [-5, 0, 0, -5, -5], "the sign of the saturation still survives a dead column");
+  // The floor is closed at the top: a variance *at* `DEAD_VARIANCE` is live, so the constant is a
+  // bound a writer can hit rather than a band an implementation has to agree about.
+  assert.equal(DEAD_VARIANCE, 1e-6);
+
+  // The no-op, pinned. An independent statement of the arithmetic this function had before the
+  // floor, over a table with no dead column in it, compared exactly rather than to a tolerance.
+  const random = mulberry32(SEED + 23);
+  const live = {
+    count: 100,
+    mean: Array.from({ length: 9 }, () => random() * 4 - 2),
+    variance: Array.from({ length: 9 }, () => DEAD_VARIANCE + random() * 3),
+  };
+  const clamp = (x) => (x < -5 ? -5 : x > 5 ? 5 : x);
+  const wide = new Float64Array(9);
+  for (let trial = 0; trial < 200; trial += 1) {
+    const raw = Float64Array.from({ length: 9 }, () => (random() * 2 - 1) * 20);
+    normalise(raw, live, wide);
+    for (let k = 0; k < 9; k += 1) {
+      const was = clamp((raw[k] - live.mean[k]) / Math.sqrt(live.variance[k] + 1e-8));
+      assert.equal(wide[k], was, `column ${k} moved on a table with no dead column in it`);
+    }
+  }
+
+  // An unfitted table is live by construction, so a mind with no fit behind it reads its columns
+  // rather than zeroing all of them -- which is what a floor written the careless way would do.
+  for (const v of freshNormalisation(5).variance) assert.ok(v >= DEAD_VARIANCE, "a fresh column is dead");
+});
+
+/**
+ * A variance below the floor is *written* as zero, so that "dead" is one predicate and not two.
+ *
+ * `normalise` is where the defect was and floors at read time because the shipped table cannot be
+ * rewritten. That leaves a second reader -- a person, looking at a generated module -- who would
+ * otherwise have to know the floor to tell a dead column from a nearly dead one. So the writer
+ * honours the same constant, and `extendNormalisation`'s composition arithmetic is untouched: the
+ * floor is applied to what it computed, not inside the fold.
+ */
+test("a_column_that_never_moved_is_written_as_a_zero_variance", () => {
+  const width = 3;
+  const random = mulberry32(SEED + 29);
+  // Column 0 varies, column 1 never moves, column 2 moves by less than the floor allows.
+  const rows = Array.from({ length: 30 }, () => [random() * 6 - 2, 0.75, 1 + (random() - 0.5) * 1e-4]);
+  const roll = (from, to) => ({
+    width, count: to - from, x: Float32Array.from(rows.slice(from, to).flat()),
+  });
+  let norm = freshNormalisation(width);
+  norm = extendNormalisation(norm, roll(0, 11));
+  assert.ok(norm.variance[0] > DEAD_VARIANCE, "the varying column was floored");
+  assert.equal(norm.variance[1], 0, "a column that never moved was written as something to interpret");
+  assert.equal(norm.variance[2], 0, "a column below the floor was written as something to interpret");
+  // And it composes: a second batch over the same constant leaves it zero rather than reviving it
+  // out of the floored prior, and the varying column is unharmed by the neighbour that was floored.
+  const composed = extendNormalisation(norm, roll(11, 30));
+  assert.equal(composed.count, 30);
+  assert.equal(composed.variance[1], 0);
+  const column = rows.map((row) => Math.fround(row[0]));
+  const m = column.reduce((a, b) => a + b, 0) / column.length;
+  const v = column.reduce((a, b) => a + (b - m) ** 2, 0) / column.length;
+  assert.ok(Math.abs(composed.variance[0] - v) < 1e-6, `the live column composed to ${composed.variance[0]}, not ${v}`);
+  assert.ok(Math.abs(composed.mean[1] - 0.75) < 1e-6, "a dead column still carries the value it never left");
+});
+
 /** Cohen's d of a paired column is its mean over its own spread, and is scale free. */
 test("cohens_d_is_the_paired_mean_over_the_paired_spread", () => {
   assert.equal(cohensD([1, 1, 1, 1]), 0, "a column with no spread is not a size");
@@ -652,6 +752,16 @@ test("cohens_d_is_the_paired_mean_over_the_paired_spread", () => {
  * The same claim `tests/tournament.test.mjs` makes about the duel tables, for the same reason: a
  * generated file that the generator no longer reproduces is a file somebody edited by hand, and
  * the next fit would silently discard whatever they meant by it.
+ *
+ * **Byte for byte, minus one line, from 2026-09-11.** Session 03 of the signal set gave the header
+ * a line naming the columns the fit never varied, and the checked-in table predates it -- and the
+ * set's frozen choices say that file is not touched at all, weights, spreads, variances, header
+ * and all, because the whole argument that the session is a correctness fix rather than a change
+ * of policy is that *the reader changes and the table does not*. So the claim is now made in two
+ * pieces: the new line is asserted against its exact expected text, and everything else is
+ * asserted byte for byte against the disk. That is strictly stronger than the old single
+ * assertion, not weaker -- the old one could not say what the header should contain, only that it
+ * had not moved.
  */
 test("the_checked_in_policy_table_is_what_the_renderer_writes", () => {
   const disk = readFileSync(new URL("../src/golem/policy-weights.ts", import.meta.url), "utf8");
@@ -664,8 +774,16 @@ test("the_checked_in_policy_table_is_what_the_renderer_writes", () => {
   assert.ok(["scripts/train-ppo.mjs", "scripts/league.mjs"].includes(generator),
     `the checked-in table names ${generator}, which is not a script that writes it`);
   const text = renderPolicyModule(POLICY_WEIGHTS, generator);
-  assert.equal(text.length, disk.length, "the rendered module changed length");
-  assert.equal(text, disk, "the renderer no longer reproduces the checked-in policy table");
+  const line = /^\/\/ Dead columns[^\n]*\n\/\/ a ten-thousandth: [^\n]*\n/m.exec(text);
+  assert.ok(line, "the renderer no longer names the columns the fit never varied");
+  assert.equal(line[0],
+    "// Dead columns, never varied by this fit and therefore read as zero rather than divided by\n"
+    + "// a ten-thousandth: bias, reachEdge, myWeapon:buckler, theirWeapon:buckler, "
+    + "myHealth:locomotion, theirHealth:locomotion, interceptWall.\n",
+    "the shipped table's dead columns are not the seven that tests/policy-perception.test.mjs pins");
+  const rest = text.slice(0, line.index) + text.slice(line.index + line[0].length);
+  assert.equal(rest.length, disk.length, "the rendered module changed length");
+  assert.equal(rest, disk, "the renderer no longer reproduces the checked-in policy table");
   // The generator's name is a parameter, because `scripts/league.mjs` writes this module too and
   // a header pointing at the wrong script sends a reader to the wrong run to reproduce it.
   assert.match(renderPolicyModule(POLICY_WEIGHTS), /^\/\/ GENERATED by scripts\/train-ppo\.mjs --/);

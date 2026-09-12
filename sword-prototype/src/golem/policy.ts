@@ -440,14 +440,62 @@ export function commandFromAction(action: Float64Array, into: StyleCommand): Sty
 }
 
 /**
+ * Below this a fitted variance means the column never moved, and the fit's own first layer never
+ * took a gradient through it. Zero is what the fit saw; zero is what inference reads.
+ *
+ * **The clip below was written as the guard against a constant column and is the mechanism of the
+ * defect instead.** The divisor is `sqrt(variance + 1e-8)`, so a variance of exactly zero divides
+ * by a ten-thousandth and the clip is reached at a raw difference of a quarter of a millimetre.
+ * The shipped table was accumulated over 11,390,700 observations of *mirrored* self-play and seven
+ * of its seventy-one columns came back at exactly zero -- `bias`, `reachEdge`, the two `buckler`
+ * one-hots, the two `locomotion` health slots and `interceptWall`. A column that is identically
+ * zero takes no gradient, so the 256 first-layer weights reading each of them are still at their
+ * Glorot draw: that layer's rms is 0.07846 against an initialisation rms of 0.07821, and column
+ * nine's own is 0.07851. A mirror has no reach edge; a random viable pair does, and measured over
+ * 9658 asks of sixteen such bouts `reachEdge` is off its mean on 88.9 % of them and saturates at
+ * +-5 on every one of those, contributing a pre-activation sd of 0.393 against the sixty-four live
+ * columns' 0.627.
+ *
+ * **Zero is not a choice among several; it is the value the fit itself saw.** On every one of
+ * those 11,390,700 rows the raw value equalled the mean, so `(raw - mean) / 1e-4` was exactly 0.
+ * The floor is therefore provably a no-op on every observation the fit was taken over, and differs
+ * only on inputs the fit never saw -- which is the whole of the defect. That is why this is a
+ * correctness fix rather than a change of policy, why no weight and no number of the shipped table
+ * moved with it, and why `checkPolicyWeights` does not refuse a zero variance: the shipped table
+ * has seven of them and has to keep loading.
+ *
+ * **What it was worth was measured, and it is a wash.** Two arms in one paired rating over 600
+ * random viable bouts at seed 20260906: the floored reader is +0.0080 +-0.0227 of a bar margin
+ * against the saturating one, d +0.028 where the session's bar asked +0.10. On the mirror it is
+ * *identically* zero, bout for bout, which is what the argument above predicts.
+ * `docs/measurements.md` under Session 03 of the signal set carries the table.
+ */
+export const DEAD_VARIANCE = 1e-6;
+
+/**
+ * A variance on its way into a table, floored.
+ *
+ * `normalise` floors at read time, because the shipped table is not rewritten and a reader is the
+ * only place its seven dead columns can be repaired. A *writer* floors as well so that the next
+ * table to ship one says so on its face, and so that "this column is dead" is one predicate rather
+ * than a constant every later reader has to remember to apply for themselves.
+ */
+export function flooredVariance(variance: number): number {
+  return variance < DEAD_VARIANCE ? 0 : variance;
+}
+
+/**
  * The observation, normalised and clipped.
  *
  * Clipped at five standard deviations, which is the usual guard and matters here because a column
  * that was constant over the rollouts -- and several are, on a body that has no spare hand -- has
- * a variance near zero and would otherwise turn one unusual body into an enormous input.
+ * a variance near zero and would otherwise turn one unusual body into an enormous input. A column
+ * *below* `DEAD_VARIANCE` is not clipped but zeroed, for the argument written there: the clip is
+ * what a dead column saturates into rather than what saves it from doing so.
  */
 export function normalise(raw: Float64Array, norm: Normalisation, into: Float64Array): Float64Array {
   for (let k = 0; k < raw.length; k += 1) {
+    if (norm.variance[k] < DEAD_VARIANCE) { into[k] = 0; continue; }
     const sd = Math.sqrt(norm.variance[k] + 1e-8);
     into[k] = clamp((raw[k] - norm.mean[k]) / sd, -5, 5);
   }
@@ -456,7 +504,11 @@ export function normalise(raw: Float64Array, norm: Normalisation, into: Float64A
 
 /** A normalisation that does nothing, which is what an unfitted table carries. */
 export function freshNormalisation(width = PILOT_FEATURE_COUNT): Normalisation {
-  return { count: 0, mean: new Array(width).fill(0), variance: new Array(width).fill(1) };
+  // Through the floor rather than a bare 1, so that the one table in the tree nobody fitted cannot
+  // become the one table whose columns a reader is entitled to zero.
+  return {
+    count: 0, mean: new Array(width).fill(0), variance: new Array(width).fill(flooredVariance(1)),
+  };
 }
 
 // -------------------------------------------------------------------------------- the distribution

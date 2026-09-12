@@ -18,6 +18,9 @@ import { blankIntent } from "../src/policies.ts";
 import { ACTION_TUNING, selectThreat } from "../src/action-primitives.ts";
 import { STRIKER_KINDS, isStriking } from "../src/hands.ts";
 import { assertCompleteView } from "./fixtures/view.mjs";
+import { DEAD_VARIANCE, normalise } from "../src/golem/policy.ts";
+import { POLICY_WEIGHTS } from "../src/golem/policy-weights.ts";
+import { pilotFeatureNames } from "../src/golem/pilot.ts";
 
 /**
  * What a policy can see, and what it decides is worth answering.
@@ -34,6 +37,13 @@ import { assertCompleteView } from "./fixtures/view.mjs";
  * both had `src/learning/features.ts` as their subject and went with it. What
  * this file is named for -- counting Havok plugin boundary reads per `observe`,
  * which is exact where a heap sample is not -- is untouched.
+ *
+ * **A third half arrived on 2026-09-11** and it is pure: which of the shipped
+ * table's columns the fit never varied, pinned by feature name. It is here and
+ * not in `tests/ppo.test.mjs` because it is a claim about what the mind
+ * perceives rather than about how a trainer writes a table -- and because the
+ * thing worth catching is a *future* fit that revives one of the seven, which
+ * ought to be somebody editing a list of names rather than a surprise.
  *
  * Havok's wasm is handed over as bytes: its emscripten glue calls `fetch()` and
  * Node cannot fetch a `file://` URL.
@@ -692,4 +702,65 @@ test("an_incomplete_view_is_refused_before_any_reader_sees_it", () => {
   notANumber.opponent.hands.secondary.tipSpeed = Number.NaN;
   assert.throws(() => assertCompleteView(notANumber), /tipSpeed/,
     "a finite number is part of what a view publishes");
+});
+
+/**
+ * Seven of the shipped table's seventy-one columns are dead, by name.
+ *
+ * The fit accumulated 11,390,700 observations of mirrored self-play and these
+ * seven never moved off their mean once, so their fitted variance is exactly
+ * zero and the 256 first-layer weights reading each of them never took a
+ * gradient. `bias` is dead because a constant one is what a bias column is.
+ * The two `buckler` one-hots are dead because no build either pool draws holds
+ * a buckler. The two `locomotion` health slots are dead because `slotHealth`
+ * finds no such slot on any body here and `healthColumn` reads an absent slot
+ * as zero. `interceptWall` is dead because `wallOnChamber` ships false, so
+ * `intercept.wall` is never true. And `reachEdge` is dead because a mirror has
+ * no reach edge -- which is the one that costs, because a random viable pair
+ * has one on 88.9 % of its asks.
+ *
+ * The list is spelled out rather than counted so that a refit which revives one
+ * is a person editing these names. A count would go on passing while the set
+ * changed underneath it, which is this directory's own definition of a green
+ * test that asserts nothing.
+ */
+test("the_shipped_table_names_the_seven_columns_its_fit_never_varied", () => {
+  const names = pilotFeatureNames(POLICY_WEIGHTS.features);
+  const { variance, mean } = POLICY_WEIGHTS.normalisation;
+  assert.equal(variance.length, names.length);
+  const dead = names.filter((_, k) => variance[k] < DEAD_VARIANCE);
+  assert.deepEqual(dead, [
+    "bias", "reachEdge", "myWeapon:buckler", "theirWeapon:buckler",
+    "myHealth:locomotion", "theirHealth:locomotion", "interceptWall",
+  ], "the shipped table's dead columns are not the seven this file names");
+  // Exactly zero, not merely small: the floor is a predicate about a fit that
+  // never moved a column, and a column with a tiny real variance is a different
+  // thing that this test would otherwise quietly admit.
+  for (const name of dead) assert.equal(variance[names.indexOf(name)], 0, `${name} is not exactly zero`);
+
+  // And what the reader does with them, on the shipped table itself: zero,
+  // whatever the body in front of it. Without the floor `reachEdge` reaches the
+  // clamp at a reach gap of a quarter of a millimetre and reads +-5 all bout.
+  const raw = new Float64Array(names.length);
+  const into = new Float64Array(names.length);
+  for (const edge of [1e9, -1e9, 0.00025, 0]) {
+    for (let k = 0; k < raw.length; k += 1) raw[k] = mean[k];
+    for (const name of dead) raw[names.indexOf(name)] = edge;
+    normalise(raw, POLICY_WEIGHTS.normalisation, into);
+    for (const name of dead) {
+      assert.equal(into[names.indexOf(name)], 0, `${name} read something at a raw ${edge}`);
+    }
+  }
+  // The control, without which the assertion above is satisfied by a reader that
+  // answers zero to everything: a live column at its own standard deviation
+  // reads one, and a wild one still clips at five.
+  const gap = names.indexOf("gap");
+  assert.ok(variance[gap] > DEAD_VARIANCE, "gap is not a live column");
+  for (let k = 0; k < raw.length; k += 1) raw[k] = mean[k];
+  raw[gap] = mean[gap] + Math.sqrt(variance[gap]);
+  normalise(raw, POLICY_WEIGHTS.normalisation, into);
+  assert.ok(Math.abs(into[gap] - 1) < 1e-3, `a live column at one sigma read ${into[gap]}`);
+  raw[gap] = 1e9;
+  normalise(raw, POLICY_WEIGHTS.normalisation, into);
+  assert.equal(into[gap], 5, "a live column is still clipped at five");
 });
