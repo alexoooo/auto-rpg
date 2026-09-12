@@ -22132,3 +22132,48 @@ worth running rather than less, and for a different reason than the one the clos
 question is no longer "is the optimiser handed a signal at all", because at 32 bouts against `idle`
 it plainly is. It is now "how much of the mirrored run's flatness is the objective and how much is
 the sample budget", and the cosine at four bout counts under each arrangement answers it.
+
+## Pre-registration -- 2026-09-12: the opponent bracket, written before the bouts
+
+Experiment A established that this pipeline improves against a motionless target and that Session 11
+of the learn set went backwards against a mirrored one. **Four things differed between those two
+runs**, so the attribution was to the package. This is the isolation, and the design, the measure and
+the falsifier are fixed here before any of it runs. Nothing below is a result.
+
+**The question.** In a mirrored bout both corners are collected, so `dealt - taken` telescopes to
+zero in aggregate and `win * outcome` cancels, leaving `-0.004*clinchSeconds - 0.004*idleMetres`,
+maximised by standing still outside reach. Is *that* the cause of the flatness, or is it that only a
+trivial opponent is learnable?
+
+**The design: four arms, one variable.** Every arm is 60 iterations from scratch, 32 bouts an
+iteration, the maul-and-mace viable pool, mirrored bodies, no exploiters, no opponent pool, ratings
+off, checkpoints every five, fit seed 20260917, 7 workers and 4 fit shards. The only thing that
+moves is `--opponent`:
+
+| arm | opponent | collected | difficulty |
+| --- | --- | --- | --- |
+| idle | `idle` | one corner | trivial: never moves, blocks or steps away |
+| driver | `golem-driver` | one corner | moderate, and the record's usual paired baseline |
+| fencer | `golem-fencer` | one corner | hard: the mind that leads every pool in the record |
+| self | `self` | **both corners** | its own equal |
+
+`idle` is re-run inside the bracket rather than read off Experiment A, so all four share a worker
+count and a shard count and the comparison is internal.
+
+**The measure, and it is the same pre-registered instrument as Experiment A.**
+`scripts/probe-snapshots.mjs` over each arm's twelve checkpoints at 4 bouts a build, seed 20260906,
+`--baseline 9/28`. The statistic is the ordinary-least-squares slope of the **pool kill rate** on
+iteration over the twelve points, quoted with its t.
+
+**The prediction, stated before the data.** Slope t **> +2** for idle, driver and fencer; **flat,
+|t| < 2 or negative**, for self.
+
+**The falsifier, which matters more than the prediction.** If `driver` and `fencer` are *also* flat
+and only `idle` rises, then the telescoping is **not** the blocker and the finding is that only a
+trivial opponent is learnable -- a curriculum and difficulty problem, and a different fix entirely.
+That outcome is the one this bracket exists to be able to return, and it is recorded as the
+interesting one rather than the disappointing one.
+
+**What no outcome of this bracket licenses.** It cannot ship a mind, it cannot move a reward
+coefficient, and it cannot move a default. It identifies which of two mechanisms to spend the next
+day on. The reward rows stay at zero until something measures them.
