@@ -363,25 +363,33 @@ test("a_rating_row_carries_whichever_baselines_it_was_taken_against", () => {
 });
 
 /**
- * And the one path that does not carry it, recorded rather than wished away.
+ * And the curve-file path, which for one commit wrote the block and read none of it.
  *
- * The session's plan says the curve page "reads whatever keys the row carries, so the page needs no
- * change". That is true of a *log*, through `readDifferences`. It is not true of a **rate-snapshots
- * curve file**: `readCurve` in `src/curve/runs.ts` walks the literal list `["uniform", "driver"]`,
- * so a `fencer` block written into a curve row is read by nothing and drawn as nothing. The block
- * is still written -- `rateSnapshots` puts it there and the file on disk is the record -- and the
- * page simply does not offer the series until that list is widened.
+ * Session 02's plan says the curve page "reads whatever keys the row carries, so the page needs no
+ * change". That is true of a *log*, through `readDifferences`. It was not true of a
+ * **rate-snapshots curve file**: `readCurve` walked a literal `["uniform", "driver"]`, so a
+ * `fencer` block was written by `rateSnapshots`, landed on disk, and was dropped in the reader.
+ * That session pinned it as the behaviour because `src/curve/runs.ts` was outside its fence, and
+ * named this as the line to widen; it is now `CURVE_BASELINES`, and this test is the other half of
+ * that pin. A criterion the record states its bars on has to be drawable.
  *
- * This is asserted as the behaviour rather than fixed here because `src/curve/runs.ts` is not this
- * session's to edit. A later session widening the list will break this test, which is the correct
- * way for it to find out that this is the line.
+ * The second half is the one that matters for the runs already on disk. A row that names no such
+ * block is skipped rather than defaulted, so every curve file written before `golem-fencer` was a
+ * contender reads exactly as it read before, and widening the list is not a version bump.
  */
-test("a_curve_files_third_baseline_is_written_to_disk_and_not_yet_read_by_the_page", () => {
+test("a_curve_files_third_baseline_is_read_and_an_older_file_without_one_is_unchanged", () => {
   const rows = RATE.trim().split("\n").map((line) => JSON.parse(line));
   for (const row of rows) row.fencer = { bar: -0.0421, sem: 0.0295, d: -0.1103 };
   const run = readCurve(`${rows.map((row) => JSON.stringify(row)).join("\n")}\n`, "rate.jsonl");
-  assert.deepEqual(Object.keys(run.ratings[0].differences).sort(), ["driver", "uniform"],
-    "readCurve names its two opponents literally, so the third is dropped in the reader");
-  assert.ok(!columnsOf(run).includes("bar:fencer"),
-    "and the page therefore offers no fencer series off a curve file, however the file was written");
+  assert.deepEqual(Object.keys(run.ratings[0].differences).sort(), ["driver", "fencer", "uniform"]);
+  close(run.ratings[0].differences.fencer.bar, -0.0421, "fencer bar off a curve file");
+  close(run.ratings[0].differences.fencer.barSem, 0.0295, "a curve file's sem is a log's barSem");
+  close(run.ratings[0].differences.fencer.d, -0.1103, "fencer d");
+  assert.ok(columnsOf(run).includes("bar:fencer"), "a column the page can be asked to draw");
+  assert.ok(columnsOf(run).includes("d:fencer"));
+
+  const older = readCurve(RATE, "rate.jsonl");
+  assert.deepEqual(Object.keys(older.ratings[0].differences).sort(), ["driver", "uniform"],
+    "a row that names no fencer block is skipped rather than defaulted");
+  assert.ok(!columnsOf(older).includes("bar:fencer"));
 });

@@ -574,6 +574,21 @@ function probePool(row: Row): Pool {
 const PROBE_COLUMNS = ["killRate", "maul", "mace", "p", "always", "ever"] as const;
 
 /**
+ * The baselines a rate-snapshots curve file can carry, named here rather than written twice.
+ *
+ * A row that lacks one is skipped, so widening this list reads older files exactly as it read them
+ * before: every curve drawn from a run that predates a baseline simply has no series for it. That
+ * is why `fencer` could be appended rather than versioned.
+ *
+ * It is appended because Session 02 of the signal set made `golem-fencer` a paired contender on
+ * every rating path, and for one commit the block was written to disk and read by nothing --
+ * `rateSnapshots` put it in the file and this list did not name it, so the page could not offer
+ * the series. A criterion the record states its bars on has to be drawable, or the next set reads
+ * its curves off the two opponents that happened to be here first.
+ */
+const CURVE_BASELINES = ["uniform", "driver", "fencer"] as const;
+
+/**
  * A curve written by `scripts/rate-snapshots.mjs` or `scripts/probe-snapshots.mjs`.
  *
  * One reader for both because a curve file is one row a snapshot either way and the two are told
@@ -614,7 +629,7 @@ export function readCurve(text: string, name = "curve"): Run {
       : probePool(row);
     pool = rowPool;
     const differences: Record<string, Difference> = {};
-    for (const opponent of ["uniform", "driver"]) {
+    for (const opponent of CURVE_BASELINES) {
       if (!isRow(row[opponent])) continue;
       const value = rowAt(row, opponent);
       differences[opponent] = {
