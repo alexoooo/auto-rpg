@@ -22027,3 +22027,108 @@ points 3 and 4 untouched and the question open.
 **So the ordering the numbers support is A, then B only if A does not come back flat.** That is a
 recommendation and not a decision. The decision is the owner's, and it is the human gate this set
 closes on.
+
+## Experiment A of the signal set's menu -- 2026-09-12: sixty iterations against a target that never moves, and the first learning curve in this record that goes up
+
+The signal set closed on a two-item menu and a recommendation: run `--opponent idle` first, because
+it is 4.3x cheaper than the gradient probe and because its negative would be the unconditional one.
+The owner's stated direction was to iterate a lot more until the learning mind works. This is that
+experiment, run 2026-09-12, and **it came back positive**, which is the outcome the menu treated as
+the informative-but-not-closing branch.
+
+**The run.** From scratch, no checkpoint, 60 iterations, `--opponent idle`, the maul-and-mace viable
+pool, 32 bouts an iteration, 30 workers, 8 fit shards, no exploiters, no pool opponents, ratings off,
+pool checkpoints every five iterations, fit seed **20260917** -- a new seed, the record's rating seed
+20260906 being untouched. **37.1 minutes** of wall clock against the 40 the closing table priced it
+at. Written to the signal-a-idle directory under tournaments, which is gitignored.
+
+    node scripts/league.mjs --opponent idle --iterations 60 --bouts 32 --terminals maul,mace \
+      --seed 20260917 --workers 30 --shards 8 --exploiters 0 --evaluate 0 --pool-every 5 \
+      --dir tournaments/signal-a-idle
+
+**The measurement, pre-registered before the run.** `scripts/probe-snapshots.mjs` over all twelve
+checkpoints at 4 bouts a build, seed 20260906, `--baseline 9/28` -- Fisher's exact, two-sided, at
+p < 0.01, against the shipped fit's nine kills in twenty-eight maul bouts. That test and that
+threshold are Session 14 of the style set's, chosen before this run existed and not tuned to it.
+
+| iteration | pool kill rate | maul | maul p | mace | maul bar left | always | ever |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 5 | 30.0 % | 64 % | 0.0315 | 0 % | 0.156 | 3/15 | 6/15 |
+| 10 | 40.0 % | 82 % | 0.0003 | 3 % | 0.074 | 3/15 | 8/15 |
+| 15 | 35.0 % | 75 % | 0.0029 | 0 % | 0.127 | 5/15 | 6/15 |
+| 20 | 38.3 % | 82 % | 0.0003 | 0 % | 0.151 | 4/15 | 7/15 |
+| 25 | 36.7 % | 79 % | 0.0011 | 0 % | 0.067 | 3/15 | 7/15 |
+| 30 | 45.0 % | 93 % | 0.0000 | 3 % | 0.060 | 5/15 | 8/15 |
+| 35 | 51.7 % | 89 % | 0.0000 | 19 % | 0.078 | 5/15 | 10/15 |
+| 40 | 43.3 % | 86 % | 0.0001 | 6 % | 0.051 | 4/15 | 8/15 |
+| 45 | 41.7 % | 79 % | 0.0011 | 9 % | 0.119 | 4/15 | 8/15 |
+| 50 | 43.3 % | 86 % | 0.0001 | 6 % | 0.070 | 4/15 | 8/15 |
+| 55 | 50.0 % | 89 % | 0.0000 | 16 % | 0.043 | 4/15 | 9/15 |
+| 60 | 45.0 % | 86 % | 0.0001 | 9 % | 0.103 | 5/15 | 9/15 |
+
+Slopes over the twelve points, per iteration, with t:
+
+| column | slope | t |
+| --- | ---: | ---: |
+| pool kill rate | +0.00249 | **+3.38** |
+| mace kill rate | +0.00238 | **+2.93** |
+| builds ever killed | +0.04615 | **+3.08** |
+| maul kill rate | +0.00262 | **+2.47** |
+| maul bar left | -0.00102 | -1.71 |
+| maul damage | +0.03610 | +0.68 |
+
+And on the training log itself, over all sixty iterations: `decided` rises at **t +4.55**, the return
+at **t +3.13**, the margin against `idle` at t +1.32. Explained variance sat between +0.40 and +0.88
+on most iterations, against the -0.790 the rate-and-batch calibration measured for the row this
+project shipped until Session 02 of this set moved `ppoFit`'s four defaults.
+
+### Why this is the answer to the question the owner asked
+
+The record's only previous measurement of "more of the same" is Session 11 of the learn set: 400
+mirrored iterations, 5h22m, and against a body driven by `idle` the dummy's remaining health **rose**
+0.613 to 0.791 at t +7.67 while maul damage fell from 37.6 to 9.3 at t -9.35. Every direction there
+was the wrong one.
+
+Here every direction is the right one, and the difference is not the optimiser, the observation, the
+executor, the network or the bout count -- **all of those are the same code.** What changed is that
+the opponent does not learn, so both corners are not collected, so `dealt - taken` and
+`win * outcome` do not telescope, so the surviving reward is no longer `-0.004*clinch
+-0.004*idle` with its maximum at standing still outside reach. That was the fourth condition in
+`signal-04`'s conjunction -- *the objective has to pay for the behaviour the owner wants* -- the one
+that set flagged as unmeasured with the evidence pointing the wrong way. **It is now measured, and
+it is the blocker.**
+
+The consequence for the owner's direction is specific rather than discouraging. "Iterate a lot more"
+is right, and it is right *after* the objective is fixed and wrong before it: this pipeline improves
+at about a quarter of a point of kill rate an iteration when the reward has a gradient to climb, and
+went backwards for 400 iterations when it did not.
+
+### What this does not establish, stated because four things moved at once
+
+This run differs from Session 11 in more than the telescoping. It trained on the maul-and-mace pool
+rather than all seven classes, with no exploiters and no opponent pool, at a lower entropy default,
+and with `ppoFit`'s four post-calibration defaults. **The attribution above is to the package, not
+to the telescoping alone**, and the clean version of this experiment is one variable at a time:
+mirrored self-play on the same maul-and-mace pool with the same flags, which would isolate the
+arrangement and costs another 37 minutes.
+
+Three smaller cautions. The first checkpoint is iteration 5 rather than 0, so some of the gain from
+a fresh draw is before the first probe -- though iteration 5 already clears the shipped fit's 9/28
+at p 0.031, which is its own statement. The `9/28` baseline is a fit trained on the whole viable
+pool and this one is trained on two classes of it, so beating it is a specialisation result and not
+a general one. And the `mace` class is still at 9 % after sixty iterations against `maul`'s 86 %,
+which is the same class split every table in this record shows and is not touched by any of this.
+
+One defect found in passing and not fixed: `scripts/league.mjs` wrote **119 iteration rows for 60
+iterations**, every iteration after the first logged twice with identical contents. Nothing reads the
+log by row count, and the de-duplicated wall clock is the 37.1 minutes quoted above, but a curve page
+counting rows would report a run of twice the length.
+
+### What the menu now says
+
+Experiment B -- the gradient-signal half-to-half cosine at 32, 64, 128 and 256 bouts, about 2.9
+hours -- was priced as the experiment that returns a number to change. This result makes it **more**
+worth running rather than less, and for a different reason than the one the closing table gave: the
+question is no longer "is the optimiser handed a signal at all", because at 32 bouts against `idle`
+it plainly is. It is now "how much of the mirrored run's flatness is the objective and how much is
+the sample budget", and the cosine at four bout counts under each arrangement answers it.
