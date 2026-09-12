@@ -52,8 +52,8 @@ import {
   standardisedAdvantages, valuesOf,
 } from "../scripts/train-ppo.mjs";
 import {
-  PROBE_ENTROPY, PROBE_EPOCH, cosineOf, dotOf, epochOrder, halfGradients, halfSplit, measureSignal,
-  normOf, probeRollout,
+  PROBE_ENTROPY, PROBE_EPOCH, checkHeldStart, cosineOf, dotOf, epochOrder, halfGradients, halfSplit,
+  measureSignal, normOf, probeRollout,
 } from "../scripts/gradient-probe.mjs";
 
 const SEED = 20260917;
@@ -431,4 +431,28 @@ test("the_probe_and_the_fit_standardise_one_iterations_advantages_to_the_same_sp
     "the probe cut up a different estimator from the one the fit stepped");
   assert.ok(row.advantageSd > 0, "the fixture's advantages have no spread at all");
   assert.ok(fit.updates > 0, "the fit took no step, so there is nothing for the probe to be about");
+});
+
+// ---------------------------------------------------------------------------------------
+// Holding one policy still, which is the measurement the first grid could not make.
+// ---------------------------------------------------------------------------------------
+
+test("holding_a_policy_still_requires_naming_which_policy_is_held", () => {
+  // The pairing this refusal exists for. `--hold` is the flag that turns an iteration from a step
+  // of a trajectory into one independent collection at a fixed point, and a fixed point that was
+  // never loaded is the fresh initialisation -- a mind nobody will ever train, measured for the
+  // same hours as a real one, reported in the same shape as a finding.
+  for (const from of [null, undefined, ""]) {
+    assert.throws(() => checkHeldStart({ from, hold: true }), /wants --from/);
+  }
+  assert.equal(checkHeldStart({ from: "tournaments/bracket-fencer/pool-30.json", hold: true }), true);
+});
+
+test("a_run_that_is_not_holding_never_needs_a_checkpoint_and_says_so_by_returning_false", () => {
+  // The other half, and the reason the check returns the flag rather than nothing: the grid
+  // already in the record ran with neither flag, so the un-held path has to stay exactly what it
+  // was or its eight cells stop being comparable to anything measured after today.
+  assert.equal(checkHeldStart({ from: null, hold: false }), false);
+  assert.equal(checkHeldStart({ from: undefined, hold: false }), false);
+  assert.equal(checkHeldStart({ from: "tournaments/bracket-idle/pool-5.json", hold: false }), false);
 });

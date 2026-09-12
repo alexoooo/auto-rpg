@@ -7,6 +7,7 @@
 //        [--entropy 0.0003] [--rate 1e-4] [--value-rate 1e-3] [--sigma-rate 10x rate]
 //        [--epochs 4] [--batch 4096] [--target-kl 0.03] [--half-life 4] [--lambda 0.95]
 //        [--clip 0.2] [--sigma-floor -3] [--sigma-roof 0.5]
+//        [--from tournaments/<arm>/pool-30.json] [--hold]
 //        [--features 2] [--head gaussian] [--sigma constant] [--critic self]
 //        [--value-hidden 64,64] [--log tournaments/...] [--label arm]
 //
@@ -99,7 +100,32 @@
 // the league's 0.0003 rather than the trainer's historical 0.003 for the same reason: what is being
 // priced is the runs that were taken, not the default that was left alone so older logs stay
 // readable.
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+//
+// ## `--from` and `--hold`, which exist because the first grid could not separate two readings
+//
+// The grid of 2026-09-12 ran eight cells, two opponents by four bout counts, each cell its own
+// thirty iterations from scratch *at that cell's bout count*. So the 256-bout cell measured a policy
+// that had been trained with 256-bout updates, and the `golem-fencer` row -- flat across a factor of
+// eight -- admitted two readings the design could not tell apart: more bouts do not sharpen the
+// gradient, or bigger batches walk the policy somewhere with less signal in it. That confound is
+// recorded in the entry rather than discovered by a reader, and these two flags are what removes it.
+//
+// `--from` starts at a checkpoint instead of a fresh initialisation, taking the weights, the value
+// weights, the spread and the normalisation together, because a policy read against a normalisation
+// it was not fitted under is a different policy. `--hold` then does not fit at all: no `ppoFit` and
+// no `extendNormalisation`, so every iteration of the run measures the *same* policy and an
+// iteration stops being a step of a trajectory and becomes one independent collection at one fixed
+// point. A row of `--bouts` under `--hold` therefore varies the sample size and nothing else, which
+// is the measurement the grid owed.
+//
+// `--hold` without `--from` is refused rather than defaulted to the fresh initialisation: holding a
+// random policy measures the gradient of a mind nobody will ever train, and it is the kind of run
+// that is easy to start by accident and hard to notice afterwards. A held row carries `held: true`
+// and a null `kl`, which is a different fact from a `kl` of zero -- a fit that did not move against
+// a run that never asked for one -- and the refusal that compares the probe's advantage spread
+// against the fit's is skipped because there is no second computation to disagree with, not because
+// it was waived.
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -285,6 +311,22 @@ export function measureSignal({
  * the fit's own order, at the weights the fit is about to start from, so `sd` here is the
  * `advantageSd` the fit will report and the CLI below refuses the run if it ever is not.
  */
+/**
+ * `--hold` measures one fixed policy, so it needs one named.
+ *
+ * Refused rather than defaulted to the fresh initialisation, because holding a randomly initialised
+ * policy measures the gradient of a mind nobody will ever train -- a run that is easy to start by
+ * accident, costs the same hours as a real one, and produces a number that looks exactly like a
+ * finding. The pairing is a rule and not a convention, so it is a function a test can point at
+ * rather than a condition inside a CLI block nothing can import.
+ */
+export function checkHeldStart({ from, hold }) {
+  if (hold && (from === null || from === undefined || from === "")) {
+    throw new Error("--hold measures one fixed policy, so it wants --from naming the checkpoint it holds");
+  }
+  return hold;
+}
+
 export function probeRollout({
   pool, rollout, weights, valueWeights, logSigma, norm, valueLayout, seed,
   halfLife = 4, lambda = 0.95, clip = 0.2,
@@ -358,6 +400,21 @@ if (isMain) {
     valueHidden: flag("value-hidden", "64,64").split(",").map((s) => s.trim()),
   });
   const { features, spec, columns, layout, central, valueLayout } = shape;
+  // The grid's own confound, and the two flags that remove it.
+  //
+  // Every cell of the 2026-09-12 grid is a separate thirty-iteration run at its own bout count, so
+  // the 256-bout cell measures a policy that was *trained* with 256-bout updates. A row that does
+  // not rise therefore carries two readings that design cannot separate: more bouts do not sharpen
+  // the gradient, or bigger batches walk the policy somewhere with less signal in it.
+  //
+  // `--from` starts at a checkpoint instead of a fresh initialisation, and `--hold` does not fit at
+  // all -- no `ppoFit`, no `extendNormalisation`, so the weights, the value weights, the spread and
+  // the normalisation are the same objects for every iteration of the run. Under both, an
+  // "iteration" is one independent collection at one fixed policy, and a row of them varying only
+  // `--bouts` isolates the sample size exactly. Both default off, so the grid's instrument is the
+  // file it always was and its rows stay comparable to the ones already in the record.
+  const from = flag("from", null);
+  const hold = checkHeldStart({ from, hold: argv.includes("--hold") });
   const label = flag("label", null);
   const stamp = new Date().toISOString().replace(/[-:]/g, "").slice(0, 13);
   // Concatenated rather than interpolated, for the trainer's reason: a backticked span that looks
@@ -374,17 +431,29 @@ if (isMain) {
   };
 
   const date = new Date().toISOString().slice(0, 10);
-  const weights = initWeights(layout, seed);
-  const valueWeights = initWeights(valueLayout, (seed ^ 0x1c) >>> 0);
-  const logSigma = new Float64Array(ACTION_AXES).fill(-0.7);
-  let norm = freshNormalisation(columns);
+  // A checkpoint carries all four, and a run that starts from one must take all four together: a
+  // policy read against a normalisation it was not fitted under is a different policy.
+  const start = from === null ? null : JSON.parse(readFileSync(resolve(from), "utf8"));
+  const weights = start === null ? initWeights(layout, seed) : Float64Array.from(start.weights);
+  const valueWeights = start === null
+    ? initWeights(valueLayout, (seed ^ 0x1c) >>> 0) : Float64Array.from(start.valueWeights);
+  const logSigma = start === null
+    ? new Float64Array(ACTION_AXES).fill(-0.7) : Float64Array.from(start.logSigma);
+  if (start !== null && weights.length !== netSize(layout)) {
+    throw new Error(`${from} carries ${weights.length} actor weights and this shape wants ${netSize(layout)}`);
+  }
+  let norm = start === null ? freshNormalisation(columns) : {
+    count: start.norm.count,
+    mean: Float64Array.from(start.norm.mean),
+    variance: Float64Array.from(start.norm.variance),
+  };
   let actor = null;
   let spread = null;
   let critic = null;
 
   log({
     type: "header", kind: "gradient-probe", seed, date, version: POLICY_VERSION, features,
-    layout, valueLayout, label, iterations, bouts, cap, random, workers, shards,
+    layout, valueLayout, label, iterations, bouts, cap, random, workers, shards, from, hold,
     opponent: opponentWord, terminals, mirrorShare,
     head: headName, sigma: sigmaName, critic: criticName,
     halfLife, lambda, clip, entropy: fitEntropy, rate, valueRate, sigmaRate, epochs, batch,
@@ -398,6 +467,11 @@ if (isMain) {
   console.log(`  ${netSize(layout)} actor weights, ${workers} collectors, `
     + `${shards === 1 ? "one fit thread" : `${shards} fit shards`}, pool ${terminals.join("+")}`);
   console.log(`  the cosine is taken with the entropy coefficient at ${PROBE_ENTROPY}; the fit pays ${fitEntropy}`);
+  if (start !== null) console.log(`  starting from ${from}, ${start.norm.count} observations of normalisation`);
+  if (hold) {
+    console.log("  --hold: nothing is fitted, so every iteration measures the same policy and a row "
+      + "of bout counts isolates the sample size");
+  }
 
   const pool = await FitPool.open({ shards, layout, valueLayout, spec });
   const cosines = [];
@@ -427,7 +501,10 @@ if (isMain) {
       });
       const probed = (Date.now() - probeStarted) / 1000;
       const fitStarted = Date.now();
-      const fit = ppoFit(rollout, {
+      // Under `--hold` there is no fit at all, which is the whole of what holding means: the
+      // policy this iteration measured is the policy the next one measures, so a run is a row of
+      // independent collections at one fixed point rather than a trajectory.
+      const fit = hold ? null : ppoFit(rollout, {
         weights, logSigma, valueWeights, layout, valueLayout, norm, seed: fitSeed,
         halfLife, lambda, clip, entropy: fitEntropy, rate, valueRate, sigmaRate, epochs, batch,
         targetKl, sigmaFloor, sigmaRoof, actor, spread, critic, shards, pool, spec,
@@ -438,12 +515,16 @@ if (isMain) {
       // compute independently out of the same rollout. They are the same arithmetic on the same
       // inputs, so anything but equality means the probe measured some other estimator, and a
       // cosine about some other estimator is worse than no cosine at all.
-      if (signal.advantageSd !== fit.advantageSd) {
+      // Only when there is a fit to agree with. Holding removes the second computation rather than
+      // the check, so the refusal is skipped by construction and not waived.
+      if (fit !== null && signal.advantageSd !== fit.advantageSd) {
         throw new Error(`the probe standardised this iteration's advantages at ${signal.advantageSd} `
           + `and the fit at ${fit.advantageSd}; the two are not measuring one estimator`);
       }
-      ({ actor, spread, critic } = fit);
-      norm = extendNormalisation(norm, rollout);
+      if (fit !== null) {
+        ({ actor, spread, critic } = fit);
+        norm = extendNormalisation(norm, rollout);
+      }
       cosines.push(signal.cosine);
       const { share } = episodeReturns(rollout);
       log({
@@ -455,9 +536,17 @@ if (isMain) {
         // not known in advance, and a rounding chosen for a cosine would silently write a norm of
         // 3e-7 out as zero.
         ...signal,
-        kl: fit.kl, clipFraction: fit.clipFraction, entropy: fit.entropy,
-        explained: fit.explainedAfter, epochsRun: fit.epochs, updates: fit.updates,
-        stopped: fit.stopped === null ? null : fit.stopped.kl,
+        // Absent rather than zero when nothing was fitted: a `kl` of 0 is a fit that did not move
+        // and a `kl` of null is a run that never asked for one, and a later reader of these rows
+        // has to be able to tell those apart.
+        kl: fit === null ? null : fit.kl,
+        clipFraction: fit === null ? signal.clipFraction : fit.clipFraction,
+        entropy: fit === null ? null : fit.entropy,
+        explained: fit === null ? null : fit.explainedAfter,
+        epochsRun: fit === null ? 0 : fit.epochs,
+        updates: fit === null ? 0 : fit.updates,
+        stopped: fit === null || fit.stopped === null ? null : fit.stopped.kl,
+        held: hold,
         logSigma: Array.from(logSigma),
         collectSeconds: collected, probeSeconds: probed, fitSeconds: fitted,
         seconds: (Date.now() - started) / 1000,
@@ -467,10 +556,11 @@ if (isMain) {
         + `(${signal.firstAsks}/${signal.secondAsks})  cos ${signed(signal.cosine)}  `
         + `|g| ${signal.firstNorm.toExponential(2)}/${signal.secondNorm.toExponential(2)}  `
         + `dot ${signal.dot.toExponential(2)}  spread ${signed(signal.spread.cosine)}  `
-        + `critic ${signed(signal.critic.cosine)}  KL ${fit.kl.toFixed(5)}  `
-        + `clip ${(fit.clipFraction * 100).toFixed(1)}%  `
+        + `critic ${signed(signal.critic.cosine)}  `
+        + (fit === null ? "held  " : `KL ${fit.kl.toFixed(5)}  clip ${(fit.clipFraction * 100).toFixed(1)}%  `)
         + `${((Date.now() - started) / 1000).toFixed(0)} s `
-        + `(${collected.toFixed(0)} collect, ${probed.toFixed(1)} probe, ${fitted.toFixed(0)} fit)`);
+        + `(${collected.toFixed(0)} collect, ${probed.toFixed(1)} probe`
+        + (fit === null ? ")" : `, ${fitted.toFixed(0)} fit)`));
     }
   } finally {
     await pool.close();
