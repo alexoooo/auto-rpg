@@ -21486,3 +21486,93 @@ two pools, and every one of the twelve per-opponent blocks to four decimals. So 
 scaffold the bar was measured with and the floored reader that actually shipped are the same mind on
 the same bouts, which is the identity the section above argues and this is an independent reading
 of it.
+
+## Session 01 of the signal set -- 2026-09-11: five owed gates asked at last, three answered, and an owner who is happy with the direction
+
+The learn set recorded twelve human gates across thirteen sessions and asked none of them. Five
+were still live. At the owner's instruction of 2026-09-11 they were front-loaded -- asked in one
+sitting, before any new work in this set -- on the reasoning that an eye on a mind which the
+arithmetic says completes one stroke in eight is direct evidence for or against the set's first
+finding, and that folding a gate into a close-out is what left twelve of them unasked. The entry
+sits after Sessions 02 and 03 in this file because the sitting was offered before either of them
+and answered after both had landed; this file is ordered by when a thing was measured, not by
+session number.
+
+**What was asked, and how.** The dev server on 5180, the setup curtain at the root entry, the
+`Randomize` button on each corner, the curve page at `curve.html` with its sidebar of runs, the
+snapshot file picker on the curtain, and the HUD's `command readout` disclosure. The commands and
+click-paths were verified against source before the sitting rather than guessed, and four of the
+plan file's own statements turned out to be wrong. They are recorded below rather than patched
+into a plan file this set deletes on its way out, because a gate asked with a wrong instruction is
+not a gate and the correction has to outlive the plan.
+
+**The owner's verdict, recorded verbatim in substance and not summarised into something stronger.**
+They watched a few fights and a few curves. Overall it looks ok; **they were real fights**. The
+minds they watched were `golem-fencer`, and a couple with `golem-policy`. They are happy with the
+direction, and their reading of what remains is that the work is to iterate a lot more until the
+learning mind works properly.
+
+**What that does and does not settle.** It settles the first gate's question in the affirmative
+as far as it was exercised: the fights were real and they ended. It does not discriminate on the
+question this set turns on. The screen reads the gate **greedily**, and at the greedy read the
+shipped table's abort logit is negative, so the mind never aborts and finishes every stroke it
+starts. "The strokes land on screen" and "the fit trained a policy that completes one in eight"
+are both able to be true at once, and the record carries both rather than letting the eye overturn
+the arithmetic or the arithmetic overturn the eye. The measurement that separates them is the
+drawn-against-greedy read, which `signal-03` folds in and `signal-04` states a bar on.
+
+**Gates answered:** one (the viable draw), two (the curves), five (matchups against a drawn
+opponent, at a couple rather than a dozen and mostly with `golem-fencer` in front).
+**Gates left open:** three -- the three snapshots at iterations 8, 40 and 400 were not played in
+turn, so neither the learn set's original question (can the owner say what changed between
+iteration 8 and 400) nor the question added before the data (does it finish the strokes it starts,
+and does that change across the three snapshots) has an answer -- and four, the axis-probe table,
+whose candidates are instead carried into this set's closing table for pricing.
+
+### Four things the plan file said that the screen does not do
+
+Each was found by reading the source before the sitting, and each would have made a gate
+unanswerable or answered a different question than the one written down.
+
+- **The button is `Randomize`, not "Random", and the predicate is one call deeper than the plan
+  claims.** `SetupScreen.randomize` calls `randomViableOpponent` whenever the other corner already
+  holds a golem, which on the opening two-golem matchup is always; `randomViableGolemSetup` is
+  reached from inside it. The branch that calls `randomViableGolemSetup` directly is only live for
+  a corner with no golem in it. `viability.ts` already says as much in its own note.
+- **The viability figures the plan quotes are the superseded ones.** It states 80 % decided over
+  the viable pool against a whole-pool 42.8 %. Those are a 256-bout check. The 4,096-bout
+  re-measurement in this file is **77.1 % against 42.1 %**, and it carries an explicit warning
+  against quoting the 80.9 % figure.
+- **The four leagues cannot be overlaid.** `onePool` refuses two pool labels on one axis and
+  `drawLines` prints the refusal instead of a chart. `league-anchored`, `league-flat` and
+  `league-pure` share a label -- whole pool, random 40, seed 20260914 -- and overlay fine;
+  `league-long` carries different terminals and seed 20260916, so it must be ticked alone. The
+  plan's "beside them" is sequential, not simultaneous.
+- **The pool labels cannot answer the second half of gate two.** None of the four league headers
+  carries a `mirror` field or a `pool` block, so `poolLabel` omits the arrangement clause
+  entirely. The labels separate the pools by terminals and seed and say nothing about mirrored
+  against random pairs. The gate asked whether the labels make the two arrangements impossible to
+  confuse; on these files they cannot, because the arrangement is not in them. That is a finding
+  about the header, not a verdict about the page.
+
+Two smaller ones, recorded so they are not rediscovered: the `command readout` disclosure ships
+shut and nothing in the code ever opens it, so it is a click and not a key; and every pool file
+under the league-long directory carries `bornAt: 0` and an empty history, so the policy picker
+reads "Golem snapshot -- pool-8.json" with no iteration and no score, and the three snapshots are
+distinguishable by filename alone.
+
+### What the verdict changes about this set
+
+Nothing in the plan set moves. The set's remaining sessions answer to mechanical bars stated
+before their data, and none of them was contingent on a verdict here. What changes is the record's
+account of what the owner has actually seen, which before this sitting was nothing across
+thirteen sessions.
+
+The owner's stated direction -- iterate a lot more until the learning mind works -- is the
+question `signal-04`'s closing table is built to price rather than to answer. The two experiments
+named there are both cheaper than one more night of iteration and both bear directly on whether
+more iteration is the thing that is missing: `--opponent idle` asks whether this optimiser can
+learn the easiest task in the game, and the gradient-signal probe asks whether it is handed a
+usable signal at 32 bouts an iteration at all. The record's one measurement of "more of the same"
+is Session 11 of the learn set: 400 iterations, 5h22m, and the dummy's remaining health *rose*
+0.613 to 0.791 at t +7.67 while maul damage fell from 37.6 to 9.3 at t -9.35.

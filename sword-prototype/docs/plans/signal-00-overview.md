@@ -1,6 +1,11 @@
 # Signal -- live roadmap
 
-> **2026-09-11 status: five files written, nothing implemented, every gate open.**
+> **2026-09-11 status: 01, 02 and 03 landed; 04 is the last. Both mechanical bars so far were
+> missed, and both changes were kept on their plans' own terms.** 02's pairing tightens the
+> interval 1.433x against a 1.5x bar, and 03's variance floor is a wash at d +0.028 against +0.10.
+> The diagnosis that priced them is recorded in `../measurements.md` as corrected by what they
+> measured -- most sharply, the dead columns were worth 0.393 of pre-activation spread and not the
+> 0.963 this file predicts below.
 > One file per landable session. The set was written the day the learn set closed, on a diagnosis
 > of why that set shipped nothing. **No session in this set trains a policy**: every bar is stated
 > on weights already on disk, and the whole set is well under a day of host time. Its deliverable
@@ -148,9 +153,9 @@ own files before any data exists.
 
 | session | the owner is asked | verdict |
 | --- | --- | --- |
-| 01 | the learn set's five owed gates, and whether the mind finishes the strokes it starts | open |
-| 02 | nothing; the bar is that pairing tightens the interval on the same bouts | open, and not asked |
-| 03 | nothing; the bar is d 0.10 from a change that touches no weight | open, and not asked |
+| 01 | the learn set's five owed gates, and whether the mind finishes the strokes it starts | **answered in part**: real fights, happy with the direction, iterate further. Gates one, two and five answered; three and four still open |
+| 02 | nothing; the bar is that pairing tightens the interval on the same bouts | **missed**: 1.433x against 1.5x, column kept |
+| 03 | nothing; the bar is d 0.10 from a change that touches no weight | **missed**: d +0.028, a wash, fix landed as a correctness fix |
 | 04 | which of the two priced experiments, if either, the next phase runs | open |
 
 ## What must not move

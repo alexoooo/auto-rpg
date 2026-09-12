@@ -1,6 +1,11 @@
 # Session 01 -- the five gates nobody was asked
 
-**Status (2026-09-11): planned. Needs nothing.**
+**Status (2026-09-11): landed, and the gate is answered in part.** The owner watched a few fights
+and a few curves, mostly `golem-fencer` with a couple on `golem-policy`, and reports real fights
+and a direction they are happy with, the remaining work being to iterate further. Gates one, two
+and five are answered; gate three -- the three snapshots played in turn, and the stroke-completion
+question this set turns on -- and gate four are open. The verdict, the four corrections to this
+file's own instructions and what the eye does and does not settle are in `../measurements.md`.
 
 ## Outcome
 
