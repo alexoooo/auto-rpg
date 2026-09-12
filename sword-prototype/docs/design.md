@@ -2714,6 +2714,23 @@ every rating**, and no budget was cut to pay for it. The gain is arithmetic rath
 judgement: the body's contribution is common to both columns of a row and subtracts out, so what is
 left is the mind's, and the standard error the bar is read at is the standard error of *that*.
 
+#### And a bar on `d` names its baseline in the same sentence as the number
+
+The opponent bracket, 2026-09-12, and it is the other half of the ruling above rather than a new
+one. Session 02 had already shown that the baselines fight literally the same bouts at every point
+of a curve, so the difference between two paired columns is a constant of the pool and a paired
+curve's *slope* is the fit's slope whichever baseline it was paired against. Fifty-two ratings then
+confirmed it further than it had been stated: across four arms the fitted **bar** slope is identical
+against `uniform`, `golem-driver` and `golem-fencer` to four decimals in both the slope and its `t`.
+
+**`d` is not.** Its denominator is the paired spread, and that does depend on which mind the margin
+was taken against. One arm's one improvement in the bracket reads `t +1.81` on the paired bar,
+`t +1.63` as d against `golem-fencer`, and `t +2.17` as d against `golem-driver` -- one set of
+bouts, one mind, nothing about it changing between the three rows, and a two-sigma bar met by one
+baseline and missed by the other. So: **a slope is stated on the paired bar, which cannot be
+shopped; an effect size is stated on `d` with its baseline named beside it.** A bar that says "d
+clears +0.10" without saying against whom is not a bar, for the same reason `barD` is not one.
+
 ## The curve page as a window rather than a report
 
 `curve.html` was written to draw a run that had finished. Session 11 of the learn set runs one

@@ -22030,6 +22030,16 @@ closes on.
 
 ## Experiment A of the signal set's menu -- 2026-09-12: sixty iterations against a target that never moves, and the first learning curve in this record that goes up
 
+> **Corrected the same day by the opponent bracket below, and the heading above is left standing
+> rather than edited so that the correction is visible.** Two things this entry claims did not
+> survive. First, its headline rise is measured on the idle probe -- a kill rate against a body that
+> never moves -- and when the same weights are read on the criterion this project declared, Cohen's d
+> on the paired bar margin against `golem-fencer`, this arm is the **flattest of four**, at a slope t
+> of -0.38. The curve goes up on the dummy and does not go up on the criterion. Second, the run was
+> replicated by accident at a different shard count, and the maul column quoted below at t +2.47 and
+> p 0.0001 reads t +1.29 in the replicate. The pool-kill rise reproduces in sign and clears t > +2 in
+> both; nothing else here should be read as settled.
+
 The signal set closed on a two-item menu and a recommendation: run `--opponent idle` first, because
 it is 4.3x cheaper than the gradient probe and because its negative would be the unconditional one.
 The owner's stated direction was to iterate a lot more until the learning mind works. This is that
@@ -22177,3 +22187,207 @@ interesting one rather than the disappointing one.
 **What no outcome of this bracket licenses.** It cannot ship a mind, it cannot move a reward
 coefficient, and it cannot move a default. It identifies which of two mechanisms to spend the next
 day on. The reward rows stay at zero until something measures them.
+
+## The opponent bracket -- 2026-09-12: telescoping is not the blocker
+
+The pre-registration above is the design, and it named a prediction and a falsifier. **Neither is
+what came back.** The prediction was met by one arm of four; the falsifier's condition fired and its
+conclusion is contradicted by the one arm that was supposed to be flat. What the bracket returns is a
+third outcome the pre-registration did not enumerate, which is the honest reason to write the
+prediction down first.
+
+Two findings come out of it, and the second was not asked for. **Telescoping is not what stopped the
+learn set** -- the arm whose reward telescopes learns the pre-registered measure fastest of the four.
+And **the pre-registered measure is the wrong ruler**, which the entry establishes by buying the
+right one for the same four arms: on the criterion this project actually declared, the arm that wins
+the probe is the flattest of the four, and Experiment A's curve that goes up does not go up.
+
+Four arms, 60 iterations each from scratch, 32 bouts an iteration, the maul-and-mace viable pool,
+mirrored bodies, fit seed 20260917, 7 workers and 4 fit shards. The four manifests in
+tournaments/bracket-idle, tournaments/bracket-driver, tournaments/bracket-fencer and
+tournaments/bracket-self -- gitignored, so named bare -- are identical field for field except
+`opponentSchedule`.
+
+**Harness:** `scripts/probe-snapshots.mjs` over each arm's twelve checkpoints, 4 bouts a build, 10
+workers, seed 20260906, `--baseline 9/28`, the pre-registered instrument and the same one Experiment
+A was measured on. **Instrument:** ordinary least squares of the pool kill rate against the
+iteration number, restated per 60 iterations, with `t` on the slope on ten degrees of freedom.
+
+| arm | collected | pool kill | slope / 60 it | t | predicted | met |
+| --- | --- | --- | --- | --- | --- | --- |
+| idle | one corner | 30.0% -> 36.7% | +0.0944 | **+2.25** | t > +2 | yes |
+| driver | one corner | 38.3% -> 36.7% | -0.0916 | **-2.93** | t > +2 | no, and significantly the wrong way |
+| fencer | one corner | 43.3% -> 50.0% | +0.0252 | +0.56 | t > +2 | no, flat |
+| self | **both corners** | 45.0% -> 50.0% | +0.1510 | **+2.18** | flat | no, it rises -- and the most of the four |
+
+**The finding, stated as plainly as it deserves: the arm whose reward telescopes has the largest
+slope of the four.** `self` is the arm in which both corners are collected, so `dealt - taken`
+cancels in aggregate and what is left of `GOLEM_REWARD` is `-0.004*clinchSeconds -
+0.004*idleMetres`, maximised by standing outside reach and holding still. That arithmetic is still
+correct -- it was re-derived from the reward row itself, not measured -- and it is **not what stopped
+Session 11 of the learn set.** Finding 3 of this set's diagnosis is demoted from cause to
+true-but-inert. The reward rows stay at zero and now have one fewer reason to move.
+
+**The prediction failed in the direction that costs the most to have been wrong about.** Against
+`golem-driver` the mind gets *worse* at the measure, at t -2.93 on the pool and t -5.19 on
+always-kills. Against `golem-fencer` it does not move. Those are the two arms that were predicted to
+rise most confidently, on the grounds that a non-collected opponent leaves the reward un-telescoped.
+The reward is un-telescoped in both and neither learns the measure.
+
+> The driver arm's always-kills t of **-5.193920** and the idle arm's mace-class t of **+5.193920**
+> are the same number to six figures, which looks like a copy-paste and is not. Both series are
+> small integers on the same twelve iterations, and they collide exactly: centred cross-product with
+> iteration -152.5 against +152.5, and total variance 8.916667 in both. Checked a second way through
+> Pearson's r, which reads -0.85414294 and +0.85414294. It is arithmetic, not a fitter reusing a
+> value.
+
+**The whole-run slope hides two opposite shapes, and quoting it alone would have been misleading.**
+Split at iteration 35:
+
+| arm | whole 60 it | first half | second half | shape |
+| --- | --- | --- | --- | --- |
+| idle | +0.0944 t +2.25 | +0.0743 t +0.71 | -0.0914 t -0.75 | rises, then saturates by ~35 |
+| driver | -0.0916 t -2.93 | -0.0400 t -0.39 | -0.1257 t -1.35 | declines throughout, faster late |
+| fencer | +0.0252 t +0.56 | +0.1029 t +0.90 | -0.0343 t -0.21 | flat |
+| self | +0.1510 t +2.18 | -0.1086 t -0.43 | **+0.3143 t +3.33** | collapses to 20.0% at 15, recovers to 50.0% |
+
+`idle` and `self` carry nearly the same whole-run slope and describe opposite trajectories. `self`
+does its learning entirely after a collapse that takes it from 45.0% at iteration 5 to **20.0% at
+iteration 15** -- below every other arm's minimum -- and its second-half slope is the largest t in
+the split-half table. Read as "self-play rises" that is true and useless; read as "self-play damages
+itself for fifteen iterations and then climbs out past where it started" it is a statement about
+warm-up that the next experiment can act on.
+
+### The confound in the pre-registration, which is mine and is not small
+
+**The measure is the idle probe.** `scripts/probe-snapshots.mjs` calls `idleProbe`, which puts the
+snapshot in front of a body driven by `idle` -- one that never moves, never blocks and never steps
+away -- and counts kills. So the measure is the `idle` arm's own training task, and it is the task
+*furthest* from what the driver and fencer arms were trained on. A mind that has spent 60 iterations
+learning to hold stand-off against a competent designed opponent has learned something a motionless
+dummy cannot reward, and the negative driver slope is the shape that learned caution takes on a
+dummy-kill measure.
+
+This was pre-registered anyway, and it is reported as pre-registered rather than swapped for
+something kinder after the fact. But the pre-registered falsifier's conclusion -- *only a trivial
+opponent is learnable* -- **does not follow from these numbers**, because the measure is the trivial
+task. What can be concluded from the probe alone is narrower and still worth having: training against
+`idle` or against `self` improves dummy-killing; training against `golem-driver` degrades it. The
+declared criterion of this project is not dummy-killing, it is Cohen's d on the paired bar margin
+against a designed mind, and the section below buys it for all four arms rather than leaving the
+bracket resting on the wrong ruler.
+
+### The accidental replicate: Experiment A does not reproduce at full strength
+
+tournaments/bracket-idle and tournaments/signal-a-idle were run at the same fit seed 20260917
+with identical reward rows, identical schedules, identical bout counts and identical network
+layouts. **They differ in two fields: `workers` 30 against 7, and `shards` 8 against 4.** Neither is
+supposed to be a scientific variable, so the pair is the closest thing to a replicate of Experiment A
+that exists, and it was bought by accident rather than by design.
+
+| iteration | 5 | 10 | 15 | 20 | 25 | 30 | 35 | 40 | 45 | 50 | 55 | 60 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| signal-a-idle | 30.0 | 40.0 | 35.0 | 38.3 | 36.7 | 45.0 | 51.7 | 43.3 | 41.7 | 43.3 | 50.0 | 45.0 |
+| bracket-idle | 30.0 | 40.0 | 35.0 | 38.3 | 35.0 | 36.7 | 45.0 | 38.3 | 46.7 | 41.7 | 45.0 | 36.7 |
+
+The two agree **exactly** -- pool kill, maul and mace all three -- for iterations 5 through 20 and
+separate from 25 onward, which is the signature of a float difference too small to change an action
+early on and chaotic amplification once it flips one. Shard count changes the order samples sit in
+the fit buffer, and `fitShuffle` therefore assembles different minibatches out of the same samples.
+
+What the replicate costs the record:
+
+| column | signal-a-idle | bracket-idle | reproduces? |
+| --- | --- | --- | --- |
+| pool kill rate | +0.1497 t **+3.38** | +0.0944 t **+2.25** | sign and the t > +2 bar, at 63% of the magnitude |
+| ever-killed builds | +0.1846 t +3.08 | +0.1315 t +2.76 | yes |
+| mace class | +0.1429 t +2.93 | +0.0800 t +5.19 | yes |
+| maul class | +0.1573 t **+2.47** | +0.1109 t **+1.29** | **no** -- loses significance |
+| endpoint | 30.0% -> 45.0% | 30.0% -> 36.7% | 15.0 points against 6.7 |
+
+**Experiment A's headline is one draw from a distribution nobody had sampled, and the second draw is
+weaker.** The direction survives and the pre-registered t > +2 on the pool survives; the maul column
+that was quoted at t +2.47 and p 0.0001 does not. Every single-run slope in this record should be
+read against a replicate spread of roughly this size, and no experiment in the record before today
+has one. That is the cheapest useful thing the bracket bought and it was not what the bracket was
+for.
+
+### The same four arms on the criterion this project actually declared
+
+The probe above is a dummy-kill rate. The learn set's second frozen choice is Cohen's d on the
+**paired bar margin against a designed mind**, on random viable pairs, and Session 02 of this set
+built the `golem-fencer` column precisely so that it could be stated. So the bracket is re-read on
+it, and the re-read is what the bracket is worth.
+
+**Harness:** `scripts/rate-snapshots.mjs` over each arm, 200 bouts a contender, 14 workers,
+`--terminals maul,mace --pools random`, four contenders a rating, thirteen rows an arm -- the twelve
+checkpoints and `main` -- at the rating seed derived from 20260906. 52 ratings, 1 h 45 m of wall
+clock. **Instrument:** ordinary least squares against the iteration number, restated per 60
+iterations, `t` on ten degrees of freedom.
+
+| arm | d vs fencer, 5 -> 60 | d slope / 60 it | t | bar slope / 60 it | t |
+| --- | --- | --- | --- | --- | --- |
+| idle | -0.091 -> -0.085 | -0.0141 | -0.38 | -0.0042 | -0.28 |
+| driver | -0.200 -> -0.239 | -0.0930 | **-2.31** | -0.0315 | -1.89 |
+| fencer | -0.242 -> -0.148 | +0.0661 | +1.63 | +0.0315 | +1.81 |
+| self | -0.197 -> -0.120 | +0.0434 | +0.78 | +0.0182 | +0.80 |
+
+**On the criterion, not one arm improves at t > +2, and the only column that clears two sigma is a
+decline.** Every arm is still negative at iteration 60: the best of them, the fencer arm at -0.148,
+is a mind that loses to `golem-fencer` by about a seventh of a standard deviation of the paired
+margin after sixty iterations of training against it.
+
+**And the two measures rank the arms in opposite orders at the top.** On the dummy probe the arm
+that clears the pre-registered bar is `idle` at t +2.25, and `fencer` is flat at t +0.56. On the
+criterion `fencer` is the arm that moves most, at t +1.63, and `idle` is the flattest of the four at
+t -0.38. Only `driver` agrees with itself, and it is worst on both. **Experiment A's headline --
+"the first learning curve that goes up" -- goes up on the dummy and does not go up on the
+criterion**, and that sentence is the single most important thing in this entry. A rise in the pool
+kill rate against a body that never moves is not evidence that the mind is getting better at
+fighting, and this record has now measured both on the same four arms and can stop guessing.
+
+### A caution about the criterion itself, which the same rows force
+
+Session 02's re-read of the learn set noticed that `uniform.bar - driver.bar` is a constant of the
+pool, because every contender fights literally the same bouts from the same seeds and the baselines'
+own bars never move down a curve, and drew the corollary that **a paired curve's slope is the fit's
+slope exactly, whichever baseline it was paired against.** These 52 ratings confirm it and go one
+step further than the corollary was stated: `fencer.bar - driver.bar` is 0.00112719 in all 52 rows,
+and the fitted *bar* slope is identical across the `uniform`, `driver` and `fencer` columns **to
+four decimals in both the slope and its t** -- the fencer arm reads +0.03152697 at t +1.8138 against
+all three.
+
+The consequence is a trap in the criterion as written. The bar slope is baseline-independent; **d is
+not**, because its denominator is the paired spread and that does depend on which mind the margin
+was taken against. The fencer arm's one improvement therefore reads three different ways off one set
+of bouts:
+
+| the fencer arm's rise, one improvement read three ways | t |
+| --- | --- |
+| paired bar slope, the same against every baseline | +1.81 |
+| d against `golem-fencer` | +1.63 |
+| d against `golem-driver` | **+2.17** |
+
+Nothing about the mind changes between those rows. A bar stated as "d clears +2" is met against one
+designed baseline and missed against the other, and the choice is currently made by whoever writes
+the command. **A bar on d must name its baseline in the same sentence as the number**, and a slope
+is better stated on the paired bar, which cannot be shopped.
+
+### What the four arms did, rather than scored
+
+The reward's only non-zero-mean rows in a telescoped bout pay for standing outside reach and holding
+still, and the learn set's Session 11 measured exactly that behaviour: stall 2.57 -> 6.27 s and
+outside-reach 5.29 -> 9.16 s over 400 iterations. The behaviour columns of the same 52 ratings:
+
+| arm | stall s a bout, 5 -> 60 | outside s a bout, 5 -> 60 | decided, 5 -> 60 |
+| --- | --- | --- | --- |
+| idle | 0.40 -> 0.87 | 0.15 -> 0.33 | 97% -> 93% |
+| driver | 0.05 -> 0.14 | 0.10 -> 0.17 | 99% -> 97% |
+| fencer | 0.40 -> 0.26 | 0.10 -> 0.12 | 95% -> 97% |
+| self | 0.49 -> **0.01** | 0.10 -> 0.21 | 95% -> 92% |
+
+**`self` is the arm the telescoping argument predicts should stall, and its stall goes to one
+hundredth of a second.** The arm whose stall doubles is `idle`, where the reward does not telescope
+at all and the opponent cannot punish standing still because it never attacks. That is the second
+independent refutation of finding 3 in this entry, from a different instrument than the first, and
+the two agree.
