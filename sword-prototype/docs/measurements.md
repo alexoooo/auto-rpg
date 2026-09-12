@@ -22469,3 +22469,109 @@ abort latch rather than to the bout count.
 default. It does not even train: a probe iteration collects, fits, and reports an angle, and the
 weights it leaves behind are nobody's candidate. It buys one number that says which knob the next
 night should move.
+
+## The gradient-signal grid -- 2026-09-12: two opponents, and only one of them has a sample mean
+
+The pre-registration above asked whether the cosine between two halves of one shuffled epoch rises
+with the bout count, and predicted that it does in both opponents and sits lower against the designed
+one. **The grid returns a dissociation instead of a curve.** Against a motionless target the gradient
+behaves exactly like a sample mean and the pre-registered model fits it. Against the mind the
+criterion is stated on, eight times the bouts buys nothing measurable, and the model does not
+describe the row at all. The falsifier fires -- for one opponent and not the other, which is an
+outcome neither the prediction nor the falsifier enumerated.
+
+**Harness:** `scripts/gradient-probe.mjs`, eight cells, 30 iterations each, fit seed 20260917, the
+maul-and-mace viable pool, mirrored bodies, `--shards 4`, 14 collectors a process, the two opponents
+as two concurrent processes. Written to the gradgrid files under tournaments, gitignored so named
+bare. **Instrument:** the mean of a cell's 30 per-iteration actor cosines with the standard error
+over iterations, taken with the entropy coefficient bound to `PROBE_ENTROPY`, which every row
+testifies to in its own `entropyPaid` field rather than by a comment claiming it.
+
+| bouts | 32 | 64 | 128 | 256 |
+| --- | --- | --- | --- | --- |
+| `golem-fencer` | -0.0040 +-0.0189 | +0.0551 +-0.0168 | +0.0387 +-0.0222 | +0.0138 +-0.0210 |
+| `idle` | +0.0611 +-0.0232 | +0.0500 +-0.0176 | +0.1459 +-0.0224 | +0.2291 +-0.0157 |
+
+### The number that explains thirteen sessions
+
+**At 32 bouts against `golem-fencer` the actor cosine is -0.0040 +- 0.0189.** Two halves of one
+epoch, each an independent estimate of the same gradient, point in directions whose cosine is
+indistinguishable from zero: they are orthogonal. The direction the optimiser is handed is decided
+by which bouts happened to be collected, and no number of iterations of that is a fit.
+
+**Every training run in this record was made at 32 bouts.** The thirteen sessions of the learn set,
+Session 11's four hundred iterations and five hours, the four arms of the opponent bracket above --
+all of them were handed a gradient with no reproducible content, against the opponent their bars were
+stated against. That is not a reason the minds failed to beat the fencer; it is a reason nothing
+could have been learned about the fencer at all, and it is the first explanation in this record that
+accounts for the flatness without appealing to a defect in the reward, the observation or the
+executor.
+
+### The two rows are two regimes, not two points on one curve
+
+If a half-gradient is one fixed signal vector plus mean-zero sampling noise, and each half holds half
+the bouts, the expected cosine is `S / (S + 2N/n)`. Rearranged that is `c / (1 - c) = (S / 2N) * n`:
+a straight line through the origin in the bout count, with one free constant. The line is testable
+rather than assumed, which is the point of having bought four bout counts instead of two.
+
+| opponent | fitted `k` | t | bouts for cosine 0.5 | bouts for 0.9 | the model |
+| --- | --- | --- | --- | --- | --- |
+| `idle` | 1.188e-3 +- 8.01e-5 | **+14.82** | 842 | 7577 | fits |
+| `golem-fencer` | 1.416e-4 +- 1.15e-4 | **+1.23** | 7065 | 63581 | **does not describe the row** |
+
+Against `idle` the gradient is a sample mean and behaves like one. Against `golem-fencer` the fitted
+constant is not distinguishable from zero, the row is flat across a factor of eight, and the two
+numbers in its budget columns are printed only to show what the model would have claimed if anyone
+took a non-significant fit at face value. **Buying bouts sharpens the gradient against a target that
+never moves and does not sharpen it against a mind that fights back.**
+
+**Where the `idle` line actually fits, because a t of 14.82 flatters it.** The line predicts
+`c/(1-c)` of 0.038, 0.076, 0.152 and 0.304 at the four bout counts against 0.065, 0.053, 0.171 and
+0.297 observed. The two largest cells sit on it; the two smallest do not, and between 32 and 64 the
+measured cosine *falls*. So the fit is carried by the top half of the row, and the budget column is
+an extrapolation from the two cells that agree rather than from four that do. The claim the row
+supports without extrapolating is the narrow one: from 64 bouts to 256, a fourfold increase took the
+cosine from 0.050 to 0.229.
+
+That is the pre-registered falsifier, and the reading it demanded stands for the fencer row: the
+noise there is not sampling noise in the bout draw, so more bouts is the wrong purchase however many
+hours it takes, and the fault is upstream in what is being averaged rather than in how much of it is
+averaged. It is also the more useful half of the result, because it is the half that says *not* to
+spend the next night the obvious way.
+
+### The three predictions, scored
+
+| # | stated before the bouts | outcome |
+| --- | --- | --- |
+| 1 | the cosine rises with bout count in **both** opponents, monotone in the four cells | **missed.** It rises against `idle` and is flat against `golem-fencer`, and neither row is monotone -- both dip from 32 to 64 |
+| 2 | the cosine at 32 bouts is below +0.20 in both | **met**, at -0.0040 and +0.0611, and by a wider margin than intended |
+| 3 | the `golem-fencer` cosine is below the `idle` cosine at **every** bout count | **missed on one cell of four**: +0.0551 against +0.0500 at 64 bouts. Met at 32, 128 and 256 |
+
+The peek disclosed in the pre-registration -- a single iteration at 4 bouts reading +0.4100 -- was
+the fresh-initialisation artifact it was flagged as, and it did not survive into any cell here. It
+bore against prediction 2 and prediction 2 was met.
+
+### The confound in this grid, which is mine and which the next measurement removes
+
+**Every cell is its own thirty-iteration run at its own bout count.** The 256-bout cell therefore
+measures a policy that has been *trained* with 256-bout updates, and a row that does not rise has two
+readings that this design cannot separate: more bouts do not sharpen the gradient, or bigger batches
+walk the policy somewhere with less signal in it. The `idle` row rising is evidence that the second
+reading is not the whole story -- bigger batches did not hurt there -- but it is not proof for the
+fencer row, where the question actually matters.
+
+The clean version holds the policy fixed and varies only the sample size: one checkpoint off disk,
+never updated, put in front of four bout counts with independent collection seeds and no fit at all.
+It is cheap, it is the obvious confirmation, and it is named here as owed rather than left for a
+reader to notice.
+
+### What this does not license
+
+No mind ships, no reward coefficient moves and no default moves. In particular **the grid does not
+license raising the bout count**, which is the one action it most looks like it licenses: it says
+bouts help against a trivial opponent and do nothing against a real one, and the budget the `idle`
+row implies is far beyond anything this project would spend. What it licenses is looking upstream of
+the sample size, and the first candidate the arithmetic suggests is written down as a question rather
+than a finding: if different bodies in the pool demand contradictory policy changes, averaging more
+of them drives the mean toward zero rather than toward a signal, and a per-class gradient would
+cohere where the pooled one does not. That is one cheap measurement and it is not made here.
