@@ -188,6 +188,11 @@ them stale while leaving the argument unchanged.
 - `docs/plans/matchup-07-tuning.md`
 - `docs/plans/matchup-08-neural.md`
 - `docs/plans/matchup-09-close.md`
+- `docs/plans/signal-00-overview.md`
+- `docs/plans/signal-01-owed-gates.md`
+- `docs/plans/signal-02-paired-column.md`
+- `docs/plans/signal-03-dead-columns.md`
+- `docs/plans/signal-04-abort-gate.md`
 - `docs/plans/style-00-overview.md`
 - `docs/plans/style-01-contact-rules.md`
 - `docs/plans/style-02-stroke-bench.md`
