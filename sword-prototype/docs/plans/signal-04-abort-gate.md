@@ -1,6 +1,10 @@
 # Session 04 -- a stroke that survives six coin flips
 
-**Status (2026-09-11): planned. Needs 02 and 03.**
+**Status (2026-09-12): landed. The property bar is missed -- completion at the drawn read rises
+0.1035 to 0.4845 against a bar of 0.80, which no latch could reach, because the head's own abort
+rate on the ask that starts a stroke is 0.52. `latchAbort` ships off; the read gap is d +0.005 and
+reproduces 03's folded-in point exactly; the closing table is in `../measurements.md`. The set is
+ready to be deleted.**
 
 ## Outcome
 

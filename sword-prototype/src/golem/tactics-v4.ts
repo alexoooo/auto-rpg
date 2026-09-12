@@ -96,11 +96,12 @@ type Widened<T> = {
 };
 
 /**
- * Every constant this executor has: v3's whole table, copied at load, and six rows of its own.
+ * Every constant this executor has: v3's whole table, copied at load, and seven rows of its own.
  *
  * *(Four until Session 07 of the learn set, which added `holdMetres` as a candidate behind a flag,
- * and five until Session 09, which added `holdMyReach` beside it. A count in prose is what this
- * directory keeps getting wrong when a row is appended under it.)*
+ * five until Session 09, which added `holdMyReach` beside it, and six until Session 04 of the
+ * signal set added `latchAbort`. A count in prose is what this directory keeps getting wrong when a
+ * row is appended under it.)*
  *
  * The copy is taken at load for the reason v3 takes its copy of v2's. A harness that moves
  * `GOLEM_TACTICS_V3` after this module has loaded moves the four styles and not this file, which
@@ -135,6 +136,57 @@ const DRIVEN = {
    * cost is the whole reason the gate is a decision.
    */
   abortCooldown: 0.5,
+  /**
+   * Whether the abort gate is read once, on the ask that starts the stroke, instead of every step.
+   *
+   * **Off, and off is what ships.** Session 04 of the signal set measures it; nothing in that set
+   * fits a policy, so nothing in it has earned a default, and a surface row adopted on a rating of
+   * weights fitted under the *other* surface would be exactly the guess this table's reward rows
+   * were kept at zero to avoid.
+   *
+   * **What is wrong with reading it every step, and why the same rule is right for `commit`.** The
+   * comment at the gates below says the gates are held rather than read only at the ask, because a
+   * command is a standing order. For `commit` that is exactly right: "start a stroke" means "as
+   * soon as the arm is free", which is v3's `wait` written as a number, and a mind that holds it
+   * throws with alternate hands as fast as the cooldown allows. For `abort` it is exactly
+   * backwards. The command refreshes at every ask, `askHz` is 12, and a stroke runs
+   * `arc.chamberSeconds` and then until `elapsed >= max(commitSeconds, arc.strokeSeconds +
+   * followSeconds)` -- **0.44 s to 0.67 s across the blended shapes, five to eight asks**. So an
+   * abort read every step is a *fresh Bernoulli draw on every one of those asks*, and a stroke
+   * survives with probability `(1 - p)^k` rather than `1 - p`.
+   *
+   * | policy | p per ask | k | (1 - p)^k | what the record measured |
+   * | --- | ---: | ---: | ---: | --- |
+   * | `uniform` | 0.5 | 7 | 0.8 % | 103.6 strokes started, 102.8 aborted -- 0.8 % |
+   * | the 400-iteration fit | 0.30 | 6 | 12 % | 88 % of strokes started aborted |
+   *
+   * **Both of those numbers were published as facts about a policy and are predictions of this one
+   * line of the executor.** To finish nine strokes in ten under the compounding read a policy needs
+   * an abort logit near -4, and `entropyGrad` in `policy.ts` adds `-logit * p * (1-p)` per gate per
+   * sample with a fixed coefficient -- the entropy bonus pulls every gate logit toward a coin flip
+   * by exactly the mechanism that pushes `logSigma` up. The shipped table's three gate logits at the
+   * mean observation are commit +0.062, abort -0.191, parry +0.066, all three inside 0.2 of the
+   * knife edge after 93 iterations. `tests/tactics-v4.test.mjs` pins the `k` above so that the two
+   * published survival rates fail loudly if a stroke's duration or the ask rate ever moves.
+   *
+   * **`(1 - p)^k` is an upper bound on the damage and not the measurement.** The asks inside one
+   * stroke are independent Bernoullis only if the logit they are drawn at is independent, and the
+   * observation barely moves through a stroke, so the realised loss is milder than the product:
+   * over 600 random-viable bouts Session 04 recovered an *effective* exponent of **3.13** at the
+   * drawn read, and **0.86** at the greedy read -- which is to say the greedy read is already
+   * latched by the autocorrelation of its own observation, and this row buys it nothing.
+   *
+   * **It latches, it does not disable.** With the row up the gate is read on the step the stroke
+   * starts and held for that stroke: a command carrying `abort` at 1 when the stroke opens still
+   * refuses it, on the very next step and at the same `abortCooldown`. What a mind loses is the
+   * ability to change its mind mid-stroke, which is the thing v3 called `chamberAbort` and which
+   * this executor made continuous; what it gains is that "abort" means one decision per stroke
+   * rather than five to eight of them. Which of those a fit wants is not settled here, and the
+   * measurement that would settle it is in `docs/measurements.md` under Session 04 of the signal
+   * set -- where it is reported as the size of an effect a fit *would be optimising into*, with no
+   * default following from it.
+   */
+  latchAbort: false,
   /**
    * The trunk twist a stroke sweeps, scaled by how wide the arc is.
    *
@@ -487,6 +539,15 @@ export function golemDriven(
   let nextPrefer: HandName = "secondary";
   /** How wide the arc in flight is, which is what the trunk's sweep is scaled by. */
   let arcSwing = 0;
+  /**
+   * The abort gate as it stood on the step this stroke started, read only when `latchAbort` is up.
+   *
+   * Beside `arcSwing` because it is the same kind of thing: a property of the stroke in flight,
+   * taken from the command once at the chamber and not asked for again. It is written in both
+   * branches that start a stroke and cleared on every entry to `free`, so a stroke can never
+   * inherit the draw of the one before it.
+   */
+  let latchedAbort = false;
 
   let stance: DrivenStance = "free";
   let elapsed = 0;
@@ -535,6 +596,16 @@ export function golemDriven(
     justEntered = true;
     ramFired = false;
     ramFiredAt = 0;
+    // Cleared here rather than where a stroke ends, because there are three ways out of a stroke --
+    // the abort, the recover, and a stroke the commit gate refused to open -- and `free` is the one
+    // state all three pass through. **This line and the write at each stroke's chamber are belt and
+    // braces, and that is said out loud because neither can be mutated away on its own**: every
+    // path into a stroke assigns the latch outright, so removing this clear changes no behaviour,
+    // and this clear makes a sticky `latchedAbort ||= ...` at the chamber behave correctly too. It
+    // is kept because it is where the invariant belongs -- a latch is a property of one stroke --
+    // and because the first path into a stroke that forgets to assign would otherwise inherit the
+    // last stroke's draw. `tests/tactics-v4.test.mjs` watched *both* mutated together go red.
+    if (next === "free") latchedAbort = false;
   };
 
   /**
@@ -951,17 +1022,27 @@ export function golemDriven(
     // Held rather than read only at the ask, because a command is a standing order: `commit` at one
     // means "as soon as the arm is free", which is v3's `wait` option written as a number, and a
     // mind that holds it throws with alternate hands as fast as the cooldown allows.
+    //
+    // **That reasoning is right for `commit` and backwards for `abort`**, and `latchAbort` is the
+    // row that says so: a held abort is re-drawn on every one of a stroke's five to eight asks, so
+    // a gate at p survives `(1 - p)^k` rather than `1 - p`. The arithmetic and what it cost the
+    // record are on that row.
     const striking = stance === "chamber" || stance === "commit" || stance === "ram";
-    if (striking && command.abort >= 0.5) {
+    if (striking && (T.latchAbort ? latchedAbort : command.abort >= 0.5)) {
       aborts += 1;
       cooldown = T.cooldown * T.abortCooldown;
       goTo("free");
     } else if (stance === "free" && command.commit >= 0.5 && cooldown <= 0) {
       if (headfirst && natural !== null) {
+        latchedAbort = command.abort >= 0.5;
         strokes += 1;
         sinceMyStroke = 0;
         goTo("ram");
       } else if (canHand && (T.strokeOutOfRange || gap <= strike)) {
+        // Written in both stroke-starting branches rather than once above them, because the two
+        // branches are the two strokes this executor has and a ram that could not be latched would
+        // be a head charge that `latchAbort` quietly made unabortable.
+        latchedAbort = command.abort >= 0.5;
         arcSwing = clamp(command.swing, 0, 1);
         blendArc(me.weapon, arcSwing, arc);
         // v3's three swept rows laid over the two ends of the blend, for the same reason v3 lays

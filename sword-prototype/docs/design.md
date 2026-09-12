@@ -1852,6 +1852,51 @@ merely under a millionth discards that millionth. And `renderPolicyModule` names
 by feature name in the generated header, because a dead column is the one fact about a fitted table
 that is invisible in its numbers -- it looks like a zero among seventy others.
 
+### A gate that is a standing order, and a gate that is a decision
+
+Session 04 of the signal set, and it is the seventh row of the executor's own table and the third
+of those that ships off: **`latchAbort` reads the abort gate once, on the ask that starts a stroke,
+instead of every step of it.** It ships **off**. Nothing in that set fitted a policy, so nothing in it earned a default, and
+a surface row adopted on a rating of weights fitted under the other surface would be exactly the
+guess the reward rows were kept at zero to avoid.
+
+**The design statement is about the other two gates as much as this one.** `plan()` reads all three
+of `commit`, `abort` and `parry` from the *held* command, every step, and the comment beside them
+says why: a command is a standing order. For `commit` that is right and load-bearing -- "start a
+stroke" means "as soon as the arm is free", which is v3's `wait` written as a number, and a mind
+that holds it throws with alternate hands as fast as the cooldown allows. For `parry` it is right
+for the same reason: a cover is a state and is held while the command asks for it. For `abort` it
+is exactly backwards, and the difference is not a matter of taste. A standing order re-read `k`
+times is `k` decisions, and an abort is the one gate of the three whose *first* yes ends the thing
+it is about -- so a held abort at probability `p` destroys a stroke with probability
+`1 - (1 - p)^k` where an abort read once destroys it with probability `p`.
+
+`k` is not a free parameter. A stroke runs `arc.chamberSeconds` and then until
+`elapsed >= max(commitSeconds, arc.strokeSeconds + followSeconds)`, and over every blended shape on
+the table that is **0.44 s to 0.67 s**; at `askHz` 12 it is **five to eight asks**.
+`tests/tactics-v4.test.mjs` pins that band, because two numbers this record published as facts
+about a policy -- `uniform` aborting 99.2 % of its strokes and the 400-iteration fit 88 % -- are
+`(1 - 0.5)^7` and `(1 - 0.30)^6` and are therefore facts about this line of the executor.
+
+**And the row makes the two reads of a policy visibly different objects, which is the finding that
+outlives it.** Training draws each gate as a Bernoulli at the head's own sigmoid; every rating in
+this record plays the mean. Under a held gate those are not the same mind and not even the same
+kind of mind: the drawn read takes an independent coin on each of a stroke's five to eight asks,
+while the greedy read takes a *deterministic function of an observation that barely moves through a
+stroke* and so behaves as though it were already latched. Measured over 600 random-viable bouts,
+that is the whole difference between completing one stroke in ten and completing one in three, and
+the effective exponent recovered from the two is 3.13 drawn against 0.86 greedy. So the rule Session 07 of the
+learn set wrote -- *any measurement downstream of a finished stroke is a measurement of the abort
+gate* -- gains a second half here: **it is also a measurement of which read the gate was taken
+on**, and a bar that does not say which one it used has not said what it measured.
+
+The row is reached per contender through `--tactics latchAbort=true`, which is Session 07's
+`holdMetres` pattern unchanged: `COMMAND_AXES` does not move, `POLICY_VERSION` does not move, and
+the shipped table loads byte for byte. What it costs a mind is stated rather than hidden -- under
+the latch a mind cannot change its mind mid-stroke, which is the thing v3 called `chamberAbort` and
+this executor made continuous. What it buys is that "abort" is one decision per stroke rather than
+five to eight of them.
+
 ## The fit on K threads, which has to be the same fit
 
 Session 05 of the learn set. `scripts/fit-worker.mjs`, and `FitPool` in `scripts/train-ppo.mjs`.

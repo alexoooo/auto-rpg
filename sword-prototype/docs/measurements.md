@@ -21521,6 +21521,15 @@ are both able to be true at once, and the record carries both rather than lettin
 the arithmetic or the arithmetic overturn the eye. The measurement that separates them is the
 drawn-against-greedy read, which `signal-03` folds in and `signal-04` states a bar on.
 
+> **Corrected by Session 04 of this set, and the correction is left in place rather than edited
+> away.** "The mind never aborts and finishes every stroke it starts" is false. It was read off the
+> gate logit **at the mean observation**, and no bout stands at the mean. Measured over 600
+> random-viable bouts the greedy read completes **0.2974** of the strokes it starts, and 0.1346
+> mirrored. So the owner was not watching a mind that finishes everything; they were watching one
+> that finishes about three strokes in ten. That does not change the verdict recorded above -- the
+> fights were real and they ended -- but it removes the clean two-reads story this entry told, and
+> the entry that measured it is the authority.
+
 **Gates answered:** one (the viable draw), two (the curves), five (matchups against a drawn
 opponent, at a couple rather than a dozen and mostly with `golem-fencer` in front).
 **Gates left open:** three -- the three snapshots at iterations 8, 40 and 400 were not played in
@@ -21576,3 +21585,445 @@ learn the easiest task in the game, and the gradient-signal probe asks whether i
 usable signal at 32 bouts an iteration at all. The record's one measurement of "more of the same"
 is Session 11 of the learn set: 400 iterations, 5h22m, and the dummy's remaining health *rose*
 0.613 to 0.791 at t +7.67 while maul damage fell from 37.6 to 9.3 at t -9.35.
+
+## Session 04 of the signal set -- 2026-09-12: a gate read once instead of six times, a property bar missed at 0.48 against 0.80, and the table this set exists to produce
+
+The abort gate was read against the *held* command on every one of a stroke's five to eight asks,
+so a stroke had to survive `(1 - p)^k` draws of it. `latchAbort` reads it once, on the ask that
+starts the stroke. It **ships off**, as frozen: nothing in this set fits a policy, so nothing in it
+has earned a default. This session measures it on the shipped weights at both reads, with no
+training iteration, and closes the set with the table it exists to produce.
+
+**The property bar is missed.** At the drawn read the latch lifts completion of strokes started
+from **0.1035 to 0.4845** on random viable pairs and from 0.0568 to 0.4046 mirrored, against a
+stated bar of **at least 0.80**. The row does what its name says -- 4.68 times the completion rate
+and 2.55 times the completed strokes a bout -- and the bar it was stated against was unreachable by
+any latch, for a reason that is arithmetic and is set out below rather than argued around. **The
+bar is not adjusted.** No number in this entry was adjusted after it was taken.
+
+**And the record's account of the greedy read was wrong, which matters more than the bar.** Session
+01 of this set and the plan set's overview both say that at the greedy read the shipped abort logit
+is negative so the mind never aborts and finishes every stroke it starts. Over 600 random-viable
+bouts the greedy read completes **0.2974** of the strokes it starts, and 0.1346 mirrored. The claim
+came from the gate's logit **at the mean observation**, and the mean observation is not a position
+any bout spends time in; on real asks the abort head goes positive about half the time at either
+read. The greedy read is not an abort-free read. What separates it from the drawn read is something
+else entirely, and this session names it.
+
+### First, with no bouts at all: the stroke's own clock, and what it predicts
+
+**Instrument:** `blendArc` and `COMMITTED_SHAPES` read directly, at the shipped table's own
+`askHz` 12, `commitSeconds` 0.22, `followSeconds` 0.07, `cutSeconds` 0 and `thrustSeconds` 0.12.
+A stroke runs `arc.chamberSeconds` and then until
+`elapsed >= max(commitSeconds, sweep + followSeconds)`, where `sweep` is the swing-blend of the
+thrust and cut times. Pinned in `tests/tactics-v4.test.mjs`, in the test named
+`a_stroke_spans_five_to_eight_asks_which_is_what_the_two_published_abort_rates_predict`.
+
+| kind | swing 0 | 0.25 | 0.5 | 0.75 | 1 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| sword, axe, bow | 0.440 (5) | 0.465 (5) | 0.500 (6) | 0.545 (6) | 0.590 (7) |
+| shield, buckler, empty | 0.440 (5) | 0.465 (5) | 0.490 (5) | 0.515 (6) | 0.540 (6) |
+| club | 0.440 (5) | 0.440 (5) | 0.460 (5) | 0.485 (5) | 0.510 (6) |
+| whip | 0.440 (5) | 0.485 (5) | 0.540 (6) | 0.605 (7) | 0.670 (8) |
+
+Seconds, with the number of 12 Hz asks a stroke spans in brackets. **The band is 0.44 s to 0.67 s
+and five to eight asks, and it is exactly five to eight** -- both ends are attained, the shortest
+by every kind at a pure thrust and the longest by `whip` at a pure cut.
+
+**The plan's published range was 0.44 to 0.69 s and the upper end is wrong.** No blended shape on
+this table reaches 0.69; the maximum is `whip` at swing 1 at 0.670. The exponent band the
+arithmetic is stated over is unaffected, because 0.69 s and 0.67 s are both eight asks, and that is
+why the test asserts the ask count as the claim and the two seconds only as the figures the claim
+was drawn from.
+
+**The two abort rates the record published as facts about a policy are predictions of this line of
+the executor**, and the test recomputes them rather than quoting them: `(1 - 0.50)^7` is **0.8 %**,
+which is `uniform`'s 103.6 strokes started and 102.8 aborted from Session 07 of the learn set, and
+`(1 - 0.30)^6` is **12 %**, which is the 400-iteration fit's 88 % aborted. Nothing was fitted to
+produce those two; they fall out of a gate re-read five to eight times.
+
+The last part of the test stops it being a second reading of the same table: a stroke is actually
+driven on the fixture golem's own weapon at swing 0 and swing 1, and the frames it holds `chamber`
+or `commit` for are asserted within two of `strokeSecondsOf(kind, swing) * physicsHz`. So the
+arithmetic is a claim about the executor's clock and not about the numbers it is written from, and
+it breaks if either the shape table or `askHz` moves. It was watched break: `askHz` 12 -> 16 and
+`commitSeconds` 0.22 -> 0.40 each turn it red.
+
+### The property, which the plan asked to be checked in a test and not inferred from a rating
+
+**In the test.** `the_latch_turns_one_completed_stroke_in_ten_into_two_in_three_at_the_drawn_read`
+in `tests/tactics-v4.test.mjs` drives the shipped weights, drawn, through four 30-second bouts
+against `golem-fencer` at seeds 20260906 + {0, 101, 202, 303}, once with the row down and once
+with it up, and reads `strokes` and `aborts` off the executor handle:
+
+| arm | strokes started | aborted | completion | abort raised, per ask |
+| --- | ---: | ---: | ---: | ---: |
+| held, drawn | 280 | 252 | **0.1000** | 0.4207 |
+| latched, drawn | 136 | 46 | **0.6618** | 0.3358 |
+| held, greedy | 230 | 146 | 0.3652 | 0.5383 |
+| latched, greedy | 217 | 122 | 0.4378 | 0.4566 |
+
+**And in the rating, on 600 bouts a contender, which is the number the bar is stated on.** These
+are the tournament rows' own `strokesStarted` and `aborts`, summed over the same bouts the margins
+below are taken on:
+
+| pool | arm | strokes started, a bout | completed, a bout | completion |
+| --- | --- | ---: | ---: | ---: |
+| random viable pairs | held, greedy | 65.8 | 19.6 | 0.2974 |
+| random viable pairs | latched, greedy | 74.4 | 18.2 | 0.2452 |
+| random viable pairs | held, drawn | 93.1 | 9.6 | **0.1035** |
+| random viable pairs | latched, drawn | 50.8 | 24.6 | **0.4845** |
+| random viable pairs | `golem-driver` | 17.9 | 13.4 | 0.7484 |
+| mirrored | held, greedy | 73.6 | 9.9 | 0.1346 |
+| mirrored | latched, greedy | 93.0 | 9.3 | 0.0997 |
+| mirrored | held, drawn | 106.9 | 6.1 | **0.0568** |
+| mirrored | latched, drawn | 55.1 | 22.3 | **0.4046** |
+| mirrored | `golem-driver` | 18.7 | 12.6 | 0.6755 |
+
+**The bar asked for 0.80 and the measurement is 0.4845. It is missed and it is not adjusted.** What
+the row does is not in doubt: at the drawn read it multiplies completion by **4.68** on random
+viable pairs and by **7.12** mirrored, and because a stroke that finishes occupies the arm and pays
+a cooldown the latched mind *starts* 45 % fewer strokes and still finishes **2.55 times** as many
+of them a bout, 9.6 to 24.6. That is the behaviour the row was added to produce.
+
+**Why 0.80 was never reachable, stated as arithmetic and not as an excuse.** Under the latch the
+gate is read exactly once a stroke, so a latched stroke aborts if and only if the abort gate was up
+on the ask that started it -- which makes the latched arm's completion, by construction, `1 - p`
+for the head's own abort rate `p` *on those asks*. Measured, that `p` is **0.5155** on random viable
+pairs and 0.5954 mirrored. A completion of 0.80 therefore requires an abort rate of 0.20 on the
+starting ask, which is a logit of **-1.386**; the shipped head's abort logit at the mean observation
+is **-0.191**, a rate of 0.452. The bar asked a latch to move the head by 1.2 logits, and a latch
+cannot make a gate say something the head did not say. **The plan's arithmetic priced the exponent
+and forgot to price the base.** That is a defect in the bar, written down here because the house
+rule is that a missed bar is reported and not rewritten.
+
+**The exponent the two rates recover, and the second thing this session got wrong before it
+measured it.** A gate at `p` re-drawn on each of `k` asks survives `(1-p)^k`, so
+`ln(held) / ln(latched)` recovers the number of draws a stroke actually pays for. Over the 600-bout
+rating that is **3.13** on random viable pairs and 3.17 mirrored -- above one, and well below the
+five to eight the executor's clock gives. On the four-bout fixture in the test it is 5.58.
+
+The gap is not noise and it is worth the paragraph. With `p` at 0.5155 on the starting ask, six
+*independent* draws predict a held completion of **0.0129**; the measured held completion is
+**0.1035**, eight times higher. The asks inside a stroke are independent Bernoullis only if the
+logit they are drawn at is independent, and it is not -- the observation barely moves through a
+stroke, so a stroke is much closer to one draw of `p` followed by `k` flips at that same `p`, and
+`E[(1-p)^k]` over a spread of `p` sits far above `(1-E[p])^k`. **So the compounding is real and its
+exponent is about three, not six.** The test asserts the two bounds that argument supports -- more
+than one draw a stroke, no more than the asks a stroke spans -- rather than the ask count it does
+not.
+
+**The same arithmetic explains why the latch is a null at the greedy read, and that is the
+session's sharpest finding.** At the greedy read the gate is not a draw at all: it is
+`logit > 0` on an observation that barely moves through a stroke, so the five to eight reads are
+very nearly the *same* read. Recovering the exponent from the greedy pair gives **0.86** on random
+viable pairs and 0.87 mirrored -- one draw a stroke, to within the noise, which is exactly what a
+latch already gives. Latching it changes completed strokes a bout by 0.93x on random pairs and
+0.94x mirrored, which is to say by nothing.
+
+**Which is the finding that outlives the row.** The greedy read is not "the drawn read without the
+noise". It is a *different executor*: at the greedy read the abort gate is already latched by the
+autocorrelation of the observation, and at the drawn read it is a fresh coin on every ask. Every
+rating in this record is taken at the greedy read and every gradient in it was taken at the drawn
+one, and on this gate those two are three effective draws apart.
+
+### The reading, which is deliberately not a ship bar
+
+**Harness.** `ratePaired` in `scripts/sweep.mjs` hard-codes `sample: false` on every contender it
+builds, so a drawn read needs the entry point Session 03 used: `evaluate` from `scripts/tune.mjs`
+called directly, with per-contender `sample` and `tactics`, and with `ratePaired`'s opponent-order
+assertion and its `columnsOf` / `meanOf` / `semOf` / `cohensD` arithmetic copied verbatim. **Six
+contenders in one call** -- the shipped weights at (latch off, greedy), (on, greedy), (off, drawn)
+and (on, drawn), plus `golem-driver` and `golem-fencer` -- against the five-mind league, 120 bouts
+an opponent, 600 bouts a contender, 3,600 bouts a pool, **7,200 bouts in all**. Seed 20260906,
+pools from `poolFor` at 52 random-viable builds and 15 mirrored. **30 workers on 16 cores / 32
+threads; 878 s on random viable pairs and 828 s mirrored.** Every one of the six columns was
+asserted to have met the same opponent in the same order, bout for bout, before any difference was
+formed. Intervals are 95 %.
+
+**Two cross-checks before the reading, and both are exact.** The (off, greedy) column is the shipped
+mind on the post-Session-03 tree, and it reproduces that session's `fix` arm to four decimals on
+both pools: +0.0300 +-0.0525 random and +0.0038 +-0.0276 mirrored, 0.5108 and 0.4942 points a bout,
+paired `vsFencer` -0.0010 +-0.0258. The (off, drawn) column likewise reproduces Session 03's
+folded-in drawn arm: +0.0313 +-0.0537 and +0.0040 +-0.0261, 0.5267 and 0.5000 points. Adding four
+contenders to the call did not move the bouts.
+
+| pool | arm | bar margin | points a bout | paired vs `golem-fencer` | d |
+| --- | --- | --- | ---: | --- | ---: |
+| random viable pairs | latch off, greedy | +0.0300 +-0.0525 | 0.5108 | -0.0010 +-0.0258 | -0.003 |
+| random viable pairs | latch on, greedy | +0.0346 +-0.0526 | 0.5217 | +0.0037 +-0.0258 | +0.011 |
+| random viable pairs | latch off, drawn | +0.0313 +-0.0537 | 0.5267 | +0.0004 +-0.0252 | +0.001 |
+| random viable pairs | latch on, drawn | +0.0439 +-0.0532 | 0.5217 | +0.0130 +-0.0258 | +0.040 |
+| random viable pairs | `golem-driver` | +0.0430 +-0.0558 | 0.5200 | +0.0121 +-0.0247 | +0.039 |
+| random viable pairs | `golem-fencer` | +0.0309 +-0.0557 | 0.5200 | -- | -- |
+| mirrored | latch off, greedy | +0.0038 +-0.0276 | 0.4942 | +0.0028 +-0.0419 | +0.005 |
+| mirrored | latch on, greedy | -0.0370 +-0.0275 | 0.4958 | -0.0380 +-0.0421 | -0.072 |
+| mirrored | latch off, drawn | +0.0040 +-0.0261 | 0.5000 | +0.0030 +-0.0391 | +0.006 |
+| mirrored | latch on, drawn | +0.0313 +-0.0257 | 0.5092 | +0.0303 +-0.0382 | +0.064 |
+| mirrored | `golem-driver` | -0.0075 +-0.0273 | 0.4617 | -0.0085 +-0.0386 | -0.018 |
+| mirrored | `golem-fencer` | +0.0010 +-0.0287 | 0.5383 | -- | -- |
+
+**The reading itself is the latch's paired difference, on against off, bout for bout.** One
+arithmetic note first, because it is not obvious and it settles what the plan asked for: the plan
+names "the paired difference against `golem-fencer`", and differencing two arms against a common
+third column gives *the same number* as differencing them against each other -- the fencer column
+cancels exactly. So the row below is both readings at once and there is no second one to take.
+
+| pool | opponent | bouts | greedy, on - off | d | drawn, on - off | d |
+| --- | --- | ---: | --- | ---: | --- | ---: |
+| random viable pairs | all | 600 | +0.0047 +-0.0168 | **+0.022** | **+0.0126 +-0.0223** | **+0.045** |
+| random viable pairs | `golem-driver` | 120 | +0.0020 +-0.0366 | +0.010 | -0.0196 +-0.0498 | -0.070 |
+| random viable pairs | `golem-form` | 120 | -0.0071 +-0.0321 | -0.040 | +0.0324 +-0.0491 | +0.118 |
+| random viable pairs | `golem-brawler` | 120 | +0.0200 +-0.0365 | +0.098 | +0.0081 +-0.0422 | +0.034 |
+| random viable pairs | `golem-duelist` | 120 | -0.0057 +-0.0373 | -0.027 | +0.0404 +-0.0609 | +0.119 |
+| random viable pairs | `golem-fencer` | 120 | +0.0141 +-0.0442 | +0.057 | +0.0018 +-0.0459 | +0.007 |
+| mirrored | all | 600 | **-0.0408 +-0.0278** | **-0.118** | +0.0273 +-0.0338 | +0.065 |
+| mirrored | `golem-driver` | 120 | +0.0154 +-0.0682 | +0.040 | +0.0566 +-0.0854 | +0.119 |
+| mirrored | `golem-form` | 120 | -0.0237 +-0.0564 | -0.075 | +0.0615 +-0.0739 | +0.149 |
+| mirrored | `golem-brawler` | 120 | -0.1082 +-0.0625 | -0.310 | -0.0249 +-0.0726 | -0.061 |
+| mirrored | `golem-duelist` | 120 | -0.0281 +-0.0561 | -0.090 | +0.0513 +-0.0697 | +0.132 |
+| mirrored | `golem-fencer` | 120 | -0.0593 +-0.0650 | -0.163 | -0.0082 +-0.0748 | -0.020 |
+
+**This is not a ship bar and no default follows from it.** `latchAbort` ships off, which was frozen
+choice 3 of the set before any of this existed. What the row is for is the size of the effect a fit
+*would be optimising into* if it were on, and that is **d +0.045 on random viable pairs at the
+drawn read, with an interval that includes zero**.
+
+**The number worth carrying out of this session is how small that is.** The latched arm finishes
+**2.55 times** as many strokes a bout as the held one on the very same bouts -- 24.6 against 9.6 --
+and on the ruler this project states every bar on, that is worth +0.0126 +-0.0223 of a bar margin.
+Multiplying a mind's completed strokes by two and a half is inside the noise of 600 paired bouts.
+Whatever the learn set's failure was, the abort gate is not enough of it to be seen here.
+
+**At the greedy read the latch is a null on random pairs and a real loss on the mirror**, and the
+mirrored loss is the only interval in the whole table that excludes zero: **-0.0408 +-0.0278, d
+-0.118**. That is the exponent arithmetic again rather than a surprise. At the greedy read the gate
+is already effectively latched by the autocorrelation of the observation, so the row buys no
+completion at all -- 0.94 times the completed strokes a bout -- and only costs the executor its
+ability to change its mind mid-stroke. On a mirror, where the body in the other corner is making
+the same commitment at the same moment, that costs.
+
+**The mirrored column is read under Session 02's warning and not beside the random one.** That
+session measured the mirror to be an *anti*-instrument for a paired difference against a designed
+mind: both corners hold the same body, so the build's contribution is not common-mode and
+differencing adds variance rather than removing it. It reproduces here, in the same direction and
+larger. Against `golem-fencer` on 600 mirrored bouts the paired interval is **+-0.0419 against an
+unpaired +-0.0276 on the same bouts** -- 1.52 times *wider*, where Session 02 measured 1.30 -- while
+on random viable pairs the same comparison is +-0.0258 against +-0.0525, 2.04 times tighter.
+
+**The on-against-off difference is the one case where the mirror is not an anti-instrument, and the
+reason is worth a line.** Differencing two arms of the *same* weights that differ in one executor
+row removes the build and the opponent and the mind, and leaves the row: +-0.0168 and +-0.0223 on
+random pairs against an unpaired +-0.0525, which is 3.1 and 2.4 times tighter and the tightest
+pairing in this record; and on the mirror +-0.0278 and +-0.0338 against +-0.0275 and +-0.0261,
+which is a wash rather than a penalty. Session 02's finding is about pairing against a *different*
+mind. Every conclusion above is nonetheless stated on the random-viable half.
+
+### The gap between the two reads, and Session 03's point read against it
+
+The set's other question: the drawn-read margin minus the greedy-read margin on the shipped
+surface, on the same bouts.
+
+| pool | surface | drawn - greedy | d |
+| --- | --- | --- | ---: |
+| random viable pairs | `latchAbort` off, as shipped | **+0.0014 +-0.0228** | **+0.005** |
+| random viable pairs | `latchAbort` on | +0.0093 +-0.0256 | +0.029 |
+| mirrored | `latchAbort` off, as shipped | **+0.0002 +-0.0355** | **+0.000** |
+| mirrored | `latchAbort` on | +0.0683 +-0.0351 | +0.156 |
+
+**The two agree, and they agree exactly.** Session 03 folded this point in on the same seed, the
+same pools, the same league and the same 600 bouts, through a two-contender call in a different
+script, and published +0.0014 +-0.0228, d +0.005 on random viable pairs and +0.0002 +-0.0355, d
++0.000 mirrored. This session reproduces both to four decimals with six contenders in the call, and
+reproduces all five random-pair opponent blocks as well -- d -0.023, -0.008, +0.193, -0.251 and
++0.107 against driver, form, brawler, duelist and fencer. There is no disagreement to reconcile.
+
+**So the gap is not material on the bar, and the plan's conditional does not fire.** The plan said
+that if it were material, "every bar in this record has been stated on a policy the fit never
+optimised, and the next set's first frozen choice writes itself". It is d +0.005 on the pool every
+bar in this record is stated on. The bars are not wrong about the mind because of which read they
+were taken on.
+
+**That answer is more interesting than the one the plan expected, because the two reads are not the
+same executor.** On this gate they are three effective draws apart -- one draw greedy, 3.13 drawn --
+and the mind the fit optimises finishes one stroke in ten where the mind the bar measures finishes
+one in three. Those are different behaviours by any description, and the bar cannot tell them apart:
++0.0014 +-0.0228. The honest reading is not "the read does not matter". It is that **a 600-bout
+paired bar margin against this league is nearly blind to whether a mind finishes the strokes it
+starts**, which is a fact about the ruler and belongs beside Session 02's.
+
+**One asymmetry is worth recording** because it is the largest read-gap number in the table and it
+points the other way. Under the latch, on the mirror, the drawn read *beats* the greedy read by
++0.0683 +-0.0351, d +0.156, an interval that excludes zero. A mind that may decide to abort only
+once a stroke does better deciding it by a coin than by a threshold on an observation that barely
+moves. That is one block, on the pool this file says to read with suspicion, and it is recorded as
+a direction rather than a finding.
+
+### The idle probe re-read on the column the record kept printing and never read
+
+**Instrument:** the 29 probe points already on disk -- league-long/probe.mirror.jsonl and
+league-long/probe.random.jsonl, iterations 8 to 400 of the 400-iteration run, two bouts a build at
+each point. **No bouts were run for this section.** The slope is OLS in `theirBar` against the
+iteration number over the 29 points, quoted per 100 iterations, and t is the slope over its
+standard error on 27 degrees of freedom. Every figure the record already published from these
+files reproduces exactly, which is how the arithmetic was checked.
+
+`theirBar` is the *dummy's* remaining health at the end of the bout, on the same 0..1 bar scale as
+everything else in this file. It is already in `formatIdleProbe`'s table; this session did not add
+the column, it added the reason to read it and the word that says which pool a table came from.
+The record's mirrored probe table was published without any of these numbers, and it is the half
+where the effect is largest.
+
+**Mirrored -- 15 builds, 7 maul and 8 mace:**
+
+| armed terminal | builds | dummy bar left, it 8 -> 400 | slope / 100 it | t | damage, it 8 -> 400 | t |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| maul | 7 | 0.257 -> 0.279 | +0.0032 | +0.27 | 48.4 -> 43.2 | -1.23 |
+| mace | 8 | 0.740 -> 0.933 | **+0.0614** | **+9.09** | 18.0 -> 3.9 | **-9.87** |
+| whole pool kill rate | 15 | 28.3 % -> 26.7 % | +0.0007 | +0.08 | | |
+
+**Random viable pairs -- 52 builds:**
+
+| armed terminal | builds | dummy bar left, it 8 -> 400 | slope / 100 it | t | damage, it 8 -> 400 | t |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| maul | 7 | 0.613 -> 0.791 | **+0.0948** | **+7.67** | 21.2 -> 9.3 | **-9.35** |
+| mace | 8 | 0.904 -> 0.925 | -0.0104 | -1.18 | 6.0 -> 4.0 | +0.76 |
+| blade | 14 | 0.909 -> 0.998 | +0.0338 | **+6.50** | 6.2 -> 0.3 | **-6.04** |
+| plate | 9 | 0.986 -> 1.000 | +0.0022 | +2.16 | 1.0 -> 0.0 | -2.17 |
+| whip | 4 | 0.965 -> 1.000 | +0.0113 | **+6.12** | 2.7 -> 0.0 | **-6.24** |
+| fist | 8 | 1.000 -> 0.999 | +0.0009 | +0.92 | 0.0 -> 0.1 | -0.84 |
+| none | 2 | 1.000 -> 1.000 | 0.0000 | -- | 0.0 -> 0.0 | -- |
+| whole pool kill rate | 52 | 3.8 % -> 3.8 % | -0.0051 | -2.05 | | |
+
+**Five of the seven classes' dummy health rose against a target that never moves, never blocks and
+never steps away, and four of the five clear t +6.** The largest t anywhere in either probe is
+mirrored `mace` at **+9.09**, and it is on the table the record never printed these columns for.
+The largest t in any kill-rate column anywhere is **+3.13** -- random `mace`, 3 % to 6 % -- which
+is the whole argument for the column: on a pool where five of seven classes finish no bout at all,
+the kill rate is **censored** at zero and cannot report a mind getting worse. `theirBar` can, and
+did, for 392 iterations, in a file that was written every five iterations and read by nobody.
+
+**The two `none` builds are the control and they behave like one.** A body with no terminal cannot
+damage the dummy, its `theirBar` is 1.000 at iteration 8 and 1.000 at iteration 400, and its slope
+is exactly zero. So the rise on the other six is a change in the mind and not drift in the probe.
+
+**And `damage` moves with it at the same t and the opposite sign**, which is the mechanical check
+that `theirBar` is reading what it says: mirrored mace 18.0 -> 3.9 at t -9.87 beside its bar's
++9.09, random maul 21.2 -> 9.3 at t -9.35 beside +7.67. Two columns of the same probe, differently
+censored, agreeing on the direction. The mind that 400 iterations produced hits the training
+dummy less hard than the mind at iteration 8 did, on every class that could hit it at all.
+
+### The closing table -- what the four findings cost, what they moved, and what the next one costs
+
+This is the table the set exists to produce. The four findings are the four defects the diagnosis
+of 2026-09-11 named before any code moved; the costs are wall clock on this host, 16 cores and 32
+threads, at 30 workers, and they are what was actually spent rather than an estimate. "What it
+moved" is the measured effect on a bar, not the size of the defect.
+
+| # | finding | what establishing it cost | what it moved | what the next experiment on it would cost |
+| --- | --- | --- | --- | --- |
+| 1 | **the abort gate compounds**: `striking && command.abort >= 0.5` re-read against the held command on each of a stroke's 5-8 asks | arithmetic, 0 bouts; then 7,200 rating bouts over two pools, 1,706 s | completion at the drawn read from 0.1035 to 0.4845 against a bar of 0.80; on the bar **d +0.045**, interval including zero | answered as far as a rating answers it. The open question is a fit run *under* the row, which is a night |
+| 2 | **seven observation columns divided by a ten-thousandth**, their 1,792 first-layer weights never fitted | the table read off disk plus 16 replayed bouts, 9,658 asks, 0 rating bouts; then 6,000 bouts, 1,420 s | d **+0.028** against a bar of +0.10, interval includes zero; landed as a correctness fix | nothing. It is measured, it is a wash, and the fix is unconditional |
+| 3 | **in a mirrored bout the only reward with a non-zero mean pays for standing still** | 0 bouts twice over: the league-long log re-read in the diagnosis, and this session's 29 probe points re-read off disk | not measured against a bar by any session in this set. Five of seven classes' dummy health *rose* over 400 iterations, four of them past t +6 | **`--opponent idle`, about 40 minutes** -- priced below |
+| 4 | **the ruler was never the one the criterion named**: `golem-fencer` had never been a paired column | 29 rating points re-read off disk, 0 bouts; then 3,600 bouts, 814 s | the interval tightens **1.433x** on the same bouts, against a bar of 1.5x. Column kept, and now on every rating path | nothing. Every bar from here is stated on it |
+
+**All four cost under half an hour of host time each -- 28 minutes, 24, nothing and 14 -- and not
+one of them cost a training iteration**, which was frozen choice 1 and is the whole reason this
+set produced a priced decision where its predecessor produced thirteen landed sessions and shipped
+nothing. The set spent
+**19,200 bouts and 4,586 s of wall clock** in all, about 1.3 hours. Session 11 of the learn set,
+alone, was 5h22m.
+
+### The two experiments this set names and deliberately does not run
+
+Both are priced from iteration costs already in this file. Session 11's pilot measured **33.1
+seconds an iteration at 32 bouts, 51.5 at 64 and 90.1 at 128**, one arm with the whole host, and
+the 400-iteration run itself averaged 48.4 s an iteration with two exploiters, a pool and two
+anchors in the cycle. A straight line through the three pilot points is `14.1 + 0.594 * bouts`
+seconds; that line is the price used below, and it is quoted as a line rather than as a measurement
+because nothing in this record has ever run at 256.
+
+**A. `--opponent idle`, from scratch, 60 iterations, the maul and mace viable pool, with
+`scripts/idle-probe.mjs` every five iterations. About 40 minutes.** Sixty iterations at 32 bouts is
+33 minutes of iteration clock at the pilot's own figure, and less in practice because the cycle is
+one non-learning opponent rather than six, with no exploiters and no pool; twelve probes at two
+bouts a build add about three and a half minutes, the probe taking 17 s for its 30 bouts over the
+15 mirrored builds. `idle` is already a legal `--opponent` and Session 08 of the learn set used it
+as a curriculum stage, so this costs no code at all.
+
+It asks the one question nobody in this record has asked: **can this optimiser get better at the
+easiest task in the game?** A target that never moves, never blocks, never steps away and never
+hits back. Against `idle` the reward does not telescope -- only one side is collected, so
+`dealt - taken` and `win * outcome` both survive -- so finding 3 is removed by construction rather
+than argued away, and what is left to blame is the optimiser, the observation and the executor.
+
+**B. The gradient-signal probe: split one epoch's shuffled order into two disjoint halves, sum each
+half's shard partials through the `FitPool` that already returns them, and report the cosine
+between the two with the entropy term off. At 32, 64, 128 and 256 bouts an iteration, 30 iterations
+each. About 2.9 hours.** Thirty iterations at each of the four counts is 16.6 + 25.8 + 45.1 + 83.0
+minutes on the line above. The halves are summed from partials the fit already computes, so the
+probe itself is free; the cost is the four runs.
+
+It asks whether the optimiser is handed a signal at all, which is a question this record has never
+put to it. **If the cosine at 32 bouts is a few hundredths and rises with the bout count, then the
+learn set was run at between a tenth and a fortieth of the sample budget this task needs**, and
+every one of its thirteen sessions was measuring the variance of an estimator rather than the
+behaviour of a mind. That is a publishable negative that ends the argument, and it is the only one
+of the two that says *which number to change*.
+
+### What would have to be true for more iteration to work
+
+The owner's stated direction, recorded in Session 01 of this set, is to iterate a lot more until
+the learning mind works. This is the one place in the set where that is answered on the numbers,
+and it is answered as a conjunction: **five things all have to be true, this set measured three of
+them, and the two it did not measure are exactly the two experiments above.**
+
+1. **The ruler has to be able to see an improvement.** *Measured, and it can.* Session 02's paired
+   `golem-fencer` column has `sem` 0.0250 on 300 random-pair bouts, so at 600 bouts a paired d of
+   +0.10 has an interval that excludes zero. The instrument is adequate to the size of effect
+   anyone is asking for. This was the cheapest of the five to settle and it is settled.
+2. **The observation the mind reads has to be the observation the fit saw.** *Measured, and after
+   Session 03 it is.* The defect was real -- `reachEdge` saturated at a quarter of a millimetre on
+   88.9 % of the asks of a random viable pair -- and worth **d +0.028**, inside noise. Not the
+   blocker.
+3. **The mind the optimiser improves has to be the mind the bar measures.** *Measured here, and
+   they are not the same mind -- and it does not matter.* On the abort gate the two reads are
+   three effective draws apart: the fit's mind finishes one stroke in ten and the bar's mind
+   finishes one in three, and
+   the difference is worth **d +0.005** on the bar, +0.0014 +-0.0228 over 600 random-viable bouts,
+   reproducing Session 03's folded-in point exactly. Not the blocker. And the fact underneath it is
+   worse for the ruler than for the mind: a 600-bout paired margin cannot see a 2.5-fold change in
+   completed strokes a bout at all.
+4. **The objective has to pay for the behaviour the owner wants.** *Not measured by this set, and
+   the evidence on the table points the other way.* In a mirrored bout the surviving reward is
+   `-0.004*clinchSeconds - 0.004*idleMetres`, both minimised by standing still outside reach; the
+   400-iteration run trained on two thirds of a mirror through the whole-cycle rounding, its `idle`
+   row grew from 0.00324 to 0.04562 and reached 84 % of the penalty share, and the probe above says
+   five of seven classes got *worse* at hitting a dummy while that happened. **More iteration
+   maximises this objective harder.** Experiment A removes the telescoping by construction and asks
+   whether anything improves once it is gone.
+5. **The gradient at 32 bouts an iteration has to point somewhere.** *Never measured, in any
+   session of any set.* Session 11 is the only direct evidence and it is negative: over the last
+   hundred of four hundred iterations, 3 of 25 columns move past two sigma and all three are the
+   policy's own spread. That is what a random walk in a flat landscape looks like -- and it is also
+   what a correct optimiser handed a signal of a few hundredths looks like. Experiment B tells the
+   two apart.
+
+**Which settles it fastest, argued on cost and on what a negative would mean.** Experiment A is
+**4.3 times cheaper** -- 40 minutes against 2.9 hours -- and its negative is the more general of the
+two: a pipeline that cannot improve against a target that never moves cannot be repaired by more
+iteration whatever the cosine turns out to be, so a flat kill rate and a flat `theirBar` over sixty
+idle iterations would close the question outright at the price of a lunch break. Its *positive* is
+informative in the other direction: if the dummy's bar falls against `idle` where it rose against a
+mirror, then point 4 is the blocker, the fix is the reward and the mirror share, and "more
+iteration" is right after that fix and wrong before it.
+
+Experiment B is the only one of the two that produces a **number to change**. A cosine curve in the
+bout count converts "iterate a lot more" into an arithmetic statement -- iterations of what size --
+and if it scales the way a sample mean does it prices the whole of the learn set retrospectively.
+It cannot, however, return an unconditional negative: a healthy cosine at 32 bouts would leave
+points 3 and 4 untouched and the question open.
+
+**So the ordering the numbers support is A, then B only if A does not come back flat.** That is a
+recommendation and not a decision. The decision is the owner's, and it is the human gate this set
+closes on.

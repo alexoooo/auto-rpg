@@ -167,7 +167,24 @@ export async function idleProbe({
   };
 }
 
-/** The rollup as the tripwire reads it: kill rate by weapon class, and the pool total. */
+/**
+ * The rollup as the tripwire reads it: kill rate by weapon class, and the pool total.
+ *
+ * **`dummy bar left` is the column to read, and it is on the mirrored table as well as the random
+ * one.** Re-read over the 400-iteration league's 29 probe points (`docs/measurements.md`, Session
+ * 04 of the signal set), the dummy's remaining health is the **largest-t column in either probe**:
+ * mirrored `mace` rose 0.740 to 0.933 at t +9.09 and random `maul` 0.613 to 0.791 at t +7.67,
+ * against a best kill-rate t of 3.13 anywhere in the table. That is not a coincidence of one run.
+ * A kill rate that is already zero cannot move and a class that always kills cannot either, so on
+ * a pool where five of seven classes never finish a bout the kill rate is a **censored** column and
+ * the bar the dummy keeps is the only continuous reading of the same question. A mind getting
+ * *worse* at a target that never moves shows up here a whole set before it shows up anywhere else.
+ *
+ * **The arrangement is named in the summary line** for the same reason. Both tables have the same
+ * six columns and the same class names, and a run's mirrored rollup pasted into a record beside its
+ * random one is indistinguishable from a second take of the random one -- which is how a rising
+ * dummy-health curve stayed unread for a whole plan set.
+ */
 export function formatIdleProbe(result) {
   const lines = [
     "| armed terminal | builds | always kills | kill rate | dummy bar left | damage |",
@@ -177,9 +194,15 @@ export function formatIdleProbe(result) {
     lines.push(`| ${g.terminal} | ${g.builds} | ${g.always} of ${g.builds} | ${(g.killRate * 100).toFixed(0)} % `
       + `| ${g.theirBar.toFixed(3)} | ${g.damage.toFixed(1)} |`);
   }
+  // An older probe row carries no `mirror` field, so the clause is omitted rather than guessed:
+  // "mirrored" printed over a random-pairs table would be worse than no word at all.
+  const arrangement = result.mirror === undefined ? ""
+    : result.mirror ? ", mirrored"
+      : `, random viable pairs${result.lonely > 0 ? ` (${result.lonely} lonely)` : ""}`;
   lines.push("");
   lines.push(`${result.name}: killed the dummy in ${result.kills}/${result.bouts} = `
-    + `${(result.killRate * 100).toFixed(1)} % of bouts; ${result.alwaysBuilds} of ${result.totalBuilds} builds `
+    + `${(result.killRate * 100).toFixed(1)} % of bouts${arrangement}; `
+    + `${result.alwaysBuilds} of ${result.totalBuilds} builds `
     + `always, ${result.everBuilds} of ${result.totalBuilds} ever.`);
   return lines.join("\n");
 }

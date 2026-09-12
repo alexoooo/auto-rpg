@@ -25,6 +25,15 @@
 // | read the gates only at an ask rather than every step | the abort test |
 // | floor the hold at `reach * holdFraction`, or at `near + slack`, the way v2 and v3 do | the stand-off test |
 // | *(2026-09-09)* have `holdFor` return `them.reach * standOff` whatever `holdMetres` says | the candidates test, on the flag turned up |
+// | *(2026-09-12)* read `command.abort` every step whatever `latchAbort` says | the latch test |
+// | *(2026-09-12)* have the latch disable the gate rather than hold its first read | the refusal test |
+// | *(2026-09-12)* clear the latch nowhere **and** write it at the chamber as `latchedAbort \|\| ...` | the refusal test |
+// | *(2026-09-12)* `askHz` 16, or `commitSeconds` 0.40 | the five-to-eight-asks test |
+//
+// The third of those is a pair on purpose and the entry says so: the clear on the way into `free`
+// and the outright write at each chamber mask each other, so **neither mutates red on its own**.
+// That is a redundancy rather than a defect and `tactics-v4.ts` carries the argument for keeping
+// both; what a table of single mutations would have claimed here is a pin that does not exist.
 //
 // One mutation that was tried and is **not** in the table: swapping the commit gate ahead of the
 // abort gate changes nothing, because the two branches are already exclusive by stance -- `abort`
@@ -62,6 +71,8 @@ import {
 } from "../src/golem/pilot.ts";
 import { DRIVER, golemDriver } from "../src/golem/styles/driver.ts";
 import { golemFencer } from "../src/golem/tactics-v2.ts";
+import { golemPolicy } from "../src/golem/policy.ts";
+import { POLICY_WEIGHTS } from "../src/golem/policy-weights.ts";
 
 process.env.SWORD_MEASURE_LIBRARY = "1";
 const { freshHavok, runBout } = await import("../scripts/measure.mjs");
@@ -602,6 +613,298 @@ test("an_abort_mid_chamber_and_mid_commit_leaves_a_legal_pose_and_charges_half_a
     `an abort at 0.5 kept the arm for ${half}s against the ${cooldown * 0.5}s it charged`);
   assert.ok(whole - half > cooldown * 0.35,
     `an abort at 1.0 cost ${whole}s and one at 0.5 cost ${half}s, which is not twice`);
+});
+
+// ---------------------------------------------------------------------------------------
+// `latchAbort`: the same gate read once a stroke instead of once a step. Session 04 of the
+// signal set, and the row ships **off** -- that session measures it and adopts nothing.
+// ---------------------------------------------------------------------------------------
+
+/**
+ * With the row up the abort gate is the stroke's, taken at the chamber; with it down it is the
+ * step's, and a command that goes up after the stroke has started still takes the stroke back.
+ *
+ * **This is the difference between one Bernoulli draw and five to eight of them**, which is the
+ * whole of what the row is for: a policy whose abort head sits at p aborts a stroke with
+ * probability `p` under the latch and `1 - (1 - p)^k` without it, and at the shipped table's
+ * p = 0.45 those are 45 % and 99 %. The two arms are driven by *the same pilot* against the same
+ * fixture from the same seed, so the only thing that differs between the two columns below is the
+ * row, and a latch that merely delayed the read by a step would leave both columns equal.
+ */
+test("the_latch_reads_the_abort_gate_at_the_stroke_and_the_row_down_reads_it_every_step", async (t) => {
+  assert.equal(GOLEM_TACTICS_V4.latchAbort, false, "the latch flag shipped up");
+
+  const golem = await standAGolem(t);
+  // The gate goes up only once a stroke is in flight, and comes down again while the arm is free.
+  // So the ask that *starts* each stroke always carries `abort` at nothing, and every ask after it
+  // carries it at one: exactly the command a held read must abort and a latched read must not.
+  const run = (latchAbort) => {
+    const fixture = place(fixtureOf(golem.view), { x: 0, z: 1.35 });
+    let driven = null;
+    driven = golemDriven(SEED, { ...GOLEM_TACTICS_V4, latchAbort }, () => {
+      const wanted = { ...freshCommand(), commit: 1, swing: 1, advance: 0 };
+      if (driven !== null && driven.stance !== "free") { wanted.abort = 1; wanted.commit = 0; }
+      return wanted;
+    });
+    let recovered = 0;
+    let wasRecovering = false;
+    drive(fixture, driven, 3.0, (intent, step) => {
+      assertInsideEnvelope(intent, fixture.self, `latchAbort ${latchAbort} step ${step}`);
+      if (driven.stance === "recover" && !wasRecovering) recovered += 1;
+      wasRecovering = driven.stance === "recover";
+    });
+    return { strokes: driven.strokes, aborts: driven.aborts, recovered };
+  };
+
+  const latched = run(true);
+  const held = run(false);
+
+  assert.ok(latched.strokes >= 2,
+    `the latched arm threw ${latched.strokes} strokes in three seconds, which is too few to read`);
+  assert.equal(latched.aborts, 0,
+    `${latched.aborts} of ${latched.strokes} latched strokes were aborted by a gate raised after `
+    + "the stroke had already started");
+  assert.equal(latched.recovered, latched.strokes,
+    `${latched.strokes} latched strokes and ${latched.recovered} of them ran through to a recover`);
+
+  assert.ok(held.aborts >= 2,
+    `the held arm aborted ${held.aborts} of ${held.strokes} strokes under the same pilot`);
+  assert.equal(held.aborts, held.strokes,
+    `${held.strokes} held strokes and ${held.aborts} aborts, and the gate is up on every ask after `
+    + "the first one, so every stroke should have been taken back");
+  assert.equal(held.recovered, 0,
+    `${held.recovered} held strokes reached a recover with the abort gate up throughout`);
+});
+
+/**
+ * The row latches the gate; it does not disable it.
+ *
+ * The cheap way to make the test above pass is to stop reading `abort` at all while striking, and
+ * that would be a body which cannot be called off a stroke by any command whatsoever -- a strictly
+ * worse surface than the one it replaces, and green on every assertion in this file. So the other
+ * half is asserted directly: with the gate up on the ask that *starts* the stroke, the stroke is
+ * refused on the very next step, at the same `abortCooldown`, and never reaches its commit.
+ */
+test("a_latched_abort_raised_on_the_ask_that_starts_the_stroke_still_refuses_it", async (t) => {
+  const golem = await standAGolem(t);
+  // `eventAsks` off for the reason the held-gate half of the abort test turns it off: what is being
+  // counted is strokes against aborts, and an event ask in the middle of one is a second command in
+  // a window this test wants to be a single standing order.
+  const hold = (over) => {
+    const fixture = place(fixtureOf(golem.view), { x: 0, z: 1.35 });
+    const command = { ...freshCommand(), commit: 1, swing: 1, advance: 0, ...over };
+    const driven = golemDriven(SEED,
+      { ...GOLEM_TACTICS_V4, latchAbort: true, eventAsks: false }, () => command);
+    const stances = new Set();
+    drive(fixture, driven, 3.0, (intent, step) => {
+      assertInsideEnvelope(intent, fixture.self, `holding ${JSON.stringify(over)} step ${step}`);
+      stances.add(driven.stance);
+    });
+    return { strokes: driven.strokes, aborts: driven.aborts, stances };
+  };
+
+  const refused = hold({ abort: 1 });
+  assert.ok(refused.strokes > 1,
+    `a command holding both gates started ${refused.strokes} strokes under the latch`);
+  assert.equal(refused.aborts, refused.strokes,
+    `${refused.strokes} strokes started and ${refused.aborts} refused: a latch that read the gate `
+    + "at the chamber takes every one of them back on the next step");
+  assert.ok(!refused.stances.has("commit"),
+    "a stroke refused on the step after its chamber cannot have reached its commit");
+
+  // And the control, because "every stroke aborted" is also what a body that cannot strike at all
+  // reports: the same table, the same pilot, the gate down.
+  const thrown = hold({ abort: 0 });
+  assert.ok(thrown.strokes > 1, `${thrown.strokes} strokes with the gate down under the latch`);
+  assert.equal(thrown.aborts, 0, `${thrown.aborts} aborts with the gate down under the latch`);
+  assert.ok(thrown.stances.has("commit"), "no stroke reached its commit with the gate down");
+
+  // And a latch is a property of *this* stroke: raised for the first one and lowered afterwards, it
+  // takes the first back and leaves the second alone. A latch cleared anywhere but on the way into
+  // `free` -- or not cleared at all -- aborts every stroke after the first from a command the mind
+  // has since withdrawn, which is a body that goes permanently inert on one raised gate.
+  const fixture = place(fixtureOf(golem.view), { x: 0, z: 1.35 });
+  let once = null;
+  once = golemDriven(SEED, { ...GOLEM_TACTICS_V4, latchAbort: true, eventAsks: false }, () => ({
+    ...freshCommand(), commit: 1, swing: 1, advance: 0,
+    abort: once !== null && once.strokes === 0 ? 1 : 0,
+  }));
+  let reachedRecover = false;
+  drive(fixture, once, 3.0, (intent, step) => {
+    assertInsideEnvelope(intent, fixture.self, `one latched stroke step ${step}`);
+    if (once.strokes > 1 && once.stance === "recover") reachedRecover = true;
+  });
+  assert.ok(once.strokes > 1, `only ${once.strokes} strokes after one latched abort`);
+  assert.equal(once.aborts, 1,
+    `${once.aborts} aborts for a gate raised on the first stroke alone: the latch outlived it`);
+  assert.ok(reachedRecover, "no stroke after the latched one ran through to a recover");
+});
+
+/**
+ * A stroke spans five to eight asks, and that exponent is what the record's two abort rates are.
+ *
+ * `uniform` was measured aborting **99.2 %** of the strokes it started and the 400-iteration fit
+ * **88 %**, and both were written down as facts about a policy. They are not. A gate drawn afresh
+ * on every ask of a stroke survives `(1 - p)^k`, and at `p` 0.5 with `k` 7 that is 0.8 % and at
+ * `p` 0.30 with `k` 6 it is 12 % -- the two measured rates, to the digit, from the executor's own
+ * timings and the ask period. So the exponent is a published quantity and is pinned here: if a
+ * stroke's duration or `askHz` ever moves, this test goes red and the two rates in
+ * `docs/measurements.md` stop being predictions of anything.
+ *
+ * Both halves are asserted, because either alone is satisfied by its own setup. The arithmetic is
+ * taken over **every** blended shape -- each weapon kind at five swings -- and then the same
+ * arithmetic is checked against a stroke actually driven, so what is pinned is the executor's
+ * clock and not a second copy of the table.
+ */
+test("a_stroke_spans_five_to_eight_asks_which_is_what_the_two_published_abort_rates_predict",
+  async (t) => {
+    const T = GOLEM_TACTICS_V4;
+    const period = 1 / T.askHz;
+    /** What `plan` runs a stroke for: the chamber, then the longer of the commit and the follow. */
+    const strokeSecondsOf = (kind, swing) => {
+      const arc = blendArc(kind, swing);
+      const wide = T.cutSeconds > 0 ? T.cutSeconds : COMMITTED_SHAPES[kind].strokeSeconds;
+      const quick = T.thrustSeconds > 0 ? T.thrustSeconds : THRUST_SHAPES[kind].strokeSeconds;
+      const sweep = (1 - swing) * quick + swing * wide;
+      return arc.chamberSeconds + Math.max(T.commitSeconds, sweep + T.followSeconds);
+    };
+
+    let shortest = { seconds: Infinity, at: "" };
+    let longest = { seconds: -Infinity, at: "" };
+    for (const kind of Object.keys(COMMITTED_SHAPES)) {
+      for (const swing of [0, 0.25, 0.5, 0.75, 1]) {
+        const seconds = strokeSecondsOf(kind, swing);
+        const asks = Math.floor(seconds / period);
+        assert.ok(asks >= 5 && asks <= 8,
+          `${kind} at swing ${swing} runs ${seconds.toFixed(3)}s, which is ${asks} asks at `
+          + `${T.askHz} Hz and not the five to eight the survival arithmetic is stated over`);
+        if (seconds < shortest.seconds) shortest = { seconds, at: `${kind} at swing ${swing}` };
+        if (seconds > longest.seconds) longest = { seconds, at: `${kind} at swing ${swing}` };
+      }
+    }
+    assert.equal(shortest.seconds.toFixed(2), "0.44",
+      `the shortest blended stroke is ${shortest.at} at ${shortest.seconds}s`);
+    assert.equal(longest.seconds.toFixed(2), "0.67",
+      `the longest blended stroke is ${longest.at} at ${longest.seconds}s`);
+
+    // The two rates the record published, recomputed from those two exponents.
+    assert.equal(((1 - 0.5) ** 7 * 100).toFixed(1), "0.8",
+      "a coin-flip gate over seven asks is not the 0.8 % of strokes `uniform` finished");
+    assert.equal(((1 - 0.30) ** 6 * 100).toFixed(0), "12",
+      "a gate at 0.30 over six asks is not the 12 % of strokes the 400-iteration fit finished");
+
+    // And the same arithmetic against a stroke that was actually driven, so that this is a claim
+    // about the executor's clock rather than a second reading of the table it is written from.
+    const golem = await standAGolem(t);
+    const measured = (swing) => {
+      const fixture = place(fixtureOf(golem.view), { x: 0, z: 1.35 });
+      const driven = golemDriven(SEED, GOLEM_TACTICS_V4,
+        fixedPilot({ commit: 1, swing, advance: 0 }).pilot);
+      let frames = 0;
+      let done = false;
+      drive(fixture, driven, 2.5, () => {
+        const striking = driven.stance === "chamber" || driven.stance === "commit";
+        if (done) return;
+        if (striking) frames += 1;
+        else done = frames > 0;
+      });
+      return frames;
+    };
+    const kind = (await standAGolem(t)).view.self.hands.primary.weapon;
+    assert.ok(kind in COMMITTED_SHAPES, `the fixture golem holds ${kind}, which has no arc`);
+    for (const swing of [0, 1]) {
+      const frames = measured(swing);
+      const expected = Math.round(strokeSecondsOf(kind, swing) * CONFIG.world.physicsHz);
+      assert.ok(Math.abs(frames - expected) <= 2,
+        `a driven ${kind} stroke at swing ${swing} ran ${frames} frames against the ${expected} `
+        + "the shape's own seconds ask for");
+      const asks = Math.floor((frames / CONFIG.world.physicsHz) / period);
+      assert.ok(asks >= 5 && asks <= 8,
+        `a driven ${kind} stroke at swing ${swing} spanned ${asks} asks`);
+    }
+  });
+
+/**
+ * The property Session 04 of the signal set is stated on: the shipped head, read **drawn**, in a
+ * real bout, completes about one stroke in ten with the gate held and about two in three latched.
+ *
+ * **This is checked here and not inferred from a rating**, because a rating is a margin and a
+ * margin cannot say why it moved. What the two columns have to show is the exponent: a gate at `p`
+ * re-drawn on every ask of a stroke survives `(1 - p)^k` and the same gate read once survives
+ * `1 - p`, so `ln(held) / ln(latched)` recovers the number of draws a stroke actually pays for.
+ *
+ * **The band asserted on it is deliberately wider than the five to eight the test above pins, and
+ * the reason is a finding rather than slack.** The asks inside one stroke are independent coin
+ * flips only if the logit they are drawn at is independent, and it is not: the observation barely
+ * moves through a stroke, so a stroke is closer to one draw of `p` followed by `k` flips at that
+ * same `p`, and `E[(1-p)^k]` over a spread of `p` is well above `(1-E[p])^k`. Measured, the
+ * effective exponent is **5.58 on this fixture and 3.13 over the 600-bout random-viable rating in
+ * `docs/measurements.md`** -- both above one, neither as high as the ask count. So what is
+ * asserted is the pair of bounds the argument actually supports: more than one draw a stroke, and
+ * no more than the asks a stroke spans.
+ *
+ * The bar the plan stated was **0.80 latched** and it is missed; the reason is not the row and is
+ * written down where the miss is, in `docs/measurements.md`. In short: under the latch the
+ * completion rate *is* one minus the gate's own rate on the ask that starts the stroke, by
+ * construction, and that rate is a third to a half on the shipped head. A latch cannot make a gate
+ * say something the head did not.
+ */
+test("the_latch_turns_one_completed_stroke_in_ten_into_two_in_three_at_the_drawn_read", async () => {
+  const physics = await freshHavok();
+  const run = (latchAbort) => {
+    let strokes = 0;
+    let aborts = 0;
+    let asks = 0;
+    let raised = 0;
+    for (const seed of [SEED, SEED + 101, SEED + 202, SEED + 303]) {
+      const mind = golemPolicy(seed, POLICY_WEIGHTS, { ...GOLEM_TACTICS_V4, latchAbort }, null, true,
+        (reading, view, command) => { asks += 1; if (command.abort >= 0.5) raised += 1; });
+      runBout({
+        left: "golem-policy", right: "golem-fencer",
+        leftUnit: "golem", rightUnit: "golem",
+        leftGolem: defaultGolemSetup(), rightGolem: defaultGolemSetup(),
+        locomotionMode: "supported",
+        seeds: [seed, seed + 17], maxSeconds: 30, physics,
+        leftMind: { name: "golem-policy", driven: mind.driven, decide: (v, dt) => mind.decide(v, dt) },
+        rightMind: golemFencer(seed + 17),
+      });
+      strokes += mind.driven.strokes;
+      aborts += mind.driven.aborts;
+    }
+    return { strokes, completion: (strokes - aborts) / strokes, p: raised / asks };
+  };
+
+  const held = run(false);
+  const latched = run(true);
+  assert.ok(held.strokes > 100 && latched.strokes > 40,
+    `${held.strokes} held strokes and ${latched.strokes} latched ones is too few to read a rate off`);
+
+  // The head sits near a coin flip on this gate, which is the thing `entropyGrad` does to every
+  // gate logit and the reason the exponent matters at all. If this ever leaves the band, the two
+  // completion figures below are about a different policy and the arithmetic has to be re-taken.
+  for (const [label, arm] of [["held", held], ["latched", latched]]) {
+    assert.ok(arm.p > 0.2 && arm.p < 0.7,
+      `${label}: the drawn head raised abort on ${(arm.p * 100).toFixed(1)} % of asks, which is not `
+      + "the near-coin-flip the survival arithmetic is stated over");
+  }
+
+  assert.ok(held.completion < 0.20,
+    `the held gate completed ${held.completion.toFixed(3)} of the strokes it started, and a gate `
+    + "re-drawn five to eight times a stroke cannot complete a fifth of them");
+  assert.ok(latched.completion > 0.50,
+    `the latched gate completed ${latched.completion.toFixed(3)} of its strokes, and one draw at a `
+    + "rate under a half cannot lose more than half of them");
+  assert.ok(latched.completion > held.completion * 4,
+    `${latched.completion.toFixed(3)} latched against ${held.completion.toFixed(3)} held is less `
+    + "than the fourfold the exponent asks for");
+
+  // And the exponent itself, recovered from the two rates, against the two bounds the argument
+  // supports rather than against the ask count it does not. See the block comment above.
+  const k = Math.log(held.completion) / Math.log(latched.completion);
+  assert.ok(k > 2 && k < 9,
+    `two measured completion rates imply ${k.toFixed(2)} effective draws a stroke, and the held `
+    + "gate has to cost more than the one draw the latch costs and cannot cost more than the "
+    + "five to eight asks a stroke spans");
 });
 
 // ---------------------------------------------------------------------------------------
