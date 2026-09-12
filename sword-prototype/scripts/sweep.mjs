@@ -9,6 +9,9 @@
 //        [--rate-bouts N]   -- absent is the manifest's own; 0 rates nothing
 //        [--paired a]       -- rate every arm in one call, paired against this arm; no run
 //        [--against golem-driver,golem-fencer] -- who the paired rating is played against
+//        [--designed golem-driver,golem-fencer] -- designed minds as contenders of their own, so
+//                              every arm's row carries vsDriver and vsFencer, the paired margin
+//                              against a mind that ships; a one-arm --paired needs one of these
 //        [--status 30] [--dry-run]
 //        [any other flag]   -- handed to every arm ahead of its own flags
 //
@@ -541,11 +544,50 @@ export async function rateArms(manifest, {
         mirror: on.mirror,
         uniform: { bar: on.differences.uniform.bar, sem: on.differences.uniform.barSem, d: on.differences.uniform.d },
         driver: { bar: on.differences.driver.bar, sem: on.differences.driver.barSem, d: on.differences.driver.d },
+        // Session 02 of the signal set's column, beside the two this row has always carried and on
+        // exactly the same bouts. Spread conditionally rather than written unconditionally so that
+        // a `rateArms` row and a `rateSnapshots` row agree about what an absent block means.
+        ...(on.differences.fencer === undefined ? {} : {
+          fencer: {
+            bar: on.differences.fencer.bar, sem: on.differences.fencer.barSem,
+            d: on.differences.fencer.d,
+          },
+        }),
         fit: on.results.fit,
       });
     }
   }
   return rows;
+}
+
+/**
+ * A designed mind named to `--designed`, as the three names one is known by in this file.
+ *
+ * `policy` is what the golem offers and is what a worker builds. `key` is the contender's name in
+ * the evaluation, and it is deliberately **not** the policy name: `PPO_LEAGUE` carries
+ * `golem-driver` and `golem-fencer`, and a contender keyed by a policy the league also holds would
+ * put the same string on both sides of a row -- where `columnsOf` takes `left` unconditionally and
+ * returns a self-play column wearing a paired column's name. Keyed `driver` and `fencer`, as
+ * `ratePolicy` keys its own two, the two sides of that row are told apart and the designed mind
+ * meets itself in the schedule exactly as the record was built. `column` is what the row carries.
+ *
+ * **What that self-play block is worth was measured rather than assumed, and it is worth two
+ * different things on the two pools.** In the block where a designed mind faces its own policy, its
+ * column is a self-play margin. On random viable pairs that is two *different* bodies, so the
+ * column carries the body asymmetry the arm's column carries too and differencing removes it. On a
+ * mirror both corners hold the same body, the column is zero to within its own noise --
+ * `golem-fencer` measured -0.0020 +- 0.0144 over 600 mirrored bouts -- and subtracting it *adds*
+ * variance: the paired interval came out 0.77x of the unpaired one, about 30 % wider. A paired
+ * column is an instrument on random pairs and an anti-instrument on a mirror. See `measurements.md`
+ * under Session 02 of the signal set.
+ */
+export function designedMind(policy) {
+  const bare = String(policy).startsWith("golem-") ? String(policy).slice(6) : String(policy);
+  if (!/^[a-z][a-z0-9]*$/.test(bare)) {
+    throw new Error(`--designed ${policy}: a designed mind is named golem-<word>, because its `
+      + "column is that word and the word has to be a field name");
+  }
+  return { policy: String(policy), key: bare, column: `vs${bare[0].toUpperCase()}${bare.slice(1)}` };
 }
 
 /**
@@ -573,10 +615,27 @@ export async function rateArms(manifest, {
  * matters; `mirror: true` is one build in both corners, which is the pool every arm's rollouts
  * were collected on and the one an arm can win by learning the pool rather than the fight. An arm
  * that wins the mirror and loses the random pool is a specialist and has to be named as one.
+ *
+ * ## `designed`, and the single-arm refusal beside it
+ *
+ * Session 02 of the signal set. `--designed golem-driver,golem-fencer` puts the hand-coded minds
+ * into the same call as contenders of their own, **excluded from the control check and from the
+ * arm loop**, and every arm's row then gains `vsDriver` and `vsFencer`: the difference
+ * `bar[arm][i] - bar[designed][i]` over the same bouts, which is the quantity the learn set's
+ * second frozen choice declared and no column in this tree could produce. It is a different
+ * question from `delta`, which is the arm against the sweep's own control and asks whether a change
+ * helped; this asks whether the mind beats the mind that ships.
+ *
+ * **A call with one arm and no designed mind is refused by name.** Session 11 of the learn set made
+ * exactly that call: one arm means `bar[control]` *is* `bar[arm]`, so every `delta` is identically
+ * zero, every `d` is zero, and the paired column -- the only instrument the set's criterion is
+ * stated on -- is disabled by construction. Nothing in the row it printed said so. With a designed
+ * mind named there is a paired column again and one arm is a legitimate call, which is what makes
+ * the refusal a statement about the column rather than about the arm count.
  */
 export async function ratePaired(manifest, {
   dir, bouts, workers, cap = 60, control, league = PPO_LEAGUE, mirror = false, onProgress = null,
-  seed = null,
+  seed = null, designed = [],
 }) {
   // The evaluation seed is the sweep's own unless a caller names one. A named one is how a bar
   // stated in a plan at a fixed seed is taken *at that seed* rather than at whatever the arms
@@ -626,49 +685,92 @@ export async function ratePaired(manifest, {
     throw new Error(`the control is "${control}", which is not among the rated arms `
       + `(${names.join(", ")}); every number in this table is a difference against it`);
   }
+  const minds = designed.map(designedMind);
+  if (names.length < 2 && minds.length === 0) {
+    throw new Error(`this call rates one arm ("${names[0]}") and names no designed mind, so the `
+      + "control is the arm and every paired column in the table would be identically zero -- "
+      + "which is the confound Session 11 of the learn set shipped its headline table under. "
+      + "Rate two arms against each other, or pass --designed golem-driver,golem-fencer");
+  }
+  for (const mind of minds) {
+    if (Object.hasOwn(contenders, mind.key)) {
+      throw new Error(`--designed ${mind.policy} wants the contender name "${mind.key}", and an arm `
+        + "of this sweep is already called that; rename the arm");
+    }
+    contenders[mind.key] = { policy: mind.policy };
+  }
+  // Arms first and designed minds after, which is the order `evaluate` schedules its blocks in and
+  // therefore the order `columnsOf` reads them back in. `names` stays the arms alone, so the
+  // control check above, the printed table and `rated.names` are what they were.
+  const columns = Object.keys(contenders);
   const per = boutsPerOpponent(bouts, league);
   const { rows, results } = await evaluate({
     contenders, league, pool, seed: eseed, bouts: per, workers, cap, mirror, viable: !mirror,
     onProgress,
   });
-  const block = rows.length / names.length;
+  const block = rows.length / columns.length;
   if (!Number.isInteger(block)) {
-    throw new Error(`${rows.length} rows do not divide among ${names.length} arms`);
+    throw new Error(`${rows.length} rows do not divide among ${columns.length} contenders`);
   }
   const facedBy = (k) => Array.from({ length: block }, (_, i) => {
     const row = rows[k * block + i];
-    const me = row.left.policy === names[k] ? "left" : "right";
+    const me = row.left.policy === columns[k] ? "left" : "right";
     return row[me === "left" ? "right" : "left"].policy;
   });
   const order = facedBy(0);
-  for (let k = 1; k < names.length; k += 1) {
+  for (let k = 1; k < columns.length; k += 1) {
     const theirs = facedBy(k);
     for (let i = 0; i < block; i += 1) {
       if (theirs[i] === order[i]) continue;
-      throw new Error(`bout ${i}: ${names[0]} met ${order[i]} and ${names[k]} met ${theirs[i]}, `
+      throw new Error(`bout ${i}: ${columns[0]} met ${order[i]} and ${columns[k]} met ${theirs[i]}, `
         + "so the two columns are not the same fight and their difference is not paired");
     }
   }
-  const { points, bar } = columnsOf(rows, names);
+  const { points, bar } = columnsOf(rows, columns);
   const against = {};
+  const designedAgainst = {};
   for (const opponent of [...league, "all"]) {
     const keep = [];
     for (let i = 0; i < block; i += 1) if (opponent === "all" || order[i] === opponent) keep.push(i);
     const control_ = keep.map((i) => bar[control][i]);
     const table = {};
+    // What the designed minds themselves did over exactly these bouts, so a paired difference can
+    // be read back as two bars rather than only as a gap.
+    designedAgainst[opponent] = Object.fromEntries(minds.map((mind) => {
+      const b = keep.map((i) => bar[mind.key][i]);
+      return [mind.key, {
+        policy: mind.policy, column: mind.column, bouts: keep.length,
+        bar: meanOf(b), barSem: semOf(b), barD: cohensD(b),
+        points: meanOf(keep.map((i) => points[mind.key][i])),
+      }];
+    }));
     for (const name of names) {
       const b = keep.map((i) => bar[name][i]);
       const p = keep.map((i) => points[name][i]);
       const diff = b.map((x, i) => x - control_[i]);
+      // The paired column the set's criterion names: this arm minus a designed mind, bout by bout,
+      // over the same bodies from the same seeds. `sem` here is the spread of the *difference* and
+      // `barSem` above it is the spread of the arm's own margin; the two are the whole of what
+      // pairing buys and printing them in one line is how a reader can see it.
+      const paired = Object.fromEntries(minds.map((mind) => {
+        const theirs = keep.map((i) => bar[mind.key][i]);
+        const gap = b.map((x, i) => x - theirs[i]);
+        return [mind.column, { bar: meanOf(gap), sem: semOf(gap), d: cohensD(gap) }];
+      }));
       table[name] = {
         arm: name, iteration: at[name], bouts: keep.length,
         bar: meanOf(b), barSem: semOf(b), points: meanOf(p),
-        // The effect size of the arm's *own* bar margin against this opponent, which is a
-        // different criterion from the one beside it and is Session 10 of the learn set's bar. `d`
-        // is arm minus control and asks "did this change help"; `barD` is the mind against a
-        // designed mind over the same bouts and asks "does it beat it" -- which is the question a
-        // set that wants to take the screen's default off `golem-fencer` has to answer, and which
-        // no column of this table could answer before.
+        ...paired,
+        // The ordered list of them, so a formatter prints the columns this row actually has in the
+        // order they were asked for rather than guessing from field names.
+        pairedColumns: minds.map((mind) => mind.column),
+        // The effect size of the arm's *own* bar margin against whoever was in the other corner,
+        // standardised by that margin's per-bout spread. It is kept, it keeps its label, and
+        // **no bar in the signal set or after it quotes it**: Session 02 of that set ruled that a
+        // bar is stated on a paired column or it is not stated, because this number's denominator
+        // is a spread of 0.605 of a bar over fifty-two heterogeneous builds -- the body's variation
+        // and not the mind's. `d` beside it is arm minus control and asks whether a change helped;
+        // the `vs` columns above are arm minus a designed mind and are what the criterion names.
         barD: cohensD(b),
         delta: meanOf(diff), deltaSem: semOf(diff), d: cohensD(diff),
       };
@@ -681,6 +783,7 @@ export async function ratePaired(manifest, {
     // is a different pool and a reader six months later has no other way to know which it holds.
     rateSeed: seed === null ? null : seed >>> 0,
     pool: { builds: pool.length, terminals: [...terminals], random },
+    designed: minds, designedAgainst,
     at, against, results,
   };
 }
@@ -689,18 +792,34 @@ export async function ratePaired(manifest, {
  * One arm's line of a paired table: its own bar against this opponent, its effect size against
  * that opponent, and its difference from the control.
  *
- * The two `d`s are different criteria and the line says which is which. `own d` is the arm against
- * the designed mind in the other corner, over these bouts, which is what a bar stated as "beats
- * `golem-fencer` by d 0.2" means. `vs control` is the arm against the sweep's own control arm,
- * which is what a sweep asks of a change. A line that printed one of them unlabelled would be read
- * as the other by whoever came next.
+ * The three quantities are three different criteria and the line says which is which. `own d` is
+ * the arm's own bar margin against whoever was in the other corner, standardised by that margin's
+ * own per-bout spread -- the number this set's first ruling says no bar may be stated on.
+ * `vs control` is the arm against the sweep's own control arm, which is what a sweep asks of a
+ * change. `vsFencer` and its siblings are the arm against a designed mind bout by bout, which is
+ * what the criterion names. A line that printed any of them unlabelled would be read as one of the
+ * others by whoever came next.
+ *
+ * **The control's own row says `(control; no paired column)` and not a row of zeroes.** Session 02
+ * of the signal set. The control differenced against itself is identically zero at every bout, so
+ * `vs control +0.0000 d 0.000` is not a measurement of anything -- and at one arm, which is how
+ * Session 11 of the learn set ran it, *every* row of the table read that way and nothing said so.
  */
 export function formatPairedRow(row, control) {
   const own = `bar ${signed(row.bar, 4)} +-${(1.96 * row.barSem).toFixed(4)}`
     + `${row.barD === undefined ? "" : ` own d ${signed(row.barD, 3)}`}`;
-  if (row.arm === control) return `  ${row.arm.padEnd(4)} ${String(row.iteration).padStart(4)}  ${own}  (control)`;
+  const paired = (row.pairedColumns ?? [])
+    .filter((column) => row[column] !== undefined)
+    .map((column) => `  ${column} ${signed(row[column].bar, 4)} `
+      + `+-${(1.96 * row[column].sem).toFixed(4)} d ${signed(row[column].d, 3)}`)
+    .join("");
+  if (row.arm === control) {
+    return `  ${row.arm.padEnd(4)} ${String(row.iteration).padStart(4)}  ${own}  `
+      + `(control; no paired column)${paired}`;
+  }
   return `  ${row.arm.padEnd(4)} ${String(row.iteration).padStart(4)}  ${own}  `
-    + `vs control ${signed(row.delta, 4)} +-${(1.96 * row.deltaSem).toFixed(4)}  d ${signed(row.d, 3)}`;
+    + `vs control ${signed(row.delta, 4)} +-${(1.96 * row.deltaSem).toFixed(4)}  d ${signed(row.d, 3)}`
+    + paired;
 }
 
 const signed = (x, places) => `${x >= 0 ? "+" : "-"}${Math.abs(x).toFixed(places)}`;
@@ -709,10 +828,13 @@ const signed = (x, places) => `${x >= 0 ? "+" : "-"}${Math.abs(x).toFixed(places
 export function formatRatingRow(row) {
   const u = row.uniform;
   const d = row.driver;
+  const f = row.fencer ?? null;
   const on = (row.pool?.mirror ?? row.mirror) === false ? "rand" : "mirr";
   return `  ${row.arm.padEnd(16)} ${String(row.iteration).padStart(6)} ${on}  `
     + `uniform ${signed(u.bar, 4)} +-${(1.96 * u.sem).toFixed(4)} d ${signed(u.d, 3)}  |  `
-    + `driver ${signed(d.bar, 4)} +-${(1.96 * d.sem).toFixed(4)} d ${signed(d.d, 3)}`;
+    + `driver ${signed(d.bar, 4)} +-${(1.96 * d.sem).toFixed(4)} d ${signed(d.d, 3)}`
+    + (f === null ? ""
+      : `  |  fencer ${signed(f.bar, 4)} +-${(1.96 * f.sem).toFixed(4)} d ${signed(f.d, 3)}`);
 }
 
 /**
@@ -746,7 +868,7 @@ if (isMain) {
   // committed manifest with two numbers turned down rather than a second manifest to keep in step.
   const OWN = Object.freeze([
     "manifest", "workers", "root", "only", "from", "minutes", "restarts", "rate-bouts", "rate-cap",
-    "status", "paired", "against", "rate-seed", "rate-pools",
+    "status", "paired", "against", "designed", "rate-seed", "rate-pools",
   ]);
   const own = new Map();
   const extra = [];
@@ -806,6 +928,9 @@ if (isMain) {
     const control = own.get("paired");
     const against = (own.get("against") ?? PPO_LEAGUE.join(",")).split(",")
       .map((name) => name.trim()).filter(Boolean);
+    // Off unless asked for, because turning it on costs a contender's whole schedule and every
+    // table already written down was taken without it.
+    const designed = (own.get("designed") ?? "").split(",").map((name) => name.trim()).filter(Boolean);
     const rateWorkers = Math.max(1, available - 2);
     const out = [];
     for (const which of ratePools) {
@@ -815,16 +940,24 @@ if (isMain) {
       console.log(`${manifest.name} on ${point}: every arm in one call against ${against.join(" and ")}, `
         + `${boutsPerOpponent(rateBouts, against)} bouts an opponent, seed `
         + `${rateSeed === null ? (manifest.seed ^ 0xc0f1c0f1) >>> 0 : rateSeed}`
-        + `${rateSeed === null ? "" : " (named on the command line, not the sweep's own)"}`);
+        + `${rateSeed === null ? "" : " (named on the command line, not the sweep's own)"}`
+        + `${designed.length === 0 ? "" : `, paired against ${designed.join(" and ")}`}`);
       const rated = await ratePaired(manifest, {
         dir: root, bouts: rateBouts, workers: rateWorkers, cap, control, league: against, mirror,
-        seed: rateSeed,
+        seed: rateSeed, designed,
       });
       out.push(rated);
-      console.log(`  pool: ${rated.pool.builds} builds, ${rated.block} bouts an arm`);
+      console.log(`  pool: ${rated.pool.builds} builds, ${rated.block} bouts a contender`);
       for (const opponent of [...against, "all"]) {
         console.log(`  against ${opponent}:`);
         for (const name of rated.names) console.log(formatPairedRow(rated.against[opponent][name], control));
+        // The designed minds' own bars over the same bouts, so the gap above can be read back as
+        // two margins rather than only as a difference.
+        for (const mind of rated.designed) {
+          const row = rated.designedAgainst[opponent][mind.key];
+          console.log(`  ${mind.key.padEnd(4)} ${"--".padStart(4)}  bar ${signed(row.bar, 4)} `
+            + `+-${(1.96 * row.barSem).toFixed(4)} own d ${signed(row.barD, 3)}  (designed)`);
+        }
       }
     }
     writeFileSync(join(home, "paired.json"), JSON.stringify(out, null, 2) + "\n");

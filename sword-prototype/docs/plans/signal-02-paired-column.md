@@ -1,6 +1,9 @@
 # Session 02 -- the ruler the criterion named
 
-**Status (2026-09-11): planned. Needs nothing.**
+**Status (2026-09-11): landed.** All nine steps implemented. The mechanical bar was measured and
+*missed* -- 1.433x against the 1.5x it asked for and the 2.2x it predicted -- and the column was
+kept rather than reverted because it did tighten, which is this plan's own revert condition. The
+result, the wall clock and the mirror finding are in `../measurements.md`.
 
 ## Outcome
 

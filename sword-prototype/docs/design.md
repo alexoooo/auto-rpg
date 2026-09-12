@@ -2591,7 +2591,10 @@ A third thing came with it, from the same session, and it is a naming trap rathe
 weights are shaped by, 1 for 71 columns and 2 for 80. `scripts/league.mjs` writes
 `PILOT_FEATURES_VERSION`, which is a compatibility stamp saying what feature code the build could
 load, and that has read 2 for every league ever run in this tree -- including the one that fitted
-the shipped mind over 71 columns. A reader that takes the second spelling for the first builds an
+the shipped mind over 71 columns. (Since Session 02 of the signal set a league writes its own
+`--features` there, like the trainer, so the two spellings agree from that session forward. Every
+league log written before it still carries the stamp, the reader still has to handle it, and the
+rule below it is why.) A reader that takes the second spelling for the first builds an
 80-column net over 87308 numbers, and the failure does not surface in the reader: it is raised
 inside a tournament worker, one process away, naming two counts and no arm, after the pool has been
 drawn and the bouts have started. Both headers also record the layout they ran, which is the number
@@ -2599,6 +2602,29 @@ the weights on disk are actually shaped by, so `shapeOfLog` reads the shape off 
 it settle the disagreement, and `checkShape` asserts shape against weights before a worker is
 spawned. The general rule the trap is an instance of: **where a header records both a claim and the
 thing the claim is about, the reader takes the thing.**
+
+### A bar is stated on a paired column, or it is not stated
+
+Session 02 of the signal set, and it is a ruling rather than a measurement. **No bar in this set or
+after it may be quoted on `barD`.** `barD` is an arm's own bar margin against whichever designed
+mind was in the other corner, standardised by that margin's *own* per-bout spread -- and on the
+random-viable-pair pool every bar in the record is stated on, that spread is **0.605 of a bar**,
+while the body is worth 2.98x the mind. So the denominator is mostly the draw: the same mind rated
+twice on two draws moves by more than most of the differences any session is trying to see, and an
+effect size built on it is an effect size divided by the pool. `barD` keeps being printed and keeps
+its label, because an arm's own margin is a real quantity and the close-out tables of three plan
+sets are built on it; what changes is what a *bar* may be written on.
+
+What replaces it is the paired column: the same contender schedule that rates an arm also rates the
+designed mind, over the same bodies from the same seeds, and the difference is taken bout by bout
+before any mean is formed. `ratePolicy` in `scripts/train-ppo.mjs` now carries `golem-fencer`
+beside `golem-driver` and `uniform` for exactly this reason -- the fencer is the mind the matchup
+set left in front, so it is the mind a bar is worth stating against -- and `--designed
+golem-driver,golem-fencer` on `scripts/sweep.mjs` gives every arm's row a `vsDriver` and a
+`vsFencer` column of the same shape. The cost is one more contender's schedule, **+33 % bouts on
+every rating**, and no budget was cut to pay for it. The gain is arithmetic rather than a
+judgement: the body's contribution is common to both columns of a row and subtracts out, so what is
+left is the mind's, and the standard error the bar is read at is the standard error of *that*.
 
 ## The curve page as a window rather than a report
 

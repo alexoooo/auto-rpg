@@ -108,16 +108,17 @@ import { availableParallelism } from "node:os";
 import { armedTerminal, runJobs, scheduleJobs } from "./tournament.mjs";
 import { formatIdleProbe, idleProbe } from "./idle-probe.mjs";
 import {
-  FIT_NAME, FitPool, PPO_LEAGUE, RATING_POOLS, REWARD_KEYS, UNIFORM_NAME, episodeReturns,
+  FIT_NAME, FitPool, GAUSSIAN_ENTROPY_OFFSET, PPO_LEAGUE, RATING_POOLS, REWARD_KEYS, UNIFORM_NAME,
+  checkEntropyTarget, episodeReturns,
   extendNormalisation, mergeRollouts, mixedSchedule, momentsFromJson, momentsToJson,
   parseEntropyStage, parseOpponentStage, parseSchedule, parseSeparationStage, parseTactics,
-  parseTerminals, parseTerminalsStage, poolFor, policyTable, poolWord, ppoFit, ratePolicy,
-  renderPolicyModule, scheduled,
+  parseTerminals, parseTerminalsStage, poolFor, policyShapeOf, policyTable, poolWord, ppoFit,
+  ratePolicy, renderPolicyModule, scheduled,
 } from "./train-ppo.mjs";
 import {
   ACTION_AXES, POLICY_LAYOUT, POLICY_VERSION, VALUE_LAYOUT, freshNormalisation,
 } from "../src/golem/policy.ts";
-import { PILOT_FEATURES_VERSION } from "../src/golem/pilot.ts";
+import { PILOT_FEATURES_DEFAULT, PILOT_FEATURES_VERSION } from "../src/golem/pilot.ts";
 import { initWeights, netSize } from "../src/golem/neural-net.ts";
 import { GOLEM_REWARD } from "../src/golem/reward.ts";
 import { GOLEM_TACTICS_V4 } from "../src/golem/tactics-v4.ts";
@@ -267,6 +268,28 @@ export function emphasisedPool(pool, terminals, weight) {
 export const LEAGUE_VALUE_LAYOUT = Object.freeze({ ...VALUE_LAYOUT, hidden: Object.freeze([64, 64]) });
 
 /**
+ * The shape every role in a league is built at, and the shape a league had no way of naming until
+ * Session 02 of the signal set.
+ *
+ * Session 09 of the learn set put five flags on `scripts/train-ppo.mjs` -- the observation version,
+ * the head, the spread, the critic and the critic's width -- and put none of them here. The sweep
+ * runner's premise is that a manifest's `common` block reads across both scripts, so an arm whose
+ * `--head mixed` went to a league ran a Gaussian head and wrote `head: mixed` in nothing at all:
+ * the flag was not ignored loudly, it was ignored silently, and the arm reported as though it had
+ * been the thing it was named. Every function below that builds a role, packs a contender, fits or
+ * rates now takes this object, and `null` means the shipped shape -- which is what keeps a league
+ * that names none of the five byte for byte the league it was.
+ *
+ * `LEAGUE_SHAPE` is that default spelled out: version-1 columns, a Gaussian head, a constant
+ * spread, a self critic and the 64x64 value net this file has always used.
+ */
+export const LEAGUE_SHAPE = policyShapeOf({ valueHidden: [64, 64] });
+
+/** The layouts a role is built at, defaulting to the shape this file has always had. */
+const layoutOf = (shape) => shape?.layout ?? POLICY_LAYOUT;
+const valueLayoutOf = (shape) => shape?.valueLayout ?? LEAGUE_VALUE_LAYOUT;
+
+/**
  * A role's numbers: what it plays with, what it predicts with, and what it has seen.
  *
  * Drawn rather than zeroed, and that is not a style choice: a ReLU net of zeros emits zeros from
@@ -274,12 +297,12 @@ export const LEAGUE_VALUE_LAYOUT = Object.freeze({ ...VALUE_LAYOUT, hidden: Obje
  * `train-ppo.mjs`'s `initWeights` and the same seed rule, so a league role and a trainer run from
  * one seed start life as the same mind.
  */
-export function freshRole(seed) {
+export function freshRole(seed, shape = null) {
   return {
-    weights: initWeights(POLICY_LAYOUT, seed),
-    valueWeights: initWeights(LEAGUE_VALUE_LAYOUT, (seed ^ 0x1c) >>> 0),
+    weights: initWeights(layoutOf(shape), seed),
+    valueWeights: initWeights(valueLayoutOf(shape), (seed ^ 0x1c) >>> 0),
     logSigma: Float64Array.from({ length: 9 }, () => -0.7),
-    norm: freshNormalisation(),
+    norm: freshNormalisation(shape?.columns),
     seed: seed >>> 0,
     history: [],
     bornAt: 0,
@@ -297,7 +320,7 @@ export function freshRole(seed) {
  * entirely when nothing overrides it, so a run that does not pass the flag packs the same bytes
  * every run before it packed.
  */
-export function contenderFor(role, sample = false, tactics = null) {
+export function contenderFor(role, sample = false, tactics = null, shape = null) {
   return {
     pi: Array.from(role.weights, round5),
     logSigma: Array.from(role.logSigma, round5),
@@ -307,6 +330,10 @@ export function contenderFor(role, sample = false, tactics = null) {
       variance: Array.from(role.norm.variance, round5),
     },
     sample,
+    // Session 09 of the learn set's shape fields, and left off entirely at the shipped shape for
+    // `tactics`' reason: a contender under version-1 columns and a Gaussian head is the four-field
+    // object every league in `tournaments/` was scheduled with.
+    ...(shape?.shape ?? {}),
     ...(tactics === null || Object.keys(tactics).length === 0 ? {} : { tactics }),
   };
 }
@@ -353,9 +380,9 @@ export function copyRole(role, seed, bornAt) {
 export async function collectLeague({
   builds, role, opponents, seed, bouts, workers, cap, reward = GOLEM_REWARD,
   name = MAIN_NAME, onProgress = null, separation = null, mirrorShare = 1, randomBuilds = null,
-  tactics = null,
+  tactics = null, shape = null,
 }) {
-  const contenders = { [name]: contenderFor(role, true, tactics) };
+  const contenders = { [name]: contenderFor(role, true, tactics, shape) };
   for (const opponent of opponents) contenders[opponent.name] = opponent.contender;
   const pairs = leaguePairs(opponents, name);
   // Rounded up to a whole number of cycles, which is what makes the declared mix the realised
@@ -375,7 +402,7 @@ export async function collectLeague({
     // league that schedules nothing writes the jobs it always wrote.
     separation,
   });
-  const rows = await runJobs(jobs, { workers, contenders, record: [name], onProgress });
+  const rows = await runJobs(jobs, { workers, contenders, record: [name], central: shape?.central ?? false, onProgress });
   const parts = [];
   const margins = new Map();
   let margin = 0;
@@ -394,7 +421,7 @@ export async function collectLeague({
     if (!margins.has(against)) margins.set(against, []);
     margins.get(against).push(pack.margin);
   }
-  const rollout = mergeRollouts(parts, reward);
+  const rollout = mergeRollouts(parts, reward, shape?.columns);
   rollout.bouts = rows.length;
   rollout.decided = rows.length === 0 ? 0 : decided / rows.length;
   rollout.margin = parts.length === 0 ? 0 : margin / parts.length;
@@ -421,11 +448,11 @@ export async function collectLeague({
 export async function trainRole({
   builds, role, opponents, moments, seed, bouts, workers, cap, reward = GOLEM_REWARD,
   name = MAIN_NAME, onProgress = null, fit: knobs = {}, pool = null, separation = null,
-  mirrorShare = 1, randomBuilds = null, tactics = null,
+  mirrorShare = 1, randomBuilds = null, tactics = null, shape = null,
 }) {
   const rollout = await collectLeague({
     builds, role, opponents, seed, bouts, workers, cap, reward, name, onProgress, separation,
-    mirrorShare, randomBuilds, tactics,
+    mirrorShare, randomBuilds, tactics, shape,
   });
   if (rollout.count === 0) throw new Error(`${name} collected no asks at all`);
   const summary = episodeReturns(rollout);
@@ -435,7 +462,8 @@ export async function trainRole({
   const started = Date.now();
   const fit = ppoFit(rollout, {
     weights: role.weights, logSigma: role.logSigma, valueWeights: role.valueWeights,
-    norm: role.norm, seed: (seed ^ 0x1ea9e0) >>> 0, valueLayout: LEAGUE_VALUE_LAYOUT,
+    norm: role.norm, seed: (seed ^ 0x1ea9e0) >>> 0,
+    layout: shape?.layout, valueLayout: valueLayoutOf(shape), spec: shape?.spec,
     ...knobs, pool, actor: moments.actor, spread: moments.spread, critic: moments.critic,
   });
   const seconds = (Date.now() - started) / 1000;
@@ -461,13 +489,13 @@ export async function trainRole({
  * different number of value weights and there is nothing sensible to do with them. That case
  * starts the critic over rather than guessing, and says so.
  */
-export function roleFromCheckpoint(json, seed) {
+export function roleFromCheckpoint(json, seed, shape = null) {
   const valueWeights = Float64Array.from(json.valueWeights ?? []);
-  const fitted = valueWeights.length === netSize(LEAGUE_VALUE_LAYOUT);
+  const fitted = valueWeights.length === netSize(valueLayoutOf(shape));
   return {
     role: {
       weights: Float64Array.from(json.weights),
-      valueWeights: fitted ? valueWeights : initWeights(LEAGUE_VALUE_LAYOUT, (seed ^ 0x1c) >>> 0),
+      valueWeights: fitted ? valueWeights : initWeights(valueLayoutOf(shape), (seed ^ 0x1c) >>> 0),
       logSigma: Float64Array.from(json.logSigma),
       norm: json.normalisation,
       seed: seed >>> 0, history: [], bornAt: 0,
@@ -575,9 +603,9 @@ export function loadLeague(dir) {
  * every league written before Session 04 of the learn set: `saved` says so once, and the per-block
  * warnings are held back, because three lines a role saying the same thing is noise.
  */
-export function momentsFromLeague(json, roles) {
+export function momentsFromLeague(json, roles, shape = null) {
   const sizes = {
-    actor: netSize(POLICY_LAYOUT), spread: ACTION_AXES, critic: netSize(LEAGUE_VALUE_LAYOUT),
+    actor: netSize(layoutOf(shape)), spread: ACTION_AXES, critic: netSize(valueLayoutOf(shape)),
   };
   const moments = {};
   const warnings = [];
@@ -810,10 +838,12 @@ export function shipTable(role, { state, head, iteration, spent, rated, date }) 
  * is the number being read and a total would quietly shrink every cell as the pool grew. Ten
  * minds are forty five pairs, so the run is forty five times what is asked for.
  */
-export async function leagueMatrix({ builds, entries, seed, bouts, workers, cap, onProgress = null }) {
+export async function leagueMatrix({
+  builds, entries, seed, bouts, workers, cap, onProgress = null, tactics = null, shape = null,
+}) {
   if (entries.length < 2) throw new Error("a matrix wants at least two minds");
   const contenders = {};
-  for (const { name, role } of entries) contenders[name] = contenderFor(role, false);
+  for (const { name, role } of entries) contenders[name] = contenderFor(role, false, tactics, shape);
   const names = entries.map((e) => e.name);
   const pairs = [];
   for (let i = 0; i < names.length; i += 1) {
@@ -919,6 +949,21 @@ if (isMain) {
   const shards = Math.max(1, Number(flag("shards", 8)));
   // Absent is the viable set since Session 01 of the learn set; `--terminals all` is every build.
   const terminals = parseTerminals(flag("terminals", null));
+  // ---- Session 09 of the learn set's five shape flags, spelled and checked exactly as
+  // `scripts/train-ppo.mjs` spells and checks them because `policyShapeOf` is the same function.
+  // They arrived here in Session 02 of the signal set; before it a league ran the shipped shape
+  // whatever a sweep manifest's `common` block said, and said nothing about having done so. Every
+  // default is the shipped shape, so a league that names none of them writes the bytes it always
+  // wrote -- `policyShapeOf` returns a null `shape`, and a contender is the four fields it was.
+  const headName = flag("head", "gaussian");
+  const sigmaName = flag("sigma", "constant");
+  const criticName = flag("critic", "self");
+  const shape = policyShapeOf({
+    features: Number(flag("features", PILOT_FEATURES_DEFAULT)),
+    head: headName, sigma: sigmaName, critic: criticName,
+    sigmaFloor: Number(flag("sigma-floor", -3)), sigmaRoof: Number(flag("sigma-roof", 0.5)),
+    valueHidden: flag("value-hidden", "64,64").split(",").map((x) => x.trim()),
+  });
   // ---- Session 08 of the learn set's three curricula, and here they touch **the main's
   // collection and nothing else**. An exploiter's job is to find what the main cannot answer, so
   // an exploiter trained on a narrowed pool, at a curriculum's start distance or against a
@@ -936,9 +981,18 @@ if (isMain) {
   // and the anchor at their shares -- which is what a league iteration does when nothing is
   // scheduled. Any other stage replaces that mix for the iteration with one opponent at weight
   // one, which is how a curriculum says "spend these ten iterations on the dummy".
+  //
+  // `--opponent` is that one opponent without a schedule, which is the trainer's spelling of the
+  // same knob and the last of the eight flags Session 02 of the signal set brought across. The two
+  // may not both be passed, for `--separation`'s reason: a header carrying a scalar and a schedule
+  // cannot say which of them the iteration obeyed.
+  const opponentFlag = flag("opponent", null);
   const opponentText = flag("opponent-schedule", null);
+  if (opponentFlag !== null && opponentText !== null) {
+    throw new Error("--opponent is a one-stage --opponent-schedule; pass one of them");
+  }
   const opponentSchedule = parseSchedule(
-    opponentText ?? "league", parseOpponentStage, "--opponent-schedule");
+    opponentText ?? opponentFlag ?? "league", parseOpponentStage, "--opponent-schedule");
   const terminalsText = flag("terminals-schedule", null);
   const terminalsSchedule = terminalsText === null
     ? [{ from: 0, value: [...terminals] }]
@@ -1041,13 +1095,38 @@ if (isMain) {
   // Session 09's f, which was the second-best of nine there and is worth one league arm here.
   // `--entropy` is a one-stage schedule and the two may not both be passed, for the trainer's
   // reason: a header that names two coefficients cannot say which one the fit paid.
+  //
+  // **The default moved 0.003 -> 0.0003 on 2026-09-11**, Session 02 of the signal set, and it moves
+  // to a value the record already measured rather than to a guess. All three 300-iteration leagues
+  // in the record were run at 0.0003; Session 11 of the learn set's 400-iteration headline run took
+  // this file's default of 0.003, and by then the record had already measured 0.003 as +0.00143 an
+  // iteration on the policy's spread (t +33.3) against 0.0003's -0.00144 (t -22.4). So the run the
+  // last set is written on is confounded on a knob its own record knew about, the entry did not
+  // flag it, and the file's default is what put it there.
+  //
+  // `--entropy-target` and `--entropy-rate` are the third way of saying it, Session 09's dual: a
+  // spread to hold rather than a coefficient to pay, with the coefficient moved multiplicatively
+  // after each fit until the spread sits where it was asked to. A league wants it more than the
+  // trainer did -- a league fits three or four roles a turn and the coefficient that suits the
+  // main at iteration 10 is not the one that suits it at 300 -- and it carries the trainer's three
+  // refusals unchanged, the third of them `checkEntropyTarget`'s band.
   const entropyFlag = flag("entropy", null);
   const entropyText = flag("entropy-anneal", null);
+  const entropyTarget = flag("entropy-target", null) === null ? null : Number(flag("entropy-target", null));
+  const entropyRate = Number(flag("entropy-rate", 0.05));
   if (entropyText !== null && entropyFlag !== null) {
     throw new Error("--entropy is a one-stage --entropy-anneal; pass one of them");
   }
+  if (entropyTarget !== null && entropyText !== null) {
+    throw new Error("--entropy-target sets the coefficient and --entropy-anneal schedules it; pass one of them");
+  }
+  if (entropyTarget !== null && sigmaName === "state") {
+    throw new Error("--entropy-target reads the spread off logSigma, which --sigma state does not use; "
+      + "pass one of them");
+  }
+  checkEntropyTarget(entropyTarget, Number(flag("sigma-floor", -3)), Number(flag("sigma-roof", 0.5)));
   const entropySchedule = parseSchedule(
-    entropyText ?? String(entropyFlag ?? 0.003), parseEntropyStage, "--entropy-anneal");
+    entropyText ?? String(entropyFlag ?? 0.0003), parseEntropyStage, "--entropy-anneal");
   const knobs = {
     halfLife: Number(flag("half-life", 4)), lambda: Number(flag("lambda", 0.95)),
     clip: Number(flag("clip", 0.2)), entropy: scheduled(entropySchedule, 0),
@@ -1139,9 +1218,9 @@ if (isMain) {
       : `  resuming at iteration ${state.iteration + 1} from ${statePath(dir)}`);
   } else {
     if (existsSync(statePath(dir))) throw new Error(`${statePath(dir)} exists; a league does not overwrite another league, pass --resume or --dir`);
-    let main = freshRole(seed);
+    let main = freshRole(seed, shape);
     if (from !== null) {
-      const started = roleFromCheckpoint(JSON.parse(readFileSync(resolve(from), "utf8")), seed);
+      const started = roleFromCheckpoint(JSON.parse(readFileSync(resolve(from), "utf8")), seed, shape);
       main = started.role;
       console.log(`  starting the main from ${from}`
         + `${started.critic ? "" : " -- its critic is a different width and was started over"}`);
@@ -1160,7 +1239,7 @@ if (isMain) {
   // set. A league written before that has none and starts cold, which is said once rather than
   // per role: an arm the runner restarted is meant to be the same run, and the one way to tell it
   // is not is that nobody printed a line.
-  const read = momentsFromLeague(state, state.exploiters.length);
+  const read = momentsFromLeague(state, state.exploiters.length, shape);
   const moments = read.moments;
   if (!read.saved && (resume || matrixOnly || shipOnly)) {
     console.log(`  ${statePath(dir)} carries no Adam moments; every role starts cold`);
@@ -1192,6 +1271,7 @@ if (isMain) {
       // off the mirror while the snapshot was chosen on random pairs would be a header that names
       // a different measurement than the decision it records.
       pools: ratingPools, tactics: head.tactics ?? tactics,
+      features: shape.features, spec: shape.spec,
       onProgress: progress(`rate ${ship}`),
     });
     console.log(`  === ${ship} of ${dir}: ${rated.per} bouts a contender ===`);
@@ -1224,7 +1304,7 @@ if (isMain) {
     const builds = poolFor({ seed: (seed ^ 0xa11) >>> 0, random, terminals, mirror: true });
     const result = await leagueMatrix({
       builds, entries, seed: (seed ^ 0xc0f1c0f1) >>> 0, bouts: matrixBouts, workers, cap,
-      onProgress: progress("matrix"),
+      tactics, shape, onProgress: progress("matrix"),
     });
     const breaks = matrixBreaks(result, { lag: matrixLag });
     console.log(`  matrix over ${result.names.length} minds, ${result.bouts} bouts:`);
@@ -1258,7 +1338,7 @@ if (isMain) {
       // The probe is a build against a motionless copy of *itself*, which is a mirror, so it draws
       // the mirrored pool: the classes whose kill rate this table is worth reading.
       pool: poolFor({ seed: (seed ^ 0xc0f1c0f1) >>> 0, random, terminals, mirror: true }), name: MAIN_NAME,
-      contender: contenderFor(state.main, false, tactics), bouts: probeBouts, workers, cap,
+      contender: contenderFor(state.main, false, tactics, shape), bouts: probeBouts, workers, cap,
       seed: (seed ^ 0xc0f1c0f1) >>> 0, onProgress: progress("idle probe"),
     });
     console.log("");
@@ -1275,7 +1355,13 @@ if (isMain) {
     // so the two paths cannot drift into quoting different knobs for the same run.
     const header = {
       seed, date, version: LEAGUE_VERSION, policy: POLICY_VERSION,
-      features: PILOT_FEATURES_VERSION, layout: POLICY_LAYOUT, valueLayout: LEAGUE_VALUE_LAYOUT,
+      // The shape the run's roles were built at, and it is the run's own and no longer a constant.
+      // `features` used to be written as `PILOT_FEATURES_VERSION`, the newest version this build
+      // publishes, on every league ever run -- while `freshRole` built the main at `POLICY_LAYOUT`,
+      // which is version 1's width. So the field said 2 and the mind read version-1 columns, and
+      // it has said 2 in every header in `tournaments/`. It now says what the run actually ran.
+      features: shape.features, head: shape.head, sigma: shape.sigma, critic: shape.critic,
+      layout: shape.layout, valueLayout: shape.valueLayout,
       reward, iterations, bouts, exploiterBouts, cap, random, workers, terminals, from,
       emphasise, emphasis,
       poolEvery, poolCap, exploiters, exploiterEvery,
@@ -1287,16 +1373,32 @@ if (isMain) {
       // the distance the *next* iteration will be collected at, which for a resumed run is the one
       // it is about to fight rather than a value from before its own first row.
       separation: scheduled(separationSchedule, state.iteration + 1),
-      separationSchedule, opponentSchedule, terminalsSchedule, entropySchedule, tactics,
+      separationSchedule, opponentSchedule, terminalsSchedule, entropySchedule,
+      entropyTarget, entropyRate, tactics,
       ...knobs,
     };
     log({ type: "header", ...header });
     console.log(`league: seed ${seed}, iterations ${state.iteration + 1}..${iterations} of ${bouts} bouts, `
       + `${state.exploiters.length} exploiters, pool cap ${poolCap}, ${workers} workers, `
       + `${shards === 1 ? "one fit thread" : `${shards} fit shards`}`);
+    console.log(`  head: ${shape.head} over ${shape.spec.width} outputs, spread ${shape.sigma}, `
+      + `observation version ${shape.features} (${shape.columns} columns), critic ${shape.critic} `
+      + `${shape.valueHidden.join("x")}`);
+    if (entropyTarget !== null) {
+      console.log(`  entropy: held at H ${entropyTarget.toFixed(3)} an axis, coefficient from `
+        + `${scheduled(entropySchedule, 0)} at rate ${entropyRate}`);
+    }
     // One pool for the whole run and every role in it.
-    const fitPool = shards > 1 ? await FitPool.open({ shards, valueLayout: LEAGUE_VALUE_LAYOUT }) : null;
+    const fitPool = shards > 1
+      ? await FitPool.open({ shards, layout: shape.layout, valueLayout: shape.valueLayout, spec: shape.spec })
+      : null;
 
+    // The coefficient the iteration pays, held across iterations because the controller's next
+    // value is a function of its last one. A schedule overwrites it at the top of every iteration;
+    // the controller leaves it where the previous turn's spread put it, which is `train-ppo.mjs`'s
+    // rule and its reason -- a temperature chosen from a spread the fit has not produced yet is a
+    // controller reading its own output.
+    let entropyNow = scheduled(entropySchedule, 0);
     let rated = null;
     const ratePoint = async (iteration, wanted) => {
       const eseed = (seed ^ 0xc0f1c0f1) >>> 0;
@@ -1327,7 +1429,7 @@ if (isMain) {
         // `wanted` is the whole budget and `ratePolicy` spends it per contender per opponent, so
         // it is divided by the league's length the way the trainer divides it.
         bouts: Math.max(2, Math.ceil(wanted / PPO_LEAGUE.length / 2) * 2), workers, cap,
-        pools: ratingPools, tactics,
+        pools: ratingPools, tactics, features: shape.features, spec: shape.spec,
         onProgress: progress(`rate ${iteration}`),
       });
       console.log(`  === rating after iteration ${iteration}: ${result.per} bouts a contender ===`);
@@ -1356,6 +1458,7 @@ if (isMain) {
       // The three curricula in force this iteration. The pool below is the main's; the exploiters
       // draw `terminals` and start where the config starts, which is the whole of "the main's
       // collection only".
+      if (entropyTarget === null) entropyNow = scheduled(entropySchedule, iteration);
       const stageSeparation = scheduled(separationSchedule, iteration);
       const stageOpponent = scheduled(opponentSchedule, iteration);
       const stageTerminals = scheduled(terminalsSchedule, iteration);
@@ -1379,16 +1482,16 @@ if (isMain) {
       const frozen = copyRole(state.main, (seed ^ 0x5e1f ^ iteration) >>> 0, iteration);
       const opponents = [];
       if (stageOpponent === "league") {
-        if (shareSelf > 0) opponents.push({ name: SELF_NAME, weight: shareSelf, contender: contenderFor(frozen, false, tactics) });
+        if (shareSelf > 0) opponents.push({ name: SELF_NAME, weight: shareSelf, contender: contenderFor(frozen, false, tactics, shape) });
         const slots = spreadSlots(state.pool.length, sharePool, iteration);
         state.pool.forEach((entry, i) => {
           if (slots[i] > 0) {
-            opponents.push({ name: poolName(entry.iteration), weight: slots[i], contender: contenderFor(load(entry.iteration), false, tactics) });
+            opponents.push({ name: poolName(entry.iteration), weight: slots[i], contender: contenderFor(load(entry.iteration), false, tactics, shape) });
           }
         });
         if (shareExploiter > 0) {
           for (let slot = 0; slot < state.exploiters.length; slot += 1) {
-            opponents.push({ name: exploiterName(slot), weight: shareExploiter, contender: contenderFor(state.exploiters[slot], false, tactics) });
+            opponents.push({ name: exploiterName(slot), weight: shareExploiter, contender: contenderFor(state.exploiters[slot], false, tactics, shape) });
           }
         }
         // Each anchor gets the same share, so `--share-anchor 1` with two of them is two slots of
@@ -1399,7 +1502,7 @@ if (isMain) {
         // The frozen copy rather than the live main, for `leaguePairs`' reason: a role on both
         // sides of a pair is a mirror whose reward sums to zero, and the copy is what makes
         // "against itself" mean the mind that started the iteration.
-        opponents.push({ name: SELF_NAME, weight: 1, contender: contenderFor(frozen, false, tactics) });
+        opponents.push({ name: SELF_NAME, weight: 1, contender: contenderFor(frozen, false, tactics, shape) });
       } else if (stageOpponent === UNIFORM_NAME) {
         opponents.push({ name: UNIFORM_NAME, weight: 1, contender: { uniform: true } });
       } else {
@@ -1409,9 +1512,9 @@ if (isMain) {
       const turn = await trainRole({
         builds, role: state.main, opponents, moments: moments.main,
         seed: (seed + iteration * 7919) >>> 0, bouts, workers, cap, reward,
-        name: MAIN_NAME, fit: { ...knobs, entropy: scheduled(entropySchedule, iteration) },
+        name: MAIN_NAME, fit: { ...knobs, entropy: entropyNow },
         pool: fitPool, separation: stageSeparation,
-        mirrorShare, randomBuilds, tactics,
+        mirrorShare, randomBuilds, tactics, shape,
         onProgress: progress(`iteration ${iteration}`),
       });
       let fitSeconds = turn.seconds;
@@ -1427,10 +1530,10 @@ if (isMain) {
           const name = exploiterName(slot);
           const hunt = await trainRole({
             builds: exploiterBuilds, role: state.exploiters[slot], moments: moments[name],
-            opponents: [{ name: SELF_NAME, weight: 1, contender: contenderFor(frozen, false, tactics) }],
+            opponents: [{ name: SELF_NAME, weight: 1, contender: contenderFor(frozen, false, tactics, shape) }],
             seed: (seed + iteration * 7919 + 104_729 * (slot + 1)) >>> 0,
-            bouts: exploiterBouts, workers, cap, reward, name, pool: fitPool, tactics,
-            fit: { ...knobs, entropy: scheduled(entropySchedule, iteration) },
+            bouts: exploiterBouts, workers, cap, reward, name, pool: fitPool, tactics, shape,
+            fit: { ...knobs, entropy: entropyNow },
             // The exploiters stay mirrored whatever the main does. Their job is to find a hole in
             // the main and the cheapest way to lose that job is to spend half their bouts on a
             // second axis of variation; the main's arrangement is the experiment, and an exploiter
@@ -1449,6 +1552,20 @@ if (isMain) {
           state.steps += hunt.rollout.count;
           hunts.push({ slot, gain, decided: round5(hunt.rollout.decided), reset: stalled, steps: hunt.rollout.count });
         }
+      }
+
+      // Schulman's dual, after every fit of the iteration rather than after the main's alone: a
+      // league's roles all pay one coefficient, so the one number is moved once a turn and each
+      // role in the next turn pays what the main's spread asked for. The Gaussian half of an axis's
+      // entropy is `logSigma + 0.5 (log 2pi + 1)` and depends on nothing else, so the mean of the
+      // nine is already sitting in the main's own array. Below the target the coefficient rises and
+      // above it falls, multiplicatively, which is what lets a coefficient that has to travel two
+      // orders of magnitude get there in ten iterations rather than a hundred.
+      if (entropyTarget !== null) {
+        let axisEntropy = 0;
+        for (let j = 0; j < ACTION_AXES; j += 1) axisEntropy += state.main.logSigma[j] + GAUSSIAN_ENTROPY_OFFSET;
+        axisEntropy /= ACTION_AXES;
+        entropyNow = Math.min(1, Math.max(1e-6, entropyNow * Math.exp(entropyRate * (entropyTarget - axisEntropy))));
       }
 
       // The snapshot, taken after the turn so `pool-N` is the mind that finished iteration N.

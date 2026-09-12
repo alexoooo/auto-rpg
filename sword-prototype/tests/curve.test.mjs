@@ -333,3 +333,55 @@ test("a_re_read_is_drawn_only_when_it_has_something_the_drawn_one_did_not", () =
   assert.equal(mid.skipped, 1);
   assert.equal(reachMoved(reachOf(mid), reachOf(whole)), true);
 });
+
+// ------------------- Session 02 of the signal set: the third baseline, and where it stops
+
+/**
+ * A log's rating row carries whichever baselines the rating took, and `golem-fencer` is now one.
+ *
+ * `readDifferences` walks `Object.entries(differences)` and names nothing, so a row that gained a
+ * key gains a series -- which is the whole reason `ratePolicy` could take a third contender without
+ * anything on the page being told about it. The fixture row is patched rather than replaced so that
+ * what is asserted is the *addition*: the two series that were there are still there, with the
+ * numbers they had.
+ */
+test("a_rating_row_carries_whichever_baselines_it_was_taken_against", () => {
+  const rows = TRAIN.trim().split("\n").map((line) => JSON.parse(line));
+  for (const row of rows) {
+    if (row.type !== "rating") continue;
+    row.differences.fencer = { bar: -0.0421, barSem: 0.0295, d: -0.1103, points: -0.021, pointsSem: 0.03 };
+  }
+  const run = readTrainLog(`${rows.map((row) => JSON.stringify(row)).join("\n")}\n`, "ppo-run1.jsonl");
+  const rating = run.ratings[0];
+  assert.deepEqual(Object.keys(rating.differences).sort(), ["driver", "fencer", "uniform"]);
+  close(rating.differences.fencer.bar, -0.0421, "fencer bar");
+  close(rating.differences.fencer.barSem, 0.0295, "fencer barSem");
+  close(rating.differences.fencer.d, -0.1103, "fencer d");
+  close(rating.differences.uniform.bar, 0.0145, "the baselines that were there are unmoved");
+  assert.ok(columnsOf(run).includes("bar:fencer"), "a column the page can be asked to draw");
+  assert.ok(columnsOf(run).includes("d:fencer"));
+});
+
+/**
+ * And the one path that does not carry it, recorded rather than wished away.
+ *
+ * The session's plan says the curve page "reads whatever keys the row carries, so the page needs no
+ * change". That is true of a *log*, through `readDifferences`. It is not true of a **rate-snapshots
+ * curve file**: `readCurve` in `src/curve/runs.ts` walks the literal list `["uniform", "driver"]`,
+ * so a `fencer` block written into a curve row is read by nothing and drawn as nothing. The block
+ * is still written -- `rateSnapshots` puts it there and the file on disk is the record -- and the
+ * page simply does not offer the series until that list is widened.
+ *
+ * This is asserted as the behaviour rather than fixed here because `src/curve/runs.ts` is not this
+ * session's to edit. A later session widening the list will break this test, which is the correct
+ * way for it to find out that this is the line.
+ */
+test("a_curve_files_third_baseline_is_written_to_disk_and_not_yet_read_by_the_page", () => {
+  const rows = RATE.trim().split("\n").map((line) => JSON.parse(line));
+  for (const row of rows) row.fencer = { bar: -0.0421, sem: 0.0295, d: -0.1103 };
+  const run = readCurve(`${rows.map((row) => JSON.stringify(row)).join("\n")}\n`, "rate.jsonl");
+  assert.deepEqual(Object.keys(run.ratings[0].differences).sort(), ["driver", "uniform"],
+    "readCurve names its two opponents literally, so the third is dropped in the reader");
+  assert.ok(!columnsOf(run).includes("bar:fencer"),
+    "and the page therefore offers no fencer series off a curve file, however the file was written");
+});

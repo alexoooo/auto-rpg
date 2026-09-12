@@ -74,12 +74,14 @@ import { policyMind } from "../src/mind.ts";
 import { policyForUnit } from "../src/units.ts";
 import { mulberry32 } from "../src/rng.ts";
 import {
-  FIT_NAME, FitPool, PACK_COLUMNS, RATING_POOLS, SCHEDULE_OPPONENTS, SHAPING_ROWS, advantages,
-  boutSplit, checkpointFor, cohensD, contenderShape, explainedVariance, extendNormalisation,
+  FIT_NAME, FitPool, GAUSSIAN_ENTROPY_OFFSET, MIRROR_SHARE_TOLERANCE, PACK_COLUMNS, RATING_POOLS,
+  SCHEDULE_OPPONENTS, SHAPING_ROWS, advantages,
+  boutSplit, checkEntropyTarget, checkMirrorShare, checkpointFor, cohensD, contenderShape,
+  explainedVariance, extendNormalisation,
   mergeRollouts, mixedSchedule, momentsFromJson, momentsToJson, opponentOf, parseEntropyStage,
   parseOpponentStage, parseSchedule, parseSeparationStage, parseTactics, parseTerminals,
-  parseTerminalsStage, poolFor, poolWord, ppoFit, ratePolicy, ratingSeed, renderPolicyModule,
-  resumesOwnLog, rolloutPairs, scheduled, surrogateGrad, surrogateObjective,
+  parseTerminalsStage, poolFor, poolWord, ppoFit, ratePolicy, ratingSeed, realisedMirrorShare,
+  renderPolicyModule, resumesOwnLog, rolloutPairs, scheduled, surrogateGrad, surrogateObjective,
 } from "../scripts/train-ppo.mjs";
 import { CONFIG } from "../src/config.ts";
 import { shardSlice } from "../scripts/fit-worker.mjs";
@@ -1840,6 +1842,14 @@ test("a_contender_carries_its_own_shape_and_its_own_executor_rows", () => {
   assert.throws(() => parseTactics("holdMyReech=true"), /not a row of the fourth executor/);
   assert.throws(() => parseTactics("closeGain"), /row=value/);
   assert.throws(() => parseTactics("closeGain=quite a lot"), /neither a number nor a flag/);
+  // Session 02 of the signal set: the two readings of one stand-off axis, named together. The
+  // *executor* still resolves a table carrying both, and `src/golem/tactics-v4.ts` documents which
+  // way -- what is refused is a **harness** that named both, because the run would have measured
+  // `holdMetres` and written `holdMyReach` in its own header.
+  assert.throws(() => parseTactics("holdMetres=true, holdMyReach=true"),
+    /two readings of one stand-off axis/);
+  assert.deepEqual(parseTactics("holdMetres=true, holdMyReach=false"), { holdMetres: true, holdMyReach: false },
+    "only the pair that is a contradiction is refused; one of them off is a table and not a mistake");
 
   // The shipped shape is the object a contender has always been: no head fields it did not ask for
   // beyond the declaration, and no `tactics` key at all when nothing overrides the table.
@@ -1909,9 +1919,11 @@ test("ratePolicy_rates_two_pools_in_one_call_from_disjoint_bouts", { timeout: 60
   assert.deepEqual(rated.pools, ["mirror", "random"]);
   assert.deepEqual(Object.keys(rated.byPool).sort(), ["mirror", "random"]);
   // Two tables, each with a row a baseline, and the first pool asked for repeated at the top level
-  // so that every caller written before this session reads what it always read.
+  // so that every caller written before this session reads what it always read. Three baselines
+  // since Session 02 of the signal set: the fencer is the mind the matchup set left in front, so a
+  // rating that does not face it cannot say whether an arm is closing on anything that matters.
   for (const which of ["mirror", "random"]) {
-    assert.deepEqual(Object.keys(rated.byPool[which].differences).sort(), ["driver", "uniform"]);
+    assert.deepEqual(Object.keys(rated.byPool[which].differences).sort(), ["driver", "fencer", "uniform"]);
   }
   assert.deepEqual(rated.differences, rated.byPool.mirror.differences);
   assert.equal(rated.byPool.mirror.mirror, true);
@@ -1979,4 +1991,89 @@ test("a_mirror_share_splits_a_rollout_by_whole_cycles_and_never_rounds_the_ends_
     policies: ["golem-driver"], pairs: [["golem-driver", "golem-driver"]], pairings: 4,
     seed: SEED, cap: 8, mirrorShare: 0.5,
   }), /wants a pool to draw random pairs from/);
+});
+
+// ---------------------- Session 02 of the signal set: the defaults, and the three refusals
+
+/**
+ * `ppoFit`'s four defaults, asserted literally, because nothing else in this suite can see them.
+ *
+ * Both production CLIs pass all four explicitly, so these numbers govern exactly one caller: one
+ * written by hand, in a test or at a REPL, that takes the signature's word for what a sane fit is.
+ * The word it used to take was `3e-4 / 512 / 3 / 0.02`, which is precisely the row Session 13 of
+ * the style set measured, on 2026-09-08, as stopping the fit **after its first minibatch every
+ * time** -- 512 samples out of the 57,000 the harness had just spent twenty seconds and thirty
+ * workers collecting -- at an explained variance of -0.790. The bandits below override every knob
+ * by hand, which is why the suite could not catch that and why this test is literal.
+ */
+test("the_fits_four_defaults_are_the_row_the_calibration_measured_and_not_the_row_it_refuted", () => {
+  // Read off the signature itself, because a default is only observable to a caller that omits the
+  // argument and there is no other way to say "and it is this number" about all four at once.
+  const source = ppoFit.toString();
+  const header = source.slice(0, source.indexOf("}"));
+  const defaultOf = (name) => {
+    const found = new RegExp(String.raw`\b${name} = ([^,\n]+)`).exec(header);
+    return found === null ? null : found[1].trim();
+  };
+  assert.equal(defaultOf("rate"), "1e-4", "2026-09-08: 3e-4 is the rate the calibration refuted");
+  assert.equal(defaultOf("batch"), "4096", "512 is one minibatch of a 57,000-sample rollout");
+  assert.equal(defaultOf("epochs"), "4", "three passes over one minibatch is three passes over nothing");
+  assert.equal(defaultOf("targetKl"), "0.03", "0.02 is what stopped the fit after that one minibatch");
+  // The other eight are unchanged, and are here so that a future session moving one of them has to
+  // say so in this file rather than in a signature nobody reads.
+  assert.equal(defaultOf("halfLife"), "4");
+  assert.equal(defaultOf("lambda"), "0.95");
+  assert.equal(defaultOf("clip"), "0.2");
+  assert.equal(defaultOf("entropy"), "0.003");
+  assert.equal(defaultOf("valueRate"), "1e-3");
+  assert.equal(defaultOf("sigmaRate"), "null", "null is ten times the actor's rate, computed inside");
+  assert.equal(defaultOf("sigmaFloor"), "-3");
+  assert.equal(defaultOf("sigmaRoof"), "0.5");
+});
+
+/**
+ * An entropy target has to be a spread the axis can actually hold, and the message prints the band.
+ *
+ * A Gaussian axis's entropy is `logSigma + 0.5 (log 2pi + 1)` and depends on nothing else, so a
+ * target outside `[floor + C, roof + C]` asks the controller for a spread the clamp will not give
+ * it: the coefficient walks to a bound on iteration one and stays there, and the run looks like a
+ * run rather than like a misconfiguration. Session 09 of the learn set passed -1.0 against a floor
+ * of -1.581 and its arm was still the best on the pool that mattered, which is the worst way to
+ * find out.
+ */
+test("an_entropy_target_outside_the_band_the_two_bounds_allow_is_refused_with_the_band", () => {
+  assert.ok(Math.abs(GAUSSIAN_ENTROPY_OFFSET - 1.41894) < 1e-4, "0.5 (log 2pi + 1)");
+  assert.equal(checkEntropyTarget(null, -3, 0.5), null, "no target is not a bad target");
+  assert.equal(checkEntropyTarget(1.5, -3, 0.5), 1.5);
+  assert.equal(checkEntropyTarget(-1.5, -3, 0.5), -1.5);
+  // Session 09's own arm: a target of -1.0 against a floor of -1.581, which is below the band.
+  assert.throws(() => checkEntropyTarget(-1.0, -3, -3), /is outside \[-1\.581, -1\.581\]/);
+  assert.throws(() => checkEntropyTarget(2.5, -3, 0.5), /is outside \[-1\.581, 1\.919\]/);
+  assert.throws(() => checkEntropyTarget(2.5, -3, 0.5), /would saturate against the bound and never turn round/);
+  assert.throws(() => checkEntropyTarget("often", -3, 0.5), /is not an entropy per axis/);
+});
+
+/**
+ * A mirror share the schedule cannot realise is refused before the bouts, naming a budget that can.
+ *
+ * `boutSplit` rounds each half to a whole number of opponent cycles and that rounding does not
+ * move -- it is what makes a declared opponent mix the realised one, and three tests pin it. What
+ * was missing is the other half of the sentence: a share that rounds away is a configuration change
+ * wearing a cost saving's clothes, and the whole of what it costs is found afterwards. Session 11
+ * of the learn set asked for 0.5 over a six-opponent cycle at 32 bouts and trained at 0.667, and
+ * nothing said so -- the headline run of a plan set, confounded on an axis the flag claimed to set.
+ */
+test("a_mirror_share_the_schedule_cannot_realise_is_refused_with_a_budget_that_can", () => {
+  // Session 11's own numbers: 32 bouts is 16 pairings, rounded up to 18 over a cycle of six, and
+  // the mirrored half takes two of the three cycles.
+  assert.deepEqual(boutSplit(18, 0.5, 6), { mirror: 12, random: 6 });
+  assert.equal(realisedMirrorShare(18, 0.5, 6), 2 / 3);
+  assert.throws(() => checkMirrorShare(18, 0.5, 6), /realises 0\.667/);
+  assert.throws(() => checkMirrorShare(18, 0.5, 6), /the budget and not the flag is what has to move/);
+  assert.throws(() => checkMirrorShare(18, 0.5, 6), /48 bouts an iteration would meet it/);
+  // A budget that divides is returned rather than refused, and so is one inside the tolerance.
+  assert.equal(checkMirrorShare(24, 0.5, 6), 0.5);
+  assert.equal(checkMirrorShare(4, 0.5, 1), 0.5);
+  assert.equal(MIRROR_SHARE_TOLERANCE, 0.05);
+  assert.equal(checkMirrorShare(1, 1, 1), 1, "a mirrored iteration is every iteration before Session 10");
 });

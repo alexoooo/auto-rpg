@@ -58,12 +58,14 @@
 // | `momentsFromLeague` reports a state file with no `adam` as though it had one | the moments round trip |
 import test from "node:test";
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
-  LEAGUE_VALUE_LAYOUT, MAIN_NAME, SELF_NAME, anchorList, bestSnapshot, collectLeague, contenderFor,
+  LEAGUE_SHAPE, LEAGUE_VALUE_LAYOUT, MAIN_NAME, SELF_NAME, anchorList, bestSnapshot, collectLeague,
+  contenderFor,
   copyRole, emphasisedPool, exploiterName, exploiterStalled, freshRole, leagueMatrix, leaguePairs,
   loadLeague, matrixBreaks, momentsFromLeague, opponentSentence, poolLoader, poolName, poolPath,
   ratingOn, readLog, roleFromCheckpoint, roleFromJson, roleToJson, saveLeague, shareOf, shipTable,
@@ -74,7 +76,7 @@ import { formatIdleProbe, idleProbe, rollupByTerminal } from "../scripts/idle-pr
 import {
   boutsPerOpponent, chosenSnapshots, formatRow, parseTerminals, snapshotIterations,
 } from "../scripts/rate-snapshots.mjs";
-import { keepViable, mixedSchedule, poolFor } from "../scripts/train-ppo.mjs";
+import { keepViable, mixedSchedule, policyShapeOf, poolFor } from "../scripts/train-ppo.mjs";
 import {
   VIABLE_MIRRORS, VIABLE_TERMINALS, viableBuild, viableMirror, viablePair,
 } from "../src/golem/viability.ts";
@@ -1104,4 +1106,106 @@ test("an_anchor_field_reads_as_a_list_however_many_names_it_holds", () => {
     opponentSentence({ taken: [8], exploiters: [] },
       { anchor: "golem-driver,golem-fencer", emphasise: [] }),
     "a league of 1 of its own past selves, golem-driver and golem-fencer");
+});
+
+// ------------------------ Session 02 of the signal set: the shape flags reach a league
+
+/**
+ * A league that names none of the shape flags builds the bytes it has always built.
+ *
+ * This is the half of the session that must not move anything. Five flags arrived here at once and
+ * every one of them threads through `freshRole`, `contenderFor`, `trainRole` and the rating -- so
+ * the claim that a league given none of them is the league it was is a claim about initial weights
+ * and about the object a worker is handed, and both are checked here rather than inferred from a
+ * run that happened to reproduce. `shape` being **null** at the shipped default is the mechanism:
+ * a contender is the four fields it was, not a fifth one spelling out the shape everybody already
+ * assumed.
+ */
+test("a_league_naming_no_shape_flag_builds_the_bytes_it_always_built", () => {
+  assert.equal(LEAGUE_SHAPE.shape, null, "the shipped shape is carried by saying nothing about it");
+  assert.deepEqual(LEAGUE_SHAPE.layout, POLICY_LAYOUT);
+  assert.deepEqual(LEAGUE_SHAPE.valueLayout, LEAGUE_VALUE_LAYOUT);
+  assert.equal(LEAGUE_SHAPE.features, 1, "version-1 columns, which is what every league here observed");
+  assert.equal(LEAGUE_SHAPE.central, false);
+  const role = freshRole(SEED);
+  const shaped = freshRole(SEED, LEAGUE_SHAPE);
+  assert.deepEqual(Array.from(shaped.weights), Array.from(role.weights), "the same draw from the same seed");
+  assert.deepEqual(Array.from(shaped.valueWeights), Array.from(role.valueWeights));
+  assert.deepEqual(contenderFor(role, false, null, LEAGUE_SHAPE), contenderFor(role, false, null),
+    "a contender at the shipped shape carries no shape fields at all");
+  assert.deepEqual(Object.keys(contenderFor(role)), ["pi", "logSigma", "normalisation", "sample"]);
+
+  // And a shape that is not the shipped one moves all three, which is what says the threading is
+  // real rather than a parameter nothing reads.
+  const wide = policyShapeOf({ features: 2, head: "mixed", critic: "central", valueHidden: [32, 32] });
+  assert.equal(wide.layout.inputs, 80);
+  assert.equal(wide.valueLayout.inputs, 160, "a central critic reads this side's columns and then the other's");
+  assert.deepEqual(wide.valueLayout.hidden, [32, 32]);
+  assert.equal(freshRole(SEED, wide).weights.length, netSize(wide.layout));
+  assert.equal(freshRole(SEED, wide).norm.mean.length, 80);
+  assert.equal(contenderFor(freshRole(SEED, wide), false, null, wide).features, 2);
+  assert.deepEqual(contenderFor(freshRole(SEED, wide), false, null, wide).layout, wide.layout);
+});
+
+/**
+ * Each of the eight flags, given to the CLI once, read back off the header it wrote.
+ *
+ * A league had none of these and the sweep runner's whole premise is that a manifest's `common`
+ * block reads across both scripts -- so before this session an arm whose `--head mixed` went to a
+ * league ran a Gaussian head and said nothing about it. The run is one iteration of four bouts
+ * because what is being tested is the parse and the record, not the fit.
+ *
+ * `features` is the field that was wrong rather than missing: it was written as
+ * `PILOT_FEATURES_VERSION` -- the newest version this build publishes, 2 -- on every league ever
+ * run, while `freshRole` built the main at `POLICY_LAYOUT`, which is version 1's width. The header
+ * said 2 and the mind read 71 columns, which is a defect `scripts/sweep.mjs` already carries a
+ * paragraph and a test about. It now says what the run ran.
+ */
+test("every_shape_flag_a_league_now_takes_is_recorded_in_its_header", { timeout: 600_000 }, () => {
+  const dir = scratch();
+  execFileSync(process.execPath, [
+    "scripts/league.mjs", "--dir", join(dir, "flags"), "--iterations", "1", "--bouts", "4",
+    "--exploiters", "0", "--evaluate", "0", "--shards", "1", "--cap", "3", "--workers", "2",
+    "--features", "2", "--head", "mixed", "--sigma", "constant", "--critic", "central",
+    "--value-hidden", "32,32", "--entropy-target", "1", "--entropy-rate", "0.1",
+    "--opponent", "uniform",
+  ], { stdio: "pipe" });
+  const header = readLog(join(dir, "flags")).find((row) => row.type === "header");
+  assert.equal(header.features, 2);
+  assert.equal(header.head, "mixed");
+  assert.equal(header.sigma, "constant");
+  assert.equal(header.critic, "central");
+  assert.equal(header.layout.inputs, 80, "version-2 columns reached the actor");
+  assert.deepEqual(header.valueLayout, { inputs: 160, hidden: [32, 32], outputs: 1 },
+    "--value-hidden reached the critic and --critic central doubled what it reads");
+  assert.equal(header.entropyTarget, 1);
+  assert.equal(header.entropyRate, 0.1);
+  assert.deepEqual(header.opponentSchedule, [{ from: 0, value: "uniform" }],
+    "--opponent is a one-stage --opponent-schedule, spelled as the trainer spells it");
+  // And the default this session moved, which is in the same header and is the one number here
+  // that changes what a run does.
+  assert.deepEqual(header.entropySchedule, [{ from: 0, value: 0.0003 }]);
+});
+
+/**
+ * The refusals a league now carries, each named for the run it would have saved.
+ *
+ * `--opponent` beside `--opponent-schedule` is this file's own rule twice over -- `--entropy` and
+ * `--separation` already refuse their schedules -- and the reason is the same one: a header
+ * carrying a scalar and a schedule cannot say which of them the iteration obeyed.
+ */
+test("a_league_refuses_a_scalar_opponent_beside_a_schedule_and_a_target_outside_the_band", () => {
+  const dir = scratch();
+  const run = (...flags) => execFileSync(process.execPath, [
+    "scripts/league.mjs", "--dir", join(dir, "no"), "--iterations", "1", "--bouts", "4", ...flags,
+  ], { stdio: "pipe" });
+  assert.throws(() => run("--opponent", "uniform", "--opponent-schedule", "uniform:0"),
+    /--opponent is a one-stage --opponent-schedule/);
+  assert.throws(() => run("--entropy-target", "-3"), /which is\s+the entropy a Gaussian axis can hold/);
+  assert.throws(() => run("--entropy-target", "1", "--entropy-anneal", "0.01:0"),
+    /--entropy-target sets the coefficient and --entropy-anneal schedules it/);
+  assert.throws(() => run("--entropy-target", "1", "--sigma", "state"),
+    /--entropy-target reads the spread off logSigma/);
+  assert.throws(() => run("--head", "softmax"), /--head softmax; this build reads gaussian, mixed and beta/);
+  assert.throws(() => run("--features", "3"), /--features 3; this build reads 1 and 2/);
 });

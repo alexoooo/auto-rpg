@@ -48,9 +48,11 @@ import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
 import {
-  MAX_RESTARTS, RUNNER_FLAGS, SWEEP_SCRIPTS, armArgs, armPaths, checkShape, flagValue, poolLine,
-  readManifest, restartRow, shapeOfLog, superviseArms, withoutFlags, workerBudget,
+  MAX_RESTARTS, RUNNER_FLAGS, SWEEP_SCRIPTS, armArgs, armPaths, checkShape, designedMind, flagValue,
+  poolLine, ratePaired, readManifest, restartRow, shapeOfLog, superviseArms, withoutFlags,
+  workerBudget,
 } from "../scripts/sweep.mjs";
+import { freshRole, saveLeague } from "../scripts/league.mjs";
 import { netSize } from "../src/golem/neural-net.ts";
 import { VIABLE_TERMINALS } from "../src/golem/viability.ts";
 
@@ -453,4 +455,97 @@ test("a_run_shape_is_read_off_the_layout_it_recorded_rather_than_a_field_two_scr
     () => checkShape("a", { layout: { inputs: 80, hidden: [256, 256], outputs: 12 }, features: 2 }, right),
     /arm a holds 87308 policy numbers and the shape this rating would build over them wants 89612/);
   rmSync(dir, { recursive: true, force: true });
+});
+
+// --------------------------- Session 02 of the signal set: what the paired column is for
+
+/** A league arm on disk: a saved state and a header, which is all `ratePaired` reads back. */
+function leagueArm(root, name, role) {
+  const home = join(root, "tournaments", name);
+  saveLeague(home, { seed: SEED, date: "2026-09-11", iteration: 3, bouts: 0, steps: 0, main: role, exploiters: [], pool: [], taken: [] });
+  const header = { type: "header", seed: SEED, features: 1, layout: { inputs: 71, hidden: [256, 256], outputs: 12 } };
+  writeFileSync(join(home, "league.jsonl"), `${JSON.stringify(header)}\n`, "utf8");
+}
+
+/** The manifest those arms belong to: one pool, one seed, the root above `tournaments`. */
+const pairedManifest = (arms) => readManifest({
+  name: "tournaments", script: "league", seed: SEED,
+  pool: { random: 6, terminals: ["maul", "mace"] },
+  common: [], arms: arms.map((name) => ({ name, flags: [] })),
+});
+
+/**
+ * A designed mind's column name is its policy's word, and a name that is not a word is refused.
+ *
+ * The refusal is about `columnsOf` in `scripts/train-learner.mjs` and not about tidiness. A
+ * contender's *key* is what goes on both sides of a row and what the paired columns are read back
+ * by, and the league already holds `golem-driver` -- so a designed contender keyed by the policy's
+ * own full name would put the same string in both corners of some rows, where `columnsOf` takes
+ * `left` unconditionally and hands back a self-play column wearing a paired column's name. Keying
+ * it `driver` is what keeps the two strings distinct, and it is the shape `ratePolicy` already
+ * uses.
+ */
+test("a_designed_minds_column_is_its_policys_word_and_never_the_leagues_own_name", () => {
+  assert.deepEqual(designedMind("golem-fencer"), { policy: "golem-fencer", key: "fencer", column: "vsFencer" });
+  assert.deepEqual(designedMind("golem-driver"), { policy: "golem-driver", key: "driver", column: "vsDriver" });
+  assert.notEqual(designedMind("golem-driver").key, "golem-driver",
+    "the contender key and the league name are never the same string, or a row meets itself");
+  assert.throws(() => designedMind("golem-tactics-v4"), /a designed mind is named golem-<word>/);
+});
+
+/**
+ * One arm and no designed mind is refused by name, because the table it would print is all zeroes.
+ *
+ * Session 11 of the learn set called this with a single arm. The control is then the arm, every
+ * paired difference in the table is the arm minus itself at every bout, and the row it printed --
+ * `vs control +0.0000 d 0.000` -- said nothing about that. The refusal fires before a pool is
+ * drawn, so it costs no bouts, and it names the flag that makes a one-arm call legitimate: a
+ * designed mind *is* a second column, so `--designed golem-fencer` is a paired table again.
+ */
+test("a_one_arm_paired_call_is_refused_unless_it_names_a_designed_mind", async () => {
+  const root = mkdtempSync(join(tmpdir(), "sweep-paired-"));
+  leagueArm(root, "only", freshRole(SEED));
+  await assert.rejects(
+    () => ratePaired(pairedManifest(["only"]), { dir: root, bouts: 2, workers: 1, control: "only" }),
+    /rates one arm \("only"\) and names no designed mind/);
+  rmSync(root, { recursive: true, force: true });
+});
+
+/**
+ * What pairing buys, on columns built so the answer is not a matter of degree.
+ *
+ * The two arms here are the *same mind* under two names, so their bar margins are the same number
+ * bout for bout and their paired difference is identically zero -- while each one's own margin
+ * swings with whichever body it drew, which is the quantity the set's first ruling is about: the
+ * per-bout spread of an arm's own bar is 0.605 of a bar on this pool, and the body is worth 2.98x
+ * the mind. So `deltaSem` is zero and `barSem` is not, and the gap between them is the whole of
+ * what a paired column is for.
+ *
+ * The property and not a number, because the pool is drawn from a seed and the bouts are real: a
+ * threshold here would be a second measurement nobody asked for. `vsDriver` is asserted to be the
+ * same column for both arms for the same reason -- one mind seen twice cannot have two margins
+ * against a third.
+ */
+test("the_paired_spread_is_smaller_than_the_unpaired_one_on_the_same_bouts", { timeout: 600_000 }, async () => {
+  const root = mkdtempSync(join(tmpdir(), "sweep-pairs-"));
+  const role = freshRole(SEED);
+  leagueArm(root, "a", role);
+  leagueArm(root, "b", role);
+  const rated = await ratePaired(pairedManifest(["a", "b"]), {
+    dir: root, bouts: 8, workers: 4, cap: 20, control: "a", league: ["golem-driver"], designed: ["golem-driver"],
+  });
+  assert.deepEqual(rated.names, ["a", "b"], "the designed mind is a column and not an arm");
+  assert.deepEqual(rated.designed.map((mind) => mind.column), ["vsDriver"]);
+  const row = rated.against.all.b;
+  assert.deepEqual(row.pairedColumns, ["vsDriver"]);
+  assert.ok(row.barSem > 0, `an arm's own margin varies with the body it drew (${row.barSem})`);
+  assert.equal(row.deltaSem, 0, "the same mind twice differences to exactly nothing, bout by bout");
+  assert.ok(row.deltaSem < row.barSem,
+    `paired ${row.deltaSem} against unpaired ${row.barSem}: the body's variance is what pairing removes`);
+  assert.equal(row.vsDriver.bar, rated.against.all.a.vsDriver.bar,
+    "one mind under two names has one margin against a third");
+  assert.equal(rated.designedAgainst.all.driver.policy, "golem-driver");
+  assert.equal(rated.designedAgainst.all.driver.bouts, row.bouts,
+    "the designed mind's own bar is read over exactly the bouts the paired column differences");
+  rmSync(root, { recursive: true, force: true });
 });

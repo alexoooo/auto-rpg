@@ -888,11 +888,22 @@ function adamStep(weights, grad, state, rate) {
  * the `stopped` path where the failing minibatch is not applied -- is the code it always was, on
  * the thread it always ran on. `shards` is carried beside the pool so a caller says the number
  * once and a mismatch is refused rather than silently ignored.
+ *
+ * ## The four defaults, moved 2026-09-11 by Session 02 of the signal set
+ *
+ * `rate 1e-4, batch 4096, epochs 4, targetKl 0.03`. What they were -- `3e-4 / 512 / 3 / 0.02` --
+ * is precisely the row Session 13 of the style set measured, on 2026-09-08, as stopping the fit
+ * **after its first minibatch every time**: 512 samples of the 57,000 the harness had just spent
+ * twenty seconds and thirty workers collecting, at an explained variance of -0.790. Nothing in
+ * production moves, because both CLIs have passed all four explicitly since that calibration; what
+ * moves is what a *direct* caller gets, and a direct caller is every test, every probe and every
+ * script somebody writes next. The bandits in `tests/ppo.test.mjs` override every knob by hand,
+ * so the suite could not have caught a regression here and the four are asserted literally instead.
  */
 export function ppoFit(rollout, {
   weights, logSigma, valueWeights, layout = POLICY_LAYOUT, valueLayout = VALUE_LAYOUT,
   norm, seed, halfLife = 4, lambda = 0.95, clip = 0.2, entropy = 0.003,
-  rate = 3e-4, valueRate = 1e-3, sigmaRate = null, epochs = 3, batch = 512, targetKl = 0.02,
+  rate = 1e-4, valueRate = 1e-3, sigmaRate = null, epochs = 4, batch = 4096, targetKl = 0.03,
   sigmaFloor = -3, sigmaRoof = 0.5, actor = null, spread = null, critic = null,
   shards = 1, pool = null, spec = GAUSSIAN_HEAD,
 }) {
@@ -1279,6 +1290,46 @@ export function parseEntropyStage(raw, what = "--entropy-anneal") {
 }
 
 /**
+ * The differential entropy of a unit Gaussian, which is the constant every axis's entropy carries.
+ *
+ * `0.5 * (log(2 pi) + 1)`, about 1.41894. It is here rather than inlined at the two call sites
+ * because the controller in this file's main and the band check below have to be the same constant
+ * or a run could be refused at a target its own controller would have accepted.
+ */
+export const GAUSSIAN_ENTROPY_OFFSET = 0.5 * (Math.log(2 * Math.PI) + 1);
+
+/**
+ * `--entropy-target` checked against the band the spread bounds actually allow.
+ *
+ * Session 02 of the signal set, and it is a refusal that names a run. A Gaussian axis's entropy is
+ * `logSigma + C`, and `logSigma` is held inside `[sigmaFloor, sigmaRoof]` by `ppoFit` on every
+ * update -- so a target outside `[sigmaFloor + C, sigmaRoof + C]` is a set point the controller
+ * cannot reach at any coefficient. What it does instead is saturate: Session 09 of the learn set
+ * passed -1.0 against a floor of -1.581, the coefficient ran to its own clamp on iteration 1 and
+ * never turned round, and the arm was still the best one on the pool that mattered -- so nothing
+ * downstream looked wrong enough to find it. The message prints the band because the band is a
+ * function of two other flags and is not a number anybody carries in their head.
+ *
+ * Exported rather than written into a main because `scripts/league.mjs` reads `--sigma-floor` and
+ * `--sigma-roof` of its own and grew `--entropy-target` in this session; one check both CLIs reach
+ * is the only shape in which the two cannot drift apart.
+ */
+export function checkEntropyTarget(target, sigmaFloor, sigmaRoof, what = "--entropy-target") {
+  if (target === null || target === undefined) return null;
+  const value = Number(target);
+  if (!Number.isFinite(value)) throw new Error(`${what}: "${target}" is not an entropy per axis`);
+  const low = sigmaFloor + GAUSSIAN_ENTROPY_OFFSET;
+  const high = sigmaRoof + GAUSSIAN_ENTROPY_OFFSET;
+  if (value < low || value > high) {
+    throw new Error(`${what} ${value} is outside [${low.toFixed(3)}, ${high.toFixed(3)}], which is `
+      + `the entropy a Gaussian axis can hold between --sigma-floor ${sigmaFloor} and --sigma-roof `
+      + `${sigmaRoof} (an axis's entropy is logSigma + ${GAUSSIAN_ENTROPY_OFFSET.toFixed(5)}); the `
+      + "controller would saturate against the bound and never turn round");
+  }
+  return value;
+}
+
+/**
  * `--tactics holdMyReach=true,closeGain=1.2`: the executor rows this run's *own* contender drives
  * under, for this contender only.
  *
@@ -1291,6 +1342,14 @@ export function parseEntropyStage(raw, what = "--entropy-anneal") {
  *
  * Every row must already exist on the table, because a misspelled row would otherwise be a flag
  * that did nothing and an arm that measured its control twice.
+ *
+ * **`holdMetres` and `holdMyReach` may not both be named, and that refusal is a harness rule and
+ * not an executor one.** Session 02 of the signal set. `plan()` in `src/golem/tactics-v4.ts`
+ * documents a tie -- `holdMetres` wins -- and the tie stays where it is, because the *executor* has
+ * to resolve a table that carries both however the table got that way. A *harness* that named both
+ * is a different thing: the flag is how an arm declares which reading of the stand-off axis it is
+ * measuring, and an arm that declared two of them silently measured one of them and printed the
+ * other in its header. Nothing refused it before this, on either CLI.
  */
 export function parseTactics(text) {
   if (text === null || text === undefined) return null;
@@ -1309,6 +1368,11 @@ export function parseTactics(text) {
       if (!Number.isFinite(value)) throw new Error(`--tactics: ${row}=${raw} is neither a number nor a flag`);
       out[row] = value;
     }
+  }
+  if (out.holdMetres === true && out.holdMyReach === true) {
+    throw new Error("--tactics names both holdMetres and holdMyReach, which are two readings of "
+      + "one stand-off axis; the executor resolves the tie in holdMetres' favour, so the run would "
+      + "have measured holdMetres and said holdMyReach in its header. Name one of them");
   }
   return Object.keys(out).length === 0 ? null : out;
 }
@@ -1396,6 +1460,57 @@ export function boutSplit(pairings, mirrorShare, cycle = 1) {
   return { mirror: mirrorCycles * cycle, random: (cycles - mirrorCycles) * cycle };
 }
 
+/** The share a schedule of this size actually realises, which is not in general the one asked for. */
+export function realisedMirrorShare(pairings, mirrorShare, cycle = 1) {
+  const split = boutSplit(pairings, mirrorShare, cycle);
+  const total = split.mirror + split.random;
+  return total === 0 ? 0 : split.mirror / total;
+}
+
+/** How far a realised share may sit from the declared one before a run is refused. */
+export const MIRROR_SHARE_TOLERANCE = 0.05;
+
+/** How many larger schedules the refusal looks through for one that would meet the declaration. */
+const MIRROR_SHARE_SEARCH = 4096;
+
+/**
+ * The declared mirror share against the one the schedule will realise, refused when they part.
+ *
+ * Session 02 of the signal set, and it is a refusal `boutSplit` deliberately does not contain:
+ * that function's rounding is the schedule of every run in the record and moving it would move
+ * their bouts. What is added is a reader of its answer.
+ *
+ * The arithmetic is the one `boutSplit`'s own note argues for and the failure is what it costs at
+ * a small per-iteration budget. Each half must be a whole number of opponent cycles, so the
+ * realised share is `round(cycles * share) / cycles` -- exact at 24 pairings over a cycle of six,
+ * and 2/3 at 18. **Session 11 of the learn set asked for 0.5 and trained at 0.667 for four hundred
+ * iterations**: 32 bouts over a six-opponent cycle is three cycles, and three cycles cannot be
+ * halved. Nothing was wrong and nothing warned -- the header recorded the flag, every iteration row
+ * recorded the realised share, and a twenty-iteration pilot chosen on rating per hour read the same
+ * 0.667 for every arm, so no comparison in the set could see it.
+ *
+ * The message names a bout count that *would* meet the declaration, because the fix is arithmetic
+ * nobody should have to redo at two in the morning: a pairing is two bouts in both trainers, so a
+ * schedule of `P` pairings is asked for as `2P` bouts by `collectRollouts` and by `collectLeague`
+ * alike, the latter exactly because the search only ever offers whole cycles.
+ */
+export function checkMirrorShare(pairings, mirrorShare, cycle = 1, what = "--mirror-share") {
+  const realised = realisedMirrorShare(pairings, mirrorShare, cycle);
+  if (Math.abs(realised - mirrorShare) <= MIRROR_SHARE_TOLERANCE) return realised;
+  const cycles = Math.max(1, Math.ceil(pairings / cycle));
+  let meets = null;
+  for (let k = cycles + 1; k <= cycles + MIRROR_SHARE_SEARCH && meets === null; k += 1) {
+    if (Math.abs(realisedMirrorShare(k * cycle, mirrorShare, cycle) - mirrorShare) <= MIRROR_SHARE_TOLERANCE) {
+      meets = k * cycle;
+    }
+  }
+  throw new Error(`${what} ${mirrorShare} over ${cycles} cycle${cycles === 1 ? "" : "s"} of `
+    + `${cycle} pairing${cycle === 1 ? "" : "s"} realises ${realised.toFixed(3)}, which is further `
+    + `than ${MIRROR_SHARE_TOLERANCE} from what was asked for; each half is a whole number of `
+    + "opponent cycles, so the budget and not the flag is what has to move"
+    + (meets === null ? "" : ` -- ${meets * 2} bouts an iteration would meet it`));
+}
+
 /**
  * The stream the random-pair half of an iteration is drawn from, which is not the mirror's.
  *
@@ -1424,6 +1539,9 @@ export function mixedSchedule({
   pool, randomPool, policies, pairs, contenders, separation, pairings, seed, cap, mirrorShare = 1,
 }) {
   const split = boutSplit(pairings, mirrorShare, pairs.length);
+  // Before a single job is built, because a share the schedule cannot realise is a configuration
+  // change wearing a cost saving's clothes and the whole of what it costs is found afterwards.
+  checkMirrorShare(pairings, mirrorShare, pairs.length);
   if (split.random > 0 && (randomPool === null || randomPool === undefined)) {
     throw new Error(`a mirror share of ${mirrorShare} wants a pool to draw random pairs from; `
       + "hand it poolFor with mirror off, drawn from the same seed as the mirrored one");
@@ -1503,6 +1621,64 @@ export function mixedSchedule({
  * draws seen two ways. It is required rather than defaulted whenever the share is below one: a
  * caller who forgot it would otherwise get an iteration of mirrors and a flag that did nothing.
  */
+/** The three heads, the two spreads and the two critics this build reads, in the order it says them. */
+export const POLICY_HEADS = Object.freeze(["gaussian", "mixed", "beta"]);
+export const SIGMA_KINDS = Object.freeze(["constant", "state"]);
+export const CRITIC_KINDS = Object.freeze(["self", "central"]);
+
+/**
+ * The five shape flags of Session 09 of the learn set, read and checked once for both CLIs.
+ *
+ * Session 02 of the signal set moved this out of this file's own main. It was written there and
+ * `scripts/league.mjs` had none of it, so **nothing Session 09 found behind a flag could ever reach
+ * a league run** -- a league was always version-1 columns, a Gaussian head, a constant spread and a
+ * self critic, whatever a sweep manifest said. The runner's whole premise is that one manifest's
+ * `common` block reads across both scripts, and a flag one of them silently ignores is the worst
+ * shape of that promise being broken: the arm runs, the header records the flag, and the mind is
+ * the control's.
+ *
+ * `valueHidden` is the critic's width and is a knob rather than a frozen choice, because the critic
+ * does not ship -- nothing outside a run ever reads those weights. Both CLIs default it to 64x64,
+ * which is what Session 13 of the style set measured against the 256x256 the type declares: 77 s a
+ * fit against 130 s for an explained variance of 0.923 against 0.913.
+ *
+ * `shape` is the contender fields a worker needs to build this mind, and it is **null at the
+ * shipped default** rather than a spelled-out copy of it. That is what keeps a run naming none of
+ * these flags byte for byte the run it was: `contenderFor` in `scripts/league.mjs` packs four
+ * fields, and a fifth carrying "version 2, the layout you already assumed" would move every
+ * contender in every job of every league in the record.
+ */
+export function policyShapeOf({
+  features = PILOT_FEATURES_DEFAULT, head = "gaussian", sigma = "constant", critic = "self",
+  valueHidden = [64, 64], sigmaFloor = SIGMA_FLOOR, sigmaRoof = SIGMA_ROOF,
+} = {}) {
+  const version = Number(features);
+  if (!PILOT_FEATURE_VERSIONS_READ.includes(version)) {
+    throw new Error(`--features ${features}; this build reads ${PILOT_FEATURE_VERSIONS_READ.join(" and ")}`);
+  }
+  if (!POLICY_HEADS.includes(head)) throw new Error(`--head ${head}; this build reads gaussian, mixed and beta`);
+  if (!SIGMA_KINDS.includes(sigma)) throw new Error(`--sigma ${sigma}; this build reads constant and state`);
+  if (!CRITIC_KINDS.includes(critic)) throw new Error(`--critic ${critic}; this build reads self and central`);
+  const hidden = [...valueHidden].map((n) => Math.max(1, Number(n)));
+  if (hidden.length === 0 || hidden.some((n) => !Number.isFinite(n))) {
+    throw new Error(`--value-hidden ${valueHidden}; a critic is at least one layer of whole numbers`);
+  }
+  const spec = headSpecOf(head, sigma, sigmaFloor, sigmaRoof);
+  const columns = pilotFeatureCount(version);
+  const central = critic === "central";
+  const shipped = version === PILOT_FEATURES_DEFAULT && head === "gaussian" && sigma === "constant"
+    && sigmaFloor === SIGMA_FLOOR && sigmaRoof === SIGMA_ROOF;
+  return {
+    features: version, head, sigma, critic, central, spec, columns,
+    layout: policyLayout(version, spec),
+    valueLayout: Object.freeze({
+      ...VALUE_LAYOUT, inputs: columns * (central ? 2 : 1), hidden: Object.freeze(hidden),
+    }),
+    valueHidden: hidden,
+    shape: shipped ? null : contenderShape({ features: version, spec }),
+  };
+}
+
 /**
  * The header fields a contender carries so that a worker builds the mind the fit is carrying.
  *
@@ -1709,6 +1885,16 @@ export async function ratePolicy({
     },
     [UNIFORM_NAME]: { uniform: true },
     driver: { policy: "golem-driver" },
+    // Session 02 of the signal set, and it is the column the criterion was always stated on and
+    // never measured against. The learn set's second frozen choice is Cohen's d on the *paired*
+    // bar margin against a designed mind, and the designed mind the screen ships is
+    // `golem-fencer` -- which had never been a contender on any rating path in this tree, so
+    // every bar the set stated against it was read off `barD`, an arm's own margin standardised
+    // by a per-bout spread of 0.605 over fifty-two heterogeneous builds. One more contender is
+    // one more schedule, so a rating is four blocks where it was three -- 33 % more bouts, and
+    // `--eval-bouts` is deliberately not turned down to pay for it, because a cheaper rating is a
+    // different instrument and the record's curves are drawn on this one.
+    fencer: { policy: "golem-fencer" },
   };
   const names = Object.keys(contenders);
   const byPool = {};
@@ -1928,26 +2114,18 @@ if (isMain) {
   // ---- Session 09 of the learn set: the observation, the head, the spread, the critic and the
   // executor table, each one flag and each one arm. Every default is what shipped, so a run that
   // names none of them is the run this script has always been.
-  const features = Number(flag("features", PILOT_FEATURES_DEFAULT));
-  if (!PILOT_FEATURE_VERSIONS_READ.includes(features)) {
-    throw new Error(`--features ${features}; this build reads ${PILOT_FEATURE_VERSIONS_READ.join(" and ")}`);
-  }
+  // Read and checked by `policyShapeOf`, which `scripts/league.mjs` calls too, so a sweep
+  // manifest's `common` block means the same thing whichever of the two scripts runs the arm.
   const headName = flag("head", "gaussian");
-  if (!["gaussian", "mixed", "beta"].includes(headName)) {
-    throw new Error(`--head ${headName}; this build reads gaussian, mixed and beta`);
-  }
   const sigmaName = flag("sigma", "constant");
-  if (!["constant", "state"].includes(sigmaName)) {
-    throw new Error(`--sigma ${sigmaName}; this build reads constant and state`);
-  }
-  const spec = headSpecOf(headName, sigmaName, sigmaFloor, sigmaRoof);
-  const columns = pilotFeatureCount(features);
-  const layout = policyLayout(features, spec);
   const criticName = flag("critic", "self");
-  if (!["self", "central"].includes(criticName)) {
-    throw new Error(`--critic ${criticName}; this build reads self and central`);
-  }
-  const central = criticName === "central";
+  const shape = policyShapeOf({
+    features: Number(flag("features", PILOT_FEATURES_DEFAULT)),
+    head: headName, sigma: sigmaName, critic: criticName, sigmaFloor, sigmaRoof,
+    // The critic does not ship, so its width is a knob and not a frozen choice; the actor's is not.
+    valueHidden: flag("value-hidden", "64,64").split(",").map((s) => s.trim()),
+  });
+  const { features, spec, columns, layout, central, valueLayout } = shape;
   const tactics = parseTactics(flag("tactics", null));
   // ---- Session 10 of the learn set: what fraction of an iteration is mirrored, and which
   // arrangements a rating is taken under. Both defaults are what this script has always done.
@@ -1979,6 +2157,9 @@ if (isMain) {
     throw new Error("--entropy-target reads the spread off logSigma, which --sigma state does not use; "
       + "pass one of them");
   }
+  // And inside the band the two spread bounds allow, which is the third refusal this flag carries
+  // and the one Session 09 of the learn set needed. See `checkEntropyTarget`.
+  checkEntropyTarget(entropyTarget, sigmaFloor, sigmaRoof);
   const entropySchedule = parseSchedule(
     entropyText ?? String(entropyFlag ?? entropy), parseEntropyStage, "--entropy-anneal");
   const every = Math.max(0, Number(flag("evaluate", 5)));
@@ -1986,12 +2167,6 @@ if (isMain) {
   // The last rating is the session's number and the periodic ones are its curve, so they are not
   // the same size: a curve wants a point often and the number wants a small standard error.
   const finalBouts = Math.max(2, Number(flag("final-bouts", evalBouts * 4)));
-  // The critic does not ship, so its width is a knob and not a frozen choice; the actor's is not.
-  const valueHidden = flag("value-hidden", "64,64")
-    .split(",").map((s) => Math.max(1, Number(s.trim()))).filter((n) => Number.isFinite(n));
-  const valueLayout = Object.freeze({
-    ...VALUE_LAYOUT, inputs: columns * (central ? 2 : 1), hidden: Object.freeze(valueHidden),
-  });
   const league = flag("league", PPO_LEAGUE.join(",")).split(",").map((s) => s.trim()).filter(Boolean);
   // Null is Session 13's mirrored self-play; a policy name is a fixed sparring partner, which is
   // the one arrangement in which the mean return is not zero by construction.
@@ -2244,7 +2419,7 @@ if (isMain) {
     // what keeps a coefficient that has to travel two orders of magnitude from taking a hundred
     // iterations to get there.
     let axisEntropy = 0;
-    for (let j = 0; j < ACTION_AXES; j += 1) axisEntropy += logSigma[j] + 0.5 * (Math.log(2 * Math.PI) + 1);
+    for (let j = 0; j < ACTION_AXES; j += 1) axisEntropy += logSigma[j] + GAUSSIAN_ENTROPY_OFFSET;
     axisEntropy /= ACTION_AXES;
     if (entropyTarget !== null) {
       entropyNow = Math.min(1, Math.max(1e-6, entropyNow * Math.exp(entropyRate * (entropyTarget - axisEntropy))));

@@ -54,6 +54,13 @@
 // every row beside the pool, for the same reason the pool does: two ratings taken under two
 // arrangements are two instruments however alike the rows look.
 //
+// **Three baselines and not two, since Session 02 of the signal set.** `ratePolicy` now puts
+// `golem-fencer` in front of the same bodies from the same seeds as `uniform` and `golem-driver`,
+// so every row this script writes carries a `fencer` block: the paired, bout-by-bout margin against
+// the mind the screen actually ships, which is the quantity the learn set's criterion was stated on
+// and never once measured. A row written before that session has no such block and reads back as
+// the row it was, rather than as a fencer column of zeroes.
+//
 // **The behaviour columns ride the same rows, and that is the point of them.** Session 06's bar is
 // two-sided -- an arm has to beat the control on the bar margin *and* halve its near-range stall
 // and its retreat outside reach -- and two halves read off two sets of bouts are two instruments
@@ -186,6 +193,11 @@ export async function rateSnapshots({
       const on = rated.byPool[which];
       const u = on.differences.uniform;
       const d = on.differences.driver;
+      // Session 02 of the signal set: the designed mind the criterion names, on the same bouts as
+      // the two columns beside it. Read off `differences` rather than assumed present, because a
+      // curve re-read from an older rate file has no such block and a reader that filled it with
+      // zeroes would draw a flat line through a measurement nobody took.
+      const f = on.differences.fencer ?? null;
       const row = {
         iteration, bouts: per, per: on.per,
         // The pool travels with the row. Two ratings on two pools are two instruments, and a log
@@ -201,6 +213,7 @@ export async function rateSnapshots({
         mirror: on.mirror,
         uniform: { bar: u.bar, sem: u.barSem, d: u.d },
         driver: { bar: d.bar, sem: d.barSem, d: d.d },
+        ...(f === null ? {} : { fencer: { bar: f.bar, sem: f.barSem, d: f.d } }),
         // What the fit and the two baselines *did* over exactly these bouts, so a bar on the margin
         // and a bar on the behaviour are read off one set of bouts rather than two.
         behaviour: on.behaviour,
@@ -236,8 +249,13 @@ export function formatRow(row) {
   // past one after the other and a reader watching them go by has to be able to tell which is
   // which without opening the file.
   const on = (row.pool?.mirror ?? row.mirror) === false ? "rand" : "mirr";
+  // Printed only where the row has it, so a row this script wrote before Session 02 of the signal
+  // set prints as that session found it rather than as a fencer column of nothing.
+  const f = row.fencer ?? null;
   return `  ${String(row.iteration).padStart(5)} ${on}: uniform ${signed(u.bar, 4)} ±${(1.96 * u.sem).toFixed(4)} `
     + `d ${signed(u.d, 3)}  |  driver ${signed(d.bar, 4)} ±${(1.96 * d.sem).toFixed(4)} d ${signed(d.d, 3)}`
+    + (f === null ? ""
+      : `  |  fencer ${signed(f.bar, 4)} ±${(1.96 * f.sem).toFixed(4)} d ${signed(f.d, 3)}`)
     + `  |  w/d/l ${fit.wins}/${fit.draws}/${fit.losses} decided ${(decided * 100).toFixed(0)}%`
     + (mine === null ? ""
       : `  |  stall ${mine.stall.toFixed(2)} s outside ${mine.outside.toFixed(2)} s a bout`);

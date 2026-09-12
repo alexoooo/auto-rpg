@@ -21163,3 +21163,133 @@ golem set, the matchup set and the style set before it: **the durable record is 
 repeated above was the per-session gate table -- copied verbatim into this entry, verdicts and all,
 before it went -- and the frozen choices each session was written against, which are stated in the
 entries those sessions wrote and in `design.md`'s sections.
+
+## Session 02 of the signal set -- 2026-09-11: the ruler the criterion named, and a bar it misses by 0.07
+
+The learn set's second frozen choice was that a bar is Cohen's d on the **paired bar margin against
+a designed mind**. `ratePolicy` in `scripts/train-ppo.mjs` paired against `uniform` and
+`golem-driver` and nothing else, and `ratePaired` in `scripts/sweep.mjs` paired against the
+*control arm*, so the criterion the set declared was never measurable against the mind it was
+declared for. This session adds `golem-fencer` as a contender on every rating path and states its
+own bar on the new column. **The bar is missed**: 1.433x against a bar of 1.5x and a prediction of
+2.2x. Both the miss and the mechanism behind it are below, and no number in this entry was adjusted
+after it was taken.
+
+### First, before any code moved: the record re-read on a paired column it already had
+
+This is the obvious objection to everything the record now says -- "the learn set's conclusion was
+an artifact of an unpaired ruler" -- and the rate files answer it for free. The `driver` block in a
+`rate-snapshots` curve row has *always* been a paired column: `ratePolicy` computes it as
+`bar[fit][i] - bar[driver][i]` bout by bout over one schedule from one seed. So Session 11 of the
+learn set's 400-iteration league can be re-read on the criterion without buying a single bout.
+
+**Harness:** the files on disk, league-long/rate.random.jsonl and league-long/rate.mirror.jsonl, 29
+rating points from iteration 8 to 400, 300 bouts a contender at each point, at the run's own rating
+seed. **Instrument:** ordinary least squares of the column against the iteration number, with the
+slope restated per 100 iterations and `t` on the slope.
+
+| pool | column | slope per 100 it | t | points | first | last |
+| --- | --- | --- | --- | --- | --- | --- |
+| random viable pairs | paired `driver` d | +0.0105 | +1.12 | 29 | -0.2947 | -0.1522 |
+| random viable pairs | paired `driver` d, iterations 200-400 | -0.0347 | -1.65 | 13 | | |
+| random viable pairs | paired `driver` bar | +0.0036 | +0.86 | 29 | -0.1240 | -0.0682 |
+| mirrored | paired `driver` d | +0.0503 | +4.56 | 29 | -0.6651 | -0.3718 |
+| mirrored | paired `driver` d, iterations 200-400 | +0.0101 | +0.48 | 13 | | |
+
+**The conclusion does not move.** On the pool every bar in the record is stated on, the paired
+column over four hundred iterations rises at a t of 1.12 and falls over the second half at a t of
+-1.65 -- which is the same "stops moving at two hundred" the learn set's own entry recorded off
+`barD`. Pairing was not what the last set got wrong. It is only what its bars could not say.
+
+**One arithmetic fact fell out of the re-read and is worth writing down**: in every one of those 29
+rows, `uniform.bar - driver.bar` is the same number to fifteen digits, 0.133865573816628. It is not
+a bug. Every rating point is taken from the same evaluation seed, so `golem-driver` and `uniform`
+fight *literally the same bouts* at every snapshot and their own mean bars never move; the
+difference between two paired columns is therefore a constant of the pool, and the only thing that
+varies down a curve is the fit's own column. It follows that a paired curve's *slope* is the fit's
+slope exactly, whichever baseline it was paired against.
+
+### The bar, stated before the data and missed
+
+**Stated in the plan, unaltered:** re-take the learn set's final table from league-long/league.json
+at 600 bouts, seed 20260906, on random viable pairs and mirrored, against `golem-driver` and
+`golem-fencer`. **Pass: the paired interval against `golem-fencer` is at least 1.5x tighter than
+the unpaired `barSem` of the very same bouts.** Predicted: about 2.2x.
+
+**Harness:** `scripts/sweep.mjs --paired league-long --designed golem-driver,golem-fencer --against
+golem-driver,golem-fencer --rate-bouts 600 --rate-seed 20260906 --rate-pools random,mirror` over a
+one-arm manifest pointing at tournaments/league-long. Three contenders a pool -- the league's main
+at iteration 400, `golem-driver` and `golem-fencer` -- 300 bouts an opponent, 600 bouts a
+contender, 3600 bouts in all. **30 workers on 16 cores / 32 threads, 814 s of wall clock** (13.6
+minutes) for both pools together.
+
+`barSem` below is the standard error of the arm's *own* bar margin over those bouts; `sem` is the
+standard error of the same bouts differenced against the named designed mind before any mean is
+formed. The ratio is the first divided by the second, and 1.5 is the bar.
+
+| pool | block | bouts | unpaired `barSem` | paired vs `golem-fencer` | ratio | paired vs `golem-driver` | ratio |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| random viable pairs | vs golem-fencer | 300 | 0.035769 | 0.024955 | **1.433** | 0.025524 | 1.401 |
+| random viable pairs | vs golem-driver | 300 | 0.034560 | 0.023127 | 1.494 | 0.020989 | 1.647 |
+| random viable pairs | both, all | 600 | 0.024874 | 0.016999 | 1.463 | 0.016527 | 1.505 |
+| mirrored | vs golem-fencer | 300 | 0.022775 | 0.028915 | **0.788** | 0.029206 | 0.780 |
+| mirrored | vs golem-driver | 300 | 0.021555 | 0.028720 | 0.751 | 0.028828 | 0.748 |
+| mirrored | both, all | 600 | 0.015683 | 0.020392 | 0.769 | 0.020506 | 0.765 |
+
+**The bar is missed.** On the column and the bouts the bar names -- the paired `golem-fencer`
+column on random viable pairs, against the unpaired margin of the very same 300 bouts -- the
+interval tightens by **1.433x** where the bar asked for 1.5x and the plan predicted about 2.2x. It
+is missed on every other reading of "the same bouts" as well: 1.463x over all 600 random-pair
+bouts, 1.494x in the `golem-driver` block. The one number in the table that clears 1.5 is the
+paired `golem-driver` column over all 600 random-pair bouts, 1.505x, and that is not the column the
+bar was stated on.
+
+**The column was not reverted, and the reason is the plan's own wording.** The plan's revert
+condition is "if it does not tighten on the same bouts, the pairing bought nothing". It does
+tighten: a 1.433x ratio is a 30 % narrower interval on the same bouts, which is roughly what
+doubling the rating would have bought. What is refuted is the size predicted, not the mechanism.
+The prediction came from reading a paired `sem` of 0.0259 on 300 bouts against an unpaired 0.0568
+on 600 -- two different bout counts and two different blocks -- and it overstated the gain by about
+half.
+
+### Why the mirror is worse than nothing, which the plan asked to have checked
+
+The plan asked this session to **check what `columnsOf` does when both sides of a row carry the same
+policy name, and record the answer rather than assume it**. The answer, from `columnsOf` in
+`scripts/train-learner.mjs`: `const me = row.left.policy === name ? "left" : "right"` takes `left`
+unconditionally when both sides match, the guard on the next line passes because the other side
+names the contender too, and what comes back is a well-formed **self-play margin with `left` as the
+reference** -- not an error, and not a paired column either.
+
+That is not hypothetical here, and the mirrored half of the table above is what it costs. In the
+`golem-fencer` block the `fencer` contender meets `golem-fencer`, which is itself. On random viable
+pairs that is two *different* bodies, so its column carries the body asymmetry the arm's column
+also carries and differencing removes it -- which is the whole of the 1.433x. On the mirror both
+corners hold the same body by construction, so the self-play column has nothing in it:
+`golem-fencer`'s own bar over 600 mirrored bouts is **-0.0020 +- 0.0144**, zero to within its own
+noise. Subtracting a zero-mean independent column from a measured one does not remove variance, it
+adds it, and the paired interval comes out at **0.77x** of the unpaired one -- about 30 % *wider*.
+
+**So the ruling in `design.md` has a boundary, and it is recorded here rather than there because it
+is a measurement:** a paired column against a designed mind is an instrument on random viable pairs
+and an anti-instrument on a mirror. Every bar in the record is stated on random viable pairs, which
+is the case that works; a mirrored table should be read on its unpaired `barSem`.
+
+### What else this session measured, all of it on bouts already paid for
+
+- **A rating costs 33 % more bouts.** `ratePolicy` is four contenders where it was three, and
+  `--eval-bouts` was deliberately not turned down to compensate: a cheaper rating is a different
+  instrument, and every curve in the record is drawn on this one.
+- **A league given none of the five new shape flags is the league it was, byte for byte.** The
+  state file of `node scripts/league.mjs --iterations 1 --bouts 8 --workers 8 --shards 2 --evaluate
+  0 --entropy 0.003` is sha256 `372d0cb91f90088184b5c9e28b9bbb29d822fe0fdff7eeb3e484cdc841714bde`
+  with its `date` stripped, taken before this session's changes and again after them. The mechanism
+  is that `policyShapeOf` returns a **null** contender shape at the shipped default, so a contender
+  stays the four fields it has always been rather than gaining a fifth that spells out what every
+  reader already assumed.
+- **A league header's `features` field was wrong in every league ever run here.** It was written as
+  `PILOT_FEATURES_VERSION`, the newest version this build publishes -- 2 -- while `freshRole` built
+  the main at `POLICY_LAYOUT`, which is version 1's 71 columns. `scripts/sweep.mjs` already carried
+  a paragraph, a reader and a test about the trap. The field now records what the run actually ran;
+  the reader that works around the old spelling stays, because the logs already on disk do not
+  change.
