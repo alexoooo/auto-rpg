@@ -24,7 +24,7 @@ import { mulberry32 } from "../src/rng.ts";
 import { buildPool } from "../scripts/tournament.mjs";
 import {
   LEARNER_LEAGUE, bellmanTargets, collectRound, columnsOf, confirm, fittedQ, learnerTable,
-  optionCensus, renderLearnerModule, tailOf,
+  meanOf, optionCensus, renderLearnerModule, semOf, tailOf,
 } from "../scripts/train-learner.mjs";
 
 const SEED = 20260910;
@@ -385,6 +385,54 @@ test("the_shipped_learner_table_loads_and_the_greedy_reads_the_open_mask", () =>
  * The claim is the shape of what comes out and not the number, which four three-second bouts
  * cannot say anything about.
  */
+/**
+ * The interval every bar in this record is stated on, and the answer it used to give for one.
+ *
+ * **`semOf` is the arithmetic behind every `+-` in this project and it had no test until now.**
+ * `barSem` and `pointsSem` on every rating path, `cosineSem` and `boutCosineSem` on every probe
+ * summary, `deltaSem` and `marginSem` on every step-probe row: all of them are this function.
+ * Until 2026-09-13 it answered **zero** for a column of one sample -- the tightest interval
+ * available -- so `mean - 2 sem > 0` would read a single noisy draw as significant at any
+ * magnitude. `--iterations 1` and `--draws 1` are legal flags. Nobody has run them: all 224 logs
+ * on disk were scanned for a one-sample column and there is none, so no number in the record
+ * moves. The defect had not bitten and the test is the point.
+ *
+ * **A sem of zero is not itself wrong** and that is why the fix is by sample count and not by
+ * value: three identical readings genuinely have no spread, and the third assertion below pins
+ * that so a later reader cannot decide a zero means too few samples.
+ *
+ * **What no assertion here can reach.** `meanOf` still answers zero for an empty column, which is
+ * the same shape of lie one function up. It is left alone on purpose -- some forty call sites,
+ * several reading a share that is genuinely zero when nothing was paid -- and it is asserted
+ * below as it stands rather than left unsaid, so a change to it is a change to a test.
+ */
+test("a_column_of_one_has_no_interval_and_says_so_rather_than_reporting_the_tightest_one", () => {
+  assert.ok(Number.isNaN(semOf([0.5])), `one sample reported a standard error of ${semOf([0.5])}`);
+  assert.ok(Number.isNaN(semOf([])), `no samples reported a standard error of ${semOf([])}`);
+  // The threshold every bar in this record is written as. Under the old zero it read met, from
+  // one draw, at any magnitude at all.
+  const lone = [1e-9];
+  assert.equal(meanOf(lone) - 2 * semOf(lone) > 0, false,
+    "a single draw of 1e-9 cleared zero at two sigma");
+  // And a genuine zero stays a zero: identical readings have no spread, and the guard is on the
+  // sample count rather than on the answer.
+  assert.equal(semOf([1, 1, 1]), 0);
+  // The arithmetic itself, against a column whose answer is known before the call: the sample
+  // standard deviation of [2, 4, 4, 4, 5, 5, 7, 9] is exactly 2.13808993... over sqrt(8).
+  const column = [2, 4, 4, 4, 5, 5, 7, 9];
+  assert.equal(meanOf(column), 5);
+  const sd = Math.sqrt(32 / 7);
+  assert.ok(Math.abs(semOf(column) - sd / Math.sqrt(8)) <= 1e-15,
+    `the column read ${semOf(column)} against ${sd / Math.sqrt(8)}`);
+  // It divides by n-1 and not by n, which is the other way this could be quietly wrong and would
+  // read as a 6.7 % tighter interval on eight samples rather than as an error.
+  assert.ok(Math.abs(semOf(column) - Math.sqrt(32 / 8) / Math.sqrt(8)) > 1e-3,
+    "the standard error divides by n rather than by n-1");
+  // A NaN in a log is `null` and not a number, which is what makes a reader able to refuse it.
+  assert.equal(JSON.parse(JSON.stringify({ sem: semOf([0.5]) })).sem, null);
+  // `meanOf` over nothing, asserted as it stands. This is the same family and is not fixed here.
+  assert.equal(meanOf([]), 0);
+});
 test("one_round_of_the_trainer_on_two_workers_makes_a_module_the_picker_offers", { timeout: 300_000 }, async () => {
   const pool = buildPool({ seed: SEED, random: 0 }).filter((build) => build.name === "default" || build.name === "fists");
   assert.equal(pool.length, 2);

@@ -26926,3 +26926,86 @@ that found the idiom did not name them. Repointing them would be churn that has 
 against numbers already published, which is exactly the trade the second audit pass got right
 about the latch reader and for the same reason. They are listed here so that "the readers are on
 the production read" is never read as covering them.
+
+## The interval itself -- 2026-09-13: every `+-` in this record passes through five lines that had no test
+
+The reader audit was about analysis code outside the tree. Following it upstream, into the tree,
+the obvious question is which of the arithmetic *inside* `scripts/` carries the record's numbers
+and is covered by nothing. `semOf` in `scripts/train-learner.mjs` is the answer, and it is a short
+list of one: **every interval this project has ever published passes through it.** `barSem` and
+`pointsSem` on every rating path, `cosineSem`, `boutCosineSem`, `withinSem`, `betweenSem` and
+`pooledSem` on every probe summary, `deltaSem` and `marginSem` on every step-probe row, `sem` on
+every paired arm in `ratePaired`. Twenty-three call sites across five scripts. No test named it.
+
+### What it answered for a column of one
+
+Zero. Which is the tightest interval there is.
+
+```
+semOf([])      -> 0
+semOf([0.5])   -> 0
+semOf([1,1,1]) -> 0     (correct: three identical readings have no spread)
+```
+
+A single sample has no spread to estimate, so the honest answer is that there is no interval. Zero
+is the worst of the three answers available, because every bar in this record is stated as
+`mean - 2 sem > 0` and that reads **met, at any magnitude, from one draw**. It is the same defect
+the direction reader printed a falsifier from, one level down and in production: a quantity that
+does not exist, supplied as a confident number instead of refused.
+
+It is NaN now. Every comparison against NaN is false, so a threshold reads *not met* rather than
+met; `JSON.stringify` writes it into a log as `null`, which a reader that names the field refuses;
+and a reader that does not name it gets a NaN rather than a confident zero. **The guard is on the
+sample count and not on the value**, because a sem of zero is not itself wrong -- three identical
+readings genuinely have none -- and a later reader must not be able to conclude from a zero that
+the column was too short.
+
+### No number in the record moves, and that is measured rather than assumed
+
+All **224 `.jsonl` files** under `tournaments/` were scanned for a summary or arm column of length
+one. There is not one. `--iterations 1` and `--draws 1` are legal flags and nobody has ever run
+them, so this is a defect that had not bitten. The full suite is green with the change and was
+green without it, which is the same sentence as "nothing in this tree covered it".
+
+**Five mutations were watched red on 2026-09-13**, each applied alone and restored, against every
+test in `tests/learner.test.mjs` but the five-minute two-worker one:
+
+| mutation | what went red |
+|---|---|
+| a column of one reports zero, which is what it did until today | the interval test |
+| a column of one reports the smallest number that is still a number | the interval test |
+| the spread divides by `n` rather than by `n-1` | the interval test |
+| the standard deviation is reported as the standard error | the interval test |
+| the mean over an empty column is NaN, the change this deliberately did not make | the interval test |
+
+**One test caught all five and nothing else went red under any of them.** That is not a compliment
+to the test; it is the finding restated. The five lines every published interval in this record
+runs through were, until this commit, invisible to the entire suite.
+
+### Two in the same family, named and not changed
+
+**`meanOf` answers zero for an empty column.** The same shape of lie one function up -- the mean
+of no measurements is not zero. It is left alone deliberately: forty-odd call sites, several of
+which read a share that is genuinely zero when nothing was paid, and moving it is a change that
+would have to be verified against numbers already published rather than reasoned about. It is
+asserted as it stands in the new test, so a change to it is now a change to a test rather than a
+silent one.
+
+**`cohensD` answers zero when the paired column has no spread**, and that is the opposite error to
+`semOf`'s. A column of four identical differences of +1 is a *perfectly* consistent effect, `d` is
+unbounded, and the function returns `0` -- "no effect". If a sweep ever ranks arms by `d`, the
+best possible arm sorts last. It is not changed here for a reason that is worth stating plainly:
+unlike `semOf`, this behaviour is **already pinned by a test with its rationale written out** --
+`cohens_d_is_the_paired_mean_over_the_paired_spread`, on the argument that *a column with no
+spread is not a size*. Flipping a deliberate, asserted choice is not the same act as fixing an
+untested oversight.
+
+**And the question that would decide it was asked rather than left open.** If any ranking in this
+project sorted on `d` alone, the sentinel would be a wrong answer at the top of a table; if every
+place that prints it also prints its own interval, it cannot reach a verdict. Every consumption of
+`d` in the tree was read: eight in `scripts/sweep.mjs` and two in `scripts/train-ppo.mjs`, and
+**nothing sorts on it**. Each one prints `d` beside its own `+-1.96 sem`, and the single place two
+of them are compared -- the pairwise arm differences at the end of a sweep -- states the gap on
+`bar` and quotes the two `d` values as context under a comment saying they are differences rather
+than a criterion. So the zero is a sentinel that cannot reach a verdict, it stays, and the
+paragraph above is a note for whoever writes the first ranking that sorts on it.

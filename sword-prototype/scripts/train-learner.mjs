@@ -340,10 +340,35 @@ export function columnsOf(rows, names) {
   return { per, points, bar };
 }
 
-/** Mean and standard error of a column. */
+/**
+ * Mean and standard error of a column.
+ *
+ * **`semOf` answered zero for a column of one until 2026-09-13, which is the tightest interval
+ * there is.** Every `+-` in this record passes through this function -- `barSem` and `pointsSem`
+ * on every rating path, `cosineSem` and `boutCosineSem` on every probe summary, `deltaSem` and
+ * `marginSem` on every step-probe row -- and a single sample has no spread to estimate, so the
+ * honest answer is that there is no interval and not that the interval is empty. Zero is the
+ * worst of the three available answers: `mean - 2 sem > 0` reads *significant at any magnitude*,
+ * and a run of one iteration would have published a threshold cleared by one noisy draw.
+ *
+ * It is NaN now, for the same reason the record's reader audit gives: a number that is not there
+ * should not arrive as a number. Every comparison against NaN is false, so a threshold reads not
+ * met rather than met; `JSON.stringify` writes it into a log as `null`, which a reader that names
+ * the field refuses; and a reader that does not name it gets NaN rather than a confident zero.
+ *
+ * **No number in this record moves.** All 224 logs on disk were scanned for a summary or arm
+ * column of length one on 2026-09-13 and there is not one: `--iterations 1` and `--draws 1` are
+ * legal and nobody has run them. This is a defect that had not bitten, fixed with a test, and
+ * that is the whole of what it is.
+ *
+ * `meanOf` still answers zero for an empty column, which is the same family of lie and is left
+ * alone deliberately: it has some forty call sites, several of which read a share that is
+ * genuinely zero when nothing was paid, and moving it is a change that would have to be verified
+ * against numbers already published. It is named in the record rather than guessed at here.
+ */
 export function meanOf(xs) { return xs.length === 0 ? 0 : xs.reduce((a, b) => a + b, 0) / xs.length; }
 export function semOf(xs) {
-  if (xs.length < 2) return 0;
+  if (xs.length < 2) return NaN;
   const m = meanOf(xs);
   return Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / (xs.length - 1) / xs.length);
 }
