@@ -29152,3 +29152,128 @@ the weights move, and nothing here is a claim about a fit.
 47.9 %. The abort gate having a strong, well-determined gradient and the body finishing one stroke
 in twenty-three against `idle` and one in fifty-five against `golem-fencer` are both true here, and
 this experiment does not join them: **it says the gradient on that row is not what is missing.**
+
+## Pre-registration -- 2026-09-13: the one training run Experiment G licenses, written before the bouts
+
+Experiment S. Experiment G's closing clause is the condition this record fixed in advance -- *what a
+winning arm licenses is one training run, stated as its own bar* -- and G produced a winning arm by
+a wider margin than anything before it: `lambda-0` prices a half-to-half cosine at **95 bouts**
+against `idle` where the shipped estimator prices it at 789, and at **101** against `golem-fencer`
+where the shipped estimator prices it at 3,796 and reads t -0.47. The whole `lambda` column is
+monotone on both cells and the whole `halfLife` column is noise around one.
+
+**And G could not tell whether that means the estimator is better or that it has been handed to the
+critic.** Its own entry says so: the statistic prices reproducibility, a biased estimator with a
+small variance wins on reproducibility for free, and `lambda-0`'s cosine is the same number against
+two opponents that differ by everything. **Only a fit settles it, and this is the fit.**
+
+### The cells
+
+Three leagues against `golem-fencer` under the latch, differing in **one flag**:
+
+| arm | `--lambda` | what it asks |
+| --- | --- | --- |
+| `lam-base` | 0.95 | the shipped estimator, and the control |
+| `lam-half` | 0.5 | the middle of G's monotone column, at 3.29x and 11.25x |
+| `lam-zero` | 0 | the arm G ranked first, at 8.32x and 37.72x |
+
+Field for field with Experiment H's `latched-fencer` and Experiment K's ladder otherwise: from
+scratch, 32 bouts an iteration, the maul-and-mace viable pool, mirrored bodies, `latchAbort=true`,
+no exploiters, no pool opponents, ratings off, pool checkpoints every five, fit seed 20260917, 7
+workers, 4 fit shards. **Two things differ from K by design and both are stated here rather than
+discovered later:**
+
+**A hundred and twenty iterations rather than sixty**, which is why the control is re-run rather
+than taken free off disk. A 60-iteration league is 27.7 minutes at seven workers, so this costs
+about fifty-five minutes an arm and buys two things: a slope se **2.84x smaller** by the span alone
+(`sqrt(Sxx)` goes from 59.8 to 169.6 over 12 points against 24), and the first look this record has
+ever had at what a curve does past iteration 60.
+
+**The rating stays at 200 bouts a contender**, and the reason is measured rather than assumed. The
+obvious lever for a tighter slope is more bouts a rating point, and it is the wrong lever here: over
+Experiment K's four arms the **residual scatter about the fitted line is 0.45x to 0.73x of the
+points' own quoted standard errors** (0.0134 to 0.0222 against a mean `sem` of about 0.030). The
+points already scatter less than independent sampling would put them, because consecutive
+checkpoints of one league are nearly the same weights rated against the same pool at the same seed.
+Tripling the bouts would shrink a term that is not what the slope's error is made of. **The span is,
+and that is what this design buys.**
+
+### The measures
+
+1. `scripts/rate-snapshots.mjs` over each arm, 200 bouts a contender, `--terminals maul,mace --pools
+   random`, 24 checkpoints an arm. Statistic: the **paired bar slope against `golem-fencer`**, with
+   `d` quoted beside it and `golem-fencer` named in the same sentence. A bar is stated on a paired
+   column or it is not stated.
+2. The league rows themselves for `strokes.strokesStarted` a side, `strokes.completion`, `kl` and
+   `explained` -- the columns predictions 1, 4 and 5 are read off.
+
+### The predictions, stated before the bouts
+
+1. **The prefix identity.** `lam-base`'s first sixty iterations reproduce Experiment H's
+   `latched-fencer` row for row on `decided`, `margin`, `kl`, `explained` and `strokes.completion`.
+   The two runs differ in the header field `iterations` and in nothing else, and a bout is a
+   deterministic function of `seed ^ iteration` and the pool. **A disagreement means `--iterations`
+   reaches the collection**, and no cross-run comparison in this record -- there are now several --
+   is safe. Free to check and the strongest determinism claim available here.
+
+2. **The headline.** `lam-zero`'s paired bar slope against `golem-fencer` exceeds `lam-base`'s by
+   more than **two standard errors of the difference**, at the family-wise threshold for the two
+   arms that are not the control.
+
+3. **Dose-response.** The three slopes order `lam-zero` > `lam-half` > `lam-base`. G's column is
+   monotone in `lambda` on both its cells; if the gradient's reproducibility is what buys a curve,
+   the curve should be monotone in it too. If the ordering is humped or reversed, whatever `lambda`
+   is doing to a fit is not what it does to a probe.
+
+4. **The behaviour policy does not move, and this one is stated so it can embarrass the record.**
+   `lambda` is an **estimator** setting: it changes how an advantage is composed out of rewards the
+   policy already earned, not what the policy does. So `strokes.strokesStarted` a side at iteration
+   60 is within **10 %** across all three arms. If it is not, then an estimator setting is changing
+   the behaviour policy inside sixty iterations, and every sentence in this record that separates
+   the two -- there are many, and Experiments E, F and G all lean on one -- needs re-reading.
+
+5. **The curve does not stop at sixty.** On `lam-base`, the paired bar slope fitted over checkpoints
+   65..120 alone is **positive**. Experiment K's four arms all had positive slopes over 5..60 with
+   `d` still about -0.09 at the end, and no cell in this record has ever been rated past iteration
+   60. If the second half is flat, the first half was the mind climbing out of its initialisation
+   and not the mind learning the task, and **every learning claim this record holds is a claim about
+   the first sixty iterations of a league.**
+
+### The falsifier
+
+**If `lam-zero`'s slope is inside two standard errors of `lam-base`'s, then a gradient the probe
+prices as eight to thirty-eight times better determined does not buy a curve at this budget** -- and
+the floor, which is the statistic four pre-registrations and every arm table in this record are
+stated on, is not a proxy for learning. That is the strongest claim this record could make against
+its own main instrument, and it is the outcome that would send the next experiment at the **score
+function** and the **task** rather than at the optimiser.
+
+### The arithmetic this has to be read against, written down now
+
+At K's residual scatter of 0.022 per rating point and 24 checkpoints spanning 5..120, the slope's
+standard error is about **0.0078 per 60 iterations** against K's 0.0223, so the difference of two
+arms carries about 0.011. The smallest difference this design would catch four times in five at the
+two-arm family threshold is therefore about **0.035 per 60** -- against a control whose own slope is
+0.0746. **It resolves half the control's slope**, where K's design could not have resolved a
+doubling. That is the whole reason the iterations moved and it is stated here so that a null reads
+as a null and not as an absence of instrument.
+
+Two caveats on that number, both of which would inflate the residual and neither of which is
+measurable until the cells land. A curve that **saturates** over 120 iterations is not a line, and
+an OLS slope over a saturating curve reads smaller with a larger residual -- which is what
+prediction 5 reads the second half separately for. And a longer run visits **more pool checkpoints**,
+whose opponents change what a paired bar means; the pool cap is held at its default 60 so the arms
+share it, but nothing makes the second half's bar the same measurement as the first's.
+
+**One more prior, recorded because prediction 5 of Experiment G leaned on its opposite.** G's
+prediction 5 reasoned from *a critic at -0.790 explained variance*, which is the calibration's
+number at a held checkpoint. In the control league the critic's explained variance **rises from
+-1.566 at the first iteration to 0.276 at the sixtieth, mean 0.300**. A one-step return against a
+critic at 0.3 is a different object from a one-step return against a critic at -0.79, and that is
+one mechanism by which `lambda-0` could do better in a fit than a held probe can say.
+
+### What no outcome of this licenses
+
+No default moves. `lambda` stays at 0.95 in `ppoFit`'s signature and in both CLIs whatever happens
+here. A winning arm licenses a **ship**, stated as its own bar against the shipped mind on the
+owner's own criterion, and that is a different document.
