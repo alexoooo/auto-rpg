@@ -31297,6 +31297,15 @@ step is the term's covariance with the score function, and that is not its size.
 above reasoned from a mean that does not cancel to a gradient that must therefore be made of it,
 and those are two different quantities.
 
+**And the record had already written the right sentence, which is the part of this that stings.**
+Experiment S's own pre-registration -- the seventeen credit horizons, written the same day and
+still collecting on this host as this is typed -- opens its arithmetic with *a reward is a number
+attached to an ask; what the optimiser actually multiplies the score function by is an
+**advantage**, and an advantage is that number carried backwards through a discount and a trace.*
+That is exactly the distinction the paragraph above lost. **A rule written in one entry does not
+travel to the next one on its own**, and the only thing that makes it travel is a reader asking,
+of every quantity an entry calls decisive, which of the two it is.
+
 ### The measurement, which needed no bouts because it had already been taken
 
 `no-shaping` -- the shipped table with `clinch` and `idle` both set to zero, which is precisely
