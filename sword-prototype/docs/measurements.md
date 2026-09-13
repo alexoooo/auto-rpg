@@ -29277,3 +29277,136 @@ one mechanism by which `lambda-0` could do better in a fit than a held probe can
 No default moves. `lambda` stays at 0.95 in `ppoFit`'s signature and in both CLIs whatever happens
 here. A winning arm licenses a **ship**, stated as its own bar against the shipped mind on the
 owner's own criterion, and that is a different document.
+
+## Experiment K, complete -- 2026-09-13: the ladder pays the charge by not finishing strokes, and the swing row buys nothing on top of the latch
+
+`swing-tenth-rate.jsonl` landed and the ladder is four arms deep. Scored with the reader armed for
+it last night, in one command:
+
+```
+node barfit.mjs golem-fencer --ladder --floors 3096,3102,-,496
+  tournaments/latched-fencer-rate.jsonl tournaments/latched-fencer
+  tournaments/swing-quiet-rate.jsonl   tournaments/swing-quiet
+  tournaments/swing-tenth-rate.jsonl   tournaments/swing-tenth
+  tournaments/swing-loud-rate.jsonl    tournaments/swing-loud
+```
+
+### The four verdicts
+
+| # | as registered | verdict |
+| --- | --- | --- |
+| 1 | `swing 1.589` finishes at fewer than half the zero arm's strokes started a bout | **missed** -- it strikes 0.994x as often |
+| 2 | at least one arm clears a paired bar slope of t > +2 against `golem-fencer` | **met** -- all four do, and two clear the family-wise threshold |
+| 3 | striking falls monotonically down the ladder, and the best bar slope is a middle arm | **missed on both halves** |
+| 4 | the best bar arm is not the arm with the lowest probe floor | **a reading, not a verdict** -- it is a different arm, which 75 % of random orderings would give |
+| -- | the falsifier: no arm clears t > +2 | **does not fire** |
+
+### The bar, which is the headline and is the latch's and not the swing row's
+
+| arm | `--reward-swing` | slope per 60 | se | t | d at the last point |
+| --- | --- | --- | --- | --- | --- |
+| `latched-fencer` | 0 | **0.0746** | 0.0223 | **3.35** | -0.0878 +-0.0708 |
+| `swing-quiet` | 0.0227 | 0.0552 | 0.0149 | **3.70** | -0.0573 +-0.0708 |
+| `swing-tenth` | 0.1589 | 0.0297 | 0.0134 | 2.22 | -0.1326 +-0.0710 |
+| `swing-loud` | 1.589 | 0.0489 | 0.0221 | 2.21 | -0.0950 +-0.0709 |
+
+Four arms are one family: two sigma somewhere in the table is passed by a true null 14 % of the
+time, so the threshold is t **2.62** at 10 df, and `latched-fencer` and `swing-quiet` clear it while
+`swing-tenth` and `swing-loud` sit in the band between two sigma and the correction.
+
+**And all six pairwise differences are inside two standard errors of zero** -- 0.72, 1.73, 0.82,
+1.27, 0.23, -0.74 -- so the ladder names a largest number and not a best arm. The best is the
+**control**, which is Experiment H's cell and was on disk before this experiment collected a bout.
+
+**So prediction 2 is met by the arm that is free.** The curve belongs to the latch, which H already
+reported at exactly these numbers, and the swing row adds nothing measurable on top of it. The
+honest one-line reading of Experiment K is: *a reward row the probe ranked best by 6.24x did not
+move the criterion, on a ladder wide enough to cover seventy-fold in the coefficient.*
+
+### Prediction 1 watched the wrong column, and the right one moved by t 7.67
+
+The loud arm was predicted to stop striking, on the argument that a charge of 1.589 for every
+completed stroke that misses is a table whose cheapest policy never swings. Strokes started a side
+at the last iteration:
+
+| arm | `swing 0` | `0.0227` | `0.1589` | `1.589` |
+| --- | --- | --- | --- | --- |
+| started a side, last iteration | 58.9 | 59.1 | 55.8 | 58.6 |
+| slope per 60 (t) | 1.0 (0.33) | -1.1 (-0.37) | 3.0 (1.00) | 2.3 (0.79) |
+
+Flat, four ways, and the loud arm strikes **0.994x** the zero arm at the last iteration where under
+half was predicted. Over the last twenty iterations, which is a steadier read than one row, it
+strikes **more**: 54.20 +-1.41 a side against the zero arm's 50.15 +-1.46, a difference of
+4.05 +-2.03 in the direction opposite the prediction.
+
+But the ladder did respond to the charge, monotonically, in the column beside it:
+
+| arm | `swing 0` | `0.0227` | `0.1589` | `1.589` |
+| --- | --- | --- | --- | --- |
+| completion, mean of 60 | 0.4683 +-0.0047 | 0.4652 +-0.0039 | 0.4403 +-0.0052 | 0.4051 +-0.0067 |
+| completion, last 20 | 0.4543 +-0.0080 | 0.4598 +-0.0044 | 0.4199 +-0.0067 | 0.3606 +-0.0057 |
+
+**Monotone in the coefficient, and the zero arm against the loud one is a difference of 0.0632
++-0.0082, t 7.67 over all sixty iterations and t 9.57 over the last twenty.** The policy paid the
+charge by **finishing** fewer of the strokes it started, and if anything by starting more of them.
+Only a finished stroke can be charged.
+
+That is the largest dose-response in this record on a reward coefficient, and the prediction that
+was written to catch it named the other column. The registration's reasoning for that choice is on
+the page and was not silly -- *counting strokes started would measure the abort gate and nothing
+else* -- but the cells were run with the abort gate **latched**, and what a latch does is move where
+the decision to not-finish is taken rather than remove it. **The mechanism by which completion falls
+is not established here**; what is established is that the charge reaches the behaviour and that
+this ladder's response to it is invisible in the column prediction 1 reads.
+
+### What this says about the probe, which is the question the next experiment is about
+
+The probe ranked `swing-loud` first by 6.24x -- a floor of 496 bouts against the shipped table's
+3,096 -- and on the criterion that arm has the third-best slope of four and the **worst** completion
+of four. Prediction 4 registered that shape and this record demoted it to a reading this morning,
+because over four arms a random ordering puts a different arm first three times in four; it is
+reported as a reading and the demotion stands.
+
+**But the demotion was about the ranking and the dose-response is not a ranking.** A reward row the
+probe priced as six times more learnable produced, at a seventy-fold sweep of its coefficient, a
+monotone effect on the **behaviour** at t 7.67 and nothing distinguishable on the **bar**. That is
+the *learnability is not desirability* sentence with a measurement under it for the first time, and
+it is the sentence Experiment S -- pre-registered above, launched as this was written -- puts its
+falsifier on.
+
+### The conditional the registration wrote before the bouts, and how it reads now
+
+*A league iteration here is 32 bouts. The probe says the shipped table needs 3,096 of them to point
+a step at a cosine of one half and the loud swing arm needs 496. A sixty-iteration league spends
+1,920 bouts in total ... so a flat curve here is exactly what the probe predicts.*
+
+**The curve is not flat.** Four arms out of four have positive slopes past two sigma, and two past
+the family-wise threshold, on 1,920 bouts total -- less than four of the loud arm's own steps' worth
+of sample, spread over sixty steps each about a fifteenth of one. Either fifteen-times-under-sampled
+steps accumulate into a curve, or the probe's floor is pessimistic about what a fit needs, or the
+curve over the first sixty iterations is something other than the task being learned. **The third
+of those is prediction 5 of Experiment S and it is now running.**
+
+`d` at the last point is still negative on every arm: -0.0573 to -0.1326 against `golem-fencer`.
+Nothing here beats the designed mind. What is new since the learn set is that something is moving
+towards it at a rate two arms can measure.
+
+### The null side
+
+The smallest slope per 60 each arm would have caught four times in five at the family-wise
+threshold: `latched-fencer` 0.0773, `swing-quiet` 0.0517, `swing-tenth` 0.0464, `swing-loud`
+0.0766. Two of the four arms could not have caught their own control's slope -- which is the reason
+Experiment S moved the iterations rather than the bouts, and the arithmetic is in its registration.
+
+For prediction 1: over the last twenty iterations the two arms' strokes started a side carry a
+difference of 4.05 +-2.03, so a fall of **11.5 %** would have been caught four times in five and the
+prediction named 50 %. The column is flat -- or moving the other way -- rather than underpowered.
+
+### The reader learned a rung the probe never priced
+
+`--floors` took four numbers for four rungs and the reward grid carries three of them: `shipped` at
+3,096, `swing` at 3,102 and `swing-loud` at 496. **Nothing on disk says what a floor at 0.1589
+would be**, and the two silent alternatives are both worse than saying so -- interpolating invents a
+measurement, and dropping the rung renumbers the ladder the ranking is read off. A rung is written
+`-` now and the line says `the probe never priced swing-tenth, so this is a ranking over 3 of the 4
+rungs`. Everything else in barfit is byte-identical.
