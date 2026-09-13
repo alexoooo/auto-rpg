@@ -24087,3 +24087,119 @@ longer fit at that coefficient, priced against the 400-iteration run the learn s
 for, and nothing else. Moving a default is a decision about what the shipped executor and the
 shipped table do, and it belongs to the owner and to a rating, not to a slope over twelve
 checkpoints.
+
+## Pre-registration -- 2026-09-13: how a sample budget should be spent, written before the bouts
+
+Experiment L. The gradient probe has now measured, twice and at four sample sizes each, that the
+cosine between a step and the gradient it estimates obeys `c / (1 - c) = n / F`, where `n` is the
+bouts an iteration and `F` is the arm's bouts-for-cosine-0.5 floor. Every number in this record
+can be put through that one relation, and doing so says something the record has never written
+down.
+
+**A league iteration is 32 bouts.** The shipped table's floor at the held `bracket-fencer`
+checkpoint is 3,096 bouts. So a step taken by a league under the shipped table has a cosine of
+
+> `c = 32 / (32 + 3096) = 0.0102`
+
+with its own true gradient. **One per cent.** Under the latched `swing-loud` table, the best arm
+this record has found, the floor is 496 and a 32-bout step reaches `c = 0.061`. Thirteen sessions
+of leagues took steps that were between one and six per cent aligned with the direction they were
+estimating, and nobody put a number on it because nobody had the floor.
+
+### The arithmetic that decides the design, stated before anything is run
+
+Over `I` iterations of `n` bouts, the total sample is `T = I * n` and the useful movement -- the
+sum of the steps' alignments -- is proportional to
+
+> `I * c(n) = (T / n) * (n / (n + F)) = T / (n + F)`
+
+**Which depends on `T` and barely on `n`, as long as `n` stays well below `F`.** At `F = 3,096`,
+spending 7,680 bouts as 60 iterations of 128 buys `7680 / 3224` and spending the same 7,680 as 30
+iterations of 256 buys `7680 / 3352`: a difference of **four per cent**, which no rating in this
+project can see. Bigger steps are very slightly worse, not better, and the whole question of how
+to split a budget is a rounding error next to the size of the budget.
+
+**And the budget is the finding.** A sixty-iteration league at 32 bouts spends 1,920 bouts in
+total and buys `1920 / 3128 = 0.61` units of useful movement. The learn set's 400-iteration run --
+5h22m, 64 bouts an iteration -- spent 25,600 and bought `25600 / 3160 = 8.1`. **That is the whole
+of what thirteen sessions of compute bought**, expressed in the only unit the probe makes
+available, and it is a candidate explanation for a record in which every infrastructure bar passed
+and every bar that asked a learned mind to beat a designed one failed.
+
+This experiment tests the relation rather than assuming it, because the relation is doing a great
+deal of work and it was fitted at a *held* policy over sample sizes at one checkpoint. A fit
+moves.
+
+### The cells
+
+Three arms against `golem-fencer` under `latchAbort=true`, and the first is free: Experiment H's
+`latched-fencer` is the 32-bout arm. Everything else matches it field for field -- the
+maul-and-mace viable pool, mirrored bodies, no exploiters, no pool opponents, ratings off,
+separation 2.6, fit seed 20260917, rate 1e-4, batch 4096, 4 epochs, target KL 0.03, entropy 3e-4,
+7 workers, 4 fit shards, the shipped reward table.
+
+| arm | bouts an iteration | iterations | total bouts | checkpoints | from |
+| --- | --- | --- | --- | --- | --- |
+| `bouts 32` | 32 | 60 | 1,920 | 12 | Experiment H, free |
+| `bouts 128` | 128 | 60 | 7,680 | 12 | this experiment |
+| `bouts 256` | 256 | 30 | 7,680 | 10 | this experiment |
+
+**The second and third spend the same total and split it differently**, which is the comparison
+the arithmetic above says should come out flat. The first spends a quarter of it, which is the
+comparison it says should not.
+
+**One field differs that is not the axis, and it is disclosed rather than hidden.** The 256-bout
+arm runs `--pool-every 3` against the others' 5, so that thirty iterations yield ten rating points
+instead of six. With `--exploiters 0` and an opponent schedule pinned to `golem-fencer` from
+iteration 0, no bout in any of these runs is fought against a pool build, so the flag sets the
+checkpoint cadence and nothing that reaches the fit. That is an argument and not a measurement,
+and if it is wrong the 256-bout arm is the one it is wrong about.
+
+### The measures
+
+1. `scripts/rate-snapshots.mjs`, 200 bouts a contender, `--terminals maul,mace --pools random`.
+   Statistic: the **paired bar slope against `golem-fencer`**, restated **per thousand bouts of
+   training sample** rather than per iteration -- which is the whole point, and is the first time
+   this record has quoted a learning rate in the unit the probe measures.
+2. The same slope per *iteration* beside it, because that is the unit every earlier entry used and
+   a reader has to be able to place this one against them.
+3. `scripts/probe-snapshots.mjs` at 4 bouts a build, seed 20260906, `--baseline 9/28`, kept so the
+   control is read the way it was read the first time.
+
+### The predictions
+
+1. **The two equal-total arms are indistinguishable.** The paired bar slopes per thousand bouts of
+   `bouts 128` and `bouts 256` differ by less than the larger of their two standard errors. The
+   arithmetic says four per cent; anything that survives a rating at these sizes would mean the
+   relation is missing a term that matters more than the term it has.
+
+2. **The 128-bout arm beats the 32-bout arm on the slope per iteration by a factor of between two
+   and four.** Four times the sample an iteration is four times the alignment while `n` is far
+   below `F`, and the interval is wide on purpose: this is the prediction that tests whether the
+   probe's relation survives the policy moving.
+
+3. **All three arms are indistinguishable per thousand bouts.** The same argument the other way
+   round, and it is the one that names the lever: if useful movement is `T / (n + F)`, then every
+   arm here buys the same curve for the same sample, the 32-bout arm included, and the only thing
+   that ever mattered was how much sample was bought.
+
+4. **No arm clears a paired bar slope of t > +2.** 7,680 bouts buys 2.4 units of useful movement
+   against the learn set's 8.1, and the learn set's 8.1 produced a paired slope of t 1.12. This is
+   the pessimistic prediction and it is the one the arithmetic supports; it is written down so
+   that a flat result is a confirmation rather than another disappointment.
+
+### The falsifier
+
+**If the 128-bout arm does not beat the 32-bout arm on the slope per iteration by at least a
+factor of two, then the probe's relation does not survive a fit** -- the cosine it measures at a
+held policy is not the thing that governs how far a moving policy gets -- and every
+bouts-for-cosine-0.5 figure in this record becomes a statement about one frozen checkpoint and not
+a budget. That would be the most expensive negative in the set, because four experiments are
+currently quoted in that unit.
+
+### What no outcome of this licenses
+
+No default moves: `--bouts` stays at its current default, `latchAbort` stays off. A winning bout
+count licenses **one** thing, and it is the thing the whole record has been circling: a single
+long run whose total sample is chosen against a measured floor rather than against a wall-clock,
+priced and pre-registered on its own.
