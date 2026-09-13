@@ -28008,3 +28008,66 @@ not finished until the caller that read it has somewhere to go.
 Five readers -- armfit, headfit, dirfit, basefit, barfit -- plus ladderfit and the new probefit now
 print the smallest effect they could have caught, whether or not anything cleared. That line is
 what caught prediction 3 above.
+
+### The new reader's mutation record, and the two mutations it does not catch
+
+probefit.mjs reported the entry above, so it is an instrument and arrives with a measured record
+rather than an assurance. Seven mutations, each applied alone to the restored file, each read on
+the same four-arm command line the entry quotes, each diffed against the baseline's 39 lines, and
+the file restored and re-read afterwards to confirm the baseline came back byte for byte.
+
+| mutation | what moved |
+|---|---|
+| the residual loses its two degrees of freedom | 9 lines; `latched-idle` se 0.0394 -> 0.0360, t 0.99 -> 1.09 |
+| the probe slope is not restated per sixty | 4 lines; +0.0392 -> +0.0007, and every power line with it |
+| the difference of two arms carries only one arm's error | 2 lines; `decided` se 2.76 -> 1.89, t 1.13 -> 1.65 |
+| the probe's family bar goes one-sided | 2 lines; the rate and the threshold both |
+| the family bar forgets it is a family | 3 lines; 14 % -> 7 %, and the threshold with it |
+| prediction 4 compares the raw differences instead of their t's | **nothing** |
+| the `killRate` refusal is dropped | **nothing** |
+
+**Two survivors, and neither is a defect in the reader.** Both are statements about what this run
+could not have distinguished, which is the more useful thing a mutation record can produce.
+
+**The `killRate` refusal survives because no log on disk is missing one.** It is not dead code: fed
+a copy of `latched-idle-probe.random` with iteration 25's `killRate` deleted it answers *iteration
+25 carries no killRate* and stops. Six other refusals were checked the same way and every one of
+them fires and names what it refused -- a log missing `bouts` at iteration 35, a two-point log that
+is not a slope, a rating log whose iteration 20 carries no paired bar against `fencer`, a
+contender no rating row keys, an `--arm` given three fields instead of four, and an arm stated
+against a control that is not in the table. The record's own rule is that a reader which fills a
+missing field with a default cannot refuse the log that is missing it; the corollary this row
+supplies is that **a refusal nothing on disk trips still has to be shown tripping on something.**
+
+**The scale in prediction 4 survives because this run is nowhere near the boundary**, and that is
+worth more than the mutation catching it would have been. The verdict is that the probe gain does
+not exceed the criterion gain. The probe difference is -0.0552 and the criterion difference
++0.0682, so on this run one is negative and the other positive and *every* monotone comparison
+agrees -- raw units, standard errors, anything.
+
+Where they would part is arithmetic and is worth writing down because the next cell may land
+there. The idle arm's probe difference carries a standard error of 0.0576 and its criterion
+difference one of 0.0288, a factor of two. Raw units call it *yes* when the probe gain is at most
+the criterion gain; standard errors call it *yes* when the probe gain is at most **twice** it. So
+the two readings disagree for any probe gain in the band between one and two times a positive
+criterion gain, and a cell landing in that band would have its prediction-4 verdict decided by a
+choice the registration never made. **This entry's verdict does not depend on that choice. A later
+one might, and when it does the choice is the finding.**
+
+### What the mutation record could not reach
+
+It runs the reader on four arms of one experiment. It says nothing about a grid with one arm, an
+arm whose control carries no league directory, or a probe log whose iterations are unevenly
+spaced -- all three are legal inputs and none is on disk. The `-` placeholder path is exercised
+only for the control name and the two bracket arms, never for a missing league directory or a
+missing rating log, because Experiment H happens to have all of them.
+
+And it cannot reach the thing the header already says it cannot: `killRate` is a proportion over
+sixty bouts, its points are not equally informative, and the OLS t is approximate for that reason.
+The binomial spread of a single point runs 0.0606 to 0.0643 across the four arms and the residual
+standard error of the fits runs 0.0393 to 0.0727, so on three of the four arms the scatter about
+the line is **smaller than the binomial spread of one point** -- twelve checkpoints of a slowly
+moving quantity, not twelve independent draws. On `latched-fencer` it is larger, 0.0727 against
+0.0606, which is the arm whose slope is the steepest in the table. Neither observation is a
+correction to anything; both are printed by the reader every time it runs, so nobody has to
+remember to ask.
