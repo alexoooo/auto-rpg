@@ -27768,3 +27768,243 @@ in the safe direction and not a correction of an error. Left alone: it is an est
 the section above is about marks that say a verdict may be read.
 
 latchfit.mjs grants no mark of any kind and has nothing of this shape in it.
+
+## Experiment H -- 2026-09-13: the latch buys a curve on the criterion and pays for it on the dummy
+
+Both cells are on disk and both were read for the first time here, with the two readers the
+predictions name and no arithmetic done by hand. `latched-idle` finished its rating at 13 rows
+while this section was being written; `latched-fencer` had been complete and **unread** since
+02:07, which is recorded because an entry that scores a prediction is worth exactly as much as the
+discipline that kept the log shut until the pair was whole.
+
+The run is `scripts/league.mjs --tactics latchAbort=true` at 60 iterations and 32 bouts, against
+`idle` and against `golem-fencer`, with `tournaments/bracket-idle` and `tournaments/bracket-fencer`
+as controls whose headers differ from these in `tactics` alone. Nothing was re-collected. The
+readers are barfit.mjs, which was already armed, and probefit.mjs, which was written this morning
+because **no reader in the set covered measure 1 or prediction 3** -- the entry would otherwise
+have been composed by hand out of two printouts, which is the shape the 2026-09-13 audit spent a
+morning removing from four other pre-registrations.
+
+### Prediction 1, the property: met, and not by its mean
+
+Both latched arms report `strokes.completion` at or above 0.30 averaged over sixty iterations.
+
+| arm | iterations | completion, mean | least iteration | greatest |
+| --- | --- | --- | --- | --- |
+| `latched-idle` | 60 | **0.4959** | 0.4088 | 0.6027 |
+| `latched-fencer` | 60 | **0.4683** | 0.3928 | 0.5858 |
+
+The registered bar is on the mean and the means clear it by half again. What is worth more than
+that is the third column: **the worst single iteration of either arm is above the bar.** Sixty
+iterations an arm and not one of the hundred and twenty falls under 0.39, against an unlatched
+policy that finished 0.1 % of 1,465 strokes at the same two checkpoints. The row does in a fit what
+it did in a probe, and there is no reading of this column on which it does not.
+
+The controls carry no stroke column at all -- 0 of 60 rows each, against 60 of 60 on both latched
+arms -- exactly as the registration said they would, because they were collected before the column
+existed. So this prediction is checked against the scratch reading and not against a paired one,
+and that was written down in advance rather than discovered here.
+
+### Prediction 2, the headline: met, and it survives the correction
+
+At least one latched arm was to clear a paired bar slope of t > +2 against `golem-fencer` over its
+sixty iterations. Both did.
+
+| arm | points | span | slope/60 | se | t |
+| --- | --- | --- | --- | --- | --- |
+| `latched-idle` | 12 | 5..60 | +0.0639 | 0.0246 | **2.60** |
+| `latched-fencer` | 12 | 5..60 | +0.0746 | 0.0223 | **3.35** |
+| `bracket-idle` | 12 | 5..60 | -0.0042 | 0.0150 | -0.28 |
+| `bracket-fencer` | 12 | 5..60 | +0.0315 | 0.0174 | 1.81 |
+| `bracket-driver` | 12 | 5..60 | -0.0315 | 0.0167 | -1.89 |
+| `bracket-self` | 12 | 5..60 | +0.0182 | 0.0226 | 0.80 |
+
+**And the bar it is stated on is a bar this record now computes rather than asserts.** Two latched
+arms at ten degrees of freedom, one-sided because the prediction names a direction: two sigma
+somewhere in a family of two is passed by a true null 7.2 % of the time, so holding the family at
+5 % puts the threshold at **t 2.221**. Both arms clear it -- `latched-fencer` at a one-sided p of
+0.0037 and `latched-idle` at 0.0132 -- so the correction that withdrew a published mark this
+morning does not touch this one.
+
+The control is the other half of the sentence and it is read the same way. **No arm of the four
+clears t 2.62, the family-wise threshold over four**, and none clears the registered +2 either: the
+largest is `bracket-fencer` at 1.81 and the only column near two sigma is `bracket-driver`'s
+*decline* at -1.89. That was true before this run and is why the prediction was stated the way it
+was.
+
+**What the control could have caught, because a null is worth nothing without it.** At the
+family-wise threshold the four bracket arms would have caught slopes per sixty of 0.0521,
+0.0602, 0.0578 and 0.0784 four times in five. The latched arms came in at 0.0639 and 0.0746. So the
+control's null is **not** an uninformative one -- it sits right at the scale of the effect the
+latched arms show, and would more often than not have caught it. That is the strongest thing this
+entry can say and it is a statement about the control, not about the treatment.
+
+### The one number that is not a slope, and the rule that says to print it anyway
+
+`d` at the last rating point, naming `golem-fencer` in the same sentence, because that is the rule
+the bracket's own caution forced:
+
+| arm | d at iteration 60 |
+| --- | --- |
+| `latched-idle` | **-0.0915** +-0.0709 |
+| `latched-fencer` | **-0.0878** +-0.0708 |
+| `bracket-idle` | -0.0847 +-0.0708 |
+| `bracket-fencer` | -0.1480 +-0.0711 |
+
+**Every one of them is negative and every interval covers zero.** Sixty iterations under the latch
+produce a curve that rises at three sigma and a mind that, at the end of it, is not distinguishable
+from where the unlatched control ended and is on the wrong side of `golem-fencer` either way. The
+slope is real and the level has not moved. Nothing here ships.
+
+### Prediction 3: missed as registered, and the instrument could not have seen it
+
+`decided` was to rise against the control's own by at least two points, on the latched arms.
+
+| arm | against | decided | control's | difference, points | se | t |
+| --- | --- | --- | --- | --- | --- | --- |
+| `latched-idle` | `bracket-idle` | 0.4802 | 0.4490 | **+3.13** | 2.76 | 1.13 |
+| `latched-fencer` | `bracket-fencer` | 0.8448 | 0.8271 | +1.77 | 1.96 | 0.90 |
+
+The registration says *the latched arms*, plural. One of the two clears the two-point threshold and
+one does not, so **as registered it is missed**, and it is missed on the arm whose bouts were
+already 83 % decided before the latch went anywhere near them.
+
+**And the more useful sentence is that neither difference means anything.** The registration stated
+a point threshold and attached no error to it; this record's own ruling is that a bar is stated on
+an interval. On an interval the two differences sit at t 1.13 and t 0.90 against a family-wise
+threshold of 2.295 over two comparisons at 59 df. The smallest rise this comparison would have
+caught four times in five is **7.72 points on the idle arm and 5.49 on the fencer arm** -- three
+and a half times and two and a half times the threshold it was asked to resolve. Prediction 3 was
+unanswerable by the design that was registered for it, and the +3.13 that nominally meets it is
+inside the noise of a comparison that could not have told 3 from 0.
+
+This is the second time in two days that a prediction has been scored against a measurement whose
+own resolution was never checked. The first was Experiment O's prediction 5, and it is the reason
+every reader in this set now prints what it could have caught whether or not anything cleared. This
+one was caught by that line rather than by somebody remembering.
+
+### Prediction 4, written so it could embarrass the set: met, and in the sharpest direction
+
+The latched `idle` arm was **not** to beat its control on the dummy-kill probe by as much as it
+beats it on the criterion. If the latch improved the dummy measure most, the mechanism is not the
+one this set spent a day arguing for.
+
+| arm | against | probe diff/60 | its t | criterion diff/60 | its t |
+| --- | --- | --- | --- | --- | --- |
+| `latched-idle` | `bracket-idle` | **-0.0552** | -0.96 | **+0.0682** | +2.36 |
+| `latched-fencer` | `bracket-fencer` | -0.3329 | -3.88 | +0.0431 | +1.52 |
+
+**Met, and not narrowly.** The latch does not beat its control on the dummy probe at all: it is
+0.055 of a kill rate per sixty iterations *behind* it, and the difference is not distinguishable
+from zero in either direction. On the criterion over the same twelve checkpoints of the same run it
+is 0.068 ahead at t 2.36. The prediction asked for the probe gain not to exceed the criterion gain
+and the probe gain is negative.
+
+**The comparison is of the two t's and that is a choice this reader makes, not one the
+registration made.** A kill rate is a proportion of bouts and a paired bar is a difference of two
+bar values; "by as much as" names no unit, and the standard errors of each difference are the only
+common scale either measure carries. A reader who prefers another scale should know the raw
+differences are -0.0552 and +0.0682 and that they are not in the same units.
+
+### What nobody registered, which is the largest number in the run
+
+`latched-fencer`'s dummy-kill probe slope is **-0.3077 per sixty iterations at t -4.22**, and it is
+the only column in the probe table that clears a family-wise threshold of 3.03 over the four arms.
+
+| arm | kill rate, first | last | slope/60 | se | t |
+| --- | --- | --- | --- | --- | --- |
+| `latched-idle` | 0.417 | 0.433 | +0.0392 | 0.0394 | 0.99 |
+| `latched-fencer` | 0.417 | 0.300 | **-0.3077** | 0.0729 | **-4.22** |
+| `bracket-idle` | 0.300 | 0.367 | +0.0944 | 0.0420 | 2.25 |
+| `bracket-fencer` | 0.433 | 0.500 | +0.0252 | 0.0450 | 0.56 |
+
+**A mind trained against `golem-fencer` under the latch gets monotonically worse at killing a
+motionless pool, at four sigma, while its curve on the declared criterion rises at three and a
+third.** The two rulers do not merely disagree about magnitude on this run; they disagree in sign,
+and both sides of the disagreement clear their own family-wise bars.
+
+It is not the latch alone and it is not the opponent alone. `bracket-fencer` -- same opponent, same
+seed, same pool, latch off -- reads +0.0252 at t 0.56, and the difference between the two is
+-0.3329 at t -3.88 against a two-comparison threshold of 2.626. The decline belongs to the
+combination.
+
+**This is a reading and not a verdict**, because nothing registered it, and it is written under its
+own heading for that reason. What it is evidence for is the sentence the learn set closed on and
+Session 11 paid four hundred iterations to learn: that this project has two rulers, that they have
+now disagreed in sign on one run at four sigma each way, and that no experiment in the current
+agenda is designed to say which of them is measuring the thing the owner's eye cares about. That is
+a gap in the agenda and not a result of this experiment.
+
+### The other thing the league rows say
+
+`latched-idle`'s strokes-started column is the one shape in this run that is not a line.
+Per side it opens at 60.1, climbs to **94.3 at iteration 7**, and falls from there to 73.6 at
+iteration 60 -- so the last point is above the first and the OLS slope over the whole column is
+**-17.3 per sixty at t -5.94**, which is not a contradiction but a peak inside the span being read
+by a straight line. `latched-fencer`'s is flat at +1.0 and t 0.33, and the entry quotes the shape
+rather than the slope for exactly this reason.
+
+A mind that completes half its strokes has a reason to start fewer of them, and
+this record has no measurement that separates "learned to pick its moment" from "learned to stand
+still" -- which is exactly the reading `idle` earned in the learn set, on a reward table whose only
+non-cancelling term pays for standing outside reach.
+
+### What this licenses, and what it does not
+
+`latchAbort` still ships **off**, which is what the registration said no outcome would change.
+
+It licenses the one thing the registration named: **a longer fit under the row**, priced against
+the 400-iteration run the learn set already paid for. The curve is real, it clears a family-wise
+bar, and the control could have caught it and did not.
+
+It does not license moving the default, and this entry has a second reason beyond the registered
+one. The level has not moved -- `d` at the last point is -0.09 with an interval covering zero, on
+both arms -- and on the dummy probe one of the two arms went backwards at four sigma. A row that
+buys a slope on one ruler and costs four sigma on the other is not a row anybody should ship on the
+strength of twelve checkpoints.
+
+### The readers, and the defect found on the way to writing one
+
+**probefit.mjs is new.** It reads the kill-rate slope, `decided` off the league rows, and the
+criterion slope, and computes predictions 3 and 4 itself. It names each arm's control **on the
+command line** rather than inferring it from the arm's name, because the pairing is the experiment
+and a reader that guesses it will one day pair a run against the wrong control and print a verdict
+about it. Its OLS was smoked against Anscombe's first set before it met a log: slope 0.5001,
+se 0.1179, t 4.241, which is the published triple to every digit.
+
+**It computes the criterion slope independently of barfit.mjs rather than sharing a function.** Run
+on the same four rating logs the two agree to the last printed digit on all four arms -- 0.0639,
+0.0746, -0.0042, 0.0315, and t 2.60, 3.35, -0.28, 1.81. Two implementations that agree is a
+stronger statement than one that cannot disagree, on the condition that somebody looks, and this
+paragraph is the looking.
+
+**And the audit's own sweep was incomplete, which is the more useful half of the morning.** The
+2026-09-13 reader audit removed `t = sem === 0 ? 0 : m/sem` from `semOf` and from two readers, on
+the argument that a t of zero is a *reading* where NaN is the honest answer. It went through the
+readers the audit already had open. It did not go through all of them: **concfit.mjs carried the
+same guard** and still did at midnight. Removed.
+
+The same sweep, done properly this time, found one more and it is worse than the first. ladderfit's
+Pearson answered **0** when either column was constant, and Experiment M's prediction 3 is stated
+on the *sign* of that number. Measured on three cells with `advantageSd` forced to a constant, the
+reader before the fix printed:
+
+```
+  prediction 3: advantage sd against floor, pearson 0.000, spearman 0.000 over 3 cells  [met]
+```
+
+**A ladder carrying no variation at all would have passed Experiment M's central prediction**, and
+passed it on the guard rather than on the data. After the fix the same three cells read:
+
+```
+  prediction 3: both correlations are undefined -- a column is constant over the 3 cells, so there
+  is no ordering here to be positive or negative and the verdict is withheld
+```
+
+Withholding needed a branch of its own: a NaN fails both sign tests and fell through to *split --
+the two correlations disagree in sign*, which is also a verdict and also wrong. Removing a guard is
+not finished until the caller that read it has somewhere to go.
+
+Five readers -- armfit, headfit, dirfit, basefit, barfit -- plus ladderfit and the new probefit now
+print the smallest effect they could have caught, whether or not anything cleared. That line is
+what caught prediction 3 above.
