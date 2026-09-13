@@ -184,7 +184,7 @@ import {
   normalise, policyLayout,
 } from "../src/golem/policy.ts";
 import { GOLEM_REWARD, boutParts, stepReward } from "../src/golem/reward.ts";
-import { GOLEM_TACTICS_V4 } from "../src/golem/tactics-v4.ts";
+import { EVERY_COMMAND_BIT, GOLEM_TACTICS_V4 } from "../src/golem/tactics-v4.ts";
 import { mulberry32 } from "../src/rng.ts";
 import { VIABLE_TERMINALS, viableMirror } from "../src/golem/viability.ts";
 import { armedTerminal, buildPool, runJobs, scheduleJobs } from "./tournament.mjs";
@@ -304,6 +304,17 @@ export function mergeRollouts(parts, reward = GOLEM_REWARD, width = PILOT_FEATUR
     ]),
     seconds: new Float64Array(count),
     done: new Uint8Array(count),
+    /**
+     * The executor's touch mask a sample, which is a credit rule and not a quantity in the reward.
+     *
+     * It is **not** in `PACK_COLUMNS` and it is not allowed to be. A pack written before the mask
+     * existed carries no such column, and the right reading of a pack that cannot say what its
+     * body read is every bit set -- credit everything, pay the variance, take no bias -- which is
+     * exactly the estimator that shipped. So this is filled with `EVERY_COMMAND_BIT` first and
+     * overwritten only where a pack actually carries the column, and an old collection re-priced
+     * through here is byte for byte the collection it was.
+     */
+    touched: new Int32Array(count).fill(EVERY_COMMAND_BIT),
   };
   let at = 0;
   for (const part of parts) {
@@ -328,6 +339,12 @@ export function mergeRollouts(parts, reward = GOLEM_REWARD, width = PILOT_FEATUR
     out.logp.set(part.logp, at);
     out.seconds.set(part.seconds, at);
     out.done.set(part.done, at);
+    if (part.touched !== undefined && part.touched !== null) {
+      if (part.touched.length !== n) {
+        throw new Error(`a pack's "touched" column is ${part.touched.length} long over ${n} asks`);
+      }
+      out.touched.set(part.touched, at);
+    }
     // The outcome is read once, on the window the recorder marked `done`, and is the side's own:
     // `winner` is the name of a side of the bout and `part.side` says which one this pack is.
     const outcome = part.winner === null ? 0 : part.winner === part.side ? 1 : -1;
@@ -597,14 +614,22 @@ export function surrogateObjective(
  */
 export function surrogateGrad(
   head, logSigma, action, oldLogp, adv, { clip = 0.2, entropy = 0 } = {}, scale, delta, sigmaGrad,
-  spec = GAUSSIAN_HEAD,
+  spec = GAUSSIAN_HEAD, mask = EVERY_COMMAND_BIT,
 ) {
   const logp = actionLogProb(head, logSigma, action, spec);
   const ratio = Math.exp(logp - oldLogp);
   const unclipped = ratio * adv;
   const bounded = Math.min(Math.max(ratio, 1 - clip), 1 + clip) * adv;
   const active = unclipped <= bounded;
-  if (active) logProbGrad(head, logSigma, action, -adv * ratio * scale, delta, sigmaGrad, spec);
+  // **The mask reaches the score and nothing else.** The ratio above is the whole step's
+  // probability ratio and stays whole, because that is the quantity the clip bound is defined on
+  // and a ratio taken over a subset of the dimensions is not it. The entropy bonus stays whole for
+  // the same reason in reverse -- it is a term in the objective and not a credit for an action, so
+  // a dimension the body ignored still owes its spread the same push. What changes is only which
+  // dimensions are told they caused the advantage.
+  if (active) {
+    logProbGrad(head, logSigma, action, -adv * ratio * scale, delta, sigmaGrad, spec, mask);
+  }
   if (entropy !== 0) entropyGrad(head, logSigma, -entropy * scale, delta, sigmaGrad, spec);
   const h = actionEntropy(head, logSigma, spec);
   return { logp, ratio, active, entropy: h, objective: Math.min(unclipped, bounded) + entropy * h };
@@ -740,7 +765,7 @@ export class FitPool {
    * cannot move while it is reading it. That is the invariant this session was told to be careful
    * about, and the only place it could be broken is here.
    */
-  bind(rollout, scaled, returns, norm, { clip = 0.2, entropy = 0 } = {}) {
+  bind(rollout, scaled, returns, norm, { clip = 0.2, entropy = 0, masked = false } = {}) {
     const { count, width } = rollout;
     const shared = (Kind, length) => new Kind(new SharedArrayBuffer(length * Kind.BYTES_PER_ELEMENT));
     const bound = {
@@ -749,6 +774,7 @@ export class FitPool {
       p: shared(Float64Array, (rollout.p === undefined || rollout.p === null ? 0 : count * width)),
       a: shared(Float64Array, count * ACTION_WIDTH),
       logp: shared(Float64Array, count),
+      touched: shared(Int32Array, count),
       scaled: shared(Float64Array, count),
       returns: shared(Float64Array, count),
       mean: shared(Float64Array, width),
@@ -767,6 +793,15 @@ export class FitPool {
     if (rollout.p !== undefined && rollout.p !== null) bound.p.set(rollout.p);
     bound.a.set(rollout.a);
     bound.logp.set(rollout.logp);
+    // The credit rule crosses as an array and not as a flag, so a shard has nothing to decide: it
+    // reads the mask of the sample it is on and applies it. Unmasked is every bit set, which is
+    // the estimator that shipped, and a rollout carrying no `touched` column reads that way
+    // whatever was asked for -- see `ppoFit`, which makes the same choice for the same reason.
+    if (masked && rollout.touched !== undefined && rollout.touched !== null) {
+      bound.touched.set(rollout.touched);
+    } else {
+      bound.touched.fill(EVERY_COMMAND_BIT);
+    }
     bound.scaled.set(scaled);
     bound.returns.set(returns);
     for (let k = 0; k < width; k += 1) { bound.mean[k] = norm.mean[k]; bound.variance[k] = norm.variance[k]; }
@@ -780,6 +815,7 @@ export class FitPool {
         sigmaFloor: this.spec.floor, sigmaRoof: this.spec.roof,
         size: this.size, valueSize: this.valueSize, count, width, normCount: norm.count,
         x: bound.x.buffer, p: bound.p.buffer, a: bound.a.buffer, logp: bound.logp.buffer,
+        touched: bound.touched.buffer,
         scaled: bound.scaled.buffer, returns: bound.returns.buffer,
         mean: bound.mean.buffer, variance: bound.variance.buffer, order: bound.order.buffer,
         weights: bound.weights.buffer, valueWeights: bound.valueWeights.buffer,
@@ -1032,7 +1068,7 @@ export function ppoFit(rollout, {
   norm, seed, halfLife = 4, lambda = 0.95, clip = 0.2, entropy = 0.003,
   rate = 1e-4, valueRate = 1e-3, sigmaRate = null, epochs = 4, batch = 4096, targetKl = 0.03,
   sigmaFloor = -3, sigmaRoof = 0.5, actor = null, spread = null, critic = null,
-  shards = 1, pool = null, spec = GAUSSIAN_HEAD,
+  shards = 1, pool = null, spec = GAUSSIAN_HEAD, masked = false,
 }) {
   if (pool !== null && pool.shards !== shards) {
     throw new Error(`a fit of ${shards} shards was handed a pool of ${pool.shards}`);
@@ -1068,6 +1104,14 @@ export function ppoFit(rollout, {
   const grad = new Float64Array(size);
   const sigmaGrad = new Float64Array(ACTION_AXES);
   const valueGrad = new Float64Array(valueSize);
+  // Which dimensions of each sample's score are credited with that sample's advantage. `masked`
+  // false is one array of every-bit-set and is the estimator that shipped -- the same arithmetic,
+  // reached through one array lookup a sample -- and `masked` true is the executor's own record of
+  // what it read. A rollout that carries no `touched` column can only be credited whole, and is,
+  // whatever the flag says: a collection that cannot say what its body read is not evidence that
+  // its body read nothing.
+  const credit = masked && rollout.touched !== undefined && rollout.touched !== null
+    ? rollout.touched : new Int32Array(n).fill(EVERY_COMMAND_BIT);
   const random = fitShuffleRandom(seed);
   const order = Array.from({ length: n }, (_, i) => i);
   const load = (i) => {
@@ -1142,7 +1186,7 @@ export function ppoFit(rollout, {
           const head = forward(layout, weights, observation, scratch);
           delta.fill(0);
           const term = surrogateGrad(head, logSigma, action, rollout.logp[i], scaled[i],
-            { clip, entropy }, scale, delta, sigmaGrad, spec);
+            { clip, entropy }, scale, delta, sigmaGrad, spec, credit[i]);
           backwardFrom(layout, weights, observation, scratch, delta, grad);
           // The critic, on the same forward-normalised observation -- both sides' of it under a
           // central critic -- and its own half of the batch.

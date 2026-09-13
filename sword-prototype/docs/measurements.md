@@ -31625,3 +31625,113 @@ anything else.
 one thing -- a registration for a fit under the masked credit, priced against the batch ladder
 Experiment U is measuring tonight -- and licenses it as a candidate for a night rather than as a
 change to anything shipped.
+
+## Built, and one thing found before the cells -- 2026-09-13: Experiment W's instrument, and the collection its prediction 4 was written on
+
+Experiment W is registered and not collected. What is below is the instrument it will be collected
+with, the identity that licenses landing that instrument while three ratings and two leagues are
+running on the same tree, and **one measurement, taken with the instrument on two eight-bout
+collections, that bears on prediction 4 and is written here rather than in the entry that scores
+it.**
+
+### What was built
+
+`logProbGrad` takes an optional trailing mask and skips the dimensions whose bit is clear; the
+default is `EVERY_COMMAND_BIT`. `surrogateGrad` passes it to the score **and to nothing else** --
+the probability ratio the clip bound is defined on stays whole, because a ratio over a subset of
+the dimensions is not that ratio, and the entropy bonus stays whole, because it is a term in the
+objective rather than a credit for an action. `PolicyStep` gained `priorMask`; `pilotRecorder`
+shifts it back one slot and leaves the trailing sample every bit set; `mergeRollouts` carries a
+`touched` column that is deliberately **not** in `PACK_COLUMNS`, so a collection taken before the
+mask existed still merges and is credited whole. `ppoFit` and `FitPool.bind` take `masked`, and
+the rule crosses to a shard as an array rather than as a flag, so a shard has nothing to decide.
+
+The probe gained `--credit` and a `credited` block beside `priced`, with three arms: `whole` binds
+no mask, `all-bits` binds the rollout's own column after saturating it, `masked` binds what the
+executor recorded. **Three and not two**, because the first and the third differ in two things at
+once -- the branch and the data -- and an identity that holds for one of them and not the other
+says which of the two moved. Each arm carries its own head cut and its own cross-cosine against
+the row's unmasked direction, which is prediction 6's statistic.
+
+Three tests, run: a mask of every bit reproduces the unmasked gradient with no tolerance and a
+clear bit writes nothing into that dimension's own outputs and into no others; a merged rollout
+carries the column and credits a pack without one whole; and a fit asking for no mask produces the
+weights a fit given no such argument produces, while a fit under a real mask produces different
+ones -- the second half of that being the way a flag that had quietly become inert would otherwise
+pass. The real-bout recorder test gained the shift's four claims, the fourth of which is that
+*some* ask has a bit clear.
+
+### The identity that licensed landing it mid-run
+
+Three ratings, two leagues and a probe ladder were collecting through these files, and a worker
+pool is built per rating point, so an edit lands mid-run whether or not anyone wants it to. The
+argument that this is safe is that the mask defaults to every bit set and the skip never fires.
+The argument is not the evidence.
+
+One synthetic rollout -- 480 asks, 6 episodes, drawn from one seeded stream in one order so that
+nothing is read off disk -- through `ppoFit` at two epochs, batch 128, entropy 3e-4, in the tree
+as it stood and in the tree with the change:
+
+| | |
+| --- | --- |
+| SHA-256 of weights, critic weights and the nine spreads | **`07aa29c4a9d0898aec1d9b61395b1cdb1e4aacfa752260e12add9c20feef22fd`, both** |
+| summed KL | 833.581811142107, both |
+| Adam steps | 8, both |
+
+The seven files were then copied in by writing beside each one and renaming over it, so no worker
+could load a half-written module. That is the trainer half; the executor half was digested the
+same way when the touch mask itself landed, at 42,509 samples.
+
+### The measurement, and it is about prediction 4 rather than about any of the others
+
+The instrument was smoked on eight bouts of the held `bracket-idle` checkpoint against `idle`, and
+the `masked` arm reports its own per-field shares. Two of them did not read as the touch entry
+above measured them:
+
+| field | the touch entry, mirrored | the probe's cell, `--random 40` | the probe's cell, `--random 0` |
+| --- | ---: | ---: | ---: |
+| standOff, strafe, lean, advance | 100 / 99.9 % | 100.0 % | 100.0 % |
+| **targetHeight, targetLateral** | **99.9 %** | **53.6 %, 51.3 %** | **100.0 %** |
+| live dimensions an ask | 8.82 | 8.09, 7.66 | 8.38 |
+
+**The two crouch fields are read on every ask of a mirrored bout and on almost none of a random
+pair.** The branch that reads them is `cap.reachable && caps.crouchTravel > 1e-6`, and a random
+viable pair puts two different bodies on the floor. The probe's default collection is 40 % random
+pairs, which is the collection Experiments I and M were taken on and therefore the one W's cells
+must be taken on to be comparable to I's floors at all.
+
+Held fixed against that, the shares are **not** a property of the weights: the same eight mirrored
+bouts under the shipped table and under the held checkpoint read 99.8 % and 99.9 % on the crouch
+pair, and 8.52 and 8.38 live dimensions. It is the pairing that moves them, not the mind.
+
+**What this does to prediction 4.** That prediction names six fields as conditionally read and
+puts `targetHeight` and `targetLateral` among the six the executor reads on every step. On a
+collection that is 40 % random pairs they are read on about half of asks, which is the conditional
+group's range and not the unconditional group's, and **prediction 4 will very likely miss for that
+reason and not for the reason it was testing.**
+
+**It is not amended.** A pre-registration that is edited after its instrument has been pointed at
+anything is not a pre-registration, and this record would rather publish a prediction that misses
+for a reason it can name than one that was quietly repaired. It will be scored exactly as written,
+with the measured shares printed beside the ordering so that a reader can see the reason without
+being told it.
+
+**What is not reported here.** The smoke's arms differ from each other, which is all that had to
+be true for the instrument to be worth running -- and its `K` ratio, its `|S|^2` and its direction
+are **not** quoted, because they are two iterations of eight bouts on a cell nobody registered,
+and quoting them would be reporting predictions 2, 3 and 6 before the cells that answer them were
+collected.
+
+### The transferable rule
+
+> **A prediction that names a grouping names the collection the grouping was measured on.** A
+> share of asks, a rate, an ordering of named things -- none of them is a property of the code
+> that produces them. This one is a property of whether the two bodies in a bout are the same
+> body, and it moved by a factor of two across a flag that nobody thinks of as part of a
+> measurement.
+
+It is the same shape as the rule the correction to Experiment T earned -- a term's share of the
+return and its share of the gradient are different measurements -- and it has the same cause: a
+quantity was carried from the cell it was measured on to a cell it was not, because both cells
+were about the same twelve fields and it did not occur to anybody that the fields were the
+variable and the pairing was not.

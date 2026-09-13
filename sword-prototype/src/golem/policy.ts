@@ -9,7 +9,8 @@ import {
 import { GOLEM_REWARD, type RewardTable } from "./reward.ts";
 import { POLICY_WEIGHTS } from "./policy-weights.ts";
 import {
-  COMMAND_AXES, COMMAND_GATES, COMMAND_RANGES, GOLEM_TACTICS_V4, freshCommand, golemDriven,
+  COMMAND_AXES, COMMAND_GATES, COMMAND_RANGES, EVERY_COMMAND_BIT, GOLEM_TACTICS_V4, freshCommand,
+  golemDriven,
   type DrivenTactics, type GolemDriven, type StyleCommand,
 } from "./tactics-v4.ts";
 
@@ -818,14 +819,32 @@ export function actionEntropy(
  * - **Beta**: `dlogp/dalpha = log x - (psi(alpha) - psi(alpha + beta))` and its mirror in beta,
  *   each carried back through `alpha = 1 + softplus(z)` whose derivative is `sigmoid(z)`.
  * - **Bernoulli gate**: `dlogp/dlogit = bit - p`.
+ *
+ * ## The mask, which is a credit rule and not a model change
+ *
+ * The last argument is the executor's touch mask for this sample -- one bit a command field, set
+ * when the body read that field on some step the command was in force. A dimension whose bit is
+ * clear was drawn and thrown away: no number the body produced depends on it, so its score
+ * function is independent of everything downstream and the expectation of `score * advantage` over
+ * that dimension is exactly zero. Its contribution to a minibatch is therefore variance with no
+ * expectation, and skipping it is a **variance reduction and not a bias** -- the same argument that
+ * licenses any baseline, run one dimension at a time instead of over the whole step.
+ *
+ * **The default is every bit set, which is the estimator that shipped**, and a caller that does not
+ * pass a mask gets the arithmetic it got before this argument existed, term for term. The mask is a
+ * property of what the *executor* read, never of what the fit wants credited, and a caller that
+ * does not know what a sample's body read must pass `EVERY_COMMAND_BIT` and pay the variance rather
+ * than guess and take a bias.
  */
 export function logProbGrad(
   head: Float64Array, logSigma: Float64Array, action: Float64Array, scale: number,
   headGrad: Float64Array, sigmaGrad: Float64Array, spec: HeadSpec = GAUSSIAN_HEAD,
+  mask: number = EVERY_COMMAND_BIT,
 ): void {
   const ls = axisLogSigma(head, logSigma, spec, SIGMA_SCRATCH);
   const span = spec.roof - spec.floor;
   for (let j = 0; j < ACTION_AXES; j += 1) {
+    if ((mask & (1 << j)) === 0) continue;
     const at = spec.at[j];
     const kind = spec.kinds[j];
     if (kind === "categorical") {
@@ -854,6 +873,7 @@ export function logProbGrad(
     }
   }
   for (let j = 0; j < ACTION_GATES; j += 1) {
+    if ((mask & (1 << (ACTION_AXES + j))) === 0) continue;
     const p = sigmoid(head[spec.gateAt + j]);
     headGrad[spec.gateAt + j] += scale * (action[ACTION_AXES + j] - p);
   }
@@ -922,6 +942,21 @@ export interface PolicyStep {
   readonly raw: Float64Array;
   readonly action: Float64Array;
   readonly logp: number;
+  /**
+   * The executor's touch mask for the ask *before* this one -- which of the twelve command fields
+   * the body actually read while the previous command was in force.
+   *
+   * It is late by one on purpose and it has to be. A command's window closes when the next ask
+   * replaces it, so at the moment this ask is answered the executor has not yet read a thing from
+   * it and its own mask is still empty. What is complete at this moment is the *previous* ask's,
+   * and a collector that wants each sample's own mask shifts this field back by one and gives the
+   * bout's trailing sample every bit set -- its window never closed, so nobody may say what it
+   * read.
+   *
+   * The first ask of a bout carries a meaningless 0 here, for the same reason: there is no previous
+   * ask. A collector that shifts drops it, which is where it belongs.
+   */
+  readonly priorMask: number;
 }
 
 export type PolicyHook = (step: PolicyStep, reading: PilotReading, view: FighterView) => void;
@@ -966,6 +1001,11 @@ export function golemPolicy(
   let asks = 0;
   let drawn = 0;
 
+  // Assigned the moment `golemDriven` returns and read only from inside an ask, which cannot
+  // happen before that -- so the cycle between the mind and its body is closed here rather than
+  // paid for by handing the executor a reference it does not need.
+  let body: GolemDriven | null = null;
+
   const pilot: Pilot = (reading, view): StyleCommand => {
     pilotFeatures(reading, view, raw, trace);
     normalise(raw, table.normalisation, observation);
@@ -977,13 +1017,14 @@ export function golemPolicy(
     commandFromAction(action, command);
     onStep?.({
       observation: Float64Array.from(observation), raw: Float64Array.from(raw),
-      action: Float64Array.from(action), logp,
+      action: Float64Array.from(action), logp, priorMask: body === null ? 0 : body.lastTouched,
     }, reading, view);
     onAsk?.(reading, view, command);
     return command;
   };
 
   const driven = golemDriven(seed, T, pilot);
+  body = driven;
   return {
     driven,
     get asks(): number { return asks; },

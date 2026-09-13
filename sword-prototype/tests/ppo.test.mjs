@@ -120,11 +120,14 @@ import {
   ACTION_AXES, ACTION_GATES, ACTION_WIDTH, DEAD_VARIANCE, GAUSSIAN_HEAD, HEAD_BINS, POLICY_LAYOUT,
   POLICY_VERSION, POLICY_VERSIONS_READ, SIGMA_FLOOR, SIGMA_ROOF, VALUE_LAYOUT, actionEntropy,
   actionLogProb, axisLogSigma, binCentre, binOf, checkPolicyWeights, commandFromAction,
-  freshNormalisation, freshPolicyTable, golemPolicy, headSpecOf, meanAction, normalise,
+  freshNormalisation, freshPolicyTable, golemPolicy, headSpecOf, logProbGrad, meanAction, normalise,
   policyLayout, sampleAction, uniformPilot,
 } from "../src/golem/policy.ts";
 import { POLICY_WEIGHTS } from "../src/golem/policy-weights.ts";
-import { COMMAND_AXES, COMMAND_GATES, COMMAND_RANGES, freshCommand } from "../src/golem/tactics-v4.ts";
+import {
+  COMMAND_AXES, COMMAND_BITS, COMMAND_FIELDS, COMMAND_GATES, COMMAND_RANGES, EVERY_COMMAND_BIT,
+  freshCommand,
+} from "../src/golem/tactics-v4.ts";
 import { GOLEM_REWARD } from "../src/golem/reward.ts";
 import { PILOT_FEATURE_COUNT, PILOT_FEATURE_COUNT_V2 } from "../src/golem/pilot.ts";
 import { policyMind } from "../src/mind.ts";
@@ -515,6 +518,171 @@ test("a_held_collection_prices_under_a_second_table_exactly_as_a_collection_unde
  * actionable -- the column named says which session the pack predates -- and the length check
  * beside it catches the other shape of the same defect, a column that exists and is not one an ask.
  */
+/**
+ * The credit mask reaches the score and nothing else, and every bit set is the estimator that was.
+ *
+ * Three claims in one test because they are three readings of one array. **The first is the
+ * identity**, and it is the licence for the whole of Experiment W: a mask with every bit set must
+ * reproduce the gradient the caller got before the argument existed, weight for weight and not to
+ * a tolerance, or the arm labelled `whole` in a probe log is not the estimator it stands in for.
+ * **The second is the skip**: a dimension whose bit is clear writes nothing into the head, and the
+ * rows it does not write are the rows the head spec says belong to it. **The third is that nothing
+ * else moved** -- every other row of the head, and the nine spreads, are what they were.
+ *
+ * The mask is exercised on a gate as well as on an axis because the two take different branches --
+ * the axes loop reads `spec.at`, the gates loop reads `spec.gateAt` -- and a mask applied to one
+ * and not the other is a defect every axis-only test is green for.
+ */
+test("a_credit_mask_of_every_bit_is_the_gradient_that_was_and_a_clear_bit_writes_nothing", () => {
+  const spec = GAUSSIAN_HEAD;
+  const random = mulberry32(41);
+  const head = Float64Array.from({ length: spec.width }, () => random() * 2 - 1);
+  const logSigma = Float64Array.from({ length: ACTION_AXES }, () => -1 + random() * 0.5);
+  const action = new Float64Array(ACTION_WIDTH);
+  sampleAction(head, logSigma, random, action, spec);
+
+  const take = (mask) => {
+    const headGrad = new Float64Array(spec.width);
+    const sigmaGrad = new Float64Array(ACTION_AXES);
+    if (mask === null) logProbGrad(head, logSigma, action, 0.7, headGrad, sigmaGrad, spec);
+    else logProbGrad(head, logSigma, action, 0.7, headGrad, sigmaGrad, spec, mask);
+    return { headGrad, sigmaGrad };
+  };
+
+  const bare = take(null);
+  const every = take(EVERY_COMMAND_BIT);
+  assert.deepEqual(Array.from(every.headGrad), Array.from(bare.headGrad),
+    "a mask with every bit set is not the gradient the caller got without one");
+  assert.deepEqual(Array.from(every.sigmaGrad), Array.from(bare.sigmaGrad),
+    "a mask with every bit set moved the spread's gradient");
+
+  // The twelve command fields are the twelve action dimensions in head order, which is the whole
+  // reason one integer can address both. A dropped field's outputs are read off the head spec
+  // rather than counted here, so a head that lays its outputs out differently is still checked.
+  for (let j = 0; j < COMMAND_FIELDS.length; j += 1) {
+    const field = COMMAND_FIELDS[j];
+    const one = take(EVERY_COMMAND_BIT & ~COMMAND_BITS[field]);
+    const outputs = new Set();
+    if (j < ACTION_AXES) {
+      const at = spec.at[j];
+      const kind = spec.kinds[j];
+      const span = kind === "categorical" ? HEAD_BINS : kind === "beta" ? 2 : 1;
+      for (let k = 0; k < span; k += 1) outputs.add(at + k);
+      const gaussian = kind !== "categorical" && kind !== "beta";
+      if (gaussian && spec.sigmaAt >= 0) outputs.add(spec.sigmaAt + j);
+    } else {
+      outputs.add(spec.gateAt + (j - ACTION_AXES));
+    }
+    for (const k of outputs) {
+      assert.equal(one.headGrad[k], 0,
+        `${field}'s bit was clear and output ${k} still took a gradient`);
+      assert.notEqual(bare.headGrad[k], 0,
+        `${field}'s output ${k} takes no gradient even unmasked, so this case proves nothing`);
+    }
+    for (let k = 0; k < spec.width; k += 1) {
+      if (outputs.has(k)) continue;
+      assert.equal(one.headGrad[k], bare.headGrad[k],
+        `clearing ${field}'s bit moved output ${k}, which is not ${field}'s`);
+    }
+    // The nine spreads belong to the nine axes one for one under a constant sigma, so clearing an
+    // axis clears its own row and no other, and clearing a gate clears none of them.
+    for (let k = 0; k < ACTION_AXES; k += 1) {
+      const mine = j < ACTION_AXES && k === j;
+      assert.equal(one.sigmaGrad[k], mine ? 0 : bare.sigmaGrad[k],
+        `clearing ${field}'s bit left spread row ${k} at ${one.sigmaGrad[k]}`);
+    }
+  }
+});
+
+/**
+ * A rollout carries the executor's mask, and a pack that has none is credited whole.
+ *
+ * `touched` is deliberately **not** in `PACK_COLUMNS`: every collection taken before the mask
+ * existed is still on disk and still re-priceable, and the right reading of a pack that cannot say
+ * what its body read is every bit set -- credit everything, pay the variance, take no bias. That
+ * is the estimator that shipped, so an old collection re-priced through the new merge is the
+ * collection it was. This asserts both halves of that, and the length check beside them, because a
+ * mask column one short of its pack would shift every sample's credit by one.
+ */
+test("a_merged_rollout_carries_the_touch_mask_and_credits_a_pack_without_one_whole", () => {
+  const withMask = pack("left", "left", [0.1, 0.2]);
+  withMask.touched = Int32Array.from([COMMAND_BITS.standOff, EVERY_COMMAND_BIT]);
+  const without = pack("right", "left", [0.3, 0.4]);
+  const merged = mergeRollouts([withMask, without]);
+  assert.deepEqual(Array.from(merged.touched),
+    [COMMAND_BITS.standOff, EVERY_COMMAND_BIT, EVERY_COMMAND_BIT, EVERY_COMMAND_BIT],
+    "the mask column did not survive the merge, or an unmasked pack was not credited whole");
+
+  const ragged = pack("left", "left", [0.1, 0.2]);
+  ragged.touched = Int32Array.from([EVERY_COMMAND_BIT]);
+  assert.throws(() => mergeRollouts([ragged]), /"touched" column is 1 long over 2 asks/);
+});
+
+/**
+ * `ppoFit` under `masked: false` is the fit that shipped, and under `masked: true` it is not.
+ *
+ * The mask reaches the trainer through an array read per sample, which means the shipped path now
+ * runs code that did not exist -- one bitwise test a dimension a sample. That is the sort of change
+ * that is obviously harmless and is exactly as obviously harmless as every change that has ever
+ * moved a number in this record. So the default is pinned against the weights a fit produces
+ * without the argument at all, and `masked: true` on a rollout carrying a real mask is asserted to
+ * produce **different** weights -- because a flag that changes nothing is the other way to pass a
+ * test like this one, and it would pass silently.
+ */
+test("a_fit_that_asks_for_no_mask_is_the_fit_that_shipped_and_one_that_asks_for_it_is_not", () => {
+  const width = PILOT_FEATURE_COUNT;
+  const layout = POLICY_LAYOUT;
+  const valueLayout = VALUE_LAYOUT;
+  const random = mulberry32(20260917);
+  const parts = [];
+  for (let b = 0; b < 4; b += 1) {
+    const m = 60;
+    const p = {
+      kind: "pilot", side: "left", winner: b % 2 === 0 ? "left" : "right",
+      x: Float32Array.from({ length: m * width }, () => random() * 2 - 1),
+      a: Float64Array.from({ length: m * ACTION_WIDTH }, () => random() * 2 - 1),
+      logp: Float64Array.from({ length: m }, () => -12 + random()),
+      dealt: Float64Array.from({ length: m }, () => random() * 0.1),
+      taken: Float64Array.from({ length: m }, () => random() * 0.1),
+      seconds: Float64Array.from({ length: m }, () => 0.0833),
+      done: Uint8Array.from({ length: m }, (_, i) => (i === m - 1 ? 1 : 0)),
+      // A mask that is neither empty nor full: the feet on every ask and the gates on some of
+      // them, which is the shape the executor's own record has.
+      touched: Int32Array.from({ length: m }, () => {
+        let mask = COMMAND_BITS.standOff | COMMAND_BITS.advance | COMMAND_BITS.strafe;
+        if (random() < 0.5) mask |= COMMAND_BITS.abort;
+        if (random() < 0.5) mask |= COMMAND_BITS.commit;
+        return mask;
+      }),
+      margin: 0,
+    };
+    for (const column of ["clinch", "idle", "closing", "stall", "outside", "swing"]) {
+      p[column] = new Float64Array(m);
+    }
+    parts.push(p);
+  }
+  const rollout = mergeRollouts(parts);
+  const norm = freshNormalisation(width);
+  for (let k = 0; k < width; k += 1) { norm.mean[k] = 0; norm.variance[k] = 1; }
+  norm.count = 1000;
+
+  const run = (masked) => {
+    const weights = initWeights(layout, 7);
+    const valueWeights = initWeights(valueLayout, 8);
+    const logSigma = new Float64Array(ACTION_AXES).fill(-1);
+    const options = {
+      weights, logSigma, valueWeights, layout, valueLayout, norm, seed: 5,
+      epochs: 1, batch: 64, entropy: 0, targetKl: 1e9,
+    };
+    ppoFit(rollout, masked === null ? options : { ...options, masked });
+    return createHash("sha256").update(Buffer.from(weights.buffer.slice(0))).digest("hex");
+  };
+  assert.equal(run(false), run(null),
+    "asking for no mask is not the fit a caller gets without the argument");
+  assert.notEqual(run(true), run(null),
+    "a fit under the executor's mask produced the weights the unmasked fit did: the mask is inert");
+});
+
 test("a_rollout_refuses_a_pack_that_is_missing_a_column_by_the_name_of_the_column", () => {
   for (const column of PACK_COLUMNS) {
     const short = pack("left", "left", [0.1, 0.2]);

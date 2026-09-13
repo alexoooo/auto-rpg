@@ -31,6 +31,7 @@ import assert from "node:assert/strict";
 import { BARE_REWARD, GOLEM_REWARD, boutParts, boutReturn, stepReward } from "../src/golem/reward.ts";
 import { ACTION_WIDTH } from "../src/golem/policy.ts";
 import { PILOT_FEATURE_COUNT } from "../src/golem/pilot.ts";
+import { COMMAND_BITS, EVERY_COMMAND_BIT } from "../src/golem/tactics-v4.ts";
 import { buildPool, runJobs, scheduleJobs } from "../scripts/tournament.mjs";
 
 const SEED = 20260913;
@@ -240,6 +241,7 @@ test("a_recorded_policy_logs_one_command_an_ask_and_its_rewards_telescope_to_the
     const rows = await runJobs(jobs, { workers: 2, record: ["golem-policy"] });
     assert.equal(rows.length, 4);
     let asks = 0;
+    let asksMasked = 0;
     for (const row of rows) {
       for (const [me, them] of [["left", "right"], ["right", "left"]]) {
         const pack = row.samples[me];
@@ -253,9 +255,32 @@ test("a_recorded_policy_logs_one_command_an_ask_and_its_rewards_telescope_to_the
         assert.equal(pack.x.length, count * PILOT_FEATURE_COUNT);
         assert.equal(pack.a.length, count * ACTION_WIDTH);
         for (const column of ["dealt", "taken", "seconds", "clinch", "idle",
-          "closing", "stall", "outside", "swing", "done"]) {
+          "closing", "stall", "outside", "swing", "done", "touched"]) {
           assert.equal(pack[column].length, count, `${column} is not one an ask`);
         }
+        // The touch mask, on a real bout, which is the only place the shift by one can be seen.
+        //
+        // A command's window closes when the next ask replaces it, so the mask a recorder writes
+        // for sample `i` is not available until sample `i + 1` is asked. Four claims, and the
+        // fourth is the one that would catch a mask that had quietly become a constant:
+        //
+        // - the trailing sample is every bit set, its window never having closed;
+        // - no sample is zero, because the feet are read on every ask a body takes;
+        // - the four foot fields are set on every sample, for the same reason;
+        // - **some sample has a bit clear**, or the instrument is measuring nothing.
+        assert.equal(pack.touched[count - 1], EVERY_COMMAND_BIT,
+          "the last ask's window never closed and it was not credited whole");
+        const feet = COMMAND_BITS.standOff | COMMAND_BITS.advance | COMMAND_BITS.strafe
+          | COMMAND_BITS.lean;
+        let partial = 0;
+        for (let i = 0; i < count; i += 1) {
+          assert.notEqual(pack.touched[i], 0, `ask ${i} recorded a body that read nothing`);
+          assert.equal(pack.touched[i] & feet, feet, `ask ${i} did not carry the feet`);
+          if (pack.touched[i] !== EVERY_COMMAND_BIT) partial += 1;
+        }
+        assert.ok(partial > 0,
+          `every one of ${count} asks was credited whole, so the mask is recording a constant`);
+        asksMasked += partial;
         let sum = 0;
         // The same windows priced under the shipped table, so the row-side form below has
         // something to be compared against. Experiment T.

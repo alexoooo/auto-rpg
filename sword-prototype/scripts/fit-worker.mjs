@@ -161,6 +161,10 @@ function bindShard(message, shard, shards) {
     p: peer !== null && peer.length === count * width ? peer : null,
     a: new Float64Array(message.a),
     logp: new Float64Array(message.logp),
+    // One mask a sample: which dimensions of its score are credited with its advantage. The main
+    // thread has already decided what it holds -- every bit set is the estimator that shipped --
+    // so there is nothing for a shard to choose and no flag for one to disagree about.
+    touched: new Int32Array(message.touched),
     scaled: new Float64Array(message.scaled),
     returns: new Float64Array(message.returns),
     // The frozen normalisation, in the shape `normalise` reads: a count nothing here uses and the
@@ -241,7 +245,7 @@ export function shardStep(bound, at, end) {
     const head = forward(layout, bound.weights, observation, scratch);
     delta.fill(0);
     const term = surrogateGrad(head, bound.logSigma, action, bound.logp[i], bound.scaled[i],
-      { clip, entropy }, scale, delta, sigmaGrad, spec);
+      { clip, entropy }, scale, delta, sigmaGrad, spec, bound.touched[i]);
     backwardFrom(layout, bound.weights, observation, scratch, delta, grad);
     const value = forward(valueLayout, bound.valueWeights, valueInput, valueScratch)[0];
     const error = value - bound.returns[i];

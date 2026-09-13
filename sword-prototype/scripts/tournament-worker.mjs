@@ -31,7 +31,9 @@ import { GOLEM_CHAMPIONS } from "../src/golem/tactics-champions.ts";
 import { GOLEM_PLANNER, golemPlanner } from "../src/golem/planner.ts";
 import { GOLEM_TACTICS_V2 } from "../src/golem/tactics-v2.ts";
 import { GOLEM_TACTICS_V3 } from "../src/golem/tactics-v3.ts";
-import { COMMAND_RANGES, GOLEM_TACTICS_V4, golemDriven } from "../src/golem/tactics-v4.ts";
+import {
+  COMMAND_RANGES, EVERY_COMMAND_BIT, GOLEM_TACTICS_V4, golemDriven,
+} from "../src/golem/tactics-v4.ts";
 import { FORM } from "../src/golem/styles/form.ts";
 import { DRIVER, driverPilot } from "../src/golem/styles/driver.ts";
 import { ACTION_WIDTH, golemPolicy, uniformPilot } from "../src/golem/policy.ts";
@@ -238,6 +240,12 @@ function pilotRecorder(side, width = PILOT_FEATURE_COUNT, peer = null) {
   let outside = new Float64Array(capacity);
   let swing = new Float64Array(capacity);
   let done = new Uint8Array(capacity);
+  // The executor's touch mask a sample -- which of the twelve command fields the body read while
+  // that sample's command was in force. It arrives one ask late (`PolicyStep.priorMask` explains
+  // why it must), so this writes it back onto the previous slot and the trailing sample keeps the
+  // `EVERY_COMMAND_BIT` it was initialised with: its window never closed and nobody may say what
+  // it read. `Int32Array` because twelve bits fit and a mask is not a float.
+  let touched = new Int32Array(capacity);
   const grow = () => {
     const wider = capacity * 2;
     const move = (array, Type, w = 1) => { const next = new Type(wider * w); next.set(array); return next; };
@@ -255,6 +263,7 @@ function pilotRecorder(side, width = PILOT_FEATURE_COUNT, peer = null) {
     outside = move(outside, Float64Array);
     swing = move(swing, Float64Array);
     done = move(done, Uint8Array);
+    touched = move(touched, Int32Array);
     capacity = wider;
   };
   let live = null;
@@ -281,6 +290,8 @@ function pilotRecorder(side, width = PILOT_FEATURE_COUNT, peer = null) {
       }
       as.set(policyStep.action, count * ACTION_WIDTH);
       logp[count] = policyStep.logp;
+      touched[count] = EVERY_COMMAND_BIT;
+      if (count > 0) touched[count - 1] = policyStep.priorMask;
       live = { mine, theirs, clock: view.clock, at: count };
       count += 1;
     },
@@ -324,6 +335,7 @@ function pilotRecorder(side, width = PILOT_FEATURE_COUNT, peer = null) {
         outside: outside.slice(0, count),
         swing: swing.slice(0, count),
         done: done.slice(0, count),
+        touched: touched.slice(0, count),
         margin: last?.margin ?? 0, winner: last?.winner ?? null,
       };
     },

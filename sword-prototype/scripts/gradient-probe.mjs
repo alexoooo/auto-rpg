@@ -9,7 +9,7 @@
 //        [--clip 0.2] [--sigma-floor -3] [--sigma-roof 0.5]
 //        [--from tournaments/<arm>/pool-30.json] [--hold]
 //        [--classes none|terminal|build] [--class-floor 400] [--bout-split] [--concentration]
-//        [--direction]
+//        [--direction] [--credit]
 //        [--rewards arms.json] [--tactics holdMetres=...]
 //        [--features 2] [--head gaussian] [--sigma constant] [--critic self]
 //        [--value-hidden 64,64] [--log tournaments/...] [--label arm]
@@ -263,7 +263,9 @@ import {
 } from "../src/golem/policy.ts";
 import { GOLEM_REWARD } from "../src/golem/reward.ts";
 import { mulberry32 } from "../src/rng.ts";
-import { COMMAND_AXES, COMMAND_GATES } from "../src/golem/tactics-v4.ts";
+import {
+  COMMAND_AXES, COMMAND_BITS, COMMAND_FIELDS, COMMAND_GATES, EVERY_COMMAND_BIT,
+} from "../src/golem/tactics-v4.ts";
 import { PARAM } from "./fit-worker.mjs";
 import { meanOf, semOf } from "./train-learner.mjs";
 import {
@@ -925,8 +927,9 @@ export function epochOrder(count, seed) {
  */
 export function halfGradients({
   pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order, clip = 0.2,
+  masked = false,
 }) {
-  pool.bind(rollout, scaled, returns, norm, { clip, entropy: PROBE_ENTROPY });
+  pool.bind(rollout, scaled, returns, norm, { clip, entropy: PROBE_ENTROPY, masked });
   const halves = halfSplit(rollout.count);
   return takeHalves({
     pool, order, halves: [halves.first, halves.second], weights, valueWeights, logSigma,
@@ -1217,6 +1220,42 @@ export function headNorms({ vector, layout, spec }) {
 }
 
 /**
+ * How many of the twelve command fields a sample is credited on, averaged over a collection.
+ *
+ * Not a gradient and not a bar: it is the arm's own statement of what it did, printed so that a
+ * reader of a `masked` row does not have to take the label's word for it. An arm that binds no
+ * mask reads exactly 12, which is what makes it a check rather than a decoration -- a `whole` row
+ * that came back at 8.6 would be a binding that masked when it said it would not.
+ *
+ * The per-field shares come with it, because the twelve of them are what prediction 4's ordering
+ * of the head groups is a claim about, and a reader that has the ordering without the shares can
+ * see which groups moved and not why.
+ */
+export function liveDimensions(rollout, masked) {
+  const touched = rollout.touched;
+  const n = rollout.count;
+  if (n === 0) return { mean: 0, shares: {} };
+  if (!masked || touched === undefined || touched === null) {
+    return {
+      mean: COMMAND_FIELDS.length,
+      shares: Object.fromEntries(COMMAND_FIELDS.map((f) => [f, 1])),
+    };
+  }
+  const counts = Object.fromEntries(COMMAND_FIELDS.map((f) => [f, 0]));
+  let live = 0;
+  for (let i = 0; i < n; i += 1) {
+    const mask = touched[i];
+    for (const f of COMMAND_FIELDS) {
+      if ((mask & COMMAND_BITS[f]) !== 0) { counts[f] += 1; live += 1; }
+    }
+  }
+  return {
+    mean: live / n,
+    shares: Object.fromEntries(COMMAND_FIELDS.map((f) => [f, counts[f] / n])),
+  };
+}
+
+/**
  * The measurement: the cosine between the two halves of one epoch, with what makes it readable.
  *
  * Three blocks are reported and they are three different questions. The **actor** is the
@@ -1234,10 +1273,10 @@ export function headNorms({ vector, layout, spec }) {
  */
 export function measureSignal({
   pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order, clip = 0.2,
-  heads = null, keep = null,
+  heads = null, keep = null, masked = false,
 }) {
   const [first, second] = halfGradients({
-    pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order, clip,
+    pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order, clip, masked,
   });
   // The two halves handed back to a caller that asked for them, so the cross-arm reading can take
   // an arm's direction out of the steps that arm has already paid for. Pushed into a sink the
@@ -1368,7 +1407,7 @@ export function probeRollout({
   pool, rollout, weights, valueWeights, logSigma, norm, valueLayout, seed,
   halfLife = 4, lambda = 0.95, clip = 0.2, classes = "none", floor = CLASS_FLOOR,
   boutSplit = false, rewards = [], entropy = 0, layout = null, spec = null,
-  concentration = false, direction = false,
+  concentration = false, direction = false, credits = [],
 }) {
   // A cross-arm direction is a reading *between* arms, so one arm is not a grid and no arms at all
   // is a flag that would have written nothing and said nothing. Refused by name rather than
@@ -1392,7 +1431,10 @@ export function probeRollout({
   // are the steps `measureSignal` takes anyway: the whole cross-arm axis costs no pool step that
   // some other reading was not already paying for, which is why it is priced at arithmetic rather
   // than at the second collection the audit that named this gap assumed it would need.
-  const held = direction === false ? null : [];
+  // Also kept whenever a credit arm is priced, because every credit arm is read against the row's
+  // own unmasked direction and that vector is the row's halves. A credit arm asked for without a
+  // reward grid is therefore not the `direction` flag's case and does not want its refusal.
+  const held = direction === false && credits.length === 0 ? null : [];
   const signal = measureSignal({
     pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order, clip, heads,
     keep: held,
@@ -1472,7 +1514,63 @@ export function probeRollout({
       shaping: shareOf(paid, repriced),
     };
   });
-  // Fifth and last, and it is the only one of the five that binds a coefficient rather than a cut
+  // Fifth, and it is the one axis here that changes **how a sample is credited** rather than what
+  // it was paid, how it was cut, or how far ahead it looks. Experiment W.
+  //
+  // A credit rule is free along the same axis a reward table is, and for a stronger reason. A table
+  // does not move a held policy, so every arm above sees the collection the row collected; a credit
+  // rule does not move the *rollout at all* -- not the draws, not the log-probabilities, not the
+  // advantages, not the standardisation, not the order. The three arms below are three prices of
+  // one number, paired to the ask, and the only thing that differs between them is which dimensions
+  // of each sample's score are told they caused that sample's advantage.
+  //
+  // The three, and why three and not two:
+  //
+  // - `whole` binds no mask at all, which fills the shard's array with every bit set. This is the
+  //   estimator that shipped, reached through the branch a caller who asks for nothing takes.
+  // - `all-bits` binds the *rollout's* column after saturating it, which is the branch a masked run
+  //   takes, carrying data that cannot change an answer. It exists because the first arm and the
+  //   third differ in two things at once -- the branch and the data -- and an identity that holds
+  //   for one arm and not the other says which of the two moved.
+  // - `masked` binds the executor's own record of what the body read.
+  //
+  // Each arm carries its own `heads` cut, because the prediction that ranks the twelve head groups
+  // by their ratio between two arms needs both arms' groups and the row's cut is the row's.
+  const credited = credits.length === 0 ? null : credits.map((named) => {
+    const { label, credit } = named;
+    if (credit !== "whole" && credit !== "all-bits" && credit !== "masked") {
+      throw new Error(`a credit arm asked for "${credit}", which is not whole, all-bits or masked`);
+    }
+    if (credit !== "whole" && (rollout.touched === undefined || rollout.touched === null)) {
+      throw new Error(`the "${label}" arm prices a touch mask and this collection carries none, so`
+        + " it was taken by a worker older than the mask and cannot answer the question");
+    }
+    // `all-bits` is the row's own collection with a saturated column, which is a new array rather
+    // than a write into the rollout's: the `masked` arm below reads the real one afterwards.
+    const armRollout = credit !== "all-bits" ? rollout : {
+      ...rollout, touched: new Int32Array(rollout.count).fill(EVERY_COMMAND_BIT),
+    };
+    const kept = [];
+    const armSignal = measureSignal({
+      pool, rollout: armRollout, scaled, returns, norm, weights, valueWeights, logSigma, order,
+      clip, heads, keep: kept, masked: credit !== "whole",
+    });
+    return {
+      label, credit,
+      ...armSignal,
+      advantageSd: sd,
+      // The same statistic the reward arms publish, and prediction 6 is a bar on its `cosine`: two
+      // estimators of one direction that do not agree about the direction are not a variance
+      // reduction, whatever their norms did. `gap` is against the row's own half-to-half cosine,
+      // which is the null an arm that changed nothing lands on.
+      direction: armDirection({ arm: kept, row: held }),
+      // How many of the twelve a sample was credited on, averaged over the collection -- the same
+      // quantity the touch entry measured at the drawn read, taken here on the asks the fit would
+      // actually have stepped over. `whole` reads 12 by construction and is the check on that.
+      liveDims: liveDimensions(armRollout, credit !== "whole"),
+    };
+  });
+  // Sixth and last, and it is the only one of the six that binds a coefficient rather than a cut
   // or a table. Taken after the arms for the same reason the arms were taken after the splits --
   // every one of these rebinds the pool before it steps it, so the order is free and the one that
   // reads best is the one where the row's own number comes first and the questions about it come
@@ -1482,7 +1580,7 @@ export function probeRollout({
     pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order, clip, entropy,
     heads,
   });
-  // Sixth, and off unless a run asks for it. Three more steps over the same rollout is a third
+  // Seventh, and off unless a run asks for it. Three more steps over the same rollout is a third
   // again on the row's probe time, and a grid of seventeen arms does not want to pay it for a
   // reading that is about the weight vector rather than about the table. The two sorts and two
   // accumulation passes `concentrationWithNull` adds on top of that are microseconds against a
@@ -1504,6 +1602,7 @@ export function probeRollout({
     ...(cut === null ? {} : { classAxis: classes, classes: cut }),
     ...(byBout === null ? {} : { byBout }),
     ...(priced === null ? {} : { priced }),
+    ...(credited === null ? {} : { credited }),
     ...(bonus === null ? {} : { bonus }),
     ...(where === null ? {} : { concentration: where }),
   };
@@ -2269,6 +2368,14 @@ if (isMain) {
   // here, so the refusal is a function a test can point at instead of a condition inside a CLI
   // block that nothing can import.
   const direction = argv.includes("--direction");
+  // Experiment W's axis. Off by default, so a run that does not name it writes the row it wrote
+  // before this existed. Named rather than inferred from the collection carrying a mask, because
+  // every collection taken from here on carries one and a flag that turns itself on is a flag that
+  // changes what an unrelated run measures.
+  const credits = argv.includes("--credit")
+    ? [{ label: "whole", credit: "whole" }, { label: "all-bits", credit: "all-bits" },
+      { label: "masked", credit: "masked" }]
+    : [];
   // The reward axis, which is free at a held policy and is not free anywhere else. Read from a
   // file so the arms of a sweep are a design written before the bouts rather than a command line;
   // empty unless named, so a run without it is byte for byte the run the grid took.
@@ -2397,7 +2504,7 @@ if (isMain) {
       const signal = probeRollout({
         pool, rollout, weights, valueWeights, logSigma, norm, valueLayout, seed: fitSeed,
         halfLife, lambda, clip, classes, floor: classFloor, boutSplit, rewards, concentration,
-        direction,
+        direction, credits,
         // The coefficient the fit below would have paid, whether or not there is a fit below, so
         // a held row says what a production step at this policy would have been made of.
         entropy: fitEntropy,
