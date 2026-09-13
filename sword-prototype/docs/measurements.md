@@ -23686,3 +23686,153 @@ day arguing for.
 priced against the 400-iteration run the learn set already paid for -- and it does not license
 moving the default, which is a decision about what the shipped executor does and belongs to the
 owner and to a rating, not to a slope over twelve checkpoints.
+
+## Pre-registration -- 2026-09-13: seventeen credit horizons over one set of bouts, written before the bouts
+
+Experiment E asked whether the reward table is what blunts the actor's gradient and, against
+`golem-fencer`, answered no. This asks the other half of the same sentence. A reward is a number
+attached to an ask; what the optimiser actually multiplies the score function by is an
+**advantage**, and an advantage is that number carried backwards through a discount and a trace.
+The table says what a bout pays. The horizon says which ask gets told. Nothing below is a result.
+
+**The axis is free for exactly the reason the reward table was.** `halfLife` and `lambda` are read
+by `advantages` after the rollout exists; a held policy's draws, observations, log-probabilities
+and episode boundaries do not depend on them. So seventeen horizons cost one collection between
+them, paired to the ask, and `ESTIMATOR_KEYS` already ships -- an arm that names `halfLife` or
+`lambda` beside its coefficients is one arm and not a second grid. This experiment writes a file
+and buys nothing that is not already built.
+
+### The arithmetic, which is the whole reason this experiment exists
+
+`advantages` discounts in seconds, not in asks: `gamma_t = 2^(-seconds_t / halfLife)`. The
+executor's `askHz` is 12, so an ask is a twelfth of a second and the shipped `halfLife` of 4 s is
+a factor of 0.98566 an ask. Over the episodes these two cells actually collect -- **229.9 asks a
+side against `golem-fencer`, 19.16 s, and 323.7 asks a side against `idle`, 26.98 s**, both
+measured off the twenty and five iteration rows of Experiment E -- the discount from an episode's
+first ask to its last is this:
+
+| `halfLife` | over a 0.5 s stroke | over a 19.16 s fencer episode | over a 26.98 s idle episode |
+| --- | --- | --- | --- |
+| 0.5 s | 0.500 | 2.93e-12 | 5.72e-17 |
+| 1 s | 0.707 | 1.71e-6 | 7.57e-9 |
+| 2 s | 0.841 | 1.31e-3 | 8.70e-5 |
+| **4 s (shipped)** | **0.917** | **3.62e-2** | **9.33e-3** |
+| 8 s | 0.958 | 1.90e-1 | 9.66e-2 |
+| 16 s | 0.979 | 4.36e-1 | 3.11e-1 |
+| 64 s | 0.995 | 8.13e-1 | 7.47e-1 |
+
+**At the shipped horizon the win term reaches the opening ask of a fencer bout at three and a half
+per cent of its face value, and the opening ask of an idle bout at under one.** The bar this whole
+record is stated on is the outcome of the episode, and the outcome is the one quantity the
+estimator almost entirely throws away before the gradient is taken.
+
+**And `lambda` is the tighter of the two constraints, which is the part the record has never
+written down.** GAE weights the n-step residuals geometrically at `lambda` an ask, so the shipped
+`lambda` of 0.95 puts an effective lookahead of `1/(1-0.95)` = **20 asks, one and two thirds of a
+second**, on the actual rewards; past that the advantage is not reward at all but the critic's
+bootstrap. So raising `halfLife` alone cannot lengthen the credit -- it lengthens a sum that
+`lambda` has already truncated -- and the calibration this record holds put the critic's explained
+variance at **-0.790**, which is a bootstrap that explains less than the mean does.
+
+| `lambda` | effective lookahead in asks | in seconds |
+| --- | --- | --- |
+| 0 | 1.0 | 0.08 |
+| 0.5 | 2.0 | 0.17 |
+| 0.8 | 5.0 | 0.42 |
+| **0.95 (shipped)** | **20.0** | **1.67** |
+| 1 | the whole episode | the whole episode |
+
+A stroke is five to eight asks. So the shipped estimator credits an action with about four
+strokes' worth of reward and then asks a critic that explains nothing what the rest was worth.
+That is the hypothesis in one sentence, and the grid below is built to make it fail if it is
+wrong.
+
+### The grid
+
+| axis | values |
+| --- | --- |
+| `--opponent` | `idle` from bracket-idle pool-30, `golem-fencer` from bracket-fencer pool-30 |
+| `--bouts` | 128 |
+
+Two cells, 20 iterations each, fit seed 20260917, the maul-and-mace viable pool, mirrored bodies,
+`--shards 4`, 14 collectors a process, held throughout, the gate **not** latched. **Field for
+field Experiment E's grid** -- same seed, same checkpoints, same bout count, same iteration count,
+same pool, same terminals -- which buys the cross-run identity in prediction 2 below and lets a
+horizon arm be quoted in bouts against a reward arm.
+
+| arm | `halfLife` | `lambda` | what it asks |
+| --- | --- | --- | --- |
+| `shipped` | 4 | 0.95 | the identity check, within the run and against Experiment E |
+| `half-0.5` | 0.5 | run's | a horizon shorter than a stroke |
+| `half-1` | 1 | run's | a horizon of about two strokes |
+| `half-2` | 2 | run's | half the shipped one |
+| `half-8` | 8 | run's | twice it |
+| `half-16` | 16 | run's | four times it |
+| `half-64` | 64 | run's | longer than an episode, and the control that shows `halfLife` alone buys nothing |
+| `lambda-0` | run's | 0 | one-step TD, which is the estimator handed entirely to the critic |
+| `lambda-50` | run's | 0.5 | two asks of reward |
+| `lambda-80` | run's | 0.8 | five asks of reward |
+| `lambda-100` | run's | 1 | the discounted Monte Carlo return, with the critic as a baseline only |
+| `half-64-lambda-100` | 64 | 1 | the arm this design is about: the undiscounted outcome, reaching the action |
+| `half-16-lambda-100` | 16 | 1 | the same with a horizon still inside an episode |
+| `half-64-lambda-0` | 64 | 0 | a long discount the trace never gets to use, which separates the two knobs |
+| `half-0.5-lambda-100` | 0.5 | 1 | no bootstrap and no reach, which is the other corner |
+| `outside-loud` | run's | run's | Experiment E's dense arm, carried so the two grids join |
+| `outside-loud-far` | 64 | 1 | the dense charge at the longest credit, which is the composition test |
+
+`half-64` against `half-64-lambda-100` is the pair that carries the argument. Both discount almost
+nothing over an episode; one of them still hands the tail to the critic at twenty asks and the
+other does not. If the two land together, the trace was never the binding constraint and the
+paragraph above is wrong.
+
+### The statistic, restated because Experiment E showed the old form can be unquotable
+
+Each arm's `K / |S|^2`, the bouts a cosine of one half would cost, as before. But E's fencer cell
+put the `shipped` arm's `|S|^2` **below zero** at t -0.47, so its point estimate is unbounded and
+every ratio against it reads `n/a` -- the difference-of-cosines trap in a new coat. So this
+experiment fixes its comparison in advance on the quantity that is always finite:
+
+> **The floor, `K / (|S|^2 + 2 SE)`** -- the fewest bouts an arm's interval permits -- with the
+> point estimate printed beside it and quoted only where the arm's own `|S|^2` clears zero at two
+> sigma.
+
+A floor is the optimistic read and it is the same optimism for every arm, so a ratio of two floors
+is a statement about the arms rather than about which of them happened to have a denominator near
+zero. Where an arm clears zero the point is quoted too, and the two are never mixed in one ratio.
+
+### The prediction, stated before the data
+
+1. **`shipped` reproduces the row's own cosine exactly, iteration by iteration.** Same identity E
+   confirmed on bouts, re-asserted here because everything else rests on it.
+2. **`shipped` also reproduces Experiment E's `shipped` arm exactly, iteration by iteration,
+   across two separate runs.** The collections are a deterministic function of the seed, the
+   checkpoint, the bout count and the pool, and neither the pricing nor the splits consume
+   randomness -- so the two grids' twenty rows should agree to the last digit in `cosine`, `dot`,
+   `firstNorm`, `secondNorm` and `advantageSd`. This is the strongest determinism claim this
+   record has made about the probe and it is free to check. A disagreement means the arm list
+   reaches the collection, and the two grids cannot be read against each other.
+3. **`half-64` alone does not clear the `shipped` floor by a factor of two on either cell.** The
+   trace truncates at twenty asks whatever the discount is, so a longer half-life buys almost
+   nothing. This is the risky half of the arithmetic above and it is the one that would be most
+   embarrassing to get wrong.
+4. **`half-64-lambda-100` clears the `shipped` floor by at least a factor of two against `idle`.**
+   Against a target that never moves the outcome is nearly a deterministic function of what the
+   policy did, so an estimator that carries the outcome back should find it. If it does not, no
+   estimator setting is going to.
+5. **`lambda-0` is the worst arm on both cells** -- worse than `shipped` by at least a factor of
+   two in floor. A one-step return against a critic at -0.790 explained variance is an advantage
+   made almost entirely of the critic's error, and this is the prediction that catches a grid in
+   which every arm is the same number.
+
+**The falsifier.** If no arm on either cell clears the `shipped` floor by a factor of two, then
+the credit horizon and the bootstrap are eliminated together, exactly as the reward table was
+eliminated against `golem-fencer`, and two suspects are left standing: the **behaviour policy** --
+which Experiments F and H are measuring as this one is written -- and the **score function**
+itself, which is the nine Gaussian axes and three gates the head emits and the only thing left
+that a gradient could be flat because of.
+
+**What no outcome of this licenses.** No default moves. `halfLife` and `lambda` stay at 4 and 0.95
+in `ppoFit`'s signature and in both CLIs. A winning arm says what a horizon does to the gradient
+**at a policy that never moved under it**, and the same caveat the reward grid carries applies
+here without a word changed: the estimator and the policy separate the instant the weights move.
+What a winning arm licenses is one training run, stated as its own bar.
