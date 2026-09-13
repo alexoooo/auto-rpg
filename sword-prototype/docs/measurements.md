@@ -25923,3 +25923,64 @@ bodies are created first and are integrated first every substep -- but nothing h
 from arena geometry, from the contact ordering in `Combat`, or from the two minds' streams being
 consumed in a fixed order. Naming a mechanism would take a bout-level experiment, and that is the
 second of the three areas the instrument audit named and neither audit has read.
+
+## The readers -- 2026-09-13: every pending entry's reader run before its log lands
+
+**Eleven experiments are collected or collecting and none of their entries is written yet**, so
+every one of them is a reader that has never met a real log. Experiment R's smoke found a defect
+that no test in the suite could reach, which is the whole argument for doing the rest of them the
+same way rather than at the moment an entry is due. This is that pass, and it is recorded because
+one of the four found a second defect of the same kind.
+
+| reader | run against | what happened |
+| --- | --- | --- |
+| stepfit.mjs | Experiment O's own log, mid-collection | ran; disclosed as O's second peek |
+| dirfit.mjs | a three-iteration smoke of R's own arms | ran; found the argument-order defect |
+| headfit.mjs | the latched idle grid, which carries a head cut | ran, full table, nine axes and three gates |
+| basefit.mjs | the reward grid, which carries arms and no baseline | **read it and printed a table** |
+| concfit.mjs | every log on disk | refused: none carries a concentration block |
+| barfit.mjs, objfit.mjs | -- | waiting on the rating curves the measuring lane is producing |
+
+### The defect, which is the same defect twice
+
+**basefit.mjs read a reward-arms log and produced a plausible baseline table.** A reward grid and a
+baseline grid carry arms in the same shape -- a `priced` array, one entry an arm, each with its own
+cosine, dot, norms and advantage spread -- and differ only in which extra keys the arm names. The
+reader printed `arms[0].baseline ?? "critic"` and `arms[0].lambda ?? 0.95`, so sixteen reward arms
+came out as sixteen baseline cells all reading *critic / 0.95*, with correct arithmetic on the wrong
+experiment's arms and nothing anywhere saying so.
+
+Had Experiment N's entry been written at three in the morning against a log named one character
+wrong, the table would have gone into the record and every number in it would have been right.
+
+It now refuses by name on either of two counts: no arm names a baseline at all, or every arm names
+the same baseline and lambda -- because a grid whose cells do not differ is not a grid. The two
+columns print a dash for an arm that names neither, instead of the row's default.
+
+**This is the same shape as R's defect and as the concentration's.** A quantity that is correct
+under the reading the author had in mind, silently wrong under the one the log actually supports,
+and invisible to a fixture because the fixture is built from the reading. The general form is worth
+naming: **a reader that fills a missing field with a default cannot refuse the log that is missing
+it.**
+
+The other readers were then read for the same pattern, and the honest answer is that two of them
+carry it and neither is wrong today. barfit.mjs divides strokes started by `strokes.sides` and falls
+back to the bout count; on both logs that carry the field the two are the same number, and rows that
+carry no `strokes` at all are filtered out before the division. objfit.mjs reads a missing penalty
+row as zero, and every league log on disk carries all seven rows. **Latent, not wrong**, and written
+down here so that the next log which does not carry one of those fields is met with this paragraph
+rather than with a slope fitted over zeros.
+
+### What this pass does not establish
+
+**A reader that runs is not a reader that is right.** headfit.mjs produced a full head-cut table off
+the latched idle grid and nothing here says the arithmetic in it is the arithmetic Experiment I's
+pre-registration names -- only that it does not crash, does not divide by zero on a real log, and
+puts numbers in every column. The check that it computes the registered statistic is the audit of
+its own header against the pre-registration, which was done for the 2026-09-12 and 2026-09-13
+registrations and is what that audit was for.
+
+**And concfit.mjs is still unsmoked**, because the concentration block it reads exists in no log on
+disk: the opponent ladder that produces one is behind the horizon grid and the head cells on the
+fourteen-worker lane. Experiment P's entry will be the first time its reader meets data, and that is
+stated here rather than discovered then.
