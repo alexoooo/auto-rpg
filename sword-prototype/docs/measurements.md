@@ -22710,12 +22710,19 @@ does not compare them. The quantity that is scale-free is the one the held row a
 `K / |S|^2`, the bouts a cosine of one half would need -- and it is comparable because it is in
 bouts.
 
+> **Corrected on 2026-09-13 by the bout split below, which this entry's own pre-registration
+> committed to in advance.** Every budget in the table that follows was originally quoted off a
+> **half-split by ask**, and the critic's estimator turns out to be noisy about a bout-level
+> quantity -- so its halves shared their data and its cosine was flattered. The table is restated
+> off the split by whole bouts; the numbers as first published are in the correction table of that
+> entry, beside what survives of the argument they were used for.
+
 | head | arm | bouts for cosine 0.5 |
 | --- | --- | --- |
-| critic | `idle` | 1.7 |
-| critic | `golem-fencer` | 3.0 |
-| actor | `idle` | 1,098 |
-| actor | `golem-fencer` | at least 4,292, and unbounded above |
+| critic | `idle` | 47.8 |
+| critic | `golem-fencer` | 79.1 |
+| actor | `idle` | 1,228 |
+| actor | `golem-fencer` | at least 3,958, and unbounded above |
 
 The spread is the third block and it has nothing in it in either arm: `|S|^2` of -3.589e-5 +-2.17e-5
 against `golem-fencer` and +1.444e-5 +-1.14e-5 against `idle`, neither distinguishable from zero and
@@ -22738,8 +22745,14 @@ Nor is the parameter count nothing: the actor gradient is over 87,308 weights an
 head's signal sits in a few directions while its noise fills all of them, ten times the parameters
 is about ten times the bouts, and that is the honest size of this objection. The measured gap in
 the only quantity the two heads share -- the bouts a cosine of one half costs -- is **at least
-fourteen hundred times, with a point estimate of three thousand six hundred.** Dimension is one
-part in three hundred of it.
+fifty times, with a point estimate of a hundred and eleven.** Dimension is one part in five of the
+floor and one part in eleven of the point estimate.
+
+> **The three numbers in the sentence above are the corrected ones**, and as first published they
+> were fourteen hundred, three thousand six hundred, and one part in three hundred. The conclusion
+> is the one it was: a gap of fifty times survives an objection worth ten. The margin over that
+> objection does not -- it was thirty times larger before the split by bouts measured it, and a
+> defence that thin is worth seeing rather than being quietly kept.
 
 ### What it does establish, which is worth the section anyway
 
@@ -23098,6 +23111,141 @@ bouts may be quoted. What it buys is whether one line of the held row above need
 > was seen and is stated in the direction it points -- so it is a hypothesis this smoke suggested
 > and not a confirmation of one, and the eight cells below are what decides it. The log was
 > deleted; it is recorded here because it was seen.
+
+## The bout split -- 2026-09-13: the ask cut was honest about the actor and flattered the critic by twenty-six
+
+The pre-registration above asks whether the half-split that every number in this record rests on was
+cutting two independent samples or two halves of the same bouts. The answer is **both, in the same
+rows, depending on which head is reading them** -- and that is a sharper result than either branch
+the design anticipated. The actor's budget is what the held row said it was, to within its own
+error bars. The critic's is **twenty-six times larger** than **The other two cosines** quotes, and
+that entry is corrected rather than annotated, which the pre-registration committed to in advance.
+
+**Harness:** `scripts/gradient-probe.mjs --from <arm>/pool-30.json --hold --bout-split`, the same
+eight cells as the held row -- two opponents, four bout counts, 20 iterations each, fit seed
+20260917, the maul-and-mace viable pool, mirrored bodies, `--shards 4`, 14 collectors a process,
+the two bracket checkpoints. Written to the gradbout files under tournaments, gitignored so named
+bare. **Instrument:** each iteration's rollout cut **twice** -- once into halves of the shuffled
+ask order, which is what every row in this record has been, and once into two disjoint sets of
+whole bouts -- so the two cosines are paired iteration by iteration and their difference carries
+the standard error of a difference rather than of two levels.
+
+| arm | bouts | actor by ask | actor by bout | by bout minus by ask |
+| --- | --- | --- | --- | --- |
+| `golem-fencer` | 32 | +0.0199 +-0.0221 | -0.0050 +-0.0209 | -0.0249 +-0.0210 (t -1.19) |
+| `golem-fencer` | 64 | +0.0098 +-0.0214 | +0.0112 +-0.0132 | +0.0014 +-0.0162 (t 0.08) |
+| `golem-fencer` | 128 | -0.0116 +-0.0218 | +0.0253 +-0.0162 | +0.0368 +-0.0183 (t 2.01) |
+| `golem-fencer` | 256 | +0.0248 +-0.0197 | +0.0167 +-0.0219 | -0.0081 +-0.0196 (t -0.41) |
+| `idle` | 32 | +0.0111 +-0.0212 | +0.0141 +-0.0246 | +0.0030 +-0.0260 (t 0.12) |
+| `idle` | 64 | +0.0589 +-0.0240 | +0.0300 +-0.0218 | -0.0289 +-0.0180 (t -1.61) |
+| `idle` | 128 | +0.0973 +-0.0210 | +0.0937 +-0.0240 | -0.0037 +-0.0169 (t -0.22) |
+| `idle` | 256 | +0.1925 +-0.0255 | +0.1817 +-0.0235 | -0.0109 +-0.0199 (t -0.55) |
+
+| arm | bouts | critic by ask | critic by bout | by bout minus by ask |
+| --- | --- | --- | --- | --- |
+| `golem-fencer` | 32 | +0.9174 +-0.0155 | +0.1994 +-0.0919 | -0.7180 +-0.0804 (t -8.94) |
+| `golem-fencer` | 64 | +0.9526 +-0.0068 | +0.4598 +-0.0682 | -0.4928 +-0.0660 (t -7.46) |
+| `golem-fencer` | 128 | +0.9742 +-0.0042 | +0.5916 +-0.0425 | -0.3826 +-0.0418 (t -9.15) |
+| `golem-fencer` | 256 | +0.9858 +-0.0021 | +0.7653 +-0.0227 | -0.2205 +-0.0215 (t -10.27) |
+| `idle` | 32 | +0.9604 +-0.0053 | +0.4098 +-0.0601 | -0.5505 +-0.0575 (t -9.58) |
+| `idle` | 64 | +0.9789 +-0.0021 | +0.5585 +-0.0455 | -0.4204 +-0.0448 (t -9.39) |
+| `idle` | 128 | +0.9809 +-0.0034 | +0.6656 +-0.0459 | -0.3153 +-0.0438 (t -7.20) |
+| `idle` | 256 | +0.9913 +-0.0011 | +0.8470 +-0.0181 | -0.1443 +-0.0177 (t -8.15) |
+
+### The mechanism, which the two tables state as one number each
+
+A half-split cosine is inflated when the two halves share something the estimator is noisy about.
+The arithmetic in the probe's header says which number carries that: for two means over `m` samples
+of a gradient `S` in per-sample noise `N`, the dot estimates `|S|^2` and `norm^2 - dot` estimates
+`N/m`, so **`(norm^2 - dot) * n` is the per-bout noise constant `K`** and it is the quantity a
+shared bout would move. It is measured under both cuts, over all eighty collections of each arm.
+
+| arm | head | `K` by ask | `K` by bout | |
+| --- | --- | --- | --- | --- |
+| `golem-fencer` | actor | 2.940e+1 | 2.955e+1 | **1.01x** |
+| `idle` | actor | 2.144e+1 | 2.189e+1 | **1.02x** |
+| `golem-fencer` | critic | 1.901e-3 | 3.713e-2 | **19.53x** |
+| `idle` | critic | 4.452e-4 | 1.025e-2 | **23.02x** |
+
+**The actor's noise constant does not know whether the halves shared bouts and the critic's is
+nineteen to twenty-three times larger when they do not.** That is the whole finding, and it has a
+reason that is not a fit to it. The actor's per-ask gradient noise is dominated by **the action
+draw**, which is redrawn independently at every ask: two halves that share a bout still disagree
+about everything that was sampled in it, so splitting by ask was already splitting two nearly
+independent things. The critic's per-ask noise is **the return**, and a return is a bout-level
+quantity -- consecutive asks of one episode share almost the whole of the same discounted future,
+and the two episodes of a mirrored bout share its outcome exactly. So two halves that share bouts
+are regressing on nearly the same targets, and the agreement that buys is agreement about the draw
+and not about the data.
+
+### The four predictions, of which the pre-registration numbers three
+
+The committed pre-registration numbers its predictions 1, 2, 3 and **5**; there is no 4, and the
+gap is a slip in the writing rather than a prediction that was dropped. They are scored as written.
+
+**1. Confirmed exactly.** Every cell's ask-split cosine is the held cell's of the same bout count,
+iteration by iteration, largest difference **exactly zero** across all one hundred and sixty pairs.
+The bout split consumes no randomness and is taken third out of the same three arrays.
+
+**2. False, and in the arm it was aimed at.** It asked for `byBout` below the ask split in every one
+of the eight cells, "because a correlation the arithmetic says is there cannot raise a dot". Three
+of the eight actor cells are *above* -- `golem-fencer` at 64 and 128, `idle` at 32 -- and the
+`golem-fencer` 128 cell is above by +0.0368 +-0.0183, a t of 2.01. The prediction's reasoning is
+sound and its scope was wrong: **a correlation cannot raise a dot in expectation, and eight cells
+of twenty iterations are not expectations.** Where the correlation is absent, as it is for the
+actor, the two cuts are two estimates of one number and their difference is noise with a sign.
+
+**3. Confirmed.** Against `idle` the combined actor `|S|^2` by bout is 1.782e-2 +-2.22e-3, a t of
+**8.02**, well above the t of 2 the prediction asked for. The one positive gradient measurement in
+this record is not an artefact of the partition.
+
+**5. Confirmed, decisively, and it is the one aimed at my own published reading.** The critic's
+cosine falls in all eight cells, by between -0.14 and -0.72, at t between -7.2 and -10.3. The actor
+falls nowhere. Stated in the only quantity the two heads share -- bouts for a cosine of one half --
+the critic's budget goes from 3.0 to **79.1** against `golem-fencer` and from 1.7 to **47.8**
+against `idle`.
+
+### The correction it forces, written into the entry above rather than annotated
+
+The pre-registration committed to this in advance and it is owed. **The other two cosines** quotes
+the critic's budget off the ask split and builds its headline on the gap between the two heads. The
+budgets are corrected there; the claim that survives and the margin that does not are worth stating
+here, because the size of the change is the point.
+
+| statement | as published | measured by bout |
+| --- | --- | --- |
+| critic budget, `golem-fencer` | 3.0 bouts | **79.1 bouts** |
+| critic budget, `idle` | 1.7 bouts | **47.8 bouts** |
+| actor over critic, `golem-fencer` | at least 1,426x, point 3,675x | **at least 50x, point 111x** |
+| actor over critic, `idle` | at least 538x, point 662x | **at least 21x, point 26x** |
+
+**The qualitative finding survives and one of its defences does not.** That entry answers the
+obvious objection -- the actor's gradient is over 87,308 weights and the critic's over 8,833, and a
+higher-dimensional gradient has more directions for noise to be orthogonal in -- by saying that
+dimension is worth about ten times and is therefore "one part in three hundred" of the measured
+gap. At the corrected numbers ten times is **one part in five of the floor and one part in eleven
+of the point estimate**. The gap is still large, the conclusion still holds, and the margin over
+its own stated objection is thirty times smaller than the entry claims. That is exactly the kind of
+sentence a pre-registered correction exists to force somebody to write.
+
+### What this does not license, and one thing it does
+
+No mind ships, no coefficient moves, no default moves. In particular **it does not license changing
+what the fit does**: the fit takes minibatches of asks and is right to, this is a statement about an
+instrument, and a fit that sampled whole bouts would be a different and worse optimiser for no
+reason this measures.
+
+What it licenses is a rule, and `docs/design.md` already carries the clause this fills in: **a
+budget stated in bouts is stated off a split by bouts, and a cosine whose estimator is noisy about
+a bout-level quantity is not read off a split by asks at all.** The actor is exempt by measurement
+rather than by argument -- 1.01x and 1.02x -- and the exemption is a fact about where the action
+draw sits, so a future head whose noise is not the draw inherits nothing from it.
+
+And it closes the doubt the arithmetic raised. **The held row's budget stands**: the actor's
+`|S|^2` against `golem-fencer` is 3.375e-3 +-2.05e-3 by bout against 2.688e-3 +-2.12e-3 by ask,
+still not distinguishable from zero, still a floor of about four thousand bouts against the 32 every
+run in this record was made at. Thirteen sessions of flat curves are not an artefact of how this
+record cut its halves.
 
 ## Pre-registration -- 2026-09-12: eleven reward tables over one set of bouts, and the row that acts
 
