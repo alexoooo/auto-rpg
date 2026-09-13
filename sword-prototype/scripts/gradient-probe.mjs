@@ -8,7 +8,7 @@
 //        [--epochs 4] [--batch 4096] [--target-kl 0.03] [--half-life 4] [--lambda 0.95]
 //        [--clip 0.2] [--sigma-floor -3] [--sigma-roof 0.5]
 //        [--from tournaments/<arm>/pool-30.json] [--hold]
-//        [--classes none|terminal|build] [--class-floor 400] [--bout-split]
+//        [--classes none|terminal|build] [--class-floor 400] [--bout-split] [--concentration]
 //        [--rewards arms.json] [--tactics holdMetres=...]
 //        [--features 2] [--head gaussian] [--sigma constant] [--critic self]
 //        [--value-hidden 64,64] [--log tournaments/...] [--label arm]
@@ -311,6 +311,126 @@ export function halfSplit(count) {
   }
   const cut = Math.floor(count / 2);
   return { first: { at: 0, end: cut }, second: { at: cut, end: count } };
+}
+
+/**
+ * The three disjoint ranges of one epoch, for the measurement that needs a ranking it did not use.
+ *
+ * Two halves answer *how much* signal a collection carries. They cannot answer *where* it is,
+ * because any subset of coordinates chosen by looking at one of the two halves is a subset chosen
+ * partly for its noise, and the other half's dot over it is then a biased estimate of what that
+ * subset is worth. A third range fixes it for free: rank on the first, and read the cosine between
+ * the other two, which never saw the ranking.
+ */
+export function thirdSplit(count) {
+  if (!Number.isInteger(count) || count < 3) {
+    throw new Error(`an epoch of ${count} asks has no three ranges to rank one and measure two`);
+  }
+  const first = Math.floor(count / 3);
+  const second = Math.floor((2 * count) / 3);
+  return [{ at: 0, end: first }, { at: first, end: second }, { at: second, end: count }];
+}
+
+/**
+ * The fractions of the weight vector a concentration row is reported at, ascending and ending at
+ * one, because **the row at one is the comparison** -- every other fraction is read as a ratio
+ * against it and the ratio is what the measurement is.
+ */
+export const CONCENTRATION_FRACTIONS = Object.freeze([0.01, 0.03, 0.1, 0.3, 1]);
+
+/**
+ * Where the signal is: the cosine and the dot over the coordinates a *third* range ranked highest.
+ *
+ * ## The question, and why the record cannot already answer it
+ *
+ * Every floor in this record is a floor over all 87,308 actor weights at once. That is the right
+ * number for a fit that steps every weight, which is the only fit this tree has ever run, and it
+ * leaves a question standing that costs nothing to ask: **is the signal spread thinly over the
+ * whole vector, or is it a few coordinates and a great deal of noise?** The two look identical in
+ * `|S|^2` and they are not the same situation. If a tenth of the coordinates carry most of `|S|^2`
+ * and only a tenth of `K`, then a step restricted to those coordinates has a floor an order of
+ * magnitude better than the row's, and the restriction is something a fit could actually do.
+ *
+ * ## The null, which is exact and needs no calibration
+ *
+ * Rank the coordinates by one range's gradient and read `dot` and both norms over the top `p` of
+ * them on the other two. If the ranking carries no information -- if it is noise ordering noise --
+ * then the kept set is a near-uniform sample of coordinates, `dot` over it is `p |S|^2`, `K` over
+ * it is `p K`, and **the restricted floor is exactly the row's floor at every `p`.** So the
+ * measurement is a ratio against its own last row and the null value of that ratio is one, with no
+ * assumption about scale, units, or how much signal there was to begin with.
+ *
+ * ## What makes it honest
+ *
+ * The ranking range is disjoint from both measured ranges. A selection made on one of the two
+ * halves and measured on the other is the version of this that does not work: the top coordinates
+ * of a noisy half are the ones whose noise was large, the other half's dot over them is unbiased
+ * for `S` but the *set* is not, and the ratio comes back above one for a vector with no structure
+ * in it at all. That is the mistake this function is shaped to avoid, and the shape is the reason
+ * the epoch is cut in three rather than two.
+ *
+ * What it still cannot see is whether the *same* coordinates would be ranked highest at the next
+ * checkpoint. This is one collection at one policy, so a concentration it finds is a concentration
+ * at a point, and a fit that masked to it would be re-ranking as it went.
+ */
+export function concentrationSignal({
+  ranking, first, second, fractions = CONCENTRATION_FRACTIONS,
+}) {
+  if (ranking.length !== first.length || first.length !== second.length) {
+    throw new Error(`a concentration wants three vectors of one length and was given `
+      + `${ranking.length}, ${first.length} and ${second.length}`);
+  }
+  let previous = 0;
+  for (const fraction of fractions) {
+    if (!(fraction > previous) || fraction > 1) {
+      throw new Error(`the concentration fractions ${fractions.join(", ")} are not ascending `
+        + `through zero to one`);
+    }
+    previous = fraction;
+  }
+  // One sort for every fraction, because the kept sets are nested: the top hundredth is inside the
+  // top thirtieth and the accumulation below walks the order once, snapshotting at each boundary.
+  const order = Array.from({ length: ranking.length }, (_, k) => k)
+    .sort((a, b) => Math.abs(ranking[b]) - Math.abs(ranking[a]));
+  const rows = [];
+  let dot = 0;
+  let left = 0;
+  let right = 0;
+  let at = 0;
+  for (const fraction of fractions) {
+    const kept = Math.min(order.length, Math.max(1, Math.round(fraction * order.length)));
+    for (; at < kept; at += 1) {
+      const k = order[at];
+      dot += first[k] * second[k];
+      left += first[k] * first[k];
+      right += second[k] * second[k];
+    }
+    const firstNorm = Math.sqrt(left);
+    const secondNorm = Math.sqrt(right);
+    rows.push({
+      fraction, kept, dot, firstNorm, secondNorm,
+      cosine: firstNorm === 0 || secondNorm === 0
+        ? 0 : Math.min(1, Math.max(-1, dot / firstNorm / secondNorm)),
+    });
+  }
+  return rows;
+}
+
+/**
+ * The three gradients a concentration is read off, taken through the same pool and binding.
+ *
+ * A separate binding and three more steps rather than a reuse of `halfGradients`' two, because the
+ * halves are the row's own measurement and every number in this record is stated on them. Cutting
+ * the epoch differently for a second question is the cheap half of that question; cutting it
+ * differently for the first one would move four hundred rows.
+ */
+export function thirdGradients({
+  pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order, clip = 0.2,
+}) {
+  pool.bind(rollout, scaled, returns, norm, { clip, entropy: PROBE_ENTROPY });
+  return takeHalves({
+    pool, order, halves: thirdSplit(rollout.count), weights, valueWeights, logSigma,
+  });
 }
 
 /** The Euclidean norm of a gradient block. */
@@ -701,6 +821,7 @@ export function probeRollout({
   pool, rollout, weights, valueWeights, logSigma, norm, valueLayout, seed,
   halfLife = 4, lambda = 0.95, clip = 0.2, classes = "none", floor = CLASS_FLOOR,
   boutSplit = false, rewards = [], entropy = 0, layout = null, spec = null,
+  concentration = false,
 }) {
   const values = valuesOf(rollout, valueWeights, norm, valueLayout);
   const { advantage, returns } = advantages(rollout, values, { halfLife, lambda });
@@ -796,6 +917,19 @@ export function probeRollout({
     pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order, clip, entropy,
     heads,
   });
+  // Sixth, and off unless a run asks for it. Three more steps over the same rollout is a third
+  // again on the row's probe time, and a grid of seventeen arms does not want to pay it for a
+  // reading that is about the weight vector rather than about the table. Absent rather than null
+  // when it was not asked for, so a run without the flag writes the row it wrote before this
+  // existed and two such runs stay comparable field for field.
+  const where = concentration === false ? null : (() => {
+    const [ranked, second, third] = thirdGradients({
+      pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order, clip,
+    });
+    return concentrationSignal({
+      ranking: ranked.actor, first: second.actor, second: third.actor,
+    });
+  })();
   return {
     ...signal,
     advantageSd: sd,
@@ -803,6 +937,7 @@ export function probeRollout({
     ...(byBout === null ? {} : { byBout }),
     ...(priced === null ? {} : { priced }),
     ...(bonus === null ? {} : { bonus }),
+    ...(where === null ? {} : { concentration: where }),
   };
 }
 
@@ -1561,6 +1696,7 @@ if (isMain) {
   // Off by default for `--classes`' reason exactly: a probe that acquired a second cosine by
   // default would make every row already under tournaments a row of a different instrument.
   const boutSplit = argv.includes("--bout-split");
+  const concentration = argv.includes("--concentration");
   // The reward axis, which is free at a held policy and is not free anywhere else. Read from a
   // file so the arms of a sweep are a design written before the bouts rather than a command line;
   // empty unless named, so a run without it is byte for byte the run the grid took.
@@ -1613,7 +1749,7 @@ if (isMain) {
   log({
     type: "header", kind: "gradient-probe", seed, date, version: POLICY_VERSION, features,
     layout, valueLayout, label, iterations, bouts, cap, random, workers, shards, from, hold,
-    classes, classFloor, boutSplit,
+    classes, classFloor, boutSplit, concentration,
     // The arms are logged resolved rather than as the file named them, so a row says the eight
     // coefficients it was actually priced under and a reader never has to find the file again.
     rewards: rewards.map((arm) => ({
@@ -1688,7 +1824,7 @@ if (isMain) {
       const probeStarted = Date.now();
       const signal = probeRollout({
         pool, rollout, weights, valueWeights, logSigma, norm, valueLayout, seed: fitSeed,
-        halfLife, lambda, clip, classes, floor: classFloor, boutSplit, rewards,
+        halfLife, lambda, clip, classes, floor: classFloor, boutSplit, rewards, concentration,
         // The coefficient the fit below would have paid, whether or not there is a fit below, so
         // a held row says what a production step at this policy would have been made of.
         entropy: fitEntropy,

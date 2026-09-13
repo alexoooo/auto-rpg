@@ -235,6 +235,42 @@
 // row. And `cosineOf` answering the *dot product* for a zero block is not a mutation but an
 // identity: a dot product with the zero vector is zero, so the two spellings cannot be told apart
 // by anything.
+//
+// **Where the signal is added eleven more on 2026-09-13.** Two halves answer how much signal a
+// collection carries and cannot answer where in the weight vector it sits, because a subset of
+// coordinates chosen by looking at one half is a subset chosen partly for that half's noise. So
+// the epoch is cut in **three**: rank on the first range, read the dot and both norms over the top
+// fraction on the other two, and report the whole vector as the last row so every other row is a
+// ratio against it with a null of exactly one.
+//
+// | mutation | what went red |
+// |---|---|
+// | the ranking range is measured as well as ranked on, so the three ranges overlap | the partition test and the sum test |
+// | the last range stops one ask short, so an epoch is not covered | the partition test and the sum test |
+// | an epoch of two asks is cut in three rather than refused | the refusal test |
+// | the ranking sorts ascending, so the quietest coordinates are kept | the kept-set test, the nesting test and the peeking test |
+// | the ranking is by signed value rather than by size | the kept-set test and the nesting test |
+// | the coordinates are ranked by the half they are measured on | the nesting test and the peeking test |
+// | the accumulators are reset at each fraction rather than carried | the kept-set test and the nesting test |
+// | a fraction of zero or a repeat is accepted rather than refused | the fractions test |
+// | three vectors of different lengths are read to the shortest rather than refused | the lengths test |
+// | the three ranges are taken under the production entropy coefficient | the sum test |
+// | the three ranges are the two halves and the first half again | the sum test |
+//
+// **The sixth is the one the instrument exists for and the only one a careless test would miss.**
+// Ranking on a range that is also measured is not a crash, a NaN or an empty row -- it is a number
+// that comes back looking like a discovery. `a_ranking_that_saw_a_measured_half_finds_a_
+// concentration_in_pure_noise_and_a_disjoint_one_does_not` builds three independent vectors with no
+// structure whatever, and the peeking ranking reports the top hundredth of coordinates carrying
+// about three times its share of the squared norm while the disjoint ranking reports one. Three
+// times nothing is the exact size of the artifact, and it is larger than most real effects this
+// record has ever measured.
+//
+// **And one mutation that was watched and is not in the table, because it is not a defect.**
+// Cutting the epoch with `Math.ceil` instead of `Math.floor` leaves the partition valid at every
+// count of three or more -- it moves one ask between ranges and nothing else. It went green, it was
+// checked by hand rather than pinned by a new assertion, and the two mutations at the top of the
+// table are the ones that break the property `thirdSplit` actually has.
 import test from "node:test";
 import assert from "node:assert/strict";
 
@@ -252,11 +288,12 @@ import {
   ppoFit, priceRollout, standardisedAdvantages, valuesOf,
 } from "../scripts/train-ppo.mjs";
 import {
-  CLASS_AXES, PROBE_ENTROPY, PROBE_EPOCH, askBouts, askClasses, askPositions, baselineOf, boutBlocks,
-  boutGradients, checkHeldStart, classBlocks, cosineOf, dotOf, epochOrder, groupedMeans, halfGradients,
-  halfSplit, headGroups, headNorms, headRows, headSignal, linearBaseline, mcReturns, measureBonus,
+  CLASS_AXES, CONCENTRATION_FRACTIONS, PROBE_ENTROPY, PROBE_EPOCH, askBouts, askClasses,
+  askPositions, baselineOf, boutBlocks, boutGradients, checkHeldStart, classBlocks,
+  concentrationSignal, cosineOf, dotOf, epochOrder, groupedMeans, halfGradients, halfSplit,
+  headGroups, headNorms, headRows, headSignal, linearBaseline, mcReturns, measureBonus,
   measureSignal, normOf, parseClasses, probeRollout, rewardArms, shareOf, solveCholesky,
-  wholeGradient,
+  thirdGradients, thirdSplit, wholeGradient,
 } from "../scripts/gradient-probe.mjs";
 
 const SEED = 20260917;
@@ -1887,6 +1924,181 @@ test("the_whole_epoch_gradient_is_the_one_the_two_halves_average_to", { timeout:
     }
     // The binding it left behind, read the way the entropy test reads it: a whole-epoch gradient
     // taken under a production coefficient would be a step along a direction the bonus chose.
+    assert.equal(pool.bound.params[PARAM.ENTROPY], PROBE_ENTROPY);
+  } finally {
+    await pool.close();
+  }
+});
+
+/**
+ * Three ranges of an epoch, disjoint, in order, and covering it.
+ *
+ * Asserted as a partition rather than by its three cut points, because what the measurement needs
+ * from this function is that the range it ranks on shares no ask with either range it measures --
+ * and a fixture that pinned the arithmetic would go green on a split that overlapped by one.
+ */
+test("an_epoch_cut_in_three_covers_itself_once_and_the_ranking_range_shares_no_ask", () => {
+  for (const count of [3, 4, 7, 100, 44_009]) {
+    const ranges = thirdSplit(count);
+    assert.equal(ranges.length, 3);
+    assert.equal(ranges[0].at, 0);
+    assert.equal(ranges[2].end, count);
+    for (let k = 1; k < 3; k += 1) assert.equal(ranges[k].at, ranges[k - 1].end);
+    for (const range of ranges) {
+      assert.ok(range.end > range.at, `a range of ${count} asks came back empty: ${range.at}`);
+    }
+  }
+});
+
+/** An epoch too short to cut in three is refused by name rather than handed an empty range. */
+test("an_epoch_of_two_asks_has_no_three_ranges_and_is_refused_by_name", () => {
+  assert.throws(() => thirdSplit(2), /no three ranges to rank one and measure two/);
+  assert.throws(() => thirdSplit(2.5), /no three ranges to rank one and measure two/);
+});
+
+/**
+ * The kept set is the top coordinates of the ranking vector, and the row at one is the whole.
+ *
+ * The fixture puts all of the agreement in coordinates the ranking vector points at and none
+ * anywhere else, so a spelling that ranked on the wrong vector, or sorted the wrong way, or kept
+ * the wrong count would move the top row and not the bottom one.
+ */
+test("a_concentration_keeps_the_coordinates_its_ranking_range_scored_highest", () => {
+  const length = 100;
+  const ranking = new Float64Array(length);
+  const first = new Float64Array(length);
+  const second = new Float64Array(length);
+  for (let k = 0; k < length; k += 1) {
+    // The last ten coordinates are the loud ones, and they are the ones that agree.
+    const loud = k >= 90;
+    ranking[k] = loud ? -5 : 0.1;
+    first[k] = loud ? 2 : (k % 2 === 0 ? 1 : -1);
+    second[k] = loud ? 3 : (k % 2 === 0 ? -1 : 1);
+  }
+  const rows = concentrationSignal({ ranking, first, second, fractions: [0.1, 1] });
+  assert.deepEqual(rows.map((r) => r.kept), [10, 100]);
+  // Ten loud coordinates at 2 x 3, and the ninety quiet ones at -1 each.
+  assert.ok(Math.abs(rows[0].dot - 60) < 1e-12, `the top tenth's dot is ${rows[0].dot}`);
+  assert.ok(Math.abs(rows[1].dot - (60 - 90)) < 1e-12, `the whole vector's dot is ${rows[1].dot}`);
+  assert.equal(rows[0].cosine, 1);
+  assert.ok(rows[1].cosine < 0, `a vector that disagrees on ninety of a hundred reads ${rows[1].cosine}`);
+  // And the last row is the row the halves would have reported over everything, which is what makes
+  // every other row readable as a ratio against it.
+  let whole = 0;
+  for (let k = 0; k < length; k += 1) whole += first[k] * second[k];
+  assert.ok(Math.abs(rows[1].dot - whole) < 1e-12, `the row at one is not the whole dot`);
+});
+
+/**
+ * The rows are nested, so the accumulation walks its order once and never double-counts.
+ *
+ * The trap this catches is an accumulator that is not reset and not carried either -- a loop that
+ * re-walks from zero at each fraction while keeping the running sums would report the top tenth's
+ * dot added to itself, which is plausible at every row and wrong at all of them.
+ */
+test("each_concentration_row_contains_the_one_above_it_and_counts_no_coordinate_twice", () => {
+  const random = mulberry32(717);
+  const length = 512;
+  const ranking = Float64Array.from({ length }, () => random() - 0.5);
+  const first = Float64Array.from({ length }, () => random() - 0.5);
+  const second = Float64Array.from({ length }, () => random() - 0.5);
+  const rows = concentrationSignal({ ranking, first, second });
+  assert.deepEqual(rows.map((r) => r.fraction), [...CONCENTRATION_FRACTIONS]);
+  for (let k = 1; k < rows.length; k += 1) {
+    assert.ok(rows[k].kept > rows[k - 1].kept, `${rows[k].fraction} kept no more than ${rows[k - 1].fraction}`);
+    assert.ok(rows[k].firstNorm >= rows[k - 1].firstNorm - 1e-12,
+      `the norm fell from ${rows[k - 1].firstNorm} to ${rows[k].firstNorm} as coordinates were added`);
+  }
+  assert.equal(rows[rows.length - 1].kept, length);
+  // Taken directly over the same top set, which is the assertion a carried accumulator passes and a
+  // reset one does not.
+  const order = Array.from({ length }, (_, k) => k)
+    .sort((a, b) => Math.abs(ranking[b]) - Math.abs(ranking[a]));
+  for (const row of rows) {
+    let dot = 0;
+    for (let k = 0; k < row.kept; k += 1) dot += first[order[k]] * second[order[k]];
+    assert.ok(Math.abs(row.dot - dot) < 1e-9, `the row at ${row.fraction} reports ${row.dot} for ${dot}`);
+  }
+});
+
+/**
+ * The measurement this function exists for: a ranking that saw one of the measured halves lies.
+ *
+ * Three independent vectors of pure noise have no concentration to find, so the honest reading is a
+ * ratio near one at every fraction. Rank on `first` instead of on the third range and the same pure
+ * noise reads as a strong concentration -- the top coordinates of `first` are the ones whose noise
+ * was large, and `first`'s own norm over them is enormous while the dot is not. This test asserts
+ * both halves of that: the disjoint ranking finds nothing, and the ranking that peeked finds
+ * something that is not there.
+ */
+test("a_ranking_that_saw_a_measured_half_finds_a_concentration_in_pure_noise_and_a_disjoint_one_does_not", () => {
+  const random = mulberry32(20260913);
+  const length = 20_000;
+  const a = Float64Array.from({ length }, () => random() - 0.5);
+  const b = Float64Array.from({ length }, () => random() - 0.5);
+  const c = Float64Array.from({ length }, () => random() - 0.5);
+  const shareOf = (rows) => {
+    const whole = rows[rows.length - 1];
+    const top = rows[0];
+    // The share of the whole vector's squared first-half norm that the top hundredth carries, which
+    // is the quantity the bias inflates and the one a reader would be fooled by.
+    return (top.firstNorm ** 2) / (whole.firstNorm ** 2);
+  };
+  const honest = concentrationSignal({ ranking: a, first: b, second: c, fractions: [0.01, 1] });
+  const peeked = concentrationSignal({ ranking: b, first: b, second: c, fractions: [0.01, 1] });
+  assert.ok(Math.abs(shareOf(honest) - 0.01) < 0.005,
+    `a disjoint ranking of noise kept ${(shareOf(honest) * 100).toFixed(2)} % of the squared norm`);
+  // Three times, as it happens: the top hundredth of a uniform draw by size has a mean square
+  // about 2.97 times the whole draw's, and that factor is what a reader would have read as
+  // structure. Asserted as a ratio against the honest column rather than as a threshold, because
+  // the claim is that the two rankings disagree and not that either one hits a particular number.
+  assert.ok(shareOf(peeked) > 2 * shareOf(honest),
+    `a ranking that peeked kept ${(shareOf(peeked) * 100).toFixed(2)} % against the disjoint `
+    + `ranking's ${(shareOf(honest) * 100).toFixed(2)} %`);
+});
+
+/** Fractions that do not climb through zero to one are refused rather than silently reordered. */
+test("concentration_fractions_that_do_not_climb_through_zero_to_one_are_refused_by_name", () => {
+  const v = Float64Array.from([1, 2, 3, 4]);
+  const call = (fractions) => concentrationSignal({ ranking: v, first: v, second: v, fractions });
+  assert.throws(() => call([0.3, 0.1]), /are not ascending through zero to one/);
+  assert.throws(() => call([0, 1]), /are not ascending through zero to one/);
+  assert.throws(() => call([0.5, 1.5]), /are not ascending through zero to one/);
+  assert.throws(() => call([0.5, 0.5]), /are not ascending through zero to one/);
+});
+
+/** Three vectors of one length, and a caller who brought three of different ones is told so. */
+test("a_concentration_over_vectors_of_different_lengths_is_refused_by_name", () => {
+  assert.throws(() => concentrationSignal({
+    ranking: new Float64Array(4), first: new Float64Array(4), second: new Float64Array(5),
+  }), /wants three vectors of one length and was given 4, 4 and 5/);
+});
+
+/**
+ * The three gradients come off the pool the halves came off, under the same coefficient.
+ *
+ * The property is the module's own: every gradient this file takes is taken at `PROBE_ENTROPY`, and
+ * a third cut that bound its own coefficient would be a concentration measured on a different
+ * objective than the floor it is read against.
+ */
+test("the_three_ranges_sum_to_the_whole_epochs_gradient_and_are_taken_under_no_bonus", async () => {
+  const built = fixture();
+  const bound = bindings(built);
+  const n = built.rollout.count;
+  const pool = await FitPool.open({ shards: 2, layout: LAYOUT, valueLayout: VALUE });
+  try {
+    const thirds = thirdGradients({ pool, ...bound });
+    const whole = wholeGradient({ pool, ...bound });
+    assert.equal(thirds.reduce((a, t) => a + t.asks, 0), n);
+    let most = 0;
+    let scale = 0;
+    for (let k = 0; k < whole.actor.length; k += 1) {
+      let sum = 0;
+      for (const third of thirds) sum += third.asks * third.actor[k];
+      most = Math.max(most, Math.abs(sum / n - whole.actor[k]));
+      scale = Math.max(scale, Math.abs(whole.actor[k]));
+    }
+    assert.ok(most <= 1e-12 * (1 + scale), `the three ranges average ${most} off the whole`);
     assert.equal(pool.bound.params[PARAM.ENTROPY], PROBE_ENTROPY);
   } finally {
     await pool.close();
