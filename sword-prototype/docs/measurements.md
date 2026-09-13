@@ -31099,3 +31099,176 @@ untouched, and `ratePolicy` rates on the table it shipped. What this experiment 
 follow-on it does not run: **the same four contenders under a table whose `clinch` and `idle` rows
 are zero**, which would say whether the ordering above is the fight or the habit. That is a
 registration and not a paragraph, and it costs one rating.
+
+## Agenda item V, priced -- 2026-09-13: the cell, the two questions inside it, and the 2x2 that was already on disk
+
+The agenda re-cut named item V and left it as a sentence: *whether the criterion cell should be
+one where a gradient is measurable is a decision, not a measurement, and it is the owner's.*
+Experiments I and T closed since, and between them they supply the two numbers the decision was
+missing. **This is a memo and not a pre-registration.** It collects no bouts, scores nothing,
+moves no default, and its one new reading is exploratory and labelled as such. What it does is
+take the decision apart into the part that is a measurement and the part that is not, and put a
+price on each.
+
+### The two questions that have been travelling under one name
+
+**V-a, which is a measurement: does collecting the gradient against an opponent it can see buy a
+better curve on the criterion?** The probe says the fencer cell has no measurable actor gradient
+and the idle cell has a large one. If that difference reached the criterion, swapping the training
+opponent would be free money.
+
+**V-b, which is not a measurement: should `golem-fencer` remain the mind every bar is stated
+against?** No experiment can answer this. It is a statement about what the owner wants the golem
+to be good at, and every bar in this record -- fourteen sessions of them -- is comparable only
+because the answer has never changed. Nothing below argues either way about V-b; it is named so
+that a V-a result is not mistaken for one.
+
+### The evidence that provoked the item, now complete on both cells
+
+Nine matched pairs of probe cells are on disk, each the same bout count and the same iteration
+count against the two opponents. The statistic is the whole-actor `|S|^2` against its own standard
+error over the run's iterations -- the same column every floor in this record is taken from.
+
+| cell | `golem-fencer` t | `idle` t |
+| --- | ---: | ---: |
+| 32 bouts, 20 iterations | +1.15 | +0.59 |
+| 64 bouts, 20 iterations | +0.22 | +2.50 |
+| 128 bouts, 20 iterations | -0.47 | +4.60 |
+| 256 bouts, 20 iterations | +1.44 | +6.92 |
+| 32 bouts, 30 iterations | -0.25 | +2.62 |
+| 64 bouts, 30 iterations | **+3.25** | +2.77 |
+| 128 bouts, 30 iterations | +1.90 | +6.79 |
+| 256 bouts, 30 iterations | +0.84 | **+12.08** |
+| 128 bouts, 40 iterations, latched | +1.38 | +7.86 |
+
+**One of nine clears two sigma on the fencer; eight of nine clear on idle.** A true null clears
+two sigma about one time in twenty, so the fencer column is what a true null looks like and the
+idle column is not. **And the shape settles it past counting.** Within each family the idle column
+rises monotonically with the bout count -- 0.59, 2.50, 4.60, 6.92 and 2.62, 2.77, 6.79, 12.08 --
+which is what a real signal must do, because `t` on a fixed number of iterations grows with the
+sample each iteration carries. The fencer column wanders: 1.15, 0.22, -0.47, 1.44 and -0.25, 3.25,
+1.90, 0.84, with its one clearing reading sitting between two that do not.
+
+**The confound, named rather than discovered later.** The two columns are probed at different
+checkpoints -- tournaments/bracket-fencer/pool-30.json against
+tournaments/bracket-idle/pool-30.json -- so a pair differs in the opponent *and* in where in
+weight space the policy being probed sits. The two cannot be separated inside this table. What can
+be said is that the difference is large, monotone in sample on one side and absent on the other,
+and reproduced over nine pairs at four bout counts.
+
+### The 2x2 nobody had read, which is free and which points the other way
+
+Four leagues are on disk that cross the two flags this question is about, all at seed 20260917,
+all 60 iterations of 32 bouts, all rated at 200 bouts a contender over twelve checkpoints, and all
+four ratings were already written. The statistic is the paired bar slope against `golem-fencer`
+per 60 iterations -- the record's own criterion, unchanged:
+
+```
+node barfit.mjs golem-fencer --ladder tournaments/latched-fencer-rate.jsonl
+  tournaments/latched-idle-rate.jsonl tournaments/bracket-fencer/rate.jsonl
+  tournaments/bracket-idle/rate.jsonl
+```
+
+| arm | latch | trained against | slope / 60 | se | t |
+| --- | --- | --- | ---: | ---: | ---: |
+| `latched-fencer` | on | `golem-fencer` | **0.0746** | 0.0223 | 3.35 |
+| `latched-idle` | on | `idle` | **0.0639** | 0.0246 | 2.60 |
+| `bracket-fencer` | off | `golem-fencer` | 0.0315 | 0.0174 | 1.81 |
+| `bracket-idle` | off | `idle` | -0.0042 | 0.0150 | -0.28 |
+
+**A league trained sixty iterations against a target that never moves, never blocks and never
+steps away buys the same curve against `golem-fencer` as a league trained against
+`golem-fencer`.** The contrast is **0.0107 +-0.0332, t 0.32** under the latch and 0.0358 +-0.0230,
+t 1.56 without it. Neither is distinguishable from zero, and both are smaller than the latch's own
+contrast on the same table -- 0.0431 +-0.0283 against the fencer and 0.0682 +-0.0288 against idle.
+
+**So on the evidence already paid for, the opponent whose gradient the probe can see is worth less
+than a body fix, and possibly nothing.** That is the opposite of what item V's framing assumes,
+and it is worth exactly as much as its resolution allows, which is the next paragraph.
+
+### What this 2x2 could and could not have caught
+
+Every arm's own smallest catchable slope at the four-arm family threshold: `latched-fencer`
+0.0773, `latched-idle` 0.0852, `bracket-fencer` 0.0602, `bracket-idle` 0.0521. **Not one contrast
+in the table clears the family bar**, `latched-fencer` against `bracket-idle` at t 2.93 included,
+and the largest contrast on the table (0.0789) is about the size of the smallest thing a single
+arm could have caught. **This design resolves 0.05 to 0.09 per 60 and the contrasts it is being
+asked about are 0.01 to 0.08.** It is therefore evidence about direction and not about size, and a
+reader who takes "the opponent buys nothing" out of it has taken more than it holds.
+
+**What it does hold is a bound and a shape.** The latched contrast between the two opponents is
+0.0107 +-0.0332, so the smallest difference this pair would have caught four times in five is
+**0.093 per 60** as a single named comparison and 0.120 at the four-arm family bar -- against a
+control slope of 0.0746. **Swapping the opponent does not double the curve, and if the probe's
+eight-of-nine against one-of-nine reached the criterion at anything like its own size, it would.**
+
+### What it would cost to resolve, which is the part the decision needs
+
+To catch the measured latched contrast of 0.0107 per 60 at a four-arm family bar, the difference's
+standard error has to come down from 0.0332 to about 0.0032 -- a factor of **10.4**. Slope error
+scales as `1 / (span * sqrt(points))`, so the levers are the span and the checkpoint count, and
+**not the bouts a point**: Experiment K measured its residual scatter about the fitted line at
+0.45x to 0.73x of the points' own quoted standard errors, so the points already scatter less than
+independent sampling would, and tripling the bouts shrinks a term the slope's error is not made
+of.
+
+| design | span | points | error factor | four arms cost, training | rating bouts |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| the 2x2 above | 5..60 | 12 | 1.0 | already paid | already paid |
+| Experiment S's design | 5..120 | 24 | 2.8 | ~3.7 h | 76,800 |
+| 300 iterations, every 5 | 5..300 | 60 | **11.2** | ~9.2 h | 192,000 |
+| 300 iterations, every 7.5 | 5..300 | 40 | 9.2 | ~9.2 h | 128,000 |
+
+The factor needed is 10.4 and only the last-but-one row supplies it: **the 60-point design
+resolves the contrast and the 40-point one falls 12 % short of it.** At the rates this host is
+running tonight -- a 120-iteration league of 32 bouts at 7 workers is about 55 minutes unloaded,
+and a rating point of 800 bouts is about 11 minutes at 7 workers -- that is **about 9 hours of
+training, which parallelises to two and a half on this host, and about 11 hours of rating, which
+does not.** Call it **a day of host time to resolve a contrast that is 14 % of the control's own
+slope**, with four hours saveable by accepting a design that misses it.
+
+**And the honest question that price raises is whether 14 % is worth a day.** The record's largest
+measured lever is Experiment L's batch reading at 16.2x, which Experiment U is replicating tonight
+and which its own falsifier says may be the shape of twelve noisy points. If U's ordering
+survives, the batch is worth more than this and should be spent on first. If it does not, this
+record has no measured lever at all, and a day to bound one at 14 % is a different proposition.
+
+### The three options, priced, and what each forecloses
+
+**1. Change nothing.** Cost zero. Every bar in the record stays comparable, and the record goes on
+measuring an optimiser on the cell where one of nine probe readings clears. What it forecloses:
+nothing, and that is its weakness -- it is the option that is chosen by not choosing.
+
+**2. Keep `golem-fencer` as the criterion and move the training opponent.** Cost: one league and
+one rating per arm, and the 2x2 above says the effect is bounded at 0.093 per 60 four times in
+five and measured at 0.011. **It is cheap, it is half-measured already, and the half that is
+measured says it buys little.** What it forecloses: nothing permanent -- the criterion is
+untouched, so every bar remains comparable, which is what makes this the only one of the three
+that is reversible by deleting a flag.
+
+**3. Move the criterion itself.** Cost: not a compute cost. **It invalidates the comparability of
+every bar in this record**, because a bar against a different mind is a different number with the
+same name. It is V-b, it is the owner's, and no measurement in this memo or any other bears on it.
+
+### What Experiments I and T added to this, which is why the memo is written now
+
+**Experiment I** made the probe evidence complete on both cells and, in doing so, removed the
+mechanism the record had been carrying for why the fencer cell reads null: it is not that the gate
+rows are starved -- the `abort` group's floor on the idle cell is 173 bouts against the whole
+actor's 789, 0.22x rather than the 4x the registration predicted the other way.
+
+**Experiment T** measured that 55.7 % of the fit-to-fencer difference *in the objective's own
+units* is clinch seconds and idle metres. **A criterion cell is only half of the cell question;
+the other half is the score function**, and T says the score function's gap between these two
+minds is more habit than fight. **An option 4 exists and this memo does not price it** -- the same
+four contenders under a table whose `clinch` and `idle` rows are zero, which is one rating and
+would say whether the ordering the criterion produces is the fight or the habit. T's own entry
+names it and it wants its own registration.
+
+### What this memo decides
+
+**Nothing.** It says that V-a is a measurement, that the measurement is already half-taken and
+points away from the item's framing, that finishing it costs about a day of host time to resolve a
+contrast worth 14 % of the control slope, and that V-b is not a measurement at all. The queue is
+unchanged: Experiment S finishes, Experiment U's three arms are collecting, and the next
+registration after them is a decision this memo exists to inform and not to pre-empt.
