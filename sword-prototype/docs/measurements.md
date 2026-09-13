@@ -22576,6 +22576,111 @@ than a finding: if different bodies in the pool demand contradictory policy chan
 of them drives the mean toward zero rather than toward a signal, and a per-class gradient would
 cohere where the pooled one does not. That is one cheap measurement and it is not made here.
 
+## The held row -- 2026-09-12: one policy, four sample sizes, and a gradient with no length to measure
+
+The grid above records a confound of its own and names the measurement that removes it: every one of
+its cells was a separate thirty-iteration run *at that cell's bout count*, so a row that did not rise
+could mean either that more bouts do not sharpen the gradient or that bigger batches walk the policy
+somewhere with less signal in it. This is that measurement. **One checkpoint off disk, never updated,
+put in front of four bout counts.** It confirms the grid's dissociation with the confound gone -- and
+then the two norms every row has been carrying since the probe was written turn out to say something
+the cosine cannot.
+
+**Harness:** `scripts/gradient-probe.mjs --from <arm>/pool-30.json --hold`, eight cells, 20
+iterations each, fit seed 20260917, the maul-and-mace viable pool, mirrored bodies, `--shards 4`, 14
+collectors a process, the two opponents as two concurrent processes. `--hold` skips `ppoFit` and
+`extendNormalisation` entirely, so the weights, the value weights, the spread and the normalisation
+are the same objects at iteration 20 as at iteration 1 and each iteration is one independent
+collection at one fixed point; every row testifies to it with `held: true` and a **null** `kl`, which
+is a different fact from a `kl` of zero. The checkpoints are the two opponent-bracket arms of this
+morning, so the policies are ones this record has already rated. Written to the gradhold files under
+tournaments, gitignored so named bare. **Instrument:** the mean of a cell's 20 per-iteration actor
+cosines with the standard error over iterations, at `PROBE_ENTROPY`.
+
+| bouts | 32 | 64 | 128 | 256 |
+| --- | --- | --- | --- | --- |
+| `golem-fencer` | +0.0199 +-0.0221 | +0.0098 +-0.0214 | -0.0116 +-0.0218 | +0.0248 +-0.0197 |
+| `idle` | +0.0111 +-0.0212 | +0.0589 +-0.0240 | +0.0973 +-0.0210 | +0.1925 +-0.0255 |
+
+**The grid's reading survives the removal of its own confound.** Against `golem-fencer` the row is
+flat across a factor of eight with the policy held still: **256 bouts minus 32 bouts is +0.0049
++-0.0296, a t of 0.17**, and the `c/(1-c) = k*n` line fits at k 7.280e-5 +- 5.63e-5, t 1.29 -- not
+distinguishable from zero, exactly as in the grid. Against `idle` the row rises over the same factor
+of eight by **+0.1814 +-0.0332, a t of 5.47**, and the line fits at k 9.100e-4 +- 4.12e-5, **t
+22.09** -- tighter than the grid's t of 14.82, because the four cells now lie on it rather than two
+of them carrying it. So it was never that bigger batches walked the policy somewhere worse. The
+policy did not move at all, and the fencer gradient still does not sharpen.
+
+### What the grid's small cells were flattered by, which is mine and is worth naming
+
+**A grid cell was a mean over a trajectory that began at a fresh initialisation**, and the cosine is
+at its largest there -- a bad policy is bad in a way every sample agrees about, which is why the
+pre-registration's disclosed peek read +0.4100 at four bouts. So the grid's early iterations sat in
+that regime and its cell means carry them. Held at a settled policy the same cells read lower:
+`golem-fencer` at 64 bouts is **+0.0098 here against +0.0551 in the grid**, and `idle` at 32 bouts is
++0.0111 against +0.0611. The grid's *shape* is the finding and it holds; two of its levels were
+optimistic, and this row is the one to quote.
+
+### The two norms say it better than the cosine does, and they were in every row all along
+
+A cosine is a ratio, and its denominator falls with the bout count whatever the numerator does. The
+probe reports the two half norms and their dot product beside it for exactly this reason, and the
+arithmetic in the module's header says what each estimates: for two independent means over `m`
+samples of a gradient `S` in per-sample noise `N`, **the dot estimates `|S|^2` and `norm^2 - dot`
+estimates `N/m`.** The dot does not depend on the bout count at all. So four cells are four estimates
+of one number, and eighty iterations can be combined.
+
+| arm | noise a bout, `(norm^2 - dot) * n` | `|S|^2` combined over four cells |
+| --- | --- | --- |
+| `golem-fencer` | 29.726 +- 0.556 | **2.688e-3 +- 2.119e-3, t 1.27** |
+| `idle` | 21.395 +- 0.304 | **1.949e-2 +- 2.250e-3, t 8.66** |
+
+**The noise is a sample mean's in both arms and the constant is nearly the same.** Multiplied by the
+bout count it is flat across the row -- 28.70, 29.10, 31.85, 29.26 against `golem-fencer` and 21.99,
+21.31, 21.59, 20.68 against `idle` -- which is the model's prediction met to the second digit, at
+four sample sizes, twice. The instrument is measuring what it says it measures, and buying bouts buys
+the same noise reduction against the mind as against the dummy.
+
+**What differs is that against the mind there is nothing for it to converge to.** Against `idle` the
+squared length of the policy gradient is 1.949e-2 at a t of 8.66. Against `golem-fencer` it is
+2.688e-3 at a t of **1.27** -- and that is eighty independent collections at four bout counts pooled,
+not one thin cell. **The squared length of the gradient the optimiser is handed against the mind the
+criterion is stated on is not distinguishable from zero.** Even the two-sigma upper end of it,
+6.93e-3, is below `idle`'s point estimate.
+
+That is a stronger statement than the flat cosine and it is the one this row exists to make. A flat
+cosine says the ratio did not improve. A dot at zero says **there may be no signal in the numerator
+at all**, and thirteen sessions of flat curves are what a correct optimiser does when it is handed
+one.
+
+### The budget, stated as a bound rather than a number
+
+`c/(1-c) = (|S|^2 / K) * n` with `K` the per-bout noise, so the bouts needed for a cosine of one half
+are `K / |S|^2`.
+
+| arm | bouts for cosine 0.5 | bouts for 0.9 |
+| --- | --- | --- |
+| `idle` | 1,098 | 9,878 |
+| `golem-fencer` | **at least 4,292, and unbounded above** | at least 38,627 |
+
+The `golem-fencer` row gets a floor and no ceiling, and the reason is the whole point: the two-sigma
+interval on its `|S|^2` includes zero, and a gradient of length zero needs infinitely many bouts. The
+point estimate would say 11,060, and it is not quoted as the answer because a ratio whose denominator
+is not significant is not a measurement. **Every training run in this record was made at 32 bouts,
+which is between a thirty-sixth and nothing at all of what the arithmetic asks for.**
+
+### What this does not license
+
+No mind ships, no reward coefficient moves and no default moves, and in particular **this does not
+license raising the bout count**, for the same reason the grid did not: the floor is four thousand
+bouts an iteration against a mind, which is two orders of magnitude beyond anything this project has
+spent, and the ceiling may not exist. What it licenses is looking at why `|S|^2` is small rather than
+at how many samples it is averaged over. Two candidates are already written down and neither is
+measured here: the pool, whose bodies may be asking for contradictory changes and which is
+pre-registered below; and the abort gate, which Session 07 of the learn set measured as cutting nine
+strokes in ten before they land, so that most of what the score function is weighting is a stroke
+that never happened.
+
 ## Pre-registration -- 2026-09-12: the per-class gradient, written before the bouts
 
 The grid above closes on a question it did not measure and named as owed: *if different bodies in
