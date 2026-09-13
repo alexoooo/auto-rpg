@@ -141,7 +141,7 @@
 // finding.
 //
 //
-// ## `--rewards`, which is the only axis here that is free, and the reason it is
+// ## `--rewards`, which carries the three axes here that are free, and the reason they are
 //
 // The three splits above cut one gradient different ways. This one changes the gradient, and it is
 // still one collection -- which is worth being precise about, because it is the difference between
@@ -177,6 +177,12 @@
 // gain is not the saved grid, it is the *combination* -- a table that pays for something immediate
 // and a horizon short enough to keep it is one arm, where two flags would have been two sweeps and
 // no cell where both moved at once.
+//
+// **And an arm may name a baseline**, which is the third quantity read after the bouts: an
+// advantage is a return less a baseline and a baseline enters no action, no log-probability and,
+// under `--hold`, no weight. `BASELINE_KINDS` makes the argument at length and says why one of the
+// five is the run's own critic, two are upper bounds rather than proposals, and a grid that means
+// to compare baselines should say `lambda` 1 and mean it.
 //
 // The arms are read from a file rather than from the command line, because eight coefficients by N
 // arms is not a command line, and because a sweep's arms are a *design* -- written before the
@@ -251,7 +257,7 @@ import { isMainThread } from "node:worker_threads";
 
 import { initWeights, netSize } from "../src/golem/neural-net.ts";
 import { PILOT_FEATURES_DEFAULT } from "../src/golem/pilot.ts";
-import { ACTION_AXES, POLICY_VERSION, freshNormalisation } from "../src/golem/policy.ts";
+import { ACTION_AXES, POLICY_VERSION, freshNormalisation, normalise } from "../src/golem/policy.ts";
 import { GOLEM_REWARD } from "../src/golem/reward.ts";
 import { COMMAND_AXES, COMMAND_GATES } from "../src/golem/tactics-v4.ts";
 import { PARAM } from "./fit-worker.mjs";
@@ -730,7 +736,17 @@ export function probeRollout({
     // is one arm rather than a second grid.
     const armHalfLife = named.halfLife ?? halfLife;
     const armLambda = named.lambda ?? lambda;
-    const arm = advantages(repriced, values, { halfLife: armHalfLife, lambda: armLambda });
+    // And the arm's own baseline where it named one, built out of this arm's returns rather than
+    // out of the row's. The return a baseline is a control variate for is the return the arm pays,
+    // so a table that moves the return moves what the best fit to it is; taking the baseline above
+    // the loop would price every arm against the first arm's returns and would read as an effect.
+    const armValues = named.baseline === undefined || named.baseline === "critic"
+      ? values
+      : baselineOf({
+        kind: named.baseline, rollout: repriced, norm, critic: values,
+        returns: mcReturns(repriced, armHalfLife),
+      });
+    const arm = advantages(repriced, armValues, { halfLife: armHalfLife, lambda: armLambda });
     const stood = standardisedAdvantages(arm.advantage, repriced.count);
     return {
       label,
@@ -738,6 +754,7 @@ export function probeRollout({
       // this axis existed and two such grids stay comparable field for field.
       ...(named.halfLife === undefined ? {} : { halfLife: armHalfLife }),
       ...(named.lambda === undefined ? {} : { lambda: armLambda }),
+      ...(named.baseline === undefined ? {} : { baseline: named.baseline }),
       ...measureSignal({
         pool, rollout: repriced, scaled: stood.scaled, returns: arm.returns, norm,
         weights, valueWeights, logSigma, order, clip,
@@ -844,8 +861,241 @@ export const CLASS_AXES = Object.freeze(["none", "terminal", "build"]);
  * They are **absent from an arm's row unless the arm named one**, which is the same rule `byBout`
  * and `classes` follow: a grid that acquired two constant fields by default would make every row
  * already under tournaments a row of a different instrument.
+ *
+ * `baseline` is the third of these and is kept off this list on purpose, because its value is a
+ * word out of `BASELINE_KINDS` and every refusal here is about a number. It is free for the same
+ * reason and follows the same absent-unless-named rule.
  */
 export const ESTIMATOR_KEYS = Object.freeze(["halfLife", "lambda"]);
+
+/**
+ * The baselines a held collection's advantages may be taken against, and the reason they are free.
+ *
+ * An advantage is a return less a baseline, and **a baseline is read after the bouts**. It does not
+ * enter an action, it does not enter a log-probability, and under `--hold` it does not enter the
+ * weights either -- so it is free along exactly the axis a reward coefficient and a credit horizon
+ * are free along, and the third question this file can ask of one collection is *what should the
+ * return have been compared against*.
+ *
+ * That question is worth asking here because the instrument has already answered it once without
+ * being asked. The **critic** block of every row in this record has a cosine between 0.92 and 0.99
+ * while the **actor** block beside it, over the same asks of the same bouts, has a cosine of a few
+ * hundredths. `measureSignal` says what that means in the sentence it was written under: a rollout
+ * whose actor cosine is a few hundredths while its critic cosine is high is a rollout with plenty
+ * of data in it and an objective that is not using it. A critic whose own gradient is that
+ * consistent is a long way from the returns it is regressing on, and every advantage the actor is
+ * weighted by is a return less that critic's guess.
+ *
+ * **Five kinds, and the last two are upper bounds rather than proposals.**
+ *
+ * - `critic` is the run's own value net, which is what a production fit uses and what the row's
+ *   unqualified cosine already is. It is here so a grid can name it and check the identity.
+ * - `zero` takes no baseline at all: the advantage is the discounted return. It is the floor of the
+ *   comparison -- whatever a baseline is worth, it is worth against this.
+ * - `time` is the mean return at the same position within a bout, over the whole collection. It
+ *   knows nothing about the fight except how far into it the ask was, which is the one thing a
+ *   discounted return is guaranteed to depend on.
+ * - `body` is the mean return over the asks of every episode that drew the same build. The body is
+ *   drawn before the bout and no action changes it, so it is exogenous by construction, and a
+ *   baseline that removes it removes variance the policy could never have been credited for.
+ * - `linear` is the least-squares fit of the return on the seventy-one normalised columns, taken
+ *   **in sample** on the very collection it is then used on. That is optimistic on purpose: it is
+ *   not a critic anybody could train, it is the best a linear critic could possibly have done
+ *   here, and an arm that does not move under it is an arm no linear baseline was going to save.
+ *
+ * **The honest way to read a baseline arm is at `lambda` 1**, and a grid that means to compare
+ * baselines should say so. At a lambda below one the recursion in `advantages` mixes the n-step
+ * returns and the baseline enters as a bootstrap as well as a control variate, so two baselines
+ * differ in what they estimate and not only in how noisily they estimate it. At `lambda` 1 the
+ * value terms telescope, the advantage is the discounted return less the baseline at that ask, and
+ * the comparison is the one a control variate is supposed to be about. Both readings are available
+ * -- `lambda` is already a key an arm may name -- and a pre-registration says which it quotes.
+ */
+export const BASELINE_KINDS = Object.freeze(["critic", "zero", "time", "body", "linear"]);
+
+/**
+ * How many buckets of position-within-episode the `time` baseline averages the return over.
+ *
+ * Twenty, against episodes of a few hundred asks, so a bucket holds tens of asks from every episode
+ * in the collection and its mean is over bouts rather than over neighbours within one bout. The
+ * number is a named constant because it is the one arbitrary quantity in the baseline set and a
+ * reader is entitled to find it rather than infer it from a literal in a floor division.
+ */
+export const BASELINE_BUCKETS = 20;
+
+/**
+ * The ridge added to the diagonal of the normal equations before the `linear` baseline is solved.
+ *
+ * Seven of the seventy-one columns are identically zero after `normalise` -- the dead columns the
+ * signal set found -- so the design matrix is singular by construction and a solve without a ridge
+ * would meet a zero pivot on the first of them. The ridge is small against the diagonal a live
+ * column contributes, which is of the order of the count of asks, so it regularises the columns
+ * that need it and is invisible on the ones that do not.
+ */
+export const LINEAR_RIDGE = 1e-6;
+
+/**
+ * The discounted return of every ask, with no baseline in it anywhere.
+ *
+ * `advantages` at `lambda` 1 against a baseline of zeros is exactly this sum -- the value terms it
+ * would otherwise bootstrap through are all zero -- so the return the baselines below are fitted to
+ * is computed by the same recursion the fit itself runs, under the same per-window discount, and
+ * not by a second implementation of it that could disagree with the first.
+ */
+export function mcReturns(rollout, halfLife) {
+  const zeros = new Float64Array(rollout.count);
+  return advantages(rollout, zeros, { halfLife, lambda: 1 }).advantage;
+}
+
+/**
+ * Each ask's position within its own episode, from 0 at the first to 1 at the last.
+ *
+ * The same `done` walk `askBouts` and `askClasses` take, refused on the same identity: a rollout
+ * whose flags do not close at its last ask is one whose episodes this cannot recover, and a
+ * position silently off by an episode would read as a baseline that knows something.
+ */
+export function askPositions(rollout) {
+  const at = new Float64Array(rollout.count);
+  let start = 0;
+  for (let i = 0; i < rollout.count; i += 1) {
+    if (rollout.done[i] !== 1) continue;
+    const length = i - start + 1;
+    for (let k = start; k <= i; k += 1) at[k] = length === 1 ? 0 : (k - start) / (length - 1);
+    start = i + 1;
+  }
+  if (start !== rollout.count) {
+    throw new Error(`the done flags leave ${rollout.count - start} asks in no closed episode`);
+  }
+  return at;
+}
+
+/**
+ * The mean of a per-ask quantity within each group, written back one value an ask.
+ *
+ * Two passes and a map rather than a sort, because the keys are strings on one axis and small
+ * integers on another and the only thing wanted of them is equality.
+ */
+export function groupedMeans(keys, values, count) {
+  const cells = new Map();
+  for (let i = 0; i < count; i += 1) {
+    const cell = cells.get(keys[i]);
+    if (cell === undefined) cells.set(keys[i], { sum: values[i], n: 1 });
+    else { cell.sum += values[i]; cell.n += 1; }
+  }
+  const out = new Float64Array(count);
+  for (let i = 0; i < count; i += 1) {
+    const cell = cells.get(keys[i]);
+    out[i] = cell.sum / cell.n;
+  }
+  return out;
+}
+
+/**
+ * `A x = b` for a symmetric positive definite `A` held as its upper triangle, by Cholesky.
+ *
+ * The factorisation is written into its own lower-triangular array, so the caller keeps the matrix
+ * it accumulated and a second solve against it is the same solve. A non-positive pivot is refused
+ * by name rather than square-rooted into a NaN that would travel all the way into a cosine.
+ */
+export function solveCholesky(upper, rhs, p) {
+  const l = new Float64Array(p * p);
+  for (let r = 0; r < p; r += 1) {
+    for (let c = 0; c <= r; c += 1) {
+      let sum = upper[c * p + r];
+      for (let k = 0; k < c; k += 1) sum -= l[r * p + k] * l[c * p + k];
+      if (c === r) {
+        if (!(sum > 0)) throw new Error(`the normal equations are singular at column ${r}`);
+        l[r * p + r] = Math.sqrt(sum);
+      } else {
+        l[r * p + c] = sum / l[c * p + c];
+      }
+    }
+  }
+  const y = new Float64Array(p);
+  for (let r = 0; r < p; r += 1) {
+    let sum = rhs[r];
+    for (let k = 0; k < r; k += 1) sum -= l[r * p + k] * y[k];
+    y[r] = sum / l[r * p + r];
+  }
+  const x = new Float64Array(p);
+  for (let r = p - 1; r >= 0; r -= 1) {
+    let sum = y[r];
+    for (let k = r + 1; k < p; k += 1) sum -= l[k * p + r] * x[k];
+    x[r] = sum / l[r * p + r];
+  }
+  return x;
+}
+
+/**
+ * The in-sample least-squares fit of a per-ask return on the normalised observation, plus a bias.
+ *
+ * The normal equations are accumulated in one pass over the asks and solved by a Cholesky
+ * factorisation, which is the right decomposition for a matrix that is symmetric positive
+ * semi-definite by construction and, with `LINEAR_RIDGE` on the diagonal, positive definite. A
+ * column `normalise` zeroed contributes nothing to a row of the matrix and takes the ridge alone,
+ * so its coefficient comes back at zero rather than at whatever a singular solve would produce.
+ *
+ * The cost is one pass over the collection for the accumulation -- seventy-two squared over two
+ * multiply-adds an ask -- and a solve that is seventy-two cubed over six and disappears beside it.
+ * It is paid per arm rather than once a run, because the return it fits depends on the arm's own
+ * table and on its own half-life, and a baseline fitted to another arm's returns is a control
+ * variate for a quantity nobody estimated.
+ */
+export function linearBaseline({ rollout, returns, norm, ridge = LINEAR_RIDGE }) {
+  const width = rollout.width;
+  const p = width + 1;
+  const a = new Float64Array(p * p);
+  const b = new Float64Array(p);
+  const raw = new Float64Array(width);
+  const row = new Float64Array(p);
+  for (let i = 0; i < rollout.count; i += 1) {
+    for (let k = 0; k < width; k += 1) raw[k] = rollout.x[i * width + k];
+    normalise(raw, norm, row);
+    row[width] = 1;
+    for (let r = 0; r < p; r += 1) {
+      const value = row[r];
+      if (value === 0) continue;
+      for (let c = r; c < p; c += 1) a[r * p + c] += value * row[c];
+      b[r] += value * returns[i];
+    }
+  }
+  for (let r = 0; r < p; r += 1) a[r * p + r] += ridge;
+  const beta = solveCholesky(a, b, p);
+  const out = new Float64Array(rollout.count);
+  for (let i = 0; i < rollout.count; i += 1) {
+    for (let k = 0; k < width; k += 1) raw[k] = rollout.x[i * width + k];
+    normalise(raw, norm, row);
+    let sum = beta[width];
+    for (let k = 0; k < width; k += 1) sum += beta[k] * row[k];
+    out[i] = sum;
+  }
+  return out;
+}
+
+/**
+ * One arm's baseline, one value an ask, built out of the collection and the arm's own returns.
+ *
+ * `critic` is handed through rather than recomputed, because the value net's forward pass reads
+ * observations and not rewards and is therefore the same vector for every arm in a grid -- which is
+ * the same argument `probeRollout` already makes for taking it once above the arm loop.
+ */
+export function baselineOf({ kind, rollout, returns, critic, norm, buckets = BASELINE_BUCKETS }) {
+  if (!BASELINE_KINDS.includes(kind)) {
+    throw new Error(`baselineOf ${kind}; this build takes ${BASELINE_KINDS.join(", ")}`);
+  }
+  if (kind === "critic") return critic;
+  if (kind === "zero") return new Float64Array(rollout.count);
+  if (kind === "time") {
+    const at = askPositions(rollout);
+    const keys = new Array(rollout.count);
+    for (let i = 0; i < rollout.count; i += 1) {
+      keys[i] = Math.min(buckets - 1, Math.floor(at[i] * buckets));
+    }
+    return groupedMeans(keys, returns, rollout.count);
+  }
+  if (kind === "body") return groupedMeans(askClasses(rollout, "build"), returns, rollout.count);
+  return linearBaseline({ rollout, returns, norm });
+}
 
 /**
  * The reward tables one held collection is to be priced under, read out of a file and checked.
@@ -858,7 +1108,10 @@ export const ESTIMATOR_KEYS = Object.freeze(["halfLife", "lambda"]);
  * pointed at afterwards.
  *
  * An arm may also name `halfLife` or `lambda`, which are not coefficients and are free for the same
- * reason the coefficients are; see `ESTIMATOR_KEYS`.
+ * reason the coefficients are; see `ESTIMATOR_KEYS`. And it may name `baseline`, which is what its
+ * advantage is taken against; see `BASELINE_KINDS`. So one file can ask for a table, a credit
+ * horizon and a baseline in any combination, which is the point of all three being free: a sweep
+ * over the estimator and a sweep over the objective are one collection and not two nights.
  *
  * Every refusal here is one this project has already paid for once. A key that is not a reward row
  * is refused **by name** rather than ignored, because a table silently missing the row a sweep was
@@ -892,11 +1145,22 @@ export function rewardArms(spec, base = GOLEM_REWARD, what = "--rewards") {
     const estimator = {};
     for (const [key, value] of Object.entries(entry)) {
       if (key === "label") continue;
+      // The one key whose value is a word rather than a number, and it is taken before the numeric
+      // refusals below rather than exempted from them afterwards: a baseline is a kind out of a
+      // closed list, so what it needs is the list, and what a coefficient needs is finiteness.
+      if (key === "baseline") {
+        if (!BASELINE_KINDS.includes(value)) {
+          throw new Error(`${what} arm "${label}" takes its advantage against "${value}"; `
+            + `this build baselines on ${BASELINE_KINDS.join(", ")}`);
+        }
+        estimator.baseline = value;
+        continue;
+      }
       const estimated = ESTIMATOR_KEYS.includes(key);
       if (!estimated && !REWARD_KEYS.includes(key)) {
         throw new Error(`${what} arm "${label}" sets "${key}", which is not a reward row; `
           + `this build pays ${REWARD_KEYS.join(", ")} and estimates over `
-          + `${ESTIMATOR_KEYS.join(", ")}`);
+          + `${ESTIMATOR_KEYS.join(", ")}, baseline`);
       }
       if (typeof value !== "number" || !Number.isFinite(value)) {
         throw new Error(`${what} arm "${label}" sets ${key} to ${value}, which is not a coefficient`);

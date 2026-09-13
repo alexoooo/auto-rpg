@@ -175,6 +175,53 @@
 // is under four fifths of the vector -- which makes the limitation checkable without making it
 // false.
 //
+// **The baseline axis added fourteen more on 2026-09-13.** An advantage is a return less a
+// baseline, and a baseline is read after the bouts -- so it is the third quantity one held
+// collection can be re-priced under, and the first whose value is a word rather than a number. Two
+// of the five kinds are least-squares fits rather than lookups, so a third of the table is about
+// arithmetic no other axis in this file needed:
+//
+// | mutation | what went red |
+// |---|---|
+// | the Monte-Carlo return is taken at the run's lambda rather than at 1 | the return test |
+// | a position is divided by the episode's length, so no ask is ever at its end | the position test |
+// | the position walk does not restart, so it runs over the whole rollout | the position test, the time test and the end-to-end row |
+// | a grouped mean writes its group's sum rather than its mean | the grouped-mean test, the time test and the body test |
+// | the linear fit carries no intercept | the plane test |
+// | the normal equations are solved without the ridge on the diagonal | the dead-column test |
+// | the Cholesky reads the lower triangle of a matrix held as its upper | the solve test and the plane test |
+// | a non-positive pivot is called zero rather than refused | the singular test |
+// | an unknown baseline kind falls through to the linear fit rather than being refused | the kind test |
+// | the time baseline is grouped by the ask's own index rather than by its position | the time test |
+// | the body baseline groups by the episode's terminal rather than by its build | the body test |
+// | an arm's baseline is read and then not used, so every arm runs the row's critic | the end-to-end row |
+// | a baseline is reported on every arm rather than only on the arm that named one | the end-to-end row |
+// | an arm's baseline word is not checked, so it lands in the reward table | the arm-rows test and the end-to-end row |
+//
+// **One of the fourteen was green the first time, for the third time in this file, and the mistake
+// was the same mistake twice removed.** The body fixture's three episodes drew `mace`, `draw-2`
+// and `mace` -- whose *terminals* are `mace`, `maul` and `mace` -- so grouping by build and
+// grouping by terminal produced the same cells and the two spellings could not be told apart. It
+// draws three builds over two terminals now. The lesson this file has recorded twice already is
+// that a mutation must be read back and confirmed to be the mistake it claims to be; what this row
+// adds is that a *fixture* has to be built so the two axes it distinguishes actually disagree on
+// it, and that is a different thing to check and it is checked in the same sitting.
+//
+// **The plane test is the strongest assertion available about a fit, and it is why it is written
+// that way.** A least-squares baseline over a rollout of noise can only be asserted to have
+// returned numbers; over a rollout whose return *is* a plane through the normalised columns it has
+// an exact answer, and landing on it to six decimal places pins the accumulation, the ridge, the
+// factorisation, both triangular solves and the intercept at once. The dead-column test is its
+// complement: it asserts what the fit does *not* read, by writing a million into a zeroed column
+// and requiring the baseline not to move.
+//
+// **What no mutation here can reach.** Whether any of the five is the right baseline. `critic` is
+// what production uses, `zero` is the absence of one, and `time`, `body` and `linear` are three
+// guesses at what an advantage should have been compared against -- two of them fitted in sample
+// on the very collection they are then used on, which is optimistic by construction and is the
+// point. That a baseline is *free* is the same claim the reward arms rest on and is false the
+// moment a run fits; a grid of baselines is a diagnostic and nothing here asserts otherwise.
+//
 // **What no mutation here can reach, and it is the claim the sweep rests on.** That a reward
 // coefficient does not change how a *held* policy acts is a fact about the collectors, which this
 // file does not run: a body draws from weights that do not move, so the collection is the same
@@ -205,9 +252,10 @@ import {
   ppoFit, priceRollout, standardisedAdvantages, valuesOf,
 } from "../scripts/train-ppo.mjs";
 import {
-  CLASS_AXES, PROBE_ENTROPY, PROBE_EPOCH, askBouts, askClasses, boutBlocks, boutGradients, checkHeldStart,
-  classBlocks, cosineOf, dotOf, epochOrder, halfGradients, halfSplit, headGroups, headNorms, headRows,
-  headSignal, measureBonus, measureSignal, normOf, parseClasses, probeRollout, rewardArms, shareOf,
+  CLASS_AXES, PROBE_ENTROPY, PROBE_EPOCH, askBouts, askClasses, askPositions, baselineOf, boutBlocks,
+  boutGradients, checkHeldStart, classBlocks, cosineOf, dotOf, epochOrder, groupedMeans, halfGradients,
+  halfSplit, headGroups, headNorms, headRows, headSignal, linearBaseline, mcReturns, measureBonus,
+  measureSignal, normOf, parseClasses, probeRollout, rewardArms, shareOf, solveCholesky,
 } from "../scripts/gradient-probe.mjs";
 
 const SEED = 20260917;
@@ -1538,6 +1586,270 @@ test("a_probe_row_carries_the_head_cut_and_its_arms_do_not", { timeout: 300_000 
     assert.deepEqual(cut.priced.map((a) => a.cosine), bare.priced.map((a) => a.cosine));
     assert.throws(() => probeRollout({ ...common, layout: LAYOUT }), /both a layout and a head spec/);
     assert.throws(() => probeRollout({ ...common, spec: GAUSSIAN_HEAD }), /both a layout and a head spec/);
+  } finally {
+    await pool.close();
+  }
+});
+
+// ---------------------------------------------------------------------------------------
+// The baseline an advantage is taken against, which is the third thing a held collection is free
+// to be re-priced under and the first one whose value is a word rather than a number.
+// ---------------------------------------------------------------------------------------
+
+/**
+ * A rollout carrying only what a return and a baseline read: rewards, window lengths and `done`.
+ *
+ * The rewards are a fixed little sequence rather than a draw, because every assertion below is a
+ * sum whose answer is worth being able to work out by reading the fixture.
+ */
+function returning(lengths, rewards, seconds = 0.5) {
+  const count = lengths.reduce((a, b) => a + b, 0);
+  assert.equal(rewards.length, count, "the fixture pays a reward an ask");
+  const done = new Uint8Array(count);
+  let at = 0;
+  for (const length of lengths) { at += length; done[at - 1] = 1; }
+  return {
+    count, episodes: lengths.length, done,
+    reward: Float64Array.from(rewards),
+    seconds: new Float64Array(count).fill(seconds),
+  };
+}
+
+/**
+ * The Monte-Carlo return is the discounted sum of what an episode paid from that ask onwards.
+ *
+ * Taken against a hand-written double loop rather than against another recursion, and with a
+ * half-life that makes the discount a number a reader can carry: a window of 0.5 s under a
+ * half-life of 0.5 s is a gamma of exactly one half.
+ */
+test("the_monte_carlo_return_is_the_discounted_sum_of_an_episodes_own_rewards", () => {
+  const rollout = returning([3, 2], [1, 2, 4, -1, 8]);
+  const got = mcReturns(rollout, 0.5);
+  // gamma is 2^(-0.5/0.5) = 0.5, and the sum stops at the end of the episode and not of the array.
+  const want = [1 + 2 / 2 + 4 / 4, 2 + 4 / 2, 4, -1 + 8 / 2, 8];
+  for (let i = 0; i < want.length; i += 1) {
+    assert.ok(Math.abs(got[i] - want[i]) < 1e-12, `ask ${i} returned ${got[i]} against ${want[i]}`);
+  }
+  // The property the arithmetic above is one instance of, and the reason `mcReturns` exists: a
+  // baseline of zeros at lambda 1 leaves the advantage equal to the return, so any later spelling
+  // of the discount that disagrees with `advantages` disagrees with the fit as well.
+  const zero = baselineOf({ kind: "zero", rollout, returns: got, critic: null, norm: null });
+  const arm = advantages(rollout, zero, { halfLife: 0.5, lambda: 1 });
+  assert.deepEqual(Array.from(arm.advantage), Array.from(got));
+});
+
+/**
+ * Every episode's asks run from 0 at its first to 1 at its last, and the count restarts at a `done`.
+ *
+ * Three episodes of different lengths, because a fixture of equal ones cannot see a walk that
+ * carries its start across a boundary and a fixture of one cannot see the restart at all.
+ */
+test("an_episodes_asks_run_from_zero_to_one_and_the_position_restarts_at_every_done", () => {
+  const rollout = returning([3, 1, 4], [0, 0, 0, 0, 0, 0, 0, 0]);
+  const got = Array.from(askPositions(rollout));
+  assert.deepEqual(got, [0, 0.5, 1, 0, 0, 1 / 3, 2 / 3, 1]);
+  // An episode of one ask is at position zero and not at a division by zero, which is the edge the
+  // arena actually produces: a bout decided on its first window.
+  assert.equal(got[3], 0);
+});
+
+/** A rollout whose flags leave asks in no closed episode is refused rather than half-walked. */
+test("a_rollout_whose_done_flags_leave_asks_open_is_refused_by_name", () => {
+  const rollout = returning([3, 2], [0, 0, 0, 0, 0]);
+  rollout.done[4] = 0;
+  assert.throws(() => askPositions(rollout), /asks in no closed episode/);
+});
+
+/** A grouped mean writes its group's mean, and writes it to every ask of that group. */
+test("a_grouped_mean_writes_its_groups_mean_to_every_ask_of_that_group", () => {
+  const got = groupedMeans(["a", "b", "a", "a"], Float64Array.from([1, 7, 2, 3]), 4);
+  assert.deepEqual(Array.from(got), [2, 7, 2, 2]);
+});
+
+/** The Cholesky solve answers the vector the matrix was applied to, to the last few bits. */
+test("a_cholesky_solve_answers_the_vector_the_matrix_was_applied_to", () => {
+  const p = 5;
+  const random = mulberry32(SEED + 41);
+  const m = Float64Array.from({ length: p * p }, () => random() * 2 - 1);
+  // `m' m` is symmetric positive semi-definite whatever `m` is, and the identity on the diagonal
+  // makes it definite; only the upper triangle is read, so only it is filled.
+  const a = new Float64Array(p * p);
+  for (let r = 0; r < p; r += 1) {
+    for (let c = r; c < p; c += 1) {
+      let sum = r === c ? 1 : 0;
+      for (let k = 0; k < p; k += 1) sum += m[k * p + r] * m[k * p + c];
+      a[r * p + c] = sum;
+    }
+  }
+  const want = Float64Array.from({ length: p }, () => random() * 2 - 1);
+  const b = new Float64Array(p);
+  for (let r = 0; r < p; r += 1) {
+    for (let c = 0; c < p; c += 1) b[r] += a[Math.min(r, c) * p + Math.max(r, c)] * want[c];
+  }
+  const got = solveCholesky(a, b, p);
+  for (let r = 0; r < p; r += 1) {
+    assert.ok(Math.abs(got[r] - want[r]) < 1e-9, `row ${r} solved ${got[r]} against ${want[r]}`);
+  }
+});
+
+/** A matrix with nothing on a pivot is refused by name rather than square-rooted into a NaN. */
+test("a_singular_column_is_refused_by_name_rather_than_carried_into_a_nan", () => {
+  const a = Float64Array.from([1, 0, 0, 0]);
+  assert.throws(() => solveCholesky(a, Float64Array.from([1, 1]), 2), /singular at column 1/);
+});
+
+/**
+ * The linear baseline reproduces a return that is a linear function of the columns it reads.
+ *
+ * The strongest statement available about a least-squares fit is that it is exact where an exact
+ * answer exists, so the fixture's return *is* a plane through the normalised observation and the
+ * baseline has to land on it. A fixture of noise would only assert that the solve returned numbers.
+ */
+test("the_linear_baseline_reproduces_a_return_that_is_a_plane_through_the_columns", () => {
+  const built = fixture(192, SEED + 42);
+  const { rollout, norm } = built;
+  const width = rollout.width;
+  const random = mulberry32(SEED + 43);
+  const beta = Float64Array.from({ length: width }, () => random() * 2 - 1);
+  const intercept = 0.37;
+  const raw = new Float64Array(width);
+  const z = new Float64Array(width);
+  const returns = new Float64Array(rollout.count);
+  for (let i = 0; i < rollout.count; i += 1) {
+    for (let k = 0; k < width; k += 1) raw[k] = rollout.x[i * width + k];
+    normalise(raw, norm, z);
+    let sum = intercept;
+    for (let k = 0; k < width; k += 1) sum += beta[k] * z[k];
+    returns[i] = sum;
+  }
+  const got = linearBaseline({ rollout, returns, norm });
+  for (let i = 0; i < rollout.count; i += 1) {
+    assert.ok(Math.abs(got[i] - returns[i]) < 1e-6,
+      `ask ${i} was fitted at ${got[i]} against the plane's ${returns[i]}`);
+  }
+});
+
+/**
+ * A column `normalise` zeroed takes the ridge alone and moves no coefficient.
+ *
+ * The dead columns of the shipped table are the reason `LINEAR_RIDGE` exists, and the assertion is
+ * the one that matters rather than the one that is easy: the fit does not merely survive a dead
+ * column, it does not *read* it, so writing anything at all into that column of the rollout leaves
+ * the baseline where it was.
+ */
+test("a_dead_column_takes_the_ridge_alone_and_the_baseline_does_not_read_it", () => {
+  const built = fixture(160, SEED + 44);
+  const { rollout } = built;
+  const norm = { count: built.norm.count, mean: [...built.norm.mean], variance: [...built.norm.variance] };
+  norm.variance[3] = 0;
+  const returns = Float64Array.from({ length: rollout.count }, (_, i) => Math.sin(i));
+  const before = linearBaseline({ rollout, returns, norm });
+  for (let i = 0; i < rollout.count; i += 1) rollout.x[i * rollout.width + 3] = 1e6;
+  const after = linearBaseline({ rollout, returns, norm });
+  assert.deepEqual(Array.from(after), Array.from(before));
+});
+
+/**
+ * The time baseline averages over the bouts at a position and not over an ask's own neighbours.
+ *
+ * Two episodes whose returns are wholly different, cut at the same twenty buckets: an ask two
+ * thirds of the way through one episode has to come back with the mean of *both* episodes at two
+ * thirds, which is the only thing that makes this a control variate rather than a smoother.
+ */
+test("the_time_baseline_averages_over_the_bouts_at_a_position", () => {
+  const rollout = returning([4, 4], [0, 0, 0, 0, 0, 0, 0, 0]);
+  const returns = Float64Array.from([1, 2, 3, 4, 11, 12, 13, 14]);
+  const got = baselineOf({ kind: "time", rollout, returns, critic: null, norm: null, buckets: 4 });
+  // Positions are 0, 1/3, 2/3, 1 in both episodes, so the four buckets hold one ask of each --
+  // except the last, which takes position 1 into the top bucket rather than off the end.
+  assert.deepEqual(Array.from(got), [6, 7, 8, 9, 6, 7, 8, 9]);
+});
+
+/** The body baseline is the mean over every episode that drew the same build. */
+test("the_body_baseline_is_the_mean_over_the_episodes_that_drew_the_same_build", () => {
+  const rollout = returning([2, 2, 2], [0, 0, 0, 0, 0, 0]);
+  // Three builds and two terminals, on purpose: a fixture whose builds group the way its
+  // terminals do cannot tell the two axes apart, and the first spelling of this test was one.
+  rollout.bodies = [BODIES[0], BODIES[2], BODIES[1]];
+  const returns = Float64Array.from([1, 3, 10, 10, 5, 7]);
+  const got = baselineOf({ kind: "body", rollout, returns, critic: null, norm: null });
+  // Every episode drew a build of its own, so each keeps its own mean. Grouped by terminal the
+  // first two would be one cell of four asks at 6 and the answer would be 6 six times over.
+  assert.deepEqual(Array.from(got), [2, 2, 10, 10, 6, 6]);
+});
+
+/** The critic baseline is the vector it was handed, and is not rebuilt out of the returns. */
+test("the_critic_baseline_is_the_vector_it_was_handed", () => {
+  const rollout = returning([2], [0, 0]);
+  const critic = Float64Array.from([0.25, -0.5]);
+  const got = baselineOf({ kind: "critic", rollout, returns: null, critic, norm: null });
+  assert.equal(got, critic, "the critic baseline was copied or recomputed rather than passed on");
+});
+
+/** A baseline this build does not have is refused by name rather than defaulted to the critic. */
+test("a_baseline_kind_the_build_does_not_have_is_refused_by_name", () => {
+  const rollout = returning([2], [0, 0]);
+  assert.throws(
+    () => baselineOf({ kind: "oracle", rollout, returns: null, critic: null, norm: null }),
+    /baselineOf oracle; this build takes critic, zero, time, body, linear/,
+  );
+});
+
+/**
+ * An arm may name a baseline, an arm that did not carries no such key, and a word is checked.
+ *
+ * The same absent-unless-named rule the horizon follows, for the same reason: a grid that acquired
+ * a constant field by default would make every row already under tournaments a different row.
+ */
+test("an_arm_names_a_baseline_or_carries_no_such_key_and_an_unknown_word_is_refused", () => {
+  const [named, bare] = rewardArms([
+    { label: "zeroed", baseline: "zero" },
+    { label: "plain", outside: 0.01 },
+  ]);
+  assert.equal(named.baseline, "zero");
+  assert.deepEqual(named.table, { ...GOLEM_REWARD }, "a baseline landed in the reward table");
+  assert.equal("baseline" in bare, false, "an arm that named no baseline carries one anyway");
+  assert.throws(() => rewardArms([{ label: "a", baseline: "oracle" }]), /this build baselines on/);
+  assert.throws(() => rewardArms([{ label: "a", baseline: 4 }]), /this build baselines on/);
+});
+
+/**
+ * A row's arms take their advantages against the baselines they named, and only those.
+ *
+ * The end of the wire, and the same identity-and-difference shape the reward pairing test uses: an
+ * arm naming the run's own critic has to reproduce the row to the last digit -- the baseline is the
+ * one the row was taken under -- and an arm naming anything else has to fail to. One mutation
+ * cannot satisfy both, which is what makes the pair worth more than either.
+ */
+test("a_probe_rows_arms_take_their_advantages_against_the_baselines_they_named", { timeout: 300_000 }, async () => {
+  const built = fixture(256, SEED + 45, { priced: true });
+  const pool = await FitPool.open({ shards: 2, layout: LAYOUT, valueLayout: VALUE });
+  try {
+    const row = probeRollout({
+      pool, rollout: built.rollout, weights: built.weights, valueWeights: built.valueWeights,
+      logSigma: built.logSigma, norm: built.norm, valueLayout: VALUE, seed: SEED + 46,
+      rewards: rewardArms([
+        { label: "shipped" },
+        { label: "same", baseline: "critic" },
+        { label: "none", baseline: "zero" },
+        { label: "when", baseline: "time" },
+        { label: "plane", baseline: "linear" },
+      ]),
+    });
+    const arms = Object.fromEntries(row.priced.map((arm) => [arm.label, arm]));
+    assert.equal(arms.shipped.cosine, row.cosine, "the identity arm did not reproduce its row");
+    assert.equal("baseline" in arms.shipped, false, "an arm that named no baseline carries one");
+    assert.equal(arms.same.baseline, "critic");
+    assert.equal(arms.same.cosine, row.cosine, "the critic arm is the row and did not come back as it");
+    assert.equal(arms.same.dot, row.dot);
+    for (const label of ["none", "when", "plane"]) {
+      assert.notEqual(arms[label].cosine, row.cosine, `the ${label} arm reused the row's advantages`);
+      assert.ok(Number.isFinite(arms[label].cosine), `the ${label} arm came back at ${arms[label].cosine}`);
+    }
+    // And the three of them disagree with each other as well, which is what says the kind was read
+    // rather than a single not-the-critic branch taken three times.
+    const cosines = new Set(["none", "when", "plane"].map((label) => arms[label].cosine));
+    assert.equal(cosines.size, 3, "two baselines of different kinds produced the same gradient");
   } finally {
     await pool.close();
   }
