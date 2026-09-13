@@ -113,7 +113,7 @@ import {
   extendNormalisation, mergeRollouts, mixedSchedule, momentsFromJson, momentsToJson,
   parseEntropyStage, parseOpponentStage, parseSchedule, parseSeparationStage, parseTactics,
   parseTerminals, parseTerminalsStage, poolFor, policyShapeOf, policyTable, poolWord, ppoFit,
-  ratePolicy, renderPolicyModule, scheduled,
+  ratePolicy, renderPolicyModule, scheduled, strokeTally,
 } from "./train-ppo.mjs";
 import {
   ACTION_AXES, POLICY_LAYOUT, POLICY_VERSION, VALUE_LAYOUT, freshNormalisation,
@@ -407,7 +407,10 @@ export async function collectLeague({
   const margins = new Map();
   let margin = 0;
   let decided = 0;
-  for (const row of rows) {
+  // The bout index rides on the part for `strokeTally`'s sake, which has to find the row a part
+  // was recorded off: a league records one corner of each bout and the other corner is whatever
+  // opponent the schedule drew, whose strokes are not this policy's.
+  for (const [bout, row] of rows.entries()) {
     if (row === null) continue;
     if (row.winner !== null) decided += 1;
     const mine = row.left.policy === name ? "left" : "right";
@@ -415,7 +418,7 @@ export async function collectLeague({
     const pack = row.samples?.[mine];
     if (!pack || pack.logp.length === 0) continue;
     if (pack.kind !== "pilot") throw new Error(`a league rollout collected ${pack.kind} samples; PPO reads the pilot columns`);
-    parts.push({ ...pack, side: mine });
+    parts.push({ ...pack, side: mine, bout });
     margin += pack.margin;
     const against = row[theirs].policy;
     if (!margins.has(against)) margins.set(against, []);
@@ -433,6 +436,8 @@ export async function collectLeague({
   rollout.mirrorBouts = split.mirror * 2;
   rollout.randomBouts = split.random * 2;
   rollout.mirrorShare = rows.length === 0 ? 0 : (split.mirror * 2) / rows.length;
+  // What the recorded corner did with a stroke, over the bouts this turn was paid for.
+  rollout.strokes = strokeTally(rows, parts);
   return rollout;
 }
 
