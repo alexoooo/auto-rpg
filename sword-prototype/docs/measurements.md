@@ -23232,3 +23232,62 @@ moves. In particular a winning arm does **not** license training under it: an ar
 table does to the gradient **at a policy that never moved under it**, and a table that pays for
 something a policy does not yet do pays nothing until it does. The two separate the instant the
 weights move. What a winning arm licenses is one training run, stated as its own bar.
+
+### Addendum to the pre-registration, written after one row and before the other nineteen
+
+**Disclosed because it is a peek.** The fencer cell above was started, ran one iteration, and was
+stopped and restarted with five more arms. This says what the one row showed, what was added, and
+why -- before the nineteen rows that decide anything.
+
+The row confirmed prediction 1 on bouts rather than on a fixture: the `shipped` arm's cosine, dot,
+`advantageSd` and critic cosine are the row's own, **exactly**, all four. It also showed that the
+grid as designed cannot answer the question it was written for, and the reason is a mistake in the
+magnitudes that is mine.
+
+| arm | cosine | what the shaping charged, as a share of what the asks paid |
+| --- | --- | --- |
+| `shipped` | -0.1036 | 0.89 % |
+| `no-shaping` | -0.1035 | 0 |
+| `tick` | -0.1037 | 1.19 % |
+| `closing` | -0.1039 | 0.55 % |
+| `outside` | -0.1038 | 1.31 % |
+| `swing` | -0.1064 | 1.21 % |
+| `stall` | -0.1050 | 1.26 % |
+| `engage` | -0.1041 | 1.27 % |
+| `no-win` | -0.0860 | 1.18 % |
+| `damage-only` | -0.0850 | 0 |
+| `win-heavy` | -0.0675 | 0.28 % |
+
+**Eight of the eleven arms are within 0.003 of the arm they were meant to differ from**, and the
+three that move are the three that move the win term. The equalising unit is why. Each swept row
+was set to charge what `idle` charges -- and `idle` charges **three parts in a thousand** of what a
+bout pays. So the grid as designed sweeps a one-per-cent perturbation of the return eleven ways and
+asks whether any of them changes a gradient, which is a question whose answer was available from
+the calibration table without running anything. The pre-registration reasoned about the unit and
+never asked how big the unit was.
+
+**Five arms are added, each charging seventy times what `idle` charges**, which puts it near thirty
+per cent of what a bout pays: `tick-loud`, `closing-loud`, `outside-loud`, `swing-loud` and
+`engage-loud`, at seventy times the magnitudes in the table above. Nothing else changes -- the same
+eleven arms, the same two cells, the same twenty iterations, the same seed, the same checkpoints.
+
+**And they are the control the design was missing, which is worth more than the correction.** A
+loud `outside` charge is the easiest learning signal this arena can express: it is paid **every
+ask**, it is a direct function of where the body is standing, and it needs no credit assignment
+across a stroke or back from an outcome. The win term at the other end is one number an episode,
+sixty seconds and several hundred asks after the actions that earned it. So the loud arms turn
+this grid into a question the eleven could not ask:
+
+> **Is the actor's gradient flat because the reward is sparse, or is it flat whatever the reward is?**
+
+If a dense per-ask charge that dominates the return produces a gradient the same bouts can measure,
+then the estimator works and the record's problem is credit assignment over a sparse outcome -- and
+`--opponent idle`, the reward table, and the abort gate are all downstream of that one sentence. If
+even that gradient is flat, **the reward is not the variable at all**, and no rearrangement of eight
+coefficients was ever going to be.
+
+**The falsifier moves with it**, and this is the stronger form of the one above: if
+`outside-loud` -- a dense, immediate, action-determined charge worth a third of the return --
+does not clear the shipped arm's bouts-for-cosine-0.5 by a factor of two against `golem-fencer`,
+then the reward table is eliminated as the explanation and so is reward sparsity, and the remaining
+suspects are the behaviour policy and the estimator itself.
