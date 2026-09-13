@@ -28826,3 +28826,167 @@ instead, exercises the falsifier's **fires** branch.
 **None of this is Experiment I.** Its two paid cells are not on disk, and nothing of Experiment G's
 head cut has been opened. What is established is that when the cells land, five predictions and a
 falsifier are a command line rather than an evening.
+
+## Experiment G, complete -- 2026-09-13: the horizon buys nothing, the bootstrap buys an order of magnitude, and prediction 5 has the sign backwards
+
+`gradhorizon-idle-128.jsonl` reached its twentieth iteration and the embargo written on 2026-09-13
+lifted with it. Everything below was read after that line landed and not before: seventeen arms,
+two cells, twenty iterations of 128 bouts each, fit seed 20260917, scored with one command --
+
+```
+node armfit.mjs --predict shipped,half-64,half-64-lambda-100,lambda-0
+  --idle tournaments/gradhorizon-idle-128.jsonl
+  tournaments/gradhorizon-idle-128.jsonl tournaments/gradhorizon-fencer-128.jsonl
+```
+
+-- which is the reader armed four commits ago, on Experiment H's lesson, before either cell could
+be read. **Scoring was a command line rather than an evening**, and the verdicts below are its
+output rather than a composition of two printouts.
+
+### The six verdicts
+
+| # | as registered | verdict | the number |
+| --- | --- | --- | --- |
+| 1 | `shipped` reproduces the row's own cosine iteration by iteration | **met** | 20 rows, 4 fields, zero mismatches, both cells |
+| 2 | `shipped` reproduces Experiment E's `shipped` arm across two runs | **met** | 20 rows, 5 fields, zero mismatches, both cells, to the last digit |
+| 3 | `half-64` alone does not clear `shipped`'s floor by 2x on either cell | **met** | 1.18x against `idle`, 0.86x against `golem-fencer` |
+| 4 | `half-64-lambda-100` clears `shipped`'s floor by 2x against `idle` | **missed** | 1.24x |
+| 5 | `lambda-0` is the worst arm on both cells, worse than `shipped` by 2x | **missed, and backwards** | it is the **best** arm on both, at 8.32x and 37.72x |
+| -- | the falsifier: no arm on either cell clears `shipped`'s floor by 2x | **does not fire** | ten arm-cell readings clear it, four of them at t >= 6.6 |
+
+Predictions 1 and 2 were scored on the fencer cell in the partial entry above and are now scored on
+the idle cell as well: `cosine`, `dot`, `firstNorm` and `secondNorm` of the `shipped` arm equal the
+row's own in all twenty iterations, and all five fields equal `gradreward-idle-128`'s `shipped` arm
+in all twenty. **Two separate runs, a different arm list apart, agreeing to the last digit on both
+cells.** The probe's collection is a deterministic function of the seed, the checkpoint, the bout
+count and the pool, as registered, and the two grids may be read against each other.
+
+### The result, which is a single column
+
+| arm | `halfLife` / `lambda` | cosine, `idle` | floor | vs shipped | cosine, `golem-fencer` | floor | vs shipped |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `lambda-100` | run's / 1 | +0.0753 | 1064 | 0.74x | -0.0232 | 5906 | 0.64x |
+| `shipped` | 4 / 0.95 | +0.0973 | 789 | 1.00x | -0.0116 | 3796 | 1.00x |
+| `lambda-80` | run's / 0.8 | +0.1481 | 548 | 1.44x | +0.0460 | 1409 | 2.69x |
+| `lambda-50` | run's / 0.5 | +0.2782 | 240 | 3.29x | +0.2343 | 337 | 11.25x |
+| `lambda-0` | run's / 0 | +0.4823 | **95** | **8.32x** | +0.4892 | **101** | **37.72x** |
+
+**Monotone in `lambda` on both cells, over the whole range, with the shipped setting sitting where
+its value says it should.** The floor is the bouts a half-to-half cosine of 0.5 would cost; `lambda`
+at zero prices that at 95 bouts against `idle` where the shipped estimator prices it at 789, and at
+101 bouts against `golem-fencer` where the shipped estimator prices it at 3,796.
+
+The sharpest sentence the two cells support is about the fencer cell alone:
+
+> **At the shipped estimator there is no measurable actor gradient against `golem-fencer` at 128
+> bouts** -- `shipped` reads a dot of -2.553e-3 +-5.47e-3, t **-0.47**, a cosine of **-0.0116** --
+> **and no half-life fixes it**: the entire half-life column sits between t -0.66 and t +1.21. At
+> `lambda` 0 the same checkpoint, the same opponent and the same 128 bouts read t **9.47**.
+
+### The half-life, which is the axis the experiment was named after and bought nothing
+
+| the half-life sweep, `lambda` at the run's 0.95 | 0.5 | 1 | 2 | 4 (shipped) | 8 | 16 | 64 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| vs shipped, `idle` | 0.90x | 0.84x | 0.89x | 1.00x | 1.09x | 1.14x | 1.18x |
+| vs shipped, `golem-fencer` | 2.39x | 1.72x | 1.23x | 1.00x | 0.91x | 0.88x | 0.86x |
+
+A hundred-and-twenty-eight-fold range of discount, and the readings move by less than a fifth on
+the idle cell -- monotone, in opposite directions on the two cells, which is what a column of noise
+around one looks like. `half-64` against `half-64-lambda-100` was registered as *the pair that
+carries the argument*; they read 1.18x and 1.24x, six per cent apart. **The trace was never the
+binding constraint**, which is what prediction 3 said and is the one risky prediction that held.
+
+### Prediction 5, which is wrong in direction rather than in size
+
+It was registered with its reasoning attached: *a one-step return against a critic at -0.790
+explained variance is an advantage made almost entirely of the critic's error.* The arm predicted
+to be worst by at least a factor of two is better than `shipped` by 8.32x and 37.72x, and the
+**worst** arm on both cells is `lambda-100`, the undiscounted Monte Carlo return this design was
+built around. The prediction is missed on its first half (worst arm) and on its second (by 2x), and
+the ordering it asserts is reversed end to end.
+
+**A prediction that is wrong in direction is worth more than one that is wrong in size**, and this
+one names its own mechanism -- which is what makes the next paragraph checkable rather than a
+story.
+
+### The mechanism this is consistent with, and why it is not yet a finding about learning
+
+The statistic is the dot of two half-batch gradients: it measures how **reproducible** a gradient
+estimate is across a split of the same bouts. It does not measure whether the gradient points
+anywhere useful. An estimator that leans on a quantity which is **identical in both halves by
+construction** scores well on it for free -- and at `lambda` 0 the advantage is
+`r + gamma V(s') - V(s)`, in which `V` is one fixed critic shared by both halves.
+
+Four readings in this run are what that mechanism predicts, and all four are in the logs:
+
+| reading | `shipped` | `lambda-0` |
+| --- | --- | --- |
+| actor cosine, `idle` | +0.0973 | +0.4823 |
+| actor cosine, `golem-fencer` | -0.0116 | +0.4892 |
+| the critic's own gradient norm, `idle` | 0.01115 | 0.00576 |
+| the critic's own gradient norm, `golem-fencer` | 0.03033 | 0.00916 |
+
+**`lambda-0`'s cosine is the same number against two opponents that differ by everything** -- 0.4823
+and 0.4892, apart by 1.4 % -- while every other arm's collapses between them; the shipped arm's goes
+from +0.097 to -0.012. A gradient whose reproducibility does not notice which opponent produced the
+bouts is not obviously reading the bouts. And the one-step target is the one the critic already
+predicts: its own gradient is half to a third as long under `lambda-0`, on both cells.
+
+The row's critic is determined 400 times better than its actor -- a floor of **2 bouts** against
+789 -- so there is plenty there to lean on. **This experiment cannot separate *the estimator is
+better* from *the estimator has been handed to the critic*.** Nothing in the probe can: it prices
+reproducibility, and a biased estimator with a small variance is exactly the thing that wins on
+reproducibility. Saying so here is not a hedge; it is the reason the next experiment is a fit and
+not another probe.
+
+### What it prices, and the single run the registration says it licenses
+
+The registration's closing clause is *what a winning arm licenses is one training run, stated as
+its own bar*, and no default moves: `halfLife` and `lambda` stay at 4 and 0.95 in `ppoFit`'s
+signature and in both CLIs. What the floor column prices is that run:
+
+| | `shipped` | `lambda-0` |
+| --- | --- | --- |
+| bouts for a half-cosine, `idle` | 789 | 95 |
+| bouts for a half-cosine, `golem-fencer` | 3796 | 101 |
+
+Every bar this project has stated against `golem-fencer` was stated on a gradient the probe now
+says was not measurable at the bout count it was collected at. **8.3x and 37.6x** is the size of
+the sample an estimator would stop wasting -- *if* the direction survives, which is what a fit
+would say and this does not.
+
+### The null side, which here is an arm rather than an arithmetic
+
+Predictions 3 and 4 are both *did not clear 2x* verdicts, and the usual question -- what effect
+could this design have caught -- has an unusually direct answer on these cells. **It caught four.**
+`lambda-50` reads 3.29x and 11.25x, `lambda-0` 8.32x and 37.72x, `half-64-lambda-0` 8.44x and
+38.33x, `outside-loud` 3.81x, all in the same twenty iterations of the same cells against the same
+baseline. A 2x floor ratio is not near this design's resolution: the design resolved eight times
+that, four times over, and `half-64` and `half-64-lambda-100` did not produce it.
+
+The `*` in the reader's table is family-wise: seventeen arms at 19 df put two sigma somewhere in a
+true-null grid 40 % of the time, so it wants t **3.09**, and the smallest signal an arm on the idle
+cell would catch four times in five at that threshold runs from 1.35e-2 to 1.02e-1. `lambda-0` is
+at 1.89e-1.
+
+### What no measurement here can reach
+
+**Whether the `lambda-0` gradient points anywhere.** Reproducibility is not correctness, and the
+paragraph above names a mechanism by which a wrong-but-consistent estimate would read exactly like
+this one. Only a fit settles it.
+
+**Whether any of this survives the policy moving.** The registration's own caveat, unchanged: *the
+estimator and the policy separate the instant the weights move.* Every number here is taken at a
+policy that never trained under the estimator being priced.
+
+**The behaviour policy, which is still in the way.** Stroke completion on these cells is **4.4 %**
+against `idle` and **1.8 %** against `golem-fencer`, at a drawn read, over 21,158 and 14,806
+strokes started an iteration. The falsifier's two surviving suspects were the behaviour policy and
+the score function; this result eliminates neither, because an estimator that finds gradient in a
+body which finishes one stroke in fifty-five has found gradient in a body which finishes one stroke
+in fifty-five.
+
+**The critic's explained variance in this run.** The probe collects and prices without fitting, so
+`explained`, `kl` and `epochsRun` are null in all forty rows. The -0.790 that prediction 5's
+reasoning rests on is the calibration's number, at a different checkpoint, and is quoted here as a
+prior rather than as a measurement of these cells.
