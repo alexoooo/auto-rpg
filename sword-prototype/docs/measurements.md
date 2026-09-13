@@ -26330,3 +26330,178 @@ no log on disk carries a concentration block; objfit.mjs, headfit.mjs and pricef
 P, Q and I are stated on the first three. They are the next thing this queue does, and a reader that
 has not been read this way should be assumed to carry a defect of this family until it has, because
 four of the four readers audited this way so far have carried one.
+
+## The readers, second pass -- 2026-09-13: every pending reader read against its own definitions
+
+The first reader pass ran each pending entry's reader against a real log and read whether it *ran*.
+Experiment O's entry closed on why that is not enough, and the ruler audit above found two more
+defects in the reader it looked at. So every remaining pending reader has now been read the other
+way -- line by line against the definition of the quantity it names -- and four of the five carried
+something. What each of them is stated on is recorded below, defect or not, because "audited and
+found correct" is a result a reader of a pending entry needs as much as the other kind.
+
+### First, the convention the floors all rest on, checked rather than assumed
+
+Four of these readers compute `K = (norm^2 - dot) * n` and a floor `K / (|S|^2 + 2 SE)`, and after
+the step reader's half-order defect the obvious question is what `n` is. It is the **epoch's** bout
+count -- the `bouts` field of an iteration row -- and the check is that `n / (n + K / dot)` must
+reproduce the half-to-half cosine the same row reports:
+
+| cell | `n` | `K / dot` | `n / (n + F)` | the cosine the log reports |
+| --- | --- | --- | --- | --- |
+| gradreward-idle-128 | 128 | 1,132 | 0.1016 | 0.0973 |
+| gradreward-fencer-128 | 128 | -12,478 | -0.0104 | -0.0116 |
+
+Reading `n` as the whole order instead would give 0.1844 against a reported 0.0973, which is not a
+near miss. The convention is right, the readers use it correctly, and that is now a measurement
+rather than an assumption.
+
+### objfit.mjs, Experiment Q: two defects, one of them a verdict waiting to be fabricated
+
+**Prediction 3 is stated on the series' iteration-to-iteration standard deviation and the reader
+used the spread about the series mean.** Those differ, and the difference is not neutral: the
+spread about the mean contains the trend, so an arm with a large slope has a large spread by
+construction and the threshold rises with the very quantity it is meant to qualify. Three readings
+were available and only one is the registered words -- `sdStep`, the spread of successive
+differences. All three are now computed and all three are printed, because the choice is a
+judgement and a reader is owed the other two.
+
+**It changes no verdict, and that was measured before the line was changed** -- which is the only
+thing that makes the correction safe to make at all. Across the five league logs on disk carrying a
+`ret` column the movement over a tenth of the spread runs 1.65 to 18.6, and the three candidate
+spreads never put an arm on different sides of the bar.
+
+**And `penaltyRows?.[row] ?? 0` was not latent.** Seventeen league logs on disk carry no
+`penaltyRows` block at all, three of them real leagues -- league-anchored, league-flat and
+league-pure, 93, 88 and 93 rows. Under that default an arm without the block read as an arm charged
+nothing: every row's slope exactly 0.0000, and the largest-fall search falling through to the first
+name, which is `clinch`, which is **one of the two rows prediction 4 names**. The reader would have
+printed "[prediction 4's pair]" against a log that cannot answer prediction 4 at all. That is not a
+default sitting harmlessly; it is a fabricated verdict waiting for somebody to add an older league
+as an eighth arm. Refused now, by name, along with a league carrying fewer than three `ret` rows.
+
+**A third thing, smaller and still worth removing.** The reader kept the first of two entries
+sharing a name, so which arrangement's `d` entered prediction 2's Spearman depended on the order
+the arms were typed on the command line. A statistic whose value depends on argument order is not
+the statistic that was registered. The duplicate is refused and the caller names the arrangement.
+
+### concfit.mjs, Experiment P: the epoch is cut in three and the floor was priced on halves
+
+This reader's own header said that `n` cancels out of every number it publishes. That is true of
+every **ratio** -- the ranked column, the null column and the quotient are all floors over floors --
+and false of the two absolute floors it prints in bouts.
+
+`halfSplit` cuts an epoch's asks in two and `thirdSplit` cuts the same asks in three, because a
+concentration needs a ranking range disjoint from both measured ranges. A concentration range
+therefore carries two thirds of the samples a half carries, so the floor convention wants `(2/3) n`
+where the reader was passing `n`. **Both printed floors were too large by exactly 3/2**, and the
+header comment asserting that this could not happen is what let it stand. Corrected, and each of
+the two printed floors now names the split it is on -- thirds of 85.3 bouts beside halves of 64.
+
+### And it has now met data, which it never had
+
+No log in this record carries a concentration block, so the reader was written against a shape and
+had never been run. Two were built for it out of `concentrationWithNull` itself -- the production
+emitter, so the field names are the real ones rather than a guess -- over 8,000 synthetic
+coordinates and twenty iterations, with answers known in advance:
+
+* **flat**: constant magnitude in every coordinate, sign at random. There is no concentration
+  anywhere by construction, so the quotient must read one at every fraction.
+* **spiked**: the whole signal in a hundredth of the coordinates and zero in the rest. The quotient
+  must read far below one and climb to exactly one at the row of one.
+
+| p | flat: ranked | flat: null | flat: **quotient** | spiked: ranked | spiked: null | spiked: **quotient** |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0.01 | 0.566 | 0.555 | **1.019** | 0.028 | 0.705 | **0.040** |
+| 0.03 | 0.640 | 0.750 | **0.853** | 0.055 | 0.692 | **0.079** |
+| 0.1 | 0.797 | 0.756 | **1.054** | 0.133 | 1.119 | **0.119** |
+| 0.3 | 0.950 | 0.956 | **0.994** | 0.331 | 1.032 | **0.321** |
+| 1 | 1.000 | 1.000 | **1.000** | 1.000 | 1.000 | **1.000** |
+
+**Both known answers come back.** And the flat cell is the clearer of the two, because its *ranked*
+column reads 0.566 to 0.950 -- nowhere near one -- on a vector containing no concentration
+whatsoever. That is the correction this pre-registration already made in argument, now demonstrated
+end to end: a reader quoting the ranked column would have reported a strong concentration in a
+vector built to have none, and the quotient against the measured null removes it.
+
+**One thing the smoke found that is about the predictions and not the reader.** The flat cell's
+quotients are 1.019, 0.853, 1.054, 0.994 -- scattered about one by about a tenth at twenty
+iterations, and **not monotone**. Prediction 3 is monotonicity in `p`, and reporting "prediction 3
+fails" on a cell with nothing in it would be reporting the absence of the thing prediction 3 is
+about as evidence against it. Monotonicity is a statement about an ordering and a cell with no
+concentration has no ordering. The reader now withholds that verdict, with its reason printed, on a
+cell whose quotients never leave the band the null's own scatter covers. The spiked cell is
+monotone and says so.
+
+**And the closed form now prints beside the measured null** rather than only standing in for it,
+which is the cross-check that caught the step reader. On the flat cell the two agree across the
+table -- 0.555 against 0.609, 0.750 against 0.746, 0.756 against 0.866, 0.956 against 0.944. On the
+spiked cell they diverge, which is expected: the closed form assumes a signal spread evenly and the
+spiked vector is the opposite of that.
+
+### headfit.mjs, Experiment I: audited and correct
+
+The first reader in this pass whose arithmetic was right. Its per-head floors reproduce each head's
+own reported cosine wherever the head has enough signal to pin the comparison -- `standOff` at a
+point of 157 against a reported 0.4500 where `n / (n + F)` gives 0.4494, `advance` 0.1453 against
+0.1450, `parry` 0.1322 against 0.1318 -- and diverge only where `t` is under one, which is a
+ratio-of-means against a mean-of-ratios and not a defect.
+
+Three robustness gaps closed rather than two defects: a log whose rows disagree about their bout
+count is refused instead of read on the first row's; the phrase "the nine axes" was a literal, true
+of every head cut this record has and not a thing the reader knows, and is now the count; and an
+all-unbounded axis set gave `median([])`, which is NaN rather than undefined, so the guard beside it
+never fired and the line printed the word NaN.
+
+### armfit.mjs, Experiment G: two labels that could name the wrong column
+
+No arithmetic defect. Two headers that can come loose from what is under them, which is precisely
+the shape basefit.mjs was caught in. The `vs shipped` column falls back to the row's own gradient
+when no arm is labelled `shipped`, and the header went on saying `shipped`; all four priced logs on
+disk carry such an arm, so it has never fired and would have fired silently. And the horizon column
+reads each arm's half-life, which a grid that is not a horizon grid does not name -- sixteen rows of
+`-/-`. Both are said now: the column is dropped with its reason, and the ratio names its own
+denominator.
+
+### latchfit.mjs and pricefit.mjs, which belong to closed experiments
+
+Read and not changed. latchfit.mjs takes its bout count from the **control** log and applies it to
+both cells, which is wrong the moment the two are collected at different counts and was not on the
+cells Experiment F ran. It is recorded here rather than fixed, because Experiment F is closed and a
+reader nobody is about to quote is not worth a change that would have to be re-verified.
+
+### The peek this pass cost, disclosed in full
+
+Measuring which of the three spreads prediction 3 is stated on meant computing `ret` slopes across
+every league log carrying the column, and smoking the repaired reader meant running it on more than
+one arm. **Both read prospective arms of Experiment Q, and this is what was seen:**
+
+| arm | `ret` per 60 | t | `penaltyShare` per 60 | t |
+| --- | --- | --- | --- | --- |
+| league-long (re-analysis, already read) | 0.0426 | 11.71 | 0.0026 | 3.47 |
+| swing-loud | 3.2384 | 4.16 | -0.0994 | -3.10 |
+| swing-quiet | 0.0242 | 0.37 | -- | -- |
+| latched-fencer | 0.1045 | 1.79 | 0.0027 | 0.46 |
+| budget-128 | 0.1321 | 3.24 | -- | -- |
+
+**What that does and does not spend.** Prediction 1 is a conjunction -- `ret` rising at t over 3
+*and* the paired bar failing to clear two sigma -- and none of the rating logs these arms need is on
+disk, so the second half of it has not been seen on any prospective arm and neither has prediction
+2's final `d`. What has been seen is the first half on four arms and prediction 4's column on two.
+The reader was not altered after any of it: the spread correction was decided by the registered
+*wording*, and it was checked against the data only to establish that it moves no arm across the
+bar, which is the opposite use of a peek from the one that spends a pre-registration.
+
+**It was still avoidable.** The spread question could have been settled on league-long alone, which
+had already been read, and the smoke could have been run on one arm rather than three. It was not,
+and the record's rule is that the reader decides whether a peek mattered rather than the author.
+
+### What this pass does not establish
+
+A reader read against its definitions is not a reader that is right, only one whose arithmetic
+matches what it says it computes. Nothing here checks that the *log* carries what its writer thinks
+it carries -- that is the probe's own audit, done twice above -- and nothing here is a test. These
+are scratchpad readers; they are gitignored, they are not in the suite, and the mutation tables this
+record keeps for its instruments do not cover them. Four of the five pending readers carried
+something, which is a base rate worth writing down for whoever reads the next entry: **the numbers
+in these entries have been through one program that nothing asserts anything about.**
