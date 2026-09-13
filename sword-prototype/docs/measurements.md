@@ -25032,6 +25032,38 @@ complete. It is disclosed for the same reason the power addendum above is: it wa
 looked at, and it changed something. What it changed was a defect and not a bar -- but the
 record's rule is that the reader decides that, not the author.
 
+
+### A second peek, at half the draws, and it is not the result
+
+**The `idle` cell was read again in flight, at four draws of eight, through the entry's own
+reader.** It was read to check that stepfit.mjs works -- it had never been run against a real step
+log, because until tonight there was not one -- and the whole table came out, not just the part
+that would have answered that. Disclosed in full, because the shape of the answer is now
+known to the author before the collection is finished:
+
+| step | the gradient arm | the random arm | paired difference | t | uphill |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 0.02 | +0.0518 +-0.0178 | -0.0156 +-0.0117 | +0.0674 +-0.0206 | 3.27 | 4 of 4 |
+| 0.08 | +0.1350 +-0.0288 | +0.0207 +-0.0162 | +0.1143 +-0.0194 | 5.90 | 4 of 4 |
+| 0.32 | +0.4348 +-0.0751 | -0.0285 +-0.0124 | +0.4633 +-0.0650 | 7.13 | 4 of 4 |
+
+**Nothing about the experiment moves and nothing here is a result.** The registered statistic is
+stated at eight draws and this is four; the entry will be written when the eighth lands and will
+quote that, not this. No cell, step length, prediction, falsifier or disclosure above changes, and
+the reader was not altered after it was run.
+
+**What the peek cost, stated plainly.** A pre-registration is worth what it is worth because the
+analysis is fixed before the data is seen. The analysis here was fixed -- stepfit.mjs was written
+before any draw of this run existed, and it was not touched after this reading -- so what the peek
+spends is not the analysis but the option to have stopped early honestly. That option is now gone on this cell: a
+run that finishes at eight draws cannot later be reported as having been stopped at four. It was
+going to eight regardless, which is why the cost was judged worth paying to find out whether the
+reader worked at all before the collection it was written for had finished.
+
+**And it is the second peek on this cell**, after the single draw that found the sign. Both were
+read for a reason other than the answer and both are recorded because the record's rule is that
+the reader decides whether a peek mattered, not the author.
+
 ## Pre-registration -- 2026-09-13: where in eighty-seven thousand weights the signal is, written before the bouts
 
 Experiment P. Every floor in this record is a floor over all 87,308 actor weights at once. That is
