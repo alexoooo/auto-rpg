@@ -30097,3 +30097,131 @@ The latched idle cell, at three of forty. It carries prediction 1's other identi
 idle checkpoint is the one cell in this experiment whose row clears. **If the latch improves the
 gate floors anywhere, that is where it will show**, and the fencer pair above is a measurement
 taken on a cell that could not have shown it either way.
+
+## The agenda, re-cut -- 2026-09-13: what seven experiments in one night did to the queue that ordered them
+
+Experiments G, I, K, L, Q and R all closed or half-closed between one entry and this one, and S is
+in flight. The agenda they were queued under was written before any of them had a number, and
+three of tonight's results invalidate the reasoning that ordered it. This section says what
+changed, what each of the seven pending items is worth now, and what runs next. **It moves no
+default, collects no bouts and adopts nothing.** It is a reading of a queue.
+
+### The four results that move the queue
+
+**1. The floor is not a budget** -- Experiment L, whose falsifier fired. `c = n / (n + F)` was
+fitted at a *held* policy and the record turned it into a sample-budget arithmetic. Measured
+against a fit, the 32-bout arm buys **16.2x** what the 128- and 256-bout arms buy per bout, where
+the arithmetic says all three are within seven per cent, and the prediction is wrong by a factor
+of 15.8 in direction as well as in size. Every bouts-for-cosine-0.5 figure in this record is a
+statement about **how well determined a gradient is at one frozen checkpoint** and about nothing
+else. That is what the statistic's own name says; it is not what four pre-registrations used it
+for.
+
+**2. The objective and the criterion come apart** -- Experiment Q, prediction 1. On `budget-128`
+the quantity the fit maximises rose at t 3.24 while the paired bar against `golem-fencer` read t
+0.97 on a path that would have caught 0.72x the largest bar movement this record has ever
+measured. And on the one run with four hundred iterations, the return rose at t 11.71 because the
+**charges fell** (`bare` at t -6.56, penalty share at t +3.47) and not because the margin rose.
+
+**3. Sixteen reward tables do not all point one way** -- Experiment R. Experiment E's headline --
+*the reward table is not why the bar does not move* -- is a statement about how sharply the fit is
+pointed and cannot be read as one about where. Five arms of fifteen cross with the row worse than
+two estimates of one direction can, and `swing-loud` crosses at 0.29 of that ceiling.
+
+**4. Against `golem-fencer` there is no actor gradient to find, and forty iterations do not find
+one.** Experiment I's paid fencer cell is now on disk: 40 iterations of 128 bouts under the latch,
+whole actor `|S|^2` at **t 1.38**, and **zero of twelve head groups clear** a family-wise t 2.77.
+Experiment G read the same cell at 20 iterations and t -0.47 at the shipped estimator. The idle
+cell reads t 4.60 with three groups clearing. **The fencer cell is where every bar in this record
+is stated and it is the cell with no measurable signal in it.**
+
+### What that does to the pending queue
+
+| # | item | was | is now |
+| --- | --- | --- | --- |
+| S | `lambda` 0 / 0.5 / 0.95 at 120 iterations | the fit G licenses | **unchanged and running** -- it is the one item tonight did not touch |
+| I | the latched idle head cell | prediction 4's other half | **unchanged**, collecting, 5 of 40 |
+| M | ladderfit's five cells | a reward ladder | **demoted** -- K already measured a seventy-fold sweep of one coefficient and got nothing on the bar |
+| N | the base fan | where in the weight vector the signal sits | **demoted** -- its statistic is the floor, and the floor is not a budget |
+| P | the concentration | the same question, per column | **demoted**, same reason, and no log carries a concentration block yet |
+| O | the step probe | the estimator | **demoted** -- stated in the same unit |
+| -- | the long run chosen against a measured floor | Experiment L's deliverable | **withdrawn** -- L's falsifier removed the thing it would have been chosen against |
+
+**Four of the seven pending items are quoted in a unit that stopped meaning what the queue
+assumed.** They are demoted and not cancelled: as statements about determinacy at a checkpoint
+they are sound, cheap, and would still be worth running on a night with nothing better. There is
+now something better.
+
+### What runs next, in order
+
+**T -- price a designed mind under `GOLEM_REWARD`.** Q's own named follow-on, and the
+highest-value item in the set because it can falsify the entire estimator queue for the cost of a
+few hundred bouts. If `golem-fencer` -- the mind every bar in this record is stated against --
+scores **badly** on the very objective the fit is climbing, then no estimator that finds the
+gradient perfectly will move the criterion, and G, N, O, P and S are all measuring the precision
+of an instrument pointed somewhere else. The cost was put on the record before the result and it
+stands: this needs an **instrument change**, because `recorderKind` hooks only a style, the
+learner, the planner and the champion, and `decisionRecorder` captures the two bars, the clock and
+the end flag but **none of the six shaped quantities the table charges for.** It is the first
+instrument change this agenda has needed and it is the one worth making.
+
+**U -- the small-batch lever, replicated.** L found the only lever in this record that points
+anywhere, and found it on one arm pair at one seed, on a fitted slope that the endpoint reading
+disagrees with about direction. Four arms at 8, 16, 32 and 64 bouts an iteration, **equal total
+sample**, which costs one total budget rather than four; the statistic is the slope per thousand
+bouts that L registered and the reader already prints. If the ordering survives a replication at
+four points it is a real finding about this optimiser; if it does not, L's sixteen-fold reading
+was the shape of twelve noisy points and the record should say so.
+
+**V -- the cell itself, which is the question nobody has asked out loud.** Every bar in this
+record is against `golem-fencer`, the gradient probe says there is nothing measurable there, and
+Experiment A -- sixty iterations against a target that never moves -- produced the first learning
+curve in this record that goes up. The record has been measuring an optimiser on the one cell
+where its signal is below its noise, for thirteen sessions and an agenda. **Whether the criterion
+cell should be one where a gradient is measurable is a decision, not a measurement**, and it is
+the owner's. It is written here so it is on the page rather than in an implication.
+
+**S finishes first** and settles whether `lambda` buys a fit. Its prediction 5 -- whether a curve
+exists past iteration 60 at all -- is now the second most load-bearing number in the queue,
+because every learning claim this record holds is a claim about the first sixty iterations of a
+league.
+
+### The rules this night earned, which are the transferable part
+
+Six, each from a defect found by running new code on a real log rather than by thinking about it:
+
+**A family-wise threshold on `t` alone selects for precision and not for size.** On Experiment R's
+table it ranked a 0.2 % effect above a 44 % one. Every clearing arm now prints its effect as a
+share of the quantity it is a difference of, beside its t.
+
+**The ceiling for a cross-cosine is `sqrt(rA * rR)` and not `rR`.** A cosine between two noisy
+estimates of one direction is attenuated by *both* reliabilities, so an arm better determined than
+the row it is priced against crosses above the row's own cosine while agreeing with it perfectly.
+Experiment R's pre-registration called four such readings impossible and they were four of the
+four best-determined arms in its grid.
+
+**An identity stated on a computed cosine wants its tolerance in ulps.** `cos(v, v)` is one ulp
+low on five of twenty iterations and no arrangement of the code makes it exactly one.
+
+**An *agrees* verdict owes its resolution exactly as a *did not clear* verdict does, and owes it
+harder.** *These two are the same* is worth nothing if the instrument could not have told them
+apart at any size the question cares about. Experiment L's prediction 1 is met on a pair whose
+design resolves 5.7x the smaller arm's own slope, and the reading that makes it worth anything is
+that the agreement came in at three hundredths of a sigma rather than at one.
+
+**A reader that takes a number from its caller cannot refuse a caller who gets it wrong.** The
+record's older form of this rule was about defaults for missing fields; `--per-bouts` is the same
+rule about a number the log already carries. It takes no argument and reads the count off the
+league header.
+
+**A prediction stated as a factor is two one-sided contrasts and not a ratio.** A ratio of two
+noisy slopes has no clean interval, and Experiment L's denominator was within one sigma of zero.
+
+### What this section is not
+
+It is not a pre-registration and nothing in it is scored. T, U and V are named at the level a
+queue is named at; each of them needs its own registration with its own falsifier before a bout is
+collected, and the demotions above are reversible by an argument rather than by this paragraph.
+**And no default moved tonight.** Seven experiments, five entries, two readers patched, and
+`--bouts`, `--lambda`, `latchAbort`, the entropy coefficient and the reward table all sit exactly
+where they sat this morning.
