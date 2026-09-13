@@ -31500,3 +31500,12 @@ above, is the general form of that sentence and it applies here against my own h
 
 The mask ships live and reads nothing: `GolemDriven` gained two numbers, no default moved, and the
 22 tests of the fourth executor were green before and after.
+
+**And "no behaviour moved" is asserted against the tree and not against the test suite**, because
+three of tonight's six jobs were collecting bouts through this file while it was edited and a
+rating whose executor changed halfway is not a rating. The commit before the mask and the commit
+after it were each handed the same three mirrored sixty-second bouts of the shipped mind at the
+drawn read, seed 20260917, digested over both bodies' ground position, shoulder height and facing
+at every physics sample: **42,509 samples and the same SHA-256 either side**, f8bb647a. The old
+tree was reconstructed from git into a scratch directory rather than by editing the live one, so no
+running worker ever saw a half-written file.
