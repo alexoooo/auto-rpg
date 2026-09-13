@@ -22681,6 +22681,93 @@ pre-registered below; and the abort gate, which Session 07 of the learn set meas
 strokes in ten before they land, so that most of what the score function is weighting is a stroke
 that never happened.
 
+## The other two cosines -- 2026-09-12: the same thirty-two bouts settle the critic's direction and not the actor's
+
+The held row above quotes one of the three blocks `measureSignal` has printed in every row since the
+probe was written. The other two were collected on the same bouts, from the same rollout, at the
+same moment, and cost nothing to read. They were not an afterthought: the function's own doc comment
+names this reading in advance -- *a rollout whose actor cosine is a few hundredths while its critic
+cosine is high is a rollout with plenty of data in it and an objective that is not using it* -- and
+that is what all one hundred and sixty of them say.
+
+**Harness:** no new bouts. A re-read of the eight gradhold files under tournaments that the held row
+above was taken from, 160 iterations in all. **Instrument:** the `critic` and `spread` blocks of the
+same per-iteration row, combined across the four bout counts by inverse variance exactly as the
+actor's `|S|^2` was, because a block's dot estimates one number at every sample size.
+
+| bouts | 32 | 64 | 128 | 256 |
+| --- | --- | --- | --- | --- |
+| `golem-fencer` critic | +0.9174 +-0.0155 | +0.9526 +-0.0068 | +0.9742 +-0.0042 | +0.9858 +-0.0021 |
+| `idle` critic | +0.9604 +-0.0053 | +0.9789 +-0.0021 | +0.9809 +-0.0034 | +0.9913 +-0.0011 |
+
+**Against `golem-fencer`, thirty-two bouts fix the critic's gradient direction to a cosine of 0.92
+and the actor's to 0.02, and they are the same thirty-two bouts.** The critic's cosine also climbs
+with the bout count the way a sample mean's is supposed to, in both arms, which the actor's does in
+only one.
+
+The two heads live in different parameter spaces, so their norms are not comparable and the table
+does not compare them. The quantity that is scale-free is the one the held row already derived --
+`K / |S|^2`, the bouts a cosine of one half would need -- and it is comparable because it is in
+bouts.
+
+| head | arm | bouts for cosine 0.5 |
+| --- | --- | --- |
+| critic | `idle` | 1.7 |
+| critic | `golem-fencer` | 3.0 |
+| actor | `idle` | 1,098 |
+| actor | `golem-fencer` | at least 4,292, and unbounded above |
+
+The spread is the third block and it has nothing in it in either arm: `|S|^2` of -3.589e-5 +-2.17e-5
+against `golem-fencer` and +1.444e-5 +-1.14e-5 against `idle`, neither distinguishable from zero and
+one of them negative, which is what an estimate of a squared length looks like when the length is
+zero. With `PROBE_ENTROPY` at zero the nine spreads are moved by the advantage-weighted score
+function alone, so this is the same finding as the actor's and not a separate one.
+
+### The confound, which is large enough that the paragraph above is not the finding
+
+**A frozen critic is a critic with a residual, and a residual is a gradient.** These checkpoints are
+iteration 30 of arms whose explained variance over their last ten iterations was **0.2433 +-0.0282**
+against `golem-fencer` and **0.7093 +-0.0243** against `idle`, so the fencer critic in particular is
+a long way from its own target and has a consistent direction to travel in for that reason alone. A
+*converged* critic would report a cosine near zero too, and it would mean nothing was wrong. So this
+row is **not** evidence that the actor has converged and the critic has not, and it must not be read
+that way. Two heads at different distances from their own optima are not an experiment.
+
+Nor is the parameter count nothing: the actor gradient is over 87,308 weights and the critic's over
+8,833, and a higher-dimensional gradient has more directions for noise to be orthogonal in. If a
+head's signal sits in a few directions while its noise fills all of them, ten times the parameters
+is about ten times the bouts, and that is the honest size of this objection. The measured gap in
+the only quantity the two heads share -- the bouts a cosine of one half costs -- is **at least
+fourteen hundred times, with a point estimate of three thousand six hundred.** Dimension is one
+part in three hundred of it.
+
+### What it does establish, which is worth the section anyway
+
+**The sample budget is a property of the estimator and not of the data.** The claim the held row
+invites -- thirty-two bouts is too few bouts -- is now known to be too loose, because thirty-two
+bouts of *this collection*, against *this opponent*, at *this checkpoint*, carry a systematic signal
+that one head of the same network extracts at a cosine of 0.92. Whatever is wrong is downstream of
+the observations and downstream of the bout count. It is in what the actor's objective does with
+them.
+
+Three things that would have been comfortable explanations are ruled out in the same rows.
+**The advantages are not flat against the mind**: `advantageSd` is +0.0968 +-0.0015 against
+`golem-fencer` and +0.0586 +-0.0007 against `idle`, so the arm with no gradient is the arm with the
+*wider* advantage spread. **The trust region is not silencing it**: `clipFraction` is exactly 0 in
+all 160 rows, so no sample anywhere in this measurement was outside the clip and none of the
+shortfall is the clip refusing to pass a gradient. And **it is not the bout draw**, which is the
+whole of the held row above.
+
+### What this does not license
+
+No mind ships, no coefficient moves, no default moves, and in particular this does not license
+reweighting the value loss or changing the critic, which is the action it most looks like it
+suggests and which nothing here measures. What it licenses is narrowing the next question from *why
+is there no signal* to *why does the advantage-weighted score function cost three orders of
+magnitude more bouts than a regression on the same rollout*. The two candidates already
+written down -- a pool whose bodies disagree, pre-registered below, and an abort gate that cuts
+nine strokes in ten before they land -- are both answers of that shape.
+
 ## Pre-registration -- 2026-09-12: the per-class gradient, written before the bouts
 
 The grid above closes on a question it did not measure and named as owed: *if different bodies in
