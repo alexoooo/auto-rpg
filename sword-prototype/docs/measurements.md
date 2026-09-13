@@ -27600,3 +27600,34 @@ bound, and the arms of a rating table are rated from one seed against one conten
 columns are correlated and the true family rate is at or under what prints. A bar that survives the
 bound survives the correlation. A bar that fails it -- `swing-loud`, tonight -- may still be sound
 on a table whose arms move together, and **nothing in this record measures how much they do.**
+
+### The rest of the registered list, and where the last one cannot go
+
+Three of the audit's corrections belong to Experiment L and all three are barfit.mjs's, so they
+landed together after the section above was written.
+
+**L #1 and L #3, the equivalence bar.** The reader now prints a pairwise table: the difference of
+two slopes, its standard error, Welch-Satterthwaite degrees of freedom -- the arms have not all run
+the same number of rating points and two of tonight's have not -- and the verdict at both margins.
+
+The registered margin is **+-2.77 standard errors**, and putting it through `familyBar` says what it
+is: the ordinary two-sided 5 % point at **four degrees of freedom**. No cell in this run has four.
+The registration was honest that the margin was stated in standard errors because the run's spread
+was not yet known and called that a weakness; the points are on disk now, so the run's own margin is
+computed beside it -- two-sided, family-wise over the pairs actually compared, which on tonight's
+four arms and six pairs runs from **+-2.95 to +-3.26** depending on the pair's own df. The
+registered margin is the one that gets scored. Both print.
+
+**L #4, the null-side conjunction.** The reader states the smallest slope each arm would have caught
+four times in five at the family-wise threshold. On tonight's logs that is 0.0517 for `swing-quiet`
+and **0.1549 for `budget-256`** -- against a measured slope of 0.0350. So a *nothing cleared* verdict
+on `budget-256` would be a verdict from a cell that could not have caught an effect four times its
+own measured size. That is the number O #5's entry had to be rewritten to include, and it is now
+printed rather than remembered.
+
+**K #4 has nowhere to go, and that is the honest place to leave it.** It asks whether the
+best-slope arm is the lowest-floor arm. The slope lives in a rating log and the floor lives in a
+probe log, and no reader in this scratchpad reads both -- barfit has never seen a floor and armfit
+has never seen a rating point. It was demoted to a reading, which is a rule about how the entry gets
+written and not a threshold an instrument can hold, so it stays a rule. **Every other correction the
+audit registered is now computed by the reader that will report it.**
