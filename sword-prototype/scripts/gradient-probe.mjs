@@ -253,6 +253,7 @@ import { initWeights, netSize } from "../src/golem/neural-net.ts";
 import { PILOT_FEATURES_DEFAULT } from "../src/golem/pilot.ts";
 import { ACTION_AXES, POLICY_VERSION, freshNormalisation } from "../src/golem/policy.ts";
 import { GOLEM_REWARD } from "../src/golem/reward.ts";
+import { COMMAND_AXES, COMMAND_GATES } from "../src/golem/tactics-v4.ts";
 import { PARAM } from "./fit-worker.mjs";
 import { meanOf, semOf } from "./train-learner.mjs";
 import {
@@ -420,6 +421,115 @@ function blockOf(first, second, which) {
 }
 
 /**
+ * Where each of the head's outputs lives in the flat actor gradient.
+ *
+ * `netSize`'s layout, restated as index arithmetic rather than as a comment: `weights` holds each
+ * layer's matrix row-major, `outputs x inputs`, then that layer's bias, layer after layer. So the
+ * last layer begins after every earlier one, output `j` owns the `fanIn` numbers at
+ * `base + j * fanIn`, and its bias is the one at `base + outputs * fanIn + j`. The total is
+ * asserted against `netSize` rather than trusted, because an off-by-one here would read a
+ * neighbouring output's row and report a finding about the wrong axis.
+ */
+export function headRows(layout) {
+  const widths = [layout.inputs, ...layout.hidden, layout.outputs];
+  let base = 0;
+  for (let l = 0; l + 2 < widths.length; l += 1) base += widths[l + 1] * (widths[l] + 1);
+  const fanIn = widths[widths.length - 2];
+  const rows = { base, fanIn, outputs: layout.outputs, biasAt: base + layout.outputs * fanIn };
+  const end = rows.biasAt + layout.outputs;
+  if (end !== netSize(layout)) {
+    throw new Error(`the head's last row ends at ${end} and the layout is ${netSize(layout)} long`);
+  }
+  return rows;
+}
+
+/**
+ * The named groups of head outputs a row reports separately, and the indices each one owns.
+ *
+ * Nine axes, three gates, and under `--sigma state` nine more spreads, named by `COMMAND_AXES` and
+ * `COMMAND_GATES` rather than by number -- because the whole reason to cut the gradient this way
+ * is to be able to say **abort** in a sentence. An axis may own more than one output: a
+ * categorical axis owns `HEAD_BINS` of them and a Beta axis owns two, which is what `spec.at` and
+ * `spec.span` are for, and reading them rather than assuming one output an axis is what keeps this
+ * correct under `--head mixed`.
+ */
+export function headGroups(layout, spec) {
+  const rows = headRows(layout);
+  const groups = [];
+  const of = (name, from, span) => {
+    const at = [];
+    for (let k = 0; k < span; k += 1) at.push(from + k);
+    if (at[at.length - 1] >= rows.outputs) {
+      throw new Error(`"${name}" wants output ${at[at.length - 1]} of a head ${rows.outputs} wide`);
+    }
+    groups.push({ name, outputs: at });
+  };
+  for (const [j, name] of COMMAND_AXES.entries()) of(name, spec.at[j], spec.span[j]);
+  for (const [g, name] of COMMAND_GATES.entries()) of(name, spec.gateAt + g, 1);
+  if (spec.sigmaAt >= 0) {
+    for (const [j, name] of COMMAND_AXES.entries()) of(`${name}:sigma`, spec.sigmaAt + j, 1);
+  }
+  return { rows, groups };
+}
+
+/** Every flat index one group of head outputs owns: its weight rows and its biases. */
+function* indicesOf(rows, outputs) {
+  for (const j of outputs) {
+    for (let k = rows.base + j * rows.fanIn; k < rows.base + (j + 1) * rows.fanIn; k += 1) yield k;
+    yield rows.biasAt + j;
+  }
+}
+
+/**
+ * The same half-split, cut by the head output it lands on, which is the cut the record needs.
+ *
+ * Every number the probe has printed so far is over all eighty-seven thousand actor weights at
+ * once, and the two questions the signal set is left with are both about **one row of twelve**.
+ * Does the abort gate's own gradient carry a signal the sample can see? And is the entropy bonus,
+ * which is concentrated on the three gate logits, large against that row's signal even though it
+ * is a thousandth of the whole step's length? A norm over the whole actor cannot answer either,
+ * because the three gate rows are 771 numbers in eighty-seven thousand and anything that happens
+ * there is invisible in the total.
+ *
+ * **The cut is the last layer only, and that is a real limitation rather than a simplification.**
+ * A head output's own row and bias are the weights that are unambiguously that output's; the two
+ * hidden layers are shared by all twelve and there is no honest way to attribute them. So this
+ * says what the *head* is being told, not what the network is. A row whose head gradient is pure
+ * bonus is still being moved by the data through its hidden layers -- what it is not being moved
+ * by is anything that distinguishes it from its eleven neighbours.
+ */
+export function headSignal({ first, second, layout, spec }) {
+  const { rows, groups } = headGroups(layout, spec);
+  return groups.map(({ name, outputs }) => {
+    let dot = 0;
+    let left = 0;
+    let right = 0;
+    for (const k of indicesOf(rows, outputs)) {
+      dot += first[k] * second[k];
+      left += first[k] * first[k];
+      right += second[k] * second[k];
+    }
+    const firstNorm = Math.sqrt(left);
+    const secondNorm = Math.sqrt(right);
+    return {
+      name, dot, firstNorm, secondNorm,
+      cosine: firstNorm === 0 || secondNorm === 0
+        ? 0 : Math.min(1, Math.max(-1, dot / firstNorm / secondNorm)),
+    };
+  });
+}
+
+/** One vector's norm over each head group, which is how the bonus is reported beside the signal. */
+export function headNorms({ vector, layout, spec }) {
+  const { rows, groups } = headGroups(layout, spec);
+  return groups.map(({ name, outputs }) => {
+    let sum = 0;
+    for (const k of indicesOf(rows, outputs)) sum += vector[k] * vector[k];
+    return { name, norm: Math.sqrt(sum) };
+  });
+}
+
+/**
  * The measurement: the cosine between the two halves of one epoch, with what makes it readable.
  *
  * Three blocks are reported and they are three different questions. The **actor** is the
@@ -437,6 +547,7 @@ function blockOf(first, second, which) {
  */
 export function measureSignal({
   pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order, clip = 0.2,
+  heads = null,
 }) {
   const [first, second] = halfGradients({
     pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order, clip,
@@ -444,6 +555,12 @@ export function measureSignal({
   const actor = blockOf(first, second, "actor");
   return {
     asks: rollout.count, firstAsks: first.asks, secondAsks: second.asks,
+    // Absent unless a caller named a layout, so an arm's row -- taken seventeen times an iteration
+    // -- stays the object it was and the head cut is written once, for the row the question is
+    // about. The arms differ from the row by a reward table and not by a head.
+    ...(heads === null ? {} : {
+      heads: headSignal({ first: first.actor, second: second.actor, ...heads }),
+    }),
     // The unqualified cosine is the actor's, because that is the experiment's question.
     cosine: actor.cosine, firstNorm: actor.firstNorm, secondNorm: actor.secondNorm, dot: actor.dot,
     spread: blockOf(first, second, "spread"),
@@ -493,7 +610,7 @@ export function measureSignal({
  */
 export function measureBonus({
   pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order, clip = 0.2,
-  entropy = 0,
+  entropy = 0, heads = null,
 }) {
   if (!(entropy > 0)) return null;
   const whole = [{ at: 0, end: rollout.count }];
@@ -513,6 +630,9 @@ export function measureBonus({
       norm: normOf(bonus), dataNorm,
       share: dataNorm === 0 ? 0 : normOf(bonus) / dataNorm,
       cosine: cosineOf(bonus, plain),
+      // The head cut, on the actor only and only when a caller named a layout. The spread block is
+      // the nine `logSigma` parameters and not head outputs, so there is nothing there to cut.
+      ...(heads === null || which !== "actor" ? {} : { heads: headNorms({ vector: bonus, ...heads }) }),
     };
   };
   const measured = {
@@ -554,14 +674,21 @@ export function checkHeldStart({ from, hold }) {
 export function probeRollout({
   pool, rollout, weights, valueWeights, logSigma, norm, valueLayout, seed,
   halfLife = 4, lambda = 0.95, clip = 0.2, classes = "none", floor = CLASS_FLOOR,
-  boutSplit = false, rewards = [], entropy = 0,
+  boutSplit = false, rewards = [], entropy = 0, layout = null, spec = null,
 }) {
   const values = valuesOf(rollout, valueWeights, norm, valueLayout);
   const { advantage, returns } = advantages(rollout, values, { halfLife, lambda });
   const { scaled, sd } = standardisedAdvantages(advantage, rollout.count);
   const order = epochOrder(rollout.count, seed);
+  // Both or neither: a head cut wants the layout to find the last layer and the spec to name what
+  // each output is, and one without the other is a caller who thinks they asked for something and
+  // would get a row with no `heads` on it and no complaint.
+  if ((layout === null) !== (spec === null)) {
+    throw new Error("a head cut wants both a layout and a head spec, and was given one of them");
+  }
+  const heads = layout === null ? null : { layout, spec };
   const signal = measureSignal({
-    pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order, clip,
+    pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order, clip, heads,
   });
   // The class split second and out of the same three arrays, so the two measurements are of one
   // rollout under one standardisation. Separate collections a class would have been easier and
@@ -630,6 +757,7 @@ export function probeRollout({
   // production fit's step at this policy would have been made of.
   const bonus = measureBonus({
     pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order, clip, entropy,
+    heads,
   });
   return {
     ...signal,
@@ -1248,6 +1376,12 @@ if (isMain) {
   // And one list an arm when `--rewards` named some, keyed by label, so the summary can quote each
   // table's own mean over the same iterations the row's own mean is taken over.
   const armCosines = new Map();
+  // And one list a head group, keyed by name, because the question the head cut exists to answer is
+  // about a row whose signal is a hundredth of the whole actor's and whose one-iteration cosine is
+  // therefore mostly draw. Each entry carries the cosine and the two norms, so the summary can say
+  // both whether the row's halves agree and how much gradient the row got at all -- a group that
+  // agrees at +0.4 on a norm of 1e-9 is not being told anything.
+  const headCosines = new Map();
   try {
     for (let iteration = 1; iteration <= iterations; iteration += 1) {
       const started = Date.now();
@@ -1274,6 +1408,10 @@ if (isMain) {
         // The coefficient the fit below would have paid, whether or not there is a fit below, so
         // a held row says what a production step at this policy would have been made of.
         entropy: fitEntropy,
+        // Always, and unconditionally: the head cut costs one pass over the last layer's rows and
+        // it is the only reading in the file that can name the abort gate. Every shape this CLI
+        // accepts has a `spec`, so there is no configuration in which it is unavailable.
+        layout, spec,
       });
       const probed = (Date.now() - probeStarted) / 1000;
       const fitStarted = Date.now();
@@ -1312,6 +1450,15 @@ if (isMain) {
         let column = armCosines.get(arm.label);
         if (column === undefined) { column = []; armCosines.set(arm.label, column); }
         column.push(arm.cosine);
+      }
+      // The bonus's own norm on the same group, carried beside the signal's rather than as a share,
+      // because the share a reader wants is against `sqrt(|S|^2)` -- the fitted signal -- and that
+      // is an arithmetic on two means at the end of the run and not a column to accumulate.
+      const bonusNorms = new Map((signal.bonus?.actor.heads ?? []).map((h) => [h.name, h.norm]));
+      for (const group of signal.heads ?? []) {
+        let column = headCosines.get(group.name);
+        if (column === undefined) { column = []; headCosines.set(group.name, column); }
+        column.push({ ...group, bonus: bonusNorms.get(group.name) ?? null });
       }
       const cut = signal.classes ?? null;
       if (cut !== null) {
@@ -1353,6 +1500,7 @@ if (isMain) {
         seconds: (Date.now() - started) / 1000,
       });
       const signed = (x) => `${x >= 0 ? "+" : ""}${x.toFixed(4)}`;
+      const abort = (signal.heads ?? []).find((group) => group.name === "abort");
       console.log(`  it ${String(iteration).padStart(2)}: asks ${rollout.count} `
         + `(${signal.firstAsks}/${signal.secondAsks})  cos ${signed(signal.cosine)}  `
         + `|g| ${signal.firstNorm.toExponential(2)}/${signal.secondNorm.toExponential(2)}  `
@@ -1360,6 +1508,10 @@ if (isMain) {
         + `critic ${signed(signal.critic.cosine)}  `
         + (signal.bonus === undefined ? "" : `bonus ${signal.bonus.actor.share.toFixed(2)}x at `
           + `${signed(signal.bonus.actor.cosine)}  `)
+        // One group of the head cut on the console and the rest in the row, and the one is `abort`
+        // because it is the gate the signal set's diagnosis is about. The rest are a `jq` away.
+        + (abort === undefined ? "" : `abort ${signed(abort.cosine)} `
+          + `|g| ${abort.firstNorm.toExponential(2)}  `)
         + `done ${(rollout.strokes.completion * 100).toFixed(1)}% of `
         + `${rollout.strokes.strokesStarted}  `
         + (signal.byBout === undefined ? "" : `byBout ${signed(signal.byBout.cosine)} `
@@ -1408,11 +1560,25 @@ if (isMain) {
       label: arm, iterations: column.length, cosineMean: meanOf(column), cosineSem: semOf(column),
     })),
   };
+  // Each head group's own mean over the same iterations, as a list for the same reason the arms are
+  // a list. `dotMean` is the one a floor is computed from -- it estimates the group's `|S|^2` the
+  // way the row's own `dot` estimates the whole actor's -- and `bonusMean` is beside it so the
+  // comparison the instrument was built for can be made without reopening the iteration rows.
+  const headSummary = headCosines.size === 0 ? {} : {
+    heads: [...headCosines].map(([name, column]) => ({
+      name, iterations: column.length,
+      cosineMean: meanOf(column.map((r) => r.cosine)), cosineSem: semOf(column.map((r) => r.cosine)),
+      dotMean: meanOf(column.map((r) => r.dot)), dotSem: semOf(column.map((r) => r.dot)),
+      firstNormMean: meanOf(column.map((r) => r.firstNorm)),
+      secondNormMean: meanOf(column.map((r) => r.secondNorm)),
+      bonusMean: column[0].bonus === null ? null : meanOf(column.map((r) => r.bonus)),
+    })),
+  };
   log({
     type: "summary", iterations: cosines.length, bouts, opponent: opponentWord,
     cosineMean: mean, cosineSem: sem, cosineMedian: median, ...boutSummary,
     cosineLeast: sorted[0], cosineMost: sorted[sorted.length - 1], probeEntropy: PROBE_ENTROPY,
-    ...splitSummary, ...armSummary,
+    ...splitSummary, ...armSummary, ...headSummary,
   });
   console.log(`cosine over ${cosines.length} iterations at ${bouts} bouts against ${opponentWord}: `
     + `${mean >= 0 ? "+" : ""}${mean.toFixed(4)} +- ${sem.toFixed(4)}, `
@@ -1428,6 +1594,18 @@ if (isMain) {
   for (const [arm, column] of armCosines) {
     console.log(`  reward arm ${arm}: ${meanOf(column) >= 0 ? "+" : ""}${meanOf(column).toFixed(4)} `
       + `+- ${semOf(column).toFixed(4)} over the same ${column.length} collections`);
+  }
+  for (const group of headSummary.heads ?? []) {
+    // `|S|^2` and not a cosine is what decides whether the group is being told anything, and the
+    // bonus is quoted against `sqrt(|S|^2)` -- the fitted signal -- rather than against the step,
+    // because most of a step's length is the draw a fit averages away and the bonus is not.
+    const signal = group.dotMean > 0 ? Math.sqrt(group.dotMean) : null;
+    console.log(`  head ${group.name.padEnd(14)} cos `
+      + `${group.cosineMean >= 0 ? "+" : ""}${group.cosineMean.toFixed(4)} `
+      + `+- ${group.cosineSem.toFixed(4)}  |g| ${group.firstNormMean.toExponential(2)}  `
+      + `dot ${group.dotMean.toExponential(2)} +-${group.dotSem.toExponential(1)}`
+      + (group.bonusMean === null ? "" : `  bonus ${group.bonusMean.toExponential(2)}`
+        + ` (${signal === null ? "signal unbounded" : `${(group.bonusMean / signal * 100).toFixed(1)} % of |S|`})`));
   }
   console.log(`log: ${out}`);
 }

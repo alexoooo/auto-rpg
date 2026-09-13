@@ -136,6 +136,45 @@
 // So the by-hand test asserts the cosine against an independently taken pair *and* asserts that
 // the pair is not near-orthogonal, which is the assertion that makes the first one mean something.
 //
+// **The head cut added nine more on 2026-09-13.** It is the first reading in the file that is
+// about *part* of the gradient, so the mutations divide into the ones that slice the wrong numbers
+// and the ones that slice the right numbers under the wrong name:
+//
+// | mutation | what went red |
+// |---|---|
+// | the head is located one layer too early, so every group reads a hidden layer's row | all six |
+// | an output's bias is taken from the head's weights rather than from the bias block | all six |
+// | every axis is assumed to own one output rather than the span its spec declares | the coverage test, and only under `mixed`/`state` |
+// | the gates are read from the front of the head rather than from `gateAt` | the coverage test, the by-hand test and the bonus test |
+// | a group's weight row runs to the head's width rather than to its fan-in | the by-hand test and the bonus test |
+// | a group past the end of the head is sliced rather than refused | the refusal test |
+// | the bonus's head cut is taken over the data rather than over the bonus | the bonus test |
+// | a head cut is written on every priced arm as well as on the row | the row test |
+// | a layout with no spec beside it is accepted rather than refused | the row test |
+//
+// **The third row is the one that earned its fixture, and it would have been green against every
+// run this project has ever made.** Under the shipped Gaussian head an axis owns exactly one
+// output and `spec.at[j]` is `j`, so `of(name, spec.at[j], spec.span[j])` and `of(name, j, 1)` are
+// the same call -- for the twelve-wide head, for every checkpoint on disk, and for every row in
+// the record. The mutation is only a mutation under `--head mixed --sigma state`, where three axes
+// own nine outputs apiece and nine spreads sit past the gates, which is why the coverage test is
+// written over both heads and not over the one the runs use. A reader that assumed one output an
+// axis would be correct today and would silently misattribute every number the moment the head
+// that `docs/design.md` already describes is fitted.
+//
+// **The first two rows going red six times over is not six times the evidence.** Both move `base`,
+// and a `base` that is wrong makes every group read numbers from somewhere else, so every
+// assertion downstream of it fails at once -- including the ones that exist for other mistakes. A
+// mutation table's rows are not comparable by their length, and the two rows that say the most
+// here are the ones that went red exactly once.
+//
+// **What no mutation here can reach.** That the last layer is the right place to cut at all. A
+// head output's own row and bias are unambiguously that output's and the two hidden layers are
+// shared by all twelve, so the cut says what the *head* is being told and not what the network is.
+// The by-hand test pins the consequence -- the twelve groups sum to the head's norm and the head
+// is under four fifths of the vector -- which makes the limitation checkable without making it
+// false.
+//
 // **What no mutation here can reach, and it is the claim the sweep rests on.** That a reward
 // coefficient does not change how a *held* policy acts is a fact about the collectors, which this
 // file does not run: a body draws from weights that do not move, so the collection is the same
@@ -152,10 +191,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { forward, initWeights, netScratch } from "../src/golem/neural-net.ts";
+import { forward, initWeights, netScratch, netSize } from "../src/golem/neural-net.ts";
 import {
-  ACTION_AXES, ACTION_WIDTH, actionLogProb, normalise, sampleAction,
+  ACTION_AXES, ACTION_GATES, ACTION_WIDTH, GAUSSIAN_HEAD, actionLogProb, headSpecOf, normalise,
+  sampleAction,
 } from "../src/golem/policy.ts";
+import { COMMAND_AXES, COMMAND_GATES } from "../src/golem/tactics-v4.ts";
 import { GOLEM_REWARD } from "../src/golem/reward.ts";
 import { mulberry32 } from "../src/rng.ts";
 import { PARAM } from "../scripts/fit-worker.mjs";
@@ -165,8 +206,8 @@ import {
 } from "../scripts/train-ppo.mjs";
 import {
   CLASS_AXES, PROBE_ENTROPY, PROBE_EPOCH, askBouts, askClasses, boutBlocks, boutGradients, checkHeldStart,
-  classBlocks, cosineOf, dotOf, epochOrder, halfGradients, halfSplit, measureBonus, measureSignal,
-  normOf, parseClasses, probeRollout, rewardArms, shareOf,
+  classBlocks, cosineOf, dotOf, epochOrder, halfGradients, halfSplit, headGroups, headNorms, headRows,
+  headSignal, measureBonus, measureSignal, normOf, parseClasses, probeRollout, rewardArms, shareOf,
 } from "../scripts/gradient-probe.mjs";
 
 const SEED = 20260917;
@@ -1283,6 +1324,220 @@ test("a_probe_row_carries_the_bonus_only_when_a_coefficient_was_named", { timeou
     assert.equal(paid.dot, bare.dot);
     assert.equal(paid.spread.cosine, bare.spread.cosine);
     assert.equal(paid.entropyPaid, 0);
+  } finally {
+    await pool.close();
+  }
+});
+
+// ---------------------------------------------------------------------------------------
+// The head cut: which of the twelve outputs a number is about.
+// ---------------------------------------------------------------------------------------
+
+/**
+ * The last layer's weights and biases, located by arithmetic and checked against the total.
+ *
+ * `headRows` is index arithmetic over a layout and nothing else, so the only thing that can be
+ * wrong with it is the arithmetic -- and an off-by-one here would report a finding about the wrong
+ * axis while every norm it printed stayed a plausible size. So the offsets are recomputed here
+ * from the layer widths, in a shape deliberately unlike the accumulating loop the module uses, and
+ * the layouts include a one-hidden-layer net and a net whose head is wider than its fan-in.
+ */
+test("the_head_rows_are_the_last_layers_own_weights_and_the_biases_beside_them", () => {
+  for (const layout of [
+    LAYOUT, VALUE, { inputs: 3, hidden: [5], outputs: 4 }, { inputs: 71, hidden: [256, 256], outputs: 12 },
+    { inputs: 6, hidden: [2], outputs: 9 },
+  ]) {
+    const widths = [layout.inputs, ...layout.hidden, layout.outputs];
+    // Everything before the last layer, spelled as a sum over the layers rather than as a running
+    // total: layer `l` is `widths[l + 1]` rows of `widths[l]` plus one bias apiece.
+    const earlier = widths.slice(0, -2)
+      .map((from, l) => widths[l + 1] * (from + 1)).reduce((a, b) => a + b, 0);
+    const rows = headRows(layout);
+    assert.equal(rows.base, earlier, `a ${widths.join("-")} net puts its head at ${rows.base}`);
+    assert.equal(rows.fanIn, widths[widths.length - 2]);
+    assert.equal(rows.outputs, layout.outputs);
+    assert.equal(rows.biasAt, earlier + layout.outputs * widths[widths.length - 2]);
+    // The assertion the module makes about itself, made again from outside it: the last bias is
+    // the last number in the vector, so nothing is left over and nothing is claimed twice.
+    assert.equal(rows.biasAt + layout.outputs, netSize(layout));
+  }
+});
+
+/**
+ * Every head output belongs to exactly one named group, and the names are the ones a sentence uses.
+ *
+ * Coverage and disjointness are the property -- a group that quietly overlapped its neighbour would
+ * report the neighbour's gradient as its own -- and they are asserted over the *flat indices*, not
+ * over the outputs, because that is the level the readers work at. Both heads are cut: the shipped
+ * one, twelve outputs of one number each, and `mixed`/`state`, where three axes own nine outputs
+ * apiece and nine more spreads sit past the gates. The second is the reason `headGroups` reads
+ * `spec.at` and `spec.span` rather than counting.
+ */
+test("every_head_output_belongs_to_exactly_one_named_group_and_the_groups_cover_the_head", () => {
+  for (const spec of [GAUSSIAN_HEAD, headSpecOf("mixed", "state")]) {
+    const layout = { inputs: 6, hidden: [14, 10], outputs: spec.width };
+    const { rows, groups } = headGroups(layout, spec);
+    assert.equal(groups.length, ACTION_AXES + ACTION_GATES + (spec.sigmaAt < 0 ? 0 : ACTION_AXES));
+    assert.deepEqual(groups.slice(0, ACTION_AXES).map((g) => g.name), [...COMMAND_AXES]);
+    assert.deepEqual(groups.slice(ACTION_AXES, ACTION_WIDTH).map((g) => g.name), [...COMMAND_GATES]);
+    // An axis owns exactly the outputs its span claims, which is one under a Gaussian and nine
+    // under a categorical -- the number `headGroups` would get wrong by assuming.
+    for (const [j, group] of groups.slice(0, ACTION_AXES).entries()) {
+      assert.equal(group.outputs.length, spec.span[j], `${group.name} owns ${group.outputs.length} outputs`);
+      assert.equal(group.outputs[0], spec.at[j]);
+    }
+    const seen = new Set();
+    let counted = 0;
+    for (const group of groups) {
+      for (const j of group.outputs) {
+        for (let k = rows.base + j * rows.fanIn; k < rows.base + (j + 1) * rows.fanIn; k += 1) {
+          assert.ok(!seen.has(k), `${group.name} claims weight ${k}, which another group already has`);
+          seen.add(k);
+          counted += 1;
+        }
+        assert.ok(!seen.has(rows.biasAt + j), `${group.name} claims a bias another group already has`);
+        seen.add(rows.biasAt + j);
+        counted += 1;
+      }
+    }
+    assert.equal(counted, seen.size, "a flat index was counted twice");
+    assert.equal(seen.size, spec.width * (rows.fanIn + 1), "the groups do not cover the whole head");
+    // And every index is inside the last layer, which is the claim the file's doc comment makes.
+    for (const k of seen) assert.ok(k >= rows.base && k < netSize(layout));
+  }
+});
+
+test("a_head_group_that_wants_an_output_the_layout_does_not_have_is_refused", () => {
+  // A spec and a layout that disagree is the mistake this is here for: a `--head mixed` table read
+  // against a twelve-wide net would slice the head at indices past its end and report norms taken
+  // out of a neighbouring layer, which is a number and not an error.
+  assert.throws(() => headGroups(LAYOUT, headSpecOf("mixed", "state")), /of a head 12 wide/);
+  // `headRows`'s own refusal has no layout that reaches it, and saying so is worth more than a
+  // test that pretends otherwise: every offset it computes comes out of the same widths `netSize`
+  // sums, so the two agree for any layout, including a net with no hidden layer at all -- where
+  // the head is the whole network and `base` is 0. It is a guard against a rewrite of the
+  // arithmetic, watched red by mutation and not by a fixture.
+  assert.deepEqual(headRows({ inputs: 4, hidden: [], outputs: 3 }),
+    { base: 0, fanIn: 4, outputs: 3, biasAt: 12 });
+});
+
+/**
+ * A group's numbers are the slice it names, taken by hand out of the same two vectors.
+ *
+ * The cut is asserted against `dotOf` and `cosineOf` over an explicitly gathered slice, so a reader
+ * that walked the right count of numbers from the wrong offset -- the mutation that survives every
+ * coverage assertion above -- has something outside itself to disagree with. And the twelve groups'
+ * squared norms sum to the whole *head's* squared norm and not the whole vector's, which is the
+ * file's stated limitation asserted rather than narrated: two thirds of this fixture's gradient is
+ * in the hidden layers and no group claims any of it.
+ */
+test("a_head_group_reads_the_slice_it_names_and_the_groups_sum_to_the_head_and_not_the_net", () => {
+  const random = mulberry32(SEED + 41);
+  const first = Float64Array.from({ length: netSize(LAYOUT) }, () => random() * 2 - 1);
+  const second = Float64Array.from({ length: netSize(LAYOUT) }, () => random() * 2 - 1);
+  const { rows, groups } = headGroups(LAYOUT, GAUSSIAN_HEAD);
+  const cut = headSignal({ first, second, layout: LAYOUT, spec: GAUSSIAN_HEAD });
+  const norms = headNorms({ vector: first, layout: LAYOUT, spec: GAUSSIAN_HEAD });
+  assert.equal(cut.length, groups.length);
+  let squared = 0;
+  for (const [g, group] of groups.entries()) {
+    const at = [];
+    for (const j of group.outputs) {
+      for (let k = 0; k < rows.fanIn; k += 1) at.push(rows.base + j * rows.fanIn + k);
+      at.push(rows.biasAt + j);
+    }
+    const left = Float64Array.from(at, (k) => first[k]);
+    const right = Float64Array.from(at, (k) => second[k]);
+    assert.equal(cut[g].name, group.name);
+    assert.ok(Math.abs(cut[g].dot - dotOf(left, right)) <= 1e-12 * Math.abs(dotOf(left, right)));
+    assert.ok(Math.abs(cut[g].firstNorm - normOf(left)) <= 1e-12 * normOf(left));
+    assert.ok(Math.abs(cut[g].secondNorm - normOf(right)) <= 1e-12 * normOf(right));
+    assert.ok(Math.abs(cut[g].cosine - cosineOf(left, right)) < 1e-12);
+    assert.ok(Math.abs(norms[g].norm - normOf(left)) <= 1e-12 * normOf(left));
+    squared += norms[g].norm ** 2;
+  }
+  const head = normOf(first.subarray(rows.base));
+  assert.ok(Math.abs(Math.sqrt(squared) - head) <= 1e-9 * head,
+    `the groups sum to ${Math.sqrt(squared)} against the head's own ${head}`);
+  // The limitation, pinned: the head is a minority of the vector, so a group's norm is not a share
+  // of the step and nothing downstream may read it as one.
+  assert.ok(head < 0.8 * normOf(first), "the fixture's head is most of its net, so this asserts nothing");
+});
+
+/**
+ * The entropy bonus reaches the three gates and touches no axis at all under a constant spread.
+ *
+ * This is the head cut's reason for existing, stated as an invariant rather than as a measurement.
+ * A Gaussian's entropy depends on its spread and not on its mean, so `entropyGrad`'s only terms are
+ * `-logit * p * (1 - p)` on each gate and a term on `logSigma`, which is not a head output at all.
+ * The nine axis rows of the last layer are therefore *exactly* zero in the bonus -- not small, zero
+ * -- and the whole of the bonus that lands on the network is on 3 outputs of 12.
+ *
+ * Which is the fact the whole-actor norm could not say. On this fixture the bonus is a thousandth
+ * of the step's length, and reading that as "the entropy term is negligible" is the error: it is a
+ * thousandth of the step because it is concentrated on a quarter of one layer, and on the gate rows
+ * themselves it is a fraction of the same order as the data's own gradient there.
+ */
+test("the_entropy_bonus_lands_on_the_three_gates_and_on_no_axis_under_a_constant_spread", { timeout: 300_000 }, async () => {
+  const built = fixture();
+  const bound = bindings(built);
+  const pool = await FitPool.open({ shards: 2, layout: LAYOUT, valueLayout: VALUE });
+  try {
+    const heads = { layout: LAYOUT, spec: GAUSSIAN_HEAD };
+    const bonus = measureBonus({ pool, ...bound, entropy: 0.003, heads });
+    assert.equal(bonus.actor.heads.length, ACTION_WIDTH);
+    for (const group of bonus.actor.heads.slice(0, ACTION_AXES)) {
+      assert.equal(group.norm, 0, `the bonus moved ${group.name}, which has no entropy of its own`);
+    }
+    for (const group of bonus.actor.heads.slice(ACTION_AXES)) {
+      assert.ok(group.norm > 0, `the bonus left the ${group.name} gate alone`);
+    }
+    // And the gates are where all of it is: the head cut's squared norms sum to the bonus's own.
+    const squared = bonus.actor.heads.reduce((a, g) => a + g.norm ** 2, 0);
+    const rows = headRows(LAYOUT);
+    assert.ok(Math.sqrt(squared) <= bonus.actor.norm + 1e-12);
+    assert.ok(Math.sqrt(squared) > 0.2 * bonus.actor.norm,
+      "the head carries almost none of the bonus, which would make the cut pointless");
+    // The spread block has no head groups, because `logSigma` is nine parameters and not nine
+    // outputs -- so a reader that put them there would be slicing the wrong vector.
+    assert.equal(bonus.spread.heads, undefined);
+    assert.ok(rows.base > 0);
+  } finally {
+    await pool.close();
+  }
+});
+
+/**
+ * A row carries the head cut and its priced arms do not, and half a request is refused.
+ *
+ * The arms differ from the row by a reward table and not by a head, so seventeen copies of the same
+ * twelve groups an iteration would be seventeen times the bytes for one answer. The refusal beside
+ * it is the mistake that would otherwise be silent: a caller who named a layout and forgot the spec
+ * would get a row with no `heads` key and no complaint, and would read its absence as an answer.
+ */
+test("a_probe_row_carries_the_head_cut_and_its_arms_do_not", { timeout: 300_000 }, async () => {
+  const built = fixture(256, SEED + 3, { priced: true });
+  const pool = await FitPool.open({ shards: 2, layout: LAYOUT, valueLayout: VALUE });
+  try {
+    const common = {
+      pool, rollout: built.rollout, weights: built.weights, valueWeights: built.valueWeights,
+      logSigma: built.logSigma, norm: built.norm, valueLayout: VALUE, seed: SEED + 9,
+      rewards: rewardArms([{ label: "shipped" }, { label: "quiet", outside: 0 }]),
+    };
+    const bare = probeRollout(common);
+    assert.equal(bare.heads, undefined, "a run that named no layout got a head cut anyway");
+    const cut = probeRollout({ ...common, layout: LAYOUT, spec: GAUSSIAN_HEAD, entropy: 0.0003 });
+    assert.equal(cut.heads.length, ACTION_WIDTH);
+    assert.equal(cut.heads[ACTION_AXES + 1].name, "abort");
+    assert.equal(cut.bonus.actor.heads.length, ACTION_WIDTH);
+    for (const arm of cut.priced) assert.equal(arm.heads, undefined, `${arm.label} carried a head cut`);
+    // Passive, the way every reading this file adds is: the row it sits in does not move.
+    assert.equal(cut.cosine, bare.cosine);
+    assert.equal(cut.dot, bare.dot);
+    assert.equal(cut.firstNorm, bare.firstNorm);
+    assert.deepEqual(cut.priced.map((a) => a.cosine), bare.priced.map((a) => a.cosine));
+    assert.throws(() => probeRollout({ ...common, layout: LAYOUT }), /both a layout and a head spec/);
+    assert.throws(() => probeRollout({ ...common, spec: GAUSSIAN_HEAD }), /both a layout and a head spec/);
   } finally {
     await pool.close();
   }
