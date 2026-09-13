@@ -8,6 +8,7 @@
 //        [--epochs 4] [--batch 4096] [--target-kl 0.03] [--half-life 4] [--lambda 0.95]
 //        [--clip 0.2] [--sigma-floor -3] [--sigma-roof 0.5]
 //        [--from tournaments/<arm>/pool-30.json] [--hold]
+//        [--classes none|terminal|build] [--class-floor 400]
 //        [--features 2] [--head gaussian] [--sigma constant] [--critic self]
 //        [--value-hidden 64,64] [--log tournaments/...] [--label arm]
 //
@@ -57,7 +58,34 @@
 // gradient flows back through the weights. Off is therefore right for all three cosines below and
 // under every head this build reads, and the test file pins the inflation rather than arguing it.
 //
-// ## Where the halves come from, and why they are index ranges
+// ## `--classes`, which asks whether the bodies in one pool want the same thing
+//
+// The grid's closing paragraph names one cheap measurement it did not make. If different bodies
+// demand contradictory policy changes, then averaging more of them drives the mean toward zero
+// rather than toward a signal -- the pooled gradient would be blunt *because* it is pooled, and a
+// per-class gradient would cohere where it does not. That is a different diagnosis from a gradient
+// that is simply noisy, it implies a different fix, and nothing in the record separates them.
+//
+// `--classes` cuts one rollout's asks by the body that fought them and reports three cosines.
+// **Within** is a class against itself, two halves of its own asks. **Between** is one class's half
+// against another's. **Pooled** is the control and is the reason the other two mean anything: two
+// blocks of exactly the within-class half sizes, drawn off the front of the same shuffled order
+// with class ignored. A within-class cosine is taken over a quarter of the rollout where the
+// pooled cosine of the experiment above is taken over a half, so the two would not otherwise be
+// comparable, and the direction of that bias is the one that manufactures the finding.
+//
+// So the reading is `within` against `pooled` at matched size, and `between` on its own. Bodies
+// that want the same thing give a `between` near the other two. Bodies that contradict give a
+// `within` above `pooled` and a `between` at zero, and that is a pool problem rather than a sample
+// problem. Both above `pooled` would say the grouping found structure the draw did not, which is a
+// third outcome and is why all three are printed rather than a difference.
+//
+// The cut is taken out of the fit's own shuffled order rather than out of the collection order, so
+// halving a class is a random split of it and not a split by bout or by corner. The class of an
+// ask is traced through the rollout's `done` flags to `bodies`, which `collectRollouts` writes one
+// entry an episode, and every step of that trace is refused rather than assumed -- an off-by-one
+// there would read as bodies that disagree, which is the finding this exists to report.
+//// ## Where the halves come from, and why they are index ranges
 //
 // `FitPool.step` already takes a half-open `[at, end)` over the shuffled order and returns the sum
 // of that range's per-sample gradients, scaled by `1 / (end - at)`. So the two halves are
@@ -329,7 +357,7 @@ export function checkHeldStart({ from, hold }) {
 
 export function probeRollout({
   pool, rollout, weights, valueWeights, logSigma, norm, valueLayout, seed,
-  halfLife = 4, lambda = 0.95, clip = 0.2,
+  halfLife = 4, lambda = 0.95, clip = 0.2, classes = "none", floor = CLASS_FLOOR,
 }) {
   const values = valuesOf(rollout, valueWeights, norm, valueLayout);
   const { advantage, returns } = advantages(rollout, values, { halfLife, lambda });
@@ -338,7 +366,222 @@ export function probeRollout({
   const signal = measureSignal({
     pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order, clip,
   });
-  return { ...signal, advantageSd: sd };
+  // The class split second and out of the same three arrays, so the two measurements are of one
+  // rollout under one standardisation. Separate collections a class would have been easier and
+  // would have standardised each class against itself, which removes exactly the disagreement the
+  // split exists to look for: a class whose advantages are systematically high pushes harder in the
+  // pooled batch and not at all in a batch of its own.
+  const cut = classes === "none" ? null : measureClasses({
+    pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order,
+    keys: askClasses(rollout, classes), clip, floor,
+  });
+  return { ...signal, advantageSd: sd, ...(cut === null ? {} : { classAxis: classes, classes: cut }) };
+}
+
+/**
+ * The groupings a rollout's asks can be cut by, and `none` is one of them on purpose.
+ *
+ * `build` is the pool's own name for a body and is the finest cut there is -- seventeen to
+ * twenty-four of them in a forty-draw viable pool, which at any bout count this project can afford
+ * leaves a handful of bouts a class. `terminal` is the weapon word `--terminals` already speaks in,
+ * two classes over the maul-and-mace pool, and is the coarsest cut worth taking: a class is still
+ * heterogeneous inside, which makes a *high* within-class cosine the conservative outcome rather
+ * than an artefact of having grouped by the answer.
+ *
+ * `none` is the default and is the instrument the grid ran, byte for byte. A probe that acquired a
+ * class split by default would make every row already under tournaments incomparable with the next
+ * one, for a measurement nobody asked that run to make.
+ */
+export const CLASS_AXES = Object.freeze(["none", "terminal", "build"]);
+
+/** `--classes terminal`: which grouping, refused by name rather than defaulted. */
+export function parseClasses(text, what = "--classes") {
+  if (text === null || text === undefined) return "none";
+  const word = String(text).trim().toLowerCase();
+  if (!CLASS_AXES.includes(word)) {
+    throw new Error(`${what} ${text}; this build cuts by ${CLASS_AXES.join(", ")}`);
+  }
+  return word;
+}
+
+/**
+ * Each ask's class key, traced back through the `done` flags to the body that fought its episode.
+ *
+ * `collectRollouts` writes `bodies` one entry an episode in merge order, and `mergeRollouts`
+ * concatenates its parts in that same order, so walking the asks and advancing at every `done`
+ * recovers the mapping exactly. That is an identity between two functions in another file rather
+ * than a fact about this one, so it is **refused rather than trusted**: a rollout whose bodies are
+ * absent, whose count of them is not its episode count, or whose `done` flags close some other
+ * number of episodes, is thrown out by name. A class split silently off by one would read as
+ * bodies that disagree, which is precisely the finding this instrument exists to report.
+ */
+export function askClasses(rollout, axis) {
+  if (axis === "none") throw new Error("askClasses wants a grouping; none is the absence of one");
+  if (!CLASS_AXES.includes(axis)) {
+    throw new Error(`askClasses ${axis}; this build cuts by ${CLASS_AXES.join(", ")}`);
+  }
+  const bodies = rollout.bodies;
+  if (!Array.isArray(bodies)) {
+    throw new Error("this rollout carries no bodies, so its asks cannot be traced to a build; "
+      + "a class split wants a rollout from collectRollouts");
+  }
+  if (bodies.length !== rollout.episodes) {
+    throw new Error(`${bodies.length} bodies over ${rollout.episodes} episodes`);
+  }
+  const keys = new Array(rollout.count);
+  let episode = 0;
+  for (let i = 0; i < rollout.count; i += 1) {
+    const body = bodies[episode];
+    const key = body === undefined ? null : axis === "build" ? body.build : body.terminal;
+    if (key === null || key === undefined) {
+      throw new Error(`episode ${episode} carries no ${axis}, so it cannot be put in a class`);
+    }
+    keys[i] = key;
+    if (rollout.done[i] === 1) episode += 1;
+  }
+  if (episode !== rollout.episodes) {
+    throw new Error(`the done flags close ${episode} episodes over ${rollout.episodes} the rollout claims`);
+  }
+  return keys;
+}
+
+/**
+ * The fewest asks a half may hold and still be a gradient worth taking a cosine of.
+ *
+ * A class that drew one bout has a half of a couple of hundred asks and a half of a couple of
+ * hundred more, and its cosine is an estimate of nothing with an enormous variance that would enter
+ * a mean beside classes that drew thirty. The floor is asks rather than bouts because asks are what
+ * the estimator averages over, and the classes it drops are reported per iteration rather than
+ * quietly skipped.
+ */
+export const CLASS_FLOOR = 400;
+
+/**
+ * The shuffled order re-laid so that every class is two contiguous halves, with a matched control.
+ *
+ * The cut is taken **out of the fit's own shuffled order**, stably: a class's asks appear in the
+ * order the epoch would have walked them, so halving that run is a random split of the class and
+ * not a split by bout, by corner or by time within the bout. That is the same argument `halfSplit`
+ * makes for the pooled cosine, and it is why this returns index ranges into a re-laid order rather
+ * than a predicate the pool would have to learn.
+ *
+ * **The control is the reason this is worth running.** A within-class cosine is taken over a
+ * quarter of the rollout and the pooled cosine over a half, so the two are not comparable as they
+ * stand -- a class that looked sharper might only be a class that drew fewer asks, and the
+ * direction of that bias is the one that would manufacture the finding. So every class also gets
+ * a control: two disjoint blocks of exactly its own two half sizes, taken from the front of the
+ * same shuffled order and therefore ignoring class entirely. `within` against `pooled` is a
+ * comparison at matched sample size, and it is the only comparison in this instrument that is.
+ *
+ * **The controls are ranges into the caller's order and the class halves are ranges into a new
+ * one**, which looks like an inconsistency and is a constraint. `FitPool.bind` allocates the
+ * shared order at the rollout's own ask count, so a step past that count writes into a typed
+ * array that is not there, silently, and the shards read whatever the last binding left -- which
+ * is how this function first reported a cosine of NaN. A control is a prefix of the order the
+ * caller already has, so it needs no copy; the class halves are a permutation of the kept
+ * classes' asks and hold each of them once, so the re-laid order is never longer than the
+ * rollout either.
+ */
+export function classBlocks(order, keys, { floor = CLASS_FLOOR } = {}) {
+  if (order.length !== keys.length) {
+    throw new Error(`an order of ${order.length} over ${keys.length} keys`);
+  }
+  const byClass = new Map();
+  for (const index of order) {
+    const key = keys[index];
+    let held = byClass.get(key);
+    if (held === undefined) { held = []; byClass.set(key, held); }
+    held.push(index);
+  }
+  const laid = [];
+  const blocks = [];
+  const controls = [];
+  const dropped = [];
+  for (const [key, indices] of [...byClass.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
+    const cut = Math.floor(indices.length / 2);
+    if (cut < floor) { dropped.push({ key, asks: indices.length }); continue; }
+    const firstAsks = cut;
+    const secondAsks = indices.length - cut;
+    blocks.push({ key, half: 0, at: laid.length, end: laid.length + firstAsks });
+    for (let i = 0; i < cut; i += 1) laid.push(indices[i]);
+    blocks.push({ key, half: 1, at: laid.length, end: laid.length + secondAsks });
+    for (let i = cut; i < indices.length; i += 1) laid.push(indices[i]);
+    // The matched control: the same two sizes, off the front of the shuffled order, class ignored.
+    // Two disjoint prefixes, so it exists only where the order is long enough to hold both -- a
+    // class holding the whole rollout would otherwise be controlled against one block read twice,
+    // whose cosine is exactly one and would read as a grouping that bought nothing.
+    if (firstAsks + secondAsks <= order.length) {
+      controls.push({ key, half: 0, at: 0, end: firstAsks });
+      controls.push({ key, half: 1, at: firstAsks, end: firstAsks + secondAsks });
+    }
+  }
+  return { order: laid, blocks, controls, dropped, classes: byClass.size };
+}
+
+/**
+ * The within-class, between-class and matched-pooled cosines of one rollout.
+ *
+ * Three numbers and they answer one question. **Within** is a class against itself, two halves of
+ * its own asks. **Pooled** is the same two sizes drawn without regard to class, which is the
+ * control: if within is no higher than pooled, grouping bought nothing. **Between** is one class's
+ * half against another's, over vectors of the same shape and comparable counts, and it is the
+ * number the grid's closing question is about -- if the bodies in a pool ask for contradictory
+ * changes, two classes point in unrelated directions however sharp each of them is on its own.
+ *
+ * The mean over pairs is left to the caller and the detail is logged, one entry per unordered pair
+ * of classes and per pair of halves. All four cross-half combinations are taken rather than one,
+ * because a between-class cosine from a single pair of halves is one draw and the four are nearly
+ * free once the gradients are in hand.
+ */
+export function measureClasses({
+  pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order, keys,
+  clip = 0.2, floor = CLASS_FLOOR,
+}) {
+  const laid = classBlocks(order, keys, { floor });
+  if (laid.blocks.length === 0) {
+    return { classes: laid.classes, kept: 0, dropped: laid.dropped, within: [], between: [], pooled: [] };
+  }
+  pool.bind(rollout, scaled, returns, norm, { clip, entropy: PROBE_ENTROPY });
+  const taken = new Map();
+  const sum = (kind, block, walked) => {
+    const sums = pool.step({
+      at: block.at, end: block.end, epoch: PROBE_EPOCH, order: walked,
+      weights, valueWeights, logSigma,
+    });
+    taken.set(`${kind}:${block.key}:${block.half}`, {
+      actor: Float64Array.from(sums.grad), asks: block.end - block.at,
+    });
+  };
+  for (const block of laid.blocks) sum("within", block, laid.order);
+  for (const block of laid.controls) sum("pooled", block, order);
+  const kept = [...new Set(laid.blocks.map((block) => block.key))];
+  const within = [];
+  const pooled = [];
+  for (const key of kept) {
+    const first = taken.get(`within:${key}:0`);
+    const second = taken.get(`within:${key}:1`);
+    within.push({ key, asks: first.asks + second.asks, cosine: cosineOf(first.actor, second.actor) });
+    const control = taken.get(`pooled:${key}:0`);
+    const against = taken.get(`pooled:${key}:1`);
+    if (control !== undefined && against !== undefined) {
+      pooled.push({ key, asks: control.asks + against.asks, cosine: cosineOf(control.actor, against.actor) });
+    }
+  }
+  const between = [];
+  for (let i = 0; i < kept.length; i += 1) {
+    for (let j = i + 1; j < kept.length; j += 1) {
+      for (const left of [0, 1]) {
+        for (const right of [0, 1]) {
+          between.push({
+            left: kept[i], right: kept[j], leftHalf: left, rightHalf: right,
+            cosine: cosineOf(taken.get(`within:${kept[i]}:${left}`).actor,
+              taken.get(`within:${kept[j]}:${right}`).actor),
+          });
+        }
+      }
+    }
+  }
+  return { classes: laid.classes, kept: kept.length, dropped: laid.dropped, within, between, pooled };
 }
 
 // ------------------------------------------------------------------------------------- main
@@ -415,6 +658,11 @@ if (isMain) {
   // file it always was and its rows stay comparable to the ones already in the record.
   const from = flag("from", null);
   const hold = checkHeldStart({ from, hold: argv.includes("--hold") });
+  // The grid's closing question, which it named as owed and did not measure: whether the bodies in
+  // one pool ask for the same policy change. Off by default, so a run that does not name it is the
+  // run the grid took.
+  const classes = parseClasses(flag("classes", null));
+  const classFloor = Number(flag("class-floor", CLASS_FLOOR));
   const label = flag("label", null);
   const stamp = new Date().toISOString().replace(/[-:]/g, "").slice(0, 13);
   // Concatenated rather than interpolated, for the trainer's reason: a backticked span that looks
@@ -454,6 +702,7 @@ if (isMain) {
   log({
     type: "header", kind: "gradient-probe", seed, date, version: POLICY_VERSION, features,
     layout, valueLayout, label, iterations, bouts, cap, random, workers, shards, from, hold,
+    classes, classFloor,
     opponent: opponentWord, terminals, mirrorShare,
     head: headName, sigma: sigmaName, critic: criticName,
     halfLife, lambda, clip, entropy: fitEntropy, rate, valueRate, sigmaRate, epochs, batch,
@@ -475,6 +724,10 @@ if (isMain) {
 
   const pool = await FitPool.open({ shards, layout, valueLayout, spec });
   const cosines = [];
+  // One row an iteration when a split was asked for: the three means over that iteration's
+  // classes and pairs, so the summary is a mean over iterations exactly as the pooled cosine is.
+  // The per-class and per-pair detail stays in the iteration rows and is not summarised away.
+  const splits = [];
   try {
     for (let iteration = 1; iteration <= iterations; iteration += 1) {
       const started = Date.now();
@@ -497,7 +750,7 @@ if (isMain) {
       const probeStarted = Date.now();
       const signal = probeRollout({
         pool, rollout, weights, valueWeights, logSigma, norm, valueLayout, seed: fitSeed,
-        halfLife, lambda, clip,
+        halfLife, lambda, clip, classes, floor: classFloor,
       });
       const probed = (Date.now() - probeStarted) / 1000;
       const fitStarted = Date.now();
@@ -526,6 +779,15 @@ if (isMain) {
         norm = extendNormalisation(norm, rollout);
       }
       cosines.push(signal.cosine);
+      const cut = signal.classes ?? null;
+      if (cut !== null) {
+        splits.push({
+          within: meanOf(cut.within.map((row) => row.cosine)),
+          between: meanOf(cut.between.map((row) => row.cosine)),
+          pooled: meanOf(cut.pooled.map((row) => row.cosine)),
+          kept: cut.kept,
+        });
+      }
       const { share } = episodeReturns(rollout);
       log({
         type: "iteration", iteration, bouts: rollout.bouts, steps: rollout.count,
@@ -557,6 +819,9 @@ if (isMain) {
         + `|g| ${signal.firstNorm.toExponential(2)}/${signal.secondNorm.toExponential(2)}  `
         + `dot ${signal.dot.toExponential(2)}  spread ${signed(signal.spread.cosine)}  `
         + `critic ${signed(signal.critic.cosine)}  `
+        + (cut === null ? "" : `within ${signed(splits[splits.length - 1].within)} `
+          + `between ${signed(splits[splits.length - 1].between)} `
+          + `pooled ${signed(splits[splits.length - 1].pooled)} (${cut.kept}/${cut.classes})  `)
         + (fit === null ? "held  " : `KL ${fit.kl.toFixed(5)}  clip ${(fit.clipFraction * 100).toFixed(1)}%  `)
         + `${((Date.now() - started) / 1000).toFixed(0)} s `
         + `(${collected.toFixed(0)} collect, ${probed.toFixed(1)} probe`
@@ -575,13 +840,31 @@ if (isMain) {
   const median = sorted.length % 2 === 1
     ? sorted[(sorted.length - 1) / 2]
     : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;
+  // The three class means, and the comparison the run is read on is `within` against `pooled`:
+  // they are taken over the same number of asks by construction, so a gap between them is the
+  // grouping and not the sample size. `between` is the question itself.
+  const splitSummary = splits.length === 0 ? {} : {
+    classAxis: classes, classesKept: meanOf(splits.map((row) => row.kept)),
+    withinMean: meanOf(splits.map((row) => row.within)), withinSem: semOf(splits.map((row) => row.within)),
+    betweenMean: meanOf(splits.map((row) => row.between)), betweenSem: semOf(splits.map((row) => row.between)),
+    pooledMean: meanOf(splits.map((row) => row.pooled)), pooledSem: semOf(splits.map((row) => row.pooled)),
+  };
   log({
     type: "summary", iterations: cosines.length, bouts, opponent: opponentWord,
     cosineMean: mean, cosineSem: sem, cosineMedian: median,
     cosineLeast: sorted[0], cosineMost: sorted[sorted.length - 1], probeEntropy: PROBE_ENTROPY,
+    ...splitSummary,
   });
   console.log(`cosine over ${cosines.length} iterations at ${bouts} bouts against ${opponentWord}: `
     + `${mean >= 0 ? "+" : ""}${mean.toFixed(4)} +- ${sem.toFixed(4)}, `
     + `median ${median.toFixed(4)}, range ${sorted[0].toFixed(4)} to ${sorted[sorted.length - 1].toFixed(4)}`);
+  if (splits.length > 0) {
+    const say = (which) => {
+      const column = splits.map((row) => row[which]);
+      return `${meanOf(column) >= 0 ? "+" : ""}${meanOf(column).toFixed(4)} +- ${semOf(column).toFixed(4)}`;
+    };
+    console.log(`cut by ${classes}: within ${say("within")}, pooled at the same sizes ${say("pooled")}, `
+      + `between ${say("between")}`);
+  }
   console.log(`log: ${out}`);
 }

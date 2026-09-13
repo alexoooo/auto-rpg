@@ -32,6 +32,29 @@
 // and 2 and the clamp has nothing to hide. A clamp is a guard against the last bits and it is also
 // a way to make a wrong answer look right; a fixture whose norm is not near 1 cannot see it.
 //
+// **The class split added four more on the same day**, watched red the same way and against the
+// tests that do not want a fit pool, so the whole table runs in under two seconds:
+//
+// | mutation | what went red |
+// |---|---|
+// | `askClasses` closes the episode before reading its body, so every last ask of a bout is filed under the next one | the trace test, and all three of the partition tests downstream of it |
+// | `classBlocks` partitions the rollout's own index order rather than the fit's shuffled order | the halves test, on the assertion that a class comes out in the order the epoch walks |
+// | the control is the class's own two halves again rather than a prefix of the shuffled order | the control test, on the assertion that its two blocks are disjoint |
+// | the floor is read against a class's whole ask count rather than against one of its halves | the drop test |
+//
+// **Two of those four were green the first time and the fixtures were wrong, not the code.** The
+// drop test was written with classes of 100 asks against a floor of 400, where a class is under
+// the floor whole *and* halved and the two spellings cannot be told apart; it is written with
+// classes of 600 now, which are over the floor whole and under it halved. And the first spelling of
+// the off-by-one mutation swapped two lines that were already independent of each other, so it was
+// not a mutation at all -- a green row in a table like this is worth nothing until the mutation is
+// read back and confirmed to be the mistake it claims to be.
+//
+// A fifth lives in `tests/ppo.test.mjs`, because the code it mutates does: `bodyOf` filing a build
+// under its primary socket's terminal rather than its armed hand's, which is the mistake this was
+// actually written with and which the first live run caught by reporting three classes where the
+// pool had been narrowed to two.
+//
 // And two that are green on purpose, recorded so the next reader does not re-derive them. Replacing
 // `PROBE_EPOCH` with any other whole number changes nothing at all, because `FitPool.step` stores
 // it in the control block and `shardStep` never reads it -- it is written for a person reading a
@@ -52,8 +75,8 @@ import {
   standardisedAdvantages, valuesOf,
 } from "../scripts/train-ppo.mjs";
 import {
-  PROBE_ENTROPY, PROBE_EPOCH, checkHeldStart, cosineOf, dotOf, epochOrder, halfGradients, halfSplit,
-  measureSignal, normOf, probeRollout,
+  CLASS_AXES, PROBE_ENTROPY, PROBE_EPOCH, askClasses, checkHeldStart, classBlocks, cosineOf, dotOf,
+  epochOrder, halfGradients, halfSplit, measureSignal, normOf, parseClasses, probeRollout,
 } from "../scripts/gradient-probe.mjs";
 
 const SEED = 20260917;
@@ -455,4 +478,199 @@ test("a_run_that_is_not_holding_never_needs_a_checkpoint_and_says_so_by_returnin
   assert.equal(checkHeldStart({ from: null, hold: false }), false);
   assert.equal(checkHeldStart({ from: undefined, hold: false }), false);
   assert.equal(checkHeldStart({ from: "tournaments/bracket-idle/pool-5.json", hold: false }), false);
+});
+
+// ---------------------------------------------------------------------------------------
+// Cutting one rollout by the body that fought it, which is the question the grid named as owed.
+// ---------------------------------------------------------------------------------------
+
+/**
+ * A rollout carrying only what a class split reads: the ask count, the episode count, the `done`
+ * flags that close the episodes and the bodies that fought them.
+ *
+ * Deliberately not a collected rollout. Every other test in this file that wants gradients builds
+ * one through the pool, and that is the right shape for a gradient; the trace from an ask to a
+ * build is index arithmetic over two arrays and a fixture with hand-written episode lengths is the
+ * only kind of fixture where the expected answer is known by reading it.
+ */
+function rolloutOf(lengths, bodies) {
+  const count = lengths.reduce((a, b) => a + b, 0);
+  const done = new Uint8Array(count);
+  let at = 0;
+  for (const length of lengths) { at += length; done[at - 1] = 1; }
+  return { count, episodes: lengths.length, done, bodies };
+}
+
+const BODIES = [
+  { build: "mace", terminal: "mace" },
+  { build: "draw-2", terminal: "maul" },
+  { build: "draw-7", terminal: "mace" },
+];
+
+test("an_ask_is_traced_to_its_body_through_the_done_flags_and_not_through_its_position", () => {
+  // Episodes of three different lengths, so a trace that assumed equal-length episodes -- the
+  // mistake available here, and the one nothing else in the file would catch -- puts the wrong
+  // build on most of the asks and is off by a different amount in each class.
+  const rollout = rolloutOf([4, 1, 3], BODIES);
+  assert.deepEqual(askClasses(rollout, "build"),
+    ["mace", "mace", "mace", "mace", "draw-2", "draw-7", "draw-7", "draw-7"]);
+  // The coarse cut puts two of the three episodes in one class, which is the arrangement the
+  // experiment is actually run at and the one where an off-by-one is hardest to see by eye.
+  assert.deepEqual(askClasses(rollout, "terminal"),
+    ["mace", "mace", "mace", "mace", "maul", "mace", "mace", "mace"]);
+});
+
+test("a_rollout_whose_bodies_do_not_line_up_with_its_episodes_is_refused_rather_than_cut", () => {
+  // Each of the three ways the trace can be broken, by name. A split that was silently off by one
+  // would read as bodies that disagree, which is exactly the finding the instrument exists to
+  // report -- so every step of the trace is a refusal and none of them is an assumption.
+  assert.throws(() => askClasses(rolloutOf([4, 1, 3], undefined), "build"), /carries no bodies/);
+  assert.throws(() => askClasses(rolloutOf([4, 1, 3], BODIES.slice(0, 2)), "build"), /2 bodies over 3 episodes/);
+  const short = rolloutOf([4, 1, 3], BODIES);
+  short.done[7] = 0;
+  assert.throws(() => askClasses(short, "build"), /done flags close 2 episodes over 3/);
+  // And a body with no word on the axis asked for, which is what a pack from an older worker is.
+  const blank = rolloutOf([4, 1, 3], [BODIES[0], { build: "draw-2" }, BODIES[2]]);
+  assert.throws(() => askClasses(blank, "terminal"), /episode 1 carries no terminal/);
+});
+
+test("the_grouping_is_read_by_name_and_none_is_the_absence_of_one_rather_than_a_third_grouping", () => {
+  assert.equal(parseClasses(null), "none");
+  assert.equal(parseClasses(undefined), "none");
+  for (const word of CLASS_AXES) assert.equal(parseClasses(word), word);
+  assert.equal(parseClasses(" Terminal "), "terminal");
+  assert.throws(() => parseClasses("weapon"), /--classes weapon/);
+  // `none` reaches `parseClasses` as a legal word and `askClasses` as a bug: the CLI branches on it
+  // before the trace, so a split asked for by a caller that forgot to branch is refused loudly
+  // rather than answered with one class holding everything.
+  assert.throws(() => askClasses(rolloutOf([2, 2], BODIES.slice(0, 2)), "none"), /wants a grouping/);
+});
+
+test("a_class_is_two_halves_of_its_own_asks_and_nothing_else_of_the_rollout_is_in_them", () => {
+  const rollout = rolloutOf([1000, 1000, 1000], BODIES);
+  const keys = askClasses(rollout, "build");
+  const order = epochOrder(rollout.count, SEED);
+  const laid = classBlocks(order, keys, { floor: 100 });
+  assert.equal(laid.classes, 3);
+  assert.equal(laid.blocks.length, 6, "three classes did not come back as three pairs of halves");
+  // The re-laid order holds each ask at most once, which is not a tidiness preference: the shared
+  // order a `FitPool` binds is allocated at the rollout's own count, and a block past it is
+  // summed over indices nothing wrote.
+  assert.ok(laid.order.length <= rollout.count, "the re-laid order is longer than the rollout");
+  assert.equal(new Set(laid.order).size, laid.order.length);
+  for (const key of ["mace", "draw-2", "draw-7"]) {
+    const halves = laid.blocks.filter((block) => block.key === key);
+    assert.equal(halves.length, 2);
+    const taken = halves.flatMap((block) => laid.order.slice(block.at, block.end));
+    // Disjoint, complete, and every index really is this class's: the three properties the pooled
+    // `halfSplit` gets for free from being two ranges of one array and that this has to be given.
+    assert.equal(new Set(taken).size, taken.length, `${key} put an ask in both of its halves`);
+    assert.equal(taken.length, 1000, `${key} lost or gained asks in the cut`);
+    for (const index of taken) assert.equal(keys[index], key, `${key} took an ask of another class`);
+    // And in the fit's own order, which is what makes halving it a random split of the class
+    // rather than a split by bout: the class's indices come out in the sequence the epoch walks.
+    assert.deepEqual(taken, order.filter((index) => keys[index] === key));
+  }
+});
+
+test("every_class_gets_a_pooled_control_of_its_own_two_sizes_drawn_without_regard_to_class", () => {
+  // Uneven classes on purpose. The control exists because a within-class cosine is taken over a
+  // quarter of the rollout where the experiment's own cosine is taken over a half, so the two are
+  // not comparable as they stand -- and the direction of that bias is the one that manufactures
+  // the finding. A control of the wrong size is therefore worse than none.
+  const rollout = rolloutOf([1500, 900, 600], BODIES);
+  const keys = askClasses(rollout, "build");
+  const order = epochOrder(rollout.count, SEED);
+  const laid = classBlocks(order, keys, { floor: 100 });
+  for (const key of ["mace", "draw-2", "draw-7"]) {
+    const sizes = (rows) => rows.filter((block) => block.key === key).map((block) => block.end - block.at);
+    assert.deepEqual(sizes(laid.controls), sizes(laid.blocks), `${key} was controlled at some other size`);
+    // The controls are ranges into the caller's order rather than into the re-laid one, because a
+    // control is a prefix of the order the caller already holds and copying it would push the
+    // re-laid order past the ask count a `FitPool` binds.
+    const control = laid.controls.filter((block) => block.key === key);
+    const taken = control.flatMap((block) => order.slice(block.at, block.end));
+    assert.equal(new Set(taken).size, taken.length, `${key} read one control block twice`);
+    // Class ignored: the control is the front of the shuffled order, so for at least one class it
+    // holds asks of a class it is not the control of. A control that had been filtered would be a
+    // second within-class reading wearing the name of a baseline.
+    assert.deepEqual(taken, order.slice(0, taken.length));
+  }
+});
+
+test("a_class_too_small_to_halve_is_dropped_by_name_rather_than_averaged_in_at_any_variance", () => {
+  // One class of 2,000 asks and two of 600, against a floor of 400. **The two small ones are over
+  // the floor and their halves are under it**, which is the arrangement that says what the floor
+  // is counted in: a class kept on its whole size would enter the mean as a cosine between two
+  // three-hundred-ask gradients, and the floor exists because asks are what the estimator averages
+  // over. A fixture whose small classes were under the floor whole could not tell the two
+  // spellings apart, and the mutation that reads it whole was watched green against exactly that.
+  const rollout = rolloutOf([2000, 600, 600], BODIES);
+  const keys = askClasses(rollout, "build");
+  const order = epochOrder(rollout.count, SEED);
+  const laid = classBlocks(order, keys, { floor: 400 });
+  assert.equal(laid.classes, 3, "a dropped class is still a class that was there");
+  assert.deepEqual(laid.blocks.map((block) => block.key), ["mace", "mace"]);
+  assert.deepEqual(laid.dropped.map((row) => row.key).sort(), ["draw-2", "draw-7"]);
+  assert.deepEqual(laid.dropped.map((row) => row.asks), [600, 600]);
+  // And the floor is a number rather than a rule: the same rollout cut at a floor of three hundred
+  // keeps all three, which is what makes the drops in a run's rows readable against the flag that
+  // caused them instead of against a constant a reader has to go and find.
+  const lower = classBlocks(order, keys, { floor: 300 });
+  assert.equal(lower.dropped.length, 0);
+  assert.equal(lower.blocks.length, 6);
+});
+
+test("the_three_class_cosines_come_out_of_one_binding_of_the_pool_the_fit_sums_through", async () => {
+  // The end-to-end property, and the one that cannot be checked by arithmetic on a fixture: the
+  // class gradients are the *fit's* gradients, summed by the pool over ranges of a re-laid order,
+  // and a class against itself is a cosine in the interval a cosine lives in. Built on a rollout
+  // whose two classes are the two halves of the fixture, so both survive any floor worth setting.
+  const built = fixture();
+  built.rollout.episodes = 8;
+  const half = Math.floor(built.rollout.episodes / 2);
+  built.rollout.bodies = Array.from({ length: built.rollout.episodes }, (_, e) => (e < half
+    ? { build: "mace", terminal: "mace" }
+    : { build: "draw-2", terminal: "maul" }));
+  const pool = await FitPool.open({ shards: 2, layout: LAYOUT, valueLayout: VALUE });
+  let row = null;
+  try {
+    row = probeRollout({
+      pool, rollout: built.rollout, weights: built.weights, valueWeights: built.valueWeights,
+      logSigma: built.logSigma, norm: built.norm, valueLayout: VALUE, seed: SEED,
+      classes: "terminal", floor: 8,
+    });
+  } finally {
+    await pool.close();
+  }
+  assert.equal(row.classAxis, "terminal");
+  assert.equal(row.classes.kept, 2, "the fixture's two classes did not both survive the floor");
+  assert.equal(row.classes.within.length, 2);
+  assert.equal(row.classes.pooled.length, 2);
+  // Four cross-half cosines for the one pair of classes, which is what makes `between` a mean over
+  // draws rather than a single one.
+  assert.equal(row.classes.between.length, 4);
+  for (const entry of [...row.classes.within, ...row.classes.pooled, ...row.classes.between]) {
+    assert.ok(entry.cosine >= -1 && entry.cosine <= 1, `a cosine read ${entry.cosine}`);
+  }
+  // The pooled cosine of the experiment above is untouched by the split, which is the property
+  // that keeps a `--classes` run comparable with every row already in the record: the class
+  // measurement rebinds the pool afterwards and reports separately.
+  assert.ok(row.cosine >= -1 && row.cosine <= 1);
+  assert.ok(row.advantageSd > 0);
+  // And a run that asked for no split carries no split, absent rather than null: a row with a
+  // `classes` key holding nothing would say a cut was taken and found nothing.
+  const poolAgain = await FitPool.open({ shards: 2, layout: LAYOUT, valueLayout: VALUE });
+  let plain = null;
+  try {
+    plain = probeRollout({
+      pool: poolAgain, rollout: built.rollout, weights: built.weights,
+      valueWeights: built.valueWeights, logSigma: built.logSigma, norm: built.norm,
+      valueLayout: VALUE, seed: SEED,
+    });
+  } finally {
+    await poolAgain.close();
+  }
+  assert.ok(!("classes" in plain) && !("classAxis" in plain));
+  assert.equal(plain.cosine, row.cosine, "the split moved the number the experiment is about");
 });

@@ -1765,6 +1765,32 @@ export function contenderShape({
   };
 }
 
+/**
+ * Which body fought an episode, as the two words anything downstream would group by.
+ *
+ * A rollout is a flat concatenation of asks and has never carried any way back to the build that
+ * produced one, because nothing needed it: a fit averages over the whole batch and does not care
+ * which body a sample came from. The grid of 2026-09-12 is what needs it -- its closing question is
+ * whether different bodies in the pool ask for contradictory policy changes, in which case
+ * averaging more of them drives the mean toward zero rather than toward a signal -- and that
+ * question cannot be asked of a rollout whose samples are anonymous.
+ *
+ * Two fields and not the whole `setup`: `build` is the pool's own name for the body and is the
+ * finest grouping there is, `terminal` is the weapon class the `--terminals` flag already speaks
+ * in and is the coarsest grouping worth having. A third axis would be a guess about which
+ * difference matters, and the instrument that reads these is the thing that should be making that
+ * guess out loud.
+ *
+ * **The terminal is the armed hand's and not the primary socket's**, which is the same
+ * `armedTerminal` `keepViable` filters on. A build with a capped primary and a mace on the
+ * secondary is in a maul-and-mace pool because its armed hand carries one, and reading its
+ * primary would file it under `none` -- a class the pool was explicitly narrowed to exclude,
+ * which is how the first smoke of this came back with three classes where the flag named two.
+ */
+export function bodyOf(side) {
+  return { build: side.build, terminal: side.setup === undefined ? null : armedTerminal(side.setup) };
+}
+
 export async function collectRollouts({
   pool, weights, logSigma, norm, seed, bouts, workers, cap, name = FIT_NAME, onProgress = null,
   reward = GOLEM_REWARD, opponent = null, separation = null,
@@ -1797,11 +1823,17 @@ export async function collectRollouts({
       const pack = row.samples?.[side];
       if (!pack || pack.logp.length === 0) continue;
       if (pack.kind !== "pilot") throw new Error(`a rollout collected ${pack.kind} samples; PPO reads the pilot columns`);
-      parts.push({ ...pack, side });
+      parts.push({ ...pack, side, body: bodyOf(row[side]) });
       margin += pack.margin;
     }
   }
   const rollout = mergeRollouts(parts, reward, pilotFeatureCount(features));
+  // One entry per episode, in the order the episodes were merged, so an ask can be traced back to
+  // the body that fought it. `mergeRollouts` concatenates the parts it is handed and every part
+  // here carries at least one ask, so `bodies[e]` is the body of the episode the `done` flags
+  // close `e`-th -- which is the identity `episodeBodies` in `scripts/gradient-probe.mjs` refuses
+  // the rollout over rather than assumes.
+  rollout.bodies = parts.map((part) => part.body);
   rollout.bouts = rows.length;
   rollout.decided = rows.length === 0 ? 0 : decided / rows.length;
   rollout.margin = parts.length === 0 ? 0 : margin / parts.length;

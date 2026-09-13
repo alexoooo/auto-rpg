@@ -97,7 +97,7 @@ import { mulberry32 } from "../src/rng.ts";
 import {
   FIT_NAME, FitPool, GAUSSIAN_ENTROPY_OFFSET, MIRROR_SHARE_TOLERANCE, PACK_COLUMNS, RATING_POOLS,
   SCHEDULE_OPPONENTS, SHAPING_ROWS, advantages,
-  boutSplit, checkEntropyTarget, checkMirrorShare, checkpointFor, cohensD, contenderShape,
+  bodyOf, boutSplit, checkEntropyTarget, checkMirrorShare, checkpointFor, cohensD, contenderShape,
   explainedVariance, extendNormalisation,
   mergeRollouts, mixedSchedule, momentsFromJson, momentsToJson, opponentOf, parseEntropyStage,
   parseOpponentStage, parseSchedule, parseSeparationStage, parseTactics, parseTerminals,
@@ -2300,4 +2300,28 @@ test("a_fit_at_the_shipped_knobs_is_the_fit_the_learn_sets_record_was_taken_on",
   ].map(String).join(",");
   assert.equal(createHash("sha256").update(canonical).digest("hex").slice(0, 32), SHIPPED_FIT_DIGEST,
     "the fit moved; whatever changed, every run in docs/measurements.md was taken before it");
+});
+
+test("a_rollouts_episode_is_filed_under_the_hand_its_body_actually_fights_with", () => {
+  // The two words `collectRollouts` writes beside every episode so that an ask can be traced back
+  // to the build that produced it, which is what a class split reads and what nothing in this
+  // directory carried before 2026-09-12.
+  //
+  // **The terminal is the armed hand's**, the same `armedTerminal` `keepViable` filters the pool
+  // on. A build with a capped primary and a mace on the secondary is in a maul-and-mace pool
+  // because its armed hand carries one, and filing it under its primary puts it in a class called
+  // `none` that the pool was narrowed to exclude -- which is what the first live run of the split
+  // came back with, three classes where the flag named two.
+  const wrist = (terminal) => ({ chain: "wrist", terminal });
+  assert.deepEqual(bodyOf({ build: "mace", setup: { primary: wrist("mace"), secondary: wrist("plate") } }),
+    { build: "mace", terminal: "mace" });
+  assert.deepEqual(bodyOf({ build: "draw-9", setup: { primary: wrist("none"), secondary: wrist("maul") } }),
+    { build: "draw-9", terminal: "maul" });
+  // An unarmed build really is class `none`, which is a legal class of the whole pool and is why
+  // the word cannot simply be refused here: `--terminals all` keeps it and `buildClass` names it.
+  assert.deepEqual(bodyOf({ build: "draw-4", setup: { primary: wrist("none"), secondary: wrist("none") } }),
+    { build: "draw-4", terminal: "none" });
+  // And a side from a worker too old to have carried a setup is null rather than a throw: the
+  // refusal belongs where the class is read, which is `askClasses`, and it names the episode.
+  assert.deepEqual(bodyOf({ build: "draw-4" }), { build: "draw-4", terminal: null });
 });
