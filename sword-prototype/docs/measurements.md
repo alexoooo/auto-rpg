@@ -31272,3 +31272,116 @@ points away from the item's framing, that finishing it costs about a day of host
 contrast worth 14 % of the control slope, and that V-b is not a measurement at all. The queue is
 unchanged: Experiment S finishes, Experiment U's three arms are collecting, and the next
 registration after them is a decision this memo exists to inform and not to pre-empt.
+
+## A correction to Experiment T -- 2026-09-13: a term's share of the return and its share of the gradient are different measurements, and this record had already taken both
+
+Experiment T's prediction 4 closes with a sentence that is wrong. The measurement that shows it is
+wrong has been on disk since Experiments E and R, was taken on exactly the coefficients T was
+arguing about, and cost nothing to read. **The correction is appended rather than edited in, and
+the experiment it corrects loses one paragraph and keeps every finding.**
+
+### The sentence
+
+> *The one that matters is the one the optimiser climbs, and that is the mean. A policy gradient
+> averages the return over a collection; on a mirrored collection the margin cancels exactly and
+> on a random-pair collection it cancels to within its own noise. What does not cancel is the
+> charge, because it is a one-sided penalty every side pays. So the module's per-bout reassurance
+> is true and irrelevant, and the mean is where the fit lives.*
+
+The first two clauses are right and the conclusion does not follow from them. **An optimiser does
+not climb the mean return.** A policy gradient is the mean of `grad log pi(a|s)` times an
+*advantage*, and an advantage is a return with a baseline subtracted. A term that adds the same
+amount to every return contributes exactly nothing; a term that varies between bouts rather than
+between the actions a policy chooses inside a bout contributes almost nothing. **What reaches the
+step is the term's covariance with the score function, and that is not its size.** The paragraph
+above reasoned from a mean that does not cancel to a gradient that must therefore be made of it,
+and those are two different quantities.
+
+### The measurement, which needed no bouts because it had already been taken
+
+`no-shaping` -- the shipped table with `clinch` and `idle` both set to zero, which is precisely
+and only the charge Experiment T measured at 55.7 % of the fit-to-fencer difference and 1,660 % of
+the mean margin -- is one of the sixteen arms Experiments E and R priced at a held checkpoint. E's
+design collects once and prices many tables, so `shipped` and `no-shaping` are read off the **same
+twenty collections** and the difference between them is paired.
+
+On the idle cell, which is the cell where this fit's gradient is measurable at all:
+
+| what was measured | `shipped` | `no-shaping` |
+| --- | ---: | ---: |
+| half-to-half cosine | +0.0973 | +0.0965 |
+| `\|S\|^2` | 1.907e-2 +-4.15e-3 | 1.893e-2 +-4.19e-3 |
+| t | 4.60 | 4.52 |
+| floor, bouts | 789 | **790** |
+| direction, whole gradient against whole gradient | 1 by construction | **0.9994** |
+| R's paired `gap` in cosine | 0.0000 | **-0.0005 +-0.0004, t -1.32** |
+| R's amended agreement statistic | 1 by construction | **0.9990 +-0.0003** |
+
+**Deleting both live charges moves the floor by one bout in eight hundred and leaves the gradient
+pointing where it pointed to within six parts in ten thousand**, and the paired change in the
+cosine does not clear zero. R's table already called that reading out, for the opposite reason --
+`no-shaping` is one of five arms that cross the family-wise threshold, and the entry there warns
+that it clears *at an effect of one part in a thousand*, which is precision and not size. **Here
+the size is the whole point: the term that dominates the mean return is invisible in the step.**
+
+The fencer cell reads `shipped` 3,796 and `no-shaping` 3,756, and **that pair says nothing**:
+neither arm's `|S|^2` clears zero there (t -0.47 and -0.45), and this record's own floor-ratio
+mark exists to stop exactly that ratio being read. It is printed for completeness and carries no
+weight in the paragraph above.
+
+### The limit of the bound, stated before anyone else has to state it
+
+This is a **one-step** measurement at a **held checkpoint**. It says what the charge contributes
+to the direction of a single update of the shipped weights, not what it contributes to a
+trajectory of several thousand of them, and a per-step rotation of six parts in ten thousand
+compounded over several thousand steps is not the same quantity as a per-step rotation of six
+parts in ten thousand. What can be said without stretching: at the one point in weight space where
+this record has ever measured a readable actor gradient, the two coefficients that supply more
+than half of the objective's gap between two minds supply a change in the step that the probe
+cannot distinguish from zero.
+
+### What survives, which is most of the experiment
+
+**Prediction 3's finding is untouched.** *The charged part is 55.7 % of the fit-to-fencer
+difference* is a statement about what the objective **pays** two minds over a rating -- a scoring
+question, not a gradient question -- and nothing above reaches it. It is still the finding that
+matters for the objective-against-criterion question, because it says what the objective would be
+*ranking on* if it were ever used as a criterion, and the answer is a habit.
+
+**The signal set's finding 3 is not overturned, and it is worth saying why not.** *In a mirrored
+bout the only reward with a non-zero mean pays for standing still* is the same mean-side argument,
+but it was never left as an argument: the run it diagnosed was measured doing it, with the `idle`
+row growing 0.00324 to 0.04562 across four hundred iterations, stall 2.57 to 6.27 s, and maul
+damage against a motionless target falling at t -9.35. **A measured behaviour over a trajectory is
+evidence about a trajectory in a way that a mean over a collection is not.** What the correction
+does take from finding 3 is its *sufficiency*: the mean-return argument alone would not have
+established it, and the behaviour columns did.
+
+**Prediction 4's two denominators are still two honest denominators**, still 537x and 25x apart,
+and the rule the entry drew from them stands with its second clause replaced:
+
+> **A charge stated as a fraction names the denominator it was taken over. When a quantity has two
+> honest denominators, an entry prints both and says which one the *question* is about -- and
+> neither of them is what an optimiser climbs, so neither may be described as such.**
+
+**And the follow-on T registered is unaffected**, because it was always a rating: *the same four
+contenders under a table whose `clinch` and `idle` rows are zero* asks what the **objective** says
+about four minds without the habit term. That is a criterion question, it still costs one rating,
+and it is still worth running.
+
+### What the correction saves, which is the reason it is worth its own section
+
+The obvious larger follow-on -- **a fit trained under `no-shaping`**, a night of host time -- is
+the one the corrected sentence was about to justify. E and R price its per-step effect at a
+rotation of 0.0006 and a floor ratio of 1.00x. That is not a refutation of the idea, for the
+reason the limits paragraph gives, but it is a prior, and the two levers competing for the same
+night are Experiment U's batch reading at a measured 16.2x and item V's opponent contrast at a
+measured 14 % of the control slope. **A lever whose one available measurement reads 1.00x does not
+outrank either, and the record is saying so before spending the night rather than after.**
+
+**The transferable rule: a term's share of the return and its share of the step are different
+measurements, and an entry that has only one of them may not speak for the other.** This record
+now has both taken on the same two coefficients and they disagree by three orders of magnitude --
+1,660 % of the mean margin, six parts in ten thousand of the direction. The reason is not subtle
+once it is written down, and the entry above reached for the intuitive quantity because it was the
+one it had just spent a rating measuring.
