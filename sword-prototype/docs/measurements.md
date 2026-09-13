@@ -23440,6 +23440,160 @@ does not clear the shipped arm's bouts-for-cosine-0.5 by a factor of two against
 then the reward table is eliminated as the explanation and so is reward sparsity, and the remaining
 suspects are the behaviour policy and the estimator itself.
 
+## The reward grid -- 2026-09-13: sixteen tables over one collection, and the table was never the problem
+
+Experiment E. Two cells of 20 iterations at 128 bouts, sixteen reward tables priced over each
+collection, held throughout: `bracket-fencer` pool-30 against `golem-fencer` and `bracket-idle`
+pool-30 against `idle`, fit seed 20260917. The logs are gradreward-fencer-128.jsonl and
+gradreward-idle-128.jsonl under tournaments.
+
+**The headline in one line: against `golem-fencer` no table this arena can express makes the
+gradient measurable, and against `idle` almost every table does.** The opponent moved the answer
+further than any coefficient did, and that was not a variable the grid was designed to sweep.
+
+### Prediction 1, the identity: confirmed on both cells, 240 fields, no disagreement
+
+The `shipped` arm reproduces the row's own `cosine`, `dot`, `firstNorm`, `secondNorm`,
+`advantageSd` and critic cosine **exactly** -- 120 fields over each cell's twenty iterations, no
+digit different. The pricing path and the collection path are one estimator, and the other fifteen
+arms are readable.
+
+And the identity holds **across runs** as well as within one, which is what makes the whole design
+work. The collections are field for field the bout-split grid's: `gradbout-fencer-128` and
+`gradreward-fencer-128` agree on 120 of 120 fields over 20 iterations, and `gradbout-idle-128` and
+`gradreward-idle-128` on 120 of 120 over 20. So the probe's collection is a deterministic function
+of the seed, the checkpoint, the bout count, the opponent and the pool, and is unaffected by
+`--bout-split`, by `--rewards` or by the arm list. A reward grid costs one collection and any
+number of tables, exactly as the pre-registration claimed, and Experiment F's control is exact
+rather than approximate.
+
+### The fencer cell, and the falsifier fires
+
+| arm | cosine | shaping share | `\|S\|^2` | t | floor, bouts | vs shipped |
+| --- | --- | --- | --- | --- | --- | --- |
+| `shipped` | -0.0116 | 1.5 % | -2.553e-3 +-5.47e-3 | -0.47 | 3,796 | 1.00x |
+| `no-shaping` | -0.0113 | 0 | -2.479e-3 +-5.48e-3 | -0.45 | 3,756 | 1.01x |
+| `no-win` | -0.0246 | 2.0 % | -5.750e-3 +-5.71e-3 | -1.01 | 5,415 | 0.70x |
+| `damage-only` | -0.0252 | 0 | -5.883e-3 +-5.66e-3 | -1.04 | 5,651 | 0.67x |
+| `win-heavy` | -0.0052 | 0.4 % | 2.794e-4 +-7.01e-3 | 0.04 | 2,283 | 1.66x |
+| `tick` | -0.0116 | 1.8 % | -2.556e-3 +-5.47e-3 | -0.47 | 3,797 | 1.00x |
+| `closing` | -0.0115 | 1.1 % | -2.551e-3 +-5.47e-3 | -0.47 | 3,798 | 1.00x |
+| `outside` | -0.0120 | 1.8 % | -2.654e-3 +-5.46e-3 | -0.49 | 3,851 | 0.99x |
+| `swing` | -0.0119 | 1.9 % | -2.612e-3 +-5.54e-3 | -0.47 | 3,763 | 1.01x |
+| `stall` | -0.0065 | 4.9 % | -1.524e-3 +-5.57e-3 | -0.27 | 3,320 | 1.14x |
+| `engage` | -0.0119 | 1.8 % | -2.656e-3 +-5.46e-3 | -0.49 | 3,853 | 0.99x |
+| `tick-loud` | -0.0124 | 20.3 % | -2.736e-3 +-5.51e-3 | -0.50 | 3,851 | 0.99x |
+| `closing-loud` | -0.0059 | -18.5 % | -1.499e-3 +-5.31e-3 | -0.28 | 3,477 | 1.09x |
+| `outside-loud` | +0.0105 | 21.2 % | 2.069e-3 +-4.47e-3 | 0.46 | 2,852 | 1.33x |
+| `swing-loud` | +0.0298 | 24.8 % | 7.669e-3 +-5.36e-3 | 1.43 | 1,725 | 2.20x |
+| `engage-loud` | +0.0114 | 17.8 % | 2.136e-3 +-4.62e-3 | 0.46 | 2,759 | 1.38x |
+
+**Prediction 2 is confirmed: no arm's `|S|^2` clears zero at two sigma.** Sixteen tables, twenty
+collections of 128 bouts each, and the largest t in the cell is 1.43.
+
+**The falsifier fires as written.** `outside-loud` -- the dense, immediate, action-determined
+charge worth a fifth of what the asks paid -- reaches 1.33x the shipped arm's floor, not the 2x
+the pre-registration named. **The reward table is eliminated as the explanation against
+`golem-fencer`, and so is reward sparsity**, which is the stronger half: a per-ask charge that
+needs no credit assignment at all does not buy a gradient the sample can see.
+
+**And one arm did clear 2x, which the entry has to say plainly rather than bury.** `swing-loud`
+reaches 2.20x at t 1.43. Sixteen arms produce a largest-of-sixteen, and a t of 1.43 is not
+evidence of anything on its own -- one arm in sixteen at that t is what sixteen arms do. It is
+recorded here because Experiment F's latched cell then found the same arm at **t 5.05**, which is
+a different statement entirely, and because the mechanism turns out to be legible: `swing` charges
+a stroke that *finished* and missed, the unlatched policy finishes about three strokes in a
+hundred, and the row is therefore a coefficient on a quantity the body barely accumulates. The arm
+that a latch makes payable is the arm that the probe ranked highest before the latch existed. That
+is not a multiple-comparisons artifact; it is the two findings of the signal set turning out to be
+one.
+
+### The idle cell, and it is the opposite story
+
+| arm | cosine | shaping share | `\|S\|^2` | t | floor, bouts | vs shipped |
+| --- | --- | --- | --- | --- | --- | --- |
+| `shipped` | +0.0973 | 7.0 % | 1.907e-2 +-4.15e-3 | 4.60 | 789 \* | 1.00x |
+| `no-shaping` | +0.0965 | 0.0 % | 1.893e-2 +-4.19e-3 | 4.52 | 790 \* | 1.00x |
+| `no-win` | +0.0804 | 8.9 % | 1.521e-2 +-3.04e-3 | 5.01 | 1,014 \* | 0.78x |
+| `damage-only` | +0.0785 | 0.0 % | 1.487e-2 +-3.05e-3 | 4.87 | 1,030 \* | 0.77x |
+| `win-heavy` | +0.0943 | 2.5 % | 1.853e-2 +-6.05e-3 | 3.07 | 664 \* | 1.19x |
+| `tick` | +0.0973 | 7.8 % | 1.907e-2 +-4.15e-3 | 4.60 | 789 \* | 1.00x |
+| `closing` | +0.0978 | 6.5 % | 1.917e-2 +-4.15e-3 | 4.62 | 786 \* | 1.00x |
+| `outside` | +0.1112 | 11.4 % | 2.204e-2 +-4.08e-3 | 5.41 | 718 \* | 1.10x |
+| `swing` | +0.1014 | 11.5 % | 2.007e-2 +-4.21e-3 | 4.77 | 762 \* | 1.04x |
+| `stall` | +0.2131 | 51.7 % | 5.786e-2 +-1.59e-2 | 3.63 | 264 \* | 2.99x |
+| `engage` | +0.1117 | 11.6 % | 2.215e-2 +-4.08e-3 | 5.43 | 715 \* | 1.10x |
+| `tick-loud` | +0.0975 | 43.2 % | 1.911e-2 +-4.14e-3 | 4.62 | 787 \* | 1.00x |
+| `closing-loud` | +0.1374 | -24.8 % | 2.793e-2 +-4.60e-3 | 6.07 | 580 \* | 1.36x |
+| `outside-loud` | +0.3258 | 77.8 % | 1.010e-1 +-1.38e-2 | 7.33 | 207 \* | 3.81x |
+| `swing-loud` | +0.2313 | 79.1 % | 5.087e-2 +-6.63e-3 | 7.67 | 343 \* | 2.30x |
+| `engage-loud` | +0.3372 | 74.8 % | 1.062e-1 +-1.40e-2 | 7.61 | 199 \* | 3.97x |
+
+**Every arm on this cell clears zero at two sigma and the row itself does**, at a floor of 789
+bouts against the fencer cell's 3,796. Nothing about the reward table changed between the cells.
+The three loudest arms reach 3.8x to 4.0x -- `engage-loud` 199 bouts, `outside-loud` 207,
+`swing-loud` 343 -- and `stall`, which the pre-registration expected to charge nothing at all
+because the quantity is nine milliseconds a bout against the fencer, charges 51.7 % of what the
+asks paid here and reaches 2.99x. That is the confound below in one row: against a dummy that
+never moves, stalling is most of what a bout consists of.
+
+**Prediction 3 is missed on the letter and kept in spirit, and the entry scores it as missed.**
+The prediction named `no-win` as the arm that falls furthest against `idle`; `damage-only` fell
+furthest at 0.77x and `no-win` was second at 0.78x. The two win-term arms are the only arms that
+fall at all, which is what the prediction was about, but it named one of them and the other went
+further, and this record does not rescue a prediction by reading it generously.
+
+### The confound this cell carries, and it is large
+
+The same coefficient is a **different fraction of the return** in the two cells, and the
+difference is not small: `outside-loud`'s shaping share is 21.2 % against the fencer and 77.8 %
+against the dummy. A bout against `idle` is a long stall -- 82,369 asks an iteration against the
+fencer cell's 58,845, `decided` 0.432 against 0.836 -- so the win term arrives in a smaller share
+of bouts and the per-ask charges accumulate over more asks. **The loud arms are therefore not the
+same intervention in the two cells**, and the ratio of an arm's floor across cells says nothing.
+What the two cells can be compared on is the *row*, which is the same table in both: 3,796 bouts
+against the fencer and 789 against the dummy.
+
+### The disclosure this entry owes
+
+The fencer cell was collected before `strokes` existed as a league column and carries none; the
+idle cell carries it (4.4 % of 21,158 strokes started an iteration finished). Both cells predate
+the entropy-bonus block and the head cut, and carry neither. The instruments are passive -- each
+was verified against a held smoke that reproduced its row to the last digit -- so the cells stay
+comparable on every column they share, and no comparison in this entry crosses one of those
+boundaries.
+
+The fencer cell's first iteration was also run, read and thrown away before the other nineteen,
+and what it showed is written into the pre-registration's own addendum above rather than here:
+eight of the eleven original arms landed within 0.003 of the arm they were meant to differ from,
+which is what put the five loud arms in the grid.
+
+### What this leaves standing
+
+Four suspects were written down. The **pool** was eliminated by Experiment C. The **reward table**
+and **reward sparsity** are eliminated here, against `golem-fencer`: no rearrangement of eight
+coefficients, and no dense per-ask charge worth a fifth of the return, makes the gradient at that
+checkpoint measurable. What is left is the **behaviour policy** -- which Experiment F was
+measuring as this was written -- and the **estimator**, which Experiment G is measuring under
+seventeen credit horizons.
+
+**And two things this grid found that it was not designed to look for.**
+
+**The opponent moved the answer by 4.8x** and was never on the suspect list. The same table, the
+same seed, the same instrument, the same 128 bouts: 3,796 bouts to point a step against
+`golem-fencer` and 789 against a target that never moves. Whatever is flattening the gradient is
+something the fencer does and the dummy does not, and no coefficient in the grid comes within a
+factor of two of that on the fencer cell.
+
+**And the arm that won here is the arm the next two experiments are about.** `swing-loud` at 2.20x
+and t 1.43 is a largest-of-sixteen and nothing more on its own. But `swing` charges a stroke that
+*finished* and missed, the unlatched policy finishes three strokes in a hundred, and so the row
+was a coefficient on a quantity the body was not accumulating. Experiment F latched the gate, the
+body started finishing 47.9 % of its strokes, and the same arm went to t 5.05 and a floor of 496
+-- the only arm in this record whose gradient a feasible number of bouts can see. The reward table
+was not the problem and the reward table was not the fix either: the **body** was, and what the
+body unlocked was a row of the table that had never been payable.
+
 ## Pre-registration -- 2026-09-13: a gate read once instead of seven times, written before the bouts
 
 Three suspects were named for an actor gradient that no cell in this record can distinguish from
