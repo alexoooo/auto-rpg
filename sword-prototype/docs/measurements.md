@@ -23608,3 +23608,81 @@ coin, re-flipped six or seven times a stroke**, while the nine axes that aim the
 their job and cannot be read because the stroke does not survive. `latchAbort` fixes exactly the
 gate and touches none of the nine, so a latched cell that does not move the actor's budget now
 falsifies a sharper claim than the one it was written against.
+
+## Pre-registration -- 2026-09-13: two bracket arms re-run with the gate latched, written before the bouts
+
+The grid above measures whether the latch buys a *gradient*. This asks the question the whole set
+exists for, which is whether it buys a *curve*. They are not the same question and the second does
+not follow from the first: a gradient with a direction is a necessary condition for learning and
+nothing more, and this record has already watched a pre-registered measure rise on one ruler and
+sit flat on another over the very same weights.
+
+**It is the cheapest large experiment available**, because its control is already on disk. The
+opponent bracket ran four arms of 60 iterations, and two of them are re-run here with one boolean
+moved and nothing else: same seed, same bouts, same pool, same worker and shard counts, same
+schedule, same everything the header carries. A comparison against a control collected weeks or
+hours apart under different flags is worth little; this one differs in a field.
+
+**Harness:** `scripts/league.mjs --tactics latchAbort=true`, 60 iterations from scratch, 32 bouts an
+iteration, the maul-and-mace viable pool, mirrored bodies, no exploiters, no pool opponents, ratings
+off, pool checkpoints every five, separation 2.6, fit seed 20260917, 7 workers and 4 fit shards --
+the bracket's own manifest, field for field. Two arms, `--opponent idle` and
+`--opponent golem-fencer`, written to the latched-idle and latched-fencer directories under
+tournaments, gitignored so named bare. **Control:** tournaments/bracket-idle and
+tournaments/bracket-fencer, whose headers differ from these in `tactics` alone.
+
+**Why those two of the four.** `idle` is the arm that rose on the pre-registered probe and was the
+flattest of the four on the criterion; `golem-fencer` is the arm that moved most on the criterion
+and did not move at all on the probe. They are the two ends of the disagreement between the two
+rulers, which is the thing the bracket's own entry says is the most important sentence in it. The
+`driver` and `self` arms are not re-run, and the reason is budget rather than design.
+
+**Two measures, and this time the criterion is the headline.**
+
+1. `scripts/probe-snapshots.mjs` over each arm's twelve checkpoints at 4 bouts a build, seed
+   20260906, `--baseline 9/28` -- the instrument Experiment A and the bracket were both measured
+   on, kept so that the control is read the same way it was read the first time. Statistic: the
+   ordinary-least-squares slope of the **pool kill rate** on iteration, restated per 60 iterations,
+   with its t on ten degrees of freedom.
+2. `scripts/rate-snapshots.mjs` over each arm, 200 bouts a contender, `--terminals maul,mace
+   --pools random`, thirteen rows an arm. Statistic: the **paired bar slope**, which the bracket
+   measured to be identical against every baseline and is therefore the one number in this project
+   that cannot be shopped; `d` is quoted beside it **naming `golem-fencer` in the same sentence**,
+   which is the rule that entry's own caution forced.
+
+**And a third that costs nothing, because the instrument landed this morning.** A league row now
+carries what its corners did with a stroke. The control's rows do not -- they were collected before
+the column existed -- so the property is checked on the latched arms against the *scratch* reading
+of the same two checkpoints, which is the best the control can do and is said plainly rather than
+dressed up as a paired measurement.
+
+### The predictions
+
+**1. The property.** Both latched arms report `strokes.completion` at or above **0.30** averaged
+over their sixty iterations. The unlatched policy at the same two checkpoints finishes 0.1 % of
+1,465 strokes against the fencer at 8 bouts, so this is not a near thing in either direction: it
+either lands around two in five or the row does not do in a fit what it does in a probe.
+
+**2. The headline, and the falsifier.** At least one latched arm clears a paired bar slope of
+**t > +2** over its sixty iterations, against a control in which **no arm of four cleared it** and
+the only column past two sigma was a decline. If neither does, then a mind that finishes two strokes
+in five learns the declared criterion no better than one that finishes one in five hundred, and the
+abort gate is eliminated as the explanation for thirteen sessions of flat curves -- which would
+leave the estimator and the task, and would be the most important negative in this record.
+
+**3.** The latched arms' bouts are shorter and more decisive: `decided` rises against the control's
+own by at least two points, because a stroke that lands ends a bout and a stroke that is abandoned
+does not.
+
+**4. Against the probe, and stated so it can embarrass me.** The latched `idle` arm does **not**
+beat its control on the dummy-kill probe by as much as it beats it on the criterion. The probe
+rewards reaching a motionless target and the abort gate is not what stops a mind from doing that;
+if the latch improves the dummy measure most, the mechanism is not the one this set has spent the
+day arguing for.
+
+### What no outcome of this licenses
+
+`latchAbort` still ships **off**. A positive here licenses one thing -- a longer fit under the row,
+priced against the 400-iteration run the learn set already paid for -- and it does not license
+moving the default, which is a decision about what the shipped executor does and belongs to the
+owner and to a rating, not to a slope over twelve checkpoints.
