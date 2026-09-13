@@ -325,6 +325,69 @@
 // quotient measured on twelve iterations can honestly carry, so the cell test cannot see it. It is
 // caught on the structure instead -- the null column moves with the seed and the ranked column does
 // not -- and that split is the same one the rider table above records.
+//
+// ## Whether two arms point the same way, and the number that looks like the answer and is not
+//
+// The audit of this instrument found one gap and named it: every arm of the reward, horizon and
+// baseline grids publishes how well **its own** gradient is determined, and nothing anywhere asks
+// whether two arms agree with **each other**. Two tables can each produce a perfectly determined
+// gradient and send a fit to opposite corners of the weight space, and every number those three
+// grids print is the same in that world as in the world where all seventeen agree.
+//
+// `armDirection` closes it, and the thing worth writing down here is that the obvious statistic is
+// the wrong one and is wrong in the flattering direction. An arm and the row it sits in are priced
+// off one rollout -- that pairing is the entire reason the arm axis is cheap -- so their two
+// gradient estimates share their sampling noise, and the cosine between them is large whether or
+// not the two objectives have anything to do with each other.
+//
+// **Measured on the priced fixture, whose rollout has no signal in it by construction.** The arm is
+// the shipped table with the `win` coefficient negated, which is as disagreeable as an arm on this
+// axis can be:
+//
+// | count | the arm's own cosine | whole against whole | the two halves crossed |
+// |---|---|---|---|
+// | 255 | -0.073 | **0.500** | -0.151 |
+// | 256 | -0.133 | **0.478** | 0.004 |
+//
+// Half a cosine of agreement between an objective and its own negation, and it is all the shared
+// draw. Cross the halves so the two estimates hold no ask in common and it reads what it should:
+// nothing, on a fixture where there is nothing to read. That is why `cosine` is on the row and is
+// not the statistic, and it is on the row because a number a reader would otherwise compute is
+// better published than left to be rediscovered.
+//
+// **The null is a row of the same table.** An arm carrying the row's own coefficients has the row's
+// own two halves, so its crossed cosine is the row's own half-to-half cosine and its `gap` is zero
+// -- exactly zero, at both counts, not zero to a tolerance. Every grid this file has run already
+// carries that arm, as the identity check that reproduces the row on all of its fields. So the null
+// costs no collection, no model and no argument, which is the correction the concentration's null
+// had to be rewritten to get and this one was built with.
+//
+// | mutation | what went red |
+// |---|---|
+// | the whole order is recovered by halving rather than by the two ask counts | the odd-epoch test, alone |
+// | the halves are crossed same-side, so the shared draw is back in the statistic | the null, then the inflation test |
+// | the whole-against-whole cosine is published under the crossed one's name | the same two |
+// | one crossing is dropped and the other carries the average's name | the inflation test, alone -- see below |
+//
+// **The first row is why the odd-epoch test exists as its own test.** Recovering the whole order by
+// halving instead of by the two ask counts leaves every other test in this file green, including
+// both of the cross-arm ones: at 256 asks the halves are 128 and 128 and the two recoveries are the
+// same vector. It is a defect that would have shipped behind five green tests.
+//
+// **The fourth row was green against all six of them until the two crossings were published.** A
+// reading that used one crossing and called it the average is half the sample under the statistic's
+// name, and nothing about the mean alone can see that -- the mean of two numbers and one of those
+// two numbers are both numbers in the same range. So `crossFirst` and `crossSecond` are on the row
+// beside `crossCosine`, the inflation test pins that the two are far enough apart on this fixture
+// to be told from their own mean, and the mutation goes red. The alternative was to write the row
+// down under **what no mutation here can reach**, which is where it sat for one measurement.
+//
+// **What no test here can reach, and the pre-registration has to carry it.** `gap` is a difference
+// between two cosines, and where the row's own cosine is a noise draw the sign of that difference
+// is a coin flip: the negated-`win` arm reads -0.037 at 255 asks and +0.065 at 256, on the same
+// fixture, from the same seed. Nothing is wrong; there is simply no direction there to agree or
+// disagree with. That is a fact about the fencer cell, where the row's cosine is a few hundredths,
+// and it is why the reading is registered at the cell where it is not.
 import test from "node:test";
 import assert from "node:assert/strict";
 
@@ -343,8 +406,9 @@ import {
 } from "../scripts/train-ppo.mjs";
 import {
   CLASS_AXES, CONCENTRATION_FRACTIONS, PROBE_ENTROPY, PROBE_EPOCH, askBouts, askClasses,
-  askPositions, baselineOf, boutBlocks, boutGradients, checkHeldStart, classBlocks,
-  concentrationSignal, cosineOf, dotOf, epochOrder, groupedMeans, halfGradients, halfSplit,
+  armDirection, askPositions, baselineOf, boutBlocks, boutGradients, checkHeldStart, classBlocks,
+  combineHalves, concentrationSignal, cosineOf, dotOf, epochOrder, groupedMeans, halfGradients,
+  halfSplit,
   concentrationWithNull, headGroups, headNorms, headRows, headSignal, linearBaseline, mcReturns,
   measureBonus, measureSignal, normOf, nullRanking, parseClasses, probeRollout, rewardArms, shareOf,
   solveCholesky, thirdGradients, thirdSplit, wholeGradient,
@@ -556,6 +620,22 @@ function bindings({ rollout, norm, weights, valueWeights, logSigma }, seed = SEE
  * half's step disturbed what the first one measured. Each half comes back as a mean over its own
  * samples, so the identity is the weighted average and not the plain one, and the tolerance is
  * about one fixed reassociation of a sum of a few hundred terms.
+ *
+ * **It is taken through `combineHalves` rather than restated here**, and that is not a tidy-up. The
+ * cross-arm reading recovers every arm's whole-order gradient out of the two halves that arm's own
+ * cosine already paid for, instead of stepping the pool a third time an arm; `combineHalves` is
+ * that shortcut, and this is the only assertion in the tree that the shortcut is the vector the
+ * pool would have handed back. An assertion that restated the arithmetic beside the function would
+ * be an assertion about the arithmetic and about no function at all.
+ * `the_whole_epoch_gradient_is_the_one_the_two_halves_average_to` still restates it, deliberately:
+ * that one is about `wholeGradient` and it is the second opinion this one would otherwise be the
+ * only holder of.
+ *
+ * **And the weighting is asserted next door at an odd count**, because this fixture cannot see it.
+ * At 256 asks the two halves are 128 and 128, the two ask weights are equal, and a `combineHalves`
+ * that averaged the halves plainly -- ignoring the counts entirely -- is green here and wrong on
+ * every epoch with an odd number of asks in it. The fixture that cannot see a mistake is the
+ * fixture that lets it ship, and this file has paid for that lesson twice already.
  */
 test("the_two_half_gradients_average_to_the_gradient_over_the_whole_epoch", { timeout: 300_000 }, async () => {
   const built = fixture();
@@ -570,19 +650,61 @@ test("the_two_half_gradients_average_to_the_gradient_over_the_whole_epoch", { ti
       at: 0, end: n, epoch: PROBE_EPOCH, order: bound.order,
       weights: built.weights, valueWeights: built.valueWeights, logSigma: built.logSigma,
     });
+    const averaged = Object.fromEntries(["actor", "spread", "critic"]
+      .map((which) => [which, combineHalves(first, second, which)]));
     for (const [which, block, size] of [
       ["actor", "grad", pool.size], ["spread", "sigmaGrad", ACTION_AXES], ["critic", "valueGrad", pool.valueSize],
     ]) {
       let most = 0;
       let scale = 0;
       for (let k = 0; k < size; k += 1) {
-        const averaged = (first.asks * first[which][k] + second.asks * second[which][k]) / n;
-        most = Math.max(most, Math.abs(averaged - whole[block][k]));
+        most = Math.max(most, Math.abs(averaged[which][k] - whole[block][k]));
         scale = Math.max(scale, Math.abs(whole[block][k]));
       }
       assert.ok(most <= 1e-12 * (1 + scale), `the ${which} halves average to something ${most} away`);
       assert.ok(scale > 0, `the whole epoch's ${which} gradient is identically zero`);
     }
+  } finally {
+    await pool.close();
+  }
+});
+
+/**
+ * The same recovery where the two halves are not the same size, which is where the weights bite.
+ *
+ * Split off rather than folded in above, because the two are different claims. That one is that the
+ * partition is a partition and that all three of the pool's blocks come back whole; this one is
+ * that the recovery is the **ask-weighted** average and not the plain one. An odd epoch is the only
+ * shape that can tell those two apart, and the actor block alone is enough to say so.
+ *
+ * The second assertion is the one that makes the first worth having: it pins that the unweighted
+ * average is far enough away to be distinguished from rounding on *this* fixture. Without it the
+ * test would be green against the mutation it exists for on the day somebody changed the count.
+ */
+test("an_odd_epoch_is_recovered_by_its_two_ask_counts_and_not_by_halves", { timeout: 300_000 }, async () => {
+  const built = fixture(255, SEED + 3);
+  const bound = bindings(built);
+  const n = built.rollout.count;
+  const pool = await FitPool.open({ shards: 2, layout: LAYOUT, valueLayout: VALUE });
+  try {
+    const [first, second] = halfGradients({ pool, ...bound });
+    assert.notEqual(first.asks, second.asks, "an odd epoch whose two halves came back the same size");
+    const whole = pool.step({
+      at: 0, end: n, epoch: PROBE_EPOCH, order: bound.order,
+      weights: built.weights, valueWeights: built.valueWeights, logSigma: built.logSigma,
+    });
+    const averaged = combineHalves(first, second, "actor");
+    let most = 0;
+    let scale = 0;
+    let plain = 0;
+    for (let k = 0; k < pool.size; k += 1) {
+      most = Math.max(most, Math.abs(averaged[k] - whole.grad[k]));
+      scale = Math.max(scale, Math.abs(whole.grad[k]));
+      plain = Math.max(plain, Math.abs((first.actor[k] + second.actor[k]) / 2 - whole.grad[k]));
+    }
+    assert.ok(most <= 1e-12 * (1 + scale), `the weighted recovery is ${most} away from the whole`);
+    assert.ok(plain > 1e-9 * (1 + scale), `the unweighted average is only ${plain} away, so this `
+      + "fixture cannot tell a weighted recovery from an unweighted one");
   } finally {
     await pool.close();
   }
@@ -2381,3 +2503,162 @@ test("a_row_taken_with_a_concentration_differs_from_one_taken_without_it_in_exac
       await pool.close();
     }
   });
+
+// ---------------------------------------------------------------------------------------
+// Whether two arms point the same way, and the row of the same table that is its null.
+// ---------------------------------------------------------------------------------------
+
+/**
+ * One priced row with the cross-arm reading on, over the arms this caller names.
+ *
+ * At an odd count by default, for the reason the odd-epoch recovery test exists: the whole-order
+ * gradients this reading is built out of are ask-weighted averages of two halves, and a fixture
+ * whose halves are the same size cannot tell a weighted average from a plain one. Every number the
+ * header table quotes was taken here, at both counts.
+ */
+async function directionRow(spec, count = 255) {
+  const built = fixture(count, SEED + 3, { priced: true });
+  const pool = await FitPool.open({ shards: 2, layout: LAYOUT, valueLayout: VALUE });
+  try {
+    return probeRollout({
+      pool, rollout: built.rollout, weights: built.weights, valueWeights: built.valueWeights,
+      logSigma: built.logSigma, norm: built.norm, valueLayout: VALUE, seed: SEED,
+      rewards: rewardArms(spec), direction: true,
+    });
+  } finally {
+    await pool.close();
+  }
+}
+
+/**
+ * The null, and it is exact rather than tolerated.
+ *
+ * An arm naming the row's own coefficients is priced to the row's own rewards, so its two halves
+ * are the row's two halves and every quantity `armDirection` takes out of them is the row's. The
+ * assertions are equalities and not bounds because there is nothing here for a rounding to get
+ * into: the same two vectors are handed to the same function in the same order.
+ *
+ * `rowCosine` is checked against the row's own published cosine as well, and that is the assertion
+ * that ties the null to the number the record states. A `rowCosine` computed off some other pair of
+ * halves would be a null for a quantity nobody publishes.
+ */
+test("an_arm_carrying_the_rows_own_table_reads_the_rows_own_cosine_and_a_gap_of_exactly_zero", async () => {
+  const row = await directionRow([
+    { label: "shipped", ...GOLEM_REWARD },
+    { label: "flipped", win: -GOLEM_REWARD.win },
+  ]);
+  const [shipped] = row.priced;
+  assert.equal(shipped.cosine, row.cosine, "the identity arm did not reproduce the row it sits in");
+  const d = shipped.direction;
+  assert.equal(d.rowCosine, row.cosine, "the null was taken against some other pair of halves");
+  assert.equal(d.crossCosine, row.cosine);
+  assert.equal(d.gap, 0, `an arm carrying the table of the row it sits in reads a gap of ${d.gap}`);
+  // And the naive reading is exactly one there, which is the other half of the same fact: two
+  // identical vectors, through the clamp `cosineOf` carries for its last bits.
+  assert.equal(d.cosine, 1);
+  assert.ok(d.armNorm > 0 && d.rowNorm > 0, "a whole-order gradient of length zero");
+  assert.equal(d.armNorm, d.rowNorm);
+});
+
+/**
+ * The naive reading is mostly the shared draw, which is the whole reason the crossed one exists.
+ *
+ * The arm is the shipped table with `win` negated. On this fixture the rollout carries no signal by
+ * construction, so the honest answer to whether two objectives agree is that there is nothing there
+ * to agree about, and the crossed cosine says so. The whole-against-whole cosine says half a cosine
+ * of agreement between an objective and its own negation, and it says it because both estimates
+ * were taken over the same 255 asks.
+ *
+ * The bars sit below what was measured and were written after it, which is the only honest order
+ * for a bar on a fixture: 0.500 against a bar of 0.4, and -0.151 against a bar of 0.05. A bar
+ * guessed first would have been guessed at the null of a quantity this file did not yet have.
+ */
+test("the_naive_arm_to_row_cosine_is_mostly_the_shared_draw_and_the_crossed_one_is_not", async () => {
+  const row = await directionRow([
+    { label: "shipped", ...GOLEM_REWARD },
+    { label: "flipped", win: -GOLEM_REWARD.win },
+  ]);
+  const d = row.priced[1].direction;
+  assert.ok(d.cosine > 0.4, `the naive reading of a negated objective is only ${d.cosine}`);
+  assert.ok(d.crossCosine < 0.05, `the crossed reading kept ${d.crossCosine} of the shared draw`);
+  assert.ok(d.cosine - d.crossCosine > 0.4,
+    `the two readings are ${d.cosine - d.crossCosine} apart, which is not an inflation`);
+  // The row's own cosine is a noise draw on this fixture, so the crossed reading lands beside it
+  // rather than above or below it by anything a reader should interpret. Pinned as a magnitude and
+  // deliberately not as a sign: the header records that the sign of `gap` here flips with the ask
+  // count, and a test asserting either sign would be asserting a coin flip.
+  assert.ok(Math.abs(d.gap) < 0.2, `a gap of ${d.gap} on a fixture with no direction in it`);
+  // Both crossings went into it, and they are far enough apart here for that to be a claim. A
+  // reading that quietly used one of the two would be half the sample under the same name, and on
+  // the mean alone it is invisible -- the one mutation this section could not reach before the two
+  // were published beside it.
+  assert.notEqual(d.crossFirst, d.crossSecond);
+  assert.ok(Math.abs(d.crossFirst - d.crossSecond) > 0.02,
+    `the two crossings are ${Math.abs(d.crossFirst - d.crossSecond)} apart, so this fixture cannot `
+    + "tell an average of both from either one of them");
+  assert.equal(d.crossCosine, (d.crossFirst + d.crossSecond) / 2);
+});
+
+/**
+ * The flag adds a key to every arm and moves nothing else, which is the convention every other
+ * reading in this file already keeps.
+ *
+ * Taken as two whole rows compared field by field rather than as a spot check on one cosine,
+ * because the sink `measureSignal` pushes its halves into is the one part of this addition that
+ * reaches code every row already runs through, and a sink that had been made to do anything at all
+ * beyond being filled would show up here and nowhere else.
+ */
+test("a_row_taken_with_a_cross_arm_direction_differs_from_one_without_it_in_exactly_one_key", async () => {
+  const arms = [{ label: "shipped", ...GOLEM_REWARD }, { label: "flipped", win: -GOLEM_REWARD.win }];
+  const withIt = await directionRow(arms);
+  const built = fixture(255, SEED + 3, { priced: true });
+  const pool = await FitPool.open({ shards: 2, layout: LAYOUT, valueLayout: VALUE });
+  let without = null;
+  try {
+    without = probeRollout({
+      pool, rollout: built.rollout, weights: built.weights, valueWeights: built.valueWeights,
+      logSigma: built.logSigma, norm: built.norm, valueLayout: VALUE, seed: SEED,
+      rewards: rewardArms(arms),
+    });
+  } finally {
+    await pool.close();
+  }
+  assert.deepEqual({ ...withIt, priced: null }, { ...without, priced: null });
+  assert.equal(withIt.priced.length, without.priced.length);
+  for (let k = 0; k < withIt.priced.length; k += 1) {
+    const { direction, ...rest } = withIt.priced[k];
+    assert.ok(direction !== undefined, `arm ${k} was asked for a direction and has none`);
+    assert.ok(!("direction" in without.priced[k]));
+    assert.deepEqual(rest, without.priced[k]);
+  }
+});
+
+/**
+ * A cross-arm reading with no arms to cross is refused by name.
+ *
+ * The refusal lives in `probeRollout` and not in the command-line block that reads the flag, for
+ * the reason `checkHeldStart` gives: a rule enforced inside a command-line block is a rule no test
+ * can point at. What it prevents is the expensive shape of the mistake -- a collection asked for
+ * with the flag and no arms file runs its full hours and writes a log whose promised field was
+ * never there.
+ */
+test("a_cross_arm_direction_with_no_arms_to_compare_is_refused_by_name", async () => {
+  const built = fixture(64, SEED + 3, { priced: true });
+  const pool = await FitPool.open({ shards: 2, layout: LAYOUT, valueLayout: VALUE });
+  try {
+    assert.throws(() => probeRollout({
+      pool, rollout: built.rollout, weights: built.weights, valueWeights: built.valueWeights,
+      logSigma: built.logSigma, norm: built.norm, valueLayout: VALUE, seed: SEED, direction: true,
+    }), /--rewards named none/);
+    // And one arm is a grid: the row it sits in is the other side of every comparison, so a single
+    // arm has something to be read against and is not refused.
+    const one = probeRollout({
+      pool, rollout: built.rollout, weights: built.weights, valueWeights: built.valueWeights,
+      logSigma: built.logSigma, norm: built.norm, valueLayout: VALUE, seed: SEED, direction: true,
+      rewards: rewardArms([{ label: "flipped", win: -GOLEM_REWARD.win }]),
+    });
+    assert.equal(typeof one.priced[0].direction.crossCosine, "number");
+  } finally {
+    await pool.close();
+  }
+});

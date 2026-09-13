@@ -9,6 +9,7 @@
 //        [--clip 0.2] [--sigma-floor -3] [--sigma-roof 0.5]
 //        [--from tournaments/<arm>/pool-30.json] [--hold]
 //        [--classes none|terminal|build] [--class-floor 400] [--bout-split] [--concentration]
+//        [--direction]
 //        [--rewards arms.json] [--tactics holdMetres=...]
 //        [--features 2] [--head gaussian] [--sigma constant] [--critic self]
 //        [--value-hidden 64,64] [--log tournaments/...] [--label arm]
@@ -602,6 +603,107 @@ export function wholeGradient({
   return whole;
 }
 
+/**
+ * The whole order's gradient, recovered from the two halves it was already cut into.
+ *
+ * `shardStep` scales every sample by one over the length of the range it is summing, so a half is
+ * the **mean** gradient over its own asks and not their sum, and the whole order's mean is the
+ * ask-weighted average of the two. Nothing about a sample's contribution depends on which range it
+ * was summed in -- the surrogate reads that sample's own observation, action, log-probability and
+ * advantage, and the weights, which do not move inside a step -- so the recovery is the same vector
+ * up to the order the additions happen in.
+ *
+ * It exists because the cross-arm reading below wants each arm's whole-order gradient and the arm
+ * loop has already paid for both of its halves. Taking `wholeGradient` a second time an arm would
+ * have doubled a seventeen-arm grid's probe time to buy a vector that was already on the floor.
+ *
+ * **The identity is asserted and not argued**, which is the rule the same day's three errors
+ * earned. `the_two_half_gradients_average_to_the_gradient_over_the_whole_epoch` steps the pool over
+ * the whole order under the same binding and compares all three blocks against this function, and
+ * it is the entire licence for this shortcut -- it predates the shortcut, which is why the shortcut
+ * could be taken at all, and it was rewritten to call this rather than to restate its arithmetic so
+ * that the assertion is about the thing that publishes the claim. The paragraph above is why it
+ * should hold; the test is why it is published.
+ */
+export function combineHalves(first, second, which = "actor") {
+  const a = first[which];
+  const b = second[which];
+  if (a.length !== b.length) {
+    throw new Error(`a whole order out of a ${a.length} half and a ${b.length} one`);
+  }
+  const asks = first.asks + second.asks;
+  if (asks === 0) throw new Error("a whole order out of two halves holding no asks between them");
+  const whole = new Float64Array(a.length);
+  for (let k = 0; k < a.length; k += 1) whole[k] = (a[k] * first.asks + b[k] * second.asks) / asks;
+  return whole;
+}
+
+/**
+ * Whether two arms' gradients point the same way, and the null that makes the number readable.
+ *
+ * Every arm in the reward, horizon and baseline grids publishes how well **its own** gradient is
+ * determined: the cosine between the two halves of its own epoch under its own table. Nothing in
+ * this record has ever asked whether two arms agree with **each other**. Two tables can each
+ * produce a perfectly well-determined gradient and send a fit to opposite corners of the weight
+ * space, and every number those three grids print would be identical in that world and in the world
+ * where all seventeen agree. That gap was named in the audit of this instrument before it was
+ * closed, and this closes it.
+ *
+ * **The naive reading is inflated and must not be published alone.** An arm and the row it sits in
+ * are priced off one rollout -- the same observations, the same draws, the same episode boundaries,
+ * which is exactly the pairing that makes the arm axis cheap -- so their two estimates share their
+ * sampling noise, and the cosine between them is large for a reason that has nothing to do with the
+ * two objectives agreeing. `cosine` is on the row because a reader would otherwise compute it and
+ * because a number left off a row is a number nobody can check. It is not the statistic.
+ *
+ * **The statistic is the cross cosine, which is noise-disjoint.** The arm's first half and the
+ * row's second half are estimated from disjoint asks, so what the two objectives have in common
+ * survives and the shared draw does not. It is taken both ways round and averaged, because the
+ * split has no preferred end and the second dot is free -- and **both crossings are on the row**
+ * beside their mean, because two disjoint estimates that landed a quarter of a cosine either side
+ * of it is a different reading from two that agreed, and because an average whose terms are not
+ * published is an average nothing can assert is one.
+ *
+ * **And the null is a row of the same table rather than an argument about one.** An arm carrying
+ * the shipped table has the row's own two halves, so its cross cosine is the row's own half-to-half
+ * cosine and its `gap` is zero -- to the last bits, which is where a pair of divisions taken in
+ * opposite orders lands. That arm is already in every grid this file has run, as the identity check
+ * that reproduces the row on all of its fields, so the null is measured on the same collection at
+ * the same policy under the same shuffle with nothing modelled and nothing extra collected.
+ *
+ * `gap` is a difference and not a quotient, and the reason is the fencer cell. There `rowCosine` is
+ * a few hundredths -- a noise draw -- and a quotient over it swings between large numbers of both
+ * signs while nothing is happening. A difference stays on the scale both of its terms live on. It
+ * is still not readable where `rowCosine` is a noise draw, which is what `rowCosine` is printed
+ * beside it for, and it is why a pre-registration of this reading has to name its cell.
+ */
+export function armDirection({ arm, row }) {
+  const [armFirst, armSecond] = arm;
+  const [rowFirst, rowSecond] = row;
+  const rowCosine = cosineOf(rowFirst.actor, rowSecond.actor);
+  // Both crossings, kept as well as averaged. A reader who can see only the mean cannot tell a
+  // reading whose two disjoint estimates agreed from one where they landed either side of it by a
+  // quarter of a cosine, which is the same determinacy question the row's own halves answer about
+  // the row -- and the two of them on the row are what lets an assertion pin that the average is an
+  // average of both. Dropping one of them is a halving of the sample that no bar on the mean alone
+  // could ever go red for.
+  const crossFirst = cosineOf(armFirst.actor, rowSecond.actor);
+  const crossSecond = cosineOf(armSecond.actor, rowFirst.actor);
+  const crossCosine = (crossFirst + crossSecond) / 2;
+  const armWhole = combineHalves(armFirst, armSecond);
+  const rowWhole = combineHalves(rowFirst, rowSecond);
+  return {
+    cosine: cosineOf(armWhole, rowWhole),
+    crossCosine,
+    crossFirst,
+    crossSecond,
+    rowCosine,
+    gap: crossCosine - rowCosine,
+    armNorm: normOf(armWhole),
+    rowNorm: normOf(rowWhole),
+  };
+}
+
 /** Two ranges of one order, summed and copied out, which is all either split actually does. */
 function takeHalves({ pool, order, halves, weights, valueWeights, logSigma }) {
   const taken = [];
@@ -776,11 +878,17 @@ export function headNorms({ vector, layout, spec }) {
  */
 export function measureSignal({
   pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order, clip = 0.2,
-  heads = null,
+  heads = null, keep = null,
 }) {
   const [first, second] = halfGradients({
     pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order, clip,
   });
+  // The two halves handed back to a caller that asked for them, so the cross-arm reading can take
+  // an arm's direction out of the steps that arm has already paid for. Pushed into a sink the
+  // caller owns rather than returned on the row, because the row is one line of JSON and a pair of
+  // eighty-seven thousand doubles on it is a log file nobody can open. Absent unless asked for, so
+  // a caller that does not ask gets the object it got before this existed, field for field.
+  if (keep !== null) keep.push(first, second);
   const actor = blockOf(first, second, "actor");
   return {
     asks: rollout.count, firstAsks: first.asks, secondAsks: second.asks,
@@ -904,8 +1012,15 @@ export function probeRollout({
   pool, rollout, weights, valueWeights, logSigma, norm, valueLayout, seed,
   halfLife = 4, lambda = 0.95, clip = 0.2, classes = "none", floor = CLASS_FLOOR,
   boutSplit = false, rewards = [], entropy = 0, layout = null, spec = null,
-  concentration = false,
+  concentration = false, direction = false,
 }) {
+  // A cross-arm direction is a reading *between* arms, so one arm is not a grid and no arms at all
+  // is a flag that would have written nothing and said nothing. Refused by name rather than
+  // silently ignored, because a run asked for with the flag and collected without the reading is
+  // hours of host time that produce a log a reader will search for a field that was never there.
+  if (direction && rewards.length < 1) {
+    throw new Error("a cross-arm direction wants arms to compare and --rewards named none");
+  }
   const values = valuesOf(rollout, valueWeights, norm, valueLayout);
   const { advantage, returns } = advantages(rollout, values, { halfLife, lambda });
   const { scaled, sd } = standardisedAdvantages(advantage, rollout.count);
@@ -917,8 +1032,14 @@ export function probeRollout({
     throw new Error("a head cut wants both a layout and a head spec, and was given one of them");
   }
   const heads = layout === null ? null : { layout, spec };
+  // The row's own two halves, kept only where an arm below is going to be read against them. They
+  // are the steps `measureSignal` takes anyway: the whole cross-arm axis costs no pool step that
+  // some other reading was not already paying for, which is why it is priced at arithmetic rather
+  // than at the second collection the audit that named this gap assumed it would need.
+  const held = direction === false ? null : [];
   const signal = measureSignal({
     pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order, clip, heads,
+    keep: held,
   });
   // The class split second and out of the same three arrays, so the two measurements are of one
   // rollout under one standardisation. Separate collections a class would have been easier and
@@ -972,6 +1093,11 @@ export function probeRollout({
       });
     const arm = advantages(repriced, armValues, { halfLife: armHalfLife, lambda: armLambda });
     const stood = standardisedAdvantages(arm.advantage, repriced.count);
+    const kept = held === null ? null : [];
+    const armSignal = measureSignal({
+      pool, rollout: repriced, scaled: stood.scaled, returns: arm.returns, norm,
+      weights, valueWeights, logSigma, order, clip, keep: kept,
+    });
     return {
       label,
       // Absent unless the arm named one, so a grid of tables alone writes the row it wrote before
@@ -979,11 +1105,11 @@ export function probeRollout({
       ...(named.halfLife === undefined ? {} : { halfLife: armHalfLife }),
       ...(named.lambda === undefined ? {} : { lambda: armLambda }),
       ...(named.baseline === undefined ? {} : { baseline: named.baseline }),
-      ...measureSignal({
-        pool, rollout: repriced, scaled: stood.scaled, returns: arm.returns, norm,
-        weights, valueWeights, logSigma, order, clip,
-      }),
+      ...armSignal,
       advantageSd: stood.sd,
+      // Whether this arm's gradient points where the row's does, against the null that an arm
+      // carrying the shipped table is: same halves, same shuffle, same collection, `gap` zero.
+      ...(kept === null ? {} : { direction: armDirection({ arm: kept, row: held }) }),
       // What the table actually took out of this collection, so an arm that moved no number says
       // so in the row rather than in a reader's arithmetic: a coefficient on a quantity no body
       // accumulated is a coefficient that was swept and never paid.
@@ -1783,6 +1909,10 @@ if (isMain) {
   // default would make every row already under tournaments a row of a different instrument.
   const boutSplit = argv.includes("--bout-split");
   const concentration = argv.includes("--concentration");
+  // Off by default for the same reason, and refused without arms by `probeRollout` rather than
+  // here, so the refusal is a function a test can point at instead of a condition inside a CLI
+  // block that nothing can import.
+  const direction = argv.includes("--direction");
   // The reward axis, which is free at a held policy and is not free anywhere else. Read from a
   // file so the arms of a sweep are a design written before the bouts rather than a command line;
   // empty unless named, so a run without it is byte for byte the run the grid took.
@@ -1835,7 +1965,7 @@ if (isMain) {
   log({
     type: "header", kind: "gradient-probe", seed, date, version: POLICY_VERSION, features,
     layout, valueLayout, label, iterations, bouts, cap, random, workers, shards, from, hold,
-    classes, classFloor, boutSplit, concentration,
+    classes, classFloor, boutSplit, concentration, direction,
     // The arms are logged resolved rather than as the file named them, so a row says the eight
     // coefficients it was actually priced under and a reader never has to find the file again.
     rewards: rewards.map((arm) => ({
@@ -1911,6 +2041,7 @@ if (isMain) {
       const signal = probeRollout({
         pool, rollout, weights, valueWeights, logSigma, norm, valueLayout, seed: fitSeed,
         halfLife, lambda, clip, classes, floor: classFloor, boutSplit, rewards, concentration,
+        direction,
         // The coefficient the fit below would have paid, whether or not there is a fit below, so
         // a held row says what a production step at this policy would have been made of.
         entropy: fitEntropy,

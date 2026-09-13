@@ -25553,3 +25553,134 @@ that they were not looked at.
 the printed control that is about that quantity and confirming it is about *that* quantity rather
 than an adjacent one. That is a reading of the tree, not a new measurement, and a reader who wants
 it verified should re-run the ruling rather than trust this table.
+
+## Pre-registration -- 2026-09-13: whether sixteen tables point one way, written before the bouts
+
+The audit that closed the last entry named one real gap and declined to queue it. This queues it,
+and the price it was declined at turns out to have been wrong by the whole of the collection: the
+reading costs **no pool step that another reading was not already paying for**, because each
+half's gradient comes back scaled by one over its own ask count and the whole order's gradient is
+therefore the ask-weighted average of the two halves the arm's own cosine already took. So the
+sixteen vectors the audit priced at eleven megabytes are never all held, the second pass it
+assumed is never taken, and what is left to buy is one collection.
+
+**The question.** Experiments E, G and N each publish, for every arm, how well **that arm's own**
+gradient is determined -- the cosine between the two halves of its own epoch under its own table.
+None of them asks whether two arms agree with **each other**. Two tables can each produce a
+perfectly well-determined gradient and send a fit to opposite corners of the weight space, and
+every number those three experiments print is the same in that world as in the world where all
+sixteen agree. If the tables disagree, then "the reward table is not why the bar does not move" --
+E's headline -- is a statement about determinacy that a reader can easily hear as a statement
+about direction, and the record should say which one it is.
+
+### The statistic, and why the obvious one is wrong
+
+For each arm, on each iteration, against the row it sits in:
+
+* `crossCosine` -- the mean of two cosines taken between **disjoint** halves: this arm's first
+  half against the row's second, and this arm's second against the row's first. Both are on the
+  row as `crossFirst` and `crossSecond`, because two disjoint estimates that landed a quarter of a
+  cosine apart is a different reading from two that agreed.
+* `gap` -- `crossCosine` less the row's own half-to-half cosine, which is the ceiling any arm can
+  reach. Reported as a mean over the twenty iterations with the sem of that mean.
+
+**The naive reading is published beside these and is not the statistic.** An arm and its row are
+priced off one rollout -- the same observations, the same draws, the same episode boundaries,
+which is the pairing that makes the whole arm axis cheap -- so their two gradient estimates share
+their sampling noise and the cosine between the two whole orders is large whether or not the
+objectives have anything in common. Measured on the probe suite's own fixture, whose rollout
+carries no signal by construction, an arm that is the shipped table with `win` **negated** reads:
+
+| asks | the arm's own cosine | whole against whole | the two halves crossed |
+| --- | ---: | ---: | ---: |
+| 255 | -0.073 | **0.500** | -0.151 |
+| 256 | -0.133 | **0.478** | 0.004 |
+
+Half a cosine of agreement between an objective and its own negation, all of it the shared draw.
+`cosine` stays on the row because a reader would otherwise compute it, and a number left off a row
+is a number nobody can check.
+
+**The null is a row of the same table and it is exact.** The arms file names `shipped`, which
+carries the row's own coefficients; that arm has the row's own two halves, so its `crossCosine` is
+the row's own cosine and its `gap` is zero -- exactly zero, at both ask counts, not zero to a
+tolerance. Nothing is modelled, nothing extra is collected, and the null is measured at the same
+policy on the same collection under the same shuffle. That is the correction the concentration's
+null had to be rewritten to get, applied at the point of design instead of after a reading.
+
+### The cell, and why it is the only one this can be asked at
+
+**Against `idle`, at 128 bouts, from the idle bracket's checkpoint, held, twenty iterations** --
+which is Experiment E's collection with one flag added. The cell is not a free choice. `gap` is a
+difference between two cosines and it is only readable where the row's own cosine is a direction
+rather than a noise draw:
+
+| cell | the row's mean half-to-half cosine over 20 iterations | t |
+| --- | ---: | ---: |
+| the idle checkpoint against `idle`, 128 bouts | +0.0973 +-0.0210 | 4.64 |
+| the same under `latchAbort` | +0.1149 +-0.0185 | 6.21 |
+| against `golem-fencer` | a few hundredths, either sign | below 1 |
+
+Against the fencer there is no direction for an arm to agree or disagree with, and the sign of
+`gap` there is a coin flip -- on the no-signal fixture above, the negated-`win` arm reads -0.037
+at 255 asks and +0.065 at 256, same seed, same rollout. That is not a defect in the instrument and
+no larger sample fixes it. It is why this is registered at the idle cell and why a fencer-cell
+reading of it would not be published.
+
+### The predictions
+
+**1. The headline.** At least one arm other than `shipped` has a mean `gap` that is **below zero
+at two sigma** over the twenty iterations. One instance is enough: it is an existence claim that
+the choice of reward table moves where the fit is pointed and not only how sharply it is pointed.
+
+**2.** The naive reading does not see it. Every arm's mean `cosine` -- whole against whole -- is
+**above 0.5**, including any arm that meets prediction 1. This is the claim that the record could
+have published a table of sixteen reassuring numbers and learned nothing, and it is stated so that
+a reader can check the instrument was worth building rather than take it on the argument above.
+The fixture arm above read 0.478 at one of its two counts, which is below this bar, and that is
+disclosed rather than smoothed: no arm in this grid negates a coefficient, and the fixture's
+rollout carries no signal at all where this cell's carries some. If a real arm comes in under 0.5
+the prediction is missed and the instrument is more necessary, not less.
+
+**3. Stated so it can embarrass me.** The arms that disagree are not merely the arms with the
+smallest gradients. Across the sixteen, the rank correlation between an arm's own half-to-half
+cosine and its mean `gap` is **above -0.5** -- that is, a large negative gap is not just what a
+badly determined arm looks like. If it comes back at -0.9, then `gap` is measuring determinacy a
+second time under a new name and prediction 1 means nothing.
+
+**4.** `shipped` reads a mean `gap` of exactly zero and a mean `cosine` of exactly one on all
+twenty iterations. This is the null, it is asserted in the suite, and it is restated here as a
+prediction because a run whose identity arm drifts off zero is a run whose arms were not priced
+off the row it sits in and nothing else in the table can be read.
+
+### The falsifier
+
+If **every** arm's mean `gap` is within two sigma of zero, then the sixteen tables all point the
+same way at this cell, the choice of reward coefficients is not what decides where this fit goes,
+and E's headline can be read as the stronger claim after all. That closes the question the audit
+opened and it licenses the estimator work -- G, N, O and P -- as the place the failure actually
+is. It is a real outcome and the one that would most simplify the agenda.
+
+### The cost, and what it displaces
+
+One collection: twenty iterations at 128 bouts against `idle`, held at the idle bracket's
+checkpoint, 14 workers and 4 shards. Experiment E's own log prices it at 50 s collecting and 176 s
+probing an iteration, so **about 75 minutes**, and the flag adds two dot products and two norms an
+arm an iteration over 87,308 doubles, which is microseconds against that. It waits for the step
+probe's fourteen workers to free rather than displacing anything: the host is booked at 32 threads
+and ten experiments are pending results.
+
+### What it cannot answer, and what it does not license
+
+**It is one cell and one checkpoint.** Sixteen tables agreeing at the idle bracket's iteration 30
+does not say they agree at iteration 300, at another opponent, or at a policy that has learned
+something. The cell is forced by the readability constraint above and the result is stated at the
+cell.
+
+**A gap is not a direction of travel.** `gap` says an arm's gradient is less aligned with the
+row's than the row's own halves are with each other. It does not say where the arm points instead,
+and two arms with the same gap can disagree with the row in unrelated ways. Naming the subspace
+each arm pulls toward is a different instrument and is not proposed here.
+
+**And no fit changes and nothing ships.** This is a held policy, no step is taken, and a positive
+result does not adopt or reject any table. What it changes is what Experiments E, G and N are read
+as having established, which is the whole of why it is worth 75 minutes.
