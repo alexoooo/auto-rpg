@@ -24467,3 +24467,122 @@ No default moves and `--opponent` keeps its current default. A steep ladder does
 training against a weaker opponent: the criterion is stated against `golem-fencer` and a mind that
 learns quickly against a brawler has not been shown to transfer. What it licenses is one
 curriculum run, pre-registered on its own, whose bar is still the fencer's.
+
+## Pre-registration -- 2026-09-13: five baselines over one collection, written before the bouts
+
+Experiment N. Every row this instrument has ever written carries two cosines side by side, and the
+record has quoted one of them and walked past the other. Over the same asks of the same bouts:
+
+| run | actor cosine | critic cosine |
+| --- | --- | --- |
+| the bracket checkpoint against `golem-fencer`, 128 bouts | -0.0116 | +0.9742 |
+| the same, latched | +0.0047 | +0.9849 |
+| the same at 32 bouts | +0.0199 | +0.9174 |
+| the same at 256 bouts | +0.0248 | +0.9858 |
+| the idle checkpoint against `idle`, 128 bouts | +0.0973 | +0.9809 |
+
+`measureSignal` was written under the sentence this table is an instance of: **a rollout whose
+actor cosine is a few hundredths while its critic cosine is high is a rollout with plenty of data
+in it and an objective that is not using it.** The critic is a supervised regression and its
+gradient is that consistent because it is systematically wrong in the same direction over the
+whole batch -- it is a long way from the returns it is regressing on. And the advantage every
+actor gradient in this record is weighted by is a return less that critic.
+
+This asks whether the baseline is what is costing the run.
+
+### Why it is free, which is the whole reason it is affordable
+
+An advantage is a return less a baseline, and **a baseline is read after the bouts**. It enters no
+action, no log-probability and, under `--hold`, no weight -- so it is free along exactly the axis
+a reward coefficient is free along, and the pairing is to the ask. The same collection that was
+priced under sixteen reward tables in Experiment E and seventeen credit horizons in Experiment G
+is priced here under five baselines, and two of them are least-squares fits taken in sample on
+that same collection.
+
+**The five.** `critic` is the run's own value net, which is what a production fit uses and what
+the row's unqualified cosine already is; it is an arm so the identity can be checked. `zero` is
+the absence of a baseline, and the advantage is the discounted return. `time` is the mean return
+at the same position within a bout, over the whole collection -- it knows nothing about a fight
+except how far into it the ask was. `body` is the mean return over the asks of every episode that
+drew the same build; the body is drawn before the bout and no action changes it, so it is
+exogenous by construction. `linear` is the least-squares plane through the seventy-one normalised
+columns, fitted **in sample**: not a critic anybody could train, but the best a linear critic
+could possibly have done on this collection, and an arm that does not move under it is an arm no
+linear baseline saves.
+
+**Each is read twice, at `lambda` 1 and at the shipped 0.95, and the headline is `lambda` 1.** At
+a lambda below one the recursion mixes the n-step returns and a baseline enters as a bootstrap as
+well as a control variate, so two baselines differ in what they estimate and not only in how
+noisily. At `lambda` 1 the value terms telescope, the advantage is the discounted return less the
+baseline at that ask, and the comparison is the one a control variate is supposed to be about.
+
+### The cells
+
+Eleven arms over each of three collections, held throughout, 20 iterations of 128 bouts, the
+maul-and-mace viable pool, mirrored bodies, fit seed 20260917, 14 collectors, 4 shards. The logs
+are gradbase-fencer-128.jsonl, gradbase-latched-128.jsonl and gradbase-idle-128.jsonl under
+tournaments.
+
+| cell | checkpoint | opponent | tactics | the shipped table's floor there |
+| --- | --- | --- | --- | --- |
+| fencer | `bracket-fencer` pool-30 | `golem-fencer` | as shipped | 3,796 bouts, Experiment E |
+| latched | `bracket-fencer` pool-30 | `golem-fencer` | `latchAbort=true` | 3,096 bouts, Experiment F |
+| idle | `bracket-idle` pool-30 | `idle` | as shipped | 789 bouts, Experiment E |
+
+**The third is the control and is run last.** The idle cell is the one cell in this record whose
+gradient a feasible number of bouts can already see, so it says whether a baseline helps where
+there is something to help with -- and if the night runs out before it, the two cells that matter
+are already in.
+
+The collections are bit-identical to ones already on disk, which Experiment E established on 240
+fields with no digit different, so the row of each cell is the row the record already carries and
+the arms sit beside a number nothing about this run produced.
+
+### The statistic
+
+The floor, `K / (|S|^2 + 2 SE)`, over each cell's twenty iterations -- the statistic Experiment G
+fixed and Experiments E, F and M are quoted in. Beside it, and this one is doing real work here:
+the mean `advantageSd`, which is the spread the standardisation divides by and is therefore a
+direct reading of **how much of the return a state function can predict**. The ratio of `zero`'s
+`advantageSd` to `linear`'s, in each cell, is the fraction of the return's variation that the best
+linear function of the observation accounts for, and it is the cleanest measurement of Experiment
+M's hypothesis that this tree can take without running a single extra bout.
+
+### The predictions
+
+1. **`linear` beats `critic` on the floor by at least 1.5x on the fencer cell.** The shipped
+   critic's own gradient cosine says it is far from its returns, and the in-sample plane is the
+   best a linear critic could have been. If the baseline matters at all, this is where it shows.
+
+2. **`zero` is the worst of the five on all three cells.** No baseline is not a neutral choice:
+   the discounted return carries the whole state-dependent level of the fight, and removing none
+   of it is worse than removing a guess at it.
+
+3. **No baseline makes the fencer cell clear zero at two sigma.** The pessimistic prediction and
+   the one the record's pattern supports -- the reward table was eliminated on this cell in
+   Experiment E and the horizon is being measured in Experiment G. It is written down so that a
+   flat result is a confirmation rather than another disappointment.
+
+4. **A state function predicts less of the return against the fencer than against the dummy.** The
+   ratio of `zero`'s `advantageSd` to `linear`'s is **larger on the idle cell than on the fencer
+   cell**. This is Experiment M's hypothesis on a second instrument: if the fencer cell's variance
+   is the opponent's rather than the state's, then no function of the observation can remove it,
+   and the best linear one will remove a smaller share of it than it does against a target that
+   never moves.
+
+### The falsifier
+
+**If `linear` does not beat `critic` by 1.5x on either the fencer or the latched cell, the
+baseline is eliminated as a suspect.** No state-dependent control variate this observation can
+express makes the gradient measurably easier to see, the critic is not what is costing the run
+however badly it is fitted, and the third of the three free axes joins the reward table on the
+list of things that were swept and answered nothing. That would leave the score function, which
+Experiment I is cutting, the opponent, which Experiment M is walking, and the task.
+
+### What no outcome of this licenses
+
+No default moves: `--critic self` stays, the value net stays, and nothing here ships a weight. A
+winning baseline licenses **one** thing, pre-registered on its own: a fit whose advantage is taken
+against that baseline, priced against a floor measured the same way, and rated on the paired bar
+against `golem-fencer`. An in-sample plane is not a baseline a fit can use, and the arm exists to
+bound what a fitted one could be worth rather than to be adopted.
