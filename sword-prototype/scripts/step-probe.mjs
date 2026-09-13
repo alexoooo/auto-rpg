@@ -194,7 +194,13 @@ async function main() {
     const at = argv.indexOf(`--${name}`);
     return at === -1 || at + 1 >= argv.length ? fallback : argv[at + 1];
   };
-  const seed = Number(flag("seed", 20260917));
+  // Coerced and defaulted exactly as `scripts/gradient-probe.mjs` coerces and defaults them, which
+  // is not tidiness. The pool of a draw is `poolFor` under `(seed ^ draw) >>> 0` and the pool of a
+  // probe iteration is `poolFor` under `(seed ^ iteration) >>> 0`, so at the shared seed and the
+  // shared `--random` **draw k of this run walks on the identical forty builds that iteration k of
+  // the gradient probe measured the cosine on**. The prediction this file exists to test is read
+  // off those iterations, and it is worth something more if the bodies are the same bodies.
+  const seed = Number(flag("seed", 20260917)) >>> 0;
   const draws = Math.max(1, Number(flag("draws", 8)));
   const bouts = Math.max(2, Number(flag("bouts", 128)));
   const evaluate = Math.max(2, Number(flag("evaluate", 128)));
@@ -205,7 +211,7 @@ async function main() {
   const workers = Math.max(1, Number(flag("workers", Math.max(1, availableParallelism() - 2))));
   const shards = Math.max(1, Number(flag("shards", 4)));
   const cap = Number(flag("cap", 60));
-  const random = Number(flag("random", 40));
+  const random = Math.max(0, Number(flag("random", 40)));
   const halfLife = Number(flag("half-life", 4));
   const lambda = Number(flag("lambda", 0.95));
   const clip = Number(flag("clip", 0.2));
