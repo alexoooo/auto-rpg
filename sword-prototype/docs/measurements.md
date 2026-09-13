@@ -28720,3 +28720,109 @@ rather than remembered by the reader.
 at eighteen lines of twenty-two, and no arm, floor, cosine or `vs shipped` of either has been read.
 The embargo stands as written: unread until `gradhorizon-idle-128.jsonl` carries its twentieth
 iteration.
+
+### Experiment I's reader, which scored none of its five predictions or its falsifier
+
+The same question asked of the next reader in line, and it comes back worse. Experiment I
+registers five predictions and a falsifier. headfit.mjs mentions two of them -- *prediction 2* and
+*prediction 5*, **both inside comments** -- and prints a verdict for none. Its table already carries
+every number the six are about: each group's floor, the axes' median, the bonus against the signal.
+The words *met* and *missed* do not appear in the file.
+
+That is a wider gap than Experiment G's reader had, because **four of the six are statements about
+named cells**. Predictions 2 and 5 name one cell each; prediction 4 compares the latch on against
+off at the same checkpoint and opponent; the falsifier ranges over both unlatched cells. The reader
+read whatever paths were typed, in the order they were typed, and printed one table each. Composing
+six verdicts out of four printouts is precisely what Experiment H's entry had to do by hand, and
+this is the second reader armed on that lesson tonight.
+
+**The roles are named on the command line and never inferred from a path.** A reader that decided
+which cell was the latched one by looking for `latch` in a filename would be guessing at an
+experiment's design.
+
+```
+node headfit.mjs --unlatched-fencer <cell> --unlatched-idle <cell> \
+  --latched-fencer <cell> --latched-idle <cell>
+```
+
+| refused | what it says |
+| --- | --- |
+| a flag that is not one of the four roles | `--latched is not one of --unlatched-fencer, --unlatched-idle, --latched-fencer, --latched-idle` |
+| a role flag with no path after it | `--latched-idle wants the path of a cell` |
+| the same role given twice | `--unlatched-idle was given twice` |
+| one cell given under two roles | `<path> was given twice, so one cell would be two columns` |
+
+All four fire, and they are cases 35 to 38 of this evening's refusal sweep rather than four
+assertions made in prose.
+
+### Two things this block got wrong on its first run, both found by running it
+
+**The falsifier checked one side of a range.** It is registered as *the three gate groups' floors
+sit inside the range of the nine axis groups' floors*, and the first version flagged only a gate
+above the axes' maximum. A gate **below** every axis is outside that range as written -- and it is
+the outcome that would say the gates are *better* served with gradient than the axes, which
+falsifies the registered sentence while supporting the opposite story about the experiment. Both
+sides are read now and the line names which side each one is on.
+
+**Prediction 4 reported missed over two pairs it had never read.** With only the unlatched
+cells named, both pairs printed *not stated, a cell is missing* and the headline still read
+**missed**. That is a verdict out of an absence of instrument rather than out of an absence of
+effect -- the same shape two entries earlier today were written about, reproduced by the person who
+had just written them. It reads **not stated** now:
+
+```
+  prediction 4 -- the latch improves every gate floor by >= 2x and moves the axes' median by
+    < 2x either way, on both pairs: **not stated**
+    fencer: not stated, a cell is missing
+    idle: not stated, a cell is missing
+```
+
+### This falsifier points the opposite way from Experiment G's, and the reader prints which
+
+Experiment G's falsifier is *no arm on either cell clears shipped's floor by 2x*: thirty chances not
+taken, which is strong when it fires and weak when it does not, because Experiment E already
+produced one arm at 2.20x out of sixteen. **Experiment I's runs the other way round.** Under
+exchangeability a named group among ten is the largest or the smallest of the ten `2/10` of the
+time, so three gates landing inside the axes' range on both cells is the ordinary outcome and the
+falsifier firing says very little. It is the **not firing** -- a gate outside the range -- that
+carries information. The reader prints the arithmetic underneath whichever way it comes out:
+
+```
+    read against what the shape is worth: a named group among 10 is outside the other 9's
+    range by chance 20 % of the time, so all 6 gate readings landing inside is the ordinary
+    outcome and this falsifier is informative when it **does not** fire -- the opposite way
+    round from Experiment G's, whose falsifier is the strong outcome
+```
+
+**Neither entry now has to remember which way round its own falsifier points**, which is the part of
+this worth keeping: the asymmetry is a property of the registration and of the family size, it is
+computable from the log, and until tonight it lived in whoever was writing the entry.
+
+### What was verified, and on what
+
+No head-cut log of Experiment I exists -- gradhead-fencer-128.jsonl is not on disk. The block
+was exercised on four synthetic cells built from `gradlatch-idle-128`, Experiment F's published
+latched idle cell, with the **gate groups' `dot` scaled by a factor fixed before the reader was
+run** so the output could be checked against the factor rather than read off it:
+
+```
+  prediction 2 -- every gate's floor is >= 2x the axes' median (693 bouts): **met**
+  prediction 3a -- the bonus is >= 10 % of `abort`'s signal: **missed** at 4.7 %
+  prediction 3b -- the bonus is exactly zero on every axis: **met** over 9 axes
+  prediction 4 -- ... on both pairs: **met**
+    fencer: gates improve commit 4.31x, abort 4.20x, parry 4.46x; the axes' median moves 1.00x
+  prediction 5 -- `abort`'s floor is >= 4x the row's own (736 bouts): **missed** at 3.90x
+  the falsifier -- ... **does not fire**: commit on i-unlatched-fencer above every axis, ...
+```
+
+The gate dots were scaled by 0.25 on the unlatched copies, so the latch should improve those floors
+by about four. It reads 4.20x to 4.46x -- **above four and in the direction the arithmetic
+predicts**, because `K = (norm^2 - dot) * 2 * f * bouts` rises as `dot` falls and the floor rises
+with `K`. The axes were left alone and their median moves 1.00x, which is the control the fixture
+was built to carry. **Both pairs read identically because the same factor was applied to both**;
+that is the fixture and not a finding. A second fixture, widening the axes around untouched gates
+instead, exercises the falsifier's **fires** branch.
+
+**None of this is Experiment I.** Its two paid cells are not on disk, and nothing of Experiment G's
+head cut has been opened. What is established is that when the cells land, five predictions and a
+falsifier are a command line rather than an evening.
