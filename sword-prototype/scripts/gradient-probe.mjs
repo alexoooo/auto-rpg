@@ -44,9 +44,18 @@
 // accounted for, and a run whose data carried nothing at all would report a healthy number. That
 // is not a bias to be corrected afterwards; it is the instrument measuring its own coefficient.
 //
-// So `PROBE_ENTROPY` is zero, it is the only coefficient this module ever binds, and the binding
-// the shards actually read is reported back in every row as `entropyPaid` so that a row testifies
-// rather than a comment claiming it.
+// So `PROBE_ENTROPY` is zero, every cosine below is taken at it, and the binding the shards
+// actually read is reported back in every row as `entropyPaid` so that a row testifies rather than
+// a comment claiming it.
+//
+// **And then the question that leaves standing, which `measureBonus` answers and nothing else in
+// the record does.** A production fit does not run at zero entropy. It runs at 3e-4, and the step
+// it takes is the data's gradient plus the bonus's. Turning the bonus off to measure the data is
+// right; concluding from that that the bonus does not matter is not, and the two are one sentence
+// apart. So one whole-order step at zero is differenced against one at the production coefficient,
+// outside every cosine and after every arm, and the row gets the bonus's norm against the data's
+// and the **angle between them**. Large and orthogonal is a term wandering off. Large and negative
+// against the data is a term undoing the fit, which no number of bouts repairs.
 //
 // **Two refinements, because the plan's one-line version of this is not quite the whole of it, and
 // the code wins.** First, the entropy term does reach the *actor's* eighty-seven thousand weights,
@@ -253,12 +262,20 @@ import {
 } from "./train-ppo.mjs";
 
 /**
- * The entropy coefficient this file measures under, and the only one it will ever bind.
+ * The entropy coefficient every cosine in this file is taken under.
  *
  * Zero, for the reason the header argues at length: the bonus is not an expectation over the
  * samples, so it is the same vector in both halves and would report a signal that came from the
  * coefficient rather than from the bouts. It is a named constant rather than a literal at a call
  * site so that there is one thing to point a test at.
+ *
+ * **`measureBonus` binds a production coefficient and is the only thing here that ever does.** The
+ * invariant is not "this file never binds a non-zero entropy" -- that was the old sentence and it
+ * was the wrong one, because it made a measurement the record needs unwriteable. The invariant is
+ * that **no half-split cosine is taken under a non-zero coefficient**: every number that compares
+ * one half of an epoch with the other comes off a binding at `PROBE_ENTROPY`, and the bonus
+ * measurement is not a half-split at all. It is one whole-order step differenced against another,
+ * which is a quantity the inflation argument above does not apply to.
  */
 export const PROBE_ENTROPY = 0;
 
@@ -441,6 +458,77 @@ export function measureSignal({
 }
 
 /**
+ * How much of a production step is the bonus rather than the data, and which way the bonus points.
+ *
+ * Every cosine above is taken with the entropy coefficient at zero, and the header spends four
+ * paragraphs on why. That is the right choice, and it leaves a question standing that the record
+ * has argued from the weights rather than measured: **a production fit does not run at zero
+ * entropy.** It runs at 3e-4, and the step it takes is the data's gradient plus the bonus's. The
+ * signal set's diagnosis says the bonus is what holds the three gate logits at a coin flip -- the
+ * shipped table's are +0.062, -0.191 and +0.066, all within a fifth of a logit of the knife edge
+ * after ninety-three iterations, and the two bracket checkpoints put the abort logit within a
+ * third of a logit of zero after thirty. That is an argument from where the weights ended up. This
+ * is the quantity itself.
+ *
+ * The arithmetic is a subtraction and there is no cleverness in it. One whole-order step at
+ * `PROBE_ENTROPY` is the data's mean gradient; one whole-order step at the production coefficient
+ * over the same order, the same rollout and the same weights is that plus the bonus; the difference
+ * is the bonus exactly, because the pool adds the two per sample and nothing else about the binding
+ * moved. So the row gets three numbers a block: the bonus's own norm, the data's, and **the cosine
+ * between them**, which is the one that decides what the finding is. A bonus that is large and
+ * orthogonal is a term wandering off in a direction the data does not care about. A bonus that is
+ * large and *negative* against the data is a term actively undoing the fit, and no amount of
+ * collecting more bouts fixes that one.
+ *
+ * Reported for the actor and for the spread separately because they are two different claims. The
+ * spread's bonus is the analytic case -- for a constant spread the entropy gradient is exactly the
+ * coefficient on every one of the nine rows, so its norm must come back as three times the
+ * coefficient and the test asserts that number rather than a range. The actor's is the one nobody
+ * can write down: it is the three Bernoulli gates' `-logit * p * (1-p)` summed through eighty-seven
+ * thousand weights, and its size against the data's is the measurement this function exists for.
+ *
+ * Returns `null` at a coefficient of zero rather than a block of zeros, so a run that asked for no
+ * bonus writes the row it wrote before this existed and two such runs stay comparable field for
+ * field.
+ */
+export function measureBonus({
+  pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order, clip = 0.2,
+  entropy = 0,
+}) {
+  if (!(entropy > 0)) return null;
+  const whole = [{ at: 0, end: rollout.count }];
+  // Bound twice and stepped twice rather than bound once and scaled, because the entropy term's
+  // dependence on the coefficient is `entropyGrad`'s business and not this file's to assume.
+  pool.bind(rollout, scaled, returns, norm, { clip, entropy: PROBE_ENTROPY });
+  const [data] = takeHalves({ pool, order, halves: whole, weights, valueWeights, logSigma });
+  pool.bind(rollout, scaled, returns, norm, { clip, entropy });
+  const [both] = takeHalves({ pool, order, halves: whole, weights, valueWeights, logSigma });
+  const blockOfBonus = (which) => {
+    const plain = data[which];
+    const paid = both[which];
+    const bonus = new Float64Array(plain.length);
+    for (let k = 0; k < plain.length; k += 1) bonus[k] = paid[k] - plain[k];
+    const dataNorm = normOf(plain);
+    return {
+      norm: normOf(bonus), dataNorm,
+      share: dataNorm === 0 ? 0 : normOf(bonus) / dataNorm,
+      cosine: cosineOf(bonus, plain),
+    };
+  };
+  const measured = {
+    coefficient: entropy,
+    actor: blockOfBonus("actor"),
+    spread: blockOfBonus("spread"),
+  };
+  // Left as it was found. Every consumer in this file binds before it steps, so this is not needed
+  // by anything here -- it is here because a pool left bound at a production coefficient is a trap
+  // for the next function somebody adds, and the whole correctness property of the module is that
+  // no cosine is taken under one.
+  pool.bind(rollout, scaled, returns, norm, { clip, entropy: PROBE_ENTROPY });
+  return measured;
+}
+
+/**
  * The whole measurement for one iteration, from the rollout the collectors just handed over.
  *
  * The advantages, the returns and the standardisation are the fit's own three functions called in
@@ -466,7 +554,7 @@ export function checkHeldStart({ from, hold }) {
 export function probeRollout({
   pool, rollout, weights, valueWeights, logSigma, norm, valueLayout, seed,
   halfLife = 4, lambda = 0.95, clip = 0.2, classes = "none", floor = CLASS_FLOOR,
-  boutSplit = false, rewards = [],
+  boutSplit = false, rewards = [], entropy = 0,
 }) {
   const values = valuesOf(rollout, valueWeights, norm, valueLayout);
   const { advantage, returns } = advantages(rollout, values, { halfLife, lambda });
@@ -534,12 +622,22 @@ export function probeRollout({
       shaping: shareOf(paid, repriced),
     };
   });
+  // Fifth and last, and it is the only one of the five that binds a coefficient rather than a cut
+  // or a table. Taken after the arms for the same reason the arms were taken after the splits --
+  // every one of these rebinds the pool before it steps it, so the order is free and the one that
+  // reads best is the one where the row's own number comes first and the questions about it come
+  // after. What it measures is not this run's step: `--hold` takes no step at all. It is what a
+  // production fit's step at this policy would have been made of.
+  const bonus = measureBonus({
+    pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order, clip, entropy,
+  });
   return {
     ...signal,
     advantageSd: sd,
     ...(cut === null ? {} : { classAxis: classes, classes: cut }),
     ...(byBout === null ? {} : { byBout }),
     ...(priced === null ? {} : { priced }),
+    ...(bonus === null ? {} : { bonus }),
   };
 }
 
@@ -1173,6 +1271,9 @@ if (isMain) {
       const signal = probeRollout({
         pool, rollout, weights, valueWeights, logSigma, norm, valueLayout, seed: fitSeed,
         halfLife, lambda, clip, classes, floor: classFloor, boutSplit, rewards,
+        // The coefficient the fit below would have paid, whether or not there is a fit below, so
+        // a held row says what a production step at this policy would have been made of.
+        entropy: fitEntropy,
       });
       const probed = (Date.now() - probeStarted) / 1000;
       const fitStarted = Date.now();
@@ -1257,6 +1358,8 @@ if (isMain) {
         + `|g| ${signal.firstNorm.toExponential(2)}/${signal.secondNorm.toExponential(2)}  `
         + `dot ${signal.dot.toExponential(2)}  spread ${signed(signal.spread.cosine)}  `
         + `critic ${signed(signal.critic.cosine)}  `
+        + (signal.bonus === undefined ? "" : `bonus ${signal.bonus.actor.share.toFixed(2)}x at `
+          + `${signed(signal.bonus.actor.cosine)}  `)
         + `done ${(rollout.strokes.completion * 100).toFixed(1)}% of `
         + `${rollout.strokes.strokesStarted}  `
         + (signal.byBout === undefined ? "" : `byBout ${signed(signal.byBout.cosine)} `

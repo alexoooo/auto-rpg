@@ -115,6 +115,27 @@
 // return and the whole episode -- and the test asserts they pass, so the refusal cannot be
 // satisfied by refusing everything near the boundary.
 //
+// **The entropy bonus added six more on 2026-09-13**, watched red the same way. This is the first
+// thing in the file that binds a production coefficient at all, and the module's one correctness
+// property is that no cosine is taken under one -- so half the mutations are about the arithmetic
+// and half are about that property surviving it:
+//
+// | mutation | what went red |
+// |---|---|
+// | both steps pay the production coefficient, so the difference is identically zero | all five bonus tests |
+// | the difference is taken the other way round | the by-hand test, on the angle and not on the norm |
+// | the pool is left bound at the production coefficient | the zero-block test |
+// | the share divides by the bonus's own norm rather than by the data's | the spread test |
+// | the bonus is taken over the front half of the order rather than over the whole of it | the by-hand test |
+// | `probeRollout` hands the bonus the probe's coefficient instead of the run's | the row test |
+//
+// **The second of those is the one the fixture nearly could not see.** Reversing the subtraction
+// leaves every norm in the block exactly where it was and only flips the angle, so a test that
+// asserted the norms and called it a day would pass -- and the fixture's actor bonus stands at
+// +0.092 to its data, which is close enough to a right angle that a sign flip is a change of 0.18.
+// So the by-hand test asserts the cosine against an independently taken pair *and* asserts that
+// the pair is not near-orthogonal, which is the assertion that makes the first one mean something.
+//
 // **What no mutation here can reach, and it is the claim the sweep rests on.** That a reward
 // coefficient does not change how a *held* policy acts is a fact about the collectors, which this
 // file does not run: a body draws from weights that do not move, so the collection is the same
@@ -144,8 +165,8 @@ import {
 } from "../scripts/train-ppo.mjs";
 import {
   CLASS_AXES, PROBE_ENTROPY, PROBE_EPOCH, askBouts, askClasses, boutBlocks, boutGradients, checkHeldStart,
-  classBlocks, cosineOf, dotOf, epochOrder, halfGradients, halfSplit, measureSignal, normOf,
-  parseClasses, probeRollout, rewardArms, shareOf,
+  classBlocks, cosineOf, dotOf, epochOrder, halfGradients, halfSplit, measureBonus, measureSignal,
+  normOf, parseClasses, probeRollout, rewardArms, shareOf,
 } from "../scripts/gradient-probe.mjs";
 
 const SEED = 20260917;
@@ -1096,6 +1117,172 @@ test("a_bout_half_is_summed_over_its_own_bouts_asks_and_not_over_the_front_of_th
     });
     assert.notEqual(normOf(Float64Array.from(front.grad)), normOf(taken[0].actor),
       "the bout half summed the same asks the shuffled order's front holds");
+  } finally {
+    await pool.close();
+  }
+});
+
+/**
+ * The bonus the probe turns off, measured rather than argued about.
+ *
+ * `measureBonus` differences one whole-order step at `PROBE_ENTROPY` against one at a production
+ * coefficient, so what it returns is the entropy term exactly. The **spread** half of it is the
+ * case that can be written down before the call: for a constant spread `entropyGrad` adds exactly
+ * `coefficient` to each of the nine axes at every sample, so a mean over the order is exactly the
+ * coefficient on each axis and its norm is exactly three times it. That number is asserted rather
+ * than a range, because a range here would pass for a bonus that had been halved, doubled, or
+ * summed instead of averaged.
+ */
+test("the_spreads_half_of_the_bonus_is_exactly_three_times_the_coefficient", { timeout: 300_000 }, async () => {
+  const built = fixture();
+  const bound = bindings(built);
+  const pool = await FitPool.open({ shards: 2, layout: LAYOUT, valueLayout: VALUE });
+  try {
+    for (const coefficient of [0.0003, 0.003, 1]) {
+      const bonus = measureBonus({ pool, ...bound, entropy: coefficient });
+      assert.equal(bonus.coefficient, coefficient);
+      const want = Math.sqrt(ACTION_AXES) * coefficient;
+      assert.ok(Math.abs(bonus.spread.norm - want) <= 1e-12 * want,
+        `nine axes at ${coefficient} came back as a norm of ${bonus.spread.norm}, not ${want}`);
+      // And the share is against the *data's* norm, which is the reading the row is for.
+      assert.ok(Math.abs(bonus.spread.share - bonus.spread.norm / bonus.spread.dataNorm) < 1e-15);
+    }
+  } finally {
+    await pool.close();
+  }
+});
+
+/**
+ * The bonus is linear in the coefficient and its direction does not depend on it.
+ *
+ * Which is the property that makes one row readable at a coefficient a run did not use: a fit at
+ * 3e-4 and a fit at 3e-3 take the same bonus direction and differ by a factor of ten in how far
+ * they go along it. Asserted across three coefficients spanning four orders of magnitude, on the
+ * actor block, where the term is the three Bernoulli gates' and is not a constant.
+ *
+ * **On this fixture**, the actor's bonus is 0.1757 of the coefficient in norm and stands at +0.092
+ * to the data's gradient -- so at the shipped 3e-4 it is a twenty-thousandth of the data's length.
+ * That is this fixture's number and not a finding about the arena; the fixture's rewards are noise
+ * and its weights are a fresh initialisation. What the test pins is the linearity and the fixed
+ * direction, which are properties of the arithmetic.
+ */
+test("the_bonus_is_linear_in_the_coefficient_and_its_direction_does_not_move", { timeout: 300_000 }, async () => {
+  const built = fixture();
+  const bound = bindings(built);
+  const pool = await FitPool.open({ shards: 2, layout: LAYOUT, valueLayout: VALUE });
+  try {
+    const taken = [0.0003, 0.003, 1].map((c) => measureBonus({ pool, ...bound, entropy: c }));
+    const slope = taken[0].actor.norm / taken[0].coefficient;
+    for (const bonus of taken) {
+      assert.ok(Math.abs(bonus.actor.norm / bonus.coefficient - slope) <= 1e-10 * slope,
+        `the actor bonus is not linear in the coefficient at ${bonus.coefficient}`);
+      assert.ok(Math.abs(bonus.actor.cosine - taken[0].actor.cosine) < 1e-9,
+        `the actor bonus points somewhere else at ${bonus.coefficient}`);
+      assert.ok(Math.abs(bonus.spread.cosine - taken[0].spread.cosine) < 1e-9,
+        `the spread bonus points somewhere else at ${bonus.coefficient}`);
+      // The data's own gradient is the same vector in all three, because the first of the two
+      // steps is taken at `PROBE_ENTROPY` whatever the second one is asked for.
+      assert.equal(bonus.actor.dataNorm, taken[0].actor.dataNorm);
+    }
+  } finally {
+    await pool.close();
+  }
+});
+
+/**
+ * A coefficient of zero writes no block, and a non-zero one leaves the pool where it found it.
+ *
+ * Two properties and one test, because they are the two ways this measurement could damage
+ * something that is not it. A row that carried a block of zeros would not be comparable field for
+ * field with the rows every grid in the record so far was written into. And a pool left bound at a
+ * production coefficient is a trap for the next cosine somebody takes -- the module's one
+ * correctness property is that no cosine is taken under one, and `entropyPaid` on the row is how a
+ * log testifies to it.
+ */
+test("a_bonus_of_zero_writes_no_block_and_a_bonus_leaves_the_pool_at_probe_entropy", { timeout: 300_000 }, async () => {
+  const built = fixture();
+  const bound = bindings(built);
+  const pool = await FitPool.open({ shards: 2, layout: LAYOUT, valueLayout: VALUE });
+  try {
+    assert.equal(measureBonus({ pool, ...bound, entropy: 0 }), null);
+    assert.equal(measureBonus({ pool, ...bound }), null, "a caller that named no coefficient got one");
+    const bonus = measureBonus({ pool, ...bound, entropy: 0.0003 });
+    assert.ok(bonus.actor.norm > 0);
+    assert.equal(pool.bound.params[PARAM.ENTROPY], PROBE_ENTROPY,
+      "the pool was left bound at a production coefficient");
+    // And the row after it still testifies to zero, which is the thing a reader checks.
+    assert.equal(measureSignal({ pool, ...bound }).entropyPaid, 0);
+  } finally {
+    await pool.close();
+  }
+});
+
+/**
+ * The bonus is the difference between a production step and the probe's, taken by hand.
+ *
+ * The arithmetic asserted against the pool directly rather than against `measureBonus`'s own two
+ * calls, so a mutation that differenced the wrong pair, or the same pair twice, or subtracted in
+ * the wrong order has something outside itself to disagree with. The order matters for the cosine
+ * and not for the norm, which is exactly why the cosine is asserted here too.
+ */
+test("the_bonus_is_a_production_step_less_the_probes_over_the_same_order", { timeout: 300_000 }, async () => {
+  const built = fixture();
+  const bound = bindings(built);
+  const n = built.rollout.count;
+  const coefficient = 0.003;
+  const pool = await FitPool.open({ shards: 2, layout: LAYOUT, valueLayout: VALUE });
+  try {
+    const bonus = measureBonus({ pool, ...bound, entropy: coefficient });
+    const step = (entropy) => {
+      pool.bind(bound.rollout, bound.scaled, bound.returns, bound.norm, { clip: 0.2, entropy });
+      const sums = pool.step({
+        at: 0, end: n, epoch: PROBE_EPOCH, order: bound.order,
+        weights: built.weights, valueWeights: built.valueWeights, logSigma: built.logSigma,
+      });
+      return Float64Array.from(sums.grad);
+    };
+    const plain = step(PROBE_ENTROPY);
+    const paid = step(coefficient);
+    const want = Float64Array.from(plain, (x, k) => paid[k] - x);
+    assert.ok(Math.abs(bonus.actor.norm - normOf(want)) <= 1e-12 * normOf(want),
+      `the bonus norm is ${bonus.actor.norm} against ${normOf(want)} taken by hand`);
+    assert.ok(Math.abs(bonus.actor.cosine - cosineOf(want, plain)) < 1e-12,
+      `the bonus points at ${bonus.actor.cosine} against ${cosineOf(want, plain)} taken by hand`);
+    assert.ok(Math.abs(bonus.actor.dataNorm - normOf(plain)) <= 1e-12 * normOf(plain));
+    // Not the other order, which has the same norm and the opposite angle.
+    assert.ok(Math.abs(bonus.actor.cosine + cosineOf(want, plain)) > 1e-6,
+      "the fixture's bonus is orthogonal to its data, so this test cannot see a sign flip");
+  } finally {
+    await pool.close();
+  }
+});
+
+/**
+ * A run that names a coefficient gets the block in its row, and one that does not gets no key.
+ *
+ * The end of the wire, through `probeRollout`, because the CLI hands it the coefficient the fit
+ * below would have paid -- whether or not there is a fit below, which is the point of measuring it
+ * at a held policy at all.
+ */
+test("a_probe_row_carries_the_bonus_only_when_a_coefficient_was_named", { timeout: 300_000 }, async () => {
+  const built = fixture();
+  const pool = await FitPool.open({ shards: 2, layout: LAYOUT, valueLayout: VALUE });
+  try {
+    const common = {
+      pool, rollout: built.rollout, weights: built.weights, valueWeights: built.valueWeights,
+      logSigma: built.logSigma, norm: built.norm, valueLayout: VALUE, seed: SEED + 9,
+    };
+    const bare = probeRollout(common);
+    assert.equal(bare.bonus, undefined, "a run that asked for no bonus got one anyway");
+    const paid = probeRollout({ ...common, entropy: 0.0003 });
+    assert.equal(paid.bonus.coefficient, 0.0003);
+    assert.ok(paid.bonus.actor.norm > 0 && paid.bonus.spread.norm > 0);
+    // The bonus is measured beside the cosine and never inside it: the two rows agree on every
+    // number the halves produced.
+    assert.equal(paid.cosine, bare.cosine);
+    assert.equal(paid.dot, bare.dot);
+    assert.equal(paid.spread.cosine, bare.spread.cosine);
+    assert.equal(paid.entropyPaid, 0);
   } finally {
     await pool.close();
   }
