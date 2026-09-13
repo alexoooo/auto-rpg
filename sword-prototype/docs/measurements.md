@@ -22575,3 +22575,111 @@ the sample size, and the first candidate the arithmetic suggests is written down
 than a finding: if different bodies in the pool demand contradictory policy changes, averaging more
 of them drives the mean toward zero rather than toward a signal, and a per-class gradient would
 cohere where the pooled one does not. That is one cheap measurement and it is not made here.
+
+## Pre-registration -- 2026-09-12: the per-class gradient, written before the bouts
+
+The grid above closes on a question it did not measure and named as owed: *if different bodies in
+the pool demand contradictory policy changes, averaging more of them drives the mean toward zero
+rather than toward a signal, and a per-class gradient would cohere where the pooled one does not.*
+That is a different diagnosis from a gradient that is merely noisy, it implies a different fix, and
+the record separates them nowhere. This is the design that does, fixed before any of it runs.
+Nothing below is a result.
+
+**The question.** The grid's `golem-fencer` row is flat across a factor of eight in bout count, so
+whatever blunts that gradient is not sampling noise in the bout draw. One candidate the arithmetic
+suggests is the pool itself: the maul-and-mace viable pool holds seventeen to twenty-four bodies an
+iteration, and if a maul at short reach wants the opposite of what a mace at long reach wants, then
+the mean over them is small *because* they disagree and not because any one of them is unmeasured.
+So: **is a gradient taken within one class sharper than a gradient taken over the same number of
+asks without regard to class, and do two classes point in the same direction?**
+
+**The instrument, and the flag it needed.** `scripts/gradient-probe.mjs --classes terminal`, which
+cuts one rollout's asks by the armed terminal of the body that fought them and reports three cosines
+rather than one.
+
+| cosine | what it is over | what it says |
+| --- | --- | --- |
+| `within` | one class against itself, two halves of its own asks | how sharp a per-class gradient is |
+| `pooled` | two blocks of exactly those two sizes, class ignored | the control, at matched sample size |
+| `between` | one class's half against another's | whether two classes want the same thing |
+
+The control is the whole reason this is readable. A within-class cosine is taken over a quarter of a
+rollout where the grid's cosine is taken over a half, and a smaller sample gives a smaller cosine --
+the bias runs in the direction that would *hide* the finding, and quoting `within` against the
+grid's own row would have been quoting two different sample sizes as though they were one. So every
+class is controlled against two blocks of its own two sizes, drawn off the front of the same
+shuffled order with the class thrown away.
+
+**The arrangement.** Held throughout: `--from` a bracket checkpoint and `--hold`, so no iteration
+fits and every one of them measures the same policy. That is the same removal of the grid's confound
+the held row above makes, and it is what lets a bout count vary while nothing else does.
+
+| axis | values |
+| --- | --- |
+| `--opponent` | `idle` from `tournaments/bracket-idle/pool-30.json`, `golem-fencer` from `tournaments/bracket-fencer/pool-30.json` |
+| `--bouts` | 32, 64, 128, 256 |
+
+Eight cells, 20 iterations each, fit seed 20260917, the maul-and-mace viable pool, mirrored bodies,
+`--shards 4`, 14 collectors a process, the two opponents as two concurrent processes. The statistic
+is the **mean over a cell's 20 iterations** of each of the three cosines, with the standard error
+over iterations -- the same shape of answer the grid gave, so the two tables read side by side.
+
+**The bout counts are the held row's four and not a cheaper two**, because the sample-size axis is
+half the question. A pooled gradient that does not sharpen with the bout count while a within-class
+one does is the heterogeneity reading stated as a slope rather than as a level, and that is a harder
+thing for a loose grouping to produce by accident than a single cell above its control. It also
+makes every cell here comparable to the held cell of the same bout count, which is the row directly
+above and was collected from the same two checkpoints at the same seed.
+
+**Why `--classes build` is not in the grid, and it is the axis the question is really about.** A
+forty-draw viable pool holds seventeen to twenty-four bodies, so 256 bouts is a dozen a body and
+`CLASS_FLOOR` drops nearly all of them. The coarse cut is what this budget can buy, and it is the
+*conservative* one: a terminal class is still heterogeneous inside -- many bodies, many reaches --
+so a `within` that comes back high has found coherence despite the grouping being loose, and a
+`within` that comes back at the control has not been given much chance to fail. The fine axis is
+implemented, it is refused at this bout count by a floor rather than by a comment, and it is named
+here as the measurement a positive result would justify paying for.
+
+**The prediction, stated before the data.**
+
+1. Each cell's **own half-split cosine is identical to the held cell of the same bout count, digit
+   for digit and iteration by iteration.** Not close: identical. The two runs take the same
+   checkpoint at the same seed for the same bout count with no fit, so they draw the same pools and
+   fight the same bouts, and `--classes` consumes no randomness and runs after the pooled
+   measurement. Anything else means the class code perturbed a collection or a binding, and the rest
+   of the table would not be worth reading.
+
+   `pooled` is **not** that number and is expected to sit below it, because it is taken over the
+   class half sizes -- a quarter of a rollout rather than a half -- and a smaller sample reads a
+   smaller cosine. That gap is the control doing exactly what it is for, and it is the reason
+   `within` is read against `pooled` and never against the row above.
+2. Against `golem-fencer`, **`within` exceeds `pooled` by at least +0.05 at 256 bouts**, and
+   `between` sits at least +0.05 below `within` there. That is the grid's hypothesis said as two
+   numbers: the bodies cohere individually and contradict each other.
+3. Against `idle`, the three cosines are within a couple of standard errors of each other at every
+   bout count. A motionless target is one task whatever is holding the weapon, so there is nothing
+   for the bodies to disagree about, and the `idle` column is here as the arm where prediction 2
+   should *not* reproduce. If it reproduces in both, the effect is about sample size or about the
+   instrument and not about the pool.
+
+**The falsifier, which matters more than the prediction.** If `within` is not above `pooled` by at
+least one standard error in either opponent, **the pool's heterogeneity is not what blunts the
+gradient** -- a per-class fit would buy nothing, and the grid's closing candidate is retired. That
+is the more useful outcome of the two, because it removes the last explanation this record has
+offered that lives in the data rather than in the code, and it points the next night at the
+advantage estimate, at the credit a stroke gets, and at the abort gate that Session 07 of the learn
+set showed cuts nine strokes in ten before they land.
+
+**What no outcome of this licenses.** No mind ships, no reward coefficient moves, no default moves,
+and in particular a positive result does **not** license training per class: a per-class gradient
+that coheres is a statement about an estimator, and turning it into a fit is a design with its own
+bars. It buys one number that says whether the pool is the problem.
+
+> **A smoke, disclosed because it happened before this was written and is data from the instrument.**
+> Checking that `--classes terminal` runs at all cost two iterations of 32 bouts against `idle` from
+> a fresh initialisation at seed 424242, which is not one of the four cells and not one of the two
+> checkpoints. The first of them read `within` +0.30 and +0.53 on the two classes against `pooled`
+> +0.70 and -0.17, and `between` between -0.09 and +0.20. A fresh initialisation is the regime where
+> the policy is bad in a way every sample agrees about, one iteration is one draw, and the two
+> classes there held 17,804 and 5,863 asks -- so the pair of numbers is not a cell of this grid and
+> is not evidence for or against any prediction above. It is recorded because it was seen.
