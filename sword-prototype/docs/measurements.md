@@ -25270,12 +25270,12 @@ passes.
 **The predictions, restated on the quotient.**
 
 **1. The instrument reproduces its own null.** On every cell, the null column matches the closed
-form above at that cell's own `t` to within 0.15 at every `p`. This replaces the old
-prediction 1 and it is strictly better: it is checkable on all five cells rather than only on a
-quiet one, it does not need a cell with no signal to exist, and it fails loudly if the ranking
-range is not disjoint from the measured ones. **And a cell whose `|S|^2` does not clear zero at
-two sigma gets no quotient quoted at all** -- a ratio of two quantities that do not clear zero is
-unreadable, which is the rule this pre-registration already applies to choosing the ladder.
+form above at that cell's own `t` to within 0.15 at every `p`. This replaces the old prediction 1
+and it is strictly better: it is checkable on all five cells rather than only on a quiet one, it
+does not need a cell with no signal to exist, and it fails loudly if the ranking range is not
+disjoint from the measured ones. **And a cell whose `|S|^2` does not clear zero at two sigma gets
+no quotient quoted at all** -- a ratio of two quantities that do not clear zero is unreadable,
+which is the rule this pre-registration already applies to choosing the ladder.
 
 **2. The headline, unchanged in form.** On at least one cell whose `|S|^2` clears zero at `t > 3`,
 the **quotient** at a `p` of 0.1 is below **0.5**. The bar is the one registered above and it now
@@ -25307,3 +25307,129 @@ that the flag writes a block a reader can parse, and it was the reader's own ari
 column whose last row must be one by construction coming back at 0.053 -- that started this. That
 first defect was in the scratchpad reader and not in the tree; chasing it is what found the one
 that was.
+
+## Pre-registration -- 2026-09-13: whether the objective moves with the criterion, written before the logs are read
+
+**Every experiment in this set so far asks whether the fit can find the gradient. None asks
+whether the thing it is climbing is the thing the record grades it on.** Experiment E eliminated
+the reward table as the reason the bar does not move against the fencer. Experiment F eliminated
+the behaviour policy's gate noise. G, N and O attack the estimator, P asks where in the weight
+vector the signal sits. All six take for granted that a fit which succeeded at raising **mean
+episode return under `GOLEM_REWARD`** would thereby raise **the paired bar against a designed
+mind**, because that is what an objective is for.
+
+Nothing in this record has ever checked that. If the two are uncorrelated, then an estimator that
+found the gradient perfectly would move the return and leave the bar exactly where it is, thirteen
+sessions of failure are explained without a single one of the estimator experiments being wrong,
+and the entire queue is measuring the precision of an instrument pointed in the wrong direction.
+
+**And there is a mechanism already in the record that predicts exactly this.** In a mirrored bout
+both corners are collected, so `dealt - taken` telescopes to zero in aggregate and `win * outcome`
+cancels; what is left of `GOLEM_REWARD` with a non-zero mean is the clinch and idle penalties,
+both of which are minimised by standing still outside reach. The long league's `idle` row grew
+from 0.00324 to 0.04562 and reached 84 % of the penalty share. That mechanism has been written
+down for days as an explanation of *what the mind learned*. It has never been stated as the
+quantitative claim it implies: that the objective and the criterion are different objectives.
+
+### The statistic
+
+**Primary, within a run.** For each arm, two ordinary least-squares slopes against iteration,
+restated per sixty iterations, each with the two-sided t on n-2 degrees of freedom:
+
+* `tRet` -- the slope of `ret`, the mean episode return the fit maximises, over **every** league
+  iteration the arm has.
+* `tBar` -- the slope of the **paired** bar against the designed mind the arm's criterion names,
+  over the arm's rating points.
+
+The reading is the pair. No weighting by each point's own sem and no smoothing, which is the rule
+barfit.mjs already serves and this reader borrows unchanged.
+
+**Secondary, across the arms.** The Spearman rank correlation between each arm's final `ret` and
+its final paired `d`. Rank rather than Pearson because there are seven or eight arms, the returns
+span two orders of magnitude across reward tables, and the claim is about ordering.
+
+`ret` is quoted rather than `bare` in both. `bare` is reported beside it, because a return whose
+movement is all penalty is a different finding from one whose movement is all margin, and the two
+are separable at no cost.
+
+### The arms, and which of them are prospective
+
+| arm | iterations | rating points | what it is | seen? |
+| --- | --- | --- | --- | --- |
+| the two latched leagues | 60 each | 12 each | Experiment H's, against fencer and dummy | **no** |
+| the three swing leagues | 60 each | 12 each | Experiment K's swing ladder | first and last `ret` of one |
+| the two budget leagues | in flight | pending | Experiment L's, at 128 and 256 bouts | **no** |
+| the long league | 400 | 29 | Session 11's, re-analysed | published already |
+
+**The long league is a re-analysis and is labelled as one.** Its 400 iterations and 29 rating
+points were collected, published and argued over before this question was asked, so its numbers
+cannot carry a pre-registered bar and are not asked to. It is here because it is the only arm with
+400 iterations and because a mechanism that shows up in a run nobody chose for it is worth more
+than the same mechanism in a run chosen for it. Its paired column is `golem-driver`:
+**`golem-fencer` was never a paired column on that run**, which is the confound the signal set's
+second session was written to end, and it means the long league's reading is stated against a
+different designed mind from every other arm's. That is a real weakness and it is why it is the
+secondary evidence and not the primary.
+
+**The disclosed peek.** Before writing this I read two numbers: the first and last `ret` of the
+loud swing arm, while checking that a league row carries the column at all. I have read no bar, no
+rating point, and no pairing of the two on any arm. The statistic above is a pairing, so nothing I
+have seen is a value of it -- but two of that arm's sixty returns have been seen and the arm is
+marked accordingly in the table.
+
+### The predictions
+
+**1. The headline.** On at least one arm, `ret` rises at **t > 3** while the paired bar's slope
+**does not clear zero at two sigma**. One instance is enough: it is an existence claim about a run
+in which the fit demonstrably succeeded at its own objective and the criterion did not notice.
+
+**2.** The Spearman correlation between final `ret` and final paired `d` across the arms is
+**below 0.5**. If the objective were a proxy for the criterion, the arms that ended with the best
+return would be the arms that ended with the best bar.
+
+**3. Stated so it can embarrass me.** The disconnection is **not** explained by the return simply
+being flat. On every arm where prediction 1 fires, `ret` moves by at least a tenth of its own
+iteration-to-iteration standard deviation per sixty iterations. A fit that went nowhere on both
+axes is a fit with no signal, which is what the rest of this set is about, and it is **not**
+evidence that the objective is the wrong one.
+
+**4.** The movement in `ret` is mostly penalty rather than margin: on the arms where prediction 1
+fires, the slope of `bare` per sixty iterations is smaller in magnitude than the slope of `ret`.
+This is the mirrored-telescoping mechanism stated as a number, and if it comes back the other way
+the mechanism above is wrong even if prediction 1 holds.
+
+### The falsifier
+
+If **every** arm whose `ret` rises at t > 3 also has its paired bar rising at t > 2, then the
+objective tracks the criterion, this line closes, and the failure is squarely in the estimator --
+which would promote G, N, O and P from four experiments among many to the whole story. That is a
+real outcome and a useful one: it would be the first thing in this record to positively license
+the estimator work rather than merely not contradict it.
+
+If **no** arm has `ret` rising at t > 3 at all, the experiment is vacuous and will be reported as
+vacuous rather than as met. That is a live possibility -- the fits in this record are not
+obviously succeeding at their own objective either -- and it is the outcome that would say this
+question cannot be answered from the runs already queued and needs one built for it.
+
+### What this cannot answer, and what it does not license
+
+**The two quantities are measured on different populations.** `ret` is taken over the collection
+pool, which is mirrored or mixed and fights the training opponent; the bar is taken on a rating
+pool against a designed mind. A disconnection between them could be a disconnection between the
+*objectives* or between the *populations*, and this experiment cannot tell those apart. What it
+can do is measure whether the disconnection is there at all, which is the thing nobody has done,
+and a null here would close the question without needing the distinction.
+
+**It does not say the reward table is wrong.** `GOLEM_REWARD` was eliminated as the reason the bar
+does not move *against the fencer* by Experiment E, which re-priced collected rollouts under
+different tables and found the gradient unchanged. That experiment varied the coefficients. This
+one asks whether the quantity those coefficients define is the quantity the record grades, which
+is a different question, and a positive here does not reopen E.
+
+**No fit changes and nothing ships.** This reads logs that are being written for other experiments
+and collects no bouts of its own. If prediction 1 fires, the next experiment is the one that
+prices a designed mind under `GOLEM_REWARD` directly -- which needs an instrument change, because
+`recorderKind` hooks only a style, the learner, the planner and the champion, and
+`decisionRecorder` captures the two bars, the clock and the end flag but none of the six shaped
+quantities the table charges for. That change is named here so that the cost of the follow-on is
+on the record before its result is.
