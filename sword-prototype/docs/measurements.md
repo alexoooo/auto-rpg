@@ -26505,3 +26505,116 @@ are scratchpad readers; they are gitignored, they are not in the suite, and the 
 record keeps for its instruments do not cover them. Four of the five pending readers carried
 something, which is a base rate worth writing down for whoever reads the next entry: **the numbers
 in these entries have been through one program that nothing asserts anything about.**
+
+## The floor convention -- 2026-09-13: moved into the tree that can be tested, and the range argument that unifies three defects
+
+The section above closes on a sentence that is the reason this one exists: **the numbers in these
+entries have been through one program that nothing asserts anything about.** Four of the five
+pending readers carried a defect. Four of the defects found across the night were the same defect
+-- correct arithmetic applied to a quantity measured over a different range of the epoch than the
+formula assumes -- and none was reachable by any test, because the formula was not in this tree.
+It was in five gitignored files that each kept their own copy of it.
+
+It is in the tree now. `floorConvention` sits in the gradient probe beside the two functions that
+cut the epoch it is stated on, it takes the range as an argument rather than assuming one, and
+three tests in the probe's suite say what it must do. The export is additive: no existing call
+site was touched, and the Experiment R run already queued behind the fan picks up no difference at
+all.
+
+### The range argument, which is the whole correction
+
+A range holding a fraction `f` of an epoch of `n` bouts returns the expected gradient plus noise
+of variance `K / (2 f n)` in squared norm. `K` is the run's noise constant and is a property of
+the collection rather than of how it was cut. Everything the record quotes falls out of that one
+expression, and so do all three of tonight's range facts:
+
+| the cut | `f` | its noise | effective bouts | which reader got this wrong |
+| --- | --- | --- | --- | --- |
+| two halves | 1/2 | `K / n` | `n` | none -- this is the convention as written |
+| the whole order | 1 | `K / 2n` | `2n` | the step reader, which priced it as a half's |
+| three ranges | 1/3 | `3K / 2n` | `(2/3) n` | the concentration reader, which priced it as a half's |
+
+The two misreadings are in opposite directions and neither is a rounding matter: the whole order
+read as a half halves `K`, and a third read as a half inflates every floor computed from it by
+exactly 3/2. Both are asserted as *wrong* in the suite beside the right answer, because a test
+that only says what is right cannot say that what it replaced was different.
+
+### What the tests pin, and the one identity that is exact
+
+The first test is the one the whole convention rests on: `cosineAt(n)` at the epoch's own bout
+count must be the cosine the row it was read from reports. It is `dot / norm^2` however the caller
+formed `norm^2`, and the record's readers form it as the *arithmetic* mean of the two half norms
+squared while the probe forms its cosine over their *geometric* mean -- so the convention reads
+**below** the logged cosine by the factor `(a^2 + b^2) / 2ab` and never above it. The ratio is
+asserted to that factor rather than merely to its sign, which is the form a reader needs to tell a
+near-miss from a defect.
+
+That also settles something the cross-check two sections above left open. Its computed 0.1016
+against a logged 0.0973 reads **high**, and the AM-GM gap can only read low -- so the gap there is
+not a second arithmetic error but the ratio-of-means against mean-of-ratios difference the head
+audit already named, the readers averaging `dot` and `norm^2` across iterations before dividing
+while the log averages the quotients.
+
+The second test recovers one `K` from all three cuts of the same collection and asserts the two
+named misreadings differ from it by their two factors. The third pins that the floor is the
+optimistic end of its own interval -- below the point estimate whenever there is an interval at
+all, and finite for an arm whose `|S|^2` does not clear zero, which is the case the record quotes
+floors in most often and the case where `point` is the number that goes to infinity -- and that
+every input it cannot be stated on is refused by name.
+
+`se` defaults to zero and that is the one default in the function, said out loud in its own
+comment: a caller with a single measurement has no interval, and a floor without an interval is a
+point estimate wearing the word floor. Every other missing number throws.
+
+### The mutation record
+
+**Six mutations of the convention, each applied alone and then restored.** All six went red, and
+each went red on the floor tests and on nothing else in the probe's suite:
+
+| mutation | what went red |
+| --- | --- |
+| the fraction is dropped, so every range is priced as a half | the three-cuts test |
+| the factor of two leaves the effective bout count | the three-cuts test |
+| the cosine forgets to divide `K` by the signal | the cosine identity and the three-cuts test |
+| the floor is taken at the pessimistic end of its interval | the floor test |
+| a negative standard error is accepted rather than refused | the floor test |
+| a missing number defaults instead of being refused by name | the floor test |
+
+**Two rows were measured twice and the first reading was wrong, and it is a hazard worth writing
+down.** The first pass reported the first two mutations also reddening two of the *pool* tests in
+the same file -- tests that cannot see this function at all, since the export is additive and no
+existing call site changed. The host was running eight training lanes at the time. Re-running each
+mutation alone reproduced neither, and the table above is the second reading. **A mutation table
+measured under load has a false-positive rate**, and a row of it is worth nothing until the
+mutation is read back and confirmed to be the mistake it claims to be -- which is the lesson this
+instrument's test file has now recorded four times, in a new form each time.
+
+### The readers now call it, and the repointing is a measured no-op
+
+Four of the readers with pending entries -- the arm, head, baseline and concentration ones -- kept
+their own copy of `K = (norm^2 - dot) * n`. The copies were correct in those four; the point is
+not that they were wrong but that nothing could have said so. They import the production function
+now.
+
+The change had to be shown to move nothing, and it was, twice over. On a grid of two thousand
+random block sets the two spellings agree to **3e-16** relative in `K`, the floor and the point --
+the floor by reconstruction, which is exact in arithmetic and differs only in the last bits. And
+the readers were re-run against the same logs their audited numbers were taken from: the
+concentration reader reproduces both synthetic cells to the last printed digit (1.019, 0.853,
+1.054, 0.994, 1.000 flat and 0.040, 0.079, 0.119, 0.321, 1.000 spiked), and the head reader
+reproduces standOff's point of 157, advance's 0.1453 and parry's 0.1322. The concentration reader
+gains one thing besides: its `1/3` is now a **named fraction** rather than a bout count the caller
+pre-multiplied, which is the thing the correction was actually about.
+
+The baseline reader is repointed and **not smoked**, because no log on disk carries a baseline
+block; it is still armed behind its fan and its first run will be its first run.
+
+### What this does not establish
+
+It does not make any number already in this record right. Every floor above this section was
+computed by the gitignored copy, and where that copy carried one of the two range defects the
+entry says so and quotes the correction; nothing here is retroactive. It does not say that a
+*reader* passes the right `bouts` or the right fraction -- the convention is a function of four
+numbers, the tests pin the function and not its callers, and the readers are still gitignored and
+still outside the suite. What has changed is narrower than it sounds and is the whole of it: the
+arithmetic every floor in this record passes through is now arithmetic somebody has to keep true.

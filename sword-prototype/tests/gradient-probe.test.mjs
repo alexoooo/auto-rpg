@@ -397,6 +397,46 @@
 // fixture, from the same seed. Nothing is wrong; there is simply no direction there to agree or
 // disagree with. That is a fact about the fencer cell, where the row's cosine is a few hundredths,
 // and it is why the reading is registered at the cell where it is not.
+//
+// ## The floor convention, which arrived last and had been in use the longest
+//
+// **Every number this record calls a floor was computed by a gitignored reader, and there were
+// five of them.** `K = (norm^2 - dot) * n` and `n / (n + K / dot)` are two lines the whole
+// gradient set's arithmetic passes through, and until 2026-09-13 the probe did not contain either
+// of them -- it emits `dot`, `firstNorm`, `secondNorm` and `cosine`, and the convention that turns
+// those into a bout count lived downstream in scratchpad. An audit of the five readers that night
+// found four of them wrong about it, each in a different way, and every one of those four defects
+// was the same mistake: correct arithmetic on a quantity measured over a different **range** of
+// the epoch than the formula assumes. That is why `floorConvention` takes a fraction rather than
+// a name, and why it is in this tree at all.
+//
+// | mutation | what went red |
+// |---|---|
+// | the fraction is dropped, so every range is priced as a half | the three-cuts test |
+// | the factor of two leaves the effective bout count | the three-cuts test |
+// | the cosine forgets to divide `K` by the signal | the cosine identity and the three-cuts test |
+// | the floor is taken at the pessimistic end of its interval | the floor test |
+// | a negative standard error is accepted rather than refused | the floor test |
+// | a missing number defaults instead of being refused by name | the floor test |
+//
+// **The two range mutations are the two defects the readers actually had**, in opposite
+// directions: one reader priced the *whole* order's noise as a half's, which doubles `K`, and
+// another priced a *third* as a half's, which inflates every floor off it by exactly 3/2. Both
+// are asserted as wrong beside the right answer, because a test that only says what is right
+// cannot say that what it replaced was different.
+//
+// **Two rows of this table were measured twice and the first reading was wrong**, which is worth
+// recording because it is a hazard of measuring a mutation table on a busy host rather than a
+// hazard of the code. The first pass reported the first two mutations also reddening two of the
+// pool tests in this file -- tests that cannot see `floorConvention`, because the export is
+// additive and no existing call site was changed. The host was running eight training lanes at
+// the time. Re-running each mutation alone reproduced neither, and the rows above are the second
+// reading. A mutation table measured under load is a mutation table with a false-positive rate.
+//
+// **What no mutation here can reach.** That a *caller* passes the right `bouts` or the right
+// fraction. The convention is a function of four numbers and these three tests pin the function;
+// the readers that call it are still gitignored and still outside this suite, which is the state
+// the record's own reader audit describes and does not fix.
 import test from "node:test";
 import assert from "node:assert/strict";
 
@@ -416,7 +456,8 @@ import {
 import {
   CLASS_AXES, CONCENTRATION_FRACTIONS, PROBE_ENTROPY, PROBE_EPOCH, askBouts, askClasses,
   armDirection, askPositions, baselineOf, boutBlocks, boutGradients, checkHeldStart, classBlocks,
-  combineHalves, concentrationSignal, cosineOf, dotOf, epochOrder, groupedMeans, halfGradients,
+  combineHalves, concentrationSignal, cosineOf, dotOf, epochOrder, floorConvention, groupedMeans,
+  halfGradients,
   halfSplit,
   concentrationWithNull, headGroups, headNorms, headRows, headSignal, linearBaseline, mcReturns,
   measureBonus, measureSignal, normOf, nullRanking, parseClasses, probeRollout, rewardArms, shareOf,
@@ -529,6 +570,175 @@ test("the_probes_order_is_the_shuffled_order_the_fits_first_epoch_walks", () => 
     [0, 1, 2, 3, 4]);
 });
 
+// ---------------------------------------------------------------------------------------
+// The floor convention, which every number this record calls a floor is computed from.
+// ---------------------------------------------------------------------------------------
+
+/**
+ * The identity the whole convention rests on: a floor's own cosine is the cosine it was read from.
+ *
+ * **Why this is worth a test rather than an algebra exercise.** `K = (norm^2 - dot) * n` and
+ * `n / (n + K / dot)` are two lines every floor in this record passes through, and until this
+ * commit both of them lived only in gitignored readers -- five of them, four of which were wrong
+ * about the convention in a different way. Every one of those defects was an error about which
+ * range of the epoch a quantity was measured over, and none of them was reachable by anything in
+ * this tree. The arithmetic here is elementary; the point is that it is now arithmetic somebody
+ * has to keep true.
+ *
+ * **The identity, and the one place it is exact.** `cosineAt(n)` at the epoch's own bout count is
+ * `dot / norm^2` however the caller formed `norm^2`. The record's readers form it as the
+ * *arithmetic* mean of the two half norms squared, and the cosine the probe reports is `dot` over
+ * their *geometric* mean -- so the two agree exactly when the halves have the same norm and the
+ * convention reads low otherwise, by the AM-GM gap and never the other way. Both are asserted,
+ * because the sign of that gap is why a near-miss against a logged cosine is a near-miss rather
+ * than a defect, and a reader told only the equal-norm case would not know which way to expect it.
+ *
+ * **What no mutation here can reach.** Nothing in this file says the *probe* measured what its row
+ * claims -- that is the pool tests below -- and nothing says a reader passed the right `bouts`.
+ * The convention is a function of four numbers and this pins the function.
+ */
+test("a_floors_cosine_is_the_cosine_its_own_dot_and_norms_report", () => {
+  const random = mulberry32(SEED + 91);
+  const signal = Float64Array.from({ length: 512 }, () => random() - 0.5);
+  const noisy = (scale) => Float64Array.from(signal, (x) => x + scale * (random() - 0.5));
+  const first = noisy(0.8);
+  const second = noisy(2.4);
+  const bouts = 128;
+  // The reading every reader in this record takes: the dot of the two halves, and the mean of
+  // their two squared norms.
+  const dot = dotOf(first, second);
+  const norm2 = (normOf(first) ** 2 + normOf(second) ** 2) / 2;
+  const held = floorConvention({ dot, norm2, bouts });
+  assert.ok(dot > 0, `the fixture's two halves disagree about the sign of their signal (${dot})`);
+  const reported = cosineOf(first, second);
+  assert.ok(Math.abs(held.cosineAt(bouts) - dot / norm2) <= 1e-15 * Math.abs(dot / norm2),
+    `the convention's own cosine at ${bouts} read ${held.cosineAt(bouts)} against ${dot / norm2}`);
+  // Deliberately unequal norms, so the gap is real and has a direction: arithmetic mean over
+  // geometric mean, so the convention reads *below* the cosine the row prints and never above.
+  assert.ok(normOf(first) < 0.9 * normOf(second), "the fixture's two halves came back the same size");
+  assert.ok(held.cosineAt(bouts) < reported, `the convention read ${held.cosineAt(bouts)} against a`
+    + ` reported ${reported}, which is the wrong side of the AM-GM gap`);
+  // And the gap is exactly the AM-GM factor rather than merely in its direction, which is the form
+  // a reader needs to tell a logged near-miss from a defect: the ratio is `(a^2 + b^2) / 2ab`.
+  const gap = (normOf(first) ** 2 + normOf(second) ** 2) / (2 * normOf(first) * normOf(second));
+  assert.ok(Math.abs(reported / held.cosineAt(bouts) - gap) <= 1e-12 * gap,
+    `the convention reads ${reported / held.cosineAt(bouts)} of the reported cosine and not ${gap}`);
+  // And exact where the two norms agree. Rescaling one half scales `dot` and `norm^2` by the same
+  // factor and leaves the angle alone, so this is the same measurement with the gap taken out.
+  const evened = Float64Array.from(second, (x) => x * (normOf(first) / normOf(second)));
+  const flush = floorConvention({
+    dot: dotOf(first, evened), norm2: (normOf(first) ** 2 + normOf(evened) ** 2) / 2, bouts,
+  });
+  assert.ok(Math.abs(cosineOf(first, evened) - reported) <= 1e-12, "rescaling moved the angle");
+  assert.ok(Math.abs(flush.cosineAt(bouts) - reported) <= 1e-12,
+    `with the two norms equal the convention read ${flush.cosineAt(bouts)} against ${reported}`);
+});
+
+/**
+ * One noise constant, three ways of cutting the epoch, and the two readers that got it backwards.
+ *
+ * A range holding a fraction `f` of an epoch of `n` bouts carries noise `K / (2 f n)` in squared
+ * norm, so its effective bout count is `2 f n` and `K` is a property of the collection rather than
+ * of the cut. That single expression is the whole content of the convention's `fraction`, and it is
+ * here because two scratchpad readers each broke a different one of its three cases: the step
+ * reader priced the **whole** order's noise as a half's and printed a 27 % discrepancy that does
+ * not exist, and the concentration reader priced a **third** as a half and overstated both of its
+ * floors by exactly 3/2. Neither could have been caught by any test, because there was no code in
+ * this tree for a test to be about.
+ *
+ * The fixture inverts the definition: given a `K` and an `|S|^2`, write down what each of the three
+ * cuts would report and hand it back. Recovering the same `K` from all three is the claim, and the
+ * two named misreadings are asserted to be *wrong* beside it -- a factor of two and a factor of
+ * 3/2 -- because a test that only says what is right cannot say the thing it replaced differed.
+ */
+test("one_noise_constant_comes_back_from_a_half_a_third_and_the_whole_order_alike", () => {
+  const bouts = 128;
+  const S2 = 0.0125;
+  const K = 1.4e3;
+  // What each cut reports, straight off `K / (2 f n)`.
+  const cuts = [
+    { what: "two halves", fraction: 1 / 2, norm2: S2 + K / bouts, effective: bouts },
+    { what: "the whole order", fraction: 1, norm2: S2 + K / (2 * bouts), effective: 2 * bouts },
+    {
+      what: "three ranges",
+      fraction: 1 / 3,
+      norm2: S2 + (3 * K) / (2 * bouts),
+      effective: (2 / 3) * bouts,
+    },
+  ];
+  for (const cut of cuts) {
+    const held = floorConvention({ dot: S2, norm2: cut.norm2, bouts, fraction: cut.fraction });
+    assert.ok(Math.abs(held.K - K) <= 1e-9 * K, `${cut.what} recovered a noise constant of ${held.K}`);
+    assert.ok(Math.abs(held.effective - cut.effective) <= 1e-9,
+      `${cut.what} has an effective bout count of ${held.effective} and not ${cut.effective}`);
+    // Everything downstream of `K` is then the same number, which is the point of it being one.
+    assert.ok(Math.abs(held.F - K / S2) <= 1e-9 * (K / S2), `${cut.what} moved the floor's F`);
+    assert.ok(Math.abs(held.cosineAt(bouts) - bouts / (bouts + K / S2)) <= 1e-12,
+      `${cut.what} moved the cosine an epoch of ${bouts} reports`);
+  }
+  // The step reader's defect: the whole order's noise is **half** a half's, and reading it as a
+  // half's halves the constant.
+  const asHalf = floorConvention({ dot: S2, norm2: cuts[1].norm2, bouts, fraction: 1 / 2 });
+  assert.ok(Math.abs(asHalf.K - K / 2) <= 1e-9 * K, `the whole order read as a half gave ${asHalf.K}`);
+  // The concentration reader's, in the other direction: a third priced as a half is 3/2 too large.
+  const asThird = floorConvention({ dot: S2, norm2: cuts[2].norm2, bouts, fraction: 1 / 2 });
+  const third = floorConvention({ dot: S2, norm2: cuts[2].norm2, bouts, fraction: 1 / 3 });
+  assert.ok(Math.abs(asThird.K - 1.5 * K) <= 1e-9 * K, `a third read as a half gave ${asThird.K}`);
+  assert.ok(Math.abs(asThird.floor / third.floor - 1.5) <= 1e-9,
+    `the floors differ by ${asThird.floor / third.floor} and not by the 3/2 the record corrected`);
+});
+
+/**
+ * The floor is the optimistic end of its own interval, and a reading it cannot be stated on is
+ * refused.
+ *
+ * `floor = K / (|S|^2 + 2 SE)` is deliberately the *fewest* bouts consistent with the measurement,
+ * which is what makes a ratio of two floors a statement about two arms rather than about which of
+ * them was measured more precisely. Two consequences are worth pinning: it is below the point
+ * estimate whenever there is an interval at all, and it stays finite for an arm whose `|S|^2` does
+ * not clear zero -- which is the case the record quotes floors in most often, and the case where
+ * `point` is the number that goes to infinity.
+ *
+ * The refusals are here for the reason every refusal in this file is: a default is a fabricated
+ * answer. A convention handed a missing `dot` that quietly read zero would publish a floor of
+ * infinity for an arm nobody measured, and it would look exactly like an arm that was measured and
+ * found flat.
+ */
+test("a_floor_is_the_optimistic_end_of_its_interval_and_a_reading_without_one_is_refused", () => {
+  const bouts = 128;
+  const held = floorConvention({ dot: 0.0125, norm2: 0.0125 + 1400 / bouts, bouts, se: 0.004 });
+  assert.ok(held.floor < held.point, `a floor of ${held.floor} is not below a point of ${held.point}`);
+  assert.ok(Math.abs(held.floor - held.K / (0.0125 + 0.008)) <= 1e-9 * held.floor);
+  // No interval, no floor: the two are the same number and the word floor is doing no work.
+  const alone = floorConvention({ dot: 0.0125, norm2: 0.0125 + 1400 / bouts, bouts });
+  assert.equal(alone.floor, alone.point);
+  // An arm whose signal does not clear zero still has a floor, and that is the whole point of
+  // quoting the top of the interval rather than the middle of it.
+  const faint = floorConvention({ dot: 0.001, norm2: 0.001 + 1400 / bouts, bouts, se: 0.002 });
+  assert.ok(Number.isFinite(faint.floor), `an arm at t 0.5 reported a floor of ${faint.floor}`);
+  assert.equal(floorConvention({ dot: -0.004, norm2: 1, bouts, se: 0.001 }).floor, Infinity);
+  const nothing = floorConvention({ dot: 0, norm2: 1, bouts });
+  assert.equal(nothing.point, Infinity);
+  assert.equal(nothing.F, Infinity);
+  assert.equal(nothing.cosineAt(bouts), 0);
+  // A missing number is refused by its own name. `se` is the exception and says so: it defaults to
+  // zero, which is the no-interval reading above rather than a guess at an interval.
+  for (const missing of ["dot", "norm2", "bouts"]) {
+    const args = { dot: 0.01, norm2: 0.2, bouts, se: 0.001, [missing]: undefined };
+    assert.throws(() => floorConvention(args), new RegExp(`finite ${missing}`),
+      `a convention missing its ${missing} answered anyway`);
+  }
+  for (const missing of ["dot", "norm2", "bouts", "se"]) {
+    const args = { dot: 0.01, norm2: 0.2, bouts, se: 0.001, [missing]: NaN };
+    assert.throws(() => floorConvention(args), new RegExp(`finite ${missing}`),
+      `a convention handed a NaN ${missing} answered anyway`);
+  }
+  assert.throws(() => floorConvention({ dot: 0.01, norm2: 0.2, bouts: 0 }), /no floor/);
+  assert.throws(() => floorConvention({ dot: 0.01, norm2: 0.2, bouts, fraction: 0 }), /not a range/);
+  assert.throws(() => floorConvention({ dot: 0.01, norm2: 0.2, bouts, fraction: 1.5 }), /not a range/);
+  assert.throws(() => floorConvention({ dot: 0.01, norm2: 0.2, bouts, se: -1e-9 }), /is not one/);
+  assert.throws(() => floorConvention({ dot: 0.01, norm2: 0.2, bouts }).cosineAt(0), /no cosine/);
+});
 // ---------------------------------------------------------------------------------------
 // The measurement, through the pool the fit sums its own minibatches through.
 // ---------------------------------------------------------------------------------------

@@ -334,6 +334,91 @@ export function thirdSplit(count) {
 }
 
 /**
+ * The floor convention, which every number this record calls a floor is computed from.
+ *
+ * **This lived in five scratchpad readers and nowhere else, and four of the five were wrong about
+ * it in a different way.** The step reader compared a whole-order norm against a half-order noise
+ * prediction and printed a 27 % discrepancy that does not exist; the concentration reader priced a
+ * third of an epoch as though it were a half and overstated both its floors by exactly 3/2; two
+ * others carried the same family of error elsewhere. Every one of those defects is an error about
+ * *which range of the epoch a quantity was measured over*, and none of them could be caught by
+ * anything in this tree, because the convention was not in this tree. It is here now, with the
+ * range as an argument rather than an assumption, and the file that asserts it is beside it.
+ *
+ * ## The definitions
+ *
+ * A probe cuts one epoch of `bouts` bouts into ranges and takes a gradient over each. Write `S` for
+ * the expected gradient -- the thing every floor in this record is about -- and let a range holding
+ * a fraction `f` of the epoch return `S` plus noise of variance `K / (2 f bouts)` in squared norm.
+ * `K` is the run's **noise constant** and is a property of the collection, not of how it was cut.
+ *
+ * Two halves give `f = 1/2`, so each carries `K / bouts`. That is the one the record's convention
+ * is written on: the dot of two independent halves estimates `|S|^2`, a half's squared norm
+ * estimates `|S|^2 + K / bouts`, and so
+ *
+ *     K = (norm^2 - dot) * bouts
+ *
+ * with `norm^2` a half's. From `K` everything else follows and nothing else needs re-deriving:
+ *
+ *   - `F = K / |S|^2` is the epoch size at which two halves report a cosine of one half.
+ *   - Two halves of an epoch of `n` bouts report `n / (n + F)`. Verified against the record's own
+ *     logs rather than asserted here alone: on gradreward-idle-128 that expression gives 0.1016
+ *     against a reported 0.0973, where reading `n` as the whole order would give 0.1844.
+ *   - **The whole collection's gradient is two halves averaged**, `f = 1`, so its noise is
+ *     `K / 2 bouts` and its norm is `sqrt(|S|^2 + K / 2 bouts)` -- half a half's noise, which is
+ *     the fact the step reader got backwards.
+ *   - **A concentration cuts the epoch in three**, `f = 1/3`, so each range carries `3K / 2 bouts`
+ *     and its effective bout count is `(2/3) bouts` -- which is the fact the concentration reader
+ *     got backwards, in the other direction.
+ *
+ * The last three of those are one expression, `effective = 2 f bouts`, and that is why this takes
+ * a fraction rather than a name: half, whole and third are not three conventions but three readings
+ * of one.
+ *
+ * ## The floor, and why it is quoted at the optimistic end
+ *
+ * `floor = K / (|S|^2 + 2 SE)` takes `|S|^2` at the top of its own interval, so it is the *fewest*
+ * bouts consistent with the measurement rather than the best estimate. It is finite for an arm
+ * whose `|S|^2` does not clear zero, which `point = K / |S|^2` is not, and it carries the same
+ * optimism for every arm -- which is what makes a ratio of two floors a statement about the arms
+ * rather than about which of them happened to be measured more precisely.
+ *
+ * `se` defaults to zero, which makes `floor` and `point` the same number. That is deliberate: a
+ * caller that has only one measurement has no interval, and a floor without an interval is a point
+ * estimate wearing the word floor.
+ */
+export function floorConvention({ dot, norm2, bouts, se = 0, fraction = 1 / 2 }) {
+  for (const [name, value] of [["dot", dot], ["norm2", norm2], ["bouts", bouts], ["se", se]]) {
+    if (!Number.isFinite(value)) throw new Error(`the floor convention wants a finite ${name}`);
+  }
+  if (!(bouts > 0)) throw new Error(`an epoch of ${bouts} bouts has no floor`);
+  if (!(fraction > 0) || fraction > 1) {
+    throw new Error(`a range holding ${fraction} of an epoch is not a range of it`);
+  }
+  if (se < 0) throw new Error(`a standard error of ${se} is not one`);
+  // `dot` and `norm2` are both measured over **the range the fraction names**: two halves give a
+  // half's dot and a half's squared norm at a fraction of one half, two thirds give a third's at a
+  // fraction of one third. `K` comes out the same either way, which is the whole point of it being
+  // a property of the collection -- and is the identity the tests beside this assert directly.
+  const K = (norm2 - dot) * (2 * fraction * bouts);
+  const top = dot + 2 * se;
+  return {
+    S2: dot,
+    K,
+    F: dot === 0 ? Infinity : K / dot,
+    floor: top <= 0 ? Infinity : K / top,
+    point: dot <= 0 ? Infinity : K / dot,
+    /** The effective bout count of a range holding `fraction` of the epoch. */
+    effective: 2 * fraction * bouts,
+    /** The cosine two halves of an epoch of `n` bouts report, under this `K` and this `|S|^2`. */
+    cosineAt: (n) => {
+      if (!(n > 0)) throw new Error(`an epoch of ${n} bouts reports no cosine`);
+      return dot === 0 ? 0 : n / (n + K / dot);
+    },
+  };
+}
+
+/**
  * The fractions of the weight vector a concentration row is reported at, ascending and ending at
  * one, because **the row at one is the comparison** -- every other fraction is read as a ratio
  * against it and the ratio is what the measurement is.
