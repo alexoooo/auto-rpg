@@ -28071,3 +28071,92 @@ moving quantity, not twelve independent draws. On `latched-fencer` it is larger,
 0.0606, which is the arm whose slope is the steepest in the table. Neither observation is a
 correction to anything; both are printed by the reader every time it runs, so nobody has to
 remember to ask.
+
+## Experiment Q's reader, fixed before it reads -- 2026-09-13: a null-side headline needs its resolution
+
+Experiment Q is blocked on two ratings still collecting, so nothing of it has been read. What has
+been read is its reader, against the lesson the last two entries were written on, and it needed the
+same fix they did.
+
+**Q's prediction 1 is an existence claim whose second half is a null.** *On at least one arm, `ret`
+rises at t > 3 while the paired bar's slope does not clear zero at two sigma.* The first half is a
+signal and states its own threshold. The second half is the absence of one -- and this record has
+now twice reported an absence that was an absence of instrument. Experiment O's prediction 5 was
+scored on a row that could have resolved 0.53 sigma. Experiment H's prediction 3 was scored on a
+comparison that could only have caught a rise of 7.72 points where it was asked about 2.
+
+**On Q the stakes are higher than either, because the null is the finding.** The whole experiment
+exists to say that the objective and the criterion are different objectives, and the evidence for
+it is a bar that did not move. A bar that could not have moved reads identically.
+
+objfit.mjs now prints, per arm, the smallest bar slope per sixty its own rating points would have
+caught four times in five at the two sigma the prediction names -- `se * (2 + 0.8416)`, the normal
+approximation, optimistic by about two and a half points at these degrees of freedom and labelled
+as an approximation. And it adds a footer that reads each firing arm's resolution against **the
+largest bar movement anywhere in the table**, because that is the only scale this experiment
+supplies for a movement the criterion would have noticed.
+
+### What it caught, on four arms that are not Experiment Q's
+
+Smoked on the bracket, which is Experiment H's control and appears nowhere in Q's arm table, so
+nothing under embargo was read:
+
+| arm | league rows | `ret`/60 | t | rating points | bar/60 | t | bar could catch | reading |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `bracket-idle` | 60 | 0.2511 | **3.57** | 12 | -0.0042 | -0.28 | 0.0427 | **disconnected** |
+| `bracket-fencer` | 60 | 0.0795 | 1.27 | 12 | 0.0315 | 1.81 | 0.0494 | return did not rise |
+| `bracket-driver` | 60 | -0.0266 | -0.39 | 12 | -0.0315 | -1.89 | 0.0474 | return did not rise |
+| `bracket-self` | 60 | 0.0521 | 0.83 | 12 | 0.0182 | 0.80 | 0.0643 | return did not rise |
+
+**`bracket-idle` is Q's prediction 1, exactly.** Its return rises at t 3.57 over sixty iterations
+while its paired bar against `golem-fencer` sits at t -0.28. Under the reader as it stood an hour
+ago that is one clean instance of the headline, printed as **disconnected** and nothing else.
+
+The new footer says this instead:
+
+```
+  prediction 1 fires on 1 arm(s). The largest bar movement anywhere
+  in this table is `bracket-fencer` at 0.0315 per 60, and that is the only scale this
+  experiment offers for a movement the criterion would have noticed. Against it:
+    `bracket-idle` would have caught 0.0427, which is 1.35x that movement -- **so its
+    flat bar is what this rating path cannot see, and the arm does not support prediction 1**
+```
+
+**Twelve rating points at 200 bouts cannot resolve a bar movement the size of the largest one this
+table contains.** The disconnection on that arm is not evidence that the objective and the
+criterion disagree; it is evidence that a twelve-point rating path is coarser than the effects
+being argued about. Every arm Q will read has the same twelve points, and four of the seven have
+the same 200 bouts.
+
+This is a smoke and not a result -- the bracket is not one of Q's arms and its numbers carry no
+pre-registered bar. What it establishes is that **the qualification is going to bite**, and that it
+would have bitten silently.
+
+### The weakness in the qualification, named rather than fixed
+
+The reference scale is the largest bar movement in the table, and on the bracket that is
+`bracket-fencer` at t 1.81 -- **itself not distinguishable from zero.** So the comparison is
+against a movement that may be noise, and it is fair to ask what it is worth.
+
+It is worth this and no more: it says an arm's rating path cannot resolve movements of the size
+this table actually contains. That statement does not need the reference to be significant, and
+requiring it to be would delete the qualification on exactly the tables where it is needed -- a
+table in which nothing clears is the table where an unresolvable null is most likely to be read as
+a finding. The reader refuses only the degenerate case, where no arm shows any bar movement at all,
+and says so in words rather than printing a ratio against zero.
+
+**A better reference exists and this experiment does not supply it.** The right scale for "a
+movement the criterion would have noticed" is a bar movement somebody has already agreed is
+meaningful, and the only candidate in this record is Experiment H's `latched-fencer` at 0.0746 per
+60 at t 3.35 -- which lands inside Q's own arm table and cannot be used as an outside reference by
+the reader that is about to read it. So the weak within-table comparison is what Q gets, the
+stronger one is available to whoever writes Q's entry by hand, and this paragraph is here so that
+they know to.
+
+### The dead variable, removed in the same pass
+
+The first version of this change left `const blind = ...; void blind;` in the per-arm loop -- a
+half-written idea kept alive by a `void`. That is the same thing barfit.mjs was cleaned of last
+night, and leaving one in a reader while adding a section about honest nulls would have been its
+own small joke. The comparison it was reaching for needs every arm's bar before it can be made,
+which is why it belongs in the footer and could not have worked where it stood.
