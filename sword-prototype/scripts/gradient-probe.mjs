@@ -1227,6 +1227,11 @@ if (isMain) {
         opponent: opponentWord, terminals, mirrorShare: rollout.mirrorShare,
         mirrorBouts: rollout.mirrorBouts, randomBouts: rollout.randomBouts,
         decided: rollout.decided, margin: rollout.margin, penaltyShare: share,
+        // What the collected corners did with a stroke, on these bouts rather than on a rating of
+        // the same weights. A row whose `completion` is a two-hundredth is a row whose gradient was
+        // taken over a body that never finished what it started, and that is a fact about the
+        // measurement which belongs beside it.
+        strokes: rollout.strokes,
         // Full precision throughout and rounded nowhere: a gradient norm's order of magnitude is
         // not known in advance, and a rounding chosen for a cosine would silently write a norm of
         // 3e-7 out as zero.
@@ -1252,6 +1257,8 @@ if (isMain) {
         + `|g| ${signal.firstNorm.toExponential(2)}/${signal.secondNorm.toExponential(2)}  `
         + `dot ${signal.dot.toExponential(2)}  spread ${signed(signal.spread.cosine)}  `
         + `critic ${signed(signal.critic.cosine)}  `
+        + `done ${(rollout.strokes.completion * 100).toFixed(1)}% of `
+        + `${rollout.strokes.strokesStarted}  `
         + (signal.byBout === undefined ? "" : `byBout ${signed(signal.byBout.cosine)} `
           + `(${signal.byBout.firstBouts}/${signal.byBout.secondBouts} bouts)  `)
         + (cut === null ? "" : `within ${signed(splits[splits.length - 1].within)} `

@@ -1595,6 +1595,11 @@ if (isMain) {
         shares: Object.fromEntries(opponents.map((o) => [o.name, round5(shareOf(leaguePairs(opponents), o.name))])),
         ret: round5(meanOf(turn.summary.returns)), bare: round5(turn.summary.bare),
         length: round5(meanOf(turn.summary.lengths)), penaltyShare: round5(turn.summary.share),
+        // What the collected corners did with a stroke this iteration. Every abort rate this
+        // record has published about a fit came from a rating of a checkpoint; this is the same
+        // quantity on the bouts the fit was actually paid for, and a run whose body abandons nine
+        // strokes in ten now says so on its own row rather than waiting for somebody to rate it.
+        strokes: turn.rollout.strokes,
         // The share split by row, beside the total rather than instead of it: Session 02's curve
         // page plots `penaltyShare` as a number off this very row.
         penaltyRows: Object.fromEntries(

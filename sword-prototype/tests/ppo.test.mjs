@@ -84,6 +84,25 @@
 // | `fitShuffle` walks the order forwards instead of from the back, which is still a shuffle | the digest, and the probe's own order test |
 // | `fitShuffleRandom` mixes the seed with `0x9907e1` | the digest, and the probe's own order test |
 //
+// **Seven more were watched red on 2026-09-13**, when a rollout started carrying what its corners
+// did with a stroke. The column exists because every abort rate this record has published about a
+// fit came from a rating of a checkpoint, never from the bouts the gradient was taken on:
+//
+// | mutation | what went red |
+// |---|---|
+// | the tally reads one corner of the row rather than the corner that was recorded | the tally test |
+// | a side carrying no counters is counted as having started nothing | the tally test |
+// | `sides` counts every part whose bout ran rather than every part that answered | the tally test |
+// | a dropped bout throws instead of contributing nothing | the tally test |
+// | completion is the share abandoned rather than the share finished | the tally test |
+// | completion is over starts plus aborts, double-counting every abandoned stroke | the tally test |
+// | a collection that started no strokes reports a completion of `NaN` | the tally test |
+//
+// **The first of those is the one that would have been believed.** A tally over `rows[bout].left`
+// reads the fit's corner in every mirrored bout and the *opponent's* in half the rest, and against
+// `golem-fencer` -- a designed mind that finishes three strokes in four -- it would have reported a
+// policy finishing strokes it never started.
+//
 // **One property this file deliberately cannot test is the one the design turns on.** `FitPool`
 // sums its shards' partials in shard order 0..K-1, and a pool that summed them in the order they
 // finished would still pass every assertion below -- reassociating a sum of a thousand doubles
@@ -120,7 +139,8 @@ import {
   parseOpponentStage, parseSchedule, parseSeparationStage, parseTactics, parseTerminals,
   parseTerminalsStage, poolFor, poolWord, ppoFit, priceRollout, ratePolicy, ratingSeed,
   realisedMirrorShare,
-  renderPolicyModule, resumesOwnLog, rolloutPairs, scheduled, surrogateGrad, surrogateObjective,
+  renderPolicyModule, resumesOwnLog, rolloutPairs, scheduled, strokeTally, surrogateGrad,
+  surrogateObjective,
 } from "../scripts/train-ppo.mjs";
 import { CONFIG } from "../src/config.ts";
 import { shardSlice } from "../scripts/fit-worker.mjs";
@@ -2396,4 +2416,44 @@ test("a_rollouts_episode_is_filed_under_the_hand_its_body_actually_fights_with",
   // And a side from a worker too old to have carried a setup is null rather than a throw: the
   // refusal belongs where the class is read, which is `askClasses`, and it names the episode.
   assert.deepEqual(bodyOf({ build: "draw-4" }), { build: "draw-4", terminal: null });
+});
+
+test("a_stroke_tally_counts_the_corners_that_were_recorded_and_not_the_bouts_they_were_fought_in", () => {
+  // The quantity every abort rate in this record has been quoted from a *rating* of, taken instead
+  // on the bouts a gradient was actually computed over. The distinction the test exists for is the
+  // one a bout makes and a corner does not: against a designed opponent one side of the row is the
+  // fit and the other is the opponent, and an opponent's strokes are nobody's business here.
+  const side = (started, aborted) => ({ strokesStarted: started, aborts: aborted });
+  const rows = [
+    { left: side(10, 9), right: side(100, 0) },
+    null,
+    { left: side(6, 3), right: side(4, 1) },
+  ];
+  // One corner recorded in bout 0, both corners of bout 2 -- which is what a mirrored bout is, and
+  // why the parts are the argument: a part exists exactly when a side was recorded.
+  const parts = [{ bout: 0, side: "left" }, { bout: 2, side: "left" }, { bout: 2, side: "right" }];
+  assert.deepEqual(strokeTally(rows, parts),
+    { strokesStarted: 20, aborts: 13, sides: 3, completion: 0.35 });
+  // The opponent's hundred strokes are not in that total, and a reader who wanted them would be
+  // asking a different question than "what did the policy this gradient is about do".
+  assert.equal(strokeTally(rows, [{ bout: 0, side: "right" }]).strokesStarted, 100);
+  // A mind with no executor carries neither column -- absent rather than zero, which
+  // `tournament-worker.mjs` draws deliberately -- so it is skipped and `sides` says the tally is
+  // over a subset. A zero here would read as "started no strokes" rather than as "was never asked".
+  const quiet = [{ left: side(4, 1), right: { build: "draw-4" } }];
+  assert.deepEqual(strokeTally(quiet, [{ bout: 0, side: "left" }, { bout: 0, side: "right" }]),
+    { strokesStarted: 4, aborts: 1, sides: 1, completion: 0.75 });
+  // A part pointing at a row the schedule dropped contributes nothing rather than throwing: the
+  // nulls are already in the index `episodeBouts` is built on and a consumer of either has to
+  // survive them.
+  assert.deepEqual(strokeTally(rows, [{ bout: 1, side: "left" }]),
+    { strokesStarted: 0, aborts: 0, sides: 0, completion: 0 });
+  // And completion is a share of what was *started*, which is zero and not NaN when nothing was.
+  // The whole point of the column is a run whose body starts strokes and finishes none of them, so
+  // the two degenerate ends have to be distinguishable: 0 of 0 and 0 of 516 both read 0 here, and
+  // `strokesStarted` beside it is what tells them apart.
+  assert.deepEqual(strokeTally([{ left: side(0, 0) }], [{ bout: 0, side: "left" }]),
+    { strokesStarted: 0, aborts: 0, sides: 1, completion: 0 });
+  assert.equal(strokeTally([{ left: side(516, 515) }], [{ bout: 0, side: "left" }]).completion,
+    1 / 516);
 });

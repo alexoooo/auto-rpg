@@ -1846,6 +1846,45 @@ export function bodyOf(side) {
   return { build: side.build, terminal: side.setup === undefined ? null : armedTerminal(side.setup) };
 }
 
+/**
+ * How many strokes the collected corners started, and how many of those they abandoned.
+ *
+ * **A run whose body never finishes a stroke should be able to say so in its own log, and until
+ * this nothing in the fit could.** The tournament's rows have carried `strokesStarted` and
+ * `aborts` since the learn set, and the rating path reads them; a rollout is collected off the
+ * same rows and threw them away, so every claim in this record about what a fit's body does with a
+ * stroke has come from a rating of a checkpoint or from a scratch script, never from the bouts the
+ * gradient was actually taken on.
+ *
+ * It is a tally of the **collected** corners and not of the bout. Against a designed opponent only
+ * one side is recorded and the other side's strokes are the opponent's; in a mirrored bout both
+ * sides are the fit and both are counted. That is why the parts are the argument rather than the
+ * rows: a part exists exactly when a side was recorded.
+ *
+ * A mind with no executor carries neither column -- absent rather than zero, which is the
+ * distinction `tournament-worker.mjs` draws deliberately -- so `sides` reports how many of the
+ * parts actually answered, and a reader that finds it short of the part count knows the tally is
+ * over a subset rather than assuming a zero somebody meant as a silence.
+ */
+export function strokeTally(rows, parts) {
+  let started = 0;
+  let aborted = 0;
+  let sides = 0;
+  for (const part of parts) {
+    const side = rows[part.bout]?.[part.side];
+    if (side?.strokesStarted === undefined) continue;
+    started += side.strokesStarted;
+    aborted += side.aborts;
+    sides += 1;
+  }
+  return {
+    strokesStarted: started,
+    aborts: aborted,
+    sides,
+    completion: started === 0 ? 0 : (started - aborted) / started,
+  };
+}
+
 export async function collectRollouts({
   pool, weights, logSigma, norm, seed, bouts, workers, cap, name = FIT_NAME, onProgress = null,
   reward = GOLEM_REWARD, opponent = null, separation = null,
@@ -1907,6 +1946,8 @@ export async function collectRollouts({
   rollout.mirrorBouts = split.mirror * 2;
   rollout.randomBouts = split.random * 2;
   rollout.mirrorShare = rows.length === 0 ? 0 : (split.mirror * 2) / rows.length;
+  // What the collected corners did with a stroke, over the very bouts the gradient is taken on.
+  rollout.strokes = strokeTally(rows, parts);
   return rollout;
 }
 
