@@ -29616,3 +29616,213 @@ still not proposed.
 **And no fit changes and nothing ships.** No table is adopted or rejected by this. What it changes
 is what Experiments E, G and N are read as having established, which is the whole of why it was
 worth seventy-five minutes.
+
+## Experiment L, complete -- 2026-09-13: the split is a rounding error and the level is a factor of sixteen, and the falsifier fires
+
+`budget-128-rate.jsonl` and `budget-256-rate.jsonl` are both on disk and the third arm was free.
+Scored with barfit.mjs, which gained the registered unit for this reading and was verified
+byte-identical on Experiment K's ladder afterwards:
+
+```
+node barfit.mjs golem-fencer --per-bouts --factor budget-128,latched-fencer,2,4
+  tournaments/latched-fencer-rate.jsonl tournaments/latched-fencer
+  tournaments/budget-128-rate.jsonl     tournaments/budget-128
+  tournaments/budget-256-rate.jsonl     tournaments/budget-256
+```
+
+### The four verdicts
+
+| # | as registered | verdict |
+| --- | --- | --- |
+| 1 | the two equal-total arms are indistinguishable per thousand bouts | **met**, at t 0.03 -- and the design resolves only 5.7x the smaller arm's own slope, so read the null side |
+| 2 | the 128-bout arm beats the 32-bout arm per iteration by a factor of two to four | **missed** -- it is 0.246x, below the band's low end at 2.70 sigma |
+| 3 | all three arms are indistinguishable per thousand bouts | **missed** -- the 32-bout arm beats both others at t 3.07 and t 3.06, past a family margin of 2.81 |
+| 4 | no arm clears a paired bar slope of t > +2 | **missed** -- `latched-fencer` clears at t 3.35, and it is the free arm again |
+| -- | the falsifier: the 128-bout arm does not beat the 32-bout arm by at least two | **fires** |
+
+**The cells are one flag apart and it was checked rather than asserted.** The three league headers
+agree field for field on 56 of their 60 keys -- seed, policy, features, head, sigma, critic,
+layout, reward, rate, batch, epochs, `targetKl`, entropy, lambda, clip, tactics, terminals,
+workers, shards and the rest -- and differ on exactly four: `iterations`, `bouts`,
+`exploiterBouts` (which follows `bouts` and reaches nothing, because `exploiters` is 0 in all
+three) and `poolEvery`, which is the disclosed checkpoint-cadence difference on the 256-bout arm.
+
+### The registered unit, and the one every earlier entry used
+
+| arm | bouts an iteration | iterations | total bouts | slope/60 | se | t | slope/1000 bouts | se |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `latched-fencer` | 32 | 60 | 1,920 | **0.0746** | 0.0223 | **3.35** | **0.0389** | 0.0116 |
+| `budget-128` | 128 | 60 | 7,680 | 0.0183 | 0.0190 | 0.97 | 0.0024 | 0.0025 |
+| `budget-256` | 256 | 30 | 7,680 | 0.0350 | 0.0432 | 0.81 | 0.0023 | 0.0028 |
+
+Each arm's own `t` is the same number in both units, because a rescaling divides a slope and its
+error by one constant. What the unit change moves is every comparison **between** arms, since the
+two arms of a pair are divided by different counts -- and those comparisons are the whole of
+predictions 1 and 3.
+
+| pair | difference/1000 bouts | se | df | t | inside this run's margin |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `latched-fencer` vs `budget-128` | 0.0365 | 0.0119 | 10.9 | **3.07** | **no** (+-2.81) |
+| `latched-fencer` vs `budget-256` | 0.0366 | 0.0120 | 11.2 | **3.06** | **no** (+-2.81) |
+| `budget-128` vs `budget-256` | 0.0001 | 0.0037 | 17.0 | 0.03 | yes (+-2.65) |
+
+### The split is a rounding error, exactly as registered
+
+**7,680 bouts spent as sixty iterations of 128 and as thirty iterations of 256 buy the same curve
+to 0.0001 per thousand bouts, which is three hundredths of a standard error.** The arithmetic
+predicted a difference of four per cent and got one of four parts in a hundred. That is the
+cleanest confirmation in this record of a relation stated before the bouts, and it is the half of
+the pre-registration that survives intact: **how a sample budget is split between iteration count
+and iteration size does not matter.**
+
+**And the null side says how much of that is the instrument.** The smallest difference this pair
+would have caught four times in five is 0.0131 per thousand bouts, which is **5.7x the smaller
+arm's own slope** -- so the design could not have caught a doubling, or a quadrupling, of the
+quantity it is comparing. Prediction 1 is met and it is met on a bar that a great deal of
+disagreement would also have passed. The agreement being three hundredths of a sigma rather than
+one is what makes it worth anything, and that is a reading of the point estimates rather than of
+the bar.
+
+### The level is a factor of sixteen, in the direction the arithmetic forbids
+
+`c = n / (n + F)` with `F` = 3,096 says useful movement is `T / (n + F)`, which is flat in `n`
+while `n` stays far below `F`: the three arms here should buy within seven per cent of each other
+per bout. **Measured, the 32-bout arm buys 16.2x what either of the others does**, at t 3.07 and
+3.06 past a family-wise margin of 2.81 over the three pairs. Stated as the registration stated its
+own arithmetic: 1,920 bouts were predicted to buy 0.61 units of useful movement and 7,680 to buy
+2.38, a ratio of 3.88x in the big arm's favour; the fitted bar rose 0.0746 over the small arm's
+whole run and 0.0183 over the big one's, a ratio of **0.245x**. The prediction is wrong by a
+factor of **15.8**, and it is wrong in direction and not only in size.
+
+Prediction 2 put a band on that ratio and the band is checked as the two contrasts it is, because
+a ratio of two noisy slopes has no clean interval and one of these denominators is within one
+sigma of zero:
+
+| contrast | value | se | t |
+| --- | ---: | ---: | ---: |
+| `budget-128` less 2x `latched-fencer` | -0.1309 | 0.0485 | **-2.70** |
+| `budget-128` less 4x `latched-fencer` | -0.2802 | 0.0912 | **-3.07** |
+
+**So the falsifier fires**, and its consequence is the one the registration wrote down in advance:
+*the cosine the probe measures at a held policy is not the thing that governs how far a moving
+policy gets*, and every bouts-for-cosine-0.5 figure in this record is a statement about one frozen
+checkpoint rather than about a budget. Four experiments are quoted in that unit and none of them
+can be read as a budget any more. What they still are is a measurement of **how well determined a
+gradient is at a checkpoint**, which is what the statistic's own name says and which Experiments
+E, G, N and R are all stated on.
+
+### What this does *not* establish, which is most of what a reader will want it to
+
+**The two arms' slopes are not distinguishable from each other per iteration.** The difference is
+0.0563 +-0.0293, t 1.92, inside this run's own pairwise margin of +-2.60. What is ruled out is the
+registered *factor of two*, which is a much stronger claim than an ordering; the data do not
+establish that the 128-bout arm learns less per iteration than the 32-bout arm, only that it does
+not learn two to four times more. The per-thousand-bouts comparison **is** past its margin, and
+that is the unit prediction 3 was stated in, so the sixteen-fold claim is a claim about movement
+per bout spent and is written that way everywhere above.
+
+**The endpoint reading disagrees with the fitted slope about which arm moved further, and it is
+printed rather than left out.** First rating point to last: `latched-fencer` +0.0354 +-0.0415,
+`budget-128` **+0.0467** +-0.0421, `budget-256` +0.0122 +-0.0429. Neither of the first two clears
+one sigma, and on this reading the big arm moved *more*. The registered statistic is the ordinary
+least squares slope over every point, it is roughly twice as precise as a two-point difference
+here -- slope error 0.0223 per 60 against an endpoint error of 0.0415 -- and it is what was
+scored. But the sixteen-fold finding rests on the **shape** of twelve noisy points and not on
+where the arms ended, and `budget-128`'s shape includes a dip to -0.098 and -0.106 at iterations
+35 and 40 that the line is fitted through.
+
+**All three arms end in the same place, and it is not a good place.** `d` at the last point is
+-0.0878, -0.0834 and -0.0771, each +-0.0708. Four times the sample, and eight times, bought the
+same standing against `golem-fencer`. Nothing here beats the designed mind.
+
+**And prediction 4 was missed by the free arm.** `latched-fencer` clears t 3.35 against a
+family-wise threshold of 2.46; the two arms this experiment paid for read t 0.97 and t 0.81 and
+clear nothing. That is the second experiment in two nights -- Experiment K was the first -- whose
+only clearing arm is the one that was already on disk before the experiment collected a bout.
+
+### The mechanism is not established, and here is what the columns do say
+
+The obvious repair to `T / (n + F)` is that its `I` is not the number of optimiser steps. A league
+iteration runs four epochs over a buffer in minibatches of 4,096, so the update count scales with
+the bout count and not with the iteration count:
+
+| arm | samples an iteration | updates an iteration | updates in the whole run | `kl` | clip fraction | explained | advantage sd |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `latched-fencer` | 14,740 | 15.3 | **915** | 0.0173 | 0.1282 | 0.3004 | 0.1218 |
+| `budget-128` | 60,261 | 59.5 | **3,572** | 0.0125 | 0.0953 | 0.4584 | 0.1058 |
+| `budget-256` | 115,592 | 105.8 | **3,174** | 0.0131 | 0.0927 | 0.4846 | 0.1273 |
+
+**Counting updates makes the model wronger, not righter.** The big arm took 3.9x the optimiser
+steps of the small one and moved a quarter as far per iteration; per update it is off by about
+sixteen, which is the same factor as per bout because updates track bouts. Any repair that prices
+a step by how well aligned it is has to explain an arm that took four times as many steps, each
+from a gradient four times better determined, and arrived at the same place.
+
+What the columns say about the big-batch arms is that **every diagnostic of fit quality is better
+on them and the bar is not.** The critic explains 0.458 and 0.485 of the return variance against
+the small arm's 0.300; the per-iteration KL is 0.0125 and 0.0131 against 0.0173; the clip fraction
+is 0.095 and 0.093 against 0.128. A cleaner, better-estimated, more conservative fit, and less
+movement per bout spent. The KL cap is not the binding constraint on either side -- all three sit
+well under `targetKl` 0.03 and all three run nearly their full four epochs (15.3 of a possible 16
+and 59.5 of 60, with the 256-bout arm the one that stops early at 105.8 of 116) -- so *the fit
+stopping early* is not the explanation and can be struck off the list.
+
+**What is left is a hypothesis and it is named as one.** The small-batch arm's advantage looks
+like the classical small-batch one: a noisier gradient taken at a step length Adam fixes by the
+learning rate rather than by the gradient's magnitude explores further per unit of sample, and a
+bar measured against a designed mind may reward exploration more than it rewards a well-aimed
+step. This record has no measurement of policy displacement in weight space and cannot tell that
+story from any other. It is written down so that the next experiment has something to falsify and
+not because anything here supports it.
+
+### The behaviour columns, which are flat and one of which is not
+
+| arm | started a side, first | last | slope/60 | t | completion, mean | last |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `latched-fencer` | 45.9 | 58.9 | 1.0 | 0.33 | 0.4683 | 0.4629 |
+| `budget-128` | 36.8 | 53.5 | -0.5 | -0.21 | 0.4790 | 0.4779 |
+| `budget-256` | 36.0 | 49.5 | 6.4 | 1.14 | 0.4905 | 0.5092 |
+
+Stroke completion is within one per cent across a bout count that varies eightfold, which is the
+control Experiment K's finding wanted: the charge moves completion by 0.063 and the sample budget
+moves it by 0.022, so K's dose-response is not a thing that any change to the fit produces.
+
+### The reader gained the registered unit, and it reads the count off the log
+
+barfit.mjs learned `--per-bouts` and `--factor`. **`--per-bouts` takes no argument.** The first
+draft asked the caller for the bout counts and that is the shape this record's own rule forbids: a
+reader that takes a number from its caller cannot refuse a caller who gets it wrong, and getting
+it wrong here silently rescales an arm by a factor. The league header carries `bouts`, every
+league in the tree writes one, and an arm handed without a league directory is refused by name
+rather than quietly left out of the table.
+
+`--factor <arm>,<against>,<lo>,<hi>` exists because **a prediction stated as a factor is two
+one-sided contrasts and not a ratio**, for the reason above. It refuses a band that is not two
+numbers, a band whose low end is not below its high end, a list that is not four fields, and a
+name that is not in the table.
+
+The equivalence block gained the null-side line it was missing. **An *agrees* verdict owes its
+resolution exactly as a *did not clear* verdict does, and owes it harder** -- *these two are the
+same* is worth nothing if the instrument could not have told them apart at any size the question
+cares about -- so each pair inside its margin now prints the smallest difference it would have
+caught four times in five, as a multiple of the slower arm's own slope. All three pairs here print
+a multiple above one, and prediction 1's verdict above says so on its own line.
+
+Experiment K's ladder reading under the patched reader is byte-identical to its reading under
+barfit.pre-perbouts.mjs, and the `per`-less rating fixture is still refused.
+
+### What this licenses
+
+**The bout count is a lever and it points the other way.** Nothing about that adopts a default:
+`--bouts` does not move on this, because one cell of three points measured against one designed
+mind at one seed is not a basis for a default, and because the small arm's advantage is a claim
+about a fitted slope that the endpoint reading does not share.
+
+What it does is redirect the one run the record has been circling. A single long run whose total
+sample is chosen against a measured floor was the thing Experiment L was going to price, and **the
+floor is not a budget** -- the falsifier says so. If a long run is worth taking it is worth taking
+at the **smallest** bout count that keeps an iteration's rollout from being a handful of episodes,
+and the quantity to pre-register it against is iterations rather than bouts. Experiment S is
+already running at 32 bouts and 120 iterations, which is that shape by accident rather than by
+this argument; its prediction 5 asks the question this one now makes urgent, which is whether a
+curve exists past iteration 60 at all.
