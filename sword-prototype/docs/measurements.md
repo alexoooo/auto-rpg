@@ -22876,6 +22876,141 @@ bars. It buys one number that says whether the pool is the problem.
 > classes there held 17,804 and 5,863 asks -- so the pair of numbers is not a cell of this grid and
 > is not evidence for or against any prediction above. It is recorded because it was seen.
 
+## The per-class gradient -- 2026-09-12: the pool really is heterogeneous, and against the mind that buys half of nothing
+
+The grid named this measurement as owed and the pre-registration above fixed its design. The answer
+inverts the prediction. **The pool's bodies do ask for different things, and cutting the gradient by
+class recovers about half again as much signal at the same sample size** -- but it does so in the
+arm the pre-registration named as its control, and the arm it was written for turns out to have
+nothing for the split to recover. Against `idle` the within-class gradient clears its matched
+control by **+0.0756 +-0.0205 at 256 bouts, a t of 3.68**, comfortably past the +0.05 that was
+asked. Against `golem-fencer` the same statistic reads **+0.0300 +-0.0200** and its combined value
+over eighty collections is +0.0157 +-0.0109. The grid's closing candidate is confirmed as a
+mechanism and retired as an explanation, and those are two different verdicts about one number.
+
+**Harness:** `scripts/gradient-probe.mjs --from <arm>/pool-30.json --hold --classes terminal`, eight
+cells, 20 iterations each, fit seed 20260917, the maul-and-mace viable pool, mirrored bodies,
+`--shards 4`, 14 collectors a process, the two opponents as two concurrent processes, the same two
+bracket checkpoints the held row was taken at. Written to the gradclass files under tournaments,
+gitignored so named bare. **Instrument:** the mean over a cell's 20 iterations of each of the three
+cosines, with the standard error over iterations; both classes cleared the 400-ask floor in every
+one of the 160 iterations, so nothing in the table is a mean over a varying set of classes.
+
+| arm | bouts | `within` | `pooled`, at matched asks | `between` |
+| --- | --- | --- | --- | --- |
+| `golem-fencer` | 32 | +0.0338 +-0.0167 | +0.0025 +-0.0202 | -0.0022 +-0.0069 |
+| `golem-fencer` | 64 | +0.0253 +-0.0176 | +0.0142 +-0.0167 | -0.0060 +-0.0085 |
+| `golem-fencer` | 128 | +0.0067 +-0.0175 | +0.0251 +-0.0164 | -0.0038 +-0.0086 |
+| `golem-fencer` | 256 | +0.0191 +-0.0189 | -0.0109 +-0.0162 | -0.0018 +-0.0087 |
+| `idle` | 32 | +0.0303 +-0.0161 | +0.0377 +-0.0167 | +0.0039 +-0.0088 |
+| `idle` | 64 | +0.0519 +-0.0210 | +0.0416 +-0.0193 | +0.0091 +-0.0087 |
+| `idle` | 128 | +0.0963 +-0.0167 | +0.0747 +-0.0133 | +0.0142 +-0.0088 |
+| `idle` | 256 | +0.1658 +-0.0180 | +0.0902 +-0.0222 | +0.0182 +-0.0114 |
+
+### Prediction 1, which is what makes the rest of the table readable
+
+**Confirmed exactly.** Every cell's own half-split cosine is the held cell's of the same bout count,
+iteration by iteration, largest difference **exactly zero** across all one hundred and sixty pairs.
+The two runs took the same checkpoint at the same seed for the same bout count with no fit, so they
+drew the same pools and fought the same bouts, and `--classes` consumes no randomness and is taken
+after the pooled measurement. That is the identity the whole table rests on and it is not an
+approximation of one.
+
+### Predictions 2 and 3, which swapped arms
+
+Prediction 2 asked for `within` above `pooled` by at least +0.05 at 256 bouts **against
+`golem-fencer`**, with `between` at least +0.05 below `within` there. It reads +0.0300 +-0.0200 and
++0.0209 +-0.0227: **missed, in the arm it was stated for.** Prediction 3 said the three cosines
+would sit within a couple of standard errors of each other against `idle`, because a motionless
+target is one task whatever is holding the weapon. At 256 bouts `within - pooled` is +0.0756
++-0.0205 and `within - between` is +0.1477 +-0.0162, a t of 9.13: **false, in the arm that was
+supposed to be the control.** The pre-registration also wrote down what a result in both arms would
+mean -- *the effect is about sample size or about the instrument and not about the pool* -- and
+that branch does not apply either, because the result is in one arm and it is the other one.
+
+### Why the arms swapped, which is the difference trap for the third time
+
+It is the same mistake the cosine ruling was written about, and it is mine. **A difference of two
+cosines is not comparable across two arms carrying different amounts of signal**: both cosines go
+to zero together when there is nothing to agree about, and their difference goes with them. The
+`golem-fencer` arm's `within` runs +0.0067 to +0.0338, and two numbers that small cannot differ by
++0.05 whatever the two gradients are doing -- the prediction asked the fencer arm for a gap larger
+than its whole cosine.
+
+The scale-free statement is the ratio, and `c / (1 - c)` is the signal over the noise of one block,
+so the ratio of a within-class block's to a matched pooled block's is what the difference was
+standing in for.
+
+| arm | `within` signal/noise | `pooled` signal/noise | within over pooled |
+| --- | --- | --- | --- |
+| `golem-fencer` | 0.0283 +-0.0093 | 0.0141 +-0.0092 | **2.01 +-1.47** |
+| `idle` | 0.1061 +-0.0131 | 0.0733 +-0.0108 | **1.45 +-0.28** |
+
+**Read that way the two arms agree**, and the fencer's estimate is useless rather than different --
+its interval spans a ratio of a half to five, because its denominator is a cosine of a hundredth.
+Cutting by class buys somewhere around half again as much signal per ask, in both arms, and only
+one of the two arms can say so.
+
+### The pooled control reads what the two class cosines predict, which is worth more than any of them
+
+Three cosines out of one rollout are not three free parameters. If the two classes have gradients
+`S_A` and `S_B`, a block that ignores class holds their mean, whose squared length is
+`(|S_A|^2 + |S_B|^2 + 2 S_A . S_B) / 4` -- so in signal-to-noise, **`pooled` should read
+`(within + between) / 2`**, over blocks of the same size, with no fitting at all.
+
+| arm | predicted `pooled` | read |
+| --- | --- | --- |
+| `golem-fencer` | 0.0130 | 0.0141 +-0.0092 |
+| `idle` | 0.0597 | 0.0733 +-0.0108 |
+
+It holds, and the residual in the `idle` arm is +0.014 against a standard error of 0.011 in the one
+direction the model's own assumption predicts: **it assumes the two classes are the same size**, and
+they are not. At 256 bouts the mace class carries 90,816 asks against the maul class's 73,365
+against `idle`, and 77,723 against 39,590 against `golem-fencer` -- so a pooled block is a weighted
+mean and not the even one the arithmetic above takes. The identity is a check on the instrument
+rather than a fit, and it passes.
+
+So the pool's heterogeneity is measured rather than inferred: **`between / within` is 0.125 against
+`idle`**, which is two classes that agree about an eighth of what each agrees with itself about. The
+maul bodies and the mace bodies are asking for substantially different policy changes, exactly as
+the grid guessed. Against `golem-fencer` the same ratio is -0.077 and means nothing at all, because
+its denominator's interval covers zero -- the held row refused to quote a budget for that reason and
+this entry refuses to quote an alignment for it.
+
+### The verdict, and it is not the one the falsifier was written for
+
+The falsifier was `within` failing to clear `pooled` by one standard error in either opponent, and
+it is not triggered: `idle` clears it by 3.68 and `golem-fencer` by 1.45. **The mechanism is real.**
+And it changes nothing about what to build, because the quantity it multiplies is the one the held
+row could not distinguish from zero. A per-class fit against `golem-fencer` would take a gradient
+whose squared length is 2.688e-3 +-2.119e-3 and make it about half again as long; the budget would
+fall from at least 4,292 bouts an iteration to at least about 2,900, against the 32 every run in
+this record was made at. **Half of nothing is nothing, and one and a half times nothing is nothing
+too.** Per-class fitting is not worth building, and the reason is not the one the pre-registration
+expected to give -- not that the bodies agree, but that the signal a disagreement would be
+subtracting from is not there to subtract from.
+
+And the per-class rows say the same thing one level down. At 256 bouts against `golem-fencer` the
+mace class reads +0.0403 +-0.0262 and the maul class -0.0021 +-0.0237. **Neither class on its own
+has a gradient distinguishable from zero either**, which is the reading that closes this: it is not
+that the pool's two halves pull against each other, it is that neither half is pulling.
+
+That leaves one of the two explanations the record had written down, and it is the one Session 07
+of the learn set measured and nobody has re-measured since: **the abort gate cuts nine strokes in
+ten before they land**, so most of what the score function weights is a stroke that never happened.
+It is not measured here and it is not pre-registered here either, because the instrument this
+record needs first is the one the entry below is about.
+
+### What this does not license
+
+No mind ships, no reward coefficient moves and no default moves. In particular this does **not**
+license `--classes build`, the fine axis: it is implemented, it is refused at these bout counts by
+`CLASS_FLOOR` rather than by a comment, and a coarse cut that found a real mechanism attached to an
+absent signal is a reason not to pay for the fine one rather than a reason to. Nor does it license
+reading the `between` column as a finding about weapons. The two classes were `maul` and `mace`
+because that is what `--terminals` already speaks in; a terminal class is still many bodies at many
+reaches, and what disagrees inside one was never separated from what disagrees across the two.
+
 ## Pre-registration -- 2026-09-12: the same eight cells cut by bout, written before the bouts
 
 The held row above states a budget in **bouts** -- 1,098 against `idle`, at least 4,292 against

@@ -2731,6 +2731,49 @@ baseline and missed by the other. So: **a slope is stated on the paired bar, whi
 shopped; an effect size is stated on `d` with its baseline named beside it.** A bar that says "d
 clears +0.10" without saying against whom is not a bar, for the same reason `barD` is not one.
 
+#### And a cosine between two gradients is stated beside a control of the same ask count
+
+The per-class grid, 2026-09-12, and it is the same ruling as the two above wearing different
+arithmetic. A bar is stated on a paired column because an unpaired margin carries the body's
+contribution as well as the mind's; `d` names its baseline because its denominator depends on which
+mind the margin was taken against. **The cosine between two half-gradients has a third version of
+the same problem: it depends on how many asks each half holds**, and nothing about the number says
+so.
+
+Two independent means over `m` samples of a signal `S` in noise `N` have an expected cosine of
+`S / (S + N/m)`, so the same estimator measured over half as many asks reads lower for no reason
+that is about the estimator. That is not a small correction at the sizes this project works at: the
+grid's own `idle` row moves from +0.05 to +0.23 over a factor of four in bouts, and a class holding a
+quarter of a rollout is being compared against a half of one. **The bias runs toward hiding a
+finding rather than manufacturing one**, which is worse than the other direction and not better -- a
+per-class cosine quoted against the pooled row would have had to clear a handicap nobody stated, and
+a null would have meant nothing.
+
+So: **a cosine is quoted against a control taken over the same number of asks, drawn from the same
+shuffled order, and the two are printed side by side.** `measureClasses` in
+`scripts/gradient-probe.mjs` builds that control per class rather than once per run, because classes
+are not the same size as each other either. A comparison between two cosines over different ask
+counts is not a comparison, for the same reason `barD` is not a bar.
+
+**And the ask count is not the only thing a half is defined by.** The same day's bout split found
+the second half of this ruling the hard way: two halves of one shuffled order hold asks drawn from
+the *same bouts*, so everything a bout draw decides enters both of them with the same sign and they
+are not independent. That cosine is the right answer to how much of a minibatch is the gradient and
+the wrong answer to whether two collections would agree, and the record had been quoting the first
+to answer the second -- a budget in bouts off a split by asks. So the second clause: **a number
+stated in bouts is taken from a split by bouts**, which is what `--bout-split` in
+`scripts/gradient-probe.mjs` reports beside the other, in the same row, off the same rollout.
+
+**And the same trap has a third door, which the per-class grid walked into.** A *gap* between two
+cosines is not comparable across two arms carrying different amounts of signal either: both cosines
+go to zero together when there is nothing to agree about, and their difference goes with them. The
+per-class pre-registration expected `within - between` to be larger against the mind than against
+the dummy and read the opposite, and the reason was not that the bodies agree more against a fencer
+-- it was that against a fencer there is no signal for them to agree or disagree about. So the third
+clause: **a difference of cosines is read only against arms of comparable signal, and across arms it
+is the ratio that is stated** -- and a ratio whose denominator is not distinguishable from zero is
+not stated at all, which is the same refusal the held row made of its own budget.
+
 ## The curve page as a window rather than a report
 
 `curve.html` was written to draw a run that had finished. Session 11 of the learn set runs one
