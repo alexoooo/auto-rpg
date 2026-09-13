@@ -29990,3 +29990,110 @@ agenda has needed.
 this asks whether the quantity those coefficients define is the quantity the record grades, which
 is a different question. And nothing here ships: no fit changed, no bouts were collected, and
 every number above was read off logs written for other experiments.
+
+## Experiment I, the fencer pair -- 2026-09-13: the head cut is passive to the bit, and forty iterations against the fencer find nothing
+
+`gradheads-fencer-128.jsonl` closed at forty iterations and a summary, which discharges the
+embargo this record put on it. The latched idle cell is three of forty and is still collecting, so
+prediction 1's other half and prediction 4's other pair are not stated here.
+
+### What is scored now
+
+| # | as registered | verdict |
+| --- | --- | --- |
+| 1 | the latched cells' first twenty iterations agree with Experiment F's field for field | **met exactly** on the fencer cell -- 100 of 100 fields bit-identical; the idle cell waits |
+| 4 | the latch improves every gate floor by >= 2x and moves the axes' median by < 2x | **missed on the fencer pair**, at both spans it can be read over; the idle pair waits |
+
+### Prediction 1: one hundred fields of one hundred, bit-identical
+
+The check is the whole reason anything below can be read. The head cut landed between Experiment F
+and this collection, and a bout is a deterministic function of `seed ^ iteration` and the pool, so
+the two runs' first twenty iterations are the same bits or the cut is not passive.
+
+Compared: `cosine`, `dot`, `firstNorm`, `secondNorm` and `advantageSd`, over the first twenty
+iterations of `gradheads-fencer-128.jsonl` against all twenty of `gradlatch-fencer-128.jsonl`,
+matched on the iteration number rather than on position. **One hundred comparisons, one hundred
+exactly equal, none within a tolerance.** Iterations 21 to 40 are new collections and no identity
+is claimed for them.
+
+That is the strongest determinism statement available about the head cut, and it was worth taking
+before the numbers: a cut that changed a collected gradient by a bit would have made every head
+group in this experiment a reading of the cut rather than of the actor.
+
+### Prediction 4: the latch made two of the three gate floors worse
+
+The two fencer cells differ in `latchAbort` and in the span they were collected over -- 20
+iterations free from Experiment G, 40 paid here -- so the comparison is taken **both ways**,
+because a floor carries `2 SE` in its denominator and a longer cell therefore reads a
+systematically *better* floor for the same underlying quantities. The direction of that bias
+flatters the latched cell, and the latched cell loses anyway.
+
+| | unlatched, 20 | latched, 20 | latched, 40 | improvement at 20 | at 40 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `commit` | 818 | 1,297 | 1,359 | 0.63x | 0.60x |
+| `abort` | 812 | 551 | 796 | **1.47x** | 1.02x |
+| `parry` | 1,914 | 2,539 | 3,602 | 0.75x | 0.53x |
+| the nine axes' median | 1,083 | 864 | 1,128 | 1.25x | 0.96x |
+
+**No gate improves by 2x on either reading.** `abort` -- the one gate the latch is *about* -- is
+the only one that improves at all, by 1.47x over the matched twenty, and by 1.02x over the forty.
+The axes' median moves 1.25x and 0.96x, both inside the registered *less than 2x either way*, so
+the half of the prediction that says a latch does not move where a step is aimed holds on this
+pair and the half that says it moves the gates does not.
+
+The honest reading is narrower than *the latch does nothing to the gates*. **On a cell with no
+measurable gradient in it, a floor is a ratio of two noise estimates and a change in it is not
+evidence of anything.** Zero of twelve groups clear the family-wise threshold on either fencer
+cell -- t 2.93 at 19 df, t 2.77 at 39 -- so every number in the table above is the two-sigma edge
+of a quantity whose point estimate is unbounded. The prediction is scored as registered because it
+was registered on this pair; what it measures is disclosed in the next section.
+
+### Forty iterations against the fencer find nothing, and the two halves disagree by 78x
+
+| the whole actor's squared signal, latched, against `golem-fencer` at 128 bouts | value | t |
+| --- | ---: | ---: |
+| the first twenty iterations | 1.335e-4 +-5.72e-3 | **0.02** |
+| the second twenty, disjoint | 1.044e-2 +-4.97e-3 | **2.10** |
+| all forty | 5.288e-3 +-3.83e-3 | **1.38** |
+
+The point estimate moves by a factor of **78** between two disjoint halves of one cell collected
+under one flag at one seed, and the two halves agree within 1.4 sigma of their difference -- so
+nothing is broken and nothing is there. Experiment G read this cell unlatched at 20 iterations and
+got t -0.47; Experiment I now reads it latched at 20 and gets t 0.02, at 40 and gets t 1.38.
+**Doubling the sample did not turn a signal up, it moved a point estimate around inside its own
+error.**
+
+Against `idle` at the same bout count and iteration count the same arithmetic reads **t 4.60**
+with three of twelve groups clearing, `standOff` at t 6.02 and `abort` at t 5.56. The instrument
+works. The fencer cell is the one with nothing in it, and the fencer cell is where every bar in
+this record is stated.
+
+### What is left of Experiment I's hypothesis
+
+The hypothesis was that the abort gate is starved of gradient relative to its neighbours, that the
+entropy bonus is what holds its logit at a coin flip, and that latching it would show up as a
+gate-row improvement. Measured across the three cells now readable:
+
+* **The gates are not the worst-served rows.** On the idle cell `abort` has the second-strongest
+  cosine of twelve groups and a floor of 173 bouts against the whole actor's 789 -- 0.22x where 4x
+  was predicted. Prediction 5 was missed by an order of magnitude in the wrong direction.
+* **The entropy bonus is 0.9 % of `abort`'s signal** where that signal clears, not the 10 % or more
+  predicted, and it is exactly zero on all nine axes on every cell, which is the identity half and
+  holds.
+* **The one gate that looks starved is `parry`**, at 3.96x the axes' median on the idle cell and
+  outside the range of all nine, which is what keeps the falsifier from firing.
+* **And the latch does not improve the gate floors** on the pair that can be read.
+
+What survives is the signal set's finding 1 as a claim about the **body** -- a stroke that must
+survive six independent Bernoulli draws -- with no optimiser story under it. Experiment H measured
+the latch buying a curve on the criterion, and Experiment K measured a reward charge reaching the
+completion column at t 7.67. Neither of those needs the gate row to be short of gradient, and this
+experiment has now failed to find that shortage on three cells out of the four it registered.
+
+### What is still owed
+
+The latched idle cell, at three of forty. It carries prediction 1's other identity and prediction
+4's other pair, and it is the cell where the comparison has a signal to be taken against -- the
+idle checkpoint is the one cell in this experiment whose row clears. **If the latch improves the
+gate floors anywhere, that is where it will show**, and the fencer pair above is a measurement
+taken on a cell that could not have shown it either way.
