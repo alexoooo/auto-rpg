@@ -25751,3 +25751,94 @@ each arm pulls toward is a different instrument and is not proposed here.
 **And no fit changes and nothing ships.** This is a held policy, no step is taken, and a positive
 result does not adopt or reject any table. What it changes is what Experiments E, G and N are read
 as having established, which is the whole of why it is worth 75 minutes.
+
+## The audit -- 2026-09-13: the rating path, which the first audit named and did not look at
+
+The audit of the gradient probe closed by saying what it did not cover: **the rating path, the
+league path and the tournament worker**, and that nothing in it said those were clean, only that
+they had not been looked at. This looks at the first of the three, because every entry still owed --
+Experiments H, K, L and Q -- is stated on a paired bar that comes out of it, and an audit that
+cleared the instrument while leaving the ruler unread would be the wrong half.
+
+The question is the same one, and it is the only one: **every published quantity, against the
+assertion that is about it.**
+
+| quantity | its null | measured, or argued? |
+| --- | --- | --- |
+| `cohensD` of a paired column | zero at no difference | **measured** -- asserted on columns whose answer is known, including a column with no spread reading zero rather than dividing by it |
+| the paired interval against the unpaired one | the same bouts, unpaired | **measured** -- the same mind under two names, `deltaSem` exactly zero while `barSem` is not |
+| a one-arm paired call | none -- it has no column | **refused by name**, before a pool is drawn, which is Session 11's confound made unrepeatable |
+| `ratePaired`'s opponent order | the arms met them in one order | **guarded** -- refused by name rather than differenced |
+| `vsDriver` and `vsFencer` | one mind has one margin against a third | **measured** -- the two names of one mind read the same margin |
+| the paired column of `ratePolicy` | **was argued, and is now asserted** -- see below | |
+
+**Five of the six were already measured, and the one that was not is the one the whole record is
+drawn on.**
+
+### What was argued, and it was argued correctly
+
+`columnsOf` slices a rating's rows into one contiguous block a contender and pairs them by index:
+`points[a][i] - points[b][i]`. It checks that each row names the contender whose block it is, and
+**it cannot check from the rows alone that row `i` of one block and row `i` of another are the same
+fight.** If they were not, every `d` on every rating curve in this tree would be an unpaired
+difference wearing a paired column's name -- which is exactly the confound Session 11 of the learn
+set published and the signal set was written to end.
+
+`ratePaired` guards it downstream, by refusing a rating whose arms met the opponents in a different
+order, and its header says why in as many words. **`ratePolicy` has no such guard** -- and it is the
+path `scripts/rate-snapshots.mjs` and `scripts/league.mjs` draw every curve in this record from.
+
+The argument that it is safe anyway is sound and it is one line: `evaluate` calls `scheduleJobs`
+once a contender with the same pool, seed, cap, league and arrangement, changing only the name, and
+the scheduler's draw stream is `mulberry32(seed ^ 0x0b0e)` -- seeded from the run's seed alone, with
+no contender name anywhere in it. The bodies, the pairing index, the side swap and both bout seeds
+are therefore the same across contenders and the policy slots are the only difference.
+
+**Sound, and it was an argument.** The same shape as the concentration's null, which was also sound
+about the two terms it was about and silent about the third.
+
+### What now asserts it
+
+`two_contenders_scheduled_from_one_seed_meet_the_same_bodies_in_the_same_order` schedules two
+different contenders over one pool and one seed and pins, job for job, the pairing index, the side
+swap, both bout seeds, both builds and both setups -- on the plain arrangement, the mirrored one and
+the viable random-pair one. It costs no bouts: the scheduler is a pure function and the property is
+a property of its output.
+
+It also pins the two things a weaker version of it would have missed. That **exactly one** policy
+slot differs between the two schedules, because a schedule where both moved would still be aligned
+and would not be a paired comparison. And that the contender does **not** sit on the same side for
+every job, because `columnsOf` reads the contender's side per row and a fixture where it never moved
+would pass against a reader that only ever looked left.
+
+| mutation | what went red |
+| --- | --- |
+| the draw stream salted with the first policy's name | the build and the setup, on all three arrangements |
+| the side swap dropped, so the contender never leaves the left | the swapped-side assertion |
+| the viability rejection loop burning a draw per letter of the policy's name | the build, on the viable arrangement alone |
+
+**The third is why the viable arrangement is in the loop.** A stream salted only inside the
+rejection path is identical on the plain and mirrored pools and wrong on the one the criterion is
+stated on, so a fixture taking the default arrangement alone is green against it. That is the shape
+of the only mistake this scheduler can make: not a wrong number, but an alignment that holds in the
+arrangement nobody publishes and fails in the one they do.
+
+### What this audit does not cover, stated as plainly as the last one
+
+**No runtime guard was added to `columnsOf` and that is a choice, not an oversight.** The property is
+created in the scheduler and is now asserted there, and a throw added tonight to a function three
+queued measurement runs are about to call is a risk taken for a second copy of an assertion that
+already exists. If a future caller assembles rating rows from somewhere other than one `evaluate`
+call, the guard `ratePaired` carries is the pattern to copy, and this paragraph is where the next
+reader should be told that `ratePolicy` leans on its caller instead.
+
+**The league path and the tournament worker are still unread.** This is one of the three the first
+audit named. The bout itself -- whether `runBout` gives the two corners the same physics, the same
+clock and the same terminal conditions -- is a larger question than either audit has asked, and
+nothing here says it is clean.
+
+**And the criterion's meaning is not in scope.** This says the paired column is paired. Whether the
+paired bar margin against a designed mind is the right thing to be steering by at all is Experiment
+Q's question, and Q's re-analysis arm already says the objective the fit climbs and this criterion
+disagree. An audit that certified the ruler says nothing about whether the record is measuring the
+right length.
