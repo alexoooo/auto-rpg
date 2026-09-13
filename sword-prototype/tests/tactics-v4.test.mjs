@@ -60,8 +60,8 @@ import { BUTTON_REACH } from "../src/buttons.ts";
 import { GOLEM_TACTICS } from "../src/golem/tactics.ts";
 import { COMMITTED_SHAPES, GOLEM_TACTICS_V3, THRUST_SHAPES, golemStyled } from "../src/golem/tactics-v3.ts";
 import {
-  COMMAND_AXES, COMMAND_GATES, COMMAND_RANGES, GOLEM_TACTICS_V4,
-  blendArc, freshCommand, golemDriven,
+  COMMAND_AXES, COMMAND_BITS, COMMAND_FIELDS, COMMAND_GATES, COMMAND_RANGES, EVERY_COMMAND_BIT,
+  GOLEM_TACTICS_V4, blendArc, freshCommand, golemDriven,
 } from "../src/golem/tactics-v4.ts";
 import {
   PILOT_FEATURE_COUNT, PILOT_FEATURE_COUNT_V2, PILOT_FEATURE_NAMES, PILOT_FEATURE_NAMES_V2,
@@ -738,6 +738,137 @@ test("a_latched_abort_raised_on_the_ask_that_starts_the_stroke_still_refuses_it"
   assert.equal(once.aborts, 1,
     `${once.aborts} aborts for a gate raised on the first stroke alone: the latch outlived it`);
   assert.ok(reachedRecover, "no stroke after the latched one ran through to a recover");
+});
+
+// ---------------------------------------------------------------------------------------
+// The touch mask: which of the twelve fields a window of steps actually read.
+// ---------------------------------------------------------------------------------------
+
+/**
+ * The mask is not a comment about the executor; it is a claim a bout can falsify.
+ *
+ * **The claim: a field the mask leaves clear is a field whose value that ask could have set to
+ * anything at all without changing one number the body did.** It is asserted the only way that
+ * sentence can be asserted -- by driving the same fixture twice, the second time with the field
+ * replaced on exactly the asks the first run's mask left it clear, and requiring the two runs to
+ * be identical step for step. A test that read the marking code instead would be a test of the
+ * code it is about, which is this directory's own name for a green test asserting nothing.
+ *
+ * The last ask of a run is skipped because its window never closed and nothing reports it -- that
+ * is the case `EVERY_COMMAND_BIT` exists for, and a consumer that credits everything there is
+ * paying variance rather than taking a bias.
+ */
+test("a_field_the_touch_mask_leaves_clear_can_be_replaced_without_moving_the_body", async (t) => {
+  const golem = await standAGolem(t);
+  const SECONDS = 2.0;
+  // A pilot that walks every field, so that a replacement is a real change and not a no-op: each
+  // ask is a deterministic function of its own index and nothing else, so the two runs below ask
+  // the same questions in the same order.
+  const asked = (n, field) => {
+    const [low, high] = COMMAND_RANGES[field];
+    const at = COMMAND_FIELDS.indexOf(field);
+    const wave = (Math.sin(n * 0.7 + at) + 1) / 2;
+    return field === "commit" ? (n % 3 === 0 ? 1 : 0)
+      : field === "abort" ? (n % 5 === 0 ? 1 : 0)
+        : field === "parry" ? (n % 4 === 0 ? 1 : 0)
+          : low + wave * (high - low);
+  };
+  const run = (latchAbort, replace = null) => {
+    const fixture = place(fixtureOf(golem.view), { x: 0, z: 1.35 });
+    const masks = [];
+    const poses = [];
+    let driven = null;
+    let n = 0;
+    driven = golemDriven(SEED, { ...GOLEM_TACTICS_V4, latchAbort }, () => {
+      if (n > 0) masks.push(driven.lastTouched);
+      const wanted = freshCommand();
+      for (const field of COMMAND_FIELDS) wanted[field] = asked(n, field);
+      // The replacement: on the asks the recorded run left this field clear, ask for the other end
+      // of its range instead. On every other ask the two runs agree to the bit.
+      if (replace !== null && (replace.masks[n] & COMMAND_BITS[replace.field]) === 0) {
+        const [low, high] = COMMAND_RANGES[replace.field];
+        wanted[replace.field] = wanted[replace.field] > (low + high) / 2 ? low : high;
+      }
+      n += 1;
+      return wanted;
+    });
+    drive(fixture, driven, SECONDS, (intent) => {
+      poses.push([intent.forward, intent.strafe, intent.turn, intent.posture.trunkLean,
+        intent.posture.crouch, intent.posture.trunkTwist].join(","));
+    });
+    return { masks, poses, strokes: driven.strokes, aborts: driven.aborts, asks: n };
+  };
+
+  for (const latchAbort of [false, true]) {
+    const base = run(latchAbort);
+    assert.ok(base.asks > 20, `only ${base.asks} asks in ${SECONDS} s`);
+    assert.ok(base.strokes > 1, `only ${base.strokes} strokes, so the stroke-only fields never ran`);
+    for (const mask of base.masks) {
+      assert.equal(mask & ~EVERY_COMMAND_BIT, 0, `a mask carried a bit outside the twelve: ${mask}`);
+    }
+    // The last ask's window never closed, so it has no recorded mask and must not be replaced.
+    const masks = [...base.masks, EVERY_COMMAND_BIT];
+    for (const field of COMMAND_FIELDS) {
+      const clear = masks.filter((m) => (m & COMMAND_BITS[field]) === 0).length;
+      if (clear === 0) continue;
+      const swapped = run(latchAbort, { field, masks });
+      assert.deepEqual(swapped.poses, base.poses,
+        `latchAbort ${latchAbort}: replacing \`${field}\` on the ${clear} asks of ${masks.length} `
+        + "its mask left clear moved the body, so the mask claimed an unread field that was read");
+      assert.equal(swapped.strokes, base.strokes, `latchAbort ${latchAbort}: \`${field}\` moved strokes`);
+      assert.equal(swapped.aborts, base.aborts, `latchAbort ${latchAbort}: \`${field}\` moved aborts`);
+    }
+  }
+});
+
+/**
+ * The four the feet read are read on every step, and the latch is visible in the mask as itself.
+ *
+ * The test above is the correctness half and says nothing about how much the mask saves. This is
+ * the arithmetic half: `standOff`, `advance`, `strafe` and `lean` are written into an intent on
+ * every step there is, so a trainer can never drop them; `abort` is read on every striking step
+ * with the row down and on the stroke's first step alone with it up, which is the same sentence
+ * Experiment I measured as a floor of 173 bouts against 718.
+ */
+test("the_touch_mask_carries_the_feet_on_every_ask_and_the_latch_as_fewer_abort_asks", async (t) => {
+  const golem = await standAGolem(t);
+  const run = (latchAbort) => {
+    const fixture = place(fixtureOf(golem.view), { x: 0, z: 1.35 });
+    const seen = Object.fromEntries(COMMAND_FIELDS.map((f) => [f, 0]));
+    let driven = null;
+    let windows = 0;
+    let n = 0;
+    driven = golemDriven(SEED, { ...GOLEM_TACTICS_V4, latchAbort, eventAsks: false }, () => {
+      if (n > 0) {
+        windows += 1;
+        for (const field of COMMAND_FIELDS) {
+          if (driven.lastTouched & COMMAND_BITS[field]) seen[field] += 1;
+        }
+      }
+      n += 1;
+      return { ...freshCommand(), commit: 1, swing: 1, advance: 0 };
+    });
+    drive(fixture, driven, 3.0);
+    return { seen, windows, strokes: driven.strokes };
+  };
+
+  for (const latchAbort of [false, true]) {
+    const { seen, windows, strokes } = run(latchAbort);
+    assert.ok(windows > 30, `only ${windows} closed windows`);
+    for (const field of ["standOff", "advance", "strafe", "lean"]) {
+      assert.equal(seen[field], windows,
+        `\`${field}\` was read on ${seen[field]} of ${windows} windows and the feet read it on all`);
+    }
+    assert.ok(seen.swing <= strokes + 1,
+      `\`swing\` was read on ${seen.swing} windows against ${strokes} strokes started`);
+    if (latchAbort) {
+      assert.ok(seen.abort <= seen.swing + 1,
+        `latched, \`abort\` was read on ${seen.abort} windows against ${seen.swing} stroke starts`);
+    } else {
+      assert.ok(seen.abort > seen.swing,
+        `held, \`abort\` was read on ${seen.abort} windows and a stroke started on ${seen.swing}`);
+    }
+  }
 });
 
 /**

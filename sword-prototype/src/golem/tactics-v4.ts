@@ -330,6 +330,23 @@ export const COMMAND_AXES = [
 /** The three gates, in the order a policy head would emit them. */
 export const COMMAND_GATES = ["commit", "abort", "parry"] as const;
 
+/** The twelve fields in head order: the nine axes, then the three gates. */
+export const COMMAND_FIELDS = [...COMMAND_AXES, ...COMMAND_GATES] as const;
+
+/**
+ * One bit a field, in `COMMAND_FIELDS` order, for the touch mask below.
+ *
+ * A mask is a bitfield rather than twelve booleans because it is written on the hot path -- every
+ * field that is read on a step ors its bit in -- and because a rollout that stores one belongs to
+ * a sample and not to a bout, so it has to be one number.
+ */
+export const COMMAND_BITS: Readonly<Record<keyof StyleCommand, number>> = Object.freeze(
+  Object.fromEntries(COMMAND_FIELDS.map((name, at) => [name, 1 << at])),
+) as Readonly<Record<keyof StyleCommand, number>>;
+
+/** Every bit set: the conservative mask, and what a window nothing was recorded for reads as. */
+export const EVERY_COMMAND_BIT = (1 << COMMAND_FIELDS.length) - 1;
+
 /**
  * What each axis will accept. Outside it the value is clamped and the refusal counted.
  *
@@ -441,6 +458,26 @@ export interface GolemDriven {
   readonly strokes: number;
   readonly aborts: number;
   readonly parrying: boolean;
+  /**
+   * Which fields of the command in force have actually been read since the last ask.
+   *
+   * **A field this executor does not read is a field the draw that wrote it could not have
+   * changed anything with**, and a trainer that credits it anyway is adding a zero-mean term to
+   * its own gradient. `swing` is read on the ask that starts a stroke and on no other; `bite`,
+   * `targetHeight` and `targetLateral` only where a stroke is driven or a crouch is computed;
+   * `reach` only where the guard is written; `commit` only with a free arm off cooldown; `parry`
+   * only where a parry is possible; `abort` on every striking step under the shipped table and on
+   * the stroke's first step alone under `latchAbort`. The four the feet and the trunk read --
+   * `standOff`, `advance`, `strafe`, `lean` -- are read on every step there is.
+   *
+   * `touched` is the window still open and `lastTouched` the one the most recent ask closed, which
+   * is the mask belonging to the ask *before* the one a pilot is answering right now. A window
+   * that never closed -- the last of a bout -- is nobody's to report, and a consumer that needs a
+   * mask for it uses `EVERY_COMMAND_BIT`, which credits everything and is the safe direction: an
+   * over-wide mask costs the variance it would have saved, an under-wide one biases the step.
+   */
+  readonly touched: number;
+  readonly lastTouched: number;
   decide(view: FighterView, dt: number): Intent;
 }
 
@@ -577,6 +614,10 @@ export function golemDriven(
 
   let parrying = false;
   let intercept: Intercept | null = null;
+
+  /** The touch mask: the window still open, and the one the last ask closed. See `GolemDriven`. */
+  let touched = 0;
+  let lastTouched = 0;
 
   const reading: PilotReading = {
     gap: 0, strike: 0, slack: 0, gapRate: 0, theirWeapon: "empty", myWeapon: "empty",
@@ -835,6 +876,7 @@ export function golemDriven(
     const holdFor = (standOff: number): number => (
       T.holdMetres ? standOff : (T.holdMyReach ? reach : them.reach) * standOff
     );
+    touched |= COMMAND_BITS.standOff;
     let hold = holdFor(command.standOff);
 
     if (T.closeOnRecover && shorter && !headfirst) {
@@ -955,6 +997,11 @@ export function golemDriven(
     lastTheirs = theirs;
     const eventAsk = T.eventAsks && (phaseTurned || released);
     if (cadence.step(dt, eventAsk)) {
+      // The window the command in force has been driving is closed *before* the pilot is asked,
+      // because the pilot is where a rollout's hook fires and a hook that fired first would be
+      // handed a mask still being written.
+      lastTouched = touched;
+      touched = 0;
       const wanted = pilot(reading, view);
       take("standOff", wanted.standOff);
       take("strafe", wanted.strafe);
@@ -1000,6 +1047,8 @@ export function golemDriven(
     // The stand-off is read a second time, because the one above it is the hold the reading was
     // taken at -- where this body is standing off *now*, which is what a mind asking "am I where I
     // meant to be" has to be told -- and this one is the hold the command just written asks for.
+    touched |= COMMAND_BITS.standOff | COMMAND_BITS.advance | COMMAND_BITS.strafe
+      | COMMAND_BITS.lean;
     hold = holdFor(command.standOff);
     const bearing = Math.atan2(them.ground.x - self.ground.x, them.ground.z - self.ground.z);
     intent.turn = clamp(angleTo(self.facing, bearing) * T.turnGain, -1, 1);
@@ -1010,12 +1059,16 @@ export function golemDriven(
     intent.posture.trunkLean = clamp(command.lean, -1, 1);
     intent.posture.crouch = 0;
     if (cap.reachable && caps.crouchTravel > 1e-6) {
+      // `aim` is written from `mark`, and `mark` is the two target axes: a crouch computed off the
+      // aim is a step those two axes moved even though no stroke is in flight.
+      touched |= COMMAND_BITS.targetHeight | COMMAND_BITS.targetLateral;
       const shortfall = (cap.reachable.liftMin - aim.lift) * aim.horizontal;
       intent.posture.crouch = clamp(shortfall / caps.crouchTravel, 0, 1);
     }
     intent.natural.guard = true;
     intent.natural.thrust = false;
 
+    if (parryPossible) touched |= COMMAND_BITS.parry;
     parrying = parryPossible && command.parry >= 0.5;
 
     // ---- the gates, read every step from the command in force -------------------------------------
@@ -1028,12 +1081,23 @@ export function golemDriven(
     // a gate at p survives `(1 - p)^k` rather than `1 - p`. The arithmetic and what it cost the
     // record are on that row.
     const striking = stance === "chamber" || stance === "commit" || stance === "ram";
-    if (striking && (T.latchAbort ? latchedAbort : command.abort >= 0.5)) {
+    // The test is given a name so that the two masks below can be written beside it rather than
+    // inferred from a branch. It is the same expression, evaluated once, in the same order.
+    const aborting = striking && (T.latchAbort ? latchedAbort : command.abort >= 0.5);
+    // Unlatched, the gate is re-read on every striking step and every one of them is a step the
+    // draw could have ended the stroke on. Latched, this step reads `latchedAbort` and not the
+    // command at all, and the one step that read the command is the chamber, marked below.
+    if (striking && !T.latchAbort) touched |= COMMAND_BITS.abort;
+    // A commit gate with a free arm still on cooldown is read and cannot do anything with what it
+    // reads, so the mask asks for both.
+    if (!aborting && stance === "free" && cooldown <= 0) touched |= COMMAND_BITS.commit;
+    if (aborting) {
       aborts += 1;
       cooldown = T.cooldown * T.abortCooldown;
       goTo("free");
     } else if (stance === "free" && command.commit >= 0.5 && cooldown <= 0) {
       if (headfirst && natural !== null) {
+        if (T.latchAbort) touched |= COMMAND_BITS.abort;
         latchedAbort = command.abort >= 0.5;
         strokes += 1;
         sinceMyStroke = 0;
@@ -1042,6 +1106,8 @@ export function golemDriven(
         // Written in both stroke-starting branches rather than once above them, because the two
         // branches are the two strokes this executor has and a ram that could not be latched would
         // be a head charge that `latchAbort` quietly made unabortable.
+        if (T.latchAbort) touched |= COMMAND_BITS.abort;
+        touched |= COMMAND_BITS.swing;
         latchedAbort = command.abort >= 0.5;
         arcSwing = clamp(command.swing, 0, 1);
         blendArc(me.weapon, arcSwing, arc);
@@ -1068,6 +1134,7 @@ export function golemDriven(
     const holdGuard = (): void => {
       hand.guard = canCover(cap);
       hand.thrust = false;
+      touched |= COMMAND_BITS.reach;
       aimAt(socket, guardMark, trunkHeading, me.outboard, cover);
       writeAim(hand, cap, cover, me.outboard, 0, T.coverLift, 1, command.reach);
       hand.roll = 0;
@@ -1082,6 +1149,9 @@ export function golemDriven(
       intent.posture.trunkTwist =
         (chambering ? 1 : -1) * me.outboard * T.trunkSweep * (T.sweepBySwing > 0 ? arcSwing : 1);
       if (!chambering) intent.forward = clamp(intent.forward + arc.stepIn, -1, 1);
+      // `aim` is the mark and `strikeReach` is the bite, both written above off the command in
+      // force, and this is the one call that reads either of them.
+      touched |= COMMAND_BITS.targetHeight | COMMAND_BITS.targetLateral | COMMAND_BITS.bite;
       driveStroke(hand, cap, me.outboard, aim, arc, chambering, elapsed, strikeReach);
       hand.wristBend = cap.bendMax > 0 ? T.cutBend : 0;
       if (chambering) {
@@ -1160,6 +1230,8 @@ export function golemDriven(
     get refusals(): Readonly<CommandRefusals> { return refusals; },
     get asks(): number { return cadence.asks; },
     get events(): number { return cadence.events; },
+    get touched(): number { return touched; },
+    get lastTouched(): number { return lastTouched; },
     get strokes(): number { return strokes; },
     get aborts(): number { return aborts; },
     get parrying(): boolean { return parrying; },
