@@ -26733,3 +26733,36 @@ written quickly by one author against logs that mostly did not exist yet. The re
 pass through these files. The convention they all share is in the tree now, with three tests and a
 mutation table, and that is the only part of this that is durable -- everything above is nine
 files being read carefully once, which is a thing that decays.
+
+## The idiom, followed through -- 2026-09-13: six more readers carried it, and one of them had been audited
+
+The section above ends by asserting that a bout count read off row zero is an idiom in this
+scratchpad rather than an accident, and that every remaining file carrying it should be assumed to
+have the defect rather than audited for it. An assertion like that is cheap to make and costs one
+grep to check, so it was checked.
+
+**Six more readers carried it and none of them had a guard**: the arm, arm-rows, arm-table, latch,
+price and reward ones. Sixteen reader files were searched; the ten that do not carry it mostly do
+not compute a floor at all.
+
+**One of the six is armfit.mjs, which the second reader pass read line by line and declared
+audited apart from two column labels.** That pass found what it was looking at -- a header that
+could name the wrong column, which is the shape the baseline reader had been caught in an hour
+earlier -- and did not find the count on the line above it. That is worth more than the fix: **an
+audit finds the defect it has just been taught to look for.** The head reader was audited in the
+same sitting and its bout-count guard was added there, so the idiom was in the author's hands at
+the time and still went past in the next file.
+
+It matters for one pending entry rather than six. armfit.mjs is Experiment G's reader and the
+horizon grid's two cells have not landed; the other five belong to closed experiments or to logs
+already read at a single count. All six refuse now, by name and with both counts printed, and the
+arm reader was verified both ways -- unchanged on the cell it was audited against, at a floor of
+789 and a point of 1,132, and refusing a copy of that same cell with half its rows relabelled to
+256.
+
+**And one note in the record became a line of code.** The second pass recorded that the latch
+reader takes its bout count from the control log and applies it to both cells, and left it alone
+on the grounds that Experiment F is closed and a reader nobody is about to quote is not worth a
+change that would have to be re-verified. That reasoning was right about the cost of a *fix* and
+wrong about the cost of a *refusal*: refusing costs one line, needs no re-verification because it
+changes no number, and removes the note. It is refused now.
