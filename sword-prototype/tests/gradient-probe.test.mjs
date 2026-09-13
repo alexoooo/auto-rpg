@@ -437,6 +437,53 @@
 // fraction. The convention is a function of four numbers and these three tests pin the function;
 // the readers that call it are still gitignored and still outside this suite, which is the state
 // the record's own reader audit describes and does not fix.
+//
+// ## The read itself, which arrived a day after the convention it feeds
+//
+// `floorConvention` above put the *arithmetic* every scratchpad reader shared into this tree. It
+// did not put the **read** there, and the read was carrying more defects than the arithmetic was.
+// The audit of 2026-09-13 got through eleven of the sixteen gitignored readers and nine of them
+// carried something -- and the nine were four ideas, not nine. A bout count taken off row zero and
+// applied to a log collected at two of them: nine readers, one of which a previous pass had read
+// line by line and declared audited. A verdict taken off an interval that does not exist, which
+// produced the worst output a reader in this record has managed -- `prediction 1 MISSED ... which
+// is the falsifier`, printed on a one-iteration log built so that prediction is true. A repeated
+// arm label read as a second column of the table carrying the first arm's numbers. An arm list
+// that moves mid-log, read positionally, so one column is two arms and no row looks wrong.
+//
+// `probeIterations` is those four findings as refusals, plus the two that are about what the read
+// hands back. **Ten mutations were watched red on 2026-09-13**, each applied alone and restored:
+//
+// | mutation | what went red |
+// |---|---|
+// | the bout count is taken off row zero rather than compared across the log | the two-counts test |
+// | `least` defaults to one, so a reading gets whatever the log happens to have | the interval test |
+// | a log with no header row is read anyway | the provenance test |
+// | a named field the log does not carry passes, and only a NaN is refused | the named-fields test |
+// | a repeated arm label is allowed through | the one-label test |
+// | the arm list is compared by membership rather than by position | the moving-list test |
+// | an iteration with no arm block is read as an iteration with no arms | the missing-arms test |
+// | an arm a reading is stated against need not be in the log | the missing-arms test |
+// | the iteration rows are every row carrying a bout count, so the summary row gets in | six of the eight |
+// | the arm list is handed back writable | the hands-back test |
+//
+// **Two rows name the same test and that is the table being honest rather than the table being
+// short.** The missing arm *block* and the missing named *arm* are one test, because they are the
+// same sentence about a reading stated against something the log does not have; splitting them
+// would make the table look like ten independent guards and it is eight.
+//
+// The table was measured against the sixteen tests of the read, the floor convention, the cosine
+// and the split -- every test above the pool, which is the scope the class-split table was
+// measured at and is honest here for a stronger reason:
+// `probeIterations` is an additive export and **nothing in this tree calls it**, so no pool test
+// can see any of these mutations. That is also the limit of the whole section. It is the reason
+// the row-filter mutation reddening six of eight is reassuring rather than alarming: every refusal
+// below it is downstream of which rows the read decided were iterations.
+//
+// **What no mutation here can reach.** That a reader *calls* it. The sixteen readers are still
+// gitignored, still outside this suite, and the four defects above are fixed in them one file at a
+// time by hand. What is durable is that the next reader can be one line instead of forty, and that
+// the line is one somebody has to keep true.
 import test from "node:test";
 import assert from "node:assert/strict";
 
@@ -460,7 +507,8 @@ import {
   halfGradients,
   halfSplit,
   concentrationWithNull, headGroups, headNorms, headRows, headSignal, linearBaseline, mcReturns,
-  measureBonus, measureSignal, normOf, nullRanking, parseClasses, probeRollout, rewardArms, shareOf,
+  measureBonus, measureSignal, normOf, nullRanking, parseClasses, probeIterations, probeRollout,
+  rewardArms, shareOf,
   solveCholesky, thirdGradients, thirdSplit, wholeGradient,
 } from "../scripts/gradient-probe.mjs";
 
@@ -738,6 +786,232 @@ test("a_floor_is_the_optimistic_end_of_its_interval_and_a_reading_without_one_is
   assert.throws(() => floorConvention({ dot: 0.01, norm2: 0.2, bouts, fraction: 1.5 }), /not a range/);
   assert.throws(() => floorConvention({ dot: 0.01, norm2: 0.2, bouts, se: -1e-9 }), /is not one/);
   assert.throws(() => floorConvention({ dot: 0.01, norm2: 0.2, bouts }).cosineAt(0), /no cosine/);
+});
+// ---------------------------------------------------------------------------------------
+// The read itself: the iteration rows of a probe log, and the four things a reader got wrong.
+// ---------------------------------------------------------------------------------------
+
+/**
+ * A probe log of the shape every reader in this record opens, built so each refusal has a fixture.
+ *
+ * The keys are the ones a real iteration row carries and the values are arbitrary: nothing below
+ * is a measurement, because `probeIterations` measures nothing. It decides whether the rows a
+ * reading is about are the rows the log actually holds, which is the step that was missing.
+ */
+const probeLog = ({ iterations = 4, bouts = 128, arms = ["shipped", "stall"] } = {}) => {
+  const rows = [{ type: "header", kind: "gradient-probe", label: "fixture", bouts }];
+  for (let at = 0; at < iterations; at += 1) {
+    const count = Array.isArray(bouts) ? bouts[at % bouts.length] : bouts;
+    rows.push({
+      type: "iteration", iteration: at + 1, bouts: count,
+      cosine: 0.1 + at / 1000, dot: 0.012, firstNorm: 0.34, secondNorm: 0.36,
+      ...(arms === null ? {} : {
+        priced: (Array.isArray(arms[0]) ? arms[at % arms.length] : arms)
+          .map((label) => ({ label, cosine: 0.09, dot: 0.01, firstNorm: 0.3, secondNorm: 0.31 })),
+      }),
+    });
+  }
+  rows.push({ type: "summary", iterations, bouts });
+  return rows;
+};
+
+/**
+ * What the read hands back, and what it leaves out.
+ *
+ * The header, the iteration rows and nothing else -- a probe log carries a summary row with a
+ * `bouts` key of its own and readers that filtered on the key rather than the type would have
+ * swept it in. The bout count is returned as one number because the log holds one; the arm list is
+ * returned frozen because every column below a reader's header is pulled by position out of it.
+ */
+test("the_read_hands_back_the_header_the_iteration_rows_one_bout_count_and_the_arm_list", () => {
+  const held = probeIterations(probeLog({ iterations: 5 }), { what: "the fixture" });
+  assert.equal(held.header.label, "fixture");
+  assert.equal(held.rows.length, 5);
+  assert.ok(held.rows.every((r) => r.type === "iteration"), "a row that is not an iteration got in");
+  assert.equal(held.bouts, 128);
+  assert.deepEqual([...held.labels], ["shipped", "stall"]);
+  assert.ok(Object.isFrozen(held.labels), "the arm list came back writable");
+  // A log with no arms in it is read by a reading that says so, and its arm list is the absence of
+  // one rather than an empty list somebody could iterate over and conclude nothing from.
+  const bare = probeIterations(probeLog({ arms: null }), { arms: null });
+  assert.equal(bare.labels, null);
+  assert.equal(bare.rows.length, 4);
+});
+
+/**
+ * One floor cannot be stated over two bout counts, and nine readers stated one anyway.
+ *
+ * **This is the single most-repeated defect the reader audit found.** `const n = rows[0].bouts` is
+ * how the shape of a probe log invites the line to be written, and nine of the sixteen readers in
+ * that scratchpad had written it -- including one that a previous pass had read line by line and
+ * declared audited. The measured case: a twenty-iteration grid, ten rows at 128 bouts and ten at
+ * 256, printed as `20 iterations of 128 bouts` with a full six-arm table under it and no warning
+ * anywhere. Both counts are named in the refusal, because which two counts a log mixes is the
+ * useful part.
+ */
+test("a_log_collected_at_two_bout_counts_is_refused_and_both_counts_are_named", () => {
+  const mixed = probeLog({ iterations: 4, bouts: [128, 128, 256, 256] });
+  assert.throws(() => probeIterations(mixed, { what: "the grid" }), (e) => {
+    assert.match(e.message, /128/);
+    assert.match(e.message, /256/);
+    assert.match(e.message, /one floor/);
+    return true;
+  });
+  // And a count that is not a count at all, which no arithmetic downstream would notice.
+  const absent = probeLog({ iterations: 3 });
+  for (const row of absent) if (row.type === "iteration") delete row.bouts;
+  assert.throws(() => probeIterations(absent), /not an epoch/);
+});
+
+/**
+ * The interval that does not exist, and the falsifier a reader printed off it.
+ *
+ * A standard error over one iteration is NaN, every comparison against NaN is false, and a reader
+ * whose four thresholds are all comparisons then answers every one of them the same way. The
+ * measured case is the worst output a reader in this record has produced: `prediction 1 MISSED
+ * ... which is the falsifier`, printed on a one-iteration log built with two arms at gaps of -0.31
+ * and -0.28 -- a cell constructed so that prediction is true. The reader had printed a warning
+ * line above the table saying the gaps were not readable, and then read all four predictions under
+ * it. **A warning the next paragraph contradicts is not a warning.**
+ *
+ * `least` defaults to three and the override is the visible direction: a reading that genuinely
+ * wants one cell says `least: 1` in a diff somebody can see, which is the opposite of the
+ * arrangement every audited reader had.
+ */
+test("a_log_too_short_for_the_interval_a_reading_wants_is_refused_before_any_threshold", () => {
+  assert.throws(() => probeIterations(probeLog({ iterations: 1 })), (e) => {
+    assert.match(e.message, /1 iteration/);
+    assert.match(e.message, /wants 3/);
+    assert.match(e.message, /NaN/);
+    return true;
+  });
+  assert.throws(() => probeIterations(probeLog({ iterations: 2 })), /wants 3/);
+  assert.throws(() => probeIterations(probeLog({ iterations: 9 }), { least: 12 }), /wants 12/);
+  // The same one-iteration log, read by a reading that asked for one. Nothing about the log
+  // changed; what changed is that the caller said what it was doing.
+  assert.equal(probeIterations(probeLog({ iterations: 1 }), { least: 1 }).rows.length, 1);
+  assert.throws(() => probeIterations(probeLog(), { least: 0 }), /cannot count/);
+  assert.throws(() => probeIterations(probeLog(), { least: 2.5 }), /cannot count/);
+});
+
+/**
+ * A log with no header is a table of numbers with no provenance, and is refused for that.
+ *
+ * The header carries the seed, the checkpoint, the opponent and every flag the run was collected
+ * under. A reader that reads the rows without it can still print a table, and the table is then a
+ * set of numbers about nothing anybody can name. One reader in the audit did exactly that, and it
+ * was not caught by the reader -- it was caught by reading the reader.
+ */
+test("a_log_with_no_header_row_is_refused_for_having_no_provenance", () => {
+  const headless = probeLog().filter((r) => r.type !== "header");
+  assert.throws(() => probeIterations(headless, { what: "the cell" }), (e) => {
+    assert.match(e.message, /the cell/);
+    assert.match(e.message, /provenance/);
+    return true;
+  });
+  assert.throws(() => probeIterations("not rows"), /not a list of rows/);
+  assert.throws(() => probeIterations([null, undefined, 7]), /no header/);
+});
+
+/**
+ * The fields a reading needs are named by the reading, which is what makes their absence a refusal.
+ *
+ * The audit's own rule, written down after the fourth reader in one night was found doing it:
+ * *a reader that fills a missing field with a default cannot refuse the log that is missing it.*
+ * `finite` is therefore a list the caller states rather than a set of checks the function guesses
+ * at, and a field that is absent is refused by exactly the same line as a field that is NaN --
+ * because to a reading that needs a number, those are the same log.
+ */
+test("a_field_a_reading_named_is_refused_when_it_is_not_a_number_and_when_it_is_not_there", () => {
+  for (const bad of [NaN, Infinity, null, "0.1", undefined]) {
+    const rows = probeLog();
+    rows[3].dot = bad;
+    assert.throws(() => probeIterations(rows, { what: "the arm" }), (e) => {
+      assert.match(e.message, /the arm/);
+      assert.match(e.message, /iteration 3/);
+      assert.match(e.message, /dot/);
+      return true;
+    }, `a ${String(bad)} dot was read as a number`);
+  }
+  // A key the log has never heard of, asked for by name. This is the absence case and it is the
+  // one that matters: a reading stated on `--concentration` against a log collected without it.
+  assert.throws(() => probeIterations(probeLog(), { finite: ["concentration"] }), /concentration/);
+  // And a reading that names nothing checks nothing, which is a choice the caller makes visibly.
+  const loose = probeLog();
+  loose[2].cosine = NaN;
+  assert.equal(probeIterations(loose, { finite: [] }).rows.length, 4);
+});
+
+/**
+ * Two arms under one label, which is not "the first one wins".
+ *
+ * It is worse than the guess, and the guess would have missed it. The label list is taken from the
+ * first iteration and each column is then pulled by name, so a repeat becomes a **second row of the
+ * table** in which both rows carry the first arm's numbers. Measured on a twenty-iteration fixture
+ * with one arm appended under a label already in use: an existence count went from three arms to
+ * four with one of them named twice at an identical t, a rank correlation ran over a five-element
+ * list with a duplicated point, and the appended arm's own reading -- a gap of +0.9, the opposite
+ * sign -- was never read at all. A second reader had the same repeat silently overwrite its own
+ * entry in the map one of its predictions is read out of.
+ */
+test("two_arms_under_one_label_are_refused_rather_than_read_as_two_columns", () => {
+  const doubled = probeLog({ arms: ["shipped", "stall", "stall"] });
+  assert.throws(() => probeIterations(doubled, { what: "the fan" }), (e) => {
+    assert.match(e.message, /the fan/);
+    assert.match(e.message, /two arms answer to stall/);
+    assert.match(e.message, /the order they were written/);
+    return true;
+  });
+});
+
+/**
+ * An arm list that moves mid-log, where no row looks wrong.
+ *
+ * The columns are indexed positionally across iterations, so an arm list that gains one, loses one
+ * or merely reorders makes a column that is two arms averaged -- and every individual row still
+ * reads as a well-formed row of a well-formed log. This is refused **by position and not by
+ * membership**, because a swap is the case that membership cannot see and is the case that leaves
+ * no trace anywhere else.
+ */
+test("an_arm_list_that_moves_between_iterations_is_refused_because_a_column_is_read_by_position", () => {
+  const swapped = probeLog({ arms: [["shipped", "stall"], ["stall", "shipped"]] });
+  assert.throws(() => probeIterations(swapped), (e) => {
+    assert.match(e.message, /the arm list moves at iteration 2/);
+    assert.match(e.message, /a column is not one arm/);
+    return true;
+  });
+  const grown = probeLog({ arms: [["shipped", "stall"], ["shipped", "stall", "walk"]] });
+  assert.throws(() => probeIterations(grown), /the arm list moves at iteration 2/);
+  const lost = probeLog({ arms: [["shipped", "stall"], ["shipped"]] });
+  assert.throws(() => probeIterations(lost), /the arm list moves at iteration 2/);
+});
+
+/**
+ * A log collected without the arms a reading is about, and a named arm that is not in it.
+ *
+ * The first is the reader anti-pattern in its plainest form: a reading stated over `--rewards`
+ * arms, handed a log run without them, must not read the absence as a log with no arms in it. The
+ * second is the `indexOf` that answers -1 -- one audited reader threw on it rather than fabricating
+ * a denominator, which is the better of the two failures and is still not a thing a reader should
+ * learn from a stack trace.
+ */
+test("a_missing_arm_block_and_a_missing_named_arm_are_both_refused_by_name", () => {
+  const bare = probeLog({ arms: null });
+  assert.throws(() => probeIterations(bare, { what: "the grid" }), (e) => {
+    assert.match(e.message, /the grid/);
+    assert.match(e.message, /iteration 1 carries no priced block/);
+    return true;
+  });
+  const partway = probeLog();
+  delete partway[3].priced;
+  assert.throws(() => probeIterations(partway), /iteration 3 carries no priced block/);
+  assert.throws(() => probeIterations(probeLog(), { needs: ["shipped", "zero-plane"] }), (e) => {
+    assert.match(e.message, /no arm is labelled zero-plane/);
+    assert.match(e.message, /no denominator/);
+    return true;
+  });
+  assert.deepEqual([...probeIterations(probeLog(), { needs: ["shipped"] }).labels],
+    ["shipped", "stall"]);
 });
 // ---------------------------------------------------------------------------------------
 // The measurement, through the pool the fit sums its own minibatches through.

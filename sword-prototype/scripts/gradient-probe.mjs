@@ -419,6 +419,122 @@ export function floorConvention({ dot, norm2, bouts, se = 0, fraction = 1 / 2 })
 }
 
 /**
+ * The iteration rows of a probe log, refused rather than repaired.
+ *
+ * **Sixteen gitignored readers open these logs and every one of them opened it differently.** An
+ * audit on 2026-09-13 read eleven of them against their own definitions and found nine carrying a
+ * defect -- and the nine were not nine ideas. They were four ideas about reading, each got wrong
+ * in several places at once, and every one of the four is a thing this function now refuses:
+ *
+ *   - **A bout count taken off row zero**, applied to a log collected at two of them. Nine readers.
+ *     One measured case: a twenty-iteration grid, ten rows at 128 bouts and ten at 256, printed as
+ *     `20 iterations of 128 bouts` with a full six-arm table under it and no warning anywhere.
+ *   - **A verdict read off an interval that does not exist.** A standard error over one iteration
+ *     is NaN, every comparison against NaN is false, and a reader whose thresholds are all
+ *     comparisons then answers every one of them the same way. The measured case is the worst a
+ *     reader can produce: `prediction 1 MISSED ... which is the falsifier`, printed on a
+ *     one-iteration log built with two arms at gaps of -0.31 and -0.28, a cell constructed so that
+ *     prediction is true.
+ *   - **Two arms under one label.** Not "the first one wins": the label list is taken from the
+ *     first iteration and each column is then pulled by name, so a repeat becomes a *second row of
+ *     the table* carrying the first arm's numbers, an existence count that goes from three to four,
+ *     a rank correlation over a duplicated point -- and the repeated arm's own reading, the
+ *     opposite sign on the measured fixture, never read at all.
+ *   - **An arm list that moves mid-log**, read positionally, so one column is two arms and no row
+ *     looks wrong.
+ *
+ * None of those was reachable by anything in this tree, because the read was not in this tree. The
+ * convention they all ended in got here first, as `floorConvention` above; this is the step before
+ * it. The refusals name what they found rather than what they wanted, because a reader waiting on
+ * a fan reads the refusal and not the source.
+ *
+ * **Why `least` defaults to three and is not a hint.** Two points have one degree of freedom and
+ * three is the fewest this record will state an interval on. A caller that genuinely wants one
+ * iteration -- a single cell read as a cell, not as a curve -- says `least: 1`, which is one word
+ * in a diff somebody can see. The default is the safe direction and the override is the visible
+ * one, which is the opposite of the arrangement every audited reader had.
+ *
+ * **And `finite` is a list the caller states rather than a set of optional checks**, for the reason
+ * the audit wrote down as its own rule: *a reader that fills a missing field with a default cannot
+ * refuse the log that is missing it.* Naming the fields a reading needs is the refusal.
+ */
+export function probeIterations(rows, {
+  least = 3,
+  arms = "priced",
+  needs = [],
+  finite = ["cosine", "dot", "firstNorm", "secondNorm"],
+  what = "the log",
+} = {}) {
+  if (!Array.isArray(rows)) throw new Error(`${what} is not a list of rows`);
+  if (!Number.isInteger(least) || least < 1) {
+    throw new Error(`a reading that wants ${least} iterations wants something this cannot count`);
+  }
+  const object = (r) => r !== null && typeof r === "object";
+  const header = rows.find((r) => object(r) && r.type === "header");
+  if (header === undefined) {
+    throw new Error(`${what} carries no header row, so nothing in it has any provenance`);
+  }
+  const found = rows.filter((r) => object(r) && r.type === "iteration");
+  if (found.length < least) {
+    throw new Error(`${what} carries ${found.length} iteration row(s) and this reading wants`
+      + ` ${least} -- below that there is no interval and every threshold would be read off NaN`);
+  }
+  // The bout count, which is the defect nine readers shared. Both counts are named, because the
+  // useful thing about a mixed log is which two counts it mixes.
+  const counts = new Set(found.map((r) => r.bouts));
+  if (counts.size !== 1) {
+    throw new Error(`${what} carries iterations at ${[...counts].join(", ")} bouts -- one floor`
+      + " cannot be stated over them");
+  }
+  const bouts = found[0].bouts;
+  if (!Number.isFinite(bouts) || bouts <= 0) {
+    throw new Error(`${what} carries iterations of ${bouts} bouts, which is not an epoch`);
+  }
+  for (const key of finite) {
+    for (const [at, row] of found.entries()) {
+      if (!Number.isFinite(row[key])) {
+        throw new Error(`${what}: iteration ${at + 1} carries ${key} ${row[key]}, and every number`
+          + " this reading takes off it would carry that");
+      }
+    }
+  }
+  let labels = null;
+  if (arms !== null) {
+    for (const [at, row] of found.entries()) {
+      if (!Array.isArray(row[arms])) {
+        throw new Error(`${what}: iteration ${at + 1} carries no ${arms} block, so it was not`
+          + " collected with the arms this reading is about");
+      }
+    }
+    labels = found[0][arms].map((a) => a.label);
+    const seen = new Set();
+    for (const label of labels) {
+      if (seen.has(label)) {
+        throw new Error(`${what}: two arms answer to ${label}, so which one a column reads would`
+          + " depend on the order they were written");
+      }
+      seen.add(label);
+    }
+    // By position and not by membership: the columns are indexed across iterations, so two arms
+    // that swap places are two arms mixed into one column with every row still looking right.
+    for (const [at, row] of found.entries()) {
+      const here = row[arms].map((a) => a.label);
+      if (here.length !== labels.length || here.some((l, i) => l !== labels[i])) {
+        throw new Error(`${what}: the arm list moves at iteration ${at + 1}, from`
+          + ` ${labels.join(", ")} to ${here.join(", ")}, so a column is not one arm`);
+      }
+    }
+    for (const need of needs) {
+      if (!labels.includes(need)) {
+        throw new Error(`${what}: no arm is labelled ${need}, so a column stated against it has no`
+          + " denominator");
+      }
+    }
+  }
+  return { header, rows: found, bouts, labels: labels === null ? null : Object.freeze(labels) };
+}
+
+/**
  * The fractions of the weight vector a concentration row is reported at, ascending and ending at
  * one, because **the row at one is the comparison** -- every other fraction is read as a ratio
  * against it and the ratio is what the measurement is.

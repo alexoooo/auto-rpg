@@ -26766,3 +26766,102 @@ on the grounds that Experiment F is closed and a reader nobody is about to quote
 change that would have to be re-verified. That reasoning was right about the cost of a *fix* and
 wrong about the cost of a *refusal*: refusing costs one line, needs no re-verification because it
 changes no number, and removes the note. It is refused now.
+
+## The read itself -- 2026-09-13: the step before the convention, and the four ideas the readers got wrong
+
+The floor convention went into the tree this morning because it was arithmetic every reader in
+this record shared and no reader could be tested on. That argument does not stop at the
+arithmetic. The step *before* it -- deciding which rows of a log a reading is about -- was also
+shared by every reader, was also in no reader's tree, and was carrying more defects than the
+arithmetic was. The three audit passes found two families and only one of them has been dealt
+with: the convention family, which is correct arithmetic over the wrong range of the epoch, and
+the reading family, which is correct arithmetic over the wrong rows. `probeIterations` is the
+second one, now beside `floorConvention` in `scripts/gradient-probe.mjs`, with eight tests and a
+ten-row mutation table.
+
+### The four ideas, which is what the defects turned out to be
+
+The audit's findings are not a list of separate defects. They are four ideas, each of them wrong
+in more than one file at once, and each is now a throw that names what it found:
+
+**A bout count taken off row zero, applied to a log collected at two of them.** Nine readers of
+sixteen. `const n = rows[0].bouts` is how the shape of a probe log invites the line to be written,
+which is why it is an idiom here rather than an accident, and why one of the nine had survived a
+line-by-line audit two passes earlier. The measured case: a twenty-iteration grid, ten rows at 128
+bouts and ten at 256, printed as `20 iterations of 128 bouts` with a full six-arm table under it
+and nothing said anywhere. Both counts are named in the refusal, because which two counts a log
+mixes is the useful part of knowing that it does.
+
+**A verdict taken off an interval that does not exist.** A standard error over one iteration is
+NaN, every comparison against NaN is false, and a reader whose thresholds are all comparisons then
+answers every one of them the same way. This produced the worst output any reader in this record
+has managed: `prediction 1 MISSED ... which is the falsifier`, printed on a one-iteration log
+built with two arms at gaps of -0.31 and -0.28 -- a cell constructed so that prediction is true.
+`least` defaults to three now, and a reading that genuinely wants one cell says `least: 1`, which
+is one word in a diff somebody can see. **The default is the safe direction and the override is
+the visible one, which is the opposite of the arrangement every audited reader had.**
+
+**Two arms under one label.** Not "the first one wins", which is what the guess would have been
+and would have missed it: the label list is taken from the first iteration and each column is then
+pulled by name, so a repeat becomes a *second row of the table* carrying the first arm's numbers
+-- an existence count that went from three arms to four with one named twice at an identical t, a
+rank correlation over a list with a duplicated point, and the appended arm's own reading, the
+opposite sign, never read at all.
+
+**An arm list that moves mid-log.** Columns are indexed positionally across iterations, so a list
+that gains one, loses one or merely reorders makes a column that is two arms averaged, with every
+individual row still reading as a well-formed row. It is refused **by position and not by
+membership**, because a swap is the case membership cannot see and the case that leaves no other
+trace.
+
+Two more refusals sit beside them for the same reason the convention's do: a log with no header is
+a table of numbers with no provenance, and a reading stated against an arm the log does not carry
+has no denominator for the column it would print. And `finite` is a list the caller states rather
+than a set of checks the function guesses at, which is the audit's own rule made mechanical: **a
+reader that fills a missing field with a default cannot refuse the log that is missing it.** A
+field that is absent and a field that is NaN are refused by the same line, because to a reading
+that needs a number those are the same log.
+
+### Ten mutations, and the two rows that name one test
+
+Each was applied alone and restored, against the sixteen tests above the pool -- the read, the
+floor convention, the cosine and the split.
+
+| mutation | what went red |
+|---|---|
+| the bout count is taken off row zero rather than compared across the log | the two-counts test |
+| `least` defaults to one, so a reading gets whatever the log happens to have | the interval test |
+| a log with no header row is read anyway | the provenance test |
+| a named field the log does not carry passes, and only a NaN is refused | the named-fields test |
+| a repeated arm label is allowed through | the one-label test |
+| the arm list is compared by membership rather than by position | the moving-list test |
+| an iteration with no arm block is read as an iteration with no arms | the missing-arms test |
+| an arm a reading is stated against need not be in the log | the missing-arms test |
+| the iteration rows are every row carrying a bout count, so the summary row gets in | six of the eight |
+| the arm list is handed back writable | the hands-back test |
+
+**Two rows name the same test, and that is the table being honest rather than the table being
+short.** The missing arm *block* and the missing named *arm* are one test because they are one
+sentence -- a reading stated against something the log does not have -- and splitting them would
+make the table look like ten independent guards when it is eight.
+
+**The row that reddens six of eight is the reassuring one.** It mutates the row filter, which is
+upstream of every refusal below it, so a table in which it reddened one test would be a table
+saying the refusals do not depend on the rows they refuse. That the pool tests stayed green under
+all ten is not evidence of anything: the export is additive and nothing in this tree calls it.
+
+### What this does not fix, stated plainly
+
+The sixteen readers are still gitignored, still outside the suite, and the four defects above are
+still being fixed in them one file at a time by hand -- eleven read line by line, all sixteen
+grepped for the one idiom, and none of them covered by any test. **Nothing here makes an existing
+reader correct.** What it does is make the next one shorter than the mistake: the read is one call
+instead of forty lines, and the forty lines were where nine readers went wrong.
+
+Two things are worth keeping from three passes over the same files in one night. The first is that
+**an audit finds the defect it has just been taught to look for** -- the pass that caught a
+mislabelled column in one reader read the next reader's bout count on the line above it and did
+not see it. The second is that the author of the newest reader in the set, written after a night
+spent finding exactly this class of defect, put two of them into it before it ever met data. **The
+anti-pattern is not something you learn once.** That is the argument for a shared read rather than
+a careful one, and it is the same argument the floor convention was moved on twelve hours earlier.
