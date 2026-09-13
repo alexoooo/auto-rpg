@@ -31394,3 +31394,109 @@ now has both taken on the same two coefficients and they disagree by three order
 1,660 % of the mean margin, six parts in ten thousand of the direction. The reason is not subtle
 once it is written down, and the entry above reached for the intuitive quantity because it was the
 one it had just spent a rating measuring.
+
+## Measured -- 2026-09-13: three of the twelve command fields an ask writes are read by nothing, and the fit credits all twelve
+
+This is a measurement and an instrument, not an experiment: nothing below was pre-registered,
+nothing is scored, and no default moves. What it adds is a number the record did not have and a
+mask in the executor that makes it collectable.
+
+### The defect, which is in the seam between the executor and the fit and not in either
+
+A policy head writes twelve numbers an ask -- nine axes and three gates -- and `sampleAction` sums
+one log-probability over all twelve. The fit multiplies that sum's gradient by the ask's
+advantage. **The executor does not read all twelve.** `swing` is read on the ask that starts a
+stroke and on no other; `bite` only where a stroke is driven; `reach` only where the guard is
+written; `commit` only with a free arm off cooldown; `parry` only where a parry is possible;
+`abort` on every striking step with the shipped table and on the stroke's first step alone under
+`latchAbort`.
+
+**A field the executor did not read is a field whose draw could not have changed one number the
+body did.** Its log-probability gradient is therefore uncorrelated with that ask's advantage: it
+contributes nothing in expectation and its whole contribution to a step is variance. Worse for PPO
+than for a plain policy gradient, because the ratio that the clip bound is applied to is computed
+from the *sum*: noise in dimensions the environment ignored widens the ratio and fires the clip on
+samples whose live dimensions did not move at all.
+
+### The instrument, which is behaviour-free and is pinned by a counterfactual rather than by reading itself
+
+`golemDriven` now ors a bit into a `touched` mask wherever it reads a field of the command in
+force, closes the window at each ask into `lastTouched`, and exposes both. `COMMAND_BITS` is one
+bit a field in `COMMAND_FIELDS` order, which is the order a policy head emits them, so a mask is
+directly an action-dimension mask and needs no second table to be read through.
+
+**The mask claims something a bout can falsify and it is asserted that way.** The same fixture is
+driven twice under the same seed, the second time with one field replaced by the other end of its
+range on exactly the asks the first run's mask left it clear, and the two runs are required to be
+identical step for step -- forward, strafe, turn, lean, crouch and twist on every one of the 720
+-- for all twelve fields and with the latch both up and down. A test that read the marking code
+instead would be a test of the code it is about.
+
+**The window that never closes is the last ask of a bout, and it is nobody's to report.** A
+consumer needs a mask for it and `EVERY_COMMAND_BIT` is what it uses: crediting everything costs
+the variance it would have saved, and crediting too little biases the step. **The safe direction
+is the wide one and the instrument is built to fail that way.**
+
+### What it measures, on four mirrored bouts of the shipped mind at the drawn read
+
+Four bouts an arm, seed 20260917, the viable terminals. Two arms are mirrored -- the arrangement
+two thirds of a league's bouts are collected in -- and the third is the shipped mind against
+`idle`, which is the cell this record's one measurable actor gradient lives on. 6,468 closed ask
+windows mirrored, 5,200 mirrored under the latch, 2,672 against `idle`.
+
+| field | mirrored | mirrored, `latchAbort` | against `idle` |
+| --- | ---: | ---: | ---: |
+| `standOff` | 100.0 % | 100.0 % | 100.0 % |
+| `strafe` | 99.9 % | 99.8 % | 99.9 % |
+| `lean` | 99.9 % | 99.8 % | 99.9 % |
+| `advance` | 99.9 % | 99.8 % | 99.9 % |
+| `targetHeight` | 99.9 % | 99.8 % | 99.9 % |
+| `targetLateral` | 99.9 % | 99.8 % | 99.9 % |
+| `reach` | 81.4 % | 73.2 % | 74.0 % |
+| `commit` | 53.4 % | 28.9 % | 46.6 % |
+| `abort` | **50.4 %** | **14.1 %** | 54.3 % |
+| `bite` | 42.5 % | 42.0 % | 45.5 % |
+| `swing` | 28.8 % | 14.1 % | 23.9 % |
+| `parry` | 26.2 % | 36.0 % | 14.6 % |
+| **live dimensions an ask** | **8.82 of 12** | **8.07 of 12** | **8.58 of 12** |
+
+**Three of the twelve terms in the log-probability of a typical ask are terms the body never
+read** -- 3.18 mirrored, 3.93 with the latch up, 3.42 against `idle`. The two target axes are on
+the live side and it is worth saying why rather than leaving it to look like an accident: they
+reach the body through the crouch, computed off the aim on nearly every step, and not only through
+a stroke. `bite` has no such second path and reads 42 to 46 %.
+
+**The three columns disagree about which fields are dead and agree about how many.** `parry` is
+read on a third of asks in a mirror and on a seventh against a body that never threatens one;
+`abort` on half a mirror's asks and a seventh of a latched mirror's. The share that is dead moves
+between 26 % and 33 % across three arrangements that have nothing else in common, which is the one
+number a design can be built on.
+
+### The agreement with Experiment I, which is suggestive and is not derived
+
+Experiment I measured the `abort` group's floor at **173 bouts unlatched and 718 latched, 4.15x**,
+and called reading a gate once a stroke rather than once an ask the thing that takes its gradient
+away. This measures the same latch as **50.4 % of asks against 14.1 %, 3.57x fewer reads**. The
+two ratios agree to 15 %.
+
+**That agreement is an observation and not an identity, and the difference between those two
+sentences is the whole of what this record is for.** No arithmetic here maps a read share onto a
+`|S|^2`: the floor is a squared length against its own standard error over twenty iterations and
+the read share is a count over asks, the two are measured on different runs at different bout
+counts, and a mechanism that predicted 3.57x would have had to be written down before 4.15x was
+known. What can be said is that the size the latch costs the abort row is the size the latch
+removes from the row's reads, and that a mechanism which says the cost *is* the missing reads now
+has one number it did not have to explain away.
+
+### What this does not say
+
+**No fit has been run under a mask and no gradient has been measured through one.** Everything
+above is about asks and reads; the claim that masking sharpens a step is arithmetic about a
+zero-mean term and arithmetic is what this record has repeatedly found to be wrong about gradients
+-- Experiment I's own registration reasoned from a compounding gate to a starved row and measured
+the row as one of the best served in the actor. **A share of asks is not a share of a gradient,
+for the same reason a share of a return is not** -- the correction to Experiment T, three sections
+above, is the general form of that sentence and it applies here against my own hypothesis.
+
+The mask ships live and reads nothing: `GolemDriven` gained two numbers, no default moved, and the
+22 tests of the fourth executor were green before and after.
