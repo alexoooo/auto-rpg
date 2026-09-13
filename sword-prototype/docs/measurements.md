@@ -25064,6 +25064,170 @@ reader worked at all before the collection it was written for had finished.
 read for a reason other than the answer and both are recorded because the record's rule is that
 the reader decides whether a peek mattered, not the author.
 
+### The result, idle cell -- 2026-09-13: the direction is uphill, and it is worth four tenths of what it should be
+
+Eight draws, 3.11 hours over fourteen collectors, and the four predictions this cell carries are
+met. Prediction 5 is about the other cell and is still pending. The table is the registered
+reader's output verbatim, on the eight draws the pre-registration named, with the two peeks above
+already disclosed and a third disclosure -- a defect in the reader, found and fixed before the
+entry quoted it -- below.
+
+```
+from tournaments/bracket-idle/pool-30.json against idle, 8 draws of 128 collection bouts,
+  128 evaluation bouts an end, steps 0.02, 0.08, 0.32, |theta| 19.772
+dot 1.907e-2 +-4.15e-3 (t 4.60), K 21.59, F 1132, cos(g,S) 0.4294, |grad J| 5.155
+|g| cross-check: the step probe measured 0.3152, the decomposition predicts 0.3216
+```
+
+| step | kind | return delta | sem | t | uphill | margin delta | predicted | share |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0.02 | gradient | 0.0327 | 0.0113 | 2.90 | 8 of 8 | 0.00535 | 0.0885 | 0.37 |
+| 0.02 | random | -0.0063 | 0.0136 | -0.46 | 2 of 8 | -0.00952 | -- | -- |
+| 0.08 | gradient | 0.1554 | 0.0238 | 6.53 | 8 of 8 | 0.05047 | 0.3542 | 0.44 |
+| 0.08 | random | 0.0023 | 0.0118 | 0.19 | 5 of 8 | -0.00687 | -- | -- |
+| 0.32 | gradient | 0.4506 | 0.0356 | 12.67 | 8 of 8 | 0.17666 | 1.4168 | 0.32 |
+| 0.32 | random | -0.0127 | 0.0210 | -0.60 | 2 of 8 | -0.00191 | -- | -- |
+
+The gradient arm less the random arm, paired within a draw:
+
+| step | paired difference | sem | t | gradient ahead |
+| --- | --- | --- | --- | --- |
+| 0.02 | 0.0389 | 0.0173 | 2.26 | 7 of 8 draws |
+| 0.08 | 0.1532 | 0.0265 | 5.77 | 8 of 8 draws |
+| 0.32 | 0.4633 | 0.0375 | 12.37 | 8 of 8 draws |
+
+**Prediction 1 is met and it is the one that mattered.** The bar was `t >= 2` at the middle
+length; the measurement is 0.1554 at **t 6.53**, uphill on eight draws of eight. The falsifier --
+the reading that would have changed the signal set's *subject* rather than its answer, making
+every floor in this record a floor on the reproducibility of a direction that raises nothing --
+does not fire. **The direction the forty-odd floors in this record describe the consistency of is
+an ascent direction at this checkpoint.** That sentence is the whole of what a positive result
+licenses and the pre-registration says so; the three sentences standing next to it are still not
+licensed and are restated at the end.
+
+**Prediction 2 is met, and it is the check that makes the rest readable.** The random arm reads t
+-0.46, +0.19 and -0.60 across the three lengths and clears zero at none of them, with the sign
+test at 2, 5 and 2 of 8. The control does not move. The instrument is differencing the direction
+and not something else.
+
+**Prediction 3 is met.** The step grew 4.00x from 0.02 to 0.08 and the return difference grew
+**4.75x**, inside the registered factor of two either side. The linear regime does not end below a
+tenth of a league iteration.
+
+**Prediction 4 is met, and its answer is a number rather than a yes.** The registered window was a
+tenth to twice the predicted 0.354, which is 0.0354 to 0.708; the measurement is 0.1554,
+comfortably inside it and about a fifth of the way across. The three shares are **0.37, 0.44 and
+0.32** -- the walk delivers a consistent ~0.4 of what the decomposition predicts, at all three
+lengths, across a sixteen-fold range of step. The pre-registration named this outcome in advance
+and named it the useful one:
+
+> A result that is a consistent *fraction* of the prediction across both of the shorter lengths is
+> not a failure of the framework -- it is a direct reading of what the four-second half-life costs,
+> and it would be the most useful partial outcome available.
+
+### What ate the other six tenths, with two of the three candidates eliminated by the run itself
+
+The pre-registration named three assumptions standing between `|grad J| = L x advantageSd x |S|`
+and a walked return difference, and said each was something the run could see. Two of them are now
+shut.
+
+**The clip is not it, and this is a measurement and not an argument.** `clipped` is exactly 0 in
+all eight draws, as it was in all forty rows of the bout sweep. Nothing in the surrogate is being
+truncated at the start point, so the clipped objective and the unclipped one have the same
+gradient there.
+
+**The first-order expansion is not it either, at the lengths where the shortfall is already full
+size.** Curvature grows with the step; a shortfall that is the same fraction at 0.02 as at 0.08
+cannot be curvature, because 0.02 is a twentieth of a league iteration and the expansion cannot be
+failing there and not failing sixteen times further out by more. What curvature does look like is
+the **0.32 row**, whose ratio is 2.90x against the linear 4.00x and whose share falls to 0.32 --
+the longest step is where the pre-registration put it precisely so the curvature would have
+somewhere to show, and it showed there and nowhere shorter.
+
+**That leaves the discount, which is the candidate the pre-registration led with.** The credit is
+discounted at a four-second half-life inside a sixty-second cap and the sum over asks is not
+reweighted by that discount, so the surrogate's gradient is a biased estimate of the gradient of
+the undiscounted mean episode return -- and the walk measures the undiscounted return, because
+that is what the bar is stated on. The table prices that bias at zero and the measurement prices
+it at about six tenths. **This is a reading and not a proof**: the elimination above is of two
+named candidates and not of everything that is not the discount, and no run in this record has
+walked the same checkpoint at a second half-life, which is the experiment that would settle it and
+is not being launched tonight.
+
+What the reading is worth to the next phase is more than the number. Every prediction this record
+makes about what a step buys -- the `|grad J|` column, the predicted deltas, and any future
+pricing of a fit's per-iteration progress against its own gradient -- now carries a measured
+correction factor of about 0.4 at this checkpoint, and a correction factor that is stable across a
+sixteen-fold range of step is the kind that can be carried.
+
+### The cross-check, and the reader defect that had to be fixed before this entry could quote it
+
+The line reading `|g| cross-check: the step probe measured 0.3152, the decomposition predicts
+0.3216` did not read that when the reader was first run against this log. It read **0.4333**,
+a 27 % discrepancy that does not exist.
+
+`K / n` is the noise a **half** carries -- that is what makes the reported half-to-half cosine
+`n / (n + F)`. The vector a step is walked along is the **whole** collection's gradient, two halves
+averaged, whose noise is `K / 2n` and whose norm is therefore `sqrt(|S|^2 + K / 2n)`. `actorNorm`
+in the step log is the whole order. The reader was computing `sqrt(|S|^2 + K / n)` and comparing a
+half-order prediction against a whole-order measurement -- while the line three above it,
+`walkedCosine`, had the `2 * bouts` correct. The reader was contradicting itself inside four
+lines.
+
+Fixed to `K / (2 * bouts)`, the prediction is 0.3216 against a measured 0.3152: **agreement to
+2 %**, on a quantity the step probe and the gradient probe compute in different programs from
+different collections. That is a real cross-check of the decomposition and it was one line away
+from being published as a discrepancy.
+
+**This is the fourth reader defect of the same family** -- dirfit.mjs, basefit.mjs, and the
+two the reader pass found -- and it is the same shape as all of them: correct arithmetic on the
+wrong quantity, producing a plausible number that nothing downstream would have questioned. It is
+also the one case where the reader pass recorded above did not catch it, because that pass ran
+stepfit.mjs against a real log and read whether it *ran*. **A reader that runs is not a reader
+that is right**, and the four defects between them say the check that finds these is reading the
+arithmetic against the definition, not watching the output appear.
+
+### A reading nobody registered: the ascent direction is the direction that kills
+
+Found by looking at columns the log carries and the statistic does not name, so it is recorded as
+a reading rather than a result, on the same footing as the corner.
+
+| step | gradient arm, decided at `+eta` | at `-eta` | delta | t | random arm's delta | t |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0.02 | 0.4355 | 0.3857 | 0.0498 | 4.47 | 0.0010 | 0.10 |
+| 0.08 | 0.4863 | 0.2979 | 0.1885 | 8.54 | 0.0176 | 1.64 |
+| 0.32 | 0.5596 | 0.0781 | 0.4814 | 10.92 | -0.0127 | -0.81 |
+
+Walking eight league iterations up the gradient takes the share of bouts that reach a decision
+from **0.078 to 0.560**, monotonically, at a larger `t` than the return difference itself; the
+control does nothing at any length. Mean asks an end fall from 96,036 at `-0.32` to 75,286 at
+`+0.32` -- the bouts get shorter because they end. **The direction is not raising an abstract
+scalar; it is raising the rate at which the mind kills a motionless dummy inside the cap.**
+
+Which is worth putting beside what the record already knows about the leagues. Experiment A
+measured the 400-iteration league getting **monotonically worse** at exactly this task -- maul
+damage against an `idle` body peaking at iteration 24 and falling to 9.3 at t -9.35 -- and the
+diagnosis that found it named the mechanism: in a mirrored bout both corners are collected,
+`dealt - taken` telescopes, and the only reward with a non-zero mean pays for standing still.
+**This cell is not that cell.** It is a bracket run against `idle`, where nothing telescopes and
+dealing damage is paid for, and it is the cell where the gradient is both visible and uphill. The
+record now has an ascent direction that kills, at a checkpoint whose collection is not degenerate,
+and a league that unlearned killing at a checkpoint whose collection is. Those two facts are
+consistent and their conjunction is not a result of this run -- it is a question for the reward
+table, which Experiment Q is already pointed at.
+
+### What this does not license, restated because a positive result is when it matters
+
+No default moves and no weight ships. The stepped policies were evaluated and thrown away.
+
+It does **not** say a fit would follow this direction: a production step is Adam over four epochs
+of clipped minibatches under a KL stop, which is not a step along the mean gradient. It does
+**not** say how far the direction stays uphill -- this walks a fixed distance once from one point,
+and the 0.32 row is already showing curvature. And it does **not** transfer to the fencer cell,
+which is the cell every bar in this record is stated on and whose `dot` is negative at t -0.47.
+Prediction 5 is the ordering between the two cells and it is unanswered until
+gradstep-fencer-128.jsonl lands.
+
 ## Pre-registration -- 2026-09-13: where in eighty-seven thousand weights the signal is, written before the bouts
 
 Experiment P. Every floor in this record is a floor over all 87,308 actor weights at once. That is
