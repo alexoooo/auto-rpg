@@ -1201,7 +1201,11 @@ if (isMain) {
     for (const [other, d] of Object.entries(differences)) {
       console.log(`    ${name} - ${other.padEnd(8)} points ${d.points >= 0 ? "+" : ""}${d.points.toFixed(4)} `
         + `+- ${d.pointsSem.toFixed(4)}  bar ${d.bar >= 0 ? "+" : ""}${d.bar.toFixed(4)} `
-        + `+- ${d.barSem.toFixed(4)}  d ${d.d >= 0 ? "+" : ""}${d.d.toFixed(3)}`);
+        + `+- ${d.barSem.toFixed(4)}  d ${d.d >= 0 ? "+" : ""}${d.d.toFixed(3)}`
+        // Experiment T's column, printed beside the bar rather than instead of it: what the
+        // objective paid the two, paired over the same bouts. A run whose two columns disagree
+        // in sign is the thing Q found on one arm and could not check against a designed mind.
+        + `  ret ${d.ret >= 0 ? "+" : ""}${d.ret.toFixed(4)} +- ${d.retSem.toFixed(4)}`);
     }
   };
   const date = new Date().toISOString().slice(0, 10);
@@ -1446,9 +1450,15 @@ if (isMain) {
       log({
         type: "rating", iteration, per: result.per, select,
         differences: result.differences, structural: result.results,
+        returns: result.returns,
         byPool: Object.fromEntries(ratingPools.map((which) => [which, {
           pool: which, mirror: result.byPool[which].mirror, builds: result.byPool[which].builds,
           differences: result.byPool[which].differences, structural: result.byPool[which].results,
+          // What `GOLEM_REWARD` paid each contender over these bouts, term by term. A league row
+          // has carried the *collected* return since the learn set; this is the same objective
+          // read on the *rating* bouts, which is the arrangement the criterion is stated on and
+          // the one where the antisymmetric terms do not cancel.
+          returns: result.byPool[which].returns,
         }])),
       });
       return result;

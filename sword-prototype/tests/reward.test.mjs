@@ -28,7 +28,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { BARE_REWARD, GOLEM_REWARD, stepReward } from "../src/golem/reward.ts";
+import { BARE_REWARD, GOLEM_REWARD, boutParts, boutReturn, stepReward } from "../src/golem/reward.ts";
 import { ACTION_WIDTH } from "../src/golem/policy.ts";
 import { PILOT_FEATURE_COUNT } from "../src/golem/pilot.ts";
 import { buildPool, runJobs, scheduleJobs } from "../scripts/tournament.mjs";
@@ -257,6 +257,9 @@ test("a_recorded_policy_logs_one_command_an_ask_and_its_rewards_telescope_to_the
           assert.equal(pack[column].length, count, `${column} is not one an ask`);
         }
         let sum = 0;
+        // The same windows priced under the shipped table, so the row-side form below has
+        // something to be compared against. Experiment T.
+        let paid = 0;
         let ended = 0;
         let elapsed = 0;
         let clinch = 0;
@@ -279,6 +282,13 @@ test("a_recorded_policy_logs_one_command_an_ask_and_its_rewards_telescope_to_the
             outsideSeconds: pack.outside[i], emptyStrokes: pack.swing[i],
             done: pack.done[i] === 1, outcome,
           }, BARE_REWARD);
+          paid += stepReward({
+            dealt: pack.dealt[i], taken: pack.taken[i], seconds: pack.seconds[i],
+            clinchSeconds: pack.clinch[i], idleMetres: pack.idle[i],
+            closingMetres: pack.closing[i], stallSeconds: pack.stall[i],
+            outsideSeconds: pack.outside[i], emptyStrokes: pack.swing[i],
+            done: pack.done[i] === 1, outcome,
+          }, GOLEM_REWARD);
           elapsed += pack.seconds[i];
           clinch += pack.clinch[i];
           idle += pack.idle[i];
@@ -322,6 +332,45 @@ test("a_recorded_policy_logs_one_command_an_ask_and_its_rewards_telescope_to_the
           `the windows carry ${swing} empty strokes and the row reports ${row[me].emptyStrokes}`);
         assert.ok(row[me].emptyStrokes <= row[me].strokesStarted - row[me].aborts,
           `${row[me].emptyStrokes} empty strokes out of ${row[me].strokesStarted - row[me].aborts} that finished`);
+        // ---- Experiment T: the same return taken off the row, and the gap between the two forms.
+        //
+        // `boutParts` prices the whole bout from the aggregate columns the assertions above have
+        // just checked the windows against. **The two forms are not equal**, and every assertion
+        // above says why: the windows carry *at most* what the row reports, because a sample taken
+        // before the first ask belongs to no window. So the row-side form is the larger, by
+        // exactly the coefficients on what the windows missed -- and it is the honest one, since
+        // it prices the whole bout rather than the part the policy was awake for.
+        const aggregate = boutParts({
+          vitality: row[me].vitality, theirVitality: row[them].vitality, outcome,
+          seconds: row.seconds,
+          clinchSeconds: row[me].clinchSeconds, idleTravelMetres: row[me].idleTravelMetres,
+          radialClosingMetres: row[me].radialClosingMetres,
+          nearRangeStallSeconds: row[me].nearRangeStallSeconds,
+          retreatOutsideReachSeconds: row[me].retreatOutsideReachSeconds,
+          emptyStrokes: row[me].emptyStrokes,
+        }, GOLEM_REWARD);
+        // The margin term is the telescoping one and it is exact, which is the whole reason this
+        // form can exist at all.
+        assert.ok(Math.abs(aggregate.margin - sum) < 1e-9,
+          `the row's margin is ${aggregate.margin} and the windows sum to ${sum}`);
+        // And the gap to the window-side total is non-negative and small. Under `GOLEM_REWARD`
+        // only `clinch` and `idle` are live, both at 0.004, and the existing assertions above bound
+        // the unwindowed remainder of each at 0.2 -- so 0.0016 is the arithmetic ceiling and not a
+        // tolerance chosen to make a test pass.
+        const gap = aggregate.total - paid;
+        assert.ok(gap >= -1e-9, `the row-side return is ${gap} below the window-side one`);
+        assert.ok(gap < 0.0016, `the two forms of the return differ by ${gap}`);
+        // Under the bare table the two agree exactly: nothing is charged, so there is no remainder
+        // to differ over and both are the margin.
+        assert.ok(Math.abs(boutReturn({
+          vitality: row[me].vitality, theirVitality: row[them].vitality, outcome,
+          seconds: row.seconds,
+          clinchSeconds: row[me].clinchSeconds, idleTravelMetres: row[me].idleTravelMetres,
+          radialClosingMetres: row[me].radialClosingMetres,
+          nearRangeStallSeconds: row[me].nearRangeStallSeconds,
+          retreatOutsideReachSeconds: row[me].retreatOutsideReachSeconds,
+          emptyStrokes: row[me].emptyStrokes,
+        }, BARE_REWARD) - sum) < 1e-9);
         asks += count;
       }
     }
@@ -346,3 +395,92 @@ test("a_recorded_policy_logs_one_command_an_ask_and_its_rewards_telescope_to_the
     assert.ok(Math.abs((full - bare) - GOLEM_REWARD.win * outcome) < 1e-9,
       `the win term moved the return by ${full - bare}`);
   });
+
+// ---------------------------------------------------------------------------------------
+// The same return, taken off the row. Experiment T.
+// ---------------------------------------------------------------------------------------
+
+/**
+ * Every row is a coefficient on the bout's own total, at the sign the table publishes.
+ *
+ * The mirror of `a_reward_table_given_is_the_table_used` one level up: the same eight coefficients
+ * on the same eight quantities, summed over a whole bout instead of over a window. It is asserted
+ * separately rather than derived from that test because the two forms read *different columns* --
+ * `idleMetres` against `idleTravelMetres`, `stallSeconds` against `nearRangeStallSeconds` -- and a
+ * coefficient wired to the wrong one of a pair is exactly the mistake a shared fixture would hide.
+ */
+test("a_whole_bout_is_priced_row_by_row_at_the_sign_the_table_publishes", () => {
+  const T = table({
+    win: 2, clinch: 0.1, idle: 0.2, tick: 0.01, closing: 0.05, stall: 0.3, outside: 0.4, swing: 0.6,
+  });
+  const parts = boutParts({
+    vitality: 0.9, theirVitality: 0.2, outcome: -1, seconds: 4,
+    clinchSeconds: 1, idleTravelMetres: 2, radialClosingMetres: 3,
+    nearRangeStallSeconds: 0.5, retreatOutsideReachSeconds: 0.25, emptyStrokes: 2,
+  }, T);
+  assert.ok(Math.abs(parts.margin - 0.7) < 1e-12);
+  assert.equal(parts.win, -2);
+  assert.ok(Math.abs(parts.clinch - -0.1) < 1e-12);
+  assert.ok(Math.abs(parts.idle - -0.4) < 1e-12);
+  assert.ok(Math.abs(parts.tick - -0.04) < 1e-12);
+  assert.ok(Math.abs(parts.closing - 0.15) < 1e-12);
+  assert.ok(Math.abs(parts.stall - -0.15) < 1e-12);
+  assert.ok(Math.abs(parts.outside - -0.1) < 1e-12);
+  assert.ok(Math.abs(parts.swing - -1.2) < 1e-12);
+  // `shaped` is every row the table lays over the outcome, which is the number `reward.ts` asks a
+  // run to report a fraction of, and it is the sum of the seven above and not a ninth reading.
+  assert.ok(Math.abs(parts.shaped - (-0.1 - 0.4 - 0.04 + 0.15 - 0.15 - 0.1 - 1.2)) < 1e-12);
+  assert.ok(Math.abs(parts.total - (parts.margin + parts.win + parts.shaped)) < 1e-12);
+  assert.ok(Math.abs(boutReturn({
+    vitality: 0.9, theirVitality: 0.2, outcome: -1, seconds: 4,
+    clinchSeconds: 1, idleTravelMetres: 2, radialClosingMetres: 3,
+    nearRangeStallSeconds: 0.5, retreatOutsideReachSeconds: 0.25, emptyStrokes: 2,
+  }, T) - parts.total) < 1e-12);
+  // With the bare table a bout is worth its margin and nothing else, every quantity set loud.
+  assert.equal(boutReturn({
+    vitality: 0.5, theirVitality: 0.5, outcome: 1, seconds: 9,
+    clinchSeconds: 9, idleTravelMetres: 9, radialClosingMetres: 9,
+    nearRangeStallSeconds: 9, retreatOutsideReachSeconds: 9, emptyStrokes: 9,
+  }, BARE_REWARD), 0);
+});
+
+/**
+ * A column a live coefficient needs and the row does not carry is refused by name.
+ *
+ * `emptyStrokes` is absent for a mind with no fourth executor to publish one -- the `arm`
+ * precedent `tournament-worker.mjs` draws deliberately -- and a zero there would say *swung at the
+ * air never* rather than *was never asked*. So the shipped table, whose `swing` row is zero,
+ * prices a designed mind's row happily, and a swept table with a live `swing` row refuses it.
+ * That asymmetry is the point: the refusal is a function of the table and not only of the row.
+ */
+test("a_bout_missing_a_column_a_live_coefficient_charges_is_refused_and_not_read_as_zero", () => {
+  const quiet = {
+    vitality: 0.6, theirVitality: 0.4, outcome: 1, seconds: 12,
+    clinchSeconds: 1.2, idleTravelMetres: 2.4, radialClosingMetres: 3,
+    nearRangeStallSeconds: 4, retreatOutsideReachSeconds: 5,
+  };
+  // The shipped table charges `swing` at zero, so the missing column is not read at all.
+  assert.ok(Math.abs(boutReturn(quiet, GOLEM_REWARD)
+    - (0.2 + 0.5 - 0.004 * 1.2 - 0.004 * 2.4)) < 1e-12);
+  assert.throws(() => boutReturn(quiet, table({ swing: 0.1 })), /emptyStrokes/,
+    "a live swing row read a missing column");
+  // And it is the row's own name that comes back, for every column, so a reader is sent to the
+  // instrument rather than to the table.
+  for (const [row, column] of [["clinch", "clinchSeconds"], ["idle", "idleTravelMetres"],
+    ["tick", "seconds"], ["closing", "radialClosingMetres"], ["stall", "nearRangeStallSeconds"],
+    ["outside", "retreatOutsideReachSeconds"]]) {
+    const short = { ...quiet, emptyStrokes: 0 };
+    delete short[column];
+    assert.throws(() => boutReturn(short, table({ [row]: 1 })), new RegExp(column),
+      `${row} read a missing ${column}`);
+    // Zero coefficient, same missing column, no refusal: a table that does not charge for a thing
+    // has no business demanding it be measured.
+    assert.ok(Number.isFinite(boutReturn(short, BARE_REWARD)));
+  }
+  // A column present but not a number is the same failure and is refused the same way, because
+  // `undefined` times a coefficient is NaN and one NaN return poisons every mean it enters.
+  assert.throws(() => boutReturn({ ...quiet, emptyStrokes: 0, clinchSeconds: null }, GOLEM_REWARD),
+    /clinchSeconds/);
+  assert.throws(() => boutReturn({ ...quiet, emptyStrokes: 0, clinchSeconds: NaN }, GOLEM_REWARD),
+    /clinchSeconds/);
+});

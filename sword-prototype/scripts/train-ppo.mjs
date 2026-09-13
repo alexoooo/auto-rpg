@@ -183,7 +183,7 @@ import {
   entropyGrad, flooredVariance, freshNormalisation, freshPolicyTable, headSpecOf, logProbGrad,
   normalise, policyLayout,
 } from "../src/golem/policy.ts";
-import { GOLEM_REWARD, stepReward } from "../src/golem/reward.ts";
+import { GOLEM_REWARD, boutParts, stepReward } from "../src/golem/reward.ts";
 import { GOLEM_TACTICS_V4 } from "../src/golem/tactics-v4.ts";
 import { mulberry32 } from "../src/rng.ts";
 import { VIABLE_TERMINALS, viableMirror } from "../src/golem/viability.ts";
@@ -2069,6 +2069,7 @@ export async function ratePolicy({
   weights, logSigma, norm, league = PPO_LEAGUE, pool, seed, bouts, workers, cap,
   mirror = true, onProgress = null, terminals = VIABLE_TERMINALS,
   features = PILOT_FEATURES_DEFAULT, spec = GAUSSIAN_HEAD, tactics = null, pools = null,
+  reward = GOLEM_REWARD,
 }) {
   const wanted = pools === null ? [mirror ? "mirror" : "random"] : [...pools];
   for (const name of wanted) {
@@ -2107,19 +2108,27 @@ export async function ratePolicy({
       mirror: mirrored, viable: !mirrored, onProgress,
     });
     const { per, points, bar } = columnsOf(rows, names);
+    // Experiment T: what the objective every fit climbs pays each of the four, on the very bouts
+    // the criterion is read from. It is a third paired column beside the points and the bar, and
+    // it is the only column in this result that a *designed* mind can carry at all -- a rollout
+    // needs a policy to record and `golem-fencer` has none.
+    const { ret, returns } = returnColumns(rows, names, reward);
     const differences = {};
     for (const other of names) {
       if (other === FIT_NAME) continue;
       const p = points[FIT_NAME].map((x, i) => x - points[other][i]);
       const b = bar[FIT_NAME].map((x, i) => x - bar[other][i]);
+      const r = ret[FIT_NAME].map((x, i) => x - ret[other][i]);
       differences[other] = {
         points: meanOf(p), pointsSem: semOf(p),
         bar: meanOf(b), barSem: semOf(b), d: cohensD(b),
+        ret: meanOf(r), retSem: semOf(r), retD: cohensD(r),
       };
     }
     byPool[which] = {
       pool: which, mirror: mirrored, builds: builds.length,
-      per, names, results, points, bar, differences, behaviour: behaviourColumns(rows, names),
+      per, names, results, points, bar, ret, differences,
+      behaviour: behaviourColumns(rows, names), returns,
     };
   }
   // The first arrangement asked for is also the return's own top level, so every caller written
@@ -2166,6 +2175,75 @@ export function behaviourColumns(rows, names) {
       Object.entries(totals).map(([column, total]) => [column, per === 0 ? 0 : total / per])) };
   }
   return out;
+}
+
+/**
+ * What `GOLEM_REWARD` paid each contender over the same bouts the bar was read from.
+ *
+ * ## Why this is a column and not a summary
+ *
+ * The record's rule is that *a bar is stated on a paired column or it is not stated*, and this
+ * experiment does not get an exemption for being about the objective rather than about a mind.
+ * `evaluate` schedules every contender over the same pairings from the same seed, so bout `i` of
+ * one block met the same body under the same streams as bout `i` of every other, and the
+ * difference of two contenders' returns carries its own `sem` exactly as `bar` does. A mean of
+ * means would have thrown that away.
+ *
+ * ## Why it is taken off the row and not off a rollout
+ *
+ * `boutReturn` in `src/golem/reward.ts` argues this at length and the short form is: a designed
+ * mind writes no rollout, so the sum of `stepReward` over windows does not exist for the mind
+ * every bar in this record is stated against. Each row of the table is a coefficient on an
+ * accumulator that telescopes to the bout's own total, and `scripts/tournament-worker.mjs` writes
+ * all nine of those totals per side. **So the question costs no bouts and no recorder** -- which
+ * is a correction to the price Experiment Q put on this, made in the same file that pays it.
+ *
+ * ## The two things it returns
+ *
+ * `ret` is the paired column a contender, in schedule order, exactly as `columnsOf` builds
+ * `points` and `bar`. `returns` is each contender's mean of the *nine terms*, because the
+ * question `src/golem/reward.ts` actually asks -- *what fraction of the return did each penalty
+ * account for* -- is about the terms and not about the total. `absMargin` rides beside them
+ * because that question has two honest denominators and they disagree by an order of magnitude: a
+ * charge is small against a typical bout's margin *magnitude* and not small at all against the
+ * mean margin, and the mean is what a fit climbs.
+ */
+export function returnColumns(rows, names, table = GOLEM_REWARD) {
+  const per = rows.length / names.length;
+  if (!Number.isInteger(per)) throw new Error(`${rows.length} rows do not divide among ${names.length} contenders`);
+  const ret = {};
+  const returns = {};
+  for (let k = 0; k < names.length; k += 1) {
+    const name = names[k];
+    ret[name] = [];
+    const total = {
+      margin: 0, win: 0, clinch: 0, idle: 0, tick: 0, closing: 0,
+      stall: 0, outside: 0, swing: 0, shaped: 0, total: 0, absMargin: 0,
+    };
+    for (let i = 0; i < per; i += 1) {
+      const row = rows[k * per + i];
+      const me = row.left.policy === name ? "left" : "right";
+      if (row[me].policy !== name) throw new Error(`row ${i} of the ${name} block names neither side`);
+      const them = me === "left" ? "right" : "left";
+      const parts = boutParts({
+        vitality: row[me].vitality, theirVitality: row[them].vitality,
+        outcome: row.winner === null ? 0 : row.winner === me ? 1 : -1,
+        seconds: row.seconds,
+        clinchSeconds: row[me].clinchSeconds,
+        idleTravelMetres: row[me].idleTravelMetres,
+        radialClosingMetres: row[me].radialClosingMetres,
+        nearRangeStallSeconds: row[me].nearRangeStallSeconds,
+        retreatOutsideReachSeconds: row[me].retreatOutsideReachSeconds,
+        emptyStrokes: row[me].emptyStrokes,
+      }, table);
+      ret[name].push(parts.total);
+      for (const key of Object.keys(parts)) total[key] += parts[key];
+      total.absMargin += Math.abs(parts.margin);
+    }
+    returns[name] = { bouts: per, ...Object.fromEntries(
+      Object.entries(total).map(([column, sum]) => [column, per === 0 ? 0 : sum / per])) };
+  }
+  return { per, ret, returns };
 }
 
 /** Cohen's d of a paired column: its mean over its own standard deviation. */

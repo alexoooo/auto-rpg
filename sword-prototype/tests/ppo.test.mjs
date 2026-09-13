@@ -139,8 +139,8 @@ import {
   parseOpponentStage, parseSchedule, parseSeparationStage, parseTactics, parseTerminals,
   parseTerminalsStage, poolFor, poolWord, ppoFit, priceRollout, ratePolicy, ratingSeed,
   realisedMirrorShare,
-  renderPolicyModule, resumesOwnLog, rolloutPairs, scheduled, strokeTally, surrogateGrad,
-  surrogateObjective,
+  renderPolicyModule, resumesOwnLog, rolloutPairs, returnColumns, scheduled, strokeTally,
+  surrogateGrad, surrogateObjective,
 } from "../scripts/train-ppo.mjs";
 import { CONFIG } from "../src/config.ts";
 import { shardSlice } from "../scripts/fit-worker.mjs";
@@ -2456,4 +2456,64 @@ test("a_stroke_tally_counts_the_corners_that_were_recorded_and_not_the_bouts_the
     { strokesStarted: 0, aborts: 0, sides: 1, completion: 0 });
   assert.equal(strokeTally([{ left: side(516, 515) }], [{ bout: 0, side: "left" }]).completion,
     1 / 516);
+});
+
+/**
+ * The objective, as a paired column off the rating's own rows. Experiment T.
+ *
+ * Three claims, and the third is the one the experiment needs. **One:** the column is per bout in
+ * schedule order, so differencing two contenders differences two bouts that met the same body.
+ * **Two:** a contender is found on whichever side the schedule put it, which is what makes bout
+ * `i` of one block the same pairing as bout `i` of the next. **Three:** the means are of the
+ * *terms* and not only of the total, because `src/golem/reward.ts` asks a run what fraction of its
+ * return each penalty accounted for and that question cannot be answered from a total.
+ */
+test("the_return_column_prices_each_contender_bout_by_bout_off_the_rows_the_bar_is_read_from", () => {
+  // Two contenders, two bouts each, and the contender is `right` on one of them -- which is the
+  // swapped half of a pairing and is where a reader that assumes `left` goes quietly wrong.
+  const side = (over) => ({
+    clinchSeconds: 0, idleTravelMetres: 0, radialClosingMetres: 0,
+    nearRangeStallSeconds: 0, retreatOutsideReachSeconds: 0, emptyStrokes: 0, ...over,
+  });
+  const rows = [
+    { seconds: 10, winner: "left",
+      left: side({ policy: "fit", vitality: 0.8, clinchSeconds: 1, idleTravelMetres: 2 }),
+      right: side({ policy: "x", vitality: 0.3 }) },
+    { seconds: 20, winner: "left",
+      left: side({ policy: "x", vitality: 0.9 }),
+      right: side({ policy: "fit", vitality: 0.1, clinchSeconds: 3, idleTravelMetres: 0 }) },
+    { seconds: 10, winner: null,
+      left: side({ policy: "fencer", vitality: 0.5 }),
+      right: side({ policy: "x", vitality: 0.5 }) },
+    { seconds: 20, winner: "right",
+      left: side({ policy: "x", vitality: 0.2 }),
+      right: side({ policy: "fencer", vitality: 0.6, idleTravelMetres: 5 }) },
+  ];
+  const { per, ret, returns } = returnColumns(rows, ["fit", "fencer"], GOLEM_REWARD);
+  assert.equal(per, 2);
+  // Bout 0: margin +0.5, won, charged a second of clinch and two metres of idle.
+  assert.ok(Math.abs(ret.fit[0] - (0.5 + 0.5 - 0.004 * 3)) < 1e-12, `${ret.fit[0]}`);
+  // Bout 1: the fit is `right` and lost, margin -0.8, three seconds of clinch.
+  assert.ok(Math.abs(ret.fit[1] - (-0.8 - 0.5 - 0.004 * 3)) < 1e-12, `${ret.fit[1]}`);
+  // A draw pays no win term, which is the one term that is not a coefficient on a quantity.
+  assert.ok(Math.abs(ret.fencer[0] - 0) < 1e-12);
+  assert.ok(Math.abs(ret.fencer[1] - (0.4 + 0.5 - 0.004 * 5)) < 1e-12, `${ret.fencer[1]}`);
+  // The terms, averaged, and `absMargin` beside `margin` because the two denominators the record
+  // cares about disagree: the mean margin here is -0.15 and the mean of its magnitude is 0.65.
+  assert.ok(Math.abs(returns.fit.margin - -0.15) < 1e-12);
+  assert.ok(Math.abs(returns.fit.absMargin - 0.65) < 1e-12);
+  assert.ok(Math.abs(returns.fit.clinch - -0.004 * 2) < 1e-12);
+  assert.ok(Math.abs(returns.fit.idle - -0.004 * 1) < 1e-12);
+  assert.ok(Math.abs(returns.fit.shaped - (returns.fit.clinch + returns.fit.idle)) < 1e-12);
+  assert.ok(Math.abs(returns.fit.total - (ret.fit[0] + ret.fit[1]) / 2) < 1e-12);
+  assert.equal(returns.fit.bouts, 2);
+  // The shipped table charges four rows at zero, and a zero row is a zero term rather than an
+  // absent one -- a reader taking a share of the return needs all nine to add up.
+  for (const row of ["tick", "closing", "stall", "outside", "swing"]) {
+    assert.equal(returns.fit[row], 0, `${row} is not zero under the shipped table`);
+  }
+  // A block that names its contender on neither side is a scheduling mistake and not a number to
+  // average, which is `columnsOf`'s own refusal and is repeated here rather than assumed.
+  assert.throws(() => returnColumns(rows, ["fit", "nobody"], GOLEM_REWARD), /names neither side/);
+  assert.throws(() => returnColumns(rows, ["fit", "fencer", "x"], GOLEM_REWARD), /do not divide/);
 });

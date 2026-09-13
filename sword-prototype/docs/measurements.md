@@ -30398,3 +30398,47 @@ it.
 change computes a column from quantities already written, reaches no fit, takes no flag, and
 changes no bout: a rating run before it and a rating run after it are the same bouts at the same
 seeds, and the suite asserts that a run given nothing new is bit-identical to today's.
+
+### Experiment T, the instrument -- 2026-09-13: what landed, and the one clause of the registration that was wrong
+
+Four files, no bouts, and the gate green at 1,071 tests where it stood at 1,068.
+
+| what | where | why it is there and not somewhere else |
+| --- | --- | --- |
+| `boutParts` and `boutReturn` | `src/golem/reward.ts` | the table and the price of a bout belong in one file, and this file imports nothing so nothing can cycle |
+| `returnColumns` | `scripts/train-ppo.mjs` | beside `behaviourColumns`, off the same rows `columnsOf` builds the paired columns from |
+| `ret`, `retSem`, `retD` on every rating difference | `ratePolicy` | a bar is stated on a paired column, and so is this |
+| `returns` on every rating row and league rating line | `scripts/rate-snapshots.mjs`, `scripts/league.mjs` | every curve drawn from here carries what the objective paid, term by term |
+
+**The correction first, because the registration above got one clause wrong.** It closes *a rating
+run before it and a rating run after it are the same bouts at the same seeds, and the suite
+asserts that a run given nothing new is bit-identical to today's.* The first half is right and the
+second half is not a claim the suite makes. What Session 02 of the signal set asserts is that **a
+league naming no shape flag builds the same initial weights and hands a worker the same contender
+object** -- a claim about the bouts, which is the half that matters -- and nothing anywhere
+asserts that a log file is byte-for-byte what it was. It cannot, because this change **grows the
+log on purpose**: a rating row gains `returns` and every difference gains three fields. The bouts
+do not move, the bytes do, and the registration should have said so.
+
+**The gap between the two forms of the return is measured now and it is prediction 1's number.**
+The suite's telescoping test gained the row-side reading beside the window-side one, on the same
+real bouts it already ran, so the check costs nothing: the margin term agrees to 1e-9, the total
+agrees from **above** by less than 0.0016 of a bar, and under `BARE_REWARD` the two are equal to
+1e-9 because there is no charge for a remainder to differ over. That is the bound as registered
+and it holds on a real bout rather than on a fixture.
+
+**The refusal is a function of the table and not only of the row**, which is the part worth
+carrying to the next reader. `emptyStrokes` is absent for a mind with no fourth executor to
+publish one -- `scripts/tournament-worker.mjs` writes it absent rather than zero on the `arm`
+precedent -- so under the shipped table, whose `swing` row is zero, a designed mind's row prices
+cleanly, and under a swept table with a live `swing` row the same row is refused by name. A reader
+that demanded the column unconditionally could not have priced `golem-fencer` at all; a reader
+that defaulted it to zero would have said *swung at the air never* where the truth is *was never
+asked*.
+
+**What this does not do.** It reaches no fit and takes no flag. `stepReward` is untouched,
+`GOLEM_REWARD` is untouched, `mergeRollouts` and `priceRollout` are untouched, and a rollout is
+still priced window by window exactly as it was -- the new function is a second reading of the
+same objective on bouts the trainer never sees. The four `--reward-*` flags do not reach
+`ratePolicy` either: it takes the table as an argument defaulting to the shipped one, so a league,
+which refuses a moved table anyway, rates on the table it shipped.

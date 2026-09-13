@@ -211,12 +211,22 @@ export async function rateSnapshots({
         // carried it there and a reader with both in front of them should not have to know when
         // the field moved.
         mirror: on.mirror,
-        uniform: { bar: u.bar, sem: u.barSem, d: u.d },
-        driver: { bar: d.bar, sem: d.barSem, d: d.d },
-        ...(f === null ? {} : { fencer: { bar: f.bar, sem: f.barSem, d: f.d } }),
+        // `ret` beside `bar` on every baseline, since Experiment T. It is the paired difference
+        // in what `GOLEM_REWARD` -- the objective every fit in this record climbed -- paid the two
+        // contenders over these same bouts, and it is here because Q measured the objective and
+        // the criterion coming apart on one arm and nothing on any rating path could say whether
+        // the same thing was true of the mind the criterion names. Now every curve carries both.
+        uniform: { bar: u.bar, sem: u.barSem, d: u.d, ret: u.ret, retSem: u.retSem, retD: u.retD },
+        driver: { bar: d.bar, sem: d.barSem, d: d.d, ret: d.ret, retSem: d.retSem, retD: d.retD },
+        ...(f === null ? {} : { fencer: {
+          bar: f.bar, sem: f.barSem, d: f.d, ret: f.ret, retSem: f.retSem, retD: f.retD } }),
         // What the fit and the two baselines *did* over exactly these bouts, so a bar on the margin
         // and a bar on the behaviour are read off one set of bouts rather than two.
         behaviour: on.behaviour,
+        // And what the objective paid each of them, term by term. `behaviour` says what a mind did
+        // and this says what the table charged it for doing that, which are two different readings
+        // of one set of bouts and the second one had never been written down.
+        returns: on.returns,
         fit: on.results.fit,
       };
       rows.push(row);

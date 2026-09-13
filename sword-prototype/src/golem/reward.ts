@@ -200,3 +200,140 @@ export function stepReward(window: RewardWindow, T: RewardTable = GOLEM_REWARD):
 export const BARE_REWARD: RewardTable = Object.freeze({
   win: 0, clinch: 0, idle: 0, tick: 0, closing: 0, stall: 0, outside: 0, swing: 0,
 });
+
+/**
+ * One whole bout's return, taken off the row instead of off the rollout.
+ *
+ * ## Why this exists, and why it is not a convenience
+ *
+ * `stepReward` prices a window, and a fit's return is the sum of those windows. That sum needs a
+ * rollout, a rollout needs a recorder, and a recorder needs a policy with log-probabilities to
+ * record -- so **the sum does not exist for a designed mind**. `golem-fencer` is the mind every
+ * bar in this record is stated against and there is no arrangement of the rollout recorder that
+ * can say what `GOLEM_REWARD` pays it. That is the question Experiment T asks, and this is the
+ * only instrument that can ask it.
+ *
+ * What makes it possible is that `stepReward` is **linear in quantities that telescope**. Every
+ * row of the table is a coefficient on a per-window accumulator, and each of those accumulators is
+ * `EngagementTracker`'s own running total differenced ask to ask -- so summing the windows of a
+ * side gives back the bout's own totals, which `scripts/tournament-worker.mjs` writes on the row
+ * as `clinchSeconds`, `idleTravelMetres`, `radialClosingMetres`, `nearRangeStallSeconds`,
+ * `retreatOutsideReachSeconds` and `emptyStrokes`. The first term is Session 08's telescoping
+ * identity and comes back as the two `vitality` columns; the `win` term is a constant an episode
+ * and comes back as the winner.
+ *
+ * ## The one place the two forms disagree, stated here rather than discovered later
+ *
+ * They are **not** equal, and `tests/reward.test.mjs` has carried the reason since Session 13: a
+ * sample taken before the first ask belongs to no window, so the windows carry *at most* what the
+ * row reports and can fall short of each accumulator by a fraction of a unit. This form is
+ * therefore the **larger** of the two and is the honest one -- it prices the whole bout, where the
+ * rollout sum silently drops the sliver before the policy was first asked. Under `GOLEM_REWARD`
+ * that sliver is charged at 0.004 on two quantities and the gap is a thousandth of a bar; under a
+ * swept table with larger coefficients it is proportionally larger, and a reader comparing the two
+ * forms should expect a non-negative difference rather than a zero.
+ *
+ * Three terms agree exactly: the margin telescopes to 1e-9, the win bonus is the same constant,
+ * and `emptyStrokes` is *counted* rather than accumulated so a stroke that closed empty closed
+ * inside some window.
+ *
+ * ## What it refuses
+ *
+ * A row that does not carry a quantity whose coefficient is **non-zero** is refused by name. The
+ * alternative -- reading an absent column as a zero -- is the failure this record has already paid
+ * for twice: `emptyStrokes` is genuinely absent for a mind with no fourth executor to publish one,
+ * which is the row's own `arm` precedent, and a zero there would read as *swung at the air never*
+ * rather than as *was never asked*. Under the shipped table `swing` is zero, so a designed mind's
+ * row prices cleanly; under a swept table with a `swing` row it does not, and that is the correct
+ * answer rather than an inconvenience.
+ */
+export interface BoutAggregate {
+  /** This side's vitality at the end, and the other side's -- the margin, undifferenced. */
+  readonly vitality: number;
+  readonly theirVitality: number;
+  /** `+1` won, `-1` lost, `0` drawn, as the window marked `done` carries it. */
+  readonly outcome: number;
+  readonly seconds: number;
+  readonly clinchSeconds: number;
+  readonly idleTravelMetres: number;
+  readonly radialClosingMetres: number;
+  readonly nearRangeStallSeconds: number;
+  readonly retreatOutsideReachSeconds: number;
+  /** Absent for a mind with no executor to publish one, which is refused only if `swing` is live. */
+  readonly emptyStrokes?: number | undefined;
+}
+
+/**
+ * The nine terms and their total, because prediction 4 of Experiment T is about the terms.
+ *
+ * `shaped` is everything the table lays over the outcome -- the two penalties, the clock and the
+ * four rows Session 06 of the learn set added -- and it is the number `src/golem/reward.ts` asks a
+ * run to report: *the bar margin has to stay the term that decides, so a run reports what fraction
+ * of the return each penalty accounted for.* Returning it beside the rows it is made of is what
+ * lets a reader answer that without adding seven numbers up a second time somewhere else.
+ */
+export interface BoutParts {
+  readonly margin: number;
+  readonly win: number;
+  readonly clinch: number;
+  readonly idle: number;
+  readonly tick: number;
+  readonly closing: number;
+  readonly stall: number;
+  readonly outside: number;
+  readonly swing: number;
+  /** The seven charged-and-paid rows summed: everything but `margin` and `win`. */
+  readonly shaped: number;
+  readonly total: number;
+}
+
+/** Every charged row, the aggregate column it reads, and the sign the table publishes it at. */
+const BOUT_ROWS = [
+  ["clinch", "clinchSeconds", -1],
+  ["idle", "idleTravelMetres", -1],
+  ["tick", "seconds", -1],
+  ["closing", "radialClosingMetres", +1],
+  ["stall", "nearRangeStallSeconds", -1],
+  ["outside", "retreatOutsideReachSeconds", -1],
+  ["swing", "emptyStrokes", -1],
+] as const;
+
+/**
+ * What a table pays a side over one whole bout, row by row.
+ *
+ * The margin is `vitality - theirVitality`, which is what the windows telescope to; the win term
+ * is paid once; every other row is its coefficient on the bout's own total at the sign
+ * `RewardTable` documents. A coefficient of exactly zero contributes nothing and is not allowed to
+ * refuse a row -- that is what lets the shipped table price a designed mind whose executor
+ * publishes no `emptyStrokes`.
+ */
+export function boutParts(bout: BoutAggregate, T: RewardTable = GOLEM_REWARD): BoutParts {
+  const terms: Record<string, number> = {};
+  let shaped = 0;
+  for (const [row, column, sign] of BOUT_ROWS) {
+    const k = T[row];
+    if (k === 0) { terms[row] = 0; continue; }
+    const q = (bout as unknown as Record<string, number | undefined>)[column];
+    if (typeof q !== "number" || !Number.isFinite(q)) {
+      throw new Error(`the reward charges \`${row}\` at ${k} and the bout carries no \`${column}\``
+        + `, so its return cannot be priced; a row without the column is refused rather than read`
+        + " as a zero, which would say the quantity was zero and not that it was never asked");
+    }
+    const paid = sign * k * q;
+    terms[row] = paid;
+    shaped += paid;
+  }
+  const margin = bout.vitality - bout.theirVitality;
+  const win = T.win * bout.outcome;
+  return {
+    margin, win,
+    clinch: terms.clinch, idle: terms.idle, tick: terms.tick, closing: terms.closing,
+    stall: terms.stall, outside: terms.outside, swing: terms.swing,
+    shaped, total: margin + win + shaped,
+  };
+}
+
+/** The total alone, for a caller that wants the column rather than the breakdown. */
+export function boutReturn(bout: BoutAggregate, T: RewardTable = GOLEM_REWARD): number {
+  return boutParts(bout, T).total;
+}
