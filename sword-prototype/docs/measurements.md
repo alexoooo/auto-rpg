@@ -31502,10 +31502,126 @@ The mask ships live and reads nothing: `GolemDriven` gained two numbers, no defa
 22 tests of the fourth executor were green before and after.
 
 **And "no behaviour moved" is asserted against the tree and not against the test suite**, because
-three of tonight's six jobs were collecting bouts through this file while it was edited and a
+three of tonight's six jobs were collecting bouts through this file while it was edited, and a
 rating whose executor changed halfway is not a rating. The commit before the mask and the commit
 after it were each handed the same three mirrored sixty-second bouts of the shipped mind at the
 drawn read, seed 20260917, digested over both bodies' ground position, shoulder height and facing
 at every physics sample: **42,509 samples and the same SHA-256 either side**, f8bb647a. The old
-tree was reconstructed from git into a scratch directory rather than by editing the live one, so no
-running worker ever saw a half-written file.
+tree was reconstructed from git into a scratch directory rather than by editing the live one, so
+no running worker ever saw a half-written file.
+
+## Pre-registration -- 2026-09-13: the same collection priced with and without the terms the body never read
+
+Nothing below is a result. The instrument the entry above added -- a per-ask mask saying which of
+the twelve command fields the executor actually read -- has measured how many terms of a
+log-probability are dead and has not measured what removing them does to a gradient. **This says
+what will be collected, what will be computed, what each verdict is, and what the design could not
+have caught, before a bout is run.** Call it Experiment W.
+
+### The claim under test, stated so that it can fail
+
+A field the executor did not read on any step its command was in force could have been drawn
+anywhere without changing one number the body did. Given the state, that draw is independent of
+everything downstream of it, so the expectation of its score times the advantage is zero and the
+term contributes **variance and no expectation** to the step. The arithmetic says three things at
+once and they are separable, which is what makes this worth a cell rather than a paragraph:
+
+| quantity | what masking should do | why |
+| --- | --- | --- |
+| `\|S\|^2`, the dot of two half-gradients | **not move** | the expectation is unchanged; a zero-mean term removed is not a signal removed |
+| the half-gradients' norms, and so `K` | **fall** | the variance those terms carried is gone |
+| the half-to-half cosine, and so the floor | rise, and fall | the same signal over a smaller noise |
+
+**The first row is the falsifier and the second is the finding.** A mask that moves `|S|^2` is a
+mask that dropped a term the body did read, which is a bias and not a variance reduction, and this
+record would rather find that out on one cell than on a night of training.
+
+### The design, which costs one collection and prices it twice
+
+The gradient probe already separates collecting from pricing: a reward grid of sixteen tables
+costs one collection because a held policy's draws, observations and log-probabilities do not
+depend on the table. **A credit rule is free for exactly the same reason** -- the mask is a
+property of what the executor read, not of what the fit does with it -- so `whole` and `masked`
+are two prices over one set of bouts and the contrast is paired iteration by iteration.
+
+Two cells, both against `idle`, both from tournaments/bracket-idle/pool-30.json, both 128 bouts
+and 20 iterations at seed 20260917, differing only in `latchAbort`:
+
+| cell | latch | comparable to | `abort` is read on |
+| --- | --- | --- | ---: |
+| gradmask-idle-128 | off | Experiment I's unlatched idle cell: actor 789, `abort` 173 | 50.4 % of asks |
+| gradmask-latched-idle-128 | on | Experiment I's latched idle cell: actor 786, `abort` 718 | 14.1 % of asks |
+
+**The idle cell and not the fencer cell, and the reason is a rule this record wrote three sections
+ago**: a cell whose whole-actor `|S|^2` does not clear zero is not a cell to state a group-level
+prediction on, and nine independent readings of the fencer cell have produced one that clears. A
+mask cannot be measured where there is nothing to measure. **That the answer will therefore be
+about the idle cell and not about the criterion cell is a limitation of this experiment, and it is
+written here rather than in its discussion.**
+
+At the rates the last comparable cells ran -- 350.8 s an iteration unlatched against `idle` and
+220.9 s latched, both at 14 workers on a free host -- the two cells are **about 117 and 74
+minutes**, call it **3.2 hours**, and the second arm of each is free.
+
+### What is being changed to make it collectable
+
+`logProbGrad` gains an optional mask and skips the dimensions whose bit is clear; the rollout
+carries one integer a sample; the probe gains an arm that prices a collection under it. The
+shipped default is every bit set, which is the estimator that exists today, and prediction 1 is
+that the default reproduces it to the digit. **Nothing in the trainer changes and no fit is run.**
+
+**The mask of the last ask of a bout is nobody's to report** -- its window never closed -- and it
+is recorded as every bit set, which credits everything and pays variance rather than taking a
+bias. That is one ask in a few hundred and it is named here so it is not discovered in the
+discussion.
+
+### The predictions
+
+**1, the identity.** Priced with every bit set, the `masked` arm reproduces the `whole` arm's
+`cosine`, `dot`, `firstNorm`, `secondNorm`, `advantageSd` and critic cosine exactly -- 120 fields
+over each cell's twenty iterations, no digit different. A miss here voids the rest.
+
+**2, the whole actor, and this is the falsifier.** The masked arm's whole-actor `|S|^2` is inside
+two sigma of the whole arm's, on both cells, against the paired standard error over the twenty
+iterations. Registered as *no move*; a move is the falsifier and it fires as written.
+
+**3, the finding.** The masked arm's `K` over the whole actor is **lower** than the whole arm's on
+both cells, one-sided, against the paired standard error and at a two-cell family bar.
+
+**4, the head groups.** Ordering the twelve head groups by their `K` ratio between the arms, the
+six the executor reads conditionally -- `reach`, `commit`, `abort`, `bite`, `swing`, `parry` --
+occupy the six lowest places, and the four it reads on every step together with the two that reach
+the body through the crouch occupy the six highest. **A random ordering separates a named six from
+the other six 1 time in 924**, which is what this prediction is worth and is stated here so that
+nobody multiplies it by anything.
+
+**5, the latch.** `abort`'s `K` ratio between the arms is lower in the latched cell than in the
+unlatched one -- the row masked on 85.9 % of asks gains more than the row masked on 49.6 %.
+
+**6, the direction is the same direction.** The cosine between the whole masked gradient and the
+whole unmasked gradient, summed over each cell's twenty iterations, is above 0.95 on both cells.
+This is Experiment R's amended-statistic lesson applied in advance: two estimators of one
+direction should agree about the direction, and a pair that does not is not a variance reduction.
+
+### The null side, which every verdict owes
+
+Each verdict prints, beside itself, the smallest effect the design would have caught four times in
+five at the threshold it was read against -- `se * (threshold + 0.8416)`, the record's own
+approximation, measured at 77.4 % rather than 80 % on the two cells it has been checked on. **The
+paired standard error over twenty iterations is what makes this affordable**: the two arms see the
+same bouts, so the contrast's error is the error of a difference between two prices of one sample
+and not the error of two samples.
+
+**What this design cannot catch, named now:** an effect on a *trajectory*. Everything above is one
+step at one held checkpoint, which is the same limit the correction to Experiment T names for
+Experiments E and R. A masked estimator that is measurably sharper here has still not been shown
+to buy a single point of criterion, and the entry that reports this will say so before it says
+anything else.
+
+### What no outcome of this licenses
+
+**No default moves.** `logProbGrad`'s default stays every bit set, the trainer is untouched,
+`latchAbort` stays off, and no weights are regenerated. A confirmed prediction 3 licenses exactly
+one thing -- a registration for a fit under the masked credit, priced against the batch ladder
+Experiment U is measuring tonight -- and licenses it as a candidate for a night rather than as a
+change to anything shipped.
