@@ -23836,3 +23836,125 @@ in `ppoFit`'s signature and in both CLIs. A winning arm says what a horizon does
 **at a policy that never moved under it**, and the same caveat the reward grid carries applies
 here without a word changed: the estimator and the policy separate the instant the weights move.
 What a winning arm licenses is one training run, stated as its own bar.
+
+## Pre-registration -- 2026-09-13: which of the twelve head rows the gradient is about, written before the bouts
+
+Experiment I. Every cosine this record has published is taken over all **87,308** actor weights at
+once, and the two questions the signal set is left with are both about **one row of twelve**. Does
+the abort gate's own gradient carry a signal the sample can see? And is the entropy bonus, which
+the last commit measured at a thousandth of the whole step's length, large against *that row's*
+signal?
+
+A norm over the whole actor cannot answer either, and the arithmetic says why. A head output owns
+its weight row and its bias: 257 numbers, **0.294 %** of the actor. The three gates together are
+771 numbers, **0.88 %**. The whole head is 3,084, **3.53 %**. Anything that happens on the gates
+is invisible in a total, and the record has spent three sessions arguing about the gates from
+where the weights ended up -- the shipped table's gate logits are +0.062, -0.191 and +0.066 after
+ninety-three iterations -- rather than from what the gradient on them was.
+
+**What the instrument is.** `headRows`, `headGroups`, `headSignal` and `headNorms` in
+`scripts/gradient-probe.mjs` cut the last layer by the output each weight row and bias belongs to,
+named out of `COMMAND_AXES` and `COMMAND_GATES`. The same half-split, the same order, the same
+pool: nothing about the row's own numbers changes, and a held smoke at the `bracket-fencer`
+checkpoint reproduced the row it sat beside to the last digit -- cosine -0.01255289843834694 over
+the same 6,390 asks. The cut is reported on the row and not on the priced arms, which differ from
+the row by a reward table and not by a head.
+
+**The cut is the last layer only, and that is a limitation and not a simplification.** An output's
+own row and bias are unambiguously that output's; the two hidden layers are shared by all twelve
+and there is no honest way to attribute them. So every number below says what the *head* is being
+told, not what the network is. A row whose head gradient is pure entropy bonus is still being
+moved by the data through its hidden layers -- what it is not being moved by is anything that
+distinguishes it from its eleven neighbours, which is exactly the quantity a gate logit is.
+
+### The cells
+
+Four, and two of them cost nothing. The head cut landed before Experiment G's bouts, so **G's two
+cells carry it as a by-product** -- the unlatched `bracket-fencer` and `bracket-idle` checkpoints,
+20 iterations of 128 bouts each, seed 20260917. The two this experiment pays for are the same two
+checkpoints **with the abort gate latched**, which is the comparison the whole question turns on:
+
+| cell | checkpoint | opponent | `latchAbort` | iterations | comes from |
+|---|---|---|---|---|---|
+| unlatched fencer | `bracket-fencer` | `golem-fencer` | off | 20 | Experiment G, free |
+| unlatched idle | `bracket-idle` | `idle` | off | 20 | Experiment G, free |
+| latched fencer | `bracket-fencer` | `golem-fencer` | on | 40 | this experiment |
+| latched idle | `bracket-idle` | `idle` | on | 40 | this experiment |
+
+The two paid cells name **no reward arms and no horizon arms**. Seventeen half-splits an iteration
+is where 114 to 170 of the last grid's 153 to 227 seconds an iteration went, and the arms are not
+the question here -- Experiment E has already priced these very collections, because the probe's
+collection is a deterministic function of the seed, the checkpoint, the bout count, the opponent
+and the pool and is unaffected by `--rewards`. Dropping them buys forty iterations for less than
+the wall-clock of twenty, which is where the precision on a 257-number group has to come from.
+
+### The statistic, which is the one Experiment G fixed
+
+Per head group `h`, over the run's iterations, exactly as the row's own is taken:
+
+- `dot_h` estimates `|S_h|^2`, the squared length of the group's true gradient.
+- `(norm^2_h - dot_h) * n` estimates `K_h`, the per-bout noise power on the group.
+- **The floor, `K_h / (|S_h|^2 + 2 SE)`**, is the bouts-for-cosine-0.5 on that group alone. It is
+  finite for every group, carries the same optimism for all of them, and a ratio of two floors is
+  a statement about the two groups. The point estimate `K_h / |S_h|^2` is printed beside it and is
+  quoted only where the group's own `|S_h|^2` clears zero at two sigma.
+
+The bonus is quoted against `sqrt(|S_h|^2)` -- the fitted signal -- and never against the step's
+norm. Most of a step's length is the draw a fit averages away; the bonus is not, because it is the
+same vector every iteration.
+
+### Predictions, written before the bouts
+
+1. **The re-read reproduces what it re-reads.** The latched cells' first twenty iterations agree
+   with Experiment F's latched cells field for field on `cosine`, `dot`, `firstNorm`, `secondNorm`
+   and `advantageSd`. The collections are the same bits -- `seed ^ iteration` and nothing else
+   decides a bout -- so anything else means the head cut is not passive and nothing below is
+   readable. Iterations 21 to 40 are new collections and no identity is claimed for them.
+
+2. **The gates are the worst-served rows in the head.** On the unlatched fencer cell, each of the
+   three gate groups' floors is at least **twice** the median of the nine axis groups' floors.
+
+3. **The entropy bonus is a tenth or more of the abort row's signal, and exactly nothing on any
+   axis.** On the `abort` group, where `|S|^2` clears zero, `bonus / sqrt(|S|^2)` >= 0.10. On each
+   of the nine axes the bonus norm is **exactly** zero -- a Gaussian's entropy depends on its
+   spread and not on its mean -- which is what makes the gate figure a comparison rather than a
+   number. This half is an identity and is pinned by a test; it is written down so the other half
+   means something.
+
+4. **The latch moves the gate rows and leaves the axes alone.** Between the latched and unlatched
+   cells at the same checkpoint and opponent, the three gate groups' floors improve by at least
+   **2x**, and the median of the nine axis groups' floors moves by less than 2x in either
+   direction. A latch changes what a gate does to an episode; it does not change where a step is
+   aimed.
+
+5. **The abort row is not short of gradient because the whole actor is.** On the unlatched idle
+   cell -- where the row's own `|S|^2` clears zero at t 3.13 and the whole-actor floor is 748
+   bouts -- the `abort` group's floor is at least **4x** the row's own. If a group that is 0.294 %
+   of the actor were served in proportion, nothing about the gates would need explaining.
+
+### The falsifier
+
+**If the three gate groups' floors sit inside the range of the nine axis groups' floors on both
+unlatched cells, then the abort gate is not short of gradient relative to its neighbours**, the
+entropy bonus is not what holds its logit at a coin flip, and the signal set's finding 1 is a
+claim about the *body* -- a stroke surviving six independent Bernoulli draws -- with no optimiser
+story behind it at all. That would make `latchAbort` a fix for a compounding bug and not a fix for
+a blind gradient, and it would move the remaining suspect list to the score function itself.
+
+### The disclosure this entry owes
+
+The `heads` column is not in every cell of this record and the reason is chronology, not choice.
+Experiment E's two cells and Experiment F's two cells were collected **before** the head cut
+existed and carry no `heads` block; Experiment G's two cells and this experiment's two carry it.
+The instrument is passive -- verified against a held smoke that reproduced its row to the last
+digit -- so the cells remain comparable on every column they share, and no comparison below is
+made across that boundary except the identity in prediction 1, which is an identity on columns
+that predate it.
+
+### What no outcome of this licenses
+
+No default moves. `latchAbort` stays **off** in `GOLEM_TACTICS_V4` and the entropy coefficient
+stays at 3e-4 in both CLIs. A gate row starved of gradient at a held policy says what a fit's
+*first* step would have been made of; it says nothing about the fortieth, because the estimator
+and the policy separate the instant the weights move. What a starved gate row licenses is one
+training run with the entropy coefficient named as an arm, stated as its own bar before it is run.
