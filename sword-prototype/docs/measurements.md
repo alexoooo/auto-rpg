@@ -27631,3 +27631,58 @@ probe log, and no reader in this scratchpad reads both -- barfit has never seen 
 has never seen a rating point. It was demoted to a reading, which is a rule about how the entry gets
 written and not a threshold an instrument can hold, so it stays a rule. **Every other correction the
 audit registered is now computed by the reader that will report it.**
+
+## Experiment G, partial -- 2026-09-13: the two identities read early, and an embargo on everything else
+
+`gradhorizon-fencer-128.jsonl` finished at twenty iterations while the idle cell was not yet
+launched. **Experiment G's predictions 3, 4, 5 and its falsifier are all stated *on both cells* or
+*on either cell*, so the arm table stays unread until the idle half is on disk.** The idle cell was
+launched immediately -- same seed 20260917, same 128 bouts, same twenty iterations, same
+`horizon-arms.json`, `--from tournaments/bracket-idle/pool-30.json --opponent idle` -- and nothing
+in this section was looked at before it was running, so no reading here could have shaped it.
+
+Predictions 1 and 2 were read, and the reason is the reason they exist. Neither is a hypothesis
+about a horizon. Prediction 1 says *everything else rests on it*, and prediction 2 says in its own
+words that a disagreement *means the two grids cannot be read against each other*. If either had
+failed, the idle cell now in flight would be hours spent collecting a cell nothing can be read off.
+The read was made deliberately narrow to keep it that: a script that pulls the `shipped` arm and
+nothing else, never touching another label, printing two lines.
+
+| prediction | what it asks | over | result |
+|---|---|---|---|
+| 1 | `shipped` reproduces the row's own cosine, iteration by iteration | 20 iterations | **met, 20/20 exact** |
+| 2 | `shipped` reproduces Experiment E's `shipped` across two separate runs | 20 iterations x 5 fields | **met, all exact** |
+
+Prediction 2 is the stronger of the two and is the strongest determinism claim this record has made
+about the probe: `cosine`, `dot`, `firstNorm`, `secondNorm` and `advantageSd` agree **to the last
+digit** between `gradhorizon-fencer-128.jsonl` and `gradreward-fencer-128.jsonl` on all twenty
+iterations. Two separate runs with different arm lists -- seventeen credit horizons against sixteen
+reward tables, launched hours apart on the same day at the same seed -- and the collection
+underneath them is the same collection to the bit. The comparison is `!==` and not a tolerance,
+because an identity that held to fifteen digits and not sixteen would be a different claim with a
+different cause.
+
+That is what makes the two grids readable against each other at all, and it is what the horizon
+axis being free rests on: the pricing does not reach the rollout.
+
+### What is embargoed and why the count matters
+
+Everything else in that log. The seventeen arms, their floors, their cosines, the `vs shipped`
+column -- unread, and they stay unread until `gradhorizon-idle-128.jsonl` carries its twentieth
+iteration. That is not caution for its own sake. **Predictions 3, 4 and 5 each name a specific arm
+and a specific factor** -- `half-64` not clearing `shipped` by two on either cell, `half-64-lambda-100`
+clearing it by two against `idle`, `lambda-0` worst on both -- and an author who had seen the fencer
+half would be choosing, at the moment of writing, among readings of the idle half. The record's rule
+is that the reader decides whether a peek mattered rather than the author, so the honest thing is not
+to have one to disclose.
+
+The two identities are disclosed as an early read regardless, because the rule is disclosure and not
+judgement about whether it counted. What it cost is stated exactly: it is now known that the
+collection underneath the fencer cell is sound. Nothing is known about any horizon.
+
+And one thing worth recording that is not about G at all. The idle cell's launch collided with a
+second invocation of the same command, and the probe's own refusal -- *a probe does not append to
+another run's log* -- caught it. One process survived holding the log; the other died without
+writing a line. The refusal dates from the commit that introduced the probe, `69b4e43`. Without it
+the two would have interleaved twenty iterations into one file and the result would have been a log
+that parsed, carried the right number of rows, and was two runs.
