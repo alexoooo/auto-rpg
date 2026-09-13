@@ -27195,3 +27195,205 @@ of them are compared -- the pairwise arm differences at the end of a sweep -- st
 `bar` and quotes the two `d` values as context under a comment saying they are differences rather
 than a criterion. So the zero is a sentinel that cannot reach a verdict, it stays, and the
 paragraph above is a note for whoever writes the first ranking that sorts on it.
+
+## The audit -- 2026-09-13: the predictions themselves, against the rate a true null would pass them
+
+Experiment O's entry, two sections up, reports prediction 5 as missed and then says the
+interesting part is *how*: the bar was *nothing on this cell clears two sigma*, it ranged over
+twelve registered cells at seven degrees of freedom, and **a true null passes that conjunction
+only a third of the time.** The defect is in the pre-registration and not in the run. It was
+written by me.
+
+That is a defect with a property the reader audits did not have: it can only be fixed **before the
+data**. A prediction rewritten after its log is read is not a prediction. So the question of
+whether the same shape is in the pre-registrations that have *not* yet seen their data had to be
+asked tonight, while the measuring queue is still running, or not at all.
+
+This record carries **seventeen pre-registrations**. One -- Experiment O -- has a result. Of the
+other sixteen, six are the 2026-09-12 entries whose results are written into their own sections,
+and **ten are open with their logs unwritten.** Every prediction in those ten was read and
+classified below. Where a bar carries the defect, a corrected bar is registered here, dated, and
+**both are reported when the log lands**: the original is scored as written, because a
+pre-registration that can be edited is not one, and the corrected bar is scored beside it.
+
+### What was on disk when this was written, because the amendment is worth nothing otherwise
+
+Of the logs every amended bar below is stated on: `budget-128-rate`, `budget-256-rate`,
+`swing-quiet-rate`, `swing-loud-rate`, `swing-tenth-rate`, `graddir-idle-128`,
+`gradbase-fencer-128`, `gradconc-fencer-128`, `gradhorizon-idle-128`, `gradhead-fencer-128` and
+`latched-idle-rate` are **absent from disk**. Two related logs are on disk and were not read:
+`gradhorizon-fencer-128` at six lines, mid-collection, and `latched-fencer-rate` complete at
+thirteen. Neither was opened; the amendments below were derived from the pre-registrations, from
+the published tables of closed experiments, and from arithmetic.
+
+### The rate a true null passes each bar, which is the measurement this section is
+
+Every figure is the probability that a bar is *met* when the effect it is about is exactly zero.
+Slopes are read at 58 degrees of freedom over sixty iterations, probe quantities at 19 over
+twenty.
+
+| bar | cells | a true null passes it | what that makes it |
+| --- | ---: | ---: | --- |
+| O #5, none of 12 clears two sigma | 12 | **34 %** | measured: missed on one cell |
+| L #1, two arms differ by less than the larger standard error | 1 | **52 %** | exact equality fails it half the time |
+| L #3, the same equivalence over three arms | 3 | **14 %** | the claim it makes cannot pass it |
+| K #4, the best-slope arm is not the lowest-floor arm | 4 | **75 %** | a coin toss over four arms |
+| Q #2, the Spearman over the arms is below 0.5 | 8 | **91 %** | passes at a true rho of 0.8 one time in five |
+| R #1, one of 15 tables is below zero at two sigma | 15 | **37 %** | an existence claim at twelve times its nominal rate |
+| K #2, one of 4 arms clears a slope of t > +2 | 4 | **10 %** | four times its nominal 2.5 % |
+| N #3, no baseline of 5 clears zero at two sigma | 5 | 86 % | sound |
+| L #4, no arm of 3 clears a slope of t > +2 | 3 | 93 % | sound |
+| Q #1, one of 8 leagues raises `ret` at t > 3 | 8 | 2 % | sound, and conservative |
+
+**Four of the ten open pre-registrations carry a bar whose null rate was never computed** -- K, L,
+Q and R -- and the other six do not, which is worth saying as plainly as the four. The failure is
+not that every bar in this record is loose; it is that four shapes of bar were written without
+their null being worked out, and the working is two lines. A fifth shape, below, reaches five more
+of the ten. **Experiment H is the only one of the ten that this section leaves entirely alone**,
+and it is worth one line why: its existence claim ranges over two arms rather than fifteen, which
+is a family-wise 5 %, and its other three bars are properties and orderings rather than
+thresholds.
+
+### The four shapes, and the corrected bar for each
+
+**One: an existence claim quoted at its per-cell rate.** *At least one of K arms clears t > 2* is
+the right form for an existence hypothesis, and `t > 2` is the wrong threshold for it -- the
+family passes at `1 - (1-p)^K`, not at `p`. R's fifteen tables at `t > 2` is a family-wise 37 %,
+presented in the entry as *one instance is enough*.
+
+> **Registered 2026-09-13, beside the original.** K #2 is also read at **t > 2.29** and R #1 at
+> **t > 3.03**, the per-arm thresholds that hold each family at 5 %. Q #1's `t > 3` over eight
+> arms is already a family-wise 2 % and stands unchanged.
+
+**Two: an equivalence bar with no equivalence margin.** L #1 asks that two arms' slopes *differ by
+less than the larger of their two standard errors*. The difference of two arms has a standard
+error of `sqrt(2)` times either, which the bar does not count -- so **two arms that are exactly
+equal fail it 48 % of the time**, and L #3 extends the same bar to three pairs at once, where
+exact equality passes 14 %. **A bar that the claim it states cannot reliably pass is not a bar.**
+The correct form names a margin and asks the *interval* to fit inside it.
+
+> **Registered 2026-09-13, beside the original.** L #1 and L #3 are also read as: the 95 %
+> interval on each pairwise difference of slopes per thousand bouts lies within **+-2.77 standard
+> errors of the difference** of zero, which exact equality passes 95 % of the time. The
+> pre-registration's own arithmetic predicts a four per cent difference; the margin is stated in
+> standard errors rather than in units because the run's spread is not yet known, and that is
+> disclosed as the weakness it is.
+
+**Three: a bar the null cannot fail.** K #4 -- *the arm with the best paired bar slope is not the
+arm with the lowest probe floor* -- is passed by a random ordering of four arms three times in
+four. Q #2 -- *the Spearman correlation across the arms is below 0.5* -- is passed 91 % of the
+time at a true correlation of zero **and 21 % of the time at a true correlation of 0.8**, because
+eight arms give rho a null standard deviation of 0.38. Neither can distinguish the hypothesis it
+is about from its opposite.
+
+> **Registered 2026-09-13.** K #4 and Q #2 are **demoted to readings**. They will be reported with
+> their numbers and without a verdict, and nothing in either entry will be built on them. Q #2
+> additionally reports rho with its interval, which the original did not ask for.
+
+**Four: a null-side conjunction quoted without its power.** O #5's defect. N #3 and L #4 are the
+same shape and are sound -- 86 % and 93 % -- but neither states what effect it could have seen,
+which is the half of O #5's entry that turned an uninformative row at 0.02 into a stated
+limitation instead of a claim.
+
+> **Registered 2026-09-13.** N #3 and L #4 each additionally report, beside the verdict, the
+> effect size the run could have resolved at two sigma, exactly as Experiment O's fencer entry
+> does. A null with no power statement is reported as "not resolved" rather than as "not there".
+
+### The fifth shape, which is the one this record uses most and which needed measuring rather than arguing
+
+Ten of the open predictions are **floor ratios**: *arm X clears the shipped floor by a factor of
+two*, *the gate groups' floors are at least twice the axes' median*, *the easiest opponent's floor
+is at most a third of 3,796*. None of them states an interval, and the reason the record gives is
+one paragraph in Experiment G's pre-registration:
+
+> A floor is the optimistic read and it is the same optimism for every arm, so a ratio of two
+> floors is a statement about the arms rather than about which of them happened to have a
+> denominator near zero.
+
+**The first half of that is true and the second half is only true on a cell where every arm clears
+zero.** `floorConvention` returns `floor = K / (|S|^2 + 2 SE)` and `point = K / |S|^2`, and it
+returns `point: Infinity` whenever `|S|^2` is at or below zero -- so an arm's own optimism,
+`point / floor`, is not a constant. It is `1 + 2 SE / |S|^2`, which is small where the signal is
+large and **unbounded where the signal is not**.
+
+Measured on the two published cells of Experiment E's reward grid, sixteen arms each, recomputing
+every arm's own `K` from its own published floor and `|S|^2`:
+
+| cell | arms clearing zero | own optimism, smallest | largest | floor ratio as a share of the point ratio |
+| --- | ---: | ---: | ---: | --- |
+| idle | 16 of 16 | 1.26x | 1.65x | 88 % to 116 %, worst case `swing-loud` |
+| fencer | 0 of 16 | 2.40x | **unbounded, on 13 of 16** | **undefined: thirteen point estimates are infinite** |
+
+**On the idle cell the record's argument holds** -- the floor ratio is within 12 % of the point
+ratio on every one of sixteen arms, which is better than the bars that use it need. **On the
+fencer cell it does not hold at all.** The published `vs shipped` column there runs from 0.67x to
+2.20x, and it is a column of ratios between two-sigma edges of quantities that are, for thirteen
+of the sixteen arms, unbounded above. E's own entry says the right thing about the largest of them
+in words -- *one arm in sixteen at that t is what sixteen arms do* -- and the column above it
+still prints 2.20x as a number.
+
+**And the fencer cell is where the open bars are stated.** Experiment G's falsifier is *if no arm
+on either cell clears the shipped floor by a factor of two, the credit horizon is eliminated*,
+with seventeen arms; Experiment E already ran sixteen arms on that exact cell and **one of them
+reached 2.20x at t 1.43.** So the falsifier's own threshold has been cleared once, by noise, on
+the same checkpoint against the same opponent, before Experiment G collected a bout. That is not a
+prediction about horizons; it is a measurement of what sixteen arms do.
+
+> **Registered 2026-09-13, beside the originals.** Every floor-ratio bar in the ten open
+> pre-registrations -- G #3, G #4 and G's falsifier, I #2, I #4 and I #5, M #2 and M #4, N #1, P
+> #2 -- carries a verdict **only where both arms' `|S|^2` clears zero at two sigma**. Where either
+> does not, the ratio is reported as a reading and the entry's verdict is taken from the arms'
+> `|S|^2` and its `t` instead. The one exception is a bar against a **fixed** reference rather
+> than between two measured arms: M #2 compares against the literal 3,796, which is a lower bound
+> on the fencer floor, so a cell that clears the bar clears it against the true floor as well and
+> **`met` stands while `NOT met` is withheld**. Nothing else about any of those predictions moves:
+> the thresholds, the cells, the arms and the directions are as written.
+
+### The rule is in the readers now and not only in this section
+
+A rule that lives in a paragraph is a rule somebody has to remember. **Four readers state a floor
+ratio** and all four say it on their face now. Three print a ratio column -- armfit.mjs on the
+reward and horizon grids, basefit.mjs on the baseline grid, headfit.mjs on each gate against the
+axes' median -- and all three already carried a `*` marking an arm whose own `|S|^2` clears zero.
+**The mark is on the ratio too now, and only where both sides of it clear**, which for headfit
+also means no axis in the median is unbounded. An unmarked ratio is a reading; a marked one is a
+verdict; an entry cannot quote the wrong one without the log in front of it saying so.
+
+Verified as a pure addition against every gradient log on disk, three sweeps:
+
+| reader | logs swept | what changed |
+| --- | ---: | --- |
+| armfit | 10 | the sixteen arms of the **idle** reward grid gain the mark; nothing else, anywhere |
+| headfit | every `grad*` log | **one line**: `parry` on the latched idle cell, at 0.65x the axes' median |
+| basefit | its 3 fixtures | the six arms of the clean grid gain the mark; the mixed and single-arm fixtures are unchanged |
+
+**Not one ratio in the fencer reward grid earns the mark** -- sixteen arms, a `vs shipped` column
+already published in this record, and no ratio in it carries a verdict. Nor does any
+gate-against-axes ratio in the record except that one `parry` row. That is the finding above,
+printed by the instrument rather than argued.
+
+The fourth reader is ladderfit.mjs, and it is the interesting one because its bar is **one-sided
+rather than undecidable.** Prediction M #2 asks that the easiest paid opponent's floor be at most
+a third of `golem-fencer`'s 3,796 -- and 3,796 is the *fewest* bouts that cell's interval permits,
+its point estimate being unbounded. So the true fencer floor is 3,796 or anything larger: a cell
+coming in under a third of 3,796 is under a third of the true floor too, and **`met` is sound**; a
+cell coming in over it says nothing, and **`NOT met` is now withheld with the reason printed**
+rather than reported as a miss. The reader already withheld prediction 3 on an unbounded floor,
+which is where the shape of this fix came from. The branch is dormant -- one paid cell of five is
+on disk, and the reader withholds both ordering verdicts for that reason -- so it was exercised
+directly rather than through a log, on all three of its cases, and that is what "verified" means
+for it and no more.
+
+### What this section does not claim
+
+It does not claim any open experiment's result will change. Six predictions get a second threshold
+beside the first, two are demoted to readings, two more are asked for a power statement they did
+not ask for, and ten floor-ratio bars are told when they carry a verdict -- none of that is a new
+hypothesis, and most of those bars may well read the same on both scorings. It does not touch
+Experiment O, whose fencer entry is above and was written before this audit and stands as written.
+
+And it does not claim the audit is complete, for the reason the reader audits already established
+twice: **an audit finds the defect it has just been taught to look for.** This one was taught by a
+single missed prediction three hours ago. Four shapes were looked for and four were found; the
+shapes nobody has been taught yet are still in these ten files, and the only reason to believe
+otherwise would be that the last two audits ended differently, which they did not.
