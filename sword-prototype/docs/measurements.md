@@ -28642,3 +28642,81 @@ where it has been asked.
 Both corrected readers are byte-identical on intact input outside the lines in question: four
 bracket arms through objfit add exactly the one interval line, and barfit without `--ladder` is
 unchanged entirely.
+
+### Experiment G's reader, armed before its second cell lands
+
+The amendment check above asked whether a registered correction reaches the reader that owes it.
+The same question asked of a pre-registration's **predictions** rather than of its amendments has
+an answer for Experiment G, whose idle cell is four iterations from complete:
+
+**Predictions 3, 4, 5 and the falsifier are each a statement about named arms across two cells,
+and armfit.mjs reads one cell at a time and prints a ratio column.** Nothing in it says *met* or
+*missed* about any of the four. That is exactly the position Experiment H's entry was written from
+-- two predictions no reader computed, composed by hand out of two printouts -- and the lesson H
+wrote down was to arm the reader before the cells land. K's ladder was armed on that lesson last
+night. G's was not, and G lands first.
+
+**The arms are named on the command line and never inferred.** `--predict
+shipped,half-64,half-64-lambda-100,lambda-0` states the baseline and then prediction 3's, 4's and
+5's arms in the registration's own order; `--idle` says which cell is the idle one, because
+prediction 4 is stated against `idle` alone and a reader that took "whichever cell was typed
+first" would be inventing half the prediction. Four refusals cover the ways that can be got wrong,
+and a named arm no cell carries is reported as *not stated* rather than read off the arms that
+happen to be there.
+
+### Three things print beside every ratio, and each is here because the record was caught without it
+
+| beside the ratio | why |
+| --- | --- |
+| whether **both** arms clear zero | a floor whose own `\|S\|^2` does not is the two-sigma edge of an unbounded quantity, and a ratio of two of those is a reading |
+| the **same ratio at the point estimates**, as a percentage of the floor ratio | the registration's argument for floors is *the optimism is the same for every arm*, which this morning's audit measured at 88 % to 116 % on E's idle cell and **undefined** on its fencer cell |
+| what **sixteen arms did on this checkpoint before G ran** | E's fencer cell reached a `vs shipped` of 2.20x at t 1.43, which is G's falsifier threshold cleared by noise, on the same body against the same opponent |
+
+That third line is the one that changes how the entry will read. The falsifier says *if no arm on
+either cell clears the shipped floor by a factor of two, the credit horizon and the bootstrap are
+eliminated together.* The reader now prints, underneath whichever way it comes out:
+
+```
+    read against what this threshold is worth: 30 arms are compared to shipped here, and
+    Experiment E's fencer cell reached 2.20x at t 1.43 over sixteen arms on this checkpoint
+    against this opponent before this experiment collected a bout. A single arm at 2x is
+    what a grid this wide does; the falsifier is informative when it **fires** and is weak
+    evidence when it does not.
+```
+
+**The asymmetry in that sentence is the finding and it is not a new one.** A falsifier that fires
+over thirty arms is strong: thirty chances to clear 2x and none taken. The same falsifier *not*
+firing is one arm at 2x out of thirty, which E already produced out of sixteen. The
+pre-registration is scored as written either way; what the line adds is that the two outcomes are
+not equally informative, and it prints so that nobody has to remember it at the moment the entry
+is written.
+
+### What was verified, and on what
+
+The reward grid -- Experiment E's two published cells, sixteen arms each, **not Experiment G's** --
+with `no-win`, `stall` and `damage-only` standing in for G's three named arms, chosen so that each
+of the three verdicts comes out differently:
+
+```
+  prediction 3 -- `no-win` does not clear shipped's floor by 2x on either cell: **met**
+  prediction 4 -- `stall` clears shipped's floor by 2x against idle: **met** at 2.99x
+  prediction 5 -- `damage-only` is the worst arm on both cells and worse than shipped by 2x:
+    **missed** -- gradreward-idle-128: worst is `damage-only`, damage-only at 0.77x; ...
+  the falsifier -- ... **does not fire**: `stall` at 2.99x, `outside-loud` at 3.81x, ...
+```
+
+Prediction 5 is the useful one of the three: `damage-only` *is* the worst arm on the idle cell, and
+it is worse than `shipped` by 0.77x rather than by the factor of two the prediction names, so the
+conjunction is missed on its second half while its first half holds. A reader printing only "worst
+arm: damage-only" would have read that as met.
+
+And the caveat column fires on the fencer cell exactly where this morning's audit said it would:
+every one of the three ratios there prints *one of the two does not clear zero, so this is a ratio
+of two-sigma edges*, and the point ratio beside it is undefined -- because zero of sixteen arms on
+that cell clear zero, which was measured before G was launched and is now printed by the instrument
+rather than remembered by the reader.
+
+**None of this is Experiment G.** Its fencer cell is complete and under embargo, its idle cell is
+at eighteen lines of twenty-two, and no arm, floor, cosine or `vs shipped` of either has been read.
+The embargo stands as written: unread until `gradhorizon-idle-128.jsonl` carries its twentieth
+iteration.
