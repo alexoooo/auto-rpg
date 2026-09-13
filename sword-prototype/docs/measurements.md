@@ -28260,3 +28260,71 @@ kind the one before it was not looking for. The honest summary is that these rea
 swept for a mislabelled range, for a guard that answers zero, for a mark granted per-arm, and for a
 null without its resolution -- four passes, four different defects, and no reason at all to think
 the fifth pass would come back empty.
+
+### Experiment K's reader, armed before its third cell lands
+
+Experiment H's entry needed a reader written at the time of writing, because two of its four
+predictions were about quantities no reader in the set computed and would otherwise have been
+composed by hand out of two printouts. K is two cells away from landing and has the same problem,
+so it was checked now rather than at the moment the log appears.
+
+**K's predictions 1, 3 and 4 are about an ordering, and barfit.mjs prints a table of rows.** The
+registration asks whether strokes fall monotonically from `swing 0` to `swing 1.589`, whether the
+best bar slope is one of the two middle arms rather than an end, and whether the best bar arm is
+the arm the probe ranked first. A row cannot answer any of the three. Prediction 2 -- *at least one
+of four clears t > +2* -- it already answers, and answers with the family-wise threshold the
+2026-09-13 audit put under it.
+
+So barfit gained a `--ladder` mode. **The ladder is the order the arms are typed in**, because that
+is the order the registration states them in and inferring it from a coefficient buried in a
+directory name would be a reader guessing at an experiment's design. `--floors` takes the probe
+floors the registration quotes, in the same order, so prediction 4 compares two rankings the caller
+named rather than one the reader invented.
+
+**Nothing in the block is a t, and it says so.** An ordering over four arms has no standard error
+this reader could honestly attach, and inventing one would be worse than the omission. Each line is
+a reading of an ordering and the entry that quotes it will say the same.
+
+### The one line in it that is a statistic, and why it had to be
+
+An ordering picks a maximum whatever the data are. *The best bar slope is a middle arm* is true of
+four numbers drawn from a hat about half the time, and prediction 3 is stated on exactly that
+sentence. So the gap from the best rung to the second is printed with the standard error of the
+difference beside it, and where the two are inside two standard errors the reader says **the ladder
+names a largest number and not a best arm**.
+
+Exercised on the four bracket arms, which are not K's:
+
+```
+  the best paired bar slope is `bracket-fencer` at 0.0315 per 60 (t 1.81), rung 2 of 4
+    -- **a middle arm**
+    over `bracket-self` at 0.0182 by 0.0133 +-0.0285 (t 0.47) -- **inside two standard
+    errors, so the ladder names a largest number and not a best arm**
+```
+
+**On the bracket, prediction 3's shape comes out true and means nothing.** The best arm is a middle
+one, and it beats the next by 0.47 of a standard error. Had K's table looked like that and the line
+not been there, the entry would have reported a hump.
+
+### What was verified, and on what
+
+The striking branch needed three rungs carrying a stroke column and only two exist on disk, so it
+was exercised on three copies of `latched-idle` with `strokesStarted` scaled by 1, 0.62 and 0.40 --
+factors chosen in advance so the output could be checked against them rather than read:
+
+```
+  strokes started a side at the last iteration: 73.6 -> 45.7 -> 29.4
+    monotone: **falling**
+    the last rung strikes 0.400x the first -- **under half**
+```
+
+45.7/73.6 is 0.621 and 29.4/73.6 is 0.399, which are the factors back to three digits. The withheld
+branch was exercised on the bracket, whose league rows carry no stroke column at all: *at least one
+rung names no league directory, so the striking ordering is withheld rather than taken over the
+rungs that happen to carry one.* The `--floors` branch was exercised with four invented floors, and
+named the disagreement it was supposed to name.
+
+**None of this is Experiment K.** Its third cell is collecting and its fourth is queued behind it;
+no arm of the ladder has been read and the two that exist have been read only as Experiment H's,
+which is what they also are. What is established is that when the cells land the entry is a command
+line rather than an evening.
