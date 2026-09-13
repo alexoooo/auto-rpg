@@ -2774,6 +2774,53 @@ clause: **a difference of cosines is read only against arms of comparable signal
 is the ratio that is stated** -- and a ratio whose denominator is not distinguishable from zero is
 not stated at all, which is the same refusal the held row made of its own budget.
 
+### A statistic is stated against a null that was measured, or it is not stated
+
+Session 03 of the signal set, and it is a ruling rather than a measurement. It was earned three
+times in two days, by three errors that look unrelated and are the same error.
+
+**The step probe walked the wrong way.** Every gradient in this tree is a *loss* gradient --
+`surrogateGrad` accumulates `-adv * ratio * scale` times the score and `adamStep` subtracts -- so
+the improving direction is minus, and the probe as first committed walked plus. It ran eight
+evaluations, every one came back below its own start, monotonically in the step length, and it was
+the *cleanness* of that result rather than any suspicion about the code that prompted the check.
+Nothing in four hundred rows of this set could have caught it: every number the gradient probe
+publishes is a cosine, a dot of two halves, a norm or a ratio of those, and all four are invariant
+to negating both halves at once.
+
+**The concentration's null was argued and is not one.** The design says a ranking carrying no
+information keeps a near-uniform sample, so the kept set's dot is `p |S|^2`, its `K` is `p K`, and
+their ratio is unchanged at every `p`. That is right about `dot` and `K` and silent about the `2 SE`
+the floor convention carries, which falls as `sqrt(p)` and not as `p`. The suite *had* an assertion
+about this instrument's null -- that a disjoint ranking keeps a hundredth of the squared norm when
+it keeps a hundredth of the coordinates -- and that assertion is true and is about the selection
+being unbiased, which is a different quantity from the one the entry quotes.
+
+**And a prediction was stated on a column whose definition was assumed.** `bare` reads like the
+return without penalties and is the mean of the *absolute value* of `sum + charge`, a magnitude
+whose job is to be the denominator `share` is taken against. Nothing was wrong with the column. The
+prediction was about a quantity that does not exist.
+
+**What the three have in common** is not carelessness about assertions -- there were assertions in
+all three, and they were true. It is that in each case the published number was one step to the side
+of everything anybody had asserted, and the step was invisible because the two quantities share a
+name, a sign convention or a docstring. So:
+
+**A statistic is stated against a null that was measured on the same data, or it is not stated.**
+Not a null argued from the shape of the arithmetic, not a null inherited from a quantity that looks
+like this one, and not a null that holds in a limit the cell is not in. Where the null can be
+measured for the price of a second pass -- and it almost always can, because the expensive thing is
+the collection and not the arithmetic -- the instrument computes it on every row and prints it
+beside the number, so the reader divides rather than trusts. `concentrationWithNull` in
+`scripts/gradient-probe.mjs` is the worked example: the same halves, the same fractions, the same
+iterations, and a ranking that cannot know anything.
+
+**The corollary is about tests and it is the sharper half.** An assertion is about the quantity it
+names and about no other. A test that pins a share does not pin a ratio of floors; a test that pins
+a cosine pins nothing at all about a sign, because the cosine has none. Before an entry quotes a
+number, the question is not *is this instrument tested* but *which assertion is about this number* --
+and when the answer is none, that is the work, not a formality.
+
 ## The curve page as a window rather than a report
 
 `curve.html` was written to draw a run that had finished. Session 11 of the learn set runs one

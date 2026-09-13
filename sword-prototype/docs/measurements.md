@@ -25433,3 +25433,55 @@ prices a designed mind under `GOLEM_REWARD` directly -- which needs an instrumen
 `decisionRecorder` captures the two bars, the clock and the end flag but none of the six shaped
 quantities the table charges for. That change is named here so that the cost of the follow-on is
 on the record before its result is.
+
+### Correction to prediction 4, and the column it was stated on
+
+**`bare` is not the return without penalties.** `episodeReturns` accumulates each episode's reward
+and its charge separately and pushes `sum + charge` into `bares`, then returns the mean of the
+**absolute value** of those -- a magnitude, whose only job is to be the denominator `share` is
+taken against. It is not a signed quantity, it does not decrease when a policy is charged less,
+and the slope of it over a run is not a statement about margin. Prediction 4 as written asks it to
+be one.
+
+**What replaces it.** `penaltyShare` -- the same `share`, written on every league row -- is what
+prediction 4 was reaching for: the fraction of an episode's magnitude that is penalty rather than
+margin. If the rise in `ret` is the fit learning to stop being charged rather than learning to
+fight, `penaltyShare` **falls** over the run. That is the mirrored-telescoping mechanism stated on
+a column that can carry it, and `penaltyRows` breaks the same denominator into its seven named
+charges so the fall can be attributed rather than merely observed.
+
+**Prediction 4, restated.** On the arms where prediction 1 fires, `penaltyShare` falls over the
+run with a slope clearing zero at two sigma, and the largest single contributor to the fall is one
+of the two rows minimised by standing still outside reach -- `clinch` or `idle`. If `penaltyShare`
+is flat or rising while `ret` rises, the return is being earned on margin after all and the
+mechanism named at the top of this pre-registration is wrong, whatever prediction 1 does.
+
+**What this was found by, and what had been read.** It was found by reading `episodeReturns` to
+check what the column meant before quoting it, which is a thing that should have happened before
+the prediction was written and did not. By then the re-analysis arm had been read -- the long
+league's `ret` slope and its two paired-bar slopes, which are reported as re-analysis below and
+carry no bar. **No prospective arm has been read at all**, so prediction 4 is prospective on all
+seven of them.
+
+**And this is the third of its kind in two days**, which is worth saying once rather than three
+times. The step probe walked the descent direction under the name of the ascent one; the
+concentration's null was argued to be one and is not; and prediction 4 was stated on a column
+whose definition was assumed. In all three the error survived because nothing in the record was an
+assertion about the quantity actually being published. The rule that falls out of them is in
+`docs/design.md` and it is the one this set should be read against from here.
+
+**And a share is not a charge, which bounds what prediction 4 can conclude.** `penaltyShare` and
+every entry of `penaltyRows` are taken over the same denominator, `penalty + bare`, so a row that
+rises can be a charge that grew or a margin that shrank and a league row cannot separate the two.
+The absolute per-episode charge is computed by `episodeReturns` and is **not** written to a league
+row, so this experiment reads the share or it reads nothing. That is a real limit and it is stated
+before the arms are read rather than after.
+
+**The re-analysis arm already contradicts prediction 4's direction, and the prediction is not
+being edited to fit it.** On the long league `penaltyShare` **rises** at t 3.47 while `ret` rises
+at t 11.71, and the whole of the rise is the `idle` row at +0.0034 per sixty iterations against
+`clinch` at -0.0008 -- so the return improved while the charge for standing still grew, which is
+not what a fit learning to stop being charged looks like. The attribution is nonetheless exactly
+the row the mechanism names. Prediction 4 stands as written for the seven prospective arms,
+because a prediction rewritten to match the one arm its author has already read is not a
+prediction.
