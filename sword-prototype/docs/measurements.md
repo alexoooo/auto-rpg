@@ -28160,3 +28160,103 @@ half-written idea kept alive by a `void`. That is the same thing barfit.mjs was 
 night, and leaving one in a reader while adding a section about honest nulls would have been its
 own small joke. The comparison it was reaching for needs every arm's bar before it can be made,
 which is why it belongs in the footer and could not have worked where it stood.
+
+## The null-side sweep -- 2026-09-13: all sixteen readers, and a verdict printed over zero bouts
+
+Three entries today have ended with the same correction reached for a third time, one reader at a
+time, each after the reader in question had already been read. That is the pattern the reader audit
+complained about in its own closing paragraph -- *an audit finds the defect it has just been taught
+to look for* -- and doing it a fourth time reactively would be the same mistake with better
+manners. So: all sixteen readers, at once, against one question.
+
+**Does this reader print a verdict that can come out "did not clear", "holds", "flat" or "not met",
+without printing what it could have caught?**
+
+Five already answered it -- armfit, headfit, dirfit, basefit and barfit gained the line this
+morning, ladderfit and the new probefit were written with it. objfit gained it an hour ago and the
+entry above says what that caught. Of the remaining eight, six print no verdict of that shape at
+all: boutfit, classfit, latchfit, pricefit, rewardfit and stepfit read and report, and stepfit's
+only threshold is an estimator's choice between a point estimate and a conservative edge, which the
+mark sweep already looked at and left alone for the same reason. **Two did.**
+
+### concfit, whose prediction 1 is *a cell that does not clear*
+
+Experiment P's prediction 1 is about a cell whose `|S|^2` does **not** clear zero at two sigma, and
+prediction 2 is gated on the same quantity clearing t 3. Both a firing and a non-firing cell are
+read off one number and neither said what twenty iterations behind it could resolve. It prints both
+thresholds now, at two sigma and at the t 3 the gate names. On the two fixtures the reader was
+audited against:
+
+| fixture | the row at one | would catch at two sigma | at t 3 |
+| --- | --- | --- | --- |
+| spiked | 7.768e-1 at t 17.41 | 1.268e-1 | 1.714e-1 |
+| flat | 8.077e-1 at t 25.98 | 8.833e-2 | 1.194e-1 |
+
+Both cells sit six to nine times their own resolution, so on the fixtures the gate is not close and
+the line changes nothing. It is there for the cell that lands at t 2.8, which is the cell
+prediction 1 is written about.
+
+### cornerfit, which said *the corner null holds* and did not say over what
+
+The corner null is *the left corner wins as often as the right one*, and a null that holds is the
+whole point of it. It now prints the lean it would have caught four times in five -- a binomial
+proportion over hundreds of decided bouts, so the normal approximation is the right one here and
+the constant is 1.96 rather than a threshold read off degrees of freedom, which is not true of the
+twelve-point slopes elsewhere in this set.
+
+**And running it to check that line found something else.** On
+`20260907T0830-1-golem-guardian+golem-fencer.jsonl` -- 8 bouts, 4 of them the same mind in the same
+body, every one of the four a draw -- the reader printed this:
+
+```
+  **the corner null MISSES at z NaN**: the right corner wins NaN points more often
+  than the other over 0 bouts between two copies of one mind in one body
+```
+
+A share of 0/0 is NaN, `Math.abs(NaN) < 2` is false, and the comparison fell through to the
+**MISSES** branch. **A verdict over zero bouts, in bold, naming a corner.** It is the third instance
+today of one shape: a non-finite statistic failing a comparison and landing on the other side of
+it. The first was ladderfit's Pearson, where a constant column read as *prediction 3 met*; the
+second was its NaN falling through to *split*; this is the third. Fixed the same way, with a branch
+that withholds by name rather than a guard that answers a number.
+
+The published corner reading is unchanged by any of this, which was checked rather than assumed:
+the whole corpus still reads 54.8 % to the left over 542 decided bouts, five of six minds favouring
+the left, exactly as recorded.
+
+### What the new line says about that published reading, which is worth a paragraph of its own
+
+The corpus reads a lean of **4.80 points at z 2.23**, and the same corpus would catch a lean of
+**6.02 points** four times in five. The detection stands -- z 2.23 is past two sigma and the
+finding was reported as such. What the line adds is that **a fresh corpus of this size would
+reproduce it about 61 % of the time** if 4.80 points is the true lean.
+
+That is not a retraction and it is not a correction. It is the number a reader needs to know how
+much weight the corner section carries, and it was not available before because nobody had asked
+what 542 decided bouts can see. The corner section's own conclusion -- that the effect is small,
+that it cancels in a balanced swap, and that the places it could reach a published number were
+each checked -- is unaffected. What changes is that "the left corner takes 54.8 %" should be read
+as a result at the edge of what this corpus resolves, not as a settled constant.
+
+### The shape of the thing, now that it has been found five times
+
+| where | the verdict that was free | what was missing |
+| --- | --- | --- |
+| Experiment O, prediction 5 | reported missed | the row could resolve 0.53 sigma |
+| Experiment H, prediction 3 | scored on a 2-point threshold | the comparison could catch 7.72 points |
+| Experiment Q, prediction 1 | *disconnected* | the rating path could not see the bar |
+| Experiment P, prediction 1 | *does not clear at two sigma* | what the cell could clear |
+| the corner null | *holds* | the lean it would have caught |
+
+**Every one is a claim about an absence, and an absence is the one kind of claim that cannot be
+checked against the thing itself.** A signal carries its own error. A null carries nothing, and
+takes whatever confidence the reader brought. The five above were each written by somebody who
+knew that in the abstract, which is why the rule is now a line of code in nine readers rather than
+a paragraph anybody has to remember.
+
+**What the sweep does not reach.** It asks one question of sixteen files and answers it; it does
+not make any of them correct, and three separate audits in two days have each found defects of a
+kind the one before it was not looking for. The honest summary is that these readers have now been
+swept for a mislabelled range, for a guard that answers zero, for a mark granted per-arm, and for a
+null without its resolution -- four passes, four different defects, and no reason at all to think
+the fifth pass would come back empty.
