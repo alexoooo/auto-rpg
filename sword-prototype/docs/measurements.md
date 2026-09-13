@@ -28990,3 +28990,165 @@ in fifty-five.
 `explained`, `kl` and `epochsRun` are null in all forty rows. The -0.790 that prediction 5's
 reasoning rests on is the calibration's number, at a different checkpoint, and is quoted here as a
 prior rather than as a measurement of these cells.
+
+## Experiment I, partial -- 2026-09-13: the abort gate is one of the best-served rows in the head, and the hypothesis said it was the worst
+
+Experiment I's two unlatched cells **are** Experiment G's two cells -- free by design, as its cell
+table registered -- so the embargo lifting on `gradhorizon-idle-128.jsonl` made four of its six
+verdicts readable in the same minute. They were read with the reader armed for them one commit ago:
+
+```
+node headfit.mjs --unlatched-fencer tournaments/gradhorizon-fencer-128.jsonl
+  --unlatched-idle tournaments/gradhorizon-idle-128.jsonl
+```
+
+**The two paid cells are not read.** `gradheads-fencer-128.jsonl` is at six iterations of forty and
+the latched idle cell has not started. Nothing of either has been opened, and the same embargo G
+carried applies to them: unread until forty. Prediction 4 and prediction 1 are stated on them and
+print **not stated** below, which is the reader saying what it has not got rather than what it
+found.
+
+### The four verdicts the free cells carry
+
+| # | as registered | verdict | the number |
+| --- | --- | --- | --- |
+| 2 | each gate's floor is >= 2x the median of the nine axes', unlatched fencer | **missed, and in the opposite direction** | commit 0.76x, abort 0.75x, parry 1.77x |
+| 3a | the bonus is >= 10 % of `abort`'s signal where that signal clears | **missed** | 0.9 %, on the one cell where it clears |
+| 3b | the bonus is exactly zero on every axis | **met** | 9 axes, both cells, exactly zero |
+| 5 | `abort`'s floor is >= 4x the row's own, unlatched idle | **missed, and in the opposite direction** | 0.22x |
+| -- | the falsifier: all three gates inside the axes' range on both cells | **does not fire** | on the letter, by `parry` alone, on one cell |
+| 1, 4 | the identity, and the latch's effect | **not stated** | the paid cells are at 6 of 40 and unread |
+
+### The idle cell, which is the one with anything in it
+
+| group | cosine | `\|S\|^2` | t | floor | against the axes' median (973) |
+| --- | --- | --- | --- | --- | --- |
+| `standOff` | +0.3865 | 2.851e-3 +-4.73e-4 | **6.02** | **144** | -- |
+| `abort` | +0.3495 | 1.171e-4 +-2.10e-5 | **5.56** | **173** | **0.18x** |
+| `advance` | +0.2015 | 1.098e-3 +-3.67e-4 | **2.99** | 265 | -- |
+| `strafe` | +0.0991 | 5.407e-4 +-2.69e-4 | 2.01 | 487 | -- |
+| `reach` | +0.0213 | 2.022e-4 +-3.01e-4 | 0.67 | 654 | -- |
+| `commit` | +0.0146 | 5.260e-6 +-1.58e-5 | 0.33 | 822 | 0.84x |
+| `swing`, `targetHeight`, `lean`, `bite`, `targetLateral` | -0.042 to +0.021 | -- | -0.95 to +0.39 | 973 to 2923 | -- |
+| `parry` | -0.0682 | -2.144e-5 +-1.58e-5 | -1.36 | 3853 | 3.96x |
+
+Three of the twelve groups clear the cut's family threshold of t 2.93 -- `standOff`, `advance` and
+**`abort`**. The abort gate is **the second-strongest cosine in the head**, behind the stand-off
+distance and ahead of every other axis, on 257 of the actor's 87,308 numbers.
+
+**Prediction 5 is wrong by a factor of eighteen and wrong in direction.** It asked whether `abort`'s
+floor is at least four times the whole row's, on the reasoning that a group at 0.294 % of the actor
+served in proportion would need no explaining. The measurement: `abort` 173 bouts, the row 789.
+**The abort row is 4.6x better determined than the whole actor it sits in.**
+
+**Prediction 2 is wrong in the same direction.** Two of the three gates are cheaper than the median
+axis on the fencer cell (0.76x and 0.75x, where 2x the other way was predicted), and on the idle
+cell `abort` is 0.18x of it.
+
+**Prediction 3a is missed by an order of magnitude, on the cell where the question is askable.** The
+entropy bonus is **0.9 %** of `abort`'s fitted signal on the idle cell. The story it was written to
+test -- *the entropy bonus is what holds the gate logits at a coin flip* -- is not what this cell
+shows; the bonus is a hundredth of what the data is telling that row.
+
+**If any gate is short of gradient it is `parry`**, at 3853 bouts, 3.96x the axes' median, the only
+one of the six gate readings outside the axes' range at all, and the only negative-cosine gate on
+either cell. The experiment was designed around `abort` and the one gate that looks starved is the
+one nothing in the signal set was about.
+
+### The fencer cell, where the head cut says the same thing the whole actor said
+
+**Zero of the twelve groups clear t 2.93.** The largest is `standOff` at t 1.27; `abort` reads
+1.028e-5 +-1.91e-5, t 0.54. Experiment G measured no actor gradient against `golem-fencer` at 128
+bouts at the whole-actor level, and the head cut adds the part a total could not: **it is not
+hiding in one row.** No group has it. Every floor on that cell is the two-sigma edge of a quantity
+whose point estimate is infinite, and the reader now says so on its own line rather than leaving
+the reader of the table to notice that no line carries a `*`.
+
+### The falsifier, scored as written and read beside it
+
+As written it does not fire: `parry`'s floor on the idle cell, 3853, is above the largest axis
+floor there (2923, `targetLateral`), so the three gates do not all sit inside the range on both
+cells. **One reading of six, on the gate the hypothesis was not about, in the direction of being
+worse served.**
+
+What the falsifier was written to license is *the abort gate is not short of gradient relative to
+its neighbours*, and every one of the six readings says exactly that: `abort` is 0.75x and 0.18x of
+its neighbours' median, and 4.6x better determined than the whole actor. **The letter of the
+falsifier and the substance of it disagree, and the letter is what gets scored** -- so it is
+recorded as not firing, with the six readings printed beside it, and the sentence it was to license
+is supported by the numbers rather than by the verdict.
+
+The reader prints what the shape is worth underneath either outcome: a named group among ten is
+outside the other nine's range by chance 20 % of the time, so six gate readings landing inside is
+the ordinary outcome and this falsifier is informative when it does **not** fire -- the opposite way
+round from Experiment G's. That asymmetry was registered one commit before the cells were read, and
+it is doing work here: the not-firing is the informative outcome and it arrived on one gate of six.
+
+### The pre-registration quoted a mid-collection read of the cell it scores against, and this is measurable
+
+Prediction 5 names its baseline in a parenthesis: *the unlatched idle cell -- where the row's own
+`\|S\|^2` clears zero at t 3.13 and the whole-actor floor is 748 bouts*. The completed cell reads
+**t 4.60 and 789 bouts**, and Experiment E's idle cell -- the same collection, dot for dot, all
+twenty iterations -- reads the same. So where do 3.13 and 748 come from? The cell, read at
+**fourteen of its twenty iterations**:
+
+| iterations | 9 | 12 | 13 | **14** | 16 | 18 | 20 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| the row's own t | 2.04 | 2.37 | 2.74 | **3.13** | 3.84 | 4.25 | 4.60 |
+| the whole-actor floor | 789 | 821 | 789 | **748** | 723 | 768 | 789 |
+
+Exact on both numbers. **A pre-registration quoted a partial read of a cell that one of its own
+predictions is scored against**, at a moment when the embargo this record wrote three entries later
+would have forbidden opening it. The verdict does not move -- 173 against 748 is 0.23x where 173
+against 789 is 0.22x, and the prediction asked for 4 -- but the practice does, and the same table
+shows why: the t on that cell wanders from 4.64 at four iterations to 1.36 at six and back to 4.60
+at twenty. **A number read mid-collection is not the cell's number**, and quoting one inside a
+registration puts a moving quantity into a document whose whole value is that it does not move.
+
+**Registered amendment.** Any number a pre-registration quotes from a cell that is still collecting
+names the iteration count it was read at, in the registration, beside the number. Nothing else about
+Experiment I changes and its predictions are scored exactly as written.
+
+### Two defects in the reader, found by running it on real cells an hour after it was armed
+
+**Prediction 3a divided by a denominator the same table refuses to quote.** The registration states
+the gate half *where `\|S\|^2` clears zero*, the reader's own comment said so -- and the code guarded
+on `S.m > 0`, the **sign of a point estimate**, which is not a verdict. On the fencer cell `abort`
+reads 1.028e-5 +-1.91e-5: positive, t 0.54, indistinguishable from nothing. The block divided by its
+square root and printed **missed at 2.2 %**. It reads per cell now, only where the group clears the
+cut's own threshold, naming the cell and the t in either direction -- which is how the honest
+reading, 0.9 % on the idle cell, came out at all.
+
+That is the same defect shape as *a reader that fills a missing field with a default cannot refuse
+the log that is missing it*, one level up: **a guard that tests the sign of a quantity cannot
+enforce a rule about the significance of it.** Two of this evening's five reader defects have now
+been a comment that was right and a line of code that was not.
+
+**A cell where nothing clears said so nowhere.** The fencer cell's twelve rows carry no `*` and a
+reader had to notice the absence. It prints `0 of the 12 groups clear t 2.93 -- every floor below is
+the two-sigma edge of a quantity whose point estimate is infinite` now, once a cell, before any
+ratio is taken off it.
+
+Both changes verified against the before-image on a bare path: `gradlatch-idle-128` through both
+readers differs by exactly the one added clear-count line. The refusal sweep is unchanged at 36 of
+38, the two misses being the known tripwires.
+
+### What no measurement here can reach
+
+**The latch, which is the comparison the experiment is about.** Predictions 1 and 4 need the two
+paid cells and they are at 6 of 40 and 0 of 40. Nothing here says what latching the gate does to
+the gate's own gradient.
+
+**The hidden layers.** The cut is the last layer only: an output's own weight row and bias. A row
+whose head gradient is small is still being moved through two shared hidden layers, and there is no
+honest way to attribute those. Every number above says what the **head** is being told.
+
+**A policy that never trained under any of this.** Both cells are taken at the `bracket-fencer` and
+`bracket-idle` checkpoints with the weights held. The estimator and the policy separate the instant
+the weights move, and nothing here is a claim about a fit.
+
+**Why the strokes do not finish.** Stroke completion on these two unlatched cells is 4.4 % and
+1.8 %, and on Experiment F's published latched cells at the same checkpoints it is 44.2 % and
+47.9 %. The abort gate having a strong, well-determined gradient and the body finishing one stroke
+in twenty-three against `idle` and one in fifty-five against `golem-fencer` are both true here, and
+this experiment does not join them: **it says the gradient on that row is not what is missing.**
