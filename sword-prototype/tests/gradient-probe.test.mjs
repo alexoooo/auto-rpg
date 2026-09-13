@@ -292,6 +292,39 @@
 // gradient block that nothing downstream reads. It is caught, once, by
 // `a_concentration_keeps_the_coordinates_its_ranking_range_scored_highest`, and it is written down
 // here so that the rider test is not read as covering more than it does.
+//
+// ## The null the concentration is read against, and why it is measured rather than argued
+//
+// The design this instrument was built on says its ratio has a null of exactly one and needs no
+// calibration: a ranking carrying no information keeps a near-uniform sample, so the kept dot is
+// `p |S|^2`, the kept `K` is `p K`, and their ratio is unchanged. That is right about `dot` and `K`
+// and **silent about the `2 SE`** the record's floor convention carries in its denominator, which
+// falls as `sqrt(p)` and not as `p`. The published ratio therefore lands well below one on a vector
+// whose signal is spread evenly through every coordinate -- a vector with no concentration in it at
+// all -- and the closed form `sqrt(p) (t + 2) / (sqrt(p) t + 2)` says how far below.
+//
+// **Nothing in this file could have caught that**, and the reason is worth naming because it is the
+// second time this set has hit it. `a_ranking_that_saw_a_measured_half_finds_a_concentration_in_
+// pure_noise_and_a_disjoint_one_does_not` asserts a null of one on the **squared-norm share**,
+// which is a statement about the selection being unbiased; the quantity the entry quotes is the
+// floor ratio, and no assertion here was about that. An instrument can be surrounded by true
+// assertions and still publish a number none of them is about.
+//
+// `concentrationWithNull` ranks a second table on noise -- same halves, same fractions, same
+// iterations, a ranking that cannot know anything -- so whatever the `2 SE` term does to the real
+// table it does to this one and their quotient has a null of one with no model in it.
+//
+// | mutation | what went red |
+// |---|---|
+// | the null ranks on the very vector the concentration ranked on | both null tests |
+// | the null ranking is held still across the iterations instead of redrawn | the seed test |
+// | the null ranking is flat, so the sort keeps the first coordinates in order | all three |
+//
+// **The second row is why there are two tests and not one.** Holding the null still moves the
+// spread fixture's quotient from 1.008 to 1.082, which is wrong and is well inside the tolerance a
+// quotient measured on twelve iterations can honestly carry, so the cell test cannot see it. It is
+// caught on the structure instead -- the null column moves with the seed and the ranked column does
+// not -- and that split is the same one the rider table above records.
 import test from "node:test";
 import assert from "node:assert/strict";
 
@@ -312,9 +345,9 @@ import {
   CLASS_AXES, CONCENTRATION_FRACTIONS, PROBE_ENTROPY, PROBE_EPOCH, askBouts, askClasses,
   askPositions, baselineOf, boutBlocks, boutGradients, checkHeldStart, classBlocks,
   concentrationSignal, cosineOf, dotOf, epochOrder, groupedMeans, halfGradients, halfSplit,
-  headGroups, headNorms, headRows, headSignal, linearBaseline, mcReturns, measureBonus,
-  measureSignal, normOf, parseClasses, probeRollout, rewardArms, shareOf, solveCholesky,
-  thirdGradients, thirdSplit, wholeGradient,
+  concentrationWithNull, headGroups, headNorms, headRows, headSignal, linearBaseline, mcReturns,
+  measureBonus, measureSignal, normOf, nullRanking, parseClasses, probeRollout, rewardArms, shareOf,
+  solveCholesky, thirdGradients, thirdSplit, wholeGradient,
 } from "../scripts/gradient-probe.mjs";
 
 const SEED = 20260917;
@@ -2076,6 +2109,172 @@ test("a_ranking_that_saw_a_measured_half_finds_a_concentration_in_pure_noise_and
   assert.ok(shareOf(peeked) > 2 * shareOf(honest),
     `a ranking that peeked kept ${(shareOf(peeked) * 100).toFixed(2)} % against the disjoint `
     + `ranking's ${(shareOf(honest) * 100).toFixed(2)} %`);
+});
+
+// ---------------------------------------------------------------------------------------
+// The null the concentration is read against, which the design argued and this asserts.
+// ---------------------------------------------------------------------------------------
+
+/**
+ * One cell's worth of concentration rows: `iterations` independent draws of two measured halves and
+ * a ranking, over a signal this caller chooses the shape of.
+ *
+ * `carriers` is how many of the coordinates carry the signal. At `length` every coordinate carries
+ * the same magnitude and there is no concentration anywhere; below it there is, and the further
+ * below the more.
+ */
+function concentrationCell({ length, iterations, carriers, scale, seed }) {
+  const random = mulberry32(seed);
+  const gauss = () => {
+    let u = 0;
+    while (u === 0) u = random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * random());
+  };
+  // The same total `|S|^2` however few coordinates carry it, so the cells below differ in where the
+  // signal is and not in how much of it there is.
+  const perCarrier = scale * Math.sqrt(length / carriers);
+  const signal = new Float64Array(length);
+  for (let k = 0; k < carriers; k += 1) signal[k] = perCarrier * (random() < 0.5 ? -1 : 1);
+  const rows = [];
+  for (let i = 0; i < iterations; i += 1) {
+    const ranking = new Float64Array(length);
+    const first = new Float64Array(length);
+    const second = new Float64Array(length);
+    for (let k = 0; k < length; k += 1) {
+      ranking[k] = signal[k] + gauss();
+      first[k] = signal[k] + gauss();
+      second[k] = signal[k] + gauss();
+    }
+    rows.push(concentrationWithNull({ ranking, first, second, seed: (seed + i * 7919) >>> 0 }));
+  }
+  return rows;
+}
+
+/**
+ * The restricted floor as the entry publishes it, for one `p` and one of the two rankings.
+ *
+ * `K` is `(norm^2 - dot) * n` and the floor is `K / (|S|^2 + 2 SE)`, with the standard error taken
+ * across the iterations exactly as every other interval in this set is. `n` cancels out of every
+ * ratio below and is here only so the arithmetic is the arithmetic the reader runs.
+ */
+function floorAt(rows, index, ranked) {
+  const dots = rows.map((r) => (ranked ? r[index].dot : r[index].nullDot));
+  const mean = dots.reduce((a, b) => a + b, 0) / dots.length;
+  const se = Math.sqrt(dots.reduce((a, b) => a + (b - mean) ** 2, 0)
+    / (dots.length - 1) / dots.length);
+  const norm2 = rows.reduce((a, r) => a + (ranked
+    ? (r[index].firstNorm ** 2 + r[index].secondNorm ** 2) / 2
+    : (r[index].nullFirstNorm ** 2 + r[index].nullSecondNorm ** 2) / 2), 0) / rows.length;
+  return ((norm2 - mean) * 128) / (mean + 2 * se);
+}
+
+/** The published ratio at one `p`: the restricted floor over the floor the row at one reports. */
+function ratioAt(rows, index, ranked) {
+  return floorAt(rows, index, ranked) / floorAt(rows, rows[0].length - 1, ranked);
+}
+
+/**
+ * The measurement's null is **not** one, and the null column is what makes that harmless.
+ *
+ * The design's argument is that a ranking carrying no information keeps a near-uniform sample, so
+ * the kept dot is `p |S|^2`, the kept `K` is `p K`, and their ratio is unchanged. That is right
+ * about `dot` and `K` and silent about the `2 SE` the floor convention carries, which falls as
+ * `sqrt(p)` and not as `p` -- so the published ratio lands well below one on a vector with the
+ * signal spread evenly through every coordinate, which is a vector with no concentration in it at
+ * all. Nothing in this suite could have caught that: the noise test above asserts the null on the
+ * **squared-norm share**, which is a statement about the selection being unbiased, and the ratio
+ * the entry quotes is a different quantity.
+ *
+ * So both halves are asserted here. The first cell spreads the signal over every coordinate and the
+ * ranked ratio comes back far enough below one to have been read as a discovery; its null comes
+ * back with it, and the quotient of the two is one. The second cell puts the same total `|S|^2`
+ * into a two-hundredth of the coordinates, and the quotient separates. **The ranked column alone
+ * cannot tell those two cells apart and the quotient can**, which is the whole reason the null is
+ * measured on every cell rather than argued once.
+ *
+ * **And the quotient is one at a `p` of 0.1 and not at every `p`, which the last assertion pins.**
+ * The real ranking keeps the *loud* coordinates and the null ranking keeps *average* ones, and a
+ * coordinate can be loud because it carries signal or because it is noisy. A noisy one adds to `K`
+ * and not to `|S|^2`, so the ranked floor is pushed up by an amount the null does not share, and
+ * the further into the tail the selection reaches the larger that is -- on this fixture the flat
+ * cell's quotient is one at a `p` of 0.1 and above three at a `p` of 0.01. It is asserted as a
+ * **direction** rather than a size: the drift is upwards, so a quotient below one understates the
+ * concentration it found and can never manufacture one. That is why the entry's headline is stated
+ * at a `p` of 0.1 and the two rows inside it are reported as conservative.
+ */
+test("a_concentration_and_its_null_fall_together_when_the_signal_is_in_every_coordinate_and_apart_when_it_is_not",
+  { timeout: 300_000 }, () => {
+    const shape = { length: 20_000, iterations: 12, scale: 0.12 };
+    const flat = concentrationCell({ ...shape, carriers: shape.length, seed: 20260917 });
+    const packed = concentrationCell({ ...shape, carriers: shape.length / 200, seed: 20260917 });
+    const tenth = CONCENTRATION_FRACTIONS.indexOf(0.1);
+
+    // The artifact, stated first, because an assertion that the fix works is worth nothing without
+    // one that says there was something to fix.
+    const flatRanked = ratioAt(flat, tenth, true);
+    assert.ok(flatRanked < 0.9,
+      `a signal in every coordinate read ${flatRanked.toFixed(3)} at a p of 0.1, which is the `
+      + "null the design said was one");
+
+    // And the null falls with it, which is what makes the quotient readable.
+    const flatQuotient = flatRanked / ratioAt(flat, tenth, false);
+    assert.ok(Math.abs(flatQuotient - 1) < 0.15,
+      `a signal in every coordinate read ${flatQuotient.toFixed(3)} against its own null`);
+
+    const packedQuotient = ratioAt(packed, tenth, true) / ratioAt(packed, tenth, false);
+    assert.ok(packedQuotient < 0.5,
+      `the same |S|^2 in a two-hundredth of the coordinates read ${packedQuotient.toFixed(3)} `
+      + "against its own null");
+    assert.ok(packedQuotient < flatQuotient - 0.3,
+      `a packed signal read ${packedQuotient.toFixed(3)} against a spread one's `
+      + `${flatQuotient.toFixed(3)}, and the two should not be close`);
+
+    // The residual bias, asserted as a direction: deeper into the tail the quotient drifts up, so
+    // a cell that reads below one at a p of 0.01 found more than it said and never less.
+    const hundredth = CONCENTRATION_FRACTIONS.indexOf(0.01);
+    const flatDeep = ratioAt(flat, hundredth, true) / ratioAt(flat, hundredth, false);
+    assert.ok(flatDeep > flatQuotient,
+      `a spread signal read ${flatDeep.toFixed(3)} at a p of 0.01 against `
+      + `${flatQuotient.toFixed(3)} at a p of 0.1, and the drift should be upwards`);
+  });
+
+/**
+ * The null a concentration is read against comes from the seed it was handed.
+ *
+ * `concentrationWithNull` is called once an iteration with a seed that already varies, so a null
+ * that ignored the seed would hold one kept set still across all twenty while the ranked column
+ * re-chose its own every time. That is the mutation the test above does **not** catch -- holding
+ * the null still moves the spread fixture's quotient from 1.008 to 1.082, which is wrong and is
+ * inside the tolerance a quotient measured on twelve iterations can honestly be asserted at. So it
+ * is pinned here instead, on the structure rather than on the number: the ranked column does not
+ * move with the seed and the null column does.
+ */
+test("a_concentration_takes_its_null_from_the_seed_it_was_handed_and_its_ranking_from_the_vector", () => {
+  const random = mulberry32(4242);
+  const length = 3_000;
+  const ranking = Float64Array.from({ length }, () => random() - 0.5);
+  const first = Float64Array.from({ length }, () => random() - 0.5);
+  const second = Float64Array.from({ length }, () => random() - 0.5);
+  const one = concentrationWithNull({ ranking, first, second, seed: 11 });
+  const other = concentrationWithNull({ ranking, first, second, seed: 12 });
+  const again = concentrationWithNull({ ranking, first, second, seed: 11 });
+  const tenth = CONCENTRATION_FRACTIONS.indexOf(0.1);
+  assert.deepEqual(again, one);
+  assert.equal(other[tenth].dot, one[tenth].dot);
+  assert.notEqual(other[tenth].nullDot, one[tenth].nullDot);
+  // And the two kept sets are the same size, which is what makes them comparable at all.
+  assert.equal(one[tenth].kept, other[tenth].kept);
+});
+
+/** The null ranking is drawn fresh each iteration, because a ranking held still moves less. */
+test("a_null_ranking_differs_from_one_iteration_to_the_next_and_is_the_same_for_one_seed", () => {
+  const a = nullRanking(512, 11);
+  const b = nullRanking(512, 12);
+  const again = nullRanking(512, 11);
+  assert.deepEqual(Array.from(again), Array.from(a));
+  let same = 0;
+  for (let k = 0; k < a.length; k += 1) if (a[k] === b[k]) same += 1;
+  assert.ok(same < 8, `two null rankings shared ${same} of 512 coordinates`);
 });
 
 /** Fractions that do not climb through zero to one are refused rather than silently reordered. */

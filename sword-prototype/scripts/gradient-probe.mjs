@@ -259,6 +259,7 @@ import { initWeights, netSize } from "../src/golem/neural-net.ts";
 import { PILOT_FEATURES_DEFAULT } from "../src/golem/pilot.ts";
 import { ACTION_AXES, POLICY_VERSION, freshNormalisation, normalise } from "../src/golem/policy.ts";
 import { GOLEM_REWARD } from "../src/golem/reward.ts";
+import { mulberry32 } from "../src/rng.ts";
 import { COMMAND_AXES, COMMAND_GATES } from "../src/golem/tactics-v4.ts";
 import { PARAM } from "./fit-worker.mjs";
 import { meanOf, semOf } from "./train-learner.mjs";
@@ -414,6 +415,88 @@ export function concentrationSignal({
     });
   }
   return rows;
+}
+
+/** A vector of noise to rank on, which is what a ranking that cannot know anything looks like. */
+export function nullRanking(length, seed) {
+  const random = mulberry32(seed);
+  const noise = new Float64Array(length);
+  for (let k = 0; k < length; k += 1) noise[k] = random() - 0.5;
+  return noise;
+}
+
+/**
+ * The concentration beside the null it is read against, measured on this cell rather than argued.
+ *
+ * ## Why the null is not one, which the design said it was
+ *
+ * The argument this measurement was built on is that a ranking carrying no information keeps a
+ * near-uniform sample of coordinates, so the kept set's dot is `p |S|^2`, its `K` is `p K`, and
+ * their ratio is unchanged at every `p`. That argument is about `dot` and `K` and it is **right
+ * about them**. It is silent about the `2 SE` this record's floor convention carries in its
+ * denominator, and `2 SE` does not scale the way `dot` does: the dot over a tenth of the
+ * coordinates is a tenth of the whole dot, and its iteration-to-iteration standard error is about
+ * a **third** of the whole one, because a sum over `p N` terms has a standard deviation going as
+ * `sqrt(p N)`. A ratio whose numerator falls by `p` and whose denominator falls by `sqrt(p)` is
+ * not one.
+ *
+ * Written out, the null of the published ratio is `sqrt(p) (t + 2) / (sqrt(p) t + 2)`, which
+ * reaches one only as `t` grows without bound. On a signal of constant magnitude in every
+ * coordinate -- no concentration anywhere, by construction -- over this actor's own 87,308
+ * coordinates and twenty iterations, the ratio at a `p` of 0.1 reads **0.35** at a `t` of 0.7,
+ * **0.56** at 3.4, **0.77** at 12.9 and **0.94** at 42.8, and the closed form above tracks every
+ * one of those to a few hundredths. A bar of 0.5 at a `p` of 0.1 on a cell clearing `t` 3 is
+ * therefore a bar sitting six hundredths from where a vector with nothing in it lands.
+ *
+ * ## What this function does instead
+ *
+ * It ranks a second table on **noise**: the same two halves, the same fractions, the same
+ * iterations, the same everything, and a ranking that cannot know anything. Whatever the `2 SE`
+ * term does to the real table it does to this one, so their quotient has a null of one with no
+ * model in it at all -- and the closed form above stops being a correction that has to be trusted
+ * and becomes a prediction the null column can be checked against.
+ *
+ * The noise is drawn **fresh each iteration**, seeded off the epoch seed which already varies, and
+ * that is not a detail. The ranked column's kept set is re-chosen every iteration, because the
+ * third range's gradient is re-taken every iteration; a null whose kept set is held still differs
+ * from the ranked column in something other than what its ranking knows, and a null that differs
+ * in anything else is not the null. Measured on a fixture with the signal in every coordinate,
+ * redrawing puts the quotient at **1.008** against a true value of one and holding still puts it
+ * at **1.082**, so the error is towards reporting less concentration than there is. It is an error
+ * in either direction and the size of it was not obvious from the shape of the arithmetic, which
+ * is the reason it is measured here rather than reasoned about.
+ *
+ * ## What it still cannot separate, and which way that cuts
+ *
+ * The gradient ranking prefers coordinates whose gradient is large, and a coordinate can be large
+ * because it carries signal or because it is noisy. A noisy one adds to `K` and not to `|S|^2`, so
+ * selecting it pushes the ranked floor **up** and the quotient towards one and past it. The bias
+ * is conservative -- it can hide a concentration and it cannot manufacture one -- and a random
+ * ranking does not control for it, because a random ranking keeps an average coordinate where the
+ * real one keeps a loud coordinate.
+ */
+export function concentrationWithNull({
+  ranking, first, second, seed, fractions = CONCENTRATION_FRACTIONS,
+}) {
+  const ranked = concentrationSignal({ ranking, first, second, fractions });
+  const nulled = concentrationSignal({
+    ranking: nullRanking(ranking.length, (seed ^ 0x3c6e_f372) >>> 0), first, second, fractions,
+  });
+  return ranked.map((row, k) => {
+    // Same fractions over the same length, so the two kept sets are the same size and the quotient
+    // below compares a set with a set rather than a set with a different-sized one.
+    if (nulled[k].kept !== row.kept) {
+      throw new Error(`the null kept ${nulled[k].kept} coordinates where the ranking kept `
+        + `${row.kept} at a p of ${row.fraction}`);
+    }
+    return {
+      ...row,
+      nullDot: nulled[k].dot,
+      nullFirstNorm: nulled[k].firstNorm,
+      nullSecondNorm: nulled[k].secondNorm,
+      nullCosine: nulled[k].cosine,
+    };
+  });
 }
 
 /**
@@ -919,15 +1002,18 @@ export function probeRollout({
   });
   // Sixth, and off unless a run asks for it. Three more steps over the same rollout is a third
   // again on the row's probe time, and a grid of seventeen arms does not want to pay it for a
-  // reading that is about the weight vector rather than about the table. Absent rather than null
-  // when it was not asked for, so a run without the flag writes the row it wrote before this
-  // existed and two such runs stay comparable field for field.
+  // reading that is about the weight vector rather than about the table. The two sorts and two
+  // accumulation passes `concentrationWithNull` adds on top of that are microseconds against a
+  // collection measured in minutes, which is why the null is measured on every cell rather than
+  // once on a cell chosen to stand for the others. Absent rather than null when it was not asked
+  // for, so a run without the flag writes the row it wrote before this existed and two such runs
+  // stay comparable field for field.
   const where = concentration === false ? null : (() => {
     const [ranked, second, third] = thirdGradients({
       pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order, clip,
     });
-    return concentrationSignal({
-      ranking: ranked.actor, first: second.actor, second: third.actor,
+    return concentrationWithNull({
+      ranking: ranked.actor, first: second.actor, second: third.actor, seed,
     });
   })();
   return {
