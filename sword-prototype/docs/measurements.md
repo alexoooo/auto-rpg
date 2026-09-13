@@ -23763,6 +23763,245 @@ their job and cannot be read because the stroke does not survive. `latchAbort` f
 gate and touches none of the nine, so a latched cell that does not move the actor's budget now
 falsifies a sharper claim than the one it was written against.
 
+## The latch -- 2026-09-13: the gate was not the reason, and the one arm it makes legible
+
+Experiment F. Two cells of 20 iterations at 128 bouts with `latchAbort=true`, held throughout,
+sixteen reward tables priced over each collection: `bracket-fencer` pool-30 against `golem-fencer`
+and `bracket-idle` pool-30 against `idle`, fit seed 20260917, the maul-and-mace viable pool,
+mirrored bodies, 14 collectors, 4 shards. The logs are gradlatch-fencer-128.jsonl and
+gradlatch-idle-128.jsonl under tournaments. **The control is not re-collected**: it is
+gradbout-fencer-128.jsonl and gradbout-idle-128.jsonl for the floors, and
+gradreward-fencer-128.jsonl and gradreward-idle-128.jsonl for the arms, which carry the same
+checkpoint, seed, bout count, opponent and pool and differ from these cells in one boolean, and
+whose identity with each other was established field for field in the entry above.
+
+**The headline in one line: the latch bought a quarter where the pre-registration asked for a
+half, so the falsifier fires -- and the same latched cell contains the only actor gradient against
+`golem-fencer` anywhere in this record that clears zero, under an arm that was not the shipped
+table.**
+
+### The property first, because nothing below means anything without it
+
+A league row now carries what its corners did with a stroke, and one of the two controls carries
+it too, so for the `idle` pair the property is a paired measurement rather than an appeal to a
+smoke test.
+
+| cell | strokes started | completion |
+| --- | --- | --- |
+| unlatched idle, gradreward-idle-128 | 423,155 | 0.0435 |
+| latched idle | 206,240 | 0.4420 |
+| latched fencer | 118,396 | 0.4788 |
+
+**A factor of 10.2 on the same flags, the same seed and the same checkpoint.** And the second
+column is the mechanism the rest of this entry needs: the latched body starts **half** as many
+strokes and finishes **five times** as many of them -- 91,151 against 18,420 -- because a stroke
+that is not abandoned occupies the arm for half a second. The row does in a 128-bout collection
+exactly what it does in an eight-bout smoke.
+
+### Prediction 1, the collection: met against the fencer, missed against the dummy
+
+Asks a bout were predicted to fall by at least 5 % in both cells. Against `golem-fencer` they fall
+**436.66 against 459.73, a fall of 5.02 %** -- met on the third significant figure, against the
+eight-bout peek's 15 %. Against `idle` they **rise 1.1 %**, 650.81 against 643.51, and the
+prediction is missed.
+
+The prediction's own stated reason is why. It said *a bout that lands strokes ends sooner*, and
+that is a mechanism which needs a bout that can end. The fencer cell decides 0.86 of its bouts;
+the idle cell decides **0.48** of them, so half of its bouts run out the clock whatever the arm is
+doing, and against those the only effect the latch has is the one the table above measures -- an
+arm that is busy for half a second instead of free to start another stroke. The two forces cancel
+to 1.1 % and the prediction was written as though only one of them existed.
+
+The rest of both collections moved the way a body that finishes its strokes should move. Against
+the fencer: `decided` rises 0.836 to 0.859, the bar margin rises from -0.134 to -0.070 -- the
+latched policy still loses to `golem-fencer` and loses by half as much -- `advantageSd` rises by
+9.4 % and the shaping share of what the asks paid falls 3.3 % to 2.2 %. Against the dummy:
+`decided` rises 0.432 to 0.476, the margin rises 0.542 to 0.592, `advantageSd` rises by 11.4 % and
+the shaping share falls 8.5 % to 6.3 %.
+
+### Prediction 2, the headline: the falsifier fires
+
+| cell | arm | `\|S\|^2` | t | floor, bouts |
+| --- | --- | --- | --- | --- |
+| control, unlatched | `shipped` | -2.553e-3 +-5.47e-3 | -0.47 | 3,796 |
+| latched | `shipped` | 1.335e-4 +-5.72e-3 | 0.02 | 3,096 |
+
+**1.23x, against the 2x the pre-registration named.** The sign of `|S|^2` turns over, which is
+worth exactly nothing at t 0.02, and the bouts a cosine of one half would cost falls from about
+3,800 to about 3,100 -- both of them numbers no budget in this project reaches. The idle cell
+moves 1.07x, 789 to 736, which is the same answer at an opponent where the gradient was already
+legible.
+
+So the pre-registration's own sentence applies as written: **the behaviour policy's gate noise is
+eliminated as the explanation for thirteen sessions of flat curves.** A stroke at these weights is
+the product of six or seven near-coin-flips, the latch collapses that product to a single draw,
+the completion rate at the checkpoint where both ends were measured goes from one stroke in
+twenty-three to four in nine, and the actor's gradient against `golem-fencer` is still not
+distinguishable from zero. Whatever is wrong is not that the body could not carry out a decision.
+
+That is the sharper claim the pre-registration's addendum set up, and it is the one that falls.
+The addendum measured that the nine continuous axes move with the observation at about six tenths
+of the spread they are drawn at, and narrowed the hypothesis to the gates alone. The gates are now
+determinate and the gradient did not appear, so the narrowed hypothesis is dead rather than merely
+unsupported.
+
+### Prediction 3, the critic: met against the fencer, missed against the dummy by six hundredths
+
+The critic's budget was predicted to move by less than a factor of two in either direction.
+Against the fencer it moves **1.83x**, 2.44 bouts to 1.34, inside the bound. Against the dummy it
+moves **2.06x**, 1.70 bouts to 0.82, outside it -- by 0.06, on twenty iterations, at a floor
+already below two bouts.
+
+The miss is recorded rather than argued away, and it is also not worth much: a floor of one bout
+against a floor of two is a quantity whose rounding is larger than the effect, and the
+prediction's reasoning survives it. The critic's per-ask noise is the return, the return is a
+bout-level quantity, and the actor's floors in the same two cells are 3,096 and 736. A critic that
+had moved as far as the actor would have meant the row was changing the task rather than the
+determinacy of the action, and on any reading it did not.
+
+### Prediction 4, the re-pricing identity under a different behaviour policy: confirmed exactly
+
+The `shipped` arm reproduces each latched cell's own `cosine`, `dot`, `firstNorm`, `secondNorm`,
+`advantageSd` and critic cosine to the digit -- **140 fields over each cell's twenty iterations,
+no disagreement.** The pricing path does not care which policy collected the bouts, which is what
+makes the thirty-two arm rows below readable.
+
+### Prediction 5, the weak one, stated so it could embarrass me: missed in both cells
+
+`outside-loud` -- a dense per-ask charge that needs no stroke to land -- was predicted to gain
+less from the latch than the win term does. It gains **more** in both cells: against the fencer
+1.10x against `win-heavy`'s 0.91x, against the dummy 1.06x against 1.01x.
+
+The prediction's reasoning was that the latch buys credit assignment through a stroke and
+`outside` never needed any. What it overlooked is that `win-heavy` is the arm whose signal is
+carried by the rarest event in the bout, so it is the arm with the least to gain from a change
+that makes the *action* determinate while leaving the outcome as noisy as it was. Neither number
+is significant -- against the fencer nothing in the table except `swing-loud` clears zero at
+either end -- so this is a miss on a prediction that was not measurable, and it is logged as one.
+
+### The fencer cell's sixteen arms, and the one that is not like the others
+
+| arm | cosine | shaping share | `\|S\|^2` | t | floor, bouts | vs shipped |
+| --- | --- | --- | --- | --- | --- | --- |
+| `shipped` | +0.0047 | 0.9 % | 1.335e-4 +-5.72e-3 | 0.02 | 3,096 | 1.00x |
+| `no-shaping` | +0.0045 | 0 | 8.998e-5 +-5.70e-3 | 0.02 | 3,115 | 0.99x |
+| `no-win` | +0.0081 | 1.2 % | 1.630e-3 +-6.35e-3 | 0.26 | 2,554 | 1.21x |
+| `damage-only` | +0.0082 | 0 | 1.634e-3 +-6.34e-3 | 0.26 | 2,556 | 1.21x |
+| `win-heavy` | +0.0036 | 0.3 % | 2.085e-3 +-5.90e-3 | 0.35 | 2,505 | 1.24x |
+| `tick` | +0.0047 | 1.2 % | 1.358e-4 +-5.72e-3 | 0.02 | 3,095 | 1.00x |
+| `closing` | +0.0046 | 0.6 % | 1.167e-4 +-5.72e-3 | 0.02 | 3,100 | 1.00x |
+| `outside` | +0.0046 | 1.1 % | 1.241e-4 +-5.71e-3 | 0.02 | 3,102 | 1.00x |
+| `swing` | +0.0052 | 4.5 % | 2.404e-4 +-5.65e-3 | 0.04 | 3,102 | 1.00x |
+| `stall` | +0.0128 | 5.1 % | 1.858e-3 +-5.89e-3 | 0.32 | 2,622 | 1.18x |
+| `engage` | +0.0046 | 1.1 % | 1.093e-4 +-5.71e-3 | 0.02 | 3,106 | 1.00x |
+| `tick-loud` | +0.0054 | 18.2 % | 3.102e-4 +-5.75e-3 | 0.05 | 3,033 | 1.02x |
+| `closing-loud` | +0.0035 | -16.8 % | -3.826e-4 +-5.77e-3 | -0.07 | 3,220 | 0.96x |
+| `outside-loud` | +0.0152 | 14.8 % | 3.396e-3 +-5.33e-3 | 0.64 | 2,584 | 1.20x |
+| `swing-loud` | +0.1547 | 70.3 % | 4.784e-2 +-9.47e-3 | 5.05 | 496 | 6.24x |
+| `engage-loud` | +0.0115 | 12.6 % | 2.266e-3 +-5.50e-3 | 0.41 | 2,746 | 1.13x |
+
+**`swing-loud` at t 5.05.** Every other arm in this cell sits between t -0.07 and t 0.64, which is
+sixteen arms doing what sixteen arms do. This one is at **t 5.05 with a floor of 496 bouts** -- a
+gradient the probe can see at a sample size this project can actually buy, against the opponent
+every bar in this record is stated on, and the first such row anywhere in the set.
+
+Against the unlatched collection the same arm reads `|S|^2` 7.669e-3 at t 1.43 and a floor of
+1,725. **So the latch multiplies that arm's `|S|^2` by 6.2 and divides its floor by 3.5** -- and
+that 3.5x is not one of sixteen similar numbers. Ranked by what the latch bought, the fencer cell
+reads `swing-loud` 3.48x, then `damage-only` 2.21x and `no-win` 2.12x, whose floors are ratios of
+two quantities that do not clear zero at either end, then a long flat tail from 1.27x down to
+0.91x. One arm moved.
+
+The mechanism is the one the reward grid's entry had already worked out without being able to test
+it: `swing` charges a stroke that finished and missed, an unlatched body finishes four strokes in
+a hundred where this record measured both ends and one in a thousand at the fencer checkpoint the
+pre-registration peeked at, and a coefficient on a quantity the body barely accumulates is a
+coefficient on almost nothing. Latch the gate and the body finishes four strokes in nine, and the
+same charge becomes dense, immediate and determined by the action rather than by the dice.
+
+**And the caveat belongs in the same breath as the result.** `swing-loud` spends **70.3 %** of
+what the asks paid on that one shaping row. A gradient that is legible because the objective has
+been largely replaced by a hand-designed penalty on whiffing is a gradient on the penalty, and
+nothing here says a policy that maximises it fights better. That is not a rhetorical hedge: it is
+the question Experiment K was armed to answer, as three swing coefficients trained under the latch
+against `golem-fencer`, and it is the reason that run exists.
+
+### The dummy cell's sixteen arms, where the latch changed almost nothing
+
+| arm | cosine | shaping share | `\|S\|^2` | t | floor, bouts | vs shipped |
+| --- | --- | --- | --- | --- | --- | --- |
+| `shipped` | +0.1149 | 5.1 % | 2.398e-2 +-3.96e-3 | 6.05 | 736 | 1.00x |
+| `no-shaping` | +0.1139 | 0 | 2.372e-2 +-3.88e-3 | 6.12 | 746 | 0.99x |
+| `no-win` | +0.0837 | 6.5 % | 1.721e-2 +-4.43e-3 | 3.88 | 926 | 0.79x |
+| `damage-only` | +0.0831 | 0 | 1.707e-2 +-4.40e-3 | 3.88 | 933 | 0.79x |
+| `win-heavy` | +0.1126 | 1.8 % | 2.125e-2 +-4.90e-3 | 4.34 | 654 | 1.13x |
+| `tick` | +0.1149 | 5.9 % | 2.398e-2 +-3.96e-3 | 6.06 | 736 | 1.00x |
+| `closing` | +0.1154 | 4.7 % | 2.410e-2 +-3.97e-3 | 6.08 | 733 | 1.00x |
+| `outside` | +0.1258 | 8.7 % | 2.664e-2 +-4.10e-3 | 6.49 | 676 | 1.09x |
+| `swing` | +0.1317 | 21.0 % | 2.829e-2 +-4.37e-3 | 6.48 | 639 | 1.15x |
+| `stall` | +0.2113 | 53.4 % | 5.917e-2 +-1.36e-2 | 4.34 | 287 | 2.56x |
+| `engage` | +0.1264 | 8.9 % | 2.678e-2 +-4.11e-3 | 6.52 | 673 | 1.09x |
+| `tick-loud` | +0.1165 | 40.1 % | 2.431e-2 +-3.95e-3 | 6.16 | 727 | 1.01x |
+| `closing-loud` | +0.1580 | -22.7 % | 3.456e-2 +-4.46e-3 | 7.74 | 537 | 1.37x |
+| `outside-loud` | +0.3403 | 72.9 % | 1.094e-1 +-1.17e-2 | 9.38 | 196 | 3.76x |
+| `swing-loud` | +0.2221 | 93.4 % | 5.525e-2 +-7.31e-3 | 7.55 | 341 | 2.16x |
+| `engage-loud` | +0.3546 | 70.6 % | 1.162e-1 +-1.20e-2 | 9.71 | 185 | 3.97x |
+
+**Every arm's t rose and no arm's floor moved.** The largest gain against the unlatched grid is
+`swing`'s 1.19x and the smallest is `stall`'s 0.92x; the shipped row moves 1.07x. Fifteen of
+sixteen arms sit inside 0.92x and 1.10x, which at twenty iterations is a cell that did not move.
+
+**And that is the comparison the fencer cell's one outlier has to be read against.** `swing-loud`
+against the dummy gains **1.00x** -- 343 bouts to 341 -- because against a target that never
+blocks and never steps away a stroke that is abandoned and a stroke that misses are already nearly
+the same event, so making the abandonment stop does not make the charge denser. The latch buys
+`swing-loud` a factor of 3.5 in exactly the cell where the unlatched body's strokes were being
+thrown away against an opponent that punished them, and nothing in the cell where they were not.
+That is a mechanism with a place it applies and a place it does not, which is more than a single
+large ratio would have been.
+
+### The disclosures this entry owes
+
+**The stroke-completion table in the pre-registration was a peek** and is labelled as one there:
+it was measured before this design was fixed and it is what sharpened the hypothesis from "the
+gate is noisy" to "the gate compounds over six asks". The head-vector addendum was measured before
+the bouts as well, and moved no cell, arm, seed, prediction or falsifier. Nothing in the design
+was chosen after either except the decision to run at all.
+
+**The latched `idle` cell carries a `heads` block and the other three logs do not.** It was
+collected after the head cut landed and they were collected before it, for the reason Experiment
+I's pre-registration sets out. No column in this entry reads that block, and Experiment I states
+its own numbers on cells collected for it.
+
+**Two controls, and which one each number comes from.** The floors above are stated against the
+bout-split row's 128-bout cells and the arms against the reward grid's, because those are the two
+logs that carry the two things. The entry above established that the two agree on 120 of 120
+fields over 20 iterations in both matchups, so the control is exact rather than approximate, and
+every number quoted here is the by-ask split on both sides.
+
+**The idle cell's control for the property is the reward grid's log, which is unlatched and
+carries `strokes`.** The fencer cell's controls do not carry it, so the fencer row of the property
+table stands alone and is quoted as a level rather than as a ratio.
+
+### What this licenses
+
+`latchAbort` stays **off** in `GOLEM_TACTICS_V4` and nothing here ships a weight. The row is now a
+measured instrument rather than a hypothesis: it makes the body finish four strokes in nine
+instead of one in twenty-three, it costs 5 % of the asks against a live opponent and none at all
+against a dummy, and it does not on its own make the fencer matchup's gradient visible.
+
+What it licenses is the run that is already armed. **Experiment K trains under the latch at three
+`swing` coefficients** because this cell says that is the one combination the probe can see, and
+because a floor of 496 bouts is the first number in this set that a 32-bout league over sixty
+iterations is not obviously too small for. If that run produces nothing on the paired bar against
+`golem-fencer`, then a visible gradient on a 70 %-shaped objective is worth nothing, and that is a
+sentence this record will be able to write for the first time with a measurement behind it.
+
+And it licenses Experiment H to be read as a real test rather than a formality. That run puts the
+latch in front of two sixty-iteration leagues; this entry says it should find a curve only if the
+shipped table's gradient was the thing the gate was hiding, and the shipped table's gradient is
+the one number here that did not move.
+
 ## Pre-registration -- 2026-09-13: two bracket arms re-run with the gate latched, written before the bouts
 
 The grid above measures whether the latch buys a *gradient*. This asks the question the whole set
