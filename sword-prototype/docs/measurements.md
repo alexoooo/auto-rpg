@@ -22875,3 +22875,91 @@ bars. It buys one number that says whether the pool is the problem.
 > the policy is bad in a way every sample agrees about, one iteration is one draw, and the two
 > classes there held 17,804 and 5,863 asks -- so the pair of numbers is not a cell of this grid and
 > is not evidence for or against any prediction above. It is recorded because it was seen.
+
+## Pre-registration -- 2026-09-12: the same eight cells cut by bout, written before the bouts
+
+The held row above states a budget in **bouts** -- 1,098 against `idle`, at least 4,292 against
+`golem-fencer` -- and takes it from a cosine between two halves of a shuffled order of **asks**.
+Those two halves hold asks out of the same bouts. Everything a bout draw decides enters both of
+them with the same sign, so they are not two independent collections, and the dot between them is
+inflated by however much of the gradient's variance lives between bouts rather than within one.
+The inflation runs the flattering way: signal larger, noise smaller, budget cheaper. This is the
+measurement that says by how much, and it is a re-run of the held row with one thing changed.
+Nothing below is a result.
+
+**The question.** *How much of the agreement between two half-gradients is agreement about the
+policy, and how much is the two halves having been cut out of the same bouts?* The arithmetic the
+record has been quoting says two independent means over `m` samples; the split it has been taking
+does not deliver independence at the level the answer is stated in.
+
+**The instrument, and the flag it needed.** `scripts/gradient-probe.mjs --bout-split`, which re-lays
+the fit's own shuffled order into two disjoint sets of **whole bouts**, balanced in asks by a greedy
+fill, and reports a second set of actor, spread and critic blocks under `byBout` beside the first.
+Both cuts come out of one rollout in one call under one standardisation, which is the entire reason
+the flag was built rather than a second run taken: two runs would have been two rollouts and no
+comparison.
+
+**The arrangement, which is the held row's exactly.** `--from` the same two bracket checkpoints and
+`--hold`, so no iteration fits and every one of them measures the same policy.
+
+| axis | values |
+| --- | --- |
+| `--opponent` | `idle` from the idle bracket arm's thirtieth pool, `golem-fencer` from the fencer arm's |
+| `--bouts` | 32, 64, 128, 256 |
+
+Eight cells, 20 iterations each, fit seed 20260917, the maul-and-mace viable pool, mirrored bodies,
+`--shards 4`, 14 collectors a process, the two opponents as two concurrent processes. The statistic
+is the mean over a cell's 20 iterations of each cosine with the standard error over iterations, and
+the combination across the four bout counts is by inverse variance, both exactly as the held row's.
+
+**The bout counts are the held row's four and not one cell**, because the whole point is that the
+two tables lie side by side: eight cells against eight cells, the same checkpoints at the same seed,
+so a difference between them is the cut and nothing else.
+
+**The prediction, stated before the data.**
+
+1. Each cell's **ask-split cosine is identical to the held cell of the same bout count, digit for
+   digit and iteration by iteration.** Not close: identical. Same checkpoint, same seed, same bout
+   count, no fit, and the bout split consumes no randomness and is taken third out of the same three
+   arrays. Anything else means the flag perturbed a collection or a binding and the rest of the
+   table is not worth reading.
+2. **`byBout` is below the ask split in every one of the eight cells**, because a correlation the
+   arithmetic says is there cannot raise a dot. The direction is the prediction; the size is the
+   measurement. The gap clears one standard error in the `idle` 256 cell, which is the cell with the
+   largest cosine in the record and therefore the most room to lose.
+3. **Against `idle` the combined `|S|^2` stays distinguishable from zero**, t above 2 over the
+   arm's eighty collections. If it does not, then the only positive gradient measurement anywhere
+   in this record is an artefact of the split, `idle` stops being the arm where the optimiser was
+   shown to be handed something, and the held row's `idle` column has to be restated rather than
+   annotated.
+
+5. **The critic's cosine falls further than the actor's, and this one is aimed at the entry above.**
+   The critic regresses a return, and a return is a bout-level quantity: both episodes of a bout
+   share its outcome, and the two halves of an ask split share both. So the block the other-two-
+   cosines entry reads as *the same thirty-two bouts settle the critic's direction and not the
+   actor's* is the block with the most to lose from this cut, and if it loses enough then that
+   entry needs a correction written into it rather than an annotation. **Stated here, because it
+   is a prediction against my own published reading and it should not be possible to quietly not
+   make it.**
+
+**The falsifier, which is the outcome that costs the least and teaches the most.** If `byBout` and
+the ask split agree within one standard error in all eight cells, **the ask split was already
+measuring two effectively independent halves**, the held row's budget stands exactly as it was
+quoted, the ruling this pre-registration is written beside is a clarification rather than a
+correction, and the record can stop worrying about the partition and go back to worrying about the
+objective. That is a clean result and it retires a doubt the arithmetic raised on its own.
+
+**What no outcome of this licenses.** No mind ships, no coefficient moves, no default moves, and in
+particular a large gap does **not** license changing what the fit does -- the fit takes minibatches
+of asks and is right to, and this is a statement about an *instrument* and about how a number in
+bouts may be quoted. What it buys is whether one line of the held row above needs rewriting.
+
+> **A smoke, disclosed because it happened before this was written and is data from the instrument.**
+> Checking that `--bout-split` runs at all cost two iterations of **8 bouts** against `idle` from
+> the idle checkpoint, which is not one of the four bout counts and is an eighth of the smallest of
+> them. Over those two iterations the ask split read +0.1452 and the bout split +0.1144, and on the
+> second of them the *critic* read +0.9749 by ask and +0.2673 by bout. Eight bouts is a rollout
+> whose halves are four bouts each, two draws is two draws, and prediction 5 was written after this
+> was seen and is stated in the direction it points -- so it is a hypothesis this smoke suggested
+> and not a confirmation of one, and the eight cells below are what decides it. The log was
+> deleted; it is recorded here because it was seen.
