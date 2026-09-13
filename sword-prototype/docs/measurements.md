@@ -25984,3 +25984,40 @@ registrations and is what that audit was for.
 disk: the opponent ladder that produces one is behind the horizon grid and the head cells on the
 fourteen-worker lane. Experiment P's entry will be the first time its reader meets data, and that is
 stated here rather than discovered then.
+
+## The night's scheduling -- 2026-09-13: two waits that were lane constraints and not dependencies
+
+Recorded because one of the two changes the width the numbers were taken at, and a difference in how
+a measurement was taken belongs beside the measurement rather than in a shell script nobody reads.
+
+**The measuring queue was serial and was not going to finish.** Experiments K, L and R were each
+queued behind the one before it at four workers, because when they were written the host had four
+threads left: the step probe held fourteen and the two budget leagues held fourteen more. Five probe
+curves, five rating curves and R's twenty iterations, one after another at four workers, is the
+better part of a day against a night of eight hours -- and the budget leagues stop holding their
+fourteen threads the moment they write their last iteration, after which the three waiting scripts
+would have gone on sleeping while half the host sat idle. They are now three parallel lanes over
+those freed threads: swing-quiet then swing-tenth at five workers, swing-loud then budget-128 at
+five, and budget-256 then Experiment R at four.
+
+**So Experiment H's curves are taken at four workers and K's and L's at five, and that is not a
+difference in the instrument.** `two_workers_over_four_short_bouts_twice_write_the_same_rows_under_one_seed`
+pins that the rows a run writes are a function of its seed and not of how many workers divided them
+-- the schedule is drawn before any worker sees it, and a job's result depends on the job. The three
+experiments are still read on one instrument, and the citation is here so that a reader who notices
+the difference in the commands does not have to work that out for themselves.
+
+**Experiment N was queued behind the opponent ladder, which it does not depend on.** The baseline
+grid reads the bracket checkpoints, which have been on disk since last night; the wait was there so
+the probe lane would never hold more than fourteen collectors at once. Behind that wait sit the
+fencer step cell, two horizon cells, two head cells and five ladder cells -- most of a day -- so N
+was not going to run at all. It now waits on the measuring fan instead and takes the same fourteen
+threads when that finishes. The arm loop skips a cell whose log already carries a summary, so the
+two orderings cannot collect one cell twice.
+
+**What did not change.** No cell, seed, bout count, iteration count, pool, opponent, arm list,
+statistic, prediction or falsifier in any of the four pre-registrations. The gradient probe's own
+collection is a deterministic function of the seed, the checkpoint, the bout count, the opponent and
+the pool -- Experiment E established that across two independently launched runs agreeing on 120 of
+120 fields -- so R collects the same rollouts at four workers that it would have collected at
+fourteen.
