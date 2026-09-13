@@ -519,9 +519,16 @@ export function probeIterations(rows, {
     // that swap places are two arms mixed into one column with every row still looking right.
     for (const [at, row] of found.entries()) {
       const here = row[arms].map((a) => a.label);
-      if (here.length !== labels.length || here.some((l, i) => l !== labels[i])) {
-        throw new Error(`${what}: the arm list moves at iteration ${at + 1}, from`
-          + ` ${labels.join(", ")} to ${here.join(", ")}, so a column is not one arm`);
+      const off = here.findIndex((l, i) => l !== labels[i]);
+      if (here.length !== labels.length || off >= 0) {
+        // The differing position rather than both lists: a grid of sixteen arms prints two
+        // sixteen-item lists and the reader then has to diff them by eye, which is the same
+        // failure the refusal exists to prevent one step further along.
+        const where = off >= 0
+          ? `column ${off + 1} is ${here[off]} and was ${labels[off]}`
+          : `it carries ${here.length} arms and carried ${labels.length}`;
+        throw new Error(`${what}: the arm list moves at iteration ${at + 1} -- ${where}, so a`
+          + " column is not one arm");
       }
     }
     for (const need of needs) {

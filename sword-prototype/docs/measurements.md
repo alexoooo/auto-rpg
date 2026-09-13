@@ -26865,3 +26865,64 @@ not see it. The second is that the author of the newest reader in the set, writt
 spent finding exactly this class of defect, put two of them into it before it ever met data. **The
 anti-pattern is not something you learn once.** That is the argument for a shared read rather than
 a careful one, and it is the same argument the floor convention was moved on twelve hours earlier.
+
+## The read, followed through -- 2026-09-13: six readers onto it, and the two things measuring it changed my mind about
+
+The section above ends by saying that nothing in the tree calls `probeIterations` and that the
+readers which will are still gitignored. That is a true sentence and it is also the kind of
+sentence that stays true for a week. Six readers are on it now -- **every reader with a pending
+entry that reads a probe log**: the arm reader (Experiment G), the head reader (I), the ladder
+reader (M), the baseline reader (N), the concentration reader (P) and the direction reader (R).
+The bar reader and the objective reader are not, and cannot be: they read rating logs, which are a
+different shape.
+
+Each was verified the way the floor repointing was -- output diffed against the unchanged reader
+on every log on disk it reads, and then handed the fixtures its own audit was written against.
+
+| reader | verified unchanged on | and now refuses |
+|---|---|---|
+| armfit | 8 gradient logs, including the audited cell at floor 789 / point 1,132 | a mixed-count log, a repeated label, a moving arm list, a 2-iteration log, a headerless log |
+| headfit | every gradient log on disk, including both latched head cuts | the same six, over the head rows rather than over the log |
+| ladderfit | both published cells, reproducing idle 789 and fencer 3,796 to the digit | the same six, plus its own one-opponent rule |
+| basefit | its audited 20-row grid, table for table | the four it hand-wrote last night, now one call |
+| concfit | both concentration fixtures, spiked and flat | the same six, over the rows carrying a concentration block |
+| dirfit | its 3-iteration smoke log | the same six, plus its own per-arm `--direction` rule |
+
+**basefit is the one to look at.** It grew four hand-written refusals last night, one per defect
+the third audit pass found in it, spread over forty lines. They are one call now. That is the
+argument for a shared read stated as a diff rather than as a paragraph, and it is the same file
+that supplied the argument in the first place.
+
+### Two things measuring it changed my mind about, both recorded because they were load-bearing
+
+**The default field list was too strict for a reader that takes its numbers off arms.** `finite`
+defaults to the four fields a whole-row reading needs -- `cosine`, `dot`, `firstNorm`,
+`secondNorm` -- and the baseline reader takes only `cosine` off a row, every other number coming
+off an arm inside `priced`. Handed the default, it refused its own audited grid by name:
+*iteration 1 carries dot undefined*. The refusal was correct about the log and wrong about the
+reading. **Refusing a log for missing a field the reading never reads is the same defect as
+reading a field that is not there, pointing the other way**, and it is the one a shared read is
+most likely to introduce. The baseline reader names `["cosine"]` now, with the reason beside it.
+
+**The direction reader's membership check was not a defect, and I had written down that it was.**
+The note that went into the repointing said its arm list was compared by membership while every
+column below was pulled by position, which would make a reordered log a column that is two arms.
+The fixture says otherwise: `pull` takes each arm by name, the old reader printed a byte-identical
+table on a log with two arms traded places, and membership is the right check for a reader that
+indexes by name. The production read compares by position anyway, because most readers here do
+index positionally and one of them is a column that is two arms -- so repointing this reader
+**refuses a log it could have read**, which is the price of a shared read rather than a fix. The
+note in the file says that now. It is worth one paragraph because the wrong version of it was
+written first and would have gone into this record as a measurement.
+
+### What is still outside
+
+Of the seventeen readers in this scratchpad, six are on it, two read rating logs and cannot be,
+and nine are not: arm-rows, arm-table, latch, price, reward, step, bout, class and corner. All
+nine belong to closed experiments or to logs already read at a single count and none is holding up
+an entry. Five of them carry the bout-count guard added by hand this morning; the other four --
+step, bout, class and corner -- never took a bout count off row zero at all, which is why the grep
+that found the idiom did not name them. Repointing them would be churn that has to be re-verified
+against numbers already published, which is exactly the trade the second audit pass got right
+about the latch reader and for the same reason. They are listed here so that "the readers are on
+the production read" is never read as covering them.
