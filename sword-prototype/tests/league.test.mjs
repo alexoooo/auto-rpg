@@ -1209,3 +1209,73 @@ test("a_league_refuses_a_scalar_opponent_beside_a_schedule_and_a_target_outside_
   assert.throws(() => run("--head", "softmax"), /--head softmax; this build reads gaussian, mixed and beta/);
   assert.throws(() => run("--features", "3"), /--features 3; this build reads 1 and 2/);
 });
+
+/**
+ * The trained side takes each corner the same number of times, at every mirror share.
+ *
+ * **This is the training half of the corner reading, and it is the half no bar would have shown.**
+ * Over the 872 distinct bouts on disk whose two sides are the same mind in the same body, the left
+ * corner takes 297 of 542 decided -- 0.548 at z 2.23 against a null of exactly one half, standing
+ * on both sides of the swap. `docs/measurements.md` has the table and the argument that it cannot
+ * reach a published number. What it could still have reached is the fit: `collectLeague` records one
+ * corner of each bout, the trained side's, so a run whose episodes came disproportionately from one
+ * corner would carry the constant into every advantage it standardises and every gradient it takes,
+ * and nothing downstream would ever say so.
+ *
+ * It does not, because `mixedSchedule` builds an iteration out of two whole `scheduleJobs` calls and
+ * each of those emits every pairing twice with the corners exchanged. Each half is balanced on its
+ * own and the concatenation of two balanced halves is balanced, whatever share the split gave them.
+ * That is the property here, asserted at three shares including one whose two halves are of very
+ * different sizes -- because a defect that unbalanced a half would be invisible at a share of one,
+ * where there is only one half, and at a half, where the two are the same size.
+ *
+ * | mutation | what went red |
+ * | --- | --- |
+ * | the random half scheduled with its pairings doubled and every second job dropped | this, and the two share tests above it |
+ * | the mirrored half's last job dropped, so the two halves abut on an odd boundary | this, and two league runs |
+ *
+ * **Neither mutation is caught here alone, and that is worth saying rather than implying.** What
+ * this adds is the reading: the two share tests go red on M1 because the opponent counts stop
+ * summing, and the two league runs go red on M2 because a job list of odd length breaks something
+ * three files away. Neither of them says anything about a corner, so neither would have told a
+ * reader of the corner table which way the training data leaned -- and that is the question this
+ * exists to answer, not the question of whether the schedule is intact.
+ *
+ * **The second is why the check walks pairs from index zero rather than testing each job against
+ * its partner by pairing number.** A schedule whose halves abut on an odd boundary still contains
+ * every pairing twice; what it loses is that the two copies are adjacent, and the index arithmetic
+ * every reader of these jobs does -- including the share table's own `if (job.swapped) continue` --
+ * is what stops being true.
+ */
+test("the_trained_side_takes_each_corner_the_same_number_of_times_at_every_mirror_share", () => {
+  const pool = poolFor({ seed: SEED, random: 40, terminals: ["maul", "mace"], mirror: true });
+  const random = poolFor({ seed: SEED, random: 40, terminals: ["maul", "mace"], mirror: false });
+  const pairs = [[MAIN_NAME, "golem-fencer"]];
+  for (const mirrorShare of [1, 0.5, 0.25]) {
+    const { jobs, split } = mixedSchedule({
+      pool, randomPool: random, policies: [MAIN_NAME, "golem-fencer"], pairs,
+      pairings: 24, seed: SEED, cap: 60, contenders: { [MAIN_NAME]: {} }, mirrorShare,
+    });
+    const where = `at a mirror share of ${mirrorShare}`;
+    assert.equal(split.mirror + split.random, 24, `${where}: the two halves are not the whole`);
+    assert.equal(jobs.length, 48, `${where}: ${jobs.length} jobs is not two a pairing`);
+    const corners = { left: 0, right: 0 };
+    for (let i = 0; i < jobs.length; i += 2) {
+      const [a, b] = [jobs[i], jobs[i + 1]];
+      assert.equal(a.swapped, false, `${where}: job ${i} is not the unswapped half of its pairing`);
+      assert.equal(b.swapped, true, `${where}: job ${i + 1} is not the swapped half of its pairing`);
+      assert.deepEqual(b.left, a.right, `${where}: the swap did not move the right corner left`);
+      assert.deepEqual(b.right, a.left, `${where}: the swap did not move the left corner right`);
+      for (const job of [a, b]) {
+        corners[job.left.policy === MAIN_NAME ? "left" : "right"] += 1;
+      }
+    }
+    // Equality rather than a bound: the trained side one corner more often than the other would
+    // carry the measured corner constant into the iteration's episodes at one bout's weight, which
+    // is small and is not zero, and small is not a thing a gradient floor is stated on.
+    assert.equal(corners.left, corners.right,
+      `${where}: the trained side took the left corner ${corners.left} times and the right `
+      + `${corners.right}`);
+    assert.equal(corners.left + corners.right, 48, `${where}: a job that recorded no trained side`);
+  }
+});

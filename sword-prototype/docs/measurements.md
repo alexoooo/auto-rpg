@@ -25924,6 +25924,34 @@ from arena geometry, from the contact ordering in `Combat`, or from the two mind
 consumed in a fixed order. Naming a mechanism would take a bout-level experiment, and that is the
 second of the three areas the instrument audit named and neither audit has read.
 
+### The third place it could have entered, and it does not
+
+The paragraphs above cover the two places a corner effect could reach a *published* number. There is
+a third and it is the one that would matter most, because it would not show up in any bar at all:
+**the training collection.** `collectLeague` records one corner of each bout -- the trained side's --
+so if a fit's episodes came disproportionately from one corner, every advantage it standardises and
+every gradient it takes would carry the constant, and nothing downstream would ever say so.
+
+It does not. `mixedSchedule` builds an iteration out of two `scheduleJobs` calls, one for the
+mirrored half and one for the random-pair half, and each of them emits every pairing twice with the
+corners exchanged. Each half is therefore corner-balanced on its own and the concatenation of two
+balanced halves is balanced, whatever share the split gave them. The trained side sits in each
+corner exactly as often as in the other, in every iteration of every run in this record.
+
+It is now asserted as well as argued, by
+`the_trained_side_takes_each_corner_the_same_number_of_times_at_every_mirror_share` -- at three
+shares including one whose halves are of very different sizes, because a defect that unbalanced a
+half is invisible at a share of one, where there is only one half, and at a half, where the two are
+the same size. Two mutations were watched red and neither is caught by it alone: doubling the random
+half and dropping every second job also breaks the two share tests beside it, and dropping the
+mirrored half's last job also breaks two league runs three files away. **What this assertion adds is
+not detection but reading** -- none of those four failures says anything about a corner, so none of
+them would have told a reader of the table above which way the training data leaned.
+
+**So all three doors are shut, and the reading cost nothing to have taken.** The corners are no
+longer assumed equivalent anywhere: in the paired column, in a contender's own mean, or in the
+episodes a fit is handed.
+
 ## The readers -- 2026-09-13: every pending entry's reader run before its log lands
 
 **Eleven experiments are collected or collecting and none of their entries is written yet**, so
