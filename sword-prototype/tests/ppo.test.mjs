@@ -56,6 +56,23 @@
 // | `normalise` floors at `<=` rather than `<`, so a variance exactly at the constant is dead | the dead-column test, on the column that sits on the bound |
 // | `extendNormalisation` writes a sub-floor variance as it computed it | the written-variance test, and nothing else, because the reader floors it anyway |
 //
+// **Five more were watched red on 2026-09-12**, when the reward table became an axis a held
+// collection can be swept along rather than a rebuild. `priceRollout` is `mergeRollouts`'s pricing
+// loop lifted out whole, so the first thing these pin is that lifting it moved nothing:
+//
+// | mutation | what went red |
+// |---|---|
+// | the outcome is filled over the whole rollout rather than over the part that earned it | the outcome test |
+// | a raw column is written at the front of the rollout rather than at its part's offset | the outcome test |
+// | `priceRollout` writes into the arrays it read rather than handing back new ones | the re-pricing test, on the rollout it was read off |
+// | the `tick` charge is priced off a second copy of the clock instead of the rollout's own | four tests at once, which is what a `NaN` in a reward does |
+// | `priceRollout` ignores its table and always pays the shipped one | the swept-table test |
+//
+// **The second of those is why `PRICED_COLUMNS` is derived from `PACK_COLUMNS` by filter.** A
+// merged rollout now keeps nine arrays it used to consume, and the failure mode of keeping them is
+// that a column added to the pack and given a coefficient is priced and not kept -- which would
+// show up as a sweep whose arms all agree, months later, with nothing red anywhere.
+//
 // **Three more were watched red on 2026-09-12**, when Experiment B of the signal set took two
 // pieces of `ppoFit`'s body out into functions so that the gradient probe could reuse them rather
 // than copy them. The digest is the only assertion in this file whose subject is *sameness*, so
@@ -101,7 +118,8 @@ import {
   explainedVariance, extendNormalisation,
   mergeRollouts, mixedSchedule, momentsFromJson, momentsToJson, opponentOf, parseEntropyStage,
   parseOpponentStage, parseSchedule, parseSeparationStage, parseTactics, parseTerminals,
-  parseTerminalsStage, poolFor, poolWord, ppoFit, ratePolicy, ratingSeed, realisedMirrorShare,
+  parseTerminalsStage, poolFor, poolWord, ppoFit, priceRollout, ratePolicy, ratingSeed,
+  realisedMirrorShare,
   renderPolicyModule, resumesOwnLog, rolloutPairs, scheduled, surrogateGrad, surrogateObjective,
 } from "../scripts/train-ppo.mjs";
 import { CONFIG } from "../src/config.ts";
@@ -411,6 +429,60 @@ test("a_rollout_pays_the_table_it_is_given_and_reports_every_charge_in_it", () =
   const shipped = mergeRollouts([raw]);
   assert.ok(Math.abs(shipped.reward[1] - (0.2 - 2 * GOLEM_REWARD.idle + GOLEM_REWARD.win)) < 1e-12,
     `${shipped.reward[1]}`);
+});
+
+/**
+ * The same collection priced twice is two rewards over one set of bouts, and nothing else moves.
+ *
+ * This is the property the reward sweep is built on and it is worth stating as an identity rather
+ * than as an intention. A coefficient does not change how a *held* policy acts, so the rollout a
+ * table would have collected is the rollout any other table already collected -- and `priceRollout`
+ * turns that from an argument into two arrays a test can compare. The pairing is to the ask: the
+ * observations, the draws and the episode boundaries are the same objects, so a difference between
+ * two pricings carries none of the per-bout noise two separate collections would have differed by.
+ *
+ * Pinned both ways round. A re-pricing equals the merge that asked for that table in the first
+ * place, digit for digit -- otherwise the sweep is measuring the seam rather than the table -- and
+ * re-pricing does not disturb the rollout it read, so a caller can hold a dozen pricings of one
+ * collection without the twelfth having been taken off a rollout the eleventh edited.
+ */
+test("a_held_collection_prices_under_a_second_table_exactly_as_a_collection_under_that_table_would", () => {
+  const raw = pack("left", "left", [0.1, 0.2]);
+  raw.clinch = Float64Array.from([1, 0]);
+  raw.idle = Float64Array.from([0, 2]);
+  raw.seconds = Float64Array.from([0.5, 0.25]);
+  raw.closing = Float64Array.from([0.75, 0]);
+  raw.stall = Float64Array.from([0, 1.5]);
+  raw.outside = Float64Array.from([2.5, 0]);
+  raw.swing = Float64Array.from([0, 3]);
+
+  const T = table({
+    win: 2, clinch: 0.01, idle: 0.02, tick: 0.008,
+    closing: 0.4, stall: 0.1, outside: 0.05, swing: 0.02,
+  });
+  // Collected under the shipped table, as a sweep's one collection would be, then asked for T.
+  const shipped = mergeRollouts([raw]);
+  const priced = priceRollout(shipped, T);
+  const direct = mergeRollouts([raw], T);
+  for (let i = 0; i < direct.count; i += 1) {
+    assert.equal(priced.reward[i], direct.reward[i], `ask ${i}'s reward`);
+    assert.equal(priced.penalty[i], direct.penalty[i], `ask ${i}'s penalty`);
+    for (const row of SHAPING_ROWS) {
+      assert.equal(priced.charges[row][i], direct.charges[row][i], `ask ${i}'s ${row} charge`);
+    }
+  }
+  // And the rollout it was read off still pays what it was merged under, so the pricings are
+  // independent of each other rather than a sequence of edits to one array.
+  assert.ok(Math.abs(shipped.reward[1] - (0.2 - 2 * GOLEM_REWARD.idle + GOLEM_REWARD.win)) < 1e-12,
+    `re-pricing moved the rollout it read: ${shipped.reward[1]}`);
+  assert.notEqual(priced.reward, shipped.reward, "a pricing handed back the array it read");
+
+  // The raw columns are what makes it possible, so a rollout without them says so rather than
+  // pricing a rollout of NaNs: `undefined` times a coefficient is the silent failure `PACK_COLUMNS`
+  // exists to refuse, and it would be no better arriving one function later.
+  const stripped = mergeRollouts([raw]);
+  delete stripped.raw;
+  assert.throws(() => priceRollout(stripped, T), /cannot be re-priced/);
 });
 
 /**

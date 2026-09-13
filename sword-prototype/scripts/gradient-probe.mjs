@@ -9,6 +9,7 @@
 //        [--clip 0.2] [--sigma-floor -3] [--sigma-roof 0.5]
 //        [--from tournaments/<arm>/pool-30.json] [--hold]
 //        [--classes none|terminal|build] [--class-floor 400] [--bout-split]
+//        [--rewards arms.json] [--tactics holdMetres=...]
 //        [--features 2] [--head gaussian] [--sigma constant] [--critic self]
 //        [--value-hidden 64,64] [--log tournaments/...] [--label arm]
 //
@@ -130,6 +131,52 @@
 // under it, so a bout routed through that machinery would report nothing kept and read as a
 // finding.
 //
+//
+// ## `--rewards`, which is the only axis here that is free, and the reason it is
+//
+// The three splits above cut one gradient different ways. This one changes the gradient, and it is
+// still one collection -- which is worth being precise about, because it is the difference between
+// a diagnostic that costs twenty minutes and a set of training runs that costs a week.
+//
+// **A reward coefficient does not change how a held policy acts.** The body draws its action from
+// the weights and reads its observation from the arena; the reward is a number written down
+// afterwards, and under `--hold` the weights do not move. So the bouts a run under one table would
+// have fought are the bouts a run under any other table already fought, and `mergeRollouts` has
+// kept every quantity a coefficient multiplies since the learn set's Session 06. `priceRollout` is
+// what turns that from a true sentence into an instrument: it prices a rollout that already exists
+// under whatever table is asked for, and this file then re-runs the advantage estimate, the
+// standardisation and the two half gradients off it.
+//
+// **The pairing is to the ask, and it is the whole value of the design.** Two separate collections
+// under two tables differ by the per-bout noise the held row measured at about twenty-nine squared
+// units a bout -- which is large enough that the record's `|S|^2` against a mind, 2.688e-3, sits
+// under two standard errors of zero after eighty collections. Two pricings of one collection share
+// the observations, the draws, the log-probabilities, the episode boundaries and the shuffled
+// order as *the same objects*. The arms differ by their coefficients and by nothing else at all,
+// so a difference between them needs no sample budget to see.
+//
+// **Which is exactly why it cannot answer the question a training run answers.** An arm here says
+// what a table would do to the gradient *at this policy*, not what a policy trained under that
+// table would become -- and those separate as soon as the weights move, because a table that
+// rewards something the policy does not yet do pays nothing until it does it. The honest use is
+// elimination and ranking: a table that puts no signal into the gradient at the policy the record
+// is stuck at is not the table that unsticks it, and a table that does is worth a night.
+//
+// The arms are read from a file rather than from the command line, because eight coefficients by N
+// arms is not a command line, and because a sweep's arms are a *design* -- written before the
+// bouts, quotable afterwards, and logged resolved in the header so the row says the coefficients
+// it was priced under rather than the name of a file that may since have changed.
+//
+// ## `--tactics`, which is the axis that is not free, and is here anyway
+//
+// A tactics row changes how the body acts, so every arm of it is its own collection and the
+// pairing above is gone. It is on this instrument regardless, because the probe is the cheap
+// instrument in the tree -- twenty-odd minutes against a training run's five hours -- and the
+// candidate the record has been pointing at since Session 07 of the learn set is a tactics row:
+// `latchAbort`, which reads the abort gate on the ask that starts a stroke instead of on all six
+// or seven of them. The reading it supports is `|S|^2` between two arms, not a cosine difference,
+// for the reason `docs/design.md` now states as a ruling.
+//
 // ## What is deliberately not built here
 //
 // **No second gradient path.** The partials are the fit's own, summed by the pool the fit sums
@@ -193,9 +240,9 @@ import { GOLEM_REWARD } from "../src/golem/reward.ts";
 import { PARAM } from "./fit-worker.mjs";
 import { meanOf, semOf } from "./train-learner.mjs";
 import {
-  FitPool, advantages, collectRollouts, episodeReturns, extendNormalisation, fitShuffle,
-  fitShuffleRandom, opponentOf, parseOpponentStage, parseTerminals, policyShapeOf, poolFor, ppoFit,
-  standardisedAdvantages, valuesOf,
+  FitPool, REWARD_KEYS, advantages, collectRollouts, episodeReturns, extendNormalisation,
+  fitShuffle, fitShuffleRandom, opponentOf, parseOpponentStage, parseTactics, parseTerminals,
+  policyShapeOf, poolFor, ppoFit, priceRollout, standardisedAdvantages, valuesOf,
 } from "./train-ppo.mjs";
 
 /**
@@ -412,7 +459,7 @@ export function checkHeldStart({ from, hold }) {
 export function probeRollout({
   pool, rollout, weights, valueWeights, logSigma, norm, valueLayout, seed,
   halfLife = 4, lambda = 0.95, clip = 0.2, classes = "none", floor = CLASS_FLOOR,
-  boutSplit = false,
+  boutSplit = false, rewards = [],
 }) {
   const values = valuesOf(rollout, valueWeights, norm, valueLayout);
   const { advantage, returns } = advantages(rollout, values, { halfLife, lambda });
@@ -439,11 +486,67 @@ export function probeRollout({
     pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order,
     keys: askBouts(rollout), clip,
   });
+  // Fourth, and it is the only one of the four that changes a number the fit reads rather than
+  // the way one is cut. A reward table does not move a *held* policy, so the rollout above is the
+  // rollout every arm here would have collected: the observations, the draws, the
+  // log-probabilities, the episode boundaries and `order` are the same objects across all of them,
+  // and the critic's forward pass is reused because it reads observations and not rewards. So an
+  // arm differs from the row it sits in by its coefficients and by nothing whatever else, which is
+  // a pairing to the ask -- against the held row's twenty-nine squared units a bout that two
+  // separate collections would have differed by before the table was allowed to say anything.
+  //
+  // `advantages` is re-run rather than patched because a reward changes every advantage behind it
+  // through the backwards discount, and `standardisedAdvantages` after it because a table that
+  // scales the return scales the spread and the fit would have divided by the new one.
+  const priced = rewards.length === 0 ? null : rewards.map(({ label, table }) => {
+    const paid = priceRollout(rollout, table);
+    const repriced = { ...rollout, ...paid };
+    const arm = advantages(repriced, values, { halfLife, lambda });
+    const stood = standardisedAdvantages(arm.advantage, repriced.count);
+    return {
+      label,
+      ...measureSignal({
+        pool, rollout: repriced, scaled: stood.scaled, returns: arm.returns, norm,
+        weights, valueWeights, logSigma, order, clip,
+      }),
+      advantageSd: stood.sd,
+      // What the table actually took out of this collection, so an arm that moved no number says
+      // so in the row rather than in a reader's arithmetic: a coefficient on a quantity no body
+      // accumulated is a coefficient that was swept and never paid.
+      shaping: shareOf(paid, repriced),
+    };
+  });
   return {
     ...signal,
     advantageSd: sd,
     ...(cut === null ? {} : { classAxis: classes, classes: cut }),
     ...(byBout === null ? {} : { byBout }),
+    ...(priced === null ? {} : { priced }),
+  };
+}
+
+/**
+ * What one pricing charged, per row, as a share of what the same asks returned in total.
+ *
+ * The denominator is the sum of the absolute rewards rather than of the rewards, because a
+ * mirrored collection's rewards very nearly cancel -- both corners are collected, so `dealt` less
+ * `taken` telescopes and the win terms sum to zero -- and a share over a denominator at zero is a
+ * number that swings between plus and minus infinity while nothing is happening. The absolute sum
+ * is the total of what was paid and charged however it netted out, which is the quantity a reader
+ * of "what did this table do" actually wants.
+ */
+export function shareOf(paid, rollout) {
+  let total = 0;
+  for (let i = 0; i < rollout.count; i += 1) total += Math.abs(paid.reward[i]);
+  const over = (values) => {
+    let sum = 0;
+    for (let i = 0; i < rollout.count; i += 1) sum += values[i];
+    return total === 0 ? 0 : sum / total;
+  };
+  return {
+    paid: total / Math.max(1, rollout.count),
+    penalty: over(paid.penalty),
+    rows: Object.fromEntries(Object.entries(paid.charges).map(([row, values]) => [row, over(values)])),
   };
 }
 
@@ -483,6 +586,60 @@ export function measureBouts(args) {
  * one, for a measurement nobody asked that run to make.
  */
 export const CLASS_AXES = Object.freeze(["none", "terminal", "build"]);
+
+/**
+ * The reward tables one held collection is to be priced under, read out of a file and checked.
+ *
+ * The file is an array of objects, each a `label` and any subset of `REWARD_KEYS`; what is not
+ * named is the shipped table's, so an arm says what it changes rather than restating seven
+ * coefficients that did not move. A file rather than a flag because the axis is eight-dimensional
+ * and a command line that carried it would be unreadable and unquotable -- and because the arms
+ * of a sweep are a *design*, which belongs in a file that can be written before the bouts and
+ * pointed at afterwards.
+ *
+ * Every refusal here is one this project has already paid for once. A key that is not a reward row
+ * is refused **by name** rather than ignored, because a table silently missing the row a sweep was
+ * about is a run that costs its hours and answers a question nobody asked. A repeated label is
+ * refused because the arms are read back by label and two rows under one name is a table that
+ * cannot be read at all. An empty list is refused because `--rewards` naming nothing is a flag
+ * that was meant to do something.
+ *
+ * The shipped table is **not** added as an arm. The row's own unqualified cosine is already the
+ * collection under the table it was collected with, so a baseline arm would be a second copy of a
+ * number that is right there -- and a run that wants the identity checked can name the shipped
+ * coefficients as an arm on purpose, which is a cheap and rather good test of this whole path.
+ */
+export function rewardArms(spec, base = GOLEM_REWARD, what = "--rewards") {
+  if (!Array.isArray(spec)) {
+    throw new Error(`${what} names a file holding an array of reward arms, not ${typeof spec}`);
+  }
+  if (spec.length === 0) throw new Error(`${what} named a file with no arms in it`);
+  const seen = new Set();
+  return Object.freeze(spec.map((entry, at) => {
+    if (entry === null || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new Error(`${what} arm ${at} is not an object`);
+    }
+    const label = entry.label;
+    if (typeof label !== "string" || label.trim() === "") {
+      throw new Error(`${what} arm ${at} has no label, and an arm is read back by its label`);
+    }
+    if (seen.has(label)) throw new Error(`${what} names two arms "${label}"`);
+    seen.add(label);
+    const table = { ...base };
+    for (const [key, value] of Object.entries(entry)) {
+      if (key === "label") continue;
+      if (!REWARD_KEYS.includes(key)) {
+        throw new Error(`${what} arm "${label}" sets "${key}", which is not a reward row; `
+          + `this build pays ${REWARD_KEYS.join(", ")}`);
+      }
+      if (typeof value !== "number" || !Number.isFinite(value)) {
+        throw new Error(`${what} arm "${label}" sets ${key} to ${value}, which is not a coefficient`);
+      }
+      table[key] = value;
+    }
+    return Object.freeze({ label, table: Object.freeze(table) });
+  }));
+}
 
 /** `--classes terminal`: which grouping, refused by name rather than defaulted. */
 export function parseClasses(text, what = "--classes") {
@@ -841,6 +998,19 @@ if (isMain) {
   // Off by default for `--classes`' reason exactly: a probe that acquired a second cosine by
   // default would make every row already under tournaments a row of a different instrument.
   const boutSplit = argv.includes("--bout-split");
+  // The reward axis, which is free at a held policy and is not free anywhere else. Read from a
+  // file so the arms of a sweep are a design written before the bouts rather than a command line;
+  // empty unless named, so a run without it is byte for byte the run the grid took.
+  const rewardsFile = flag("rewards", null);
+  const rewards = rewardsFile === null
+    ? [] : rewardArms(JSON.parse(readFileSync(resolve(rewardsFile), "utf8")));
+  // And the behaviour axis, which is not free: a tactics row changes how the body acts, so every
+  // arm of it is its own collection. It is here anyway because the probe is the cheap instrument
+  // and `latchAbort` is the candidate the record has been pointing at since Session 07 of the
+  // learn set. Parsed by the trainer's own reader, so a row this probe accepts is a row a training
+  // run would accept and the two cannot drift.
+  const tacticsWord = flag("tactics", null);
+  const tactics = parseTactics(tacticsWord);
   const label = flag("label", null);
   const stamp = new Date().toISOString().replace(/[-:]/g, "").slice(0, 13);
   // Concatenated rather than interpolated, for the trainer's reason: a backticked span that looks
@@ -881,6 +1051,10 @@ if (isMain) {
     type: "header", kind: "gradient-probe", seed, date, version: POLICY_VERSION, features,
     layout, valueLayout, label, iterations, bouts, cap, random, workers, shards, from, hold,
     classes, classFloor, boutSplit,
+    // The arms are logged resolved rather than as the file named them, so a row says the eight
+    // coefficients it was actually priced under and a reader never has to find the file again.
+    rewards: rewards.map(({ label: arm, table }) => ({ label: arm, ...table })),
+    tactics,
     opponent: opponentWord, terminals, mirrorShare,
     head: headName, sigma: sigmaName, critic: criticName,
     halfLife, lambda, clip, entropy: fitEntropy, rate, valueRate, sigmaRate, epochs, batch,
@@ -895,6 +1069,13 @@ if (isMain) {
     + `${shards === 1 ? "one fit thread" : `${shards} fit shards`}, pool ${terminals.join("+")}`);
   console.log(`  the cosine is taken with the entropy coefficient at ${PROBE_ENTROPY}; the fit pays ${fitEntropy}`);
   if (start !== null) console.log(`  starting from ${from}, ${start.norm.count} observations of normalisation`);
+  if (rewards.length > 0) {
+    console.log(`  --rewards: ${rewards.length} table(s) priced off each collection beside the one it `
+      + `was collected under -- ${rewards.map((arm) => arm.label).join(", ")}`);
+  }
+  if (tactics !== null) {
+    console.log(`  --tactics: ${Object.entries(tactics).map(([row, value]) => `${row}=${value}`).join(", ")}`);
+  }
   if (hold) {
     console.log("  --hold: nothing is fitted, so every iteration measures the same policy and a row "
       + "of bout counts isolates the sample size");
@@ -909,6 +1090,9 @@ if (isMain) {
   // And one an iteration when the bout split was asked for, summarised the same way, so the run's
   // answer carries both cuts of it or neither and a reader never has to recompute one of them.
   const boutCosines = [];
+  // And one list an arm when `--rewards` named some, keyed by label, so the summary can quote each
+  // table's own mean over the same iterations the row's own mean is taken over.
+  const armCosines = new Map();
   try {
     for (let iteration = 1; iteration <= iterations; iteration += 1) {
       const started = Date.now();
@@ -920,7 +1104,7 @@ if (isMain) {
         pool: bodies, randomPool: randomBodies, mirrorShare,
         weights, logSigma, norm, seed: (seed + iteration * 7919) >>> 0, bouts, workers, cap,
         reward: GOLEM_REWARD, opponent: opponentOf(opponentWord),
-        features, spec, central,
+        features, spec, central, tactics,
         onProgress: progress(`iteration ${iteration}`),
       });
       const collected = (Date.now() - started) / 1000;
@@ -931,7 +1115,7 @@ if (isMain) {
       const probeStarted = Date.now();
       const signal = probeRollout({
         pool, rollout, weights, valueWeights, logSigma, norm, valueLayout, seed: fitSeed,
-        halfLife, lambda, clip, classes, floor: classFloor, boutSplit,
+        halfLife, lambda, clip, classes, floor: classFloor, boutSplit, rewards,
       });
       const probed = (Date.now() - probeStarted) / 1000;
       const fitStarted = Date.now();
@@ -961,6 +1145,16 @@ if (isMain) {
       }
       cosines.push(signal.cosine);
       if (signal.byBout !== undefined) boutCosines.push(signal.byBout.cosine);
+      // One entry an arm an iteration, kept beside the row's own cosine rather than as a
+      // difference, because a difference of two cosines is not the scale-free quantity and this
+      // record has paid three times for writing one down. The summary below quotes each arm's own
+      // mean; what a reader wants from them is the ratio of `c/(1-c)`, and that is an arithmetic
+      // on two means and not a column to be accumulated.
+      for (const arm of signal.priced ?? []) {
+        let column = armCosines.get(arm.label);
+        if (column === undefined) { column = []; armCosines.set(arm.label, column); }
+        column.push(arm.cosine);
+      }
       const cut = signal.classes ?? null;
       if (cut !== null) {
         splits.push({
@@ -1039,11 +1233,19 @@ if (isMain) {
   const boutSummary = boutCosines.length === 0 ? {} : {
     boutCosineMean: meanOf(boutCosines), boutCosineSem: semOf(boutCosines),
   };
+  // Each named table's own mean over the same iterations, as a list rather than as fields, because
+  // the arms are named by a file and a summary whose field names came out of one would be a record
+  // no two runs of this file share a schema on.
+  const armSummary = armCosines.size === 0 ? {} : {
+    rewardArms: [...armCosines].map(([arm, column]) => ({
+      label: arm, iterations: column.length, cosineMean: meanOf(column), cosineSem: semOf(column),
+    })),
+  };
   log({
     type: "summary", iterations: cosines.length, bouts, opponent: opponentWord,
     cosineMean: mean, cosineSem: sem, cosineMedian: median, ...boutSummary,
     cosineLeast: sorted[0], cosineMost: sorted[sorted.length - 1], probeEntropy: PROBE_ENTROPY,
-    ...splitSummary,
+    ...splitSummary, ...armSummary,
   });
   console.log(`cosine over ${cosines.length} iterations at ${bouts} bouts against ${opponentWord}: `
     + `${mean >= 0 ? "+" : ""}${mean.toFixed(4)} +- ${sem.toFixed(4)}, `
@@ -1055,6 +1257,10 @@ if (isMain) {
     };
     console.log(`cut by ${classes}: within ${say("within")}, pooled at the same sizes ${say("pooled")}, `
       + `between ${say("between")}`);
+  }
+  for (const [arm, column] of armCosines) {
+    console.log(`  reward arm ${arm}: ${meanOf(column) >= 0 ? "+" : ""}${meanOf(column).toFixed(4)} `
+      + `+- ${semOf(column).toFixed(4)} over the same ${column.length} collections`);
   }
   console.log(`log: ${out}`);
 }

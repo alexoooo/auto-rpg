@@ -76,6 +76,34 @@
 // bouts and this file is arithmetic. So `askBouts` throws on every way the identity could be
 // broken and asserts none of it, which is the same footing `askClasses` stands on.
 //
+// **The reward axis added seven more on 2026-09-12**, watched red the same way. It is the first
+// cut this file measures that changes a number the fit reads rather than the way one is taken, so
+// the mutations divide into the ones that break the arm and the ones that break its pairing:
+//
+// | mutation | what went red |
+// |---|---|
+// | an arm's unknown row is ignored rather than refused by name | the refusal test |
+// | a repeated arm label is allowed, so two arms answer to one name | the refusal test |
+// | an arm starts from an empty table rather than from the shipped one | the shipped-rows test |
+// | an arm reuses the row's standardised advantages instead of standardising its own | the pairing test |
+// | an arm reuses the row's returns instead of the ones its own table implies | the pairing test |
+// | an arm is cut on a shuffle of its own rather than on the order the row was cut on | the pairing test |
+// | a shaping share is taken over what the asks netted rather than over what they paid | the share test |
+//
+// **The last three of those are the reason the pairing test asserts an identity and a difference
+// at once.** An arm that reuses too much of the row agrees with it exactly and passes anything
+// that only asks whether the arms are plausible; an arm that reuses too little disagrees with it
+// for a reason that is the instrument's rather than the table's. So the identity arm -- the
+// shipped coefficients, named on purpose -- has to reproduce the row to the last digit, and the
+// no-shaping arm has to fail to, and no single mutation above can satisfy both.
+//
+// **What no mutation here can reach, and it is the claim the sweep rests on.** That a reward
+// coefficient does not change how a *held* policy acts is a fact about the collectors, which this
+// file does not run: a body draws from weights that do not move, so the collection is the same
+// collection whatever it is later priced at. It is argued in `priceRollout`'s own header, it is
+// true by construction of `--hold`, and it is false the moment a run fits -- which is why the
+// reward arms are a diagnostic and not a training result, and why nothing here asserts otherwise.
+//
 // And two that are green on purpose, recorded so the next reader does not re-derive them. Replacing
 // `PROBE_EPOCH` with any other whole number changes nothing at all, because `FitPool.step` stores
 // it in the control block and `shardStep` never reads it -- it is written for a person reading a
@@ -89,16 +117,17 @@ import { forward, initWeights, netScratch } from "../src/golem/neural-net.ts";
 import {
   ACTION_AXES, ACTION_WIDTH, actionLogProb, normalise, sampleAction,
 } from "../src/golem/policy.ts";
+import { GOLEM_REWARD } from "../src/golem/reward.ts";
 import { mulberry32 } from "../src/rng.ts";
 import { PARAM } from "../scripts/fit-worker.mjs";
 import {
-  FIT_SHUFFLE_SEED, FitPool, advantages, fitShuffle, fitShuffleRandom, ppoFit,
-  standardisedAdvantages, valuesOf,
+  FIT_SHUFFLE_SEED, FitPool, PRICED_COLUMNS, REWARD_KEYS, advantages, fitShuffle, fitShuffleRandom,
+  ppoFit, priceRollout, standardisedAdvantages, valuesOf,
 } from "../scripts/train-ppo.mjs";
 import {
   CLASS_AXES, PROBE_ENTROPY, PROBE_EPOCH, askBouts, askClasses, boutBlocks, boutGradients, checkHeldStart,
   classBlocks, cosineOf, dotOf, epochOrder, halfGradients, halfSplit, measureSignal, normOf,
-  parseClasses, probeRollout,
+  parseClasses, probeRollout, rewardArms, shareOf,
 } from "../scripts/gradient-probe.mjs";
 
 const SEED = 20260917;
@@ -224,7 +253,7 @@ const VALUE = Object.freeze({ inputs: 6, hidden: Object.freeze([12]), outputs: 1
  * regime Experiment B exists to be able to report, and it is why the actor cosine below is small
  * rather than near one.
  */
-function fixture(count = 256, seed = SEED + 3) {
+function fixture(count = 256, seed = SEED + 3, { priced = false } = {}) {
   const width = LAYOUT.inputs;
   const random = mulberry32(seed);
   const norm = { count: 11_000, mean: [], variance: [] };
@@ -257,6 +286,32 @@ function fixture(count = 256, seed = SEED + 3) {
     rollout.a.set(draw, i * ACTION_WIDTH);
     rollout.logp[i] = actionLogProb(head, logSigma, draw);
     rollout.reward[i] = random() - 0.5;
+  }
+  // Off unless asked for, so every test written before the reward axis existed reads a rollout
+  // that is byte for byte the one it read. With it, the fixture carries the quantities a table is
+  // a coefficient on *and* its reward is what the shipped table pays for them -- both halves
+  // matter, because a rollout whose `reward` did not come from its own `raw` would let an arm
+  // naming the shipped coefficients disagree with the row it sits in for a reason that is the
+  // fixture's and not the instrument's.
+  if (priced) {
+    rollout.raw = Object.fromEntries([
+      ...PRICED_COLUMNS.map((row) => [row, new Float64Array(count)]),
+      ["outcome", new Int8Array(count)],
+    ]);
+    for (let i = 0; i < count; i += 1) {
+      // Quantities rather than noise: a duration is never negative, and a table swept over a
+      // column that went negative would report a credit where the arena can only charge.
+      rollout.raw.dealt[i] = random() < 0.2 ? random() * 0.1 : 0;
+      rollout.raw.taken[i] = random() < 0.2 ? random() * 0.1 : 0;
+      rollout.raw.clinch[i] = random() < 0.3 ? random() * 0.08 : 0;
+      rollout.raw.idle[i] = random() * 0.05;
+      rollout.raw.closing[i] = random() < 0.4 ? random() * 0.06 : 0;
+      rollout.raw.stall[i] = random() < 0.3 ? random() * 0.08 : 0;
+      rollout.raw.outside[i] = random() < 0.5 ? random() * 0.08 : 0;
+      rollout.raw.swing[i] = random() < 0.1 ? 1 : 0;
+      rollout.raw.outcome[i] = i < count / 2 ? 1 : -1;
+    }
+    Object.assign(rollout, priceRollout(rollout, GOLEM_REWARD));
   }
   return { rollout, norm, weights, valueWeights, logSigma };
 }
@@ -805,6 +860,128 @@ test("the_bout_split_is_reported_beside_the_ask_split_and_does_not_move_the_numb
   assert.equal(plain.cosine, row.cosine, "the bout split moved the number the grid was read on");
   assert.equal(plain.critic.cosine, row.critic.cosine);
   assert.equal(plain.advantageSd, row.advantageSd);
+});
+
+// ---------------------------------------------------------------------------------------
+// The reward axis, which is the one cut that changes a number rather than the way one is taken.
+// ---------------------------------------------------------------------------------------
+
+test("an_arm_is_the_shipped_table_with_the_rows_it_names_changed_and_nothing_else", () => {
+  const [one] = rewardArms([{ label: "no-idle", idle: 0 }]);
+  assert.equal(one.label, "no-idle");
+  assert.equal(one.table.idle, 0);
+  // Every row the arm did not name is the shipped one, which is what makes an arm readable as a
+  // difference from the table the record was written under rather than as eight fresh numbers.
+  for (const row of REWARD_KEYS) {
+    if (row === "idle") continue;
+    assert.equal(one.table[row], GOLEM_REWARD[row], `${row} moved in an arm that did not name it`);
+  }
+  // Naming every row is also legal, and an arm that names them all to their shipped values is the
+  // identity arm the sweep uses to check this whole path against the row it sits in.
+  const [same] = rewardArms([{ label: "shipped", ...GOLEM_REWARD }]);
+  assert.deepEqual({ ...same.table }, { ...GOLEM_REWARD });
+});
+
+test("a_reward_arm_that_names_a_row_this_build_does_not_pay_is_refused_by_the_name_it_used", () => {
+  // By name rather than ignored, and it is the refusal that earns this parser. A file that says
+  // `idles` instead of `idle` under a silent reader is a sweep that runs its hours, reports a row
+  // of arms that are all the shipped table, and looks exactly like a null result.
+  assert.throws(() => rewardArms([{ label: "typo", idles: 0 }]), /"idles", which is not a reward row/);
+  assert.throws(() => rewardArms([{ label: "typo", idles: 0 }]), /win, clinch, idle, tick/);
+  assert.throws(() => rewardArms([{ label: "bad", idle: "0" }]), /sets idle to 0, which is not a coefficient/);
+  assert.throws(() => rewardArms([{ label: "bad", idle: NaN }]), /not a coefficient/);
+  // An arm is read back by its label, so two arms under one label is a record that cannot be read.
+  assert.throws(() => rewardArms([{ label: "a", idle: 0 }, { label: "a", stall: 1 }]), /two arms "a"/);
+  assert.throws(() => rewardArms([{ idle: 0 }]), /has no label/);
+  assert.throws(() => rewardArms([{ label: "  " }]), /has no label/);
+  // And the two shapes of an empty ask, both of which mean somebody meant to sweep something.
+  assert.throws(() => rewardArms([]), /no arms in it/);
+  assert.throws(() => rewardArms({ label: "a" }), /an array of reward arms, not object/);
+  assert.throws(() => rewardArms([["label", "a"]]), /arm 0 is not an object/);
+});
+
+test("a_reward_arm_is_measured_on_the_same_asks_as_the_row_it_sits_in_and_does_not_move_it", async () => {
+  // The property the whole sweep rests on, and the reason it is worth an instrument rather than a
+  // row of runs: a table does not move a held policy, so an arm and the row it sits in are one
+  // collection. Pinned as identity where the arms agree and as difference where they do not.
+  const built = fixture(256, SEED + 3, { priced: true });
+  const arms = rewardArms([
+    { label: "shipped", ...GOLEM_REWARD },
+    { label: "no-shaping", clinch: 0, idle: 0, tick: 0, closing: 0, stall: 0, outside: 0, swing: 0 },
+  ]);
+  const pool = await FitPool.open({ shards: 2, layout: LAYOUT, valueLayout: VALUE });
+  let row = null;
+  let plain = null;
+  try {
+    row = probeRollout({
+      pool, rollout: built.rollout, weights: built.weights, valueWeights: built.valueWeights,
+      logSigma: built.logSigma, norm: built.norm, valueLayout: VALUE, seed: SEED, rewards: arms,
+    });
+    plain = probeRollout({
+      pool, rollout: built.rollout, weights: built.weights, valueWeights: built.valueWeights,
+      logSigma: built.logSigma, norm: built.norm, valueLayout: VALUE, seed: SEED,
+    });
+  } finally {
+    await pool.close();
+  }
+  // Absent rather than empty when no arm was named, exactly as the other two splits are.
+  assert.ok(!("priced" in plain));
+  assert.deepEqual(row.priced.map((arm) => arm.label), ["shipped", "no-shaping"]);
+  // The identity arm. The fixture's reward *is* what the shipped table pays its raw columns, so an
+  // arm naming those coefficients has to reproduce the row's own cosine to the last digit -- and
+  // its advantage spread with it, because a table that reproduced the cosine off a different
+  // standardisation would be agreeing by luck.
+  const [shipped, bare] = row.priced;
+  assert.equal(shipped.cosine, row.cosine, "the identity arm did not reproduce the row it sits in");
+  assert.equal(shipped.advantageSd, row.advantageSd);
+  assert.equal(shipped.critic.cosine, row.critic.cosine);
+  // Every arm reads the same asks in the same two halves, which is the pairing stated as a number
+  // rather than as an argument: an arm that differed here would be a different sample and the
+  // comparison would carry the per-bout noise the whole design exists to remove.
+  for (const arm of row.priced) {
+    assert.equal(arm.asks, row.asks);
+    assert.equal(arm.firstAsks, row.firstAsks);
+    assert.equal(arm.secondAsks, row.secondAsks);
+  }
+  // And an arm that changes the table changes the answer, or the sweep is measuring nothing.
+  assert.notEqual(bare.cosine, row.cosine, "a table with no shaping in it paid what the shipped one did");
+  assert.notEqual(bare.advantageSd, row.advantageSd);
+  // The arms do not disturb the row they were taken beside, so a run with a dozen of them reports
+  // the same baseline a run with none would.
+  assert.equal(plain.cosine, row.cosine, "pricing an arm moved the collection it was priced off");
+  assert.equal(plain.advantageSd, row.advantageSd);
+});
+
+test("an_arms_shaping_share_is_over_what_the_asks_paid_in_total_rather_than_over_what_they_netted", () => {
+  // A mirrored collection's rewards very nearly cancel -- both corners are collected, so `dealt`
+  // less `taken` telescopes and the win terms sum to zero -- and a share over that denominator
+  // swings between plus and minus infinity while nothing is happening. Over the absolute total it
+  // is bounded and readable, and an arm that charges nothing reads exactly zero.
+  const built = fixture(256, SEED + 3, { priced: true });
+  const bare = { ...GOLEM_REWARD, clinch: 0, idle: 0, tick: 0, closing: 0, stall: 0, outside: 0, swing: 0 };
+  const nothing = shareOf(priceRollout(built.rollout, bare), built.rollout);
+  assert.equal(nothing.penalty, 0, "a table with no shaping rows in it reported a shaping share");
+  for (const row of Object.keys(nothing.rows)) assert.equal(nothing.rows[row], 0, row);
+  const shipped = shareOf(priceRollout(built.rollout, GOLEM_REWARD), built.rollout);
+  // The rows sum to the total, which is what makes a row auditable against the behaviour it was
+  // meant to move rather than against a number that happens to sit beside it.
+  const summed = Object.values(shipped.rows).reduce((total, value) => total + value, 0);
+  assert.ok(Math.abs(summed - shipped.penalty) < 1e-12, `${summed} against ${shipped.penalty}`);
+  // The shipped table charges for idling and for clinching and for nothing else today, which is
+  // the finding the reward sweep was written to act on, asserted here so the fixture cannot drift
+  // away from the table the record is about.
+  for (const row of ["tick", "closing", "stall", "outside", "swing"]) {
+    assert.equal(shipped.rows[row], 0, `${row} is charged by the shipped table after all`);
+  }
+  assert.ok(shipped.rows.idle > 0, `idling was not charged: ${shipped.rows.idle}`);
+  // A denominator that cannot be zero for a rollout that paid anything, and zero when it did not.
+  const empty = { count: 4, reward: new Float64Array(4), done: new Uint8Array(4), seconds: new Float64Array(4) };
+  empty.raw = Object.fromEntries([
+    ...PRICED_COLUMNS.map((row) => [row, new Float64Array(4)]), ["outcome", new Int8Array(4)],
+  ]);
+  const none = shareOf(priceRollout(empty, GOLEM_REWARD), empty);
+  assert.equal(none.paid, 0);
+  assert.equal(none.penalty, 0, "a share was taken over a denominator of zero");
 });
 
 test("a_bout_half_is_summed_over_its_own_bouts_asks_and_not_over_the_front_of_the_shuffled_order", async () => {

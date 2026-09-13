@@ -232,6 +232,19 @@ export const PACK_COLUMNS = Object.freeze([
   "dealt", "taken", "seconds", "clinch", "idle", "closing", "stall", "outside", "swing", "done",
 ]);
 
+/**
+ * The subset of those a coefficient multiplies, and so what a merged rollout keeps to be re-priced.
+ *
+ * `PACK_COLUMNS` minus `seconds` and `done`, which the rollout already carries under their own
+ * names -- `tick` is a coefficient on `seconds` and is priced off the rollout's copy, so there is
+ * exactly one of that number and it cannot drift from the one `advantages` discounts by. Derived
+ * from `PACK_COLUMNS` by filter rather than typed out again, so a column added to the pack and
+ * given a coefficient is kept without anyone remembering to keep it.
+ */
+export const PRICED_COLUMNS = Object.freeze(
+  PACK_COLUMNS.filter((column) => column !== "seconds" && column !== "done"),
+);
+
 const round5 = (x) => Math.round(x * 1e5) / 1e5;
 const round4 = (x) => Math.round(x * 1e4) / 1e4;
 
@@ -271,18 +284,24 @@ export function mergeRollouts(parts, reward = GOLEM_REWARD, width = PILOT_FEATUR
     ...(central ? { p: new Float32Array(count * width) } : {}),
     a: new Float64Array(count * ACTION_WIDTH),
     logp: new Float64Array(count),
-    reward: new Float64Array(count),
     /**
-     * What the shaping rows took out of that reward in total, so a run can report their share.
+     * The quantities the reward is made of, laid out beside the asks that earned them.
      *
-     * Every row of `SHAPING_ROWS` and nothing else: `win` is left in the reward, because it is paid
-     * on the outcome and a share that counted it would say a run was dominated by shaping when
-     * what it was dominated by was winning. `closing` is a credit and enters here negative, which
-     * is what makes the sum still the honest answer to "what did shaping do to this return".
+     * Every row of `PACK_COLUMNS` that a coefficient multiplies, kept rather than consumed, plus
+     * the per-ask `outcome` that `win` is paid on. The header above says the table is a flag and
+     * not a rebuild; this is what makes that true a second time, *after* a collection rather than
+     * only before one. A rollout that carries what it was priced from can be priced again, and
+     * `priceRollout` is the function that does it -- which is what lets a held policy answer for a
+     * dozen tables off one set of bouts instead of a dozen sets, with the observations, the draws
+     * and the episode boundaries identical across them rather than merely distributed alike.
+     *
+     * `seconds` and `done` are not repeated here: they are already the rollout's own columns, and a
+     * second copy of a number the fit reads elsewhere is a number that can disagree with itself.
      */
-    penalty: new Float64Array(count),
-    /** The same number split by row, so a table can be audited against the row it was meant to move. */
-    charges: Object.fromEntries(SHAPING_ROWS.map((row) => [row, new Float64Array(count)])),
+    raw: Object.fromEntries([
+      ...PRICED_COLUMNS.map((row) => [row, new Float64Array(count)]),
+      ["outcome", new Int8Array(count)],
+    ]),
     seconds: new Float64Array(count),
     done: new Uint8Array(count),
   };
@@ -312,36 +331,72 @@ export function mergeRollouts(parts, reward = GOLEM_REWARD, width = PILOT_FEATUR
     // The outcome is read once, on the window the recorder marked `done`, and is the side's own:
     // `winner` is the name of a side of the bout and `part.side` says which one this pack is.
     const outcome = part.winner === null ? 0 : part.winner === part.side ? 1 : -1;
-    for (let i = 0; i < n; i += 1) {
-      const done = part.done[i] === 1;
-      const w = {
-        dealt: part.dealt[i], taken: part.taken[i], seconds: part.seconds[i],
-        clinchSeconds: part.clinch[i], idleMetres: part.idle[i],
-        closingMetres: part.closing[i], stallSeconds: part.stall[i],
-        outsideSeconds: part.outside[i], emptyStrokes: part.swing[i],
-        done, outcome,
-      };
-      out.reward[at + i] = stepReward(w, reward);
-      // Each row's own contribution, signed so that positive is taken out of the return. Written
-      // out a row at a time rather than by differencing `stepReward` against a window with the
-      // quantities zeroed, which is how this read before there were seven of them: that spelling
-      // needed a list of field names kept in step with `RewardWindow` by hand, and a row added to
-      // one and forgotten in the other would have been counted in the reward and not in the share.
-      const charge = out.charges;
-      charge.clinch[at + i] = reward.clinch * part.clinch[i];
-      charge.idle[at + i] = reward.idle * part.idle[i];
-      charge.tick[at + i] = reward.tick * part.seconds[i];
-      charge.closing[at + i] = -reward.closing * part.closing[i];
-      charge.stall[at + i] = reward.stall * part.stall[i];
-      charge.outside[at + i] = reward.outside * part.outside[i];
-      charge.swing[at + i] = reward.swing * part.swing[i];
-      let total = 0;
-      for (const row of SHAPING_ROWS) total += charge[row][at + i];
-      out.penalty[at + i] = total;
-    }
+    for (const column of PRICED_COLUMNS) out.raw[column].set(part[column], at);
+    out.raw.outcome.fill(outcome, at, at + n);
     at += n;
   }
   if (at !== count) throw new Error(`merged ${at} of ${count} asks`);
+  return Object.assign(out, priceRollout(out, reward));
+}
+
+/**
+ * What one table pays a rollout that already exists, without collecting a bout to find out.
+ *
+ * The three arrays a reward table decides -- the per-ask reward, the per-row charge and their sum
+ * -- returned rather than written, so a caller can hold several pricings of one collection at once
+ * and compare them. `mergeRollouts` assigns the one it asked for and every caller that never heard
+ * of this function reads exactly what it read before.
+ *
+ * **Why this is worth a function.** A reward coefficient does not change how a *held* policy acts:
+ * the body draws from the weights and the weights do not move, so a rollout collected once is the
+ * rollout every table in a sweep would have collected. Pricing it N ways is N cheap passes over
+ * arrays that are already in memory, against N collections of bouts -- and the comparison is
+ * *paired to the ask*, which is worth more than the hours. Two separate collections differ by the
+ * whole per-bout noise the held row measured at twenty-nine squared units a bout; two pricings of
+ * one collection differ by the table and by nothing else at all, because the observations, the
+ * draws, the log-probabilities and the episode boundaries are the same objects.
+ *
+ * It says nothing about a table under a policy that *moved* under it, which is the measurement this
+ * cannot substitute for and the one a training run is still needed to make.
+ */
+export function priceRollout(rollout, reward = GOLEM_REWARD) {
+  const raw = rollout.raw;
+  if (raw === undefined || raw === null) {
+    throw new Error("a rollout merged without its raw columns cannot be re-priced; "
+      + `this build keeps ${PRICED_COLUMNS.join(", ")} and outcome for exactly that`);
+  }
+  const n = rollout.count;
+  const out = {
+    reward: new Float64Array(n),
+    penalty: new Float64Array(n),
+    charges: Object.fromEntries(SHAPING_ROWS.map((row) => [row, new Float64Array(n)])),
+  };
+  const charge = out.charges;
+  for (let i = 0; i < n; i += 1) {
+    const w = {
+      dealt: raw.dealt[i], taken: raw.taken[i], seconds: rollout.seconds[i],
+      clinchSeconds: raw.clinch[i], idleMetres: raw.idle[i],
+      closingMetres: raw.closing[i], stallSeconds: raw.stall[i],
+      outsideSeconds: raw.outside[i], emptyStrokes: raw.swing[i],
+      done: rollout.done[i] === 1, outcome: raw.outcome[i],
+    };
+    out.reward[i] = stepReward(w, reward);
+    // Each row's own contribution, signed so that positive is taken out of the return. Written
+    // out a row at a time rather than by differencing `stepReward` against a window with the
+    // quantities zeroed, which is how this read before there were seven of them: that spelling
+    // needed a list of field names kept in step with `RewardWindow` by hand, and a row added to
+    // one and forgotten in the other would have been counted in the reward and not in the share.
+    charge.clinch[i] = reward.clinch * raw.clinch[i];
+    charge.idle[i] = reward.idle * raw.idle[i];
+    charge.tick[i] = reward.tick * rollout.seconds[i];
+    charge.closing[i] = -reward.closing * raw.closing[i];
+    charge.stall[i] = reward.stall * raw.stall[i];
+    charge.outside[i] = reward.outside * raw.outside[i];
+    charge.swing[i] = reward.swing * raw.swing[i];
+    let total = 0;
+    for (const row of SHAPING_ROWS) total += charge[row][i];
+    out.penalty[i] = total;
+  }
   return out;
 }
 
