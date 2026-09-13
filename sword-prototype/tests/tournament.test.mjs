@@ -829,3 +829,86 @@ test("the_exchange_log_reads_a_styled_mind_and_files_the_option_names_that_style
   assert.ok(windows > 40, `${windows} windows over four four-second bouts`);
   assert.ok(named.size >= 3, `only ${[...named].join(", ")} were ever in force`);
 });
+
+/**
+ * Two contenders scheduled from one seed meet the same bodies in the same order.
+ *
+ * **This is the property every paired bar in this record rests on, and until now nothing asserted
+ * it.** `columnsOf` in `scripts/train-learner.mjs` slices a rating's rows into one contiguous block
+ * a contender and pairs them by index: `points[a][i] - points[b][i]`. It checks that each row names
+ * the contender whose block it is in, and it cannot check -- from the rows alone -- that row `i` of
+ * one block and row `i` of another are the same fight. If they were not, every `d` on every rating
+ * curve in this tree would be an unpaired difference wearing a paired column's name, which is
+ * precisely the confound Session 11 of the learn set published and the signal set was written to
+ * end.
+ *
+ * `ratePaired` guards it downstream by refusing a rating whose arms met the opponents in a
+ * different order. `ratePolicy` -- the path `scripts/rate-snapshots.mjs` and `scripts/league.mjs`
+ * draw every curve in the record from -- has no such guard, and does not need one, *if* the
+ * property holds where it is created. It is created here: `evaluate` calls `scheduleJobs` once a
+ * contender with the same pool, seed, cap, league and arrangement, changing only the name. So the
+ * assertion belongs on the scheduler and not on the reader of its output.
+ *
+ * **What makes it true, and it is worth naming because it is one line.** The draw stream is
+ * `mulberry32(seed ^ 0x0b0e)`: seeded from the run's seed alone, with no contender name anywhere in
+ * it. The viability rejection loop consumes extra draws, and how many it consumes depends on the
+ * pool and the stream and not on who is fighting. So the bodies, the pairing index, the side swap
+ * and both bout seeds are the same across contenders, and the policy slots are the only difference.
+ *
+ * Asserted on the viable random-pair arrangement as well as the plain one, because that is the pool
+ * the record's fourth frozen choice says is the one that matters, and because its rejection loop is
+ * the only part of the scheduler that could have made the number of draws depend on the fight.
+ *
+ * | mutation | what went red |
+ * |---|---|
+ * | the draw stream is salted with the first policy's name | the build and the setup, on all three arrangements |
+ * | the side swap is dropped, so the contender never leaves the left | the swapped-side assertion at the end |
+ * | the viability rejection loop burns a draw per letter of the policy's name | the build, on the viable arrangement |
+ *
+ * **The third is the one that says why the viable arrangement is in the loop.** A stream that is
+ * salted only inside the rejection path is identical on the plain and mirrored pools and wrong on
+ * the one the criterion is stated on, so a fixture that took the default arrangement alone would be
+ * green against it. That is the shape of every mistake this scheduler could make: not a wrong
+ * number, an alignment that holds in the arrangement nobody publishes and fails in the one they do.
+ */
+test("two_contenders_scheduled_from_one_seed_meet_the_same_bodies_in_the_same_order", () => {
+  const pool = buildPool({ seed: SEED, random: 20 });
+  for (const arrangement of [{}, { mirror: true }, { viable: true }]) {
+    const of = (name) => scheduleJobs({
+      pool, policies: [name, "golem-driver"], pairs: [[name, "golem-driver"]],
+      pairings: 12, seed: SEED, cap: 30, ...arrangement,
+    });
+    const left = of("golem-fencer");
+    const right = of("golem-duelist");
+    const where = JSON.stringify(arrangement);
+    assert.equal(left.length, right.length, `${where}: two contenders drew schedules of two lengths`);
+    assert.ok(left.length > 0, `${where}: an empty schedule asserts nothing`);
+    let swapped = 0;
+    for (let i = 0; i < left.length; i += 1) {
+      const a = left[i];
+      const b = right[i];
+      assert.equal(a.pairing, b.pairing, `${where}: job ${i} is a different pairing for each`);
+      assert.equal(a.swapped, b.swapped, `${where}: job ${i} is swapped for one and not the other`);
+      assert.deepEqual(a.seeds, b.seeds, `${where}: job ${i} runs on two different bout seeds`);
+      for (const side of ["left", "right"]) {
+        assert.equal(a[side].build, b[side].build,
+          `${where}: job ${i} puts ${a[side].build} in one schedule and ${b[side].build} in the other`);
+        assert.deepEqual(a[side].setup, b[side].setup, `${where}: job ${i} ${side} is a different body`);
+        assert.equal(a[side].seed, b[side].seed, `${where}: job ${i} ${side} runs on a different seed`);
+      }
+      // The contender's own name is the only thing that moved, and it moved in exactly one slot --
+      // which is what makes the difference of the two columns a difference of minds. A schedule
+      // where both slots changed would still be aligned and would not be a paired comparison.
+      const moved = ["left", "right"].filter((side) => a[side].policy !== b[side].policy);
+      assert.deepEqual(moved.length, 1, `${where}: job ${i} changed ${moved.length} policy slots`);
+      assert.equal(a[moved[0]].policy, "golem-fencer");
+      assert.equal(b[moved[0]].policy, "golem-duelist");
+      if (moved[0] === "right") swapped += 1;
+    }
+    // And the contender is not always on the same side, which is the side swap `columnsOf` reads
+    // through `row.left.policy === name ? "left" : "right"`. A fixture where it never moved would
+    // pass this test against a `columnsOf` that only ever looked left.
+    assert.ok(swapped > 0 && swapped < left.length,
+      `${where}: the contender sat on one side for all ${left.length} jobs`);
+  }
+});
