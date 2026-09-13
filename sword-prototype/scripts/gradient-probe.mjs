@@ -379,6 +379,26 @@ export function halfGradients({
   });
 }
 
+/**
+ * The gradient over the whole epoch, taken through the same pool and under the same binding.
+ *
+ * The halves are what this file was written to compare; the whole is what a *step* would be taken
+ * along, and `scripts/step-probe.mjs` needs exactly that vector and nothing else. It is here rather
+ * than there so that there is one place in the tree where a probe binds the fit pool, one place
+ * that knows the epoch marker is decorative, and one place that takes a gradient under
+ * `PROBE_ENTROPY` and no other coefficient -- which is the module's single correctness property and
+ * would be worth very little if the next instrument re-derived it next door.
+ */
+export function wholeGradient({
+  pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order, clip = 0.2,
+}) {
+  pool.bind(rollout, scaled, returns, norm, { clip, entropy: PROBE_ENTROPY });
+  const [whole] = takeHalves({
+    pool, order, halves: [{ at: 0, end: rollout.count }], weights, valueWeights, logSigma,
+  });
+  return whole;
+}
+
 /** Two ranges of one order, summed and copied out, which is all either split actually does. */
 function takeHalves({ pool, order, halves, weights, valueWeights, logSigma }) {
   const taken = [];

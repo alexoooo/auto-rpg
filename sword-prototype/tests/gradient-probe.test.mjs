@@ -256,6 +256,7 @@ import {
   boutGradients, checkHeldStart, classBlocks, cosineOf, dotOf, epochOrder, groupedMeans, halfGradients,
   halfSplit, headGroups, headNorms, headRows, headSignal, linearBaseline, mcReturns, measureBonus,
   measureSignal, normOf, parseClasses, probeRollout, rewardArms, shareOf, solveCholesky,
+  wholeGradient,
 } from "../scripts/gradient-probe.mjs";
 
 const SEED = 20260917;
@@ -1850,6 +1851,43 @@ test("a_probe_rows_arms_take_their_advantages_against_the_baselines_they_named",
     // rather than a single not-the-critic branch taken three times.
     const cosines = new Set(["none", "when", "plane"].map((label) => arms[label].cosine));
     assert.equal(cosines.size, 3, "two baselines of different kinds produced the same gradient");
+  } finally {
+    await pool.close();
+  }
+});
+
+/**
+ * The whole epoch's gradient is the one the two halves average to, and it is taken under no bonus.
+ *
+ * `wholeGradient` exists for `scripts/step-probe.mjs`, which walks along it -- so the two things it
+ * has to be are the gradient this file has been measuring the halves of, and a gradient with no
+ * entropy coefficient in it. Both are asserted here rather than there, because this is the module
+ * that owns the binding and a correctness property asserted in the file that consumes it is one
+ * that moves the next time somebody adds a consumer.
+ */
+test("the_whole_epoch_gradient_is_the_one_the_two_halves_average_to", { timeout: 300_000 }, async () => {
+  const built = fixture();
+  const bound = bindings(built);
+  const n = built.rollout.count;
+  const pool = await FitPool.open({ shards: 2, layout: LAYOUT, valueLayout: VALUE });
+  try {
+    const [first, second] = halfGradients({ pool, ...bound });
+    const whole = wholeGradient({ pool, ...bound });
+    assert.equal(whole.asks, n);
+    for (const which of ["actor", "spread", "critic"]) {
+      let most = 0;
+      let scale = 0;
+      for (let k = 0; k < whole[which].length; k += 1) {
+        const averaged = (first.asks * first[which][k] + second.asks * second[which][k]) / n;
+        most = Math.max(most, Math.abs(averaged - whole[which][k]));
+        scale = Math.max(scale, Math.abs(whole[which][k]));
+      }
+      assert.ok(most <= 1e-12 * (1 + scale), `the whole ${which} gradient is ${most} off the average`);
+      assert.ok(scale > 0, `the whole epoch's ${which} gradient is identically zero`);
+    }
+    // The binding it left behind, read the way the entropy test reads it: a whole-epoch gradient
+    // taken under a production coefficient would be a step along a direction the bonus chose.
+    assert.equal(pool.bound.params[PARAM.ENTROPY], PROBE_ENTROPY);
   } finally {
     await pool.close();
   }
