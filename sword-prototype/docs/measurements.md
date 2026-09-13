@@ -25420,11 +25420,14 @@ pool against a designed mind. A disconnection between them could be a disconnect
 can do is measure whether the disconnection is there at all, which is the thing nobody has done,
 and a null here would close the question without needing the distinction.
 
-**It does not say the reward table is wrong.** `GOLEM_REWARD` was eliminated as the reason the bar
-does not move *against the fencer* by Experiment E, which re-priced collected rollouts under
-different tables and found the gradient unchanged. That experiment varied the coefficients. This
-one asks whether the quantity those coefficients define is the quantity the record grades, which
-is a different question, and a positive here does not reopen E.
+**It does not say the reward table is wrong.** Experiment E priced one collection under sixteen
+tables and found that against `golem-fencer` **no table it could express makes the gradient
+measurable** -- a claim about how well each table determines a gradient, and not the claim that
+every table determines the same one. That is the right reading of E and it is narrower than the
+shorthand "the table was eliminated" suggests; the audit entry at the end of this file names what
+E's instrument does not compare. Either way E varied the coefficients, and this one asks whether
+the quantity those coefficients define is the quantity the record grades, which is a different
+question. A positive here does not reopen E.
 
 **No fit changes and nothing ships.** This reads logs that are being written for other experiments
 and collects no bouts of its own. If prediction 1 fires, the next experiment is the one that
@@ -25485,3 +25488,68 @@ not what a fit learning to stop being charged looks like. The attribution is non
 the row the mechanism names. Prediction 4 stands as written for the seven prospective arms,
 because a prediction rewritten to match the one arm its author has already read is not a
 prediction.
+
+## The audit -- 2026-09-13: every published quantity in the probe, against the assertion that is about it
+
+Not an experiment and not a measurement: an application of the ruling the same day's three errors
+earned, which is that **a statistic is stated against a null that was measured on the same data,
+or it is not stated**, and its corollary that an assertion is about the quantity it names and no
+other. The three -- the step probe's sign, the concentration's argued null, and a prediction on a
+column whose definition was assumed -- were each found by accident. This asks the question on
+purpose, of every quantity this probe publishes, and reports what it found including the places
+where the answer is "already handled".
+
+| quantity | its null | measured, or argued? |
+| --- | --- | --- |
+| the half-to-half actor cosine | zero, at independent halves | **measured** -- a control at the same ask count, drawn from the same shuffled order, printed beside it |
+| the same, per class | zero | **measured** -- `measureClasses` builds the control per class, because classes are not the same size as each other |
+| the same, per bout block | zero | **measured** -- the bout split's own ruling, the same day |
+| the same, per head group | zero | **measured** -- both norms printed beside it, so a group agreeing at +0.4 on a norm of 1e-9 says so |
+| a reward arm's cosine | the row's own unqualified cosine | **measured** -- the shipped arm reproduces the row on 120 of 120 fields |
+| a credit-horizon arm's cosine | the same | **measured**, same identity |
+| a baseline arm's cosine | the same | **measured**, same identity |
+| the concentration ratio | one, by the design's argument | **was argued and was wrong**; now measured, and the correction is above |
+| the step probe's direction | none -- it is a sign | **was argued and was wrong**; now asserted, and the correction is above |
+
+**Two of the nine were argued and both were wrong. The other seven were measured and all seven
+hold up**, which is worth saying plainly: this instrument is in better shape than two failures in
+two days suggests, and the failures were concentrated in exactly the two quantities that had been
+added most recently and had no sibling to be compared against.
+
+### The one real gap, and it is a comparison nobody has made
+
+**Every arm in Experiments E, G and N publishes how well its own gradient is determined, and
+nothing anywhere asks whether two arms' gradients point the same way.** An arm's reading is the
+cosine between the two halves of its *own* epoch under its *own* table; the row's is the same
+under the shipped one; the identity check confirms the shipped arm reproduces the row. All of that
+is about determinacy. Two tables can each produce a perfectly well-determined gradient and send a
+fit to opposite corners of the weight space, and every number these three experiments print would
+be identical in that world and in the world where all sixteen agree.
+
+**On the fencer cell it does not matter and on the idle cell it is the question.** Against
+`golem-fencer` no table makes the gradient measurable, so every arm's direction is draw and a
+cosine between two of them would be a cosine between two noises -- uninformative, and correctly
+so. Against `idle` almost every table does make it measurable. That is the cell where "does the
+choice of table decide where the fit goes" has an answer, and the record does not have it.
+
+**What would close it.** An arm loop that keeps each arm's whole-epoch gradient rather than only
+its summary, and a cosine of every arm against the shipped one: sixteen vectors of 87,308 doubles
+is eleven megabytes held for the length of one iteration, against a collection measured in
+minutes. The null is the shipped arm against itself, which is exactly one and is free. It needs
+one collection at one cell -- the idle checkpoint against `idle` at 128 bouts, twenty iterations,
+the same one Experiment E already ran -- and it is **not** queued here: ten experiments are
+pending results and the host is full. It is named so that the gap is on the record before anyone
+reads E's headline as saying more than it says.
+
+### What the audit does not cover
+
+**The rating path, the league path and the tournament worker.** This is an audit of one
+instrument, `scripts/gradient-probe.mjs`, because that is where nine of the last two weeks'
+entries were measured. The paired bar has its own ruling and its own history; `ratePaired`'s
+refusals came out of a confound this record actually had. Nothing here says those are clean, only
+that they were not looked at.
+
+**And it does not re-derive the seven that hold.** Each was checked by finding the assertion or
+the printed control that is about that quantity and confirming it is about *that* quantity rather
+than an adjacent one. That is a reading of the tree, not a new measurement, and a reader who wants
+it verified should re-run the ruling rather than trust this table.
