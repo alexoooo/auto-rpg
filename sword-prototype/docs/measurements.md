@@ -23958,3 +23958,132 @@ stays at 3e-4 in both CLIs. A gate row starved of gradient at a held policy says
 *first* step would have been made of; it says nothing about the fortieth, because the estimator
 and the policy separate the instant the weights move. What a starved gate row licenses is one
 training run with the entropy coefficient named as an arm, stated as its own bar before it is run.
+
+## Pre-registration -- 2026-09-13: the one table the probe says is learnable, put in front of a fit, written before the bouts
+
+Experiment K, and it is the first training run this record has licensed. Experiment E's
+pre-registration fixed the condition in advance -- *"what a winning arm licenses is one training
+run, stated as its own bar"* -- and Experiment F's latched fencer cell produced one. Under
+`latchAbort=true` against `golem-fencer`, the `swing-loud` arm is the **only** arm of sixteen
+whose `|S|^2` clears zero at two sigma: 4.784e-2 +-9.47e-3, **t 5.05**, a bouts-for-cosine-0.5
+floor of 496 against the shipped table's 3,096. Every other arm in that cell sits between 0.96x
+and 1.31x of shipped and none of them clears zero.
+
+**The mechanism is not a coincidence and that is why this is worth a night.** `swing` charges a
+stroke that *finished* and hit nothing -- the row's own header argues at length that counting
+strokes *started* would measure the abort gate and nothing else. Unlatched, the policy finishes
+about three strokes in a hundred, so `emptyStrokes` is nearly always zero and the row is a
+coefficient on a quantity no body accumulates: at 128 bouts against the fencer it is 1.9 % of what
+the asks paid, and loud it is 24.8 %. Latched, the policy finishes 47.9 % of 5,920 strokes an
+iteration, the same coefficient becomes 70.3 % of what the asks paid, and the gradient becomes
+measurable. **The abort gate was making a reward row unpayable**, and the two findings the signal
+set named separately turn out to be one finding.
+
+### What this does not yet know, and it is the whole risk
+
+A gradient with a length is a statement about **learnability** and not about **desirability**. The
+probe measures how many bouts it takes to see which way a table points; it says nothing about
+where that direction leads. And the direction `swing 1.589` points is not in doubt: against a win
+worth 0.5 and a whole collection's shaping of about 0.016 a bout, a charge of 1.589 for every
+completed stroke that misses is a table whose cheapest policy is **to stop striking**. The probe
+would measure that table's gradient as beautifully sharp right up to the moment the policy reached
+its optimum and stopped fighting.
+
+So the arm that won the probe is swept as the **top** of a ladder and not as the design, and the
+failure mode is prediction 1 rather than a footnote.
+
+### The cells
+
+Four arms against `golem-fencer`, and the first is already on disk: Experiment H's
+`latched-fencer` is `swing 0`, and every field of these three matches it -- 60 iterations from
+scratch, 32 bouts an iteration, the maul-and-mace viable pool, mirrored bodies, no exploiters, no
+pool opponents, ratings off, pool checkpoints every five, separation 2.6, fit seed 20260917, 7
+workers, 4 fit shards, `--tactics latchAbort=true`. **They differ in one flag.**
+
+| arm | `--reward-swing` | what it is | from |
+| --- | --- | --- | --- |
+| `swing 0` | 0 | the shipped table, latched | Experiment H, free |
+| `swing 0.0227` | 0.0227 | a charge worth what `idle` charges today | this experiment |
+| `swing 0.1589` | 0.1589 | a tenth of the arm that won the probe | this experiment |
+| `swing 1.589` | 1.589 | the arm that won the probe | this experiment |
+
+The worker and shard counts are held at the control's seven and four **on purpose**, even though
+the lane has more threads free: a control that differs from its arms in a header field is worth
+less than an hour of wall-clock.
+
+### The measures, and the criterion is the headline
+
+1. `scripts/rate-snapshots.mjs` over each arm, 200 bouts a contender, `--terminals maul,mace
+   --pools random`, thirteen rows an arm. Statistic: the **paired bar slope** against
+   `golem-fencer` over the run's twelve checkpoints, with `d` quoted beside it naming
+   `golem-fencer` in the same sentence. A bar is stated on a paired column or it is not stated.
+2. `scripts/probe-snapshots.mjs` at 4 bouts a build, seed 20260906, `--baseline 9/28` -- kept so
+   the control is read the way it was read the first time.
+3. The strike rate itself, off the league rows: `strokes.strokesStarted` a bout and
+   `strokes.completion`, which is the column that decides whether prediction 1 happened.
+
+### The predictions
+
+1. **The loud arm stops striking, and that is the first thing to look at.** `swing 1.589` finishes
+   the run at fewer than **half** the zero arm's strokes started a bout. It is the arm that won
+   the probe and it is the arm whose optimum is a policy that never swings, and if a table can be
+   sharp and degenerate at once then the probe's floor measures learnability and not desirability
+   -- which is a sentence this record has written three times and never tested.
+
+2. **The headline.** At least one of the four arms clears a paired bar slope of **t > +2** against
+   `golem-fencer`, where the four unlatched bracket arms cleared none and the only column past two
+   sigma was a decline.
+
+3. **The ladder is monotone in striking and humped in the bar.** Strokes started a bout falls
+   monotonically from `swing 0` to `swing 1.589`; the best paired bar slope is one of the two
+   middle arms and not either end.
+
+4. **Stated so it can embarrass the probe.** The arm with the best paired bar slope is **not** the
+   arm with the lowest probe floor. The probe ranked the loud arm best by 6.24x, and if the
+   ladder's best trainer is a coefficient the probe ranked tenth then a floor is necessary and not
+   sufficient -- which is exactly the caveat Experiment E's pre-registration wrote and nobody has
+   yet paid to test.
+
+### The falsifier, and the arithmetic that has to be written down beside it
+
+**If no arm clears t > +2 on the paired bar slope, then a measurable gradient is not sufficient
+for a curve.** The record would then hold a table whose gradient the same bouts can see at t 5.05
+and a floor of 496 bouts against the shipped table's 3,096, over a body that finishes half its
+strokes, and it would still not learn.
+
+**But the first explanation of that outcome would not be a new suspect, and this entry has to say
+so before the bouts rather than after them.** A league iteration here is **32 bouts**. The probe
+says the shipped table needs 3,096 of them to point a step at a cosine of one half and the loud
+swing arm needs 496. A sixty-iteration league spends **1,920 bouts in total** -- less than four of
+the loud arm's steps' worth of sample, spread over sixty steps each of which is about a fifteenth
+of one. So a flat curve here is exactly what the probe predicts, and the ladder is not a test of
+whether the table can be learned; it is a test of whether fifteen-times-under-sampled steps in a
+direction the probe can see beat fifteen-times-under-sampled steps in a direction it cannot.
+
+That is worth running -- a real direction under a small step is still a different thing from no
+direction at all -- and it is worth running **first**, because it is forty minutes an arm and the
+alternative is not. But the reading is conditional on the arithmetic above, and a negative here
+points at the **sample budget** before it points at anything else.
+
+**The two suspects that would be left after that are named now so the reading cannot drift.** The
+**score function** -- the nine Gaussian axes and three gates the head emits -- which Experiment I
+is cutting the gradient by as this is written. And the **task**, which nothing in this record has
+ever put a number on.
+
+**What is not on the list, and the record should stop naming them.** The *optimiser's step*: the
+learn set's calibration measured rate 3e-4, batch 512, 3 epochs and a KL target of 0.02 as
+stopping the fit after its first minibatch every time, and `signal-02` re-specified `ppoFit` to
+1e-4 / 4096 / 4 / 0.03. Every league since has run under the new row --
+`tournaments/bracket-fencer`'s own header carries rate 1e-4, batch 4096, 4 epochs, target KL 0.03
+-- and so do these arms. And the *observation*: the seven dead columns were repaired at read time
+by `DEAD_VARIANCE` and `flooredVariance`, the repair was rated at 600 bouts an arm, and it was
+worth +0.0080 +-0.0227 of a bar margin, d +0.028. That defect is closed and it cost nothing a
+rating could see.
+
+### What no outcome of this licenses
+
+`latchAbort` still ships **off** and `swing` still ships at **0**. A winning arm licenses one
+longer fit at that coefficient, priced against the 400-iteration run the learn set already paid
+for, and nothing else. Moving a default is a decision about what the shipped executor and the
+shipped table do, and it belongs to the owner and to a rating, not to a slope over twelve
+checkpoints.
