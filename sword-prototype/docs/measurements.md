@@ -28552,3 +28552,93 @@ classfit to the bout-split and per-class grids -- so none of them is about to sc
 pre-registration, which is why they were left and why saying so is part of the entry rather than a
 thing quietly left out. It is the same reasoning latchfit was left on two passes ago, and it was
 right then; it will stop being right the moment one of those four is quoted again.
+
+## The amendments, checked against the readers -- 2026-09-13: two the code never learned
+
+The prediction audit of this morning registered six amendments beside the bars they correct, and
+its own sentence is the one that makes them checkable: *both are reported when the log lands.* An
+amendment is a promise about what a future entry will print. Six promises, ten open
+pre-registrations, and nine of the readers that have to keep them have been edited four times
+since. So: **does every registered amendment appear in the reader that will score it?**
+
+| registered 2026-09-13 | the reader | in the code |
+| --- | --- | --- |
+| K #2 also at t > 2.29, R #1 also at t > 3.03 | barfit, dirfit | yes -- both print the per-arm family-wise threshold beside the registered one, and dirfit prints the *corrected* verdict as its own line |
+| L #1 and L #3 also as an interval inside +-2.77 se | barfit | yes -- and it prints the run's own computed margin beside the registered one, saying which gets scored |
+| N #3 and L #4 report the effect they could have resolved | basefit, barfit | yes -- both gained the line in this morning's null-side sweep |
+| Q #2 demoted to a reading | objfit | yes, by name, with the null rate |
+| **Q #2 additionally reports rho with its interval** | objfit | **no** |
+| **K #4 demoted to a reading** | barfit | **no -- it printed a verdict** |
+
+### K #4, which was still deciding something
+
+The ladder's prediction-4 line read:
+
+```
+    the best bar arm is `bracket-fencer`, **not** that arm -- a floor is necessary
+    and not sufficient
+```
+
+*A floor is necessary and not sufficient* is a conclusion, and prediction 4 was demoted **because
+it cannot support one**: the arm with the best paired bar slope differs from the arm with the
+lowest probe floor `1 - 1/n` of the time under a random ordering, which over four arms is three
+times in four. The reader was written last night, after the audit, and reproduced the verdict the
+audit had removed.
+
+It now reads the ordering and says what the ordering is worth:
+
+```
+    the best bar arm is `bracket-fencer`, a different arm
+    **Reported as a reading and not as met or missed**: over 3 arms a random ordering
+    puts a different arm first 67 % of the time, so this cannot separate *a floor is
+    necessary and not sufficient* from chance. It reads against the probe's ranking,
+    which is what the pre-registration will be scored on, recorded here so the scoring
+    is not silently changed by the demotion.
+```
+
+The last clause is objfit's, word for word, and it is there for the same reason: **a demotion is
+not a licence to stop scoring the original.** The registration is scored as written and the reading
+is reported beside it.
+
+### Q #2, where the null rate had been printed instead of the interval
+
+objfit already carried the demotion and carried it well. What it did not carry is the second half
+of the same sentence -- *Q #2 additionally reports rho with its interval, which the original did
+not ask for* -- and the line that stood in its place reported the **null rate**, which is a
+different quantity answering a different question. One says how often chance clears the bar. The
+other says what this table's own rho could be. The amendment asked for the second and got the
+first, and the two are easy to mistake for each other because both are about uncertainty and both
+are printed as a percentage.
+
+Fisher's z on the rank correlation, at a variance of `1.06 / (n - 3)` rather than Pearson's
+`1 / (n - 3)` -- the Fieller-Hartley-Pearson correction, which is the one that belongs on ranks.
+At the eight arms Q will have, a rho of 0.800 reads:
+
+```
+    rho 0.800, 95 % interval 0.194 to 0.964 (Fisher z, se 0.460 on 8 arms)
+```
+
+**That interval is the amendment's whole point.** Q #2 asks whether rho is below 0.5, and eight
+arms cannot tell 0.194 from 0.964. The demotion said the bar does not separate the hypothesis from
+its opposite; the interval says by how much, in the units the prediction is stated in, and it is
+the number the entry will need.
+
+### What this pass is and what it is not
+
+It is not an audit of arithmetic, of guards, of thresholds, of nulls or of refusals -- the five
+that came before it. It is a check that **the record's own registered corrections are in the code
+that will honour them**, and it took one reading of one section and eight greps. Four of the six
+were already in, two were not, and both of the two were in readers edited *after* the amendment was
+written, which is the part worth keeping: an amendment is not landed when it is registered, it is
+landed when the reader prints it, and nothing in this record connected the two until now.
+
+**What it does not reach.** It checks the six amendments of one audit. Every other promise this
+record has made about how a future entry will be read -- and there are many, scattered through
+seventeen pre-registrations -- is unchecked by anything but somebody remembering. The general
+version of this question is *does every sentence in a pre-registration that constrains a reader
+have a line in that reader*, and the answer here is that two of six did not, in the one section
+where it has been asked.
+
+Both corrected readers are byte-identical on intact input outside the lines in question: four
+bracket arms through objfit add exactly the one interval line, and barfit without `--ladder` is
+unchanged entirely.
