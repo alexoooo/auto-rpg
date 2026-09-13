@@ -8,7 +8,7 @@
 //        [--epochs 4] [--batch 4096] [--target-kl 0.03] [--half-life 4] [--lambda 0.95]
 //        [--clip 0.2] [--sigma-floor -3] [--sigma-roof 0.5]
 //        [--from tournaments/<arm>/pool-30.json] [--hold]
-//        [--classes none|terminal|build] [--class-floor 400]
+//        [--classes none|terminal|build] [--class-floor 400] [--bout-split]
 //        [--features 2] [--head gaussian] [--sigma constant] [--critic self]
 //        [--value-hidden 64,64] [--log tournaments/...] [--label arm]
 //
@@ -102,6 +102,33 @@
 // and the expected squared norm is that plus the per-sample variance over `m`, so `dot` estimates
 // the signal, `norm^2 - dot` estimates what the draw contributed, and the cosine is the ratio of
 // the first to their sum. Every row carries all three.
+//
+// ## `--bout-split`, because the arithmetic above says `m` and the record has been saying bouts
+//
+// Read that paragraph again with `m` in mind. `m` is the number of **independent** samples each
+// half is a mean over, and `halfSplit` cuts the shuffled order of *asks*, so the two halves hold
+// asks out of the same bouts. Everything a bout draw decides -- which pair of bodies fought, which
+// two streams drove them, who won, and therefore every advantage in both episodes of it -- enters
+// both halves with the same sign. The halves are positively correlated, `dot` is inflated, and the
+// inflation goes the flattering way: the signal reads larger and the noise smaller than two truly
+// independent collections would find.
+//
+// That does not make the ask split wrong. It is the right cut for the question this file was
+// written to ask -- *how much of a minibatch gradient is the gradient* -- because a minibatch is a
+// random subset of asks and its neighbours in the epoch are drawn from the same rollout too. It is
+// the wrong cut for the question the held row of 2026-09-12 went on to ask of the same numbers,
+// which is how many **bouts** an iteration would have to collect for two of them to agree. Those
+// are different questions, they had one instrument between them, and this flag is the second one.
+//
+// So `--bout-split` re-lays the same shuffled order into two disjoint sets of whole bouts and
+// reports a second set of three blocks under `byBout`, **beside** the first and never in place of
+// it. One rollout cut two ways is a comparison; two runs cut one way each would be two rollouts
+// and no comparison at all. `boutBlocks` does the laying and `askBouts` does the tracing, through
+// `rollout.episodeBouts` and the same `done` walk and the same three refusals `askClasses` makes --
+// and it is a separate function from the class axis rather than a fourth entry in `CLASS_AXES`,
+// because `classBlocks` drops a class whose half is under `CLASS_FLOOR` and every single bout is
+// under it, so a bout routed through that machinery would report nothing kept and read as a
+// finding.
 //
 // ## What is deliberately not built here
 //
@@ -269,8 +296,15 @@ export function halfGradients({
 }) {
   pool.bind(rollout, scaled, returns, norm, { clip, entropy: PROBE_ENTROPY });
   const halves = halfSplit(rollout.count);
+  return takeHalves({
+    pool, order, halves: [halves.first, halves.second], weights, valueWeights, logSigma,
+  });
+}
+
+/** Two ranges of one order, summed and copied out, which is all either split actually does. */
+function takeHalves({ pool, order, halves, weights, valueWeights, logSigma }) {
   const taken = [];
-  for (const half of [halves.first, halves.second]) {
+  for (const half of halves) {
     const sums = pool.step({
       at: half.at, end: half.end, epoch: PROBE_EPOCH, order, weights, valueWeights, logSigma,
     });
@@ -283,6 +317,26 @@ export function halfGradients({
     });
   }
   return taken;
+}
+
+/**
+ * The same two gradients over two disjoint sets of **whole bouts** rather than over shuffled asks.
+ *
+ * The pool is bound again rather than assumed still bound, for `measureClasses`' reason: a function
+ * that steps a binding it did not take is one refactor away from summing somebody else's rollout.
+ * The laid order is a permutation of the caller's own and is therefore exactly `rollout.count`
+ * long, so `FitPool.bind`'s shared order is the size it was asked for -- which is the trap the
+ * class split had to be rewritten around and is worth not walking into twice.
+ */
+export function boutGradients({
+  pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order, keys, clip = 0.2,
+}) {
+  const laid = boutBlocks(order, keys);
+  pool.bind(rollout, scaled, returns, norm, { clip, entropy: PROBE_ENTROPY });
+  const taken = takeHalves({
+    pool, order: laid.order, halves: [laid.first, laid.second], weights, valueWeights, logSigma,
+  });
+  return { taken, firstBouts: laid.firstBouts, secondBouts: laid.secondBouts };
 }
 
 /** One block's three numbers: the angle, the two norms it is a ratio inside, and the dot. */
@@ -358,6 +412,7 @@ export function checkHeldStart({ from, hold }) {
 export function probeRollout({
   pool, rollout, weights, valueWeights, logSigma, norm, valueLayout, seed,
   halfLife = 4, lambda = 0.95, clip = 0.2, classes = "none", floor = CLASS_FLOOR,
+  boutSplit = false,
 }) {
   const values = valuesOf(rollout, valueWeights, norm, valueLayout);
   const { advantage, returns } = advantages(rollout, values, { halfLife, lambda });
@@ -375,7 +430,42 @@ export function probeRollout({
     pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order,
     keys: askClasses(rollout, classes), clip, floor,
   });
-  return { ...signal, advantageSd: sd, ...(cut === null ? {} : { classAxis: classes, classes: cut }) };
+  // Third and last, so the two measurements above are byte for byte what a run without this flag
+  // reports: neither split consumes randomness, both read the same three arrays, and the order
+  // they are taken in is therefore free. Reported *beside* the ask split rather than in place of
+  // it, which is the whole point -- the two numbers are the same rollout cut two ways, and a pair
+  // of separate runs would have been two rollouts and no comparison.
+  const byBout = boutSplit === false ? null : measureBouts({
+    pool, rollout, scaled, returns, norm, weights, valueWeights, logSigma, order,
+    keys: askBouts(rollout), clip,
+  });
+  return {
+    ...signal,
+    advantageSd: sd,
+    ...(cut === null ? {} : { classAxis: classes, classes: cut }),
+    ...(byBout === null ? {} : { byBout }),
+  };
+}
+
+/**
+ * The three blocks again over two disjoint sets of whole bouts, shaped like the row they sit in.
+ *
+ * The same `blockOf` as the ask split's, so a reader comparing `byBout.cosine` with `cosine` is
+ * comparing one arithmetic to itself with one thing changed. `firstBouts` and `secondBouts` ride
+ * along because a partition balanced in asks is not balanced in bouts and the row should say which
+ * it was, and because two halves of wildly different bout counts would be a rollout whose bouts
+ * differ in length far more than this collection's do.
+ */
+export function measureBouts(args) {
+  const { taken, firstBouts, secondBouts } = boutGradients(args);
+  const [first, second] = taken;
+  const actor = blockOf(first, second, "actor");
+  return {
+    firstAsks: first.asks, secondAsks: second.asks, firstBouts, secondBouts,
+    cosine: actor.cosine, firstNorm: actor.firstNorm, secondNorm: actor.secondNorm, dot: actor.dot,
+    spread: blockOf(first, second, "spread"),
+    critic: blockOf(first, second, "critic"),
+  };
 }
 
 /**
@@ -402,6 +492,91 @@ export function parseClasses(text, what = "--classes") {
     throw new Error(`${what} ${text}; this build cuts by ${CLASS_AXES.join(", ")}`);
   }
   return word;
+}
+
+/**
+ * Each ask's bout, traced through the same `done` flags and refused by name on the same identity.
+ *
+ * `collectRollouts` writes `episodeBouts` one entry an episode, in the order `mergeRollouts`
+ * concatenates its parts, so this is `askClasses` with a different array behind it and the same
+ * three refusals. It is a separate function rather than a fourth `CLASS_AXES` entry because a bout
+ * is not a class of body: `classBlocks` drops a class whose half is under `CLASS_FLOOR`, and every
+ * bout is under it, so a bout axis routed through that machinery would report a rollout of nothing
+ * kept and look like a finding.
+ */
+export function askBouts(rollout) {
+  const bouts = rollout.episodeBouts;
+  if (!Array.isArray(bouts)) {
+    throw new Error("this rollout carries no episodeBouts, so its asks cannot be traced to a bout; "
+      + "a bout split wants a rollout from collectRollouts");
+  }
+  if (bouts.length !== rollout.episodes) {
+    throw new Error(`${bouts.length} episode bouts over ${rollout.episodes} episodes`);
+  }
+  const keys = new Array(rollout.count);
+  let episode = 0;
+  for (let i = 0; i < rollout.count; i += 1) {
+    const bout = bouts[episode];
+    if (!Number.isInteger(bout)) {
+      throw new Error(`episode ${episode} carries no bout, so its asks cannot be kept together`);
+    }
+    keys[i] = bout;
+    if (rollout.done[i] === 1) episode += 1;
+  }
+  if (episode !== rollout.episodes) {
+    throw new Error(`the done flags close ${episode} episodes over ${rollout.episodes} the rollout claims`);
+  }
+  return keys;
+}
+
+/**
+ * The shuffled order re-laid as two disjoint sets of whole bouts, balanced in asks.
+ *
+ * **This is the split the record's budget arithmetic has been quoting and not the one it has been
+ * taking.** `halfSplit` cuts the shuffled order of asks, so both halves hold asks out of the same
+ * bouts, and every quantity a bout draw decides -- who won it, what the two streams did, which
+ * body drew it -- lands in both halves with the same sign. That correlates them, which inflates
+ * the dot, which *over*states the squared gradient and *under*states the noise. The cosine is
+ * still the right answer to "how much of a minibatch is the gradient", which is the question the
+ * probe was written for; it is the wrong answer to "would two independent collections agree",
+ * which is the question a bout budget is about, and the two were never distinguished.
+ *
+ * The bouts are taken in order of first appearance in the fit's own shuffled order and each is put
+ * in whichever half is lighter, so the partition is a random one balanced in asks rather than in
+ * bout count -- bouts differ in length by a factor of several and a partition balanced in bouts
+ * would not be balanced in what the halves average over. A rollout of fewer than two bouts is
+ * refused by name, because one bout cannot be cut into two sets of whole bouts and a half read
+ * twice has a cosine of exactly one.
+ */
+export function boutBlocks(order, keys) {
+  const byBout = new Map();
+  for (const index of order) {
+    const key = keys[index];
+    let bucket = byBout.get(key);
+    if (bucket === undefined) { bucket = []; byBout.set(key, bucket); }
+    bucket.push(index);
+  }
+  if (byBout.size < 2) {
+    throw new Error(`a rollout of ${byBout.size} bout(s) has no two halves of whole bouts to compare`);
+  }
+  const halves = [[], []];
+  const asks = [0, 0];
+  for (const bucket of byBout.values()) {
+    const side = asks[0] <= asks[1] ? 0 : 1;
+    halves[side].push(bucket);
+    asks[side] += bucket.length;
+  }
+  const laid = [];
+  for (const bucket of halves[0]) for (const index of bucket) laid.push(index);
+  const cut = laid.length;
+  for (const bucket of halves[1]) for (const index of bucket) laid.push(index);
+  return {
+    order: laid,
+    first: { at: 0, end: cut },
+    second: { at: cut, end: laid.length },
+    firstBouts: halves[0].length,
+    secondBouts: halves[1].length,
+  };
 }
 
 /**
@@ -663,6 +838,9 @@ if (isMain) {
   // run the grid took.
   const classes = parseClasses(flag("classes", null));
   const classFloor = Number(flag("class-floor", CLASS_FLOOR));
+  // Off by default for `--classes`' reason exactly: a probe that acquired a second cosine by
+  // default would make every row already under tournaments a row of a different instrument.
+  const boutSplit = argv.includes("--bout-split");
   const label = flag("label", null);
   const stamp = new Date().toISOString().replace(/[-:]/g, "").slice(0, 13);
   // Concatenated rather than interpolated, for the trainer's reason: a backticked span that looks
@@ -702,7 +880,7 @@ if (isMain) {
   log({
     type: "header", kind: "gradient-probe", seed, date, version: POLICY_VERSION, features,
     layout, valueLayout, label, iterations, bouts, cap, random, workers, shards, from, hold,
-    classes, classFloor,
+    classes, classFloor, boutSplit,
     opponent: opponentWord, terminals, mirrorShare,
     head: headName, sigma: sigmaName, critic: criticName,
     halfLife, lambda, clip, entropy: fitEntropy, rate, valueRate, sigmaRate, epochs, batch,
@@ -728,6 +906,9 @@ if (isMain) {
   // classes and pairs, so the summary is a mean over iterations exactly as the pooled cosine is.
   // The per-class and per-pair detail stays in the iteration rows and is not summarised away.
   const splits = [];
+  // And one an iteration when the bout split was asked for, summarised the same way, so the run's
+  // answer carries both cuts of it or neither and a reader never has to recompute one of them.
+  const boutCosines = [];
   try {
     for (let iteration = 1; iteration <= iterations; iteration += 1) {
       const started = Date.now();
@@ -750,7 +931,7 @@ if (isMain) {
       const probeStarted = Date.now();
       const signal = probeRollout({
         pool, rollout, weights, valueWeights, logSigma, norm, valueLayout, seed: fitSeed,
-        halfLife, lambda, clip, classes, floor: classFloor,
+        halfLife, lambda, clip, classes, floor: classFloor, boutSplit,
       });
       const probed = (Date.now() - probeStarted) / 1000;
       const fitStarted = Date.now();
@@ -779,6 +960,7 @@ if (isMain) {
         norm = extendNormalisation(norm, rollout);
       }
       cosines.push(signal.cosine);
+      if (signal.byBout !== undefined) boutCosines.push(signal.byBout.cosine);
       const cut = signal.classes ?? null;
       if (cut !== null) {
         splits.push({
@@ -819,6 +1001,8 @@ if (isMain) {
         + `|g| ${signal.firstNorm.toExponential(2)}/${signal.secondNorm.toExponential(2)}  `
         + `dot ${signal.dot.toExponential(2)}  spread ${signed(signal.spread.cosine)}  `
         + `critic ${signed(signal.critic.cosine)}  `
+        + (signal.byBout === undefined ? "" : `byBout ${signed(signal.byBout.cosine)} `
+          + `(${signal.byBout.firstBouts}/${signal.byBout.secondBouts} bouts)  `)
         + (cut === null ? "" : `within ${signed(splits[splits.length - 1].within)} `
           + `between ${signed(splits[splits.length - 1].between)} `
           + `pooled ${signed(splits[splits.length - 1].pooled)} (${cut.kept}/${cut.classes})  `)
@@ -849,9 +1033,15 @@ if (isMain) {
     betweenMean: meanOf(splits.map((row) => row.between)), betweenSem: semOf(splits.map((row) => row.between)),
     pooledMean: meanOf(splits.map((row) => row.pooled)), pooledSem: semOf(splits.map((row) => row.pooled)),
   };
+  // The bout split's own mean, named apart from `cosineMean` rather than replacing it, because the
+  // two are answers to two questions and a summary that quietly carried whichever cut the flags
+  // asked for would make two runs of this file incomparable on the field they share.
+  const boutSummary = boutCosines.length === 0 ? {} : {
+    boutCosineMean: meanOf(boutCosines), boutCosineSem: semOf(boutCosines),
+  };
   log({
     type: "summary", iterations: cosines.length, bouts, opponent: opponentWord,
-    cosineMean: mean, cosineSem: sem, cosineMedian: median,
+    cosineMean: mean, cosineSem: sem, cosineMedian: median, ...boutSummary,
     cosineLeast: sorted[0], cosineMost: sorted[sorted.length - 1], probeEntropy: PROBE_ENTROPY,
     ...splitSummary,
   });

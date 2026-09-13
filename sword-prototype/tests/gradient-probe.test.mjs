@@ -55,6 +55,27 @@
 // actually written with and which the first live run caught by reporting three classes where the
 // pool had been narrowed to two.
 //
+// **The bout split added five more on 2026-09-12**, watched red the same way:
+//
+// | mutation | what went red |
+// |---|---|
+// | `askBouts` advances the episode before reading its bout, so every last ask of one is filed under the next | the trace test and all four of the splits downstream of it |
+// | `askBouts` refuses a bout of `null` rather than anything that is not a whole number | the refusal test, on the entry an older worker would leave undefined |
+// | `boutBlocks` alternates bouts between the halves instead of filling the lighter one | the halves test, on the exact 400-against-600 split |
+// | `boutBlocks` hands the second half the whole re-laid order, so the two overlap | the halves test and the end-to-end row |
+// | `boutGradients` steps the caller's order rather than the re-laid one | the order test, which exists for this mutation and no other reason |
+//
+// **The first of those was green in its first spelling, for the reason this file already records
+// one paragraph up**: it swapped `keys[i] = bout` with the `done` advance, and the bout had been
+// read into a local before either of them, so the two lines were already independent and the swap
+// was not a mutation. The lesson did not transfer on its own and is now written down twice.
+//
+// **One identity is refused rather than asserted, and it is worth naming which.** That
+// `rollout.episodeBouts` holds one entry an episode in the order `mergeRollouts` concatenated its
+// parts is a fact about `collectRollouts`, which no test in this tree runs -- a live collection is
+// bouts and this file is arithmetic. So `askBouts` throws on every way the identity could be
+// broken and asserts none of it, which is the same footing `askClasses` stands on.
+//
 // And two that are green on purpose, recorded so the next reader does not re-derive them. Replacing
 // `PROBE_EPOCH` with any other whole number changes nothing at all, because `FitPool.step` stores
 // it in the control block and `shardStep` never reads it -- it is written for a person reading a
@@ -75,8 +96,9 @@ import {
   standardisedAdvantages, valuesOf,
 } from "../scripts/train-ppo.mjs";
 import {
-  CLASS_AXES, PROBE_ENTROPY, PROBE_EPOCH, askClasses, checkHeldStart, classBlocks, cosineOf, dotOf,
-  epochOrder, halfGradients, halfSplit, measureSignal, normOf, parseClasses, probeRollout,
+  CLASS_AXES, PROBE_ENTROPY, PROBE_EPOCH, askBouts, askClasses, boutBlocks, boutGradients, checkHeldStart,
+  classBlocks, cosineOf, dotOf, epochOrder, halfGradients, halfSplit, measureSignal, normOf,
+  parseClasses, probeRollout,
 } from "../scripts/gradient-probe.mjs";
 
 const SEED = 20260917;
@@ -493,12 +515,12 @@ test("a_run_that_is_not_holding_never_needs_a_checkpoint_and_says_so_by_returnin
  * build is index arithmetic over two arrays and a fixture with hand-written episode lengths is the
  * only kind of fixture where the expected answer is known by reading it.
  */
-function rolloutOf(lengths, bodies) {
+function rolloutOf(lengths, bodies, episodeBouts) {
   const count = lengths.reduce((a, b) => a + b, 0);
   const done = new Uint8Array(count);
   let at = 0;
   for (const length of lengths) { at += length; done[at - 1] = 1; }
-  return { count, episodes: lengths.length, done, bodies };
+  return { count, episodes: lengths.length, done, bodies, episodeBouts };
 }
 
 const BODIES = [
@@ -673,4 +695,144 @@ test("the_three_class_cosines_come_out_of_one_binding_of_the_pool_the_fit_sums_t
   }
   assert.ok(!("classes" in plain) && !("classAxis" in plain));
   assert.equal(plain.cosine, row.cosine, "the split moved the number the experiment is about");
+});
+
+test("an_ask_is_traced_to_its_bout_through_the_same_done_walk_the_class_split_uses", () => {
+  // Five episodes of four different lengths over three bouts, with the two episodes of the
+  // mirrored bout **not adjacent** -- because they need not be, and a trace that assumed a bout is
+  // a contiguous run of episodes would be right on every fixture where they are.
+  const rollout = rolloutOf([3, 2, 1, 2, 4], BODIES.slice(0, 1), [7, 9, 7, 4, 9]);
+  rollout.bodies = undefined;
+  assert.deepEqual(askBouts(rollout),
+    [7, 7, 7, 9, 9, 7, 4, 4, 9, 9, 9, 9]);
+});
+
+test("a_rollout_whose_episode_bouts_do_not_line_up_with_its_episodes_is_refused_rather_than_split", () => {
+  // The same three refusals `askClasses` makes, because the same identity is being trusted: an
+  // array in another file written one entry an episode in the order a third function concatenated
+  // its parts. A bout split silently off by one would put asks of two bouts in one half and read
+  // as two independent collections that agree, which is the flattering direction.
+  assert.throws(() => askBouts(rolloutOf([3, 2, 1], BODIES)), /carries no episodeBouts/);
+  assert.throws(() => askBouts(rolloutOf([3, 2, 1], BODIES, [0, 1])), /2 episode bouts over 3 episodes/);
+  const short = rolloutOf([3, 2, 1], BODIES, [0, 1, 1]);
+  short.done[5] = 0;
+  assert.throws(() => askBouts(short, "build"), /done flags close 2 episodes over 3/);
+  // And an entry that is not a whole number, which is what a rollout merged by an older worker is.
+  assert.throws(() => askBouts(rolloutOf([3, 2, 1], BODIES, [0, undefined, 1])),
+    /episode 1 carries no bout/);
+});
+
+test("the_two_bout_halves_hold_whole_bouts_permute_the_order_and_balance_the_asks_rather_than_the_bouts", () => {
+  // Bouts of wildly unequal length, which is the arrangement the property is about: a partition
+  // that alternated bouts would be balanced in bouts and badly unbalanced in what the two halves
+  // average over, and the halves are means.
+  const rollout = rolloutOf([600, 40, 40, 300, 20], BODIES.slice(0, 1), [1, 2, 3, 4, 5]);
+  rollout.bodies = undefined;
+  const keys = askBouts(rollout);
+  const order = epochOrder(rollout.count, SEED);
+  const laid = boutBlocks(order, keys);
+  // A permutation of the caller's own order and exactly as long, which is what keeps the shared
+  // order `FitPool.bind` allocates the size it was asked for. The class split had to be rewritten
+  // around exactly this and the cost of getting it wrong was silent: a step past the buffer reads
+  // whatever the last binding left.
+  assert.equal(laid.order.length, order.length);
+  assert.equal(new Set(laid.order).size, laid.order.length);
+  assert.deepEqual([...laid.order].sort((a, b) => a - b), [...order].sort((a, b) => a - b));
+  // Whole bouts: no bout has asks in both halves, which is the whole of what a bout split is.
+  const half = (range) => new Set(laid.order.slice(range.at, range.end).map((index) => keys[index]));
+  const first = half(laid.first);
+  const second = half(laid.second);
+  for (const bout of first) assert.ok(!second.has(bout), `bout ${bout} landed in both halves`);
+  assert.equal(first.size + second.size, 5);
+  assert.equal(laid.firstBouts, first.size);
+  assert.equal(laid.secondBouts, second.size);
+  // Balanced in **asks**, and the exact split is pinned because it is the whole of what greedy
+  // buys: four bouts against one, 400 asks against 600, which is the best partition these five
+  // bouts have. A rule that alternated bouts instead would be 2/3 in bouts and 640/360 in asks --
+  // the same bout counts a reader would call balanced, over halves that are not.
+  const firstAsks = laid.first.end - laid.first.at;
+  const secondAsks = laid.second.end - laid.second.at;
+  assert.equal(firstAsks + secondAsks, rollout.count);
+  assert.equal(firstAsks, 400);
+  assert.equal(secondAsks, 600);
+  assert.equal(laid.firstBouts, 4);
+  assert.equal(laid.secondBouts, 1);
+});
+
+test("a_rollout_of_one_bout_has_no_two_halves_of_whole_bouts_and_is_refused_by_name", () => {
+  // A half read twice has a cosine of exactly one, so the failure this refusal prevents is a
+  // published number of perfect agreement from a rollout that contains one draw.
+  const rollout = rolloutOf([40, 40], BODIES.slice(0, 1), [3, 3]);
+  rollout.bodies = undefined;
+  const order = epochOrder(rollout.count, SEED);
+  assert.throws(() => boutBlocks(order, askBouts(rollout)), /1 bout\(s\) has no two halves/);
+});
+
+test("the_bout_split_is_reported_beside_the_ask_split_and_does_not_move_the_number_it_sits_next_to", async () => {
+  // The end-to-end property and the reason the flag exists at all: one rollout cut two ways in one
+  // call, so the two cosines are comparable. Two runs would have been two rollouts.
+  const built = fixture();
+  built.rollout.episodes = 8;
+  // Four bouts of two episodes each, which is what a mirrored collection is: both corners of one
+  // pairing, whose bar margins are exact negations and which must therefore not be split apart.
+  built.rollout.episodeBouts = [0, 0, 1, 1, 2, 2, 3, 3];
+  const pool = await FitPool.open({ shards: 2, layout: LAYOUT, valueLayout: VALUE });
+  let row = null;
+  let plain = null;
+  try {
+    row = probeRollout({
+      pool, rollout: built.rollout, weights: built.weights, valueWeights: built.valueWeights,
+      logSigma: built.logSigma, norm: built.norm, valueLayout: VALUE, seed: SEED, boutSplit: true,
+    });
+    plain = probeRollout({
+      pool, rollout: built.rollout, weights: built.weights, valueWeights: built.valueWeights,
+      logSigma: built.logSigma, norm: built.norm, valueLayout: VALUE, seed: SEED,
+    });
+  } finally {
+    await pool.close();
+  }
+  assert.equal(row.byBout.firstBouts + row.byBout.secondBouts, 4);
+  assert.equal(row.byBout.firstAsks + row.byBout.secondAsks, built.rollout.count);
+  for (const block of [row.byBout, row.byBout.spread, row.byBout.critic]) {
+    assert.ok(block.cosine >= -1 && block.cosine <= 1, `a cosine read ${block.cosine}`);
+  }
+  // The three blocks are the same shape as the ask split's, so the two are read with one reader.
+  assert.deepEqual(Object.keys(row.byBout.critic).sort(), ["cosine", "dot", "firstNorm", "secondNorm"]);
+  // Absent rather than null when the flag was not passed, and identical where it was: the bout
+  // split consumes no randomness and rebinds the pool afterwards, so a run that asks for it
+  // reports exactly the row a run that does not would have, plus one key.
+  assert.ok(!("byBout" in plain));
+  assert.equal(plain.cosine, row.cosine, "the bout split moved the number the grid was read on");
+  assert.equal(plain.critic.cosine, row.critic.cosine);
+  assert.equal(plain.advantageSd, row.advantageSd);
+});
+
+test("a_bout_half_is_summed_over_its_own_bouts_asks_and_not_over_the_front_of_the_shuffled_order", async () => {
+  // The one property of `boutGradients` that the end-to-end row cannot show. Its two ranges are
+  // bout-aligned whichever order is walked, so a step that walked the *caller's* order would
+  // report the right ask counts over the wrong asks -- an ask split wearing the bout split's name,
+  // and the flattering direction again. Three bouts of 96, 64 and 96 asks, whose subset sums never
+  // reach 128, so the halves cannot coincide with the ask split's either.
+  const built = fixture();
+  built.rollout.episodes = 8;
+  built.rollout.episodeBouts = [0, 0, 0, 1, 1, 2, 2, 2];
+  const bound = bindings(built, SEED);
+  const keys = askBouts(built.rollout);
+  const laid = boutBlocks(bound.order, keys);
+  const firstAsks = laid.first.end - laid.first.at;
+  assert.ok([64, 96, 160, 192].includes(firstAsks), `a half of ${firstAsks} asks is no set of whole bouts`);
+  const pool = await FitPool.open({ shards: 2, layout: LAYOUT, valueLayout: VALUE });
+  try {
+    const { taken } = boutGradients({ pool, ...bound, keys });
+    pool.bind(built.rollout, bound.scaled, bound.returns, bound.norm,
+      { clip: bound.clip, entropy: PROBE_ENTROPY });
+    const front = pool.step({
+      at: laid.first.at, end: laid.first.end, epoch: PROBE_EPOCH, order: bound.order,
+      weights: bound.weights, valueWeights: bound.valueWeights, logSigma: bound.logSigma,
+    });
+    assert.notEqual(normOf(Float64Array.from(front.grad)), normOf(taken[0].actor),
+      "the bout half summed the same asks the shuffled order's front holds");
+  } finally {
+    await pool.close();
+  }
 });

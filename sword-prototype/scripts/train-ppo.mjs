@@ -1816,14 +1816,14 @@ export async function collectRollouts({
   const parts = [];
   let margin = 0;
   let decided = 0;
-  for (const row of rows) {
+  for (const [bout, row] of rows.entries()) {
     if (row === null) continue;
     if (row.winner !== null) decided += 1;
     for (const side of ["left", "right"]) {
       const pack = row.samples?.[side];
       if (!pack || pack.logp.length === 0) continue;
       if (pack.kind !== "pilot") throw new Error(`a rollout collected ${pack.kind} samples; PPO reads the pilot columns`);
-      parts.push({ ...pack, side, body: bodyOf(row[side]) });
+      parts.push({ ...pack, side, body: bodyOf(row[side]), bout });
       margin += pack.margin;
     }
   }
@@ -1831,9 +1831,18 @@ export async function collectRollouts({
   // One entry per episode, in the order the episodes were merged, so an ask can be traced back to
   // the body that fought it. `mergeRollouts` concatenates the parts it is handed and every part
   // here carries at least one ask, so `bodies[e]` is the body of the episode the `done` flags
-  // close `e`-th -- which is the identity `episodeBodies` in `scripts/gradient-probe.mjs` refuses
-  // the rollout over rather than assumes.
+  // close `e`-th -- which is the identity `askClasses` in `scripts/gradient-probe.mjs` refuses the
+  // rollout over rather than assumes.
   rollout.bodies = parts.map((part) => part.body);
+  // The same shape of row again, and the reason it is a second array rather than a field on the
+  // body: **two episodes of one mirrored bout are not two independent draws.** They fought the
+  // same pairing under the same two streams and their bar margins are exact negations of each
+  // other, so a measurement that wants independent samples has to keep them together, and the
+  // only thing that says which ones belong together is the row they were recorded off. The index
+  // is into `rows` including the nulls, because what a consumer needs is that two episodes of one
+  // bout share a number and two episodes of different bouts do not; a null row contributes no
+  // episode and so contributes no number that anything reads.
+  rollout.episodeBouts = parts.map((part) => part.bout);
   rollout.bouts = rows.length;
   rollout.decided = rows.length === 0 ? 0 : decided / rows.length;
   rollout.margin = parts.length === 0 ? 0 : margin / parts.length;
