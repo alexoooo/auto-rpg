@@ -30225,3 +30225,176 @@ collected, and the demotions above are reversible by an argument rather than by 
 **And no default moved tonight.** Seven experiments, five entries, two readers patched, and
 `--bouts`, `--lambda`, `latchAbort`, the entropy coefficient and the reward table all sit exactly
 where they sat this morning.
+
+## Pre-registration -- 2026-09-13: what `GOLEM_REWARD` pays a designed mind, and the three terms that turn out to be the same size
+
+Experiment T. The agenda re-cut above names it first and Experiment Q named it before that: *if
+prediction 1 fires, the next experiment is the one that prices a designed mind under
+`GOLEM_REWARD` directly.* Q's prediction 1 fired. This registers the experiment before a bout is
+collected, and it opens by correcting two things the record already has on the page.
+
+### The first correction: Q mispriced the instrument change, and it is much smaller than it said
+
+Q's registration said the follow-on needs a recorder, because *`recorderKind` hooks only a style,
+the learner, the planner and the champion, and `decisionRecorder` captures the two bars, the clock
+and the end flag but none of the six shaped quantities the table charges for.* That is true of the
+**rollout recorder** and the rollout recorder is the wrong instrument to have reached for.
+`stepReward` is linear in per-window accumulators that are `EngagementTracker`'s own totals
+differenced ask to ask, so a side's undiscounted return over a whole bout is a function of the
+bout's **aggregate columns**:
+
+> `return = (myVitality - theirVitality) + win * outcome - clinch * clinchSeconds`
+> `  - idle * idleTravelMetres - tick * seconds + closing * radialClosingMetres`
+> `  - stall * nearRangeStallSeconds - outside * retreatOutsideReachSeconds - swing * emptyStrokes`
+
+**Every one of those nine quantities is already written on a tournament row, per side, on the very
+bouts a paired bar is read from.** `columnsOf` walks those rows for `vitality` and `winner` today
+and `behaviourColumns` walks them for three of the other seven. Nothing needs recording that is
+not already counted, no bout is replayed, and the change is to **compute a column** rather than to
+capture one.
+
+**And the aggregate form is the only form that can ask this question at all.** A designed mind
+writes no rollout -- `golem-fencer` has no policy to record log-probabilities for -- so the sum of
+`stepReward` over windows does not exist for the mind every bar in this record is stated against.
+The quantity had to be reachable from the row or the experiment was impossible. Q said it was
+expensive; it is free, and what was actually blocking it was nobody having written the sum down.
+
+### The second correction: the identity is not an identity, and the registration says so first
+
+It would be neat to claim the aggregate return equals the recorded rollout's sum exactly. **It
+does not, and `tests/reward.test.mjs` has said why since Session 13.** That file asserts the
+windows carry *at most* the row's `clinchSeconds`, `idleTravelMetres`, `radialClosingMetres`,
+`nearRangeStallSeconds` and `retreatOutsideReachSeconds`, and may fall short of each by up to 0.2
+of a unit, because a sample taken before the first ask belongs to no window. Three terms are exact
+-- the margin telescopes to 1e-9, the win bonus is a constant an episode, and `emptyStrokes` is
+counted rather than accumulated and the existing test asserts equality on it.
+
+So the two forms differ by the coefficients on an **unwindowed remainder**, and the aggregate form
+is the larger and the honest one: it prices the whole bout, where the rollout sum silently drops
+the sliver before the policy was first asked. Under `GOLEM_REWARD` that remainder is charged at
+0.004 on two quantities, so the gap is bounded by about **0.0016 of a bar**. That bound is what
+prediction 1 tests, and it is written as a bound rather than as an equality because writing it as
+an equality would have been a prediction I had the evidence to know was false.
+
+### The statistic
+
+`boutReturn(bout, table)` -- the expression above, evaluated per bout per side, from the row. It
+returns the nine terms as well as their total, because prediction 4 is a statement about the terms
+and computing them twice in two places is how two readers come to disagree.
+
+**It is a paired column.** `evaluate` schedules four contenders over the same pairings from the
+same seed, so bout `i` of the fit's block and bout `i` of `golem-fencer`'s block are the same
+bodies from the same streams. The difference of two contenders' returns therefore carries its own
+sem exactly as `bar` does, and every bar below is stated on it. *A bar is stated on a paired
+column or it is not stated*, and this experiment does not get an exemption for being about the
+objective.
+
+**A refusal rides with it.** A row that does not carry a quantity whose coefficient is non-zero is
+**refused by name** rather than read as a zero. `emptyStrokes` is genuinely absent for a mind with
+no fourth executor to publish one -- that is the row's own `arm` precedent -- and under the
+shipped table `swing` is zero, so the shipped table reads such a row happily and a swept table
+with a `swing` row does not. This is the record's rule about readers that take a number from a
+caller, applied to a reader that takes a *table* from one.
+
+### The cell
+
+**One rating of the shipped weights. No fit, no training, no new opponent, no new pool.** 600
+bouts a contender, seed 20260906, both arrangements, contenders `fit`, `uniform`, `driver` and
+`fencer` -- which is `ratePolicy`'s own four and not a set invented for this. The arm is
+`POLICY_WEIGHTS` from `src/golem/policy-weights.ts` read greedily, which is the mind that ships
+and the mind Sessions 03 and 04 of the signal set rated. Cost is one rating.
+
+The shipped weights are the arm because the question is about the **objective** and not about a
+policy: `GOLEM_REWARD` is what every fit in this record climbed, and what it pays four minds over
+one schedule is a property of the table.
+
+### The predictions, with the arithmetic they are derived from
+
+Every number below is derived from figures **already published in this file** -- the signal set's
+Session 04 table, 600 bouts, seed 20260906, random viable pairs -- and not from any bout collected
+for this experiment. That table gives the shipped mind a bar of +0.0300 +-0.0525 and 0.5108 points
+a bout, `golem-fencer` +0.0309 and 0.5200, and their paired difference **-0.0010 +-0.0258, d
+-0.003**. This rating is a different schedule and these are therefore predictions and not
+restatements.
+
+**1. The bound, not the identity.** On a recorded `golem-policy` rollout, `boutReturn` from the
+bout's aggregates exceeds the sum of `stepReward` over that bout's windows by a non-negative
+amount under `GOLEM_REWARD`, and that amount is **under 0.0016 of a bar**. The margin term agrees
+to 1e-9 and the `emptyStrokes` term agrees exactly. Asserted in the suite, on a real bout, not on
+a fixture.
+
+**2. The headline, stated as a point prediction and not as a direction.** The fit's mean return
+less `golem-fencer`'s, on random viable pairs, is **negative, and between -0.03 and 0.00**. The
+arithmetic: the margin part is the published -0.0010, the win part is
+`0.5 * 2 * (0.5108 - 0.5200)` = **-0.0092**, and the two charges are the only unknown. So the
+objective is predicted to rank the designed mind **above** the shipped fit, by about a hundredth
+of a bar, which is a fifth of what 600 paired bouts resolve.
+
+**3. And therefore the interesting number is the charge, which prediction 2 is really about.** The
+charged part of that difference -- 0.004 on the two clinch and idle gaps -- is **smaller in
+magnitude than the -0.0102 the margin and the win term supply between them.** `reward.ts` argues
+exactly this and has never measured it: *the bar margin has to stay the term that decides.* If the
+charge is the larger term, then what separates a designed mind from a fit under this objective is
+mostly how long each stood inside reach doing nothing, and the table is grading a habit rather
+than a fight.
+
+**4. The term that decides, on the denominator that matters, and I expect this one to miss.** The
+charged part of the shipped fit's **mean** return is **more than 20 %** of the mean telescoping
+part. The arithmetic, from the module's own quoted ranges -- clinch 0.8-1.9 s a bout, idle 0.6-3.1
+m -- is a charge near 0.014 against a mean margin of 0.0300, which is about 45 %. The *same*
+charge against a **per-bout** margin magnitude near 0.5 is under 3 %.
+
+**Both of those are true at once and they are not the same claim.** `reward.ts` chose 0.004 so
+that a charge would be *small against a typical bout*, which it is. An optimiser maximises the
+**mean**, and against the mean the charge is not small. Prediction 4 is registered on the mean
+because the mean is what a fit climbs, and it is registered expecting the module's stated design
+intent to fail on it.
+
+**5. Registered so it can embarrass me.** `uniform` -- a policy drawing every axis at random --
+does **not** carry the largest charged part of the four. If the flailing policy is the one the
+charges bite hardest, the charges are measuring competence and are doing more work than prediction
+4 credits; if a *designed* mind is charged most, the rows are mispriced against the behaviour they
+were written to name.
+
+**6. The two orderings, at the rate a reader can check.** Ranking the four contenders by mean
+return reproduces their ranking by paired bar on **both** arrangements. Four contenders is a weak
+test and its rate is stated in advance rather than discovered afterwards: a random ordering
+reproduces a named one 1 time in 24, so an agreement on one arrangement and not the other is
+reported as a reading and not as a verdict.
+
+### The falsifier
+
+**If the fit's mean return exceeds `golem-fencer`'s by more than two sigma of the paired
+difference on random viable pairs, then the objective ranks the shipped fit above the mind the
+criterion names while the criterion itself calls them level.** That is not a small disagreement
+between two instruments; it would mean the fit is winning at the thing it optimises, being told it
+has not moved, and both readings being correct. Under it, Q's disconnection is not a defect in the
+optimiser at all, and every estimator item in the queue -- G, N, O, P, S -- is measuring the
+precision of an instrument pointed somewhere the criterion does not look. It is the outcome that
+would make the next experiment a **reward table** rather than an optimiser, and it is registered
+in the direction opposite to prediction 2 deliberately: prediction 2 is what the published
+arithmetic says, and the falsifier is what would make the night worth more than the prediction
+being right.
+
+### What this cannot answer, and what it does not license
+
+**It is the rating arrangement and not the collection arrangement.** A fit maximises its return
+over mirrored self-play, or over bouts against one training opponent with both corners collected,
+and there the antisymmetric terms cancel in aggregate -- the mechanism Q measured on the long
+league, where the return rose because the charges fell. A rating puts one contender against five
+league opponents over shared bodies and nothing cancels. **A clean result here does not acquit the
+objective.** It would locate the problem in how the objective is *collected* rather than in what
+it *is*, and that is a different experiment with a different instrument.
+
+**The mirror is read and is not the ruler.** Session 02 of the signal set measured the mirror to
+be an anti-instrument for a paired difference against a designed mind, and Session 04 reproduced
+it at 1.52x wider. The mirrored column is printed because prediction 6 names both arrangements and
+because a term that behaves differently there is the whole of Q's mechanism; no bar is stated on
+it.
+
+**Four contenders is four**, and every ordering claim carries its rate.
+
+**And no default moves.** `GOLEM_REWARD` ships exactly as it is whatever this says. The instrument
+change computes a column from quantities already written, reaches no fit, takes no flag, and
+changes no bout: a rating run before it and a rating run after it are the same bouts at the same
+seeds, and the suite asserts that a run given nothing new is bit-identical to today's.
