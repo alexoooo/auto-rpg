@@ -25626,6 +25626,41 @@ at 255 asks and +0.065 at 256, same seed, same rollout. That is not a defect in 
 no larger sample fixes it. It is why this is registered at the idle cell and why a fencer-cell
 reading of it would not be published.
 
+
+### The disclosed peek, and the defect it found
+
+**The reader was smoked against a real collection of these sixteen arms before the cell was
+collected, and the whole table was read.** Three iterations at **8 bouts** -- not the registered
+cell, whose row cosine at 128 bouts is +0.0973 at t 4.64, against this one at +0.05 on t 0.51,
+which is the shape the pre-registration says is not readable. Every number in it was seen: the
+sixteen gaps, their sems, their t values, the naive cosines and all four verdicts.
+
+What it is not is a value of the registered statistic. The statistic is a mean over twenty
+iterations at 128 bouts and this was three at 8, on a cell the pre-registration names as the one
+where a gap cannot be interpreted. What it is, exactly, is a peek at the ordering: it is now known
+which arms came out low at a sixteenth of the sample. That is disclosed and it is not undone by
+saying it was a smoke.
+
+**Two of the four verdicts came back missed on it, and both predictions were left as written.**
+Prediction 2's bar of 0.5 was missed by `swing-loud` at 0.3624; prediction 1 fired on `swing` at t
+-2.23. Editing either to fit three iterations of an unregistered cell would be the exact move the
+pre-registration convention exists to prevent, and the reading above is worth less than the
+prediction it would have been used to rewrite.
+
+**And it found a real defect, which is why it was worth the disclosure.** The reader refused the
+run at prediction 4: the identity arm's gap was not zero but minus three parts in a hundred
+quadrillion, on one iteration of three. `cosineOf` divides the dot by its first argument's norm
+and then by its second's, and the second crossing had been written with the row's half in the
+other slot, so two divisions in opposite orders disagreed in the last bit. `armDirection` now puts
+the row's half in the same slot in both crossings and the identity is exact by construction; the
+re-smoke reads exactly zero on all three.
+
+**No test in the suite can reach that mutation**, and this is recorded rather than dressed up: on
+the fixture both orderings come out exact, so reversing them is green across all six tests. The
+assertion that catches it is the reader's own identity check, taken on a collection instead of a
+fixture -- which is where it should live anyway, because the claim is about arms priced off a real
+rollout and a fixture is not one.
+
 ### The predictions
 
 **1. The headline.** At least one arm other than `shipped` has a mean `gap` that is **below zero

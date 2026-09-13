@@ -687,8 +687,14 @@ export function armDirection({ arm, row }) {
   // the row -- and the two of them on the row are what lets an assertion pin that the average is an
   // average of both. Dropping one of them is a halving of the sample that no bar on the mean alone
   // could ever go red for.
+  // The row's half sits in the same argument slot as it does in `rowCosine`, and that is not a
+  // stylistic choice. `cosineOf` divides the dot by its first argument's norm and then by its
+  // second's, and two divisions in the opposite order need not agree to the last place -- so
+  // writing the second crossing as the arm against the row's first half leaves an identity arm's
+  // `gap` at minus three parts in a hundred quadrillion instead of at zero. It was found that way,
+  // on a three-iteration collection, by the reader refusing the run for exactly that reason.
   const crossFirst = cosineOf(armFirst.actor, rowSecond.actor);
-  const crossSecond = cosineOf(armSecond.actor, rowFirst.actor);
+  const crossSecond = cosineOf(rowFirst.actor, armSecond.actor);
   const crossCosine = (crossFirst + crossSecond) / 2;
   const armWhole = combineHalves(armFirst, armSecond);
   const rowWhole = combineHalves(rowFirst, rowSecond);

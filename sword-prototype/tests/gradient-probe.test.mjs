@@ -374,6 +374,15 @@
 // both of the cross-arm ones: at 256 asks the halves are 128 and 128 and the two recoveries are the
 // same vector. It is a defect that would have shipped behind five green tests.
 //
+// **What no mutation here can reach, and it took a collection to find.** `cosineOf` divides the dot
+// by its first argument's norm and then by its second's, so writing the second crossing with the
+// row's half in the other slot leaves an identity arm's `gap` a last bit off zero instead of at it.
+// On this fixture both orderings are exact and every test in this section is green either way. It
+// was found by the reader refusing a three-iteration collection at prediction 4, and it is fixed by
+// construction -- both crossings now put the row's half where `rowCosine` puts it -- rather than by
+// a tolerance. The assertion that covers it lives on a log and not here, which is the right place
+// for a claim about arms priced off a real rollout.
+//
 // **The fourth row was green against all six of them until the two crossings were published.** A
 // reading that used one crossing and called it the average is half the sample under the statistic's
 // name, and nothing about the mean alone can see that -- the mean of two numbers and one of those
@@ -2552,6 +2561,13 @@ test("an_arm_carrying_the_rows_own_table_reads_the_rows_own_cosine_and_a_gap_of_
   const d = shipped.direction;
   assert.equal(d.rowCosine, row.cosine, "the null was taken against some other pair of halves");
   assert.equal(d.crossCosine, row.cosine);
+  // Each crossing on its own, and not only their mean. The mean of two numbers a last bit apart is
+  // the number the null wants about half the time, so a reading that was exact here and one that
+  // was a part in a hundred quadrillion out are the same assertion until the two are pinned
+  // separately. This fixture cannot tell them apart -- both orderings are exact on it -- which is
+  // recorded in the header rather than dressed up as coverage.
+  assert.equal(d.crossFirst, row.cosine);
+  assert.equal(d.crossSecond, row.cosine);
   assert.equal(d.gap, 0, `an arm carrying the table of the row it sits in reads a gap of ${d.gap}`);
   // And the naive reading is exactly one there, which is the other half of the same fact: two
   // identical vectors, through the clamp `cosineOf` carries for its last bits.
