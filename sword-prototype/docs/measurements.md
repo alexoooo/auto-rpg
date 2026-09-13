@@ -27503,3 +27503,100 @@ reader that fills a missing field with a default -- **the count is exactly the p
 wrong**, and it is an argument with no default beyond one precisely so that it has to be typed.
 
 Tests: 1065 -> 1068, all green; tsc clean; build clean.
+
+## The readers -- 2026-09-13: four bars moved out of the prose and into the instrument
+
+The audit two sections up registered corrected thresholds for four pre-registrations and asked two
+more for a power statement. All six corrections lived in a markdown table, which is where the
+*previous* three defects in this record lived on the night they were found and is not where any of
+them was eventually caught. **A bar written down beside a reader is a bar the next reading has to
+remember.** So the four readers whose logs are in flight tonight now compute their own thresholds
+from what is on disk, and all four were exercised before a single result was read off them.
+
+| reader | bar | what it does now |
+|---|---|---|
+| dirfit.mjs | R #1, *one of 15 tables below zero at two sigma* | prints the registered verdict and the family-wise one beside it |
+| barfit.mjs | K #2, *one of 4 arms clears `t > +2`* | states the family rate and the threshold under the table it just printed |
+| objfit.mjs | Q #2, *Spearman below 0.5* | prints the rate a true null passes it, and reports a reading rather than a verdict |
+| basefit.mjs | N #3, *no baseline of 5 clears zero* | states the smallest effect each arm could have caught |
+
+None of them substitutes the corrected bar for the registered one. Both print, because the
+registered one is what will be scored and the corrected one is what the sentence means, and an
+entry that showed only the second would have quietly rewritten a pre-registration after seeing the
+data. That is the thing this whole sequence exists to prevent.
+
+### Three things the exercise found, none of which was the thing it was for
+
+**The family is the whole table, not a group inside it.** barfit's first version priced each
+degrees-of-freedom group separately -- three arms at 10 df and one at 8, because the arms had run
+different numbers of rating points. That reads as two families of three and one, and it understates
+the rate for precisely the reason the correction exists. The arms differ in how long they ran, not
+in whether somebody looked at them, and every one of them was looked at. Corrected, the rate is the
+exact product over the arms' own tails, `1 - prod(1 - p_i)`, which needs no common df, and each
+arm's threshold is its own df held at an equal share of alpha. On the four logs on disk tonight
+that is **14 %** and thresholds of t 2.62 on 10 df and t 2.74 on 8 -- checked independently: the
+per-arm tail at each threshold is 0.012741, identically, and the four together put the family back
+at 5.0000 %. An arm that ran fewer points gets the *higher* threshold, fewer degrees of freedom
+being a heavier tail, which is the right way round and is why the two print separately.
+
+And it caught one immediately. Reading the four rate logs that landed tonight, `swing-loud` sits at
+**t 2.21** -- past two sigma, short of 2.62. It is printed in its own band, named as the band this
+correction is about.
+
+**The audit's own Spearman figure was off, and the exact one is now computable.** The audit said a
+true null comes in below 0.5 about **91 %** of the time at eight arms. Enumerating all 40,320
+orderings of eight ranks says **89.2 %**. The two usual approximations were then run against it to
+find where 91 came from: `rho * sqrt(n-1)` read on the normal gives **90.7 %**, and
+`rho * sqrt((n-2)/(1-rho^2))` read on a t at n-2 gives **89.6 %**. So the audit used the normal one,
+which at eight arms is a point and a half out -- not enough to change the sentence it was written
+for, and enough that it should not have been quoted to two figures. The reader now enumerates
+exactly at nine arms or fewer and says out loud when it falls back to the t above that, which is the
+closer of the two. The enumeration was checked against the printed Spearman
+table before it was believed: the smallest `r` with `P(rho >= r) <= 0.05` comes out **0.900, 0.829,
+0.714, 0.643** at n of 5, 6, 7 and 8, which is that table exactly.
+
+The four rates in the audit that are t tails -- O #5, R #1, K #2, Q #1 -- were re-derived through
+`familyBar` and reproduce to every digit published. **The rest of the audit's table has not been
+re-derived**, and at least one more row rests on an approximation of the same kind: L #1's 52 % is a
+normal calculation, `P(|Z| < 1/sqrt 2)`, where the quantity is a t. It is close enough for the use
+it was put to and it is not exact, and nothing here has checked how close.
+
+**`se * (threshold + 0.8416)` is optimistic by two and a half points, not five.** The power footer
+was drafted with the normal approximation and a comment guessing it ran "about 5 % optimistic".
+Simulated at 400,000 draws: at ten df and a threshold of 2.62 the nominal 80 % is really **77.4 %**,
+at nineteen df and 2.43 it is 77.8 %, at eight df and 2.74 it is 77.3 %. The comment now carries the
+measurement. A guess in a comment is a number somebody will quote later, and this record has been
+caught by that before.
+
+### And one defect the repointing exposed rather than introduced
+
+dirfit's `moments` carried `t: sem === 0 ? 0 : m / sem`. That is the guard the 2026-09-13 reader
+audit found three times over -- in production's `semOf` and in two readers beside this one -- and it
+is wrong for the reason the audit gave: **a t of zero is a reading.** It says the column was
+measured and came out at the middle, which is a different claim from saying the column has no spread
+and cannot be measured at all. Removed, and the identity arm now reads t NaN, correctly.
+
+Removing it exposed a second one underneath. The table's verdict column was
+`gap.t <= -2 ? ... : gap.t >= 2 ? ... : "within two sigma of the row"`, and `NaN <= -2` and
+`NaN >= 2` are both false, so the unreadable arm fell through to **a verdict** -- reached by two
+comparisons that had both declined to answer. For the identity arm that verdict is true, which is
+exactly what makes it worth naming: it would have been right here by luck and wrong on the next log.
+The NaN case is named first now.
+
+### What this does not do
+
+It does not rescore anything. Not one experiment these readers serve has all its cells on disk --
+swing-tenth, budget-128 and latched-idle are still collecting -- so the readings above are the
+instruments being exercised and not results. The one substantive number is that `swing-loud` sits in
+the corrected band, and Experiment K will be scored when its third cell lands and not before.
+
+It does not reach the other readers. armfit, headfit, ladderfit, concfit, stepfit and latchfit still
+state their bars in prose, and four of them carry floor ratios whose marks landed earlier today. The
+four here are the four whose logs are in flight; the rest are owed the same pass and have not had
+it.
+
+And it does not make the corrected thresholds right, only stated. Every one is the independent-arms
+bound, and the arms of a rating table are rated from one seed against one contender, so their
+columns are correlated and the true family rate is at or under what prints. A bar that survives the
+bound survives the correlation. A bar that fails it -- `swing-loud`, tonight -- may still be sound
+on a table whose arms move together, and **nothing in this record measures how much they do.**
