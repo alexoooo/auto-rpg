@@ -24747,6 +24747,29 @@ at all.
    say the decomposition is pessimistic rather than wrong, which is the good version of being
    wrong.
 
+### Disclosed before the bouts: the noise this will be read against
+
+The design above was fixed before anything was collected, and then one number was measured to find
+out what it can see. **48 bouts at the idle checkpoint, no step taken and no direction involved**:
+the mean episode return is 0.645 and its bout-to-bout standard deviation is 0.664. The peek is of
+the spread, not of the effect, and the design was not changed after it -- eight draws at 128
+evaluation bouts an end is what was written down and what is run.
+
+What it implies. An unpaired difference of two 128-bout means carries a standard error of 0.083,
+so eight draws give about 0.029 before the pairing is counted at all -- and the pairing, the
+collection and the pool all still vary across draws, which is why the `t` is taken on the
+across-draw spread rather than assembled from this. **Against the predicted 0.354 that is a `t`
+near twelve, and the run stays readable at two sigma down to about a fifth of the prediction.**
+Prediction 4's lower edge -- a tenth -- is therefore the one thing in this pre-registration the
+run may be unable to resolve, and that is stated here rather than discovered afterwards.
+
+And one anchor worth having in view before the result: **the predicted 0.354 is 55 % of the mean
+return itself**, from a step worth two league iterations. The record already knows the idle league
+did not improve like that -- Experiment A measured its maul damage *falling* over 400 iterations
+-- so a measured effect far below the prediction is the outcome the record's own history points
+at, and the interesting question would be which of the four assumptions in the table above ate the
+difference.
+
 ### The falsifier
 
 **If the idle cell's gradient arm does not clear zero, the signal set's subject changes.** Not its
