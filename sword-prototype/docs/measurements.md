@@ -30658,3 +30658,247 @@ the window's resolution is printed beside the verdict.**
 collected: the numbers above are eleven lines of arithmetic over logs that were already on disk,
 and they are on the page before the slopes that would have made one of the two readings the
 comfortable one.
+
+## Experiment I, complete -- 2026-09-13: the abort gate is one of the best-served rows in the actor, and the latch costs it three quarters of its own signal
+
+All four cells are on disk and the reader was written before any of them closed. Scored in one
+command:
+
+```
+node headfit.mjs --unlatched-fencer tournaments/gradhorizon-fencer-128.jsonl
+  --unlatched-idle   tournaments/gradhorizon-idle-128.jsonl
+  --latched-fencer   tournaments/gradheads-fencer-128.jsonl
+  --latched-idle     tournaments/gradheads-idle-128.jsonl
+```
+
+**Five predictions, one falsifier, and the verdicts are four missed, one met, one identity.** The
+one that was met is prediction 1, which is a determinism claim and not a finding. Everything this
+experiment was registered to find out came back the other way round, and the two cells it paid for
+-- 57.2 minutes and 147.3 minutes of host time, 204.5 in total -- bought a result that contradicts
+three sessions of argument in this record.
+
+### The four cells, side by side
+
+Floors are bouts-for-cosine-0.5 on the group alone, `K_h / (|S_h|^2 + 2 SE)`, the convention every
+floor in this record is taken through. The `*` is the family bar over twelve groups: t 2.93 at 19
+df, t 2.77 at 39 df.
+
+| cell | iterations | whole actor | its t | axes' median floor | commit | abort | parry | groups clearing |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| unlatched fencer | 20 | 3,796 | -0.47 | 1,083 | 818 | 812 | 1,914 | none of 12 |
+| unlatched idle | 20 | 789 * | +4.60 | 973 | 822 | **173** | 3,853 | standOff, advance, abort |
+| latched fencer | 40 | 2,714 | +1.38 | 1,128 | 1,359 | 796 | 3,602 | none of 12 |
+| latched idle | 40 | 786 * | +7.86 | 715 | 794 | 718 | 789 | standOff |
+
+**Read the fencer rows as arithmetic and not as measurement.** On both fencer cells the whole
+actor's own `|S|^2` fails to clear zero -- t -0.47 unlatched, t 1.38 latched -- and not one of
+twelve groups clears the family bar on either. Every floor in those two rows is the two-sigma edge
+of a quantity whose point estimate is unbounded. They are printed because the predictions are
+stated on them and a verdict is owed; they are not evidence about a gate.
+
+### Prediction 1, the only one met: 200 fields of 200, on both pairs
+
+> *The latched cells' first twenty iterations agree with Experiment F's latched cells field for
+> field on `cosine`, `dot`, `firstNorm`, `secondNorm` and `advantageSd`.*
+
+| pair | fields identical | headers agreeing |
+| --- | ---: | ---: |
+| `gradheads-fencer-128` first 20 vs `gradlatch-fencer-128` all 20 | **100 of 100** | 39 of 44 keys |
+| `gradheads-idle-128` first 20 vs `gradlatch-idle-128` all 20 | **100 of 100** | 39 of 44 keys |
+
+The five header keys that differ are `concentration`, `direction`, `iterations`, `label` and
+`rewards`, which is exactly the set the registration said would differ: the two riders are off,
+the run is twice as long, and this experiment's paid cells name no reward arms. **A collection is
+a deterministic function of `seed ^ iteration`, the checkpoint, the bout count, the opponent and
+the pool, and the head cut is passive.** Both cells read tournaments/bracket-*/pool-30.json at
+seed 20260917, so the pairs differ in the two flags the design says they differ in and in nothing
+the numbers can see.
+
+### Prediction 2, missed: the gates are not the worst-served rows, they are ordinary ones
+
+> *On the unlatched fencer cell, each of the three gate groups' floors is at least **twice** the
+> median of the nine axis groups' floors.*
+
+| group | floor | against the axes' median of 1,083 |
+| --- | ---: | ---: |
+| commit | 818 | **0.76x** |
+| abort | 812 | **0.75x** |
+| parry | 1,914 | 1.77x |
+
+Not one of the three clears 2x and two of the three are *better* served than the median axis. The
+prediction wanted the gates starved relative to their neighbours on the cell the whole argument
+about gate logits was made on, and on that cell they are unremarkable.
+
+### Prediction 3, one half missed and one half an identity
+
+> *On the `abort` group, where `|S|^2` clears zero, `bonus / sqrt(|S|^2)` >= 0.10. On each of the
+> nine axes the bonus norm is **exactly** zero.*
+
+**3a is missed and it is missed on the one cell where the question can be asked.** `abort`'s
+`|S|^2` clears the family bar on exactly one cell -- unlatched idle, t 5.56 -- and there the bonus
+is **0.9 %** of the row's fitted signal against a registered 10 %. The other three readings are
+2.2 % against a signal at t 0.54, 1.5 % against t 1.47, and 2.0 % against t 2.28, none of which is
+a denominator. **So the entropy bonus is not what holds the abort logit at a coin flip.** The
+signal set's finding 1 reasoned from the shipped table's gate logits -- commit +0.062, abort
+-0.191, parry +0.066, all within 0.2 of the knife edge -- to an entropy bonus large against the
+gate's own gradient, and on the only cell that can price it the bonus is a hundredth of that
+gradient and not a tenth.
+
+**3b is met over nine axes on every cell**, which is an identity: a Gaussian's entropy depends on
+its spread and not on its mean, and a miss here would have been a defect in the probe. It is
+recorded because it is what makes the gate figure a comparison rather than a number.
+
+### Prediction 4, missed, and the miss is the experiment's finding
+
+> *Between the latched and unlatched cells at the same checkpoint and opponent, the three gate
+> groups' floors improve by at least **2x**, and the median of the nine axis groups' floors moves
+> by less than 2x in either direction.*
+
+The axes half held on both pairs. The gates half failed on five of six readings, and on the one
+reading that carries a measured signal it failed in the wrong direction by a factor of four.
+
+| pair | commit | abort | parry | axes' median |
+| --- | ---: | ---: | ---: | ---: |
+| fencer, unlatched -> latched | 0.60x | 1.02x | 0.53x | 0.96x |
+| idle, unlatched -> latched | 1.04x | **0.24x** | 4.89x | 1.36x |
+
+A figure above one is an improvement. **`abort`'s floor on the idle cell goes 173 bouts to 718**,
+and its point estimate goes 235 to 1,349. That is the only entry in the table on either side of
+which a signal clears zero, and it says the latch takes three quarters of the abort row's own
+gradient away.
+
+**And the comparison is if anything flattering to the latched cell.** The floor's denominator
+carries `2 SE`, and the latched cells are 40 iterations against 20, so their standard errors are
+smaller and their floors nearer their own point estimates. The unlatched cell is being read at a
+wider two-sigma edge and still comes back four times better.
+
+**The other thing the idle row says is that the latch flattens the head.** Unlatched, the three
+gates span 173 to 3,853 bouts -- a factor of 22. Latched, they read 794, 718 and 789 against an
+axes' median of 715: the three gates and the median axis agree to 11 %. A cut that distinguished
+twelve rows stops distinguishing them.
+
+### Prediction 5, missed by a factor of eighteen in the wrong direction
+
+> *On the unlatched idle cell, the `abort` group's floor is at least **4x** the row's own.*
+
+The row's own floor is 789 bouts. `abort`'s is **173**, which is **0.22x** it, not 4x. The gate
+group that three sessions of this record have treated as blind is the second best served of twelve
+groups on the only unlatched cell where anything is served at all, and one of only three that
+clear the family bar. `standOff` reads 144, `abort` reads 173, `advance` reads 265, and the other
+nine groups read 487 to 3,853.
+
+**A group that is 0.294 % of the actor is being served better than the actor.** That is not a
+paradox: the whole-actor floor averages a signal over 87,308 coordinates most of which carry none,
+and a floor is a ratio, so a small well-aimed group can beat the vector it is inside. What it
+forecloses is the explanation the record has been running on -- that the gates sit at a coin flip
+because the sample never told them anything.
+
+### The falsifier, and what its not firing is worth
+
+> *If the three gate groups' floors sit inside the range of the nine axis groups' floors on both
+> unlatched cells, then the abort gate is not short of gradient relative to its neighbours.*
+
+**It does not fire, on parry alone:** on the unlatched idle cell parry's 3,853 sits above every
+one of the nine axes, whose range is 144 to 2,923. Every other one of the six gate readings is
+inside its cell's axis range, `abort` included on both.
+
+**That is a technical non-firing and the substance is the other way.** The falsifier was written
+about the abort gate and named all three gates to avoid being cherry-picked; the row that broke it
+is the one the question was never about. A named group among ten sits outside the other nine's
+range by chance about a fifth of the time, so one reading in six landing outside is the ordinary
+outcome and not a finding. **On the claim the falsifier was written to test -- is `abort` short of
+gradient relative to its neighbours -- the answer is a clear no**, delivered by prediction 5 at
+0.22x rather than by this clause.
+
+### The mechanism, which is eight lines of arithmetic off the same rows
+
+The probe rows carry `asks` and `strokes`, so the latch's cost can be priced without a new bout.
+
+| cell | asks an iteration | strokes started | aborts | completion |
+| --- | ---: | ---: | ---: | ---: |
+| unlatched fencer | 58,845 | 14,806 | 14,540 | 0.0180 |
+| latched fencer | 56,079 | 6,013 | 3,144 | 0.4771 |
+| unlatched idle | 82,369 | 21,158 | 20,251 | 0.0429 |
+| latched idle | 83,785 | 10,394 | 5,843 | 0.4378 |
+
+**The latch does not change how often the mind is asked; it changes how many of those asks the
+abort gate decides anything on.** Asks move by 5 % and 2 %. Abort events fall **4.62x** on the
+fencer cell and **3.47x** on the idle one. On the idle cell the abort group's `|S|^2` falls 5.45x
+over the same change. The two are not required to move together and they do not -- the signal
+falls by more than the count of decisions does -- but the direction and the order of magnitude are
+the same, and no other column in the pair moved by anything like it.
+
+**So the latch's price is legible and nobody had priced it.** Reading a gate once a stroke instead
+of once an ask is what makes a stroke finish, and it is also what takes the gate's gradient away:
+a logit that decides three times fewer things is told three times less about what it decided.
+`latchAbort` was measured in signal-04 as a body fix and adopted as one; this is the first
+measurement of what it costs the optimiser, and it costs the row the fix is about three quarters
+of its own signal.
+
+### The compounding arithmetic, corrected
+
+The signal set's finding 1 computed a stroke as **six to seven** independent Bernoulli draws from
+`chamberSeconds` plus `max(commitSeconds, strokeSeconds + followSeconds)` at 12 Hz. These four
+cells measure it, because the latched completion is the probability of surviving one read and the
+unlatched completion is the probability of surviving all of them at the same held checkpoint:
+`m = ln(c_unlatched) / ln(c_latched)`.
+
+| cell pair | one read survives | all reads survive | implied draws `m` |
+| --- | ---: | ---: | ---: |
+| fencer | 0.4771 | 0.0180 | **5.43** |
+| idle | 0.4378 | 0.0429 | **3.81** |
+
+**Four to five, not six to seven.** The direction of the finding is untouched -- a stroke still
+dies to a compounding gate and the completion still goes from about 3 % to about 45 % when the
+compounding stops -- but the exponent the record has quoted is high by one to two draws, and the
+two cells disagree with each other by more than the correction, which says `m` is a property of
+the engagement and not a constant of the body. The first-order reading also assumes every
+unfinished stroke died to the gate, which is an upper bound on `m`'s denominator and therefore a
+lower bound on `m`; it is quoted as an approximation and the arithmetic is above so a reader can
+take it apart.
+
+### What this changes, and what it does not license
+
+**The suspect list moves off the gradient and onto the score function and the task.** Three of the
+five predictions here were different ways of saying *the abort gate is starved*, and the cell that
+can measure it says the opposite at 0.22x. Combined with Experiment E -- the reward table does not
+move the gradient -- and Experiment K -- a seventy-fold coefficient sweep does not move the bar --
+the list of things this record has checked and found innocent is now long enough that the next
+experiment after Experiments S and U should not be an optimiser experiment. That is agenda item
+V's question and this entry is one more reason to ask it.
+
+**No default moves.** `latchAbort` stays off in `GOLEM_TACTICS_V4` and the entropy coefficient
+stays at 3e-4 in both CLIs, exactly as the registration said no outcome here would license. The
+one thing this result does argue for is a **disclosure**: any future entry that adopts
+`latchAbort` on the strength of signal-04's completion figure owes the reader the sentence that it
+costs the abort row three quarters of its gradient on the one cell where that gradient is
+measurable.
+
+**And the fencer cell measured nothing again, which is now a pattern and not an accident.** Two of
+the four cells, 57 minutes of the 204, carry no group that clears zero and no whole-actor signal
+either. Counting every distinct collection in the probe logs on disk -- the five 128-bout logs
+share one collection and read one number, and `gradheads-fencer-128` contains
+`gradlatch-fencer-128`'s twenty iterations as its prefix, verified at 20 of 20 dots identical --
+there are **nine independent whole-actor readings of the fencer cell** in this record:
+
+| cell | iterations | bouts | whole-actor t |
+| --- | ---: | ---: | ---: |
+| `gradbout-fencer-32` and its four twins | 20 | 32 | +1.15 |
+| `gradbout-fencer-64` and its four twins | 20 | 64 | +0.22 |
+| `gradbout-fencer-128` and its four twins | 20 | 128 | -0.47 |
+| `gradbout-fencer-256` and its four twins | 20 | 256 | +1.44 |
+| `gradgrid-fencer-32` | 30 | 32 | -0.25 |
+| `gradgrid-fencer-64` | 30 | 64 | **+3.25** |
+| `gradgrid-fencer-128` | 30 | 128 | +1.90 |
+| `gradgrid-fencer-256` | 30 | 256 | +0.84 |
+| `gradheads-fencer-128`, latched | 40 | 128 | +1.38 |
+
+**One of nine clears two sigma, and a true null clears two sigma about one time in twenty
+two-sided -- so one in nine is the ordinary outcome and not a signal.** The grid cells are a
+different collection family from the bout cells and not a re-reading of them, checked at 0 of 20
+dots identical, so these are nine draws and not three.
+
+**The rule this record takes forward: a cell whose whole-actor `|S|^2` does not clear zero is not
+a cell to state a group-level prediction on, and a registration that states predictions across two
+cells owes the reader, in advance, which of them the other cell could not have answered.** This
+one did not, and two of its six verdicts are arithmetic about unbounded quantities as a result.
