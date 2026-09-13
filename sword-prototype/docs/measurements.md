@@ -27747,3 +27747,24 @@ turns on, and **it is stated on a cell nothing in this record has read yet.**
 
 The horizon grid has seventeen arms, and its fencer half has been on disk since before this fix went
 in. It has not been read, and the fix is in the reader that will read it.
+
+### The two readers that were checked and left alone
+
+concfit.mjs and stepfit.mjs carry a two-sigma test each and neither needed the change, which is
+worth recording because the question a reader will ask of the section above is whether all of them
+were looked at.
+
+concfit's prediction 2 is gated on `whole.t > 3` -- the cell's own whole-actor `|S|^2`, one named
+column, and the verdict it prints says *on this cell* in so many words. A t of 3 on one column at
+nineteen degrees of freedom is a one-sided 0.0037, so even asked of all five of Experiment P's cells
+at once the family-wise rate is **1.8 %**, inside the 5 % the correction above holds everything
+else to. It is sound as written and it was sound by having been written strictly rather than by
+anybody having done this arithmetic at the time.
+
+stepfit's `dot > 2 * dotSem` is not a verdict at all. It chooses between the point estimate and the
+two-sigma edge when forming `|S|^2`, taking the conservative one where the signal does not clear --
+so raising the threshold would make it take the conservative value *more* often, which is a change
+in the safe direction and not a correction of an error. Left alone: it is an estimator's choice and
+the section above is about marks that say a verdict may be read.
+
+latchfit.mjs grants no mark of any kind and has nothing of this shape in it.
