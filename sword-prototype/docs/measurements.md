@@ -29826,3 +29826,167 @@ and the quantity to pre-register it against is iterations rather than bouts. Exp
 already running at 32 bouts and 120 iterations, which is that shape by accident rather than by
 this argument; its prediction 5 asks the question this one now makes urgent, which is whether a
 curve exists past iteration 60 at all.
+
+## Experiment Q, complete -- 2026-09-13: the objective and the criterion come apart on one arm of seven, and the one arm is the cheapest finding in the set
+
+Both blockers landed with Experiment L, so all eight arms could be read at once. Scored with
+objfit.mjs, twice, because the long league's paired column names a different designed mind and a
+bar is stated against the mind it was taken against or it is not stated:
+
+```
+node objfit.mjs golem-fencer tournaments/latched-fencer:tournaments/latched-fencer-rate.jsonl ...
+node objfit.mjs golem-driver  tournaments/league-long:tournaments/league-long/rate.random.jsonl
+```
+
+### The four verdicts
+
+| # | as registered | verdict |
+| --- | --- | --- |
+| 1 | on at least one arm, `ret` rises at t > 3 while the paired bar does not clear two sigma | **met**, on one arm of seven -- `budget-128`, and its flat bar is a reading rather than an absence of instrument |
+| 2 | the Spearman of final `ret` against final `d` across the arms is below 0.5 | **a reading, not a verdict** -- it is 0.036 and reads below 0.5, and a true null does too 87 % of the time at seven arms |
+| 3 | on every arm where 1 fires, `ret` moves at least a tenth of its own step-to-step sd per sixty | **met** -- `budget-128` moves 12.6x that |
+| 4 | on those arms the movement in `ret` is mostly penalty and not margin | **met as written** on `bare`, and met on the substituted column -- but on `budget-128` neither comparand moves past two sigma |
+| -- | the falsifier: every arm whose `ret` rises at t > 3 also has its bar rising at t > 2 | **does not fire** -- `budget-128` breaks it |
+
+### The table, which is the whole experiment
+
+| arm | league rows | `ret`/60 | t | `penaltyShare`/60 | t | rating points | bar/60 | t | what the bar could catch | reading |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| `latched-fencer` | 60 | 0.1045 | 1.79 | 0.0027 | 0.46 | 12 | 0.0746 | 3.35 | 0.0634 | return did not rise -- vacuous here |
+| `latched-idle` | 60 | 0.2336 | 3.68 | -0.0469 | -4.92 | 12 | 0.0639 | 2.60 | 0.0699 | moves together |
+| `swing-quiet` | 60 | 0.0242 | 0.37 | -0.0164 | -0.71 | 12 | 0.0552 | 3.70 | 0.0424 | return did not rise -- vacuous here |
+| `swing-tenth` | 60 | 0.2861 | 2.61 | -0.0645 | -1.46 | 12 | 0.0297 | 2.22 | 0.0381 | return did not rise -- vacuous here |
+| `swing-loud` | 60 | 3.2384 | 4.16 | -0.0994 | -3.10 | 12 | 0.0489 | 2.21 | 0.0628 | moves together |
+| `budget-128` | 60 | 0.1321 | **3.24** | 0.0044 | 1.01 | 12 | 0.0183 | **0.97** | 0.0539 | **disconnected** |
+| `budget-256` | 30 | -0.0081 | -0.09 | -0.0028 | -0.23 | 10 | 0.0350 | 0.81 | 0.1229 | return did not rise -- vacuous here |
+| `league-long` | 400 | 0.0426 | **11.71** | 0.0026 | 3.47 | 29 | 0.0022 | **0.86** | 0.0072 | the bar is flat and the path cannot see |
+
+**Four arms of eight have a return that does not rise at all**, and on those the question cannot
+be asked; the reader says so in the row rather than scoring them. Two arms -- `latched-idle` and
+`swing-loud` -- have a return that rises and a bar that rises with it, which is the falsifier's
+shape and is what the record would have preferred to find on all of them.
+
+### The one arm, and why it is a reading and not a gap in the instrument
+
+`budget-128` raised the quantity the fit maximises by **0.1321 per sixty iterations at t 3.24**,
+over sixty league rows, and its paired bar against `golem-fencer` read **0.0183 at t 0.97** over
+twelve rating points. A fit that succeeded at its own objective, on a run that cost 7,680 bouts,
+and the criterion did not notice.
+
+**The null side is what makes that a finding.** The largest bar movement anywhere in this table is
+`latched-fencer`'s 0.0746 per sixty, and that is the only scale this record has for a movement the
+criterion would have noticed at all. `budget-128`'s rating path would have caught **0.0539**,
+which is **0.72x** that movement, four times in five. So its flat bar is not an absence of
+instrument: a bar moving at three quarters of the biggest thing this record has ever measured
+would have shown up there and did not.
+
+**And the same test refuses the arm a reader would have reached for first.** Session 11's long
+league raised `ret` at **t 11.71** over four hundred iterations with a paired bar at t 0.86 -- the
+most spectacular instance of the disconnection in the record, and objfit declines it. Its rating
+path resolves 0.0072 per sixty against a largest-movement scale of 0.0022, which is **3.31x**:
+that bar could not have caught a movement three times the biggest one on record, so its flatness
+says nothing. The arm is reported and is not counted. That refusal is worth more than the arm
+would have been; it is the reader declining the evidence that would have made the headline easiest
+to write.
+
+### What prediction 1 does and does not establish
+
+**It is one arm of seven prospective ones, and the registration asked for one.** An existence
+claim is met by an instance and this is the instance. But two arms in the same table move
+together, so what is established is that the objective and the criterion **can** come apart, not
+that they generally do -- and the seven arms are not a sample of anything, they are the runs that
+happened to be on disk.
+
+**The two quantities are measured on different populations, and this cannot tell the two
+explanations apart.** `ret` is taken over the collection pool, mirrored, fighting the training
+opponent; the bar is taken on a rating pool against a designed mind. `budget-128`'s disconnection
+could be a disconnection between the *objectives* or between the *populations*. The registration
+said so in advance and the finding is stated at that limit.
+
+**And there is a reading of this arm that Experiment L supplies and that has to be put beside
+it.** `budget-128` is the arm whose bar slope L found sixteen times smaller per bout than the
+32-bout arm's, and whose curve dips to -0.098 and -0.106 at iterations 35 and 40. Its flat bar is
+the same flat bar in both experiments. Q says the return rose while that bar did not; L says the
+bar's flatness is what four times the sample an iteration bought. **Neither experiment establishes
+which of those is the cause of the other**, and a reader who takes Q's headline without L's is
+taking half of one arm.
+
+### Prediction 4, scored on the column it names and on the one that replaced it
+
+| arm | `ret`/60 | t | `bare`/60 | t | `penaltyShare`/60 | t |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `budget-128` | 0.1321 | 3.24 | -0.0183 | -0.66 | 0.0044 | 1.01 |
+| `latched-idle` | 0.2336 | 3.68 | 0.2414 | **4.04** | -0.0469 | -4.92 |
+| `swing-loud` | 3.2384 | 4.16 | -0.0001 | -0.00 | -0.0994 | -3.10 |
+| `league-long` | 0.0426 | 11.71 | -0.0177 | **-6.56** | 0.0026 | 3.47 |
+
+On `budget-128`, the arm prediction 4 is actually in scope for, `bare` moves 0.0183 against
+`ret`'s 0.1321 and the registered inequality holds: **met as written**. It is a weak form of met
+and is labelled one -- the return moved past three sigma and *neither* of the two comparands moved
+past two, so what the comparison contrasts is one number that moved against two that did not.
+
+**The strong form of the mechanism is on the arm that cannot be counted.** Over four hundred
+iterations the long league's return rose at t 11.71 while `bare` **fell** at t -6.56 and the
+penalty share rose at t 3.47: the return went up because the charges went down, not because the
+margin did. That is the mirrored-telescoping argument -- `dealt - taken` cancels in aggregate,
+`win * outcome` cancels, and what is left with a non-zero mean is the clinch and idle penalties,
+which are minimised by standing still outside reach -- stated as a measurement for the first time.
+It is secondary evidence, on a published re-analysis, against a different designed mind, and it is
+the clearest thing in the experiment.
+
+**And the counter-instance is printed rather than left out.** On `latched-idle`, `bare` rises at t
+4.04 and *faster* than `ret` does, while the penalty share falls at t -4.92. There the fit raised
+its return by fighting better and not by being charged less. Prediction 4 is not in scope on that
+arm, and if it had been it would have been missed.
+
+### Two amendments the reader carries, both registered rather than edited in
+
+**`bare` is not what the prediction thought it was.** Prediction 4 was registered on `bare`, which
+reads like *the return without penalties*. It is not: it is the mean of the **absolute value** of
+`sum + charge`, a magnitude whose only job is to be the denominator `penaltyShare` is taken
+against. It does not fall when a policy is charged less and its slope is not a statement about
+margin. objfit therefore reads `penaltyShare` -- the share itself, written on every league row,
+and broken into its seven named charges by `penaltyRows` so a fall can be attributed rather than
+merely observed -- and the registered column is scored beside it in the table above, as written,
+so the substitution changes no verdict.
+
+**Prediction 2 is a reading and not a verdict.** A Spearman below 0.5 over seven arms is what a
+true null gives 87 % of the time -- exact over all 5,040 orderings -- so the bar does not separate
+the hypothesis from its opposite. The 2026-09-13 prediction audit demoted it and the demotion is
+applied here. Measured: **rho 0.036, 95 % interval -0.750 to +0.780** by Fisher z at se 0.515. It
+reads below 0.5, which is what the pre-registration will be scored on and is recorded so the
+scoring is not silently changed by the demotion; the interval covers essentially the whole range a
+rank correlation can take and the reading is worth nothing on its own.
+
+### Where the arms finished
+
+| arm | final `ret` | final `d` against the mind its criterion names |
+| --- | ---: | ---: |
+| `latched-idle` | 0.6538 | -0.0915 |
+| `latched-fencer` | 0.1340 | -0.0878 |
+| `budget-128` | -0.0942 | -0.0834 |
+| `budget-256` | -0.2138 | -0.0771 |
+| `swing-tenth` | -0.4489 | -0.1326 |
+| `swing-quiet` | -0.4974 | -0.0573 |
+| `swing-loud` | -3.7295 | -0.0950 |
+
+The returns span from +0.65 to -3.73 and the final `d` spans -0.057 to -0.133, and the two
+orderings share almost nothing -- the best return is the second-worst `d`, and the best `d` is the
+second-worst return. That is the picture prediction 2 was written to put a number on, and the
+number it gets is one that seven arms cannot support.
+
+### What this licenses, and the instrument change the next step needs
+
+Prediction 1 fired, so the follow-on the registration named is the one that comes due: **price a
+designed mind under `GOLEM_REWARD` directly.** If `golem-fencer` scores badly on the very
+objective the fit is climbing, then the objective is not a proxy for the criterion and no
+estimator work can repair that. The cost was put on the record before the result and it stands:
+`recorderKind` hooks only a style, the learner, the planner and the champion, and
+`decisionRecorder` captures the two bars, the clock and the end flag but **none of the six shaped
+quantities the table charges for**. That is an instrument change and it is the first one this
+agenda has needed.
+
+**Nothing here reopens Experiment E.** E varied the coefficients and found the gradient unchanged;
+this asks whether the quantity those coefficients define is the quantity the record grades, which
+is a different question. And nothing here ships: no fit changed, no bouts were collected, and
+every number above was read off logs written for other experiments.
