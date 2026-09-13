@@ -97,6 +97,24 @@
 // shipped coefficients, named on purpose -- has to reproduce the row to the last digit, and the
 // no-shaping arm has to fail to, and no single mutation above can satisfy both.
 //
+// **The credit horizon joined the same file and added five more on 2026-09-12.** `halfLife` and
+// `lambda` are free along exactly the axis the coefficients are -- neither changes how a held
+// policy acts, both are read after a collection -- so they are rows of an arm rather than a second
+// grid, and the mutations are about keeping the two vocabularies apart:
+//
+// | mutation | what went red |
+// |---|---|
+// | an arm's horizon is read and then not used, so every arm runs the run's own | the horizon test |
+// | a horizon is reported on every arm rather than only on the arm that named one | the horizon test |
+// | a horizon lands in the reward table instead of beside it | the arm-rows test |
+// | a half-life of zero is allowed, so the next window is discounted by a division by zero | the arm-rows test |
+// | a lambda outside the unit interval is allowed, so the recursion diverges rather than fails | the arm-rows test |
+//
+// **The last two are refusals at the edges the arithmetic actually breaks at**, which is not the
+// same as tidy ones: `lambda` 0 and `lambda` 1 are both legal and both meaningful -- the one-step
+// return and the whole episode -- and the test asserts they pass, so the refusal cannot be
+// satisfied by refusing everything near the boundary.
+//
 // **What no mutation here can reach, and it is the claim the sweep rests on.** That a reward
 // coefficient does not change how a *held* policy acts is a fact about the collectors, which this
 // file does not run: a body draws from weights that do not move, so the collection is the same
@@ -982,6 +1000,75 @@ test("an_arms_shaping_share_is_over_what_the_asks_paid_in_total_rather_than_over
   const none = shareOf(priceRollout(empty, GOLEM_REWARD), empty);
   assert.equal(none.paid, 0);
   assert.equal(none.penalty, 0, "a share was taken over a denominator of zero");
+});
+
+test("an_arm_may_name_a_credit_horizon_instead_of_a_coefficient_and_is_refused_at_its_edges", () => {
+  const [one] = rewardArms([{ label: "short", halfLife: 0.5 }]);
+  assert.equal(one.halfLife, 0.5);
+  // A horizon is not a coefficient, so it does not land in the table; the table is the shipped one.
+  assert.deepEqual({ ...one.table }, { ...GOLEM_REWARD });
+  const [both] = rewardArms([{ label: "mix", halfLife: 1, lambda: 0.5, idle: 0 }]);
+  assert.equal(both.halfLife, 1);
+  assert.equal(both.lambda, 0.5);
+  assert.equal(both.table.idle, 0, "an arm that names a horizon stopped reading its coefficients");
+  // Absent rather than defaulted when unnamed, which is what lets a grid of tables alone write the
+  // row it wrote before this axis existed.
+  const [plain] = rewardArms([{ label: "plain", idle: 0 }]);
+  assert.ok(!("halfLife" in plain), "an arm that named no horizon carries one");
+  assert.ok(!("lambda" in plain));
+  // Both edges, and they are the edges the arithmetic actually breaks at rather than tidy ones. A
+  // half-life of zero discounts the next window to nothing and divides by it; a lambda outside the
+  // unit interval makes the recursion in `advantages` diverge rather than fail, which is worse.
+  assert.throws(() => rewardArms([{ label: "x", halfLife: 0 }]), /a half-life is seconds/);
+  assert.throws(() => rewardArms([{ label: "x", halfLife: -1 }]), /a half-life is seconds/);
+  assert.throws(() => rewardArms([{ label: "x", lambda: -0.1 }]), /runs from 0 to 1/);
+  assert.throws(() => rewardArms([{ label: "x", lambda: 1.1 }]), /runs from 0 to 1/);
+  // The edges themselves are legal: lambda 0 is the one-step return and lambda 1 the whole episode.
+  assert.equal(rewardArms([{ label: "x", lambda: 0 }])[0].lambda, 0);
+  assert.equal(rewardArms([{ label: "x", lambda: 1 }])[0].lambda, 1);
+  // And the refusal by name now names both vocabularies, so a typo says which one it missed.
+  assert.throws(() => rewardArms([{ label: "x", halflife: 1 }]), /and estimates over halfLife, lambda/);
+});
+
+test("an_arm_that_names_a_horizon_is_measured_under_it_and_the_arms_beside_it_are_not", async () => {
+  // The combination is the point: a table and a horizon in one arm rather than in two grids. This
+  // pins that an arm's horizon reaches `advantages` and reaches nothing else -- the run's own
+  // number still governs the row, and an arm that named none still reads the row's.
+  const built = fixture(256, SEED + 3, { priced: true });
+  const arms = rewardArms([
+    { label: "as-run", ...GOLEM_REWARD },
+    { label: "short", halfLife: 0.25 },
+    { label: "one-step", lambda: 0 },
+  ]);
+  const pool = await FitPool.open({ shards: 2, layout: LAYOUT, valueLayout: VALUE });
+  let row = null;
+  try {
+    row = probeRollout({
+      pool, rollout: built.rollout, weights: built.weights, valueWeights: built.valueWeights,
+      logSigma: built.logSigma, norm: built.norm, valueLayout: VALUE, seed: SEED, rewards: arms,
+      halfLife: 4, lambda: 0.95,
+    });
+  } finally {
+    await pool.close();
+  }
+  const [asRun, short, oneStep] = row.priced;
+  // The arm that changes neither is still the identity arm, which is what makes the other two
+  // readable as the horizon and not as the instrument.
+  assert.equal(asRun.cosine, row.cosine);
+  assert.ok(!("halfLife" in asRun), "an arm that named no horizon reported one");
+  // A quarter-second half-life against the fixture's twelfth-of-a-second windows discounts the next
+  // ask to about three quarters, so the advantages are nothing like the run's and neither is the
+  // spread they are standardised by.
+  assert.equal(short.halfLife, 0.25);
+  assert.notEqual(short.advantageSd, row.advantageSd, "a horizon of a quarter second read as four");
+  assert.equal(oneStep.lambda, 0);
+  assert.notEqual(oneStep.advantageSd, row.advantageSd);
+  // And the row itself is untouched by either, so the arms are read against a baseline that is the
+  // run's own and not the last arm's.
+  assert.equal(row.advantageSd, standardisedAdvantages(
+    advantages(built.rollout, valuesOf(built.rollout, built.valueWeights, built.norm, VALUE),
+      { halfLife: 4, lambda: 0.95 }).advantage, built.rollout.count,
+  ).sd);
 });
 
 test("a_bout_half_is_summed_over_its_own_bouts_asks_and_not_over_the_front_of_the_shuffled_order", async () => {

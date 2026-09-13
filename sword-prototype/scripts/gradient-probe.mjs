@@ -162,6 +162,13 @@
 // elimination and ranking: a table that puts no signal into the gradient at the policy the record
 // is stuck at is not the table that unsticks it, and a table that does is worth a night.
 //
+// **An arm may also name a credit horizon**, and it belongs on the same file rather than on a flag
+// of its own for the reason above said about coefficients: `halfLife` and `lambda` are read after a
+// collection and change no body's action, so they are free along exactly the axis the table is. The
+// gain is not the saved grid, it is the *combination* -- a table that pays for something immediate
+// and a horizon short enough to keep it is one arm, where two flags would have been two sweeps and
+// no cell where both moved at once.
+//
 // The arms are read from a file rather than from the command line, because eight coefficients by N
 // arms is not a command line, and because a sweep's arms are a *design* -- written before the
 // bouts, quotable afterwards, and logged resolved in the header so the row says the coefficients
@@ -498,13 +505,24 @@ export function probeRollout({
   // `advantages` is re-run rather than patched because a reward changes every advantage behind it
   // through the backwards discount, and `standardisedAdvantages` after it because a table that
   // scales the return scales the spread and the fit would have divided by the new one.
-  const priced = rewards.length === 0 ? null : rewards.map(({ label, table }) => {
+  const priced = rewards.length === 0 ? null : rewards.map((named) => {
+    const { label, table } = named;
     const paid = priceRollout(rollout, table);
     const repriced = { ...rollout, ...paid };
-    const arm = advantages(repriced, values, { halfLife, lambda });
+    // An arm's own credit horizon where it named one, and the run's where it did not. The two are
+    // free along the same axis the table is -- neither changes how a held policy acts, and
+    // `advantages` is re-run for every arm regardless -- so a combination of a table and a horizon
+    // is one arm rather than a second grid.
+    const armHalfLife = named.halfLife ?? halfLife;
+    const armLambda = named.lambda ?? lambda;
+    const arm = advantages(repriced, values, { halfLife: armHalfLife, lambda: armLambda });
     const stood = standardisedAdvantages(arm.advantage, repriced.count);
     return {
       label,
+      // Absent unless the arm named one, so a grid of tables alone writes the row it wrote before
+      // this axis existed and two such grids stay comparable field for field.
+      ...(named.halfLife === undefined ? {} : { halfLife: armHalfLife }),
+      ...(named.lambda === undefined ? {} : { lambda: armLambda }),
       ...measureSignal({
         pool, rollout: repriced, scaled: stood.scaled, returns: arm.returns, norm,
         weights, valueWeights, logSigma, order, clip,
@@ -588,6 +606,22 @@ export function measureBouts(args) {
 export const CLASS_AXES = Object.freeze(["none", "terminal", "build"]);
 
 /**
+ * The two rows of an arm that are not coefficients, and the reason they belong on the same file.
+ *
+ * `halfLife` and `lambda` are the generalised advantage estimate's, and they are free along exactly
+ * the axis the reward table is free along: neither changes how a held policy *acts*, both are read
+ * after a collection, and `advantages` is re-run for every arm regardless. So an arm that names one
+ * costs what an arm that names a coefficient costs, and a grid can ask "a different credit horizon"
+ * and "a different table" in one file and, more to the point, in one *combination* -- a table that
+ * pays for something immediate and a horizon short enough to keep it is one arm and not two runs.
+ *
+ * They are **absent from an arm's row unless the arm named one**, which is the same rule `byBout`
+ * and `classes` follow: a grid that acquired two constant fields by default would make every row
+ * already under tournaments a row of a different instrument.
+ */
+export const ESTIMATOR_KEYS = Object.freeze(["halfLife", "lambda"]);
+
+/**
  * The reward tables one held collection is to be priced under, read out of a file and checked.
  *
  * The file is an array of objects, each a `label` and any subset of `REWARD_KEYS`; what is not
@@ -596,6 +630,9 @@ export const CLASS_AXES = Object.freeze(["none", "terminal", "build"]);
  * and a command line that carried it would be unreadable and unquotable -- and because the arms
  * of a sweep are a *design*, which belongs in a file that can be written before the bouts and
  * pointed at afterwards.
+ *
+ * An arm may also name `halfLife` or `lambda`, which are not coefficients and are free for the same
+ * reason the coefficients are; see `ESTIMATOR_KEYS`.
  *
  * Every refusal here is one this project has already paid for once. A key that is not a reward row
  * is refused **by name** rather than ignored, because a table silently missing the row a sweep was
@@ -626,18 +663,34 @@ export function rewardArms(spec, base = GOLEM_REWARD, what = "--rewards") {
     if (seen.has(label)) throw new Error(`${what} names two arms "${label}"`);
     seen.add(label);
     const table = { ...base };
+    const estimator = {};
     for (const [key, value] of Object.entries(entry)) {
       if (key === "label") continue;
-      if (!REWARD_KEYS.includes(key)) {
+      const estimated = ESTIMATOR_KEYS.includes(key);
+      if (!estimated && !REWARD_KEYS.includes(key)) {
         throw new Error(`${what} arm "${label}" sets "${key}", which is not a reward row; `
-          + `this build pays ${REWARD_KEYS.join(", ")}`);
+          + `this build pays ${REWARD_KEYS.join(", ")} and estimates over `
+          + `${ESTIMATOR_KEYS.join(", ")}`);
       }
       if (typeof value !== "number" || !Number.isFinite(value)) {
         throw new Error(`${what} arm "${label}" sets ${key} to ${value}, which is not a coefficient`);
       }
-      table[key] = value;
+      // Both are refused at their own edges rather than passed on to arithmetic that would answer
+      // something. A half-life of zero discounts the next window to nothing and divides by it; a
+      // lambda outside the unit interval is not a mixture of the n-step returns and the recursion
+      // in `advantages` diverges rather than failing, which is the expensive kind of wrong.
+      if (key === "halfLife" && value <= 0) {
+        throw new Error(`${what} arm "${label}" sets halfLife to ${value}; a half-life is seconds `
+          + "and must be above zero");
+      }
+      if (key === "lambda" && (value < 0 || value > 1)) {
+        throw new Error(`${what} arm "${label}" sets lambda to ${value}; it mixes the n-step `
+          + "returns and runs from 0 to 1");
+      }
+      if (estimated) estimator[key] = value;
+      else table[key] = value;
     }
-    return Object.freeze({ label, table: Object.freeze(table) });
+    return Object.freeze({ label, table: Object.freeze(table), ...estimator });
   }));
 }
 
@@ -1053,7 +1106,11 @@ if (isMain) {
     classes, classFloor, boutSplit,
     // The arms are logged resolved rather than as the file named them, so a row says the eight
     // coefficients it was actually priced under and a reader never has to find the file again.
-    rewards: rewards.map(({ label: arm, table }) => ({ label: arm, ...table })),
+    rewards: rewards.map((arm) => ({
+      label: arm.label, ...arm.table,
+      ...(arm.halfLife === undefined ? {} : { halfLife: arm.halfLife }),
+      ...(arm.lambda === undefined ? {} : { lambda: arm.lambda }),
+    })),
     tactics,
     opponent: opponentWord, terminals, mirrorShare,
     head: headName, sigma: sigmaName, critic: criticName,
