@@ -23338,9 +23338,9 @@ bracket checkpoints are a long way past the shipped table in this respect and no
 the abort gate is raised at the greedy read on **92 % and 100 %** of asks, so the greedy mind starts
 a dozen strokes in half a minute and finishes none of them -- the latch cannot save a stroke whose
 starting ask already says abort. At the drawn read the same head raises the gate on **0.50 and
-0.56** of asks. A mean just above the knife edge and a spread that straddles it is precisely the shape the
-learn set's diagnosis predicted from `entropyGrad`, which adds `-logit * p * (1 - p)` per gate per
-sample and pulls every gate toward a coin flip.
+0.56** of asks. A mean just above the knife edge and a spread that straddles it is precisely the
+shape the learn set's diagnosis predicted from `entropyGrad`, which adds `-logit * p * (1 - p)` per
+gate per sample and pulls every gate toward a coin flip.
 
 **The exponent is measured rather than assumed.** Under the latch the gate is read once, so the
 latched completion is the gate's own rate on the starting ask and the held completion is that rate
@@ -23413,3 +23413,50 @@ change in the drawn policy's spread would move both terms and neither ratio.
 **Nothing ships and no default moves.** `latchAbort` stays off, as the signal set froze it. This
 measures whether a fit under the latch would have a gradient to follow; running that fit is the next
 experiment, and this is the one that prices it.
+
+### Addendum to the pre-registration, written before the bouts and narrowing the hypothesis
+
+The section above says *what the body does is mostly what the dice did*, and that sentence is too
+broad. It was written from the gate's completion rate, which is a fact about one of twelve outputs.
+It costs two more minutes of bouts to ask the same question of all twelve, and the answer narrows
+the claim rather than supporting it. **No cell, arm, seed, prediction or falsifier moves**; what
+moves is what the experiment is allowed to conclude if it succeeds.
+
+**Harness:** the same scratch script, the same six 30-second bouts a cell at the same seeds, the
+same two checkpoints read drawn. **Instrument:** the head vector itself, read off `lastHead` at
+every ask -- the nine Gaussian means in the normalised coordinate, whose whole axis is two units
+wide, and the three gate logits -- against the nine spreads the same table draws at.
+
+| arm | the nine means: spread across asks, as a share of the spread they are drawn at |
+| --- | --- |
+| `bracket-fencer` | 0.44 to 0.82, median 0.58 (`standOff` lowest, `advance` highest) |
+| `bracket-idle` | 0.26 to 0.75, median 0.57 (`standOff` lowest, `lean` highest) |
+
+| arm | gate | logit, mean | logit, spread across asks | probability at the mean |
+| --- | --- | ---: | ---: | ---: |
+| `bracket-fencer` | commit | -0.8033 | 0.2989 | 0.3093 |
+| `bracket-fencer` | abort | **+0.3203** | 0.3468 | **0.5794** |
+| `bracket-fencer` | parry | -1.2557 | 0.2420 | 0.2217 |
+| `bracket-idle` | commit | -0.6444 | 0.3218 | 0.3443 |
+| `bracket-idle` | abort | **+0.0711** | 0.3552 | **0.5178** |
+| `bracket-idle` | parry | -1.1045 | 0.1377 | 0.2489 |
+
+**The nine axes are not the dice.** The observation moves each of them by about **six tenths of the
+spread they are drawn at**, which is a policy that is reading its situation; a head whose mean did
+not move with the observation would report a share near zero, and none of the eighteen does. So the
+sentence above is wrong about the continuous half of the action and the experiment must not be read
+as testing it.
+
+**The gates are.** The abort logit sits **within a third of a logit of zero** at both checkpoints,
+and the observation moves it by about a third of a logit either way -- a probability between 0.50
+and 0.66 against a mean of 0.58, at the arm where the compounded completion is one stroke in 516.
+`entropyGrad` adds `-logit * p * (1 - p)` per gate per sample, which is a force toward exactly this
+and toward nothing else; the sigma it also inflates went nowhere, sitting at `-0.7` where it was
+initialised at both checkpoints after thirty iterations.
+
+**So the hypothesis narrows, and narrowing makes it riskier rather than safer.** It is not that the
+action is noise. It is that **the one output that decides whether a stroke lands is a near-fair
+coin, re-flipped six or seven times a stroke**, while the nine axes that aim the stroke are doing
+their job and cannot be read because the stroke does not survive. `latchAbort` fixes exactly the
+gate and touches none of the nine, so a latched cell that does not move the actor's budget now
+falsifies a sharper claim than the one it was written against.
