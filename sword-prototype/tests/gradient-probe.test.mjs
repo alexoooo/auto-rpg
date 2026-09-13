@@ -271,6 +271,27 @@
 // count of three or more -- it moves one ask between ranges and nothing else. It went green, it was
 // checked by hand rather than pinned by a new assertion, and the two mutations at the top of the
 // table are the ones that break the property `thirdSplit` actually has.
+//
+// **The rider property added four more, and it is the one the experiment is armed on.** The
+// concentration is switched on over collections bought for somebody else's question, so the claim
+// that carries the whole design is that the flag adds one key and moves no number and no array.
+// `a_row_taken_with_a_concentration_differs_from_one_taken_without_it_in_exactly_one_key` asserts
+// both halves of that -- the row, field for field as the log would serialise it, and the run's own
+// weight, value-weight, spread and action arrays, which a row comparison cannot see and which a
+// held probe reuses twenty times.
+//
+// | mutation | what went red |
+// |---|---|
+// | the third gradients are stepped into the run's own weight array | the rider test, on the arrays |
+// | the concentration is taken before the bonus, leaving the pool at the probe's coefficient | the rider test, on the row |
+// | the row carries a null concentration instead of omitting the key | the rider test, on the key set |
+// | the concentration ranks on a vector it then sorts in place | **not** the rider test -- the kept-set test |
+//
+// **The fourth row is in the table for the opposite reason to the other three.** It is a real
+// defect and the rider test does not see it, because the vector a probe row ranks on is a fresh
+// gradient block that nothing downstream reads. It is caught, once, by
+// `a_concentration_keeps_the_coordinates_its_ranking_range_scored_highest`, and it is written down
+// here so that the rider test is not read as covering more than it does.
 import test from "node:test";
 import assert from "node:assert/strict";
 
@@ -2104,3 +2125,60 @@ test("the_three_ranges_sum_to_the_whole_epochs_gradient_and_are_taken_under_no_b
     await pool.close();
   }
 });
+
+/**
+ * The flag is a rider: a row taken with it carries one more key and not one different number.
+ *
+ * This is the property Experiment P is armed on somebody else's cells against, so it is asserted
+ * rather than argued. Every measurement in `probeRollout` rebinds the pool before it steps it, and
+ * the concentration is taken last of the six, so the claim is structural -- but "structural" is
+ * what a reader says about a bug the day before it is found, and the whole reason the flag exists
+ * is to be switched on over collections that were bought for a different question.
+ */
+test("a_row_taken_with_a_concentration_differs_from_one_taken_without_it_in_exactly_one_key",
+  { timeout: 300_000 }, async () => {
+    const built = fixture(256, SEED + 3, { priced: true });
+    const pool = await FitPool.open({ shards: 2, layout: LAYOUT, valueLayout: VALUE });
+    try {
+      const common = {
+        pool, rollout: built.rollout, weights: built.weights, valueWeights: built.valueWeights,
+        logSigma: built.logSigma, norm: built.norm, valueLayout: VALUE, seed: SEED + 9,
+        entropy: 0.0003, layout: LAYOUT, spec: GAUSSIAN_HEAD,
+        rewards: rewardArms([{ label: "shipped" }, { label: "quiet", outside: 0 }]),
+      };
+      const before = {
+        weights: [...built.weights], valueWeights: [...built.valueWeights],
+        logSigma: [...built.logSigma], actions: [...built.rollout.a],
+      };
+      const bare = probeRollout(common);
+      const where = probeRollout({ ...common, concentration: true });
+      assert.equal(bare.concentration, undefined, "a run that did not ask got a concentration anyway");
+      assert.equal(where.concentration.length, CONCENTRATION_FRACTIONS.length);
+      // Every key of both rows, compared as the log would serialise them, which catches a field
+      // moved by a nanosecond as well as one moved by a rebinding.
+      assert.deepEqual(Object.keys(where).filter((k) => k !== "concentration"), Object.keys(bare));
+      for (const key of Object.keys(bare)) {
+        assert.equal(JSON.stringify(where[key]), JSON.stringify(bare[key]),
+          `the concentration moved ${key}`);
+      }
+      // And the last row is the row the halves would have reported, over the two ranges it read.
+      const whole = where.concentration[where.concentration.length - 1];
+      assert.equal(whole.fraction, 1);
+      assert.ok(whole.kept > 0, "the row at one kept nothing");
+      // The other half of being a rider, and the half a row comparison cannot see: the run's own
+      // arrays are the same arrays at the next iteration. A held probe steps the same weights
+      // twenty times, so a third gradient that wrote into them would produce twenty correct rows
+      // and a twenty-first policy nobody chose.
+      const again = probeRollout({ ...common, concentration: true });
+      assert.deepEqual([...built.weights], [...before.weights], "the concentration moved the weights");
+      assert.deepEqual([...built.valueWeights], [...before.valueWeights],
+        "the concentration moved the value weights");
+      assert.deepEqual([...built.logSigma], [...before.logSigma],
+        "the concentration moved the spread");
+      assert.deepEqual([...built.rollout.a], [...before.actions],
+        "the concentration moved the collection");
+      assert.equal(again.dot, where.dot, "a second reading of one rollout disagreed with the first");
+    } finally {
+      await pool.close();
+    }
+  });

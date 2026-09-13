@@ -25034,3 +25034,140 @@ epochs of clipped minibatches under a KL stop, which is not a step along the mea
 not claimed to be. It does not say how far the direction stays uphill; this walks a fixed distance
 once and a league moves a long way over sixty iterations. And it does not transfer to the fencer
 cell, which is the cell every bar in this record is actually stated on.
+
+## Pre-registration -- 2026-09-13: where in eighty-seven thousand weights the signal is, written before the bouts
+
+Experiment P. Every floor in this record is a floor over all 87,308 actor weights at once. That is
+the right number for a fit that steps every weight, which is the only fit this tree has ever run,
+and it leaves a question standing that costs no bouts to ask: **is the signal spread thinly over
+the whole vector, or is it a few coordinates and a great deal of noise?**
+
+The two are indistinguishable in `|S|^2` and they are not the same situation. A floor of 736 bouts
+over the whole vector is compatible with a floor of 74 over a tenth of it, and it is also
+compatible with 736 over any tenth of it. If the first is true then there is a fit this project
+can afford that it has never tried; if the second is true then the record's floors are the whole
+story and the set can stop asking.
+
+### Why it is free, and why that is the only reason it is being asked now
+
+It buys **no bouts**. The measurement is a third gradient over a rollout that has already been
+collected, and it rides on Experiment M's five opponent cells, which are queued and will be
+collected whether or not this question is asked. What it costs is about a third again on each
+cell's probe time -- call it eleven minutes on a twenty-two-minute cell, five times -- and nothing
+else.
+
+**It is a rider and the row it rides on does not move.** Every measurement in `probeRollout`
+rebinds the pool before it steps it, and the concentration is taken last of six. That is asserted
+rather than argued:
+`a_row_taken_with_a_concentration_differs_from_one_taken_without_it_in_exactly_one_key` compares a
+row taken with the flag against one taken without it field for field as the log would serialise
+them, and then compares the run's own weight, value-weight, spread and action arrays, which a row
+comparison cannot see and which a held probe reuses twenty times. Three mutations of that property
+were watched red, and the one that is a real defect and is **not** caught by it is named in the
+test's own header rather than left for a reader to discover.
+
+### The null, which is exact and needs no calibration
+
+This is the part that makes the experiment worth running at all, and it is the reason the epoch is
+cut in three rather than in two.
+
+Rank the coordinates by one range's gradient and read `dot` and both norms over the top `p` of
+them **on the other two ranges, which never saw the ranking.** If the ranking carries no
+information -- if it is noise ordering noise -- then the kept set is a near-uniform sample of
+coordinates, `dot` over it is `p |S|^2`, `K` over it is `p K`, and the restricted floor `K/|S|^2`
+is **exactly the row's own floor at every `p`.** So the statistic is a ratio against the
+measurement's own last row, its null value is one, and no assumption is needed about scale, units,
+or how much signal there was to begin with.
+
+**The version of this that does not work, and which is what the third range is for.** Select on
+one of the two halves and measure on the other. The other half's dot over the kept set is unbiased
+for `S`, but the *set* is not: the top coordinates of a noisy half are the ones whose noise was
+large, so their own squared norm over there is inflated and the ratio comes back above one for a
+vector with no structure in it whatever. The test named
+`a_ranking_that_saw_a_measured_half_finds_a_concentration_in_pure_noise_and_a_disjoint_one_does_not`
+measures the size of that artifact on three independent noise vectors of twenty thousand
+coordinates: the top hundredth reads **2.97 times** its share of the
+squared norm under the peeking ranking and one times its share under the disjoint one. Three times
+nothing is larger than most real effects this record has ever measured, which is why the honest
+version is the only one being run.
+
+### The cells, and they are somebody else's
+
+**Harness:** `scripts/gradient-probe.mjs --from tournaments/bracket-fencer/pool-30.json --hold
+--bouts 128 --iterations 20 --bout-split --concentration`, seed 20260917, the maul-and-mace viable
+pool, mirrored bodies, 14 collectors, 4 shards -- Experiment M's manifest with one flag added.
+Five opponents: `idle`, `golem-brawler`, `golem-form`, `golem-duelist`, `golem-driver`. The logs
+are the gradladder files under tournaments, gitignored so named bare.
+
+**Experiment M's cells, arms, seed, predictions and falsifier do not move.** The flag was armed
+before the first ladder cell was collected, so no cell in that experiment is read across a
+boundary, and this entry states nothing about the opponents themselves -- that is M's entry and it
+stays M's.
+
+**Why the ladder and not one of the other four queued runs.** The concentration is a ratio, and a
+ratio of two quantities that do not clear zero is unreadable. The ladder is the only queued cell
+set that deliberately spans how much signal there is to find. The record's two measured extremes
+are `bracket-idle` against `idle` at t 4.60 and `bracket-fencer` against `golem-fencer` at
+t -0.47, and they differ in the checkpoint as well as in the opponent, which is the confound M
+exists to separate. P inherits the separation for free: five opponents at **one** checkpoint, so
+whatever signal strengths come back are the opponent's doing and the concentration can be read
+against them.
+
+### The statistic
+
+Five rows a cell, at `p` of 0.01, 0.03, 0.1, 0.3 and 1, each carrying the dot, both norms, the
+cosine and the count kept. The quantity quoted is the **restricted floor relative to the row at
+one**. Over a kept set, `|S|^2` is that set's dot and `K` is `(norm^2 - dot) * n` taken over the
+same coordinates, exactly as the whole vector's are; the floor is their ratio, and the statistic
+is that floor divided by the floor the last row reports over everything.
+
+A value of one is the null. A value **below** one at small `p` is concentration -- those
+coordinates carry more of `|S|^2` than of `K` -- and a value above one is the opposite, which
+would say the loud coordinates are the noisy ones and the signal lives in the quiet tail.
+
+Quoted with the iteration-to-iteration interval on the twenty iterations, because that is the
+interval every other number in this set is quoted with and this one is no better measured than the
+floors it is a ratio of.
+
+### The predictions
+
+**1. The null holds where it must.** On any cell whose `|S|^2` does not clear zero at two sigma,
+the ratio is within 0.15 of one at every `p`. A concentration measured where there is no signal is
+a concentration in noise, and the instrument must say so on its own. If all five cells clear zero
+this prediction is vacuous and will be reported as vacuous rather than as met -- which is a real
+possibility, because the ladder's quietest opponent is a motionless dummy and its checkpoint is
+the one the record has never probed against anything but the fencer.
+
+**2. The headline.** On at least one cell whose `|S|^2` clears zero at t > 3, the ratio at a `p`
+of 0.1 is **below 0.5** -- a tenth of the coordinates with a floor at most half the whole vector's.
+That is the number that would say a restricted step is worth designing.
+
+**3.** The ratio is monotone in `p` on every cell that clears zero: 0.01 no larger than 0.03, and
+so on up to one. A ranking that carries information orders coordinates by how much they carry, so
+a kept set that grows can only dilute. A non-monotone reading at a cell with real signal is a bug
+before it is a finding, and would send this back to the instrument.
+
+**4. Stated so it can embarrass me.** Concentration is a property of the *policy* and not of the
+opponent, so the ratio at `p = 0.1` varies across the five cells by less than it varies with `p`
+within one cell. All five cells hold the same checkpoint; what differs is who they fight. If the
+ratio tracks the opponent instead, then what is being measured is how much signal there was rather
+than where it sits, and prediction 2 means less than it appears to.
+
+### The falsifier
+
+If no cell clearing t > 3 gets its `p = 0.1` ratio below **0.8**, then the signal is spread over
+the weight vector about as thinly as noise is, and **a restricted fit is off the menu for this
+set.** That is a real outcome rather than a null result: it would say that the 87,308-coordinate
+floors the record has been quoting for two days are the right floors and cannot be improved on by
+choosing where to step, and it closes the cheapest remaining idea for making a fit affordable.
+
+### What this cannot answer, and what it does not license
+
+**It is one collection at one policy.** A concentration found here is a concentration at a point.
+The coordinates ranked highest at iteration 30 of a bracket arm need not be the ones ranked
+highest at iteration 31, and a fit that masked to them would be re-ranking as it went -- which is
+a different instrument, a different cost and a different experiment. Nothing here prices that.
+
+**No mask ships and no fit changes.** `ppoFit` steps every weight and will continue to. This
+measures whether a restricted step is a question worth asking; asking it is the next experiment,
+and this is the one that decides whether there is one.
