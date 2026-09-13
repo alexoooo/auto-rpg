@@ -30581,3 +30581,80 @@ iterations with zero of twelve head groups clearing. Every arm here is climbing 
 probe says is not measurably there. That is the point of the agenda's item V and it is not this
 experiment's to settle; what U can say is whether the *criterion* moves differently at different
 batch sizes, which is a claim about the bar and not about the gradient.
+
+## Experiment S, prediction 4 -- 2026-09-13: the estimator does not move the behaviour policy, and the statistic that said it did was one sample
+
+Scored now, deliberately, **before the three arms are rated and before any slope exists**.
+Prediction 4 is the one Experiment S registered *so it can embarrass the record*, its verdict
+comes off league rows that are already on disk, and reading it after the headline would be reading
+it knowing which answer would be convenient. Predictions 2, 3 and 5 wait for the ratings and are
+not touched here. Prediction 1 was checked this morning and is recorded with them.
+
+### As registered, it is missed
+
+> *`strokes.strokesStarted` a side at iteration 60 is within **10 %** across all three arms.*
+
+| arm | `strokesStarted` at iteration 60 | aborts | completion |
+| --- | ---: | ---: | ---: |
+| `lam-zero` | 1,645 | 846 | 0.4857 |
+| `lam-half` | 1,499 | 723 | 0.5177 |
+| `lam-base` | 1,886 | 1,013 | 0.4629 |
+
+1,499 to 1,886 is a spread of **25.8 %** against a bar of 10 %. Taken at face value that fires the
+consequence the registration attached to it -- *an estimator setting is changing the behaviour
+policy inside sixty iterations, and every sentence in this record that separates the two needs
+re-reading.*
+
+**It is not taken at face value, because the number it is a spread of is one sample of 32 bouts.**
+
+### Within one arm, the same column spans 70 to 96 per cent
+
+| arm | iterations 40..80 | mean | sd | sd as a share | min | max | min-to-max |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `lam-zero` | 41 | 1,626.0 | 252.9 | 15.6 % | 1,205 | 2,185 | **81.3 %** |
+| `lam-half` | 41 | 1,592.6 | 265.1 | 16.6 % | 1,112 | 2,183 | **96.3 %** |
+| `lam-base` | 41 | 1,623.4 | 236.9 | 14.6 % | 1,170 | 1,988 | **69.9 %** |
+
+**One arm, one flag, one seed, forty consecutive iterations -- and the column moves by as much as
+96 %.** The 25.8 % the three arms differ by at iteration 60 is a third of what a single arm does
+to itself between two neighbouring iterations. There is no reading of the table above on which
+that 25.8 % is evidence about `lambda`.
+
+### On a window the question can actually be asked of, the arms agree to four per cent
+
+| arm | mean `strokesStarted`, iterations 50..70 | sem |
+| --- | ---: | ---: |
+| `lam-zero` | 1,548.0 | 51.1 |
+| `lam-half` | 1,538.2 | 61.5 |
+| `lam-base` | 1,603.3 | 57.6 |
+
+**A spread of 4.23 % against a registered bar of 10 %.** So the *claim* prediction 4 was written
+to protect -- that `lambda` composes an advantage out of rewards the policy already earned and
+does not change what the policy does -- survives, and Experiments E, F and G do not need
+re-reading.
+
+### And the null side, which is what decides how much of that to believe
+
+The difference of the widest pair carries `sqrt(51.1^2 + 57.6^2)` = 77.0 strokes on a base near
+1,575, so the smallest difference this window would have caught four times in five is 77.0 x 2.80
+= **215.7 strokes, which is 13.7 %.** The bar is 10 %.
+
+**So prediction 4 could not have been decided either way at this budget, on either statistic.**
+The one-iteration reading is inside one arm's own noise; the window reading resolves 1.4x the bar
+it is being checked against. The honest verdict is **not scored**, and the two readings are
+printed above so that a reader can see that they disagree in *verdict* while agreeing that neither
+is evidence.
+
+### What this changes for the record, which is the transferable part
+
+**A prediction about a policy stated on one iteration is a prediction about a sample.** The
+registration named `strokes.strokesStarted` *at iteration 60* because that is where the comparison
+against Experiment H lives, and a column read at one iteration of 32 bouts carries the noise of 32
+bouts. Nothing about `lambda` was measured by it. The rule the record takes forward: **a behaviour
+column compared across arms is compared over a window wide enough to have a standard error, and
+the window's resolution is printed beside the verdict.**
+
+**It is a new rule and not a new instrument.** No reader changed, no flag moved, no bout was
+collected: the numbers above are eleven lines of arithmetic over logs that were already on disk,
+and they are on the page before the slopes that would have made one of the two readings the
+comfortable one.
