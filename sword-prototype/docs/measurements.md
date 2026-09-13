@@ -28455,3 +28455,100 @@ And the honest tally, now five passes deep: a mislabelled range, a guard that an
 granted per-arm, a null without its resolution, and a column list taken off row zero. Five passes,
 five different defects, one reader still gaining a refusal on the fifth. There is no pass at which
 this stops being worth doing, and no pass yet that has come back empty.
+
+### The second half of the same pass: the refusals that were not written down
+
+The sweep above closed by naming its own limit -- *it asks whether the refusals written down work,
+and does not ask whether a reader that should refuse a shape has a refusal for it at all.* The
+objfit finding was of the second kind and was reached by accident. So the question was asked on
+purpose, of the seven readers that state no refusals of their own, and it found the same defect
+twice more in the two readers that matter most.
+
+**The shape, stated once, because all three instances are it.** A list is taken off row zero and
+every column below is an index into that list. `probeIterations` refuses exactly this for a priced
+grid -- *the arm list moves at iteration N, so a column is not one arm* -- and the refusal is
+written on `label`. A reader whose list is keyed on anything else gets nothing.
+
+### headfit.mjs, Experiment I's reader: one swapped iteration of twenty moved a group by a sigma
+
+`const names = rows[0].heads.map((h) => h.name)`, then `rows.map((r) => r.heads[i])` for each
+column. A head carries a `name` where an arm carries a `label`, so the reader calls the shared read
+with `arms: null` and the arm-list refusal is not in force. **No head-cut log existed to notice
+this on**, which is the only reason it has never fired; `gradhead-fencer-128` is queued and this
+reader was audited clean two days ago on the arithmetic.
+
+Measured on `gradlatch-idle-128`, which carries a head cut in all twenty of its iterations, with
+**two groups swapped at iteration 7 and nothing else touched**:
+
+| group | intact | one iteration swapped |
+| --- | --- | --- |
+| `lean` | 2.940e-4 +-4.50e-4, t 0.65, floor 590 | 6.770e-4 +-4.31e-4, **t 1.57**, floor 419 |
+| `advance` | 8.241e-4 +-3.29e-4, t 2.50, floor 420 | 4.411e-4 +-3.62e-4, **t 1.22**, floor 585 |
+
+**`advance` fell from t 2.50 to t 1.22 -- more than a sigma -- and the table printed without a
+word.** It is the group nearest the family-wise threshold of 2.93 in that cut, so it is the group
+whose `*` a swap would decide. One row in twenty, in a log of twelve groups, and every printed
+number stays a plausible number.
+
+The reader now refuses by name, in the shared read's own words: *the head list moves at iteration
+7 -- group 3 is advance and was lean, so a column is not one group.*
+
+**Two more, found in the same five lines.** The bonus column is `r.bonus.actor.heads.find((h) =>
+h.name === name).norm`, and a bonus block naming a different head list made that `find` return
+undefined and the reader die on a TypeError -- loud, but a stack trace is not a reading. It is
+refused by name now. And the bonus is a mean over `rows.filter((r) => r.bonus !== undefined)`
+while every other column is over all rows, with nothing printing the difference; on eight
+iterations of twenty the table used to read exactly as it does on twenty of twenty. The
+denominator is named now, and only when it differs.
+
+### armfit.mjs, Experiment G's reader: two lines whose sample size was invisible
+
+Same defect, weaker consequence. `strokes` and `bonus` are optional on a probe row and both are
+read as a mean over whichever rows carried one:
+
+```
+    strokes: 46.3 % of 9925 started an iteration finished
+```
+
+is what three iterations of twenty printed, and it is character for character what twenty of
+twenty printed. **Every published probe log carries each block in all twenty iterations or in
+none** -- 240 iteration rows across twelve logs, checked -- so the subset has never been a proper
+one and the line has never been wrong. It is the null-without-its-resolution defect wearing a
+different hat: a number whose sample size is invisible to the reader of the line. Both lines now
+carry `(over k of the n iterations)`, and only when `k` is not `n`, so no number already in this
+record moves.
+
+### What this half of the pass is worth, stated conservatively
+
+**Every finding in both halves is latent.** No log on disk trips the objfit charge hole, the
+headfit head-list hole, either headfit bonus hole or the armfit denominators, and no published
+table moves. That is not the same as their being harmless. Two of the three sit in the readers
+for Experiments G and I, whose cells are collecting now, and the headfit demonstration above is a
+measured sigma of movement in a group's `t` from one damaged row in twenty. A reader is an
+instrument, and an instrument that cannot tell a swapped column from a moved one is not measuring
+the thing its header says.
+
+The corrected readers are byte-identical on intact input in every case: three bracket arms through
+objfit, the latched idle head cut through headfit, the same log through armfit, `diff` clean on all
+three.
+
+### The tally, and the question the sixth pass should ask
+
+| pass | the question | what it found |
+| --- | --- | --- |
+| 1 | is the arithmetic right | a mislabelled range |
+| 2 | does a guard answer where it should refuse | `t: sem === 0 ? 0 : m/sem`, twice |
+| 3 | is a threshold granted per-arm or per-family | a mark granted per-arm in six readers |
+| 4 | does a null print what it could have caught | nine readers gained the line; a verdict over zero bouts |
+| 5a | does every refusal written down fire | 28 of 30, two tripwires; objfit's charge list |
+| 5b | is there a shape that should be refused and is not | headfit's head list, armfit's two denominators |
+
+**The sixth question is not yet obvious and that is the point.** Each of the five was invisible
+until the pass before it was done, and each came back with something. The nearest candidate is the
+one 5b leaves open: four readers -- boutfit, classfit, pricefit, rewardfit -- state no refusals,
+lean on no shared read, and read shapes nothing in this record has ever damaged on purpose. All
+four belong to experiments that already have results -- pricefit and rewardfit to E, boutfit and
+classfit to the bout-split and per-class grids -- so none of them is about to score a
+pre-registration, which is why they were left and why saying so is part of the entry rather than a
+thing quietly left out. It is the same reasoning latchfit was left on two passes ago, and it was
+right then; it will stop being right the moment one of those four is quoted again.
