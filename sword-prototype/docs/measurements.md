@@ -28328,3 +28328,130 @@ named the disagreement it was supposed to name.
 no arm of the ladder has been read and the two that exist have been read only as Experiment H's,
 which is what they also are. What is established is that when the cells land the entry is a command
 line rather than an evening.
+
+## The refusal sweep -- 2026-09-13: twenty-five refusals, and a column that vanished from every arm
+
+Four audit passes over these readers have each asked whether a reader computes the right number,
+and each found a defect the pass before it was not looking for. The closing paragraph of the last
+one said there was no reason to think a fifth pass would come back empty. This is the fifth pass
+and it asks a question none of the four asked:
+
+**Does every refusal a reader states in its own file actually refuse anything?**
+
+The rule is already in the record, written for one reader on the night probefit.mjs was built --
+*a refusal nothing on disk trips still has to be shown tripping on something.* It was applied to
+seven refusals in one file and there are twenty-five across eight. The shared refusals in
+`probeIterations` are production code with twenty-eight assertions behind them in
+`tests/gradient-probe.test.mjs` and are not re-swept here; what is swept is the `throw` sites that
+live in the readers themselves.
+
+Each case damages one input in exactly one way and asserts the reader stops with a message naming
+what it refused. **Nothing under embargo was read.** The sources are the bracket cells (Experiment
+H's control, published in full), the latched cells (H's arms, published in full), the gradlatch
+cells (Experiment F, closed) and the synthetic fixtures already on disk. No gradhorizon, graddir,
+gradhead, swing, budget or league-long path appears anywhere in the sweep.
+
+### The result in one line, and it is not the one the last pass predicted
+
+**Twenty-three of twenty-five refusals fire on a damaged input and name what they refused. Two
+cannot be reached by any log at all, and are shown firing under the one-line edit each exists to
+catch. One reader gained two refusals it did not have.** Of the eight readers swept, seven came
+back clean.
+
+### The first five misses were four defects in the sweep and one in nothing
+
+The first run reported five refusals that did not fire. Four of them were the instrument:
+
+| what did not fire | why, and it was the sweep's fault |
+| --- | --- |
+| barfit, *a rating row that names no per* | the rate log's physical last row is an arrangement summary keyed `main`, and the reader filters rows whose iteration is not a number before it reads one. The sweep damaged that row. |
+| barfit, *--floors named N values for M rungs* | a ladder of two arms is refused as *not an ordering* three lines earlier. The sweep gave it two. |
+| concfit, *the row at one came back at* | the measured null is carried as `nullDot`, `nullFirstNorm`, `nullSecondNorm`. The sweep doubled a field called `null`, which does not exist, and the reader was right not to notice. |
+| objfit, *iteration N carries no "X" charge* | the charge list is taken off row zero. The sweep deleted a charge from **every** row, which deletes the column rather than damaging a row. |
+
+**That last one is the finding, read from the wrong end.** The sweep's mistake was assuming a
+deleted column would be noticed. It was not, and the reason it was not is a defect.
+
+### objfit.mjs: the charge list is taken once, off row zero, and applied to sixty rows
+
+`const charges = Object.keys(rows[0].penaltyRows ?? {})`, then a loop asking whether every row
+carries row zero's charges. **Nothing asked whether a row carries a charge row zero does not.**
+That is `probeIterations`' arm-list refusal one level down -- *the arm list moves at iteration N,
+so a column is not one arm* -- and it fails the same way, for the same reason, in a reader that
+imports the shared read four lines above it.
+
+Measured, on a copy of `bracket-idle` with the `idle` charge deleted from **row zero alone** and
+every other row left intact:
+
+```
+| arm | clinch | idle | tick | closing | stall | outside | swing | largest fall |
+| `bracket-idle`   | -0.0286 | -0.0247 | 0.0000 | ... | clinch [prediction 4's pair] |
+| `bracket-fencer` | -0.0057 | +0.0038 | 0.0000 | ... | clinch [prediction 4's pair] |
+| `bracket-driver` | +0.0033 | +0.0077 | 0.0000 | ... | tick |
+```
+
+became
+
+```
+| arm | clinch | tick | closing | stall | outside | swing | largest fall |
+| `bracket-idle`   | -0.0286 | 0.0000 | ... | clinch [prediction 4's pair] |
+| `bracket-fencer` | -0.0057 | 0.0000 | ... | clinch [prediction 4's pair] |
+| `bracket-driver` | +0.0033 | 0.0000 | ... | tick |
+```
+
+**One row of one arm deleted a column from every arm in the table, and the reader printed the
+narrower table without a word.** `bracket-fencer`'s +0.0038 and `bracket-driver`'s +0.0077 went
+with it. The `largest fall` verdict happened not to move here -- `clinch` at -0.0286 still beats
+`idle` at -0.0247 -- but it is picked by `reduce` over whichever names survived, and **prediction 4
+is the question of which charge the fall came from.** A charge that is not a column cannot be the
+answer.
+
+The second hole is one level up again. The table's header is `Object.keys(arms_[0].rows)`: the
+**first arm's** charge list, applied to every arm. An arm charged something the first arm is not
+would have had that column left out of its own row, and an arm charged less than the first would
+have thrown a `TypeError` on `undefined.toFixed`. Both are now refused by name, and the refusal
+says which arm carries what.
+
+**Neither hole is live on any log on disk.** All six published leagues -- the four bracket cells
+and the two latched ones -- carry the same seven charges in every one of their sixty rows, 360
+rows checked. Three leagues carry no `penaltyRows` at all and were already refused. So this is a
+latent default of exactly the shape this record has now removed five times, found on the sixth
+pass by damaging an input rather than by reading the code again.
+
+The corrected reader is byte-identical on intact input: three bracket arms, before and after,
+`diff` clean.
+
+### The two refusals no log can reach, and why they are not dead code
+
+| reader | the refusal | why no input reaches it |
+| --- | --- | --- |
+| concfit | *the row at one came back at X against a null of exactly one* | the row at one is the whole cell divided by itself in both columns, so the quotient is one by construction whatever the log carries |
+| ladderfit | *a cell of N iterations has no interval* | the shared read already refuses a cell under three iterations, and `sem` is called on nothing else |
+
+**A refusal that no input reaches is not automatically a refusal that does nothing.** Both of these
+guard the reader against an edit rather than the data against damage, and both were shown firing
+under the edit they exist to catch -- concfit's under `at.floor / (whole.floor * 1.5)`, which is a
+denominator bug of the kind that file has had once already; ladderfit's under `least: 1` on the
+shared read. Both files were restored and re-read byte for byte afterwards.
+
+That is a weaker claim than the other twenty-three and it is worth stating as the weaker one.
+concfit's tripwire is a genuine self-check on arithmetic the reader does. ladderfit's is a
+duplicate of a shared refusal with a looser threshold, and it earns its place only if the shared
+`least` ever moves. It is recorded rather than deleted, in the same spirit as latchfit's bout-count
+defect two passes ago: a line nobody is about to trip is not worth a change that would have to be
+re-verified.
+
+### What the sweep does not reach
+
+It asks one question of eight files and answers it. It does not ask whether a reader that *should*
+refuse a shape has a refusal for it at all -- only whether the refusals written down work -- and
+the objfit finding above is precisely a missing refusal, which the sweep found by accident rather
+than by design. Seven readers state no refusals of their own: armfit, basefit, boutfit, classfit,
+headfit, pricefit and rewardfit, four of which lean entirely on the shared read and three of which
+read shapes with no refusals anywhere. **Those three are the next question and this pass did not
+ask it.**
+
+And the honest tally, now five passes deep: a mislabelled range, a guard that answers zero, a mark
+granted per-arm, a null without its resolution, and a column list taken off row zero. Five passes,
+five different defects, one reader still gaining a refusal on the fifth. There is no pass at which
+this stops being worth doing, and no pass yet that has come back empty.
