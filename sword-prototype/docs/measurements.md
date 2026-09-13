@@ -27686,3 +27686,64 @@ another run's log* -- caught it. One process survived holding the log; the other
 writing a line. The refusal dates from the commit that introduced the probe, `69b4e43`. Without it
 the two would have interleaved twenty iterations into one file and the result would have been a log
 that parsed, carried the right number of rows, and was two runs.
+
+## A correction to this morning -- 2026-09-13: the mark itself was a bar stated at two sigma
+
+The floor-ratio mark landed earlier today: a ratio gets a `*` only where **both** sides' own
+`|S|^2` clears zero, because a floor whose `|S|^2` does not clear is the two-sigma edge of an
+unbounded quantity and a ratio of two of those is a reading. That rule is right and it stands.
+
+**What was wrong is the bar it was granted on.** "Clears zero at two sigma" was asked of every arm
+in a grid at once -- sixteen reward tables, twelve head groups, seventeen credit horizons -- and
+that is exactly the defect the prediction audit had found three hours earlier in four
+pre-registrations. It was found there and not here because a pre-registration looks like a bar and a
+piece of punctuation does not. **The mark is a bar. It says a verdict may be read off a number, and
+it was being handed out at a rate a true null would trip roughly two times in five.**
+
+Fixed in four readers -- armfit.mjs, headfit.mjs, basefit.mjs, ladderfit.mjs -- all four now
+computing the threshold family-wise over the arms in the grid actually in front of them, one-sided
+because `|S|^2` is a squared length a null puts at zero and cannot put below. Each prints the rate
+and the threshold above its own table, so the bar is visible rather than implied.
+
+### What moved, measured on every grid this record has published
+
+| grid | reader | arms | two sigma is a family-wise | `*` now wants | marks before | after |
+|---|---|---|---|---|---|---|
+| reward, idle | armfit | 16 | 39 % | t 3.06 | 16 | **16** |
+| reward, fencer | armfit | 16 | 39 % | t 3.06 | 0 | **0** |
+| latched, idle | headfit | 12 | 31 % | t 2.93 | 4 groups | **1** |
+| latched, fencer | headfit | 12 | 31 % | t 2.93 | 0 | **0** |
+
+**The idle reward grid does not move**, and it is worth saying why rather than being relieved. Its
+weakest arm is `win-heavy` at t 3.07 against a threshold of 3.06 -- it clears by a hundredth. Every
+other arm is at 3.63 or above. So sixteen of sixteen marks survive a correction that raised the bar
+by more than a sigma, which is a real statement about that grid and not a lucky escape: the signal
+there is large enough that the family correction is not what decides it.
+
+**The latched idle cell does move, and it takes back something published this morning.** Three group
+marks go: `advance` at t 2.50, `targetHeight` at 2.38, `parry` at 2.32 -- all three past two sigma
+and short of 2.93. Only `standOff` at t 6.86 survives.
+
+And `parry` losing its mark takes the gate-against-axes ratio with it. That line -- `parry`, floor
+453, **0.65x the axes' median** -- was reported this morning as *exactly one headfit line gains the
+mark*, and it is now the one headfit line that loses it. The ratio still prints. It is a reading
+again, which is what it was before this morning and what it should have stayed.
+
+The number itself has not changed and nothing about the latched cell is now believed less. What
+changed is that 0.65x no longer carries a verdict, and the reason is that `parry`'s own `|S|^2`
+clears zero at t 2.32 in a cut where twelve groups were looked at.
+
+### Two things this does not fix
+
+It does not reach the arms' correlation, for the reason every section today has said: the family
+rate is the independent bound and the groups of a head cut are priced off one rollout. `parry`'s
+mark may be sound. Nothing here says it is not -- only that the bar it was granted on could not
+tell.
+
+And it does not reach what the mark is granted *for*. The rule is that both sides must clear zero,
+and a ratio of two floors that both clear zero can still be a ratio of two nearly-equal numbers
+whose difference is noise. That is a different question, it is the one Experiment G's falsifier
+turns on, and **it is stated on a cell nothing in this record has read yet.**
+
+The horizon grid has seventeen arms, and its fencer half has been on disk since before this fix went
+in. It has not been read, and the fix is in the reader that will read it.
