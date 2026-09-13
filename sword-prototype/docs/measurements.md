@@ -30902,3 +30902,200 @@ dots identical, so these are nine draws and not three.
 a cell to state a group-level prediction on, and a registration that states predictions across two
 cells owes the reader, in advance, which of them the other cell could not have answered.** This
 one did not, and two of its six verdicts are arithmetic about unbounded quantities as a result.
+
+## Experiment T, complete -- 2026-09-13: the objective and the criterion agree about the order and disagree about the size, and more than half the gap is a habit
+
+One rating, 4,800 bouts, 7,185 seconds against three other jobs on the host. Four contenders --
+the shipped fit, `uniform`, `golem-driver`, `golem-fencer` -- at 600 bouts a contender on both
+arrangements, seed 20260906, scored by the reader registered with the experiment:
+
+```
+node tfit.mjs tournaments/t-return.json
+```
+
+**Six predictions and a falsifier: four met, one met-and-not-evidence, one missed, and the
+falsifier does not fire.** The missed one is the finding.
+
+### What `GOLEM_REWARD` paid, a bout, on random viable pairs
+
+| contender | return | margin | win | charged | per-bout \|margin\| | charge / per-bout \|margin\| |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| fit | -0.0131 | -0.0011 | +0.0067 | **-0.01863** | 0.6028 | 3.09 % |
+| `uniform` | -0.1085 | -0.0660 | -0.0367 | -0.00584 | 0.6497 | 0.90 % |
+| `golem-driver` | -0.0013 | +0.0022 | +0.0033 | -0.00681 | 0.6287 | 1.08 % |
+| `golem-fencer` | +0.0063 | +0.0091 | +0.0050 | -0.00781 | 0.6282 | 1.24 % |
+
+**Two of the seven charged rows are live and the other five are zero**, because that is what the
+shipped table is: `clinch` and `idle` at 0.004 each, and `tick`, `closing`, `stall`, `outside` and
+`swing` at zero. So every charge in this entry is seconds spent in a clinch and metres travelled
+while idle, and nothing else. The split, on random viable pairs:
+
+| contender | clinch | idle | stall a bout | outside a bout | empty strokes a bout | seconds a bout |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| fit | -0.00968 | -0.00895 | 1.52 s | 1.97 s | 4.28 | 35.1 |
+| `uniform` | -0.00426 | -0.00158 | 0.88 s | 0.47 s | 0.11 | 27.5 |
+| `golem-driver` | -0.00522 | -0.00159 | 1.63 s | 0.50 s | 0.59 | 27.8 |
+| `golem-fencer` | -0.00378 | -0.00404 | 0.37 s | 0.33 s | 0.00 | 26.8 |
+
+**The fit's bouts run 31 % longer than the fencer's and it pays 2.4x the charge.** It also stalls
+four times as long, stands outside reach six times as long, and swings at the air 4.28 times a
+bout where the fencer never does -- and **none of those three costs it anything**, because their
+rows are zero. That is the commit titled *the two behaviours nothing charges for* stated as a
+price rather than as a column.
+
+### Prediction 1, met: the bound, not the identity
+
+> *A side's whole-bout return computed from the nine tournament columns agrees with the sum of the
+> rollout's per-step prices from above, by less than 0.0016 of a bar under `GOLEM_REWARD`.*
+
+Verified by the suite on a real bout before this rating was launched, and recorded with the
+instrument. The registration's first draft claimed an identity and was corrected to a bound before
+it was committed: the windows carry at most the row's totals, so the aggregate form can exceed the
+telescoping one and does, by less than a six-hundredth of a bar. Under `BARE_REWARD` the two are
+equal to 1e-9 because there is no charge for a remainder to differ over.
+
+### Prediction 2, met as written and not evidence, and the arithmetic behind it was wrong three ways
+
+> *The fit's mean return less `golem-fencer`'s, on random viable pairs, is negative and inside
+> (-0.03, 0.00).*
+
+Measured **-0.0194 +-0.0276.** It is inside the band. **It is also inside every band this design
+could have drawn:** 600 paired bouts resolve 0.0773 four times in five, which is **2.58x the width
+of the band the prediction names.** An arm landing inside a band narrower than the resolution has
+told the reader nothing, and the null-side rule this record runs on says so in the same breath as
+the verdict. **Met as written; not scored as evidence.**
+
+**And the point estimate the registration derived was wrong in all three of its parts.** The
+prediction was built as margin (-0.0010, off signal-04) plus win (-0.0092, off two published win
+rates) = -0.0102, with the charged part assumed too small to matter. Measured:
+
+| term | predicted | measured |
+| --- | ---: | ---: |
+| margin | -0.0010 | **-0.0103** |
+| win | -0.0092 | **+0.0017** |
+| charged | not stated, assumed small | **-0.0108** |
+| total | -0.0102 | -0.0194 |
+
+The margin term is ten times what was predicted, the win term has the opposite sign, the charged
+term supplies more than half the total, and **the sum landed inside the band anyway.** Three wrong
+components and a right answer is the shape a reader should distrust, and it is written out here
+rather than smoothed into a tick. The win figures were taken from signal-04, which rated a
+different pool; this cell is 64 builds at `--random 52` over the viable terminals, and the two are
+not the same denominator.
+
+### Prediction 3, missed: more than half the gap is charged, not fought
+
+> *The charged part of the fit-minus-fencer difference is smaller in magnitude than the margin and
+> win parts supply.*
+
+| part | value |
+| --- | ---: |
+| margin | -0.0103 |
+| win | +0.0017 |
+| margin + win | **-0.0086** |
+| charged | **-0.0108** |
+| total | -0.0194 |
+
+**Missed: 0.01082 against 0.00860.** The charged part is **55.7 % of the difference's own
+magnitude**. The two minds differ, in the objective's own units, more by how long they spend in a
+clinch and how far they wander than by who hits whom and who wins. `GOLEM_REWARD`'s stated design
+intent is that the shaping be a small correction to a fight; on the one comparison this record
+most cares about, it is the larger half.
+
+### Prediction 4, met on both arrangements, and the number has two honest denominators
+
+> *The fit's charged part is above 20 % of the mean telescoping part.*
+
+| arrangement | charge / mean \|margin\| | charge / per-bout \|margin\| | they disagree by |
+| --- | ---: | ---: | ---: |
+| random viable pairs | **1,659.7 %** | 3.09 % | 537x |
+| mirror | **107.5 %** | 4.27 % | 25x |
+
+Met on both, and it was registered *expecting the module's stated intent to fail on the mean*. But
+the pair of numbers is the finding and the verdict is not. **The same charge, over the same bouts,
+is 3 % of what a bout is worth and 1,660 % of what a run of bouts is worth**, and both are honest:
+the first divides by the magnitude of a typical bout's margin, the second by the mean margin,
+which telescopes toward zero as the sample grows. The fit's mean margin on random pairs is -0.0011
+against a standard error of 0.0274, so the mean-denominator figure is a ratio whose denominator is
+indistinguishable from zero and the reader marks it.
+
+**The one that matters is the one the optimiser climbs, and that is the mean.** A policy gradient
+averages the return over a collection; on a mirrored collection the margin cancels exactly and on
+a random-pair collection it cancels to within its own noise. What does not cancel is the charge,
+because it is a one-sided penalty every side pays. **So the module's per-bout reassurance is true
+and irrelevant, and the mean is where the fit lives.** This is the signal set's finding 3 -- *in a
+mirrored bout the only reward with a non-zero mean pays for standing still* -- measured on four
+contenders instead of argued from a table, and it now has a random-pair half as well.
+
+### Prediction 5, met on both arrangements: the learned mind is the most-charged of the four
+
+> *`uniform` is not the most-charged contender.*
+
+| arrangement | charged most to least |
+| --- | --- |
+| random viable pairs | **fit 0.01863**, fencer 0.00781, driver 0.00681, uniform 0.00584 |
+| mirror | **fit 0.01221**, fencer 0.00986, uniform 0.00734, driver 0.00495 |
+
+Met, and by the widest margin available: the fit is the most-charged contender on both
+arrangements, at 2.4x the fencer on random pairs and 1.2x on the mirror. The registration expected
+`uniform` to be charged most because a policy with no plan wanders; it is charged **least** on
+random pairs. **A mind that has been fitted against this table pays it more than a mind that has
+never seen it**, which is the one sentence in this entry that is genuinely hard to explain and is
+recorded without an explanation.
+
+### Prediction 6, met on both arrangements
+
+> *The ordering of the four contenders by mean return and by mean paired bar agree.*
+
+| arrangement | by return | by bar |
+| --- | --- | --- |
+| random viable pairs | fencer > driver > fit > uniform | fencer > driver > fit > uniform |
+| mirror | driver > fit > fencer > uniform | driver > fit > fencer > uniform |
+
+Both agree. A random ordering of four reproduces a named one 1 time in 24, and the two
+arrangements are not independent draws, so this is evidence at about the 4 % level and not the 0.2
+% level a reader might multiply its way to. **What it says is that the objective and the criterion
+do not disagree about who is better on this rating; prediction 3 says they disagree about why, and
+prediction 4 says they disagree about how much.**
+
+**And the two arrangements disagree with each other**, as everything in this record does: the
+fencer is first on random viable pairs and third on the mirror, the fit is third on random and
+second on the mirror. That is the body-against-mind split this project has measured at 2.98x and
+it is unchanged by reading it in the objective's units.
+
+### The falsifier
+
+> *The fit above `golem-fencer` on mean return by more than two sigma.*
+
+**Does not fire: t -0.70.** On the mirror the fit is ahead, +0.0603 +-0.0454, t 1.33, which is
+also inside two sigma and is not the arrangement the falsifier names.
+
+### What this changes
+
+**The objective is not a second opinion about the criterion; it is a louder version of the same
+one plus a habit term.** On this rating the two orderings agree on both arrangements, so nothing
+here supports the idea that `GOLEM_REWARD` and the paired bar are pulling in different directions.
+What they do not share is *composition*: 55.7 % of the fit-to-fencer gap in the objective's units
+is clinch seconds and idle metres, which the bar does not look at.
+
+**The module states a discard rule and this rating trips it on one denominator and not the
+other.** `src/golem/reward.ts` says it in as many words -- *the bar margin has to stay the term
+that decides, so a run reports what fraction of the return each penalty accounted for and a run
+where a penalty dominated is a run to throw away* -- and sets the two coefficients so that *0.004
+apiece is a small charge against a typical bout*. Against a typical bout it is: 3.09 %. Against
+the mean the fit is fitted on, the penalty accounts for 1,660 % of the margin and 55.7 % of the
+gap to the fencer, which is domination by any reading. **The file's own rule would throw this run
+away on the mean denominator and keep it on the per-bout one, and nothing in the file says which
+to use.**
+
+**The rule this record takes forward: a charge stated as a fraction names the denominator it was
+taken over, and when a quantity has two honest denominators an entry prints both and says which
+one the optimiser climbs.** The instrument that makes that cheap now exists -- every rating row
+and every league rating line carries `returns`, term by term -- so no future run has to argue this
+from a coefficient table again.
+
+**No default moves and none was ever on the table.** `GOLEM_REWARD` is untouched, `stepReward` is
+untouched, and `ratePolicy` rates on the table it shipped. What this experiment licenses is one
+follow-on it does not run: **the same four contenders under a table whose `clinch` and `idle` rows
+are zero**, which would say whether the ordering above is the fight or the habit. That is a
+registration and not a paragraph, and it costs one rating.
