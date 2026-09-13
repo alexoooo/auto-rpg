@@ -30442,3 +30442,142 @@ still priced window by window exactly as it was -- the new function is a second 
 same objective on bouts the trainer never sees. The four `--reward-*` flags do not reach
 `ratePolicy` either: it takes the table as an argument defaulting to the shipped one, so a league,
 which refuses a moved table anyway, rates on the table it shipped.
+
+## Pre-registration -- 2026-09-13: the small-batch lever at four points, on one budget, and the arm that is already on disk
+
+Experiment U, and the agenda re-cut names it second: *L found the only lever in this record that
+points anywhere, and found it on one arm pair at one seed, on a fitted slope that the endpoint
+reading disagrees with about direction.* This registers the replication before a bout is
+collected.
+
+### What is being replicated, and what it would take to be real
+
+L measured the paired bar slope against `golem-fencer`, restated per thousand **training** bouts:
+`latched-fencer` at 32 bouts an iteration buys **0.0389 +-0.0116**, `budget-128` buys **0.0024
++-0.0025**, and `budget-256` buys **0.0023 +-0.0028**. The 128 and 256 arms are a rounding error
+apart -- 0.0001 +-0.0037, t 0.03 -- and the 32-bout arm is a factor of **16.2** above both, at t
+3.07 and t 3.06 past a family-wise margin of +-2.81.
+
+**Three things are wrong with that as a finding.** It is one arm pair at one seed. Its two slopes
+are *not* distinguishable per iteration, only per bout -- t 1.92, inside a +-2.60 margin -- so the
+whole effect lives in the denominator. And the endpoint reading disagrees: at the last rating
+point `budget-128` is **ahead** of `latched-fencer`, +0.0467 against +0.0354, with neither past
+one sigma. A fitted slope and an endpoint that point different ways over twelve noisy points is
+the classic shape of a line fitted to noise, and L said so.
+
+So U asks the one question that can settle it: **does the ordering hold at four points on one
+budget?**
+
+### The cell, and the arm that is free
+
+Four arms differing in **one flag**. Everything else is `lam-base`'s header verbatim -- seed
+20260917, `--opponent golem-fencer`, `--tactics latchAbort`, 0 exploiters, pool cap 8,
+`--random 40`, `--separation 2.6`, `--evaluate 0`, `lambda` 0.95, entropy 3e-4, rate 1e-4, batch
+4096, epochs 4, `targetKl` 0.03, mirror share 1, snapshots every 5 iterations.
+
+| arm | `--bouts` | `--iterations` | training bouts | status |
+| --- | ---: | ---: | ---: | --- |
+| bat-8 | 8 | 480 | 3,840 | to run |
+| bat-16 | 16 | 240 | 3,840 | to run |
+| `lam-base` | 32 | 120 | 3,840 | **already on disk**, S's control arm |
+| bat-64 | 64 | 60 | 3,840 | to run |
+
+**Equal total sample is the whole design.** L's arms were not on one budget -- 1,920 bouts against
+7,680 -- so its per-bout statistic was doing the work of making them comparable, and a statistic
+that is doing that much work is the thing to check. Here every arm sees 3,840 training bouts and
+the per-bout restatement becomes a *presentation* rather than a load-bearing normalisation. The
+slope per iteration and the slope per thousand bouts are then the same claim read on two axes, and
+both are printed.
+
+**The 32-bout arm is already running and U pays for three arms rather than four.** `lam-base` is
+`--bouts 32 --iterations 120` at this seed under these flags, which is exactly this ladder's
+middle rung. Its headers agree with `latched-fencer`'s on 59 of 60 keys -- the exception is
+`iterations` -- and its first sixty iterations are **bit-identical to `latched-fencer`'s on
+`decided`, `margin`, `kl`, `explained` and `strokes.completion`, 300 comparisons of 300**, which
+was checked today. So L's own 32-bout arm is the first half of U's middle arm, and the ladder is
+anchored to the thing it is replicating rather than to a fresh draw.
+
+**And that sharing is disclosed rather than quietly enjoyed.** `lam-base` is S's `lambda` control
+and U's batch control at once. The two experiments ask different questions of it and neither
+result is independent evidence for the other; a reader who wants U's middle rung and S's baseline
+to be two measurements has been misled, and this paragraph is here so that they are not.
+
+### The reading
+
+Twelve rating points an arm, spaced **equally in training bouts** and not in iterations -- every
+eighth snapshot on bat-8, every fourth on bat-16, every second on `lam-base`, every one on bat-64,
+which lands all four ladders on the same 320-bout grid. Rated by `scripts/rate-snapshots.mjs` with
+`--only`, on both arrangements, against the contenders `ratePolicy` builds; the statistic is the
+**paired bar slope against `golem-fencer`**, read by barfit with `--per-bouts` as L registered it,
+and the per-iteration slope printed beside it.
+
+Every rating point now also carries `ret` -- what `GOLEM_REWARD` paid, paired, over the same bouts
+-- because Experiment T's instrument landed before this was written. **No prediction below is
+stated on it.** It is collected because it is free and because Q's finding says the two columns
+can come apart; a claim about it needs its own registration.
+
+### The predictions
+
+**1. The ordering.** The four slopes per thousand training bouts are ordered `bat-8` > `bat-16` >
+`lam-base` > `bat-64`. A random ordering of four reproduces a named one 1 time in 24, so this is
+evidence at about the 4 % level on its own and is not the experiment; it is the cheap shape check
+that has to pass before the contrasts below mean anything.
+
+**2. The size, stated as contrasts because a factor is not a ratio.** `bat-8`'s slope less **four
+times** `bat-64`'s is positive at t > 2, and `bat-8`'s slope less **eight times** `bat-64`'s is
+positive at t > 2. L's arithmetic is stronger than either -- a fourfold batch bought 16x, which
+extrapolated to this ladder's eightfold span is 64x -- and it is deliberately not registered at
+that strength, because the ratio's denominator in L was within one sigma of zero and an
+extrapolation off such a denominator is not a prediction, it is a flourish.
+
+**3. The per-iteration axis, which is where L was weakest.** At least one pair of arms is
+distinguishable **per iteration** at t > 2 as well as per bout. L's pair was not -- t 1.92 -- so
+the entire 16x lived in the denominator, and a lever that only exists after dividing by the sample
+is a lever that might be an artifact of dividing by the sample.
+
+**4. The endpoint agrees with the slope.** The ordering of the four arms by their **final** paired
+`d` against `golem-fencer` reproduces their ordering by fitted slope. L's pair disagreed here and
+disclosed it; if four arms disagree too, the slope is not measuring where a run got to and the
+statistic itself is the finding.
+
+**5. The mechanism, replicated across four points.** L measured the big-batch arm taking 3,572
+updates against 915, with better explained variance (0.458 / 0.485 against 0.300), lower KL
+(0.0125 / 0.0131 against 0.0173) and lower clip fraction (0.095 / 0.093 against 0.128), and could
+not explain why the better-conditioned fit bought less bar. Registered: across the four arms,
+**explained variance rises monotonically with batch size and KL falls monotonically**, while the
+bar slope per bout falls. If all three hold, the finding is that this optimiser buys criterion
+movement out of *badly conditioned* updates, which is a statement worth the night on its own.
+
+### The null side, registered in advance rather than supplied on request
+
+Every *agrees* verdict prints what the design could have caught. For each pair, the reader prints
+`se * (threshold + 0.8416)` -- the smallest difference this design would have caught four times in
+five -- as a multiple of the smaller arm's own slope, and a pair whose resolution exceeds the
+largest slope on record is reported as **unresolved** and not as agreement. That rule cost Q its
+most spectacular arm and it applies here without exception.
+
+### The falsifier
+
+**If `bat-8` and `bat-64` differ by less than two sigma per thousand training bouts, L's
+sixteen-fold reading was the shape of twelve noisy points**, and the record says so in the same
+voice it used to announce it. That would leave this project with **no measured lever at all** --
+the reward table does not move the gradient (E), a seventy-fold coefficient sweep does not move
+the bar (K), the latch buys 2.55x the completed strokes and d +0.045 (signal-04), `lambda` is
+still out (S), and the batch would join them. It is a real possibility and it is written here at
+full strength because the agenda's next item after that is not another optimiser experiment.
+
+### What this cannot answer
+
+**It is one seed.** Four arms at one seed is a ladder and not a sample; a replication at a second
+seed is the obvious follow-on and is not bought here.
+
+**It is 3,840 bouts and the record's learning claims live in the first sixty iterations.** `bat-8`
+runs 480 iterations of that budget and `bat-64` runs 60, so the arms differ in how many times the
+opponent pool cycled as well as in batch size, and those two are not separable within this design.
+It is named here rather than discovered in the scoring.
+
+**And it is the fencer cell**, which Experiment I measured at whole-actor `t 1.38` over forty
+iterations with zero of twelve head groups clearing. Every arm here is climbing a gradient the
+probe says is not measurably there. That is the point of the agenda's item V and it is not this
+experiment's to settle; what U can say is whether the *criterion* moves differently at different
+batch sizes, which is a claim about the bar and not about the gradient.
