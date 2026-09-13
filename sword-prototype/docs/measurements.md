@@ -26213,3 +26213,120 @@ collection is a deterministic function of the seed, the checkpoint, the bout cou
 the pool -- Experiment E established that across two independently launched runs agreeing on 120 of
 120 fields -- so R collects the same rollouts at four workers that it would have collected at
 fourteen.
+
+## The ruler -- 2026-09-13: the reader three entries are stated on, audited against its definitions
+
+Experiment O's entry closed on the rule that the check which finds a reader defect is reading the
+arithmetic against the definition rather than watching the output appear. barfit.mjs is the reader
+Experiments H, K and L all quote, so it was read that way before any of the three is written. It
+carried two defects and a third thing that is not a defect in the reader at all but a fact about the
+instrument that nobody had written down.
+
+### The interval on `d`, which was a hardcoded spread and the row carries the real one
+
+The reader printed `d at the last point` as `d +- sem / 0.5`. `sem` is the standard error of the
+**paired bar**, in bars; `d` is that bar over the per-point standard deviation; so turning the one
+into the other needs that standard deviation, and 0.5 was standing in for it.
+
+It is not 0.5. Over the 304 contender columns of the nine rating logs on disk, `|bar / d|` -- which
+is that standard deviation exactly, by the definition of `cohensD` -- runs from **0.377 to 0.539**,
+median 0.446, mean 0.450. A constant 0.5 makes every interval the reader prints too narrow, by 11 %
+at the median and 33 % at the low end, and it is too narrow in every one of the 304, because 0.5 is
+above the whole measured range. **The direction of a hardcoded constant's error is not random when
+the constant is outside the data.**
+
+The fix does not use `bar / d` either, because that ratio is undefined at the `d` of zero a null
+arm produces. Every rating row carries `per`, the number of paired points, and
+
+```
+sem / |bar / d| = 1 / sqrt(per)
+```
+
+reproduces to machine precision on all 304 columns -- worst relative disagreement 5.7e-16 -- which
+is what establishes that `per` is that count rather than something that happens to resemble it. So
+the reader now states the textbook standard error of a paired Cohen's d, `sqrt(1/n + d^2/2n)`, on
+`per`, and refuses a row that does not carry one. There is such a row on disk: a smoke log whose
+rows have an `iteration` and no `per`, which is the thing that makes this a refusal with something
+to refuse rather than a gesture.
+
+What it moves: on league-long's random pool the last point reads `d -0.1522 +-0.0581` where it read
+`+-0.0486`. No entry has quoted it yet, which is the only reason this correction is a paragraph and
+not a retraction.
+
+### A default that never fired, removed before it could
+
+`strokes.strokesStarted / (r.strokes.sides ?? r.bouts)` is the column Experiment K's prediction 1 is
+about. The reader pass called this pattern latent rather than wrong; it is now measured across every
+league log on disk. **330 rows carry stroke blocks, all 330 carry `sides`, and in all 330 `sides`
+equals `bouts`.** So the default has never fired and, on the six logs K and L are stated on, never
+will. It is a refusal now, on the record's own rule that a reader which fills a missing field with a
+default cannot refuse the log that is missing it.
+
+### The thing that was not a reader defect: a paired slope does not know which mind it is paired against
+
+The reader closed with a table it described as a control -- the same slope against the contenders
+the criterion did not name -- so that "an arm that moved against everything is not read as an arm
+that learned the matchup". **That table prints the same number twice, and it always will.**
+
+`ratePolicy` rates four contenders at once and `evaluate` gives each its own block of bouts against
+the league, from one seed, on one pool. A designed contender does not change between rating points
+and neither does its pool or its seed, so **its bar column is the same column at every iteration of
+a run.** The paired difference against it is the fit's own column minus a constant, and a constant
+has no slope. The slope of the paired bar is therefore one number, shared by every contender in the
+row, and the choice of which designed mind to pair against changes the *level* and nothing else.
+
+Measured, because an argument of that shape is exactly the kind that turns out to have an exception:
+over the 70 rating points of the three logs on disk that carry two contender columns, the gap
+between any two columns is constant to machine precision, the largest spread across a whole run
+being 4.4e-16. On league-long's random pool the slope is 0.0022 per 60 iterations at t 0.86 against
+`driver` and 0.0022 at t 0.86 against `uniform`, to every digit the reader prints.
+
+**Three consequences, and the middle one is a live correction.**
+
+First, no entry may quote a second contender's slope as corroboration of the first. It is the same
+measurement written down twice, and an entry that did so would be reporting one result as two.
+
+Second, `d` is not like this. `d` divides each column by its own spread, and the spreads differ, so
+the slope of `d` against `driver` is 0.0105 per 100 iterations at t 1.12 while against `uniform` it
+is 0.0082 at t 0.93. **The +0.0105 at t 1.12 that this record already carries -- the figure that
+re-read Session 11 on a paired column and found pairing did not rescue it -- is a slope of `d`, and
+barfit.mjs's headline is a slope of `bar`.** Both are honest and they are different statistics. The
+pre-registrations of H, K and L name the paired **bar**, so that is what their entries will state,
+and this paragraph exists so that a reader holding both numbers does not read them as a
+discrepancy.
+
+Third, the rule this record already holds -- that a bar is stated on the paired column against the
+mind the criterion named -- buys its whole value at the level and none of it at the slope. That is
+not an argument against the rule. It is a statement of where the rule bites, and it was worth
+finding out before three entries leaned on it.
+
+The reader now prints the level, and checks the invariance instead of presenting it: if the gap
+between two contender columns ever moves by more than 1e-9 over a run, it says so by name. Nothing
+on disk trips it.
+
+### What now asserts it
+
+`a_contender_only_ever_meets_the_league_so_a_designed_ruler_cannot_move_when_the_fit_does`, in
+tests/tournament.test.mjs. Each contender's block is scheduled the way `evaluate` schedules it, and
+every job in it is asserted to hold that contender on one side and a league mind on the other --
+never a second contender, which is the pairing that would let a fit that got better move its own
+ruler. Then the `fencer` block is asserted identical under two fits that differ in both name and
+content.
+
+Two mutations watched red. `scheduleJobs` made to ignore `pairs` takes this and the contender
+alignment test beside it; the schedule's rng mixed with the contender names takes **this and nothing
+else in the suite**.
+
+And the honest limit, measured rather than supposed: the test reconstructs `evaluate`'s call rather
+than making it, so `evaluate` was mutated to schedule contenders against each other -- the exact
+defect -- and **this test stayed green.** Two tests elsewhere went red, the class-cosine binding and
+the paired-spread comparison, so the suite does stop the change. But neither of those says anything
+about a ruler, so neither would have told the reader of a paired bar what had happened to it.
+
+### What this audit does not cover
+
+Four readers remain unread against their definitions: concfit.mjs, which has never met data because
+no log on disk carries a concentration block; objfit.mjs, headfit.mjs and pricefit.mjs. Experiments
+P, Q and I are stated on the first three. They are the next thing this queue does, and a reader that
+has not been read this way should be assumed to carry a defect of this family until it has, because
+four of the four readers audited this way so far have carried one.

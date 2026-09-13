@@ -914,6 +914,87 @@ test("two_contenders_scheduled_from_one_seed_meet_the_same_bodies_in_the_same_or
 });
 
 /**
+ * A contender only ever meets the league, so a designed ruler cannot move when the fit does.
+ *
+ * **This is the property that makes every paired bar in this record a difference against something
+ * that stands still, and it had never been asserted.** `ratePolicy` rates four contenders at once
+ * -- the fit, `uniform`, `driver` and `fencer` -- and `evaluate` gives each of them its own block
+ * of bouts, scheduled from one seed against the league and never against each other. Three
+ * consequences follow and the record leans on all three: a designed contender's bar column is the
+ * same column at every rating point of a run; the paired difference against it is the fit's own
+ * column minus a constant; and the *slope* of that paired difference is therefore **the same
+ * number against every contender**, which is a thing a reader of two slopes needs to know before
+ * quoting the second one as corroboration of the first.
+ *
+ * It is measured as well as argued. Over the 70 rating points of the three logs on disk that carry
+ * two contender columns -- league-long's two arrangements and bracket-fencer's -- the gap between
+ * any two columns is constant to machine precision, the largest spread over a whole run being
+ * 4.4e-16. So the property holds in the record; what was missing was anything that would notice if
+ * it stopped holding.
+ *
+ * | mutation | what went red |
+ * | --- | --- |
+ * | `scheduleJobs` ignores `pairs` and cycles every pairing among its policies | this, and the contender-alignment test above it |
+ * | the schedule's rng mixed with the contender names, so a block depends on who else was rated | this, and nothing else in the suite |
+ *
+ * **What no mutation here can reach, and it is the call site itself.** This reconstructs
+ * `evaluate`'s scheduling call rather than making it, so a defect in `evaluate` is outside it.
+ * Measured rather than supposed: `evaluate` was given contender-against-contender pairs, which is
+ * precisely the change that would let a fit move its own ruler, and **this test stayed green**. Two
+ * tests elsewhere went red -- the class-cosine binding and the paired-spread comparison -- so the
+ * suite does stop that change; but neither of them says anything about a ruler, so neither would
+ * tell the reader of a paired bar what had happened to it. What this adds is the reading.
+ *
+ * A schedule is also not a column: a defect that ran the scheduled jobs and then mixed two
+ * contenders' rows together before `columnsOf` divided them would leave every assertion below
+ * green. `columnsOf`'s own refusal -- that a row of a block names neither side -- is what stands
+ * there, and learner.test.mjs pins it. Nor does any of this say the ruler is a *good* one: a
+ * designed mind that stands still is a fixed ruler whether or not it is the right length.
+ */
+test("a_contender_only_ever_meets_the_league_so_a_designed_ruler_cannot_move_when_the_fit_does", () => {
+  const pool = buildPool({ seed: SEED, random: 20 });
+  const league = ["golem-driver", "golem-form", "golem-brawler", "golem-duelist", "golem-fencer"];
+  // The shape is `evaluate`'s own, line for line: one `scheduleJobs` a contender, the contender
+  // named first among the policies, and the pairs restricted to it against each league member.
+  const blockFor = (name, contenders, arrangement) => scheduleJobs({
+    pool, policies: [name, ...league], pairs: league.map((policy) => [name, policy]),
+    pairings: 10 * league.length, seed: SEED, cap: 30, contenders, ...arrangement,
+  });
+
+  for (const arrangement of [{}, { mirror: true }, { viable: true }]) {
+    const where = JSON.stringify(arrangement);
+    const contenders = { fit: { uniform: true }, fencer: { policy: "golem-fencer" } };
+    const names = Object.keys(contenders);
+
+    for (const name of names) {
+      const jobs = blockFor(name, contenders, arrangement);
+      assert.ok(jobs.length > 0, `${where}: ${name} drew an empty block`);
+      for (const job of jobs) {
+        const sides = [job.left.policy, job.right.policy];
+        const mine = sides.filter((policy) => policy === name);
+        assert.equal(mine.length, 1, `${where}: a ${name} job has ${mine.length} ${name} sides`);
+        const them = sides.find((policy) => policy !== name);
+        assert.ok(league.includes(them),
+          `${where}: ${name} was scheduled against "${them}", which is not in the league`);
+        // The one that matters: the opposing side is never a second contender. If it were, that
+        // contender's column would carry bouts whose other half is the fit, and a fit that got
+        // better would move its own ruler.
+        assert.ok(!names.includes(them),
+          `${where}: ${name} met the contender "${them}" rather than a league mind`);
+      }
+    }
+
+    // And the ruler's block does not depend on the fit at all -- not on its name, not on what it
+    // is. Two runs whose fits differ in both give the `fencer` block byte for byte.
+    const one = blockFor("fencer", { fit: { uniform: true }, fencer: { policy: "golem-fencer" } },
+      arrangement);
+    const other = blockFor("fencer", { main: { q: [0, 1, 2] }, fencer: { policy: "golem-fencer" } },
+      arrangement);
+    assert.deepEqual(other, one, `${where}: the fencer's schedule moved when the fit did`);
+  }
+});
+
+/**
  * Every job is scheduled twice with the corners exchanged, in every arrangement the record states.
  *
  * **This is asserted because the corners are not equivalent.** Read off the tournament corpus
