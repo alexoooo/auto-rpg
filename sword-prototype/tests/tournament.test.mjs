@@ -912,3 +912,83 @@ test("two_contenders_scheduled_from_one_seed_meet_the_same_bodies_in_the_same_or
       `${where}: the contender sat on one side for all ${left.length} jobs`);
   }
 });
+
+/**
+ * Every job is scheduled twice with the corners exchanged, in every arrangement the record states.
+ *
+ * **This is asserted because the corners are not equivalent.** Read off the tournament corpus
+ * already on disk -- 872 distinct bouts whose two sides are the same policy in the same body, so
+ * that the only things telling the fighters apart are the corner and the mind's stream -- the left
+ * corner takes 297 of 542 decided bouts, a share of 0.548 at z 2.23 against a null of exactly one
+ * half. It stands on both sides of the swap (0.5385 unswapped, 0.5576 swapped), which is what says
+ * it is the corner and not one seed slot being luckier than the other, and it is the same sign in
+ * five of the six minds with thirty decided mirror bouts to their name.
+ *
+ * That is a post-hoc reading of a corpus nobody collected for it and it is not a registered result.
+ * What it is, is enough to stop treating the corners as interchangeable -- and the thing that makes
+ * a corner effect harmless is entirely a property of this function: **the schedule emits every
+ * pairing twice, once each way.** A contender therefore fights each body from each corner the same
+ * number of times, so a constant corner advantage cancels in its mean; and because `evaluate`
+ * schedules each contender from the same seed, two contenders occupy the *same* corner at the same
+ * index, so it cancels row by row in the paired difference `columnsOf` builds rather than only in
+ * expectation. Both halves of that are what this pins.
+ *
+ * The default arrangement already had the pairwise check. What it did not have is the other three
+ * -- mirrored, viable, and mirrored-viable, which between them are every arrangement any bar in
+ * this record is stated on -- and the viable one is where a swap could plausibly go missing, since
+ * it is the only arrangement whose bodies come out of a rejection loop.
+ *
+ * | mutation | what went red |
+ * | --- | --- |
+ * | the swapped half emitted with the corners left where they were | this and the two beside it |
+ * | the corners exchanged but the seeds left behind | this and the older pairwise check |
+ * | the corners exchanged in every arrangement **but the viable one** | this and the alignment check, and nothing else in the suite |
+ *
+ * **The third is the one this test is for**, and it is the shape the defect would really take: an
+ * arrangement-conditional swap is invisible to a fixture that takes the default arrangement, and
+ * the viable arrangement is the one the record's fourth frozen choice says the bars are stated on.
+ *
+ * **And what no mutation here can reach: the balance equality is not doing independent work.** If
+ * every pairing is emitted as a pair with the corners exchanged, then each policy sits left exactly
+ * as often as it sits right -- the count is implied by the structure above it, and no mutation
+ * breaks one while leaving the other. It is asserted anyway because it is the property the corner
+ * reading is actually about, and a reader who comes to this test from that reading should find it
+ * stated in those terms rather than have to derive it. A mutation that unbalances the count by
+ * adding a job goes red across six tests in this file, none of them this one's equality.
+ */
+test("every_job_is_scheduled_twice_with_the_corners_exchanged_in_every_arrangement_the_record_states", () => {
+  const pool = buildPool({ seed: SEED, random: 20 });
+  const policies = ["golem-fencer", "golem-driver"];
+  for (const arrangement of [{}, { mirror: true }, { viable: true }, { mirror: true, viable: true }]) {
+    const where = JSON.stringify(arrangement);
+    const jobs = scheduleJobs({
+      pool, policies, pairs: [policies], pairings: 24, seed: SEED, cap: 30, ...arrangement,
+    });
+    assert.ok(jobs.length > 0 && jobs.length % 2 === 0, `${where}: ${jobs.length} jobs is not pairs`);
+    const corners = { "golem-fencer": { left: 0, right: 0 }, "golem-driver": { left: 0, right: 0 } };
+    for (let i = 0; i < jobs.length; i += 2) {
+      const [a, b] = [jobs[i], jobs[i + 1]];
+      assert.equal(a.swapped, false, `${where}: job ${i} is not the unswapped half of its pairing`);
+      assert.equal(b.swapped, true, `${where}: job ${i + 1} is not the swapped half of its pairing`);
+      assert.equal(a.pairing, b.pairing, `${where}: jobs ${i} and ${i + 1} are different pairings`);
+      assert.deepEqual(b.left, a.right, `${where}: the swap did not move the right corner to the left`);
+      assert.deepEqual(b.right, a.left, `${where}: the swap did not move the left corner to the right`);
+      assert.deepEqual(b.seeds, [a.seeds[1], a.seeds[0]],
+        `${where}: the seeds did not travel with the corners`);
+      for (const job of [a, b]) {
+        for (const side of ["left", "right"]) {
+          if (corners[job[side].policy] !== undefined) corners[job[side].policy][side] += 1;
+        }
+      }
+    }
+    // Exactly balanced, and equality rather than a bound: a schedule that put a contender left one
+    // more time than right would carry the corner constant into its mean at one job's weight, which
+    // is small and is not zero, and "small" is not a thing this record states a bar on.
+    for (const policy of policies) {
+      assert.equal(corners[policy].left, corners[policy].right,
+        `${where}: ${policy} took the left corner ${corners[policy].left} times `
+        + `and the right ${corners[policy].right}`);
+      assert.ok(corners[policy].left > 0, `${where}: ${policy} never fought`);
+    }
+  }
+});

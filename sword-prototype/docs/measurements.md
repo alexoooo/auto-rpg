@@ -25842,3 +25842,84 @@ paired bar margin against a designed mind is the right thing to be steering by a
 Q's question, and Q's re-analysis arm already says the objective the fit climbs and this criterion
 disagree. An audit that certified the ruler says nothing about whether the record is measuring the
 right length.
+
+## The corner -- 2026-09-13: the arena is not symmetric, and the paired column does not care
+
+**This is not an experiment and it has no pre-registration.** It is a reading taken off the bouts
+already on disk, found while auditing the rating path, and it is written down here in the form the
+record's own convention demands of anything found by looking: the statistic, the number, the
+mechanism, and an honest statement of how much weight it can carry.
+
+### The question, and why the corpus could already answer it
+
+`runBout` builds the left fighter at the origin facing zero and the right one at `separation`
+metres facing the other way. Two corners, and every number in this record is a difference between
+minds standing in them. Nothing had ever asked whether the corners are worth the same.
+
+The corpus could answer it without a new bout. A **mirror pairing puts one build on both sides**,
+and when the policy pair is also a mirror the two fighters are the same mind in the same body:
+the only things telling them apart are which corner they were built in and which stream `seedFor`
+handed them. The null is therefore exactly one half, and it needs nothing collected for it.
+
+Read over every tournament log in the tree with cornerfit.mjs -- 151,562 bouts scanned, 1,138 of
+them the same mind in the same body, of which 266 are second copies of a bout already counted and
+are dropped, leaving **872 distinct mirror bouts, 542 of them decided**:
+
+| | decided | left | right | left's share | sem | z |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| all fourteen minds | 542 | 297 | 245 | **0.5480** | 0.0215 | **2.23** |
+| the jobs scheduled unswapped | 273 | 147 | 126 | 0.5385 | 0.0303 | 1.27 |
+| the jobs scheduled swapped | 269 | 150 | 119 | 0.5576 | 0.0305 | 1.89 |
+
+**The left corner takes 54.8 % of decided bouts between two copies of one mind in one body.** Of
+the six minds with at least thirty decided mirror bouts to their name, five favour the left corner
+and one the right. The 330 undecided bouts are the cap arriving and are excluded rather than split,
+because at the cap the question was not answered; their share is 0.378 and a corner that won by
+pushing bouts to the cap would have shown up there.
+
+**The split by `swapped` is what makes it the corner and not the stream.** A swapped job exchanges
+the seeds along with the sides, so the left corner draws slot 1 rather than slot 0. An advantage
+belonging to one seed slot would stand above one half in one group and below it in the other. It
+stands above one half in both.
+
+**The copies are a small result of their own.** 266 bouts appear twice on disk -- a rating written
+into two files, a probe re-read off a checkpoint -- and **not one of the 266 disagrees with its
+original about who won.** That is the determinism contract holding across months of runs, on a
+sample nobody assembled to test it.
+
+### What it costs, which is nothing, and why
+
+A corner effect enters a margin as a constant on whichever side holds it. It cancels exactly when
+each contender sits in each corner the same number of times -- and that is a property of
+`scheduleJobs`, not of the arena: **every pairing is emitted twice, once each way, with the seeds
+travelling with the sides.** So a contender's own mean is balanced by construction.
+
+The paired column does better than balanced. `evaluate` schedules each contender from the same seed
+with only the name changed, so at index `i` of two blocks the two contenders are in the **same**
+corner in the same body, and the constant cancels in `points[a][i] - points[b][i]` **row by row**
+rather than in expectation. That is the property asserted three commits ago at the scheduler, and
+this reading is the reason it was worth asserting there rather than arguing.
+
+**So no bar in this record moves, and none of the eleven pending entries is affected.** What the
+reading changes is that the corners are no longer assumed interchangeable, and the swap that makes
+them cancel is now pinned in every arrangement the record states a bar on -- mirrored, viable and
+mirrored-viable as well as the plain one, by
+`every_job_is_scheduled_twice_with_the_corners_exchanged_in_every_arrangement_the_record_states`.
+The mutation that test exists for is an arrangement-conditional swap: a schedule that exchanges the
+corners everywhere except the viable arrangement is green against everything the suite had before.
+
+### What this does not establish, stated plainly
+
+**z 2.23 is not a result and this reading cannot be promoted into one.** It was found by looking,
+the corpus is fourteen minds over a dozen pools and caps collected for other purposes, and the
+per-mind cells that drive it are small. A registered test is one arrangement, one mind, one body and
+a few thousand fresh mirror bouts, and it is **priced and deliberately not run**: the effect
+provably cannot reach a paired column, and buying four sigma on a nuisance constant that cancels
+would be four thousand bouts spent to sharpen a number nothing is stated on, while eleven registered
+experiments are waiting on a host that is already fully booked.
+
+**And the mechanism is not identified.** The plausible one is solver order -- the left fighter's
+bodies are created first and are integrated first every substep -- but nothing here separates that
+from arena geometry, from the contact ordering in `Combat`, or from the two minds' streams being
+consumed in a fixed order. Naming a mechanism would take a bout-level experiment, and that is the
+second of the three areas the instrument audit named and neither audit has read.
