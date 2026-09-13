@@ -258,7 +258,9 @@ import { isMainThread } from "node:worker_threads";
 
 import { initWeights, netSize } from "../src/golem/neural-net.ts";
 import { PILOT_FEATURES_DEFAULT } from "../src/golem/pilot.ts";
-import { ACTION_AXES, POLICY_VERSION, freshNormalisation, normalise } from "../src/golem/policy.ts";
+import {
+  ACTION_AXES, POLICY_VERSION, freshNormalisation, lgamma, normalise,
+} from "../src/golem/policy.ts";
 import { GOLEM_REWARD } from "../src/golem/reward.ts";
 import { mulberry32 } from "../src/rng.ts";
 import { COMMAND_AXES, COMMAND_GATES } from "../src/golem/tactics-v4.ts";
@@ -379,9 +381,17 @@ export function thirdSplit(count) {
  *
  * `floor = K / (|S|^2 + 2 SE)` takes `|S|^2` at the top of its own interval, so it is the *fewest*
  * bouts consistent with the measurement rather than the best estimate. It is finite for an arm
- * whose `|S|^2` does not clear zero, which `point = K / |S|^2` is not, and it carries the same
- * optimism for every arm -- which is what makes a ratio of two floors a statement about the arms
- * rather than about which of them happened to be measured more precisely.
+ * whose `|S|^2` does not clear zero, which `point = K / |S|^2` is not.
+ *
+ * **An earlier version of this comment said the optimism is the same for every arm, and it is not.**
+ * An arm's own optimism is `point / floor = 1 + 2 SE / |S|^2`: small where the signal is large and
+ * **unbounded where the signal is not**. Measured on 2026-09-13 against the two published cells of
+ * the reward grid, sixteen arms each: on the idle cell, where every arm clears zero, a ratio of two
+ * floors is within 12 % of the ratio of the two points, so the claim held there; on the fencer
+ * cell, where no arm clears, thirteen of the sixteen points are infinite and a ratio of two floors
+ * is a ratio of two two-sigma edges over unbounded quantities. **A floor ratio carries a verdict
+ * only where both arms clear zero**, and elsewhere it is a reading -- the readers mark the
+ * difference and the record's 2026-09-13 prediction audit registers it against ten open bars.
  *
  * `se` defaults to zero, which makes `floor` and `point` the same number. That is deliberate: a
  * caller that has only one measurement has no interval, and a floor without an interval is a point
@@ -415,6 +425,138 @@ export function floorConvention({ dot, norm2, bouts, se = 0, fraction = 1 / 2 })
       if (!(n > 0)) throw new Error(`an epoch of ${n} bouts reports no cosine`);
       return dot === 0 ? 0 : n / (n + K / dot);
     },
+  };
+}
+
+/** The significance a family of bars is held at, which is the one every bar in this record uses. */
+export const FAMILY_ALPHA = 0.05;
+
+// The continued fraction for the incomplete beta, Lentz's method. Converges for
+// `x < (a+1)/(a+b+2)`; the caller reflects to the other side when it does not.
+function betaFraction(a, b, x) {
+  const tiny = 1e-30;
+  const qab = a + b;
+  const qap = a + 1;
+  const qam = a - 1;
+  let c = 1;
+  let d = 1 - (qab * x) / qap;
+  if (Math.abs(d) < tiny) d = tiny;
+  d = 1 / d;
+  let h = d;
+  for (let m = 1; m <= 300; m += 1) {
+    const m2 = 2 * m;
+    let aa = (m * (b - m) * x) / ((qam + m2) * (a + m2));
+    d = 1 + aa * d;
+    if (Math.abs(d) < tiny) d = tiny;
+    c = 1 + aa / c;
+    if (Math.abs(c) < tiny) c = tiny;
+    d = 1 / d;
+    h *= d * c;
+    aa = (-(a + m) * (qab + m) * x) / ((a + m2) * (qap + m2));
+    d = 1 + aa * d;
+    if (Math.abs(d) < tiny) d = tiny;
+    c = 1 + aa / c;
+    if (Math.abs(c) < tiny) c = tiny;
+    d = 1 / d;
+    const step = d * c;
+    h *= step;
+    if (Math.abs(step - 1) < 3e-14) return h;
+  }
+  return h;
+}
+
+/** The regularised incomplete beta `I_x(a, b)`, which is what a t tail is made of. */
+export function incompleteBeta(a, b, x) {
+  if (x <= 0) return 0;
+  if (x >= 1) return 1;
+  const front = Math.exp(
+    lgamma(a + b) - lgamma(a) - lgamma(b) + a * Math.log(x) + b * Math.log(1 - x),
+  );
+  return x < (a + 1) / (a + b + 2)
+    ? (front * betaFraction(a, b, x)) / a
+    : 1 - (front * betaFraction(b, a, 1 - x)) / b;
+}
+
+/**
+ * `P(|T| > |t|)` for Student's t on `df` degrees of freedom: the chance a column with no effect in
+ * it reads a `t` at least this far from zero.
+ */
+export function studentTail(t, df) {
+  if (!Number.isFinite(t)) throw new Error(`a t of ${t} is not a reading, so it has no tail`);
+  if (!Number.isFinite(df) || df < 1) {
+    throw new Error(`${df} degrees of freedom is not an interval -- a t off it has no tail`);
+  }
+  return incompleteBeta(df / 2, 1 / 2, df / (df + t * t));
+}
+
+/**
+ * **A bar asked of `arms` columns at once is not the bar it looks like.**
+ *
+ * Experiment O's prediction 5 was *nothing on this cell clears two sigma*, over twelve registered
+ * cells at seven degrees of freedom. One cell read t 2.05 and the prediction was reported missed --
+ * correctly, and the reason it was missed is that **a true null passes that conjunction only 34 %
+ * of the time.** `P(|t| > 2)` at seven degrees of freedom is 0.0856, twelve of those give an
+ * expected 1.03 cells over the line, and a bar the null itself usually fails is not a test of the
+ * null. The 2026-09-13 prediction audit then found the same shape in three more open
+ * pre-registrations, once at `arms` fifteen where `t > 2` is a family-wise **37 %**.
+ *
+ * This is that arithmetic, so that the next bar in this record can be stated with it rather than
+ * after it. `family` is the chance at least one of `arms` independent columns clears `t` under an
+ * exactly-zero effect; `threshold` is the `t` that holds that chance at `alpha`; `clears` compares
+ * the reading against the threshold rather than against two.
+ *
+ * **A null-side bar reads `family` and not `threshold`.** *None of `arms` clears `t`* is passed by
+ * an exactly-zero effect with probability `1 - family`, which is the 34 % that made Experiment O's
+ * prediction 5 a bar rather than a test of one. `threshold` answers the other question, which is
+ * what an *existence* claim over `arms` needs in place of the two it was written with.
+ *
+ * **`arms` is the number of columns the bar ranges over and not the number collected.** A bar on
+ * one named column is `arms: 1` however many columns the log carries, and a bar phrased "at least
+ * one of these" or "none of these" is `arms: k` -- the count is a property of the sentence, which
+ * is why it is an argument and has no default beyond one.
+ *
+ * **What this cannot do.** The columns of a probe grid are priced off one rollout and are
+ * correlated, sometimes strongly, so `1 - (1-p)^arms` is the independent case and an upper bound on
+ * the family rate rather than the rate. It is quoted as the bound it is: a bar that survives it
+ * survives the correlation too, and a bar that fails it may still be sound on a grid whose arms
+ * move together. Nothing here estimates that correlation and nothing here should be read as having.
+ */
+export function familyBar({ t, df, arms = 1, alpha = FAMILY_ALPHA, sided = "one" }) {
+  if (sided !== "one" && sided !== "two") {
+    throw new Error(`a bar is one- or two-sided and ${sided} is neither`);
+  }
+  if (!Number.isInteger(arms) || arms < 1) {
+    throw new Error(`a bar over ${arms} arms ranges over something this cannot count`);
+  }
+  if (!Number.isFinite(alpha) || alpha <= 0 || alpha >= 1) {
+    throw new Error(`a significance of ${alpha} is not one`);
+  }
+  const half = sided === "one" ? 1 / 2 : 1;
+  const p = studentTail(t, df) * half;
+  // The `t` at which a family of `arms` independent columns clears with probability `alpha`. Solved
+  // by bisection on the tail, which is monotone, rather than by an inverse anybody has to trust.
+  const per = 1 - (1 - alpha) ** (1 / arms);
+  let lo = 0;
+  let hi = 1e3;
+  for (let i = 0; i < 200; i += 1) {
+    const mid = (lo + hi) / 2;
+    if (studentTail(mid, df) * half > per) lo = mid;
+    else hi = mid;
+  }
+  const threshold = (lo + hi) / 2;
+  return {
+    p,
+    /**
+     * An upper bound on the chance a family of `arms` columns shows one this extreme, under zero.
+     * At one arm that bound *is* `p` and is written as `p` rather than computed: `1 - (1 - p) ** 1`
+     * loses the last bit or two to rounding, and a one-armed bar is every ordinary reading in this
+     * record. A family rate that disagreed with its own `p` in the sixteenth digit would be a
+     * difference nobody could act on and everybody would have to explain.
+     */
+    family: arms === 1 ? p : 1 - (1 - p) ** arms,
+    threshold,
+    clears: Math.abs(t) >= threshold && (sided === "two" || t > 0),
+    arms,
   };
 }
 

@@ -507,6 +507,7 @@ import {
   halfGradients,
   halfSplit,
   concentrationWithNull, headGroups, headNorms, headRows, headSignal, linearBaseline, mcReturns,
+  FAMILY_ALPHA, familyBar, studentTail,
   measureBonus, measureSignal, normOf, nullRanking, parseClasses, probeIterations, probeRollout,
   rewardArms, shareOf,
   solveCholesky, thirdGradients, thirdSplit, wholeGradient,
@@ -3161,4 +3162,185 @@ test("a_cross_arm_direction_with_no_arms_to_compare_is_refused_by_name", async (
   } finally {
     await pool.close();
   }
+});
+
+// ## The bar itself, which arrived the night a prediction was missed for the wrong reason
+//
+// **Experiment O's prediction 5 was `nothing on this cell clears two sigma`, over twelve
+// registered cells at seven degrees of freedom, and a true null passes that conjunction 34 % of
+// the time.** It was reported missed, correctly, on a cell reading t 2.05 -- and the reason it was
+// missed is the bar and not the run. The audit that followed read the ten open pre-registrations
+// and found the same shape in three more, once over fifteen arms where `t > 2` is a family-wise
+// **37 %**. That arithmetic was done in a throwaway `node -e` on the night, which is exactly where
+// `K / (norm^2 - dot)` lived before `floorConvention` came into this tree, and for the same
+// reason: nothing in the tree could state it.
+//
+// The tail is checked against a printed t-table rather than against itself. A continued fraction
+// that converges to the wrong thing converges silently, and the five rows any statistics text
+// prints are the ones it is checked on.
+//
+// Measured, each mutation applied alone to `scripts/gradient-probe.mjs` and restored, against the
+// three tests below. Baseline green.
+//
+// | mutation | what went red |
+// |---|---|
+// | the tail is one-sided where the convention is two | the table test, and the family test with it |
+// | the beta is not reflected past its convergence point | the table test **-- and only after the small arguments were added, see below** |
+// | the family rate is `arms * p` rather than `1 - (1-p)^arms` | the family test |
+// | the family rate ignores `arms` entirely, which is the defect this is about | the family test |
+// | the threshold solves for `alpha` rather than for the per-arm share of it | the family test |
+// | a `t` of NaN is priced instead of refused | the refusal test |
+// | `arms` of zero is accepted and reads a threshold of nothing | the refusal test |
+//
+// **One of the seven survived the first sweep, and it was the interesting one.** Forcing the beta
+// to its unreflected branch changed no reading this section checked, because the continued fraction
+// converges on the far side of its cut as well -- more slowly, to a worst relative error of 4e-13
+// down to a `t` of 0.05, which is under every tolerance a sane test carries. It collapses below
+// about 0.02, where the record's own small readings live. The mutation was right that the test was
+// thin and the fix was to ask the function for the arguments it is actually asked for, not to
+// tighten a tolerance toward the noise floor. The table above is the sweep after that.
+//
+// **What no mutation here can reach.** The columns of a probe grid are priced off one rollout and
+// move together, so `1 - (1-p)^arms` is the independent case and an upper bound on the real family
+// rate. Nothing in this file measures that correlation, the function's own comment says so, and a
+// bar that fails the bound may still be sound on a grid whose arms are nearly the same column.
+// The bound is the honest thing to state and it is not the quantity. Nor does anything here reach
+// the choice of `alpha`: 0.05 is a convention this record inherited and no measurement in it argues
+// for that number over any other.
+
+test("the_tail_of_a_t_matches_the_table_every_statistics_text_prints", () => {
+  // df, the one-sided 5 % point, the two-sided 5 % point.
+  const table = [[1, 6.314, 12.706], [7, 1.895, 2.365], [19, 1.729, 2.093],
+    [58, 1.672, 2.002], [120, 1.658, 1.980]];
+  for (const [df, one, two] of table) {
+    const a = familyBar({ t: 0, df, arms: 1 }).threshold;
+    const b = familyBar({ t: 0, df, arms: 1, sided: "two" }).threshold;
+    assert.ok(Math.abs(a - one) < 5e-4, `${df} df read a one-sided 5 % point of ${a}, not ${one}`);
+    assert.ok(Math.abs(b - two) < 5e-4, `${df} df read a two-sided 5 % point of ${b}, not ${two}`);
+  }
+  // The convention is two-sided and `studentTail` is the two-sided one, so the one-sided share is
+  // exactly half of it -- which is the line the whole `sided` argument turns on.
+  assert.ok(Math.abs(studentTail(2, 7) - 0.0856193) < 1e-6,
+    `P(|t| > 2) at 7 df read ${studentTail(2, 7)}`);
+  assert.equal(familyBar({ t: 2, df: 7, arms: 1 }).p * 2,
+    familyBar({ t: 2, df: 7, arms: 1, sided: "two" }).p);
+  // The tail is a probability at every argument, and it is monotone in both of them.
+  for (const df of [1, 7, 19, 58]) {
+    assert.ok(studentTail(0, df) === 1, `a t of zero at ${df} df is not the whole distribution`);
+    assert.ok(studentTail(3, df) < studentTail(2, df));
+  }
+  // The far tail, against the two degrees of freedom whose tails are elementary. This started life
+  // as `studentTail(1e6, df) < 1e-9` at every df and **one degree of freedom failed it**, correctly:
+  // one df is the Cauchy, whose tail at a t of a million is 6.4e-7 and not zero. The reading was
+  // right and the bar was wrong, which is the whole subject of this section. The closed forms are a
+  // stronger check than the inequality that replaced them anyway -- a continued fraction that
+  // converges to a neighbouring quantity matches neither of these to twelve digits.
+  assert.ok(Math.abs(studentTail(1e6, 1) / (2 / (Math.PI * 1e6)) - 1) < 1e-9,
+    `the Cauchy tail at a t of a million read ${studentTail(1e6, 1)}`);
+  // Two df is `1 - t / sqrt(t^2 + 2)`, written here as `2 / (r * (r + t))` with `r = sqrt(t^2 + 2)`,
+  // which is the same number and not the same computation: the subtraction form is two nearly equal
+  // doubles and keeps four digits of a twelve-digit answer, and a check that loose would pass a
+  // fraction that had lost its last eight.
+  const r = Math.sqrt(1e12 + 2);
+  assert.ok(Math.abs(studentTail(1e6, 2) / (2 / (r * (r + 1e6))) - 1) < 1e-9,
+    `the two-df tail at a t of a million read ${studentTail(1e6, 2)}`);
+  for (const df of [7, 19, 58]) {
+    assert.ok(studentTail(1e6, df) < 1e-9, `${df} df kept ${studentTail(1e6, df)} at a t of a million`);
+  }
+  // **The near tail, which is the half of the function every table above missed.** The beta is
+  // computed by a continued fraction that converges only for `x < (a+1)/(a+b+2)` and is reflected to
+  // the other side when it does not; `x = df/(df + t^2)`, so the reflected side is *small* `t` --
+  // which is every arm that does not clear. Forcing the unreflected branch survived the first
+  // mutation sweep of this section untouched, because nothing here had ever asked the function for a
+  // reading under about two. The Cauchy straddles that cut at exactly `t = 1` and has a closed form
+  // on both sides of it, so it pins the branch rather than the answer at one convenient argument.
+  //
+  // **The small arguments here are load-bearing and were chosen by measurement.** Forcing the
+  // unreflected branch and sweeping it against these two closed forms puts its worst relative error
+  // at 4e-13 down to a `t` of 0.05 and 3e-14 from 0.2 up -- it converges on the far side too, just
+  // slowly -- so a sweep stopping at 0.1 could not see it, and the first version of this test did
+  // not. It breaks below about 0.02: at df 2 a `t` of 0.002 reads 0.691 where the answer is 0.9986,
+  // and at df 19 the forced branch is not even monotone across 0.01 -> 0.02. **A `t` of 0.002 is an
+  // ordinary reading in this record** -- it is what an arm with no signal in it looks like, and the
+  // whole point of a bar is that it is asked of those too.
+  for (const t of [0.0005, 0.002, 0.01, 0.02, 0.05, 0.1, 0.3, 0.5, 0.9, 1, 1.1, 1.5, 3, 10]) {
+    const cauchy = 1 - (2 / Math.PI) * Math.atan(t);
+    assert.ok(Math.abs(studentTail(t, 1) / cauchy - 1) < 1e-12,
+      `the Cauchy tail at t ${t} read ${studentTail(t, 1)} against ${cauchy}`);
+    const two = 1 - t / Math.sqrt(t * t + 2);
+    assert.ok(Math.abs(studentTail(t, 2) / two - 1) < 1e-12,
+      `the two-df tail at t ${t} read ${studentTail(t, 2)} against ${two}`);
+  }
+  // And a reading is a probability and falls, at a df with no closed form to check it against. A
+  // branch that returns something else on one side of the cut breaks one of these two.
+  // The ladder is geometric under 0.1 and linear over it, because the place this goes wrong is the
+  // place a linear step of 0.05 steps straight over.
+  const ladder = [0];
+  for (let t = 1e-4; t < 0.1; t *= 1.3) ladder.push(t);
+  for (let t = 0.1; t <= 6; t += 0.05) ladder.push(t);
+  let above = 1;
+  for (const t of ladder) {
+    const here = studentTail(t, 19);
+    assert.ok(here >= 0 && here <= 1, `the tail at t ${t.toFixed(5)} read ${here}, not a probability`);
+    assert.ok(here <= above, `the tail rose from ${above} to ${here} at t ${t.toFixed(5)}`);
+    above = here;
+  }
+});
+
+test("a_bar_asked_of_many_arms_at_once_states_the_rate_a_true_null_passes_it", () => {
+  // The three readings the 2026-09-13 audit was written on, reproduced here so a change to the
+  // arithmetic is a change to the record's own numbers.
+  const o = familyBar({ t: 2, df: 7, arms: 12, sided: "two" });
+  assert.ok(Math.abs(o.p - 0.0856) < 5e-4, `O #5's per-cell P read ${o.p}`);
+  // The null-side reading: `none of twelve clears` is passed by an exactly-zero effect 34 % of
+  // the time, which is the sentence Experiment O's entry is built on.
+  assert.ok(Math.abs((1 - o.family) - 0.342) < 5e-3, `the null passed it ${1 - o.family} of the time`);
+  const r = familyBar({ t: 2, df: 19, arms: 15 });
+  assert.ok(Math.abs(r.family - 0.367) < 5e-3, `R #1's family rate read ${r.family}`);
+  assert.ok(Math.abs(r.threshold - 3.034) < 5e-3, `R #1's corrected threshold read ${r.threshold}`);
+  const k = familyBar({ t: 2, df: 58, arms: 4 });
+  assert.ok(Math.abs(k.threshold - 2.293) < 5e-3, `K #2's corrected threshold read ${k.threshold}`);
+  // `arms: 1` is the ordinary bar and must be exactly it, or every existing reading moves.
+  const lone = familyBar({ t: 2, df: 19, arms: 1 });
+  assert.equal(lone.family, lone.p);
+  assert.ok(Math.abs(lone.threshold - 1.729) < 5e-4);
+  // More arms is a harder bar, always, and the family rate rises with them. Two directions of the
+  // same fact, and a mutation that drops `arms` breaks both.
+  let last = familyBar({ t: 2, df: 19, arms: 1 });
+  for (const arms of [2, 3, 5, 15, 50]) {
+    const here = familyBar({ t: 2, df: 19, arms });
+    assert.ok(here.threshold > last.threshold, `${arms} arms did not raise the threshold`);
+    assert.ok(here.family > last.family, `${arms} arms did not raise the family rate`);
+    assert.equal(here.p, last.p, "the per-arm tail moved with the arm count");
+    last = here;
+  }
+  // The threshold is the `t` at which the family rate *is* alpha, which is the identity that says
+  // the bisection solved the equation it was pointed at rather than a neighbouring one.
+  for (const [df, arms] of [[7, 12], [19, 15], [58, 4]]) {
+    const { threshold } = familyBar({ t: 0, df, arms });
+    const at = familyBar({ t: threshold, df, arms });
+    assert.ok(Math.abs(at.family - FAMILY_ALPHA) < 1e-9,
+      `${arms} arms at ${df} df put the family at ${at.family} rather than ${FAMILY_ALPHA}`);
+  }
+  // `clears` is one-sided by default -- a slope of t -3 is not an arm that went up.
+  assert.equal(familyBar({ t: 3, df: 58, arms: 8 }).clears, true);
+  assert.equal(familyBar({ t: -3, df: 58, arms: 8 }).clears, false);
+  assert.equal(familyBar({ t: -3, df: 58, arms: 8, sided: "two" }).clears, true);
+});
+
+test("a_bar_refuses_the_readings_it_cannot_be_stated_on_rather_than_pricing_them", () => {
+  // A NaN `t` is exactly what a column of one sample now produces, `semOf` having been fixed the
+  // same day to answer NaN rather than zero. A bar handed one must say so and not compare it.
+  assert.throws(() => familyBar({ t: NaN, df: 19 }), /not a reading/);
+  assert.throws(() => familyBar({ t: Infinity, df: 19 }), /not a reading/);
+  assert.throws(() => familyBar({ t: 2, df: 0 }), /not an interval/);
+  assert.throws(() => familyBar({ t: 2, df: NaN }), /not an interval/);
+  assert.throws(() => familyBar({ t: 2, df: 19, arms: 0 }), /cannot count/);
+  assert.throws(() => familyBar({ t: 2, df: 19, arms: 1.5 }), /cannot count/);
+  assert.throws(() => familyBar({ t: 2, df: 19, alpha: 0 }), /is not one/);
+  assert.throws(() => familyBar({ t: 2, df: 19, alpha: 1 }), /is not one/);
+  assert.throws(() => familyBar({ t: 2, df: 19, sided: "both" }), /is neither/);
+  // One degree of freedom is a real interval and is not refused -- two iterations is the fewest
+  // this record ever reads a bar off and the refusal must not reach it.
+  assert.equal(Number.isFinite(familyBar({ t: 2, df: 1 }).threshold), true);
 });

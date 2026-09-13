@@ -27397,3 +27397,109 @@ twice: **an audit finds the defect it has just been taught to look for.** This o
 single missed prediction three hours ago. Four shapes were looked for and four were found; the
 shapes nobody has been taught yet are still in these ten files, and the only reason to believe
 otherwise would be that the last two audits ended differently, which they did not.
+
+## The bar itself -- 2026-09-13: the arithmetic that found four defects, put where the next bar can reach it
+
+The audit above was done in a throwaway `node -e` on the night Experiment O's prediction 5 was
+missed. That is precisely where `K / (norm^2 - dot)` lived before `floorConvention` came into this
+tree, and it failed the same way: **an arithmetic nobody can call is an arithmetic the next bar is
+written without.** Seventeen pre-registrations were written in this record before anything in it
+could state the rate a true null passes a conjunction, and four of them are wrong for that reason.
+
+So `familyBar` is now in `scripts/gradient-probe.mjs`, beside `floorConvention` and
+`probeIterations`, with `studentTail` and a regularised incomplete beta under it. It answers three
+things about a reading and refuses the readings it cannot answer them about:
+
+| field | what it is | which side of a bar wants it |
+|---|---|---|
+| `p` | `P(T > t)` at `df`, one-sided by default | a single named column |
+| `family` | `1 - (1 - p)^arms`, the chance **at least one** of `arms` columns reads this far out | an *existence* bar over a grid |
+| `threshold` | the `t` holding `family` at `alpha`, by bisection on the tail | what an existence bar should be written with instead of two |
+| `clears` | the reading against `threshold`, not against two | the verdict |
+
+**A null-side bar reads `1 - family` and not `threshold`.** *None of `arms` clears `t`* is passed by
+an exactly-zero effect with probability `1 - family`, and that is the 34 % that made Experiment O's
+prediction 5 a bar rather than a test of one. The two questions want different numbers off the same
+function, and writing them both down was most of the point of writing it.
+
+It reproduces the audit's published numbers exactly rather than approximately -- O #5's family
+0.658, R #1's 0.367 and its corrected threshold 3.034, K #2's 2.293, Q #1's 0.016 -- which is the
+check that the section above and the function below are the same arithmetic and not two.
+
+### What the mutation sweep found, including the one that survived
+
+Seven mutations, each applied alone to `scripts/gradient-probe.mjs` and restored, against the
+three tests the section carries. Baseline green, and six went red where the table said they would.
+
+**The seventh survived, and it was the one worth the sweep.** The incomplete beta is a continued
+fraction that converges only for `x < (a+1)/(a+b+2)`, reflected to the other side when it does not,
+and `x = df / (df + t^2)` -- so **the reflected side is small `t`, which is every arm that does not
+clear.** Forcing the unreflected branch changed nothing any test in the section could see. It was
+not that the mutation was harmless: it was that nothing there had ever asked the function for a
+reading under about two, because every argument in a t-table is a 5 % point.
+
+Measured, forcing the branch and sweeping against the two degrees of freedom with closed-form
+tails:
+
+| `t` | df 1 forced | df 1 exact | df 2 forced | df 2 exact |
+|---|---|---|---|---|
+| 0.0005 | 0.2921 | 0.9997 | 0.2097 | 0.9996 |
+| 0.002 | 0.8339 | 0.9987 | 0.6911 | 0.9986 |
+| 0.01 | 0.993622 | 0.993634 | 0.99253 | 0.99293 |
+| 0.02 | 0.98726930173 | 0.98726930180 | 0.9858592000 | 0.9858592784 |
+| 0.05 | agree to 3e-13 | | agree to 4e-13 | |
+| 0.2 and up | agree to 3e-14 | | agree to 5e-14 | |
+
+The fraction converges on the far side as well, just slowly, to a worst relative error of **4e-13
+down to a `t` of 0.05**, and 5e-14 from 0.2 up -- under any tolerance a sane test carries. It
+collapses below about 0.02, and at df 19 the forced branch is not even monotone across
+0.01 -> 0.02.
+
+The fix was to ask the function for the arguments it is actually asked for, and **not** to tighten a
+tolerance toward the noise floor, which would have caught the mutation by making the test
+platform-dependent. A `t` of 0.002 is an ordinary reading here: it is what an arm with no signal in
+it looks like, and the entire purpose of a bar is that it is asked of those too. The tail is now
+pinned against the Cauchy and the two-df closed form at fourteen arguments from 0.0005 to 10, on
+both sides of the cut, plus a monotone ladder that is geometric under 0.1 because a linear step of
+0.05 walks straight over the place this goes wrong.
+
+Two smaller corrections came out of the same run, both of them the test being wrong rather than the
+code:
+
+- `studentTail(1e6, df) < 1e-9` at every df **failed at one degree of freedom, correctly.** One df
+  is the Cauchy, whose tail at a `t` of a million is 6.4e-7 and not zero. Heavy tails are the whole
+  reason a t is not a z, and a test that asserted otherwise had it backwards. Replaced with the
+  closed form, which agrees to twelve digits and is a stronger check than the inequality was.
+- The two-df closed form `1 - t / sqrt(t^2 + 2)` at a `t` of a million is two nearly equal doubles
+  and keeps four digits of a twelve-digit answer. Written as `2 / (r (r + t))` with `r = sqrt(t^2 +
+  2)` it is the same number and not the same computation, and the check holds to 1e-9 rather than
+  needing to be loosened to 1e-4 to pass. A tolerance loosened to accommodate a badly-conditioned
+  reference is a tolerance that no longer checks the thing under test.
+
+And one in the function. `1 - (1 - p) ** 1` does not round-trip to `p`: at `t` 2 and 19 df it reads
+0.03000101819304901 against 0.030001018193048984. **A one-armed bar is every ordinary reading in
+this record**, so `familyBar` returns `p` there by name rather than computing it -- a family rate
+disagreeing with its own `p` in the sixteenth digit is a difference nobody could act on and
+everybody would have to explain.
+
+### What this cannot do, which is not small
+
+**The columns of a probe grid are priced off one rollout and are correlated, sometimes strongly.**
+`1 - (1 - p)^arms` is the independent case, so it is an upper bound on the family rate rather than
+the family rate. That is how it is quoted: a bar that survives the bound survives the correlation
+too, and a bar that fails it may still be sound on a grid whose arms move together. Nothing in the
+function estimates that correlation and nothing in the record should be read as having done so.
+Which of the four corrected bars above are genuinely too weak and which are only too weak against an
+independence that does not hold is **not decided here**, and the logs those bars will be scored on
+are the things that could decide it.
+
+Nor does anything here reach `alpha`. 0.05 is a convention this record inherited, and no measurement
+in it argues for that number over any other.
+
+`arms` is also a property of the sentence and not of the log: a bar on one named column is `arms: 1`
+however many columns the file carries, and a bar phrased *at least one of these* is `arms: k`. The
+function cannot check that the caller counted the right thing, which is the same class of gap as the
+reader that fills a missing field with a default -- **the count is exactly the part a wrong bar gets
+wrong**, and it is an argument with no default beyond one precisely so that it has to be typed.
+
+Tests: 1065 -> 1068, all green; tsc clean; build clean.
