@@ -29410,3 +29410,209 @@ would be**, and the two silent alternatives are both worse than saying so -- int
 measurement, and dropping the rung renumbers the ladder the ranking is read off. A rung is written
 `-` now and the line says `the probe never priced swing-tenth, so this is a ranking over 3 of the 4
 rungs`. Everything else in barfit is byte-identical.
+
+## Experiment R, complete -- 2026-09-13: the sixteen tables do not all point one way, and the ceiling the pre-registration named was the wrong ceiling
+
+`graddir-idle-128.jsonl` closed at twenty iterations and was read with dirfit.mjs, armed before
+the log existed and patched twice while reading it -- both patches recorded below, both additive,
+both verified against a before-image on this very log.
+
+### The four verdicts
+
+| # | as registered | verdict |
+| --- | --- | --- |
+| 1 | at least one arm other than `shipped` has a mean `gap` below zero at two sigma | **met as registered** (four arms) -- **not met** at the family-wise threshold, and **met** at that threshold on the amended statistic below |
+| 2 | every arm's whole-against-whole `cosine` is above 0.5 | **missed** -- three arms read 0.31 to 0.41 |
+| 3 | the rank correlation of an arm's own cosine against its `gap` is above -0.5 | **met** at +0.571, and met at -0.441 on the amended statistic |
+| 4 | `shipped` reads a mean `gap` of exactly zero and a mean `cosine` of exactly one on all twenty | **missed as written** by one ulp on the cosine; **met in substance** -- the gap is exactly zero on all twenty |
+| -- | the falsifier: every arm's `gap` inside two sigma of zero | **does not fire** |
+
+### The table
+
+The row's own half-to-half cosine is **0.0973 +-0.0210 at t 4.64**, so the cell is readable and
+the gaps below are differences from a direction rather than from a noise draw. That was the whole
+reason this was registered at the idle cell and it held.
+
+| arm | own cosine | whole against whole | crossed | `gap` | sem | t |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `shipped` | 0.0973 | 1.0000 | 0.0973 | 0.0000 | 0.0000 | -- |
+| `no-shaping` | 0.0965 | 0.9994 | 0.0968 | -0.0005 | 0.0004 | -1.32 |
+| `no-win` | 0.0804 | 0.7911 | 0.0690 | -0.0283 | 0.0115 | **-2.46** |
+| `damage-only` | 0.0785 | 0.7896 | 0.0682 | -0.0291 | 0.0114 | **-2.54** |
+| `win-heavy` | 0.0943 | 0.6943 | 0.0749 | -0.0224 | 0.0108 | **-2.07** |
+| `tick` | 0.0973 | 1.0000 | 0.0973 | 0.0000 | 0.0000 | 0.20 |
+| `closing` | 0.0978 | 1.0000 | 0.0976 | +0.0002 | 0.0000 | **5.80** |
+| `outside` | 0.1112 | 0.9971 | 0.1035 | +0.0062 | 0.0015 | **4.20** |
+| `swing` | 0.1014 | 0.9971 | 0.0988 | +0.0014 | 0.0009 | 1.64 |
+| `stall` | 0.2131 | 0.5075 | 0.0705 | -0.0269 | 0.0155 | -1.73 |
+| `engage` | 0.1117 | 0.9971 | 0.1038 | +0.0064 | 0.0015 | **4.31** |
+| `tick-loud` | 0.0975 | 0.9995 | 0.0974 | 0.0000 | 0.0005 | 0.10 |
+| `closing-loud` | 0.1374 | 0.9844 | 0.1120 | +0.0146 | 0.0027 | **5.43** |
+| `outside-loud` | 0.3258 | 0.4031 | 0.1192 | +0.0218 | 0.0261 | 0.84 |
+| `swing-loud` | 0.2313 | 0.3086 | 0.0540 | -0.0433 | 0.0174 | **-2.49** |
+| `engage-loud` | 0.3372 | 0.4066 | 0.1226 | +0.0252 | 0.0260 | 0.97 |
+
+**The inflation the instrument was built to avoid is 0.6993.** Mean whole-against-whole less mean
+crossed, over the fifteen arms that are not the identity. The pre-registration argued from a
+no-signal fixture that an objective and its own negation read half a cosine of agreement when both
+are taken over one draw; on a real cell the same shared draw is worth seven tenths of a cosine. A
+table of sixteen whole-against-whole numbers would have looked like sixteen tables agreeing and
+would have been a table of one rollout agreeing with itself.
+
+### Prediction 1 at two sigma, and why two sigma is not the bar it looks like
+
+Four arms below zero at two sigma -- `no-win` -2.46, `damage-only` -2.54, `win-heavy` -2.07,
+`swing-loud` -2.49. **Fifteen arms asked for two sigma at once is passed by an exactly-zero effect
+37 % of the time**, and the family-wise 5 % threshold on 19 df is t **3.03**. None of the four
+clears it. On the statistic as registered, prediction 1 is met as written and the corrected
+reading is that nothing in the table is distinguishable from the same number of arms of noise.
+
+That correction is the one the 2026-09-13 prediction audit found in four open pre-registrations,
+of which this was one, and it is applied here without an argument for an exception.
+
+### A family-wise threshold on `t` alone selects for precision and not for size
+
+The re-run surfaced this and it is the methodological finding of the experiment. Four readings do
+clear t 3.03 -- and **all four are positive**, which the registration's ceiling argument says is a
+place an arm cannot be:
+
+| arm | `gap` | t | as a share of the row's own cosine |
+| --- | ---: | ---: | ---: |
+| `closing` | +0.0002 | 5.80 | 0.2 % |
+| `outside` | +0.0062 | 4.20 | 6.4 % |
+| `engage` | +0.0064 | 4.31 | 6.6 % |
+| `closing-loud` | +0.0146 | 5.43 | 15.0 % |
+
+Meanwhile the four largest negative gaps -- -0.0224 to -0.0433, which is **23 % to 44 %** of the
+row's own cosine -- sit at t between -2.07 and -2.54 and clear nothing. **The threshold ranked a
+0.2 % effect above a 44 % one**, because an arm whose table barely differs from the row's crosses
+at almost the row's own cosine on every iteration, so its gap is tiny and its
+iteration-to-iteration spread is tinier. The reader now prints every clearing arm's gap as a share
+of the row's own cosine beside its t, and the rule goes beside the null-side rule: *a t is a
+statement about precision, and a bar stated on t alone will pick the most reproducible arm whether
+or not anything is there.*
+
+### The ceiling the pre-registration named was the wrong ceiling
+
+Four arms above a ceiling is not four unlucky draws, and chasing it is what the extra hour bought.
+The registration argued that an arm cannot cross with the row better than the row crosses with
+itself, so a positive `gap` is noise. **The argument is wrong, and it is wrong in exactly the way
+the classical attenuation bound is wrong when it is quoted with one reliability instead of two.**
+Both `crossFirst` and `crossSecond` are cosines between two *noisy* half-gradients -- one the
+arm's, one the row's -- and the expected cosine between two noisy estimates of directions that are
+truly identical is the geometric mean of the two reliabilities, `sqrt(rA * rR)`, not `rR`. An arm
+whose own gradient is better determined than the row's crosses **above** the row's own cosine
+while agreeing with it perfectly.
+
+The four arms above the threshold are exactly the four whose own cosine exceeds the row's:
+`closing` 0.0978, `outside` 0.1112, `engage` 0.1117, `closing-loud` 0.1374, against the row's
+0.0973. Nothing about them is noise, and the row of the table that called them noise was a reading
+the registration wrote before it had the arithmetic.
+
+**So the amended statistic is the crossed cosine divided by `sqrt(own * row)`, per iteration,
+meaned, with the null at one.** It is printed beside `gap` and does not replace it -- `gap` is
+what was registered and `gap` is what is scored above. At the same family-wise threshold of 3.03:
+
+| arm | agreement | sem | t below one |
+| --- | ---: | ---: | ---: |
+| `swing-loud` | 0.2933 | 0.1180 | **-5.99** |
+| `no-shaping` | 0.9990 | 0.0003 | **-3.76** |
+| `swing` | 0.9951 | 0.0013 | **-3.72** |
+| `outside-loud` | 0.7378 | 0.0810 | **-3.24** |
+| `engage-loud` | 0.7399 | 0.0810 | **-3.21** |
+
+**Five arms of fifteen cross with the row worse than two estimates of one direction can, at the
+family-wise threshold, and no arm is above one at that threshold.** The second half of that
+sentence is the check on the amendment: the corrected ceiling is not crossed where the registered
+one was crossed four times, which is what a correct ceiling looks like and what the registered one
+failed.
+
+**Prediction 1's existence claim therefore survives the family-wise correction on the amended
+statistic, and the falsifier does not fire on either.** `swing-loud` crosses at 0.29 of the
+ceiling two estimates of one direction would reach: **the sixteen tables do not all point one
+way.** E's headline -- *the reward table is not why the bar does not move* -- is a statement about
+how sharply the fit is pointed and cannot be read as one about where.
+
+And the precision-not-size caution applies to the amended table too and is not smoothed away:
+`no-shaping` at 0.9990 and `swing` at 0.9951 clear the threshold at an effect of one part in a
+thousand and five in a thousand. The three that are both precise and large are `swing-loud`,
+`outside-loud` and `engage-loud` -- all three of them **loud** arms, which is the one pattern in
+the table a next experiment could be built on.
+
+### Prediction 3, which was stated to embarrass me, reads differently on the two statistics
+
+Registered: the Spearman of each arm's own cosine against its `gap` is **+0.571**, comfortably
+above the -0.5 line, so `gap` is not determinacy under a new name. On the amended statistic the
+same correlation is **-0.441** -- still above the bar, and only just. The amendment divides by the
+arm's own cosine, so some of what it measures is bound to be that cosine; the honest reading is
+that the amended agreement is *partly* determinacy under a new name and that a rank correlation of
+-0.44 leaves most of its spread unexplained by it. Prediction 3 is met on both and the margin on
+the amended one is thin enough to print.
+
+### Prediction 4 missed by one unit in the last place
+
+`cos(v, v)` is not exactly one and no arrangement of the code makes it so. The cosine is
+`dot / (|a| * |b|)`, and for the identity arm that is `S / (sqrt(S) * sqrt(S))` with `S` the same
+sum twice: `sqrt` is correctly rounded, its square is not, and the quotient lands within a couple
+of units in the last place of one. Measured: the gap is **exactly zero on all twenty** iterations,
+and the cosine is one on fifteen and one ulp below one on five.
+
+So the identity holds where the claim is -- the arms were priced off the row they sit in -- and
+the sentence as written is missed. The reader now tests each half at the exactness that half has,
+with the tolerance named in ulps and the worst deviation printed, so a reading of one part in
+4.5e15 is never confused with the last-bit disagreement this reader's own smoke found in
+`cosineOf` earlier today, which was three parts in a hundred quadrillion and had a cause. The
+registered sentence is still scored as written on its own line.
+
+**An identity stated on a computed cosine wants its tolerance in ulps.** That is registered as an
+amendment rather than edited into the prediction, and it joins the two rules this record already
+holds about what a guard can and cannot enforce: *a reader that fills a missing field with a
+default cannot refuse the log that is missing it*, and *an exactness test applied to a computed
+floating-point quantity is not an identity check.*
+
+### Prediction 2 missed, and it makes the instrument more necessary rather than less
+
+Three arms read at or below 0.5 whole-against-whole: `outside-loud` 0.4031, `swing-loud` 0.3086,
+`engage-loud` 0.4066. The registration predicted every arm above 0.5 on the argument that no arm
+in this grid negates a coefficient and the cell's rollout carries signal where the fixture's did
+not, and it stated in advance that a real arm under 0.5 would mean the instrument was more
+necessary, not less. That is what happened, and the three arms are the same three the amended
+statistic finds large and precise. A reader looking only at the naive column would have seen three
+arms it could not interpret and twelve reassuring ones; the crossed column says which of the
+twelve were reassuring because they agree and which because they were read off one draw.
+
+### The null side
+
+The smallest `gap` an arm here would have caught four times in five at the family-wise threshold
+ranges from **2.63e-5** (`tick`) to **1.01e-1** (`outside-loud`) -- a four-thousand-fold spread
+across the table, which is the precision-not-size finding stated as a resolution rather than as a
+ranking. The arms whose gaps are large are the arms whose resolution is poor, and that is a
+property of the grid: an arm that changes the table a lot produces a gradient that moves a lot
+between iterations.
+
+### The two patches to the reader, and what they did not touch
+
+Both were taken while reading this log and both are additive. dirfit.pre-ulp.mjs and
+dirfit.pre-ceiling.mjs are the before-images; the current reader's output on this log is identical
+to the earlier one line for line apart from the lines the patches add, and the four refusals still
+fire on the four fixtures they were written against -- an arm with no `--direction` block, an arm
+list that moves between iterations, two arms answering to one label, and a log too short to read.
+No number above changed because of a patch; the ulp patch changed a verdict about a number that
+did not change, and the ceiling patch added a statistic beside one that did not change.
+
+### What this does not license
+
+**It is one cell and one checkpoint**, as registered: the idle bracket's iteration 30, held,
+against `idle`, at 128 bouts. Sixteen tables disagreeing here does not say they disagree at
+iteration 300, at another opponent, or at a policy that has learned something -- and the cell was
+forced by the readability constraint, because against `golem-fencer` the row's own cosine is a few
+hundredths of either sign and there is no direction for an arm to agree or disagree with.
+
+**A gap is not a direction of travel.** `swing-loud` crossing at 0.29 says its gradient is much
+less aligned with the row's than two halves of the row are with each other. It does not say where
+it points instead, and naming the subspace an arm pulls toward is a different instrument that is
+still not proposed.
+
+**And no fit changes and nothing ships.** No table is adopted or rejected by this. What it changes
+is what Experiments E, G and N are read as having established, which is the whole of why it was
+worth seventy-five minutes.
