@@ -23291,3 +23291,125 @@ coefficients was ever going to be.
 does not clear the shipped arm's bouts-for-cosine-0.5 by a factor of two against `golem-fencer`,
 then the reward table is eliminated as the explanation and so is reward sparsity, and the remaining
 suspects are the behaviour policy and the estimator itself.
+
+## Pre-registration -- 2026-09-13: a gate read once instead of seven times, written before the bouts
+
+Three suspects were named for an actor gradient that no cell in this record can distinguish from
+zero: the opponent, the reward table, and the behaviour policy. The bracket answered the first and
+the grid above is answering the second. This is the third, and it is the last suspect that has a
+name. **It is also the first of these experiments that is not free.** A reward coefficient and a
+credit horizon are read after a collection and change no body's action, so eleven tables cost one
+collection; the abort row changes what the body *does*, and its cells have to be collected.
+
+### The cheap fact that sharpened it, measured before this design and disclosed as a peek
+
+Every gradient row in this record is measured at `pool-30.json` of one of the two brackets, read
+**drawn**, because that is the policy a fit would be improving. Nobody had asked what that policy
+does with a stroke. It is two minutes of bouts to ask.
+
+**Harness:** a scratch script, not in the tree: the checkpoint's `weights` and `logSigma` through
+`policyTable` with its own `norm`, `golemPolicy` at that table, six 30-second bouts a cell against
+the arm's own opponent at seeds 20260906 + {0, 101, ..., 505}, default golem bodies both sides.
+**Instrument:** `strokes` and `aborts` off the executor handle, which is what
+`the_latch_turns_one_completed_stroke_in_ten_into_two_in_three_at_the_drawn_read` reads, run at the
+checkpoints instead of at the shipped table.
+
+| weights | read | row | strokes | aborted | completion | abort raised, per ask |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| shipped | greedy | held | 322 | 193 | 0.4006 | 0.5244 |
+| shipped | greedy | latched | 326 | 183 | 0.4387 | 0.4750 |
+| shipped | drawn | held | 420 | 381 | 0.0929 | 0.4355 |
+| shipped | drawn | latched | 200 | 73 | **0.6350** | 0.3491 |
+| `bracket-fencer` pool-30 | greedy | held | 14 | 14 | 0.0000 | 0.9157 |
+| `bracket-fencer` pool-30 | greedy | latched | 14 | 14 | 0.0000 | 0.9157 |
+| `bracket-fencer` pool-30 | drawn | held | 516 | 515 | **0.0019** | 0.5566 |
+| `bracket-fencer` pool-30 | drawn | latched | 251 | 151 | **0.3984** | 0.5437 |
+| `bracket-idle` pool-30 | greedy | held | 12 | 12 | 0.0000 | 1.0000 |
+| `bracket-idle` pool-30 | greedy | latched | 12 | 12 | 0.0000 | 1.0000 |
+| `bracket-idle` pool-30 | drawn | held | 539 | 534 | **0.0093** | 0.5009 |
+| `bracket-idle` pool-30 | drawn | latched | 234 | 128 | **0.4530** | 0.4844 |
+
+**The policy every gradient in this record is measured on completes one stroke in five hundred.**
+Not one in ten, which is what the shipped table does and what Session 04 of the signal set measured
+on six hundred bouts; one in 516 against `golem-fencer` and one in 108 against `idle`. The two
+bracket checkpoints are a long way past the shipped table in this respect and nobody had looked.
+
+**And the two reads are not two settings of one policy, they are two policies.** At both checkpoints
+the abort gate is raised at the greedy read on **92 % and 100 %** of asks, so the greedy mind starts
+a dozen strokes in half a minute and finishes none of them -- the latch cannot save a stroke whose
+starting ask already says abort. At the drawn read the same head raises the gate on **0.50 and
+0.56** of asks. A mean just above the knife edge and a spread that straddles it is precisely the shape the
+learn set's diagnosis predicted from `entropyGrad`, which adds `-logit * p * (1 - p)` per gate per
+sample and pulls every gate toward a coin flip.
+
+**The exponent is measured rather than assumed.** Under the latch the gate is read once, so the
+latched completion is the gate's own rate on the starting ask and the held completion is that rate
+compounded over the asks a stroke spans. `ln(held) / ln(latched)` is **6.79** at the fencer arm and
+**5.91** at the idle arm, against the five-to-eight asks the executor's own clock says a stroke
+lasts. The compounding account of the abort rate is now a fitted exponent at the exact weights the
+gradient rows are taken at, and it lands inside the band the clock predicts.
+
+### The hypothesis, stated so that it can be wrong
+
+A score function points somewhere only if the action taken depends on the observation. At these
+checkpoints a stroke is the product of six or seven near-coin-flips, so **what the body does is
+mostly what the dice did**, and a gradient averaged over such a policy has almost no consistent
+direction -- which is `|S|^2` indistinguishable from zero, which is what eight cells measure.
+`latchAbort` turns the product into a single draw. If the hypothesis is right, the same bouts buy a
+gradient; if it is wrong, the gate was never the reason and the estimator itself is the last
+suspect standing.
+
+### The cells, and the control that is already on disk
+
+**Harness:** `scripts/gradient-probe.mjs --from <arm>/pool-30.json --hold --tactics latchAbort=true`
+at 128 bouts, 20 iterations, fit seed 20260917, the maul-and-mace viable pool, mirrored bodies,
+`--shards 4`, 14 collectors a process, the two bracket checkpoints -- every flag the held row at 128
+bouts was run under, with one row of the executor's table flipped. Written to the gradlatch files
+under tournaments, gitignored so named bare. **Instrument:** the half-split cosine by ask, and the
+per-bout noise constant `K` from `(norm^2 - dot) * n`, both as the rows above take them.
+
+**The unlatched control is the bout-split row's own 128-bout cells**, which carry identical flags
+and the same seed and the same checkpoints, and whose `--bout-split` consumed no randomness -- the
+entry above confirmed that prediction exactly, across all one hundred and sixty pairs. No bouts are
+re-run to produce a control that is already measured. What the two cells differ in is one boolean.
+
+**The arms ride along, because they are free.** Each latched cell is priced under the same sixteen
+reward arms the grid above uses, at no extra bouts. That asks the grid's question a second time
+under a policy that finishes two strokes in five instead of one in five hundred, which is the one
+condition under which a reward for hitting something could possibly be reachable.
+
+### The predictions
+
+**1.** The latched collections differ from the control's: asks a bout fall by at least 5 %, because
+a stroke that finishes occupies the arm and a bout that lands strokes ends sooner. Seen at eight
+bouts in the smoke test that checked the flag reaches the worker -- 5,424 asks against 6,390, a fall
+of 15 % -- and disclosed here as the peek it is.
+
+**2. The headline, and the falsifier.** Against `golem-fencer` the latched cell's bouts for a cosine
+of one half is **at least two times lower** than the control's. If it is not, the behaviour policy's
+gate noise is eliminated as the explanation for thirteen sessions of flat curves, and -- with the
+reward table eliminated by the grid above if its loud arms also fail -- the remaining suspect is the
+estimator and the task, neither of which has a row to flip.
+
+**3.** The critic's budget moves by less than a factor of two in either direction. The entry above
+measured that the critic's per-ask noise is the return, a bout-level quantity, and the latch does
+not change what a bout is worth; a critic that moved as much as the actor would mean the row is
+changing the difficulty of the task rather than the determinacy of the action.
+
+**4.** The re-pricing identity holds under a different behaviour policy too: the `shipped` arm's
+cosine, dot, `advantageSd` and critic cosine are each cell's own, exactly.
+
+**5.** Weakly, and stated so it can embarrass me: `outside-loud` -- a dense per-ask charge that
+needs no stroke to land -- gains **less** from the latch than the win term does, because the latch
+buys credit assignment through a stroke and `outside` never needed any.
+
+### What this cannot answer, and what it does not license
+
+The latched policy is a different policy, so a change in `|S|^2` is not a statement about one
+objective measured twice. That is why every comparison here is stated in **bouts for a cosine of one
+half**, which is `K / |S|^2` and is invariant to any common rescaling of the score function -- a
+change in the drawn policy's spread would move both terms and neither ratio.
+
+**Nothing ships and no default moves.** `latchAbort` stays off, as the signal set froze it. This
+measures whether a fit under the latch would have a gradient to follow; running that fit is the next
+experiment, and this is the one that prices it.
