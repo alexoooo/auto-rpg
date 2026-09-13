@@ -23098,3 +23098,137 @@ bouts may be quoted. What it buys is whether one line of the held row above need
 > was seen and is stated in the direction it points -- so it is a hypothesis this smoke suggested
 > and not a confirmation of one, and the eight cells below are what decides it. The log was
 > deleted; it is recorded here because it was seen.
+
+## Pre-registration -- 2026-09-12: eleven reward tables over one set of bouts, and the row that acts
+
+Every experiment in this record so far has cut one gradient different ways. This one changes the
+gradient, and it is still one set of bouts. **A reward coefficient does not change how a held policy
+acts**, so the bouts a run under one table would have fought are the bouts a run under any other
+table already fought -- and since the learn set's Session 06 `mergeRollouts` has kept every quantity
+a coefficient multiplies. The commit above turns that sentence into an instrument. Eleven tables now
+cost one collection between them, paired to the ask, and the axis that used to be a night an arm is
+a few seconds an arm. Nothing below is a result.
+
+**The question.** The held row put the squared length of the actor's gradient against
+`golem-fencer` at 2.688e-3 +-2.119e-3, which is not distinguishable from zero over eighty
+collections, and Experiment C removed the pool from the list of explanations. Two suspects are
+left and this addresses the first of them: **is it the reward table?** Said precisely enough to
+fail: *is there a table, among the ones this arena can express, under which the same bouts hand the
+optimiser a gradient with a length the same bouts can measure?*
+
+**The instrument.** `scripts/gradient-probe.mjs --rewards <file> --hold`, which prices one
+collection under each named table, re-runs the advantage estimate and the standardisation off each,
+and reports each arm's half-split cosine beside the row's own. The arms share the observations, the
+draws, the log-probabilities, the episode boundaries and the shuffled order **as the same objects**,
+so an arm differs from another by its coefficients and by nothing whatever else.
+
+### The magnitudes, and the calibration that fixed them, disclosed because it ran first
+
+Four rows of the table are exactly zero today and a sweep has to put *something* in them. Picking
+by taste would make the result a statement about the taste. So the magnitudes come from one
+measurement, taken before the design was fixed and reported here as data: **two iterations of 32
+bouts at the held `golem-fencer` checkpoint, priced under a table with every shaping row at one**,
+which reads each quantity's total directly.
+
+| row | total over 31,813 asks of 64 bouts | a bout's worth | the coefficient that charges what `idle` charges today |
+| --- | --- | --- | --- |
+| `clinch` | 180.06 s | 2.81 s | shipped at 0.004 |
+| `idle` | 85.16 m | 1.33 m | shipped at 0.004 |
+| `tick` | 2,073.28 s | 32.4 s | 1.64e-4 |
+| `closing` | 553.15 m | 8.64 m | 6.16e-4 |
+| `outside` | 18.51 s | 0.29 s | 1.84e-2 |
+| `swing` | 15 strokes | 0.23 | 2.27e-2 |
+| `stall` | 0.571 s | 0.009 s | 5.97e-1 |
+
+**Each swept row is set to charge, over a collection, exactly what `idle` charges over the same
+collection today.** That is not a neutral unit and there is no neutral unit; it is a *stated* one,
+and it is the right reference because `idle` is the row the record blames. An arm is therefore
+readable as "as big as the thing the league table says is dominating".
+
+**Two of those rows are worth reading before any gradient is taken, and they are not what the record
+expected.** `stall` is 0.571 seconds across sixty-four bouts -- nine milliseconds a bout, which is
+not a behaviour. `outside` is 0.29 s a bout against a mind that closes, where Session 11's
+*mirrored* league grew it to 9.16 s. Both are swept anyway and the `stall` arm is expected to charge
+nothing; it is in the grid so that the record can say so with a number rather than by argument,
+which is what the per-row shaping share on every arm is for.
+
+**And it names a confound in the record's own reasoning, which is mine.** The learn set's finding
+that *in a mirrored bout the only reward with a non-zero mean pays for standing still* is an
+argument about **self-play**: it is the two corners' `dealt - taken` telescoping and their win terms
+cancelling that leaves only the shaping. Neither arm of this record is self-play. Against
+`golem-fencer` and against `idle` the opponent is a different mind, nothing telescopes, and the win
+term is 0.5 against a whole collection's shaping of about 0.016 a bout. So the degeneracy argument
+**does not transfer to the arm the criterion is stated on**, and this grid is not a test of it. That
+is worth writing down before the numbers arrive, because it is the reading a positive result here
+would otherwise be given.
+
+### The grid
+
+| axis | values |
+| --- | --- |
+| `--opponent` | `idle` from bracket-idle pool-30, `golem-fencer` from bracket-fencer pool-30 |
+| `--bouts` | 128 |
+
+Two cells, 20 iterations each, fit seed 20260917, the maul-and-mace viable pool, mirrored bodies,
+`--shards 4`, 14 collectors a process, held throughout. **One bout count and not four**, which is
+the opposite choice from the last three grids and is the right one here: the sample-size axis is
+answered -- the held row fitted `c/(1-c) = k*n` at four sizes twice -- so every arm can be quoted in
+bouts off one cell, and the budget the grid buys back goes into arms instead. 128 is the middle of
+the measured row, high enough that the `idle` arm's cosine is around 0.1 and a ratio between two
+arms is readable.
+
+| arm | what it changes from the shipped table | what it asks |
+| --- | --- | --- |
+| `shipped` | nothing; every coefficient named to its shipped value | the identity check |
+| `no-shaping` | `clinch` 0, `idle` 0 | is the stand-still charge blunting the gradient |
+| `no-win` | `win` 0 | how much of the signal is the one terminal number |
+| `damage-only` | `win` 0, `clinch` 0, `idle` 0 | the bar margin alone, which is what the tournament scores |
+| `win-heavy` | `win` 5.0 | does a louder terminal signal carry further back |
+| `tick` | `tick` 1.64e-4 | a cost of time |
+| `closing` | `closing` 6.16e-4 | a credit for closing the distance |
+| `outside` | `outside` 1.84e-2 | a charge for standing off |
+| `swing` | `swing` 2.27e-2 | a charge for a stroke that lands nothing |
+| `stall` | `stall` 5.97e-1 | a charge for stalling, on a quantity that barely occurs |
+| `engage` | `tick`, `closing`, `outside` together at the three magnitudes above | the arm that would actually be adopted |
+
+`dealt - taken` has no coefficient and is in every arm; it is the bar margin and the arena does not
+offer to turn it off.
+
+### The statistic, which is the one this record has learned to state
+
+Each arm's mean cosine over 20 iterations with the standard error over iterations, and then the
+**bouts for a cosine of one half, `K / |S|^2`**, which is the only quantity comparable across arms.
+A difference of two cosines is not, and this record has paid for that three times. An arm whose
+`|S|^2` interval covers zero gets a floor and no ceiling, exactly as the held row's `golem-fencer`
+cell does.
+
+### The prediction, stated before the data
+
+1. **The `shipped` arm reproduces the row's own cosine exactly, iteration by iteration, digit for
+   digit.** Not close: identical. It is the same rollout under the same coefficients, re-priced
+   through a second code path, and the identity is what the other ten arms' readability rests on.
+   Anything else means the pricing path and the collection path disagree and nothing below is worth
+   reading. The unit test asserts this on a fixture; this asserts it on bouts.
+2. **Against `golem-fencer`, no arm's `|S|^2` clears zero at two sigma.** That is the pessimistic
+   prediction and it is the one the calibration above supports: the whole shaping charge is about
+   three per cent of what a bout pays, the win term is not in dispute in nine of the eleven arms,
+   and a gradient that is absent under one table is unlikely to be present under a rearrangement of
+   a few per cent of the same return.
+3. **Against `idle`, `no-win` is the arm that falls furthest.** A motionless target is killed by
+   damage and the win term is the loudest single number in the return; removing it should cost more
+   signal against the dummy than any shaping row adds, and it is the arm that tests whether the
+   instrument can see a table get *worse*. A grid where every arm is the same number is a grid that
+   is measuring nothing, and this is the prediction that would catch that.
+
+**The falsifier, which matters more.** If no arm against `golem-fencer` reaches **half** the shipped
+arm's bouts-for-cosine-0.5 -- that is, if no table doubles the signal per bout -- then **the reward
+table is not what blunts the gradient at this policy**, and the last suspect the record has written
+down is the one Session 07 of the learn set measured and nobody has re-measured: the abort gate.
+That outcome is worth more than a winner, because it is an elimination bought for twenty minutes
+that the record had priced at a night an arm.
+
+**What no outcome of this licenses.** No mind ships, no reward coefficient moves, and no default
+moves. In particular a winning arm does **not** license training under it: an arm here says what a
+table does to the gradient **at a policy that never moved under it**, and a table that pays for
+something a policy does not yet do pays nothing until it does. The two separate the instant the
+weights move. What a winning arm licenses is one training run, stated as its own bar.
