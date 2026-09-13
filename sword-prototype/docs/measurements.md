@@ -24586,3 +24586,189 @@ winning baseline licenses **one** thing, pre-registered on its own: a fit whose 
 against that baseline, priced against a floor measured the same way, and rated on the paired bar
 against `golem-fencer`. An in-sample plane is not a baseline a fit can use, and the arm exists to
 bound what a fitted one could be worth rather than to be adopted.
+
+## Pre-registration -- 2026-09-13: a step along the gradient, written before the bouts
+
+Experiment O. Every number the signal set has produced -- every cosine, every `dot`, every floor
+in bouts, the whole set of them -- is an answer to one question: *do two halves of a collection
+ask for the same policy change?* That is a question about **agreement**, and the thing the record
+has been quietly reading it as is **validity**. They are not the same question and nothing in this
+tree has ever asked the second one.
+
+Two halves can agree perfectly about a direction that raises nothing. The surrogate is clipped and
+the return is not; the advantage is standardised and the return is not; the credit is discounted
+at a four-second half-life inside a fifty-five-second bout and the return is not; the baseline is
+a value net whose own gradient cosine says it is a long way from the returns it regresses on. Any
+one of those makes `S` a consistent estimate of something that is not the ascent direction of the
+mean episode return, and every floor in this record would then be a floor on the reproducibility
+of that something.
+
+So this asks the other question, and it asks it the only way that needs no calibration: **walk**.
+
+### The design, and the control the design turns on
+
+Take the gradient at a held checkpoint. Walk a fixed distance along it, walk the same distance
+against it, collect fresh bouts at both ends, and difference the returns. Then do the same along a
+**random direction of the same length**.
+
+Three choices are doing the work.
+
+**The antithetic pair.** A return at one policy has an enormous spread -- the record's most
+reproducible figure is that a bout's bar margin varies by about six tenths of a bar from bout to
+bout -- so `J(theta + eta d)` on its own is unreadable at any bout count this project can buy. The
+*difference* between the two ends is not: both policies fight the same bodies in the same order
+under the same opponent streams, and the draw that dominates the level of either one cancels. It
+is the pairing argument `ratePaired` makes for its paired column, applied to a step.
+
+**The step is a distance, not a learning rate.** A learning rate times a gradient is a length that
+depends on the gradient's norm, which varies by a factor of several across the checkpoints in this
+record; and a random direction has no norm of its own to lend. Two arms can only be compared at
+matched step length, and a length is the only thing both of them have.
+
+What a length is worth is best read against what a league actually walks, and that ruler is two
+orders of magnitude smaller than the obvious one. The bracket checkpoint's actor is 87,308 numbers
+of root-mean-square 0.0669, so the weight vector has a norm of 19.77 -- and **five iterations of
+the idle bracket move it 0.205, while all fifty-five iterations from pool-5 to pool-60 move it
+0.638.** One league iteration is a step of about 0.04. The three lengths below are therefore about
+a half, two and eight iterations' worth of movement, and the longest of them is half of everything
+that run ever travelled.
+
+**The random arm is the null, measured rather than assumed.** Averaged over an isotropic draw the
+expected difference along a random direction is exactly zero, by the symmetry between `d` and
+`-d`. What its spread across draws reports is the run's own noise floor -- bout noise, pairing
+residue, and the scatter of the inner product between the true gradient and a random unit vector,
+which in 87,308 dimensions contributes a standard deviation of `2 eta |grad J| / sqrt(p)`, about
+0.003 at the middle length and negligible against everything else. **So the run does not have to
+assume a noise level; the control arm measures it, at the same bout count, through the same
+instrument, on the same bodies.**
+
+### What the probe's own numbers predict, which is the point of writing this down first
+
+The prediction is not qualitative. Every quantity in it is already on disk in the eight-cell bout
+sweep, and the arithmetic is three steps.
+
+**One: how far off the truth the walked direction is.** The decomposition the record uses reads
+`dot` as an estimate of `|S|^2` and `norm^2 - dot` as the noise a half carries, giving the run's
+noise constant `K = (norm^2 - dot) n` and the bouts-for-cosine-one-half `F = K / |S|^2`, so a run
+of `n` bouts reports a half-to-half cosine of `c(n) = n / (n + F)`. But the direction a step is
+taken along is the **whole** collection's gradient, estimated from twice the bouts a half carries,
+and what matters is its angle to `S` rather than to another estimate. Both corrections are one
+line:
+
+```
+cos(g_n, S) = 1 / sqrt(1 + F / 2n) = sqrt(c(2n))
+```
+
+**The direction a run of `n` bouts walks is as good as the square root of the cosine the probe
+would report at twice that many.** On the idle cell `F` is 1,132 and `n` is 128, so the walked
+direction sits at `cos` **0.429** to the truth -- 65 degrees off, and still most of the way from
+useless to perfect. That square root is the reason this experiment is affordable at all, and it is
+a relation the record has never written down.
+
+**Two: the rate, in return per unit of distance.** The gradient the probe reports is the per-ask
+gradient of a surrogate whose advantages have been divided by their own spread, so the policy
+gradient of the mean episode return is that vector times the asks in an episode times the spread
+that was divided out: `|grad J| = L x advantageSd x |S|`. On the idle cell `L` is 644,
+`advantageSd` is 0.0580 and `|S|` is 0.1381, so **`|grad J| = 5.155`** return per unit of weight
+distance.
+
+**Three: the step.** To first order, `J(theta + eta d) - J(theta - eta d)` is `2 eta |grad J|
+cos(d, S)`.
+
+| step length | league iterations of movement | predicted return difference, idle cell |
+| --- | --- | --- |
+| 0.02 | 0.5 | 0.089 |
+| 0.08 | 2.0 | 0.354 |
+| 0.32 | 7.8 | 1.417 |
+
+**Three things that prediction assumes, each of which the run can see.** The credit is discounted
+and the sum over asks is not reweighted by that discount, which is the ordinary PPO estimator and
+a biased estimate of the undiscounted return's gradient; the table above prices that bias at zero,
+which is the assumption every fit in this record already runs under. The expansion is first order,
+and 0.32 is in the run precisely so that the curvature has somewhere to show -- a measured ratio
+well under four between the 0.08 and 0.02 rows would say the linear regime ends below a tenth of a
+league iteration, which would itself be worth the night. And the clip is inactive at the start
+point, which is not an assumption: `clipFraction` is exactly 0 in all forty rows of both cells.
+
+### The cells
+
+Eight draws each, held throughout, 128 collection bouts a draw, 128 evaluation bouts at each end
+of each step, both kinds, three lengths, the maul-and-mace viable pool, mirrored bodies, fit seed
+20260917, 14 collectors, 4 shards. Each draw evaluates on the pool it collected its gradient on,
+under a fresh collection seed. The logs are gradstep-idle-128.jsonl and gradstep-fencer-128.jsonl
+under tournaments.
+
+| cell | checkpoint | opponent | what the probe says is there | predicted at 0.08 |
+| --- | --- | --- | --- | --- |
+| idle | `bracket-idle` pool-30 | `idle` | `dot` 1.91e-2 at t 4.60, floor 789 bouts | 0.354 |
+| fencer | `bracket-fencer` pool-30 | `golem-fencer` | `dot` -2.55e-3 at t -0.47, floor 3,796 | at most 0.164 |
+
+**The second cell is the control, and it is an honest one rather than a flattering one.** Its
+`dot` is *negative* at t -0.47: the expected gradient's squared norm is not distinguishable from
+zero, so no positive prediction can be made there at all. Taking `|S|^2` at the optimistic end of
+its interval -- `dot + 2 SE`, which is what the floor is already quoted at -- gives `|S| <=
+0.0916`, `cos <= 0.251` and `|grad J| <= 4.08`, so **at most 0.164** at the middle length. That is
+a factor of 2.2 below the idle cell's prediction and not a factor of a hundred, and saying so now
+is the difference between a control and a story. What the two cells give is an *ordering* that the
+instrument could contradict, on two checkpoints that differ in the one quantity the prediction is
+built out of.
+
+### The statistic
+
+For each draw, kind and length: `Delta` is the mean episode return over the `+eta` end's bouts
+less the mean over the `-eta` end's, and `marginDelta` is the same on the bar margin. The headline
+is the mean of `Delta` over the eight draws and its `t` on the across-draw spread, seven degrees
+of freedom -- so the uncertainty quoted covers the pool, the collection and the direction, all
+three of which are redrawn per draw, and not the bout noise alone. Beside it the run prints how
+many of the eight draws moved uphill, which is a sign test that assumes nothing about the spread
+at all.
+
+### The predictions
+
+1. **The idle cell's gradient arm clears zero at 0.08, at t >= 2 over eight draws.** The primary
+   bar. The one cell whose gradient a feasible number of bouts can already see, at a step worth
+   about two league iterations of movement, with the pairing that makes a difference readable.
+
+2. **The idle cell's random arm does not clear zero at any of the three lengths.** If it does, the
+   pairing is leaking and every number in the run is suspect -- this is the instrument's own
+   self-check and it is a bar in both directions.
+
+3. **`Delta` is linear in `eta` between 0.02 and 0.08 on the idle cell**: the ratio of the two
+   means is 4 with a factor of two either side. 0.32 carries no bar.
+
+4. **The measured `Delta` at 0.08 on the idle cell is between a tenth and twice the predicted
+   0.354.** The quantitative bar, and the one the discount can break. A result that is a
+   consistent *fraction* of the prediction across both of the shorter lengths is not a failure of
+   the framework -- it is a direct reading of what the four-second half-life costs, and it would
+   be the most useful partial outcome available.
+
+5. **Nothing on the fencer cell clears two sigma, in either kind, at any length.** The ordering
+   between the cells is the prediction; a fencer cell that moves while its `dot` does not would
+   say the decomposition is pessimistic rather than wrong, which is the good version of being
+   wrong.
+
+### The falsifier
+
+**If the idle cell's gradient arm does not clear zero, the signal set's subject changes.** Not its
+answer -- its subject. Every floor the set has measured would be a floor on the reproducibility of
+a direction that does not raise the return, the bouts those floors price would buy nothing at any
+budget, and the next phase's question stops being *how many bouts does this task need* and becomes
+*is this the objective*. That is a larger finding than anything else the set has asked, and it is
+the reason this one is run before the ladder and before the baselines rather than after them.
+
+And the reading that would be worse than either: **the random arm clearing zero.** A control that
+moves is an instrument that is measuring something other than the direction, and no row of this
+run could then be read at all.
+
+### What no outcome of this licenses
+
+No default moves. No weight ships. The stepped policies are evaluated and thrown away, and what is
+written down is the difference they made.
+
+A positive result licenses exactly one sentence -- that the direction the floors describe the
+consistency of is an ascent direction at that checkpoint -- and none of the three that stand next
+to it. It does not say a fit would follow the direction: a production step is Adam over four
+epochs of clipped minibatches under a KL stop, which is not a step along the mean gradient and is
+not claimed to be. It does not say how far the direction stays uphill; this walks a fixed distance
+once and a league moves a long way over sixty iterations. And it does not transfer to the fencer
+cell, which is the cell every bar in this record is actually stated on.
