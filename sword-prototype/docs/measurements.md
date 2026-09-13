@@ -25228,6 +25228,192 @@ which is the cell every bar in this record is stated on and whose `dot` is negat
 Prediction 5 is the ordering between the two cells and it is unanswered until
 gradstep-fencer-128.jsonl lands.
 
+### The result, fencer cell -- 2026-09-13: the ordering holds at t 6.3, and the prediction as written was one a true null would fail
+
+Eight draws, 2.63 hours over fourteen collectors, and Experiment O is complete. The table is the
+registered reader's output verbatim, on the eight draws the pre-registration named. **No peek was
+taken on this cell at any point** -- the log was left unread until the eighth draw landed, which
+is the whole of what the two disclosed peeks on the idle cell cost and the reason they are
+disclosed.
+
+```
+from tournaments/bracket-fencer/pool-30.json against golem-fencer, 8 draws of 128 collection
+  bouts, 128 evaluation bouts an end, steps 0.02, 0.08, 0.32, |theta| 19.772
+dot -2.553e-3 +-5.47e-3 (t -0.47), K 31.85, F 3796, cos(g,S) 0.2513, |grad J| 4.077
+  [|S|^2 taken at dot + 2 SE; it does not clear zero]
+|g| cross-check: the step probe measured 0.3485, the decomposition predicts 0.3644
+```
+
+| step | kind | return delta | sem | t | uphill | margin delta | predicted | share |
+| --- | --- | ---: | ---: | ---: | --- | ---: | ---: | ---: |
+| 0.02 | gradient | -0.0268 | 0.0287 | -0.93 | 3 of 8 | -0.00027 | 0.0410 | -0.65 |
+| 0.02 | random | 0.0056 | 0.0259 | 0.22 | 4 of 8 | -0.00757 | -- | -- |
+| 0.08 | gradient | -0.0092 | 0.0299 | -0.31 | 4 of 8 | -0.00770 | 0.1639 | -0.06 |
+| 0.08 | random | -0.0177 | 0.0291 | -0.61 | 3 of 8 | 0.00109 | -- | -- |
+| 0.32 | gradient | 0.0727 | 0.0486 | 1.49 | 5 of 8 | 0.04436 | 0.6558 | 0.11 |
+| 0.32 | random | 0.0239 | 0.0310 | 0.77 | 6 of 8 | 0.00593 | -- | -- |
+
+The gradient arm less the random arm, paired within a draw:
+
+| step | paired difference | sem | t | gradient ahead |
+| --- | ---: | ---: | ---: | --- |
+| 0.02 | -0.0324 | 0.0391 | -0.83 | 3 of 8 draws |
+| 0.08 | 0.0086 | 0.0458 | 0.19 | 4 of 8 draws |
+| 0.32 | 0.0487 | 0.0463 | 1.05 | 6 of 8 draws |
+
+### Prediction 5, and the honest answer is that its letter is missed and its substance is met
+
+The prediction reads: *nothing on the fencer cell clears two sigma, in either kind, at any
+length*. **One of the twelve registered cells does.** The bar margin on the gradient arm at the
+longest step is +0.04436 +-0.02160, **t 2.05**, uphill on seven draws of eight. Every other cell
+is inside two sigma, and the headline statistic -- the episode return, which the pre-registration
+names as the headline in as many words -- does not come close at any length, kind or pairing: its
+largest absolute `t` anywhere in the table is 1.49.
+
+So the prediction as written is missed, and the interesting part is *how* it is missed.
+
+**The bar was a conjunction over twelve cells and a true null fails it two times in three.** Two
+statistics, two kinds, three lengths, each read at seven degrees of freedom: `P(|t| > 2)` is
+0.0856 per cell, so under an exactly-zero effect the expected number of cells clearing two sigma
+is **1.03** and the chance that at least one does is **0.66**. The run measured one, at t 2.05,
+whose own `P` is 0.079. **A prediction that the null itself satisfies only a third of the time is
+not a test of the null; it is a test of whether twelve coins all came up heads.** That is a defect
+in the pre-registration and not in the result, it was written by me before the bouts, and it is
+recorded here because the next pre-registration in this record should state a bar on a named
+statistic rather than a conjunction over a table.
+
+**And the one cell that clears does not survive its own control.** The random arm exists precisely
+so that a cell which moves can be asked whether the direction moved it. Paired within a draw, the
+bar margin at 0.32 is **+0.03843 +-0.02382, t 1.61**, gradient ahead on six draws of eight. The
+one reading in the table that clears two sigma against zero does not clear it against the control
+that was built to check it, and the control is the more informative comparison of the two.
+
+### What prediction 5 was for, which is the ordering between the cells, and that is met decisively
+
+The pre-registration says so directly: *the ordering between the cells is the prediction*. Both
+cells are measured now, at matched step length, matched bout count, matched seed and through the
+same reader, so the ordering is a paired quantity rather than two separate claims:
+
+| step | idle cell | fencer cell | idle less fencer | sem | t |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 0.02 | 0.0327 | -0.0268 | 0.0595 | 0.0308 | 1.93 |
+| 0.08 | 0.1554 | -0.0092 | 0.1646 | 0.0382 | **4.31** |
+| 0.32 | 0.4506 | 0.0727 | 0.3779 | 0.0602 | **6.27** |
+
+**The two checkpoints differ in exactly the quantity the prediction is built out of** -- `dot`
+1.91e-2 at t 4.60 against -2.55e-3 at t -0.47 -- and they differ in what a step along their
+gradient buys, at t 4.3 and t 6.3. That is the result. It is a derived statistic rather than a
+registered one, since the pre-registration registered each cell's arms and not their difference,
+and it is labelled as derived for that reason; but both inputs are registered, both were collected
+under the design as written, and the fencer cell was not looked at until it was complete.
+
+### What this null can exclude and what it cannot, measured rather than asserted
+
+A null is worth what its power is worth, and this one's power is not uniform across the table. The
+pre-registration's own upper bound for this cell -- `|S|^2` taken at `dot + 2 SE`, which is the
+optimistic end of an interval that contains zero -- predicts 0.0410, 0.1639 and 0.6558 at the
+three lengths. Against the measured spread:
+
+| step | two sigma here | the optimistic bound | the bound at the idle cell's realised share | that, in sigma |
+| --- | ---: | ---: | ---: | ---: |
+| 0.02 | 0.0574 | 0.0410 | 0.0152 | 0.53 |
+| 0.08 | 0.0598 | 0.1639 | 0.0721 | 2.41 |
+| 0.32 | 0.0972 | 0.6558 | 0.2099 | 4.32 |
+
+The fourth column is the honest version of the bar: the idle cell delivered 0.37, 0.44 and 0.32 of
+its own prediction, so an effect here of the *optimistic* size, discounted by the fraction the
+other cell actually realised, is what this run had to be able to see. **At the two longer lengths
+it could see it, at 2.4 and 4.3 sigma, and did not.** At 0.02 it could not -- half a sigma -- and
+the 0.02 row is therefore an uninformative null and is not evidence of anything.
+
+Read as a bound rather than as a verdict, the measurement says the fencer checkpoint delivers **at
+most 0.31 of its optimistic prediction at 0.08 and at most 0.26 at 0.32** (mean plus two sem, over
+the bound), against the idle cell's realised 0.44 and 0.32. The two cells are separated by that
+comparison as well as by the paired one.
+
+### The cross-check nobody registered, and it is the best evidence in this record that the decomposition means what it says
+
+The step probe measures the norm of the whole collection's gradient directly, as `actorNorm`, from
+its own fresh collection under its own seed. The bout sweep measures `dot` and `K` from a
+different program on a different collection. The decomposition says those are the same quantity
+twice: `|g|^2 = |S|^2 + K / 2n`. Subtract and compare.
+
+| cell | step probe's `\|g\|` | `\|g\|^2` | less `K / 256` | implied `\|S\|^2` | the sweep's `dot` | gap |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| idle | 0.3152 | 0.09935 | 0.08434 | 1.50e-2 | 1.91e-2 +-4.15e-3 | -0.98 SE |
+| fencer | 0.3485 | 0.12145 | 0.12441 | **-2.96e-3** | -2.55e-3 +-5.47e-3 | **-0.07 SE** |
+
+**Two instruments, two collections, two seeds, and on the fencer cell they agree to seven
+hundredths of a standard error that the expected gradient's squared norm is negative** -- which is
+to say, not there. The idle cell agrees within one SE the other way. Nothing in this record has
+cross-checked `K` and `dot` against an independently measured norm before, and that they close is
+the strongest single piece of evidence that the floor convention's two constants are the things it
+says they are rather than a fitted description of one instrument's output.
+
+### An unregistered reading: the direction is doing something, and what it is doing is making bouts longer
+
+The idle cell's unregistered reading was that the ascent direction is the direction that kills:
+`decided` rose from 0.078 to 0.560 across the step, at a larger `t` than the return itself. The
+same columns on this cell say the opposite thing, and say it reproducibly.
+
+| step | gradient arm, asks at `+eta` less `-eta` | t | random arm | t | gradient less random | t |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.02 | +1,562 +-632 | 2.47 | +25 +-899 | 0.03 | +1,537 +-916 | 1.68 |
+| 0.08 | +2,307 +-1,064 | 2.17 | -311 +-431 | -0.72 | +2,617 +-1,049 | **2.50** |
+| 0.32 | +4,478 +-3,682 | 1.22 | -881 +-536 | -1.64 | +5,360 +-3,802 | 1.41 |
+
+`decided` moves the same way and smaller: -0.0107 at t -2.31 at the middle length, from a base of
+0.84 rather than the idle cell's 0.08. **Against a real fencer the bouts nearly always decide
+already, and walking up the gradient makes them take longer to do it.** The random arm is flat at
+every length, so this is the direction and not the walk.
+
+This is worth recording for one reason: **a cell whose `dot` is indistinguishable from zero still
+has a reproducible direction.** `S` being unmeasurable at 128 bouts does not mean the estimator
+returns noise -- it means the part of it that raises the return is small against the part that
+does something else, and here the something else is longer bouts. That is a different statement
+from "there is no gradient" and the record should not collapse the two. It is an unregistered
+column, read after the fact, on a cell with three lengths and two kinds; it is a reading and not a
+result, and the multiplicity argument made against prediction 5 above applies to it with equal
+force.
+
+### Experiment O, closed
+
+| # | prediction | verdict |
+| --- | --- | --- |
+| 1 | the idle cell's gradient arm clears zero at 0.08, t >= 2 | **met**, t 6.53, 8 of 8 uphill |
+| 2 | the idle cell's random arm clears zero at no length | **met**, largest absolute t 0.60 |
+| 3 | the return delta is linear in the step between 0.02 and 0.08, ratio 4 within a factor of two | **met**, 4.75x |
+| 4 | the measured delta at 0.08 is between a tenth and twice the predicted 0.354 | **met**, 0.44x |
+| 5 | nothing on the fencer cell clears two sigma, either kind, any length | **missed on one cell of twelve, at t 2.05**; the ordering it was written to test holds at t 4.31 |
+
+What the set now knows that it did not know this morning: **the direction the forty-odd floors in
+this record describe the consistency of is an ascent direction where the floor is 789 bouts, and
+is worth at most a quarter of its own optimistic prediction where the floor is 3,796.** The floors
+were never a floor on the reproducibility of nothing -- that was the falsifier and it did not fire
+-- and they are also not interchangeable across checkpoints, which is the part prediction 5 was
+there to establish and did.
+
+**The fencer cell is the cell every bar in this record is stated on.** Experiment O's contribution
+to the next phase is that the two cells are separated at t 6.3 by a walk, and that the cheap one
+is not a model of the expensive one.
+
+### A third disclosure: the reader was changed between the two entries, and it moves nothing here
+
+stepfit.mjs carried its own `sem`, which answered **zero** for a column of fewer than two samples
+-- the same defect found in production's `semOf` and fixed on this date, one level out and in the
+reader that produced both tables above. It is the production `semOf` now. **The fencer table was
+generated before the change and after it and the two outputs are byte-identical**, which they must
+be: every column here is eight draws long. It is disclosed because the reader that produced a
+quoted table was edited between the entry above and the entry here, and the record's rule is that
+the reader decides whether that mattered.
+
+Worth one sentence more, because it inverts the obvious lesson. Of the thirty-one readers in this
+scratchpad that compute a standard error, **twenty compute it with no short-column guard at all
+and are right** -- an empty deviation sum divided by `n - 1 = 0` is NaN, which is the honest
+answer -- three return NaN by name, and **two return zero, both of them because somebody tidied a
+NaN away.** Production was a third. The guard *is* the defect: the careless version is correct and
+the tidy version is the one that reads a threshold as met from a single draw.
+
 ## Pre-registration -- 2026-09-13: where in eighty-seven thousand weights the signal is, written before the bouts
 
 Experiment P. Every floor in this record is a floor over all 87,308 actor weights at once. That is
