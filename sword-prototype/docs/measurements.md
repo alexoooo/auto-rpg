@@ -24357,3 +24357,113 @@ No default moves: `--bouts` stays at its current default, `latchAbort` stays off
 count licenses **one** thing, and it is the thing the whole record has been circling: a single
 long run whose total sample is chosen against a measured floor rather than against a wall-clock,
 priced and pre-registered on its own.
+
+## Pre-registration -- 2026-09-13: six opponents over one checkpoint, written before the bouts
+
+Experiment M. The reward grid's largest effect was a variable it was not sweeping. The same table,
+the same seed, the same instrument, the same 128 bouts: **3,796 bouts** to point a step against
+`golem-fencer` and **789** against a target that never moves. Nothing in sixteen reward tables
+came within a factor of two of that on the fencer cell, and the opponent was never on the suspect
+list.
+
+This asks what that 4.8x is made of.
+
+### The hypothesis, and it is not the obvious one
+
+The obvious reading is that a strong opponent flattens the return: the policy loses whatever it
+does, so there is nothing for an advantage to be an advantage *over*. **The logs say that is
+wrong.** The advantage spread is *larger* against the fencer, not smaller -- 0.0968 against 0.0580
+-- and the gradient norm is larger too, 0.498 against 0.436. There is more variation in what a
+bout pays against the fencer, not less.
+
+So the hypothesis this experiment is written for is about **whose** variation it is. Against
+`idle` a bout's outcome is a function of what the policy did and of nothing else; against
+`golem-fencer` most of it is a function of what the fencer did, which the policy neither controls
+nor observes in advance. A gradient estimator cannot tell those apart -- it credits the actions
+that were taken for the return that arrived -- so **exogenous variance is noise with the same
+shape as signal**, and the sample size needed to see through it rises with the opponent's own
+contribution to the outcome.
+
+If that is right, the floor should track how strong the opponent is and not how flat the return
+is, and the two cells already collected are the two ends of a ladder nobody has walked.
+
+### The cells
+
+**One checkpoint, six opponents, and the sixth is free.** `bracket-fencer` pool-30 throughout,
+held, 20 iterations of 128 bouts, the maul-and-mace viable pool, mirrored bodies, fit seed
+20260917, 14 collectors, 4 shards. **No reward arms and no horizon arms**: the question is the
+row's own floor and seventeen half-splits an iteration is where a grid's wall-clock goes.
+
+| opponent | the shipped mind's own bar against it, 120 bouts, random viable pairs | from |
+| --- | --- | --- |
+| `idle` | -- (it does not fight) | this experiment |
+| `golem-brawler` | +0.1412 | this experiment |
+| `golem-form` | +0.0328 | this experiment |
+| `golem-duelist` | +0.0061 | this experiment |
+| `golem-driver` | -0.0077 | this experiment |
+| `golem-fencer` | -0.0624 | Experiment E's fencer row, free |
+
+The bar column is the strength ordering this experiment is read against, and it is taken from the
+dead-column rating already in this file rather than measured again here. It is the *shipped*
+mind's bar and not this checkpoint's, which is a looseness in the ordering and not in the floors.
+
+**The sixth cell is free because the probe's collection does not depend on the arm list.**
+Experiment E established that on 240 fields with no digit different, so `bracket-fencer` pool-30
+against `golem-fencer` at 128 bouts and seed 20260917 has already been collected twice and priced
+sixteen ways, and its row is 3,796 bouts. Running it a third time would measure the same bits.
+
+### The confound, named before the data because it cannot be removed by anything cheap
+
+**The checkpoint was trained against `golem-fencer`.** So the ladder confounds *how strong an
+opponent is* with *how far it is from the one this policy was fitted against*, and a monotone
+result admits both readings.
+
+What separates them, partly, is already on disk: the two cells the reward grid ran are both
+**matched** -- `bracket-idle` measured against `idle`, `bracket-fencer` against `golem-fencer` --
+and they differ by 4.8x. A mismatch explanation has to account for a factor of nearly five between
+two matched pairs, which it cannot. What the ladder adds is whether the off-diagonal moves
+monotonically with strength or jumps at the one opponent the policy knows. **A second checkpoint
+would settle it outright and is not run here**, because `bracket-driver` pool-30 against the same
+six would double the cost of the experiment to answer a second question, and this one is the cheap
+half.
+
+### The statistic
+
+The row's own floor, `K / (|S|^2 + 2 SE)`, over the run's twenty iterations -- the same statistic
+Experiment G fixed and Experiments E and F are quoted in. Beside it, for the mechanism: the mean
+`advantageSd`, the mean actor gradient norm, `decided`, `margin`, and the bout split's cosine
+where the run carries one.
+
+### The predictions
+
+1. **The floor is monotone in the bar.** Ordered by the shipped mind's bar against each opponent
+   -- `golem-brawler`, `golem-form`, `golem-duelist`, `golem-driver`, `golem-fencer` -- the floors
+   rise, with at most one inversion among the five, and `idle` sits below all of them.
+
+2. **The span is at least 3x.** The easiest paid opponent's floor is at most a third of
+   `golem-fencer`'s 3,796. If the span is under 3x the ladder is flat and the 4.8x between the
+   reward grid's two cells was the checkpoint and not the opponent.
+
+3. **It is not the return's flatness.** `advantageSd` does *not* fall as the floor rises; the
+   correlation between the two across the six cells is positive or absent, never the negative one
+   the obvious reading predicts. This is the prediction that distinguishes the hypothesis above
+   from the one it was written against, and it is the one this experiment exists for.
+
+4. **`idle` against this checkpoint lands near `bracket-idle`'s own 789 bouts** -- within a factor
+   of two -- which would say the dummy cell's easiness is the dummy's and not the checkpoint's.
+
+### The falsifier
+
+**If the five paid floors span less than 3x and show no order, then the opponent is not the
+variable** and the 4.8x between the reward grid's two cells belongs to the checkpoint: two
+different sets of weights, one of which happens to sit somewhere with more signal in it. That
+would make the largest effect in Experiment E an accident of where two runs stopped, would remove
+the one suspect this record found by not looking for it, and would put the checkpoint itself --
+where in weight space a policy is -- on the list in its place.
+
+### What no outcome of this licenses
+
+No default moves and `--opponent` keeps its current default. A steep ladder does **not** license
+training against a weaker opponent: the criterion is stated against `golem-fencer` and a mind that
+learns quickly against a brawler has not been shown to transfer. What it licenses is one
+curriculum run, pre-registered on its own, whose bar is still the fencer's.
