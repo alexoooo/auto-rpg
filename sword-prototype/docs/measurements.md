@@ -26618,3 +26618,118 @@ entry says so and quotes the correction; nothing here is retroactive. It does no
 numbers, the tests pin the function and not its callers, and the readers are still gitignored and
 still outside the suite. What has changed is narrower than it sounds and is the whole of it: the
 arithmetic every floor in this record passes through is now arithmetic somebody has to keep true.
+
+## The readers, third pass -- 2026-09-13: the two the second pass skipped, and a reader written the same night that had the same two mistakes in it
+
+The second pass read the five readers with pending entries that it named, and skipped two. The
+direction reader and the baseline reader had both been *fixed* earlier the same night -- one for a
+defect its first smoke found, one for reading the wrong log -- and a reader that has been touched
+recently reads as a reader that has been checked recently. It is not the same thing. Both were
+read against their definitions here and **both carried something**, and neither defect was near
+the line that had been changed.
+
+Neither cell is on disk, so both were read against logs built for them with answers fixed in
+advance. **No peek was incurred by any of this**: every number below comes out of a synthetic
+file.
+
+### dirfit.mjs, Experiment R: a falsifier printed on a cell built so the prediction is true
+
+**Its four thresholds are the registration's, word for word** -- an existence claim below zero at
+two sigma, every whole-against-whole cosine above 0.5, a rank correlation above -0.5, and an
+identity arm at exactly zero and exactly one. That part is audited and correct. What it does with
+a log that cannot support them is the problem.
+
+**A log of fewer than three iterations reads every arm as agreeing with the row.** The moments
+helper returns a NaN standard error below two iterations; every comparison against NaN is false;
+so the reading column falls through to "within two sigma of the row" for every arm and the
+headline prints:
+
+> prediction 1 MISSED: no arm's gap clears zero downward at two sigma, which is the
+> falsifier -- the tables point one way at this cell
+
+That is the sentence the experiment exists to be able to say, printed on a one-iteration log built
+with two arms at gaps of **-0.31 and -0.28** -- a cell constructed so prediction 1 is true. The
+reader did print a warning line above the table saying the gaps were not readable, and then read
+all four predictions under it. **A warning that the next paragraph contradicts is not a warning.**
+Refused now by iteration count, with the reason named.
+
+**A repeated arm label was not "the first one wins".** It was worse, and the guess would have
+missed it. The label list is taken from the first iteration and each column is then pulled by
+name, so a duplicate becomes a **second row of the table** in which both rows carry the first
+arm's numbers. Measured, on the same twenty-iteration fixture with one arm appended under a label
+already in use: prediction 1's existence count went from three arms to four with `stall` named
+twice at an identical t, prediction 3's rank correlation ran over a five-element list with a
+duplicated point, and the appended arm's own reading -- a gap of +0.9, the opposite sign -- was
+never read at all. Refused, as is an iteration whose arm list is missing an arm the first one had.
+
+**And the ceiling is withheld rather than annotated.** `gap` is a difference from the row's own
+half-to-half cosine, so where that cosine does not itself clear two sigma there is no ceiling for
+an arm to fall short of and predictions 1, 2 and 3 are statements about the difference between two
+noise draws. Read on a fixture whose row cosine is 0.0083 at t 0.31, the reader now withholds
+those three with the reason printed and reads prediction 4, which is an identity and does not need
+a ceiling.
+
+### basefit.mjs, Experiment N: the bout count read off row zero, for the third time in this set
+
+**Every floor the reader prints is stated on one bout count and it took the first row's.**
+Measured on a twenty-iteration grid whose first ten rows are at 128 bouts and whose last ten are
+at 256: it printed `20 iterations of 128 bouts`, a full six-arm table, and prediction 4's variance
+share, with half the rows priced at a count they were not collected at, and said nothing anywhere.
+
+**The fix is worth less than the count.** This is the third reader in this scratchpad found with
+that exact defect in one night -- the head reader had it, the concentration reader had it, and
+this one had it -- and in all three cases it was written the same way, `const n = rows[0].bouts`,
+because that is how the shape of a probe log invites you to write it. **A bout count read off row
+zero is a reader idiom here, and every remaining file carrying it should be assumed to have the
+defect rather than audited for it.**
+
+Three more refusals beside it, none of them exotic and all of them reachable: a repeated label,
+which silently overwrites its own entry in the map prediction 4's statistic is read out of; an arm
+list that moves mid-log, since the columns are indexed positionally across iterations; and a grid
+with no arm labelled `shipped`, which the `vs shipped` column has no denominator without. The last
+threw rather than fabricating, which is the better of the two failures and is still not a thing a
+reader should learn from a stack trace.
+
+### One hole was already closed, by this morning's repointing rather than by this pass
+
+The baseline reader has no small-sample guard of its own either -- the same absence that let the
+direction reader print a falsifier. It does not need one. A single-iteration grid now fails inside
+the production convention, `the floor convention wants a finite se`, because the reader hands it
+the standard error it computed and a standard error over one iteration is NaN. **The shared
+function refuses in one reader the reading the unshared copy fabricated a verdict from**, which is
+the argument for putting the convention in the tree stated as a measurement rather than as a hope.
+
+### ladderfit.mjs, Experiment M: written before its cells, and it had two of the same mistakes
+
+Experiment M's five paid cells and its dummy cell are queued, and the experiment had no reader.
+One was written -- the first in this set with no copy of the floor convention in it, because it
+imports the production function from its first line -- and it was smoked on the two published
+cells that carry the opponents the ladder's ends are: the idle bracket and the fencer bracket.
+
+**It reproduces both literals the registration is stated against**, independently and to the
+digit: `idle` at **789** bouts and `golem-fencer` at **3,796**, which are the two numbers
+predictions 2 and 4 are written in terms of. That is the strongest smoke available for a reader
+whose cells do not exist, because the pre-registration quotes both from a different instrument. It
+is a smoke of the arithmetic and not a ladder: the two cells are two different checkpoints, and
+the reader says so on its own first line before it prints anything.
+
+**And the smoke immediately caught it doing two things this record spent the night naming.** Over
+a sample of two cells, one of them paid, it printed
+`prediction 1: 0 adjacent inversions of 1 paid cells ... [met]` -- a verdict about an *ordering*
+of five opponents, taken over one -- and `prediction 3: pearson 1.000, spearman 1.000 ... [met]`,
+which is what any two points read whatever they are. Both are withheld now with their counts
+printed, which is what a reader waiting on a fan needs to see. It is worth saying plainly: this
+file was written by somebody who had just spent a night finding exactly that class of defect in
+five other files, and it had two of them before it ever met data. **The anti-pattern is not
+something you learn once.**
+
+### What the three passes add up to
+
+Eleven readers have now been read against their definitions in one night -- the arm, base, bar,
+concentration, direction, head, ladder, latch, objective, price and step ones -- and **nine
+carried something**. The two that did not are the head reader and the price reader. That is not a
+statement about any one of them; it is the base rate for analysis code that no test covers,
+written quickly by one author against logs that mostly did not exist yet. The record's numbers
+pass through these files. The convention they all share is in the tree now, with three tests and a
+mutation table, and that is the only part of this that is durable -- everything above is nine
+files being read carefully once, which is a thing that decays.
