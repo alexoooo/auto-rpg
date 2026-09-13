@@ -60,6 +60,22 @@
 // the collection bouts, so evaluating on those same bouts would ask whether a direction fitted to a
 // sample raises that sample -- which it does by construction, and which says nothing.
 //
+// ## Which way along the gradient, and the eight evaluations that found out
+//
+// Every gradient in this tree is a **loss** gradient and every step the fit takes is a subtraction,
+// so the direction this file walks is **minus** the vector the pool hands back. `ASCENT` says that
+// where a reader will look for it and
+// `a_step_along_the_probes_direction_makes_the_good_action_more_likely_not_less` asserts it, by the
+// only statement that is unambiguous: told every action was better than average, a step that
+// improves the policy makes those actions more likely.
+//
+// That assertion was written after the fact and the record owes the reason. The first run of this
+// file walked `+g`, and its first draw came back with all three step lengths below their own start,
+// monotonically in the length -- a clean, consistent, *reversed* result. Nothing else in this tree
+// could have caught it: every number the gradient probe publishes is a cosine, a dot of two halves,
+// a norm or a ratio of those, and all four are invariant to negating both halves at once. A sign
+// error is unobservable everywhere in this record except here, where it is the whole experiment.
+//
 // ## What a step length means here, and why it is a length
 //
 // The step is `theta +- eta * d` with `d` a **unit** vector in actor-weight space, so `eta` is a
@@ -174,16 +190,38 @@ export function evaluationOf(rollout) {
 }
 
 /**
+ * Which way along the gradient a step that is meant to *improve* the policy goes, and it is minus.
+ *
+ * Every gradient in this tree is a **loss** gradient. `surrogateGrad` accumulates
+ * `-adv * ratio * scale` times the score into `delta`, the critic accumulates `value - return`, and
+ * `adamStep` spends both the same way: `weights[k] -= rate * ...`. So the vector the fit is handed
+ * points *down* the objective, and `theta - eta * unit(grad)` is the step the fit would have taken.
+ *
+ * **The record never had to know this and this file is the first thing that does.** Every number
+ * the gradient probe publishes is a cosine, a dot of two halves, a norm or a ratio of those, and
+ * every one of them is invariant to negating both halves at once. A sign error there is
+ * unobservable; here it is the entire experiment, and walking the wrong way would produce a clean,
+ * consistent, monotone result with the sign of the headline reversed -- which is the most dangerous
+ * shape a bug can have in a record that writes its falsifiers down in advance.
+ */
+export const ASCENT = -1;
+
+/**
  * One draw: a gradient off its own collection, and the two directions it puts in front of the arena.
  *
  * The random direction is derived from the draw's own seed rather than from a stream shared with
  * the collection, so that re-running one draw of a row reproduces both of its directions and the
  * arms of a draw cannot be silently correlated through an exhausted generator.
+ *
+ * The gradient direction is the **ascent** direction, for `ASCENT`'s reason. The norm reported
+ * beside it is the gradient's own and is unsigned, because it is a length.
  */
 export function directionsOf({ gradient, seed }) {
   const walked = unit(gradient);
+  const uphill = new Float64Array(walked.direction.length);
+  for (let k = 0; k < uphill.length; k += 1) uphill[k] = ASCENT * walked.direction[k];
   return [
-    { kind: "gradient", direction: walked.direction, norm: walked.norm },
+    { kind: "gradient", direction: uphill, norm: walked.norm },
     { kind: "random", ...randomDirection(gradient.length, (seed ^ 0x5eed_1a3f) >>> 0), norm: 1 },
   ];
 }

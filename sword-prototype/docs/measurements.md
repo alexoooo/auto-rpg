@@ -25035,6 +25035,48 @@ not claimed to be. It does not say how far the direction stays uphill; this walk
 once and a league moves a long way over sixty iterations. And it does not transfer to the fencer
 cell, which is the cell every bar in this record is actually stated on.
 
+### Correction to the pre-registration, and the peek that forced it
+
+**The first launch of this experiment walked the wrong way, one draw of it was looked at, and that
+peek is what found the bug.** The correction is recorded here rather than folded silently into the
+design, because the run that produced the peek was armed under the text above and a reader is owed
+the difference.
+
+**What was wrong.** Every gradient in this tree is a **loss** gradient. `surrogateGrad` accumulates
+`-adv * ratio * scale` times the score, the critic accumulates `value - return`, and `adamStep`
+spends both the same way -- `weights[k] -= rate * ...`. So the vector the fit is handed points
+*down* the objective and the improving step is `theta - eta * unit(g)`. The step probe as committed
+walked `theta + eta * unit(g)`: the descent direction, under the name of the ascent one.
+
+**Why nothing in this record could have caught it.** Every number the gradient probe publishes is a
+cosine, a dot of two halves, a norm, or a ratio of those -- and all four are invariant to negating
+both halves at once. Four hundred rows of this set are unaffected by the sign of `S` and could not
+have been affected by it. This experiment is the first thing in the tree that walks a gradient
+rather than measuring the angle between two of them, and it is therefore the first thing whose
+answer the sign decides.
+
+**The peek, stated in full.** The first draw of the `idle` cell was read while the run was in
+flight. All three step lengths returned a mean episode return **below** the start, monotonically in
+the step length -- -0.094 at 0.02, -0.107 at 0.08 and -0.214 at 0.32 -- with `decided` falling from
+0.375 to 0.055 as the step grew. That is a clean, consistent, strongly-signed result, and it is
+what a correct instrument walking backwards produces. It was the shape of it rather than any
+suspicion about the code that prompted the check, and the check took one grep of `adamStep`.
+
+**What changed and what did not.** The sign changed. `ASCENT` now names the convention where a
+reader of `directionsOf` will find it, and
+`a_step_along_the_probes_direction_makes_the_good_action_more_likely_not_less` asserts it on the one
+statement that is unambiguous -- told every action was better than average, an improving step makes
+those actions more likely -- with three mutations watched red, the first of them being the code that
+was actually committed and run. **No cell, seed, step length, draw count, evaluation size,
+prediction, falsifier or disclosure above moves.** The mis-signed log was deleted rather than kept
+and re-signed, because a run whose every evaluation was taken at `theta + eta d` cannot be turned
+into one taken at `theta - eta d` by arithmetic.
+
+**And the peek is a peek.** One draw of eight, at the `idle` cell, read before the design was
+complete. It is disclosed for the same reason the power addendum above is: it was measured, it was
+looked at, and it changed something. What it changed was a defect and not a bar -- but the record's
+rule is that the reader decides that, not the author.
+
 ## Pre-registration -- 2026-09-13: where in eighty-seven thousand weights the signal is, written before the bouts
 
 Experiment P. Every floor in this record is a floor over all 87,308 actor weights at once. That is
