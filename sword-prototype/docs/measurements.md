@@ -34353,8 +34353,8 @@ fencer-only curve slows after 120 on two independent tails, not one. It is regis
 XU has just shown that the fencer-only curve slows after iteration 120. It slows on two tails
 that share no trajectory, to between a third and a half of its first-half rate. The afternoon's
 re-cut named the next question: does a league that also plays its own past keep climbing where the
-fencer-only league slows? This entry registers that run. It also registers the ratings of an arm already on
-disk, because without them the run has no second control.
+fencer-only league slows? This entry registers that run. It also registers the ratings of an arm
+already on disk, because without them the run has no second control.
 
 ### How the mix is spent, read out of `scripts/league.mjs` and smoke-tested
 
