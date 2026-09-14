@@ -34331,7 +34331,7 @@ instrument.
 
 **Two corrections to XL's wording.** *0.28x* becomes *about a third to a half*, since the straight
 run reads 0.48x and the resumed run 0.28x. And *the curve does not stop* holds on both runs, at t
-2.58 and 2.16. The mind is still climbing at 240, three to four times more slowly than it climbed
+2.58 and 2.16. The mind is still climbing at 240, two to four times more slowly than it climbed
 to 120.
 
 **One finding the registration did not ask for.** This fit is chaotic on the scale of one
