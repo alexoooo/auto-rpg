@@ -33707,3 +33707,92 @@ Re-rating U is 52 rating points and S is 72. Neither is bought tonight, and the 
 levers are **unmeasured** rather than *absent*. U's entry above said *the record now has no measured
 lever at all*. That sentence holds for the instrument it was read on, and it is not a fact about
 the optimiser.
+
+## YL, complete -- 2026-09-14: on the policy the league trained, the gradient against the fencer is plain at iteration 5 and gone by 60, and the floor rises with age rather than falling
+
+**Experiment Y re-scored on the five cells its registration meant.** The executor is
+`latchAbort=true`. The design is otherwise Y's own: 128 bouts, 20 held iterations, `golem-fencer`,
+seed 20260917, `--bout-split`. Y's three predictions and its falsifier are scored as worded.
+**Prediction 1 met, prediction 2 missed, prediction 3 met, and the falsifier does not fire.** The
+miss is the finding: **the floor rises as the policy trains.**
+
+### The table
+
+| cell | `|S|^2` | t | `K` | floor, bouts | advantage sd | probe margin | +- | completion |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| trajl-5 | 2.262e-2 | **4.09** \* | 28 | **826** | 0.1660 | -0.0925 | 0.0076 | 0.472 |
+| trajl-60 | 8.328e-3 | 1.42 | 31 | 1,529 | 0.0962 | -0.0553 | 0.0076 | 0.457 |
+| trajl-120 | 2.361e-3 | 0.35 | 32 | 2,056 | 0.0949 | -0.0120 | 0.0108 | 0.477 |
+| trajl-180 | -2.471e-3 | -0.53 | 35 | 5,105 | 0.0887 | +0.0133 | 0.0098 | 0.502 |
+| trajl-240 | 4.819e-3 | 0.55 | 40 | 1,783 | 0.0913 | +0.0303 | 0.0084 | 0.531 |
+| M's held fencer rung | -2.553e-3 | -0.47 | 32 | 3,796 | 0.0968 | -0.134 | | |
+
+`*` is the five-arm family bar, t 2.530 at 19 degrees of freedom. The floor is the authoritative
+convention and is a lower bound wherever `|S|^2` does not clear. Completion is strokes completed
+over strokes started in the probe's own drawn rollouts, which is the check that the cells ran the
+trained policy: `lam-long`'s league rows complete 0.47 to 0.52 over the same span.
+
+### The predictions
+
+**1. At least one checkpoint clears zero: MET.** `trajl-5` at **t 4.09**. It is the first cell in
+this record with a measurable whole-actor gradient against `golem-fencer`. M's held rung did not
+clear, and neither did I's forty-iteration latched cell. **Both of those were unlatched minds**:
+`bracket-fencer` trained without the latch, and I put the latch on it only at the probe. This is a
+latched mind probed under the latch at the age it was climbing fastest.
+
+**2. The floor falls with the policy's age: MISSED, and it points the other way.** Spearman over
+age is **+0.700**. At the ends the floor reads 826 bouts at iteration 5 and 1,783 at 240. By the
+registration's own design that is a lower bound wherever the cell does not clear, and four of the
+five do not.
+
+**3. `K` stays flat: MET**, spanning 1.43x against the registered 1.5x. It is flatter than the
+fall in `|S|^2` and not flat: 28 rising to 40, monotone. The floor's rise is mostly the
+denominator's, as M found across opponents, and `K` contributes about 1.4x of it.
+
+**The falsifier does not fire.** It needed no cell to clear, and one does.
+
+### What the numbers say beyond the predictions, marked as post hoc
+
+**The signal decays with age, and that is more than the registration asked.** An inverse-variance
+weighted slope of `|S|^2` on iteration is **-1.03e-2 +-3.37e-3 per hundred iterations, t -3.06**.
+The five readings are heterogeneous, chi-squared **12.69** on 4 degrees of freedom. `trajl-5` less
+the pooled four later cells is **2.04e-2 +-6.30e-3, t 3.24**, and those four pool to 2.21e-3
++-3.01e-3, **t 0.73**. None of this was registered, and it is a reading and not a verdict. It is
+also the reverse of the unlatched table's reading, which found the five cells indistinguishable.
+**The executor was the difference between one number measured five times and a signal that
+dies.**
+
+**And it dies before the curve breaks.** XL put the break in the latched rating at iteration 120,
+with the second quarter of the run climbing as fast as the first. YL's gradient is already
+unmeasurable at 60. This design cannot resolve it -- the smallest `|S|^2` the 60 cell catches four
+times in five is 1.98e-2 -- so *unmeasurable* is not *zero*. A fit can climb on a signal this probe
+cannot see, and the record established that at Experiment L. But the ordering in time is the one a
+mechanism would need: **the advantage signal the fit trains on fades as the mind approaches the
+opponent, and the curve against that opponent slows afterwards.** That is M's across-opponent
+mechanism, *a harder relative opponent destroys `|S|^2`*, read along a trajectory. The opponent
+did not get harder. The mind got closer to it.
+
+**The probe's own margin keeps climbing through 240.** In the drawn, latched rollouts it goes
+-0.0925, -0.0553, -0.0120, +0.0133, +0.0303. From 120 to 240 that is +0.042 +-0.014, t 3.1. This is
+the probe's pool and the drawn policy, not the rating's paired greedy bar, and it is not paired
+against anything. It is printed beside XL's suffix and not scored. It agrees with XL in direction:
+**the mind is still improving past 120 on the executor it trained under**, on both instruments
+that ran that executor.
+
+### What this does to the contradiction Y was registered to resolve
+
+Y's registration named it: the probe found no actor gradient against `golem-fencer`, t -0.47 at
+M's held rung, and `lam-base` climbed against the same opponent at 32 bouts an iteration. **Most of
+the contradiction was an executor comparison.** The held rung was an unlatched mind, while
+`lam-base` is latched. Probed as it trained, a latched mind at iteration 5 carries a gradient at
+t 4.09 and a floor of 826 bouts. That is still twenty-six times the 32 bouts a league iteration
+collects, so the league's climb is still faster than the floor says it can be. *The floor is not a
+budget* is a ruling this record already carries, and YL does not revisit it.
+
+### What this licenses
+
+No default moves. What it licenses is a sentence for the agenda: **the next question is why the
+signal dies as the mind approaches the opponent, and whether an opponent that stays ahead of the
+mind keeps it alive.** That is what a league's pool of past selves is for, and every arm tonight trained against
+`golem-fencer` alone. Experiment Z's curriculum asked the opposite question, an easier opponent, and ZL will
+say whether that result stands.
