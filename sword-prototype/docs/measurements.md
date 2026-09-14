@@ -32976,3 +32976,173 @@ No default moves. `--opponent` keeps `self`, the screen keeps `golem-fencer`, no
 shipped and no mind from this run is rated against the screen's default. A confirmed prediction 2
 licenses one thing: a second curriculum arm at a different rung, pre-registered on its own, to find
 out whether the effect is the rung's or the change's.
+
+## Pre-registration -- 2026-09-14: Experiment AA, the masked fit, and the span that is the difference between an experiment and a gesture
+
+The alphabet is spent. `D`, `J` and `V` never named experiments -- `V` is the agenda's item and the
+other two are gaps -- and filling a gap would make a queue nobody could read in order, so this is
+**AA** and the next one is AB.
+
+The instrument landed an hour before this was written: `--masked` on `scripts/league.mjs` and on
+`scripts/train-ppo.mjs`, with the refusal that makes the flag mean something and the credited-
+dimension mean on every iteration row. Until that commit **there was no way to run this
+experiment at all**, which is why the re-cut above names it as a queue item rather than as a
+registration.
+
+### The question, and it is the last one the estimator queue has left
+
+Experiment W measured that crediting only the dimensions the executor read removes **24.8 % and
+26.5 %** of the step's gradient variance at two held checkpoints while moving neither cell's
+`|S|^2` by more than a quarter of itself. That is a variance reduction with no measurable bias,
+measured on weights that were not moving. **Whether it buys a curve is a different measurement in
+a different unit**, and after Experiment S it is the only unit left: S measured that a floor does
+not order minds, `docs/design.md` now carries *a bar is not stated on a floor*, and the paired bar
+against `golem-fencer` is what remains.
+
+### The power arithmetic, stated first, because it is what decides whether this experiment exists
+
+**Experiment Z's registration killed its own low arm on exactly this arithmetic four hours ago and
+the same arithmetic is run here before anything is designed.** If the mask's 25 % variance
+reduction behaves as a sample-efficiency multiplier -- the only quantified model this record has --
+the fit sees the step it would have seen at four thirds the bouts, so the predicted slope is
+`lam-base`'s `+0.0355` times `4/3` and the **predicted difference is `+0.0118` per sixty**.
+
+| the design | points an arm | slope se an arm | difference se | resolves at the bar | against a predicted |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| two arms to iteration 120 | 24 | 0.0081 | 0.0115 | **0.0333** | 0.0118 |
+| two arms to iteration 240 | 48 | 0.0029 | 0.0041 | **0.0115** | 0.0118 |
+
+The first row is the design anybody would have proposed and it resolves **2.8x the effect it would
+be run to find**. The second resolves 0.0115 against a predicted 0.0118, which is a power a shade
+over four in five at the bar and is the first cell in this record where the span was chosen by the
+arithmetic rather than by what was already on disk.
+
+The scaling is not a guess: an ordinary least squares slope's standard error goes as
+`1 / (sd(x) * sqrt(n))`, and 48 points spaced five apart over 5..240 against 24 over 5..120 is a
+factor of **0.3533**, measured in the same call that measured the bar. The bar is
+`familyBar({t: 2, df: 46, arms: 2, sided: "one"})` = **2.007**, two arms because the entry prints a
+two-row table and a reader of a two-row table is comparing.
+
+**The model is named as a model.** *Variance falls by a quarter, so the fit moves as it would on a
+third again as many bouts* assumes the step is sample-limited and that nothing else about the
+optimiser is in the way, and this record has two results that say otherwise -- Experiment Q's, that
+the objective and the criterion come apart, and Experiment S's, that a floor does not order minds.
+If those bite, the true effect is smaller than 0.0118 and this design misses it. That is a stated
+limit and not a hedge: a design that resolves 0.0115 cannot be honest about an effect of 0.004.
+
+### The cell
+
+**One new league**, because the control already exists. `tournaments/lam-long` is `lam-base`'s
+manifest run to iteration 240 -- 120 iterations and then a resume, whose state carries Adam's
+moments across the seam -- and Experiment X is rating its second half as this is written.
+
+The masked arm is **built the same way**: `lambda-run.sh`'s line for `lam-base` with `--masked`
+added and `--dir tournaments/mask-long`, run to 120, then resumed to 240. Not because a seam is
+desirable but because the control has one, and two arms that differ in the mask *and* in whether
+they were interrupted differ in two things.
+
+    --opponent golem-fencer --tactics latchAbort=true --lambda 0.95 --iterations 120 --bouts 32
+    --terminals maul,mace --seed 20260917 --shards 4 --exploiters 0 --evaluate 0 --pool-every 5
+    --masked
+
+**The seed is the control's and that is deliberate.** Iteration 1 draws the same bouts against the
+same weights in both arms, so the two collections are the same collection and the divergence begins
+at the first *step*. Two arms at two seeds would differ by the mask and by a draw, and this design
+has no budget for a draw.
+
+The rating is `rate-s.sh`'s -- 200 bouts a contender, random viable pairs, the viable terminals --
+over all 48 checkpoints. The control's 48 come from `tournaments/lam-base/rate.jsonl` spliced to
+the rating X is writing into tournaments/lam-long at iteration 120, which X's reader already checks
+field by field before it will join them; **AA's reader fits the whole span and X's fits two
+halves**, so the control's 5..240 slope is a number this experiment computes and not one it
+inherits.
+
+### The dependency, which is the reason this is registered and not launched
+
+**If Experiment X's falsifier fires, this design is wrong and AA is withdrawn rather than
+re-registered.** X asks whether the paired bar still climbs over 125..240. A flat suffix makes a
+slope over 5..240 a slope through a transient and a plateau, which is a number about the shape of
+the curve and not about the rate of anything -- and the only design left would be the 120-iteration
+pair in the first row of the table above, which resolves 2.8x the effect. There is no third design
+at a cost this project can pay, so the honest outcome in that branch is that the mask is
+**unmeasurable in the unit that matters** and the estimator-variance queue closes with it.
+
+X's rating lands at about 04:00. Nothing below is collected before it is read.
+
+### The predictions
+
+**1. It learns at all.** The masked arm's own paired bar slope against `golem-fencer` over 5..240
+is positive and clears **t 2.007**. Without this a missed prediction 2 cannot be told apart from a
+mask that broke the fit, which is the same structure Experiment Z's prediction 1 has and is here
+for the same reason.
+
+**2. The headline -- the mask buys a curve.** The masked slope less the control's is positive and
+clears **t 2.007** on the difference of two independent fits. This is the risky prediction, the
+design resolves 0.0115 against a predicted 0.0118, and the two negative precedents are named above.
+
+**3. The instrument check, which the flag landed with.** Every iteration row of the masked arm
+carries `credited`, the mean command dimensions a sample's score was credited on. It must be
+**strictly between 0 and 12 and within 6 to 9** -- W measured 7.95 unlatched and 7.08 latched at
+128 bouts against `idle`, and this arm is latched against a designed mind. A masked run reading 12
+is the unmasked estimator wearing a masked run's header, and it is the one failure a header cannot
+catch.
+
+**The control cannot be checked this way and that is said here rather than discovered later.**
+`tournaments/lam-long` was collected before the field existed, so its rows carry no `credited` at
+all and its header carries no `masked`. What stands in for the check is that its two headers were
+written by a build with no such flag, which is a fact about the commit and not about the run -- a
+weaker guarantee than the masked arm's, and the asymmetry is the price of not re-running a control
+that is already on disk.
+
+**4. The level, not only the rate.** The mean paired `d` against `golem-fencer` over checkpoints
+220..240 is not worse than the control's by more than two standard errors of the difference. W
+bounded the mask's bias only to about a quarter of `|S|^2` at two held checkpoints; a bias that
+small at a point can still be a drift over 240 iterations, and this is the guard against it. As in
+Experiment Z it is a guard against a collapse and not a test of equality: five points at a single-
+point standard error near 0.07 resolve a gap in `d` of about **0.089**.
+
+### The falsifier
+
+**If prediction 1 holds and prediction 2 misses, the estimator-variance queue closes for this
+project.** A mask that removes a quarter of the step's variance, carries no measurable bias, and
+does not move a curve measured at a design built to resolve exactly its predicted effect is the
+third result in a row saying the same thing -- Q's, that the objective and the criterion come
+apart; S's, that a floor does not order minds; this one, that the variance the floor is made of
+does not either. The entry will say so in the same voice it would have used for the other outcome,
+and G, N, O and P were already withdrawn or closed on the way here.
+
+**If prediction 3 misses**, no other prediction is scored. A run that did not mask is not an arm.
+
+### The cost, stated before the result
+
+Priced from what this record has realised rather than from what a manifest suggests. `lam-base`
+took **99.9 minutes** for 120 iterations at 7 workers with two other leagues on the host;
+`lam-long`'s second 120 took about the same. X's rating is realising **5.8 minutes a point** at 14
+workers with three other ratings running.
+
+| | | at 14 workers |
+| --- | --- | ---: |
+| the masked league, 240 iterations in two runs | | about 3.5 h |
+| its rating, 48 checkpoints | | about 4.6 h |
+| | **total, one lane** | **about 8.1 h** |
+
+That is a night, it is one 14-thread lane and not two, and it is stated here so that the realised
+figure can stand beside it or be corrected in public.
+
+### What this cannot answer
+
+**One seed, one opponent, one lambda, one manifest.** The mask changes which dimensions of a score
+are told they caused an advantage, and how much that is worth plausibly depends on how much of the
+step is signal -- which S measured as a property of `lambda` and M measured as a property of the
+opponent. A confirmed prediction 2 is a statement about this cell.
+
+**And it does not separate the mask from its variance.** If the mask buys a curve, this design
+cannot say whether it bought it by removing variance or by removing a bias nobody has measured --
+W's prediction 2 bounded the bias at a held checkpoint to about a quarter of `|S|^2`, which is a
+loose bound, and a moving policy is not a held one.
+
+### What no outcome of this licenses
+
+`--masked` ships off whatever happens. No weights from either arm are shipped, no default moves,
+and a confirmed prediction 2 licenses exactly one thing: a second masked pair at a different
+`lambda` or a different opponent, pre-registered on its own.
