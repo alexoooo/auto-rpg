@@ -34698,3 +34698,58 @@ separately, before a bout.
 *because the shard count does reach the fit*. It does not. `scripts/league.mjs` documents that the
 shard count may not move a number, and `tests/ppo.test.mjs` tests it. Keeping it was harmless, and
 the reason given was wrong.
+
+## Pre-registration -- 2026-09-14: Experiment AF, three trajectories of seed 20260917, forked by the resume XU found, to split AB's variance in two
+
+AB measured a large spread between seeds. AC argued that much of it may be the seed's draw rather
+than the trajectory: the initial weights, the bodies each iteration trains on, and the bout
+streams. That split decides whether a within-seed contrast can be read on its own se, which is the
+question behind S's lever, U's pair and AC's falsifier. AE measures the total, between seeds. This
+experiment measures the part a within-seed contrast carries.
+
+**The fork.** XU found that `--resume` reloads weights rounded to five decimals. The next rollout
+is played identically, and the fit after it moves from a point up to 5e-6 away. From the iteration
+after that, the two runs are different trajectories with the same seed. So a `lam-base` run
+stopped after iteration k and resumed to 120 is a second trajectory of seed 20260917, identical
+through k+1 and forked after. Three values of k give three trajectories.
+
+**Manifest.** `lam-base`'s flags exactly, at seed 20260917, first to `--iterations k` and then
+`--resume --iterations 120`, for k = 1, 2 and 3, in tournaments/fork-1, fork-2 and fork-3. The one
+departure is `--workers 4`, which `scripts/tune.mjs` documents does not move a bout. The host
+already runs AE and AD. Each fork is rated like `lam-base`: 25 points, 200 bouts, cap 60, maul and
+mace, random viable pairs, the latch read off the header, and no `--rating-seed`, since the
+league's own seed is 20260917.
+
+### Predictions
+
+**0. The forks are forks.** Each fork's league rows 1..k match `lam-base`'s on `decided`,
+`margin`, `kl`, `explained` and `strokes.completion` under `Object.is`. At iteration k+2 at least
+one of those five differs. If rows 1..k differ, the league is not deterministic at a fixed seed.
+If k+2 matches, the fork did not happen at k. In either case nothing below is scored.
+
+**1. The seed's climb survives a new trajectory.** At least **two of the three** forks clear
+t 2.07 on their 5..120 slope against `golem-fencer`.
+
+**2. The trajectory component is the smaller part.** The sd of the four seed-20260917 slopes
+(`lam-base` and three forks) is **below half** of AE's between-seed sd over six seeds. If AE has not
+been scored when the forks are, the comparison is to AB's 0.029, and it is scored again once AE
+lands.
+
+**Stated in advance.** An sd on three degrees of freedom has a 95 % interval of about 0.57x to 3.7x
+itself. Prediction 2 is a shape check, not a test. It can separate a trajectory sd near zero from
+one near the between-seed sd. It cannot place anything in between.
+
+### What each outcome licenses
+
+**If 1 and 2 hold, a within-seed contrast is read mostly on rating noise.** S's lever and AC's
+dose become measurements of seed 20260917 that stand on their own se, and are not claims about
+the manifest. Whether they generalise waits for the lever at several seeds, sized from AE.
+
+**If 2 misses with the fork sd near the between-seed sd, the trajectory is the variance.** AB's
+withdrawals stand as AB wrote them. AC's downgrade of them is withdrawn, and AC's falsifier is
+read as unresolved. Every lever question after this needs several trajectories an arm, and a seed
+is no cheaper a replicate than a fork.
+
+**If 1 misses, seed 20260917's climb is a property of lam-base's trajectory, not of its seed.**
+In that case the two other arms that climbed at that seed, `lam-98` and `lam-100`, did so
+separately.
