@@ -34266,3 +34266,84 @@ budget.
 waits for that arm to replicate at a second seed on the borrowed instrument, as AB does for
 `lam-base`. **If neither clears in either direction, the upward dose is unresolved at this
 design**, and it is recorded as that, not as flat.
+
+## XU, complete -- 2026-09-14: the break is not the resume's, a five-decimal nudge forks the run in one iteration, and the second half is a replicate nobody paid for
+
+Scored at 16:37 on the predictions in `40b4e14`. **All three predictions met, and the falsifier
+does not fire.** XL's *a straight climb that breaks at iteration 120* stands. So does YL's
+ordering, *the signal dies before the curve breaks*. The five-decimal save in `roleToJson` is
+**not** a defect by the registration's own rule, and it is not touched.
+
+### 1. Prefix identity -- MET
+
+All 240 rows written. Over iterations 1..120, 600 comparisons of `decided`, `margin`, `kl`,
+`explained` and `strokes.completion` against `lam-base` under `Object.is`: **0 differ**. Pool files
+5 through 120: 24 compared, **0 differ** byte for byte. XU's 5..120 is lam-long's 5..120, and only
+125..240 and `main` were rated, under XL's manifest: 200 bouts, cap 60, maul and mace, random
+viable pairs, the latch read off the header.
+
+### What the seam did, read off the two logs before the ratings
+
+The resume at 120 reloads weights rounded to five decimals and Adam's moments in full. Iteration
+121 is the first iteration the two runs could differ on, and they barely do: the same bouts to
+the last digit, `decided` 0.8125 in both, `margin` -0.00031 in both, **`kl` 0.01275 against
+0.01274 and `explained` 0.4495 against 0.44949**. The rollout was collected by weights that
+differed by at most 5e-6, and it played identically. The fit then moved from two starting points
+that far apart.
+
+**Iteration 122 is a different run.** `margin` -0.08919 against -0.0062, `kl` 0.01618 against
+0.01149, `explained` 0.50247 against 0.59401, completion 0.4245 against 0.4617. By 240 the two
+margins have opposite signs, -0.0885 and +0.0914. One fit step turned a rounding error into a
+different set of bouts, and every step after compounds it.
+
+**That makes the two 125..240 halves independent in the thing that matters.** They share every
+bout seed, the rating instrument, and the first 120 iterations. They share no trajectory after
+121. The registration's P3 treated them as independent fits and called that an overstatement of
+the se. On the dynamics it is close to the truth. On the rating it is still an overstatement,
+because both halves are read on the same nine builds and the same bout streams.
+
+### 2. The break survives without a seam -- MET
+
+| run | span | points | slope against `golem-fencer`, a sixty | se | t |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `lam-long` = XU | 5..120 | 24 | +0.0481 | 0.0069 | 7.02 |
+| XU, straight | 125..240 | 24 | +0.0229 | 0.0089 | 2.58 |
+| `lam-long`, resumed | 125..240 | 24 | +0.0136 | 0.0063 | 2.16 |
+
+XU's second half less the first: **-0.0252 +-0.0112, t -2.25**, against the registered t < -2.
+It is a pass, and a narrow one. XL read -0.0345 +-0.0093, t -3.71 on the resumed run. **The
+straight run decelerates to 0.48x of its first-half rate. The resumed run decelerates to 0.28x.**
+Both still climb at t above 2.
+
+### 3. The two post-seam halves agree -- MET
+
+XU's 125..240 less lam-long's: **+0.0093 +-0.0109, t 0.86**. Checkpoint by checkpoint, XU's bar
+less lam-long's at the same iteration averages **-0.0031 +-0.0063** over 24 points. The two runs
+end on the same plateau by different paths. Their mean bar over 200..240 is +0.0197 and +0.0231,
+and at 240 it is +0.0250 +-0.0305 and +0.0498 +-0.0310.
+
+### What this licenses
+
+**The deceleration is a property of the manifest, not of one resume.** Pooled on inverse variance,
+the two second halves read **+0.0167 +-0.0051** a sixty against the first half's +0.0481. That
+pool is a description, not a test: its se assumes two independent ratings, and these two share an
+instrument.
+
+**Two corrections to XL's wording.** *0.28x* becomes *about a third to a half*, since the straight
+run reads 0.48x and the resumed run 0.28x. And *the curve does not stop* holds on both runs, at t
+2.58 and 2.16. The mind is still climbing at 240, three to four times more slowly than it climbed
+to 120.
+
+**One finding the registration did not ask for.** This fit is chaotic on the scale of one
+iteration. A 5e-6 perturbation of the weights produces a different run by the next rollout. Two
+consequences follow for the record:
+
+- **A resumed run is not the straight run it stands in for, and XU shows that does not matter
+  here.** The two are different trajectories after one iteration, and the curve statistic reads
+  the same on both.
+- **The record's first look at how much one manifest varies against itself.** The two halves'
+  paired level differs by -0.0031 +-0.0063, and their slopes by t 0.86. It is one pair, it
+  comes from the second half of a shared prefix, and Experiment AB is the proper measurement.
+
+**What it does to the queue.** The motive for a league that plays past selves stands: the
+fencer-only curve slows after 120 on two independent tails, not one. It is registered separately.
