@@ -74,7 +74,7 @@ import {
 import { armedTerminal, buildPool } from "../scripts/tournament.mjs";
 import { formatIdleProbe, idleProbe, normalisationOf, rollupByTerminal } from "../scripts/idle-probe.mjs";
 import {
-  boutsPerOpponent, chosenSnapshots, formatRow, parseTerminals, snapshotIterations,
+  boutsPerOpponent, chosenSnapshots, curveTargets, formatRow, parseTerminals, snapshotIterations,
 } from "../scripts/rate-snapshots.mjs";
 import { keepViable, mixedSchedule, policyShapeOf, poolFor } from "../scripts/train-ppo.mjs";
 import {
@@ -509,6 +509,49 @@ test("emphasising a weapon class repeats its builds in the draw list and drops n
   // A weighting is not a filter: every body the unweighted pool had is still drawable.
   assert.equal(new Set(weighted.map((b) => b.name)).size, new Set(pool.map((b) => b.name)).size);
   assert.ok(weighted.length > pool.length, "the emphasis did nothing at all");
+});
+
+/**
+ * Where a rating will write, which is the one decision it made silently and got two scripts wrong.
+ *
+ * **On 2026-09-14 a chained launcher slept forever on a path nobody writes and a scorer refused
+ * four finished arms on the same path, and both were reading the command rather than the output.**
+ * `--pools mirror,random --out u-rate.jsonl` writes u-rate.mirror.jsonl and u-rate.random.jsonl
+ * and never the name it was given; `--pools random` keeps the name, which is what makes the split
+ * invisible until the one night somebody asks for both. `curvePath` had no test at all before
+ * this, and that absence is the whole reason the split was a trap rather than a feature.
+ *
+ * The `.partial` beside each is what the rows are appended to while the run collects, and the
+ * rename on the way out is what keeps **the final path appearing means the run finished** true --
+ * the property three launchers in that night's scratchpad wait on.
+ */
+test("a rating names every file it will write before it collects a bout, and the split is the trap", () => {
+  assert.deepEqual(curveTargets(null, ["random"]), [], "a rating with no --out writes nothing");
+  // One pool keeps the name it was given, so every command already written down still writes the
+  // file it always wrote.
+  assert.deepEqual(curveTargets("tournaments/bat-8/u-rate.jsonl", ["random"]), [{
+    which: "random",
+    path: "tournaments/bat-8/u-rate.jsonl",
+    partial: "tournaments/bat-8/u-rate.jsonl.partial",
+  }]);
+  // Two pools split, and the name that was asked for is written by nobody.
+  const both = curveTargets("tournaments/bat-8/u-rate.jsonl", ["mirror", "random"]);
+  assert.deepEqual(both.map((t) => t.path), [
+    "tournaments/bat-8/u-rate.mirror.jsonl", "tournaments/bat-8/u-rate.random.jsonl",
+  ]);
+  assert.ok(!both.some((t) => t.path === "tournaments/bat-8/u-rate.jsonl"),
+    "the path the caller asked for is written by one of the two files, which is the trap");
+  // A path with no extension gains the word rather than growing one.
+  assert.deepEqual(curveTargets("out/curve", ["mirror", "random"]).map((t) => t.path),
+    ["out/curve.mirror", "out/curve.random"]);
+  // A Windows separator counts as one, which is the only kind of path this host hands it.
+  const back = String.fromCharCode(92);
+  assert.deepEqual(curveTargets(`a.b${back}curve`, ["mirror", "random"]).map((c) => c.path),
+    [`a.b${back}curve.mirror`, `a.b${back}curve.random`]);
+  // And a dot in a *directory* does not count -- `curvePath` walks back to the last separator.
+  assert.deepEqual(curveTargets("a.b/curve", ["mirror", "random"]).map((c) => c.path),
+    ["a.b/curve.mirror", "a.b/curve.random"]);
+  assert.throws(() => curveTargets("curve.jsonl", []), /asked for no pools at all/);
 });
 
 // The offline rating curve. Everything expensive in `scripts/rate-snapshots.mjs` is `ratePolicy`,

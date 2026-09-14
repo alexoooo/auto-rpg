@@ -324,7 +324,10 @@ test("a_re_read_is_drawn_only_when_it_has_something_the_drawn_one_did_not", () =
   assert.equal(whole.iterations.length, shorter.iterations.length + 1);
   // And so is a file that got *shorter*, because `scripts/rate-snapshots.mjs` writes a curve whole
   // rather than appending to it: a page that only drew growth would sit on the previous take of a
-  // curve until something appended to it, which for a curve file is never.
+  // curve until something appended to it, which for a curve file is never. That stayed true when
+  // the rating began appending its rows as they land on 2026-09-14 -- the appending goes to a
+  // `.partial` beside the curve and the run renames it on the way out, so what this page ever sees
+  // at the curve's own path is a whole file that replaced a whole file.
   assert.equal(reachMoved(reachOf(whole), reachOf(shorter)), true);
 
   // The half-written last line rides in the reach for the same reason it is counted at all: a

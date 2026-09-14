@@ -71,7 +71,7 @@
 // instruments looking alike in one log file. The unfiltered pool remains what the run's own
 // `--evaluate` and `--ship` report, which is what makes it the regression floor: a mind that wins
 // the maul bodies by losing the other thirty seven is caught there and nowhere else.
-import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { appendFileSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -160,6 +160,30 @@ export function curvePath(out, which) {
   const slash = Math.max(out.lastIndexOf("/"), out.lastIndexOf("\\"));
   if (at <= slash + 1) return `${out}.${which}`;
   return `${out.slice(0, at)}.${which}${out.slice(at)}`;
+}
+
+/**
+ * Every file a run will write, resolved before the first bout is collected.
+ *
+ * **The split is the trap this function exists to make visible.** `--pools mirror,random` writes
+ * two files and never the name it was given, and on 2026-09-14 that cost two scripts in one night
+ * -- a chained launcher that slept forever waiting on a path nobody writes, and a scorer that
+ * refused four arms on the same path for the same reason. Both were written by somebody reading
+ * the command rather than the output, which is the only thing that could have told them.
+ *
+ * So the CLI prints these before it starts, and this is the function a test can point at without
+ * paying for a bout. `partial` is where the rows are appended as they land; the run renames it to
+ * `path` on the way out, which is what keeps **the final path appearing means the run finished**
+ * true for the launchers that wait on it.
+ */
+export function curveTargets(out, pools) {
+  if (out === null || out === undefined) return [];
+  const wanted = [...pools];
+  if (wanted.length === 0) throw new Error("a rating with an --out was asked for no pools at all");
+  return wanted.map((which) => {
+    const path = wanted.length === 1 ? out : curvePath(out, which);
+    return { which, path, partial: `${path}.partial` };
+  });
 }
 
 export async function rateSnapshots({
@@ -302,23 +326,50 @@ if (isMain) {
   const state = loadLeague(dir);
   const random = Number(flag("random", 40));
   const on = poolSentence(terminals);
-  console.log(`${dir}: iteration ${state.iteration}, ${snapshots.length} snapshots, rating `
-    + `${chosen.length + 1} at ${per} bouts an opponent (${per * PPO_LEAGUE.length} a contender) `
-    + `${on}, on ${pools.map(poolWord).join(" and ")}`);
-  const { rows } = await rateSnapshots({
-    dir, bouts, workers: Number(flag("workers", 28)), cap: Number(flag("cap", 60)),
-    random, only, terminals, pools, onRow: (row) => console.log(formatRow(row)),
-  });
   // One file a pool. `readCurve` refuses two pools in one curve and it is right to, so a caller
   // who asked for both gets curve.jsonl split into curve.mirror.jsonl and
   // curve.random.jsonl rather than a file the page will not open. One pool keeps the name it
   // was given, so every command already written down still writes the file it always wrote.
-  if (out !== null) {
-    for (const which of pools) {
-      const mine = rows.filter((r) => (r.pool?.mirror ?? r.mirror) === (which === "mirror"));
-      const path = resolve(pools.length === 1 ? out : curvePath(out, which));
-      writeFileSync(path, mine.map((r) => JSON.stringify(r)).join("\n") + "\n");
-      console.log(`  wrote ${path} (${mine.length} rows on ${poolWord(which)})`);
-    }
+  //
+  // **Resolved before the first bout and printed in the opening line, which is this session's
+  // fix.** The split cost two scripts on 2026-09-14: one waited on a file nobody writes and one
+  // refused on the same name, and both were written by somebody reading the command rather than
+  // the output. A run that names where it will write cannot be guessed wrong about.
+  const paths = curveTargets(out === null ? null : resolve(out), pools);
+  console.log(`${dir}: iteration ${state.iteration}, ${snapshots.length} snapshots, rating `
+    + `${chosen.length + 1} at ${per} bouts an opponent (${per * PPO_LEAGUE.length} a contender) `
+    + `${on}, on ${pools.map(poolWord).join(" and ")}`);
+  for (const { which, path } of paths) console.log(`  will write ${path} on ${poolWord(which)}`);
+
+  // **A rating's rows are appended to a `.partial` as they land and the file is renamed on the way
+  // out**, which is two properties at once and both of them were bought by this night.
+  //
+  // A 26-point rating is two and a half hours and a 48-point one is nearly five; before this, a
+  // kill at hour four left nothing at all, because the whole file was written by one
+  // `writeFileSync` after the last row. The rows are now on disk as they are printed, and the
+  // rating that lost its rows to a kill on 2026-09-14 would have kept them.
+  //
+  // And the rename is what keeps the *other* property, which three chained launchers in this
+  // session's scratchpad depend on: **the final path appearing means the run finished.** A
+  // launcher that waits on rate.jsonl and starts a league when it sees it would have started two
+  // and a half hours early against a file that was still being appended to, and the host would
+  // have been double-booked by the fix rather than by the defect. `onRow` pushes in the same order
+  // `rateSnapshots` pushes into `rows`, so the bytes are the bytes the old path wrote.
+  const partial = new Map(paths.map((target) => [target.which, target.partial]));
+  for (const handle of partial.values()) writeFileSync(handle, "");
+  const { rows } = await rateSnapshots({
+    dir, bouts, workers: Number(flag("workers", 28)), cap: Number(flag("cap", 60)),
+    random, only, terminals, pools,
+    onRow: (row) => {
+      console.log(formatRow(row));
+      const which = (row.pool?.mirror ?? row.mirror) ? "mirror" : "random";
+      const handle = partial.get(which);
+      if (handle !== undefined) appendFileSync(handle, `${JSON.stringify(row)}\n`);
+    },
+  });
+  for (const { which, path } of paths) {
+    const mine = rows.filter((r) => (r.pool?.mirror ?? r.mirror) === (which === "mirror"));
+    renameSync(partial.get(which), path);
+    console.log(`  wrote ${path} (${mine.length} rows on ${poolWord(which)})`);
   }
 }
