@@ -33949,3 +33949,93 @@ climb that breaks at iteration 120* is withdrawn, and so is YL's ordering *the s
 the curve breaks*. The five-decimal save becomes a defect to fix before any other resumed run is
 read. If prediction 1 misses, the league is not deterministic at a fixed seed, which is a larger
 finding than the seam, and 2 and 3 are scored only as descriptions.
+
+## The agenda, re-cut -- 2026-09-14, afternoon: one defect, four corrected verdicts, and a mind that finishes ahead of the designed one on one seed
+
+The morning's re-cut ordered the queue around a contradiction: the probe said a step against
+`golem-fencer` needs thousands of bouts to point anywhere, and a league climbed at 32 an
+iteration. Six entries have landed since. **The largest single fact among them is not a result
+about learning. It is that four experiments' ratings had been read through an executor their
+minds never trained under.** This section says what that did to the queue, what is collecting,
+and what is next. It scores nothing and moves no default.
+
+### What changed
+
+**1. The rating path drove latched minds through the unlatched executor, and the probe did too.**
+A pool file carries no executor, and `scripts/rate-snapshots.mjs` passed none. So S, U, X and Z
+were all rated with the abort gate re-read on every step, and Y's probe cells likewise. Both
+instruments now read the league's own header and refuse to guess (`975e2e6`, `f041251`). **The
+defect never reversed the sign of a slope. It flattened X's late climb into a plateau, and it
+turned Z's flat line into a collapse.**
+
+**2. X, corrected: the only working arm keeps climbing, at a quarter of its first rate.** On its
+own executor, `lam-long` climbs at +0.0481 a sixty over 5..120 and +0.0136 over 125..240. The
+second half is 0.28x the first at t -3.71. **Over 125..240 its mean paired bar against
+`golem-fencer` is +0.0147 +-0.0039, and over the last twelve checkpoints +0.0214 +-0.0053.** That
+is the first learned mind in this record that is ahead of the designed one on the criterion. It
+is small, it is on one seed, and it holds only under `latchAbort`, which the screen does not ship.
+
+**3. Y, re-scored: the gradient is plain at iteration 5 and gone by 60.** The floor rises with the
+policy's age, 826 bouts at iteration 5 and a lower bound of 1,529 at 60. Most of the morning's
+contradiction was an executor comparison, but not all of it: 826 is still twenty-six times what a
+league iteration collects.
+
+**4. Z, re-scored: the curriculum transfers nothing, rather than transferring harm.** The arm is
+flat against the fencer at t -0.39, and Z's falsifier still fires as Z worded it. The curriculum
+is closed at the brawler rung, with a null side of 0.42x the direct arm's slope.
+
+**5. U missed all five and fired, under the handicap.** Its verdict is open again until UL lands.
+
+**6. Ratings got about four times cheaper** (`f585a6f`), because the three designed contenders
+now play once per sweep rather than once per checkpoint. Byte-identical output was checked
+against a file written before the change.
+
+### What is collecting, registered in `40b4e14`
+
+| item | question | lane | lands |
+| --- | --- | --- | --- |
+| SL | S's `lambda` ordering on the right executor | 20 workers, 50 rating points | about 14:15 |
+| UL | U's batch null on the right executor | same chain, 39 points | about 15:00 |
+| XU | is the break at 120 real, or the resume's | 7 workers, 240 iterations | about 17:30, then 25 rating points |
+
+### The queue
+
+| # | item | was | is now |
+| --- | --- | --- | --- |
+| AA | the masked fit over 240 | withdrawn on X's fired falsifier | **withdrawn as a judgement**, reinstatable at 8.1 h; it waits on XU, because a 5..240 slope through a break is a shape statistic |
+| V | the criterion cell | the owner's | **the owner's**, and X now puts a candidate in front of it; see below |
+| -- | re-rating S and U | priced, not bought | **collecting** as SL and UL |
+| -- | the uninterrupted 240 | priced, not bought | **collecting** as XU |
+| -- | the five-decimal save in `roleToJson` | noted | **a defect only if XU's falsifier fires**; it is not touched before then, because fixing it changes every future resume and XU needs the old behaviour to mean anything |
+
+### What is next, in order, once the lanes free
+
+**A second seed of `lam-base`.** Every learning claim in this record rests on one trajectory,
+seed 20260917. That covers S's ordering, U's null, X's climb, the break, Y's decay and Z's
+control. **Nothing here has been replicated across seeds, and one league to 120 costs about 95
+minutes at seven workers.** One snag must be fixed before it is registered: `rateSnapshots`
+derives both the evaluation pool and the rating seed from the league's own seed. A second seed
+would therefore be rated on a different nine builds, and by this record's own rule that is a
+different instrument. The fix is a `--rating-seed` flag that defaults to today's derivation. It
+waits for the rating chain to finish, because the chain's later arms load that script.
+
+**A league that plays its past selves as well as the fencer.** Every arm since 2026-09-13 trained
+against one designed opponent alone. Across sixteen leagues, every iteration's `shares` row names
+exactly one mind, and for all but two of them that mind is `golem-fencer`. YL's question was
+whether an opponent that stays ahead keeps the signal alive, and on the latched rating the fencer
+stops being ahead at about iteration 120. The league already has the machinery: `--share-self`,
+`--share-pool` and the snapshot pool, all overridden today by `--opponent`. How the two are mixed
+has to be read out of `scripts/league.mjs` before the registration is written, and it is not
+guessed here.
+
+**The owner's eye on `lam-long` at 240, if the owner wants it.** It is the first learned mind
+whose paired bar against the designed one is positive. The ship decision and the executor
+question belong to the owner. The cheap part is to put it on screen under `latchAbort` against
+`golem-fencer` on a dozen viable matchups. This record will not ship it on a +0.02 bar on one
+seed.
+
+### What this section is not
+
+It is not a registration. The second seed and the self-play arm each need their own predictions
+and falsifier before a bout is collected. XU may yet move the second item: if the break belongs
+to the resume, there is no deceleration to explain and the opponent question loses its motive.
