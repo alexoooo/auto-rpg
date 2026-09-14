@@ -34618,3 +34618,83 @@ seed is looked at.
 
 **If 1 and 3 pass, the manifest learns, and seed 1 is typical of it.** The lever questions come
 back, priced at several seeds an arm from this experiment's sd.
+
+## Experiment AC, complete -- 2026-09-14: every `lambda` above 0.5 climbs at seed 20260917, the dose runs downward from 0.95, and three climbs in three say AB's withdrawals went further than AB can carry
+
+Scored at 18:56 on the predictions in `0652c60`, ninety minutes after AB's entry restated every
+pairwise se in this record. **It is scored below on the se it was registered on, as the record's
+rule requires.** Prediction 1 met, prediction 2 missed, prediction 3 missed, and the falsifier
+fires. The section after the scoring asks what the result means under AB's standard error. The
+answer runs partly against AB.
+
+### The scoring, as registered
+
+Every row carries the latch and no `ratingSeed`; there are 0 rows off the manifest on either arm.
+The paired bar against `golem-fencer` over 5..120, a sixty, latched:
+
+| arm | `--lambda` | horizon, steps | slope | se | t | mean bar 100..120 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `lam-base` | 0.95 | 15.7 | **+0.0481** | 0.0069 | 7.02 | -0.0006 |
+| `lam-98` | 0.98 | 29.4 | **+0.0305** | 0.0057 | 5.33 | -0.0040 |
+| `lam-100` | 1.0 | 70 | **+0.0141** | 0.0061 | 2.29 | -0.0506 |
+
+| pair | difference | se | t | against +-2.77 |
+| --- | ---: | ---: | ---: | --- |
+| `lam-98` less `lam-base` | -0.0176 | 0.0089 | -1.98 | inside |
+| `lam-100` less `lam-base` | **-0.0340** | 0.0092 | **-3.70** | **behind** |
+| `lam-100` less `lam-98` | -0.0164 | 0.0084 | -1.96 | inside |
+
+- **1. Both new arms climb -- MET.** t 5.33 and 2.29 against 2.26. The second clears by 0.03.
+- **2. The dose continues -- MISSED.** The realised order is **`lam-base` > `lam-98` > `lam-100`**,
+  the exact reverse of the registered one. Each step up the horizon costs about 0.017 a sixty.
+- **3. Neither new arm is behind -- MISSED.** `lam-100` is behind `lam-base` at t -3.70.
+- **The falsifier fires, as written:** *the dose peaked at or below 0.95. The horizon reading is
+  withdrawn, and `lambda` is closed as a lever in the upward direction at this budget.*
+
+### What AB's standard error does to that, and what this result does to AB
+
+AB estimated a between-seed sd of slope of 0.029 and applied it to every within-seed pairwise
+contrast, on the argument that a flag change forks the trajectory. On that se, `lam-100` less
+`lam-base` reads about -0.8, and nothing above is resolved.
+
+**But AB's argument assumes the between-seed variance is trajectory variance, and this result is
+evidence that much of it is not.** A seed fixes three things: the initial weights, the bodies each
+iteration trains on (drawn from `seed ^ iteration`), and the bout streams. Two arms at one seed
+share all three and differ in the fit from the first step. So a within-seed contrast carries the
+trajectory component and not the draw component. AB cannot separate the two, and the record now
+has three pieces of evidence on the split:
+
+- **XU's two tails**, forked at 122 from one trajectory, differ in slope by +0.0093 +-0.0109. That
+  is inside the rating noise with no trajectory term added.
+- **At seed 20260917, every `lambda` of 0.95 and above climbs**, at t 7.02, 5.33 and 2.29, and
+  both values of 0.5 and below are flat, at t -1.13 and -0.09. The five arms fork at iteration 1.
+  If trajectory variance were as large as AB's sd, a clean split by `lambda` in five of five
+  would be a coincidence.
+- **The slopes fall monotonically with `lambda` across three arms** above 0.5, in equal steps.
+  Noise of sd 0.029 a sixty would scramble steps of 0.017.
+
+**None of the three is a test.** They were read after the fact, and the monotone steps are three
+points. Together they say AB's withdrawals went further than AB's data carries. **Two of AB's
+sentences are downgraded here from *withdrawn* to *unresolved*:** S's *`lambda` is a measured
+lever*, and U's per-iteration pair. AB's own verdict is untouched: the climb is not a property of
+the manifest across seeds. Whether a lever measured at one seed generalises across seeds is a
+separate question, and it is open.
+
+**What AC licenses, on either reading: nothing ships and no default moves.** The shipped 0.95 is
+the best of the three on point estimates. If the within-seed se is close to the registered one,
+the upward dose is closed. If it is close to AB's, it is unresolved. Neither reading argues for
+moving `lambda`.
+
+### The question this leaves, and it costs one league a replicate
+
+**How large is the trajectory component at a fixed seed?** The tool is on disk. XU showed that a
+`--resume` rounds the weights to five decimals and forks the run within one iteration, while
+keeping the seed's initial weights, bodies and bout streams. A `lam-base` run stopped at iteration
+k and resumed is therefore a second trajectory of seed 20260917 that differs from the first only
+after k. Forks at three different iterations give three trajectories. That is registered
+separately, before a bout.
+
+**A correction to AE's registration, which changes nothing it collects.** It kept `--shards 4`
+*because the shard count does reach the fit*. It does not. `scripts/league.mjs` documents that the
+shard count may not move a number, and `tests/ppo.test.mjs` tests it. Keeping it was harmless, and
+the reason given was wrong.
