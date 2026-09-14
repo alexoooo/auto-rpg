@@ -31735,3 +31735,90 @@ return and its share of the gradient are different measurements -- and it has th
 quantity was carried from the cell it was measured on to a cell it was not, because both cells
 were about the same twelve fields and it did not occur to anybody that the fields were the
 variable and the pairing was not.
+
+## Registered and not collected -- 2026-09-14: Experiment X, the only arm that is working, looked at for twice as long
+
+Experiment S is scored above. Its headline missed and its dose-response missed, and what it leaves
+behind is one arm that works and a statistic that does not rank minds. **This registration is the
+cheapest question the record can now ask, and it is cheap because it changes nothing.**
+
+### Why this and not something cleverer
+
+Three of tonight's four verdicts were about a lever failing. `lambda` at 0 was priced by
+Experiment G as eight to thirty-eight times better determined and produced the worse curve.
+`lambda` at 0.5 produced a negative one. An eight-fold change in bouts an iteration left the
+critic's explained variance between 0.296 and 0.363 with no step clearing its family bar. Every
+one of those was a change to the optimiser, and every one of them bought nothing.
+
+The shipped estimator, changed in no way at all, produced **+0.0355 +-0.0081 per sixty iterations
+at t 4.38** -- the only arm in Experiment S clearing the three-arm threshold of 2.26 -- and ended
+at **d -0.0173 +-0.0707** against `golem-fencer`, closer than any learned mind in this record has
+come. Prediction 5 of that experiment then measured its second half at **+0.0361** against its own
+whole-run **+0.0355**: the same rate, over a span nobody had ever looked at.
+
+**So the one thing that has never been tried is leaving it alone for longer.** No cell in this
+record was rated past iteration 60 before tonight, and tonight's was rated to 120 and was still
+climbing at the rate it started with.
+
+### The cells, and there is one
+
+`tournaments/lam-base` is copied to lam-long and resumed there, so Experiment S's artifact is not
+mutated by the experiment that reads it. The resumed arm carries `lambda-run.sh`'s flags unchanged
+-- `--opponent golem-fencer --tactics latchAbort=true --lambda 0.95 --bouts 32 --terminals
+maul,mace --seed 20260917 --shards 4 --exploiters 0 --evaluate 0 --pool-every 5` -- with
+`--iterations 240 --resume`. Iterations 1..120 are not re-collected; prediction 1 of Experiment S
+established, at 300 comparisons of 300, that `--iterations` does not reach the collection, so the
+prefix is the prefix.
+
+The rating is `rate-s.sh`'s: 200 bouts a contender, random viable pairs, the viable terminals,
+every checkpoint the arm wrote.
+
+### The predictions
+
+**1. The curve continues.** The paired bar slope against `golem-fencer` over checkpoints 125..240
+is positive and within two standard errors of the difference of the 5..120 slope of +0.0355. This
+is the continuation claim stated as an agreement rather than as a threshold, because prediction 5
+of Experiment S showed that a 12-point window cannot resolve its own slope and the informative
+quantity was two spans agreeing.
+
+**2. The mind passes the designed one.** The mean paired `d` against `golem-fencer` over the last
+five checkpoints, 220..240, is **positive**. At iteration 120 it is -0.0173, and a slope of
++0.0355 per sixty carries it +0.071 over 120 more iterations. **This is the risky one** -- it is
+the first time this record has predicted a learned mind beating a designed one, and the whole
+`learn` set of thirteen sessions failed to do it.
+
+**3. The estimator's ordering does not reappear.** Nothing about `lambda` is re-measured here and
+no arm is added. This is stated so that the entry cannot quietly become a second `lambda`
+experiment if the curve does something interesting.
+
+### The falsifier
+
+**If the slope over 125..240 is inside two standard errors of zero, the curve was a
+hundred-and-twenty-iteration transient** and the record's learning claims are claims about a
+transient. That is a stronger version of the worry prediction 5 of Experiment S was written
+against, and it is the outcome that would send the next experiment at the task and the score
+function rather than at the fit.
+
+### The arithmetic this has to be read against, written down now
+
+The 5..120 fit gave a slope standard error of 0.0081 over 24 points. The 125..240 span is the same
+length and will carry the same number of checkpoints, so its slope carries about **0.0081** too,
+and the difference of the two spans about 0.0115. The design therefore resolves a change in slope
+of about **0.032 per sixty** at two sigma -- which is nine tenths of the slope itself, so
+prediction 1 is a claim the design can only just make, and it is stated as an agreement for
+exactly that reason.
+
+Prediction 2's quantity is a mean of five checkpoints whose single-point standard error is 0.0707,
+so it carries about **0.0316**, and the design resolves a `d` of about **0.063** from zero at two
+sigma. The predicted value is **+0.054**. **This design cannot separate the predicted outcome from
+zero**, and that is said here rather than discovered afterwards: prediction 2 is scored on its
+sign and on nothing else, and a positive mean that does not clear its own interval will be
+reported as a positive mean that does not clear its own interval.
+
+### What no outcome of this licenses
+
+No default moves. `lambda` stays 0.95, `latchAbort` stays off in `DRIVEN`, the shipped weights are
+not regenerated, and no mind is shipped from this run. A confirmed prediction 2 licenses one thing
+and it is not a ship: it licenses rating the same arm against the **screen's** default at the bout
+count the screen uses, which is the only cell in which "beats the designed mind" means what a
+reader would take it to mean.
