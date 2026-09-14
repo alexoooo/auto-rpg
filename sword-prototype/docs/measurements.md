@@ -34347,3 +34347,99 @@ consequences follow for the record:
 
 **What it does to the queue.** The motive for a league that plays past selves stands: the
 fencer-only curve slows after 120 on two independent tails, not one. It is registered separately.
+
+## Pre-registration -- 2026-09-14: Experiment AD, half the fencer's bouts given to past selves, and the two arms on disk that bracket it
+
+XU has just shown that the fencer-only curve slows after iteration 120. It slows on two tails that
+share no trajectory, to between a third and a half of its first-half rate. The afternoon's re-cut named the
+next question: does a league that also plays its own past keep climbing where the fencer-only
+league slows? This entry registers that run. It also registers the ratings of an arm already on
+disk, because without them the run has no second control.
+
+### How the mix is spent, read out of `scripts/league.mjs` and smoke-tested
+
+`--opponent league` replaces the single opponent with a cycle. `leaguePairs` builds it from the
+weights: one slot per unit of `--share-self` (the main frozen at the start of the iteration),
+`--share-pool` slots spread over the snapshot pool by `spreadSlots` (rotating with the iteration
+number), and `--share-anchor` slots for each `--anchor`. `collectLeague` asks for `bouts / 2`
+pairings, rounds that up to a whole number of cycles, and plays each pairing from both sides.
+**Only the main's corner is collected.** The frozen self and the pool are opponents, not learners.
+
+A three-iteration smoke run at `--share-anchor 2 --share-self 1 --share-pool 1 --pool-every 1`
+wrote exactly the shares that arithmetic predicts: iteration 1 `{"self":0.33333,"golem-fencer":
+0.66667}`, before the pool had an entry, then `{"self":0.25,"pool-1":0.25,"golem-fencer":0.5}`.
+
+**Manifest.** `lam-base`'s flags, except `--opponent league --anchor golem-fencer --share-anchor 2
+--share-self 1 --share-pool 1`. That is `--tactics latchAbort=true --lambda 0.95 --bouts 32
+--terminals maul,mace --seed 20260917 --workers 7 --shards 4 --exploiters 0 --evaluate 0
+--pool-every 5`, with the default `--pool-cap 8`, `--iterations 240`, in tournaments/self-mix.
+
+At 32 bouts that realises **16 bouts against `golem-fencer`, 8 against the frozen self and 8
+against one pool entry, from iteration 6 on.** Iterations 1..5 have no pool, so a cycle of three
+rounds 16 pairings up to 18: 24 bouts against the fencer and 12 against self.
+
+### The two controls, and why one of them has to be re-rated
+
+The arm sits between two runs already on disk, and each differs from it in one thing.
+
+| arm | bouts an iteration | against `golem-fencer` | against its own past |
+| --- | ---: | ---: | ---: |
+| `lam-base` / XU | 32 | 32 | 0 |
+| **AD, `self-mix`** | 32 | 16 | 16 |
+| `bat-16` | 16 | 16 | 0 |
+
+**Against `lam-base`, AD swaps half the fencer's bouts for past selves at the same sample count.**
+**Against `bat-16`, AD adds sixteen past-self bouts to the same sixteen fencer bouts.** If a bout
+against a past self is worth what a bout against the fencer is worth, AD reads as `lam-base`. If it
+is worth nothing, AD reads as `bat-16`. If it costs, AD reads below `bat-16`.
+
+`bat-16` ran 240 iterations at 16 bouts, seed 20260917, the same terminals and latch, with pool
+files every five. **UL rated it only every twenty iterations**, which is 12 points, and a 5..120
+slope on six of them is not comparable to a 24-point one. So its 36 missing checkpoints in 5..240
+are rated here under XL's manifest, with iteration 120 rated again as an identity check against
+UL's row. The two files are then read as one curve.
+
+### Predictions
+
+The family is three arms, with S's thresholds: t **2.26** for one arm and **+-2.77 se** pairwise.
+Every slope is the paired bar against `golem-fencer` over 24 points, a sixty, latched.
+
+**0. The instrument.** Every AD iteration from 6 on writes the shares 0.5 / 0.25 / 0.25 and 16
+fencer bouts, and iterations 1..5 write 0.667 / 0.333 and 24. The re-rated `bat-16` 120 row equals
+UL's on `fencer.bar` to the last digit. If either fails, nothing below is scored.
+
+**1. The mix still climbs.** AD's slope over 5..120 is positive at t > 2.26.
+
+**2. A past self is worth something, and less than the fencer.** On point estimates, AD's 5..120
+slope lies strictly between `bat-16`'s and `lam-base`'s. A random placement of AD among three
+values lands in the middle one time in three, so this is a shape check. The reading that goes
+into the record is the fraction of `lam-base`'s lead over `bat-16` that AD keeps, with its
+interval.
+
+**3. The mix does not break at 120.** AD's slope over 125..240 less its own 5..120 slope is **not**
+negative at t < -2. The fencer-only runs read t -2.25 (XU) and t -3.71 (lam-long) on that same
+contrast.
+
+**4. And it ends ahead of where the fencer-only runs end.** AD's 125..240 slope is above the two
+fencer-only tails' pooled +0.0167 a sixty, on the point estimate.
+
+**Stated in advance so that nothing below is read as a finding:** the pairwise se is about 0.010,
+so the smallest difference either contrast in 2 would catch four times in five at +-2.77 is about
+0.035 a sixty, 0.7x `lam-base`'s slope. Prediction 3 is a within-arm contrast whose se is about
+0.011. It can catch a break as large as XU's, -0.025, only about half the time. **A pass on 3 is
+weak evidence that the break is gone. A miss is strong evidence that it is not.**
+
+### The falsifier, and what each branch licenses
+
+**If prediction 3 misses and prediction 4 misses, the past is not what the fencer-only league was
+missing.** The deceleration after 120 survives a league that spends half its bouts on its own
+history, and it ends no higher. The motive this record wrote for self-play is withdrawn at this
+mix and budget, and the next question about the plateau is the fit, not the opponent.
+
+**If AD's 5..120 slope is below `bat-16`'s beyond -2.77 se, past-self bouts cost.** The mechanism
+this would suggest is that a fit step bounded by its KL target is being spent on a gradient that
+points at old minds. It is named so it is not reached for afterwards, and it is not tested here.
+
+**If AD is ahead of `lam-base` beyond +2.77 se on either span, no default moves.** `--opponent
+golem-fencer` is not a shipped default, but the queue's next runs would be built on the mix, and
+that waits on a second seed of AD.
