@@ -32227,3 +32227,203 @@ limit stands and is the reason to be slow about it: **this is one collection at 
 coordinates ranked highest at one iteration need not be the ones ranked highest at the next, and a
 fit that masked to them would be re-ranking as it went, which is a different instrument at a
 different cost.
+
+## Experiment W, complete -- 2026-09-14: a quarter of the step's variance is in terms the body never read, and the `K` ratio of a head group is its read share
+
+Both cells landed. **Predictions 1, 2, 3 and 5 are met and 4 and 6 are missed**, 4 exactly as this
+record published in advance that it would be. The mask removes **24.8 %** of the unlatched cell's
+gradient variance and **26.5 %** of the latched cell's while moving neither cell's `|S|^2`, which is
+the finding and its falsifier in one line.
+
+**This entry is written after Experiment S's verdict, which is what its own note of 21:10 required.**
+That note, fixed with no cell of W on disk, says S's falsifier is stated in the currency W is
+denominated in and that if it fires, W is a measurement in a unit that has just been shown not to
+predict learning. **It fired**, four hours before this was scored, and `docs/design.md` now carries
+the ruling that a bar is not stated on a floor. Nothing below is retracted by that and no number
+moves. What changes is what a confirmed prediction 3 is worth, and it is said here rather than left
+to a reader.
+
+### The two cells, and the realised cost
+
+Both against `idle` from `bracket-idle` pool-30, held, 128 bouts, 20 iterations, seed 20260917,
+`--random 40`, 4 shards, differing in `latchAbort` and **agreeing on 16 of 16 manifest fields that
+are not the latch**, checked by the reader before it printed a number.
+
+| cell | registered | realised | | the masked arm credited |
+| --- | ---: | ---: | --- | ---: |
+| `gradmask-idle-128`, unlatched | 117 min | **135 min**, 20:16:52 to 22:31:58 | 1.15x | 7.95 of 12 dimensions an ask |
+| `gradmask-latched-idle-128`, latched | 74 min | **94.5 min**, 22:35:21 to 00:09:52 | 1.28x | 7.08 of 12 |
+
+**A cost stated before a result stands or is corrected in public.** The host was not free: at 20:15
+seven rating jobs held 46 worker threads and a cell of Experiment M's ladder held 14 more, so total
+demand was 74 threads on 32. **The arithmetic that predicted a halving was wrong and is corrected
+here too** -- 2.3x oversubscription cost 1.15x and 1.28x, because these workers spend much of their
+time in a physics step rather than competing for the same execution ports. Two readings seven
+minutes apart measured 7.6 minutes an iteration against a free-host 5.85. That measurement is why
+both probes were left running instead of one being killed.
+
+### Predictions 1, 2 and 3: the plumbing, the falsifier and the finding
+
+**1, the identity -- MET.** `all-bits`, which binds the rollout's own mask column after saturating
+every bit, against `whole`: `cosine`, `dot`, `firstNorm`, `secondNorm`, `advantageSd` and the critic
+cosine, **240 fields over the two cells, 0 different, no tolerance.** And three columns that carry
+no prediction and had to not move -- `clipFraction`, `advantageSd`, `entropyPaid` -- differ on 0 of
+20 iterations in both arms of both cells. The mask reaches the score and nothing else: the
+probability ratio the clip bound is defined on stays whole, because a ratio over a subset of the
+dimensions is not that ratio, and the entropy bonus stays whole, because it is a term in the
+objective rather than a credit for an action.
+
+Two cells are one family at 19 df, so a contrast below is read against **t 2.09** and not 2.
+
+**2, the falsifier -- MET on both.** The claim the experiment rests on is that a field the executor
+never read could have been drawn anywhere without changing one number the body did, so its score
+times the advantage has expectation zero. If that is wrong the mask is a **bias**, and a bias shows
+up as a move in `|S|^2`.
+
+| cell | whole `\|S\|^2` | paired change under the mask | t | the smallest move it would have caught |
+| --- | ---: | ---: | ---: | ---: |
+| unlatched | 1.9067e-2 | +0.000810 +-1.858e-3 | **+0.44** | 5.280e-3, **27.69 %** of `\|S\|^2` |
+| latched | 2.3979e-2 | -0.001323 +-2.125e-3 | **-0.62** | 6.039e-3, **25.18 %** of `\|S\|^2` |
+
+The two changes point in **opposite directions**, which is what a zero looks like and is worth more
+than either row alone. **And the null side is the honest size of the claim**: "does not move" here
+means "does not move by more than about a quarter of itself". A smaller bias than that is not ruled
+out by this design and is not claimed.
+
+**3, the finding -- MET on both.**
+
+| cell | whole `K` | paired change | share | t | the smallest fall it would have caught |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| unlatched | 2.1589e+1 | -5.3557 | **-24.8 %** | **-16.07** | 9.761e-1, 4.5 % of `K` |
+| latched | 2.3488e+1 | -6.2300 | **-26.5 %** | **-16.97** | 1.075e+0, 4.6 % of `K` |
+
+A quarter of the step's variance sits in terms the body never read. Those are the two largest `t`
+in the experiment by a factor of two and a half.
+
+### Prediction 4 -- MISSED on both, exactly as published in advance, and the real ordering is better
+
+The prediction ordered the twelve head groups by their `K` ratio and asked the six read
+conditionally -- `reach`, `commit`, `abort`, `bite`, `swing`, `parry` -- to hold the six lowest
+places. A random ordering separates a named six from the other six **1 time in 924**.
+
+| | unlatched | ratio | read on | | latched | ratio | read on |
+| ---: | --- | ---: | ---: | ---: | --- | ---: | ---: |
+| 1 | `parry` | 0.1816 | 13.2 % | 1 | `abort` | 0.1332 | 12.5 % |
+| 2 | `swing` | 0.2610 | 25.8 % | 2 | `swing` | 0.1424 | 12.5 % |
+| 3 | `commit` | 0.4758 | 50.5 % | 3 | `parry` | 0.1974 | 14.4 % |
+| 4 | `bite` | 0.4812 | 45.2 % | 4 | `commit` | 0.2184 | 25.3 % |
+| 5 | **`targetHeight`** | 0.6276 | 64.3 % | 5 | `bite` | 0.5273 | 43.9 % |
+| 6 | `abort` | 0.6285 | 55.6 % | 6 | **`targetLateral`** | 0.5639 | 64.1 % |
+| 7 | **`targetLateral`** | 0.6495 | 64.3 % | 7 | **`targetHeight`** | 0.5810 | 64.1 % |
+| 8 | `reach` | 0.7649 | 75.9 % | 8 | `reach` | 0.7723 | 71.1 % |
+| 9-12 | `standOff` `strafe` `lean` `advance` | 1.0000 | 100.0 % | 9-12 | the same four | 1.0000 | 100.0 % |
+
+**The entry of 2026-09-13 published, before any cell of W existed and with the instrument pointed
+only at an unregistered eight-bout smoke, that this would miss and why.** The branch that reads
+`targetHeight` and `targetLateral` is `cap.reachable && caps.crouchTravel > 1e-6`, and a random
+viable pair puts two different bodies on the floor, so on a collection that is 40 % random pairs
+they are read on about half of asks rather than on all of them. The measured shares are **64.3 %
+and 64.1 %**, which is the conditional group's range and not the unconditional group's. It misses
+for that reason and not for the reason it was testing. **It was deliberately not amended**, because
+a pre-registration edited after its instrument has been pointed at anything is not one.
+
+**What the table actually shows is stronger and simpler than the prediction it failed.** On the
+latched cell the `K` ratio is **monotone in the read share across all twelve groups with no
+inversion at all** -- 12.5 % to 100 % against 0.133 to 1.000. On the unlatched cell there are two
+inversions, both between groups whose shares differ by under ten points. The quantity the mask
+moves in a head group is not *whether* the field is conditional; it is **how often the executor
+read it**, which is a continuous fact the six-and-six grouping had to discard to be stated at all.
+
+### Prediction 5, the latch -- MET, and it is worth what a direction between two cells is worth
+
+`abort`'s `K` ratio is **0.6285 at 55.6 % of asks unlatched and 0.1332 at 12.5 % latched.** The row
+masked on seven asks in eight gains far more than the row masked on four in nine, which is the
+prediction, and it is the mechanism of the paragraph above seen through one field. It carries no
+interval: it is a comparison of two point estimates across two collections, and that is said rather
+than dressed up.
+
+### Prediction 6, the direction -- MISSED on both, against a bar that was set too high
+
+| cell | cosine, masked against unmasked | lowest | bar | the whole arm's own half-to-half cosine |
+| --- | ---: | ---: | ---: | ---: |
+| unlatched | **+0.8910 +-0.0062** | 0.8403 | 0.95 | +0.0973 |
+| latched | **+0.8840 +-0.0050** | 0.8435 | 0.95 | +0.1149 |
+
+`all-bits` reads 1.000000000000 on both, and anything else would have been prediction 1 failing
+somewhere the reader did not look.
+
+The registration's reasoning was Experiment R's lesson applied in advance: two estimators of one
+direction should agree about the direction, and a pair that does not is not a variance reduction.
+**The number this has to be read against is the whole arm's own half-to-half cosine.** Two
+independent estimates of the *same* gradient over the same checkpoint agree with each other at 0.10
+and 0.11; the masked and unmasked prices of *one* collection agree at 0.89 and 0.88. **A bar set
+above what the estimator achieves against itself is a bar about the sample size and not about the
+mask.** It is reported missed and the ceiling is printed beside it, and the lesson for the next
+registration is that a threshold on an agreement needs the instrument's own agreement quoted under
+it before the number is chosen.
+
+### The floors, the one exact reproduction, and the comparison that is not available
+
+| cell | arm | `\|S\|^2` | t | `K` | floor, bouts |
+| --- | --- | ---: | ---: | ---: | ---: |
+| unlatched | `whole` | 1.9067e-2 +-8.29e-3 | 4.60 | 21.59 | **789** |
+| unlatched | `all-bits` | 1.9067e-2 +-8.29e-3 | 4.60 | 21.59 | 789 |
+| unlatched | `masked` | 1.9877e-2 +-7.07e-3 | 5.62 | 16.23 | **602** (0.763x) |
+| latched | `whole` | 2.3979e-2 +-7.92e-3 | 6.05 | 23.49 | **736** |
+| latched | `all-bits` | 2.3979e-2 +-7.92e-3 | 6.05 | 23.49 | 736 |
+| latched | `masked` | 2.2656e-2 +-5.79e-3 | 7.83 | 17.26 | **607** (0.825x) |
+
+**The unlatched whole arm reads 789 bouts at t 4.60, and Experiment I quotes 789 bouts and t 4.60
+for the same cell.** That is an independent reproduction of I's headline to the integer and to two
+decimals of `t`, through an instrument built and landed after I was collected, and it was not
+engineered: `launch-w.sh` fixed the manifest -- including `--random 40`, the flag the touch entry
+records as moving the crouch pair's share by a factor of two -- before any of this was measured.
+
+**The latched comparison is not available and W's own registration implied it was.** That
+registration names "Experiment I's latched idle cell: actor 786" as this cell's comparison.
+**I's latched idle cell is 40 iterations and W's is 20.** A floor's denominator carries `2 SE`,
+and `SE` is the standard error of the dot *across iterations*, which falls as one over the root of
+their number -- so a 40-iteration cell has a smaller `2 SE`, a smaller denominator and a larger
+floor for the same gradient. 736 against 786 is that, in the direction that effect predicts, and it
+is **not** evidence about the collection either way. The unlatched pair is the reproduction; the
+latched pair is a comparison the registration should not have written.
+
+### What this is worth, after Experiment S
+
+Experiment G, which produced the 789 this cell reproduces, says of the floor that it measures how
+reproducible a gradient estimate is and not whether it points anywhere useful, and that a biased
+estimator with a small variance wins on reproducibility for free. **The mask is exactly that
+shape**: it removes from the score a component with high variance and an expectation the argument
+says is zero, so lowering `K` is close to what it must do by construction. **Prediction 2 is what
+stops that being circular** -- it says, at t +0.44 and t -0.62 on two cells and in two directions,
+that the expectation really was zero.
+
+But Experiment S measured that a gradient the probe priced as eight to thirty-eight times better
+determined produced the *worse* curve. So the sentence this entry is allowed to write is the narrow
+one its registration promised in advance: **a masked estimator that is measurably sharper here has
+still not been shown to buy a single point of criterion.** Everything above is one step at one held
+checkpoint, and a variance removed from a step is not a curve.
+
+### The `lambda`-0 tell, printed as the unregistered column it is
+
+| | unlatched | latched | apart by |
+| --- | ---: | ---: | ---: |
+| `whole` half-to-half cosine | +0.0973 | +0.1149 | 15.3 % |
+| `masked` half-to-half cosine | +0.1318 | +0.1447 | 9.0 % |
+
+Experiment G's suspicion of `lambda-0` rested on its cosine being *the same number* against two
+opponents that differ by everything -- 1.4 % apart -- which is the signature of an estimator
+scoring on its own smoothness rather than on the data. The mask's two cells are 9.0 % apart where
+the unmasked pair is 15.3 %, so the mask moves in that direction and nowhere near that far.
+**This tell is far weaker than G's and carries no verdict**: W's two cells share an opponent, a
+checkpoint and a pool and are alike in everything but one flag, where G's two differed in the
+opponent. It is printed because leaving it out would be choosing which unregistered column to show.
+
+### What no outcome of this licenses
+
+**No default moves.** `logProbGrad`'s default stays every bit set, the trainer is untouched,
+`latchAbort` stays off in `DRIVEN`, and no weights are regenerated. A confirmed prediction 3
+licenses exactly one thing and it is not a ship: **a registration for a fit under the masked
+credit**, stated on a paired bar against `golem-fencer` and not on a floor, as a candidate for a
+night rather than as a change to anything shipped. After tonight that registration is the only
+form in which the mask can be asked about at all.
