@@ -34039,3 +34039,50 @@ seed.
 It is not a registration. The second seed and the self-play arm each need their own predictions
 and falsifier before a bout is collected. XU may yet move the second item: if the break belongs
 to the resume, there is no deceleration to explain and the opponent question loses its motive.
+
+## Pre-registration -- 2026-09-14: Experiment AB, `lam-base` at a second seed, because every learning claim in this record is one trajectory
+
+Every arm since 2026-09-13 was trained at seed 20260917. That covers S's three, U's four, X,
+Z's control and the five of Y. **The one climb this record calls learning, `lam-base` at t 7.02
+on its own executor, has never been run twice.** S's ordering is an ordering of three
+trajectories that share every bout seed. U's null is a null over four such trajectories. X's
+break is a feature of one. If the climb belongs to the seed and not the manifest, all of them are
+measurements of one draw.
+
+**Manifest.** `lam-base`'s flags exactly, with `--seed 20260918`, into tournaments/lam-seed2, at
+`--iterations 120`. Nothing else differs, and the header will show it. A different seed draws
+different training bodies each iteration and different bout streams, which is the replication.
+
+**The instrument is borrowed, and the script cannot do that yet.** `scripts/rate-snapshots.mjs`
+derives the evaluation pool and every rating bout from the league's own seed, so at seed 20260918
+the replicate would be rated on different bodies. By this record's rule that is a different
+instrument. Before the league is rated, the script gains `--rating-seed`, which names the league
+seed whose instrument to use and defaults to the league's own, so no existing rating moves. The
+replicate is rated with `--rating-seed 20260917`, under XL's manifest otherwise: 200 bouts, cap
+60, maul and mace, random viable pairs, the latch read off the header. Its three designed columns
+are therefore lam-long's to the byte, and its fit column is the only one that differs.
+
+**It waits for UL to finish**, because the rating chain loads the script being changed. It runs at
+seven workers beside XU. About two hours, then 25 rating points.
+
+### Predictions
+
+**1. The climb replicates.** The paired bar slope against `golem-fencer` over 5..120 is positive
+and **clears t 2.07** (one arm, 22 degrees of freedom). On `lam-base`'s standard error of 0.0069,
+the design would catch a slope of 0.0201 a sixty four times in five.
+
+**2. At the same rate.** The replicate's slope less `lam-base`'s latched +0.0481 +-0.0069 is
+**inside two standard errors** of the difference, with the two fits treated as independent. They
+share every rating bout, so that se is an overstatement and a pass is the weaker direction.
+
+**3. To the same place.** The mean paired bar over checkpoints 100..120 is inside two standard
+errors of `lam-base`'s over the same five checkpoints, using the scatter of the five as the se.
+
+### The falsifier
+
+**If prediction 1 misses, the climb belongs to seed 20260917 and not to the manifest.** S, U, X and
+Z each used `lam-base` as the arm that works. Every one of those comparisons would then be restated
+as a comparison against one draw, and XL's *first learned mind ahead of the designed one* would
+become a statement about a seed. If 1 holds and 2 misses, the manifest learns but its rate is not a
+property of the manifest. Every slope ratio this record has quoted between arms at a shared seed
+(L's 16.2x, U's ladder, S's hump) would then be read as possibly a seed effect.
