@@ -32835,3 +32835,144 @@ one quantity, a `??` that makes the wrong one succeed, and no assertion anywhere
 two files a reader is holding. The assertion that would have caught it is not *is the probe tested*
 -- it was, and thoroughly -- but ***which* assertion is about the file this path reads**, and the
 answer was none. That question is worth asking of every reader in this tree that takes a path.
+
+## Pre-registration -- 2026-09-14: Experiment Z, the one curriculum run Experiment M licenses
+
+### A correction to the re-cut above, made before anything is registered on it
+
+The re-cut names Z as *the reward grid's extremes, read on an instrument that ranks*: take the best
+and the worst arm by floor from Experiment E's fencer cell and run them as two leagues. **Half of
+that is already run and the other half is underpowered**, and both facts were available in this
+record when the paragraph was written.
+
+**The best arm by floor is `swing-loud` at 1,725 bouts, and Experiment K ran it.** Four leagues
+against `golem-fencer`, a seventy-fold sweep of the coefficient, and the one-line reading K
+published is *a reward row the probe ranked best by 6.24x did not move the criterion*. That is
+exactly Z's question, answered, on the high side of the floor.
+
+**The worst arm is `damage-only` at 5,651 bouts, which is 1.49x the shipped table's 3,796.** If the
+floor were a budget, at equal bouts it would buy 0.67 of the movement -- a predicted slope of
+0.0238 against `lam-base`'s 0.0355, a difference of **0.0117**. Two ordinary least squares fits over
+24 checkpoints each carry about 0.0081 apiece, so the difference carries **0.0115** and the design
+resolves about 0.032. **The design cannot resolve the effect it would be run to find**, and a
+second arm that reads *no difference* at three times the resolution of the difference is not
+evidence about the floor. So that arm is not run.
+
+What replaces it is the other thing Experiment M licensed, in its own words: *what M licenses is
+one curriculum run, pre-registered on its own, whose bar is still the fencer's.*
+
+### Why this and not something cheaper
+
+Experiment M measured the floor against six opponents from one checkpoint and found a 6.4x span
+that is almost entirely the **denominator**: `K` moves 1.23x while `|S|^2` falls by more than three
+and changes sign. `golem-brawler` is the easiest paid rung -- **floor 1,068 bouts, `|S|^2` at
+t 3.20**, the only paid rung besides `golem-driver` that clears the family bar -- and
+`golem-fencer` is the rung where forty iterations of 128 bouts found nothing, twice, on two
+instruments.
+
+**Every bar in this record is stated against the rung with no measurable gradient in it.** The
+question this run asks is whether a policy fitted where the gradient is measurable arrives
+anywhere useful against the rung where it is not. That is the sharpest form of the agenda's item V
+that does not require the owner to decide anything.
+
+**And the record already has one negative precedent, which is why this is worth running rather
+than assuming.** The `--opponent idle` arm of 2026-09-12 climbed on the dummy at t +3.38 and was
+the flattest of four arms on the criterion at a slope t of **-0.38**. `golem-brawler` is not the
+dummy: it is a designed mind that the probe says carries real signal. If the curriculum fails here
+too, it fails at the strongest rung anyone would have proposed, and the idea is closed rather than
+re-proposed at a different opponent next week.
+
+### The cell, and it is Experiment S's manifest with one word changed
+
+One league: `--opponent golem-brawler --tactics latchAbort=true --lambda 0.95 --iterations 120
+--bouts 32 --terminals maul,mace --seed 20260917 --shards 4 --exploiters 0 --evaluate 0
+--pool-every 5`, into tournaments/brawl-base. That is `lambda-run.sh`'s line for `lam-base` with
+`--opponent` and `--dir` changed and nothing else, and the scoring entry checks the two league
+headers field by field before it reads either.
+
+**The control is `tournaments/lam-base` and it is not re-run.** It is on disk, it is rated over 24
+checkpoints at 200 bouts a contender on random viable pairs, and Experiment S published its slope
+as **+0.0355 +-0.0081 at t 4.38**. Re-running it would buy a second draw of the same design and
+cost the night's remaining lane.
+
+The rating is `rate-s.sh`'s: 200 bouts a contender, random viable pairs, the viable terminals,
+every checkpoint the arm wrote.
+
+### The predictions
+
+**1. It learns the thing it is trained on.** The league's own training margin against
+`golem-brawler` rises over the 120 iterations at t > 2, one-sided. **This is the weakest
+instrument in the experiment and it is named as such**: it is a 32-bout read taken inside the
+training loop, not a paired bar, and the only reason it is here is that
+`scripts/rate-snapshots.mjs` reports `uniform`, `driver` and `fencer` columns and has no
+`golem-brawler` column to give. Without prediction 1 a missed prediction 2 cannot be told apart
+from a run that learned nothing at all, which is the distinction the whole experiment turns on.
+
+**2. The headline -- it transfers to the criterion.** The paired bar slope against `golem-fencer`
+over checkpoints 5..120 is positive and clears **t 2.068**, which is the one-sided family threshold
+over two arms at 22 df. The sentence is about one new arm and would license t 1.717 over a family
+of one -- the control's own clearing is published and is not re-tested here -- and the more
+conservative of the two is taken because the entry will print a two-row table and a reader of a
+two-row table is comparing. This is the risky prediction and the `--opponent idle` precedent is
+against it.
+
+**3. Transfer falls with distance along M's ladder.** The slope against `golem-driver` -- M's floor
+1,342, one rung nearer the training opponent than the fencer's 3,796 -- is at least as large as the
+slope against `golem-fencer`. The two columns come off the same bouts and are strongly correlated,
+so this is stated as an ordering and no interval is claimed for the difference.
+
+**4. The level, not only the rate.** The mean paired `d` against `golem-fencer` over checkpoints
+100..120 is not worse than `lam-base`'s by more than two standard errors of the difference.
+`lam-base` ends at **-0.0173 +-0.0707**, and an arm that climbs at the same rate from a worse start
+has not transferred, it has merely moved.
+
+### The falsifier
+
+**If prediction 1 holds and prediction 2 misses, the curriculum is closed for this project.** A
+mind that learns the brawler and arrives nowhere against the fencer is the `--opponent idle` result
+repeated at the strongest rung that has measurable signal, and two failures at opposite ends of the
+opponent ladder are enough. The entry will say so in the same voice it would have used to announce
+the other outcome.
+
+**If prediction 1 also misses**, the run says nothing about curricula and something about the
+optimiser: 120 iterations of 32 bouts against an opponent whose gradient clears at t 3.20 would
+have failed to move a 32-bout margin, and that is a stronger version of Experiment Q's finding that
+the objective and the criterion come apart.
+
+### The resolution, written before the bouts
+
+Prediction 2 is scored against **zero and the family bar**, not against `lam-base`. The difference
+of two 24-point slopes carries about 0.0115 and the design resolves about **0.032 per sixty**,
+which is nine tenths of `lam-base`'s whole slope -- the same limit Experiment X's registration
+wrote down for the same reason. So *this arm is as good as `lam-base`* is a sentence this design
+cannot say, and the entry will not say it. What it can say is whether this arm's own curve exists.
+
+Prediction 4's quantity is a mean of five checkpoints whose single-point standard error is about
+0.0707, so it carries about 0.0316 and the difference of two such means about 0.0447. The design
+resolves a gap in `d` of about **0.089**, which is larger than the whole distance `lam-base`
+travelled from its own start. Prediction 4 is therefore a guard against a collapse and not a test
+of equality, and it is written down as one.
+
+### What this cannot answer
+
+**One arm, one seed, one rung.** A curriculum is a schedule and this is a single opponent held for
+120 iterations. `--opponent-schedule` exists and is not used here, because a schedule has a shape
+and a shape has parameters and none of them would be pre-registered.
+
+**The control and the arm were trained on different nights**, on a host running different numbers
+of other jobs. Nothing in a league's arithmetic depends on wall-clock, and Experiment S's
+prediction 1 established at 300 comparisons of 300 that a league's collection is a deterministic
+function of its flags -- but the two runs are not one batch and that is said here rather than
+implied.
+
+**And it does not separate *easier opponent* from *different opponent*.** `golem-brawler` is both
+weaker than `golem-fencer` and further from it, exactly as Experiment M's own confound section
+records for the ladder it is drawn from. What would separate them is a second curriculum arm at
+`golem-duelist`, which is priced at another league and is deliberately not bought.
+
+### What no outcome of this licenses
+
+No default moves. `--opponent` keeps `self`, the screen keeps `golem-fencer`, no weights are
+shipped and no mind from this run is rated against the screen's default. A confirmed prediction 2
+licenses one thing: a second curriculum arm at a different rung, pre-registered on its own, to find
+out whether the effect is the rung's or the change's.
