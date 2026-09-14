@@ -33356,3 +33356,238 @@ table pick the span; the only reason this withdrawal costs nothing is that the r
 withdrawn was never started. Experiment Z's registration killed its own low arm the same way four
 hours earlier. Two registrations in one night have now been changed or ended by their own
 arithmetic before spending a thread.
+
+## Found -- 2026-09-14: every snapshot rating of a latched league drove its checkpoints through the executor the league did not train under, and so did Experiment Y's probe
+
+**Found at 08:50 while scoring Experiment Y, and it reaches further back than Y.** Every league
+behind Experiments S, U, X and Z trained under `--tactics latchAbort=true`. None of them was rated
+that way. And Y's five probe cells held `lam-long`'s checkpoints without the latch either.
+
+### The two defects, which are one defect in two files
+
+**`scripts/rate-snapshots.mjs`** called `ratePolicy` with no `tactics`, no `features` and no
+`spec`. `scripts/league.mjs` passes the header's `tactics` when it rates a mind to ship. This script
+never read the header at all. A pool file carries weights, a spread and a normalisation and says
+nothing about the executor, so no field of any row could have refused the rating. Fixed in
+`975e2e6`: `ratingExecutorOf` reads the executor and the shape off the league's header row, refuses
+a directory with no header, and every row now carries the `tactics` it was driven through.
+
+**`scripts/gradient-probe.mjs`** took `--from` and `--tactics` as two independent flags. Y's
+registration said its cells were *"`ladder-run.sh`'s line unchanged"*, and that was true and was
+the defect. The line was written for `tournaments/bracket-fencer`, which trained under the shipped
+executor, and Y pointed it at `tournaments/lam-long`, which did not. Fixed in `f041251`:
+`checkStartExecutor` refuses a probe whose `--tactics` moves different rows than the header of the
+league beside the checkpoint. `--other-executor` keeps Experiment I's deliberate crossing
+expressible, and the probe's header records it.
+
+### What the rows said, and nobody read them for
+
+| instrument | what it drove | strokes completed |
+| --- | --- | ---: |
+| `lam-long`'s own training rows, last iteration | the latch, drawn | 0.517 |
+| Y's probe at `traj-240`, as collected | no latch, drawn | 0.016 |
+| Y's probe at `traj-240`, re-collected under the latch, first iteration | the latch, drawn | **0.515** |
+| X's rating at checkpoint 240, as collected | no latch, greedy | 0.121 |
+| the same checkpoint, bouts and seeds under the latch | the latch, greedy | **0.297** |
+
+The re-collected probe cell reproduces the training rows to two thousandths, which is the check
+that the fix reaches the bouts. The greedy rating still completes well under the drawn rate. That is
+signal-04's drawn-versus-greedy gap, a different defect that was measured and disclosed, and nothing
+here changes it.
+
+On the one checkpoint re-rated so far, the paired bar against `golem-fencer` reads **+0.0498
++-0.0311** under the latch against **+0.0312 +-0.0328** as rated. That is one point, it is inside
+either interval, and it is reported and not scored.
+
+### What each verdict tonight was read on
+
+| experiment | its instrument | status |
+| --- | --- | --- |
+| S, the `lambda` arms | snapshot ratings, no latch | stands as a comparison among arms rated alike, and is **not** re-rated here |
+| U, the batch ladder | snapshot ratings, no latch | scored below as collected; all four arms rated alike |
+| X, the long run | snapshot ratings, no latch | **provisional** until XL below lands |
+| Y, the trajectory | the probe, no latch | **void as registered**; the unlatched table is printed as a reading of a different policy |
+| Z, the curriculum | snapshot ratings, no latch | scored below as collected, **provisional** until ZL lands |
+| M, the ladder | the probe on `bracket-fencer`, no latch, trained without one | **unaffected** |
+| I and W, the latched cells | the probe, latch on, over unlatched leagues | crossed **on purpose**, which each registration says |
+
+**The probe side was audited rather than asserted.** Every probe log under tournaments whose header
+names a `--from` was compared against the header of the league beside that checkpoint: 51 logs, 39
+consistent, 2 with no league beside them, and 10 crossed. Five of the ten are Y's cells. The other
+five -- the four latch and head-group cells of 2026-09-13, and W's latched `idle` cell -- put the
+latch on `bracket-fencer` and `bracket-idle`, which trained without it. That is the design those
+experiments registered: they priced what the latch does to a mind that never had it. Under today's
+probe each of them would need `--other-executor`, and would say so in its header.
+
+**A comparison among arms rated alike is not voided by this, and a level is.** S's and U's arms all
+went through the same wrong executor, so an ordering among them is an ordering of four minds under
+one handicap. Whether the handicap preserves the ordering is a question and not a given. X's
+plateau and Z's collapse are claims about one arm's curve against a designed mind, and those are the
+claims a handicap that changes with training could manufacture. So X and Z are the ones re-rated.
+
+### Registered before their bouts -- XL, ZL and YL
+
+Written at 09:01, before any latched row except the single check above, which is disclosed and is
+inside the data these are scored on. The host was idle, so no running job gave up a lane.
+
+**XL -- `lam-long`'s 48 checkpoints re-rated under the latch**, rate-s.sh's instrument otherwise, into
+tournaments/lam-long. **1.** Instrument: every row carries `{"latchAbort":true}`, and completion is
+higher than the unlatched row's at 48 checkpoints of 48. **2.** X's shape survives its executor: the
+latched 125..240 slope is inside 2.007 standard errors of zero **and** the latched suffix less prefix
+is negative. If the latched suffix clears +2.007, X's plateau was the executor's and X's entry is
+corrected in public. **3.** Level: the latched bar exceeds the unlatched bar at the same checkpoint,
+the mean of the 48 paired checkpoint differences positive at t > 2.
+
+**ZL -- `brawl-base`'s 24 checkpoints re-rated the same way.** **1.** As XL's first. **2.** Z's
+negative transfer survives: the latched slope against `golem-fencer` over 5..120 is negative at
+t < -2.068. If it is not, Z's fired falsifier is withdrawn as fired on the wrong executor, and the
+curriculum is re-opened.
+
+**YL -- Y's five cells re-probed with `--tactics latchAbort=true`**, in the order 240, 5, 120, 60,
+180. Y's three predictions and its falsifier are re-scored on these cells exactly as registered, and
+nothing about them is re-worded.
+
+### Experiment Y, as collected -- void as registered, and the table kept
+
+Y's five unlatched cells are a well-formed measurement of the wrong policy, and they are kept
+because the next reader will otherwise re-run them. As collected: `traj-5` and `traj-240` clear the
+five-arm bar at t 2.81 and t 3.13, and the floors read 1,036 / 1,949 / 1,166 / 2,091 / 926 bouts
+over ages 5 / 60 / 120 / 180 / 240. `K` spans 1.17x, and Spearman over age is -0.100.
+
+**Read without the executor in mind, that would have scored all three predictions met, and every
+one of those verdicts would have been hollow.** The five readings of `|S|^2` do not differ beyond
+their own noise: chi-squared 6.83 on 4 degrees of freedom, against 9.49 at the five per cent level.
+An inverse-variance weighted slope over age is t 0.43. Pooled, the five cells read **1.08e-2
++-2.78e-3 at t 3.88**. The honest reading of the unlatched table is **one number measured five
+times**: not a floor that falls with age, and not a floor that clears only at the ends. It is a
+reading about the executor that re-reads the abort gate, and YL is the one about the policy.
+
+### The lesson, which this record has now paid for twice in one day
+
+The idle-probe entry above ruled that *a policy read against a normalisation it was not fitted under
+is a different policy*. This is the same ruling one layer out: **a policy driven through an executor
+it was not fitted under is a different policy**. In both cases the artifact on disk, a pool file,
+carried the weights and not the context the weights mean something in. Both fixes read the context
+from the only place it is written and refuse when it is absent. The remaining instance of the
+pattern is any script that loads a pool file without its league beside it, and a reviewer should
+look for that shape.
+
+## Experiment U, complete -- 2026-09-14: the batch ladder misses all five predictions, the falsifier fires, and the project has no measured lever
+
+**Every prediction missed and the falsifier fires.** L's sixteen-fold reading, one arm pair at one
+seed, does not replicate at four points on one budget. As U's registration said it would in this
+branch, **the record now has no measured lever at all**. Scored as collected, on four ratings that
+all went through the executor the leagues did not train under (the entry above). All four arms
+share that handicap, and nothing below compares an arm with a designed mind's level.
+
+### The table
+
+The paired bar against `golem-fencer`, random viable pairs, 12 points an arm spaced equally in
+training bouts, 3,840 training bouts an arm.
+
+| arm | bouts an iteration | points | slope/60 iterations | t | slope/1000 bouts | se | final `d` |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| bat-8 | 8 | 12 | +0.0145 | 3.38 | **+0.0302** | 0.0089 | -0.154 |
+| bat-16 | 16 | 12 | +0.0119 | 2.45 | +0.0124 | 0.0051 | -0.014 |
+| `lam-base` | 32 | 12 | +0.0290 | 3.37 | +0.0151 | 0.0045 | -0.017 |
+| bat-64 | 64 | 12 | +0.0568 | 2.44 | +0.0148 | 0.0061 | -0.156 |
+
+The family threshold over four arms at 10 degrees of freedom is t 2.62. `bat-8` and `lam-base`
+clear it. `bat-16` and `bat-64` pass two sigma and stop short of it.
+
+### The five predictions
+
+**1. The ordering, `bat-8` > `bat-16` > `lam-base` > `bat-64` per thousand bouts: MISSED.** The
+realised order is `bat-8`, `lam-base`, `bat-64`, `bat-16`. Three of the four slopes lie within
+0.0027 of each other, so apart from `bat-8` being on top, the order among them is not a
+measurement.
+
+**2. The size: MISSED, both contrasts.** Per thousand training bouts, the registered unit: `bat-8`
+less four times `bat-64` is **-0.0290 +-0.0260, t -1.12**. Less eight times, it is **-0.0882
++-0.0496, t -1.78**. Both carry the wrong sign. The scoring script's own factor check printed these
+contrasts per iteration, which is not the unit the registration used, and it is not quoted.
+
+**3. A pair distinguishable per iteration at t > 2: MISSED.** The largest of six pairwise
+per-iteration contrasts is `bat-16` against `bat-64` at t -1.89. The per-thousand-bout table does
+no better: its largest is `bat-8` against `bat-16` at t 1.73.
+
+**4. The endpoint agrees with the slope: MISSED.** By final `d` the order is `bat-16`, `lam-base`,
+`bat-8`, `bat-64`. By slope per bout it is `bat-8`, `lam-base`, `bat-64`, `bat-16`. The arm with the
+steepest slope per bout finishes third, and the arm with the shallowest finishes first. That is the
+disagreement L disclosed on one pair, now reproduced across four, and it is the registration's own
+sentence: *the slope is not measuring where a run got to and the statistic itself is the finding.*
+
+**5. The mechanism, explained variance rising and KL falling with batch: MISSED.**
+
+| arm | explained variance, mean | KL, mean | clip fraction, mean | updates |
+| --- | ---: | ---: | ---: | ---: |
+| bat-8 | 0.323 | 0.0109 | 0.073 | 2,512 |
+| bat-16 | 0.296 | 0.0176 | 0.135 | 2,315 |
+| `lam-base` | 0.333 | 0.0177 | 0.130 | 1,891 |
+| bat-64 | 0.363 | 0.0139 | 0.107 | 1,805 |
+
+Neither is monotone. The smallest batch has the lowest KL and the lowest clip fraction of the four,
+which is the opposite of the conditioning story L could not explain, and the story is withdrawn
+with the prediction.
+
+### The falsifier, and what it leaves
+
+`bat-8` against `bat-64` per thousand training bouts is **+0.0154 +-0.0108, t 1.43**. That is
+less than two sigma, so the falsifier fires as written: *L's sixteen-fold reading was the shape of
+twelve noisy points.* The null side: the smallest difference this pair would have caught four times
+in five is 0.0410 per thousand bouts, **2.8x the smaller arm's own slope**. So this is a null about
+large levers only. At this seed and this budget, a batch lever smaller than the slopes themselves is
+not excluded, and it is not something this project can afford to measure.
+
+**A disclosed trap that cost this experiment two scripts.** `scripts/rate-snapshots.mjs --pools
+mirror,random --out X` writes two files and never X. The chained launcher and the scorer both
+named the bare path: one would have slept forever and one refused. Since `2749eb9` the script
+prints every file it will write before its first bout.
+
+## Experiment Z, as collected -- 2026-09-14: the curriculum arm learns the brawler and gets worse against the fencer, and the verdict waits on ZL
+
+**Scored as collected and provisional.** The rating drove `brawl-base`'s checkpoints through the
+executor the league did not train under, and ZL, registered two entries above, re-rates them.
+Every verdict below is re-scored on ZL, and this entry is corrected in public if one moves.
+
+**Manifest.** The two league headers differ in four fields, all on the scorer's named allowance:
+`date`, `workers`, `opponentSchedule` (the one change the registration makes), and `masked`, which
+the control predates.
+
+### The predictions
+
+**1. It learns the thing it is trained on: MET.** The training margin against `golem-brawler` rises
+at **+0.0299 +-0.0119 per sixty, t 2.52**, against the registered t 2, one-sided. The null side is
+0.0337. This is a 32-bout read inside the training loop, and the registration named it the weakest
+instrument in the experiment.
+
+**2. The headline, transfer to the criterion: MISSED, and the wrong way.** The paired bar slope
+against `golem-fencer` over 5..120 is **-0.0279 +-0.0076, t -3.70**. The control `lam-base` reads
++0.0355 at t 4.38. The arm did not fail to transfer. **It got measurably worse against the fencer
+while it learned the brawler.** Its bar at checkpoint 5 is -0.1081 and at 120 it is -0.1667.
+
+**3. Transfer falls with distance along M's ladder: MET, and empty.** The slope against
+`golem-driver` equals the slope against `golem-fencer`, -0.0279 each. The entry for Experiment X
+shows why that equality is not evidence. On a checkpoint sweep, the contender columns differ by
+constants with a standard deviation of exactly zero, so no sweep on this instrument can order two
+designed contenders by rate. **The prediction could not have missed, and it is scored as met and
+uninformative.** The registration's sentence *the two columns come off the same bouts and are
+strongly correlated* was true and understated.
+
+**4. The level, not only the rate: MISSED.** The mean `d` against `golem-fencer` over 100..120 is
+**-0.4078** for the arm and **-0.0483** for the control. The difference is **-0.3596 +-0.0913**, four
+times the gap the guard was built to catch. The registration wrote this as a guard against a
+collapse, and it caught one.
+
+### The falsifier: FIRES, pending ZL
+
+Prediction 1 holds and prediction 2 misses. By the registration's own sentence, *the curriculum is
+closed for this project*. That is two failures at opposite ends of the opponent ladder: `idle` in
+2026-09-12's arm, and now the easiest paid rung with measurable signal. The second failure is the
+stronger one, because this arm did not merely stay flat on the criterion. It moved away from it.
+
+**What ZL can change and what it cannot.** The rating's executor re-reads the abort gate on every
+step of a stroke. It is conceivable that a brawler-trained mind leans on strokes finishing more than
+a fencer-trained one, so it loses more under that executor as it trains. ZL's prediction 2 is the
+test. What ZL cannot change is prediction 1, which was read inside the training loop under the
+league's own executor.
