@@ -1403,6 +1403,56 @@ export function checkHeldStart({ from, hold }) {
   return hold;
 }
 
+/**
+ * The header of the league that wrote a `--from` checkpoint, or null when none is beside it.
+ *
+ * A league writes its numbered pool files beside its `league.jsonl`, and that log's header row is
+ * the only record of the executor the weights were fitted against -- a pool file carries weights,
+ * a spread and a normalisation, and no tactics. A checkpoint from anywhere else answers null and is
+ * probed as it always was.
+ */
+export function leagueHeaderBeside(from) {
+  if (from === null || from === undefined || from === "") return null;
+  const log = resolve(dirname(resolve(from)), "league.jsonl");
+  if (!existsSync(log)) return null;
+  const first = readFileSync(log, "utf8").split("\n").find((line) => line.trim() !== "");
+  if (first === undefined) return null;
+  const row = JSON.parse(first);
+  return row.type === "header" ? row : null;
+}
+
+/**
+ * A checkpoint is probed through the executor it was trained under, or the probe is refused.
+ *
+ * **Experiment Y was collected without this and it cost the experiment.** Its five cells took
+ * `ladder-run.sh`'s line unchanged -- written for `tournaments/bracket-fencer`, which trained under
+ * the shipped executor -- and pointed it at `tournaments/lam-long`, which trained under
+ * `latchAbort=true`. The rollouts re-read the abort gate on every step of a stroke and completed
+ * about one stroke in a hundred, so the five floors are floors of a mind the fit never trained. The
+ * rule is the one `normalisationOf` in `scripts/idle-probe.mjs` enforces one layer down: *a policy
+ * read under a different executor is a different policy.* Both sides are compared as the rows they
+ * move, so `null` and `{}` are the shipped executor and agree with each other.
+ *
+ * **A different executor can be the design, and then it is said out loud.** Experiment I probed
+ * `tournaments/bracket-fencer` -- an unlatched league -- under the latch on purpose, to price what
+ * the latch would do to a mind that had never had it. `--other-executor` is that sentence, and the
+ * header records it, so a cell run across executors is a cell that says so rather than one
+ * nobody can tell from Experiment Y's.
+ */
+export function checkStartExecutor({ from, tactics, header, other = false }) {
+  if (header === null || header === undefined) return tactics;
+  const moved = (rows) => JSON.stringify(
+    Object.entries(rows ?? {}).sort(([a], [b]) => (a < b ? -1 : 1)));
+  if (moved(header.tactics) !== moved(tactics) && !other) {
+    const word = (rows) => (Object.keys(rows ?? {}).length === 0
+      ? "the shipped executor" : JSON.stringify(rows));
+    throw new Error(`${from} was trained under ${word(header.tactics)} and this probe drives it `
+      + `through ${word(tactics)}; a policy read under a different executor is a different policy, `
+      + "so pass the league's own --tactics, or --other-executor if the difference is the design");
+  }
+  return tactics;
+}
+
 export function probeRollout({
   pool, rollout, weights, valueWeights, logSigma, norm, valueLayout, seed,
   halfLife = 4, lambda = 0.95, clip = 0.2, classes = "none", floor = CLASS_FLOOR,
@@ -2388,7 +2438,11 @@ if (isMain) {
   // learn set. Parsed by the trainer's own reader, so a row this probe accepts is a row a training
   // run would accept and the two cannot drift.
   const tacticsWord = flag("tactics", null);
-  const tactics = parseTactics(tacticsWord);
+  const otherExecutor = argv.includes("--other-executor");
+  const tactics = checkStartExecutor({
+    from, tactics: parseTactics(tacticsWord), header: leagueHeaderBeside(from),
+    other: otherExecutor,
+  });
   const label = flag("label", null);
   const stamp = new Date().toISOString().replace(/[-:]/g, "").slice(0, 13);
   // Concatenated rather than interpolated, for the trainer's reason: a backticked span that looks
@@ -2437,6 +2491,8 @@ if (isMain) {
       ...(arm.lambda === undefined ? {} : { lambda: arm.lambda }),
     })),
     tactics,
+    // Only when asked, so every header written before it is the header it was.
+    ...(otherExecutor ? { otherExecutor: true } : {}),
     opponent: opponentWord, terminals, mirrorShare,
     head: headName, sigma: sigmaName, critic: criticName,
     halfLife, lambda, clip, entropy: fitEntropy, rate, valueRate, sigmaRate, epochs, batch,

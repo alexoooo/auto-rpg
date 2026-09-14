@@ -486,6 +486,9 @@
 // the line is one somebody has to keep true.
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { forward, initWeights, netScratch, netSize } from "../src/golem/neural-net.ts";
 import {
@@ -505,7 +508,8 @@ import {
 } from "../scripts/train-ppo.mjs";
 import {
   CLASS_AXES, CONCENTRATION_FRACTIONS, PROBE_ENTROPY, PROBE_EPOCH, askBouts, askClasses,
-  armDirection, askPositions, baselineOf, boutBlocks, boutGradients, checkHeldStart, classBlocks,
+  armDirection, askPositions, baselineOf, boutBlocks, boutGradients, checkHeldStart,
+  checkStartExecutor, classBlocks, leagueHeaderBeside,
   combineHalves, concentrationSignal, cosineOf, dotOf, epochOrder, floorConvention, groupedMeans,
   halfGradients,
   halfSplit,
@@ -1413,6 +1417,34 @@ test("holding_a_policy_still_requires_naming_which_policy_is_held", () => {
     assert.throws(() => checkHeldStart({ from, hold: true }), /wants --from/);
   }
   assert.equal(checkHeldStart({ from: "tournaments/bracket-fencer/pool-30.json", hold: true }), true);
+});
+
+test("a_checkpoint_is_probed_through_the_executor_its_league_trained_under_or_not_at_all", () => {
+  // Experiment Y's five cells, which probed a latched league through the executor that re-reads the
+  // abort gate on every step. The header is the only place the fact lives.
+  const latched = { type: "header", tactics: { latchAbort: true } };
+  const from = "tournaments/lam-long/pool-240.json";
+  assert.throws(() => checkStartExecutor({ from, tactics: null, header: latched }),
+    /trained under \{"latchAbort":true\} and this probe drives it through the shipped executor/);
+  assert.deepEqual(checkStartExecutor({ from, tactics: { latchAbort: true }, header: latched }), { latchAbort: true });
+  // And the other way round: a latch asked of an unlatched league is the same mistake mirrored.
+  assert.throws(() => checkStartExecutor({ from, tactics: { latchAbort: true }, header: { type: "header", tactics: null } }),
+    /trained under the shipped executor/);
+  // Experiment I's design, which crossed executors on purpose, is still expressible -- by saying so.
+  assert.deepEqual(checkStartExecutor({ from, tactics: { latchAbort: true }, header: { type: "header", tactics: null }, other: true }),
+    { latchAbort: true });
+  assert.throws(() => checkStartExecutor({ from, tactics: null, header: latched }), /or --other-executor if the difference is the design/);
+  // `null` and `{}` both mean nothing moved; and a checkpoint with no league beside it is not refused.
+  assert.equal(checkStartExecutor({ from, tactics: null, header: { type: "header", tactics: {} } }), null);
+  assert.equal(checkStartExecutor({ from, tactics: null, header: null }), null);
+
+  const dir = mkdtempSync(join(tmpdir(), "probe-start-"));
+  const pool = join(dir, "pool-5.json");
+  writeFileSync(pool, "{}");
+  assert.equal(leagueHeaderBeside(pool), null, "no league log beside the checkpoint is no header");
+  writeFileSync(join(dir, "league.jsonl"), `${JSON.stringify(latched)}\n{"iteration":1}\n`);
+  assert.deepEqual(leagueHeaderBeside(pool), latched);
+  assert.equal(leagueHeaderBeside(null), null);
 });
 
 test("a_run_that_is_not_holding_never_needs_a_checkpoint_and_says_so_by_returning_false", () => {
