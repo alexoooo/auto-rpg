@@ -32427,3 +32427,199 @@ licenses exactly one thing and it is not a ship: **a registration for a fit unde
 credit**, stated on a paired bar against `golem-fencer` and not on a floor, as a candidate for a
 night rather than as a change to anything shipped. After tonight that registration is the only
 form in which the mask can be asked about at all.
+
+## The agenda, re-cut -- 2026-09-14: the statistic that ordered the queue does not order minds, and the contradiction that is left
+
+The previous re-cut is eighteen hours and nine verdicts old. Experiments S, M, P and W all closed
+between it and this one, Experiment U's prediction 5 closed the night before, and Experiments X
+and U's remaining four predictions are collecting as this is written. **The queue those four
+experiments were drawn from was priced almost entirely in one unit, and Experiment S has now
+measured what that unit can and cannot decide.** This section says what changed, what each
+pending item is worth now, and what runs next. It moves no default, collects no bouts, adopts
+nothing, and scores nothing that is still in flight.
+
+### The five results that move the queue
+
+**1. The floor does not order minds** -- Experiment S. Three arms differing only in `--lambda`,
+120 iterations each, rated on the paired bar against `golem-fencer`. Experiment G had priced
+`lambda` 0 at a floor of **95 bouts** against the shipped estimator's **789**, eight times better
+determined. It produced a slope of **+0.0125 +-0.0075**. `lambda` 0.5 produced **-0.0077**. The
+shipped estimator, worst on the floor of the three, produced **+0.0355 +-0.0081 at t 4.38** and
+was the only arm clearing the three-arm family threshold of 2.26. The headline missed with its
+sign reversed at t -2.08, and the dose-response was humped rather than monotone. **The probe's
+ranking is inverted with respect to the fit's**, and `docs/design.md` now carries the ruling: a
+bar is not stated on a floor.
+
+**2. Where the floor does move, it moves through its denominator** -- Experiment M, all four
+predictions met, the first clean sweep in this record. One held checkpoint against six opponents:
+floors of **591, 1,068, 1,459, 1,482, 1,342 and 3,796** bouts, a span of 3.55x over the paid rungs
+and 6.4x including the dummy. The registration's mechanism was that a strong opponent adds
+exogenous noise. **It does not.** `K` across the whole ladder reads 26, 30, 30, 29, 28, 32 -- a
+span of 1.23x -- while `|S|^2` falls by more than three and then changes sign. A stronger opponent
+does not add noise to the gradient, it **destroys the signal in it**, and `advantageSd` rising in
+perfect rank order with the floor (Spearman 1.000 over six cells) says the extra variation in what
+a bout pays is not reaching the gradient as variance at all.
+
+**3. A quarter of the step's variance is in terms the body never read** -- Experiment W. Masking
+the three command fields nothing downstream reads takes **24.8 %** and **26.5 %** of `K` off the
+two cells at t -16.07 and t -16.97, and takes none of `|S|^2`: +0.000810 +-1.858e-3 and
+-0.001323 +-2.125e-3, opposite in sign and neither clearing, on a design that would have caught a
+27.7 % and a 25.2 % change four times in five. The `K` ratio of a head group is its read share,
+monotone across all twelve groups on the latched cell with no inversion. **And the whole-actor
+unlatched cell reproduced Experiment I's 789 bouts at t 4.60 to the integer** through an
+instrument built after I was collected. What W bought is a credit rule whose effect is real and
+whose only remaining form is a fit, because after S its floor cannot recommend it.
+
+**4. The signal is not concentrated enough to restrict, and not spread thinly enough to close** --
+Experiment P, riding free on M's cells. The headline asked for a restricted floor below **0.5** of
+the whole at a tenth of the coordinates on a cell clearing t 3; the two cells that clear read
+**0.736** and **0.997**. The falsifier asked for nothing below 0.8 and `idle` reads 0.736, so it
+does not fire. A restricted fit is neither licensed nor closed, which is the band the registration
+described in advance as informative and not decisive.
+
+**5. Batch size is not the lever either** -- Experiment U, prediction 5. At a fixed 3,840 training
+bouts, an eight-fold change in bouts an iteration left the critic's explained variance between
+**0.296 and 0.363** with no step clearing its family bar. The registered mechanism -- explained
+variance rising monotonically with batch while the bar slope per bout falls -- did not appear.
+
+### The contradiction these leave behind, which should organise the next phase
+
+Put three measurements from this record beside each other.
+
+| what | measured by | reading |
+| --- | --- | --- |
+| the gradient against `golem-fencer` at a held checkpoint, 20 iterations of 128 | Experiment G, M | `\|S\|^2` at **t -0.47**, floor **3,796** bouts |
+| the same cell at 40 iterations of 128 under the latch | Experiment I | whole actor at **t 1.38**, zero of twelve head groups clear |
+| a league against `golem-fencer` at **32 bouts an iteration** | Experiment S, `lam-base` | the paired bar climbs at **t 4.38** over 120 iterations |
+
+**A league iteration carries a hundred and nineteenth of the bouts the probe says are needed to
+determine the direction of one step against that opponent, and the league climbs anyway.** Both
+numbers are in this record, both were collected on instruments this record has audited, and
+nothing published reconciles them.
+
+The obvious reconciliation has already been tried and has already failed. Experiment L's
+pre-registration wrote the arithmetic out -- over `I` iterations of `n` bouts the useful movement
+goes as `T / (n + F)`, so the budget is what matters and the split is a rounding error -- and
+**L's falsifier fired**: the 32-bout arm bought 16.2x per bout what the 128- and 256-bout arms
+bought, against a prediction that all three were within seven per cent. The ruling the record took
+from that is the one that still stands: a bouts-for-cosine-0.5 figure is a statement about how
+well determined a gradient is **at one frozen checkpoint** and about nothing else.
+
+**And that ruling contains the cheapest unasked question in the set.** Every floor this record has
+ever published was measured at a checkpoint somebody froze -- `bracket-fencer` pool-30, over and
+over, plus five siblings. **Nobody has ever measured the floor at two points on one trajectory.**
+If the floor at iteration 240 of a working arm is a fifth of the floor at iteration 5, then the
+ladder, the reward grid and the `lambda` sweep are all measurements of one arbitrary point in
+weight space, the inversion Experiment S found has a mechanism, and the contradiction above
+dissolves. If it is flat, the contradiction is real and the next experiment belongs at the score
+function rather than at the estimator. Either answer is worth more than another lever.
+
+### What that does to the pending queue
+
+| # | item | was | is now |
+| --- | --- | --- | --- |
+| X | `lam-base` resumed to 240 iterations | the one arm that works, looked at longer | **collecting**, league complete at 00:52, rating started 00:53 |
+| U | the batch ladder on one budget | L's lever replicated at four points | **collecting**, prediction 5 published, 1 to 4 want four ratings |
+| N | the base fan | where in the weight vector the signal sits | **withdrawn** -- its statistic is the floor and its purpose was to rank |
+| O | the step probe | the estimator, priced | **withdrawn**, same reason, and the step probe already walked the wrong way once |
+| P | the concentration | a cheaper fit | **closed as run**; the idea it was about survives in its own band and is not queued |
+| W | the masked credit | a cheaper step | **promoted to a registration**, as a fit on a paired bar and never again as a floor |
+| M | the opponent ladder | a reward ladder, demoted | **closed, met four of four**, and it is the one experiment tonight whose currency survives S |
+| V | the criterion cell itself | a decision for the owner | **unchanged and still the owner's**, with more evidence behind it than it had |
+
+**Two items are withdrawn rather than demoted, and the difference matters.** The previous re-cut
+demoted N, O and P because the floor had stopped being a budget; they were still sound as
+statements about determinacy. S removes the second half too: N and O were designed to *choose*
+between estimator variants on that statistic, and that is now the one thing it has been measured
+not to do. Nothing about their arithmetic is retracted. What is gone is the decision they were
+queued to make.
+
+### What runs next, in order
+
+**X's verdict comes first and it is not close.** Its prediction 2 is the first time this record
+has predicted a learned mind beating a designed one, and its falsifier -- a flat slope over
+125..240 -- would say every learning claim here is a claim about a hundred-and-twenty-iteration
+transient. No item below is worth ordering until that is scored, because both outcomes redirect
+the queue rather than extend it.
+
+**Y -- the floor along a trajectory, and it is free of new bouts in the sense that matters.**
+`tournaments/lam-long` wrote **48 checkpoints** of one arm that is known to be climbing, against
+the one opponent every bar in this record is stated against. Probe five of them -- 5, 60, 120, 180
+and 240 -- at Experiment M's manifest exactly: 128 bouts, 20 iterations, seed 20260917, the
+maul-and-mace viable pool, mirrored bodies. The statistic is the floor by the authoritative
+convention and the finding is its trend. **This is the first cell in the record where the probe
+and the fit are pointed at the same weights**, and it is the discriminator for the contradiction
+above. Cost: five probe cells, which the opponent ladder priced at about an hour and a quarter
+each at fourteen workers under contention.
+
+**Z -- the reward grid's extremes, read on an instrument that ranks.** Experiment E priced sixteen
+reward tables by their floors and Experiment R found the ranking does not all point one way.
+Experiment S has now measured that a floor does not order minds at all, so **the largest
+floor-ranked table in this record has never been read on an instrument known to rank anything.**
+Take the best and the worst arm by floor and run them as two leagues against `golem-fencer` at
+Experiment S's manifest. The question is whether the inversion S found in the `lambda` column is a
+property of `lambda` or a property of the floor, and the null is as informative as the positive.
+Two leagues; the table is already written.
+
+**W's masked fit, which W licensed and which S constrained.** Two leagues, identical but for
+`logProbGrad`'s mask, stated on the paired bar against `golem-fencer`. W measured that the mask
+removes a quarter of the step's variance and none of its signal at two held checkpoints; whether
+that buys a curve is a different measurement in a different unit, and after S it is the only unit
+in which the mask can be asked about.
+
+**V stays where it is, and M gave it a cheaper alternative.** The criterion cell is the owner's
+decision and this record will not make it in a table. What M added is that the fencer cell is not
+uniquely hard for the gradient -- it is the far end of a smooth ladder whose easy end,
+`golem-brawler`, clears at t 3.20 with a floor of 1,068. **A curriculum is now a concrete
+experiment rather than a gesture**: train against a rung where the gradient is measurable and
+state the bar against `golem-fencer` unchanged. M licensed exactly one such run and did not
+license moving `--opponent`'s default.
+
+**And one debt that is not an experiment.** `scripts/idle-probe.mjs`'s CLI reads `cp.normalisation`
+from a checkpoint, `scripts/league.mjs` writes the same quantity as `norm`, and
+`scripts/tournament-worker.mjs` supplies the **shipped table's** normalisation when the key is
+absent -- so a league pool read through that CLI is measured through another mind's means and
+variances, silently. The fix is two lines and a refusal by name plus a test; the write-up with its
+evidence is in the scratchpad. It wants the full gate and therefore a host that is not running
+five jobs.
+
+### The rules this night earned
+
+**A bar is not stated on a floor.** The second ruling of this exact shape -- a quantity that was
+convenient to compute got used to decide something it had never been shown to decide -- and the
+first was *a bar is stated on a paired column or it is not stated*. Both cost an experiment to
+buy. The floor convention, its tests and every number already stated on it all stay; what ends is
+ranking one design against another with it.
+
+**The measurement being present is not the same as it having been read.** Experiment P's published
+correction replaced an argued null with a closed form, and the column that falsifies the closed
+form was already being printed beside it by the reader that correction added. The null's standard
+error scales as `p` and not as `sqrt(p)`, off by a factor of ten at the smallest fraction, and the
+null ranking's `t` was flat in `p` in a column nobody had looked at. **A closed form quoted beside
+a measured column is a claim that the two agree**, and this is the third instance in three days of
+a statistic standing next to a null nobody read.
+
+**A list of open questions inherited from a plan goes stale in a way a measurement does not.** The
+menu this re-cut replaces called `--opponent idle` "still unrun, still the cheapest falsifier in
+the record". It ran on 2026-09-12, it came back positive, and its entry carries its own correction
+saying the same weights are the flattest of four arms on the criterion. A plan names what was open
+when the plan was written.
+
+**A cost stated before a result stands or is corrected in public.** Experiment S registered about
+55 minutes an arm and realised 99.9, 92.8 and 94.7, because the figure it was priced from was a
+solo league and three ran concurrently. Experiment W predicted its two cells would roughly halve
+under 2.3x oversubscription and they cost 1.15x and 1.28x. Both are on the record beside the
+results they were meant to price.
+
+### What this section is not
+
+It is not a pre-registration and nothing in it is scored. Y, Z and the masked fit are named at the
+level a queue is named at; each needs its own registration with its own falsifier before a bout is
+collected, and the two withdrawals above are reversible by an argument rather than by this
+paragraph. **X and U are in flight and neither is read here** -- X's league finished at 00:52 and
+its rating started a minute later, and U's four ratings are between 2 and 10 points of 12. Their
+entries will say what they say.
+
+**And no default moved tonight.** Four experiments, nine verdicts, four entries, one ruling into
+`docs/design.md`, and `--bouts`, `--lambda`, `--opponent`, `latchAbort`, `logProbGrad`'s mask, the
+entropy coefficient and the reward table all sit exactly where they sat this morning.
