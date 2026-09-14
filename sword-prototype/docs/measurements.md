@@ -33591,3 +33591,119 @@ step of a stroke. It is conceivable that a brawler-trained mind leans on strokes
 a fencer-trained one, so it loses more under that executor as it trains. ZL's prediction 2 is the
 test. What ZL cannot change is prediction 1, which was read inside the training loop under the
 league's own executor.
+
+## XL, complete -- 2026-09-14: under its own executor the curve does not stop, and Experiment X's fired falsifier is corrected in public
+
+**XL's prediction 2 missed, so the correction XL registered is owed and is made here.** Re-rated
+under `latchAbort=true`, the executor `lam-long` trained under, the paired bar against
+`golem-fencer` over checkpoints 125..240 climbs at **+0.0136 +-0.0063 per sixty, t 2.16**. That
+clears the two-arm bar of 2.007, and it clears X's own *"two standard errors"* as well. **Experiment
+X's falsifier does not fire on the policy the league trained.** The entry that announced *every
+learning claim in this record is a claim about a hundred-and-twenty-iteration transient* was
+reading a different policy, and that sentence is withdrawn.
+
+What survives from X is its prediction 1 miss, and it is now **stronger**. The curve does not
+continue at its first-half rate. It breaks.
+
+### The table, both executors, the same checkpoints and seeds
+
+| rating | span | points | slope/60 | se | t |
+| --- | --- | ---: | ---: | ---: | ---: |
+| **latched** | 5..120 | 24 | +0.0481 | 0.0069 | **7.02** |
+| **latched** | 125..240 | 24 | +0.0136 | 0.0063 | **2.16** |
+| latched | 5..240 | 48 | +0.0271 | 0.0026 | 10.34 |
+| as X rated it | 5..120 | 24 | +0.0355 | 0.0081 | 4.38 |
+| as X rated it | 125..240 | 24 | +0.0056 | 0.0070 | 0.80 |
+
+### XL's three predictions
+
+**1. The instrument: MET.** All 48 rows carry `{"latchAbort":true}`. Completion is higher than the
+unlatched row's at **48 checkpoints of 48**, with means 0.286 against 0.152.
+
+**2. X's shape survives its executor: MISSED.** The latched suffix clears +2.007 (t 2.16), which is
+the branch the registration named: *X's plateau was the executor's.* It is a narrow clearing. The
+null side is 0.0179 per sixty, and a suffix slope of 0.0136 is a number this design can only just
+see. The honest summary is **a slow climb that is measurable, not a plateau**, and not more than
+that. The second half of the prediction held: the suffix less the prefix is **-0.0345 +-0.0093,
+t -3.71**. The rate over 125..240 is **0.28x** the rate over 5..120.
+
+**3. The level: MET, and small.** Latched less unlatched at the same checkpoint is **+0.0067
++-0.0030 over 48 checkpoints, t 2.21**. The mind is better on its own executor by about seven
+thousandths of a bar. The unlatched rating was a handicap, and the handicap was not large. What it
+did do was flatten the slope, which is the quantity every verdict tonight was stated on.
+
+### Experiment X, re-scored on the latched rating
+
+| X's prediction | as X scored it | on its own executor |
+| --- | --- | --- |
+| 1. the curve continues at the same rate | MISSED, t -2.79 | **MISSED, t -3.71** |
+| the falsifier, the suffix inside two standard errors of zero | FIRES, t 0.80 | **does not fire, t 2.16** |
+| 2. the mean `d` over 220..240 is positive | MET on its sign, +0.0295 | **MET on its sign, +0.0546** |
+| 3. no estimator ordering | held | held |
+
+X's prediction 2 predicted **+0.054** and the latched five read **+0.0546**: -0.004, +0.002,
++0.073, +0.089, +0.113. From the scatter of the five, that is 0.0236 of standard error and t 2.31.
+From the points' own paired intervals it is about 0.0316 and t 1.73. The registration said that a
+positive mean which does not clear its own interval would be reported as exactly that, and the
+paired interval is the one it named. **So: positive, on the predicted value to three decimals, and
+not clear of zero on the interval the registration chose.** Over the whole latched suffix, the mean
+bar is **+0.0147 +-0.0039**. Twenty-one of 48 checkpoints are positive, the first at iteration 60.
+
+### The shape, latched, and it is not the shape X published
+
+| window | points | mean bar | +- | mean d | slope/60 | se | t |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 5..60 | 12 | -0.0563 | 0.0089 | -0.130 | +0.0828 | 0.0193 | 4.29 |
+| 65..120 | 12 | -0.0179 | 0.0075 | -0.041 | +0.0725 | 0.0149 | 4.88 |
+| 125..180 | 12 | +0.0080 | 0.0053 | +0.019 | +0.0023 | 0.0192 | 0.12 |
+| 185..240 | 12 | +0.0214 | 0.0053 | +0.048 | +0.0259 | 0.0174 | 1.49 |
+
+X read the unlatched quarters as **a monotone decay**: 0.0746, 0.0361, 0.0132, 0.0029. On the
+executor the mind trained under, the first two quarters climb **at the same rate** (0.0828 and
+0.0725), and then the rate **breaks** at iteration 120. The second quarter less the third is
+0.0702 +-0.0243, t 2.89. **This is a post-hoc reading of four windows nobody registered**, and it is
+printed as a shape and not scored. But *a decay* and *a straight line that breaks* point at
+different mechanisms, and only one of the two was on the right executor.
+
+### The break sits on the resume seam, and that was checked before it was believed
+
+`lam-long` is `lam-base` to 120, resumed to 240, so the break is exactly on the seam. The two
+headers differ in `date`, `iterations` and `resumedAt` and in nothing else. The league's own
+training rows cross the seam without a step: KL 0.0150 over 106..120 against 0.0146 over 121..135,
+explained variance 0.378 against 0.448, entropy 7.826 against 7.766, stroke completion 0.467
+against 0.476, and the opponent pool carried through unchanged.
+
+**And a resume is not bit-exact, which is a finding.** A four-iteration league run straight through
+matched a two-plus-two resume on every row field for iterations 1 and 2, then diverged on `kl` and
+`explained` from iteration 3. The cause is in `roleToJson` in `scripts/league.mjs`: the saved
+`weights` and `valueWeights` are rounded to five decimals, while the saved Adam moments are full
+precision. A resume therefore perturbs every weight by at most 5e-6, **about a twentieth of one
+Adam step at rate 1e-4**. That is a nudge onto a neighbouring trajectory, not a jolt. It explains a
+divergence, and it is not a plausible explanation for a slope that falls to a quarter of itself.
+**It is not excluded either.** Excluding it needs one uninterrupted 240-iteration run under
+`lam-base`'s manifest, about 3.5 hours plus a rating, and that is priced here and not bought.
+
+### What this does to the rest of tonight
+
+**Experiment AA stays withdrawn, and the reason changes.** Its trigger was worded as *X's falsifier
+fires*, and on the right executor it does not. The reason behind the trigger survives the
+correction intact. AA's headline was a difference of two slopes over 5..240. The latched halves
+disagree at t -3.71, so a 5..240 slope is still a slope through a fast half and a slow half, which
+is a shape statistic and not a rate. AA was also designed against a control rated through the
+wrong executor. **This is a judgement and not a trigger, and it is marked as one**: an owner who
+reads the latched curve as linear enough is entitled to reinstate AA, at 8.1 hours and with its
+rating under the executor fix.
+
+**Experiment X's other finding stands.** The contender columns remain one column and two
+constants. On the latched check at 240, `uniform` less `fencer` is 0.102594, the same six decimals
+as on every unlatched row. That is expected, because the latch reaches the fit's contender and not
+the designed ones.
+
+**Experiments S and U were rated alike, and their arms trained alike, but XL says the handicap is
+not neutral on slope.** It flattened `lam-long`'s from 0.0481 to 0.0355 over 5..120. So U's
+ordering, and S's, are orderings under a handicap that does not preserve slopes, and neither
+experiment's verdict should be quoted as a statement about minds until its arms are re-rated.
+Re-rating U is 52 rating points and S is 72. Neither is bought tonight, and the batch and `lambda`
+levers are **unmeasured** rather than *absent*. U's entry above said *the record now has no measured
+lever at all*. That sentence holds for the instrument it was read on, and it is not a fact about
+the optimiser.
