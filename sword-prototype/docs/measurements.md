@@ -32751,3 +32751,87 @@ the floor as a way of ranking minds**; Experiment S measured that against a fit 
 carries the ruling. What it would license is a re-reading of the published floor tables as
 readings at one point, and one follow-on experiment stating in advance which point it is taken at.
 A fired falsifier licenses nothing at all except the order of the queue above it.
+
+## Fixed -- 2026-09-14: the one instrument that reads a checkpoint by hand read a league's pool through a different mind's normalisation, and it was worth twenty points of kill rate
+
+Found on 2026-09-13 at 23:25 while pricing an experiment that would have hit it, written down with
+its evidence rather than fixed on the spot because the fix wants the full gate and five jobs were
+using the host. The agenda re-cut above lists it as the one debt in the queue that is not an
+experiment. This is it, landed.
+
+### What it was
+
+`scripts/idle-probe.mjs`'s CLI read a checkpoint's normalisation as `cp.normalisation`. **There are
+two checkpoint shapes in this tree and they disagree about that key.**
+
+| written by | the normalisation is under |
+| --- | --- |
+| `scripts/train-ppo.mjs`, <log>-checkpoint.json | `normalisation` |
+| `scripts/league.mjs`, tournaments/<arm>/pool-N.json | `norm` |
+
+So `node scripts/idle-probe.mjs --checkpoint tournaments/lam-base/pool-10.json` read a league pool
+as carrying no normalisation at all.
+
+### Why it was quiet, which is the part that made it worth a refusal rather than a fallback
+
+`scripts/tournament-worker.mjs` reads `contender.normalisation ?? POLICY_WEIGHTS.normalisation`,
+so an absent normalisation is **not** an error and is **not** an identity normalisation. It is the
+**shipped table's**, accumulated over 11,390,700 mirrored observations of a different mind. The
+command did not crash, did not warn, and printed a kill rate that looks like every other kill rate
+in this record.
+
+The league path does it correctly, which is why nothing caught it: `contenderFor` in
+`scripts/league.mjs` maps `role.norm` onto `normalisation` explicitly, and
+`scripts/probe-snapshots.mjs` goes through `roleFromJson` and `contenderFor` rather than through
+this CLI. **The curve instrument was sound and the single-checkpoint one was not, and the two are
+one word apart on a command line.**
+
+### What it was worth, measured rather than asserted
+
+The same weights -- `tournaments/lam-base` pool-10 -- read twice at 8 bouts a build over the seven
+mirrored maul builds, seed 20260906, differing in nothing but which table the observations pass
+through:
+
+| the pool's weights read through | killed the dummy | builds always | builds ever |
+| --- | ---: | ---: | ---: |
+| the shipped table, which is what the old line got | **28 / 56 = 50.0 %** | 2 of 7 | 5 of 7 |
+| its own table, which is what it reads now | **39 / 56 = 69.6 %** | 3 of 7 | 7 of 7 |
+
+**A difference of 19.6 points at an unpaired z of 2.16.** The two runs share their seed, their pool
+and their builds, so a paired test would be tighter than that and was not taken -- the unpaired
+figure is quoted because it is the conservative one and because the point here is the size, not the
+threshold. A reader holding the wrong one of those two rows would have concluded that a league's
+tenth checkpoint kills half the time when it kills seven times in ten.
+
+### What is not affected, checked rather than assumed
+
+**No published number moves.** Every kill-rate curve in this record -- Experiment A's twelve
+points, the opponent bracket's four arms, the reward grid's probes, the latch cells -- was taken
+with `scripts/probe-snapshots.mjs`, which goes through `roleFromJson` and `contenderFor` and reads
+`norm` by name. `scripts/viability.mjs` calls `idleProbe` over `buildPool` directly and never
+reads a checkpoint file. The defective path is the CLI's `--checkpoint` flag alone, and it is the
+one this record has never published a table from.
+
+### The fix
+
+`normalisationOf(cp, what)` is exported from `scripts/idle-probe.mjs` and takes both shapes by
+name. When neither key is present it **refuses by name** -- *`<path>` carries neither
+`normalisation` nor `norm`, and a checkpoint read without its own normalisation is measured through
+the shipped table's* -- rather than letting the worker's `??` supply a substitute. The `??` in
+`scripts/tournament-worker.mjs` stays exactly where it is: it is right for `{uniform: true}` and
+for a contender that genuinely has none, and the refusal belongs at the one place the two file
+shapes are still distinguishable. `tests/league.test.mjs` pins both shapes, the refusal's wording
+and the two ways an argument can fail to be a checkpoint at all.
+
+Gate: `npm run check` clean, `npm test` **1,077 passing**, `npm run build` clean,
+`git diff --check` clean. End to end, a league pool and a trainer checkpoint both probe, and a
+file carrying neither is refused by name.
+
+### The transferable shape, which this record already had a ruling for and did not apply here
+
+This is *a statistic stated against a null that was measured* wearing different clothes: **a
+fallback is a default that looks like an absence and is actually a substitution.** Two names for
+one quantity, a `??` that makes the wrong one succeed, and no assertion anywhere about which of the
+two files a reader is holding. The assertion that would have caught it is not *is the probe tested*
+-- it was, and thoroughly -- but ***which* assertion is about the file this path reads**, and the
+answer was none. That question is worth asking of every reader in this tree that takes a path.

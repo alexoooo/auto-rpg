@@ -207,6 +207,35 @@ export function formatIdleProbe(result) {
   return lines.join("\n");
 }
 
+/**
+ * The normalisation a checkpoint carries, by name, from either of the two shapes this tree writes.
+ *
+ * **`scripts/train-ppo.mjs` writes it as `normalisation` and `scripts/league.mjs` writes it as
+ * `norm`, and they are the same quantity.** `contenderFor` in `scripts/league.mjs` maps the one
+ * onto the other for the league path and `scripts/probe-snapshots.mjs` goes through it, so the
+ * curve instrument reads a pool correctly. This file's own CLI read `cp.normalisation` directly
+ * and therefore read a league pool as carrying none.
+ *
+ * **That failure is quiet rather than loud, which is why this is a refusal and not a `??`.**
+ * `scripts/tournament-worker.mjs` supplies `POLICY_WEIGHTS.normalisation` when a contender names
+ * none, so a pool read through the old line was measured through the shipped table's means and
+ * variances -- accumulated over 11,390,700 mirrored observations of a different mind -- and
+ * printed a kill rate that looks like every other kill rate in this record. The `??` in the worker
+ * is right where it stands: it serves `{uniform: true}` and a contender that genuinely has none.
+ * The refusal belongs here, which is the one place the two file shapes are still distinguishable.
+ */
+export function normalisationOf(cp, what = "the checkpoint") {
+  if (cp === null || typeof cp !== "object" || Array.isArray(cp)) {
+    throw new Error(`${what} is not a checkpoint object`);
+  }
+  const found = cp.normalisation ?? cp.norm;
+  if (found === undefined || found === null) {
+    throw new Error(`${what} carries neither \`normalisation\` nor \`norm\`, and a checkpoint `
+      + "read without its own normalisation is measured through the shipped table's");
+  }
+  return found;
+}
+
 // ------------------------------------------------------------------------------------- main
 
 const isMain = process.argv[1] !== undefined
@@ -230,7 +259,12 @@ if (isMain) {
   if (asked === "uniform") contender = { uniform: true };
   else if (checkpoint !== null) {
     const cp = JSON.parse(readFileSync(resolve(checkpoint), "utf8"));
-    contender = { pi: cp.weights, logSigma: cp.logSigma, normalisation: cp.normalisation, sample: drawn };
+    contender = {
+      pi: cp.weights,
+      logSigma: cp.logSigma,
+      normalisation: normalisationOf(cp, checkpoint),
+      sample: drawn,
+    };
   }
   const bouts = Math.max(2, Number(flag("bouts", 4)));
   const workers = Math.max(1, Number(flag("workers", Math.max(1, availableParallelism() - 2))));

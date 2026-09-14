@@ -72,7 +72,7 @@ import {
   shippedIteration, spentBy, spreadSlots, statePath, thinPool, trainRole,
 } from "../scripts/league.mjs";
 import { armedTerminal, buildPool } from "../scripts/tournament.mjs";
-import { formatIdleProbe, idleProbe, rollupByTerminal } from "../scripts/idle-probe.mjs";
+import { formatIdleProbe, idleProbe, normalisationOf, rollupByTerminal } from "../scripts/idle-probe.mjs";
 import {
   boutsPerOpponent, chosenSnapshots, formatRow, parseTerminals, snapshotIterations,
 } from "../scripts/rate-snapshots.mjs";
@@ -447,6 +447,30 @@ test("the_matrix_and_the_idle_probe_carry_the_tripwires_columns", { timeout: 600
     assert.equal(b.always, b.won === b.bouts);
   }
   assert.match(formatIdleProbe(probe), /killed the dummy in \d+\/4 =/);
+});
+
+// The defect this covers was found by pricing an experiment that would have hit it, not by a
+// failing test: `scripts/idle-probe.mjs`'s CLI read `cp.normalisation`, `scripts/league.mjs` writes
+// the same quantity as `norm`, and `scripts/tournament-worker.mjs` fills an absent normalisation
+// with the shipped table's. So the one instrument in this tree that reads a single checkpoint by
+// hand measured a league pool through 11,390,700 mirrored observations of a different mind and
+// printed a kill rate that looked ordinary. The assertion that would have caught it is not "is the
+// probe tested" -- it was -- but "which assertion is about the file this path reads".
+test("the two checkpoint shapes name one normalisation, and a file carrying neither is refused", () => {
+  const role = freshRole(SEED);
+  const norm = { count: 1000, mean: role.norm.mean, variance: role.norm.variance };
+  // `scripts/train-ppo.mjs` writes `normalisation` and `scripts/league.mjs` writes `norm`, and a
+  // reader of single checkpoints has to take both by name because both are handed to it.
+  assert.equal(normalisationOf({ weights: [], normalisation: norm }, "a trainer checkpoint"), norm);
+  assert.equal(normalisationOf({ weights: [], norm }, "a league pool"), norm);
+  // The refusal names the file, because the failure it replaces was a substitution wearing the
+  // clothes of an absence and nothing downstream of it would have complained.
+  assert.throws(
+    () => normalisationOf({ weights: [] }, "tournaments/lam-base/pool-10.json"),
+    /tournaments\/lam-base\/pool-10\.json carries neither/,
+  );
+  assert.throws(() => normalisationOf(null, "nothing"), /not a checkpoint object/);
+  assert.throws(() => normalisationOf([norm], "a list"), /not a checkpoint object/);
 });
 
 test("a league starts from a trainer's checkpoint, and says when the critic will not fit", () => {
