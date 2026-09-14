@@ -77,9 +77,10 @@ import { pathToFileURL } from "node:url";
 
 import { VIABLE_TERMINALS } from "../src/golem/viability.ts";
 import {
-  PPO_LEAGUE, RATING_POOLS, parseTerminals, poolFor, poolSentence, poolWord, ratePolicy,
+  PPO_LEAGUE, RATING_POOLS, parseTerminals, policyShapeOf, poolFor, poolSentence, poolWord,
+  ratePolicy,
 } from "./train-ppo.mjs";
-import { loadLeague, poolPath, roleFromJson } from "./league.mjs";
+import { loadLeague, poolPath, readLog, roleFromJson } from "./league.mjs";
 
 /** The iterations this directory has a checkpoint for, in the order they were taken. */
 export function snapshotIterations(dir) {
@@ -186,12 +187,46 @@ export function curveTargets(out, pools) {
   });
 }
 
+/**
+ * The executor and the shape a league's checkpoints were trained under, read off its own header.
+ *
+ * **Before 2026-09-14 this function did not exist and a rating drove every checkpoint through the
+ * shipped executor, whatever the league had trained under.** `scripts/league.mjs` passes
+ * `head.tactics` to `ratePolicy` when it ships a mind; this script passed nothing, so a league
+ * trained with `--tactics latchAbort=true` -- every arm of Experiments S, U, X and Z -- was rated
+ * with the abort gate re-read on every step of a stroke, which is the executor its weights were
+ * never fitted against. The rows said so and nobody read them for it: `lam-long` at iteration 240
+ * started 85.35 strokes a bout on the rating and aborted 75.07 of them. A pool file carries
+ * weights and a normalisation and no executor, so the header is the only place the fact lives,
+ * and a directory without one is refused rather than rated under a guess.
+ *
+ * The shape comes off the same header for the same reason: a league run at `--features 2` or
+ * `--head beta` is a different network, and a rating that built the shipped one over its weights
+ * would fail at the first forward pass if it was lucky and read garbage if it was not.
+ */
+export function ratingExecutorOf(rows, dir = "this league") {
+  const head = rows.find((row) => row.type === "header");
+  if (head === undefined) {
+    throw new Error(`${dir} has no header row, so the executor its checkpoints were trained `
+      + "under cannot be read -- and a rating under the shipped executor would be a rating of a "
+      + "different mind");
+  }
+  const shape = policyShapeOf({
+    features: head.features, head: head.head, sigma: head.sigma, critic: head.critic,
+    sigmaFloor: head.sigmaFloor, sigmaRoof: head.sigmaRoof,
+  });
+  const moved = head.tactics ?? null;
+  const tactics = moved === null || Object.keys(moved).length === 0 ? null : { ...moved };
+  return { tactics, features: shape.features, spec: shape.spec };
+}
+
 export async function rateSnapshots({
   dir, bouts = 200, workers = 28, cap = 60, random = 40, only = null, terminals = VIABLE_TERMINALS,
   pools = null, mirror = true, onRow = null,
 }) {
   const wanted = pools === null ? [mirror ? "mirror" : "random"] : [...pools];
   const state = loadLeague(dir);
+  const executor = ratingExecutorOf(readLog(dir), dir);
   // The pool is handed over class-filtered and `ratePolicy` narrows it again at each arrangement's
   // own `mirror`: `viableMirror` for a mirrored rating, and nothing further for random pairs,
   // which reject at the draw through `viablePair` because a pair predicate cannot be a filter on a
@@ -211,7 +246,7 @@ export async function rateSnapshots({
     const rated = await ratePolicy({
       weights: role.weights, logSigma: role.logSigma, norm: role.norm,
       pool, seed: (state.seed ^ 0xc0f1c0f1) >>> 0, bouts: per, workers, cap, terminals,
-      pools: wanted,
+      pools: wanted, tactics: executor.tactics, features: executor.features, spec: executor.spec,
     });
     for (const which of wanted) {
       const on = rated.byPool[which];
@@ -235,6 +270,10 @@ export async function rateSnapshots({
         // carried it there and a reader with both in front of them should not have to know when
         // the field moved.
         mirror: on.mirror,
+        // The executor the checkpoint was driven through, since 2026-09-14. A row without it was
+        // written by a build that drove every checkpoint through the shipped executor, which is
+        // the silence `ratingExecutorOf` above exists to end.
+        tactics: executor.tactics,
         // `ret` beside `bar` on every baseline, since Experiment T. It is the paired difference
         // in what `GOLEM_REWARD` -- the objective every fit in this record climbed -- paid the two
         // contenders over these same bouts, and it is here because Q measured the objective and
@@ -324,6 +363,7 @@ if (isMain) {
   const chosen = chosenSnapshots(snapshots, only);
   const per = boutsPerOpponent(bouts);
   const state = loadLeague(dir);
+  const { tactics } = ratingExecutorOf(readLog(dir), dir);
   const random = Number(flag("random", 40));
   const on = poolSentence(terminals);
   // One file a pool. `readCurve` refuses two pools in one curve and it is right to, so a caller
@@ -339,6 +379,8 @@ if (isMain) {
   console.log(`${dir}: iteration ${state.iteration}, ${snapshots.length} snapshots, rating `
     + `${chosen.length + 1} at ${per} bouts an opponent (${per * PPO_LEAGUE.length} a contender) `
     + `${on}, on ${pools.map(poolWord).join(" and ")}`);
+  console.log("  driven through the executor the league trained under: "
+    + `${tactics === null ? "the shipped one" : JSON.stringify(tactics)}`);
   for (const { which, path } of paths) console.log(`  will write ${path} on ${poolWord(which)}`);
 
   // **A rating's rows are appended to a `.partial` as they land and the file is renamed on the way

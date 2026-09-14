@@ -74,7 +74,8 @@ import {
 import { armedTerminal, buildPool } from "../scripts/tournament.mjs";
 import { formatIdleProbe, idleProbe, normalisationOf, rollupByTerminal } from "../scripts/idle-probe.mjs";
 import {
-  boutsPerOpponent, chosenSnapshots, curveTargets, formatRow, parseTerminals, snapshotIterations,
+  boutsPerOpponent, chosenSnapshots, curveTargets, formatRow, parseTerminals, ratingExecutorOf,
+  snapshotIterations,
 } from "../scripts/rate-snapshots.mjs";
 import { keepViable, mixedSchedule, policyShapeOf, poolFor } from "../scripts/train-ppo.mjs";
 import {
@@ -552,6 +553,29 @@ test("a rating names every file it will write before it collects a bout, and the
   assert.deepEqual(curveTargets("a.b/curve", ["mirror", "random"]).map((c) => c.path),
     ["a.b/curve.mirror", "a.b/curve.random"]);
   assert.throws(() => curveTargets("curve.jsonl", []), /asked for no pools at all/);
+});
+
+// 2026-09-14: every snapshot rating of a latched league had driven its checkpoints through the
+// shipped executor, because `rateSnapshots` never read the header that says which one the league
+// trained under. The test is on the function that reads it, because the bouts are what cost.
+test("a rating drives a checkpoint through the executor its league trained under, and refuses to guess", () => {
+  const latched = ratingExecutorOf([{ type: "header", features: 1, head: "gaussian", sigma: "constant",
+    critic: "self", sigmaFloor: -3, sigmaRoof: 0.5, tactics: { latchAbort: true } }, { iteration: 1 }]);
+  assert.deepEqual(latched.tactics, { latchAbort: true }, "the latch the league trained under reaches the rating");
+  assert.equal(latched.features, 1);
+  // A league that moved no row rates under the shipped executor, which is `null` and not `{}` --
+  // `contenderShape` leaves the field off a contender for null, and a rating of an unlatched league
+  // must be the bytes it always was.
+  for (const tactics of [null, undefined, {}]) {
+    const header = { type: "header", features: 1, head: "gaussian", sigma: "constant", critic: "self" };
+    if (tactics !== undefined) header.tactics = tactics;
+    assert.equal(ratingExecutorOf([header]).tactics, null, `tactics ${JSON.stringify(tactics)}`);
+  }
+  // The shape travels too, so a league at another head is not rated as the shipped network.
+  const beta = ratingExecutorOf([{ type: "header", features: 1, head: "beta", sigma: "constant", critic: "self" }]);
+  assert.notDeepEqual(beta.spec, latched.spec, "a beta league is not rated through a Gaussian head");
+  assert.throws(() => ratingExecutorOf([{ iteration: 5 }], "tournaments/somewhere"),
+    /tournaments\/somewhere has no header row/);
 });
 
 // The offline rating curve. Everything expensive in `scripts/rate-snapshots.mjs` is `ratePolicy`,
