@@ -34204,3 +34204,65 @@ moved.** X's falsifier stopped firing. Z's collapse became a flat line. S's hump
 climbing arm beside two flat ones. **Two held.** U's null held, closer to the line, and Z's
 falsifier held. The defect's cost to the level runs from +0.0067 to +0.0392 of bar. Its cost to
 slope has no consistent sign.
+
+## Pre-registration -- 2026-09-14: Experiment AC, `lambda` above the shipped 0.95, because SL measured the lever pointing that way
+
+SL's entry, an hour old, called the dose above 0.95 *noted and not queued*. It is queued here for
+two reasons. First, the rating chain finished and freed the workers it held. Second, the arithmetic
+of what `lambda` does in this estimator says the next step up is not a small one.
+
+**What `lambda` sets here.** `advantages` in `scripts/train-ppo.mjs` discounts by a half-life of
+4 s, and a step is one window at about 12 asks a second, so `gamma` is about 0.9857 a step. The
+credit horizon of the advantage is roughly `1 / (1 - gamma * lambda)` steps:
+
+| `lambda` | `gamma * lambda` | horizon, steps | horizon, seconds | measured slope a sixty, latched |
+| ---: | ---: | ---: | ---: | --- |
+| 0 | 0 | 1 | 0.08 | -0.0085 +-0.0075 |
+| 0.5 | 0.493 | 2.0 | 0.16 | -0.0006 +-0.0074 |
+| 0.95 | 0.936 | 15.7 | 1.3 | +0.0481 +-0.0069 |
+| 0.98 | 0.966 | 29.4 | 2.4 | this experiment |
+| 1.0 | 0.986 | 70 | 5.8 | this experiment |
+
+A bout is about 36 s, or 436 steps. Going from a horizon of 2 steps to 16 took the arm from flat to
+the only climb in the record. The next two rungs double the horizon and then double it again. Under
+the reading that credit horizon is what `lambda` buys, they should climb faster. Under the ordinary
+reading, that a longer horizon trades bias for variance, they may not.
+
+**Manifest.** `lam-base`'s flags exactly, at seed 20260917 and `--iterations 120`, with `--lambda
+0.98` in tournaments/lam-98 and `--lambda 1` in tournaments/lam-100. Seven workers each, beside
+XU and AB, which puts four leagues on the host. By Experiment S's measured occupancy cost, that is
+about 2.5 hours an arm. Each arm is rated like SL: 25 points, 200 bouts, cap 60, maul and mace,
+random viable pairs, the latch read off the header. It shares lam-long's rating instrument, so its
+designed columns are lam-long's. The control is `lam-base`'s latched 5..120, which is already on
+disk.
+
+### Predictions
+
+The family is three arms, the two new ones and `lam-base`: one-arm threshold t 2.26 at 22
+degrees of freedom, and a pairwise bar of +-2.77 se, both S's.
+
+**1. Both new arms climb.** Each slope against `golem-fencer` over 5..120 is positive and clears
+**t 2.26**.
+
+**2. The dose continues, on point estimates.** The slopes order **`lam-100` > `lam-98` >
+`lam-base`**. A random order of three reproduces this 1 time in 6, so it is a shape check and not
+the experiment.
+
+**3. Neither new arm is behind the shipped one.** Neither `lam-98` less `lam-base` nor `lam-100`
+less `lam-base` is below **-2.77 se**.
+
+**Stated in advance so that nothing below is read as a finding:** the smallest difference either
+pair would catch four times in five at +-2.77 is about 0.035 a sixty, on se of about 0.0098. That
+is 0.7x `lam-base`'s own slope. **This design cannot show a modest improvement.** It can show a
+large one, and it can show a regression.
+
+### The falsifier, and what each branch licenses
+
+**If `lam-100` is behind `lam-base` beyond -2.77 se, the dose peaked at or below 0.95.** The
+horizon reading is withdrawn, and `lambda` is closed as a lever in the upward direction at this
+budget.
+
+**If either new arm is ahead of `lam-base` beyond +2.77 se, no default moves on it.** The move
+waits for that arm to replicate at a second seed on the borrowed instrument, as AB does for
+`lam-base`. **If neither clears in either direction, the upward dose is unresolved at this
+design**, and it is recorded as that, not as flat.
