@@ -33793,6 +33793,6 @@ budget* is a ruling this record already carries, and YL does not revisit it.
 
 No default moves. What it licenses is a sentence for the agenda: **the next question is why the
 signal dies as the mind approaches the opponent, and whether an opponent that stays ahead of the
-mind keeps it alive.** That is what a league's pool of past selves is for, and every arm tonight trained against
-`golem-fencer` alone. Experiment Z's curriculum asked the opposite question, an easier opponent, and ZL will
-say whether that result stands.
+mind keeps it alive.** That is what a league's pool of past selves is for, and every arm tonight
+trained against `golem-fencer` alone. Experiment Z's curriculum asked the opposite question, an
+easier opponent, and ZL will say whether that result stands.
