@@ -31979,3 +31979,251 @@ not regenerated, and no mind is shipped from this run. A confirmed prediction 2 
 and it is not a ship: it licenses rating the same arm against the **screen's** default at the bout
 count the screen uses, which is the only cell in which "beats the designed mind" means what a
 reader would take it to mean.
+
+## Experiment M, complete -- 2026-09-14: the opponent is the variable, all four predictions met, and the floor moves because the signal dies rather than because the noise grows
+
+The five-cell ladder finished at 23:56 and the sixth rung was free. **All four predictions are met**,
+which has not happened to an experiment in this record before, and the mechanism the ladder was
+built to separate came back separated -- with one correction to the hypothesis that the registration
+did not anticipate and that the table makes unavoidable.
+
+**And M is the one experiment collected tonight whose currency survives Experiment S untouched.**
+S ruled that a bar is not stated on a floor, because a floor prices reproducibility rather than
+usefulness and does not order minds. M never orders minds. It asks what the floor is *made of* and
+therefore how many bouts a cell costs, which is the question a floor actually answers and the use
+`docs/design.md` explicitly leaves open. The ruling is cited here rather than worked around.
+
+### The ladder
+
+One checkpoint -- `bracket-fencer` pool-30, held -- against six opponents, 20 iterations of 128
+bouts, seed 20260917, the maul-and-mace viable pool, mirrored bodies, 4 shards. The sixth rung is
+Experiment E's `gradreward-fencer-128`: same checkpoint, same bouts, same iterations, same seed,
+verified field by field before it was read, and free because E's prediction 1 established that the
+probe's collection is a deterministic function of seed, checkpoint, bouts, opponent and pool and is
+unaffected by the arm list.
+
+Six cells are one family at 19 df, so two sigma somewhere on the ladder is passed by a true null
+17 % of the time and `*` wants **t 2.62** and not 2.
+
+| opponent | the shipped mind's bar | `\|S\|^2` | t | `K` | floor, bouts | advantage sd | `\|g\|` | decided | margin | completion |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `idle` | -- | 2.908e-2 | 3.88 | 26 | **591** \* | 0.0739 | 0.4784 | 0.537 | +0.575 | 4.1 % |
+| `golem-brawler` | +0.1412 | 1.705e-2 | 3.20 | 30 | **1,068** \* | 0.0855 | 0.4960 | 0.788 | -0.195 | 2.0 % |
+| `golem-form` | +0.0328 | 1.014e-2 | 1.91 | 30 | 1,459 | 0.0935 | 0.4915 | 0.841 | -0.175 | 1.9 % |
+| `golem-duelist` | +0.0061 | 8.338e-3 | 1.49 | 29 | 1,482 | 0.0961 | 0.4847 | 0.838 | -0.154 | 1.9 % |
+| `golem-driver` | -0.0077 | 1.354e-2 | 3.82 | 28 | **1,342** \* | 0.0912 | 0.4778 | 0.791 | -0.162 | 1.8 % |
+| `golem-fencer` | -0.0624 | -2.553e-3 | -0.47 | 32 | 3,796 | 0.0968 | 0.4982 | 0.836 | -0.134 | -- |
+
+### The four verdicts
+
+**1. The floor is monotone in the bar -- MET.** Ordered by the shipped mind's bar against each
+opponent, the five paid floors are 1,068, 1,459, 1,482, 1,342, 3,796: **one adjacent inversion**,
+which is what the registration allowed, and `idle` at 591 sits below all of them as it required.
+The inversion is `golem-duelist` against `golem-driver`, whose bars differ by **0.0138** -- the two
+closest rungs on the strength ladder, which is where an inversion is cheapest to buy.
+
+**2. The span is at least 3x -- MET.** The easiest paid floor is `golem-brawler` at 1,068 against a
+bar of 1,265, which is a third of the fencer's 3,796. The span over the paid rungs is **3.55x**.
+
+**3. It is not the return's flatness -- MET, and this is the one the experiment exists for.** The
+obvious reading of the fencer cell was that a strong opponent flattens the return so there is
+nothing for an advantage to be an advantage over, which predicts `advantageSd` *falling* as the
+floor rises. It rises: **Spearman 1.000 over six cells**, Pearson 0.665. Six cells in perfect rank
+order is 1 arrangement in 720.
+
+**4. `idle` against this checkpoint lands near `bracket-idle`'s own 789 -- MET.** It reads **591**,
+a ratio of 0.75x, comfortably inside the registered factor of two. The dummy cell's easiness is the
+dummy's and not the checkpoint's.
+
+### What the table says that the hypothesis did not, and it is the finding
+
+The registration's mechanism was that **exogenous variance is noise with the same shape as signal**:
+against a strong opponent most of a bout's outcome is a function of what the opponent did, a
+gradient estimator cannot tell that apart from what the policy did, so the noise rises and the
+sample size needed rises with it.
+
+**The noise does not rise.** `K` across the whole ladder is 26, 30, 30, 29, 28, 32 -- a span of
+**1.23x**, and the hardest opponent is not the noisiest by any margin worth naming. What moves is
+`|S|^2`: 2.908e-2 down to -2.553e-3, a factor of more than three and then a change of sign. Since
+the floor is `K/(|S|^2 + 2 SE)` and `K` is nearly a constant here, **the whole ladder is the
+denominator.**
+
+So the corrected sentence is: a stronger opponent does not add noise to the gradient, it **destroys
+the signal in it**. The step still has the same length -- `|g|` is 0.478 to 0.498 across all six --
+and the same iteration-to-iteration scatter; what it loses is agreement between two halves of the
+same bouts about which way to go. And `advantageSd` rising while `K` stays flat says the extra
+variation in what a bout pays is not even reaching the gradient as extra variance. It is reaching
+it as **less coherent direction**, which is a different and more specific thing than the
+registration claimed and is what a reader should take from this ladder.
+
+### The null side, and three rungs that are lower bounds
+
+| rung | smallest `\|S\|^2` it would catch four times in five at t 2.62 | read |
+| --- | ---: | ---: |
+| `idle` | 2.59e-2 | 2.91e-2 |
+| `golem-brawler` | 1.84e-2 | 1.71e-2 |
+| `golem-form` | 1.84e-2 | 1.01e-2 |
+| `golem-duelist` | 1.93e-2 | 8.34e-3 |
+| `golem-driver` | 1.23e-2 | 1.35e-2 |
+| `golem-fencer` | 1.89e-2 | -2.55e-3 |
+
+**Three of the six cells -- `golem-form`, `golem-duelist` and `golem-fencer` -- do not clear zero at
+the family bar**, so their floors are the *fewest* bouts their intervals permit and their point
+estimates are larger or unbounded. The record's own rule is that a cell whose whole-actor `|S|^2`
+does not clear zero is not a cell to state a group-level prediction on, and it is honoured here in
+the direction it cuts: prediction 2's *met* rests on `golem-brawler`, which clears at t 3.20, and on
+the fencer reference being a lower bound, so an arm at or under a third of 3,796 is at or under a
+third of the true floor too. Prediction 1's ordering is reported as an ordering of bounds and the
+three that are bounds are named.
+
+### The confound, which was named before the data and is not removed by it
+
+**The checkpoint was trained against `golem-fencer`**, so the ladder confounds how strong an
+opponent is with how far it is from the one this policy was fitted against, and a monotone result
+admits both readings. Nothing in the table separates them. What the registration offered against the
+mismatch reading still stands -- the reward grid's two *matched* cells differ by 4.8x, which a
+mismatch explanation has to account for and cannot -- and what would settle it outright is a second
+checkpoint against the same six, which was priced at double the cost and deliberately not run.
+
+**The one thing the ladder adds to that argument** is that the off-diagonal moves smoothly rather
+than jumping at the opponent the policy knows. `golem-fencer` is the training opponent and is the
+extreme rung, but `golem-driver` -- which this policy never met -- sits at 1,342 between the
+brawler's 1,068 and the fencer's 3,796 rather than anywhere special. A pure mismatch story would put
+the fencer at the *bottom* of the ladder, not the top.
+
+### What this licenses, which is nothing shipped
+
+No default moves and `--opponent` keeps its current default. **A steep ladder does not license
+training against a weaker opponent**: the criterion is stated against `golem-fencer` and a mind that
+learns quickly against a brawler has not been shown to transfer -- which is not a hypothetical, as
+the `--opponent idle` run of 2026-09-12 climbed on the dummy at t +3.38 and was the flattest of four
+arms on the criterion at a slope t of -0.38. What M licenses is one curriculum run, pre-registered
+on its own, whose bar is still the fencer's.
+
+And it licenses one piece of arithmetic that costs nothing: **the fencer cell is not expensive
+because a fit against the fencer is hard, it is expensive because there is nearly nothing there to
+measure.** At 128 bouts the shipped estimator cannot tell the direction of its own step against the
+mind this project's criterion is stated against. Experiment S's `lam-base` climbed at t 4.38 against
+that same opponent anyway, over 120 iterations of 32 bouts -- a fortieth of the fencer floor an
+iteration. **Those two facts sit together in this record and the ladder does not reconcile them**,
+and saying so is more useful than a reconciliation invented here.
+
+## Experiment P, complete -- 2026-09-14: a tenth of the weights carries three quarters of the cost, the falsifier does not fire, and the correction this experiment published in advance was wrong in the same place as the thing it corrected
+
+Experiment P rode on Experiment M's five ladder cells and bought no bouts. Its question was whether
+the signal in an 87,308-coordinate gradient is spread thinly over the whole vector or sits in a few
+coordinates with a great deal of noise around them, because the first would mean there is a fit this
+project can afford that it has never tried.
+
+**The headline missed, the falsifier did not fire, and the largest thing this cell found is about
+the instrument.** Taken in that order.
+
+### The measurement
+
+Five fractions a cell -- `p` of 0.01, 0.03, 0.1, 0.3 and 1 -- ranking the coordinates on one third
+of the epoch and measuring `dot` and both norms on the other two, which never saw the ranking. The
+statistic is the restricted floor relative to the same table's row at one, **divided by the same
+thing measured on a ranking that cannot know anything**. A quotient of one is no concentration; a
+quotient below one at small `p` says those coordinates carry more of `|S|^2` than of `K`.
+
+| cell | row at one, `\|S\|^2` | t | `p` = 0.01 | 0.03 | **0.1** | 0.3 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `idle` | 4.321e-2 | **3.82** | 0.470 | 0.581 | **0.736** | 0.839 |
+| `golem-brawler` | 9.727e-4 | 0.16 | 0.273 | 0.760 | 0.734 | 0.730 |
+| `golem-form` | 1.881e-2 | **3.06** | 1.044 | 0.980 | 0.997 | 0.938 |
+| `golem-duelist` | 8.332e-3 | 1.12 | 0.672 | 0.891 | 0.934 | 0.914 |
+| `golem-driver` | 1.664e-2 | 2.37 | 0.793 | 0.806 | 0.939 | 1.006 |
+
+The concentration is taken on **thirds** of 85.3 bouts where the row's own halves are 64, so a
+cell's `t` here is not its `t` in Experiment M's table and the two are not interchangeable; both are
+printed by the reader and the one this entry is read on is the thirds.
+
+### The verdicts
+
+**2, the headline -- MISSED.** It asked for a quotient below **0.5** at `p` = 0.1 on at least one
+cell clearing `t` 3. Two cells clear -- `idle` at 3.82 and `golem-form` at 3.06 -- and they read
+**0.736** and **0.997**. A tenth of the coordinates does carry a cheaper floor on the cell with the
+most signal in it, and it is nowhere near cheap enough to be the number that says a restricted step
+is worth designing.
+
+**The falsifier -- DOES NOT FIRE.** It said that if no cell clearing `t` 3 gets below **0.8**, the
+signal is spread about as thinly as noise is and a restricted fit is off the menu. `idle` reads
+**0.736**, which is below 0.8. So the idea is not closed -- and it is not licensed either. What sits
+between the bar and the falsifier is exactly the band the registration described as informative and
+not decisive, and this cell landed in it.
+
+**3, monotone in `p` -- MET where it can be read, and withheld elsewhere.** `idle` is monotone across
+all five fractions. `golem-form` and `golem-driver` are not, and on both of them every quotient is
+above 0.75, so there is no ordering for the prediction to be about and the reader withholds the
+verdict rather than counting a non-monotone reading of noise as a failure. `golem-brawler` and
+`golem-duelist` do not clear zero and get no quotient quoted at all, which is the rule this
+pre-registration wrote for itself before it had cells.
+
+**4, concentration is the policy's and not the opponent's -- MET.** The quotient at `p` = 0.1 across
+the five cells spans **0.734 to 0.997, a range of 0.263**. Inside `idle` alone it spans 0.470 to
+1.000, **a range of 0.530**. It varies half as much across opponents as it does across fractions
+within one of them, which is what the prediction asked and is the check on prediction 2 meaning what
+it appears to.
+
+### Prediction 1 missed, and the miss is the correction's rather than the instrument's
+
+This is the part worth the entry.
+
+**Prediction 1, as restated by this experiment's own published correction, asks that the null column
+match a closed form at every `p` to within 0.15.** That closed form is
+`sqrt(p) (t + 2) / (sqrt(p) t + 2)`, and it says the null of the ratio falls toward zero as the kept
+set shrinks -- at `idle`'s `t` of 3.82 it predicts **0.244** at `p` = 0.01 and **0.574** at `p` =
+0.1. The measured null column reads **1.016** and **1.007**. The prediction misses on every cell and
+it misses by more than half.
+
+**The closed form is wrong, and it is wrong in the same place as the argument it was published to
+correct.** Both turn on how the `2 SE` in the floor's denominator scales when the kept set shrinks.
+The original design said `2 SE` scales like the dot, so the ratio is one. The correction said it
+scales as `sqrt(p)` -- a sum over `p N` terms having a standard deviation going as `sqrt(p N)` --
+and so the ratio is not one. **Neither argument was measured, and the reader that the correction
+added prints the column that settles it.** Over the `idle` cell's null ranking, which by construction
+knows nothing:
+
+| `p` | null dot / whole | null SE / whole SE | if `sqrt(p)` | if `p` |
+| ---: | ---: | ---: | ---: | ---: |
+| 0.01 | 0.0100 | **0.0097** | 0.1000 | 0.01 |
+| 0.03 | 0.0271 | **0.0293** | 0.1732 | 0.03 |
+| 0.1 | 0.0998 | **0.0980** | 0.3162 | 0.1 |
+| 0.3 | 0.2991 | **0.2959** | 0.5477 | 0.3 |
+
+**The standard error scales as `p`, to two digits, at every fraction.** The `sqrt(p)` prediction is
+off by a factor of ten at `p` = 0.01. The reason is that this `SE` is taken **across the twenty
+iterations** and not across coordinates: iterations differ in how long the whole gradient is, a
+random `p`-sample of coordinates inherits that variation proportionally, and a common factor divides
+out of a ratio. The same thing is visible in a column the reader already printed before any of this
+was worked out -- **the null ranking's `t` is flat in `p`**, 3.91, 3.54, 3.89, 3.86 against the row
+at one's 3.82, where a `sqrt(p)` scaling would have put `t` at 0.38 for the smallest set.
+
+So the null of the published ratio **is one, at every `p`**, which is what the original design said
+and what its argument did not establish. Prediction 2's bar of 0.5 means what it was written to mean
+and no restatement of it is needed.
+
+**Nothing published is retracted and one thing is corrected.** The quotient is divided by the
+*measured* null and not by the closed form, so every number in the table above is unaffected -- the
+correction changed the instrument in a way that was right for a reason that was wrong, which is the
+lucky version of this and not the other one. What is withdrawn is the closed form itself, the five-row
+table of it in that correction, and prediction 1 as restated on it.
+
+**And the transferable part is the third instance of one shape in three days.** The step probe
+walked the wrong way and every published number was invariant to the sign. The concentration's first
+null was argued rather than measured. Now its *second* null was argued rather than measured, by the
+same author, in the correction that said the first one should have been measured -- and the
+measurement was already being printed in a column beside it. The rule the record wrote after the
+first two was **a statistic is stated against a null that was measured on the same data, or it is
+not stated**; what this adds is that **the measurement being present is not the same as it having
+been read**, and a closed form quoted beside a measured column is a claim that the two agree.
+
+### What this licenses
+
+Nothing. `ppoFit` steps every weight and will continue to. The falsifier not firing means the
+cheapest remaining idea for making a fit affordable is still on the menu and has not been paid for;
+prediction 2 missing means it is not worth designing yet on this evidence. The registration's own
+limit stands and is the reason to be slow about it: **this is one collection at one policy**, the
+coordinates ranked highest at one iteration need not be the ones ranked highest at the next, and a
+fit that masked to them would be re-ranking as it went, which is a different instrument at a
+different cost.
