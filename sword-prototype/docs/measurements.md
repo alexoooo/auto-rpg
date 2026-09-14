@@ -33796,3 +33796,76 @@ signal dies as the mind approaches the opponent, and whether an opponent that st
 mind keeps it alive.** That is what a league's pool of past selves is for, and every arm tonight
 trained against `golem-fencer` alone. Experiment Z's curriculum asked the opposite question, an
 easier opponent, and ZL will say whether that result stands.
+
+## ZL, complete -- 2026-09-14: the curriculum arm did not get worse against the fencer, it failed to get better, and ZL's own consequence clause was worded wrong
+
+**ZL's prediction 2 missed, and what that withdraws is narrower than ZL's registration said.**
+Re-rated under `latchAbort=true`, the executor `brawl-base` trained under, the arm's paired bar
+slope against `golem-fencer` over 5..120 is **-0.0027 +-0.0070, t -0.39**. Its unlatched rating
+read **-0.0279, t -3.70**. **The collapse was the executor's.** The sentence in Z's entry that the
+arm *got measurably worse against the fencer while it learned the brawler* is withdrawn.
+
+### The clause, corrected before anything is concluded from it
+
+ZL was registered in the entry that found the defect, with this consequence: *"If it is not, Z's
+fired falsifier is withdrawn as fired on the wrong executor, and the curriculum is re-opened."*
+**That clause mis-stated Z's falsifier.** Z's registration wrote the falsifier as *"if prediction 1 holds and
+prediction 2 misses, the curriculum is closed for this project"*. Z's prediction 2 was that the
+slope against `golem-fencer` is **positive and clears t 2.068**. ZL's clause treated *a negative
+transfer* as the falsifier's condition, when the condition was *no positive transfer*. The two
+came apart on exactly this outcome. This entry scores Z's falsifier as Z worded it and does not
+execute the clause:
+
+| Z's prediction | as Z scored it, unlatched | on the arm's own executor |
+| --- | --- | --- |
+| 1. it learns the brawler, t > 2 | MET, t 2.52 | **MET**; read inside the training loop, so the rating's executor never touched it |
+| 2. positive slope against the fencer, t > 2.068 | MISSED, t -3.70 | **MISSED, t -0.39** |
+| 3. driver slope >= fencer slope | MET and empty | MET and empty; the contenders are still constants |
+| 4. mean `d` over 100..120 not worse than the control by two se | MISSED, -0.3596 +-0.0913 | **MISSED, -0.2627 +-0.0902** |
+| **the falsifier** | FIRES | **FIRES** |
+
+**So the curriculum stays closed at this rung**, and the reason changes from *it moved away from
+the criterion* to *it did not move toward it*. On the latched rating the control is also stronger
+than Z's entry quoted: `lam-long`'s latched 5..120 slope is **+0.0481, t 7.02**, against the
+arm's -0.0027. Prediction 4's control on the same executor reads a mean `d` of +0.0001 over
+100..120, and the arm reads -0.2626.
+
+**The null side, which is what a closed curriculum has to be read against.** The arm's latched
+slope would have caught a slope of **0.0204 per sixty** four times in five, which is **0.42x** the
+direct arm's latched slope. A curriculum that transfers at less than half the rate of training
+against the criterion directly is not excluded by this design. What is excluded is a curriculum
+that does as well as the direct run, and that was the only version worth a night.
+
+### ZL's predictions
+
+**1. The instrument: MET.** All 24 rows carry the latch. Completion is higher than the unlatched
+row at **24 checkpoints of 24**, 0.292 against 0.097.
+
+**2. Z's negative transfer survives: MISSED**, at t -0.39 against -2.068. What it withdraws is Z's
+*collapse*, as above, and not Z's falsifier.
+
+**Reported and not predicted, and it is the most interesting number in this entry.** Latched less
+unlatched at the same checkpoint is **+0.0392 +-0.0052 over 24 checkpoints, t 7.52**. On
+`lam-long`, XL measured the same quantity at **+0.0067 +-0.0030**. **The wrong executor cost the
+brawler-trained mind six times what it cost the fencer-trained one.** Z's entry offered exactly this
+as the conjecture ZL could test: *a brawler-trained mind leans on strokes finishing more than a
+fencer-trained one.* ZL's level difference is the measurement the conjecture predicts. But the arm's
+latched completion at the rating is 0.244 at iteration 5 and 0.247 at 120, while `lam-long`'s
+latched checkpoints average 0.286. So the extra handicap is not visible as a completion difference
+on the rating's greedy read, and the mechanism is named rather than shown.
+
+### What the night's executor defect did, now that both re-ratings are in
+
+| claim | on the wrong executor | on the right one |
+| --- | --- | --- |
+| X: the long run plateaus after 120 | t 0.80, a plateau | **t 2.16, a slow climb at 0.28x** |
+| X: the halves disagree | t -2.79 | **t -3.71** |
+| X: the mean `d` over 220..240 | +0.0295 | **+0.0546**, predicted +0.054 |
+| Z: the curriculum arm gets worse against the fencer | t -3.70 | **t -0.39, flat** |
+| Z: the curriculum closes | fires | **fires** |
+| `lam-base`'s 5..120 slope, tonight's control | +0.0355, t 4.38 | **+0.0481, t 7.02** |
+
+**The defect never reversed the sign of a slope. It exaggerated both failures**, and in X's case
+that was enough to fire a falsifier that should not have fired. It flattened the successful arm's
+late climb into a plateau, and it turned the unsuccessful arm's flat line into a collapse. A handicap that bites harder the more a mind relies on finishing strokes would do exactly
+that, and it is the same direction XL's and ZL's level differences point.
