@@ -33869,3 +33869,83 @@ on the rating's greedy read, and the mechanism is named rather than shown.
 that was enough to fire a falsifier that should not have fired. It flattened the successful arm's
 late climb into a plateau, and it turned the unsuccessful arm's flat line into a collapse. A handicap that bites harder the more a mind relies on finishing strokes would do exactly
 that, and it is the same direction XL's and ZL's level differences point.
+
+## Pre-registration -- 2026-09-14: SL and UL, the two experiments still read through the wrong executor, and XU, the run with no seam in it
+
+Two debts are left from the executor defect, plus one that XL priced and did not buy. **The
+designed-contender cache in `f585a6f` makes the first two cheap.** Each checkpoint after a
+rating's first now costs one block where it cost four, and a test and a byte-for-byte check
+against a rate file written before the cache both confirm it. Nothing below moves a default. Every prediction was written before the
+first bout of the collection it scores.
+
+### SL and UL -- the re-ratings
+
+**Manifest.** XL's command exactly: `scripts/rate-snapshots.mjs --bouts 200 --cap 60 --terminals
+maul,mace --pools random`, with the executor read off each league's own header. All five headers
+read `{"latchAbort":true}`, checked before this was written. For S, `lam-zero` and `lam-half`
+rate all 24 checkpoints plus `main`. For U, `bat-8`, `bat-16` and `bat-64` rate the 12 checkpoints
+U rated plus `main`. `lam-base` is not re-rated for either experiment: its latched rows are already
+in lam-long's latched rating, whose checkpoints 5..120 are the same pool files. Twenty workers,
+because XU below shares the host. Estimated at about 90 minutes serially.
+
+**The numbers these are read against, all unlatched and all already published:** `lam-zero`
++0.0125 +-0.0075 a sixty, `lam-half` -0.0077 +-0.0062, `lam-base` +0.0355 +-0.0081 and latched
++0.0481 +-0.0069. Per thousand training bouts: `bat-8` +0.0302 +-0.0089, `bat-16` +0.0124
++-0.0051, `bat-64` +0.0148 +-0.0061, and `lam-base` latched on U's twelve points +0.0211 +-0.0046.
+
+**1. The instrument.** Every row carries the latch, and completion is higher than the unlatched
+row's at every shared checkpoint. If this misses, nothing else below is scored.
+
+**2. The handicap grows as a mind trains.** XL and ZL both measured the latched slope steeper than
+the unlatched one over 5..120: latched less unlatched at each checkpoint rises at **+0.0126
++-0.0069** and **+0.0252 +-0.0075** a sixty. Over lam-long's whole 5..240 it rises at only
++0.0025 +-0.0026, and that is disclosed here because it cuts against this prediction. Predicted:
+**the slope of that difference is positive in at least four of the five new arms, and the five
+pooled clear 2.** The arms' slopes are in two units, per sixty iterations for S and per thousand
+training bouts for U, so they are pooled on their t values: the sum of the five t over the square
+root of five.
+
+**3. S's ordering survives its executor.** Predicted: over 5..120 the latched slopes order
+**`lam-base` > `lam-zero` > `lam-half`**, which is the order S measured. `lam-half` against
+`lam-base` still clears S's three-arm pairwise bar of +-2.77 se. S's headline, which read
+`lam-zero` as behind `lam-base`, keeps its sign.
+
+**4. U's null survives its executor.** Predicted: **`bat-8` less `bat-64` per thousand training
+bouts is still inside two standard errors**, so U's falsifier still fires, and no pairwise
+contrast among the four arms per thousand bouts clears t 2. Unlatched it read +0.0154 +-0.0108.
+
+**The falsifier.** If the pooled statistic in prediction 2 is **negative**, then XL and ZL
+agreed by chance. The sentence in ZL's entry, *a handicap that bites harder the more a mind relies
+on finishing strokes*, is withdrawn, and so is its reading of both failures as exaggerated in the
+same direction.
+
+### XU -- the seam
+
+XL found `lam-long`'s latched curve climbing at one rate over 5..120 and at 0.28x of it over
+125..240, with the break **exactly on the resume seam**. The resume is not bit-exact, because
+`roleToJson` saves weights to five decimals. XL argued that a 5e-6 nudge cannot plausibly quarter a
+slope, and it did not exclude one. **This run excludes it.** It is `lam-base`'s manifest exactly,
+the flags that run was launched with, at `--iterations 240` and `--lambda 0.95`, in
+tournaments/lam-straight, with no `--resume`. That is seven workers and four shards, and about
+three and a half hours beside SL and UL.
+
+**1. Prefix identity.** `--iterations` does not reach the collection, as Experiment S's prediction
+1 measured on 300 comparisons. So predicted: **iterations 1..120 match `lam-base`'s league rows on
+`decided`, `margin`, `kl`, `explained` and `strokes.completion` under `Object.is`, and pool files 5
+through 120 are byte-identical to `lam-base`'s.** If they are, XU's 5..120 is lam-long's 5..120
+and is not re-rated. Only 125..240 and `main` are rated, under the same manifest as XL.
+
+**2. The break survives without a seam.** Predicted: **XU's latched slope over 125..240, less
+lam-long's latched slope over 5..120, is negative at t < -2.** XL's reading on the resumed run was
+-0.0345 +-0.0093, t -3.71.
+
+**3. The two post-seam halves agree.** Predicted: XU's 125..240 slope less lam-long's latched
+125..240 slope is inside two standard errors. Both are reckoned as independent 24-point fits,
+which overstates the se of their difference, because the two runs share every bout seed. That
+makes agreement easier to reach, so a pass here is weak evidence and a miss is strong.
+
+**The falsifier.** If prediction 2 misses, the break at 120 is **the resume's**. XL's *a straight
+climb that breaks at iteration 120* is withdrawn, and so is YL's ordering *the signal dies before
+the curve breaks*. The five-decimal save becomes a defect to fix before any other resumed run is
+read. If prediction 1 misses, the league is not deterministic at a fixed seed, which is a larger
+finding than the seam, and 2 and 3 are scored only as descriptions.
