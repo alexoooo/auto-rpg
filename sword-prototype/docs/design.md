@@ -2821,6 +2821,57 @@ a cosine pins nothing at all about a sign, because the cosine has none. Before a
 number, the question is not *is this instrument tested* but *which assertion is about this number* --
 and when the answer is none, that is the work, not a formality.
 
+### A bar is not stated on a floor
+
+Experiment S, 2026-09-14, and it is a ruling rather than a measurement -- the fourth in this
+sequence and the first one bought with a training run rather than found by re-reading a column.
+
+The floor is the gradient probe's headline number: `K = (norm^2 - dot) * 2 * f * bouts` and
+`floor = K / (|S|^2 + 2 SE)`, the bouts an iteration a half-to-half cosine of 0.5 would cost at the
+measured signal and noise. It is a good statistic and this record built a great deal on it. Over
+four pre-registrations and every arm table the gradient probe produced, the floor is what an arm
+was ranked by, and the implied sentence -- never written down, which is how it survived -- was that
+an arm whose gradient is better determined is an arm that will learn faster.
+
+**Experiment G produced the strongest version of that claim available.** `lambda` at 0 priced a
+floor of **95 bouts** against `idle` where the shipped estimator priced 789, and **101** against
+`golem-fencer` where the shipped estimator priced 3,796 -- eight to thirty-eight times better
+determined, monotone in `lambda` across five arms, on two opponents that differ by everything. G
+declined to call it a win, on the ground that a biased estimator with a small variance scores well
+on reproducibility for free, and its closing clause said a winning arm licenses one training run.
+
+**That run is Experiment S, and the ranking is inverted.** Three 120-iteration leagues differing in
+the one flag, rated on the paired bar against `golem-fencer`: `lambda` 0.95 climbs at +0.0355
++-0.0081 per sixty (t 4.38, the only arm clearing a three-arm threshold of 2.26), `lambda` 0 at
++0.0125 +-0.0075, and `lambda` 0.5 at **-0.0077 +-0.0062**. The arm the floor ranked first is
+behind the control by -0.0230 +-0.0110, and the arm the floor ranked second is behind both. The
+ordering is humped, not monotone, and the design's own null side says it would have caught a slope
+of 0.019 to 0.025 four times in five -- so this is a measured disagreement and not an absent
+instrument.
+
+**Nothing about the floor is retracted, and that is the point of stating this as a ruling rather
+than a correction.** A floor is a correct measurement of how reproducible a gradient is across a
+split of the same bouts. It says what it says. What it does not do -- what nobody had tested, in a
+record that had tested a great many smaller things -- is **order minds**. Reproducibility of a
+direction and usefulness of a direction are different quantities, and an estimator can buy the
+first by shrinking the very variance that carries the second.
+
+So: **a bar is not stated on a floor.** A floor may be quoted as what it is, priced in bouts, with
+the split and the opponent it was taken on named beside it. It may be used to decide **how many
+bouts to buy**, which is the question it actually answers. It may not carry a ranking of arms, a
+prediction about a curve, or a licence for a training run, and an entry that wants to say one arm
+will learn better than another says it on a **paired bar against a designed mind** and pays for the
+league -- which is the same shape as the first ruling in this sequence and for the same reason. The
+floor is to a curve what `barD` is to a paired margin: a real quantity, measured correctly,
+answering a question next to the one being asked.
+
+**The transferable half is about how the claim got in.** No entry in this record ever wrote *a
+lower floor means a better mind*. What happened is that the floor was the only number the probe
+produced that had units, so it became the column arms were sorted by, and sorting is an assertion
+nobody has to type. The rule that follows is narrower than the ruling and sharper: **the column a
+table is sorted by is a claim the table is making**, and it needs the same pre-registration as a
+sentence would.
+
 ## The curve page as a window rather than a report
 
 `curve.html` was written to draw a run that had finished. Session 11 of the learn set runs one

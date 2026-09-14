@@ -31736,6 +31736,163 @@ quantity was carried from the cell it was measured on to a cell it was not, beca
 were about the same twelve fields and it did not occur to anybody that the fields were the
 variable and the pairing was not.
 
+## Experiment S, complete -- 2026-09-14: the arm the probe ranked first is the arm that learned least, and the floor does not order minds
+
+Experiment G closed by saying that what a winning arm licenses is one training run, stated as its
+own bar, and it produced a winner by the widest margin in the record: `lambda-0` priced a
+half-to-half cosine at a floor of **95 bouts** against `idle` where the shipped estimator prices
+789, and at **101** against `golem-fencer` where the shipped estimator prices 3,796. G refused to
+say what that meant, on the ground that a biased estimator with a small variance wins on
+reproducibility for free. **This is the fit that settles it, and the fit says the probe's ranking
+is inverted.**
+
+Three leagues, 120 iterations each, differing in the one flag. Everything the registration named
+was scored, in the order the artifacts landed, and each verdict was written before the artifact
+that could have contaminated it existed.
+
+### Prediction 1, the prefix identity -- MET
+
+Read at 21:05, before any of the three ratings had a `rate.jsonl` on disk, so no bar had been seen
+when the determinism claim was made.
+
+| | |
+| --- | --- |
+| header fields compared | 60, of which exactly **1** differs |
+| the one that differs | `iterations`, 60 against 120, which is the flag under test |
+| rows compared | 60 iterations x 5 fields -- `decided`, `margin`, `kl`, `explained`, `strokes.completion` |
+| comparisons | **300 of 300 identical**, under `Object.is` and with no tolerance |
+
+`lam-base`'s first sixty iterations are Experiment H's `latched-fencer` row for row.
+**`--iterations` does not reach the collection**, which is what licenses Experiment X resuming a
+copy rather than re-collecting, and what licenses every cross-run comparison this record now holds
+-- there are several, and none of them had been checked.
+
+### Prediction 5, the curve does not stop at sixty -- MET, and the word is not what carries it
+
+the paired bar against `golem-fencer`, per 60 iterations
+
+| arm | points | span | slope/60 | se | t | family threshold | `d` at the last point |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `lam-base 65..120` | 12 | 65..120 | **+0.0361** | 0.0221 | 1.63 | 1.81 on 10 df | -0.0173 +-0.0707 |
+| `lam-base 5..120` | 24 | 5..120 | **+0.0355** | 0.0081 | 4.38 | 1.72 on 22 df | -0.0173 +-0.0707 |
+
+The registration asked only that the second half's slope be **positive**, naming no threshold, and
+it is. **Quoting "met" alone would overstate the cell.** The window's own `t` is 1.63 against its
+one-arm threshold of 1.81, and the null-side line says those twelve points would only have caught a
+slope of **0.0587** four times in five -- larger than the slope they measured. A verdict resting on
+that alone would be a verdict resting on an interval containing zero.
+
+**What carries it is the agreement between the two spans.** +0.0361 against +0.0355 differ by
+0.0006, a fortieth of either standard error. The curve over the second half is the same curve at
+the same rate, and that is a statement about two estimates agreeing, which twelve points can
+support -- rather than a statement about twelve points clearing a bar, which they cannot.
+
+The registration's worry was that *if the second half is flat, the first half was the mind climbing
+out of its initialisation and not the mind learning the task, and every learning claim this record
+holds is a claim about the first sixty iterations of a league.* **It is not flat. No learning claim
+in this record needs re-reading on that ground**, and this is the first cell ever rated past
+iteration 60.
+
+### Predictions 2 and 3, the headline and the dose-response -- both MISSED, and 2 is reversed
+
+the paired bar against `golem-fencer`, per 60 iterations; three arms as one family, threshold
+**t 2.26** on 22 df
+
+| arm | `--lambda` | slope/60 | se | t | `d` at the last point | the floor G priced it at, against `idle` |
+| --- | --- | --- | --- | --- | --- | --- |
+| `lam-zero` | 0 | +0.0125 | 0.0075 | 1.67 | -0.2143 +-0.0715 | **95** bouts |
+| `lam-half` | 0.5 | **-0.0077** | 0.0062 | -1.24 | -0.2677 +-0.0720 | 240 bouts |
+| `lam-base` | 0.95 | **+0.0355** | 0.0081 | **4.38** | **-0.0173 +-0.0707** | 789 bouts |
+
+pairwise, read as an interval inside a margin -- Experiment L's shape -- against a three-arm
+pairwise bar of **+-2.77 se**
+
+| pair | difference/60 | se | df | t | inside the bar |
+| --- | --- | --- | --- | --- | --- |
+| `lam-zero` vs `lam-half` | +0.0202 | 0.0097 | 42.5 | 2.08 | yes |
+| `lam-zero` vs `lam-base` | **-0.0230** | 0.0110 | 43.7 | **-2.08** | yes |
+| `lam-half` vs `lam-base` | -0.0432 | 0.0102 | 41.1 | **-4.23** | **no** |
+
+**Prediction 2 -- MISSED, and reversed.** It asked that `lam-zero`'s slope exceed `lam-base`'s by
+more than two standard errors of the difference. The measured difference is **-0.0230 +-0.0110, t
+-2.08**: the arm G called eight to thirty-eight times better determined is **behind**, not ahead.
+
+**Prediction 3 -- MISSED.** The registered ordering was `lam-zero` > `lam-half` > `lam-base`; the
+measured ordering is `lam-base` > `lam-zero` > `lam-half`, **humped, with the middle rung at the
+bottom and the two ends swapped**. The registration's own clause applies verbatim: *if the ordering
+is humped or reversed, whatever `lambda` is doing to a fit is not what it does to a probe.*
+
+**Prediction 4** was scored on its own above, on 2026-09-13, together with the correction that the
+statistic which appeared to contradict it was one sample.
+
+### The null side, which is what a missed prediction has to be read against
+
+The smallest slope per 60 each arm would have caught four times in five at the family-wise
+threshold: `lam-zero` **0.0233**, `lam-half` **0.0192**, `lam-base` **0.0252**. The registration
+wrote, before any bout, that the design would resolve about **0.035 per 60** at the two-arm
+threshold. It resolved better than it promised, at a three-arm one, and the prediction still
+missed. **This is not a null for want of an instrument.** The instrument saw a 0.0432 gap between
+`lam-half` and `lam-base` at t -4.23 and reported it as the one pair clearing the bar.
+
+### The falsifier, read literally and then read honestly
+
+It was written as: *if `lam-zero`'s slope is inside two standard errors of `lam-base`'s, then a
+gradient the probe prices as eight to thirty-eight times better determined does not buy a curve at
+this budget -- and the floor is not a proxy for learning.*
+
+Literally, **t -2.08 is a hair outside two standard errors**, so the condition as typed is not met.
+**Reading it that way would be reading it backwards.** The falsifier was drafted against the
+possibility that `lambda` 0 bought *nothing*; the cell shows it bought *less than nothing*, and a
+difference that misses a null condition by exceeding it in the wrong direction refutes the
+hypothesis more strongly than the null it was contrasted with, not less. Against the three-arm
+pairwise bar of +-2.77 the difference does not clear either. So the sentence this record records,
+and it is deliberately weaker than the arithmetic would allow:
+
+> **`lambda` 0 was no better than the shipped estimator, with the point estimate against it, and
+> `lambda` 0.5 was worse than both. The floor is not a proxy for learning.**
+
+### What this does to four pre-registrations and every arm table in the record
+
+The floor is the statistic they are stated on. **Nothing in them is retracted.** A floor is a
+correct measurement of how reproducible a gradient is across a split of the same bouts, which is
+what its convention says it is and all it ever claimed. What is now measured is that the quantity
+**does not order minds**, and no bar in this record may be stated on it as though it did. The
+ruling is in `docs/design.md`: *a bar is not stated on a floor.*
+
+It lands hardest on Experiment W, collected tonight and read after this on purpose. W's own
+pre-registration note, fixed at 21:10 with no cell of W on disk and before any of the above
+existed, says W must be read after S and that if S's falsifier fires, W is "a measurement in a unit
+that has just been shown not to predict learning." **It fired**, and W's entry says so in its own
+voice rather than being told to.
+
+### The one thing that cleared, which is the reason Experiment X exists
+
+`lam-base` is the only arm clearing the family threshold, at **t 4.38**, and it ends at **d -0.0173
++-0.0707** against `golem-fencer` where the other two end at -0.2143 and -0.2677. Against the other
+two contenders at that last point it reads `uniform` +0.0958 (d +0.2080) and `driver` -0.0079 (d
+-0.0185) -- where `lam-zero` reads `driver` -0.0926 and `lam-half` -0.1227. Taken with prediction
+5, the shipped estimator at 120 iterations is the closest this record has come to the designed
+mind,
+**and it got there by being left alone.**
+
+### The cost, which was stated before the result and was wrong
+
+The registration priced this at *about fifty-five minutes an arm*, from a measured 27.7 minutes per
+sixty iterations at seven workers. The three arms took **99.9, 92.8 and 94.7 minutes**, summed over
+their own per-iteration seconds -- about **1.7x** the stated figure. The reason is not the fit: the
+27.7-minute figure was one league alone on the host, and these three ran concurrently at seven
+workers each, beside four ratings and a probe ladder. **A per-arm cost quoted from a solo run is
+not a per-arm cost for a set of arms**, and the next registration that prices a concurrent set says
+at what occupancy.
+
+### A note on where this entry sits
+
+Experiment X's registration, below, opens with *"Experiment S is scored above."* It was committed
+before this entry was written, because the three verdicts were already taken -- prediction 1 at
+21:05, prediction 5 at 22:46, predictions 2 and 3 at 22:49 -- and X's design depends on them. This
+entry is inserted above X rather than appended after it so that X's sentence reads true. Nothing in
+X was edited, and no verdict here was taken after X's registration was fixed.
+
 ## Registered and not collected -- 2026-09-14: Experiment X, the only arm that is working, looked at for twice as long
 
 Experiment S is scored above. Its headline missed and its dose-response missed, and what it leaves
