@@ -34443,3 +34443,116 @@ points at old minds. It is named so it is not reached for afterwards, and it is 
 **If AD is ahead of `lam-base` beyond +2.77 se on either span, no default moves.** `--opponent
 golem-fencer` is not a shipped default, but the queue's next runs would be built on the mix, and
 that waits on a second seed of AD.
+
+## Experiment AB, complete -- 2026-09-14: the climb does not replicate at a second seed, the falsifier fires, and every contrast this record drew at one seed was read on the wrong standard error
+
+Scored at 17:19 on the predictions in `c1deddb`. **All three predictions missed. The falsifier
+fires.** `lam-base`'s manifest at seed 20260918, rated on seed 20260917's instrument, does not
+climb against `golem-fencer` over 5..120.
+
+### The instrument was the one registered
+
+All 25 rows carry `ratingSeed` 20260917 and the latch. At all 25 checkpoints, the behaviour blocks
+of `uniform`, `golem-driver` and `golem-fencer` are **deep-equal to lam-long's**, 75 of 75. The
+designed columns are lam-long's to the byte, as the registration said they would be. The fit
+column is the only one that differs. Whatever differs below is the mind.
+
+### 1. The climb replicates -- MISSED
+
+| run | seed | slope against `golem-fencer`, 5..120, a sixty | se | t | mean bar 100..120 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `lam-base` | 20260917 | +0.0481 | 0.0069 | 7.02 | -0.0006 |
+| `lam-seed2` | 20260918 | **+0.0066** | 0.0104 | **0.63** | **-0.0595** |
+
+### 2. At the same rate -- MISSED
+
+Seed 2 less seed 1: **-0.0415 +-0.0124, t -3.34.**
+
+### 3. To the same place -- MISSED
+
+The mean bar over 100..120, seed 2 less seed 1: **-0.0589 +-0.0131, t -4.48.** Seed 2 finishes
+where `lam-base` started. Its `main` reads -0.0713, where lam-long's 120 read +0.0362.
+
+### What the falsifier's clause does, applied as written
+
+The registration wrote: *if prediction 1 misses, the climb belongs to seed 20260917 and not to
+the manifest.* **That is the verdict.** Every comparison in S, U, X and Z that used `lam-base` as
+the arm that works is restated here as a comparison against one draw. XL's *first learned mind
+ahead of the designed one* is a statement about seed 20260917.
+
+**Not claimed:** that the manifest cannot learn. Two seeds are one climb and one flat line. That
+is consistent with a manifest that climbs half the time. It is also consistent with one that
+almost never climbs, and with one that nearly always does, with seed 2 the unlucky draw.
+
+### The shape, described and not tested
+
+The sub-spans below were chosen after seeing the curve. They are a description of it.
+
+| run | 5..60 | 65..120 | 5..85 | 85..120 |
+| --- | --- | --- | --- | --- |
+| seed 1 | +0.0828, t 4.29 | +0.0725, t 4.88 | +0.0419, t 3.36 | +0.0807, t 2.53 |
+| seed 2 | +0.0194, t 0.71 | **-0.0767, t -4.04** | **+0.0457, t 2.96** | **-0.1240, t -4.38** |
+
+**Seed 2 climbs at seed 1's rate to about iteration 85 and then gives it back.** Its bar reaches
++0.009 at 75 and 85 and falls to -0.071 by 115. Seed 1's bar sat within 0.04 of zero from 100
+to 120. One reading is that the manifest learns and does not hold what it learns. The other is
+that both curves are a random walk whose se the 24-point fit does not see. These two seeds cannot
+tell them apart.
+
+**The training log does not tell them apart either.** On the league's own bodies, the mean margin
+against the fencer climbs at t 2.80 on seed 1 and t 0.30 on seed 2. That margin is 32 bouts an
+iteration, and seed 2 shows no event at 85 in it. KL, clip fraction, completion and bout length
+move by less than their own scatter across the break. One column differs sharply between the
+seeds. Explained variance climbs 0.16 to 0.49 on seed 2, at t 10.55 over 5..120. On seed 1 it
+went 0.35 to 0.39. Seed 2's critic learned more while its actor lost ground. That is recorded,
+not interpreted.
+
+### What this does to the standard errors this record has quoted
+
+Every slope se in this record is a within-trajectory se: the scatter of 24 ratings about a line.
+**It does not contain the variance between trajectories, and AB measures that variance as large.**
+Two seeds give a between-seed sd of slope of |0.0481 - 0.0066| / sqrt 2 = **0.029 a sixty**. That is
+four times lam-base's within-trajectory se. It is one degree of freedom, and its own interval runs
+from a small fraction of that to many times it.
+
+**XU already showed that a different trajectory is one fit step away.** A 5e-6 perturbation forked
+lam-long from XU at iteration 122. Every arm this record compares to `lam-base` differs in a flag,
+so each is a different trajectory from its first fit step, whatever seed it shares. **A pairwise
+contrast between two arms at one seed carries the between-trajectory variance, and every pairwise
+se this record has quoted leaves it out.**
+
+What that does, on AB's one-degree-of-freedom estimate:
+
+- **S's lever**, `lam-zero` against `lam-base` at -0.0566: the se goes from 0.0102 to about
+  **0.042**, and t from -5.57 to about -1.35. `lam-half` against `lam-base`, from -4.83 to about
+  -1.16. **The sentence *`lambda` is a measured lever* is withdrawn.** It was a comparison of
+  one climbing trajectory against two flat ones, and seed 2 is a flat trajectory at `lambda` 0.95.
+- **U's per-iteration pair**, `bat-16` against `lam-base` at t -3.06: a difference of about
+  0.04 a sixty, which reads near t -1 on the between-trajectory se. **Withdrawn on the same
+  arithmetic.**
+- **XU's two tails agreeing** is not evidence about seed spread. They shared 121 iterations of
+  one trajectory. The XU entry's line *the record's first look at how much one manifest varies
+  against itself* is corrected here: it was a look at how much one trajectory varies after a
+  late fork. AB is the first look.
+- **XL's break at 120 and YL's decay** are properties of seed 1's trajectory. XU confirmed the
+  break on two tails of that trajectory, and that confirmation stands as far as it goes.
+- **Within-checkpoint findings stand.** The executor defect's level is a paired difference of two
+  executors on the same weights, and no trajectory variance enters it. Statistics read off one
+  run's training rows stand as descriptions of that run, and are not evidence about its manifest.
+
+### What it does to the experiments collecting now
+
+- **AC** (`lam-98`, `lam-100`, seed 20260917) was designed on a pairwise se of about 0.0098. On
+  AB's estimate that se is about 0.042. **It is scored as registered and read as descriptive.** No
+  outcome inside about +-0.12 a sixty could be distinguished from trajectory noise, and nothing
+  near that size was predicted.
+- **AD** (`self-mix`, seed 20260917) was registered forty minutes before this entry, on the same
+  pairwise se and on a deceleration that is a feature of seed 1's trajectory. **Its motive rests
+  on a seed-1 feature, and its design cannot resolve its own predictions.** The run was not
+  stopped. It is scored as registered when it lands and read as descriptive, and it waits behind
+  the replicate below.
+
+### What is next
+
+The question every lever in this record has been asked against is now: **how often does this
+manifest climb, and by how much, across seeds?** That is registered separately, before a bout.
