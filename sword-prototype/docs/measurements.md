@@ -34086,3 +34086,121 @@ as a comparison against one draw, and XL's *first learned mind ahead of the desi
 become a statement about a seed. If 1 holds and 2 misses, the manifest learns but its rate is not a
 property of the manifest. Every slope ratio this record has quoted between arms at a shared seed
 (L's 16.2x, U's ladder, S's hump) would then be read as possibly a seed effect.
+
+## SL and UL, complete -- 2026-09-14: the handicap does not grow with training, S's hump was the executor's, and U's null holds by a hair
+
+Scored at 14:40 on the predictions in `40b4e14`, with every rating of S's and U's arms re-taken
+under `latchAbort=true`. **Prediction 1 met, prediction 2 missed and its falsifier fires,
+prediction 3 missed, and prediction 4 met.** The miss in 3 is the useful one: on the executor the
+arms trained under, **`lambda` is a measured lever, and the shipped value is the only one of three
+that climbs.**
+
+### 1. The instrument -- MET
+
+All 84 rows carry the latch. Completion is higher than the unlatched row at 84 checkpoints of 84:
+`lam-zero` 0.442 against 0.173, `lam-half` 0.489 against 0.160, `bat-8` 0.183 against 0.094,
+`bat-16` 0.242 against 0.066, and `bat-64` 0.438 against 0.133.
+
+### 2. The handicap grows as a mind trains -- MISSED, and the falsifier fires
+
+| arm | points | latched less unlatched, slope | se | t | the level, latched less unlatched |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `lam-zero` | 24 | -0.0210 a sixty | 0.0094 | **-2.23** | +0.0148 +-0.0059 |
+| `lam-half` | 24 | +0.0070 a sixty | 0.0072 | 0.97 | +0.0151 +-0.0042 |
+| `bat-8` | 12 | -0.0037 a thousand bouts | 0.0062 | -0.59 | +0.0106 +-0.0066 |
+| `bat-16` | 12 | -0.0065 a thousand bouts | 0.0073 | -0.89 | +0.0187 +-0.0080 |
+| `bat-64` | 12 | -0.0046 a thousand bouts | 0.0064 | -0.72 | +0.0198 +-0.0069 |
+
+Positive in **one of five**, and the five pooled on t read **-1.55**. The registration named that
+sign as the falsifier. **XL and ZL agreed by chance.** The sentence in ZL's entry, *a handicap that
+bites harder the more a mind relies on finishing strokes would do exactly that*, is withdrawn,
+along with the mechanism it offered for both failures being exaggerated in one direction.
+
+**What survives is a level, not a trend.** The wrong executor cost all seven arms bar, on point
+estimates, against `golem-fencer`. Six lost between +0.0067 and +0.0198, and `brawl-base` lost
++0.0392. Its effect on slope runs both ways: +0.0126 on `lam-base`, +0.0252 on `brawl-base`, and
+-0.0210 on `lam-zero`. A handicap whose effect on slope has no consistent sign is noise on slope,
+and it can still move a verdict that sits near a threshold. It moved X's.
+
+### 3. S's ordering survives its executor -- MISSED
+
+The paired bar against `golem-fencer` over 5..120, a sixty, latched. `lam-base` is lam-long's
+latched rating over the same pool files.
+
+| arm | `--lambda` | slope | se | t | unlatched, as S scored it | mean bar over 100..120 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `lam-zero` | 0 | -0.0085 | 0.0075 | -1.13 | +0.0125, t 1.67 | -0.0587 |
+| `lam-half` | 0.5 | -0.0006 | 0.0074 | -0.09 | -0.0077, t -1.24 | -0.0657 |
+| `lam-base` | 0.95 | **+0.0481** | 0.0069 | **7.02** | +0.0355, t 4.38 | -0.0006 |
+
+| pair | difference | se | t | against S's pairwise bar of 2.77 |
+| --- | ---: | ---: | ---: | --- |
+| `lam-zero` vs `lam-half` | -0.0078 | 0.0105 | -0.74 | inside |
+| `lam-zero` vs `lam-base` | **-0.0566** | 0.0102 | **-5.57** | **clears** |
+| `lam-half` vs `lam-base` | **-0.0487** | 0.0101 | **-4.83** | **clears** |
+
+The registered order was `lam-base` > `lam-zero` > `lam-half`. The realised order is `lam-base`
+first, with the other two **flat and indistinguishable**, and `lam-half` a hair ahead. The
+prediction missed on the order of the two flat arms, and that order is not a measurement.
+
+**What this does to Experiment S's entry.**
+
+- **The hump is withdrawn.** S's clause *whatever `lambda` is doing to a fit is not what it does to
+  a probe* was drawn from a humped ordering. On the right executor there is no hump. Two values do
+  not climb, one does, and the one that climbs is the highest.
+- **S's headline stands, and it is stronger.** `lambda` 0 is behind the shipped estimator by
+  -0.0566 +-0.0102, t -5.57, where S read t -2.08. *The floor is not a proxy for learning* is now
+  read off a gap of five and a half standard errors.
+- **S's sentence *`lambda` 0.5 was worse than both* is withdrawn.** It is indistinguishable from
+  `lambda` 0.
+- **`lam-zero`'s unlatched climb, t 1.67, was the executor's.** Latched it reads -1.13. It is the
+  one arm in seven where the point estimate changed sign, and neither reading cleared.
+
+**And the sentence U's entry wrote about S's lever is corrected here.** On its own executor,
+**`lambda` moves the bar slope against `golem-fencer` by +0.049 to +0.057 a sixty between 0 or 0.5
+and 0.95, at t 4.83 and 5.57.** That is the largest lever effect this record has measured on the
+criterion. It is also a lever the project already ships, so it licenses nothing new, except the
+question it points at: whether the dose continues above 0.95. That is noted and not queued. All
+three arms share seed 20260917, which is what Experiment AB exists to address.
+
+### 4. U's null survives its executor -- MET, by a hair
+
+The paired bar against `golem-fencer`, per thousand training bouts, latched:
+
+| arm | bouts an iteration | slope | se | t | final `d` |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `bat-8` | 8 | +0.0266 | 0.0077 | 3.44 | -0.118 at 480 |
+| `bat-16` | 16 | +0.0059 | 0.0073 | 0.80 | -0.036 at 240 |
+| `lam-base` | 32 | +0.0211 | 0.0046 | 4.53 | +0.088 at 120 |
+| `bat-64` | 64 | +0.0102 | 0.0033 | 3.10 | -0.079 at 60 |
+
+`bat-8` less `bat-64` is **+0.0163 +-0.0084, t 1.95**. That is inside two standard errors by 0.05,
+and the largest of the six per-bout contrasts is that same pair. **The prediction met and U's
+falsifier still fires, but a reading at t 1.95 is not a demonstration that nothing is there.** The
+null side is now **0.0238** a thousand bouts, where it was 0.0410, because `bat-64`'s latched
+standard error is half its unlatched one. The point estimate has `bat-8` buying 2.6x per bout what
+`bat-64` buys. **The honest sentence is weaker than U's.** A small-batch lever of the size L
+claimed is excluded. One of about twice the per-bout rate is neither excluded nor shown.
+
+**U's own five predictions, re-scored as U worded them:**
+
+| U's prediction | as U scored it | on the arms' own executor |
+| --- | --- | --- |
+| 1. per-bout order `bat-8` > `bat-16` > `lam-base` > `bat-64` | MISSED | **MISSED**: `bat-8` > `lam-base` > `bat-64` > `bat-16` |
+| 2. `bat-8` less 4x and 8x `bat-64`, positive at t > 2 | MISSED, t -1.12 and -1.78 | **MISSED**, t -0.94 and -2.01, the second clearing with the wrong sign |
+| 3. a pair distinguishable per iteration at t > 2 | MISSED, t -1.89 | **MET**, `bat-16` against `lam-base` at t -3.06 |
+| 4. final `d` orders the arms as the slope does | MISSED | **MISSED**: `lam-base` > `bat-16` > `bat-64` > `bat-8` |
+| 5. explained variance up and KL down with batch | MISSED | unchanged; read off training rows, which the executor never touched |
+| the falsifier | FIRES, t 1.43 | **FIRES, t 1.95** |
+
+Prediction 3's met pair runs in the direction more bouts an iteration buys: the arm with twice the
+bouts climbs faster per iteration. That is expected of any estimator and is not evidence for a
+small-batch lever. It is scored as met and read as uninformative.
+
+### What the executor defect did, now that every rating is re-taken
+
+Seven arms have been re-rated. No slope that cleared its threshold changed sign. **Three verdicts
+moved.** X's falsifier stopped firing. Z's collapse became a flat line. S's hump became one
+climbing arm beside two flat ones. **Two held.** U's null held, closer to the line, and Z's
+falsifier held. The defect's cost to the level runs from +0.0067 to +0.0392 of bar. Its cost to
+slope has no consistent sign.
