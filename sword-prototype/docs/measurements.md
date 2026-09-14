@@ -32623,3 +32623,131 @@ entries will say what they say.
 **And no default moved tonight.** Four experiments, nine verdicts, four entries, one ruling into
 `docs/design.md`, and `--bouts`, `--lambda`, `--opponent`, `latchAbort`, `logProbGrad`'s mask, the
 entropy coefficient and the reward table all sit exactly where they sat this morning.
+
+## Pre-registration -- 2026-09-14: Experiment Y, the floor at five points on one trajectory
+
+The agenda re-cut above names one contradiction and one discriminator for it. This is the
+discriminator, written before any of its bouts.
+
+**The contradiction.** The gradient probe reads the actor against `golem-fencer` at a held
+checkpoint as `|S|^2` = -2.553e-3 at **t -0.47** over 20 iterations of 128 bouts, with a floor of
+**3,796 bouts** that is a lower bound because the cell does not clear zero. Experiment I read the
+same cell at 40 iterations under the latch at **t 1.38** with zero of twelve head groups clearing.
+And Experiment S's `lam-base` -- a league against that same opponent at **32 bouts an iteration** --
+climbed on the paired bar at **t 4.38** over 120 iterations. A league iteration carries a
+hundred-and-nineteenth of the sample the probe says one step needs, and the league climbs anyway.
+
+**Why a trajectory is the cheapest thing that could resolve it.** Every floor this record has
+published was measured at a checkpoint somebody froze, and five of the six rungs of Experiment M's
+ladder are the *same* frozen checkpoint. Nobody has measured the floor at two points on one
+trajectory. If it falls as an arm trains, the ladder, the reward grid and the `lambda` sweep are
+all readings at one arbitrary point in weight space, Experiment S's inversion has a mechanism, and
+the contradiction is an artifact of where the probe was standing. If it is flat, the contradiction
+is real and the next experiment belongs at the score function rather than at the estimator.
+
+**And there is a mechanism for the fall, taken from Experiment M rather than invented here.** M
+measured that a harder opponent does not add noise -- `K` spans 1.23x over six rungs -- it destroys
+`|S|^2`, which falls by more than three and changes sign. A policy that has trained for 240
+iterations against `golem-fencer` stands in a different relation to that opponent than a policy
+that has trained for five, and on M's ladder that relation is exactly what moves the floor. So the
+prediction below is M's own finding applied along an axis M did not vary.
+
+### The cells, and they are Experiment M's manifest with one thing changed
+
+`tournaments/lam-long` carries **48 checkpoints** of the one arm in this record that is known to
+be climbing against the criterion's opponent -- the first 24 copied from `tournaments/lam-base`
+when Experiment X resumed it, the second 24 written by that resume, and Experiment S's prediction 1
+established at 300 comparisons of 300 that the prefix is the prefix. Five of them are probed:
+
+| cell | `--from` | the policy's age |
+| --- | --- | ---: |
+| `traj-5` | tournaments/lam-long/pool-5.json | 5 iterations, 77,545 observations of normalisation |
+| `traj-60` | tournaments/lam-long/pool-60.json | 60 |
+| `traj-120` | tournaments/lam-long/pool-120.json | 120 |
+| `traj-180` | tournaments/lam-long/pool-180.json | 180 |
+| `traj-240` | tournaments/lam-long/pool-240.json | 240, 3,644,810 observations |
+
+Everything else is `ladder-run.sh`'s line unchanged -- `--hold --bouts 128 --iterations 20
+--opponent golem-fencer --terminals maul,mace --seed 20260917 --shards 4 --bout-split` -- so a
+`traj-` row and a `ladder-` row differ in the checkpoint and in nothing else, and M's fencer rung
+is readable against this table directly. `--concentration` is **not** asked for: Experiment P's
+question is answered within its band and a third gradient over the same rollout would be collected
+for no registered prediction.
+
+The statistic is the floor by the authoritative convention -- aggregate `dot`, `norm2` and the
+standard error of `dot` across the twenty iterations first, then one `floorConvention` call, and
+quote `floor` and not `F`.
+
+### The predictions
+
+**1. At least one checkpoint clears zero.** `|S|^2` at one or more of the five cells clears the
+five-arm family threshold of **t 2.530** at 19 df. M's held fencer rung did not clear at six arms
+and 2.62; I's forty-iteration latched cell did not clear at 2.77. **This is the load-bearing
+prediction** -- a single cell on this trajectory with a measurable actor gradient against
+`golem-fencer` is the first one in the record, and without it predictions 2 and 3 have no ordering
+to be about.
+
+**2. The floor falls with the policy's age.** Over the cells that clear, the floor at the later
+checkpoint is the smaller, and over all five the rank correlation between iteration and floor is
+negative. Stated as a direction and not as a size, because the design's resolution below says a
+size is not available.
+
+**3. `K` stays flat and the movement is the denominator's.** `K` across the five cells spans less
+than **1.5x**. M measured 1.23x across six opponents while `|S|^2` moved by more than three and
+changed sign; if the same holds along a trajectory, the floor is again all denominator and the
+two axes have one mechanism rather than two.
+
+### The falsifier
+
+**If no cell clears zero and `traj-240`'s floor is inside two standard errors of `traj-5`'s, the
+floor is a property of the opponent and not of where the policy stands.** M's ladder then stands
+exactly as published, every floor in this record is a reading that travels, and the contradiction
+above is real rather than an artifact of one frozen checkpoint. That outcome sends the next
+experiment at the task and the score function, and it is the outcome this registration would bet
+on if it had to, because the probe has now failed to find an actor gradient in this cell three
+times on three instruments.
+
+### The resolution, written down before the cells rather than after them
+
+M's fencer rung read `|S|^2` = -2.553e-3 at t -0.47, so its standard error is **5.43e-3**. If
+these five cells carry a comparable one -- same bouts, same iterations, same opponent, same shard
+count -- then the smallest `|S|^2` this design catches four times in five at t 2.530 is
+`5.43e-3 * (2.530 + 0.8416)` = **1.83e-2**, which is two thirds of the `idle` rung's reading and
+larger than four of M's six rungs.
+
+Put through the floor with `K` at M's fencer value of 32, that is a floor of
+`32 / (1.83e-2 + 1.09e-2)` = about **1,100 bouts**. **So this design can see the fencer floor fall
+from 3,796 to about 1,100 and it cannot see it fall any less far than that.** A 2x fall is
+invisible here. That is said now rather than discovered in the scoring, and it is why prediction 2
+is stated as a direction: the experiment is powered to find a large effect or nothing, and a null
+is a null about large effects only.
+
+### What this cannot separate, named before the data
+
+**Age and normalisation are confounded and this design does not break them.** `traj-5` carries
+77,545 observations of normalisation and `traj-240` carries 3,644,810. This record's own rule is
+that a policy read against a normalisation it was not fitted under is a different policy, so each
+cell is read against its own -- which is correct and which means the five cells differ in their
+observation scaling as well as in their weights. A fall in the floor could be the weights moving
+somewhere better conditioned or the normalisation settling. Separating them wants a sixth cell
+holding one and varying the other and it is not bought here.
+
+**One arm, one seed, one opponent.** Five points on one trajectory is a trajectory and not a
+sample, and `lam-long` is the arm selected for being the one that climbed. If the floor falls
+here, whether it falls on an arm that did not climb is a different experiment -- and `lam-zero`
+and `lam-half` are on disk with 24 checkpoints each, which makes that experiment cheap and does
+not make it this one.
+
+**And the probe is not the fit.** The probe collects at a held policy with no update applied;
+`ppoFit` takes clipped, normalised, multi-epoch steps. Experiment L already fired a falsifier at
+the assumption that the probe's arithmetic transfers to a fit. **Y does not assume it transfers.**
+It asks a narrower question -- whether the probe's own reading depends on where it is taken -- and
+that question is answerable on the probe's own terms.
+
+### What no outcome of this licenses
+
+No default moves and no weights are regenerated. **A confirmed prediction 2 does not rehabilitate
+the floor as a way of ranking minds**; Experiment S measured that against a fit and `docs/design.md`
+carries the ruling. What it would license is a re-reading of the published floor tables as
+readings at one point, and one follow-on experiment stating in advance which point it is taken at.
+A fired falsifier licenses nothing at all except the order of the queue above it.
