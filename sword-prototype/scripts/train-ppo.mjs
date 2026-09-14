@@ -2164,12 +2164,16 @@ export const poolWord = (which) => (which === "mirror" ? "the mirror" : "random 
  * seed. **A caller asking for both hands over the class-filtered pool** -- `poolFor` with `mirror`
  * off -- because filtering to the mirror first and asking for random pairs afterwards would draw
  * random pairs out of thirteen maul-and-mace builds and call it the pool the game plays.
+ *
+ * `cache` is `evaluate`'s, handed straight through: a caller rating many checkpoints against one
+ * pool passes one `Map` to every call and the three designed contenders play once an arrangement
+ * rather than once a checkpoint. A rating given none plays every bout, as it always has.
  */
 export async function ratePolicy({
   weights, logSigma, norm, league = PPO_LEAGUE, pool, seed, bouts, workers, cap,
   mirror = true, onProgress = null, terminals = VIABLE_TERMINALS,
   features = PILOT_FEATURES_DEFAULT, spec = GAUSSIAN_HEAD, tactics = null, pools = null,
-  reward = GOLEM_REWARD,
+  reward = GOLEM_REWARD, cache = null,
 }) {
   const wanted = pools === null ? [mirror ? "mirror" : "random"] : [...pools];
   for (const name of wanted) {
@@ -2205,7 +2209,7 @@ export async function ratePolicy({
     const builds = keepViable(pool, terminals, mirrored);
     const { rows, results } = await evaluate({
       contenders, league, pool: builds, seed: ratingSeed(seed, which), bouts, workers, cap,
-      mirror: mirrored, viable: !mirrored, onProgress,
+      mirror: mirrored, viable: !mirrored, onProgress, cache,
     });
     const { per, points, bar } = columnsOf(rows, names);
     // Experiment T: what the objective every fit climbs pays each of the four, on the very bouts

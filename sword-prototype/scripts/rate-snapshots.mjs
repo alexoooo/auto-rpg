@@ -236,6 +236,10 @@ export async function rateSnapshots({
   const per = boutsPerOpponent(bouts);
   const chosen = chosenSnapshots(snapshotIterations(dir), only);
   const rows = [];
+  // One cache for the whole sweep. The designed contenders' bouts depend on the seed and the pool
+  // and not on the checkpoint, so they are played at the first checkpoint and replayed from here
+  // at every later one, which takes a rating from four blocks a checkpoint to one.
+  const cache = new Map();
   for (const iteration of [...chosen, "main"]) {
     const role = iteration === "main"
       ? state.main
@@ -247,6 +251,7 @@ export async function rateSnapshots({
       weights: role.weights, logSigma: role.logSigma, norm: role.norm,
       pool, seed: (state.seed ^ 0xc0f1c0f1) >>> 0, bouts: per, workers, cap, terminals,
       pools: wanted, tactics: executor.tactics, features: executor.features, spec: executor.spec,
+      cache,
     });
     for (const which of wanted) {
       const on = rated.byPool[which];

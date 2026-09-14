@@ -193,21 +193,59 @@ export async function census(pool, { workers, seed }) {
  * pool that matters is random *viable* pairs. Off by default, because every caller written before
  * Session 09 of the learn set was rating on a mirror and would be measuring a different pool if
  * this quietly turned on.
+ *
+ * ## `cache`, and why a designed mind's bouts can be kept
+ *
+ * **Each contender's block is scheduled from the seed alone**, which is the property the paragraph
+ * above leans on for common random numbers, and it has a second consequence nobody had cashed: a
+ * contender whose mind does not change between two calls plays the same bouts in both. A checkpoint
+ * sweep calls this once a checkpoint with `uniform`, `golem-driver` and `golem-fencer` beside the
+ * fit, so three blocks in four were replayed identically forty-eight times a curve. Experiment X
+ * saw it from the other end -- on a sweep the three designed columns differ by constants with a
+ * standard deviation of exactly zero -- and that is the evidence the replay was a replay.
+ *
+ * So a caller may hand over a `Map`, and a block is kept in it under `designedBlockKey`, which is
+ * everything the block's jobs are made of. A hit costs no bouts; the rows come back re-indexed into
+ * the position they would have had, so `summarize` -- whose Elo walks rows in index order -- reads
+ * the same table it would have read after playing them. **Only a contender without weights is
+ * kept**: a mind carrying `pi` is the thing a sweep varies, so keeping it would buy nothing and
+ * hold every checkpoint's bouts in memory for the life of the run. And nothing is kept for a call
+ * that records, because a block of recorded samples is a rollout and not a rating.
  */
 export async function evaluate({
   contenders, league, pool, seed, bouts, workers, cap, onProgress = null,
-  mirror = true, record = null, explore = 0, behaviour = false, viable = false,
+  mirror = true, record = null, explore = 0, behaviour = false, viable = false, cache = null,
 }) {
   const names = Object.keys(contenders);
   const jobs = [];
+  const blocks = [];
   for (const name of names) {
+    const key = cache === null ? null : designedBlockKey({
+      name, contender: contenders[name], league, pool, seed, bouts, cap, mirror, viable, record,
+      explore, behaviour,
+    });
+    const kept = key === null ? undefined : cache.get(key);
+    if (kept !== undefined) {
+      blocks.push({ key, kept });
+      continue;
+    }
     const scheduled = scheduleJobs({
       pool, policies: [name, ...league], pairings: Math.ceil(bouts / 2) * league.length, seed, cap,
       mirror, viable, contenders, pairs: league.map((policy) => [name, policy]),
     });
+    const from = jobs.length;
     for (const job of scheduled) jobs.push({ ...job, index: jobs.length });
+    blocks.push({ key, from, to: jobs.length });
   }
-  const rows = await runJobs(jobs, { workers, contenders, record, explore, behaviour, onProgress });
+  const played = await runJobs(jobs, { workers, contenders, record, explore, behaviour, onProgress });
+  const rows = cache === null ? played : [];
+  if (cache !== null) {
+    for (const block of blocks) {
+      const own = block.kept ?? played.slice(block.from, block.to);
+      if (block.key !== null && block.kept === undefined) cache.set(block.key, own);
+      for (const row of own) rows.push({ ...row, index: rows.length });
+    }
+  }
   const summary = summarize(rows);
   const margins = {};
   for (const row of rows) {
@@ -227,6 +265,27 @@ export async function evaluate({
     };
   }
   return { rows, results, summary };
+}
+
+/**
+ * The key a contender's block of bouts is kept under in `evaluate`'s cache, or null if it is not
+ * kept.
+ *
+ * It is every input `scheduleJobs` and a worker read for that block and nothing else: the name the
+ * rows carry, the contender's own table, the league, each build's name and setup, the seed, the
+ * budget, the cap and the two pairing flags, and the two worker switches that change what a row
+ * holds. The worker count is not in it, because which worker plays a bout does not move the bout.
+ * A contender with weights and a call that records return null, for the reasons `evaluate` gives.
+ */
+export function designedBlockKey({
+  name, contender, league, pool, seed, bouts, cap, mirror, viable, record = null, explore = 0,
+  behaviour = false,
+}) {
+  if (record !== null || contender === undefined || contender === null || "pi" in contender) return null;
+  return JSON.stringify({
+    name, contender, league, pool: pool.map((build) => ({ name: build.name, setup: build.setup })),
+    seed, bouts, cap, mirror, viable, explore, behaviour,
+  });
 }
 
 /** A generation: the parent and λ children scored together; the best child replaces the parent when it beats it by the margin. */
