@@ -34556,3 +34556,65 @@ What that does, on AB's one-degree-of-freedom estimate:
 
 The question every lever in this record has been asked against is now: **how often does this
 manifest climb, and by how much, across seeds?** That is registered separately, before a bout.
+
+## Pre-registration -- 2026-09-14: Experiment AE, `lam-base` at four more seeds, because the only standard error that prices a lever is the one between trajectories
+
+AB found `lam-base`'s climb against `golem-fencer` at t 7.02 on seed 20260917 and flat, t 0.63, on
+seed 20260918. It found the between-seed sd of the 5..120 slope at about 0.029 a sixty, on one
+degree of freedom. Every lever question this record wants to ask next is a contrast between
+trajectories, and it is priced by that number. The number rests on two draws. This experiment
+buys four more.
+
+**Manifest.** `lam-base`'s flags exactly, at `--iterations 120`, with `--seed` 20260919, 20260920,
+20260921 and 20260922, into tournaments/lam-seed3 through tournaments/lam-seed6. The one
+departure is `--workers 6` rather than 7, so all four fit on the host beside what is already
+running. `evaluate`'s own documentation in `scripts/tune.mjs` says which worker plays a bout does
+not move the bout. `--shards 4` is kept, because the shard count does reach the fit. Each arm is
+rated like AB: `--rating-seed 20260917`, 25 points, 200 bouts, cap 60, maul and mace, random
+viable pairs, the latch read off the header.
+
+**Cost.** Four leagues at about 50 s an iteration under this load is about 1.7 hours each, run
+side by side. Then 100 rating points, about 1.5 hours at the rating chain's width. AD continues
+beside them and is not re-prioritised.
+
+### Predictions
+
+The unit of analysis is **the seed**. Each seed contributes one number: its latched 5..120 slope
+against `golem-fencer`, a sixty. There are six: `lam-base`, `lam-seed2`, and the four here.
+
+**1. The manifest climbs on average.** The mean of the six slopes is positive, with **t > 2.57**
+on the between-seed standard error, sd / sqrt 6 at 5 degrees of freedom.
+
+**2. It climbs more often than not.** At least **two of the four** new seeds clear t 2.07 on their
+own within-trajectory fit.
+
+**3. Seed 20260917 is not an outlier.** `lam-base`'s +0.0481 lies within two sd of the mean of the
+other five, with the sd taken from those five.
+
+**4. Seed 2's collapse is not the rule.** At most **one of the four** new seeds reads a 65..120
+slope below zero at t < -2. AB chose that span after seeing seed 2's curve. Registering it here,
+before these four exist, is what makes it a prediction.
+
+**Stated in advance so that nothing below is read as a finding.** If the true mean were the two
+seeds' mean, +0.027, and the sd were AB's 0.029, the expected t on six seeds would be about 2.3.
+**Prediction 1 is close to a coin flip under the best current estimate.** A miss on 1 is
+therefore not evidence that the manifest does not learn. It is evidence that six seeds cannot
+show it does.
+
+### What each outcome licenses
+
+**The deliverable whatever happens is the between-seed sd on five degrees of freedom.** The next
+lever experiment is sized from it: the seeds per arm needed to see a 0.035 difference four times
+in five.
+
+**If 1 misses, *this manifest learns against the fencer* is not established in this record.**
+The working arm becomes an arm that sometimes climbs. The next question is stability, what ends
+a climb, rather than levers. No lever experiment is registered on one seed an arm again.
+
+**If 1 passes and 3 misses, seed 20260917 was the lucky draw.** Every number in this record read
+off `lam-long` is the top of a distribution. That includes the break at 120, the plateau and the
+bar at 240. The shipped-candidate question for the owner is withdrawn until a mind from a typical
+seed is looked at.
+
+**If 1 and 3 pass, the manifest learns, and seed 1 is typical of it.** The lever questions come
+back, priced at several seeds an arm from this experiment's sd.
