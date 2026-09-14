@@ -74,8 +74,8 @@ import {
 import { armedTerminal, buildPool } from "../scripts/tournament.mjs";
 import { formatIdleProbe, idleProbe, normalisationOf, rollupByTerminal } from "../scripts/idle-probe.mjs";
 import {
-  boutsPerOpponent, chosenSnapshots, curveTargets, formatRow, parseTerminals, ratingExecutorOf,
-  snapshotIterations,
+  boutsPerOpponent, chosenSnapshots, curveTargets, formatRow, instrumentSeed, parseTerminals,
+  ratingExecutorOf, snapshotIterations,
 } from "../scripts/rate-snapshots.mjs";
 import { keepViable, mixedSchedule, policyShapeOf, poolFor } from "../scripts/train-ppo.mjs";
 import {
@@ -558,6 +558,23 @@ test("a rating names every file it will write before it collects a bout, and the
 // 2026-09-14: every snapshot rating of a latched league had driven its checkpoints through the
 // shipped executor, because `rateSnapshots` never read the header that says which one the league
 // trained under. The test is on the function that reads it, because the bouts are what cost.
+/**
+ * A replicate league at a second seed is rated on the first seed's instrument or it is not
+ * comparable, and the override must be a no-op for the league's own seed or every rating in the
+ * record moves.
+ */
+test("a rating borrows another league seed's instrument by name, and its own seed changes nothing", () => {
+  assert.equal(instrumentSeed(20260917), (20260917 ^ 0xc0f1c0f1) >>> 0,
+    "absent, the instrument is the one every rating before this flag was taken on");
+  assert.equal(instrumentSeed(20260917, 20260917), instrumentSeed(20260917));
+  assert.equal(instrumentSeed(20260918, 20260917), instrumentSeed(20260917),
+    "a replicate borrowing the first seed reads the first seed's pool and bouts");
+  assert.notEqual(instrumentSeed(20260918), instrumentSeed(20260917));
+  assert.throws(() => instrumentSeed(20260918, Number.NaN), /is not a league seed/);
+  assert.throws(() => instrumentSeed(20260918, -1), /is not a league seed/);
+  assert.throws(() => instrumentSeed(20260918, 1.5), /is not a league seed/);
+});
+
 test("a rating drives a checkpoint through the executor its league trained under, and refuses to guess", () => {
   const latched = ratingExecutorOf([{ type: "header", features: 1, head: "gaussian", sigma: "constant",
     critic: "self", sigmaFloor: -3, sigmaRoof: 0.5, tactics: { latchAbort: true } }, { iteration: 1 }]);

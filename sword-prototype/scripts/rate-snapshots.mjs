@@ -220,19 +220,41 @@ export function ratingExecutorOf(rows, dir = "this league") {
   return { tactics, features: shape.features, spec: shape.spec };
 }
 
+/**
+ * The seed a rating's pool and bouts are drawn from, given the league's own and an override.
+ *
+ * **A rating is derived from its league's seed, which made two seeds of one manifest two
+ * instruments.** `seed ^ 0xc0f1c0f1` picks the forty builds the evaluation pool is filtered from
+ * and the streams every bout is played on, so a replicate league at a second seed would be rated
+ * on different bodies. By this record's own rule, *two ratings on two pools are two instruments
+ * however alike they look*, so its slope could not be set beside the first seed's. Every learning
+ * claim in `docs/measurements.md` through 2026-09-14 rests on seed 20260917, and a replicate is
+ * the one thing the record lacks. `--rating-seed` names the league seed whose instrument to
+ * borrow, and the derivation from it is unchanged, so passing a league's own seed is a no-op.
+ */
+export function instrumentSeed(leagueSeed, ratingSeed = null) {
+  if (ratingSeed !== null && (!Number.isInteger(ratingSeed) || ratingSeed < 0)) {
+    throw new Error(`--rating-seed ${ratingSeed} is not a league seed`);
+  }
+  return ((ratingSeed === null ? leagueSeed : ratingSeed) ^ 0xc0f1c0f1) >>> 0;
+}
+
 export async function rateSnapshots({
   dir, bouts = 200, workers = 28, cap = 60, random = 40, only = null, terminals = VIABLE_TERMINALS,
-  pools = null, mirror = true, onRow = null,
+  pools = null, mirror = true, onRow = null, ratingSeed = null,
 }) {
   const wanted = pools === null ? [mirror ? "mirror" : "random"] : [...pools];
   const state = loadLeague(dir);
+  // The seed the instrument is derived from: the league's own unless the caller names another.
+  // See `instrumentSeed` for why a replicate league has to be able to borrow one.
+  const evalSeed = instrumentSeed(state.seed, ratingSeed);
   const executor = ratingExecutorOf(readLog(dir), dir);
   // The pool is handed over class-filtered and `ratePolicy` narrows it again at each arrangement's
   // own `mirror`: `viableMirror` for a mirrored rating, and nothing further for random pairs,
   // which reject at the draw through `viablePair` because a pair predicate cannot be a filter on a
   // list of single builds. Narrowing here instead would make the random rows a rating of thirteen
   // mirrorable bodies drawn two at a time, which is a pool nobody asked for.
-  const pool = poolFor({ seed: (state.seed ^ 0xc0f1c0f1) >>> 0, random, terminals, mirror: false });
+  const pool = poolFor({ seed: evalSeed, random, terminals, mirror: false });
   const per = boutsPerOpponent(bouts);
   const chosen = chosenSnapshots(snapshotIterations(dir), only);
   const rows = [];
@@ -249,7 +271,7 @@ export async function rateSnapshots({
     // for a gap between its own two rows.
     const rated = await ratePolicy({
       weights: role.weights, logSigma: role.logSigma, norm: role.norm,
-      pool, seed: (state.seed ^ 0xc0f1c0f1) >>> 0, bouts: per, workers, cap, terminals,
+      pool, seed: evalSeed, bouts: per, workers, cap, terminals,
       pools: wanted, tactics: executor.tactics, features: executor.features, spec: executor.spec,
       cache,
     });
@@ -279,6 +301,9 @@ export async function rateSnapshots({
         // written by a build that drove every checkpoint through the shipped executor, which is
         // the silence `ratingExecutorOf` above exists to end.
         tactics: executor.tactics,
+        // Written only when the instrument was borrowed, so every row rated on a league's own seed
+        // keeps the bytes it has always had and a borrowed one says whose instrument it is.
+        ...(ratingSeed === null ? {} : { ratingSeed: ratingSeed >>> 0 }),
         // `ret` beside `bar` on every baseline, since Experiment T. It is the paired difference
         // in what `GOLEM_REWARD` -- the objective every fit in this record climbed -- paid the two
         // contenders over these same bouts, and it is here because Q measured the objective and
@@ -370,6 +395,9 @@ if (isMain) {
   const state = loadLeague(dir);
   const { tactics } = ratingExecutorOf(readLog(dir), dir);
   const random = Number(flag("random", 40));
+  const ratingSeedText = flag("rating-seed", null);
+  const ratingSeed = ratingSeedText === null ? null : Number(ratingSeedText);
+  instrumentSeed(state.seed, ratingSeed);
   const on = poolSentence(terminals);
   // One file a pool. `readCurve` refuses two pools in one curve and it is right to, so a caller
   // who asked for both gets curve.jsonl split into curve.mirror.jsonl and
@@ -386,6 +414,9 @@ if (isMain) {
     + `${on}, on ${pools.map(poolWord).join(" and ")}`);
   console.log("  driven through the executor the league trained under: "
     + `${tactics === null ? "the shipped one" : JSON.stringify(tactics)}`);
+  if (ratingSeed !== null) {
+    console.log(`  on the instrument of league seed ${ratingSeed >>> 0}, not this league's ${state.seed}`);
+  }
   for (const { which, path } of paths) console.log(`  will write ${path} on ${poolWord(which)}`);
 
   // **A rating's rows are appended to a `.partial` as they land and the file is renamed on the way
@@ -406,7 +437,7 @@ if (isMain) {
   for (const handle of partial.values()) writeFileSync(handle, "");
   const { rows } = await rateSnapshots({
     dir, bouts, workers: Number(flag("workers", 28)), cap: Number(flag("cap", 60)),
-    random, only, terminals, pools,
+    random, only, terminals, pools, ratingSeed,
     onRow: (row) => {
       console.log(formatRow(row));
       const which = (row.pool?.mirror ?? row.mirror) ? "mirror" : "random";
