@@ -33146,3 +33146,213 @@ loose bound, and a moving policy is not a held one.
 `--masked` ships off whatever happens. No weights from either arm are shipped, no default moves,
 and a confirmed prediction 2 licenses exactly one thing: a second masked pair at a different
 `lambda` or a different opponent, pre-registered on its own.
+
+## Experiment X, complete -- 2026-09-14: the falsifier fires, the curve is a hundred-and-twenty-iteration transient, and the mind ends above the designed one on a plateau it reached and stopped on
+
+**The falsifier fires.** The paired bar against `golem-fencer` over checkpoints 125..240 is
+**+0.0056 +-0.0070, t 0.80** -- inside two standard errors of zero, which is the outcome the
+registration named in advance as the one that would say *the record's learning claims are claims
+about a transient*. They are. Every rate in this record was measured inside the first hundred and
+twenty iterations of a run, and this is the first time anything has looked past that.
+
+The registration's second prediction, the risky one, **met on its sign**: the mean paired `d` over
+the last five checkpoints is **+0.0295**, the first positive end-of-run margin against a designed
+mind in this record. Both of those are the same fact read twice. The mind climbed, arrived
+slightly above `golem-fencer`, and stopped.
+
+### The verdict in one table
+
+The paired bar margin against `golem-fencer`, random viable pairs, 200 bouts a contender, per
+sixty iterations.
+
+| span | points | iterations | slope/60 | se | t |
+| --- | ---: | --- | ---: | ---: | ---: |
+| the prefix | 24 | 5..120 | +0.0355 | 0.0081 | **4.38** |
+| the suffix | 24 | 125..240 | +0.0056 | 0.0070 | **0.80** |
+| the whole span | 48 | 5..240 | +0.0247 | 0.0029 | **8.60** |
+
+The join at iteration 120 is identical in all 11 top-level fields of both ratings, so the two
+spans are two halves of one curve and not two measurements of two things.
+
+### The deviation, disclosed before anything is read off the number
+
+The registration said the rating is *"every checkpoint the arm wrote"*. **Only 125..240 were
+collected.** The prefix in the table above is Experiment S's rating of tournaments/lam-base, read
+off disk.
+
+What licenses the splice is that iteration 120 was rated **twice** -- once by S and once by this
+experiment, which rated it as the first point of its own span -- and the two rows are identical in
+all 11 fields **to the byte**. That is not luck: `ratingSeed` in `scripts/train-ppo.mjs` derives
+the pool seed from the run's seed and the pool name and **not from the iteration**, so every
+checkpoint of a sweep is rated on the same draws, and a checkpoint rated twice is rated twice on
+the same bouts. The identity was measured before the prefix was joined, not afterwards.
+
+It saved about 24 points at the 5.8 minutes a point this rating realised, which is **2.3 hours**
+of a fourteen-thread lane, and that lane went to Experiment Z. It is still a deviation from a
+registration and it is named here rather than folded into a methods sentence.
+
+### Prediction 1 -- the curve continues at the same rate: MISSED
+
+| | |
+| --- | ---: |
+| the suffix less the prefix | **-0.0299** |
+| its standard error | 0.0107 |
+| the interval at the two-arm bar 2.007 | +-0.0215 |
+| t | **-2.79** |
+
+The registration priced this in advance and said so in advance: *"the design therefore resolves a
+change in slope of about 0.032 per sixty at two sigma -- which is nine tenths of the slope itself,
+so prediction 1 is a claim the design can only just make."* The null side of the verdict measures
+the same coarseness from the realised numbers: **this design would have caught a change in slope
+of 0.0305 per sixty four times in five, which is 0.86x the prefix's own slope.** An agreement
+resolved coarser than the thing agreed on is not much of an agreement.
+
+**What makes the miss informative is that it is bigger than the coarseness.** A design that can
+only just resolve a change of the same size as the slope found a change of the same size as the
+slope, with the sign that says the slope went away. Had the disagreement been 0.01 this entry
+would have had nothing to report but its own resolution.
+
+### The falsifier, and the shape underneath it
+
+The suffix is inside two standard errors of zero, so the falsifier fires as written. The four
+twelve-point quarters say what shape fired it.
+
+| window | points | mean bar | +- | mean d | slope/60 | se | t |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 5..60 | 12 | -0.0584 | 0.0089 | -0.133 | +0.0746 | 0.0223 | 3.35 |
+| 65..120 | 12 | -0.0294 | 0.0068 | -0.069 | +0.0361 | 0.0221 | 1.63 |
+| 125..180 | 12 | +0.0057 | 0.0068 | +0.013 | +0.0132 | 0.0243 | 0.54 |
+| 185..240 | 12 | +0.0106 | 0.0046 | +0.023 | +0.0029 | 0.0167 | 0.17 |
+
+The rate falls monotonically quarter by quarter -- 0.0746, 0.0361, 0.0132, 0.0029 -- and the level
+rises monotonically and then stops rising. No single quarter resolves its own slope; the four of
+them together are not four measurements but one shape, and the shape is a transient followed by a
+plateau. **Prediction 5 of Experiment S measured the second quarter at +0.0361 against the whole
+run's +0.0355 and read it as the same rate over a span nobody had looked at.** It was the same
+rate. It was also the last quarter at which that was true, and the agreement was between a whole
+span and its own second half, which is an agreement a decaying curve will produce too.
+
+### Prediction 2 -- the mind passes the designed one: MET on its sign
+
+The mean paired `d` against `golem-fencer` over checkpoints 220..240 is **+0.0295** over five
+points -- +0.056, -0.007, +0.061, -0.031, +0.067. Its standard error from the points' own paired
+intervals is 0.0316 and from the scatter of the five is 0.0201, so **it does not clear zero on its
+own interval**, and the registration said in advance that it would not: *"this design cannot
+separate the predicted outcome from zero... prediction 2 is scored on its sign and on nothing
+else, and a positive mean that does not clear its own interval will be reported as a positive mean
+that does not clear its own interval."* It is so reported.
+
+The level over the whole suffix is the stronger statement and it was not predicted: the mean
+paired bar over 125..240 is **+0.0081 +-0.0040**, two standard errors above zero over 24 points.
+**Sixteen of the suffix's twenty-four checkpoints carry a positive bar against one of the
+prefix's twenty-four**, the first at iteration 95. So the honest sentence is not *it beat the
+designed mind* and not *it did not*: it is **the plateau it stopped on is slightly above zero**,
+by about a hundredth of a bar. For scale, the same checkpoints carry a margin of **+0.1107** over
+`uniform`, so the plateau sits seven hundredths of the way from a designed mind to a coin flip.
+
+### Prediction 3 -- the estimator's ordering does not reappear: HELD
+
+Nothing about `lambda` was re-measured, no arm was added, and this entry states no number about
+any estimator. The prediction existed so that the entry could not quietly become a second `lambda`
+experiment if the curve did something interesting. The curve did something interesting.
+
+### The number a naive reader would have quoted
+
+**+0.0247 +-0.0029 per sixty, t 8.60**, over the whole 48 points. That is the largest t any
+learning claim in this record has carried, it is more than the prefix's own t, and it is a
+straight line through a curve that is not straight. It is not wrong -- the mind really is better
+at iteration 240 than at iteration 5 -- but read as a *rate* it is the average of a rate that was
+real and a rate that is zero, and it gets larger, not smaller, the further past the plateau the
+run is taken. **A t that grows while the thing it measures stops happening is the signature of a
+fit through the wrong functional form**, and this record now has an instance of it written down
+beside the number that produced it.
+
+### Found on the way: the three contender columns are one column and two constants
+
+Every rating row carries a paired bar against `uniform`, against `golem-driver` and against
+`golem-fencer`. Over all 48 checkpoints the difference `fencer` less `driver` is **0.001127 with a
+standard deviation of exactly zero**, and `uniform` less `fencer` is 0.102594 with a standard
+deviation of exactly zero.
+
+The mechanism is the one that licensed the splice above. `ratePolicy` differences bout by bout
+against a contender that plays the same pool on a seed that does not depend on the iteration, so
+the contender's own column is the *same numbers* at every checkpoint and drops out of every
+difference of differences. **On a checkpoint sweep of one league at a fixed pool and seed, the
+choice of designed contender sets the level of a comparison and cannot touch its rate, its
+standard error, or its t.**
+
+That is worth having because it was not obvious and because it is load-bearing twice over. It
+means the falsifier above **is not a fact about `golem-fencer`**: the suffix is flat against the
+driver and against uniform at the same t to two decimals, so nothing here turns on the opponent
+the criterion happens to name. And it means that every rate this record has stated against a named
+designed mind was, on this rating path, a rate against the pool -- the name was decoration on the
+slope and load-bearing only on the level. `docs/design.md`'s *a bar is not stated on a floor*
+gains a neighbour: **a rate is not stated against a contender.**
+
+### What this redirects
+
+The registration said the flat outcome *"would send the next experiment at the task and the score
+function rather than at the fit."* It does, and it does so with more force than that sentence
+anticipated, because the plateau is not at a ceiling of the task -- the mind stops a hundredth of
+a bar above a designed mind on a pool where the body is worth 2.98x the mind. Nothing about the
+sword says a policy cannot be better than `golem-fencer` by more than that. Something about
+**this** cell -- its opponent, its score, its observation, or its head -- says this policy stops.
+
+Experiment Z, collecting as this is written, is the one item in the queue that this verdict
+strengthens rather than redirects: its whole span is 5..120, which X has now confirmed is the
+region that carries a real climb, and it changes the *opponent*, which is one of the four things
+the plateau could be about. Experiment Y's five trajectory cells are all read at single
+checkpoints and are unaffected.
+
+### What no outcome of this licenses
+
+No default moves, `lambda` stays 0.95, `latchAbort` stays off in `DRIVEN`, the shipped weights are
+not regenerated, and **no mind is shipped from this run** -- a plateau a hundredth of a bar above a
+designed mind at 240 iterations is not a reason to replace a table that a screen loads.
+
+And it does not license *learning does not work here*. The prefix is real at t 4.38, the mind
+moved from -0.133 to +0.023 in mean `d`, and prediction 2 met on its sign. What it licenses is the
+narrower and more useful claim: **this cell saturates by iteration 120, and iterations past that
+buy a number that grows only because it is fitted to a line.**
+
+## Withdrawn -- 2026-09-14: Experiment AA, on the sentence its own registration wrote four hours earlier
+
+**Experiment AA is withdrawn and was never launched.** Its registration, two entries above, made
+itself contingent on the verdict above in a paragraph written before the verdict existed:
+
+> **If Experiment X's falsifier fires, this design is wrong and AA is withdrawn rather than
+> re-registered.** X asks whether the paired bar still climbs over 125..240. A flat suffix makes a
+> slope over 5..240 a slope through a transient and a plateau, which is a number about the shape
+> of the curve and not about the rate of anything -- and the only design left would be the
+> 120-iteration pair in the first row of the table above, which resolves 2.8x the effect. There is
+> no third design at a cost this project can pay, so the honest outcome in that branch is that the
+> mask is **unmeasurable in the unit that matters** and the estimator-variance queue closes with
+> it.
+
+The falsifier fired. The entry above establishes exactly the thing that paragraph feared: a slope
+over 5..240 is a slope through a transient and a plateau, and it is larger than the slope through
+the transient alone. AA's headline was a difference of two such slopes, which would have been a
+difference of two shape statistics dressed as a difference of two rates -- and the alternative
+design, two arms to 120, resolves 0.0333 against a predicted 0.0118.
+
+**So the estimator-variance queue closes.** Experiment G was withdrawn, N, O and P are closed,
+Q measured that the objective and the criterion come apart, S measured that a floor does not order
+minds, W measured that a quarter of the step's variance sits in terms the body never read -- and
+AA was the last item that proposed to turn any of that into a curve. Nothing in that queue was
+wrong. What the queue never produced was a single instance of a variance statistic predicting a
+paired bar, and it is closed on that record rather than on a failure.
+
+**What survives it, and it is not nothing.**
+
+`--masked` ships, off, on both `scripts/train-ppo.mjs` and `scripts/league.mjs`, exactly as AA's
+registration said it would *"whatever happens"*. The `credited` column ships on every iteration row
+of both, and the refusal that lands with it -- a fit asked for a mask over a rollout carrying no
+`touched` column is refused by name rather than silently training the unmasked estimator under a
+masked header -- is a correctness fix that outlives the experiment that motivated it. A later cell
+that wants the mask can turn it on and will be told, on every row, what it credited.
+
+And the arithmetic survives as a habit. AA ran its power table **before** its design and let the
+table pick the span; the only reason this withdrawal costs nothing is that the run it would have
+withdrawn was never started. Experiment Z's registration killed its own low arm the same way four
+hours earlier. Two registrations in one night have now been changed or ended by their own
+arithmetic before spending a thread.
