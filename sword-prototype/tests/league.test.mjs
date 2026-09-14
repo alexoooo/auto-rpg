@@ -85,6 +85,7 @@ import {
 } from "../scripts/probe-snapshots.mjs";
 import { POLICY_LAYOUT, POLICY_VERSION, freshPolicyTable } from "../src/golem/policy.ts";
 import { netSize } from "../src/golem/neural-net.ts";
+import { COMMAND_FIELDS } from "../src/golem/tactics-v4.ts";
 
 const SEED = 20260914;
 const scratch = () => mkdtempSync(join(tmpdir(), "league-"));
@@ -1209,6 +1210,48 @@ test("every_shape_flag_a_league_now_takes_is_recorded_in_its_header", { timeout:
   // And the default this session moved, which is in the same header and is the one number here
   // that changes what a run does.
   assert.deepEqual(header.entropySchedule, [{ from: 0, value: 0.0003 }]);
+});
+
+/**
+ * `--masked`, the trainer-side form of Experiment W's mask, on the header and on every row.
+ *
+ * The flag is the one piece of instrument the masked-fit experiment needed and did not have: W
+ * measured the mask on two **held** checkpoints and Experiment S then measured that the unit W is
+ * denominated in does not order minds, so the only unit left to ask the mask about is the paired
+ * bar -- which wants two leagues that differ in the mask and in nothing else.
+ *
+ * **Two claims, and the second is the one a header cannot make.** A league given nothing writes
+ * `masked: false`, which is what every run in `tournaments/` was; a league given the flag writes
+ * `masked: true` **and rows that credit fewer than the twelve command fields**. A run that said
+ * `true` and credited twelve would be the unmasked estimator wearing a masked run's header, and
+ * that is exactly the failure `creditColumn`'s refusal and this row exist to make visible -- one
+ * before the run and one on its face.
+ */
+test("a_league_takes_the_credit_mask_and_says_on_every_row_what_it_credited", { timeout: 600_000 }, () => {
+  const dir = scratch();
+  const run = (name, ...flags) => {
+    execFileSync(process.execPath, [
+      "scripts/league.mjs", "--dir", join(dir, name), "--iterations", "1", "--bouts", "4",
+      "--exploiters", "0", "--evaluate", "0", "--shards", "1", "--cap", "3", "--workers", "2",
+      ...flags,
+    ], { stdio: "pipe" });
+    const rows = readLog(join(dir, name));
+    return {
+      header: rows.find((row) => row.type === "header"),
+      iterations: rows.filter((row) => row.type === "iteration"),
+    };
+  };
+  const whole = run("unmasked");
+  assert.equal(whole.header.masked, false, "a league given nothing did not write the flag it ran at");
+  assert.equal(whole.iterations[0].credited, COMMAND_FIELDS.length,
+    "an unmasked league credited something other than every command field");
+
+  const masked = run("masked", "--masked");
+  assert.equal(masked.header.masked, true);
+  assert.ok(masked.iterations[0].credited < COMMAND_FIELDS.length,
+    `a masked league credited ${masked.iterations[0].credited} of ${COMMAND_FIELDS.length} fields `
+    + "an ask, which is every one of them: the flag reached the header and not the fit");
+  assert.ok(masked.iterations[0].credited > 0, "a masked league credited nothing at all");
 });
 
 /**

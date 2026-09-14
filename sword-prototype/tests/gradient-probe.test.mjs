@@ -492,12 +492,15 @@ import {
   ACTION_AXES, ACTION_GATES, ACTION_WIDTH, GAUSSIAN_HEAD, actionLogProb, headSpecOf, normalise,
   sampleAction,
 } from "../src/golem/policy.ts";
-import { COMMAND_AXES, COMMAND_GATES } from "../src/golem/tactics-v4.ts";
+import {
+  COMMAND_AXES, COMMAND_BITS, COMMAND_FIELDS, COMMAND_GATES, EVERY_COMMAND_BIT,
+} from "../src/golem/tactics-v4.ts";
 import { GOLEM_REWARD } from "../src/golem/reward.ts";
 import { mulberry32 } from "../src/rng.ts";
 import { PARAM } from "../scripts/fit-worker.mjs";
 import {
-  FIT_SHUFFLE_SEED, FitPool, PRICED_COLUMNS, REWARD_KEYS, advantages, fitShuffle, fitShuffleRandom,
+  FIT_SHUFFLE_SEED, FitPool, PRICED_COLUMNS, REWARD_KEYS, advantages, creditedDimensions,
+  fitShuffle, fitShuffleRandom,
   ppoFit, priceRollout, standardisedAdvantages, valuesOf,
 } from "../scripts/train-ppo.mjs";
 import {
@@ -508,12 +511,40 @@ import {
   halfSplit,
   concentrationWithNull, headGroups, headNorms, headRows, headSignal, linearBaseline, mcReturns,
   FAMILY_ALPHA, familyBar, studentTail,
+  liveDimensions,
   measureBonus, measureSignal, normOf, nullRanking, parseClasses, probeIterations, probeRollout,
   rewardArms, shareOf,
   solveCholesky, thirdGradients, thirdSplit, wholeGradient,
 } from "../scripts/gradient-probe.mjs";
 
 const SEED = 20260917;
+
+/**
+ * The probe's reader of a credit column and the trainer's are one number, measured both ways.
+ *
+ * `liveDimensions` counts the twelve named bits and returns the per-field shares with the mean;
+ * `creditedDimensions` in `scripts/train-ppo.mjs` popcounts the word and returns the mean alone,
+ * because a league's iteration row wants the number and not the twelve shares. The two agree
+ * because every mask in this tree is an `or` of `COMMAND_BITS` -- and that is an argument, which
+ * is what this test replaces. A thirteenth bit set anywhere in the executor would separate them,
+ * and the probe's tables and a masked league's rows would then disagree about what the same
+ * collection credited while both looked right.
+ */
+test("the_probe_and_the_trainer_count_a_credit_column_to_the_same_number", () => {
+  const random = mulberry32(SEED);
+  const n = 200;
+  const touched = Int32Array.from({ length: n }, () => {
+    let mask = 0;
+    for (const field of COMMAND_FIELDS) if (random() < 0.6) mask |= COMMAND_BITS[field];
+    return mask;
+  });
+  const rollout = { count: n, touched };
+  assert.equal(liveDimensions(rollout, true).mean, creditedDimensions(touched));
+  // And both read the whole twelve when nothing is masked, by their two different routes: the
+  // probe off its `masked` argument, the trainer off a column that is every bit set.
+  assert.equal(liveDimensions(rollout, false).mean, COMMAND_FIELDS.length);
+  assert.equal(creditedDimensions(new Int32Array(n).fill(EVERY_COMMAND_BIT)), COMMAND_FIELDS.length);
+});
 
 // ---------------------------------------------------------------------------------------
 // The cosine, on partials whose answer is known before the call.

@@ -357,6 +357,68 @@ export function mergeRollouts(parts, reward = GOLEM_REWARD, width = PILOT_FEATUR
 }
 
 /**
+ * Which dimensions of each sample's score are credited with that sample's advantage.
+ *
+ * `masked` false is one array of every bit set and is the estimator that shipped -- the same
+ * arithmetic, reached through one array lookup a sample. `masked` true is the executor's own
+ * record of what the body read, which Experiment W measured as 7.95 of 12 dimensions an ask
+ * unlatched and 7.08 latched, and which removes about a quarter of the step's variance without
+ * moving `|S|^2`.
+ *
+ * **A rollout that cannot say what its body read is refused and not credited whole.** The two
+ * call sites used to fall back to every-bit-set whatever the flag said, on the argument that a
+ * collection with no `touched` column is not evidence that its body read nothing -- which is
+ * true, and is an argument for refusing rather than for substituting. The fix of 2026-09-14 to
+ * `scripts/idle-probe.mjs` earned the ruling: **a fallback is a default that looks like an
+ * absence and is actually a substitution**, and this is the same shape one layer down. A league
+ * launched `--masked` over a pack written before the column existed would have trained the
+ * unmasked estimator and written `masked: true` into its own header, and no reader downstream
+ * could have told that run from the one it claimed to be.
+ *
+ * The `masked` false path keeps the fallback, because there it is not one: every bit set is what
+ * that caller asked for by name.
+ */
+export function creditColumn(rollout, masked, what = "this fit") {
+  if (!masked) return new Int32Array(rollout.count).fill(EVERY_COMMAND_BIT);
+  const touched = rollout.touched;
+  if (touched === undefined || touched === null) {
+    throw new Error(`${what} was asked to credit the executor's touch mask and the rollout carries `
+      + "no `touched` column, so the mask it would apply is every bit set -- which is the unmasked "
+      + "estimator wearing a masked run's header");
+  }
+  if (touched.length !== rollout.count) {
+    throw new Error(`${what}: the \`touched\` column is ${touched.length} long over `
+      + `${rollout.count} asks`);
+  }
+  return touched;
+}
+
+/**
+ * The mean number of command dimensions a sample's score was credited on, over a credit column.
+ *
+ * **A reader of a masked run does not have to take the header's word for it.** This is
+ * `liveDimensions` in `scripts/gradient-probe.mjs` moved to where both the probe and a league can
+ * reach it: the probe prints it beside every credit arm so an arm that binds no mask cannot claim
+ * one, and a league now writes it on every iteration row for the same reason. Unmasked reads
+ * exactly `COMMAND_FIELDS.length` -- twelve on this build -- and a masked run that reads twelve is
+ * a masked run that masked nothing.
+ *
+ * **This is a popcount over the whole word and `liveDimensions` counts the twelve named bits, and
+ * the two agree because every mask in this tree is an `or` of `COMMAND_BITS`.** They are kept
+ * separate because the probe wants the per-field shares in the same pass and a league does not,
+ * and `tests/ppo.test.mjs` pins the agreement rather than leaving it to the argument above.
+ */
+export function creditedDimensions(credit) {
+  if (credit.length === 0) return 0;
+  let bits = 0;
+  for (let i = 0; i < credit.length; i += 1) {
+    let word = credit[i];
+    while (word !== 0) { bits += word & 1; word >>>= 1; }
+  }
+  return bits / credit.length;
+}
+
+/**
  * What one table pays a rollout that already exists, without collecting a bout to find out.
  *
  * The three arrays a reward table decides -- the per-ask reward, the per-row charge and their sum
@@ -794,14 +856,10 @@ export class FitPool {
     bound.a.set(rollout.a);
     bound.logp.set(rollout.logp);
     // The credit rule crosses as an array and not as a flag, so a shard has nothing to decide: it
-    // reads the mask of the sample it is on and applies it. Unmasked is every bit set, which is
-    // the estimator that shipped, and a rollout carrying no `touched` column reads that way
-    // whatever was asked for -- see `ppoFit`, which makes the same choice for the same reason.
-    if (masked && rollout.touched !== undefined && rollout.touched !== null) {
-      bound.touched.set(rollout.touched);
-    } else {
-      bound.touched.fill(EVERY_COMMAND_BIT);
-    }
+    // reads the mask of the sample it is on and applies it. `creditColumn` carries the argument
+    // and the refusal -- a rollout that cannot say what its body read is refused here rather than
+    // credited whole, which is the same call `ppoFit` makes for the same reason.
+    bound.touched.set(creditColumn(rollout, masked, "a sharded fit"));
     bound.scaled.set(scaled);
     bound.returns.set(returns);
     for (let k = 0; k < width; k += 1) { bound.mean[k] = norm.mean[k]; bound.variance[k] = norm.variance[k]; }
@@ -1104,14 +1162,9 @@ export function ppoFit(rollout, {
   const grad = new Float64Array(size);
   const sigmaGrad = new Float64Array(ACTION_AXES);
   const valueGrad = new Float64Array(valueSize);
-  // Which dimensions of each sample's score are credited with that sample's advantage. `masked`
-  // false is one array of every-bit-set and is the estimator that shipped -- the same arithmetic,
-  // reached through one array lookup a sample -- and `masked` true is the executor's own record of
-  // what it read. A rollout that carries no `touched` column can only be credited whole, and is,
-  // whatever the flag says: a collection that cannot say what its body read is not evidence that
-  // its body read nothing.
-  const credit = masked && rollout.touched !== undefined && rollout.touched !== null
-    ? rollout.touched : new Int32Array(n).fill(EVERY_COMMAND_BIT);
+  // Which dimensions of each sample's score are credited with that sample's advantage;
+  // `creditColumn` carries the argument and the refusal.
+  const credit = creditColumn(rollout, masked, "a fit");
   const random = fitShuffleRandom(seed);
   const order = Array.from({ length: n }, (_, i) => i);
   const load = (i) => {
@@ -1251,6 +1304,9 @@ export function ppoFit(rollout, {
     explainedBefore: before,
     explainedAfter: explainedVariance(after, returns),
     advantageSd: advSd,
+    // What the credit rule actually did, measured off the column the shards read rather than
+    // reported off the flag that asked for it. Unmasked is twelve on this build.
+    credited: creditedDimensions(credit),
   };
 }
 
@@ -2447,6 +2503,10 @@ if (isMain) {
   const epochs = Math.max(1, Number(flag("epochs", 4)));
   const batch = Math.max(1, Number(flag("batch", 4096)));
   const targetKl = Math.max(0, Number(flag("target-kl", 0.03)));
+  // Experiment W's mask, spelled here exactly as `scripts/league.mjs` spells it so one sweep
+  // manifest reads across both scripts. Off by default; every run in the record was fitted without
+  // it, and a run that does not name it writes `masked: false` and fits what it always fitted.
+  const masked = argv.includes("--masked");
   // **The reward table is a knob, and until this flag it was four numbers nobody had swept.**
   // `src/golem/reward.ts` argues each of them and the argument is a good one, but an argued
   // coefficient is still a guess; what ships is `GOLEM_REWARD` and what a run may try is this.
@@ -2636,7 +2696,7 @@ if (isMain) {
     // Session 10 of the learn set's two, on every header for the same reason.
     mirrorShare, pools: ratingPools,
     iterations, bouts, cap, random, workers, shards, halfLife, lambda, clip, entropy, rate, valueRate,
-    sigmaRate, epochs, batch, targetKl, sigmaFloor, sigmaRoof,
+    sigmaRate, epochs, batch, targetKl, sigmaFloor, sigmaRoof, masked,
     evaluate: every, evalBouts, finalBouts, resumeFrom, from: startFrom, opponent, terminals,
     // The three curricula as *stages* rather than as the text they were written as, which is what
     // makes `--separation 1.2` and `--separation-schedule 1.2:0` the same header. `separation`
@@ -2769,7 +2829,7 @@ if (isMain) {
     const fit = ppoFit(rollout, {
       weights, logSigma, valueWeights, layout, valueLayout, norm, seed: (seed ^ iteration * 31) >>> 0,
       halfLife, lambda, clip, entropy: entropyNow, rate, valueRate, sigmaRate, epochs, batch, targetKl,
-      sigmaFloor, sigmaRoof, actor, spread, critic, shards, pool: fitPool, spec,
+      sigmaFloor, sigmaRoof, actor, spread, critic, shards, pool: fitPool, spec, masked,
     });
     // Schulman's dual, in one line and on the axes only: the Gaussian half of the head's entropy
     // is `logSigma + 0.5 (log 2pi + 1)` an axis and depends on nothing else, so the mean of the
@@ -2813,6 +2873,9 @@ if (isMain) {
       kl: round5(fit.kl), clipFraction: round4(fit.clipFraction), entropy: round4(fit.entropy),
       valueLoss: round5(fit.valueLoss), explained: round4(fit.explainedAfter),
       advantageSd: round5(fit.advantageSd),
+      // What the credit rule did, measured off the column the fit read rather than reported off
+      // the flag that asked for it. Twelve is unmasked on this build.
+      credited: round5(fit.credited),
       epochsRun: fit.epochs, updates: fit.updates,
       stopped: fit.stopped === null ? null : round5(fit.stopped.kl),
       logSigma: Array.from(logSigma, round4),

@@ -1140,6 +1140,18 @@ if (isMain) {
     epochs: Math.max(1, Number(flag("epochs", 4))), batch: Math.max(1, Number(flag("batch", 4096))),
     targetKl: Math.max(0, Number(flag("target-kl", 0.03))),
     sigmaFloor: Number(flag("sigma-floor", -3)), sigmaRoof: Number(flag("sigma-roof", 0.5)),
+    // Experiment W's mask, as a trainer-side flag rather than as a probe arm. W measured at two
+    // held checkpoints that crediting only the dimensions the executor read removes 24.8 % and
+    // 26.5 % of the step's variance and moves neither cell's `|S|^2` -- and Experiment S then
+    // measured that a floor does not order minds, which leaves the paired bar as the only unit
+    // the mask can be asked about at all. This is the flag that lets it be asked in that unit.
+    //
+    // Off by default, and a league given nothing writes `masked: false` and fits the estimator it
+    // has always fitted. It is a knob rather than a shape flag because that is what it is: it
+    // changes which dimensions of a score are told they caused an advantage and changes no weight,
+    // no column and no draw, so the two arms of a masked-fit experiment share their collection's
+    // arithmetic exactly and differ in the step alone.
+    masked: has("masked"),
     // A number and not the pool itself, because the header is written out of exactly this object
     // and a worker pool does not go through `JSON.stringify`.
     shards,
@@ -1622,6 +1634,11 @@ if (isMain) {
         kl: round5(turn.fit.kl), clipFraction: round5(turn.fit.clipFraction),
         entropy: round5(turn.fit.entropy), explained: round5(turn.fit.explainedAfter),
         advantageSd: round5(turn.fit.advantageSd), updates: turn.fit.updates,
+        // What the credit rule actually did, measured off the column the fit read rather than
+        // reported off the flag that asked for it. Twelve is unmasked on this build, and a run
+        // whose header says `masked: true` and whose rows say 12 masked nothing -- which is the
+        // one way a masked run could have lied that a header alone cannot catch.
+        credited: round5(turn.fit.credited),
         logSigma: Array.from(state.main.logSigma, round5),
         exploiters: hunts, snapshot, pool: state.pool.map((e) => e.iteration),
         // Every `ppoFit` of the iteration -- the main's and each exploiter's -- against the whole

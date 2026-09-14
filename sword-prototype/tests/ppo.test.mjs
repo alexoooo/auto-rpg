@@ -140,6 +140,7 @@ import {
   explainedVariance, extendNormalisation,
   mergeRollouts, mixedSchedule, momentsFromJson, momentsToJson, opponentOf, parseEntropyStage,
   parseOpponentStage, parseSchedule, parseSeparationStage, parseTactics, parseTerminals,
+  creditColumn, creditedDimensions,
   parseTerminalsStage, poolFor, poolWord, ppoFit, priceRollout, ratePolicy, ratingSeed,
   realisedMirrorShare,
   renderPolicyModule, resumesOwnLog, rolloutPairs, returnColumns, scheduled, strokeTally,
@@ -681,6 +682,72 @@ test("a_fit_that_asks_for_no_mask_is_the_fit_that_shipped_and_one_that_asks_for_
     "asking for no mask is not the fit a caller gets without the argument");
   assert.notEqual(run(true), run(null),
     "a fit under the executor's mask produced the weights the unmasked fit did: the mask is inert");
+
+  // And what the fit says it did, off the column it read rather than off the flag that asked for
+  // it. Unmasked is the whole twelve; the fixture's own mask is three fields always and two on
+  // about half the asks, so it sits between four and five and cannot be twelve.
+  const credited = (masked) => {
+    const weights = initWeights(layout, 7);
+    return ppoFit(rollout, {
+      weights, logSigma: new Float64Array(ACTION_AXES).fill(-1),
+      valueWeights: initWeights(valueLayout, 8), layout, valueLayout, norm, seed: 5,
+      epochs: 1, batch: 64, entropy: 0, targetKl: 1e9, masked,
+    }).credited;
+  };
+  assert.equal(credited(false), COMMAND_FIELDS.length, "an unmasked fit did not credit every field");
+  const masked = credited(true);
+  assert.ok(masked > 3.9 && masked < 4.1, `the fixture's mask credited ${masked} fields an ask`);
+});
+
+/**
+ * A fit asked to credit the executor's mask over a rollout that carries none is refused by name.
+ *
+ * **Both call sites used to substitute every-bit-set here**, on the argument that a collection
+ * which cannot say what its body read is not evidence that its body read nothing. The argument is
+ * sound and is an argument for refusing: a league launched `--masked` over a pack written before
+ * the column existed would have fitted the unmasked estimator and written `masked: true` into its
+ * own header, and the two arms of a masked-fit experiment would have been one arm run twice. That
+ * is the shape the 2026-09-14 fix to `scripts/idle-probe.mjs` named -- **a fallback is a default
+ * that looks like an absence and is actually a substitution** -- one layer down.
+ *
+ * The unmasked path keeps the fallback, because there it is not one: every bit set is what that
+ * caller asked for by name, and `creditColumn` is the only place in the tree that decides it.
+ */
+test("a_fit_asked_for_a_mask_over_a_rollout_that_carries_none_is_refused_by_name", () => {
+  const full = mergeRollouts([pack("left", "left", [0.1, 0.2])]);
+  // A fresh collection always carries the column, filled with every bit set by `mergeRollouts`.
+  assert.equal(full.touched.length, full.count);
+  assert.deepEqual(Array.from(creditColumn(full, true, "a fit")), [EVERY_COMMAND_BIT, EVERY_COMMAND_BIT]);
+
+  const bare = { count: 3 };
+  assert.deepEqual(Array.from(creditColumn(bare, false)),
+    [EVERY_COMMAND_BIT, EVERY_COMMAND_BIT, EVERY_COMMAND_BIT],
+    "an unmasked fit over a rollout with no column is not the estimator that shipped");
+  assert.throws(() => creditColumn(bare, true, "a league"),
+    /^Error: a league was asked to credit the executor's touch mask and the rollout carries no `touched` column/);
+  assert.throws(() => creditColumn({ count: 3, touched: null }, true), /this fit was asked to credit/);
+  assert.throws(() => creditColumn({ count: 3, touched: new Int32Array(2) }, true, "a fit"),
+    /a fit: the `touched` column is 2 long over 3 asks/);
+});
+
+/**
+ * The credited-dimension mean, which is what makes a masked run auditable from its own log.
+ *
+ * A header saying `masked: true` is a label, and the one way a masked run could have lied that a
+ * label cannot catch is by masking nothing -- a rollout whose column came back saturated, a pack
+ * that predates the column, a flag read in the wrong scope. Every iteration row now carries the
+ * number, unmasked reads exactly twelve, and a row that says twelve under a masked header is that
+ * defect showing on the face of the log.
+ */
+test("the_credited_dimension_mean_reads_twelve_unmasked_and_counts_the_bits_that_are_set", () => {
+  assert.equal(creditedDimensions(new Int32Array(0)), 0, "an empty collection is not a mean");
+  assert.equal(creditedDimensions(new Int32Array(5).fill(EVERY_COMMAND_BIT)), COMMAND_FIELDS.length);
+  assert.equal(creditedDimensions(new Int32Array(5)), 0, "a cleared mask credited something");
+  // Two asks, one crediting three fields and one crediting nine, is six.
+  const three = COMMAND_BITS.standOff | COMMAND_BITS.advance | COMMAND_BITS.strafe;
+  let nine = 0;
+  for (let j = 0; j < 9; j += 1) nine |= COMMAND_BITS[COMMAND_FIELDS[j]];
+  assert.equal(creditedDimensions(Int32Array.from([three, nine])), 6);
 });
 
 test("a_rollout_refuses_a_pack_that_is_missing_a_column_by_the_name_of_the_column", () => {
