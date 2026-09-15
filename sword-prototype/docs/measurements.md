@@ -34893,3 +34893,68 @@ pool and confirmed on a second.
 
 **If 1 misses, the ending level depends on the pool.** Every between-seed statement in AE is then
 a statement about nine builds.
+
+## Experiment AF, complete -- 2026-09-15: every fork of seed 20260917 climbs, their slopes spread nearly as widely as six seeds do, and their ending levels do not
+
+Scored at 00:35 on the predictions in `9dc800d`. **Prediction 0 met, prediction 1 met, prediction 2
+missed.** The registered branch for 2 fires. The ending levels, which the registration did not
+ask about, point the other way, and AE's entry had already named them as the next statistic.
+
+### 0. The forks are forks -- MET
+
+Each fork's rows 1..k match `lam-base`'s on all five columns under `Object.is`. Each first
+differs at iteration k+1, the iteration whose fit starts from the rounded weights, and differs
+again at k+2. All three ran to 120, and each was rated on its own seed's instrument with 0 rows
+off the manifest.
+
+### 1. The seed's climb survives a new trajectory -- MET
+
+| trajectory | forked after | slope 5..120, a sixty | se | t | bar 5..20 | bar 100..120 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `lam-base` | -- | +0.0481 | 0.0069 | 7.02 | -0.080 | -0.001 |
+| `fork-1` | 1 | +0.0353 | 0.0057 | 6.16 | -0.066 | -0.009 |
+| `fork-2` | 2 | +0.0577 | 0.0084 | 6.89 | -0.087 | +0.011 |
+| `fork-3` | 3 | +0.0200 | 0.0087 | 2.30 | -0.039 | -0.022 |
+
+**Three of three clear t 2.07.** Four trajectories of seed 20260917 all climb, against one of the
+five other seeds.
+
+### 2. The trajectory component is the smaller part -- MISSED
+
+The sd of the four slopes is **0.0164**. AE had landed before the forks were scored, so the
+registered comparison is half of AE's between-seed sd: **0.0105**. It misses, and it misses
+AB's 0.0145 too. The fork sd is **0.78x** the between-seed sd. The registration said an sd on
+three degrees of freedom runs from 0.57x to 3.7x itself, so the interval is about 0.009 to 0.061.
+It cannot place the trajectory component precisely. What it does show is that the component is not
+near zero.
+
+**The branch, as written:** *the trajectory is the variance. AB's withdrawals stand as AB wrote
+them. AC's downgrade of them is withdrawn, and AC's falsifier is read as unresolved.* **All three
+apply, on slope.** S's *`lambda` is a measured lever* and U's per-iteration pair return to
+withdrawn. AC's *the upward dose is closed* is unresolved. A slope contrast between two arms at
+one seed carries most of the between-seed variance.
+
+### What the ending levels say, described and not tested
+
+The registration asked about slope. The table's last column was read after it was assembled.
+
+| | trajectories | mean bar 100..120 | sd |
+| --- | ---: | ---: | ---: |
+| seed 20260917 | 4 | **-0.005** | 0.014 |
+| the five other seeds | 5 | **-0.052** | 0.020 |
+
+**The four trajectories of seed 1 end within 0.033 of each other and near zero. The other five
+seeds end 0.047 lower.** Within seed 1, the starting bar again predicts the slope. The fork that
+started highest, `fork-3` at -0.039, climbs least, and the one that started lowest, `fork-2` at
+-0.087, climbs most. It is AE's r -0.74 again, inside one seed.
+
+**The reading this suggests, which is not a finding:** where a trajectory starts varies within a
+seed, and slope inherits that variation. Where it ends is set largely by the seed. If that holds,
+an ending-level contrast between arms at one seed would carry much less trajectory noise than a
+slope contrast. The within-seed level sd, 0.014 on 3 degrees of freedom, is half the between-seed
+level sd, 0.028. That is the design question for the next registration, and it is stated here in
+advance of it, not tested.
+
+**What it does to AG, still collecting.** AG's prediction 2 asks whether seed 1 ranks first on a
+held-out pool, on the ending level. Four trajectories of seed 1 now sit near zero on the old
+pool. AG reads seed 1 at 120 through `lam-long` alone, which is one of those four.
