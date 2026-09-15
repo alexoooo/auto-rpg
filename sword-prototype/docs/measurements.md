@@ -35520,9 +35520,9 @@ A replication at six more seeds would be a new registration, stated with this en
 AK put half the fencer manifest's bouts on random viable pairs at six seeds. On the held-out pool
 it read **+0.0307**, sd 0.0325, t 2.31, against a registered 2.57. Five of six differences were
 positive, and the arms bunched to an sd of 0.014 against their controls' 0.032. AK's controls were
-AG's readings, taken before AK was conceived, and the same six seeds had already been read by several
-experiments. **This experiment asks the same question at seeds nothing in the record has touched,
-with controls trained for it.**
+AG's readings, taken before AK was conceived, and the same six seeds had already been read by
+several experiments. **This experiment asks the same question at seeds nothing in the record has
+touched, with controls trained for it.**
 
 ### Manifest
 
