@@ -35514,3 +35514,71 @@ ending up by about three hundredths, from -0.050 to -0.019, on a paired test tha
 its line. It does not reach the fencer. It is the first training change in this record measured
 against its control at six seeds, and it points up. The registered branch for it licenses nothing.
 A replication at six more seeds would be a new registration, stated with this entry's sd.
+
+## Pre-registration -- 2026-09-15: Experiment AL, AK at six fresh seeds with fresh controls, because +0.031 at t 2.31 is the largest thing the record has and it is short of its own line
+
+AK put half the fencer manifest's bouts on random viable pairs at six seeds. On the held-out pool
+it read **+0.0307**, sd 0.0325, t 2.31, against a registered 2.57. Five of six differences were
+positive, and the arms bunched to an sd of 0.014 against their controls' 0.032. AK's controls were
+AG's readings, taken before AK was conceived, and the same six seeds had already been read by several
+experiments. **This experiment asks the same question at seeds nothing in the record has touched,
+with controls trained for it.**
+
+### Manifest
+
+Twelve leagues, two arms at each of six seeds, `--seed` 20260923 .. 20260928. No league in
+`tournaments/` carries any of these seeds.
+
+| arm | flags beyond `lam-base`'s | dirs |
+| --- | --- | --- |
+| mirror, the control | none | `tournaments/mir-seed7` .. `tournaments/mir-seed12` |
+| random, AK's arm | `--share-random 1` | `tournaments/rnd-seed7` .. `tournaments/rnd-seed12` |
+
+`lam-base`'s flags, at `--workers 3`:
+
+```
+--opponent golem-fencer --tactics latchAbort=true --lambda 0.95 --iterations 120 --bouts 32
+--terminals maul,mace --shards 4 --exploiters 0 --evaluate 0 --pool-every 5
+```
+
+**The instrument.** AG's and AK's: `--rating-seed 20261014`, 400 bouts, cap 60, random viable
+pairs, the latch, `--only 110,115,120`, into `rate-heldout.jsonl`. Nothing else is rated.
+
+### The statistic
+
+**`D`** at each new seed: the random arm's held-out 110..120 reading less the mirror arm's.
+
+### Predictions
+
+**0. The instrument.** All twelve leagues run 120 iterations. The random arms' rows realise
+`mirrorShare` 0.5 and the mirror arms' rows 1. Every rating row carries 20261014 and the latch.
+
+**1. AK replicates.** The mean `D` over the six new seeds is **positive at t > 2.57** (5 degrees of
+freedom).
+
+**2. Pooled, the lever clears.** Over the twelve seeds of AK and AL together, the mean `D` is
+**positive at t > 2.20** (11 degrees of freedom).
+
+**3. The arms bunch again.** The sd of the six random arms' readings is **smaller** than the sd of
+the six mirror arms'. It is registered as a direction; an sd ratio on 5 and 5 degrees of freedom
+needs about 2.3x even to reach one-sided 0.05.
+
+**Stated in advance.** If the effect is AK's +0.031 and `D`'s sd is AK's 0.033, the six-seed
+t is expected near 2.3, and prediction 1 is close to a coin flip. Prediction 2 has twice the seeds
+and is expected near t 3.2 under the same assumption. A true effect of half AK's size would miss
+both. AK was chosen for follow-up because it came out largest, so some shrinkage is expected.
+
+### The falsifier, and what each branch licenses
+
+**If the mean `D` at the new seeds is not positive, AK's +0.031 belonged to its six seeds.**
+Training on random pairs is withdrawn as a candidate lever, and AK's entry is annotated.
+
+**If 1 holds, the arrangement is a replicated lever: the first in this record.** It licenses
+`--share-random 1` as the base manifest of every later registration, stated there. It moves no
+default in `scripts/league.mjs` and ships nothing.
+
+**If 1 misses and 2 holds,** the lever is measured on the pooled seeds and not replicated at the new
+ones. It is carried into later registrations as a stated assumption, not as a base.
+
+**If 1 and 2 both miss and the falsifier does not fire,** the split is recorded with its intervals
+and nothing is licensed.
