@@ -34836,3 +34836,60 @@ advance.
 - **No lever is registered next on one seed.** The next registration chooses its statistic in
   advance, and the ending level is the candidate. On slope it would need six seeds an arm, about
   8 league-hours an arm. The ending level's own sd, 0.028, would need more.
+
+## Pre-registration -- 2026-09-14: Experiment AG, the ending checkpoints on an instrument none of them has been read on, because "keep the best seed" needs one
+
+AE left one route to a learned mind ahead of `golem-fencer` that does not depend on the manifest
+learning on average: **train several seeds and keep the best.** Seed 20260917 is the best of six,
+and its bar at 240 is the record's only positive one. That route has a known trap. The seed was
+chosen *on* the instrument that rates it: nine builds from seed 20260917's rating draw, two of them
+the fixed `mace` and `maul` builds. A mind picked as best of six on nine builds is expected to rate
+lower on any other pool. This experiment is the held-out reading.
+
+**The instrument.** `--rating-seed 20261014`. Its pool is **16 builds** on maul and mace: the same
+two fixed builds and fourteen drawn ones, from a draw none of these leagues trained or was rated
+on. The rating bout streams are also fresh. XL's manifest otherwise: cap 60, random viable pairs,
+the latch read off the header. The bouts are **400 a contender**, double the old instrument's, since
+each reading here is a few checkpoints and not a curve.
+
+**The checkpoints.** The ending ones only, where "keep the best" would pick:
+
+| run | checkpoints | why |
+| --- | --- | --- |
+| `lam-long` | 110, 115, 120, 230, 235, 240 | seed 1 at 120, and the resumed run at 240 |
+| `lam-straight` (XU) | 230, 235, 240 | seed 1 at 240 without a resume |
+| `lam-seed2` .. `lam-seed6` | 110, 115, 120 | the other five seeds at 120 |
+
+`rateSnapshots` rates `main` beside them. It duplicates the last checkpoint and is not scored.
+Each run's reading is the mean bar against `golem-fencer` over its three checkpoints, with the se
+taken from the scatter of the per-checkpoint bars and the bouts combined.
+
+### Predictions
+
+**1. The manifest ends behind the fencer on a fresh pool too.** The mean over the six seeds of the
+110..120 reading is **negative at t < -2.78** on the between-seed se (5 degrees of freedom). On the
+old instrument it was -0.043 at about t -3.8.
+
+**2. The ranking carries over.** Seed 20260917 ranks **first of six** on its 110..120 reading on the
+fresh instrument, as it does on the old one. By chance that happens 1 time in 6.
+
+**3. The best seed is ahead at 240.** The mean of `lam-long`'s and XU's 230..240 readings is
+**positive**, with its se stated beside it.
+
+**Stated in advance.** A 400-bout checkpoint's bar has an se near 0.02, so a three-checkpoint mean
+has an se near 0.012 before the scatter between checkpoints is added. Prediction 3 is a sign on a
+number whose se is about the size of the effect it is looking for. Prediction 2 is one rank.
+
+### The falsifier, and what each branch licenses
+
+**If 2 and 3 both miss, seed 20260917's lead was the instrument's.** Keeping the best seed has no
+evidence behind it in this record. The candidate for the owner stays withdrawn, and the next
+question is whether any learned mind in the record is ahead of the fencer on more than one pool.
+
+**If 2 and 3 both hold, the best seed's lead survives a pool it was not chosen on.** That is the
+first evidence that selection could produce a mind ahead of the designed one. It still is not a
+ship. It would put `lam-long` at 240 back in front of the owner, labelled as the best of six on one
+pool and confirmed on a second.
+
+**If 1 misses, the ending level depends on the pool.** Every between-seed statement in AE is then
+a statement about nine builds.
