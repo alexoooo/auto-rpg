@@ -35582,3 +35582,57 @@ ones. It is carried into later registrations as a stated assumption, not as a ba
 
 **If 1 and 2 both miss and the falsifier does not fire,** the split is recorded with its intervals
 and nothing is licensed.
+
+## Experiment AL, complete -- 2026-09-15: at six seeds with their own controls the arrangement reads -0.019, the falsifier fires, and two batches of six seeds differ by more than any lever measured
+
+Scored at 19:16 on the predictions in `15d64d9`. **Prediction 0 met, predictions 1, 2 and 3 all
+missed, and the falsifier fires.** Its branch: **training on random pairs is withdrawn as a
+candidate lever**, and AK's entry is annotated below.
+
+**0. The instrument -- MET.** All twelve leagues ran 120 iterations. Every random arm's rows
+realise `mirrorShare` 0.5 and every mirror arm's 1. Every rating row carries 20261014 and the latch.
+
+| seed | random arm | mirror arm | `D` |
+| --- | ---: | ---: | ---: |
+| 20260923 | **+0.0097** | -0.0269 | +0.0366 |
+| 20260924 | **+0.0117** | **+0.0048** | +0.0069 |
+| 20260925 | -0.0596 | -0.0156 | -0.0440 |
+| 20260926 | -0.0716 | **+0.0018** | -0.0734 |
+| 20260927 | -0.0598 | -0.0638 | +0.0040 |
+| 20260928 | -0.0305 | **+0.0133** | -0.0438 |
+
+- **1. AK replicates -- MISSED, and the falsifier fires.** The mean `D` at the new seeds is
+  **-0.0190**, sd 0.0412, t -1.13. Three of six are negative and the largest is -0.073.
+- **2. Pooled, the lever clears -- MISSED.** Over twelve seeds the mean `D` is **+0.0059**, sd
+  0.0438, **t 0.46**.
+- **3. The arms bunch again -- MISSED.** The random arms' sd is **0.0367** against the mirror arms'
+  0.0283. AK's bunching does not reappear.
+
+### The annotation AK's entry is owed
+
+**AK's +0.031 is withdrawn.** Pooled over twelve seeds, the arrangement reads +0.006 at t 0.46.
+Unpaired, the twelve random arms read **-0.0261**, sd 0.0275, and the twelve mirror runs
+**-0.0320**, sd 0.0341, Welch t 0.46. **Nothing in this record separates the two arrangements.**
+AK's entry called its reading the first training change measured against its control at six seeds,
+and it pointed up; the same change at six more seeds points down by about as much.
+
+### What the two batches say about six-seed means, described and not tested
+
+**The controls differ between batches by more than any lever this record has measured.** AG's six
+mirror runs read **-0.0495**, sd 0.032. AL's six fresh mirror runs, on the same manifest and the
+same instrument, read **-0.0144**, sd 0.028, Welch t 2.02. Three of AL's six controls are above
+zero, where none of AG's was. **`lam-base` at 120 reaches the fencer in about a quarter of seeds,
+and which quarter is the draw.**
+
+**What that costs a design.** A six-seed mean carries an se near **0.013** at this between-seed sd,
+so two six-seed arms separate only an effect near 0.04 -- larger than the whole gap between the
+manifest and the fencer at 120. AK read +0.031 against a batch that happened to sit low, and AL
+read -0.019 against a batch that happened to sit high. Both are inside that arithmetic. **Twelve
+seeds an arm is the minimum honest design for a lever this size.** AL's twelve leagues took about
+four and three quarter hours at three workers each, so twenty-four would take about nine.
+
+**What stands after AK and AL.** Twenty-four leagues of the fencer manifest now sit on disk with
+held-out readings at 110..120: twelve seeds, each in both arrangements. Their mean ending level is
+about **-0.03** either way, and five of the twenty-four read above zero on their three-checkpoint
+mean. No arm's mean does. The record's one mind ahead of the fencer on two pools is still seed
+20260917 at 240, and AI showed a typical seed does not get there.
