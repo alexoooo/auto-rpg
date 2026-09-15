@@ -35468,3 +35468,49 @@ puts the six 120 minds before the owner as a set. Nothing ships on it.
 `--share-random 1` into every later registration as the base manifest, stated there.
 
 **If 1 misses and the falsifier does not fire,** the split is recorded and nothing is licensed.
+
+## Experiment AK, complete -- 2026-09-15: training on half random pairs reads +0.031 on the held-out pool at t 2.31, short of the line, and no seed reaches the fencer
+
+Scored at 13:18 on the predictions in `e43f00d`. **Prediction 0 met, predictions 1 and 2 missed,
+and the falsifier does not fire.** The branch for this outcome was written last: the split is
+recorded and **nothing is licensed.**
+
+**0. The instrument -- MET.** All six arms ran 120 iterations. Every training row realised
+`mirrorShare` 0.5. Every held-out row carries rating seed 20261014 and the latch, and every
+old-instrument row carries 20260917 and the latch.
+
+| seed | `rnd-seed`, held-out 110..120 | AG's reading | `D` | `rnd-seed`, old `L` | AE's `L` |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 20260917 | -0.0040 | -0.0256 | +0.0216 | -0.0086 | -0.0006 |
+| 20260918 | -0.0411 | -0.0604 | +0.0193 | -0.0468 | -0.0595 |
+| 20260919 | -0.0173 | -0.0123 | -0.0049 | -0.0482 | -0.0391 |
+| 20260920 | -0.0051 | -0.0771 | **+0.0719** | +0.0034 | -0.0527 |
+| 20260921 | -0.0229 | -0.0924 | **+0.0695** | -0.0509 | -0.0804 |
+| 20260922 | -0.0227 | -0.0293 | +0.0066 | -0.0345 | -0.0265 |
+
+- **1. Training on the arrangement the rating reads raises the ending -- MISSED.** The mean `D` is
+  **+0.0307**, sd 0.0325, **t 2.31** against the registered 2.57. Five of six are positive. The
+  registration said the sd would need to be smaller than the mean, and it came out slightly larger.
+- **2. And brings a typical seed to the fencer -- MISSED.** **None of six** reads above zero. The
+  closest are seed 1 at -0.004 and seed 4 at -0.005. The six average **-0.0189**, t -3.37 against
+  zero, against AG's -0.0495.
+
+### Described, not tested
+
+**The arms bunch up.** The six held-out readings have an sd of **0.014**, against 0.032 for AG's
+six. That is about one bout se of a three-checkpoint reading, so at this instrument's resolution
+the six arms are close to indistinguishable. The two seeds that gain most, 4 and 5, are the two
+that ended lowest in AG's table, and `D` correlates with AG's reading at **r -0.91**. Part of that
+correlation is arithmetic: AG's reading carries its own bout noise, and that noise enters `D` with
+a minus sign. The narrower spread of the arms' own readings is not produced that way.
+
+**On the old instrument the difference is smaller.** Over 100..120 on seed 20260917's nine builds,
+the paired difference is **+0.012**, sd 0.027, t 1.13. The held-out pool has sixteen builds and
+the old one nine. Training on random pairs reads larger on the pool with more pairs in it, which is
+the direction the mechanism would predict and is not a test of it.
+
+**What stands.** Putting half the fencer manifest's bouts on random viable pairs moved the held-out
+ending up by about three hundredths, from -0.050 to -0.019, on a paired test that fell short of
+its line. It does not reach the fencer. It is the first training change in this record measured
+against its control at six seeds, and it points up. The registered branch for it licenses nothing.
+A replication at six more seeds would be a new registration, stated with this entry's sd.
