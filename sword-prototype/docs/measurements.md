@@ -34753,3 +34753,86 @@ is no cheaper a replicate than a fork.
 **If 1 misses, seed 20260917's climb is a property of lam-base's trajectory, not of its seed.**
 In that case the two other arms that climbed at that seed, `lam-98` and `lam-100`, did so
 separately.
+
+## Experiment AE, complete -- 2026-09-14: two seeds in six climb, the mean does not clear, and a seed's slope says more about where it started than where it ends
+
+Scored at 22:13 on the predictions in `8304559`. **Prediction 1 missed, prediction 2 missed,
+prediction 3 missed by a hair, and prediction 4 met.** All 100 new rows carry `ratingSeed`
+20260917 and the latch, with 0 off the manifest.
+
+### The six seeds
+
+The paired bar against `golem-fencer`, latched, on seed 20260917's instrument:
+
+| seed | run | slope 5..120, a sixty | se | t | 65..120 t | bar 5..20 | bar 100..120 |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 20260917 | `lam-base` | **+0.0481** | 0.0069 | **7.02** | 4.88 | -0.080 | **-0.001** |
+| 20260918 | `lam-seed2` | +0.0066 | 0.0104 | 0.63 | -4.04 | -0.061 | -0.060 |
+| 20260919 | `lam-seed3` | +0.0066 | 0.0065 | 1.02 | 0.46 | -0.053 | -0.039 |
+| 20260920 | `lam-seed4` | +0.0047 | 0.0087 | 0.54 | 0.43 | -0.074 | -0.053 |
+| 20260921 | `lam-seed5` | **+0.0432** | 0.0076 | **5.67** | 1.88 | **-0.142** | **-0.080** |
+| 20260922 | `lam-seed6` | +0.0036 | 0.0067 | 0.53 | 0.81 | -0.036 | -0.026 |
+
+- **1. The manifest climbs on average -- MISSED.** The mean slope is **+0.0188**, the between-seed
+  sd **0.0209**, and se 0.0085, giving **t 2.20** against 2.57. The registration called this close
+  to a coin flip, and it fell on the wrong side.
+- **2. More often than not -- MISSED.** One of the four new seeds clears t 2.07. With `lam-base`
+  counted, two of six do.
+- **3. Seed 20260917 is not an outlier -- MISSED.** Against the other five, mean +0.0129 and sd
+  0.0169, `lam-base` sits **2.07 sd** above, where the bar was 2.
+- **4. Seed 2's collapse is not the rule -- MET.** None of the four new seeds has a 65..120 slope
+  below zero at t < -2.
+
+### The deliverable: the between-seed sd, on five degrees of freedom
+
+**0.0209 a sixty.** The rms within-trajectory se is 0.0079, so the between-seed component
+is about **0.0193**. AB's one-degree estimate was 0.029. A two-arm contrast that should catch a
+difference of 0.035 a sixty four times in five, at two-sided 0.05, needs about **six seeds an arm**
+on slope. That is before AF says how much of this component a within-seed contrast carries.
+
+### The branch the registration wrote, applied as written
+
+*If 1 misses, "this manifest learns against the fencer" is not established in this record.* **That
+is the verdict.** The same clause said the working arm becomes one that sometimes climbs, and that
+no lever experiment is registered on one seed an arm again. Both stand.
+
+The registration's P3 branch was written conditional on 1 passing, so it does not fire formally.
+**Its substance holds anyway.** Seed 20260917 is the best of six on slope and on ending level.
+Every number this record has read off `lam-long` is the top of that distribution, including XL's
+climb, the break at 120, YL's decay and the +0.02 bar at 240. **The owner's-eye item on
+`lam-long` at 240 is withdrawn from the queue.** It would show the owner the best draw of six as
+if it were the manifest.
+
+### What the six say that the predictions did not ask, described and not tested
+
+These relationships were read after the table was assembled. Six points and four degrees of
+freedom are not a test.
+
+**The slope tracks where a seed started.** Across the six, the correlation between the mean bar
+over 5..20 and the 5..120 slope is **r -0.74**. The two climbing seeds include the one that started
+worst by far, seed 5 at -0.142, and seed 1 at -0.080. **The slope and the ending level are nearly
+unrelated, r +0.13.** Seed 5 climbs at t 5.67 and ends lowest of all six, at -0.080.
+
+**What every seed does share is a gain.** The mean bar rises from **-0.074** over 5..20 to
+**-0.043** over 100..120. That is a gain of **+0.031, sd 0.032, t 2.42 on 5 degrees of freedom**,
+positive in all six seeds, from +0.001 to +0.079. The ending levels are tighter than the starting
+ones, sd 0.028 against 0.037. **Across six seeds, the manifest at 120 is behind `golem-fencer` by
+0.043 of a bar, at about t -3.8 on the between-seed se.** Only seed 1 reaches zero.
+
+**The criterion statistic may be the wrong one for the question it is asked.** A 5..120 slope
+rewards a seed for starting low. The owner's question is whether the mind at the end is ahead of the
+designed one, and that is the ending level. The learning experiments since X were scored on
+slope. Changing the statistic now would be choosing it after seeing the data, so this entry does
+not re-score anything on level. It is recorded here so the next registration can choose it in
+advance.
+
+### What this does to the queue
+
+- **AF** (three forks of seed 20260917) goes on. Its prediction 2 is now scored against half of
+  AE's sd, **0.0105**. If a fork's trajectory is as variable as a seed, AB's withdrawals stand. If
+  it is not, the seed's draw sets the climb. The r -0.74 above leans toward the draw, since
+  a fork shares its seed's initial weights and first iterations. AF is what tests it.
+- **AD** is scored as registered when it lands and read as descriptive, for AB's reason.
+- **No lever is registered next on one seed.** The next registration chooses its statistic in
+  advance, and the ending level is the candidate. On slope it would need six seeds an arm, about
+  8 league-hours an arm. The ending level's own sd, 0.028, would need more.
