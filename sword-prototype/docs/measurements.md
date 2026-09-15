@@ -35393,3 +35393,78 @@ seed to the fencer. At best the initial weights explain part of seed 1's level a
 nothing measured explains its gain after it. Another rerun of this manifest is not the next
 experiment. The next registration has to change what the fit learns from. It should be measured on
 ending level, at several seeds an arm, on the held-out pool.
+
+## Pre-registration -- 2026-09-15: Experiment AK, the manifest trained on the arrangement it is rated on, at six seeds
+
+AI closed the last rerun of `lam-base`'s manifest. Six seeds end behind `golem-fencer` at 120 on
+the held-out pool, mean -0.050, and five of six are still behind at 240. AI's entry said the next
+registration has to change what the fit learns from. **One thing it learns from has never matched
+what every rating in this record reads.**
+
+**Every latched fencer league trained on mirrored bodies, and every rating reads random viable
+pairs.** The header of `lam-base` and all its replicates carries `mirrorShare` 1: each training bout
+put one build in both corners. `rate-snapshots.mjs --pools random` rates on two bodies `viablePair`
+accepts, and so does the held-out instrument. Session 10 of the learn set built `--share-random`
+because a mind that wins the mirror and loses the random pairs is a failure mode the record had
+already found once. Across `tournaments/`, the one league with `mirrorShare` below 1 is
+`league-long`, unlatched and self-play, from 2026-09-11. **The fencer manifest has never trained
+on a single random pair.**
+
+**The tool was checked before this entry.** A one-iteration league at seed 20260917 with
+`--opponent golem-fencer --share-random 1` realised 16 mirrored and 16 random bouts of 32, all
+against `golem-fencer`. The run was written to a scratch directory and is not data.
+
+### Manifest
+
+`lam-base`'s flags, plus `--share-random 1`, at `--workers 4`:
+
+```
+--opponent golem-fencer --tactics latchAbort=true --lambda 0.95 --iterations 120 --bouts 32
+--terminals maul,mace --shards 4 --exploiters 0 --evaluate 0 --pool-every 5 --share-random 1
+```
+
+Six arms, `--seed` 20260917 .. 20260922, in `tournaments/rnd-seed1` .. `tournaments/rnd-seed6`. The
+bout count is unchanged, so the random half is paid for out of the mirror's bouts and not added.
+
+**The instrument, scored.** AG's: `--rating-seed 20261014`, 400 bouts, cap 60, random viable pairs,
+the latch, `--only 110,115,120`, into `rate-heldout.jsonl`. **Described, not scored:** seed
+20260917's instrument at 200 bouts over `--only 100,105,110,115,120`, into `rate-latched.jsonl`,
+so AE's `L` can be printed beside it.
+
+### The statistic, chosen here and not after
+
+**The paired difference `D`** at each seed: the arm's held-out 110..120 reading less the same seed's
+reading in AG's table. Seed 20260917's comparison is `lam-long`, whose 110..120 checkpoints are
+`lam-base`'s. The two runs at a seed share their initial weights and the mirrored half's pool draw.
+AH and AJ found the weights carry part of the ending, so pairing by seed is the design.
+
+### Predictions
+
+**0. The instrument.** Every training row of every arm realises `mirrorShare` 0.5, all 120
+iterations run, and every rating row carries its registered rating seed and the latch.
+
+**1. Training on the arrangement the rating reads raises the ending.** The mean `D` over six seeds
+is **positive at t > 2.57**, on the six differences' own scatter at 5 degrees of freedom.
+
+**2. And it brings a typical seed to the fencer.** At least **three of six** arms read above zero on
+the held-out pool at 110..120. AG's table has none.
+
+**Stated in advance.** No measurement in the record sizes this effect for a latched mind. For 1 to
+pass, the six differences' sd has to be smaller than their mean. At AJ's scatter, near 0.036, that
+needs a mean near +0.040. Prediction 2 needs the three best seeds of AG's table, which read -0.012,
+-0.026 and -0.029, each to gain about +0.03 or more, and it is the less likely of the two.
+
+### The falsifier, and what each branch licenses
+
+**If the mean `D` is not positive, the mirror is not what holds the manifest back.** Training on
+the rated arrangement is closed as a lever for this manifest. The next registration looks at the
+opponent instead of the bodies.
+
+**If 1 and 2 both hold, a typical seed reaches the fencer at 120.** That is the first lever this
+record would have measured between seeds. It licenses a registration of the same arm to 240, and it
+puts the six 120 minds before the owner as a set. Nothing ships on it.
+
+**If 1 holds and 2 misses, the arrangement is a lever and not the whole gap.** It licenses carrying
+`--share-random 1` into every later registration as the base manifest, stated there.
+
+**If 1 misses and the falsifier does not fire,** the split is recorded and nothing is licensed.
