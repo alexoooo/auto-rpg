@@ -35291,3 +35291,52 @@ is the one reading here that keeps screening initial weights on the queue, and i
 registered with its own predictions.
 
 **If both hold, the weights carry something and part of it is the pool.** Nothing is licensed.
+
+## Experiment AJ, complete -- 2026-09-15: on the held-out pool seed 1's weights still read ahead, by less, and seed 1's draw reads as nothing
+
+Scored at 09:50 on the predictions in `f164174`. **Predictions 1 and 2 both met, and the falsifier
+does not fire.** The branch written for that outcome: the weights carry something, part of it is
+the pool, and **nothing is licensed.**
+
+All seven arms were rated at 110, 115 and 120 on seed 20261014's sixteen builds with the latch, 400
+bouts, 0 rows off. A three-checkpoint reading's bout se is 0.013.
+
+| arm | held-out 110..120 | own seed, held-out | difference | difference on the old pool |
+| --- | ---: | ---: | ---: | ---: |
+| T2 | -0.0226 | -0.0604 | +0.0378 | +0.0240 |
+| T3 | -0.0415 | -0.0123 | **-0.0292** | +0.0691 |
+| T4 | -0.0667 | -0.0771 | +0.0103 | -0.0189 |
+| T5 | -0.0252 | -0.0924 | +0.0672 | +0.0336 |
+| T6 | -0.0262 | -0.0293 | +0.0031 | +0.0240 |
+| R2 | -0.0849 | -0.0604 | -0.0245 | -0.0244 |
+| R5 | -0.0909 | -0.0924 | +0.0015 | +0.0487 |
+
+The last column is the same three checkpoints on seed 20260917's nine builds. It differs from AH's
+table, which read 100..120.
+
+- **1. Seed 1's weights still carry something on a fresh pool -- MET.** The T arms' mean difference
+  is **+0.0178**, sd 0.0365, t 1.09. Registered as a sign, and it is only a sign.
+- **2. And less than on the pool that picked them -- MET.** +0.018 against AH's +0.026. On the same
+  three checkpoints the old pool reads +0.026 as well.
+
+### Described, not tested
+
+**Per arm, the two pools do not agree.** Across the five T arms, the old-pool and held-out
+differences correlate at **r -0.29**. T3 was the best of seed 1's transplants on the old pool, at
++0.069, and is the only T arm behind its own seed on the held-out one. The means agree more than the
+arms do. A single arm's difference carries two readings' bout se, about 0.018, with a trajectory's
+sd on top of that.
+
+**Seed 1's draw reads as nothing here.** Under another seed's weights, seed 1's draw moves the
+held-out reading by -0.025 and +0.002. On the old pool R5 read +0.049 above its own seed. On the
+held-out pool that is gone.
+
+**Pooled by weights.** On the held-out pool the six runs started from seed 1's weights, `lam-long`
+and T2..T6, read **-0.035**, sd 0.017. The seven runs started from other weights read **-0.064**, sd
+0.032. That is +0.029, Welch t 2.11. It is post hoc and mixes draws unevenly, so it is not a test.
+It is the largest thing in AH and AJ that points at the weights.
+
+**What stands.** Seed 1's advantage at 120 is part pool and part a noisy contribution from its
+initial weights, with no measurable part from its draw. None of it reaches the fencer: no run at 120
+in AG or AJ reads above zero on the held-out pool. Screening initial weights stays off the queue, as
+the written branch has it. The question that could still produce a mind ahead of the fencer is AI's.
