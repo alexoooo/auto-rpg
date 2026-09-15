@@ -35196,3 +35196,62 @@ with its own predictions.
 **If 1 holds and three or more new seeds end above zero,** 2 misses on the side that matters: a
 typical seed passes the designed mind by 240. That puts the 240 minds before the owner as a set,
 not the best of them, and nothing ships on it.
+
+## Experiment AH, complete -- 2026-09-15: seed 1's initial weights carry part of its ending, seed 5's carry its start, and no registered branch describes the outcome
+
+Scored at 07:55 on the predictions in `447b565`. **Prediction 1 missed, prediction 2 missed, and
+the falsifier does not fire.** The falsifier needed both R arms at or above -0.033, and R2 ended
+far below it. The registration wrote branches for "the draw sets it", "the weights set it" and
+"one holds and the other misses". This outcome is none of them, so **nothing is licensed.**
+
+All seven arms ran 120 iterations at the manifest's seed and `--from` file. Each was rated at
+24 checkpoints from 5 to 120, on seed 20260917's nine-build instrument with the latch, with 0 rows
+off it. `L` is the mean bar against `golem-fencer` over 100..120.
+
+### The readings
+
+| arm | initial weights of | draw of | `L` | own seed's `L` | difference |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| T2 | 20260917 | 20260918 | -0.0374 | -0.0595 | +0.0221 |
+| T3 | 20260917 | 20260919 | **+0.0128** | -0.0391 | +0.0518 |
+| T4 | 20260917 | 20260920 | -0.0677 | -0.0527 | -0.0150 |
+| T5 | 20260917 | 20260921 | -0.0302 | -0.0804 | +0.0502 |
+| T6 | 20260917 | 20260922 | -0.0055 | -0.0265 | +0.0209 |
+| R2 | 20260918 | 20260917 | **-0.0921** | -0.0595 | -0.0326 |
+| R5 | 20260921 | 20260917 | -0.0292 | -0.0804 | +0.0512 |
+
+- **1. Seed 20260917's weights carry its ending -- MISSED.** The mean difference is **+0.0260**,
+  sd 0.0273, **t 2.13** against the registered 2.78. Four of five are positive. The registration
+  said half the gap would read about +0.024 at t near 2.7, and called it a coin flip. It is that
+  size and fell on the wrong side.
+- **2. Another seed's weights carry theirs onto seed 1's draw -- MISSED.** R2 ends at -0.092, below
+  the line. R5 ends at **-0.029**, 0.004 above it. On seed 1's draw, seed 5's weights end 0.051
+  higher than on seed 5's own. Seed 2's weights end 0.033 lower than on seed 2's own.
+
+### What the arms say, described and not tested
+
+**Where the gap goes, on point estimates.** Seed 1's four trajectories end at -0.005 and the five
+other seeds at -0.052, a gap of 0.047. Carrying seed 1's weights onto another draw keeps **+0.026**
+of it. Carrying seed 1's draw under another seed's weights keeps **+0.009** on average, from two
+arms 0.084 apart. Read one way, the weights hold about half and the draw a fifth. Read the other
+way, the R arms' mean of -0.061 sits near their own seeds' -0.070 and far from seed 1's -0.005, so
+the weights hold most of it. Each estimate rests on one trajectory an arm, whose `L` has an sd near
+0.014. **The weights carry something, and how much is not measured.**
+
+**AG takes some of the gap away first.** On the held-out pool, seed 1 at 110..120 sits 0.029 above
+the other five seeds' mean. On this instrument, at the same checkpoints, it sits 0.059 above.
+The gap AH was built to split is partly the pool it is read on.
+
+**The start is the weights'.** The mean bar over 5..20 of seed 5's weights is **-0.142** on its own
+draw and **-0.144** on seed 1's. The other ten arms and runs start between -0.036 and -0.082. Seed
+2's and seed 1's weights both start between -0.06 and -0.07 and cannot be told apart. Over the
+twelve runs here, the start correlates with the slope at **r -0.76** and with `L` at **r +0.18**.
+R5, which starts lowest, climbs at **+0.080** a sixty, steeper than any run in AE, AF or AD, and
+ends in the middle of the table. This is AE's pattern with one source of the start named: **seed
+5's low start is its weights', and its slope makes most of it back.**
+
+### What this does to the queue
+
+**The lever "screen initial weights" is not licensed.** What the weights visibly set is the start,
+and the start does not predict the end. AI, registered in `850b063` and collecting, asks the
+question that matters more for a ship: whether the other seeds gain after 120.
