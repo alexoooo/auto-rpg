@@ -34958,3 +34958,65 @@ advance of it, not tested.
 **What it does to AG, still collecting.** AG's prediction 2 asks whether seed 1 ranks first on a
 held-out pool, on the ending level. Four trajectories of seed 1 now sit near zero on the old
 pool. AG reads seed 1 at 120 through `lam-long` alone, which is one of those four.
+
+## Pre-registration -- 2026-09-15: Experiment AH, seed 20260917's initial weights on the other seeds' draws, and the reverse, to find which half of a seed sets where it ends
+
+AE and AF together describe one pattern, which neither tested. **Where a trajectory ends is set
+largely by its seed.** Four trajectories of seed 20260917 end at a mean bar of -0.005 over
+100..120, sd 0.014. The five other seeds end at -0.052, sd 0.020. A seed fixes two things a league
+uses. One is **the initial weights**: `freshRole(seed)` draws the actor and the critic, and every
+run starts from the same spread of -0.7 and a fresh normalisation. The other is **the draw**: the
+bodies each iteration trains on, from `seed ^ iteration`, and the bout and fit streams. This
+experiment swaps one half and keeps the other.
+
+**The tool.** `--from` starts a league's main from a checkpoint, carrying its actor, critic,
+spreads and normalisation, while the league's own `--seed` sets everything else. A checkpoint of
+`freshRole(seed)` is therefore exactly a seed's initial weights. Three were written from
+`scripts/league.mjs`'s own `freshRole`, for 20260917, 20260918 and 20260921. **The transplant was
+checked before this entry:** a three-iteration league at seed 20260917, started `--from` its own
+initial weights, matches `lam-base`'s rows 1..3 on `decided`, `margin`, `kl`, `explained`,
+`clipFraction`, `entropy` and `strokes.completion` under `Object.is`. The swap moves the weights
+and nothing else.
+
+**Manifest.** `lam-base`'s flags at `--iterations 120`, plus `--from`, with `--workers 4`:
+
+| arm | initial weights of | draw of | dir |
+| --- | ---: | ---: | --- |
+| T2 .. T6 | 20260917 | 20260918 .. 20260922 | tournaments/tr-w1-d2 .. tr-w1-d6 |
+| R2 | 20260918 | 20260917 | tournaments/tr-w2-d1 |
+| R5 | 20260921 | 20260917 | tournaments/tr-w5-d1 |
+
+Seed 5's weights go into R5 because seed 5 ended lowest of the six. Seed 2's go into R2 because
+seed 2 is AB's replicate. Each arm is rated like AE, on seed 20260917's instrument, all 25 points.
+
+### The statistic, chosen here and not after
+
+**The ending level `L`**, the mean paired bar against `golem-fencer` over checkpoints 100, 105,
+110, 115 and 120, latched. AE's entry recorded why slope is the wrong statistic for this question.
+No slope is scored in this experiment.
+
+### Predictions
+
+**1. Seed 20260917's weights carry its ending.** For each draw S in 2..6, take `L` of T_S less
+`L` of AE's own seed S. The mean of the five differences is **positive at t > 2.78**, on their own
+scatter at 4 degrees of freedom. If the weights set everything, it is about +0.047.
+
+**2. And another seed's weights carry theirs onto seed 1's draw.** R2 and R5 each end **below
+-0.033**. That is the seed-1 trajectories' mean less two of their sd.
+
+**Stated in advance.** If half of the gap belongs to the weights, prediction 1 expects about
++0.024. The differences' sd would be near 0.02, so t would be near 2.7, and 1 is a coin flip at
+that size. Prediction 2 reads two single trajectories against a spread measured on four.
+
+### The falsifier, and what each branch licenses
+
+**If 1 misses and both R arms end inside -0.033, the draw sets the ending, not the weights.** The
+bodies and streams a seed trains on are what separate a seed that ends near zero from one that
+ends at -0.05. The next question is which bodies.
+
+**If 1 and 2 both hold, the initial weights set the ending.** The cheapest lever in this record
+follows: screen initial weights before training. It would be registered with the screen's own
+predictions, and nothing ships on it.
+
+**If one holds and the other misses, both halves matter.** The split is recorded with its
+intervals and nothing is licensed beyond it.
