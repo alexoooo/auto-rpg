@@ -35134,3 +35134,65 @@ on anything.
 The statistic is the one AG used, the 230..240 level on seed 20261014's instrument. Resuming at
 120 forks a trajectory, as XU showed, and that is immaterial to a between-seed question. The
 extensions wait for AH's leagues to free the host.
+
+## Pre-registration -- 2026-09-15: Experiment AI, the five other seeds taken to 240 and read on the held-out pool, because seed 1 is the only 240 in the record
+
+AG found one mind ahead of `golem-fencer` on a pool it was not chosen on: seed 20260917 at
+230..240, +0.040 +-0.009 on seed 20261014's sixteen builds. At 120 the same seed sits second of
+six on that pool, at -0.026. **Seed 1 gained +0.049 on the held-out pool between 120 and 240, and
+it is the only seed that has been trained past 120.** Whether the manifest's second 120 iterations
+buy a typical seed anything is untested. This experiment tests it.
+
+**Manifest.** Each of `lam-seed2` .. `lam-seed6` is copied to `lam-seed2-long` .. `lam-seed6-long`,
+without its rating files, and resumed to 240 at its own `--seed` with `lam-base`'s flags:
+
+```
+--opponent golem-fencer --tactics latchAbort=true --lambda 0.95 --iterations 240 --bouts 32
+--terminals maul,mace --shards 4 --exploiters 0 --evaluate 0 --pool-every 5 --resume --workers 3
+```
+
+The originals are not touched. `--workers` does not move a bout. The resume rounds the weights and
+so forks each trajectory within an iteration, as XU showed for seed 1. That is immaterial to a
+between-seed question, and seed 1's own 240 reading is also a resumed one.
+
+**The instrument.** AG's: `--rating-seed 20261014`, 400 bouts, cap 60, random viable pairs, the
+latch, `--only 230,235,240`. Each seed's reading is the mean bar against `golem-fencer` over the
+three checkpoints, se the larger of scatter and bouts. The 110..120 readings are AG's, already on
+disk, on checkpoints the copies share.
+
+### The statistic, chosen here and not after
+
+**The gain `G`** of a seed: its held-out 230..240 reading less its held-out 110..120 reading. Seed
+1's is `lam-long`'s, **+0.049**. The six seeds' 230..240 readings are the level `L240`, with seed 1
+read through `lam-long`.
+
+### Predictions
+
+**1. The second 120 iterations buy a typical seed something.** The mean `G` of seeds 2..6 is
+**positive at t > 2.78**, on the five gains' own scatter at 4 degrees of freedom.
+
+**2. But a typical seed is not where seed 1 is.** The mean `L240` over the six seeds is **below
++0.040**, seed 1's two-trajectory reading, and **at most two of the five** new seeds read above
+zero.
+
+**3. The order at 120 carries to 240.** Over the six seeds, `L240` correlates with the 110..120
+held-out reading at **r > 0.5**.
+
+**Stated in advance.** AE's mean slope over 5..120 was +0.019 a sixty, and XU's suffix ran slower
+than its prefix. At that rate two sixties buy about +0.04, and less if the later iterations run
+slower. At +0.03 the gains' sd would have to stay under about 0.024 for 1 to pass. Prediction 3 is a
+correlation on six points, where r 0.5 is not significant; it is registered as a direction, not a
+test.
+
+### The falsifier, and what each branch licenses
+
+**If the mean `G` of seeds 2..6 is not positive, seed 1's gain after 120 was seed 1's.** Training
+past 120 on this manifest is not a lever, and no longer run is queued on it.
+
+**If 1 holds and fewer than two new seeds end above zero,** the manifest learns on average and a
+typical seed is still behind the fencer at 240. Nothing is licensed beyond a longer run registered
+with its own predictions.
+
+**If 1 holds and three or more new seeds end above zero,** 2 misses on the side that matters: a
+typical seed passes the designed mind by 240. That puts the 240 minds before the owner as a set,
+not the best of them, and nothing ships on it.
