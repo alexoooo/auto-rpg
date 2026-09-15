@@ -35020,3 +35020,49 @@ predictions, and nothing ships on it.
 
 **If one holds and the other misses, both halves matter.** The split is recorded with its
 intervals and nothing is licensed beyond it.
+
+## Experiment AD, complete -- 2026-09-15: half the fencer's bouts on past selves costs nothing measurable, and a design written before AB cannot say more
+
+Scored at 01:05 on the predictions in `e42a5be`. **Predictions 0, 1, 3 and 4 met, prediction 2
+missed, and the falsifier does not fire.** AB's entry said this experiment would be scored as
+registered and read as descriptive. AF has since shown that a slope contrast between two
+trajectories of one seed carries most of the between-seed variance. **Every contrast below is
+scored on the se the registration named, and none of them is a finding about the mix.**
+
+### The scoring, as registered
+
+- **0. The instrument -- MET.** 240 iterations, 0 off the registered mix: 16 fencer bouts and
+  shares 0.5 / 0.25 / 0.25 from iteration 6, and 24 fencer bouts at 0.667 / 0.333 before it. The
+  re-rated `bat-16` 120 row equals UL's to the last digit, -0.08376075173511931.
+- **1. The mix still climbs -- MET.** AD over 5..120: **+0.0506 +-0.0083, t 6.08.**
+- **2. A past self is worth something, and less than the fencer -- MISSED.** AD's slope is not
+  between `bat-16`'s +0.0262 and `lam-base`'s +0.0481. It is above both. The fraction of
+  `lam-base`'s lead over `bat-16` that AD keeps is **1.11**. AD less `lam-base`: +0.0025 +-0.0108,
+  t 0.23. AD less `bat-16`: +0.0244 +-0.0126, t 1.94.
+- **3. The mix does not break at 120 -- MET, on the weak side.** AD's 125..240 slope is **+0.0256
+  +-0.0098**. Less its own 5..120, that is **-0.0250 +-0.0128, t -1.95**, against the registered
+  t < -2. The registration called a pass here weak evidence and a miss strong. This pass is by
+  0.05 of a t, on a contrast the same size as XU's break.
+- **4. It ends ahead of where the fencer-only runs end -- MET.** +0.0256 against the pooled
+  +0.0167. AD's tail less XU's is +0.0027 +-0.0132, t 0.20.
+- **The falsifier** needed 3 and 4 both to miss. It does not fire.
+
+### What it is read as
+
+**The mix costs nothing detectable.** Giving half the fencer's bouts to past selves leaves the
+slope where sixteen extra fencer bouts leave it, on point estimates. AD decelerates after 120 like
+the fencer-only runs, by the same -0.025, just short of the registered line. **No reading here
+separates the mix from the fencer-only league.** AF measures the trajectory sd of slope at 0.0164,
+so any of these contrasts has an se near 0.023. AD's largest, against `bat-16`, reads about t 1.
+
+**Its ending level, on the statistic AE proposed.** AD's mean bar over 100..120 is **+0.012**. That
+is just above the top of seed 20260917's four fencer-only trajectories, which ran -0.022 to +0.011.
+Over 220..240 AD reads **+0.051**, against `lam-long`'s +0.024 and XU's +0.036 on the same
+instrument. It is the highest late level in the record, on one trajectory of the seed already known
+to be the best of six. **It is not evidence that the mix raises the ending level.** A registration
+on level, at several trajectories an arm, is what could show that.
+
+**One correction the bracket forces.** AB's entry withdrew U's per-iteration pair, `bat-16` against
+`lam-base` at t -3.06, and AC downgraded it. On `bat-16`'s re-rating at five-iteration spacing, the
+pair reads **+0.0219 +-0.0116, t 1.88** even on its own se. The t -3.06 was read on UL's
+twenty-spaced points. The pair is not distinguishable on the registered se either.
