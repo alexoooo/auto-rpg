@@ -35255,3 +35255,39 @@ ends in the middle of the table. This is AE's pattern with one source of the sta
 **The lever "screen initial weights" is not licensed.** What the weights visibly set is the start,
 and the start does not predict the end. AI, registered in `850b063` and collecting, asks the
 question that matters more for a ship: whether the other seeds gain after 120.
+
+## Pre-registration -- 2026-09-15: Experiment AJ, AH's seven arms read on the held-out pool, because the gap AH split is half the pool's
+
+AH found seed 20260917's initial weights keep **+0.026** of seed 1's ending gap on other draws, at
+t 2.13, on seed 20260917's nine-build instrument. AG found that on seed 20261014's sixteen builds,
+seed 1's lead over the other seeds at 110..120 is **half** what it is on the nine. Both of AH's
+arms were read on the pool that picked seed 1. If what seed 1's weights carry is a fit to those
+nine builds, the T arms lose their lead on the held-out pool.
+
+**Manifest.** AG's instrument on AH's seven arms: `--rating-seed 20261014`, 400 bouts, cap 60,
+random viable pairs, the latch, `--only 110,115,120`, into each arm's `rate-heldout.jsonl`. Each
+arm's reading is the mean bar against `golem-fencer` over the three checkpoints. The own seeds'
+readings are AG's, already on disk, on the same checkpoints and instrument.
+
+### Predictions
+
+**1. Seed 1's weights still carry something on a fresh pool.** The mean of T_S less `lam-seedS`
+over S in 2..6, on the held-out 110..120 readings, is **positive**.
+
+**2. And less than on the pool that picked them.** That mean is **below +0.026**, AH's figure over
+100..120.
+
+**Stated in advance.** Prediction 1 is a sign. The five differences' sd was 0.027 on the old
+instrument; at that sd a mean of +0.013 has t near 1. Neither prediction can establish a lever.
+
+### The falsifier, and what each branch licenses
+
+**If the mean is not positive, what seed 1's weights carried was a fit to nine builds.** AH's
++0.026 is then withdrawn as a statement about the weights, and screening initial weights is not
+registered.
+
+**If 1 holds and 2 misses, the weights' share does not shrink off the pool that picked them.** That
+is the one reading here that keeps screening initial weights on the queue, and it would be
+registered with its own predictions.
+
+**If both hold, the weights carry something and part of it is the pool.** Nothing is licensed.
