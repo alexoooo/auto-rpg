@@ -35066,3 +35066,71 @@ on level, at several trajectories an arm, is what could show that.
 `lam-base` at t -3.06, and AC downgraded it. On `bat-16`'s re-rating at five-iteration spacing, the
 pair reads **+0.0219 +-0.0116, t 1.88** even on its own se. The t -3.06 was read on UL's
 twenty-spaced points. The pair is not distinguishable on the registered se either.
+
+## Experiment AG, complete -- 2026-09-15: on a pool none of them was chosen on, the manifest ends behind the fencer, seed 1 is no longer first at 120, and at 240 it is ahead
+
+Scored at 03:21 on the predictions in `b17b370`. **Prediction 1 met, prediction 2 missed,
+prediction 3 met.** The falsifier needed 2 and 3 both to miss, and it does not fire. The branch
+that would put `lam-long` back in front of the owner needed both to hold, and it does not open
+either.
+
+Every row carries `ratingSeed` 20261014 and the latch, on a pool of **16 builds**, with 0 rows off
+the manifest. Each reading is the mean bar against `golem-fencer` over three checkpoints at 400
+bouts. Its se is the larger of the checkpoints' scatter and the bout se. Every se below is the bout
+se except seed 4's and seed 6's, where the scatter is larger. The last column is the same three
+checkpoints on seed 20260917's nine-build instrument.
+
+### The readings
+
+| run | checkpoints | held-out | se | old, same checkpoints |
+| --- | --- | ---: | ---: | ---: |
+| seed 1, `lam-long` | 110..120 | -0.0256 | 0.0131 | +0.0094 |
+| seed 2 | 110..120 | -0.0604 | 0.0144 | -0.0681 |
+| seed 3 | 110..120 | **-0.0123** | 0.0138 | -0.0382 |
+| seed 4 | 110..120 | -0.0771 | 0.0152 | -0.0383 |
+| seed 5 | 110..120 | -0.0924 | 0.0125 | -0.0795 |
+| seed 6 | 110..120 | -0.0293 | 0.0137 | -0.0250 |
+| seed 1, `lam-long` | 230..240 | **+0.0234** | 0.0133 | +0.0408 |
+| seed 1, XU | 230..240 | **+0.0573** | 0.0134 | +0.0439 |
+
+- **1. The manifest ends behind the fencer on a fresh pool too -- MET.** The mean over six seeds is
+  **-0.0495**, sd 0.0319, **t -3.81**. The registration quoted -0.043 at about t -3.8 on the old
+  instrument over 100..120. On the same three checkpoints the old instrument reads -0.040, t -3.09.
+  Across the six seeds, the two instruments correlate at **r +0.69**.
+- **2. The ranking carries over -- MISSED.** Seed 1 ranks **second**. Seed 3 is first, at -0.012.
+  On the old pool seed 1 was ahead of the next seed by 0.034. On the fresh pool it is 0.013
+  behind seed 3. Between the pools seed 1 loses **0.035**, against the six seeds' mean loss of
+  0.010. That is what picking the best of six on one pool is expected to look like. It is recorded,
+  not tested.
+- **3. The best seed is ahead at 240 -- MET.** The mean of `lam-long`'s and XU's 230..240 readings
+  is **+0.0404 +-0.0094**. Each is positive by itself, at t 1.76 and t 4.28. Each of the six
+  checkpoints is positive, from +0.016 to +0.069.
+
+### What it licenses, and what it does not
+
+**The branch the registration wrote for this outcome is its last sentence: nothing beyond the
+split.** The split is sharp enough to state.
+
+**At 120, seed 1 is an ordinary seed on a pool it was not chosen on.** Its held-out level, -0.026,
+is inside the spread of the other five. It sits 0.024 above the six seeds' mean, where on the old
+pool it sat 0.049 above. About half of its lead did not carry to a second pool.
+
+**At 240, seed 1 is ahead of the fencer on both pools.** On the held-out pool the two readings'
+mean is ahead by about four se, and every checkpoint agrees. The two 240 readings are not
+independent: they share a trajectory through 121. From 110..120 to 230..240, `lam-long` gains
+**+0.049** on the held-out pool, against +0.031 on the old one. The lead at 240 is not the lead at
+120 selected again. **The record now has one seed's mind at 240 that is ahead of the designed one
+on a pool it was not chosen on.** It is still one seed, the one that was best of six on the other
+pool. Whether a typical seed gets there at 240 is untested.
+
+**The owner's-eye item stays withdrawn.** Showing the owner `lam-long` at 240 would now show a
+mind ahead of `golem-fencer` on two pools. It would still be the best draw of six. The honest
+candidate is the one the next experiment could produce: the ending level at 240 of seeds not chosen
+on anything.
+
+### What this does to the queue
+
+**The next registration extends the five other seeds to 240 and reads them on the held-out pool.**
+The statistic is the one AG used, the 230..240 level on seed 20261014's instrument. Resuming at
+120 forks a trajectory, as XU showed, and that is immaterial to a between-seed question. The
+extensions wait for AH's leagues to free the host.
