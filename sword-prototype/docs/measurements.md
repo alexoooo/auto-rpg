@@ -35340,3 +35340,56 @@ It is the largest thing in AH and AJ that points at the weights.
 initial weights, with no measurable part from its draw. None of it reaches the fencer: no run at 120
 in AG or AJ reads above zero on the held-out pool. Screening initial weights stays off the queue, as
 the written branch has it. The question that could still produce a mind ahead of the fencer is AI's.
+
+## Experiment AI, complete -- 2026-09-15: the second 120 iterations buy a typical seed about +0.01, no other seed reaches the fencer by 240, and seed 1 is the one that did
+
+Scored at 09:56 on the predictions in `850b063`. **Prediction 1 missed, predictions 2 and 3 met, and
+the falsifier does not fire.** Every branch the registration wrote began with prediction 1 holding,
+so none of them describes this outcome, and **nothing is licensed.**
+
+All five copies resumed at 121 and ran to 240 at their own seed, with two headers and no repeated
+iteration. Each was rated at 230, 235 and 240 on seed 20261014's sixteen builds with the latch, 400
+bouts, 0 rows off. The 110..120 readings are AG's.
+
+| seed | held-out 110..120 | held-out 230..240 | se | per checkpoint | gain `G` |
+| --- | ---: | ---: | ---: | --- | ---: |
+| 1, `lam-long` | -0.0256 | **+0.0234** | 0.0133 | +0.021 +0.016 +0.034 | +0.0490 |
+| 2 | -0.0604 | -0.0666 | 0.0133 | -0.065 -0.081 -0.054 | -0.0062 |
+| 3 | -0.0123 | -0.0282 | 0.0139 | -0.025 -0.033 -0.026 | -0.0158 |
+| 4 | -0.0771 | -0.0805 | 0.0130 | -0.084 -0.096 -0.061 | -0.0034 |
+| 5 | -0.0924 | -0.0361 | 0.0150 | -0.049 -0.053 -0.006 | **+0.0563** |
+| 6 | -0.0293 | -0.0054 | 0.0126 | +0.007 +0.003 -0.026 | +0.0239 |
+
+- **1. The second 120 iterations buy a typical seed something -- MISSED.** The mean `G` of seeds
+  2..6 is **+0.0110**, sd 0.0293, **t 0.83**. Two seeds gain and three do not move. The falsifier
+  needed a mean at or below zero, and +0.011 is above it by less than one se.
+- **2. A typical seed is not where seed 1 is -- MET.** The mean `L240` over six seeds is
+  **-0.0322**, below +0.040. **None of the five new seeds reads above zero.** Seed 6 comes closest,
+  at -0.005.
+- **3. The order at 120 carries to 240 -- MET.** Over six seeds, r **+0.64**, registered as a
+  direction.
+
+### What it is read as
+
+**On this manifest, the iterations after 120 are worth about +0.01 a seed on the held-out pool.**
+With seed 1 included, the six gains average +0.017 at t 1.39. Seed 1's +0.049 is second of six, and
+it is not separable from the other five: it sits about 1.2 of the gains' sd above their mean. At
+AE's rate over 5..120, two sixties would buy about +0.04. The runs slow down after 120, which XU and
+AD had each shown on one seed.
+
+**Six seeds at 240 on a pool none was chosen on: one ahead of the fencer, five behind.** The six
+readings average -0.032, sd 0.038, t -2.06. Seed 1 is the one ahead, and it was registered as the
+candidate before this pool read any of them. Its `lam-straight` trajectory reads +0.057 there too.
+**That is the whole case for "keep the best seed", and it is one seed in six.** The gain does not
+follow the level at 120: `G` correlates with the 110..120 reading at r -0.24, and seed 5, lowest at
+120, gains most.
+
+**The owner's-eye item is the owner's call and is stated, not taken.** `lam-long` or `lam-straight`
+at 240 is the one learned mind in the record ahead of `golem-fencer` on two pools. It is the only
+such mind out of six seeds trained the same way.
+
+**What this does to the queue.** By 240, training this manifest longer does not bring a typical
+seed to the fencer. At best the initial weights explain part of seed 1's level at 120 (AH, AJ), and
+nothing measured explains its gain after it. Another rerun of this manifest is not the next
+experiment. The next registration has to change what the fit learns from. It should be measured on
+ending level, at several seeds an arm, on the held-out pool.
