@@ -35719,3 +35719,84 @@ predictions.
 problem.** It licenses the opponent ladder -- a sequence that stays beatable-but-not-beaten -- over
 any further tuning of the fit, and it sends the gradient probe after the rung where the signal
 dies.
+
+## Experiment AM, complete -- 2026-09-16: the fit learns the easiest task in the game, by forty points in a hundred and twenty iterations, and the metre it has to close costs it nothing
+
+Scored at 01:40 on the predictions in `c4d4baf`. **Prediction 0 met, prediction 1 met, prediction 2
+met, prediction 3 missed.** The falsifier needed prediction 1 to miss and it does not fire. **The
+third registered branch applies:** *the optimiser works where the signal is plain, and the fencer
+is the problem.*
+
+This is the first registered prediction in the fencer agenda to be met by more than its own noise,
+and it is met by six times the width the registration named.
+
+### 0. The instrument -- MET
+
+Twelve leagues, 120 iterations each, 0 short. Every header carries `opponent` `idle`. The near
+arm's iteration 1 reproduces the 1.2 m smoke run's margin to four decimals, +0.6204, against the
+far arm's +0.5550 at the same seed, so the start distance reached the bouts. Every probe line names
+`executor {"latchAbort":true}` and its arm's own distance. Each `K` is 120 bouts over the same 15
+builds, so a checkpoint-to-checkpoint change is paired by build.
+
+### The readings
+
+| seed | near K 5 | K 40 | K 80 | K 120 | gain | far K 5 | K 40 | K 80 | K 120 | gain |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 20260917 | 0.333 | 0.517 | 0.442 | 0.575 | +0.242 | 0.342 | 0.392 | 0.567 | 0.675 | +0.333 |
+| 20260918 | 0.158 | 0.317 | 0.550 | 0.708 | +0.550 | 0.083 | 0.367 | 0.558 | 0.800 | +0.717 |
+| 20260919 | 0.275 | 0.558 | 0.683 | 0.675 | +0.400 | 0.375 | 0.433 | 0.567 | 0.700 | +0.325 |
+| 20260920 | 0.300 | 0.433 | 0.483 | 0.550 | +0.250 | 0.333 | 0.417 | 0.408 | 0.608 | +0.275 |
+| 20260921 | 0.183 | 0.342 | 0.550 | 0.642 | +0.459 | 0.200 | 0.242 | 0.533 | 0.575 | +0.375 |
+| 20260922 | 0.233 | 0.367 | 0.517 | 0.733 | +0.500 | 0.175 | 0.350 | 0.608 | 0.667 | +0.492 |
+
+- **1. The fit learns the easiest task in reach -- MET.** The six gains mean **+0.4002**, sd 0.1292,
+  **t 7.59**, against the registered t 2.57. Pooled over bouts the arm goes **178/720 = 24.7 %** at
+  checkpoint 5 to **466/720 = 64.7 %** at 120. Every seed gains, the smallest by 24 points.
+- **2. And with a metre to close -- MET.** Gains mean **+0.4195**, sd 0.1631, **t 6.30**. Pooled,
+  **25.1 % to 67.1 %**. Every seed gains, the smallest by 27 points.
+- **3. In reach is easier -- MISSED.** Near less far at 120 is **-0.0237**, sd 0.0747, t -0.78, and
+  2 of 6 seeds are above zero. At checkpoint 5 the two arms are 0.247 and 0.251. **At no checkpoint
+  and at no seed does the closer start read as the easier task.**
+
+### What a mind that started at a quarter and ended at two thirds actually learned
+
+| | near 5 | near 120 | far 5 | far 120 |
+| --- | ---: | ---: | ---: | ---: |
+| maul kill rate | 0.442 +-0.076 | **0.947 +-0.021** | 0.495 +-0.099 | **0.940 +-0.022** |
+| maul damage | 40.0 | 56.1 | 40.2 | 58.0 |
+| mace kill rate | 0.078 +-0.037 | **0.385 +-0.058** | 0.038 +-0.014 | **0.437 +-0.077** |
+| mace damage | 18.1 | 35.8 | 16.4 | 33.5 |
+
+**With the heavy weapon it ends killing nineteen bouts in twenty.** The mace, which needs many more
+blows to finish a body, roughly quintuples off a floor near zero. The training logs agree from the
+inside: over the twelve leagues `decided` goes **41 % to 76 %**, margin +0.46 to +0.66, entropy
+8.44 to 7.11, sigma 0.497 to 0.425, and the critic ends at explained variance **0.82**.
+
+### The correction this forces on the record, and it is the point of the experiment
+
+`league-long` got **monotonically worse** at this same task while training mirrored against itself:
+maul damage 37.6 at iteration 24 falling to 9.3, the dummy's remaining bar rising 0.613 to 0.791.
+The 2026-09-13 diagnosis read that as the reward paying a mirrored mind to stand still. **AM is the
+control that diagnosis never had.** The same optimiser, the same head, the same 71 columns and the
+same 32 bouts an iteration, pointed at a reward whose sign is unambiguous, moves forty points in
+a hundred and twenty iterations at t 7.59.
+
+**So the thirteen sessions of the learn set, and everything in this agenda from S to AL, are not
+evidence that this fit is too small or its optimiser broken.** They are evidence about the fencer
+cell. What separates the two is not capacity. It is what the gradient is being told.
+
+### What it licenses, and what it closes
+
+**The registered branch: the opponent ladder over any further tuning of the fit.** A sequence of
+bodies that stay beatable-but-not-beaten is now the family with evidence behind it, and the
+gradient probe goes after the rung where the signal dies.
+
+**It closes the distance rung, which the owner had proposed as the first step of a ramp.** Starting
+inside reach is not an easier task at any point in training. A ramp built on start distance would
+be ramping the variable that costs nothing. Whatever makes the fencer hard, it is not the metre.
+
+**It does not license anything about the fencer yet.** No mind in this experiment ever met one. The
+next registration asks the only transfer question the record can now afford: **whether a mind that
+spent 120 iterations killing a motionless body is a better starting point for the fencer than one
+that spent those iterations on the fencer.** Both arms exist as checkpoints on disk, so it is
+twelve leagues of second stage and nothing else.
