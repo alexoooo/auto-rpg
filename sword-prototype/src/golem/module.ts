@@ -189,6 +189,21 @@ export interface ModuleEnvelope {
   readonly axes: readonly ModuleAxisEnvelope[];
   /** How far the business end travels from the socket at full extension, metres. */
   readonly reach: number;
+  /**
+   * What this module costs to swing about its socket, kg m2, or absent for one nobody swings.
+   *
+   * **Optional, and absent means "do not scale this module's timing".** A waist, a neck and three
+   * locomotion modules publish an envelope and none of them has a stroke whose duration could
+   * depend on a load, so requiring the figure of them would be six numbers written to be ignored.
+   * Every effector answers it.
+   *
+   * It is the real second moment and not a mass: the lever arm is in it, so a 48 kg maul on a
+   * 1.30 m haft costs four times what the same mass welded at the wrist would. That distinction is
+   * the whole point of the figure -- `massKg` was already published and is what a picker line
+   * reads, and a timing taken off `massKg` would say a long light weapon is as quick as a short
+   * one. Fixed at build, because every term in it is.
+   */
+  readonly swingInertia?: number;
   /** Which strokes this module can be asked for. Empty for a module that has none. */
   readonly strokes: readonly EffectorStrokeKind[];
   /** The reachable set, for a module whose command is a point; null for every other. */
@@ -673,11 +688,41 @@ export interface ChainCrossing {
   readonly carryMin: number;
 }
 
+/**
+ * The second moment of a uniform rod lying from `fromM` to `toM` along a ray out of the socket,
+ * about the socket, kg m2.
+ *
+ * `m(a^2 + ab + b^2) / 3`, which is the integral done once rather than a mass times a radius
+ * squared plus a parallel-axis correction written out at five call sites. It is exact for the
+ * links, the hafts and the blades, and it is the honest approximation for a fist and a plate --
+ * both are short enough that the difference from a sphere's or a board's own second moment is
+ * under two per cent of the chain total, and both are stated here rather than in a comment at
+ * the terminal that would have to be kept true.
+ *
+ * At `fromM` zero it reduces to `mL^2/3`, the rod hinged at its end, which is what a chain's
+ * first link is.
+ */
+export function rodInertia(massKg: number, fromM: number, toM: number): number {
+  return massKg * (fromM * fromM + fromM * toM + toM * toM) / 3;
+}
+
 export interface EffectorChainDefinition {
   readonly id: ChainId;
   readonly axes: 0 | 1 | 3 | 5;
   readonly label: string;
   readonly massKg: number;
+  /**
+   * The chain's own links about the socket at full extension, kg m2. Excludes the terminal.
+   *
+   * Stated by each chain rather than derived from `massKg` and `reach`, because the two do not
+   * determine it: the reach chain's mass is a collar at the socket, a 0.42 m upper arm and a
+   * 0.36 m forearm, and treating that as a uniform rod overstates the figure by eighteen per
+   * cent. A chain knows its own layout and this is the one place that knowledge exists.
+   *
+   * `effectorModule` adds the terminal's contribution, which it can compute generically from the
+   * terminal's mass, the weld's radius and its length beyond the weld.
+   */
+  readonly swingInertia: number;
   /**
    * `limits` is the narrowing whatever terminal is on the end demands, or null for none.
    *
@@ -791,6 +836,20 @@ export interface EffectorCapability {
   readonly rollMax: number;
   /** The flexion this chain may be commanded to, radians. Zero when it has no bend axis. */
   readonly bendMax: number;
+  /**
+   * What this effector costs to swing about its socket, kg m2, chain and terminal together.
+   *
+   * **This is the one number that makes a stroke's duration a fact about the arm rather than a
+   * constant.** Before it, `COMMITTED_SHAPES` gave every terminal the same arc in seconds, so an
+   * 18 kg mace reached 18.71 m/s at the tip against a 1.3 kg blade's 19.87 -- a factor of fourteen
+   * in mass buying six per cent in speed, which is what the owner's eye gate called weapons "light
+   * as air". `GOLEM_TACTICS_V4.swingInertiaRef` is what it is read against.
+   *
+   * It is on the capability and not only on the envelope because the executor is handed a
+   * capability and nothing else, which is the same seam `bendMax` already crosses. Never zero for
+   * a real effector; a mind dividing by it does not need a guard.
+   */
+  readonly swingInertia: number;
 }
 
 /**

@@ -9,7 +9,7 @@ import type { BodyView, FighterView, HandIntent, HandName, Intent } from "../min
 import type { EffectorCapability, GolemCapabilities } from "./module.ts";
 import {
   aimAt, angleTo, canAttack, canCover, canSwing, clamp, distance, freshGolemIntent, innerReach,
-  mirror, reachForDistance, readyNatural, watch, writeAim,
+  mirror, reachForDistance, readyNatural, strokeInertiaScale, watch, writeAim,
   type Aim, type Point, type StrokeShape, type Threat,
 } from "./tactics.ts";
 import { slotHealth, strokeReader, type StrokePhase, type TargetSlot } from "./tactics-v2.ts";
@@ -829,6 +829,11 @@ export function golemDriven(
     intent.actingHand = attacker;
     const cap = caps.effectors[attacker];
     const spareCap = caps.effectors[spare];
+    // How much longer this arm's strokes take than the pairing the shapes were benched on, from
+    // the one copy of that rule in `tactics.ts`. Read per control step rather than per stroke,
+    // which is cheaper than the branch that would cache it and keeps the acting hand's own figure
+    // correct when the attacker changes.
+    const inertiaScale = strokeInertiaScale(cap.swingInertia);
     const hand = intent[attacker];
     const off = intent[spare];
     const me = self.hands[attacker];
@@ -1123,6 +1128,16 @@ export function golemDriven(
         const quick = T.thrustSeconds > 0 ? T.thrustSeconds : point.strokeSeconds;
         arc.strokeSeconds = (1 - arcSwing) * quick + arcSwing * wide;
         arc.stepIn = (1 - arcSwing) * T.thrustStepIn + arcSwing * cut.stepIn;
+        // **The stroke's duration becomes a fact about what is in the hand.** Both phases scale,
+        // because chambering carries the same mass through a comparable angle and scaling only the
+        // arc would describe an arm that snatches a maul up instantly and then swings it slowly.
+        // `stepIn` does not: it is a distance the feet cover, and the feet are not holding it.
+        //
+        // Applied to the blended arc rather than to the shapes, so `COMMITTED_SHAPES` and
+        // `THRUST_SHAPES` stay the measurements Session 02 took and this stays one multiplication
+        // at the one place a stroke is born.
+        arc.strokeSeconds *= inertiaScale;
+        arc.chamberSeconds *= inertiaScale;
         strokes += 1;
         sinceMyStroke = 0;
         nextPrefer = spare;

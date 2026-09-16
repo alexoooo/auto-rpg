@@ -12,6 +12,7 @@ import { CHAIN_REACH, CHAIN_WRIST } from "../../config.ts";
 import { materialForGolemRole } from "../../materials.ts";
 import {
   defineChain,
+  rodInertia,
   type BuiltChain,
   type ChainCrossing,
   type ChainLimits,
@@ -77,6 +78,19 @@ export const wristChain = defineChain({
   // are cast up to `CHAIN_WRIST.carryRatio` of it, and this figure does not follow them.
   massKg: CHAIN_REACH.collarMass + CHAIN_REACH.upperMass + CHAIN_REACH.foreMass
     + CHAIN_WRIST.ringMass + CHAIN_WRIST.wristMass,
+  // The reach chain's two links, then the roll ring and the wrist link beyond the forearm. Like
+  // `massKg` this is the **unloaded** figure and does not follow the casting-up that
+  // `CHAIN_WRIST.carryRatio` does to the ring under a heavy terminal, which understates a mace's
+  // cost on this rung by about a tenth. Stated rather than hidden; the bench prints the truth.
+  swingInertia: rodInertia(CHAIN_REACH.upperMass, 0, CHAIN_REACH.upperLength)
+    + rodInertia(CHAIN_REACH.foreMass, CHAIN_REACH.upperLength,
+      CHAIN_REACH.upperLength + CHAIN_REACH.foreLength)
+    + rodInertia(CHAIN_WRIST.ringMass, CHAIN_REACH.upperLength + CHAIN_REACH.foreLength,
+      CHAIN_REACH.upperLength + CHAIN_REACH.foreLength + CHAIN_WRIST.ringLength)
+    + rodInertia(CHAIN_WRIST.wristMass,
+      CHAIN_REACH.upperLength + CHAIN_REACH.foreLength + CHAIN_WRIST.ringLength,
+      CHAIN_REACH.upperLength + CHAIN_REACH.foreLength + CHAIN_WRIST.ringLength
+        + CHAIN_WRIST.wristLength),
 
   build(
     ctx: ModuleBuild, limits: ChainLimits | null, crossing: ChainCrossing | null, carriedKg: number,

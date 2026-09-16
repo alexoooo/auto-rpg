@@ -8,7 +8,8 @@ import type { BodyView, FighterView, HandIntent, HandName, Intent } from "../min
 import type { EffectorCapability, GolemCapabilities } from "./module.ts";
 import {
   GOLEM_TACTICS, STROKE_SHAPES, aimAt, angleTo, canAttack, canCover, canSwing, clamp, distance,
-  freshGolemIntent, innerReach, mirror, reachForDistance, readyNatural, watch, writeAim,
+  freshGolemIntent, innerReach, mirror, reachForDistance, readyNatural, strokeInertiaScale, watch,
+  writeAim,
   type Aim, type GolemStance, type Point, type StrokeShape, type TacticalRanges, type Threat,
 } from "./tactics.ts";
 
@@ -493,6 +494,13 @@ interface Stroke {
   shape: StrokeShape;
   elapsed: number;
   chamberSeconds: number;
+  /**
+   * The arc's length for *this* stroke, seconds: the shape's, stretched by what the hand throwing
+   * it is carrying. On the record beside `chamberSeconds` for the same reason that one is -- the
+   * spare hand's combo is thrown by a different arm with a different load, and reading the frozen
+   * shape here would give a 48 kg maul the arc a blade was benched with. See `STROKE_INERTIA`.
+   */
+  strokeSeconds: number;
 }
 
 export function golemFencer(
@@ -527,6 +535,8 @@ export function golemFencer(
   let ranged = 0;
   /** The current exchange's chamber length, which a stop-hit cuts short. */
   let chamberSeconds = 0;
+  /** The current exchange's arc length, stretched by the acting arm's load. */
+  let strokeSeconds = 0;
   /** The spare hand's stroke, when one is in flight. */
   let combo: Stroke | null = null;
   /** The shorter arm's latch: closed in, holding at its own range. */
@@ -629,7 +639,7 @@ export function golemFencer(
       return;
     }
     const since = stroke.elapsed - stroke.chamberSeconds;
-    const t = shape.strokeSeconds > 0 ? clamp(since / shape.strokeSeconds, 0, 1) : 1;
+    const t = stroke.strokeSeconds > 0 ? clamp(since / stroke.strokeSeconds, 0, 1) : 1;
     hand.guard = false;
     hand.thrust = true;
     writeAim(hand, cap, at, me.outboard,
@@ -785,7 +795,7 @@ export function golemFencer(
         comboCap, T.strikeBite);
       driveStroke(intent[comboHand], comboCap, comboMe, spareAim, combo.shape, combo, comboReach);
       intent[comboHand].wristBend = comboCap.bendMax > 0 ? T.cutBend : 0;
-      if (combo.elapsed >= combo.chamberSeconds + combo.shape.strokeSeconds + T.followSeconds) {
+      if (combo.elapsed >= combo.chamberSeconds + combo.strokeSeconds + T.followSeconds) {
         combo = null;
       }
     }
@@ -840,8 +850,13 @@ export function golemFencer(
      */
     const enterExchange = (quick: boolean, forceFeint: boolean | null = null): void => {
       target = chooseTarget(them, socket, reach, cap, trunkHeading, me.outboard);
-      chamberSeconds = quick ? Math.min(shape.chamberSeconds, T.stopHitChamberSeconds)
-        : shape.chamberSeconds;
+      // Both phases stretched by what this arm is carrying, and the stop-hit's ceiling applied to
+      // the stretched chamber rather than to the shape's: a stop-hit is "as short as this arm can
+      // make it", and a cap read off the blade's bench would let a maul snatch itself up.
+      const scale = strokeInertiaScale(cap.swingInertia);
+      chamberSeconds = quick ? Math.min(shape.chamberSeconds * scale, T.stopHitChamberSeconds)
+        : shape.chamberSeconds * scale;
+      strokeSeconds = shape.strokeSeconds * scale;
       const feint = forceFeint !== null ? forceFeint : !quick && T.feintFraction > 0 &&
         (theirs === "idle" || theirs === "chamber") && random() < T.feintFraction;
       if (feint) option = "feint";
@@ -1052,7 +1067,7 @@ export function golemFencer(
 
     if (stance === "commit") {
       const swept = canSwing(cap) ? 1 : 0;
-      const t = shape.strokeSeconds > 0 ? clamp(elapsed / shape.strokeSeconds, 0, 1) : 1;
+      const t = strokeSeconds > 0 ? clamp(elapsed / strokeSeconds, 0, 1) : 1;
       hand.guard = false;
       hand.thrust = true;
       intent.forward = clamp(intent.forward + shape.stepIn, -1, 1);
@@ -1065,14 +1080,17 @@ export function golemFencer(
       if (combo === null && t >= 1 && !caps.pairedHands && T.comboFraction > 0 &&
         !self.hands[spare].lost && canAttack(spareCap) && !isShield(self.hands[spare].weapon) &&
         random() < T.comboFraction) {
+        const spareShape = STROKE_SHAPES[self.hands[spare].weapon];
+        const spareScale = strokeInertiaScale(spareCap.swingInertia);
         combo = {
-          hand: spare, shape: STROKE_SHAPES[self.hands[spare].weapon], elapsed: 0,
-          chamberSeconds: T.comboChamberSeconds,
+          hand: spare, shape: spareShape, elapsed: 0,
+          chamberSeconds: T.comboChamberSeconds * spareScale,
+          strokeSeconds: spareShape.strokeSeconds * spareScale,
         };
         // The spare has just struck, so the next exchange is this hand's again.
         nextPrefer = attacker;
       }
-      const commitEnds = Math.max(T.commitSeconds, shape.strokeSeconds + T.followSeconds);
+      const commitEnds = Math.max(T.commitSeconds, strokeSeconds + T.followSeconds);
       if (elapsed >= commitEnds) goTo("recover");
       return;
     }

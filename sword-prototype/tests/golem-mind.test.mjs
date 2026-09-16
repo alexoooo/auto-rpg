@@ -46,7 +46,8 @@ import { POLICIES } from "../src/mind.ts";
 import { unitDefinition } from "../src/units.ts";
 import { defaultGolemSetup } from "../src/golem/build.ts";
 import {
-  GOLEM_TACTICS, STROKE_SHAPES, aimAt, canAttack, golemTactics, innerReach, tacticalRanges, unspan,
+  GOLEM_TACTICS, STROKE_SHAPES, aimAt, canAttack, golemTactics, innerReach, strokeInertiaScale,
+  tacticalRanges, unspan,
 } from "../src/golem/tactics.ts";
 import { GOLEM_TACTICS_V2, golemFencer, slotHealth, strokeReader } from "../src/golem/tactics-v2.ts";
 import {
@@ -1693,6 +1694,10 @@ test("the_stroke_benchs_sequence_is_the_fencers_own_commit_to_the_digit", async 
     const mark = new Vector3(them.ground.x, them.shoulder.y, them.ground.z);
     const heading = fixture.self.facing + fixture.self.trunkTwist * caps.trunkTwistMax;
     const shape = STROKE_SHAPES[hand.weapon];
+    // The arc the fencer actually runs, which since `STROKE_INERTIA` is the shape's stretched by
+    // what this arm is carrying. Read off the published capability rather than recomputed, so this
+    // stays a comparison of the bench against the fencer and not of two copies of one formula.
+    const arcSeconds = shape.strokeSeconds * strokeInertiaScale(cap.swingInertia);
     const script = strokeSequence({
       shape, cap, socket: hand.shoulder, mark, reach: hand.reach,
       outboard: hand.outboard, heading, guardSeconds: 0,
@@ -1719,15 +1724,15 @@ test("the_stroke_benchs_sequence_is_the_fencers_own_commit_to_the_digit", async 
     let checked = 0;
     for (let step = commitFrom + 1; step < seen.length && seen[step].stance === "commit"; step += 1) {
       const elapsed = (step - commitFrom) * FIXED;
-      const at = shape.strokeSeconds > 0 ? Math.max(0, Math.min(1, elapsed / shape.strokeSeconds)) : 1;
+      const at = arcSeconds > 0 ? Math.max(0, Math.min(1, elapsed / arcSeconds)) : 1;
       const want = blank();
       write("stroke")(want, at);
       same(want, seen[step], `arc at t=${at.toFixed(4)}`);
       checked += 1;
     }
-    assert.ok(checked >= Math.round(shape.strokeSeconds / FIXED),
+    assert.ok(checked >= Math.round(arcSeconds / FIXED),
       `${label}: only ${checked} steps of the arc were compared,`
-      + ` and the arc is ${shape.strokeSeconds} s long`);
+      + ` and the arc is ${arcSeconds} s long`);
     return shape;
   };
 

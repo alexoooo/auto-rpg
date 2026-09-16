@@ -4,6 +4,7 @@ import type { HandIntent } from "../../../mind.ts";
 import { CHAIN_REACH } from "../../config.ts";
 import {
   defineChain,
+  rodInertia,
   type BuiltChain,
   type ChainCrossing,
   type ChainLimits,
@@ -40,6 +41,12 @@ export const reachChain = defineChain({
   axes: 3,
   label: "reach - yaw, pitch, elbow",
   massKg: CHAIN_REACH.collarMass + CHAIN_REACH.upperMass + CHAIN_REACH.foreMass,
+  // The collar sits on the socket and contributes nothing; the upper arm runs 0 to 0.42 and
+  // the forearm 0.42 to 0.78. 4.14 kg m2, against the 4.87 a uniform rod of the same mass and
+  // reach would give -- which is why this is stated per chain rather than derived.
+  swingInertia: rodInertia(CHAIN_REACH.upperMass, 0, CHAIN_REACH.upperLength)
+    + rodInertia(CHAIN_REACH.foreMass, CHAIN_REACH.upperLength,
+      CHAIN_REACH.upperLength + CHAIN_REACH.foreLength),
 
   // `carriedKg` is not read: the forearm is 8.8 kg and held a 27 kg bar to 1.3 mm of tip error
   // on the bench; the rule is the wrist's until a heavier terminal says otherwise.

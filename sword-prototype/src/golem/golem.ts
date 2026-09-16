@@ -735,6 +735,9 @@ export class Golem implements Combatant {
         reachable: envelope ? envelope.reachable : null,
         rollMax: envelope ? Math.max(0, axisCeiling(envelope.axes, "roll")) : 0,
         bendMax: envelope ? Math.max(0, axisCeiling(envelope.axes, "bend")) : 0,
+        // A slot with no module at all answers 1, not 0: nothing is ever swung on it, and a zero
+        // here would be a divisor waiting for the one caller that forgets to check `lost` first.
+        swingInertia: envelope?.swingInertia ?? 1,
       });
     };
     const range = this.locomotionModule.heightRange;

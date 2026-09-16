@@ -4,6 +4,7 @@ import type { Striking } from "../../combat.ts";
 import type { HandIntent } from "../../mind.ts";
 import {
   EFFECTOR_SLOTS,
+  rodInertia,
   type BuiltChain,
   type BuiltModule,
   type BuiltTerminal,
@@ -156,9 +157,21 @@ export function effectorModule(
       // plus the terminal's length beyond it. Fixed at build, because both halves are.
       const tipToSocket = built.reach + end.tipOffset;
       const chainEnvelope = built.envelope();
+      // What this pair costs to swing about its socket, kg m2. The chain states its own links --
+      // it is the only thing that knows how its mass is laid out along itself -- and the terminal's
+      // share is computed here from three numbers this scope already holds: its mass, how far the
+      // weld is from the socket, and how far it reaches beyond the weld. A terminal therefore
+      // declares nothing new and stays a collider, a mass, a striker kind, a layer and a shell,
+      // which is the rule the top of this file exists to keep.
+      //
+      // `sockets` multiplies the chain and not the terminal, for the same reason `massKg` above
+      // does: a two-handed bar is carried by two arms and there is still one bar.
+      const swingInertia = chain.swingInertia * sockets
+        + rodInertia(terminal?.massKg ?? 0, built.reach, tipToSocket);
       const envelope: ModuleEnvelope = Object.freeze({
         axes: chainEnvelope.axes,
         reach: tipToSocket,
+        swingInertia,
         // The chain's, unchanged: what a module can be *asked* for and what it can *reach* are
         // both the chain's business, and a terminal that altered either behind the chain's back
         // would be a terminal contributing to control. A two-socket terminal does alter them --

@@ -11,6 +11,7 @@ import {
   NO_STROKES,
   defineChain,
   effectorSlot,
+  rodInertia,
   weldRotation,
   type BuiltChain,
   type EffectorAxisView,
@@ -73,6 +74,9 @@ export const noneChain = defineChain({
   axes: 0,
   label: "none - a capped socket",
   massKg: CHAIN_NONE.capMass,
+  // The cap alone, a rod out of the socket. Nothing on this rung swings, so the figure is
+  // published for completeness rather than read by a stroke: rung 0 has no strokes at all.
+  swingInertia: rodInertia(CHAIN_NONE.capMass, 0, CHAIN_NONE.capLength),
 
   build(ctx: ModuleBuild): BuiltChain {
     const C = CHAIN_NONE;

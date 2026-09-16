@@ -8,7 +8,8 @@ import type { BodyView, FighterView, HandIntent, HandName, Intent } from "../min
 import type { EffectorCapability, GolemCapabilities } from "./module.ts";
 import {
   STROKE_SHAPES, aimAt, angleTo, canAttack, canCover, canSwing, clamp, distance,
-  freshGolemIntent, innerReach, mirror, reachForDistance, readyNatural, watch, writeAim,
+  freshGolemIntent, innerReach, mirror, reachForDistance, readyNatural, strokeInertiaScale, watch,
+  writeAim,
   type Aim, type Point, type StrokeShape, type TacticalRanges, type Threat,
 } from "./tactics.ts";
 import {
@@ -430,6 +431,8 @@ interface Stroke {
   shape: StrokeShape;
   elapsed: number;
   chamberSeconds: number;
+  /** The arc's length for this stroke, stretched by the arm throwing it. v2's, and see it. */
+  strokeSeconds: number;
 }
 
 /** A stroke shape the exchange may write into, so the table's swept rows can be laid over a frozen row. */
@@ -661,7 +664,7 @@ export function golemStyled(
       return;
     }
     const since = stroke.elapsed - stroke.chamberSeconds;
-    const t = shape.strokeSeconds > 0 ? clamp(since / shape.strokeSeconds, 0, 1) : 1;
+    const t = stroke.strokeSeconds > 0 ? clamp(since / stroke.strokeSeconds, 0, 1) : 1;
     hand.guard = false;
     hand.thrust = true;
     writeAim(hand, cap, at, me.outboard,
@@ -972,6 +975,12 @@ export function golemStyled(
       arc.roll = source.roll;
       if (cutting && T.cutSeconds > 0) arc.strokeSeconds = T.cutSeconds;
       if (thrusting) { arc.strokeSeconds = T.thrustSeconds; arc.stepIn = T.thrustStepIn; }
+      // What the arm is carrying, applied last so it stretches the swept rows above as well as the
+      // bench's. Both phases, because chambering lifts the same mass; `stepIn` is not scaled, being
+      // a distance the feet cover rather than anything the hand is holding. See `STROKE_INERTIA`.
+      const scale = strokeInertiaScale(cap.swingInertia);
+      arc.strokeSeconds *= scale;
+      arc.chamberSeconds *= scale;
       chamberSeconds = arc.chamberSeconds;
       // The option in force and not the shape's name, so that a `wait` that fires on their recover
       // is logged as the counter it is and `chamberAbort` offers it back under its own name.
@@ -1057,7 +1066,7 @@ export function golemStyled(
         comboCap, T.strikeBite);
       driveStroke(intent[comboHand], comboCap, comboMe, spareAim, combo.shape, combo, comboReach);
       intent[comboHand].wristBend = comboCap.bendMax > 0 ? T.cutBend : 0;
-      if (combo.elapsed >= combo.chamberSeconds + combo.shape.strokeSeconds + T.followSeconds) {
+      if (combo.elapsed >= combo.chamberSeconds + combo.strokeSeconds + T.followSeconds) {
         combo = null;
       }
     }
@@ -1175,9 +1184,12 @@ export function golemStyled(
       if (combo === null && t >= 1 && !paired && T.comboFraction > 0 &&
         !self.hands[spare].lost && canAttack(spareCap) && !isShield(self.hands[spare].weapon) &&
         random() < T.comboFraction) {
+        const spareShape = STROKE_SHAPES[self.hands[spare].weapon];
+        const spareScale = strokeInertiaScale(spareCap.swingInertia);
         combo = {
-          hand: spare, shape: STROKE_SHAPES[self.hands[spare].weapon], elapsed: 0,
-          chamberSeconds: T.comboChamberSeconds,
+          hand: spare, shape: spareShape, elapsed: 0,
+          chamberSeconds: T.comboChamberSeconds * spareScale,
+          strokeSeconds: spareShape.strokeSeconds * spareScale,
         };
         nextPrefer = attacker;
       }

@@ -1074,6 +1074,86 @@ const coverReachFor = (weapon: Striker): number =>
  * commanded on the clock and whether the limb follows is the anchor's force budget against the
  * mass on the end of it, which is frozen rule 4.
  */
+/**
+ * How a stroke's published durations are stretched by what the arm is carrying.
+ *
+ * **One rule, one copy, three executors.** `tactics-v2`, `tactics-v3` and `tactics-v4` all drive
+ * the same body, and a mace that is heavy for a learned mind and weightless for the fencer it is
+ * rated against would make every paired column in this record an artifact of which machine was on
+ * which side. So the constants live here, beside `STROKE_SHAPES`, and all three read them through
+ * `strokeInertiaScale` below.
+ *
+ * Mutable and moved with `Object.assign`, which is the idiom `GOLEM_TACTICS` already uses and the
+ * reason `CUT` above is getters rather than a snapshot: a sweep over `gain` is a sweep over how
+ * much of its load a stroke feels, and it has to reach the shapes a bench is reading.
+ */
+export const STROKE_INERTIA = {
+  /**
+   * The chain inertia the shapes' durations were benched at, kg m2.
+   *
+   * **10.12 is the default golem's own primary arm** -- the wrist chain carrying the blade, which
+   * is what `defaultGolemSetup` stands up and what every sweep row under Session 02 of the matchup
+   * set was taken on. At this value that pairing scales by exactly one and keeps the 0.263 s arc
+   * and 0.421 s chamber it has always had, so nothing in the record's blade column moves and what
+   * changes is every *heavier* terminal. The reach chain's blade is 5.84 and the bare reach arm
+   * 4.14, and neither is the reference for the same reason: the shapes were not benched on them.
+   *
+   * **The anchor is the arm and not the weapon.** The owner declined to anchor on the blade --
+   * *"I don't know if the blade is the right anchor, I don't know how I would correctly guess that
+   * now without having data or seeing what fights look/feel like"* -- and this is the anchor that
+   * does not require the guess: it is whatever the default body already is, so the change is
+   * defined as a change to everything that differs from it.
+   *
+   * **To the last digit the arm actually publishes**, and not 10.12, because `strokeInertiaScale`
+   * raises the ratio to a power: at 10.12 the default arm scales by 1.0002 rather than by 1, and
+   * that is enough to move `golem-fencer`'s commit off the stroke bench's sequence in the sixth
+   * decimal and turn a digit-for-digit test red for no behaviour at all. It cannot be *derived*
+   * here -- this file imports no value but `hands.ts` and `rng.ts`, which is what lets a whole
+   * bout be stepped with no Babylon in the graph, and the chains that know the figure import a
+   * scene. So it is a literal, and `tests/golem-arena.test.mjs` pins the default arm's scale at
+   * exactly 1 so that a chain or a terminal whose geometry moves fails loudly here rather than
+   * quietly retiming every stroke in the game.
+   */
+  ref: 10.12428,
+  /**
+   * How much of the physical scaling to apply, as an exponent on the inertia ratio.
+   *
+   * `scale = (I / ref) ^ (gain / 2)`. At **0** every stroke keeps the constant duration it had
+   * before this existed, which is what every weight in `snapshots/` was trained under and is
+   * therefore the setting a re-rating of those tables turns off. At **1** the duration goes as the
+   * square root of the inertia ratio, which is the time a fixed torque needs to carry a body
+   * through a fixed angle: the physics, unscaled. Between the two it interpolates in log space.
+   *
+   * **Ships at 1, which is a deliberate break with `latchAbort`'s pattern of shipping a candidate
+   * row down.** `latchAbort` was a question about what a mind should be allowed to do; this is a
+   * defect in the body. An 18 kg mace reaching 18.71 m/s at the tip against a 1.3 kg blade's 19.87
+   * is not a tuning choice a pool can vote on, and shipping it off would mean every fight the
+   * owner watches still shows weapons that weigh nothing -- which is the eye gate's verdict this
+   * exists to answer. What it costs is stated instead of hidden: every rating in this record was
+   * taken under `gain` 0 and is void until re-taken.
+   */
+  gain: 1,
+};
+
+/**
+ * What to multiply a stroke's chamber and arc by, for an effector of this swing inertia.
+ *
+ * Returns exactly 1 when the row is down or the figure is missing, so a caller needs no branch and
+ * a module that publishes no inertia -- a waist, a neck, an empty socket -- is simply unscaled.
+ */
+export function strokeInertiaScale(swingInertia: number): number {
+  const { ref, gain } = STROKE_INERTIA;
+  if (!(gain > 0) || !(ref > 0) || !(swingInertia > 0)) return 1;
+  // **A load never makes a stroke quicker than the benched shape, only slower.** That floor is a
+  // reading of the bench rather than a convenience: a 1.3 kg blade peaked at 19.87 m/s at the tip
+  // and an 18 kg mace at 18.71, so at the light end the arm is not inertia-limited at all -- it is
+  // limited by `ANCHOR_DRIVE.linearRate` and by the motor's force, and the shapes are the fastest
+  // stroke that actuator makes. Without the floor a pitch chain carrying a blade -- 1.14 kg m2,
+  // a ninth of the reference -- would sweep its arc in 0.067 s, which is less than one ask at
+  // `askHz` and therefore a stroke no mind could steer, gate or abort.
+  return Math.max(1, Math.pow(swingInertia / ref, 0.5 * gain));
+}
+
 export interface StrokeShape {
   /** Where the arc starts, outboard of the mark, radians. Zero for a chain with no azimuth. */
   readonly chamberSwing: number;

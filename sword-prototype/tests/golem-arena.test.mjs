@@ -47,6 +47,7 @@ import {
 } from "../src/golem/build.ts";
 import { GOLEM_MODULES } from "../src/golem/registry.ts";
 import { BUTTON_REACH } from "../src/buttons.ts";
+import { STROKE_INERTIA, strokeInertiaScale } from "../src/golem/tactics.ts";
 
 process.env.SWORD_MEASURE_LIBRARY = "1";
 const { freshHavok, runBout } = await import("../scripts/measure.mjs");
@@ -855,4 +856,27 @@ test("twenty_five_golem_rebuilds_return_every_counted_resource_to_baseline", asy
     rebuild(index);
     assert.deepEqual(census(), baseline, `golem rebuild ${index} returned every counted resource`);
   }
+});
+
+test("the_default_arms_swing_inertia_is_the_reference_every_stroke_is_timed_against", async (t) => {
+  // `STROKE_INERTIA.ref` cannot be derived where it is written: `tactics.ts` imports no value but
+  // `hands.ts` and `rng.ts`, which is the property that lets a whole bout be stepped with no
+  // Babylon in the graph, and the chains that know this figure all import a scene. So it is a
+  // literal, and this is the pin that stops it going stale: move a link's mass, a segment's length
+  // or the blade's, and the default golem's own strokes would quietly retime by the ratio.
+  const { golem } = await standAGolem(t);
+  const cap = golem.view.self.capabilities.effectors.primary;
+  assert.ok(cap.swingInertia > 0, "the default primary arm published no swing inertia");
+  assert.equal(cap.swingInertia.toFixed(5), STROKE_INERTIA.ref.toFixed(5),
+    `the default arm is ${cap.swingInertia} kg m2 and the reference every stroke is timed `
+    + `against is ${STROKE_INERTIA.ref}`);
+  // And the consequence that matters, stated separately because it is the one a reader wants:
+  // the body the record was measured on keeps the arc it was measured with, to the last bit.
+  assert.equal(strokeInertiaScale(cap.swingInertia), 1,
+    `the default arm's strokes scale by ${strokeInertiaScale(cap.swingInertia)} rather than by 1`);
+  // The off hand carries a plate on the same chain and is genuinely heavier, so the floor is not
+  // what is making the line above pass.
+  const off = golem.view.self.capabilities.effectors.secondary;
+  assert.ok(strokeInertiaScale(off.swingInertia) > 1.2,
+    `the plate hand scales by ${strokeInertiaScale(off.swingInertia)}, so nothing here is scaling`);
 });

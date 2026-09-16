@@ -12,6 +12,7 @@ import { CHAIN_PITCH } from "../../config.ts";
 import { materialForGolemRole } from "../../materials.ts";
 import {
   defineChain,
+  rodInertia,
   type BuiltChain,
   type EffectorAxisView,
   type EffectorStroke,
@@ -123,6 +124,8 @@ export const pitchChain = defineChain({
   axes: 1,
   label: "pitch - one hinge",
   massKg: CHAIN_PITCH.linkMass,
+  // One link, hinged at the socket and swung about it.
+  swingInertia: rodInertia(CHAIN_PITCH.linkMass, 0, CHAIN_PITCH.linkLength),
 
   build(ctx: ModuleBuild): BuiltChain {
     const P = CHAIN_PITCH;
