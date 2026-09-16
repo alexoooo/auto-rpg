@@ -30,6 +30,9 @@
 // | `saveLeague` writes the playing pool as `taken` | the round trip and the real turn |
 // | `leagueMatrix` rolls the tripwire's columns off the left corner only | the tripwire test |
 // | `idleProbe` runs one corner of every pairing instead of both | the tripwire test |
+// | `probeJobs` writes the start distance on one corner of a pairing | the start-distance test |
+// | `probeJobs` carries a start distance the caller did not ask for | the start-distance test |
+// | the probe's CLI drops `--tactics` on the floor | the probe executor test |
 // | `snapshotIterations` sorts the file names rather than the numbers | the curve's snapshot list |
 // | `chosenSnapshots` filters a missing iteration away instead of refusing it | the curve's snapshot list |
 // | `boutsPerOpponent` does not round up to an even count | the curve's snapshot list |
@@ -72,7 +75,7 @@ import {
   shippedIteration, spentBy, spreadSlots, statePath, thinPool, trainRole,
 } from "../scripts/league.mjs";
 import { armedTerminal, buildPool } from "../scripts/tournament.mjs";
-import { formatIdleProbe, idleProbe, normalisationOf, rollupByTerminal } from "../scripts/idle-probe.mjs";
+import { formatIdleProbe, idleProbe, normalisationOf, probeJobs, rollupByTerminal } from "../scripts/idle-probe.mjs";
 import {
   boutsPerOpponent, chosenSnapshots, curveTargets, formatRow, instrumentSeed, parseTerminals,
   ratingExecutorOf, snapshotIterations,
@@ -1429,4 +1432,52 @@ test("the_trained_side_takes_each_corner_the_same_number_of_times_at_every_mirro
       + `${corners.right}`);
     assert.equal(corners.left + corners.right, 48, `${where}: a job that recorded no trained side`);
   }
+});
+
+test("an_idle_probe_meets_the_dummy_at_the_distance_it_was_asked_for", () => {
+  const pool = poolFor({ seed: SEED, random: 12, terminals: ["maul"], mirror: true });
+  const asked = probeJobs({ pool, name: MAIN_NAME, bouts: 2, cap: 6, seed: SEED, separation: 1.2 });
+  const left = probeJobs({ pool, name: MAIN_NAME, bouts: 2, cap: 6, seed: SEED });
+  assert.ok(asked.jobs.length > 0, "a probe with builds in it schedules bouts");
+  assert.equal(asked.jobs.length, left.jobs.length, "a start distance does not change how many bouts are played");
+  for (const [i, job] of asked.jobs.entries()) {
+    // Both corners, because a pairing is played from both sides and a distance written on one of
+    // them would make the swapped half a different fight.
+    assert.equal(job.separation, 1.2, `job ${i} met the dummy at ${job.separation} m`);
+    // The distance is the only thing that moved. The seeds, the builds and the corners are the
+    // schedule this script has always written, which is what makes the two rows comparable.
+    assert.deepEqual({ ...job, separation: undefined }, { ...left.jobs[i], separation: undefined });
+  }
+  for (const job of left.jobs) {
+    assert.ok(!("separation" in job),
+      "a probe that asked for no distance wrote one, so every row in the record was re-scheduled");
+  }
+  assert.throws(() => probeJobs({ pool, bouts: 2, seed: SEED, separation: 0 }), /metres/);
+  assert.throws(() => probeJobs({ pool: [], bouts: 2, seed: SEED }), /needs a build/);
+});
+
+test("the_idle_probe_drives_a_checkpoint_through_the_executor_it_was_named", () => {
+  const script = join(import.meta.dirname, "..", "scripts", "idle-probe.mjs");
+  const dir = mkdtempSync(join(tmpdir(), "idle-executor-"));
+  const role = freshRole(SEED, null);
+  const checkpoint = join(dir, "checkpoint.json");
+  writeFileSync(checkpoint, JSON.stringify({
+    weights: Array.from(role.weights), logSigma: Array.from(role.logSigma), norm: role.norm,
+  }));
+  const run = (...extra) => execFileSync(process.execPath, [
+    script, "--checkpoint", checkpoint, "--bouts", "2", "--workers", "2", "--cap", "4",
+    "--random", "4", "--terminals", "maul", ...extra,
+  ], { encoding: "utf8", timeout: 300_000 });
+  // The header line is the contract: a probe that says nothing about the executor drove the
+  // shipped row, and that sentence is what was missing when four experiments were rated through
+  // an executor their minds never trained under.
+  assert.match(run(), /executor the shipped one/);
+  assert.match(run("--tactics", "latchAbort=true"), /executor {"latchAbort":true}/);
+  assert.match(run("--separation", "1.2"), /start 1.2 m/);
+  assert.match(run(), /start default/);
+  // A shipped mind carries its own tactics, so a row handed beside one has nowhere to go.
+  assert.throws(() => execFileSync(process.execPath, [
+    script, "--mind", "golem-fencer", "--bouts", "2", "--workers", "2", "--cap", "4",
+    "--random", "4", "--terminals", "maul", "--tactics", "latchAbort=true",
+  ], { encoding: "utf8", timeout: 300_000 }), /carries its own/);
 });

@@ -2,7 +2,7 @@
 //
 //   node scripts/idle-probe.mjs [--mind golem-policy] [--checkpoint run-checkpoint.json]
 //     [--read greedy|drawn] [--bouts 4] [--workers N] [--cap 60] [--seed 20260906] [--random 40]
-//     [--terminals maul,mace|all]
+//     [--terminals maul,mace|all] [--tactics latchAbort=true] [--separation 1.2]
 //
 // Every bout is a build against *itself*, one side driven and the other on `idle`, so the only
 // question a row answers is whether this mind on this body can finish an opponent that never
@@ -25,7 +25,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { armedTerminal, runJobs, seedFor } from "./tournament.mjs";
-import { parseTerminals, poolFor, poolSentence } from "./train-ppo.mjs";
+import { parseSeparationStage, parseTactics, parseTerminals, poolFor, poolSentence } from "./train-ppo.mjs";
 import { viablePair } from "../src/golem/viability.ts";
 
 const meanOf = (xs) => (xs.length === 0 ? 0 : xs.reduce((a, b) => a + b, 0) / xs.length);
@@ -93,12 +93,21 @@ export function probePartners(pool, build, mirror = true) {
  * floor survives the two bodies differing. The table is keyed on the *fighter's* build either way,
  * so the class rollup means the same thing in both and the two rows sit side by side.
  */
-export async function idleProbe({
-  pool, name = "golem-policy", contender = null, bouts = 4, workers = 8, cap = 60, seed = 20260906,
-  mirror = true, onProgress = null,
+/**
+ * The bouts an idle probe plays, built where a test can read them.
+ *
+ * It was inside `idleProbe` until the start distance arrived: a schedule that carries a metre
+ * count is a thing a test has to be able to look at without playing forty bouts to find out.
+ * `lonely` counts the builds `viablePair` gave no partner but themselves, which is a fact about
+ * the pool and is printed rather than thrown.
+ */
+export function probeJobs({
+  pool, name = "golem-policy", bouts = 4, cap = 60, seed = 20260906, mirror = true, separation = null,
 }) {
   if (pool.length === 0) throw new Error("an idle probe needs a build to run");
-  const contenders = contender === null ? null : { [name]: contender };
+  if (separation !== null && (!Number.isFinite(separation) || separation <= 0)) {
+    throw new Error(`an idle probe's start distance is metres, not ${separation}`);
+  }
   const per = Math.max(2, Math.ceil(bouts / 2) * 2);
   const jobs = [];
   let lonely = 0;
@@ -114,10 +123,24 @@ export async function idleProbe({
       const against = partners[k % partners.length];
       const fighter = { build: build.name, setup: build.setup, policy: name, seed: seedFor(seed, pairing, 0) };
       const dummy = { build: against.name, setup: against.setup, policy: "idle", seed: seedFor(seed, pairing, 1) };
-      jobs.push({ index: jobs.length, pairing, swapped: false, cap, left: fighter, right: dummy, seeds: [fighter.seed, dummy.seed] });
-      jobs.push({ index: jobs.length, pairing, swapped: true, cap, left: dummy, right: fighter, seeds: [dummy.seed, fighter.seed] });
+      // Session 08 of the learn set's start distance, and null leaves it where `runBout` puts it,
+      // so a probe that asks for nothing schedules the bouts it always scheduled. A dummy that
+      // never steps means the distance it is met at is the whole difference between "can this mind
+      // land a stroke" and "can it close first", and the record has wanted those apart.
+      const start = separation === null ? {} : { separation };
+      jobs.push({ index: jobs.length, pairing, swapped: false, cap, ...start, left: fighter, right: dummy, seeds: [fighter.seed, dummy.seed] });
+      jobs.push({ index: jobs.length, pairing, swapped: true, cap, ...start, left: dummy, right: fighter, seeds: [dummy.seed, fighter.seed] });
     }
   }
+  return { jobs, lonely };
+}
+
+export async function idleProbe({
+  pool, name = "golem-policy", contender = null, bouts = 4, workers = 8, cap = 60, seed = 20260906,
+  mirror = true, separation = null, onProgress = null,
+}) {
+  const contenders = contender === null ? null : { [name]: contender };
+  const { jobs, lonely } = probeJobs({ pool, name, bouts, cap, seed, mirror, separation });
   const rows = await runJobs(jobs, { workers, contenders, onProgress });
   const table = new Map();
   for (const row of rows) {
@@ -255,6 +278,13 @@ if (isMain) {
   const asked = flag("mind", "golem-policy");
   const name = checkpoint !== null || asked === "uniform" ? "fit" : asked;
   const label = checkpoint !== null ? `${checkpoint} ${drawn ? "drawn" : "greedy"}` : asked;
+  // **The executor, which this script drove wrong until it was given one.** A league trained with
+  // `--tactics latchAbort=true` is a mind whose strokes survive the ask that started them, and a
+  // probe that reads the shipped row instead measures a different fighter -- the defect that cost
+  // Experiments S, U, X and Z their ratings on 2026-09-14 and was fixed in
+  // `scripts/rate-snapshots.mjs` the same day. A checkpoint carries no executor, so it is named
+  // here or it is the shipped one, and the header line says which.
+  const tactics = parseTactics(flag("tactics", null));
   let contender = null;
   if (asked === "uniform") contender = { uniform: true };
   else if (checkpoint !== null) {
@@ -264,7 +294,11 @@ if (isMain) {
       logSigma: cp.logSigma,
       normalisation: normalisationOf(cp, checkpoint),
       sample: drawn,
+      ...(tactics === null || Object.keys(tactics).length === 0 ? {} : { tactics }),
     };
+  }
+  if (contender === null && tactics !== null && Object.keys(tactics).length > 0) {
+    throw new Error("--tactics rows reach a fitted contender; --mind names a shipped policy, which carries its own");
   }
   const bouts = Math.max(2, Number(flag("bouts", 4)));
   const workers = Math.max(1, Number(flag("workers", Math.max(1, availableParallelism() - 2))));
@@ -278,11 +312,15 @@ if (isMain) {
   // `viableMirror` accepts -- and `scripts/viability.mjs`, which regenerates the table, calls
   // `idleProbe` over `buildPool` directly and is not affected by that default.
   const terminals = parseTerminals(flag("terminals", null));
+  const separationText = flag("separation", null);
+  const separation = separationText === null ? null : parseSeparationStage(separationText);
   const pool = poolFor({ seed, random, terminals, mirror: true });
   console.log(`${label} vs idle: ${pool.length} builds x ${Math.ceil(bouts / 2) * 2} bouts, `
-    + `cap ${cap} s, seed ${seed}, ${poolSentence(terminals)}`);
+    + `cap ${cap} s, seed ${seed}, ${poolSentence(terminals)}, `
+    + `start ${separation === null ? "default" : `${separation} m`}, `
+    + `executor ${tactics === null || Object.keys(tactics).length === 0 ? "the shipped one" : JSON.stringify(tactics)}`);
   const result = await idleProbe({
-    pool, name, contender, bouts, workers, cap, seed,
+    pool, name, contender, bouts, workers, cap, seed, separation,
     onProgress: ({ done, total, seconds }) => {
       if (done % 128 === 0 || done === total) console.log(`  ${done}/${total} bouts, ${seconds.toFixed(0)} s`);
     },
