@@ -36878,3 +36878,44 @@ is a human arming sword on a golem, and a heavier blade both raises the reduced 
 stroke, so the sign of the net effect on arriving energy has to be measured rather than argued. The
 second is the floors themselves, which were set when strokes were timed by a constant and every
 terminal swung at the same rate.
+
+## The showcase matchup is one the tree's own predicate refuses, confirmed 2026-09-16
+
+The owner watched fights, called them jittery, and said most attacks did nothing while one or two
+decided the bout. Chasing AT's blade result turned up a cheaper explanation than any of the physics,
+and it was already written down in `src/golem/viability.ts`:
+
+> `defaultGolemSetup` is a blade and `blade vs blade` decides 36 %, so the showcase mirror the app
+> opens on is a pair this module refuses.
+
+Checked directly rather than taken from the comment. `defaultGolemSetup()` has `armedTerminal`
+**blade**, `viableMirror` **false**, and `viablePair(setup, setup)` **false**. `src/main.ts` opens
+on `golemMatchup(defaultGolemSetup())` when no link is supplied, which is what a person clicking
+into the app gets.
+
+**So the matchup the owner was shown is the one matchup every training pool in the tree excludes.**
+Its measured decided fraction is 36 %, against `maul|maul` at 100 % and `mace|mace` at 74 %. Nearly
+two bouts in three do not resolve. "Most attacks did nothing and then one or two decided it" is the
+36 % cell described from the outside.
+
+This does not make the physics findings wrong -- AT's floors are measured across the whole pool and
+the blade is the worst of six terminals there too. It does mean the eye gate was asked on the
+weakest cell in the game, and that the owner's impression is evidence about `blade|blade`
+specifically rather than about golem combat generally.
+
+### Two things follow, and neither is "move the default"
+
+`viability.ts` already refuses that move and gives the reason: the default is the reference body a
+dozen sweeps on this page were taken on, and moving it would strip the provenance from every one of
+those constants. That reasoning still holds.
+
+What follows instead is that **the 36 % is stale and is now the blade-mass question's real bar.**
+Every number in `VIABLE_PAIRS` was measured with stroke timing held constant and the blade at
+1.30 kg, and both of those have moved. `scripts/viability.mjs` exists precisely to regenerate the
+table and print the literal, so the decided fraction of `blade|blade` at a given blade mass is a
+command rather than an argument -- and a mass that lifts that cell out of 36 % is a mass that fixes
+what the owner actually saw.
+
+The second is that the eye gate should be re-asked on a pair the tree does not refuse, because the
+record cannot presently tell the difference between "golem combat looks bad" and "the one matchup
+the owner was shown looks bad".
