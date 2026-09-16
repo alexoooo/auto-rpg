@@ -36505,3 +36505,150 @@ board thins and its mass falls with it. Not changed: the two joules-per-damage c
 damage floor, `ANCHOR_DRIVE.linearForce`, and every learned table on disk. Prediction 4 says the
 pool will be unbalanced after this change, and that is accepted rather than pre-corrected, because
 correcting two things at once would leave neither measured.
+
+## AP -- the gradient's content on the build axis, and the dissociation reproduced
+
+Registered on this page before collection. Four cells: two mind lineages by two opponents, `build`
+class cut, class floor 400, 128 bouts, 30 iterations, seed 20260917, `latchAbort=true`, terminals
+maul and mace. The scorer is the half-to-half cosine of the fit's own actor gradient, one reading
+per iteration, reported as a mean over iterations with the standard error of that mean.
+
+| cell | mind | opponent | cosine | sem | t | median | iterations |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
+| f2 | an-ramp2 | `golem-fencer` | 0.0272 | 0.0220 | 1.23 | 0.0129 | 30 |
+| i2 | an-ramp2 | `idle` | 0.0655 | 0.0157 | **4.17** | 0.0535 | 30 |
+| f11 | ao-ramp11 | `golem-fencer` | 0.0213 | 0.0142 | 1.50 | -- | 22, truncated |
+| i11 | ao-ramp11 | `idle` | 0.0477 | 0.0210 | **2.27** | 0.0397 | 30 |
+
+**The dissociation reproduces on a new axis, at a new bout count, on both lineages.** Against
+`golem-fencer` the gradient's self-cosine is indistinguishable from zero in both cells -- 1.23 and
+1.50, neither near two sigma. Against `idle` it is positive in both -- 4.17 and 2.27. This is the
+fourth independent way the record has found the same thing, and the first on the `build` cut, past
+30 iterations, and with the abort latched.
+
+It is worth stating what that does and does not license. It does **not** say the optimiser is
+broken: on the easiest task in the game the same optimiser, the same head, the same reward table
+and the same bout count produce a gradient that is a sample mean. It says the *signal* is missing
+against an opponent that steps away and parries, which is the hypothesis this page already
+recorded under the eye gate and named a test for.
+
+### Prediction 4 missed, as the correction already said it would
+
+The registration's fourth prediction was that the class cut would lift the fencer cell. It did not:
+0.0272 and 0.0213 are inside the noise of the ungrouped runs. The correction appended before AP's
+data landed had already scored eight `gradclass-*` logs that pointed the same way, and it said so
+then rather than after. The prediction stands as registered and missed.
+
+### Two cells are contaminated, and by me
+
+`ap-f11` died at iteration 23 with `ReferenceError: rodInertia is not defined`, thrown out of
+`src/golem/effectors/chains/none.ts` in a freshly spawned worker. The cause is not in the
+experiment: **AQ's source edits were made while AP was still running**, and `gradient-probe` spawns
+workers that load the tree from disk, so a worker started inside the window between a chain
+gaining a call and the file gaining its import loaded a file that did not compile. `ap-i11` ran
+across the same window and completed, which means its later iterations may mix workers built from
+two different trees; its 2.27 is reported above and is **not** to be quoted again.
+
+`ap-f2` and `ap-i2` finished at 17:50, before the first edit, and are clean. The dissociation above
+rests on them: 1.23 against 4.17, one lineage, one window, no edits.
+
+**The rule this breaks is one this record already keeps** -- do not edit what a running process
+loads -- and it was broken by editing `src/` rather than `scripts/`, which is the form of it nobody
+had written down. It is written down now.
+
+### AP is superseded by AQ before it could be used
+
+Every number above was taken with `STROKE_INERTIA.gain` at 0, and AP's two terminals are maul and
+mace -- precisely the two whose stroke durations AQ just multiplied by 3.13 and 2.06. Whatever the
+fencer cell's gradient is under the new timing, it is not what is in the table above. AP therefore
+closes as **a clean measurement of a regime that no longer exists**, and its value is the
+comparison it makes possible: the same four cells re-run under `gain` 1 are the first experiment of
+the new one, and the difference between the two tables is the answer to whether the missing signal
+was the optimiser's or the body's.
+
+## AQ -- what the change measured, against what it predicted
+
+The registration is above. This is the result, taken from the assembled body's own published
+capability rather than from the model that predicted it.
+
+### The inertia table, measured
+
+Each row stands a real golem on real Havok with that chain and terminal and reads
+`capabilities.effectors.primary.swingInertia` off the body it assembled. A maul claims both
+sockets, so its rows are the two-handed build.
+
+| chain | terminal | reach m | swingInertia | scale | arc s | chamber s |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| pitch | blade | 1.14 | 1.14 | 1.000 | 0.200 | 0.320 |
+| pitch | mace | 1.14 | 11.18 | 1.051 | 0.231 | 0.231 |
+| pitch | fist | 0.52 | 1.86 | 1.000 | 0.110 | 0.320 |
+| pitch | plate | 0.50 | 3.33 | 1.000 | 0.150 | 0.320 |
+| reach | blade | 1.52 | 5.84 | 1.000 | 0.200 | 0.320 |
+| reach | mace | 1.52 | 27.68 | 1.654 | 0.364 | 0.364 |
+| reach | maul | 1.51 | 63.31 | 2.501 | 0.550 | 0.550 |
+| reach | fist | 0.90 | 9.41 | 1.000 | 0.110 | 0.320 |
+| reach | plate | 0.88 | 14.80 | 1.209 | 0.181 | 0.387 |
+| wrist | blade | 1.78 | **10.12** | 1.000 | 0.200 | 0.320 |
+| wrist | mace | 1.78 | 42.82 | 2.057 | 0.453 | 0.453 |
+| wrist | maul | 1.77 | 99.27 | 3.132 | 0.689 | 0.689 |
+| wrist | fist | 1.16 | 16.76 | 1.287 | 0.142 | 0.412 |
+| wrist | plate | 1.14 | 26.27 | 1.611 | 0.242 | 0.516 |
+| wrist | whip | 2.07 | 18.64 | 1.357 | 0.271 | 0.543 |
+
+**Prediction 1 is met where it can be checked and the model was exact.** The registration predicted
+the reach chain's blade at 5.84 kg m2 from hand arithmetic over the config's own segment table; the
+assembled body publishes 5.84. The mace's 27.68 and the bare arm's 4.14 were predicted to the same
+two places. The half of prediction 1 that named tip speeds and damage is **not** tested here and is
+still owed: the Node bench drives its own scripted anchor with fixed durations and is deliberately
+independent of any executor, so it cannot see this change at all -- it returned the blade at 19.87,
+the mace at 18.71 and the maul at 6.86 both before the change and after it, to the digit. What
+measures this is a bout, and that is the next collection rather than this section.
+
+### The anchor moved between registration and landing, and why
+
+The registration anchored on the reach chain's blade at 5.84, saying it "leaves today's blade at
+exactly the 0.200 s arc it already has". That was true of the reach chain and **wrong about the
+body that actually fights**: `defaultGolemSetup` stands a *wrist* chain, whose blade is 10.12, so
+the registered anchor would have made the default golem's own strokes 32 per cent longer and voided
+every blade row in the record for no reason the owner asked for. The shipped reference is therefore
+the default arm's own figure, 10.12428, and the default body keeps its stroke to the last bit. The
+principle the registration stated is unchanged -- anchor on the arm and not on the weapon, so that
+no weapon's mass moves the whole game's tempo -- and this is a closer reading of it, not a retreat
+from it. The literal is pinned by a test, because it cannot be derived where it is written.
+
+### A floor was added that the registration did not name
+
+`strokeInertiaScale` returns `max(1, (I/ref)^(gain/2))`: a load never makes a stroke quicker than
+the benched shape, only slower. This is a reading of the bench rather than a convenience. A 1.3 kg
+blade peaks at 19.87 m/s and an 18 kg mace at 18.71, so **at the light end the arm is not
+inertia-limited at all** -- it is limited by `ANCHOR_DRIVE.linearRate` and by the motor's force, and
+the shapes are the fastest stroke that actuator makes. Without the floor a pitch chain under a
+blade, at a ninth of the reference, would sweep its arc in 0.067 s: less than one ask at `askHz`,
+and therefore a stroke no mind could steer, gate or abort. It is recorded here as a departure from
+the registered pure-physics rule, with its reason, rather than folded in quietly.
+
+### Prediction 3 is met, and the shield stops being a weapon
+
+The owner's complaint was that the plate *"seems like a strong weapon, which is confusing because
+it's meant to be used defensively."* On the default wrist chain the plate now scales by 1.611 --
+the second-slowest thing in the pool after the maul, and slower than the mace it used to trade
+with. No mass was touched to achieve it. What is **not** addressed here and remains owed is the
+other half of the owner's ask: that a shield *"needs to absorb damage (without hurting the golem)
+and it should weigh less."* Absorbing without transmitting is a routing question rather than a mass
+question, and the plate's 16.6 kg is still a stone board 80 mm thick.
+
+### Prediction 4 is not yet tested and is the one that decides the next change
+
+The registration predicted that after this change the sword leads every blunt terminal on every
+target by between 2.8 and 6.0, because `crushJoulesPerDamage / cutJoulesPerDamage` is 3.31 and at
+equal energy a cut is that many times cheaper. Nothing above tests it: it needs damage from bouts.
+If it holds, the pool is unbalanced in the opposite direction from the one the record has always
+recorded, and the lever is the ratio of those two constants rather than any weapon's mass. This
+section deliberately does not move them.
+
+### What this voids
+
+Every rating, every league curve and every snapshot in `snapshots/` was fitted and rated with the
+scaling absent, which is `gain` 0. None of those numbers describes the game as it now stands. The
+row is a dial rather than a branch precisely so that a re-rating can turn it off and compare, and
+that comparison is the first thing the new regime owes.
