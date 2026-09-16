@@ -36042,3 +36042,74 @@ freedom:** AN's t 2.09 is **p 0.091**; AK's withdrawn t 2.31 was **p 0.069**; AM
 is **p 0.0006** and its at-spawn t 6.30 is **p 0.0015**. AN's sign count, five of six paired
 differences positive, is **p 0.219** -- the weakest of the readings its own data supports, and the
 one that looks strongest when quoted alone.
+
+## Experiment AO, complete -- 2026-09-16: AN does not replicate, its two descriptive numbers are withdrawn by name, and the curriculum family closes on evidence
+
+Scored at 15:45 on the predictions in `48ad661`. **Prediction 0 met, predictions 1, 2 and 3 all
+missed.** The falsifier was written on prediction 2 and **it fires.**
+
+### 0. The instrument -- MET
+
+Eighteen leagues, 120 iterations each, 0 short. Every stage-two header names its own arm's
+checkpoint. **0 rating rows off the manifest** across all twelve.
+
+### The readings, at six seeds AN never saw
+
+| seed | ramp `L` | flat `L` | ramp less flat |
+| --- | ---: | ---: | ---: |
+| 20260923 | +0.0445 | -0.0278 | +0.0724 |
+| 20260924 | +0.0386 | +0.0504 | -0.0118 |
+| 20260925 | +0.0458 | +0.0187 | +0.0271 |
+| 20260926 | +0.0060 | +0.0105 | -0.0045 |
+| 20260927 | +0.0978 | -0.0119 | +0.1097 |
+| 20260928 | -0.0436 | +0.0349 | -0.0785 |
+
+- **1. The six new seeds repeat AN on their own -- MISSED.** Mean **+0.0191**, sd 0.0666, **t
+  0.70**, against the registered 2.57. Three of six above zero, against AN's five.
+- **2. Twelve seeds an arm carry it -- MISSED.** The twelve paired differences mean **+0.0269**,
+  sd 0.0532, se 0.0154, **t 1.75** against the registered 2.20. Eight of twelve above zero. The
+  95 % interval is **-0.007 to +0.061**. AN's six alone read +0.0348; AO's six read +0.0191.
+- **3. The ramp arm's seeds agree more closely -- MISSED, and reversed.** At the new seeds the ramp
+  arm's sd is **0.0471** against the control's **0.0290**: F **0.38**, where AN read 7.96. **AN's
+  tight spread was a property of those six draws and not of the training.**
+
+### The falsifier, as registered
+
+**AN's two descriptive numbers are withdrawn by name.** The five-of-six above zero: at twelve
+seeds the ramp arm is 10 of 12 above zero and the control is 6 of 12, which is not the separation
+the six-seed count suggested. The variance ratio: reversed at the second reading, and withdrawn
+outright.
+
+**The curriculum family is closed on evidence rather than on a missed line.** Idle pre-training was
+the family's cheapest instance run at its best case -- a rung the fit demonstrably masters, AM at
+t 7.59 -- and at the width AL set as the minimum honest design it does not move the fencer bar.
+The rung above `idle` is not registered. The reverse order is not registered. The distance ramp was
+already closed by AM.
+
+### What the twelve-seat reading actually says, stated without a claim on it
+
+**The pooled estimate is +0.027 with an interval from -0.007 to +0.061.** That is not zero and it
+is not established. **Resolving a difference of that size needs about 19 seeds an arm**, which is
+around 15 hours of host time for the two arms, against the 5 hours AN cost and the 8 that AO did.
+The record states the interval and stops.
+
+**AL's lesson holds a third time, and it is the most reliable thing this pair of experiments
+produced.** The control arms of AN and AO are the same manifest at twelve different seeds, and
+their two six-seed batches read **-0.0176 and +0.0125**, a gap of **0.030**. That is the third
+independent sighting of six-seed batches of one manifest differing by about three hundredths, after
+AG's six at 110..120 against AL's fresh six (-0.0495 against -0.0144, Welch t 2.02) and AK's arm
+against AL's replication of it (+0.031 against -0.019). **Any lever smaller than 0.04 is invisible
+to a six-seed design in this cell, and the record should stop buying them.**
+
+### What it licenses
+
+**The reward and the credit path, which is where AM pointed and where AN's falsifier already sent
+the queue.** What a stroke is paid; what a mirrored bout pays for, given `league-long` got
+monotonically worse at killing a motionless body while training mirrored; and where between
+iteration 5 and 60 the fit's own gradient stops carrying signal. **Those are measurements of the
+objective, not of a schedule**, and AM is the evidence that the objective is what differs between a
+cell this optimiser learns and a cell it does not.
+
+**Nothing ships, and one thing is owed.** Twenty-four minds now exist at 240 iterations on this
+manifest and 16 of the 24 read above `golem-fencer` on a held-out pool. **Not one of them has been
+seen to fight.** The next owner-facing item is his eye on two of them, and it costs no compute.
