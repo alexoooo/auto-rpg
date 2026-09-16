@@ -36652,3 +36652,93 @@ Every rating, every league curve and every snapshot in `snapshots/` was fitted a
 scaling absent, which is `gain` 0. None of those numbers describes the game as it now stands. The
 row is a dial rather than a branch precisely so that a re-rating can turn it off and compare, and
 that comparison is the first thing the new regime owes.
+
+## AR -- damage against `idle` is not a function of stroke speed, and what that costs the agenda
+
+AQ shipped a dial, `STROKE_INERTIA.gain`, whose whole purpose is that the old physics can be turned
+back on and compared. This section is the first thing it bought, and it was not what it was built
+for.
+
+### The measurement
+
+`scripts/idle-probe.mjs --mind golem-fencer --terminals all --bouts 8 --seed 20260918`, 416 bouts
+over 52 builds, mirrored, run three times: with the scaling off, with it on, and with it at twice
+the physical exponent. Nothing else moved between the runs.
+
+| armed terminal | gain 0 damage | gain 1 damage | gain 2 damage | gain 1 vs 0 |
+| --- | ---: | ---: | ---: | ---: |
+| maul | 61.2 | 63.8 | 56.5 | +4 % |
+| blade | 40.7 | 40.3 | -- | -1 % |
+| mace | 34.2 | 33.6 | 26.2 | -2 % |
+| plate | 14.7 | 14.0 | -- | -5 % |
+| fist | 15.8 | 13.7 | -- | -13 % |
+| whip | 2.8 | 2.1 | -- | -25 % |
+
+At `gain` 1 the maul's arc is **3.13 times** longer than it was and its damage against the dummy
+moves by four per cent, in the wrong direction. At `gain` 2 the same arc is **9.81 times** longer --
+2.16 seconds to sweep a stroke that used to take 0.22 -- and the maul still books 56.5 against
+63.8, keeping **89 per cent** of its damage. Damage is `E = 1/2 mu v^2` over a joules-per-damage
+constant. Had the arriving speed fallen with the arc, 9.81 times slower would have left about one
+per cent of the energy.
+
+**So against `idle` the damage a terminal books is very nearly independent of how fast it is
+swung.** It is a function of mass in contact. The maul leads this table because it is 48 kg, not
+because it strikes well -- the Node bench has it peaking at 6.86 m/s, the worst striker of the five,
+and it misses its mark by 1.3 m.
+
+### This was half-written on this page already
+
+The `swingerMind` note in `scripts/measure.mjs` says it in the other direction and nobody joined the
+two up: *"against `idle` the swinger's blade is in near-permanent contact with a body that never
+moves, so a window in which the blade is being driven rather than shoved almost never opens, and
+the in-bout figure starves to about 4 m/s. That is a fact about the instrument rather than about
+the policy."* It was recorded as a caveat about reading tip speed. It is not a caveat. It is what
+the whole cell is.
+
+### What it costs the research agenda, and this is the largest thing on this page
+
+The record's central unsolved fact is that the actor gradient has no reproducible content against
+`golem-fencer` and does have it against `idle`. AP reproduced that tonight on a fourth axis: 0.0272
+at t 1.23 against the fencer, 0.0655 at t 4.17 against the dummy, same mind, same window, same
+bouts. Sixteen reward tables, reward sparsity, seventeen credit horizons, five baselines, the head
+decomposition, the abort latch, a factor of eight in bouts and now a class cut have each been
+eliminated as the explanation, and **every one of them changed how an existing event stream was
+priced rather than changing the stream.**
+
+Here is a mechanism that changes the stream, and it is not in the optimiser at all:
+
+**The two cells are not the same task.** Against a body that never steps away, never blocks and
+never recedes, a golem scores by leaning on it, and the gradient is a clean sample mean because the
+thing being rewarded -- get mass into contact and keep it there -- happens on almost every step and
+varies smoothly with what the mind did. Against `golem-fencer`, who steps away and parries, contact
+is exactly what is denied, so what is left is striking, and a strike pays only when its arriving
+speed clears the damage floor. **A mind trained on the dummy learns to shove. Nothing about shoving
+transfers to an opponent who will not be shoved, and the fencer cell's gradient is a gradient of
+zero with noise around it because almost nothing in it pays.**
+
+That accounts for every part of the dissociation without appealing to a defect in the fit, and it
+explains the one number that never fitted the "the optimiser cannot learn" story: AM trained the
+idle cell by forty points of kill rate with the same optimiser, the same head, the same reward
+table and the same bout count that buy nothing against the fencer.
+
+### What this does not establish, stated because the temptation is to go further
+
+It does **not** show that the fencer cell's signal is absent -- only that the dummy cell's signal is
+a different quantity. The named test for the other half is the one the eye-gate section already
+registered and which is still owed: the distribution of arriving energy per landed stroke against
+each opponent, and the fraction of strokes falling under `cutMinJoules` in each. This measurement
+makes that test more urgent rather than less, because it removes the fallback reading in which the
+two cells differ only in difficulty.
+
+It also does not say `--opponent idle` is useless. It says what it trains, which nobody had
+established, and that a curriculum which starts on the dummy is teaching a skill the real cell does
+not reward. **Any bar stated on `idle` measures shoving.** That applies to AM's forty points and to
+`idle-far11.json` in `snapshots/`, both of which this page reports as stage-one successes.
+
+### The immediate consequence for AQ
+
+AQ's prediction 4 -- that after the timing fix the sword leads every blunt terminal on every target
+-- cannot be tested on this instrument, and the gain-0-versus-gain-1 column above is not evidence
+against it. The blade already out-damages the mace here, 40.3 to 33.6, and the maul leads both at
+63.8 by carrying 48 kg into a body that cannot move away. A pool where strokes have to land is the
+only place that prediction means anything, and it is the next collection.
