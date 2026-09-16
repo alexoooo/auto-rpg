@@ -36742,3 +36742,46 @@ AQ's prediction 4 -- that after the timing fix the sword leads every blunt termi
 against it. The blade already out-damages the mace here, 40.3 to 33.6, and the maul leads both at
 63.8 by carrying 48 kg into a body that cannot move away. A pool where strokes have to land is the
 only place that prediction means anything, and it is the next collection.
+
+## AS -- AP's four cells re-run under the new physics, registered before it collects
+
+AP measured the gradient's content on the build axis in a regime that no longer exists. It ran at
+`STROKE_INERTIA.gain` 0 -- constant stroke timing, every terminal swung at the same rate -- and its
+two terminals are exactly the two whose timing the fix moved most: the maul by 3.13x and the mace by
+2.06x. AP's own close-out named this re-run. Nothing else moves: the same seed 20260917, the same
+two pools, the same 128 bouts by 30 iterations, the same `latchAbort=true`, the same class cut at
+400, the same four cells. The script is AP's byte for byte except the label prefix.
+
+**What AP measured.** Fencer cells t 1.23 (pool 2) and 1.50 (pool 11); idle cells t 4.17 and 2.27.
+The dissociation reproduced on a fourth axis, and AR then gave it a mechanism.
+
+### The predictions, written before the run starts
+
+1. **The idle cells do not move.** Both t values land within 1.0 of AP's 4.17 and 2.27. AR measured
+   that damage against `idle` keeps 89% of its value when the arc is stretched 9.81x, because what
+   pays there is mass in contact and not stroke speed. A cell whose reward is insensitive to timing
+   cannot have its gradient changed by a timing fix.
+
+2. **The fencer cells do not come alive.** Neither t rises above 2.0. This is the prediction worth
+   writing down because it is the opposite of what one hopes: the timing fix is physically right and
+   the owner asked for it, but AR's mechanism says the fencer cell is starved because contact is
+   *denied*, and a slower stroke is easier to deny, not harder.
+
+3. **Directionally the fencer cells get worse, not better**, and the maul cell degrades more than
+   the mace cell, because 3.13x is a larger retiming than 2.06x. This is a weaker claim than 2 and
+   six-seed noise near 0.03 may swallow it; it is registered so the sign is on the record either
+   way.
+
+4. **The margin against `idle` falls in the fencer cells** relative to AP, as strokes arrive slower
+   and a larger share of them lands under `cutMinJoules`.
+
+### What kills the reading
+
+If **both** fencer cells clear t 2.0, prediction 2 is wrong and with it AR's account of why the two
+cells differ: the timing fix would have bought trainable signal in the cell that matters, and the
+next phase is a fit in that cell rather than a new opponent. That outcome would be the best news of
+the night and it is the one this run is built to be able to deliver.
+
+If the idle cells move by more than 1.0 in t, prediction 1 is wrong, AR's 89% does not generalise
+from damage to gradient, and the shoving account needs the arriving-energy instrument before any
+more weight is put on it.
