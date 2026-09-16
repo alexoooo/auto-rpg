@@ -106,7 +106,7 @@ import { pathToFileURL } from "node:url";
 import { availableParallelism } from "node:os";
 
 import { armedTerminal, runJobs, scheduleJobs } from "./tournament.mjs";
-import { formatIdleProbe, idleProbe } from "./idle-probe.mjs";
+import { formatIdleProbe, idleProbe, normalisationOf } from "./idle-probe.mjs";
 import {
   FIT_NAME, FitPool, GAUSSIAN_ENTROPY_OFFSET, PPO_LEAGUE, RATING_POOLS, REWARD_KEYS, UNIFORM_NAME,
   checkEntropyTarget, episodeReturns,
@@ -489,12 +489,18 @@ export async function trainRole({
  * overnight on the question the league is for, rather than on the twenty iterations of finding
  * the weapon that a single-opponent run has already paid for.
  *
+ * **The normalisation is read by both of its names.** `scripts/train-ppo.mjs` writes it as
+ * `normalisation` and this file writes it as `norm`, so a reader that took one name silently
+ * handed a role no normalisation at all -- and `--from tournaments/<run>/pool-120.json`, the
+ * league's own checkpoint, is the case that took the missing one. `normalisationOf` takes either
+ * and refuses a file carrying neither, by name.
+ *
  * The critic is the one thing that may not fit: `train-ppo.mjs`'s CLI defaults to a 64x64 value
  * net and so does this file, but a checkpoint written under `--value-hidden` something else has a
  * different number of value weights and there is nothing sensible to do with them. That case
  * starts the critic over rather than guessing, and says so.
  */
-export function roleFromCheckpoint(json, seed, shape = null) {
+export function roleFromCheckpoint(json, seed, shape = null, what = "the checkpoint") {
   const valueWeights = Float64Array.from(json.valueWeights ?? []);
   const fitted = valueWeights.length === netSize(valueLayoutOf(shape));
   return {
@@ -502,7 +508,7 @@ export function roleFromCheckpoint(json, seed, shape = null) {
       weights: Float64Array.from(json.weights),
       valueWeights: fitted ? valueWeights : initWeights(valueLayoutOf(shape), (seed ^ 0x1c) >>> 0),
       logSigma: Float64Array.from(json.logSigma),
-      norm: json.normalisation,
+      norm: normalisationOf(json, what),
       seed: seed >>> 0, history: [], bornAt: 0,
     },
     critic: fitted,
@@ -1241,7 +1247,7 @@ if (isMain) {
     if (existsSync(statePath(dir))) throw new Error(`${statePath(dir)} exists; a league does not overwrite another league, pass --resume or --dir`);
     let main = freshRole(seed, shape);
     if (from !== null) {
-      const started = roleFromCheckpoint(JSON.parse(readFileSync(resolve(from), "utf8")), seed, shape);
+      const started = roleFromCheckpoint(JSON.parse(readFileSync(resolve(from), "utf8")), seed, shape, from);
       main = started.role;
       console.log(`  starting the main from ${from}`
         + `${started.critic ? "" : " -- its critic is a different width and was started over"}`);

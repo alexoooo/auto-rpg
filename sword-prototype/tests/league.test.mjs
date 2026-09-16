@@ -16,9 +16,12 @@
 // So the test lives beside the curve, and it is checked here against the same two-sided sum done
 // in exact integers -- arithmetic that shares no code with the log gamma the script uses.
 //
-// **Twenty-six mutations were watched red on 2026-09-08 and 2026-09-09**, each applied alone and
-// then restored. Twelve are in `scripts/league.mjs`, four in `scripts/rate-snapshots.mjs`, seven
-// in `scripts/probe-snapshots.mjs` and three in `scripts/idle-probe.mjs`:
+// **Thirty-one mutations were watched red on 2026-09-08, 2026-09-09, 2026-09-15 and 2026-09-16**,
+// each applied alone and then restored. Fourteen are in `scripts/league.mjs`, four in
+// `scripts/rate-snapshots.mjs`, seven in `scripts/probe-snapshots.mjs` and six in
+// `scripts/idle-probe.mjs`. **The count and the split had drifted from the table below**: three
+// rows were added on 2026-09-15 with the probe's executor flag and the sentence was not moved, so
+// it read twenty-six over twenty-nine rows. It is recounted here against the rows themselves.
 //
 // | mutation | what went red |
 // |---|---|
@@ -33,6 +36,8 @@
 // | `probeJobs` writes the start distance on one corner of a pairing | the start-distance test |
 // | `probeJobs` carries a start distance the caller did not ask for | the start-distance test |
 // | the probe's CLI drops `--tactics` on the floor | the probe executor test |
+// | `roleFromCheckpoint` reads `normalisation` only, as it did | the pool-file start test |
+// | `roleFromCheckpoint` fills an absent normalisation with a fresh one | the pool-file start test |
 // | `snapshotIterations` sorts the file names rather than the numbers | the curve's snapshot list |
 // | `chosenSnapshots` filters a missing iteration away instead of refusing it | the curve's snapshot list |
 // | `boutsPerOpponent` does not round up to an even count | the curve's snapshot list |
@@ -497,6 +502,30 @@ test("a league starts from a trainer's checkpoint, and says when the critic will
   assert.equal(wide.role.valueWeights.length, started.role.valueWeights.length);
   assert.ok(wide.role.valueWeights.some((w) => w !== 0), "a started-over critic is drawn, not zeroed");
   assert.deepEqual(Array.from(wide.role.weights), Array.from(role.weights), "the actor is untouched");
+});
+
+// The same defect as the probe's, in the reader one directory over, found the same way: by pricing
+// an experiment whose every arm is `--from tournaments/<run>/pool-120.json`. A pool file writes
+// `norm`; this reader took `normalisation` and returned a role whose normalisation was `undefined`,
+// silently, with `critic fitted true` beside it. The league's own checkpoint was the one shape its
+// own `--from` could not read.
+test("a league starts from its own pool file, whose normalisation is spelled the other way", () => {
+  const role = freshRole(SEED);
+  const norm = { count: 1000, mean: role.norm.mean, variance: role.norm.variance };
+  const body = {
+    seed: SEED, weights: Array.from(role.weights), valueWeights: Array.from(role.valueWeights),
+    logSigma: Array.from(role.logSigma),
+  };
+  const pool = roleFromCheckpoint({ ...body, norm }, SEED);
+  const trainer = roleFromCheckpoint({ ...body, normalisation: norm }, SEED);
+  assert.equal(pool.role.norm, norm, "a league pool's `norm` is the normalisation");
+  assert.deepEqual(pool.role, trainer.role, "the two spellings start the same role");
+  // The refusal names the file it was handed, because an absent normalisation is filled in
+  // downstream with the shipped table's and nothing complains.
+  assert.throws(
+    () => roleFromCheckpoint(body, SEED, null, "tournaments/idle-far2/pool-120.json"),
+    /tournaments\/idle-far2\/pool-120\.json carries neither/,
+  );
 });
 
 test("emphasising a weapon class repeats its builds in the draw list and drops nothing", () => {
