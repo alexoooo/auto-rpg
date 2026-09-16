@@ -36154,3 +36154,106 @@ the idle kill rate. The dev server's read-only window now covers `snapshots/` as
 **What this does not do.** It ships no weights as a default, moves no executor row, and settles
 nothing about `latchAbort` as a shipped default -- which stays the owner's decision. It removes the
 reason the owed gate could not be asked.
+
+## Pre-registration -- 2026-09-16: Experiment AP, the gradient at the policy the record is actually stuck at, and whether the pool's bodies want the same thing
+
+**Two things are owed and one measurement buys both.**
+
+**The first is a scope problem with the record's central diagnosis.** Every gradient number in this
+record was taken at `bracket-fencer` or `bracket-idle` **pool-30** -- a thirty-iteration bracket
+arm. The grid of 2026-09-12, the held row, the sixteen reward tables, the seventeen credit
+horizons, the five baselines, the head decomposition and Experiment F's latched re-take are all
+measurements of that policy. Since then AG through AO have put **twenty-four minds at 240
+iterations** on a different manifest, sixteen of which read above `golem-fencer` on a held-out
+pool, and the strongest claim in the record -- *the gradient against `golem-fencer` has no
+reproducible content* -- has never been checked at one of them. If it has stopped being true at
+240 iterations, every negative from AG onward needs re-reading. If it is still true, the claim
+stops being a fact about one bracket checkpoint and becomes a fact about this cell.
+
+**The second is a measurement the record names as owed, twice, and has never made.** The grid's
+closing paragraph asks whether the bodies in one pool demand contradictory policy changes -- in
+which case averaging more of them drives the mean toward zero rather than toward a signal, which
+is a different diagnosis from a noisy gradient and implies a different fix. `--classes` was built
+for it on 2026-09-12, is covered by four mutations in `tests/gradient-probe.test.mjs`, and **has
+never been run**. It costs nothing extra on a collection that is happening anyway.
+
+### The instrument
+
+`scripts/gradient-probe.mjs --hold`, which collects at a fixed policy and never fits, so an
+iteration is one independent collection at one fixed mind and the row is a pure sample statistic.
+The class cut takes the fit's own shuffled order, groups the asks by the body that fought them and
+reports three cosines: **within** a class against itself, **between** two classes, and **pooled**
+-- two blocks of exactly the within-class half sizes drawn off the same order with class ignored,
+which is the control that makes the other two comparable at matched size.
+
+### Manifest
+
+Four cells, each `--hold --classes build --class-floor 400 --bouts 128 --iterations 30 --seed
+20260917 --shards 4 --workers 14 --terminals maul,mace --tactics latchAbort=true`, mirrored
+bodies, two concurrent processes at a time. The logs are the ap-* files under tournaments, which
+is gitignored, so they are named bare.
+
+| cell | mind | its bar vs `golem-fencer` | opponent |
+| --- | --- | ---: | --- |
+| AP-f2 | `tournaments/an-ramp2` at `pool-120.json` | +0.011, a typical one of the 24 | `golem-fencer` |
+| AP-i2 | the same mind | -- | `idle` |
+| AP-f11 | `tournaments/ao-ramp11` at `pool-120.json` | +0.098, the best of the 24 | `golem-fencer` |
+| AP-i11 | the same mind | -- | `idle` |
+
+**One mind in two cells is the whole design.** The opponent is the only thing that differs between
+AP-f2 and AP-i2, so a dissociation between them is a property of what is being fought and not of
+which checkpoint was picked. Two minds rather than one because a single 240-iteration checkpoint
+is one seed, and the record has been bitten three times by reading a six-seed batch as a fact.
+
+**Latched, and this is not optional.** Every league from AM onward trained under
+`latchAbort=true`; `checkStartExecutor` refuses the run otherwise, which is Experiment Y's lesson
+enforced in code. The comparison cells in the record -- F's latched pair -- were taken latched too.
+
+### The statistic
+
+Per cell, the **mean actor `|S|^2` over the 30 iterations with the standard error over
+iterations**, which is the record's own quantity: for two independent half-means the dot estimates
+the squared true gradient and `norm^2 - dot` estimates what the draw contributed. And per cell the
+three class cosines, each a mean over iterations with its standard error.
+
+### Predictions
+
+1. **The fencer cells' actor `|S|^2` is within two sigma of zero at both minds.** Continuity with
+   Experiment F, which read 1.335e-4 +-5.72e-3 at t 0.02 latched at pool-30. MET if both `|t|` are
+   below 2. **This is the prediction that is interesting to miss**: a mind at 240 iterations whose
+   gradient has become measurable would overturn the reading that every negative since AG rests on.
+2. **The idle cells' actor `|S|^2` clears zero at t above 2 at both minds.** The positive control,
+   without which prediction 1 is indistinguishable from a broken instrument. The 2026-09-13 idle
+   cell read 1.907e-2 +-4.15e-3 at t 4.60 at pool-30, and AM then trained that cell by forty points
+   of kill rate, so a null here is an instrument fault and not a finding.
+3. **Against `golem-fencer`, `within` exceeds `pooled` at matched size by more than +0.02, pooled
+   over the two fencer cells, at t above 2.** This is the pool-disagreement reading: bodies that
+   want the same thing give a `within` near `pooled`, and bodies that contradict give a `within`
+   above it with `between` at zero.
+4. **That gap is larger against `golem-fencer` than against `idle`.** Prediction 3 means nothing on
+   its own -- if class disagreement is the same size in the cell that demonstrably learns, it is a
+   property of the pool rather than of the failure. This is the prediction that makes 3 diagnostic,
+   and it is the one I expect to carry the entry.
+
+### The falsifier, and what each branch licenses
+
+**If prediction 4 misses -- the `within` less `pooled` gap is no larger against the fencer than
+against the dummy -- then pool heterogeneity is eliminated as the explanation of the dead fencer
+gradient**, whatever prediction 3 reads on its own. That is the outcome I am registering against,
+because it is the one that costs a hypothesis the record has been carrying unmeasured since
+2026-09-12, and eliminating it leaves exactly one candidate standing: that the fencer cell's
+returns are decided by the bout draw -- which bodies, which streams, who the fencer was going to
+beat anyway -- rather than by the mind's own actions, in which case the score-function estimator
+has nothing to weight and no reward table, horizon, baseline or sample budget repairs it. That
+would be the next registration and it is a different instrument.
+
+**If prediction 1 misses**, everything else in this entry is secondary and the entry says so: a
+measurable gradient at 240 iterations against `golem-fencer` means the record's central negative
+is a statement about a thirty-iteration bracket checkpoint and not about this cell, and the
+next night goes to re-taking the bracket at the policy the leagues actually reach.
+
+**If predictions 1, 2 and 4 all hold**, the dissociation is confirmed at the policy the record is
+stuck at, pool disagreement is named as the mechanism, and the fix it licenses is a narrower pool
+or a per-class gradient -- neither of which is adopted here. **Nothing ships from this experiment
+under any branch.** It is a diagnostic, its cost is about an hour of host time, and its whole
+value is which of two remaining explanations the next night is spent on.
