@@ -36919,3 +36919,55 @@ what the owner actually saw.
 The second is that the eye gate should be re-asked on a pair the tree does not refuse, because the
 record cannot presently tell the difference between "golem combat looks bad" and "the one matchup
 the owner was shown looks bad".
+
+## AU -- blade mass against the decided fraction, registered before it collects
+
+The owner said a 1.30 kg sword seems very low. AT then measured that 80 % of the blade's contacts
+land under its own cut floor and that its median contact is 0.5 J against a floor of 5.96. The
+section above adds that the matchup the owner watched is `blade|blade`, whose frozen decided
+fraction is 36 %. AU asks whether blade mass is the lever for all three at once.
+
+**It is not obvious which way it goes**, which is why it is measured. Mass raises the reduced mass
+linearly, and mass raises `swingInertia`, which raises the stroke scale as a square root, which
+lowers the closing speed, which lowers arriving energy as a square. The two terms fight.
+
+Five masses: 1.30 (shipped), 2.00, **3.14**, 4.50, 6.50. The third is not a round number -- it is
+`TERMINAL_BLADE`'s own comment read back at it. That comment records that the collider is
+0.050 x 0.80 x 0.010 m and that "solid steel would be 3.1 kg", and sets 1.30 anyway to match a real
+tapered arming sword. 3.14 is therefore the mass the blade would have under the rule every *other*
+terminal in the pool already follows -- density times the collider's own volume -- and it is the
+only candidate in the range that is not a tuning knob.
+
+Twelve builds, four bouts each, both arrangements, seed 20260906, cap 60, `golem-fencer` on both
+sides, every build self-paired. No source file is edited: the mass is mutated before the modules
+that capture it are imported, in a fresh child process per mass.
+
+### The predictions
+
+1. **Arriving energy rises monotonically with mass, and by less than the closed form says.** With
+   `I(m) = 7.579 + 1.9577 m` the arithmetic gives multipliers against 1.30 kg of 1.36, 1.78, 2.14
+   and 2.49. **A four-build smoke at cap 20 has already run and measured 1.84x at 6.50 kg against
+   the 2.49 predicted**, so the registration predicts the full run lands near the smoke rather than
+   near the closed form, and the closed form is recorded as an over-estimate before the data
+   arrives rather than after. Stated so the disagreement is on the record either way.
+
+2. **The share of contacts under floor falls monotonically**, from 76-80 % at 1.30 kg to below 60 %
+   at 6.50 kg. The smoke measured 76 % and 61 %.
+
+3. **Damage per contact rises by about as much as energy, not more.** The reasoning that floor
+   crossings would make damage super-linear in energy is recorded and then withdrawn: the smoke
+   moved energy 1.84x and damage 1.72x, so the floor effect did not dominate. Predicted within
+   20 % of the energy multiplier.
+
+4. **The bar: the decided fraction rises with mass.** Above 50 % at 3.14 kg and above 60 % at
+   6.50 kg, against the frozen 36 %. This is the column the experiment is for, and the only one
+   that touches what the owner actually saw.
+
+### What kills it
+
+**If the decided fraction is flat across 1.30 to 6.50 kg, mass is not the lever.** Energy could
+double and the blade still fail to finish, which would mean the indecisiveness is in the floors and
+the joules-per-damage prices rather than in the weapon, and the next experiment is the floors. That
+is a live possibility and not a formality: AT found the maul clearing its floor on 64 % of contacts
+and the blade on 20 %, and closing that gap by mass alone asks a 1.30 kg weapon to do what a 48 kg
+one does.
