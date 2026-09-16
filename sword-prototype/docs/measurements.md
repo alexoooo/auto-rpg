@@ -36315,3 +36315,100 @@ points -- so that when AP's entry scores prediction 4 as missed, that scoring is
 **The narrower claim AP's registration should have made**, and which is true: the class cut has
 never been run on the **build** axis, never latched, and never at a mind past 30 iterations, and
 it has never been scored into this record at all.
+
+## The eye gate, asked and answered -- 2026-09-16: the owner watched, and named a physical defect the instruments had priced and never seen
+
+Twenty-four minds have existed at 240 iterations since AO closed, sixteen of them reading above
+`golem-fencer` on a held-out pool, and **not one had been watched fight.** The gate was owed from
+the signal set's Session 01 and has been carried forward as owed in every entry since. It was asked
+today, on committed snapshots pulled onto a second machine, and this is the verdict in the owner's
+own words, recorded before any of it is argued with:
+
+> "honestly it was kinda jittery and close up, it didn't look graceful at all -- but it was somewhat
+> interesting. it's promissing, but I think we'll need smarter learned policy to get really good.
+> one thing i noticed is the weapons were being swung very fast, it didn't look like they were
+> heavy, it looked like they were light as air based on their movement (the whole fight was very
+> hectic and jittery). also a lot of attacks didn't really seem to do anything, and then the fight
+> was over in one or two key attacks."
+
+**Three of the four are structural claims and not matters of taste, and two of them are confirmed by
+reading the tables rather than by any new measurement.**
+
+### 1. The weapons are weightless, and the heaviest one is the fastest in the game -- confirmed
+
+A stroke's duration is a constant of the stroke *shape*, and no shape reads a weapon's mass or its
+inertia. `COMMITTED_SHAPES` and `STROKE_SHAPES` in `src/golem/tactics-v3.ts` and
+`src/golem/tactics.ts`:
+
+| terminal | chamber | arc | whole stroke |
+| --- | ---: | ---: | ---: |
+| club -- the 48 kg maul head and the 3.4 kg mace alike | 0.22 s | 0.22 s | **0.44 s** |
+| sword, 1.35 kg | 0.32 s | 0.20 s | 0.52 s |
+| empty -- a fist | 0.32 s | 0.11 s | 0.43 s |
+| thrust, every terminal with a point | 0.22 s | 0.12 s | 0.34 s |
+
+**The 48 kg maul winds up in two thirds of the time a 1.35 kg sword does, and swings within a
+hundredth of a second of a bare fist.** Nothing corrects this downstream: the limb is driven by a
+position motor whose force ceiling is `ANCHOR_DRIVE.linearForce` 1400 N, and `src/golem/config.ts`
+records at that ceiling's own derivation that *the rate limit and not the force* is what binds --
+so the limb tracks the commanded arc and the mass does not slow it.
+
+**Mass is paid in one direction only.** `CONFIG.damage` prices a blow as the kinetic energy of the
+reduced mass of the pair, so the maul's 48 kg buys it energy, while the shapes charge it nothing for
+carrying them. That is not a balance question; **it is an inconsistency between two models in the
+same tree**, and it makes a heavy terminal strictly dominant. The record has been reporting the
+consequence for weeks without naming the cause: AM's idle probe reads maul 0.947 against mace 0.385
+on kill rate, and every terminal table since the style set has the same ordering.
+
+### 2. Many attacks do nothing and one decides the fight -- confirmed, and it is the damage law
+
+`CONFIG.damage` wounds by arriving energy over a joules-per-damage constant, with a **floor below
+which nothing happens at all** -- `cutMinJoules` 5.96 J, restated from the retired `minCutSpeed` of
+3.0 m/s, and the blunt floor from `minCrushSpeed` 2.2. Energy is quadratic in closing speed. So a
+stroke that arrives slow is not a small wound, it is **exactly zero**, and one that arrives
+fast is worth the square of its speed. A fight of many nothings ended by one or two blows is not an
+artifact of the learned policy; **it is what this damage law does**, and the owner watched it.
+
+### 3. Jittery -- described, not yet diagnosed
+
+The command is re-drawn at every ask, 12 Hz, and the four axes the feet and trunk read --
+`standOff`, `advance`, `strafe`, `lean` -- are read on **every** step, with no latch and no
+smoothing. `latchAbort` was added for the gate that had the same shape; nothing equivalent exists
+for the continuous axes. That is a mechanism and it is a guess; it is written here as the first
+thing to measure and not as a finding.
+
+### What this costs the research programme, and it is the largest thing on this page
+
+The record's central unsolved fact is that against `golem-fencer` the actor gradient has no
+reproducible content -- and sixteen reward tables, reward sparsity, seventeen credit horizons, five
+baselines, the head decomposition, the abort latch and a factor of eight in bouts have each been
+eliminated as the explanation. **Every one of those experiments changed how an existing event stream
+was priced. Not one of them changed the event stream.** Finding 2 says what that stream is: nearly
+all zeros, with rare spikes whose size goes as the square of a speed the opponent is actively
+denying. A reward table cannot put signal into a gradient when the physical events being rewarded
+are almost always literally zero, and no baseline or horizon repairs an outcome decided by which
+one or two spikes happened to land.
+
+**And it explains the dissociation that AM and the gradient grid both found and neither could
+account for.** Against `idle` -- a body that never steps away, never blocks, never recedes --
+strokes arrive at the speed the arm made, clear the floor, and the return moves smoothly with
+what the mind did: the gradient is a sample mean, `|S|^2` clears zero at t 4.60, and AM trained that cell by forty
+points of kill rate. Against `golem-fencer`, who steps away and parries, strokes arrive slow or not
+at all, fall under the floor, and pay **nothing** -- so the return is decided by the rare exception
+rather than by the policy, which is a gradient of zero with noise around it.
+
+**That is a hypothesis, it is stated here before it is tested, and it is cheap to test:** the
+distribution of arriving energy per landed stroke, against `golem-fencer` and against `idle`, and
+the fraction of strokes under the floor in each. If most strokes clear the floor against the dummy
+and most fall under it against the fencer, the mechanism is confirmed and **the next change is
+upstream in the physics, not in the optimiser** -- which is the direction the owner opened in the
+same message: *"I'm open to more fundamental changes (like physics or health calc or speed, etc.)."*
+
+### What the owner asked for next, recorded as the standing priority
+
+> "I think we'll need to do a lot more adjustments to get this to a smooth state, but yeah for now
+> I think we need to get some basic training recipy to work reliably -- but I'm open to more
+> fundamental changes (like physics or health calc or speed, etc.)."
+
+**A reliable basic training recipe is the near-term goal and fundamental changes are permitted.**
+No default moves on this page. The gate is asked, it is answered, and it is no longer owed.
