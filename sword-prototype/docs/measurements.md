@@ -36257,3 +36257,61 @@ stuck at, pool disagreement is named as the mechanism, and the fix it licenses i
 or a per-class gradient -- neither of which is adopted here. **Nothing ships from this experiment
 under any branch.** It is a diagnostic, its cost is about an hour of host time, and its whole
 value is which of two remaining explanations the next night is spent on.
+
+## Correction to AP's registration, written 2026-09-16 while AP was still collecting
+
+**AP's registration says `--classes` "has never been run". That is false, and I wrote it without
+checking the directory.** Eight class logs have been on disk since 2026-09-12 -- the gradclass
+files under tournaments, two opponents by four bout counts, 20 held iterations each. They were
+collected and never scored into this record, which is why searching the record for them found
+nothing and why I believed the claim when I wrote it.
+
+**They differ from AP in three ways, so AP is still a measurement and not a repeat**: they cut by
+`--classes terminal`, which is two classes, where AP cuts by `build`, which is twelve; they are
+**unlatched**, where AP is latched and every league since AM trained latched; and they are taken at
+`bracket-fencer` and `bracket-idle` **pool-30**, where AP is taken at two minds at 240 iterations.
+But they bear on AP's predictions 3 and 4 directly, they existed before I registered those
+predictions, and a record that only discloses prior data when it agrees is not a record. So they
+are scored here, in full, before AP's cells finish.
+
+| cell | within | pooled | between | within less pooled | t | actor `\|S\|^2` | t |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| fencer, 32 | +0.0338 | +0.0025 | -0.0022 | +0.0313 +-0.0217 | 1.45 | 2.27e-2 | 1.15 |
+| fencer, 64 | +0.0253 | +0.0142 | -0.0060 | +0.0112 +-0.0220 | 0.51 | 2.26e-3 | 0.22 |
+| fencer, 128 | +0.0067 | +0.0251 | -0.0038 | -0.0184 +-0.0240 | -0.77 | -2.55e-3 | -0.47 |
+| fencer, 256 | +0.0191 | -0.0109 | -0.0018 | +0.0300 +-0.0200 | 1.50 | 3.41e-3 | 1.44 |
+| idle, 32 | +0.0303 | +0.0377 | +0.0039 | -0.0074 +-0.0193 | -0.39 | 8.59e-3 | 0.59 |
+| idle, 64 | +0.0519 | +0.0416 | +0.0091 | +0.0103 +-0.0207 | 0.50 | 2.13e-2 | 2.50 |
+| idle, 128 | +0.0963 | +0.0747 | +0.0142 | +0.0216 +-0.0196 | 1.10 | 1.91e-2 | 4.60 |
+| idle, 256 | +0.1658 | +0.0902 | +0.0182 | +0.0756 +-0.0205 | **3.68** | 1.99e-2 | 6.92 |
+
+**The instrument checks out against the record before anything is read off it.** The idle-128 cell's
+`|S|^2` is 1.91e-2 at t 4.60, which is the reward grid's `shipped` arm at that cell to three
+figures, and the fencer-128 cell's is -2.55e-3 at t -0.47, which is Experiment F's unlatched
+control exactly. These are the same collections read a second way, as they should be.
+
+**And they point against prediction 4, which is mine to say now rather than after AP scores.** The
+only `within` less `pooled` gap in the eight that clears two sigma is **idle at 256 bouts, +0.0756
+at t 3.68** -- in the cell that demonstrably learns, not in the cell that does not. No fencer cell
+clears 1.5. If the build axis at 240 iterations behaves like the terminal axis at 30, **prediction
+4 misses and prediction 3 misses with it**, and the falsifier I wrote fires: pool heterogeneity
+would be eliminated as the explanation of the dead fencer gradient.
+
+**The reading these eight support on their own, stated as description and not as AP's finding.**
+Against `golem-fencer` nothing coheres at any grouping -- `within` is not above `pooled`,
+`between` is within a hundredth of zero at all four bout counts, and the pooled row is the flat
+row the grid already published. Against `idle` everything coheres and coheres *more* with bouts:
+`within` climbs 0.030 to 0.166 across the fourfold, `pooled` climbs 0.038 to 0.090, and `between`
+climbs 0.004 to 0.018. **A gap that grows with the sample is what two genuinely different class
+means look like once the sample is large enough to see them apart**, and the fencer row has no
+sample size at which that happens because it has no means to tell apart.
+
+**What does not change.** AP's four cells, their manifest, their statistic, their four predictions
+and their falsifier all stand exactly as registered at 46eae6d, and AP will be scored against
+them whatever these eight say. I am not rewriting a prediction because prior data disagrees with
+it; I am recording that the prior data exists, that I did not check for it, and which way it
+points -- so that when AP's entry scores prediction 4 as missed, that scoring is not a discovery.
+
+**The narrower claim AP's registration should have made**, and which is true: the class cut has
+never been run on the **build** axis, never latched, and never at a mind past 30 iterations, and
+it has never been scored into this record at all.
