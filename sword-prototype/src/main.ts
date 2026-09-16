@@ -266,8 +266,8 @@ async function boot(): Promise<void> {
     try {
       const response = await fetch(`/runs/${snapshotPath}`);
       if (!response.ok) throw new Error(`/runs/${snapshotPath} answered ${response.status} ${response.statusText}`);
-      const { table, source } = snapshotFromJson(await response.json(), snapshotPath);
-      installSnapshot(table, { sample: snapshotDrawn, source });
+      const { table, source, tactics } = snapshotFromJson(await response.json(), snapshotPath);
+      installSnapshot(table, { sample: snapshotDrawn, source, tactics });
       snapshotNote = `Snapshot: ${snapshotProvenance()}.`;
     } catch (error) {
       snapshotNote = `The snapshot was refused: ${error instanceof Error ? error.message : String(error)}`;
@@ -343,8 +343,8 @@ async function boot(): Promise<void> {
 
   const takeSnapshotFile = async (file: File): Promise<void> => {
     try {
-      const { table, source } = snapshotFromJson(JSON.parse(await file.text()), file.name);
-      installSnapshot(table, { sample: snapshotDrawn, source });
+      const { table, source, tactics } = snapshotFromJson(JSON.parse(await file.text()), file.name);
+      installSnapshot(table, { sample: snapshotDrawn, source, tactics });
       bootNote.classList.remove("error");
       bootNote.textContent = `Snapshot: ${snapshotProvenance()}.`;
       // Only from the sheet. Installing mid-fight is allowed -- the table is what the *next* mind

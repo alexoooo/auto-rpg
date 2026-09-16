@@ -36113,3 +36113,44 @@ cell this optimiser learns and a cell it does not.
 **Nothing ships, and one thing is owed.** Twenty-four minds now exist at 240 iterations on this
 manifest and 16 of the 24 read above `golem-fencer` on a held-out pool. **Not one of them has been
 seen to fight.** The next owner-facing item is his eye on two of them, and it costs no compute.
+
+## The owed eye, and the second defect that pricing it found -- 2026-09-16
+
+AO's close-out left one thing owed: twenty-four minds exist at 240 iterations and **not one has
+been seen to fight**. The owner watches on a different machine from the one that trains, so the
+cost of settling that is the cost of getting a mind onto that machine.
+
+**It could not be done at all, and finding out why turned up a defect.** `tournaments/` is
+gitignored, so no mind this record has fitted was ever pullable. That part is a missing directory.
+The part that would have wasted the owner's evening is the second one: **a table of weights does
+not carry the executor it was measured under.** `golemSnapshotMind` built its policy over
+`GOLEM_TACTICS_V4`, whose `latchAbort` is `false`, while every league from AM onward trained and
+rated under `latchAbort=true`. Un-latched, the abort gate is re-read on each of the six or seven
+asks a stroke spans, so most strokes are abandoned.
+
+**So the mind that was measured and the mind that would have been watched are different fighters,
+and the visible difference is that the watched one flinches out of nearly every swing.** That is
+the same defect that cost experiments S, U, X and Z their ratings -- a latched mind read through
+the shipped executor -- arriving on the watching side instead of the rating side. It would have
+read as "the training did nothing", which is a conclusion this record has enough of already.
+
+**The fix, in `src/golem/snapshot.ts`.** A snapshot file may carry a `tactics` object beside its
+weights; `tacticsFromJson` checks every row against the fourth executor's table by name and by
+type and refuses anything else; `golemSnapshotMind` plays the shipped row overlaid with it; and
+`describe` names whichever is playing, so the readout says `{"latchAbort":true}` or `shipped
+executor` rather than being silent. A file written before the field existed loads unchanged and
+plays the shipped row, which is what every snapshot did before. Two mutations were watched red:
+returning the asked-for rows unchecked, and building on `GOLEM_TACTICS_V4` regardless of the file.
+
+**Four minds are now in the tree**, written by `scripts/export-snapshot.mjs`, with
+`snapshots/README.md` beside them. `snapshots/an-ramp2.json` is a typical mind of the twenty-four
+at +0.011; `snapshots/ao-ramp11.json` is the best of them at +0.098 and is **selected as the best
+on the very pool it is read on**, so it is an upper bound and the README says so; its control
+`snapshots/ao-flat11.json` is the same seed without the idle stage at -0.012; and
+`snapshots/idle-far11.json` is the stage-one mind that plainly learned something, 25 % to 67 % on
+the idle kill rate. The dev server's read-only window now covers `snapshots/` as well as
+`tournaments/`, so a machine that has only ever pulled this repository can watch one.
+
+**What this does not do.** It ships no weights as a default, moves no executor row, and settles
+nothing about `latchAbort` as a shipped default -- which stays the owner's decision. It removes the
+reason the owed gate could not be asked.

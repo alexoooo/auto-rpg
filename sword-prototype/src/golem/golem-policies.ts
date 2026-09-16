@@ -383,7 +383,13 @@ export function golemSnapshotMind(
     throw new Error('"golem-snapshot" has no snapshot installed: fetch a checkpoint, a pool member '
       + "or a league state and install it before building the mind");
   }
-  const policy = golemPolicy(seed, held.table, GOLEM_TACTICS_V4, null, held.sample);
+  // **The executor the file was measured under, over the shipped row.** A table carries no
+  // executor, so the weights alone do not say whether their strokes survive the ask that started
+  // them -- and every league from AM onward trained latched while the shipped row is not. A
+  // snapshot that names none plays the shipped row, which is what every snapshot did before the
+  // field existed. `snapshotProvenance` names whichever is playing.
+  const T = held.tactics === null ? GOLEM_TACTICS_V4 : { ...GOLEM_TACTICS_V4, ...held.tactics };
+  const policy = golemPolicy(seed, held.table, T, null, held.sample);
   return {
     name: "golem-snapshot",
     driven: policy.driven,

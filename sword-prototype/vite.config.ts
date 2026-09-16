@@ -20,12 +20,22 @@ import { defineConfig, type Plugin } from "vite";
  * trained anything. Adding a build-time copy of this listing would break that signal and bundle a
  * directory nobody meant to ship.
  *
+ * **It lends the same window onto `snapshots/`, which is tracked, and that is why there are two
+ * roots.** `tournaments/` does not exist at all on a machine that has only ever pulled this
+ * repository, and the point of `snapshots/` is that a mind can be watched on a machine that did
+ * not fit it. So a request is resolved under each root in turn and the first file found answers
+ * it; both roots take the same containment check, and a root that is not on disk is skipped rather
+ * than being an error.
+ *
  * Nothing here writes. Every request's resolved path is checked against the directory root before
  * anything is opened, because a dev server is still a server: `/runs/../../../etc/passwd` resolves
  * perfectly well, and the check below is the only thing between that and a file handle.
  */
 function runsDirectory(): Plugin {
-  const root = fileURLToPath(new URL("tournaments", import.meta.url));
+  const roots = [
+    fileURLToPath(new URL("tournaments", import.meta.url)),
+    fileURLToPath(new URL("snapshots", import.meta.url)),
+  ];
   const listed = new Set([".jsonl", ".json"]);
 
   /**
@@ -50,7 +60,13 @@ function runsDirectory(): Plugin {
         files.push({ path: here, size: info.size, mtime: info.mtimeMs });
       }
     };
-    await visit(root, "", 1);
+    for (const root of roots) {
+      try {
+        await visit(root, "", 1);
+      } catch {
+        continue;
+      }
+    }
     files.sort((a, b) => b.mtime - a.mtime);
     return files;
   };
@@ -87,27 +103,31 @@ function runsDirectory(): Plugin {
         // needs to be. `resolve` collapses every `..` the request could carry, so comparing the
         // result against the root is what decides whether a path is inside it -- and the trailing
         // separator matters, or `tournaments-private/` passes a prefix test against `tournaments`.
-        const full = resolve(root, rest);
-        if (full !== root && !full.startsWith(root + sep)) {
-          reply.statusCode = 403;
-          reply.end("outside the runs directory");
-          return;
-        }
-        void stat(full).then((info) => {
-          if (!info.isFile()) {
-            reply.statusCode = 404;
-            reply.end("not a file");
+        // A request that escapes *any* root is refused rather than tried against the next one.
+        const candidates: string[] = [];
+        for (const root of roots) {
+          const full = resolve(root, rest);
+          if (full !== root && !full.startsWith(root + sep)) {
+            reply.statusCode = 403;
+            reply.end("outside the runs directory");
             return;
           }
-          reply.setHeader("content-type", rest.endsWith(".json")
-            ? "application/json"
-            : "text/plain; charset=utf-8");
-          reply.setHeader("content-length", String(info.size));
-          createReadStream(full).pipe(response);
-        }).catch(() => {
+          candidates.push(full);
+        }
+        void (async (): Promise<void> => {
+          for (const full of candidates) {
+            const info = await stat(full).catch(() => null);
+            if (info === null || !info.isFile()) continue;
+            reply.setHeader("content-type", rest.endsWith(".json")
+              ? "application/json"
+              : "text/plain; charset=utf-8");
+            reply.setHeader("content-length", String(info.size));
+            createReadStream(full).pipe(response);
+            return;
+          }
           reply.statusCode = 404;
           reply.end("no such run");
-        });
+        })();
       });
     },
   };

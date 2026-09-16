@@ -2,6 +2,7 @@ import { PILOT_FEATURES_DEFAULT } from "./pilot.ts";
 import {
   checkPolicyWeights, freshPolicyTable, type Normalisation, type PolicyWeights,
 } from "./policy.ts";
+import { GOLEM_TACTICS_V4, type DrivenTactics } from "./tactics-v4.ts";
 
 /**
  * A checkpoint off a run, playing in the arena: `golem-snapshot`. Session 03 of the learn set.
@@ -85,6 +86,52 @@ export interface InstalledSnapshot {
   /** True plays the draw, false plays the head's mean. See the module note. */
   readonly sample: boolean;
   readonly source: SnapshotSource;
+  /**
+   * The executor rows the file asked for, over `GOLEM_TACTICS_V4`, or null for a file that asked
+   * for none. See `tacticsFromJson`.
+   */
+  readonly tactics: Partial<DrivenTactics> | null;
+}
+
+/**
+ * The executor a snapshot was measured under, which is not a property of its weights.
+ *
+ * **A table carries no executor and the two are not separable in what a person sees.** Every
+ * league from AM onward trained and rated under `--tactics latchAbort=true`, and the shipped row
+ * is `false`: un-latched, the abort gate is re-read on each of the six or seven asks a stroke
+ * spans, so the same weights abandon most of what they start. A person watching those weights
+ * through the shipped row would be watching a mind that flinches, and would conclude the training
+ * did nothing. That is not a hypothetical -- reading a latched mind through the shipped executor
+ * is the defect that cost experiments S, U, X and Z their ratings on 2026-09-14, and this is the
+ * same defect on the watching side.
+ *
+ * So the file says which executor it was measured under, in a `tactics` field beside its weights,
+ * and it is refused by name when it names a row the table does not have or a value of the wrong
+ * kind. A file that says nothing installs null and plays the shipped row, which is what every
+ * snapshot dropped before this change did.
+ */
+export function tacticsFromJson(value: unknown, path: string): Partial<DrivenTactics> | null {
+  if (value === undefined || value === null) return null;
+  if (!isRecord(value)) throw new Error(`${path} carries a \`tactics\` that is not an object`);
+  const out: Record<string, boolean | number> = {};
+  for (const [row, asked] of Object.entries(value)) {
+    if (!(row in GOLEM_TACTICS_V4)) {
+      throw new Error(`${path} names "${row}", which is not a row of the fourth executor's table`);
+    }
+    const shipped = (GOLEM_TACTICS_V4 as unknown as Record<string, unknown>)[row];
+    if (typeof shipped === "boolean") {
+      if (typeof asked !== "boolean") throw new Error(`${path}: ${row} is a flag, not ${JSON.stringify(asked)}`);
+      out[row] = asked;
+    } else if (typeof shipped === "number") {
+      if (typeof asked !== "number" || !Number.isFinite(asked)) {
+        throw new Error(`${path}: ${row} is a number, not ${JSON.stringify(asked)}`);
+      }
+      out[row] = asked;
+    } else {
+      throw new Error(`${path}: ${row} is not a row this reader can set`);
+    }
+  }
+  return Object.keys(out).length === 0 ? null : (out as Partial<DrivenTactics>);
 }
 
 // --------------------------------------------------------------------------------- reading a file
@@ -280,19 +327,24 @@ export function tableFromLeague(json: unknown): PolicyWeights {
  * statistics `norm` and a checkpoint spells them `normalisation` -- so this reads the shape and
  * refuses anything that is none of them by saying what all three look like.
  */
-export function snapshotFromJson(json: unknown, path: string): { table: PolicyWeights; source: SnapshotSource } {
+export function snapshotFromJson(
+  json: unknown, path: string,
+): { table: PolicyWeights; source: SnapshotSource; tactics: Partial<DrivenTactics> | null } {
   if (!isRecord(json)) throw new Error(`${path} is not a JSON object`);
+  // Read before the shape is dispatched on, so a file naming a row that does not exist is refused
+  // whichever of the three shapes it is, and refused before anything is installed.
+  const tactics = tacticsFromJson(json.tactics, path);
   if (isRecord(json.main)) {
     const table = tableFromLeague(json);
-    return { table, source: { kind: "league", path, iteration: table.iterations, score: table.score } };
+    return { table, tactics, source: { kind: "league", path, iteration: table.iterations, score: table.score } };
   }
   if (isRecord(json.norm)) {
     const table = tableFromPoolMember(json);
-    return { table, source: { kind: "pool", path, iteration: table.iterations, score: table.score } };
+    return { table, tactics, source: { kind: "pool", path, iteration: table.iterations, score: table.score } };
   }
   if (isRecord(json.normalisation)) {
     const table = tableFromCheckpoint(json);
-    return { table, source: { kind: "checkpoint", path, iteration: table.iterations, score: table.score } };
+    return { table, tactics, source: { kind: "checkpoint", path, iteration: table.iterations, score: table.score } };
   }
   throw new Error(`${path} is none of the three snapshot shapes: a league state has \`main\`, `
     + "a pool member has `norm`, and a checkpoint has `normalisation`");
@@ -310,9 +362,12 @@ let installed: InstalledSnapshot | null = null;
  * caller a version refusal exists for. It costs nine comparisons once.
  */
 export function installSnapshot(
-  table: PolicyWeights, { sample = false, source }: { sample?: boolean; source: SnapshotSource },
+  table: PolicyWeights,
+  { sample = false, source, tactics = null }: {
+    sample?: boolean; source: SnapshotSource; tactics?: Partial<DrivenTactics> | null;
+  },
 ): InstalledSnapshot {
-  installed = { table: checkPolicyWeights(table), sample, source };
+  installed = { table: checkPolicyWeights(table), sample, source, tactics };
   return installed;
 }
 
@@ -358,6 +413,9 @@ function describe(held: InstalledSnapshot, name: string): string {
   if (held.source.iteration !== 0) parts.push(`it ${held.source.iteration}`);
   if (held.source.score !== 0) parts.push(`score ${held.source.score.toFixed(3)}`);
   parts.push(held.sample ? "drawn" : "greedy");
+  // The executor last and always, the shipped row named as plainly as an asked-for one: "which
+  // fighter is this" is not a question a readout should answer only half the time.
+  parts.push(held.tactics === null ? "shipped executor" : JSON.stringify(held.tactics));
   return parts.join(", ");
 }
 

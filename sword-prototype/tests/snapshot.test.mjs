@@ -25,6 +25,8 @@
 // | put `golem-snapshot` in `driverOptions` unconditionally | the withheld-row test |
 // | drop the per-entry `Number.isFinite` in `numbers` | the hole-in-a-weight-vector test |
 // | ignore `sample` when building the policy | the two-fighters test |
+// | `tacticsFromJson` returns the asked-for rows without checking them against the table | the executor test |
+// | `golemSnapshotMind` builds on `GOLEM_TACTICS_V4` whatever the file named | the executor test |
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -34,9 +36,9 @@ import { PILOT_FEATURE_COUNT, PILOT_FEATURES_DEFAULT, PILOT_FEATURES_VERSION } f
 import { POLICY_LAYOUT, POLICY_VERSION } from "../src/golem/policy.ts";
 import {
   clearSnapshot, installSnapshot, installedSnapshot, snapshotFromJson, snapshotOptionLabel,
-  snapshotProvenance, tableFromCheckpoint, tableFromLeague, tableFromPoolMember,
+  snapshotProvenance, tableFromCheckpoint, tableFromLeague, tableFromPoolMember, tacticsFromJson,
 } from "../src/golem/snapshot.ts";
-import { COMMAND_RANGES } from "../src/golem/tactics-v4.ts";
+import { COMMAND_RANGES, GOLEM_TACTICS_V4 } from "../src/golem/tactics-v4.ts";
 import { POLICIES, policyMind } from "../src/mind.ts";
 import { unitDefinition } from "../src/units.ts";
 import { checkpointJson, fill, leagueJson, poolMemberJson, SNAPSHOT_RUNS } from "./fixtures/snapshot-runs.mjs";
@@ -192,13 +194,14 @@ test("the_picker_row_names_the_file_when_the_file_cannot_name_its_iteration", ()
     // absence; the path is what separates two members of the same league in the picker.
     const pool = snapshotFromJson(poolMemberJson(), "league-anchored/pool-40.json");
     installSnapshot(pool.table, { source: pool.source });
-    assert.equal(snapshotOptionLabel(), "Golem snapshot -- pool-40.json, greedy");
-    assert.equal(snapshotProvenance(), "pool league-anchored/pool-40.json, greedy");
+    assert.equal(snapshotOptionLabel(), "Golem snapshot -- pool-40.json, greedy, shipped executor");
+    assert.equal(snapshotProvenance(), "pool league-anchored/pool-40.json, greedy, shipped executor");
     // A checkpoint does stamp itself, and drawn is a different fighter from greedy, so both show.
     const check = snapshotFromJson(checkpointJson(), "ppo-run1-checkpoint.json");
     installSnapshot(check.table, { sample: true, source: check.source });
     assert.equal(snapshotOptionLabel(),
-      `Golem snapshot -- ppo-run1-checkpoint.json, it ${SNAPSHOT_RUNS.checkpoint.header.iteration}, drawn`);
+      "Golem snapshot -- ppo-run1-checkpoint.json, "
+      + `it ${SNAPSHOT_RUNS.checkpoint.header.iteration}, drawn, shipped executor`);
     assert.equal(installedSnapshot().sample, true);
   });
   assert.equal(installedSnapshot(), null);
@@ -364,4 +367,68 @@ test("the_greedy_mind_and_the_drawn_one_are_two_different_fighters", () => {
   const greedy = commandsUnder(false);
   assert.deepEqual(commandsUnder(false), greedy, "the head's mean is the same mind twice");
   assert.notDeepEqual(commandsUnder(true), greedy, "and the draw is a different one");
+});
+
+// ------------------------------------------------------------- and under the executor it was fitted under
+
+/** Ten seconds of one mind in front of the same view, and what its arm did in them. */
+function armOver(mind, steps = 600) {
+  const view = facing();
+  for (let step = 0; step < steps; step += 1) {
+    view.clock += FIXED;
+    mind.decide(view, FIXED);
+  }
+  return { strokes: mind.driven.strokes, aborts: mind.driven.aborts };
+}
+
+test("a_snapshot_names_the_executor_it_was_measured_under_and_the_mind_plays_that_one", () => {
+  // The defect this closes: a table carries no executor, so weights fitted under `latchAbort=true`
+  // -- which is every league from AM onward -- played the shipped un-latched row when watched, and
+  // un-latched the same weights abandon most of the strokes they start. That is the S/U/X/Z defect
+  // on the watching side rather than the rating side, and it would read as "the training did
+  // nothing" to somebody watching rather than as a bug.
+  assert.equal(GOLEM_TACTICS_V4.latchAbort, false, "the shipped row, which is what makes this matter");
+  // The reader, first: absence is null, an empty object is null, and a row that does not exist or
+  // carries the wrong kind of value is refused by name rather than silently doing nothing.
+  assert.equal(tacticsFromJson(undefined, "f.json"), null);
+  assert.equal(tacticsFromJson(null, "f.json"), null);
+  assert.equal(tacticsFromJson({}, "f.json"), null);
+  assert.deepEqual(tacticsFromJson({ latchAbort: true }, "f.json"), { latchAbort: true });
+  assert.throws(() => tacticsFromJson({ latchAbrot: true }, "f.json"), /"latchAbrot", which is not a row/);
+  assert.throws(() => tacticsFromJson({ latchAbort: 1 }, "f.json"), /latchAbort is a flag, not 1/);
+  assert.throws(() => tacticsFromJson({ holdFraction: true }, "f.json"), /holdFraction is a number, not true/);
+  assert.throws(() => tacticsFromJson("latchAbort=true", "f.json"), /`tactics` that is not an object/);
+  // Then the file, which is a pool member with the field the exporter writes beside its weights.
+  const named = snapshotFromJson({ ...poolMemberJson(), tactics: { latchAbort: true } }, "pool-120.json");
+  assert.deepEqual(named.tactics, { latchAbort: true });
+  assert.equal(snapshotFromJson(poolMemberJson(), "pool-120.json").tactics, null,
+    "and a file written before the field existed still loads, under the shipped row");
+  // And then the mind, which is the claim that matters: the same weights and the same seed abandon
+  // strokes under the shipped row and stop abandoning them under the row the file names. Drawn,
+  // because the abort gate's logit is negative at the greedy read and a greedy mind never aborts --
+  // which is the very gap `scripts/idle-probe.mjs` measured and the reason this is asserted drawn.
+  const armUnder = (tactics) => {
+    let arm = null;
+    withSlot(() => {
+      const { table, source } = snapshotFromJson(
+        tactics === null ? checkpointJson() : { ...checkpointJson(), tactics }, "it-120.json");
+      installSnapshot(table, { sample: true, source, tactics });
+      arm = armOver(policyMind("golem-snapshot", 7171));
+    });
+    return arm;
+  };
+  const shipped = armUnder(null);
+  const latched = armUnder({ latchAbort: true });
+  assert.ok(shipped.strokes > 0, `the fixture has to start strokes at all; it started ${shipped.strokes}`);
+  assert.ok(shipped.aborts > 0, `and the shipped row has to abandon some; it abandoned ${shipped.aborts}`);
+  assert.ok(latched.aborts < shipped.aborts,
+    `latched abandoned ${latched.aborts} of ${latched.strokes}, shipped ${shipped.aborts} of ${shipped.strokes}`);
+  // The readout says which one is playing, because "is this the mind that was measured" is the
+  // question somebody watching a pulled file actually has.
+  withSlot(() => {
+    const held = snapshotFromJson({ ...poolMemberJson(), tactics: { latchAbort: true } }, "runs/pool-120.json");
+    installSnapshot(held.table, { source: held.source, tactics: held.tactics });
+    assert.equal(snapshotProvenance(), 'pool runs/pool-120.json, greedy, {"latchAbort":true}');
+    assert.deepEqual(installedSnapshot().tactics, { latchAbort: true });
+  });
 });
