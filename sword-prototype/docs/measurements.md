@@ -35636,3 +35636,86 @@ held-out readings at 110..120: twelve seeds, each in both arrangements. Their me
 about **-0.03** either way, and five of the twenty-four read above zero on their three-checkpoint
 mean. No arm's mean does. The record's one mind ahead of the fencer on two pools is still seed
 20260917 at 240, and AI showed a typical seed does not get there.
+
+## Pre-registration -- 2026-09-15: Experiment AM, the easiest task in the game, at two distances, because nothing in this record has asked whether the optimiser can learn anything at all
+
+AL closed the arrangement lever and priced the design: a six-seed mean carries an se near 0.013,
+and nothing smaller than 0.04 is visible at that width. Every lever tried against `golem-fencer`
+has come back null. **Before another lever is bought, this experiment asks a question the record
+has never asked: can this fit learn a task it cannot possibly be too weak for?**
+
+`idle` is a legal `--opponent` and has never been one. The dummy never moves, never blocks, never
+steps away, and never strikes. The one reading in the record against such a body is `league-long`'s,
+which got **monotonically worse** at it while training mirrored -- maul damage 37.6 at iteration 24
+falling to 9.3 -- because the mirrored reward paid it to stand still. That run is not this manifest
+and its opponent was not `idle`.
+
+**Two rungs, because a dummy at spawn distance asks two questions at once.** A bout starts at 2.6 m
+and a full reach is about 1.4 m, so a fighter must close about a metre before a stroke can land.
+At 1.2 m the dummy is already inside the swing. **Rung A measures landing a stroke. Rung B measures
+landing a stroke after closing.** A rung that improves and a rung that does not is itself the
+finding.
+
+**The instrument was built for this and is committed** (`fc75884`). `scripts/idle-probe.mjs` now
+takes `--tactics` and `--separation`: a checkpoint carries no executor, and a latched mind read
+through the shipped row is the defect that cost S, U, X and Z their ratings. It was smoke-tested on
+a two-iteration checkpoint: 11 % of bouts killed in reach, latched.
+
+### Manifest
+
+Twelve leagues, `--seed` 20260917 .. 20260922 in each arm:
+
+| arm | flags beyond the base | dirs |
+| --- | --- | --- |
+| A, in reach | `--opponent idle --separation 1.2` | `tournaments/idle-near1` .. `idle-near6` |
+| B, at spawn | `--opponent idle` | `tournaments/idle-far1` .. `idle-far6` |
+
+```
+--tactics latchAbort=true --lambda 0.95 --iterations 120 --bouts 32 --terminals maul,mace
+--shards 4 --exploiters 0 --evaluate 0 --pool-every 5 --workers 3
+```
+
+**The probe.** At checkpoints 5, 40, 80 and 120 of every arm, at **the arm's own distance**:
+
+```
+node scripts/idle-probe.mjs --checkpoint <pool-N.json> --tactics latchAbort=true
+  [--separation 1.2] --bouts 8 --cap 60 --terminals maul,mace --seed 20260906 --random 40
+```
+
+The statistic is **`K`, the pooled kill rate** of a checkpoint: bouts won over bouts played, over
+the whole probe pool. The greedy read, because every rating in this record is greedy.
+
+### Predictions
+
+**0. The instrument.** All twelve leagues run 120 iterations. Every league's header carries
+`opponent` `idle` and arm A's carries a start distance of 1.2 m. Every probe line names the latch
+and its arm's distance.
+
+**1. The fit learns the easiest task in reach.** In arm A, `K` at 120 less `K` at 5 is **positive
+at t > 2.57** over the six seeds (5 degrees of freedom).
+
+**2. And with a metre to close.** The same in arm B, at the same line.
+
+**3. In reach is easier.** Paired by seed, arm A's `K` at 120 is above arm B's.
+
+**Stated in advance.** A checkpoint's `K` is a proportion over roughly 100 bouts, so its own se is
+about 0.05 near a half rate and smaller near the ends. Six seeds at that width see a gain of about
+0.06 in kill rate. A fit that learns this task should move much further than that; a fit that
+cannot is expected to sit flat.
+
+### The falsifier, and what each branch licenses
+
+**If 1 misses, the optimiser does not improve against a body that does nothing, in reach, over 120
+iterations.** That closes every lever question in the queue. No curriculum, batch ladder or
+architecture change is registered until the reward and the credit path are measured, because a fit
+that cannot learn this cannot be read as having failed at anything harder. The next registration
+would be the reward terms and what a stroke is paid.
+
+**If 1 holds and 2 misses, the missing skill is closing, not striking.** That is the curriculum
+the record can then justify: a start distance that walks outward, registered with its own
+predictions.
+
+**If 1 and 2 both hold, the optimiser works where the signal is plain, and the fencer is the
+problem.** It licenses the opponent ladder -- a sequence that stays beatable-but-not-beaten -- over
+any further tuning of the fit, and it sends the gradient probe after the rung where the signal
+dies.
