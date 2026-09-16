@@ -36391,11 +36391,11 @@ one or two spikes happened to land.
 
 **And it explains the dissociation that AM and the gradient grid both found and neither could
 account for.** Against `idle` -- a body that never steps away, never blocks, never recedes --
-strokes arrive at the speed the arm made, clear the floor, and the return moves smoothly with
-what the mind did: the gradient is a sample mean, `|S|^2` clears zero at t 4.60, and AM trained
-that cell by forty points of kill rate. Against `golem-fencer`, who steps away and parries,
-strokes arrive slow or not at all, fall under the floor, and pay **nothing** -- so the return is decided by the rare exception
-rather than by the policy, which is a gradient of zero with noise around it.
+strokes arrive at the speed the arm made, clear the floor, and the return moves smoothly with what
+the mind did: the gradient is a sample mean, `|S|^2` clears zero at t 4.60, and AM trained that
+cell by forty points of kill rate. Against `golem-fencer`, who steps away and parries, strokes
+arrive slow or not at all, fall under the floor, and pay **nothing** -- so the return is decided
+by the rare exception rather than by the policy, which is a gradient of zero with noise around it.
 
 **That is a hypothesis, it is stated here before it is tested, and it is cheap to test:** the
 distribution of arriving energy per landed stroke, against `golem-fencer` and against `idle`, and
