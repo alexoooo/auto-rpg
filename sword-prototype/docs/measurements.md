@@ -36412,3 +36412,96 @@ same message: *"I'm open to more fundamental changes (like physics or health cal
 
 **A reliable basic training recipe is the near-term goal and fundamental changes are permitted.**
 No default moves on this page. The gate is asked, it is answered, and it is no longer owed.
+
+## AQ -- stroke time that scales with rotational inertia, registered before it is built
+
+Asked by the owner after the eye gate: *"swing time should scale with mass, let's do the physical
+fix"*, then *"include the lever arm"*. This section is written **before** the change is made and
+before the bench is re-run, and the tables in it are predictions, not measurements.
+
+### The defect
+
+A stroke's chamber and arc durations are constants in the stroke shapes and are read without
+reference to what is in the hand. `ANCHOR_DRIVE.linearForce` is a constant 1400 N that is not
+scaled by load either. So the arm is given a fixed time and a fixed force to move whatever it is
+holding, and the measured consequence is that an 18 kg mace reaches 18.71 m/s at the tip while a
+1.3 kg blade reaches 19.87 -- a factor of fourteen in mass buying a six per cent difference in tip
+speed. That is the owner's eye-gate verdict in one number: *"it looked like they were light as
+air."*
+
+### The fix, and the anchor it is stated on
+
+Stroke arc time scales as the square root of the chain's rotational inertia about the shoulder
+socket, at a fixed swept angle. Inertia is computed the way inertia is computed -- each part's mass
+times the square of its distance from the socket, plus that part's own inertia about its own
+centre -- so the lever arm is in it and a long weapon costs more than a heavy short one.
+
+**The anchor is the bare arm, not a weapon.** The reach chain unloaded is 4.139 kg m2 about the
+socket, and it is given 0.168 s to sweep 72 degrees. This is a property of the golem rather than of
+anything it holds, so no weapon's mass can move the whole game's tempo, and it was chosen because
+it is the value that leaves today's blade at exactly the 0.200 s arc it already has. The owner
+declined to pick an anchor on the blade -- *"I don't know if the blade is the right anchor, I don't
+know how I would correctly guess that now without having data or seeing what fights look/feel
+like"* -- and this anchor is the answer to that: it does not require the guess.
+
+### Prediction 1 -- the terminal table after the change, masses unchanged
+
+Calibrated on the blade's measured reach-chain peak of 19.08 m/s in its present 0.200 s arc. The
+bench re-run is the test; a row is met if the measured peak is within 15 per cent of the predicted.
+
+| terminal | mass | tip r | I total | arc s | peak m/s | dmg limb | dmg trunk |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| blade | 1.3 | 1.52 | 5.84 | 0.200 | 19.1 | 10.2 | 12.8 |
+| mace | 18 | 1.52 | 27.68 | 0.435 | 8.8 | 1.7 | 3.6 |
+| maul | 48 | 2.02 | 100.99 | 0.832 | 6.1 | 1.0 | 3.3 |
+| fist | 8 | 0.81 | 9.41 | 0.254 | 8.0 | 1.5 | 3.6 |
+| plate | 16.6 | 0.93 | 18.85 | 0.359 | 6.5 | 1.2 | 3.4 |
+
+### Prediction 2 -- the lever arm reverses the sign for three of the five terminals
+
+An earlier prediction on this page's working notes, made without the lever arm, had the maul
+reaching 12.4 m/s and the plate 16.1 -- both **faster** than they are today. With the lever arm
+folded in both come out **slower**, 6.1 and 6.5. The two models disagree in sign for the maul, the
+plate and the fist, and the bench decides between them. Recorded because the wrong one was stated
+to the owner first.
+
+### Prediction 3 -- the plate stops being a weapon without being touched
+
+The owner's complaint was that the plate *"seems like a strong weapon, which is confusing because
+it's meant to be used defensively."* Prediction 1 says the timing fix alone demotes it to the
+weakest striker in the pool, 1.2 into a limb against the blade's 10.2. Met if the plate is last on
+the bench's damage column after the change and before any mass edit.
+
+### Prediction 4 -- mass is not what is balancing the sword, and the change will overshoot
+
+Sweeping blade mass against the mace at the same anchor, the blade's damage into a limb stays above
+the mace's by a factor between 2.8 and 6.0 at **every** mass from 1.3 to 25 kg. At 18 kg the two
+terminals are physically identical -- same length, same mass, same inertia, same tip speed -- and
+the ratio is 3.31, which is exactly `crushJoulesPerDamage / cutJoulesPerDamage` = 115.24 / 34.82.
+
+**So the record's standing observation that blunt out-competes the sword is an artifact of the
+timing defect, and the two errors have been cancelling.** Predicted: after the fix the sword leads
+every blunt terminal on every target, and no choice of blade mass recovers the balance. The lever
+that does is the ratio of the two joules-per-damage constants, and this section deliberately does
+**not** move it -- that is a separate measurement on a pool, not a guess made here.
+
+### The blade's mass, recorded as a finding rather than a prediction
+
+`TERMINAL_BLADE`'s own comment states that its 1.3 kg is `CONFIG.sword.mass` 1.35 scaled by length
+and is *"deliberately not derived from the box's own volume"*, because the bench exists to judge
+the chain and every chain is benched with the same blade. Every other terminal on the golem is
+stone at 2600 kg/m3 computed from its own volume, and the arithmetic checks: the fist's sphere at
+radius 0.09 is 7.94 kg against a config value of 8. **The blade is therefore the only terminal in
+the pool whose mass is not physical, and it is a human arming sword that reached the fighting pool
+because it was a measuring instrument.** The owner read this off the fights unaided: *"blade
+(sword) is only 1.3kg? that seems very low for a sword. and the fist is many times heavier than the
+blade? that seems very unphysical."* The fist is not the anomaly and the two are not swapped.
+
+### What is being changed in this experiment, and what is not
+
+Changed: stroke arc time scales with the square root of chain inertia at the anchor above; the
+blade's mass moves to a golem-scale value chosen for tempo rather than for balance; the plate's
+board thins and its mass falls with it. Not changed: the two joules-per-damage constants, the
+damage floor, `ANCHOR_DRIVE.linearForce`, and every learned table on disk. Prediction 4 says the
+pool will be unbalanced after this change, and that is accepted rather than pre-corrected, because
+correcting two things at once would leave neither measured.
