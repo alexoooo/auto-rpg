@@ -36018,3 +36018,27 @@ seed, played in front of him, before anything is registered on top of it.
 **If 1 misses while 2 holds, the effect is real and smaller than AN's point estimate**, which is
 what regression to the mean looks like. It is recorded at the pooled number and the rung above
 `idle` waits for it.
+
+## Note on AN's line, written 2026-09-16 while AO was still collecting its stage one
+
+AN's prediction 1 was directional -- *the ramp is worth more than the fencer* -- and its line was
+**t 2.57, the two-sided 5 % point at 5 degrees of freedom**. The one-sided point is **2.02**, and
+AN's +0.0348 at t 2.09 clears it. **The registration chose the two-sided line, so the entry scores
+it there, and the entry stands.** This note exists because a later reader comparing AN's number to
+its line should not have to work out for themselves that the choice of line decided the verdict.
+
+**The choice is not reopened, and AO's lines do not move.** AO was registered at t 2.57 for its own
+six seeds and t 2.20 pooled, both two-sided, before any of its leagues finished. Changing a line
+after seeing which side of it the data fell on is the move this record spends its registrations to
+prevent, and it is the move AK's withdrawal was caused by not making in reverse.
+
+**Two-sided is also the honest default here**, whatever the hypothesis said. AN's control arm was
+free to land above the ramp arm and one seed did. AL's two batches of six controls, with no lever
+between them at all, differed by 0.035 in a direction nobody predicted. A record that has been
+surprised by the sign of a null contrast twice does not get to assume the sign of a live one.
+
+**For the arithmetic to sit beside the t's, computed by integration of the density at 5 degrees of
+freedom:** AN's t 2.09 is **p 0.091**; AK's withdrawn t 2.31 was **p 0.069**; AM's in-reach t 7.59
+is **p 0.0006** and its at-spawn t 6.30 is **p 0.0015**. AN's sign count, five of six paired
+differences positive, is **p 0.219** -- the weakest of the readings its own data supports, and the
+one that looks strongest when quoted alone.
