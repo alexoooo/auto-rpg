@@ -36785,3 +36785,96 @@ the night and it is the one this run is built to be able to deliver.
 If the idle cells move by more than 1.0 in t, prediction 1 is wrong, AR's 89% does not generalise
 from damage to gradient, and the shoving account needs the arriving-energy instrument before any
 more weight is put on it.
+
+## AT -- what actually arrives, per contact, and AQ's prediction 4 refuted
+
+The instrument `docs/measurements.md` had named as owed twice is now `scripts/energy-probe.mjs`,
+and it has run: 384 bouts, 85,507 contacts, 32 builds of the whole pool mirrored, seed 20260906,
+`golem-fencer` driving against `golem-fencer` and against `idle`. Every row below is that mind's
+own blows, keyed by the build's armed terminal, with the floor asked of `biteFloorJ` per mechanism
+rather than written down.
+
+### golem versus golem -- the cell the record cares about
+
+| terminal | contacts | blocked | under floor | paid | mean J | median J | tip m/s | closing m/s | damage per contact |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| maul | 1914 | 0 % | 36 % | 64 % | 99.1 | 19.2 | 3.88 | 2.21 | 0.82 |
+| mace | 6730 | 2 % | 69 % | 31 % | 22.5 | 2.0 | 3.70 | 1.77 | 0.18 |
+| blade | 17065 | 13 % | 80 % | 20 % | 8.7 | 0.5 | 5.47 | 2.19 | 0.13 |
+| plate | 2558 | 10 % | 87 % | 13 % | 4.3 | 0.2 | 3.71 | 1.47 | 0.06 |
+| fist | 30 | 0 % | 73 % | 27 % | 6.1 | 2.1 | 1.82 | 0.83 | 0.04 |
+| whip | 4528 | 12 % | 86 % | 14 % | 3.8 | 0.9 | 7.65 | 3.14 | 0.02 |
+
+### AQ's prediction 4 is refuted, and not narrowly
+
+AQ predicted that after the timing fix the sword would lead every blunt terminal by 2.8x to 6.0x on
+every target. In the cell where strokes have to land it is **third of six**: the maul pays 6.31x the
+blade per contact and the mace 1.38x. The prediction was arithmetic on a bench that held every
+stroke identical and priced joules against `crushJoulesPerDamage / cutJoulesPerDamage` = 3.31. It is
+right about the price and wrong about the goods, because it assumed the joules arrive.
+
+### Why: the blade is under its own floor at the speed contacts actually happen
+
+The blade's median contact is **0.5 J** against a cut floor of 5.96 J, and **80 % of its contacts
+are under that floor**. This is not a tail -- it is the middle of the distribution. At the realised
+closing speed of 2.19 m/s a 1.30 kg head puts about 3 J into a golem-scale part, which is below the
+floor by construction. The blade does not lose on joules-per-damage; it loses because four contacts
+in five are priced at zero before the damage model reaches its cheap conversion rate.
+
+The maul is the mirror image. It clears its floor on 64 % of contacts, carries 99.1 J on average,
+and is the only terminal in the pool whose median contact (19.2 J) is over its own floor.
+
+### The number that answers "a lot of attacks did not really seem to do anything"
+
+The stroke bench has a blade tip peaking at **19.87 m/s**. In a bout the blade's tip is moving at
+5.47 m/s when it bites and the *closing* speed -- the component the scorer is entitled to square --
+is **2.19 m/s**. Energy goes as the square, so **a contact carries about 1.2 % of the energy the
+bench's peak implies.** Across the whole pool, 55.8 % of contacts arrive under one joule and the
+median contact of every terminal except the maul is under 2.1 J.
+
+That is the owner's observation measured. The fights are not short of contact -- 274 contacts a bout
+against a fencer -- they are short of contact that the damage model is willing to charge for.
+
+### The plate complaint is answered by the timing fix alone
+
+The owner said the plate reads as a strong weapon and should not. It is now **0.06 damage per
+contact**, 87 % of its contacts under floor, second-least dangerous thing in the pool above only the
+whip, and 13x below the maul. AQ's prediction 3 held without touching a mass. What the owner asked
+for that is **still owed** is the other half: the plate should weigh less than 16.6 kg, and it
+should absorb damage without hurting the golem, which is a damage-routing question this probe does
+not touch.
+
+### A correction to AR, written against my own reading rather than smoothed
+
+AR's measurement stands: damage against `idle` keeps 89 % of its value when the arc is stretched
+9.81x. AR's **explanation** of it does not survive this table. AR said the dummy cell pays for mass
+in contact -- shoving -- while the fencer cell denies contact and leaves only striking. Two numbers
+here contradict that:
+
+1. **Contact is more frequent against the fencer, not less**: 274 contacts a bout against a fencer
+   against 171 against a dummy. A fencer closes the distance and a dummy stands where it was put.
+2. **Body contact is not where the dummy's damage comes from.** Against `idle`, unarmed and bare
+   contacts are 28 % of all contacts and deliver **4.7 %** of the damage. Shoving cannot carry an
+   89 % retention if it only ever carried a twentieth of the total.
+
+What actually separates the cells is narrower than AR claimed and is visible in one column: the
+blade is blocked on 13 % of contacts against a fencer and 1 % against a dummy, and every terminal
+pays more per contact against the dummy. The two cells deliver **nearly the same damage per bout**
+-- 31.4 against the fencer, 29.9 against the dummy -- but against the fencer it is spread over 60 %
+more contacts and some of it is taken away.
+
+**So AR's 89 % is now unexplained, and it is recorded as unexplained.** The shoving account was the
+best reading of the evidence AR had; it is not the best reading of the evidence there is now. The
+claim AR attached to it -- that any bar stated on `idle` measures shoving -- does not follow from
+this data and should not be relied on until something explains the gain sweep. The narrower claim
+that survives both measurements is that **the dummy cell is insensitive to stroke timing and the
+record does not know why.**
+
+### What this changes about the next step
+
+The lever that matters is no longer the crush/cut price. It is that most contacts are under every
+floor in the pool. Two candidates, and the first is the owner's own instinct: the blade at 1.30 kg
+is a human arming sword on a golem, and a heavier blade both raises the reduced mass and slows the
+stroke, so the sign of the net effect on arriving energy has to be measured rather than argued. The
+second is the floors themselves, which were set when strokes were timed by a constant and every
+terminal swung at the same rate.
