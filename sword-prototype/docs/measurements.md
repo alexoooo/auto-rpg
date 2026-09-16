@@ -35876,3 +35876,80 @@ gradient stops carrying signal. Nothing further is registered on schedules.
 **If 1 holds, the ramp is real** and the record has its first lever that moves the fencer bar. The
 next registrations are the rung above `idle` -- a body that blocks but does not strike -- and the
 reverse order, to separate transfer from the variety of a changed task.
+
+## Experiment AN, complete -- 2026-09-16: the ramp arm lands ahead of the fencer in five seeds of six, at half a t short of its own line, and the falsifier fires on a number that points the other way
+
+Scored at 07:30 on the predictions in `a851f54`. **Prediction 0 met, prediction 1 missed,
+prediction 2 met, prediction 3 met.** The falsifier was written on prediction 1 and **it fires**.
+
+**It fires on a point estimate of +0.0348 at t 2.09, with five of six seeds above zero.** That is
+the outcome AL's lesson predicted would be unreadable at six seeds an arm, and the registration
+said so in advance: *the design resolves about 0.035*. The effect found is 0.035. **Nothing is
+claimed here in either direction, and the registered branch is followed as written.**
+
+### 0. The instrument -- MET
+
+Twelve leagues, 120 iterations each, 0 short. Each header names its own arm's checkpoint, all
+twelve. Every rating row carries `ratingSeed` 20261014, 16 held-out builds, random viable pairs,
+`latchAbort`, 400 bouts a contender: **0 rows off the manifest.**
+
+### The readings
+
+Each `L` is the mean paired bar against `golem-fencer` over checkpoints 110, 115 and 120 of the
+second stage, which is iteration 240 of training. The last column is the same seed's resumed run
+at 230..240, from AI.
+
+| seed | ramp `L` | se | flat `L` | se | ramp less flat | resumed 240 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 20260917 | -0.0012 | 0.0128 | -0.0041 | 0.0218 | +0.0029 | +0.0234 |
+| 20260918 | **+0.0106** | 0.0140 | -0.0715 | 0.0134 | +0.0821 | -0.0666 |
+| 20260919 | **+0.0240** | 0.0137 | +0.0154 | 0.0152 | +0.0086 | -0.0282 |
+| 20260920 | **+0.0078** | 0.0131 | -0.0281 | 0.0133 | +0.0359 | -0.0805 |
+| 20260921 | **+0.0370** | 0.0132 | -0.0489 | 0.0130 | +0.0858 | -0.0361 |
+| 20260922 | **+0.0245** | 0.0127 | +0.0313 | 0.0180 | -0.0068 | -0.0054 |
+
+- **1. The ramp is worth more than the fencer, at equal compute -- MISSED.** The six paired
+  differences mean **+0.0348**, sd 0.0407, se 0.0166, **t 2.09**, against the registered t 2.57.
+  Five of six are above zero. **The line was missed and the branch is taken.**
+- **2. And it is not worse than the fencer alone at 120 -- MET.** The ramp arm's mean `L` is
+  **+0.0171**, sd 0.0139, against the line at -0.0495.
+- **3. Restarting is not itself the lever -- MET.** The flat arm's mean `L` is **-0.0176** against
+  the resumed runs' -0.0322, a gap of **0.0146** inside the 0.03 line. Paired by seed the flat arm
+  reads +0.0146 above its own resumed run, sd 0.0336, t 1.06. **An empty pool and cold Adam at
+  iteration 120 cost nothing measurable**, which is what lets AN's two arms be compared at all.
+
+### What is described, and is not a finding
+
+**Five of the six ramp arms end ahead of `golem-fencer` on a pool they were not selected on.**
+Before today the record had one such mind: seed 20260917 at 240, best of six on the other pool,
+and AI had shown that a typical seed does not get there. The flat arm, the same manifest for the
+same 240 iterations, puts 2 of 6 above zero and means -0.018.
+
+**The ramp arm's seeds sit closer together than any six in the record.** Its sd is **0.0139**,
+against the flat arm's 0.0391, AG's 0.0319 at 120 and the resumed runs' 0.0384. As a variance
+ratio that is **F 7.96 on 5 and 5 degrees of freedom**, where the two-sided 5 % point is 7.15. A
+variance ratio on five degrees of freedom is a wide instrument and this is one reading of it.
+**If it holds, it is the more interesting half of the experiment**: the record's central
+frustration since AE has been that the seed sets the ending, and an arm whose seeds agree to
++-0.014 is an arm where that stopped being true.
+
+**The two halves are not independent claims.** An arm with a higher mean and a smaller spread is
+what pre-training would look like if it worked, and it is also what one lucky batch of six looks
+like. AL is the case in point: two batches of six control seeds differed by 0.035, which is this
+experiment's whole effect.
+
+### What it licenses, and what it does not
+
+**The registered branch, taken as written: no further registration on schedules.** The rung above
+`idle` is not registered. The reverse order is not registered. The next registration goes at the
+reward and the credit path -- what a stroke is paid, what a mirrored bout pays for, and where
+between iteration 5 and 60 the gradient stops carrying signal.
+
+**One exception, and it is a replication rather than a schedule.** AN's own numbers are the
+strongest in the record and sit at exactly the width six seeds cannot resolve. **Twelve seeds an
+arm is the only honest way to read them**, and AL priced that at about nine hours for two arms.
+That is a replication of AN, registered on AN's own predictions, and it is the one collection this
+entry recommends before the reward work is scored against anything.
+
+**Nothing ships.** No mind here has been looked at by the owner, and a mind that is ahead by 0.017
+on a held-out pool is not a mind that has been seen to fight.
