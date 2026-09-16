@@ -35953,3 +35953,68 @@ entry recommends before the reward work is scored against anything.
 
 **Nothing ships.** No mind here has been looked at by the owner, and a mind that is ahead by 0.017
 on a held-out pool is not a mind that has been seen to fight.
+
+## Pre-registration -- 2026-09-16: Experiment AO, AN again at six fresh seeds, because AN's effect is exactly the width six seeds cannot resolve
+
+AN read the ramp arm **+0.0348 above its control at t 2.09**, missed its registered 2.57, and put
+five of six seeds ahead of `golem-fencer` on a held-out pool against the control's two. Its entry
+recommended exactly one collection before anything else: **the same experiment at twelve seeds an
+arm.** AL is why. Two batches of six control seeds differed by 0.035 there, which is AN's whole
+effect, and a six-seed mean carries an se near 0.013.
+
+**This is AN's manifest at six seeds it has never seen**, 20260923 .. 20260928. Half the stage-one
+checkpoints are already on disk: AL's mirror arm is `lam-base` at those seeds, at 120 iterations.
+The idle halves do not exist and are collected first.
+
+### Manifest
+
+**Stage one, ramp arm only** -- six leagues, AM's far arm at the new seeds:
+
+```
+--opponent idle --tactics latchAbort=true --lambda 0.95 --iterations 120 --bouts 32
+--terminals maul,mace --shards 4 --exploiters 0 --evaluate 0 --pool-every 5 --workers 4
+```
+
+into `tournaments/idle-far7` .. `idle-far12`.
+
+**Stage two** -- twelve leagues, AN's manifest unchanged:
+
+| arm | stage one | dir |
+| --- | --- | --- |
+| R, the ramp | `tournaments/idle-far7` .. `idle-far12` at `pool-120.json` | `tournaments/ao-ramp7` .. `ao-ramp12` |
+| F, the control | AL's mirror arm: `tournaments/mir-seed7` .. `mir-seed12` at `pool-120.json` | `tournaments/ao-flat7` .. `ao-flat12` |
+
+Rated as AN was: `L` is the mean paired bar against `golem-fencer` over checkpoints 110, 115 and
+120 of the second stage, 400 bouts, seed 20261014's held-out pool, latched.
+
+### Predictions
+
+**0. The instrument.** Eighteen leagues run 120 iterations, every stage-two header names its own
+arm's checkpoint, and no rating row is off the manifest.
+
+**1. The six new seeds repeat AN on their own.** R less F, paired by seed over the six new seeds,
+is **positive at t > 2.57**.
+
+**2. And twelve seeds an arm carry it.** Pooling AN's six paired differences with these six, the
+twelve are **positive at t > 2.20**, the two-sided 5 % point at 11 degrees of freedom. **This is
+the prediction the experiment exists for.** Twelve paired differences have an se near 0.012, so
+the design resolves about 0.026 against AN's point estimate of 0.035.
+
+**3. The ramp arm's seeds agree more closely than the control's.** Over the six new seeds, R's
+between-seed sd is below F's. AN read 0.0139 against 0.0391, F 7.96 on 5 and 5 against a 5 % point
+of 7.15, and this is the second reading of that instrument.
+
+### The falsifier, and what each branch licenses
+
+**If 2 misses, idle pre-training does not move the fencer bar at the width AL set as the minimum
+honest design.** AN's descriptive numbers are withdrawn by name -- the five-of-six and the variance
+ratio both -- and **the curriculum family is closed on evidence, not on a missed line.** Everything
+after that goes at the reward and the credit path.
+
+**If 2 holds, the record has its first lever that moves the fencer bar**, measured at twelve seeds
+an arm, and the first thing it buys is the owner's eye: a ramp mind and a control mind of the same
+seed, played in front of him, before anything is registered on top of it.
+
+**If 1 misses while 2 holds, the effect is real and smaller than AN's point estimate**, which is
+what regression to the mean looks like. It is recorded at the pooled number and the rung above
+`idle` waits for it.
