@@ -35800,3 +35800,79 @@ next registration asks the only transfer question the record can now afford: **w
 spent 120 iterations killing a motionless body is a better starting point for the fencer than one
 that spent those iterations on the fencer.** Both arms exist as checkpoints on disk, so it is
 twelve leagues of second stage and nothing else.
+
+## Pre-registration -- 2026-09-16: Experiment AN, whether a hundred and twenty iterations spent killing a motionless body are worth more to the fencer than a hundred and twenty spent on the fencer
+
+AM showed the fit learns when the reward's sign is plain: forty points of kill rate at t 7.59,
+from the same optimiser that moves nothing measurable against `golem-fencer`. It also closed the
+rung the owner proposed first -- start distance is not difficulty, and 1.2 m was no easier than
+2.6 m at any checkpoint. **What AM cannot say is whether any of that reaches the fencer.** A mind
+that has learned to swing at a body that does not move may be carrying a stroke it can reuse, or
+a habit that a defending body punishes. AN asks which, at equal compute, against the criterion
+this record actually states.
+
+**Both arms are the same second stage from a different first stage.** Each is 120 iterations of
+the fencer manifest started with `--from` off a 120-iteration checkpoint of its own seed. Stage
+one is the only difference: `idle` for one arm, `golem-fencer` for the other. Total training is
+240 iterations either way, each arm restarts with an empty pool and cold Adam, and the `--from`
+path is identical in both. **The contrast is not a compute contrast and not a mechanism contrast.**
+
+| arm | stage one, already on disk | dir |
+| --- | --- | --- |
+| R, the ramp | AM's far arm at `pool-120.json`: `tournaments/idle-far1` .. `idle-far6` | `tournaments/an-ramp1` .. `an-ramp6` |
+| F, the control | `tournaments/lam-long`, `lam-seed{2..6}-long` at `pool-120.json` | `tournaments/an-flat1` .. `an-flat6` |
+
+Seeds 20260917 .. 20260922, matched between the arms and to the checkpoint each starts from.
+Stage two is lam-base:
+
+```
+--opponent golem-fencer --tactics latchAbort=true --lambda 0.95 --iterations 120 --bouts 32
+--terminals maul,mace --shards 4 --exploiters 0 --evaluate 0 --pool-every 5 --workers 3
+```
+
+**The ramp arm's stage one is the far arm and not the near one**, because the fencer's bouts start
+at 2.6 m and AM found the two distances indistinguishable, so taking the far arm removes a
+difference without giving anything up.
+
+### The statistic
+
+**The ending level `L`**, the mean paired bar against `golem-fencer` over checkpoints 110, 115 and
+120 of the second stage, at 400 bouts on seed 20261014's held-out pool, latched. That is AG's
+statistic and AI's, unchanged, so AN's numbers sit beside theirs.
+
+### Predictions
+
+**0. The instrument.** All twelve leagues run 120 iterations, every header prints `starting the
+main from` its own arm's checkpoint, and no row is off the manifest.
+
+**1. The ramp is worth more than the fencer, at equal compute.** R's `L` less F's, paired by seed,
+is **positive at t > 2.57** over the six seeds.
+
+**2. And it is not worse than the fencer alone at 120.** R's mean `L` is **above -0.0495**, the
+six-seed mean at 120 that AG measured on this instrument.
+
+**3. Restarting is not itself the lever.** F's mean `L` is **within 0.03** of **-0.0322**, which
+is the six seeds' own mean over 230, 235 and 240 on this instrument, recomputed from
+`rate-heldout.jsonl` for this registration: +0.0234, -0.0666, -0.0282, -0.0805, -0.0361, -0.0054,
+sd 0.0383. Those runs reached 240 by `--resume`, carrying their pool and Adam's moments; F restarts
+with an empty pool and cold Adam off the same seed's 120. If this misses, the restart is itself a
+lever, and every `--from` reading in this record is read with that number beside it.
+
+**Stated in advance.** A paired difference between two trajectories of one seed is the tightest
+contrast this record has: AF measured the within-seed level sd at 0.014, so a difference of two
+trajectories has an sd near 0.02 and a six-seed mean an se near 0.008. These are not forks -- the
+arms diverge at iteration 1 of stage one -- so take the se as nearer 0.013, and the design as
+resolving about **0.035**. AL's lesson stands: nothing smaller than that is claimed.
+
+### The falsifier, and what each branch licenses
+
+**If 1 misses, a hundred and twenty iterations of the easiest task in the game buy nothing against
+the fencer.** That is the cheapest instance of the curriculum family, run at the family's best
+case -- a rung the fit demonstrably masters -- and if it does not transfer, no schedule of harder
+rungs is licensed on evidence. **The next registration goes at the reward and the credit path**:
+what a stroke is paid, what a mirrored bout pays for, and where between iteration 5 and 60 the
+gradient stops carrying signal. Nothing further is registered on schedules.
+
+**If 1 holds, the ramp is real** and the record has its first lever that moves the fencer bar. The
+next registrations are the rung above `idle` -- a body that blocks but does not strike -- and the
+reverse order, to separate transfer from the variety of a changed task.
