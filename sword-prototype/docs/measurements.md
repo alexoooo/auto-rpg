@@ -61,6 +61,11 @@ So, in order, and each one cost something:
 8. **A prediction that cannot name the number that would refuse it is a hope with a paragraph
    attached.** One registered here could not have been refused by any result the run could produce,
    and saying so afterwards is worth less than registering the mapping would have been.
+9. **And the mapping from outcomes to verdicts has to be total.** CI's P3 claimed *at most two* and
+   named its refusal at *four or more*; the answer was three, which the registration had not
+   allowed for, so the run produced a result its own scoring rule could not score. Write the rule so
+   that every outcome the run can produce falls under exactly one verdict, and check that by
+   enumerating them rather than by reading the sentence back.
 
 **Combat-value unit note (2026-09-01):** historical damage and durability rows recorded before
 ruleset v2 remain in their measured legacy units. Divide those values by 20 only when comparing
@@ -40582,8 +40587,22 @@ table it loses **331-0-693, at 7.4 sd, worth -124 Elo**. The proxy did not merel
 it ranked it first while the objective ranks it last of eight. A slower, better-turned stroke is
 punished exactly as hard as the rate column said it would be.
 
-**P3 held: two of eight cleared, as registered.** But the second one was not the one that was
-expected to clear.
+**P3: two of eight cleared in this run, but the true count is three, and P3's own wording does not
+survive it.** CJ re-ran the void `cutRoll` arm and it clears at 2.6 sd, so of the eight rows CI set
+out to judge, **three** beat the shipped stroke across the table. P3 claimed *at most two*, and
+named its refusal at *four or more*. Three is neither. The prediction left a gap between the claim
+it made and the condition it offered to be refused by, and landed in it.
+
+Scored honestly: the claim P3 actually made is **false**, and the condition it offered as a refusal
+did not fire. The generous reading is available -- "not broadly mistuned, only a few rows" survives
+at three of eight as well as at two -- and it is not the reading this document takes, because a
+prediction gets the bar it wrote down and not the bar it would have written down knowing the
+answer. This is the same defect as CH's unfalsifiable expectation and CI's own P4, for the third
+time in two days: **the registration is only as good as the arithmetic that maps outcomes to
+verdicts, and that arithmetic must be total.** Four or more refuses, at most two holds, and three
+was simply not considered.
+
+The second row to clear was also not the one expected.
 
 **`followLift` 0.95 beats `chamberReach`**, at 0.6396 against 0.6143, +104 Elo against +85. It went
 into this run on a 2.1 sd mirror reading that nobody had followed up, listed fifth of eight in the
