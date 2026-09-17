@@ -5102,13 +5102,35 @@ statistics with nothing in common but the row, and both disagree with what ships
 screen runs one page on the changed stroke and says so on the boot note. Two tabs, same matchup
 link, is the comparison. See `src/golem/stroke-rows.ts` for which minds the override reaches.
 
-**Why it has not shipped.** The same reason as `cutRoll`, and it has not weakened: every fitted
-policy head in this tree was trained with the stroke at -0.70, so moving it invalidates them and
-the honest order is re-rate first. On top of that, until CG every cell measuring it was a *mirror*:
-both fighters read one module-global stroke shape, so a swept row moved both of them. A mirror can
-say a configuration is more dangerous. It cannot say a golem with the change beats a golem without
-it, which is the criterion this project judges a designed mind by. That measurement now exists to
-be taken and the decision stays the owner's.
+**And it wins across the table, which is the criterion that counts.** Until CG every cell measuring
+this row was a *mirror*: both fighters read one module-global stroke shape, so a swept row moved
+both of them. A mirror can say a configuration is more dangerous; it cannot say a golem with the
+change beats a golem without it. `strokeOver` on `FencerTactics` made the second question
+expressible and `scripts/stroke-duel.mjs` asks it. 8192 side-swapped bouts, scored the way the
+tournament scores anything:
+
+| | paired score | W-D-L | Elo |
+| --- | ---: | ---: | ---: |
+| shipped against itself | 0.4971 | 1018-0-1030 | -- |
+| `chamberReach` -0.20 | 0.6055 | 1240-0-808 | +75 |
+| `chamberReach` 0.00 | **0.6191** | 1268-0-780 | **+84** |
+| `chamberReach` 0.15 | 0.5874 | 1203-0-845 | +61 |
+
+**Sixty to eighty-five Elo from one constant**, which is a wider gap than most of the minds in
+`docs/measurements.md` have ever opened on each other. The control is the load-bearing row: the
+shipped stroke against itself came back at 0.4971 over 2048 bouts, so the bench is even-handed and
+these margins belong to the row rather than to the arena. Nothing in this tree had ever checked that
+for golem-versus-golem, and every mirror cell would have hidden a side bias perfectly.
+
+**The plateau is the result; its peak is not.** The mirror ranked 0.15 best and the paired bench
+ranks it last, both spreads about one standard deviation wide. Neither resolves a peak, and the
+mirror's ordering *inside* a plateau carries no information. Read this as "anywhere from -0.20 to
+0.00 is worth about 75 Elo over what ships", not as a recommendation of a value.
+
+**Why it still has not shipped.** Every fitted policy head in this tree was trained with the stroke
+at -0.70, so moving it invalidates them; the honest order is re-rate first and move the constant
+second. That is unchanged by having a better statistic -- it is what CA settled -- and the decision
+stays the owner's.
 
 ### How much measurement is worth buying, which turned out to have an answer
 
