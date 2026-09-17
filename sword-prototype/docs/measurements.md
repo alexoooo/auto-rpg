@@ -37928,3 +37928,57 @@ That is a time penalty the reward table never declared and it points the right w
 the clock does -- but it is undeclared, it is not in the table, and its size is one part in
 `overtimeKillSeconds` a second against coefficients of 0.004. Nothing is changed here; it is
 recorded so the next fit does not discover it as an anomaly.
+
+## BD -- what a point of margin costs in seconds
+
+Registered 2026-09-17, before collecting. BC left one question and it is a design decision rather
+than a defect: the ramp resolves half the fights at a median margin of 0.148 of a bar, against the
+0.374 the fighting produces on its own, and 44 % of those finish under a tenth. The ramp cannot fix
+that, because it is symmetric and cancels in the difference. All it does is choose when the
+fighting's own margin is read. So the only lever is **time**, and this prices it.
+
+**The cells.** BC-2's cell exactly -- `golem-fencer` mirrored, 28 builds, 4 bouts each, 112 bouts,
+seed 20260906 -- with the ramp's two knobs moved and the cap set 30 s past each cell's own
+resolution.
+
+| cell | overtimeSeconds | overtimeKillSeconds | resolves by | cap |
+| --- | ---: | ---: | ---: | ---: |
+| BD-a | 60 | 30 | 90 s | 120 |
+| BD-b | 60 | 60 (shipped) | 120 s | 150 |
+| BD-c | 60 | 120 | 180 s | 210 |
+| BD-d | 90 | 60 | 150 s | 180 |
+| BD-e | 120 | 60 | 180 s | 210 |
+
+BD-c and BD-e both resolve by 180 s and get there differently -- a slow drain from a minute against
+a fast one from two -- which is what makes the collapse below testable rather than assumed.
+
+### The predictions
+
+1. **Median margin rises monotonically with the cell's resolution time,** a through b through c, and
+   likewise d and e. This is close to arithmetic: the margin is the fighting's own separation read
+   at the moment of death, and the fighting separates the two bodies further the longer it runs.
+
+2. **The margin collapses onto one curve against bout length.** Plot each cell's median margin
+   against its median bout length and the five points lie on a single monotone curve: two cells that
+   finish their bouts at the same time show the same margin whatever combination of start and drain
+   rate got them there. BD-c against BD-e is the test, and they are chosen to resolve together.
+   **A miss here would mean the drain is not symmetric in practice** -- that it interacts with the
+   fighting rather than merely timing it -- which would be a defect in `drain` and not a finding.
+
+3. **BD-c's share of bouts finishing under a tenth of a bar falls below 30 %,** from BC-2's 44 %.
+
+4. **No cell reaches BC-0's 0.374.** That number is the margin of the fights the *fighting* decided,
+   which is a selected sample -- the ones that separated fastest. A ramped cell contains those plus
+   every fight that never separated, so its median is below theirs by construction, and a cell that
+   matched it would mean the slow fights had stopped being counted.
+
+5. **BD-a is worse than shipped on every margin column** -- a faster drain reads the margin sooner
+   and therefore reads less of it. It is in the table as the sign check.
+
+### What the answer is for
+
+Nothing ships off this on its own. The output is one table of what a point of margin costs in
+seconds of fight, and the choice on it is the owner's: they asked for resolution by about two
+minutes, and if buying a margin worth watching costs three, that is a trade they should be shown
+rather than one I should make. **The one outcome that is mine to act on is a miss on prediction 2**,
+which would be a bug in `drain`.
