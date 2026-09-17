@@ -39479,3 +39479,37 @@ of contacts, and on the by-speed table, which is the same.
 **And no value ships.** `drawFraction` is 0 in the tree, four tests hold it there, and every number
 in this document was measured under 0. Raising it is a change to the physics, it is defensible on
 the evidence, and it is the owner's to make.
+
+## BW -- the owner's ruling on the draw, and the line this document is now split at
+
+The question BV left open went to the owner in plain language: *should sword cuts get credit for the
+slicing motion, and not just the pressing-in motion?* The first way I asked it was jargon, and the
+owner said so -- *"I have no idea what you're saying or what you're asking. but it sounds like there
+is damage that's not counted?"* -- which was the right reading of it, arrived at through my bad
+sentence rather than because of it. Asked again with a bread knife instead of a normal component,
+the owner ruled: **yes, a bit.**
+
+`CONFIG.combat.drawFraction` is **0.3** in the tree as of 2026-09-17. The design ruling is in
+`docs/design.md` under *A cut is paid for the slide as well as the press*; what belongs here is the
+line it draws across this document.
+
+**Every measurement above this section was taken at `drawFraction` 0.** That includes every damage
+figure, every bout length, every decided fraction and every viability constant in this file, and it
+includes the 2026-09-05 stand-off table that the whole BG-BV phase was compared against. None of
+them are wrong, and none of them are current: they are readings of a different damage law.
+
+The three that will have moved most, from BV's sweep at 16 bouts a row:
+
+| column | at 0 | at 0.3 |
+| --- | ---: | ---: |
+| contacts that pay anything | 25 % | 32 % |
+| bout length | 42.7 s | 39.4 s |
+| p90 damage of a paying contact | 1.81 | **1.69** |
+
+The last row is the one worth keeping in mind before re-reading anything above: the dial did not
+make blows bigger, it made more of them count. A cell that wants the old law back sets the constant
+to 0 rather than checking out an old tree, which is what `draw_is_not_paid_for_at_zero` exists to
+keep true.
+
+**What is owed.** BJ registered that this phase does not close on a table, and the ruling was made
+from one. The before/after the owner can watch, on the same matchup and the same seed, is the gate.

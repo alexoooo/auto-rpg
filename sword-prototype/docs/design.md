@@ -4911,3 +4911,65 @@ the audit falls back before the shader is reached. It took looking at it in a br
 - **A refit is a uniform scale over the module's parts**, not a per-part record. The bin holds "one
   of these, this worn". A per-part save would be a body description format, which is exactly what
   the salvaged surface and material files were cut free of.
+
+## A cut is paid for the slide as well as the press
+
+**The complaint, and what turned out to be behind it.** The owner watched golem duels and said the
+fights were flail: *"instead of maintaining proper swing distance, the golem get into each other's
+face and kinda just flail around, the attacking technique is just too poor to do real damage."* The
+2026-09-17 phase spent eleven cells refusing candidate causes for that -- the stand-off had not
+regressed, the bodies stood where they were told to within four centimetres, they committed from
+inside their own reach on 99 % of strokes, exploration noise moved the spacing six centimetres, the
+blade was not landing flat, the first touch was not a graze that the blade then drove through, aim
+depth was a saturated knob, and carrying the body through the stroke was worth a paired `d` of
+about 0.06. Every one of those is registered in `docs/measurements.md` with the number that refused
+it.
+
+**What survived is not a behaviour at all; it is the scoring law.** BU partitioned every committed
+contact by tip speed and read the share of that speed lying on the contact normal. It falls as the
+blade goes faster: 0.45 at 0-2 m/s, 0.30 in the middle, **0.22 at 12-20 m/s**. The stances say the
+same thing from the other direction -- `measure`, the slowest stance at 7.33 m/s, is the squarest
+at 0.36, and `commit`, the fastest at 18.42 m/s, is the least square at 0.28. Sixty-four per cent
+of committed contacts scored nothing.
+
+That is not a mind failing to aim. It is geometry. A golem makes blade speed by rotating a long
+arm, and the tip of a rotating arm moves *across* what it meets, not into it. The harder it swings,
+the more tangential the contact -- so the law as it stood charged the best strokes the most for
+being good ones.
+
+**The law as it stood only counted pressing.** `damage = quality * energyJ / joulesPerDamage` with
+`energyJ = 1/2 mu v^2`, and `v` was the closing speed: the component of the blade's motion along
+the contact normal. A blade sliding along a target at fifteen metres per second while pressing in
+at two was scored as a two-metre-per-second blow. That is the right model for a club, whose whole
+mechanism is the press. It is the wrong model for an edge: a real blade does most of its cutting on
+the draw, which is why a bread knife is used with a sawing stroke and a razor is drawn rather than
+pushed.
+
+**The rule.** `CONFIG.combat.drawFraction` is the share of a cut's *sliding* speed an aligned edge
+is paid for, and it enters through `cutSpeed` as `hypot(press, draw * slide * alignment)`. Three
+properties fall out of that construction and each of them is load-bearing:
+
+- **It is weighted by the edge alignment.** A blade dragged flat across somebody is paid nothing
+  for the drag and stays the slap it is. `point` and `blunt` strikers never reach the rule at all,
+  which `a_club_is_never_paid_for_a_slide_whatever_the_dial_says` pins against the whole striker
+  list rather than a hand-written one.
+- **It pays nothing for a graze,** because a blade that is barely moving has no slide to be paid
+  for. The owner's complaint was that weak taps do nothing, so this had to be measured rather than
+  argued: contacts under 4 m/s of tip speed go from 3 % paying to 5 %, while 12-20 m/s goes from
+  33 % to 43 %.
+- **A contact that does not report its `speed` is never repriced.** The field is optional on
+  `Contact`, and absent means *do not pay for the slide* -- so every call site written before the
+  constant existed keeps scoring from the press alone, whatever the dial says.
+
+**0.3 rather than more, and who chose it.** BV swept the constant with three predictions registered
+before the data. At 0.3 the share of contacts that pay goes 25 % -> 32 %, a bout runs 39 s against
+43, and the heaviest blows do not grow: p90 damage is **1.69** against the shipped 1.81, slightly
+lower. Past 0.5 the dial stops making cuts count and starts ending fights -- 24 s a bout at 0.7,
+20 s at 1.0, with the top end climbing to 3.75. So 0.3 is the most conservative setting that does
+real work, and it does that work in the place the complaint pointed at.
+
+This is a change to the physics every measurement in `docs/measurements.md` before 2026-09-17 was
+taken under. That is why it was put to the owner in plain language rather than decided by a table,
+and the owner ruled for it. **It is not yet closed.** The ruling was made from numbers; this
+project has a standing rule that the owner's eye beats my tables, and BJ registered that the phase
+does not close on a table. The before/after on the same matchup and seed is owed.

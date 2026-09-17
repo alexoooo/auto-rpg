@@ -841,8 +841,9 @@ export const CONFIG = {
     /** How sharply an edge's damage falls off as it turns away from the cut. */
     edgeExponent: 2.0,
     /**
-     * How much of a cut's *sliding* speed an aligned edge is paid for. **0 is the shipped law**,
-     * at which `scoreHit` computes exactly what it computed before this constant existed.
+     * How much of a cut's *sliding* speed an aligned edge is paid for. **0 restores the law as it
+     * stood before this constant existed**, at which `scoreHit` computes the old expression to the
+     * bit; 0.3 ships, on the owner's ruling of 2026-09-17.
      *
      * `impactEnergyJ` squares the closing speed alone, on the argument `scoring.ts` states: only
      * the normal component of a collision is lost to deformation and the tangential part is
@@ -858,11 +859,25 @@ export const CONFIG = {
      * material rather than deforming it.
      *
      * Weighted by the edge alignment, so a blade dragged flat across somebody is paid nothing
-     * for the drag and stays the slap it is. Raising this is a change to the physics every
-     * measurement in `docs/measurements.md` was taken under, which is why it is the owner's and
-     * not a tuning pass's. 2026-09-17.
+     * for the drag and stays the slap it is.
+     *
+     * **0.3 rather than more, and the three numbers that chose it.** BV swept this and registered
+     * three ways it could be wrong before looking. At 0.3 the share of contacts that pay goes
+     * from 25 % to 32 %; a bout still runs 39 s against 43; and the heaviest blows do not grow --
+     * p90 damage is 1.69 against the shipped 1.81, slightly *lower*. Above 0.5 the dial stops
+     * making cuts count and starts ending fights: 24 s a bout at 0.7 and 20 s at 1.0, with the
+     * top end climbing to 3.75.
+     *
+     * The important one is that it does not pay for grazes. A contact under 4 m/s of tip speed
+     * goes 3 % to 5 %, while 12-20 m/s goes 33 % to 43 %. That falls out of the construction --
+     * the credit is this times the slide times the alignment, and a blade barely moving has no
+     * slide -- but the owner's complaint was that weak contacts are worthless, so it is the thing
+     * that had to be checked rather than argued.
+     *
+     * This is a change to the physics every measurement in `docs/measurements.md` before
+     * 2026-09-17 was taken under, and the owner made it, not a tuning pass. 2026-09-17.
      */
-    drawFraction: 0,
+    drawFraction: 0.3,
     /**
      * The power of closing speed a wound is charged at. **2 is kinetic energy**, and 2 is the
      * default, at which `scoreHit` takes a branch that is the old expression to the bit.

@@ -809,15 +809,36 @@ const withDraw = (draw, body) => {
   try { return body(); } finally { CONFIG.combat.drawFraction = was; }
 };
 
-test("draw_is_not_paid_for_at_the_shipped_default", () => {
-  assert.equal(CONFIG.combat.drawFraction, 0, "the tree ships the law unchanged");
+test("the_tree_ships_the_draw_the_owner_ruled_for", () => {
+  // Pinned rather than read, because the constant is a physics decision the owner made on BV's
+  // sweep and not a number a tuning pass may drift. Moving it moves every damage figure in
+  // `docs/measurements.md` taken after 2026-09-17, so it should cost a deliberate edit here.
+  assert.equal(CONFIG.combat.drawFraction, 0.3);
+});
+
+test("draw_is_not_paid_for_at_zero", () => {
   // A blow with four times as much sliding speed as pressing speed scores exactly what the same
-  // press scores with no slide at all. That equality is the whole claim of the default.
-  const sliding = scoreHit(drawnCut(T.referenceSpeed, T.referenceSpeed * 4));
-  const pressing = scoreHit(cleanCut(T.referenceSpeed));
-  assert.equal(sliding.damage, pressing.damage);
-  assert.equal(cutEnergyJ(drawnCut(T.referenceSpeed, T.referenceSpeed * 4)),
-    impactEnergyJ(CONFIG.sword.mass, TORSO, T.referenceSpeed));
+  // press scores with no slide at all. That equality is the whole claim of the zero setting, and
+  // it is what makes 0 a usable control for any cell that wants the pre-2026-09-17 law back.
+  withDraw(0, () => {
+    const sliding = scoreHit(drawnCut(T.referenceSpeed, T.referenceSpeed * 4));
+    const pressing = scoreHit(cleanCut(T.referenceSpeed));
+    assert.equal(sliding.damage, pressing.damage);
+    assert.equal(cutEnergyJ(drawnCut(T.referenceSpeed, T.referenceSpeed * 4)),
+      impactEnergyJ(CONFIG.sword.mass, TORSO, T.referenceSpeed));
+  });
+});
+
+test("the_shipped_draw_pays_a_sliding_cut_more_than_the_same_press", () => {
+  // The other side of it, at the number that actually ships: the same pressing speed carrying a
+  // slide four times as fast arrives with more energy than the press alone, and by the amount the
+  // construction names -- hypot(press, 0.3 * slide) on a fully aligned edge.
+  const press = T.referenceSpeed;
+  const slide = press * 4;
+  const drawn = cutEnergyJ(drawnCut(press, Math.hypot(press, slide)));
+  assert.ok(drawn > impactEnergyJ(CONFIG.sword.mass, TORSO, press));
+  assert.ok(Math.abs(drawn - impactEnergyJ(CONFIG.sword.mass, TORSO,
+    Math.hypot(press, CONFIG.combat.drawFraction * slide))) < 1e-9);
 });
 
 test("a_contact_that_does_not_report_its_speed_is_never_repriced", () => {
