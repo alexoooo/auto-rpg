@@ -41045,3 +41045,89 @@ CM cannot license a ship on its own, because the pool it rates over is not the p
 were fitted against and four minds are not `PPO_LEAGUE`. What it buys is the first number anybody
 has on whether this row survives contact with a mind that is not `golem-fencer`, which is the
 question every "re-rate first" sentence in this document has been deferring.
+
+### CM's result: the stroke got better, the golem did not win more, and the +170 was a mirror number
+
+Two cross tournaments, 2048 bouts each, seed 20260917, four minds, 12 reference builds and 24
+drawn, cap 150 s. One shipped, one under `--override chamberReach=0,followLift=0.95`. Paired row by
+row; every row is asserted to be the same matchup on both sides before a number is read.
+
+**The positive control first, because three separate bugs tonight were arms that measured their
+control.** `golem-driver` and `golem-policy` both run committed arcs and read neither row. Their
+344 head-to-head bouts come back **identical to the byte** -- paired delta 0.0000, sd 0.0000,
+bout length 57.17 s to 57.17 s. Every matchup with a live-table corner moves. So the override
+reached the stroke, reached only the minds that read it, and the pairing is exact.
+
+| mind | shipped | overridden | paired delta | sd | t |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `golem-policy` (v4) | 0.5394 | 0.5404 | +0.0010 | 0.0045 | 0.22 |
+| `golem-fencer` (v2) | 0.4990 | 0.4961 | -0.0029 | 0.0060 | -0.49 |
+| `golem-driver` (v4) | 0.4839 | 0.4878 | +0.0039 | 0.0037 | 1.07 |
+| `golem-duelist` (v1) | 0.4775 | 0.4755 | -0.0020 | 0.0060 | -0.32 |
+
+**CM1: refused, and my prediction was wrong.** I predicted `g >= +2`. Pooling the fencer's paired
+differences against the two committed-arc minds over 682 side-bouts gives **-0.0015 +-0.0060, g =
+-0.24** -- inside the refusal band and on the wrong side of zero. The two-sigma bound is +-0.012 of
+score, which is **+-8 Elo**. CL measured +170 Elo for this pair in the mirror. At most a twentieth
+of it reaches a mind that is not `golem-fencer`, and the point estimate is nothing at all.
+
+**CM2: held, and it is the cheap outcome.** `golem-policy > golem-fencer > golem-driver >
+golem-duelist`, identical in both runs. As registered, that makes the re-rate bookkeeping.
+
+**CM3: refused.** Registered as refused if the clock moves under 1 s either way. It moves 0.10 s
++-0.21 (t 0.50) where one corner is live, and **-0.12 s +-0.46 in the mirror on these builds** --
+against the 5.2 s CL took off a fencer-against-fencer bout. 99.7 % of bouts decided, so this is not
+a stalemate hiding a difference.
+
+### What did move, which is why this is not a null
+
+The row is not inert. On the 682 side-bouts where the fencer's stroke changed and its opponent's
+did not:
+
+| column | shipped | overridden | paired delta | t |
+| --- | ---: | ---: | ---: | ---: |
+| `strokeDamage` | 0.890 | 0.904 | +0.014 | **2.06** |
+| `scoringSpeed` | 4.666 | 4.717 | +0.051 | 1.71 |
+| `contacts` | 240.71 | 250.28 | +9.58 | **2.56** |
+| `strokes` | 64.23 | 63.50 | -0.73 | -1.50 |
+| `insideInner` | 0.258 | 0.251 | -0.007 | **-2.37** |
+| `damage` | 25.14 | 25.51 | +0.37 | 1.45 |
+
+`golem-duelist`, the v1 mind, agrees on every sign and is stronger on two of them --
+`strokeDamage` +0.023 at t 2.84, `strokes` -1.14 at t -2.72.
+
+**Each stroke lands harder and faster, the golem throws fewer of them, and it spends less of the
+bout inside its own inner radius.** That is CL's direction on every column, at two to three sigma,
+on a matchup CL never ran. The blade really is turned better. It buys **+0.37 damage on 25**, and
+that is too little to move a bout that 240 contacts and 130 blocks already decide.
+
+### The lesson, and it is about the instrument rather than the row
+
+**A mirror converts a small consistent edge into a large Elo number, and Elo from a mirror does not
+transport.** In a fencer-against-fencer bout the stroke is the *only* thing that differs, so an edge
+of a percent in damage per stroke decides a large fraction of bouts and reads as +170. Against a
+third mind the score is set by the gap between two different minds and by the build draw, and the
+same percent is invisible. Both numbers are correct measurements of different quantities, and the
+one this record kept quoting is the one that does not answer "should this ship".
+
+That is a fact about **every cell from BY to CL**, all of which were measured in the mirror. It does
+not retract them -- `chamberReach` and `followLift` still turn the blade, and CM's structural table
+is independent confirmation on a new matchup. It retracts the *units*: those margins are mirror
+Elo, and the record should stop reporting them as if they were pool Elo.
+
+> **Registered 2026-09-17, as the tenth governing rule.** A margin measured in a mirror is quoted
+> as mirror Elo and never as a rating. A row proposed for shipping states its effect against at
+> least one mind that does not read it, or it states that it has not been measured there.
+
+### What this does to the ship decision, which is still the owner's
+
+The case for the two constants is now **behavioural and not competitive**. What is bought:
+`strokeDamage` +1.6 %, `scoringSpeed` +1.1 %, `insideInner` **-2.7 %** -- the last being the
+owner's own complaint, *"they get into each other's face and kinda just flail around"*, moving the
+right way at t -2.37 on two independent minds. What is not bought: any win rate, against anything.
+What it costs: a re-rate is now known to be **unnecessary**, since the pool's order and every
+pairwise score are unchanged within noise. That was the precondition, and CM has discharged it --
+in the direction of "there was nothing to revalidate" rather than "the revalidation passed".
+
+`?tactic=chamberReach:0,followLift:0.95` remains the eye gate, and the eye is the gate that matters
+for a behavioural claim, which this now is.

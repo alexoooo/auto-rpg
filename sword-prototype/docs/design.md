@@ -5169,14 +5169,36 @@ are worth **nothing and minus four**, and both make the bout longer rather than 
 held at 90 % of summed Elo for two rows, 77 % for three and 60 % for four, so the decay is the
 result rather than a disappointment about it.
 
-**So the recommendation is two constants and not four**, which halves what a re-rate has to
-revalidate and drops the two rows whose effect turned out to be another route to the same thing the
-first two already do. `chamberReach` says how cramped the wind-up is and `followLift` says how high
-the hand finishes; a stroke that fixes both is apparently already getting whatever `cutRoll` and a
-faster `strokeSeconds` were buying separately.
+**So the recommendation is two constants and not four**, and it drops the two rows whose effect
+turned out to be another route to the same thing the first two already do. `chamberReach` says how
+cramped the wind-up is and `followLift` says how high the hand finishes; a stroke that fixes both is
+apparently already getting whatever `cutRoll` and a faster `strokeSeconds` were buying separately.
+
+**Every number in that table is mirror Elo, and CM measured what it is worth outside the mirror: at
+most a twentieth of it.** Two 2048-bout cross tournaments over four minds, paired on one seed,
+shipped against the override, put the fencer's change against the two minds that do not read these
+rows at -0.0015 +-0.0060 -- a two-sigma bound of **+-8 Elo against the +170 above**, with the point
+estimate at nothing. The pool's order does not move and no pairwise score moves. The rows are *not*
+inert there: on the same bouts the fencer's `strokeDamage` is up 1.6 % at t 2.06, `scoringSpeed` up
+1.1 %, and `insideInner` down 2.7 % at t -2.37, with the v1 duelist agreeing on every sign. The
+blade is turned better and it does not win more.
+
+A mirror is the reason, and it is the instrument rather than the row. In a fencer-against-fencer
+bout the stroke is the only thing that differs, so an edge of a percent in damage per stroke decides
+a large share of bouts and reads as +170; against a different mind the score is set by the gap
+between two minds and by the build draw, and the same percent is invisible. Both are correct
+measurements of different quantities. **Mirror Elo does not transport, and this record quoted it
+for the whole of BY through CL as though it did.**
+
+So the case for these two constants is behavioural, not competitive: they buy a harder, faster
+stroke and 2.7 % less time inside the golem's own inner radius -- which is the owner's original
+complaint, *"they get into each other's face and kinda just flail around"* -- and they buy no win
+rate against anything. The re-rate that every cell since CA named as the precondition is discharged,
+in the direction of there having been nothing to revalidate.
 
 The eye gate is `?tactic=chamberReach:0,followLift:0.95` against an unmodified tab, and the decision
-is the owner's as it has been throughout.
+is the owner's as it has been throughout -- now on a behavioural claim, which is the kind of claim
+the eye is the right gate for.
 
 ### How much measurement is worth buying, which turned out to have an answer
 
