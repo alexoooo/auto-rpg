@@ -38034,3 +38034,86 @@ body's class is most of the outcome. BE runs it: the same three arms on two *dif
 prediction, stated before it returns, is that **the median margin on random pairs is at least double
 the mirror's 0.148**, because the thing being measured there is a difference between bodies and not
 the noise between two copies of one.
+
+## BE / BF -- the reading that says the fighters are leaning, not cutting
+
+### BF, registered 2026-09-17 before collecting
+
+BC and BD settled the death model. This is the owner's *other* two complaints, which the record has
+been carrying since the first eye gate and which a two-minute fight makes more urgent rather than
+less: *"a lot of attacks didn't really seem to do anything"*, and the weapons felt *"light as air"*.
+
+**The stroke reading, taken at the new settings.** 112 bouts, `golem-fencer` mirrored, cap 150.
+
+| what a person watching counts | measured |
+| --- | ---: |
+| strokes in a bout | 113.9 |
+| contact-steps per stroke | 3.3 |
+| strokes that pay anything | **33 %** |
+| share of damage in the top 10 % of paying strokes | **55.3 %** |
+| median paying stroke | 0.32 |
+| p99 paying stroke | 9.16 |
+| heaviest stroke seen | 37.2 |
+
+Both complaints are the same distribution seen from two ends, and neither is a perception problem.
+
+**The energy reading, which says why.** The same cell, per contact and per terminal.
+
+| terminal | contacts | blocked | under floor | paid | mean J | median J | tip m/s | closing m/s |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| blade | 12169 | 17 % | **84 %** | 16 % | 7.1 | 0.2 | 4.65 | **1.79** |
+| empty | 15266 | 16 % | 84 % | 16 % | 5.7 | 0.5 | 2.95 | 1.17 |
+| mace | 5132 | 2 % | 70 % | 30 % | 20.7 | 1.9 | 3.53 | 1.69 |
+| maul | 1404 | 0 % | **42 %** | 58 % | 91.7 | 14.7 | 3.57 | 2.01 |
+| whip | 5449 | 12 % | 86 % | 14 % | 3.9 | 0.9 | 7.79 | 3.18 |
+| plate | 2412 | 9 % | 87 % | 13 % | 4.0 | 0.2 | 3.54 | 1.40 |
+
+**56.7 % of all contacts arrive carrying under one joule.**
+
+**Blocking is not why strokes do nothing.** It is 0 to 17 % everywhere. The floor is, and the floor
+is right to. `CONFIG.combat.cutFloorJ` is 5.96 J and its comment says exactly what that number is:
+`0.5 * 1.32372 * 3^2`, a 3.0 m/s cut with the Warrior's own sword on a torso, so that *"a blade
+being leaned on is exactly as harmless as it was."* The blade's mean closing speed in these bouts
+is **1.79 m/s**. The floor is not rejecting cuts. It is correctly reporting that most of what these
+bodies do to each other is leaning.
+
+So the lever is neither the floor nor `damageSpeedExponent`. Lowering the floor would make leaning
+lethal, and the exponent re-prices only the strokes that already pay. **The quantity that is wrong
+is the speed a stroke arrives at**, and energy goes as its square, which is also the whole of
+"light as air": a 1.35 kg blade at 1.79 m/s carries 2.1 J, and a weapon that arrives with two
+joules has no weight to it because it has no energy in it.
+
+### The hypothesis, and why it is cheap to test
+
+A blade's tip moves at 4.65 m/s and closes at 1.79. The gap is 2.6x, and one mechanism already in
+the record produces exactly that shape: the signal set measured that **the fit's mind aborts 88 %
+of the strokes it starts**, because `plan()` re-reads the abort gate every 12 Hz ask and a stroke
+spans six or seven of them. A stroke abandoned during its chamber still touches the other body --
+the arm is travelling through the space it occupies -- but at chamber speed rather than at strike
+speed. That is a contact that files a report, carries under a joule, and does nothing.
+
+`latchAbort` is the row that reads the gate once, on the ask that starts the stroke. It is on
+`GOLEM_TACTICS_V4`, it ships **off**, and signal-04 measured it on the paired rating against a
+designed mind, where it was a wash: +0.005 d on random viable pairs, +0.000 mirrored. **It was
+judged on the wrong column.** Nobody has asked what it does to arriving energy.
+
+**The cells.** The same energy probe, `latchAbort` off and on, 112 bouts each, seed 20260906, cap
+150.
+
+### The predictions
+
+1. **The blade's mean closing speed rises above 3.0 m/s** with the row up, from 1.79. Three is the
+   number the floor is built on, so this is the prediction that a stroke allowed to finish is a
+   stroke that cuts rather than leans.
+2. **The blade's under-floor share falls below 65 %**, from 84 %.
+3. **Contacts per bout fall.** An abandoned stroke that brushes the other body is a contact; nine
+   strokes in ten finishing means fewer, heavier touches rather than more of them. This is the
+   prediction that separates "the strokes got faster" from "there are simply more of them".
+4. **The maul moves least of the terminals.** It already clears its floor on 58 % of contacts
+   because its reduced mass carries it there at any speed, so it has the least to gain -- and if
+   the maul moves as much as the blade, the effect is not about strokes finishing.
+
+**Nothing ships off this.** `latchAbort` staying off is a decision signal-04 made on a rating bar,
+and a reading about arriving energy does not overturn a rating. What it would establish is that the
+mind's abort behaviour, not the damage model, is what makes the weapons feel weightless -- which
+would point the next phase at the executor rather than at `src/scoring.ts`.
