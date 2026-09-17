@@ -27,6 +27,7 @@ import { golemNeural } from "../src/golem/neural.ts";
 import { NEURAL_WEIGHTS } from "../src/golem/neural-weights.ts";
 import { GOLEM_ASSEMBLY } from "../src/golem/config.ts";
 import { GOLEM_TACTICS, innerReach } from "../src/golem/tactics.ts";
+import { isLiveStrokeRow, setLiveStrokeRow } from "../src/golem/stroke-rows.ts";
 import { GOLEM_CHAMPIONS } from "../src/golem/tactics-champions.ts";
 import { GOLEM_PLANNER, golemPlanner } from "../src/golem/planner.ts";
 import { GOLEM_TACTICS_V2 } from "../src/golem/tactics-v2.ts";
@@ -1134,11 +1135,31 @@ if (workerData?.overrides) {
       if (!(row in table)) throw new Error(`--override ${name}: not a row of that style's table`);
       table[row] = value;
     }
+    // **The eight live stroke rows go to `GOLEM_TACTICS` and are tested for first**, because they
+    // exist on every table below as *dead copies*: `FENCER` and the two executors after it spread
+    // `GOLEM_TACTICS` at module load, so `chamberReach` is `in GOLEM_TACTICS_V2` and assigning to
+    // it moves nothing. The sword's arc is `STROKE_SHAPES.sword`, whose fields are getters onto the
+    // v1 table, and that table was not in this chain at all. So `--override chamberReach=0` used to
+    // resolve, assign, change no stroke, and be recorded in the run header as applied -- a flag
+    // that measures its control and reports it as an arm, which is the same defect `cutRoll` cost
+    // the paired bench an arm of CI to find. No run in `tournaments/` ever used it, so nothing in
+    // the record is wrong; it was found on the way to the re-rate that would have been its first
+    // user. `LIVE_STROKE_ROWS` is the one list `?tactic=`, the sweep and the duel all validate
+    // against, so this is now the fourth consumer of it rather than a fourth opinion about it.
+    else if (isLiveStrokeRow(name)) {
+      if (typeof value !== "number") {
+        throw new Error(`--override ${name}: a stroke row wants a number, not ${value}`);
+      }
+      setLiveStrokeRow(GOLEM_TACTICS, name, value);
+    }
     else if (name in GOLEM_PLANNER) GOLEM_PLANNER[name] = value;
     else if (name in GOLEM_TACTICS_V2) GOLEM_TACTICS_V2[name] = value;
     else if (name in GOLEM_TACTICS_V3) GOLEM_TACTICS_V3[name] = value;
     else if (name in GOLEM_TACTICS_V4) GOLEM_TACTICS_V4[name] = value;
-    else throw new Error(`--override ${name}: not a row of GOLEM_TACTICS_V2, GOLEM_TACTICS_V3, GOLEM_TACTICS_V4 or GOLEM_PLANNER`);
+    else {
+      throw new Error(`--override ${name}: not a row of GOLEM_TACTICS, GOLEM_TACTICS_V2,`
+        + " GOLEM_TACTICS_V3, GOLEM_TACTICS_V4 or GOLEM_PLANNER");
+    }
   }
 }
 

@@ -4,6 +4,7 @@ import test from "node:test";
 import { INERT_ROWS } from "../scripts/tune.mjs";
 import { SHAPE_ROWS } from "../scripts/stroke-sweep.mjs";
 import { GOLEM_TACTICS, STROKE_SHAPES } from "../src/golem/tactics.ts";
+import { GOLEM_TACTICS_V2 } from "../src/golem/tactics-v2.ts";
 import {
   LIVE_STROKE_ROWS, isLiveStrokeRow, parseStrokeOverrides, setLiveStrokeRow, strokeOverrideFor,
 } from "../src/golem/stroke-rows.ts";
@@ -115,5 +116,40 @@ test("an_override_built_from_a_row_actually_moves_the_merged_shape", () => {
     const merged = Object.freeze({ ...STROKE_SHAPES.sword, ...strokeOverrideFor(row, 0.37) });
     const moved = Object.keys(merged).filter((k) => merged[k] !== STROKE_SHAPES.sword[k]);
     assert.ok(moved.length > 0, `${row} produced a merged shape identical to the shipped one`);
+  }
+});
+
+test("a_live_stroke_row_is_a_dead_copy_on_every_later_executor_table", () => {
+  // The fact that makes the tournament worker's lookup order load-bearing. `FENCER` and the two
+  // executors after it spread `GOLEM_TACTICS` at module load, so each stroke row exists on their
+  // tables and assigning to one of those copies moves no stroke at all. A lookup chain that
+  // reaches them before the live table silently does nothing -- which is what
+  // `--override chamberReach=0` did until `isLiveStrokeRow` was put in front of them.
+  for (const row of LIVE_STROKE_ROWS) {
+    assert.ok(row in GOLEM_TACTICS_V2, `${row} is not on the fencer's table at all`);
+    const field = row === "cutRoll" ? "roll" : row;
+    const before = STROKE_SHAPES.sword[field];
+    const had = GOLEM_TACTICS_V2[row];
+    try {
+      GOLEM_TACTICS_V2[row] = had + 0.4242;
+      assert.equal(STROKE_SHAPES.sword[field], before,
+        `${row} on the fencer's table moved the sword, so it is not a dead copy after all`);
+    } finally {
+      GOLEM_TACTICS_V2[row] = had;
+    }
+  }
+});
+
+test("the_live_table_is_the_one_that_moves_the_sword", () => {
+  // The other half of the pair above: the same write, on the table the getters actually read.
+  for (const row of LIVE_STROKE_ROWS) {
+    const field = row === "cutRoll" ? "roll" : row;
+    const had = GOLEM_TACTICS[row];
+    try {
+      setLiveStrokeRow(GOLEM_TACTICS, row, had + 0.4242);
+      assert.equal(STROKE_SHAPES.sword[field], had + 0.4242, `${row} did not reach the sword`);
+    } finally {
+      setLiveStrokeRow(GOLEM_TACTICS, row, had);
+    }
   }
 });

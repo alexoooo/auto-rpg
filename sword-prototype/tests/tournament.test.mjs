@@ -552,7 +552,12 @@ test("overrides_are_name_value_pairs_the_worker_applies_to_the_fencer_and_refuse
   assert.deepEqual(back.header.overrides, { comboFraction: 0 }, "the header says how the fencer was overridden");
   assert.equal(back.header.cross, true);
   assert.equal(back.header.mirror, true);
-  await assert.rejects(run("refused.jsonl", { noSuchRow: 1 }), /not a row of GOLEM_TACTICS_V2/);
+  await assert.rejects(run("refused.jsonl", { noSuchRow: 1 }), /not a row of GOLEM_TACTICS/);
+  // The live stroke table is named first in the chain and so in the refusal, because the
+  // eight rows it carries are dead copies on every table after it and would otherwise be
+  // assigned somewhere that moves no stroke.
+  await assert.rejects(run("refused2.jsonl", { chamberReach: true }),
+    /a stroke row wants a number/);
 });
 
 /**
