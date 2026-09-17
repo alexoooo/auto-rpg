@@ -5038,6 +5038,16 @@ not `drawFraction`, because 0.00 still wins with the dial held at the old law.
 
 **A swept constant is a measurement with an expiry date.** The live-read that makes these nine
 correct for the tuner to skip is the same live-read that makes them invisible to it, and nothing
-else is looking. Whatever replaces this should re-read them on a statistic with no selection in it
+else is looking.
+
+**How many of the nine have actually drifted is not known, and one attempt to find out failed.** CB
+swept the other seven and reported every one of them mistuned; CC then measured what nobody had
+measured -- the run-to-run spread of this statistic at fixed parameters, sd 0.016 -- and found CB's
+shipped cell was a single run reused across all seven rows which happened to be the lowest of eight
+replicates. Five of the seven collapsed into the noise; `chamberReach` and `strokeSeconds` cleared
+every replicate and are candidates awaiting a replicated re-run. So the *defect* -- nine rows no
+process re-reads -- is established, and its *extent* is one confirmed row and two candidates.
+
+Whatever replaces this should re-read them on a statistic with no selection in it
 -- median edge alignment over *every* armed contact, which BZ showed is indifferent to the damage
 law and reads the geometry alone -- and it should carry a date.
