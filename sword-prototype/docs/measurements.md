@@ -40386,3 +40386,41 @@ verdict in CE has to be read that way.** That said, 0.95 is the best of three an
 worth about 0.85 sd, which leaves roughly 1.25; the rate column is non-monotone while alignment
 rises monotonically across the same grid. The honest reading is that `followLift`'s alignment effect
 is real and modest and its rate effect is not established. It is not a second `chamberReach`.
+
+## CH -- the paired margin, which is the criterion this project actually uses (registered first)
+
+Everything from BY to CF is a mirror. CG made the alternative expressible; this is it.
+`scripts/stroke-duel.mjs` puts a fencer with `chamberReach` overridden against a fencer with the
+shipped stroke, side-swapped, and scores it the way `scripts/tournament.mjs` scores anything: a win
+1, a draw 0.5, a loss 0. Four arms -- the shipped stroke against itself, then -0.20, 0.00 and 0.15,
+the three values inside CF's plateau -- eight replicates each, **256 bouts a cell**. 8192 bouts.
+
+Cells are large rather than numerous on purpose. Margins in this document are quoted against the
+spread of a *single* replicate rather than the standard error of their mean, which is conservative
+by a factor of the square root of the replicate count; under that convention a bigger cell buys
+resolution and more replicates do not.
+
+**Registered predictions:**
+
+- **P1: the control lands within two sd of 0.500.** The shipped stroke against itself, side-swapped.
+  *Refused if* it does not, in which case this bench measures its own asymmetry, every number beside
+  it is void, and the harness is the next job. Cheap, necessary, and **never once checked for
+  golem-versus-golem in this tree** -- every mirror cell in this document would have hidden a side
+  bias perfectly.
+- **P2: at least one plateau value beats the shipped stroke by two sd on the paired score.** This is
+  the phase's whole claim meeting the project's own criterion for the first time. *Refused if*
+  nothing clears -- which would say that 17 % more damage a second in a mirror buys nothing across
+  the table, and that every stroke measurement here has been reading lethality rather than skill.
+- **P3: the paired score's replicate sd lands near the binomial 0.031 and not above 0.047.**
+  *Refused if* it comes back wider, which would mean bouts inside a cell are correlated and the
+  paired design needs the floor analysis CF had to do for the rate.
+
+**What I expect, written down so that being wrong costs something.** P2 holds, and by less than the
+mirror implies. The mirror cannot see a defensive cost: a chamber drawn to -0.70 is drawn behind the
+guard, and every value that pulls it out may open the fighter as it frees the blade. In a mirror
+both sides pay that equally and it cancels. Across the table it does not. If the paired margin comes
+back at a third of what the rate margin suggests, that gap **is** the defensive cost, and it is a
+number no cell in this phase could have produced.
+
+**Still nothing ships.** Every fitted head in this tree was trained under the shipped stroke, so
+even a clean paired win means re-rate first. CA's rule is unchanged by having a better statistic.
