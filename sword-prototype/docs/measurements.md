@@ -40025,3 +40025,69 @@ Four values a row, four replicates a value, 16 bouts a cell.
 **Nothing ships off this table either.** CA settled that for all nine of these rows: moving one
 changes behaviour and invalidates every fitted head, so the measurement is the deliverable and the
 decision is the owner's.
+
+### CD result -- two predictions held, P2 refused, and the statistic disagreed with the objective
+
+48 cells, three rows, four replicates a value. Every pooled sd came in at 0.015 to 0.017.
+
+| row | shipped | align at shipped | best value | align | margin | verdict |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| cutRoll | 0.30 | 0.502 | 0.00 | 0.541 | +0.039 | 2.5 sd clear |
+| chamberReach | -0.70 | 0.502 | 0.00 | 0.576 | +0.073 | 5.0 sd clear |
+| strokeSeconds | 0.15 | 0.502 | 0.35 | 0.566 | +0.064 | 3.9 sd clear |
+
+**P1 held, and cost BY half its headline.** `cutRoll` 0.00 does beat 0.30, by 2.5 sd. BY reported
+that same comparison as 0.481 -> 0.554, which is 4.6 sd on CC's width. Replicated it is
+0.502 -> 0.541. The shipped cell moved up by 0.021 and the swept cell moved down by 0.013, and
+between them they took just over half the margin. **The direction survived and the size did not**,
+which is the specific way a shared unlucky control fails: it does not invent findings out of
+nothing, it inflates real ones until they look decisive. BY's finding is now a two-sigma finding,
+which is a hint that has been checked once, not a result that settles a constant.
+
+**P2 is refused.** Both CB candidates cleared, at 5.0 and 3.9 sd -- margins far too wide to be the
+shared control alone. So CB's design was noisy rather than uniformly biased: the low control did not
+manufacture its seven findings, it promoted five marginal ones over the line and left two that were
+always real. That is worse for me than the clean story, because I withdrew five rows on the argument
+that the control explained them, and the control demonstrably does not explain the two biggest. The
+registration said what this costs and the debt is now owed in full: **the five withdrawn rows need
+re-reading on this footing, not deleting.** CE.
+
+**P3 held.** 0.015, 0.015, 0.017 across twelve parameter settings against CC's 0.016 at one setting.
+The width is a property of the harness, not of where you stand in the parameter space, so a shared
+sd is a legitimate denominator and every margin in this document can keep being quoted against one.
+That is the one result here that makes the other measurements cheaper rather than dearer.
+
+**Both survivors stopped at the edge of their grid**, which is the sweep naming a direction and not
+a value. `chamberReach` was swept 0.00 / -0.15 / -0.40 against a shipped -0.70 and 0.00 won; the
+grid has no positive side. `strokeSeconds` rose monotonically to 0.35, the largest value offered.
+Neither number is an optimum and neither should be written down as one.
+
+**And the statistic disagreed with the objective, which is the finding that outranks the table.**
+Median alignment is not what the owner asked for; it is the unselected proxy BX and BZ argued for
+because it reads the geometry alone. Divide the damage column by the seconds column and the two
+come apart:
+
+| row | value | align | damage/bout | seconds | damage/second |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| -- | shipped | 0.502 | 54.7 | 38.6 | 1.42 |
+| cutRoll | 0.00 | 0.541 | 51.2 | 37.5 | 1.37 |
+| chamberReach | 0.00 | 0.576 | 50.7 | 32.7 | 1.55 |
+| chamberReach | -0.15 | 0.558 | 52.9 | 30.4 | **1.74** |
+| strokeSeconds | 0.20 | 0.531 | 51.9 | 44.3 | 1.17 |
+| strokeSeconds | 0.28 | 0.564 | 53.0 | 47.7 | 1.11 |
+| strokeSeconds | 0.35 | 0.566 | 56.4 | 57.1 | 0.99 |
+
+`strokeSeconds` is cleanly *anti*-correlated: every value that turns the blade better lengthens the
+bout more than it adds damage, and the best-aligned setting does 30 % less damage a second than the
+one that ships. A slower stroke is a better-aligned stroke and a worse weapon, which is exactly the
+trade a median over contacts cannot see -- it weights a contact the same whether it arrived in a
+second or a minute. `chamberReach` agrees on direction and disagrees on value: the sweep's winner is
+0.00 and the best rate is at -0.15. `cutRoll` 0.00 buys its alignment for a slightly worse rate.
+
+So the honest reading of this phase's headline is narrower than the headline itself. The blade
+**is** turned wrong -- BX's 0.80-against-0.31 split stands, and three constants move alignment by
+several sd. It does
+not follow that moving them makes the golems fight better, and on one of the three the sign of the
+objective is the other way round. The rate column is a hint and not a verdict: this sweep never
+measured damage's own replicate spread, so it cannot say which of these gaps clears noise. It should
+have, and the tool is being fixed rather than the column being quoted as if it had been.
