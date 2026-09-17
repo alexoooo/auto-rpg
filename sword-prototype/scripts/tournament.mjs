@@ -745,14 +745,23 @@ export async function runTournament({
 
 /**
  * `--override name=value,name=value` for a mind's table: every worker assigns these over it
- * before its first bout, and the run's header records them. A bare name is looked up on the
- * planner, then the fencer's `GOLEM_TACTICS_V2`, then the third executor's `GOLEM_TACTICS_V3`,
- * then the fourth's `GOLEM_TACTICS_V4`; a dotted one, `form.cutLean=0.8` or
+ * before its first bout, and the run's header records them. A bare name is looked up on the eight
+ * live stroke rows first -- see below -- then the planner, then the fencer's `GOLEM_TACTICS_V2`,
+ * then the third executor's `GOLEM_TACTICS_V3`, then the fourth's `GOLEM_TACTICS_V4`; a dotted
+ * one, `form.cutLean=0.8` or
  * `driver.strokeSwing=0.5`, is a row of that mind's own copy, and `body.healthScale=0.1`
  * is a row of `GOLEM_ASSEMBLY` -- how the body is built rather than how it is driven. Numbers and
  * the two booleans parse; anything else is refused, because a value that arrives as a string
  * would compare as one at 240 Hz and never say so. Null when there are none, so a header from
  * before this flag reads the same as one written with it empty.
+ *
+ * **Why the stroke rows are tested before any of the four tables.** They exist on all of them, as
+ * dead copies: `FENCER` and the two executors after it spread `GOLEM_TACTICS` at module load, so
+ * `chamberReach` is `in GOLEM_TACTICS_V2` and assigning to it moves no stroke. The sword's arc is
+ * `STROKE_SHAPES.sword`, whose fields are getters onto the v1 table, and that table was not in the
+ * chain at all until 2026-09-17 -- so this flag used to resolve a stroke row, assign it, change
+ * nothing, and record it in the header as applied. `scripts/tournament-worker.mjs` carries the
+ * order and `src/golem/stroke-rows.ts` carries the list.
  */
 export function parseOverrides(text) {
   const entries = text.split(",").map((pair) => pair.trim()).filter(Boolean);
