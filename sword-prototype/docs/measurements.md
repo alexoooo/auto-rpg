@@ -38201,3 +38201,73 @@ So the thing to measure is not the floor, not the exponent and not the abort gat
 its own arc a stroke makes contact.** A swing that lands at a fifth of its peak is a swing that
 reached the other body before it had finished accelerating -- which is a statement about stand-off,
 not about damage.
+
+## BG -- the owner's eye, a second time, against a fix that is still in the tree
+
+Registered 2026-09-17, before the probe ran.
+
+The owner watched fights and named the cause:
+
+> *"instead of maintaining proper swing distance, the golems get into each other's face and kinda
+> just flail around, the attacking technique is just too poor to do real damage"*
+
+**That sentence is already in `src/golem/tactics.ts`, dated 2026-09-05**, in the comment on
+`standOffFraction`, where the owner is recorded saying *"they basically just go right into each
+others face and kinda flail around, rarely hitting each other."* It was diagnosed then, and fixed:
+two default golems had been holding 1.49 m apart shoulder to shoulder on a 1.78 m reach and 1.31 m
+apart on the floor, inside their own inner radius 6.8 % of the time, landing 10 contacts a second at
+**5.64 m/s**. `standOffFraction` went in at **1.00** -- *stand where their point just reaches you and
+no closer* -- and took contact speed to **7.35 m/s** and damage per bout from 209.6 to 292.4.
+
+So this is a regression report with a known-good reference row, which is a far better position than
+the open probe BF left behind.
+
+### What reading the code settles before any bout runs
+
+`standOffFraction: 1.00` still ships. `golem-fencer` is a v2 mind and computes its own ranges in
+`fencerRanges`, where the floor can be switched off:
+
+```ts
+const standOff = inside ? 0 : theirReach * (longer ? T.longStandOff : T.standOffFraction);
+```
+
+**That branch is not the bug, and it is worth recording that it was the first suspect.** The call
+site passes `T.closeOnRecover && shorter && inside`, so it fires only for a genuinely shorter arm.
+On a symmetric pair `shorter` is false and the floor binds at `theirReach * 1.00`. **The mind is
+asking for the right distance.** Whether the bodies reach it has not been measured since 2026-09-05.
+
+One number says it has moved. The energy probe reads a mean tip speed at contact of **4.65 m/s**,
+against the **7.35** the stand-off fix was bought at -- below where contact speed sat *before* the
+fix landed. Energy goes as the square of what arrives, so that is a factor of two and a half in
+damage if it is real.
+
+The suspect is the controller that closes the gap:
+
+```ts
+intent.forward = clamp((gap - hold) * T.closeGain, -1, 1);
+```
+
+Proportional only. Against a steady opposing effect -- contact, friction, the opponent driving in --
+a P controller settles at an offset rather than at its target, and at `closeGain` 2.55 a tenth of a
+metre of error commands a quarter of full drive. That is a mechanism for asking 1.78 m and living at
+1.3 m, and it predicts the shortfall is worst exactly when both bodies press, which is what being in
+each other's face is.
+
+### Predictions
+
+1. Realised separation sits **below** the commanded hold by more than **0.25 m** at the median.
+2. Contact speed comes in near 4.65 m/s -- **below the 7.35 m/s the fix was accepted on**.
+3. The shortfall is larger while both bodies drive forward than while one recovers, which is the
+   signature of a proportional controller against a steady push rather than of a bad target.
+
+**What refuses this:** realised separation tracking the commanded hold within 0.1 m. Then spacing is
+achieved, and the owner's "too close" is about when a stroke starts rather than about where the
+bodies stand.
+
+**The guard, which BF paid for.** The commanded hold is asserted to be the opponent's published
+reach on a symmetric pair *from inside the bout*, before any row is believed. If it is not, the
+stand-off floor has stopped binding, and that is the finding ahead of everything else here.
+
+The instrument reads published positions and reaches off the view and computes the commanded hold
+itself. It asks the mind for nothing, so -- unlike BF -- the reading does not depend on which mind
+is driving.
