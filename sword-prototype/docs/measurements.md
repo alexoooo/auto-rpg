@@ -39064,3 +39064,34 @@ row rather than assumed -- the 2026-09-05 lesson that a commanded hold is not a 
     constraint, which is a body question and the owner's.
 - **Guard:** every row reports realised separation and contact speed. If damage rises while contact
   speed collapses, the peak is a trade and not a fix, and it must be said that way.
+
+## BO result -- the knob is dead above 0.40, exactly as BP's arithmetic said
+
+16 bouts a row, `golem-fencer` mirror on default golems.
+
+| `strikeBite` | contacts | normal | speed m/s | paying | median J | damage/bout | decided |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.00 | 5024 | 0.31 | 5.74 | 23 % | 0.7 | 45.8 | 100 % |
+| 0.20 | 4580 | 0.30 | 6.27 | 26 % | 0.9 | 53.7 | 100 % |
+| 0.40 | 4166 | 0.29 | 6.33 | 26 % | 0.9 | 46.6 | 100 % |
+| **0.66, shipped** | 4173 | 0.29 | 6.32 | 25 % | 0.9 | 46.2 | 100 % |
+| 0.80 | 4173 | 0.29 | 6.32 | 25 % | 0.9 | 46.2 | 100 % |
+| 0.90 | 4173 | 0.29 | 6.32 | 25 % | 0.9 | 46.2 | 100 % |
+| 1.00 | 4173 | 0.29 | 6.32 | 25 % | 0.9 | 46.2 | 100 % |
+| 1.20 | 4173 | 0.29 | 6.32 | 25 % | 0.9 | 46.2 | 100 % |
+
+**Every row from 0.40 up is identical in every column, to the contact.** That is not a flat response
+curve, it is the same simulation run five times, and it confirms BP's arithmetic from the other
+side: at the distance these fighters stand, the command saturates and the constant is not read.
+
+**P1 fails.** The normal component does not rise with the bite; it drifts the other way -- 0.31,
+0.30, 0.29 -- and then stops moving at all.
+
+**P2: not claimed.** The 0.20 row is +16 % on damage per bout, which clears the registered 15 %, and
+I am not calling it a fix. It is a single point with lower values on both sides of it (45.8 below,
+46.6 above) on a statistic measured over 16 bouts, with the normal component flat and contact speed
+flat across all three. A non-monotone point flanked by lower neighbours is noise unless something
+else moves with it, and nothing does. Calling it a result would be the third bad reading tonight and
+this time I would have had no excuse, having written the guard against it myself two hours earlier.
+
+So `strikeBite` is not the fix and the depth of aim does not reach squareness. BQ is the phase.
