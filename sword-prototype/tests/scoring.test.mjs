@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { biteFloorJ, biteMechanism, impactEnergyJ, scoreHit, severs } from "../src/scoring.ts";
+import { biteFloorJ, biteMechanism, cutEnergyJ, impactEnergyJ, scoreHit,
+  severs } from "../src/scoring.ts";
 import { CONFIG } from "../src/config.ts";
 import { STRIKER_KINDS, WEAPON_KINDS } from "../src/hands.ts";
 
@@ -777,4 +778,81 @@ test("the_damage_dial_leaves_mass_scaling_exactly_where_physics_puts_it", () => 
   const massRatio = reduced(CONFIG.sword.mass * 8, TORSO) / reduced(CONFIG.sword.mass, TORSO);
   assert.ok(Math.abs(ratio - massRatio) < 1e-9,
     `only the speed term bends: ${ratio} must be the reduced-mass ratio ${massRatio}`);
+});
+
+// ---- the draw, which an edge is paid for only when the owner says so ------
+
+/**
+ * **`drawFraction` is 0 in the tree and these tests are mostly about that.**
+ *
+ * `impactEnergyJ` squares the closing speed alone, on the argument at the head of `scoring.ts`:
+ * only the normal component of a collision is lost to deformation. BU measured what that costs a
+ * golem -- it makes blade speed by rotating, rotation is tangential, and the share of speed driven
+ * into the surface *falls* from 0.39 at 2-4 m/s to 0.22 at 15-20, so its hardest and best-aligned
+ * cuts are the ones the law pays least for. `drawFraction` exists so the owner can price that, and
+ * defaults to nothing so the tree is unchanged until they do.
+ *
+ * The four tests below are the four things that have to be true for that default to be honest.
+ */
+const drawnCut = (closingSpeed, speed, edgeAlignment = 1) => ({
+  closingSpeed, speed, edgeAlignment,
+  strikerMassKg: CONFIG.sword.mass,
+  partMassKg: TORSO,
+  bladeAlignment: 0,
+  nearTip: false,
+});
+
+/** Runs `body` with `drawFraction` set, and puts it back however the body exits. */
+const withDraw = (draw, body) => {
+  const was = CONFIG.combat.drawFraction;
+  CONFIG.combat.drawFraction = draw;
+  try { return body(); } finally { CONFIG.combat.drawFraction = was; }
+};
+
+test("draw_is_not_paid_for_at_the_shipped_default", () => {
+  assert.equal(CONFIG.combat.drawFraction, 0, "the tree ships the law unchanged");
+  // A blow with four times as much sliding speed as pressing speed scores exactly what the same
+  // press scores with no slide at all. That equality is the whole claim of the default.
+  const sliding = scoreHit(drawnCut(T.referenceSpeed, T.referenceSpeed * 4));
+  const pressing = scoreHit(cleanCut(T.referenceSpeed));
+  assert.equal(sliding.damage, pressing.damage);
+  assert.equal(cutEnergyJ(drawnCut(T.referenceSpeed, T.referenceSpeed * 4)),
+    impactEnergyJ(CONFIG.sword.mass, TORSO, T.referenceSpeed));
+});
+
+test("a_contact_that_does_not_report_its_speed_is_never_repriced", () => {
+  // Every call site written before the field existed omits it, and must keep scoring from the
+  // press alone however the dial is set -- otherwise turning the dial silently reprices callers
+  // that have no way to know about it.
+  withDraw(1, () => {
+    assert.equal(scoreHit(cleanCut(T.referenceSpeed)).damage,
+      withDraw(0, () => scoreHit(cleanCut(T.referenceSpeed)).damage));
+  });
+});
+
+test("the_draw_is_paid_only_to_an_edge_that_is_aligned", () => {
+  withDraw(1, () => {
+    const press = T.referenceSpeed;
+    const slide = T.referenceSpeed * 3;
+    // Held edge-on, the slide counts and the blow is worth more than its press alone.
+    const pressAlone = impactEnergyJ(CONFIG.sword.mass, TORSO, press);
+    assert.ok(cutEnergyJ(drawnCut(press, slide, 1)) > pressAlone,
+      "an aligned edge is paid for the slide");
+    // Dragged flat, it is the side of a blade going past and it is paid nothing for the drag.
+    assert.equal(cutEnergyJ(drawnCut(press, slide, 0)), pressAlone);
+  });
+});
+
+test("a_club_is_never_paid_for_a_slide_whatever_the_dial_says", () => {
+  // The argument the law rests on is exactly right for a blunt impact: a club that skids across
+  // somebody transfers what it presses in with and nothing else. Only `how: "edge"` is repriced.
+  const blunt = STRIKER_KINDS.filter((kind) => biteMechanism(kind) === "blunt");
+  assert.ok(blunt.length > 0, "there is at least one blunt striker to check");
+  withDraw(1, () => {
+    for (const kind of blunt) {
+      const fast = { ...drawnCut(6, 30), strikerMassKg: 4 };
+      assert.equal(cutEnergyJ(fast, kind), impactEnergyJ(4, TORSO, 6),
+        `${kind} is charged for its press alone`);
+    }
+  });
 });
