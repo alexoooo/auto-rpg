@@ -39869,3 +39869,42 @@ inert for a second reason, `guardByTheirs` being on, so a sweep of it would meas
 16 bouts (BS), and CA settled the rule for this whole area: a change to any of these nine moves
 behaviour and invalidates the fitted heads, so the measurement is the deliverable and the decision
 is the owner's.
+
+## CC -- the noise floor of the alignment statistic, before CB is allowed to mean anything
+
+CB came back with the shipped value the worst row of five for **all seven** constants, and every one
+of the twenty-eight alternatives at or above it. Seven independently chosen parameters do not all
+sit at a local minimum of the same statistic. That is the shape of a **winner's curse**: each row
+takes the best of four noisy draws and compares it against one noisy draw, which beats the baseline
+most of the time by construction, and the margin it wins by is the size of the noise rather than the
+size of any effect. CB's best-minus-shipped runs 0.045 to 0.096 and its within-row spreads run 0.045
+to 0.100 -- the same numbers, which is what that artifact looks like.
+
+**So the statistic has to be characterised before any sweep on it is read, including the ones I have
+already written up.** Nothing in this document has ever measured the run-to-run spread of median
+edge alignment at *fixed* parameters, which means BY, BZ and CB have all been read against an
+assumed zero.
+
+**The cell.** The shipped configuration, unchanged, run as eight independent 16-bout cells on
+different seed bases, reporting the median alignment over all armed contacts of each. The spread of
+those eight is the noise floor. Nothing is swept; the point is the width of a distribution whose
+centre is already known.
+
+**Registered predictions:**
+
+- **P1: the floor is wide enough to explain CB entirely.** The spread of the eight replicates is at
+  least 0.04. *Refused if* it comes in under 0.02, which would leave CB's 0.045-to-0.096 margins as
+  real and make seven simultaneous local minima a fact needing an explanation.
+- **P2: it is not wide enough to explain BY.** BY's `cutRoll` column spans 0.088 with a monotone
+  shape either side of the peak, and BZ reproduced its winner under a second damage law on separate
+  seeds. So the floor should come in **below** BY's span. *Refused if* the replicate spread reaches
+  0.088, which would withdraw the `cutRoll` finding and with it the phase's main claim.
+- **P3: BX is untouched either way.** Its 0.80-against-0.31 split is between two sub-populations of
+  the *same* runs, so between-run noise cannot produce it. Nothing measured here can refuse it, and
+  saying so in advance is what stops me from quietly extending this cell's verdict to it.
+
+**What I expect to have to do.** If P1 holds, CB is withdrawn as a finding -- not softened but
+withdrawn -- and the sweep design goes back for replicates per cell rather than one. If P2 is
+refused, BY and the design ruling written from it come down too, and the night's headline goes with
+them. Writing that here, before the run, is the only thing that makes it a prediction rather than a
+preference.
