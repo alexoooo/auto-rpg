@@ -38507,3 +38507,80 @@ The smoke cell, default build, two bouts:
 **What refuses 1:** a lever that differs as much as the timing does between paying and non-paying
 contacts. Then the golems are hitting with the wrong part of the weapon as much as at the wrong
 moment, and the fix has two halves rather than one.
+
+## BG-c, BH-b, BH-c results -- three predictions registered, three refused, and the arc excluded
+
+### BG-c: the noise does not reach the feet
+
+The shipped weights on the same 80 bouts, differing in `sample` alone.
+
+| read | gap p50 | p10 | p90 | over their reach, p50 | contacts | contact m/s | damage/bout |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| drawn | 1.31 | 0.90 | 2.92 | 1.48 | 15519 | 3.78 | 18.3 |
+| greedy | 1.37 | 0.89 | 3.07 | 1.55 | 14226 | 3.10 | 15.5 |
+
+**BG-b's prediction is refused.** A sigma worth 0.89 m of commanded stand-off produces **six
+centimetres** of difference in realised median separation, and the drawn read is very slightly
+*closer* and slightly *better* (18.3 damage against 15.5), not worse.
+
+The reason is that the command is a **setpoint**, redrawn at 12 Hz, and the body is a mass driven
+through a proportional controller. It low-passes the noise: the feet cannot move at 12 Hz, so what
+reaches the floor is close to the mean of the draw. **Noise in command space is not noise in
+position space**, and an arithmetic argument about sigma is not a measurement of a body.
+
+That correction matters because it was told to the owner as a cause before it was measured.
+The sigma growth in BG-b is real and the reward analysis beside it is unaffected -- **what is
+withdrawn is the claim that the noise is what puts the learned mind in the wrong place.** Its mean
+is in the wrong place, and BG-b's reward reading is why.
+
+The learned mind is still far worse than the fencer -- 15-18 damage a bout against 52.5, standing at
+about 1.5x their reach either way -- and BG-b's account of *that* stands: the four reward rows that
+price spacing are zero, so what survives a mirrored rollout pays for standing off and holding still.
+
+### BH-b: both halves of the 0.28 matter, and neither dominates
+
+Default build, 16 bouts. Guards close to 2e-16.
+
+| mind | lever | timing | ratio | paying lever | paying timing | paying ratio |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| golem-fencer | 0.67 | 0.46 | 0.26 | 0.76 | 0.57 | 0.37 |
+| golem-driver | 0.62 | 0.51 | 0.27 | 0.69 | 0.65 | 0.38 |
+
+**Prediction 1 is refused on both halves.** The lever was to stay within 0.05 and moves 0.07-0.09;
+the timing was to move more than 0.20 and moves 0.11-0.14. A contact that pays is better in **both**
+respects by a similar amount. So the earlier reading off the two-bout smoke -- "it is the timing,
+not the lever" -- does not survive sixteen bouts, and the fix has two halves.
+
+### BH-c: distance moves the timing, and buys nothing with it
+
+Default build, 16 bouts a cell, `standOffFraction` swept.
+
+| standOff | contacts | lever | timing | ratio | paying | paying timing |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.85 | 5717 | 0.65 | 0.48 | 0.26 | 1342 | 0.63 |
+| **1.00** | 4188 | 0.67 | **0.48** | 0.27 | 1176 | 0.60 |
+| 1.15 | 2583 | 0.66 | 0.48 | 0.26 | 724 | 0.55 |
+| 1.30 | 1852 | 0.66 | 0.57 | 0.30 | 381 | 0.67 |
+| 1.50 | 1027 | 0.64 | **0.72** | 0.37 | 176 | 0.69 |
+
+**Prediction 2 is refused.** The timing factor moves 0.48 -> 0.72, which is 0.24 end to end against a
+registered bar of 0.10. Standing further out *does* make a stroke land nearer its own peak.
+
+**And it buys nothing**, which is the finding. Contacts collapse 5717 -> 1027 over the same range,
+and BG's damage column peaks at the shipped 1.00 and falls to 15.1 a bout by 1.50. Across the range
+anyone would actually play -- 0.85 to 1.15 -- the timing factor is **dead flat at 0.48**.
+
+**Prediction 3 was badly written and is recorded as such.** It said that if timing climbed
+monotonically with stand-off then "the stroke is fine at the right distance". The antecedent held
+and the consequent does not follow: at the damage optimum the timing factor is 0.48 and three
+contacts in four still pay nothing. A registered prediction whose two branches do not exhaust the
+outcomes is not a prediction, and this one licensed a conclusion its own data refuses.
+
+### Where that leaves it
+
+Spacing is excluded as the lever, by measurement rather than by argument: it is achieved, it has not
+regressed, and moving it trades contact quality against contact count at a worse product. What is
+left is the arc itself -- a stroke that at every playable distance lands at about two thirds of the
+tip's speed and about half of its own peak, delivering a **twelfth** of the energy it was carrying.
+The knobs are `strokeSeconds`, `chamberSeconds`, `commitSeconds` and `strikeFraction`: where in the
+sweep the target sits. **Nothing in this record has swept them against the timing factor.**
