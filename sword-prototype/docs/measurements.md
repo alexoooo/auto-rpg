@@ -39805,11 +39805,11 @@ tonight, for two reasons that are both stronger than the table:
 
 **So it goes to the owner**, as `drawFraction` did, and for the same reason: it is a behaviour
 change that moves every measurement taken under the old value, and this project's standing rule is
-that the owner's eye beats my tables. The eye gate exists now -- `?drawFraction=` shipped today -- and the
-same affordance is what a roll comparison would want next.
+that the owner's eye beats my tables. The eye gate exists now -- `?drawFraction=` shipped
+today -- and the same affordance is what a roll comparison would want next.
 
 **The lesson, which outlives this constant.** `cutRoll` was swept in 2026-09-05 and was correct
 then; BZ showed it is stale rather than wrong. Every other swept number in `src/golem/tactics.ts` is
-in the same position, and none of them have a date on their re-reading. **A swept constant is a measurement
-with an expiry date, and this tree has no process that expires one.** That is a bigger finding than
-the roll, and it is the one I would spend the next phase on.
+in the same position, and none of them have a date on their re-reading. **A swept constant is a
+measurement with an expiry date, and this tree has no process that expires one.** That is a bigger
+finding than the roll, and it is the one I would spend the next phase on.
