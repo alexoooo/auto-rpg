@@ -41166,3 +41166,46 @@ the bouts rather than in the scoring.
 
 Whatever CN returns, no constant moves: `strokeSeconds` was measured at +0 on top of the shipped
 pair in CL2 and is not a candidate for shipping. CN buys confidence in the ladder, not a row.
+
+### CN's result: the dip leans the same way twice and clears nothing either time
+
+Seed base 20260919, four replicates of 256 bouts an arm, all three rungs in one run. Control
+0.5127, within the bench's own bar of 0.500. Pooled replicate sd of the paired score 0.0278,
+against the 0.0313 a binomial of 256 bouts would give -- so the replicates agree slightly better
+than coins, which is the usual reading on this harness.
+
+| arm | score | vs control | verdict | W-D-L | seconds |
+| --- | ---: | ---: | --- | ---: | ---: |
+| shipped v shipped | 0.5127 | -- | the control | 525-0-499 | 37.84 +-0.71 |
+| `strokeSeconds` 0.06 | 0.5615 | +0.0488 | 1.8 sd | 575-0-449 | 38.11 +-1.14 |
+| `strokeSeconds` 0.09 | 0.5352 | +0.0225 | 0.8 sd | 548-0-476 | 37.43 +-0.58 |
+| `strokeSeconds` 0.12 | 0.5723 | +0.0596 | **2.1 sd** | 586-0-438 | 37.61 +-0.63 |
+
+**CN1: refused as a dip, which is what I predicted.** 0.09 sits at 0.5352 against a neighbour mean
+of 0.5669, so `h = -1.14` -- inside the registered middle band. The cell is low and it is not low
+enough to be a property of the row.
+
+**But it leaned the same way twice, and that is the part worth keeping.** CL put 0.09 two sd below
+0.12 on seed base 20260918; CN puts it 1.14 sd below both neighbours on 20260919, a different draw
+of builds and bouts. Two independent runs, same sign, neither clearing. On sign alone that is a
+one-in-four coincidence, which is not evidence of anything -- and it is also not the pattern a pure
+fluctuation is *most* likely to produce. **No explanation is offered a second time.** The row is not
+a shipping candidate, so the record stops here rather than buying a third run: what CN bought is
+that the ladder's disorder is stable and small, not that it is real.
+
+**CN2: refused.** Registered as *seconds is monotone even where score is not*. It is not: 37.43 s at
+0.09 sits below both 38.11 at 0.06 and 37.61 at 0.12, the same shape as the score and at -0.56 sd of
+the clock's own replicate spread. Two readings that disagree with the ladder in the same place are
+**not** two pieces of evidence -- they are one, because they are the same bouts, and a run whose
+bouts ended sooner is a run with fewer chances to win. The prediction was wrong to treat the clock
+as an independent check.
+
+**And the clock says something the ladder did not.** Across 0.06, 0.09, 0.12 and the shipped 0.15
+the mean bout spans 37.43 s to 38.11 s -- a range of 0.68 s against a replicate spread of 0.76 s.
+**Below the shipped value `strokeSeconds` does not move the clock at all.** CL reported this row as
+one that lengthens the bout, measured on top of the winning pair (33.5 s to 34.1 s); standalone and
+below 0.15 there is no such effect to report. The lengthening is a property of the row *in
+combination*, not of the row.
+
+Reproduction is otherwise good: CN's 0.12 at 2.1 sd and 0.06 at 1.8 sd land where CL's +56 and +54
+Elo put them, on an independent draw.
