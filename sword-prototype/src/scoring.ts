@@ -80,6 +80,16 @@ export interface Contact {
   bladeAlignment: number;
   /** Whether the contact landed in the business end of the point. */
   nearTip: boolean;
+  /**
+   * Its total speed at the point, metres per second, of which `closingSpeed` is the part on the
+   * contact normal. The rest of it is the blade sliding along what it met.
+   *
+   * **Optional, and absent means "do not pay for the slide"**, which is what every caller written
+   * before `drawFraction` existed meant. A contact that omits this is scored from its closing
+   * speed alone however the constant is set, so an old call site cannot be quietly repriced by a
+   * dial it has never heard of. 2026-09-17.
+   */
+  speed?: number;
 }
 
 export interface Score {
@@ -539,6 +549,33 @@ function pricedDamage(energyJ: number, contact: Contact, joulesPerDamage: number
   return (refJ / joulesPerDamage) * Math.pow(ratio, exponent);
 }
 
+/**
+ * The speed an edge is charged at: the press, plus as much of the slide as `drawFraction` pays for.
+ *
+ * `hypot` rather than a sum, because the two components are perpendicular by construction --
+ * `closingSpeed` is the projection on the contact normal and the slide is what is left in the
+ * plane. Adding them in quadrature is adding their energies, which is the only way to combine
+ * them that `impactEnergyJ` can square without counting anything twice.
+ *
+ * Three things make this exactly the shipped law at the default:
+ *
+ * - `drawFraction` is 0, so the second term vanishes and the result is `closingSpeed` to the bit.
+ * - A contact with no `speed` is scored from the press alone whatever the constant says, so a
+ *   caller that predates the field cannot be repriced by a dial it does not know about.
+ * - The slide is weighted by `along`, so a blade dragged flat is paid nothing for the drag. An
+ *   edge parts material; the side of a blade shoves it.
+ *
+ * Guarded against a `speed` below `closingSpeed`, which is not physical -- the projection of a
+ * vector cannot exceed it -- but is reachable by a rounding error at a glancing contact.
+ */
+function cutSpeed(contact: Contact, along: number, tuning: Tuning): number {
+  const draw = tuning.drawFraction;
+  if (draw <= 0 || contact.speed === undefined) return contact.closingSpeed;
+  const slide = Math.sqrt(Math.max(0, contact.speed * contact.speed
+    - contact.closingSpeed * contact.closingSpeed));
+  return Math.hypot(contact.closingSpeed, draw * slide * along);
+}
+
 export function scoreHit(
   contact: Contact,
   by: Striker = "sword",
@@ -564,7 +601,14 @@ export function scoreHit(
       damage: (axialJ - floorJ) / bite.joulesPerDamage(tuning) };
   }
 
-  const energyJ = impactEnergyJ(contact.strikerMassKg, contact.partMassKg, contact.closingSpeed);
+  // Which way round the blade was travelling. Hoisted above the floor test because an edge's
+  // floor is now allowed to be cleared by the slide as well as by the press, and the slide only
+  // counts for an edge that is actually aligned -- see `cutSpeed`.
+  const along = bite.how !== "edge" ? 0
+    : cutsBothWays(by) ? Math.abs(contact.edgeAlignment)
+      : Math.max(0, contact.edgeAlignment);
+  const energyJ = impactEnergyJ(contact.strikerMassKg, contact.partMassKg,
+    bite.how === "edge" ? cutSpeed(contact, along, tuning) : contact.closingSpeed);
   if (energyJ < floorJ) {
     // A blunt contact that is under its floor still transfers momentum through a real contact.
     // Name that a slap so `Combat` lets it reach the shove path; an edge under its floor stays
@@ -585,14 +629,9 @@ export function scoreHit(
       damage: pricedDamage(energyJ, contact, bite.joulesPerDamage(tuning), tuning) };
   }
 
-  // Which way round the blade was travelling, for the kinds that care. A sword
-  // cuts on both sides and takes the magnitude; an axe cuts on +X only, so a
-  // backhand is a negative alignment and floors at zero rather than folding up
-  // into a cut delivered with the back of the head.
-  const along = cutsBothWays(by)
-    ? Math.abs(contact.edgeAlignment)
-    : Math.max(0, contact.edgeAlignment);
-
+  // `along` is computed above, before the floor test. A sword cuts on both sides and takes the
+  // magnitude; an axe cuts on +X only, so a backhand is a negative alignment and floors at zero
+  // rather than folding up into a cut delivered with the back of the head.
   const cutQuality = Math.pow(along, tuning.edgeExponent);
   // Driving the middle of the blade lengthwise into something is a shove, not a
   // thrust, so only a contact near the point can score as one -- and only with

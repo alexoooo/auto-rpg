@@ -738,6 +738,7 @@ export class Combat {
           edgeAlignment: alongEdge,
           bladeAlignment: Math.abs(shaftAlignment),
           nearTip: Vector3.Distance(point, weapon.tipPosition()) < C.thrustTipZone,
+          speed,
         },
         weapon.kind,
       );

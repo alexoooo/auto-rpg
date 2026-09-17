@@ -841,6 +841,29 @@ export const CONFIG = {
     /** How sharply an edge's damage falls off as it turns away from the cut. */
     edgeExponent: 2.0,
     /**
+     * How much of a cut's *sliding* speed an aligned edge is paid for. **0 is the shipped law**,
+     * at which `scoreHit` computes exactly what it computed before this constant existed.
+     *
+     * `impactEnergyJ` squares the closing speed alone, on the argument `scoring.ts` states: only
+     * the normal component of a collision is lost to deformation and the tangential part is
+     * friction's business. That is the whole physics of a club and it is why this defaults to
+     * zero rather than to something.
+     *
+     * Whether it is the whole physics of an *edge* is a different question, and BU is why it is
+     * asked. The golem makes blade speed by rotating, rotation is tangential, and squareness
+     * measurably falls as the stroke speeds up -- 0.45 of the blade's speed driven into the
+     * surface at 2 m/s down to 0.22 at 15-20 m/s. So a golem's fastest, most committed,
+     * best-aligned cuts are precisely the ones this law pays least for, and 64 % of committed
+     * contacts score nothing. A real draw cut is tangential and it cuts, because an edge parts
+     * material rather than deforming it.
+     *
+     * Weighted by the edge alignment, so a blade dragged flat across somebody is paid nothing
+     * for the drag and stays the slap it is. Raising this is a change to the physics every
+     * measurement in `docs/measurements.md` was taken under, which is why it is the owner's and
+     * not a tuning pass's. 2026-09-17.
+     */
+    drawFraction: 0,
+    /**
      * The power of closing speed a wound is charged at. **2 is kinetic energy**, and 2 is the
      * default, at which `scoreHit` takes a branch that is the old expression to the bit.
      *
