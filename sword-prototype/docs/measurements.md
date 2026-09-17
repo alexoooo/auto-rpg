@@ -39813,3 +39813,53 @@ then; BZ showed it is stale rather than wrong. Every other swept number in `src/
 in the same position, and none of them have a date on their re-reading. **A swept constant is a
 measurement with an expiry date, and this tree has no process that expires one.** That is a bigger
 finding than the roll, and it is the one I would spend the next phase on.
+
+## CB -- the nine rows the tuner cannot reach (registered before the run)
+
+CA's lesson had the diagnosis right and the mechanism wrong, and the correction is worth more than
+the lesson. I wrote that *"this tree has no process that expires a swept constant."* It has one:
+`scripts/tune.mjs` evolves sixty-two rows of the fencer's table against the tournament harness. What
+is true is narrower and much sharper. `INERT_ROWS` (`scripts/tune.mjs:84`) names nine rows that
+process **structurally cannot move**:
+
+```
+chamberSwing chamberLift chamberReach followSwing followLift
+strokeSeconds chamberSeconds cutRoll guardReach
+```
+
+The reason is in the source and is a deliberate design choice, not an oversight:
+`STROKE_SHAPES.sword` reads the duelist's `GOLEM_TACTICS` **live** rather than copying it, so
+moving one of these in a
+fencer's override moves no decision at all -- which Session 07's dead-row census measured to the
+byte. So the tuner correctly refuses to spend genome on them. The consequence is that these nine are
+the only numeric rows in the fencer's reach that have never been re-read by an automatic process,
+and BY and BZ just found one of them -- `cutRoll` -- three grid steps off the optimum of an
+unselected statistic.
+
+**The cell.** Sweep the seven remaining stroke-shape rows one at a time around their shipped values
+(`chamberSwing` 0.05, `chamberLift` 0.04, `chamberReach` -0.70, `followSwing` 0.94, `followLift`
+0.73, `strokeSeconds` 0.15, `chamberSeconds` 0.22), 16 side-swapped bouts a cell on the mirrored
+default golem, reading median edge alignment over **every** armed contact -- the statistic that
+found `cutRoll` and that BZ showed is indifferent to the damage law. `guardReach` is left out: it is
+inert for a second reason, `guardByTheirs` being on, so a sweep of it would measure nothing.
+
+**Registered predictions:**
+
+- **P1: `cutRoll` is not alone.** At least two of the seven have an optimum at least one grid step
+  from their shipped value on the unselected statistic. *Refused if* one or none do -- which would
+  say `cutRoll` was a single stale number rather than a stale *set*, and that being outside the
+  tuner is survivable.
+- **P2: the coupling is systemic, not a `cutRoll` quirk.** For at least one other row, the sweep's
+  winner fails at least one of the tree's behavioural gates, exactly as CA found. *Refused if* every
+  other row's winner passes the full suite -- which would make `cutRoll` peculiar and would mean the
+  gates are not, in general, pinned to the shipped values.
+- **P3: the chamber rows move less than the arc rows.** `chamberSwing`, `chamberLift`,
+  `chamberReach` and `chamberSeconds` shape the wind-up, which is upstream of contact and separated
+  from it by the whole stroke; `followSwing`, `followLift` and `strokeSeconds` shape the arc the
+  blade is on when it arrives. So the arc rows should show the larger spread in alignment across
+  their sweeps. *Refused if* a chamber row has the widest spread of the seven.
+
+**Read on alignment, and nothing is shipped off this table.** Damage per bout cannot rank rows at
+16 bouts (BS), and CA settled the rule for this whole area: a change to any of these nine moves
+behaviour and invalidates the fitted heads, so the measurement is the deliverable and the decision
+is the owner's.
