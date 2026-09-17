@@ -38635,3 +38635,69 @@ is unchanged. Full cells at 16 bouts on both minds are running.
 
 The same cell reports something worth its own line: the episode's peak was a closing sample in only
 **48 %** of strokes. Half of these strokes are fastest while travelling away from the opponent.
+
+## BJ result -- BH's headline survives the wind-up confound
+
+Default build, 16 bouts, both minds.
+
+| mind | strokes | peak was a closing sample | peak at, as a fraction of the episode | contacts | ratio vs episode peak | ratio vs closing peak |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| golem-fencer | 1620 | 48 % | 0.50 | 3910 | 0.26 | **0.30** |
+| golem-driver | 2607 | 54 % | 0.50 | 3852 | 0.27 | **0.30** |
+
+Retaking the peak over only those samples whose tip was travelling toward the other body moves the
+median contact from 0.26 to 0.30. **The confound is real and small**, and BH's finding is not an
+artifact of counting the backswing.
+
+Half of all strokes are nonetheless fastest while travelling *away* from the opponent, which is a
+separate thing and is not obviously wrong -- a recovery is allowed to be quick.
+
+## BL -- the factor nothing had measured, and it is the one that matters
+
+BH, BH-b, BH-c, BI and BJ all agree with each other and none of them explains the damage. BK stopped
+aggregating and traced individual strokes. The first one settles it:
+
+```
+      ms |  tip m/s | dir | to surface |
+      50 |    13.76 |  -> |      0.885 | ##################
+      67 |    15.08 |  -> |      0.843 | ####################
+      67 |    16.41 |  -> |      0.802 | ######################
+      67 |    17.74 |  -> |      0.764 | ########################  <== CONTACT 10.52 m/s, damage 0.00
+```
+
+**A stroke that reached 17.74 m/s -- 98 % of its own peak -- closing the whole way, and did nothing.**
+Timing was not its problem, spacing was not its problem, and the lever arm was not its problem.
+
+`scoring.ts` prices a blow from `closingSpeed`: the component of the striker's velocity **on the
+contact normal**. A weapon travelling across a surface arrives at nothing however fast it is going.
+So the chain has three factors and only two had ever been measured:
+
+```
+closingSpeed / peak = (closingSpeed / speed) x (speed / tipNow) x (tipNow / peak)
+                       ^ into the surface      ^ where on weapon  ^ when in the arc
+```
+
+Exact by construction and asserted per contact; the guard closes to 1.1e-16.
+
+Smoke cell, default build, two bouts, 189 contacts:
+
+| | into the surface | lever | timing | product | edge alignment | median energy |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| all contacts | **0.29** | 0.69 | 0.42 | 0.06 | **0.00** | 0.9 J |
+| contacts that pay | **0.68** | 0.70 | 0.69 | 0.24 | **0.63** | 23.1 J |
+
+**The lever is not a factor at all** -- 0.69 against 0.70, which retires BH-b's "the fix has two
+halves". Timing matters and moves 0.27. **The normal component moves 0.39 and is the discriminator**,
+and beside it the median contact's `edgeAlignment` is **exactly zero**.
+
+So the fighters are not mistiming their strokes and they are not standing in the wrong place. **They
+are landing flat.** The median blow slaps or rakes across a surface with the edge square to the
+direction of travel, carrying 0.9 J against a 5.96 J cut floor, and energy goes as the square of the
+part that arrives -- so at 0.06 of the chain a stroke delivers **a third of a per cent** of the
+energy it was carrying.
+
+That is what "weapons feel light as air" is, and what "most attacks do nothing" is, and the two
+complaints were one defect all along. Full cells at 16 bouts on three minds are running; what this
+does not yet say is **why** the edge is square, which is the next cell and the first one in this
+phase with a plausible fix attached: `StrokeShape.roll` is the edge's alignment held through the
+cut, and `windRoll`, `cutBend` and `coverBend` are its neighbours.
