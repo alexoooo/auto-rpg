@@ -36971,3 +36971,84 @@ the joules-per-damage prices rather than in the weapon, and the next experiment 
 is a live possibility and not a formality: AT found the maul clearing its floor on 64 % of contacts
 and the blade on 20 %, and closing that gap by mass alone asks a 1.30 kg weapon to do what a 48 kg
 one does.
+
+## AU -- what blade mass buys, and the bar it was stated against was not the right number
+
+| blade kg | inertia | stroke scale | decided | contacts | under floor | paid | mean J | median J | tip m/s | closing m/s | damage per contact |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1.30 | 10.12 | 1.000 | 82 % | 6658 | 77 % | 23 % | 9.6 | 0.6 | 6.52 | 2.46 | 0.147 |
+| 2.00 | 11.49 | 1.066 | 86 % | 4810 | 74 % | 26 % | 13.5 | 0.7 | 6.01 | 2.35 | 0.213 |
+| 3.14 | 13.73 | 1.164 | 86 % | 4976 | 72 % | 28 % | 14.1 | 0.9 | 5.53 | 2.07 | 0.213 |
+| 4.50 | 16.39 | 1.272 | 86 % | 4131 | 71 % | 29 % | 14.9 | 0.7 | 4.82 | 1.83 | 0.215 |
+| 6.50 | 20.31 | 1.416 | 86 % | 3727 | 69 % | 31 % | 18.2 | 1.1 | 4.55 | 1.77 | 0.261 |
+
+### The three mechanism predictions held; the bar did not exist
+
+**Prediction 1 hit, including the part that mattered.** Energy rises monotonically, and at 6.50 kg
+it is **1.90x** the shipped blade. The registration predicted the run would land near the smoke's
+1.84x rather than the closed form's 2.49x, and it did. The closed form over-predicts because it
+treats the stroke scale as the only thing setting contact speed; the measured tip speed falls from
+6.52 to 4.55 m/s, a ratio of 0.70, where the scale alone would put it at 0.71 -- but closing speed
+falls only to 0.72 of its start, so locomotion is carrying part of the approach and is not slowed
+by the arm.
+
+**Prediction 2 hit in direction and missed in magnitude.** The share under floor falls
+monotonically, 77 to 69 %, and does not reach the predicted "below 60 %". Tripling the blade's mass
+moves four contacts in a hundred over the line.
+
+**Prediction 3 hit.** Damage per contact rises 1.78x against energy's 1.90x, inside the predicted
+20 %. The withdrawn reasoning -- that floor crossings would make damage super-linear -- stays
+withdrawn.
+
+**Prediction 4, the declared bar, was stated against a number that does not describe this cell,
+and the error is mine.** The bar said the decided fraction should rise past 50 % at 3.14 kg and
+60 % at 6.50, against a frozen 36 %. The shipped blade decides **82 %** here, above both thresholds
+before a single gram is added, and the column is flat: 82, 86, 86, 86, 86.
+
+### The correction, against the section above it
+
+The section titled "the showcase matchup is one the tree's own predicate refuses" is right about the
+predicate and **wrong about what it implies for the owner**. Both halves checked directly:
+
+- `golemMatchup` in `src/bout.ts` sets `policy: "golem-fencer"` on both sides. That is the mind the
+  screen runs.
+- The 36 % is not a `golem-fencer` number. `src/bout.ts`'s own comment states it exactly: blade
+  against blade "decided 287 of 796 bouts under **`golem-driver`**", and `scripts/viability.mjs`
+  documents `golem-driver` as the deliberate hand-coded reference for the whole table.
+
+So `viablePair` does refuse the default pair, and that refusal is a judgement taken with a
+different mind. Under the mind the owner is actually watching, the same pair decides 82 % of its
+bouts. **The claim that the owner was shown the one matchup the tree knows is broken does not
+survive, and is withdrawn.** What survives is the narrow fact that the screen opens on a pair every
+mirrored training pool excludes, which matters for training-pool coverage and not for the eye gate.
+
+**This is the second time tonight that a frozen viability constant has been read as a live
+measurement of the current build, by me, in the same direction.** Both times the constant was real
+and the reading was not. The rule that falls out and belongs beside the predicate: `VIABLE_PAIRS`
+and `VIABLE_MIRRORS` are `golem-driver` tables taken at `gain` 0, and a sentence about the current
+build cannot be sourced from them without re-running `scripts/viability.mjs`.
+
+### What the owner's report is explained by, now that this one is not
+
+AT still explains it and explains it better. Contacts under floor are 77 % at the shipped mass with
+a median of 0.6 J, so "a lot of attacks didn't really seem to do anything" is literal: three
+contacts in four are priced at zero. And at 82 % decided the bouts do resolve, which is the other
+half of what the owner said -- "the fight was over in one or two key attacks" is a decisive bout,
+not an indecisive one. The two halves of the report were never the same complaint and the record
+had been treating them as one.
+
+### What this recommends
+
+**Mass is not the lever for decisiveness and the kill criterion fires: the floors are next.** But
+mass is not nothing either, and the useful part is at the bottom of the range. Going 1.30 -> 2.00 kg
+buys **+45 % damage per contact** for a 6.6 % slower stroke; everything from 2.00 to 4.50 is flat at
+0.213 while costing up to 27 % of the stroke. So the whole of the available gain is bought by the
+first 0.7 kg.
+
+Between 2.00 and 3.14 the measured damage is identical and 3.14 is the principled value -- density
+times the collider's own volume, the rule every other terminal follows, and the number
+`TERMINAL_BLADE`'s own comment already computes. It costs 16.4 % of stroke speed against 2.00's
+6.6 % and returns the same damage, so the case for it is consistency rather than performance, and
+the case against it is that it is measurably slower for nothing. **Recorded as a decision for the
+owner rather than taken here**, because it trades a principle against a tenth of a stroke and the
+owner is the one who said the mass looked wrong in the first place.
