@@ -38035,7 +38035,48 @@ prediction, stated before it returns, is that **the median margin on random pair
 the mirror's 0.148**, because the thing being measured there is a difference between bodies and not
 the noise between two copies of one.
 
-## BE / BF -- the reading that says the fighters are leaning, not cutting
+## BE -- the same three arms on two different bodies
+
+`golem-fencer`, 28 builds each paired against the next one round the pool, 112 bouts a cell, seed
+20260906. The mirror rows from BC are repeated underneath for the comparison that is the point.
+
+| cell | decided | median s | mean s | under 8 s | decided < 60 s | **bar med** | bar mean | **bar < 0.10** |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| **random pairs**, ramp off, cap 60 | 59 % | 28.3 | 27.8 | 4 % | 59 % | 0.727 | 0.631 | 3 % |
+| **random pairs**, ramp off, cap 150 | 81 % | 35.5 | 44.7 | 4 % | 59 % | 0.727 | 0.660 | 3 % |
+| **random pairs, ramp on** | **100 %** | 44.0 | 52.3 | 4 % | 59 % | **0.551** | 0.531 | **14 %** |
+| mirror, ramp off, cap 60 (BC-0) | 49 % | 28.2 | 29.1 | 0 % | 49 % | 0.374 | 0.373 | 4 % |
+| mirror, ramp on (BC-2) | 99 % | 63.7 | 65.9 | 0 % | 49 % | 0.148 | 0.221 | 44 % |
+
+**The prediction was that the random-pairs median margin is at least double the mirror's 0.148. Hit,
+and by more than the bar asked for: 0.551, which is 3.7x.** The share finishing under a tenth of a
+bar falls from 44 % to **14 %**.
+
+**So the number BC registered as able to refuse the ramp refuses nothing, and the reason is the one
+BD named.** A mirror is two copies of one fighter; a near-tie there is the correct answer and not a
+defect. On the cell the screen actually shows -- two different bodies, which is where the record's
+own most reproducible finding is that the body is worth 2.98x the mind -- the ramp resolves every
+bout and the winner is holding more than half a bar when it does. Six fights in seven finish with a
+clear result.
+
+**The ramp lowers the margin on random pairs, 0.727 to 0.551, and that is the ramp working rather
+than failing.** The bouts it adds are the 41 % that never resolved, and those are by construction
+the closest ones -- the pairings where neither body could finish the other. Adding close fights to
+a sample lowers its median margin. A ramp that *raised* it would mean the fights it was resolving
+were ones already won, which is BC's prediction 4 restated and confirmed from the other side.
+
+**The death model is settled.** Every bout decides, no bout runs past two minutes, dismemberment is
+a swing and never a kill, the winner on a real matchup is half a bar clear, and the two knobs stay
+at 60 and 60 on BD's evidence that moving them buys nothing. What is not settled is what happens
+*inside* those two minutes, which is where BF points.
+
+**One row to re-read later, not now:** 4 % of random-pair bouts are over inside eight seconds,
+against 0 % on the mirror. That is a mismatched pairing ending quickly, which is what a mismatched
+pairing should do, and it is the column `VIABLE_PAIRS` exists to keep out of the training pool. It
+is named here so that it is not mistaken for a stomp the death model introduced: the same 4 % is
+there with the ramp off.
+
+## BF -- the reading that says the fighters are leaning, not cutting
 
 ### BF, registered 2026-09-17 before collecting
 
