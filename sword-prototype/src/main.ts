@@ -25,7 +25,8 @@ import {
 } from "./golem/snapshot";
 import type { GolemDriven } from "./golem/tactics-v4";
 import { GOLEM_TACTICS } from "./golem/tactics";
-import { parseStrokeOverrides, setLiveStrokeRow } from "./golem/stroke-rows";
+import { setLiveStrokeRow } from "./golem/stroke-rows";
+import { strokeLink } from "./golem/stroke-link";
 import { SetupScreen } from "./setup";
 import {
   defaultGolemSetup,
@@ -333,28 +334,9 @@ async function boot(): Promise<void> {
    * `src/golem/stroke-rows.ts`; the note below says it on screen rather than leaving it to be
    * discovered by someone comparing two tabs that were never different.
    */
-  let tacticNote = "";
-  const tacticAsked = query.get("tactic");
-  if (tacticAsked !== null) {
-    const parsed = parseStrokeOverrides(tacticAsked);
-    const refused = parsed.filter((p): p is { ok: false; why: string } => !p.ok);
-    if (parsed.length === 0) {
-      tacticNote = "The tactic link was refused -- it named nothing.";
-    } else if (refused.length > 0) {
-      tacticNote = `The tactic link was refused and NOTHING was applied: ${
-        refused.map((r) => r.why).join("; ")}. Running the shipped stroke.`;
-    } else {
-      const applied = parsed.flatMap((p) => (p.ok ? [p] : []));
-      const changed = applied.filter((p) => GOLEM_TACTICS[p.row] !== p.value);
-      for (const { row, value } of applied) setLiveStrokeRow(GOLEM_TACTICS, row, value);
-      tacticNote = changed.length === 0
-        ? `The tactic link asked for the shipped stroke: ${
-          applied.map((p) => `${p.row} ${p.value}`).join(", ")}. Nothing was overridden.`
-        : `STROKE OVERRIDDEN: ${changed.map((p) => `${p.row} ${p.value}`).join(", ")}.`
-          + " This is not the stroke the tree ships. It moves v2 minds (golem-fencer) only --"
-          + " a v3 mind on a committed arc froze its shape at load and will ignore this.";
-    }
-  }
+  const tactic = strokeLink(query.get("tactic"), (row) => GOLEM_TACTICS[row]);
+  for (const { row, value } of tactic.apply) setLiveStrokeRow(GOLEM_TACTICS, row, value);
+  const tacticNote = tactic.note;
 
   const snapshotPath = query.get("snapshot");
   const snapshotSide: Side = query.get("snapshotSide") === "right" ? "right" : "left";
