@@ -39513,3 +39513,37 @@ keep true.
 
 **What is owed.** BJ registered that this phase does not close on a table, and the ruling was made
 from one. The before/after the owner can watch, on the same matchup and the same seed, is the gate.
+
+## BX -- what is left in the 68 % (registered before the run)
+
+At the shipped 0.3, thirty-two per cent of armed contacts pay. That is up from twenty-five, and it
+is still a minority, so the obvious question is whether the remaining sixty-eight is the model
+working or the model still wrong. Those are different findings and they have opposite fixes: a
+contact that pays nothing because a blade barely brushed somebody is the floor doing its job, and a
+contact that pays nothing while a fast, well-aligned edge is on a torso is energy still being
+thrown away.
+
+**The cell.** Every armed contact of a golem-vs-golem cell at `drawFraction` 0.3, and the same
+seeds at 0 as the paired control, partitioned by why it failed to score: total speed under the graze
+threshold; speed enough but the edge across the blow rather than along it; speed and alignment both
+adequate and still under the floor.
+
+**Registered predictions:**
+
+- **P1: the remaining non-payers are mostly grazes.** The majority of contacts that score nothing
+  at 0.3 carry under 4 m/s of total tip speed. *Refused if* contacts over 8 m/s are more than half
+  the non-paying set -- which would say the constant is too low and the ruling wants revisiting
+  upward, which is the owner's call and not mine.
+- **P2: the tangential pattern is kinematics and survives the repricing.** The median normal
+  fraction in the 12-20 m/s bucket still reads under 0.30 at 0.3, because paying for the slide
+  changes what a contact is worth and not where the arm was pointing. *Refused if* it moves above
+  0.35 -- which would mean the law change fed back into behaviour harder than a repricing should,
+  and the population shift, not the physics, is doing the work.
+- **P3: alignment is not the binding constraint.** Median `|edgeAlignment|` among non-paying
+  contacts is above 0.5, i.e. they are not mostly flat slaps. *Refused if* it comes in under 0.4,
+  which would put the next phase on how the wrist is held rather than on spacing or timing.
+
+**The control, named properly this time.** The 0 column here holds the *seeds* fixed, not the
+population of contacts -- BV's registered control was wrong in exactly that way and the correction
+is four sections up. So the 0 and 0.3 columns are two different sets of contacts from two different
+fights, and nothing below claims a per-contact identity between them.
