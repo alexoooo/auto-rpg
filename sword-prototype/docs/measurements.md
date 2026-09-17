@@ -38996,7 +38996,7 @@ shoulder-to-shoulder over 7203 samples: p10 1.72  p50 1.84  p90 1.96 m
 | 1.40 | -0.810 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 0.36 |
 | 1.60 | 0.143 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 0.17 |
 | 1.70 | 0.619 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 0.08 |
-| **1.84 (median)** | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** | **0** |
+| **1.84 (median)** | **1.00** | **1.00** | **1.00** | **1.00** | **1.00** | **1.00** | **0** |
 | 1.96 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 0.00 |
 
 **At the distance these golems actually fight, every value of `strikeBite` returns full extension,
@@ -39015,7 +39015,7 @@ sweep is a tangential blow by construction** -- which is precisely the 0.28 that
 BM found unchanged against a motionless dummy, and that BN found unmoved by 20 cm of separation.
 
 It also explains the two populations BM found. A stroke that pays is one where something --
-footwork, the opponent walking in, the trunk arriving at the right angle -- happened to put the target where
+footwork, the opponent walking in, the trunk arriving at the right angle -- put the target where
 the sweep ran into it rather than across it. That is luck, it happens about a quarter of the time,
 and no constant governs it because nothing in the stance is aiming for it.
 
