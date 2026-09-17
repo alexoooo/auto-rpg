@@ -38883,3 +38883,99 @@ populations, which is what makes separation a fair thing to bin it against.
     measured, because squareness was not a column when it was made.
   - *Fails* -> they graze and they land from the same distance, which puts the whole cause inside
     the stroke.
+
+## BM, cell 1 -- against a dummy that never moves, the blow is still a rake
+
+16 bouts of `golem-fencer` against `idle`, same golem, same seeds.
+
+| | contacts | normal | speed m/s | median J | strokes paying |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| vs `golem-fencer` | 3910 | 0.28 | 6.60 | 1.1 | 52 % |
+| vs `idle` | 1458 | **0.38** | 9.07 | 3.7 | 56 % |
+
+**P1 holds: 0.376, against the 0.45 registered.** A target that never retreats, never turns and
+never drives in is worth **0.10** of normal component. The remaining shortfall from a square blow is
+the fighter's own arc, and it is six times the size of the part the opponent contributes.
+
+The stroke split is the same shape here and sharper: a stroke that pays nothing has a best moment of
+**0.17** against a still target, and a paying one 0.72. Worthless strokes touch for one step.
+
+## BN result -- separation does not explain squareness, at all
+
+16 bouts, 4173 contacts.
+
+| quartile of separation at contact | contacts | gap m | normal | speed m/s | paying |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Q1, closest | 1043 | 1.70 | 0.34 | 5.95 | 26 % |
+| Q2 | 1043 | 1.78 | 0.31 | 6.21 | 26 % |
+| Q3 | 1043 | 1.84 | 0.27 | 6.42 | 26 % |
+| Q4, farthest | 1044 | 1.90 | 0.24 | 6.60 | 24 % |
+
+**P1 fails: 0.100 against the 0.20 registered.** There is a real gradient and it runs the way the
+arc geometry says it should -- closer is squarer -- but across the entire 20 cm range these fighters
+actually occupy it is worth a tenth, and the paying share is flat at 26, 26, 26, 24 %.
+
+| | contacts | gap m | normal | speed m/s |
+| --- | ---: | ---: | ---: | ---: |
+| paying | 1062 | 1.80 | 0.70 | 10.29 |
+| worthless | 3111 | 1.81 | 0.16 | 5.09 |
+
+**P2 fails: 0.002 m.** A blow that lands and a blow that glances are thrown from **two millimetres**
+apart. Whatever decides which one happens, it is not where the feet are.
+
+### This closes the owner's diagnosis, in their favour on the symptom and against it on the cause
+
+> *"instead of maintaining proper swing distance, the golems get into each other's face and kinda
+> just flail around"*
+
+The flailing is real and now has a number: **three contacts in four are a graze that touches for one
+step and leaves.** The distance is not. They stand at 1.01 x their own reach, they stand there
+whether the blow lands or misses, and moving them does almost nothing -- the full 20 cm of spread
+buys 0.10 of normal component where the gap between a graze and a hit is 0.54.
+
+Everything that can be cleared has been:
+
+| candidate | verdict |
+| --- | --- |
+| stand-off regressed since 2026-09-05 | refused -- 7.60 m/s against the 7.35 it was bought at |
+| they stand closer than commanded | refused -- 0.04 m outside it |
+| commit taken from outside their own reach | refused -- 0.32 m inside, on 99 % of strokes |
+| exploration noise puts the policy wrong | refused -- 6 cm, and the drawn side is better |
+| it is timing rather than the lever | refused -- both move, neither dominates |
+| the blade lands flat | refused -- 0.63 against 0.77, a secondary factor |
+| first touch is a graze and the blade then drives in | refused -- +0.024 across the contact |
+| the opponent's motion turns a blow into a rake | **partly** -- worth 0.10 of 0.62 |
+| separation at the moment of contact | refused -- 0.002 m between landing and glancing |
+| **the arc itself does not pass through the target** | **the survivor** |
+
+## BO -- registration: how deep the stroke is driven
+
+`reachForDistance` already carries the knob, and it is not a damage constant:
+
+```ts
+const overhang = reach - shell.reachMax;
+return unspan(metres - overhang * (1 - bite), shell.reachMin, shell.reachMax);
+```
+
+`bite` is where the stroke is aimed along its own depth. At `bite = 0` the command puts the
+**weapon's tip** on the mark -- the arc terminates at the surface, which is the definition of a
+graze. At `bite = 1` it puts the **hand** on the mark and the weapon passes through. Shipped
+`strikeBite` is **0.66**, and nothing in this record has ever swept it or measured what it does to
+squareness, because squareness was not a column until tonight.
+
+This is the same shape of experiment as the 2026-09-05 `standOffFraction` sweep -- one constant,
+driven through `golemFencer(seed, T)` without editing a source file -- and it is tested against the
+same columns so the two are comparable.
+
+- **P1:** the median normal component rises monotonically with `strikeBite` from 0 to 1.
+  - *Holds* -> how deep the stroke is aimed is the lever on squareness, and the shipped 0.66 is a
+    position on a curve rather than a measured optimum.
+  - *Fails* -> depth of aim does not reach squareness either, and the cause is in the shape of the
+    arc rather than in where along it the stroke is asked to stop.
+- **P2:** damage per bout at the best `strikeBite` beats the shipped 0.66 by **more than 15 %**.
+  - *Holds* -> a fix, and one that costs a constant.
+  - *Fails* -> either squareness does not convert into damage, or 0.66 is already the optimum. The
+    third column, the share of strokes that pay, says which.
+- **Guard:** report the paying share and the contact speed in every row. A bite that drives deeper
+  also shortens the effective lever, and if damage rises while contact speed collapses, the sweep is
+  buying squareness with speed and the peak is a trade rather than a fix.
