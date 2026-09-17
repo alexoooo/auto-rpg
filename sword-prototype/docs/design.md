@@ -5152,6 +5152,32 @@ flat, and only `chamberReach` wins. The committed rows are **coupled to the comm
 than being better numbers, and `chamberReach` winning on both paths is a fact about that one row.
 A story that fits one row is not a mechanism.
 
+### The stroke worth having is two constants, and the other two are redundant
+
+Four rows of the live stroke table measure better than what ships, on 8192 or more paired bouts
+each. Stacked on one fighter, they do not add up:
+
+| stroke | paired score | Elo | bout |
+| --- | ---: | ---: | ---: |
+| shipped | 0.4941 | -- | 37.9 s |
+| `chamberReach` 0 **and** `followLift` 0.95 | **0.7217** | **+170** | **32.7 s** |
+| the same plus `cutRoll` 0.15 | 0.7217 | +170 | 33.5 s |
+| the same plus `strokeSeconds` 0.12 | 0.7173 | +166 | 34.1 s |
+
+Alone, `cutRoll` 0.15 is worth +31 and `strokeSeconds` 0.12 is worth +56. On top of the pair they
+are worth **nothing and minus four**, and both make the bout longer rather than shorter. Composition
+held at 90 % of summed Elo for two rows, 77 % for three and 60 % for four, so the decay is the
+result rather than a disappointment about it.
+
+**So the recommendation is two constants and not four**, which halves what a re-rate has to
+revalidate and drops the two rows whose effect turned out to be another route to the same thing the
+first two already do. `chamberReach` says how cramped the wind-up is and `followLift` says how high
+the hand finishes; a stroke that fixes both is apparently already getting whatever `cutRoll` and a
+faster `strokeSeconds` were buying separately.
+
+The eye gate is `?tactic=chamberReach:0,followLift:0.95` against an unmodified tab, and the decision
+is the owner's as it has been throughout.
+
 ### How much measurement is worth buying, which turned out to have an answer
 
 Eight times the bouts bought a factor of 2.4 in the damage rate's spread rather than the square root

@@ -40917,3 +40917,78 @@ so far and it still lands on two of the five minds in `PPO_LEAGUE`, so the re-ra
 the precondition and the decision is unchanged as the owner's. What CL buys is the number that
 decision would be made on, and the eye gate that has to come with it:
 `?tactic=chamberReach:0,followLift:0.95,cutRoll:0.15,strokeSeconds:0.12`.
+
+## CL result -- composition decays with row count, and the clock stops cooperating
+
+5120 paired bouts, seed base 20260918, pooled replicate sd **0.0181** -- the quietest cell of the
+phase, again below the 0.0313 a binomial would give.
+
+| arm | score | vs control | verdict | W-D-L | seconds | Elo |
+| --- | ---: | ---: | --- | ---: | ---: | ---: |
+| shipped v shipped | 0.4941 | -- | the control | 506-0-518 | 37.9 | -- |
+| three winners on one fighter | **0.7217** | +0.2275 | 12.5 sd | 739-0-285 | 33.5 | **+170** |
+| the same plus `strokeSeconds` 0.12 | 0.7173 | +0.2231 | 12.3 sd | 734-1-289 | 34.1 | +166 |
+| `strokeSeconds` 0.06 | 0.5713 | +0.0771 | 4.3 sd | 585-0-439 | 38.2 | +54 |
+| `strokeSeconds` 0.09 | 0.5381 | +0.0439 | 2.4 sd | 551-0-473 | 37.3 | +31 |
+
+### CL1 held: there is a plateau, not a cliff
+
+`d`, 0.06's score minus 0.12's, is **-0.16 sd** -- squarely in the registered middle case, so the
+verdict is *a plateau at or below 0.12, and 0.12 is a usable value*. The fast side does not run away
+and it does not collapse.
+
+**But the ladder is not monotone, and this document is not going to smooth that over.**
+
+| `strokeSeconds` | 0.06 | 0.09 | 0.12 | **0.15 ships** | 0.20 | 0.35 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Elo | +54 | **+31** | +56 | 0 | -39 | -124 |
+
+0.09 sits 2.0 sd below 0.12 and 1.8 sd below 0.06 -- a dip between two higher neighbours, on the
+same control, the same seeds and the same bouts as both. Everything from 0.12 upward is a clean
+monotone slope; the two fastest cells are not ordered. **No explanation is offered.** It is one cell
+at two sd on a row whose noise floor is well characterised, which is exactly the size of thing that
+is a fluctuation about a third of the time, and the honest move is to record it and re-run 0.09
+rather than to draw a curve through it. What CL2 does next makes that cheap, because `strokeSeconds`
+turns out not to be worth stacking anyway.
+
+### CL2 partly held: the rows stop adding
+
+Registered bands were 80 % and 50 % of summed Elo. Measured:
+
+| arm | summed singles | measured | ratio |
+| --- | ---: | ---: | ---: |
+| two rows (CK) | +189 | +170 | **90 %** |
+| three rows | +220 | +170 | **77 %** |
+| four rows | +276 | +166 | **60 %** |
+
+Both land in the 50-80 % band, so the registered verdict is **partly held: composition decays with
+row count, and the decay is the finding.** And it is a sharper statement than the band asks for:
+**the third and fourth rows add nothing at all.** `cutRoll` 0.15 is worth +31 alone and +0 on top of
+the pair; `strokeSeconds` 0.12 is worth +56 alone and **-4** on top of the three.
+
+**A coincidence worth naming, because it nearly cost an hour.** The three-way arm scored 0.7217 with
+a record of 739-0-285 -- the pair's score and the pair's record, to the bout. That is the signature
+this phase has already been bitten by twice, so it was checked rather than written up: the merged
+override does carry `roll` and `windRoll`, the merged shape does differ from the pair's, and **the
+bout length differs, 33.5 s against 32.7 s.** The bouts are different; the tally coincided. Two
+strongly correlated arms on identical seeds landing on the same win count is ordinary, and *the
+column that must differ is what separates that from a flag that did nothing* -- which is the rule
+CI's `cutRoll` arm paid for, used here for the first time as intended.
+
+**What this means for the ship.** The stroke worth having is **two rows, not four**:
+`chamberReach` 0.00 and `followLift` 0.95, +170 Elo together, with the bout down from 37.9 s to
+32.7 s. `cutRoll` and `strokeSeconds` are real improvements to the shipped stroke and redundant
+with those two -- which is a much better thing to know before shipping four constants than after.
+
+### CL3 refused: the clock stops shortening
+
+Predicted the four-way under 31 s, refused at 33 s or above. It came in at **34.1 s**, and the
+three-way at 33.5 s against the pair's 32.7 s. **Adding rows lengthened the bout** while the margin
+stayed flat. Every single row that won had shortened the clock, and the inference that the effect
+kept going is refused.
+
+That is consistent with CL2 rather than separate from it: if the third and fourth rows buy no
+margin, whatever they do to the clock is unopposed by a gain, and what they do is make the stroke
+slower in wall time. The owner's complaint is about golems flailing at close quarters, and **the
+pair is what answers it** -- 5.2 fewer seconds and +170 Elo. The four-row stroke is 3.8 fewer
+seconds and +166, which is worse on both counts and carries twice the risk to every fitted head.
