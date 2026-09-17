@@ -3,7 +3,7 @@ import test from "node:test";
 import { execFileSync } from "node:child_process";
 
 import { LIVE_STROKE_ROWS } from "../src/golem/stroke-rows.ts";
-import { cell as duelCell } from "../scripts/stroke-duel.mjs";
+import { cell as duelCell, readArms } from "../scripts/stroke-duel.mjs";
 import { cell as sweepCell } from "../scripts/stroke-sweep.mjs";
 
 test("importing_a_bench_for_its_helpers_does_not_make_it_answer_a_child_call", () => {
@@ -33,4 +33,32 @@ test("the_duel_sweeps_only_rows_a_fencer_can_actually_override", () => {
   // row that stops being live stops being offered here too.
   assert.ok(LIVE_STROKE_ROWS.includes("chamberReach"));
   assert.equal(LIVE_STROKE_ROWS.includes("standOffFraction"), false);
+});
+
+test("both_spellings_of_an_arm_list_produce_the_same_arms", () => {
+  assert.deepEqual(readArms("chamberReach", "-0.2,0", null), readArms(null, null,
+    "chamberReach:-0.2,chamberReach:0"));
+});
+
+test("an_arm_list_refuses_everything_it_cannot_vouch_for", () => {
+  const cases = [
+    [["chamberReach", "0", "cutRoll:0"], /two spellings of one thing/],
+    [[null, null, "chamberReach"], /wants name:value/],
+    [[null, null, "chamberReach:zz"], /non-number/],
+    [[null, null, "standOffFraction:1"], /is not one of/],
+    [[null, null, ""], /nothing to run/],
+    [[null, null, null], /nothing to run/],
+  ];
+  for (const [args, why] of cases) {
+    assert.throws(() => readArms(...args), why, `${JSON.stringify(args)} was accepted`);
+  }
+});
+
+test("every_arm_carries_a_key_the_plan_and_the_table_can_both_use", () => {
+  // The control shares this namespace as the literal "control", so an arm must never collide with
+  // it and two arms on the same row at different values must never collide with each other.
+  const arms = readArms(null, null, "chamberReach:0,chamberReach:0.15,cutRoll:0");
+  const keys = arms.map((a) => a.key);
+  assert.equal(new Set(keys).size, keys.length, "two arms share a key");
+  assert.equal(keys.includes("control"), false, "an arm collided with the control");
 });

@@ -1,7 +1,13 @@
 // Put a changed stroke against the shipped one and score it the way the project scores a mind.
 //
 //   node scripts/stroke-duel.mjs --row chamberReach --values -0.2,0,0.15
-//     [--replicates 4] [--bouts 128] [--cap 150] [--seed 20260906] [--sigmas 2]
+//   node scripts/stroke-duel.mjs --arms chamberReach:0,cutRoll:0,strokeSeconds:0.35
+//     [--replicates 4] [--bouts 128] [--cap 150] [--seed 20260906] [--sigmas 2] [--json PATH]
+//
+// `--row` with `--values` sweeps one row; `--arms` puts several rows on one table against
+// **one shared control**, which is legitimate here in a way it was not in CB: the control is
+// the shipped stroke against itself and is identical whatever row an arm names, so sharing it
+// costs nothing and buys back half the compute. It is replicated like every other arm.
 //
 // **Why this exists, and what it is not.** `scripts/stroke-sweep.mjs` is a mirror: both fighters
 // read `STROKE_SHAPES.sword`, which is one module global, so a swept row moves both of them. That
@@ -97,6 +103,38 @@ export async function cell({ row, value, seed, bouts, cap }) {
   };
 }
 
+/**
+ * The arms to run, from either spelling, each with a key the table and the plan agree on.
+ *
+ * Refuses both spellings at once rather than picking one, and refuses a row a fencer cannot
+ * actually override -- `LIVE_STROKE_ROWS` is the same list `?tactic=` and the sweep validate
+ * against, so a row that stops being live stops being offered in all three places together.
+ */
+export const readArms = (row, values, spec) => {
+  if (spec !== null && (row !== null || values !== null)) {
+    throw new Error("--arms and --row/--values are two spellings of one thing; pass one");
+  }
+  const pairs = spec !== null
+    ? spec.split(",").filter((part) => part.trim() !== "").map((part) => {
+      const at = part.indexOf(":");
+      if (at === -1) throw new Error(`--arms wants name:value, got "${part}"`);
+      return [part.slice(0, at).trim(), part.slice(at + 1).trim()];
+    })
+    : (values ?? "").split(",").filter((v) => v.trim() !== "")
+      .map((v) => [row ?? "", v.trim()]);
+  if (pairs.length === 0) {
+    throw new Error("nothing to run: pass --arms name:value,... or --row R --values a,b");
+  }
+  return pairs.map(([name, raw]) => {
+    if (!LIVE_STROKE_ROWS.includes(name)) {
+      throw new Error(`"${name}" is not one of ${LIVE_STROKE_ROWS.join(", ")}`);
+    }
+    const value = Number(raw);
+    if (!Number.isFinite(value)) throw new Error(`"${name}" was given a non-number`);
+    return { row: name, value, key: `${name}:${value}` };
+  });
+};
+
 async function main(argv) {
   const flag = (name, fallback = null) => {
     const i = argv.indexOf(name);
@@ -109,15 +147,7 @@ async function main(argv) {
     if (!Number.isFinite(v)) throw new Error(`${name} wants a number, not ${raw}`);
     return v;
   };
-  const row = flag("--row", null);
-  if (row === null || !LIVE_STROKE_ROWS.includes(row)) {
-    throw new Error(`--row wants one of ${LIVE_STROKE_ROWS.join(", ")}; got ${row ?? "nothing"}`);
-  }
-  const values = (flag("--values", "") || "").split(",").filter((v) => v !== "").map(Number);
-  if (values.length === 0) throw new Error("--values wants a comma-separated list of numbers");
-  if (values.some((v) => !Number.isFinite(v))) {
-    throw new Error("--values has something in it that is not a number");
-  }
+  const arms = readArms(flag("--row", null), flag("--values", null), flag("--arms", null));
   const replicates = Math.max(2, num("--replicates", 4));
   const bouts = num("--bouts", 128);
   const cap = num("--cap", 150);
@@ -125,18 +155,20 @@ async function main(argv) {
   const sigmas = num("--sigmas", 2);
 
   const seeds = Array.from({ length: replicates }, (_, i) => base + i);
-  // `null` is the control and always runs first, because if it does not come back at 0.500 the
-  // rest of the table is a measurement of the harness.
-  const wanted = [null, ...values];
-  const plan = wanted.flatMap((value) => seeds.map((seed) => ({ value, seed })));
+  // The control runs first, because if it does not come back at 0.500 the rest of the table is a
+  // measurement of the harness. Its null row and null value are what `cell` reads as the shipped
+  // stroke against itself.
+  const wanted = [{ row: null, value: null, key: "control" }, ...arms];
+  const plan = wanted.flatMap((arm) => seeds.map((seed) => ({ ...arm, seed })));
 
-  console.log(`stroke duel: ${row} against the shipped stroke, ${plan.length} cells`
+  const what = arms.length === 1 ? arms[0].row : `${arms.length} arms`;
+  console.log(`stroke duel: ${what} against the shipped stroke, ${plan.length} cells`
     + ` (${wanted.length} arms x ${replicates} replicates x ${bouts} bouts),`
     + ` ${availableParallelism()} cores`);
   console.log("the first arm is the shipped stroke against itself, which has to come back at 0.500");
 
   const results = await Promise.all(plan.map((c) => new Promise((resolve) => {
-    const spec = JSON.stringify({ ...c, row, bouts, cap });
+    const spec = JSON.stringify({ row: c.row, value: c.value, seed: c.seed, bouts, cap });
     execFile(process.execPath, [process.argv[1], "--child", spec], {
       encoding: "utf8", cwd: ROOT, maxBuffer: 1 << 28,
     }, (error, stdout, stderr) => {
@@ -148,14 +180,14 @@ async function main(argv) {
     });
   })));
 
-  const ok = (value) => results.filter((r) => r.value === value && !r.failed);
-  const noise = mean(wanted.map((v) => sd(ok(v).map((r) => r.score))).filter((x) => x > 0));
-  const control = mean(ok(null).map((r) => r.score));
+  const ok = (key) => results.filter((r) => r.key === key && !r.failed);
+  const noise = mean(wanted.map((a) => sd(ok(a.key).map((r) => r.score))).filter((x) => x > 0));
+  const control = mean(ok("control").map((r) => r.score));
 
   const dump = flag("--json", null);
   if (dump !== null) {
     await writeFile(dump, `${JSON.stringify({
-      row, values, replicates, bouts, cap, seed: base, sigmas, control, cells: results,
+      arms, replicates, bouts, cap, seed: base, sigmas, control, cells: results,
     }, null, 2)}${NL}`, "utf8");
     console.log(`every cell written to ${dump}`);
   }
@@ -166,23 +198,23 @@ async function main(argv) {
   console.log("");
   console.log("| arm | cells | score | vs control | verdict | W-D-L | seconds |");
   console.log("| --- | ---: | ---: | ---: | --- | ---: | ---: |");
-  for (const value of wanted) {
-    const rs = ok(value);
+  for (const arm of wanted) {
+    const rs = ok(arm.key);
+    const isControl = arm.row === null;
+    const name = isControl ? "shipped v shipped" : `${arm.row} ${arm.value}`;
     if (rs.length === 0) {
-      console.log(`| ${value === null ? "control" : value} | 0 | every cell failed | | | | |`);
+      console.log(`| ${name} | 0 | every cell failed | | | | |`);
       continue;
     }
     const m = mean(rs.map((r) => r.score));
-    const v = value === null
+    const v = isControl
       ? { why: "the control", better: false, worse: false }
       : verdict(m, control, noise, sigmas);
-    const gap = value === null ? "--"
-      : `${m - control >= 0 ? "+" : ""}${(m - control).toFixed(4)}`;
+    const gap = isControl ? "--" : `${m - control >= 0 ? "+" : ""}${(m - control).toFixed(4)}`;
     const w = rs.reduce((a, r) => a + r.wins, 0);
     const d = rs.reduce((a, r) => a + r.draws, 0);
     const l = rs.reduce((a, r) => a + r.losses, 0);
-    console.log(`| ${value === null ? "shipped v shipped" : `${row} ${value}`} | ${rs.length}`
-      + ` | ${m.toFixed(4)} | ${gap} | ${v.why} | ${w}-${d}-${l}`
+    console.log(`| ${name} | ${rs.length} | ${m.toFixed(4)} | ${gap} | ${v.why} | ${w}-${d}-${l}`
       + ` | ${mean(rs.map((r) => r.seconds)).toFixed(1)} |`);
   }
 
@@ -191,7 +223,7 @@ async function main(argv) {
   // The bar is the wider of the measured replicate spread and what a fair coin would give over the
   // control's own bouts. Replicates that happen to agree would otherwise hand the control a
   // denominator near zero and refuse the run over a rounding error.
-  const bar = Math.max(noise, Math.sqrt(0.25 / (bouts * ok(null).length)));
+  const bar = Math.max(noise, Math.sqrt(0.25 / (bouts * ok("control").length)));
   if (drift > 2 * bar) {
     console.log(`REFUSED: the control came back at ${control.toFixed(4)}, which is`
       + ` ${(drift / bar).toFixed(1)} sd off 0.500.`);
@@ -201,16 +233,23 @@ async function main(argv) {
   }
   console.log(`The control is ${control.toFixed(4)}, within ${(2 * bar).toFixed(4)} of 0.500, so`
     + " the bench is even-handed.");
-  const winners = wanted.filter((v) => v !== null)
-    .map((value) => ({ value, m: mean(ok(value).map((r) => r.score)) }))
-    .filter(({ m }) => verdict(m, control, noise, sigmas).better)
+  const scored = wanted.filter((a) => a.row !== null)
+    .map((a) => ({ ...a, m: mean(ok(a.key).map((r) => r.score)) }))
     .sort((a, b) => b.m - a.m);
+  // Losses are named before wins, and named at all, for the reason CE had to fix in the sweep: a
+  // row that makes the golem measurably worse is a finding, and printing only winners reports it
+  // as an absence.
+  for (const l of scored.filter(({ m }) => verdict(m, control, noise, sigmas).worse)) {
+    console.log(`${l.row} ${l.value} LOSES to the shipped stroke at ${l.m.toFixed(4)}.`);
+  }
+  const winners = scored.filter(({ m }) => verdict(m, control, noise, sigmas).better);
   if (winners.length === 0) {
     console.log(`Nothing beats the shipped stroke across the table by ${sigmas} sd. A mirror`);
     console.log("statistic moving without this one moving is the interesting outcome, not a null.");
     return;
   }
-  console.log(`${row} ${winners[0].value} beats the shipped stroke at ${winners[0].m.toFixed(4)}.`);
+  console.log(`${winners[0].row} ${winners[0].value} beats the shipped stroke`
+    + ` at ${winners[0].m.toFixed(4)}.`);
   console.log("This is the project's own criterion and it is still not a ruling: every fitted head");
   console.log("in the tree was trained under the shipped stroke, so re-rate before moving a row.");
 }
