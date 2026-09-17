@@ -39822,6 +39822,12 @@ finding than the roll, and it is the one I would spend the next phase on.
 
 ## CB -- the nine rows the tuner cannot reach (registered before the run)
 
+**WITHDRAWN by CC, below.** Every shipped cell in this section is one run -- seed base 20260906 --
+and CC measured that run as the minimum of eight replicates of the same configuration. The seven
+rows below did not move; one shared control was low and every comparison inherited it. Two rows
+survive as candidates and five are gone. The section is kept because a withdrawn result that is
+deleted is a result somebody measures again.
+
 CA's lesson had the diagnosis right and the mechanism wrong, and the correction is worth more than
 the lesson. I wrote that *"this tree has no process that expires a swept constant."* It has one:
 `scripts/tune.mjs` evolves sixty-two rows of the fencer's table against the tournament harness. What
@@ -39908,3 +39914,76 @@ withdrawn -- and the sweep design goes back for replicates per cell rather than 
 refused, BY and the design ruling written from it come down too, and the night's headline goes with
 them. Writing that here, before the run, is the only thing that makes it a prediction rather than a
 preference.
+
+### CC result -- CB is withdrawn, BY survives at four and a half standard deviations
+
+Eight 16-bout replicates of the shipped configuration, nothing swept, different seed bases.
+
+| seed base | contacts | align ALL | align paying | damage/bout | seconds |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| **20260906** | 3753 | **0.481** | 0.805 | 52.5 | 39.4 |
+| 20260907 | 3830 | 0.511 | 0.818 | 52.2 | 38.3 |
+| 20260908 | 3821 | 0.502 | 0.808 | 58.2 | 38.8 |
+| 20260909 | 3556 | 0.516 | 0.807 | 55.8 | 38.0 |
+| 20260910 | 3723 | 0.506 | 0.810 | 53.7 | 44.1 |
+| 20260911 | 3519 | 0.523 | 0.817 | 57.1 | 34.4 |
+| 20260912 | 3383 | 0.510 | 0.828 | 51.1 | 35.9 |
+| 20260913 | 3890 | 0.534 | 0.822 | 59.0 | 40.0 |
+
+**align ALL: mean 0.510, sd 0.016, spread 0.053. align paying: mean 0.814, sd 0.008, spread 0.023.**
+
+**P1 is confirmed and CB is withdrawn.** The floor is 0.053, over the 0.04 registered. And the
+diagnosis is sharper and worse than the winner's curse I named: **seed base 20260906 is the minimum
+of the eight.** CB reused one baseline run for all seven rows -- the same 3753 contacts and 0.481 in
+every shipped cell, which is visible in its own table -- and that run was the unluckiest of eight.
+Every one of its twenty-eight comparisons inherited the same error, which is why all seven rows
+"moved" at once. That is not four noisy draws beating one; it is twenty-eight draws beating one
+draw that happened to sit at the bottom. **A shared control is a single point of failure and CB had
+exactly one.**
+
+Re-reading CB's winners against the replicate mean of 0.510 rather than against that one run:
+
+| row | best value | align at best | over the mean | verdict |
+| --- | ---: | ---: | ---: | --- |
+| chamberSwing | 0.30 | 0.534 | +0.024 | inside the noise; **withdrawn** |
+| chamberLift | 0.00 | 0.526 | +0.016 | inside the noise; **withdrawn** |
+| chamberReach | 0.00 | 0.577 | **+0.067** | above every replicate; a candidate |
+| followSwing | 0.70 | 0.538 | +0.028 | inside the noise; **withdrawn** |
+| followLift | 1.20 | 0.528 | +0.018 | inside the noise; **withdrawn** |
+| strokeSeconds | 0.28 | 0.581 | **+0.071** | above every replicate; a candidate |
+| chamberSeconds | 0.30 | 0.526 | +0.016 | inside the noise; **withdrawn** |
+
+Five of seven are gone. Two clear the maximum of eight replicates and are **candidates, not
+findings** -- one cell each, and the thing CC just proved is that one cell is not a measurement.
+
+**P2 is confirmed and BY stands.** The floor is 0.053 against BY's 0.088 span, and putting BY in
+units of this sd rather than in raw points is what the record should have done from the start:
+
+| | shipped 0.30 | best 0.00 | gap | in sd |
+| --- | ---: | ---: | ---: | ---: |
+| align ALL, BY (draw 0.3) | 0.481 | 0.554 | +0.073 | **4.6** |
+| align ALL, BZ (draw 0) | 0.478 | 0.556 | +0.078 | **4.9** |
+| align paying, BY | 0.805 | 0.841 | +0.036 | **4.5** |
+| align paying, BZ | 0.771 | 0.799 | +0.028 | **3.5** |
+
+Four readings between 3.5 and 4.9 sd, on two different damage laws. BY's shipped cell was the same
+unlucky 0.481, so the honest gap is against the mean -- 0.554 against 0.510 is +0.044, still 2.8 sd,
+and BZ's independent replication at a different draw is what carries it past argument. Noise does
+not reproduce a winner twice under changed physics.
+
+**P3 stands as registered: BX is untouched.** Its 0.80-against-0.31 split is between sub-populations
+of the same runs, and nothing measured here bears on it.
+
+**What this changes about how sweeps get read here.** Three things, and they are cheap:
+
+1. **Replicate the baseline, never share one.** CB's error was structural, not statistical -- it
+   would have survived any amount of extra sweeping, because every row leaned on the same run.
+2. **Quote a margin in units of the statistic's own noise.** "0.554 against 0.481" says nothing
+   without the 0.016 beside it, and this document has been printing the first half for weeks.
+3. **A single cell is a hint.** BS said this about damage per bout at 16 bouts and I wrote it down
+   as though it were about damage. It is about *cells*, and it applies to the contact-level medians
+   I explicitly called measurements in BV -- those are medians over thousands of contacts within a
+   run, which controls sampling inside a bout and says nothing about the run-to-run term that turns
+   out to dominate.
+
+The third is the one that cost tonight a finding, and it is now the standing rule for this document.
