@@ -37242,3 +37242,183 @@ prefers to the alternative.
 A second, subtler failure is worth naming in advance: if the fencer cells rise **and** the idle
 cells rise by as much, prediction 3 fails and the reading is that flattening the reward helped every
 gradient everywhere, which is a useful fact about the optimiser and not evidence for the mechanism.
+
+## AW -- the shape changed exactly as predicted, and no gradient noticed
+
+AW ran `damageSpeedExponent` at 1.0 with `damagePivotSpeed` at the calibrated 5.604 m/s, collected
+the live distribution over the same 216 bouts AV measured, and re-ran all four of AS's gradient
+cells on top of it. `src/config.ts` is back at 2.0 / 11.0; nothing in this section is shipped.
+
+### Prediction 1 -- HIT, and closer than it had any right to be
+
+The closed form said what the same bouts would have scored. The live run, with behaviour and bout
+length free to move, landed on it:
+
+| per paying blow | shipped, n=2 (AV) | re-priced, predicted | **live at n=1** |
+| --- | ---: | ---: | ---: |
+| total damage | 6634 | 6634 | 7425 |
+| median | 0.21 | 0.37 | **0.34** |
+| p99 | 5.38 | 3.69 | **3.37** |
+| heaviest blow | 37.16 | 11.02 | **11.02** |
+| p99 / p50 | 25.3x | 10.0x | **9.9x** |
+| top 1 % carries | 17.2 % | 9.1 % | **9.3 %** |
+| top 10 % carries | 54.4 % | 38.1 % | **37.9 %** |
+
+All three registered legs hit: top-tenth share within 6 points of 38 (it was within 0.1), no blow
+over 20 damage (11.02), `p99/p50` under 14 (9.9). Per stroke rather than per contact-step the
+same change reads 52.2 % -> 40.6 % in the top tenth and a heaviest stroke of 18.02 against 37.16.
+
+**The heaviest blow matching to four figures is one event, not an agreement.** The pool and seeds
+are AV's, so the opening of each bout is the same physics until the damage law first changes an
+outcome; the maximum is very likely the same swing re-priced rather than an independent draw.
+
+### Prediction 2, the bar -- MISSED on both legs
+
+| cell | AS (n=2) | AW (n=1) | change | bar |
+| --- | ---: | ---: | ---: | ---: |
+| f2, fencer, 2 m/s | +0.0023 +- 0.0191 | **+0.0137 +- 0.0226** | +0.0114 (t 0.39) | 0.04 miss |
+| f11, fencer, 11 m/s | +0.0364 +- 0.0173 | **+0.0261 +- 0.0259** | -0.0103 (t -0.33) | 0.04 miss |
+| i2, idle, 2 m/s | +0.0444 +- 0.0232 | **+0.0597 +- 0.0197** | +0.0153 (t 0.50) | -- |
+| i11, idle, 11 m/s | +0.0659 +- 0.0163 | **+0.0864 +- 0.0189** | +0.0205 (t 0.82) | -- |
+
+The bar asked both fencer cosines to rise and both to clear 0.04. One rose and stayed under; the
+other **fell**. The registered kill criterion -- *"if neither fencer cosine rises, the variance
+story is wrong"* -- is not quite literally met, but nothing here supports the mechanism either.
+
+### Prediction 3 -- MISSED, in the second failure mode named in advance, only sharper
+
+The registration warned that the fencer and idle cells rising together would mean something global
+rather than the variance mechanism. What happened is worse for the claim: **both idle cells rose,
+by more than either fencer cell moved, and the two fencer cells disagreed in sign.** Whatever
+flattening the reward did, it did it to the dummy cell.
+
+### Prediction 4 -- MISSED, by two points
+
+Decided fell 51 % -> 39 %, a 12-point drop against a 10-point allowance. Damage per paying stroke
+is unchanged between the two regimes at 0.407; what falls is the number of crossings of a fixed
+kill threshold, because the distribution around that mean is narrower. The level knob and the
+shape knob are separate, and AW moved only the shape.
+
+### The honest summary, and the number that came out of it
+
+**Not one of the four cosine changes is resolvable at this sample size** -- every difference is
+under one standard error. The strongest statement AW supports is that a change which cut `p99/p50`
+by 2.5x moved no gradient cosine measurably in any cell. Reward concentration is not what has been
+starving the fencer cell.
+
+What the four cells do settle is the price. For two independent half-batch estimates of one
+gradient, `cos ~ rho / (1 + rho)` where `rho` is each half's signal-to-noise, and `rho` scales
+with bouts. Reading the measured cosines backwards:
+
+| cell | cosine | SNR per half | bouts an iteration for a cosine of 0.5 |
+| --- | ---: | ---: | ---: |
+| f2 | 0.0137 | 0.014 | ~9,200 |
+| f11 | 0.0261 | 0.027 | ~4,800 |
+| i2 | 0.0597 | 0.064 | ~2,000 |
+| i11 | 0.0864 | 0.095 | ~1,400 |
+
+**The fencer cell is being run at roughly a fortieth of the samples its own gradient needs.** That
+is the `signal` set's owed question answered from the other side, and it says the thirteen-session
+`learn` set was never going to work at 128 bouts an iteration regardless of the reward's shape.
+
+## AX -- what death costs, part by part, and why nothing is worth aiming at
+
+The owner asked whether there is a better way to compute death, health or limb cut-off, and said
+the project should be open to replacing it. This is the arithmetic that question deserves, taken
+off the shipped configuration rather than argued.
+
+### The model as it stands
+
+Three rules, in three places. `vitality()` in `src/bout.ts` accumulates
+`injury += (1 - clamp(health/maxHealth, 0, 1)) * weight` over every part and returns `1 - injury`
+clamped at zero. `beaten()` fires when a `fatal` part is severed or emptied, or when that sum
+reaches one. `severs()` in `src/scoring.ts` fires when a blow leaves a part at or below zero health
+**and** its quality clears the striker's `severQuality`.
+
+`GOLEM_ASSEMBLY` scales every module's declared weight so the body's weights sum to
+`vitalityTotal` 5.4, and multiplies every declared health by `healthScale` 0.15. Death at
+`injury >= 1` therefore means **destroying 1/5.4, or 18.5 %, of the weighted body**.
+
+**One correction to the record.** A wielded club or whip *does* sever: their rows carry
+`severQuality: () => 0` and a blunt blow scores quality exactly 1. It is the bare fist, the ram
+plate, the arrow, the bite and the two shields that never sever, through the `severQuality: () => 1`
+idiom against a strict comparison. A fist may empty a limb and never take it off; a maul may not.
+
+### The table
+
+The default build -- `locomotion.biped`, `torso.plain`, `head.plain`, two wrist chains, blade and
+plate. Raw weights sum to 23.4, so the scale is 0.2308 and death costs 4.33 raw points. Damage to
+empty is `health * 0.15 / (1 - armour)`. Strokes are at AV's measured 0.407 damage a paying stroke.
+
+| part | dmg to empty | injury | injury per dmg | strokes |
+| --- | ---: | ---: | ---: | ---: |
+| head (FATAL) | 22.1 | death | 0.0452 | 54 |
+| pelvis (FATAL) | 39.0 | death | 0.0256 | 96 |
+| torso core | 43.3 | 0.692 | 0.0160 | 106 |
+| neck | 12.0 | 0.185 | 0.0154 | 29 |
+| forearm (x2) | 15.0 | 0.231 | 0.0154 | 37 |
+| upper arm (x2) | 18.0 | 0.277 | 0.0154 | 44 |
+| thigh (x2) | 22.5 | 0.323 | 0.0144 | 55 |
+| shin (x2) | 18.0 | 0.254 | 0.0141 | 44 |
+| collar (x2) | 10.5 | 0.138 | 0.0132 | 26 |
+| wrist (x2) | 9.0 | 0.115 | 0.0128 | 22 |
+| foot (x2) | 16.5 | 0.208 | 0.0126 | 41 |
+| ring (x2) | 7.5 | 0.092 | 0.0123 | 18 |
+| blade | 9.0 | 0.092 | 0.0103 | 22 |
+| plate | 21.0 | 0.000 | **0** | 52 |
+
+### Four readings, in the order they matter
+
+**1. Location does not matter, and that is the deep defect.** Set the two fatal parts aside and
+every one of the twenty remaining parts converts damage into injury within a factor of **1.56** of
+every other. Killing by attrition costs ~73 damage, or **178 paying strokes**, and it costs that
+wherever the strokes land. There is nothing to aim at, so there is nothing about placement for a
+policy to learn -- which is the same hole AW just priced from the gradient side. A reward with no
+structure in it cannot be given structure by re-shaping its variance.
+
+**2. The only targets are the two fatal parts, and nothing aims at them.** The head is **3.3x**
+cheaper than attrition, the pelvis 1.9x. That is precisely the owner's complaint restated in
+arithmetic: a 178-stroke grind with a lottery running underneath it on whether enough damage
+happens to land on a head nobody was aiming for. The fights are not decided by skill at the moment
+they are decided.
+
+**3. Overkill is discarded.** `clamp(ratio, 0, 1)` throws away everything past a part's health.
+Against a heavy-tailed damage distribution that is a real and silent leak, and it is
+distribution-dependent -- so part of what AW measured when it flattened the exponent was the waste
+changing rather than the law.
+
+**4. The plate already does what the owner asked, in one of the two dimensions.**
+`vitalityWeight: 0` means hitting it costs the defender nothing at all. It is also 21 damage of
+free sponge, 5.5 % of the body's armour-adjusted total of 380. Its 16.6 kg is untouched.
+
+### The proposal: death by disablement, with the pool demoted to a backstop
+
+A golem is beaten when it can no longer fight -- locomotion destroyed, or every armed effector
+destroyed or disarmed, or a fatal core gone. `vitality() === 0` stays underneath so a stalemate
+still terminates.
+
+Four arguments, each of which is a number on this page rather than a preference:
+
+- **It gives placement a value.** A wrist is 9 damage and 22 strokes and takes the weapon with it;
+  a leg is 18 to 22. Against a flat 1.56x spread over twenty parts, that is the first real decision
+  the tree would be asking a mind to make.
+- **It is legible.** "The arm came off and then it could not fight" is visible on the screen.
+  "Accumulated 18.5 % weighted injury" is not, and the owner watching bouts is the gate that has
+  been red longest.
+- **It buys decisiveness without re-concentrating damage.** AW cost 12 points of decided fraction
+  by narrowing the distribution around a mean that sits below a fixed kill threshold. Disablement
+  lowers the threshold instead -- 22 strokes to a wrist against 178 to a body -- so bouts resolve
+  because the targets are cheap, not because a lucky maximum landed. That is the opposite
+  mechanism from raising variance, and it composes with the flattened law rather than fighting it.
+- **It costs no new tuning constant.** `severs`, per-part health, `fatal`, and the module/slot
+  structure all exist. This is a new `beaten()`, not a new subsystem.
+
+Two smaller changes, independent of the above and worth taking either way: **carry overkill into
+the parent part** rather than discarding it, which closes the leak in reading 3 and makes every
+future damage-law experiment interpretable; and **decide whether the fatal parts earn their 3.3x
+shortcut** -- either the mind gets a way to aim at them, which makes it skill, or instant death
+goes and the head becomes an ordinary heavy part.
+
+**Not registered as an experiment yet.** This is the analysis the owner asked for and the shape of
+the change it argues for; the bar it would be measured against is the owner's eye on a dozen bouts
+plus the decided fraction, and that registration is owed before any of it is built.
