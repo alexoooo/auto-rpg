@@ -20,7 +20,18 @@
 // evaporated. A sweep that does not replicate its baseline is not a cheaper sweep, it is a sweep
 // that reports its own noise, so the replicate count has a floor of two and no way to turn it off.
 //
-// **The statistic is median edge alignment over every armed contact.** Not over the contacts the
+// **Two statistics, because CD caught them pointing opposite ways.** Median edge alignment is the
+// unselected proxy; damage a second is the objective. `strokeSeconds` 0.35 turned the blade 3.9 sd
+// better and made the fight 30 % less dangerous a second, because a slower stroke buys its angle
+// with time and a median over contacts weights a contact the same whether it arrived in a second or
+// in a minute. Both columns are printed against their own pooled noise and `summarise` says so out
+// loud when they disagree, so that trap is the tool's to remember rather than its reader's.
+//
+// **`--json <path>` writes every cell before anything is summarised.** CD wanted a column the run
+// had not printed, and the only way to get it was to spend the whole sweep again. With the dump,
+// asking a new question of an old sweep is a re-read.
+//
+// **The alignment statistic is a median over every armed contact.** Not over the contacts the
 // damage model scored: a contact enters that set partly by being well aligned, and the 2026-09-05
 // sweep that chose `cutRoll` read the selected version and so could not see the population a roll
 // constant fails. BZ showed the unselected column is indifferent to `combat.drawFraction` and reads
@@ -38,6 +49,7 @@
 import { availableParallelism } from "node:os";
 import { execFile } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { writeFile } from "node:fs/promises";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const NL = String.fromCharCode(10);
@@ -85,6 +97,82 @@ export const verdict = (value, shipped, noise, sigmas) => {
   return { gap, sigmas: z, better: false, why: `inside the noise (${z.toFixed(1)} sd)` };
 };
 
+/** The name each statistic goes by in prose, and the key it lives under on a cell. */
+export const STATISTICS = Object.freeze([
+  { key: "align", label: "alignment" },
+  { key: "rate", label: "damage/second" },
+]);
+
+/**
+ * Both statistics, each against its own pooled replicate noise.
+ *
+ * Two, not one, because CD found they can point opposite ways: `strokeSeconds` 0.35 turned the
+ * blade 3.9 sd better and made the fight 30 % less dangerous a second, and a sweep that printed
+ * only the first would have reported that as a clean win. Alignment is the unselected proxy and
+ * damage a second is the objective; the tool is not entitled to decide between them, but it is
+ * obliged to put them side by side.
+ */
+export const statsFor = ({ wanted, shipped, sigmas, cells }) => {
+  const out = {};
+  for (const { key } of STATISTICS) {
+    const noise = mean(wanted.map((v) => sd(cells(v).map((r) => r[key]))).filter((x) => x > 0));
+    const by = new Map(wanted.map((v) => [v, mean(cells(v).map((r) => r[key]))]));
+    const base = by.get(shipped) ?? 0;
+    const verdicts = new Map(wanted.map((v) => [v, v === shipped
+      ? { why: "shipped", better: false, sigmas: 0, gap: 0 }
+      : verdict(by.get(v) ?? 0, base, noise, sigmas)]));
+    out[key] = { noise, shipped: base, by, verdicts };
+  }
+  return out;
+};
+
+/**
+ * What the table means, including the case where the two statistics disagree.
+ *
+ * Separate from printing it so a test can read the sentence rather than the run. The disagreement
+ * branch is the one that matters: it is the finding CD had to make by hand, and a tool that makes
+ * its reader re-derive a known trap every time has not learned anything.
+ */
+export const summarise = (row, shipped, stats, sigmas) => {
+  const winners = (key) => [...stats[key].verdicts]
+    .filter(([, v]) => v.better)
+    .map(([value, v]) => ({ value, sigmas: v.sigmas, at: stats[key].by.get(value) }))
+    .sort((a, b) => b.at - a.at);
+  const align = winners("align");
+  const rate = winners("rate");
+  const lines = [];
+  const name = (w) => `${row} ${w.value}`;
+
+  if (align.length === 0 && rate.length === 0) {
+    lines.push(`Nothing beats the shipped ${shipped} by ${sigmas} sd on either statistic.`);
+    lines.push("That is a result rather than a blank: either the row is where it should be, or");
+    lines.push("this grid is too narrow to say which way it should move.");
+    return lines;
+  }
+  for (const { key, label } of STATISTICS) {
+    const w = winners(key);
+    if (w.length === 0) {
+      lines.push(`On ${label}, nothing clears the shipped ${shipped} by ${sigmas} sd.`);
+      continue;
+    }
+    lines.push(`On ${label}, ${name(w[0])} beats the shipped ${shipped} by`
+      + ` ${w[0].sigmas.toFixed(1)} sd (${stats[key].shipped.toFixed(3)} ->`
+      + ` ${w[0].at.toFixed(3)}).`);
+  }
+  if (align.length > 0 && rate.length > 0 && align[0].value !== rate[0].value) {
+    lines.push("**The two statistics name different values.** Alignment is a proxy and damage a");
+    lines.push("second is closer to the objective, so prefer the second and treat the gap as a");
+    lines.push("sign this row trades blade angle against tempo rather than improving both.");
+  } else if (align.length > 0 && rate.length === 0) {
+    lines.push("**Better turned, no more dangerous.** The proxy moved and the objective did not,");
+    lines.push("which is the shape of a slower stroke buying its angle with time. Do not ship it");
+    lines.push("on the alignment column alone.");
+  }
+  lines.push("A measurement, not a ruling: moving one of these rows changes behaviour and");
+  lines.push("invalidates every fitted head, so re-rate first, and read docs/design.md.");
+  return lines;
+};
+
 /** One cell: the row set to one value, one seed base, `bouts` side-swapped mirrored bouts. */
 export async function cell({ row, value, seed, bouts, cap }) {
   const { GOLEM_TACTICS } = await import(at("src/golem/tactics.ts"));
@@ -122,12 +210,19 @@ export async function cell({ row, value, seed, bouts, cap }) {
       seconds += result.seconds ?? 0;
     }
   }
+  const perBout = damage / Math.max(1, ran);
+  const secsPerBout = seconds / Math.max(1, ran);
   return {
     contacts: aligns.length,
     align: median(aligns),
     pays: paid / Math.max(1, aligns.length),
-    damage: damage / Math.max(1, ran),
-    seconds: seconds / Math.max(1, ran),
+    damage: perBout,
+    seconds: secsPerBout,
+    // Damage a second, not a bout. CD found the two statistics disagree and one of them is the
+    // objective: a slower stroke lands better-turned contacts and takes so much longer doing it
+    // that the fight gets less dangerous. A median over contacts cannot see that, because it
+    // weights a contact the same whether it arrived in a second or in a minute.
+    rate: perBout / Math.max(1e-9, secsPerBout),
   };
 }
 
@@ -187,47 +282,47 @@ async function main(argv) {
     byValue.get(r.value).push(r);
   }
   const ok = (value) => (byValue.get(value) ?? []).filter((r) => !r.failed);
-  // The pooled within-value spread: the scale every margin below is quoted in.
-  const noise = mean(wanted.map((v) => sd(ok(v).map((r) => r.align))).filter((s) => s > 0));
-  const shippedAlign = mean(ok(shipped).map((r) => r.align));
+  const stats = statsFor({ wanted, shipped, sigmas, cells: ok });
+  const { align, rate } = stats;
+
+  // Every cell, raw, before anything is summarised. CD wanted a column the run had not printed and
+  // the only way to get it was to spend the whole sweep again; with this file that is a re-read.
+  const dump = flag("--json", null);
+  if (dump !== null) {
+    await writeFile(dump, `${JSON.stringify({
+      row, shipped, values: wanted, replicates, bouts, cap, seed: base, sigmas, cells: results,
+    }, null, 2)}${NL}`, "utf8");
+    console.log(`every cell written to ${dump}`);
+  }
 
   console.log("");
-  console.log(`pooled replicate sd of the alignment statistic: ${noise.toFixed(3)}`);
+  console.log(`pooled replicate sd -- alignment ${align.noise.toFixed(3)},`
+    + ` damage/second ${rate.noise.toFixed(3)}`);
   console.log("");
-  console.log("| value | cells | align (mean) | own sd | vs shipped | verdict"
-    + " | damage/bout | seconds |");
-  console.log("| ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |");
-  const winners = [];
+  console.log("| value | cells | align | vs shipped | verdict"
+    + " | dmg/s | vs shipped | verdict | damage/bout | seconds |");
+  console.log("| ---: | ---: | ---: | ---: | --- | ---: | ---: | --- | ---: | ---: |");
   for (const value of wanted) {
     const rs = ok(value);
     if (rs.length === 0) {
-      console.log(`| ${value} | 0 | every cell failed | | | | | |`);
+      console.log(`| ${value} | 0 | every cell failed | | | | | | | |`);
       continue;
     }
-    const m = mean(rs.map((r) => r.align));
-    const v = value === shipped
-      ? { why: "shipped", better: false, sigmas: 0 }
-      : verdict(m, shippedAlign, noise, sigmas);
-    if (v.better) winners.push({ value, m, sigmas: v.sigmas });
-    const gap = value === shipped ? "--"
-      : `${m - shippedAlign >= 0 ? "+" : ""}${(m - shippedAlign).toFixed(3)}`;
-    console.log(`| ${value}${value === shipped ? " (ships)" : ""} | ${rs.length} | ${m.toFixed(3)}`
-      + ` | ${sd(rs.map((r) => r.align)).toFixed(3)} | ${gap} | ${v.why}`
-      + ` | ${mean(rs.map((r) => r.damage)).toFixed(1)}`
+    const cells = [`| ${value}${value === shipped ? " (ships)" : ""} | ${rs.length}`];
+    for (const stat of [align, rate]) {
+      const m = stat.by.get(value);
+      const v = stat.verdicts.get(value);
+      const gap = value === shipped ? "--"
+        : `${m - stat.shipped >= 0 ? "+" : ""}${(m - stat.shipped).toFixed(3)}`;
+      cells.push(`| ${m.toFixed(3)} | ${gap} | ${v.why}`);
+    }
+    cells.push(`| ${mean(rs.map((r) => r.damage)).toFixed(1)}`
       + ` | ${mean(rs.map((r) => r.seconds)).toFixed(1)} |`);
+    console.log(cells.join(" "));
   }
 
   console.log("");
-  if (winners.length === 0) {
-    console.log(`Nothing beats the shipped ${shipped} by ${sigmas} sd. That is a result rather than`);
-    console.log("a blank: either the row is where it should be, or this grid is too narrow to say.");
-    return;
-  }
-  const best = winners.reduce((a, b) => (b.m > a.m ? b : a));
-  console.log(`${row} ${best.value} beats the shipped ${shipped} by ${best.sigmas.toFixed(1)} sd`
-    + ` (${shippedAlign.toFixed(3)} -> ${best.m.toFixed(3)}).`);
-  console.log("A measurement, not a ruling: moving one of these rows changes behaviour and");
-  console.log("invalidates every fitted head, so re-rate first, and read docs/design.md.");
+  for (const line of summarise(row, shipped, stats, sigmas)) console.log(line);
 }
 
 const childAt = process.argv.indexOf("--child");
