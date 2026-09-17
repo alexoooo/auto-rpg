@@ -37179,3 +37179,66 @@ That makes one mechanism responsible for both the thing the owner saw and the th
 sessions of training could not get past, and it is falsifiable in the obvious direction: **compress
 the tail and the fencer cell's gradient should come alive.** That is AW, and it is the first
 experiment this record has had that predicts a training result from a rendering complaint.
+
+## AW -- flatten the reward and see whether the fencer cell wakes up, registered before it collects
+
+AV's claim was that one mechanism is behind both the owner's report and the training failure: damage
+is concentrated because it is quadratic in closing speed, and a reward whose top tenth of events
+carries half its mass is near the worst case for the sample-mean estimator a policy gradient is.
+`damageSpeedExponent` is now the dial for the speed half of that, shipped at 2 and bit-identical
+there. AW turns it down and asks both halves of the claim at once.
+
+### The pivot is calibrated exactly, not guessed
+
+The dial re-prices *after* the floor test, so the set of paying blows does not move and
+`damage_new = damage_old * (v / pivot)^(n - 2)` is exact. Preserving total damage at `n = 1` then
+has a closed form -- the damage-weighted harmonic mean of the closing speed -- which over AV's
+11,713 paying blows is **5.604 m/s**. That is the pivot AW runs at, and it is why AW is a change of
+shape and not of level.
+
+Re-priced exactly over AV's own blows, `n = 1` at that pivot gives:
+
+| | shipped, n=2 | n=1 at pivot 5.604 |
+| --- | ---: | ---: |
+| total damage | 6634 | 6634 |
+| median paying blow | 0.21 | 0.37 |
+| p99 | 5.38 | 3.69 |
+| heaviest blow | 37.16 | 11.02 |
+| p99 / p50 | 25.3x | 10.0x |
+| top 1 % of paying blows carries | 17.2 % | 9.1 % |
+| top 10 % carries | 54.4 % | 38.1 % |
+
+**That arithmetic is not the experiment.** It is what the same bouts would have scored. Changing
+damage changes behaviour, outcomes and bout length, so the live numbers will differ; the table is
+registered so the size of that difference is visible.
+
+### The predictions
+
+1. **The live distribution lands near the re-pricing.** Top-tenth share 38 % within 6 points, no
+   blow over 20 damage, `p99/p50` under 14 against the shipped 25.3.
+
+2. **The bar: the fencer cell's gradient rises.** AS left the two fencer cosines at 0.0023 and
+   0.0364. The prediction is that **both rise, and both land above 0.04.** Stated on the cosine and
+   not on `t`, because AS's prediction 1 was stated on a t-statistic and missed for a reason that
+   had nothing to do with the claim -- the denominator is itself noisy at n = 30. That mistake is
+   not repeated here.
+
+3. **The idle cells move much less than the fencer cells.** The dummy cell's reward is already
+   collected in many small pieces, so there is less concentration there to remove. If both cells
+   move together the effect is something global and not the variance mechanism.
+
+4. **Bouts still resolve.** The decided fraction stays within 10 points of its baseline. Total
+   damage is preserved by construction on the old bouts, but the minds will behave differently and
+   this is the check that the change did not quietly end fights or prevent them.
+
+### What kills it
+
+**If neither fencer cosine rises, the variance story is wrong** and reward concentration is not what
+has been starving that cell through four measurements and thirteen sessions. That would be a clean
+negative on the most specific mechanism this record has proposed, and it would leave the
+dissociation unexplained rather than explained badly -- which, after AR, is the state this page
+prefers to the alternative.
+
+A second, subtler failure is worth naming in advance: if the fencer cells rise **and** the idle
+cells rise by as much, prediction 3 fails and the reading is that flattening the reward helped every
+gradient everywhere, which is a useful fact about the optimiser and not evidence for the mechanism.
