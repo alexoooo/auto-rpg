@@ -38158,3 +38158,46 @@ judged on the wrong column.** Nobody has asked what it does to arriving energy.
 and a reading about arriving energy does not overturn a rating. What it would establish is that the
 mind's abort behaviour, not the damage model, is what makes the weapons feel weightless -- which
 would point the next phase at the executor rather than at `src/scoring.ts`.
+
+### BF is withdrawn: the probe measured a row the mind never reads
+
+Both cells came back **byte-identical** -- every count, every joule, every speed, to the digit. Two
+arms that agree to the last digit have not been compared; they have been run twice.
+
+**The cause, and it invalidates the hypothesis and not just the instrument.** `latchAbort` is a row
+on `GOLEM_TACTICS_V4`, and `GOLEM_TACTICS_V4` is read in exactly one place --
+`golemSnapshotMind` in `src/golem/golem-policies.ts`, which builds the *learned* policy's executor.
+`golem-fencer` is `golemFencerMind`, which is a **v2** mind: it reads `GOLEM_TACTICS_V2` through
+`strokeReader` and has no abort gate of the kind the signal set measured. The table was mutated
+correctly -- it is not frozen, and the assignment takes -- and then nothing in the bout read it.
+
+**So the hypothesis was wrong before the probe ran, in a way the probe could not have shown.** The
+"88 % of strokes started are aborted" finding is about the fit's v4 policy. The 1.79 m/s closing
+speed is `golem-fencer`'s. **They are two different minds, and I joined them because both sentences
+were in the same record.** A finding about one mind's executor says nothing about another mind's
+strokes, and "the mind aborts its strokes" is not available as an explanation for a mind that has
+no such gate.
+
+Prediction 3 is worth keeping as a rule rather than as a result: **two arms of a sweep that agree
+exactly are a bug report, not a null.** The cheapest guard is to print one number that must differ
+between the arms -- here, the value of the row itself, read back from inside the bout.
+
+### What the tree already knew, found by reading instead of running
+
+`EffectorCapability.swingInertia` in `src/golem/module.ts` carries this, verbatim:
+
+> Before it, `COMMITTED_SHAPES` gave every terminal the same arc in seconds, so an 18 kg mace
+> reached 18.71 m/s at the tip against a 1.3 kg blade's 19.87 -- a factor of fourteen in mass buying
+> six per cent in speed, which is what the owner's eye gate called weapons "light as air".
+
+**A blade's stroke peaks near 20 m/s on the bench, and arrives at 4.65 m/s in a bout.** Those two
+numbers come from different instruments and are not a regression: 19.87 is the peak of a free swing
+measured by `scripts/measure.mjs` with nothing in the way, and 4.65 is the mean tip speed across
+every moment a blade was touching something, drags included. They are not comparable **and the gap
+between them is still the question**, because energy goes as the square of what arrives and a
+quarter of the speed is a sixteenth of the weight.
+
+So the thing to measure is not the floor, not the exponent and not the abort gate. It is **where in
+its own arc a stroke makes contact.** A swing that lands at a fifth of its peak is a swing that
+reached the other body before it had finished accelerating -- which is a statement about stand-off,
+not about damage.
