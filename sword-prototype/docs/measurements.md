@@ -39393,3 +39393,25 @@ cuts, because an edge parts material rather than deforming it.
 
 **I am not going to decide that.** What I can do without deciding it is build the instrument, at a
 default that changes nothing, and put numbers next to the choice. That is BV.
+
+## BV -- registration: what the draw dial actually does
+
+`drawFraction` now exists and defaults to 0, where `scoreHit` computes the shipped law to the bit.
+This sweeps it so the owner's choice has numbers attached. **It is a characterisation, not a
+hypothesis test, and nothing here ships on it.**
+
+What would make raising it a bad idea, stated before the data so it cannot be explained away:
+
+- **It must not pay for grazes.** The whole complaint is that worthless contacts are worthless. If
+  the paying share rises mainly in the slowest tip-speed buckets, the dial is paying for the blade
+  brushing somebody during recovery, which is worse than the disease.
+- **It must not blow up the top end.** Damage is already concentrated -- AV measured the top tenth
+  of paying strokes carrying 52 % of it. If the dial scales the heaviest blows as hard as the
+  lightest, it makes a one-blow fight, which is the complaint the death model was built to answer.
+- **It must not end fights faster than the ramp intends.** Bout seconds and decided share are
+  reported.
+
+Reported: paying share overall and by tip-speed bucket, median and p90 of a paying blow, damage per
+bout, bout seconds, decided share. The normal component is reported as a control -- **the dial
+cannot move it**, since it changes what a blow is paid for and not how it is thrown, so a normal
+column that moves would mean the instrument is wrong.
