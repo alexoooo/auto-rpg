@@ -38701,3 +38701,59 @@ complaints were one defect all along. Full cells at 16 bouts on three minds are 
 does not yet say is **why** the edge is square, which is the next cell and the first one in this
 phase with a plausible fix attached: `StrokeShape.roll` is the edge's alignment held through the
 cut, and `windRoll`, `cutBend` and `coverBend` are its neighbours.
+
+## BL-b -- the edge column was circular, and with it corrected the blade is held correctly
+
+**Withdrawn from BL: "the median contact's `edgeAlignment` is exactly zero, so they are landing
+flat."** `src/combat.ts` early-outs any contact whose arriving energy is under the weapon's bite
+floor and returns `edgeAlignment: 0` **without ever computing it**. So that column reads zero for
+precisely the population the question was about, and "the median contact has zero edge alignment"
+restates "the median contact is under the floor". It is the third time this record has caught the
+same shape -- a column that co-occurs with an outcome by construction -- and the second time tonight.
+
+`report.edge` and `report.velocity` are written into the report *before* the early-out, so the
+alignment can be recomputed from them for every contact. Done:
+
+| | into the surface | lever | timing | chain | **edge, recomputed** | edge, as reported | median J |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| all contacts | 0.29 | 0.69 | 0.42 | 0.06 | **0.62** | 0.00 | 0.9 |
+| contacts that pay | 0.68 | 0.70 | 0.69 | 0.24 | **0.63** | 0.63 | 23.1 |
+
+**The blade is held the same way in both: 0.62 against 0.63.** Edge alignment does not distinguish a
+blow that pays from one that does not, and the flat-blade reading is wrong.
+
+### What survives, and it is the whole finding
+
+Of the four factors, exactly one separates a paying contact from a worthless one:
+
+| factor | all | paying | moves |
+| --- | ---: | ---: | ---: |
+| edge alignment | 0.62 | 0.63 | +0.01 |
+| lever (where on the weapon) | 0.69 | 0.70 | +0.01 |
+| timing (when in the arc) | 0.42 | 0.69 | +0.27 |
+| **normal (into the surface)** | **0.29** | **0.68** | **+0.39** |
+
+The fighters swing hard, arrive on time enough, stand where they mean to, and hold the edge square
+to the cut. **What they do not do is drive the blow into the surface.** The median contact carries
+29 % of its speed onto the contact normal, and `scoring.ts` prices a blow from that component alone,
+on an argument it states plainly:
+
+> Only the normal component of a collision is lost to deformation -- the tangential part is
+> friction's business -- which is what entitles this to be squared. [...] the difference between a
+> square blow and a rake is exactly the difference between the two.
+
+**So this is not a scoring bug. It is the scoring model reporting that the median stroke is a rake.**
+The arcs sweep across the target instead of driving into it, and at 0.29 on the normal a blow keeps
+8 % of the energy the same speed would deliver square.
+
+### The fork, which is the owner's and not mine
+
+1. **The arcs are wrong.** A stroke should be aimed so its velocity at contact is along the surface
+   normal rather than across it. That is geometry -- where the arc is pointed, which is `cutBend`,
+   `targetMargin` and the aim, not a damage constant -- and it leaves the physics untouched.
+2. **The model is too harsh on a slicing cut.** A real draw cut is tangential and it cuts, because
+   an edge does not need to deform what it parts. Pricing a `cut` mechanism with a tangential term
+   would reprice exactly the population that currently does nothing, and would change the physics
+   every number in this record was measured under.
+
+They are not exclusive and the first is cheaper to test. Neither is a thing to choose by argument.
