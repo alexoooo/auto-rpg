@@ -39033,3 +39033,34 @@ that matters was never in the data.
 
 **The next cell has to look below 1.70 m, where the arm still has travel to spend.** That is a
 `standOffFraction` sweep again, twelve days on, with the column it never had.
+
+## BQ -- registration: below the rail, where the arm still has travel
+
+BP says the arm is pinned at full extension anywhere at or past 1.84 m, and BN's quartiles never
+went below 1.70 m because the fighters never stand there. So the gradient that matters has never
+been in any cell. This puts it there.
+
+**One correction to the obvious design.** Sweeping `standOffFraction` alone cannot reach below
+`reach * holdFraction` = 1.78 x 0.78 = **1.39 m**, because `tacticalRanges` floors the hold at the
+maximum of the two. A sweep of the stand-off alone would therefore report "no effect" below 0.78
+while actually holding the fighters at a constant 1.39 m, which would be the same class of mistake
+as the `edgeAlignment` column. Both fractions move together, on one multiplier.
+
+`near + slack` is a third floor and it is not swept, so the realised separation is reported in every
+row rather than assumed -- the 2026-09-05 lesson that a commanded hold is not a realised one.
+
+- **P1:** the median normal component rises as the multiplier falls, and at 0.70 it beats the
+  shipped 1.00 by **more than 0.10**.
+  - *Holds* -> the arm's remaining travel is what squareness is made of, and the stance is a lever
+    on it after all. BN missed it only because it sampled the wrong range.
+  - *Fails* -> closing does not square the blow either, and the cause is not reachable from the
+    stance at all. It is then in the golem's proportions, and BR is the phase.
+- **P2:** damage per bout has an interior optimum strictly below 1.00.
+  - *Holds* -> the 2026-09-05 optimum has moved, and it moved because the death model and the ramp
+    changed underneath it.
+  - *Fails* -> squareness and speed trade against each other and 1.00 is still the best available
+    point. Then a better blow cannot be bought with the stance, and the honest conclusion is that
+    the golem's proportions -- 0.42 m of arm travel carrying 1.06 m of overhang -- are the
+    constraint, which is a body question and the owner's.
+- **Guard:** every row reports realised separation and contact speed. If damage rises while contact
+  speed collapses, the peak is a trade and not a fix, and it must be said that way.
