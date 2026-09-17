@@ -39822,11 +39822,14 @@ finding than the roll, and it is the one I would spend the next phase on.
 
 ## CB -- the nine rows the tuner cannot reach (registered before the run)
 
-**WITHDRAWN by CC, below.** Every shipped cell in this section is one run -- seed base 20260906 --
-and CC measured that run as the minimum of eight replicates of the same configuration. The seven
-rows below did not move; one shared control was low and every comparison inherited it. Two rows
-survive as candidates and five are gone. The section is kept because a withdrawn result that is
-deleted is a result somebody measures again.
+**WITHDRAWN by CC, below.** The cell ran, and its result is not written up here as its own table
+because it did not survive long enough to deserve one: CC found that every shipped cell of this
+sweep was a single run -- seed base 20260906 -- which is the minimum of eight replicates of the
+same configuration. The seven rows did not move. One shared control was low and all twenty-eight
+comparisons inherited it. Five rows are gone, two survive as candidates, and what the sweep
+actually produced is tabulated inside CC's result against the replicate mean, which is the only
+baseline it can honestly be read against. The registration below is kept because a prediction
+deleted after it fails is a prediction nobody has to answer for.
 
 CA's lesson had the diagnosis right and the mechanism wrong, and the correction is worth more than
 the lesson. I wrote that *"this tree has no process that expires a swept constant."* It has one:
