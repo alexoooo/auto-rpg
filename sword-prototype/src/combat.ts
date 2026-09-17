@@ -12,7 +12,7 @@ import type { WeaponKind } from "./weapon.ts";
 import type { Limb } from "./fighter.ts";
 import type { Combatant } from "./units.ts";
 import type { HandName } from "./hands.ts";
-import { biteFloorJ, biteMechanism, evaluateProjectileImpact, impactEnergyJ, scoreHit, severs,
+import { biteFloorJ, biteMechanism, cutEnergyJ, evaluateProjectileImpact, scoreHit, severs,
   type HitKind, type Striker } from "./scoring.ts";
 
 export type { HitKind };
@@ -644,7 +644,36 @@ export class Combat {
     const solverMassKg = limb.part.body.getMassProperties().mass ?? 0;
     const partMassKg = solverMassKg > 0 ? solverMassKg : Infinity;
     const closingSpeed = this.closingSpeedAt(velocity, event);
-    const energyJ = impactEnergyJ(weapon.impactMassKg, partMassKg, closingSpeed);
+    // A stationary contact has no direction and therefore a zero shove. This
+    // branch matters for the fist: its sub-floor contacts deliberately continue
+    // into `scoreHit` and the impulse path as zero-damage slaps.
+    //
+    // Computed here rather than after the floor test, which is where it used to sit, because an
+    // edge's floor can now be cleared by the slide as well as by the press and the amount of
+    // credit the slide gets depends on how well the edge was aligned. The early-out cannot ask
+    // that question without this answer. The three dot products it was placed below were the
+    // thing the early-out existed to skip, so the skip is now smaller -- and correct.
+    const direction = this.scratch.direction
+      .copyFrom(velocity)
+      .scaleInPlace(speed > 0 ? 1 / speed : 0);
+    // Signed for the damage model, absolute for the readout. A sword cuts on
+    // both sides of its edge axis and does not care; an axe's -X is the poll,
+    // and `scoring.ts` is what knows the difference. The report keeps the
+    // magnitude because the HUD draws a bar with it.
+    const alongEdge = Vector3.Dot(direction, weapon.edgeDirection());
+    const edgeAlignment = Math.abs(alongEdge);
+    // What the blow is actually charged at, which is `closingSpeed` alone unless `drawFraction`
+    // is paying an aligned edge for its slide. One copy of that rule, in `scoring.ts`, because
+    // this file and `scoreHit` have to agree on it or a dial set in one does nothing in the other.
+    const energyJ = cutEnergyJ({
+      closingSpeed,
+      speed,
+      strikerMassKg: weapon.impactMassKg,
+      partMassKg,
+      edgeAlignment: alongEdge,
+      bladeAlignment: 0,
+      nearTip: false,
+    }, weapon.kind);
 
     const base = {
       by: this.side,
@@ -679,19 +708,6 @@ export class Combat {
       return { ...base, kind: "weak", edgeAlignment: 0, damage: 0,
         preArmourDamage: 0, postArmourDamage: 0, severed: false };
     }
-
-    // A stationary contact has no direction and therefore a zero shove. This
-    // branch matters for the fist: its sub-floor contacts deliberately continue
-    // into `scoreHit` and the impulse path as zero-damage slaps.
-    const direction = this.scratch.direction
-      .copyFrom(velocity)
-      .scaleInPlace(speed > 0 ? 1 / speed : 0);
-    // Signed for the damage model, absolute for the readout. A sword cuts on
-    // both sides of its edge axis and does not care; an axe's -X is the poll,
-    // and `scoring.ts` is what knows the difference. The report keeps the
-    // magnitude because the HUD draws a bar with it.
-    const alongEdge = Vector3.Dot(direction, weapon.edgeDirection());
-    const edgeAlignment = Math.abs(alongEdge);
 
     let projectile: ProjectileImpactEvidence | undefined;
     const impactAxis = (weapon.impactBladeDirection?.() ?? weapon.bladeDirection()).clone().normalize();

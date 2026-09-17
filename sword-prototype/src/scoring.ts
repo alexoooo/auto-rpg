@@ -576,6 +576,30 @@ function cutSpeed(contact: Contact, along: number, tuning: Tuning): number {
   return Math.hypot(contact.closingSpeed, draw * slide * along);
 }
 
+/**
+ * The energy a contact is charged at, joules -- the single copy of that rule.
+ *
+ * `combat.ts` has an early-out that skips `scoreHit` for a contact under its weapon's floor, and
+ * that early-out has to test the same number `scoreHit` would, or the two disagree and a dial set
+ * here does nothing there. It has drifted apart once already, which is why `biteFloorJ` is an
+ * export rather than a constant copied into both; `drawFraction` would have reintroduced exactly
+ * that bug, since an edge's floor can now be cleared by the slide and the early-out could not see
+ * it. So both sides call this. 2026-09-17.
+ */
+export function cutEnergyJ(
+  contact: Contact, by: Striker = "sword", tuning: Tuning = CONFIG.combat,
+): number {
+  const bite = BITE[by];
+  if (bite.how !== "edge") {
+    return impactEnergyJ(contact.strikerMassKg, contact.partMassKg, contact.closingSpeed);
+  }
+  const along = cutsBothWays(by)
+    ? Math.abs(contact.edgeAlignment)
+    : Math.max(0, contact.edgeAlignment);
+  return impactEnergyJ(contact.strikerMassKg, contact.partMassKg,
+    cutSpeed(contact, along, tuning));
+}
+
 export function scoreHit(
   contact: Contact,
   by: Striker = "sword",
@@ -607,8 +631,7 @@ export function scoreHit(
   const along = bite.how !== "edge" ? 0
     : cutsBothWays(by) ? Math.abs(contact.edgeAlignment)
       : Math.max(0, contact.edgeAlignment);
-  const energyJ = impactEnergyJ(contact.strikerMassKg, contact.partMassKg,
-    bite.how === "edge" ? cutSpeed(contact, along, tuning) : contact.closingSpeed);
+  const energyJ = cutEnergyJ(contact, by, tuning);
   if (energyJ < floorJ) {
     // A blunt contact that is under its floor still transfers momentum through a real contact.
     // Name that a slap so `Combat` lets it reach the shove path; an edge under its floor stays
