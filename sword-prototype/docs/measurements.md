@@ -37422,3 +37422,84 @@ goes and the head becomes an ordinary heavy part.
 **Not registered as an experiment yet.** This is the analysis the owner asked for and the shape of
 the change it argues for; the bar it would be measured against is the owner's eye on a dozen bouts
 plus the decided fraction, and that registration is owed before any of it is built.
+
+## AX corrected -- the model is already a disablement model, and the sever is the whole story
+
+The section above costed death part by part and concluded that location does not matter. **That
+reading was wrong, and wrong in the most important place.** It priced parts and ignored modules.
+
+`Golem.sever` zeroes *every part of the module the struck piece belongs to* -- "a golem's severable
+unit is the module, not the piece". So the injury a sever books is not the part's weight, it is the
+module's:
+
+| module severed | raw weight of 23.4 | injury booked | against a bar of 1 |
+| --- | ---: | ---: | --- |
+| one arm (collar, upper, fore, ring, wrist) | 3.7 | 0.854 | 85 % of a kill, and the weapon is gone |
+| locomotion (pelvis, thighs, shins, feet) | 9.8 | 2.26 | over twice the bar, and the pelvis is fatal |
+| head module (neck, head) | 2.8 | 0.646 | and the head is fatal, so it is a kill regardless |
+
+Severing is by a wide margin the largest nonlinearity in the death model, and the part-by-part
+table did not contain it.
+
+### What it actually does, measured
+
+112 mirrored `golem-fencer` bouts over 16 random viable builds, shipped configuration:
+
+| | severed something | severed nothing |
+| --- | ---: | ---: |
+| decided | **38** | 22 |
+| undecided | **0** | 52 |
+
+- bouts with at least one sever: 38 of 112 (34 %)
+- severs a bout: mean 0.34, **maximum 1**
+- `P(decided | a sever happened)` = **100 %**; `P(decided | none)` = 30 %
+- first sever at a mean of **26.0 s** into a 60 s cap
+
+**Every sever ended its bout, and no bout ever contained two.** The death model is not really a
+pool with a dismemberment side effect; it is a disablement model whose disabling event is rare,
+late, unaimed, and instantly terminal.
+
+### The owner's two complaints, finally in one sentence
+
+*"A lot of attacks didn't really seem to do anything"* is the 66 % of bouts with no sever, grinding
+through a flat 1.56x-spread attrition that reaches a decision 30 % of the time. *"Then the fight
+was over in one or two key attacks"* is literally one attack -- the sever -- which arrives at 26
+seconds and ends the bout on the spot. They are not two tails of a damage histogram, which is what
+AV proposed and what AW then tested and refuted. **They are the two sides of a single binary
+event.** AV's reading was right that one mechanism explains both and wrong about which mechanism.
+
+### What this changes about the proposal
+
+Adding disablement to `beaten()` is the wrong change: the mechanism is already there and already
+decisive. The defect is the **path** to it. `severs()` requires `remainingHealth <= 0`, so a module
+only comes off after some one part of it has been ground to zero -- 18 to 22 strokes at a specific,
+unaimed piece, out of the 34 paying strokes a whole bout contains. That is why the event is rare
+and why it lands at 26 seconds.
+
+Three ways to shorten that path, and only one of them is safe:
+
+- **Lower `healthScale`.** The parts empty sooner, the first sever arrives earlier, and more bouts
+  contain their decisive event inside the cap. It touches no distribution -- the damage law, its
+  shape and its variance are all untouched -- so it composes with AW's flattening instead of
+  fighting it. This is exactly what the owner proposed, and the mechanism above is why it works.
+- **Sever on a single heavy blow**, above some fraction of a part's maximum. Dramatic and legible,
+  and **it is the change this record should refuse**: it puts the decisive event back in the tail
+  of the damage distribution, which is the concentration the owner complained about and AW spent a
+  night flattening.
+- **Make it aimable.** The right answer eventually and not now: AW priced the fencer cell's
+  gradient at roughly a fortieth of the samples it needs, so a placement decision is not something
+  this optimiser can be taught today.
+
+### AX registered -- the `healthScale` sweep, predictions before the data
+
+Five cells, 0.150 (shipped) down to 0.035, 112 mirrored bouts each, same pool and seeds as above.
+
+1. **`decided` rises monotonically**, and clears 80 % by 0.055.
+2. **It rises because severs do.** The share of bouts containing a sever rises with it, and the two
+   track: `decided` stays within 12 points of `sever share + 0.30 * (1 - sever share)`.
+3. **Time to the first sever falls below 15 s** by 0.055, against the shipped 26.0 s.
+4. **Severs a bout stays at or near 1.** If bodies start shedding two and three modules a bout the
+   knob has gone past disablement into dissolution, and the useful setting is above that.
+
+**What kills it:** if `decided` does not rise, or rises without the sever share rising, then the
+path to the sever is not what health is gating and the mechanism above is wrong.
