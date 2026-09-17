@@ -38387,3 +38387,77 @@ the record has not chosen is a guess, and a guess that ships is a guess nobody c
 measurement afterwards"* -- and BC's lesson is that a column co-occurring with an outcome has not
 been shown to cause it. The counterfactual here costs a fit rather than a cell, and it is the first
 training run this record has had a stated reason to do.
+
+## BG result -- there is no regression, and the spacing is a distribution rather than a target
+
+All three predictions are settled and **two of the three are refused.**
+
+### The default build, which is the cell 2026-09-05's reference row was measured on
+
+16 bouts, cap 150 s, seed 20260906. The mixed pool was run first and is not comparable with the
+reference -- its median commanded hold is 1.14 m against this cell's 1.78 -- which is a mistake
+worth recording: **a reference row is only a reference on the cell it was measured on.**
+
+| standOff | commanded | realised | floor | inside own radius | contacts | contact m/s | pay nothing | damage/bout |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.85 | 1.51 | 1.57 | 1.39 | **95.8 %** | 6714 | 5.71 | 80 % | 40.0 |
+| **1.00** | 1.78 | 1.82 | 1.68 | 36.0 % | 4488 | **7.60** | 74 % | **52.5** |
+| 1.15 | 2.05 | 2.02 | 1.91 | 3.5 % | 2816 | 8.26 | 74 % | 41.7 |
+
+**Prediction 1 is refused.** Realised separation is not below the commanded hold by 0.25 m; it is
+*above* it by 0.04 m. The golems stand where they are told, to within four centimetres.
+
+**Prediction 2 is refused.** Contact speed at the shipped stand-off is **7.60 m/s** against the
+**7.35** the fix was accepted at in 2026-09-05. Nothing has regressed. The 4.65 m/s that prompted
+this was the energy probe's mixed pool averaged over every armed contact including drags, and it is
+a different quantity on a different cell.
+
+**Prediction 3 was not measured.** The forward/recovering split was designed and not implemented,
+and a prediction that is not measured is recorded as unasked rather than quietly dropped.
+
+### What the owner is seeing, since it is not a wrong target
+
+The median is right and **the distribution is not**: at the shipped stand-off a body is inside its
+own inner radius -- the shell within which a stroke is already past -- **36 % of the time**. That is
+the flail. Widening the stand-off removes it almost completely (3.5 % at 1.15) and raises contact
+speed to 8.26 m/s, and **damage still falls**, because contacts drop from 4488 to 2816. Tightening
+it to 0.85 puts the body inside its own radius 95.8 % of the time.
+
+So 1.00 is the damage optimum and it is also visibly flaily, and those are not in conflict: the
+sweep trades contact count against contact quality at a roughly constant product. **Spacing is not
+the lever.** Every row pays nothing on three contacts in four.
+
+The mixed-pool sweep says the same thing over a wider range -- 30.9, 27.4, 27.5, 22.2, 15.1 damage a
+bout at 1.00, 0.85, 1.15, 1.30 and 1.50, a clean peak at the shipped value.
+
+## BH result -- a stroke delivers a twelfth of what it is carrying
+
+80 bouts a mind, cap 150 s. A stroke episode is a run of tip speed above 1.5 m/s; contacts are
+placed against their own episode's peak.
+
+| mind | strokes | a bout | touch anything | mean peak | contacts | ratio p50 | ratio p90 | before peak | pay | paying ratio |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| golem-fencer | 10510 | 131.4 | 30 % | 7.22 | 11275 | **0.28** | 0.73 | 40 % | 28 % | 0.50 |
+| golem-driver | 13495 | 168.7 | 29 % | 6.31 | 12403 | 0.27 | 0.69 | 39 % | 25 % | 0.48 |
+
+**Prediction 2 is confirmed, and it is the finding.** The median contact happens at **0.28 of its
+own stroke's peak speed**. Energy goes as the square, so the median contact delivers **7.8 % of the
+energy that stroke was carrying.** A paying contact lands at 0.50 of peak -- 25 % of the energy --
+which is the causal link stated as a number: land nearer the peak, pay.
+
+**Prediction 3 is confirmed.** Two minds built on different tactics tables agree to within 0.01 on
+every ratio column. This is a property of the bodies and the geometry, not of a policy.
+
+**Prediction 1 is refused.** Contact falls before the peak 40 % of the time, not more than half. The
+strokes are not being caught early on the way up; **three contacts in five land on the way down**,
+in the trailing part of the arc after the weapon's fastest moment has already passed.
+
+And **70 % of strokes started never touch anything at all.**
+
+### The caveat, stated before anyone builds on this
+
+`report.speed` is the striker's speed **at the contact point**, not at the tip. A blow landing
+halfway down a blade is slower than the tip by construction, so some unknown share of the 0.28 is
+*where on the weapon* contact happens rather than *when in the arc*. Separating those two is one
+more column -- the contact point's distance along the weapon -- and it is owed before the ratio is
+attributed entirely to timing.
