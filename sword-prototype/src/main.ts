@@ -24,6 +24,8 @@ import {
   installSnapshot, installedSnapshot, snapshotFromJson, snapshotProvenance,
 } from "./golem/snapshot";
 import type { GolemDriven } from "./golem/tactics-v4";
+import { GOLEM_TACTICS } from "./golem/tactics";
+import { parseStrokeOverrides, setLiveStrokeRow } from "./golem/stroke-rows";
 import { SetupScreen } from "./setup";
 import {
   defaultGolemSetup,
@@ -305,6 +307,52 @@ async function boot(): Promise<void> {
       drawNote = `PHYSICS OVERRIDDEN: drawFraction ${value}, not the shipped ${SHIPPED_DRAW}.`
         + ` Cuts are paid for ${value === 0 ? "none" : `${Math.round(value * 100)} %`}`
         + ` of their slide. This is not what the tree ships.`;
+    }
+  }
+
+  /**
+   * `?tactic=chamberReach:-0.15,cutRoll:0` -- the sword's stroke shape, for the length of one page.
+   *
+   * **The same job as `?drawFraction=`, for the eight rows the tuner cannot reach.** Those rows are
+   * read live out of `GOLEM_TACTICS` by `STROKE_SHAPES.sword`, which is exactly why no automatic
+   * process re-reads them and why every sweep of them in `docs/measurements.md` had to be run by
+   * hand. Three of them now move the alignment statistic by more than two standard deviations, and
+   * none of that is a reason to change a constant: the phase's own finding is that better-aligned
+   * is not the same as more dangerous, `strokeSeconds` being cleanly anti-correlated. A table
+   * cannot settle that. The owner watching the same seed under two strokes might.
+   *
+   * **Every refusal is named and nothing half-applies.** An unknown row, a non-number, or a
+   * duration at or below zero refuses the whole link rather than applying the rest of it, because a
+   * page running three of the four numbers somebody asked for is a page that will be used to report
+   * a result nobody can reproduce.
+   *
+   * **It says which minds it reaches, because it does not reach all of them.** A v2 mind --
+   * `golem-fencer`, the matchup every measurement here is taken on -- reads the shape at stroke
+   * time and sees this. A v3 mind on a committed arc runs `COMMITTED_SHAPES`, which spread the
+   * getters at module load and so froze whatever the table held before this ran. See
+   * `src/golem/stroke-rows.ts`; the note below says it on screen rather than leaving it to be
+   * discovered by someone comparing two tabs that were never different.
+   */
+  let tacticNote = "";
+  const tacticAsked = query.get("tactic");
+  if (tacticAsked !== null) {
+    const parsed = parseStrokeOverrides(tacticAsked);
+    const refused = parsed.filter((p): p is { ok: false; why: string } => !p.ok);
+    if (parsed.length === 0) {
+      tacticNote = "The tactic link was refused -- it named nothing.";
+    } else if (refused.length > 0) {
+      tacticNote = `The tactic link was refused and NOTHING was applied: ${
+        refused.map((r) => r.why).join("; ")}. Running the shipped stroke.`;
+    } else {
+      const applied = parsed.flatMap((p) => (p.ok ? [p] : []));
+      const changed = applied.filter((p) => GOLEM_TACTICS[p.row] !== p.value);
+      for (const { row, value } of applied) setLiveStrokeRow(GOLEM_TACTICS, row, value);
+      tacticNote = changed.length === 0
+        ? `The tactic link asked for the shipped stroke: ${
+          applied.map((p) => `${p.row} ${p.value}`).join(", ")}. Nothing was overridden.`
+        : `STROKE OVERRIDDEN: ${changed.map((p) => `${p.row} ${p.value}`).join(", ")}.`
+          + " This is not the stroke the tree ships. It moves v2 minds (golem-fencer) only --"
+          + " a v3 mind on a committed arc froze its shape at load and will ignore this.";
     }
   }
 
@@ -1656,6 +1704,7 @@ async function boot(): Promise<void> {
       : `Havok ready. The link was refused and the showcase pair is shown instead: ${linkRefusal}`,
     snapshotNote,
     drawNote,
+    tacticNote,
   ].filter((part) => part !== "").join(" ");
   beginButton.disabled = false;
   presentation.showSetup(true);
